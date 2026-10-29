@@ -38,7 +38,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e0" label="" kind="connection" view="PlantViews::placedView" link="layout.sysml:23">
+        <object id="e0" label="" fqn="Plant::Loop::supply" kind="connection" view="PlantViews::placedView" link="layout.sysml:23">
           <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;strokeWidth=3;strokeColor=#0000FF;" edge="1" parent="1" source="n1:n1.0" target="n2:n2.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- VehicleViews::vehicleView — tree rendering -->
 <!-- 2 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<!-- notice: edge n7 -> n9 not routed: the router found no path at this layout; draw.io routes it when the file opens -->
 <mxfile host="OpenSysML" type="device" compressed="false">
   <diagram id="VehicleViews-vehicleView" name="VehicleViews::vehicleView">
     <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
@@ -58,32 +59,32 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="composition" view="VehicleViews::vehicleView" link="tree.sysml:12">
-          <mxCell style="edgeStyle=none;exitX=0.3592964824120603;exitY=0.13592233009708737;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0.3593;exitY=0.1359;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e1" label="" kind="composition" view="VehicleViews::vehicleView" link="tree.sysml:13">
-          <mxCell style="edgeStyle=none;exitX=0.8693467336683417;exitY=0.13592233009708737;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
+          <mxCell style="edgeStyle=none;exitX=0.8693;exitY=0.1359;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e2" label="" kind="typing" view="VehicleViews::vehicleView" link="tree.sysml:12">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5037037037037037;exitPerimeter=0;entryX=0;entryY=0.5037037037037037;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n7">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5037;exitPerimeter=0;entryX=0;entryY=0.5037;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n7">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e3" label="" kind="reference" view="VehicleViews::vehicleView" link="tree.sysml:5">
-          <mxCell style="edgeStyle=none;exitX=0.22440944881889763;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.2244;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e4" label="" kind="composition" view="VehicleViews::vehicleView" link="tree.sysml:6">
-          <mxCell style="edgeStyle=none;exitX=0.7401574803149606;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n1" target="n3">
+          <mxCell style="edgeStyle=none;exitX=0.7402;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n1" target="n3">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e5" label="" kind="reference" view="VehicleViews::vehicleView" link="tree.sysml:5">
-          <mxCell style="edgeStyle=none;exitX=0.2336065573770492;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n7" target="n8">
+          <mxCell style="edgeStyle=none;exitX=0.2336;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n7" target="n8">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>

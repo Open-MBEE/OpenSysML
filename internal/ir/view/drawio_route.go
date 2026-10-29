@@ -128,6 +128,11 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 			}
 			w.routed[i] = true
 		}
+		for _, i := range group {
+			if !w.routed[i] {
+				w.unroutable = append(w.unroutable, i)
+			}
+		}
 	}
 	return edges, nil
 }

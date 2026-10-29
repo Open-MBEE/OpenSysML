@@ -33,7 +33,7 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="containment" view="GeneralViews::packageView" link="general.sysml:22">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
@@ -58,7 +58,7 @@
           </mxCell>
         </object>
         <object id="e3" label="«private import»*" kind="import" view="GeneralViews::packageView" link="general.sysml:64">
-          <mxCell style="edgeStyle=none;exitX=0.75;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7567567567567568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0.75;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="184" y="93"/>
@@ -69,7 +69,7 @@
           </mxCell>
         </object>
         <object id="e4" label="«private import»*" kind="import" view="GeneralViews::packageView" link="general.sysml:65">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7567567567567568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="136" y="101"/>

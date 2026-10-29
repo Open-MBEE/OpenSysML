@@ -104,12 +104,12 @@
           </mxCell>
         </object>
         <object id="e0" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:28">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.7567567567567568;exitPerimeter=0;entryX=0;entryY=0.7567567567567568;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.7568;exitPerimeter=0;entryX=0;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e1" label="" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:29">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n2" target="n0">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n2" target="n0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="475" y="24"/>
@@ -120,7 +120,7 @@
           </mxCell>
         </object>
         <object id="e2" label="" kind="anchor" view="CaseExamples::caseDiagram" link="case.sysml:30">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.7619047619047619;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.7619;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="298" y="59"/>
@@ -132,7 +132,7 @@
           </mxCell>
         </object>
         <object id="e3" label="" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:18">
-          <mxCell style="edgeStyle=none;exitX=0.5061728395061729;exitY=0;exitPerimeter=0;entryX=0.24691358024691357;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n5" target="n4">
+          <mxCell style="edgeStyle=none;exitX=0.5062;exitY=0;exitPerimeter=0;entryX=0.2469;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n5" target="n4">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="81" y="98"/>
@@ -142,7 +142,7 @@
           </mxCell>
         </object>
         <object id="e4" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:17">
-          <mxCell style="edgeStyle=none;exitX=0.5061728395061729;exitY=1;exitPerimeter=0;entryX=0.7555555555555555;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n4" target="n6">
+          <mxCell style="edgeStyle=none;exitX=0.5062;exitY=1;exitPerimeter=0;entryX=0.7556;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n4" target="n6">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="1052" y="102"/>
@@ -151,8 +151,8 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e5" label="«include»" kind="include" view="CaseExamples::caseDiagram" link="case.sysml:34">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.24691358024691357;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n0" target="n4">
+        <object id="e5" label="«include»" fqn="CaseExamples::&#39;Provide Transportation&#39;::addFuel" kind="include" view="CaseExamples::caseDiagram" link="case.sysml:34">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2469;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n0" target="n4">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="159" y="16"/>
@@ -162,7 +162,7 @@
           </mxCell>
         </object>
         <object id="e6" label="«include»" kind="include" view="CaseExamples::caseDiagram" link="case.sysml:39">
-          <mxCell style="edgeStyle=none;exitX=0.7521008403361344;exitY=1;exitPerimeter=0;entryX=0;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n0" target="n7">
+          <mxCell style="edgeStyle=none;exitX=0.7521;exitY=1;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n0" target="n7">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="219" y="106"/>
@@ -173,12 +173,12 @@
           </mxCell>
         </object>
         <object id="e7" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:40">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n7" target="n8">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n7" target="n8">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e8" label="" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:41">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n9" target="n7">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n9" target="n7">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="643" y="106"/>
@@ -189,7 +189,7 @@
           </mxCell>
         </object>
         <object id="e9" label="" kind="composition" view="CaseExamples::caseDiagram" link="case.sysml:44">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.7483870967741936;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n10">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.7484;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n10">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="159" y="102"/>
@@ -201,12 +201,12 @@
           </mxCell>
         </object>
         <object id="e10" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:45">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n10" target="n11">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n10" target="n11">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e11" label="" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:46">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n12" target="n10">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n12" target="n10">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="392" y="183"/>
@@ -217,12 +217,12 @@
           </mxCell>
         </object>
         <object id="e12" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:51">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n13" target="n14">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n13" target="n14">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e13" label="" kind="anchor" view="CaseExamples::caseDiagram" link="case.sysml:52">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135135135135135;exitPerimeter=0;entryX=1;entryY=0.2619047619047619;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n13" target="n15">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=1;entryY=0.2619;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n13" target="n15">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="447" y="218"/>
@@ -232,7 +232,7 @@
           </mxCell>
         </object>
         <object id="e14" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:58">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n16" target="n17">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n16" target="n17">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>

@@ -182,7 +182,7 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="transition" view="MixedExamples::mixedDiagram" link="mixed.sysml:30">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.7592592592592593;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n4" target="n3">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.7593;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n4" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="510" y="420"/>
@@ -191,7 +191,7 @@
           </mxCell>
         </object>
         <object id="e1" label="" kind="succession" view="MixedExamples::mixedDiagram" link="mixed.sysml:38">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n6" target="n7">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n6" target="n7">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="747" y="389"/>
@@ -201,7 +201,7 @@
           </mxCell>
         </object>
         <object id="e2" label="" kind="succession" view="MixedExamples::mixedDiagram" link="mixed.sysml:39">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.26666666666666666;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n8">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2667;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n8">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="803" y="464"/>
@@ -210,7 +210,7 @@
           </mxCell>
         </object>
         <object id="e3" label="«subject»" kind="association" view="MixedExamples::mixedDiagram" link="mixed.sysml:43">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135135135135135;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n9" target="n10">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n9" target="n10">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="875" y="316"/>
@@ -222,7 +222,7 @@
           </mxCell>
         </object>
         <object id="e4" label="" kind="association" view="MixedExamples::mixedDiagram" link="mixed.sysml:44">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.24770642201834864;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n11" target="n9">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2477;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n11" target="n9">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="211" y="523"/>
@@ -232,7 +232,7 @@
           </mxCell>
         </object>
         <object id="e5" label="" kind="anchor" view="MixedExamples::mixedDiagram" link="mixed.sysml:45">
-          <mxCell style="edgeStyle=none;exitX=0.5045871559633027;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2619047619047619;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n9" target="n12">
+          <mxCell style="edgeStyle=none;exitX=0.5046;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2619;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n9" target="n12">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="950" y="526"/>
@@ -243,7 +243,7 @@
           </mxCell>
         </object>
         <object id="e6" label="" kind="transition" view="MixedExamples::mixedDiagram" link="mixed.sysml:30">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.7592592592592593;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n16" target="n15">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.7593;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n16" target="n15">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="989" y="665"/>
@@ -251,8 +251,8 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e7" label="" kind="connection" view="MixedExamples::mixedDiagram" link="mixed.sysml:19">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.08333333333333333;exitPerimeter=0;entryX=0.5;entryY=0.08333333333333333;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n26:n26.0" target="n27:n27.0">
+        <object id="e7" label="" fqn="MixedExamples::Plant::supply" kind="connection" view="MixedExamples::mixedDiagram" link="mixed.sysml:19">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.0833;exitPerimeter=0;entryX=0.5;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n26:n26.0" target="n27:n27.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="653" y="183"/>
@@ -262,37 +262,37 @@
           </mxCell>
         </object>
         <object id="e8" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:5">
-          <mxCell style="edgeStyle=none;exitX=0.059674502712477394;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n19">
+          <mxCell style="edgeStyle=none;exitX=0.0597;exitY=0.0562;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n19">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e9" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:6">
-          <mxCell style="edgeStyle=none;exitX=0.18173598553345388;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n20">
+          <mxCell style="edgeStyle=none;exitX=0.1817;exitY=0.0562;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n20">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e10" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:8">
-          <mxCell style="edgeStyle=none;exitX=0.30560578661844484;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n21">
+          <mxCell style="edgeStyle=none;exitX=0.3056;exitY=0.0562;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n21">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e11" label="" kind="reference" view="MixedExamples::mixedDiagram" link="mixed.sysml:9">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n21" target="n22">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n21" target="n22">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e12" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:12">
-          <mxCell style="edgeStyle=none;exitX=0.43399638336347196;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n23">
+          <mxCell style="edgeStyle=none;exitX=0.434;exitY=0.0562;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n23">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e13" label="" kind="reference" view="MixedExamples::mixedDiagram" link="mixed.sysml:13">
-          <mxCell style="edgeStyle=none;exitX=0.475;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n23" target="n24">
+          <mxCell style="edgeStyle=none;exitX=0.475;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n23" target="n24">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e14" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:16">
-          <mxCell style="edgeStyle=none;exitX=0.596745027124774;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n25">
+          <mxCell style="edgeStyle=none;exitX=0.5967;exitY=0.0562;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n25">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="700" y="102"/>
@@ -302,51 +302,51 @@
           </mxCell>
         </object>
         <object id="e15" label="" kind="composition" view="MixedExamples::mixedDiagram" link="mixed.sysml:17">
-          <mxCell style="edgeStyle=none;exitX=0.2388888888888889;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n25" target="n26">
+          <mxCell style="edgeStyle=none;exitX=0.2389;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n25" target="n26">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e16" label="" kind="composition" view="MixedExamples::mixedDiagram" link="mixed.sysml:18">
-          <mxCell style="edgeStyle=none;exitX=0.7611111111111111;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n25" target="n27">
+          <mxCell style="edgeStyle=none;exitX=0.7611;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n25" target="n27">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e17" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:22">
-          <mxCell style="edgeStyle=none;exitX=0.09584086799276673;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n28">
+          <mxCell style="edgeStyle=none;exitX=0.0958;exitY=0.0562;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n28">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="146" y="98"/>
-                <mxPoint x="179.9999999996" y="98"/>
-                <mxPoint x="179.9999999996" y="214.5000000078"/>
-                <mxPoint x="191" y="214.5000000078"/>
+                <mxPoint x="180" y="98"/>
+                <mxPoint x="180" y="214.5"/>
+                <mxPoint x="191" y="214.5"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e18" label="" kind="reference" view="MixedExamples::mixedDiagram" link="mixed.sysml:23">
-          <mxCell style="edgeStyle=none;exitX=0.2388888888888889;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n28" target="n29">
+          <mxCell style="edgeStyle=none;exitX=0.2389;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n28" target="n29">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e19" label="" kind="reference" view="MixedExamples::mixedDiagram" link="mixed.sysml:24">
-          <mxCell style="edgeStyle=none;exitX=0.7611111111111111;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n28" target="n30">
+          <mxCell style="edgeStyle=none;exitX=0.7611;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n28" target="n30">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e20" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:27">
-          <mxCell style="edgeStyle=none;exitX=0.28933092224231466;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0.2893;exitY=0.0562;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="360" y="102.00000000040001"/>
-                <mxPoint x="310" y="102.00000000040001"/>
-                <mxPoint x="310" y="214.5000000078"/>
-                <mxPoint x="318" y="214.5000000078"/>
+                <mxPoint x="360" y="102"/>
+                <mxPoint x="310" y="102"/>
+                <mxPoint x="310" y="214.5"/>
+                <mxPoint x="318" y="214.5"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e21" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:29">
-          <mxCell style="edgeStyle=none;exitX=0.4769439421338155;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.4769;exitY=0.0562;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="567.5" y="102"/>
@@ -358,54 +358,54 @@
           </mxCell>
         </object>
         <object id="e22" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:34">
-          <mxCell style="edgeStyle=none;exitX=0.6627486437613019;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n5">
+          <mxCell style="edgeStyle=none;exitX=0.6627;exitY=0.0562;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="772.9999999999999" y="102"/>
+                <mxPoint x="773" y="102"/>
                 <mxPoint x="814" y="102"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e23" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:42">
-          <mxCell style="edgeStyle=none;exitX=0.8223327305605787;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n9">
+          <mxCell style="edgeStyle=none;exitX=0.8223;exitY=0.0562;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n9">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e24" label="" kind="containment" view="MixedExamples::mixedDiagram" link="mixed.sysml:52">
-          <mxCell style="edgeStyle=none;exitX=0.048824593128390596;exitY=0.05622489959839357;exitPerimeter=0;entryX=1;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n31">
+          <mxCell style="edgeStyle=none;exitX=0.0488;exitY=0.0562;exitPerimeter=0;entryX=1;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n31">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="94" y="105.9999999996"/>
-                <mxPoint x="172" y="105.9999999996"/>
-                <mxPoint x="172" y="206.5000000078"/>
-                <mxPoint x="149.20000000004" y="206.5000000078"/>
-                <mxPoint x="149.20000000004" y="752.5"/>
+                <mxPoint x="94" y="106"/>
+                <mxPoint x="172" y="106"/>
+                <mxPoint x="172" y="206.5"/>
+                <mxPoint x="149.2" y="206.5"/>
+                <mxPoint x="149.2" y="752.5"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e25" label="" kind="composition" view="MixedExamples::mixedDiagram" link="mixed.sysml:54">
-          <mxCell style="edgeStyle=none;exitX=0.1767631103074141;exitY=0.05622489959839357;exitPerimeter=0;entryX=0;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n17">
+          <mxCell style="edgeStyle=none;exitX=0.1768;exitY=0.0562;exitPerimeter=0;entryX=0;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n17">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="235.5" y="105.9999999996"/>
-                <mxPoint x="175.9999999996" y="105.9999999996"/>
-                <mxPoint x="175.9999999996" y="214.5000000078"/>
-                <mxPoint x="150" y="214.5000000078"/>
+                <mxPoint x="235.5" y="106"/>
+                <mxPoint x="176" y="106"/>
+                <mxPoint x="176" y="214.5"/>
+                <mxPoint x="150" y="214.5"/>
                 <mxPoint x="150" y="743.25"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e26" label="" kind="composition" view="MixedExamples::mixedDiagram" link="mixed.sysml:59">
-          <mxCell style="edgeStyle=none;exitX=0.32368896925858953;exitY=0.05622489959839357;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n18">
+          <mxCell style="edgeStyle=none;exitX=0.3237;exitY=0.0562;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n18">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="398" y="98.00000000040001"/>
-                <mxPoint x="306.0000000004" y="98.00000000040001"/>
-                <mxPoint x="306.0000000004" y="214.5000000078"/>
-                <mxPoint x="260" y="214.5000000078"/>
+                <mxPoint x="398" y="98"/>
+                <mxPoint x="306" y="98"/>
+                <mxPoint x="306" y="214.5"/>
+                <mxPoint x="260" y="214.5"/>
                 <mxPoint x="260" y="446.5"/>
                 <mxPoint x="276" y="446.5"/>
                 <mxPoint x="276" y="659"/>
@@ -415,7 +415,7 @@
           </mxCell>
         </object>
         <object id="e27" label="" kind="typing" view="MixedExamples::mixedDiagram" link="mixed.sysml:31">
-          <mxCell style="edgeStyle=none;exitX=0.5066666666666667;exitY=0;exitPerimeter=0;entryX=1;entryY=0.7592592592592593;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n3" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0.5067;exitY=0;exitPerimeter=0;entryX=1;entryY=0.7593;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n3" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="598" y="359"/>
@@ -426,7 +426,7 @@
           </mxCell>
         </object>
         <object id="e28" label="" kind="typing" view="MixedExamples::mixedDiagram" link="mixed.sysml:43">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.23703703703703705;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n10" target="n25">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.237;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n10" target="n25">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="146" y="561"/>
@@ -438,7 +438,7 @@
           </mxCell>
         </object>
         <object id="e29" label="" kind="typing" view="MixedExamples::mixedDiagram" link="mixed.sysml:44">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135135135135135;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n31">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n31">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="148" y="561"/>
@@ -448,7 +448,7 @@
           </mxCell>
         </object>
         <object id="e30" label="«perform»" kind="perform" view="MixedExamples::mixedDiagram" link="mixed.sysml:48">
-          <mxCell style="edgeStyle=none;exitX=0.5031446540880503;exitY=0;exitPerimeter=0;entryX=0.75;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n13" target="n5">
+          <mxCell style="edgeStyle=none;exitX=0.5031;exitY=0;exitPerimeter=0;entryX=0.75;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n13" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="844" y="518"/>
@@ -458,7 +458,7 @@
           </mxCell>
         </object>
         <object id="e31" label="«exhibit»" kind="exhibit" view="MixedExamples::mixedDiagram" link="mixed.sysml:49">
-          <mxCell style="edgeStyle=none;exitX=0.5029940119760479;exitY=0;exitPerimeter=0;entryX=0.7485029940119761;entryY=0.27631578947368424;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n14" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.503;exitY=0;exitPerimeter=0;entryX=0.7485;entryY=0.2763;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n14" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="1047" y="359"/>
@@ -468,7 +468,7 @@
           </mxCell>
         </object>
         <object id="e32" label="" kind="specialization" view="MixedExamples::mixedDiagram" link="mixed.sysml:8">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.15555555555555556;exitPerimeter=0;entryX=1;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n21" target="n20">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.1556;exitPerimeter=0;entryX=1;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n21" target="n20">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="302" y="143"/>
@@ -478,7 +478,7 @@
           </mxCell>
         </object>
         <object id="e33" label="" kind="typing" view="MixedExamples::mixedDiagram" link="mixed.sysml:9">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135135135135135;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n22" target="n19">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n22" target="n19">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="106" y="223"/>
@@ -487,7 +487,7 @@
           </mxCell>
         </object>
         <object id="e34" label="" kind="specialization" view="MixedExamples::mixedDiagram" link="mixed.sysml:12">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.7555555555555555;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n23" target="n20">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.7556;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n23" target="n20">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="520" y="180"/>
@@ -497,7 +497,7 @@
           </mxCell>
         </object>
         <object id="e35" label="" kind="typing" view="MixedExamples::mixedDiagram" link="mixed.sysml:13">
-          <mxCell style="edgeStyle=none;exitX=0.5079365079365079;exitY=0;exitPerimeter=0;entryX=0.75;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n24" target="n19">
+          <mxCell style="edgeStyle=none;exitX=0.5079;exitY=0;exitPerimeter=0;entryX=0.75;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n24" target="n19">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="518" y="185"/>
@@ -507,7 +507,7 @@
           </mxCell>
         </object>
         <object id="e36" label="" kind="specialization" view="MixedExamples::mixedDiagram" link="mixed.sysml:16">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.7555555555555555;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n25" target="n20">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.7556;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n25" target="n20">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="700" y="106"/>
@@ -517,7 +517,7 @@
           </mxCell>
         </object>
         <object id="e37" label="" kind="typing" view="MixedExamples::mixedDiagram" link="mixed.sysml:17">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.23703703703703705;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n26" target="n21">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.237;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n26" target="n21">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="653" y="182"/>
@@ -528,7 +528,7 @@
           </mxCell>
         </object>
         <object id="e38" label="" kind="typing" view="MixedExamples::mixedDiagram" link="mixed.sysml:18">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.23703703703703705;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n27" target="n23">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.237;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n27" target="n23">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="747" y="180"/>
