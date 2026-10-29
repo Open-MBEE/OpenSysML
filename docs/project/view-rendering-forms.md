@@ -1541,6 +1541,28 @@ likewise, hidden labels, typings, multiplicities, keywords, compartments and qua
 unwritten, so DOT, Mermaid, PlantUML, D2, text and `Rendering.Data` agree. A name none of the
 elements has is refused with the names there are.
 
+### Round trip
+
+A draw.io file the form wrote can be edited in draw.io and read back: `sysml model.sysml
+-import-diagram view.drawio [-view <name>] [-dry-run]`, the LSP request `opensysml/importDiagram`,
+the MCP tool `import_diagram` and the VS Code command *Import layout from draw.io…* each render
+the view the file names, export it again as the writer would, and compare the file with that
+export cell by cell. Only what differs becomes an edit, applied through the model editor as a
+drag in the diagram panel is: a moved, resized or collapsed node is a `Layout` (absolute
+coordinates, as the notation reads them; a container the model did not place is pinned with its
+children so a child moved inside it lands where the file has it), a re-routed edge a `Route` (a
+straightened one clears it), a recoloured cell a `Style`, a changed page size a `Canvas`, a moved
+note or picture a `Note` or `Picture`. Nodes and ports are matched by the `fqn` the writer stamps,
+edges by their ends, kind and order, notes and pictures by position; positions within half a
+pixel are unchanged, so an untouched export imports nothing and the routes the writer computed
+itself are never written back unless the user moved them. The compressed form draw.io desktop
+saves by default is read as the uncompressed one is, and a file with several pages needs the
+view named. What the import cannot carry is reported, not written: cells naming no element
+(nothing is created), elements the rendering lacks (renamed or gone), cells the file lost
+(nothing is deleted), a port recoloured (ports are drawn by direction), a note re-anchored, a
+label moved, and an edge re-routed that no `Route` steers yet, such as a typing edge drawn beside
+its membership edge. `-dry-run` prints the planned edits and a unified diff and writes nothing.
+
 ## Limiting what a view draws
 
 A tree or interconnection rendering draws the contents of every element the view exposes, as the

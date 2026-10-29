@@ -2771,8 +2771,13 @@ and declaration so a reader can match an edited file back to the model. Unplaced
 grid for draw.io's layout to arrange. Offered by `-render-form drawio`, `%render`, `%viz`, the
 LSP and MCP `render` requests and the VS Code export picker; tree, interconnection, state, action,
 case, mixed, requirement, definition and package renderings, not sequence
-([the draw.io form](view-rendering-forms.md#drawio)). A document figure in that form, a reader
-of positions edited in draw.io and an *open in draw.io* editor command are the open follow-ons.
+([the draw.io form](view-rendering-forms.md#drawio)). The round trip landed next: a file edited
+in draw.io is read back — compressed or not, matched to the model by the stamped names and
+diffed against a fresh export, so only what moved becomes `DiagramLayout` metadata written
+through the model editor — by `sysml -import-diagram` (with `-dry-run`), `opensysml/importDiagram`,
+the MCP `import_diagram` tool and the VS Code *Import layout from draw.io…* command
+([the round trip](view-rendering-forms.md#round-trip)). A document figure in that form and an
+*open in draw.io* editor command are the open follow-ons.
 
 ---
 

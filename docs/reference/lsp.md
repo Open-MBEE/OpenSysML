@@ -658,6 +658,38 @@ parse or analyze with an error the original did not have. The check is the same
 one diagnostics come from, so what the panel refuses is exactly what the editor
 would have underlined.
 
+## `opensysml/importDiagram` (request)
+
+Imports a diagrams.net (draw.io) file that `opensysml/render` wrote with form `drawio` and a user
+edited in draw.io, as the `DiagramLayout` edits `opensysml/applyModelEdit` would write.
+
+```json
+{ "textDocument": { "uri": "file:///…/plant.sysml" }, "path": "/…/loop.drawio", "view": "PlantViews::loopView", "dryRun": true }
+```
+
+| Field | Meaning |
+|---|---|
+| `textDocument` | The document the view is rendered through, as `opensysml/render` takes it. |
+| `path` / `content` | The draw.io file, by path on the server's host or as its text; one of the two. The compressed form draw.io desktop saves is read as the uncompressed one is. |
+| `view` | The view to import when the file has several pages; omitted, the one page's view. |
+| `inline` | Write the annotations beside the elements rather than in the view's body. |
+| `dryRun` | Echoed in the result; the server never writes files, so a client applying nothing gets the same answer. |
+
+The server renders the view, exports it again as the writer would, and compares the file with
+that export cell by cell: only what differs becomes an edit, matched to the model by the `fqn`
+each cell carries (edges by their ends and kind, notes and pictures by position). The result lists
+the planned `edits` (`kind`, `target`, `label`, `cell`), what is reported rather than imported —
+`unmatched` elements the rendering lacks, `unknown` cells naming no element, `deleted` cells, and
+`notices` for changes no annotation carries yet — and either `edit`, a `WorkspaceEdit` the client
+applies as it applies `opensysml/applyModelEdit`'s, or `refused`, the planned edit the model
+editor refused and why. An untouched export answers no edits and no `edit`.
+
+```json
+{ "view": "PlantViews::loopView", "dryRun": true, "version": 3,
+  "edits": [{ "kind": "Layout", "target": "Plant::Loop::pump", "label": "«part»\npump : Pump", "cell": "n2" }],
+  "edit": { "documentChanges": [ … ] } }
+```
+
 ## `opensysml/renderChanged` (notification, server → client)
 
 ```json
