@@ -91,7 +91,11 @@ func routeAll(shapes []Shape, edges []Edge, bounds *Box) ([]Route, error) {
 	for _, c := range connectors {
 		// The display route's points are borrowed from the module's heap, never destroyed.
 		polygon := in.call("emscripten_bind_ConnRef_displayRoute_0", c.ref)
-		size := int(in.call("emscripten_bind_Polygon_size_0", polygon))
+		count := in.call("emscripten_bind_Polygon_size_0", polygon)
+		if count > math.MaxInt32 {
+			return nil, avoidError{fmt.Sprintf("route of %d points", count)}
+		}
+		size := int(count)
 		points := make([]Point, 0, size)
 		for i := 0; i < size; i++ {
 			point := in.call("emscripten_bind_Polygon_get_ps_1", polygon, i32(uint32(i)))
@@ -167,7 +171,14 @@ type avoid struct {
 }
 
 func (a *avoid) loadEnums() {
-	enum := func(name string) uint32 { return uint32(a.in.call("emscripten_enum_Avoid_" + name)) }
+	enum := func(name string) uint32 {
+		v := a.in.call("emscripten_enum_Avoid_" + name)
+		if v > math.MaxUint32 {
+			a.in.err = avoidError{fmt.Sprintf("enumerator %s is %d", name, v)}
+			return 0
+		}
+		return uint32(v)
+	}
 	a.orthogonalRouting = enum("RouterFlag_OrthogonalRouting")
 	a.connTypeOrthogonal = enum("ConnType_ConnType_Orthogonal")
 	a.dirUp = enum("ConnDirFlag_ConnDirUp")
