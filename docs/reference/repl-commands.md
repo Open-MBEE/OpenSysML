@@ -359,6 +359,10 @@ and stays reachable as #1` — and `#1` goes on reaching the first object on eve
 `%instances` as `#1 (ID: 1, displaced from Demo::car)`. A debugging session over the displaced object
 keeps running: the same `%instantiate` notes that it now follows the object as `#1` (or as a path
 from that id, `#1.r`, for a nested object), and `%step`, `%advance` and `%continue` go on driving it.
+The displaced object is still an object of its definition: `%requirement` and `%satisfy` run a
+verification case or `satisfy` the definition owns on it as on the named one, its verdict
+labelled `on #1 (displaced from Demo::car)`, and `%constraint` or `%requirement` of a condition
+the definition owns names both objects as carriers (`Demo::car, #1`) until one of them is given.
 Looking an id up materializes nothing: an id the runtime never issued is `no object #9 in this
 session: nothing materialized has that identity (the objects are #1, #2)`, and so is one of an object
 made in passing — by `%eval in` on a usage nothing was instantiated under, say — which `%instances`
@@ -696,7 +700,8 @@ pins no positions either, so `DiagramLayout` geometry rides along as `#` comment
 `drawio` writes the view as an uncompressed [diagrams.net](https://www.diagrams.net) (draw.io)
 file, for draw.io desktop, the diagrams.net editor and the VS Code draw.io extension to open and
 edit: `%render Demo::summary drawio` prints the XML, every element a cell wrapped in an
-`<object>` with its qualified name, positions and routes kept where the view states them and a
+`<object>` with its qualified name, positions and routes kept where the view states them, the
+other edges routed by libavoid (the diagram panel's router) before writing, and a
 grid otherwise (draw.io's *Arrange › Layout*, or `drawio --normalize --layout elkLayered`,
 arranges it). A palette name after `drawio` fills the nodes as it fills DOT's. Every graph-shaped
 kind but a sequence has the form ([the draw.io form](../project/view-rendering-forms.md#drawio)).

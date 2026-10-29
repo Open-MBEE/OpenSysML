@@ -215,7 +215,7 @@ func (ctx *Context) caseCarriers(sym *symbols.Symbol, subject *Instance) []*Inst
 	}
 	roots := []*Instance{subject}
 	if subject == nil {
-		roots = ctx.rootInstances()
+		roots = ctx.LiveRoots()
 	} else if ctx.modelConforms(subject.Type, owner) {
 		return []*Instance{subject}
 	}

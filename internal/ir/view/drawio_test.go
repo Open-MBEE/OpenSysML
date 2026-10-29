@@ -8,9 +8,12 @@ import (
 	"image"
 	"image/png"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -69,7 +72,11 @@ func TestDrawioGolden(t *testing.T) {
 type drawioCell struct {
 	id, parent, source, target string
 	vertex, edge, geometry     bool
-	fqn, link                  string
+	fqn, link, style           string
+	box                        drawioBox
+	relative                   bool  // box.X and box.Y are fractions of the parent's box
+	offset                     Point // added to a relative position
+	points                     []Point
 }
 
 // parseDrawio reads a draw.io file back with a full xml.Decoder parse, failing
@@ -102,7 +109,7 @@ func parseDrawio(t *testing.T, doc string) []drawioCell {
 				}
 			case "mxCell":
 				cell := &drawioCell{id: attrs["id"], parent: attrs["parent"], source: attrs["source"], target: attrs["target"],
-					vertex: attrs["vertex"] == "1", edge: attrs["edge"] == "1"}
+					vertex: attrs["vertex"] == "1", edge: attrs["edge"] == "1", style: attrs["style"]}
 				if len(objects) > 0 {
 					object := objects[len(objects)-1]
 					cell.fqn, cell.link, cell.id = object["fqn"], object["link"], object["id"]
@@ -112,6 +119,20 @@ func parseDrawio(t *testing.T, doc string) []drawioCell {
 			case "mxGeometry":
 				if len(open) > 0 {
 					open[len(open)-1].geometry = true
+					open[len(open)-1].box = drawioBox{X: xmlNumber(t, attrs["x"]), Y: xmlNumber(t, attrs["y"]),
+						Width: xmlNumber(t, attrs["width"]), Height: xmlNumber(t, attrs["height"])}
+					open[len(open)-1].relative = attrs["relative"] == "1"
+				}
+			case "mxPoint":
+				if len(open) > 0 {
+					cell := open[len(open)-1]
+					point := Point{X: xmlNumber(t, attrs["x"]), Y: xmlNumber(t, attrs["y"])}
+					switch attrs["as"] {
+					case "":
+						cell.points = append(cell.points, point)
+					case "offset":
+						cell.offset = point
+					}
 				}
 			}
 		case xml.EndElement:
@@ -124,6 +145,69 @@ func parseDrawio(t *testing.T, doc string) []drawioCell {
 		}
 	}
 	return cells
+}
+
+// xmlNumber reads a numeric attribute, zero when absent.
+func xmlNumber(t *testing.T, value string) float64 {
+	t.Helper()
+	if value == "" {
+		return 0
+	}
+	n, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		t.Fatalf("attribute value %q is not a number: %v", value, err)
+	}
+	return n
+}
+
+// onDrawioBorder reports a point on the border of box, within a pixel.
+func onDrawioBorder(p Point, box drawioBox) bool {
+	inside := p.X >= box.X-1 && p.X <= box.right()+1 && p.Y >= box.Y-1 && p.Y <= box.bottom()+1
+	onX := math.Abs(p.X-box.X) <= 1 || math.Abs(p.X-box.right()) <= 1
+	onY := math.Abs(p.Y-box.Y) <= 1 || math.Abs(p.Y-box.bottom()) <= 1
+	return inside && (onX || onY)
+}
+
+// drawioAnchor is where an edge end sits on its cell's box, read from the
+// exitX/exitY or entryX/entryY fractions of the edge's style.
+func drawioAnchor(t *testing.T, style, end string, box drawioBox) (Point, bool) {
+	t.Helper()
+	var p Point
+	found := 0
+	for _, entry := range strings.Split(style, ";") {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		switch key {
+		case end + "X":
+			p.X = box.X + xmlNumber(t, value)*box.Width
+			found++
+		case end + "Y":
+			p.Y = box.Y + xmlNumber(t, value)*box.Height
+			found++
+		}
+	}
+	return p, found == 2
+}
+
+// drawioAbsolute is a cell's box in page coordinates: its parent's origin added,
+// or, placed relative to the parent, the fractions of the parent's box plus the offset.
+func drawioAbsolute(cells map[string]drawioCell, id string) drawioBox {
+	cell := cells[id]
+	box := cell.box
+	if cell.parent == "" || cell.parent == "1" {
+		return box
+	}
+	parent := drawioAbsolute(cells, cell.parent)
+	if cell.relative {
+		box.X = parent.X + box.X*parent.Width + cell.offset.X
+		box.Y = parent.Y + box.Y*parent.Height + cell.offset.Y
+		return box
+	}
+	box.X += parent.X
+	box.Y += parent.Y
+	return box
 }
 
 // checkDrawioDocument checks what draw.io needs of a file (well-formed XML, root cells,
@@ -341,5 +425,74 @@ func TestDrawioSharesANoteAmongItsAnchors(t *testing.T) {
 	}
 	if len(byText["on loan"]) != 2 {
 		t.Errorf("the two notes stated apart are drawn as %v, want two cells:\n%s", byText["on loan"], got)
+	}
+}
+
+// TestDrawioRoutesUnroutedEdges checks that the edges the model leaves unrouted
+// come out with libavoid's orthogonal waypoints: every edge of a positioned
+// interconnection and of a nested tree, each inside the container it belongs
+// to, while a stated Route is written as it is.
+func TestDrawioRoutesUnroutedEdges(t *testing.T) {
+	for _, c := range []struct{ name, file, view string }{
+		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView"},
+		{"tree-edges", "tree-edges.sysml", "FleetViews::structure"},
+		{"layout", "layout.sysml", "PlantViews::placedView"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			rendering, options := renderWithSites(t, c.file, c.view)
+			doc, err := rendering.DrawioWith(options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cells := map[string]drawioCell{}
+			for _, cell := range parseDrawio(t, doc) {
+				cells[cell.id] = cell
+			}
+			ids := drawioEdgeIDs(rendering.Edges)
+			for _, edge := range rendering.Edges {
+				cell, ok := cells[ids[[2]string{edge.From, edge.To}]]
+				if !ok {
+					continue
+				}
+				if len(edge.Route) > 0 {
+					if !slices.Equal(cell.points, edge.Route) {
+						t.Errorf("%s: stated route %v written as %v", cell.id, edge.Route, cell.points)
+					}
+					continue
+				}
+				exit, exitOK := drawioAnchor(t, cell.style, "exit", drawioAbsolute(cells, cell.source))
+				entry, entryOK := drawioAnchor(t, cell.style, "entry", drawioAbsolute(cells, cell.target))
+				if !exitOK || !entryOK || !strings.Contains(cell.style, "edgeStyle=none;") {
+					t.Errorf("%s (%s -> %s): not routed: style %q", cell.id, edge.From, edge.To, cell.style)
+					continue
+				}
+				for _, end := range []struct {
+					name string
+					p    Point
+				}{{cell.source, exit}, {cell.target, entry}} {
+					// A port cell is left through its border; a container is
+					// left through its header's underside, inside its box.
+					if strings.Contains(end.name, ":") && !onDrawioBorder(end.p, drawioAbsolute(cells, end.name)) {
+						t.Errorf("%s: end %v is not on the border of %s", cell.id, end.p, end.name)
+					}
+				}
+				path := append(append([]Point{exit}, cell.points...), entry)
+				for j := 1; j < len(path); j++ {
+					a, b := path[j-1], path[j]
+					if math.Abs(a.X-b.X) > 1e-6 && math.Abs(a.Y-b.Y) > 1e-6 {
+						t.Errorf("%s: segment %v -> %v is not orthogonal", cell.id, a, b)
+					}
+				}
+				from, to := cells[strings.SplitN(cell.source, ":", 2)[0]], cells[strings.SplitN(cell.target, ":", 2)[0]]
+				if from.parent == to.parent && from.parent != "1" {
+					within := drawioAbsolute(cells, from.parent)
+					for _, p := range cell.points {
+						if p.X < within.X || p.Y < within.Y || p.X > within.right() || p.Y > within.bottom() {
+							t.Errorf("%s: waypoint %v leaves its container %s %v", cell.id, p, from.parent, within)
+						}
+					}
+				}
+			}
+		})
 	}
 }

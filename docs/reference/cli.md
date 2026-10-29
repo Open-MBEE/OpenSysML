@@ -964,7 +964,9 @@ swimlanes with the keyword line over the name and a cell per compartment, nested
 as children of their container, ports on the border, pseudostates as the UML template's shapes,
 edges in the §8.2.3 glyphs with their labels, notes and embedded pictures, and every semantic cell
 wrapped in an `<object>` carrying the element's qualified name, kind, view and declaration. Stated
-positions, routes, colours, fonts and the canvas are kept; a view with no stated layout is laid on
+positions, routes, colours, fonts and the canvas are kept, and every edge the view leaves unrouted
+is routed before writing by libavoid, the orthogonal router the VS Code diagram panel draws with,
+so the file carries each bend; a view with no stated layout is laid on
 a grid and the file opens with a comment saying so — *Arrange › Layout* in draw.io, or
 `drawio --normalize --layout elkLayered` on draw.io desktop's command line (32 and later),
 arranges it. Every graph-shaped kind but `sequence` has the form, draw.io having no sequence

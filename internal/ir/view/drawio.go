@@ -4,8 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view/route"
 	"math"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
@@ -50,13 +52,15 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 		r = p.omit(r)
 	}
 	w := &drawioWriter{
-		fills:  familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels: labelsOf(r.Roots, false, nil, r.Shown),
-		ports:  r.portView(options.Ports),
-		links:  options.Links,
-		view:   r.View,
-		boxes:  map[string]drawioBox{},
-		cells:  map[string]bool{},
+		fills:     familyFills{palette: options.Palette, tree: r.Kind == KindTree},
+		labels:    labelsOf(r.Roots, false, nil, r.Shown),
+		ports:     r.portView(options.Ports),
+		links:     options.Links,
+		view:      r.View,
+		boxes:     map[string]drawioBox{},
+		cells:     map[string]bool{},
+		portBoxes: map[string]drawioBox{},
+		routed:    map[int]bool{},
 	}
 	if r.Kind == KindAction {
 		w.used = r.usedPorts(w.ports)
@@ -66,24 +70,34 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 		w.fills.collect(root)
 	}
 	w.layout(r)
+	edges, err := w.routeEdges(r)
+	if err != nil {
+		return "", err
+	}
+	routed := *r
+	routed.Edges = edges
+	r = &routed
 	w.edgeIDs = drawioEdgeIDs(r.Edges)
 	return r, w, nil
 }
 
 // drawioWriter composes one draw.io file from a rendering.
 type drawioWriter struct {
-	fills   familyFills
-	labels  labeller
-	ports   portView
-	used    map[string]map[string]bool
-	links   Links
-	view    string
-	boxes   map[string]drawioBox // node ID -> its box in canvas coordinates
-	cells   map[string]bool      // the cell IDs written, the ends an edge may attach to
-	edgeIDs map[[2]string]string // edge ends -> its cell ID, the anchor an edge note joins
-	grid    int                  // nodes and notes laid on the grid for want of a position
-	extent  drawioBox            // the bounds of everything placed
-	b       strings.Builder
+	fills     familyFills
+	labels    labeller
+	ports     portView
+	used      map[string]map[string]bool
+	links     Links
+	view      string
+	boxes     map[string]drawioBox // node ID -> its box in canvas coordinates
+	unrouted  bool                 // this build has no router; draw.io routes on opening
+	cells     map[string]bool      // the cell IDs written, the ends an edge may attach to
+	portBoxes map[string]drawioBox // port cell ID -> its box in canvas coordinates
+	routed    map[int]bool         // the edges (by index) the router gave their route
+	edgeIDs   map[[2]string]string // edge ends -> its cell ID, the anchor an edge note joins
+	grid      int                  // nodes and notes laid on the grid for want of a position
+	extent    drawioBox            // the bounds of everything placed
+	b         strings.Builder
 }
 
 // drawioBox is an axis-aligned box in canvas coordinates: the top-left corner
@@ -105,8 +119,10 @@ func (b drawioBox) bottom() float64 { return b.Y + b.Height }
 // The spacing the grid lays unplaced nodes out with, and the padding a
 // container keeps about its nested children, in draw.io pixels.
 const (
-	drawioGridGap     = 40
-	drawioNestedGap   = 20
+	drawioGridGap = 40
+	// drawioNestedGap also parts a header from its members: more than twice
+	// the router's clearance, so a path can pass between neighbours.
+	drawioNestedGap   = 2*route.Clearance + 8
 	drawioNestedPad   = 16
 	drawioPortSize    = 12
 	drawioMinWidth    = 100
@@ -222,13 +238,19 @@ func (w *drawioWriter) settleChildren(node *Node, box drawioBox) {
 	for i, child := range unplaced {
 		sizes[i] = w.fitted(child)
 	}
-	origin := drawioBox{X: box.X + drawioNestedPad, Y: box.Y + w.headroom(node) + drawioNestedPad}
+	// Under a header the router needs a channel; a container of stated size
+	// keeps the pad, since its children must fit the size it states.
+	gap := drawioNestedGap
+	if g := node.Geometry; g != nil && g.HasSize {
+		gap = drawioNestedPad
+	}
+	origin := drawioBox{X: box.X + drawioNestedPad, Y: box.Y + w.headroom(node) + gap}
 	for _, child := range node.Children {
 		if child.Geometry.placed() {
-			origin.Y = math.Max(origin.Y, w.boxes[child.ID].bottom()+drawioNestedGap)
+			origin.Y = math.Max(origin.Y, w.boxes[child.ID].bottom()+gap)
 		}
 	}
-	for i, child := range drawioGrid(sizes, origin, drawioNestedGap) {
+	for i, child := range drawioGrid(sizes, origin, gap) {
 		w.settle(unplaced[i], child)
 	}
 }
@@ -248,7 +270,7 @@ func (w *drawioWriter) childShift(node *Node, box drawioBox) drawioBox {
 	if !any {
 		return drawioBox{}
 	}
-	return drawioBox{X: box.X + drawioNestedPad - minX, Y: box.Y + w.headroom(node) + drawioNestedPad - minY}
+	return drawioBox{X: box.X + drawioNestedPad - minX, Y: box.Y + w.headroom(node) + drawioNestedGap - minY}
 }
 
 // fitted is the size a node is drawn at: the stated one, else a glyph's fixed
@@ -436,6 +458,9 @@ func drawioDiagramID(view string) string {
 // notices are what the file does not represent, written as leading comments.
 func (w *drawioWriter) notices(r *Rendering, options Options) []string {
 	notices := append([]string(nil), r.Notices...)
+	if w.unrouted {
+		notices = append(notices, "edges not routed: this build runs no router; draw.io routes them when the file opens")
+	}
 	if options.Style != "" && options.Style != StylePilot {
 		notices = append(notices, styleNotice(options.Style))
 	}
@@ -638,6 +663,7 @@ func (w *drawioWriter) writePorts(node *Node, fqn string) {
 		} else {
 			w.relativeGeometry("            ", side, fraction)
 		}
+		w.portBoxes[id] = drawioPortCellBox(box, side, fraction, port.Geometry)
 		w.b.WriteString("          </mxCell>\n        </object>\n")
 		w.cells[id] = true
 	}
@@ -684,6 +710,37 @@ func drawioPortStyle(side PortDirection) string {
 
 // relativeGeometry writes a port's geometry as a fraction of its owner's
 // border, offset to centre the square on the edge.
+// drawioPortCellBox is a port cell's box on the page: its stated geometry
+// when placed, else where relativeGeometry puts it on its owner's box.
+func drawioPortCellBox(box drawioBox, side PortDirection, fraction float64, g *Geometry) drawioBox {
+	if g.placed() {
+		size := drawioBox{Width: drawioPortSize, Height: drawioPortSize}
+		if g.HasSize {
+			size = drawioBox{Width: g.Width, Height: g.Height}
+		}
+		return drawioBox{X: g.X, Y: g.Y, Width: size.Width, Height: size.Height}
+	}
+	return drawioPortBox(box, side, fraction)
+}
+
+// drawioPortBox is where a port drawn at fraction along side sits on the page,
+// as relativeGeometry places it.
+func drawioPortBox(box drawioBox, side PortDirection, fraction float64) drawioBox {
+	x, y := fraction, 0.0
+	switch side {
+	case PortIn:
+		x, y = 0, fraction
+	case PortOut:
+		x, y = 1, fraction
+	}
+	return drawioBox{
+		X:      box.X + x*box.Width - drawioPortSize/2,
+		Y:      box.Y + y*box.Height - drawioPortSize/2,
+		Width:  drawioPortSize,
+		Height: drawioPortSize,
+	}
+}
+
 func (w *drawioWriter) relativeGeometry(indent string, side PortDirection, fraction float64) {
 	x, y := fraction, 0.0
 	switch side {
@@ -894,25 +951,49 @@ func (w *drawioWriter) writeEdge(i int, edge Edge) {
 		return
 	}
 	id := fmt.Sprintf("e%d", i)
+	// A route the router found ends exactly where it says: its ends become the
+	// anchors on the two cells, its bends the waypoints between.
+	points, anchors := edge.Route, ""
+	if w.routed[i] && len(points) >= 2 {
+		anchors = w.anchor("exit", source, points[0]) + w.anchor("entry", target, points[len(points)-1])
+		points = points[1 : len(points)-1]
+	}
 	w.openObject("        ", drawioObject{id: id, label: edge.Label, kind: edge.Kind.String(), link: w.link(edge.Origin)})
 	w.b.WriteString("          <mxCell")
-	w.attr("style", drawioEdgeFullStyle(edge))
+	w.attr("style", drawioEdgeFullStyle(edge, anchors))
 	w.b.WriteString(` edge="1"`)
 	w.attr("parent", "1")
 	w.attr("source", source)
 	w.attr("target", target)
 	w.b.WriteString(">\n")
 	w.b.WriteString(`            <mxGeometry relative="1" as="geometry"`)
-	if len(edge.Route) == 0 {
+	if len(points) == 0 {
 		w.b.WriteString("/>\n")
 	} else {
 		w.b.WriteString(">\n")
-		w.writePoints("              ", edge.Route)
+		w.writePoints("              ", points)
 		w.b.WriteString("            </mxGeometry>\n")
 	}
 	w.b.WriteString("          </mxCell>\n        </object>\n")
 	w.endLabel(id+":from", id, edge.FromLabel, -0.8, edge.Style)
 	w.endLabel(id+":to", id, edge.ToLabel, 0.8, edge.Style)
+}
+
+// anchor fixes an edge end at p on its cell, as the fraction of the cell's box
+// draw.io reads from exitX/exitY or entryX/entryY, taken exactly (no perimeter).
+func (w *drawioWriter) anchor(end, cell string, p Point) string {
+	box, ok := w.portBoxes[cell]
+	if !ok {
+		box = w.boxes[cell]
+	}
+	fraction := func(v, origin, size float64) string {
+		f := 0.0
+		if size > 0 {
+			f = min(1, max(0, (v-origin)/size))
+		}
+		return strconv.FormatFloat(f, 'f', -1, 64)
+	}
+	return fmt.Sprintf("%sX=%s;%sY=%s;%sPerimeter=0;", end, fraction(p.X, box.X, box.Width), end, fraction(p.Y, box.Y, box.Height), end)
 }
 
 // end is the cell an edge end attaches to: the port's when the end names a
@@ -941,13 +1022,14 @@ func (w *drawioWriter) endLabel(id, edge, text string, position float64, style *
 }
 
 // drawioEdgeFullStyle is an edge's whole style: orthogonal routing unless a
-// Route states the path, the kind's arrows, and its Style.
-func drawioEdgeFullStyle(edge Edge) string {
+// Route states the path, the anchors of a routed edge's ends, the kind's
+// arrows, and its Style.
+func drawioEdgeFullStyle(edge Edge, anchors string) string {
 	routing := "edgeStyle=orthogonalEdgeStyle;"
 	if len(edge.Route) > 0 {
 		routing = "edgeStyle=none;"
 	}
-	style := routing + "rounded=0;html=0;" + drawioEdgeStyle(edge.Kind) + ";"
+	style := routing + anchors + "rounded=0;html=0;" + drawioEdgeStyle(edge.Kind) + ";"
 	if edge.Style != nil {
 		if edge.Style.Line != "" {
 			style += "strokeColor=" + edge.Style.Line + ";"
