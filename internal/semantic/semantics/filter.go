@@ -116,8 +116,9 @@ func (m *Model) EvalElementFilter(f symbols.ElementFilter, cand *symbols.Symbol)
 	// Only a decided verdict is remembered. A condition can be unevaluable
 	// because the element it names is not indexed yet — an import is expanded
 	// while the index is still filling — and re-deciding it later is what keeps
-	// the answer from depending on when it was first asked.
-	if err == nil {
+	// the answer from depending on when it was first asked; nor is one decided
+	// over the partial `about` index while it is being built.
+	if err == nil && !m.aboutBuilding {
 		journal(m, m.filterVerdicts, key, cand.Decl)
 		m.filterVerdicts[key] = verdict
 	}

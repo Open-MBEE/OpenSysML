@@ -638,6 +638,10 @@ func (m *Model) annotationsAbout() map[*symbols.Symbol][]annotation {
 	return m.aboutAnnots
 }
 
+// AboutBuilding reports whether the `about` index is being built, when what the
+// model answers about annotations — and the filters reading them — is partial.
+func (m *Model) AboutBuilding() bool { return m.aboutBuilding }
+
 // buildAbout indexes the `about` metadata usages of every gathered document.
 func (m *Model) buildAbout() {
 	m.aboutBuilding = true
