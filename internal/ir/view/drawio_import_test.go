@@ -146,8 +146,13 @@ func TestDrawioImportMovedNodeIsALayout(t *testing.T) {
 		return setGeometryAttr(t, setGeometryAttr(t, cell, "x", "533"), "y", "71.5")
 	})
 	edit := editOf(t, drawioGoldenImport(t, layoutCase, document), DrawioEditLayout, "n2")
-	// The tank sits in the loop drawn at (40, 160); a Layout states absolute coordinates.
-	if edit.FQN != "Plant::Loop::tank" || edit.Layout.X != 573 || edit.Layout.Y != 231.5 || edit.Layout.Collapsed {
+	// The tank's cell is relative to the loop's; a Layout states absolute coordinates.
+	exported, err := ReadDrawio(golden, layoutCase.view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loop := exported.Cell("n0").Geometry
+	if edit.FQN != "Plant::Loop::tank" || edit.Layout.X != loop.X+533 || edit.Layout.Y != loop.Y+71.5 || edit.Layout.Collapsed {
 		t.Errorf("layout = %s %+v", edit.FQN, edit.Layout)
 	}
 	if edit.Origin.Doc != "layout.sysml" {
