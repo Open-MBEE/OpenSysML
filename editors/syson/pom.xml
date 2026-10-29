@@ -19,7 +19,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
-        <graphql-java.version>24.0</graphql-java.version>
+        <graphql-java.version>26.1</graphql-java.version>
         <mockito.version>5.24.0</mockito.version>
         <assertj.version>3.27.7</assertj.version>
         <build-helper.version>3.6.2</build-helper.version>
