@@ -1,6 +1,7 @@
 package libs
 
 import (
+	"errors"
 	"log/slog"
 	"sync"
 
@@ -14,11 +15,15 @@ func LoadInto(idx *symbols.Index) {
 	loadInto(idx, DefaultSource())
 }
 
-// loadInto is LoadInto over the given source.
+// loadInto is LoadInto over the given source. A process without a cache root
+// (ErrNoCacheRoot) loads without a cache and without a word, as OpenRecordCache
+// does; a root that exists and refuses the directory is warned about.
 func loadInto(idx *symbols.Index, src Source) {
 	cache, err := NewCache()
 	if err != nil {
-		slog.Warn("stdlib symbol cache unavailable, loading without cache", "error", err)
+		if !errors.Is(err, ErrNoCacheRoot) {
+			slog.Warn("stdlib symbol cache unavailable, loading without cache", "error", err)
+		}
 		cache = nil
 	}
 	if err := NewLoader(src, cache).LoadAll(idx); err != nil {
