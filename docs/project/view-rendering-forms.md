@@ -1458,7 +1458,10 @@ obstacles and the ancestors an end lies in reduced to their headers; an edge fro
 its own member leaves the header's underside above the member. Containers are padded by more than
 twice the clearance so a path fits between neighbours. A stated `Route` is never re-routed, and
 an edge the router finds no path for (two boxes nearer than twice the clearance) is written
-without waypoints under `edgeStyle=orthogonalEdgeStyle`, for draw.io to route as before.
+without waypoints under `edgeStyle=orthogonalEdgeStyle`, for draw.io to route as before. The `js` and `wasip1` builds of `sysml`
+carry no router (a WebAssembly runtime inside WebAssembly would route several times slower and
+add to the download): they write every unrouted edge that way, under a notice, and draw.io routes
+them when the file opens.
 
 Supported kinds are `tree`, `interconnection`, `state`, `action`, `case`, `mixed`,
 `requirement`, `definition` and `package`. A `sequence` (and the timeline it implies) has no

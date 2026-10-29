@@ -68,18 +68,19 @@ func (r *Rendering) DrawioWith(options Options) (string, error) {
 
 // drawioWriter composes one draw.io file from a rendering.
 type drawioWriter struct {
-	fills   familyFills
-	labels  labeller
-	ports   portView
-	used    map[string]map[string]bool
-	links   Links
-	view    string
-	boxes   map[string]drawioBox // node ID -> its box in canvas coordinates
-	cells   map[string]bool      // the cell IDs written, the ends an edge may attach to
-	edgeIDs map[[2]string]string // edge ends -> its cell ID, the anchor an edge note joins
-	grid    int                  // nodes and notes laid on the grid for want of a position
-	extent  drawioBox            // the bounds of everything placed
-	b       strings.Builder
+	fills    familyFills
+	labels   labeller
+	ports    portView
+	used     map[string]map[string]bool
+	links    Links
+	view     string
+	boxes    map[string]drawioBox // node ID -> its box in canvas coordinates
+	unrouted bool                 // this build has no router; draw.io routes on opening
+	cells    map[string]bool      // the cell IDs written, the ends an edge may attach to
+	edgeIDs  map[[2]string]string // edge ends -> its cell ID, the anchor an edge note joins
+	grid     int                  // nodes and notes laid on the grid for want of a position
+	extent   drawioBox            // the bounds of everything placed
+	b        strings.Builder
 }
 
 // drawioBox is an axis-aligned box in canvas coordinates: the top-left corner
@@ -434,6 +435,9 @@ func drawioDiagramID(view string) string {
 // notices are what the file does not represent, written as leading comments.
 func (w *drawioWriter) notices(r *Rendering, options Options) []string {
 	notices := append([]string(nil), r.Notices...)
+	if w.unrouted {
+		notices = append(notices, "edges not routed: this build runs no router; draw.io routes them when the file opens")
+	}
 	if options.Style != "" && options.Style != StylePilot {
 		notices = append(notices, styleNotice(options.Style))
 	}

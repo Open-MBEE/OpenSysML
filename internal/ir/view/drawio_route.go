@@ -1,6 +1,7 @@
 package view
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
@@ -85,6 +86,10 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 			bounds = &b
 		}
 		routes, err := route.Routes(shapes, asked, bounds)
+		if errors.Is(err, route.ErrUnavailable) {
+			w.unrouted = true
+			return edges, nil
+		}
 		if err != nil {
 			return nil, err
 		}
