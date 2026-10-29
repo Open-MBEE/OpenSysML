@@ -874,7 +874,7 @@ func (ctx *Context) conditionSubject(sym *symbols.Symbol, self *Instance) (carri
 	}
 	roots := []*Instance{self}
 	if self == nil {
-		roots = ctx.rootInstances()
+		roots = ctx.LiveRoots()
 	} else if ctx.modelConforms(self.Type, owner) {
 		return carrier{instance: self, root: self}, nil
 	}
@@ -951,50 +951,10 @@ func (ctx *Context) readThrough(inst *Instance) bool {
 	return !inst.explicit && ctx.denotesOccurrence(inst)
 }
 
-// rootInstances returns the objects this runtime holds that stand on their own,
-// in identity order: an object a feature value holds is reached through its holder, and one
-// materialized to read a nested declaration through is an occurrence of nothing,
-// while an object a caller asked for is a root whatever it materializes. One
-// declaration stands as the objects it denotes, every one of them where it denotes
-// several, and otherwise as one object, the latest materialized of it.
-func (ctx *Context) rootInstances() []*Instance {
-	held := ctx.heldObjectIDs()
-	denoted := make(map[*symbols.Symbol][]*Instance)
-	latest := make(map[*symbols.Symbol]*Instance, len(ctx.instances))
-	for _, inst := range ctx.instances {
-		if inst == nil || held[inst.ID] || (nestedFeature(inst.Type) && ctx.readThrough(inst)) {
-			continue
-		}
-		// A destroyed object is no subject of anything; what it held is reached from where it stands.
-		if ctx.checkNotDestroyed(inst) != nil {
-			continue
-		}
-		if ctx.denotesOccurrence(inst) {
-			denoted[inst.Type] = append(denoted[inst.Type], inst)
-			continue
-		}
-		if kept, ok := latest[inst.Type]; ok && kept.ID > inst.ID {
-			continue
-		}
-		latest[inst.Type] = inst
-	}
-	var out []*Instance
-	for sym, inst := range latest {
-		if _, ok := denoted[sym]; !ok {
-			out = append(out, inst)
-		}
-	}
-	for _, insts := range denoted {
-		out = append(out, insts...)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out
-}
-
 // LiveRoots returns every object this runtime holds that stands on its own — not held
 // by another's feature value, not materialized only to read a nested declaration, not
-// destroyed — in identity order: rootInstances without its one-object-per-declaration
-// choice, for a sweep that is about each object rather than about a declaration.
+// destroyed — in identity order. A declaration materialized twice is two of them: the
+// name denotes the latest, but a feature of the definition is a feature of each object.
 func (ctx *Context) LiveRoots() []*Instance {
 	held := ctx.heldObjectIDs()
 	var out []*Instance
@@ -1280,7 +1240,8 @@ func indexedSegment(name string, i int) string {
 }
 
 // carrierLabels names carriers as a diagnostic can quote them: the definition
-// each is an object of, its identity, and the feature path telling two apart.
+// each is an object of, its identity, and the feature path telling two apart; one
+// reached from a root its usage no longer denotes says so, as %instances lists it.
 func (ctx *Context) carrierLabels(carriers []carrier) []string {
 	out := make([]string, 0, len(carriers))
 	for _, c := range carriers {
@@ -1290,12 +1251,32 @@ func (ctx *Context) carrierLabels(carriers []carrier) []string {
 			name = def.Name
 		}
 		label := fmt.Sprintf("%s #%d", name, inst.ID)
-		if path := carrierPath(c, name); len(path) != 0 {
+		path := carrierPath(c, name)
+		switch displaced := ctx.displacedRoot(c.root); {
+		case displaced && len(c.features) != 0:
+			label += fmt.Sprintf(" (%s of displaced #%d)", qualifiedText(path), c.root.ID)
+		case displaced && len(path) != 0:
+			label += " (displaced from " + qualifiedText(path) + ")"
+		case displaced:
+			label += " (displaced)"
+		case len(path) != 0:
 			label += " (" + qualifiedText(path) + ")"
 		}
 		out = append(out, label)
 	}
 	return out
+}
+
+// displacedRoot reports whether root is an object a later materialization of its
+// usage displaced from the name: the usage records one occurrence, and this is not it.
+func (ctx *Context) displacedRoot(root *Instance) bool {
+	if root == nil || root.Type == nil {
+		return false
+	}
+	if _, ok := root.Type.Decl.(*ast.Usage); !ok {
+		return false
+	}
+	return ctx.registersOccurrence(root.Type) && !ctx.denotesOccurrence(root)
 }
 
 // qualifiedText spells walked feature names as a `::`-joined path in the
