@@ -2,6 +2,7 @@ package metamodel
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -3119,6 +3120,18 @@ type structureQualifiedNameSiblingNames struct {
 	supported bool
 	members   []Element
 	reason    Reason
+	scan      *structureQualifiedNameSiblingScan
+}
+
+// structureQualifiedNameSiblingScan reads a namespace's member names once, in
+// order, so each member's earlier-name check is a lookup instead of a rescan.
+type structureQualifiedNameSiblingScan struct {
+	mu          sync.Mutex
+	positions   map[ElementKey]int
+	scanned     int
+	firstByName map[string]int
+	stop        int
+	stopReason  Reason
 }
 
 type structureQualifiedNameNamespaceCache struct {
@@ -3357,49 +3370,23 @@ func (e *Evaluator) structureQualifiedNameHasEarlierName(
 	name string,
 	memberships bool,
 ) (bool, Reason, bool) {
-	members, reason, supported := e.structureQualifiedNameMembers(namespace, memberships)
+	members, scan, reason, supported := e.structureQualifiedNameMembers(namespace, memberships)
 	if !supported {
 		return false, reason, false
 	}
-	targetKey := structureElementKey(element, e.options.Structure)
-	for _, member := range members {
-		if structureElementKey(member, e.options.Structure) == targetKey {
-			return false, Reason{}, true
-		}
-		memberName, handled, ok := e.structureName(member, "name")
-		if !handled || !ok {
-			label := e.structureIdentityLabel(member)
-			if metaclass, known := e.options.Structure.Metaclass(member); known {
-				label = metaclass + " " + label
-			}
-			if label == "" && member.Symbol != nil {
-				label = member.Symbol.Name
-			}
-			if label == "" {
-				label = member.Aspect
-			}
-			if label == "" {
-				label = "unnamed member"
-			}
-			return false, Reason{
-				Category:   ReasonDependsOnUnsupported,
-				Dependency: elementNameProperty,
-				Detail:     "Namespace::ownedMember for " + label,
-			}, false
-		}
-		switch memberName.Kind {
-		case NullValue:
-			continue
-		case StringValue:
-			if memberName.String == name {
-				return true, Reason{}, true
-			}
-		default:
-			return false, Reason{
-				Category: ReasonUnrepresentedElement,
-				Detail:   "Namespace::ownedMember Element::name has an unsupported value",
-			}, false
-		}
+	target, found := scan.position(structureElementKey(element, e.options.Structure), members, e.options.Structure)
+	limit := len(members)
+	if found {
+		limit = target
+	}
+	stop, stopReason, first, named := e.scanStructureQualifiedNameSiblings(scan, members, limit, name)
+	switch {
+	case stop >= 0 && stop < limit && (!named || stop < first):
+		return false, stopReason, false
+	case named && first < limit:
+		return true, Reason{}, true
+	case found:
+		return false, Reason{}, true
 	}
 	return false, Reason{
 		Category: ReasonMissingStructure,
@@ -3407,10 +3394,97 @@ func (e *Evaluator) structureQualifiedNameHasEarlierName(
 	}, false
 }
 
+func (scan *structureQualifiedNameSiblingScan) position(key ElementKey, members []Element, structure Structure) (int, bool) {
+	scan.mu.Lock()
+	defer scan.mu.Unlock()
+	if scan.positions == nil {
+		scan.positions = make(map[ElementKey]int, len(members))
+		for i, member := range members {
+			memberKey := structureElementKey(member, structure)
+			if _, seen := scan.positions[memberKey]; !seen {
+				scan.positions[memberKey] = i
+			}
+		}
+	}
+	position, ok := scan.positions[key]
+	return position, ok
+}
+
+// scanStructureQualifiedNameSiblings reads member names up to limit, stopping at
+// the first member whose name is unavailable, and reports where name first occurs.
+func (e *Evaluator) scanStructureQualifiedNameSiblings(
+	scan *structureQualifiedNameSiblingScan,
+	members []Element,
+	limit int,
+	name string,
+) (int, Reason, int, bool) {
+	for {
+		scan.mu.Lock()
+		next := scan.scanned
+		if scan.stop >= 0 || next >= limit {
+			first, named := scan.firstByName[name]
+			stop, stopReason := scan.stop, scan.stopReason
+			scan.mu.Unlock()
+			return stop, stopReason, first, named
+		}
+		scan.mu.Unlock()
+		memberName, reason, ok := e.structureQualifiedNameSiblingName(members[next])
+		scan.mu.Lock()
+		if scan.scanned == next && scan.stop < 0 {
+			switch {
+			case !ok:
+				scan.stop, scan.stopReason = next, reason
+			case memberName.Kind == StringValue:
+				if _, seen := scan.firstByName[memberName.String]; !seen {
+					if scan.firstByName == nil {
+						scan.firstByName = make(map[string]int)
+					}
+					scan.firstByName[memberName.String] = next
+				}
+				scan.scanned++
+			default:
+				scan.scanned++
+			}
+		}
+		scan.mu.Unlock()
+	}
+}
+
+func (e *Evaluator) structureQualifiedNameSiblingName(member Element) (Value, Reason, bool) {
+	memberName, handled, ok := e.structureName(member, "name")
+	if !handled || !ok {
+		label := e.structureIdentityLabel(member)
+		if metaclass, known := e.options.Structure.Metaclass(member); known {
+			label = metaclass + " " + label
+		}
+		if label == "" && member.Symbol != nil {
+			label = member.Symbol.Name
+		}
+		if label == "" {
+			label = member.Aspect
+		}
+		if label == "" {
+			label = "unnamed member"
+		}
+		return Value{}, Reason{
+			Category:   ReasonDependsOnUnsupported,
+			Dependency: elementNameProperty,
+			Detail:     "Namespace::ownedMember for " + label,
+		}, false
+	}
+	if memberName.Kind != NullValue && memberName.Kind != StringValue {
+		return Value{}, Reason{
+			Category: ReasonUnrepresentedElement,
+			Detail:   "Namespace::ownedMember Element::name has an unsupported value",
+		}, false
+	}
+	return memberName, Reason{}, true
+}
+
 func (e *Evaluator) structureQualifiedNameMembers(
 	namespace Element,
 	memberships bool,
-) ([]Element, Reason, bool) {
+) ([]Element, *structureQualifiedNameSiblingScan, Reason, bool) {
 	key := namespace.Key()
 	e.mu.Lock()
 	namespaceCache := e.qualifiedNameNamespaceCaches[key]
@@ -3420,7 +3494,7 @@ func (e *Evaluator) structureQualifiedNameMembers(
 	}
 	e.mu.Unlock()
 	if cached.computed {
-		return cached.members, cached.reason, cached.supported
+		return cached.members, cached.scan, cached.reason, cached.supported
 	}
 
 	computed := e.deriveStructureQualifiedNameMembers(namespace, memberships)
@@ -3435,6 +3509,7 @@ func (e *Evaluator) structureQualifiedNameMembers(
 	}
 	if !cached.computed {
 		cached = computed
+		cached.scan = &structureQualifiedNameSiblingScan{stop: -1}
 		if memberships {
 			namespaceCache.ownedMemberships = cached
 		} else {
@@ -3443,7 +3518,7 @@ func (e *Evaluator) structureQualifiedNameMembers(
 		e.qualifiedNameNamespaceCaches[key] = namespaceCache
 	}
 	e.mu.Unlock()
-	return cached.members, cached.reason, cached.supported
+	return cached.members, cached.scan, cached.reason, cached.supported
 }
 
 func (e *Evaluator) deriveStructureQualifiedNameMembers(

@@ -1268,6 +1268,9 @@ message ConvertRequest {
   // syntax errors alone as before. Reported as the "convert_check_diagnostics"
   // capability.
   bool include_check_diagnostics = 12;
+  // For api-json, restore the ownerless library stubs written before 0.11.0.
+  // Default false: library elements remain bare references, not roots.
+  bool include_library_stubs = 13;
 }
 
 // ConvertResponse contains the converted model.
@@ -1291,6 +1294,16 @@ message ConvertResponse {
   // What is experimental about the conversion, in the wording every surface
   // reports it in. Empty when experimental is false.
   string experimental_notice = 7;
+  // Referenced standard-library names, outside the element array. Populated
+  // for successful api-json conversions, including compact output.
+  repeated LibraryReference library_references = 8;
+}
+
+// LibraryReference names a referenced standard-library element, not a model root.
+message LibraryReference {
+  string id = 1;
+  string qualified_name = 2;
+  string type = 3; // Metaclass, as API JSON's @type spells it.
 }
 
 // MigrateRequest asks for a SysML v1 model migrated to v2. The source is a

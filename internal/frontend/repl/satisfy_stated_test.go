@@ -91,3 +91,34 @@ func TestSatisfyStatedByADefinitionSweepsItsObjects(t *testing.T) {
 		"✓ satisfy costReq holds (on ProductPkg::product ID: "+again+")",
 		"✗ satisfy costReq fails (on ProductPkg::costly ID: "+costly+")")
 }
+
+// TestSatisfyLabelsObjectsAsValidateDoes checks that %satisfy names each object a
+// definition's `satisfy r;` is decided on by the indexed path %validate prints for it.
+func TestSatisfyLabelsObjectsAsValidateDoes(t *testing.T) {
+	s := loadSource(t, `package test {
+	private import ScalarValues::Real;
+	requirement def CostRequirement {
+		subject product : Definition;
+		attribute maximumCost : Real;
+		require constraint costOk { product.cost <= maximumCost }
+	}
+	requirement costReq : CostRequirement { :>> maximumCost = 100.0; }
+	part def Definition {
+		attribute cost : Real;
+		satisfy costReq;
+	}
+	part def Fleet { part cheap : Definition [2] { attribute :>> cost = 80.0; } }
+	part fleet : Fleet;
+}`)
+	run(t, s, "%instantiate fleet")
+	labels := []string{
+		"✓ satisfy costReq holds (on test::fleet.cheap[1] ID: 2)",
+		"✓ satisfy costReq holds (on test::fleet.cheap[2] ID: 3)",
+	}
+	satisfied := run(t, s, "%satisfy")
+	wants(t, satisfied, labels...)
+	wants(t, run(t, s, "%validate fleet"), labels...)
+	if strings.Contains(satisfied, "fleet.cheap ID") {
+		t.Errorf("%%satisfy labels an object by its feature alone:\n%s", satisfied)
+	}
+}

@@ -166,7 +166,7 @@ diagram as not drawn, so a pilot notebook runs and nothing is dropped silently; 
 the PlantUML source, as it does in the pilot. An unknown view or style is refused with the list.
 
 With no form named, a cell shows the diagram — as Mermaid, and as an SVG drawn from DOT when
-Graphviz is installed. A form (`text`, `mermaid`, `dot`, `plantuml`, `d2`) shows that form, as
+Graphviz is installed. A form (`text`, `mermaid`, `dot`, `plantuml`, `d2`, `drawio`) shows that form, as
 `%render` does. `%viz` is the pilot's spelling of a pseudo-view: `%viz --view STATE P::Lamp` draws
 what `%render #state:P::Lamp mermaid` writes, and `%viz P::Car P::Lamp` what a view exposing both
 would render. At the `sysml` prompt the same command prints the text rendering.
@@ -279,7 +279,7 @@ front end shows the richest it can:
 | `%render-document <doc> html` | The document as HTML, with the table and figure styling of the HTML backend |
 | `%features <instance> json` | JSON, shown in the front end's tree view |
 
-`%render <view> plantuml` and `d2` print their source, for a tool that draws them. See
+`%render <view> plantuml`, `d2` and `drawio` print their source, for a tool that draws them. See
 [views and rendering](../manual/outputs.md) for the forms, and the
 [REPL commands reference](../reference/repl-commands.md) for every command.
 

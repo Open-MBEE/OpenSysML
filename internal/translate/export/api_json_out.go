@@ -16,6 +16,10 @@ import (
 type APIJSONOptions struct {
 	Omitted    func(APIJSONOmission)
 	Diagnostic func(string)
+	// IncludeLibraryStubs writes ownerless library elements for legacy readers.
+	IncludeLibraryStubs bool
+	// LibraryReferences receives the names of referenced standard-library elements.
+	LibraryReferences func([]APIJSONLibraryReference)
 }
 
 const (
@@ -92,13 +96,10 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	}
 	subjects := settled.SubjectsView()
 	elements := make([]apiJSONObject, 0, len(subjects))
-	subjectSlots := make(map[string]int, len(subjects))
-	for position, subject := range subjects {
-		subjectSlots[subject.Value] = position
-	}
-	evaluation := newAPIJSONEvaluation(settled, subjectSlots)
-	mappingNames := newAPIJSONMappingNameIndex(evaluation.structure.graph, subjectSlots)
-	nameIndex := newAPIJSONNameIndexWithSubjectSlots(settled, subjectSlots)
+	index := newAPIJSONWriteIndex(settled)
+	evaluation := newAPIJSONEvaluationWithIndex(index)
+	mappingNames := newAPIJSONMappingNameIndex(index)
+	nameIndex := newAPIJSONNameIndex(settled, index)
 	writer := &apiJSONElementWriter{
 		graph:              settled,
 		evaluation:         evaluation,
@@ -112,14 +113,27 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	for _, subject := range subjects {
 		// The element form holds the model's own elements only; a library element
 		// stays a bare reference, as an ownerless element there is a root (the OMG API JSON shape).
-		if LibraryReference(settled, subject) {
+		if LibraryReference(settled, subject) && !options.IncludeLibraryStubs {
 			continue
 		}
 		element, err := writer.element(subject)
 		if err != nil {
 			return nil, err
 		}
+		if LibraryReference(settled, subject) {
+			// Legacy stubs carry stated properties, not metamodel defaults.
+			element = slices.DeleteFunc(element, func(member apiJSONMember) bool {
+				return member.key != "@id" && member.key != "@type" && !settled.HasProperty(subject, rdf.SysML+member.key)
+			})
+		}
 		elements = append(elements, element)
+	}
+	if options.LibraryReferences != nil {
+		refs, err := apiJSONLibraryReferences(settled, elements)
+		if err != nil {
+			return nil, err
+		}
+		options.LibraryReferences(refs)
 	}
 	return elements, nil
 }
@@ -209,18 +223,15 @@ type apiJSONMappingNameIndex struct {
 	hasName      []bool
 }
 
-func newAPIJSONMappingNameIndex(graph *rdf.Graph, subjectSlots map[string]int) *apiJSONMappingNameIndex {
-	defaults := mappingQualifiedNames(graph)
+func newAPIJSONMappingNameIndex(graphIndex *apiJSONGraphIndex) *apiJSONMappingNameIndex {
+	graph := graphIndex.graph
+	defaults := mappingQualifiedNamesWithContext(graph, newMappingQualifiedNameContext(graph, graphIndex))
 	index := &apiJSONMappingNameIndex{
-		subjectSlots: subjectSlots,
-		names:        make([]string, len(subjectSlots)),
-		hasName:      make([]bool, len(subjectSlots)),
+		subjectSlots: graphIndex.slots,
+		names:        make([]string, len(graphIndex.subjects)),
+		hasName:      make([]bool, len(graphIndex.subjects)),
 	}
-	for _, subject := range graph.SubjectsView() {
-		position, ok := subjectSlots[subject.Value]
-		if !ok || position >= len(index.names) {
-			continue
-		}
+	for position, subject := range graphIndex.subjects {
 		id, ok := rdf.SubjectID(subject)
 		if !ok {
 			continue
@@ -245,21 +256,10 @@ func (index *apiJSONMappingNameIndex) name(subject rdf.Term) (string, bool) {
 // apiJSONElement builds the element object for one subject: "@type", "@id",
 // then each property in statement order.
 func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
-	evaluation := newAPIJSONEvaluation(graph)
-	mappingNames := newAPIJSONMappingNameIndex(
-		evaluation.structure.graph, evaluation.structure.subjectSlots,
-	)
-	return apiJSONElementWithEvaluation(graph, subject, evaluation, mappingNames)
-}
-
-func apiJSONElementWithEvaluation(
-	graph *rdf.Graph,
-	subject rdf.Term,
-	evaluation *apiJSONEvaluation,
-	mappingNames *apiJSONMappingNameIndex,
-) (apiJSONObject, error) {
+	index := newAPIJSONWriteIndex(graph)
 	return apiJSONElementWithEvaluationOptions(
-		graph, subject, evaluation, mappingNames, newAPIJSONNameIndex(graph), &apiJSONTermCache{}, APIJSONOptions{},
+		graph, subject, newAPIJSONEvaluationWithIndex(index), newAPIJSONMappingNameIndex(index),
+		newAPIJSONNameIndex(graph, index), &apiJSONTermCache{}, APIJSONOptions{},
 	)
 }
 

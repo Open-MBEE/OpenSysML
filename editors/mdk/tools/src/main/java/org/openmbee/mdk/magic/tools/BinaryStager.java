@@ -25,12 +25,14 @@ public final class BinaryStager {
 
   public static void main(String[] args) throws Exception {
     if (args.length < 2) {
-      throw new IllegalArgumentException("usage: BinaryStager <version> <outDir> [--base-url URL] [--digests path]");
+      throw new IllegalArgumentException(
+          "usage: BinaryStager <version> <outDir> [--base-url URL] [--digests path] [--from dir]");
     }
     String version = args[0];
     Path output = Path.of(args[1]);
     String base = DEFAULT_BASE;
     Path digests = null;
+    Path from = null;
     int i = 2;
     while (i < args.length) {
       String option = args[i];
@@ -41,11 +43,36 @@ public final class BinaryStager {
         if ("--base-url".equals(option)) base = args[i + 1];
         else digests = Path.of(args[i + 1]);
         i += 2;
+      } else if ("--from".equals(option)) {
+        // An empty value is no value, so a build can pass the option unconditionally.
+        boolean given = i + 1 < args.length && !args[i + 1].isEmpty();
+        if (given) from = Path.of(args[i + 1]);
+        i += given ? 2 : 1;
       } else {
         throw new IllegalArgumentException("unknown option: " + option);
       }
     }
-    stage(version, output, base, digests);
+    if (from != null) stageFrom(from, output);
+    else stage(version, output, base, digests);
+  }
+
+  /**
+   * Stages the five service binaries from a directory instead of a release, for a build whose
+   * caller has already verified them (the nightly workflow, against the night's own manifest).
+   * Every asset must be present; DIGESTS records what was copied.
+   */
+  public static Map<String, String> stageFrom(Path source, Path output) throws IOException {
+    Files.createDirectories(output);
+    Map<String, String> written = new LinkedHashMap<>();
+    for (String asset : assets()) {
+      Path file = source.resolve(asset);
+      if (!Files.isRegularFile(file)) throw new IOException("asset is missing: " + file);
+      byte[] bytes = Files.readAllBytes(file);
+      Files.write(output.resolve(asset), bytes);
+      written.put(asset, sha256(bytes));
+    }
+    writeManifest(output, written);
+    return Map.copyOf(written);
   }
 
   public static Map<String, String> stage(String version, Path output, String base, Path digestFile)
@@ -76,10 +103,14 @@ public final class BinaryStager {
       Files.write(output.resolve(asset), response.body());
       written.put(asset, actual);
     }
+    writeManifest(output, written);
+    return Map.copyOf(written);
+  }
+
+  private static void writeManifest(Path output, Map<String, String> written) throws IOException {
     StringBuilder manifest = new StringBuilder();
     written.forEach((asset, digest) -> manifest.append(digest).append("  ").append(asset).append('\n'));
     Files.writeString(output.resolve("DIGESTS"), manifest.toString());
-    return Map.copyOf(written);
   }
 
   static String[] assets() {

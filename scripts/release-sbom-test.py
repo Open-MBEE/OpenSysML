@@ -122,8 +122,9 @@ class Check(unittest.TestCase):
         self.assertIn("pkg:golang/stdlib@1.25.11", str(caught.exception))
 
     def test_refuses_an_sbom_naming_no_component(self):
+        doc = document()
         with self.assertRaises(sbom.SBOMError) as caught:
-            sbom.check(document(), "sysml-wasm.wasm", [], [])
+            sbom.check(doc, "sysml-wasm.wasm", [], [])
         self.assertIn("names no component", str(caught.exception))
 
     def test_refuses_an_sbom_mentioning_the_builders_path(self):
@@ -258,8 +259,9 @@ class WasmBuildInfo(unittest.TestCase):
         self.assertIn("no Go module information", str(caught.exception))
 
     def test_refuses_a_module_naming_two_toolchains(self):
+        data = wasm_bytes(toolchains=("go1.25.11", "go1.24.3"))
         with self.assertRaises(sbom.SBOMError) as caught:
-            sbom.wasm_build_info(wasm_bytes(toolchains=("go1.25.11", "go1.24.3")), "sysml-wasm.wasm")
+            sbom.wasm_build_info(data, "sysml-wasm.wasm")
         self.assertIn("2 Go toolchains", str(caught.exception))
 
     def test_a_short_version_string_is_not_a_toolchain(self):
@@ -468,8 +470,9 @@ class NpmSBOM(unittest.TestCase):
 
     def test_refuses_an_sbom_resolving_an_exact_pin_to_another_version(self):
         deps = [npm("@connectrpc/connect", "2.1.1") if d["name"] == "@connectrpc/connect" else d for d in self.deps]
+        doc = npm_document(self.root, *deps)
         with self.assertRaises(sbom.SBOMError) as caught:
-            sbom.check_npm(npm_document(self.root, *deps), "openmbee-opensysml-0.12.0.tgz", CLIENT_MANIFEST)
+            sbom.check_npm(doc, "openmbee-opensysml-0.12.0.tgz", CLIENT_MANIFEST)
         self.assertIn("pins @connectrpc/connect@2.1.2", str(caught.exception))
 
     def test_a_range_is_satisfied_by_any_resolved_version(self):
@@ -554,8 +557,9 @@ class MSISBOM(unittest.TestCase):
     def test_refuses_a_zip_missing_a_file_the_installer_takes(self):
         with tempfile.TemporaryDirectory() as tmp:
             zip_path, pin = z3_zip(tmp, members=("bin/z3.exe", "LICENSE.txt"))
+            pinned = sbom.read_pin(pin)
             with self.assertRaises(sbom.SBOMError) as caught:
-                sbom.z3_package(sbom.read_pin(pin), zip_path)
+                sbom.z3_package(pinned, zip_path)
             self.assertIn("bin/msvcp140.dll", str(caught.exception))
 
     def test_an_installer_sbom_passes_the_binary_check_with_z3_declared_beside_the_modules(self):

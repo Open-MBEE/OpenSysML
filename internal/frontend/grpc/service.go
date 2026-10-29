@@ -230,6 +230,12 @@ const CapabilityConvertDocuments = "convert_documents"
 // handles, and optionally without the metamodel's derived properties.
 const CapabilityConvertCompact = "convert_compact"
 
+// CapabilityConvertLibraryReferences names ConvertResponse.library_references.
+const CapabilityConvertLibraryReferences = "convert_library_references"
+
+// CapabilityConvertLibraryStubs names ConvertRequest.include_library_stubs.
+const CapabilityConvertLibraryStubs = "convert_library_stubs"
+
 // CapabilityConvertCheckDiagnostics names ConvertRequest.include_check_diagnostics:
 // the semantic check's diagnostics, with their severities, reported alongside
 // the converted output.
@@ -394,6 +400,8 @@ var capabilities = []string{
 	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
+	CapabilityConvertLibraryReferences,
+	CapabilityConvertLibraryStubs,
 	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,

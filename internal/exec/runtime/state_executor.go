@@ -1146,6 +1146,7 @@ func (e *StateExecutor) nextEvent() (Event, error) {
 		choice.Alternatives[i] = e.eventLabel(tied[i])
 		fps[i] = e.eventFootprint(tied[i])
 	}
+	choice.alike = e.ctx.heldAlike
 	classifyChoice(&choice, fps, nil)
 	scheduling := e.ctx.scheduling()
 	choice.Taken = scheduling.choose(choice, nil)
@@ -1707,6 +1708,7 @@ func (e *StateExecutor) regionOrderChoice(where string, states []*ast.StateNode,
 	for i, state := range states {
 		fps[i] = footprint(state)
 	}
+	choice.alike = e.ctx.heldAlike
 	classifyChoice(&choice, fps, nil)
 	choice.Taken = e.ctx.scheduling().choose(choice, nil)
 	choice.Span = states[choice.Taken].Span()
@@ -4297,6 +4299,7 @@ func (e *StateExecutor) stepOrderChoice(due []*doAction, dispatch string) Choice
 	for _, act := range due {
 		steps = unionFootprints(steps, doStepFootprint(e, act.state))
 	}
+	choice.alike = e.ctx.heldAlike
 	classifyChoice(&choice, []lower.Footprint{steps, dispatchFootprint(e)}, nil)
 	return choice
 }

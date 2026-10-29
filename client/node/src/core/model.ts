@@ -13,7 +13,7 @@ import { requireString, requireSourceText } from "./arguments.js";
 import { EvaluationError, OpenSysMLError, ParseError, SymbolNotFoundError } from "./errors.js";
 import { requireLanguage } from "./sources.js";
 import type { ModelDiagnostic } from "./errors.js";
-import type { Conversion } from "./conversion.js";
+import type { Conversion, ConvertOptions } from "./conversion.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
 import type { BindingValues, DocumentQueryResult } from "./document.js";
 import type { RenderedView } from "./render-view.js";
@@ -391,7 +391,7 @@ export class Model {
   /** Writes this model out in `toFormat`. */
   convert(
     toFormat: string,
-    options: { fromFormat?: string; tolerateSyntaxErrors?: boolean } = {},
+    options: ConvertOptions = {},
   ): Promise<Conversion> {
     return this.connection.convert(toFormat, { modelHash: this.hash }, options);
   }

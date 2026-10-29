@@ -2,6 +2,7 @@ package org.openmbee.mdk.magic.tools;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -55,6 +56,36 @@ class BinaryStagerTest {
     Files.writeString(pin, "{\"v1.2.3\":{}}");
     Path staged = Files.createTempDirectory("staged");
     assertThrows(IllegalArgumentException.class, () -> BinaryStager.stage("v9.9.9", staged, "http://127.0.0.1", pin));
+  }
+
+  @Test
+  void stagesFromALocalDirectoryWithoutAPin() throws Exception {
+    Path source = Files.createTempDirectory("binaries");
+    for (String asset : BinaryStager.assets()) Files.write(source.resolve(asset), asset.getBytes());
+    Path staged = Files.createTempDirectory("staged");
+    BinaryStager.main(new String[] {"nightly-20260101-abcdef0", staged.toString(), "--from", source.toString()});
+    for (String asset : BinaryStager.assets()) assertEquals(asset, Files.readString(staged.resolve(asset)));
+    String manifest = Files.readString(staged.resolve("DIGESTS"));
+    assertEquals(5, manifest.lines().count());
+    assertTrue(manifest.contains(BinaryStager.sha256("sysml-grpc-linux-amd64".getBytes()) + "  sysml-grpc-linux-amd64"));
+  }
+
+  @Test
+  void rejectsALocalDirectoryMissingAnAsset() throws IOException {
+    Path source = Files.createTempDirectory("binaries");
+    Files.write(source.resolve("sysml-grpc-linux-amd64"), "service".getBytes());
+    Path staged = Files.createTempDirectory("staged");
+    assertThrows(IOException.class, () -> BinaryStager.stageFrom(source, staged));
+  }
+
+  @Test
+  void anEmptyFromValueStillDownloadsAndChecksThePin() throws IOException {
+    Path pin = Files.createTempFile("digests", ".json");
+    Files.writeString(pin, "{\"v1.2.3\":{}}");
+    Path staged = Files.createTempDirectory("staged");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> BinaryStager.main(new String[] {"v9.9.9", staged.toString(), "--from", "", "--digests", pin.toString()}));
   }
 
   private static HttpServer server(byte[] payload) throws IOException {

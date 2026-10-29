@@ -438,7 +438,7 @@ func doc() usage.Doc {
 					"represent — go on stderr. Every file named is loaded as one " +
 					"model, so a view may expose elements a sibling file declares. " +
 					"-render-form names the form written — text, mermaid, markdown, dot, " +
-					"plantuml, d2, csv or tsv; by default -render takes it from the destination and " +
+					"plantuml, d2, drawio, csv or tsv; by default -render takes it from the destination and " +
 					"-render-all writes each kind's machine form, one file per view named " +
 					"by its qualified name with :: as . and every byte unsafe in a filename " +
 					"(/, \\, :, ., %, control characters, what Windows reserves) as %XX; " +
@@ -448,14 +448,18 @@ func doc() usage.Doc {
 					"package renderings; PlantUML writes those kinds and sequence. D2 writes " +
 					"tree, interconnection, state, action, sequence, requirement, definition " +
 					"and package renderings; case and mixed renderings refuse D2 with a typed " +
-					"error. Table and matrix renderings refuse graph forms with a typed error. Neither " +
-					"Graphviz, PlantUML nor D2 is needed to write graph forms. A table or matrix is " +
+					"error. drawio writes the kinds DOT writes as an uncompressed diagrams.net file that " +
+					"draw.io desktop, diagrams.net and the VS Code draw.io extension open and edit; a view " +
+					"with unplaced members sits on a grid there until Arrange › Layout, or the drawio " +
+					"command line's --normalize --layout elkLayered, arranges it. " +
+					"Table and matrix renderings refuse graph forms with a typed error. Neither " +
+					"Graphviz, PlantUML, D2 nor draw.io is needed to write graph forms. A table or matrix is " +
 					"written as a " +
 					"Markdown table by default, and as comma- or tab-separated values with " +
 					"-render-form csv or tsv: a header record of the columns, then a record " +
 					"per row, quoted as RFC 4180 quotes a field. Graph forms are drawn in the " +
 					"black-and-white style of the SysML v2 Pilot visualizer; -render-palette " +
-					"fills the DOT, Mermaid, PlantUML and D2 nodes by keyword family from a colourblind-safe palette " +
+					"fills the DOT, Mermaid, PlantUML, D2 and drawio nodes by keyword family from a colourblind-safe palette " +
 					"(okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, " +
 					"viridis or cividis), keeping black text legible on every fill. " +
 					"-render-style names the look the DOT and Mermaid forms draw in: pilot (default), " +
@@ -476,7 +480,7 @@ func doc() usage.Doc {
 					"members and the edges between them in every graph form, and leaves a " +
 					"member with no position undrawn: the DOT form pins each at its stated " +
 					"place, so nothing lands on a positioned box, while Mermaid, PlantUML and D2 " +
-					"lay the same members out themselves. -render-unplaced strip draws the " +
+					"lay the same members out themselves and drawio puts them on a grid for draw.io to arrange. -render-unplaced strip draws the " +
 					"unplaced members too, in rows in a strip below a DOT drawing. " +
 					"The same setting shapes the diagrams of -render-document and " +
 					"-render-documents.",
@@ -718,6 +722,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&bundleDir, "bundle", "", "Write this project directory as a project interchange archive (KerML 1.0 §10.3), to -o or to <name>-<version>.kpar; the archive is the same bytes on every run")
 	fs.StringVar(&unbundleFile, "unbundle", "", "Write this project interchange archive (.kpar) out as a project directory, to -o or to <name>-<version>, which must be new or empty")
 	fs.StringVar(&convertFormat, "convert", "", convertUsage())
+	fs.StringVar(&libraryReferencesPath, "library-references", "", "With -convert api-json, write the referenced standard-library name table to this JSON side file; the element array stays unchanged")
+	fs.BoolVar(&includeLibraryStubs, "include-library-stubs", false, "With -convert api-json, restore pre-0.11.0 ownerless library stubs for legacy readers (default off)")
 	fs.StringVar(&fromFormat, "from", "", fromUsage())
 	fs.Var(&dataImports, "import", "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element, before -convert writes the model; an element column names the element and each other column a feature, as `mass [kg]` (repeatable)")
 	fs.StringVar(&importAs, "import-as", "values", "What -import makes of each row: values, which sets the features of the element the row names")
@@ -733,8 +739,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, case, mixed, sequence, table or matrix, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&graphsSubject, "graphs", "", "Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external analysis engine is sent, to stdout or -output")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render, -render-all or -render-run writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix; svg and svg-animated for -render-run); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; default from the destination for -render, each kind's machine form for -render-all")
-	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render, -render-all or -render-run writes: text, mermaid, markdown, dot, plantuml, d2, drawio, csv or tsv (csv and tsv for a table or matrix; svg and svg-animated for -render-run); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; drawio writes the graph-shaped kinds but sequence as a diagrams.net file; default from the destination for -render, each kind's machine form for -render-all")
+	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
 	fs.StringVar(&renderLink, "render-link", "", "Source link template for -render, -render-all, -render-document, -render-documents and -render-run. Placeholders: {file}, {line}, {col}, {qname}, {id}; {file} is the path as loaded (use absolute paths for vscode:// or file:// links)")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderLines, "render-lines", "", "How the dot or plantuml form of -render or -render-all routes its edges: splines (default), each engine's curved routing, ortho, axis-parallel segments, or polyline, straight segments; the Pilot visualizer's ORTHOLINE and POLYLINE styles. Mermaid and D2 note the routing as not represented")
@@ -848,6 +854,8 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Converting and migrating",
 		Options: []usage.Option{
 			usage.Opt("convert", formatArg),
+			usage.Opt("library-references", fileArg),
+			usage.Opt("include-library-stubs", ""),
 			usage.Opt("stdlib", ""),
 			usage.Opt("metaclass-graph", ""),
 			usage.Opt("metamodel-table", ""),

@@ -1,0 +1,25 @@
+{
+	"type": "action",
+	"trace": true,
+	"admissible": "A feature reached through a part stands on the choice points its writers race at",
+	"outcomes": [
+		{
+			"outputs": {
+				"left.raw": {"type": "Integer", "value": 1, "orderDependent": 2},
+				"left.scaled": {"type": "Integer", "value": 10, "orderDependent": 2},
+				"right.raw": {"type": "Integer", "value": 0},
+				"right.scaled": {"type": "Integer", "value": 0},
+				"z": {"type": "Integer", "value": 0}
+			}
+		},
+		{
+			"outputs": {
+				"left.raw": {"type": "Integer", "value": 2, "orderDependent": 2},
+				"left.scaled": {"type": "Integer", "value": 20, "orderDependent": 2},
+				"right.raw": {"type": "Integer", "value": 0},
+				"right.scaled": {"type": "Integer", "value": 0},
+				"z": {"type": "Integer", "value": 0}
+			}
+		}
+	]
+}

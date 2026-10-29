@@ -405,7 +405,7 @@ func (w *validationWalk) heldChildren(fv *FeatureValue, segment string) []heldCh
 		}
 	}
 	for i, val := range elements {
-		reach(val, fmt.Sprintf("%s[%d]", segment, i+1))
+		reach(val, indexedSegment(segment, i))
 	}
 	return out
 }

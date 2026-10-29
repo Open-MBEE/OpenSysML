@@ -16,8 +16,8 @@ import (
 type RenderViewInput struct {
 	Path         string   `json:"path" jsonschema:"the document, absolute or relative to the workspace root"`
 	View         string   `json:"view,omitempty" jsonschema:"the qualified name of a view the document declares, a pseudo-view such as #tree, #interconnection, #state, #action, #sequence or #tree:Pkg::Part (see the views tool), or omitted for the one view the document declares (a document declaring none needs a pseudo-view)"`
-	Form         string   `json:"form,omitempty" jsonschema:"the artifact's notation: mermaid, dot (Graphviz), plantuml, d2, text, markdown, csv or tsv; omitted, markdown for a table or matrix and mermaid otherwise"`
-	Palette      string   `json:"palette,omitempty" jsonschema:"fill colors by keyword family for dot/mermaid/plantuml/d2: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; omitted draws black and white"`
+	Form         string   `json:"form,omitempty" jsonschema:"the artifact's notation: mermaid, dot (Graphviz), plantuml, d2, drawio (an uncompressed diagrams.net file), text, markdown, csv or tsv; omitted, markdown for a table or matrix and mermaid otherwise"`
+	Palette      string   `json:"palette,omitempty" jsonschema:"fill colors by keyword family for dot/mermaid/plantuml/d2/drawio: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; omitted draws black and white"`
 	Style        string   `json:"style,omitempty" jsonschema:"the drawing style of dot/mermaid: pilot (the default, the Pilot visualizer's look) or cameo (Cameo Systems Modeler's)"`
 	Ports        string   `json:"ports,omitempty" jsonschema:"ports drawn on an interconnection or mixed rendering: minimal (the default, only connected ports) or full (every port, labelled name : Type)"`
 	Lines        string   `json:"lines,omitempty" jsonschema:"how dot and plantuml route edges: splines (the default), ortho or polyline"`
@@ -42,7 +42,7 @@ type NoInput struct{}
 func registerRendering(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "render_view",
-		Description: "Render a diagram or table of a document: a declared view or a pseudo-view, as Mermaid, Graphviz dot, PlantUML, D2, text, Markdown, CSV or TSV. " +
+		Description: "Render a diagram or table of a document: a declared view or a pseudo-view, as Mermaid, Graphviz dot, PlantUML, D2, draw.io (diagrams.net XML), text, Markdown, CSV or TSV. " +
 			"The result also lists the nodes and edges drawn with their qualified names (for apply_model_edit) and their declaration ranges in LSP form (0-based).",
 		Annotations: toolkit.ReadOnly("Render view"),
 	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in RenderViewInput) (*mcp.CallToolResult, *lsp.RenderResult, error) {

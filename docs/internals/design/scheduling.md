@@ -113,8 +113,19 @@ already uses — `check_reduce.go`, `future_footprint.go`; there is no second co
   `Footprint.DependentBy` pairwise over the footprints less control convergence (meeting at a join
   or both completing a performance changes no value). No dependent pair: the alternatives commute,
   the choice is `Independent`, and the run's values do not depend on it. A dependent pair: the
-  choice is unresolved, and `Touches` names the features a write of either meets in the other
-  (`Relation.PlaceMeets`); a pair that meets only on a channel or through a dynamic target
+  choice is unresolved, and `Touches` names the places whose values the order decides
+  (`touchMeeting`, `Relation.PlaceMeets`): a place both alternatives write, and, where a write of
+  one meets a *read* of the other, what the reading alternative writes from that read — the
+  statements of its body whose flow reads the place (`lower.Footprint.Flows`, one data flow per
+  statement, `Footprint.WritesReading`), or every write of the alternative when the read is not a
+  statement's (a guard's) or the move is described whole. The rule throughout: a value is marked
+  if and only if exploration proves more than one outcome for it. So the place read is not
+  touched by the meeting — a once-written feature read by a racing sibling holds one value
+  whichever order ran, and a mark on it would assert an openness exploration refutes — while
+  what the reader writes from it is (`action_order_sibling_read_of_racing_write`: `z` open, `x`
+  bare). A pin is
+  each performance's own, delivered to rather than raced for, and is neither touched nor a read
+  that touches (`shared`). A pair that meets only on a channel or through a dynamic target
   (`Footprint.Dynamic`: a property read or a chained target the declarations do not decide) touches
   every write of both, conservatively.
 - `classifyExclusive` is for alternatives of which one runs and the others do not — a decision's
@@ -172,7 +183,19 @@ tracker and never by re-reading declarations in the runtime:
   the places behind `Touches`) with itself (`orderMarks.seed`, from `Context.noteFrom`): another
   order may have written them otherwise. A value reported under a name reads the marks of the
   places that name denotes as `choiceTouches` resolves them (`placeNamed`: a bare name is the
-  behavior's own feature, `this.<name>` the performing object's).
+  behavior's own feature, `this.<name>` the performing object's, `<part>.<name>` a feature of the
+  object a part of the behavior denotes, which no performer owns). A place is the feature written
+  whatever path reaches it: `assign sensor.raw := 1` through the part `sensor` writes the place of
+  `Sensor::raw` (`footprintBuilder.path`), the same place a later `sensor.raw` reads, so a chained
+  feature stands open where a plain one would (`action_order_chained_write_of_racing_writers`,
+  `action_order_chained_two_level_write`). The place remembers the feature it was reached
+  through (`Place.Via`, the part's object `Instance.heldBy` for a write or derivation the run
+  makes); whether two such places hold one value is the run's to say (`Context.heldAlike`: the
+  parts denote an object in common), not the declarations' (`Place.Conflicts` stays
+  conservative for the checker's reduction, as features may alias). So `left.raw` racing
+  leaves `right.raw`, `right.scaled` and a read of them bare, while `twin = cell` writing
+  `twin.mark` races `cell.mark` (`action_order_chained_parts_apart`,
+  `action_order_chained_alias_of_racing_writers`).
 - **Propagate.** A move with footprint `fp` that writes `w` leaves `w` standing on what `fp` read
   — the union of the marks of every place in `fp.Reads` — together with the *control* the move
   runs under; a footprint the declarations do not decide (`fp.Dynamic`: a property read, a chained
@@ -182,7 +205,14 @@ tracker and never by re-reading declarations in the runtime:
   performance's inputs stand on what they are bound from as it begins and its outputs, as it ends,
   on those and on what its body left on its own pins (`performances.markPerformance` over
   `BindingFootprints`: features, pin bindings, flows and the accepted payload, less the body's
-  statements, which are recorded one by one).
+  statements, which are recorded one by one). A feature valued by an expression is rewritten with
+  what its expression read as it is derived, the behavior's own (`deriveBodyCell`) and an object's
+  (`Instance.materializeDerived`: `sensor.scaled = raw * 10` stands where `raw` does) alike
+  (`Context.deriveMarks` over `lower.ExpressionFootprint`). Reporting reads under the run that
+  produced the values: `ActionExecutor.ResultsWithError` derives what a part's object holds under
+  the executor's own run state (`enterRun`), since a derivation begun as a run of its own would
+  install a fresh state and the marks of the run just ended would be gone before the surface read
+  them — which is how a value reached through a part was once reported bare.
 - **Clear.** Since the write *replaces* the marks of `w`, a write that reads nothing
   order-dependent, under no control, clears `w` from that point on: the mark describes the value.
   It replaces the marks of the one declaration it writes (`samePlace`): a same-named feature of

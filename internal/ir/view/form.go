@@ -27,6 +27,8 @@ const (
 	FormPlantUML Form = "plantuml"
 	// FormD2 is a D2 diagram of a graph-shaped or sequence rendering.
 	FormD2 Form = "d2"
+	// FormDrawio is an uncompressed diagrams.net (draw.io) file.
+	FormDrawio Form = "drawio"
 	// FormCSV is comma-separated values of a tabular rendering.
 	FormCSV Form = "csv"
 	// FormTSV is tab-separated values of a tabular rendering.
@@ -41,13 +43,13 @@ const (
 // Forms are the forms a rendering can be asked for, in the order they are
 // offered.
 func Forms() []Form {
-	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV, FormSVG, FormSVGAnimated}
+	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormDrawio, FormCSV, FormTSV, FormSVG, FormSVGAnimated}
 }
 
 // ViewForms are the forms a model view is written in: every form but the
 // run-only SVG forms, which draw a recorded run and no model view.
 func ViewForms() []Form {
-	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV}
+	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormDrawio, FormCSV, FormTSV}
 }
 
 // DiagramForms are the forms a document render writes its graph-shaped
@@ -113,6 +115,11 @@ func (k Kind) SupportsForm(form Form) bool {
 	case FormD2:
 		switch k {
 		case KindTree, KindInterconnection, KindState, KindAction, KindSequence, KindRequirement, KindDefinition, KindPackage:
+			return true
+		}
+	case FormDrawio:
+		switch k {
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 			return true
 		}
 	}
@@ -261,7 +268,7 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 	switch form {
 	case FormText:
 		return r.textWith(options), nil
-	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV, FormSVG, FormSVGAnimated:
+	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormDrawio, FormCSV, FormTSV, FormSVG, FormSVGAnimated:
 		if !r.supportsForm(form) {
 			return "", r.wrongFormError(form)
 		}
@@ -278,6 +285,8 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 			return r.DOTWith(options)
 		case FormPlantUML:
 			return r.PlantUMLWith(options)
+		case FormDrawio:
+			return r.DrawioWith(options)
 		case FormD2:
 			return r.D2With(options)
 		case FormMermaid:

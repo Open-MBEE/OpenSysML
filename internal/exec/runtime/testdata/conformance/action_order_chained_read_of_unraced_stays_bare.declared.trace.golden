@@ -1,0 +1,25 @@
+step 1: token 1@prime
+stmt assign sensor.raw
+  eval literal 7 -> 7
+materialize: sensor #1
+step 2: token 1@split
+step 3: token 2@a, token 3@b
+stmt assign x
+  eval literal 1 -> 1
+stmt assign x
+  eval literal 2 -> 2
+choice step 4: writes x := 1 by token 2, x := 2 by token 3 (unordered; x := 2 by token 3 stood; order-dependent: x)
+choice step 4: tokens 2@a, 3@b (unordered; took 2@a first; order-dependent: x)
+step 4: token 2@sync, token 3@sync
+step 5: token 4@derive
+stmt assign z
+  eval chain raw -> 7
+stmt assign zz
+      eval feature raw -> 7
+      eval literal 10 -> 10
+    eval operator * -> 70
+  eval chain scaled -> 70
+stmt assign w
+  eval feature x -> 2
+step 6: token 4@done
+step 7: no active tokens

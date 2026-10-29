@@ -39,7 +39,7 @@ func TestAPIJSONFeatureChainResolvesInheritedMember(t *testing.T) {
 		{Subject: member, Predicate: rdf.SysMLTerm(pOwningRelatedElement), Object: base},
 	}, nil)
 
-	index := newAPIJSONNameIndex(graph)
+	index := testAPIJSONNameIndex(graph)
 	if got, ok := index.chainTargets[second.Value]; !ok || got.reference.ID != rdf.ReferenceID(chain, member) {
 		t.Fatalf("inherited chain target = %#v, want reference to %s", got, member.Value)
 	}
@@ -96,7 +96,7 @@ func TestAPIJSONFeatureChainPreservesExpressionTargetForLaterLink(t *testing.T) 
 		{Subject: wheel, Predicate: rdf.SysMLTerm(pDeclaredName), Object: rdf.String("wheel")},
 		{Subject: wheel, Predicate: rdf.SysMLTerm(pOwningRelatedElement), Object: vehicle},
 	}, nil)
-	index := newAPIJSONNameIndex(graph)
+	index := testAPIJSONNameIndex(graph)
 
 	resolved, unresolved := apiJSONResolveFeatureChain(graph, index, chain, []any{
 		apiJSONReference{ID: rdf.ReferenceID(chain, expressionFeature)},
@@ -187,7 +187,7 @@ func TestAPIJSONFeatureChainDoesNotFallBackToCatalog(t *testing.T) {
 		{Subject: v, Predicate: rdf.SysMLTerm(pOwner), Object: owner},
 		{Subject: v, Predicate: rdf.SysMLTerm("type"), Object: vehicle},
 	}, nil)
-	index := newAPIJSONNameIndex(graph)
+	index := testAPIJSONNameIndex(graph)
 
 	var libraryDone rdf.Term
 	if element, ok := index.catalog.ElementNamed("done"); ok && element.ID != "" {
@@ -263,7 +263,7 @@ func TestAPIJSONGraphNameResolutionUsesShortNames(t *testing.T) {
 				)
 			}
 			graph := rdf.NewGraphOf(triples, nil)
-			index := newAPIJSONNameIndex(graph)
+			index := testAPIJSONNameIndex(graph)
 			value, unresolved := apiJSONResolveNameReference(
 				graph, index, subject, pTarget, apiJSONNameReference{name: "motor"},
 			)
@@ -279,7 +279,7 @@ func TestAPIJSONGraphNameResolutionUsesShortNames(t *testing.T) {
 }
 
 func TestAPIJSONFeatureChainResolvesLibraryMemberInType(t *testing.T) {
-	index := newAPIJSONNameIndex(rdf.NewGraph())
+	index := testAPIJSONNameIndex(rdf.NewGraph())
 	var libraryType, libraryMember rdf.Term
 	var memberName string
 	for _, member := range index.catalog.Elements() {
@@ -323,7 +323,7 @@ func TestAPIJSONFeatureChainSearchesAllEffectiveTypes(t *testing.T) {
 		{Subject: firstMember, Predicate: rdf.SysMLTerm(pOwner), Object: firstType},
 	}
 	graph := rdf.NewGraphOf(triples, nil)
-	index := newAPIJSONNameIndex(graph)
+	index := testAPIJSONNameIndex(graph)
 	if got := apiJSONGraphNamedTargetInTypes(graph, index, []rdf.Term{firstType, secondType}, "done"); got != firstMember {
 		t.Fatalf("unique member across effective types = %s, want %s", got.Value, firstMember.Value)
 	}
@@ -333,14 +333,14 @@ func TestAPIJSONFeatureChainSearchesAllEffectiveTypes(t *testing.T) {
 		rdf.Triple{Subject: secondMember, Predicate: rdf.SysMLTerm(pDeclaredName), Object: rdf.String("done")},
 		rdf.Triple{Subject: secondMember, Predicate: rdf.SysMLTerm(pOwner), Object: secondType},
 	), nil)
-	index = newAPIJSONNameIndex(graph)
+	index = testAPIJSONNameIndex(graph)
 	if got := apiJSONGraphNamedTargetInTypes(graph, index, []rdf.Term{firstType, secondType}, "done"); got.Value != "" {
 		t.Fatalf("ambiguous member across effective types = %s, want unresolved", got.Value)
 	}
 }
 
 func TestAPIJSONFeatureChainUsesCatalogTypeForLibraryStub(t *testing.T) {
-	catalogIndex := newAPIJSONNameIndex(rdf.NewGraph())
+	catalogIndex := testAPIJSONNameIndex(rdf.NewGraph())
 	part, ok := catalogIndex.catalog.ElementNamed("Parts::Part")
 	if !ok || part.ID == "" {
 		t.Fatal("library catalog has no Parts::Part")
@@ -378,7 +378,7 @@ func TestAPIJSONFeatureChainUsesCatalogTypeForLibraryStub(t *testing.T) {
 		)
 	}
 	graph := rdf.NewGraphOf(triples, nil)
-	index := newAPIJSONNameIndex(graph)
+	index := testAPIJSONNameIndex(graph)
 	for _, subject := range graph.SubjectsView() {
 		if subject == start {
 			t.Fatalf("middle library member %s unexpectedly has a graph description", start.Value)
@@ -402,7 +402,7 @@ func TestAPIJSONFeatureChainUsesCatalogTypeForLibraryStub(t *testing.T) {
 }
 
 func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
-	catalogIndex := newAPIJSONNameIndex(rdf.NewGraph())
+	catalogIndex := testAPIJSONNameIndex(rdf.NewGraph())
 	part, ok := catalogIndex.catalog.ElementNamed("Parts::Part")
 	if !ok || part.ID == "" {
 		t.Fatal("library catalog has no Parts::Part")
@@ -457,7 +457,7 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 	}
 
 	graph := makeGraph(names[len(names)-1])
-	index := newAPIJSONNameIndex(graph)
+	index := testAPIJSONNameIndex(graph)
 	resolved, unresolved := apiJSONResolveFeatureChain(graph, index, chain, []any{
 		apiJSONNameReference{name: names[0]},
 		apiJSONNameReference{name: names[1]},
@@ -602,7 +602,7 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 	}
 
 	graph = makeGraph("not-a-member")
-	index = newAPIJSONNameIndex(graph)
+	index = testAPIJSONNameIndex(graph)
 	_, unresolved = apiJSONResolveFeatureChain(graph, index, chain, []any{
 		apiJSONNameReference{name: names[0]},
 		apiJSONNameReference{name: "not-a-member"},
@@ -743,4 +743,8 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 	if !slices.Contains(diagnostics, "unresolved API JSON reference FeatureChaining.target: not-a-member") {
 		t.Fatalf("unresolved FeatureChaining target diagnostic not emitted: %v", diagnostics)
 	}
+}
+
+func testAPIJSONNameIndex(graph *rdf.Graph) *apiJSONNameIndex {
+	return newAPIJSONNameIndex(graph, newAPIJSONGraphIndex(graph, graph.SubjectsView()))
 }

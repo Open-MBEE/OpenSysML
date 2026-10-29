@@ -20,12 +20,16 @@ import (
 // (nil when unresolved) and the name; Local marks a pin, held per performance.
 // State marks the activity of a state, which a transition reads and writes.
 // Direct marks a name written alone, not reached through a chain or qualified.
+// Via is the feature whose value holds the one a chain names (`left` in
+// `left.raw`), nil for a name reached no such way; whether two such places hold
+// one value is the run's to decide (features may alias), so Conflicts ignores it.
 type Place struct {
 	Sym    *symbols.Symbol
 	Name   string
 	Local  bool
 	State  *ast.StateNode
 	Direct bool
+	Via    *symbols.Symbol
 	// Node is the node whose pin the place is, each performance of a node holding
 	// its own; nil for a feature or a declaration's own value.
 	Node ast.Node
@@ -106,6 +110,46 @@ type Footprint struct {
 	Dynamic    bool
 	Creates    bool
 	Routes     bool
+	// Flows are the data flows of the move's statements, one each: what the
+	// statement writes stands on what it reads. None for a move described whole.
+	Flows []Flow
+}
+
+// Flow is one statement's data flow: its writes stand on its reads.
+type Flow struct {
+	Reads  []Place
+	Writes []Place
+}
+
+// WritesReading are the places the move writes standing on a read of a place
+// among reads: the writes of the statements reading one, or every write of the
+// move when a read outside its statements (a guard's) or a move described whole does.
+func (f Footprint) WritesReading(reads func(Place) bool) []Place {
+	var out []Place
+	inFlow := false
+	for _, flow := range f.Flows {
+		if slices.ContainsFunc(flow.Reads, reads) {
+			inFlow = true
+			for _, p := range flow.Writes {
+				out = appendPlace(out, f.writeOf(p))
+			}
+		}
+	}
+	if !inFlow {
+		return f.Writes
+	}
+	return out
+}
+
+// writeOf is the move's write of the place a flow names, as the move holds it
+// (a pin stamped with its performance), else the place as named.
+func (f Footprint) writeOf(p Place) Place {
+	for _, w := range f.Writes {
+		if w.Sym == p.Sym && w.Name == p.Name {
+			return w
+		}
+	}
+	return p
 }
 
 // Dependent reports whether the two moves may not commute: a data race, both
@@ -478,7 +522,11 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 	sym, _ := resolve.FeatureSymbolInScope(scope, segments)
 	local := sym != nil && b.declaredByNode(sym)
 	direct := len(segments) == 1
-	each(Place{Sym: sym, Name: name, Local: local, Direct: direct})
+	var via *symbols.Symbol
+	if !direct {
+		via, _ = resolve.FeatureSymbolInScope(scope, segments[:len(segments)-1])
+	}
+	each(Place{Sym: sym, Name: name, Local: local, Direct: direct, Via: via})
 	if sym == nil {
 		return nil
 	}
@@ -491,7 +539,7 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
 		for _, redefined := range redefinedNames(usage) {
 			if redefined != name {
-				each(Place{Sym: sym, Name: redefined, Local: local, Direct: direct})
+				each(Place{Sym: sym, Name: redefined, Local: local, Direct: direct, Via: via})
 			}
 		}
 		b.calcUsage(sym, usage)
@@ -795,9 +843,14 @@ func (b *footprintBuilder) invokesDeclaredBehavior(scope *symbols.Scope, qn *ast
 }
 
 // statements adds what a body's statements touch, blocks and their own flows included.
+// statements adds a body's statements, each built apart so its own flow is kept.
 func (b *footprintBuilder) statements(stmts []Statement) {
 	for _, stmt := range stmts {
-		b.statement(stmt)
+		sub := &footprintBuilder{resolver: b.resolver, graph: b.graph, node: b.node, scope: b.scope,
+			declared: b.declared, localDeclarations: b.localDeclarations}
+		sub.statement(stmt)
+		b.merge(sub.footprint)
+		b.footprint.Flows = append(b.footprint.Flows, Flow{Reads: sub.footprint.Reads, Writes: sub.footprint.Writes})
 	}
 }
 
@@ -982,6 +1035,7 @@ func (b *footprintBuilder) merge(other Footprint) {
 	b.footprint.Dynamic = b.footprint.Dynamic || other.Dynamic
 	b.footprint.Creates = b.footprint.Creates || other.Creates
 	b.footprint.Routes = b.footprint.Routes || other.Routes
+	b.footprint.Flows = append(b.footprint.Flows, other.Flows...)
 }
 
 // plainType reports whether constructing the named type creates an object that

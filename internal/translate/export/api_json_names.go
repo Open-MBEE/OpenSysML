@@ -57,22 +57,11 @@ type apiJSONCatalogNameIndex struct {
 
 var apiJSONCatalogNameIndexes sync.Map
 
-func newAPIJSONNameIndex(graph *rdf.Graph) *apiJSONNameIndex {
-	return newAPIJSONNameIndexWithSubjectSlots(graph, nil)
-}
-
-func newAPIJSONNameIndexWithSubjectSlots(graph *rdf.Graph, subjectSlots map[string]int) *apiJSONNameIndex {
+// newAPIJSONNameIndex indexes the names of graph, the settled graph the shared index was built for.
+func newAPIJSONNameIndex(graph *rdf.Graph, graphIndex *apiJSONGraphIndex) *apiJSONNameIndex {
 	catalog := identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
-	var subjects []rdf.Term
-	if graph != nil {
-		subjects = graph.SubjectsView()
-	}
-	if subjectSlots == nil {
-		subjectSlots = make(map[string]int, len(subjects))
-		for position, subject := range subjects {
-			subjectSlots[subject.Value] = position
-		}
-	}
+	subjects := graphIndex.subjects[:graphIndex.settled]
+	subjectSlots := graphIndex.slots
 	index := &apiJSONNameIndex{
 		subjectSlots:       subjectSlots,
 		subjects:           subjects,
