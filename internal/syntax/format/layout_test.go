@@ -72,6 +72,8 @@ func TestBreakStatementsLeavesExpressionBodies(t *testing.T) {
 			"package Q {\n    attribute total = {in x; x} + 1;\n    attribute s = xs->reduce {in a; in b; a + b} + 1;\n}\n"},
 		{"calc def C { in x; {in y; y} + x }\n",
 			"calc def C {\n    in x;\n    {in y; y} + x\n}\n"},
+		{"calc def N { in x; -x }\n", "calc def N {\n    in x;\n    -x\n}\n"},
+		{"calc def P { in x; +x }\n", "calc def P {\n    in x;\n    +x\n}\n"},
 	}
 	for _, tc := range cases {
 		if got := layout(t, tc.src); got != tc.want {

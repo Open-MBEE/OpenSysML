@@ -116,7 +116,7 @@ func (f *formatter) breakBefore(tok lexer.Token) bool {
 			// `default {true} {` goes on; a result expression after `;` does not.
 			return f.lastCode != lexer.RBrace
 		}
-		return !joinsStatement(tok)
+		return !joinsStatement(tok, f.lastCode)
 	}
 	return tok.Kind == lexer.RBrace && f.innermost() == multiBody
 }
@@ -169,23 +169,27 @@ func (f *formatter) innermost() braceKind {
 }
 
 // joinsStatement reports whether tok continues the statement whose body or
-// `;` came before it, so the two stay on one line: `} then Idle;`, `} else {`,
-// `} until x;`, `entry; then Idle;`. An operator that no
-// statement can begin with joins too, so a brace that was an operand after
-// all (`{in x; x} + 1`) is not split from its expression.
-func joinsStatement(tok lexer.Token) bool {
+// `;` (after) came before it, so the two stay on one line: `} then Idle;`,
+// `} else {`, `} until x;`, `entry; then Idle;`. After a `}` an infix
+// operator joins too, so a brace that was an operand after all
+// (`{in x; x} + 1`) is not split from its expression; after a `;` it does
+// not, since `-x` there is a result expression of its own.
+func joinsStatement(tok lexer.Token, after lexer.Kind) bool {
 	switch tok.Kind {
-	case lexer.Semicolon, lexer.Comma, lexer.RParen, lexer.RBracket,
-		lexer.Pipe, lexer.Amp, lexer.EqEq, lexer.NotEq, lexer.EqEqEq, lexer.NotEqEq,
+	case lexer.Semicolon, lexer.Comma, lexer.RParen, lexer.RBracket:
+		return true
+	case lexer.Pipe, lexer.Amp, lexer.EqEq, lexer.NotEq, lexer.EqEqEq, lexer.NotEqEq,
 		lexer.Lt, lexer.Gt, lexer.Le, lexer.Ge, lexer.DotDot,
 		lexer.Plus, lexer.Minus, lexer.Star, lexer.Slash, lexer.Percent,
 		lexer.StarStar, lexer.Caret, lexer.Dot, lexer.Arrow, lexer.DotQuestion,
 		lexer.Question, lexer.QuestionQ:
-		return true
+		return after == lexer.RBrace
 	case lexer.Keyword:
 		switch tok.KeywordID {
-		case "then", "else", "until", "and", "or", "xor", "implies", "istype", "hastype", "as":
+		case "then", "else", "until":
 			return true
+		case "and", "or", "xor", "implies", "istype", "hastype", "as":
+			return after == lexer.RBrace
 		}
 	}
 	return false
