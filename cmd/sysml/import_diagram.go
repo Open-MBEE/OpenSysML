@@ -171,6 +171,10 @@ func stageEdited(target string, content []byte, perm fs.FileMode) (string, error
 // reportDrawioImport lists the edits an import plans and what it leaves alone.
 func reportDrawioImport(imp *view.DrawioImport) {
 	for _, e := range imp.Edits {
+		if e.Kind == view.DrawioEditRename {
+			fmt.Fprintf(os.Stdout, "%s %s to %s\n", e.Kind, drawioEditTarget(e), e.NewName)
+			continue
+		}
 		fmt.Fprintf(os.Stdout, "%s about %s\n", e.Kind, drawioEditTarget(e))
 	}
 	for _, name := range imp.Unmatched {

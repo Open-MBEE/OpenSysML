@@ -34,10 +34,11 @@ type ImportDiagramParams struct {
 // ImportDiagramEdit is one edit the import plans: the annotation kind, the
 // element it is about, and the file cell it comes from.
 type ImportDiagramEdit struct {
-	Kind   string `json:"kind"`
-	Target string `json:"target,omitempty"`
-	Label  string `json:"label,omitempty"`
-	Cell   string `json:"cell"`
+	Kind    string `json:"kind"`
+	Target  string `json:"target,omitempty"`
+	NewName string `json:"newName,omitempty"`
+	Label   string `json:"label,omitempty"`
+	Cell    string `json:"cell"`
 }
 
 // ImportDiagramResult is what the import plans and what it leaves alone, and
@@ -125,7 +126,7 @@ func (s *Server) ImportDiagram(params *ImportDiagramParams) (*ImportDiagramResul
 		out.Unknown = append(out.Unknown, cell.ID)
 	}
 	for _, e := range imp.Edits {
-		out.Edits = append(out.Edits, ImportDiagramEdit{Kind: e.Kind.String(), Target: importTarget(e), Label: e.Label, Cell: e.Cell})
+		out.Edits = append(out.Edits, ImportDiagramEdit{Kind: e.Kind.String(), Target: importTarget(e), NewName: e.NewName, Label: e.Label, Cell: e.Cell})
 	}
 	if len(imp.Edits) == 0 {
 		return out, nil
