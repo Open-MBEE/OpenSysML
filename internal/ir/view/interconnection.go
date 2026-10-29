@@ -46,7 +46,7 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 				ports = append(ports, elem)
 				continue
 			}
-			out.Roots = append(out.Roots, w.featureNode(elem, expansion{}, 0, true))
+			out.Roots = append(out.Roots, w.featureNode(elem, nil, expansion{}, 0, true))
 		default:
 			out.Notices = append(out.Notices, fmt.Sprintf(
 				"%s %s has no place in an interconnection rendering; it is not shown",
@@ -72,7 +72,7 @@ func (w *featureWalk) exposedPorts(ports []*symbols.Symbol) {
 		}
 		sites := w.pinSites(port)
 		if len(sites) == 0 {
-			w.out.Roots = append(w.out.Roots, w.featureNode(port, expansion{}, 0, true))
+			w.out.Roots = append(w.out.Roots, w.featureNode(port, nil, expansion{}, 0, true))
 			continue
 		}
 		for _, site := range sites {
@@ -201,15 +201,15 @@ func (w *featureWalk) drawsFeature(sym *symbols.Symbol) bool {
 // featureNode renders one exposed feature and the features nested in it,
 // collecting the connectors declared along the way, which join the nodes it
 // renders. A member it has from its type and pins is not drawn nested as well.
-func (w *featureWalk) featureNode(sym *symbols.Symbol, path expansion, depth int, qualified bool) *Node {
+func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, depth int, qualified bool) *Node {
 	r := w.r
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: r.headType(sym), Typings: r.headTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
-		Style: r.styleOf(w.view, sym, w.out)}
+		Type: r.headType(sym), Typings: r.headTypings(sym), Origin: symbolOrigin(sym), Geometry: r.inheritedGeometryOf(w.view, owner, sym, w.out),
+		Style: r.inheritedStyleOf(w.view, owner, sym, w.out)}
 	if path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown as "+w.node(sym).ID)
 		return node
@@ -248,7 +248,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, path expansion, depth int
 		case isReferencedIncludedCase(member):
 			// an `include u;` is drawn by the connection to the case it names
 		case w.drawsFeature(member):
-			child := w.featureNode(member, path, depth+1, false)
+			child := w.featureNode(member, sym, path, depth+1, false)
 			child.Inherited = member.Owner() != sym
 			w.parent[child] = node
 			node.Children = append(node.Children, child)

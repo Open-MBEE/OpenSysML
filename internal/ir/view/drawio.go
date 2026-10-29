@@ -21,17 +21,29 @@ func (r *Rendering) Drawio() (string, error) { return r.DrawioWith(Options{}) }
 // DrawioWith writes the rendering as a draw.io file under options; every semantic
 // cell is an <object> carrying the element's qualified name, kind, view and declaration.
 func (r *Rendering) DrawioWith(options Options) (string, error) {
+	r, w, err := r.drawioPrepare(options)
+	if err != nil {
+		return "", err
+	}
+	return w.document(r, options), nil
+}
+
+// drawioPrepare checks options and normalizes the rendering the way the file
+// shows it — shown elements, folded compartments, stand-ins dropped, partial
+// placement omitted — and settles every box, so that the rendering returned is
+// the one whose node ids and edge indices the file's cell ids name.
+func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, error) {
 	if !r.supportsForm(FormDrawio) {
-		return "", r.wrongFormError(FormDrawio)
+		return nil, nil, r.wrongFormError(FormDrawio)
 	}
 	if err := options.Palette.check(); err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	if err := options.Unplaced.check(); err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	if err := options.Ports.check(); err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	r = r.showing(options.Show)
 	if options.Unplaced != UnplacedStrip || options.Compartments.automatic() {
@@ -63,13 +75,13 @@ func (r *Rendering) DrawioWith(options Options) (string, error) {
 	w.layout(r)
 	edges, err := w.routeEdges(r)
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	routed := *r
 	routed.Edges = edges
 	r = &routed
 	w.edgeIDs = drawioEdgeIDs(r.Edges)
-	return w.document(r, options), nil
+	return r, w, nil
 }
 
 // drawioWriter composes one draw.io file from a rendering.
@@ -290,14 +302,18 @@ func (w *drawioWriter) fitted(node *Node) drawioBox {
 	if len(node.Children) == 0 {
 		return drawioBox{Width: width, Height: height}
 	}
-	// Children are settled from a provisional corner so their extent is known;
-	// settle moves them to the final one afterwards.
+	// Children are settled from the container's corner, placed ones sitting at
+	// their absolute Layouts, so their extent is known; settle moves them after.
+	corner := drawioBox{Width: width, Height: height}
+	if g := node.Geometry; g.placed() {
+		corner.X, corner.Y = g.X, g.Y
+	}
 	probe := &drawioWriter{labels: w.labels, ports: w.ports, boxes: map[string]drawioBox{}}
-	probe.settleChildren(node, drawioBox{Width: width, Height: height})
+	probe.settleChildren(node, corner)
 	right, bottom := 0.0, 0.0
 	for _, child := range node.Children {
-		right = math.Max(right, probe.boxes[child.ID].right())
-		bottom = math.Max(bottom, probe.boxes[child.ID].bottom())
+		right = math.Max(right, probe.boxes[child.ID].right()-corner.X)
+		bottom = math.Max(bottom, probe.boxes[child.ID].bottom()-corner.Y)
 	}
 	return drawioBox{Width: math.Max(width, right+drawioNestedPad), Height: math.Max(height, bottom+drawioNestedPad)}
 }
@@ -558,8 +574,12 @@ func (w *drawioWriter) siteName(origin Origin) string {
 }
 
 // fqnOf is a node's qualified name from its label: a root's name as the view
-// exposes it, a nested node's under its container's; a synthesized name is none.
+// exposes it, a nested node's under its container's; a synthesized name is none,
+// but a start or done is the owner's member a Layout names it as.
 func fqnOf(node *Node, parent string) string {
+	if node.Member != "" && parent != "" {
+		return parent + "::" + node.Member
+	}
 	if node.Name == "" || node.NameSynthesized {
 		return ""
 	}

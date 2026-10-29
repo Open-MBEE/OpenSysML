@@ -241,8 +241,8 @@ func TestPicturesReachTheRenderingAndTheDOTForm(t *testing.T) {
 		{Location: "images/bench.png", Dir: ".", X: 0, Y: 0, Width: 823, Height: 577, Alt: "the bench, from above"},
 		{Location: "images/logo.png", Dir: ".", X: 700, Y: 20, Width: 80, Height: 40, Above: true},
 	}
-	if !reflect.DeepEqual(rendering.Pictures, want) {
-		t.Errorf("pictures = %+v, want %+v", rendering.Pictures, want)
+	if got := picturesWithoutOrigins(t, rendering.Pictures, "pictures.sysml", "pictures.sysml"); !reflect.DeepEqual(got, want) {
+		t.Errorf("pictures = %+v, want %+v", got, want)
 	}
 	if rendering.Empty() || !rendering.Positioned() {
 		t.Errorf("a view of placed parts and pictures is empty=%v positioned=%v", rendering.Empty(), rendering.Positioned())
@@ -345,8 +345,8 @@ func TestPictureStatedElsewhereIsLocatedFromItsOwnFile(t *testing.T) {
 		{Location: "images/bench.png", Dir: "model", X: 0, Y: 0, Width: 400, Height: 300},
 		{Location: "images/logo.png", Dir: filepath.Join("docs", "overlay"), X: 10, Y: 10, Width: 80, Height: 40, Above: true},
 	}
-	if !reflect.DeepEqual(rendering.Pictures, want) {
-		t.Errorf("pictures = %+v, want %+v", rendering.Pictures, want)
+	if got := picturesWithoutOrigins(t, rendering.Pictures, filepath.Join("model", "site.sysml"), filepath.Join("docs", "overlay", "overlay.sysml")); !reflect.DeepEqual(got, want) {
+		t.Errorf("pictures = %+v, want %+v", got, want)
 	}
 	dot, err := rendering.DOT()
 	if err != nil {
@@ -539,4 +539,19 @@ func TestPicturePath(t *testing.T) {
 			t.Errorf("%+v.Path() = %q, want %q", c.picture, got, c.want)
 		}
 	}
+}
+
+// picturesWithoutOrigins checks that each picture's Origin names the file it was
+// declared in, then returns the pictures with their Origins cleared.
+func picturesWithoutOrigins(t *testing.T, pictures []Picture, docs ...string) []Picture {
+	t.Helper()
+	out := make([]Picture, len(pictures))
+	for i, p := range pictures {
+		if i < len(docs) && p.Origin.Doc != docs[i] {
+			t.Errorf("picture %d declared in %q, want %q", i, p.Origin.Doc, docs[i])
+		}
+		p.Origin = Origin{}
+		out[i] = p
+	}
+	return out
 }

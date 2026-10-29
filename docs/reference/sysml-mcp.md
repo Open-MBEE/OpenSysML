@@ -251,7 +251,7 @@ without this page.
 
 | Tool | Does | Writes |
 |---|---|---|
-| `apply_model_edit` | Edit a model by operations on its elements rather than by text: setValue, rename, addMember, addConnection, addSequence (action-body items), delete, move, and the diagram-layout annotations setLayout, setRoute, setCanvas, setStyle. | yes |
+| `apply_model_edit` | Edit a model by operations on its elements rather than by text: setValue, rename, addMember, addConnection, addSequence (action-body items), delete, move, and the diagram-layout annotations setLayout, setRoute, setCanvas, setStyle, setNote, setPicture. | yes |
 | `close_document` | Release a document held open by open_document: the server goes back to the file on disk (or forgets the document when there is no file). | yes |
 | `code_actions` | List the quick fixes and refactorings available for a range of a document, each with the edits it would make. | no |
 | `completion` | Propose completions at a position: keywords, names in scope and members of the type being accessed. | no |
@@ -260,6 +260,7 @@ without this page.
 | `documents` | List the document definitions (doc def) declared across the workspace, which render_document renders to Markdown. | no |
 | `format` | Format a SysML v2 / KerML document, or only the lines of a range, in the canonical style. | yes |
 | `hover` | Explain the element at a position: its kind, qualified name, type, value and documentation, as Markdown. | no |
+| `import_diagram` | Import a draw.io file render_view wrote with form drawio and a user edited, as DiagramLayout annotations in the view's body; a dry run until apply. | yes |
 | `inlay_hints` | List the inferred types and values the editor would show inline for the features of a document or range. | no |
 | `open_document` | Hold a document open with the given text, as an editor buffer the server analyzes instead of the file on disk, so text can be checked (diagnostics, hover, render) before it is written. | yes |
 | `references` | Find every place in the workspace that refers to the element at a position. | no |
@@ -353,6 +354,14 @@ without this page.
   through a symlink, is refused, and writes are performed through the resolved root itself, so
   a link repointed after the check cannot carry one outside it. The `lsp` tools can also work on
   text held open with `open_document` instead of a file on disk.
+- **Round-tripping a diagram** is `render_view` with `form: "drawio"`, an edit in draw.io, then
+  `import_diagram` with the edited file (`file` on the host or `content` as text): the tool
+  renders the view again, diffs the file against that export and answers the `DiagramLayout`
+  annotations the differences amount to — `Layout`, `Route`, `Style`, `Canvas`, `Note`,
+  `Picture` — as the text edits `apply_model_edit` would make, per document. Call it first
+  without `apply` to read the plan and what it reports rather than imports (cells naming no
+  element, elements the rendering lacks, deleted cells, and changes no annotation carries yet,
+  such as a re-routed typing edge), then with `"apply": true` to write the files.
 - **Writing** happens only on request: a tool marked as writing (`format`, `rename`,
   `apply_model_edit`, `session_save`, ...) returns the edit or the file it would write and
   touches the disk only with `"apply": true`. The session tools that write change the session's

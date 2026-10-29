@@ -96,7 +96,7 @@
             <mxGeometry x="474" y="287" width="177" height="162" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n4" label="start" kind="start" view="MixedExamples::mixedDiagram">
+        <object id="n4" label="start" fqn="MixedExamples::Modes::start" kind="start" view="MixedExamples::mixedDiagram">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n2">
             <mxGeometry x="16" y="92" width="20" height="20" as="geometry"/>
           </mxCell>
@@ -121,7 +121,7 @@
             <mxGeometry x="86" y="92" width="72" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n8" label="final" kind="final" view="MixedExamples::mixedDiagram" link="mixed.sysml:37">
+        <object id="n8" label="final" fqn="MixedExamples::Operate::done" kind="final" view="MixedExamples::mixedDiagram" link="mixed.sysml:37">
           <mxCell style="ellipse;shape=endState;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n5">
             <mxGeometry x="16" y="179" width="30" height="30" as="geometry"/>
           </mxCell>
@@ -156,7 +156,7 @@
             <mxGeometry x="963" y="562" width="177" height="162" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n16" label="start" kind="start" view="MixedExamples::mixedDiagram">
+        <object id="n16" label="start" fqn="MixedExamples::Inspection::mode::start" kind="start" view="MixedExamples::mixedDiagram">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n14">
             <mxGeometry x="16" y="92" width="20" height="20" as="geometry"/>
           </mxCell>

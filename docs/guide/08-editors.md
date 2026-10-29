@@ -253,6 +253,18 @@ declared without one is inferred to have and the constant a value evaluates to f
 alone (<kbd>Ctrl</kbd>+<kbd>Alt</kbd> toggles them when `editor.inlayHints.enabled` is
 `offUnlessPressed`).
 
+#### Importing a layout from draw.io
+
+`SysML: Import layout from draw.io…` (beside *Export Diagram* in the title bar's `…` menu and the
+right-click menu) reads a `.drawio` file that *Export Diagram* wrote and you edited in draw.io
+desktop, the diagrams.net editor or the VS Code draw.io extension, and writes what you moved,
+resized, collapsed, re-routed or recoloured — and a changed page size or a moved note — back into
+the model as `DiagramLayout` metadata in the view's body, exactly as dragging a node in the
+diagram panel does, in one undoable edit. Cells that name no element, elements the rendering no
+longer has and cells you deleted are reported, not created or deleted. The same import is
+`sysml model.sysml -import-diagram view.drawio -dry-run` on the command line, which prints the
+planned edits and a diff first.
+
 ## Helix, Neovim and Zed
 
 [tree-sitter-sysml](https://github.com/Open-MBEE/tree-sitter-sysml) ships Tree-sitter grammars

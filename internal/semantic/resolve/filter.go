@@ -367,7 +367,7 @@ func (r *Resolver) importedMembersAdmitting(into, scope *symbols.Scope, imp *ast
 	reads := r.capturing(func() {
 		members = r.enumerateImported(scope, imp, includeUnnamed, admission)
 	})
-	if r.enumCut == cut && len(r.resolvingImports) == 0 && r.inCondition == 0 {
+	if r.enumCut == cut && len(r.resolvingImports) == 0 && r.inCondition == 0 && r.settled() {
 		journalNew(r, r.enumResults, key, imp)
 		r.enumResults[key] = keptMembers{members: members, reads: reads}
 	}
@@ -485,7 +485,7 @@ func (r *Resolver) declaredChildren(scope *symbols.Scope, target *symbols.Symbol
 			})
 			delete(r.importStack, childImp)
 			r.enumMembers[edge] = members
-			if r.enumCut == cut && len(r.resolvingImports) == 0 && r.inCondition == 0 {
+			if r.enumCut == cut && len(r.resolvingImports) == 0 && r.inCondition == 0 && r.settled() {
 				journalNew(r, r.enumKept, edge, childImp)
 				r.enumKept[edge] = keptMembers{members: members, reads: reads}
 			}

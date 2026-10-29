@@ -94,6 +94,8 @@ type Picture struct {
 	Width, Height float64
 	Alt           string
 	Above         bool
+	// Origin is where the Picture annotation was declared.
+	Origin Origin
 }
 
 // Path is the picture's file as a path from the working directory: Location
@@ -130,7 +132,7 @@ func (r *Renderer) statedPictures(view *symbols.Symbol, out *Rendering) []Pictur
 		}
 		p := site.Picture
 		dir := source.Dir(r.model.SourceFileOf(site.Origin()))
-		pictures = append(pictures, Picture{Location: p.Location, Dir: dir, X: p.X, Y: p.Y, Width: p.Width, Height: p.Height, Alt: p.Alt, Above: p.Above})
+		pictures = append(pictures, Picture{Location: p.Location, Dir: dir, X: p.X, Y: p.Y, Width: p.Width, Height: p.Height, Alt: p.Alt, Above: p.Above, Origin: site.Origin()})
 	}
 	return pictures
 }
@@ -230,6 +232,7 @@ func (r *Renderer) memberGeometryOf(view, owner *symbols.Symbol, name string, ou
 	if member, ok := r.model.LookupMember(owner, name); ok {
 		out.drawn.noteMember(owner, member)
 	}
+	out.drawn.noteInherited(owner, name)
 	site, ok := r.model.MemberLayoutOf(view, owner, name)
 	if !ok {
 		return nil
@@ -274,6 +277,7 @@ func (r *Renderer) memberNotesOf(view, owner *symbols.Symbol, name, anchor strin
 // no Route annotation gives any, resolved as geometryOf resolves a Layout.
 func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
 	out.drawn.note(elem, true)
+	out.drawn.noteSteered(elem)
 	site, ok := r.model.RouteOf(view, elem)
 	if !ok {
 		return nil
@@ -286,6 +290,7 @@ func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
 // those of a Route about elem naming general, nil when none gives any.
 func (r *Renderer) specializationRouteOf(view, elem, general *symbols.Symbol, out *Rendering) []Point {
 	out.drawn.noteSpecialization(elem, general)
+	out.drawn.noteGeneralEdged(elem)
 	site, ok := r.model.SpecializationRouteOf(view, elem, general)
 	if !ok {
 		return nil
@@ -348,6 +353,44 @@ func (r *Renderer) declaredGeometryOf(view, elem *symbols.Symbol, decl ast.Node,
 		return nil
 	}
 	return r.geometryOf(view, node, out)
+}
+
+// inherits reports whether owner draws member as one it inherits — a part of
+// its type, a state of its definition — rather than one it declares.
+func (r *Renderer) inherits(owner, member *symbols.Symbol) bool {
+	if owner == nil || member == nil || member.Owner() == nil || member.Owner().Decl == owner.Decl {
+		return false
+	}
+	found, ok := r.model.LookupMember(owner, localName(member))
+	return ok && found.Decl == member.Decl
+}
+
+// inheritedGeometryOf is the Geometry of member drawn under owner's node: the
+// Layout naming it as owner's when owner inherits it — one declaration is drawn
+// once per inheritor, each placed by its own — else member's own.
+func (r *Renderer) inheritedGeometryOf(view, owner, member *symbols.Symbol, out *Rendering) *Geometry {
+	if r.inherits(owner, member) {
+		return r.memberGeometryOf(view, owner, localName(member), out)
+	}
+	return r.geometryOf(view, member, out)
+}
+
+// inheritedStyleOf is the Style of member drawn under owner's node, resolved as
+// inheritedGeometryOf resolves its Layout.
+func (r *Renderer) inheritedStyleOf(view, owner, member *symbols.Symbol, out *Rendering) *Style {
+	if !r.inherits(owner, member) {
+		return r.styleOf(view, member, out)
+	}
+	site, ok := r.model.MemberStyleOf(view, owner, localName(member))
+	if !ok {
+		return nil
+	}
+	r.noteLayoutProblems(site, owner, out)
+	if site.Style == nil {
+		return nil
+	}
+	s := site.Style
+	return &Style{Fill: s.Fill, Line: s.Line, Text: s.Text, Font: s.Font, FontSize: s.FontSize, Bold: s.Bold, Italic: s.Italic}
 }
 
 // nodeGeometryOf is declaredGeometryOf for a graph node drawn as a member of
