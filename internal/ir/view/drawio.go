@@ -18,17 +18,29 @@ func (r *Rendering) Drawio() (string, error) { return r.DrawioWith(Options{}) }
 // DrawioWith writes the rendering as a draw.io file under options; every semantic
 // cell is an <object> carrying the element's qualified name, kind, view and declaration.
 func (r *Rendering) DrawioWith(options Options) (string, error) {
+	r, w, err := r.drawioPrepare(options)
+	if err != nil {
+		return "", err
+	}
+	return w.document(r, options), nil
+}
+
+// drawioPrepare checks options and normalizes the rendering the way the file
+// shows it — shown elements, folded compartments, stand-ins dropped, partial
+// placement omitted — and settles every box, so that the rendering returned is
+// the one whose node ids and edge indices the file's cell ids name.
+func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, error) {
 	if !r.supportsForm(FormDrawio) {
-		return "", r.wrongFormError(FormDrawio)
+		return nil, nil, r.wrongFormError(FormDrawio)
 	}
 	if err := options.Palette.check(); err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	if err := options.Unplaced.check(); err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	if err := options.Ports.check(); err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	r = r.showing(options.Show)
 	if options.Unplaced != UnplacedStrip || options.Compartments.automatic() {
@@ -55,7 +67,7 @@ func (r *Rendering) DrawioWith(options Options) (string, error) {
 	}
 	w.layout(r)
 	w.edgeIDs = drawioEdgeIDs(r.Edges)
-	return w.document(r, options), nil
+	return r, w, nil
 }
 
 // drawioWriter composes one draw.io file from a rendering.

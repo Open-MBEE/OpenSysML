@@ -94,6 +94,8 @@ type Picture struct {
 	Width, Height float64
 	Alt           string
 	Above         bool
+	// Origin is where the Picture annotation was declared.
+	Origin Origin
 }
 
 // Path is the picture's file as a path from the working directory: Location
@@ -130,7 +132,7 @@ func (r *Renderer) statedPictures(view *symbols.Symbol, out *Rendering) []Pictur
 		}
 		p := site.Picture
 		dir := source.Dir(r.model.SourceFileOf(site.Origin()))
-		pictures = append(pictures, Picture{Location: p.Location, Dir: dir, X: p.X, Y: p.Y, Width: p.Width, Height: p.Height, Alt: p.Alt, Above: p.Above})
+		pictures = append(pictures, Picture{Location: p.Location, Dir: dir, X: p.X, Y: p.Y, Width: p.Width, Height: p.Height, Alt: p.Alt, Above: p.Above, Origin: site.Origin()})
 	}
 	return pictures
 }
