@@ -981,10 +981,8 @@ func (w *drawioWriter) writeEdge(i int, edge Edge) {
 	w.endLabel(id+":to", id, edge.ToLabel, 0.8, edge.Style)
 }
 
-// edgeFQN is the qualified name of an edge that is a declaration of its own
-// (a connection, flow, succession, transition, dependency and the like); an
-// edge drawn from a member's own declaration, such as a composition or a
-// typing, has none, nor has one whose name a drawn cell already carries.
+// edgeFQN is the qualified name of an edge that is a declaration of its own (a connection,
+// flow, transition…); a member's edge (composition, typing) or a name a cell carries gives none.
 func (w *drawioWriter) edgeFQN(edge Edge) string {
 	switch edge.Kind {
 	case EdgeConnection, EdgeBinding, EdgeAssociation, EdgeFlow, EdgeSuccession, EdgeSuccessionFlow, EdgeTransition,
@@ -1008,9 +1006,8 @@ const (
 	drawioTo
 )
 
-// edgeName names an edge in a notice by its cells, which the file's reader
-// can find, after its qualified name or label when it has one; a declaration
-// drawn more than once draws more than one edge.
+// edgeName names an edge in a notice by its qualified name or label, when it has one, and its
+// cells, which the file's reader can find and which tell apart a declaration drawn twice.
 func (w *drawioWriter) edgeName(edge Edge) string {
 	ends := edge.From + " -> " + edge.To
 	if fqn := w.siteName(edge.Origin); fqn != "" {
@@ -1022,9 +1019,8 @@ func (w *drawioWriter) edgeName(edge Edge) string {
 	return ends
 }
 
-// faceAnchor fixes an edge end at the middle of a port cell's face: the outer
-// one, nearest its owner's border, or the inner one when the edge leads into
-// the port's owner; a node end is left to draw.io.
+// faceAnchor fixes an edge end at the middle of a port cell's outer face, or of its inner
+// face when the edge leads into the port's owner; a node end is left to draw.io.
 func (w *drawioWriter) faceAnchor(end, cell string, inward bool) string {
 	owner, _, isPort := strings.Cut(cell, ":")
 	port, ok := w.portBoxes[cell]
