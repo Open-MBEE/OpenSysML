@@ -163,3 +163,70 @@ func TestDrawioImportRenamesAndMovesOneElement(t *testing.T) {
 		t.Errorf("re-exported %q at %+v, edited %q at %+v", again.Label, again.Geometry, was.Label, was.Geometry)
 	}
 }
+
+func TestDrawioImportRenamesAnOwnerAndItsMemberTogether(t *testing.T) {
+	m, rendering, options := drawioModel(t, strings.Replace(drawioLoop, "expose Loop::*;", "expose Loop::**;", 1), "Plant::loopView")
+	document, exported := drawioExport(t, rendering, options)
+	loop, pump := drawioCellOf(t, exported, "part def", "Plant::Loop"), drawioCellOf(t, exported, "part", "Plant::Loop::pump")
+	edited := drawioRelabel(t, document, loop.ID, func(label string) string { return strings.Replace(label, "Loop", "Circuit", 1) })
+	edited = drawioRelabel(t, edited, pump.ID, func(label string) string { return strings.Replace(label, "pump", "motor", 1) })
+	_, imp := drawioImport(t, rendering, options, edited)
+	if len(imp.Edits) != 2 || imp.Edits[0].FQN != "Plant::Loop::pump" || imp.Edits[0].NewName != "motor" || imp.Edits[1].FQN != "Plant::Loop" || imp.Edits[1].NewName != "Circuit" {
+		t.Fatalf("edits %+v notices %q, want the member's rename before its owner's", imp.Edits, imp.Notices)
+	}
+	res, err := Apply(m, DrawioOperations(imp, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(res.Content)
+	for _, want := range []string{"part def Circuit {", "part motor : Pump;", "connect motor.outlet to tank.inlet;", "expose Circuit::**;"} {
+		if !strings.Contains(content, want) {
+			t.Errorf("renamed model lacks %q:\n%s", want, content)
+		}
+	}
+	if strings.Contains(content, "Loop") || strings.Contains(content, "pump") {
+		t.Errorf("old names survive:\n%s", content)
+	}
+}
+
+func TestDrawioImportRenamesWhatAnotherDocumentDeclares(t *testing.T) {
+	const views = "package Views {\n\tview loopView {\n\t\texpose Plant::Loop::*;\n\t\texpose Plant::Pump;\n\t}\n}\n"
+	plant := strings.Replace(drawioLoop, "\tview loopView {\n\t\texpose Loop::*;\n\t}\n", "", 1)
+	if plant == drawioLoop {
+		t.Fatal("the view was not cut from the plant")
+	}
+	for name, tc := range map[string]struct {
+		kind, fqn, from, to string
+		want                []string
+	}{
+		"usage":      {"part", "Plant::Loop::pump", "pump", "pump2", []string{"part pump2 : Pump;", "connect pump2.outlet to tank.inlet;"}},
+		"definition": {"part def", "Plant::Pump", "Pump", "Motor", []string{"part def Motor {", "part pump : Motor;", "expose Plant::Motor;"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			m := loadEditableWorkspace(t, "views.sysml", views, map[string]string{"plant.sysml": plant})
+			m, rendering, options := drawioModelOf(t, m, "Views::loopView")
+			document, exported := drawioExport(t, rendering, options)
+			cell := drawioCellOf(t, exported, tc.kind, tc.fqn)
+			_, imp := drawioImport(t, rendering, options, drawioRelabel(t, document, cell.ID, func(label string) string { return strings.Replace(label, tc.from, tc.to, 1) }))
+			if e := drawioRenameOf(t, imp); e.FQN != tc.fqn || e.NewName != tc.to || e.Origin.Doc != "plant.sysml" {
+				t.Fatalf("rename = %+v", e)
+			}
+			res, err := Apply(m, DrawioOperations(imp, false))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(res.Others) != 1 || res.Others[0].Name != "plant.sysml" {
+				t.Fatalf("other documents: %+v", res.Others)
+			}
+			content := string(res.Content) + string(res.Others[0].Content)
+			for _, want := range tc.want {
+				if !strings.Contains(content, want) {
+					t.Errorf("renamed documents lack %q:\nviews.sysml:\n%s\nplant.sysml:\n%s", want, res.Content, res.Others[0].Content)
+				}
+			}
+			if len(imp.Notices) != 0 {
+				t.Errorf("notices %q", imp.Notices)
+			}
+		})
+	}
+}

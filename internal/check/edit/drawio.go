@@ -34,7 +34,7 @@ func DrawioOperations(imp *view.DrawioImport, inline bool) []Operation {
 		case view.DrawioEditPicture:
 			op = SetPictureAt(e.Origin.Span, e.Picture).DeclaredIn(e.Origin.Doc)
 		case view.DrawioEditRename:
-			op = Rename(e.FQN, e.NewName)
+			op = Rename(e.FQN, e.NewName).DeclaredIn(e.Origin.Doc)
 		default:
 			continue
 		}

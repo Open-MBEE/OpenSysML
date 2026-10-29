@@ -1565,11 +1565,13 @@ straightened one clears it), a recoloured cell a `Style`, a changed page size a 
 or retyped note a `Note` with the text the file has (line breaks kept; a note formatted in draw.io
 is decoded from the HTML it saves), a moved picture or one pointed at another file a `Picture`
 whose location names that file as the writer would, relative to the view's document (a path, an
-absolute path or a `file:` URL under that directory). A node, port or named edge whose text was
+absolute path or a `file:` URL, each under that directory: the import reads no file outside it). A node, port or named edge whose text was
 retyped is a rename when the new text is the writer's own label with exactly the declared name
 replaced by one SysML name — an identifier or a quoted `'…'` name, as the lexer reads it. The
 rename goes through the model editor's `rename`, so the declaration and every reference to it move,
-across documents and in the view's own `expose`, `about` and layout lines; its target is the
+across documents — the declaration may be in a document other than the view's — and in the view's
+own `expose`, `about` and layout lines; a member renamed together with its owner is renamed first,
+by the path the file still names it with; its target is the
 qualified path the import gives a `Layout` of the same cell, so a member drawn under an inheritor
 (`Loop::sensor::waterOut`) renames the declaration that path resolves to, not a usage of it. A
 cell moved and retyped at once imports as one `Layout` and one rename, the rename applied last so
@@ -1588,8 +1590,8 @@ line or compartment row), a new name that is not one SysML name (empty, a keywor
 unterminated quote), a name an existing member already holds (the rename check's own message), a
 cell whose name is synthesized and so has none to rename, and an element the view draws twice
 (an inherited member in a tree) whose copies disagree. A note emptied is reported, since a `Note`
-with no text is not one, and so is a picture given embedded `data:` content, a URL, or a file
-that does not read as an image — no `Picture` location names those. Retyping a name to the same
+with no text is not one, and so is a picture given embedded `data:` content, a URL, a file outside
+the view's directory, or a file that does not read as an image — no `Picture` location names those. Retyping a name to the same
 text imports nothing and reports nothing. `-dry-run` prints the planned edits and a unified diff
 of every document they change and writes nothing.
 
