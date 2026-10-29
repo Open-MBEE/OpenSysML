@@ -154,3 +154,51 @@ func TestReadDrawioKeepsUnknownCellsApart(t *testing.T) {
 		t.Errorf("the root cells are listed")
 	}
 }
+
+// The renamed fixture is the layout golden as draw.io desktop 32.6.1 saved it
+// (File › Properties › Compressed) after the pump's text was retyped as
+// "«part»⏎pumpX" and the note's as "Checked weekly⏎by hand": desktop rewrites
+// only the object's label attribute, with the line break as &#xa; and html=0
+// kept, so the import sees one rename and one note text.
+func TestReadDrawioCompressedDesktopRenameAndNote(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "layout-desktop-rename.drawio"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `compressed="true"`) || strings.Contains(string(data), "<mxGraphModel") {
+		t.Fatalf("the fixture is not a compressed save:\n%s", data)
+	}
+	file, err := ReadDrawio(data, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pump := file.Cell("n1"); pump == nil || pump.Label != "«part»\npumpX" || pump.Value != "" {
+		t.Fatalf("pump = %+v, want its label retyped and no value", pump)
+	}
+	rendering, options := renderWithSites(t, layoutCase.file, layoutCase.view)
+	imp, err := rendering.ImportDrawio(file, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(imp.Edits) != 2 {
+		t.Fatalf("edits = %+v, want a note text and a rename", imp.Edits)
+	}
+	edit := func(kind DrawioEditKind, cell string) DrawioEdit {
+		for _, e := range imp.Edits {
+			if e.Kind == kind && e.Cell == cell {
+				return e
+			}
+		}
+		t.Fatalf("no %s edit of %s in %+v", kind, cell, imp.Edits)
+		return DrawioEdit{}
+	}
+	if note := edit(DrawioEditNote, "note0"); note.Note.Text != "Checked weekly\nby hand" || note.Note.X != 170 || note.Note.Y != 262 {
+		t.Errorf("note = %+v, want the retyped text where it was", note.Note)
+	}
+	if rename := edit(DrawioEditRename, "n1"); rename.FQN != "Plant::Loop::pump" || rename.NewName != "pumpX" {
+		t.Errorf("rename = %s to %q, want Plant::Loop::pump to pumpX", rename.FQN, rename.NewName)
+	}
+	if len(imp.Unmatched)+len(imp.Unknown)+len(imp.Deleted)+len(imp.Notices) != 0 {
+		t.Errorf("reported %v %d %v %v, want nothing", imp.Unmatched, len(imp.Unknown), imp.Deleted, imp.Notices)
+	}
+}
