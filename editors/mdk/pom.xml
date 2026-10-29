@@ -19,10 +19,10 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>17</maven.compiler.release>
-    <junit.version>5.11.4</junit.version>
-    <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
-    <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
-    <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
+    <junit.version>6.1.3</junit.version>
+    <maven.compiler.plugin.version>3.16.0</maven.compiler.plugin.version>
+    <maven.surefire.plugin.version>3.6.1</maven.surefire.plugin.version>
+    <jacoco.plugin.version>0.8.15</jacoco.plugin.version>
     <opensysml.client.version>0.11.0</opensysml.client.version>
     <!-- The client's sigstore-java brings grpc-netty-shaded, bcprov/bcpkix and guava; a
          consumer's own management is what holds them past their known advisories. -->
