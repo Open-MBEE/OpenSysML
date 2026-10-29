@@ -7,5 +7,5 @@
 # The ref names where the pin was taken; the commit is what every fetch
 # verifies, because a ref is mutable. Change them together.
 EXTENSIONS_REPO="${EXTENSIONS_REPO:-https://github.com/Open-MBEE/OpenSysML-Extensions-Library.git}"
-EXTENSIONS_REF="${EXTENSIONS_REF:-main}"
-EXTENSIONS_COMMIT="${EXTENSIONS_COMMIT:-745963b151f925e4543b03d5bb09b978aa492e12}"
+EXTENSIONS_REF="${EXTENSIONS_REF:-feature/wheretype-exact}"
+EXTENSIONS_COMMIT="${EXTENSIONS_COMMIT:-b6784f2305a9d63b2c4045b5979d18b05635f161}"
