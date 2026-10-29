@@ -37,7 +37,7 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 		if descendants[symbols.KeyOf(elem)] {
 			continue
 		}
-		out.Roots = append(out.Roots, r.treeNode(view, elem, ids, map[*symbols.Symbol]bool{}, 0, true, out))
+		out.Roots = append(out.Roots, r.treeNode(view, elem, nil, ids, map[*symbols.Symbol]bool{}, 0, true, out))
 	}
 	out.Roots = append(out.Roots, r.nestedViewNodes(view, ids, map[*symbols.Symbol]bool{view: true}, out)...)
 	r.exposedRelationships(view, exposed, ids, r.treeEdges(out), out)
@@ -145,7 +145,7 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 				if descendants[symbols.KeyOf(elem)] {
 					continue
 				}
-				node.Children = append(node.Children, r.treeNode(sub, elem, ids, map[*symbols.Symbol]bool{}, 0, true, out))
+				node.Children = append(node.Children, r.treeNode(sub, elem, nil, ids, map[*symbols.Symbol]bool{}, 0, true, out))
 			}
 		}
 		node.Children = append(node.Children, r.nestedViewNodes(sub, ids, rendered, out)...)
@@ -161,8 +161,8 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 // qualified name, which is what an exposed element is reported by; a member
 // nested in it is named as it was declared. view is the view the element is
 // shown in, nil outside any view.
-func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expansion, depth int, qualified bool, out *Rendering) *Node {
-	node := r.treeNodeShallow(view, sym, ids, path, depth, qualified, out)
+func (r *Renderer) treeNode(view, sym, owner *symbols.Symbol, ids *nodeIDs, path expansion, depth int, qualified bool, out *Rendering) *Node {
+	node := r.treeNodeShallow(view, sym, owner, ids, path, depth, qualified, out)
 	if path[sym] {
 		return node
 	}
@@ -190,7 +190,7 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expans
 			}
 			continue
 		}
-		child := r.treeNode(view, member, ids, path, depth+1, false, out)
+		child := r.treeNode(view, member, sym, ids, path, depth+1, false, out)
 		child.Inherited = member.Owner() != sym
 		node.Children = append(node.Children, child)
 	}
@@ -203,14 +203,14 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expans
 
 // treeNodeShallow draws sym without recursively drawing its members; one on
 // the path being expanded above it is noted as already shown.
-func (r *Renderer) treeNodeShallow(view, sym *symbols.Symbol, ids *nodeIDs, path expansion, depth int, qualified bool, out *Rendering) *Node {
+func (r *Renderer) treeNodeShallow(view, sym, owner *symbols.Symbol, ids *nodeIDs, path expansion, depth int, qualified bool, out *Rendering) *Node {
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
 	}
 	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: r.headType(sym), Typings: r.headTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(view, sym, out),
-		Style: r.styleOf(view, sym, out), Referential: r.referenceRow(sym)}
+		Type: r.headType(sym), Typings: r.headTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.inheritedGeometryOf(view, owner, sym, out),
+		Style: r.inheritedStyleOf(view, owner, sym, out), Referential: r.referenceRow(sym)}
 	out.noteTreeSite(node, view, sym)
 	if path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")

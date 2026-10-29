@@ -142,7 +142,7 @@ func finishRunCheck(rep *reporter, sess *repl.Session) int {
 		return 2
 	}
 	var sites view.Sites
-	if renderLink != "" {
+	if renderLink != "" || slices.ContainsFunc(targets, func(t runRenderTarget) bool { return t.form == view.FormDrawio }) {
 		sites, err = sess.ViewSites()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, errPrefix, err)

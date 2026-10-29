@@ -372,6 +372,21 @@ sequence, table or matrix, without a declared view
 .BR \-render\-all " \fIdir\fP"
 Render every declared view into this directory
 .TP
+.BR \-import\-diagram " \fIfile\fP"
+Import this diagrams.net (draw.io) file, written by \-render\-form drawio and
+edited in draw.io, back into the model: what moved, resized, folded,
+re\-routed, recoloured or re\-sized the page becomes DiagramLayout metadata in
+the view's body, written through the model editor; cells the rendering lacks
+are reported, never created or deleted
+.TP
+.BR \-view " \fIview\fP"
+The view \-import\-diagram imports, when the file has several pages; default
+the one page's view
+.TP
+.B \-dry\-run
+With \-import\-diagram, print the planned edits and a unified diff of each
+file they change, writing nothing
+.TP
 .BR \-graphs " \fIname\fP"
 Write the lowered graph of this action or state machine, and of every behavior
 it performs, as the canonical graphs:1 JSON an external analysis engine is

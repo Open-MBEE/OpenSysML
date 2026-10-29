@@ -38,6 +38,8 @@ const (
 	EditSetRoute      = "setRoute"
 	EditSetCanvas     = "setCanvas"
 	EditSetStyle      = "setStyle"
+	EditSetNote       = "setNote"
+	EditSetPicture    = "setPicture"
 )
 
 // ApplyModelEditParams asks for the operations to be applied to the document as
@@ -65,7 +67,12 @@ type ApplyModelEditParams struct {
 // Layout or Route, so it applies in that view alone; left empty, the annotation
 // goes inline into Target's declaration and applies in every view. A setLayout
 // with no Layout, a setRoute with no or an empty Route, a setCanvas with no
-// Canvas and a setStyle with no Style clear the annotation.
+// Canvas and a setStyle with no Style clear the annotation. setNote writes a
+// Note about the node or edge Target in View (inline on Target without one, and
+// a note about nothing when Target is the view itself), setPicture a Picture
+// into the body of the view Target; both may be stated many times, so for these
+// two Declaration is the range of the annotation itself, as a rendering reports
+// a note's or picture's origin, and rewrites or clears that one wherever it is.
 type ModelEditOperation struct {
 	Kind           string               `json:"kind"`
 	Target         string               `json:"target,omitempty"`
@@ -98,6 +105,32 @@ type ModelEditOperation struct {
 	Route          []RenderPoint        `json:"route,omitempty"`
 	Canvas         *RenderCanvas        `json:"canvas,omitzero"`
 	Style          *RenderStyle         `json:"style,omitzero"`
+	Note           *ModelEditNote       `json:"note,omitempty"`
+	Picture        *ModelEditPicture    `json:"picture,omitempty"`
+}
+
+// ModelEditNote is a note as setNote writes it: its text and the top-left
+// corner of its box in the units opensysml/render reports; Width and Height
+// are written both or neither.
+type ModelEditNote struct {
+	Text   string   `json:"text"`
+	X      float64  `json:"x"`
+	Y      float64  `json:"y"`
+	Width  *float64 `json:"width,omitempty"`
+	Height *float64 `json:"height,omitempty"`
+}
+
+// ModelEditPicture is a picture as setPicture writes it: the file, relative to
+// the view's document, the box it fills, its alt text and whether it is drawn
+// over the elements.
+type ModelEditPicture struct {
+	Location string  `json:"location"`
+	X        float64 `json:"x"`
+	Y        float64 `json:"y"`
+	Width    float64 `json:"width"`
+	Height   float64 `json:"height"`
+	Alt      string  `json:"alt,omitempty"`
+	Above    bool    `json:"above,omitempty"`
 }
 
 // ModelEditLayout is a node's geometry as setLayout writes it, in the units
@@ -331,15 +364,15 @@ func (s *Server) operation(doc *model.Document, op ModelEditOperation) (modeledi
 // operation reads the wire operation as the edit operation it names; content
 // is the document a Declaration range is a range of.
 func (op ModelEditOperation) operation(content []byte) (modeledit.Operation, error) {
-	byDeclaration := op.Kind == EditSetLayout || op.Kind == EditSetRoute || op.Kind == EditSetStyle
+	byDeclaration := op.Kind == EditSetLayout || op.Kind == EditSetRoute || op.Kind == EditSetStyle || op.Kind == EditSetNote || op.Kind == EditSetPicture
 	if op.Declaration != nil && !byDeclaration {
-		return modeledit.Operation{}, fmt.Errorf("a declaration stands in for the target of a %s, %s or %s alone", EditSetLayout, EditSetRoute, EditSetStyle)
+		return modeledit.Operation{}, fmt.Errorf("a declaration stands in for the target of a %s, %s, %s, %s or %s alone", EditSetLayout, EditSetRoute, EditSetStyle, EditSetNote, EditSetPicture)
 	}
 	if op.Declaration != nil && op.Target != "" {
 		return modeledit.Operation{}, errors.New("an operation targets its element by name or by declaration, not both")
 	}
 	if op.DeclaredIn != "" && !byDeclaration {
-		return modeledit.Operation{}, fmt.Errorf("declaredIn names the document declaring the target of a %s, %s or %s alone", EditSetLayout, EditSetRoute, EditSetStyle)
+		return modeledit.Operation{}, fmt.Errorf("declaredIn names the document declaring the target of a %s, %s, %s, %s or %s alone", EditSetLayout, EditSetRoute, EditSetStyle, EditSetNote, EditSetPicture)
 	}
 	switch op.Kind {
 	case EditSetValue:
@@ -423,9 +456,56 @@ func (op ModelEditOperation) operation(content []byte) (modeledit.Operation, err
 			return modeledit.SetStyleAt(rangeToSpan(content, *op.Declaration), op.View, style), nil
 		}
 		return modeledit.SetStyle(op.Target, op.View, style), nil
+	case EditSetNote:
+		note, err := op.Note.note()
+		if err != nil {
+			return modeledit.Operation{}, err
+		}
+		if op.Declaration != nil {
+			if op.View != "" {
+				return modeledit.Operation{}, fmt.Errorf("a %s given the annotation's declaration names no view", EditSetNote)
+			}
+			return modeledit.SetNoteAt(rangeToSpan(content, *op.Declaration), note), nil
+		}
+		return modeledit.SetNote(op.Target, op.View, note), nil
+	case EditSetPicture:
+		picture := op.Picture.picture()
+		if op.Declaration != nil {
+			if op.View != "" {
+				return modeledit.Operation{}, fmt.Errorf("a %s given the annotation's declaration names no view", EditSetPicture)
+			}
+			return modeledit.SetPictureAt(rangeToSpan(content, *op.Declaration), picture), nil
+		}
+		if op.View != "" {
+			return modeledit.Operation{}, fmt.Errorf("a %s names the view as its target and no other", EditSetPicture)
+		}
+		return modeledit.SetPicture(op.Target, picture), nil
 	}
 	return modeledit.Operation{}, fmt.Errorf("kind %q is none of %s", op.Kind,
-		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditAddSequence, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas, EditSetStyle}, ", "))
+		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditAddSequence, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas, EditSetStyle, EditSetNote, EditSetPicture}, ", "))
+}
+
+// note reads the wire note as the edit layer writes it; nil clears.
+func (n *ModelEditNote) note() (*semantics.Note, error) {
+	if n == nil {
+		return nil, nil
+	}
+	if (n.Width == nil) != (n.Height == nil) {
+		return nil, errors.New("a note's width and height are given together or not at all")
+	}
+	note := &semantics.Note{Text: n.Text, X: n.X, Y: n.Y}
+	if n.Width != nil {
+		note.Width, note.Height, note.HasSize = *n.Width, *n.Height, true
+	}
+	return note, nil
+}
+
+// picture reads the wire picture as the edit layer writes it; nil clears.
+func (p *ModelEditPicture) picture() *semantics.Picture {
+	if p == nil {
+		return nil
+	}
+	return &semantics.Picture{Location: p.Location, X: p.X, Y: p.Y, Width: p.Width, Height: p.Height, Alt: p.Alt, Above: p.Above}
 }
 
 // style reads the wire style as the edit layer writes it; nil clears.
@@ -519,11 +599,11 @@ func textEdits(content, edited []byte) []protocol.TextEdit {
 		return out
 	}
 	edits := []protocol.TextEdit{}
-	for _, h := range diffLines(intern(oldLines), intern(newLines)) {
-		start, end := oldOffsets[h.oldStart], oldOffsets[h.oldEnd]
-		text := strings.Join(newLines[h.newStart:h.newEnd], "")
-		if h.oldEnd-h.oldStart == 1 && h.newEnd-h.newStart == 1 {
-			from, to, replacement, _ := trimCommon(oldLines[h.oldStart], newLines[h.newStart])
+	for _, h := range model.DiffLines(intern(oldLines), intern(newLines)) {
+		start, end := oldOffsets[h.OldStart], oldOffsets[h.OldEnd]
+		text := strings.Join(newLines[h.NewStart:h.NewEnd], "")
+		if h.OldEnd-h.OldStart == 1 && h.NewEnd-h.NewStart == 1 {
+			from, to, replacement, _ := trimCommon(oldLines[h.OldStart], newLines[h.NewStart])
 			start, end, text = start+from, start+to, replacement
 		}
 		edits = append(edits, protocol.TextEdit{

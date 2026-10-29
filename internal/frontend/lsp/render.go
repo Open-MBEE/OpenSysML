@@ -429,7 +429,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 			verdicts = rt.RequirementVerdicts()
 		}
 		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts, params.Depth, params.Include)
-		if err == nil && params.LinkTemplate != "" {
+		if err == nil && (params.LinkTemplate != "" || view.Form(params.Form) == view.FormDrawio) {
 			r.LinkSites(rendering, snapshot)
 		}
 		if err == nil {
