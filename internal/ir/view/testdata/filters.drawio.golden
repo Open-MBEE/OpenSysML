@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- FilteredViews::safetyView — tree rendering -->
+<!-- 3 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="FilteredViews-safetyView" name="FilteredViews::safetyView">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part def»&#xA;Radio" fqn="Systems::Radio" kind="part def" view="FilteredViews::safetyView" link="filters.sysml:12">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part def»&#xA;Airbag" fqn="Systems::Airbag" kind="part def" view="FilteredViews::safetyView" link="filters.sysml:11">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="156" y="40" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«part def»&#xA;Brake" fqn="Systems::Braking::Brake" kind="part def" view="FilteredViews::safetyView" link="filters.sysml:5">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="117" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

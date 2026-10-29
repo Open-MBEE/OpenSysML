@@ -38,7 +38,7 @@ const (
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
 const (
-	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [compartments=<folding>] [show=<elements>] [depth=<levels>] [link=<template>]"
+	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|drawio|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [compartments=<folding>] [show=<elements>] [depth=<levels>] [link=<template>]"
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>]"
 )
 
@@ -707,7 +707,7 @@ func (r *renderArgs) readLink(template string) string {
 // diagram forms take.
 func (r *renderArgs) readPalette(word string) string {
 	if !r.form.TakesPalette() {
-		return fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", r.form, renderUsage)
+		return fmt.Sprintf("a palette fills the mermaid, dot, plantuml, d2 and drawio forms only, not %s; %s", r.form, renderUsage)
 	}
 	palette, ok := view.ParsePalette(word)
 	if !ok {

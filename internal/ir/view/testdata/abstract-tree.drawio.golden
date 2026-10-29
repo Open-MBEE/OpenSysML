@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AbstractViews::familyTree — tree rendering (render asTreeDiagram) -->
+<!-- 3 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="AbstractViews-familyTree" name="AbstractViews::familyTree">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«abstract part def»&#xA;Vehicle" fqn="AbstractViews::Vehicle" kind="abstract part def" view="AbstractViews::familyTree" link="abstract.sysml:7">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="130" height="111" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«attribute»&#xA;mass" fqn="AbstractViews::Vehicle::mass" kind="attribute" view="AbstractViews::familyTree" link="abstract.sysml:8">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="58" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«abstract part»&#xA;vehicleFamily" fqn="AbstractViews::vehicleFamily" kind="abstract part" view="AbstractViews::familyTree" link="abstract.sysml:14">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
+            <mxGeometry x="210" y="40" width="365" height="168" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«abstract port»&#xA;fuel" fqn="AbstractViews::vehicleFamily::fuel" kind="abstract port" view="AbstractViews::familyTree" link="abstract.sysml:15">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="16" y="58" width="106" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«abstract part»&#xA;engine" fqn="AbstractViews::vehicleFamily::engine" kind="abstract part" view="AbstractViews::familyTree" link="abstract.sysml:16">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="142" y="58" width="106" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«part»&#xA;chassis" fqn="AbstractViews::vehicleFamily::chassis" kind="part" view="AbstractViews::familyTree" link="abstract.sysml:17">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="268" y="58" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="connect" kind="connect" view="AbstractViews::familyTree" link="abstract.sysml:18">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="16" y="115" width="81" height="36" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«attribute»&#xA;^mass" fqn="AbstractViews::Vehicle::mass" kind="attribute" view="AbstractViews::familyTree" link="abstract.sysml:8">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="117" y="115" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n8" label="«variation part def»&#xA;Models" fqn="AbstractViews::Models" kind="variation part def" view="AbstractViews::familyTree" link="abstract.sysml:21">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="40" y="248" width="500" height="242" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n9" label="«variant»&#xA;sedan" fqn="AbstractViews::Models::sedan" kind="variant" view="AbstractViews::familyTree" link="abstract.sysml:22">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n8">
+            <mxGeometry x="16" y="58" width="366" height="168" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n10" label="«attribute»&#xA;^mass" fqn="AbstractViews::Vehicle::mass" kind="attribute" view="AbstractViews::familyTree" link="abstract.sysml:8">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n9">
+            <mxGeometry x="16" y="58" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n11" label="«abstract port»&#xA;^fuel" fqn="AbstractViews::vehicleFamily::fuel" kind="abstract port" view="AbstractViews::familyTree" link="abstract.sysml:15">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n9">
+            <mxGeometry x="118" y="58" width="106" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n12" label="«abstract part»&#xA;^engine" fqn="AbstractViews::vehicleFamily::engine" kind="abstract part" view="AbstractViews::familyTree" link="abstract.sysml:16">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n9">
+            <mxGeometry x="244" y="58" width="106" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n13" label="«part»&#xA;^chassis" fqn="AbstractViews::vehicleFamily::chassis" kind="part" view="AbstractViews::familyTree" link="abstract.sysml:17">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n9">
+            <mxGeometry x="16" y="115" width="90" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n14" label="connect" kind="connect" view="AbstractViews::familyTree" link="abstract.sysml:18">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n9">
+            <mxGeometry x="126" y="115" width="81" height="36" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n15" label="«attribute»&#xA;^mass" fqn="AbstractViews::Vehicle::mass" kind="attribute" view="AbstractViews::familyTree" link="abstract.sysml:8">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n8">
+            <mxGeometry x="402" y="58" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="reference" view="AbstractViews::familyTree" link="abstract.sysml:8">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="typing" view="AbstractViews::familyTree" link="abstract.sysml:14">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n0">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="reference" view="AbstractViews::familyTree" link="abstract.sysml:15">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n2" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="composition" view="AbstractViews::familyTree" link="abstract.sysml:16">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n2" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e4" label="" kind="composition" view="AbstractViews::familyTree" link="abstract.sysml:17">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n2" target="n5">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e5" label="" kind="reference" view="AbstractViews::familyTree" link="abstract.sysml:8">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n2" target="n7">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e6" label="" kind="specialization" view="AbstractViews::familyTree" link="abstract.sysml:21">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n8" target="n0">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e7" label="" kind="reference" view="AbstractViews::familyTree" link="abstract.sysml:22">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n8" target="n9">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e8" label="" kind="reference" view="AbstractViews::familyTree" link="abstract.sysml:8">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n8" target="n15">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e9" label="" kind="reference" view="AbstractViews::familyTree" link="abstract.sysml:8">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n9" target="n10">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e10" label="" kind="reference" view="AbstractViews::familyTree" link="abstract.sysml:15">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n9" target="n11">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e11" label="" kind="composition" view="AbstractViews::familyTree" link="abstract.sysml:16">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n9" target="n12">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e12" label="" kind="composition" view="AbstractViews::familyTree" link="abstract.sysml:17">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n9" target="n13">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
