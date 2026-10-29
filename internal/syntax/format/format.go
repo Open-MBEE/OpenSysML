@@ -15,9 +15,8 @@
 // continuation rather than as a new statement. Line endings are emitted in the
 // document's own dominant style, so a CRLF file stays CRLF throughout.
 //
-// Options.BreakStatements adds line breaks: it lays every statement of a
-// body out on a line of its own, for text that was generated without them. A
-// line is never joined even then, so the author's own breaks all survive.
+// Options.BreakStatements adds line breaks (one statement per line) for text
+// generated without them; even then no line is ever joined.
 package format
 
 import (
@@ -35,13 +34,8 @@ type Options struct {
 	IndentWidth int
 	// UseTabs indents with one tab per level instead of spaces.
 	UseTabs bool
-	// BreakStatements starts a new line after the `{` of a body, after each
-	// `;` directly inside one, and before its `}`, so a body written on one
-	// line comes out one statement per line. A body holding no statement —
-	// empty, or one result expression as `assert constraint { x > 0 }` — stays
-	// on its line, and the body of an expression — a `->forAll { in x; ... }`
-	// or the `{ ... }` an operator takes — keeps its author's layout, as does
-	// a note at the end of a line.
+	// BreakStatements lays each statement of a body out on its own line; a body
+	// without statements, an expression body and an end-of-line note stay put.
 	BreakStatements bool
 }
 
@@ -109,9 +103,8 @@ type formatter struct {
 	lastCode    lexer.Kind // last non-comment token: what a line break interrupts
 	openComment bool       // the last token is a comment the lexer never saw closed
 
-	// Statement layout (Options.BreakStatements): the kind of every `{` in
-	// the document in order, the ones still open, and the line break the last
-	// code token asked for before the next.
+	// Statement layout: the kind of every `{` in order, the ones still open,
+	// and the line break the last code token asked for before the next.
 	braces []braceKind
 	open   []braceKind
 	owed   breakKind

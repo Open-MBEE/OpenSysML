@@ -207,9 +207,8 @@ type Options struct {
 	IncludeLibraryStubs bool
 	// LibraryReferences receives the API JSON output's standard-library name table.
 	LibraryReferences func([]export.APIJSONLibraryReference)
-	// KeepLineBreaks writes notation converted to notation with the input's own
-	// line breaks, as a save of a buffer or the echo of an element does; a
-	// conversion otherwise lays each statement of a body out on its own line.
+	// KeepLineBreaks keeps the input's line breaks on notation → notation (a
+	// save or echo); otherwise each statement of a body gets its own line.
 	KeepLineBreaks bool
 }
 

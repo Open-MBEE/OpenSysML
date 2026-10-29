@@ -155,9 +155,8 @@ func TestBreakStatementsAndCommentOnlyBodies(t *testing.T) {
 	}
 }
 
-// A line that begins with an operator starts a new statement when the one
-// above ended, so `:>> x = 1;` sits at the body's level rather than one in,
-// under both layouts.
+// An operator-led line after a finished statement, `:>> x = 1;`, sits at the
+// body's level under both layouts.
 func TestRedefinitionLinesAreNotContinuations(t *testing.T) {
 	want := "part p : P {\n    :>> x = 1;\n    :> y;\n    attribute z = a\n        + b;\n}\n"
 	src := "part p : P {\n        :>> x = 1;\n        :> y;\n    attribute z = a\n    + b;\n}\n"

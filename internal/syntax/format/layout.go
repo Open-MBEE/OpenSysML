@@ -25,13 +25,8 @@ const (
 	breakUnlessJoined           // ...unless the next token continues the statement
 )
 
-// classifyBraces decides the kind of every `{` in toks, in order. A brace opens
-// an expression body when it is inside a bracket or another expression body,
-// follows an operator awaiting its operand, names the body of a `->collect` or
-// `->Lib::collect` invocation, or begins a result expression (no statement
-// starts with `{`); a statement body is multiBody once a `;` or a nested
-// statement body appears directly inside it, or a comment element shares it
-// with anything else (`{ /* ... */ }` alone stays on its line).
+// classifyBraces decides the kind of every `{` in toks, in order: exprBody
+// where an operand goes, else multiBody once a `;` or nested body is inside.
 func classifyBraces(toks []lexer.Token) []braceKind {
 	var kinds []braceKind
 	type openBrace struct {
@@ -100,10 +95,8 @@ func classifyBraces(toks []lexer.Token) []braceKind {
 	return kinds
 }
 
-// breakBefore reports whether statement layout puts tok on a new line: the
-// token before it owes a break, or tok closes a body with statements in it. A
-// note the author wrote on the same line stays there, so an end-of-line note
-// still annotates its statement.
+// breakBefore reports whether statement layout puts tok on a new line; a note
+// the author wrote at the end of the line stays there.
 func (f *formatter) breakBefore(tok lexer.Token) bool {
 	if tok.IsTrivia() {
 		return false
@@ -168,12 +161,8 @@ func (f *formatter) innermost() braceKind {
 	return multiBody
 }
 
-// joinsStatement reports whether tok continues the statement whose body or
-// `;` (after) came before it, so the two stay on one line: `} then Idle;`,
-// `} else {`, `} until x;`, `entry; then Idle;`. After a `}` an infix
-// operator joins too, so a brace that was an operand after all
-// (`{in x; x} + 1`) is not split from its expression; after a `;` it does
-// not, since `-x` there is a result expression of its own.
+// joinsStatement reports whether tok stays on the line of the `}` or `;`
+// (after) before it: `} then Idle;`, `} else {`, `{in x; x} + 1`, but `; -x`.
 func joinsStatement(tok lexer.Token, after lexer.Kind) bool {
 	switch tok.Kind {
 	case lexer.Semicolon, lexer.Comma, lexer.RParen, lexer.RBracket:
