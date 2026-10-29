@@ -529,6 +529,20 @@ one alongside it).
    A missing bundle means `build-release` did not sign — re-run the tag's
    workflow rather than pinning around it.
 
+   The release's uptake can be read any time afterwards:
+
+   ```bash
+   python3 scripts/release-downloads.py            # downloads per release, newest first, with the total
+   python3 scripts/release-downloads.py --assets   # the per-asset counts under each release
+   python3 scripts/release-downloads.py --by-asset # which binaries are downloaded most, over all releases
+   GH_TOKEN=$(gh auth token) python3 scripts/release-downloads.py --traffic   # clones and views
+   ```
+
+   `--stable` leaves the nightlies out and `--json` prints the figures for another
+   tool. The download counts are public; the clones and views come from GitHub's
+   traffic API, which keeps fourteen days and answers only a token with push
+   access to the repository.
+
    The provenance is checked the same way, against the downloaded archive
    rather than the manifest:
 
