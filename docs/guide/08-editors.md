@@ -205,7 +205,7 @@ declaration included), hover and the diagram panel can all land in it. Such a lo
 reported under the `sysml-stdlib:` scheme, whose path is the file's path within the library:
 
 ```
-sysml-stdlib:///Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml
+sysml-stdlib:/Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml
 ```
 
 In VS Code, <kbd>Ctrl</kbd>+click on a library name opens that file in a read-only editor

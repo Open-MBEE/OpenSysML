@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -83,27 +82,11 @@ func readFramedMessage(r *bufio.Reader) (map[string]any, error) {
 // as an unknown method, and protocol.CancelHandler rejects the numeric ids real
 // clients send as malformed.
 func TestRunHandlerChainHandlesCancelRequest(t *testing.T) {
-	for _, id := range []any{int32(7), "req-7"} {
-		handler := runHandler(NewServer(model.NewWorkspace()))
-		req, err := jsonrpc2.NewNotification(protocol.MethodCancelRequest, protocol.CancelParams{ID: id})
-		if err != nil {
-			t.Fatalf("NewNotification: %v", err)
-		}
-		replied := make(chan error, 1)
-		reply := func(ctx context.Context, result any, err error) error {
-			replied <- err
-			return nil
-		}
-		if err := handler(context.Background(), reply, req); err != nil {
-			t.Fatalf("handler: %v", err)
-		}
-		select {
-		case err := <-replied:
-			if err != nil {
-				t.Errorf("$/cancelRequest with id %v answered with %v, want it handled", id, err)
-			}
-		case <-time.After(5 * time.Second):
-			t.Fatalf("$/cancelRequest with id %v was never answered", id)
+	for _, id := range []protocol.ProgressToken{protocol.Integer(7), protocol.String("req-7")} {
+		d := newDispatcher(t, runHandler(NewServer(model.NewWorkspace())))
+		h := d.notify(t, context.Background(), protocol.MethodCancelRequest, protocol.CancelParams{ID: id})
+		if h.err != nil {
+			t.Errorf("$/cancelRequest with id %v answered with %v, want it handled", id, h.err)
 		}
 	}
 }

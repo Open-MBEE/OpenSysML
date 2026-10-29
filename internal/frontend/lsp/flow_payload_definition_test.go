@@ -28,14 +28,14 @@ func TestDefinitionFlowPayloadDeclaration(t *testing.T) {
 }`
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/flow_payload.sysml").Filename()
+	name := uri.File("/tmp/flow_payload.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 
 	firstDecl := strings.Index(src, "of fuelCommand") + len("of ")
 	secondDecl := strings.Index(src, "message n") + strings.Index(src[strings.Index(src, "message n"):], "of fuelCommand") + len("of ")
 	declLine := func(off int) uint32 {
 		t.Helper()
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(src), off),

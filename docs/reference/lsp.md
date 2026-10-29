@@ -474,7 +474,7 @@ location is reported under the `sysml-stdlib` scheme, whose path is the file's
 path within the library, percent-encoded:
 
 ```json
-{ "uri": "sysml-stdlib:///Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml",
+{ "uri": "sysml-stdlib:/Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml",
   "range": { "start": { "line": 19, "character": 1 }, "end": { "line": 20, "character": 1 } } }
 ```
 
@@ -484,7 +484,7 @@ Positions are in UTF-16 code units of the bundled text, as they are for workspac
 files. This request serves that text, so a client can show the location:
 
 ```json
-{ "uri": "sysml-stdlib:///Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml" }
+{ "uri": "sysml-stdlib:/Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml" }
 ```
 
 ```json

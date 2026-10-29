@@ -18,7 +18,7 @@ import (
 )
 
 // identityActionKind is the kind of the opt-in identity annotation actions.
-const identityActionKind = protocol.RefactorRewrite
+const identityActionKind = protocol.CodeActionKindRefactorRewrite
 
 // placeholderProjectID is what a minted ProjectRef binds to until the user
 // fills in the repository project.
@@ -42,7 +42,7 @@ func (s *Server) identityActions(name string, doc *model.Document, want source.S
 	if info.Scope == nil && root == info.Symbol {
 		out = append(out, protocol.CodeAction{
 			Title: fmt.Sprintf("Bind '%s' to a project", sym.Name),
-			Kind:  identityActionKind,
+			Kind:  new(identityActionKind),
 			Edit:  workspaceEdit(uri, positionsOf(doc), annotate(doc.Content, []annotation{projectRef(root)})),
 		})
 	}
@@ -61,7 +61,7 @@ func (s *Server) identityActions(name string, doc *model.Document, want source.S
 	}
 	out = append(out, protocol.CodeAction{
 		Title: title,
-		Kind:  identityActionKind,
+		Kind:  new(identityActionKind),
 		Edit:  workspaceEdit(uri, positionsOf(doc), annotate(doc.Content, notes)),
 	})
 	return out, nil

@@ -7,6 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -14,23 +15,27 @@ import (
 
 // CodeAction answers the code actions for a range: the quick fixes attached to
 // its diagnostics and the opt-in identity rewrites of the declaration under it.
-func (s *Server) CodeAction(ctx context.Context, params *protocol.CodeActionParams) ([]protocol.CodeAction, error) {
+func (s *Server) CodeAction(ctx context.Context, params *protocol.CodeActionParams) ([]protocol.CommandOrCodeAction, error) {
 	name := uriToName(params.TextDocument.URI)
 	doc := s.ws.Document(name)
 	if doc == nil {
 		return nil, nil
 	}
 	want := rangeToSpan(doc.Content, params.Range)
-	out := []protocol.CodeAction{}
-	if wantsKind(params.Context.Only, protocol.QuickFix) {
-		out = append(out, s.quickFixes(name, doc, want)...)
+	var actions []protocol.CodeAction
+	if wantsKind(params.Context.Only, protocol.CodeActionKindQuickFix) {
+		actions = append(actions, s.quickFixes(name, doc, want)...)
 	}
 	if wantsKind(params.Context.Only, identityActionKind) {
-		actions, err := s.identityActions(name, doc, want)
+		identity, err := s.identityActions(name, doc, want)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, actions...)
+		actions = append(actions, identity...)
+	}
+	out := make([]protocol.CommandOrCodeAction, len(actions))
+	for i := range actions {
+		out[i] = &actions[i]
 	}
 	return out, nil
 }
@@ -44,21 +49,18 @@ func (s *Server) quickFixes(name string, doc *model.Document, want source.Span) 
 		if len(diag.Fixes) == 0 || !overlaps(diag.Span, want) {
 			continue
 		}
-		reported := protocol.Diagnostic{
-			Range:    pos.rangeOf(diag.Span),
-			Severity: protocol.DiagnosticSeverity(int(diag.Severity) + 1),
-			Message:  diag.Message,
-			Code:     diag.Code,
-			Source:   diag.Source,
-		}
+		reported := protocolDiagnostic(pos, diag)
 		for _, fix := range diag.Fixes {
-			out = append(out, protocol.CodeAction{
+			action := protocol.CodeAction{
 				Title:       fix.Title,
-				Kind:        protocol.QuickFix,
+				Kind:        new(protocol.CodeActionKindQuickFix),
 				Diagnostics: []protocol.Diagnostic{reported},
-				IsPreferred: fix.Preferred,
 				Edit:        workspaceEdit(uri, pos, fix.Edits),
-			})
+			}
+			if fix.Preferred {
+				action.IsPreferred = new(true)
+			}
+			out = append(out, action)
 		}
 	}
 	return out
@@ -88,7 +90,7 @@ func overlaps(a, b source.Span) bool {
 }
 
 // workspaceEdit renders a fix's edits as an edit of the document it applies to.
-func workspaceEdit(uri protocol.DocumentURI, pos positions, edits []diag.Edit) *protocol.WorkspaceEdit {
+func workspaceEdit(docURI uri.URI, pos positions, edits []diag.Edit) *protocol.WorkspaceEdit {
 	out := make([]protocol.TextEdit, 0, len(edits))
 	for _, edit := range edits {
 		span, text := edit.Render(pos.content)
@@ -98,6 +100,6 @@ func workspaceEdit(uri protocol.DocumentURI, pos positions, edits []diag.Edit) *
 		})
 	}
 	return &protocol.WorkspaceEdit{
-		Changes: map[protocol.DocumentURI][]protocol.TextEdit{uri: out},
+		Changes: map[uri.URI][]protocol.TextEdit{docURI: out},
 	}
 }

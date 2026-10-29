@@ -2,8 +2,6 @@ package lsp
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -16,7 +14,7 @@ const MethodStdlibContent = "opensysml/stdlibContent"
 
 // StdlibContentParams names the library document whose text is asked for.
 type StdlibContentParams struct {
-	URI protocol.DocumentURI `json:"uri"`
+	URI uri.URI `json:"uri"`
 }
 
 // StdlibContentResult is the text of a library document, read-only.
@@ -40,16 +38,15 @@ func (s *Server) StdlibContent(params *StdlibContentParams) (*StdlibContentResul
 
 // stdlibHandler dispatches opensysml/stdlibContent; other methods fall through.
 func (s *Server) stdlibHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
-	return func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
 		if req.Method() != MethodStdlibContent {
-			return inner(ctx, reply, req)
+			return inner(ctx, req)
 		}
-		var params StdlibContentParams
-		if err := json.Unmarshal(req.Params(), &params); err != nil {
-			return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
+		params, err := decodeParams[StdlibContentParams](req)
+		if err != nil {
+			return nil, err
 		}
-		result, err := s.StdlibContent(&params)
-		return reply(ctx, result, err)
+		return s.StdlibContent(params)
 	}
 }
 

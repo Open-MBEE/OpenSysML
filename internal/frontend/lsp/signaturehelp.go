@@ -36,13 +36,15 @@ func (s *Server) SignatureHelp(ctx context.Context, params *protocol.SignatureHe
 		return nil, nil
 	}
 	help := &protocol.SignatureHelp{}
+	active := 0
 	for i, sig := range sigs {
 		help.Signatures = append(help.Signatures, signatureInformation(sig))
 		if sig.Selected {
-			help.ActiveSignature = uint32(i) // #nosec G115 -- a handful of overloads.
+			active = i
 		}
 	}
-	help.ActiveParameter = activeParameter(doc.Content, call, open, offset, sigs[help.ActiveSignature])
+	help.ActiveSignature = new(uint32(active)) // #nosec G115 -- a handful of overloads.
+	help.ActiveParameter = protocol.NewNullable(activeParameter(doc.Content, call, open, offset, sigs[active]))
 	return help, nil
 }
 
@@ -113,11 +115,11 @@ func signatureInformation(sig model.CallSignature) protocol.SignatureInformation
 	labels := make([]string, 0, len(sig.Params))
 	for _, p := range sig.Params {
 		label := parameterLabel(p.Name, typeName(p.Type))
-		doc := ""
+		param := protocol.ParameterInformation{Label: protocol.String(label)}
 		if p.Default {
-			doc = "has a default"
+			param.Documentation = protocol.String("has a default")
 		}
-		info.Parameters = append(info.Parameters, protocol.ParameterInformation{Label: label, Documentation: doc})
+		info.Parameters = append(info.Parameters, param)
 		if p.Default {
 			label = "[" + label + "]"
 		}

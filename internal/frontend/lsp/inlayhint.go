@@ -2,9 +2,7 @@ package lsp
 
 import (
 	"context"
-	"encoding/json"
 
-	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -13,39 +11,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// methodInlayHint is textDocument/inlayHint (LSP 3.17), which the protocol
-// library predates; its shapes are declared here.
-const methodInlayHint = "textDocument/inlayHint"
-
-// InlayHintParams asks for the hints of one range of a document.
-type InlayHintParams struct {
-	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
-	Range        protocol.Range                  `json:"range"`
-}
-
-// InlayHint is text the editor shows inline at a position without it being in
-// the document: a type after a name declared without one, a value after an
-// expression evaluated from the model alone.
-type InlayHint struct {
-	Position     protocol.Position `json:"position"`
-	Label        string            `json:"label"`
-	Kind         int               `json:"kind,omitempty"`
-	Tooltip      string            `json:"tooltip,omitempty"`
-	PaddingLeft  bool              `json:"paddingLeft,omitempty"`
-	PaddingRight bool              `json:"paddingRight,omitempty"`
-}
-
-// inlayHintKindType is the InlayHintKind of a type annotation.
-const inlayHintKindType = 1
-
-// inlayHintProvider is the capability advertised for the method.
-var inlayHintProvider = map[string]any{"resolveProvider": false}
-
 // InlayHint answers the hints of a range: the inferred type of each feature
 // declared without one, and the constant each non-literal feature value
 // evaluates to from the model alone. Only the declarations in the range are
 // read, so hints cost nothing until an editor asks for them.
-func (s *Server) InlayHint(params *InlayHintParams) ([]InlayHint, error) {
+func (s *Server) InlayHint(ctx context.Context, params *protocol.InlayHintParams) ([]protocol.InlayHint, error) {
 	name := uriToName(params.TextDocument.URI)
 	doc := s.document(name)
 	if doc == nil || doc.Scope == nil {
@@ -54,12 +24,12 @@ func (s *Server) InlayHint(params *InlayHintParams) ([]InlayHint, error) {
 	want := rangeToSpan(doc.Content, params.Range)
 	syms := usagesIn(doc.Scope, want)
 	if len(syms) == 0 {
-		return []InlayHint{}, nil
+		return []protocol.InlayHint{}, nil
 	}
 	pos := positionsOf(doc)
-	out := []InlayHint{}
+	out := []protocol.InlayHint{}
 	// A declaration spanning several lines may put a hint outside the range.
-	add := func(hint InlayHint) {
+	add := func(hint protocol.InlayHint) {
 		if inRange(hint.Position, params.Range) {
 			out = append(out, hint)
 		}
@@ -68,21 +38,21 @@ func (s *Server) InlayHint(params *InlayHintParams) ([]InlayHint, error) {
 		usage := hint.Symbol.Decl.(*ast.Usage)
 		if hint.Type != nil {
 			if at, ok := typeHintOffset(hint.Symbol, usage); ok {
-				add(InlayHint{
+				add(protocol.InlayHint{
 					Position:    pos.position(at),
-					Label:       ": " + typeName(hint.Type),
-					Kind:        inlayHintKindType,
-					Tooltip:     "inferred type " + s.ws.FQNOf(hint.Type),
-					PaddingLeft: true,
+					Label:       protocol.String(": " + typeName(hint.Type)),
+					Kind:        protocol.InlayHintKindType,
+					Tooltip:     protocol.String("inferred type " + s.ws.FQNOf(hint.Type)),
+					PaddingLeft: new(true),
 				})
 			}
 		}
 		if text, ok := constantText(hint.Value); hint.HasValue && ok {
-			add(InlayHint{
+			add(protocol.InlayHint{
 				Position:    pos.position(usage.Value.Span().End()),
-				Label:       "= " + text,
-				Tooltip:     "value evaluated from the model",
-				PaddingLeft: true,
+				Label:       protocol.String("= " + text),
+				Tooltip:     protocol.String("value evaluated from the model"),
+				PaddingLeft: new(true),
 			})
 		}
 	}
@@ -163,52 +133,4 @@ func constantText(v semantics.Value) (string, bool) {
 		return "*", true
 	}
 	return "", false
-}
-
-// inlayHintHandler serves textDocument/inlayHint, which the protocol library
-// does not dispatch, and adds the method's capability to the initialize result,
-// which the library's capability type has no field for.
-func (s *Server) inlayHintHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
-	return func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
-		switch req.Method() {
-		case methodInlayHint:
-			var params InlayHintParams
-			if err := json.Unmarshal(req.Params(), &params); err != nil {
-				return reply(ctx, nil, err)
-			}
-			hints, err := s.InlayHint(&params)
-			return reply(ctx, hints, err)
-		case protocol.MethodInitialize:
-			var params protocol.InitializeParams
-			if err := json.Unmarshal(req.Params(), &params); err != nil {
-				return reply(ctx, nil, err)
-			}
-			result, err := s.Initialize(ctx, &params)
-			if err != nil {
-				return reply(ctx, nil, err)
-			}
-			full, err := withInlayHintCapability(result)
-			return reply(ctx, full, err)
-		}
-		return inner(ctx, reply, req)
-	}
-}
-
-// withInlayHintCapability is the initialize result with inlayHintProvider set.
-func withInlayHintCapability(result *protocol.InitializeResult) (map[string]any, error) {
-	raw, err := json.Marshal(result)
-	if err != nil {
-		return nil, err
-	}
-	var out map[string]any
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, err
-	}
-	caps, _ := out["capabilities"].(map[string]any)
-	if caps == nil {
-		caps = map[string]any{}
-	}
-	caps["inlayHintProvider"] = inlayHintProvider
-	out["capabilities"] = caps
-	return out, nil
 }

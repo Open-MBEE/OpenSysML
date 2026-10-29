@@ -8,26 +8,18 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/semtok"
 )
 
-// semanticTokensProvider is the LSP 3.16 capability shape, declared here because
-// the protocol library's options type predates the legend. Deltas are not served.
-type semanticTokensProvider struct {
-	Legend protocol.SemanticTokensLegend `json:"legend"`
-	Full   bool                          `json:"full"`
-	Range  bool                          `json:"range"`
-}
-
 // semanticTokensLegend is the legend the server advertises: the token types and
 // modifiers semtok emits, in the order an encoded token indexes them by.
 func semanticTokensLegend() protocol.SemanticTokensLegend {
 	classes := semtok.Classes()
-	types := make([]protocol.SemanticTokenTypes, len(classes))
+	types := make([]string, len(classes))
 	for i, c := range classes {
-		types[i] = protocol.SemanticTokenTypes(c.String())
+		types[i] = c.String()
 	}
 	mods := semtok.Modifiers()
-	modifiers := make([]protocol.SemanticTokenModifiers, len(mods))
+	modifiers := make([]string, len(mods))
 	for i, m := range mods {
-		modifiers[i] = protocol.SemanticTokenModifiers(m.String())
+		modifiers[i] = m.String()
 	}
 	return protocol.SemanticTokensLegend{TokenTypes: types, TokenModifiers: modifiers}
 }

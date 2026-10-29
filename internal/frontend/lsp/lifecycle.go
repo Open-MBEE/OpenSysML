@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"encoding/json"
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -12,27 +13,52 @@ import (
 func (s *Server) Initialize(ctx context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
 	s.setFolders(initializeFolders(params))
 	if params != nil {
-		s.applyConformanceSettings(ctx, params.InitializationOptions)
-		s.applyLintSettings(ctx, params.InitializationOptions)
-		s.applyLibraryRootsSetting(params.InitializationOptions)
+		options := decodeSettings(params.InitializationOptions)
+		s.applyConformanceSettings(ctx, options)
+		s.applyLintSettings(ctx, options)
+		s.applyLibraryRootsSetting(options)
 		s.setHoverMarkdown(clientRendersMarkdownHover(params.Capabilities))
 		s.setCompletionMarkdown(clientRendersMarkdownCompletion(params.Capabilities))
 		s.setCrossDocument(clientAdvertisesCrossDocument(params.Capabilities))
 	}
+	// A client that draws diagrams speaks opensysml/render, which is no protocol
+	// method; this is how it learns the server serves it.
+	experimental, err := protocol.Marshal(map[string]any{
+		"openSysmlRender":            true,
+		"openSysmlRenderDocument":    true,
+		"openSysmlApplyModelEdit":    true,
+		"openSysmlStdlibContent":     true,
+		"openSysmlDebug":             true,
+		CrossDocumentCapability:      true,
+		RenderPaletteCapability:      true,
+		RenderFormsCapability:        renderFormNames(),
+		RenderStylesCapability:       renderStyleNames(),
+		RenderPortsCapability:        renderPortsNames(),
+		RenderLinesCapability:        renderLinesNames(),
+		RenderCompartmentsCapability: renderCompartmentsNames(),
+		RenderElementsCapability:     renderElementNames(),
+		RenderDepthCapability:        true,
+		RenderIncludeCapability:      true,
+		RelatedElementsCapability:    relatedKindNames(),
+		RenderOverlaysCapability:     renderOverlayNames(),
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &protocol.InitializeResult{
 		Capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
-				OpenClose: true,
-				Change:    protocol.TextDocumentSyncKindIncremental,
+				OpenClose: new(true),
+				Change:    new(protocol.TextDocumentSyncKindIncremental),
 				// Without this a client sends no didSave, so the save-time
 				// cross-document refresh would never run.
-				Save: &protocol.SaveOptions{IncludeText: false},
+				Save: &protocol.SaveOptions{IncludeText: new(false)},
 			},
-			HoverProvider:           true,
-			DefinitionProvider:      true,
-			ReferencesProvider:      true,
-			DocumentSymbolProvider:  true,
-			WorkspaceSymbolProvider: true,
+			HoverProvider:           protocol.Boolean(true),
+			DefinitionProvider:      protocol.Boolean(true),
+			ReferencesProvider:      protocol.Boolean(true),
+			DocumentSymbolProvider:  protocol.Boolean(true),
+			WorkspaceSymbolProvider: protocol.Boolean(true),
 			CompletionProvider: &protocol.CompletionOptions{
 				TriggerCharacters: []string{":", "."},
 			},
@@ -40,50 +66,31 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 				TriggerCharacters:   []string{"(", ","},
 				RetriggerCharacters: []string{","},
 			},
-			CodeLensProvider:                &protocol.CodeLensOptions{ResolveProvider: true},
-			DocumentFormattingProvider:      true,
-			DocumentRangeFormattingProvider: true,
-			RenameProvider:                  &protocol.RenameOptions{PrepareProvider: true},
-			SemanticTokensProvider: &semanticTokensProvider{
+			CodeLensProvider:                &protocol.CodeLensOptions{ResolveProvider: new(true)},
+			DocumentFormattingProvider:      protocol.Boolean(true),
+			DocumentRangeFormattingProvider: protocol.Boolean(true),
+			RenameProvider:                  &protocol.RenameOptions{PrepareProvider: new(true)},
+			SemanticTokensProvider: &protocol.SemanticTokensOptions{
 				Legend: semanticTokensLegend(),
-				Full:   true,
-				Range:  true,
+				Full:   protocol.Boolean(true),
+				Range:  protocol.Boolean(true),
 			},
+			InlayHintProvider: &protocol.InlayHintOptions{ResolveProvider: new(false)},
 			CodeActionProvider: &protocol.CodeActionOptions{
-				CodeActionKinds: []protocol.CodeActionKind{protocol.QuickFix, identityActionKind},
+				CodeActionKinds: []protocol.CodeActionKind{protocol.CodeActionKindQuickFix, identityActionKind},
 			},
-			// A client that draws diagrams speaks opensysml/render, which is no
-			// protocol method; this is how it learns the server serves it.
-			Experimental: map[string]any{
-				"openSysmlRender":            true,
-				"openSysmlRenderDocument":    true,
-				"openSysmlApplyModelEdit":    true,
-				"openSysmlStdlibContent":     true,
-				"openSysmlDebug":             true,
-				CrossDocumentCapability:      true,
-				RenderPaletteCapability:      true,
-				RenderFormsCapability:        renderFormNames(),
-				RenderStylesCapability:       renderStyleNames(),
-				RenderPortsCapability:        renderPortsNames(),
-				RenderLinesCapability:        renderLinesNames(),
-				RenderCompartmentsCapability: renderCompartmentsNames(),
-				RenderElementsCapability:     renderElementNames(),
-				RenderDepthCapability:        true,
-				RenderIncludeCapability:      true,
-				RelatedElementsCapability:    relatedKindNames(),
-				RenderOverlaysCapability:     renderOverlayNames(),
-			},
+			Experimental: experimental,
 			// Folders added mid-session are only indexed if the client reports them.
-			Workspace: &protocol.ServerCapabilitiesWorkspace{
-				WorkspaceFolders: &protocol.ServerCapabilitiesWorkspaceFolders{
-					Supported:           true,
-					ChangeNotifications: true,
+			Workspace: &protocol.WorkspaceOptions{
+				WorkspaceFolders: &protocol.WorkspaceFoldersServerCapabilities{
+					Supported:           new(true),
+					ChangeNotifications: protocol.Boolean(true),
 				},
 			},
 		},
-		ServerInfo: &protocol.ServerInfo{
+		ServerInfo: protocol.ServerInfo{
 			Name:    "sysml-lsp",
-			Version: s.version,
+			Version: protocol.NewOptional(s.version),
 		},
 	}, nil
 }
@@ -95,7 +102,7 @@ func clientRendersMarkdownHover(caps protocol.ClientCapabilities) bool {
 		return false
 	}
 	for _, format := range caps.TextDocument.Hover.ContentFormat {
-		if format == protocol.Markdown {
+		if format == protocol.MarkupKindMarkdown {
 			return true
 		}
 	}
@@ -109,7 +116,7 @@ func clientRendersMarkdownCompletion(caps protocol.ClientCapabilities) bool {
 		return false
 	}
 	for _, format := range caps.TextDocument.Completion.CompletionItem.DocumentationFormat {
-		if format == protocol.Markdown {
+		if format == protocol.MarkupKindMarkdown {
 			return true
 		}
 	}
@@ -119,8 +126,11 @@ func clientRendersMarkdownCompletion(caps protocol.ClientCapabilities) bool {
 // clientAdvertisesCrossDocument reports whether the client listed the
 // cross-document diagram contract among its experimental capabilities.
 func clientAdvertisesCrossDocument(caps protocol.ClientCapabilities) bool {
-	experimental, ok := caps.Experimental.(map[string]any)
-	return ok && experimental[CrossDocumentCapability] == true
+	var experimental map[string]any
+	if json.Unmarshal(caps.Experimental, &experimental) != nil {
+		return false
+	}
+	return experimental[CrossDocumentCapability] == true
 }
 
 // Initialized indexes the session's folders, so cross-file names resolve without
@@ -182,22 +192,22 @@ func (s *Server) shutdownRequested() bool {
 // request is answered InvalidRequest, a notification other than exit is dropped,
 // and exit ends the session.
 func (s *Server) lifecycleHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
-	return func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
 		switch req.Method() {
 		case protocol.MethodExit:
-			return reply(ctx, nil, s.Exit(ctx))
+			return nil, s.Exit(ctx)
 		case protocol.MethodShutdown:
 			// Recorded here, not in the handler: the asynchronous dispatch could
 			// otherwise run after the next message has been judged.
 			s.markShutdown()
-			return inner(ctx, reply, req)
+			return inner(ctx, req)
 		}
 		if !s.shutdownRequested() {
-			return inner(ctx, reply, req)
+			return inner(ctx, req)
 		}
-		if _, isRequest := req.(*jsonrpc2.Call); isRequest {
-			return reply(ctx, nil, jsonrpc2.ErrInvalidRequest)
+		if req.IsCall() {
+			return nil, jsonrpc2.ErrInvalidRequest
 		}
-		return reply(ctx, nil, nil)
+		return nil, nil
 	}
 }
