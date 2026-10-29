@@ -1452,7 +1452,9 @@ the orthogonal router the VS Code diagram panel draws with, run in-process from 
 build (`internal/ir/view/route`, `libavoid-js` 0.4.5 under wazero; `scripts/build-libavoid-wasm.sh`
 reproduces the module) with the panel's parameters: a clearance of 16 pixels about every box, bends
 nudged 8 pixels apart, a connector leaving a box through pins along the side it faces and a named
-port through the port's own face. The edges are routed container by container — those two members
+port through the port's own face — then short jogs are straightened as the panel straightens
+them, so an edge comes out point for point as the panel draws it (the route package checks
+this against routes recorded from the panel's own router). The edges are routed container by container — those two members
 of one container share stay inside that container, with its header and its other members as
 obstacles and the ancestors an end lies in reduced to their headers; an edge from a container to
 its own member leaves the header's underside above the member. Containers are padded by more than
