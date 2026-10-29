@@ -98,6 +98,6 @@ func elementIDs(idx *symbols.Index, r *model.Reading) func(*symbols.Symbol) (str
 		return nil
 	}
 	return func(sym *symbols.Symbol) (string, error) {
-		return read(sym.Decl, query.QualifiedIdentity(idx, sym))
+		return read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
 	}
 }

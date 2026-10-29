@@ -39,7 +39,7 @@ func TestElementIDReaderResolvesDeclarationsOfOneDocument(t *testing.T) {
 	}
 	var ids []string
 	for _, sym := range matches {
-		id, err := reader.Read(sym.Decl, "P::a")
+		id, err := reader.Read(sym.DocName, sym.Decl, "P::a")
 		if err != nil {
 			t.Fatalf("Read P::a: %v", err)
 		}
@@ -48,7 +48,7 @@ func TestElementIDReaderResolvesDeclarationsOfOneDocument(t *testing.T) {
 	if ids[0] == "" || ids[1] == "" || ids[0] == ids[1] {
 		t.Fatalf("the two declarations of P::a read ids %q, want two distinct ids", ids)
 	}
-	if id, _ := reader.Read(nil, "P::X"); id != "P__X" {
+	if id, _ := reader.Read("", nil, "P::X"); id != "P__X" {
 		t.Fatalf("P::X by name reads %q, want P__X", id)
 	}
 }
@@ -61,7 +61,7 @@ func TestElementIDReaderParsesADocumentHeldWithoutItsTree(t *testing.T) {
 	_, _, live := readerIndex(t, "live.sysml", "package Live { private import Parts::*; part car { part w : Wheel; } }\n")
 	reader := NewElementIDReader([]ElementIDDocument{{File: sf}, live})
 	for fqn, want := range map[string]string{"Parts::wheel": "Parts__wheel", "Live::car": "Live__car"} {
-		id, err := reader.Read(nil, fqn)
+		id, err := reader.Read("", nil, fqn)
 		if err != nil {
 			t.Fatalf("Read %s: %v", fqn, err)
 		}
@@ -70,7 +70,7 @@ func TestElementIDReaderParsesADocumentHeldWithoutItsTree(t *testing.T) {
 		}
 	}
 	broken := NewElementIDReader([]ElementIDDocument{{File: source.New("broken.sysml", []byte("package {"))}, live})
-	if _, err := broken.Read(nil, "Live::car"); err == nil {
+	if _, err := broken.Read("", nil, "Live::car"); err == nil {
 		t.Fatalf("a document the parser cannot read whole does not refuse the model")
 	}
 }

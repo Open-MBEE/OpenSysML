@@ -300,7 +300,7 @@ func (e *queryEval) elementID(sym *symbols.Symbol) string {
 	if cached == nil {
 		return ""
 	}
-	id, err := cached.elementIDReader().Read(sym.Decl, e.identity(sym))
+	id, err := cached.elementIDReader().Read(sym.DocName, sym.Decl, e.identity(sym))
 	if err != nil {
 		e.elementIDErr = err
 		return ""

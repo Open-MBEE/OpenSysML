@@ -14,9 +14,9 @@ type ElementIDDocument struct {
 	ParseDiags []parser.Diagnostic
 }
 
-// ElementIDReader reads the elementId a conversion of the model writes for
-// the element declared at decl, named fqn, or why the model has none.
-type ElementIDReader func(decl ast.Node, fqn string) (string, error)
+// ElementIDReader reads the elementId a conversion of the model writes for the
+// element declared at decl in document doc, named fqn, or why the model has none.
+type ElementIDReader func(doc string, decl ast.Node, fqn string) (string, error)
 
 // ElementIDSource opens a reader over a model's documents, converting them
 // once, on the first read: how a query's elementId column is filled. The

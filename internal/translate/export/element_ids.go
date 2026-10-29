@@ -21,7 +21,7 @@ type ElementIDs struct {
 	// identity scopes may declare one qualified name, and only the node tells
 	// their elements apart.
 	byNode   map[ast.Node]string
-	bySpan   map[source.Span]string // the same declaration in another parse of the text
+	bySpan   map[spanKey]string // the same declaration in another parse of the document
 	byName   map[string]string
 	res      *resolve.Resolver
 	encoders []*encoder
@@ -42,7 +42,7 @@ func NewElementIDs(documents []ModelDocument) (*ElementIDs, error) {
 // by the declaration each encoder wrote it for and by its qualified (or
 // positional) name.
 func elementIDsOf(graph *rdf.Graph, res *resolve.Resolver, encoders []*encoder) *ElementIDs {
-	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[source.Span]string{}, byName: map[string]string{}, res: res, encoders: encoders}
+	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{}, res: res, encoders: encoders}
 	for _, subject := range graph.Subjects() {
 		name, named := graph.Lexical(subject, rdf.SysML+pQualifiedName)
 		id, identified := graph.Lexical(subject, rdf.SysML+pElementID)
@@ -54,16 +54,22 @@ func elementIDsOf(graph *rdf.Graph, res *resolve.Resolver, encoders []*encoder) 
 		for node, fqn := range e.fqn {
 			if id, ok := graph.Lexical(e.ids.subjectForNode(node, fqn), rdf.SysML+pElementID); ok {
 				ids.byNode[node] = id
-				ids.bySpan[node.Span()] = id
+				ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
 			}
 		}
 	}
 	return ids
 }
 
-// OfDeclaration is the elementId written for the element declared at decl,
-// named fqn: the node's own (or its span's, in a reparse of the text), else Of(fqn).
-func (ids *ElementIDs) OfDeclaration(decl ast.Node, fqn string) (string, bool) {
+// spanKey names a declaration by its document and span, across parses of it.
+type spanKey struct {
+	doc  string
+	span source.Span
+}
+
+// OfDeclaration is the elementId written for the element declared at decl in
+// document doc, named fqn: the node's own, its span's in a reparse, else Of(fqn).
+func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
 	if ids == nil {
 		return "", false
 	}
@@ -71,7 +77,7 @@ func (ids *ElementIDs) OfDeclaration(decl ast.Node, fqn string) (string, bool) {
 		if id, ok := ids.byNode[decl]; ok {
 			return id, true
 		}
-		if id, ok := ids.bySpan[decl.Span()]; ok {
+		if id, ok := ids.bySpan[spanKey{doc, decl.Span()}]; ok {
 			return id, true
 		}
 	}
@@ -126,9 +132,9 @@ func NewElementIDReader(documents []ElementIDDocument) *ElementIDReader {
 	return &ElementIDReader{documents: documents}
 }
 
-// Read is the elementId written for the element declared at decl, named fqn
-// (ElementIDs.OfDeclaration), or why the model has none.
-func (r *ElementIDReader) Read(decl ast.Node, fqn string) (string, error) {
+// Read is the elementId written for the element declared at decl in document
+// doc, named fqn (ElementIDs.OfDeclaration), or why the model has none.
+func (r *ElementIDReader) Read(doc string, decl ast.Node, fqn string) (string, error) {
 	if r == nil {
 		return "", nil
 	}
@@ -136,7 +142,7 @@ func (r *ElementIDReader) Read(decl ast.Node, fqn string) (string, error) {
 	if r.err != nil {
 		return "", r.err
 	}
-	id, _ := r.ids.OfDeclaration(decl, fqn)
+	id, _ := r.ids.OfDeclaration(doc, decl, fqn)
 	return id, nil
 }
 
@@ -160,7 +166,7 @@ func (r *ElementIDReader) convert() {
 		documents = append(documents, ModelDocument{File: doc.File, Root: root})
 	}
 	if len(documents) == 1 {
-		file := source.New(documents[0].File.Name(), documents[0].File.Bytes())
+		file := source.NewWithKind(documents[0].File.Name(), documents[0].File.Bytes(), documents[0].File.Kind())
 		e, err := encodeDocument(file, parser.New(file).ParseFile(), "", IDQualifiedName)
 		if err != nil {
 			r.err = err

@@ -219,7 +219,7 @@ func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
 	}
 	if read := queryexec.OpenElementIDs(elementIDDocuments(s.sessionDocs())); read != nil {
 		context.ElementID = func(sym *symbols.Symbol) (string, error) {
-			return read(sym.Decl, corequery.QualifiedIdentity(index, sym))
+			return read(sym.DocName, sym.Decl, corequery.QualifiedIdentity(index, sym))
 		}
 	}
 	return context

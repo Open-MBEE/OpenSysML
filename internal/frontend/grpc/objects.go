@@ -211,7 +211,7 @@ func (h *heldObjects) queryContext() queryexec.Context {
 		Runtime:  h.rt,
 		Roots:    h.roots(),
 		ElementID: func(sym *symbols.Symbol) (string, error) {
-			return h.model.elementIDReader().Read(sym.Decl, corequery.QualifiedIdentity(h.idx, sym))
+			return h.model.elementIDReader().Read(sym.DocName, sym.Decl, corequery.QualifiedIdentity(h.idx, sym))
 		},
 	}
 }
