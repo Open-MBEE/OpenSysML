@@ -16,7 +16,7 @@ import (
 func TestDefinitionQualifiedRequireReference(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_require.sysml").Filename()
+	name := uri.File("/tmp/def_require.sysml").FsPath()
 	src := `package P {
 	requirement def FuelMass {
 		requirement fuelMassRequirement;
@@ -30,7 +30,7 @@ func TestDefinitionQualifiedRequireReference(t *testing.T) {
 	ws.Open(name, []byte(src), 1)
 
 	off := strings.LastIndex(src, "fuelMassRequirement")
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), off),
@@ -53,7 +53,7 @@ func TestDefinitionQualifiedRequireReference(t *testing.T) {
 func TestDefinitionOfRequirementConstraintMember(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_require_member.sysml").Filename()
+	name := uri.File("/tmp/def_require_member.sysml").FsPath()
 	src := `package P {
 	constraint def C;
 	requirement def R {
@@ -72,7 +72,7 @@ func TestDefinitionOfRequirementConstraintMember(t *testing.T) {
 		line uint32
 	}{{":>> assumed", 3}, {":>> required", 4}} {
 		off := strings.Index(src, tc.ref) + len(":>> ")
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(src), off),

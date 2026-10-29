@@ -40,8 +40,14 @@ func TestImportDiagramRoundTripsARenderedView(t *testing.T) {
 	before := f.snapshot()
 	var res ImportDiagramResult
 	f.ok("import_diagram", map[string]any{"path": "plant.sysml", "content": moved}, &res)
-	if res.Applied || len(res.Refused) != 0 || len(res.Changes) != 1 || res.View != "Plant::loopView" {
+	if res.Applied || len(res.Refused) != 0 || res.View != "Plant::loopView" {
 		t.Fatalf("dry run = %+v", res)
+	}
+	// The documents the view was rendered from are pinned without edits.
+	for _, change := range res.Changes {
+		if (change.Path == "plant.sysml") != (len(change.Edits) > 0) {
+			t.Fatalf("dry run changes = %+v", res.Changes)
+		}
 	}
 	f.unchanged(before)
 

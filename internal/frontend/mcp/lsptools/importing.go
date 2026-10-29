@@ -77,8 +77,14 @@ func registerImporting(s *mcp.Server, h *Host) {
 			}
 			res.Changes, res.Applied = edited.Changes, edited.Applied
 		}
+		edited := 0
+		for _, change := range res.Changes {
+			if len(change.Edits) > 0 {
+				edited++
+			}
+		}
 		var b strings.Builder
-		fmt.Fprintf(&b, "%s: %d edits planned, %d refused, edits to %d documents", res.View, len(res.Edits), len(res.Refused), len(res.Changes))
+		fmt.Fprintf(&b, "%s: %d edits planned, %d refused, edits to %d documents", res.View, len(res.Edits), len(res.Refused), edited)
 		if res.Applied {
 			b.WriteString(", written")
 		}

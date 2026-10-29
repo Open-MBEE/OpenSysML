@@ -217,7 +217,7 @@ jobs:
 
       - name: Upload coverage artifact
         if: needs.changes.outputs.tier == 'full'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-${{ matrix.shard }}
           path: coverage.txt
@@ -256,7 +256,7 @@ jobs:
           python3 scripts/dedupe-coverage.py coverage.txt
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: coverage.txt
@@ -735,7 +735,7 @@ jobs:
         run: go test -C tools -count=1 -v ./bench/llm
 
       - name: Upload binary artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: binaries
           path: bin/
@@ -957,7 +957,7 @@ jobs:
         run: npm run build:landing
 
       - name: Upload VS Code extension artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vscode-extension
           path: editors/vscode/opensysml-sysml.vsix
@@ -1003,7 +1003,7 @@ jobs:
         run: make jupyterlab-build
 
       - name: Upload JupyterLab extension artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: jupyterlab-extension
           path: client/jupyter-kernel/labextension
@@ -1244,7 +1244,7 @@ jobs:
             echo "ok: $mutation is caught"
           done
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: node-conformance
           path: client/node/node-conformance.json
@@ -1476,7 +1476,7 @@ jobs:
           git add -N client/rust/opensysml/src/proto client/rust/conformance/sysml.descriptor.binpb
           git diff --exit-code client/rust/opensysml/src/proto client/rust/conformance/sysml.descriptor.binpb
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: conformance-report-rust
           path: bin/conformance-report-rust.json
@@ -1524,7 +1524,7 @@ jobs:
             --binary "$GITHUB_WORKSPACE/bin/sysml-grpc" \
             --report bin/conformance-report-julia.json
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: conformance-report-julia-${{ matrix.julia-version }}
           path: bin/conformance-report-julia.json
@@ -1584,7 +1584,7 @@ jobs:
 
       - name: Keep the archives for the next run
         if: steps.apt-archives.outputs.cache-matched-key != format('apt-octave-{0}-{1}-{2}', runner.os, steps.image.outputs.version, steps.archives.outputs.digest)
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/apt-archives
           key: apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-${{ steps.archives.outputs.digest }}
@@ -1612,7 +1612,7 @@ jobs:
         if: always()
         run: kill "$svc_pid" 2>/dev/null || true
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: conformance-report-matlab
           path: bin/conformance-report-matlab.json
@@ -1669,7 +1669,7 @@ jobs:
             -binary bin/sysml-grpc -protocols connect,connect-json -allow-skips \
             -report conformance-report-java.json
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: java-conformance-report
@@ -1775,7 +1775,7 @@ jobs:
         run: make conformance-mcp
 
       # if: always() — the reports matter most when a gate failed and halted the job.
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: conformance-reports

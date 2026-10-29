@@ -15,9 +15,9 @@ func actionsFor(t *testing.T, file, src string, rng protocol.Range) []protocol.C
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File(file).Filename()
+	name := uri.File(file).FsPath()
 	ws.Open(name, []byte(src), 1)
-	acts, err := s.CodeAction(context.Background(), &protocol.CodeActionParams{
+	acts, err := codeActions(t, s, context.Background(), &protocol.CodeActionParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 		Range:        rng,
 	})
@@ -33,8 +33,8 @@ var wholeFile = protocol.Range{End: protocol.Position{Line: 100}}
 // edit returns the single text edit of an action, or fails.
 func edit(t *testing.T, act protocol.CodeAction, file string) protocol.TextEdit {
 	t.Helper()
-	if act.Kind != protocol.QuickFix {
-		t.Errorf("action %q kind = %q, want %q", act.Title, act.Kind, protocol.QuickFix)
+	if actionKind(act) != protocol.CodeActionKindQuickFix {
+		t.Errorf("action %q kind = %q, want %q", act.Title, actionKind(act), protocol.CodeActionKindQuickFix)
 	}
 	if len(act.Diagnostics) != 1 {
 		t.Errorf("action %q carries %d diagnostics, want the one it fixes", act.Title, len(act.Diagnostics))
@@ -69,7 +69,7 @@ func TestCodeActionFixesNearMissName(t *testing.T) {
 	if acts[0].Title != "Change 'Wheeel' to 'Wheel'" {
 		t.Errorf("title = %q", acts[0].Title)
 	}
-	if !acts[0].IsPreferred {
+	if !padded(acts[0].IsPreferred) {
 		t.Error("the only candidate in scope should be the preferred fix")
 	}
 	if got := apply(t, src, edit(t, acts[0], file)); got != "package P {\n    part def Wheel;\n    part w : Wheel;\n}\n" {
@@ -141,7 +141,7 @@ func TestCodeActionFiltersByRange(t *testing.T) {
 		End:   protocol.Position{Line: 3, Character: 18},
 	})
 	// The whole line selects b's header too, so its identity rewrite comes along.
-	if len(line3) != 2 || line3[0].Title != "Change 'Whel' to 'Wheel'" || line3[1].Kind != identityActionKind {
+	if len(line3) != 2 || line3[0].Title != "Change 'Whel' to 'Wheel'" || actionKind(line3[1]) != identityActionKind {
 		t.Errorf("actions for line 3 = %+v", line3)
 	}
 	// An empty range is a cursor: it still asks for the fixes of the diagnostic
@@ -150,7 +150,7 @@ func TestCodeActionFiltersByRange(t *testing.T) {
 		Start: protocol.Position{Line: 2, Character: 15},
 		End:   protocol.Position{Line: 2, Character: 15},
 	})
-	if len(cursor) != 2 || cursor[0].Title != "Change 'Wheeel' to 'Wheel'" || cursor[1].Kind != identityActionKind {
+	if len(cursor) != 2 || cursor[0].Title != "Change 'Wheeel' to 'Wheel'" || actionKind(cursor[1]) != identityActionKind {
 		t.Errorf("actions at the cursor = %+v", cursor)
 	}
 }
@@ -159,17 +159,17 @@ func TestCodeActionFiltersByRange(t *testing.T) {
 func TestCodeActionHonoursOnlyFilter(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/act_only.sysml").Filename()
+	name := uri.File("/tmp/act_only.sysml").FsPath()
 	ws.Open(name, []byte("package P {\n    part def Wheel;\n    part w : Wheeel;\n}\n"), 1)
 	for _, tc := range []struct {
 		only []protocol.CodeActionKind
 		want int
 	}{
 		{nil, 1},
-		{[]protocol.CodeActionKind{protocol.QuickFix}, 1},
-		{[]protocol.CodeActionKind{protocol.Refactor, protocol.SourceOrganizeImports}, 0},
+		{[]protocol.CodeActionKind{protocol.CodeActionKindQuickFix}, 1},
+		{[]protocol.CodeActionKind{protocol.CodeActionKindRefactor, protocol.CodeActionKindSourceOrganizeImports}, 0},
 	} {
-		acts, err := s.CodeAction(context.Background(), &protocol.CodeActionParams{
+		acts, err := codeActions(t, s, context.Background(), &protocol.CodeActionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Range:        wholeFile,
 			Context:      protocol.CodeActionContext{Only: tc.only},
@@ -186,7 +186,7 @@ func TestCodeActionHonoursOnlyFilter(t *testing.T) {
 // An unknown document has no actions rather than an error.
 func TestCodeActionUnknownDocument(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	acts, err := s.CodeAction(context.Background(), &protocol.CodeActionParams{
+	acts, err := codeActions(t, s, context.Background(), &protocol.CodeActionParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File("/tmp/missing.sysml")},
 		Range:        wholeFile,
 	})

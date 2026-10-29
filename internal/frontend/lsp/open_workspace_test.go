@@ -37,7 +37,7 @@ func chainedWorkspace(t *testing.T, n int) (*Server, *fakeClient, []string, []st
 	fc := &fakeClient{}
 	s.client = fc
 	if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{
-		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(dir)), Name: "chain"}},
+		WorkspaceFoldersInitializeParams: workspaceFolders(protocol.WorkspaceFolder{URI: uri.File(dir), Name: "chain"}),
 	}); err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
@@ -94,7 +94,7 @@ func TestOpeningScannedFilesIsNotAnEdit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if hover == nil || !strings.Contains(hover.Contents.Value, "Widget4") {
+	if hover == nil || !strings.Contains(hoverMarkup(t, hover).Value, "Widget4") {
 		t.Fatalf("hover over Widget4 = %+v, want its definition", hover)
 	}
 	if ws.Generation() != scanned {
@@ -103,7 +103,7 @@ func TestOpeningScannedFilesIsNotAnEdit(t *testing.T) {
 
 	// A buffer that differs from the file is an edit, and is what the diagnostics report.
 	edited := strings.Replace(texts[0], "Widget0;", "Widget0;\n    part broken : Missing;", 1)
-	s.applyDidChange(ctx, paths[0], []rawContentChange{{Text: edited}}, 2)
+	applyFullChange(ctx, s, paths[0], edited, 2)
 	if ws.Generation() == scanned {
 		t.Fatal("an edited buffer left the generation alone")
 	}

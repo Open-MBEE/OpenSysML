@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -60,19 +59,15 @@ type ImportDiagramResult struct {
 // importDiagramHandler dispatches opensysml/importDiagram and passes everything
 // else on.
 func (s *Server) importDiagramHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
-	return func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
 		if req.Method() != MethodImportDiagram {
-			return inner(ctx, reply, req)
+			return inner(ctx, req)
 		}
-		var params ImportDiagramParams
-		if err := json.Unmarshal(req.Params(), &params); err != nil {
-			return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
-		}
-		result, err := s.ImportDiagram(&params)
+		params, err := decodeParams[ImportDiagramParams](req)
 		if err != nil {
-			return reply(ctx, nil, err)
+			return nil, err
 		}
-		return reply(ctx, result, nil)
+		return s.ImportDiagram(params)
 	}
 }
 
@@ -145,13 +140,13 @@ func (s *Server) ImportDiagram(params *ImportDiagramParams) (*ImportDiagramResul
 		out.Refused = []ModelEditRefusal{s.refusal(refusal, s.ws.Document(name).Content)}
 		return out, nil
 	}
-	changes := make([]protocol.TextDocumentEdit, 0, len(result.Documents))
+	changes := make([]protocol.DocumentChange, 0, len(result.Documents))
 	for _, edited := range result.Documents {
 		change, err := documentChange(edited)
 		if err != nil {
 			return nil, err
 		}
-		changes = append(changes, change)
+		changes = append(changes, &change)
 	}
 	out.Edit = &protocol.WorkspaceEdit{DocumentChanges: changes}
 	return out, nil

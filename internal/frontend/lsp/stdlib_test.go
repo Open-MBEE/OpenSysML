@@ -47,7 +47,7 @@ func lineOf(t *testing.T, text, sub string) uint32 {
 
 func TestLibraryURIRoundTrip(t *testing.T) {
 	u := libraryURI(baseName)
-	want := uri.URI("sysml-stdlib:///Kernel%20Libraries/Kernel%20Semantic%20Library/Base.kerml")
+	want := uri.URI("sysml-stdlib:/Kernel%20Libraries/Kernel%20Semantic%20Library/Base.kerml")
 	if u != want {
 		t.Errorf("libraryURI = %q, want %q", u, want)
 	}
@@ -62,15 +62,15 @@ func TestLibraryURIRoundTrip(t *testing.T) {
 	if isLibraryURI(fileURI) {
 		t.Error("isLibraryURI = true for a file URI")
 	}
-	if got := uriToName(fileURI); got != fileURI.Filename() {
-		t.Errorf("uriToName(file) = %q, want %q", got, fileURI.Filename())
+	if got := uriToName(fileURI); got != fileURI.FsPath() {
+		t.Errorf("uriToName(file) = %q, want %q", got, fileURI.FsPath())
 	}
 
 	for _, bad := range []string{
-		"sysml-stdlib:///",
-		"sysml-stdlib:///../etc/passwd",
-		"sysml-stdlib:///Kernel%20Libraries/../../x.kerml",
-		"sysml-stdlib:///Kernel%20Libraries//Base.kerml",
+		"sysml-stdlib:/",
+		"sysml-stdlib:/../etc/passwd",
+		"sysml-stdlib:/Kernel%20Libraries/../../x.kerml",
+		"sysml-stdlib:/Kernel%20Libraries//Base.kerml",
 		"sysml-stdlib://host/Base.kerml",
 		"stdlib:///Base.kerml",
 	} {
@@ -85,11 +85,11 @@ func TestLibraryURIRoundTrip(t *testing.T) {
 func TestDefinitionOfLibrarySymbolOpensVirtualDocument(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/stdlib_def.sysml").Filename()
+	name := uri.File("/tmp/stdlib_def.sysml").FsPath()
 	src := "package P { attribute x : ScalarValues::Integer; }\n"
 	ws.Open(name, []byte(src), 1)
 
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), strings.Index(src, "Integer")),
@@ -122,7 +122,7 @@ func TestDefinitionWithinLibraryDocuments(t *testing.T) {
 	if off < 0 {
 		t.Fatal("Occurrences.kerml no longer imports Base::Anything")
 	}
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: libraryURI(occurrencesName)},
 			Position:     offsetToPosition([]byte(text), off+len("Base::")),
@@ -160,11 +160,11 @@ func TestRequestsAgainstLibraryURI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if hov == nil || !strings.Contains(hov.Contents.Value, "classifier Anything") {
+	if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "classifier Anything") {
 		t.Errorf("hover = %+v, want the classifier's signature", hov)
 	}
 
-	syms, err := s.DocumentSymbol(ctx, &protocol.DocumentSymbolParams{
+	syms, err := documentSymbols(t, s, ctx, &protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 	})
 	if err != nil {
@@ -173,8 +173,8 @@ func TestRequestsAgainstLibraryURI(t *testing.T) {
 	if len(syms) != 1 {
 		t.Fatalf("top-level symbols = %d, want the Base package alone", len(syms))
 	}
-	pkg, ok := syms[0].(protocol.DocumentSymbol)
-	if !ok || pkg.Name != "Base" {
+	pkg := syms[0]
+	if pkg.Name != "Base" {
 		t.Fatalf("symbol = %#v, want package Base", syms[0])
 	}
 	var names []string
@@ -202,7 +202,7 @@ func TestRequestsAgainstLibraryURI(t *testing.T) {
 func TestReferencesLocateLibraryDeclaration(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/stdlib_refs.sysml").Filename()
+	name := uri.File("/tmp/stdlib_refs.sysml").FsPath()
 	src := "package P { attribute x : ScalarValues::Integer; attribute y : ScalarValues::Integer; }\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -249,7 +249,7 @@ func TestStdlibContentServesBundledText(t *testing.T) {
 	for _, bad := range []uri.URI{
 		libraryURI("Kernel Libraries/Nowhere.kerml"),
 		uri.File("/tmp/Base.kerml"),
-		"sysml-stdlib:///../Base.kerml",
+		"sysml-stdlib:/../Base.kerml",
 	} {
 		_, err := s.StdlibContent(&StdlibContentParams{URI: bad})
 		var rpcErr *jsonrpc2.Error
@@ -279,7 +279,7 @@ func TestLibraryDocumentIsReadOnly(t *testing.T) {
 
 	err := s.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument:   protocol.VersionedTextDocumentIdentifier{TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: docURI}, Version: 2},
-		ContentChanges: []protocol.TextDocumentContentChangeEvent{{Text: "package Bogus;"}},
+		ContentChanges: []protocol.TextDocumentContentChangeEvent{&protocol.TextDocumentContentChangeWholeDocument{Text: "package Bogus;"}},
 	})
 	var rpcErr *jsonrpc2.Error
 	if !errors.As(err, &rpcErr) || rpcErr.Code != jsonrpc2.InvalidRequest || !strings.Contains(rpcErr.Message, "read-only") {
@@ -337,11 +337,11 @@ func TestLibraryLocationsUseUTF16Positions(t *testing.T) {
 	}
 	ws := model.NewWorkspaceWithIndex(idx, model.WithLibrarySource(src))
 	s := NewServer(ws)
-	name := uri.File("/tmp/utf16.sysml").Filename()
+	name := uri.File("/tmp/utf16.sysml").FsPath()
 	text := "package P { attribute x : Fake::Thing; }\n"
 	ws.Open(name, []byte(text), 1)
 
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(text), strings.Index(text, "Thing")),

@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -10,6 +9,7 @@ import (
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/check/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
@@ -77,7 +77,7 @@ type ModelEditOperation struct {
 	Kind           string               `json:"kind"`
 	Target         string               `json:"target,omitempty"`
 	Declaration    *protocol.Range      `json:"declaration,omitempty"`
-	DeclaredIn     protocol.DocumentURI `json:"declaredIn,omitempty"`
+	DeclaredIn     uri.URI              `json:"declaredIn,omitempty"`
 	Digest         string               `json:"digest,omitempty"`
 	Value          string               `json:"value,omitempty"`
 	BodyExpression string               `json:"bodyExpression,omitempty"`
@@ -90,7 +90,7 @@ type ModelEditOperation struct {
 	Specializes    []string             `json:"specializes,omitempty"`
 	From           string               `json:"from,omitempty"`
 	To             string               `json:"to,omitempty"`
-	Cascade        bool                 `json:"cascade,omitempty"`
+	Cascade        bool                 `json:"cascade,omitzero"`
 	View           string               `json:"view,omitempty"`
 	Keyword        string               `json:"keyword,omitempty"`
 	Ref            string               `json:"ref,omitempty"`
@@ -101,10 +101,10 @@ type ModelEditOperation struct {
 	Parameter      string               `json:"parameter,omitempty"`
 	Body           []ModelEditOperation `json:"body,omitempty"`
 	ElseBody       []ModelEditOperation `json:"elseBody,omitempty"`
-	Layout         *ModelEditLayout     `json:"layout,omitempty"`
+	Layout         *ModelEditLayout     `json:"layout,omitzero"`
 	Route          []RenderPoint        `json:"route,omitempty"`
-	Canvas         *RenderCanvas        `json:"canvas,omitempty"`
-	Style          *RenderStyle         `json:"style,omitempty"`
+	Canvas         *RenderCanvas        `json:"canvas,omitzero"`
+	Style          *RenderStyle         `json:"style,omitzero"`
 	Note           *ModelEditNote       `json:"note,omitempty"`
 	Picture        *ModelEditPicture    `json:"picture,omitempty"`
 }
@@ -138,11 +138,11 @@ type ModelEditPicture struct {
 // or neither; Collapsed is written only when set.
 type ModelEditLayout struct {
 	// X and Y go together; both absent, the Layout only folds and places nothing.
-	X         *float64 `json:"x,omitempty"`
-	Y         *float64 `json:"y,omitempty"`
-	Width     *float64 `json:"width,omitempty"`
-	Height    *float64 `json:"height,omitempty"`
-	Collapsed bool     `json:"collapsed,omitempty"`
+	X         *float64 `json:"x,omitzero"`
+	Y         *float64 `json:"y,omitzero"`
+	Width     *float64 `json:"width,omitzero"`
+	Height    *float64 `json:"height,omitzero"`
+	Collapsed bool     `json:"collapsed,omitzero"`
 }
 
 // ApplyModelEditResult is exactly one of: an edit to apply, the refusals that
@@ -155,7 +155,7 @@ type ModelEditLayout struct {
 type ApplyModelEditResult struct {
 	Edit    *protocol.WorkspaceEdit `json:"edit,omitempty"`
 	Refused []ModelEditRefusal      `json:"refused,omitempty"`
-	Stale   bool                    `json:"stale,omitempty"`
+	Stale   bool                    `json:"stale,omitzero"`
 	Version int                     `json:"version"`
 }
 
@@ -175,8 +175,8 @@ type ModelEditRefusal struct {
 
 // ModelEditReferrer is one referring declaration and the document declaring it.
 type ModelEditReferrer struct {
-	Name string               `json:"name"`
-	URI  protocol.DocumentURI `json:"uri"`
+	Name string  `json:"name"`
+	URI  uri.URI `json:"uri"`
 }
 
 // EditPalette lists the declarations a diagram of one rendering kind offers to
@@ -223,19 +223,15 @@ func (p *EditPalette) admit(id string, decl ast.Node) {
 // modelEditHandler dispatches opensysml/applyModelEdit and passes everything
 // else on.
 func (s *Server) modelEditHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
-	return func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
 		if req.Method() != MethodApplyModelEdit {
-			return inner(ctx, reply, req)
+			return inner(ctx, req)
 		}
-		var params ApplyModelEditParams
-		if err := json.Unmarshal(req.Params(), &params); err != nil {
-			return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
-		}
-		result, err := s.ApplyModelEdit(&params)
+		params, err := decodeParams[ApplyModelEditParams](req)
 		if err != nil {
-			return reply(ctx, nil, err)
+			return nil, err
 		}
-		return reply(ctx, result, nil)
+		return s.ApplyModelEdit(params)
 	}
 }
 
@@ -287,13 +283,13 @@ func (s *Server) ApplyModelEdit(params *ApplyModelEditParams) (*ApplyModelEditRe
 		}
 		return &ApplyModelEditResult{Refused: []ModelEditRefusal{s.refusal(refusal, doc.Content)}, Version: version}, nil
 	}
-	changes := make([]protocol.TextDocumentEdit, 0, len(result.Documents))
+	changes := make([]protocol.DocumentChange, 0, len(result.Documents))
 	for _, edited := range result.Documents {
 		change, err := documentChange(edited)
 		if err != nil {
 			return nil, err
 		}
-		changes = append(changes, change)
+		changes = append(changes, &change)
 	}
 	return &ApplyModelEditResult{
 		Version: version,
@@ -310,7 +306,7 @@ func documentChange(edited model.DocumentEdit) (protocol.TextDocumentEdit, error
 		TextDocument: protocol.OptionalVersionedTextDocumentIdentifier{
 			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: nameToURI(edited.Name)},
 		},
-		Edits: textEdits(edited.Original, edited.Content),
+		Edits: editElements(textEdits(edited.Original, edited.Content)),
 	}
 	if !edited.Open {
 		return change, nil
@@ -577,13 +573,7 @@ func (s *Server) refusal(e *modeledit.Error, content []byte) ModelEditRefusal {
 	}
 	pos := positionsFor(diagnosed)
 	for _, d := range e.Diagnostics {
-		out.Diagnostics = append(out.Diagnostics, protocol.Diagnostic{
-			Range:    pos.rangeOf(d.Span),
-			Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1),
-			Message:  d.Message,
-			Code:     d.Code,
-			Source:   d.Source,
-		})
+		out.Diagnostics = append(out.Diagnostics, protocolDiagnostic(pos, d))
 	}
 	return out
 }
@@ -711,4 +701,13 @@ func nodeSymbol(doc *model.Document, o view.Origin) *symbols.Symbol {
 		return nil
 	}
 	return doc.Scope.DeclaredAt(o.Span)
+}
+
+// editElements lists plain text edits as the elements a TextDocumentEdit holds.
+func editElements(edits []protocol.TextEdit) []protocol.TextDocumentEditElement {
+	out := make([]protocol.TextDocumentEditElement, len(edits))
+	for i := range edits {
+		out[i] = &edits[i]
+	}
+	return out
 }

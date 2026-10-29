@@ -64,7 +64,7 @@ func publishedDiagnostics(t *testing.T, name, src string) []string {
 	}
 	var out []string
 	for _, d := range fc.published[0].Diagnostics {
-		out = append(out, d.Message)
+		out = append(out, diagnosticMessage(t, d))
 	}
 	return out
 }

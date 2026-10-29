@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -24,7 +25,7 @@ const includeModel = `package Rel {
 }
 `
 
-func renderWithInclude(t *testing.T, s *Server, docURI protocol.DocumentURI, include ...string) RenderResult {
+func renderWithInclude(t *testing.T, s *Server, docURI uri.URI, include ...string) RenderResult {
 	t.Helper()
 	raw, err := call(t, s, MethodRender, &RenderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -144,7 +145,7 @@ func TestInitializeAdvertisesTheRenderIncludeCapability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental := res.Capabilities.Experimental.(map[string]any)
+	experimental := experimentalCaps(t, res)
 	if experimental[RenderIncludeCapability] != true {
 		t.Errorf("%s = %#v, want true", RenderIncludeCapability, experimental[RenderIncludeCapability])
 	}

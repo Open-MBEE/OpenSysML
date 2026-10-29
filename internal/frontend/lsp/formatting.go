@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/format"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -43,8 +44,8 @@ func (w lineWindow) has(line int) bool { return w.from <= line && line < w.to }
 // its formatted form, or none when there is nothing to do. A document that does
 // not parse is left alone: its brace structure is unreliable, and reformatting a
 // file the author is midway through editing is worse than doing nothing.
-func (s *Server) formattingEdits(uri protocol.DocumentURI, opts protocol.FormattingOptions, w lineWindow) ([]protocol.TextEdit, error) {
-	name := uriToName(uri)
+func (s *Server) formattingEdits(docURI uri.URI, opts protocol.FormattingOptions, w lineWindow) ([]protocol.TextEdit, error) {
+	name := uriToName(docURI)
 	doc := s.ws.Document(name)
 	if doc == nil || len(doc.ParseDiagnostics) > 0 {
 		return nil, nil

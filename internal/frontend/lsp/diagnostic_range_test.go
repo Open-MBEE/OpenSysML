@@ -35,7 +35,7 @@ func TestPublishedDiagnosticRangesEndAtTheName(t *testing.T) {
 	}
 	for _, d := range published[0].Diagnostics {
 		for msg, r := range want {
-			if strings.HasPrefix(d.Message, msg) {
+			if strings.HasPrefix(diagnosticMessage(t, d), msg) {
 				if d.Range != r {
 					t.Errorf("%q range = %v, want %v", msg, d.Range, r)
 				}

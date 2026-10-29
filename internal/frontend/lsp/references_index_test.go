@@ -25,9 +25,9 @@ func openRefIndexWorkspace(t *testing.T) (*model.Workspace, *Server, map[string]
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	names := map[string]string{
-		"lib":   uri.File("/tmp/refidx_lib.sysml").Filename(),
-		"use":   uri.File("/tmp/refidx_use.sysml").Filename(),
-		"other": uri.File("/tmp/refidx_other.sysml").Filename(),
+		"lib":   uri.File("/tmp/refidx_lib.sysml").FsPath(),
+		"use":   uri.File("/tmp/refidx_use.sysml").FsPath(),
+		"other": uri.File("/tmp/refidx_other.sysml").FsPath(),
 	}
 	ws.Open(names["lib"], []byte(refIdxLib), 1)
 	ws.Open(names["use"], []byte(refIdxUse), 1)
@@ -160,7 +160,7 @@ func TestRenameFollowsCrossDocumentRedirect(t *testing.T) {
 // locations; closing back to on-disk content re-reads them from that text.
 func TestReferencesDropClosedAndRemovedDocuments(t *testing.T) {
 	ws, s, n := openRefIndexWorkspace(t)
-	second := uri.File("/tmp/refidx_use2.sysml").Filename()
+	second := uri.File("/tmp/refidx_use2.sysml").FsPath()
 	ws.Open(second, []byte("package Use2 { import Lib::*; part w2 : Wheel; }\n"), 1)
 	wantLocations(t, indexReferencesAt(t, ws, s, n["lib"], "Wheel"), n["use"], second)
 

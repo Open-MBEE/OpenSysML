@@ -18,7 +18,7 @@ import (
 const benchWorkspaceDocs = 120
 
 func benchDocName(i int) string {
-	return uri.File(fmt.Sprintf("/tmp/refbench/p%03d.sysml", i)).Filename()
+	return uri.File(fmt.Sprintf("/tmp/refbench/p%03d.sysml", i)).FsPath()
 }
 
 func benchDocSource(i int) string {

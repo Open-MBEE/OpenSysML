@@ -62,7 +62,7 @@ func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEd
 	if len(edit.DocumentChanges) != 1 {
 		t.Fatalf("documentChanges = %d, want 1", len(edit.DocumentChanges))
 	}
-	change := edit.DocumentChanges[0]
+	change := textDocumentEdit(t, edit, 0)
 	if change.TextDocument.URI != docURI {
 		t.Errorf("edit uri = %s, want %s", change.TextDocument.URI, docURI)
 	}
@@ -73,25 +73,25 @@ func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEd
 }
 
 // documentChangeFor is the edit's change to the document at docURI.
-func documentChangeFor(t *testing.T, edit *protocol.WorkspaceEdit, docURI uri.URI) protocol.TextDocumentEdit {
+func documentChangeFor(t *testing.T, edit *protocol.WorkspaceEdit, docURI uri.URI) *protocol.TextDocumentEdit {
 	t.Helper()
 	if edit == nil {
 		t.Fatal("no edit in result")
 	}
-	for _, change := range edit.DocumentChanges {
-		if change.TextDocument.URI == docURI {
+	for i := range edit.DocumentChanges {
+		if change := textDocumentEdit(t, edit, i); change.TextDocument.URI == docURI {
 			return change
 		}
 	}
 	t.Fatalf("no change to %s in %+v", docURI, edit.DocumentChanges)
-	return protocol.TextDocumentEdit{}
+	return nil
 }
 
 // applyDocumentChange applies one document's text edits to content, later
 // ranges first.
-func applyDocumentChange(t *testing.T, content string, change protocol.TextDocumentEdit) string {
+func applyDocumentChange(t *testing.T, content string, change *protocol.TextDocumentEdit) string {
 	t.Helper()
-	edits := append([]protocol.TextEdit(nil), change.Edits...)
+	edits := textEditsOf(t, change)
 	sort.Slice(edits, func(i, j int) bool {
 		a, b := edits[i].Range.Start, edits[j].Range.Start
 		return a.Line > b.Line || (a.Line == b.Line && a.Character > b.Character)
@@ -136,7 +136,7 @@ func TestApplyModelEditAddsMemberAsWorkspaceEdit(t *testing.T) {
 		t.Fatalf("result = %+v, want an edit", out)
 	}
 	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
-	want := golden(t, s, docURI.Filename(), op)
+	want := golden(t, s, docURI.FsPath(), op)
 	if got != want {
 		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
 	}
@@ -185,7 +185,7 @@ func TestApplyModelEditAddsConnection(t *testing.T) {
 		t.Fatalf("result = %+v, want an edit", out)
 	}
 	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
-	if want := golden(t, s, docURI.Filename(), op); got != want {
+	if want := golden(t, s, docURI.FsPath(), op); got != want {
 		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
 	}
 	if !strings.Contains(got, "\t\tconnection fuelLine connect tank.fuelOut to engine.fuelIn;\n") {
@@ -218,7 +218,7 @@ func TestApplyModelEditAddsNestedActionBody(t *testing.T) {
 		t.Fatalf("result = %+v, want an edit", out)
 	}
 	got := applyWorkspaceEdit(t, src, out.Edit, docURI)
-	want := golden(t, s, docURI.Filename(), op)
+	want := golden(t, s, docURI.FsPath(), op)
 	if got != want {
 		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
 	}
@@ -391,13 +391,13 @@ func TestApplyModelEditRenamesEveryReference(t *testing.T) {
 		t.Fatalf("result = %+v, want an edit", out)
 	}
 	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
-	if want := golden(t, s, docURI.Filename(), op); got != want {
+	if want := golden(t, s, docURI.FsPath(), op); got != want {
 		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
 	}
 	if strings.Contains(got, "Tank;") && !strings.Contains(got, "FuelTank;") {
 		t.Errorf("reference not renamed:\n%s", got)
 	}
-	if n := len(out.Edit.DocumentChanges[0].Edits); n != 2 {
+	if n := len(out.Edit.DocumentChanges[0].(*protocol.TextDocumentEdit).Edits); n != 2 {
 		t.Errorf("edits = %d, want one per changed line (declaration and usage)", n)
 	}
 }
@@ -410,7 +410,7 @@ func TestApplyModelEditDeletes(t *testing.T) {
 		t.Fatalf("result = %+v, want an edit", out)
 	}
 	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
-	if want := golden(t, s, docURI.Filename(), op); got != want {
+	if want := golden(t, s, docURI.FsPath(), op); got != want {
 		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
 	}
 	if strings.Contains(got, "part engine") {
@@ -449,7 +449,7 @@ func TestApplyModelEditMoves(t *testing.T) {
 		t.Fatalf("result = %+v, want an edit", out)
 	}
 	got := applyWorkspaceEdit(t, editModel, out.Edit, docURI)
-	if want := golden(t, s, docURI.Filename(), op); got != want {
+	if want := golden(t, s, docURI.FsPath(), op); got != want {
 		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
 	}
 	if !strings.Contains(got, "\tpart def Engine {\n\t\tport fuelIn : FuelPort;\n\t\tpart tank : Tank; // holds the fuel\n\t}") {
@@ -519,7 +519,7 @@ func TestApplyModelEditRefusesImpossibleMoves(t *testing.T) {
 	if len(out.Refused) != 1 || out.Refused[0].Failure != "referenced-elsewhere" {
 		t.Fatalf("move referenced from another document = %+v, want referenced-elsewhere", out)
 	}
-	if want := "Fleet::truck (" + fleetURI.Filename() + ")"; strings.Join(out.Refused[0].Referring, ",") != want {
+	if want := "Fleet::truck (" + fleetURI.FsPath() + ")"; strings.Join(out.Refused[0].Referring, ",") != want {
 		t.Errorf("referring = %v, want %q", out.Refused[0].Referring, want)
 	}
 }
@@ -564,7 +564,7 @@ func TestApplyModelEditRenameRespellsAnotherDocument(t *testing.T) {
 		t.Fatalf("documentChanges = %v, want %v", got, []uri.URI{docURI, fleetURI})
 	}
 	vehicle := applyDocumentChange(t, editModel, documentChangeFor(t, out.Edit, docURI))
-	if want := golden(t, s, docURI.Filename(), op); vehicle != want {
+	if want := golden(t, s, docURI.FsPath(), op); vehicle != want {
 		t.Errorf("vehicle.sysml:\n%s\nwant:\n%s", vehicle, want)
 	}
 	change := documentChangeFor(t, out.Edit, fleetURI)
@@ -592,7 +592,7 @@ func TestApplyModelEditDeleteCascadesIntoAnotherDocument(t *testing.T) {
 	if r.Failure != "delete-referenced" || r.Operation != 0 {
 		t.Errorf("refusal = %+v, want delete-referenced of operation 0", r)
 	}
-	fleetName := fleetURI.Filename()
+	fleetName := fleetURI.FsPath()
 	if want := []string{"Fleet::truck (" + fleetName + ")", "Fleet::van (" + fleetName + ")"}; !reflect.DeepEqual(r.Referring, want) {
 		t.Errorf("referring = %v, want %v", r.Referring, want)
 	}
@@ -625,7 +625,7 @@ func TestApplyModelEditVersionsOtherDocumentsAsHeld(t *testing.T) {
 	fleetURI := tempDocURI(t, "fleet.sysml")
 	openDoc(t, s, fleetURI, fleetModel)
 	sendDidChange(t, s, fleetURI, 3, []json.RawMessage{json.RawMessage(`{"text":"package Fleet {\n    part van : Vehicle::Car;\n}\n"}`)})
-	depotName := uri.File("depot.sysml").Filename()
+	depotName := uri.File("depot.sysml").FsPath()
 	s.ws.SetOnDisk(depotName, []byte("package Depot {\n    part spare : Vehicle::Car;\n}\n"))
 
 	out := applyModelEdit(t, s, docURI, 1, ModelEditOperation{Kind: EditRename, Target: "Vehicle::Car", NewName: "Auto"})
@@ -651,7 +651,7 @@ func TestApplyModelEditVersionsOtherDocumentsAsHeld(t *testing.T) {
 }
 
 // pinned asserts a change that edits nothing, pinning its document at version.
-func pinned(t *testing.T, change protocol.TextDocumentEdit, version int) {
+func pinned(t *testing.T, change *protocol.TextDocumentEdit, version int) {
 	t.Helper()
 	if len(change.Edits) != 0 {
 		t.Errorf("%s has edits %+v, want none", change.TextDocument.URI, change.Edits)
@@ -665,7 +665,9 @@ func pinned(t *testing.T, change protocol.TextDocumentEdit, version int) {
 func documentURIs(edit *protocol.WorkspaceEdit) []uri.URI {
 	out := make([]uri.URI, 0, len(edit.DocumentChanges))
 	for _, change := range edit.DocumentChanges {
-		out = append(out, change.TextDocument.URI)
+		if change, ok := change.(*protocol.TextDocumentEdit); ok {
+			out = append(out, change.TextDocument.URI)
+		}
 	}
 	return out
 }
@@ -708,7 +710,7 @@ func TestApplyModelEditPinnedToRenderingRejectsNamesakeReplacement(t *testing.T)
 	if !out.Stale || out.Edit != nil || out.Refused != nil {
 		t.Fatalf("result at the rendering's version = %+v, want stale", out)
 	}
-	if string(s.ws.Document(docURI.Filename()).Content) != replaced {
+	if string(s.ws.Document(docURI.FsPath()).Content) != replaced {
 		t.Error("server document changed on a stale request")
 	}
 
@@ -744,7 +746,7 @@ func TestApplyModelEditRefusalShapeIsAtomic(t *testing.T) {
 	if r.Operation != 1 || r.Failure != "owner-unknown" || !strings.Contains(r.Message, "Vehicle::Nowhere") {
 		t.Errorf("refusal = %+v", r)
 	}
-	if string(s.ws.Document(docURI.Filename()).Content) != editModel {
+	if string(s.ws.Document(docURI.FsPath()).Content) != editModel {
 		t.Error("server document changed on a refused request")
 	}
 }
@@ -762,8 +764,8 @@ func TestApplyModelEditRefusalCarriesDiagnostics(t *testing.T) {
 	if r.Failure != "result-invalid" || len(r.Diagnostics) == 0 {
 		t.Fatalf("refusal = %+v, want result-invalid with diagnostics", r)
 	}
-	if !strings.Contains(r.Diagnostics[0].Message, "Wheel") {
-		t.Errorf("diagnostic = %q, want it to name Wheel", r.Diagnostics[0].Message)
+	if !strings.Contains(diagnosticMessage(t, r.Diagnostics[0]), "Wheel") {
+		t.Errorf("diagnostic = %q, want it to name Wheel", diagnosticMessage(t, r.Diagnostics[0]))
 	}
 }
 
@@ -1019,7 +1021,7 @@ func TestApplyModelEditSetLayoutRoundTripsThroughRender(t *testing.T) {
 	drag := ModelEditOperation{Kind: EditSetLayout, Target: pump.FQN, View: drawn.View, Layout: &ModelEditLayout{X: float(120), Y: float(40.5)}}
 	out := applyModelEdit(t, s, docURI, drawn.Version, drag)
 	applied, redrawn := redraw(t, s, docURI, plantModel, out, 2, drawn.View)
-	if want := golden(t, s, docURI.Filename(), drag); applied != want {
+	if want := golden(t, s, docURI.FsPath(), drag); applied != want {
 		t.Errorf("applied edit:\n%s\nwant:\n%s", applied, want)
 	}
 	if !strings.Contains(applied, "\t\texpose Plant::Loop;\n\t\tmetadata DiagramLayout::Layout about Plant::Loop::pump { x = 120; y = 40.5; }\n\t}\n") {
@@ -1133,7 +1135,7 @@ package PlantViews {
 
 	op := ModelEditOperation{Kind: EditSetRoute, Declaration: &decl, Route: []RenderPoint{{X: 30, Y: 90}, {X: 30, Y: 10}}}
 	out := applyModelEdit(t, s, docURI, drawn.Version, op)
-	want := golden(t, s, docURI.Filename(), op)
+	want := golden(t, s, docURI.FsPath(), op)
 	applied, redrawn := redraw(t, s, docURI, machine, out, 2, drawn.View)
 	if applied != want {
 		t.Errorf("edit differs from the edit layer's:\n--- want\n%s\n--- got\n%s", want, applied)
@@ -1233,7 +1235,7 @@ func TestApplyModelEditSetLayoutRefusals(t *testing.T) {
 			t.Errorf("%+v: refusal = %+v, want %s", tc.op, out.Refused[0], tc.failure)
 		}
 	}
-	if string(s.ws.Document(docURI.Filename()).Content) != plantModel {
+	if string(s.ws.Document(docURI.FsPath()).Content) != plantModel {
 		t.Error("server document changed on refused requests")
 	}
 	_, err := call(t, s, MethodApplyModelEdit, &ApplyModelEditParams{
