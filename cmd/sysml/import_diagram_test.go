@@ -108,7 +108,7 @@ func TestImportDiagramWritesTheLayoutIntoTheModel(t *testing.T) {
 
 func TestImportDiagramFlagsNeedTheFile(t *testing.T) {
 	binary := buildCLI(t)
-	for _, args := range [][]string{{"-dry-run"}, {"-view", "Plant::loopView"}} {
+	for _, args := range [][]string{{"-dry-run"}, {"-view", "Plant::loopView"}, {"-import-diagram", ""}} {
 		got := runStreams(t, binary, importDiagramModel, args...)
 		if got.status != 2 || !strings.Contains(got.stderr, "-import-diagram") {
 			t.Errorf("%v: status %d\n%s", args, got.status, got.output())
