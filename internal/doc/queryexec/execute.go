@@ -439,6 +439,8 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateExcept(expression)
 	case queryplan.OperationUnion:
 		return e.evaluateUnion(expression)
+	case queryplan.OperationDiffer:
+		return e.evaluateDiffer(expression)
 	case queryplan.OperationStates:
 		return e.evaluateStates(expression)
 	case queryplan.OperationInState:

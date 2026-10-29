@@ -423,6 +423,18 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* Differ: one row (key, column of left, column of right) per key value present
+	 * in both left and right whose column cells differ — a keyed value comparison;
+	 * keys on one side only are Except's. A key value carried by two rows on one
+	 * side is a model error. */
+	calc def Differ {
+		in left : Element[0..*] ordered;
+		in right : Element[0..*] ordered;
+		in key : String[1];
+		in column : String[1];
+		return result : Element[0..*] ordered;
+	}
+
 	/* Tree: the source rows arranged as a containment tree in pre-order, each
 	 * row nested under the nearest row containing it — its nearest owner among
 	 * the rows, or the individual whose part it is — at the depth the table

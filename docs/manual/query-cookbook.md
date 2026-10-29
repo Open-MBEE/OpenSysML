@@ -1354,6 +1354,38 @@ $ sysml cookbook.sysml -run-query "Cookbook::VerifiedButUnsatisfied root=Cookboo
 to be unprojected or to project the same columns, and is a typed error
 otherwise, since its rows share one table.
 
+### Keyed comparison: `Differ`
+
+`Except` and `Union` identify rows, so a value that changed on an element present on
+both sides is invisible to them. `Differ(left, right, key, column)` compares two projected
+tables by a key column: one row per key value present on both sides whose `column` cells
+differ, with the columns `key`, `left` and `right` — the key, then the cell of each side.
+Cells compare as sequences under KerML `==` (elements by identity, numbers by value), so a
+many-valued cell differs when its values or their order do. Keys on one side only are not
+rows here; `Except` reports those.
+
+```sysml
+calc def PartMasses :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = OwnedElements(source = root), type = "PartUsage"),
+		properties = ("name", "mass")
+	)
+}
+
+calc def ChangedMasses :> Query {
+	in before : Element;
+	in after : Element;
+	Differ(left = PartMasses(root = before), right = PartMasses(root = after), key = "name", column = "mass")
+}
+```
+
+Both sides must project `key` and `column`; a side that does not is the typed error
+`unknown-column`, a path error at `Differ(key, column)`. A key value carried by two rows
+of one side, or a key cell that is not single-valued, is the model error `duplicate-key`
+(`duplicateKey` / `multiplicity` findings, one per offending row, every row kept) rather
+than a silent choice between them.
+
 ## Requirement hierarchy
 
 A requirement tree is the requirement definitions and usages under a root —

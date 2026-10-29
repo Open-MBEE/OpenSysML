@@ -28,6 +28,7 @@ to `∅` is the ambiguity QVTS exists to remove.
 | `Named` | the element | `unknown-element`: the longest prefix that resolves, the segment it lacks, the nearest spellings; an alias that denotes nothing | `ambiguous-element`: the elements, by qualified name; the finding names the owning namespace |
 | `WhereType`, `WhereMetadata` | the selected rows | `unknown-classification` | — |
 | `RelatedElements` | the neighbours, possibly none | `unknown-relationship` | — |
+| `Differ` | the `(key, left, right)` rows whose column differs, possibly none | `unknown-column`: the side (`Parameter`) that projects no such column (`Property`), its columns (`Candidates`) | `duplicate-key`: one `duplicateKey` finding per row repeating a key value on one side, `multiplicity` where a key cell is not single-valued |
 | `Project`, `WhereFeature` on a feature the element lacks | an empty cell, with `tolerate = true` | `missing-feature`: the element (`Target`), the feature (`Property`), the features it does have (`Candidates`); `unknown-property` when no row carries it | — |
 | `Project`, `WhereFeature` on a metadata path (`Tag::key`) the element lacks | *today an empty cell* | *to do:* decide whether an absent annotation is a path error | — |
 | `Project` on a `[1]` feature with two values | *today the first value* | — | *to do:* `multiplicity` |
