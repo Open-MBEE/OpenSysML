@@ -1361,8 +1361,9 @@ both sides is invisible to them. `Differ(left, right, key, column)` compares two
 tables by a key column: one row per key value present on both sides whose `column` cells
 differ, with the columns `key`, `left` and `right` — the key, then the cell of each side.
 Cells compare as sequences under KerML `==` (elements by identity, numbers by value), so a
-many-valued cell differs when its values or their order do. Keys on one side only are not
-rows here; `Except` reports those.
+many-valued cell differs when its values or their order do; keys match under the same
+equality, so an integer `1` and a real `1.0` are one key. Keys on one side only are not
+rows here; `Except` reports those. A `Tree`-arranged left side keeps its depths.
 
 ```sysml
 calc def PartMasses :> Query {
@@ -1381,7 +1382,8 @@ calc def ChangedMasses :> Query {
 ```
 
 Both sides must project `key` and `column`; a side that does not is the typed error
-`unknown-column`, a path error at `Differ(key, column)`. A key value carried by two rows
+`unknown-column`, a path error at `Differ(key, column)`. A key named `left` or `right`
+would collide with the result's side columns and is an `invalid-argument`. A key value carried by two rows
 of one side, or a key cell that is not single-valued, is the model error `duplicate-key`
 (`duplicateKey` / `multiplicity` findings, one per offending row, every row kept) rather
 than a silent choice between them.
