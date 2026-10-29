@@ -50,11 +50,7 @@ func (w *Workspace) Views(doc string) ([]ViewInfo, *Document) {
 	if d == nil {
 		return nil, nil
 	}
-	if d.Recorded() {
-		d = w.hydrateLocked(doc)
-		w.index.ExpandWildcardImports()
-		w.invalidateLocked(doc)
-	}
+	d = w.hydratedLocked(d)
 	out := w.viewInfosLocked(d)
 	sortViewInfos(out)
 	return out, d
@@ -238,6 +234,8 @@ func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verd
 	if d == nil {
 		return nil, nil, fmt.Errorf("%s: no such document", doc)
 	}
+	d = w.hydratedLocked(d)
+	w.hydrateDrawnLocked(doc, fqn, include)
 	var rendering *view.Rendering
 	var err error
 	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
@@ -250,6 +248,66 @@ func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verd
 		return nil, nil, fmt.Errorf("%s: a %s rendering draws no %s overlay; it is drawn on a requirement rendering", rendering.View, rendering.Kind, overlay)
 	}
 	return rendering, &Snapshot{Rendered: d, docs: maps.Clone(w.docs)}, nil
+}
+
+// hydratedLocked is the held document d, parsed when it is held as its record:
+// a view listing and a rendering walk its declarations, and a record carries
+// none. Caller holds the write lock.
+func (w *Workspace) hydratedLocked(d *Document) *Document {
+	if !d.Recorded() {
+		return d
+	}
+	d = w.hydrateLocked(d.Name)
+	w.index.ExpandWildcardImports()
+	w.invalidateLocked(d.Name)
+	return d
+}
+
+// hydrateDrawnLocked parses the recorded documents declaring what a rendering of
+// fqn in doc draws: the elements the view exposes, a pseudo-view's target and
+// the elements included; their bodies are walked, and a record carries none.
+// Caller holds the write lock, and doc is hydrated.
+func (w *Workspace) hydrateDrawnLocked(doc, fqn string, include []string) {
+	recorded := map[string]bool{}
+	note := func(syms ...*symbols.Symbol) {
+		for _, sym := range syms {
+			if sym != nil && w.docs[sym.DocName].Recorded() {
+				recorded[sym.DocName] = true
+			}
+		}
+	}
+	included, _ := w.includedLocked(doc, include)
+	note(included...)
+	switch {
+	case strings.HasPrefix(fqn, view.PseudoViewPrefix):
+		if _, target, ok := view.ParsePseudoView(fqn); ok && target != "" {
+			note(w.declaredInLocked(doc, target))
+		}
+	default:
+		var sym *symbols.Symbol
+		if fqn == "" {
+			if views := w.documentViewsLocked(doc); len(views) == 1 {
+				sym = views[0]
+			}
+		} else {
+			sym = w.viewNamedLocked(doc, fqn)
+		}
+		if sym != nil {
+			w.queryLocked(doc, func(_ *resolve.Resolver, m *semantics.Model) {
+				exposed, _ := m.ExposedElements(sym)
+				note(exposed...)
+			})
+		}
+	}
+	if len(recorded) == 0 {
+		return
+	}
+	names := slices.Sorted(maps.Keys(recorded))
+	for _, name := range names {
+		w.hydrateLocked(name)
+	}
+	w.index.ExpandWildcardImports()
+	w.invalidateLocked(names...)
 }
 
 // renderDocumentViewLocked renders fqn of the held document d, as a query owned
