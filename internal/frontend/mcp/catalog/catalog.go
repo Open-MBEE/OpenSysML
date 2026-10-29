@@ -78,7 +78,7 @@ var Tools = []Entry{
 	{Name: "references", Group: GroupLSP, Summary: "Find every place in the workspace that refers to the element at a position."},
 	{Name: "rename", Group: GroupLSP, Summary: "Rename the element at a position everywhere in the workspace; write the files with apply."},
 	{Name: "render_document", Group: GroupLSP, Summary: "Render a document definition of the workspace to Markdown, its queries evaluated and its diagrams embedded."},
-	{Name: "render_view", Group: GroupLSP, Summary: "Render a declared view or pseudo-view of a workspace document as Mermaid, dot, PlantUML, D2, text or a table."},
+	{Name: "render_view", Group: GroupLSP, Summary: "Render a declared view or pseudo-view of a workspace document as Mermaid, dot, PlantUML, D2, draw.io, text or a table."},
 	{Name: "signature_help", Group: GroupLSP, Summary: "Describe the invocation enclosing a position: its parameters and the active one."},
 	{Name: "update_document", Group: GroupLSP, Summary: "Replace the text of a document held open by open_document and answer the diagnostics of the new text."},
 	{Name: "views", Group: GroupLSP, Summary: "List the views a document declares and the pseudo-views render_view can draw of it."},
