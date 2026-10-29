@@ -164,7 +164,9 @@ func (r *Router) defineImports(ctx context.Context) error {
 	env.NewFunctionBuilder().WithFunc(func(ctx context.Context, m api.Module, size uint32) uint32 {
 		return growHeap(m.Memory(), size)
 	}).Export("emscripten_resize_heap")
-	env.NewFunctionBuilder().WithFunc(func(buf, max, format, tm, locale uint32) uint32 {
+	// libavoid formats no dates; a module that does is not one this router supports.
+	env.NewFunctionBuilder().WithFunc(func(ctx context.Context, buf, max, format, tm, locale uint32) uint32 {
+		fail(ctx, errors.New("module called strftime_l, which the router does not provide"))
 		return 0
 	}).Export("strftime_l")
 	env.NewFunctionBuilder().WithFunc(func(ctx context.Context, exception uint32) {
