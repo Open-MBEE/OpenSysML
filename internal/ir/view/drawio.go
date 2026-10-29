@@ -72,7 +72,7 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 	w.layout(r)
 	edges, err := w.routeEdges(r)
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	routed := *r
 	routed.Edges = edges
