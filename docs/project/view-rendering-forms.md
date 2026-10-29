@@ -1447,7 +1447,9 @@ of draw.io desktop 32 and later, arranges it. The writer adds no layout engine; 
 keeps every position and route it states, as the DOT form does.
 
 Every edge the view leaves unrouted is routed before writing, so the file carries each bend and
-opens the same everywhere rather than being routed afresh by each editor. The router is libavoid,
+opens the same everywhere rather than being routed afresh by each editor: the route's two ends
+become the edge's `exitX`/`exitY` and `entryX`/`entryY` anchors on their cells (taken exactly,
+`exitPerimeter=0`), its bends the waypoints between. The router is libavoid,
 the orthogonal router the VS Code diagram panel draws with, run in-process from its WebAssembly
 build (`internal/ir/view/route`, `libavoid-js` 0.4.5 under wazero; `scripts/build-libavoid-wasm.sh`
 reproduces the module) with the panel's parameters: a clearance of 16 pixels about every box, bends
