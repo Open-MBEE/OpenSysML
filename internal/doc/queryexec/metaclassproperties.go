@@ -9,19 +9,15 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// metaclassProperty is a property the metamodel gives a metaclass, as the
-// standard library declares it: a feature of the metaclass or of one it
-// specializes, named with the class that declares it.
+// metaclassProperty is a feature the library's metaclass declaration has,
+// its own or inherited, with the class declaring it.
 type metaclassProperty struct {
 	Name          string
 	DefiningClass string
 }
 
-// metaclassProperties are the properties of a metaclass by name: the features
-// the library's metaclass declaration has, inherited ones included — under the
-// name a redefinition gives one and under the name it redefines, as the
-// metamodel keeps both (PartUsage::partDefinition and Usage::definition) —
-// memoized per metaclass across one execution.
+// metaclassProperties are the metaclass's features by name, inherited and
+// redefined ones included (partDefinition and definition), memoized.
 func (e *executor) metaclassProperties(metaclass *symbols.Symbol) map[string]metaclassProperty {
 	if properties, ok := e.metaclassFeatures[metaclass]; ok {
 		return properties

@@ -21,6 +21,7 @@ type ElementIDs struct {
 	// identity scopes may declare one qualified name, and only the node tells
 	// their elements apart.
 	byNode   map[ast.Node]string
+	bySpan   map[source.Span]string // the same declaration in another parse of the text
 	byName   map[string]string
 	res      *resolve.Resolver
 	encoders []*encoder
@@ -41,7 +42,7 @@ func NewElementIDs(documents []ModelDocument) (*ElementIDs, error) {
 // by the declaration each encoder wrote it for and by its qualified (or
 // positional) name.
 func elementIDsOf(graph *rdf.Graph, res *resolve.Resolver, encoders []*encoder) *ElementIDs {
-	ids := &ElementIDs{byNode: map[ast.Node]string{}, byName: map[string]string{}, res: res, encoders: encoders}
+	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[source.Span]string{}, byName: map[string]string{}, res: res, encoders: encoders}
 	for _, subject := range graph.Subjects() {
 		name, named := graph.Lexical(subject, rdf.SysML+pQualifiedName)
 		id, identified := graph.Lexical(subject, rdf.SysML+pElementID)
@@ -53,6 +54,7 @@ func elementIDsOf(graph *rdf.Graph, res *resolve.Resolver, encoders []*encoder) 
 		for node, fqn := range e.fqn {
 			if id, ok := graph.Lexical(e.ids.subjectForNode(node, fqn), rdf.SysML+pElementID); ok {
 				ids.byNode[node] = id
+				ids.bySpan[node.Span()] = id
 			}
 		}
 	}
@@ -60,16 +62,16 @@ func elementIDsOf(graph *rdf.Graph, res *resolve.Resolver, encoders []*encoder) 
 }
 
 // OfDeclaration is the elementId written for the element declared at decl,
-// named fqn: the one its own declaration was written with where the conversion
-// encoded that node, else Of(fqn). Two identity scopes may declare one
-// qualified name, and the declaration tells their ids apart where the name
-// cannot.
+// named fqn: the node's own (or its span's, in a reparse of the text), else Of(fqn).
 func (ids *ElementIDs) OfDeclaration(decl ast.Node, fqn string) (string, bool) {
 	if ids == nil {
 		return "", false
 	}
 	if decl != nil {
 		if id, ok := ids.byNode[decl]; ok {
+			return id, true
+		}
+		if id, ok := ids.bySpan[decl.Span()]; ok {
 			return id, true
 		}
 	}
@@ -100,10 +102,8 @@ func (ids *ElementIDs) Of(fqn string) (string, bool) {
 	return "", false
 }
 
-// ElementIDDocument is a document of the model whose elementIds are read: its
-// parse, and the parse's errors, which refuse a model of several documents. A
-// document held without its parse (a workspace's interface record) gives its
-// text alone and is parsed for the conversion.
+// ElementIDDocument is a document whose elementIds are read: its parse and the
+// parse's errors; one given by its text alone is parsed for the conversion.
 type ElementIDDocument struct {
 	File       *source.SourceFile
 	Root       *ast.RootNamespace
@@ -140,11 +140,8 @@ func (r *ElementIDReader) Read(decl ast.Node, fqn string) (string, error) {
 	return id, nil
 }
 
-// convert makes the ids as Convert writes them for this model, over the trees
-// the model was read from, so a declaration's id is found by its own node: one
-// document is written alone (ToRDF), several together (ModelToRDFWith), and a
-// document the parser could not read whole refuses the model, so no ids come
-// from a recovered tree.
+// convert makes the ids as Convert writes them: one document is parsed afresh
+// from its text, as ToRDF does; several are written over the trees read.
 func (r *ElementIDReader) convert() {
 	documents := make([]ModelDocument, 0, len(r.documents))
 	for _, doc := range r.documents {
@@ -163,7 +160,8 @@ func (r *ElementIDReader) convert() {
 		documents = append(documents, ModelDocument{File: doc.File, Root: root})
 	}
 	if len(documents) == 1 {
-		e, err := encodeDocument(documents[0].File, documents[0].Root, "", IDQualifiedName)
+		file := source.New(documents[0].File.Name(), documents[0].File.Bytes())
+		e, err := encodeDocument(file, parser.New(file).ParseFile(), "", IDQualifiedName)
 		if err != nil {
 			r.err = err
 			return

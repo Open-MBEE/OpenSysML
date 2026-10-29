@@ -164,10 +164,8 @@ func TestExecuteUnservedPropertyNamesTheGap(t *testing.T) {
 	}
 }
 
-// TestExecuteRedefinedMetaclassPropertyStaysExposed: a metaclass redefining an
-// inherited property under a new name (PartUsage::partDefinition over
-// Usage::definition) keeps the inherited name readable: it resolves to the
-// metaclass's property rather than being unknown.
+// TestExecuteRedefinedMetaclassPropertyStaysExposed: Usage::definition stays
+// readable on a PartUsage, whose partDefinition redefines it.
 func TestExecuteRedefinedMetaclassPropertyStaysExposed(t *testing.T) {
 	fixture := loadExecutionFixture(t, metaclassPropertyModel+`
 calc def Definitions :> Query {
