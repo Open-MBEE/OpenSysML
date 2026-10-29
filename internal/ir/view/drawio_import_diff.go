@@ -165,56 +165,106 @@ type drawioMatcher struct {
 	matched    map[string]bool
 }
 
-// match pairs nodes and ports by qualified name — and by ordinal when a view
-// draws the same element twice, as a tree does an inherited member —, edges by
-// their ends, kind and ordinal, notes and pictures by position, and diffs each pair.
+// match pairs the file's semantic cells with the baseline's — by the exported
+// id while it still denotes the same element, then by qualified name, or by ends
+// and kind for an edge, among those left, in order —, notes and pictures by
+// position, and diffs each pair.
 func (m *drawioMatcher) match() {
 	m.matched = map[string]bool{}
 	byFQN := map[string][]*DrawioCell{}
+	byKey := map[DrawioEdgeKey][]*DrawioCell{}
+	baseKeys, fileKeys := m.edgesByKey(m.base), m.edgesByKey(m.file)
 	for i := range m.base.Cells {
-		if c := &m.base.Cells[i]; c.Vertex && c.FQN != "" {
+		c := &m.base.Cells[i]
+		switch {
+		case c.Vertex && c.FQN != "":
 			byFQN[c.FQN] = append(byFQN[c.FQN], c)
+		case c.Edge && c.Kind != "":
+			if key, ok := baseKeys[c.ID]; ok {
+				byKey[key.unordered()] = append(byKey[key.unordered()], c)
+			}
 		}
 	}
-	seen := map[string]int{}
-	baseEdges := m.baseIndex()
-	fileEdges := m.edgesByKey(m.file)
+	var pending []*DrawioCell
 	for i := range m.file.Cells {
 		cell := &m.file.Cells[i]
+		if cell.Kind == "" {
+			m.plainCell(cell)
+			continue
+		}
+		if base := m.base.Cell(cell.ID); base != nil && sameDrawioElement(cell, base, fileKeys, baseKeys) {
+			m.pair(cell, base, baseKeys)
+			continue
+		}
+		pending = append(pending, cell)
+	}
+	for _, cell := range pending {
 		switch {
 		case cell.Vertex && cell.FQN != "":
-			ordinal := seen[cell.FQN]
-			seen[cell.FQN]++
-			if ordinal >= len(byFQN[cell.FQN]) {
+			if base := m.firstUnmatched(byFQN[cell.FQN]); base != nil {
+				m.pair(cell, base, baseKeys)
+			} else {
 				m.out.Unmatched = append(m.out.Unmatched, cell.FQN)
-				continue
 			}
-			base := byFQN[cell.FQN][ordinal]
-			m.matched[base.ID] = true
-			m.diffVertex(cell, base)
-		case cell.Edge && cell.Kind != "":
-			key, ok := fileEdges[cell.ID]
+		case cell.Vertex:
+			m.out.Unmatched = append(m.out.Unmatched, cell.Kind+" "+strconv.Quote(cell.Label))
+		default:
+			key, ok := fileKeys[cell.ID]
 			if !ok {
 				m.out.Unmatched = append(m.out.Unmatched, m.edgeLabel(cell, m.file))
 				continue
 			}
-			base, ok := baseEdges.byKey[key]
-			if !ok {
+			if base := m.firstUnmatched(byKey[key.unordered()]); base != nil {
+				m.pair(cell, base, baseKeys)
+			} else {
 				m.out.Unmatched = append(m.out.Unmatched, key.String())
-				continue
 			}
-			m.matched[base.ID] = true
-			m.diffEdge(cell, base, key)
-		default:
-			m.plainCell(cell)
 		}
 	}
 	m.deleted()
 }
 
-// drawioEdgeIndex is a file's semantic edges keyed both ways.
-type drawioEdgeIndex struct {
-	byKey map[DrawioEdgeKey]*DrawioCell
+// sameDrawioElement reports whether the file's cell and the baseline's of the
+// same id still stand for one element: the same qualified name and kind — the
+// same kind and label for a node no name reaches —, or the same ends and kind.
+func sameDrawioElement(cell, base *DrawioCell, fileKeys, baseKeys map[string]DrawioEdgeKey) bool {
+	if cell.Vertex != base.Vertex || cell.Edge != base.Edge || cell.Kind != base.Kind {
+		return false
+	}
+	if cell.Vertex {
+		return cell.FQN == base.FQN && (cell.FQN != "" || cell.Label == base.Label)
+	}
+	fileKey, ok := fileKeys[cell.ID]
+	baseKey, okBase := baseKeys[base.ID]
+	return ok && okBase && fileKey.unordered() == baseKey.unordered()
+}
+
+// firstUnmatched is the first baseline cell of a group not yet paired, nil
+// when every one is.
+func (m *drawioMatcher) firstUnmatched(cells []*DrawioCell) *DrawioCell {
+	for _, c := range cells {
+		if !m.matched[c.ID] {
+			return c
+		}
+	}
+	return nil
+}
+
+// pair diffs the file's cell against the baseline's it stands for.
+func (m *drawioMatcher) pair(cell, base *DrawioCell, baseKeys map[string]DrawioEdgeKey) {
+	m.matched[base.ID] = true
+	if cell.Vertex {
+		m.diffVertex(cell, base)
+		return
+	}
+	m.diffEdge(cell, base, baseKeys[base.ID])
+}
+
+// unordered is the key without its ordinal: what every edge between the same
+// ends of one kind shares.
+func (k DrawioEdgeKey) unordered() DrawioEdgeKey {
+	k.Ordinal = 0
+	return k
 }
 
 // edgesByKey keys every semantic edge of f by the names of its ends, its kind
@@ -249,15 +299,6 @@ func drawioEndName(cell *DrawioCell) string {
 	return strconv.Quote(cell.Label)
 }
 
-// edgesByKey over the baseline also indexes the cells by key.
-func (m *drawioMatcher) baseIndex() drawioEdgeIndex {
-	idx := drawioEdgeIndex{byKey: map[DrawioEdgeKey]*DrawioCell{}}
-	for id, key := range m.edgesByKey(m.base) {
-		idx.byKey[key] = m.base.Cell(id)
-	}
-	return idx
-}
-
 // edgeLabel describes an edge the matcher cannot key.
 func (m *drawioMatcher) edgeLabel(cell *DrawioCell, f *DrawioFile) string {
 	name := func(id string) string {
@@ -286,10 +327,16 @@ func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 	if node := m.nodes[base.ID]; node != nil {
 		current = node.Style
 	}
-	if style, changed := styleDiff(cell.Style, base.Style, current, drawioVertexStyleKeys); changed {
-		edit.Kind, edit.Style, edit.Layout = DrawioEditStyle, style, nil
-		m.out.Edits = append(m.out.Edits, edit)
+	style, changed := styleDiff(cell.Style, base.Style, current, drawioVertexStyleKeys)
+	if !changed {
+		return
 	}
+	if isPort {
+		m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: a port is drawn by its direction; its colours in the file are not imported", cell.FQN))
+		return
+	}
+	edit.Kind, edit.Style, edit.Layout = DrawioEditStyle, style, nil
+	m.out.Edits = append(m.out.Edits, edit)
 }
 
 // originOf is the declaration behind a baseline cell id: a port's or a node's.
@@ -352,12 +399,16 @@ func (m *drawioMatcher) diffEdge(cell, base *DrawioCell, key DrawioEdgeKey) {
 // or a compartment row the export wrote, or a shape drawn in draw.io.
 func (m *drawioMatcher) plainCell(cell *DrawioCell) {
 	base := m.base.Cell(cell.ID)
-	if base == nil {
+	if base == nil || base.Kind != "" {
 		m.out.Unknown = append(m.out.Unknown, *cell)
 		return
 	}
 	m.matched[cell.ID] = true
 	switch {
+	case strings.HasPrefix(cell.ID, "note") && cell.Edge:
+		if cell.Source != base.Source || cell.Target != base.Target {
+			m.out.Notices = append(m.out.Notices, fmt.Sprintf("note %s re-anchored: a Note is about the element its annotation names; the attachment in the file is not imported", strconv.Quote(m.noteText(cell))))
+		}
 	case strings.HasPrefix(cell.ID, "note") && cell.Vertex:
 		m.diffNote(cell, base)
 	case strings.HasPrefix(cell.ID, "picture") && cell.Vertex:
@@ -367,6 +418,14 @@ func (m *drawioMatcher) plainCell(cell *DrawioCell) {
 			m.out.Notices = append(m.out.Notices, fmt.Sprintf("label %s moved: a Route places a line, not its label; label positions have no annotation yet and are not imported", strconv.Quote(cell.Value)))
 		}
 	}
+}
+
+// noteText is the text of the note an anchor edge joins.
+func (m *drawioMatcher) noteText(anchor *DrawioCell) string {
+	if note := m.file.Cell(anchor.Source); note != nil {
+		return note.Value
+	}
+	return anchor.Source
 }
 
 // diffNote imports a moved, resized or reworded note box.

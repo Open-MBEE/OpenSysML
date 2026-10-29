@@ -528,8 +528,12 @@ func (w *drawioWriter) siteName(origin Origin) string {
 }
 
 // fqnOf is a node's qualified name from its label: a root's name as the view
-// exposes it, a nested node's under its container's; a synthesized name is none.
+// exposes it, a nested node's under its container's; a synthesized name is none,
+// but a start or done is the owner's member a Layout names it as.
 func fqnOf(node *Node, parent string) string {
+	if node.Member != "" && parent != "" {
+		return parent + "::" + node.Member
+	}
 	if node.Name == "" || node.NameSynthesized {
 		return ""
 	}

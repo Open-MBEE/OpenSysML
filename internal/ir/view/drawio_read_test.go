@@ -1,6 +1,9 @@
 package view
 
 import (
+	"bytes"
+	"compress/flate"
+	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
@@ -99,12 +102,37 @@ func TestReadDrawioSelectsThePageOfTheView(t *testing.T) {
 	if _, err := ReadDrawio([]byte(twice), "V::one"); !errors.As(err, &viewErr) || !strings.Contains(err.Error(), "2 pages") {
 		t.Errorf("two pages of one view: %v", err)
 	}
-	unviewed := `<mxfile>` + drawioTestPage("only", "") + `</mxfile>`
-	if _, err := ReadDrawio([]byte(unviewed), "V::one"); !errors.As(err, &viewErr) || !strings.Contains(err.Error(), "no view attribute") {
-		t.Errorf("cells without a view: %v", err)
+	// A page without semantic cells is of the view its name states.
+	unviewed := `<mxfile>` + drawioTestPage("V::one", "") + `</mxfile>`
+	if file, err := ReadDrawio([]byte(unviewed), "V::one"); err != nil || file.View != "V::one" {
+		t.Errorf("cells without a view on a page named after it: %v %v", file, err)
 	}
-	if _, err := ReadDrawio([]byte(unviewed), ""); !errors.As(err, &viewErr) {
-		t.Errorf("cells without a view and no view asked: %v", err)
+	if _, err := ReadDrawio([]byte(unviewed), "V::two"); !errors.As(err, &viewErr) || !strings.Contains(err.Error(), "V::one") {
+		t.Errorf("cells without a view on a page named after another: %v", err)
+	}
+	unnamed := `<mxfile>` + strings.Replace(drawioTestPage("", ""), ` name=""`, "", 1) + `</mxfile>`
+	if _, err := ReadDrawio([]byte(unnamed), "V::one"); !errors.As(err, &viewErr) || !strings.Contains(err.Error(), "no view attribute") {
+		t.Errorf("cells without a view on an unnamed page: %v", err)
+	}
+}
+
+func TestReadDrawioRefusesPagesInflatingPastTheLimit(t *testing.T) {
+	var deflated bytes.Buffer
+	w, err := flate.NewWriter(&deflated, flate.BestCompression)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write(bytes.Repeat([]byte("<"), drawioInflateLimit+1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	page := `<mxfile><diagram name="x">` + base64.StdEncoding.EncodeToString(deflated.Bytes()) + `</diagram></mxfile>`
+	_, err = ReadDrawio([]byte(page), "")
+	var fileErr *DrawioFileError
+	if !errors.As(err, &fileErr) || !strings.Contains(err.Error(), "inflates past 64 MiB") {
+		t.Fatalf("err = %v, want the inflate limit", err)
 	}
 }
 

@@ -22,7 +22,7 @@
             <mxGeometry x="56" y="58" width="64" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n3" label="final" kind="final" view="TypedViews::cycleView" link="typed-behavior.sysml:10">
+        <object id="n3" label="final" fqn="Typed::run::done" kind="final" view="TypedViews::cycleView" link="typed-behavior.sysml:10">
           <mxCell style="ellipse;shape=endState;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
             <mxGeometry x="16" y="115" width="30" height="30" as="geometry"/>
           </mxCell>

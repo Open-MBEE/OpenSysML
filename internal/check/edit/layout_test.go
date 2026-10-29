@@ -893,3 +893,53 @@ func TestSetLayoutFoldOnlyWritesCollapsedAlone(t *testing.T) {
 		t.Fatalf("unplaced layout with a size: %+v", e)
 	}
 }
+
+// motorModel draws a start for Motor's entry, which no declaration names: a
+// Layout reaches it as the member Motor inherits, through Motor's name.
+const motorModel = `package Plant {
+    state def Motor {
+        entry; then off;
+        state off;
+        state on;
+        transition t first off then on;
+    }
+}
+package PlantViews {
+    private import Views::*;
+    private import StandardViewDefinitions::*;
+    view motorView : StateTransitionView {
+        expose Plant::Motor;
+    }
+}
+`
+
+func TestSetLayoutAboutAnInheritedStart(t *testing.T) {
+	got := applyLayout(t, motorModel, SetLayout("Plant::Motor::start", "PlantViews::motorView", at(10, 20)))
+	requireReplaced(t, motorModel, "        expose Plant::Motor;\n    }\n",
+		"        expose Plant::Motor;\n        metadata DiagramLayout::Layout about Plant::Motor::start { x = 10; y = 20; }\n    }\n", got)
+	placed := got
+	got = applyLayout(t, placed, SetLayout("Plant::Motor::start", "PlantViews::motorView", at(30, 40)))
+	requireReplaced(t, placed, "{ x = 10; y = 20; }", "{ x = 30; y = 40; }", got)
+	got = applyLayout(t, placed, SetStyle("Plant::Motor::start", "PlantViews::motorView", &semantics.Style{Fill: "#C00000"}))
+	requireReplaced(t, placed, "{ x = 10; y = 20; }\n",
+		"{ x = 10; y = 20; }\n        metadata DiagramLayout::Style about Plant::Motor::start { fill = \"#C00000\"; }\n", got)
+	got = applyLayout(t, placed, SetLayout("Plant::Motor::start", "PlantViews::motorView", nil))
+	if got != motorModel {
+		t.Fatalf("clearing the start's Layout did not restore the model:\n%s", got)
+	}
+	for _, tc := range []struct {
+		op      Operation
+		failure Failure
+		message string
+	}{
+		{SetLayout("Plant::Motor::start", "", at(1, 2)), FailureReferencedElsewhere, "a member Plant::Motor inherits"},
+		{SetLayout("Plant::Motor::finish", "PlantViews::motorView", at(1, 2)), FailureUnknownTarget, "no element named"},
+		{SetRoute("Plant::Motor::start", "PlantViews::motorView", &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}), FailureUnknownTarget, "no element named"},
+	} {
+		m := loadContent(t, "plant.sysml", motorModel)
+		_, err := Apply(m, []Operation{tc.op})
+		if e := editError(t, err); e.Failure != tc.failure || !strings.Contains(e.Message, tc.message) {
+			t.Errorf("%s: err = %v, want %s containing %q", tc.op.Target, err, tc.failure, tc.message)
+		}
+	}
+}

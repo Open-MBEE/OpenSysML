@@ -1420,7 +1420,8 @@ Every semantic cell — a node, a port, an edge — is wrapped in an `<object>` 
 element's handle beside draw.io's own `label`: `kind`, the node's keyword (`part def`, `state`,
 `initial`, …) or the edge's kind; `view`, the view rendered; `link`, the declaration's
 `file:line` when the element has one; and, on a node or a port, `fqn`, the declaration's
-qualified name. An edge carries no `fqn` — a relationship has no name of its own in most
+qualified name — for a `start` or `done` the model did not declare, the owner's member a
+Layout names it as (`Machines::VehicleStates::start`). An edge carries no `fqn` — a relationship has no name of its own in most
 models — and is matched by its `link` and the `source` and `target` cells it joins.
 Compartment rows and edge end labels are plain `mxCell`s and carry none of these. The `fqn` is
 exact and the same for every cell of one element, so a tool reading an edited file back can

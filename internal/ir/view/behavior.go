@@ -141,6 +141,7 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		}
 		if graph.Completes(state) {
 			body := r.bodySymbol(machine, graph, bodyOwning(graph, state))
+			node.Member = ast.DoneFeature
 			node.Geometry = r.memberGeometryOf(view, body, ast.DoneFeature, out)
 			r.memberDress(view, body, ast.DoneFeature, node, out)
 		}
@@ -220,7 +221,7 @@ func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateG
 		return
 	}
 	bodySym := r.bodySymbol(machine, graph, body.owner)
-	start := &Node{ID: ids.take(), Kind: startKind, Geometry: r.memberGeometryOf(view, bodySym, ast.StartFeature, out)}
+	start := &Node{ID: ids.take(), Kind: startKind, Member: ast.StartFeature, Geometry: r.memberGeometryOf(view, bodySym, ast.StartFeature, out)}
 	r.memberDress(view, bodySym, ast.StartFeature, start, out)
 	body.node.Children = append([]*Node{start}, body.node.Children...)
 	for _, entry := range entries {
@@ -741,7 +742,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	// the view's Layout positions it, first among the body's nodes.
 	if r.placedStart(subject.view, owner, graph, out) {
 		start := &Node{ID: ids.take(), Kind: actionNodeKind(&ast.InitialNode{}, nil),
-			Name: nameText("start"), NameSynthesized: true}
+			Name: nameText("start"), NameSynthesized: true, Member: "start"}
 		start.Geometry = r.memberGeometryOf(subject.view, owner, "start", out)
 		r.memberDress(subject.view, owner, "start", start, out)
 		if member, ok := r.model.LookupMember(owner, "start"); ok {
@@ -756,6 +757,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 			Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node)}
 		child.Inherited = inheritedMember(r.declaredSymbol(subject.elem, node), owner)
 		if languageNamed(node) {
+			child.Member = behaviorNodeName(node)
 			child.Geometry = r.memberGeometryOf(subject.view, owner, behaviorNodeName(node), out)
 			r.memberDress(subject.view, owner, behaviorNodeName(node), child, out)
 		} else {

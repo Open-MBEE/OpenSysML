@@ -111,7 +111,9 @@ type drawioPageData struct {
 
 // ReadDrawio reads a draw.io file as the drawio form writes it, or as draw.io
 // desktop saves it (each diagram's model deflated, base64 and URL encoded), and
-// returns the page rendered from view; with view empty, the file's one page.
+// returns the page rendered from view; with view empty, the file's one page. A
+// page is of the view its semantic cells name; one with none left is of the
+// view its name states, the writer naming each page after its view.
 func ReadDrawio(data []byte, view string) (*DrawioFile, error) {
 	pages, err := drawioPages(data)
 	if err != nil {
@@ -125,6 +127,9 @@ func ReadDrawio(data []byte, view string) (*DrawioFile, error) {
 			return nil, &DrawioFileError{Message: "page " + strconv.Quote(page.name), Err: err}
 		}
 		f.Page = page.name
+		if f.View == "" {
+			f.View = page.name
+		}
 		files = append(files, f)
 		names = append(names, page.name)
 	}
@@ -246,6 +251,10 @@ func drawioPages(data []byte) ([]drawioPageData, error) {
 	return pages, nil
 }
 
+// drawioInflateLimit bounds the XML a compressed page may inflate to, so a
+// small file cannot exhaust memory.
+const drawioInflateLimit = 64 << 20
+
 // decodeDrawioDiagram undoes draw.io's compressed page encoding: base64, raw
 // deflate, then URL percent-encoding of the model's XML.
 func decodeDrawioDiagram(text string) ([]byte, error) {
@@ -257,9 +266,12 @@ func decodeDrawioDiagram(text string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("base64: %w", err)
 	}
-	inflated, err := io.ReadAll(flate.NewReader(bytes.NewReader(raw)))
+	inflated, err := io.ReadAll(io.LimitReader(flate.NewReader(bytes.NewReader(raw)), drawioInflateLimit+1))
 	if err != nil {
 		return nil, fmt.Errorf("deflate: %w", err)
+	}
+	if len(inflated) > drawioInflateLimit {
+		return nil, fmt.Errorf("the page inflates past %d MiB", drawioInflateLimit>>20)
 	}
 	unescaped, err := url.PathUnescape(string(inflated))
 	if err != nil {

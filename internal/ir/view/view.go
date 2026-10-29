@@ -348,6 +348,9 @@ type Node struct {
 	// NameSynthesized marks a name the model did not give: a migration made it up, or
 	// it is the language's `start`/`done`. A name to key by, not one a picture shows.
 	NameSynthesized bool
+	// Member is the name the owner's body knows an unnamed node by — the
+	// language's `start` or `done` —, which a Layout about Owner::Member places.
+	Member string
 	// Referential marks a structural usage that refers to its value rather
 	// than owning it (`ref part`): a row of a tool's references compartment.
 	Referential bool

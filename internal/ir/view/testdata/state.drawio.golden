@@ -12,7 +12,7 @@
             <mxGeometry x="40" y="40" width="179" height="333" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n5" label="start" kind="start" view="MachineViews::vehicleStates">
+        <object id="n5" label="start" fqn="Machines::VehicleStates::start" kind="start" view="MachineViews::vehicleStates">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
             <mxGeometry x="16" y="58" width="20" height="20" as="geometry"/>
           </mxCell>
@@ -27,7 +27,7 @@
             <mxGeometry x="16" y="132" width="147" height="185" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n6" label="start" kind="start" view="MachineViews::vehicleStates">
+        <object id="n6" label="start" fqn="Machines::VehicleStates::operating::start" kind="start" view="MachineViews::vehicleStates">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n2">
             <mxGeometry x="16" y="58" width="20" height="20" as="geometry"/>
           </mxCell>

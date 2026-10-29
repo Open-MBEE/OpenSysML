@@ -12,7 +12,7 @@
             <mxGeometry x="40" y="40" width="147" height="185" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n3" label="start" kind="start" view="TypedViews::boilerView">
+        <object id="n3" label="start" fqn="Typed::Boiler::start" kind="start" view="TypedViews::boilerView">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
             <mxGeometry x="16" y="58" width="20" height="20" as="geometry"/>
           </mxCell>

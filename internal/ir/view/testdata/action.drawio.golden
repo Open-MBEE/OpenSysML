@@ -73,7 +73,7 @@
             <mxGeometry x="240" y="206" width="120" height="10" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n9" label="final" kind="final" view="FlowViews::driveView" link="action.sysml:35">
+        <object id="n9" label="final" fqn="Flows::Drive::done" kind="final" view="FlowViews::driveView" link="action.sysml:35">
           <mxCell style="ellipse;shape=endState;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
             <mxGeometry x="16" y="263" width="30" height="30" as="geometry"/>
           </mxCell>
