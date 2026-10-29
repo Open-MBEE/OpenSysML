@@ -378,7 +378,10 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
   `import_diagram` tool or the VS Code *Import layout from draw.io…* command, which diff it
   against a fresh export of the same view and write what moved as `setLayout`, `setRoute`,
   `setStyle`, `setCanvas`, `setNote` and `setPicture` operations — the same edits the panel
-  writes, view-local by default ([the round trip](view-rendering-forms.md#round-trip)).
+  writes, view-local by default — a retyped note or a re-pointed picture as a `setNote` or
+  `setPicture` with the new text or location, and a cell retyped with only its name changed as
+  a `rename` of the element the cell's qualified path resolves to, so a member drawn under an
+  inheritor renames its declaration ([the round trip](view-rendering-forms.md#round-trip)).
 - **Editors.** The LSP fields are what a graphical client (the VS Code diagram panel, a
   SysON-style editor) reads to place nodes where the model says. Writing positions back
   is `opensysml/applyModelEdit` with `setLayout`, `setRoute`, `setCanvas`, `setStyle`,

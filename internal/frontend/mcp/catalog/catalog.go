@@ -73,7 +73,7 @@ var Tools = []Entry{
 	{Name: "documents", Group: GroupLSP, Summary: "List the document definitions declared across the workspace."},
 	{Name: "format", Group: GroupLSP, Summary: "Format a document, or a range of it, in the canonical style; write the file with apply."},
 	{Name: "hover", Group: GroupLSP, Summary: "Explain the element at a position: kind, qualified name, type, value and documentation."},
-	{Name: "import_diagram", Group: GroupLSP, Flags: []string{"import-diagram", "view", "dry-run"}, Summary: "Import a draw.io file render_view wrote with form drawio and a user edited, as DiagramLayout annotations in the view's body; a dry run until apply."},
+	{Name: "import_diagram", Group: GroupLSP, Flags: []string{"import-diagram", "view", "dry-run"}, Summary: "Import a draw.io file render_view wrote with form drawio and a user edited: moves, routes, styles, the page, note text and picture sources as DiagramLayout annotations in the view's body, a retyped name as a rename; the rest is reported; a dry run until apply."},
 	{Name: "inlay_hints", Group: GroupLSP, Summary: "List the inferred types and values an editor would show inline for a document or range."},
 	{Name: "open_document", Group: GroupLSP, Summary: "Hold a document open with the given text, analyzed instead of the file on disk."},
 	{Name: "references", Group: GroupLSP, Summary: "Find every place in the workspace that refers to the element at a position."},

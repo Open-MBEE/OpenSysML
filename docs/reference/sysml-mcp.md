@@ -260,7 +260,7 @@ without this page.
 | `documents` | List the document definitions (doc def) declared across the workspace, which render_document renders to Markdown. | no |
 | `format` | Format a SysML v2 / KerML document, or only the lines of a range, in the canonical style. | yes |
 | `hover` | Explain the element at a position: its kind, qualified name, type, value and documentation, as Markdown. | no |
-| `import_diagram` | Import a draw.io file render_view wrote with form drawio and a user edited, as DiagramLayout annotations in the view's body; a dry run until apply. | yes |
+| `import_diagram` | Import a draw.io file render_view wrote with form drawio and a user edited: moves, routes, styles, the page, note text and picture sources as DiagramLayout annotations in the view's body, a retyped name as a rename; the rest is reported; a dry run until apply. | yes |
 | `inlay_hints` | List the inferred types and values the editor would show inline for the features of a document or range. | no |
 | `open_document` | Hold a document open with the given text, as an editor buffer the server analyzes instead of the file on disk, so text can be checked (diagnostics, hover, render) before it is written. | yes |
 | `references` | Find every place in the workspace that refers to the element at a position. | no |
@@ -357,11 +357,15 @@ without this page.
 - **Round-tripping a diagram** is `render_view` with `form: "drawio"`, an edit in draw.io, then
   `import_diagram` with the edited file (`file` on the host or `content` as text): the tool
   renders the view again, diffs the file against that export and answers the `DiagramLayout`
-  annotations the differences amount to — `Layout`, `Route`, `Style`, `Canvas`, `Note`,
-  `Picture` — as the text edits `apply_model_edit` would make, per document. Call it first
+  annotations the differences amount to — `Layout`, `Route`, `Style`, `Canvas`, `Note` (a moved
+  or retyped note), `Picture` (a moved picture or one pointed at another image file) — and, for a
+  cell whose text was retyped with only its name changed, the `rename` of that element and every
+  reference to it, as the text edits `apply_model_edit` would make, per document. Call it first
   without `apply` to read the plan and what it reports rather than imports (cells naming no
-  element, elements the rendering lacks, deleted cells, and changes no annotation carries yet,
-  such as a re-routed typing edge), then with `"apply": true` to write the files.
+  element, elements the rendering lacks, deleted cells, a label edited beyond its name, a name
+  that is not one or that an existing member holds, an emptied note, a picture given embedded
+  data or a URL, and changes no annotation carries yet, such as a re-routed typing edge), then
+  with `"apply": true` to write the files.
 - **Writing** happens only on request: a tool marked as writing (`format`, `rename`,
   `apply_model_edit`, `session_save`, ...) returns the edit or the file it would write and
   touches the disk only with `"apply": true`. The session tools that write change the session's
