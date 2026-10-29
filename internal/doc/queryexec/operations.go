@@ -275,19 +275,35 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 }
 
 // valueIsA reports whether a row is an object or declaration of the type.
-// valueIsExactly is WhereType's exact = true: the row's own metaclass is the named one,
-// neither a subclass of it nor a type of the model.
+// valueIsExactly is WhereType's exact = true: the row's own metaclass (Model.MetaclassOf, so
+// a transition is a TransitionUsage) is the named one, by identity; a type of the model never is.
 func (e *executor) valueIsExactly(value Value, test typeTest) bool {
+	meta := e.exactMetaclass(test)
+	if meta == nil {
+		return false
+	}
 	if inst, _, isObject := value.Object(); isObject {
 		for _, typ := range objectTypes(inst) {
-			if query.MetamodelTypeNameOf(typ) == test.name {
+			if symbols.SameElement(e.context.Model.MetaclassOf(typ), meta) {
 				return true
 			}
 		}
 		return false
 	}
 	sym := value.Declaration()
-	return sym != nil && query.MetamodelTypeNameOf(sym) == test.name
+	return sym != nil && symbols.SameElement(e.context.Model.MetaclassOf(sym), meta)
+}
+
+// exactMetaclass is the metaclass a WhereType name denotes — simple or qualified — and nil
+// for a type of the model, which an exact test never keeps.
+func (e *executor) exactMetaclass(test typeTest) *symbols.Symbol {
+	if test.target == nil {
+		return nil
+	}
+	if meta := e.context.Model.Metaclass(test.target.Name); meta != nil && symbols.SameElement(meta, test.target) {
+		return meta
+	}
+	return nil
 }
 
 func (e *executor) valueIsA(value Value, test typeTest) bool {

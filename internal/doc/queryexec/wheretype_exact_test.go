@@ -33,6 +33,23 @@ calc def ExactHeavy :> Query {
 	in source : Element;
 	WhereType(source = OwnedElements(source = source), type = "Heavy", exact = true)
 }
+calc def ExactQualified :> Query {
+	in source : Element;
+	WhereType(source = OwnedElements(source = source), type = "SysML::Systems::PartUsage", exact = true)
+}
+state def Machine {
+	state first;
+	state second;
+	transition go first first then second;
+}
+calc def ExactTransitions :> Query {
+	in source : Element;
+	WhereType(source = Descendants(source = source), type = "TransitionUsage", exact = true)
+}
+calc def ExactStates :> Query {
+	in source : Element;
+	WhereType(source = Descendants(source = source), type = "StateUsage", exact = true)
+}
 `)
 	bindings := Bindings{"source": {ElementValue(fixture.symbol(t, "root"))}}
 	names := func(query string) string {
@@ -58,5 +75,27 @@ calc def ExactHeavy :> Query {
 	}
 	if got := names("ExactHeavy"); got != "" {
 		t.Fatalf("ExactHeavy = %q, want none: a model type is not a metaclass", got)
+	}
+	if got := names("ExactQualified"); got != "a" {
+		t.Fatalf("ExactQualified = %q, want the part: a qualified metaclass name is the metaclass", got)
+	}
+	machine := Bindings{"source": {ElementValue(fixture.symbol(t, "Machine"))}}
+	exact := func(query string) string {
+		result, err := fixture.execute(t, query, machine, Options{})
+		if err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+		var out []string
+		for _, row := range result.Rows() {
+			sym, _ := row.Element().Element()
+			out = append(out, sym.Name)
+		}
+		return strings.Join(out, " ")
+	}
+	if got := exact("ExactTransitions"); got != "go" {
+		t.Fatalf("ExactTransitions = %q, want the transition: its metaclass is TransitionUsage", got)
+	}
+	if got := exact("ExactStates"); got != "first second" {
+		t.Fatalf("ExactStates = %q, want the two states and not the transition", got)
 	}
 }
