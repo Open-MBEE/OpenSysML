@@ -431,3 +431,33 @@ func TestWireRequestAfterDidChangeSeesTheChange(t *testing.T) {
 		}
 	}
 }
+
+// Requests written straight behind a didOpen, before its diagnostics arrive,
+// are answered from the opened document rather than from an empty workspace.
+func TestWireRequestsBehindDidOpenSeeTheDocument(t *testing.T) {
+	w := newWireSession(t)
+	callPos := positionAfter(t, editorFactsModel, "fell = Fall(20.0, 9.")
+	doc := fmt.Sprintf(`{"uri":%q}`, w.uri)
+	wholeRange := fmt.Sprintf(`{"start":{"line":0,"character":0},"end":{"line":%d,"character":0}}`, strings.Count(editorFactsModel, "\n"))
+	w.notify("textDocument/didOpen", fmt.Sprintf(
+		`{"textDocument":{"uri":%q,"languageId":"sysml","version":1,"text":%s}}`, w.uri, jsonString(editorFactsModel)))
+
+	help, _ := w.call("textDocument/signatureHelp", fmt.Sprintf(
+		`{"textDocument":%s,"position":{"line":%d,"character":%d}}`, doc, callPos.Line, callPos.Character)).(map[string]any)
+	if sigs, _ := help["signatures"].([]any); len(sigs) != 1 {
+		t.Errorf("signatureHelp behind didOpen = %v, want one signature", help)
+	}
+	if lenses, _ := w.call("textDocument/codeLens", fmt.Sprintf(`{"textDocument":%s}`, doc)).([]any); len(lenses) == 0 {
+		t.Errorf("codeLens behind didOpen = %v, want lenses", lenses)
+	}
+	if hints, _ := w.call("textDocument/inlayHint", fmt.Sprintf(`{"textDocument":%s,"range":%s}`, doc, wholeRange)).([]any); len(hints) == 0 {
+		t.Errorf("inlayHint behind didOpen = %v, want hints", hints)
+	}
+	tokens, _ := w.call("textDocument/semanticTokens/full", fmt.Sprintf(`{"textDocument":%s}`, doc)).(map[string]any)
+	if data, _ := tokens["data"].([]any); len(data) == 0 {
+		t.Errorf("semanticTokens behind didOpen = %v, want tokens", tokens)
+	}
+	if got := w.symbolNames(); !slices.Equal(got, []string{"Demo"}) {
+		t.Errorf("documentSymbol behind didOpen = %v, want [Demo]", got)
+	}
+}
