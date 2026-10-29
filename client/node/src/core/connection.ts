@@ -1508,7 +1508,7 @@ export class Connection {
     );
     const diagnostics = response.diagnostics.map(decodeDiagnostic);
     if (response.error !== "") {
-      raiseFailure(response.error, 0, diagnostics);
+      raiseFailure(response.error, FailureReason.UNSPECIFIED, diagnostics);
     }
     return new SelfCheckResult(response, diagnostics);
   }
@@ -1714,7 +1714,7 @@ export class Connection {
     );
     const diagnostics = response.diagnostics.map(decodeDiagnostic);
     if (response.error !== "") {
-      raiseFailure(response.error, 0, diagnostics);
+      raiseFailure(response.error, FailureReason.UNSPECIFIED, diagnostics);
     }
     return importResultOf(response, diagnostics);
   }
