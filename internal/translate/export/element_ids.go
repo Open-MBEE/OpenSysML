@@ -35,19 +35,26 @@ func NewElementIDs(documents []ModelDocument) (*ElementIDs, error) {
 	if err != nil {
 		return nil, err
 	}
-	return identityIDsOf(res, encoders)
+	referenced := make([]bool, len(documents))
+	for i, doc := range documents {
+		referenced[i] = doc.Referenced
+	}
+	return identityIDsOf(res, encoders, referenced)
 }
 
-// identityIDsOf is the id each encoder writes for each declaration it writes:
-// the local name of the subject its identity tables mint for the declaration.
-// The declarations' identity claims are made first (mintDeclarations, declaredOnce).
-func identityIDsOf(res *resolve.Resolver, encoders []*encoder) (*ElementIDs, error) {
+// identityIDsOf records each written declaration's id (its subject's local name)
+// once the claims Convert makes for the documents (as modelToRDF does) succeed.
+func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool) (*ElementIDs, error) {
 	declaredIn := map[string]mintedSubject{}
-	for _, e := range encoders {
-		if err := e.mintDeclarations(); err != nil {
-			return nil, fmt.Errorf("%s: %w", e.file.Name(), err)
+	for i, e := range encoders {
+		minted := e.declaredSubjects()
+		if !referenced[i] {
+			if err := e.mintDeclarations(); err != nil {
+				return nil, fmt.Errorf("%s: %w", e.file.Name(), err)
+			}
+			minted = e.minted
 		}
-		if err := declaredOnce(declaredIn, e.minted); err != nil {
+		if err := declaredOnce(declaredIn, minted); err != nil {
 			return nil, err
 		}
 	}
@@ -190,7 +197,7 @@ func (r *ElementIDReader) convert() {
 			r.err = err
 			return
 		}
-		r.ids, r.err = identityIDsOf(e.res, []*encoder{e})
+		r.ids, r.err = identityIDsOf(e.res, []*encoder{e}, []bool{false})
 		return
 	}
 	r.ids, r.err = NewElementIDs(documents)

@@ -96,3 +96,22 @@ func TestElementIDReaderRefusesCollidingIDs(t *testing.T) {
 		}
 	}
 }
+
+// TestElementIDReaderClaimsWhatTheWriterClaims: a root has no owning membership, so a
+// member's id on its would-be membership IRI is no collision; a referenced document's
+// declarations are checked against the written documents only, as modelToRDF does.
+func TestElementIDReaderClaimsWhatTheWriterClaims(t *testing.T) {
+	_, _, root := readerIndex(t, "root.sysml", "package P {\n\t@IdentityMetadata::ProjectRef { projectId = \"proj-1\"; }\n\t@IdentityMetadata::ElementId { id = \"stable\"; }\n\tpart def A { @IdentityMetadata::ElementId { id = \"stable_om\"; } }\n}\n")
+	if _, err := NewElementIDReader([]ElementIDDocument{root}).Read("", nil, "P::A"); err != nil {
+		t.Fatalf("a member id on a root's would-be membership IRI was refused: %v", err)
+	}
+	_, _, written := readerIndex(t, "w.sysml", "package W { part def C; }\n")
+	_, _, referenced := readerIndex(t, "r.sysml", "package R {\n\t@IdentityMetadata::ProjectRef { projectId = \"proj-1\"; }\n\tpart def A { @IdentityMetadata::ElementId { id = \"shared\"; } }\n\tpart def B { @IdentityMetadata::ElementId { id = \"shared\"; } }\n}\n")
+	docs := []ModelDocument{{File: written.File, Root: written.Root}, {File: referenced.File, Root: referenced.Root, Referenced: true}}
+	if _, _, _, err := modelToRDF(docs, IDQualifiedName); err != nil {
+		t.Fatalf("the writer refuses the model the test assumes it accepts: %v", err)
+	}
+	if _, err := NewElementIDs(docs); err != nil {
+		t.Fatalf("a referenced document's repeated id was refused, where the writer writes the model: %v", err)
+	}
+}

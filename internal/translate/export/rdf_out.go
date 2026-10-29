@@ -1300,14 +1300,17 @@ func (e *encoder) writtenDeclarations() []ast.Node {
 }
 
 // mintDeclarations makes the identity claims writing the declarations would —
-// each one's subject (mint) and its owning membership's IRI — without writing,
-// so an author's ids that collide refuse the model as the conversion does.
+// each one's subject (mint) and, for a member, its owning membership's IRI
+// (head) — without writing, so colliding ids refuse the model as Convert does.
 func (e *encoder) mintDeclarations() error {
 	for _, node := range e.writtenDeclarations() {
 		fqn := e.fqn[node]
 		subject, err := e.mint(node, fqn)
 		if err != nil {
 			return err
+		}
+		if !strings.Contains(fqn, "::") {
+			continue // a root has no owner, so no owning membership is written
 		}
 		membership := e.ids.owningMembershipOf(node, subject)
 		if prior, taken := e.claim(membership.Value, fqn+"'s owning membership"); taken {
