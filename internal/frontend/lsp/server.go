@@ -147,14 +147,42 @@ type lspCodec struct{}
 func (lspCodec) Marshal(v any) ([]byte, error)      { return protocol.Marshal(v) }
 func (lspCodec) Unmarshal(data []byte, v any) error { return protocol.Unmarshal(data, v) }
 
-// runHandler is the chain a served session reads with: cancellation, async
-// dispatch so one slow request cannot stall the stream, and the custom methods
-// ahead of the protocol's.
+// runHandler is the chain a served session reads with: cancellation, dispatch
+// off the read loop so one slow request cannot stall the stream, and the custom
+// methods ahead of the protocol's.
 func runHandler(s *Server) jsonrpc2.Handler {
 	serve := s.stdlibHandler(s.debugHandler(s.renderHandler(s.modelEditHandler(notificationErrorsStayLocal(s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler)))))))
-	// The lifecycle wrapper runs outside AsyncHandler so that shutdown, exit and
+	// The lifecycle wrapper runs outside inOrder so that shutdown, exit and
 	// the messages after them are ordered as the client sent them.
-	return s.lifecycleHandler(protocol.CancelHandler(jsonrpc2.AsyncHandler(answerCancelled(serve))))
+	return s.lifecycleHandler(protocol.CancelHandler(inOrder(answerCancelled(serve))))
+}
+
+// inOrder frees the read loop at once but runs the handlers one at a time in
+// wire order, so a didChange is applied before the request behind it is served.
+// A request cancelled while it waits answers cancelled without running.
+func inOrder(handler jsonrpc2.Handler) jsonrpc2.Handler {
+	var mu sync.Mutex
+	previous := make(chan struct{})
+	close(previous)
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		// Taken on the read loop, before it is released: the queue is wire order.
+		mu.Lock()
+		wait := previous
+		done := make(chan struct{})
+		previous = done
+		mu.Unlock()
+		defer close(done)
+		jsonrpc2.Async(ctx)
+		select {
+		case <-wait:
+		case <-ctx.Done():
+			if req.IsCall() {
+				return nil, protocol.ErrRequestCancelled
+			}
+			<-wait
+		}
+		return handler(ctx, req)
+	}
 }
 
 // answerCancelled gives a request cancelled while it was served the reply the

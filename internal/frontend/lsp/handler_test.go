@@ -415,3 +415,19 @@ func TestWireRangeFormattingAnswersEditsOnSelectedLines(t *testing.T) {
 		t.Errorf("edits for the whole file = %v, want both indentation fixes", edits)
 	}
 }
+
+// A request sent right behind a didChange, without waiting for its
+// diagnostics, is answered from the changed document: the notification is
+// applied before the request is served, however the two are scheduled.
+func TestWireRequestAfterDidChangeSeesTheChange(t *testing.T) {
+	w := newWireSession(t)
+	w.open(wireSource)
+	for i := 2; i < 22; i++ {
+		name := fmt.Sprintf("Renamed%d", i)
+		w.notify("textDocument/didChange", fmt.Sprintf(
+			`{"textDocument":{"uri":%q,"version":%d},"contentChanges":[{"text":"package %s {\n}\n"}]}`, w.uri, i, name))
+		if got := w.symbolNames(); !slices.Equal(got, []string{name}) {
+			t.Fatalf("symbols after change %d = %v, want [%s]", i, got, name)
+		}
+	}
+}
