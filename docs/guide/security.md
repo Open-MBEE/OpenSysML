@@ -120,6 +120,29 @@ for the v0.11.0 wheel) and `pip install --require-hashes` refuses anything else.
 kernel's platform wheels (`jupyter_opensysml_kernel-*.whl`) are on the release and in the
 manifest too.
 
+Releases after v0.11.0 are uploaded to PyPI by the repository's
+[`release-pypi.yml`](https://github.com/Open-MBEE/OpenSysML/blob/develop/.github/workflows/release-pypi.yml)
+workflow with trusted publishing, after it has checked the files against the signed manifest
+above, so each file also carries a [PEP 740 attestation](https://docs.pypi.org/attestations/)
+naming that workflow — PyPI shows it under *Verified details*, and
+[`pypi-attestations`](https://pypi.org/project/pypi-attestations/) checks it against the
+publishing repository without downloading the release:
+
+```bash
+pip install pypi-attestations
+python -m pypi_attestations verify pypi --repository https://github.com/Open-MBEE/OpenSysML \
+  pypi:opensysml-<x.y.z>-py3-none-any.whl
+```
+
+The `nightly` snapshots on PyPI (`<next>.dev<yyyymmdd>` versions) have carried the same
+attestation, from the nightly workflow, since the first one. **v0.10.0, v0.10.1 and v0.11.0
+of both packages do not**: they were uploaded by a CircleCI job with an API token, which PyPI
+cannot attest, and PyPI marks each of them *Loss of provenance* against the attested
+snapshot before it. That was the publishing path of the time, not a compromise; the files
+are the ones each release's signed manifest lists, and the `sha256sum` check above is how to
+verify them. An attestation is attached only at upload and a version is never re-uploaded,
+so those releases keep the mark.
+
 ### npm packages
 
 `@openmbee/opensysml` and its platform packages are published to the npm registry, which records
