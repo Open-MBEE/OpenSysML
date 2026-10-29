@@ -4694,7 +4694,7 @@ states no rendering), **interconnection**, **state**, **action**, **table**
 Forms and defaults (`internal/ir/view/form.go`):
 
 When verifying walkthrough output, test the literal command in a real terminal:
-`-render` is destination-dependent (text at a TTY, machine form through a pipe).
+`-render` writes text at a TTY and the machine form through a pipe or into a file, whatever the `-o` extension.
 A piped discovery run can therefore match a Mermaid transcript while the user's
 terminal command does not. Use explicit `-render-form mermaid` when the walkthrough
 promises Mermaid independent of destination; compare the shown diagram block and
