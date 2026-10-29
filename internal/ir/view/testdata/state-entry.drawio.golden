@@ -12,7 +12,7 @@
             <mxGeometry x="50" y="50" width="675" height="552" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n12" label="start" kind="start" view="MachineViews::thermostat">
+        <object id="n12" label="start" fqn="Machines::Thermostat::start" kind="start" view="MachineViews::thermostat">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
             <mxGeometry x="16" y="92" width="20" height="20" as="geometry"/>
           </mxCell>
@@ -27,7 +27,7 @@
             <mxGeometry x="16" y="179" width="174" height="232" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n13" label="start" kind="start" view="MachineViews::thermostat">
+        <object id="n13" label="start" fqn="Machines::Thermostat::idle::start" kind="start" view="MachineViews::thermostat">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n2">
             <mxGeometry x="16" y="92" width="20" height="20" as="geometry"/>
           </mxCell>
@@ -52,7 +52,7 @@
             <mxGeometry x="16" y="92" width="160" height="232" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n14" label="start" kind="start" view="MachineViews::thermostat">
+        <object id="n14" label="start" fqn="Machines::Thermostat::monitoring::lights::start" kind="start" view="MachineViews::thermostat">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n6">
             <mxGeometry x="16" y="92" width="20" height="20" as="geometry"/>
           </mxCell>
@@ -72,7 +72,7 @@
             <mxGeometry x="226" y="92" width="177" height="249" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n15" label="start" kind="start" view="MachineViews::thermostat">
+        <object id="n15" label="start" fqn="Machines::Thermostat::monitoring::fans::start" kind="start" view="MachineViews::thermostat">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n7">
             <mxGeometry x="16" y="92" width="20" height="20" as="geometry"/>
           </mxCell>

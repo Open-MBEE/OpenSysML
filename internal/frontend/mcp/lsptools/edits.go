@@ -142,7 +142,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "apply_model_edit",
 		Description: "Edit a model by operations on its elements rather than by text: setValue, rename, addMember, addConnection, addSequence (action-body items), delete, move, " +
-			"and the diagram-layout annotations setLayout, setRoute, setCanvas, setStyle. Targets and owners are qualified names as render_view reports them in nodes[].fqn. " +
+			"and the diagram-layout annotations setLayout, setRoute, setCanvas, setStyle, setNote, setPicture. Targets and owners are qualified names as render_view reports them in nodes[].fqn. " +
 			"Returns the text edits the operations amount to, per document, and the operations refused with why; writes the files only with apply=true.",
 		Annotations: toolkit.Mutating("Apply model edit", false),
 		InputSchema: applyModelEditSchema(),
@@ -305,9 +305,9 @@ func describe(s *jsonschema.Schema, descriptions map[string]string) {
 }
 
 var operationFieldDescriptions = map[string]string{
-	"kind":           "setValue, rename, addMember, addConnection, addSequence, delete, move, setLayout, setRoute, setCanvas or setStyle",
-	"target":         "qualified name of the element the operation is about (setValue, rename, delete, move, setCanvas, and the layout operations when no declaration is given)",
-	"declaration":    "for setLayout, setRoute, setStyle: the LSP range (0-based) of an unnamed element's declaration, as render_view reports it, in place of target",
+	"kind":           "setValue, rename, addMember, addConnection, addSequence, delete, move, setLayout, setRoute, setCanvas, setStyle, setNote or setPicture",
+	"target":         "qualified name of the element the operation is about (setValue, rename, delete, move, setCanvas, setPicture, and the layout operations when no declaration is given)",
+	"declaration":    "for setLayout, setRoute, setStyle: the LSP range (0-based) of an unnamed element's declaration, as render_view reports it, in place of target; for setNote, setPicture: the range of the annotation itself, to rewrite or clear that one",
 	"declaredIn":     "the document URI declaring the target, as render_view reports in origin.uri; omitted, the requested document",
 	"digest":         "the origin.digest render_view reported for declaredIn, so a changed document is detected",
 	"value":          "setValue: the new value expression; addMember: an initial value; addSequence: the value assigned, sent or iterated over",
@@ -336,4 +336,6 @@ var operationFieldDescriptions = map[string]string{
 	"route":          "setRoute: the waypoints [{x, y}, ...]",
 	"canvas":         "setCanvas: {unit?, width?, height?}",
 	"style":          "setStyle: {fill?, line?, text?, font?, fontSize?, bold?, italic?}, colors as #RRGGBB",
+	"note":           "setNote: {text, x, y, width?, height?} in diagram coordinates; omitted, the Note is removed",
+	"picture":        "setPicture: {location, x, y, width, height, alt?, above?}, the file relative to the view's document; omitted, the Picture is removed",
 }

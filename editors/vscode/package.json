@@ -278,6 +278,11 @@
         "title": "Export Diagram"
       },
       {
+        "command": "opensysml.importDiagram",
+        "category": "SysML",
+        "title": "Import layout from draw.io…"
+      },
+      {
         "command": "opensysml.diagram.popOut",
         "category": "SysML",
         "title": "Move Diagram to New Window"
@@ -326,6 +331,11 @@
           "when": "resourceLangId == sysml || resourceLangId == kerml"
         },
         {
+          "command": "opensysml.importDiagram",
+          "group": "1_diagram",
+          "when": "resourceLangId == sysml || resourceLangId == kerml"
+        },
+        {
           "command": "opensysml.diagram.popOut",
           "group": "1_diagram",
           "when": "resourceLangId == sysml || resourceLangId == kerml || activeWebviewPanelId == opensysml.diagram"
@@ -340,6 +350,11 @@
         {
           "command": "opensysml.exportDiagram",
           "group": "navigation@11",
+          "when": "editorLangId == sysml || editorLangId == kerml"
+        },
+        {
+          "command": "opensysml.importDiagram",
+          "group": "navigation@12",
           "when": "editorLangId == sysml || editorLangId == kerml"
         }
       ],

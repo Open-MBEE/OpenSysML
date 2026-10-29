@@ -371,6 +371,7 @@ func Register(s *mcp.Server, h *Host) {
 	}))
 	registerQueries(s, h)
 	registerEdits(s, h)
+	registerImporting(s, h)
 	registerRendering(s, h)
 	registerSync(s, h)
 	registerResources(s, h)

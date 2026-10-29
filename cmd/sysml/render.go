@@ -47,7 +47,7 @@ func runRender(files []string) error {
 	if err != nil {
 		return err
 	}
-	if options.Links.Template != "" {
+	if options.Links.Template != "" || form == view.FormDrawio {
 		options.Links.Sites, err = sess.ViewSites()
 		if err != nil {
 			return err
@@ -89,7 +89,7 @@ func runRenderAll(files []string) error {
 	if len(views) == 0 {
 		return errors.New("the model declares no views; nothing was rendered")
 	}
-	if options.Links.Template != "" {
+	if options.Links.Template != "" || form == view.FormDrawio {
 		options.Links.Sites, err = sess.ViewSites()
 		if err != nil {
 			return err
