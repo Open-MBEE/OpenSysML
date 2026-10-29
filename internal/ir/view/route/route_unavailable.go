@@ -2,4 +2,4 @@
 
 package route
 
-func routeAll([]Shape, []Edge, *Box) ([][]Point, error) { return nil, ErrUnavailable }
+func routeAll([]Shape, []Edge, *Box) ([]Route, error) { return nil, ErrUnavailable }

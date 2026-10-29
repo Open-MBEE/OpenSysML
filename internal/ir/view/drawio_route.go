@@ -49,7 +49,7 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 		var memberPins []route.Port
 		asked := make([]route.Edge, len(group))
 		for j, i := range group {
-			asked[j] = route.Edge{From: edges[i].From, To: edges[i].To, FromPort: edges[i].FromPort, ToPort: edges[i].ToPort}
+			asked[j] = route.Edge{Index: j, From: edges[i].From, To: edges[i].To, FromPort: edges[i].FromPort, ToPort: edges[i].ToPort}
 			if key == "" || (edges[i].From != key && edges[i].To != key) || edges[i].From == edges[i].To {
 				continue
 			}
@@ -93,8 +93,9 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 		if err != nil {
 			return nil, err
 		}
-		for j, i := range group {
-			for _, p := range routes[j] {
+		for _, found := range routes {
+			i := group[found.Index]
+			for _, p := range found.Points {
 				edges[i].Route = append(edges[i].Route, Point{X: p.X, Y: p.Y})
 			}
 		}

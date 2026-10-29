@@ -224,9 +224,16 @@ func (s *session) enum(name string) uint64 { return s.call("emscripten_enum_Avoi
 
 func (s *session) destroy(class string, self uint64) { s.method(class, self, "__destroy__") }
 
+// callF64 is call for an export returning an f64.
+func (s *session) callF64(name string, args ...uint64) float64 {
+	return api.DecodeF64(s.call(name, args...))
+}
+
 func f64(v float64) uint64 { return api.EncodeF64(v) }
 
-func boolArg(b bool) uint64 {
+func i32(v uint32) uint64 { return uint64(v) }
+
+func boolean(b bool) uint64 {
 	if b {
 		return 1
 	}

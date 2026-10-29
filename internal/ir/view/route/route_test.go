@@ -7,16 +7,24 @@ import (
 	"testing"
 )
 
-func routeOrFail(t *testing.T, shapes []Shape, edges []Edge, bounds *Box) [][]Point {
+// routeOrFail routes the edges, indexed by position, and returns each route
+// under that position.
+func routeOrFail(t *testing.T, shapes []Shape, edges []Edge, bounds *Box) map[int][]Point {
 	t.Helper()
-	routes, err := Routes(shapes, edges, bounds)
+	indexed := make([]Edge, len(edges))
+	for i, edge := range edges {
+		edge.Index = i
+		indexed[i] = edge
+	}
+	routes, err := Routes(shapes, indexed, bounds)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(routes) != len(edges) {
-		t.Fatalf("%d routes for %d edges", len(routes), len(edges))
+	byIndex := make(map[int][]Point, len(routes))
+	for _, route := range routes {
+		byIndex[route.Index] = route.Points
 	}
-	return routes
+	return byIndex
 }
 
 // An edge between two boxes with a third between them bends around it, every
@@ -32,12 +40,12 @@ func TestRoutesDetourAroundAnObstacle(t *testing.T) {
 	if len(route) < 3 {
 		t.Fatalf("route %v has no bend", route)
 	}
-	if !isOrthogonal(route) {
+	if !orthogonal(route) {
 		t.Errorf("route %v is not orthogonal", route)
 	}
 	wall := shapes[2].Box
 	for i := 1; i < len(route); i++ {
-		if crossesInterior(route[i-1], route[i], wall) {
+		if crossesBoxInterior(route[i-1], route[i], wall) {
 			t.Errorf("segment %v-%v crosses the obstacle", route[i-1], route[i])
 		}
 	}
@@ -102,26 +110,26 @@ func TestRoutesStayInsideBounds(t *testing.T) {
 }
 
 func TestCleanRouteDropsDoubledAndCollinearPoints(t *testing.T) {
-	got := cleanRoute([]Point{{0, 0}, {0, 0}, {10, 0}, {20, 0}, {20, 5}, {20, 10}})
+	got := cleanRoute([]Point{{0, 0}, {0, 0}, {10, 0}, {20, 0}, {20, 5}, {20, 10}}, false)
 	want := []Point{{0, 0}, {20, 0}, {20, 10}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("cleanRoute = %v, want %v", got, want)
 	}
-	if cleanRoute([]Point{{1, 1}, {1, 1}}) != nil {
+	if cleanRoute([]Point{{1, 1}, {1, 1}}, false) != nil {
 		t.Error("a single point is a route")
 	}
 }
 
 func onBorder(p Point, box Box) bool {
 	const eps = 1e-6
-	onX := p.X >= box.X-portSize && p.X <= box.X+box.Width+portSize
-	onY := p.Y >= box.Y-portSize && p.Y <= box.Y+box.Height+portSize
+	onX := p.X >= box.X-PortSize && p.X <= box.X+box.Width+PortSize
+	onY := p.Y >= box.Y-PortSize && p.Y <= box.Y+box.Height+PortSize
 	atLeft := abs(p.X-box.X) < eps || abs(p.X-(box.X+box.Width)) < eps
 	atTop := abs(p.Y-box.Y) < eps || abs(p.Y-(box.Y+box.Height)) < eps
 	return (atLeft && onY) || (atTop && onX)
 }
 
-func crossesInterior(a, b Point, box Box) bool {
+func crossesBoxInterior(a, b Point, box Box) bool {
 	minX, maxX := min(a.X, b.X), max(a.X, b.X)
 	minY, maxY := min(a.Y, b.Y), max(a.Y, b.Y)
 	return maxX > box.X && minX < box.X+box.Width && maxY > box.Y && minY < box.Y+box.Height
