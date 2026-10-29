@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
-import type { LanguageClient } from "vscode-languageclient/node";
+import type { LanguageClient, WorkspaceEdit as ProtocolWorkspaceEdit } from "vscode-languageclient/node";
 import {
   describeRefusal,
   describeStale,
@@ -35,6 +35,9 @@ import {
   PickerEntry,
   RENDER_CAPABILITY,
   RENDER_CHANGED_METHOD,
+  IMPORT_DIAGRAM_METHOD,
+  ImportDiagramParams,
+  ImportDiagramResult,
   RENDER_METHOD,
   RENDER_PALETTE_CAPABILITY,
   RELATED_ELEMENTS_METHOD,
@@ -126,6 +129,7 @@ export class DiagramPanels implements vscode.Disposable {
     this.disposables.push(
       vscode.commands.registerCommand("opensysml.openDiagram", (target?: unknown) => this.open(target)),
       vscode.commands.registerCommand("opensysml.exportDiagram", (target?: unknown) => this.export(target)),
+      vscode.commands.registerCommand("opensysml.importDiagram", (target?: unknown) => this.importDiagram(target)),
       vscode.commands.registerCommand("opensysml.diagram.popOut", (target?: unknown) => this.popOut(target)),
       vscode.window.onDidChangeTextEditorSelection((event) => {
         for (const panel of this.panelsOf(event.textEditor.document.uri)) {
@@ -549,6 +553,53 @@ export class DiagramPanels implements vscode.Disposable {
   // exportedView is the view to export when no panel shows one: the document's
   // sole drawable view, the model tree when it has none, or the user's pick among
   // several. Undefined when the user picks none.
+  // Import layout from draw.io…: a draw.io file Export Diagram wrote and the
+  // user edited becomes DiagramLayout metadata, applied as one undoable edit.
+  private async importDiagram(target?: unknown): Promise<void> {
+    const resolved = this.resolve(target, "import a draw.io layout into it");
+    const client = this.client;
+    if (!resolved || !this.available() || !client) {
+      return;
+    }
+    const picked = await vscode.window.showOpenDialog({
+      title: "Import layout from draw.io…",
+      canSelectMany: false,
+      defaultUri: vscode.Uri.joinPath(resolved.uri, ".."),
+      filters: { "draw.io diagram": ["drawio", "xml"] },
+    });
+    const file = picked?.[0];
+    if (!file) {
+      return;
+    }
+    const params: ImportDiagramParams = { textDocument: { uri: resolved.uri.toString() }, path: file.fsPath };
+    let result: ImportDiagramResult;
+    try {
+      result = await client.sendRequest<ImportDiagramResult>(IMPORT_DIAGRAM_METHOD, params);
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Cannot import ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
+    const reports = [...(result.unmatched ?? []).map((name) => `${name} is not in the rendering`), ...(result.deleted ?? []).map((name) => `${name} was deleted in the file; the element stays`), ...(result.notices ?? [])];
+    if (result.unknown?.length) {
+      reports.push(`${result.unknown.length} cells name no element`);
+    }
+    for (const refusal of result.refused ?? []) {
+      void vscode.window.showErrorMessage(`${basename(file)}: not imported: ${refusal.message}`);
+      return;
+    }
+    if (!result.edit || result.edits.length === 0) {
+      void vscode.window.showInformationMessage(`${basename(file)} matches the rendering of ${result.view}; nothing to import${reports.length ? ` (${reports.join("; ")})` : ""}`);
+      return;
+    }
+    const edit = await client.protocol2CodeConverter.asWorkspaceEdit(result.edit as ProtocolWorkspaceEdit);
+    if (!(await vscode.workspace.applyEdit(edit))) {
+      void vscode.window.showErrorMessage(`The layout edits from ${basename(file)} could not be applied`);
+      return;
+    }
+    const summary = `${result.edits.length} layout ${result.edits.length === 1 ? "edit" : "edits"} imported from ${basename(file)} into ${result.view}`;
+    void (reports.length ? vscode.window.showWarningMessage(`${summary}; ${reports.join("; ")}`) : vscode.window.showInformationMessage(summary));
+  }
+
   private async exportedView(client: LanguageClient, uri: string): Promise<string | undefined> {
     const { declared, pseudo } = await listViews(client, uri, this.output);
     const implied = impliedView(declared);
