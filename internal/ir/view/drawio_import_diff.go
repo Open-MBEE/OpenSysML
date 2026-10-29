@@ -112,12 +112,32 @@ type DrawioImport struct {
 // cells that differ from it are imported, so the writer's own geometry — grids,
 // fitted sizes, computed routes — never becomes an annotation.
 func (r *Rendering) ImportDrawio(file *DrawioFile, options Options) (*DrawioImport, error) {
-	norm, w, err := r.drawioPrepare(options)
+	importer, err := r.DrawioImporter(options)
 	if err != nil {
 		return nil, err
 	}
-	if file.View != "" && file.View != norm.View {
-		return nil, &DrawioViewError{View: norm.View, Pages: []string{file.View}}
+	return importer.Import(file)
+}
+
+// DrawioImporter imports edited draw.io files of one rendering under one set
+// of options against a baseline prepared once: laying the rendering out and
+// routing its edges is the bulk of an import, and the baseline is the same for
+// every file of the rendering.
+type DrawioImporter struct {
+	norm  *Rendering
+	drawn *Drawn
+	w     *drawioWriter
+	base  *DrawioFile
+	nodes map[string]*Node
+	ports map[string]Port
+}
+
+// DrawioImporter prepares the baseline that Import diffs edited files of this
+// rendering against: the file the writer would emit now under options.
+func (r *Rendering) DrawioImporter(options Options) (*DrawioImporter, error) {
+	norm, w, err := r.drawioPrepare(options)
+	if err != nil {
+		return nil, err
 	}
 	pages, err := drawioPages([]byte(w.document(norm, options)))
 	if err != nil {
@@ -127,14 +147,24 @@ func (r *Rendering) ImportDrawio(file *DrawioFile, options Options) (*DrawioImpo
 	if err != nil {
 		return nil, err
 	}
-	out := &DrawioImport{View: norm.View}
-	m := &drawioMatcher{norm: norm, drawn: r.drawn, w: w, base: base, file: file, out: out, nodes: map[string]*Node{}, ports: map[string]Port{}, framed: map[string]bool{}, paired: map[string]*DrawioCell{}}
+	importer := &DrawioImporter{norm: norm, drawn: r.drawn, w: w, base: base, nodes: map[string]*Node{}, ports: map[string]Port{}}
 	for _, node := range drawioNodes(norm.Roots) {
-		m.nodes[node.ID] = node
+		importer.nodes[node.ID] = node
 		for _, port := range node.Ports {
-			m.ports[node.ID+":"+port.ID] = port
+			importer.ports[node.ID+":"+port.ID] = port
 		}
 	}
+	return importer, nil
+}
+
+// Import reads an edited draw.io file of the rendering back as the edits by
+// which it differs from the baseline, as ImportDrawio does.
+func (i *DrawioImporter) Import(file *DrawioFile) (*DrawioImport, error) {
+	if file.View != "" && file.View != i.norm.View {
+		return nil, &DrawioViewError{View: i.norm.View, Pages: []string{file.View}}
+	}
+	out := &DrawioImport{View: i.norm.View}
+	m := &drawioMatcher{norm: i.norm, drawn: i.drawn, w: i.w, base: i.base, file: file, out: out, nodes: i.nodes, ports: i.ports, framed: map[string]bool{}, paired: map[string]*DrawioCell{}}
 	m.match()
 	m.canvas()
 	return out, nil
