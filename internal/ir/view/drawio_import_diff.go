@@ -430,12 +430,8 @@ func (m *drawioMatcher) frameShift(base *DrawioCell) DrawioBox {
 	return DrawioBox{X: shift.X, Y: shift.Y}
 }
 
-// pin places a container the model does not place at its box on the page, and
-// its children at theirs, so that a child moved inside it lands where the file
-// has it: the Layouts turn absolute, as the notation reads them. Placed, the
-// container is no longer fitted around the children drawn in its frame and lays
-// out those it does not place by its stated size, so it and every child it does
-// not place keep the box the file shows, a child container pinned in turn.
+// pin places a container the model does not place, and every child drawn in its
+// frame, at the box the file shows, a child container pinned in turn.
 func (m *drawioMatcher) pin(id string) {
 	if m.framed[id] {
 		return

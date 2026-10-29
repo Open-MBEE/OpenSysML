@@ -289,10 +289,8 @@ func (w *drawioWriter) fitted(node *Node) drawioBox {
 	if len(node.Children) == 0 {
 		return drawioBox{Width: width, Height: height}
 	}
-	// Children are settled from a provisional corner so their extent is known;
-	// settle moves them to the final one afterwards.
-	// A placed container's placed children sit at their absolute Layouts, so
-	// their extent is measured from the container's own corner.
+	// Children are settled from the container's corner, placed ones sitting at
+	// their absolute Layouts, so their extent is known; settle moves them after.
 	corner := drawioBox{Width: width, Height: height}
 	if g := node.Geometry; g.placed() {
 		corner.X, corner.Y = g.X, g.Y

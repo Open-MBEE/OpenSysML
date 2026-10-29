@@ -220,9 +220,8 @@ func TestDrawioImportReroutedTypingEdgeBesideMembershipIsReported(t *testing.T) 
 	}
 }
 
-// Resizing a container the model does not place pins it with the size the
-// file shows; the writer then lays its unplaced children out by that size, so
-// each child is pinned too, at the box the file shows, not left to move.
+// A resized container the model does not place is pinned with its size, which
+// changes how its unplaced children are laid out: each is pinned at its box too.
 func TestDrawioImportResizedUnplacedContainerPinsItsChildren(t *testing.T) {
 	c, golden := drawioGolden(t, "tree")
 	if !strings.Contains(drawioObjectXML(t, golden, "n6"), `fqn="VehicleViews::vehicleView::engineSubview"`) {
