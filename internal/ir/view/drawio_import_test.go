@@ -226,6 +226,18 @@ func TestDrawioImportReroutedEdgeIsARoute(t *testing.T) {
 	}
 }
 
+// A port dragged onto another node stays on its owner; the move is a notice.
+func TestDrawioImportReparentedPortIsANotice(t *testing.T) {
+	golden, _ := os.ReadFile(filepath.Join("testdata", layoutCase.name+".drawio.golden"))
+	document := mutateCell(t, string(golden), "n1:n1.0", func(cell string) string {
+		return strings.Replace(cell, `parent="n1"`, `parent="n0"`, 1)
+	})
+	imp := drawioGoldenImport(t, layoutCase, document)
+	if len(imp.Edits) != 0 || len(imp.Notices) != 1 || !strings.Contains(imp.Notices[0], "Plant::Pump::outlet: a port was moved to another cell") {
+		t.Errorf("edits %+v, notices %q; want one notice of the moved port and no edit", imp.Edits, imp.Notices)
+	}
+}
+
 func TestDrawioImportStraightenedEdgeClearsItsRoute(t *testing.T) {
 	golden, _ := os.ReadFile(filepath.Join("testdata", layoutCase.name+".drawio.golden"))
 	document := mutateCell(t, string(golden), "e0", func(cell string) string {

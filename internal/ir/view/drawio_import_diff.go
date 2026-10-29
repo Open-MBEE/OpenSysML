@@ -339,7 +339,10 @@ func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 		if owner != nil {
 			size = owner.Geometry
 		}
-		if !sameBox(portPlace(cell, m.file.Cell(cell.Parent), size), portPlace(base, owner, size)) {
+		switch fileOwner := m.file.Cell(cell.Parent); {
+		case !sameOwner(fileOwner, owner):
+			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: a port was moved to another cell; it stays on its owner, so the move is not imported", cell.FQN))
+		case !sameBox(portPlace(cell, fileOwner, size), portPlace(base, owner, size)):
 			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: a port is drawn on its owner's border; its position in the file is not imported", cell.FQN))
 		}
 	} else if layout := m.layoutDiff(cell, base); layout != nil {
@@ -686,6 +689,18 @@ func drawioColour(v string) string {
 
 // boxOf is a cell's box; fullBox the box it expands to when collapsed.
 func boxOf(cell *DrawioCell) DrawioBox { return cell.Geometry }
+
+// sameOwner tells whether two cells, one of each file, are the same owner: the
+// same element when both are semantic, else the same cell.
+func sameOwner(a, b *DrawioCell) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.FQN != "" || b.FQN != "" {
+		return a.FQN == b.FQN
+	}
+	return a.ID == b.ID
+}
 
 // portPlace is where a port sits on an owner of size: a relative port's fraction
 // of it plus its offset, an absolute port's box against its own owner's corner.
