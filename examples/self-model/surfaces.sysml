@@ -264,7 +264,7 @@ package OpenSysMLSurfaces {
         attribute :>> goPackage = "editors/vscode";
         attribute speaksTo : String = "sysml-lsp";
         attribute languages : String = "sysml, kerml";
-        attribute commands : String = "opensysml.restartServer, opensysml.openDiagram, opensysml.exportDiagram, opensysml.diagram.popOut, opensysml.renderDocument, opensysml.runElement";
+        attribute commands : String = "opensysml.restartServer, opensysml.openDiagram, opensysml.exportDiagram, opensysml.importDiagram, opensysml.diagram.popOut, opensysml.renderDocument, opensysml.runElement";
         attribute diagramPanel : String = "editors/vscode/src/webview";
         attribute landingPage : String = "editors/vscode/src/landing";
         attribute grammarGenerator : String = "editors/vscode/tools/gengrammar";
