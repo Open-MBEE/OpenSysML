@@ -236,6 +236,12 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 	if len(typeNames) == 0 {
 		return sequence{}, e.invalidArgument(expression, "type", "0")
 	}
+	exact := false
+	if hasArgument(expression, "exact") {
+		if exact, err = e.booleanArgument(expression, "exact"); err != nil {
+			return sequence{}, err
+		}
+	}
 	tests := make([]typeTest, len(typeNames))
 	matched := make([]bool, len(typeNames))
 	for i, typeName := range typeNames {
@@ -247,7 +253,7 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 	result := filtered(source)
 	for i, value := range source.values {
 		for j, test := range tests {
-			if e.valueIsA(value, test) {
+			if (exact && e.valueIsExactly(value, test)) || (!exact && e.valueIsA(value, test)) {
 				matched[j] = true
 				appendSelected(&result, source, i)
 				break
@@ -269,6 +275,21 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 }
 
 // valueIsA reports whether a row is an object or declaration of the type.
+// valueIsExactly is WhereType's exact = true: the row's own metaclass is the named one,
+// neither a subclass of it nor a type of the model.
+func (e *executor) valueIsExactly(value Value, test typeTest) bool {
+	if inst, _, isObject := value.Object(); isObject {
+		for _, typ := range objectTypes(inst) {
+			if query.MetamodelTypeNameOf(typ) == test.name {
+				return true
+			}
+		}
+		return false
+	}
+	sym := value.Declaration()
+	return sym != nil && query.MetamodelTypeNameOf(sym) == test.name
+}
+
 func (e *executor) valueIsA(value Value, test typeTest) bool {
 	if _, _, isObject := value.Object(); isObject {
 		return e.objectIsA(value, test.name, test.target)
