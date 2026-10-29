@@ -1,0 +1,1 @@
+- `-convert sysml` now lays a succession chain out one statement per line: `action a; then action b; then action c;` written on one line becomes three, `then` leading each successor. `} then B;` after a body and the `entry; then Off;` idiom stay on one line.

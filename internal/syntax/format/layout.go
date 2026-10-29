@@ -109,7 +109,7 @@ func (f *formatter) breakBefore(tok lexer.Token) bool {
 			// `default {true} {` goes on; a result expression after `;` does not.
 			return f.lastCode != lexer.RBrace
 		}
-		return !joinsStatement(tok, f.lastCode)
+		return !joinsStatement(tok, f.lastCode, f.afterEntry)
 	}
 	return tok.Kind == lexer.RBrace && f.innermost() == multiBody
 }
@@ -128,6 +128,7 @@ func (f *formatter) trackStatement(tok lexer.Token) breakKind {
 		}
 		return f.owed
 	case lexer.LBrace:
+		f.stmtLen = 0
 		kind := exprBody
 		if len(f.braces) > 0 {
 			kind, f.braces = f.braces[0], f.braces[1:]
@@ -137,6 +138,7 @@ func (f *formatter) trackStatement(tok lexer.Token) breakKind {
 			return breakNext
 		}
 	case lexer.RBrace:
+		f.stmtLen = 0
 		if n := len(f.open); n > 0 {
 			kind := f.open[n-1]
 			f.open = f.open[:n-1]
@@ -145,9 +147,16 @@ func (f *formatter) trackStatement(tok lexer.Token) breakKind {
 			}
 		}
 	case lexer.Semicolon:
+		f.afterEntry = f.stmtLen == 1 && f.stmtKeyword == "entry"
+		f.stmtLen = 0
 		if f.innermost() != exprBody {
 			return breakUnlessJoined
 		}
+	default:
+		if f.stmtLen == 0 {
+			f.stmtKeyword = tok.KeywordID
+		}
+		f.stmtLen++
 	}
 	return noBreak
 }
@@ -161,9 +170,9 @@ func (f *formatter) innermost() braceKind {
 	return multiBody
 }
 
-// joinsStatement reports whether tok stays on the line of the `}` or `;`
-// (after) before it: `} then Idle;`, `} else {`, `{in x; x} + 1`, but `; -x`.
-func joinsStatement(tok lexer.Token, after lexer.Kind) bool {
+// joinsStatement reports whether tok stays on the line of the `}` or `;` (after)
+// before it: `} then Idle;`, `entry; then Off;`, `{in x; x} + 1`, but `; -x`.
+func joinsStatement(tok lexer.Token, after lexer.Kind, afterEntry bool) bool {
 	switch tok.Kind {
 	case lexer.Semicolon, lexer.Comma, lexer.RParen, lexer.RBracket:
 		return true
@@ -175,7 +184,10 @@ func joinsStatement(tok lexer.Token, after lexer.Kind) bool {
 		return after == lexer.RBrace
 	case lexer.Keyword:
 		switch tok.KeywordID {
-		case "then", "else", "until":
+		case "then":
+			// A succession chain `action a; then action b;` is one per line.
+			return after == lexer.RBrace || afterEntry
+		case "else", "until":
 			return true
 		case "and", "or", "xor", "implies", "istype", "hastype", "as":
 			return after == lexer.RBrace

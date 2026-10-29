@@ -108,6 +108,11 @@ type formatter struct {
 	braces []braceKind
 	open   []braceKind
 	owed   breakKind
+	// The statement being read: its first keyword and its code tokens so far,
+	// and whether the last `;` closed a bare `entry;` (`entry; then Off;`).
+	stmtKeyword string
+	stmtLen     int
+	afterEntry  bool
 }
 
 func (f *formatter) run(toks []lexer.Token) []byte {
