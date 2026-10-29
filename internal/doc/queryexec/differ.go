@@ -87,6 +87,10 @@ func (e *executor) evaluateDiffer(expression queryplan.Expression) (sequence, er
 	if err != nil {
 		return sequence{}, err
 	}
+	if key == "left" || key == "right" {
+		// The result names its side columns left and right; a key so named would be ambiguous.
+		return sequence{}, e.invalidArgument(expression, "key", key)
+	}
 	step := Step{Kind: StepDiffer, Argument: key + ", " + column}
 	sides := [2]differSide{{name: "left", rows: left}, {name: "right", rows: right}}
 	var findings []Finding
@@ -133,7 +137,7 @@ func (e *executor) evaluateDiffer(expression queryplan.Expression) (sequence, er
 	}
 	origin := expression.Origin()
 	result := sequence{columns: []Column{{name: key, origin: origin}, {name: "left", origin: origin}, {name: "right", origin: origin}}}
-	for row, value := range left.values {
+	for row := range left.values {
 		cell := sides[0].cell(row, sides[0].key)
 		other, both := sides[1].find(cell[0])
 		if !both {
@@ -143,12 +147,13 @@ func (e *executor) evaluateDiffer(expression queryplan.Expression) (sequence, er
 		if cellsEqual(leftValues, rightValues) {
 			continue
 		}
-		result.values = append(result.values, value)
-		result.cells = append(result.cells, []Cell{
+		// appendSelected keeps the left row's Tree depth; its cells are then the three of Differ.
+		appendSelected(&result, left, row)
+		result.cells[len(result.values)-1] = []Cell{
 			{values: append([]Value(nil), cell...), origin: left.cells[row][sides[0].key].origin},
 			{values: append([]Value(nil), leftValues...), origin: left.cells[row][sides[0].column].origin},
 			{values: append([]Value(nil), rightValues...), origin: right.cells[other][sides[1].column].origin},
-		})
+		}
 	}
 	return result, nil
 }

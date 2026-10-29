@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -20,6 +21,12 @@ package After {
 package Twice {
 	part x { attribute mass = 1; }
 	part y { attribute mass = 1; }
+}
+package NestedBefore {
+	part outer { attribute mass = 1; part inner { attribute mass = 2; } }
+}
+package NestedAfter {
+	part outer { attribute mass = 5; part inner { attribute mass = 3; } }
 }
 package Once {
 	part x { attribute mass = 1; }
@@ -46,6 +53,20 @@ calc def ChangedNamesByMass :> Query {
 	in left : Element;
 	in right : Element;
 	Differ(left = PartMasses(root = left), right = PartMasses(root = right), key = "mass", column = "name")
+}
+calc def ReservedKey :> Query {
+	in left : Element;
+	in right : Element;
+	Differ(left = PartMasses(root = left), right = PartMasses(root = right), key = "left", column = "mass")
+}
+calc def NestedMasses :> Query {
+	in root : Element;
+	Project(source = Tree(source = WhereType(source = Descendants(source = root), type = "PartUsage")), properties = ("name", "mass"))
+}
+calc def ChangedNestedMasses :> Query {
+	in left : Element;
+	in right : Element;
+	Differ(left = NestedMasses(root = left), right = NestedMasses(root = right), key = "name", column = "mass")
 }
 calc def MassesAgainstNames :> Query {
 	in left : Element;
@@ -126,6 +147,40 @@ func TestExecuteDifferMatchesKeysUnderValueEquality(t *testing.T) {
 	}
 	if got := strings.Join(rows, " "); got != "x:x->p z:z->q" {
 		t.Fatalf("rows = %q, want both masses matched across integer and real spellings", got)
+	}
+}
+
+// TestExecuteDifferKeepsTreeDepth: a changed row of a Tree-arranged left side keeps its depth.
+func TestExecuteDifferKeepsTreeDepth(t *testing.T) {
+	fixture := loadExecutionFixture(t, differModel)
+	result, err := fixture.execute(t, "ChangedNestedMasses", Bindings{
+		"left":  {ElementValue(fixture.symbol(t, "NestedBefore"))},
+		"right": {ElementValue(fixture.symbol(t, "NestedAfter"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("ChangedNestedMasses: %v", err)
+	}
+	var rows []string
+	for _, row := range result.Rows() {
+		sym, _ := row.Element().Element()
+		rows = append(rows, fmt.Sprintf("%s@%d", sym.Name, row.Depth()))
+	}
+	if got := strings.Join(rows, " "); got != "outer@0 inner@1" {
+		t.Fatalf("rows = %q, want the outer part at depth 0 and the inner nested under it", got)
+	}
+}
+
+// TestExecuteDifferReservedKeyIsInvalid: a key named left or right would collide with the
+// result's side columns, so it is a typed invalid argument.
+func TestExecuteDifferReservedKeyIsInvalid(t *testing.T) {
+	fixture := loadExecutionFixture(t, differModel)
+	_, err := fixture.execute(t, "ReservedKey", Bindings{
+		"left":  {ElementValue(fixture.symbol(t, "Before"))},
+		"right": {ElementValue(fixture.symbol(t, "After"))},
+	}, Options{})
+	var failure *Error
+	if !errors.As(err, &failure) || failure.Kind != ErrorInvalidArgument || failure.Parameter != "key" {
+		t.Fatalf("ReservedKey: %v, want %s on key", err, ErrorInvalidArgument)
 	}
 }
 
