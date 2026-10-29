@@ -37,8 +37,8 @@ func TestRenderDrawsRecordedDocuments(t *testing.T) {
 	stationURI := uri.File(filepath.Join(dir, "station.sysml"))
 	viewsURI := uri.File(filepath.Join(dir, "views.sysml"))
 	inputs := []model.Input{
-		{Name: stationURI.Filename(), Content: []byte(recordedStations), Version: 1},
-		{Name: viewsURI.Filename(), Content: []byte(recordedStationViews), Version: 1},
+		{Name: stationURI.FsPath(), Content: []byte(recordedStations), Version: 1},
+		{Name: viewsURI.FsPath(), Content: []byte(recordedStationViews), Version: 1},
 	}
 	cache, err := libs.NewCacheIn(t.TempDir())
 	if err != nil {
