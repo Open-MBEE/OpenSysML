@@ -75,7 +75,7 @@ func protocolDiagnostics(content []byte, diags []diag.Diagnostic) []protocol.Dia
 func protocolDiagnostic(pos positions, d diag.Diagnostic) protocol.Diagnostic {
 	ld := protocol.Diagnostic{
 		Range:    pos.rangeOf(d.Span),
-		Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1),
+		Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1), // #nosec G115 -- four severities
 		Message:  protocol.String(d.Message),
 	}
 	if d.Code != "" {
