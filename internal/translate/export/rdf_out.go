@@ -1299,9 +1299,8 @@ func (e *encoder) writtenDeclarations() []ast.Node {
 	return nodes
 }
 
-// mintDeclarations makes the identity claims writing the declarations would —
-// each one's subject (mint) and, for a member, its owning membership's IRI
-// (head) — without writing, so colliding ids refuse the model as Convert does.
+// mintDeclarations makes the claims writing the declarations would — each subject
+// (mint) and a member's owning membership (head) — so colliding ids refuse the model.
 func (e *encoder) mintDeclarations() error {
 	for _, node := range e.writtenDeclarations() {
 		fqn := e.fqn[node]
