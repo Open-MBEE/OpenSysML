@@ -24,6 +24,7 @@ type ConvertInput struct {
 	Compact                 bool     `json:"compact,omitempty" jsonschema:"for api-json from notation: write the compact document (api-json-compact/1) instead of the element array"`
 	OmitDerived             bool     `json:"omitDerived,omitempty" jsonschema:"with compact: leave out every derived property of the metamodel except keepDerived"`
 	KeepDerived             []string `json:"keepDerived,omitempty" jsonschema:"with omitDerived: the derived properties still written, as owner or qualifiedName"`
+	IncludeLibraryStubs     bool     `json:"includeLibraryStubs,omitempty" jsonschema:"for api-json: include ownerless standard-library stubs for legacy readers; off by default"`
 	IncludeCheckDiagnostics bool     `json:"includeCheckDiagnostics,omitempty" jsonschema:"notation sources: report the semantic check's diagnostics alongside the output, each with its severity and code as parse reports them; off, only syntax errors are reported"`
 }
 

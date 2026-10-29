@@ -1,0 +1,1 @@
+- Writing api-json parses each ordered-collection annotation with a fixed couple of allocations per member: a reference, string, number or boolean member spelled the way the annotation writer spells it is read without a JSON decoder, and any other spelling still goes through the decoder.

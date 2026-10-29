@@ -135,7 +135,11 @@ mvn -f editors/mdk/pom.xml -Dopensysml.version=v1.2.3 package
 the SHA-256 table the Java client jar ships (`release-digests.json`; an unpinned version or a
 mismatching asset fails the build) and writes `bin/DIGESTS`. `PluginDescriptorWriter` generates
 `plugin.xml` with a `<library>` entry for the plugin jar and every runtime jar, so the plugin's
-own classloader (`ownClassloader="true"`, `class-lookup="LocalFirst"`) sees exactly what ships:
+own classloader (`ownClassloader="true"`, `class-lookup="LocalFirst"`) sees exactly what ships.
+`-Dopensysml.binaries=<dir>` stages the five binaries from a directory instead, for a build the
+caller has already verified — the nightly workflow packages each night's `sysml-grpc` this way,
+under the night's tag, and keeps the zip as the run's `cameo-plugin` artifact (see
+[the snapshot page](../../docs/project/nightly.md#what-it-contains)):
 
 ```
 plugins/org.openmbee.mdk.magic/plugin.xml

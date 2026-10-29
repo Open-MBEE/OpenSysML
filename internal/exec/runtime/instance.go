@@ -1328,7 +1328,13 @@ func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name st
 	if ctx.takeShared(inst, fv) {
 		return fv, nil
 	}
-	return inst.holdDerived(ctx, fv, name, func() (Value, error) { return ctx.evalFeatureValueDefault(inst, fv, name) })
+	held, err := inst.holdDerived(ctx, fv, name, func() (Value, error) { return ctx.evalFeatureValueDefault(inst, fv, name) })
+	if err == nil && fv.body == nil {
+		place := bindingPlace(fv.Feature.Symbol, name)
+		place.Via = inst.heldBy()
+		ctx.deriveMarks(place, ctx.defaultScope(inst, fv), fv.Feature.DefaultValue)
+	}
+	return held, err
 }
 
 // holdDerived holds what derive states for the feature, recording what it reads, once
@@ -1897,10 +1903,7 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 	if r := ctx.model.resolver; r != nil && r.IsOccurrenceThis(fv.Feature.Symbol) {
 		return ctx.objectValue(ctx.contextOccurrence(inst))
 	}
-	scope := fv.Feature.DefaultScope()
-	if scope == nil {
-		scope = inst.Type.OwnerScope
-	}
+	scope := ctx.defaultScope(inst, fv)
 	ec := NewEvalContextIn(ctx, scope, ctx.bindingContext(inst, fv.Feature))
 	if isBehaviorDefKind(inst.Type.Kind) {
 		// A feature default of a behavior def is evaluated on the def's
@@ -1919,6 +1922,15 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 		return Value{}, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
 	}
 	return val, nil
+}
+
+// defaultScope is the scope a feature's value expression is read in: the one it
+// was declared in, else the one the object's type is.
+func (ctx *Context) defaultScope(inst *Instance, fv *FeatureValue) *symbols.Scope {
+	if scope := fv.Feature.DefaultScope(); scope != nil {
+		return scope
+	}
+	return inst.Type.OwnerScope
 }
 
 // subjectMemberValue reads a subject's value expression that is a qualified feature name of
@@ -1945,4 +1957,23 @@ func (ctx *Context) qualifiedMemberOf(self *Instance, scope *symbols.Scope, expr
 		return Value{}, true, err
 	}
 	return fv.HeldValue(), true, nil
+}
+
+// heldBy is the one part or item usage the object is held as the value of, nil
+// where none or more than one classifies it so.
+func (inst *Instance) heldBy() *symbols.Symbol {
+	if inst.Type != nil && (inst.Type.Kind == symbols.SymbolPartUsage || inst.Type.Kind == symbols.SymbolItemUsage) {
+		return inst.Type
+	}
+	var held *symbols.Symbol
+	for _, sym := range inst.classifiers {
+		if sym.Kind != symbols.SymbolPartUsage && sym.Kind != symbols.SymbolItemUsage {
+			continue
+		}
+		if held != nil && held != sym {
+			return nil
+		}
+		held = sym
+	}
+	return held
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
-const vizUsage = "usage: %viz [--view=<VIEW>|--view <VIEW>] [--style=<STYLE>...] [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [show=<elements>] <name> [<name>...]"
+const vizUsage = "usage: %viz [--view=<VIEW>|--view <VIEW>] [--style=<STYLE>...] [text|mermaid|markdown|dot|plantuml|d2|drawio|csv|tsv] [show=<elements>] <name> [<name>...]"
 
 // vizDefaultView is the view that chooses the rendering kind from what the names
 // resolve to; it is the view when --view is absent.

@@ -139,7 +139,7 @@ jobs:
       # the MSI jobs as an artifact to be listed beside the installer's digest.
       - name: Install syft
         run: |
-          curl -fsSL -o /tmp/syft.tar.gz \
+          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/syft.tar.gz \
             https://github.com/anchore/syft/releases/download/v1.55.0/syft_1.55.0_linux_amd64.tar.gz
           echo "bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d  /tmp/syft.tar.gz" | sha256sum --check --strict
           tar -xzf /tmp/syft.tar.gz -C /tmp syft
@@ -383,7 +383,7 @@ jobs:
       # them, with the same pinned syft and Z3 as the unsigned installer's.
       - name: Install syft
         run: |
-          curl -fsSL -o /tmp/syft.tar.gz \
+          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/syft.tar.gz \
             https://github.com/anchore/syft/releases/download/v1.55.0/syft_1.55.0_linux_amd64.tar.gz
           echo "bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d  /tmp/syft.tar.gz" | sha256sum --check --strict
           tar -xzf /tmp/syft.tar.gz -C /tmp syft

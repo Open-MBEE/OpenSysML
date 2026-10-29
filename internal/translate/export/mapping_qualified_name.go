@@ -30,12 +30,12 @@ var (
 )
 
 func mappingQualifiedNames(graph *rdf.Graph) map[string]string {
-	return mappingQualifiedNamesWithContext(graph, newMappingQualifiedNameContext(graph))
+	return mappingQualifiedNamesWithContext(graph, newMappingQualifiedNameContext(graph, newAPIJSONGraphIndex(graph, nil)))
 }
 
 type mappingQualifiedNameContext struct {
+	index               *apiJSONGraphIndex
 	packageCache        map[string]bool
-	incomingMemberships map[string][]rdf.Term
 	elementSubjects     map[string]bool
 	membershipElements  map[string]bool
 	qualifiedNameOwners map[string]mappingQualifiedNameOwnerResult
@@ -50,20 +50,10 @@ type mappingQualifiedNameOwnerResult struct {
 	hasOwner bool
 }
 
-func newMappingQualifiedNameContext(graph *rdf.Graph) *mappingQualifiedNameContext {
-	return newMappingQualifiedNameContextWithMemberships(graph, nil)
-}
-
-func newMappingQualifiedNameContextWithMemberships(graph *rdf.Graph, incoming map[string][]rdf.Term) *mappingQualifiedNameContext {
-	if graph == nil {
-		return &mappingQualifiedNameContext{}
-	}
-	if incoming == nil {
-		incoming = mappingIncomingMemberships(graph)
-	}
+func newMappingQualifiedNameContext(graph *rdf.Graph, index *apiJSONGraphIndex) *mappingQualifiedNameContext {
 	return &mappingQualifiedNameContext{
-		packageCache:        mappingFilterPackageNodes(graph),
-		incomingMemberships: incoming,
+		index:               index,
+		packageCache:        mappingFilterPackageNodes(graph, index),
 		elementSubjects:     make(map[string]bool),
 		membershipElements:  make(map[string]bool),
 		qualifiedNameOwners: make(map[string]mappingQualifiedNameOwnerResult),
@@ -72,6 +62,14 @@ func newMappingQualifiedNameContextWithMemberships(graph *rdf.Graph, incoming ma
 		localNames:          make(map[string]mappingQualifiedNameLocalNameResult),
 		localNameVisiting:   make(map[string]bool),
 	}
+}
+
+// conforms is mappingTypeConforms, through the shared index when there is one.
+func (context *mappingQualifiedNameContext) conforms(graph *rdf.Graph, subject rdf.Term, ancestor string) bool {
+	if context == nil {
+		return mappingTypeConforms(graph, subject, ancestor)
+	}
+	return context.index.conforms(graph, subject, ancestor)
 }
 
 func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifiedNameContext) map[string]string {
@@ -94,7 +92,7 @@ func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifie
 			subjectParameters[parameter.Value] = true
 		}
 	}
-	incomingMemberships := context.incomingMemberships
+	incomingMemberships := context.index.incomingMemberships
 
 	infos := make(map[string]mappingQualifiedNameInfo, len(candidates))
 	siblingsByName := make(map[string][]mappingQualifiedNameSibling)
@@ -189,7 +187,7 @@ func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifie
 		}
 
 		value := qualify(ownerName, name, index)
-		if hasName && mappingTypeConforms(graph, subject, "ConjugatedPortDefinition") &&
+		if hasName && context.conforms(graph, subject, "ConjugatedPortDefinition") &&
 			strings.HasPrefix(name, "~") {
 			value = strings.TrimSuffix(value, identitySegment(name)) + "'" + name + "'"
 		}
@@ -284,26 +282,6 @@ func mappingQualifiedNameAncestorWithContext(
 		}
 	}
 	return rdf.Term{}, false
-}
-
-func mappingIncomingMemberships(graph *rdf.Graph) map[string][]rdf.Term {
-	incoming := make(map[string][]rdf.Term)
-	seenMembers := make(map[string]bool)
-	for _, subject := range graph.SubjectsView() {
-		if !mappingTypeConforms(graph, subject, "Membership") {
-			continue
-		}
-		clear(seenMembers)
-		for _, property := range mappingIncomingMembershipPredicates {
-			for _, member := range graph.ObjectsView(subject, property) {
-				if member.IsIRI() && !seenMembers[member.Value] {
-					seenMembers[member.Value] = true
-					incoming[member.Value] = append(incoming[member.Value], subject)
-				}
-			}
-		}
-	}
-	return incoming
 }
 
 type mappingQualifiedNameInfo struct {
@@ -402,14 +380,14 @@ func mappingNamingFeatureName(
 	}
 
 	for _, relationship := range mappingOwnedRelationships(graph, subject) {
-		if !mappingTypeConforms(graph, relationship, "Redefinition") {
+		if !context.conforms(graph, relationship, "Redefinition") {
 			continue
 		}
 		target, ok := mappingRelationshipTarget(
 			graph, relationship, "redefinedFeature", "subsettedFeature", "general", "target",
 		)
-		if !ok || mappingFeatureChain(graph, target) ||
-			mappingTypeConforms(graph, target, "FeatureChainExpression") {
+		if !ok || mappingFeatureChain(graph, target, context) ||
+			context.conforms(graph, target, "FeatureChainExpression") {
 			return "", false
 		}
 		return mappingNamingTargetName(graph, target, subjectParameters, context, false)
@@ -425,7 +403,7 @@ func mappingNameIsByReference(
 	for _, metaclass := range []string{
 		"PerformActionUsage", "ExhibitStateUsage", "IncludeUseCaseUsage", "RenderingUsage",
 	} {
-		if mappingTypeConforms(graph, subject, metaclass) {
+		if context.conforms(graph, subject, metaclass) {
 			return true
 		}
 	}
@@ -434,15 +412,15 @@ func mappingNameIsByReference(
 	}
 	memberships := graph.ObjectsView(subject, rdf.SysML+pOwningMembership)
 	if context != nil {
-		memberships = append(memberships, context.incomingMemberships[subject.Value]...)
+		memberships = append(memberships, context.index.incomingMemberships[subject.Value]...)
 	}
 	for _, membership := range memberships {
-		if mappingTypeConforms(graph, membership, "VariantMembership") ||
-			mappingTypeConforms(graph, membership, "RequirementConstraintMembership") ||
-			mappingTypeConforms(graph, membership, "RequirementVerificationMembership") ||
-			mappingTypeConforms(graph, membership, "StateSubactionMembership") ||
-			mappingTypeConforms(graph, membership, "ViewRenderingMembership") ||
-			mappingTypeConforms(graph, membership, "FramedConcernMembership") {
+		if context.conforms(graph, membership, "VariantMembership") ||
+			context.conforms(graph, membership, "RequirementConstraintMembership") ||
+			context.conforms(graph, membership, "RequirementVerificationMembership") ||
+			context.conforms(graph, membership, "StateSubactionMembership") ||
+			context.conforms(graph, membership, "ViewRenderingMembership") ||
+			context.conforms(graph, membership, "FramedConcernMembership") {
 			return true
 		}
 	}
@@ -456,11 +434,11 @@ func mappingReferenceNameHasNoRedefinition(
 ) bool {
 	memberships := graph.ObjectsView(subject, rdf.SysML+pOwningMembership)
 	if context != nil {
-		memberships = append(memberships, context.incomingMemberships[subject.Value]...)
+		memberships = append(memberships, context.index.incomingMemberships[subject.Value]...)
 	}
 	for _, membership := range memberships {
-		if mappingTypeConforms(graph, membership, "RequirementConstraintMembership") ||
-			mappingTypeConforms(graph, membership, "RequirementVerificationMembership") {
+		if context.conforms(graph, membership, "RequirementConstraintMembership") ||
+			context.conforms(graph, membership, "RequirementVerificationMembership") {
 			return true
 		}
 	}
@@ -520,12 +498,12 @@ func mappingNamingTargetName(
 	if !target.IsIRI() {
 		return mappingLastWrittenName(target.Value), target.Value != ""
 	}
-	if allowFeatureChain && (mappingFeatureChain(graph, target) ||
-		mappingTypeConforms(graph, target, "FeatureChainExpression")) {
+	if allowFeatureChain && (mappingFeatureChain(graph, target, context) ||
+		context.conforms(graph, target, "FeatureChainExpression")) {
 		links := graph.ObjectsView(target, rdf.SysML+pChainingFeature)
 		if len(links) == 0 {
 			for _, relationship := range mappingOwnedRelationships(graph, target) {
-				if mappingTypeConforms(graph, relationship, "FeatureChaining") {
+				if context.conforms(graph, relationship, "FeatureChaining") {
 					if link, ok := mappingRelationshipTarget(
 						graph, relationship, "chainingFeature", "target", "general",
 					); ok {
@@ -577,42 +555,42 @@ func mappingQualifiedNameOwner(
 	incomingMemberships map[string][]rdf.Term,
 	seen map[string]bool,
 ) (rdf.Term, bool) {
-	return mappingQualifiedNameOwnerWithCache(graph, subject, incomingMemberships, seen, nil)
+	return mappingQualifiedNameOwnerWithCache(graph, subject, incomingMemberships, seen)
 }
 
 func mappingQualifiedNameOwnerWithCache(
 	graph *rdf.Graph,
 	subject rdf.Term,
 	incomingMemberships map[string][]rdf.Term,
-	seen, packageCache map[string]bool,
+	seen map[string]bool,
 ) (rdf.Term, bool) {
 	for _, property := range mappingRelationshipPredicates {
 		if relationship, ok := graph.Object(subject, property); ok && relationship.IsIRI() {
-			if mappingElementSubjectWithCache(graph, relationship, make(map[string]bool), packageCache) {
+			if mappingElementSubjectWithContext(graph, relationship, make(map[string]bool), nil) {
 				return relationship, true
 			}
-			if owner, ok := mappingQualifiedNameAncestorWithCache(graph, relationship, seen, packageCache); ok {
+			if owner, ok := mappingQualifiedNameAncestorWithCache(graph, relationship, seen); ok {
 				return owner, true
 			}
 		}
 	}
 	if !graph.BoolValue(subject, rdf.SysML+"isLibraryElement") {
 		for _, relationship := range incomingMemberships[subject.Value] {
-			if mappingElementSubjectWithCache(graph, relationship, make(map[string]bool), packageCache) {
+			if mappingElementSubjectWithContext(graph, relationship, make(map[string]bool), nil) {
 				return relationship, true
 			}
-			if owner, ok := mappingQualifiedNameAncestorWithCache(graph, relationship, seen, packageCache); ok {
+			if owner, ok := mappingQualifiedNameAncestorWithCache(graph, relationship, seen); ok {
 				return owner, true
 			}
 		}
 	}
-	return mappingQualifiedNameAncestorWithCache(graph, subject, seen, packageCache)
+	return mappingQualifiedNameAncestorWithCache(graph, subject, seen)
 }
 
 func mappingQualifiedNameAncestorWithCache(
 	graph *rdf.Graph,
 	subject rdf.Term,
-	seen, packageCache map[string]bool,
+	seen map[string]bool,
 ) (rdf.Term, bool) {
 	if seen[subject.Value] {
 		return rdf.Term{}, false
@@ -623,10 +601,10 @@ func mappingQualifiedNameAncestorWithCache(
 			if !owner.IsIRI() {
 				continue
 			}
-			if mappingElementSubjectWithCache(graph, owner, make(map[string]bool), packageCache) {
+			if mappingElementSubjectWithContext(graph, owner, make(map[string]bool), nil) {
 				return owner, true
 			}
-			if ancestor, ok := mappingQualifiedNameAncestorWithCache(graph, owner, seen, packageCache); ok {
+			if ancestor, ok := mappingQualifiedNameAncestorWithCache(graph, owner, seen); ok {
 				return ancestor, true
 			}
 		}
@@ -650,32 +628,59 @@ func mappingOwnedRelationshipPosition(
 	subject, owner rdf.Term,
 	context *mappingQualifiedNameContext,
 ) (int, bool) {
+	positions := context.index.ownerPositions[owner.Value]
+	if positions == nil {
+		positions = mappingOwnedRelationshipPositions(graph, owner, context)
+		context.index.ownerPositions[owner.Value] = positions
+	}
+	position, found := 0, false
+	consider := func(index map[rdf.Term]int, term rdf.Term) {
+		if p, ok := index[term]; ok && (!found || p < position) {
+			position, found = p, true
+		}
+	}
+	consider(positions.relationships, subject)
+	consider(positions.members, subject)
+	if owningRelationship, _ := graph.Object(subject, rdf.SysML+pOwningRelationship); owningRelationship.IsIRI() {
+		consider(positions.relationships, owningRelationship)
+	}
+	if owningMembership, _ := graph.Object(subject, rdf.SysML+pOwningMembership); owningMembership.IsIRI() {
+		consider(positions.relationships, owningMembership)
+	}
+	return position, found
+}
+
+func mappingOwnedRelationshipPositions(
+	graph *rdf.Graph,
+	owner rdf.Term,
+	context *mappingQualifiedNameContext,
+) *mappingOwnerPositions {
 	relationships := graph.ObjectsView(owner, rdf.SysML+pOwnedRelationship)
 	if len(relationships) == 0 {
 		relationships = graph.ObjectsView(owner, rdf.SysML+pOwnedMembership)
 	}
-	owningRelationship, _ := graph.Object(subject, rdf.SysML+pOwningRelationship)
-	owningMembership, _ := graph.Object(subject, rdf.SysML+pOwningMembership)
+	positions := &mappingOwnerPositions{
+		relationships: make(map[rdf.Term]int, len(relationships)),
+		members:       make(map[rdf.Term]int, len(relationships)),
+	}
 	position := 0
 	for _, relationship := range relationships {
 		if !mappingRelationshipContributesMemberPosition(graph, relationship, context) {
 			continue
 		}
-		if relationship.Equal(subject) ||
-			owningRelationship.IsIRI() && relationship.Equal(owningRelationship) ||
-			owningMembership.IsIRI() && relationship.Equal(owningMembership) {
-			return position, true
+		if _, ok := positions.relationships[relationship]; !ok {
+			positions.relationships[relationship] = position
 		}
 		for _, property := range mappingOwnedRelationshipPredicates {
 			for _, member := range graph.ObjectsView(relationship, property) {
-				if member.Equal(subject) {
-					return position, true
+				if _, ok := positions.members[member]; !ok {
+					positions.members[member] = position
 				}
 			}
 		}
 		position++
 	}
-	return 0, false
+	return positions
 }
 
 // collect indexes kept source members; see rdf_out.go:969–992 and 1209–1217.
@@ -684,14 +689,14 @@ func mappingRelationshipContributesMemberPosition(
 	relationship rdf.Term,
 	context *mappingQualifiedNameContext,
 ) bool {
-	if mappingTypeConforms(graph, relationship, "Membership") ||
-		mappingTypeConforms(graph, relationship, "Import") {
+	if context.conforms(graph, relationship, "Membership") ||
+		context.conforms(graph, relationship, "Import") {
 		return true
 	}
 	if mappingPositionElementSubject(graph, relationship, context) {
 		return true
 	}
-	if !mappingTypeConforms(graph, relationship, "Annotation") {
+	if !context.conforms(graph, relationship, "Annotation") {
 		return false
 	}
 	for _, property := range []string{

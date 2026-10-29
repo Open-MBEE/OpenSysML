@@ -194,7 +194,7 @@ func (ctx *Context) verificationResultOn(sym *symbols.Symbol, self *Instance) Ve
 	result, err := ctx.RunVerification(sym, AnalysisArgs{}, scope, self)
 	if err != nil {
 		return VerificationResult{Verdict: VerificationVerdict{
-			Case: ctx.QualifiedName(sym), Symbol: sym, Kind: verdictError, Detail: err.Error(), Subject: self,
+			Case: ctx.QualifiedName(sym), Symbol: sym, Kind: verdictError, Detail: err.Error(), Err: err, Subject: self,
 		}}
 	}
 	if result.Verdict.Subject == nil {
@@ -215,7 +215,7 @@ func (ctx *Context) caseCarriers(sym *symbols.Symbol, subject *Instance) []*Inst
 	}
 	roots := []*Instance{subject}
 	if subject == nil {
-		roots = ctx.rootInstances()
+		roots = ctx.LiveRoots()
 	} else if ctx.modelConforms(subject.Type, owner) {
 		return []*Instance{subject}
 	}

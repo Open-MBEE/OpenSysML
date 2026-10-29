@@ -1,0 +1,35 @@
+{
+	"type": "action",
+	"trace": true,
+	"admissible": "A feature reached through a part stands on the choice points its writers race at",
+	"outcomes": [
+		{
+			"outputs": {
+				"cell.mark": {
+					"type": "Integer",
+					"value": 1,
+					"orderDependent": 2
+				},
+				"z": {
+					"type": "Integer",
+					"value": 1,
+					"orderDependent": 2
+				}
+			}
+		},
+		{
+			"outputs": {
+				"cell.mark": {
+					"type": "Integer",
+					"value": 2,
+					"orderDependent": 2
+				},
+				"z": {
+					"type": "Integer",
+					"value": 2,
+					"orderDependent": 2
+				}
+			}
+		}
+	]
+}

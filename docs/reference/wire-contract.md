@@ -1745,6 +1745,25 @@ never both.
 one per assertion. All three return the `instances` they built, in the same shape as
 `Instantiate`.
 
+With no `subjectSymbolId`, the three — and `RunAnalysis` — evaluate over the objects
+`Instantiate` holds for the model, as the REPL's `%constraint`, `%requirement`, `%satisfy` and
+`%analysis` are about the objects a session holds: a constraint or requirement a definition owns
+is checked on the one held object carrying it (ambiguous over several, as the REPL answers —
+objects of distinct declarations and the two objects one declaration instantiated twice leaves
+alike, the one the name no longer denotes named `Bolt #1 (displaced from b)`), a verification
+case a definition owns runs once per held object of that definition — every live one, the object
+a second `Instantiate` of its name displaced included — and reports a `verificationVerdicts`
+entry about each, naming the object by `instanceId`, and a `satisfy`
+a definition states is decided per held object with `instancePath` spelling the object's path
+from the root it was instantiated under (`cheap[2]`), as `ValidateInstance` spells it. The
+`instances` carry every object a verdict is about. With nothing held, the answer is about
+declared defaults, and a definition-owned case is `inconclusive` asking for an object. A
+sweep that would make one more object than `OPENSYSML_GRPC_MAX_HELD_OBJECTS` allows is
+`RESOURCE_EXHAUSTED`, as `Instantiate` is, and leaves the population as it was. A `RunAnalysis`
+tool dry run over the held population leaves it as it was too: the preview's writes are undone
+and the runner it previewed with is taken off. An `explore` schedule is the exception: its runs
+are made on runtimes of their own, one per linearization, holding nothing, as the REPL's are.
+
 A constraint or requirement whose condition reads `in` parameters takes their values on the
 request: `arguments` is a positional list bound in declaration order, `namedArguments` binds by
 parameter name, and the two may be mixed, as `RunAnalysis` binds a case's inputs; the values are
@@ -2020,6 +2039,27 @@ the model does not hold, or `documents` for a `filePath` or `content`, is `inval
 object in place of the element array; `omit_derived` and `keep_derived` leave out the metamodel's
 derived properties. Expanded, it is the element array. The format is defined in
 [Compact API JSON](api-json-compact.md).
+
+`libraryReferences` on a successful API JSON response, including a compact conversion,
+names every standard-library element the output references: each entry has `id` (the
+literal normative ID), `qualifiedName` and `type` (the API JSON metaclass). Entries are
+sorted by ID and do not declare elements or roots. It needs no request option and is
+advertised as `convert_library_references`; an empty table means no library references.
+`qualifiedName` is empty for an unnamed library relationship, such as an owning membership.
+The compact document also carries the table outside `elements`, using the API JSON keys
+`@id`, `qualifiedName` and `@type`. For graph input, only library metadata present in the
+graph can be reported. Other target formats and failed conversions return no table.
+
+`includeLibraryStubs`, advertised as `convert_library_stubs`, restores the ownerless
+library stubs written before 0.11.0 inside the API JSON element array (or compact
+`elements`). It is default-off and is `invalid_argument` for any other target. The
+stubs carry `@id`, `@type`, `declaredName`, `elementId`, `isLibraryElement: true` and
+`qualifiedName`; an OMG API reader treats them as roots. Prefer the separate table
+for new clients. It composes with `documents`, `idForm` and `compact`.
+
+The Node client exposes `Conversion.libraryReferences` and the
+`includeLibraryStubs` option on `Connection.convert` and `Model.convert`.
+The MCP `convert` tool accepts the same flag and returns the table as `libraryReferences`.
 
 `includeCheckDiagnostics`, under the `convert_check_diagnostics` capability, adds the semantic
 check's diagnostics to `diagnostics` alongside the output, each with its own `severity` (`error`,

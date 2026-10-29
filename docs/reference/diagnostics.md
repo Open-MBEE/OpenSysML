@@ -86,7 +86,11 @@ inherits or one import brings still selects by signature.
 An imported name hidden by an owned member of the same name, one membership reached through two
 imports (`import P::*` beside `import Q::*` where `Q` publicly re-imports `P`), an alias or a
 membership import of an element beside the membership that owns it, and the standard library's
-own members are not reported, and none of these is hidden. An alias under another name (`alias Spare for P::x`) binds only
+own members are not reported, and none of these is hidden. Nor is a collision among a view's
+`expose`s alone (`view v { expose a::**; expose b::**; }` with a `p` in each): the names are
+still hidden inside the view, but a view exposes each expose's own memberships (SysML
+`ViewUsage::exposedElement`), so both `p` are exposed and rendered; a plain `import` or an
+inherited member taking part in the collision is reported as ever. An alias under another name (`alias Spare for P::x`) binds only
 that name and does not stand in for `P::x`.
 
 The standard library has eight such pairs of its own, which `import ISQ::*` brings in without a

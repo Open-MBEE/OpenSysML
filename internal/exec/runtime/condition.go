@@ -874,7 +874,7 @@ func (ctx *Context) conditionSubject(sym *symbols.Symbol, self *Instance) (carri
 	}
 	roots := []*Instance{self}
 	if self == nil {
-		roots = ctx.rootInstances()
+		roots = ctx.LiveRoots()
 	} else if ctx.modelConforms(self.Type, owner) {
 		return carrier{instance: self, root: self}, nil
 	}
@@ -951,50 +951,10 @@ func (ctx *Context) readThrough(inst *Instance) bool {
 	return !inst.explicit && ctx.denotesOccurrence(inst)
 }
 
-// rootInstances returns the objects this runtime holds that stand on their own,
-// in identity order: an object a feature value holds is reached through its holder, and one
-// materialized to read a nested declaration through is an occurrence of nothing,
-// while an object a caller asked for is a root whatever it materializes. One
-// declaration stands as the objects it denotes, every one of them where it denotes
-// several, and otherwise as one object, the latest materialized of it.
-func (ctx *Context) rootInstances() []*Instance {
-	held := ctx.heldObjectIDs()
-	denoted := make(map[*symbols.Symbol][]*Instance)
-	latest := make(map[*symbols.Symbol]*Instance, len(ctx.instances))
-	for _, inst := range ctx.instances {
-		if inst == nil || held[inst.ID] || (nestedFeature(inst.Type) && ctx.readThrough(inst)) {
-			continue
-		}
-		// A destroyed object is no subject of anything; what it held is reached from where it stands.
-		if ctx.checkNotDestroyed(inst) != nil {
-			continue
-		}
-		if ctx.denotesOccurrence(inst) {
-			denoted[inst.Type] = append(denoted[inst.Type], inst)
-			continue
-		}
-		if kept, ok := latest[inst.Type]; ok && kept.ID > inst.ID {
-			continue
-		}
-		latest[inst.Type] = inst
-	}
-	var out []*Instance
-	for sym, inst := range latest {
-		if _, ok := denoted[sym]; !ok {
-			out = append(out, inst)
-		}
-	}
-	for _, insts := range denoted {
-		out = append(out, insts...)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out
-}
-
 // LiveRoots returns every object this runtime holds that stands on its own — not held
 // by another's feature value, not materialized only to read a nested declaration, not
-// destroyed — in identity order: rootInstances without its one-object-per-declaration
-// choice, for a sweep that is about each object rather than about a declaration.
+// destroyed — in identity order. A declaration materialized twice is two of them: the
+// name denotes the latest, but a feature of the definition is a feature of each object.
 func (ctx *Context) LiveRoots() []*Instance {
 	held := ctx.heldObjectIDs()
 	var out []*Instance
@@ -1068,8 +1028,8 @@ func (ctx *Context) reachCarriers(roots []*Instance, carries func(*Instance) boo
 	var out []carrier
 	seen := make(map[int64]bool, len(roots))
 	path := make(map[*symbols.Symbol]bool)
-	var descend func(root, inst *Instance, through string, features []string)
-	descend = func(root, inst *Instance, through string, features []string) {
+	var descend func(root, inst *Instance, through string, features, segments []string)
+	descend = func(root, inst *Instance, through string, features, segments []string) {
 		// A destroyed object a live holder retains is no carrier, and holds nothing to walk.
 		if inst == nil || seen[inst.ID] || ctx.checkNotDestroyed(inst) != nil {
 			return
@@ -1077,7 +1037,7 @@ func (ctx *Context) reachCarriers(roots []*Instance, carries func(*Instance) boo
 		seen[inst.ID] = true
 		if carries(inst) {
 			occurrence := carrierOccurrence{through: through, decl: inst.Type}
-			out = append(out, carrier{instance: inst, root: root, features: features, occurrence: occurrence})
+			out = append(out, carrier{instance: inst, root: root, features: features, segments: segments, occurrence: occurrence})
 		}
 		if inst.Type != nil {
 			if path[inst.Type] {
@@ -1088,11 +1048,12 @@ func (ctx *Context) reachCarriers(roots []*Instance, carries func(*Instance) boo
 		}
 		for _, child := range ctx.nestedObjects(inst) {
 			nested := append(features[:len(features):len(features)], child.feature)
-			descend(root, child.instance, through+"/"+strconv.Quote(child.feature), nested)
+			walked := append(segments[:len(segments):len(segments)], child.segment)
+			descend(root, child.instance, through+"/"+strconv.Quote(child.feature), nested, walked)
 		}
 	}
 	for _, root := range roots {
-		descend(root, root, ctx.rootPath(root), nil)
+		descend(root, root, ctx.rootPath(root), nil, nil)
 	}
 	return out
 }
@@ -1128,9 +1089,12 @@ func (ctx *Context) rootPath(root *Instance) string {
 // carrier is an object a search reached: the object the search started from and
 // the features walked from it name a nested one, which has no name of its own.
 type carrier struct {
-	instance   *Instance
-	root       *Instance
-	features   []string
+	instance *Instance
+	root     *Instance
+	features []string
+	// segments spell the features walked as a path names them, a collection's
+	// element indexed: what a verdict about the carrier labels it by.
+	segments   []string
 	occurrence carrierOccurrence
 }
 
@@ -1150,6 +1114,9 @@ type carrierOccurrence struct {
 type heldObject struct {
 	feature  string
 	instance *Instance
+	// segment names the object under its feature as a path spells it: the
+	// feature's name, indexed for a collection's element (`wheels[2]`).
+	segment string
 }
 
 // nestedObjects returns the objects the object-valued features of inst hold,
@@ -1199,9 +1166,9 @@ func (ctx *Context) heldObjectsOf(inst *Instance, through func(*Instance, Object
 			}
 			held = NewSequenceValue(&Sequence{elements: standingElements(fv.HeldValue())})
 		}
-		for _, id := range heldObjects(held) {
-			if child, ok := ctx.instances[id]; ok {
-				out = append(out, heldObject{feature: of.Name, instance: child})
+		for _, held := range heldSegments(held, source.NameText(of.Name)) {
+			if child, ok := ctx.instances[held.id]; ok {
+				out = append(out, heldObject{feature: of.Name, instance: child, segment: held.segment})
 			}
 		}
 	}
@@ -1226,11 +1193,18 @@ func objectFeature(sym *symbols.Symbol) bool {
 	return objectUsageKind(usage.Kind) || usage.Kind == ast.UsagePort
 }
 
-// heldObjects returns the identities a feature value denotes, a collection's
-// elements included.
-func heldObjects(val Value) []int64 {
+// heldSegment is the identity of an object a feature value holds and the segment
+// naming it there.
+type heldSegment struct {
+	segment string
+	id      int64
+}
+
+// heldSegments returns the identities a feature value denotes, a collection's elements
+// included, each under the segment a path names it by: the name, indexed for an element.
+func heldSegments(val Value, name string) []heldSegment {
 	if id, ok := val.Object(); ok {
-		return []int64{id}
+		return []heldSegment{{segment: name, id: id}}
 	}
 	var elements []Value
 	switch {
@@ -1239,17 +1213,35 @@ func heldObjects(val Value) []int64 {
 	case val.Kind == ValSet && val.Set() != nil:
 		elements = val.Set().Elements()
 	}
-	var out []int64
-	for _, element := range elements {
+	var out []heldSegment
+	for i, element := range elements {
 		if id, ok := element.Object(); ok {
-			out = append(out, id)
+			out = append(out, heldSegment{segment: indexedSegment(name, i), id: id})
 		}
 	}
 	return out
 }
 
+// heldObjects returns the identities a feature value denotes, a collection's
+// elements included.
+func heldObjects(val Value) []int64 {
+	held := heldSegments(val, "")
+	out := make([]int64, len(held))
+	for i, h := range held {
+		out[i] = h.id
+	}
+	return out
+}
+
+// indexedSegment names a collection's element in a path: the feature's name
+// indexed from 1, `wheels[2]`, as every surface reporting an object spells it.
+func indexedSegment(name string, i int) string {
+	return fmt.Sprintf("%s[%d]", name, i+1)
+}
+
 // carrierLabels names carriers as a diagnostic can quote them: the definition
-// each is an object of, its identity, and the feature path telling two apart.
+// each is an object of, its identity, and the feature path telling two apart; one
+// reached from a root its usage no longer denotes says so, as %instances lists it.
 func (ctx *Context) carrierLabels(carriers []carrier) []string {
 	out := make([]string, 0, len(carriers))
 	for _, c := range carriers {
@@ -1259,12 +1251,32 @@ func (ctx *Context) carrierLabels(carriers []carrier) []string {
 			name = def.Name
 		}
 		label := fmt.Sprintf("%s #%d", name, inst.ID)
-		if path := carrierPath(c, name); len(path) != 0 {
+		path := carrierPath(c, name)
+		switch displaced := ctx.displacedRoot(c.root); {
+		case displaced && len(c.features) != 0:
+			label += fmt.Sprintf(" (%s of displaced #%d)", qualifiedText(path), c.root.ID)
+		case displaced && len(path) != 0:
+			label += " (displaced from " + qualifiedText(path) + ")"
+		case displaced:
+			label += " (displaced)"
+		case len(path) != 0:
 			label += " (" + qualifiedText(path) + ")"
 		}
 		out = append(out, label)
 	}
 	return out
+}
+
+// displacedRoot reports whether root is an object a later materialization of its
+// usage displaced from the name: the usage records one occurrence, and this is not it.
+func (ctx *Context) displacedRoot(root *Instance) bool {
+	if root == nil || root.Type == nil {
+		return false
+	}
+	if _, ok := root.Type.Decl.(*ast.Usage); !ok {
+		return false
+	}
+	return ctx.registersOccurrence(root.Type) && !ctx.denotesOccurrence(root)
 }
 
 // qualifiedText spells walked feature names as a `::`-joined path in the
@@ -1277,14 +1289,20 @@ func qualifiedText(names []string) string {
 	return strings.Join(parts, "::")
 }
 
+// carrierDeclaration is the name of the declaration a carrier materializes where
+// it is not the definition it is an object of; empty where it is.
+func carrierDeclaration(c carrier, definition string) string {
+	if c.instance.Type != nil && c.instance.Type.Name != definition {
+		return c.instance.Type.Name
+	}
+	return ""
+}
+
 // carrierPath names a carrier apart from its siblings: the features walked to
 // it, ending in the declaration it materializes — which differs from the feature
 // holding it when a collection gathers objects of several declarations.
 func carrierPath(c carrier, definition string) []string {
-	decl := ""
-	if c.instance.Type != nil && c.instance.Type.Name != definition {
-		decl = c.instance.Type.Name
-	}
+	decl := carrierDeclaration(c, definition)
 	if len(c.features) == 0 {
 		if decl == "" {
 			return nil
@@ -1298,17 +1316,23 @@ func carrierPath(c carrier, definition string) []string {
 	return walked
 }
 
-// carrierFeatures is the feature path to a nested carrier, one name a segment,
-// corrected the way carrierLabels names an ambiguity's carriers.
+// carrierFeatures is a verdict's path to a nested carrier: the segments walked from its root,
+// a collection's element indexed as validation spells it, ending in the declaration it materializes.
 func (ctx *Context) carrierFeatures(c carrier) []string {
-	if len(c.features) == 0 || c.instance == nil {
+	if len(c.segments) == 0 || c.instance == nil {
 		return nil
 	}
 	name := "object"
 	if def := ctx.definitionOf(c.instance.Type); def != nil && def.Name != "" {
 		name = def.Name
 	}
-	return carrierPath(c, name)
+	decl := carrierDeclaration(c, name)
+	if decl == "" || c.features[len(c.features)-1] == decl {
+		return c.segments
+	}
+	walked := append([]string(nil), c.segments...)
+	walked[len(walked)-1] = source.NameText(decl)
+	return walked
 }
 
 // definitionOf is the definition objects of sym are objects of: sym itself when

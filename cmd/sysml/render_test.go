@@ -404,8 +404,8 @@ func TestRenderD2Form(t *testing.T) {
 	for _, tc := range []struct {
 		name, message string
 	}{
-		{"Demo::cases", "case rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
-		{"Demo::mixed", "mixed rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
+		{"Demo::cases", "case rendering is not written as d2; ask for text, mermaid, dot, plantuml or drawio"},
+		{"Demo::mixed", "mixed rendering is not written as d2; ask for text, mermaid, dot, plantuml or drawio"},
 	} {
 		got := runStreams(t, binary, renderModel, "-render", tc.name, "-render-form", "d2")
 		if got.status != exitUnevaluable || got.stdout != "" || !strings.Contains(got.stderr, tc.message) {
@@ -472,7 +472,7 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	alone := runStreams(t, binary, renderModel, "-render-palette", "okabe-ito")
-	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML or D2 with") {
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML, D2 or drawio with") {
 		t.Errorf("a palette without a view = %d\n%s", alone.status, alone.output())
 	}
 
@@ -628,7 +628,7 @@ func TestRenderReportsWhatItCouldNotDo(t *testing.T) {
 		name:   "the run-only svg form is refused for a model view with its own forms",
 		args:   []string{"-render", "Demo::overview", "-render-form", "svg"},
 		status: exitUnevaluable,
-		stderr: []string{"a tree rendering is not written as svg", "text, mermaid, dot, plantuml or d2"},
+		stderr: []string{"a tree rendering is not written as svg", "text, mermaid, dot, plantuml, d2 or drawio"},
 	}, {
 		name:   "a form without a view to render is reported",
 		args:   []string{"-render-form", "text"},

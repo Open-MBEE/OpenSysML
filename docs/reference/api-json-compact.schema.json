@@ -23,7 +23,7 @@
       "const": true
     },
     "referenceKeys": {
-      "description": "Keys whose references are bare handles. None of them carries a number.",
+      "description": "Keys whose every value is a reference or an array of references, written as bare handles. None of them carries a string, boolean, number or object.",
       "type": "array",
       "items": { "type": "string" },
       "uniqueItems": true
@@ -31,6 +31,20 @@
     "elements": {
       "type": "array",
       "items": { "$ref": "#/$defs/element" }
+    },
+    "libraryReferences": {
+      "description": "Optional name table for referenced standard-library elements, separate from elements. All ids are literal strings, never handles.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["@id", "@type", "qualifiedName"],
+        "properties": {
+          "@id": { "type": "string" },
+          "@type": { "type": "string" },
+          "qualifiedName": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "$defs": {

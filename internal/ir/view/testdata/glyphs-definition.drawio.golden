@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NotationGlyphs::Diagrams::definitionGlyphs — definition rendering (view def GeneralView, filter @Definition or @Usage) -->
+<!-- 13 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="NotationGlyphs-Diagrams-definitionGlyphs" name="NotationGlyphs::Diagrams::definitionGlyphs">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part def»&#xA;Plant" fqn="NotationGlyphs::Plant" kind="part def" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:15">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part»&#xA;tank" fqn="NotationGlyphs::Plant::tank" kind="part" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:16">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="156" y="40" width="54" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«part»&#xA;spare" fqn="NotationGlyphs::Plant::spare" kind="part" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:21">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="250" y="40" width="63" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«timeslice»&#xA;filling" fqn="NotationGlyphs::Plant::filling" kind="timeslice" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:18">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="353" y="40" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«snapshot»&#xA;full" fqn="NotationGlyphs::Plant::full" kind="snapshot" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:19">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="117" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«occurrence»&#xA;startup" fqn="NotationGlyphs::Plant::startup" kind="occurrence" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:20">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="156" y="117" width="88" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="«requirement def»&#xA;LevelReq" fqn="NotationGlyphs::LevelReq" kind="requirement def" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:31">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="284" y="117" width="118" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«require constraint»&#xA;keepLevel" fqn="NotationGlyphs::LevelReq::keepLevel" kind="require constraint" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:33">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="442" y="117" width="136" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n8" label="«assume constraint»&#xA;lowLevel" fqn="NotationGlyphs::LevelReq::lowLevel" kind="assume constraint" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:34">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="194" width="130" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n9" label="«constraint»&#xA;bounded" fqn="NotationGlyphs::bounded" kind="constraint" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:26">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="210" y="194" width="88" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n10" label="«constraint»&#xA;tight" fqn="NotationGlyphs::tight" kind="constraint" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:27">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="338" y="194" width="88" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n11" label="«requirement»&#xA;capacity" fqn="NotationGlyphs::capacity" kind="requirement" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:40">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="466" y="194" width="94" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n12" label="«assert constraint»&#xA;asserted" fqn="NotationGlyphs::capacity::asserted" kind="assert constraint" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:42">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="271" width="130" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="composition" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:16">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.24324324324324326;exitPerimeter=0;entryX=0;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="references" kind="reference subsetting" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:21">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135135135135135;exitPerimeter=0;entryX=1;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="reference" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:21">
+          <mxCell style="edgeStyle=none;exitX=0.75;exitY=0;exitPerimeter=0;entryX=0.25396825396825395;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="97" y="24"/>
+                <mxPoint x="266" y="24"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="portion" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:18">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.25609756097560976;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=oval;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="78" y="16"/>
+                <mxPoint x="374" y="16"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e4" label="" kind="portion" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:19">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=oval;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e5" label="event" kind="event" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:20">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n0" target="n5">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="136" y="59"/>
+                <mxPoint x="136" y="126"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e6" label="require" kind="require" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:36">
+          <mxCell style="edgeStyle=none;exitX=0.2542372881355932;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n9">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="314" y="178"/>
+                <mxPoint x="276" y="178"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e7" label="assume" kind="assume" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:37">
+          <mxCell style="edgeStyle=none;exitX=0.7542372881355932;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n10">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="373" y="174"/>
+                <mxPoint x="382" y="174"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e8" label="require" kind="require" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:33">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n7">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e9" label="assume" kind="assume" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:34">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n8">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="343" y="170"/>
+                <mxPoint x="190" y="170"/>
+                <mxPoint x="190" y="203"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e10" label="assert" kind="assert" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:42">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n11" target="n12">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="513" y="280"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

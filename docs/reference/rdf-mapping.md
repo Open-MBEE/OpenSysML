@@ -289,6 +289,29 @@ elements), so a conformant reader would declare `datatype Real;` anew. A
 library element the element form references is a bare `{"@id": …}` of its
 normative id, which the reader resolves against the bundled library.
 
+For clients that need to display those names without bundling the library,
+`ConvertResponse.library_references` carries a separate table of `id`, `qualified_name`
+and `type` (metaclass), advertised as `convert_library_references`. The
+[compact API JSON document](api-json-compact.md) carries the same information in the
+optional top-level `libraryReferences` table, with literal `@id`, `qualifiedName` and
+`@type` keys. Only library elements referenced by the written output are included,
+sorted by ID; no library declarations are added to the default element array.
+
+The CLI writes that table as a JSON side file, without changing the model output:
+
+```sh
+sysml model.sysml -convert api-json -o model.json -library-references library-names.json
+```
+
+`-include-library-stubs` (or `ConvertRequest.include_library_stubs`, advertised as
+`convert_library_stubs`) is a default-off compatibility option for legacy clients.
+It restores the ownerless library stubs written before 0.11.0, with `@id`, `@type`,
+`declaredName`, `elementId`, `isLibraryElement: true` and `qualifiedName`.
+An OMG API reader treats these as roots, so prefer the separate table for new clients.
+Both CLI options require `-convert api-json` (or its `json` alias); the side file must
+not name an input or the output, including through a symlink or hard link.
+For a graph source, the table can name only references whose library metadata the graph carries.
+
 Reading a graph back, such an element is a reference into the bundled library,
 not a declaration, and it is not written. A qualified name other than the one
 the library gives its id is refused rather than trusted. If the id is not in

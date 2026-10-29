@@ -371,8 +371,8 @@
     "@types/node": "22.10.5",
     "@types/vscode": "1.86.0",
     "@vscode/vsce": "3.2.2",
-    "c8": "11.0.0",
-    "esbuild": "0.25.0",
+    "c8": "12.0.0",
+    "esbuild": "0.28.2",
     "jsdom": "26.1.0",
     "type-fest": "4.41.0",
     "typescript": "5.7.3"
