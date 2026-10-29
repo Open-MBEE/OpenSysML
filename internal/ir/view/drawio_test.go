@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -69,7 +71,9 @@ func TestDrawioGolden(t *testing.T) {
 type drawioCell struct {
 	id, parent, source, target string
 	vertex, edge, geometry     bool
-	fqn, link                  string
+	fqn, link, style           string
+	box                        drawioBox
+	points                     []Point
 }
 
 // parseDrawio reads a draw.io file back with a full xml.Decoder parse, failing
@@ -102,7 +106,7 @@ func parseDrawio(t *testing.T, doc string) []drawioCell {
 				}
 			case "mxCell":
 				cell := &drawioCell{id: attrs["id"], parent: attrs["parent"], source: attrs["source"], target: attrs["target"],
-					vertex: attrs["vertex"] == "1", edge: attrs["edge"] == "1"}
+					vertex: attrs["vertex"] == "1", edge: attrs["edge"] == "1", style: attrs["style"]}
 				if len(objects) > 0 {
 					object := objects[len(objects)-1]
 					cell.fqn, cell.link, cell.id = object["fqn"], object["link"], object["id"]
@@ -112,6 +116,13 @@ func parseDrawio(t *testing.T, doc string) []drawioCell {
 			case "mxGeometry":
 				if len(open) > 0 {
 					open[len(open)-1].geometry = true
+					open[len(open)-1].box = drawioBox{X: xmlNumber(t, attrs["x"]), Y: xmlNumber(t, attrs["y"]),
+						Width: xmlNumber(t, attrs["width"]), Height: xmlNumber(t, attrs["height"])}
+				}
+			case "mxPoint":
+				if len(open) > 0 && attrs["as"] == "" {
+					cell := open[len(open)-1]
+					cell.points = append(cell.points, Point{X: xmlNumber(t, attrs["x"]), Y: xmlNumber(t, attrs["y"])})
 				}
 			}
 		case xml.EndElement:
@@ -124,6 +135,29 @@ func parseDrawio(t *testing.T, doc string) []drawioCell {
 		}
 	}
 	return cells
+}
+
+// xmlNumber reads a numeric attribute, zero when absent.
+func xmlNumber(t *testing.T, value string) float64 {
+	t.Helper()
+	if value == "" {
+		return 0
+	}
+	n, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		t.Fatalf("attribute value %q is not a number: %v", value, err)
+	}
+	return n
+}
+
+// drawioAbsolute is a cell's box in page coordinates, its parents' origins added.
+func drawioAbsolute(cells map[string]drawioCell, id string) drawioBox {
+	box := cells[id].box
+	for parent := cells[id].parent; parent != "" && parent != "1"; parent = cells[parent].parent {
+		box.X += cells[parent].box.X
+		box.Y += cells[parent].box.Y
+	}
+	return box
 }
 
 // checkDrawioDocument checks what draw.io needs of a file (well-formed XML, root cells,
@@ -341,5 +375,61 @@ func TestDrawioSharesANoteAmongItsAnchors(t *testing.T) {
 	}
 	if len(byText["on loan"]) != 2 {
 		t.Errorf("the two notes stated apart are drawn as %v, want two cells:\n%s", byText["on loan"], got)
+	}
+}
+
+// TestDrawioRoutesUnroutedEdges checks that the edges the model leaves unrouted
+// come out with libavoid's orthogonal waypoints: every edge of a positioned
+// interconnection and of a nested tree, each inside the container it belongs
+// to, while a stated Route is written as it is.
+func TestDrawioRoutesUnroutedEdges(t *testing.T) {
+	for _, c := range []struct{ name, file, view string }{
+		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView"},
+		{"tree-edges", "tree-edges.sysml", "FleetViews::structure"},
+		{"layout", "layout.sysml", "PlantViews::placedView"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			rendering, options := renderWithSites(t, c.file, c.view)
+			doc, err := rendering.DrawioWith(options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cells := map[string]drawioCell{}
+			for _, cell := range parseDrawio(t, doc) {
+				cells[cell.id] = cell
+			}
+			ids := drawioEdgeIDs(rendering.Edges)
+			for _, edge := range rendering.Edges {
+				cell, ok := cells[ids[[2]string{edge.From, edge.To}]]
+				if !ok {
+					continue
+				}
+				if len(edge.Route) > 0 {
+					if !slices.Equal(cell.points, edge.Route) {
+						t.Errorf("%s: stated route %v written as %v", cell.id, edge.Route, cell.points)
+					}
+					continue
+				}
+				if len(cell.points) < 2 || !strings.Contains(cell.style, "edgeStyle=none;") {
+					t.Errorf("%s (%s -> %s): not routed: %d point(s), style %q", cell.id, edge.From, edge.To, len(cell.points), cell.style)
+					continue
+				}
+				for j := 1; j < len(cell.points); j++ {
+					a, b := cell.points[j-1], cell.points[j]
+					if a.X != b.X && a.Y != b.Y {
+						t.Errorf("%s: segment %v -> %v is not orthogonal", cell.id, a, b)
+					}
+				}
+				from, to := cells[strings.SplitN(cell.source, ":", 2)[0]], cells[strings.SplitN(cell.target, ":", 2)[0]]
+				if from.parent == to.parent && from.parent != "1" {
+					within := drawioAbsolute(cells, from.parent)
+					for _, p := range cell.points {
+						if p.X < within.X || p.Y < within.Y || p.X > within.right() || p.Y > within.bottom() {
+							t.Errorf("%s: waypoint %v leaves its container %s %v", cell.id, p, from.parent, within)
+						}
+					}
+				}
+			}
+		})
 	}
 }

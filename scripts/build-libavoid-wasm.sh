@@ -40,7 +40,7 @@ fetch() {
 	local tarball
 	tarball="$(npm pack "$name@$version" --silent --pack-destination "$work" 2>/dev/null | tail -n 1)"
 	sri_check "$work/$tarball" "$integrity"
-	rm -rf "$work/$name"
+	rm -rf "${work:?}/${name:?}"
 	mkdir -p "$work/$name"
 	tar -xzf "$work/$tarball" -C "$work/$name" --strip-components=1
 }

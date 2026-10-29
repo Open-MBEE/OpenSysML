@@ -31,9 +31,6 @@ func (r *Rendering) DrawioWith(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
-	if err := options.Routing.check(); err != nil {
-		return "", err
-	}
 	r = r.showing(options.Show)
 	if options.Unplaced != UnplacedStrip || options.Compartments.automatic() {
 		r = foldCompartments(withoutStandIns(r), options.Compartments)
@@ -58,15 +55,13 @@ func (r *Rendering) DrawioWith(options Options) (string, error) {
 		w.fills.collect(root)
 	}
 	w.layout(r)
-	if options.Routing.routesDrawio() {
-		edges, err := w.routeEdges(r)
-		if err != nil {
-			return "", err
-		}
-		routed := *r
-		routed.Edges = edges
-		r = &routed
+	edges, err := w.routeEdges(r)
+	if err != nil {
+		return "", err
 	}
+	routed := *r
+	routed.Edges = edges
+	r = &routed
 	w.edgeIDs = drawioEdgeIDs(r.Edges)
 	return w.document(r, options), nil
 }
