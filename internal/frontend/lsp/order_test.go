@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -95,26 +94,30 @@ func TestInOrderRunsHandlersInWireOrder(t *testing.T) {
 
 // A request queued behind a slow handler can still be cancelled: the read
 // loop is free, so the cancel is seen, and the request answers without running.
+// The messages behind the cancelled request still wait for the slow handler.
 func TestInOrderAnswersCancelledWhileQueued(t *testing.T) {
-	o := newOrderedSession(t)
-	o.send(0, "slow", `{}`)
-	<-o.slowIn
-	o.send(1, "fast", `{}`)
-	o.send(0, protocol.MethodCancelRequest, `{"id":1}`)
-	reply := readMessage(t, o.r)
-	failure, _ := reply["error"].(map[string]any)
-	if code, _ := failure["code"].(float64); int64(code) != int64(protocol.ErrRequestCancelled.Code) {
-		t.Fatalf("queued request answered %v, want request cancelled", reply)
-	}
-	if got := o.events(); !slices.Equal(got, []string{"slow in"}) {
-		t.Fatalf("handler events before the gate opened = %v, want the slow handler alone", got)
-	}
-	close(o.gate)
-	o.send(2, "after", `{}`)
-	if reply := readMessage(t, o.r); reply["result"] != "after" {
-		t.Fatalf("request after the gate answered %v", reply)
-	}
-	if got := o.events(); slices.ContainsFunc(got, func(e string) bool { return strings.HasPrefix(e, "fast") }) {
-		t.Fatalf("the cancelled request ran: %v", got)
+	for range 20 {
+		o := newOrderedSession(t)
+		o.send(0, "slow", `{}`)
+		<-o.slowIn
+		o.send(1, "fast", `{}`)
+		o.send(0, protocol.MethodCancelRequest, `{"id":1}`)
+		reply := readMessage(t, o.r)
+		failure, _ := reply["error"].(map[string]any)
+		if code, _ := failure["code"].(float64); int64(code) != int64(protocol.ErrRequestCancelled.Code) {
+			t.Fatalf("queued request answered %v, want request cancelled", reply)
+		}
+		o.send(2, "after", `{}`)
+		if got := o.events(); !slices.Equal(got, []string{"slow in"}) {
+			t.Fatalf("handler events before the gate opened = %v, want the slow handler alone", got)
+		}
+		close(o.gate)
+		if reply := readMessage(t, o.r); reply["result"] != "after" {
+			t.Fatalf("request after the cancelled one answered %v", reply)
+		}
+		want := []string{"slow in", "slow out", "after in", "after out"}
+		if got := o.events(); !slices.Equal(got, want) {
+			t.Fatalf("handler events = %v, want %v", got, want)
+		}
 	}
 }

@@ -417,8 +417,7 @@ func TestWireRangeFormattingAnswersEditsOnSelectedLines(t *testing.T) {
 }
 
 // A request sent right behind a didChange, without waiting for its
-// diagnostics, is answered from the changed document: the notification is
-// applied before the request is served, however the two are scheduled.
+// diagnostics, is answered from the changed document.
 func TestWireRequestAfterDidChangeSeesTheChange(t *testing.T) {
 	w := newWireSession(t)
 	w.open(wireSource)

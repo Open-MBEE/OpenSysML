@@ -158,8 +158,7 @@ func runHandler(s *Server) jsonrpc2.Handler {
 }
 
 // inOrder frees the read loop at once but runs the handlers one at a time in
-// wire order, so a didChange is applied before the request behind it is served.
-// A request cancelled while it waits answers cancelled without running.
+// wire order; a request cancelled while it waits answers without running.
 func inOrder(handler jsonrpc2.Handler) jsonrpc2.Handler {
 	var mu sync.Mutex
 	previous := make(chan struct{})
@@ -171,16 +170,18 @@ func inOrder(handler jsonrpc2.Handler) jsonrpc2.Handler {
 		done := make(chan struct{})
 		previous = done
 		mu.Unlock()
-		defer close(done)
 		jsonrpc2.Async(ctx)
 		select {
 		case <-wait:
 		case <-ctx.Done():
 			if req.IsCall() {
+				// The ticket still closes in turn, so nothing behind overtakes.
+				go func() { <-wait; close(done) }()
 				return nil, protocol.ErrRequestCancelled
 			}
 			<-wait
 		}
+		defer close(done)
 		return handler(ctx, req)
 	}
 }
