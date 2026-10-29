@@ -48,7 +48,7 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="connection" view="VariationViews::familyMixed" link="variation.sysml:26">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.5037037037037037;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.5037;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="92" y="190"/>
@@ -57,37 +57,37 @@
           </mxCell>
         </object>
         <object id="e1" label="" kind="composition" view="VariationViews::familyMixed" link="variation.sysml:21">
-          <mxCell style="edgeStyle=none;exitX=0.13402061855670103;exitY=0.18025751072961374;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0.134;exitY=0.1803;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e2" label="" kind="composition" view="VariationViews::familyMixed" link="variation.sysml:22">
-          <mxCell style="edgeStyle=none;exitX=0.6443298969072165;exitY=0.18025751072961374;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.6443;exitY=0.1803;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e3" label="" kind="reference" view="VariationViews::familyMixed" link="variation.sysml:23">
-          <mxCell style="edgeStyle=none;exitX=0.21311475409836064;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n2" target="n3">
+          <mxCell style="edgeStyle=none;exitX=0.2131;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n2" target="n3">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e4" label="" kind="composition" view="VariationViews::familyMixed" link="variation.sysml:24">
-          <mxCell style="edgeStyle=none;exitX=0.7295081967213115;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n2" target="n4">
+          <mxCell style="edgeStyle=none;exitX=0.7295;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n2" target="n4">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e5" label="" kind="reference" view="VariationViews::familyMixed" link="variation.sysml:16">
-          <mxCell style="edgeStyle=none;exitX=0.250788643533123;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n6">
+          <mxCell style="edgeStyle=none;exitX=0.2508;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n6">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e6" label="" kind="reference" view="VariationViews::familyMixed" link="variation.sysml:17">
-          <mxCell style="edgeStyle=none;exitX=0.7634069400630915;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n7">
+          <mxCell style="edgeStyle=none;exitX=0.7634;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n7">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e7" label="" kind="typing" view="VariationViews::familyMixed" link="variation.sysml:21">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0;entryY=0.5037037037037037;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n5">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0;entryY=0.5037;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="92" y="106"/>

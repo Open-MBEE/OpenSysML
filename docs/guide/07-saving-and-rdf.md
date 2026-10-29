@@ -98,7 +98,14 @@ plays no part in choosing the format, so a destination without an extension, suc
 or a FIFO, needs no extra flags.
 
 Converting to the same format rewrites the input: notation is reformatted, and
-Turtle is normalized (prefixes sorted, predicates grouped by subject).
+Turtle is normalized (prefixes sorted, predicates grouped by subject). Reformatting notation
+lays the statements out — a new line after the `{` of a body and after each `;` in it, the `}`
+on a line of its own, each level indented — so a model generated on one line comes back one
+statement per line. Every lexeme is kept, and so is every line break the author wrote; a body
+holding only an expression (`assert constraint { x > 0 }`), an empty body, the body of an
+expression (`->forAll { in x; ... }`) and a note at the end of a line stay as written.
+`sysml model.sysml -convert sysml -o model.sysml` is therefore the way to tidy a file; the
+editor's Format Document and a save (below) keep the author's line breaks.
 
 ### The standard library as a model
 
@@ -194,8 +201,8 @@ which the second conversion to RDF confirms. The rules are in
 [reference/rdf-mapping.md](../reference/rdf-mapping.md#source-text).
 
 **Saving to `.sysml` writes the source directly.** It writes the session's own source through
-the formatter rather than re-printing the graph, so comments, notes and spacing are preserved
-whether or not the model was edited. Only the `.ttl` direction uses the mapping. Syntax is
+the formatter rather than re-printing the graph, so comments, notes, spacing and line breaks are
+preserved whether or not the model was edited; only `-convert sysml` lays statements out anew. Only the `.ttl` direction uses the mapping. Syntax is
 checked in every direction, and notation the parser cannot read is rejected, so a save never
 silently reformats a model that does not parse.
 

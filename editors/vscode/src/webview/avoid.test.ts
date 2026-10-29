@@ -834,6 +834,14 @@ test("avoidRoutes keeps randomized port endpoints on their faces with perpendicu
   }
 });
 
+test("routingPinPositions drops a generic pin under a flush one so libavoid attaches to the pin", () => {
+  const box = { x: 0, y: 0, width: 200, height: 40 };
+  const pins = routingPinPositions({ box, ports: [{ id: "hdr", side: "south", offset: 0.5, flush: true }] });
+  assert.equal(pins.filter((pin) => pin.side === "south" && pin.y === 1 && pin.x === 0.5).length, 1);
+  assert.equal(pins.filter((pin) => pin.id === undefined).length, 11);
+  assert.equal(routingPinPositions({ box, ports: [{ id: "p", side: "south", offset: 0.5 }] }).filter((pin) => pin.id === undefined).length, 12);
+});
+
 test("routingPinPositions pins a flush port on the border itself and grows the routing box for none", () => {
   const box = { x: 0, y: 0, width: 100, height: 50 };
   const pins = routingPinPositions({ box, ports: [{ id: "a/3", side: "south", offset: 0.3, flush: true }] });

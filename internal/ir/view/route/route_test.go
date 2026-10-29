@@ -141,3 +141,18 @@ func abs(v float64) float64 {
 	}
 	return v
 }
+
+func TestRoutesAFlushPinUnderAGenericOne(t *testing.T) {
+	owner := Shape{ID: "owner", Box: Box{X: 0, Y: 0, Width: 200, Height: 40}, Ports: []Port{{ID: "hdr", Side: South, Offset: 0.5, Flush: true}}}
+	member := Shape{ID: "member", Box: Box{X: 60, Y: 120, Width: 80, Height: 40}}
+	routes, err := Routes([]Shape{owner, member}, []Edge{{Index: 0, From: "owner", FromPort: "hdr", To: "member"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(routes) != 1 {
+		t.Fatalf("routes = %v, want the flush pin at the middle of the header's underside routed", routes)
+	}
+	if first := routes[0].Points[0]; first != (Point{X: 100, Y: 40}) {
+		t.Errorf("route starts at %v, want the pin at (100, 40)", first)
+	}
+}

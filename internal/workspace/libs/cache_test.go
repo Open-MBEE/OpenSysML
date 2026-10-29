@@ -1,12 +1,14 @@
 package libs
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -301,5 +303,20 @@ func TestCacheRefusesRecordsOfAnotherFormat(t *testing.T) {
 	}
 	if _, ok := c.Load(key); ok {
 		t.Fatal("an undecodable record produced a cache hit")
+	}
+}
+
+// The host's refusals that mean no cache root exists — a WASI path outside every
+// preopen (EBADF), no filesystem (ENOSYS) — are told from a root that refuses.
+func TestCacheRootUnreachableTellsAnAbsentRootFromOneThatRefuses(t *testing.T) {
+	for _, errno := range []syscall.Errno{syscall.EBADF, syscall.ENOSYS} {
+		if !cacheRootUnreachable(&fs.PathError{Op: "mkdir", Path: "/home", Err: errno}) {
+			t.Errorf("%v is not read as an unreachable cache root", errno)
+		}
+	}
+	for _, errno := range []syscall.Errno{syscall.EACCES, syscall.ENOTDIR, syscall.EEXIST} {
+		if cacheRootUnreachable(&fs.PathError{Op: "mkdir", Path: "/home", Err: errno}) {
+			t.Errorf("%v is read as an unreachable cache root, want a failure reported", errno)
+		}
 	}
 }

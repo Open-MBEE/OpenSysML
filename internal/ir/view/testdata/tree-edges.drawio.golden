@@ -188,54 +188,54 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:24">
-          <mxCell style="edgeStyle=none;exitX=0.1972972972972973;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0.1973;exitY=0.1085;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e1" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:25">
-          <mxCell style="edgeStyle=none;exitX=0.5567567567567567;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
+          <mxCell style="edgeStyle=none;exitX=0.5568;exitY=0.1085;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e2" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:26">
-          <mxCell style="edgeStyle=none;exitX=0.8594594594594595;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
+          <mxCell style="edgeStyle=none;exitX=0.8595;exitY=0.1085;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e3" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:27">
-          <mxCell style="edgeStyle=none;exitX=0.15405405405405406;exitY=0.10852713178294573;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n5">
+          <mxCell style="edgeStyle=none;exitX=0.1541;exitY=0.1085;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="97" y="105.99999999999999"/>
-                <mxPoint x="186" y="105.99999999999999"/>
+                <mxPoint x="97" y="106"/>
+                <mxPoint x="186" y="106"/>
                 <mxPoint x="186" y="273"/>
-                <mxPoint x="154.0000000004" y="273"/>
-                <mxPoint x="154.0000000004" y="306.25"/>
+                <mxPoint x="154" y="273"/>
+                <mxPoint x="154" y="306.25"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e4" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:29">
-          <mxCell style="edgeStyle=none;exitX=0.7716216216216216;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n7">
+          <mxCell style="edgeStyle=none;exitX=0.7716;exitY=0.1085;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n7">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="325.5" y="102"/>
                 <mxPoint x="306" y="102"/>
-                <mxPoint x="306" y="228.00000000000003"/>
-                <mxPoint x="309.75" y="228.00000000000003"/>
+                <mxPoint x="306" y="228"/>
+                <mxPoint x="309.75" y="228"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e5" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:30">
-          <mxCell style="edgeStyle=none;exitX=0.12837837837837837;exitY=0.10852713178294573;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n8">
+          <mxCell style="edgeStyle=none;exitX=0.1284;exitY=0.1085;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n8">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="87.5" y="98"/>
-                <mxPoint x="189.9999999596" y="98"/>
-                <mxPoint x="189.9999999596" y="277"/>
-                <mxPoint x="158.0000000004" y="277"/>
-                <mxPoint x="158.0000000004" y="354"/>
+                <mxPoint x="190" y="98"/>
+                <mxPoint x="190" y="277"/>
+                <mxPoint x="158" y="277"/>
+                <mxPoint x="158" y="354"/>
                 <mxPoint x="139" y="354"/>
                 <mxPoint x="139" y="383.25"/>
               </Array>
@@ -243,12 +243,12 @@
           </mxCell>
         </object>
         <object id="e6" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:31">
-          <mxCell style="edgeStyle=none;exitX=0.43108108108108106;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n9">
+          <mxCell style="edgeStyle=none;exitX=0.4311;exitY=0.1085;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n9">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="199.5" y="102"/>
-                <mxPoint x="193.9999999596" y="102"/>
-                <mxPoint x="193.9999999596" y="281"/>
+                <mxPoint x="194" y="102"/>
+                <mxPoint x="194" y="281"/>
                 <mxPoint x="162" y="281"/>
                 <mxPoint x="162" y="354"/>
                 <mxPoint x="179.25" y="354"/>
@@ -257,7 +257,7 @@
           </mxCell>
         </object>
         <object id="e7" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:24">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2543859649122807;entryY=0.3111111111111111;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n20">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2544;entryY=0.3111;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n20">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="113" y="98"/>
@@ -267,7 +267,7 @@
           </mxCell>
         </object>
         <object id="e8" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:10">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
@@ -294,7 +294,7 @@
           </mxCell>
         </object>
         <object id="e11" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:27">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n26">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n26">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="24" y="316"/>
@@ -304,36 +304,36 @@
           </mxCell>
         </object>
         <object id="e12" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:29">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135135135135135;exitPerimeter=0;entryX=1;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n7" target="n6">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=1;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n7" target="n6">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e13" label="" kind="specialization" view="FleetViews::structure" link="tree-edges.sysml:34">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.05426356589147287;exitPerimeter=0;entryX=1;entryY=0.05426356589147287;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n10" target="n0">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.0543;exitPerimeter=0;entryX=1;entryY=0.0543;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n10" target="n0">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e14" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:35">
-          <mxCell style="edgeStyle=none;exitX=0.1972972972972973;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n11">
+          <mxCell style="edgeStyle=none;exitX=0.1973;exitY=0.1085;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n11">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e15" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:36">
-          <mxCell style="edgeStyle=none;exitX=0.5445945945945946;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n13">
+          <mxCell style="edgeStyle=none;exitX=0.5446;exitY=0.1085;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n13">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e16" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:25">
-          <mxCell style="edgeStyle=none;exitX=0.8472972972972973;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n14">
+          <mxCell style="edgeStyle=none;exitX=0.8473;exitY=0.1085;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n14">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e17" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:26">
-          <mxCell style="edgeStyle=none;exitX=0.1527027027027027;exitY=0.10852713178294573;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n15">
+          <mxCell style="edgeStyle=none;exitX=0.1527;exitY=0.1085;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n15">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="506.5" y="105.99999999999999"/>
-                <mxPoint x="596" y="105.99999999999999"/>
+                <mxPoint x="506.5" y="106"/>
+                <mxPoint x="596" y="106"/>
                 <mxPoint x="596" y="273"/>
                 <mxPoint x="563" y="273"/>
                 <mxPoint x="563" y="306.25"/>
@@ -342,36 +342,36 @@
           </mxCell>
         </object>
         <object id="e18" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:27">
-          <mxCell style="edgeStyle=none;exitX=0.4810810810810811;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n16">
+          <mxCell style="edgeStyle=none;exitX=0.4811;exitY=0.1085;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n16">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="628" y="98"/>
                 <mxPoint x="604" y="98"/>
-                <mxPoint x="604" y="228.00000000000003"/>
-                <mxPoint x="607.5" y="228.00000000000003"/>
+                <mxPoint x="604" y="228"/>
+                <mxPoint x="607.5" y="228"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e19" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:29">
-          <mxCell style="edgeStyle=none;exitX=0.7972972972972973;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n17">
+          <mxCell style="edgeStyle=none;exitX=0.7973;exitY=0.1085;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n17">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="745" y="102"/>
                 <mxPoint x="707" y="102"/>
-                <mxPoint x="707" y="228.00000000000003"/>
-                <mxPoint x="727" y="228.00000000000003"/>
+                <mxPoint x="707" y="228"/>
+                <mxPoint x="727" y="228"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e20" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:30">
-          <mxCell style="edgeStyle=none;exitX=0.14054054054054055;exitY=0.10852713178294573;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n18">
+          <mxCell style="edgeStyle=none;exitX=0.1405;exitY=0.1085;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n18">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="502" y="98"/>
-                <mxPoint x="599.9999999600001" y="98"/>
-                <mxPoint x="599.9999999600001" y="281"/>
+                <mxPoint x="600" y="98"/>
+                <mxPoint x="600" y="281"/>
                 <mxPoint x="571" y="281"/>
                 <mxPoint x="571" y="354"/>
                 <mxPoint x="558" y="354"/>
@@ -381,25 +381,25 @@
           </mxCell>
         </object>
         <object id="e21" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:31">
-          <mxCell style="edgeStyle=none;exitX=0.46756756756756757;exitY=0.10852713178294573;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n19">
+          <mxCell style="edgeStyle=none;exitX=0.4676;exitY=0.1085;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n19">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="623" y="105.99999999999999"/>
-                <mxPoint x="699" y="105.99999999999999"/>
-                <mxPoint x="699" y="228.00000000000003"/>
-                <mxPoint x="689" y="228.00000000000003"/>
+                <mxPoint x="623" y="106"/>
+                <mxPoint x="699" y="106"/>
+                <mxPoint x="699" y="228"/>
+                <mxPoint x="689" y="228"/>
                 <mxPoint x="689" y="383.25"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e22" label="" kind="redefinition" view="FleetViews::structure" link="tree-edges.sysml:35">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.7481481481481481;exitPerimeter=0;entryX=1;entryY=0.7481481481481481;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.7481;exitPerimeter=0;entryX=1;entryY=0.7481;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n1">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e23" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:35">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5037037037037037;exitPerimeter=0;entryX=0.7480314960629921;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n22">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5037;exitPerimeter=0;entryX=0.748;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n22">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="278" y="190"/>
@@ -410,12 +410,12 @@
           </mxCell>
         </object>
         <object id="e24" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:14">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n11" target="n12">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n11" target="n12">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e25" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:36">
-          <mxCell style="edgeStyle=none;exitX=0.5079365079365079;exitY=1;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n24">
+          <mxCell style="edgeStyle=none;exitX=0.5079;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n24">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="652" y="277"/>
@@ -428,7 +428,7 @@
           </mxCell>
         </object>
         <object id="e26" label="" kind="subsetting" view="FleetViews::structure" link="tree-edges.sysml:36">
-          <mxCell style="edgeStyle=none;exitX=0.5079365079365079;exitY=0;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n3">
+          <mxCell style="edgeStyle=none;exitX=0.5079;exitY=0;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="652" y="106"/>
@@ -438,12 +438,12 @@
           </mxCell>
         </object>
         <object id="e27" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:10">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n20" target="n21">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n20" target="n21">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e28" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:10">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n21" target="n26">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n21" target="n26">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="917" y="583"/>
@@ -454,7 +454,7 @@
           </mxCell>
         </object>
         <object id="e29" label="" kind="specialization" view="FleetViews::structure" link="tree-edges.sysml:13">
-          <mxCell style="edgeStyle=none;exitX=0.5039370078740157;exitY=0;exitPerimeter=0;entryX=0;entryY=0.23703703703703705;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n22" target="n20">
+          <mxCell style="edgeStyle=none;exitX=0.5039;exitY=0;exitPerimeter=0;entryX=0;entryY=0.237;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n22" target="n20">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="104" y="443"/>
@@ -465,12 +465,12 @@
           </mxCell>
         </object>
         <object id="e30" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:14">
-          <mxCell style="edgeStyle=none;exitX=0.44881889763779526;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n22" target="n23">
+          <mxCell style="edgeStyle=none;exitX=0.4488;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n22" target="n23">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e31" label="" kind="redefinition" view="FleetViews::structure" link="tree-edges.sysml:14">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.4864864864864865;exitPerimeter=0;entryX=0.25609756097560976;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n23" target="n21">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.4865;exitPerimeter=0;entryX=0.2561;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n23" target="n21">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="897" y="567"/>
@@ -479,7 +479,7 @@
           </mxCell>
         </object>
         <object id="e32" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:39">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.082687338501292;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n27" target="n0">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.0827;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n27" target="n0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="380" y="575"/>
@@ -490,47 +490,47 @@
           </mxCell>
         </object>
         <object id="e33" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:24">
-          <mxCell style="edgeStyle=none;exitX=0.18814432989690721;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n28">
+          <mxCell style="edgeStyle=none;exitX=0.1881;exitY=0.1085;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n28">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e34" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:25">
-          <mxCell style="edgeStyle=none;exitX=0.5425257731958762;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n30">
+          <mxCell style="edgeStyle=none;exitX=0.5425;exitY=0.1085;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n30">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e35" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:26">
-          <mxCell style="edgeStyle=none;exitX=0.854381443298969;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n27" target="n31">
+          <mxCell style="edgeStyle=none;exitX=0.8544;exitY=0.1085;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n27" target="n31">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e36" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:27">
-          <mxCell style="edgeStyle=none;exitX=0.14690721649484537;exitY=0.10852713178294573;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n27" target="n32">
+          <mxCell style="edgeStyle=none;exitX=0.1469;exitY=0.1085;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n27" target="n32">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="243" y="708"/>
                 <mxPoint x="332" y="708"/>
                 <mxPoint x="332" y="875"/>
-                <mxPoint x="300.00000000039995" y="875"/>
-                <mxPoint x="300.00000000039995" y="908.25"/>
+                <mxPoint x="300" y="875"/>
+                <mxPoint x="300" y="908.25"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e37" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:29">
-          <mxCell style="edgeStyle=none;exitX=0.4484536082474227;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n33">
+          <mxCell style="edgeStyle=none;exitX=0.4485;exitY=0.1085;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n33">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="360" y="704"/>
                 <mxPoint x="340" y="704"/>
-                <mxPoint x="340" y="829.9999999999999"/>
-                <mxPoint x="342" y="829.9999999999999"/>
+                <mxPoint x="340" y="830"/>
+                <mxPoint x="342" y="830"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e38" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:30">
-          <mxCell style="edgeStyle=none;exitX=0.7371134020618557;exitY=0.10852713178294573;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n34">
+          <mxCell style="edgeStyle=none;exitX=0.7371;exitY=0.1085;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n34">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="472" y="704"/>
@@ -540,12 +540,12 @@
           </mxCell>
         </object>
         <object id="e39" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:31">
-          <mxCell style="edgeStyle=none;exitX=0.15721649484536082;exitY=0.10852713178294573;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n35">
+          <mxCell style="edgeStyle=none;exitX=0.1572;exitY=0.1085;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n35">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="247" y="700"/>
-                <mxPoint x="335.99999996" y="700"/>
-                <mxPoint x="335.99999996" y="883"/>
+                <mxPoint x="336" y="700"/>
+                <mxPoint x="336" y="883"/>
                 <mxPoint x="308" y="883"/>
                 <mxPoint x="308" y="985.25"/>
               </Array>

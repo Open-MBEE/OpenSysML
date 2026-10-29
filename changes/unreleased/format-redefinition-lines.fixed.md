@@ -1,0 +1,1 @@
+- The formatter no longer indents a line that begins with `:>>`, `:>` or another operator one level deeper than its body when the statement above it ended; `:>> mass = v.mass;` written on its own line now sits at the body's level like the statements around it.

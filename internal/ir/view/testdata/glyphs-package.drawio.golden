@@ -23,12 +23,12 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="containment" view="NotationGlyphs::Diagrams::packageGlyphs" link="notation-glyphs.sysml:59">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e1" label="" kind="containment" view="NotationGlyphs::Diagrams::packageGlyphs" link="notation-glyphs.sysml:62">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.7571428571428571;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.7571;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="113" y="97"/>
@@ -38,7 +38,7 @@
           </mxCell>
         </object>
         <object id="e2" label="" kind="unowned membership" view="NotationGlyphs::Diagrams::packageGlyphs" link="notation-glyphs.sysml:64">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0.2571428571428571;entryY=1;entryPerimeter=0;rounded=0;html=0;startArrow=oval;startFill=0;endArrow=none;" edge="1" parent="1" source="n2" target="n1">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0.2571;entryY=1;entryPerimeter=0;rounded=0;html=0;startArrow=oval;startFill=0;endArrow=none;" edge="1" parent="1" source="n2" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="244" y="136"/>

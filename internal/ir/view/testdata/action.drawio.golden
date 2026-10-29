@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView) -->
 <!-- 1 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<!-- notice: edge n2 -> n3 not routed: the router found no path at this layout; draw.io routes it when the file opens -->
 <mxfile host="OpenSysML" type="device" compressed="false">
   <diagram id="FlowViews-driveView" name="FlowViews::driveView">
     <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
@@ -89,7 +90,7 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="succession" view="FlowViews::driveView" link="action.sysml:24">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n5">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="293" y="231"/>
@@ -110,7 +111,7 @@
           </mxCell>
         </object>
         <object id="e2" label="" kind="succession" view="FlowViews::driveView" link="action.sysml:41">
-          <mxCell style="edgeStyle=none;exitX=0.5061728395061729;exitY=1;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n2" target="n8">
+          <mxCell style="edgeStyle=none;exitX=0.5062;exitY=1;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n2" target="n8">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="157" y="294"/>
@@ -121,7 +122,7 @@
           </mxCell>
         </object>
         <object id="e3" label="" kind="flow" view="FlowViews::driveView" link="action.sysml:52">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n2:n2.1" target="n3:n3.0">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n2:n2.1" target="n3:n3.0">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
@@ -147,7 +148,7 @@
           </mxCell>
         </object>
         <object id="e6" label="" kind="succession" view="FlowViews::driveView" link="action.sysml:39">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=0.24691358024691357;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=0.2469;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="136" y="319"/>
@@ -166,7 +167,7 @@
           </mxCell>
         </object>
         <object id="e8" label="" kind="succession" view="FlowViews::driveView" link="action.sysml:43">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.7567567567567568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n6">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n6">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="220" y="342"/>
@@ -184,7 +185,7 @@
           </mxCell>
         </object>
         <object id="e10" label="" kind="succession" view="FlowViews::driveView" link="action.sysml:50">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135135135135135;exitPerimeter=0;entryX=1;entryY=0.5;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n10" target="n9">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=1;entryY=0.5;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n10" target="n9">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="106" y="410"/>
@@ -194,7 +195,7 @@
           </mxCell>
         </object>
         <object id="e11" label="[speed &gt; 0]" kind="succession" view="FlowViews::driveView" link="action.sysml:48">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.7666666666666667;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n11" target="n9">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.7667;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n11" target="n9">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="250" y="375"/>
@@ -204,7 +205,7 @@
           </mxCell>
         </object>
         <object id="e12" label="" kind="succession" view="FlowViews::driveView" link="action.sysml:49">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=1;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n11" target="n10">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=1;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n11" target="n10">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="210" y="411"/>

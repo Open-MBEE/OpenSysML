@@ -25,11 +25,15 @@ const formatAdvice = convert.ExtensionAdvice + ", or pass -convert on the comman
 
 type writer struct{}
 
+// asWritten keeps the buffer's own line breaks: a save and the prompt's echo
+// write the model as the author laid it out, and only `-convert` re-lays it.
+var asWritten = convert.Options{KeepLineBreaks: true}
+
 // Print writes the buffer through the writer a `.sysml` save writes with, so
 // the prompt shows what a save would hold. RDF is another format, and none of
 // it is reported here.
 func (writer) Print(origin string, src []byte) []string {
-	out, syntax, err := convert.ConvertTolerant(origin, src, convert.FormatSysML, convert.FormatSysML)
+	out, syntax, err := convert.ConvertTolerantWith(origin, src, convert.FormatSysML, convert.FormatSysML, asWritten)
 	if err != nil {
 		return []string{errPrefix + err.Error()}
 	}
@@ -99,7 +103,7 @@ func (writer) Preview(origin string, src []byte, path string) ([]byte, []string,
 	}
 	// Diagnostics are positions in the session buffer, not in the file about to
 	// be written, so they are labelled as such.
-	out, syntax, err := convert.ConvertTolerant(origin, src, convert.FormatSysML, format)
+	out, syntax, err := convert.ConvertTolerantWith(origin, src, convert.FormatSysML, format, asWritten)
 	if err != nil {
 		return nil, append(lines, errPrefix+err.Error()), false
 	}

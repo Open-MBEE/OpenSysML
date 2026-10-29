@@ -632,12 +632,14 @@ func TestConvertLayoutAugment(t *testing.T) {
 	if out.status != 0 {
 		t.Fatalf("migrating with -layout failed: %s%s", out.stdout, out.stderr)
 	}
+	// The notation is laid out one statement per line; compare its words.
+	words := strings.Join(strings.Fields(out.stdout), " ")
 	for _, want := range []string{
 		"metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; :>> DiagramLayout::Layout::height = 40; }",
 		"metadata DiagramLayout::Route about drive { points = (120, 30, 200, 30); }",
 		`@DiagramLayout::Canvas { unit = "px";`,
 	} {
-		if !strings.Contains(out.stdout, want) {
+		if !strings.Contains(words, want) {
 			t.Errorf("migrated notation lacks %q:\n%s", want, out.stdout)
 		}
 	}

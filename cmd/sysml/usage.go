@@ -438,7 +438,8 @@ func doc() usage.Doc {
 					"represent — go on stderr. Every file named is loaded as one " +
 					"model, so a view may expose elements a sibling file declares. " +
 					"-render-form names the form written — text, mermaid, markdown, dot, " +
-					"plantuml, d2, drawio, csv or tsv; by default -render takes it from the destination and " +
+					"plantuml, d2, drawio, csv or tsv; by default -render writes text on a terminal and the " +
+					"kind's machine form into a file or a pipe — the extension of -o selects no form — and " +
 					"-render-all writes each kind's machine form, one file per view named " +
 					"by its qualified name with :: as . and every byte unsafe in a filename " +
 					"(/, \\, :, ., %, control characters, what Windows reserves) as %XX; " +
@@ -742,7 +743,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&importView, "view", "", "The view -import-diagram imports, when the file has several pages; default the one page's view")
 	fs.BoolVar(&dryRun, "dry-run", false, "With -import-diagram, print the planned edits and a unified diff of each file they change, writing nothing")
 	fs.StringVar(&graphsSubject, "graphs", "", "Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external analysis engine is sent, to stdout or -output")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render, -render-all or -render-run writes: text, mermaid, markdown, dot, plantuml, d2, drawio, csv or tsv (csv and tsv for a table or matrix; svg and svg-animated for -render-run); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; drawio writes the graph-shaped kinds but sequence as a diagrams.net file; default from the destination for -render, each kind's machine form for -render-all")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render, -render-all or -render-run writes: text, mermaid, markdown, dot, plantuml, d2, drawio, csv or tsv (csv and tsv for a table or matrix; svg and svg-animated for -render-run); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; drawio writes the graph-shaped kinds but sequence as a diagrams.net file; default for -render: text on a terminal, else the kind's machine form whatever the -o extension; for -render-all: each kind's machine form")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
 	fs.StringVar(&renderLink, "render-link", "", "Source link template for -render, -render-all, -render-document, -render-documents and -render-run. Placeholders: {file}, {line}, {col}, {qname}, {id}; {file} is the path as loaded (use absolute paths for vscode:// or file:// links)")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")

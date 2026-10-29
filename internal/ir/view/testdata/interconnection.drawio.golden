@@ -56,8 +56,8 @@
             <mxGeometry x="16" y="82" width="100" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="e0" label="" kind="connection" view="PlantViews::loopView" link="interconnection.sysml:19">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.08333333333333333;exitPerimeter=0;entryX=0.5;entryY=0.08333333333333333;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1:n1.0" target="n3:n3.0">
+        <object id="e0" label="" fqn="Plant::Loop::supply" kind="connection" view="PlantViews::loopView" link="interconnection.sysml:19">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.0833;exitPerimeter=0;entryX=0.5;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1:n1.0" target="n3:n3.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="122" y="101"/>
@@ -67,7 +67,7 @@
           </mxCell>
         </object>
         <object id="e1" label="" kind="flow" view="PlantViews::loopView" link="interconnection.sysml:20">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n2" target="n4">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n2" target="n4">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
