@@ -173,3 +173,29 @@ func TestRedefinitionLinesAreNotContinuations(t *testing.T) {
 		t.Errorf("one-liner: got %q", got)
 	}
 }
+
+// A succession chain gets one statement per line, `then` included; the
+// `entry; then Off;` idiom and a `then` after a body stay on their line.
+func TestBreakStatementsSplitsSuccessionChains(t *testing.T) {
+	got := layout(t, "action def D { action image : A; then action detect : B; then action transmit : C; } state def S { entry; then Off; state Off; state On { entry action e; then Off; } transition Off then On; }\n")
+	want := strings.Join([]string{
+		"action def D {",
+		"    action image : A;",
+		"    then action detect : B;",
+		"    then action transmit : C;",
+		"}",
+		"state def S {",
+		"    entry; then Off;",
+		"    state Off;",
+		"    state On {",
+		"        entry action e;",
+		"        then Off;",
+		"    }",
+		"    transition Off then On;",
+		"}",
+		"",
+	}, "\n")
+	if got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+}

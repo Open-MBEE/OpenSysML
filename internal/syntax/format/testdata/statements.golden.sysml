@@ -60,3 +60,16 @@ package Elided {
         :>> massLimit = v4.mass;
     }
 }
+action def Chain {
+    action image : Capture;
+    then action detect : Find;
+    then action transmit : Send;
+}
+state def Status {
+    entry; then Off;
+    state Off;
+    state On {
+        entry action e;
+        then Off;
+    }
+}
