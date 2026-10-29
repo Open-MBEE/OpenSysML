@@ -218,6 +218,15 @@ var drawioMutations = []drawioMutation{
 				t.Errorf("relabelled %q, re-exported as %q", edited.Label, re.Label)
 			}
 		}},
+	{name: "note text", pick: drawioNote, kind: view.DrawioEditNote,
+		edit: func(cell string) string { return drawioSetValue(cell, "Checked weekly&#xa;by hand") },
+		check: func(t *testing.T, edited, re *view.DrawioCell) {
+			if re.Value != edited.Value || edited.Value != "Checked weekly\nby hand" {
+				t.Errorf("reworded to %q, re-exported as %q", edited.Value, re.Value)
+			}
+		}},
+	{name: "note emptied", pick: drawioNote, notice: "was emptied",
+		edit: func(cell string) string { return drawioSetValue(cell, "") }},
 	{name: "move", pick: drawioLeaf,
 		edit: func(cell string) string { return drawioShift(cell, "x", 77) }, kind: view.DrawioEditLayout,
 		check: func(t *testing.T, edited, re *view.DrawioCell) {
@@ -266,6 +275,16 @@ var drawioMutations = []drawioMutation{
 				t.Errorf("re-exported style = %s", re.StyleText)
 			}
 		}},
+}
+
+// drawioNote is the first note box the file draws.
+func drawioNote(f *view.DrawioFile, _ func(*view.DrawioCell) *view.DrawioImport) *view.DrawioCell {
+	return drawioFirst(f, func(c *view.DrawioCell) bool { return !c.Edge && c.FQN == "" && strings.HasPrefix(c.ID, "note") })
+}
+
+// drawioSetValue sets the cell's value attribute, XML-escaped as given.
+func drawioSetValue(cell, value string) string {
+	return regexp.MustCompile(`value="[^"]*"`).ReplaceAllLiteralString(cell, `value="`+value+`"`)
 }
 
 // drawioShift adds delta to one attribute of the cell's geometry.

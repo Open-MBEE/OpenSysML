@@ -2,8 +2,12 @@ package view
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 	"html"
 	"math"
+	"net/url"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -471,10 +475,15 @@ func (m *drawioMatcher) copyDisagrees(r drawioRename, byCell map[string]drawioRe
 // writes once a user turns formatted text on decoded back to the lines and
 // characters the writer emitted.
 func drawioLabelText(cell *DrawioCell) string {
-	if cell.Style["html"] != "1" {
-		return cell.Label
+	return drawioText(cell.Label, cell.Style)
+}
+
+// drawioText is the plain text of a cell's text, decoded when its style formats it.
+func drawioText(text string, style map[string]string) string {
+	if style["html"] != "1" {
+		return text
 	}
-	return drawioHTMLText(cell.Label)
+	return drawioHTMLText(text)
 }
 
 // drawioHTMLText decodes draw.io's formatted-text HTML to plain text: a
@@ -711,34 +720,95 @@ func (m *drawioMatcher) noteText(anchor *DrawioCell) string {
 	return anchor.Source
 }
 
-// diffNote imports a moved, resized or reworded note box.
+// diffNote imports a moved, resized or reworded note box; a note emptied of
+// its text is reported, as a Note with no text is not a Note.
 func (m *drawioMatcher) diffNote(cell, base *DrawioCell) {
 	i, err := strconv.Atoi(strings.TrimPrefix(cell.ID, "note"))
 	if err != nil || i < 0 || i >= len(m.norm.Notes) {
 		return
 	}
-	if sameBox(boxOf(cell), boxOf(base)) && cell.Value == base.Value {
+	text, box := drawioText(cell.Value, cell.Style), boxOf(cell)
+	if sameBox(box, boxOf(base)) && text == base.Value {
 		return
 	}
 	note := m.norm.Notes[i]
-	box := boxOf(cell)
-	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditNote, Cell: cell.ID, Label: cell.Value, Origin: note.Origin, Index: i,
-		Note: &semantics.Note{Text: cell.Value, X: box.X, Y: box.Y, Width: box.Width, Height: box.Height, HasSize: true}})
+	if strings.TrimSpace(text) == "" {
+		m.out.Notices = append(m.out.Notices, fmt.Sprintf("note %s (%s) was emptied; a Note with no text is not a Note, so the note is left as it was", cell.ID, strconv.Quote(firstLine(base.Value))))
+		return
+	}
+	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditNote, Cell: cell.ID, Label: text, Origin: note.Origin, Index: i,
+		Note: &semantics.Note{Text: text, X: box.X, Y: box.Y, Width: box.Width, Height: box.Height, HasSize: true}})
 }
 
-// diffPicture imports a moved or resized picture; its bytes stay the file's.
+// diffPicture imports a moved or resized picture, or one whose image was changed
+// to a file the model can locate; embedded data or a URL is reported, since no
+// Picture location names them, and the picture keeps its file.
 func (m *drawioMatcher) diffPicture(cell, base *DrawioCell) {
 	i, err := strconv.Atoi(strings.TrimPrefix(cell.ID, "picture"))
 	if err != nil || i < 0 || i >= len(m.norm.Pictures) {
 		return
 	}
-	if sameBox(boxOf(cell), boxOf(base)) && cell.Value == base.Value {
+	picture, box := m.norm.Pictures[i], boxOf(cell)
+	location, changed := picture.Location, cell.Style["image"] != base.Style["image"]
+	if changed {
+		if replaced, problem := drawioPictureLocation(cell.Style["image"], picture.Dir); problem != "" {
+			m.out.Notices = append(m.out.Notices, fmt.Sprintf("picture %s (%s): its image was changed to %s, so the picture keeps its file", cell.ID, picture.Location, problem))
+			changed = false
+		} else {
+			location = replaced
+		}
+	}
+	if !changed && sameBox(box, boxOf(base)) && cell.Value == base.Value {
 		return
 	}
-	picture := m.norm.Pictures[i]
-	box := boxOf(cell)
 	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditPicture, Cell: cell.ID, Label: cell.Value, Origin: picture.Origin, Index: i,
-		Picture: &semantics.Picture{Location: picture.Location, X: box.X, Y: box.Y, Width: box.Width, Height: box.Height, Alt: cell.Value, Above: picture.Above}})
+		Picture: &semantics.Picture{Location: location, X: box.X, Y: box.Y, Width: box.Width, Height: box.Height, Alt: cell.Value, Above: picture.Above}})
+}
+
+// drawioPictureLocation is the Picture location a draw.io image source names:
+// a path, kept relative to the view's directory dir as the Picture states it,
+// or a file URL made one. Embedded data, a URL no drawing tool reads, and a
+// file that does not read as an image are a problem, worded for a notice.
+func drawioPictureLocation(src, dir string) (location, problem string) {
+	src = strings.TrimSpace(src)
+	switch {
+	case src == "":
+		return "", "no image"
+	case strings.HasPrefix(strings.ToLower(src), "data:"):
+		return "", "embedded image data, which no Picture location names (a Picture names a file)"
+	case strings.HasPrefix(strings.ToLower(src), "file:"):
+		u, err := url.Parse(src)
+		if err != nil || u.Path == "" || (u.Host != "" && u.Host != "localhost") {
+			return "", fmt.Sprintf("%s, a file URL naming no local file", src)
+		}
+		location = filepath.FromSlash(u.Path)
+	case RemotePictureLocation(src):
+		return "", fmt.Sprintf("%s, a URL no drawing tool reads", src)
+	default:
+		location = src
+	}
+	if dir != "" && filepath.IsAbs(location) {
+		if rel, err := filepath.Rel(dir, location); err == nil && !strings.HasPrefix(rel, "..") {
+			location = filepath.ToSlash(rel)
+		}
+	}
+	data, err := os.ReadFile(Picture{Location: location, Dir: dir}.Path()) // #nosec G304 -- the user named the file in the diagram.
+	if err != nil {
+		return "", fmt.Sprintf("%q, a file that does not read", location)
+	}
+	if imagefile.ContentType(data) == "" {
+		return "", fmt.Sprintf("%q, which is not an image", location)
+	}
+	if err := CheckPicture(location, data); err != nil {
+		return "", fmt.Sprintf("%q, which is not drawn: %v", location, err)
+	}
+	return location, ""
+}
+
+// firstLine is the first line of text, for a notice naming a note.
+func firstLine(text string) string {
+	line, _, _ := strings.Cut(text, "\n")
+	return line
 }
 
 // canvas imports a changed page size as the view's Canvas.
