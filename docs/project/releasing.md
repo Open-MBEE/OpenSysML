@@ -126,7 +126,7 @@ a dry run of its own (see [Dry run on TestPyPI](#dry-run-on-testpypi)). A
 rehearsal exports a stand-in `CIRCLE_TAG`
 from `_version.py` (`scripts/rehearsal-version.sh`) before any step reads it,
 so the version bumps must already be on the branch, and the Go suite's jobs
-(`go-static`, `go-race-test`, `go-coverage`, `go-gates`) export it too and tag
+(`go-static`, `go-vulncheck`, `go-race-test`, `go-coverage`, `go-gates`) export it too and tag
 their checkout locally as that release first: a tag build reports the tag as
 the module version in every binary the toolchain builds, a branch build reports
 `(devel)`, and the suite must pass under the former. With both in place the

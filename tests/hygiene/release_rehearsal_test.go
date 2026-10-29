@@ -34,7 +34,7 @@ func TestRehearsalSuiteJobsRunUnderTheStandInTag(t *testing.T) {
 		t.Error("rehearsal-checkout-tag does not export the stand-in CIRCLE_TAG (its first step is not rehearsal-tag) before tagging the checkout")
 	}
 
-	for _, name := range []string{"go-static", "go-race-test", "go-coverage", "go-gates"} {
+	for _, name := range []string{"go-static", "go-vulncheck", "go-race-test", "go-coverage", "go-gates"} {
 		job, ok := config.Jobs[name]
 		if !ok {
 			t.Errorf("no %s job", name)

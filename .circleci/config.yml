@@ -630,6 +630,7 @@ jobs:
     resource_class: large
     steps:
       - checkout
+      - rehearsal-checkout-tag
       - go/load-cache
       - go/mod-download
       - go/save-cache
