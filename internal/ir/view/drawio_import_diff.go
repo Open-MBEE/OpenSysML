@@ -425,14 +425,16 @@ type drawioRename struct {
 
 // resolveRenames appends the renames after every other edit — the edit batch
 // applies in order, so the Layout, Route and Style edits are written against
-// the names the file still has and the rename then moves them too — keeping
-// one rename per element; copies of an element the view draws twice that
+// the names the file still has and the rename then moves them too — deepest
+// path first, so a member renamed along with its owner is still reached by the
+// path the file names it with — keeping one rename per element; copies of an element the view draws twice that
 // disagree are reported and none of them is imported.
 func (m *drawioMatcher) resolveRenames() {
 	byCell, seen := map[string]drawioRename{}, map[string]bool{}
 	for _, r := range m.renames {
 		byCell[r.base] = r
 	}
+	var kept []DrawioEdit
 	for _, r := range m.renames {
 		if declared := m.base.Cell(r.base).FQN; seen[declared] {
 			continue
@@ -443,8 +445,12 @@ func (m *drawioMatcher) resolveRenames() {
 			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: the view draws it twice and the copies disagree (%q and %q), so no rename is imported", r.edit.FQN, r.edit.NewName, other))
 			continue
 		}
-		m.out.Edits = append(m.out.Edits, r.edit)
+		kept = append(kept, r.edit)
 	}
+	sort.SliceStable(kept, func(a, b int) bool {
+		return strings.Count(kept[a].FQN, "::") > strings.Count(kept[b].FQN, "::")
+	})
+	m.out.Edits = append(m.out.Edits, kept...)
 }
 
 // copyDisagrees finds another drawn copy of a renamed element whose new name
