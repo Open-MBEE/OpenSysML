@@ -31,26 +31,50 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 }
 
 // DidChange applies content changes (full-replace or incremental) then updates
-// the workspace document.
-//
-// NOTE: real transport traffic is intercepted by (*Server).changeHandler, which
-// decodes the raw params with a pointer-valued Range so an omitted range
-// (full-document replace) is distinguishable from an incremental insertion at
-// {0,0}. This typed method is retained to satisfy protocol.Server and for
-// direct unit testing; because protocol.TextDocumentContentChangeEvent.Range is
-// a value type, this path treats a zero Range as an incremental splice at
-// [0,0) and never as a full replace.
+// the workspace document, publishing the edited document at once and the other
+// open ones once typing settles: the edit changes what they resolve.
 func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
 	if isLibraryURI(params.TextDocument.URI) {
 		return s.refuseLibraryChange(ctx, params.TextDocument.URI)
 	}
-	raw := make([]rawContentChange, len(params.ContentChanges))
-	for i, ch := range params.ContentChanges {
-		rng := ch.Range
-		raw[i] = rawContentChange{Range: &rng, RangeLength: ch.RangeLength, Text: ch.Text}
+	name := uriToName(params.TextDocument.URI)
+	doc := s.ws.Document(name)
+	var content []byte
+	if doc != nil {
+		content = append([]byte(nil), doc.Content...)
 	}
-	s.applyDidChange(ctx, uriToName(params.TextDocument.URI), raw, int(params.TextDocument.Version))
+	for _, ch := range params.ContentChanges {
+		content = applyContentChange(content, ch)
+	}
+	s.debugEdit(ctx, "", func() { s.ws.Update(name, content, int(params.TextDocument.Version)) })
+	s.publishDiagnostics(ctx, name)
+	s.queueOpenDiagnostics(ctx, name)
 	return nil
+}
+
+// applyContentChange applies a single change: a whole-document replace, or an
+// incremental splice at its range. RangeLength is intentionally unused for the
+// splice: it is a UTF-16 code-unit count (not a byte count), and the
+// authoritative delete extent is Range.
+func applyContentChange(content []byte, ch protocol.TextDocumentContentChangeEvent) []byte {
+	var rng protocol.Range
+	var text string
+	switch ch := ch.(type) {
+	case *protocol.TextDocumentContentChangeWholeDocument:
+		return []byte(ch.Text)
+	case *protocol.TextDocumentContentChangePartial:
+		rng, text = ch.Range, ch.Text
+	default:
+		return content
+	}
+	sp := rangeToSpan(content, rng)
+	start := min(sp.Offset, len(content))
+	end := min(sp.End(), len(content))
+	out := make([]byte, 0, start+len(text)+(len(content)-end))
+	out = append(out, content[:start]...)
+	out = append(out, text...)
+	out = append(out, content[end:]...)
+	return out
 }
 
 // DidClose marks the document closed, re-reading its on-disk content first so

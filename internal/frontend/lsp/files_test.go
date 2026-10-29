@@ -393,7 +393,7 @@ func TestDidCloseKeepsDocumentIndexedFromDisk(t *testing.T) {
 func TestDidCloseDropsDocumentWithNoFileOnDisk(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
 	s.client = &fakeClient{}
-	name := uri.File(filepath.Join(t.TempDir(), "untitled.sysml")).Filename()
+	name := uri.File(filepath.Join(t.TempDir(), "untitled.sysml")).FsPath()
 	openFile(t, s, name, "package P;\n")
 
 	if err := s.DidClose(context.Background(), &protocol.DidCloseTextDocumentParams{
@@ -798,8 +798,8 @@ func TestInitializeFoldersFallsBackToRoot(t *testing.T) {
 	dir := t.TempDir()
 	//lint:ignore SA1019 clients that still send only the deprecated root fields are what this test covers
 	got := initializeFolders(&protocol.InitializeParams{RootURI: uri.File(dir)})
-	if len(got) != 1 || got[0] != uri.File(dir).Filename() {
-		t.Errorf("folders = %v, want [%s]", got, uri.File(dir).Filename())
+	if len(got) != 1 || got[0] != uri.File(dir).FsPath() {
+		t.Errorf("folders = %v, want [%s]", got, uri.File(dir).FsPath())
 	}
 	//lint:ignore SA1019 see above
 	got = initializeFolders(&protocol.InitializeParams{RootPath: dir})

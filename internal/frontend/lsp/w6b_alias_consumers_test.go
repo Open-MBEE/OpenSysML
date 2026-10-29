@@ -20,7 +20,7 @@ const w6bAliasSrc = "package ShapeItems {\n\tpart def Cube {\n\t\tattribute leng
 func TestW6BDefinitionThroughAliasLandsOnTheTarget(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/w6b_alias_def.sysml").Filename()
+	name := uri.File("/tmp/w6b_alias_def.sysml").FsPath()
 	ws.Open(name, []byte(w6bAliasSrc), 1)
 
 	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
@@ -46,7 +46,7 @@ func TestW6BDefinitionThroughAliasLandsOnTheTarget(t *testing.T) {
 func TestW6BHoverOnTheAliasDeclaration(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/w6b_alias_hover.sysml").Filename()
+	name := uri.File("/tmp/w6b_alias_hover.sysml").FsPath()
 	ws.Open(name, []byte(w6bAliasSrc), 1)
 
 	res, err := s.Hover(context.Background(), &protocol.HoverParams{
@@ -67,7 +67,7 @@ func TestW6BHoverOnTheAliasDeclaration(t *testing.T) {
 func TestW6BCompletionStillOffersTheAliasName(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/w6b_alias_completion.sysml").Filename()
+	name := uri.File("/tmp/w6b_alias_completion.sysml").FsPath()
 	src := "package ShapeItems {\n\tpart def Cube;\n\talias Box for Cube;\n\tpart p : \n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -99,7 +99,7 @@ func TestW6BCompletionStillOffersTheAliasName(t *testing.T) {
 func TestW6BMembersThroughAliasAreTheTargets(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/w6b_alias_members.sysml").Filename()
+	name := uri.File("/tmp/w6b_alias_members.sysml").FsPath()
 	src := "package ShapeItems {\n\tpart def Cube {\n\t\tattribute length;\n\t}\n" +
 		"\talias Box for Cube;\n}\npackage Uses {\n\tpart b : ShapeItems::Box::"
 	ws.Open(name, []byte(src), 1)

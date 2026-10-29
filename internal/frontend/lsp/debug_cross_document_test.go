@@ -80,7 +80,7 @@ func TestDebugTargetDeclaredInAnotherDocument(t *testing.T) {
 	_, err := s.DebugStart(&debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: viewsURI}, View: "MachineViews::opsView", Target: "Machines::Ops",
 	})
-	if !errors.Is(err, ErrDebugTarget) || !strings.Contains(err.Error(), machinesURI.Filename()+", "+spareURI.Filename()) {
+	if !errors.Is(err, ErrDebugTarget) || !strings.Contains(err.Error(), machinesURI.FsPath()+", "+spareURI.FsPath()) {
 		t.Fatalf("start of an ambiguous target: err = %v, want %v naming both documents", err, ErrDebugTarget)
 	}
 	var wire *jsonrpc2.Error

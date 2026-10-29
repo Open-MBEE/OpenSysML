@@ -63,7 +63,7 @@ func TestContextualWordsRemainUsableAsNames(t *testing.T) {
 }
 `
 	ws := model.NewWorkspace()
-	name := uri.File("/tmp/f9_names.sysml").Filename()
+	name := uri.File("/tmp/f9_names.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 	_, diags, ok := ws.AnalyzedContent(name)
 	if !ok {
@@ -85,7 +85,7 @@ func f9CompletionAt(t *testing.T, path, src string) map[string]protocol.Completi
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File(path).Filename()
+	name := uri.File(path).FsPath()
 	ws.Open(name, []byte(src), 1)
 
 	list, err := s.Completion(context.Background(), &protocol.CompletionParams{

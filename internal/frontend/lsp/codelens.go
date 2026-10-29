@@ -2,10 +2,10 @@ package lsp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -23,18 +23,18 @@ const showReferencesCommand = "editor.action.showReferences"
 // runElementArgs names the element a Run or Evaluate lens runs and what it is:
 // action, state, calc, constraint or requirement.
 type runElementArgs struct {
-	URI     protocol.DocumentURI `json:"uri"`
-	Element string               `json:"element"`
-	Kind    string               `json:"kind"`
+	URI     uri.URI `json:"uri"`
+	Element string  `json:"element"`
+	Kind    string  `json:"kind"`
 }
 
 // codeLensData is what a reference-count lens carries to its resolve request:
 // the definition it counts the references of, told apart from another
 // declaration of the same name in the document by where its name is written.
 type codeLensData struct {
-	URI     protocol.DocumentURI `json:"uri"`
-	Element string               `json:"element"`
-	Name    int                  `json:"name"`
+	URI     uri.URI `json:"uri"`
+	Element string  `json:"element"`
+	Name    int     `json:"name"`
 }
 
 // CodeLens answers the lenses of a document: a reference count on each
@@ -51,8 +51,9 @@ func (s *Server) CodeLens(ctx context.Context, params *protocol.CodeLensParams) 
 		return nil, nil
 	}
 	pos := positionsOf(doc)
-	uri := params.TextDocument.URI
+	docURI := params.TextDocument.URI
 	out := []protocol.CodeLens{}
+	var encodeErr error
 	seen := map[*symbols.Symbol]bool{}
 	var visit func(scope *symbols.Scope)
 	visit = func(scope *symbols.Scope) {
@@ -67,11 +68,21 @@ func (s *Server) CodeLens(ctx context.Context, params *protocol.CodeLensParams) 
 			}
 			rng := pos.rangeOf(sym.NameSpan)
 			if sym.DeclaresDefinition() {
-				out = append(out, protocol.CodeLens{Range: rng, Data: codeLensData{URI: uri, Element: fqn, Name: sym.NameSpan.Offset}})
+				data, err := lspAny(codeLensData{URI: docURI, Element: fqn, Name: sym.NameSpan.Offset})
+				if err != nil {
+					encodeErr = err
+					return
+				}
+				out = append(out, protocol.CodeLens{Range: rng, Data: data})
 			}
 			// `sysml` runs an element by name, so a name declared twice runs nothing.
 			if kind, ok := executableKind(sym); ok && len(s.ws.LookupQualified(fqn)) == 1 {
-				out = append(out, protocol.CodeLens{Range: rng, Command: runCommand(uri, fqn, sym.Name, kind)})
+				command, err := runCommand(docURI, fqn, sym.Name, kind)
+				if err != nil {
+					encodeErr = err
+					return
+				}
+				out = append(out, protocol.CodeLens{Range: rng, Command: command})
 			}
 		}
 		for _, child := range scope.Children() {
@@ -79,6 +90,9 @@ func (s *Server) CodeLens(ctx context.Context, params *protocol.CodeLensParams) 
 		}
 	}
 	visit(doc.Scope)
+	if encodeErr != nil {
+		return nil, encodeErr
+	}
 	return out, nil
 }
 
@@ -112,30 +126,52 @@ func (s *Server) CodeLensResolve(ctx context.Context, lens *protocol.CodeLens) (
 	if len(locations) == 1 {
 		title = "1 reference"
 	}
+	arguments, err := lspAnys(data.URI, lens.Range.Start, locations)
+	if err != nil {
+		return nil, err
+	}
 	resolved := *lens
-	resolved.Command = &protocol.Command{
+	resolved.Command = protocol.Command{
 		Title:     title,
 		Command:   showReferencesCommand,
-		Arguments: []interface{}{data.URI, lens.Range.Start, locations},
+		Arguments: arguments,
 	}
 	return &resolved, nil
 }
 
-// lensData reads the data a CodeLens request attached, which arrives decoded
-// into a generic map.
+// lensData reads the data a CodeLens request attached, which arrives as the
+// JSON the lens was sent with.
 func lensData(lens *protocol.CodeLens) (codeLensData, bool) {
 	var data codeLensData
-	if lens == nil || lens.Data == nil {
+	if lens == nil || len(lens.Data) == 0 {
 		return data, false
 	}
-	raw, err := json.Marshal(lens.Data)
-	if err != nil {
-		return data, false
-	}
-	if err := json.Unmarshal(raw, &data); err != nil || data.Element == "" {
+	if err := protocol.Unmarshal(lens.Data, &data); err != nil || data.Element == "" {
 		return data, false
 	}
 	return data, true
+}
+
+// lspAny encodes a value as the opaque JSON a command argument or lens data is.
+func lspAny(v any) (protocol.LSPAny, error) {
+	raw, err := protocol.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return protocol.LSPAny(raw), nil
+}
+
+// lspAnys encodes each value as lspAny does.
+func lspAnys(values ...any) ([]protocol.LSPAny, error) {
+	out := make([]protocol.LSPAny, len(values))
+	for i, v := range values {
+		raw, err := lspAny(v)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = raw
+	}
+	return out, nil
 }
 
 // definitionNamed is the definition the named document declares under fqn with
@@ -150,16 +186,20 @@ func (s *Server) definitionNamed(doc, fqn string, nameAt int) *symbols.Symbol {
 }
 
 // runCommand is the lens command running or evaluating the named element.
-func runCommand(uri protocol.DocumentURI, fqn, name, kind string) *protocol.Command {
+func runCommand(docURI uri.URI, fqn, name, kind string) (protocol.Command, error) {
 	verb := "Evaluate"
 	if kind == "action" || kind == "state" {
 		verb = "Run"
 	}
-	return &protocol.Command{
+	arguments, err := lspAnys(runElementArgs{URI: docURI, Element: fqn, Kind: kind})
+	if err != nil {
+		return protocol.Command{}, err
+	}
+	return protocol.Command{
 		Title:     verb + " " + name,
 		Command:   runElementCommand,
-		Arguments: []interface{}{runElementArgs{URI: uri, Element: fqn, Kind: kind}},
-	}
+		Arguments: arguments,
+	}, nil
 }
 
 // executableKind names what a Run or Evaluate lens would run sym as, false for

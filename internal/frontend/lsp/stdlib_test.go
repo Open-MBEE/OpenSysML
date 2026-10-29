@@ -62,8 +62,8 @@ func TestLibraryURIRoundTrip(t *testing.T) {
 	if isLibraryURI(fileURI) {
 		t.Error("isLibraryURI = true for a file URI")
 	}
-	if got := uriToName(fileURI); got != fileURI.Filename() {
-		t.Errorf("uriToName(file) = %q, want %q", got, fileURI.Filename())
+	if got := uriToName(fileURI); got != fileURI.FsPath() {
+		t.Errorf("uriToName(file) = %q, want %q", got, fileURI.FsPath())
 	}
 
 	for _, bad := range []string{
@@ -85,7 +85,7 @@ func TestLibraryURIRoundTrip(t *testing.T) {
 func TestDefinitionOfLibrarySymbolOpensVirtualDocument(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/stdlib_def.sysml").Filename()
+	name := uri.File("/tmp/stdlib_def.sysml").FsPath()
 	src := "package P { attribute x : ScalarValues::Integer; }\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -202,7 +202,7 @@ func TestRequestsAgainstLibraryURI(t *testing.T) {
 func TestReferencesLocateLibraryDeclaration(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/stdlib_refs.sysml").Filename()
+	name := uri.File("/tmp/stdlib_refs.sysml").FsPath()
 	src := "package P { attribute x : ScalarValues::Integer; attribute y : ScalarValues::Integer; }\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -337,7 +337,7 @@ func TestLibraryLocationsUseUTF16Positions(t *testing.T) {
 	}
 	ws := model.NewWorkspaceWithIndex(idx, model.WithLibrarySource(src))
 	s := NewServer(ws)
-	name := uri.File("/tmp/utf16.sysml").Filename()
+	name := uri.File("/tmp/utf16.sysml").FsPath()
 	text := "package P { attribute x : Fake::Thing; }\n"
 	ws.Open(name, []byte(text), 1)
 

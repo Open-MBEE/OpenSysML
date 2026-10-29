@@ -37,7 +37,7 @@ func openMetadataBodyDoc(t *testing.T) (*Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/metabody.sysml").Filename()
+	name := uri.File("/tmp/metabody.sysml").FsPath()
 	ws.Open(name, []byte(metadataBodySrc), 1)
 	return s, name
 }
@@ -187,7 +187,7 @@ func TestMetadataBodyUnresolvedMetaclassDegradesQuietly(t *testing.T) {
 func TestMetadataBodyNestedAnnotation(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/metanest.sysml").Filename()
+	name := uri.File("/tmp/metanest.sysml").FsPath()
 	src := `metadata def Tag {
 	attribute label;
 }
@@ -246,7 +246,7 @@ func TestMetadataBodyNestedDeclarationsFollowTheRedefinedFeature(t *testing.T) {
 	for file, src := range map[string]string{"/tmp/metanest.kerml": kerml, "/tmp/metanest.sysml": sysml} {
 		ws := model.NewWorkspace()
 		s := NewServer(ws)
-		name := uri.File(file).Filename()
+		name := uri.File(file).FsPath()
 		ws.Open(name, []byte(src), 1)
 		keyword := "feature "
 		if strings.HasSuffix(file, ".sysml") {

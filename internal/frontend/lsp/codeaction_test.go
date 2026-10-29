@@ -15,7 +15,7 @@ func actionsFor(t *testing.T, file, src string, rng protocol.Range) []protocol.C
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File(file).Filename()
+	name := uri.File(file).FsPath()
 	ws.Open(name, []byte(src), 1)
 	acts, err := s.CodeAction(context.Background(), &protocol.CodeActionParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
@@ -33,8 +33,8 @@ var wholeFile = protocol.Range{End: protocol.Position{Line: 100}}
 // edit returns the single text edit of an action, or fails.
 func edit(t *testing.T, act protocol.CodeAction, file string) protocol.TextEdit {
 	t.Helper()
-	if act.Kind != protocol.QuickFix {
-		t.Errorf("action %q kind = %q, want %q", act.Title, act.Kind, protocol.QuickFix)
+	if act.Kind != protocol.CodeActionKindQuickFix {
+		t.Errorf("action %q kind = %q, want %q", act.Title, act.Kind, protocol.CodeActionKindQuickFix)
 	}
 	if len(act.Diagnostics) != 1 {
 		t.Errorf("action %q carries %d diagnostics, want the one it fixes", act.Title, len(act.Diagnostics))
@@ -159,14 +159,14 @@ func TestCodeActionFiltersByRange(t *testing.T) {
 func TestCodeActionHonoursOnlyFilter(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/act_only.sysml").Filename()
+	name := uri.File("/tmp/act_only.sysml").FsPath()
 	ws.Open(name, []byte("package P {\n    part def Wheel;\n    part w : Wheeel;\n}\n"), 1)
 	for _, tc := range []struct {
 		only []protocol.CodeActionKind
 		want int
 	}{
 		{nil, 1},
-		{[]protocol.CodeActionKind{protocol.QuickFix}, 1},
+		{[]protocol.CodeActionKind{protocol.CodeActionKindQuickFix}, 1},
 		{[]protocol.CodeActionKind{protocol.Refactor, protocol.SourceOrganizeImports}, 0},
 	} {
 		acts, err := s.CodeAction(context.Background(), &protocol.CodeActionParams{

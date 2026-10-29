@@ -7,6 +7,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
@@ -94,7 +95,7 @@ func registerRendering(s *mcp.Server, h *Host) {
 		res := h.Server.Documents()
 		var b strings.Builder
 		for _, d := range res.Documents {
-			fmt.Fprintf(&b, "%s in %s\n", d.Name, h.display(protocol.DocumentURI(d.URI)))
+			fmt.Fprintf(&b, "%s in %s\n", d.Name, h.display(uri.URI(d.URI)))
 		}
 		if b.Len() == 0 {
 			b.WriteString("no document definitions")

@@ -15,9 +15,9 @@ import (
 func TestCompletionIncludesMembersAndKeywords(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	// Use an absolute name so uri.File(name).Filename() round-trips to the
+	// Use an absolute name so uri.File(name).FsPath() round-trips to the
 	// same key the document was opened under.
-	name := uri.File("/tmp/c.sysml").Filename()
+	name := uri.File("/tmp/c.sysml").FsPath()
 	src := "package Alpha { namespace Nested; }\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -112,7 +112,7 @@ func completionAtFor(t *testing.T, src, marker string, markdown bool) map[string
 	if markdown {
 		initMarkdownCompletion(t, s)
 	}
-	name := uri.File("/tmp/completion.sysml").Filename()
+	name := uri.File("/tmp/completion.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 
 	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
@@ -233,10 +233,10 @@ func TestCompletionUnresolvedPathOffersNothing(t *testing.T) {
 func TestCompletionHidesAnotherDocumentsPrivateImport(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	importer := uri.File("/tmp/importer.sysml").Filename()
+	importer := uri.File("/tmp/importer.sysml").FsPath()
 	ws.Open(importer, []byte("private import ScalarValues::*;\npackage Importer;\n"), 1)
 
-	other := uri.File("/tmp/other.sysml").Filename()
+	other := uri.File("/tmp/other.sysml").FsPath()
 	src := "package Other {\n\t\n}\n"
 	ws.Open(other, []byte(src), 1)
 
@@ -261,7 +261,7 @@ func TestCompletionHidesAnotherDocumentsPrivateImport(t *testing.T) {
 func TestCompletionOffersTheDocumentsOwnPrivateImport(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/importer.sysml").Filename()
+	name := uri.File("/tmp/importer.sysml").FsPath()
 	src := "private import ScalarValues::*;\npackage Importer {\n\t\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -389,7 +389,7 @@ func initMarkdownCompletion(t *testing.T, s *Server) {
 			TextDocument: &protocol.TextDocumentClientCapabilities{
 				Completion: &protocol.CompletionTextDocumentClientCapabilities{
 					CompletionItem: &protocol.CompletionTextDocumentClientCapabilitiesItem{
-						DocumentationFormat: []protocol.MarkupKind{protocol.Markdown, protocol.PlainText},
+						DocumentationFormat: []protocol.MarkupKind{protocol.MarkupKindMarkdown, protocol.MarkupKindPlainText},
 					},
 				},
 			},
@@ -424,8 +424,8 @@ func TestCompletionDocumentationIsProseWhenTheClientRendersMarkdown(t *testing.T
 	if !ok {
 		t.Fatalf("'Wheel' documentation = %#v, want MarkupContent", wheel.Documentation)
 	}
-	if doc.Kind != protocol.Markdown {
-		t.Errorf("'Wheel' documentation kind = %q, want %q", doc.Kind, protocol.Markdown)
+	if doc.Kind != protocol.MarkupKindMarkdown {
+		t.Errorf("'Wheel' documentation kind = %q, want %q", doc.Kind, protocol.MarkupKindMarkdown)
 	}
 	if doc.Value != "A wheel.\n\nLoad-bearing." {
 		t.Errorf("'Wheel' documentation = %q, want two undelimited paragraphs", doc.Value)
@@ -445,8 +445,8 @@ func TestCompletionDocumentationIsProseWhenTheClientRendersMarkdown(t *testing.T
 func TestCompletionDocumentationStaysPlainTextWithoutMarkdown(t *testing.T) {
 	items := completionAtFor(t, documentedSrc, "part v : Vehicle;", false)
 	doc, _ := items["Wheel"].Documentation.(protocol.MarkupContent)
-	if doc.Kind != protocol.PlainText {
-		t.Errorf("documentation kind = %q, want %q", doc.Kind, protocol.PlainText)
+	if doc.Kind != protocol.MarkupKindPlainText {
+		t.Errorf("documentation kind = %q, want %q", doc.Kind, protocol.MarkupKindPlainText)
 	}
 	if !strings.Contains(doc.Value, "A wheel.") {
 		t.Errorf("documentation = %q, want the declaration's comment", doc.Value)
@@ -458,7 +458,7 @@ func TestCompletionDocumentationStaysPlainTextWithoutMarkdown(t *testing.T) {
 func TestCompletionOmitsHiddenRootImports(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/hidden.sysml").Filename()
+	name := uri.File("/tmp/hidden.sysml").FsPath()
 	src := "package Left { part def Engine; }\npackage Right { part def Engine; }\nprivate import Left::*;\nprivate import Right::*;\npart e : Eng"
 	ws.Open(name, []byte(src), 1)
 

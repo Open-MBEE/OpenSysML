@@ -28,7 +28,7 @@ func TestDefinitionFlowPayloadDeclaration(t *testing.T) {
 }`
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/flow_payload.sysml").Filename()
+	name := uri.File("/tmp/flow_payload.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 
 	firstDecl := strings.Index(src, "of fuelCommand") + len("of ")

@@ -26,7 +26,7 @@ func TestDidOpenRegistersDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DidOpen error: %v", err)
 	}
-	doc := s.ws.Document(u.Filename())
+	doc := s.ws.Document(u.FsPath())
 	if doc == nil {
 		t.Fatal("document not registered")
 	}
@@ -76,7 +76,7 @@ func TestDidChangeFullReplace(t *testing.T) {
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"text":"package Q;\n"}`),
 	})
-	if got := string(s.ws.Document(u.Filename()).Content); got != "package Q;\n" {
+	if got := string(s.ws.Document(u.FsPath()).Content); got != "package Q;\n" {
 		t.Errorf("content = %q, want %q", got, "package Q;\n")
 	}
 }
@@ -89,7 +89,7 @@ func TestDidChangeIncremental(t *testing.T) {
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"range":{"start":{"line":0,"character":8},"end":{"line":0,"character":9}},"text":"Hello"}`),
 	})
-	if got := string(s.ws.Document(u.Filename()).Content); got != "package Hello;\n" {
+	if got := string(s.ws.Document(u.FsPath()).Content); got != "package Hello;\n" {
 		t.Errorf("content = %q, want %q", got, "package Hello;\n")
 	}
 }
@@ -104,7 +104,7 @@ func TestDidChangeIncrementalInsertAtStart(t *testing.T) {
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"text":"X"}`),
 	})
-	if got := string(s.ws.Document(u.Filename()).Content); got != "Xpackage P;\n" {
+	if got := string(s.ws.Document(u.FsPath()).Content); got != "Xpackage P;\n" {
 		t.Errorf("content = %q, want %q", got, "Xpackage P;\n")
 	}
 }
@@ -119,7 +119,7 @@ func TestDidChangeMultiChangeStartingAtOffsetZero(t *testing.T) {
 		json.RawMessage(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"text":"X"}`),
 		json.RawMessage(`{"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":4}},"text":"Y"}`),
 	})
-	if got := string(s.ws.Document(u.Filename()).Content); got != "XabcY\n" {
+	if got := string(s.ws.Document(u.FsPath()).Content); got != "XabcY\n" {
 		t.Errorf("content = %q, want %q", got, "XabcY\n")
 	}
 }
@@ -134,7 +134,7 @@ func TestDidChangeIncrementalAstral(t *testing.T) {
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"range":{"start":{"line":0,"character":2},"end":{"line":0,"character":3}},"text":"Z"}`),
 	})
-	if got := string(s.ws.Document(u.Filename()).Content); got != "😀Zb\n" {
+	if got := string(s.ws.Document(u.FsPath()).Content); got != "😀Zb\n" {
 		t.Errorf("content = %q, want %q", got, "😀Zb\n")
 	}
 }
@@ -149,7 +149,7 @@ func TestDidCloseRemovesOpenState(t *testing.T) {
 		t.Fatalf("DidClose error: %v", err)
 	}
 	// With no on-disk backing, closing removes the document entirely.
-	if doc := s.ws.Document(u.Filename()); doc != nil {
+	if doc := s.ws.Document(u.FsPath()); doc != nil {
 		t.Errorf("document still present after close: %q", doc.Content)
 	}
 }

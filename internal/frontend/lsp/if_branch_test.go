@@ -37,7 +37,7 @@ const ifBranchSource = `package P {
 func TestHoverBranchLocalDeclaration(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/if_branch_hover.sysml").Filename()
+	name := uri.File("/tmp/if_branch_hover.sysml").FsPath()
 	ws.Open(name, []byte(ifBranchSource), 1)
 
 	off := strings.Index(ifBranchSource, "brake : Step")
@@ -67,7 +67,7 @@ func TestHoverBranchLocalDeclaration(t *testing.T) {
 func TestDefinitionBranchLocalDeclaration(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/if_branch_def.sysml").Filename()
+	name := uri.File("/tmp/if_branch_def.sysml").FsPath()
 	ws.Open(name, []byte(ifBranchSource), 1)
 
 	definitionAt := func(off int) []protocol.Location {

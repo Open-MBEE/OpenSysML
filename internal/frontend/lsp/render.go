@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"path/filepath"
@@ -350,48 +349,36 @@ type renderChangedParams struct {
 // renderHandler dispatches the custom render methods, which the protocol library
 // does not know, and passes everything else on.
 func (s *Server) renderHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
-	return func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
 		switch req.Method() {
 		case MethodRender:
-			var params RenderParams
-			if err := json.Unmarshal(req.Params(), &params); err != nil {
-				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
-			}
-			result, err := s.Render(&params)
+			params, err := decodeParams[RenderParams](req)
 			if err != nil {
-				return reply(ctx, nil, err)
+				return nil, err
 			}
-			return reply(ctx, result, nil)
+			return s.Render(params)
 		case MethodViews:
-			var params ViewsParams
-			if err := json.Unmarshal(req.Params(), &params); err != nil {
-				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
+			params, err := decodeParams[ViewsParams](req)
+			if err != nil {
+				return nil, err
 			}
-			return reply(ctx, s.Views(&params), nil)
+			return s.Views(params), nil
 		case MethodRelatedElements:
-			var params RelatedElementsParams
-			if err := json.Unmarshal(req.Params(), &params); err != nil {
-				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
-			}
-			res, err := s.RelatedElements(&params)
+			params, err := decodeParams[RelatedElementsParams](req)
 			if err != nil {
-				return reply(ctx, nil, err)
+				return nil, err
 			}
-			return reply(ctx, res, nil)
+			return s.RelatedElements(params)
 		case MethodDocuments:
-			return reply(ctx, s.Documents(), nil)
+			return s.Documents(), nil
 		case MethodRenderDocument:
-			var params RenderDocumentParams
-			if err := json.Unmarshal(req.Params(), &params); err != nil {
-				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
-			}
-			result, err := s.RenderDocument(&params)
+			params, err := decodeParams[RenderDocumentParams](req)
 			if err != nil {
-				return reply(ctx, nil, err)
+				return nil, err
 			}
-			return reply(ctx, result, nil)
+			return s.RenderDocument(params)
 		}
-		return inner(ctx, reply, req)
+		return inner(ctx, req)
 	}
 }
 
@@ -795,8 +782,8 @@ func (s *Server) queueRenderChanged(ctx context.Context, name string) {
 		s.notifyRenderChanged(ctx, name)
 		return
 	}
-	// The notification outlives the request whose context is cancelled on return.
-	ctx = context.WithoutCancel(ctx)
+	// The notification outlives the request, whose context is recycled on return.
+	ctx = jsonrpc2.DetachContext(ctx)
 	s.renderNotify.Trigger(name, func() { s.notifyRenderChanged(ctx, name) })
 }
 

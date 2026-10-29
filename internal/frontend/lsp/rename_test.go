@@ -86,7 +86,7 @@ func applyEdits(t *testing.T, content string, edits []protocol.TextEdit) string 
 
 func openRenameDoc(t *testing.T, ws *model.Workspace, path, src string) string {
 	t.Helper()
-	name := uri.File(path).Filename()
+	name := uri.File(path).FsPath()
 	ws.Open(name, []byte(src), 1)
 	return name
 }

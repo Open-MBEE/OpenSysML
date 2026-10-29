@@ -8,12 +8,13 @@ import (
 	"testing"
 
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
-func relatedElements(t *testing.T, s *Server, docURI protocol.DocumentURI, element string) (*RelatedElementsResult, error) {
+func relatedElements(t *testing.T, s *Server, docURI uri.URI, element string) (*RelatedElementsResult, error) {
 	t.Helper()
 	raw, err := call(t, s, MethodRelatedElements, &RelatedElementsParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},

@@ -54,7 +54,7 @@ func TestCompletionOnStateOffersIsActiveOnlyWithTheImport(t *testing.T) {
 func TestHoverOnIsActiveShowsTheBooleanFeature(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/state_activity.sysml").Filename()
+	name := uri.File("/tmp/state_activity.sysml").FsPath()
 	ws.Open(name, []byte(stateActivitySrc), 1)
 
 	off := strings.Index(stateActivitySrc, "fill.isActive") + len("fill.")

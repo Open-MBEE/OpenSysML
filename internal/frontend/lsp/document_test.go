@@ -64,7 +64,7 @@ func openDocumentModel(t *testing.T) (*model.Workspace, *Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/document.sysml").Filename()
+	name := uri.File("/tmp/document.sysml").FsPath()
 	ws.Open(name, []byte(documentModel), 1)
 	return ws, s, name
 }
@@ -267,8 +267,8 @@ func openReportModel(t *testing.T) (*Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	ws.Open(uri.File("/tmp/lib.sysml").Filename(), []byte(queryLibModel), 1)
-	name := uri.File("/tmp/report.sysml").Filename()
+	ws.Open(uri.File("/tmp/lib.sysml").FsPath(), []byte(queryLibModel), 1)
+	name := uri.File("/tmp/report.sysml").FsPath()
 	ws.Open(name, []byte(reportModel), 1)
 	return s, name
 }
@@ -504,7 +504,7 @@ const diagramDocumentModel = `package Imaging {
 // Mermaid block carries its theme and the cluster-title margin it needs.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
-	ws.Open(uri.File("/tmp/imaging.sysml").Filename(), []byte(diagramDocumentModel), 1)
+	ws.Open(uri.File("/tmp/imaging.sysml").FsPath(), []byte(diagramDocumentModel), 1)
 	mermaidHeader := "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n"
 	cases := map[string]struct{ fence, header string }{
 		"":         {"```mermaid\n", mermaidHeader},
@@ -551,7 +551,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 
 func TestRenderDocumentDiagramSourceLinks(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
-	name := uri.File("/tmp/imaging.sysml").Filename()
+	name := uri.File("/tmp/imaging.sysml").FsPath()
 	ws.Open(name, []byte(diagramDocumentModel), 1)
 	template := "https://example.test/src/{file}#L{line}:{col}"
 	raw, err := call(t, s, MethodRenderDocument, &RenderDocumentParams{

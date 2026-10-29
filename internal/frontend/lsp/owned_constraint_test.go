@@ -26,7 +26,7 @@ func openOwnedConstraintDoc(t *testing.T) (*Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/owned_constraint.sysml").Filename()
+	name := uri.File("/tmp/owned_constraint.sysml").FsPath()
 	ws.Open(name, []byte(ownedConstraintSrc), 1)
 	return s, name
 }

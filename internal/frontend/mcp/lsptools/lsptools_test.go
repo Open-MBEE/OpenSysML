@@ -799,7 +799,7 @@ func TestAWorkspaceEditOutsideTheRootIsRefused(t *testing.T) {
 	outside := filepath.Join(filepath.Dir(f.root), "outside-edit.sysml")
 	write(t, filepath.Dir(f.root), "outside-edit.sysml", "package Outside;\n")
 	t.Cleanup(func() { _ = os.Remove(outside) })
-	edit := &protocol.WorkspaceEdit{Changes: map[protocol.DocumentURI][]protocol.TextEdit{
+	edit := &protocol.WorkspaceEdit{Changes: map[uri.URI][]protocol.TextEdit{
 		uri.File(outside): {{Range: protocol.Range{}, NewText: "x"}},
 	}}
 	for _, apply := range []bool{false, true} {

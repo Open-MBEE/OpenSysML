@@ -1178,7 +1178,7 @@ func TestSelfModelLanguageServerMatchesImplementation(t *testing.T) {
 	quickFixes := false
 	if codeActions != nil {
 		for _, kind := range codeActions.CodeActionKinds {
-			quickFixes = quickFixes || kind == protocol.QuickFix
+			quickFixes = quickFixes || kind == protocol.CodeActionKindQuickFix
 		}
 	}
 	experimental, _ := caps.Experimental.(map[string]any)
@@ -1186,7 +1186,7 @@ func TestSelfModelLanguageServerMatchesImplementation(t *testing.T) {
 	identityActions := false
 	if codeActions != nil {
 		for _, kind := range codeActions.CodeActionKinds {
-			identityActions = identityActions || kind == protocol.RefactorRewrite
+			identityActions = identityActions || kind == protocol.CodeActionKindRefactorRewrite
 		}
 	}
 	forms, _ := experimental[lsp.RenderFormsCapability].([]string)

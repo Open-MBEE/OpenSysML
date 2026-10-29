@@ -49,7 +49,7 @@ func definitionOf(t *testing.T, s *Server, name, src, needle string) []protocol.
 func TestDefinitionFollowsSelectedOverload(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/overload_nav.sysml").Filename()
+	name := uri.File("/tmp/overload_nav.sysml").FsPath()
 	ws.Open(name, []byte(overloadNavigationSrc), 1)
 
 	lines := strings.Split(overloadNavigationSrc, "\n")
@@ -87,7 +87,7 @@ func TestDefinitionFollowsSelectedOverload(t *testing.T) {
 func TestReferencesDistinguishOverloads(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/overload_refs.sysml").Filename()
+	name := uri.File("/tmp/overload_refs.sysml").FsPath()
 	ws.Open(name, []byte(overloadNavigationSrc), 1)
 
 	src := overloadNavigationSrc
@@ -116,13 +116,13 @@ func TestReferencesDistinguishOverloads(t *testing.T) {
 func TestDefinitionReachesImportedLibraryFunction(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/unimported_nav.sysml").Filename()
+	name := uri.File("/tmp/unimported_nav.sysml").FsPath()
 	ws.Open(name, []byte(unimportedLibraryCallSrc), 1)
 	if locs := definitionOf(t, s, name, unimportedLibraryCallSrc, "sqrt(4.0)"); len(locs) != 0 {
 		t.Fatalf("unimported call: locations = %v, want none", locs)
 	}
 
-	name = uri.File("/tmp/imported_nav.sysml").Filename()
+	name = uri.File("/tmp/imported_nav.sysml").FsPath()
 	ws.Open(name, []byte(importedLibraryCallSrc), 1)
 	locs := definitionOf(t, s, name, importedLibraryCallSrc, "sqrt(4.0)")
 	if len(locs) != 1 {
@@ -155,7 +155,7 @@ func TestDefinitionQualifiedInheritedHidesImported(t *testing.T) {
 `
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/qualified_hidden_nav.sysml").Filename()
+	name := uri.File("/tmp/qualified_hidden_nav.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 
 	want := uint32(strings.Index(src, "in x : String"))

@@ -1270,7 +1270,7 @@ func TestRenderSnapshotsOneDocumentRevision(t *testing.T) {
 	// revisions and a scope of the wrong revision would still find a symbol.
 	revisions := []string{"package P {\n    part def Alpha;\n}\n", "package P {\n    part def Bravo;\n}\n"}
 	s, docURI := renderServer(t, "flip.sysml", revisions[0])
-	name := docURI.Filename()
+	name := docURI.FsPath()
 
 	stop := make(chan struct{})
 	done := make(chan struct{})

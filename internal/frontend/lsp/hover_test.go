@@ -15,7 +15,7 @@ import (
 func TestHoverShowsKindAndName(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/h.sysml").Filename()
+	name := uri.File("/tmp/h.sysml").FsPath()
 	src := "package P { namespace N; }"
 	ws.Open(name, []byte(src), 1)
 
@@ -43,7 +43,7 @@ func TestHoverShowsKindAndName(t *testing.T) {
 func TestHoverIncludesDocComment(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/hd.sysml").Filename()
+	name := uri.File("/tmp/hd.sysml").FsPath()
 	src := "// hello docs\npackage P { namespace N; }"
 	ws.Open(name, []byte(src), 1)
 
@@ -75,7 +75,7 @@ func initMarkdownHover(t *testing.T, s *Server) {
 		Capabilities: protocol.ClientCapabilities{
 			TextDocument: &protocol.TextDocumentClientCapabilities{
 				Hover: &protocol.HoverTextDocumentClientCapabilities{
-					ContentFormat: []protocol.MarkupKind{protocol.Markdown, protocol.PlainText},
+					ContentFormat: []protocol.MarkupKind{protocol.MarkupKindMarkdown, protocol.MarkupKindPlainText},
 				},
 			},
 		},
@@ -107,7 +107,7 @@ func hoverInSrc(t *testing.T, s *Server, name, src string, off int) *protocol.Ho
 func TestHoverKerMLBinaryConnectorFirstToken(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/hover_first_end.kerml").Filename()
+	name := uri.File("/tmp/hover_first_end.kerml").FsPath()
 	src := "package P {\n\tclass V {\n\t\tfeature eng;\n\t\tfeature t;\n\t\tconnector eng to t;\n\t\tconnector a ::> eng to t;\n\t\tconnector c from eng to t;\n\t}\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -128,7 +128,7 @@ func TestHoverKerMLBinaryConnectorFirstToken(t *testing.T) {
 func TestHoverKerMLDisjoiningEnds(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/hover_disjoining.kerml").Filename()
+	name := uri.File("/tmp/hover_disjoining.kerml").FsPath()
 	src := "package P {\n\tclassifier A;\n\tclassifier B { feature next : B; }\n\tfeature b : B;\n\tdisjoining D disjoint A from B;\n\tdisjoint b.next from A;\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -151,13 +151,13 @@ func TestHoverRendersMarkdownWhenClientSupportsIt(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
-	name := uri.File("/tmp/hm.sysml").Filename()
+	name := uri.File("/tmp/hm.sysml").FsPath()
 	src := "package P {\n    doc /*\n     * A wheel.\n     */\n    part def Wheel;\n}\n"
 	ws.Open(name, []byte(src), 1)
 
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel"))
-	if res.Contents.Kind != protocol.Markdown {
-		t.Errorf("hover kind = %q, want %q", res.Contents.Kind, protocol.Markdown)
+	if res.Contents.Kind != protocol.MarkupKindMarkdown {
+		t.Errorf("hover kind = %q, want %q", res.Contents.Kind, protocol.MarkupKindMarkdown)
 	}
 	if !strings.Contains(res.Contents.Value, "```sysml") {
 		t.Errorf("hover value = %q, want a fenced sysml block", res.Contents.Value)
@@ -179,7 +179,7 @@ func TestHoverSignatureUsesNotationKeywords(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
-	name := uri.File("/tmp/hk.sysml").Filename()
+	name := uri.File("/tmp/hk.sysml").FsPath()
 	src := "package P {\n    part def Wheel;\n    part w : Wheel;\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -201,7 +201,7 @@ func TestHoverStripsDelimitersOfEveryLeadingComment(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
-	name := uri.File("/tmp/hc.sysml").Filename()
+	name := uri.File("/tmp/hc.sysml").FsPath()
 	src := "package P {\n    /* first */\n    /* second */\n    part def Wheel;\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -216,7 +216,7 @@ func TestHoverQuotesAnUnrestrictedName(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
-	name := uri.File("/tmp/hq.sysml").Filename()
+	name := uri.File("/tmp/hq.sysml").FsPath()
 	src := "package P {\n    part def 'my wheel';\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -231,7 +231,7 @@ func TestHoverStripsBlockNoteDelimiters(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
-	name := uri.File("/tmp/hn.sysml").Filename()
+	name := uri.File("/tmp/hn.sysml").FsPath()
 	src := "package P {\n    //* a note */\n    part def Wheel;\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -246,7 +246,7 @@ func TestHoverKeepsDocCommentLineBreaks(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
-	name := uri.File("/tmp/hl.sysml").Filename()
+	name := uri.File("/tmp/hl.sysml").FsPath()
 	src := "package P {\n    doc /*\n     * First line.\n     * Second line.\n     */\n    part def Wheel;\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -263,7 +263,7 @@ func TestHoverKeepsAuthoredMarkdownEmphasis(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
-	name := uri.File("/tmp/hm.sysml").Filename()
+	name := uri.File("/tmp/hm.sysml").FsPath()
 	src := "package P {\n    /*\n     * **Warning** load-bearing.\n     */\n    part def Wheel;\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -278,13 +278,13 @@ func TestHoverFallsBackToPlainTextWithoutMarkdownCapability(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	// No initialize: a client that never advertised Markdown must get plaintext.
-	name := uri.File("/tmp/hp.sysml").Filename()
+	name := uri.File("/tmp/hp.sysml").FsPath()
 	src := "package P { namespace N; }"
 	ws.Open(name, []byte(src), 1)
 
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "N"))
-	if res.Contents.Kind != protocol.PlainText {
-		t.Errorf("hover kind = %q, want %q", res.Contents.Kind, protocol.PlainText)
+	if res.Contents.Kind != protocol.MarkupKindPlainText {
+		t.Errorf("hover kind = %q, want %q", res.Contents.Kind, protocol.MarkupKindPlainText)
 	}
 	if strings.Contains(res.Contents.Value, "```") {
 		t.Errorf("plaintext hover value = %q, should carry no Markdown fence", res.Contents.Value)
@@ -294,7 +294,7 @@ func TestHoverFallsBackToPlainTextWithoutMarkdownCapability(t *testing.T) {
 func TestHoverMissWhenNoSymbol(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/h2.sysml").Filename()
+	name := uri.File("/tmp/h2.sysml").FsPath()
 	ws.Open(name, []byte("package P;"), 1)
 	res, err := s.Hover(context.Background(), &protocol.HoverParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -315,7 +315,7 @@ func TestHoverMissWhenNoSymbol(t *testing.T) {
 func TestHoverBindingConnectorEnds(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/hover_binding_ends.sysml").Filename()
+	name := uri.File("/tmp/hover_binding_ends.sysml").FsPath()
 	src := "package P {\n\tpart def V {\n\t\tattribute a;\n\t\tattribute b;\n\t\tbind a = b;\n\t\tbind e1 ::> a = e2 references b;\n\t\tbinding bb bind e3 ::> a = b;\n\t}\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -341,7 +341,7 @@ func TestHoverStatesDeclaredAndNormativeIdentity(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
-	name := uri.File("/tmp/hid.sysml").Filename()
+	name := uri.File("/tmp/hid.sysml").FsPath()
 	src := "package P {\n    part def Wheel {\n        @IdentityMetadata::ElementId { id = \"wheel-id\"; }\n    }\n    attribute mass : ScalarValues::Real;\n    item std : MOSA::ConsensusStandard;\n    part w : Wheel;\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -366,7 +366,7 @@ func TestHoverStatesDeclaredAndNormativeIdentity(t *testing.T) {
 func TestHoverStatesIdentityInPlainText(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/hidp.sysml").Filename()
+	name := uri.File("/tmp/hidp.sysml").FsPath()
 	src := "package P { attribute mass : ScalarValues::Real; }"
 	ws.Open(name, []byte(src), 1)
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "Real;"))
@@ -385,14 +385,14 @@ func TestHoverWorkspaceCopyOfLibraryFileStatesNormativeIdentity(t *testing.T) {
 	if lib == nil {
 		t.Fatal("ScalarValues.kerml not bundled")
 	}
-	copyName := uri.File("/tmp/ScalarValues.kerml").Filename()
+	copyName := uri.File("/tmp/ScalarValues.kerml").FsPath()
 	src := string(lib.Content)
 	ws.Open(copyName, lib.Content, 1)
 	const want = "Element id 14c0aa22-5489-59b5-b438-ded26e83ba31 (normative, KerML)"
 	if res := hoverInSrc(t, s, copyName, src, strings.Index(src, "datatype Real ")+len("datatype ")); !strings.Contains(res.Contents.Value, want) {
 		t.Errorf("hover on the copy's Real = %q, want %q", res.Contents.Value, want)
 	}
-	user := uri.File("/tmp/uses.sysml").Filename()
+	user := uri.File("/tmp/uses.sysml").FsPath()
 	use := "package P { attribute mass : ScalarValues::Real; }"
 	ws.Open(user, []byte(use), 1)
 	if res := hoverInSrc(t, s, user, use, strings.Index(use, "Real;")); !strings.Contains(res.Contents.Value, want) {
@@ -429,7 +429,7 @@ func TestHoverLibraryDeclarationStatesNormativeIdentity(t *testing.T) {
 func TestHoverWritesTheAbstractKeyword(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/abstract-hover.sysml").Filename()
+	name := uri.File("/tmp/abstract-hover.sysml").FsPath()
 	src := "package P { abstract part def Vehicle; abstract part fleet : Vehicle; variation part def Models :> Vehicle; part car : Vehicle; }"
 	ws.Open(name, []byte(src), 1)
 	for marker, want := range map[string]string{

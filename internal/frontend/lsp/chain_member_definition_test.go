@@ -30,7 +30,7 @@ func TestDefinitionChainMemberThroughUsage(t *testing.T) {
 }`
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/chain_member.sysml").Filename()
+	name := uri.File("/tmp/chain_member.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 
 	declLine := func(anchor string) uint32 {

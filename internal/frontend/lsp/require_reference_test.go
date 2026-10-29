@@ -16,7 +16,7 @@ import (
 func TestDefinitionQualifiedRequireReference(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_require.sysml").Filename()
+	name := uri.File("/tmp/def_require.sysml").FsPath()
 	src := `package P {
 	requirement def FuelMass {
 		requirement fuelMassRequirement;
@@ -53,7 +53,7 @@ func TestDefinitionQualifiedRequireReference(t *testing.T) {
 func TestDefinitionOfRequirementConstraintMember(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_require_member.sysml").Filename()
+	name := uri.File("/tmp/def_require_member.sysml").FsPath()
 	src := `package P {
 	constraint def C;
 	requirement def R {

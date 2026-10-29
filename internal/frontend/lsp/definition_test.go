@@ -14,8 +14,8 @@ import (
 func TestDefinitionJumpsToDeclaration(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	// Absolute name so uri.File(name).Filename() round-trips back to name.
-	name := uri.File("/tmp/def.sysml").Filename()
+	// Absolute name so uri.File(name).FsPath() round-trips back to name.
+	name := uri.File("/tmp/def.sysml").FsPath()
 	src := "package P { namespace N; }\nimport P::N;"
 	ws.Open(name, []byte(src), 1)
 
@@ -47,7 +47,7 @@ func TestDefinitionJumpsToDeclaration(t *testing.T) {
 func TestDefinitionViaContextRouteSegments(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_via_context.sysml").Filename()
+	name := uri.File("/tmp/def_via_context.sysml").FsPath()
 	src := `package P {
 	item def Go;
 	part def Owner {
@@ -104,7 +104,7 @@ func TestDefinitionViaContextRouteSegments(t *testing.T) {
 func TestDefinitionSendWithBodyViaContextRouteSegments(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_send_via_context.sysml").Filename()
+	name := uri.File("/tmp/def_send_via_context.sysml").FsPath()
 	src := `package P {
 	item def Go;
 	part def Owner {
@@ -162,7 +162,7 @@ func TestDefinitionSendWithBodyViaContextRouteSegments(t *testing.T) {
 func TestDefinitionBodyExpressionParameter(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_bodyparam.sysml").Filename()
+	name := uri.File("/tmp/def_bodyparam.sysml").FsPath()
 	src := `package P {
 	private import ScalarValues::*;
 	private import ControlFunctions::*;
@@ -206,8 +206,8 @@ func TestDefinitionCrossFile(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	// Two docs under distinct absolute round-trip names.
-	libName := uri.File("/tmp/lib.sysml").Filename()
-	useName := uri.File("/tmp/use.sysml").Filename()
+	libName := uri.File("/tmp/lib.sysml").FsPath()
+	useName := uri.File("/tmp/use.sysml").FsPath()
 	ws.Open(libName, []byte("package P { namespace N; }"), 1)
 	useSrc := "import P::N;"
 	ws.Open(useName, []byte(useSrc), 1)
@@ -242,7 +242,7 @@ func TestDefinitionCrossFile(t *testing.T) {
 func TestDefinitionPerformReference(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_perform.sysml").Filename()
+	name := uri.File("/tmp/def_perform.sysml").FsPath()
 	src := `package P {
 	action providePower;
 	part vehicle {
@@ -277,7 +277,7 @@ func TestDefinitionPerformReference(t *testing.T) {
 func TestDefinitionPerformChainMember(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_perform_chain.sysml").Filename()
+	name := uri.File("/tmp/def_perform_chain.sysml").FsPath()
 	src := `package P {
 	action providePower {
 		action generateTorque;
@@ -313,7 +313,7 @@ func TestDefinitionPerformChainMember(t *testing.T) {
 func TestDefinitionConnectorEndReferenceIsNotASiblingEnd(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_end_sibling.sysml").Filename()
+	name := uri.File("/tmp/def_end_sibling.sysml").FsPath()
 	src := `package P {
 	part def TireBead;
 	connection def PressureSeat {
@@ -355,7 +355,7 @@ func TestDefinitionConnectorEndReferenceIsNotASiblingEnd(t *testing.T) {
 func TestDefinitionKerMLBinaryConnectorFirstEnd(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_kerml_first_end.kerml").Filename()
+	name := uri.File("/tmp/def_kerml_first_end.kerml").FsPath()
 	src := `package P {
 	class V {
 		feature eng;
@@ -394,7 +394,7 @@ func TestDefinitionKerMLBinaryConnectorFirstEnd(t *testing.T) {
 func TestDefinitionKerMLDisjoiningEnds(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_kerml_disjoining.kerml").Filename()
+	name := uri.File("/tmp/def_kerml_disjoining.kerml").FsPath()
 	src := `package P {
 	classifier A;
 	classifier B { feature next : B; }
@@ -444,7 +444,7 @@ func TestDefinitionKerMLDisjoiningEnds(t *testing.T) {
 func TestDefinitionMetadataTypeInsideAFilterCondition(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_filter.sysml").Filename()
+	name := uri.File("/tmp/def_filter.sysml").FsPath()
 	src := `package Lib {
 	metadata def Safety;
 	metadata def Other;
@@ -486,7 +486,7 @@ package P {
 func TestDefinitionBindingConnectorEnds(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/def_binding_ends.sysml").Filename()
+	name := uri.File("/tmp/def_binding_ends.sysml").FsPath()
 	src := `package P {
 	part def V {
 		attribute a;

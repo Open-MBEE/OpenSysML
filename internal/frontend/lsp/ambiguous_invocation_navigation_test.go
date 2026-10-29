@@ -37,7 +37,7 @@ part def P :> A, B, C {
 func openAmbiguousNavigation(t *testing.T) (*model.Workspace, *Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
-	name := uri.File("/tmp/ambiguous_nav.sysml").Filename()
+	name := uri.File("/tmp/ambiguous_nav.sysml").FsPath()
 	ws.Open(name, []byte(ambiguousNavigationSrc), 1)
 	return ws, NewServer(ws), name
 }
@@ -257,7 +257,7 @@ package Q {
 func openQualifiedAmbiguity(t *testing.T) (*model.Workspace, *Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
-	name := uri.File("/tmp/qualified_ambiguity.sysml").Filename()
+	name := uri.File("/tmp/qualified_ambiguity.sysml").FsPath()
 	ws.Open(name, []byte(qualifiedAmbiguitySrc), 1)
 	return ws, NewServer(ws), name
 }
@@ -385,7 +385,7 @@ part def Q :> Names {
 func TestReferencesAndRenameFollowSelectedAlias(t *testing.T) {
 	src := selectingAliasesSrc
 	ws := model.NewWorkspace()
-	name := uri.File("/tmp/selecting_aliases.sysml").Filename()
+	name := uri.File("/tmp/selecting_aliases.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 	s := NewServer(ws)
 
@@ -496,7 +496,7 @@ func TestReferencesAndRenameSkipNamelessReference(t *testing.T) {
 }
 `
 	ws := model.NewWorkspace()
-	name := uri.File("/tmp/nameless_ref.sysml").Filename()
+	name := uri.File("/tmp/nameless_ref.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 	s := NewServer(ws)
 

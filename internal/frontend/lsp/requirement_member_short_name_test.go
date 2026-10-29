@@ -33,7 +33,7 @@ func openRequirementShortNameDoc(t *testing.T) (*Server, *model.Workspace, strin
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/requirement_short_names.sysml").Filename()
+	name := uri.File("/tmp/requirement_short_names.sysml").FsPath()
 	ws.Open(name, []byte(requirementShortNameSrc), 1)
 	return s, ws, name
 }

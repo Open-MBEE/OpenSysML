@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -282,54 +281,47 @@ func newDebugService() *debugService {
 
 // debugHandler answers the opensysml/debug/* requests.
 func (s *Server) debugHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
-	return func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
-		var result *debugSnapshot
-		var err error
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
 		switch req.Method() {
 		case MethodDebugStart:
-			var params debugStartParams
-			if perr := json.Unmarshal(req.Params(), &params); perr != nil {
-				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, perr))
+			params, err := decodeParams[debugStartParams](req)
+			if err != nil {
+				return nil, err
 			}
-			result, err = s.DebugStart(&params)
+			return s.DebugStart(params)
 		case MethodDebugStep, MethodDebugContinue, MethodDebugStop:
-			var params debugSessionParams
-			if perr := json.Unmarshal(req.Params(), &params); perr != nil {
-				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, perr))
+			params, err := decodeParams[debugSessionParams](req)
+			if err != nil {
+				return nil, err
 			}
 			switch req.Method() {
 			case MethodDebugStep:
-				result, err = s.DebugStep(&params)
+				return s.DebugStep(params)
 			case MethodDebugContinue:
-				result, err = s.DebugContinue(&params)
+				return s.DebugContinue(params)
 			default:
-				result, err = s.DebugStop(&params)
+				return s.DebugStop(params)
 			}
 		case MethodDebugSend:
-			var params debugSendParams
-			if perr := json.Unmarshal(req.Params(), &params); perr != nil {
-				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, perr))
+			params, err := decodeParams[debugSendParams](req)
+			if err != nil {
+				return nil, err
 			}
-			result, err = s.DebugSend(&params)
+			return s.DebugSend(params)
 		case MethodDebugAdvance:
-			var params debugAdvanceParams
-			if perr := json.Unmarshal(req.Params(), &params); perr != nil {
-				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, perr))
+			params, err := decodeParams[debugAdvanceParams](req)
+			if err != nil {
+				return nil, err
 			}
-			result, err = s.DebugAdvance(&params)
+			return s.DebugAdvance(params)
 		case MethodDebugBreakpoints:
-			var params debugBreakpointsParams
-			if perr := json.Unmarshal(req.Params(), &params); perr != nil {
-				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, perr))
+			params, err := decodeParams[debugBreakpointsParams](req)
+			if err != nil {
+				return nil, err
 			}
-			result, err = s.DebugBreakpoints(&params)
-		default:
-			return inner(ctx, reply, req)
+			return s.DebugBreakpoints(params)
 		}
-		if err != nil {
-			return reply(ctx, nil, err)
-		}
-		return reply(ctx, result, nil)
+		return inner(ctx, req)
 	}
 }
 

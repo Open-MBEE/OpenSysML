@@ -86,7 +86,7 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(root)), Name: root}},
 		Capabilities: protocol.ClientCapabilities{
 			TextDocument: &protocol.TextDocumentClientCapabilities{
-				Hover: &protocol.HoverTextDocumentClientCapabilities{ContentFormat: []protocol.MarkupKind{protocol.Markdown}},
+				Hover: &protocol.HoverTextDocumentClientCapabilities{ContentFormat: []protocol.MarkupKind{protocol.MarkupKindMarkdown}},
 			},
 		},
 	}
@@ -117,10 +117,10 @@ type docRef struct {
 	library bool
 }
 
-func (d docRef) uri() protocol.DocumentURI {
+func (d docRef) uri() uri.URI {
 	if d.library {
 		u := url.URL{Scheme: lsp.LibraryScheme, Path: "/" + filepath.ToSlash(d.name)}
-		return protocol.DocumentURI(u.String())
+		return uri.URI(u.String())
 	}
 	return uri.File(d.name)
 }
@@ -146,7 +146,7 @@ func (h *Host) resolve(path string) (docRef, error) {
 		return h.resolveLibrary(strings.TrimPrefix(parsed.Path, "/"))
 	}
 	if strings.HasPrefix(path, "file://") {
-		path = uri.URI(path).Filename()
+		path = uri.URI(path).FsPath()
 	}
 	res, err := h.root.Resolve(path)
 	if err != nil {
@@ -187,7 +187,7 @@ func (h *Host) content(ref docRef) ([]byte, error) {
 
 // contentOf is the text of a document a result names by URI, nil when the
 // workspace does not hold it.
-func (h *Host) contentOf(u protocol.DocumentURI) []byte {
+func (h *Host) contentOf(u uri.URI) []byte {
 	ref := h.refOf(u)
 	content, err := h.content(ref)
 	if err != nil {
@@ -197,17 +197,17 @@ func (h *Host) contentOf(u protocol.DocumentURI) []byte {
 }
 
 // refOf is the document reference of a URI the server produced.
-func (h *Host) refOf(u protocol.DocumentURI) docRef {
+func (h *Host) refOf(u uri.URI) docRef {
 	if parsed, err := url.Parse(string(u)); err == nil && strings.EqualFold(parsed.Scheme, lsp.LibraryScheme) {
 		return docRef{name: strings.TrimPrefix(parsed.Path, "/"), library: true}
 	}
-	return docRef{name: uri.URI(u).Filename()}
+	return docRef{name: uri.URI(u).FsPath()}
 }
 
 // display is how results name a document: the path relative to the root when
 // under it, the absolute path otherwise, and the `sysml://stdlib/<file>`
 // resource URI for a standard library document.
-func (h *Host) display(u protocol.DocumentURI) string {
+func (h *Host) display(u uri.URI) string {
 	ref := h.refOf(u)
 	if ref.library {
 		return stdlibResourceURI(ref.name)
