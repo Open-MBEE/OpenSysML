@@ -132,7 +132,7 @@ func (r *Rendering) ImportDrawio(file *DrawioFile, options Options) (*DrawioImpo
 		return nil, err
 	}
 	out := &DrawioImport{View: norm.View}
-	m := &drawioMatcher{norm: norm, w: w, base: base, file: file, out: out, nodes: map[string]*Node{}, ports: map[string]Port{}, framed: map[string]bool{}}
+	m := &drawioMatcher{norm: norm, w: w, base: base, file: file, out: out, nodes: map[string]*Node{}, ports: map[string]Port{}, framed: map[string]bool{}, paired: map[string]*DrawioCell{}}
 	for _, node := range drawioNodes(norm.Roots) {
 		m.nodes[node.ID] = node
 		for _, port := range node.Ports {
@@ -164,8 +164,10 @@ type drawioMatcher struct {
 	nodes      map[string]*Node
 	ports      map[string]Port
 	matched    map[string]bool
-	// framed are the cells whose Layout pinning a container already wrote.
+	// framed are the cells whose Layout pinning a container already wrote;
+	// paired is the file's cell for each baseline cell matched so far.
 	framed map[string]bool
+	paired map[string]*DrawioCell
 }
 
 // match pairs the file's semantic cells with the baseline's — by the exported
@@ -188,15 +190,22 @@ func (m *drawioMatcher) match() {
 			}
 		}
 	}
-	var pending []*DrawioCell
+	var pending, plain []*DrawioCell
+	type pairing struct{ cell, base *DrawioCell }
+	var pairs []pairing
+	pair := func(cell, base *DrawioCell) {
+		m.matched[base.ID] = true
+		m.paired[base.ID] = cell
+		pairs = append(pairs, pairing{cell, base})
+	}
 	for i := range m.file.Cells {
 		cell := &m.file.Cells[i]
 		if cell.Kind == "" {
-			m.plainCell(cell)
+			plain = append(plain, cell)
 			continue
 		}
 		if base := m.base.Cell(cell.ID); base != nil && sameDrawioElement(cell, base, fileKeys, baseKeys) {
-			m.pair(cell, base, baseKeys)
+			pair(cell, base)
 			continue
 		}
 		pending = append(pending, cell)
@@ -205,7 +214,7 @@ func (m *drawioMatcher) match() {
 		switch {
 		case cell.Vertex && cell.FQN != "":
 			if base := m.firstUnmatched(byFQN[cell.FQN]); base != nil {
-				m.pair(cell, base, baseKeys)
+				pair(cell, base)
 			} else {
 				m.out.Unmatched = append(m.out.Unmatched, cell.FQN)
 			}
@@ -218,11 +227,19 @@ func (m *drawioMatcher) match() {
 				continue
 			}
 			if base := m.firstUnmatched(byKey[key.unordered()]); base != nil {
-				m.pair(cell, base, baseKeys)
+				pair(cell, base)
 			} else {
 				m.out.Unmatched = append(m.out.Unmatched, key.String())
 			}
 		}
+	}
+	// Every pair is known before any is diffed, so pinning a container reads
+	// each child's edited cell whatever id the file gives it.
+	for _, p := range pairs {
+		m.diff(p.cell, p.base, baseKeys)
+	}
+	for _, cell := range plain {
+		m.plainCell(cell)
 	}
 	m.deleted()
 }
@@ -253,9 +270,8 @@ func (m *drawioMatcher) firstUnmatched(cells []*DrawioCell) *DrawioCell {
 	return nil
 }
 
-// pair diffs the file's cell against the baseline's it stands for.
-func (m *drawioMatcher) pair(cell, base *DrawioCell, baseKeys map[string]DrawioEdgeKey) {
-	m.matched[base.ID] = true
+// diff compares the file's cell with the baseline's it stands for.
+func (m *drawioMatcher) diff(cell, base *DrawioCell, baseKeys map[string]DrawioEdgeKey) {
 	if cell.Vertex {
 		m.diffVertex(cell, base)
 		return
@@ -410,11 +426,9 @@ func (m *drawioMatcher) pin(id string) {
 	if container == nil || base == nil {
 		return
 	}
-	cell := m.file.Cell(id)
-	if cell == nil {
-		cell = base
-	}
-	m.framePlace(cell, base, container, false)
+	// Placed, the container is no longer fitted around children drawn in its
+	// frame, so it keeps the size the file shows.
+	m.framePlace(m.editedOf(base), base, container, true)
 	for i := range m.base.Cells {
 		child := &m.base.Cells[i]
 		node := m.nodes[child.ID]
@@ -422,12 +436,17 @@ func (m *drawioMatcher) pin(id string) {
 			continue
 		}
 		m.framed[child.ID] = true
-		edited := m.file.Cell(child.ID)
-		if edited == nil {
-			edited = child
-		}
-		m.framePlace(edited, child, node, node.Geometry.HasSize)
+		m.framePlace(m.editedOf(child), child, node, node.Geometry.HasSize)
 	}
+}
+
+// editedOf is the file's cell paired with a baseline cell, the baseline's own
+// when the file dropped it.
+func (m *drawioMatcher) editedOf(base *DrawioCell) *DrawioCell {
+	if cell := m.paired[base.ID]; cell != nil {
+		return cell
+	}
+	return base
 }
 
 // framePlace writes a Layout putting node at its page box, as the file has it.

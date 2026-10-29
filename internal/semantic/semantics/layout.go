@@ -261,6 +261,9 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 		}
 		out = append(out, site)
 	}
+	if m.aboutBuilding {
+		return out
+	}
 	journal(m, m.layoutSites, sym, sym.Decl)
 	m.layoutSites[sym] = out
 	return out

@@ -73,6 +73,13 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 		out = append(out, m.declaredAnnotations(sym)...)
 		out = append(out, m.aboutAnnotations(sym)...)
 	}
+	// Asked while the `about` index is still being built — a view's filter
+	// evaluating a candidate as an `about` target resolves — the answer lacks
+	// what the index has not reached yet, so it is given but not kept.
+	if m.aboutBuilding {
+		delete(m.annotations, sym)
+		return out
+	}
 	m.annotations[sym] = out
 	return out
 }
@@ -634,6 +641,8 @@ func (m *Model) annotationsAbout() map[*symbols.Symbol][]annotation {
 
 // buildAbout indexes the `about` metadata usages of every gathered document.
 func (m *Model) buildAbout() {
+	m.aboutBuilding = true
+	defer func() { m.aboutBuilding = false }()
 	m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
 	m.aboutByDecl = make(map[ast.Node][]annotation)
 	gathers := m.gathers()
