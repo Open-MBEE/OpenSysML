@@ -1562,7 +1562,20 @@ drag in the diagram panel is: a moved, resized or collapsed node is a `Layout` (
 coordinates, as the notation reads them; a container the model did not place is pinned with its
 children so a child moved inside it lands where the file has it), a re-routed edge a `Route` (a
 straightened one clears it), a recoloured cell a `Style`, a changed page size a `Canvas`, a moved
-note or picture a `Note` or `Picture`. Nodes and ports are matched by the `fqn` the writer stamps,
+or retyped note a `Note` with the text the file has (line breaks kept; a note formatted in draw.io
+is decoded from the HTML it saves), a moved picture or one pointed at another file a `Picture`
+whose location names that file as the writer would, relative to the view's document (a path, an
+absolute path or a `file:` URL, each under that directory: the import reads no file outside it). A node, port or named edge whose text was
+retyped is a rename when the new text is the writer's own label with exactly the declared name
+replaced by one SysML name — an identifier or a quoted `'…'` name, as the lexer reads it. The
+rename goes through the model editor's `rename`, so the declaration and every reference to it move,
+across documents — the declaration may be in a document other than the view's — and in the view's
+own `expose`, `about` and layout lines; a member renamed together with its owner is renamed first,
+by the path the file still names it with; its target is the
+qualified path the import gives a `Layout` of the same cell, so a member drawn under an inheritor
+(`Loop::sensor::waterOut`) renames the declaration that path resolves to, not a usage of it. A
+cell moved and retyped at once imports as one `Layout` and one rename, the rename applied last so
+the layout still resolves. Nodes and ports are matched by the `fqn` the writer stamps,
 edges by their ends, kind and order, notes and pictures by position; positions within half a
 pixel are unchanged, so an untouched export imports nothing and the routes the writer computed
 itself are never written back unless the user moved them. The compressed form draw.io desktop
@@ -1571,7 +1584,16 @@ view named. What the import cannot carry is reported, not written: cells naming 
 (nothing is created), elements the rendering lacks (renamed or gone), cells the file lost
 (nothing is deleted), a port recoloured (ports are drawn by direction), a note re-anchored, a
 label moved, and an edge re-routed that no `Route` steers yet, such as a typing edge drawn beside
-its membership edge. `-dry-run` prints the planned edits and a unified diff and writes nothing.
+its membership edge. So is a retyping the rename rule does not cover, each with a one-line reason
+naming the cell: a label edited beyond its name (a keyword, `: Type`, multiplicity, parameter
+line or compartment row), a new name that is not one SysML name (empty, a keyword, two words, an
+unterminated quote), a name an existing member already holds (the rename check's own message), a
+cell whose name is synthesized and so has none to rename, and an element the view draws twice
+(an inherited member in a tree) whose copies disagree. A note emptied is reported, since a `Note`
+with no text is not one, and so is a picture given embedded `data:` content, a URL, a file outside
+the view's directory, or a file that does not read as an image — no `Picture` location names those. Retyping a name to the same
+text imports nothing and reports nothing. `-dry-run` prints the planned edits and a unified diff
+of every document they change and writes nothing.
 
 ## Limiting what a view draws
 

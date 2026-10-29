@@ -34,10 +34,11 @@ type ImportDiagramParams struct {
 // ImportDiagramEdit is one edit the import plans: the annotation kind, the
 // element it is about, and the file cell it comes from.
 type ImportDiagramEdit struct {
-	Kind   string `json:"kind"`
-	Target string `json:"target,omitempty"`
-	Label  string `json:"label,omitempty"`
-	Cell   string `json:"cell"`
+	Kind    string `json:"kind"`
+	Target  string `json:"target,omitempty"`
+	NewName string `json:"newName,omitempty"`
+	Label   string `json:"label,omitempty"`
+	Cell    string `json:"cell"`
 }
 
 // ImportDiagramResult is what the import plans and what it leaves alone, and
@@ -111,18 +112,25 @@ func (s *Server) ImportDiagram(params *ImportDiagramParams) (*ImportDiagramResul
 	if err != nil {
 		return nil, err
 	}
+	var version int
+	var ok bool
+	result, err := modeledit.ImportDrawio(imp, params.Inline, func(ops []modeledit.Operation) (*model.EditResult, error) {
+		var result *model.EditResult
+		var err error
+		result, version, ok, err = s.ws.ApplyEdit(name, ops, snapshot.Documents())
+		return result, err
+	})
 	out := &ImportDiagramResult{View: file.View, DryRun: params.DryRun, Edits: []ImportDiagramEdit{},
 		Unmatched: imp.Unmatched, Deleted: imp.Deleted, Notices: imp.Notices}
 	for _, cell := range imp.Unknown {
 		out.Unknown = append(out.Unknown, cell.ID)
 	}
 	for _, e := range imp.Edits {
-		out.Edits = append(out.Edits, ImportDiagramEdit{Kind: e.Kind.String(), Target: importTarget(e), Label: e.Label, Cell: e.Cell})
+		out.Edits = append(out.Edits, ImportDiagramEdit{Kind: e.Kind.String(), Target: importTarget(e), NewName: e.NewName, Label: e.Label, Cell: e.Cell})
 	}
 	if len(imp.Edits) == 0 {
 		return out, nil
 	}
-	result, version, ok, err := s.ws.ApplyEdit(name, modeledit.DrawioOperations(imp, params.Inline), snapshot.Documents())
 	if !ok {
 		return nil, fmt.Errorf("%s: no such document", name)
 	}

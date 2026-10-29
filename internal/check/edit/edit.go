@@ -939,7 +939,7 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 		}
 		return deletes, nil
 	}
-	sym, err := m.target(i, op)
+	sym, err := m.renameable(i, op)
 	if err != nil {
 		return nil, err
 	}

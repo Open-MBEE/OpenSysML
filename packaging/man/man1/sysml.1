@@ -376,8 +376,12 @@ Render every declared view into this directory
 Import this diagrams.net (draw.io) file, written by \-render\-form drawio and
 edited in draw.io, back into the model: what moved, resized, folded,
 re\-routed, recoloured or re\-sized the page becomes DiagramLayout metadata in
-the view's body, written through the model editor; cells the rendering lacks
-are reported, never created or deleted
+the view's body, a retyped name renames the element and its references, a
+retyped note or a picture pointed at another file updates the annotation, all
+written through the model editor; cells the rendering lacks, a label edited
+beyond its name, an invalid or conflicting name, an emptied note and a picture
+source no file under the view's directory carries are reported, never created,
+deleted or guessed
 .TP
 .BR \-view " \fIview\fP"
 The view \-import\-diagram imports, when the file has several pages; default

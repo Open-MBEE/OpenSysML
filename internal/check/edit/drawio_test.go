@@ -1,6 +1,7 @@
 package edit
 
 import (
+	"html"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -45,7 +46,12 @@ func drawioCases(t *testing.T) []drawioCase {
 // each cell's declaration.
 func drawioModel(t *testing.T, content, viewName string) (Model, *view.Rendering, view.Options) {
 	t.Helper()
-	m := loadContent(t, "model.sysml", content)
+	return drawioModelOf(t, loadContent(t, "model.sysml", content), viewName)
+}
+
+// drawioModelOf renders the view of a loaded model as the workspace does.
+func drawioModelOf(t *testing.T, m Model, viewName string) (Model, *view.Rendering, view.Options) {
+	t.Helper()
 	r, sem := m.resolver()
 	viewSym, err := m.viewNamed(0, viewName, "", viewName+" is no view")
 	if err != nil {
@@ -81,6 +87,8 @@ type drawioMutation struct {
 	// the mutation of a cell, for a pick that depends on what the import makes of it.
 	pick func(file *view.DrawioFile, try func(*view.DrawioCell) *view.DrawioImport) *view.DrawioCell
 	edit func(cell string) string
+	// relabel edits the object's label instead, the text a user retypes in draw.io.
+	relabel func(label string) string
 	// kind is the edit expected, and check the cell of the re-export against the
 	// edited one; a notice instead names what the import reports and leaves alone.
 	kind view.DrawioEditKind
@@ -203,6 +211,22 @@ func drawioReroute(cell string) string {
 }
 
 var drawioMutations = []drawioMutation{
+	{name: "rename", pick: drawioRenameable, kind: view.DrawioEditRename,
+		relabel: func(label string) string { return label + "X" },
+		check: func(t *testing.T, edited, re *view.DrawioCell) {
+			if edited.Label != re.Label {
+				t.Errorf("relabelled %q, re-exported as %q", edited.Label, re.Label)
+			}
+		}},
+	{name: "note text", pick: drawioNote, kind: view.DrawioEditNote,
+		edit: func(cell string) string { return drawioSetValue(cell, "Checked weekly&#xa;by hand") },
+		check: func(t *testing.T, edited, re *view.DrawioCell) {
+			if re.Value != edited.Value || edited.Value != "Checked weekly\nby hand" {
+				t.Errorf("reworded to %q, re-exported as %q", edited.Value, re.Value)
+			}
+		}},
+	{name: "note emptied", pick: drawioNote, notice: "was emptied",
+		edit: func(cell string) string { return drawioSetValue(cell, "") }},
 	{name: "move", pick: drawioLeaf,
 		edit: func(cell string) string { return drawioShift(cell, "x", 77) }, kind: view.DrawioEditLayout,
 		check: func(t *testing.T, edited, re *view.DrawioCell) {
@@ -253,6 +277,16 @@ var drawioMutations = []drawioMutation{
 		}},
 }
 
+// drawioNote is the first note box the file draws.
+func drawioNote(f *view.DrawioFile, _ func(*view.DrawioCell) *view.DrawioImport) *view.DrawioCell {
+	return drawioFirst(f, func(c *view.DrawioCell) bool { return !c.Edge && c.FQN == "" && strings.HasPrefix(c.ID, "note") })
+}
+
+// drawioSetValue sets the cell's value attribute, XML-escaped as given.
+func drawioSetValue(cell, value string) string {
+	return regexp.MustCompile(`value="[^"]*"`).ReplaceAllLiteralString(cell, `value="`+value+`"`)
+}
+
 // drawioShift adds delta to one attribute of the cell's geometry.
 func drawioShift(cell, attr string, delta float64) string {
 	m := regexp.MustCompile(`<mxGeometry\b[^>]*\b` + attr + `="([^"]*)"`).FindStringSubmatchIndex(cell)
@@ -264,6 +298,46 @@ func drawioShift(cell, attr string, delta float64) string {
 }
 
 // drawioMutate rewrites the <mxCell> of the cell id in the document.
+// drawioRenameable is the first cell whose label, with text appended, imports
+// as a rename: one whose label ends with the element's own name. The view and
+// its owners are left alone, as the round trip renders the view by name.
+func drawioRenameable(f *view.DrawioFile, try func(*view.DrawioCell) *view.DrawioImport) *view.DrawioCell {
+	return drawioFirst(f, func(c *view.DrawioCell) bool {
+		if c.FQN == "" || c.Label == "" || f.View == c.FQN || strings.HasPrefix(f.View, c.FQN+"::") {
+			return false
+		}
+		imp := try(c)
+		return len(imp.Edits) == 1 && imp.Edits[0].Kind == view.DrawioEditRename && len(imp.Notices) == 0
+	})
+}
+
+// drawioRelabel rewrites the label attribute of the object cell id, the one
+// attribute draw.io rewrites when a user edits the text of a cell.
+func drawioRelabel(t *testing.T, document, id string, relabel func(label string) string) string {
+	t.Helper()
+	re := regexp.MustCompile(`<object id="` + regexp.QuoteMeta(id) + `" label="([^"]*)"`)
+	m := re.FindStringSubmatchIndex(document)
+	if m == nil {
+		t.Fatalf("no object %s", id)
+	}
+	label := html.UnescapeString(document[m[2]:m[3]])
+	edited := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(relabel(label), "&", "&amp;"), "<", "&lt;"), "\n", "&#xA;")
+	edited = strings.ReplaceAll(edited, `"`, "&quot;")
+	return document[:m[2]] + edited + document[m[3]:]
+}
+
+// drawioRenamed is the cell as the re-export of the renamed model draws it:
+// the last segment of its qualified name is the new name.
+func drawioRenamed(cell *view.DrawioCell, newName string) *view.DrawioCell {
+	renamed := *cell
+	if i := strings.LastIndex(cell.FQN, "::"); i >= 0 {
+		renamed.FQN = cell.FQN[:i+2] + newName
+	} else {
+		renamed.FQN = newName
+	}
+	return &renamed
+}
+
 func drawioMutate(t *testing.T, document, id string, edit func(cell string) string) string {
 	t.Helper()
 	re := regexp.MustCompile(`(?s)<object id="` + regexp.QuoteMeta(id) + `"[^>]*>\s*(<mxCell.*?</mxCell>)\s*</object>|<mxCell id="` + regexp.QuoteMeta(id) + `".*?(?:</mxCell>|/>)`)
@@ -326,9 +400,15 @@ func TestDrawioRoundTrip(t *testing.T) {
 			if _, imp := drawioImport(t, importer, rendering.View, document); len(imp.Edits)+len(imp.Unmatched)+len(imp.Deleted)+len(imp.Unknown)+len(imp.Notices) != 0 {
 				t.Fatalf("untouched export: %+v", imp)
 			}
+			mutate := func(mut drawioMutation, id string) string {
+				if mut.relabel != nil {
+					return drawioRelabel(t, document, id, mut.relabel)
+				}
+				return drawioMutate(t, document, id, mut.edit)
+			}
 			try := func(mut drawioMutation) func(c *view.DrawioCell) *view.DrawioImport {
 				return func(c *view.DrawioCell) *view.DrawioImport {
-					_, imp := drawioImport(t, importer, rendering.View, drawioMutate(t, document, c.ID, mut.edit))
+					_, imp := drawioImport(t, importer, rendering.View, mutate(mut, c.ID))
 					return imp
 				}
 			}
@@ -338,7 +418,7 @@ func TestDrawioRoundTrip(t *testing.T) {
 					continue
 				}
 				t.Run(mut.name, func(t *testing.T) {
-					edited := drawioMutate(t, document, cell.ID, mut.edit)
+					edited := mutate(mut, cell.ID)
 					editedFile, imp := drawioImport(t, importer, rendering.View, edited)
 					if mut.notice != "" {
 						if len(imp.Edits) != 0 || len(imp.Notices) != 1 || !strings.Contains(imp.Notices[0], mut.notice) {
@@ -370,6 +450,9 @@ func TestDrawioRoundTrip(t *testing.T) {
 					_, re := drawioExport(t, redrawn, reoptions)
 					for _, e := range imp.Edits {
 						was := editedFile.Cell(e.Cell)
+						if e.Kind == view.DrawioEditRename {
+							was = drawioRenamed(was, e.NewName)
+						}
 						again := drawioSameCell(editedFile, string(content), was, re, string(res.Content))
 						if again == nil {
 							t.Fatalf("the re-export has no cell for %s, %s %s", e.Cell, was.Kind, was.FQN)
@@ -388,10 +471,11 @@ func TestDrawioRoundTrip(t *testing.T) {
 							}
 						}
 					}
-					// The edited cells are where the file has them; unplaced neighbours may have flowed around them.
+					// The edited cells are where the file has them; unplaced neighbours may have
+					// flowed around them, and a renamed node is sized to its longer name.
 					if _, imp := drawioImport(t, drawioImporter(t, redrawn, reoptions), rendering.View, edited); len(imp.Edits) != 0 {
 						for _, e := range imp.Edits {
-							if e.Cell == cell.ID {
+							if e.Cell == cell.ID && (mut.kind != view.DrawioEditRename || e.Kind == view.DrawioEditRename) {
 								t.Errorf("the edited file still imports %+v against the edited model", e)
 							}
 						}

@@ -41,9 +41,11 @@ type ImportDiagramResult struct {
 func registerImporting(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "import_diagram",
-		Description: "Import a draw.io (diagrams.net) file that render_view wrote with form drawio and a user edited in draw.io: what moved, resized, folded, re-routed or recoloured, and the page size, " +
-			"become DiagramLayout annotations (Layout, Route, Style, Canvas, Note, Picture) in the view's body, applied as apply_model_edit applies its operations. " +
-			"Cells the rendering lacks, cells naming no element and deleted cells are reported, never created or deleted. Answers the planned edits and text changes; writes the files only with apply=true.",
+		Description: "Import a draw.io (diagrams.net) file that render_view wrote with form drawio and a user edited in draw.io: what moved, resized, folded, re-routed or recoloured, the page size, a note's text and a picture's file " +
+			"become DiagramLayout annotations (Layout, Route, Style, Canvas, Note, Picture) in the view's body, and a name retyped in a node, port or edge label becomes a rename of the element, " +
+			"declaration and references alike, applied as apply_model_edit applies its operations. Cells the rendering lacks, cells naming no element, deleted cells, a label edited beyond its name, " +
+			"an invalid or taken name, an emptied note and a picture source no file under the view's directory names are reported, never created, deleted or guessed. " +
+			"Answers the planned edits and text changes; writes the files only with apply=true.",
 		Annotations: toolkit.Mutating("Import diagram", false),
 	}, writing(h, func(ctx context.Context, _ *mcp.CallToolRequest, in ImportDiagramInput) (*mcp.CallToolResult, ImportDiagramResult, error) {
 		if in.File == "" && in.Content == "" {

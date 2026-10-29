@@ -678,15 +678,21 @@ edited in draw.io, as the `DiagramLayout` edits `opensysml/applyModelEdit` would
 The server renders the view, exports it again as the writer would, and compares the file with
 that export cell by cell: only what differs becomes an edit, matched to the model by the `fqn`
 each cell carries (edges by their ends and kind, notes and pictures by position). The result lists
-the planned `edits` (`kind`, `target`, `label`, `cell`), what is reported rather than imported —
-`unmatched` elements the rendering lacks, `unknown` cells naming no element, `deleted` cells, and
-`notices` for changes no annotation carries yet — and either `edit`, a `WorkspaceEdit` the client
+the planned `edits` (`kind`, `target`, `label`, `cell`, and `newName` on a `Rename`, which a cell
+retyped with only its name changed amounts to; a retyped note is a `Note`, a picture pointed at
+another file a `Picture`), what is reported rather than imported — `unmatched` elements the
+rendering lacks, `unknown` cells naming no element, `deleted` cells, and `notices` for changes no
+annotation carries yet and retypings the rename rule does not cover (a label edited beyond its
+name, an invalid or taken name, an emptied note, a picture given embedded data or a file outside
+the view's directory) — and either
+`edit`, a `WorkspaceEdit` the client
 applies as it applies `opensysml/applyModelEdit`'s, or `refused`, the planned edit the model
 editor refused and why. An untouched export answers no edits and no `edit`.
 
 ```json
 { "view": "PlantViews::loopView", "dryRun": true, "version": 3,
-  "edits": [{ "kind": "Layout", "target": "Plant::Loop::pump", "label": "«part»\npump : Pump", "cell": "n2" }],
+  "edits": [{ "kind": "Layout", "target": "Plant::Loop::pump", "label": "«part»\npump : Pump", "cell": "n2" },
+            { "kind": "Rename", "target": "Plant::Loop::tank", "newName": "reservoir", "label": "«part»\nreservoir : Tank", "cell": "n3" }],
   "edit": { "documentChanges": [ … ] } }
 ```
 
