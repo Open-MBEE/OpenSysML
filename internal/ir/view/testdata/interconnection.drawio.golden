@@ -18,7 +18,7 @@
           </mxCell>
         </object>
         <object id="n1:n1.0" label="^outlet" fqn="Plant::Pump::outlet" kind="port" view="PlantViews::loopView" link="interconnection.sysml:5">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="n1">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n1">
             <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>
@@ -35,7 +35,7 @@
           </mxCell>
         </object>
         <object id="n3:n3.0" label="^inlet" fqn="Plant::Tank::inlet" kind="port" view="PlantViews::loopView" link="interconnection.sysml:10">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="n3">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n3">
             <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>

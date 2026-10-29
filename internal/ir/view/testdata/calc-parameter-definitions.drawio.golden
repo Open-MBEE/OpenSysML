@@ -53,7 +53,7 @@
           </mxCell>
         </object>
         <object id="n1:n1.2" label="count" fqn="ParameterCalcs::Scale::count" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:26">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="n1">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n1">
             <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>

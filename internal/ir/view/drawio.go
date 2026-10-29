@@ -667,7 +667,7 @@ func drawioPortStyle(side PortDirection) string {
 	case PortOut:
 		return base + "labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;"
 	}
-	return base + "labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;"
+	return base + "labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;"
 }
 
 // relativeGeometry writes a port's geometry as a fraction of its owner's
@@ -987,66 +987,90 @@ func drawioEdgeStyle(kind EdgeKind) string {
 	return "endArrow=open"
 }
 
-// writeNotes writes the notes as note-shaped cells, each joined to its subject
-// by a dashed anchor edge; a note with no stated box sits beside its subject,
-// or on the grid when it has none.
+// writeNotes writes the notes as note-shaped cells, each joined to its subjects
+// by dashed anchor edges; one annotation about several elements is one box
+// (its notes share an Origin). A note with no stated box sits beside its first
+// subject, or on the grid when it has none.
 func (w *drawioWriter) writeNotes(r *Rendering) {
-	var loose []int
+	groups := drawioNoteGroups(r.Notes)
+	var loose [][]int
 	sizes := []drawioBox{}
-	for i, note := range r.Notes {
+	for _, group := range groups {
+		note := r.Notes[group[0]]
 		if note.HasSize {
-			continue
-		}
-		if box, ok := w.boxes[note.Anchor]; ok && note.Anchor != "" {
-			width, height := w.labels.dotTextBox(strings.Split(note.Text, "\n"))
-			w.writeNote(i, note, drawioBox{X: box.right() + drawioNestedGap, Y: box.Y, Width: width, Height: height})
+			w.writeNote(group, r.Notes, drawioBox{X: note.X, Y: note.Y, Width: note.Width, Height: note.Height})
 			continue
 		}
 		width, height := w.labels.dotTextBox(strings.Split(note.Text, "\n"))
-		loose = append(loose, i)
-		sizes = append(sizes, drawioBox{Width: width, Height: height})
-	}
-	for i, note := range r.Notes {
-		if note.HasSize {
-			w.writeNote(i, note, drawioBox{X: note.X, Y: note.Y, Width: note.Width, Height: note.Height})
+		if box, ok := w.boxes[note.Anchor]; ok && note.Anchor != "" {
+			w.writeNote(group, r.Notes, drawioBox{X: box.right() + drawioNestedGap, Y: box.Y, Width: width, Height: height})
+			continue
 		}
+		loose = append(loose, group)
+		sizes = append(sizes, drawioBox{Width: width, Height: height})
 	}
 	origin := drawioBox{X: drawioGridGap, Y: w.extent.bottom() + drawioGridGap}
 	if len(loose) > 0 && w.extent.Width > 0 {
 		origin.X = math.Min(drawioGridGap, w.extent.X)
 	}
 	for j, box := range drawioGrid(sizes, origin, drawioGridGap) {
-		w.writeNote(loose[j], r.Notes[loose[j]], box)
+		w.writeNote(loose[j], r.Notes, box)
 	}
 }
 
-// writeNote writes one note cell and its anchor edge.
-func (w *drawioWriter) writeNote(i int, note Note, box drawioBox) {
-	id := fmt.Sprintf("note%d", i)
+// drawioNoteGroups groups the notes of one annotation, those sharing a located
+// Origin, in the order their first note comes; a note with no origin is its own.
+func drawioNoteGroups(notes []Note) [][]int {
+	var groups [][]int
+	at := map[Origin]int{}
+	for i, note := range notes {
+		if !note.Origin.Located() {
+			groups = append(groups, []int{i})
+			continue
+		}
+		if g, ok := at[note.Origin]; ok {
+			groups[g] = append(groups[g], i)
+			continue
+		}
+		at[note.Origin] = len(groups)
+		groups = append(groups, []int{i})
+	}
+	return groups
+}
+
+// writeNote writes one note cell for a group of notes and an anchor edge to
+// each subject the group names.
+func (w *drawioWriter) writeNote(group []int, notes []Note, box drawioBox) {
+	id := fmt.Sprintf("note%d", group[0])
 	w.b.WriteString("        <mxCell")
 	w.attr("id", id)
-	w.attr("value", note.Text)
+	w.attr("value", notes[group[0]].Text)
 	w.attr("style", "shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;")
 	w.b.WriteString(` vertex="1" parent="1">` + "\n")
 	w.geometry("          ", box, nil, nil)
 	w.b.WriteString("        </mxCell>\n")
-	target := ""
-	switch {
-	case note.Anchor != "" && w.cells[note.Anchor]:
-		target = note.Anchor
-	case note.EdgeFrom != "":
-		target = w.edgeIDs[[2]string{note.EdgeFrom, note.EdgeTo}]
+	anchored := map[string]bool{}
+	for _, i := range group {
+		note := notes[i]
+		target := ""
+		switch {
+		case note.Anchor != "" && w.cells[note.Anchor]:
+			target = note.Anchor
+		case note.EdgeFrom != "":
+			target = w.edgeIDs[[2]string{note.EdgeFrom, note.EdgeTo}]
+		}
+		if target == "" || anchored[target] {
+			continue
+		}
+		anchored[target] = true
+		w.b.WriteString("        <mxCell")
+		w.attr("id", fmt.Sprintf("%s:anchor%d", id, len(anchored)-1))
+		w.attr("style", "edgeStyle=none;html=0;dashed=1;endArrow=none;")
+		w.b.WriteString(` edge="1" parent="1"`)
+		w.attr("source", id)
+		w.attr("target", target)
+		w.b.WriteString(">\n          <mxGeometry relative=\"1\" as=\"geometry\"/>\n        </mxCell>\n")
 	}
-	if target == "" {
-		return
-	}
-	w.b.WriteString("        <mxCell")
-	w.attr("id", id+":anchor")
-	w.attr("style", "edgeStyle=none;html=0;dashed=1;endArrow=none;")
-	w.b.WriteString(` edge="1" parent="1"`)
-	w.attr("source", id)
-	w.attr("target", target)
-	w.b.WriteString(">\n          <mxGeometry relative=\"1\" as=\"geometry\"/>\n        </mxCell>\n")
 }
 
 // writePicture writes a picture as an image cell, the image embedded as a data
@@ -1065,16 +1089,21 @@ func (w *drawioWriter) writePicture(i int, picture Picture) {
 	w.b.WriteString("        </mxCell>\n")
 }
 
-// drawioPictureSource is a picture's data URL: a data URL as declared, a local
-// file read and encoded; a remote location or an unsafe image is none, as
-// pictureRefusal already reported.
+// drawioPictureSource is a picture's image in the form draw.io keeps embedded
+// images in a style, `data:<type>,<base64>` without `;base64` (a style is
+// `;`-separated): a declared data URL re-encoded, a local file read; a remote
+// location or an unsafe image is none, as pictureRefusal already reported.
 func drawioPictureSource(picture Picture) (string, bool) {
 	src := strings.TrimSpace(picture.Location)
 	if strings.HasPrefix(strings.ToLower(src), "data:") {
-		if CheckPicture(src, nil) != nil || strings.ContainsAny(src, ";\r\n") {
+		if CheckPicture(src, nil) != nil {
 			return "", false
 		}
-		return src, true
+		contentType, data, err := imagefile.DecodeDataURL(src)
+		if err != nil {
+			return "", false
+		}
+		return drawioImageData(contentType, data), true
 	}
 	if RemotePictureLocation(src) {
 		return "", false
@@ -1087,5 +1116,10 @@ func drawioPictureSource(picture Picture) (string, bool) {
 	if contentType == "" || CheckPicture(picture.Location, data) != nil {
 		return "", false
 	}
-	return "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(data), true
+	return drawioImageData(contentType, data), true
+}
+
+// drawioImageData is image data as a draw.io style's image value.
+func drawioImageData(contentType string, data []byte) string {
+	return "data:" + contentType + "," + base64.StdEncoding.EncodeToString(data)
 }

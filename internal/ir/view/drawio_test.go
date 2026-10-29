@@ -1,8 +1,12 @@
 package view
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -277,4 +281,44 @@ func containsForm(forms []Form, form Form) bool {
 		}
 	}
 	return false
+}
+
+// A picture is embedded the way draw.io keeps an image in a style, `data:<type>,<base64>`
+// with no `;base64` (a style is `;`-separated), whether declared as a data URL or a local
+// file; a picture the trust rules refuse stays a notice.
+func TestDrawioPictures(t *testing.T) {
+	var imageData bytes.Buffer
+	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "local.png"), imageData.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	encoded := base64.StdEncoding.EncodeToString(imageData.Bytes())
+	rendering := &Rendering{View: "Views::pictured", Kind: KindTree, Roots: []*Node{{ID: "n", Kind: "part", Name: "part"}},
+		Pictures: []Picture{
+			{Location: "local.png", Dir: dir, X: 10, Y: 20, Width: 40, Height: 30},
+			{Location: "data:image/png;base64," + encoded, X: 60, Y: 20, Width: 40, Height: 30, Above: true},
+			{Location: "https://example.com/remote.png", Dir: dir, X: 110, Y: 20, Width: 20, Height: 10},
+		}}
+	got, err := rendering.Write(FormDrawio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkDrawioDocument(t, got)
+	for _, id := range []string{"picture0", "picture1"} {
+		if !strings.Contains(got, `id="`+id+`"`) {
+			t.Errorf("%s is not drawn:\n%s", id, got)
+		}
+	}
+	if n := strings.Count(got, "image=data:image/png,"+encoded+";"); n != 2 {
+		t.Errorf("%d pictures carry the image as draw.io stores it, want 2:\n%s", n, got)
+	}
+	if strings.Contains(got, ";base64,") {
+		t.Errorf("a data URL keeps ;base64, which a style splits at:\n%s", got)
+	}
+	if strings.Contains(got, `id="picture2"`) || !strings.Contains(got, "remote.png") {
+		t.Errorf("the remote picture is drawn or its refusal is not noted:\n%s", got)
+	}
 }

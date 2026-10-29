@@ -53,7 +53,7 @@
           </mxCell>
         </object>
         <object id="n26:n26.0" label="^outlet" fqn="MixedExamples::Pump::outlet" kind="port" view="MixedExamples::mixedDiagram" link="mixed.sysml:9">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="n26">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n26">
             <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>
@@ -65,7 +65,7 @@
           </mxCell>
         </object>
         <object id="n27:n27.0" label="^inlet" fqn="MixedExamples::Tank::inlet" kind="port" view="MixedExamples::mixedDiagram" link="mixed.sysml:13">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="n27">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n27">
             <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>
