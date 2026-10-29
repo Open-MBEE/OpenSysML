@@ -2,10 +2,12 @@ package view
 
 import (
 	"bytes"
+	"errors"
 	"image"
 	"image/png"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -336,5 +338,48 @@ func TestDrawioImportReportsWhatItCannotImport(t *testing.T) {
 	}
 	if len(imp.Edits) != 0 {
 		t.Errorf("edits = %+v, want none", imp.Edits)
+	}
+}
+
+// TestDrawioImporterSharesOneBaseline pins that an importer prepared once answers
+// untouched and edited files as ImportDrawio does and refuses another view's page.
+func TestDrawioImporterSharesOneBaseline(t *testing.T) {
+	golden, _ := os.ReadFile(filepath.Join("testdata", layoutCase.name+".drawio.golden"))
+	moved := mutateCell(t, string(golden), "n2", func(cell string) string {
+		return setGeometryAttr(t, setGeometryAttr(t, cell, "x", "533"), "y", "71.5")
+	})
+	rendering, options := renderWithSites(t, layoutCase.file, layoutCase.view)
+	importer, err := rendering.DrawioImporter(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, document := range []string{string(golden), moved, string(golden)} {
+		file, err := ReadDrawio([]byte(document), layoutCase.view)
+		if err != nil {
+			t.Fatal(err)
+		}
+		shared, err := importer.Import(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fresh, err := rendering.ImportDrawio(file, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(shared, fresh) {
+			t.Errorf("shared baseline imported %+v, a fresh one %+v", shared, fresh)
+		}
+		if i != 1 {
+			if len(shared.Edits) != 0 {
+				t.Errorf("untouched import %d: edits = %+v, want none", i, shared.Edits)
+			}
+		} else if edit := editOf(t, shared, DrawioEditLayout, "n2"); edit.FQN != "Plant::Loop::tank" {
+			t.Errorf("moved cell imported as %+v", edit)
+		}
+	}
+	_, err = importer.Import(&DrawioFile{View: "Other"})
+	var viewErr *DrawioViewError
+	if !errors.As(err, &viewErr) || viewErr.View != layoutCase.view || !reflect.DeepEqual(viewErr.Pages, []string{"Other"}) {
+		t.Errorf("another view's page imported with %v, want a DrawioViewError naming %s", err, layoutCase.view)
 	}
 }
