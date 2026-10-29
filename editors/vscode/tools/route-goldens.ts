@@ -3,7 +3,9 @@
 // Run through tools/route-goldens.mjs, which bundles this file like the tests.
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
+import { confinedDirectory } from "./golden-dir";
 import { avoidRoutes, CLEARANCE, loadAvoid, type AvoidEdge, type AvoidPort, type AvoidShape } from "../src/webview/avoid";
 import type { Box } from "../src/webview/geometry";
 import type { RenderPoint } from "../src/protocol";
@@ -296,9 +298,12 @@ const groups: Record<string, () => Scene[]> = {
   "random-ports": randomPortScenes,
 };
 
-await loadAvoid(path.resolve("node_modules/libavoid-js/dist/libavoid.wasm"));
-const outDir = path.resolve(process.argv[2] ?? "../../internal/ir/view/route/testdata/parity");
+// tools/ and the bundle under out/ both sit one level below the extension.
+const extensionDir = fileURLToPath(new URL("..", import.meta.url));
+const repoRoot = path.resolve(extensionDir, "..", "..");
+const outDir = confinedDirectory(process.argv[2] ?? path.join(repoRoot, "internal/ir/view/route/testdata/parity"), repoRoot);
 mkdirSync(outDir, { recursive: true });
+await loadAvoid(path.join(extensionDir, "node_modules/libavoid-js/dist/libavoid.wasm"));
 let scenes = 0;
 let routes = 0;
 for (const [group, build] of Object.entries(groups)) {
