@@ -169,3 +169,53 @@ func TestDrawioImportEmptiedPageReportsEveryDeletion(t *testing.T) {
 		}
 	}
 }
+
+// An element a nested view exposes is drawn under the view's node but is not
+// the view's member: a Layout about it names the element, not a path through
+// the view.
+func TestDrawioImportNestedViewElementKeepsItsOwnName(t *testing.T) {
+	c, golden := drawioGolden(t, "tree")
+	const engine = "Vehicles::Engine"
+	if !strings.Contains(drawioObjectXML(t, golden, "n7"), `fqn="`+engine+`"`) {
+		t.Fatalf("n7 is not Engine:\n%s", drawioObjectXML(t, golden, "n7"))
+	}
+	file, err := ReadDrawio([]byte(golden), c.view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parent := file.Cell(file.Cell("n7").Parent); parent == nil || parent.FQN != "VehicleViews::vehicleView::engineSubview" {
+		t.Fatalf("n7's parent = %+v, want the nested view", parent)
+	}
+	moved := mutateCell(t, golden, "n7", func(cell string) string { return setGeometryAttr(t, cell, "y", "444") })
+	edit := editOf(t, drawioGoldenImport(t, c, moved), DrawioEditLayout, "n7")
+	if edit.FQN != engine {
+		t.Errorf("edit names %q, want %q", edit.FQN, engine)
+	}
+}
+
+// A usage's typing edge drawn beside its membership edge follows a Route naming
+// its type, which no edit writes yet: re-routing it is reported, while
+// re-routing the membership edge, which the plain Route steers, is a Route.
+func TestDrawioImportReroutedTypingEdgeBesideMembershipIsReported(t *testing.T) {
+	c, golden := drawioGolden(t, "mixed")
+	typing, membership := drawioObjectXML(t, golden, "e37"), drawioObjectXML(t, golden, "e15")
+	if !strings.Contains(typing, `kind="typing"`) || !strings.Contains(typing, `source="n26" target="n21"`) ||
+		!strings.Contains(membership, `kind="composition"`) || !strings.Contains(membership, `target="n26"`) {
+		t.Fatalf("e37/e15 are not pump's typing and membership edges:\n%s\n%s", typing, membership)
+	}
+	const points = `<Array as="points"><mxPoint x="600" y="300"/></Array>`
+	reroute := func(cell string) string {
+		if strings.Contains(cell, "<Array") {
+			return regexp.MustCompile(`(?s)<Array as="points">.*?</Array>`).ReplaceAllString(cell, points)
+		}
+		return strings.Replace(cell, `<mxGeometry relative="1" as="geometry"/>`, `<mxGeometry relative="1" as="geometry">`+points+`</mxGeometry>`, 1)
+	}
+	imp := drawioGoldenImport(t, c, mutateCell(t, golden, "e37", reroute))
+	if len(imp.Edits) != 0 || len(imp.Notices) != 1 || !strings.Contains(imp.Notices[0], "no Route steers a typing edge") {
+		t.Errorf("typing edge: edits %+v notices %v, want one notice and no edit", imp.Edits, imp.Notices)
+	}
+	imp = drawioGoldenImport(t, c, mutateCell(t, golden, "e15", reroute))
+	if edit := onlyEdit(t, imp, DrawioEditRoute); edit.Cell != "e15" || edit.Route == nil || len(edit.Route.Points) != 1 {
+		t.Errorf("membership edge: edit %+v, want its one waypoint as a Route", edit)
+	}
+}

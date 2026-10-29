@@ -333,7 +333,7 @@ func (m *drawioMatcher) edgeLabel(cell *DrawioCell, f *DrawioFile) string {
 // position is drawn on its owner's border, so only its style is read.
 func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 	origin, isPort := m.originOf(base.ID)
-	edit := DrawioEdit{Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell), Origin: origin}
+	edit := DrawioEdit{Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell, base), Origin: origin}
 	if isPort {
 		if !sameBox(boxOf(cell), boxOf(base)) {
 			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: a port is drawn on its owner's border; its position in the file is not imported", cell.FQN))
@@ -383,11 +383,16 @@ func (m *drawioMatcher) layoutDiff(cell, base *DrawioCell) *semantics.Layout {
 		return nil
 	}
 	shift := m.frameShift(base)
+	node := m.nodes[base.ID]
+	// A container the model does not place is pinned with its children once,
+	// not placed here and pinned again when a child drawn in its frame moves.
+	if node != nil && !node.Geometry.placed() && m.framesChildren(base.ID) {
+		m.pin(base.ID)
+	}
 	if m.framed[base.ID] {
 		return nil
 	}
 	layout := &semantics.Layout{X: fileBox.X - shift.X, Y: fileBox.Y - shift.Y, Collapsed: cell.Collapsed}
-	node := m.nodes[base.ID]
 	if resized || (node != nil && node.Geometry != nil && node.Geometry.HasSize) {
 		layout.Width, layout.Height, layout.HasSize = fileBox.Width, fileBox.Height, true
 	}
@@ -395,6 +400,17 @@ func (m *drawioMatcher) layoutDiff(cell, base *DrawioCell) *semantics.Layout {
 		layout.Hidden = node.Geometry.Hidden
 	}
 	return layout
+}
+
+// framesChildren reports whether the writer drew vertex cells inside the
+// baseline cell id's frame.
+func (m *drawioMatcher) framesChildren(id string) bool {
+	for i := range m.base.Cells {
+		if child := &m.base.Cells[i]; child.Parent == id && child.Vertex && !child.Relative {
+			return true
+		}
+	}
+	return false
 }
 
 // frameShift is what the writer added to a node's Layout to draw it on the page:
@@ -460,19 +476,23 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 		layout.Hidden = node.Geometry.Hidden
 	}
 	origin, _ := m.originOf(base.ID)
-	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell), Origin: origin, Layout: layout})
+	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell, base), Origin: origin, Layout: layout})
 }
 
 // targetName is the name an annotation about the cell's element states: its
-// qualified name, or, for a member drawn under a node of another element — an
-// inherited state, a part of the usage's type — that node's name and its own,
-// the path a Layout about it resolves through (semantics.MemberLayoutOf).
-func (m *drawioMatcher) targetName(cell *DrawioCell) string {
-	parent := m.file.Cell(cell.Parent)
-	if parent == nil || parent.FQN == "" || !parent.Vertex || cell.FQN == "" || strings.HasPrefix(cell.FQN, parent.FQN+"::") {
+// qualified name, or, for a member the rendering drew as its container's own —
+// an inherited state, a part of the usage's type — that container's name and
+// its own, the path a Layout about it resolves through (MemberLayoutOf). An
+// element a nested view exposes keeps its own name: the view is no owner.
+func (m *drawioMatcher) targetName(cell, base *DrawioCell) string {
+	parent, name := m.base.Cell(base.Parent), symbols.LastSegment(cell.FQN)
+	if parent == nil || parent.FQN == "" || !parent.Vertex || cell.FQN == "" {
 		return cell.FQN
 	}
-	return parent.FQN + "::" + symbols.LastSegment(cell.FQN)
+	if owner, isPort := m.originOf(parent.ID); !isPort && m.drawn.Inherits(owner, name) {
+		return parent.FQN + "::" + name
+	}
+	return cell.FQN
 }
 
 // diffEdge imports an edge's moved waypoints and changed colours or font.
@@ -485,7 +505,7 @@ func (m *drawioMatcher) diffEdge(cell, base *DrawioCell, key DrawioEdgeKey) {
 	out := DrawioEdit{Cell: cell.ID, Label: cell.Label, FQN: m.w.siteName(edge.Origin), Origin: edge.Origin, Edge: &key}
 	// A rendering built without a record of what it draws leaves the refusal
 	// of an edge no Route steers to the edit applying the import.
-	steered := m.drawn == nil || m.drawn.Steers(edge.Origin)
+	steered := m.drawn == nil || m.drawn.Steers(edge.Origin, edge.Kind)
 	if !sameWaypoints(cell.Points, base.Points) && !steered {
 		m.out.Notices = append(m.out.Notices, fmt.Sprintf("edge %s re-routed: no Route steers a %s edge yet, so its waypoints are not imported", key.String(), edge.Kind))
 	} else if !sameWaypoints(cell.Points, base.Points) {

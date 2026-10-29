@@ -232,6 +232,7 @@ func (r *Renderer) memberGeometryOf(view, owner *symbols.Symbol, name string, ou
 	if member, ok := r.model.LookupMember(owner, name); ok {
 		out.drawn.noteMember(owner, member)
 	}
+	out.drawn.noteInherited(owner, name)
 	site, ok := r.model.MemberLayoutOf(view, owner, name)
 	if !ok {
 		return nil
@@ -276,6 +277,7 @@ func (r *Renderer) memberNotesOf(view, owner *symbols.Symbol, name, anchor strin
 // no Route annotation gives any, resolved as geometryOf resolves a Layout.
 func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
 	out.drawn.note(elem, true)
+	out.drawn.noteSteered(elem)
 	site, ok := r.model.RouteOf(view, elem)
 	if !ok {
 		return nil
@@ -288,6 +290,7 @@ func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
 // those of a Route about elem naming general, nil when none gives any.
 func (r *Renderer) specializationRouteOf(view, elem, general *symbols.Symbol, out *Rendering) []Point {
 	out.drawn.noteSpecialization(elem, general)
+	out.drawn.noteGeneralEdged(elem)
 	site, ok := r.model.SpecializationRouteOf(view, elem, general)
 	if !ok {
 		return nil
