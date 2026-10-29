@@ -203,6 +203,15 @@ func TestDrawioImportReportsPictureSourcesItCannotName(t *testing.T) {
 			}
 		})
 	}
+	// A symlink under the directory to a file outside it is followed before the check, not after.
+	link := filepath.Join(dir, "link.png")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("no symlink here: %v", err)
+	}
+	linked := drawioPicturedImport(t, rendering, setImage(t, exported, "picture0", "link.png"))
+	if want := "picture picture0 (local.png): its image was changed to link.png, a file outside the view's directory, which the import does not read, so the picture keeps its file"; len(linked.Edits) != 0 || len(linked.Notices) != 1 || linked.Notices[0] != want {
+		t.Errorf("symlink out: edits %+v notices %q, want %q", linked.Edits, linked.Notices, want)
+	}
 	// Moved as well: the move imports with the picture's own file, the source is reported.
 	document := mutateCell(t, setImage(t, exported, "picture0", "data:image/png,iVBORw0KGgo="), "picture0", func(cell string) string {
 		return setGeometryAttr(t, cell, "x", "15")

@@ -767,21 +767,26 @@ func (m *drawioMatcher) diffPicture(cell, base *DrawioCell) {
 		Picture: &semantics.Picture{Location: location, X: box.X, Y: box.Y, Width: box.Width, Height: box.Height, Alt: cell.Value, Above: picture.Above}})
 }
 
-// drawioPictureWithin is location as a Picture under the view's directory dir
-// states it, relative to dir; a file outside dir — by an absolute path, a
-// `..` or a document with no directory — is not one, and is not read.
+// drawioPictureWithin is location relative to the view's directory dir, or false for a file outside
+// dir (an absolute path, a `..`, a symlink out of it, or any absolute path when there is no dir).
 func drawioPictureWithin(location, dir string) (string, bool) {
 	if dir == "" {
 		clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(location)))
 		return location, !filepath.IsAbs(location) && clean != ".." && !strings.HasPrefix(clean, "../")
 	}
-	base, err := filepath.Abs(dir)
+	base, err := filepath.EvalSymlinks(dir)
+	if err == nil {
+		base, err = filepath.Abs(base)
+	}
 	if err != nil {
 		return "", false
 	}
 	path, err := filepath.Abs(Picture{Location: location, Dir: dir}.Path())
 	if err != nil {
 		return "", false
+	}
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		path = real
 	}
 	rel, err := filepath.Rel(base, path)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
