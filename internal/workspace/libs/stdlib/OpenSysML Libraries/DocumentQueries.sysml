@@ -144,10 +144,14 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
-	/* WhereType keeps the elements that are of any of the named types. */
+	/* WhereType keeps the elements that are of any of the named types: a metaclass
+	 * (PartUsage) or a definition/usage of the model, subtypes included. */
 	calc def WhereType {
 		in source : Element[0..*] ordered;
 		in type : String[1..*] ordered;
+		/* exact = true keeps only the elements whose own metaclass is one of the named
+		 * ones, neither its subclasses nor the model's types: the reflective walk. */
+		in exact : Boolean[1] default false;
 		return result : Element[0..*] ordered;
 	}
 
