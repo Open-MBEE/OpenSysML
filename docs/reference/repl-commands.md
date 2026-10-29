@@ -359,6 +359,10 @@ and stays reachable as #1` — and `#1` goes on reaching the first object on eve
 `%instances` as `#1 (ID: 1, displaced from Demo::car)`. A debugging session over the displaced object
 keeps running: the same `%instantiate` notes that it now follows the object as `#1` (or as a path
 from that id, `#1.r`, for a nested object), and `%step`, `%advance` and `%continue` go on driving it.
+The displaced object is still an object of its definition: `%requirement` and `%satisfy` run a
+verification case or `satisfy` the definition owns on it as on the named one, its verdict
+labelled `on #1 (displaced from Demo::car)`, and `%constraint` or `%requirement` of a condition
+the definition owns names both objects as carriers (`Demo::car, #1`) until one of them is given.
 Looking an id up materializes nothing: an id the runtime never issued is `no object #9 in this
 session: nothing materialized has that identity (the objects are #1, #2)`, and so is one of an object
 made in passing — by `%eval in` on a usage nothing was instantiated under, say — which `%instances`
