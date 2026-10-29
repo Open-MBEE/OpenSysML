@@ -23,7 +23,7 @@ var spaces4 = protocol.FormattingOptions{TabSize: 4, InsertSpaces: true}
 func openFormatDoc(t *testing.T, src string) (*Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
-	name := uri.File("/tmp/fmt.sysml").Filename()
+	name := uri.File("/tmp/fmt.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 	return NewServer(ws), name
 }

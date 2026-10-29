@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -85,8 +86,9 @@ func initializeFolders(params *protocol.InitializeParams) []string {
 		seen[path] = true
 		out = append(out, path)
 	}
-	for _, folder := range params.WorkspaceFolders {
-		add(uriToName(protocol.DocumentURI(folder.URI)))
+	folders, _ := params.WorkspaceFolders.Get()
+	for _, folder := range folders {
+		add(uriToName(folder.URI))
 	}
 	if len(out) == 0 {
 		add(legacyRoot(params))
@@ -97,10 +99,11 @@ func initializeFolders(params *protocol.InitializeParams) []string {
 // legacyRoot returns the root a client that predates workspaceFolders sends;
 // these deprecated fields are the only ones such a client populates.
 func legacyRoot(params *protocol.InitializeParams) string {
-	if params.RootURI != "" {
-		return uriToName(params.RootURI)
+	if params.RootURI != nil && *params.RootURI != "" {
+		return uriToName(*params.RootURI)
 	}
-	return params.RootPath
+	root, _ := params.RootPath.Get()
+	return root
 }
 
 // loadFolders indexes every model source under the session's folders, so a name
@@ -466,7 +469,7 @@ func (s *Server) readFromDisk(path string) ([]byte, bool) {
 // interchange file changed — a usage added, a project installed or removed —
 // has the projects the folders use found again.
 func (s *Server) DidChangeWatchedFiles(ctx context.Context, params *protocol.DidChangeWatchedFilesParams) error {
-	var sources []*protocol.FileEvent
+	var sources []protocol.FileEvent
 	projects := false
 	for _, event := range params.Changes {
 		name := uriToName(event.URI)
@@ -507,10 +510,10 @@ func (s *Server) DidChangeWatchedFiles(ctx context.Context, params *protocol.Did
 func (s *Server) DidChangeWorkspaceFolders(ctx context.Context, params *protocol.DidChangeWorkspaceFoldersParams) error {
 	s.debugEdit(ctx, "", func() {
 		for _, folder := range params.Event.Removed {
-			s.dropFolder(uriToName(protocol.DocumentURI(folder.URI)))
+			s.dropFolder(uriToName(folder.URI))
 		}
 		for _, folder := range params.Event.Added {
-			s.addFolder(uriToName(protocol.DocumentURI(folder.URI)))
+			s.addFolder(uriToName(folder.URI))
 		}
 		// A document whose folder was just removed is now a lone file.
 		for _, name := range s.ws.OpenNames() {
@@ -668,7 +671,7 @@ func (s *Server) queueOpenDiagnostics(ctx context.Context, except string) {
 		s.refreshOpenDiagnostics(ctx, except)
 		return
 	}
-	// The sweep outlives the notification, whose context is cancelled on return.
-	ctx = context.WithoutCancel(ctx)
+	// The sweep outlives the notification, whose context is recycled on return.
+	ctx = jsonrpc2.DetachContext(ctx)
 	s.crossDoc.Trigger(except, func() { s.refreshOpenDiagnostics(ctx, except) })
 }

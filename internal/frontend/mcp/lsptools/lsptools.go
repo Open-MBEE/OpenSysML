@@ -83,10 +83,12 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 	}
 	srv := lsp.NewServer(ws, lsp.WithVersion(version), lsp.WithLibraryRoots(project.EnvLibraryRoots()))
 	params := &protocol.InitializeParams{
-		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(root)), Name: root}},
+		WorkspaceFoldersInitializeParams: protocol.WorkspaceFoldersInitializeParams{
+			WorkspaceFolders: protocol.NewNullable([]protocol.WorkspaceFolder{{URI: uri.File(root), Name: root}}),
+		},
 		Capabilities: protocol.ClientCapabilities{
 			TextDocument: &protocol.TextDocumentClientCapabilities{
-				Hover: &protocol.HoverTextDocumentClientCapabilities{ContentFormat: []protocol.MarkupKind{protocol.Markdown}},
+				Hover: &protocol.HoverClientCapabilities{ContentFormat: []protocol.MarkupKind{protocol.MarkupKindMarkdown}},
 			},
 		},
 	}
@@ -117,10 +119,10 @@ type docRef struct {
 	library bool
 }
 
-func (d docRef) uri() protocol.DocumentURI {
+func (d docRef) uri() uri.URI {
 	if d.library {
 		u := url.URL{Scheme: lsp.LibraryScheme, Path: "/" + filepath.ToSlash(d.name)}
-		return protocol.DocumentURI(u.String())
+		return uri.URI(u.String())
 	}
 	return uri.File(d.name)
 }
@@ -146,7 +148,7 @@ func (h *Host) resolve(path string) (docRef, error) {
 		return h.resolveLibrary(strings.TrimPrefix(parsed.Path, "/"))
 	}
 	if strings.HasPrefix(path, "file://") {
-		path = uri.URI(path).Filename()
+		path = uri.URI(path).FsPath()
 	}
 	res, err := h.root.Resolve(path)
 	if err != nil {
@@ -187,7 +189,7 @@ func (h *Host) content(ref docRef) ([]byte, error) {
 
 // contentOf is the text of a document a result names by URI, nil when the
 // workspace does not hold it.
-func (h *Host) contentOf(u protocol.DocumentURI) []byte {
+func (h *Host) contentOf(u uri.URI) []byte {
 	ref := h.refOf(u)
 	content, err := h.content(ref)
 	if err != nil {
@@ -197,17 +199,17 @@ func (h *Host) contentOf(u protocol.DocumentURI) []byte {
 }
 
 // refOf is the document reference of a URI the server produced.
-func (h *Host) refOf(u protocol.DocumentURI) docRef {
+func (h *Host) refOf(u uri.URI) docRef {
 	if parsed, err := url.Parse(string(u)); err == nil && strings.EqualFold(parsed.Scheme, lsp.LibraryScheme) {
 		return docRef{name: strings.TrimPrefix(parsed.Path, "/"), library: true}
 	}
-	return docRef{name: uri.URI(u).Filename()}
+	return docRef{name: uri.URI(u).FsPath()}
 }
 
 // display is how results name a document: the path relative to the root when
 // under it, the absolute path otherwise, and the `sysml://stdlib/<file>`
 // resource URI for a standard library document.
-func (h *Host) display(u protocol.DocumentURI) string {
+func (h *Host) display(u uri.URI) string {
 	ref := h.refOf(u)
 	if ref.library {
 		return stdlibResourceURI(ref.name)
@@ -244,17 +246,23 @@ type pendingWrite struct {
 	base    []byte
 }
 
+// unchanged reports whether the write leaves the document as it was read.
+func (w pendingWrite) unchanged() bool { return bytes.Equal(w.content, w.base) }
+
 // writeAll puts every pending write on disk, or none: a file whose text on
 // disk is no longer what its change was computed from, or that changed under
 // an open buffer since the buffer was opened, refuses the whole change, and a
-// failed write restores the files written before it. Every file operation
+// failed write restores the files written before it. A write whose text is its
+// base is a document the change read and left alone: it is checked like the
+// others, and neither written nor advanced. Every file operation
 // goes through an os.Root at the resolved root, so a link repointed while the
 // change is in flight cannot carry a write outside it. The index, and an open
-// buffer of a written document, then follow the new text.
-func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
+// buffer of a written document, then follow the new text. The count is the
+// files written.
+func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) (int, error) {
 	root, err := os.OpenRoot(h.root.Real)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer func() { _ = root.Close() }()
 	type original struct {
@@ -265,24 +273,27 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	for _, w := range writes {
 		target, err := h.root.Target(w.name)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		prev, err := root.ReadFile(target)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return err
+			return 0, err
 		}
 		now := diskState{content: prev, existed: err == nil}
 		if seen, open := h.opened[w.name]; open {
 			if !now.same(seen) {
-				return fmt.Errorf("%s changed on disk while it was held open; close_document and open it again with the text to keep", h.display(uri.File(w.name)))
+				return 0, fmt.Errorf("%s changed on disk while it was held open; close_document and open it again with the text to keep", h.display(uri.File(w.name)))
 			}
 		} else if !now.same(diskState{content: w.base, existed: true}) {
-			return fmt.Errorf("%s changed on disk since it was read; call the tool again", h.display(uri.File(w.name)))
+			return 0, fmt.Errorf("%s changed on disk since it was read; call the tool again", h.display(uri.File(w.name)))
 		}
 		originals[w.name] = original{target: target, diskState: now}
 	}
 	var written []string
 	for _, w := range writes {
+		if w.unchanged() {
+			continue
+		}
 		if err := toolkit.WriteFile(root, originals[w.name].target, w.content, 0o600); err != nil {
 			var restore []string
 			for _, name := range written {
@@ -298,22 +309,25 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 				}
 			}
 			if len(restore) > 0 {
-				return fmt.Errorf("writing %s: %w; and %s could not be restored, check them", h.display(uri.File(w.name)), err, strings.Join(restore, ", "))
+				return 0, fmt.Errorf("writing %s: %w; and %s could not be restored, check them", h.display(uri.File(w.name)), err, strings.Join(restore, ", "))
 			}
-			return fmt.Errorf("writing %s: %w (no file was changed)", h.display(uri.File(w.name)), err)
+			return 0, fmt.Errorf("writing %s: %w (no file was changed)", h.display(uri.File(w.name)), err)
 		}
 		written = append(written, w.name)
 	}
 	for _, w := range writes {
+		if w.unchanged() {
+			continue
+		}
 		if _, open := h.opened[w.name]; open {
 			h.opened[w.name] = diskState{content: w.content, existed: true}
 			if err := h.replace(ctx, w.name, string(w.content)); err != nil {
-				return err
+				return 0, err
 			}
 		}
 	}
 	h.Refresh(ctx)
-	return nil
+	return len(written), nil
 }
 
 // replace makes text the content of the open document name, as the next
@@ -323,7 +337,7 @@ func (h *Host) replace(ctx context.Context, name, text string) error {
 	version := int32(doc.Version + 1) // #nosec G115 -- document versions are small counters
 	return h.Server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument:   protocol.VersionedTextDocumentIdentifier{TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri.File(name)}, Version: version},
-		ContentChanges: []protocol.TextDocumentContentChangeEvent{{Range: fullRange(doc.Content), Text: text}},
+		ContentChanges: []protocol.TextDocumentContentChangeEvent{&protocol.TextDocumentContentChangePartial{Range: fullRange(doc.Content), Text: text}},
 	})
 }
 

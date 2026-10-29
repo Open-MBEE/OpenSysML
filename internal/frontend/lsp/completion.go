@@ -15,7 +15,7 @@ import (
 // Completion implements textDocument/completion: members of what a member
 // access names, else the names in scope plus library names and keywords.
 // Prefix filtering is left to the client.
-func (s *Server) Completion(ctx context.Context, params *protocol.CompletionParams) (*protocol.CompletionList, error) {
+func (s *Server) Completion(ctx context.Context, params *protocol.CompletionParams) (protocol.CompletionResult, error) {
 	c := &completionItems{seen: map[string]bool{}}
 
 	name := uriToName(params.TextDocument.URI)
@@ -89,7 +89,7 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 		c.add(protocol.CompletionItem{
 			Label:  kw,
 			Kind:   protocol.CompletionItemKindKeyword,
-			Detail: "keyword",
+			Detail: protocol.NewOptional("keyword"),
 		})
 	}
 	// Words the parser reads as syntax positionally but the lexer does not
@@ -98,7 +98,7 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 		c.add(protocol.CompletionItem{
 			Label:  kw,
 			Kind:   protocol.CompletionItemKindKeyword,
-			Detail: "contextual keyword",
+			Detail: protocol.NewOptional("contextual keyword"),
 		})
 	}
 
@@ -130,9 +130,9 @@ func (c *completionItems) addSymbol(s *Server, sym *symbols.Symbol) {
 	item := protocol.CompletionItem{
 		Label:  symbols.LastSegment(sym.Name),
 		Kind:   completionKind(sym.Kind),
-		Detail: completionDetail(sym),
+		Detail: protocol.NewOptional(completionDetail(sym)),
 	}
-	if doc, ok := s.symbolDocumentation(sym); ok {
+	if doc := s.symbolDocumentation(sym); doc != nil {
 		item.Documentation = doc
 	}
 	c.add(item)
@@ -151,9 +151,9 @@ func (c *completionItems) addNamedSymbol(s *Server, label string, sym *symbols.S
 	item := protocol.CompletionItem{
 		Label:  label,
 		Kind:   completionKind(sym.Kind),
-		Detail: completionDetail(sym),
+		Detail: protocol.NewOptional(completionDetail(sym)),
 	}
-	if doc, ok := s.symbolDocumentation(sym); ok {
+	if doc := s.symbolDocumentation(sym); doc != nil {
 		item.Documentation = doc
 	}
 	c.add(item)
@@ -168,28 +168,28 @@ func (c *completionItems) list() *protocol.CompletionList {
 // its record is listed without, since completing must not parse every closed
 // file a candidate comes from. A client that renders
 // Markdown is sent the comments as prose, as hover does, rather than the source
-// with its delimiters.
-func (s *Server) symbolDocumentation(sym *symbols.Symbol) (protocol.MarkupContent, bool) {
+// with its delimiters. Nil when there is nothing to show.
+func (s *Server) symbolDocumentation(sym *symbols.Symbol) *protocol.MarkupContent {
 	if len(sym.LeadingTrivia) == 0 || sym.DocName == "" {
-		return protocol.MarkupContent{}, false
+		return nil
 	}
 	doc := s.ws.Document(sym.DocName)
 	if doc == nil {
-		return protocol.MarkupContent{}, false
+		return nil
 	}
 	comments := leadingDocComments(doc.Content, sym.LeadingTrivia)
 	if s.wantsMarkdownCompletion() {
 		prose := docCommentProse(comments)
 		if prose == "" {
-			return protocol.MarkupContent{}, false
+			return nil
 		}
-		return protocol.MarkupContent{Kind: protocol.Markdown, Value: prose}, true
+		return &protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: prose}
 	}
 	text := strings.Join(comments, "\n")
 	if text == "" {
-		return protocol.MarkupContent{}, false
+		return nil
 	}
-	return protocol.MarkupContent{Kind: protocol.PlainText, Value: text}, true
+	return &protocol.MarkupContent{Kind: protocol.MarkupKindPlainText, Value: text}
 }
 
 // completionDetail describes an element the way hover does: its kind, plus the

@@ -213,7 +213,7 @@ func prepareRenameAt(t *testing.T, s *Server, name, src, anchor string) (*protoc
 	if off < 0 {
 		t.Fatalf("anchor %q not found", anchor)
 	}
-	return s.PrepareRename(context.Background(), &protocol.PrepareRenameParams{
+	return prepareRename(t, s, context.Background(), &protocol.PrepareRenameParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), off),

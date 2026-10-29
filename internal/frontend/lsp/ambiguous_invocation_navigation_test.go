@@ -37,7 +37,7 @@ part def P :> A, B, C {
 func openAmbiguousNavigation(t *testing.T) (*model.Workspace, *Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
-	name := uri.File("/tmp/ambiguous_nav.sysml").Filename()
+	name := uri.File("/tmp/ambiguous_nav.sysml").FsPath()
 	ws.Open(name, []byte(ambiguousNavigationSrc), 1)
 	return ws, NewServer(ws), name
 }
@@ -189,15 +189,15 @@ func TestHoverNamesAmbiguousOverloads(t *testing.T) {
 		t.Fatal("Hover = nil, want the tied overloads")
 	}
 	for _, want := range []string{"A::pick", "B::pick", "Ambiguous call"} {
-		if !strings.Contains(hov.Contents.Value, want) {
-			t.Errorf("hover %q lacks %q", hov.Contents.Value, want)
+		if !strings.Contains(hoverMarkup(t, hov).Value, want) {
+			t.Errorf("hover %q lacks %q", hoverMarkup(t, hov).Value, want)
 		}
 	}
-	if strings.Contains(hov.Contents.Value, "C::pick") {
-		t.Errorf("hover %q names the beaten Real overload", hov.Contents.Value)
+	if strings.Contains(hoverMarkup(t, hov).Value, "C::pick") {
+		t.Errorf("hover %q names the beaten Real overload", hoverMarkup(t, hov).Value)
 	}
-	if strings.Contains(hov.Contents.Value, "attribute") {
-		t.Errorf("hover %q describes the enclosing attribute", hov.Contents.Value)
+	if strings.Contains(hoverMarkup(t, hov).Value, "attribute") {
+		t.Errorf("hover %q describes the enclosing attribute", hoverMarkup(t, hov).Value)
 	}
 	if hov.Range == nil || hov.Range.Start.Line != lineOfSrc(t, src, "pick(2)") {
 		t.Errorf("hover range = %v, want the call's name", hov.Range)
@@ -257,7 +257,7 @@ package Q {
 func openQualifiedAmbiguity(t *testing.T) (*model.Workspace, *Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
-	name := uri.File("/tmp/qualified_ambiguity.sysml").Filename()
+	name := uri.File("/tmp/qualified_ambiguity.sysml").FsPath()
 	ws.Open(name, []byte(qualifiedAmbiguitySrc), 1)
 	return ws, NewServer(ws), name
 }
@@ -385,7 +385,7 @@ part def Q :> Names {
 func TestReferencesAndRenameFollowSelectedAlias(t *testing.T) {
 	src := selectingAliasesSrc
 	ws := model.NewWorkspace()
-	name := uri.File("/tmp/selecting_aliases.sysml").Filename()
+	name := uri.File("/tmp/selecting_aliases.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 	s := NewServer(ws)
 
@@ -463,7 +463,7 @@ func TestSeparatorOfQualifiedAmbiguousCall(t *testing.T) {
 
 	for _, at := range []string{"::pick(2)", `::pick("s")`} {
 		hov := hoverOf(t, s, name, src, at)
-		if hov == nil || !strings.Contains(hov.Contents.Value, "attribute q") || strings.Contains(hov.Contents.Value, "Ambiguous") {
+		if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "attribute q") || strings.Contains(hoverMarkup(t, hov).Value, "Ambiguous") {
 			t.Errorf("hover on %q = %v, want the enclosing attribute", at, hov)
 		}
 	}
@@ -496,7 +496,7 @@ func TestReferencesAndRenameSkipNamelessReference(t *testing.T) {
 }
 `
 	ws := model.NewWorkspace()
-	name := uri.File("/tmp/nameless_ref.sysml").Filename()
+	name := uri.File("/tmp/nameless_ref.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 	s := NewServer(ws)
 
