@@ -175,3 +175,23 @@ func TestDiffLinesLongDocumentSparseChanges(t *testing.T) {
 		t.Fatalf("hunks = %+v, want three", hunks)
 	}
 }
+
+// A unified diff of an insertion names the line before it with a zero count,
+// at the start, in the middle and at the end, as patch reads it.
+func TestUnifiedDiffInsertionRanges(t *testing.T) {
+	cases := []struct{ name, old, updated, header string }{
+		{"start", "b\nc\n", "a\nb\nc\n", "@@ -1,2 +1,3 @@"},
+		{"middle", "a\nb\nc\nd\ne\nf\ng\nh\n", "a\nb\nc\nd\nX\ne\nf\ng\nh\n", "@@ -2,6 +2,7 @@"},
+		{"end", "a\nb\n", "a\nb\nc\n", "@@ -1,2 +1,3 @@"},
+		{"empty", "", "a\n", "@@ -0,0 +1 @@"},
+	}
+	for _, c := range cases {
+		got := UnifiedDiff("m.sysml", []byte(c.old), []byte(c.updated))
+		if !strings.Contains(got, c.header+"\n") {
+			t.Errorf("%s: diff lacks %q:\n%s", c.name, c.header, got)
+		}
+	}
+	if got := UnifiedDiff("m.sysml", []byte("a\n"), []byte("a\n")); got != "" {
+		t.Errorf("unchanged text diffs as %q", got)
+	}
+}

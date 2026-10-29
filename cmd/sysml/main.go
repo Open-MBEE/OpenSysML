@@ -451,6 +451,10 @@ func runCLI() int {
 		}
 	}
 
+	if flagGiven("import-diagram") && importDiagramPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -import-diagram needs the draw.io file to import")
+		return 2
+	}
 	if importView != "" && importDiagramPath == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -view names the page -import-diagram reads; name the file with -import-diagram")
 		return 2

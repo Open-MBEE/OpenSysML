@@ -46,6 +46,7 @@ type ImportDiagramEdit struct {
 type ImportDiagramResult struct {
 	View      string                  `json:"view"`
 	DryRun    bool                    `json:"dryRun"`
+	Stale     bool                    `json:"stale,omitempty"`
 	Edits     []ImportDiagramEdit     `json:"edits"`
 	Unmatched []string                `json:"unmatched,omitempty"`
 	Unknown   []string                `json:"unknown,omitempty"`
@@ -126,11 +127,16 @@ func (s *Server) ImportDiagram(params *ImportDiagramParams) (*ImportDiagramResul
 	if len(imp.Edits) == 0 {
 		return out, nil
 	}
-	result, version, ok, err := s.ws.ApplyEdit(name, modeledit.DrawioOperations(imp, params.Inline), nil)
+	result, version, ok, err := s.ws.ApplyEdit(name, modeledit.DrawioOperations(imp, params.Inline), snapshot.Documents())
 	if !ok {
 		return nil, fmt.Errorf("%s: no such document", name)
 	}
 	out.Version = version
+	var stale *model.StaleError
+	if errors.As(err, &stale) {
+		out.Stale = true
+		return out, nil
+	}
 	if err != nil {
 		var refusal *modeledit.Error
 		if !errors.As(err, &refusal) {

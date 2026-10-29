@@ -197,6 +197,9 @@ func UnifiedDiff(name string, old, updated []byte) string {
 
 // hunkRange spells a unified-diff range, 1-based, as "start,count".
 func hunkRange(from, to int) string {
+	if from == to {
+		return fmt.Sprintf("%d,0", from)
+	}
 	if to-from == 1 {
 		return fmt.Sprint(from + 1)
 	}

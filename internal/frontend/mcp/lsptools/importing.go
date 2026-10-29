@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -54,9 +53,13 @@ func registerImporting(s *mcp.Server, h *Host) {
 		if err != nil {
 			return nil, ImportDiagramResult{}, err
 		}
-		file := in.File
-		if file != "" && !filepath.IsAbs(file) {
-			file = filepath.Join(h.Root, file)
+		file := ""
+		if in.File != "" {
+			res, err := h.root.Resolve(in.File)
+			if err != nil {
+				return nil, ImportDiagramResult{}, err
+			}
+			file = res.Real
 		}
 		result, err := h.Server.ImportDiagram(&lsp.ImportDiagramParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()},

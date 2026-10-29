@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/check/edit"
@@ -53,24 +54,102 @@ func runImportDiagram(files []string) error {
 	if err != nil {
 		var refusal *modeledit.Error
 		if errors.As(err, &refusal) {
-			return fmt.Errorf("%s: %s is not imported: %s", importDiagramPath, imp.Edits[refusal.OperationIndex].Label, refusal.Message)
+			if i := refusal.OperationIndex; i >= 0 && i < len(imp.Edits) {
+				return fmt.Errorf("%s: %s is not imported: %s", importDiagramPath, drawioEditTarget(imp.Edits[i]), refusal.Message)
+			}
+			return fmt.Errorf("%s: not imported: %s", importDiagramPath, refusal.Message)
 		}
 		return err
 	}
-	for _, edited := range result.Documents {
-		if dryRun {
+	if dryRun {
+		for _, edited := range result.Documents {
 			fmt.Fprint(os.Stdout, model.UnifiedDiff(edited.Name, edited.Original, edited.Content))
-			continue
 		}
-		if err := writeEdited(edited.Name, edited.Content); err != nil {
-			return err
-		}
+		fmt.Fprintf(os.Stderr, "dry run: %d edits planned, nothing written\n", len(imp.Edits))
+		return nil
+	}
+	if err := commitEditedDocuments(result.Documents); err != nil {
+		return err
+	}
+	for _, edited := range result.Documents {
 		fmt.Fprintf(os.Stderr, "%s: written\n", edited.Name)
 	}
-	if dryRun {
-		fmt.Fprintf(os.Stderr, "dry run: %d edits planned, nothing written\n", len(imp.Edits))
-	}
 	return nil
+}
+
+// commitEditedDocuments rewrites the model files as a set: each is staged
+// beside its file and swapped in; a failure puts every file back as it was.
+func commitEditedDocuments(documents []model.DocumentEdit) (err error) {
+	type swap struct {
+		target, backup string
+		movedAside     bool
+	}
+	var done []swap
+	defer func() {
+		if err == nil {
+			return
+		}
+		for i := len(done) - 1; i >= 0; i-- {
+			restoreBackup(done[i].target, done[i].backup, done[i].movedAside)
+		}
+	}()
+	staged := make([]string, 0, len(documents))
+	defer func() {
+		for _, name := range staged {
+			_ = os.Remove(name)
+		}
+	}()
+	for _, edited := range documents {
+		info, statErr := os.Stat(edited.Name)
+		if statErr != nil {
+			return statErr
+		}
+		name, stageErr := stageEdited(edited, info.Mode().Perm())
+		if name != "" {
+			staged = append(staged, name)
+		}
+		if stageErr != nil {
+			return stageErr
+		}
+		backup, movedAside, backupErr := backUp(edited.Name)
+		if backupErr != nil {
+			return fmt.Errorf("write %s: %w", edited.Name, backupErr)
+		}
+		done = append(done, swap{edited.Name, backup, movedAside})
+		if renameErr := os.Rename(name, edited.Name); renameErr != nil {
+			return fmt.Errorf("write %s: %w", edited.Name, renameErr)
+		}
+	}
+	for _, s := range done {
+		_ = os.Remove(s.backup)
+	}
+	done = nil
+	return nil
+}
+
+// stageEdited writes the edited document to a temporary file beside its own,
+// with the same permissions, and names it.
+func stageEdited(edited model.DocumentEdit, perm fs.FileMode) (string, error) {
+	file, err := os.CreateTemp(filepath.Dir(edited.Name), ".sysml-staged-*")
+	if err != nil {
+		return "", fmt.Errorf("stage %s: %w", edited.Name, err)
+	}
+	name := file.Name()
+	if _, err := file.Write(edited.Content); err != nil {
+		_ = file.Close()
+		return name, fmt.Errorf("stage %s: %w", edited.Name, err)
+	}
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
+		return name, fmt.Errorf("stage %s: %w", edited.Name, err)
+	}
+	if err := file.Close(); err != nil {
+		return name, fmt.Errorf("stage %s: %w", edited.Name, err)
+	}
+	if err := os.Chmod(name, perm); err != nil {
+		return name, fmt.Errorf("stage %s: %w", edited.Name, err)
+	}
+	return name, nil
 }
 
 // reportDrawioImport lists the edits an import plans and what it leaves alone.
@@ -113,13 +192,4 @@ func drawioImportDocument(imp *view.DrawioImport, files []string) string {
 		}
 	}
 	return files[0]
-}
-
-// writeEdited rewrites a model file in place, keeping its permissions.
-func writeEdited(name string, content []byte) error {
-	mode := fs.FileMode(0o644)
-	if info, err := os.Stat(name); err == nil {
-		mode = info.Mode().Perm()
-	}
-	return os.WriteFile(name, content, mode)
 }
