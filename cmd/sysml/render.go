@@ -364,6 +364,8 @@ func renderExtension(form view.Form) string {
 		return ".puml"
 	case view.FormD2:
 		return ".d2"
+	case view.FormDrawio:
+		return ".drawio"
 	case view.FormCSV:
 		return ".csv"
 	case view.FormTSV:

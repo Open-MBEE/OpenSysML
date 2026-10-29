@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ParameterCalcViews::calculations — tree rendering (render asTreeDiagram) -->
+<!-- 2 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="ParameterCalcViews-calculations" name="ParameterCalcViews::calculations">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«calc»&#xA;add" fqn="ParameterCalcs::add" kind="calc" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:9">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="54" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n0:n0.0" label="x" fqn="ParameterCalcs::add::x" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:10">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="0" y="0.3333333333333333" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n0:n0.1" label="y" fqn="ParameterCalcs::add::y" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:11">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="0" y="0.6666666666666666" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n0:n0.2" label="result" fqn="ParameterCalcs::add::result" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:12">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="1" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part def»&#xA;Sensor" fqn="ParameterCalcs::Sensor" kind="part def" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:42">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="134" y="40" width="358" height="212" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«attribute»&#xA;a" fqn="ParameterCalcs::Sensor::a" kind="attribute" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:43">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="16" y="82" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«attribute»&#xA;b" fqn="ParameterCalcs::Sensor::b" kind="attribute" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:44">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="138" y="82" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«attribute»&#xA;gain" fqn="ParameterCalcs::Sensor::gain" kind="attribute" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:45">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="260" y="82" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«calc»&#xA;sum" fqn="ParameterCalcs::Sensor::sum" kind="calc" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:46">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="16" y="159" width="54" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5:n5.0" label="x" fqn="ParameterCalcs::Sensor::sum::x" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:46">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n5">
+            <mxGeometry x="0" y="0.3333333333333333" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n5:n5.1" label="^y" fqn="ParameterCalcs::Add::y" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:18">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n5">
+            <mxGeometry x="0" y="0.6666666666666666" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n5:n5.2" label="^result" fqn="ParameterCalcs::Sensor::sum::result" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:19">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n5">
+            <mxGeometry x="1" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n6" label="«calc»&#xA;scaled" fqn="ParameterCalcs::Sensor::scaled" kind="calc" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:47">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="110" y="159" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6:n6.0" label="factor" fqn="ParameterCalcs::Sensor::scaled::factor" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:47">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n6">
+            <mxGeometry x="0" y="0.3333333333333333" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n6:n6.1" label="^x" fqn="ParameterCalcs::Scale::x" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:24">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n6">
+            <mxGeometry x="0" y="0.6666666666666666" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n6:n6.2" label="^count" fqn="ParameterCalcs::Scale::count" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:26">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n6">
+            <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n6:n6.3" label="^doubled" fqn="ParameterCalcs::Scale::doubled" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:27">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n6">
+            <mxGeometry x="1" y="0.3333333333333333" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n6:n6.4" label="^r" fqn="ParameterCalcs::Scale::r" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:28">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n6">
+            <mxGeometry x="1" y="0.6666666666666666" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="reference" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:43">
+          <mxCell style="edgeStyle=none;exitX=0.15921787709497207;exitY=0.19811320754716982;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="reference" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:44">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.19811320754716982;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="reference" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:45">
+          <mxCell style="edgeStyle=none;exitX=0.840782122905028;exitY=0.19811320754716982;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

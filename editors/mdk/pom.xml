@@ -24,11 +24,14 @@
     <maven.surefire.plugin.version>3.6.1</maven.surefire.plugin.version>
     <jacoco.plugin.version>0.8.15</jacoco.plugin.version>
     <opensysml.client.version>0.11.0</opensysml.client.version>
-    <!-- The client's sigstore-java brings grpc-netty-shaded, bcprov/bcpkix and guava; a
-         consumer's own management is what holds them past their known advisories. -->
+    <!-- The client's sigstore-java brings grpc-netty-shaded, bcprov/bcpkix, guava and the
+         Apache HttpComponents under its Google HTTP client transport; a consumer's own
+         management is what holds them past their known advisories. -->
     <grpc.version>1.85.1</grpc.version>
     <bouncycastle.version>1.86</bouncycastle.version>
     <guava.version>33.7.2-jre</guava.version>
+    <httpcomponents.client5.version>5.6.5</httpcomponents.client5.version>
+    <httpcomponents.core5.version>5.4.4</httpcomponents.core5.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -58,6 +61,21 @@
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
         <version>${guava.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.client5</groupId>
+        <artifactId>httpclient5</artifactId>
+        <version>${httpcomponents.client5.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>${httpcomponents.core5.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5-h2</artifactId>
+        <version>${httpcomponents.core5.version}</version>
       </dependency>
       <dependency>
         <groupId>org.junit.jupiter</groupId>

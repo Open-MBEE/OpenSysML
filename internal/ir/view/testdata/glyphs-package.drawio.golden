@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NotationGlyphs::Diagrams::packageGlyphs — package rendering (view def GeneralView, filter @Package) -->
+<!-- 3 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="NotationGlyphs-Diagrams-packageGlyphs" name="NotationGlyphs::Diagrams::packageGlyphs">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«package»&#xA;NotationGlyphs" fqn="NotationGlyphs" kind="package" view="NotationGlyphs::Diagrams::packageGlyphs" link="notation-glyphs.sysml:5">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="146" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«package»&#xA;Lib" fqn="NotationGlyphs::Lib" kind="package" view="NotationGlyphs::Diagrams::packageGlyphs" link="notation-glyphs.sysml:59">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="226" y="40" width="70" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«package»&#xA;Uses" fqn="NotationGlyphs::Uses" kind="package" view="NotationGlyphs::Diagrams::packageGlyphs" link="notation-glyphs.sysml:62">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="117" width="70" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="containment" view="NotationGlyphs::Diagrams::packageGlyphs" link="notation-glyphs.sysml:59">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="containment" view="NotationGlyphs::Diagrams::packageGlyphs" link="notation-glyphs.sysml:62">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.7571428571428571;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="113" y="97"/>
+                <mxPoint x="93" y="97"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="unowned membership" view="NotationGlyphs::Diagrams::packageGlyphs" link="notation-glyphs.sysml:64">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0.2571428571428571;entryY=1;entryPerimeter=0;rounded=0;html=0;startArrow=oval;startFill=0;endArrow=none;" edge="1" parent="1" source="n2" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="244" y="136"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="e2:to" value="L" style="edgeLabel;html=0;align=center;verticalAlign=middle;resizable=0;" vertex="1" connectable="0" parent="e2">
+          <mxGeometry x="0.8" relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -788,7 +788,7 @@ function fixedHost(envelope: string): WasmHost {
 
 const emptyWasm = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]);
 
-class FakeGo {
+const FakeGo = class FakeGo {
   readonly importObject = {};
 
   run(): Promise<void> {
@@ -813,7 +813,7 @@ class FakeGo {
     };
     return Promise.resolve();
   }
-}
+} satisfies GoConstructor;
 
 class FakeBrowserWorker {
   terminated = false;
@@ -932,4 +932,3 @@ async function waitFor(
   throw new Error("timed out waiting for a WASM worker message");
 }
 
-void (FakeGo satisfies GoConstructor);

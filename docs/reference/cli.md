@@ -256,8 +256,8 @@ the same member-path parser as `Project` and `OrderBy`.
 | `-render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `-render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `-graphs <subject>` | | Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical `graphs:1` JSON an external analysis engine is sent ([the `graphs:1` model form](external-engines.md#the-graphs1-model-form)) to stdout, or to `-output`. The subject is a qualified name, definition or usage; a name that is no behavior, or that nothing declares, is refused with exit status 2. Cannot be combined with checks, rendering, `-convert`, `-migrate`, `-query` or `-eval` |
-| `-render-form <form>` | | Form `-render` or `-render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv` (default: destination-dependent for `-render`, each kind's machine-readable form for `-render-all`). D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views refuse it with a typed error |
-| `-render-palette <name>` | | Palette the `dot`, `mermaid`, `plantuml` or `d2` form of `-render` or `-render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
+| `-render-form <form>` | | Form `-render` or `-render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `drawio`, `csv` or `tsv` (default: destination-dependent for `-render`, each kind's machine-readable form for `-render-all`). D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views refuse it with a typed error. `drawio` writes an uncompressed diagrams.net file for every graph-shaped kind but `sequence` |
+| `-render-palette <name>` | | Palette the `dot`, `mermaid`, `plantuml`, `d2` or `drawio` form of `-render` or `-render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
 | `-render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `-render`, `-render-all`, document diagrams and `-render-run`; without one of those render targets it is refused |
 | `-render-style <style>` | | Drawing style the `dot` or `mermaid` form of `-render`, `-render-all`, `-render-document` and `-render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
 | `-render-ports <display>` | | How much of a part's ports an interconnection or mixed rendering of `-render` or `-render-all` draws: `minimal` (the default), the ports its interconnection edges or mixed connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
@@ -782,7 +782,7 @@ plain name. Only views written in the requested form take part, and a plain name
 tagged one is tagged in turn, so no two files written in one run meet. With no
 `-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and table or matrix kinds use Markdown (`.md`); a forced text form uses
 `.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml` form uses
-`.puml`, PlantUML's conventional extension, a forced `d2` form uses `.d2`, and a forced `csv` or `tsv` form writes the tables as
+`.puml`, PlantUML's conventional extension, a forced `d2` form uses `.d2`, a forced `drawio` form uses `.drawio`, and a forced `csv` or `tsv` form writes the tables as
 `.csv` or `.tsv` and skips every other view.
 
 ```bash
@@ -800,7 +800,7 @@ The rendering is **tool-defined output**: SysML v2 §10.2 specifies the notation
 in, not how a tool draws it. Mermaid is the machine-readable form for the graph-shaped kinds because
 it renders as-is in Markdown, documentation sites and editors without a separate rendering tool, and
 has dedicated state diagram and sequence diagram grammars. A table or matrix uses Markdown as its
-machine form. An explicitly requested graph form (`mermaid`, `dot`, `plantuml` or `d2`) is refused
+machine form. An explicitly requested graph form (`mermaid`, `dot`, `plantuml`, `d2` or `drawio`) is refused
 for a table or matrix rather than written as another form.
 
 The forms a kind can be written in:
@@ -815,6 +815,7 @@ The forms a kind can be written in:
 | `dot` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition`, `package` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
 | `plantuml` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`, `package` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; an alternative form with a sequence grammar |
 | `d2` | `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition`, `package` | [D2](https://d2lang.com) in the same look, for D2 toolchains; nested containers, pseudostate glyphs and D2's sequence diagram |
+| `drawio` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition`, `package` | An uncompressed [diagrams.net](https://www.diagrams.net) (draw.io) file for draw.io desktop, the web editor and the VS Code draw.io extension; stated positions and routes kept, unplaced views on a grid for draw.io's layout |
 
 A node's label follows the graphical notation's header: the kind leads on its own line in
 guillemets, the element's name follows, with ` : Type` after it for a typed usage, and any note
@@ -829,6 +830,7 @@ in each form:
 | `dot` | `"n1" [label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>];` — an HTML-like label, the keyword line at 10pt over the name in bold |
 | `plantuml` | `rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>>` — a creole label, the keyword line italic at 10pt over the name in bold; the stereotypes drive the style and are hidden |
 | `d2` | `n1: "«part»\npump : Pump" { class: usage }` — a quoted label with the keyword line over the name, the class the B&W rule the node takes |
+| `drawio` | `<object id="n1" label="«part»&#xA;pump : Pump" fqn="…::pump" kind="part" …><mxCell style="swimlane;rounded=1;…" vertex="1">` — the keyword line over the name as the swimlane header, the element's qualified name on the wrapping object |
 
 An association end's name — a composite part's name and multiplicity on the composition from its
 owner to its type, a `ref`'s on its reference edge, each end of a connection def drawn as a line
@@ -955,7 +957,24 @@ it ([the D2 section](../project/view-rendering-forms.md#d2)) — and the diagram
 DOT form draws under `-render-unplaced`. Producing D2 runs no `d2`; drawing the file does
 (`d2 view.d2 view.svg`).
 
-`-render-palette <name>` fills the Mermaid, DOT, PlantUML and D2 nodes with a colourblind-safe palette by
+`drawio` writes an uncompressed [diagrams.net](https://www.diagrams.net) (draw.io) file — one
+`<diagram>` named for the view in an `<mxfile host="OpenSysML">` — that draw.io desktop, the
+diagrams.net editor and the VS Code draw.io extension open and edit as it is: nodes as stacked
+swimlanes with the keyword line over the name and a cell per compartment, nested parts and regions
+as children of their container, ports on the border, pseudostates as the UML template's shapes,
+edges in the §8.2.3 glyphs with their labels, notes and embedded pictures, and every semantic cell
+wrapped in an `<object>` carrying the element's qualified name, kind, view and declaration. Stated
+positions, routes, colours, fonts and the canvas are kept, and every edge the view leaves unrouted
+is routed before writing by libavoid, the orthogonal router the VS Code diagram panel draws with,
+so the file carries each bend; a view with no stated layout is laid on
+a grid and the file opens with a comment saying so — *Arrange › Layout* in draw.io, or
+`drawio --normalize --layout elkLayered` on draw.io desktop's command line (32 and later),
+arranges it. Every graph-shaped kind but `sequence` has the form, draw.io having no sequence
+grammar; the notation of each element is in
+[the draw.io section](../project/view-rendering-forms.md#drawio). Producing the file runs no
+draw.io.
+
+`-render-palette <name>` fills the Mermaid, DOT, PlantUML, D2 and draw.io nodes with a colourblind-safe palette by
 **keyword family** — a `part def` and a `part` share a hue, a `port` takes the next, and so on through
 item, port, attribute, action, state, requirement, constraint, connection, interface, use case,
 case, allocation, analysis, verification, enum, occurrence and flow. A definition is filled with
@@ -966,7 +985,7 @@ nodes and cluster borders stay black and white. The palettes are `okabe-ito` (Ok
 (ColorBrewer), and the sequential `viridis` and `cividis` (matplotlib), which are sampled evenly
 across the families the view draws, darkest first
 ([the palettes and their sources](../project/view-rendering-forms.md#palettes)). The palette
-applies to the `dot`, `mermaid`, `plantuml` and `d2` forms: DOT, Mermaid and D2 draw the same fill and border
+applies to the `dot`, `mermaid`, `plantuml`, `d2` and `drawio` forms: DOT, Mermaid, D2 and draw.io draw the same fill and border
 hex per graph node (D2 as `style: { fill; stroke }` on the node), while PlantUML draws the same fill (`#hex;line:hex` on an element). PlantUML
 sequence participants take their family fill; Mermaid accepts a sequence palette but notes that it
 cannot fill individual participants. Text and Markdown ignore palettes. A name that is no palette is refused with

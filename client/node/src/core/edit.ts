@@ -188,7 +188,7 @@ const FAILURE_ERRORS = new Map<string, new (message: string, options?: { failure
   ["EDIT_FAILURE_REFERENCED_ELSEWHERE", ReferencedElsewhereError],
 ]);
 
-const FAILURE_NAMES = new Map<EditFailure, string>([
+const FAILURE_NAMES = new Map<number, string>([
   [EditFailure.UNSPECIFIED, "EDIT_FAILURE_UNSPECIFIED"],
   [EditFailure.NO_OPERATIONS, "EDIT_FAILURE_NO_OPERATIONS"],
   [EditFailure.UNKNOWN_TARGET, "EDIT_FAILURE_UNKNOWN_TARGET"],
