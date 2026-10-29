@@ -147,7 +147,7 @@ func TestCompletionCarriesKindDetailAndDocumentation(t *testing.T) {
 	if optString(def.Detail) != "part def" {
 		t.Errorf("'Vehicle' detail = %q, want %q", optString(def.Detail), "part def")
 	}
-	if doc, _ := def.Documentation.(protocol.MarkupContent); !strings.Contains(doc.Value, "A vehicle under test.") {
+	if doc, _ := def.Documentation.(*protocol.MarkupContent); !strings.Contains(doc.Value, "A vehicle under test.") {
 		t.Errorf("'Vehicle' documentation = %#v, want the declaration's comment", def.Documentation)
 	}
 
@@ -420,7 +420,7 @@ func TestCompletionDocumentationIsProseWhenTheClientRendersMarkdown(t *testing.T
 	if !ok {
 		t.Fatal("completion missing 'Wheel'")
 	}
-	doc, ok := wheel.Documentation.(protocol.MarkupContent)
+	doc, ok := wheel.Documentation.(*protocol.MarkupContent)
 	if !ok {
 		t.Fatalf("'Wheel' documentation = %#v, want MarkupContent", wheel.Documentation)
 	}
@@ -435,7 +435,7 @@ func TestCompletionDocumentationIsProseWhenTheClientRendersMarkdown(t *testing.T
 	if !ok {
 		t.Fatal("completion missing 'Vehicle'")
 	}
-	vdoc, _ := vehicle.Documentation.(protocol.MarkupContent)
+	vdoc, _ := vehicle.Documentation.(*protocol.MarkupContent)
 	if vdoc.Value != "Carries the wheels.  \nTwo axles." {
 		t.Errorf("'Vehicle' documentation = %q, want a block note with its line break kept", vdoc.Value)
 	}
@@ -444,7 +444,7 @@ func TestCompletionDocumentationIsProseWhenTheClientRendersMarkdown(t *testing.T
 // A client that never advertised Markdown keeps the plain text it can render.
 func TestCompletionDocumentationStaysPlainTextWithoutMarkdown(t *testing.T) {
 	items := completionAtFor(t, documentedSrc, "part v : Vehicle;", false)
-	doc, _ := items["Wheel"].Documentation.(protocol.MarkupContent)
+	doc, _ := items["Wheel"].Documentation.(*protocol.MarkupContent)
 	if doc.Kind != protocol.MarkupKindPlainText {
 		t.Errorf("documentation kind = %q, want %q", doc.Kind, protocol.MarkupKindPlainText)
 	}

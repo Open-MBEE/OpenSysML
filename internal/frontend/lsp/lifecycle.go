@@ -13,9 +13,10 @@ import (
 func (s *Server) Initialize(ctx context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
 	s.setFolders(initializeFolders(params))
 	if params != nil {
-		s.applyConformanceSettings(ctx, params.InitializationOptions)
-		s.applyLintSettings(ctx, params.InitializationOptions)
-		s.applyLibraryRootsSetting(params.InitializationOptions)
+		options := decodeSettings(params.InitializationOptions)
+		s.applyConformanceSettings(ctx, options)
+		s.applyLintSettings(ctx, options)
+		s.applyLibraryRootsSetting(options)
 		s.setHoverMarkdown(clientRendersMarkdownHover(params.Capabilities))
 		s.setCompletionMarkdown(clientRendersMarkdownCompletion(params.Capabilities))
 		s.setCrossDocument(clientAdvertisesCrossDocument(params.Capabilities))

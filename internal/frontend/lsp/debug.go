@@ -119,10 +119,10 @@ type debugToken struct {
 	ID       int64       `json:"id"`
 	Node     string      `json:"node"`
 	Placed   bool        `json:"placed"`
-	Via      *debugEdge  `json:"via,omitempty"`
+	Via      *debugEdge  `json:"via,omitzero"`
 	Awaiting []debugEdge `json:"awaiting,omitempty"`
 	Waiting  string      `json:"waiting,omitempty"`
-	Due      *float64    `json:"due,omitempty"`
+	Due      *float64    `json:"due,omitzero"`
 }
 
 // debugEvent is an event the behavior has yet to take: one queued in a state
@@ -130,7 +130,7 @@ type debugToken struct {
 type debugEvent struct {
 	Event   string  `json:"event"`
 	At      float64 `json:"at"`
-	Pending bool    `json:"pending,omitempty"`
+	Pending bool    `json:"pending,omitzero"`
 }
 
 // debugSnapshot is where a session stands, in the IDs of the render result of

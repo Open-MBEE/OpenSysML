@@ -168,7 +168,7 @@ type RenderParams struct {
 	Lines        string                          `json:"lines,omitempty"`
 	Compartments string                          `json:"compartments,omitempty"`
 	Show         []string                        `json:"show,omitempty"`
-	Depth        int                             `json:"depth,omitempty"`
+	Depth        int                             `json:"depth,omitzero"`
 	// Include names elements drawn besides what the view exposes, each by
 	// qualified name, as if the view exposed them; nothing in the model changes.
 	Include      []string `json:"include,omitempty"`
@@ -192,8 +192,8 @@ type RenderResult struct {
 	Rows     []RenderRow   `json:"rows,omitempty"`
 	Columns  []string      `json:"columns,omitempty"`
 	Notices  []string      `json:"notices"`
-	Canvas   *RenderCanvas `json:"canvas,omitempty"`
-	Palette  *EditPalette  `json:"palette,omitempty"`
+	Canvas   *RenderCanvas `json:"canvas,omitzero"`
+	Palette  *EditPalette  `json:"palette,omitzero"`
 	Version  int           `json:"version"`
 }
 
@@ -213,30 +213,30 @@ type RenderNode struct {
 	ID              string          `json:"id"`
 	Kind            string          `json:"kind"`
 	Name            string          `json:"name"`
-	NameSynthesized bool            `json:"nameSynthesized,omitempty"`
-	Inherited       bool            `json:"inherited,omitempty"`
+	NameSynthesized bool            `json:"nameSynthesized,omitzero"`
+	Inherited       bool            `json:"inherited,omitzero"`
 	Type            string          `json:"type"`
 	Detail          string          `json:"detail"`
 	Parent          string          `json:"parent,omitempty"`
 	Compartment     string          `json:"compartment,omitempty"`
 	Fill            string          `json:"fill,omitempty"`
 	Border          string          `json:"border,omitempty"`
-	Style           *RenderStyle    `json:"style,omitempty"`
+	Style           *RenderStyle    `json:"style,omitzero"`
 	Ports           []RenderPort    `json:"ports,omitempty"`
 	FQN             string          `json:"fqn,omitempty"`
-	DeclaredHere    bool            `json:"declaredHere,omitempty"`
+	DeclaredHere    bool            `json:"declaredHere,omitzero"`
 	Notation        string          `json:"notation,omitempty"`
 	Owners          []RenderOwner   `json:"owners,omitempty"`
 	Declaration     *protocol.Range `json:"declaration,omitempty"`
-	Origin          *RenderOrigin   `json:"origin,omitempty"`
-	X               *float64        `json:"x,omitempty"`
-	Y               *float64        `json:"y,omitempty"`
-	Width           *float64        `json:"width,omitempty"`
-	Height          *float64        `json:"height,omitempty"`
-	Collapsed       bool            `json:"collapsed,omitempty"`
+	Origin          *RenderOrigin   `json:"origin,omitzero"`
+	X               *float64        `json:"x,omitzero"`
+	Y               *float64        `json:"y,omitzero"`
+	Width           *float64        `json:"width,omitzero"`
+	Height          *float64        `json:"height,omitzero"`
+	Collapsed       bool            `json:"collapsed,omitzero"`
 	Verdict         string          `json:"verdict,omitempty"`
 	// Included marks a node the request's `include` drew rather than the view.
-	Included bool `json:"included,omitempty"`
+	Included bool `json:"included,omitzero"`
 }
 
 // RenderOwner is a namespace declaring a node: its qualified name, and whether
@@ -251,7 +251,7 @@ type RenderPort struct {
 	Name      string `json:"name"`
 	Type      string `json:"type,omitempty"`
 	Direction string `json:"direction,omitempty"`
-	Inherited bool   `json:"inherited,omitempty"`
+	Inherited bool   `json:"inherited,omitzero"`
 }
 
 // RenderEdge is one edge of a rendering, located at the connector, transition,
@@ -265,10 +265,10 @@ type RenderEdge struct {
 	Kind        string          `json:"kind"`
 	FromPort    string          `json:"fromPort,omitempty"`
 	ToPort      string          `json:"toPort,omitempty"`
-	Style       *RenderStyle    `json:"style,omitempty"`
+	Style       *RenderStyle    `json:"style,omitzero"`
 	FQN         string          `json:"fqn,omitempty"`
 	Declaration *protocol.Range `json:"declaration,omitempty"`
-	Origin      *RenderOrigin   `json:"origin,omitempty"`
+	Origin      *RenderOrigin   `json:"origin,omitzero"`
 	Route       []RenderPoint   `json:"route,omitempty"`
 }
 
@@ -281,8 +281,8 @@ type RenderPoint struct {
 // RenderCanvas is the drawing surface the view states with a Canvas annotation.
 type RenderCanvas struct {
 	Unit   string   `json:"unit,omitempty"`
-	Width  *float64 `json:"width,omitempty"`
-	Height *float64 `json:"height,omitempty"`
+	Width  *float64 `json:"width,omitzero"`
+	Height *float64 `json:"height,omitzero"`
 }
 
 // RenderStyle is how a node or edge is drawn where a Style annotation says so:
@@ -293,15 +293,15 @@ type RenderStyle struct {
 	Line     string  `json:"line,omitempty"`
 	Text     string  `json:"text,omitempty"`
 	Font     string  `json:"font,omitempty"`
-	FontSize float64 `json:"fontSize,omitempty"`
-	Bold     bool    `json:"bold,omitempty"`
-	Italic   bool    `json:"italic,omitempty"`
+	FontSize float64 `json:"fontSize,omitzero"`
+	Bold     bool    `json:"bold,omitzero"`
+	Italic   bool    `json:"italic,omitzero"`
 }
 
 // RenderRow is one row of a table rendering, located at the element it reports.
 type RenderRow struct {
 	Cells  []string      `json:"cells"`
-	Origin *RenderOrigin `json:"origin,omitempty"`
+	Origin *RenderOrigin `json:"origin,omitzero"`
 }
 
 // RenderOrigin is where an element was declared: Range is the whole declaration,

@@ -62,7 +62,7 @@ func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEd
 	if len(edit.DocumentChanges) != 1 {
 		t.Fatalf("documentChanges = %d, want 1", len(edit.DocumentChanges))
 	}
-	change := edit.DocumentChanges[0]
+	change := textDocumentEdit(t, edit, 0)
 	if change.TextDocument.URI != docURI {
 		t.Errorf("edit uri = %s, want %s", change.TextDocument.URI, docURI)
 	}
@@ -73,25 +73,25 @@ func applyWorkspaceEdit(t *testing.T, content string, edit *protocol.WorkspaceEd
 }
 
 // documentChangeFor is the edit's change to the document at docURI.
-func documentChangeFor(t *testing.T, edit *protocol.WorkspaceEdit, docURI uri.URI) protocol.TextDocumentEdit {
+func documentChangeFor(t *testing.T, edit *protocol.WorkspaceEdit, docURI uri.URI) *protocol.TextDocumentEdit {
 	t.Helper()
 	if edit == nil {
 		t.Fatal("no edit in result")
 	}
-	for _, change := range edit.DocumentChanges {
-		if change.TextDocument.URI == docURI {
+	for i := range edit.DocumentChanges {
+		if change := textDocumentEdit(t, edit, i); change.TextDocument.URI == docURI {
 			return change
 		}
 	}
 	t.Fatalf("no change to %s in %+v", docURI, edit.DocumentChanges)
-	return protocol.TextDocumentEdit{}
+	return nil
 }
 
 // applyDocumentChange applies one document's text edits to content, later
 // ranges first.
-func applyDocumentChange(t *testing.T, content string, change protocol.TextDocumentEdit) string {
+func applyDocumentChange(t *testing.T, content string, change *protocol.TextDocumentEdit) string {
 	t.Helper()
-	edits := append([]protocol.TextEdit(nil), change.Edits...)
+	edits := textEditsOf(t, change)
 	sort.Slice(edits, func(i, j int) bool {
 		a, b := edits[i].Range.Start, edits[j].Range.Start
 		return a.Line > b.Line || (a.Line == b.Line && a.Character > b.Character)
@@ -651,7 +651,7 @@ func TestApplyModelEditVersionsOtherDocumentsAsHeld(t *testing.T) {
 }
 
 // pinned asserts a change that edits nothing, pinning its document at version.
-func pinned(t *testing.T, change protocol.TextDocumentEdit, version int) {
+func pinned(t *testing.T, change *protocol.TextDocumentEdit, version int) {
 	t.Helper()
 	if len(change.Edits) != 0 {
 		t.Errorf("%s has edits %+v, want none", change.TextDocument.URI, change.Edits)
@@ -665,7 +665,9 @@ func pinned(t *testing.T, change protocol.TextDocumentEdit, version int) {
 func documentURIs(edit *protocol.WorkspaceEdit) []uri.URI {
 	out := make([]uri.URI, 0, len(edit.DocumentChanges))
 	for _, change := range edit.DocumentChanges {
-		out = append(out, change.TextDocument.URI)
+		if change, ok := change.(*protocol.TextDocumentEdit); ok {
+			out = append(out, change.TextDocument.URI)
+		}
 	}
 	return out
 }
@@ -762,8 +764,8 @@ func TestApplyModelEditRefusalCarriesDiagnostics(t *testing.T) {
 	if r.Failure != "result-invalid" || len(r.Diagnostics) == 0 {
 		t.Fatalf("refusal = %+v, want result-invalid with diagnostics", r)
 	}
-	if !strings.Contains(r.Diagnostics[0].Message, "Wheel") {
-		t.Errorf("diagnostic = %q, want it to name Wheel", r.Diagnostics[0].Message)
+	if !strings.Contains(diagnosticMessage(t, r.Diagnostics[0]), "Wheel") {
+		t.Errorf("diagnostic = %q, want it to name Wheel", diagnosticMessage(t, r.Diagnostics[0]))
 	}
 }
 

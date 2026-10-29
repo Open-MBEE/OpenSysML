@@ -64,14 +64,14 @@ func TestPublishDiagnosticsReportsSyntaxError(t *testing.T) {
 		t.Errorf("severity = %v, want %v", got.Diagnostics[0].Severity, protocol.DiagnosticSeverityError)
 	}
 	// Source/Code are copied verbatim from the syntax pass.
-	if got.Diagnostics[0].Source != "syntax" {
-		t.Errorf("source = %q, want %q", got.Diagnostics[0].Source, "syntax")
+	if optString(got.Diagnostics[0].Source) != "syntax" {
+		t.Errorf("source = %q, want %q", optString(got.Diagnostics[0].Source), "syntax")
 	}
-	if got.Diagnostics[0].Code != "syntax" {
-		t.Errorf("code = %v, want %q", got.Diagnostics[0].Code, "syntax")
+	if diagnosticCode(got.Diagnostics[0]) != "syntax" {
+		t.Errorf("code = %v, want %q", diagnosticCode(got.Diagnostics[0]), "syntax")
 	}
 	// The code description opens the catalogue at the code's section.
-	if cd := got.Diagnostics[0].CodeDescription; cd == nil || string(cd.Href) != "https://runtime.opensysml.org/reference/diagnostics/#syntax" {
+	if cd := got.Diagnostics[0].CodeDescription; cd.Href == "" || string(cd.Href) != "https://runtime.opensysml.org/reference/diagnostics/#syntax" {
 		t.Errorf("codeDescription = %v, want the catalogue section of syntax", cd)
 	}
 }
@@ -96,10 +96,10 @@ func TestPublishDiagnosticsReportsBareImportAsError(t *testing.T) {
 	if d.Severity != protocol.DiagnosticSeverityError {
 		t.Errorf("severity = %v, want %v", d.Severity, protocol.DiagnosticSeverityError)
 	}
-	if d.Code != "import-visibility" {
-		t.Errorf("code = %v, want %q", d.Code, "import-visibility")
+	if diagnosticCode(d) != "import-visibility" {
+		t.Errorf("code = %v, want %q", diagnosticCode(d), "import-visibility")
 	}
-	if d.CodeDescription == nil || !strings.HasSuffix(string(d.CodeDescription.Href), "/reference/diagnostics/#import-visibility") {
+	if d.CodeDescription.Href == "" || !strings.HasSuffix(string(d.CodeDescription.Href), "/reference/diagnostics/#import-visibility") {
 		t.Errorf("codeDescription = %v, want the catalogue section of import-visibility", d.CodeDescription)
 	}
 	want := protocol.Range{
@@ -133,15 +133,15 @@ func TestPublishDiagnosticsReportsRemovedDeferNotation(t *testing.T) {
 		if d.Severity != protocol.DiagnosticSeverityError {
 			t.Errorf("%v: severity = %v, want %v", mode, d.Severity, protocol.DiagnosticSeverityError)
 		}
-		if d.Code != "defer-notation-removed" {
-			t.Errorf("%v: code = %v, want %q", mode, d.Code, "defer-notation-removed")
+		if diagnosticCode(d) != "defer-notation-removed" {
+			t.Errorf("%v: code = %v, want %q", mode, diagnosticCode(d), "defer-notation-removed")
 		}
 		if d.Range.Start != (protocol.Position{Line: 4, Character: 12}) {
 			t.Errorf("%v: range = %v, want the `defer` keyword at 4:12", mode, d.Range)
 		}
 		for _, want := range []string{"extension was removed", "ordered", "exit action", "sysml-v1-migration.md"} {
-			if !strings.Contains(d.Message, want) {
-				t.Errorf("%v: message %q lacks %q", mode, d.Message, want)
+			if !strings.Contains(diagnosticMessage(t, d), want) {
+				t.Errorf("%v: message %q lacks %q", mode, diagnosticMessage(t, d), want)
 			}
 		}
 	}
@@ -211,12 +211,12 @@ func TestPublishDiagnosticsKeepsQueryDependencyErrorsInTheirDocument(t *testing.
 		t.Fatalf("published = %d document(s), want caller and dependency", len(published))
 	}
 	for _, diagnostic := range published[0].Diagnostics {
-		if diagnostic.Source == "document-query" {
+		if optString(diagnostic.Source) == "document-query" {
 			t.Fatalf("caller received dependency diagnostic: %v", published[0].Diagnostics)
 		}
 	}
 	for _, diagnostic := range published[1].Diagnostics {
-		if diagnostic.Code != "document-query-positional-query-arguments" {
+		if diagnosticCode(diagnostic) != "document-query-positional-query-arguments" {
 			continue
 		}
 		want := offsetToPosition([]byte(dependency), strings.Index(dependency, "Leaf(source)"))

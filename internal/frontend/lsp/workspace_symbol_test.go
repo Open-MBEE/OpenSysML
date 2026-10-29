@@ -27,8 +27,8 @@ func TestWorkspaceSymbolFindsByQuery(t *testing.T) {
 		t.Errorf("Kind = %v, want Namespace", got[0].Kind)
 	}
 	// Nested lives inside Alpha, in a.sysml.
-	if got[0].ContainerName != "Alpha" {
-		t.Errorf("ContainerName = %q, want %q", got[0].ContainerName, "Alpha")
+	if got[0].ContainerName == nil || *got[0].ContainerName != "Alpha" {
+		t.Errorf("ContainerName = %v, want %q", got[0].ContainerName, "Alpha")
 	}
 	if got[0].Location.URI != nameToURI("a.sysml") {
 		t.Errorf("URI = %v, want %v", got[0].Location.URI, nameToURI("a.sysml"))

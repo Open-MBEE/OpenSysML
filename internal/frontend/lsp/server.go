@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -150,7 +149,7 @@ func (lspCodec) Unmarshal(data []byte, v any) error { return protocol.Unmarshal(
 // dispatch so one slow request cannot stall the stream, and the custom methods
 // ahead of the protocol's.
 func runHandler(s *Server) jsonrpc2.Handler {
-	serve := s.stdlibHandler(s.debugHandler(s.renderHandler(s.modelEditHandler(dropUnknownNotifications(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler))))))
+	serve := s.stdlibHandler(s.debugHandler(s.renderHandler(s.modelEditHandler(notificationErrorsStayLocal(s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler)))))))
 	// The lifecycle wrapper runs outside AsyncHandler so that shutdown, exit and
 	// the messages after them are ordered as the client sent them.
 	return s.lifecycleHandler(protocol.CancelHandler(jsonrpc2.AsyncHandler(answerCancelled(serve))))
@@ -168,13 +167,15 @@ func answerCancelled(handler jsonrpc2.Handler) jsonrpc2.Handler {
 	}
 }
 
-// dropUnknownNotifications ignores a notification of a method the server does
-// not serve, as the protocol asks; the library answers it as an unknown request,
-// and an error on a notification would end the session.
-func dropUnknownNotifications(handler jsonrpc2.Handler) jsonrpc2.Handler {
+// notificationErrorsStayLocal keeps a notification's failure out of the
+// connection: a notification has no reply to carry it, the handlers have told
+// the client what they can (a library edit shows a message), and the library
+// would otherwise end the session over it. Unknown notifications are ignored,
+// as the protocol asks.
+func notificationErrorsStayLocal(handler jsonrpc2.Handler) jsonrpc2.Handler {
 	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
 		result, err := handler(ctx, req)
-		if err != nil && !req.IsCall() && errors.Is(err, jsonrpc2.ErrMethodNotFound) {
+		if err != nil && !req.IsCall() {
 			return nil, nil
 		}
 		return result, err

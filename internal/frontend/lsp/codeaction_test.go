@@ -33,8 +33,8 @@ var wholeFile = protocol.Range{End: protocol.Position{Line: 100}}
 // edit returns the single text edit of an action, or fails.
 func edit(t *testing.T, act protocol.CodeAction, file string) protocol.TextEdit {
 	t.Helper()
-	if act.Kind != protocol.CodeActionKindQuickFix {
-		t.Errorf("action %q kind = %q, want %q", act.Title, act.Kind, protocol.CodeActionKindQuickFix)
+	if actionKind(act) != protocol.CodeActionKindQuickFix {
+		t.Errorf("action %q kind = %q, want %q", act.Title, actionKind(act), protocol.CodeActionKindQuickFix)
 	}
 	if len(act.Diagnostics) != 1 {
 		t.Errorf("action %q carries %d diagnostics, want the one it fixes", act.Title, len(act.Diagnostics))
@@ -69,7 +69,7 @@ func TestCodeActionFixesNearMissName(t *testing.T) {
 	if acts[0].Title != "Change 'Wheeel' to 'Wheel'" {
 		t.Errorf("title = %q", acts[0].Title)
 	}
-	if !acts[0].IsPreferred {
+	if !padded(acts[0].IsPreferred) {
 		t.Error("the only candidate in scope should be the preferred fix")
 	}
 	if got := apply(t, src, edit(t, acts[0], file)); got != "package P {\n    part def Wheel;\n    part w : Wheel;\n}\n" {
@@ -141,7 +141,7 @@ func TestCodeActionFiltersByRange(t *testing.T) {
 		End:   protocol.Position{Line: 3, Character: 18},
 	})
 	// The whole line selects b's header too, so its identity rewrite comes along.
-	if len(line3) != 2 || line3[0].Title != "Change 'Whel' to 'Wheel'" || line3[1].Kind != identityActionKind {
+	if len(line3) != 2 || line3[0].Title != "Change 'Whel' to 'Wheel'" || actionKind(line3[1]) != identityActionKind {
 		t.Errorf("actions for line 3 = %+v", line3)
 	}
 	// An empty range is a cursor: it still asks for the fixes of the diagnostic
@@ -150,7 +150,7 @@ func TestCodeActionFiltersByRange(t *testing.T) {
 		Start: protocol.Position{Line: 2, Character: 15},
 		End:   protocol.Position{Line: 2, Character: 15},
 	})
-	if len(cursor) != 2 || cursor[0].Title != "Change 'Wheeel' to 'Wheel'" || cursor[1].Kind != identityActionKind {
+	if len(cursor) != 2 || cursor[0].Title != "Change 'Wheeel' to 'Wheel'" || actionKind(cursor[1]) != identityActionKind {
 		t.Errorf("actions at the cursor = %+v", cursor)
 	}
 }

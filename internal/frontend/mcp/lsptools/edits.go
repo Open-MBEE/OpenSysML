@@ -210,7 +210,15 @@ func (h *Host) workspaceEdit(ctx context.Context, edit *protocol.WorkspaceEdit, 
 		changes[u] = append(changes[u], edits...)
 	}
 	for _, change := range edit.DocumentChanges {
-		changes[change.TextDocument.URI] = append(changes[change.TextDocument.URI], change.Edits...)
+		edit, ok := change.(*protocol.TextDocumentEdit)
+		if !ok {
+			continue
+		}
+		for _, element := range edit.Edits {
+			if textEdit, ok := element.(*protocol.TextEdit); ok {
+				changes[edit.TextDocument.URI] = append(changes[edit.TextDocument.URI], *textEdit)
+			}
+		}
 	}
 	uris := make([]string, 0, len(changes))
 	for u := range changes {

@@ -427,7 +427,7 @@ func TestApplyModelEditLayoutRefusesWhenAnotherDocumentBecomesInvalid(t *testing
 	if r.Failure != "result-invalid" || r.Operation != -1 || !strings.Contains(r.Message, "in "+viewsURI.FsPath()) {
 		t.Errorf("refusal = %+v, want result-invalid naming views.sysml", r)
 	}
-	if len(r.Diagnostics) == 0 || !strings.Contains(r.Diagnostics[0].Message, "DiagramLayout::Layout") {
+	if len(r.Diagnostics) == 0 || !strings.Contains(diagnosticMessage(t, r.Diagnostics[0]), "DiagramLayout::Layout") {
 		t.Errorf("diagnostics = %+v, want the unresolved DiagramLayout::Layout", r.Diagnostics)
 	}
 	if string(s.ws.Document(partsURI.FsPath()).Content) != engineParts || string(s.ws.Document(viewsURI.FsPath()).Content) != shadowed {

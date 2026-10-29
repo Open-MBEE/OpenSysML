@@ -92,7 +92,7 @@ func TestInitializeAdvertisesTheRelatedElementsCapability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental := res.Capabilities.Experimental
+	experimental := experimentalCaps(t, res)
 	kinds, ok := experimental[RelatedElementsCapability].([]string)
 	if !ok || len(kinds) != len(view.RelatedKinds()) || kinds[0] != string(view.RelatedGeneralizations) {
 		t.Errorf("%s = %#v, want the relationship kinds in listing order", RelatedElementsCapability, experimental[RelatedElementsCapability])

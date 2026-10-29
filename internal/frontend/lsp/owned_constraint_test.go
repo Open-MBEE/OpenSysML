@@ -78,10 +78,7 @@ func TestDocumentSymbolListsNamedOwnedConstraint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DocumentSymbol err = %v", err)
 	}
-	pkg, ok := res[0].(protocol.DocumentSymbol)
-	if !ok {
-		t.Fatalf("result[0] type = %T, want protocol.DocumentSymbol", res[0])
-	}
+	pkg := res[0]
 	for _, child := range pkg.Children {
 		if child.Name != "R" {
 			continue

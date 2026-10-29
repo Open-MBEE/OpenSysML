@@ -3,8 +3,11 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"testing"
+	"time"
 
+	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 )
 
@@ -158,11 +161,24 @@ func decodeLSPAny(t testing.TB, raw protocol.LSPAny, out any) {
 	}
 }
 
-// experimental is the experimental server capabilities as the client reads them.
-func experimental(t testing.TB, res *protocol.InitializeResult) map[string]any {
+// experimentalCaps is the experimental server capabilities as the client reads them.
+func experimentalCaps(t testing.TB, res *protocol.InitializeResult) map[string]any {
 	t.Helper()
 	var out map[string]any
 	decodeLSPAny(t, res.Capabilities.Experimental, &out)
+	for key, value := range out {
+		if list, ok := value.([]any); ok {
+			names := make([]string, 0, len(list))
+			for _, item := range list {
+				if name, ok := item.(string); ok {
+					names = append(names, name)
+				}
+			}
+			if len(names) == len(list) {
+				out[key] = names
+			}
+		}
+	}
 	return out
 }
 
@@ -194,4 +210,105 @@ func applyFullChange(ctx context.Context, s *Server, name, text string, version 
 		},
 		ContentChanges: []protocol.TextDocumentContentChangeEvent{&protocol.TextDocumentContentChangeWholeDocument{Text: text}},
 	})
+}
+
+// hintLabel is the text of an inlay hint's label.
+func hintLabel(h protocol.InlayHint) string {
+	label, _ := h.Label.(protocol.String)
+	return string(label)
+}
+
+// padded reports whether an inlay hint asks for padding.
+func padded(flag *bool) bool { return flag != nil && *flag }
+
+// dispatcher serves a handler over an in-memory connection: the library builds
+// requests on its read loop alone, so a handler is driven the way a client does.
+type dispatcher struct {
+	client jsonrpc2.Conn
+	served chan handled
+}
+
+// handled is what one request's handler returned.
+type handled struct {
+	method string
+	result any
+	err    error
+}
+
+// newDispatcher serves handler until the test ends.
+func newDispatcher(t testing.TB, handler jsonrpc2.Handler) *dispatcher {
+	t.Helper()
+	d := &dispatcher{served: make(chan handled, 64)}
+	clientEnd, serverEnd := net.Pipe()
+	server := jsonrpc2.NewConn(jsonrpc2.NewStream(serverEnd), jsonrpc2.WithCodec(lspCodec{}))
+	server.Go(context.Background(), func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		result, err := handler(ctx, req)
+		d.served <- handled{method: req.Method(), result: result, err: err}
+		return result, err
+	})
+	d.client = jsonrpc2.NewConn(jsonrpc2.NewStream(clientEnd), jsonrpc2.WithCodec(lspCodec{}))
+	d.client.Go(context.Background(), jsonrpc2.MethodNotFoundHandler)
+	t.Cleanup(func() {
+		_ = d.client.Close()
+		_ = server.Close()
+	})
+	return d
+}
+
+// call sends a request and returns the raw result the client receives, or the
+// error the handler answered with, as it returned it.
+func (d *dispatcher) call(ctx context.Context, method string, params any) (json.RawMessage, error) {
+	var raw protocol.LSPAny
+	_, callErr := d.client.Call(ctx, method, params, &raw)
+	h := <-d.served
+	if h.err != nil {
+		return nil, h.err
+	}
+	if callErr != nil {
+		return nil, callErr
+	}
+	return json.RawMessage(raw), nil
+}
+
+// notify sends a notification and reports what the handler made of it.
+func (d *dispatcher) notify(t testing.TB, ctx context.Context, method string, params any) handled {
+	t.Helper()
+	if err := d.client.Notify(ctx, method, params); err != nil {
+		t.Fatalf("notify %s: %v", method, err)
+	}
+	select {
+	case h := <-d.served:
+		return h
+	case <-time.After(10 * time.Second):
+		t.Fatalf("%s was never handled", method)
+		return handled{}
+	}
+}
+
+// actionKind is the kind of a code action, empty when it has none.
+func actionKind(a protocol.CodeAction) protocol.CodeActionKind {
+	if a.Kind == nil {
+		return ""
+	}
+	return *a.Kind
+}
+
+// diagnosticText is the text of a diagnostic's message, empty for any other arm.
+func diagnosticText(d protocol.Diagnostic) string {
+	msg, _ := d.Message.(protocol.String)
+	return string(msg)
+}
+
+// textEditsOf lists the plain text edits a document change holds.
+func textEditsOf(t testing.TB, change *protocol.TextDocumentEdit) []protocol.TextEdit {
+	t.Helper()
+	out := make([]protocol.TextEdit, 0, len(change.Edits))
+	for _, element := range change.Edits {
+		edit, ok := element.(*protocol.TextEdit)
+		if !ok || edit == nil {
+			t.Fatalf("edit element = %T, want *protocol.TextEdit", element)
+		}
+		out = append(out, *edit)
+	}
+	return out
 }

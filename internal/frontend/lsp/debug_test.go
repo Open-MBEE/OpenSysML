@@ -146,35 +146,13 @@ func debugServer(t *testing.T, name, src string) (*Server, uri.URI, *debugRecord
 // session does, and decodes the snapshot the client would receive.
 func debugCall(t *testing.T, s *Server, method string, params any) (*debugSnapshot, error) {
 	t.Helper()
-	req, err := jsonrpc2.NewCall(jsonrpc2.NewNumberID(1), method, params)
+	d := newDispatcher(t, s.debugHandler(func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		t.Errorf("%s was not handled: it fell through to the next handler", req.Method())
+		return nil, jsonrpc2.ErrMethodNotFound
+	}))
+	raw, err := d.call(context.Background(), method, params)
 	if err != nil {
-		t.Fatalf("build %s request: %v", method, err)
-	}
-	var (
-		raw     json.RawMessage
-		callErr error
-	)
-	reply := func(ctx context.Context, result interface{}, err error) error {
-		if err != nil {
-			callErr = err
-			return nil
-		}
-		encoded, mErr := json.Marshal(result)
-		if mErr != nil {
-			t.Fatalf("marshal %s result: %v", method, mErr)
-		}
-		raw = encoded
-		return nil
-	}
-	handler := s.debugHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
-		t.Fatalf("%s was not handled: it fell through to the next handler", req.Method())
-		return nil
-	})
-	if err := handler(context.Background(), reply, req); err != nil {
-		t.Fatalf("dispatch %s: %v", method, err)
-	}
-	if callErr != nil {
-		return nil, callErr
+		return nil, err
 	}
 	var snap debugSnapshot
 	if err := json.Unmarshal(raw, &snap); err != nil {

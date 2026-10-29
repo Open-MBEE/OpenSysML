@@ -158,7 +158,7 @@ func initializedServer(t *testing.T, experimental map[string]any) *Server {
 	s.client = &recorder{}
 	var caps protocol.ClientCapabilities
 	if experimental != nil {
-		caps.Experimental = experimental
+		caps.Experimental = mustLSPAny(t, experimental)
 	}
 	if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{Capabilities: caps}); err != nil {
 		t.Fatalf("Initialize err = %v", err)
@@ -170,34 +170,11 @@ func initializedServer(t *testing.T, experimental map[string]any) *Server {
 // handler chain, and returns the raw result the client would receive.
 func call(t *testing.T, s *Server, method string, params any) (json.RawMessage, error) {
 	t.Helper()
-	req, err := jsonrpc2.NewCall(jsonrpc2.NewNumberID(1), method, params)
-	if err != nil {
-		t.Fatalf("build %s request: %v", method, err)
-	}
-	var (
-		raw     json.RawMessage
-		callErr error
-	)
-	reply := func(ctx context.Context, result interface{}, err error) error {
-		if err != nil {
-			callErr = err
-			return nil
-		}
-		encoded, mErr := json.Marshal(result)
-		if mErr != nil {
-			t.Fatalf("marshal %s result: %v", method, mErr)
-		}
-		raw = encoded
-		return nil
-	}
-	handler := s.renderHandler(s.modelEditHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
-		t.Fatalf("%s was not handled: it fell through to the next handler", req.Method())
-		return nil
-	}))
-	if err := handler(context.Background(), reply, req); err != nil {
-		t.Fatalf("dispatch %s: %v", method, err)
-	}
-	return raw, callErr
+	d := newDispatcher(t, s.renderHandler(s.modelEditHandler(func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		t.Errorf("%s was not handled: it fell through to the next handler", req.Method())
+		return nil, jsonrpc2.ErrMethodNotFound
+	})))
+	return d.call(context.Background(), method, params)
 }
 
 // render is one opensysml/render request, decoded.
@@ -730,10 +707,7 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental, ok := res.Capabilities.Experimental
-	if !ok {
-		t.Fatalf("Experimental = %#v, want a map", res.Capabilities.Experimental)
-	}
+	experimental := experimentalCaps(t, res)
 	advertised, ok := experimental[RenderFormsCapability].([]string)
 	if !ok {
 		t.Fatalf("%s = %#v, want a list of forms", RenderFormsCapability, experimental[RenderFormsCapability])
@@ -1245,10 +1219,7 @@ func TestInitializeAdvertisesTheRenderCapability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental, ok := res.Capabilities.Experimental
-	if !ok {
-		t.Fatalf("Experimental = %#v, want a map", res.Capabilities.Experimental)
-	}
+	experimental := experimentalCaps(t, res)
 	if experimental["openSysmlRender"] != true {
 		t.Errorf("openSysmlRender = %#v, want true", experimental["openSysmlRender"])
 	}
@@ -1327,7 +1298,7 @@ package StyledViews {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental := res.Capabilities.Experimental
+	experimental := experimentalCaps(t, res)
 	if advertised, _ := experimental[RenderStylesCapability].([]string); !slices.Equal(advertised, []string{"pilot", "cameo"}) {
 		t.Fatalf("%s = %#v, want pilot then cameo", RenderStylesCapability, experimental[RenderStylesCapability])
 	}
@@ -1407,7 +1378,7 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental := res.Capabilities.Experimental
+	experimental := experimentalCaps(t, res)
 	wantNames := []string{"parameter-symbols", "port-symbols", "compartments", "edge-labels", "keywords", "multiplicities", "typings", "qualifiers", "all"}
 	if advertised, _ := experimental[RenderElementsCapability].([]string); !slices.Equal(advertised, wantNames) {
 		t.Fatalf("%s = %#v, want %v", RenderElementsCapability, experimental[RenderElementsCapability], wantNames)

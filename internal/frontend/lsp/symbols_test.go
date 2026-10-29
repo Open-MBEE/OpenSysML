@@ -27,10 +27,7 @@ func TestDocumentSymbolReturnsTree(t *testing.T) {
 	if len(res) != 1 {
 		t.Fatalf("top-level symbols = %d, want 1", len(res))
 	}
-	pkg, ok := res[0].(protocol.DocumentSymbol)
-	if !ok {
-		t.Fatalf("result[0] type = %T, want protocol.DocumentSymbol", res[0])
-	}
+	pkg := res[0]
 	if pkg.Name != "P" || pkg.Kind != protocol.SymbolKindPackage {
 		t.Errorf("pkg = %q kind %v, want P/Package", pkg.Name, pkg.Kind)
 	}
@@ -55,7 +52,7 @@ func TestDocumentSymbolNamesAViewRenderingByItsRendering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DocumentSymbol err = %v", err)
 	}
-	pkg := res[0].(protocol.DocumentSymbol)
+	pkg := res[0]
 	var view *protocol.DocumentSymbol
 	for i := range pkg.Children {
 		if pkg.Children[i].Name == "V" {

@@ -37,7 +37,7 @@ func projectWorkspace(t *testing.T, folder string, options map[string]any) (*Ser
 		WorkspaceFoldersInitializeParams: workspaceFolders(protocol.WorkspaceFolder{URI: uri.File(folder), Name: filepath.Base(folder)}),
 	}
 	if options != nil {
-		params.InitializationOptions = options
+		params.InitializationOptions = mustLSPAny(t, options)
 	}
 	if _, err := s.Initialize(ctx, params); err != nil {
 		t.Fatalf("Initialize err = %v", err)
@@ -120,7 +120,7 @@ func TestLibraryRootsConfigurationChangeReindexesTheDependencies(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := s.DidChangeConfiguration(ctx, &protocol.DidChangeConfigurationParams{
-		Settings: map[string]any{"sysml.libraryRoots": []any{relative}},
+		Settings: mustLSPAny(t, map[string]any{"sysml.libraryRoots": []any{relative}}),
 	}); err != nil {
 		t.Fatalf("DidChangeConfiguration err = %v", err)
 	}
@@ -135,7 +135,7 @@ func TestLibraryRootsConfigurationChangeReindexesTheDependencies(t *testing.T) {
 	// Taking the root away drops what only it contributed; a malformed value
 	// changes nothing.
 	if err := s.DidChangeConfiguration(ctx, &protocol.DidChangeConfigurationParams{
-		Settings: map[string]any{"libraryRoots": "not a list"},
+		Settings: mustLSPAny(t, map[string]any{"libraryRoots": "not a list"}),
 	}); err != nil {
 		t.Fatalf("DidChangeConfiguration err = %v", err)
 	}
@@ -143,7 +143,7 @@ func TestLibraryRootsConfigurationChangeReindexesTheDependencies(t *testing.T) {
 		t.Errorf("%s dropped by a malformed setting", vendored)
 	}
 	if err := s.DidChangeConfiguration(ctx, &protocol.DidChangeConfigurationParams{
-		Settings: map[string]any{"libraryRoots": []any{}},
+		Settings: mustLSPAny(t, map[string]any{"libraryRoots": []any{}}),
 	}); err != nil {
 		t.Fatalf("DidChangeConfiguration err = %v", err)
 	}
@@ -238,7 +238,7 @@ func TestRemovingAFolderKeepsTheSourcesAnotherFoldersProjectUses(t *testing.T) {
 	ctx := context.Background()
 	if _, err := s.Initialize(ctx, &protocol.InitializeParams{
 		WorkspaceFoldersInitializeParams: workspaceFolders(protocol.WorkspaceFolder{URI: uri.File(a), Name: "a"}, protocol.WorkspaceFolder{URI: uri.File(b), Name: "b"}),
-		InitializationOptions:            map[string]any{"libraryRoots": []any{root}},
+		InitializationOptions:            mustLSPAny(t, map[string]any{"libraryRoots": []any{root}}),
 	}); err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}

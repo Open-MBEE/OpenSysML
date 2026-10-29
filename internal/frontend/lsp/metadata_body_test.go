@@ -327,7 +327,7 @@ func TestMetadataBodyDocumentSymbols(t *testing.T) {
 		}
 	}
 	for _, v := range out {
-		ds := v.(protocol.DocumentSymbol)
+		ds := v
 		names = append(names, ds.Name)
 		walk(ds.Children)
 	}

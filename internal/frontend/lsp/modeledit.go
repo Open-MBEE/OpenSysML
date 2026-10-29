@@ -83,7 +83,7 @@ type ModelEditOperation struct {
 	Specializes    []string             `json:"specializes,omitempty"`
 	From           string               `json:"from,omitempty"`
 	To             string               `json:"to,omitempty"`
-	Cascade        bool                 `json:"cascade,omitempty"`
+	Cascade        bool                 `json:"cascade,omitzero"`
 	View           string               `json:"view,omitempty"`
 	Keyword        string               `json:"keyword,omitempty"`
 	Ref            string               `json:"ref,omitempty"`
@@ -94,10 +94,10 @@ type ModelEditOperation struct {
 	Parameter      string               `json:"parameter,omitempty"`
 	Body           []ModelEditOperation `json:"body,omitempty"`
 	ElseBody       []ModelEditOperation `json:"elseBody,omitempty"`
-	Layout         *ModelEditLayout     `json:"layout,omitempty"`
+	Layout         *ModelEditLayout     `json:"layout,omitzero"`
 	Route          []RenderPoint        `json:"route,omitempty"`
-	Canvas         *RenderCanvas        `json:"canvas,omitempty"`
-	Style          *RenderStyle         `json:"style,omitempty"`
+	Canvas         *RenderCanvas        `json:"canvas,omitzero"`
+	Style          *RenderStyle         `json:"style,omitzero"`
 }
 
 // ModelEditLayout is a node's geometry as setLayout writes it, in the units
@@ -105,11 +105,11 @@ type ModelEditOperation struct {
 // or neither; Collapsed is written only when set.
 type ModelEditLayout struct {
 	// X and Y go together; both absent, the Layout only folds and places nothing.
-	X         *float64 `json:"x,omitempty"`
-	Y         *float64 `json:"y,omitempty"`
-	Width     *float64 `json:"width,omitempty"`
-	Height    *float64 `json:"height,omitempty"`
-	Collapsed bool     `json:"collapsed,omitempty"`
+	X         *float64 `json:"x,omitzero"`
+	Y         *float64 `json:"y,omitzero"`
+	Width     *float64 `json:"width,omitzero"`
+	Height    *float64 `json:"height,omitzero"`
+	Collapsed bool     `json:"collapsed,omitzero"`
 }
 
 // ApplyModelEditResult is exactly one of: an edit to apply, the refusals that
@@ -122,7 +122,7 @@ type ModelEditLayout struct {
 type ApplyModelEditResult struct {
 	Edit    *protocol.WorkspaceEdit `json:"edit,omitempty"`
 	Refused []ModelEditRefusal      `json:"refused,omitempty"`
-	Stale   bool                    `json:"stale,omitempty"`
+	Stale   bool                    `json:"stale,omitzero"`
 	Version int                     `json:"version"`
 }
 

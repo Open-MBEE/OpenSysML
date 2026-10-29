@@ -83,7 +83,9 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 	}
 	srv := lsp.NewServer(ws, lsp.WithVersion(version), lsp.WithLibraryRoots(project.EnvLibraryRoots()))
 	params := &protocol.InitializeParams{
-		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(root)), Name: root}},
+		WorkspaceFoldersInitializeParams: protocol.WorkspaceFoldersInitializeParams{
+			WorkspaceFolders: protocol.NewNullable([]protocol.WorkspaceFolder{{URI: uri.File(root), Name: root}}),
+		},
 		Capabilities: protocol.ClientCapabilities{
 			TextDocument: &protocol.TextDocumentClientCapabilities{
 				Hover: &protocol.HoverClientCapabilities{ContentFormat: []protocol.MarkupKind{protocol.MarkupKindMarkdown}},
@@ -323,7 +325,7 @@ func (h *Host) replace(ctx context.Context, name, text string) error {
 	version := int32(doc.Version + 1) // #nosec G115 -- document versions are small counters
 	return h.Server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument:   protocol.VersionedTextDocumentIdentifier{TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri.File(name)}, Version: version},
-		ContentChanges: []protocol.TextDocumentContentChangeEvent{{Range: fullRange(doc.Content), Text: text}},
+		ContentChanges: []protocol.TextDocumentContentChangeEvent{&protocol.TextDocumentContentChangePartial{Range: fullRange(doc.Content), Text: text}},
 	})
 }
 

@@ -124,7 +124,7 @@ func TestDocumentSymbolRequirementMemberShortNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DocumentSymbol err = %v", err)
 	}
-	pkg := res[0].(protocol.DocumentSymbol)
+	pkg := res[0]
 	var names []string
 	for _, child := range pkg.Children {
 		if child.Name != "R" {

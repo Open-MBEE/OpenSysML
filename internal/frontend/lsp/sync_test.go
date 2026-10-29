@@ -35,26 +35,18 @@ func TestDidOpenRegistersDocument(t *testing.T) {
 	}
 }
 
-// sendDidChange drives the raw changeHandler exactly as the transport would:
-// it builds a textDocument/didChange notification whose JSON matches what a
-// client sends, so an omitted "range" stays omitted (full replace) and a
-// present "range" is decoded as a pointer (incremental).
+// sendDidChange drives textDocument/didChange exactly as the transport would:
+// it builds a notification whose JSON matches what a client sends, so an
+// omitted "range" is a full replace and a present one an incremental edit.
 func sendDidChange(t *testing.T, s *Server, u uri.URI, version int32, rawChanges []json.RawMessage) {
 	t.Helper()
 	params := map[string]any{
-		"textDocument": map[string]any{"uri": u, "version": version},
-		"contentChanges": func() []json.RawMessage {
-			return rawChanges
-		}(),
+		"textDocument":   map[string]any{"uri": u, "version": version},
+		"contentChanges": rawChanges,
 	}
-	req, err := jsonrpc2.NewNotification(protocol.MethodTextDocumentDidChange, params)
-	if err != nil {
-		t.Fatalf("NewNotification: %v", err)
-	}
-	handler := s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler))
-	reply := func(ctx context.Context, result any, err error) error { return err }
-	if err := handler(context.Background(), reply, req); err != nil {
-		t.Fatalf("changeHandler: %v", err)
+	d := newDispatcher(t, protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler))
+	if h := d.notify(t, context.Background(), protocol.MethodTextDocumentDidChange, params); h.err != nil {
+		t.Fatalf("didChange: %v", h.err)
 	}
 }
 

@@ -69,7 +69,7 @@ func lastDiagnostics(fc *fakeClient, name string) ([]string, bool) {
 		found = true
 		msgs = msgs[:0]
 		for _, d := range p.Diagnostics {
-			msgs = append(msgs, d.Message)
+			msgs = append(msgs, diagnosticText(d))
 		}
 	}
 	return msgs, found
@@ -165,9 +165,8 @@ func TestWatchedFileCreateAndChangeReindex(t *testing.T) {
 			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri.File(main)},
 			Version:                2,
 		},
-		// A whole-document range: the typed DidChange path splices at [0,0) for a
-		// zero Range, which would leave the old text in place (see sync.go).
-		ContentChanges: []protocol.TextDocumentContentChangeEvent{{
+		// An incremental change spanning the whole document.
+		ContentChanges: []protocol.TextDocumentContentChangeEvent{&protocol.TextDocumentContentChangePartial{
 			Range: protocol.Range{End: protocol.Position{Line: 4}},
 			Text:  usesGizmo,
 		}},
@@ -748,7 +747,7 @@ func TestDidChangeRefreshesOtherOpenDocuments(t *testing.T) {
 			Version:                2,
 		},
 		ContentChanges: []protocol.TextDocumentContentChangeEvent{
-			{Text: "package Lib {\n    part def Gadget;\n}\n"},
+			&protocol.TextDocumentContentChangeWholeDocument{Text: "package Lib {\n    part def Gadget;\n}\n"},
 		},
 	}); err != nil {
 		t.Fatalf("DidChange err = %v", err)
@@ -771,7 +770,7 @@ func TestDidChangeCoalescesOtherOpenDocuments(t *testing.T) {
 				Version:                int32(version),
 			},
 			ContentChanges: []protocol.TextDocumentContentChangeEvent{
-				{Text: "package Lib {\n    part def Gadget;\n}\n"},
+				&protocol.TextDocumentContentChangeWholeDocument{Text: "package Lib {\n    part def Gadget;\n}\n"},
 			},
 		}); err != nil {
 			t.Fatalf("DidChange err = %v", err)
@@ -797,12 +796,12 @@ func publishCount(fc *fakeClient, name string) int {
 func TestInitializeFoldersFallsBackToRoot(t *testing.T) {
 	dir := t.TempDir()
 	//lint:ignore SA1019 clients that still send only the deprecated root fields are what this test covers
-	got := initializeFolders(&protocol.InitializeParams{RootURI: uri.File(dir)})
+	got := initializeFolders(&protocol.InitializeParams{RootURI: new(uri.File(dir))})
 	if len(got) != 1 || got[0] != uri.File(dir).FsPath() {
 		t.Errorf("folders = %v, want [%s]", got, uri.File(dir).FsPath())
 	}
 	//lint:ignore SA1019 see above
-	got = initializeFolders(&protocol.InitializeParams{RootPath: dir})
+	got = initializeFolders(&protocol.InitializeParams{RootPath: protocol.NewNullable(dir)})
 	if len(got) != 1 || got[0] != dir {
 		t.Errorf("folders = %v, want [%s]", got, dir)
 	}

@@ -408,14 +408,14 @@ func TestPublishDiagnosticsDocumentPlanLive(t *testing.T) {
 	}
 	var found *protocol.Diagnostic
 	for i, d := range published[0].Diagnostics {
-		if d.Code == "document-plan-missing-title" {
+		if diagnosticCode(d) == "document-plan-missing-title" {
 			found = &published[0].Diagnostics[i]
 		}
 	}
 	if found == nil {
 		t.Fatalf("diagnostics = %v, want document-plan-missing-title", published[0].Diagnostics)
 	}
-	if found.Source != "document-plan" || found.Severity != protocol.DiagnosticSeverityError {
+	if optString(found.Source) != "document-plan" || found.Severity != protocol.DiagnosticSeverityError {
 		t.Errorf("diagnostic = %+v, want source document-plan at error severity", found)
 	}
 	want := offsetToPosition([]byte(broken), strings.Index(broken, "part def MassReport"))
@@ -429,7 +429,7 @@ func TestPublishDiagnosticsDocumentPlanLive(t *testing.T) {
 	published = fc.all()
 	last := published[len(published)-1]
 	for _, d := range last.Diagnostics {
-		if d.Source == "document-plan" || d.Source == "document-query" {
+		if optString(d.Source) == "document-plan" || optString(d.Source) == "document-query" {
 			t.Fatalf("edit left stale diagnostic: %+v", d)
 		}
 	}
@@ -444,7 +444,7 @@ func TestDocumentsListsWorkspaceDocuments(t *testing.T) {
 	if res.Documents[0].Name != "Observatory::MassReport" {
 		t.Errorf("name = %q, want Observatory::MassReport", res.Documents[0].Name)
 	}
-	if res.Documents[0].URI != uri.File(name) {
+	if res.Documents[0].URI != string(uri.File(name)) {
 		t.Errorf("uri = %q, want %q", res.Documents[0].URI, uri.File(name))
 	}
 }

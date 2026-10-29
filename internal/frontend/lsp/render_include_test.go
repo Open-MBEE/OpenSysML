@@ -145,7 +145,7 @@ func TestInitializeAdvertisesTheRenderIncludeCapability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental := res.Capabilities.Experimental
+	experimental := experimentalCaps(t, res)
 	if experimental[RenderIncludeCapability] != true {
 		t.Errorf("%s = %#v, want true", RenderIncludeCapability, experimental[RenderIncludeCapability])
 	}

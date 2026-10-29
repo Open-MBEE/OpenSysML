@@ -47,7 +47,7 @@ func lineOf(t *testing.T, text, sub string) uint32 {
 
 func TestLibraryURIRoundTrip(t *testing.T) {
 	u := libraryURI(baseName)
-	want := uri.URI("sysml-stdlib:///Kernel%20Libraries/Kernel%20Semantic%20Library/Base.kerml")
+	want := uri.URI("sysml-stdlib:/Kernel%20Libraries/Kernel%20Semantic%20Library/Base.kerml")
 	if u != want {
 		t.Errorf("libraryURI = %q, want %q", u, want)
 	}
@@ -67,10 +67,10 @@ func TestLibraryURIRoundTrip(t *testing.T) {
 	}
 
 	for _, bad := range []string{
-		"sysml-stdlib:///",
-		"sysml-stdlib:///../etc/passwd",
-		"sysml-stdlib:///Kernel%20Libraries/../../x.kerml",
-		"sysml-stdlib:///Kernel%20Libraries//Base.kerml",
+		"sysml-stdlib:/",
+		"sysml-stdlib:/../etc/passwd",
+		"sysml-stdlib:/Kernel%20Libraries/../../x.kerml",
+		"sysml-stdlib:/Kernel%20Libraries//Base.kerml",
 		"sysml-stdlib://host/Base.kerml",
 		"stdlib:///Base.kerml",
 	} {
@@ -173,8 +173,8 @@ func TestRequestsAgainstLibraryURI(t *testing.T) {
 	if len(syms) != 1 {
 		t.Fatalf("top-level symbols = %d, want the Base package alone", len(syms))
 	}
-	pkg, ok := syms[0].(protocol.DocumentSymbol)
-	if !ok || pkg.Name != "Base" {
+	pkg := syms[0]
+	if pkg.Name != "Base" {
 		t.Fatalf("symbol = %#v, want package Base", syms[0])
 	}
 	var names []string
@@ -249,7 +249,7 @@ func TestStdlibContentServesBundledText(t *testing.T) {
 	for _, bad := range []uri.URI{
 		libraryURI("Kernel Libraries/Nowhere.kerml"),
 		uri.File("/tmp/Base.kerml"),
-		"sysml-stdlib:///../Base.kerml",
+		"sysml-stdlib:/../Base.kerml",
 	} {
 		_, err := s.StdlibContent(&StdlibContentParams{URI: bad})
 		var rpcErr *jsonrpc2.Error
@@ -279,7 +279,7 @@ func TestLibraryDocumentIsReadOnly(t *testing.T) {
 
 	err := s.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument:   protocol.VersionedTextDocumentIdentifier{TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: docURI}, Version: 2},
-		ContentChanges: []protocol.TextDocumentContentChangeEvent{{Text: "package Bogus;"}},
+		ContentChanges: []protocol.TextDocumentContentChangeEvent{&protocol.TextDocumentContentChangeWholeDocument{Text: "package Bogus;"}},
 	})
 	var rpcErr *jsonrpc2.Error
 	if !errors.As(err, &rpcErr) || rpcErr.Code != jsonrpc2.InvalidRequest || !strings.Contains(rpcErr.Message, "read-only") {

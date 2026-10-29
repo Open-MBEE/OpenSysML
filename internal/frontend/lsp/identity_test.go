@@ -36,7 +36,7 @@ func identityActionsFor(t *testing.T, file, src string, rng protocol.Range) []pr
 	t.Helper()
 	var out []protocol.CodeAction
 	for _, act := range actionsFor(t, file, src, rng) {
-		if act.Kind == identityActionKind {
+		if actionKind(act) == identityActionKind {
 			out = append(out, act)
 		}
 	}

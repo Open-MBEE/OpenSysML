@@ -1,8 +1,12 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 
+	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 )
 
@@ -111,4 +115,61 @@ func (s *Server) DidSave(ctx context.Context, params *protocol.DidSaveTextDocume
 		_ = s.client.LogMessage(ctx, &protocol.LogMessageParams{Type: protocol.MessageTypeLog, Message: err.Error()})
 	}
 	return nil
+}
+
+// changeHandler reads textDocument/didChange off the wire first. A client that
+// sends "range": null means the whole document, which the protocol library's
+// decoding cannot tell from an insertion at the origin; such a change is
+// rewritten without the key before the library decodes it. Every other
+// didChange goes to the library untouched.
+func (s *Server) changeHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		if req.Method() != protocol.MethodTextDocumentDidChange {
+			return inner(ctx, req)
+		}
+		normalized, ok := withoutNullRanges(req.Params())
+		if !ok {
+			return inner(ctx, req)
+		}
+		var params protocol.DidChangeTextDocumentParams
+		if err := protocol.Unmarshal(normalized, &params); err != nil {
+			return nil, fmt.Errorf("%w: %w", jsonrpc2.ErrParse, err)
+		}
+		return nil, s.DidChange(ctx, &params)
+	}
+}
+
+// withoutNullRanges drops a null "range" from each content change of a
+// didChange, reporting whether any was present.
+func withoutNullRanges(raw []byte) ([]byte, bool) {
+	var envelope struct {
+		TextDocument   json.RawMessage   `json:"textDocument"`
+		ContentChanges []json.RawMessage `json:"contentChanges"`
+	}
+	if json.Unmarshal(raw, &envelope) != nil {
+		return nil, false
+	}
+	rewritten := false
+	for i, change := range envelope.ContentChanges {
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(change, &fields) != nil {
+			continue
+		}
+		rng, ok := fields["range"]
+		if !ok || !bytes.Equal(bytes.TrimSpace(rng), []byte("null")) {
+			continue
+		}
+		delete(fields, "range")
+		normalized, err := json.Marshal(fields)
+		if err != nil {
+			return nil, false
+		}
+		envelope.ContentChanges[i] = normalized
+		rewritten = true
+	}
+	if !rewritten {
+		return nil, false
+	}
+	out, err := json.Marshal(envelope)
+	return out, err == nil
 }

@@ -10,7 +10,7 @@ import (
 )
 
 // LibraryScheme is the URI scheme the server gives the bundled standard library:
-// `sysml-stdlib:///<path>`, where the path is the file's path inside the library
+// `sysml-stdlib:/<path>`, where the path is the file's path inside the library
 // (`Kernel Libraries/Kernel Semantic Library/Base.kerml`), percent-encoded. A
 // client opens one through the opensysml/stdlibContent request; the documents
 // are read-only.

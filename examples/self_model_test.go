@@ -2,6 +2,7 @@ package examples
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1181,7 +1182,8 @@ func TestSelfModelLanguageServerMatchesImplementation(t *testing.T) {
 			quickFixes = quickFixes || kind == protocol.CodeActionKindQuickFix
 		}
 	}
-	experimental, _ := caps.Experimental.(map[string]any)
+	var experimental map[string]any
+	_ = json.Unmarshal(caps.Experimental, &experimental)
 
 	identityActions := false
 	if codeActions != nil {
@@ -1191,24 +1193,24 @@ func TestSelfModelLanguageServerMatchesImplementation(t *testing.T) {
 	}
 	forms, _ := experimental[lsp.RenderFormsCapability].([]string)
 	styles, _ := experimental[lsp.RenderStylesCapability].([]string)
-	folders := caps.Workspace != nil && caps.Workspace.WorkspaceFolders != nil && caps.Workspace.WorkspaceFolders.Supported
+	folders := caps.Workspace != nil && caps.Workspace.WorkspaceFolders != nil && caps.Workspace.WorkspaceFolders.Supported != nil && *caps.Workspace.WorkspaceFolders.Supported
 
 	advertised := map[string]bool{
-		"incrementalSync":                 sync != nil && sync.Change == protocol.TextDocumentSyncKindIncremental,
+		"incrementalSync":                 sync != nil && sync.Change != nil && *sync.Change == protocol.TextDocumentSyncKindIncremental,
 		"saveNotifications":               sync != nil && sync.Save != nil,
 		"workspaceFolders":                folders,
 		"publishesQuickFixes":             quickFixes,
 		"identityCodeActions":             identityActions,
-		"hover":                           caps.HoverProvider == true,
-		"definition":                      caps.DefinitionProvider == true,
-		"findReferences":                  caps.ReferencesProvider == true,
-		"documentSymbols":                 caps.DocumentSymbolProvider == true,
-		"workspaceSymbols":                caps.WorkspaceSymbolProvider == true,
+		"hover":                           caps.HoverProvider == protocol.Boolean(true),
+		"definition":                      caps.DefinitionProvider == protocol.Boolean(true),
+		"findReferences":                  caps.ReferencesProvider == protocol.Boolean(true),
+		"documentSymbols":                 caps.DocumentSymbolProvider == protocol.Boolean(true),
+		"workspaceSymbols":                caps.WorkspaceSymbolProvider == protocol.Boolean(true),
 		"completion":                      caps.CompletionProvider != nil,
-		"formatting":                      caps.DocumentFormattingProvider == true,
-		"rangeFormatting":                 caps.DocumentRangeFormattingProvider == true,
+		"formatting":                      caps.DocumentFormattingProvider == protocol.Boolean(true),
+		"rangeFormatting":                 caps.DocumentRangeFormattingProvider == protocol.Boolean(true),
 		"rename":                          rename != nil,
-		"prepareRename":                   rename != nil && rename.PrepareProvider,
+		"prepareRename":                   rename != nil && rename.PrepareProvider != nil && *rename.PrepareProvider,
 		"semanticTokens":                  tokens,
 		"experimentalRendering":           experimental["openSysmlRender"] == true,
 		"experimentalDocuments":           experimental["openSysmlRenderDocument"] == true,
