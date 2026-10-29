@@ -182,6 +182,14 @@ class MainTest(unittest.TestCase):
         self.assertEqual([r["tag"] for r in payload["releases"]], ["v0.11.0", "v0.10.1"])
         self.assertEqual(payload["releases"][0]["assets"][1], {"name": "SHA256SUMS.txt", "downloads": 94, "size": 10})
 
+    def test_gh_token_overrides_github_token(self):
+        _, _, seen = self.run_main(["--stable"], env={"GITHUB_TOKEN": "read-only", "GH_TOKEN": "push"})
+        self.assertEqual(seen[0].get_header("Authorization"), "Bearer push")
+
+    def test_github_token_alone_is_used(self):
+        _, _, seen = self.run_main(["--stable"], env={"GITHUB_TOKEN": "read-only"})
+        self.assertEqual(seen[0].get_header("Authorization"), "Bearer read-only")
+
     def test_traffic_without_token_exits_before_the_network(self):
         with self.assertRaises(SystemExit) as caught:
             self.run_main(["--traffic"])

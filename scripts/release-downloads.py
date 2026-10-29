@@ -18,10 +18,12 @@ only (per day, total and unique) and answers only a token with push access to
 the repository; there is no all-time clone count to be had from GitHub.
 
 Environment:
-    GITHUB_TOKEN/GH_TOKEN   optional for the release figures (unauthenticated
+    GH_TOKEN/GITHUB_TOKEN   optional for the release figures (unauthenticated
                             requests are limited to 60 an hour per address,
                             which lists several hundred releases); required,
-                            with push access, for --traffic
+                            with push access, for --traffic. GH_TOKEN wins when
+                            both are set, so `GH_TOKEN=$(gh auth token) …`
+                            overrides a read-only GITHUB_TOKEN of the shell.
 """
 
 from __future__ import annotations
@@ -41,7 +43,8 @@ NEXT_LINK = re.compile(r'<(?P<url>[^>]+)>;\s*rel="next"')
 
 
 def _token() -> str:
-    for name in ("GITHUB_TOKEN", "GH_TOKEN"):
+    # GH_TOKEN first, as the gh CLI reads them: a token set for the command beats the shell's.
+    for name in ("GH_TOKEN", "GITHUB_TOKEN"):
         value = os.environ.get(name, "").strip()
         if value:
             return value
