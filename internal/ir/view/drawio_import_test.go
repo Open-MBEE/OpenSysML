@@ -201,8 +201,12 @@ func TestDrawioImportNestedChildResolvesAbsoluteCoordinates(t *testing.T) {
 	if pump.Geometry.X != loop.Geometry.X+x || pump.Geometry.Y != loop.Geometry.Y+y {
 		t.Errorf("pump at %+v, want the loop's %+v offset by (%v, %v)", pump.Geometry, loop.Geometry, x, y)
 	}
-	if port := file.Cell("n1:n1.0"); port == nil || !port.Relative || port.Geometry.X != 0.5 {
-		t.Errorf("port = %+v, want its relative geometry kept", port)
+	port := file.Cell("n1:n1.0")
+	if port == nil || !port.Relative || port.Parent != pump.ID {
+		t.Fatalf("port = %+v, want the pump's relative port", port)
+	}
+	if want := pump.Geometry.X + 0.5*pump.Geometry.Width + port.Offset.X; port.Geometry.X != want || port.Offset.X == 0 {
+		t.Errorf("port at x=%v, want %v: its fraction of the pump's width plus its offset", port.Geometry.X, want)
 	}
 }
 

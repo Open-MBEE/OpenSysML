@@ -44,11 +44,13 @@ type DrawioCell struct {
 	Style     map[string]string
 	StyleText string
 	// Geometry is the cell's box in absolute coordinates, every container's
-	// offset added, when HasGeometry; Relative marks an edge or label geometry,
-	// which is left as written.
+	// offset added, when HasGeometry. Relative marks a geometry stated as a
+	// fraction of its parent: a vertex's (a port's) is resolved like a nested
+	// cell's, with Offset added; an edge's or label's is left as written.
 	Geometry    DrawioBox
 	HasGeometry bool
 	Relative    bool
+	Offset      Point
 	// Alternate is the full box a collapsed cell expands to, when stated.
 	Alternate *DrawioBox
 	// Points are an edge's waypoints, Source and Target the cells it joins.
@@ -351,13 +353,22 @@ func readDrawioModel(model []byte) (*DrawioFile, error) {
 			case "Array":
 				points = len(open) > 0 && attrs["as"] == "points"
 			case "mxPoint":
-				if points && len(open) > 0 {
+				if len(open) == 0 {
+					break
+				}
+				cell := open[len(open)-1]
+				if points {
 					box, err := drawioBoxOf(attrs)
 					if err != nil {
-						return nil, fmt.Errorf("cell %s: waypoint: %w", open[len(open)-1].ID, err)
+						return nil, fmt.Errorf("cell %s: waypoint: %w", cell.ID, err)
 					}
-					cell := open[len(open)-1]
 					cell.Points = append(cell.Points, Point{X: box.X, Y: box.Y})
+				} else if attrs["as"] == "offset" {
+					box, err := drawioBoxOf(attrs)
+					if err != nil {
+						return nil, fmt.Errorf("cell %s: offset: %w", cell.ID, err)
+					}
+					cell.Offset = Point{X: box.X, Y: box.Y}
 				}
 			}
 		case xml.EndElement:
@@ -420,7 +431,7 @@ func (f *DrawioFile) resolveGeometry() error {
 	resolved := map[string]bool{}
 	var resolve func(cell *DrawioCell, chain int) error
 	resolve = func(cell *DrawioCell, chain int) error {
-		if resolved[cell.ID] || !cell.Vertex || !cell.HasGeometry || cell.Relative {
+		if resolved[cell.ID] || !cell.Vertex || !cell.HasGeometry {
 			return nil
 		}
 		if chain > len(f.Cells) {
@@ -439,7 +450,11 @@ func (f *DrawioFile) resolveGeometry() error {
 		if err := resolve(parent, chain+1); err != nil {
 			return err
 		}
-		if parent.Vertex && parent.HasGeometry && !parent.Relative {
+		if parent.Vertex && parent.HasGeometry {
+			if cell.Relative {
+				cell.Geometry.X = cell.Geometry.X*parent.Geometry.Width + cell.Offset.X
+				cell.Geometry.Y = cell.Geometry.Y*parent.Geometry.Height + cell.Offset.Y
+			}
 			cell.Geometry.X += parent.Geometry.X
 			cell.Geometry.Y += parent.Geometry.Y
 		}

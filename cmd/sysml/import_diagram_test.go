@@ -155,3 +155,75 @@ func TestImportDiagramWritesThroughSymlinksAndLeavesUnchangedFilesAlone(t *testi
 		t.Errorf("other.sysml rewritten though unchanged: %v %v", after, err)
 	}
 }
+
+const importDiagramPortsModel = `package PumpStation {
+	private import Views::*;
+	private import OpenSysMLRenderings::*;
+	part def Tank { port outlet; }
+	part def Pump { port inlet; }
+	part station {
+		part tank : Tank;
+		part pump : Pump;
+		connect tank.outlet to pump.inlet;
+	}
+	view stationView {
+		expose station;
+		render asInterconnectionDiagram;
+	}
+}
+`
+
+// The export names ports as the import's baseline does, so an untouched export
+// of a view with ports and a connection imports nothing and reports nothing; a
+// port dragged along its owner is a notice, a re-routed connection a Route.
+func TestImportDiagramPortsRoundTripSilently(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	modelPath := filepath.Join(dir, "pumps.sysml")
+	if err := os.WriteFile(modelPath, []byte(importDiagramPortsModel), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "station.drawio")
+	got := runFiles(t, binary, []string{modelPath}, "-render", "PumpStation::stationView", "-render-form", "drawio", "-o", out)
+	if got.status != exitHolds {
+		t.Fatalf("export: exit status = %d\n%s", got.status, got.output())
+	}
+	exported, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(exported), `fqn="PumpStation::Tank::outlet"`) {
+		t.Errorf("the export does not name the port by its declaration:\n%s", exported)
+	}
+	untouched := runFiles(t, binary, []string{modelPath}, "-import-diagram", out, "-dry-run")
+	if untouched.status != exitHolds || !strings.Contains(untouched.stderr, "nothing to import") ||
+		strings.Contains(untouched.stderr, "not in the rendering") || strings.Contains(untouched.stderr, "deleted from the file") {
+		t.Fatalf("untouched export: status %d\n%s", untouched.status, untouched.output())
+	}
+
+	port := regexp.MustCompile(`(?s)(<object id="[^"]*" [^>]*fqn="PumpStation::Tank::outlet"[^>]*>.*?<mxGeometry x=")([^"]*)(")`)
+	if port.FindStringSubmatch(string(exported)) == nil {
+		t.Fatalf("no outlet port cell with a geometry:\n%s", exported)
+	}
+	movedPort := filepath.Join(dir, "moved-port.drawio")
+	if err := os.WriteFile(movedPort, []byte(port.ReplaceAllString(string(exported), "${1}0.9${3}")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	moved := runFiles(t, binary, []string{modelPath}, "-import-diagram", movedPort, "-dry-run")
+	if moved.status != exitHolds || !strings.Contains(moved.stderr, "drawn on its owner's border") {
+		t.Errorf("moved port: status %d\n%s", moved.status, moved.output())
+	}
+
+	bend := regexp.MustCompile(`(?s)(kind="connection".*?<mxPoint x="[^"]*" y=")([^"]*)(")`)
+	if bend.FindStringSubmatch(string(exported)) == nil {
+		t.Fatalf("no connection waypoint:\n%s", exported)
+	}
+	rerouted := filepath.Join(dir, "rerouted.drawio")
+	if err := os.WriteFile(rerouted, []byte(bend.ReplaceAllString(string(exported), "${1}300${3}")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	routed := runFiles(t, binary, []string{modelPath}, "-import-diagram", rerouted, "-dry-run")
+	if routed.status != exitHolds || !strings.Contains(routed.stdout, "Route about connection") || !strings.Contains(routed.stdout, "DiagramLayout::Route { points = (83, 300, 177, 101); }") {
+		t.Errorf("re-routed connection: status %d\n%s", routed.status, routed.output())
+	}
+}
