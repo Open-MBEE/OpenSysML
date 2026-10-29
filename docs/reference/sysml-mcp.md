@@ -364,7 +364,7 @@ without this page.
   without `apply` to read the plan and what it reports rather than imports (cells naming no
   element, elements the rendering lacks, deleted cells, a label edited beyond its name, a name
   that is not one or that an existing member holds, an emptied note, a picture given embedded
-  data or a URL, and changes no annotation carries yet, such as a re-routed typing edge), then
+  data, a URL or a file outside the view's directory, and changes no annotation carries yet, such as a re-routed typing edge), then
   with `"apply": true` to write the files.
 - **Writing** happens only on request: a tool marked as writing (`format`, `rename`,
   `apply_model_edit`, `session_save`, ...) returns the edit or the file it would write and

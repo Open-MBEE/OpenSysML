@@ -683,7 +683,8 @@ retyped with only its name changed amounts to; a retyped note is a `Note`, a pic
 another file a `Picture`), what is reported rather than imported — `unmatched` elements the
 rendering lacks, `unknown` cells naming no element, `deleted` cells, and `notices` for changes no
 annotation carries yet and retypings the rename rule does not cover (a label edited beyond its
-name, an invalid or taken name, an emptied note, a picture given embedded data) — and either
+name, an invalid or taken name, an emptied note, a picture given embedded data or a file outside
+the view's directory) — and either
 `edit`, a `WorkspaceEdit` the client
 applies as it applies `opensysml/applyModelEdit`'s, or `refused`, the planned edit the model
 editor refused and why. An untouched export answers no edits and no `edit`.

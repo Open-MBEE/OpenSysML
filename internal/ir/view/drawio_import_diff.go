@@ -771,10 +771,34 @@ func (m *drawioMatcher) diffPicture(cell, base *DrawioCell) {
 		Picture: &semantics.Picture{Location: location, X: box.X, Y: box.Y, Width: box.Width, Height: box.Height, Alt: cell.Value, Above: picture.Above}})
 }
 
+// drawioPictureWithin is location as a Picture under the view's directory dir
+// states it, relative to dir; a file outside dir — by an absolute path, a
+// `..` or a document with no directory — is not one, and is not read.
+func drawioPictureWithin(location, dir string) (string, bool) {
+	if dir == "" {
+		clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(location)))
+		return location, !filepath.IsAbs(location) && clean != ".." && !strings.HasPrefix(clean, "../")
+	}
+	base, err := filepath.Abs(dir)
+	if err != nil {
+		return "", false
+	}
+	path, err := filepath.Abs(Picture{Location: location, Dir: dir}.Path())
+	if err != nil {
+		return "", false
+	}
+	rel, err := filepath.Rel(base, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return filepath.ToSlash(rel), true
+}
+
 // drawioPictureLocation is the Picture location a draw.io image source names:
 // a path, kept relative to the view's directory dir as the Picture states it,
-// or a file URL made one. Embedded data, a URL no drawing tool reads, and a
-// file that does not read as an image are a problem, worded for a notice.
+// or a file URL made one. Embedded data, a URL no drawing tool reads, a file
+// outside dir and one that does not read as an image are a problem, worded for
+// a notice.
 func drawioPictureLocation(src, dir string) (location, problem string) {
 	src = strings.TrimSpace(src)
 	switch {
@@ -793,11 +817,11 @@ func drawioPictureLocation(src, dir string) (location, problem string) {
 	default:
 		location = src
 	}
-	if dir != "" && filepath.IsAbs(location) {
-		if rel, err := filepath.Rel(dir, location); err == nil && !strings.HasPrefix(rel, "..") {
-			location = filepath.ToSlash(rel)
-		}
+	within, ok := drawioPictureWithin(location, dir)
+	if !ok {
+		return "", fmt.Sprintf("%s, a file outside the view's directory, which the import does not read", src)
 	}
+	location = within
 	data, err := os.ReadFile(Picture{Location: location, Dir: dir}.Path()) // #nosec G304 -- the user named the file in the diagram.
 	if err != nil {
 		return "", fmt.Sprintf("%q, a file that does not read", location)

@@ -264,7 +264,8 @@ view's body, exactly as dragging a node in the diagram panel does, in one undoab
 port or edge whose text you retyped with only its name changed renames the element and every
 reference to it. Cells that name no element, elements the rendering no longer has and cells you
 deleted are reported, not created or deleted, as are a label edited beyond its name, a name that
-is not valid or already taken, an emptied note and a picture given embedded data. The same import is
+is not valid or already taken, an emptied note and a picture given embedded data or a file outside
+the view's directory. The same import is
 `sysml model.sysml -import-diagram view.drawio -dry-run` on the command line, which prints the
 planned edits and a diff first.
 

@@ -147,16 +147,11 @@ func TestDrawioImportChangedPictureSourceIsAPicture(t *testing.T) {
 	if imp := drawioPicturedImport(t, rendering, exported); len(imp.Edits) != 0 || len(imp.Notices) != 0 {
 		t.Fatalf("untouched: edits %+v notices %q", imp.Edits, imp.Notices)
 	}
-	outside := filepath.Join(filepath.Dir(dir), filepath.Base(dir)+"-outside.png")
-	if err := os.WriteFile(outside, mustReadFile(t, filepath.Join(dir, "other.png")), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(outside)
 	for name, tc := range map[string]struct{ src, location string }{
 		"relative path": {"other.png", "other.png"},
 		"absolute path": {filepath.Join(dir, "other.png"), "other.png"},
 		"file URL":      {"file://" + filepath.ToSlash(filepath.Join(dir, "other.png")), "other.png"},
-		"outside dir":   {"file://" + filepath.ToSlash(outside), outside},
+		"dotted path":   {"sub/../other.png", "other.png"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			imp := drawioPicturedImport(t, rendering, setImage(t, exported, "picture0", tc.src))
@@ -181,13 +176,24 @@ func TestDrawioImportChangedPictureSourceIsAPicture(t *testing.T) {
 }
 
 func TestDrawioImportReportsPictureSourcesItCannotName(t *testing.T) {
-	rendering, exported, _ := drawioPicturedRendering(t)
+	rendering, exported, dir := drawioPicturedRendering(t)
+	outside := filepath.Join(filepath.Dir(dir), filepath.Base(dir)+"-outside.png")
+	if err := os.WriteFile(outside, mustReadFile(t, filepath.Join(dir, "other.png")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(outside)
+	outsideURL := "file://" + filepath.ToSlash(outside)
+	escape := "../" + filepath.Base(outside)
 	for name, tc := range map[string]struct{ src, problem string }{
-		"data URI":   {"data:image/png,iVBORw0KGgo=", "embedded image data, which no Picture location names (a Picture names a file)"},
-		"remote URL": {"https://example.org/bench.png", "https://example.org/bench.png, a URL no drawing tool reads"},
-		"missing":    {"missing.png", `"missing.png", a file that does not read`},
-		"not image":  {"notes.txt", `"notes.txt", which is not an image`},
-		"no image":   {"", "no image"},
+		"data URI":      {"data:image/png,iVBORw0KGgo=", "embedded image data, which no Picture location names (a Picture names a file)"},
+		"remote URL":    {"https://example.org/bench.png", "https://example.org/bench.png, a URL no drawing tool reads"},
+		"outside dir":   {outside, outside + ", a file outside the view's directory, which the import does not read"},
+		"outside URL":   {outsideURL, outsideURL + ", a file outside the view's directory, which the import does not read"},
+		"escaping path": {escape, escape + ", a file outside the view's directory, which the import does not read"},
+		"system file":   {"/etc/hostname", "/etc/hostname, a file outside the view's directory, which the import does not read"},
+		"missing":       {"missing.png", `"missing.png", a file that does not read`},
+		"not image":     {"notes.txt", `"notes.txt", which is not an image`},
+		"no image":      {"", "no image"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			imp := drawioPicturedImport(t, rendering, setImage(t, exported, "picture0", tc.src))
