@@ -598,6 +598,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		payloads:           map[*ast.Usage]*ast.Usage{},
 		payloadFeatures:    map[*ast.Usage]bool{},
 		fqn:                map[ast.Node]string{},
+		absorbed:           map[ast.Node]bool{},
 		positional:         map[ast.Node]string{},
 		positionalTaken:    map[string]bool{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
@@ -686,6 +687,9 @@ type encoder struct {
 	subjects map[string]string
 	// idErr holds a collision found where no error can propagate directly.
 	idErr error
+	// absorbed marks the FinalNode a member-attached `then` introduces: the
+	// target end of the following succession, written as that edge, not itself.
+	absorbed map[ast.Node]bool
 	// regions holds each element's lines, bodies the lines its members tile.
 	regions map[rdf.Term]region
 	bodies  map[rdf.Term]region
@@ -998,8 +1002,16 @@ func (e *encoder) provenance(subject rdf.Term, node ast.Node) {
 // later one is identified by its position, like a member declared unnamed.
 // position is the owner's name in a graph that states no effective names.
 func (e *encoder) collect(members []ast.Node, owner, position string) error {
-	for i, member := range e.kept(members) {
+	kept := e.kept(members)
+	for i, member := range kept {
 		node, _ := unwrapMember(member)
+		if _, done := node.(*ast.FinalNode); done && i+1 < len(kept) {
+			if next, _ := unwrapMember(kept[i+1]); next != nil {
+				if edge, ok := next.(*ast.SuccessionEdge); ok && edge.TargetMember == node {
+					e.absorbed[node] = true
+				}
+			}
+		}
 		declared, children := declaredNameAndMembers(node)
 		name := memberName(node)
 		fqn := qualify(owner, name, i)
@@ -1220,14 +1232,9 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, 
 		// target end, not a member of its own: `then done;` is one
 		// SuccessionAsUsage reaching the library's done feature. The edge
 		// carries the node's lines, the text `then done;` was written as.
-		encodes := true
-		if _, done := node.(*ast.FinalNode); done && i+1 < len(kept) {
-			if next, _ := unwrapMember(kept[i+1]); next != nil {
-				if edge, ok := next.(*ast.SuccessionEdge); ok && edge.TargetMember == node {
-					encodes = false
-					regions[i+1] = regions[i]
-				}
-			}
+		encodes := !e.absorbed[node]
+		if !encodes {
+			regions[i+1] = regions[i]
 		}
 		if encodes {
 			h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i + indexOffset,
@@ -1268,6 +1275,49 @@ func (e *encoder) mint(node ast.Node, fqn string) (rdf.Term, error) {
 	}
 	e.minted = append(e.minted, mintedSubject{iri: subject.Value, fqn: fqn, at: e.where(node)})
 	return subject, nil
+}
+
+// writtenDeclarations are the declarations the writer writes, in document order:
+// every collected node but an absorbed final node (encodeMembers) and the
+// statement a named send or assignment is written as (indexTriggerMembers).
+func (e *encoder) writtenDeclarations() []ast.Node {
+	statements := map[ast.Node]bool{}
+	for node := range e.fqn {
+		if usage, ok := node.(*ast.Usage); ok {
+			if statement := nodeStatement(usage); statement != nil {
+				statements[statement] = true
+			}
+		}
+	}
+	nodes := make([]ast.Node, 0, len(e.fqn))
+	for node := range e.fqn {
+		if !e.absorbed[node] && !statements[node] {
+			nodes = append(nodes, node)
+		}
+	}
+	slices.SortFunc(nodes, func(a, b ast.Node) int { return a.Span().Offset - b.Span().Offset })
+	return nodes
+}
+
+// mintDeclarations makes the identity claims writing the declarations would —
+// each one's subject (mint) and its owning membership's IRI — without writing,
+// so an author's ids that collide refuse the model as the conversion does.
+func (e *encoder) mintDeclarations() error {
+	for _, node := range e.writtenDeclarations() {
+		fqn := e.fqn[node]
+		subject, err := e.mint(node, fqn)
+		if err != nil {
+			return err
+		}
+		membership := e.ids.owningMembershipOf(node, subject)
+		if prior, taken := e.claim(membership.Value, fqn+"'s owning membership"); taken {
+			return &UnsupportedError{
+				What: fmt.Sprintf("the owning membership of %s", fqn),
+				Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
+			}
+		}
+	}
+	return nil
 }
 
 // head types an element and states its identity, position and membership in

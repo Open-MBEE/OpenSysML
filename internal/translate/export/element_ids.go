@@ -1,6 +1,7 @@
 package export
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -27,27 +28,33 @@ type ElementIDs struct {
 
 // NewElementIDs records the elementId Convert writes for each element of the
 // documents' model from the identity tables the ids are minted from — nothing is
-// written — refusing, as Convert does, two documents declaring one subject.
+// written — refusing what the declarations' identity claims refuse in Convert:
+// ids colliding within a document (mintDeclarations) or across documents.
 func NewElementIDs(documents []ModelDocument) (*ElementIDs, error) {
 	res, encoders, err := modelEncodersOf(documents, IDQualifiedName)
 	if err != nil {
 		return nil, err
 	}
+	return identityIDsOf(res, encoders)
+}
+
+// identityIDsOf is the id each encoder writes for each declaration it writes:
+// the local name of the subject its identity tables mint for the declaration.
+// The declarations' identity claims are made first (mintDeclarations, declaredOnce).
+func identityIDsOf(res *resolve.Resolver, encoders []*encoder) (*ElementIDs, error) {
 	declaredIn := map[string]mintedSubject{}
 	for _, e := range encoders {
-		if err := declaredOnce(declaredIn, e.declaredSubjects()); err != nil {
+		if err := e.mintDeclarations(); err != nil {
+			return nil, fmt.Errorf("%s: %w", e.file.Name(), err)
+		}
+		if err := declaredOnce(declaredIn, e.minted); err != nil {
 			return nil, err
 		}
 	}
-	return identityIDsOf(res, encoders), nil
-}
-
-// identityIDsOf is the id each encoder writes for each declaration it collected:
-// the local name of the subject its identity tables mint for the declaration.
-func identityIDsOf(res *resolve.Resolver, encoders []*encoder) *ElementIDs {
 	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{}, res: res, encoders: encoders}
 	for _, e := range encoders {
-		for node, fqn := range e.fqn {
+		for _, node := range e.writtenDeclarations() {
+			fqn := e.fqn[node]
 			id := rdf.LocalName(e.ids.subjectForNode(node, fqn).Value)
 			ids.byNode[node] = id
 			ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
@@ -56,7 +63,7 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder) *ElementIDs {
 			}
 		}
 	}
-	return ids
+	return ids, nil
 }
 
 // spanKey names a declaration by its document and span, across parses of it.
@@ -183,7 +190,7 @@ func (r *ElementIDReader) convert() {
 			r.err = err
 			return
 		}
-		r.ids = identityIDsOf(e.res, []*encoder{e})
+		r.ids, r.err = identityIDsOf(e.res, []*encoder{e})
 		return
 	}
 	r.ids, r.err = NewElementIDs(documents)
