@@ -774,10 +774,7 @@ func drawioPictureWithin(location, dir string) (string, bool) {
 		clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(location)))
 		return location, !filepath.IsAbs(location) && clean != ".." && !strings.HasPrefix(clean, "../")
 	}
-	base, err := filepath.EvalSymlinks(dir)
-	if err == nil {
-		base, err = filepath.Abs(base)
-	}
+	base, err := filepath.Abs(dir)
 	if err != nil {
 		return "", false
 	}
@@ -785,14 +782,24 @@ func drawioPictureWithin(location, dir string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	if real, err := filepath.EvalSymlinks(path); err == nil {
-		path = real
-	}
 	rel, err := filepath.Rel(base, path)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if err != nil || drawioOutside(rel) {
 		return "", false
 	}
+	// The file a symlink reaches must be under dir too; the location kept is the link the user named.
+	if realBase, err := filepath.EvalSymlinks(base); err == nil {
+		if real, err := filepath.EvalSymlinks(path); err == nil {
+			if realRel, err := filepath.Rel(realBase, real); err != nil || drawioOutside(realRel) {
+				return "", false
+			}
+		}
+	}
 	return filepath.ToSlash(rel), true
+}
+
+// drawioOutside is whether a relative path leaves the directory it is relative to.
+func drawioOutside(rel string) bool {
+	return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // drawioPictureLocation is the Picture location (a path relative to the view's directory dir) a draw.io
