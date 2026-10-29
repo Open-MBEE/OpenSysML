@@ -24,10 +24,13 @@ var libavoidWasm []byte
 const WasmPathEnv = "OPENSYSML_LIBAVOID_WASM"
 
 // engine is the compiled router module, shared by every routing pass of the
-// process; each pass instantiates it afresh so no state carries over.
+// process, with the instances passes have finished with and left clean.
 type engine struct {
 	runtime  wazero.Runtime
 	compiled wazero.CompiledModule
+
+	mu   sync.Mutex
+	idle []*session
 }
 
 var (
@@ -140,9 +143,11 @@ func cString(m api.Module, at uint32) string {
 // session is one instance of the router module; its calls go through the
 // WebIDL binder's exports, and its first failure ends the session's work.
 type session struct {
-	ctx context.Context
-	mod api.Module
-	err error
+	ctx   context.Context
+	mod   api.Module
+	err   error
+	fns   map[string]api.Function
+	stack []uint64
 }
 
 func (e *engine) newSession(ctx context.Context) (*session, error) {
@@ -150,32 +155,56 @@ func (e *engine) newSession(ctx context.Context) (*session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("libavoid: %w", err)
 	}
-	s := &session{ctx: ctx, mod: mod}
+	s := &session{ctx: ctx, mod: mod, fns: map[string]api.Function{}}
 	s.call("__wasm_call_ctors")
 	return s, s.err
 }
 
-func (s *session) close() { _ = s.mod.Close(s.ctx) }
+// acquire hands out an idle instance, or a fresh one.
+func (e *engine) acquire(ctx context.Context) (*session, error) {
+	e.mu.Lock()
+	if n := len(e.idle); n > 0 {
+		s := e.idle[n-1]
+		e.idle = e.idle[:n-1]
+		e.mu.Unlock()
+		return s, nil
+	}
+	e.mu.Unlock()
+	return e.newSession(ctx)
+}
+
+// release keeps an instance whose objects were all destroyed for the next
+// pass, so its code stack and memory stay grown; a failed one is dropped.
+func (e *engine) release(s *session) {
+	if s.err != nil {
+		_ = s.mod.Close(s.ctx)
+		return
+	}
+	e.mu.Lock()
+	e.idle = append(e.idle, s)
+	e.mu.Unlock()
+}
 
 // call invokes an export; after a failure every call is a no-op returning 0.
 func (s *session) call(name string, args ...uint64) uint64 {
 	if s.err != nil {
 		return 0
 	}
-	fn := s.mod.ExportedFunction(name)
-	if fn == nil {
-		s.err = fmt.Errorf("libavoid: no export %q", name)
-		return 0
+	fn, ok := s.fns[name]
+	if !ok {
+		if fn = s.mod.ExportedFunction(name); fn == nil {
+			s.err = fmt.Errorf("libavoid: no export %q", name)
+			return 0
+		}
+		s.fns[name] = fn
 	}
-	results, err := fn.Call(s.ctx, args...)
-	if err != nil {
+	// The stack carries the arguments in and the result (at most one) out.
+	s.stack = append(append(s.stack[:0], args...), 0)
+	if err := fn.CallWithStack(s.ctx, s.stack); err != nil {
 		s.err = fmt.Errorf("libavoid: %s: %w", name, err)
 		return 0
 	}
-	if len(results) == 0 {
-		return 0
-	}
-	return results[0]
+	return s.stack[0]
 }
 
 // bind calls a bound method, `emscripten_bind_<Class>_<method>_<argc>`.

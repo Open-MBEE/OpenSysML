@@ -4,6 +4,7 @@ package route
 
 import (
 	"context"
+	"fmt"
 	"math"
 )
 
@@ -78,11 +79,11 @@ func Routes(shapes []Shape, edges []Edge, bounds *Box) ([][]Point, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, err := e.newSession(context.Background())
+	s, err := e.acquire(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	defer s.close()
+	defer e.release(s)
 
 	byID := make(map[string]*Shape, len(shapes))
 	for i := range shapes {
@@ -144,7 +145,11 @@ func Routes(shapes []Shape, edges []Edge, bounds *Box) ([][]Point, error) {
 	for _, c := range connectors {
 		edge := edges[c.index]
 		poly := s.method("ConnRef", c.ref, "displayRoute")
-		n := int(s.method("Polygon", poly, "size"))
+		size := s.method("Polygon", poly, "size")
+		if size > math.MaxInt32 {
+			return nil, avoidError{fmt.Sprintf("route of %d points", size)}
+		}
+		n := int(size)
 		points := make([]Point, 0, n)
 		for i := 0; i < n; i++ {
 			p := s.method("Polygon", poly, "get_ps", uint64(i))
