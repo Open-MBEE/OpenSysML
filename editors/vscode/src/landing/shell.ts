@@ -26,6 +26,8 @@ export interface ShellHooks {
   busy(): boolean;
   /** The published text is back in the editor: the form forgets what the visitor did to the stage. */
   reset(): void;
+  /** A variant changed what Run executes over the same model: the form forgets the previous program's run. */
+  reprogram(): void;
   /** `running` changed: the form syncs the controls it owns. */
   syncControls(): void;
 }
@@ -250,8 +252,12 @@ export function mountShell(root: HTMLElement, scene: Scene, options: MountOption
     if (running) {
       return;
     }
+    const before = programOf(scene, variant);
     variant = next;
     target = next === undefined ? sceneTarget(scene) : { rootSymbol: next.rootSymbol, view: next.view };
+    if (sameTarget(target, model.target) && programOf(scene, variant) !== before) {
+      hooks.reprogram();
+    }
     // A read of the previous root still in flight is superseded, as an edit supersedes a read.
     const revision = ++editSequence;
     syncVariantControls();

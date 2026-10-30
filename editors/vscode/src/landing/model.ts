@@ -44,16 +44,19 @@ export interface LandingState {
   id: string;
   /** The state's name as the trace records carry it: `prelaunch`; the start pseudostate has none. */
   name: string;
+  /** The names from the machine down to this state, dotted: `onSurface.landing`; the name itself at the top. */
+  path: string;
   /** What RenderView drew it as: `start`, `state` or `final`. */
   kind: string;
   /** Whether the machine enters this state first, as RenderView details it. */
   initial: boolean;
 }
 
-/** The state machine a scene draws: its states by name, lifted out of the machine's box. */
+/** The state machine a scene draws: its states by path and, where that is unambiguous, by name. */
 export interface LandingMachine {
   /** The state definition drawn: `MissionSequence::MissionPhases`. */
   symbol: string;
+  /** Keyed by `LandingState.path`; a nested state is also keyed by its bare name when no other state has it. */
   states: Map<string, LandingState>;
 }
 
@@ -465,9 +468,9 @@ function partRecord(
 }
 
 /**
- * machineModel is a state view as the page keeps it: the states lifted out of the machine's
- * box and keyed by name, the transitions between them kept, and the root the object the
- * machine runs on, as Instantiate materialized it; nothing of it is drawn as a part.
+ * machineModel is a state view as the page keeps it: the machine's own states lifted out of
+ * its box, the states and regions nested in them kept where they are, the transitions kept,
+ * and the root the object the machine runs on, as Instantiate materialized it.
  */
 function machineModel(
   target: SceneTarget,
@@ -483,15 +486,29 @@ function machineModel(
   }
   const [machine] = machines;
   const states = new Map<string, LandingState>();
+  const byName = new Map<string, LandingState[]>();
   const nodes: RenderNode[] = [];
-  for (const node of render.nodes) {
-    if (node.parent !== machine.id) {
-      continue;
+  // keep walks below `parent`: its children lifted when it is the machine, nested ones left in place.
+  const keep = (parent: RenderNode, above: string | undefined): void => {
+    for (const node of render.nodes) {
+      if (node.parent !== parent.id) {
+        continue;
+      }
+      const { parent: _parent, ...lifted } = node;
+      nodes.push(parent === machine ? lifted : node);
+      const path = node.name === "" ? above : above === undefined ? node.name : `${above}.${node.name}`;
+      if (node.name !== "" && path !== undefined && node.kind !== "region") {
+        const state: LandingState = { id: node.id, name: node.name, path, kind: node.kind, initial: node.detail === "initial" };
+        states.set(path, state);
+        byName.set(node.name, [...(byName.get(node.name) ?? []), state]);
+      }
+      keep(node, path);
     }
-    const { parent: _parent, ...lifted } = node;
-    nodes.push(lifted);
-    if (node.name !== "") {
-      states.set(node.name, { id: node.id, name: node.name, kind: node.kind, initial: node.detail === "initial" });
+  };
+  keep(machine, undefined);
+  for (const [name, named] of byName) {
+    if (named.length === 1 && !states.has(name)) {
+      states.set(name, named[0]);
     }
   }
   const retained = new Set(nodes.map((node) => node.id));
@@ -511,7 +528,7 @@ function machineModel(
   };
 }
 
-/** stateIdOf is the box a state the engine named is drawn as: a machine's state, or the part a journey's state stands for. */
+/** stateIdOf is the box a state the engine named is drawn as: a machine's state (by path or unambiguous name), or the part a journey's state stands for. */
 export function stateIdOf(model: LandingModel, state: string): string | undefined {
   return model.machine?.states.get(state)?.id ?? model.parts.get(state)?.id;
 }

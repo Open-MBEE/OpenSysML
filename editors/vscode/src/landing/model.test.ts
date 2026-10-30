@@ -335,6 +335,7 @@ test("landingModel lifts a state view's states out of the machine's box and keys
     ["prelaunch", "translunarCoast", "lunarOrbit", "onSurface", "transEarthCoast", "recovered", "done"],
   );
   assert.equal(model.machine.states.get("prelaunch")?.initial, true);
+  assert.equal(model.machine.states.get("onSurface")?.path, "onSurface");
   assert.equal(model.machine.states.get("onSurface")?.initial, false);
   assert.equal(model.machine.states.get("done")?.kind, "final");
   assert.equal(model.parts.size, 0, "a state is not a part");
@@ -351,6 +352,25 @@ test("landingModel lifts a state view's states out of the machine's box and keys
   assert.equal(stateIdOf(model, "nowhere"), undefined);
   const stack = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   assert.equal(stack.machine, undefined);
+
+  // A state nested in a composite stays under it, keyed by its path and, being the only `landing`, by name.
+  const surface = model.machine.states.get("onSurface")!;
+  const nested: RenderResult = {
+    ...phasesRender,
+    nodes: [
+      ...phasesRender.nodes,
+      { id: "n9", kind: "state", name: "landing", type: "", detail: "", parent: surface.id },
+      { id: "n10", kind: "state", name: "prelaunch", type: "", detail: "", parent: surface.id },
+    ],
+    edges: [...phasesRender.edges, { from: surface.id, to: "n9", kind: "transition", label: "" }],
+  };
+  const composite = landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, nested, phasesFixture.instances);
+  assert.equal(composite.render.nodes.find((node) => node.id === "n9")?.parent, surface.id, "a nested state keeps its parent");
+  assert.equal(composite.render.edges.filter((edge) => edge.to === "n9").length, 1, "the transition into it is kept");
+  assert.equal(composite.machine?.states.get("onSurface.landing")?.id, "n9");
+  assert.equal(stateIdOf(composite, "landing"), "n9");
+  assert.equal(composite.machine?.states.get("onSurface.prelaunch")?.id, "n10");
+  assert.equal(stateIdOf(composite, "prelaunch"), model.machine.states.get("prelaunch")?.id, "a repeated name stays with the machine's own state");
   assert.equal(stateIdOf(stack, "flexo"), stack.parts.get("flexo")?.id, "a journey's states name parts");
   assert.throws(
     () => landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, { ...phasesRender, nodes: [] }, phasesFixture.instances),

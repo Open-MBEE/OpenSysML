@@ -144,6 +144,7 @@ export function mountTable(root: HTMLElement, scene: Scene, form: SceneTable, op
     },
     busy: () => false,
     reset: () => undefined,
+    reprogram: () => undefined,
     syncControls: () => undefined,
   });
   const { status, engine, runnable } = shell;

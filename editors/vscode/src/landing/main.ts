@@ -178,6 +178,7 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
       placed.clear();
       settle();
     },
+    reprogram: () => forgetRun(),
     syncControls: () => syncDebugControls(),
   });
   const { status, engine, runnable } = shell;
@@ -476,7 +477,11 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
     if (cardFor) {
       fillCard(cardFor);
     }
-    // A debugger run belongs to the model it ran; a new model runs afresh.
+    forgetRun();
+  }
+
+  // forgetRun drops a debugger run that belongs to another model or program; an open panel runs afresh.
+  function forgetRun(): void {
     if (debugPanel.hidden) {
       run = undefined;
     } else if (rerunning === undefined) {
