@@ -182,12 +182,16 @@ saved = model.save('model.ttl');
 ```
 
 `opensysml.convert(conn, toFormat, ...)` requires exactly one source:
-`filePath`, `content`, or `modelHash`. Optional fields are `fromFormat` and
-`tolerateSyntaxErrors`. `Model.convert(format, 'tolerateSyntaxErrors', true)` uses the parsed
+`filePath`, `content`, or `modelHash`. Optional fields are `fromFormat`,
+`tolerateSyntaxErrors`, `idForm` (`'qualified'`, the default, or `'uuid'`, how a graph spells
+its derived ids) and `includeLibraryStubs` (restore the pre-0.11.0 library stubs in API JSON;
+needs the `convert_library_stubs` capability). `Model.convert(format, 'tolerateSyntaxErrors', true)` uses the parsed
 model; `toSysml`, `toTurtle`, and `toApiJson` select common output formats. `Model.save(path,
 ...)` infers format from the path unless `format` is supplied and writes the returned content.
 `Conversion` has `content`, `fromFormat`, `toFormat`, `diagnostics`, `experimental`,
-`experimentalNotice`, `char`, `length`, and `write(path)`. Experimental RDF conversions can
+`experimentalNotice`, `libraryReferences` (the standard-library elements API JSON names
+beside its elements, each with `id`, `qualifiedName` and `type`), `char`, `length`, and
+`write(path)`. Experimental RDF conversions can
 issue the `opensysml:experimental` warning. A SysML v1 model — `fromFormat` `xmi`, `uml` or
 `mdzip`, or a `filePath` with that extension — is refused with `opensysml:argument`: it is
 migrated, not converted.
@@ -251,7 +255,8 @@ those [optional notation elements](../project/view-rendering-forms.md#optional-n
 besides the ones the view's rendering shows (`'all'` for every one; `shown`
 lists the elements drawn), and `'depth', n` to draw only `n` levels of nested
 elements below each exposed element (`0`, the default, draws every level the
-view allows). The call requires `render_view`.
+view allows). The call requires `render_view`. `'compartments', 'most'` (or `'positioned'`, the default, or `'ports'`) says how a tree
+rendering folds owned members into compartment rows; a folded node names its `compartment`.
 
 ## Edit builder
 
@@ -298,7 +303,7 @@ errors with the same identifiers. `opensysml.lastError()` returns a struct with 
 | `opensysml:argument` | Invalid arguments or unsupported name-value options. |
 | `opensysml:transport` | Connection errors, timeouts, or non-JSON responses where JSON was required. |
 | `opensysml:connect:modelNotFound`, `symbolNotFound`, `modelFileNotFound` | Missing model, symbol, or source file from a Connect status. |
-| `opensysml:connect:invalidRequest`, `unavailable`, `serviceTimeout`, `unsupportedOperation`, `service` | Other typed Connect status failures. |
+| `opensysml:connect:invalidRequest`, `unauthenticated`, `unavailable`, `serviceTimeout`, `unsupportedOperation`, `service` | Other typed Connect status failures. |
 | `opensysml:missingCapability` | The service does not advertise a required capability; details include `capability` and `service`. |
 | `opensysml:staleService` | Requested `version` or required capability set does not match the service. |
 | `opensysml:diagnostics:model`, `conversion`, `wrongKind`, `execution` | Model, conversion, kind, execution, or verification errors reported by a successful RPC. |
