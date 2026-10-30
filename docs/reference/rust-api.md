@@ -65,7 +65,7 @@ and is started without `$OPENSYSML_GRPC_TOKEN` in its environment.
 | `server_info()`, `capabilities()` | what `GetServerInfo` reported, asked once at connect |
 | `private_service_pid()` | the child's pid, or `None` for an external service |
 | `parse_sources(&[SourceDocument], &SourcesOptions)` | parses files and named inline content as one model |
-| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids; a SysML v1 model is refused with `InvalidRequest` — it is migrated |
+| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids, `include_library_stubs` restores the pre-0.11.0 library stubs in API JSON (needs `convert_library_stubs`), and a `Conversion` lists the `library_references` API JSON names beside its elements; a SysML v1 model is refused with `InvalidRequest` — it is migrated |
 | `migrate(to_format, &MigrateSource, &MigrateOptions)` | migrates a SysML v1 model (`.mdzip`, `.xmi`, `.uml`, as a file or inline bytes) to notation or Turtle, answering a `Migration` whose `report` gives every element's verdict and whose `write(path)` puts the image files beside the model |
 | `query(hash, &Query)`, `query_oslc(hash, text)` | selects elements, structured or as OSLC Query 3.0 text |
 | `run_document_query`, `render_document` | runs a named document query, renders a named document as Markdown or HTML |
