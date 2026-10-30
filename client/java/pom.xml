@@ -82,7 +82,7 @@
     <maven.antrun.plugin.version>3.2.0</maven.antrun.plugin.version>
     <protobuf.maven.plugin.version>5.1.11</protobuf.maven.plugin.version>
     <central.publishing.plugin.version>0.12.0</central.publishing.plugin.version>
-    <jacoco.plugin.version>0.8.15</jacoco.plugin.version>
+    <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
   </properties>
 
   <dependencyManagement>
