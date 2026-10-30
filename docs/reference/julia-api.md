@@ -109,6 +109,9 @@ performer attributes are available separately as `performer`. `execute_state`
 returns a `StateRun` with `states_visited`, `final_context`, `final_time`,
 `trace::Vector{DocumentEvent}`, and `trace_dropped`. Requesting a trace checks
 the `state_trace` capability locally and cannot be combined with exploration.
+`execute_action(...; trace=true, events=["Go"], performer=...)` does the same for an
+action under `action_trace`, filling `ActionOutputs.trace` and `trace_dropped`; each
+event is posted to the performer once every token waits.
 A failed traced run keeps its existing `ExecutionFailure` or `WrongKindError`
 classification, with partial records on `trace` and the discarded count on
 `trace_dropped`.

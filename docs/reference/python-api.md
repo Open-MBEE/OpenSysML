@@ -240,6 +240,10 @@ explore schedule; the same option and result fields are available on
 `Connection.execute_state`.
 A failed traced run raises the existing `ExecutionError`, with its partial
 records on `trace` and discarded count on `trace_dropped`.
+`Model.execute_action(..., trace=True, events=["Go"], performer=...)` does the
+same for an action under the `action_trace` capability: the result's `trace`
+holds its token steps, waits, accepts, decisions and assignments (`feature`,
+`value`), and each event is posted to the performer once every token waits.
 
 `execute_action` and `execute_state` take the run options of the `sysml`
 command: `advance` (simulated seconds to run for, reported back in
