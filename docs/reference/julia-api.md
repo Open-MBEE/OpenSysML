@@ -93,7 +93,13 @@ get(model, "Demo::Car", nothing)
 `strict=true` raises `ModelError` if parse diagnostics include an error. The
 wire-level strict conformance flag is named `strict_conformance`; it is
 separate from `strict`. `parse_sources` preserves input order and accepts
-`SourceDocument`s, file paths, or `(name, content)` pairs.
+`SourceDocument`s, file paths, or `(name, content)` pairs. Parsing the set again
+after an edit, `parse_sources(conn, documents; base_model_hash=model.hash)` relates
+the parse to the previous model and `affected(model)` names, in document order, the
+documents whose analysis, diagnostics or conversion may differ from it, so results
+computed for the others are kept; every document when the service could not
+compare the two, such as for a set it had not seen before (needs the
+`parse_sources_affected` capability).
 
 Model operations include `evaluate(model, expression; context, subject)`,
 `instantiate(model, symbol_id)`, `execute_action(model, symbol_id; inputs,
@@ -200,7 +206,16 @@ graph notation and `include_library_stubs`, which restores in api-json the
 ownerless library stubs releases before 0.11.0 wrote (needs the service's
 `convert_library_stubs` capability); the `Conversion` lists the
 `library_references` (`LibraryReference`) an api-json conversion names beside
-its elements. `to_sysml`, `to_turtle`, `to_api_json`, and `save` are model
+its elements. For notation converted to api-json, `compact=true` writes the
+compact document (`api-json-compact/1`, see [the compact form](api-json-compact.md)),
+`omit_derived=true` leaves out every derived property of the metamodel and
+`keep_derived=["qualifiedName"]` names the ones still written (all three need
+`convert_compact`; the service refuses `omit_derived` or `keep_derived` without
+`compact` as `InvalidRequestError`); `include_check_diagnostics=true` (needs
+`convert_check_diagnostics`, notation sources only) reports the semantic check's
+diagnostics in the `Conversion`'s `diagnostics`, each with its `severity`, so a
+conversion of a model with errors is told apart from one of a clean model.
+`to_sysml`, `to_turtle`, `to_api_json`, and `save` are model
 helpers. Turtle and API-JSON formats are experimental and emit `@warn`. A SysML v1 model — `from_format` `xmi`, `uml`
 or `mdzip`, or a path with that extension — is refused by every `convert_*`
 with an `ArgumentError`: it is migrated, not converted.
