@@ -1816,6 +1816,52 @@ func (ctx *Context) ExecuteActionReportingPerformer(action *symbols.Symbol, self
 	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
 }
 
+// ExecuteActionWithEvents runs an action as ExecuteActionReportingPerformer does,
+// posting each of events to the run in turn once every token of it waits, as the
+// REPL's %send does, and running on; without events it is that call.
+func (ctx *Context) ExecuteActionWithEvents(action *symbols.Symbol, self *Instance, inputs map[string]Value, events []Message) (outputs, performer map[string]Value, err error) {
+	if len(events) == 0 {
+		return ctx.ExecuteActionReportingPerformer(action, self, inputs)
+	}
+	exec, _, err := ctx.StartActionPerformedBy(action, self, inputs)
+	if err != nil {
+		return nil, nil, err
+	}
+	top := ctx.runDepth == 0
+	defer ctx.beginRun()()
+	if err := ctx.DeliverEvents(exec, events); err != nil {
+		return nil, nil, err
+	}
+	if err := ctx.runPerformance(exec, top); err != nil {
+		return nil, nil, err
+	}
+	outputs, err = exec.ResultsWithError()
+	if err != nil {
+		return nil, nil, err
+	}
+	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
+}
+
+// DeliverEvents posts each of events to exec's run in turn: the run goes until it
+// completes or every token waits, the event is posted, and an accept node waiting
+// for it takes it on the next step. One no waiting accept takes is an error, as
+// is one the run completed before.
+func (ctx *Context) DeliverEvents(exec *ActionExecutor, events []Message) error {
+	for _, msg := range events {
+		if err := exec.RunToQuiescence(); err != nil {
+			return fmt.Errorf("execute action: %w", err)
+		}
+		if exec.State().Ended() {
+			return fmt.Errorf("execute action: event %s was posted after the action completed", msg.SignalType)
+		}
+		ctx.PostMessage(msg)
+		if !exec.HasPendingSignal() {
+			return fmt.Errorf("execute action: no accept of the action waits for event %s: %s", msg.SignalType, exec.describeWaits(nil))
+		}
+	}
+	return nil
+}
+
 // performAction runs action to completion, performed by self, and returns the
 // executor that ran it, whose root performance holds what it produced. An object
 // performing the action runs the performance it already runs rather than a second.

@@ -67,14 +67,15 @@ func (o runOptions) apply(rt *runtime.Context) {
 	_ = rt.SetClockStep(o.clockStep) // checked by readRunOptions
 }
 
-// runAction runs action performed by self on rt: to completion, or for the
+// runAction runs action performed by self on rt, posting events to it as the run
+// waits (runtime.DeliverEvents): to completion, or for the
 // duration asked, in which case one that has not completed is ErrNotCompleted.
-func (o runOptions) runAction(rt *runtime.Context, name string, action *symbols.Symbol, self *runtime.Instance, inputs map[string]runtime.Value) (actionRun, error) {
+func (o runOptions) runAction(rt *runtime.Context, name string, action *symbols.Symbol, self *runtime.Instance, inputs map[string]runtime.Value, events []runtime.Message) (actionRun, error) {
 	if o.advance == nil {
-		outputs, performer, err := rt.ExecuteActionReportingPerformer(action, self, inputs)
+		outputs, performer, err := rt.ExecuteActionWithEvents(action, self, inputs, events)
 		return actionRun{outputs: outputs, performer: performer}, err
 	}
-	exec, release, err := o.startAction(rt, name, action, self, inputs)
+	exec, release, err := o.startAction(rt, name, action, self, inputs, events)
 	if err != nil {
 		return actionRun{}, err
 	}
@@ -92,7 +93,7 @@ func (o runOptions) actionOutcome(rt *runtime.Context, name string, action *symb
 	if o.advance == nil {
 		return rt.ActionOutcomePerformedBy(action, self, inputs)
 	}
-	exec, _, err := o.startAction(rt, name, action, self, inputs)
+	exec, _, err := o.startAction(rt, name, action, self, inputs, nil)
 	if err != nil {
 		return runtime.Outcome{}, err
 	}
@@ -104,7 +105,7 @@ func (o runOptions) actionOutcome(rt *runtime.Context, name string, action *symb
 
 // startAction starts the performance a run to completion would run and moves the clock by
 // the duration asked, as `-action X -advance T` does; release lets go of one started for the call.
-func (o runOptions) startAction(rt *runtime.Context, name string, action *symbols.Symbol, self *runtime.Instance, inputs map[string]runtime.Value) (*runtime.ActionExecutor, func(), error) {
+func (o runOptions) startAction(rt *runtime.Context, name string, action *symbols.Symbol, self *runtime.Instance, inputs map[string]runtime.Value, events []runtime.Message) (*runtime.ActionExecutor, func(), error) {
 	exec, reused, err := rt.StartActionPerformedBy(action, self, inputs)
 	if err != nil {
 		return nil, nil, err
@@ -112,6 +113,10 @@ func (o runOptions) startAction(rt *runtime.Context, name string, action *symbol
 	release := exec.Release
 	if reused {
 		release = func() { /* a reused performance is the run's own; nothing was started for the call */ }
+	}
+	if err := rt.DeliverEvents(exec, events); err != nil {
+		release()
+		return nil, nil, err
 	}
 	if _, err := rt.Advance(*o.advance); err != nil {
 		release()

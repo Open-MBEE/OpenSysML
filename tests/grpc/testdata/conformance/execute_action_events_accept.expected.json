@@ -1,0 +1,42 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::Flow",
+  "performer_symbol_id": "test::craft",
+  "inputs": {
+    "budget": {
+      "kind": "int_value",
+      "value": 10
+    }
+  },
+  "trace": true,
+  "events": [
+    "Go"
+  ],
+  "expected_trace": [
+    "step start",
+    "step start -> burn",
+    "assign remaining = 7",
+    "step burn -> route",
+    "decide route -> 1->waiting",
+    "step route -> waiting",
+    "wait Go",
+    "send Go",
+    "accept Go",
+    "step waiting -> land",
+    "assign landed = true",
+    "step land -> finish",
+    "step finish -> done",
+    "complete"
+  ],
+  "expected_outputs": {
+    "landed": {
+      "kind": "sequence",
+      "elements": [
+        {
+          "kind": "bool_value",
+          "value": true
+        }
+      ]
+    }
+  }
+}

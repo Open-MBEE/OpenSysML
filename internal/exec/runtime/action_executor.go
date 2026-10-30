@@ -1745,6 +1745,9 @@ func (e *ActionExecutor) completeRoot() error {
 	e.state = StateCompleted
 	e.endRootPerformance()
 	e.ctx.unregisterActionExecutor(e)
+	if tr := e.trace(); tr != nil {
+		tr.recordActionComplete(e.traceOrigin(), e.stepCount+1)
+	}
 	return nil
 }
 
@@ -1945,7 +1948,7 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 		}
 	}
 	id := e.tokens[tokenIdx].ID
-	defer e.beginTokenStep(id)()
+	defer e.beginTokenStep(id, e.stepCount+1)()
 	defer e.ctx.releaseControl(e.ctx.underControl(e.tokens[tokenIdx].controlSerials()))
 	if err := e.stepTokenAt(tokenIdx); err != nil {
 		return e.endTerminatedFor(id, err)
@@ -2031,6 +2034,7 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 		control: control,
 	})
 	e.nextTokenID++
+	e.recordTokenAt(&e.tokens[len(e.tokens)-1], nil)
 	return len(e.tokens) - 1, true
 }
 
@@ -2575,6 +2579,7 @@ func (e *ActionExecutor) split(tokenIdx int, successors []lower.ActionEdge) {
 		e.nextTokenID++
 		newTokens = append(newTokens, newToken)
 		e.noteTraversal(&newToken, edge)
+		e.recordTokenAt(&newToken, &edge)
 	}
 	e.removeToken(tokenIdx)
 	e.tokens = append(e.tokens, newTokens...)
@@ -2691,6 +2696,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	// 2. If none holds, use unguarded edge as fallback (else branch)
 
 	var unguardedEdge *lower.ActionEdge
+	unguardedAt := -1
 	var holding []int
 
 	// Pass 1: Check guarded edges. Once one holds the branch is decided; the rest
@@ -2703,7 +2709,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 				continue
 			}
 			// No guard = remember for fallback
-			unguardedEdge = edge
+			unguardedEdge, unguardedAt = edge, i
 			continue
 		}
 
@@ -2753,6 +2759,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			}
 		}
 		token.underControl(by, commonReach(graph, successors))
+		e.recordDecide(token, successors, holding[pick])
 		e.move(token, successors[holding[pick]])
 		return nil
 	}
@@ -2761,6 +2768,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	// fallback stands on what they read as a taken branch would.
 	if unguardedEdge != nil {
 		token.underControl(e.guardsStanding(graph, successors, len(successors)-1), commonReach(graph, successors))
+		e.recordDecide(token, successors, unguardedAt)
 		e.move(token, *unguardedEdge)
 		return nil
 	}
@@ -2929,6 +2937,7 @@ func (e *ActionExecutor) awaitTrigger(token *Token, accept lower.Accept) (bool, 
 				Trigger:   triggerDescription(accept.Trigger),
 				Since:     e.stepCount + 1,
 			}
+			e.recordTokenWait(token, token.Wait.Trigger)
 		}
 		return false, nil
 	}
@@ -2960,12 +2969,13 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 				// step now in progress is the next one.
 				Since: e.stepCount + 1,
 			}
+			e.recordTokenWait(token, want)
 		}
 		return nil, false, nil
 	}
 	token.Wait = nil
 	if tr := e.trace(); tr != nil {
-		tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
+		tr.recordActionAccept(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Location),
 			msg.Serial, acceptedEventName(msg), msg.Payload)
 	}
 	if accepting, err := e.materializeOccurrence(); err != nil {
@@ -3093,6 +3103,9 @@ func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, 
 		}
 		if due <= e.ctx.clock.now {
 			return true, nil
+		}
+		if token.Wait == nil {
+			e.recordTokenWait(token, triggerDescription(t))
 		}
 		token.Wait = &AcceptWait{
 			ParamName: accept.ParamName,
@@ -3549,6 +3562,7 @@ func (e *ActionExecutor) noteTraversal(token *Token, edge lower.ActionEdge) {
 func (e *ActionExecutor) move(token *Token, edge lower.ActionEdge) {
 	token.travel(edge, e.sweep)
 	e.noteTraversal(token, edge)
+	e.recordTokenAt(token, &edge)
 }
 
 // State returns current execution state.
@@ -3728,6 +3742,45 @@ func (e *ActionExecutor) forgetBodyStopsRemoved() {
 // reporting on or off reaches an execution already under way.
 func (e *ActionExecutor) trace() *TraceRecorder {
 	return e.ctx.trace
+}
+
+// traceOrigin is the origin the executor's records carry: the clock now, the
+// performer and the action performed.
+func (e *ActionExecutor) traceOrigin() TraceOrigin {
+	return TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action}
+}
+
+// recordTokenAt records token arriving where it is, over edge where it followed one.
+func (e *ActionExecutor) recordTokenAt(token *Token, edge *lower.ActionEdge) {
+	tr := e.trace()
+	if tr == nil {
+		return
+	}
+	from := ""
+	if edge != nil {
+		from = nodeIdentifier(edge.Source)
+	}
+	tr.recordTokenStep(e.traceOrigin(), token.ID, e.stepCount+1, from, nodeIdentifier(token.Location))
+}
+
+// recordTokenWait records token parking where it is for awaited.
+func (e *ActionExecutor) recordTokenWait(token *Token, awaited string) {
+	if tr := e.trace(); tr != nil {
+		tr.recordTokenWait(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Location), awaited)
+	}
+}
+
+// recordDecide records token resolving the decision among successors, taking the one at pick.
+func (e *ActionExecutor) recordDecide(token *Token, successors []lower.ActionEdge, pick int) {
+	tr := e.trace()
+	if tr == nil {
+		return
+	}
+	alternatives := make([]string, len(successors))
+	for i := range successors {
+		alternatives[i] = branchName(successors, i)
+	}
+	tr.recordDecide(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Location), alternatives, branchName(successors, pick))
 }
 
 // SetTrace sets the trace recorder for this executor and the context it
