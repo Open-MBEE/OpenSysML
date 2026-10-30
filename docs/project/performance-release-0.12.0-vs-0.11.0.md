@@ -13,8 +13,9 @@ one of the seven pull requests of [Fixes](#fixes), which all merged into
 full method, then re-probed the export rows on `5e0322e0c` and again on
 `d01e4f49c` when #1760 and #1774 landed on them; it is
 [The release candidate](#the-release-candidate), which also accounts
-for every merge up to `develop` `cf1652846`, re-checking the runtime
-rows at `1e34d9d95` when #1777 landed on them. The
+for every merge up to `develop` `9a4ffcd83`, re-checking the runtime
+rows at `1e34d9d95` when #1777 landed on them and the semantics rows at
+`9a4ffcd83` when #1784 did. The
 first pass stays in the record as the pre-fix measurement so that what
 the fixes gave back is visible row by row. The record follows the
 method of the [0.11.0 against 0.10.1](performance-release-0.11.0-vs-0.10.1.md)
@@ -420,7 +421,7 @@ built on it is measured in full in
 
 ## What this record does not measure
 
-- Anything after `cf1652846`, and #1771 by anything but its own pull
+- Anything after `9a4ffcd83`, and #1771 by anything but its own pull
   request's benchstat ([After the measured heads](#after-the-measured-heads)).
 - The merges between `1c6bb1972` and `ab88ea950` on their own: they are
   measured only inside the release candidate, never one at a time
@@ -839,13 +840,55 @@ spread. #1777 adds state to the runtime context that the measured paths
 do not touch; the record names it as measured and neutral.
 
 `develop` then took #1779 (`client/python`) and this record itself
-(#1740) to `cf1652846`, with no Go change after `1e34d9d95`.
+(#1740) to `cf1652846`, with no Go change after `1e34d9d95`, and then
+#1784 (`fix(semantics): Usage::mayTimeVary derives over the effective
+isComposite`, `9a4ffcd83`), which is on the semantics path every load
+and derivation runs: `git diff --stat cf1652846 9a4ffcd83 -- '*.go'
+go.mod go.sum` names `internal/semantic/semantics/usage.go` (+46/−12),
+`annotations.go` (+28), `internal/semantic/symbols/facts.go` (+3),
+`internal/workspace/libs/interface.go` (+4/−1) and two test files. The
+rows that exercise it were re-run the same way, `cc1d477ba` against
+`9a4ffcd83`, six interleaved rounds with the steal percentage logged:
+the runtime and gRPC packages, repl `LoadModel`, `internal/workspace/libs`
+and `internal/workspace/model`, and the `tests/perf` load, analysis and
+instantiation rows; then the whole-binary floor, examples, generated
+models and Apollo 11, three runs each after a warm-up.
 
-So the candidate of this record is `develop` at `cf1652846`: its runtime,
+This one moved rows. Six rounds at 0.8–3.0 % steal, `cc1d477ba` against
+`9a4ffcd83`, bytes and allocations exact: repl `LoadModel/elements=1000`
+55.83 → 56.67 Mi (+1.5 %) and 538.0 k → 563.8 k allocations (+4.8 %),
+`/250` and `/4000` the same +1.5 % · +4.7–4.8 %, `/0` unchanged (238.1 Ki ·
+2 038, so the cost is per element loaded, not per load); perf
+`REPLLoadFile` +1.8 % · +5.7 %, `Analyze/synthetic` +2.2 % · +6.4 %,
+`ImportValues/flat` +1.3–2.6 % · +3.8–4.3 %, `ImportValues/nested`
++4.6–5.5 % · +11.0–13.1 %. Every other row is unchanged: the runtime
+package (`DerivedReadWriteRead` 2 969 B · 69, `AssignmentLoopStep`),
+`InstantiateWarmModel`, `FeaturesOf`, `GRPCVerifyConstraint`,
+`ExpandWildcardImports`, `AnalyseResolved`, `AnalyzeRequirementGroup`,
+the parser rows. sec/op is `~` on all of them (`LoadModel/1000`
+114 → 138 ms at ± 49 %, p=0.13; `ImportValues/nested/2000` 771 →
+1 004 ms, p=0.065; `REPLLoadFile` p=0.065) — the direction of the
+bytes, unresolved in time by six rounds. The cause is #1784 itself,
+the only change between the two heads: `Usage::mayTimeVary` now derives
+over the effective `isComposite`, and the derivation runs once per
+usage at load, allocating per usage; `/0` shows the standard library
+alone does not pay it. This record names it and does not fix it: it
+takes back about a third of what #1744 recovered on the load rows
+(55.52 Mi on 0.11.0 rebuilt, 58.31 before the fixes, 55.83 at
+`cc1d477ba`, 56.67 now) and puts the load allocation count above
+0.11.0's for the first time since the fixes (533.1 k → 563.8 k, +5.8 %).
+Whole binary, three runs each after a warm-up, `cc1d477ba` against
+`9a4ffcd83`: floor 74 → 75 MiB, generated 12 086 elements 169 → 174 MiB
+(0.27 → 0.29 s), 6 198 elements 132 → 129, Apollo 11 175 → 171 MiB
+(0.35 → 0.34 s), examples within 2 MiB; the Apollo 11 report is
+byte-identical. The resident set does not resolve the +1.5 % of bytes;
+the allocation counts do.
+
+So the candidate of this record is `develop` at `9a4ffcd83`: its runtime,
 load, REPL, LSP and whole-binary rows measured at `cc1d477ba` and
-re-checked at `1e34d9d95` on the rows above (#1771 measured in its own
-pull request), its export rows at `d01e4f49c` (and at `5e0322e0c`
-before #1774). Still open at the time of writing is #1754, which
+re-checked at `1e34d9d95` and `9a4ffcd83` on the rows above (#1771
+measured in its own pull request), its export rows at `d01e4f49c` (and
+at `5e0322e0c` before #1774). Still open at the time of writing is #1754, which
 removes deprecated `cmd/` flags and a client field — not on any measured
 path.
 
@@ -881,6 +924,6 @@ of the first pass — stand as the record's time verdicts, and the fixes'
 own quiet A/B ([The fixes on the quiet host](#the-fixes-on-the-quiet-host))
 is the evidence that the fixes moved bytes, not time.
 
-Should anything that touches Go land between `cf1652846` and the
+Should anything that touches Go land between `9a4ffcd83` and the
 release branch after all, its rows are re-probed interleaved against
 `cc1d477ba` and this section is amended, as the 0.11.0 record's was.
