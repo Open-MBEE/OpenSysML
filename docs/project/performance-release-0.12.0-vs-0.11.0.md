@@ -90,7 +90,7 @@ validate the largest generated model. Those are the rows below.
 | Row | Metric | 0.11.0 | 0.11.0 rebuilt | 0.12.0 candidate | 2 → 3 | Cause | Fix |
 |---|---|---|---|---|---|---|---|
 | repl `LoadModel/elements=0` | allocs/op | 2 022 | 2 022 | 2 155 | +6.6 % (B/op +8.3 %) | #1462, the duplicate-library check kept a list per library package name | `perf/duplicate-libraries-walk` → 2 038 (PR pending) |
-| repl `LoadModel/elements=1000` (and /250 +5.4 %, /4000 +5.0 %; +3.5–5 % B/op on every load-heavy row: stress `Load`, `LoadFiles`, `OpenSplit`, `ValidateSplit`, `EditImported`, `ImportValues`, `Analyze/synthetic`, `WorkspaceEdit`, `REPLSubmitSnippet`) | B/op | 55.39 Mi | 55.52 Mi | 58.31 Mi | +5.0 % | #1478 (bisected), the `typed by` notation pass swept every document's expressions | `perf/typed-by-sweep` → 55.8 Mi (PR pending) |
+| repl `LoadModel/elements=1000` (and /250 +5.4 %, /4000 +5.0 %; +3.5–5 % B/op on every load-heavy row: stress `Load`, `LoadFiles`, `OpenSplit`, `ValidateSplit`, `EditImported`, `ImportValues`, `Analyze/synthetic`, `WorkspaceEdit`, `REPLSubmitSnippet`) | B/op | 55.39 Mi | 55.52 Mi | 58.31 Mi | +5.0 % | #1478 (bisected), the `typed by` notation pass swept every document's expressions | `perf/typed-by-sweep` → 55.8 Mi (#1744) |
 | runtime `AssignmentLoopStep` | B/op | 899.7 Ki | 899.7 Ki | 948.0 Ki | +5.4 % | #1514 and #1461 grew the evaluation context from 152 to 184 bytes | `perf/eval-context-size` → 926 Ki (PR pending) |
 | runtime `DerivedReadWriteRead` | B/op · allocs/op | 2 688 · 67 | 2 688 · 67 | 3 328 · 71 | +23.8 % · +6.0 % | #1619 (bisected) marks what a derived value stands on, copying the footprint's reads; #1514 for 64 B | `perf/derive-marks-footprint` → 3 104 · 69, with `perf/eval-context-size` (PRs pending) |
 | perf `GRPCVerifyConstraint` | allocs/op | 14 390 | 14 090 | 16 300 | +15.7 % | #1508 and #1512, the binding walks | `perf/binding-walk-allocs` → 14 887 (#1742) |
@@ -284,6 +284,21 @@ as they open; the branches are named in the summary table.
   under `ulimit -v 4000000`; the stress `FleetInstantiate/512` binary's
   peak RSS reads 187–193 vs 196–199 MiB with identical allocation
   counts and a B/op difference benchstat does not separate (p = 0.13).
+- **#1744 `perf/typed-by-sweep`** (cause #1478): the parser counts a
+  document's `typed by` spellings and the nonstandard-notation pass
+  sweeps the document's expressions for one on a body-expression
+  parameter only while the member walk has reported fewer than that.
+  Six rounds, #1478's parent / #1478 / candidate / fix: repl
+  `LoadModel/1000` 55.43 / 58.05 / 58.33 / **55.84 MiB** per op (0.11.0
+  rebuilt: 55.52), `/250` 13.94 / 14.59 / 14.71 / **14.09 MiB**, `/4000`
+  221.7 / 232.2 / 233.5 / **223.4 MiB**; `AnalyseResolved` 648.0 / 666.9
+  / 667.9 / **649.8 KiB**; allocs/op unchanged (#1478 added bytes, not
+  allocations). Peak RSS of `repl.test` running `LoadModel/1000` twenty
+  times is 158–163 MiB on candidate and fix alike over three cold runs
+  and under `ulimit -v 4000000`: the sweep's garbage was short-lived, so
+  the fix recovers allocation volume, not resident memory. The other
+  load-heavy rows listed under #1478 above were not re-measured on the
+  branch.
 
 ## What this record does not measure
 
