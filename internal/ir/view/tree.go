@@ -37,7 +37,8 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 		if descendants[symbols.KeyOf(elem)] {
 			continue
 		}
-		out.Roots = append(out.Roots, r.treeNode(view, elem, nil, ids, map[*symbols.Symbol]bool{}, 0, true, out))
+		walk := treeWalk{view: view, ids: ids, path: expansion{}, out: out}
+		out.Roots = append(out.Roots, r.treeNode(walk, elem, nil, 0, true))
 	}
 	out.Roots = append(out.Roots, r.nestedViewNodes(view, ids, map[*symbols.Symbol]bool{view: true}, out)...)
 	r.exposedRelationships(view, exposed, ids, r.treeEdges(out), out)
@@ -145,7 +146,8 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 				if descendants[symbols.KeyOf(elem)] {
 					continue
 				}
-				node.Children = append(node.Children, r.treeNode(sub, elem, nil, ids, map[*symbols.Symbol]bool{}, 0, true, out))
+				walk := treeWalk{view: sub, ids: ids, path: expansion{}, out: out}
+				node.Children = append(node.Children, r.treeNode(walk, elem, nil, 0, true))
 			}
 		}
 		node.Children = append(node.Children, r.nestedViewNodes(sub, ids, rendered, out)...)
@@ -157,17 +159,26 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 	return nodes
 }
 
+// treeWalk is what one walk down a tree shares between its nodes: the view
+// (nil outside any view), the node ids, the expansion path and the rendering.
+type treeWalk struct {
+	view *symbols.Symbol
+	ids  *nodeIDs
+	path expansion
+	out  *Rendering
+}
+
 // treeNode renders one element and what it declares. qualified names the node by
 // qualified name, which is what an exposed element is reported by; a member
-// nested in it is named as it was declared. view is the view the element is
-// shown in, nil outside any view.
-func (r *Renderer) treeNode(view, sym, owner *symbols.Symbol, ids *nodeIDs, path expansion, depth int, qualified bool, out *Rendering) *Node {
-	node := r.treeNodeShallow(view, sym, owner, ids, path, depth, qualified, out)
-	if path[sym] {
+// nested in it is named as it was declared.
+func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int, qualified bool) *Node {
+	view, out := walk.view, walk.out
+	node := r.treeNodeShallow(walk, sym, owner, qualified)
+	if walk.path[sym] {
 		return node
 	}
-	recursive, added := r.enter(path, sym)
-	defer leave(path, added)
+	recursive, added := r.enter(walk.path, sym)
+	defer leave(walk.path, added)
 	if recursive != nil {
 		node.Detail = detailWith(node.Detail, recursionNote(recursive))
 	}
@@ -190,7 +201,7 @@ func (r *Renderer) treeNode(view, sym, owner *symbols.Symbol, ids *nodeIDs, path
 			}
 			continue
 		}
-		child := r.treeNode(view, member, sym, ids, path, depth+1, false, out)
+		child := r.treeNode(walk, member, sym, depth+1, false)
 		child.Inherited = member.Owner() != sym
 		node.Children = append(node.Children, child)
 	}
@@ -203,16 +214,17 @@ func (r *Renderer) treeNode(view, sym, owner *symbols.Symbol, ids *nodeIDs, path
 
 // treeNodeShallow draws sym without recursively drawing its members; one on
 // the path being expanded above it is noted as already shown.
-func (r *Renderer) treeNodeShallow(view, sym, owner *symbols.Symbol, ids *nodeIDs, path expansion, depth int, qualified bool, out *Rendering) *Node {
+func (r *Renderer) treeNodeShallow(walk treeWalk, sym, owner *symbols.Symbol, qualified bool) *Node {
+	view, out := walk.view, walk.out
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
 	}
-	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
+	node := &Node{ID: walk.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
 		Type: r.headType(sym), Typings: r.headTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.inheritedGeometryOf(view, owner, sym, out),
 		Style: r.inheritedStyleOf(view, owner, sym, out), Referential: r.referenceRow(sym)}
 	out.noteTreeSite(node, view, sym)
-	if path[sym] {
+	if walk.path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")
 		return node
 	}
