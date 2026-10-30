@@ -15,8 +15,8 @@ part def Rig
     attribute ^mass
     part ^engine
   part d
-    attribute mass
     port ^aPort
+    attribute mass
     part ^engine
   connect
 
@@ -36,6 +36,6 @@ relationships:
   c o-- aPort
   c o-- mass
   c *-- engine
-  d o-- mass
   d o-- aPort
+  d o-- mass
   d *-- engine

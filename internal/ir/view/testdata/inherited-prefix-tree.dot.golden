@@ -21,8 +21,8 @@ digraph "InheritedPrefixViews::rigTree" {
   "n12" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>^mass</b>>];
   "n13" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>^engine</b>>];
   "n14" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>d</b>>];
-  "n15" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
-  "n16" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>^aPort</b>>];
+  "n15" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>^aPort</b>>];
+  "n16" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
   "n17" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>^engine</b>>];
   "n18" [style="rounded,filled", label=<<b>connect</b>>];
   "n0" -> "n18" [arrowhead=none];
