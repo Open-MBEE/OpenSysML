@@ -1404,6 +1404,8 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
     svg.remove();
     hero.classList.remove("osml-hero--focus", "osml-hero--dragging");
     stage.classList.remove("osml-schematic__stage--zoomed", "osml-schematic__stage--panning");
+    // fit sized the stage to the drawing; the next scene sizes it its own way.
+    stage.style.removeProperty("height");
     zoomBar.hidden = true;
   }
 
