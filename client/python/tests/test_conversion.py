@@ -485,7 +485,8 @@ class TestRoundTripAgainstRealService:
         )
         assert not any(element.get("isLibraryElement") for element in json.loads(plain.content))
         stub = next(element for element in json.loads(legacy.content) if element["@id"] == second.id)
-        assert stub["qualifiedName"] == "SI::second" and stub["isLibraryElement"] is True
+        assert stub["qualifiedName"] == "SI::second"
+        assert stub["isLibraryElement"] is True
         assert legacy.library_references == plain.library_references
         assert notation.library_references == []
 
