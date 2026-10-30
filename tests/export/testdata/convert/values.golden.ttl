@@ -81,6 +81,8 @@ elmt:Values__Total__x
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -117,6 +119,8 @@ elmt:Values__Total__y
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "y" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -153,6 +157,8 @@ elmt:Values__Total__result
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "result" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isResult "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:type "Real" ;
@@ -228,6 +234,8 @@ elmt:Values__Sized__size
     sysml:owningMembership elmt:Values__Sized__size_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "size" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__size_pvalue ;
     sysml:ownedRelationship elmt:Values__Sized__size_ft0, expr:Values__Sized__size_pvalue_om ;
@@ -287,6 +295,8 @@ elmt:Values__Sized__label
     sysml:owningMembership elmt:Values__Sized__label_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "label" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "String" ;
     sysml:value expr:Values__Sized__label_pvalue ;
     sysml:ownedRelationship elmt:Values__Sized__label_ft0, expr:Values__Sized__label_pvalue_om ;
@@ -346,6 +356,8 @@ elmt:Values__Sized__total
     sysml:owningMembership elmt:Values__Sized__total_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "total" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__total_pvalue ;
     sysml:ownedRelationship elmt:Values__Sized__total_ft0, expr:Values__Sized__total_pvalue_om ;

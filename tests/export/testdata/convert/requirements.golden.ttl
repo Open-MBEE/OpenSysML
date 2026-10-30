@@ -74,6 +74,8 @@ elmt:Reqs__Safe__margin
     sysml:owningMembership elmt:Reqs__Safe__margin_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "margin" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Reqs__Safe__margin_ft0 ;
@@ -141,6 +143,8 @@ elmt:Reqs__Positive__value
     sysml:owningMembership elmt:Reqs__Positive__value_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Reqs__Positive__value_ft0 ;
@@ -208,6 +212,8 @@ elmt:Reqs__System__safety
     sysml:owningMembership elmt:Reqs__System__safety_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "safety" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Reqs__Safe ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Reqs__System__safety_ft0 ;

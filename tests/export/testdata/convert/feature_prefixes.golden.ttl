@@ -109,6 +109,7 @@ elmt:FeaturePrefixes__B__k
     sysml:declaredName "k" ;
     sysx:declaredKeyword "feature" ;
     sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FeaturePrefixes__B__k_ft0 ;
@@ -146,6 +147,7 @@ elmt:FeaturePrefixes__B__vk
     sysx:declaredKeyword "feature" ;
     sysx:declaredPrefix "var" ;
     sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FeaturePrefixes__B__vk_ft0 ;
@@ -218,6 +220,7 @@ elmt:FeaturePrefixes__B__pv
     sysml:declaredName "pv" ;
     sysx:declaredKeyword "feature" ;
     sysx:declaredPrefix "var" ;
+    sysml:isVariable "true"^^xsd:boolean ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -583,6 +586,7 @@ elmt:FeaturePrefixes__C__dk
     sysml:declaredName "dk" ;
     sysx:declaredKeyword "feature" ;
     sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
     sysml:isDerived "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;

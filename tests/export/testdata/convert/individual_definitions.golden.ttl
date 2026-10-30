@@ -310,6 +310,8 @@ elmt:IndividualDefinitions__Mission__crew
     sysml:owningMembership elmt:IndividualDefinitions__Mission__crew_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "crew" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:IndividualDefinitions__Astronaut ;
     sysml:multiplicity expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
     sysml:ownedRelationship elmt:IndividualDefinitions__Mission__crew_ft0, expr:IndividualDefinitions__Mission__crew_pmultiplicity_om ;
@@ -388,6 +390,8 @@ elmt:IndividualDefinitions__Mission__commander
     sysml:owningMembership elmt:IndividualDefinitions__Mission__commander_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "commander" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:type elmt:IndividualDefinitions__Neil_20Armstrong ;
     sysml:subsets elmt:IndividualDefinitions__Mission__crew ;
@@ -427,6 +431,8 @@ elmt:IndividualDefinitions__Mission__returned
     sysml:owningMembership elmt:IndividualDefinitions__Mission__returned_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "returned" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:type elmt:IndividualDefinitions__Sample_2010005 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -462,6 +468,8 @@ elmt:IndividualDefinitions__Mission__landing
     sysml:owningMembership elmt:IndividualDefinitions__Mission__landing_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "landing" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:type elmt:IndividualDefinitions__FirstLanding ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -532,6 +540,8 @@ elmt:IndividualDefinitions__Mission__lander
     sysml:owningMembership elmt:IndividualDefinitions__Mission__lander_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "lander" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:type elmt:IndividualDefinitions__Eagle ;
     sysx:hasBody "false"^^xsd:boolean ;

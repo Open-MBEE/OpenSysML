@@ -270,6 +270,8 @@ elmt:StateMachine__VehicleStates__off___400__Warm
     sysml:owningMembership elmt:StateMachine__VehicleStates__off___400 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:StateMachine__VehicleStates__off___400__Warm_rs ;
@@ -430,6 +432,8 @@ elmt:StateMachine__VehicleStates__starting___402__Warm
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___402 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:StateMachine__VehicleStates__starting___402__Warm_rs ;
@@ -734,6 +738,8 @@ elmt:StateMachine__VehicleStates__active___401___40trigger__sig
     sysml:declaredName "sig" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:StateMachine__Signal ;
@@ -993,6 +999,8 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig
     sysml:declaredName "sig" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:StateMachine__Signal ;
@@ -1489,6 +1497,8 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig
     sysml:declaredName "sig" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:StateMachine__Signal ;
@@ -1723,6 +1733,8 @@ elmt:StateMachine__VehicleStates__lane
     sysml:owningMembership elmt:StateMachine__VehicleStates__lane_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "lane" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:StateMachine__Bus ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:StateMachine__VehicleStates__lane_ft0 ;
@@ -1880,6 +1892,8 @@ elmt:StateMachine__Nested__idle__substate___400__Warm
     sysml:owningMembership elmt:StateMachine__Nested__idle__substate___400 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:StateMachine__Nested__idle__substate___400__Warm_rs ;
@@ -2089,6 +2103,8 @@ elmt:StateMachine__Composite___404___400__Warm
     sysml:owningMembership elmt:StateMachine__Composite___404___400__Warm_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:StateMachine__Composite___404___400__Warm_rs ;
