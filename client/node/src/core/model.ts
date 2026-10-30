@@ -82,29 +82,6 @@ export interface ParseOptions {
   language?: string;
   /** Reject the OpenSysML notation extensions; requires `strict_conformance`. */
   strictConformance?: boolean;
-  /**
-   * @deprecated Use `strictConformance`; `strict` is its alias. Passing both
-   * with different values is refused.
-   */
-  strict?: boolean;
-}
-
-/** Resolves `strictConformance` and its `strict` alias; differing values refuse. */
-export function strictConformanceOf(options: {
-  strict?: boolean;
-  strictConformance?: boolean;
-}): boolean | undefined {
-  if (
-    options.strict !== undefined &&
-    options.strictConformance !== undefined &&
-    options.strict !== options.strictConformance
-  ) {
-    throw new RangeError(
-      `strict (${options.strict}) and strictConformance (${options.strictConformance}) disagree; ` +
-        "pass only strictConformance",
-    );
-  }
-  return options.strictConformance ?? options.strict;
 }
 
 /** Where an expression is evaluated. */
@@ -280,7 +257,7 @@ export class Model {
       requireLanguage(options.language);
       requireCapability(connection.info, CAPABILITY_INLINE_LANGUAGE, upgradeRemedy(CAPABILITY_INLINE_LANGUAGE));
     }
-    const strictConformance = strictConformanceOf(options);
+    const { strictConformance } = options;
     if (strictConformance === true) {
       requireCapability(
         connection.info,

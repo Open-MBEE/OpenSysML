@@ -730,14 +730,6 @@ func (f EditFailure) String() string {
 
 // EditResult is a model's source with every edit applied.
 type EditResult struct {
-	// Content is the edited notation of a single-document model, byte-identical
-	// to the source outside the edited spans. Empty for a model of several
-	// documents, whose notation is in Documents alone.
-	//
-	// Deprecated: read Documents, which carries the same notation for a model of
-	// one document and every rewritten document of a model of several, from a
-	// service advertising the edit_documents capability.
-	Content string
 	// Documents is the edited notation of every document the edits rewrote: the
 	// edited document first when it is among them, then the others in name order.
 	// A single-document model's one document is always listed; a document of
@@ -790,25 +782,6 @@ func (c *client) ApplyEdits(ctx context.Context, model *Model, edits ...Edit) (*
 	return c.ApplyDocumentEdits(ctx, model, "", edits...)
 }
 
-// requireEditDocuments refuses to send a document name to a service without
-// the edit_documents capability, which would ignore it and edit its sole document.
-func (c *client) requireEditDocuments(ctx context.Context, document string) error {
-	if document == "" {
-		return nil
-	}
-	info, err := c.serverInfo(ctx)
-	if err != nil {
-		return err
-	}
-	if !info.Has(CapabilityEditDocuments) {
-		return &StatusError{
-			Code:    CodeUnimplemented,
-			Message: fmt.Sprintf("capability %q is unavailable", CapabilityEditDocuments),
-		}
-	}
-	return nil
-}
-
 func (c *client) requireCapabilities(ctx context.Context, capabilities ...string) error {
 	info, err := c.serverInfo(ctx)
 	if err != nil {
@@ -830,15 +803,11 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 	if err != nil {
 		return nil, err
 	}
-	if err := c.requireEditDocuments(ctx, document); err != nil {
+	// The notation is read from Documents, which only a service with the
+	// edit_documents capability answers (one without it ignores a document name).
+	if err := c.requireCapabilities(ctx, append(requiredCapabilities(edits), CapabilityEditDocuments)...); err != nil {
 		return nil, err
 	}
-	if names := requiredCapabilities(edits); len(names) > 0 {
-		if err := c.requireCapabilities(ctx, names...); err != nil {
-			return nil, err
-		}
-	}
-	// This client reads Documents, so a model of several documents may be edited.
 	req := &pb.ApplyEditsRequest{ModelHash: hash, Document: document, AcceptDocuments: true}
 	for _, edit := range edits {
 		operation, err := editToProto(edit)
@@ -860,7 +829,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			Referrers:    referrersFromProto(resp.Referrers),
 		}
 	}
-	result := &EditResult{Content: resp.Content, Diagnostics: diagnostics}
+	result := &EditResult{Diagnostics: diagnostics}
 	for _, doc := range resp.Documents {
 		result.Documents = append(result.Documents, EditedDocument{Name: doc.Name, Content: doc.Content})
 	}

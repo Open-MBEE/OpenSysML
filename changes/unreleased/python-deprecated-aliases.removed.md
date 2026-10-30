@@ -1,0 +1,1 @@
+- The Python client's deprecated aliases `opensysml.eval`, `opensysml.RuntimeError` and `opensysml.errors.RuntimeError`, which warned and answered `opensysml.evaluate` and `opensysml.ExecutionError` since 0.9.0; write the replacements.

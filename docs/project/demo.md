@@ -524,7 +524,7 @@ And back — this direction is a real print of the parsed tree, so it is the can
 model that was loaded:
 
 ```console
-$ sysml -convert structure.ttl -to sysml
+$ sysml structure.ttl -convert sysml
 package Structure {
     private import ScalarValues::*;
     part def Wheel {
@@ -587,7 +587,7 @@ echoes it, `%clear` resets it, and `%verbosity quiet|normal|debug` sets how much
   namespace they came from drops them, with a note naming the submission that ended them.
 - **`clear` is not a REPL command.** At the `sysml> ` prompt it is parsed as SysML and leaves an
   unresolved session error that is then reported under later commands. `%clear` is the command.
-- **`-convert … -to ttl` covers structure and the behavior a body states.** A model with a
+- **`-convert ttl` covers structure and the behavior a body states.** A model with a
   construct the notation could not be rebuilt from — a name declared twice in one body, a
   `perform` with neither a name nor an action to refer to — is rejected (`cannot convert the … at …`) rather
   than silently exported, so use a model that converts for the RDF demo, as in §10.

@@ -103,7 +103,7 @@ import {
 } from "../generated/sysml_pb.js";
 import { callRpc, fromHandshakeError, fromRpcError } from "./status.js";
 import { requireString } from "./arguments.js";
-import { decodeDiagnostic, Instance, Model, strictConformanceOf } from "./model.js";
+import { decodeDiagnostic, Instance, Model } from "./model.js";
 import type { ModelDiagnostic } from "./errors.js";
 import type { ParseOptions } from "./model.js";
 import { sourceDocuments, type Source } from "./sources.js";
@@ -375,7 +375,7 @@ export class Connection {
       );
       capabilities.push(CAPABILITY_INLINE_LANGUAGE);
     }
-    const strictConformance = strictConformanceOf(options);
+    const { strictConformance } = options;
     if (strictConformance === true) {
       this.requireStrictConformance();
       capabilities.push(CAPABILITY_STRICT_CONFORMANCE);

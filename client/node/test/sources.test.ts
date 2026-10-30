@@ -6,7 +6,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { before, test } from "node:test";
 import {
-  ParseError,
   SourceDocument,
   SymbolNotFoundError,
   connect,
@@ -82,20 +81,6 @@ test("a broken document reports diagnostics naming it", async () => {
   ]);
   assert.ok(model.diagnostics.length > 0);
   assert.ok(model.diagnostics.every((diagnostic) => diagnostic.file === "broken"));
-});
-
-test("strict is a deprecated alias of strictConformance; disagreeing values refuse", async () => {
-  await using connection = await connect();
-  await assert.rejects(
-    () => connection.parseSources([["top", TOP]], { strict: true, strictConformance: false }),
-    RangeError,
-  );
-  await assert.rejects(
-    () => connection.loads(TOP, { strict: false, strictConformance: true }),
-    RangeError,
-  );
-  const model = await connection.parseSources([["broken", BROKEN]], { strict: true });
-  assert.throws(() => model.raiseForErrors(), ParseError);
 });
 
 test("a document whose name another takes is refused before it is sent", async () => {

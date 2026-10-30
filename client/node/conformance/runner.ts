@@ -577,7 +577,7 @@ export class Runner {
       model.fixtures === undefined
         ? await this.connection.loads(this.fixture(model.fixture ?? ""), {
             ...(model.language === undefined ? {} : { language: model.language }),
-            ...(model.strict_conformance === undefined ? {} : { strict: model.strict_conformance }),
+            ...(model.strict_conformance === undefined ? {} : { strictConformance: model.strict_conformance }),
           })
         : await this.connection.parseSources(
             model.fixtures.map((name) => SourceDocument.inline(name, this.fixture(name))),

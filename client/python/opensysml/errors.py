@@ -8,7 +8,6 @@ grpc`` and switch on status codes to tell a missing file from a dead service.
 """
 
 import builtins
-import warnings
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -640,29 +639,6 @@ def translate_rpc_errors(not_found=ModelNotFoundError, unimplemented=None):
         raise from_rpc_error(
             exc, not_found=not_found, unimplemented=unimplemented
         ) from exc
-
-
-#: Names kept for callers of older versions, and what they are now.
-_DEPRECATED_NAMES = {"RuntimeError": ExecutionError}
-
-
-def __getattr__(name):
-    """Serve the deprecated ``RuntimeError`` alias, warning about its use.
-
-    It is the same class as :class:`ExecutionError`, so ``except
-    opensysml.errors.RuntimeError`` keeps working; it is gone from ``__all__`` so
-    that a star-import no longer shadows the built-in with it.
-    """
-    replacement = _DEPRECATED_NAMES.get(name)
-    if replacement is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    warnings.warn(
-        f"opensysml.errors.{name} is deprecated; use "
-        f"opensysml.errors.{replacement.__name__} instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return replacement
 
 
 __all__ = [
