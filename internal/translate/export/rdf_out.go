@@ -520,7 +520,6 @@ func (e *encoder) mintedComposites() {
 
 // encodeDocument writes the graph of the document the encoder was made for.
 func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
-	e.src = newAuthoredSource(e.file, root)
 	if err := e.encode(root.Members, "", rdf.Term{}); err != nil {
 		return err
 	}
@@ -586,6 +585,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 	}
 	e := &encoder{
 		file:               file,
+		src:                newAuthoredSource(file, root),
 		graph:              rdf.NewGraph(),
 		res:                res,
 		declared:           map[string]bool{},

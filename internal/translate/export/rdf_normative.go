@@ -273,51 +273,87 @@ func (e *encoder) seatHead(subject rdf.Term, anchor int, block []rdf.Term) {
 // is, and a `subsets` a satisfy or other end-binding head states is written
 // as an OwnedReferenceSubsetting (SysML.xtext).
 func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, count, i int) (normativeRelationship, bool) {
-	index := fmt.Sprintf("%d", i)
+	metaclass := e.metaclassOf(subject)
+	classifier := ontology.IsAncestorOrSelf(metaclass, "Classifier")
+	suffix := relationshipSuffix(kind, classifier, e.referenceSubsettingForm(subject), count, i)
 	switch kind {
 	case ast.RelTyping:
-		return normativeRelationship{mFeatureTyping, "_ft" + index,
+		return normativeRelationship{mFeatureTyping, suffix,
 			[]string{"typedFeature", pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 			[]string{"type", pGeneral, pTarget},
 			[]string{"ownedTyping", pOwnedSpecialization, pOwnedRelationship}}, true
 	case ast.RelSpecializes:
-		metaclass := e.metaclassOf(subject)
 		switch {
-		case ontology.IsAncestorOrSelf(metaclass, "Classifier"):
-			return normativeRelationship{mSubclassification, "_sc" + index,
+		case classifier:
+			return normativeRelationship{mSubclassification, suffix,
 				[]string{"subclassifier", "owningClassifier", pSpecific, pSource, pOwningRelatedElement},
 				[]string{"superclassifier", pGeneral, pTarget},
 				[]string{"ownedSubclassification", pOwnedSpecialization, pOwnedRelationship}}, true
 		case ontology.IsAncestorOrSelf(metaclass, mFeature):
 			// A feature's specializes materializes as a Subsetting like its
 			// subsets, under a distinct suffix so the two kinds never merge.
-			return normativeRelationship{mSubsetting, "_sp" + index,
+			return normativeRelationship{mSubsetting, suffix,
 				[]string{pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 				[]string{pSubsettedFeature, pGeneral, pTarget},
 				[]string{pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
 		default:
-			return normativeRelationship{mSpecialization, "_sp" + index,
+			return normativeRelationship{mSpecialization, suffix,
 				[]string{pSpecific, pOwningType, pSource, pOwningRelatedElement},
 				[]string{pGeneral, pTarget},
 				[]string{pOwnedSpecialization, pOwnedRelationship}}, true
 		}
 	case ast.RelSubsets:
 		if e.referenceSubsettingForm(subject) {
-			return e.referenceSubsettingSpec(count, i), true
+			return referenceSubsettingSpec(suffix), true
 		}
-		return normativeRelationship{mSubsetting, "_ss" + index,
+		return normativeRelationship{mSubsetting, suffix,
 			[]string{pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 			[]string{pSubsettedFeature, pGeneral, pTarget},
 			[]string{pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
 	case ast.RelRedefines:
-		return normativeRelationship{mRedefinition, "_rd" + index,
+		return normativeRelationship{mRedefinition, suffix,
 			[]string{"redefiningFeature", pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 			[]string{"redefinedFeature", pSubsettedFeature, pGeneral, pTarget},
 			[]string{"ownedRedefinition", pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
 	case ast.RelReferences:
-		return e.referenceSubsettingSpec(count, i), true
+		return referenceSubsettingSpec(suffix), true
 	}
 	return normativeRelationship{}, false
+}
+
+// relationshipSuffix names the relationship element materialized for the i-th of count
+// targets of a head clause of kind, after its owner's id: the one rule the writer and the
+// identity reader (writtenRelationships) share. Empty for a kind no element is made for.
+func relationshipSuffix(kind ast.RelationshipKind, classifier, referenceForm bool, count, i int) string {
+	index := fmt.Sprintf("%d", i)
+	switch kind {
+	case ast.RelTyping:
+		return "_ft" + index
+	case ast.RelSpecializes:
+		if classifier {
+			return "_sc" + index
+		}
+		return "_sp" + index
+	case ast.RelSubsets:
+		if referenceForm {
+			return referenceSubsettingSuffix(count, i)
+		}
+		return "_ss" + index
+	case ast.RelRedefines:
+		return "_rd" + index
+	case ast.RelReferences:
+		return referenceSubsettingSuffix(count, i)
+	}
+	return ""
+}
+
+// referenceSubsettingSuffix is `_rs` for a single ReferenceSubsetting and `_rs<i>` when
+// several share the suffix.
+func referenceSubsettingSuffix(count, i int) string {
+	if count > 1 {
+		return fmt.Sprintf("_rs%d", i)
+	}
+	return "_rs"
 }
 
 // referenceSubsettingForm reports whether a `subsets` subject states is an
@@ -330,13 +366,8 @@ func (e *encoder) referenceSubsettingForm(subject rdf.Term) bool {
 }
 
 // referenceSubsettingSpec is the materialization of a `references` target or
-// an end-form `subsets` one: a ReferenceSubsetting per target, `_rs` for a
-// single one and `_rs<i>` when several share the suffix.
-func (e *encoder) referenceSubsettingSpec(count, i int) normativeRelationship {
-	suffix := "_rs"
-	if count > 1 {
-		suffix = fmt.Sprintf("_rs%d", i)
-	}
+// an end-form `subsets` one: a ReferenceSubsetting per target, under suffix.
+func referenceSubsettingSpec(suffix string) normativeRelationship {
 	return normativeRelationship{mReferenceSubsetting, suffix,
 		[]string{pReferencingFeature, pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 		[]string{pReferencedFeature, pSubsettedFeature, pGeneral, pTarget},

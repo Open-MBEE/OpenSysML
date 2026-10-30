@@ -30,6 +30,11 @@ type ElementIDs struct {
 	membershipByNode map[ast.Node]string
 	membershipBySpan map[spanKey]string
 	membershipByName map[string]string
+	// relationshipByNode and relationshipBySpan are the ids written for the relationship
+	// elements a declaration's notation implies (writtenRelationships), by the node each
+	// is written for: a head clause, a bound end, a dependency's prefix metadata.
+	relationshipByNode map[ast.Node]string
+	relationshipBySpan map[spanKey]string
 }
 
 // NewElementIDs records the elementId Convert writes for each element of the
@@ -66,6 +71,7 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 	}
 	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{},
 		membershipByNode: map[ast.Node]string{}, membershipBySpan: map[spanKey]string{}, membershipByName: map[string]string{},
+		relationshipByNode: map[ast.Node]string{}, relationshipBySpan: map[spanKey]string{},
 		res: res, encoders: encoders}
 	for _, e := range encoders {
 		parents := e.parentDeclarations()
@@ -88,13 +94,157 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 				if end == nil {
 					continue
 				}
-				endID := rdf.LocalName(e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i)).Value)
-				ids.byNode[end] = endID
-				ids.bySpan[spanKey{e.file.Name(), end.Span()}] = endID
+				feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
+				ids.byNode[end] = rdf.LocalName(feature.Value)
+				ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
+				// The head owns each end through a membership minted beside it (bindingEnds).
+				membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
+				ids.membershipByNode[end] = membership
+				ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
+			}
+			for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
+				ids.relationshipByNode[key] = id
+				ids.relationshipBySpan[spanKey{e.file.Name(), key.Span()}] = id
 			}
 		}
 	}
 	return ids, nil
+}
+
+// writtenRelationships are the ids of the relationship elements the writer makes for the
+// declaration at node, subject, by the node each is written for: one per target of each
+// head clause materializeRelationships emits (the clause; the type of a typing the head
+// writes without a clause; the usage itself for an object no clause states), the ReferenceSubsetting of a bound end or an `end` feature's
+// `references` (the end, or the clause), and the Annotation of a dependency's prefix
+// metadata (the metadata).
+func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node) map[ast.Node]string {
+	out := map[ast.Node]string{}
+	local := func(term rdf.Term) string { return rdf.LocalName(term.Value) }
+	rs := func(feature rdf.Term) string {
+		return local(e.ids.mintedNode(rdf.ExpressionIRI(feature, "rs"), feature, "rs"))
+	}
+	if usage, ok := node.(*ast.Usage); ok && usage.IsEnd {
+		for _, rel := range usage.Relationships {
+			if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
+				out[rel] = rs(subject)
+			}
+		}
+	}
+	if _, ok := node.(*ast.PrefixMetadata); ok {
+		if _, dependency := parent.(*ast.Dependency); dependency {
+			out[node] = local(e.ids.minted(rdf.RelationshipIRI(subject, AnnotationSuffix), subject, AnnotationSuffix))
+		}
+	}
+	_, classifier := node.(*ast.Definition)
+	referenceForm := false
+	if usage, ok := node.(*ast.Usage); ok {
+		form, _ := e.endFormOf(usage)
+		referenceForm = usage.Kind == ast.UsageSatisfy || form != "" ||
+			(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
+	}
+	clauses := headClauses(node)
+	// The objects a head states without a clause come after the clauses' (encode): a
+	// metadata body member's implicit redefinition, a bare `variant x;`'s reference.
+	if usage, ok := node.(*ast.Usage); ok {
+		if e.implicitMetadataBodyTarget(inMetadataBody(usage, parent, parents), usage).Value != "" {
+			clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelRedefines, Target: usage})
+		}
+		if e.variantReferenceTarget(usage).Value != "" {
+			clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelReferences, Target: usage})
+		}
+	}
+	for _, kind := range materializedKinds {
+		var targets []*ast.Relationship
+		for _, rel := range clauses {
+			if rel != nil && rel.Target != nil && rel.Kind == kind {
+				targets = append(targets, rel)
+			}
+		}
+		for i, rel := range targets {
+			suffix := relationshipSuffix(kind, classifier, referenceForm, len(targets), i)
+			key := ast.Node(rel)
+			if rel.Span().Len == 0 {
+				key = rel.Target
+			}
+			out[key] = local(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix))
+		}
+	}
+	for i, end := range writtenConnectorEnds(node) {
+		if end == nil {
+			continue
+		}
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
+		out[end] = rs(feature)
+		for _, rel := range end.Relationships {
+			if rel != nil && rel.Kind == ast.RelReferences && rel.Target == end.AttachedTarget() {
+				out[rel] = out[end]
+			}
+		}
+	}
+	return out
+}
+
+// inMetadataBody reports whether usage is a member of a metadata usage's body (`@M { x = 1; }`,
+// `metadata m : M { … }`), at any depth of usages, as encode marks metadataBodies.
+func inMetadataBody(usage *ast.Usage, parent ast.Node, parents map[ast.Node]ast.Node) bool {
+	switch p := parent.(type) {
+	case *ast.PrefixMetadata:
+		return true
+	case *ast.Usage:
+		return p.Kind == ast.UsageMetadata || inMetadataBody(p, parents[p], parents)
+	}
+	return false
+}
+
+// headClauses are the clauses of a declaration head the writer states as collapsed
+// properties and materializes (relationships), as each declaration form passes them:
+// an `end` feature's `references` go to endReferences instead, and a bare
+// `require c;` is a `references` clause of its own (condition).
+func headClauses(node ast.Node) []*ast.Relationship {
+	switch n := node.(type) {
+	case *ast.Definition:
+		return n.Relationships
+	case *ast.Usage:
+		rels := nodeRelationships(n, "")
+		if !n.IsEnd {
+			return rels
+		}
+		kept := make([]*ast.Relationship, 0, len(rels))
+		for _, rel := range rels {
+			if rel == nil || rel.Kind != ast.RelReferences || rel.Target == nil {
+				kept = append(kept, rel)
+			}
+		}
+		return kept
+	case *ast.PrefixMetadata:
+		if n.Type == nil {
+			return nil
+		}
+		return []*ast.Relationship{{Kind: ast.RelTyping, Target: n.Type}}
+	case *ast.SubjectMember:
+		if n.TypeRef == nil {
+			return n.Relationships
+		}
+		typing := &ast.Relationship{Kind: ast.RelTyping, Target: n.TypeRef}
+		return append([]*ast.Relationship{typing}, n.Relationships...)
+	case *ast.AssumeMember:
+		return conditionClauses(n.Relationships, n.Expression)
+	case *ast.RequireMember:
+		return conditionClauses(n.Relationships, n.Expression)
+	case *ast.CrossFeatureMember:
+		return n.Relationships
+	}
+	return nil
+}
+
+// conditionClauses adds the `references` a bare condition states (`require c;`) to a
+// condition member's written clauses, as condition writes it.
+func conditionClauses(rels []*ast.Relationship, expr ast.Node) []*ast.Relationship {
+	target := conditionReference(expr)
+	if target == nil {
+		return rels
+	}
+	return append(append([]*ast.Relationship{}, rels...), &ast.Relationship{Kind: ast.RelReferences, Target: target})
 }
 
 // writtenConnectorEnds are the ends of a head that binds them (`connect a to b`),
@@ -166,6 +316,19 @@ func (ids *ElementIDs) OwningMembershipOfDeclaration(doc string, decl ast.Node, 
 		}
 	}
 	return "", false
+}
+
+// RelationshipOf is the elementId written for the relationship element the notation
+// implies at node in document doc (writtenRelationships); false where none is written.
+func (ids *ElementIDs) RelationshipOf(doc string, node ast.Node) (string, bool) {
+	if ids == nil || node == nil {
+		return "", false
+	}
+	if id, ok := ids.relationshipByNode[node]; ok {
+		return id, true
+	}
+	id, ok := ids.relationshipBySpan[spanKey{doc, node.Span()}]
+	return id, ok
 }
 
 // Of is the elementId written for the element named fqn: the model's own as
@@ -241,6 +404,21 @@ func (r *ElementIDReader) ReadOwningMembership(doc string, decl ast.Node, fqn st
 		return "", r.err
 	}
 	id, _ := r.ids.OwningMembershipOfDeclaration(doc, decl, fqn)
+	return id, nil
+}
+
+// ReadRelationship is the elementId of the relationship element the notation implies
+// at node in doc — a head clause's, a bound end's reference subsetting, a dependency's
+// prefix-metadata annotation; empty where the conversion writes none.
+func (r *ElementIDReader) ReadRelationship(doc string, node ast.Node) (string, error) {
+	if r == nil {
+		return "", nil
+	}
+	r.once.Do(r.convert)
+	if r.err != nil {
+		return "", r.err
+	}
+	id, _ := r.ids.RelationshipOf(doc, node)
 	return id, nil
 }
 

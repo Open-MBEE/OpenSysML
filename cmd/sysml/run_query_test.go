@@ -483,6 +483,14 @@ const anonymousModel = `package Observatory {
 		)
 	}
 
+	calc def OwnedRelationships :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("elementId", "ownedRelationship")
+		)
+	}
+
 	calc def AnonymousParts :> Query {
 		in root : Element;
 		Project(
@@ -565,6 +573,42 @@ func TestRunQueryJSONTableSpellsMembershipsByID(t *testing.T) {
 		id, _ := strconv.Unquote(row.Cells[0][0])
 		if want := id + "_om"; id == "" || row.Cells[1][0] != want {
 			t.Errorf("row %s: owningRelationship spelled %q, want %q", row.Element, row.Cells[1][0], want)
+		}
+	}
+}
+
+// TestRunQueryJSONTableSpellsRelationshipsByID: a relationship an element owns through a
+// head clause — here each anonymous part's typing — is spelled by the id the conversion writes.
+func TestRunQueryJSONTableSpellsRelationshipsByID(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, anonymousModel, "-run-query", "OwnedRelationships root=telescope", "-json")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Table *struct {
+				Rows []struct {
+					Element string     `json:"element"`
+					Cells   [][]string `json:"cells"`
+				} `json:"rows"`
+			} `json:"table"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	if len(report.Checks) != 1 || report.Checks[0].Table == nil || len(report.Checks[0].Table.Rows) != 2 {
+		t.Fatalf("want one check with a two-row table:\n%s", got.stdout)
+	}
+	for _, row := range report.Checks[0].Table.Rows {
+		if len(row.Cells) != 2 || len(row.Cells[0]) != 1 || len(row.Cells[1]) != 1 {
+			t.Fatalf("row %s: cells = %v, want one elementId and one ownedRelationship", row.Element, row.Cells)
+		}
+		id, _ := strconv.Unquote(row.Cells[0][0])
+		if want := id + "_ft0"; id == "" || row.Cells[1][0] != want {
+			t.Errorf("row %s: ownedRelationship spelled %q, want %q", row.Element, row.Cells[1][0], want)
 		}
 	}
 }

@@ -1,6 +1,8 @@
 package queryexec
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -18,20 +20,61 @@ type ElementIDDocument struct {
 
 // ElementIDReader reads the elementIds a conversion of the model writes: Read, for the
 // element declared at decl in document doc, named fqn; ReadOwningMembership, for the
-// membership through which its namespace owns it. Both report why the model has none.
+// membership through which its namespace owns it; ReadRelationship, for the relationship
+// element the notation implies at a node (a head clause, a bound end's attachment, a
+// dependency's prefix metadata). Each reports why the model has none.
 type ElementIDReader interface {
 	Read(doc string, decl ast.Node, fqn string) (string, error)
 	ReadOwningMembership(doc string, decl ast.Node, fqn string) (string, error)
+	ReadRelationship(doc string, node ast.Node) (string, error)
 }
 
-// ElementIDOf is sym's elementId through read: an implied OwningMembership (which the
-// notation writes as part of its member) reads as its member's owning membership.
+// ElementIDOf is sym's elementId through read. A relationship the notation writes as
+// part of another element reads as the conversion writes it: an implied OwningMembership
+// as its member's owning membership, an import as its declaration, a written clause
+// or an end's attachment as the element materialized for it, a prefix metadata's
+// Annotation as the metadata's; one the conversion never writes reads empty.
 func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) (string, error) {
-	if sym.Implicit != nil && sym.Implicit.Form == symbols.ImplicitMembership && sym.Implicit.Member != nil {
-		member := sym.Implicit.Member
-		return read.ReadOwningMembership(member.DocName, member.Decl, query.QualifiedIdentity(idx, member))
+	if rel := sym.Implicit; rel != nil {
+		switch rel.Form {
+		case symbols.ImplicitMembership:
+			if rel.Member != nil {
+				return read.ReadOwningMembership(rel.Member.DocName, rel.Member.Decl, query.QualifiedIdentity(idx, rel.Member))
+			}
+		case symbols.ImplicitImport:
+			if rel.Decl != nil {
+				return read.Read(sym.DocName, rel.Decl, "")
+			}
+		case symbols.ImplicitWritten:
+			if node := writtenRelationshipNode(rel); node != nil {
+				return read.ReadRelationship(sym.DocName, node)
+			}
+			return "", nil
+		case symbols.ImplicitOwnedAnnotation:
+			if rel.Member != nil && rel.Member.Decl != nil {
+				return read.ReadRelationship(rel.Member.DocName, rel.Member.Decl)
+			}
+			return "", nil
+		}
 	}
 	return read.Read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
+}
+
+// writtenRelationshipNode is the node the conversion writes rel's relationship element
+// for: the end whose attachment it is (`connect a to b`), the type of a typing the head
+// writes without a clause (`subject s : T`), else the clause; nil for a recorded owner.
+func writtenRelationshipNode(rel *symbols.ImplicitRelationship) ast.Node {
+	if rel.Node == nil || rel.Owner == nil {
+		return nil
+	}
+	if end, ok := rel.Owner.Decl.(*ast.ConnectorEnd); ok && rel.Kind == ast.RelReferences &&
+		rel.Node.Target == end.AttachedTarget() && !slices.Contains(end.Relationships, rel.Node) {
+		return end
+	}
+	if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
+		return rel.Node.Target
+	}
+	return rel.Node
 }
 
 // ElementIDSource opens a reader over a model's documents, converting them
