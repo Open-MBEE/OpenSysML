@@ -1879,7 +1879,9 @@ class Connection:
             order_by (list, optional): Properties to sort by, in order of
                 precedence, each ascending; empty keeps declaration order
             oslc (str, optional): OSLC Query 3.0 parameter text evaluated in
-                place of the standard's Query; not combined with the others
+                place of the standard's Query; not combined with the others.
+                An empty string is no OSLC at all, so the structured query
+                (empty, answering every element) is sent instead
 
         Returns:
             list[QueryElement]: The elements selected, in ``order_by`` order,

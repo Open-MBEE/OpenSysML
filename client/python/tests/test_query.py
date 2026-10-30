@@ -305,6 +305,18 @@ def test_oslc_text_is_sent_in_place_of_the_query(fake_service):
     assert not request.HasField("query")
 
 
+def test_an_empty_oslc_is_no_oslc_at_all(fake_service):
+    """An empty string sends the structured query, as the other clients do."""
+    port, service = fake_service(capabilities=(CAPABILITY_QUERY,))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        model.query(select=["name"], oslc="")
+    (request,) = service.requests
+    assert request.oslc_query == ""
+    assert request.HasField("query")
+    assert list(request.query.select) == ["name"]
+
+
 def test_oslc_query_requires_its_own_capability(fake_service):
     """A service that cannot read OSLC text is not sent any; structured queries still go."""
     port, service = fake_service(capabilities=(CAPABILITY_QUERY,))

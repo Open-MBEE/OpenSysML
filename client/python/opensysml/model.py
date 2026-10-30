@@ -332,7 +332,8 @@ class Model:
                 precedence, each ascending; empty keeps declaration order
             oslc (str, optional): OSLC Query 3.0 parameter text, such as
                 ``sysml:name="vehicle"``, evaluated in place of the standard's
-                Query; not combined with the others
+                Query; not combined with the others. An empty string is no
+                OSLC at all, so the structured query is sent instead
 
         Returns:
             list[QueryElement]: The elements selected, in ``order_by`` order,
