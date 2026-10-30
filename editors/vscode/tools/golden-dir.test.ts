@@ -61,6 +61,22 @@ describe("confinedPath", () => {
     assert.equal(confinedPath(path.join(root, "link", "parity"), root), path.join(realpathSync(root), "later", "parity"));
   });
 
+  it("applies .. in a symlink target to the symlink it follows, as the filesystem does", () => {
+    mkdirSync(path.join(root, "elsewhere", "nested"), { recursive: true });
+    symlinkSync(path.join("elsewhere", "nested"), path.join(root, "deep"));
+    // path.join would collapse the `..` lexically, which is exactly what the filesystem does not do.
+    symlinkSync(["deep", "..", "goldens"].join(path.sep), path.join(root, "output"));
+    assert.equal(confinedPath(path.join(root, "output"), root), path.join(realpathSync(root), "elsewhere", "goldens"));
+    assert.equal(confinedPath([root, "deep", "..", "goldens"].join(path.sep), root), path.join(realpathSync(root), "elsewhere", "goldens"));
+  });
+
+  it("refuses a .. that climbs out through a symlink target", () => {
+    symlinkSync(path.join(scratch, "outside"), path.join(root, "deep"));
+    symlinkSync(["deep", "..", "goldens"].join(path.sep), path.join(root, "output"));
+    assert.throws(() => confinedPath(path.join(root, "output"), root), new RegExp(`resolves to ${path.join(scratch, "goldens")}`));
+    assert.throws(() => confinedPath([root, "deep", "..", "goldens"].join(path.sep), root), /outside the repository checkout/);
+  });
+
   it("refuses a symlink loop", () => {
     symlinkSync(path.join(root, "b"), path.join(root, "a"));
     symlinkSync(path.join(root, "a"), path.join(root, "b"));
@@ -91,7 +107,9 @@ describe("route-goldens.mjs", () => {
     it(`refuses to write through a ${dangling ? "dangling " : ""}symlinked golden that points outside the repository`, () => {
       const scratch = mkdtempSync(path.join(tmpdir(), "route-goldens-"));
       // build/ is gitignored, so an output directory under it is inside the checkout but never committed.
-      const outDir = mkdtempSync(path.resolve("..", "..", "build", "route-goldens-test-"));
+      const buildDir = path.resolve("..", "..", "build");
+      mkdirSync(buildDir, { recursive: true });
+      const outDir = mkdtempSync(path.join(buildDir, "route-goldens-test-"));
       try {
         const victim = path.join(scratch, "victim.json");
         if (!dangling) {
