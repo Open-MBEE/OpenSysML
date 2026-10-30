@@ -105,6 +105,21 @@ pub struct ConvertOptions {
     /// names the parse gave them; references into the others link their ids. Empty writes
     /// every document. Needs the `convert_documents` capability.
     pub documents: Vec<String>,
+    /// For API JSON, restore the ownerless library stubs releases before 0.11.0 wrote, one
+    /// element per referenced library element. Needs the `convert_library_stubs` capability.
+    pub include_library_stubs: bool,
+}
+
+/// A standard-library element an API JSON conversion references outside its element array,
+/// in place of the library stub releases before 0.11.0 wrote.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LibraryReference {
+    /// The element's id, as the conversion's references spell it.
+    pub id: String,
+    /// The element's qualified name, such as `SI::second`.
+    pub qualified_name: String,
+    /// The element's metaclass, as API JSON's `@type` spells it.
+    pub r#type: String,
 }
 
 /// A converted model.
@@ -122,6 +137,9 @@ pub struct Conversion {
     pub experimental: bool,
     /// What makes the conversion experimental; empty when it is not.
     pub experimental_notice: String,
+    /// The standard-library elements an API JSON conversion references outside its element
+    /// array; empty for any other format.
+    pub library_references: Vec<LibraryReference>,
     wire: wire::ConvertResponse,
 }
 
@@ -163,7 +181,7 @@ pub(crate) fn request_of(
         omit_derived: false,
         keep_derived: Vec::new(),
         include_check_diagnostics: false,
-        include_library_stubs: false,
+        include_library_stubs: options.include_library_stubs,
         source: Some(match source {
             ConvertSource::File(path) => Source::FilePath(path.to_string_lossy().into_owned()),
             ConvertSource::Content(content) => Source::Content(content.clone()),
@@ -201,6 +219,15 @@ pub(crate) fn conversion_of(response: wire::ConvertResponse) -> Result<Conversio
         diagnostics,
         experimental,
         experimental_notice,
+        library_references: response
+            .library_references
+            .into_iter()
+            .map(|reference| LibraryReference {
+                id: reference.id,
+                qualified_name: reference.qualified_name,
+                r#type: reference.r#type,
+            })
+            .collect(),
         wire,
     })
 }
@@ -223,6 +250,28 @@ mod tests {
             format_of_path("noext"),
             Err(Error::InvalidRequest(_))
         ));
+    }
+
+    #[test]
+    fn requests_carry_the_library_stubs_and_id_form_asked_for() {
+        let asked = request_of(
+            FORMAT_API_JSON,
+            &ConvertSource::Content("package P;".to_owned()),
+            &ConvertOptions {
+                id_form: Some(IdForm::Uuid),
+                include_library_stubs: true,
+                ..Default::default()
+            },
+        );
+        assert_eq!(asked.id_form, "uuid");
+        assert!(asked.include_library_stubs);
+        let defaulted = request_of(
+            FORMAT_API_JSON,
+            &ConvertSource::Content("package P;".to_owned()),
+            &ConvertOptions::default(),
+        );
+        assert_eq!(defaulted.id_form, "");
+        assert!(!defaulted.include_library_stubs);
     }
 
     #[test]

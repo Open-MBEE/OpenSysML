@@ -5,14 +5,15 @@ use std::collections::{BTreeMap, HashMap};
 use crate::capabilities::{
     upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK, CAPABILITY_COMPARE_RESULTS,
     CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT, CAPABILITY_CONVERT_DOCUMENTS,
-    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES,
-    CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA,
-    CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
-    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
-    CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY,
-    CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN, CAPABILITY_RENDER_DOCUMENT,
-    CAPABILITY_RENDER_DOCUMENT_ASCIIDOC, CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_RUNS,
-    CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK, CAPABILITY_SET_VALUES,
+    CAPABILITY_CONVERT_LIBRARY_STUBS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
+    CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES,
+    CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE,
+    CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE,
+    CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY,
+    CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN,
+    CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
+    CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_RUNS, CAPABILITY_SCHEDULE,
+    CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK, CAPABILITY_SET_VALUES,
     CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES,
     CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_ARGUMENTS,
     CAPABILITY_VERIFICATION_QUESTIONS,
@@ -359,6 +360,9 @@ impl Connection {
         let mut required = vec![CAPABILITY_CONVERT];
         if !options.documents.is_empty() {
             required.push(CAPABILITY_CONVERT_DOCUMENTS);
+        }
+        if options.include_library_stubs {
+            required.push(CAPABILITY_CONVERT_LIBRARY_STUBS);
         }
         self.require_all(&required)?;
         let response =
@@ -1269,6 +1273,9 @@ pub struct DataImport {
 /// Options of [`Connection::import_data`].
 #[derive(Clone, Debug, Default)]
 pub struct DataImportOptions {
+    /// What each row is made into, as `-import-as` reads it: `values`, the default, sets the
+    /// features of the element the row names; nothing else is supported.
+    pub import_as: Option<String>,
     /// Report the values the imports would set, changing nothing.
     pub dry_run: bool,
     /// Accept every edited document of a model of several.
@@ -1317,7 +1324,7 @@ impl Connection {
                     import_map: i.map.clone().unwrap_or_default(),
                 })
                 .collect(),
-            import_as: String::new(),
+            import_as: options.import_as.clone().unwrap_or_default(),
             import_dry_run: options.dry_run,
             accept_documents: options.accept_documents,
         };

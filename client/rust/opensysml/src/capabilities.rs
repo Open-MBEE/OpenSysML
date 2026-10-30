@@ -145,6 +145,12 @@ pub const CAPABILITY_CONVERT_DOCUMENTS: &str = "convert_documents";
 /// `ConvertRequest.compact`, `omit_derived` and `keep_derived`: api-json written as the compact
 /// document (an id table and handles), optionally without derived properties.
 pub const CAPABILITY_CONVERT_COMPACT: &str = "convert_compact";
+/// `ConvertResponse.library_references`: api-json written with library elements as bare
+/// references, named outside the element array.
+pub const CAPABILITY_CONVERT_LIBRARY_REFERENCES: &str = "convert_library_references";
+/// `ConvertRequest.include_library_stubs`: api-json written with the ownerless library stubs of
+/// releases before 0.11.0 restored.
+pub const CAPABILITY_CONVERT_LIBRARY_STUBS: &str = "convert_library_stubs";
 /// `ConvertRequest.include_check_diagnostics`: the semantic check's diagnostics, each with its
 /// own severity, reported alongside the converted output.
 pub const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS: &str = "convert_check_diagnostics";

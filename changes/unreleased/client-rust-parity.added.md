@@ -1,0 +1,1 @@
+- Rust client: `ConvertOptions.include_library_stubs` restores the pre-0.11.0 library stubs in API JSON (gated on the `convert_library_stubs` capability), a `Conversion` carries its `library_references` (`LibraryReference`), and `DataImportOptions.import_as` names what each imported row is made into.
