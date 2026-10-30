@@ -79,15 +79,26 @@ A package manager and OpenSysML meet only on disk, at the consuming project's `.
   remain the explicit alternatives.
 - **Usage IRIs.** `resource` is an IRI (Table 12); OpenSysML matches it to an installed project by
   the last two path segments (publisher/name slugs). This covers `pkg:sysand/<publisher>/<name>`,
-  the Package-URL git type `pkg:git/<host>/<path>[@<version>][#<subpath>]` (purl is ECMA-427; a git
-  remote is the identity, no provider vocabulary — `pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library@1.0.0`)
-  and a plain URL alike, with `https://www.omg.org/spec/...kpar` answered by the bundled standard
-  library. A purl `#<subpath>` fragment names a project directory within the repository the path
-  names (`pkg:git/host/acme/widgets#packages/gears`): the installed project matched is the fragment's
-  last segment under the repository's owner (`acme`/`gears`), read through its own installation alone.
+  a version-control repository in its ECMA-427 form and a plain URL alike, with
+  `https://www.omg.org/spec/...kpar` answered by the bundled standard library. A repository is
+  written as ECMA-427 (purl) Clause 5 and Annex B.3.5 have it — a package URL of type `generic`
+  whose `vcs_url` qualifier carries `<vcs>+<transport>://<host>/<path>[@<version>][#<subpath>]`,
+  percent-encoded: `pkg:generic/sysmod-sysmlv2?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2FMBSE4U%2Fsysmod-sysmlv2%405.1.6`
+  is what a package manager writes into `.project.json`, with no provider vocabulary — and
+  OpenSysML reads the decoded qualifier as the location (`Usage.location` in
+  `internal/workspace/project/interchange.go`), so the host/path segments, the `@<version>` and the
+  `#<subpath>` are the ones inside it. The alias `pkg:git/<host>/<path>[@<version>][#<subpath>]`
+  (`pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library@1.0.0`; `pkg:svn/`, `pkg:hg/` too)
+  and the bare `<vcs>+<transport>://…` URL are read the same way, so the three spellings of one
+  repository link the same installed project with the same warning. A `vcs_url` that does not
+  decode to a `<vcs>+<transport>://<host>/<path>` URL is a `project.load` warning at the consumer's
+  `.project.json` and the usage links nothing. A purl `#<subpath>` fragment names a project
+  directory within the repository the path names (`pkg:git/host/acme/widgets#packages/gears`): the
+  installed project matched is the fragment's last segment under the repository's owner
+  (`acme`/`gears`), read through its own installation alone.
   A repository path need not spell the project's publisher/name (`MBSE4U/sysmod-sysmlv2` installs
   publisher `mbse4u`, name `sysmod`), so a usage whose resource spells a *location* — a
-  version-control purl (`pkg:git/`, `pkg:svn/`, `pkg:hg/`) or a plain scheme URL — and slug-matches
+  version-control repository in any of those spellings, or a plain scheme URL — and slug-matches
   nothing is linked by elimination: among the installed projects under the consumer's library roots
   that no other usage claims (a claimed project's other versions count as claimed), those whose
   version satisfies the usage's constraint are its candidates; one publisher/name among them → that
@@ -160,5 +171,13 @@ read-only), never a downloader, lock or index of its own.
 Settled: `lib/` beside `.project.json` is read as a well-known install directory next to
 `.sysand/lib`; `@<version>` in a usage IRI is an exact constraint; no lax mode.
 
-Settled: usage IRIs are read as IRIs — `pkg:sysand/...`, the ECMA-427 `pkg:git/...` type and plain
-URLs are matched the same way; OpenSysML defines no IRI scheme of its own.
+Settled: usage IRIs are read as IRIs — `pkg:sysand/...`, a repository in its ECMA-427 form
+(`pkg:generic/<name>?vcs_url=…`, the `pkg:git/...` alias, a bare `<vcs>+<transport>://` URL) and
+plain URLs are matched the same way; OpenSysML defines no IRI scheme of its own and parses the one
+purl shape it needs by hand, with no purl library.
+
+Settled: a package manager's lock file (`.project.lock.json` beside `.project.json`) is not read,
+although it would name the installed project's publisher and name for a repository path that does
+not spell them; the reader stays on `.project.json`, `.meta.json` and `.kpar` — the KerML §10.3
+artefacts — plus elimination among the installed projects, and the elimination warning tells the
+author how to name the project in the usage itself.

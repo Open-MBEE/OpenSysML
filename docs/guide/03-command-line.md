@@ -369,8 +369,8 @@ latest. KerML §10.3 defines no syntax for `versionConstraint`; OpenSysML reads 
 npm-style semver range (`1.2.3`, `^1.2`, `~1.2.3`, `>=1.0.0 <2.0.0`, `1.x`, `1.0.0 - 2.0.0`,
 `a || b`). A constraint no installed version satisfies, or one outside that grammar, is a
 `project.load` warning at the project file and the usage selects nothing. A usage whose IRI spells where the project is kept rather than the project — a
-version-control package URL (`pkg:git/`, `pkg:svn/`, `pkg:hg/`) or a plain URL, such as
-`pkg:git/github.com/MBSE4U/sysmod-sysmlv2` for the project `mbse4u/sysmod` — is linked by
+version-control location or a plain URL, such as `pkg:git/github.com/MBSE4U/sysmod-sysmlv2`
+for the project `mbse4u/sysmod` — is linked by
 elimination once every usage has had its say: of the installed projects no usage
 claims (another version of a claimed project counts as claimed), those satisfying its
 constraint, when they are all one project, at the highest such version. The link is a
@@ -390,8 +390,22 @@ Hidden directories other than the library directories stay out of the search, an
 diagnostics of the files loaded this way are reported like those of any other file the
 search finds.
 
+A repository is written in any of three spellings, read alike: the ECMA-427 package URL a
+package manager writes, `pkg:generic/<name>?vcs_url=<vcs>+<transport>://<host>/<path>[@<version>][#<subpath>]`
+with the qualifier value percent-encoded
+(`pkg:generic/sysmod-sysmlv2?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2FMBSE4U%2Fsysmod-sysmlv2%405.1.6`),
+the `pkg:git/<host>/<path>[@<version>][#<subpath>]` alias (also `pkg:svn/`, `pkg:hg/`), or the
+bare `<vcs>+<transport>://<host>/<path>[@<version>][#<subpath>]` URL. The host and path, the
+`@<version>` and the `#<subpath>` are read from the decoded `vcs_url` value exactly as from the
+`pkg:git/` spelling, so the same installed project is linked with the same warning whichever is
+written. A `vcs_url` that does not decode to a `<vcs>+<transport>://<host>/<path>` URL is a
+`project.load` warning at the project file and the usage selects nothing. A package manager's
+lock file beside `.project.json` is not read: which version lands under `lib/` is its decision,
+and OpenSysML matches the usage against whatever is installed.
+
 A fragment on a repository IRI names a project directory within the tagged tree
-(`pkg:git/git.example.org/acme/widgets#packages/gears`): that usage is answered by the
+(`pkg:git/git.example.org/acme/widgets#packages/gears`, or `%23packages%2Fgears` at the end of
+a `vcs_url`): that usage is answered by the
 sub-package's own installation — `gears` under `acme` — not by the repository's project. Such a
 sub-package also lies inside its parent's installed tree, and a directory below an installed
 project that holds a `.project.json` of its own is a project of its own: the parent's files stop
