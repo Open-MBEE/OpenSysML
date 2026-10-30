@@ -45,8 +45,10 @@ type Element struct {
 	// QualifiedName is the name a tool records beside an href for the element it
 	// points to (MagicDraw's referentPath); "" when the document gives none.
 	QualifiedName string
-	// Attrs holds the XML attributes other than xmi:id and xmi:type, keyed by
-	// local name; references appear as their raw id text.
+	// Attrs holds the element's properties other than xmi:id and xmi:type, keyed
+	// by local name: the XML attributes, and the properties serialized as child
+	// elements (`<name>Wheel</name>`) where no attribute states them; references
+	// appear as their raw id text. Values lists every value of a property.
 	Attrs map[string]string
 	// Text is the element's character content, which stereotype tag values
 	// and opaque expression bodies are written as.
@@ -60,6 +62,8 @@ type Element struct {
 	AttachedStream string
 	// refs are child reference elements (xmi:idref or href) by role.
 	refs map[string][]string
+	// values are a multi-valued property's values after the one in Attrs, by role.
+	values map[string][]string
 }
 
 // Stereotype is one stereotype application: an element outside the UML model
@@ -227,6 +231,17 @@ func (e *Element) RefIDs(role string) []string {
 		ids = append(ids, strings.Fields(v)...)
 	}
 	return append(ids, e.refs[role]...)
+}
+
+// Values lists every value of a property of e, the attribute first, whole,
+// then each child element serializing a value, as a multi-valued string such
+// as an OpaqueExpression's body is written.
+func (e *Element) Values(role string) []string {
+	var out []string
+	if v, ok := e.Attrs[role]; ok {
+		out = append(out, v)
+	}
+	return append(out, e.values[role]...)
 }
 
 // Ref returns the first element a role refers to, or nil.
@@ -602,7 +617,7 @@ func (m *Model) children(raw *xmi.Element, parent *Element, ref *Element) {
 			m.special(child, parent, ref)
 			continue
 		}
-		if ref != nil {
+		if ref != nil || child.IsScalar() {
 			continue
 		}
 		if id := child.Attr("idref"); id != "" {
@@ -764,11 +779,20 @@ func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 			m.special(child, nil, nil)
 			continue
 		}
-		if value := child.Attr("idref"); value != "" {
-			s.Tags[child.Tag] = append(s.Tags[child.Tag], value)
-		} else if value := child.Href(); value != "" {
-			s.Tags[child.Tag] = append(s.Tags[child.Tag], value)
-		} else if value := stereotypeText(child); value != "" {
+		value := child.Attr("idref")
+		if value == "" {
+			value = child.Href()
+		}
+		if value != "" && strings.HasPrefix(child.Tag, "base_") {
+			if s.BaseID == "" {
+				s.BaseID = value
+			}
+			continue
+		}
+		if value == "" {
+			value = stereotypeText(child)
+		}
+		if value != "" {
 			s.Tags[child.Tag] = append(s.Tags[child.Tag], value)
 		}
 	}
@@ -788,6 +812,19 @@ func (m *Model) newElement(raw *xmi.Element, parent *Element) *Element {
 	}
 	for name, value := range raw.XMIAttrs {
 		e.Attrs[name] = value
+	}
+	for _, child := range raw.Children {
+		if !child.IsScalar() {
+			continue
+		}
+		if _, ok := e.Attrs[child.Tag]; !ok {
+			e.Attrs[child.Tag] = child.Text
+			continue
+		}
+		if e.values == nil {
+			e.values = map[string][]string{}
+		}
+		e.values[child.Tag] = append(e.values[child.Tag], child.Text)
 	}
 	if e.Type == "" && parent == nil {
 		e.Type = raw.Tag
