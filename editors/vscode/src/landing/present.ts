@@ -30,6 +30,14 @@ export function presentedStack(model: LandingModel): RenderResult {
   };
 }
 
+/**
+ * presentedPhases is the landing model as the hero draws a state machine: the states as the
+ * view drew them, each transition labelled with the wait that fires it.
+ */
+export function presentedPhases(model: LandingModel): RenderResult {
+  return model.render;
+}
+
 const STACK_TONES: Record<string, SceneTone> = { runtime: "primary", reference: "secondary", "model store": "accent" };
 
 /** stackTone fills a project's box by the kind its model declares; a component stays plain. */
