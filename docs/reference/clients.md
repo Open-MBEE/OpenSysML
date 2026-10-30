@@ -53,6 +53,9 @@ out of reach — and so do the Python, Node's Connect transport and Rust clients
 
 ## What the newer surfaces cover
 
+The per-option and per-feature comparison, each cell linked to its proving test, is
+[Client feature parity](client-parity.md).
+
 The Node client's Connect transport covers everything the Python one does, the whole service
 surface included. Its `connectWasm()` adapter instead exposes the combined module's supported
 subset without a service.

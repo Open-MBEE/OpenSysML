@@ -3,7 +3,8 @@ function conversion = convert(conn, toFormat, varargin)
 
     sources = struct('filePath', [], 'content', [], 'modelHash', []);
     options = struct('fromFormat', '', 'tolerateSyntaxErrors', false, 'idForm', '', ...
-        'includeLibraryStubs', false);
+        'includeLibraryStubs', false, 'compact', false, 'omitDerived', false, ...
+        'keepDerived', {{}}, 'includeCheckDiagnostics', false);
     if mod(numel(varargin), 2) ~= 0
         opensysml.internal.raise('opensysml:argument', 'convert options must be name-value pairs');
     end
@@ -39,6 +40,10 @@ function conversion = convert(conn, toFormat, varargin)
     tolerate = logicalOption(options.tolerateSyntaxErrors, 'tolerateSyntaxErrors');
     idForm = textOption(options.idForm, 'idForm');
     includeLibraryStubs = logicalOption(options.includeLibraryStubs, 'includeLibraryStubs');
+    compact = logicalOption(options.compact, 'compact');
+    omitDerived = logicalOption(options.omitDerived, 'omitDerived');
+    keepDerived = textListOption(options.keepDerived, 'keepDerived');
+    includeCheckDiagnostics = logicalOption(options.includeCheckDiagnostics, 'includeCheckDiagnostics');
     v1File = strcmp(present{1}, 'filePath') && isempty(fromFormat) && ...
         opensysml.pathIsV1(sources.filePath);
     if opensysml.isV1(fromFormat) || v1File
@@ -54,6 +59,14 @@ function conversion = convert(conn, toFormat, varargin)
         conn.require('convert_library_stubs');
         capabilities{end+1} = 'convert_library_stubs';
     end
+    if compact || omitDerived || ~isempty(keepDerived)
+        conn.require('convert_compact');
+        capabilities{end+1} = 'convert_compact';
+    end
+    if includeCheckDiagnostics
+        conn.require('convert_check_diagnostics');
+        capabilities{end+1} = 'convert_check_diagnostics';
+    end
     request = struct('toFormat', toFormat);
     for i = 1:numel(present)
         name = present{i};
@@ -67,6 +80,10 @@ function conversion = convert(conn, toFormat, varargin)
     if tolerate, request.tolerateSyntaxErrors = true; end
     if ~isempty(idForm), request.idForm = idForm; end
     if includeLibraryStubs, request.includeLibraryStubs = true; end
+    if compact, request.compact = true; end
+    if omitDerived, request.omitDerived = true; end
+    if ~isempty(keepDerived), request.keepDerived = keepDerived; end
+    if includeCheckDiagnostics, request.includeCheckDiagnostics = true; end
     answer = opensysml.internal.checkError( ...
         opensysml.call(conn, 'Convert', request, capabilities), 'Convert');
     diagnostics = {};
@@ -95,6 +112,16 @@ function value = textOption(raw, name)
         opensysml.internal.raise('opensysml:argument', sprintf('%s must be text', name));
     end
     value = raw;
+end
+
+function value = textListOption(raw, name)
+    if isa(raw, 'string'), raw = cellstr(raw); end
+    if ischar(raw), raw = {raw}; end
+    if ~iscell(raw) || ~all(cellfun(@(item) ischar(item) || isStringScalar(item), raw))
+        opensysml.internal.raise('opensysml:argument', ...
+            sprintf('convert %s must be a cell array of text', name));
+    end
+    value = cellfun(@char, raw(:)', 'UniformOutput', false);
 end
 
 function value = logicalOption(raw, name)

@@ -25,9 +25,18 @@ type DataImport struct {
 type ImportOption func(*importOptions)
 
 type importOptions struct {
+	importAs        string
 	dryRun          bool
 	acceptDocuments bool
 }
+
+// ImportAsValues makes each row set the features of the element it names; the
+// default and, so far, the only form the service supports.
+const ImportAsValues = "values"
+
+// ImportAs names what each row is made into, as `sysml -import-as` does:
+// ImportAsValues. Another name is refused by the service as INVALID_ARGUMENT.
+func ImportAs(form string) ImportOption { return func(o *importOptions) { o.importAs = form } }
 
 // ImportDryRun reports the values the imports would set, changing nothing.
 func ImportDryRun() ImportOption { return func(o *importOptions) { o.dryRun = true } }
@@ -76,7 +85,7 @@ func (c *client) ImportData(ctx context.Context, model *Model, imports []DataImp
 	if err := c.requireCapabilities(ctx, CapabilityImportData); err != nil {
 		return nil, err
 	}
-	req := &pb.ImportDataRequest{ModelHash: hash, ImportDryRun: o.dryRun, AcceptDocuments: o.acceptDocuments}
+	req := &pb.ImportDataRequest{ModelHash: hash, ImportAs: o.importAs, ImportDryRun: o.dryRun, AcceptDocuments: o.acceptDocuments}
 	for _, in := range imports {
 		req.Imports = append(req.Imports, &pb.DataImport{Name: in.Name, Content: in.Content, ImportFormat: in.Format, ImportMap: in.Map})
 	}
