@@ -381,8 +381,14 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
   }
 
   function decorate(): void {
+    const stateIds = new Set([...(model.machine?.states.values() ?? [])].map((state) => state.id));
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-node")) {
-      const part = partOf(group.dataset.opensysmlId ?? "");
+      const id = group.dataset.opensysmlId ?? "";
+      if (stateIds.has(id)) {
+        group.classList.add("osml-state");
+        continue;
+      }
+      const part = partOf(id);
       if (!part) {
         continue;
       }

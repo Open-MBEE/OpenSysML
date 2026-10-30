@@ -377,11 +377,13 @@
     }
     .osml-nodecard__close:hover { opacity: 1; }
     /* A run of the model: the token travels the wires the execution crossed. */
-    .osml-diagram g.osml-part.is-live > .shape {
+    .osml-diagram g.osml-part.is-live > .shape,
+    .osml-diagram g.osml-state.is-live > .shape {
       stroke: #ffd54f;
       stroke-width: 3;
     }
-    .osml-diagram g.osml-part.is-live {
+    .osml-diagram g.osml-part.is-live,
+    .osml-diagram g.osml-state.is-live {
       filter: drop-shadow(0 0 .5rem #ffd54f);
     }
     .osml-diagram g.opensysml-edge.is-live .line {
@@ -476,7 +478,9 @@
       font-size: .64rem;
       text-align: left;
     }
-    .osml-debug[hidden] { display: none; }
+    .osml-debug[hidden],
+    .osml-debug__bar[hidden],
+    .osml-debug label[hidden] { display: none; }
     .osml-debug__bar {
       display: flex;
       flex-wrap: wrap;
