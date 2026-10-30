@@ -426,7 +426,7 @@ inverse), `satisfiedRequirement` and `satisfyingFeature` on a `satisfy`. Each Me
 Annotation or Import read this way is a metaobject answering the ends and attributes its
 metaclass declares (`memberElement`, `memberName`, `visibility`, `kind`, `annotatedElement`,
 `importedNamespace`, …). A feature the metaclass declares but the model cannot derive
-(`aliasIds`, `elementId`, `membership`, a `filter` member's `ElementFilterMembership`) is reported
+(`elementId`, `membership`, a `filter` member's `ElementFilterMembership`) is reported
 as unevaluated, never answered empty. Import
 `SequenceFunctions::*` for `->isEmpty()` and friends:
 

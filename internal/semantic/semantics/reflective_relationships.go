@@ -483,9 +483,9 @@ func (m *Model) implicitRelationshipValue(sym *symbols.Symbol, feature string) (
 		}
 	}
 	switch feature {
-	case "name", "declaredName", "shortName", "declaredShortName", "qualifiedName":
+	case "name", "declaredName", "shortName", "declaredShortName", "qualifiedName", "aliasIds":
 		return emptyValue(), true
-	case "isImplied":
+	case "isImplied", "isImpliedIncluded":
 		return boolValue(false), true
 	case "isLibraryElement":
 		return m.reflectiveFeatureValue(sym.Implicit.Owner, feature)

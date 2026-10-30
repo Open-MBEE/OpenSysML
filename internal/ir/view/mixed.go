@@ -109,7 +109,7 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 		return
 	}
 
-	node := w.r.treeNodeShallow(w.view, sym, nil, w.ids, map[*symbols.Symbol]bool{}, 0, exposed, w.out)
+	node := w.r.treeNodeShallow(treeWalk{view: w.view, ids: w.ids, path: expansion{}, out: w.out}, sym, nil, exposed)
 	w.remember(sym, node)
 	w.append(node, parent)
 	for _, member := range w.traversedMembers(sym) {

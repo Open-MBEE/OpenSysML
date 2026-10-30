@@ -62,15 +62,40 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 	for _, e := range encoders {
 		for _, node := range e.writtenDeclarations() {
 			fqn := e.fqn[node]
-			id := rdf.LocalName(e.ids.subjectForNode(node, fqn).Value)
+			subject := e.ids.subjectForNode(node, fqn)
+			id := rdf.LocalName(subject.Value)
 			ids.byNode[node] = id
 			ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
 			if fqn != "" {
 				ids.byName[fqn] = id
 			}
+			for i, end := range writtenConnectorEnds(node) {
+				if end == nil {
+					continue
+				}
+				endID := rdf.LocalName(e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i)).Value)
+				ids.byNode[end] = endID
+				ids.bySpan[spanKey{e.file.Name(), end.Span()}] = endID
+			}
 		}
 	}
 	return ids, nil
+}
+
+// writtenConnectorEnds are the ends of a head that binds them (`connect a to b`),
+// by position, as bindingEnds writes them: nil where no end feature is written.
+func writtenConnectorEnds(node ast.Node) []*ast.ConnectorEnd {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !verbatimUsage(usage) || len(usage.ConnectorEnds) == 0 {
+		return nil
+	}
+	ends := make([]*ast.ConnectorEnd, len(usage.ConnectorEnds))
+	for i, end := range usage.ConnectorEnds {
+		if end != nil && end.AttachedTarget() != nil {
+			ends[i] = end
+		}
+	}
+	return ends
 }
 
 // spanKey names a declaration by its document and span, across parses of it.

@@ -1,5 +1,5 @@
 // Bundles tools/route-goldens.ts the way the tests are bundled and runs it:
-//   node tools/route-goldens.mjs [output-dir]
+//   node tools/route-goldens.mjs [output-dir]   (a directory inside the repository checkout)
 import { spawnSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";

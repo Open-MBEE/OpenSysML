@@ -39,8 +39,9 @@ case "$os/$arch" in
 esac
 
 fetch() { # fetch <url> <sha256> <out>
-	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$3" "$1"
-	echo "$2  $3" | sha256sum --check --strict --quiet
+	local url="$1" sha256="$2" out="$3"
+	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$out" "$url"
+	echo "$sha256  $out" | sha256sum --check --strict --quiet
 }
 
 install_cargo_audit() {
