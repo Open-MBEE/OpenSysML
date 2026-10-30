@@ -29,7 +29,7 @@ public final class ResourceDescriptorWriter {
       Pattern.compile("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-nightly-(\\d{8})-[0-9a-f]+)?$");
   /** Nights are counted from here; the count fills the pre-release digits below {@link #RELEASE}. */
   static final LocalDate NIGHTLY_EPOCH = LocalDate.of(2026, 1, 1);
-  static final int RELEASE = 9_999;
+  static final long RELEASE = 9_999;
 
   private ResourceDescriptorWriter() {}
 
