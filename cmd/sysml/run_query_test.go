@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -460,4 +461,64 @@ func TestRunQueryOverStatesAndTrace(t *testing.T) {
 	wantReport(t, check(t, binary, stateQueryModel, "-instantiate", "lamp", "-state", "lp lamp", "-advance", "4",
 		"-run-query", "Switched root=lamp"),
 		2, "query Blink::Switched operation events reads the session's trace, and this session records none")
+}
+
+// anonymousModel declares parts without names, which the prompt prints blank.
+const anonymousModel = `package Observatory {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+
+	part def Subsystem;
+
+	part telescope {
+		part : Subsystem;
+		part : Subsystem;
+	}
+
+	calc def AnonymousParts :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("elementId")
+		)
+	}
+}
+`
+
+// TestRunQueryJSONTableSpellsAnonymousElementsByID checks that an element without a
+// name is spelled in the table by its elementId — the id its own elementId cell reads.
+func TestRunQueryJSONTableSpellsAnonymousElementsByID(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, anonymousModel, "-run-query", "AnonymousParts root=telescope", "-json")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Table *struct {
+				Columns []string `json:"columns"`
+				Rows    []struct {
+					Element string     `json:"element"`
+					Cells   [][]string `json:"cells"`
+				} `json:"rows"`
+			} `json:"table"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	if len(report.Checks) != 1 || report.Checks[0].Table == nil || len(report.Checks[0].Table.Rows) != 2 {
+		t.Fatalf("want one check with a two-row table:\n%s", got.stdout)
+	}
+	seen := map[string]bool{}
+	for _, row := range report.Checks[0].Table.Rows {
+		if row.Element == "" || seen[row.Element] {
+			t.Errorf("row element spelled %q, want a distinct non-empty elementId", row.Element)
+		}
+		seen[row.Element] = true
+		if len(row.Cells) != 1 || strings.Join(row.Cells[0], "|") != strconv.Quote(row.Element) {
+			t.Errorf("row %s: elementId cell = %v, want the element's own id", row.Element, row.Cells)
+		}
+	}
 }

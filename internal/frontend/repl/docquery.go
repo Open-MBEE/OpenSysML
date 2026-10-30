@@ -187,11 +187,12 @@ func (s *Session) runDocumentQuery(name string, args []string) ([]string, []Name
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	result, err := queryexec.Execute(program, s.queryContext(ctx), bindings, queryexec.Options{})
+	context := s.queryContext(ctx)
+	result, err := queryexec.Execute(program, context, bindings, queryexec.Options{})
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	lines, values, table := renderRowSet(notationName(fqn), result)
+	lines, values, table := renderRowSet(notationName(fqn), result, context.ElementID)
 	return lines, values, table, nil
 }
 
@@ -426,8 +427,9 @@ func (s *Session) queryValueList(ctx *runtime.Context, elements []runtime.Value)
 }
 
 // renderRowSet reports an executed query's ordered rows and projected cells as
-// the prompt prints them, with the row and column counts as values and the table as data.
-func renderRowSet(name string, result *queryexec.RowSet) ([]string, []NamedValue, *VerdictTable) {
+// the prompt prints them, with the row and column counts as values and the table as data;
+// in the table an element without a name is spelled by its elementId, through elementID.
+func renderRowSet(name string, result *queryexec.RowSet, elementID func(*symbols.Symbol) (string, error)) ([]string, []NamedValue, *VerdictTable) {
 	rows := result.Rows()
 	columns := result.Columns()
 	lines := []string{fmt.Sprintf("✓ Query %s returned %s", name, countOf(len(rows), "row", "rows"))}
@@ -448,9 +450,9 @@ func renderRowSet(name string, result *queryexec.RowSet) ([]string, []NamedValue
 				break
 			}
 			lines = append(lines, fmt.Sprintf("    %s = %s", names[j], formatQueryCell(cell)))
-			cells[j] = queryCellValues(cell)
+			cells[j] = queryCellValues(cell, elementID)
 		}
-		table.Rows = append(table.Rows, VerdictTableRow{Element: element, Cells: cells})
+		table.Rows = append(table.Rows, VerdictTableRow{Element: tableValue(row.Element(), elementID), Cells: cells})
 	}
 	values := []NamedValue{{Name: "rows", Value: strconv.Itoa(len(rows))}}
 	if len(names) > 0 {
@@ -459,14 +461,25 @@ func renderRowSet(name string, result *queryexec.RowSet) ([]string, []NamedValue
 	return lines, values, table
 }
 
-// queryCellValues is a cell's values as the prompt prints each; empty for an empty cell.
-func queryCellValues(cell queryexec.Cell) []string {
+// queryCellValues is a cell's values as the table spells each; empty for an empty cell.
+func queryCellValues(cell queryexec.Cell, elementID func(*symbols.Symbol) (string, error)) []string {
 	values := cell.Values()
 	out := make([]string, len(values))
 	for i, value := range values {
-		out[i] = formatQueryValue(value)
+		out[i] = tableValue(value, elementID)
 	}
 	return out
+}
+
+// tableValue spells a value as the prompt does, except an element without a name
+// (printed blank or as ”), which the table spells by its elementId when one is read.
+func tableValue(value queryexec.Value, elementID func(*symbols.Symbol) (string, error)) string {
+	if sym, ok := value.Element(); ok && sym.Name == "" && elementID != nil {
+		if id, err := elementID(sym); err == nil && id != "" {
+			return id
+		}
+	}
+	return formatQueryValue(value)
 }
 
 // formatQueryCell renders one projected cell: nothing, one value, or a
