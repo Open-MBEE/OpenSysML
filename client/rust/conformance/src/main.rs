@@ -652,6 +652,7 @@ impl Runner {
             tolerate_syntax_errors: request.tolerate_syntax_errors,
             id_form,
             documents: request.documents,
+            include_library_stubs: request.include_library_stubs,
         };
         match self
             .connection
@@ -897,6 +898,7 @@ impl Runner {
             })
             .collect();
         let options = opensysml::DataImportOptions {
+            import_as: (!request.import_as.is_empty()).then(|| request.import_as.clone()),
             dry_run: request.import_dry_run,
             accept_documents: request.accept_documents,
         };
