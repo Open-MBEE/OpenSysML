@@ -1,0 +1,287 @@
+# Performance: release 0.12.0 against release 0.11.0
+
+The release-gate measurement of the 0.12.0 candidate — the head of
+`develop` at `1c6bb197227bfc4b8a8f33bda51c86093d56b933` (2026-10-30),
+which holds #1699 (the export element-ID cost, merged at `101d2f267`)
+— measured against the `v0.11.0` tag on `main`
+(`ddf4df00037d6ddbfb1fa9d743a4389f75c9e2dc`). The record follows the
+method of the [0.11.0 against 0.10.1](performance-release-0.11.0-vs-0.10.1.md)
+record: every benchmark on both revisions, `benchstat` over six runs,
+the rows the machine leaves in doubt re-run interleaved on a quiet
+machine, whole-binary timings on generated and real models, process
+start and session floor, and the `tests/stressmodel` constellation. See
+[performance](../internals/performance.md) for what the figures mean.
+
+The measurement began at `0c1fd6dbd03b54acc719cb46b0a630acb1a70a98`
+(2026-10-29, 229 first-parent merges after `v0.11.0`), with #1699's head
+`2350e3fae988c7ac3d5f9b7db1ea02617b08fa14` merged on top locally (merge
+base `8e6bd003c1c229ce104fc66f7771344749d65d50`) because the maintainer
+named it part of 0.12.0; #1699 then merged, with #1700, #1701 and #1705,
+and every table below is taken on `1c6bb1972`, four first-parent merges
+after the pinned head, as the candidate.
+
+## Three columns
+
+0.11.0 was built with `go1.25.11`; `develop` builds with `go1.27.3`
+(`go.mod` `toolchain`). The toolchain change dominates a naive timing
+comparison, so three binaries are measured:
+
+1. **0.11.0 as released** — the `v0.11.0` source built with `go1.25.11`,
+   what a 0.11.0 user runs.
+2. **0.11.0 rebuilt** — the same source built with `go1.27.3`.
+3. **0.12.0 candidate** — `1c6bb1972` built with `go1.27.3`.
+
+A source regression or improvement is column 2 against column 3: the
+same toolchain, different source. What a user upgrading from 0.11.0
+feels is column 1 against column 3. Column 1 against column 2 is the
+toolchain alone. Every statement below says which columns it rests on.
+Allocations and bytes per operation are exact for a given binary, but
+they are *not* toolchain-independent here: the same 0.11.0 source
+allocates differently under `go1.27.3` than under `go1.25.11` on many
+rows (`Instantiate` 2.22M → 2.84M allocations, the `WriteAPIJSON` rows
++20–28 %, `ExecuteState` +21 %), so an allocation statement about the
+source is also column 2 against column 3, never column 1 against 3.
+
+## Method
+
+Three detached worktrees, one per revision, built with `make build`,
+with the pilot and training corpora copied in so the corpus-backed rows
+run on every side. Every benchmark package is run with
+`-run '^$' -bench . -benchmem -count 1`, six rounds, the three
+configurations interleaved within each round; each round's output is
+an append-only file and `benchstat` compares the six files per
+configuration. `tests/stressmodel` runs the same way with
+`ConvertAPIJSON/satellites=512` skipped, as the previous records did.
+The machine is an 8-vCPU `Intel(R) Xeon(R) Processor` (31 GiB),
+`GOMAXPROCS=8`, logged into every round's file; sec/op is comparable
+only between the columns of this record, never with the earlier
+records.
+
+Rows known to fail from the earlier records, recorded before measuring
+and failing identically on all three columns, so none is a regression:
+the five `tests/codegen` `CompiledCalc` rows (the C target does not take
+unbounded integers; `SumTo` at a million exceeds the step budget),
+`tests/perf` `Analyze/vehicle` (unresolved `vehicle_b`, since #1062),
+and `AnalyzeSplitPerDocument` and `PlaneResidency` in `tests/stressmodel`
+(the Real-literal rounding diagnostics; `ErrRecordStale`). Those packages
+exit non-zero on every revision; every other row of theirs is measured.
+
+## Summary
+
+Six rounds, 156 rows per round on 0.11.0 and 158 on the candidate, all
+three columns on one host. Medians; a percentage is the candidate against
+0.11.0 rebuilt (column 2 → 3) unless it says otherwise. Bytes and
+allocations per operation are exact (`± 0 %` on every row below); the
+sec/op of the runtime package came out with 50–290 % spreads on the
+loaded machine and are decided by the quiet re-run of [Re-runs](#re-runs),
+not here.
+
+The candidate is faster than 0.11.0 nearly everywhere a user would
+notice (column 1 → 3): loading the 1 000-element generated model 148 → 114 ms,
+the 95 927-element stress model 9.09 → 8.73 s, a REPL snippet 1.44 → 1.05 s,
+`ConvertAPIJSON` of 24 167 elements 57.9 → 49.9 s, `WriteAPIJSON` −10…−37 %,
+action chains −35…−59 %, `LookupQualified` 150 → 43 ns per lookup with
+no allocation. It allocates more on a handful of paths, each traced to the
+merge that introduced it, and takes 31 MiB more resident memory to
+validate the largest generated model. Those are the rows below.
+
+### Source regressions (column 2 → 3)
+
+| Row | Metric | 0.11.0 | 0.11.0 rebuilt | 0.12.0 candidate | 2 → 3 | Cause | Fix |
+|---|---|---|---|---|---|---|---|
+| repl `LoadModel/elements=0` | allocs/op | 2 022 | 2 022 | 2 155 | +6.6 % (B/op +8.3 %) | #1462, the duplicate-library check kept a list per library package name | `perf/duplicate-libraries-walk` → 2 038 (PR pending) |
+| repl `LoadModel/elements=1000` (and /250 +5.4 %, /4000 +5.0 %; +3.5–5 % B/op on every load-heavy row: stress `Load`, `LoadFiles`, `OpenSplit`, `ValidateSplit`, `EditImported`, `ImportValues`, `Analyze/synthetic`, `WorkspaceEdit`, `REPLSubmitSnippet`) | B/op | 55.39 Mi | 55.52 Mi | 58.31 Mi | +5.0 % | #1478 (bisected), the `typed by` notation pass swept every document's expressions | `perf/typed-by-sweep` → 55.8 Mi (PR pending) |
+| runtime `AssignmentLoopStep` | B/op | 899.7 Ki | 899.7 Ki | 948.0 Ki | +5.4 % | #1514 and #1461 grew the evaluation context from 152 to 184 bytes | `perf/eval-context-size` → 926 Ki (PR pending) |
+| runtime `DerivedReadWriteRead` | B/op · allocs/op | 2 688 · 67 | 2 688 · 67 | 3 328 · 71 | +23.8 % · +6.0 % | #1619 (bisected) marks what a derived value stands on, copying the footprint's reads; #1514 for 64 B | `perf/derive-marks-footprint` → 3 104 · 69, with `perf/eval-context-size` (PRs pending) |
+| perf `GRPCVerifyConstraint` | allocs/op | 14 390 | 14 090 | 16 300 | +15.7 % | #1508 and #1512, the binding walks | `perf/binding-walk-allocs` → 14 890 (PR pending) |
+| grpc `InstantiateWarmModel` | allocs/op | 1 990 | 1 960 | 2 170 | +10.5 % (B/op +6.3 %) | the binding walks, as above | the same |
+| perf `FeaturesOf` | B/op | 261.7 Mi | 261.2 Mi | 295.8 Mi | +13.3 % (sec/op −7 %) | #1626, the memo of related features recorded every empty relation | `perf/related-features-memo` → 285.8 Mi (PR pending) |
+| perf `Instantiate`, cold, pinned at two iterations | B/op | — | 221 MB | 252 MB | +14 % (allocs −4.6 %) | #1626 (bisected) | the same → 230 MB |
+| perf `BatchSatisfy` | B/op | 456.8 Mi | 454.9 Mi | 491.4 Mi | +8.0 % | #1626 (bisected) | the same |
+| perf `ExecuteActionFreshContext` | allocs/op | 376 | 388 | 424 | +9.3 % | #1619 (bisected); the marks are the correctness cost, part of it the copy | `perf/derive-marks-footprint` |
+| perf `ActionChain/chain10` | B/op | 200.6 Ki | 198.1 Ki | 222.9 Ki | +12.5 % (allocs −18 %) | #1473 (bisected), the performance-shape memo of an earlier fix: fewer, larger allocations | not a regression to fix: `chain100` and `chain1000` allocate 18–26 % less |
+| whole binary, `-validate` of 12 086 generated elements | peak RSS | 161 MiB | 162 MiB | 193 MiB | +31 MiB | #1441 (bisected): the parse trees of a submission were held through its analysis for the roots an unresolved reference would be looked up by | `perf/release-preparse-trees` → 164 MiB (PR pending) |
+
+One regression was found already fixed: bisecting `LoadModel/elements=1000`
+past #1478 lands on #1528 (+1.7 MB per load, the dependency search), which
+#1624 removed from the path of a file that resolves; the candidate shows no
+bytes under it.
+
+### Toolchain alone (column 1 → 2)
+
+`go1.27.3` makes the same 0.11.0 source faster on most rows (`LoadModel/4000`
+693 → 552 ms, lsp `ReferencesWarm` 275 → 192 µs, `ExpandWildcardImports`
+44 → 33 ms, `Parse/vehicle` 2.82 → 1.98 ms) and changes its allocation
+counts: `Instantiate` 2.22 M → 2.11 M, `WriteAPIJSON` +20–28 % allocations
+and up to +29 % bytes, `ExecuteState` and `StateLoop` +21 %,
+`ConvertAPIJSON/128` +23 % allocations. None of those is a source change;
+every allocation statement in this record is column 2 against 3.
+
+## Package benchmarks
+
+Column 2 → 3, medians of six. The runtime package's sec/op are omitted
+(see [Re-runs](#re-runs)).
+
+| Package · row | Metric | 0.11.0 rebuilt | 0.12.0 candidate | Δ |
+|---|---|---|---|---|
+| runtime `NewRootFrame` | sec/op · B/op · allocs | 10.6 µs · 12.5 Ki · 36 | 849 ns · 2.4 Ki · 21 | −92 % · −81 % · −42 % |
+| runtime `IntegerCollectionSum` | sec/op | 1.11 ms | 855 µs | −23 % |
+| grpc `ParseFileColdShared` | sec/op | 7.77 ms | 7.51 ms | −3 % |
+| lsp `ReferencesWarm` | sec/op | 191.5 µs | 166.3 µs | −13 % |
+| lsp `FormatEdits` | sec/op | 926 µs | 1.01 ms | +10 % (time only) |
+| repl `Diagnostics/attributes=50` | sec/op | 114 µs | 94 µs | −17 % |
+| repl `LoadModel/elements=1000` | sec/op | 130.2 ms | 114.4 ms | −12 % |
+| repl `LoadModel/elements=4000` | sec/op | 552 ms | 510 ms | −8 % |
+| repl `RunCalc/*` | B/op | 4.6 Ki | 4.8 Ki | +3.4 % |
+| migrate `WriterSiblingBlocks` | sec/op | 2.15 ms | 2.45 ms | +14 % (time only) |
+| libs `DecodeSnapshot` · `IndexLibrary` · `ExpandWildcardImports` · `SetDigest` | sec/op | 14.4 · 17.4 · 32.9 · 1.46 ms | 12.1 · 15.0 · 27.2 · 1.24 ms | −14…−17 % |
+| model `AnalyseResolved` · `AnalyseUnresolved` | sec/op | 2.23 · 25.8 ms | 1.61 · 20.0 ms | −28 % · −23 % |
+| export `WriteAPIJSON/*` (8 rows) | sec/op · allocs | | | −10…−37 % · −16…−26 % |
+| perf `ActionChain/chain10` · `chain100` · `chain1000` | sec/op | 137 µs · 948 µs · 17.6 ms | 90 µs · 616 µs · 7.19 ms | −35 % · −35 % · −59 % |
+| perf `ActionLoop/for10` · `for100` | sec/op · B/op | 54.7 µs · 35.2 Ki, 205 µs · 75.0 Ki | 29.8 µs · 21.1 Ki, 176 µs · 60.9 Ki | −45 % · −40 %, −14 % · −19 % |
+| perf `ExecuteAction` | sec/op · allocs | 91.8 µs · 254 | 68.6 µs · 196 | −25 % · −23 % |
+| perf `ExecuteState` · `StateLoop/*` | allocs | 14.97 k · 14.95 k…1.456 M | 12.49 k · 12.47 k…1.211 M | −17 % |
+| perf `GRPCEvaluate` | sec/op · allocs | 12.4 µs · 125 | 10.2 µs · 129 | −18 % · +3 % |
+| perf `GRPCParseFileUncached` | sec/op | 310 ms | 244 ms | −21 % |
+| perf `GRPCVerifyConstraint` | sec/op | 1.86 ms | 2.05 ms | +10 % |
+| perf `ImportValues/*` (8 rows) | sec/op · B/op | | | −8…−17 % · +3.6…+5.9 % |
+| perf `IndexAddExpand/synthetic` | sec/op | 48.4 ms | 54.6 ms | +13 % (time only) |
+| perf `LookupQualified` | ns per lookup · allocs | 149.7 · 7 | 42.6 · 0 | −72 % |
+| perf `REPLLoadFile` | sec/op · B/op · allocs | 1.75 s · 621.9 Mi · 5.76 M | 1.53 s · 603.1 Mi · 5.48 M | −13 % · −3 % · −5 % |
+| perf `REPLSubmitSnippet` | sec/op · B/op | 1.43 s · 564.2 Mi | 1.05 s · 588.2 Mi | −27 % · +4.3 % |
+| perf `WorkspaceEdit/synthetic/reindex+diagnostics` | sec/op · B/op | 2.39 s · 513.5 Mi | 1.78 s · 536.4 Mi | −26 % · +4.5 % |
+| perf `BatchConstraints` | sec/op · B/op | 13.4 ms · 3.37 Mi | 15.0 ms · 3.54 Mi | +12 % · +5 % |
+| perf `Analyze/synthetic` | sec/op · B/op | 1.48 s · 490.8 Mi | 1.53 s · 514.0 Mi | +3 % · +4.7 % |
+
+`Analyze/vehicle`, the five `CompiledCalc` rows and the two stress rows
+named in [Method](#method) fail on every column and carry no figure.
+
+## The stress constellation
+
+`tests/stressmodel`, column 2 → 3, medians of six, with column 1 where it
+reads differently. Every load-side row allocates 3.3–4.9 % more bytes
+(#1478, above) and runs 4–10 % faster; the fleet rows are inside the spread.
+
+| Row | 0.11.0 | 0.11.0 rebuilt | 0.12.0 candidate | 2 → 3 |
+|---|---|---|---|---|
+| `Load/satellites=512/elements=95927` | 9.09 s · 2 486 Mi | 9.22 s · 2 507 Mi | 8.73 s · 2 603 Mi | −5.3 % · +3.8 % |
+| `Load/satellites=128` | 1.98 s | 2.17 s | 1.97 s | −9.5 % |
+| `LoadFiles/satellites=512/files=6` | 10.33 s · 2 452 Mi | 10.16 s · 2 472 Mi | 10.62 s · 2 571 Mi | +4.6 % · +4.0 % |
+| `OpenSplit/satellites=512/cold` · `/warm` | 5.27 s · 1.06 s | 4.57 s · 1.10 s | 4.29 s · 1.04 s | −6.2 % · −5.2 % |
+| `OpenSplit/satellites=32/warm` | 134 ms | 170 ms | 133 ms | −22 % |
+| `ValidateSplit/satellites=512/jobs=1` · `/jobs=8` | 11.63 s · 4.80 s | 10.66 s · 4.43 s | 10.03 s · 4.75 s | −5.9 % · +7.3 % |
+| `EditImported/satellites=512/files=6` | 10.42 s · 2 016 Mi | 10.28 s · 2 021 Mi | 9.77 s · 2 120 Mi | −5.0 % · +4.9 % |
+| `EditBeside/satellites=128` · `/512` | 4.59 · 16.7 ms | 4.08 · 15.8 ms | 4.46 · 16.5 ms | +9.3 % · +4.6 % (time only) |
+| `HydratePlane/satellites=512` | 920 ms | 995 ms | 916 ms | −7.9 % |
+| `FleetInstantiate/satellites=512/elements=3947` | 87.3 ms | 74.1 ms | 78.6 ms | +6.1 % (time only) |
+| `FleetSatisfy/satellites=512/assertions=108` | 7.43 ms · 53.1 k | 7.72 ms · 49.9 k | 7.21 ms · 47.9 k | −6.7 % · −3.9 % allocs |
+| `Satisfy/satellites=512/assertions=1536` | 150 ms · 646 k | 133 ms · 616 k | 141 ms · 590 k | +6.1 % · −4.2 % allocs |
+| `ConvertAPIJSON/satellites=128/elements=24167` | 57.9 s · 129.8 M allocs | 56.4 s · 159.8 M | 49.9 s · 132.2 M | −11.5 % · −17.2 % |
+| `ConvertAPIJSON/satellites=32` | 12.8 s | 12.1 s | 11.2 s | −7.3 % |
+
+## Whole binary
+
+`bin/sysml` from each configuration, nine interleaved runs each, medians
+of wall time and peak resident set (`/usr/bin/time`), one binary at a time
+on the measurement host. The validation reports of the Apollo 11 model are
+byte-identical across the three binaries.
+
+| Workload | 0.11.0 | 0.11.0 rebuilt | 0.12.0 candidate |
+|---|---|---|---|
+| binary size, `sysml` · `sysml-lsp` | 53.5 · 28.9 MB | 54.0 · 29.5 MB | 59.6 · 36.3 MB |
+| process floor, `-e 1` | 0.02 s · 71 MiB | 0.02 s · 71 MiB | 0.02 s · 73 MiB |
+| `examples/action-executor-demo.sysml` | 0.02 s · 73 MiB | 0.02 s · 72 MiB | 0.03 s · 75 MiB |
+| `examples/disposal-robot-demo` | 0.04 s · 80 MiB | 0.04 s · 79 MiB | 0.04 s · 81 MiB |
+| generated, 3 254 elements | 0.11 s · 104 MiB | 0.10 s · 103 MiB | 0.09 s · 106 MiB |
+| generated, 6 198 elements | 0.16 s · 117 MiB | 0.15 s · 120 MiB | 0.15 s · 140 MiB |
+| generated, 12 086 elements | 0.29 s · 161 MiB | 0.25 s · 162 MiB | 0.24 s · 193 MiB |
+| Apollo 11, 28 files | 0.31 s · 168 MiB | 0.30 s · 167 MiB | 0.29 s · 180 MiB |
+
+The floor is 2 MiB higher for a 5.6 MB larger binary; the time is the
+same or better on every workload; the resident set grows with the model,
++31 MiB at 12 086 elements. That growth is not the allocation growth of
+#1478 (a binary with `perf/typed-by-sweep` applied peaks at the same
+193 MiB): the heap the process holds at exit is 57.6 MB on 0.11.0 and
+79.7 MB on the candidate, and the 22 MB between them is the parse trees
+of the loaded file, which #1441 keeps referenced through the analysis
+(for the root namespaces an unresolved reference would be looked up by)
+where 0.11.0 dropped them once the file was accepted. Under `GOGC=25`,
+which keeps the resident set near the live heap, the three binaries peak
+at 147, 145 and 166 MiB. `perf/release-preparse-trees` lets the trees go
+and re-parses only when a reference is left unresolved: 164 MiB at
+`GOGC=100`, 152 at `GOGC=25`, with the load's time and allocations
+unchanged (the memory acceptance — three cold runs per configuration and
+a hard-cap run — is in that PR).
+
+### Export element IDs
+
+0.11.0 does not take `elementId` as a query property, so #1699's rows are
+develop before it (`0c1fd6dbd`) against the candidate, three runs each,
+`sysml <model> probe.sysml -run-query "Probe::Ids root=SatelliteNetwork"`:
+
+| Query over | develop before #1699 | 0.12.0 candidate |
+|---|---|---|
+| 6 198 elements, one query | 5.40 s · 2 242 MiB | 0.65 s · 210 MiB |
+| 12 086 elements, one query | 10.69 s · 3 483 MiB | 1.14 s · 327 MiB |
+| 12 086 elements, three queries | 29.83 s · 4 836 MiB | 1.25 s · 388 MiB |
+
+## Re-runs
+
+<!-- QUIET: filled from results/quiet after the queue drains -->
+
+## Fixes
+
+<!-- FIXES: one entry per PR with its six-round A/B, filled as each opens -->
+
+## What this record does not measure
+
+- The merges after `1c6bb1972` ([The cut point](#the-cut-point)).
+- The `sysml-lsp` server under an editor, `sysml-grpc` over a network, the
+  browser and WebAssembly builds, the Python and Node clients: the gRPC and
+  LSP rows above are in-process.
+- Wall time on another machine: every sec/op here is this host's, and the
+  runtime package's sec/op only from the quiet re-run.
+- The codegen rows (`tests/codegen` fails on every column, as recorded).
+- Models with unresolved references, the case `perf/release-preparse-trees`
+  makes parse twice; the generated and real models here all resolve.
+
+
+## Reading the rows
+
+Two rows of `tests/perf` cannot be read from the six-round table as the
+others are, on every revision alike. `Instantiate` instantiates one
+model per operation, and the first operation on a cold model is far
+heavier than the rest (it fills the runtime's memos), so a round where
+`testing` settled on one iteration reports some 100 MB/op more than a
+round that ran two; the columns did not draw the same iteration counts,
+and the figures below for that row come from runs pinned with
+`-benchtime 2x`. `ExecuteAction` executes the same action on one model
+and its bytes per operation grow linearly with the iteration count (about
+10 B per earlier iteration, the same slope on 0.11.0 and on the
+candidate), so its bytes are compared at equal iteration counts and its
+allocations per operation, which do not drift, carry the comparison.
+
+One cost was found and had already been removed: bisecting the bytes of
+`LoadModel/elements=1000` past #1478 lands on #1528 (the REPL's search
+beside a loaded file for the roots it leaves unresolved, +1.7 MB per
+load), which #1624 took off the path of a file that resolves — the
+candidate shows no bytes under that search.
+
+## The cut point
+
+The measurement began at `0c1fd6dbd`, and the candidate measured is
+`1c6bb1972`, four first-parent merges later (#1699 at `101d2f267`, then
+#1700, #1701, #1705). `develop` moved on while the suite ran; the
+first-parent merges between `1c6bb1972` and `54e590985` are **not
+measured** by any table here:
+
+| Merge | Subject | Rows it could move |
+|---|---|---|
+| #1704, #1698, #1703, #1702 | Sonar-driven refactors | none expected; `go test` surfaces |
+| #1706, #1707 | `internal/ir/view` | `internal/ir/view` and `ir/view/route` rows |
+| #1732 | connector-end element IDs in the export | `WriteAPIJSON`, `ConvertAPIJSON`, the export probe |
+| #1709 | reflective element attributes in semantics | `Lookup*`, `Analyze*`, `FeaturesOf`, the load rows |
+
+When the maintainer names the release head, the rows in the right-hand
+column are re-probed interleaved against `1c6bb1972` and this section
+is amended, as the 0.11.0 record's was.
