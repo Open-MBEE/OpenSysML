@@ -276,6 +276,34 @@ extension, and `EditResult.save(Path)` writes a one-document edit and refuses on
 adopted by hash first edits without reading documents, which the service refuses
 for a model of several, and only then with them.
 
+For notation converted to `api-json`, `withCompact(true)` writes the compact document
+(`api-json-compact/1`, see [the compact form](api-json-compact.md)) in place of the
+element array; `withOmitDerived(true)` leaves out every derived property of the metamodel
+and `withKeepDerived(List.of("qualifiedName"))` names the ones still written. These need
+the service's `convert_compact` capability, and the service refuses, as a
+`ServiceException` of `INVALID_ARGUMENT`, `omitDerived` or `keepDerived` without `compact`,
+`keepDerived` without `omitDerived` or naming a property that is not derived, and `compact`
+for any other direction. `withIncludeCheckDiagnostics(true)` (capability
+`convert_check_diagnostics`, notation sources only) reports the semantic check's
+diagnostics in the `Conversion`'s `diagnostics` beside the output, each `Diagnostic` with
+its own `severity`, so a conversion of a model with errors is told apart from one of a
+clean model.
+
+Parsing a set of documents again after an edit, `ParseOptions.withBaseModelHash(model.hash())`
+relates the parse to the previous model and the new `Model.affected()` names, in document
+order, the documents whose analysis, diagnostics or conversion may differ from it, so results
+computed for the others are kept; every document when the service could not compare the two,
+such as for a set it had not seen before. It needs the `parse_sources_affected` capability,
+and a one-document `load`/`parse` refuses the option with an `IllegalArgumentException`.
+
+```java
+Model edited =
+    connection.parseSources(documents, ParseOptions.defaults().withBaseModelHash(model.hash()));
+for (String name : edited.affected()) {
+  rerun(name);
+}
+```
+
 A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive — is **migrated,
 not converted**: `convert`/`convertFile` refuse it with a `ServiceException` of
 `INVALID_ARGUMENT` whose message says so and names `migrate`, since a migration is ledgered

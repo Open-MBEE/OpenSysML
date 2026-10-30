@@ -116,10 +116,11 @@ public final class Model {
   private final List<Symbol> roots;
   private final List<Diagnostic> parseDiagnostics;
   private final List<String> documents;
+  private final List<String> affected;
   private final Optional<String> engine;
 
   Model(Connection connection, String hash, List<Symbol> roots, List<Diagnostic> parseDiagnostics) {
-    this(connection, hash, roots, parseDiagnostics, List.of(), Optional.empty());
+    this(connection, hash, roots, parseDiagnostics, List.of(), List.of(), Optional.empty());
   }
 
   Model(
@@ -128,7 +129,17 @@ public final class Model {
       List<Symbol> roots,
       List<Diagnostic> parseDiagnostics,
       List<String> documents) {
-    this(connection, hash, roots, parseDiagnostics, documents, Optional.empty());
+    this(connection, hash, roots, parseDiagnostics, documents, List.of(), Optional.empty());
+  }
+
+  Model(
+      Connection connection,
+      String hash,
+      List<Symbol> roots,
+      List<Diagnostic> parseDiagnostics,
+      List<String> documents,
+      List<String> affected) {
+    this(connection, hash, roots, parseDiagnostics, documents, affected, Optional.empty());
   }
 
   private Model(
@@ -137,12 +148,14 @@ public final class Model {
       List<Symbol> roots,
       List<Diagnostic> parseDiagnostics,
       List<String> documents,
+      List<String> affected,
       Optional<String> engine) {
     this.connection = connection;
     this.hash = hash;
     this.roots = List.copyOf(roots);
     this.parseDiagnostics = List.copyOf(parseDiagnostics);
     this.documents = List.copyOf(documents);
+    this.affected = List.copyOf(affected);
     this.engine = engine;
   }
 
@@ -204,6 +217,19 @@ public final class Model {
    */
   public List<String> documents() {
     return documents;
+  }
+
+  /**
+   * The documents whose analysis, diagnostics or conversion may differ from the base model's, in
+   * document order and named as {@link #documents()} names them, when {@link
+   * Connection#parseSources(List, ParseOptions)} was given a {@link ParseOptions#baseModelHash()}:
+   * a caller keeps what it computed for the others. Every document when the service could not
+   * compare the two, such as for a set it had not seen before; empty for a parse without a base.
+   *
+   * @return the affected document names
+   */
+  public List<String> affected() {
+    return affected;
   }
 
   /**
@@ -279,7 +305,8 @@ public final class Model {
     if (engine.equals(EXPLORE)) {
       connection.capabilities().require(Capabilities.SCHEDULE_EXPLORE);
     }
-    return new Model(connection, hash, roots, parseDiagnostics, documents, Optional.of(engine));
+    return new Model(
+        connection, hash, roots, parseDiagnostics, documents, affected, Optional.of(engine));
   }
 
   /**
