@@ -54,6 +54,21 @@ diagnostics. `model.root` is the first document's root, `model.roots` contains
 one per document, and lookups cover the model as a whole. A service that does
 not advertise `parse_sources` raises `MissingCapabilityError`.
 
+Parsing the set again after an edit, pass the previous model's hash as
+`base_model_hash` and the new model's `affected` names the documents whose
+analysis, diagnostics or conversion may differ from the base's, so results
+computed for the others are kept:
+
+```python
+edited = parse_sources(documents, base_model_hash=model.hash)
+for name in edited.affected:
+    rerun(name)
+```
+
+Every document is named when the service cannot compare the two, such as for a
+set it has not seen before; a base it no longer holds is not an error. The
+option needs the `parse_sources_affected` capability.
+
 Notation conversion with `model.convert("sysml")` is defined for one document;
 use a graph format such as `"ttl"` or `"api-json"` for a multi-document model.
 

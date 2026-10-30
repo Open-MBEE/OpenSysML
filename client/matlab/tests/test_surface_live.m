@@ -93,6 +93,45 @@ function test_surface_live()
     assert_equal(numel(modelLegacy.libraryReferences), numel(plain.libraryReferences), 'Model.convert keeps references');
     expect_identifier(@() opensysml.convert(conn, 'api-json', 'content', 'package P;', ...
         'fromFormat', 'sysml', 'idForm', 'short'), 'opensysml:connect:invalidRequest', 'unknown id form');
+    compactSource = 'package Compact { part def A; part a : A; }';
+    compactJson = opensysml.convert(conn, 'api-json', 'content', compactSource, 'fromFormat', 'sysml', ...
+        'compact', true);
+    assert_equal(isempty(strfind(compactJson.content, 'api-json-compact/1')), false, 'compact document');
+    assert_equal(isempty(strfind(compactJson.content, '"owner"')), false, 'compact keeps derived properties');
+    trimmed = opensysml.convert(conn, 'api-json', 'content', compactSource, 'fromFormat', 'sysml', ...
+        'compact', true, 'omitDerived', true);
+    assert_equal(isempty(strfind(trimmed.content, '"owner"')), true, 'omitDerived drops owner');
+    kept = opensysml.convert(conn, 'api-json', 'content', compactSource, 'fromFormat', 'sysml', ...
+        'compact', true, 'omitDerived', true, 'keepDerived', {'owner'});
+    assert_equal(isempty(strfind(kept.content, '"owner"')), false, 'keepDerived keeps owner');
+    expect_identifier(@() opensysml.convert(conn, 'api-json', 'content', compactSource, ...
+        'fromFormat', 'sysml', 'omitDerived', true), 'opensysml:connect:invalidRequest', ...
+        'omitDerived needs compact');
+    compactModel = opensysml.parseSource(conn, compactSource, 'name', 'compact.sysml');
+    assert_equal(isempty(strfind(compactModel.convert('api-json', 'compact', true, 'omitDerived', true).content, ...
+        '"owner"')), true, 'Model.convert forwards the compact options');
+    brokenSource = 'package Broken { part def A; part a : Missing; }';
+    plainBroken = opensysml.convert(conn, 'api-json', 'content', brokenSource, 'fromFormat', 'sysml');
+    checkedBroken = opensysml.convert(conn, 'api-json', 'content', brokenSource, 'fromFormat', 'sysml', ...
+        'includeCheckDiagnostics', true);
+    assert_equal(isempty(plainBroken.diagnostics), true, 'no check diagnostics by default');
+    assert_equal(isempty(checkedBroken.diagnostics), false, 'check diagnostics on request');
+    severities = cellfun(@(d) d.severity, checkedBroken.diagnostics, 'UniformOutput', false);
+    assert_equal(any(strcmp(severities, 'error')), true, 'check diagnostics keep their severity');
+    checkedClean = opensysml.convert(conn, 'api-json', 'content', compactSource, 'fromFormat', 'sysml', ...
+        'includeCheckDiagnostics', true);
+    assert_equal(isempty(checkedClean.diagnostics), true, 'a clean model checks clean');
+    affectedLib = {'octave-affected-lib.sysml', 'package AffectedLib { part def Engine; }'};
+    affectedTop = 'package AffectedTop { private import AffectedLib::*; part engine : Engine; }';
+    opensysml.parseSources(conn, {affectedLib, {'octave-affected-top.sysml', [affectedTop ' // seed']}});
+    affectedBase = opensysml.parseSources(conn, {affectedLib, {'octave-affected-top.sysml', affectedTop}});
+    assert_equal(isempty(affectedBase.affected), true, 'no affected documents without a base');
+    unchanged = opensysml.parseSources(conn, {affectedLib, {'octave-affected-top.sysml', affectedTop}}, ...
+        'baseModelHash', affectedBase.hash);
+    assert_equal(isempty(unchanged.affected), true, 'an unchanged re-parse affects nothing');
+    edited = opensysml.parseSources(conn, {affectedLib, {'octave-affected-top.sysml', ...
+        strrep(affectedTop, 'part engine', 'part motor')}}, 'baseModelHash', affectedBase.hash);
+    assert_equal(edited.affected, {'octave-affected-top.sysml'}, 'an edit names its document');
     vehicle = fullfile(fixtures, 'vehicle.xmi');
     assert_error(@() opensysml.convert(conn, 'sysml', 'filePath', vehicle), ...
         'opensysml:argument', 'convert refuses a v1 model');

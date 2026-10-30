@@ -59,7 +59,12 @@ model. `parseFile`, `parseSource`, and `parseSources` accept `language`, `strict
 `strictConformance`, and `raiseForErrors` name-value options as applicable. `strict` is an alias
 for `strictConformance`; specifying both requires the same logical value. The strict-conformance
 option requires the `strict_conformance` capability. `raiseForErrors` returns a usable model or
-raises a typed model diagnostic.
+raises a typed model diagnostic. `parseSources(conn, docs, 'baseModelHash', model.hash)` relates
+the parse to a previous model of the same documents and the new model's `affected` property
+names, in document order, the documents whose analysis, diagnostics or conversion may differ from
+it, so results computed for the others are kept; every document when the service could not
+compare the two, such as for a set it had not seen before (needs the `parse_sources_affected`
+capability; empty for a parse without a base).
 
 A `Model` carries `connection`, `hash`, `diagnostics`, `roots`, `root`, `documents`, and
 `sourcePath`. Its `errors()` method returns error-severity diagnostics, `ok()` indicates whether
@@ -188,7 +193,16 @@ saved = model.save('model.ttl');
 `filePath`, `content`, or `modelHash`. Optional fields are `fromFormat`,
 `tolerateSyntaxErrors`, `idForm` (`'qualified'`, the default, or `'uuid'`, how a graph spells
 its derived ids) and `includeLibraryStubs` (restore the pre-0.11.0 library stubs in API JSON;
-needs the `convert_library_stubs` capability). `Model.convert(format, 'tolerateSyntaxErrors', true)` uses the parsed
+needs the `convert_library_stubs` capability). For notation converted to API JSON, `compact`
+writes the compact document (`api-json-compact/1`, see [the compact form](api-json-compact.md)),
+`omitDerived` leaves out every derived property of the metamodel and `keepDerived` (a cell
+array of names) names the ones still written — all three need the `convert_compact`
+capability, and the service refuses `omitDerived` or `keepDerived` without `compact` with
+`opensysml:connect:invalidRequest`; `includeCheckDiagnostics` (needs
+`convert_check_diagnostics`, notation sources only) reports the semantic check's diagnostics
+in the `Conversion`'s `diagnostics`, each with its `severity`, so a conversion of a model with
+errors is told apart from one of a clean model. `Model.convert` and `Model.save` forward
+these options. `Model.convert(format, 'tolerateSyntaxErrors', true)` uses the parsed
 model; `toSysml`, `toTurtle`, and `toApiJson` select common output formats. `Model.save(path,
 ...)` infers format from the path unless `format` is supplied and writes the returned content.
 `Conversion` has `content`, `fromFormat`, `toFormat`, `diagnostics`, `experimental`,

@@ -287,6 +287,7 @@ nav:
       - Airflow provider: reference/airflow-provider.md
       - Diagnostics: reference/diagnostics.md
       - Client libraries: reference/clients.md
+      - Client feature parity: reference/client-parity.md
       - Go packages: reference/api.md
       - Python API: reference/python-api.md
       - Node API: reference/node-api.md

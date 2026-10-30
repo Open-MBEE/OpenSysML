@@ -13,8 +13,13 @@ function model = parseSources(conn, documents, varargin)
         conn.require('strict_conformance');
         capabilities{end+1} = 'strict_conformance';
     end
+    if ~isempty(options.baseModelHash)
+        conn.require('parse_sources_affected');
+        capabilities{end+1} = 'parse_sources_affected';
+    end
     request = struct('documents', {sources});
     if options.strictConformance, request.strictConformance = true; end
+    if ~isempty(options.baseModelHash), request.baseModelHash = options.baseModelHash; end
     answer = opensysml.call(conn, 'ParseSources', request, capabilities);
     opensysml.internal.checkError(answer, 'ParseSources');
     diagnostics = decodeDiagnostics(answer);
@@ -24,7 +29,9 @@ function model = parseSources(conn, documents, varargin)
         opensysml.internal.raise('opensysml:connect:service', ...
             'ParseSources answered without root symbols');
     end
-    model = opensysml.Model(conn, answer.modelHash, diagnostics, roots, names, '');
+    affected = fieldOr(answer, 'affected', {});
+    if ischar(affected), affected = {affected}; end
+    model = opensysml.Model(conn, answer.modelHash, diagnostics, roots, names, '', affected);
     if options.raiseForErrors, model.raiseForErrors(); end
 end
 
@@ -77,7 +84,8 @@ function [sources, names, hasLanguage] = sourceDocuments(documents, defaultLangu
 end
 
 function options = parseOptions(varargin)
-    options = struct('language', [], 'strictConformance', false, 'raiseForErrors', false);
+    options = struct('language', [], 'strictConformance', false, 'raiseForErrors', false, ...
+        'baseModelHash', '');
     strict = [];
     strictConformance = [];
     if mod(numel(varargin), 2) ~= 0
@@ -94,6 +102,8 @@ function options = parseOptions(varargin)
                 strictConformance = logicalOption(varargin{i+1}, 'strictConformance');
             case 'raiseForErrors'
                 options.raiseForErrors = logicalOption(varargin{i+1}, 'raiseForErrors');
+            case 'baseModelHash'
+                options.baseModelHash = textOption(varargin{i+1}, 'baseModelHash');
             otherwise
                 opensysml.internal.raise('opensysml:argument', ...
                     sprintf('parseSources has no option ''%s''', key));
@@ -115,6 +125,15 @@ function language = validateLanguage(language)
         opensysml.internal.raise('opensysml:argument', ...
             'language must be ''sysml'' or ''kerml''');
     end
+end
+
+function value = textOption(raw, name)
+    if isa(raw, 'string') && isscalar(raw), raw = char(raw); end
+    if ~ischar(raw)
+        opensysml.internal.raise('opensysml:argument', ...
+            sprintf('parseSources %s must be text', name));
+    end
+    value = raw;
 end
 
 function value = logicalOption(raw, name)

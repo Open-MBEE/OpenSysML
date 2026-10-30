@@ -57,8 +57,10 @@ class Model:
         self._hash = pb_response.model_hash
         if isinstance(pb_response, sysml_pb2.ParseSourcesResponse):
             pb_roots = list(pb_response.roots)
+            self._affected = tuple(pb_response.affected)
         else:
             pb_roots = [pb_response.root]
+            self._affected = ()
         if not pb_roots:
             raise ServiceError("the service answered the parse with no root symbol")
         self._roots = tuple(Symbol(pb_root, client, self._hash) for pb_root in pb_roots)
@@ -108,6 +110,19 @@ class Model:
         inline content has no name and this is empty.
         """
         return self._documents
+
+    @property
+    def affected(self):
+        """Names of the documents whose results may differ from the base model's.
+
+        Filled when :meth:`Connection.parse_sources` was given a
+        ``base_model_hash``: the documents, in document order and named as in
+        :attr:`documents`, whose analysis, diagnostics or conversion may differ
+        from that model's, so a caller keeps what it computed for the others.
+        Every document when the service could not compare the two; empty for a
+        parse without a base.
+        """
+        return self._affected
     
     @property
     def diagnostics(self):

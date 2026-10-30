@@ -5,13 +5,14 @@ use std::collections::{BTreeMap, HashMap};
 use crate::capabilities::{
     upgrade_remedy, CAPABILITY_ACTION_TRACE, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK,
     CAPABILITY_COMPARE_RESULTS, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
-    CAPABILITY_CONVERT_DOCUMENTS, CAPABILITY_CONVERT_LIBRARY_STUBS, CAPABILITY_DOCUMENT_QUERY,
-    CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS,
-    CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE,
-    CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
-    CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER,
-    CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN,
-    CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
+    CAPABILITY_CONVERT_CHECK_DIAGNOSTICS, CAPABILITY_CONVERT_COMPACT, CAPABILITY_CONVERT_DOCUMENTS,
+    CAPABILITY_CONVERT_LIBRARY_STUBS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
+    CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES,
+    CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE,
+    CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE,
+    CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PARSE_SOURCES_AFFECTED,
+    CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES,
+    CAPABILITY_RECORD_RUN, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_RUNS, CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK, CAPABILITY_SET_VALUES,
     CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES,
@@ -63,12 +64,17 @@ const VALUE_CAPABILITIES: &[&str] = &[
 ];
 
 /// Options for parsing several documents as one model.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SourcesOptions {
     /// Refuse a model the service reported errors for, as [`Error::ModelErrors`].
     pub strict: bool,
     /// Require strict SysML v2 conformance.
     pub strict_conformance: bool,
+    /// The [`Model::hash`] of a model of the same documents the caller holds results of,
+    /// typically the previous `parse_sources` answer: the new model's [`Model::affected`] then
+    /// names the documents whose results may differ from it. Empty asks for nothing. Needs the
+    /// `parse_sources_affected` capability.
+    pub base_model_hash: String,
 }
 
 /// How to run an action or state machine.
@@ -309,13 +315,16 @@ impl Connection {
         if options.strict_conformance {
             capabilities.push(CAPABILITY_STRICT_CONFORMANCE);
         }
+        if !options.base_model_hash.is_empty() {
+            capabilities.push(CAPABILITY_PARSE_SOURCES_AFFECTED);
+        }
         self.require_all(&capabilities)?;
         let response: wire::ParseSourcesResponse = self.gated_rpc(
             "ParseSources",
             wire::ParseSourcesRequest {
                 documents: encoded,
                 strict_conformance: options.strict_conformance,
-                base_model_hash: String::new(),
+                base_model_hash: options.base_model_hash.clone(),
             },
             &capabilities,
         )?;
@@ -367,6 +376,12 @@ impl Connection {
         }
         if options.include_library_stubs {
             required.push(CAPABILITY_CONVERT_LIBRARY_STUBS);
+        }
+        if options.compact || options.omit_derived || !options.keep_derived.is_empty() {
+            required.push(CAPABILITY_CONVERT_COMPACT);
+        }
+        if options.include_check_diagnostics {
+            required.push(CAPABILITY_CONVERT_CHECK_DIAGNOSTICS);
         }
         self.require_all(&required)?;
         let response =
