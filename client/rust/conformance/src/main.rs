@@ -611,6 +611,7 @@ impl Runner {
         }
         let options = SourcesOptions {
             strict_conformance: request.strict_conformance,
+            base_model_hash: request.base_model_hash,
             ..Default::default()
         };
         match self.connection.parse_sources(&documents, &options) {
@@ -653,6 +654,10 @@ impl Runner {
             id_form,
             documents: request.documents,
             include_library_stubs: request.include_library_stubs,
+            compact: request.compact,
+            omit_derived: request.omit_derived,
+            keep_derived: request.keep_derived,
+            include_check_diagnostics: request.include_check_diagnostics,
         };
         match self
             .connection
