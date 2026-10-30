@@ -344,7 +344,7 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(d.ValueIsDefault, symbols.ModDefault)
 		set(d.Value != nil, symbols.ModValued)
 		set(d.IsNegated, symbols.ModNegated)
-		set(d.PrefixKeyword == "assert", symbols.ModAssert)
+		set(d.Keyword == "assert" || d.PrefixKeyword == "assert", symbols.ModAssert)
 		set(d.DeclaresRequirement, symbols.ModDeclaresRequirement)
 		set(d.IsAll, symbols.ModAll)
 		set(d.IsChain, symbols.ModChain)

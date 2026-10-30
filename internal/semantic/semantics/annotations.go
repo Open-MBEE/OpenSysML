@@ -1060,8 +1060,9 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	return m.sysmlMetaclass(sysmlMetaclassName(sym))
 }
 
-// isAssertedConstraint reports a constraint usage written `assert constraint`
-// (SysML.xtext AssertConstraintUsage), from its declaration or its record.
+// isAssertedConstraint reports a constraint usage written `assert constraint c`
+// or the shorthand `assert c` (SysML.xtext AssertConstraintUsage), from its
+// declaration or its record.
 func isAssertedConstraint(sym *symbols.Symbol) bool {
 	if sym.Kind != symbols.SymbolConstraintUsage {
 		return false
@@ -1070,7 +1071,12 @@ func isAssertedConstraint(sym *symbols.Symbol) bool {
 		return sym.Facts.Modifiers.Has(symbols.ModAssert)
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && usage.PrefixKeyword == "assert"
+	return ok && usageAsserts(usage)
+}
+
+// usageAsserts is the `assert` of either spelling of an asserted constraint.
+func usageAsserts(usage *ast.Usage) bool {
+	return usage.Keyword == "assert" || usage.PrefixKeyword == "assert"
 }
 
 // sysmlMetaclassName is the SysML metaclass of sym's declaration: by its symbol

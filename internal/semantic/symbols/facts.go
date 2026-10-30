@@ -438,7 +438,7 @@ const (
 	ModNamesNothing
 	// ModValued marks a usage whose declaration binds it a value (`= v`, `default v`).
 	ModValued
-	// ModAssert marks a constraint usage written `assert constraint` (an AssertConstraintUsage).
+	// ModAssert marks a constraint usage written `assert constraint c` or `assert c` (an AssertConstraintUsage).
 	ModAssert
 	// ModMayTimeVary marks a SysML usage whose derived Usage::mayTimeVary holds (SysML v2 §8.3.6.4).
 	ModMayTimeVary

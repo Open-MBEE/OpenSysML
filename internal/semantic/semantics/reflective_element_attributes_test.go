@@ -71,25 +71,46 @@ func TestReflectiveRequirementReqIdIsTheDeclaredShortName(t *testing.T) {
 	}
 }
 
-// TestReflectiveInvariantIsNegated: an `assert constraint` is an
-// AssertConstraintUsage (an Invariant) whose isNegated is its `not`; a plain
-// constraint usage is a ConstraintUsage and answers nothing.
+// TestReflectiveInvariantIsNegated: an `assert constraint` and the shorthand
+// `assert c` are AssertConstraintUsages (Invariants) whose isNegated is their
+// `not`; a plain constraint usage is a ConstraintUsage and answers nothing.
 func TestReflectiveInvariantIsNegated(t *testing.T) {
 	const src = `package P {
 		constraint def C;
+		constraint c : C;
 		assert not constraint negated : C;
 		assert constraint asserted : C;
+		assert not c;
+		assert c;
 		constraint plain : C;
 	}`
 	for _, fixture := range reflectiveFixtures(t, "negated.sysml", source.KindSysML, src) {
-		for path, want := range map[string]bool{"P::negated": true, "P::asserted": false} {
-			sym := nestedSym(t, fixture.root, path)
+		assertions := map[string]*symbols.Symbol{
+			"P::negated":  nestedSym(t, fixture.root, "P::negated"),
+			"P::asserted": nestedSym(t, fixture.root, "P::asserted"),
+		}
+		// The shorthands are anonymous members of P, in textual order.
+		var shorthands []*symbols.Symbol
+		nestedSym(t, fixture.root, "P").Scope.ForEachAnonymousMember(func(member *symbols.Symbol) bool {
+			if member.Kind == symbols.SymbolConstraintUsage {
+				shorthands = append(shorthands, member)
+			}
+			return true
+		})
+		if len(shorthands) != 2 {
+			t.Fatalf("P has %d anonymous constraint usages, want the two shorthands", len(shorthands))
+		}
+		assertions["assert not c"], assertions["assert c"] = shorthands[0], shorthands[1]
+		for name, want := range map[string]bool{
+			"P::negated": true, "P::asserted": false, "assert not c": true, "assert c": false,
+		} {
+			sym := assertions[name]
 			if meta := fixture.model.MetaclassOf(sym); meta == nil || meta.Name != "AssertConstraintUsage" {
-				t.Errorf("%s is a %v, want AssertConstraintUsage", path, meta)
+				t.Errorf("%s is a %v, want AssertConstraintUsage", name, meta)
 			}
 			got, ok := fixture.model.ReflectiveFeatureValue(sym, "isNegated")
 			if !ok || got.Kind != symbols.FilterValueBool || got.Bool != want {
-				t.Errorf("%s.isNegated = %v (present %t), want %t", path, got, ok, want)
+				t.Errorf("%s.isNegated = %v (present %t), want %t", name, got, ok, want)
 			}
 		}
 		plain := nestedSym(t, fixture.root, "P::plain")
