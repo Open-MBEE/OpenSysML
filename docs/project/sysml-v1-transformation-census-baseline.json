@@ -17310,7 +17310,7 @@
         "filter"
       ],
       "ocl": "sha256:e7a68fcf4048a864f41348374cb836a02d67bea8d24358890e7dec88d9757769",
-      "status": "faithful",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:informationFlow",
         "internal/translate/migrate/migrate.go:itemFlow",
