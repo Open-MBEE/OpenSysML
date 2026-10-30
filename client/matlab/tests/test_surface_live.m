@@ -84,6 +84,13 @@ function test_surface_live()
         'fromFormat', 'sysml', 'idForm', 'uuid');
     assert_equal(isempty(strfind(qualifiedIds.content, '"P__a"')), false, 'qualified ids by default');
     assert_equal(isempty(strfind(uuidIds.content, '"P__a"')), true, 'uuid ids on request');
+    idModel = opensysml.parseSource(conn, 'package P { part def A; part a : A; }', 'name', 'ids.sysml');
+    assert_equal(isempty(strfind(idModel.convert('api-json', 'idForm', 'uuid').content, '"P__a"')), ...
+        true, 'Model.convert forwards idForm');
+    libraryModel = opensysml.parseSource(conn, librarySource, 'name', 'library.sysml');
+    modelLegacy = libraryModel.convert('api-json', 'includeLibraryStubs', true);
+    assert_equal(isempty(strfind(modelLegacy.content, second.id)), false, 'Model.convert forwards library stubs');
+    assert_equal(numel(modelLegacy.libraryReferences), numel(plain.libraryReferences), 'Model.convert keeps references');
     expect_identifier(@() opensysml.convert(conn, 'api-json', 'content', 'package P;', ...
         'fromFormat', 'sysml', 'idForm', 'short'), 'opensysml:connect:invalidRequest', 'unknown id form');
     vehicle = fullfile(fixtures, 'vehicle.xmi');
