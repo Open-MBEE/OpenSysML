@@ -155,6 +155,7 @@ knowing its members.
 | `ServiceError` | the service could not be reached, started, or answered nothing usable |
 | `ServiceUnavailableError` | the service was unreachable, refused the stream, or died before answering; in a browser also a fetch that never answered (dead address, CORS refusal, mid-call loss), which arrives as `UNKNOWN` |
 | `ServiceStartError` | a private child failed to start, or died while it was needed |
+| `AuthenticationError` | the service refused the call's credentials: no bearer token, or not the one it expects (`UNAUTHENTICATED`) |
 | `StaleServiceError` | the running service reports another version than `version` asked for |
 | `ClosedConnectionError` | the connection was closed and cannot be used again |
 | `ParseError` | a file could not be read, or its content did not parse; carries `diagnostics` |
@@ -245,6 +246,9 @@ Beside the model reads above, the client covers every RPC the service offers:
   file or conversion out in `sysml`, `kerml`, `turtle` or `api-json`; a SysML v1
   model (`xmi`, `uml`, `mdzip`, by `fromFormat` or by extension) is refused with an
   `InvalidRequestError` naming `migrate`, since it is migrated, not converted;
+  `idForm` (`"qualified"`, the default, or `"uuid"`) chooses how a graph spells
+  its derived ids and `includeLibraryStubs` restores the pre-0.11.0 ownerless
+  library stubs in API JSON;
 - **`connection.migrate`** migrates a SysML v1 model from a `path` or inline
   `content` bytes to `sysml` or `ttl`, with `fromFormat`, `report`, `results`,
   `layoutPath`/`layoutContent`, `imageBaseUrl` and `strict` as the command's

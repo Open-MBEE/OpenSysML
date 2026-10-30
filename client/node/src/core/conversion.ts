@@ -81,9 +81,19 @@ export function formatOfPath(path: string): string {
 }
 
 /** Options for writing a model through Convert. */
+/**
+ * How derived element ids are spelled when a graph (Turtle or API JSON) is
+ * written: `"qualified"` (the default) derives each from the element's
+ * qualified name; `"uuid"` writes name-based uuids under each root package, the
+ * library convention. Declared ids are unchanged either way.
+ */
+export type IdForm = "qualified" | "uuid";
+
 export interface ConvertOptions {
   fromFormat?: string;
   tolerateSyntaxErrors?: boolean;
+  /** Spelling of derived ids in a graph. Default `"qualified"`; refused for a notation target. */
+  idForm?: IdForm;
   /** Restore pre-0.11.0 ownerless library stubs in API JSON. Default off. */
   includeLibraryStubs?: boolean;
 }
