@@ -1,10 +1,20 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { MASS_ROLLUP_SCENE, SCENES, STACK_SCENE, chooseScene, forcedSceneId, requiredVariant, variantChain } from "./scene";
+import {
+  MASS_ROLLUP_SCENE,
+  MISSION_PHASES_SCENE,
+  SCENES,
+  STACK_SCENE,
+  chooseScene,
+  forcedSceneId,
+  programOf,
+  requiredVariant,
+  variantChain,
+} from "./scene";
 
 test("the scenes declare distinct ids, controls, programs and snapshots", () => {
-  assert.deepEqual(SCENES.map(({ id }) => id), ["stack", "mass"]);
+  assert.deepEqual(SCENES.map(({ id }) => id), ["stack", "mass", "phases"]);
   assert.equal(STACK_SCENE.program.kind, "journey");
   assert.deepEqual(STACK_SCENE.controls, ["run", "edit", "debug", "download"]);
   assert.equal(MASS_ROLLUP_SCENE.program.kind, "rollup");
@@ -12,6 +22,9 @@ test("the scenes declare distinct ids, controls, programs and snapshots", () => 
   assert.equal(STACK_SCENE.form.kind, "diagram");
   assert.equal(MASS_ROLLUP_SCENE.form.kind, "table", "the roll-up is listed, not drawn as nested boxes");
   assert.equal(MASS_ROLLUP_SCENE.variants[0]?.rootSymbol, "MassRollup::saturnVWithIU");
+  assert.equal(MISSION_PHASES_SCENE.program.kind, "clock");
+  assert.equal(MISSION_PHASES_SCENE.view, "#state:MissionSequence::MissionPhases");
+  assert.deepEqual(MISSION_PHASES_SCENE.controls, ["run", "edit", "debug", "download"]);
   for (const scene of SCENES) {
     assert.ok(scene.snapshot.hash.length > 0, `${scene.id} has a snapshot hash`);
     assert.ok(Array.isArray(scene.snapshot.instances) && scene.snapshot.instances.length > 0, `${scene.id} has instances`);
@@ -36,6 +49,21 @@ test("the roll-up's second variant builds on the first, and the chain unwinds th
   assert.deepEqual(variantChain(scene, scene.variants[1]).map(({ id }) => id), ["iu-mass", "iu"]);
 });
 
+test("the clocked scene's variant keeps the root and the view but advances the clock further", () => {
+  const [recovery] = MISSION_PHASES_SCENE.variants;
+  assert.equal(recovery?.rootSymbol, MISSION_PHASES_SCENE.rootSymbol);
+  assert.equal(recovery?.view, MISSION_PHASES_SCENE.view);
+  assert.deepEqual(programOf(MISSION_PHASES_SCENE, undefined), {
+    kind: "clock", symbol: "MissionSequence::MissionPhases", performer: "MissionSequence::mission", advance: 400000,
+  });
+  assert.deepEqual(programOf(MISSION_PHASES_SCENE, recovery), {
+    kind: "clock", symbol: "MissionSequence::MissionPhases", performer: "MissionSequence::mission", advance: 800000,
+  });
+  const [iu, valued] = MASS_ROLLUP_SCENE.variants;
+  assert.equal(programOf(MASS_ROLLUP_SCENE, valued), MASS_ROLLUP_SCENE.program, "a variant without a program runs the scene's");
+  assert.equal(programOf(MASS_ROLLUP_SCENE, iu), MASS_ROLLUP_SCENE.program);
+});
+
 test("forcedSceneId reads the scene from the query or the fragment", () => {
   assert.equal(forcedSceneId(new URL("https://example.test/")), undefined);
   assert.equal(forcedSceneId(new URL("https://example.test/?scene=mass")), "mass");
@@ -54,17 +82,17 @@ test("chooseScene honours a forced scene and falls back to the random draw", () 
   assert.equal(chooseScene(SCENES, new URL("https://example.test/?scene=nonesuch"), () => 0), STACK_SCENE);
   assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 0), STACK_SCENE);
   assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 0.5), MASS_ROLLUP_SCENE);
-  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 0.999999), MASS_ROLLUP_SCENE);
-  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 1), MASS_ROLLUP_SCENE);
+  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 0.999999), MISSION_PHASES_SCENE);
+  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 1), MISSION_PHASES_SCENE);
   assert.throws(() => chooseScene([], new URL("https://example.test/")), /no scene/u);
 });
 
 test("chooseScene draws each scene in proportion to the draw", () => {
   const counts = new Map<string, number>();
-  const draws = 1000;
+  const draws = 999;
   for (let i = 0; i < draws; i++) {
     const scene = chooseScene(SCENES, new URL("https://example.test/"), () => i / draws);
     counts.set(scene.id, (counts.get(scene.id) ?? 0) + 1);
   }
-  assert.deepEqual([...counts.entries()], [["stack", draws / 2], ["mass", draws / 2]]);
+  assert.deepEqual([...counts.entries()], [["stack", draws / 3], ["mass", draws / 3], ["phases", draws / 3]]);
 });

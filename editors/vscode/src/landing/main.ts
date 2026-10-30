@@ -23,7 +23,9 @@ import { connectModule, moduleUrls } from "./connect";
 import {
   debugSteps,
   journey,
+  runClock,
   runJourney,
+  stateIdOf,
   type DebugStep,
   type JourneyRun,
   type LandingModel,
@@ -32,8 +34,8 @@ import {
 import { carried, obstacles, resettle } from "./carry";
 import { download, exportFrame, exportSvg, rasterSize, rasterize } from "./export";
 import { quantityText } from "./present";
-import { SCENES, STACK_SCENE, chooseScene, type Scene, type SceneDiagram } from "./scene";
-import { message, mountShell, type Mounted, type MountOptions } from "./shell";
+import { SCENES, STACK_SCENE, chooseScene, type Scene, type SceneClock, type SceneDiagram } from "./scene";
+import { message, mountShell, shortName, type Mounted, type MountOptions } from "./shell";
 import { mountTable } from "./table";
 import { wireTabs } from "./tabs";
 import { ZOOM_STEP, pannedView, pinchedView, refittedView, zoomOf, zoomedView, type View } from "./zoom";
@@ -135,6 +137,10 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
   const queueEl = debugPanel.querySelector<HTMLElement>("[data-osml-debug-queue]")!;
   const traceEl = debugPanel.querySelector<HTMLOListElement>("[data-osml-debug-trace]")!;
   const journeyProgram = scene.program.kind === "journey" ? scene.program : undefined;
+  // A clocked run takes no events and makes no free choices: the controls for those are hidden.
+  for (const control of debugPanel.querySelectorAll<HTMLElement>("[data-osml-debug-events]")) {
+    control.hidden = journeyProgram === undefined;
+  }
   debugBtn.setAttribute("aria-expanded", "false");
   debugBtn.textContent = "Debug the run";
   debugPanel.hidden = true;
@@ -196,7 +202,7 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
   let token: SVGCircleElement | undefined;
 
   const partOf = (id: string): LandingPart | undefined => [...model.parts.values()].find((part) => part.id === id);
-  const idOf = (feature: string): string | undefined => model.parts.get(feature)?.id;
+  const idOf = (state: string): string | undefined => stateIdOf(model, state);
   // projects is the parts drawn at the top level, which are the ones a visitor can move.
   const projects = (): LandingPart[] => [...model.parts.values()].filter((part) => part.owner === undefined);
 
@@ -1068,6 +1074,12 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
         if (!current) {
           return;
         }
+        const program = shell.program;
+        if (program.kind === "clock") {
+          await runClocked(program, current);
+          ran = true;
+          return;
+        }
         const picked = seed === undefined || seedPicked;
         if (picked) {
           seed = randomSeed();
@@ -1109,9 +1121,53 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
     })();
   });
 
+  const secondsText = (seconds: number): string => `${seconds.toLocaleString("en-US")} s`;
+
+  // runClocked performs the machine on the clock and replays the trace the engine recorded:
+  // each state lit as its entry record comes, the token on each transition, the status
+  // line reading the clock from the records.
+  async function runClocked(program: SceneClock, current: LandingModel): Promise<void> {
+    const started = performance.now();
+    const result = await runClock(await engine(), program, current);
+    const ms = Math.max(1, Math.round(performance.now() - started));
+    run = result;
+    runSeed = seed;
+    steps = debugSteps(result.trace);
+    fillTrace();
+    if (result.error !== undefined) {
+      throw new Error(result.error);
+    }
+    const machine = shortName(program.symbol);
+    const path = result.visited.map(stateLabel).join(" → ");
+    const ran = `ExecuteState ran ${machine} on ${shortName(program.performer)} for ${secondsText(program.advance)} in ${ms} ms: ${path}`;
+    status(`${ran}.`);
+    runBtn.textContent = "▶ Run it again";
+    for (let index = 0; index < steps.length && !signal.aborted; index += 1) {
+      const step = steps[index];
+      const clock = step.record.time === undefined ? "" : `t = ${quantityText(step.record.time)} · `;
+      status(`${clock}${step.record.text}`);
+      await showStep(index, !reduceMotion.matches);
+      await delay(reduceMotion.matches ? 250 : 400);
+    }
+    if (signal.aborted) {
+      return;
+    }
+    const last = result.visited[result.visited.length - 1];
+    const stopped = result.finalTime === undefined ? "" : ` The clock stopped at t = ${secondsText(result.finalTime)}`;
+    const final = last === undefined ? undefined : model.machine?.states.get(last);
+    const reached = steps.filter((step) => step.edge?.to === last && step.record.time !== undefined).pop();
+    const ending =
+      final?.kind === "final"
+        ? `; the machine completed when a transition reached ${stateLabel(last)}${reached ? ` at t = ${quantityText(reached.record.time!)}` : ""}.`
+        : last === undefined
+          ? "."
+          : ` with the machine still in ${stateLabel(last)}.`;
+    status(`${ran}.${stopped}${ending}`);
+  }
+
   // ---- debugging the model ----
-  // Every change re-runs ModelJourney from the start on the engine with all the events
-  // sent so far; the panel then steps through that run's trace record by record.
+  // Every change re-runs the program from the start on the engine, a journey with all the
+  // events sent so far; the panel then steps through that run's trace record by record.
 
   const journeyEvents: readonly string[] = journeyProgram?.events ?? [];
   let sent: string[] = [...journeyEvents];
@@ -1134,10 +1190,11 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
 
   function recordText(step: DebugStep): string {
     const { record } = step;
+    const at = record.time === undefined ? "" : `t = ${quantityText(record.time)} · `;
     if (step.ignored) {
-      return `${record.text}: ignored, no transition out of ${stateLabel(step.state)} accepts it`;
+      return `${at}${record.text}: ignored, no transition out of ${stateLabel(step.state)} accepts it`;
     }
-    return record.text;
+    return `${at}${record.text}`;
   }
 
   function fillTrace(): void {
@@ -1198,7 +1255,9 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
     const position = steps.length === 0 ? "no records" : `record ${cursor + 1} of ${steps.length}`;
     const where = step === undefined ? "Not started" : `In ${stateLabel(step.state)}`;
     const choice = step?.record.kind === "choice" ? `, chose ${step.record.taken ?? "?"}` : "";
-    nowEl.textContent = `${where}${choice} · ${position} · ${accepted} of ${sent.length} events taken`;
+    const clock = step?.record.time === undefined ? "" : ` · t = ${quantityText(step.record.time)}`;
+    const taken = journeyProgram === undefined ? "" : ` · ${accepted} of ${sent.length} events taken`;
+    nowEl.textContent = `${where}${choice}${clock} · ${position}${taken}`;
     syncDebugControls();
     if (!animated || liveEdge === undefined || reduceMotion.matches || !step?.edge) {
       dropToken();
@@ -1229,15 +1288,22 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
       // This run uses the latest model, including one its own read adopted.
       rerunStale = false;
       const started = performance.now();
-      run = await runJourney(client, scene, current, sent, seed);
+      const program = shell.program;
+      const machine = shortName(program.kind === "rollup" ? scene.rootSymbol : program.symbol);
+      run = program.kind === "clock"
+        ? await runClock(client, program, current)
+        : await runJourney(client, scene, current, sent, seed);
       runSeed = seed;
       steps = debugSteps(run.trace);
       const ms = Math.max(1, Math.round(performance.now() - started));
       const schedule = seed === undefined ? "the default schedule" : `seed ${seed}`;
+      const over = program.kind === "clock"
+        ? `on ${shortName(program.performer)} for ${secondsText(program.advance)}`
+        : `on ${sent.length} events under ${schedule}`;
       status(
         run.error
           ? `ExecuteState failed after ${steps.length} trace records: ${run.error}`
-          : `ExecuteState ran ModelJourney on ${sent.length} events under ${schedule} in ${ms} ms: ${steps.length} trace records.`,
+          : `ExecuteState ran ${machine} ${over} in ${ms} ms: ${steps.length} trace records.`,
         run.error !== undefined,
       );
       fillTrace();

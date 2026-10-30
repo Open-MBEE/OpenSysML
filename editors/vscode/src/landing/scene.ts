@@ -1,7 +1,8 @@
 import type { RenderResult } from "../protocol";
 import type { LandingModel, LandingPart } from "./model";
-import { presentedStack, stackTone } from "./present";
+import { presentedPhases, presentedStack, stackTone } from "./present";
 import mass from "./mass.json";
+import phases from "./phases.json";
 import stack from "./stack.json";
 
 /** A scene whose Run executes a state machine and animates the states it visits. */
@@ -20,7 +21,18 @@ export interface SceneRollup {
   feature: string;
 }
 
-export type SceneProgram = SceneJourney | SceneRollup;
+/** A scene whose Run performs a state machine on the clock and animates the trace it records. */
+export interface SceneClock {
+  kind: "clock";
+  /** The state machine ExecuteState runs: `MissionSequence::MissionPhases`. */
+  symbol: string;
+  /** The object performing it, which exhibits the machine: `MissionSequence::mission`. */
+  performer: string;
+  /** The simulated seconds the clock is advanced by after the machine starts. */
+  advance: number;
+}
+
+export type SceneProgram = SceneJourney | SceneRollup | SceneClock;
 
 /** The hero's fill for a box, one of the three the page defines; a box with none is drawn plain. */
 export type SceneTone = "primary" | "secondary" | "accent";
@@ -61,6 +73,8 @@ export interface SceneVariant {
   hint: string;
   /** The variant this one builds on: its toggle is offered while that one is on, and switching it off returns there. */
   requires?: string;
+  /** The program Run executes while the variant is on; absent, the scene's own. */
+  program?: SceneProgram;
 }
 
 /** What the Go landing test pins for a scene: the first paint before the module loads. */
@@ -149,7 +163,32 @@ export const MASS_ROLLUP_SCENE: Scene = {
   ],
 };
 
-export const SCENES: readonly Scene[] = [STACK_SCENE, MASS_ROLLUP_SCENE];
+export const MISSION_PHASES_SCENE: Scene = {
+  id: "phases",
+  title: "Mission phases on the clock",
+  description: "The phases of a lunar mission as a state machine, run on the engine's simulated clock",
+  documentName: "mission-sequence.sysml",
+  rootSymbol: "MissionSequence::mission",
+  view: "#state:MissionSequence::MissionPhases",
+  show: ["edge-labels"],
+  snapshot: phases,
+  controls: ["run", "edit", "debug", "download"],
+  form: { kind: "diagram", present: presentedPhases, tone: () => undefined, pngName: "mission-phases.png" },
+  program: { kind: "clock", symbol: "MissionSequence::MissionPhases", performer: "MissionSequence::mission", advance: 400000 },
+  variants: [
+    {
+      id: "recovery",
+      label: "Advance to 800,000 s",
+      activeLabel: "Advance to 400,000 s",
+      rootSymbol: "MissionSequence::mission",
+      view: "#state:MissionSequence::MissionPhases",
+      hint: "Run advances the clock by 800,000 s now: long enough for the last timed transition, at t = 702,000 s, to fire and the machine to reach done.",
+      program: { kind: "clock", symbol: "MissionSequence::MissionPhases", performer: "MissionSequence::mission", advance: 800000 },
+    },
+  ],
+};
+
+export const SCENES: readonly Scene[] = [STACK_SCENE, MASS_ROLLUP_SCENE, MISSION_PHASES_SCENE];
 
 /** requiredVariant is the variant `variant` builds on; undefined when it stands alone. */
 export function requiredVariant(scene: Scene, variant: SceneVariant): SceneVariant | undefined {
@@ -163,6 +202,11 @@ export function variantChain(scene: Scene, variant: SceneVariant | undefined): S
     chain.push(current);
   }
   return chain;
+}
+
+/** programOf is the program Run executes: the first the variant chain overrides, else the scene's own. */
+export function programOf(scene: Scene, variant: SceneVariant | undefined): SceneProgram {
+  return variantChain(scene, variant).find((candidate) => candidate.program !== undefined)?.program ?? scene.program;
 }
 
 /** forcedSceneId is the scene a URL names, by `?scene=<id>` or `#scene=<id>`; absent when it names none. */

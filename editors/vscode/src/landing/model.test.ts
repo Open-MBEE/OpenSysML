@@ -7,17 +7,20 @@ import { ExecutionError, renderedViewFromJson } from "@openmbee/opensysml/browse
 import type { RenderResult } from "../protocol";
 import {
   EngineInstance,
+  clockOf,
   debugSteps,
   landingModel,
   journey,
   readModel,
   renderResult,
+  runClock,
   runJourney,
+  stateIdOf,
   TraceRecord,
   journeyOf,
   sceneTarget,
 } from "./model";
-import { STACK_SCENE } from "./scene";
+import { MISSION_PHASES_SCENE, STACK_SCENE } from "./scene";
 
 interface LandingFixture {
   hash: string;
@@ -29,6 +32,8 @@ interface LandingFixture {
 const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
 const fixtureView = renderedViewFromJson(fixture.render);
 const fixtureRender: RenderResult = renderResult(fixtureView);
+const phasesFixture = JSON.parse(readFileSync("src/landing/phases.json", "utf8")) as LandingFixture;
+const phasesRender: RenderResult = renderResult(renderedViewFromJson(phasesFixture.render));
 
 const PROJECTS = ["flexo", "opensysml", "pilot"];
 const COMPONENTS: Record<string, string[]> = {
@@ -109,8 +114,12 @@ function typedInstance(instance: EngineInstance): Instance {
 }
 
 function traceEvent(record: TraceRecord): DocumentEvent {
+  const time = record.time === undefined
+    ? undefined
+    : { kind: "quantity", magnitude: { kind: "real", value: Number(record.time.magnitude) }, unit: record.time.unit };
   return {
     kind: record.kind,
+    time,
     state: record.state ?? "",
     fromState: record.from ?? "",
     toState: record.to ?? "",
@@ -130,6 +139,7 @@ interface FakeAnswers {
   diagnostics?: unknown[];
   statesVisited?: string[];
   trace?: TraceRecord[];
+  finalTime?: number;
   executeError?: Error;
   /** Features of the root the instantiation could not value, by the error it gives each. */
   rootErrors?: Record<string, string>;
@@ -172,6 +182,7 @@ function fakeConnection(answers: FakeAnswers = {}): { connection: Connection; ca
       return Promise.resolve({
         statesVisited: answers.statesVisited ?? [],
         trace: (answers.trace ?? []).map(traceEvent),
+        finalTime: answers.finalTime ?? 0,
       });
     },
   };
@@ -313,6 +324,71 @@ test("runJourney returns the partial trace of a failed run and rethrows other er
 
   const unavailable = fakeConnection({ executeError: new Error("engine unavailable") });
   await assert.rejects(runJourney(unavailable.connection, STACK_SCENE, model, ["Commit"]), /engine unavailable/);
+});
+
+test("landingModel lifts a state view's states out of the machine's box and keys them by name", () => {
+  const model = landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, phasesRender, phasesFixture.instances);
+  assert.ok(model.machine, "a state view gives a machine");
+  assert.equal(model.machine.symbol, "MissionSequence::MissionPhases");
+  assert.deepEqual(
+    [...model.machine.states.keys()],
+    ["prelaunch", "translunarCoast", "lunarOrbit", "onSurface", "transEarthCoast", "recovered", "done"],
+  );
+  assert.equal(model.machine.states.get("prelaunch")?.initial, true);
+  assert.equal(model.machine.states.get("onSurface")?.initial, false);
+  assert.equal(model.machine.states.get("done")?.kind, "final");
+  assert.equal(model.parts.size, 0, "a state is not a part");
+  assert.equal(model.render.nodes.length, 8, "six states, the start and the final");
+  assert.ok(model.render.nodes.every((node) => node.parent === undefined), "the states are drawn at the top level");
+  assert.equal(model.render.edges.length, 7);
+  assert.deepEqual(
+    model.render.edges.map((edge) => edge.label),
+    ["", "after 9000 [s]", "after 270000 [s]", "after 100000 [s]", "after 78000 [s]", "after 245000 [s]", ""],
+  );
+  assert.equal(model.root.symbol, "MissionSequence::mission", "the root is the object the machine runs on");
+  assert.equal(model.root.feature, "mission");
+  assert.equal(stateIdOf(model, "onSurface"), model.machine.states.get("onSurface")?.id);
+  assert.equal(stateIdOf(model, "nowhere"), undefined);
+  const stack = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
+  assert.equal(stack.machine, undefined);
+  assert.equal(stateIdOf(stack, "flexo"), stack.parts.get("flexo")?.id, "a journey's states name parts");
+  assert.throws(
+    () => landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, { ...phasesRender, nodes: [] }, phasesFixture.instances),
+    /draws 0 machines/u,
+  );
+});
+
+test("runClock performs the machine on its object for the duration and keeps each record's instant", async () => {
+  const model = landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, phasesRender, phasesFixture.instances);
+  const trace: TraceRecord[] = [
+    { kind: "entry", state: "prelaunch", time: { magnitude: "0", unit: "s" }, text: "enter: prelaunch" },
+    {
+      kind: "transition",
+      from: "prelaunch",
+      to: "translunarCoast",
+      event: "time",
+      time: { magnitude: "9000", unit: "s" },
+      text: "transition: prelaunch -> translunarCoast (event: time)",
+    },
+  ];
+  const { connection, calls } = fakeConnection({ statesVisited: ["prelaunch", "translunarCoast"], finalTime: 400000, trace });
+  const program = clockOf(MISSION_PHASES_SCENE.program);
+  const run = await runClock(connection, program, model);
+  assert.deepEqual(calls[0], {
+    method: "ExecuteState",
+    params: [phasesFixture.hash, "MissionSequence::MissionPhases", { performer: "MissionSequence::mission", advance: 400000, trace: true }],
+  });
+  assert.deepEqual(run, { visited: ["prelaunch", "translunarCoast"], trace, finalTime: 400000 });
+  assert.throws(() => clockOf(STACK_SCENE.program), /runs no clock/u);
+
+  const failed = fakeConnection({
+    executeError: new ExecutionError("state machine execution failed: budget", "unspecified", [], trace.map(traceEvent)),
+  });
+  assert.deepEqual(await runClock(failed.connection, program, model), {
+    visited: [],
+    trace,
+    error: "state machine execution failed: budget",
+  });
 });
 
 test("debugSteps tracks active state, transitions, accepts, and ignored events", () => {
