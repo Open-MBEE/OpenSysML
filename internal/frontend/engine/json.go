@@ -477,6 +477,8 @@ type JExecuteActionRequest struct {
 	PerformerSymbolId string             `json:"performerSymbolId,omitempty"`
 	Trace             bool               `json:"trace,omitempty"`
 	Events            []string           `json:"events,omitempty"`
+	// Advance is the simulated time, in seconds, to run for; nil runs to completion.
+	Advance *float64 `json:"advance,omitempty"`
 }
 
 type JExecuteActionResponse struct {
@@ -496,6 +498,8 @@ type JExecuteStateRequest struct {
 	Schedule             string   `json:"schedule,omitempty"`
 	PerformerSymbolId    string   `json:"performerSymbolId,omitempty"`
 	Trace                bool     `json:"trace,omitempty"`
+	// Advance is the simulated time, in seconds, to run for after the events; nil runs to quiescence.
+	Advance *float64 `json:"advance,omitempty"`
 }
 
 type JExecuteStateResponse struct {

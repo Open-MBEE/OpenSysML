@@ -1862,6 +1862,70 @@ func (ctx *Context) DeliverEvents(exec *ActionExecutor, events []Message) error 
 	return nil
 }
 
+// ErrNotCompleted is the typed error an action run for a duration that has not
+// completed by its end fails with; the message names where it stopped.
+var ErrNotCompleted = errors.New("action did not complete")
+
+// ActionOutcomeAdvancedBy runs action as ActionOutcomePerformedBy does, but for duration of
+// simulated time, as `sysml -action X -advance T` does; one still running then is ErrNotCompleted.
+func (ctx *Context) ActionOutcomeAdvancedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value, duration float64) (Outcome, error) {
+	exec, release, err := ctx.startActionAdvancedBy(action, self, inputs, nil, duration)
+	if err != nil {
+		return Outcome{}, err
+	}
+	defer release()
+	if _, err := exec.ResultsWithError(); err != nil {
+		return Outcome{}, err
+	}
+	return (&Invocation{Actions: []*ActionExecutor{exec}}).Outcome(), nil
+}
+
+// ExecuteActionAdvancedBy runs action as ExecuteActionWithEvents does, but for
+// duration of simulated time as ActionOutcomeAdvancedBy does.
+func (ctx *Context) ExecuteActionAdvancedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value, events []Message, duration float64) (outputs, performer map[string]Value, err error) {
+	exec, release, err := ctx.startActionAdvancedBy(action, self, inputs, events, duration)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer release()
+	outputs, err = exec.ResultsWithError()
+	if err != nil {
+		return nil, nil, err
+	}
+	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
+}
+
+// startActionAdvancedBy starts the performance a run to completion would run, posts events as it
+// waits and moves the clock by duration; release lets go of one started for the call, not of a reused one.
+func (ctx *Context) startActionAdvancedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value, events []Message, duration float64) (*ActionExecutor, func(), error) {
+	exec, reused, err := ctx.StartActionPerformedBy(action, self, inputs)
+	if err != nil {
+		return nil, nil, err
+	}
+	release := exec.Release
+	if reused {
+		release = func() {}
+	}
+	if err := ctx.DeliverEvents(exec, events); err != nil {
+		release()
+		return nil, nil, err
+	}
+	if _, err := ctx.Advance(duration); err != nil {
+		release()
+		return nil, nil, err
+	}
+	if !exec.State().Ended() {
+		err := fmt.Errorf("%w: action %s stopped at %s at simulation time %s without completing",
+			ErrNotCompleted, ctx.QualifiedName(action), exec.State(), semantics.FormatReal(ctx.Clock().Now()))
+		if next, ok := exec.NextWait(); ok {
+			err = fmt.Errorf("%w; the clock must reach t=%s for it to go on", err, semantics.FormatReal(next))
+		}
+		release()
+		return nil, nil, err
+	}
+	return exec, release, nil
+}
+
 // performAction runs action to completion, performed by self, and returns the
 // executor that ran it, whose root performance holds what it produced. An object
 // performing the action runs the performance it already runs rather than a second.
@@ -2058,6 +2122,28 @@ func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events 
 func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *Instance, events []string) (Outcome, error) {
 	exec, err := ctx.performState(stateMachine, self, events)
 	if err != nil {
+		return Outcome{}, err
+	}
+	if _, err := exec.StateDataWithError(); err != nil {
+		return Outcome{}, err
+	}
+	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil
+}
+
+// StateOutcomeAdvancedBy runs a state machine as StateOutcomePerformedBy does, but sends the
+// events and then moves the clock by duration, as `sysml -state X -advance T` does.
+func (ctx *Context) StateOutcomeAdvancedBy(stateMachine *symbols.Symbol, self *Instance, events []string, duration float64) (Outcome, error) {
+	exec, reused, err := ctx.StartStatePerformedBy(stateMachine, self)
+	if err != nil {
+		return Outcome{}, err
+	}
+	if !reused {
+		defer exec.Release()
+	}
+	for _, event := range events {
+		exec.SendSignal(event, nil)
+	}
+	if _, err := ctx.Advance(duration); err != nil {
 		return Outcome{}, err
 	}
 	if _, err := exec.StateDataWithError(); err != nil {
