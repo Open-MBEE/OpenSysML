@@ -316,10 +316,8 @@ a new or an existing declaration and require `authoring` and
 `authoring` and `comment_authoring`.
 
 The edited source is `result.Documents`, one `EditedDocument` per document the
-batch reached, under the name the model was parsed with; `result.Content` is the
-same notation for a model of one document and empty for a model of several, kept
-for callers of the sole-document contract. Each `AppliedEdit` names the
-`Document` its bytes belong to.
+batch reached, under the name the model was parsed with — for a model of one
+document, that one. Each `AppliedEdit` names the `Document` its bytes belong to.
 
 ## What a model is here
 
@@ -359,16 +357,17 @@ another, and a name that is not one of the model's is `CodeInvalidArgument`. A
 rename or a cascade delete follows its references into the other documents, every
 document touched is re-parsed and re-analysed together, and `result.Documents`
 lists exactly the documents rewritten — so a batch that reaches one document of
-three answers one `EditedDocument`, and `result.Content` is empty. The client marks
-every request as accepting documents; the service refuses a request that does not on a
-model of several, as it did before, so a program reading `Content` alone through an
-earlier client is never handed an empty one. A reference from
-a document the edit cannot rewrite, such as a bundled library file, refuses the
-edit as `EditFailureReferencedElsewhere`, naming it in `Referrers`. All of this is the
-`CapabilityEditDocuments` capability: a service without it edits a model of one
-document alone, answering `Content` with `Documents` empty, refuses a model of several
-with `CodeFailedPrecondition`, and refuses `ApplyDocumentEdits` with `CodeUnimplemented`
-— so a program reading `Documents` checks `ServerInfo` for the capability first.
+three answers one `EditedDocument`. The client marks every request as accepting
+documents; the service refuses a request that does not on a model of several, as
+it did before, so a program reading the sole-document `content` through an earlier
+client is never handed an empty one. A reference from a document the edit cannot
+rewrite, such as a bundled library file, refuses the edit as
+`EditFailureReferencedElsewhere`, naming it in `Referrers`. All of this is the
+`CapabilityEditDocuments` capability, which every service since 0.9.0 advertises:
+`ApplyEdits` and `ApplyDocumentEdits` require it and are refused with
+`CodeUnimplemented` by a service without it, whose answer carried the notation in
+the sole-document `content` alone — the `EditResult.Content` field that read it,
+deprecated in 0.9.0, was removed in 0.12.0.
 
 ## Concurrency, contexts and lifetime
 

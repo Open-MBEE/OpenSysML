@@ -412,8 +412,7 @@ own.
 | `-doc-toc` | A table of contents built from the section headings |
 | `-doc-number-sections` | Hierarchical section numbers (1, 1.1, ...) |
 
-All three are off by default and shape HTML and PDF alike; `-pdf-title-page`,
-`-pdf-toc` and `-pdf-number-sections` are aliases of them.
+All three are off by default and shape HTML and PDF alike.
 
 ### Wide tables
 

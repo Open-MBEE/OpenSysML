@@ -74,8 +74,7 @@ var (
 		name: "docpdf",
 		flags: append(flags("pdf-engine", "html-theme", "html-css", "html-mermaid", "html-math"),
 			boolFlags("doc-title-page", "doc-toc", "doc-number-sections",
-				"html-no-default-css", "html-fragment", "html-default-css",
-				"pdf-title-page", "pdf-toc", "pdf-number-sections")...),
+				"html-no-default-css", "html-fragment", "html-default-css")...),
 		values:  map[string][]string{"doc-form": {"html", "pdf"}},
 		markers: []string{"-doc-form html", "-doc-form pdf"},
 	}

@@ -292,9 +292,6 @@ the same member-path parser as `Project` and `OrderBy`.
 | `-html-mermaid <cdn\|url>` | | Have the HTML page load Mermaid to draw its diagrams: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: diagrams stay Mermaid source) |
 | `-html-math <cdn\|url>` | | Have the HTML page load MathJax to typeset its formulas: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: formulas stay LaTeX source) |
 | `-pdf-engine <engine>` | | Converter `-doc-form pdf` drives: `weasyprint` (default), `pandoc` or `prince` |
-| `-pdf-title-page` | | Former name of `-doc-title-page` |
-| `-pdf-toc` | | Former name of `-doc-toc` |
-| `-pdf-number-sections` | | Former name of `-doc-number-sections` |
 | `-output <file>` | `-o` | Write the conversion, the rendering, the rendered document or a `-validate` report in a `-format` other than text to a file instead of stdout, or name what `-bundle` and `-unbundle` write; with `-convert ttl` a branch URL (the same two forms) replaces the branch's model graph with the converted Turtle — see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `-version` | `-v` | Show version information |
 | `-help` | `-h` | Show usage information |
@@ -367,7 +364,6 @@ Other modes, each described in full by `sysml -help` and the manual page:
 | `-sync-apply <url>` | Applies the change set to the model's project branch at the SysML v2 API endpoint, refusing one the dry run would have flagged, then records the commit in the sync state (`-sync-state <file>`, default `<model>.sync.json` beside the model). The token comes from `FLEXO_INTEROP_TOKEN` |
 | `-sync-state <file>` | The sync state file a live sync or a `-convert` over a branch URL reads and records the last-seen commit in; the defaults are `<model>.sync.json` on `-sync-apply` and a push, and `<output>.sync.json` on a branch read written to `-o`. A stdout branch read records nothing unless `-sync-state` names a file |
 | `-memstats`, `-cpuprofile <file>`, `-memprofile <file>` | Report on stderr what the run cost — wall time, memory allocated, memory taken from the OS — or write a CPU or heap profile for `go tool pprof` |
-| `-to <format>` | Replaced by `-convert`, which names the output format |
 
 **Arguments:**
 - `[file...]` - SysML files to load (loaded in order)

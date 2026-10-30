@@ -93,9 +93,8 @@ directly, reporting a miss with no suggestions.
 
 `ParseOptions` are `language` (`"sysml"` or `"kerml"`, for inline content) and
 `strictConformance`; both are capability-gated, and the client checks before it
-calls. `strict` remains as a deprecated alias of `strictConformance`; passing
-both with different values is refused. To raise on parse errors, call
-`model.raiseForErrors()` on the returned model.
+calls. The `strict` alias of `strictConformance` was removed in 0.12.0. To raise
+on parse errors, call `model.raiseForErrors()` on the returned model.
 
 ## Values are discriminated unions
 

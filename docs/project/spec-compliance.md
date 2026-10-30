@@ -3219,7 +3219,7 @@ the `@type` mapping and the comparison choices.
   client/python/tests/test_lifecycle.py, test_stale_service.py)
 - an `instance_id` outside an `Instantiate` response (an `Evaluate` result, say)
   is still a bare int64: those responses carry no instance graph to resolve it
-- `opensysml.eval` and `opensysml.RuntimeError` are deprecated aliases of `evaluate` and `ExecutionError`, served by a module `__getattr__` with a warning
+- `opensysml.eval` and `opensysml.RuntimeError`, the deprecated aliases of `evaluate` and `ExecutionError`, were removed in 0.12.0; neither name is an attribute of the package
 - a downloaded binary is verified against the digest the shipped `release-digests.json`
   (`binary.py:PINNED_SHA256`) pins for its
   release, independent of the origin that served it; a version with no pin fails rather than
