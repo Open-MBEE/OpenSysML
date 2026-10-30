@@ -608,8 +608,7 @@ public final class Connection implements AutoCloseable {
     return new Model(this, response.getModelHash(), roots, diagnostics, documents);
   }
 
-  private Conversion converted(
-      ConvertRequest.Builder request, String toFormat, ConversionOptions options) {
+  Conversion converted(ConvertRequest.Builder request, String toFormat, ConversionOptions options) {
     Objects.requireNonNull(toFormat, "toFormat");
     Objects.requireNonNull(options, NAME_OPTIONS);
     if (options.fromFormat().filter(Connection::isV1Format).isPresent()) {

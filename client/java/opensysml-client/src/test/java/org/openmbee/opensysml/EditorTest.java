@@ -229,6 +229,20 @@ class EditorTest {
   }
 
   @Test
+  void libraryStubsNeedTheirCapabilityBeforeAnythingIsSent() {
+    try (Connection connection = offline(Capabilities.CONVERT)) {
+      ConversionOptions stubs = ConversionOptions.defaults().withIncludeLibraryStubs(true);
+      CapabilityException refused =
+          assertThrows(
+              CapabilityException.class, () -> model(connection).convert("api-json", stubs));
+      assertEquals(Capabilities.CONVERT_LIBRARY_STUBS, refused.capability());
+      assertThrows(
+          CapabilityException.class,
+          () -> connection.convert("package P;", "api-json", stubs.withFromFormat("sysml")));
+    }
+  }
+
+  @Test
   void conversionOptionsCarryTheLibraryStubsAndAConversionItsReferences() {
     ConversionOptions options =
         ConversionOptions.defaults().withIncludeLibraryStubs(true).withFromFormat("sysml");

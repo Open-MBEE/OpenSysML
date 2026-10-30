@@ -1630,6 +1630,12 @@ class ApiIntegrationTest {
     assertTrue(stub.matcher(legacy.content()).find(), legacy.content());
     assertEquals(plain.libraryReferences(), legacy.libraryReferences());
     assertEquals(List.of(), connection.convert(source, "sysml", options).libraryReferences());
+    Model model = connection.parse(source);
+    Conversion parsed =
+        model.convert("api-json", ConversionOptions.defaults().withIncludeLibraryStubs(true));
+    assertTrue(stub.matcher(parsed.content()).find(), parsed.content());
+    assertEquals(plain.libraryReferences(), parsed.libraryReferences());
+    assertFalse(stub.matcher(model.convert("api-json").content()).find());
   }
 
   @Test

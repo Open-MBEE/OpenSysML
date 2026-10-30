@@ -4,7 +4,6 @@ import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.proto.ApplyEditsRequest;
 import org.openmbee.opensysml.proto.ApplyEditsResponse;
 import org.openmbee.opensysml.proto.ConvertRequest;
-import org.openmbee.opensysml.proto.ConvertResponse;
 import org.openmbee.opensysml.proto.DiagnosticsRequest;
 import org.openmbee.opensysml.proto.DiagnosticsResponse;
 import org.openmbee.opensysml.proto.EvaluateCalcRequest;
@@ -1298,23 +1297,7 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
   public Conversion convert(String toFormat, ConversionOptions options) {
-    Objects.requireNonNull(toFormat, "toFormat");
-    Objects.requireNonNull(options, NAME_OPTIONS);
-    connection.capabilities().require(Capabilities.CONVERT);
-    ConvertRequest.Builder request =
-        ConvertRequest.newBuilder()
-            .setModelHash(hash)
-            .setToFormat(toFormat)
-            .setTolerateSyntaxErrors(options.tolerateSyntaxErrors());
-    options.fromFormat().ifPresent(request::setFromFormat);
-    options.idForm().ifPresent(request::setIdForm);
-    ConvertResponse response =
-        connection.call("Convert", request.build(), ConvertResponse.getDefaultInstance());
-    if (!response.getError().isEmpty()) {
-      throw new ConversionException(
-          response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
-    }
-    return Protos.conversion(response);
+    return connection.converted(ConvertRequest.newBuilder().setModelHash(hash), toFormat, options);
   }
 
   /**
