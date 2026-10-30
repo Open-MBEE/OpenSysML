@@ -285,15 +285,15 @@ type parseOptions struct {
 	base     string
 }
 
-// WithBaseModel names a model of the same documents the caller holds results
-// of, typically the previous ParseDocuments answer: the new model's Affected
-// then lists the documents whose results may differ from it. ParseDocuments
-// only; requires the parse_sources_affected capability.
+// WithBaseModel relates ParseDocuments to a previous model of the same documents, so
+// Model.Affected names the documents whose results may differ; requires parse_sources_affected.
 func WithBaseModel(base *Model) ParseOption {
 	return func(o *parseOptions) {
-		if base != nil {
-			o.base = base.Hash
+		if base == nil {
+			o.base = ""
+			return
 		}
+		o.base = base.Hash
 	}
 }
 

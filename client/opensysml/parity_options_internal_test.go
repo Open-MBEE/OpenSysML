@@ -62,3 +62,14 @@ func TestABaseModelIsNotSentWithoutTheCapability(t *testing.T) {
 		})
 	}
 }
+
+// A nil base after a real one asks for a plain parse again, not the earlier comparison.
+func TestANilBaseModelClearsTheEarlierOne(t *testing.T) {
+	var o parseOptions
+	for _, apply := range []ParseOption{WithBaseModel(&Model{Hash: "h"}), WithBaseModel(nil)} {
+		apply(&o)
+	}
+	if o.base != "" {
+		t.Fatalf("base after WithBaseModel(nil) = %q, want none", o.base)
+	}
+}

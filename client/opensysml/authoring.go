@@ -86,9 +86,8 @@ func WithIDForm(form IDForm) ConvertOption {
 	return func(o *convertOptions) { o.idForm = form }
 }
 
-// WithLibraryStubs restores, in API JSON, the ownerless library stubs written
-// before 0.11.0; by default library elements remain bare references, listed in
-// Conversion.LibraryReferences. Requires the convert_library_stubs capability.
+// WithLibraryStubs restores the pre-0.11.0 ownerless library stubs in API JSON instead of
+// the bare references listed in Conversion.LibraryReferences; requires convert_library_stubs.
 func WithLibraryStubs() ConvertOption {
 	return func(o *convertOptions) { o.libraryStubs = true }
 }
