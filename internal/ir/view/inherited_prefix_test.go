@@ -278,3 +278,22 @@ func TestBehaviourNodesFromASupertypeAreInherited(t *testing.T) {
 		t.Errorf("action text lacks ^a:\n%s", text)
 	}
 }
+
+// Redefinitions declared out of order, and own members around them, keep the
+// redefined members' places.
+func TestRedefiningMembersKeepInheritedOrder(t *testing.T) {
+	rendering := render(t, "inherited-order.sysml", "InheritedOrderViews::rigTree")
+	out, err := rendering.WriteWith(FormText, Options{Show: AllShown()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"  part swapped : Swapped\n    part ^right : Engine\n    part ^left : Engine\n    attribute ^gap\n",
+		"  part trailed : Ends\n    part ^left : Engine\n    attribute ^gap\n    part right : Engine\n    part extra : Engine\n",
+		"  part led : Ends\n    part extra : Engine\n    part left : Engine\n    attribute ^gap\n    part ^right : Engine\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("want\n%s\nin\n%s", want, out)
+		}
+	}
+}

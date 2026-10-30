@@ -275,12 +275,12 @@ func recursionNote(typ *symbols.Symbol) string {
 // those it inherits from its definitions and from the features it redefines or
 // subsets (its effective features, KerML Type::feature), source by source in
 // declaration order. A redefining member stands in for the one it redefines,
-// in its place: the inherited members declared before the redefined one come
-// before it, so refining a part in a usage body does not move it. The
-// connectors a definition declares without a name come along with its named
-// members. A variant is a choice, not a feature of what the variation types,
-// and a member the standard library declares stays out: an attribute typed by
-// a library quantity does not unfold into it.
+// in its place, and the own members declared after it follow it there, so
+// refining a part in a usage body does not move it. The connectors a definition
+// declares without a name come along with its named members. A variant is a
+// choice, not a feature of what the variation types, and a member the standard
+// library declares stays out: an attribute typed by a library quantity does not
+// unfold into it.
 func (r *Renderer) effectiveMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	own := r.containedMembers(sym)
 	if sym == nil {
@@ -296,37 +296,42 @@ func (r *Renderer) effectiveMembers(sym *symbols.Symbol) []*symbols.Symbol {
 			}
 		}
 	}
+	// Own members by the inherited slot they follow: -1 before every inherited
+	// member, otherwise the slot of the last redefining member declared before them.
+	follow := map[int][]*symbols.Symbol{}
+	slot := -1
+	for _, member := range own {
+		if i, ok := at[member]; ok {
+			slot = i
+			continue
+		}
+		follow[slot] = append(follow[slot], member)
+	}
 	out := make([]*symbols.Symbol, 0, len(own)+len(inherited))
 	seen := make(map[*symbols.Symbol]bool, len(own)+len(inherited))
 	emit := func(member *symbols.Symbol) {
-		if standIn := standsIn[member]; standIn != nil {
-			member = standIn
-		}
 		if !seen[member] {
 			seen[member] = true
 			out = append(out, member)
 		}
 	}
-	for _, member := range own {
-		if i, ok := at[member]; ok {
-			for _, before := range inherited[:i] {
-				if standsIn[before] == nil {
-					emit(before)
-				}
-			}
-		}
+	for _, member := range follow[-1] {
 		emit(member)
 	}
-	for _, member := range inherited {
+	for i, member := range inherited {
+		if standIn := standsIn[member]; standIn != nil {
+			member = standIn
+		}
 		emit(member)
+		for _, member := range follow[i] {
+			emit(member)
+		}
 	}
 	return out
 }
 
-// standIns maps each inherited feature that sym does not inherit because one of
-// its own members redefines it (KerML 7.4.7 masking) to that member. A
-// redefinition that masks nothing, such as a parameter's positional one,
-// leaves the inherited parameter listed and stands in for none.
+// standIns maps each inherited feature an own member masks (KerML 7.4.7) to that member;
+// a redefinition masking nothing, such as a parameter's positional one, stands in for none.
 func (r *Renderer) standIns(sym *symbols.Symbol, own []*symbols.Symbol) map[*symbols.Symbol]*symbols.Symbol {
 	out := map[*symbols.Symbol]*symbols.Symbol{}
 	for _, member := range own {
@@ -339,10 +344,8 @@ func (r *Renderer) standIns(sym *symbols.Symbol, own []*symbols.Symbol) map[*sym
 	return out
 }
 
-// inheritedMembers returns the members sym inherits that a containment walk
-// shows, source by source in declaration order, with the ones an own member
-// redefines (standsIn) kept at their place so the caller can put the
-// redefining member there.
+// inheritedMembers returns the members sym inherits that a containment walk shows, source
+// by source in declaration order, the ones an own member masks (standsIn) kept in place.
 func (r *Renderer) inheritedMembers(sym *symbols.Symbol, own []*symbols.Symbol, standsIn map[*symbols.Symbol]*symbols.Symbol) []*symbols.Symbol {
 	seen := make(map[*symbols.Symbol]bool, len(own))
 	for _, member := range own {
