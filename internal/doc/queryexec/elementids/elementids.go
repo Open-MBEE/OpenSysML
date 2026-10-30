@@ -17,5 +17,5 @@ func open(docs []queryexec.ElementIDDocument) queryexec.ElementIDReader {
 	for _, doc := range docs {
 		documents = append(documents, export.ElementIDDocument{File: doc.File, Root: doc.Root, ParseDiags: doc.ParseDiags})
 	}
-	return export.NewElementIDReader(documents).Read
+	return export.NewElementIDReader(documents)
 }

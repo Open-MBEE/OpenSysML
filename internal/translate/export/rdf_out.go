@@ -1302,19 +1302,64 @@ func (e *encoder) writtenDeclarations() []ast.Node {
 	return nodes
 }
 
+// parentDeclarations maps each written declaration to the declaration its qualified
+// name is nested in, nil for a root.
+func (e *encoder) parentDeclarations() map[ast.Node]ast.Node {
+	byFQN := make(map[string]ast.Node, len(e.fqn))
+	for node, fqn := range e.fqn {
+		byFQN[fqn] = node
+	}
+	out := make(map[ast.Node]ast.Node, len(e.fqn))
+	for node, fqn := range e.fqn {
+		if i := strings.LastIndex(fqn, "::"); i >= 0 {
+			out[node] = byFQN[fqn[:i]]
+		}
+	}
+	return out
+}
+
+// writtenOwningMembership is the subject written as the owning membership of the
+// declaration at node, as the walk writes it: none for a root, for a relationship or
+// node its owner writes directly (imports, entry/exit/do members, filters, a one-ended `first`,
+// a dependency's prefix metadata); the owning entry/exit/do member itself for the action it
+// performs; else a membership minted beside the member.
+func (e *encoder) writtenOwningMembership(node, parent ast.Node, fqn string) (rdf.Term, bool) {
+	if !strings.Contains(fqn, "::") {
+		return rdf.Term{}, false
+	}
+	switch n := node.(type) {
+	case *ast.Import, *ast.EntryMember, *ast.ExitMember, *ast.DoMember, *ast.FilterMember:
+		return rdf.Term{}, false
+	case *ast.PrefixMetadata:
+		if _, dependency := parent.(*ast.Dependency); dependency {
+			return rdf.Term{}, false
+		}
+	case *ast.InitialNode:
+		if n.Successor == nil { // `first X;` marks the start; `first X then Y` is a succession member
+			return rdf.Term{}, false
+		}
+	case *ast.Usage:
+		switch parent.(type) {
+		case *ast.EntryMember, *ast.ExitMember, *ast.DoMember:
+			return e.ids.subjectForNode(parent, e.fqn[parent]), true
+		}
+	}
+	return e.ids.owningMembershipOf(node, e.ids.subjectForNode(node, fqn)), true
+}
+
 // mintDeclarations makes the claims writing the declarations would — each subject
 // (mint) and a member's owning membership (head) — so colliding ids refuse the model.
 func (e *encoder) mintDeclarations() error {
+	parents := e.parentDeclarations()
 	for _, node := range e.writtenDeclarations() {
 		fqn := e.fqn[node]
-		subject, err := e.mint(node, fqn)
-		if err != nil {
+		if _, err := e.mint(node, fqn); err != nil {
 			return err
 		}
-		if !strings.Contains(fqn, "::") {
-			continue // a root has no owner, so no owning membership is written
+		membership, ok := e.writtenOwningMembership(node, parents[node], fqn)
+		if !ok || membership == e.ids.subjectForNode(parents[node], e.fqn[parents[node]]) {
+			continue // no membership of its own to claim
 		}
-		membership := e.ids.owningMembershipOf(node, subject)
 		if prior, taken := e.claim(membership.Value, fqn+owningMembershipClaim); taken {
 			return &UnsupportedError{
 				What: fmt.Sprintf("the owning membership of %s", fqn),

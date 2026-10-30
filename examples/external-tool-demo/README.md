@@ -64,9 +64,9 @@ $ ./bin/sysml examples/external-tool-demo/thermal.sysml -tool-dry-run ThermalDem
     "--mass"
     "12.5"
     "--power"
-    "250"
+    "250.0"
     "--ambient"
-    "290"
+    "290.0"
   ...
   reply: csv from stdout, header, delimiter ","
     margin: column "margin", row last, type number, unit K
@@ -108,7 +108,7 @@ part heating_run1 : HeatingRun {
         tool = "sysml dev";
         command = "-record-run \"ThermalDemo::heating\"";
         kind = "run";
-        tools = ("ThermalSolver 1.0 from /home/me/.opensysml-tools/thermal.json: /usr/bin/python3 thermal.py --mass 12.5 --power 250 --ambient 290");
+        tools = ("ThermalSolver 1.0 from /home/me/.opensysml-tools/thermal.json: /usr/bin/python3 thermal.py --mass 12.5 --power 250.0 --ambient 290.0");
     }
     ...
 }

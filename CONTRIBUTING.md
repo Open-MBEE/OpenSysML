@@ -337,10 +337,14 @@ advisories without a fix.
 
 ### Dependabot pull requests
 
-[`.github/dependabot.yml`](.github/dependabot.yml) opens one grouped pull request a week per
-ecosystem and directory (both Go modules, every npm lockfile, the Python packages, the Rust
-client, the three Maven trees, and the GitHub Actions the workflows pin), against `develop`, with minor and patch
-updates in one group and a Conventional Commits title (`chore(deps): …`). Such a pull request is
+[`.github/dependabot.yml`](.github/dependabot.yml) opens at most one grouped pull request a week
+per ecosystem (both Go modules, every npm lockfile, the Python packages, the Rust client, the
+three Maven trees, and the GitHub Actions the workflows pin), against `develop`, with minor and
+patch updates in one group and a Conventional Commits title (`chore(deps): …`). Major versions
+are not offered at all (`open-pull-requests-limit: 1` and a `version-update:semver-major` ignore
+in every entry): the workflows pin actions to commit SHAs and the TypeScript and Node majors
+break the builds, so a maintainer takes each major by hand. Dependabot alerts and security
+updates are repository settings that this file does not affect. Such a pull request is
 handled like any other: it opens ready for review, so the full tier runs on it with `Changed
 areas` scoping the jobs to the lockfile it touched, Devin Review and the dependency audits run on
 it, and a maintainer merges it once green; rebase it with a `@dependabot rebase` comment, never
