@@ -24,6 +24,11 @@ type ElementIDs struct {
 	byName   map[string]string
 	res      *resolve.Resolver
 	encoders []*encoder
+	// membershipByNode, membershipBySpan and membershipByName are the ids written
+	// for the owning membership of each declared element, keyed as the element's.
+	membershipByNode map[ast.Node]string
+	membershipBySpan map[spanKey]string
+	membershipByName map[string]string
 }
 
 // NewElementIDs records the elementId Convert writes for each element of the
@@ -58,8 +63,11 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 			return nil, err
 		}
 	}
-	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{}, res: res, encoders: encoders}
+	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{},
+		membershipByNode: map[ast.Node]string{}, membershipBySpan: map[spanKey]string{}, membershipByName: map[string]string{},
+		res: res, encoders: encoders}
 	for _, e := range encoders {
+		parents := e.parentDeclarations()
 		for _, node := range e.writtenDeclarations() {
 			fqn := e.fqn[node]
 			subject := e.ids.subjectForNode(node, fqn)
@@ -68,6 +76,12 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 			ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
 			if fqn != "" {
 				ids.byName[fqn] = id
+			}
+			if membership, ok := e.writtenOwningMembership(node, parents[node], fqn); ok {
+				local := rdf.LocalName(membership.Value)
+				ids.membershipByNode[node] = local
+				ids.membershipBySpan[spanKey{e.file.Name(), node.Span()}] = local
+				ids.membershipByName[fqn] = local
 			}
 			for i, end := range writtenConnectorEnds(node) {
 				if end == nil {
@@ -119,6 +133,24 @@ func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (str
 		}
 	}
 	return ids.Of(fqn)
+}
+
+// OwningMembershipOfDeclaration is the elementId written for the owning membership
+// of the element declared at decl in doc, named fqn; false for a root or an unknown element.
+func (ids *ElementIDs) OwningMembershipOfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
+	if ids == nil {
+		return "", false
+	}
+	if decl != nil {
+		if id, ok := ids.membershipByNode[decl]; ok {
+			return id, true
+		}
+		if id, ok := ids.membershipBySpan[spanKey{doc, decl.Span()}]; ok {
+			return id, true
+		}
+	}
+	id, ok := ids.membershipByName[fqn]
+	return id, ok
 }
 
 // Of is the elementId written for the element named fqn: the model's own as
@@ -180,6 +212,20 @@ func (r *ElementIDReader) Read(doc string, decl ast.Node, fqn string) (string, e
 		return "", r.err
 	}
 	id, _ := r.ids.OfDeclaration(doc, decl, fqn)
+	return id, nil
+}
+
+// ReadOwningMembership is the elementId of the owning membership of the element
+// declared at decl in doc, named fqn; empty where the conversion writes none.
+func (r *ElementIDReader) ReadOwningMembership(doc string, decl ast.Node, fqn string) (string, error) {
+	if r == nil {
+		return "", nil
+	}
+	r.once.Do(r.convert)
+	if r.err != nil {
+		return "", r.err
+	}
+	id, _ := r.ids.OwningMembershipOfDeclaration(doc, decl, fqn)
 	return id, nil
 }
 

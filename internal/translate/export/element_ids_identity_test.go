@@ -25,7 +25,7 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 		}
 		texts[filepath.Base(f)] = string(data)
 	}
-	compared, ends := 0, 0
+	compared, ends, memberships := 0, 0, 0
 	for name, text := range texts {
 		sf := source.New(name, []byte(text))
 		p := parser.New(sf)
@@ -50,6 +50,15 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 					t.Errorf("%s: %s minted %q (%v), written %q (%v)", name, fqn, got, has, written, ok)
 				}
 				compared++
+				// A member's owning membership is written as a subject of its own.
+				membership, membershipWritten := graph.Object(e.ids.subjectForNode(node, fqn), rdf.SysML+pOwningMembership)
+				mintedMembership, hasMembership := minted.membershipBySpan[spanKey{name, node.Span()}]
+				if membershipWritten || hasMembership {
+					if hasMembership != membershipWritten || mintedMembership != rdf.LocalName(membership.Value) {
+						t.Errorf("%s: %s owning membership minted %q (%v), written %q (%v)", name, fqn, mintedMembership, hasMembership, membership.Value, membershipWritten)
+					}
+					memberships++
+				}
 				usage, isUsage := node.(*ast.Usage)
 				if !isUsage {
 					continue
@@ -71,8 +80,8 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 			}
 		}
 	}
-	if compared == 0 || ends == 0 {
-		t.Fatalf("%d declarations and %d connector ends compared, want both", compared, ends)
+	if compared == 0 || ends == 0 || memberships == 0 {
+		t.Fatalf("%d declarations, %d connector ends and %d owning memberships compared, want all", compared, ends, memberships)
 	}
 }
 
