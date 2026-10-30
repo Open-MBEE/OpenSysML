@@ -51,3 +51,44 @@ func TestSatisfyVacuousViewpointHolds(t *testing.T) {
 		"✓ Requirement Reading::prose satisfied",
 		"vacuous: requirement prose states no required constraint, so it holds vacuously")
 }
+
+// failedAssumptionModel is the issue's reproducer: a requirement whose assumption
+// `off` fails and whose required constraint `off` and `on` both fail.
+const failedAssumptionModel = `
+package Repro {
+	private import ScalarValues::*;
+	part def Thing { attribute enabled : Boolean; attribute level : Integer; }
+	requirement def LevelOk {
+		subject t : Thing;
+		assume constraint { t.enabled }
+		require constraint { t.level == 1 }
+	}
+	part off : Thing { attribute :>> enabled = false; attribute :>> level = 5; }
+	part on : Thing { attribute :>> enabled = true; attribute :>> level = 5; }
+	requirement levelOk : LevelOk;
+	satisfy levelOk by off;
+	satisfy levelOk by on;
+	assert not satisfy levelOk by off;
+	requirement offReq : LevelOk { subject t = off; }
+}
+`
+
+// TestSatisfyFailedAssumptionHoldsVacuously pins the text of the verdict a failed
+// assumption earns: the requirement is `allTrue(assumptions()) implies
+// allTrue(constraints())`, so `off` satisfies it and the standing names the
+// assumption; `on` meets the assumption and fails the required constraint; and the
+// denial over `off` fails with the same reason.
+func TestSatisfyFailedAssumptionHoldsVacuously(t *testing.T) {
+	s := loadSource(t, failedAssumptionModel)
+	wantsInOrder(t, run(t, s, "%satisfy"),
+		"✓ satisfy levelOk by off holds (on Repro::off ID: ",
+		"  standing: holds (observed: 1 run under reverse; vacuous: assumption t.enabled of requirement levelOk did not hold, so it holds vacuously)",
+		"✗ satisfy levelOk by on fails (on Repro::on ID: ",
+		"  Required condition evaluated to false: t.level == 1",
+		"✗ not satisfy levelOk by off fails (on Repro::off ID: ",
+		"  Required condition evaluated to false: assumption t.enabled of requirement levelOk did not hold, so it holds vacuously",
+	)
+	wants(t, run(t, s, "%requirement Repro::offReq"),
+		"✓ Requirement Repro::offReq satisfied",
+		"vacuous: assumption t.enabled of requirement offReq did not hold, so it holds vacuously")
+}

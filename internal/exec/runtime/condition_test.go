@@ -143,7 +143,9 @@ func TestConstraintOverUndeterminedOperandIsNotDecided(t *testing.T) {
 	}
 }
 
-// An assumption that does not hold is not a violation: assumptions are trusted.
+// An assumption that does not hold is not a violation: the requirement is
+// `allTrue(assumptions()) implies allTrue(constraints())`, true whatever the
+// required condition reads once an assumption is false.
 func TestRequirementAssumptionIsNotRequired(t *testing.T) {
 	src := `
 		package test {
@@ -152,15 +154,22 @@ func TestRequirementAssumptionIsNotRequired(t *testing.T) {
 				assume constraint { a <= 1.0 }
 				require constraint { a <= 3.0 }
 			}
+			requirement moot {
+				attribute a = 2.0;
+				assume constraint { a <= 1.0 }
+				require constraint { a <= 0.0 }
+			}
 		}
 	`
 	ctx, pkg := conditionFixture(t, src)
-	satisfied, err := ctx.EvaluateRequirement(requirementNamed(t, pkg, "pessimistic"), pkg)
-	if err != nil {
-		t.Fatalf("evaluation failed: %v", err)
-	}
-	if !satisfied {
-		t.Error("a false assumption should not violate the requirement")
+	for _, name := range []string{"pessimistic", "moot"} {
+		satisfied, err := ctx.EvaluateRequirement(requirementNamed(t, pkg, name), pkg)
+		if err != nil {
+			t.Fatalf("%s: evaluation failed: %v", name, err)
+		}
+		if !satisfied {
+			t.Errorf("%s: a false assumption makes the requirement hold", name)
+		}
 	}
 }
 

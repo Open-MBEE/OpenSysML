@@ -381,11 +381,9 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 		negated:  a.Negated,
 		about:    a.AssertedRequirement(),
 	}
-	holds, err := ctx.evaluateConditions(check, conds)
-	result := ctx.satisfactionResult(holds, subject, reached)
-	if err == nil && holds {
-		result.Vacuous = vacuity(check, conds)
-	}
+	verdict, err := ctx.judgeConditions(check, conds)
+	result := ctx.satisfactionResult(verdict.holds, subject, reached)
+	result.Vacuous = verdict.vacuous
 	return result, err
 }
 

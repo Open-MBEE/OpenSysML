@@ -56,7 +56,7 @@ func TestRequirementEvaluation_Assume(t *testing.T) {
 	src := `
 		package test {
 			requirement WithAssumption {
-				assume constraint { 1 > 100 }  // false assumption, but should pass
+				assume constraint { 1 > 100 }  // false assumption: the implication holds
 				require constraint { 5 > 3 }   // true requirement
 			}
 		}
@@ -68,7 +68,7 @@ func TestRequirementEvaluation_Assume(t *testing.T) {
 		t.Fatal("WithAssumption not found")
 	}
 
-	// Evaluate - should pass even though assumption is false
+	// Evaluate - holds: a false assumption makes `assumptions implies constraints` true
 	satisfied, err := ctx.EvaluateRequirement(reqSym, testPkg)
 	if err != nil {
 		t.Fatalf("Assumption should not cause failure: %v", err)
@@ -76,7 +76,7 @@ func TestRequirementEvaluation_Assume(t *testing.T) {
 	if !satisfied {
 		t.Fatal("Requirement with assumption should be satisfied")
 	}
-	t.Logf("✓ Assumption passed (false assumptions are trusted)")
+	t.Logf("✓ Assumption failed, so the requirement holds (assumptions imply constraints)")
 }
 
 func TestRequirementEvaluation_SubjectNotFound(t *testing.T) {

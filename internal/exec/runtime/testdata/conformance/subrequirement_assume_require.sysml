@@ -1,5 +1,5 @@
 // Inside a subrequirement an `assume constraint` stays an assumption and a `require constraint` a required constraint of
-// the container: the check reads the assumption as a trusted precondition and fails on the required one.
+// the container: the assumption holds on veh (mass 20.0 > 1.0), so the check fails on the required one.
 package test {
 	private import ScalarValues::*;
 	part def Veh { attribute mass : Real; }
