@@ -88,6 +88,9 @@ func (inst *Instance) materializeFromWhole(ctx *Context, fv *FeatureValue, name 
 	}
 	ctx.listRead(wfv, fv)
 	val := wfv.HeldValue()
+	if ctx.ownsHeld(fv.Feature) {
+		val = ctx.partsOfWhole(inst, whole, fv.Feature, val)
+	}
 	if val.Kind == ValInvalid {
 		return false, nil
 	}
@@ -104,4 +107,52 @@ func (inst *Instance) materializeFromWhole(ctx *Context, fv *FeatureValue, name 
 	}
 	fv.Materialized = true
 	return true, nil
+}
+
+// partsOfWhole is val, the objects the whole's composite feature holds, as the portion inst holds them:
+// without the whole's portions, inst itself and the other slices of the whole being no parts of inst, and
+// without any whole of inst. A required tail stays as it is; nothing is left when every element is dropped.
+func (ctx *Context) partsOfWhole(inst, whole *Instance, feat *EffectiveFeature, val Value) Value {
+	elements := listedElements(val)
+	kept := make([]Value, 0, len(elements))
+	for _, el := range elements {
+		if id, ok := el.Object(); ok {
+			if obj, found := ctx.instances[id]; found && (ctx.heldPortionOf(obj, whole) || ctx.isPortionOf(inst, obj)) {
+				continue
+			}
+		}
+		kept = append(kept, el)
+	}
+	if len(kept) == len(elements) {
+		return val
+	}
+	if tail := requiredTail(val); tail != nil {
+		return NewSequenceValue(&Sequence{elements: kept, elementUnit: tail.elementUnit, required: tail.required})
+	}
+	if len(kept) == 0 {
+		return Value{}
+	}
+	if feat.Scalar() {
+		return kept[0]
+	}
+	return ctx.collectionOf(feat, kept)
+}
+
+// heldPortionOf reports whether obj is whole itself or a portion of it: held under it through portion usages alone.
+func (ctx *Context) heldPortionOf(obj, whole *Instance) bool {
+	for obj != nil {
+		if obj == whole {
+			return true
+		}
+		owner, feature := obj.Owner()
+		if owner == nil {
+			return false
+		}
+		holder := owner.FeatureValues[feature]
+		if holder == nil || holder.Feature == nil || !isPortionUsage(holder.Feature.Symbol) {
+			return false
+		}
+		obj = owner
+	}
+	return false
 }
