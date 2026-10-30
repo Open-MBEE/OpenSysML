@@ -38,8 +38,8 @@ toolchain alone. Every statement below says which columns it rests on.
 Allocations and bytes per operation are exact for a given binary, but
 they are *not* toolchain-independent here: the same 0.11.0 source
 allocates differently under `go1.27.3` than under `go1.25.11` on many
-rows (`Instantiate` 2.22M → 2.84M allocations, the `WriteAPIJSON` rows
-+20–28 %, `ExecuteState` +21 %), so an allocation statement about the
+rows (the `WriteAPIJSON` rows +20–28 %, `ExecuteState` +21 %,
+`ConvertAPIJSON/128` +23 %), so an allocation statement about the
 source is also column 2 against column 3, never column 1 against 3.
 
 ## Method
@@ -112,8 +112,7 @@ bytes under it.
 `go1.27.3` makes the same 0.11.0 source faster on most rows (`LoadModel/4000`
 693 → 552 ms, lsp `ReferencesWarm` 275 → 192 µs, `ExpandWildcardImports`
 44 → 33 ms, `Parse/vehicle` 2.82 → 1.98 ms) and changes its allocation
-counts: `Instantiate` 2.22 M → 2.11 M, `WriteAPIJSON` +20–28 % allocations
-and up to +29 % bytes, `ExecuteState` and `StateLoop` +21 %,
+counts: `WriteAPIJSON` +20–28 % allocations and up to +29 % bytes, `ExecuteState` and `StateLoop` +21 %,
 `ConvertAPIJSON/128` +23 % allocations. None of those is a source change;
 every allocation statement in this record is column 2 against 3.
 
@@ -206,12 +205,15 @@ same or better on every workload; the resident set grows with the model,
 of the loaded file, which #1441 keeps referenced through the analysis
 (for the root namespaces an unresolved reference would be looked up by)
 where 0.11.0 dropped them once the file was accepted. Under `GOGC=25`,
-which keeps the resident set near the live heap, the three binaries peak
-at 147, 145 and 166 MiB. `perf/release-preparse-trees` lets the trees go
-and re-parses only when a reference is left unresolved: 164 MiB at
-`GOGC=100`, 152 at `GOGC=25`, with the load's time and allocations
-unchanged (the memory acceptance — three cold runs per configuration and
-a hard-cap run — is in that PR).
+which keeps the resident set near the live heap, 0.11.0 rebuilt peaks at
+146 MiB, the merge before #1441 at 147, #1441 at 165 and the candidate at
+166 (medians of three cold runs each, binaries built as `make build`
+builds them); under `GOMEMLIMIT=120MiB` the candidate takes 0.44 s to
+0.11.0's 0.28 s, the collector working to hold the limit.
+`perf/release-preparse-trees` lets the trees go and re-parses only when a
+reference is left unresolved: 150 MiB at `GOGC=25`, 0.25 s under the
+limit, with the load's time and allocations unchanged; every binary
+completes under `ulimit -v 1200000` (the acceptance rows are in that PR).
 
 ### Export element IDs
 
