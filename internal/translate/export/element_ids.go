@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -114,7 +115,8 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 // writtenRelationships are the ids of the relationship elements the writer makes for the
 // declaration at node, subject, by the node each is written for: one per target of each
 // head clause materializeRelationships emits (the clause; the type of a typing the head
-// writes without a clause; the usage itself for an object no clause states), the ReferenceSubsetting of a bound end or an `end` feature's
+// writes without a clause, the multiplicity a `multiplicity m subsets n` names; the usage
+// itself for an object no clause states), the ReferenceSubsetting of a bound end or an `end` feature's
 // `references` (the end, or the clause), and the Annotation of a dependency's prefix
 // metadata (the metadata).
 func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node) map[ast.Node]string {
@@ -154,14 +156,24 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 		}
 	}
 	for _, kind := range materializedKinds {
-		var targets []*ast.Relationship
+		// The graph holds one object per distinct target, so clauses repeating a target
+		// (`: T, T`) share the one relationship the writer materializes for it.
+		var objects []string
+		at := map[*ast.Relationship]int{}
 		for _, rel := range clauses {
-			if rel != nil && rel.Target != nil && rel.Kind == kind {
-				targets = append(targets, rel)
+			if rel == nil || rel.Target == nil || rel.Kind != kind {
+				continue
 			}
+			object := e.clauseObject(rel.Target)
+			i := slices.Index(objects, object)
+			if i < 0 {
+				i = len(objects)
+				objects = append(objects, object)
+			}
+			at[rel] = i
 		}
-		for i, rel := range targets {
-			suffix := relationshipSuffix(kind, classifier, referenceForm, len(targets), i)
+		for rel, i := range at {
+			suffix := relationshipSuffix(kind, classifier, referenceForm, len(objects), i)
 			key := ast.Node(rel)
 			if rel.Span().Len == 0 {
 				key = rel.Target
@@ -182,6 +194,15 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 		}
 	}
 	return out
+}
+
+// clauseObject tells apart the objects a head's clauses state, as relationships writes
+// them: a name by what it references, a chain or other expression by its text.
+func (e *encoder) clauseObject(target ast.Node) string {
+	if name, ok := target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
+		return e.reference(name).Value
+	}
+	return "expr:" + e.text(target)
 }
 
 // inMetadataBody reports whether usage is a member of a metadata usage's body (`@M { x = 1; }`,
@@ -233,6 +254,11 @@ func headClauses(node ast.Node) []*ast.Relationship {
 		return conditionClauses(n.Relationships, n.Expression)
 	case *ast.CrossFeatureMember:
 		return n.Relationships
+	case *ast.MultiplicityDecl:
+		if n.Subsets == nil {
+			return nil
+		}
+		return []*ast.Relationship{{Kind: ast.RelSubsets, Target: n.Subsets}}
 	}
 	return nil
 }

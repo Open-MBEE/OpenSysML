@@ -62,9 +62,17 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 
 // writtenRelationshipNode is the node the conversion writes rel's relationship element
 // for: the end whose attachment it is (`connect a to b`), the type of a typing the head
-// writes without a clause (`subject s : T`), else the clause; nil for a recorded owner.
+// writes without a clause (`subject s : T`), the multiplicity a `multiplicity m subsets n`
+// names, else the clause; nil for a recorded owner.
 func writtenRelationshipNode(rel *symbols.ImplicitRelationship) ast.Node {
-	if rel.Node == nil || rel.Owner == nil {
+	if rel.Owner == nil {
+		return nil
+	}
+	if rel.Node == nil {
+		// A multiplicity's `subsets` is held on its declaration, not as a clause.
+		if decl, ok := rel.Owner.Decl.(*ast.MultiplicityDecl); ok && rel.Kind == ast.RelSubsets && decl.Subsets != nil {
+			return decl.Subsets
+		}
 		return nil
 	}
 	if end, ok := rel.Owner.Decl.(*ast.ConnectorEnd); ok && rel.Kind == ast.RelReferences &&

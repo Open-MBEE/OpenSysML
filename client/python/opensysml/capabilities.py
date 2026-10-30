@@ -60,6 +60,10 @@ CAPABILITY_QUERY = "query"
 #: send a sorted query.
 CAPABILITY_QUERY_ORDER_BY = "query_order_by"
 
+#: ``QueryRequest.oslc_query``: a query written as OSLC Query 3.0 parameter text, in place of the
+#: standard's Query object.
+CAPABILITY_OSLC_QUERY = "oslc_query"
+
 #: The ``RunDocumentQuery`` RPC, which runs a named document query and answers
 #: typed rows. Without it the service refuses with ``UNIMPLEMENTED``.
 CAPABILITY_DOCUMENT_QUERY = "document_query"
@@ -298,6 +302,14 @@ CAPABILITY_CONVERT_COMPACT = "convert_compact"
 #: ``ConvertRequest.include_check_diagnostics``: the semantic check's diagnostics, each with its
 #: own severity, reported alongside the converted output.
 CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics"
+
+#: ``ConvertResponse.library_references``: api-json written with library elements as bare
+#: references, and ``ConvertRequest.id_form`` to spell derived ids as uuids.
+CAPABILITY_CONVERT_LIBRARY_REFERENCES = "convert_library_references"
+
+#: ``ConvertRequest.include_library_stubs``: api-json written with the ownerless library stubs
+#: of releases before 0.11.0 restored.
+CAPABILITY_CONVERT_LIBRARY_STUBS = "convert_library_stubs"
 
 #: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
 #: whose results may differ from the base model's, so a client re-reads only those after an edit.

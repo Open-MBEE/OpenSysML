@@ -909,6 +909,9 @@ func (e *encoder) libraryNames() {
 	}
 }
 
+// owningMembershipClaim, after an element's name, says what a claimed membership IRI stands for.
+const owningMembershipClaim = "'s owning membership"
+
 // claimLibrary reserves the IRIs of a library element the document links to,
 // and of its owning membership, so no element declared here lands on them.
 func (e *encoder) claimLibrary(node ast.Node, fqn string) {
@@ -916,7 +919,7 @@ func (e *encoder) claimLibrary(node ast.Node, fqn string) {
 	claims := []struct{ iri, standsFor string }{{subject.Value, fqn}}
 	if e.ids.normativeMembership(node) {
 		claims = append(claims, struct{ iri, standsFor string }{
-			e.ids.owningMembershipOf(node, subject).Value, fqn + "'s owning membership",
+			e.ids.owningMembershipOf(node, subject).Value, fqn + owningMembershipClaim,
 		})
 	}
 	if e.libraryRefs == nil {
@@ -1357,7 +1360,7 @@ func (e *encoder) mintDeclarations() error {
 		if !ok || membership == e.ids.subjectForNode(parents[node], e.fqn[parents[node]]) {
 			continue // no membership of its own to claim
 		}
-		if prior, taken := e.claim(membership.Value, fqn+"'s owning membership"); taken {
+		if prior, taken := e.claim(membership.Value, fqn+owningMembershipClaim); taken {
 			return &UnsupportedError{
 				What: fmt.Sprintf("the owning membership of %s", fqn),
 				Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
@@ -2170,7 +2173,7 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	}
 	membership := e.ids.owningMembershipOf(node, member)
 	// The membership shares the element namespace, so its IRI is reserved too.
-	if prior, taken := e.claim(membership.Value, memberFQN+"'s owning membership"); taken && e.idErr == nil {
+	if prior, taken := e.claim(membership.Value, memberFQN+owningMembershipClaim); taken && e.idErr == nil {
 		e.idErr = &UnsupportedError{
 			What: fmt.Sprintf("the owning membership of %s", memberFQN),
 			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),

@@ -25,6 +25,7 @@ import {
   CAPABILITY_STATE_TRACE,
   CAPABILITY_QUERY,
   CAPABILITY_QUERY_ORDER_BY,
+  CAPABILITY_OSLC_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
   CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
@@ -443,6 +444,7 @@ export class Connection {
       toFormat,
       fromFormat: options.fromFormat ?? "",
       tolerateSyntaxErrors: options.tolerateSyntaxErrors === true,
+      idForm: options.idForm ?? "",
       includeLibraryStubs: options.includeLibraryStubs === true,
     });
     if ("path" in source) {
@@ -587,10 +589,12 @@ export class Connection {
     options: { payload?: QueryPayload } & QueryForm = {},
   ): Promise<QueryElement[]> {
     const query = queryField(options);
-    const needed =
-      query.query !== undefined && query.query.orderBy.length > 0
-        ? [CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY]
-        : [CAPABILITY_QUERY];
+    const needed = [CAPABILITY_QUERY];
+    if (query.query === undefined) {
+      needed.push(CAPABILITY_OSLC_QUERY);
+    } else if (query.query.orderBy.length > 0) {
+      needed.push(CAPABILITY_QUERY_ORDER_BY);
+    }
     for (const capability of needed) {
       requireCapability(this.info, capability, upgradeRemedy(capability));
     }

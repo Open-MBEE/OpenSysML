@@ -76,6 +76,9 @@ export class ModelFileNotFoundError extends ServiceError {}
 /** The service rejected the request as malformed or unsupported. */
 export class InvalidRequestError extends ServiceError {}
 
+/** The service refused the call's credentials: no bearer token, or not the one it expects. */
+export class AuthenticationError extends ServiceError {}
+
 /** A call exceeded its deadline, or was cancelled. */
 export class ServiceTimeoutError extends ServiceError {}
 

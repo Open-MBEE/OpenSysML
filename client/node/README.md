@@ -334,7 +334,8 @@ Every failure is an `OpenSysMLError`. A call the service refused is a
 `ServiceError` whose `code` is the RPC status it came back with (`"NOT_FOUND"`,
 `"INVALID_ARGUMENT"`, …), and the statuses worth catching by themselves have a
 subclass: `ModelNotFoundError` (the service no longer holds that hash),
-`ModelFileNotFoundError`, `InvalidRequestError`, `ServiceTimeoutError`,
+`ModelFileNotFoundError`, `InvalidRequestError`, `AuthenticationError` (the
+service refused the call's bearer token), `ServiceTimeoutError`,
 `ServiceUnavailableError` (the service was unreachable or died before
 answering), `UnsupportedOperationError`. A name the model has not got is a
 `SymbolNotFoundError`, which carries the `symbolName` it looked for and the
