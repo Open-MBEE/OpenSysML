@@ -1030,6 +1030,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 			return meta
 		}
 	}
+	// A flow's declared payload is a KerML PayloadFeature in either language
+	// (SysML v2.1 textual notation, FlowPayloadFeature: PayloadFeature : Feature).
+	if isFlowPayload(sym) {
+		if meta := m.kermlMetaclass("PayloadFeature"); meta != nil {
+			return meta
+		}
+	}
 	if isMetadataBodyFeature(sym) {
 		return m.metadataBodyFeatureMetaclass(m.isKerMLDoc(sym))
 	}
@@ -1062,6 +1069,20 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 
 // isAssertedConstraint reports a constraint usage written `assert constraint c`
 // or `assert c` (SysML.xtext AssertConstraintUsage), from its declaration or record.
+// isFlowPayload reports the payload a flow declares with `of p : T`.
+func isFlowPayload(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Decl == nil || sym.OwnerScope == nil {
+		return false
+	}
+	owner := sym.OwnerScope.Owner()
+	if owner == nil {
+		return false
+	}
+	flow, ok := owner.Decl.(*ast.Usage)
+	return ok && flow.FlowEnds != nil && flow.FlowEnds.PayloadDecl != nil &&
+		ast.Node(flow.FlowEnds.PayloadDecl) == sym.Decl
+}
+
 func isAssertedConstraint(sym *symbols.Symbol) bool {
 	if sym.Kind != symbols.SymbolConstraintUsage {
 		return false

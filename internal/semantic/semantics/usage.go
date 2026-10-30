@@ -25,7 +25,7 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 	default:
 		return false
 	}
-	if sym.OwnerScope == nil {
+	if sym.OwnerScope == nil || m.isPayloadFeature(sym) {
 		return false
 	}
 	owner := sym.OwnerScope.Owner()
@@ -38,6 +38,13 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		(!actionKind && !m.conformsByName(sym, "Actions::Action"))
 }
 
+// isPayloadFeature reports a flow's payload: a PayloadFeature is a KerML Feature,
+// not a Usage, so Usage::mayTimeVary does not apply (SysML v2.1 §8.3.16).
+func (m *Model) isPayloadFeature(sym *symbols.Symbol) bool {
+	meta := m.MetaclassOf(sym)
+	return meta != nil && meta.Name == "PayloadFeature"
+}
+
 // UsageMayTimeVaryForOwningType derives Usage::mayTimeVary for the owning type
 // stated by Structure, or nil when the usage has no owning FeatureMembership.
 func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
@@ -46,13 +53,21 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 	}
 	isPortion := false
 	if sym.Recorded() {
+		if sym.OwnerScope != nil && sym.OwnerScope.Owner() == owner {
+			// The recorded fact is this derivation over the symbol's own owner.
+			return m.UsageMayTimeVary(sym)
+		}
 		isPortion = sym.Facts.Modifiers.Has(symbols.ModPortion)
-	} else if usage, ok := sym.Decl.(*ast.Usage); ok {
-		isPortion = usage.IsPortion || usage.Portion != ast.PortionNone
 	} else {
-		return false
+		switch d := sym.Decl.(type) {
+		case *ast.Usage:
+			isPortion = d.IsPortion || d.Portion != ast.PortionNone
+		case *ast.RequireMember, *ast.AssumeMember:
+		default:
+			return false
+		}
 	}
-	if owner == nil || !m.conformsByName(owner, "Occurrences::Occurrence") ||
+	if owner == nil || m.isPayloadFeature(sym) || !m.conformsByName(owner, "Occurrences::Occurrence") ||
 		isPortion ||
 		m.conformsByName(sym, "Links::SelfLink") ||
 		m.conformsByName(sym, "Occurrences::HappensLink") {
