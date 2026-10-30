@@ -150,8 +150,8 @@ func compareWrittenRelationships(t *testing.T, name string, graph *rdf.Graph, en
 // definition's and a usage's specializations, two typings, subsets, redefines, a satisfy's
 // requirement (reference form), bound ends, a dependency's prefix metadata, a metadata body's
 // implicit redefinition, variant references, a multiplicity's subsets, three clauses naming
-// one type (one typing), an import.
-const writtenRelationshipsModel = "package R {\n\tprivate import ScalarValues::*;\n\tpart def Base;\n\tpart def Derived :> Base;\n\tport def P;\n\tmetadata def M;\n\trequirement def Req;\n\tpart def Sys {\n\t\tattribute m : Real;\n\t\tpart a : Base, Derived;\n\t\tpart twice : Base, Base, R::Base;\n\t\tmultiplicity mm subsets many;\n\t\tpart b :> a;\n\t\tpart d specializes a;\n\t\tpart c subsets a redefines b;\n\t\tport p : P;\n\t\tport q : ~P;\n\t\tconnect a to b;\n\t\tsatisfy Req by a;\n\t\t#M dependency from a to b;\n\t\t@H { flown = true; }\n\t\tpart v : Base { variant b; variant a; }\n\t}\n\tmetadata def H { attribute flown : Boolean; }\n\tmultiplicity many [0..*];\n}\n"
+// one type (one typing), two clauses spelling one feature chain (two subsettings), an import.
+const writtenRelationshipsModel = "package R {\n\tprivate import ScalarValues::*;\n\tpart def Base;\n\tpart def Derived :> Base;\n\tport def P;\n\tmetadata def M;\n\trequirement def Req;\n\tpart def Sys {\n\t\tattribute m : Real;\n\t\tpart a : Base, Derived;\n\t\tpart twice : Base, Base, R::Base;\n\t\tmultiplicity mm subsets many;\n\t\tpart b :> a;\n\t\tpart d specializes a;\n\t\tpart c subsets a redefines b;\n\t\tport p : P;\n\t\tport q : ~P;\n\t\tconnect a to b;\n\t\tsatisfy Req by a;\n\t\t#M dependency from a to b;\n\t\t@H { flown = true; }\n\t\tpart v : Base { variant b; variant a; }\n\t\tpart box : Box;\n\t\tpart w subsets box.inner, a, box.inner;\n\t}\n\tpart def Box { part inner; }\n\tmetadata def H { attribute flown : Boolean; }\n\tmultiplicity many [0..*];\n}\n"
 
 // TestElementIDReaderMintsEveryWrittenRelationship: each form of implied relationship
 // reads through the reader with the id the writer gives it, keyed by the node it is written for.
@@ -182,7 +182,7 @@ func TestElementIDReaderMintsEveryWrittenRelationship(t *testing.T) {
 			}
 		}
 	}
-	for _, suffix := range []string{"_sc0", "_ft0", "_ft1", "_sp0", "_ss0", "_rd0", "_rs", "_prs", "_an"} {
+	for _, suffix := range []string{"_sc0", "_ft0", "_ft1", "_sp0", "_ss0", "_ss1", "_ss2", "_rd0", "_rs", "_prs", "_an"} {
 		if suffixes[suffix] == 0 {
 			t.Errorf("no relationship read under %s; read %v", suffix, suffixes)
 		}
@@ -203,6 +203,30 @@ func TestElementIDReaderMintsEveryWrittenRelationship(t *testing.T) {
 			for _, rel := range node.(*ast.Usage).Relationships {
 				if got, _ := reader.ReadRelationship("r.sysml", rel); got != "R__Sys__twice_ft0" {
 					t.Errorf("typing clause at %v read %q, want R__Sys__twice_ft0", rel.Span(), got)
+				}
+			}
+		}
+	}
+	// `part w subsets box.inner, a, box.inner` owns one chain Feature per chain clause
+	// (headChain), so the writer materializes three subsettings, in clause order.
+	for i, want := range []string{"R__Sys__w_ss0", "R__Sys__w_ss1", "R__Sys__w_ss2"} {
+		if written, _ := graph.Lexical(rdf.ElementIRIForID(want), rdf.SysML+pElementID); written != want {
+			t.Errorf("subsetting %d of w written %q, want %q", i, written, want)
+		}
+	}
+	for _, e := range encoders {
+		for node, fqn := range e.fqn {
+			if fqn != "R::Sys::w" {
+				continue
+			}
+			rels := node.(*ast.Usage).Relationships
+			if len(rels) != 3 {
+				t.Fatalf("w states %d clauses, want 3", len(rels))
+			}
+			for i, rel := range rels {
+				want := fmt.Sprintf("R__Sys__w_ss%d", i)
+				if got, _ := reader.ReadRelationship("r.sysml", rel); got != want {
+					t.Errorf("subsets clause %d of w at %v read %q, want %q", i, rel.Span(), got, want)
 				}
 			}
 		}
