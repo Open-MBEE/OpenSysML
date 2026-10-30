@@ -426,9 +426,8 @@ func (s *Session) queryValueList(ctx *runtime.Context, elements []runtime.Value)
 	return out, nil
 }
 
-// renderRowSet reports an executed query's ordered rows and projected cells as
-// the prompt prints them, with the row and column counts as values and the table as data;
-// in the table an element without a name is spelled by its elementId, through elementID.
+// renderRowSet reports an executed query's rows as the prompt prints them, the row and
+// column counts as values, and the table as data (nameless elements by elementId there).
 func renderRowSet(name string, result *queryexec.RowSet, elementID func(*symbols.Symbol) (string, error)) ([]string, []NamedValue, *VerdictTable) {
 	rows := result.Rows()
 	columns := result.Columns()
