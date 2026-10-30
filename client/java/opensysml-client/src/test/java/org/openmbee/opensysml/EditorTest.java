@@ -232,13 +232,14 @@ class EditorTest {
   void libraryStubsNeedTheirCapabilityBeforeAnythingIsSent() {
     try (Connection connection = offline(Capabilities.CONVERT)) {
       ConversionOptions stubs = ConversionOptions.defaults().withIncludeLibraryStubs(true);
+      Model model = model(connection);
       CapabilityException refused =
-          assertThrows(
-              CapabilityException.class, () -> model(connection).convert("api-json", stubs));
+          assertThrows(CapabilityException.class, () -> model.convert("api-json", stubs));
       assertEquals(Capabilities.CONVERT_LIBRARY_STUBS, refused.capability());
+      ConversionOptions sysmlStubs = stubs.withFromFormat("sysml");
       assertThrows(
           CapabilityException.class,
-          () -> connection.convert("package P;", "api-json", stubs.withFromFormat("sysml")));
+          () -> connection.convert("package P;", "api-json", sysmlStubs));
     }
   }
 
