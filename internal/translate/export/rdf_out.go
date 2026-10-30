@@ -1732,7 +1732,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isEnd", n.IsEnd},
 			{"isChain", n.IsChain},
 			{"isConstant", n.IsConstant},
-			{"isVariable", e.usageIsVariable(n)},
+			// A payload is a PayloadFeature, a KerML Feature with no `var` keyword.
+			{"isVariable", !payload && e.usageIsVariable(n)},
 			{"mayTimeVary", ontology.IsAncestorOrSelf(metaclass, "Usage") && e.usageMayTimeVary(n)},
 			{"isEvent", n.IsEvent && metaclass != mEventOccurrenceUsage},
 			{"isIndividual", n.IsIndividual},

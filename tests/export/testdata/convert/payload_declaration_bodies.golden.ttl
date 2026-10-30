@@ -519,7 +519,6 @@ elmt:Payloads__Ctx___402__fuel
     sysml:owningMembership elmt:Payloads__Ctx___402__fuel_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "fuel" ;
-    sysml:isVariable "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__Fuel ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx___402__fuel_ft0 ;
@@ -790,7 +789,6 @@ elmt:Payloads__Ctx__m__cmd
     sysml:owningMembership elmt:Payloads__Ctx__m__cmd_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "cmd" ;
-    sysml:isVariable "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__Prio ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx__m__cmd_ft0 ;
@@ -1026,7 +1024,6 @@ elmt:Payloads__Ctx___404__cmd
     sysml:owningMembership elmt:Payloads__Ctx___404__cmd_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "cmd" ;
-    sysml:isVariable "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__Prio ;
     sysml:value expr:Payloads__Ctx___404__cmd_pvalue ;
     sysml:ownedRelationship elmt:Payloads__Ctx___404__cmd_ft0, expr:Payloads__Ctx___404__cmd_pvalue_om ;
