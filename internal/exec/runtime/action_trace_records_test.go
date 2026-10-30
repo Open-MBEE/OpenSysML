@@ -136,3 +136,47 @@ func TestActionTraceKindsPrintNoLine(t *testing.T) {
 		t.Errorf("decide text = %q", got)
 	}
 }
+
+// A qualified target under a shadowing local is recorded with the value written to it,
+// not with the local's.
+func TestActionTraceQualifiedAssignUnderShadowingLocal(t *testing.T) {
+	src := `
+	package test {
+		private import ScalarValues::*;
+		part def Craft;
+		part craft : Craft;
+		action def Act {
+			attribute a : Integer := 1;
+			out attribute r : Integer;
+			if true {
+				attribute a : Integer := 9;
+				assign r := Act::a;
+				assign Act::a := 4;
+			}
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	trace := NewTraceRecorder()
+	ctx.SetTrace(trace)
+	craft, err := ctx.Instantiate(oneSymbol(t, idx, "test::craft"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	outputs, _, err := ctx.ExecuteActionWithEvents(oneSymbol(t, idx, "test::Act"), craft, map[string]Value{}, nil)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if got := FormatValue(outputs["r"]); got != "1" && got != "[1]" {
+		t.Errorf("r = %s, want Act::a's 1", got)
+	}
+	var assigns []string
+	for _, r := range trace.Records() {
+		if r.Kind == TraceAssign {
+			assigns = append(assigns, r.Text())
+		}
+	}
+	joined := strings.Join(assigns, "\n")
+	if !strings.Contains(joined, "assign a = 4") || strings.Contains(joined, "assign a = 9") {
+		t.Errorf("assign records:\n%s\nwant Act::a recorded as 4, never as the local's 9", joined)
+	}
+}

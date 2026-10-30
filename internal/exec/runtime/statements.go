@@ -1751,10 +1751,10 @@ type actionStepHost interface {
 
 // noteAssign records in the trace the value an assignment wrote, under the
 // action token stepping the statement where one is.
-// heldAfterAssign is what the target holds once written, as the write shaped it; a chained
-// target is not read back, so its record keeps the value the statement gave.
+// heldAfterAssign is what the target holds once written, as the write shaped it; a chained or
+// qualified target, which a nearer name can shadow, is not read back and keeps the value written.
 func (e *stmtEngine) heldAfterAssign(s lower.Assign, written Value) Value {
-	if e.ctx.trace == nil || s.Chain != nil {
+	if e.ctx.trace == nil || s.Chain != nil || s.Qualified {
 		return written
 	}
 	if held, ok, err := e.evalIn(s.Scope).Lookup(s.Target); err == nil && ok {
