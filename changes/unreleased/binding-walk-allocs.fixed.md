@@ -5,3 +5,5 @@ subsetters' set is made on the first value, and a body is scanned for declared f
 without listing its members first. `GRPCVerifyConstraint` allocates 14 887 times per
 constraint instead of 16 301, recovering most of what #1508 and #1512 added over
 0.11.0's 14 091; the remaining 796 are the reads those fixes made (no parity claim).
+The warm gRPC instantiation (`InstantiateWarmModel`) allocates 1 996 times instead of
+2 155, against 1 962 on 0.11.0.
