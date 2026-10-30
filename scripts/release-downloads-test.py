@@ -159,23 +159,26 @@ class RenderTest(unittest.TestCase):
 
 
 class MainTest(unittest.TestCase):
-    def run_main(self, argv, env=None, pages=None):
-        urlopen, seen = paged(pages or [RELEASES])
-        stdout = io.StringIO()
+    def run_main(self, argv, env=None, pages=None, urlopen=None):
+        if urlopen is None:
+            urlopen, seen = paged(pages or [RELEASES])
+        else:
+            seen = []
+        stdout, stderr = io.StringIO(), io.StringIO()
         with unittest.mock.patch.dict("os.environ", env or {}, clear=True):
             with unittest.mock.patch("urllib.request.urlopen", urlopen):
-                with contextlib.redirect_stdout(stdout):
+                with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
                     code = downloads.main(argv)
-        return code, stdout.getvalue(), seen
+        return code, stdout.getvalue(), stderr.getvalue(), seen
 
     def test_default_lists_the_default_repository(self):
-        code, out, seen = self.run_main([])
+        code, out, _, seen = self.run_main([])
         self.assertEqual(code, 0)
         self.assertIn("/repos/Open-MBEE/OpenSysML/releases?", seen[0].full_url)
         self.assertTrue(out.endswith("4 releases, 1,824 downloads\n"))
 
     def test_json_carries_repo_and_rows(self):
-        code, out, _ = self.run_main(["--json", "--stable", "--repo", "o/r"], env={"GITHUB_TOKEN": "t"})
+        code, out, _, _ = self.run_main(["--json", "--stable", "--repo", "o/r"], env={"GITHUB_TOKEN": "t"})
         self.assertEqual(code, 0)
         payload = json.loads(out)
         self.assertEqual(payload["repo"], "o/r")
@@ -183,38 +186,38 @@ class MainTest(unittest.TestCase):
         self.assertEqual(payload["releases"][0]["assets"][1], {"name": "SHA256SUMS.txt", "downloads": 94, "size": 10})
 
     def test_gh_token_overrides_github_token(self):
-        _, _, seen = self.run_main(["--stable"], env={"GITHUB_TOKEN": "read-only", "GH_TOKEN": "push"})
+        _, _, _, seen = self.run_main(["--stable"], env={"GITHUB_TOKEN": "read-only", "GH_TOKEN": "push"})
         self.assertEqual(seen[0].get_header("Authorization"), "Bearer push")
 
     def test_github_token_alone_is_used(self):
-        _, _, seen = self.run_main(["--stable"], env={"GITHUB_TOKEN": "read-only"})
+        _, _, _, seen = self.run_main(["--stable"], env={"GITHUB_TOKEN": "read-only"})
         self.assertEqual(seen[0].get_header("Authorization"), "Bearer read-only")
 
-    def test_traffic_without_token_exits_before_the_network(self):
-        with self.assertRaises(SystemExit) as caught:
-            self.run_main(["--traffic"])
-        self.assertIn("--traffic needs GITHUB_TOKEN or GH_TOKEN", str(caught.exception))
+    def test_traffic_without_token_fails_before_the_network(self):
+        code, out, err, seen = self.run_main(["--traffic"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out, "")
+        self.assertEqual(seen, [])
+        self.assertIn("--traffic needs GITHUB_TOKEN or GH_TOKEN", err)
 
     def test_traffic_api_error_names_the_push_access_requirement(self):
         def forbidden(request, timeout=0):
             raise OSError("HTTP Error 403: Forbidden")
 
-        with unittest.mock.patch.dict("os.environ", {"GH_TOKEN": "t"}, clear=True):
-            with unittest.mock.patch("urllib.request.urlopen", forbidden):
-                with self.assertRaises(SystemExit) as caught:
-                    downloads.main(["--traffic"])
-        self.assertIn("403", str(caught.exception))
-        self.assertIn("push access", str(caught.exception))
+        code, out, err, _ = self.run_main(["--traffic"], env={"GH_TOKEN": "t"}, urlopen=forbidden)
+        self.assertEqual(code, 1)
+        self.assertEqual(out, "")
+        self.assertIn("403", err)
+        self.assertIn("push access", err)
 
     def test_release_api_error_is_reported_without_a_stack(self):
         def failing(request, timeout=0):
             raise OSError("HTTP Error 404: Not Found")
 
-        with unittest.mock.patch.dict("os.environ", {}, clear=True):
-            with unittest.mock.patch("urllib.request.urlopen", failing):
-                with self.assertRaises(SystemExit) as caught:
-                    downloads.main(["--repo", "o/missing"])
-        self.assertEqual(str(caught.exception), "Error: listing releases of o/missing failed: HTTP Error 404: Not Found")
+        code, out, err, _ = self.run_main(["--repo", "o/missing"], urlopen=failing)
+        self.assertEqual(code, 1)
+        self.assertEqual(out, "")
+        self.assertEqual(err, "Error: listing releases of o/missing failed: HTTP Error 404: Not Found\n")
 
     def test_views_are_mutually_exclusive(self):
         with contextlib.redirect_stderr(io.StringIO()):
