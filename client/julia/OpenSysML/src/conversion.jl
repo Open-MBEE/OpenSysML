@@ -62,11 +62,19 @@ end
 Convert exactly one file, inline source, or cached model to another format. `id_form`
 (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) spells the derived ids of a graph
 notation; `include_library_stubs` restores, in api-json, the ownerless library stubs releases
-before 0.11.0 wrote, and needs the service's `convert_library_stubs` capability.
+before 0.11.0 wrote, and needs the service's `convert_library_stubs` capability. For notation
+converted to api-json, `compact` writes the compact document (`api-json-compact/1`) in place
+of the element array, `omit_derived` leaves out every derived property of the metamodel and
+`keep_derived` names the ones still written (all three need `convert_compact`);
+`include_check_diagnostics` reports the semantic check's diagnostics, each with its severity,
+in the result's `diagnostics` beside the output (notation sources only; needs
+`convert_check_diagnostics`).
 """
 function _convert(conn::Connection, to_format::AbstractString; file_path=nothing,
                   content=nothing, model_hash=nothing, from_format="",
-                  tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false)
+                  tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false,
+                  compact::Bool=false, omit_derived::Bool=false, keep_derived=String[],
+                  include_check_diagnostics::Bool=false)
     sources = Pair{String,Any}["file_path" => file_path, "content" => content,
                                "model_hash" => model_hash]
     given = Pair{String,Any}[p for p in sources if last(p) !== nothing]
@@ -83,10 +91,18 @@ function _convert(conn::Connection, to_format::AbstractString; file_path=nothing
     end
     require_capability(conn, CAPABILITY_CONVERT)
     include_library_stubs && require_capability(conn, CAPABILITY_CONVERT_LIBRARY_STUBS)
+    kept = String[String(name) for name in keep_derived]
+    (compact || omit_derived || !isempty(kept)) &&
+        require_capability(conn, CAPABILITY_CONVERT_COMPACT)
+    include_check_diagnostics && require_capability(conn, CAPABILITY_CONVERT_CHECK_DIAGNOSTICS)
     request = Dict{String,Any}("toFormat" => String(to_format),
         "fromFormat" => String(from_format), "tolerateSyntaxErrors" => Bool(tolerate_syntax_errors))
     isempty(String(id_form)) || (request["idForm"] = String(id_form))
     include_library_stubs && (request["includeLibraryStubs"] = true)
+    compact && (request["compact"] = true)
+    omit_derived && (request["omitDerived"] = true)
+    isempty(kept) || (request["keepDerived"] = kept)
+    include_check_diagnostics && (request["includeCheckDiagnostics"] = true)
     request[source_name == "file_path" ? "filePath" :
             source_name == "model_hash" ? "modelHash" : "content"] = String(source_value)
     source_not_found = source_name == "file_path" ? ModelFileNotFoundError : ModelNotFoundError
@@ -117,32 +133,46 @@ end
 """Convert a file-backed source to `to_format`."""
 convert_file(conn::Connection, path::AbstractString, to_format::AbstractString;
              from_format="", tolerate_syntax_errors=false, id_form="",
-             include_library_stubs::Bool=false) =
+             include_library_stubs::Bool=false, compact::Bool=false, omit_derived::Bool=false,
+             keep_derived=String[], include_check_diagnostics::Bool=false) =
     _convert(conn, to_format; file_path=path, from_format=from_format,
              tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
-             include_library_stubs=include_library_stubs)
+             include_library_stubs=include_library_stubs, compact=compact,
+             omit_derived=omit_derived, keep_derived=keep_derived,
+             include_check_diagnostics=include_check_diagnostics)
 
 """Convert inline source to `to_format`, naming its input format explicitly."""
 convert_source(conn::Connection, content::AbstractString, to_format::AbstractString;
                from_format, tolerate_syntax_errors=false, id_form="",
-               include_library_stubs::Bool=false) =
+               include_library_stubs::Bool=false, compact::Bool=false, omit_derived::Bool=false,
+               keep_derived=String[], include_check_diagnostics::Bool=false) =
     _convert(conn, to_format; content=content, from_format=from_format,
              tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
-             include_library_stubs=include_library_stubs)
+             include_library_stubs=include_library_stubs, compact=compact,
+             omit_derived=omit_derived, keep_derived=keep_derived,
+             include_check_diagnostics=include_check_diagnostics)
 
 """Convert a cached model by hash to `to_format`."""
 convert_model(conn::Connection, model_hash::AbstractString, to_format::AbstractString;
-              tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false) =
+              tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false,
+              compact::Bool=false, omit_derived::Bool=false, keep_derived=String[],
+              include_check_diagnostics::Bool=false) =
     _convert(conn, to_format; model_hash=model_hash,
              tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
-             include_library_stubs=include_library_stubs)
+             include_library_stubs=include_library_stubs, compact=compact,
+             omit_derived=omit_derived, keep_derived=keep_derived,
+             include_check_diagnostics=include_check_diagnostics)
 
 """Convert the source retained for `model` to `to_format`."""
 convert_model(model::Model, to_format::AbstractString;
-              tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false) =
+              tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false,
+              compact::Bool=false, omit_derived::Bool=false, keep_derived=String[],
+              include_check_diagnostics::Bool=false) =
     convert_model(model.connection, model.hash, to_format;
                   tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
-                  include_library_stubs=include_library_stubs)
+                  include_library_stubs=include_library_stubs, compact=compact,
+                  omit_derived=omit_derived, keep_derived=keep_derived,
+                  include_check_diagnostics=include_check_diagnostics)
 
 """Write `model` back out as SysML notation."""
 function to_sysml(model::Model; tolerate_syntax_errors=false)

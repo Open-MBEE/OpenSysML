@@ -209,6 +209,86 @@ end
     end
 end
 
+@testset "convert sends the compact and check-diagnostics options asked for" begin
+    answer = Dict{String,Any}("content" => "{}", "fromFormat" => "sysml", "toFormat" => "api-json",
+        "diagnostics" => [Dict("severity" => "warning", "message" => "unused import"),
+                          Dict("severity" => "error", "message" => "unresolved name")])
+    server, requests, address = recording_service(
+        ["convert", "convert_compact", "convert_check_diagnostics"]; handler=(method, body) -> answer)
+    conn = external(address)
+    try
+        asked = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+            from_format="sysml", compact=true, omit_derived=true, keep_derived=["qualifiedName", "owner"],
+            include_check_diagnostics=true)
+        @test requests[end].method == "Convert"
+        @test requests[end].body["compact"] === true
+        @test requests[end].body["omitDerived"] === true
+        @test requests[end].body["keepDerived"] == ["qualifiedName", "owner"]
+        @test requests[end].body["includeCheckDiagnostics"] === true
+        @test [d.severity for d in asked.diagnostics] == ["warning", "error"]
+        @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+                                                               from_format="sysml")
+        for key in ("compact", "omitDerived", "keepDerived", "includeCheckDiagnostics")
+            @test !haskey(requests[end].body, key)
+        end
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["convert", "convert_check_diagnostics"])
+    conn = external(address)
+    try
+        for kwargs in ((; compact=true), (; omit_derived=true), (; keep_derived=["owner"]))
+            @test_throws MissingCapabilityError convert_source(conn, "package P;", "api-json";
+                from_format="sysml", kwargs...)
+        end
+        @test all(request -> request.method != "Convert", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["convert", "convert_compact"])
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError convert_source(conn, "package P;", "api-json";
+            from_format="sysml", include_check_diagnostics=true)
+        @test all(request -> request.method != "Convert", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "parse_sources sends the base model hash and reads the affected documents" begin
+    handler = (method, body) -> Dict{String,Any}("modelHash" => "fake",
+        "roots" => [Dict("id" => doc["name"], "name" => "", "kind" => "Namespace") for doc in body["documents"]],
+        "affected" => haskey(body, "baseModelHash") ? ["top.sysml"] : Any[])
+    server, requests, address = recording_service(["parse_sources", "parse_sources_affected"]; handler=handler)
+    conn = external(address)
+    try
+        related = parse_sources(conn, [("lib.sysml", "package Lib;"), ("top.sysml", "package Top;")];
+                                base_model_hash="base-hash")
+        fresh = parse_sources(conn, [("lib.sysml", "package Lib;"), ("top.sysml", "package Top;")])
+        parses = [request for request in requests if request.method == "ParseSources"]
+        @test [get(request.body, "baseModelHash", nothing) for request in parses] == ["base-hash", nothing]
+        @test affected(related) == ["top.sysml"]
+        @test affected(fresh) == String[]
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["parse_sources"]; handler=handler)
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError parse_sources(conn, [("a.sysml", "package A;")];
+                                                          base_model_hash="base-hash")
+        @test all(request -> request.method != "ParseSources", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
 @testset "render_view and import_data send their folding and row forms" begin
     server, requests, address = recording_service(["render_view", "import_data"];
         handler=(method, body) -> method == "RenderView" ?
