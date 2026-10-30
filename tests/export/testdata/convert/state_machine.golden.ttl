@@ -349,6 +349,8 @@ elmt:StateMachine__VehicleStates__starting___400__ready
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___400 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ready" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:StateMachine__VehicleStates__starting___400__ready_ft0 ;
@@ -390,6 +392,8 @@ elmt:StateMachine__VehicleStates__starting___401__running
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___401 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "running" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:StateMachine__VehicleStates__starting___401__running_ft0 ;
@@ -514,6 +518,8 @@ elmt:StateMachine__VehicleStates__active___400__monitor
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___400 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "monitor" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:StateMachine__VehicleStates__active___400__monitor_ft0 ;
@@ -2080,6 +2086,8 @@ elmt:StateMachine__Composite___404___400
     sysml:owningRelationship elmt:StateMachine__Composite___404 ;
     sysml:owningMembership elmt:StateMachine__Composite___404 ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:StateMachine__Composite___404___400__Warm ;
     sysml:ownedMembership elmt:StateMachine__Composite___404___400__Warm_om ;

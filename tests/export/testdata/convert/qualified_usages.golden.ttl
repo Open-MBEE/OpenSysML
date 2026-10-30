@@ -641,6 +641,8 @@ elmt:Q__ctx__pa
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "pa" ;
     sysx:declaredPrefix "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Q__A ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Q__ctx__pa_ft0 ;
@@ -794,6 +796,8 @@ elmt:Q__ctx__es
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "es" ;
     sysx:declaredKeyword "exhibit state" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Q__S ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Q__ctx__es_ft0 ;
@@ -946,6 +950,8 @@ elmt:Q__ctx__iu
     sysml:owningMembership elmt:Q__ctx__iu_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "iu" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Q__U ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Q__ctx__iu_ft0 ;
@@ -981,6 +987,8 @@ elmt:Q__ctx__u1
     sysml:owningMembership elmt:Q__ctx__u1_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:Q__Ctx__u1 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:Q__ctx__u1_rs ;
