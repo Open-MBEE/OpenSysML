@@ -247,8 +247,8 @@ branch that moves the integration state onto `main`:
    needs (a doc that names the version) lands here too; a feature does not. Check the wire compatibility
    against the released schema, not the branch's own source:
    `make proto-breaking BUF_BREAKING_REF=origin/main` (the default baseline is
-   `origin/develop`; the pull-request workflow uses the base branch, so the PR to `main`
-   makes the same comparison).
+   `origin/develop`; the pull-request workflow uses the merge base with the base branch, so
+   the PR to `main` makes the same comparison).
 
 3. Open a pull request from `release/x.y.z` to `main` and merge it once the
    pull-request workflow is green. Merging into `main` runs CircleCI's
