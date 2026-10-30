@@ -15,7 +15,7 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 	part def Engine { perform action generateTorque; exhibit state s : S; action own; part sub : Engine; }
 }
 `
-	for _, fixture := range reflectiveFixtures(t, "vary.sysml", source.KindSysML, src) {
+	for i, fixture := range reflectiveFixtures(t, "vary.sysml", source.KindSysML, src) {
 		vary, ok := fixture.root.LookupLocal("Vary")
 		if !ok || vary.Scope == nil {
 			t.Fatal("Vary not found")
@@ -30,7 +30,7 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 				t.Fatalf("Vary::Engine::%s not found", name)
 			}
 			if got := fixture.model.UsageMayTimeVary(sym); got != want {
-				t.Errorf("Vary::Engine::%s mayTimeVary = %v, want %v", name, got, want)
+				t.Errorf("fixture %d: Vary::Engine::%s mayTimeVary = %v, want %v", i, name, got, want)
 			}
 		}
 	}
