@@ -32,7 +32,7 @@ function test_errors_capabilities()
     converting = opensysml.external('127.0.0.1:1');
     converting.primeServerInfo(struct('version', 'v1', ...
         'capabilities', {{'convert', 'parse_sources'}}));
-    compactOptions = {{'compact', true}, {'omitDerived', true}, {'keepDerived', {{'owner'}}}};
+    compactOptions = {{'compact', true}, {'omitDerived', true}, {'keepDerived', {'owner'}}};
     for i = 1:numel(compactOptions)
         pair = compactOptions{i};
         expect_error(@() opensysml.convert(converting, 'api-json', 'content', 'package P;', ...
