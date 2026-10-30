@@ -93,14 +93,14 @@ validate the largest generated model. Those are the rows below.
 | repl `LoadModel/elements=1000` (and /250 +5.4 %, /4000 +5.0 %; +3.5–5 % B/op on every load-heavy row: stress `Load`, `LoadFiles`, `OpenSplit`, `ValidateSplit`, `EditImported`, `ImportValues`, `Analyze/synthetic`, `WorkspaceEdit`, `REPLSubmitSnippet`) | B/op | 55.39 Mi | 55.52 Mi | 58.31 Mi | +5.0 % | #1478 (bisected), the `typed by` notation pass swept every document's expressions | `perf/typed-by-sweep` → 55.8 Mi (PR pending) |
 | runtime `AssignmentLoopStep` | B/op | 899.7 Ki | 899.7 Ki | 948.0 Ki | +5.4 % | #1514 and #1461 grew the evaluation context from 152 to 184 bytes | `perf/eval-context-size` → 926 Ki (PR pending) |
 | runtime `DerivedReadWriteRead` | B/op · allocs/op | 2 688 · 67 | 2 688 · 67 | 3 328 · 71 | +23.8 % · +6.0 % | #1619 (bisected) marks what a derived value stands on, copying the footprint's reads; #1514 for 64 B | `perf/derive-marks-footprint` → 3 104 · 69, with `perf/eval-context-size` (PRs pending) |
-| perf `GRPCVerifyConstraint` | allocs/op | 14 390 | 14 090 | 16 300 | +15.7 % | #1508 and #1512, the binding walks | `perf/binding-walk-allocs` → 14 890 (PR pending) |
-| grpc `InstantiateWarmModel` | allocs/op | 1 990 | 1 960 | 2 170 | +10.5 % (B/op +6.3 %) | the binding walks, as above | the same |
+| perf `GRPCVerifyConstraint` | allocs/op | 14 390 | 14 090 | 16 300 | +15.7 % | #1508 and #1512, the binding walks | `perf/binding-walk-allocs` → 14 887 (#1742) |
+| grpc `InstantiateWarmModel` | allocs/op | 1 990 | 1 960 | 2 170 | +10.5 % (B/op +6.3 %) | the binding walks, as above | the same → 1 996 (#1742) |
 | perf `FeaturesOf` | B/op | 261.7 Mi | 261.2 Mi | 295.8 Mi | +13.3 % (sec/op −7 %) | #1626, the memo of related features recorded every empty relation | `perf/related-features-memo` → 285.8 Mi (PR pending) |
 | perf `Instantiate`, cold, pinned at two iterations | B/op | — | 221 MB | 252 MB | +14 % (allocs −4.6 %) | #1626 (bisected) | the same → 230 MB |
 | perf `BatchSatisfy` | B/op | 456.8 Mi | 454.9 Mi | 491.4 Mi | +8.0 % | #1626 (bisected) | the same |
 | perf `ExecuteActionFreshContext` | allocs/op | 376 | 388 | 424 | +9.3 % | #1619 (bisected); the marks are the correctness cost, part of it the copy | `perf/derive-marks-footprint` |
 | perf `ActionChain/chain10` | B/op | 200.6 Ki | 198.1 Ki | 222.9 Ki | +12.5 % (allocs −18 %) | #1473 (bisected), the performance-shape memo of an earlier fix: fewer, larger allocations | not a regression to fix: `chain100` and `chain1000` allocate 18–26 % less |
-| whole binary, `-validate` of 12 086 generated elements | peak RSS | 161 MiB | 162 MiB | 193 MiB | +31 MiB | #1441 (bisected): the parse trees of a submission were held through its analysis for the roots an unresolved reference would be looked up by | `perf/release-preparse-trees` → 164 MiB (PR pending) |
+| whole binary, `-validate` of 12 086 generated elements | peak RSS | 161 MiB | 162 MiB | 193 MiB | +31 MiB | #1441 (bisected): the parse trees of a submission were held through its analysis for the roots an unresolved reference would be looked up by | `perf/release-preparse-trees` → 164 MiB (#1741) |
 
 One regression was found already fixed: bisecting `LoadModel/elements=1000`
 past #1478 lands on #1528 (+1.7 MB per load, the dependency search), which
@@ -249,6 +249,27 @@ bytes and allocation verdicts above do not depend on it.
 One pull request per cause, each against `develop` with its own
 six-round A/B against the merge that introduced the cost, listed here
 as they open; the branches are named in the summary table.
+
+- **#1741 `perf/release-preparse-trees`** (cause #1441): a submission's
+  parse trees are let go once its files are accepted; the roots an
+  unresolved reference is looked up by are found by parsing the pending
+  sources once, on first need. `sysml -validate` on the 12 086-element
+  generated model, medians of three cold runs, 0.11.0 rebuilt / #1441's
+  parent / #1441 / candidate / fix: peak RSS at `GOGC=25` (≈ live heap)
+  146 / 147 / 165 / 166 / **150 MiB**; at `GOGC=100` 162 / 163 / 176 /
+  181 / 177 MiB (the pacer's spread is ±10 MiB there); wall under
+  `GOMEMLIMIT=120MiB` 0.28 / 0.27 / 0.46 / 0.44 / **0.25 s**; all five
+  complete under `ulimit -v 1200000`. The repl `LoadModel/*` rows are
+  unchanged by it over six rounds.
+- **#1742 `perf/binding-walk-allocs`** (causes #1508 and #1512): the
+  binding walks allocate only where a binding can be found. Six rounds,
+  candidate → fix: `GRPCVerifyConstraint` 16 301 → **14 887** allocs/op
+  (0.11.0 rebuilt: 14 091; the 796 left are the owner and sibling reads
+  those merges make correctly), 834 → 785 KiB/op; grpc
+  `InstantiateWarmModel` 2 155 → **1 996** (0.11.0 rebuilt: 1 962);
+  `Instantiate` allocs −12 %, `BatchSatisfy` allocs −6.5 % and B/op
+  −2 %, `FeaturesOf` B/op −2 % (the rest of those bytes is #1626, the
+  next fix). sec/op flat on this host.
 
 ## What this record does not measure
 
