@@ -14,12 +14,22 @@ model.save("out.sysml")
 
 opensysml.convert("ttl", file_path="model.sysml")
 opensysml.convert("sysml", content=turtle.content, from_format="ttl")
+opensysml.convert("api-json", file_path="model.sysml", id_form=opensysml.ID_FORM_UUID)
 ```
 
 A `Conversion` carries output text, source and target formats, and whether
 the mapping is experimental. `str()` and `len()` operate on its text;
 `write(path)` saves it. File formats are inferred from extensions; inline
 content must name `from_format`.
+
+When a graph (`ttl` or `api-json`) is written, `id_form` spells the derived
+element ids: `ID_FORM_QUALIFIED` (the default, from each element's qualified
+name) or `ID_FORM_UUID` (name-based uuids under each root package, the library
+convention). `include_library_stubs=True` restores the ownerless library stubs
+api-json carried before 0.11.0; it needs the service's `convert_library_stubs`
+capability, and a service without it raises `MissingCapabilityError` before
+anything is sent. Both are taken alike by `opensysml.convert`,
+`Connection.convert` and `Model.convert`.
 
 Turtle conversion is experimental and raises `ExperimentalFeatureWarning`.
 The mapping carries supported model structure and body behavior, and refuses

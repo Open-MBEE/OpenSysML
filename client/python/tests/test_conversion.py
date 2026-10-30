@@ -18,6 +18,7 @@ from concurrent import futures
 import grpc
 import pytest
 
+import opensysml
 from opensysml.capabilities import (
     CAPABILITY_CONVERT,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
@@ -123,6 +124,16 @@ def fake_service():
     yield start
     for server in servers:
         server.stop(None)
+
+
+@pytest.fixture
+def no_default_connection(monkeypatch):
+    """The module-level API starts from no cached connection and leaves none behind."""
+    monkeypatch.setattr(opensysml, "_default_connection", None)
+    monkeypatch.setattr(opensysml, "_default_connection_params", None)
+    yield
+    if opensysml._default_connection is not None:
+        opensysml._default_connection.close()
 
 
 def test_format_of_path_infers_and_refuses():
@@ -244,6 +255,48 @@ def test_library_stubs_require_their_own_capability(fake_service):
         assert service.requests == [], "the request was sent to a service that would ignore it"
         conn.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML)
     assert len(service.requests) == 1
+
+
+@pytest.mark.usefixtures("no_default_connection")
+def test_module_level_convert_sends_the_id_form_and_library_stubs_asked_for(fake_service):
+    """opensysml.convert carries the api-json options to the wire as Connection.convert does."""
+    port, service = fake_service(
+        capabilities=(CAPABILITY_CONVERT, CAPABILITY_CONVERT_LIBRARY_STUBS)
+    )
+    opensysml.convert(
+        FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML, port=port,
+        id_form=ID_FORM_UUID, include_library_stubs=True,
+    )
+    opensysml.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML, port=port)
+
+    asked, defaulted = service.requests
+    assert asked.id_form == ID_FORM_UUID
+    assert asked.include_library_stubs is True
+    assert defaulted.id_form == ""
+    assert defaulted.include_library_stubs is False
+
+
+@pytest.mark.usefixtures("no_default_connection")
+def test_module_level_convert_takes_the_address_positionally(fake_service):
+    """The new options come last, so a positional call still binds host and port."""
+    port, service = fake_service()
+    opensysml.convert(FORMAT_SYSML, None, MODEL, None, FORMAT_SYSML, False, "localhost", port)
+    assert len(service.requests) == 1
+    assert service.requests[0].id_form == ""
+    assert service.requests[0].include_library_stubs is False
+
+
+@pytest.mark.usefixtures("no_default_connection")
+def test_module_level_library_stubs_require_their_own_capability(fake_service):
+    """opensysml.convert refuses the stubs before asking a service that would ignore them."""
+    port, service = fake_service()
+    with pytest.raises(MissingCapabilityError) as excinfo:
+        opensysml.convert(
+            FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML, port=port,
+            include_library_stubs=True,
+        )
+    assert excinfo.value.capability == CAPABILITY_CONVERT_LIBRARY_STUBS
+    assert service.requests == [], "the request was sent to a service that would ignore it"
 
 
 def test_convert_sends_the_source_and_formats(fake_service):
