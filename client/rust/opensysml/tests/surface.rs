@@ -265,6 +265,87 @@ fn api_json_names_library_references_separately_and_opts_into_legacy_stubs() {
 }
 
 #[test]
+fn a_held_model_converts_and_saves_with_explicit_options() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(
+        &connection,
+        "package P { private import SI::*; attribute time = 20 [s]; }",
+    );
+    let options = ConvertOptions {
+        id_form: Some(IdForm::Uuid),
+        include_library_stubs: true,
+        ..Default::default()
+    };
+    let legacy = model.convert_with("api-json", &options).unwrap();
+    assert_eq!(legacy.to_format, "api-json");
+    let second = legacy
+        .library_references
+        .iter()
+        .find(|reference| reference.qualified_name == "SI::second")
+        .expect("SI::second is referenced");
+    let elements: Vec<serde_json::Value> = serde_json::from_str(&legacy.content).unwrap();
+    let stub = elements
+        .iter()
+        .find(|element| element["@id"] == second.id.as_str())
+        .expect("the stub is written");
+    assert_eq!(stub["isLibraryElement"], true);
+    let ids: Vec<&str> = elements
+        .iter()
+        .filter_map(|element| element["@id"].as_str())
+        .collect();
+    assert!(
+        !ids.contains(&"P__time"),
+        "ids are uuids, not qualified: {ids:?}"
+    );
+    let direct = connection
+        .convert(
+            "api-json",
+            &ConvertSource::Model(model.hash().to_owned()),
+            &options,
+        )
+        .unwrap();
+    assert_eq!(legacy.content, direct.content);
+    let plain = model.to_api_json().unwrap();
+    let plain_elements: Vec<serde_json::Value> = serde_json::from_str(&plain.content).unwrap();
+    let plain_ids: Vec<&str> = plain_elements
+        .iter()
+        .filter_map(|element| element["@id"].as_str())
+        .collect();
+    assert!(plain_ids.contains(&"P__time"), "{plain_ids:?}");
+    assert!(plain_elements
+        .iter()
+        .all(|element| element["isLibraryElement"] != serde_json::Value::Bool(true)));
+    let dir = env::temp_dir().join(format!("opensysml-rust-save-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("p.json");
+    let saved = model.save_with(&path, None, &options).unwrap();
+    assert_eq!(saved.to_format, "api-json");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), legacy.content);
+    let refused = model.save_with(dir.join("p.txt"), Some("sysml"), &options);
+    assert!(
+        matches!(&refused, Err(Error::Service { message, .. }) if message.contains("include_library_stubs requires to_format api-json")),
+        "{refused:?}"
+    );
+    assert!(
+        !dir.join("p.txt").exists(),
+        "a refused conversion writes nothing"
+    );
+    let notation = model
+        .save_with(dir.join("p.txt"), Some("sysml"), &ConvertOptions::default())
+        .unwrap();
+    assert_eq!(notation.to_format, "sysml");
+    assert!(notation.library_references.is_empty());
+    assert!(notation.content.contains("attribute time"));
+    assert!(matches!(
+        model.save_with(dir.join("p.txt"), None, &options),
+        Err(Error::InvalidRequest(_))
+    ));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn a_model_of_several_documents_converts_only_the_named_ones() {
     let Some(connection) = service_or_skip() else {
         return;

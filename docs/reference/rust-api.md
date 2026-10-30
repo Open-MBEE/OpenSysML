@@ -124,8 +124,12 @@ not the ergonomic one.
 
 `Model` forwards each of those calls for its own hash, and adds `find`, `get`,
 `lookup` (an `Error::SymbolNotFound` naming near matches) and `contains`, `edit()`,
-`to_sysml`, `to_turtle`, `to_api_json`, `save(path, ..)` and `satisfied(scope)`. A
-model parsed from several documents names them in `documents()`. `Symbol` adds
+`convert(to_format, tolerate_syntax_errors)`, `to_sysml`, `to_turtle`, `to_api_json`,
+`save(path, to_format, tolerate_syntax_errors)` and `satisfied(scope)`. `convert_with(to_format,
+&ConvertOptions)` and `save_with(path, to_format, &ConvertOptions)` take the options
+`Connection::convert` takes — `id_form`, `include_library_stubs`, `documents` — and gate them as
+it does; `convert` and `save` are those forms with the defaults. A model parsed from several
+documents names them in `documents()`. `Symbol` adds
 `type_facts()`, `multiplicity()`, `specializations()`, `metadata()` and `facts()`.
 
 ## Results
