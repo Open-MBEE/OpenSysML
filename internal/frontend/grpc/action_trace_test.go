@@ -136,7 +136,7 @@ func TestExecuteActionEventsReachAWaitingAccept(t *testing.T) {
 	}
 	texts = traceTexts(landed.Trace)
 	joined := strings.Join(texts, "\n")
-	for _, want := range []string{"wait Go\n", "send Go\n", "accept Go\n", "step waiting -> land\n", "assign landed = true\n", "complete"} {
+	for _, want := range []string{"wait Go\n", "send Go\n", "accept Go\n", "step waiting -> land\n", "assign landed = [true]\n", "complete"} {
 		if !strings.Contains(joined+"\n", want) {
 			t.Errorf("trace lacks %q:\n%s", strings.TrimSpace(want), joined)
 		}

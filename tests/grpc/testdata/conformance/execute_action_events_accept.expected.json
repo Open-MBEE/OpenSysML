@@ -23,7 +23,7 @@
     "send Go",
     "accept Go",
     "step waiting -> land",
-    "assign landed = true",
+    "assign landed = [true]",
     "step land -> finish",
     "step finish -> done",
     "complete"
