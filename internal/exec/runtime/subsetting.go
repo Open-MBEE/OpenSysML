@@ -1134,7 +1134,7 @@ func instancesAlsoIn(pool, els []Value) []Value {
 // siblingSubsetterValues is the objects the other features subsetting what fv subsets already
 // hold on inst: a value drawn for fv is one of them only where the subsetted feature has no other.
 func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, subsetted []string) map[int64]bool {
-	taken := map[int64]bool{}
+	var taken map[int64]bool
 	for _, sub := range subsetted {
 		for _, feat := range ctx.subsettingFeaturesOf(inst, sub) {
 			sibling, ok := inst.FeatureValues[feat.Name]
@@ -1143,6 +1143,9 @@ func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, sub
 			}
 			for _, v := range elementsOf(sibling.HeldValue()) {
 				if v.Kind == ValInstance {
+					if taken == nil {
+						taken = map[int64]bool{}
+					}
 					taken[v.Instance] = true
 				}
 			}
@@ -1154,19 +1157,18 @@ func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, sub
 // bindingWitnesses draws, per binding constraining the named feature, as many of its other end's
 // values as the binding links, from pool where the subsetted features fix one (KerML 1.0 §7.4.6).
 func (ctx *Context) bindingWitnesses(inst *Instance, name string, pool []Value, pooled bool, taken map[int64]bool) ([]Value, map[int64]bool, error) {
-	draw := &witnessDraw{fv: inst.FeatureValues[name], pooled: pooled, inPool: make(map[int64]bool, len(pool)), taken: taken}
-	for _, v := range pool {
-		draw.inPool[v.Instance] = true
-	}
+	draw := witnessDraw{fv: inst.FeatureValues[name], pooled: pooled, pool: pool, taken: taken}
 	// A binding of an owner naming the feature through its path constrains it as well.
 	for current, path := inst, name; current != nil; {
-		for _, binding := range ctx.bindingsOf(current, path) {
-			if err := ctx.drawBindingWitnesses(draw, inst, current, binding, path); err != nil {
-				return nil, nil, err
+		if ctx.declaresBindings(current) {
+			for _, binding := range ctx.bindingsOf(current, path) {
+				if err := ctx.drawBindingWitnesses(&draw, inst, current, binding, path); err != nil {
+					return nil, nil, err
+				}
 			}
 		}
 		owner, ownerFeature := current.Owner()
-		if owner == nil || ownerFeature == "" {
+		if owner == nil || ownerFeature == "" || !ctx.ownersDeclareBindings(owner) {
 			break
 		}
 		path = ownerFeature + "." + path
@@ -1175,15 +1177,61 @@ func (ctx *Context) bindingWitnesses(inst *Instance, name string, pool []Value, 
 	return draw.chosen, draw.seen, nil
 }
 
+// ownersDeclareBindings reports whether inst or an owner of it declares a binding: where none
+// does, a walk up from inst spells out no feature path, as no binding could name it.
+func (ctx *Context) ownersDeclareBindings(inst *Instance) bool {
+	for current := inst; current != nil; {
+		if ctx.declaresBindings(current) {
+			return true
+		}
+		owner, ownerFeature := current.Owner()
+		if owner == nil || ownerFeature == "" {
+			return false
+		}
+		current = owner
+	}
+	return false
+}
+
+// declaresBindings reports whether any type of inst declares a binding, so that a walk over
+// its owners spells out a feature path only where a binding could name it.
+func (ctx *Context) declaresBindings(inst *Instance) bool {
+	if inst.Type != nil && len(ctx.objectBindings(inst.Type)) != 0 {
+		return true
+	}
+	for _, typ := range inst.classifiers {
+		if len(ctx.objectBindings(typ)) != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // witnessDraw is one bindingWitnesses draw: the feature drawn for, the pool it may draw
 // from, what sibling subsetters hold, and what it has chosen so far.
 type witnessDraw struct {
 	fv     *FeatureValue
 	pooled bool
+	pool   []Value
 	inPool map[int64]bool
 	taken  map[int64]bool
 	chosen []Value
 	seen   map[int64]bool
+}
+
+// admitsPooled reports whether a pooled draw may choose v: the pool index is built on the
+// first candidate, so a walk that finds no binding never pays for it.
+func (d *witnessDraw) admitsPooled(v Value) bool {
+	if !d.pooled {
+		return true
+	}
+	if d.inPool == nil {
+		d.inPool = make(map[int64]bool, len(d.pool))
+		for _, p := range d.pool {
+			d.inPool[p.Instance] = true
+		}
+	}
+	return d.inPool[v.Instance]
 }
 
 // drawBindingWitnesses draws from the other end of binding, when it constrains path at
@@ -1231,7 +1279,7 @@ func (ctx *Context) drawBindingWitnesses(draw *witnessDraw, inst, current *Insta
 // pick draws up to links admitted candidates, those no sibling subsetter holds first.
 func (d *witnessDraw) pick(candidates []Value, links int64) {
 	admits := func(v Value) bool {
-		return v.Kind == ValInstance && (!d.pooled || d.inPool[v.Instance]) && !d.seen[v.Instance]
+		return v.Kind == ValInstance && d.admitsPooled(v) && !d.seen[v.Instance]
 	}
 	for n := int64(0); n < links; n++ {
 		pick := slices.IndexFunc(candidates, func(v Value) bool { return admits(v) && !d.taken[v.Instance] })
