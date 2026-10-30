@@ -33,9 +33,8 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 	return edges, nil
 }
 
-// routeGroups is the index of every edge to route under the container both
-// its ends lie in, "" for the canvas; an edge with a route, or an end that
-// is not a settled box, is left as it is.
+// routeGroups indexes the unrouted edges with settled ends by the container
+// both ends lie in, "" for the canvas.
 func (w *drawioWriter) routeGroups(edges []Edge, tree drawioTree) map[string][]int {
 	groups := map[string][]int{}
 	for i, edge := range edges {
@@ -102,11 +101,8 @@ func (w *drawioWriter) routeOneGroup(g routeGroup) ([]route.Route, error) {
 	return route.Routes(shapes, asked, bounds)
 }
 
-// routeGroupEnds is the group's edges as asked of the router. An edge from
-// the container to a member leaves its header above the member, through a
-// pin on the header's underside at the member's centre, one of memberPins;
-// an edge at the container's own named port leaves that port's cell, one of
-// portShapes, through its inner face.
+// routeGroupEnds is the group's edges as asked of the router: container-to-member
+// edges leave a header pin (memberPins), those at a named port its cell (portShapes).
 func (w *drawioWriter) routeGroupEnds(g routeGroup, header drawioBox) (asked []route.Edge, memberPins []route.Port, portShapes map[string]route.Shape) {
 	portShapes = map[string]route.Shape{}
 	asked = make([]route.Edge, len(g.edges))
@@ -143,10 +139,8 @@ func (w *drawioWriter) routeGroupEnds(g routeGroup, header drawioBox) (asked []r
 	return asked, memberPins, portShapes
 }
 
-// routeGroupShapes are the router's obstacles: every settled box, those an
-// end lies in reduced to their headers, the group's container as header with
-// the member pins, and every port that is a cell of its own, the positioned
-// ports found here added to portShapes.
+// routeGroupShapes are the router's obstacles: the settled boxes (crossed ones
+// as headers, the container's with memberPins) and the port cells, added to portShapes.
 func (w *drawioWriter) routeGroupShapes(g routeGroup, header drawioBox, memberPins []route.Port, portShapes map[string]route.Shape) []route.Shape {
 	exempt := g.headersOnly()
 	shapes := make([]route.Shape, 0, len(g.tree.order))

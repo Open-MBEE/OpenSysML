@@ -159,9 +159,8 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 	return nodes
 }
 
-// treeWalk is what one walk down a tree shares between its nodes: the view the
-// elements are shown in (nil outside any view), the node ids, the expansion
-// path above the node at hand and the rendering being written.
+// treeWalk is what one walk down a tree shares between its nodes: the view
+// (nil outside any view), the node ids, the expansion path and the rendering.
 type treeWalk struct {
 	view *symbols.Symbol
 	ids  *nodeIDs
