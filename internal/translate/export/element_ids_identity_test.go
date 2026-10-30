@@ -1,11 +1,13 @@
 package export
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -23,7 +25,7 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 		}
 		texts[filepath.Base(f)] = string(data)
 	}
-	compared := 0
+	compared, ends := 0, 0
 	for name, text := range texts {
 		sf := source.New(name, []byte(text))
 		p := parser.New(sf)
@@ -48,11 +50,29 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 					t.Errorf("%s: %s minted %q (%v), written %q (%v)", name, fqn, got, has, written, ok)
 				}
 				compared++
+				usage, isUsage := node.(*ast.Usage)
+				if !isUsage {
+					continue
+				}
+				// The ends a head binds are written as end features of their own.
+				subject := e.ids.subjectForNode(node, fqn)
+				for i, end := range usage.ConnectorEnds {
+					if end == nil {
+						continue
+					}
+					feature := rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i))
+					written, ok := graph.Lexical(feature, rdf.SysML+pElementID)
+					got, has := minted.bySpan[spanKey{name, end.Span()}]
+					if has != ok || got != written {
+						t.Errorf("%s: %s end %d minted %q (%v), written %q (%v)", name, fqn, i, got, has, written, ok)
+					}
+					ends++
+				}
 			}
 		}
 	}
-	if compared == 0 {
-		t.Fatal("no declaration compared")
+	if compared == 0 || ends == 0 {
+		t.Fatalf("%d declarations and %d connector ends compared, want both", compared, ends)
 	}
 }
 
@@ -112,5 +132,61 @@ func TestElementIDReaderClaimsWhatTheWriterClaims(t *testing.T) {
 	}
 	if _, err := NewElementIDs(docs); err != nil {
 		t.Fatalf("a referenced document's repeated id was refused, where the writer writes the model: %v", err)
+	}
+}
+
+const boundEndsModel = `package P {
+	part def D { port p; attribute x; }
+	part a : D; part b : D;
+	connect a to b;
+	connection named connect a to b;
+	interface i connect a.p to b.p;
+	bind a.x = b.x;
+	action def A {
+		action x; action y;
+		succession first x then y;
+	}
+}
+`
+
+// TestElementIDReaderMintsEveryBoundEnd: each form of head that binds ends — an
+// anonymous and a named connection, an interface, a binding, a succession — has
+// every end's id minted as the writer writes it.
+func TestElementIDReaderMintsEveryBoundEnd(t *testing.T) {
+	sf, _, doc := readerIndex(t, "ends.sysml", boundEndsModel)
+	docs := []ModelDocument{{File: sf, Root: doc.Root}}
+	graph, _, encoders, err := modelToRDF(docs, IDQualifiedName)
+	if err != nil {
+		t.Fatalf("modelToRDF: %v", err)
+	}
+	minted, err := NewElementIDs(docs)
+	if err != nil {
+		t.Fatalf("NewElementIDs: %v", err)
+	}
+	forms := map[string]int{}
+	for _, e := range encoders {
+		for node, fqn := range e.fqn {
+			usage, ok := node.(*ast.Usage)
+			if !ok || len(usage.ConnectorEnds) == 0 {
+				continue
+			}
+			subject := e.ids.subjectForNode(node, fqn)
+			for i, end := range usage.ConnectorEnds {
+				written, ok := graph.Lexical(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), rdf.SysML+pElementID)
+				if !ok || written == "" {
+					t.Errorf("%s end %d: the writer states no elementId", fqn, i)
+				}
+				got, has := minted.OfDeclaration("ends.sysml", end, "")
+				if !has || got != written {
+					t.Errorf("%s end %d: minted %q (%v), written %q", fqn, i, got, has, written)
+				}
+				forms[usage.Keyword]++
+			}
+		}
+	}
+	for _, form := range []string{"connect", "connection", "interface", "bind", "succession"} {
+		if forms[form] < 2 {
+			t.Errorf("%s: %d ends compared, want both", form, forms[form])
+		}
 	}
 }
