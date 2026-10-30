@@ -229,11 +229,26 @@ develop before it (`0c1fd6dbd`) against the candidate, three runs each,
 
 ## Re-runs
 
-<!-- QUIET: filled from results/quiet after the queue drains -->
+The six rounds ran while the machine also built and bisected, and the
+runtime package's sec/op came out with 50–290 % spreads; the rows whose
+only move is in time are not decided by them. They are re-run interleaved
+on the quiet machine, six rounds, three columns, once the fix
+measurements have drained: the whole runtime package; grpc
+`InstantiateWarmModel`; lsp `FormatEdits` and `ReferencesCold`; migrate
+`WriterSiblingBlocks`; the repl load rows; perf `IndexAddExpand`,
+`GRPCVerifyConstraint`, `BatchConstraints`, `BatchSatisfy`, `Lex`, `Parse`,
+`AnalyzeRequirementGroup`, `ActionLoop/for1000`, `Analyze/synthetic`,
+`ExecuteActionFreshContext`, `GRPCEvaluate`, `Instantiate` at two
+iterations; stress `FleetInstantiate`, `HydratePlane/32`, `EditBeside`,
+`Satisfy/32` and `/512`, `ValidateSplit/512/jobs=8`, `EditImported/32`.
+Until that table is here, no time verdict is made on those rows; the
+bytes and allocation verdicts above do not depend on it.
 
 ## Fixes
 
-<!-- FIXES: one entry per PR with its six-round A/B, filled as each opens -->
+One pull request per cause, each against `develop` with its own
+six-round A/B against the merge that introduced the cost, listed here
+as they open; the branches are named in the summary table.
 
 ## What this record does not measure
 
