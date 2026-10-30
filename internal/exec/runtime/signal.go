@@ -1087,6 +1087,11 @@ func (ctx *Context) namesFeature(scope *symbols.Scope, self *Instance, fv *Featu
 				return true
 			}
 		}
+		// A connector inherited from a general type names the feature it declared
+		// there; on this object that name denotes the redefining feature.
+		if denoted, ok := ctx.denotedFeature(typ, sym); ok && denoted == name {
+			return true
+		}
 	}
 	return false
 }
