@@ -228,6 +228,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		facts.Portion = usage.Portion
 	}
 	facts.Modifiers |= w.r.DeclarationTraits(sym)
+	if m.IsFlowPayload(sym) {
+		facts.Modifiers |= symbols.ModPayloadFeature
+	}
 	if m.UsageMayTimeVary(sym) {
 		facts.Modifiers |= symbols.ModMayTimeVary
 	}

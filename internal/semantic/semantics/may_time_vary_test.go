@@ -43,6 +43,11 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 		if !ok || flow.Scope == nil {
 			t.Fatal("Vary::Car::fuelFlow not found")
 		}
+		if fuel, ok := flow.Scope.LookupLocal("fuel"); !ok {
+			t.Fatal("Vary::Car::fuelFlow::fuel not found")
+		} else if meta := fixture.model.MetaclassOf(fuel); meta == nil || meta.Name != "PayloadFeature" {
+			t.Errorf("fixture %d: fuelFlow::fuel metaclass = %v, want PayloadFeature", i, meta)
+		}
 		for _, c := range []struct {
 			owner *symbols.Symbol
 			name  string
