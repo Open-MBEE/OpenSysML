@@ -89,16 +89,16 @@ validate the largest generated model. Those are the rows below.
 
 | Row | Metric | 0.11.0 | 0.11.0 rebuilt | 0.12.0 candidate | 2 → 3 | Cause | Fix |
 |---|---|---|---|---|---|---|---|
-| repl `LoadModel/elements=0` | allocs/op | 2 022 | 2 022 | 2 155 | +6.6 % (B/op +8.3 %) | #1462, the duplicate-library check kept a list per library package name | `perf/duplicate-libraries-walk` → 2 038 (PR pending) |
+| repl `LoadModel/elements=0` | allocs/op | 2 022 | 2 022 | 2 155 | +6.6 % (B/op +8.3 %) | #1462, the duplicate-library check kept a list per library package name | `perf/duplicate-libraries-walk` → 2 038 (#1746) |
 | repl `LoadModel/elements=1000` (and /250 +5.4 %, /4000 +5.0 %; +3.5–5 % B/op on every load-heavy row: stress `Load`, `LoadFiles`, `OpenSplit`, `ValidateSplit`, `EditImported`, `ImportValues`, `Analyze/synthetic`, `WorkspaceEdit`, `REPLSubmitSnippet`) | B/op | 55.39 Mi | 55.52 Mi | 58.31 Mi | +5.0 % | #1478 (bisected), the `typed by` notation pass swept every document's expressions | `perf/typed-by-sweep` → 55.8 Mi (#1744) |
-| runtime `AssignmentLoopStep` | B/op | 899.7 Ki | 899.7 Ki | 948.0 Ki | +5.4 % | #1514 and #1461 grew the evaluation context from 152 to 184 bytes | `perf/eval-context-size` → 926 Ki (PR pending) |
-| runtime `DerivedReadWriteRead` | B/op · allocs/op | 2 688 · 67 | 2 688 · 67 | 3 328 · 71 | +23.8 % · +6.0 % | #1619 (bisected) marks what a derived value stands on, copying the footprint's reads; #1514 for 64 B | `perf/derive-marks-footprint` → 3 104 · 69, with `perf/eval-context-size` (PRs pending) |
+| runtime `AssignmentLoopStep` | B/op | 899.7 Ki | 899.7 Ki | 948.0 Ki | +5.4 % | #1514 and #1461 grew the evaluation context from 152 to 184 bytes | `perf/eval-context-size` → 926 Ki (#1745) |
+| runtime `DerivedReadWriteRead` | B/op · allocs/op | 2 688 · 67 | 2 688 · 67 | 3 328 · 71 | +23.8 % · +6.0 % | #1619 (bisected) marks what a derived value stands on, copying the footprint's reads; #1514 for 64 B | `perf/derive-marks-footprint` → 3 104 · 69 (PR pending), with `perf/eval-context-size` (#1745) |
 | perf `GRPCVerifyConstraint` | allocs/op | 14 390 | 14 090 | 16 300 | +15.7 % | #1508 and #1512, the binding walks | `perf/binding-walk-allocs` → 14 887 (#1742) |
 | grpc `InstantiateWarmModel` | allocs/op | 1 990 | 1 960 | 2 170 | +10.5 % (B/op +6.3 %) | the binding walks, as above | the same → 1 996 (#1742) |
 | perf `FeaturesOf` | B/op | 261.7 Mi | 261.2 Mi | 295.8 Mi | +13.3 % (sec/op −7 %) | #1626, the memo of related features recorded every empty relation | `perf/related-features-memo` → 271.2 Mi (#1743) |
 | perf `Instantiate`, cold, pinned at two iterations | B/op | — | 221 MB | 252 MB | +14 % (allocs −4.6 %) | #1626 (bisected) | the same → 230 MB (#1743) |
 | perf `BatchSatisfy` | B/op | 456.8 Mi | 454.9 Mi | 491.4 Mi | +8.0 % | #1626 (bisected) | the same → 475.5 Mi (#1743) |
-| perf `ExecuteActionFreshContext` | allocs/op | 376 | 388 | 424 | +9.3 % | #1619 (bisected); the marks are the correctness cost, part of it the copy | `perf/derive-marks-footprint` |
+| perf `ExecuteActionFreshContext` | allocs/op | 376 | 388 | 424 | +9.3 % | #1619 (bisected); the marks are the correctness cost — `perf/derive-marks-footprint` leaves this row at 424 over six rounds, so none of it is the copy | none |
 | perf `ActionChain/chain10` | B/op | 200.6 Ki | 198.1 Ki | 222.9 Ki | +12.5 % (allocs −18 %) | #1473 (bisected), the performance-shape memo of an earlier fix: fewer, larger allocations | not a regression to fix: `chain100` and `chain1000` allocate 18–26 % less |
 | whole binary, `-validate` of 12 086 generated elements | peak RSS | 161 MiB | 162 MiB | 193 MiB | +31 MiB | #1441 (bisected): the parse trees of a submission were held through its analysis for the roots an unresolved reference would be looked up by | `perf/release-preparse-trees` → 164 MiB (#1741) |
 
@@ -299,6 +299,35 @@ as they open; the branches are named in the summary table.
   the fix recovers allocation volume, not resident memory. The other
   load-heavy rows listed under #1478 above were not re-measured on the
   branch.
+- **#1745 `perf/eval-context-size`** (causes #1514 and #1461): the
+  evaluation context, copied for every nested evaluation, notes the
+  chain being evaluated by its last segment, its length and a pointer
+  to the memoized declarations where #1514 carried two slice headers,
+  and #1461's open-inputs flag shares a word with the behavior-body
+  flag, so a context is 152 bytes again instead of 184. Six rounds,
+  #1514's parent / #1514 / candidate / fix: `AssignmentLoopStep` 912.7 /
+  974.1 / 947.9 / **925.7 KiB** per op (0.11.0 rebuilt: 899.7), allocs
+  8 536 / 9 335 / 8 539 / 8 539; `DerivedReadWriteRead` 2 720 / 2 816 /
+  3 328 / **3 264 B** (the rest is #1619, below); every other row of the
+  package within ±0.2 %. The `runtime.test` binary running
+  `AssignmentLoopStep` 300 times, three cold runs, candidate → fix: peak
+  RSS 115–120 vs 113–120 MiB, wall 0.82 vs 0.82 s, both complete under
+  `ulimit -v 4000000` (under `ulimit -v 2000000` both die in the Go
+  runtime's arena reservation before loading a model); `sysml -validate`
+  on the 12 086-element model 198 vs 187–200 MiB. The fix recovers
+  allocation volume, not resident memory, and says so.
+- **#1746 `perf/duplicate-libraries-walk`** (cause #1462): the
+  duplicate-library check holds the first declaration of each library
+  package name in a map and gives a name a list only when a second
+  declaration is met. Six rounds, #1462's parent / #1462 / candidate /
+  fix: repl `LoadModel/elements=0` 2 021 / 2 151 / 2 155 / **2 038**
+  allocs/op (0.11.0 rebuilt: 2 022), 227.9 / 246.7 / 246.8 / **238.1
+  KiB** per op; the `/250`, `/1000` and `/4000` rows are unchanged by it
+  (their bytes are #1478, #1744). The `repl.test` binary running the
+  empty load 200 times, three cold runs: peak RSS 111–113 vs 112–116
+  MiB, wall 0.15 s on both, both complete under `ulimit -v 2000000` and
+  `4000000`. The walk over every library document's root packages
+  remains, so the load's time is not back to 0.11.0's.
 
 ## What this record does not measure
 
