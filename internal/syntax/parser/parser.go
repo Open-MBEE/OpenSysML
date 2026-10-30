@@ -43,6 +43,8 @@ type Parser struct {
 	// undefinedOps are the `~` operator expressions the parse built, in source
 	// order; ParseFile hands them to the root.
 	undefinedOps []*ast.OperatorExpr
+	// typedByCount counts the typings spelled `typed by`, for RootNamespace.TypedBy.
+	typedByCount int
 
 	// calcBodyDepth counts the calculation bodies being parsed, so a `return`
 	// reached in a statement position inside one is read as the result
@@ -599,6 +601,7 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 	}
 	root.NodeSpan = p.spanFrom(start)
 	root.UndefinedOperators = p.undefinedOps
+	root.TypedBy = p.typedByCount
 	p.reportMisplacedComments()
 	return root
 }

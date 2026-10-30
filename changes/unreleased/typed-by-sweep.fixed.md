@@ -1,0 +1,5 @@
+The nonstandard-notation pass no longer walks every expression of a document looking for a
+`typed by` on a body-expression parameter (#1478) when the document spells none: the parser
+counts the spellings and the pass sweeps only while one is unreported. Loading a generated
+1 000-element model allocates 58.5 MB instead of 61.2 MB, recovering most of what #1478 added
+over 0.11.0's 58.2 MB on the same toolchain; the remaining 0.3 MB is other work.
