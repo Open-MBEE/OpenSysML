@@ -362,7 +362,8 @@ def connect(host='localhost', port=None, auto_start=True, version=None,
 
 def convert(to_format, file_path=None, content=None, model_hash=None,
             from_format='', tolerate_syntax_errors=False, host='localhost',
-            port=None, id_form='', include_library_stubs=False):
+            port=None, id_form='', include_library_stubs=False, compact=False,
+            omit_derived=False, keep_derived=(), include_check_diagnostics=False):
     """Write a model out in another format (module-level convenience).
 
     Args:
@@ -390,6 +391,18 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
             library stubs written before 0.11.0; by default library elements
             remain bare references, not roots. Needs the
             ``convert_library_stubs`` capability
+        compact (bool): For notation converted to api-json, write the compact
+            document (``api-json-compact/1``) in place of the element array.
+            Needs the ``convert_compact`` capability
+        omit_derived (bool): With ``compact``, leave out every derived property
+            of the metamodel
+        keep_derived (Sequence[str]): With ``omit_derived``, the derived
+            properties still written, named as the element array names them
+            (``qualifiedName``)
+        include_check_diagnostics (bool): Report the semantic check's
+            diagnostics in the result's ``diagnostics`` alongside the output,
+            each with its own severity. Notation sources only. Needs the
+            ``convert_check_diagnostics`` capability
 
     Returns:
         Conversion: The converted model; ``str()`` of it is the text
@@ -400,9 +413,14 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
 
     Raises:
         InvalidRequestError: If the source is a SysML v1 model, a format or
-            id_form is unknown, or id_form is given for a notation target
+            id_form is unknown, id_form is given for a notation target,
+            omit_derived or keep_derived without compact, keep_derived without
+            omit_derived or naming a property that is not derived, compact for
+            other than notation to api-json, or include_check_diagnostics for
+            a graph source
         MissingCapabilityError: If the service cannot convert, or cannot write
-            library stubs and they were asked for
+            library stubs, the compact form or the check's diagnostics and they
+            were asked for
 
     Example:
         >>> import opensysml
@@ -420,6 +438,10 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
         tolerate_syntax_errors=tolerate_syntax_errors,
         id_form=id_form,
         include_library_stubs=include_library_stubs,
+        compact=compact,
+        omit_derived=omit_derived,
+        keep_derived=keep_derived,
+        include_check_diagnostics=include_check_diagnostics,
     )
 
 

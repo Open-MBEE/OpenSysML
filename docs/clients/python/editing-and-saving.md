@@ -200,7 +200,7 @@ refuses a v1 source with an `InvalidRequestError` directing callers to
 
 ## Compact API JSON and the check's diagnostics
 
-`Connection.convert` writes notation to the compact API JSON document
+`convert` writes notation to the compact API JSON document
 (`api-json-compact/1`, see the [compact form](../../reference/api-json-compact.md))
 with `compact=True`; `omit_derived=True` leaves out every derived property of the
 metamodel and `keep_derived` names the ones still written. `include_check_diagnostics=True`
@@ -215,6 +215,15 @@ result = conn.convert(
     include_check_diagnostics=True,
 )
 errors = [d for d in result.diagnostics if d.severity == "error"]
+```
+
+The four options are taken alike by `opensysml.convert`, `Connection.convert`,
+`Model.convert`, `Model.to_api_json` and `Model.save`, so a loaded model writes
+its compact form without dropping to its connection:
+
+```python
+model.to_api_json(compact=True, omit_derived=True, keep_derived=["qualifiedName"])
+model.save("model.json", compact=True)
 ```
 
 The compact options need the `convert_compact` capability and the check's diagnostics
