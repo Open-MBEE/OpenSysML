@@ -25,7 +25,7 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 		}
 		texts[filepath.Base(f)] = string(data)
 	}
-	compared, ends, memberships := 0, 0, 0
+	compared, ends, memberships, relationships := 0, 0, 0, 0
 	for name, text := range texts {
 		sf := source.New(name, []byte(text))
 		p := parser.New(sf)
@@ -75,13 +75,137 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 					if has != ok || got != written {
 						t.Errorf("%s: %s end %d minted %q (%v), written %q (%v)", name, fqn, i, got, has, written, ok)
 					}
+					membership, membershipWritten := graph.Object(feature, rdf.SysML+pOwningMembership)
+					mintedMembership, hasMembership := minted.membershipBySpan[spanKey{name, end.Span()}]
+					if hasMembership != membershipWritten || (membershipWritten && mintedMembership != rdf.LocalName(membership.Value)) {
+						t.Errorf("%s: %s end %d owning membership minted %q (%v), written %q (%v)", name, fqn, i, mintedMembership, hasMembership, membership.Value, membershipWritten)
+					}
 					ends++
 				}
 			}
 		}
+		// The relationship elements the notation implies — head clauses, ends' reference
+		// subsettings, prefix-metadata annotations — are every owned relationship written
+		// that is no membership or import; the reader states exactly those.
+		relationships += compareWrittenRelationships(t, name, graph, encoders, minted)
 	}
-	if compared == 0 || ends == 0 || memberships == 0 {
-		t.Fatalf("%d declarations, %d connector ends and %d owning memberships compared, want all", compared, ends, memberships)
+	if compared == 0 || ends == 0 || memberships == 0 || relationships == 0 {
+		t.Fatalf("%d declarations, %d connector ends, %d owning memberships and %d relationships compared, want all", compared, ends, memberships, relationships)
+	}
+}
+
+// compareWrittenRelationships checks that the ids minted for document name's implied
+// relationships (ElementIDs.relationshipBySpan) are exactly the owned relationships the
+// graph writes under its declarations and their bound ends, memberships and imports aside.
+func compareWrittenRelationships(t *testing.T, name string, graph *rdf.Graph, encoders []*encoder, minted *ElementIDs) int {
+	t.Helper()
+	written := map[string]bool{}
+	for _, e := range encoders {
+		subjects := []rdf.Term{}
+		for node, fqn := range e.fqn {
+			subject := e.ids.subjectForNode(node, fqn)
+			subjects = append(subjects, subject)
+			if usage, ok := node.(*ast.Usage); ok {
+				for i, end := range usage.ConnectorEnds {
+					if end != nil {
+						subjects = append(subjects, rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)))
+					}
+				}
+			}
+		}
+		for _, subject := range subjects {
+			aside := map[string]bool{}
+			for _, property := range []string{pOwnedMembership, pOwnedImport} {
+				for _, o := range graph.Objects(subject, rdf.SysML+property) {
+					aside[rdf.LocalName(o.Value)] = true
+				}
+			}
+			for _, o := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+				if id := rdf.LocalName(o.Value); !aside[id] {
+					written[id] = true
+				}
+			}
+		}
+	}
+	stated := map[string]bool{}
+	for key, id := range minted.relationshipBySpan {
+		if key.doc == name {
+			stated[id] = true
+		}
+	}
+	for id := range written {
+		if !stated[id] {
+			t.Errorf("%s: the writer writes relationship %s, the reader states no id for it", name, id)
+		}
+	}
+	for id := range stated {
+		if !written[id] {
+			t.Errorf("%s: the reader states relationship %s, the writer writes none", name, id)
+		}
+	}
+	return len(written)
+}
+
+// writtenRelationshipsModel writes every relationship the identity reader mints: a
+// definition's and a usage's specializations, two typings, subsets, redefines, a satisfy's
+// requirement (reference form), bound ends, a dependency's prefix metadata, a metadata body's
+// implicit redefinition, variant references, a multiplicity's subsets, three clauses naming
+// one type (one typing), an import.
+const writtenRelationshipsModel = "package R {\n\tprivate import ScalarValues::*;\n\tpart def Base;\n\tpart def Derived :> Base;\n\tport def P;\n\tmetadata def M;\n\trequirement def Req;\n\tpart def Sys {\n\t\tattribute m : Real;\n\t\tpart a : Base, Derived;\n\t\tpart twice : Base, Base, R::Base;\n\t\tmultiplicity mm subsets many;\n\t\tpart b :> a;\n\t\tpart d specializes a;\n\t\tpart c subsets a redefines b;\n\t\tport p : P;\n\t\tport q : ~P;\n\t\tconnect a to b;\n\t\tsatisfy Req by a;\n\t\t#M dependency from a to b;\n\t\t@H { flown = true; }\n\t\tpart v : Base { variant b; variant a; }\n\t}\n\tmetadata def H { attribute flown : Boolean; }\n\tmultiplicity many [0..*];\n}\n"
+
+// TestElementIDReaderMintsEveryWrittenRelationship: each form of implied relationship
+// reads through the reader with the id the writer gives it, keyed by the node it is written for.
+func TestElementIDReaderMintsEveryWrittenRelationship(t *testing.T) {
+	sf, _, doc := readerIndex(t, "r.sysml", writtenRelationshipsModel)
+	docs := []ModelDocument{{File: sf, Root: doc.Root}}
+	graph, _, encoders, err := modelToRDF(docs, IDQualifiedName)
+	if err != nil {
+		t.Fatalf("modelToRDF: %v", err)
+	}
+	minted, err := NewElementIDs(docs)
+	if err != nil {
+		t.Fatalf("NewElementIDs: %v", err)
+	}
+	if n := compareWrittenRelationships(t, "r.sysml", graph, encoders, minted); n < 10 {
+		t.Fatalf("%d relationships compared, want the fixture's", n)
+	}
+	reader := NewElementIDReader([]ElementIDDocument{{File: sf, Root: doc.Root}})
+	suffixes := map[string]int{}
+	for _, e := range encoders {
+		for node, fqn := range e.fqn {
+			for key, want := range e.writtenRelationships(node, e.parentDeclarations()[node], e.ids.subjectForNode(node, fqn), e.parentDeclarations()) {
+				got, err := reader.ReadRelationship("r.sysml", key)
+				if err != nil || got != want {
+					t.Errorf("%s: relationship at %v read %q (%v), minted %q", fqn, key.Span(), got, err, want)
+				}
+				suffixes[want[strings.LastIndex(want, "_"):]]++
+			}
+		}
+	}
+	for _, suffix := range []string{"_sc0", "_ft0", "_ft1", "_sp0", "_ss0", "_rd0", "_rs", "_prs", "_an"} {
+		if suffixes[suffix] == 0 {
+			t.Errorf("no relationship read under %s; read %v", suffix, suffixes)
+		}
+	}
+	// `part twice : Base, Base, R::Base` states one typing three times: one relationship.
+	twice, _ := graph.Lexical(rdf.ElementIRIForID("R__Sys__twice_ft0"), rdf.SysML+pElementID)
+	if twice != "R__Sys__twice_ft0" {
+		t.Errorf("twice_ft0 written %q", twice)
+	}
+	if _, more := graph.Lexical(rdf.ElementIRIForID("R__Sys__twice_ft1"), rdf.SysML+pElementID); more {
+		t.Errorf("the writer materialized a second typing for `: Base, Base, R::Base`")
+	}
+	for _, e := range encoders {
+		for node, fqn := range e.fqn {
+			if fqn != "R::Sys::twice" {
+				continue
+			}
+			for _, rel := range node.(*ast.Usage).Relationships {
+				if got, _ := reader.ReadRelationship("r.sysml", rel); got != "R__Sys__twice_ft0" {
+					t.Errorf("typing clause at %v read %q, want R__Sys__twice_ft0", rel.Span(), got)
+				}
+			}
+		}
 	}
 }
 

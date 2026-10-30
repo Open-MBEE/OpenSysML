@@ -483,6 +483,25 @@ const anonymousModel = `package Observatory {
 		)
 	}
 
+	calc def OwnedRelationships :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("elementId", "ownedRelationship")
+		)
+	}
+
+	multiplicity many [0..*];
+	multiplicity some subsets many;
+
+	calc def MultiplicityRelationships :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "Multiplicity"),
+			properties = ("elementId", "ownedRelationship")
+		)
+	}
+
 	calc def AnonymousParts :> Query {
 		in root : Element;
 		Project(
@@ -566,5 +585,81 @@ func TestRunQueryJSONTableSpellsMembershipsByID(t *testing.T) {
 		if want := id + "_om"; id == "" || row.Cells[1][0] != want {
 			t.Errorf("row %s: owningRelationship spelled %q, want %q", row.Element, row.Cells[1][0], want)
 		}
+	}
+}
+
+// TestRunQueryJSONTableSpellsRelationshipsByID: a relationship an element owns through a
+// head clause — here each anonymous part's typing — is spelled by the id the conversion writes.
+func TestRunQueryJSONTableSpellsRelationshipsByID(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, anonymousModel, "-run-query", "OwnedRelationships root=telescope", "-json")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Table *struct {
+				Rows []struct {
+					Element string     `json:"element"`
+					Cells   [][]string `json:"cells"`
+				} `json:"rows"`
+			} `json:"table"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	if len(report.Checks) != 1 || report.Checks[0].Table == nil || len(report.Checks[0].Table.Rows) != 2 {
+		t.Fatalf("want one check with a two-row table:\n%s", got.stdout)
+	}
+	for _, row := range report.Checks[0].Table.Rows {
+		if len(row.Cells) != 2 || len(row.Cells[0]) != 1 || len(row.Cells[1]) != 1 {
+			t.Fatalf("row %s: cells = %v, want one elementId and one ownedRelationship", row.Element, row.Cells)
+		}
+		id, _ := strconv.Unquote(row.Cells[0][0])
+		if want := id + "_ft0"; id == "" || row.Cells[1][0] != want {
+			t.Errorf("row %s: ownedRelationship spelled %q, want %q", row.Element, row.Cells[1][0], want)
+		}
+	}
+}
+
+// TestRunQueryJSONTableSpellsAMultiplicitySubsetting: `multiplicity some subsets many` holds its
+// one relationship on the declaration, not as a clause; it is spelled as the writer's `_ss0`.
+func TestRunQueryJSONTableSpellsAMultiplicitySubsetting(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, anonymousModel, "-run-query", "MultiplicityRelationships root=Observatory", "-json")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Table *struct {
+				Rows []struct {
+					Element string     `json:"element"`
+					Cells   [][]string `json:"cells"`
+				} `json:"rows"`
+			} `json:"table"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	if len(report.Checks) != 1 || report.Checks[0].Table == nil {
+		t.Fatalf("want one check with a table:\n%s", got.stdout)
+	}
+	found := false
+	for _, row := range report.Checks[0].Table.Rows {
+		if row.Element != "Observatory::some" {
+			continue
+		}
+		found = true
+		if len(row.Cells) != 2 || len(row.Cells[1]) != 1 || row.Cells[1][0] != "Observatory__some_ss0" {
+			t.Errorf("Observatory::some: cells = %v, want its subsetting spelled Observatory__some_ss0", row.Cells)
+		}
+	}
+	if !found {
+		t.Errorf("no row for Observatory::some:\n%s", got.stdout)
 	}
 }
