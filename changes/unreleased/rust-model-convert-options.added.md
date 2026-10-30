@@ -1,0 +1,1 @@
+- Rust client: `Model::convert_with` and `Model::save_with` take a `&ConvertOptions`, so a held model is written with `id_form`, `include_library_stubs` (gated on the `convert_library_stubs` capability) and `documents` as `Connection::convert` writes it; `Model::convert` and `Model::save` keep their signatures and defaults.
