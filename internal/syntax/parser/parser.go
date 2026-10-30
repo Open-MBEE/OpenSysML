@@ -174,6 +174,7 @@ type parseCheckpoint struct {
 	diagnosticLen  int
 	warningLen     int
 	undefinedOpLen int
+	typedByCount   int
 	memberStartLen int
 	commentBodyLen int
 	attachedLen    int
@@ -664,6 +665,7 @@ func (p *Parser) checkpoint() parseCheckpoint {
 		diagnosticLen:  len(p.Diagnostics),
 		warningLen:     len(p.Warnings),
 		undefinedOpLen: len(p.undefinedOps),
+		typedByCount:   p.typedByCount,
 		memberStartLen: len(p.memberStarts),
 		commentBodyLen: len(p.commentBodies),
 		attachedLen:    len(p.attachedStarts),
@@ -685,6 +687,7 @@ func (p *Parser) restore(cp parseCheckpoint) {
 	p.Diagnostics = p.Diagnostics[:cp.diagnosticLen]
 	p.Warnings = p.Warnings[:cp.warningLen]
 	p.undefinedOps = p.undefinedOps[:cp.undefinedOpLen]
+	p.typedByCount = cp.typedByCount
 	p.memberStarts = p.memberStarts[:cp.memberStartLen]
 	p.commentBodies = p.commentBodies[:cp.commentBodyLen]
 	p.attachedStarts = p.attachedStarts[:cp.attachedLen]

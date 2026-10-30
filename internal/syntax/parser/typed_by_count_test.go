@@ -21,6 +21,7 @@ func TestRootNamespaceCountsTypedBy(t *testing.T) {
 		{"two_declarations", "package P { part def A; part a typed by A; part b typed by A, A; }", 2},
 		{"prefix_metadata", "package P { metadata def M; @ m typed by M; }", 1},
 		{"body_parameter", "package P { part def A; calc c { in x; return y = x.{ in v typed by A; v }; } }", 1},
+		{"end_without_cross_feature", "package P { part def A; connection def C { end x typed by A; end y typed by A; } }", 2},
 		{"kerml_feature", "package P { classifier A; feature f typed by A; }", 1},
 	}
 	for _, tt := range tests {
