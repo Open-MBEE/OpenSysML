@@ -95,9 +95,9 @@ validate the largest generated model. Those are the rows below.
 | runtime `DerivedReadWriteRead` | B/op · allocs/op | 2 688 · 67 | 2 688 · 67 | 3 328 · 71 | +23.8 % · +6.0 % | #1619 (bisected) marks what a derived value stands on, copying the footprint's reads; #1514 for 64 B | `perf/derive-marks-footprint` → 3 104 · 69, with `perf/eval-context-size` (PRs pending) |
 | perf `GRPCVerifyConstraint` | allocs/op | 14 390 | 14 090 | 16 300 | +15.7 % | #1508 and #1512, the binding walks | `perf/binding-walk-allocs` → 14 887 (#1742) |
 | grpc `InstantiateWarmModel` | allocs/op | 1 990 | 1 960 | 2 170 | +10.5 % (B/op +6.3 %) | the binding walks, as above | the same → 1 996 (#1742) |
-| perf `FeaturesOf` | B/op | 261.7 Mi | 261.2 Mi | 295.8 Mi | +13.3 % (sec/op −7 %) | #1626, the memo of related features recorded every empty relation | `perf/related-features-memo` → 285.8 Mi (PR pending) |
-| perf `Instantiate`, cold, pinned at two iterations | B/op | — | 221 MB | 252 MB | +14 % (allocs −4.6 %) | #1626 (bisected) | the same → 230 MB |
-| perf `BatchSatisfy` | B/op | 456.8 Mi | 454.9 Mi | 491.4 Mi | +8.0 % | #1626 (bisected) | the same |
+| perf `FeaturesOf` | B/op | 261.7 Mi | 261.2 Mi | 295.8 Mi | +13.3 % (sec/op −7 %) | #1626, the memo of related features recorded every empty relation | `perf/related-features-memo` → 271.2 Mi (#1743) |
+| perf `Instantiate`, cold, pinned at two iterations | B/op | — | 221 MB | 252 MB | +14 % (allocs −4.6 %) | #1626 (bisected) | the same → 230 MB (#1743) |
+| perf `BatchSatisfy` | B/op | 456.8 Mi | 454.9 Mi | 491.4 Mi | +8.0 % | #1626 (bisected) | the same → 475.5 Mi (#1743) |
 | perf `ExecuteActionFreshContext` | allocs/op | 376 | 388 | 424 | +9.3 % | #1619 (bisected); the marks are the correctness cost, part of it the copy | `perf/derive-marks-footprint` |
 | perf `ActionChain/chain10` | B/op | 200.6 Ki | 198.1 Ki | 222.9 Ki | +12.5 % (allocs −18 %) | #1473 (bisected), the performance-shape memo of an earlier fix: fewer, larger allocations | not a regression to fix: `chain100` and `chain1000` allocate 18–26 % less |
 | whole binary, `-validate` of 12 086 generated elements | peak RSS | 161 MiB | 162 MiB | 193 MiB | +31 MiB | #1441 (bisected): the parse trees of a submission were held through its analysis for the roots an unresolved reference would be looked up by | `perf/release-preparse-trees` → 164 MiB (#1741) |
@@ -270,6 +270,20 @@ as they open; the branches are named in the summary table.
   `Instantiate` allocs −12 %, `BatchSatisfy` allocs −6.5 % and B/op
   −2 %, `FeaturesOf` B/op −2 % (the rest of those bytes is #1626, the
   next fix). sec/op flat on this host.
+- **#1743 `perf/related-features-memo`** (cause #1626): the memo of the
+  features a feature's relationships name no longer records the
+  features that declare no relationship of the kind asked for, which
+  were most of its entries. Six rounds, #1626's parent / #1626 /
+  candidate / fix: `FeaturesOf` 267.1 / 296.0 / 295.7 / **271.2 MiB**
+  per op (0.11.0 rebuilt: 261.2); `BatchSatisfy` 461.0 / 491.2 / 491.2 /
+  **475.5 MiB**; `Instantiate` pinned at two iterations 220.6 / 251.8 /
+  251.8 / **229.8 MB**; allocs/op unchanged on every row, as is
+  `GRPCVerifyConstraint` and every stress row. The `tests/perf` binary
+  running `FeaturesOf` and `Instantiate`, three cold runs, candidate →
+  fix: peak RSS 336 → **318 MiB**, wall 1.84 → 1.76 s, both complete
+  under `ulimit -v 4000000`; the stress `FleetInstantiate/512` binary's
+  peak RSS reads 187–193 vs 196–199 MiB with identical allocation
+  counts and a B/op difference benchstat does not separate (p = 0.13).
 
 ## What this record does not measure
 
