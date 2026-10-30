@@ -236,7 +236,7 @@ class ExecutionError(OpenSysMLError, builtins.RuntimeError):
 
     Also a built-in :class:`RuntimeError`, so ``except RuntimeError`` catches it
     — which is what the traceback's ``opensysml.errors.RuntimeError`` used to
-    promise and not deliver. That old name is a deprecated alias of this class.
+    promise and not deliver; that old name was an alias of this class until 0.12.0.
 
     Attributes:
         message (str): Error description
