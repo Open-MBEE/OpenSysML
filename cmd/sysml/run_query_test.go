@@ -243,7 +243,7 @@ func TestRunQueryJSONOutcome(t *testing.T) {
 }
 
 // TestRunQueryJSON checks that a query's verdict is reported as data a build
-// step reads: its row count and projected columns as named values.
+// step reads: its row count and projected columns as named values, and its table.
 func TestRunQueryJSON(t *testing.T) {
 	binary := buildCLI(t)
 
@@ -260,6 +260,13 @@ func TestRunQueryJSON(t *testing.T) {
 				Name  string `json:"name"`
 				Value string `json:"value"`
 			} `json:"values"`
+			Table *struct {
+				Columns []string `json:"columns"`
+				Rows    []struct {
+					Element string     `json:"element"`
+					Cells   [][]string `json:"cells"`
+				} `json:"rows"`
+			} `json:"table"`
 		} `json:"checks"`
 	}
 	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
@@ -274,6 +281,15 @@ func TestRunQueryJSON(t *testing.T) {
 	}
 	if values["rows"] != "1" || values["columns"] != "name, mass" {
 		t.Errorf("values = %v, want rows = 1 and columns = name, mass", report.Checks[0].Values)
+	}
+	table := report.Checks[0].Table
+	if table == nil || strings.Join(table.Columns, ",") != "name,mass" || len(table.Rows) != 1 {
+		t.Fatalf("table = %+v, want columns name, mass and one row", table)
+	}
+	row := table.Rows[0]
+	if row.Element != "Observatory::telescope::mount" || len(row.Cells) != 2 ||
+		strings.Join(row.Cells[0], "|") != `"mount"` || strings.Join(row.Cells[1], "|") != "15.0" {
+		t.Errorf("row = %+v, want mount with cells [\"mount\"] and [15.0]", row)
 	}
 }
 

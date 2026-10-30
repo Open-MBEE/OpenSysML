@@ -57,6 +57,9 @@ type Verdict struct {
 	// Rows are the runs a sweep made, one per row of its table; no other kind of
 	// verdict has any.
 	Rows []VerdictRow
+	// Table is the row set a document query returned, as data; nil for every
+	// other verdict.
+	Table *VerdictTable
 	// Evaluations are the applications an analysis case made of its own calcs as
 	// function values — a trade study's evaluation of each alternative — in the
 	// order made.
@@ -95,6 +98,20 @@ type VerdictRow struct {
 	Evaluations []Evaluation
 	Millis      float64
 	Error       string
+}
+
+// VerdictTable is a document query's row set as data: the projected columns in
+// order, and each row's element with one cell per column.
+type VerdictTable struct {
+	Columns []string
+	Rows    []VerdictTableRow
+}
+
+// VerdictTableRow is one row of a query's table: the element the row is about,
+// and its cells by column position, each the values the cell holds as the prompt prints them.
+type VerdictTableRow struct {
+	Element string
+	Cells   [][]string
 }
 
 // Holds reports whether the checked condition is satisfied.
