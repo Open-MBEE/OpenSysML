@@ -197,10 +197,8 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 	return out
 }
 
-// clauseObject tells apart the objects a head's clauses state, as relationships writes
-// them: a feature chain by the chain Feature minted for its clause (headChain: one per
-// clause, so `subsets a.b, a.b` states two), a name by what it references, another
-// expression by its text.
+// clauseObject tells apart the objects a head's clauses state, as relationships writes them:
+// a chain by the chain Feature minted for its clause, a name by its referent, else by text.
 func (e *encoder) clauseObject(subject rdf.Term, rel *ast.Relationship, chains map[*ast.Relationship]int) string {
 	if k, chained := chains[rel]; chained {
 		return rdf.ExpressionIRI(subject, fmt.Sprintf("chain%d", k)).Value

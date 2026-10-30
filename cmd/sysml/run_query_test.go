@@ -647,9 +647,8 @@ const chainClausesModel = `package Observatory {
 }
 `
 
-// TestRunQueryJSONTableSpellsEachChainClauseByID: the conversion owns one chain Feature per
-// feature-chain clause, so `subsets optics.lens, spare, optics.lens` is spelled as the three
-// subsettings the writer materializes, in clause order, where clauses naming one element share one.
+// TestRunQueryJSONTableSpellsEachChainClauseByID: each feature-chain clause is spelled by the
+// subsetting the writer materializes for it, so `subsets a.b, c, a.b` reads three ids in order.
 func TestRunQueryJSONTableSpellsEachChainClauseByID(t *testing.T) {
 	binary := buildCLI(t)
 
