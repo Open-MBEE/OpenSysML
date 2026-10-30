@@ -195,9 +195,8 @@ func (u Usage) spellsLocation() bool {
 	return err != nil || spellsLocation(u.Resource, location)
 }
 
-// spellsLocation reports whether a resource whose location is location spells
-// where a project is kept: a location unwrapped from a package URL, a pkg:svn/
-// or pkg:hg/ spelling, or a URL of any scheme but pkg.
+// spellsLocation reports whether a resource with the given location spells where a
+// project is kept: an unwrapped location, pkg:svn/ or pkg:hg/, or a URL of any scheme but pkg.
 func spellsLocation(resource, location string) bool {
 	if location != resource {
 		return true
@@ -284,10 +283,8 @@ func resourceLocation(resource string) (string, error) {
 // the ones the pkg:git/, pkg:svn/ and pkg:hg/ spellings name.
 var versionControl = map[string]bool{"git": true, "svn": true, "hg": true}
 
-// spellsVCSURL reports whether s is a version-control URL as ECMA-427 Annex
-// B.3.5 writes one: a <vcs>[+<transport>] scheme naming a known version-control
-// system, then a host and a path; a repository on this machine
-// (<vcs>+file:///path) has a path and no host.
+// spellsVCSURL reports whether s is an ECMA-427 Annex B.3.5 version-control URL: a
+// <vcs>[+<transport>] scheme naming a known system, a host (none for <vcs>+file:///) and a path.
 func spellsVCSURL(s string) bool {
 	scheme, rest, ok := strings.Cut(s, "://")
 	if !ok {
