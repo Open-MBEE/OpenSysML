@@ -647,9 +647,8 @@ func apiJSONMappingObjectTriples(builder *rdf.GraphBuilder, cache *apiJSONTermCa
 	return emitter.remainingMappingValues()
 }
 
-// member writes one member of the element: the mappingValues member writes
-// the overrides in their stated order, an overridden member its override, a
-// default the stated defaults imply nothing, and any other its value.
+// member writes one member: the mappingValues member writes the overrides in
+// stated order, an overridden member its override, an implied default nothing.
 func (emitter *apiJSONMappingEmitter) member(member apiJSONMember) error {
 	object := emitter.object
 	switch member.key {

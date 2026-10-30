@@ -151,9 +151,8 @@ func (s *apiJSONGraphStructure) placeElement(position int, subject rdf.Term) {
 	}
 }
 
-// indexOwnership files subject under the elements it relates: as a relationship
-// under its ends, as a membership under its member and namespace, and under
-// the relationships it owns.
+// indexOwnership files subject under its related elements: a relationship under
+// its ends, a membership under its member and namespace, and under owned relationships.
 func (s *apiJSONGraphStructure) indexOwnership(subject rdf.Term) {
 	if _, ok := s.element(subject); !ok {
 		return
