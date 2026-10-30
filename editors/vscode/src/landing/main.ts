@@ -23,9 +23,11 @@ import { connectModule, moduleUrls } from "./connect";
 import {
   debugSteps,
   journey,
+  runAction,
   runClock,
   runJourney,
   stateIdOf,
+  type Assignment,
   type DebugStep,
   type JourneyRun,
   type LandingModel,
@@ -34,7 +36,7 @@ import {
 import { carried, obstacles, resettle } from "./carry";
 import { download, exportFrame, exportSvg, rasterSize, rasterize } from "./export";
 import { quantityText } from "./present";
-import { SCENES, STACK_SCENE, chooseScene, type Scene, type SceneClock, type SceneDiagram } from "./scene";
+import { SCENES, STACK_SCENE, chooseScene, type Scene, type SceneAction, type SceneClock, type SceneDiagram } from "./scene";
 import { message, mountShell, shortName, type Mounted, type MountOptions } from "./shell";
 import { mountTable } from "./table";
 import { wireTabs } from "./tabs";
@@ -381,12 +383,46 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
     }
   }
 
+  // The values an action run has assigned so far, each written under the node that assigned it.
+  let shownValues: readonly Assignment[] = [];
+
+  function syncValues(): void {
+    for (const label of content.querySelectorAll("text.osml-value")) {
+      label.remove();
+    }
+    for (const value of shownValues) {
+      const id = idOf(value.at);
+      const shape = id === undefined ? null : groupOf(id)?.querySelector<SVGGraphicsElement>(".shape");
+      if (!shape) {
+        continue;
+      }
+      const box = shape.getBBox();
+      const label = document.createElementNS(SVG_NS, "text");
+      label.setAttribute("class", "osml-value");
+      label.setAttribute("x", String(box.x + box.width / 2));
+      label.setAttribute("y", String(box.y + box.height + 14));
+      label.setAttribute("text-anchor", "middle");
+      label.textContent = `${value.feature} = ${value.value}`;
+      shape.parentElement?.append(label);
+    }
+  }
+
+  function showValues(values: readonly Assignment[]): void {
+    shownValues = values;
+    syncValues();
+  }
+
   function decorate(): void {
     const stateIds = new Set([...(model.machine?.states.values() ?? [])].map((state) => state.id));
+    const nodeIds = new Set([...(model.action?.nodes.values() ?? [])].map((node) => node.id));
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-node")) {
       const id = group.dataset.opensysmlId ?? "";
       if (stateIds.has(id)) {
         group.classList.add("osml-state");
+        continue;
+      }
+      if (nodeIds.has(id)) {
+        group.classList.add("osml-step");
         continue;
       }
       const part = partOf(id);
@@ -424,6 +460,7 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
       content.append(token);
     }
     syncClasses();
+    syncValues();
     if (focusedId) {
       groupOf(focusedId)?.focus({ preventScroll: true });
     }
@@ -1091,6 +1128,11 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
           ran = true;
           return;
         }
+        if (program.kind === "action") {
+          await runActed(program, current);
+          ran = true;
+          return;
+        }
         const picked = seed === undefined || seedPicked;
         if (picked) {
           seed = randomSeed();
@@ -1176,6 +1218,40 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
     status(`${ran}.${stopped}${ending}`);
   }
 
+  // runActed performs the action on its object and replays the trace the engine recorded: the
+  // token at each node a step reached, each assigned value written under its node, and the
+  // status line reading the records; a run that stops waiting ends on the wait it stopped at.
+  async function runActed(program: SceneAction, current: LandingModel): Promise<void> {
+    const started = performance.now();
+    const result = await runAction(await engine(), program, current);
+    const ms = Math.max(1, Math.round(performance.now() - started));
+    run = result;
+    runSeed = seed;
+    steps = debugSteps(result.trace);
+    fillTrace();
+    const posted = program.events.length === 0 ? "" : ` with ${program.events.join(", ")}`;
+    const ran = `ExecuteAction performed ${shortName(program.symbol)} on ${shortName(program.performer)}${posted} in ${ms} ms`;
+    if (steps.length === 0 && result.error !== undefined) {
+      throw new Error(result.error);
+    }
+    status(`${ran}: ${steps.length} trace records.`);
+    runBtn.textContent = "▶ Run it again";
+    for (let index = 0; index < steps.length && !signal.aborted; index += 1) {
+      status(steps[index].record.text);
+      await showStep(index, !reduceMotion.matches);
+      await delay(reduceMotion.matches ? 250 : 400);
+    }
+    if (signal.aborted) {
+      return;
+    }
+    if (result.error !== undefined) {
+      status(`${ran} and stopped after ${steps.length} trace records: ${result.error}`, true);
+      return;
+    }
+    const outputs = [...(result.outputs ?? [])].map(([name, value]) => `${name} = ${value}`);
+    status(`${ran}: ${steps.length} trace records${outputs.length === 0 ? "" : `; ${outputs.join(", ")}`}.`);
+  }
+
   // ---- debugging the model ----
   // Every change re-runs the program from the start on the engine, a journey with all the
   // events sent so far; the panel then steps through that run's trace record by record.
@@ -1248,6 +1324,7 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
     const edge = step?.edge ? edgeBetween(idOf(step.edge.from), idOf(step.edge.to)) : -1;
     liveEdge = edge < 0 ? undefined : edge;
     syncClasses();
+    showValues(step?.assigned ?? []);
     for (const item of traceEl.querySelectorAll<HTMLElement>("li[data-index]")) {
       const current = Number(item.dataset.index) === cursor;
       item.classList.toggle("is-current", current);
@@ -1265,7 +1342,7 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
     queueEl.textContent = queue.length === 0 ? "empty" : queue.join(", ");
     const position = steps.length === 0 ? "no records" : `record ${cursor + 1} of ${steps.length}`;
     const where = step === undefined ? "Not started" : `In ${stateLabel(step.state)}`;
-    const choice = step?.record.kind === "choice" ? `, chose ${step.record.taken ?? "?"}` : "";
+    const choice = step?.record.kind === "choice" || step?.record.kind === "decide" ? `, chose ${step.record.taken ?? "?"}` : "";
     const clock = step?.record.time === undefined ? "" : ` · t = ${quantityText(step.record.time)}`;
     const taken = journeyProgram === undefined ? "" : ` · ${accepted} of ${sent.length} events taken`;
     nowEl.textContent = `${where}${choice}${clock} · ${position}${taken}`;
@@ -1303,18 +1380,23 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
       const machine = shortName(program.kind === "rollup" ? scene.rootSymbol : program.symbol);
       run = program.kind === "clock"
         ? await runClock(client, program, current)
-        : await runJourney(client, scene, current, sent, seed);
+        : program.kind === "action"
+          ? await runAction(client, program, current)
+          : await runJourney(client, scene, current, sent, seed);
       runSeed = seed;
       steps = debugSteps(run.trace);
       const ms = Math.max(1, Math.round(performance.now() - started));
       const schedule = seed === undefined ? "the default schedule" : `seed ${seed}`;
+      const rpc = program.kind === "action" ? "ExecuteAction" : "ExecuteState";
       const over = program.kind === "clock"
         ? `on ${shortName(program.performer)} for ${secondsText(program.advance)}`
-        : `on ${sent.length} events under ${schedule}`;
+        : program.kind === "action"
+          ? `on ${shortName(program.performer)}${program.events.length === 0 ? "" : ` with ${program.events.join(", ")}`}`
+          : `on ${sent.length} events under ${schedule}`;
       status(
         run.error
-          ? `ExecuteState failed after ${steps.length} trace records: ${run.error}`
-          : `ExecuteState ran ${machine} ${over} in ${ms} ms: ${steps.length} trace records.`,
+          ? `${rpc} failed after ${steps.length} trace records: ${run.error}`
+          : `${rpc} ran ${machine} ${over} in ${ms} ms: ${steps.length} trace records.`,
         run.error !== undefined,
       );
       fillTrace();
