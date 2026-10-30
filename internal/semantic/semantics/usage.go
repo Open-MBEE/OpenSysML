@@ -15,13 +15,17 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		// require/assume member declares.
 		return !m.isKerMLDoc(sym) && sym.Facts.Modifiers.Has(symbols.ModMayTimeVary)
 	}
-	var portion, actionKind bool
+	var portion, actionKind, bodyParameter bool
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
 		portion = d.IsPortion || d.Portion != ast.PortionNone
 		actionKind = d.Kind == ast.UsageAction
 	case *ast.RequireMember, *ast.AssumeMember:
 		// A required or assumed constraint is the ConstraintUsage its member declares.
+	case *ast.BodyExpr:
+		// An expression body's parameter: its owning type is the Expression, a
+		// Performance and so an Occurrence (KerML Performances::Performance).
+		bodyParameter = true
 	default:
 		return false
 	}
@@ -29,7 +33,7 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		return false
 	}
 	owner := sym.OwnerScope.Owner()
-	if owner == nil || !m.conformsByName(owner, "Occurrences::Occurrence") || portion ||
+	if !bodyParameter && (owner == nil || !m.conformsByName(owner, "Occurrences::Occurrence")) || portion ||
 		m.conformsByName(sym, "Links::SelfLink") ||
 		m.conformsByName(sym, "Occurrences::HappensLink") {
 		return false
@@ -62,7 +66,7 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 		switch d := sym.Decl.(type) {
 		case *ast.Usage:
 			isPortion = d.IsPortion || d.Portion != ast.PortionNone
-		case *ast.RequireMember, *ast.AssumeMember:
+		case *ast.RequireMember, *ast.AssumeMember, *ast.BodyExpr:
 		default:
 			return false
 		}
@@ -98,7 +102,7 @@ func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 		return m.UsageMayTimeVary(sym)
 	case *ast.CrossFeatureMember:
 		return m.isKerMLDoc(sym) && (d.IsVariable || d.IsConstant)
-	case *ast.RequireMember, *ast.AssumeMember:
+	case *ast.RequireMember, *ast.AssumeMember, *ast.BodyExpr:
 		return !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)
 	}
 	return false

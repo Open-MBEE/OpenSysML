@@ -20,6 +20,8 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 	requirement r : R { require constraint c2 { true } assume constraint c4 { true } constraint c3 { true } }
 	item def Fuel;
 	part def Car { part tank; part eng; flow fuelFlow of fuel : Fuel from tank to eng; }
+	attribute values : Real[*];
+	attribute positives = values->select { in v : Real; v > 0 };
 }
 `
 	for i, fixture := range reflectiveFixtures(t, "vary.sysml", source.KindSysML, src) {
@@ -42,6 +44,16 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 		flow, ok := car.Scope.LookupLocal("fuelFlow")
 		if !ok || flow.Scope == nil {
 			t.Fatal("Vary::Car::fuelFlow not found")
+		}
+		// An expression body's parameter is owned by the Expression, an Occurrence;
+		// an interface record keeps no expression body, so only the resolved model reads it.
+		if i == 0 {
+			item := bodyParameter(t, fixture.root, "v")
+			for name, got := range map[string]bool{"mayTimeVary": fixture.model.UsageMayTimeVary(item), "isVariable": fixture.model.FeatureIsVariable(item)} {
+				if !got {
+					t.Errorf("fixture %d: body parameter v %s = false, want true", i, name)
+				}
+			}
 		}
 		if fuel, ok := flow.Scope.LookupLocal("fuel"); !ok {
 			t.Fatal("Vary::Car::fuelFlow::fuel not found")
