@@ -1221,16 +1221,17 @@ func (ctx *Context) heldSegments(holder *Instance, feature string, val Value) []
 // position i of its collection, or alone for i < 0 — and reports whether the
 // segment is indexed. The segment is the declaration the object materializes:
 // the feature's name, indexed for a collection's element (`wheels[2]`), unless
-// the object is held by another feature of the same holder, a usage subsetting
+// the object was materialized by another feature of the same holder subsetting
 // the one it was reached through, in which case that usage names it (`small`,
 // or `smalls[2]` within its own collection). The values of a subsetting feature
 // are values of the subsetted feature too (KerML §7.3.4.4), and a feature is
 // unordered by default (SysML §7.6.3), so a position in the subsetted collection
 // identifies nothing the model fixes, while the declaration does; this is the
-// one spelling every surface reporting an object uses.
+// one spelling every surface reporting an object uses. An object a feature
+// merely refers to (`spare := cars#(2)`) is named under that feature as before.
 func (ctx *Context) heldSegment(holder *Instance, feature string, id int64, i int) (segment string, indexed bool) {
 	if child, ok := ctx.instances[id]; ok && holder != nil {
-		if owner, decl := child.Owner(); owner == holder && decl != "" && decl != feature {
+		if owner, decl := child.Owner(); owner == holder && decl != "" && decl != feature && ctx.subsetsFeature(holder, decl, feature) {
 			if segment, indexed, ok := declaredSegment(holder, decl, id); ok {
 				return segment, indexed
 			}
@@ -1240,6 +1241,17 @@ func (ctx *Context) heldSegment(holder *Instance, feature string, id int64, i in
 		return source.NameText(feature), false
 	}
 	return indexedSegment(source.NameText(feature), i), true
+}
+
+// subsetsFeature reports whether holder's feature decl subsets its feature name,
+// directly or through another feature of the holder.
+func (ctx *Context) subsetsFeature(holder *Instance, decl, name string) bool {
+	for _, feat := range ctx.subsettingFeaturesOf(holder, name) {
+		if feat.Name == decl {
+			return true
+		}
+	}
+	return false
 }
 
 // declaredSegment names the object id by the feature decl of holder declaring it:

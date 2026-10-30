@@ -62,10 +62,10 @@ func TestSharedVerdictsOverMixedShapes(t *testing.T) {
 	reading, _, shared := sparseSides(t, mixedVerdictSrc, "test::fleet")
 	lines := verdictLines(reading)
 	want := []string{
-		`constraint "assert constraint light" on "sats[1]": violated (constraint light: assertion evaluated to false: b <= 10)`,
-		`requirement "requirement fits" on "sats[1]": holds`,
-		`constraint "assert constraint light" on "sats[2]": violated (constraint light: assertion evaluated to false: b <= 10)`,
-		`requirement "requirement fits" on "sats[2]": violated (requirement fits: require condition evaluated to false: b < 20)`,
+		`constraint "assert constraint light" on "heavy": violated (constraint light: assertion evaluated to false: b <= 10)`,
+		`requirement "requirement fits" on "heavy": holds`,
+		`constraint "assert constraint light" on "huge": violated (constraint light: assertion evaluated to false: b <= 10)`,
+		`requirement "requirement fits" on "huge": violated (requirement fits: require condition evaluated to false: b < 20)`,
 		`constraint "assert constraint light" on "sats[3]": holds`,
 		`requirement "requirement fits" on "sats[3]": holds`,
 		`constraint "assert constraint light" on "sats[4]": holds`,
@@ -111,9 +111,9 @@ func TestSharedSatisfactionVerdicts(t *testing.T) {
 	reading, _, _ := sparseSides(t, src, "test::fleet")
 	lines := verdictLines(reading)
 	want := []string{
-		`satisfaction "satisfy MassLimit by unit1" on "sats[1]": holds`,
-		`satisfaction "satisfy MassLimit by unit2" on "sats[2]": holds`,
-		`satisfaction "satisfy MassLimit by unit3" on "sats[3]": violated (satisfaction satisfy MassLimit by unit3: require condition evaluated to false: s.b <= limit)`,
+		`satisfaction "satisfy MassLimit by unit1" on "unit1": holds`,
+		`satisfaction "satisfy MassLimit by unit2" on "unit2": holds`,
+		`satisfaction "satisfy MassLimit by unit3" on "unit3": violated (satisfaction satisfy MassLimit by unit3: require condition evaluated to false: s.b <= limit)`,
 	}
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
 		t.Errorf("verdicts:\n%s\nwant:\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
