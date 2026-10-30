@@ -25,74 +25,102 @@ const (
 	breakUnlessJoined           // ...unless the next token continues the statement
 )
 
+// openBrace is a `{` not closed yet: where its kind is in the kinds so far,
+// and whether code or a comment has appeared inside it.
+type openBrace struct {
+	at            int // index into kinds
+	code, comment bool
+}
+
+// braceClassifier is the state classifyBraces carries from token to token.
+type braceClassifier struct {
+	kinds    []braceKind
+	stack    []*openBrace
+	brackets int
+	last     lexer.Kind
+	invoked  bool // inside the (qualified) name an `->` invokes
+}
+
+func (c *braceClassifier) top() *openBrace { return c.stack[len(c.stack)-1] }
+
+// noteContent records on the innermost open brace what kind of token is inside it.
+func (c *braceClassifier) noteContent(kind lexer.Kind) {
+	if len(c.stack) == 0 {
+		return
+	}
+	switch kind {
+	case lexer.RegularComment:
+		c.top().comment = true
+	case lexer.RBrace:
+	default:
+		c.top().code = true
+	}
+}
+
+// open classifies a `{`: exprBody where an operand goes, else singleBody, and
+// a body opened inside a statement body makes that one multiBody.
+func (c *braceClassifier) open() {
+	kind := singleBody
+	switch {
+	case c.brackets > 0, len(c.stack) > 0 && c.kinds[c.top().at] == exprBody,
+		incompleteBefore[c.last], c.invoked, c.last == 0, c.last == lexer.Semicolon, c.last == lexer.LBrace:
+		kind = exprBody
+	case len(c.stack) > 0:
+		c.kinds[c.top().at] = multiBody
+	}
+	c.kinds = append(c.kinds, kind)
+	c.stack = append(c.stack, &openBrace{at: len(c.kinds) - 1})
+}
+
+// close pops a `}`: a single body holding both code and a comment is laid out
+// as statements, so the comment keeps its own line.
+func (c *braceClassifier) close() {
+	if len(c.stack) == 0 {
+		return
+	}
+	if b := c.top(); b.comment && b.code && c.kinds[b.at] == singleBody {
+		c.kinds[b.at] = multiBody
+	}
+	c.stack = c.stack[:len(c.stack)-1]
+}
+
 // classifyBraces decides the kind of every `{` in toks, in order: exprBody
 // where an operand goes, else multiBody once a `;` or nested body is inside.
 func classifyBraces(toks []lexer.Token) []braceKind {
-	var kinds []braceKind
-	type openBrace struct {
-		at            int // index into kinds
-		code, comment bool
-	}
-	var stack []*openBrace
-	brackets := 0
-	var last lexer.Kind
-	invoked := false // inside the (qualified) name an `->` invokes
-	top := func() *openBrace { return stack[len(stack)-1] }
+	var c braceClassifier
 	for _, tok := range toks {
 		if tok.IsTrivia() {
 			continue
 		}
-		if len(stack) > 0 {
-			switch tok.Kind {
-			case lexer.RegularComment:
-				top().comment = true
-			case lexer.RBrace:
-			default:
-				top().code = true
-			}
-		}
+		c.noteContent(tok.Kind)
 		switch tok.Kind {
 		case lexer.LParen, lexer.LBracket:
-			brackets++
+			c.brackets++
 		case lexer.RParen, lexer.RBracket:
-			if brackets > 0 {
-				brackets--
+			if c.brackets > 0 {
+				c.brackets--
 			}
 		case lexer.LBrace:
-			kind := singleBody
-			switch {
-			case brackets > 0, len(stack) > 0 && kinds[top().at] == exprBody,
-				incompleteBefore[last], invoked, last == 0, last == lexer.Semicolon, last == lexer.LBrace:
-				kind = exprBody
-			case len(stack) > 0:
-				kinds[top().at] = multiBody
-			}
-			kinds = append(kinds, kind)
-			stack = append(stack, &openBrace{at: len(kinds) - 1})
+			c.open()
 		case lexer.RBrace:
-			if len(stack) > 0 {
-				if b := top(); b.comment && b.code && kinds[b.at] == singleBody {
-					kinds[b.at] = multiBody
-				}
-				stack = stack[:len(stack)-1]
-			}
+			c.close()
 		case lexer.Semicolon:
-			if len(stack) > 0 && kinds[top().at] == singleBody {
-				kinds[top().at] = multiBody
+			if len(c.stack) > 0 && c.kinds[c.top().at] == singleBody {
+				c.kinds[c.top().at] = multiBody
 			}
 		}
 		switch tok.Kind {
 		case lexer.Arrow:
-			invoked = true
+			c.invoked = true
 		case lexer.Identifier, lexer.ColonColon:
 		default:
-			invoked = false
+			c.invoked = false
 		}
 		if tok.Kind != lexer.RegularComment {
-			last = tok.Kind
+			c.last = tok.Kind
 		}
 	}
-	return kinds
+	return c.kinds
 }
 
 // breakBefore reports whether statement layout puts tok on a new line; a note

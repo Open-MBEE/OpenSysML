@@ -189,7 +189,7 @@ func TestExecuteNamedRejectsAmbiguousNames(t *testing.T) {
 	if ambiguous.Actual != "Config" || ambiguous.Operation != "named" {
 		t.Fatalf("Named(Config) error = %v", ambiguous)
 	}
-	if got := strings.Join(ambiguous.Candidates, ","); got != "Observatory::Other::Config,Observatory::Vehicle::Config" {
+	if strings.Join(ambiguous.Candidates, ",") != "Observatory::Other::Config,Observatory::Vehicle::Config" {
 		t.Fatalf("Named(Config) candidates = %v", ambiguous.Candidates)
 	}
 	const want = "names 2 elements Config: Observatory::Other::Config, Observatory::Vehicle::Config"
