@@ -192,7 +192,14 @@ func (u Usage) standardLibrary() bool {
 // pkg:hg/ spellings, a bare <vcs>+<transport>:// URL — or a URL of any scheme but pkg.
 func (u Usage) spellsLocation() bool {
 	location, err := u.location()
-	if err != nil || location != u.Resource {
+	return err != nil || spellsLocation(u.Resource, location)
+}
+
+// spellsLocation reports whether a resource whose location is location spells
+// where a project is kept: a location unwrapped from a package URL, a pkg:svn/
+// or pkg:hg/ spelling, or a URL of any scheme but pkg.
+func spellsLocation(resource, location string) bool {
+	if location != resource {
 		return true
 	}
 	lower := strings.ToLower(location)
@@ -239,6 +246,8 @@ func resourceLocation(resource string) (string, error) {
 	if !ok {
 		return resource, nil
 	}
+	// A package URL's subpath follows the whole query, after every qualifier.
+	rest, subpath, _ := strings.Cut(rest, "#")
 	_, query, ok := strings.Cut(rest, "?")
 	if !ok {
 		return resource, nil
@@ -259,24 +268,40 @@ func resourceLocation(resource string) (string, error) {
 	}
 	location := vcsURLs[0]
 	if !spellsVCSURL(location) {
-		return "", fmt.Errorf("the vcs_url qualifier %q is not a <vcs>+<transport>://<host>/<path> URL", location)
+		return "", fmt.Errorf("the vcs_url qualifier %q is not a <vcs>+<transport>://<host>/<path> URL (vcs: git, svn or hg)", location)
+	}
+	switch {
+	case subpath == "":
+	case strings.Contains(location, "#"):
+		return "", fmt.Errorf("a subpath both in the vcs_url qualifier %q and after # (%q)", location, subpath)
+	default:
+		location += "#" + subpath
 	}
 	return location, nil
 }
 
+// versionControl names the version-control systems a vcs_url may begin with:
+// the ones the pkg:git/, pkg:svn/ and pkg:hg/ spellings name.
+var versionControl = map[string]bool{"git": true, "svn": true, "hg": true}
+
 // spellsVCSURL reports whether s is a version-control URL as ECMA-427 Annex
-// B.3.5 writes one: a <vcs>[+<transport>] scheme, then a host and a path; a
-// repository on this machine (<vcs>+file:///path) has a path and no host.
+// B.3.5 writes one: a <vcs>[+<transport>] scheme naming a known version-control
+// system, then a host and a path; a repository on this machine
+// (<vcs>+file:///path) has a path and no host.
 func spellsVCSURL(s string) bool {
 	scheme, rest, ok := strings.Cut(s, "://")
-	if !ok || !isScheme(scheme) {
+	if !ok {
+		return false
+	}
+	vcs, transport, _ := strings.Cut(strings.ToLower(scheme), "+")
+	if !versionControl[vcs] || (transport != "" && !isScheme(transport)) {
 		return false
 	}
 	if i := strings.IndexAny(rest, "?#"); i >= 0 {
 		rest = rest[:i]
 	}
 	host, path, ok := strings.Cut(rest, "/")
-	if host == "" && !strings.HasSuffix(strings.ToLower(scheme), "file") {
+	if host == "" && transport != "file" {
 		return false
 	}
 	return ok && strings.Trim(path, "/") != ""
@@ -302,17 +327,19 @@ func cutPrefixFold(s, prefix string) (string, bool) {
 }
 
 // resourceSegments splits a resource IRI into the path segments that name the
-// project, without its scheme, query, package-URL version, archive extension
-// or a repository's .git suffix; a resource whose location does not decode
-// names nothing. A fragment names a project directory within the repository
-// the path names (pkg:git/host/acme/widgets#packages/gears): that project is
-// named by the fragment's last segment, under the repository's owner. An
-// archive holds no directory a fragment could name, so one on its IRI is passed over.
+// project, without its scheme, query, package-URL version or archive extension,
+// nor the .git suffix of a resource spelling a repository; a resource whose
+// location does not decode names nothing. A fragment names a project directory
+// within the repository the path names (pkg:git/host/acme/widgets#packages/gears):
+// that project is named by the fragment's last segment, under the repository's
+// owner. An archive holds no directory a fragment could name, so one on its IRI is passed over.
 func resourceSegments(resource string) []string {
-	resource, err := resourceLocation(resource)
+	location, err := resourceLocation(resource)
 	if err != nil {
 		return nil
 	}
+	repository := spellsLocation(resource, location)
+	resource = location
 	fragment := ""
 	if i := strings.IndexByte(resource, '#'); i >= 0 {
 		resource, fragment = resource[:i], resource[i+1:]
@@ -335,7 +362,9 @@ func resourceSegments(resource string) []string {
 		if archive {
 			last = last[:len(last)-len(ArchiveExt)]
 		}
-		last = strings.TrimSuffix(last, ".git")
+		if repository {
+			last = strings.TrimSuffix(last, ".git")
+		}
 		if sub := pathSegments(fragment); len(sub) > 0 && !archive {
 			last = sub[len(sub)-1]
 		}

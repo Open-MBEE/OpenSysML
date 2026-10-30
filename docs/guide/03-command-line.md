@@ -398,8 +398,10 @@ the `pkg:git/<host>/<path>[@<version>][#<subpath>]` alias (also `pkg:svn/`, `pkg
 bare `<vcs>+<transport>://<host>/<path>[@<version>][#<subpath>]` URL. The host and path, the
 `@<version>` and the `#<subpath>` are read from the decoded `vcs_url` value exactly as from the
 `pkg:git/` spelling, so the same installed project is linked with the same warning whichever is
-written. A `vcs_url` that does not decode to a `<vcs>+<transport>://<host>/<path>` URL is a
-`project.load` warning at the project file and the usage selects nothing. A package manager's
+written, and a repository path's `.git` suffix is not part of the name. A `vcs_url` that does not
+decode to a `<vcs>+<transport>://<host>/<path>` URL with `<vcs>` one of `git`, `svn` or `hg` is a
+`project.load` warning at the project file and the usage selects nothing; the subpath may also be
+written after the whole query (`pkg:generic/<name>?vcs_url=…&checksum=…#packages/gears`). A package manager's
 lock file beside `.project.json` is not read: which version lands under `lib/` is its decision,
 and OpenSysML matches the usage against whatever is installed.
 

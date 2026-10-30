@@ -34,6 +34,11 @@ func TestUsesReadsTheRepositoryFromTheVCSURLQualifier(t *testing.T) {
 		{"pkg:generic/widgets?vcs_url=hg%2Bstatic-http:%2F%2Fhg.example.org%2Facme%2Fwidgets%23packages%2Fgears%2F", gears, widgets},
 		{"pkg:generic/widgets?vcs_url=svn%2Bsvn:%2F%2Fsvn.example.org%2Facme%2Fwidgets#packages/gears", gears, widgets},
 		{"pkg:generic/widgets?vcs_url=git%2Bhttps:%2F%2Fgit.example.org%2Facme%2Fwidgets.git%401.0.0", widgets, gears},
+		{"pkg:generic/widgets?vcs_url=git%2Bhttps:%2F%2Fgit.example.org%2Facme%2Fwidgets&checksum=sha256:abc#packages/gears", gears, widgets},
+		{"pkg:generic/widgets?checksum=sha256:abc&vcs_url=git%2Bhttps:%2F%2Fgit.example.org%2Facme%2Fwidgets%401.0.0#packages/gears", gears, widgets},
+		{"pkg:generic/widgets?vcs_url=git:%2F%2Fgit.example.org%2Facme%2Fwidgets.git", widgets, gears},
+		{"https://git.example.org/acme/widgets.git", widgets, gears},
+		{"pkg:registry/acme/widgets.git", &Interchange{Publisher: "acme", Name: "widgets.git"}, widgets},
 		{"pkg:generic/rover?vcs_url=git%2Bfile:%2F%2F%2Fsrv%2Fgit%2Facme%2Fgears.git%401.0.0", gears, widgets},
 		{"git+https://github.com/MBSE4U/sysmod-sysmlv2@5.1.6", repo, sysmod},
 		{"svn+ssh://svn.example.org/acme/widgets#packages/gears", gears, widgets},
@@ -109,14 +114,18 @@ func TestSpellsLocationReadsTheECMA427Forms(t *testing.T) {
 func TestLocationRefusesAMalformedVCSURL(t *testing.T) {
 	for resource, want := range map[string]string{
 		"pkg:generic/rover?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2FMBSE4U%2Fsysmod%ZZ": "the qualifiers do not decode",
-		"pkg:generic/rover?vcs_url=":                                             "an empty vcs_url qualifier",
-		"pkg:generic/rover?vcs_url=a&vcs_url=b":                                  "2 vcs_url qualifiers",
-		"pkg:generic/rover?vcs_url=not-a-url":                                    `"not-a-url" is not a <vcs>+<transport>://<host>/<path> URL`,
-		"pkg:generic/rover?vcs_url=git%2Bhttps:%2F%2Fgithub.com":                 `"git+https://github.com" is not`,
-		"pkg:generic/rover?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2F":              `"git+https://github.com/" is not`,
-		"pkg:generic/rover?vcs_url=git%2Bhttps:%2F%2F%2Facme%2Frover":            `"git+https:///acme/rover" is not`,
-		"pkg:generic/rover?vcs_url=1git%2Bhttps:%2F%2Fgithub.com%2Facme%2Frover": `"1git+https://github.com/acme/rover" is not`,
-		"pkg:generic/rover?vcs_url=git%20https:%2F%2Fgithub.com%2Facme%2Frover":  `"git https://github.com/acme/rover" is not`,
+		"pkg:generic/rover?vcs_url=":                                                   "an empty vcs_url qualifier",
+		"pkg:generic/rover?vcs_url=a&vcs_url=b":                                        "2 vcs_url qualifiers",
+		"pkg:generic/rover?vcs_url=not-a-url":                                          `"not-a-url" is not a <vcs>+<transport>://<host>/<path> URL`,
+		"pkg:generic/rover?vcs_url=git%2Bhttps:%2F%2Fgithub.com":                       `"git+https://github.com" is not`,
+		"pkg:generic/rover?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2F":                    `"git+https://github.com/" is not`,
+		"pkg:generic/rover?vcs_url=git%2Bhttps:%2F%2F%2Facme%2Frover":                  `"git+https:///acme/rover" is not`,
+		"pkg:generic/rover?vcs_url=1git%2Bhttps:%2F%2Fgithub.com%2Facme%2Frover":       `"1git+https://github.com/acme/rover" is not`,
+		"pkg:generic/rover?vcs_url=git%20https:%2F%2Fgithub.com%2Facme%2Frover":        `"git https://github.com/acme/rover" is not`,
+		"pkg:generic/rover?vcs_url=https:%2F%2Fexample.org%2Facme%2Frover":             `"https://example.org/acme/rover" is not`,
+		"pkg:generic/rover?vcs_url=bzr%2Bhttps:%2F%2Fexample.org%2Facme%2Frover":       `"bzr+https://example.org/acme/rover" is not`,
+		"pkg:generic/rover?vcs_url=git%2B1https:%2F%2Fexample.org%2Facme%2Frover":      `"git+1https://example.org/acme/rover" is not`,
+		"pkg:generic/rover?vcs_url=git%2Bhttps:%2F%2Fexample.org%2Facme%2Frover%23a#b": `a subpath both in the vcs_url qualifier "git+https://example.org/acme/rover#a" and after # ("b")`,
 	} {
 		u := Usage{Resource: resource}
 		_, err := u.location()
@@ -130,13 +139,39 @@ func TestLocationRefusesAMalformedVCSURL(t *testing.T) {
 			t.Errorf("acme/rover answers %s", resource)
 		}
 	}
-	for _, resource := range []string{canonicalSysmod, "pkg:generic/rover?vcs_url=git%2Bfile:%2F%2F%2Fsrv%2Fgit%2Frover.git", "pkg:generic/acme/gears", "pkg:generic/gears?checksum=sha256:abc", "pkg:git/github.com/MBSE4U/sysmod-sysmlv2"} {
+	for _, resource := range []string{canonicalSysmod, "pkg:generic/rover?vcs_url=git%2Bfile:%2F%2F%2Fsrv%2Fgit%2Frover.git", "pkg:generic/rover?vcs_url=git:%2F%2Fexample.org%2Facme%2Frover", "pkg:generic/rover?vcs_url=svn:%2F%2Fsvn.example.org%2Frepos%2Frover", "pkg:generic/rover?vcs_url=hg%2Bstatic-http:%2F%2Fhg.example.org%2Frover", "pkg:generic/acme/gears", "pkg:generic/gears?checksum=sha256:abc", "pkg:git/github.com/MBSE4U/sysmod-sysmlv2"} {
 		if _, err := (Usage{Resource: resource}).location(); err != nil {
 			t.Errorf("location(%s): %v", resource, err)
 		}
 	}
 	if got, _ := (Usage{Resource: canonicalSysmod}).location(); got != "git+https://github.com/MBSE4U/sysmod-sysmlv2@5.1.6" {
 		t.Errorf("location(%s) = %q", canonicalSysmod, got)
+	}
+	for _, resource := range []string{
+		"pkg:generic/widgets?vcs_url=git%2Bhttps:%2F%2Fgit.example.org%2Facme%2Fwidgets%23packages%2Fgears",
+		"pkg:generic/widgets?vcs_url=git%2Bhttps:%2F%2Fgit.example.org%2Facme%2Fwidgets#packages/gears",
+		"pkg:generic/widgets?vcs_url=git%2Bhttps:%2F%2Fgit.example.org%2Facme%2Fwidgets&checksum=x#packages/gears",
+		"pkg:generic/widgets?checksum=x&vcs_url=git%2Bhttps:%2F%2Fgit.example.org%2Facme%2Fwidgets#packages/gears",
+	} {
+		if got, err := (Usage{Resource: resource}).location(); err != nil || got != "git+https://git.example.org/acme/widgets#packages/gears" {
+			t.Errorf("location(%s) = %q, %v", resource, got, err)
+		}
+	}
+}
+
+// A vcs_url that is a URL of no version-control system does not name a
+// location: the usage is a warning and is not linked to the one unclaimed
+// project by elimination.
+func TestUsedDoesNotLinkAURLOfNoVersionControlSystemByElimination(t *testing.T) {
+	resource := "pkg:generic/missing?vcs_url=https%3A%2F%2Fexample.org%2Facme%2Fmissing"
+	proj := writeProject(t, filepath.Join(t.TempDir(), "proj"), fmt.Sprintf(`{"name": "app", "version": "0.1.0", "usage": [{"resource": %q}]}`, resource))
+	writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "widgets", "publisher": "acme", "version": "1.0.0"}`)
+	found := Discovery{}.Around([]string{filepath.Join(proj, "App.sysml")})
+	if len(found.Used) != 0 {
+		t.Errorf("Used = %v, want none", projectDirs(found.Used))
+	}
+	if len(found.Linking) != 1 || !strings.Contains(found.Linking[0].Message, `usage `+resource+`: the vcs_url qualifier "https://example.org/acme/missing" is not a <vcs>+<transport>://<host>/<path> URL (vcs: git, svn or hg)`) {
+		t.Errorf("Linking = %q", found.Linking)
 	}
 }
 
@@ -195,7 +230,7 @@ func TestUsedReportsAMalformedVCSURLAndLinksNothing(t *testing.T) {
 	}
 	want := []Warning{{
 		Path:    filepath.Join(proj, ProjectFile),
-		Message: "usage " + resource + `: the vcs_url qualifier "git+https://github.com" is not a <vcs>+<transport>://<host>/<path> URL (a package URL of type generic names a repository as pkg:generic/<name>?vcs_url=<vcs>%2B<transport>:%2F%2F<host>%2F<path>[%40<version>][%23<subpath>], the qualifier percent-encoded)`,
+		Message: "usage " + resource + `: the vcs_url qualifier "git+https://github.com" is not a <vcs>+<transport>://<host>/<path> URL (vcs: git, svn or hg) (a package URL of type generic names a repository as pkg:generic/<name>?vcs_url=<vcs>%2B<transport>:%2F%2F<host>%2F<path>[%40<version>][%23<subpath>], the qualifier percent-encoded)`,
 	}}
 	if !reflect.DeepEqual(found.Linking, want) {
 		t.Errorf("Linking = %q, want %q", found.Linking, want)

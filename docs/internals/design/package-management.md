@@ -90,9 +90,12 @@ A package manager and OpenSysML meet only on disk, at the consuming project's `.
   `#<subpath>` are the ones inside it. The alias `pkg:git/<host>/<path>[@<version>][#<subpath>]`
   (`pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library@1.0.0`; `pkg:svn/`, `pkg:hg/` too)
   and the bare `<vcs>+<transport>://…` URL are read the same way, so the three spellings of one
-  repository link the same installed project with the same warning. A `vcs_url` that does not
-  decode to a `<vcs>+<transport>://<host>/<path>` URL is a `project.load` warning at the consumer's
-  `.project.json` and the usage links nothing. A purl `#<subpath>` fragment names a project
+  repository link the same installed project with the same warning, and a repository path's `.git`
+  suffix is not part of the name (a named resource's last segment, `pkg:<registry>/acme/widget.git`,
+  is kept whole). A `vcs_url` that does not decode to a `<vcs>+<transport>://<host>/<path>` URL
+  with `<vcs>` one of `git`, `svn` or `hg` is a `project.load` warning at the consumer's
+  `.project.json` and the usage links nothing — a plain `https://` URL in the qualifier is not a
+  repository and is never linked by elimination. A purl `#<subpath>` fragment names a project
   directory within the repository the path names (`pkg:git/host/acme/widgets#packages/gears`): the
   installed project matched is the fragment's last segment under the repository's owner
   (`acme`/`gears`), read through its own installation alone.

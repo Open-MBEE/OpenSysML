@@ -145,7 +145,7 @@ func TestAMalformedVCSURLIsAWarningAndLinksNothing(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(proj, project.ProjectFile), []byte(`{"name": "app", "version": "0.1.0", "usage": [{"resource": "`+resource+`"}]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(proj, project.ProjectFile) + ": usage " + resource + `: the vcs_url qualifier "git+https://github.com" is not a <vcs>+<transport>://<host>/<path> URL (a package URL of type generic names a repository as pkg:generic/<name>?vcs_url=<vcs>%2B<transport>:%2F%2F<host>%2F<path>[%40<version>][%23<subpath>], the qualifier percent-encoded)`
+	want := filepath.Join(proj, project.ProjectFile) + ": usage " + resource + `: the vcs_url qualifier "git+https://github.com" is not a <vcs>+<transport>://<host>/<path> URL (vcs: git, svn or hg) (a package URL of type generic names a repository as pkg:generic/<name>?vcs_url=<vcs>%2B<transport>:%2F%2F<host>%2F<path>[%40<version>][%23<subpath>], the qualifier percent-encoded)`
 	s := repl.NewSession()
 	report, err := s.LoadPathsReport([]string{proj})
 	if err != nil {
