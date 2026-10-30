@@ -50,6 +50,8 @@ export interface LandingModel {
   target: SceneTarget;
   render: RenderResult;
   parts: Map<string, LandingPart>;
+  /** The root itself, which the parts compose; it is not drawn as a box, so it is not among `parts`. */
+  root: LandingPart;
 }
 
 export type ModelRead = { diagnostics: Diagnostic[]; model?: LandingModel };
@@ -407,7 +409,7 @@ export function landingModel(
     nodes,
     edges: render.edges.filter((edge) => retained.has(edge.from) && retained.has(edge.to)),
   });
-  return { hash, target, render: normalized, parts };
+  return { hash, target, render: normalized, parts, root: { ...partOf(root, rootInstance, rootName, undefined), feature: rootName } };
 }
 
 /** sceneTarget is the root a scene draws by default, before any variant is switched on. */
@@ -420,22 +422,24 @@ export function sceneTarget(scene: Scene): SceneTarget {
  * by evaluating it on its path; an undetermined answer's reason replaces the error text.
  */
 async function explained(parsed: Model, model: LandingModel): Promise<LandingModel> {
-  const parts = new Map(model.parts);
-  await Promise.all(
-    [...model.parts].map(async ([path, part]) => {
-      const unvalued = { ...part.unvalued };
-      await Promise.all(
-        Object.keys(unvalued).map(async (feature) => {
-          const value = await parsed.eval(`${model.target.rootSymbol}.${path}.${feature}`).catch(() => undefined);
-          if (value?.kind === "undetermined" && value.reason !== "") {
-            unvalued[feature] = value.reason;
-          }
-        }),
-      );
-      parts.set(path, { ...part, unvalued });
-    }),
-  );
-  return { ...model, parts };
+  const { rootSymbol } = model.target;
+  const explain = async (part: LandingPart, path: string): Promise<LandingPart> => {
+    const unvalued = { ...part.unvalued };
+    await Promise.all(
+      Object.keys(unvalued).map(async (feature) => {
+        const value = await parsed.eval(`${path}.${feature}`).catch(() => undefined);
+        if (value?.kind === "undetermined" && value.reason !== "") {
+          unvalued[feature] = value.reason;
+        }
+      }),
+    );
+    return { ...part, unvalued };
+  };
+  const [root, parts] = await Promise.all([
+    explain(model.root, rootSymbol),
+    Promise.all([...model.parts].map(async ([path, part]) => [path, await explain(part, `${rootSymbol}.${path}`)] as const)),
+  ]);
+  return { ...model, root, parts: new Map(parts) };
 }
 
 /** Parses the scene's text on the connection; diagnostics come back instead of a model. */

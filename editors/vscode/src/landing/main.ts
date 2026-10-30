@@ -21,27 +21,20 @@ import {
 import type { Connection } from "@openmbee/opensysml/browser";
 import { connectModule, moduleUrls } from "./connect";
 import {
-  blocks,
   debugSteps,
   journey,
-  readModel,
-  rollup,
-  rollupLevels,
   runJourney,
-  sceneTarget,
-  snapshotModel,
-  valueText,
   type DebugStep,
-  type Diagnostic,
   type JourneyRun,
   type LandingModel,
   type LandingPart,
-  type SceneTarget,
 } from "./model";
 import { carried, obstacles, resettle } from "./carry";
 import { download, exportFrame, exportSvg, rasterSize, rasterize } from "./export";
 import { quantityText } from "./present";
-import { SCENES, STACK_SCENE, chooseScene, requiredVariant, variantChain, type Scene, type SceneVariant } from "./scene";
+import { SCENES, STACK_SCENE, chooseScene, type Scene, type SceneDiagram } from "./scene";
+import { message, mountShell, type Mounted, type MountOptions } from "./shell";
+import { mountTable } from "./table";
 import { wireTabs } from "./tabs";
 import { ZOOM_STEP, pannedView, pinchedView, refittedView, zoomOf, zoomedView, type View } from "./zoom";
 
@@ -52,7 +45,6 @@ const HERO_PAD = 8;
 const DRAG_SLOP = 4;
 const KEY_STEP = 10;
 const LONG_PRESS = 550;
-const EDIT_DELAY = 300;
 const MAX_SCALE = 1.6;
 const HOP = 1000;
 
@@ -63,18 +55,6 @@ function insetBox(box: Box, distance: number): Box {
     width: Math.max(0, box.width - 2 * distance),
     height: Math.max(0, box.height - 2 * distance),
   };
-}
-
-interface Mounted {
-  dispose(): void;
-}
-
-/** What a scene's mount is given by the hero: the module connection it shares and its model's URL. */
-interface MountOptions {
-  engine(): Promise<Connection>;
-  modelUrl: string;
-  /** Called when the diagram finds its root gone from the page. */
-  onLeave(): void;
 }
 
 declare global {
@@ -108,15 +88,6 @@ function byCodeUnit(a: string, b: string): number {
   return a > b ? 1 : 0;
 }
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function diagnosticText(diagnostic: Diagnostic): string {
-  const at = diagnostic.line === undefined ? "" : `line ${diagnostic.line}:${diagnostic.column ?? 1}: `;
-  return `${at}${diagnostic.message || "error"}`;
-}
-
 function webHref(value: string | undefined): string | undefined {
   if (!value) {
     return undefined;
@@ -139,16 +110,12 @@ function overlap(a: DOMRect | Box, b: DOMRect | Box): number {
   return w > 0 && h > 0 ? w * h : 0;
 }
 
-function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted {
+// mount draws a scene as a diagram: the view's boxes and wires, laid out and movable.
+function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: MountOptions): Mounted {
   const hero = root.closest<HTMLElement>(".osml-hero") ?? root;
   const stage = root.querySelector<HTMLElement>("[data-osml-stage]")!;
   const card = hero.querySelector<HTMLElement>("[data-osml-card]")!;
-  const statusEl = root.querySelector<HTMLElement>("[data-osml-status]")!;
   const runBtn = root.querySelector<HTMLButtonElement>("[data-osml-run]")!;
-  const srcBtn = root.querySelector<HTMLButtonElement>("[data-osml-source]")!;
-  const editor = root.querySelector<HTMLElement>("[data-osml-editor]")!;
-  const srcEl = root.querySelector<HTMLTextAreaElement>("[data-osml-src]")!;
-  const resetBtn = root.querySelector<HTMLButtonElement>("[data-osml-reset]")!;
   const debugBtn = root.querySelector<HTMLButtonElement>("[data-osml-debug]")!;
   const downloadBtn = root.querySelector<HTMLButtonElement>("[data-osml-download]")!;
   const zoomBar = stage.querySelector<HTMLElement>("[data-osml-zoom]")!;
@@ -167,27 +134,11 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
   const nowEl = debugPanel.querySelector<HTMLElement>("[data-osml-debug-now]")!;
   const queueEl = debugPanel.querySelector<HTMLElement>("[data-osml-debug-queue]")!;
   const traceEl = debugPanel.querySelector<HTMLOListElement>("[data-osml-debug-trace]")!;
-  const variantsEl = root.querySelector<HTMLElement>("[data-osml-variants]");
   const journeyProgram = scene.program.kind === "journey" ? scene.program : undefined;
-  const rollupProgram = scene.program.kind === "rollup" ? scene.program : undefined;
-  const rootName = scene.rootSymbol.slice(scene.rootSymbol.lastIndexOf("::") + 2);
-  // The controls are the page's; a scene shows the ones it declares and starts them afresh.
-  const offers = (control: Scene["controls"][number]): boolean => scene.controls.includes(control);
-  runBtn.hidden = !offers("run");
-  runBtn.textContent = "▶ Run the model";
-  srcBtn.hidden = !offers("edit");
-  srcBtn.setAttribute("aria-expanded", "false");
-  srcBtn.textContent = "Edit the model";
-  editor.hidden = true;
-  srcEl.value = "";
-  srcEl.readOnly = false;
-  srcEl.removeAttribute("aria-invalid");
-  debugBtn.hidden = !offers("debug");
   debugBtn.setAttribute("aria-expanded", "false");
   debugBtn.textContent = "Debug the run";
   debugPanel.hidden = true;
   traceEl.replaceChildren();
-  downloadBtn.hidden = !offers("download");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const ac = new AbortController();
   const { signal } = ac;
@@ -214,13 +165,19 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
   svg.append(defs, viewport);
   hero.append(svg);
 
-  let model = snapshotModel(scene);
-  // The root drawn: the scene's own, or a variant's while its toggle is on.
-  let target: SceneTarget = sceneTarget(scene);
-  const present = (): RenderResult => scene.present(model, scene);
+  const shell = mountShell(root, scene, options, {
+    adopt,
+    busy: () => rerunning !== undefined,
+    reset() {
+      placed.clear();
+      settle();
+    },
+    syncControls: () => syncDebugControls(),
+  });
+  const { status, engine, runnable } = shell;
+  let model = shell.model;
+  const present = (): RenderResult => form.present(model, scene);
   let result = present();
-  let live = false;
-  let goodSource: string | undefined;
   let auto: AutoLayout | undefined;
   let view: View = { x: 0, y: 0, scale: 1 };
   // The view that shows the whole diagram, and the stage it fills, in hero pixels; `view` zooms from it.
@@ -235,29 +192,13 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
   let cardFor: string | undefined;
   let hot: string | undefined;
   let liveNode: string | undefined;
-  // The boxes a roll-up lights together: one level of the composition at a time.
-  let liveLevel: ReadonlySet<string> = new Set();
   let liveEdge: number | undefined;
   let token: SVGCircleElement | undefined;
-  let running = false;
-  let editTimer: ReturnType<typeof setTimeout> | undefined;
-  // The revision of what is read: the editor's text and the drawn root; an older read is dropped.
-  let editSequence = 0;
-  let sourcePromise: Promise<string> | undefined;
 
   const partOf = (id: string): LandingPart | undefined => [...model.parts.values()].find((part) => part.id === id);
   const idOf = (feature: string): string | undefined => model.parts.get(feature)?.id;
   // projects is the parts drawn at the top level, which are the ones a visitor can move.
   const projects = (): LandingPart[] => [...model.parts.values()].filter((part) => part.owner === undefined);
-
-  function status(text: string, error = false): void {
-    if (signal.aborted) {
-      // A scene that has left the stage says nothing over the one that replaced it.
-      return;
-    }
-    statusEl.textContent = text;
-    statusEl.classList.toggle("osml-schematic__status--err", error);
-  }
 
   function overrides(): Overrides {
     const nodes = new Map<string, LayoutGeometry>();
@@ -424,7 +365,7 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-node")) {
       const id = group.dataset.opensysmlId;
       group.classList.toggle("is-hot", id === lit);
-      group.classList.toggle("is-live", id === liveNode || (id !== undefined && liveLevel.has(id)));
+      group.classList.toggle("is-live", id === liveNode);
     }
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-edge")) {
       const index = Number(group.dataset.edge);
@@ -439,7 +380,7 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
       if (!part) {
         continue;
       }
-      const tone = scene.tone(part, scene);
+      const tone = form.tone(part, scene);
       if (tone !== undefined) {
         group.dataset.osmlTone = tone;
       }
@@ -505,39 +446,11 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
       });
   }
 
-  // ---- the engine and the model text ----
+  // ---- the model ----
 
-  // engine is the hero's connection to the sysml-wasm module, shared by every scene.
-  function engine(): Promise<Connection> {
-    if (signal.aborted) {
-      return Promise.reject(new Error("the diagram has left the page"));
-    }
-    return options.engine();
-  }
-
-  function publishedSource(): Promise<string> {
-    sourcePromise ??= fetch(options.modelUrl)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`the model did not download (HTTP ${response.status})`);
-        }
-        return response.text();
-      })
-      .catch((error: unknown) => {
-        sourcePromise = undefined;
-        throw error;
-      });
-    return sourcePromise;
-  }
-
-  function currentSource(): Promise<string> {
-    return !srcEl.readOnly && srcEl.value ? Promise.resolve(srcEl.value) : publishedSource();
-  }
-
-  function adopt(next: LandingModel, source: string): void {
+  // adopt redraws a model the shell read; a moved box stays put while its part remains.
+  function adopt(next: LandingModel): void {
     model = next;
-    goodSource = source;
-    live = true;
     for (const feature of placed.keys()) {
       if (!model.parts.has(feature)) {
         placed.delete(feature);
@@ -559,50 +472,6 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
     } else {
       rerunStale = true;
     }
-  }
-
-  const sameTarget = (a: SceneTarget, b: SceneTarget): boolean => a.rootSymbol === b.rootSymbol && a.view === b.view;
-
-  // read parses the source on the engine; it reports diagnostics and keeps the last good model.
-  async function read(source: string, verb: string): Promise<LandingModel | undefined> {
-    const started = performance.now();
-    const revision = editSequence;
-    const outcome = await readModel(await engine(), scene, source, target);
-    if (revision !== editSequence || signal.aborted) {
-      // The editor took input or the root changed while the worker read this; the newer read follows.
-      return undefined;
-    }
-    if (!outcome.model) {
-      const first = outcome.diagnostics.find(blocks) ?? outcome.diagnostics[0];
-      srcEl.setAttribute("aria-invalid", "true");
-      status(`Not ${verb}: ${first ? diagnosticText(first) : "the model has nothing to draw"}. The diagram shows the last model that read cleanly.`, true);
-      return undefined;
-    }
-    srcEl.removeAttribute("aria-invalid");
-    if (source !== goodSource || !sameTarget(outcome.model.target, model.target)) {
-      adopt(outcome.model, source);
-    }
-    const ms = Math.max(1, Math.round(performance.now() - started));
-    status(`The engine read the model in ${ms} ms: ${outcome.model.parts.size} parts, ${outcome.model.render.edges.length} interfaces.`);
-    return outcome.model;
-  }
-
-  function scheduleEdit(): void {
-    const mine = ++editSequence;
-    clearTimeout(editTimer);
-    editTimer = setTimeout(() => {
-      editTimer = undefined;
-      if (running || rerunning !== undefined) {
-        scheduleEdit();
-        return;
-      }
-      const source = srcEl.value;
-      void read(source, "redrawn").catch((error: unknown) => {
-        if (mine === editSequence) {
-          status(`Not redrawn: ${message(error)}. The diagram shows the last model that read cleanly.`, true);
-        }
-      });
-    }, EDIT_DELAY);
   }
 
   // ---- the card ----
@@ -665,7 +534,7 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
     }
     const note = document.createElement("div");
     note.className = "osml-nodecard__note";
-    note.textContent = live
+    note.textContent = shell.live
       ? `Read by the engine from model ${model.hash.slice(0, 12)}`
       : "The engine's saved reading of the published model. Run or edit it to read it live.";
     card.replaceChildren(close, stereo, name, sub, attrs, wires, note);
@@ -1080,7 +949,7 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
         to: heroStyle.getPropertyValue("--osml-hero-to").trim() || "#303f9f",
       };
       const drawing = exportSvg(content, frame, size, backdrop, (element) => element === token);
-      download(await rasterize(drawing), scene.pngName);
+      download(await rasterize(drawing), form.pngName);
     } catch (error: unknown) {
       status(`Could not save the diagram: ${message(error)}.`, true);
     } finally {
@@ -1178,78 +1047,6 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
     }
   }
 
-  // The model to run: the editor's text when it reads cleanly, else the last good model.
-  async function runnable(): Promise<LandingModel | undefined> {
-    const source = await currentSource();
-    return source === goodSource && sameTarget(model.target, target) ? model : read(source, "run");
-  }
-
-  function detailSpan(id: string): SVGTSpanElement | null {
-    return groupOf(id)?.querySelector<SVGTSpanElement>("tspan.detail") ?? null;
-  }
-
-  // animateRollup lights the boxes level by level from the deepest up, each level's values
-  // appearing as the engine's roll-up reaches it; the drawing itself is already laid out.
-  async function animateRollup(levels: readonly string[][], feature: string): Promise<void> {
-    const details = new Map<string, string>();
-    for (const id of levels.flat()) {
-      const span = detailSpan(id);
-      if (span) {
-        details.set(id, span.textContent ?? "");
-        span.textContent = `${feature} = …`;
-      }
-    }
-    try {
-      for (const ids of levels) {
-        if (signal.aborted) {
-          break;
-        }
-        for (const id of ids) {
-          const span = detailSpan(id);
-          if (span) {
-            span.textContent = details.get(id) ?? "";
-          }
-        }
-        liveLevel = new Set(ids);
-        syncClasses();
-        await delay(reduceMotion.matches ? 350 : 900);
-      }
-      liveLevel = new Set();
-      syncClasses();
-      await delay(600);
-    } finally {
-      for (const [id, text] of details) {
-        const span = detailSpan(id);
-        if (span) {
-          span.textContent = text;
-        }
-      }
-      liveLevel = new Set();
-      syncClasses();
-    }
-  }
-
-  // runRollup instantiates the root and evaluates its rolled-up feature on the engine, then
-  // shows the roll-up climbing the composition and reports the vehicle's total last.
-  async function runRollup(feature: string): Promise<void> {
-    const current = await runnable();
-    if (!current) {
-      return;
-    }
-    const started = performance.now();
-    const total = await rollup(await engine(), current, feature);
-    const ms = Math.max(1, Math.round(performance.now() - started));
-    const drawnRoot = target.rootSymbol.slice(target.rootSymbol.lastIndexOf("::") + 2);
-    const objects = current.parts.size + 1;
-    status(`Instantiate made ${objects} objects; the roll-up of ${drawnRoot}.${feature} climbs from the engines…`);
-    runBtn.textContent = "▶ Run it again";
-    await animateRollup(rollupLevels(current), feature);
-    status(
-      `Instantiate made ${objects} objects and Evaluate rolled up ${drawnRoot}.${feature} = ${valueText(total)} in ${ms} ms.`,
-      total.kind === "undetermined",
-    );
-  }
-
   let seed: number | undefined;
   let seedPicked = false;
   let runSeed: number | undefined;
@@ -1258,22 +1055,15 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
     a.length === b.length && a.every((event, index) => event === b[index]);
 
   on(runBtn, "click", () => {
-    if (running) {
+    if (shell.running) {
       return;
     }
     pause();
-    running = true;
-    runBtn.disabled = true;
-    syncDebugControls();
-    syncVariantControls();
+    shell.setRunning(true);
     status("Loading the engine and reading the model…");
     void (async () => {
       let ran = false;
       try {
-        if (rollupProgram !== undefined) {
-          await runRollup(rollupProgram.feature);
-          return;
-        }
         const current = await runnable();
         if (!current) {
           return;
@@ -1301,10 +1091,7 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
       } catch (error) {
         status(`The engine could not run the model (${message(error)}). The diagram still works.`, true);
       } finally {
-        running = false;
-        runBtn.disabled = false;
-        syncDebugControls();
-        syncVariantControls();
+        shell.setRunning(false);
         const eventsStale = ran && !sameEvents(sent, journeyEvents);
         if (run !== undefined && (runSeed !== seed || eventsStale)) {
           if (eventsStale) {
@@ -1372,7 +1159,7 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
   }
 
   function syncDebugControls(): void {
-    const idle = !running && rerunning === undefined;
+    const idle = !shell.running && rerunning === undefined;
     for (const button of sendBtns) {
       button.disabled = !idle;
     }
@@ -1479,7 +1266,7 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
   }
 
   async function play(): Promise<void> {
-    if (playing || running) {
+    if (playing || shell.running) {
       return;
     }
     const mine = ++playback;
@@ -1556,129 +1343,6 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
   });
   on(reseedBtn, "click", () => setSeed(randomSeed()));
 
-  // ---- switching the root ----
-  // A variant's toggle redraws the scene from another root over the same text.
-
-  let variant: SceneVariant | undefined;
-  const variantBtns = new Map<SceneVariant, HTMLButtonElement>();
-  if (variantsEl) {
-    variantsEl.replaceChildren();
-    for (const candidate of scene.variants) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "osml-btn";
-      button.setAttribute("aria-pressed", "false");
-      button.textContent = candidate.label;
-      variantsEl.append(button);
-      variantBtns.set(candidate, button);
-      // Switching a variant off returns to the one it builds on; one that is on only through another goes too.
-      on(button, "click", () => void switchVariant(variantChain(scene, variant).includes(candidate) ? requiredVariant(scene, candidate) : candidate));
-    }
-  }
-
-  function syncVariantControls(): void {
-    const chain = variantChain(scene, variant);
-    for (const [candidate, button] of variantBtns) {
-      const on = chain.includes(candidate);
-      const required = requiredVariant(scene, candidate);
-      button.hidden = required !== undefined && !chain.includes(required);
-      button.setAttribute("aria-pressed", String(on));
-      button.textContent = on ? candidate.activeLabel : candidate.label;
-      button.disabled = running;
-    }
-  }
-
-  async function switchVariant(next: SceneVariant | undefined): Promise<void> {
-    if (running) {
-      return;
-    }
-    variant = next;
-    target = next === undefined ? sceneTarget(scene) : { rootSymbol: next.rootSymbol, view: next.view };
-    // A read of the previous root still in flight is superseded, as an edit supersedes a read.
-    const revision = ++editSequence;
-    syncVariantControls();
-    status(next === undefined ? `Reading ${rootName} again…` : `Reading ${next.rootSymbol.slice(next.rootSymbol.lastIndexOf("::") + 2)}…`);
-    try {
-      const current = await runnable();
-      if (revision !== editSequence || signal.aborted) {
-        return;
-      }
-      if (current && next !== undefined) {
-        status(next.hint);
-      }
-      if (!current) {
-        revertVariant();
-      }
-    } catch (error) {
-      if (revision === editSequence) {
-        status(`The engine could not read the model (${message(error)}). The diagram still works.`, true);
-        revertVariant();
-      }
-    }
-  }
-
-  // revertVariant puts the toggle back on the root the diagram still shows after a read failed.
-  function revertVariant(): void {
-    if (sameTarget(model.target, target)) {
-      return;
-    }
-    variant = scene.variants.find((candidate) => candidate.rootSymbol === model.target.rootSymbol && candidate.view === model.target.view);
-    target = model.target;
-    syncVariantControls();
-  }
-
-  // ---- editing the model ----
-
-  on(srcBtn, "click", () => {
-    const open = editor.hidden;
-    editor.hidden = !open;
-    srcBtn.setAttribute("aria-expanded", String(open));
-    srcBtn.textContent = open ? "Hide the model" : "Edit the model";
-    if (!open) {
-      return;
-    }
-    if (srcEl.value) {
-      srcEl.focus();
-      return;
-    }
-    srcEl.value = "Loading the model…";
-    srcEl.readOnly = true;
-    publishedSource().then(
-      (text) => {
-        srcEl.value = text;
-        srcEl.readOnly = false;
-        srcEl.focus();
-        srcEl.setSelectionRange(0, 0);
-        srcEl.scrollTop = 0;
-        // The engine is fetched now, so the first edit redraws without a wait.
-        void engine().catch(() => undefined);
-      },
-      (error: unknown) => {
-        srcEl.value = "";
-        srcEl.readOnly = false;
-        status(`Could not load the model: ${message(error)}. Hide and reopen the editor to try again.`, true);
-      },
-    );
-  });
-  on(srcEl, "input", () => {
-    if (!srcEl.readOnly) {
-      status("Loading the engine and reading the model…");
-      scheduleEdit();
-    }
-  });
-  on(resetBtn, "click", () => {
-    publishedSource().then(
-      (text) => {
-        srcEl.value = text;
-        srcEl.removeAttribute("aria-invalid");
-        placed.clear();
-        settle();
-        scheduleEdit();
-      },
-      (error: unknown) => status(`Could not load the model: ${message(error)}.`, true),
-    );
-  });
-
   // ---- size, routing, and leaving the page ----
 
   const resize = new ResizeObserver(() => {
@@ -1734,18 +1398,18 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
       }
     }
     ac.abort();
+    shell.dispose();
     resize.disconnect();
     navigation?.unsubscribe();
-    clearTimeout(editTimer);
     svg.remove();
     hero.classList.remove("osml-hero--focus", "osml-hero--dragging");
     stage.classList.remove("osml-schematic__stage--zoomed", "osml-schematic__stage--panning");
+    // fit sized the stage to the drawing; the next scene sizes it its own way.
+    stage.style.removeProperty("height");
     zoomBar.hidden = true;
-    variantsEl?.replaceChildren();
   }
 
   const mounted: Mounted = { dispose };
-  syncVariantControls();
   relayOut();
   return mounted;
 }
@@ -1794,7 +1458,12 @@ function mountHero(root: HTMLElement, forced?: Scene): Mounted {
       element.hidden = element.dataset.osmlFor !== chosen.id;
     }
   };
-  const open = (chosen: Scene): Mounted => mount(root, chosen, { engine, modelUrl: modelUrlOf(chosen), onLeave: dispose });
+  const open = (chosen: Scene): Mounted => {
+    const mountOptions: MountOptions = { engine, modelUrl: modelUrlOf(chosen), onLeave: dispose };
+    return chosen.form.kind === "table"
+      ? mountTable(root, chosen, chosen.form, mountOptions)
+      : mount(root, chosen, chosen.form, mountOptions);
+  };
   show(scene);
   let mounted = open(scene);
   if (tablist) {

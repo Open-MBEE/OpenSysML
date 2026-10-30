@@ -154,6 +154,66 @@
       touch-action: none;
     }
     .osml-schematic--drawn .osml-schematic__stage--panning { cursor: grabbing; }
+    /* The table form: the composition listed one part per row, indented as it nests, with a
+       column per quantity; the rolled-up column stays empty until the engine fills it. */
+    .osml-table {
+      position: relative;
+      z-index: 1;
+      max-width: 46rem;
+      margin: 0 auto;
+      overflow-x: auto;
+      border-radius: .3rem;
+      background: #fff;
+      color: #181818;
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: .72rem;
+      text-align: left;
+    }
+    .osml-table table {
+      width: 100%;
+      margin: 0;
+      border-collapse: collapse;
+    }
+    .osml-table th,
+    .osml-table td {
+      padding: .3rem .7rem;
+      border-bottom: 1px solid #e0e0e0;
+      white-space: nowrap;
+      transition: background-color .3s;
+    }
+    .osml-table th {
+      background: #e3f2fd;
+      color: #1565c0;
+      font-weight: 700;
+    }
+    .osml-table th.osml-table__num,
+    .osml-table td.osml-table__num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .osml-table td.osml-table__part {
+      padding-left: calc(.7rem + var(--osml-depth, 0) * 1.3rem);
+      font-weight: 700;
+    }
+    .osml-table td.osml-table__part .keyword {
+      margin-right: .35em;
+      color: #1565c0;
+      font-style: italic;
+      font-size: .85em;
+      font-weight: 400;
+    }
+    .osml-table td.osml-table__type { color: #555; }
+    .osml-table tr.is-root td { background: #e3f2fd; }
+    .osml-table td.is-pending { color: #9e9e9e; }
+    .osml-table td.is-undetermined {
+      background: #fff3e0;
+      color: var(--md-accent-fg-color);
+      white-space: normal;
+    }
+    .osml-table tr.is-live td {
+      background: #fff8e1;
+      box-shadow: inset 0 -2px 0 #ffd54f, inset 0 2px 0 #ffd54f;
+    }
     /* The zoom buttons sit over the diagram's corner, above the drawing. */
     .osml-schematic__zoom {
       position: absolute;
@@ -908,14 +968,14 @@
         <noscript><p class="osml-schematic__status">The diagram is drawn in your browser from <a href="{{ 'assets/opensysml-stack.sysml' | url }}">the stack's SysML model</a> or <a href="{{ base_url }}/assets/repl-examples/mass-rollup.sysml">the Saturn V's</a>; it needs JavaScript.</p></noscript>
       </div>
       <p class="osml-schematic__caption" data-osml-for="stack">One open interchange, two implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Zoom with the buttons, <kbd>Ctrl</kbd>+scroll or a pinch, and drag the background to pan. Edit the model and the engine redraws the diagram as you type.</p>
-      <p class="osml-schematic__caption" data-osml-for="mass" hidden>A launch vehicle whose total mass is a recursive roll-up over its parts: the engine instantiates the stages and engines and evaluates every <code>totalMass</code> you see. Drag the stages around, right-click a box for its values, and zoom with the buttons, <kbd>Ctrl</kbd>+scroll or a pinch. Edit a mass and the totals follow; add the instrument unit, whose mass the model leaves out on purpose, and the roll-up comes back undetermined, naming the missing value; give it its mass and it completes.</p>
+      <p class="osml-schematic__caption" data-osml-for="mass" hidden>A launch vehicle whose total mass is a recursive roll-up over its parts, listed one part per row. The masses are the model's; <code>totalMass</code> is the engine's: Run instantiates the stages and engines and fills the column from the engines up. Edit a mass and run again; add the instrument unit, whose mass the model leaves out on purpose, and the roll-up comes back undetermined, naming the missing value; give it its mass and it completes.</p>
       <div class="osml-schematic__run">
         <button type="button" class="osml-btn osml-btn--primary" data-osml-run>&#9654; Run the model</button>
         <button type="button" class="osml-btn" data-osml-source aria-expanded="false" aria-controls="osml-schematic-edit">Edit the model</button>
         <button type="button" class="osml-btn" data-osml-debug aria-expanded="false" aria-controls="osml-schematic-debug">Debug the run</button>
         <span class="osml-schematic__variants" data-osml-variants></span>
         <button type="button" class="osml-btn" data-osml-download title="Save the diagram as drawn, at twice its size">Download PNG</button>
-        <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 9 MB, downloaded once).</p>
+        <p class="osml-schematic__status" data-osml-status aria-live="polite">This is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 9 MB, downloaded once).</p>
       </div>
       <div class="osml-debug" id="osml-schematic-debug" data-osml-debugger hidden>
         <div class="osml-debug__bar" role="group" aria-label="Send an event to the state machine">
