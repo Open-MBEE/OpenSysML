@@ -1,0 +1,7 @@
+The runtime's binding walks allocate only where a binding can be found: a feature read
+that climbs to its owners spells out the feature path only while an owner declares a
+binding, the witness draw builds its pool index on the first candidate, the sibling
+subsetters' set is made on the first value, and a body is scanned for declared features
+without listing its members first. `GRPCVerifyConstraint` allocates 14 887 times per
+constraint instead of 16 301, recovering most of what #1508 and #1512 added over
+0.11.0's 14 091; the remaining 796 are the reads those fixes made (no parity claim).
