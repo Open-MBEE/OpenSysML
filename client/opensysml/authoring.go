@@ -733,8 +733,7 @@ type EditResult struct {
 	// Documents is the edited notation of every document the edits rewrote: the
 	// edited document first when it is among them, then the others in name order.
 	// A single-document model's one document is always listed; a document of
-	// several the edits left as parsed is not. Empty, with Content filled, from a
-	// service without the edit_documents capability, which edits one document alone.
+	// several the edits left as parsed is not.
 	Documents []EditedDocument
 	// Applied says what each edit changed, grouped by document in the order
 	// Documents lists them and in request order within a document.
