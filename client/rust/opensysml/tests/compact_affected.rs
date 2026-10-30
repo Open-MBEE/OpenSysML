@@ -92,7 +92,14 @@ fn compact_api_json_trims_derived_properties_and_keeps_the_named_ones() {
             },
         )
         .expect_err("omit_derived without compact is refused");
-    assert!(matches!(refused, Error::InvalidRequest(_)), "{refused}");
+    assert!(
+        matches!(
+            &refused,
+            Error::Service { status: opensysml::Status::InvalidArgument, message, .. }
+                if message.contains("compact")
+        ),
+        "{refused}"
+    );
     let array = connection.convert("api-json", &source, &sysml()).unwrap();
     assert!(serde_json::from_str::<serde_json::Value>(&array.content)
         .unwrap()
