@@ -1,0 +1,1 @@
+Dependabot no longer proposes `@testing-library/react` updates for the SysON frontend: 12.1.5 narrowed its peer range to React 17 while the frontend pins React 18, so the grouped npm update failed `npm ci`; the React-18 major is taken by hand.

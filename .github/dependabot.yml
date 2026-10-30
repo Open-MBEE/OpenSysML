@@ -49,6 +49,8 @@ updates:
     ignore:
       # editors/vscode's typing must not exceed its engines.vscode floor (vsce refuses it); bump both together when the floor moves.
       - dependency-name: "@types/vscode"
+      # editors/syson/frontend pins React 18; @testing-library/react 12.1.5 narrowed its peer range to react <18, so npm ci fails until the React-18 major is taken by hand.
+      - dependency-name: "@testing-library/react"
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 
