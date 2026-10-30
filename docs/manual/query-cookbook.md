@@ -827,7 +827,7 @@ no row carries is an `unknown-property` error that offers the nearest
 property of the rows' metaclass (`isCompost` — did you mean `isComposite`?).
 A property the metamodel declares but this release's evaluator does not derive
 yet is a typed `unserved-property` path error naming the defining class
-(`Element::aliasIds`) and, where the evaluator records one, the fact its
+(`Feature::crossFeature`) and, where the evaluator records one, the fact its
 derivation needs; the set it derives grows release by release and is listed by
 the metamodel evaluator's rules.
 

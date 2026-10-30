@@ -1060,6 +1060,19 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	return m.sysmlMetaclass(sysmlMetaclassName(sym))
 }
 
+// isAssertedConstraint reports a constraint usage written `assert constraint`
+// (SysML.xtext AssertConstraintUsage), from its declaration or its record.
+func isAssertedConstraint(sym *symbols.Symbol) bool {
+	if sym.Kind != symbols.SymbolConstraintUsage {
+		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModAssert)
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.PrefixKeyword == "assert"
+}
+
 // sysmlMetaclassName is the SysML metaclass of sym's declaration: by its symbol
 // kind, or by the declaration where the kind spans several (SysML.xtext).
 func sysmlMetaclassName(sym *symbols.Symbol) string {
@@ -1068,6 +1081,9 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	}
 	if sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModEvent) {
 		return "EventOccurrenceUsage"
+	}
+	if isAssertedConstraint(sym) {
+		return "AssertConstraintUsage"
 	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ForkNode:
@@ -1594,6 +1610,12 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
+	case "ownedRelatedElement", "owningRelatedElement":
+		// A declared connector relates features its types own; its own owner is a membership's.
+		if !m.reflectiveMetaclassConforms(sym, "Connector") {
+			return nil, false
+		}
+		return []*symbols.Symbol{}, true
 	case "ownedFeature":
 		var features []*symbols.Symbol
 		for _, member := range ownedMembersOf(sym) {
@@ -2084,8 +2106,25 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	}
 	switch feature {
 	case "isImplied":
-		if _, ok := sym.RelationshipDecl(); ok || sym.Kind == symbols.SymbolAlias {
+		if _, ok := sym.RelationshipDecl(); ok || sym.Kind == symbols.SymbolAlias ||
+			m.reflectiveMetaclassConforms(sym, "Relationship") {
 			return boolValue(false), true
+		}
+	case "aliasIds":
+		// No notation sets Element::aliasIds (KerML 1.1 §8.3.2.1): every element has none.
+		return emptyValue(), true
+	case "isImpliedIncluded":
+		// Element::isImpliedIncluded is false: implied relationships are not included here.
+		return boolValue(false), true
+	case "reqId":
+		// RequirementDefinition/Usage::reqId redefines declaredShortName (SysML.sysml).
+		if m.reflectiveMetaclassConforms(sym, "RequirementDefinition") ||
+			m.reflectiveMetaclassConforms(sym, "RequirementUsage") {
+			return stringOrEmpty(sym.ShortName), true
+		}
+	case "isNegated":
+		if m.reflectiveMetaclassConforms(sym, "Invariant") {
+			return boolValue(isNegatedDeclaration(sym)), true
 		}
 	case "isConjugated":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
@@ -2213,7 +2252,20 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return boolValue(sym.Facts.Modifiers.Has(symbols.ModIndividual)), true
 		}
 	}
+	if feature == "isSufficient" && m.reflectiveMetaclassConforms(sym, "Type") {
+		// A Type declared without `all` (a connector end, a cross feature) is not sufficient.
+		return boolValue(false), true
+	}
 	return symbols.FilterValue{}, false
+}
+
+// isNegatedDeclaration is the `not` of an invariant's declaration (`assert not …`).
+func isNegatedDeclaration(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModNegated)
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsNegated
 }
 
 type reflectiveFeatureFlags struct {
