@@ -274,3 +274,71 @@ func TestValidateInstanceRefusesWhatIsNoPart(t *testing.T) {
 		}
 	}
 }
+
+// subsettingValidateSource gathers objects of two subsetting usages, `small`
+// and the two `smalls`, into the `subsystem` collection; each object violates
+// the definition's assertion and its stated satisfaction.
+const subsettingValidateSource = `package Demo {
+	private import ScalarValues::Real;
+	requirement def Fits {
+		subject c : Component;
+		require constraint { c.v < 10.0 }
+	}
+	requirement fits : Fits;
+	part def Component {
+		attribute v : Real default = 1.0;
+		assert constraint ok { v < 10.0 }
+		satisfy fits;
+	}
+	part def Assembly {
+		part subsystem : Component[*];
+		part small : Component :> subsystem {
+			attribute :>> v = 99.0;
+		}
+		part smalls : Component[2] :> subsystem {
+			attribute :>> v = 50.0;
+		}
+	}
+	part assembly : Assembly;
+}
+`
+
+// TestValidateAndVerifyLabelASubsettingObjectByItsDeclaration verifies that
+// ValidateInstance and VerifySatisfaction spell the path to an object a
+// subsetting usage materializes by that usage (`small`, `smalls[2]`), never by
+// its position in the collection it subsets.
+func TestValidateAndVerifyLabelASubsettingObjectByItsDeclaration(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, subsettingValidateSource, "validate-subsetting")
+	ctx := context.Background()
+	if made, err := srv.Instantiate(ctx, &pb.InstantiateRequest{ModelHash: hash, SymbolId: "Demo::assembly"}); err != nil || made.Error != "" {
+		t.Fatalf("Instantiate: %v %q", err, made.GetError())
+	}
+
+	validated, err := srv.ValidateInstance(ctx, &pb.ValidateInstanceRequest{ModelHash: hash, SymbolId: "Demo::assembly"})
+	if err != nil || validated.Error != "" {
+		t.Fatalf("ValidateInstance: %v %q", err, validated.GetError())
+	}
+	paths := map[string][]string{}
+	for _, v := range validated.Verdicts {
+		paths[v.Kind] = append(paths[v.Kind], v.InstancePath)
+	}
+	want := []string{"small", "smalls[1]", "smalls[2]"}
+	for _, kind := range []string{"constraint", "satisfy"} {
+		if got := strings.Join(paths[kind], " "); got != strings.Join(want, " ") {
+			t.Errorf("ValidateInstance %s paths = %q, want %q", kind, paths[kind], want)
+		}
+	}
+
+	satisfied, err := srv.VerifySatisfaction(ctx, &pb.VerifySatisfactionRequest{ModelHash: hash})
+	if err != nil || satisfied.Error != "" {
+		t.Fatalf("VerifySatisfaction: %v %q", err, satisfied.GetError())
+	}
+	var swept []string
+	for _, v := range satisfied.Verdicts {
+		swept = append(swept, v.InstancePath)
+	}
+	if got := strings.Join(swept, " "); got != strings.Join(want, " ") {
+		t.Errorf("VerifySatisfaction paths = %q, want %q", swept, want)
+	}
+}

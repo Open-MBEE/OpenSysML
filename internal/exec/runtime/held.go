@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // heldObjectEntry is one object a feature of another object holds, under the segment
-// a path names it by: the feature's name, indexed for a collection's element.
+// a path names it by (heldSegmenter.segment): its declaration, indexed for a collection's element.
 type heldObjectEntry struct {
 	Feature  string
 	Segment  string
@@ -40,7 +39,8 @@ func (ctx *Context) HeldObjects(inst *Instance) ([]heldObjectEntry, error) {
 	var indexedAt []bool
 	at := make(map[int64]int)
 	read := make(map[*FeatureValue]bool)
-	reach := func(feature string, segment string, indexed bool, val Value) {
+	named := ctx.segmenter(inst)
+	reach := func(feature string, i int, val Value) {
 		id, ok := val.Object()
 		if !ok || ctx.HoldsNoValue(val) {
 			return
@@ -49,6 +49,7 @@ func (ctx *Context) HeldObjects(inst *Instance) ([]heldObjectEntry, error) {
 		if !ok {
 			return
 		}
+		segment, indexed := named.segment(feature, id, i)
 		held := heldObjectEntry{Feature: feature, Segment: segment, Instance: child}
 		if i, seen := at[id]; seen {
 			if indexedAt[i] && !indexed {
@@ -72,9 +73,8 @@ func (ctx *Context) HeldObjects(inst *Instance) ([]heldObjectEntry, error) {
 			continue
 		}
 		read[fv] = true
-		segment := source.NameText(of.Name)
 		if fv.Values.Kind == ValInvalid {
-			reach(of.Name, segment, false, fv.Value)
+			reach(of.Name, -1, fv.Value)
 			continue
 		}
 		values, err := ctx.heldInFull(fv.Values)
@@ -82,7 +82,7 @@ func (ctx *Context) HeldObjects(inst *Instance) ([]heldObjectEntry, error) {
 			return nil, &HeldObjectsError{Feature: of.Name, Err: err}
 		}
 		for i, element := range elementsOf(values) {
-			reach(of.Name, fmt.Sprintf("%s[%d]", segment, i+1), true, element)
+			reach(of.Name, i, element)
 		}
 	}
 	return out, nil
