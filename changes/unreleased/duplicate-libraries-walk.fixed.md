@@ -1,0 +1,5 @@
+The duplicate-library check of #1462 keeps only the first declaration of each library package
+name until a second is met, instead of a list per name. Loading an empty model into a REPL
+allocates 2 038 times instead of 2 155, recovering most of what #1462 added over 0.11.0's 2 022
+on the same toolchain; the walk over every library document's root packages remains, so the
+load is not back to 0.11.0's time.
