@@ -3,8 +3,8 @@ import { test } from "node:test";
 
 import type { RenderResult } from "../protocol";
 import { landingModel, rollupLevels, snapshotModel, valueText, type EngineInstance, type LandingModel } from "./model";
-import { presentedRollup, quantityText, rollupTone, valueLine } from "./present";
-import { MASS_ROLLUP_SCENE, STACK_SCENE } from "./scene";
+import { quantityText } from "./present";
+import { MASS_ROLLUP_SCENE } from "./scene";
 
 const STAGES = ["stage1", "stage2", "stage3"];
 const ENGINES = [
@@ -51,28 +51,6 @@ test("the mass snapshot carries the engine's quantities, none typed in", () => {
   const sum = (paths: string[]): bigint =>
     paths.reduce((total, path) => total + BigInt(model.parts.get(path)!.quantities.totalMass.magnitude), 0n);
   assert.equal(sum(STAGES), 2941728n, "the stages roll up to the vehicle's total");
-});
-
-test("presentedRollup heads each box with its feature and type and details the roll-up", () => {
-  const model = massModel();
-  const result = presentedRollup(model, MASS_ROLLUP_SCENE);
-  const node = (path: string) => result.nodes.find(({ id }) => id === model.parts.get(path)!.id)!;
-  assert.equal(node("stage1").name, "stage1");
-  assert.equal(node("stage1").type, "'S-IC'");
-  assert.equal(node("stage1").kind, "part");
-  assert.equal(node("stage1").detail, "totalMass = 2,332,000 kg");
-  assert.equal(node("stage2.engine4").detail, "totalMass = 1,788 kg");
-  assert.equal(valueLine(model, "nonesuch", "totalMass"), "");
-  assert.equal(presentedRollup(model, STACK_SCENE).nodes[0].detail, "", "a scene without a roll-up details nothing");
-});
-
-test("an unvalued feature is detailed with the engine's reason", () => {
-  const model = massModel();
-  const stage3 = model.parts.get("stage3")!;
-  const parts = new Map(model.parts);
-  parts.set("stage3", { ...stage3, quantities: {}, unvalued: { totalMass: "mass has no value in the model" } });
-  const line = valueLine({ ...model, parts }, stage3.id, "totalMass");
-  assert.equal(line, "totalMass undetermined: mass has no value in the model");
 });
 
 test("rollupLevels orders the boxes from the engines up to the stages", () => {
@@ -157,21 +135,4 @@ test("landingModel draws a listed object once, under the feature that lists it, 
   }
   assert.ok(model.render.nodes.every((node) => node.kind === "part"), "attributes are not drawn");
   assert.deepEqual(model.render.edges, [], "a wire to the folded collection goes with it");
-});
-
-test("rollupTone fills the top-level parts, leaves the engines plain and accents an undetermined roll-up", () => {
-  const model = massModel();
-  for (const stage of STAGES) {
-    assert.equal(rollupTone(model.parts.get(stage)!, MASS_ROLLUP_SCENE), "primary", stage);
-  }
-  for (const engine of ENGINES) {
-    assert.equal(rollupTone(model.parts.get(engine)!, MASS_ROLLUP_SCENE), undefined, engine);
-  }
-  const stage1 = model.parts.get("stage1")!;
-  const unvalued = { ...stage1, quantities: {}, unvalued: { totalMass: "mass has no value" } };
-  assert.equal(rollupTone(unvalued, MASS_ROLLUP_SCENE), "accent");
-  const engine = model.parts.get("stage1.engine1")!;
-  assert.equal(rollupTone({ ...engine, unvalued: { totalMass: "mass has no value" } }, MASS_ROLLUP_SCENE), "accent");
-  assert.equal(rollupTone({ ...engine, unvalued: { height: "no value" } }, MASS_ROLLUP_SCENE), undefined, "another feature's gap is not the roll-up's");
-  assert.equal(rollupTone(unvalued, STACK_SCENE), "primary", "a scene without a roll-up tones by level alone");
 });

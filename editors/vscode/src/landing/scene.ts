@@ -1,6 +1,6 @@
 import type { RenderResult } from "../protocol";
 import type { LandingModel, LandingPart } from "./model";
-import { presentedRollup, presentedStack, rollupTone, stackTone } from "./present";
+import { presentedStack, stackTone } from "./present";
 import mass from "./mass.json";
 import stack from "./stack.json";
 
@@ -24,6 +24,26 @@ export type SceneProgram = SceneJourney | SceneRollup;
 
 /** The hero's fill for a box, one of the three the page defines; a box with none is drawn plain. */
 export type SceneTone = "primary" | "secondary" | "accent";
+
+/** A scene drawn as a diagram: the view's boxes and wires, laid out and movable. */
+export interface SceneDiagram {
+  kind: "diagram";
+  /** How the hero draws the model: the boxes' heads and detail lines. */
+  present: (model: LandingModel, scene: Scene) => RenderResult;
+  /** The tone a part's box is filled with; undefined leaves it plain. */
+  tone: (part: LandingPart, scene: Scene) => SceneTone | undefined;
+  /** The file name Download PNG saves the drawing under. */
+  pngName: string;
+}
+
+/** A scene listed as a table: the root and every part below it, one row each. */
+export interface SceneTable {
+  kind: "table";
+  /** The quantities listed beside the rolled-up feature, which is the last column. */
+  columns: readonly string[];
+}
+
+export type SceneForm = SceneDiagram | SceneTable;
 
 /** The controls under the stage a scene offers; the page hides the others. */
 export type SceneControl = "run" | "edit" | "debug" | "download";
@@ -60,22 +80,18 @@ export interface Scene {
   description: string;
   /** The name the model text is parsed under; diagnostics and origins name it. */
   documentName: string;
-  /** The part whose composition is drawn; its nested parts are the diagram's boxes. */
+  /** The part whose composition is shown; its nested parts are the diagram's boxes or the table's rows. */
   rootSymbol: string;
-  /** The view RenderView draws: a declared view's qualified name or a targeted pseudo-view. */
+  /** The view RenderView answers, which gives the composition: a declared view's qualified name or a targeted pseudo-view. */
   view: string;
   /** How many levels of nesting RenderView draws below the root; absent for the view's own depth. */
   depth?: number;
   /** The optional notation the drawing shows, as RenderView's `show` names it. */
   show: readonly string[];
   snapshot: LandingSnapshot;
-  /** The file name Download PNG saves the drawing under. */
-  pngName: string;
   controls: readonly SceneControl[];
-  /** How the hero draws the model: the boxes' heads and detail lines. */
-  present: (model: LandingModel, scene: Scene) => RenderResult;
-  /** The tone a part's box is filled with; undefined leaves it plain. */
-  tone: (part: LandingPart, scene: Scene) => SceneTone | undefined;
+  /** How the hero shows the model: drawn as a diagram or listed as a table. */
+  form: SceneForm;
   program: SceneProgram;
   variants: readonly SceneVariant[];
 }
@@ -89,10 +105,8 @@ export const STACK_SCENE: Scene = {
   view: "#interconnection:OpenSysMLStack::stack",
   show: ["edge-labels", "typings", "keywords"],
   snapshot: stack,
-  pngName: "opensysml-stack.png",
   controls: ["run", "edit", "debug", "download"],
-  present: presentedStack,
-  tone: stackTone,
+  form: { kind: "diagram", present: presentedStack, tone: stackTone, pngName: "opensysml-stack.png" },
   program: {
     kind: "journey",
     symbol: "OpenSysMLStack::ModelJourney",
@@ -104,17 +118,15 @@ export const STACK_SCENE: Scene = {
 export const MASS_ROLLUP_SCENE: Scene = {
   id: "mass",
   title: "Saturn V mass roll-up",
-  description: "The Saturn V's stages and engines, with the masses the engine rolls up from its SysML model",
+  description: "The Saturn V's stages and engines, one row each, with the masses the engine rolls up from its SysML model",
   documentName: "mass-rollup.sysml",
   rootSymbol: "MassRollup::saturnV",
   view: "#interconnection:MassRollup::saturnV",
   depth: 3,
   show: ["typings", "keywords"],
   snapshot: mass,
-  pngName: "saturn-v-mass-rollup.png",
-  controls: ["run", "edit", "download"],
-  present: presentedRollup,
-  tone: rollupTone,
+  controls: ["run", "edit"],
+  form: { kind: "table", columns: ["mass", "propellantMass"] },
   program: { kind: "rollup", feature: "totalMass" },
   variants: [
     {

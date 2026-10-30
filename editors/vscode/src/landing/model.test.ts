@@ -131,12 +131,19 @@ interface FakeAnswers {
   statesVisited?: string[];
   trace?: TraceRecord[];
   executeError?: Error;
+  /** Features of the root the instantiation could not value, by the error it gives each. */
+  rootErrors?: Record<string, string>;
+  /** The reason Evaluate gives for an undetermined feature. */
+  evalReason?: string;
 }
 
 /** A connection answering as the fixture's engine would, recording every call. */
 function fakeConnection(answers: FakeAnswers = {}): { connection: Connection; calls: Call[] } {
   const calls: Call[] = [];
   const instances = fixture.instances.map(typedInstance);
+  for (const [name, error] of Object.entries(answers.rootErrors ?? {})) {
+    (instances[0].features as Map<string, FeatureValue>).set(name, { kind: "error", error } as unknown as FeatureValue);
+  }
   const connection = {
     parseSources(...params: unknown[]) {
       calls.push({ method: "ParseSources", params });
@@ -146,6 +153,10 @@ function fakeConnection(answers: FakeAnswers = {}): { connection: Connection; ca
         instantiate(name: string) {
           calls.push({ method: "Instantiate", params: [fixture.hash, name] });
           return Promise.resolve({ root: instances[0], all: instances.slice(1) });
+        },
+        eval(...params: unknown[]) {
+          calls.push({ method: "Eval", params });
+          return Promise.resolve({ kind: "undetermined", reason: answers.evalReason ?? "", countLower: "1", countUpper: "1" });
         },
       });
     },
@@ -199,6 +210,24 @@ test("readModel requests a minimal interconnection render before instantiating t
   assert.deepEqual([...read.model.parts.keys()], [...expected.parts.keys()]);
   assert.deepEqual(read.model.parts.get("opensysml.engine"), expected.parts.get("opensysml.engine"));
   assert.deepEqual(read.model.render.edges, expected.render.edges);
+});
+
+test("readModel asks the engine why the root's unvalued feature is so, on the root's own path", async () => {
+  const { connection, calls } = fakeConnection({
+    rootErrors: { totalMass: "feature value stack.totalMass: no value for feature mass" },
+    evalReason: "mass has no value in the model",
+  });
+  const read = await readModel(connection, STACK_SCENE, "model source");
+  assert.ok(read.model);
+  assert.equal(read.model.root.feature, "stack");
+  assert.deepEqual(read.model.root.unvalued, { totalMass: "mass has no value in the model" });
+  assert.deepEqual(
+    calls.filter(({ method }) => method === "Eval").map(({ params }) => params),
+    [["OpenSysMLStack::stack.totalMass"]],
+  );
+  for (const part of read.model.parts.values()) {
+    assert.deepEqual(part.unvalued, {}, `${part.path} is valued`);
+  }
 });
 
 test("journey maps visited feature names to node ids and drops unknown states", async () => {

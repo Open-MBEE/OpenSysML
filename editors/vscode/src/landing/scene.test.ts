@@ -8,12 +8,16 @@ test("the scenes declare distinct ids, controls, programs and snapshots", () => 
   assert.equal(STACK_SCENE.program.kind, "journey");
   assert.deepEqual(STACK_SCENE.controls, ["run", "edit", "debug", "download"]);
   assert.equal(MASS_ROLLUP_SCENE.program.kind, "rollup");
-  assert.deepEqual(MASS_ROLLUP_SCENE.controls, ["run", "edit", "download"]);
+  assert.deepEqual(MASS_ROLLUP_SCENE.controls, ["run", "edit"]);
+  assert.equal(STACK_SCENE.form.kind, "diagram");
+  assert.equal(MASS_ROLLUP_SCENE.form.kind, "table", "the roll-up is listed, not drawn as nested boxes");
   assert.equal(MASS_ROLLUP_SCENE.variants[0]?.rootSymbol, "MassRollup::saturnVWithIU");
   for (const scene of SCENES) {
     assert.ok(scene.snapshot.hash.length > 0, `${scene.id} has a snapshot hash`);
     assert.ok(Array.isArray(scene.snapshot.instances) && scene.snapshot.instances.length > 0, `${scene.id} has instances`);
-    assert.ok(scene.pngName.endsWith(".png"));
+    if (scene.form.kind === "diagram") {
+      assert.ok(scene.form.pngName.endsWith(".png"));
+    }
   }
 });
 
