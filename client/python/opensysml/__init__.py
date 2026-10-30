@@ -245,7 +245,7 @@ def loads(content, host='localhost', port=None, language=None, strict=False,
 
 
 def parse_sources(documents, host='localhost', port=None, strict=False,
-                  strict_conformance=False):
+                  strict_conformance=False, base_model_hash=''):
     """Parse several documents as one model using the default connection.
 
     Each document is a path, a ``(name, content)`` pair of inline source, or a
@@ -261,13 +261,17 @@ def parse_sources(documents, host='localhost', port=None, strict=False,
             than returning one whose lookups fail later
         strict_conformance (bool): Ask whether the documents are conforming
             SysML v2: notation only OpenSysML accepts is an error, not a warning
+        base_model_hash (str): The hash of a model of the same documents the
+            caller holds results of; the new model's :attr:`Model.affected`
+            then names the documents whose results may differ from it
 
     Returns:
         Model: The model of all the documents
 
     Raises:
         ValueError: If there are no documents or two share a name
-        MissingCapabilityError: If the service predates ``parse_sources``
+        MissingCapabilityError: If the service predates ``parse_sources``, or
+            ``parse_sources_affected`` when a base is given
         ModelFileNotFoundError: If the service cannot read a file
         ModelError: If the documents could not be parsed as a model, or if
             strict and the model has error diagnostics
@@ -279,7 +283,8 @@ def parse_sources(documents, host='localhost', port=None, strict=False,
         else _get_default_connection(host, port)
     )
     return connection.parse_sources(
-        documents, strict=strict, strict_conformance=strict_conformance
+        documents, strict=strict, strict_conformance=strict_conformance,
+        base_model_hash=base_model_hash,
     )
 
 

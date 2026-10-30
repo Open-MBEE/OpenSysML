@@ -369,8 +369,9 @@ def test_module_level_parse_sources_uses_the_default_connection(monkeypatch):
     calls = []
 
     class Recorder:
-        def parse_sources(self, documents, strict=False, strict_conformance=False):
-            calls.append((documents, strict, strict_conformance))
+        def parse_sources(self, documents, strict=False, strict_conformance=False,
+                          base_model_hash=''):
+            calls.append((documents, strict, strict_conformance, base_model_hash))
             return "model"
 
     monkeypatch.setattr(opensysml, "_default_connection", None)
@@ -381,7 +382,8 @@ def test_module_level_parse_sources_uses_the_default_connection(monkeypatch):
 
     docs = [("a.sysml", "package A;")]
     assert opensysml.parse_sources(docs, strict=True, strict_conformance=True) == "model"
-    assert calls == [(docs, True, True)]
+    assert opensysml.parse_sources(docs, base_model_hash="base-hash") == "model"
+    assert calls == [(docs, True, True, ""), (docs, False, False, "base-hash")]
 
 
 class TestModelOfSeveralRoots:
