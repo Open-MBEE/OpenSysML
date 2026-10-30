@@ -1,10 +1,20 @@
 # Performance: release 0.12.0 against release 0.11.0
 
-The release-gate measurement of the 0.12.0 candidate — the head of
-`develop` at `1c6bb197227bfc4b8a8f33bda51c86093d56b933` (2026-10-30),
-which holds #1699 (the export element-ID cost, merged at `101d2f267`)
-— measured against the `v0.11.0` tag on `main`
-(`ddf4df00037d6ddbfb1fa9d743a4389f75c9e2dc`). The record follows the
+The release-gate measurement of 0.12.0 against the `v0.11.0` tag on
+`main` (`ddf4df00037d6ddbfb1fa9d743a4389f75c9e2dc`), in two passes. The
+first pass measured the head of `develop` at
+`1c6bb197227bfc4b8a8f33bda51c86093d56b933` (2026-10-30), which holds
+#1699 (the export element-ID cost, merged at `101d2f267`); it found the
+regressions of [Summary](#summary), each traced to its merge and fixed in
+one of the seven pull requests of [Fixes](#fixes), which all merged into
+`develop`. The second pass measured the release candidate itself —
+`cc1d477ba9843ce8e36378a87f49ae4005f9a2b7`, `develop` at `ab88ea950`
+(the merge of #1747, the last fix) with #1730 on top — with the same
+full method, then re-probed the export rows on `5e0322e0c` when #1760
+landed on them; it is [The release candidate](#the-release-candidate),
+which also accounts for every merge up to `develop` `b4d0a35c4`. The
+first pass stays in the record as the pre-fix measurement so that what
+the fixes gave back is visible row by row. The record follows the
 method of the [0.11.0 against 0.10.1](performance-release-0.11.0-vs-0.10.1.md)
 record: every benchmark on both revisions, `benchstat` over six runs,
 the rows the machine leaves in doubt re-run interleaved on a quiet
@@ -17,10 +27,10 @@ The measurement began at `0c1fd6dbd03b54acc719cb46b0a630acb1a70a98`
 `2350e3fae988c7ac3d5f9b7db1ea02617b08fa14` merged on top locally (merge
 base `8e6bd003c1c229ce104fc66f7771344749d65d50`) because the maintainer
 named it part of 0.12.0; #1699 then merged, with #1700, #1701 and #1705,
-and every table below is taken on `1c6bb1972`, four first-parent merges
-after the pinned head, as the candidate.
+and every table of the first pass is taken on `1c6bb1972`, four
+first-parent merges after the pinned head, as the pre-fix candidate.
 
-## Three columns
+## Three columns, and a fourth
 
 0.11.0 was built with `go1.25.11`; `develop` builds with `go1.27.3`
 (`go.mod` `toolchain`). The toolchain change dominates a naive timing
@@ -29,11 +39,16 @@ comparison, so three binaries are measured:
 1. **0.11.0 as released** — the `v0.11.0` source built with `go1.25.11`,
    what a 0.11.0 user runs.
 2. **0.11.0 rebuilt** — the same source built with `go1.27.3`.
-3. **0.12.0 candidate** — `1c6bb1972` built with `go1.27.3`.
+3. **0.12.0 candidate, before the fixes** — `1c6bb1972` built with
+   `go1.27.3`; "the candidate" in every section up to [Fixes](#fixes).
+4. **0.12.0 release candidate** — `cc1d477ba` built with `go1.27.3`
+   (export rows re-probed at `5e0322e0c`), in
+   [The release candidate](#the-release-candidate) only.
 
-A source regression or improvement is column 2 against column 3: the
-same toolchain, different source. What a user upgrading from 0.11.0
-feels is column 1 against column 3. Column 1 against column 2 is the
+A source regression or improvement is column 2 against column 3 (and,
+for the release, column 2 against column 4): the same toolchain,
+different source. What a user upgrading from 0.11.0 feels is column 1
+against column 4, and column 1 against 3 in the first pass. Column 1 against column 2 is the
 toolchain alone. Every statement below says which columns it rests on.
 Allocations and bytes per operation are exact for a given binary, but
 they are *not* toolchain-independent here: the same 0.11.0 source
@@ -298,8 +313,14 @@ merges compute, which this record does not propose.
 ## Fixes
 
 One pull request per cause, each against `develop` with its own
-six-round A/B against the merge that introduced the cost, listed here
-as they open; the branches are named in the summary table.
+six-round A/B against the merge that introduced the cost; the branches
+are named in the summary table. All seven merged into `develop` on
+2026-10-30, in order: #1741 at `dbf32bc50`, #1742 `435991d22`, #1743
+`2a7369580`, #1744 `5dd0724fd`, #1745 `68c80eec3`, #1746 `411daa342`,
+#1747 `ab88ea950`. The merged head is probed against the pre-fix
+candidate in [The cut point](#the-cut-point), and the release candidate
+built on it is measured in full in
+[The release candidate](#the-release-candidate).
 
 - **#1741 `perf/release-preparse-trees`** (cause #1441): a submission's
   parse trees are let go once its files are accepted; the roots an
@@ -397,7 +418,11 @@ as they open; the branches are named in the summary table.
 
 ## What this record does not measure
 
-- The merges after `1c6bb1972` ([The cut point](#the-cut-point)).
+- Anything after `b4d0a35c4`, and #1771 by anything but its own pull
+  request's benchstat ([After the measured heads](#after-the-measured-heads)).
+- The merges between `1c6bb1972` and `ab88ea950` on their own: they are
+  measured only inside the release candidate, never one at a time
+  ([The cut point](#the-cut-point)).
 - The `sysml-lsp` server under an editor, `sysml-grpc` over a network, the
   browser and WebAssembly builds, the Python and Node clients: the gRPC and
   LSP rows above are in-process.
@@ -433,17 +458,362 @@ candidate shows no bytes under that search.
 
 The measurement began at `0c1fd6dbd`, and the candidate measured is
 `1c6bb1972`, four first-parent merges later (#1699 at `101d2f267`, then
-#1700, #1701, #1705). `develop` moved on while the suite ran; the
-first-parent merges between `1c6bb1972` and `54e590985` are **not
-measured** by any table here:
+#1700, #1701, #1705). `develop` moved on while the suite ran. The
+first-parent merges between `1c6bb1972` and the seven fix merges are
+measured only by the probes of [the next section](#develop-after-the-fixes-landed),
+on the rows of the right-hand column:
 
 | Merge | Subject | Rows it could move |
 |---|---|---|
-| #1704, #1698, #1703, #1702 | Sonar-driven refactors | none expected; `go test` surfaces |
+| #1704, #1698, #1703, #1702, #1729, #1736 | Sonar-driven refactors, CI scripts | none expected; `go test` surfaces |
 | #1706, #1707 | `internal/ir/view` | `internal/ir/view` and `ir/view/route` rows |
 | #1732 | connector-end element IDs in the export | `WriteAPIJSON`, `ConvertAPIJSON`, the export probe |
 | #1709 | reflective element attributes in semantics | `Lookup*`, `Analyze*`, `FeaturesOf`, the load rows |
+| #1738 | membership element IDs; `-run-query -json` tables | `WriteAPIJSON`, the export probe, the REPL query rows |
+| #1708, #1733, #1737, #1739 | subject labels, portion subparts, ECMA-427 identities, inherited connector bindings | the binding walks (`GRPCVerifyConstraint`, `InstantiateWarmModel`), `Lookup*`, the export probe |
+| #1717, #1728, #1735, #1731 | docs audits, AGENTS note, dependabot | none |
+| #1741–#1747 | the seven fixes of this record | the rows of [Fixes](#fixes) — measured below |
 
-When the maintainer names the release head, the rows in the right-hand
-column are re-probed interleaved against `1c6bb1972` and this section
-is amended, as the 0.11.0 record's was.
+### Develop after the fixes landed
+
+`ab88ea950`, the merge of #1747, is `develop` after the seven fixes and
+every merge of the table above landed; the release candidate is this
+head with #1730 on top ([The release candidate](#the-release-candidate)).
+Two probes of it against the pre-fix candidate, on the same host as the
+rest of this record, show what the fixes gave back before the full
+measurement of the release candidate was taken.
+
+First, against the candidate `1c6bb1972`, six interleaved rounds on the
+rows the fixes claim. The host carried other work during this probe
+(load 1.3–3.9), so only the exact columns are read from it; its times
+are superseded by the quiet probe below. Column 2 is repeated for the
+distance that remains.
+
+| Row | 0.12.0 candidate | develop after the fixes | 0.11.0 rebuilt | fix |
+|---|---|---|---|---|
+| repl `LoadModel/0`, B · allocs | 246.8 Ki · 2 155 | 238.3 Ki · 2 038 | 227.9 Ki · 2 022 | #1746 |
+| `LoadModel/1000`, B/op | 58.35 Mi | 55.82 Mi | 55.52 Mi | #1744 |
+| `LoadModel/4000`, B/op | 233.5 Mi | 223.5 Mi | 222.3 Mi | #1744 |
+| runtime `AssignmentLoopStep`, B/op | 948.3 Ki | 926.0 Ki | 899.7 Ki | #1745 |
+| `DerivedReadWriteRead`, B · allocs | 3 328 · 71 | 3 040 · 69 | 2 688 · 67 | #1745, #1747 |
+| perf `GRPCVerifyConstraint`, B · allocs | 814.6 Ki · 16 300 | 766.3 Ki · 14 890 | — · 14 090 | #1742 |
+| `FeaturesOf`, B · allocs | 296.4 Mi · 2.190 M | 265.6 Mi · 2.105 M | 261.2 Mi · — | #1743, #1742 |
+| `BatchSatisfy`, B · allocs | 491.2 Mi · 4.078 M | 465.1 Mi · 3.815 M | 455 Mi · — | #1743, #1742 |
+| `Instantiate` (cold, 2 iterations), B · allocs | 240.1 Mi · 2.011 M | 209.7 Mi · 1.767 M | 210.8 Mi · — | #1743, #1742 |
+| `ExecuteActionFreshContext`, B · allocs | 48.61 Ki · 424 | 47.93 Ki · 423 | — · 388 | #1747 (the marks remain) |
+| `SetFeatureValueNoDependents`, the interpreter loops, allocs | | unchanged | | — |
+
+Every row lands where its fix PR's A/B said it would, and the rows two
+fixes touch (`FeaturesOf`, `BatchSatisfy`, `Instantiate`) land closer to
+0.11.0 than either PR claimed alone: `Instantiate` is back at the
+0.11.0 volume, `FeaturesOf` is 1.7 % above it, `BatchSatisfy` 2.2 %.
+What remains above column 2 is the residual each PR names: the
+26 Ki of `AssignmentLoopStep` and the 352 B · 2 allocs of
+`DerivedReadWriteRead` that #1514 and #1619 compute, the 800 allocations
+of `GRPCVerifyConstraint` that #1508/#1512 read, and the 16 allocations
+of `LoadModel/0` that #1462's one-map walk still makes.
+
+The whole-binary rows of #1741, re-measured on the merged head against
+the candidate on the 12 086-element generated model (binaries built as
+`make build` does, three cold runs each, same loaded host — compare
+within the row, not with the quiet figures of
+[Whole binary](#whole-binary)):
+
+| `sysml -validate`, 12 086 elements | 0.12.0 candidate | develop after the fixes |
+|---|---|---|
+| peak RSS, `GOGC=25` (≈ live heap), three runs | 172 · 173 · 172 MiB | 153 · 153 · 154 MiB |
+| peak RSS, `GOGC=100`, three runs | 185 · 186 · 199 MiB | 171 · 168 · 185 MiB |
+| wall under `GOMEMLIMIT=120MiB` | 1.00 s | 0.57 s |
+| `ulimit -v 1200000` | completes | completes |
+| binary size | 59.65 MB | 59.71 MB |
+
+The 19 MiB the merged head gives back at `GOGC=25` is #1741's parse
+trees; the 7 MiB that remain above 0.11.0 rebuilt's 146 MiB (measured
+quiet, so the comparison is approximate) this record does not attribute —
+the binary is 5.7 MB larger and the merges of the table above hold
+state of their own — and no fix here addresses them.
+
+## The release candidate
+
+### What was measured
+
+The release candidate is `cc1d477ba9843ce8e36378a87f49ae4005f9a2b7`: the
+head of #1730 (the Sonar-driven refactor of the export packages) after
+`develop` at `ab88ea950` was merged into it, so its tree is `develop`
+after the seven fixes plus #1730 and nothing else. Checked before the
+run: `git merge-base cc1d477ba origin/develop` is `ab88ea950`, and
+`git diff --stat ab88ea950 cc1d477ba` names four files —
+`internal/translate/export/api_json_in.go`,
+`internal/translate/export/api_json_structure.go`,
+`internal/translate/export/rdf_out.go` and
+`docs/project/api-json-differential-baseline.json` (the writer digest
+re-recorded, no count moved). The seven fixes are in the candidate:
+each is a first-parent merge of `develop` at `ab88ea950`, which the
+candidate contains (its own first parent is #1730's branch; `develop`
+is its second).
+
+| Fix | Cause | Merge on `develop` | In the candidate |
+|---|---|---|---|
+| #1741 `perf/release-preparse-trees` | #1441 | `dbf32bc50` | yes |
+| #1742 `perf/binding-walk-allocs` | #1508, #1512 | `435991d22` | yes |
+| #1743 `perf/related-features-memo` | #1626 | `2a7369580` | yes |
+| #1744 `perf/typed-by-sweep` | #1478 | `5dd0724fd` | yes |
+| #1745 `perf/eval-context-size` | #1514, #1461 | `68c80eec3` | yes |
+| #1746 `perf/duplicate-libraries-walk` | #1462 | `411daa342` | yes |
+| #1747 `perf/derive-marks-footprint` | #1619 | `ab88ea950` | yes |
+
+While the suite ran, #1730 merged into `develop` (`a71bd8a1a`) between
+two Dependabot merges, #1748 (JaCoCo 0.8.16 in three `pom.xml`) and
+#1750 (`action-gh-release` in `release-windows.yml`), and `develop`
+became `2ccd77756`. The candidate is an ancestor of that head and
+`git diff --stat cc1d477ba 2ccd77756 -- '*.go' go.mod go.sum` prints
+nothing: the whole difference is `.github/workflows/release-windows.yml`,
+`client/java/pom.xml`, `editors/mdk/pom.xml` and `editors/syson/pom.xml`
+(5 lines). So the release candidate of this section is `develop`
+`2ccd77756`, measured at `cc1d477ba`, whose Go sources are identical.
+
+Columns 1 and 2 are the rounds of the first pass, reused: the same
+binaries on the same VM (8 vCPUs, `Intel(R) Xeon(R) Processor`, 31 GiB,
+checked into every round's file), not re-run. Column 4 is six rounds of
+its own of every benchmark package and `tests/stressmodel`, the same
+flags, run alone on that host (load 1.1–2.7 at the start of a round).
+The candidate's worktree received the pilot and training corpora after
+its second round, so the corpus-backed rows — `WriteAPIJSON`, the
+`vehicle` rows of `tests/perf`, `GRPCParseFile*` and grpc
+`InstantiateWarmModel`, which skips without the corpus — carry six
+rounds of their own taken afterwards on the quiet host. The rows known
+to fail ([Method](#method)) fail identically on the candidate.
+
+### The regression rows, before and after the fixes
+
+Medians over six rounds; bytes and allocations exact (`± 0 %`). The
+percentage is the release candidate against 0.11.0 rebuilt (column
+2 → 4); the pre-fix column is the first pass.
+
+| Row | Metric | 0.11.0 rebuilt | before the fixes (`1c6bb1972`) | release candidate (`cc1d477ba`) | 2 → 4 | Fix |
+|---|---|---|---|---|---|---|
+| repl `LoadModel/elements=0` | allocs · B/op | 2 022 · 227.9 Ki | 2 155 · 246.8 Ki | 2 038 · 238.1 Ki | +0.8 % · +4.5 % | #1746 |
+| repl `LoadModel/elements=1000` | B/op | 55.52 Mi | 58.31 Mi | 55.82 Mi | +0.5 % | #1744 |
+| repl `LoadModel/elements=4000` | B/op | 222.3 Mi | 233.5 Mi | 223.5 Mi | +0.5 % | #1744 |
+| runtime `AssignmentLoopStep` | B/op | 899.7 Ki | 948.0 Ki | 925.9 Ki | +2.9 % | #1745 |
+| runtime `DerivedReadWriteRead` | B/op · allocs | 2 688 · 67 | 3 328 · 71 | 3 040 · 69 | +13.1 % · +3.0 % | #1745, #1747 |
+| perf `GRPCVerifyConstraint` | allocs · B/op | 14 090 · 829.4 Ki | 16 300 · 814.6 Ki | 14 890 · 766.3 Ki | +5.6 % · −7.6 % | #1742 |
+| grpc `InstantiateWarmModel` | allocs | 1 960 | 2 166 | 2 006 | +2.3 % | #1742 |
+| perf `FeaturesOf` | B/op · allocs | 261.2 Mi · 2.228 M | 295.8 Mi · 2.190 M | 265.4 Mi · 2.105 M | +1.6 % · −5.5 % | #1743, #1742 |
+| perf `BatchSatisfy` | B/op · allocs | 454.9 Mi · 4.202 M | 491.4 Mi · 4.078 M | 465.1 Mi · 3.815 M | +2.3 % · −9.2 % | #1743, #1742 |
+| perf `ExecuteActionFreshContext` | allocs | 388 | 424 | 422 | +9.0 % | none: #1619's marks |
+| perf `ActionChain/chain10` | B/op | 198.1 Ki | 222.9 Ki | 207.8 Ki (± 16 %, p=0.22) | ~ | — |
+| whole binary, `-validate` of 12 086 elements | peak RSS | 161 MiB | 193 MiB | 171 MiB | +10 MiB | #1741 |
+
+What remains above column 2 is what each fix's pull request named as
+its residual, now measured on the release itself: the 26 Ki of
+`AssignmentLoopStep` and the 352 B · 2 allocations of
+`DerivedReadWriteRead` that #1514 and #1619 compute, the 800
+allocations of `GRPCVerifyConstraint` and 46 of `InstantiateWarmModel`
+that #1508/#1512 read, the 16 allocations and 10 Ki of `LoadModel/0`
+that #1462's one-map walk still makes, the 4.2 Mi of `FeaturesOf` and
+10 Mi of `BatchSatisfy` that #1626's memo holds for the features that
+declare a relationship, and the 34 allocations of
+`ExecuteActionFreshContext` that are #1619's marks. The load rows are
+back at 0.11.0's volume (+0.5 %), and `FeaturesOf`, `BatchSatisfy` and
+`GRPCVerifyConstraint` allocate fewer times than 0.11.0 did.
+
+### Everything else in the six rounds
+
+Beyond the table, these rows moved 2 % or more in bytes or allocations
+between column 2 and the release candidate (p < 0.05, n=6). Down:
+`NewRootFrame` −80 % B · −42 % allocs, `WriteAPIJSON` −15 % B and
+−20…−26 % allocs, `REPLLoadFile` −6 % B · −5 % allocs, `ExecuteAction`
+−23 % allocs, `ExecuteState` and `StateLoop` −16.5 % allocs,
+`ActionLoop` −3…−41 % B, `ActionChain/chain100` and `chain1000` −19 %
+and −27 % B with −11 % allocs, stress `ConvertAPIJSON` −6…−7 % B and
+−16…−17 % allocs, `Satisfy` and `FleetSatisfy` −4 % allocs,
+`FleetInstantiate/512` −10 % B (± 38 %). Up: repl `RunStateMachine`
++2.7 % B, `RunCalc` +2.0 % B, perf `GRPCEvaluate` +3.1 % B · +3.2 %
+allocs, `SameConstraintManyInstances` +2.1 % B,
+`ImportValues/flat/parts=2000/attrs=5` +2.0 % allocs — each already at
+that size in the pre-fix candidate, below the threshold the first pass
+traced, and not attributed here. `ExecuteAction`'s +30 % B/op is the
+iteration-count artefact of [Reading the rows](#reading-the-rows); its
+allocations are down. Every other row of every package is within 2 %
+in bytes and allocations.
+
+sec/op from these rounds alone (the host carried nothing else, but the
+spreads are still 20–230 %) decides only the rows that move far:
+`NewRootFrame` −92 %, `ActionLoop/for10` −42 %, `ActionChain` −29…−62 %;
+stress `Satisfy/satellites=128` came out +22 % at ± 74 % and goes to
+the quiet re-run with the rest of the time-only rows.
+
+### Whole binary, release candidate
+
+`bin/sysml` from each configuration (the release candidate's built from
+`cc1d477ba` as `make build` builds it), nine interleaved runs each,
+medians of wall time and peak resident set, one binary at a time, taken
+twice: once straight after the suite (load 4.1) and once on the quiet
+host (load 0.9); the quiet figures are below. The host was slower in
+every column than in the first pass (0.11.0's 12 086-element validation
+0.29 → 0.47 s, see [The quiet re-run](#the-quiet-re-run)), so wall time
+is compared only within this table, and the pre-fix column repeats only
+the resident sets of [Whole binary](#whole-binary), which the host's
+speed does not move. The Apollo 11 validation report of the release
+candidate is byte-identical to the pre-fix candidate's.
+
+| Workload | 0.11.0 | 0.11.0 rebuilt | before the fixes, RSS | release candidate |
+|---|---|---|---|---|
+| binary size, `sysml` · `sysml-lsp` | 53.5 · 28.9 MB | 54.0 · 29.5 MB | 59.6 · 36.3 MB | 59.7 · 36.4 MB |
+| process floor, `-e 1` | 0.04 s · 71 MiB | 0.04 s · 71 MiB | 73 MiB | 0.05 s · 74 MiB |
+| `examples/action-executor-demo.sysml` | 0.05 s · 73 MiB | 0.04 s · 73 MiB | 75 MiB | 0.05 s · 75 MiB |
+| `examples/disposal-robot-demo` | 0.07 s · 80 MiB | 0.07 s · 79 MiB | 81 MiB | 0.08 s · 82 MiB |
+| generated, 3 254 elements | 0.17 s · 105 MiB | 0.19 s · 103 MiB | 106 MiB | 0.16 s · 106 MiB |
+| generated, 6 198 elements | 0.29 s · 119 MiB | 0.30 s · 118 MiB | 140 MiB | 0.25 s · 129 MiB |
+| generated, 12 086 elements | 0.47 s · 162 MiB | 0.43 s · 161 MiB | 193 MiB | 0.46 s · 171 MiB |
+| Apollo 11, 28 files | 0.45 s · 170 MiB | 0.52 s · 170 MiB | 180 MiB | 0.54 s · 174 MiB |
+
+The resident set the release takes over 0.11.0 is 3 MiB at the floor
+(a 5.7 MB larger binary), 4 MiB on Apollo 11 and 10 MiB on the largest
+generated model, where the pre-fix candidate took 31 — #1741 gave back
+21 of those. Under `GOGC=25`, which keeps the resident set near the live
+heap, the release candidate peaks at 152 MiB (medians of three cold
+runs) to 0.11.0 rebuilt's 150 and the pre-fix candidate's 166; under
+`GOMEMLIMIT=120MiB` it takes 0.33 s to 0.11.0 rebuilt's 0.39 (the
+pre-fix candidate took 0.44 s to 0.28 on the faster host of the first
+pass); both complete under `ulimit -v 1200000`. The
+first `GOGC=25` run of each sequence (2.1–2.7 s, 225–232 MiB, three
+sequences out of three) is the cold record-cache load described under
+[The export rows](#the-export-rows-re-probed-on-5e0322e0c); the medians
+are warm runs. The 10 MiB
+that remain at the default `GOGC` this record does not attribute: it is
+pacing over a heap that is larger by the binary and by the state the
+merges since 0.11.0 hold, not the parse trees, and no fix here addresses
+it.
+
+### The export rows, re-probed on `5e0322e0c`
+
+After the suite, #1760 (`feat(export): elementIds for the relationships a
+head implies`) merged into `develop` at `5e0322e0c`. It is Go in the path
+the export rows measure — `git diff --stat cc1d477ba 5e0322e0c -- '*.go'
+go.mod go.sum` names `internal/translate/export/element_ids.go`,
+`end_forms.go`, `rdf_normative.go`, `rdf_out.go`,
+`internal/doc/queryexec/elementids.go` and two test files (565
+insertions, 54 deletions) — so those rows were re-probed on a worktree
+at `5e0322e0c`: six rounds interleaved with both 0.11.0 columns of
+`tests/export` and the stress `ConvertAPIJSON` rows (load 1.4–2.1 at
+the start of a round, the same steal as the afternoon's re-run), and
+the whole-binary element-ID probe against the `cc1d477ba` binary. The
+runtime, load and REPL rows stand as measured at `cc1d477ba`; nothing in
+that diff is on their path.
+
+| Row | Metric | 0.11.0 rebuilt | `cc1d477ba` (suite) | `5e0322e0c` | 2 → `5e0322e0c` |
+|---|---|---|---|---|---|
+| `WriteAPIJSON/ISQAtomicNuclear/standard` | B/op · allocs | 249.8 Mi · 1.866 M | 212.5 Mi · 1.388 M | 212.5 Mi · 1.388 M | −14.9 % · −25.6 % |
+| `WriteAPIJSON/ISQAtomicNuclear/compact` | B/op · allocs | 193.2 Mi · 1.800 M | 164.8 Mi · 1.443 M | 164.8 Mi · 1.443 M | −14.7 % · −19.9 % |
+| `WriteAPIJSON/SimpleVehicleModel/standard` · `/compact` | B/op | 384.4 · 271.0 Mi | 348.3 · 254.2 Mi | 348.3 · 254.2 Mi | −9.4 % · −6.2 % |
+| `WriteAPIJSON/then_after_members/standard` · `/compact` | allocs | 218.6 k · 209.7 k | 167.9 k · 172.7 k | 167.9 k · 172.7 k | −23.2 % · −17.6 % |
+| `ConvertAPIJSON/satellites=32/elements=6227` | B/op · allocs | 7.310 Gi · 40.29 M | 6.824 Gi · 33.86 M | 6.863 Gi · 33.93 M | −6.1 % · −15.8 % (+0.6 % · +0.2 % over `cc1d477ba`) |
+| `ConvertAPIJSON/satellites=128/elements=24167` | B/op · allocs | 30.21 Gi · 159.8 M | 28.05 Gi · 132.2 M | 28.05 Gi · 132.2 M | −7.2 % · −17.3 % |
+
+#1760's element IDs cost the writer nothing on the `WriteAPIJSON`
+models (bytes and allocations equal to `cc1d477ba`'s in every sample)
+and 40 MiB · 70 k allocations per conversion of the 6 227-element
+constellation — the IDs of the relationships its heads imply — with the
+24 167-element one unchanged. sec/op over these six rounds: every
+`WriteAPIJSON` row `~` against column 2 except `ISQAtomicNuclear/compact`
+(−26 %, p=0.009); against 0.11.0 as released, `ISQAtomicNuclear` −47 %
+on both forms and `SimpleVehicleModel/standard` −24 %; `ConvertAPIJSON`
+`~` against column 2 and −15 % at 128 satellites against column 1 — the
+same host as the re-run above, so read the direction, not the size.
+
+The element-ID probe of [Export element IDs](#export-element-ids),
+`cc1d477ba`'s binary against `5e0322e0c`'s, interleaved, three runs
+each after one discarded warm-up per binary (the first run of a binary
+after another binary's is a cold record-cache load, below), medians:
+
+| Query over | `cc1d477ba` | `5e0322e0c` |
+|---|---|---|
+| 6 198 elements, one query | 0.91 s · 226 MiB | 1.12 s · 230 MiB |
+| 12 086 elements, one query | 3.36 s · 354 MiB | 3.68 s · 343 MiB |
+| 12 086 elements, three queries | 1.98 s · 370 MiB | 2.07 s · 391 MiB |
+
+Resident memory is the row to read (the host's wall times are a day
+slower than the first pass's, where this query took 1.14 s): #1760 adds
+4–21 MiB to the query's peak, the IDs of the implied relationships it
+now emits, and nothing to the time within the spread of three. The one
+query at 12 086 elements peaking above the three is an artefact of the
+measurement, explained next.
+
+Two whole-binary effects of the release candidate's binary came out of
+these sequences, both of the library record cache
+(`$XDG_CACHE_HOME/sysml-ls/libs`, keyed by document, content and format):
+a run that finds its records cold takes 2.1–2.8 s and peaks at
+225–300 MiB where the warm run takes 0.3–0.5 s and 150–176 MiB, and a
+`-run-query` run leaves the next `-validate` of the same binary cold
+(`cc1d477ba`: 0.43 → 0.26 s, then a query, then 2.29 s · 291 MiB, then
+0.27 s again, reproduced three times). 0.11.0 rebuilt's first run after
+hours idle was a cold load too (3.83 s), so the cost is the cache's,
+not the release's; what a query does to the records that follow it is
+this record's one open finding, filed for follow-up and not attributed
+to any merge here. Every median above is a warm run.
+
+### After the measured heads
+
+`develop` moved while this section was measured. From `cc1d477ba`, in
+first-parent order: #1748 and #1750 (poms, a workflow), #1730 itself
+(`a71bd8a1a`), the client-parity merges #1751, #1753, #1755–#1758, #1761,
+#1762, #1763, #1766, #1767, #1769, #1770 and #1764 (`client/**`,
+`editors/vscode`, `docs/`, `overrides/`), #1760 (`5e0322e0c`, re-probed
+above), and #1771 (`b4d0a35c4`, `refactor(runtime): clear the three
+Sonar smells left on develop`). `git diff --stat 5e0322e0c b4d0a35c4 --
+'*.go' go.mod go.sum` names two files: `internal/exec/runtime/invoke_calc.go`
+(42 lines: a `constraintMemberBody` helper extracted from
+`eachUnwrappedDeclMember`, which #1742 had just tuned) and
+`internal/frontend/grpc/validate_test.go`. #1771 is the one runtime Go
+change after the measured SHA, and its pull request carries the
+measurement: six rounds, `develop` `8dc84706` against the branch, on the
+three rows that walk the changed function — `AssignmentLoopStep`
+926.2 → 926.3 Ki `~`, 8 543 → 8 545 allocs `~`; `InstantiateWarmModel`
+2 046 → 2 045 allocs `~`; `GRPCVerifyConstraint` 766.3 Ki `~`, 14 890
+allocs identical in every sample; sec/op `~` on all three. The record
+cites that and does not re-measure the runtime rows for it.
+
+So the candidate of this record is `develop` at `b4d0a35c4`: its runtime,
+load, REPL, LSP and whole-binary rows measured at `cc1d477ba` (Go
+sources identical but for #1771, measured in its own pull request), its
+export rows at `5e0322e0c` (Go sources identical from there). Still
+open at the time of writing is #1754, which removes deprecated `cmd/`
+flags and a client field — not on any measured path.
+
+
+### The quiet re-run
+
+The time-only rows of [Re-runs](#re-runs) were re-run for the release
+candidate the same way: six rounds, three columns interleaved, eight
+packages, nothing else running (load 1.1–1.7 at the start of every
+round). The host did not hold still for it. Hypervisor steal ran at
+3–8 % through the afternoon (`vmstat`), and 0.11.0 rebuilt — the same
+binary that held `AssignmentLoopStep` at 1.52–1.56 ms over the six
+rounds of the first quiet run — swung 1.69–3.54 ms over these six;
+every column slowed alike and the spreads came out at 25–170 %. Bytes
+and allocations are unaffected (exact, and equal to the suite's), but
+those rounds decide no time row: `RealDecimalLoop` (−30 %, p=0.04),
+lsp `FormatEdits` (−14 %, p=0.04) and `WriteAPIJSON/ISQAtomicNuclear/standard`
+(−40 %, p=0.03) cross the threshold in the candidate's favour and
+`IndexAddExpand/synthetic` against 0.11.0 as released (−40 %, p=0.01);
+everything else — `AssignmentLoopStep`, `DerivedReadWriteRead`,
+`IntegerArithmeticLoop`, `SetFeatureValueNoDependents`,
+`InstantiateWarmModel`, `GRPCVerifyConstraint`, `BatchConstraints`,
+`ExecuteActionFreshContext`, the stress rows — is `~`. The rows are in
+the raw results; they are not read here.
+
+A second, smaller re-run of the same rows (runtime, grpc, lsp
+`FormatEdits`, repl `LoadModel`, the corpus-backed `tests/perf` rows,
+with the steal percentage logged per round) was started once the
+export probe finished and cancelled before its first round completed:
+the release was waiting on this record. The time verdicts of
+[Re-runs](#re-runs) — taken on the pre-fix candidate, on the quiet host
+of the first pass — stand as the record's time verdicts, and the fixes'
+own quiet A/B ([The fixes on the quiet host](#the-fixes-on-the-quiet-host))
+is the evidence that the fixes moved bytes, not time.
+
+Should anything that touches Go land between `b4d0a35c4` and the
+release branch after all, its rows are re-probed interleaved against
+`cc1d477ba` and this section is amended, as the 0.11.0 record's was.
