@@ -10,9 +10,11 @@ one of the seven pull requests of [Fixes](#fixes), which all merged into
 `develop`. The second pass measured the release candidate itself —
 `cc1d477ba9843ce8e36378a87f49ae4005f9a2b7`, `develop` at `ab88ea950`
 (the merge of #1747, the last fix) with #1730 on top — with the same
-full method, then re-probed the export rows on `5e0322e0c` when #1760
-landed on them; it is [The release candidate](#the-release-candidate),
-which also accounts for every merge up to `develop` `b4d0a35c4`. The
+full method, then re-probed the export rows on `5e0322e0c` and again on
+`d01e4f49c` when #1760 and #1774 landed on them; it is
+[The release candidate](#the-release-candidate), which also accounts
+for every merge up to `develop` `cf1652846`, re-checking the runtime
+rows at `1e34d9d95` when #1777 landed on them. The
 first pass stays in the record as the pre-fix measurement so that what
 the fixes gave back is visible row by row. The record follows the
 method of the [0.11.0 against 0.10.1](performance-release-0.11.0-vs-0.10.1.md)
@@ -42,7 +44,7 @@ comparison, so three binaries are measured:
 3. **0.12.0 candidate, before the fixes** — `1c6bb1972` built with
    `go1.27.3`; "the candidate" in every section up to [Fixes](#fixes).
 4. **0.12.0 release candidate** — `cc1d477ba` built with `go1.27.3`
-   (export rows re-probed at `5e0322e0c`), in
+   (export rows re-probed at `5e0322e0c` and `d01e4f49c`), in
    [The release candidate](#the-release-candidate) only.
 
 A source regression or improvement is column 2 against column 3 (and,
@@ -418,7 +420,7 @@ built on it is measured in full in
 
 ## What this record does not measure
 
-- Anything after `b4d0a35c4`, and #1771 by anything but its own pull
+- Anything after `cf1652846`, and #1771 by anything but its own pull
   request's benchstat ([After the measured heads](#after-the-measured-heads)).
 - The merges between `1c6bb1972` and `ab88ea950` on their own: they are
   measured only inside the release candidate, never one at a time
@@ -680,14 +682,14 @@ pre-fix candidate took 0.44 s to 0.28 on the faster host of the first
 pass); both complete under `ulimit -v 1200000`. The
 first `GOGC=25` run of each sequence (2.1–2.7 s, 225–232 MiB, three
 sequences out of three) is the cold record-cache load described under
-[The export rows](#the-export-rows-re-probed-on-5e0322e0c); the medians
+[The export rows](#the-export-rows-re-probed-on-5e0322e0c-and-d01e4f49c); the medians
 are warm runs. The 10 MiB
 that remain at the default `GOGC` this record does not attribute: it is
 pacing over a heap that is larger by the binary and by the state the
 merges since 0.11.0 hold, not the parse trees, and no fix here addresses
 it.
 
-### The export rows, re-probed on `5e0322e0c`
+### The export rows, re-probed on `5e0322e0c` and `d01e4f49c`
 
 After the suite, #1760 (`feat(export): elementIds for the relationships a
 head implies`) merged into `develop` at `5e0322e0c`. It is Go in the path
@@ -701,16 +703,22 @@ at `5e0322e0c`: six rounds interleaved with both 0.11.0 columns of
 the start of a round, the same steal as the afternoon's re-run), and
 the whole-binary element-ID probe against the `cc1d477ba` binary. The
 runtime, load and REPL rows stand as measured at `cc1d477ba`; nothing in
-that diff is on their path.
+that diff is on their path. Then #1774 (`fix(export): read one
+relationship id per feature-chain clause`) landed at `1d662609d` and
+`develop` reached `d01e4f49c`; `git diff --stat b4d0a35c4 d01e4f49c --
+'*.go' go.mod go.sum` names `internal/translate/export/element_ids.go`
+(16 lines) and its identity test, `cmd/sysml/run_query_test.go`, and six
+files of `client/opensysml` (the Go client, not the engine), so the same
+probe was run a second time on a worktree at `d01e4f49c`, the same way.
 
-| Row | Metric | 0.11.0 rebuilt | `cc1d477ba` (suite) | `5e0322e0c` | 2 → `5e0322e0c` |
-|---|---|---|---|---|---|
-| `WriteAPIJSON/ISQAtomicNuclear/standard` | B/op · allocs | 249.8 Mi · 1.866 M | 212.5 Mi · 1.388 M | 212.5 Mi · 1.388 M | −14.9 % · −25.6 % |
-| `WriteAPIJSON/ISQAtomicNuclear/compact` | B/op · allocs | 193.2 Mi · 1.800 M | 164.8 Mi · 1.443 M | 164.8 Mi · 1.443 M | −14.7 % · −19.9 % |
-| `WriteAPIJSON/SimpleVehicleModel/standard` · `/compact` | B/op | 384.4 · 271.0 Mi | 348.3 · 254.2 Mi | 348.3 · 254.2 Mi | −9.4 % · −6.2 % |
-| `WriteAPIJSON/then_after_members/standard` · `/compact` | allocs | 218.6 k · 209.7 k | 167.9 k · 172.7 k | 167.9 k · 172.7 k | −23.2 % · −17.6 % |
-| `ConvertAPIJSON/satellites=32/elements=6227` | B/op · allocs | 7.310 Gi · 40.29 M | 6.824 Gi · 33.86 M | 6.863 Gi · 33.93 M | −6.1 % · −15.8 % (+0.6 % · +0.2 % over `cc1d477ba`) |
-| `ConvertAPIJSON/satellites=128/elements=24167` | B/op · allocs | 30.21 Gi · 159.8 M | 28.05 Gi · 132.2 M | 28.05 Gi · 132.2 M | −7.2 % · −17.3 % |
+| Row | Metric | 0.11.0 rebuilt | `cc1d477ba` (suite) | `5e0322e0c` | `d01e4f49c` | 2 → `d01e4f49c` |
+|---|---|---|---|---|---|---|
+| `WriteAPIJSON/ISQAtomicNuclear/standard` | B/op · allocs | 249.8 Mi · 1.866 M | 212.5 Mi · 1.388 M | 212.5 Mi · 1.388 M | 212.5 Mi · 1.388 M | −14.9 % · −25.6 % |
+| `WriteAPIJSON/ISQAtomicNuclear/compact` | B/op · allocs | 193.2 Mi · 1.800 M | 164.8 Mi · 1.443 M | 164.8 Mi · 1.443 M | 164.8 Mi · 1.443 M | −14.7 % · −19.9 % |
+| `WriteAPIJSON/SimpleVehicleModel/standard` · `/compact` | B/op | 384.4 · 271.0 Mi | 348.3 · 254.2 Mi | 348.3 · 254.2 Mi | 348.3 · 254.2 Mi | −9.4 % · −6.2 % |
+| `WriteAPIJSON/then_after_members/standard` · `/compact` | allocs | 218.6 k · 209.7 k | 167.9 k · 172.7 k | 167.9 k · 172.7 k | 167.9 k · 172.7 k | −23.2 % · −17.6 % |
+| `ConvertAPIJSON/satellites=32/elements=6227` | B/op · allocs | 7.310 Gi · 40.29 M | 6.824 Gi · 33.86 M | 6.863 Gi · 33.93 M | 6.865 Gi · 33.93 M | −6.1 % · −15.8 % (+0.6 % · +0.2 % over `cc1d477ba`, from #1760) |
+| `ConvertAPIJSON/satellites=128/elements=24167` | B/op · allocs | 30.21 Gi · 159.8 M | 28.05 Gi · 132.2 M | 28.05 Gi · 132.2 M | 28.05 Gi · 132.2 M | −7.2 % · −17.3 % |
 
 #1760's element IDs cost the writer nothing on the `WriteAPIJSON`
 models (bytes and allocations equal to `cc1d477ba`'s in every sample)
@@ -723,23 +731,37 @@ on both forms and `SimpleVehicleModel/standard` −24 %; `ConvertAPIJSON`
 `~` against column 2 and −15 % at 128 satellites against column 1 — the
 same host as the re-run above, so read the direction, not the size.
 
+#1774 changes none of it: at `d01e4f49c` every `WriteAPIJSON` and
+`ConvertAPIJSON` row allocates the same bytes and the same number of
+times as at `5e0322e0c` (`~`, p ≥ 0.13, n=6 each), and its six rounds
+ran at 0–4 % steal — the quietest of the day — so their sec/op is worth
+a sentence: against column 2, `WriteAPIJSON/ISQAtomicNuclear` −35 % and
+−27 %, `SimpleVehicleModel/standard` −27 %, `ConvertAPIJSON/32` −18 %
+(p ≤ 0.04), the rest `~`; against 0.11.0 as released, five of the six
+`WriteAPIJSON` rows −20…−45 % (p ≤ 0.04). That is the toolchain and
+#1699's path together, what a 0.11.0 user sees.
+
 The element-ID probe of [Export element IDs](#export-element-ids),
 `cc1d477ba`'s binary against `5e0322e0c`'s, interleaved, three runs
 each after one discarded warm-up per binary (the first run of a binary
 after another binary's is a cold record-cache load, below), medians:
 
-| Query over | `cc1d477ba` | `5e0322e0c` |
-|---|---|---|
-| 6 198 elements, one query | 0.91 s · 226 MiB | 1.12 s · 230 MiB |
-| 12 086 elements, one query | 3.36 s · 354 MiB | 3.68 s · 343 MiB |
-| 12 086 elements, three queries | 1.98 s · 370 MiB | 2.07 s · 391 MiB |
+| Query over | `cc1d477ba` | `5e0322e0c` | `cc1d477ba` again | `d01e4f49c` |
+|---|---|---|---|---|
+| 6 198 elements, one query | 0.91 s · 226 MiB | 1.12 s · 230 MiB | 0.87 s · 222 MiB | 1.15 s · 241 MiB |
+| 12 086 elements, one query | 3.36 s · 354 MiB | 3.68 s · 343 MiB | 2.20 s · 346 MiB | 1.60 s · 358 MiB |
+| 12 086 elements, three queries | 1.98 s · 370 MiB | 2.07 s · 391 MiB | 1.47 s · 372 MiB | 1.74 s · 388 MiB |
 
+The two pairs are two sequences, an hour apart; compare within a pair.
 Resident memory is the row to read (the host's wall times are a day
-slower than the first pass's, where this query took 1.14 s): #1760 adds
-4–21 MiB to the query's peak, the IDs of the implied relationships it
-now emits, and nothing to the time within the spread of three. The one
-query at 12 086 elements peaking above the three is an artefact of the
-measurement, explained next.
+slower than the first pass's, where this query took 1.14 s): #1760 and
+#1774 together add 4–19 MiB to the query's peak, the IDs of the implied
+relationships now emitted, and nothing to the time within the spread
+of three. `-validate` of the same model, run in the second sequence
+after a warm-up, peaks at 176 MiB on `cc1d477ba` and 177 on `d01e4f49c`
+(0.11.0 rebuilt 162), so the growth is the query's, not the load's.
+The one query at 12 086 elements peaking above the three in the first
+pair is an artefact of the measurement, explained next.
 
 Two whole-binary effects of the release candidate's binary came out of
 these sequences, both of the library record cache
@@ -775,12 +797,53 @@ three rows that walk the changed function — `AssignmentLoopStep`
 allocs identical in every sample; sec/op `~` on all three. The record
 cites that and does not re-measure the runtime rows for it.
 
-So the candidate of this record is `develop` at `b4d0a35c4`: its runtime,
-load, REPL, LSP and whole-binary rows measured at `cc1d477ba` (Go
-sources identical but for #1771, measured in its own pull request), its
-export rows at `5e0322e0c` (Go sources identical from there). Still
-open at the time of writing is #1754, which removes deprecated `cmd/`
-flags and a client field — not on any measured path.
+After `b4d0a35c4` came #1765, #1759, #1768, #1772 and #1773 (the client
+parity follow-ups: `client/**`, including six Go files of
+`client/opensysml`, the Go client library, which no measured row runs)
+and #1774 (`1d662609d`), whose 16 lines in
+`internal/translate/export/element_ids.go` are covered by the second
+export probe above; `develop` is `d01e4f49c`.
+
+Then #1777 (`feat(engine): run state machines…`, `1e34d9d95`) landed on
+the runtime: `git diff --stat d01e4f49c 1e34d9d95 -- '*.go' go.mod
+go.sum` names `internal/exec/runtime/context.go` (+82),
+`internal/frontend/engine/engine.go` and `json.go`,
+`internal/frontend/grpc/run_options.go` (−76, the options moved to the
+engine) and `service.go`, and two new `tests/wasm` tests — no file under
+`internal/translate/export`, so the export probe above stands, and the
+runtime rows can no longer stand by an empty diff. They were re-run:
+six interleaved rounds, `cc1d477ba` against `1e34d9d95`, the runtime and
+gRPC packages, repl `LoadModel`, and the `tests/perf` rows this record
+reports, with the steal percentage logged per round, and the
+`tests/perf` binary's peak resident set over three cold runs each.
+
+Nothing moved. Bytes and allocations per operation are equal on every
+row, `cc1d477ba` against `1e34d9d95` — `AssignmentLoopStep` 925.8 Ki ·
+8 540, `DerivedReadWriteRead` 2 969 B · 69, the interpreter loops,
+`SetFeatureValueNoDependents` 416 B · 9, `InstantiateWarmModel`
+(120 → 123 Ki ± 9–15 %, 2 009 → 2 029 ± 4–6 %, `~`),
+`GRPCVerifyConstraint` 766.3 Ki · 14 890, `FeaturesOf` 265.4 Mi ·
+2.103 M, `BatchSatisfy` 465 Mi · 3.815 M, `ExecuteActionFreshContext`
+47.8 Ki · 423, `ExecuteState`, `ActionChain`, `LoadModel/0` 238.1 Ki ·
+2 038 and `LoadModel/1000` 55.8 Mi · 538.0 k (the two `LoadModel` rows
+differ in their last digit, −0.01 % and −0.00 %, p < 0.05, the kind of
+difference `± 0 %` hides) — and sec/op is `~` on all of them, under
+3–7 % steal (p ≥ 0.24). The `tests/perf` binary (`FeaturesOf` and
+`Instantiate`, two iterations) peaks at 366–406 MiB on `cc1d477ba` and
+386–391 on `1e34d9d95` over three cold runs each, the same within the
+spread. #1777 adds state to the runtime context that the measured paths
+do not touch; the record names it as measured and neutral.
+
+`develop` then took #1779 (`client/python`) and this record itself
+(#1740) to `cf1652846`, with no Go change after `1e34d9d95`.
+
+So the candidate of this record is `develop` at `cf1652846`: its runtime,
+load, REPL, LSP and whole-binary rows measured at `cc1d477ba` and
+re-checked at `1e34d9d95` on the rows above (#1771 measured in its own
+pull request), its export rows at `d01e4f49c` (and at `5e0322e0c`
+before #1774). Still open at the time of writing is #1754, which
+removes deprecated `cmd/` flags and a client field — not on any measured
+path.
 
 
 ### The quiet re-run
@@ -814,6 +877,6 @@ of the first pass — stand as the record's time verdicts, and the fixes'
 own quiet A/B ([The fixes on the quiet host](#the-fixes-on-the-quiet-host))
 is the evidence that the fixes moved bytes, not time.
 
-Should anything that touches Go land between `b4d0a35c4` and the
+Should anything that touches Go land between `cf1652846` and the
 release branch after all, its rows are re-probed interleaved against
 `cc1d477ba` and this section is amended, as the 0.11.0 record's was.
