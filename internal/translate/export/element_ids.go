@@ -121,80 +121,131 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 // metadata (the metadata).
 func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node) map[ast.Node]string {
 	out := map[ast.Node]string{}
-	local := func(term rdf.Term) string { return rdf.LocalName(term.Value) }
-	rs := func(feature rdf.Term) string {
-		return local(e.ids.mintedNode(rdf.ExpressionIRI(feature, "rs"), feature, "rs"))
+	e.writtenEndFeatureReferences(node, subject, out)
+	e.writtenDependencyAnnotation(node, parent, subject, out)
+	e.writtenClauseRelationships(node, parent, subject, parents, out)
+	e.writtenBoundEndReferences(node, subject, out)
+	return out
+}
+
+// referenceSubsettingID is the id of the ReferenceSubsetting written under feature (referenceSubsetting).
+func (e *encoder) referenceSubsettingID(feature rdf.Term) string {
+	return rdf.LocalName(e.ids.mintedNode(rdf.ExpressionIRI(feature, "rs"), feature, "rs").Value)
+}
+
+// writtenEndFeatureReferences records the ReferenceSubsetting of each `references` clause
+// of an `end` feature (endReferences), by the clause.
+func (e *encoder) writtenEndFeatureReferences(node ast.Node, subject rdf.Term, out map[ast.Node]string) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !usage.IsEnd {
+		return
 	}
-	if usage, ok := node.(*ast.Usage); ok && usage.IsEnd {
-		for _, rel := range usage.Relationships {
-			if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
-				out[rel] = rs(subject)
-			}
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
+			out[rel] = e.referenceSubsettingID(subject)
 		}
 	}
-	if _, ok := node.(*ast.PrefixMetadata); ok {
-		if _, dependency := parent.(*ast.Dependency); dependency {
-			out[node] = local(e.ids.minted(rdf.RelationshipIRI(subject, AnnotationSuffix), subject, AnnotationSuffix))
-		}
+}
+
+// writtenDependencyAnnotation records the Annotation written for a dependency's prefix
+// metadata, by the metadata.
+func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf.Term, out map[ast.Node]string) {
+	if _, ok := node.(*ast.PrefixMetadata); !ok {
+		return
 	}
+	if _, dependency := parent.(*ast.Dependency); dependency {
+		out[node] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, AnnotationSuffix), subject, AnnotationSuffix).Value)
+	}
+}
+
+// writtenClauseRelationships records the relationship written for each distinct target of
+// the head's clauses (materializeRelationships), by the clause, or by the target of a clause
+// the head writes without one.
+func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
 	_, classifier := node.(*ast.Definition)
-	referenceForm := false
-	if usage, ok := node.(*ast.Usage); ok {
-		form, _ := e.endFormOf(usage)
-		referenceForm = usage.Kind == ast.UsageSatisfy || form != "" ||
-			(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
-	}
-	clauses := headClauses(node)
-	// The objects a head states without a clause come after the clauses' (encode): a
-	// metadata body member's implicit redefinition, a bare `variant x;`'s reference.
-	if usage, ok := node.(*ast.Usage); ok {
-		if e.implicitMetadataBodyTarget(inMetadataBody(usage, parent, parents), usage).Value != "" {
-			clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelRedefines, Target: usage})
-		}
-		if e.variantReferenceTarget(usage).Value != "" {
-			clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelReferences, Target: usage})
-		}
-	}
+	referenceForm := e.referenceFormOf(node)
+	clauses := e.writtenHeadClauses(node, parent, parents)
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
-		// The graph holds one object per distinct target, so clauses repeating a target
-		// (`: T, T`) share the one relationship the writer materializes for it.
-		var objects []string
-		at := map[*ast.Relationship]int{}
-		for _, rel := range clauses {
-			if rel == nil || rel.Target == nil || rel.Kind != kind {
-				continue
-			}
-			object := e.clauseObject(subject, rel, chains)
-			i := slices.Index(objects, object)
-			if i < 0 {
-				i = len(objects)
-				objects = append(objects, object)
-			}
-			at[rel] = i
-		}
+		objects, at := e.clauseObjects(subject, clauses, kind, chains)
 		for rel, i := range at {
 			suffix := relationshipSuffix(kind, classifier, referenceForm, len(objects), i)
 			key := ast.Node(rel)
 			if rel.Span().Len == 0 {
 				key = rel.Target
 			}
-			out[key] = local(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix))
+			out[key] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix).Value)
 		}
 	}
+}
+
+// referenceFormOf reports whether a head's `subsets` targets are written as
+// ReferenceSubsettings (referenceSubsettingForm): a satisfy, an end-form binding or a
+// verified requirement that declares none.
+func (e *encoder) referenceFormOf(node ast.Node) bool {
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	form, _ := e.endFormOf(usage)
+	return usage.Kind == ast.UsageSatisfy || form != "" ||
+		(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
+}
+
+// writtenHeadClauses are the clauses of a head whose targets the writer materializes:
+// headClauses, then the objects a usage states without a clause (encode): a metadata body
+// member's implicit redefinition, a bare `variant x;`'s reference.
+func (e *encoder) writtenHeadClauses(node, parent ast.Node, parents map[ast.Node]ast.Node) []*ast.Relationship {
+	clauses := headClauses(node)
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return clauses
+	}
+	if e.implicitMetadataBodyTarget(inMetadataBody(usage, parent, parents), usage).Value != "" {
+		clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelRedefines, Target: usage})
+	}
+	if e.variantReferenceTarget(usage).Value != "" {
+		clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelReferences, Target: usage})
+	}
+	return clauses
+}
+
+// clauseObjects are the distinct objects the head's clauses of kind state, in clause order,
+// and each clause's position among them: clauses repeating a target (`: T, T`) share the one
+// relationship the writer materializes for it.
+func (e *encoder) clauseObjects(subject rdf.Term, clauses []*ast.Relationship, kind ast.RelationshipKind, chains map[*ast.Relationship]int) ([]string, map[*ast.Relationship]int) {
+	var objects []string
+	at := map[*ast.Relationship]int{}
+	for _, rel := range clauses {
+		if rel == nil || rel.Target == nil || rel.Kind != kind {
+			continue
+		}
+		object := e.clauseObject(subject, rel, chains)
+		i := slices.Index(objects, object)
+		if i < 0 {
+			i = len(objects)
+			objects = append(objects, object)
+		}
+		at[rel] = i
+	}
+	return objects, at
+}
+
+// writtenBoundEndReferences records the ReferenceSubsetting of each end feature a head
+// binds (bindingEnds), by the end and by the `references` clause naming its target.
+func (e *encoder) writtenBoundEndReferences(node ast.Node, subject rdf.Term, out map[ast.Node]string) {
 	for i, end := range writtenConnectorEnds(node) {
 		if end == nil {
 			continue
 		}
 		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
-		out[end] = rs(feature)
+		out[end] = e.referenceSubsettingID(feature)
 		for _, rel := range end.Relationships {
 			if rel != nil && rel.Kind == ast.RelReferences && rel.Target == end.AttachedTarget() {
 				out[rel] = out[end]
 			}
 		}
 	}
-	return out
 }
 
 // clauseObject tells apart the objects a head's clauses state, as relationships writes them:
