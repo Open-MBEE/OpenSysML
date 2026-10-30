@@ -75,6 +75,12 @@ public final class Capabilities {
   /** api-json converts as the compact document, optionally without derived properties. */
   public static final String CONVERT_COMPACT = "convert_compact";
 
+  /** api-json names its standard-library references outside the element array. */
+  public static final String CONVERT_LIBRARY_REFERENCES = "convert_library_references";
+
+  /** api-json restores the ownerless library stubs of releases before 0.11.0 when asked. */
+  public static final String CONVERT_LIBRARY_STUBS = "convert_library_stubs";
+
   /** Convert reports the semantic check's diagnostics, with their severities, alongside the output. */
   public static final String CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 
