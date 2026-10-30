@@ -26,7 +26,9 @@ Nothing else is installed — the standard library is embedded in the module and
 never shell out — and a `Client` is safe to share across goroutines, so one per process is the
 intended shape. `ParseFile` and `ParseSource` each parse one document; `ParseFiles` and
 `ParseDocuments` parse several as one model, each keeping its own name, so an import between them
-resolves and a diagnostic locates itself in the file it came from.
+resolves and a diagnostic locates itself in the file it came from. `ParseDocuments` given
+`WithBaseModel(previous)` fills the model's `Affected` with the documents whose results may differ
+from the base model's, under the `parse_sources_affected` capability.
 
 `ExecuteAction`, `ExecuteState` and `RunAnalysis` answer one run, under the scheduling policy
 `WithSchedule`/`Schedule` names (`declared`, `reverse`, `seed:<n>`), on the object
@@ -244,7 +246,10 @@ for _, doc := range result.Documents {
 (`FormatJSON`). `ConvertFile` infers the source format from the extension unless `WithFromFormat`
 names it, and `ConvertSource` requires it. The `Conversion` reports the canonical `From` and `To`,
 and `Experimental` with its `ExperimentalNotice` when either side is RDF or the API's JSON form,
-both experimental mappings.
+both experimental mappings. `WithIDForm(IDFormUUID)` spells the derived ids of a graph notation as
+name-based uuids rather than from qualified names; API JSON names the library elements a model
+uses in `LibraryReferences`, and `WithLibraryStubs()` writes them as the pre-0.11.0 ownerless
+stubs instead, under the `convert_library_stubs` capability.
 
 A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive, `FormatXMI` with
 the aliases `FormatUML` and `FormatMDZip` — is **migrated, not converted**: a conversion is

@@ -197,3 +197,29 @@ settings are documented in the [migration reference](../../reference/sysml-v1-mi
 Migration is experimental and raises `ExperimentalFeatureWarning`. `convert`
 refuses a v1 source with an `InvalidRequestError` directing callers to
 `migrate`.
+
+## Compact API JSON and the check's diagnostics
+
+`Connection.convert` writes notation to the compact API JSON document
+(`api-json-compact/1`, see the [compact form](../../reference/api-json-compact.md))
+with `compact=True`; `omit_derived=True` leaves out every derived property of the
+metamodel and `keep_derived` names the ones still written. `include_check_diagnostics=True`
+reports the semantic check's diagnostics in the result's `diagnostics` alongside the
+output, each with its own `severity`, so a conversion of a model with errors is told apart
+from one of a clean model:
+
+```python
+result = conn.convert(
+    "api-json", content=source, from_format="sysml",
+    compact=True, omit_derived=True, keep_derived=["qualifiedName"],
+    include_check_diagnostics=True,
+)
+errors = [d for d in result.diagnostics if d.severity == "error"]
+```
+
+The compact options need the `convert_compact` capability and the check's diagnostics
+`convert_check_diagnostics`; a service without them raises `MissingCapabilityError`
+before anything is sent. The service refuses, as `InvalidRequestError`, `omit_derived` or
+`keep_derived` without `compact`, `keep_derived` without `omit_derived` or naming a
+property that is not derived, `compact` for other than notation to `api-json`, and
+`include_check_diagnostics` for a graph source.
