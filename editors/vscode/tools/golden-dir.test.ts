@@ -48,6 +48,25 @@ describe("confinedPath", () => {
     assert.throws(() => confinedPath(path.join(root, "parity", "golden.json"), root), new RegExp(`resolves to ${realpathSync(victim)}`));
   });
 
+  it("refuses a dangling symlinked file whose target would be created outside the checkout", () => {
+    const missing = path.join(scratch, "missing.json");
+    mkdirSync(path.join(root, "parity"));
+    symlinkSync(missing, path.join(root, "parity", "golden.json"));
+    assert.throws(() => confinedPath(path.join(root, "parity", "golden.json"), root), new RegExp(`resolves to ${missing}`));
+    assert.ok(!existsSync(missing));
+  });
+
+  it("follows a dangling symlink whose target stays inside the checkout", () => {
+    symlinkSync(path.join(root, "later"), path.join(root, "link"));
+    assert.equal(confinedPath(path.join(root, "link", "parity"), root), path.join(realpathSync(root), "later", "parity"));
+  });
+
+  it("refuses a symlink loop", () => {
+    symlinkSync(path.join(root, "b"), path.join(root, "a"));
+    symlinkSync(path.join(root, "a"), path.join(root, "b"));
+    assert.throws(() => confinedPath(path.join(root, "a", "parity"), root), /too many levels of symbolic links/);
+  });
+
   it("refuses a sibling whose name extends the checkout's", () => {
     mkdirSync(`${root}malicious`);
     assert.throws(() => confinedPath(path.join(`${root}malicious`, "parity"), root), /outside the repository checkout/);
@@ -68,21 +87,25 @@ describe("route-goldens.mjs", () => {
     }
   });
 
-  it("refuses to write through a symlinked golden that points outside the repository", () => {
-    const scratch = mkdtempSync(path.join(tmpdir(), "route-goldens-"));
-    // build/ is gitignored, so an output directory under it is inside the checkout but never committed.
-    const outDir = mkdtempSync(path.resolve("..", "..", "build", "route-goldens-test-"));
-    try {
-      const victim = path.join(scratch, "victim.json");
-      writeFileSync(victim, "untouched\n");
-      symlinkSync(victim, path.join(outDir, "random-pairs-0.json"));
-      const run = spawnSync(process.execPath, ["tools/route-goldens.mjs", outDir], { encoding: "utf8" });
-      assert.notEqual(run.status, 0);
-      assert.match(run.stderr, /outside the repository checkout/);
-      assert.equal(readFileSync(victim, "utf8"), "untouched\n");
-    } finally {
-      rmSync(scratch, { recursive: true, force: true });
-      rmSync(outDir, { recursive: true, force: true });
-    }
-  });
+  for (const dangling of [false, true]) {
+    it(`refuses to write through a ${dangling ? "dangling " : ""}symlinked golden that points outside the repository`, () => {
+      const scratch = mkdtempSync(path.join(tmpdir(), "route-goldens-"));
+      // build/ is gitignored, so an output directory under it is inside the checkout but never committed.
+      const outDir = mkdtempSync(path.resolve("..", "..", "build", "route-goldens-test-"));
+      try {
+        const victim = path.join(scratch, "victim.json");
+        if (!dangling) {
+          writeFileSync(victim, "untouched\n");
+        }
+        symlinkSync(victim, path.join(outDir, "random-pairs-0.json"));
+        const run = spawnSync(process.execPath, ["tools/route-goldens.mjs", outDir], { encoding: "utf8" });
+        assert.notEqual(run.status, 0);
+        assert.match(run.stderr, /outside the repository checkout/);
+        assert.equal(dangling ? existsSync(victim) : readFileSync(victim, "utf8"), dangling ? false : "untouched\n");
+      } finally {
+        rmSync(scratch, { recursive: true, force: true });
+        rmSync(outDir, { recursive: true, force: true });
+      }
+    });
+  }
 });
