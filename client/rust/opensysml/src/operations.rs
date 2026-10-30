@@ -3,14 +3,14 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::capabilities::{
-    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK, CAPABILITY_COMPARE_RESULTS,
-    CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT, CAPABILITY_CONVERT_DOCUMENTS,
-    CAPABILITY_CONVERT_LIBRARY_STUBS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
-    CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES,
-    CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE,
-    CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE,
-    CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY,
-    CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN,
+    upgrade_remedy, CAPABILITY_ACTION_TRACE, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK,
+    CAPABILITY_COMPARE_RESULTS, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
+    CAPABILITY_CONVERT_DOCUMENTS, CAPABILITY_CONVERT_LIBRARY_STUBS, CAPABILITY_DOCUMENT_QUERY,
+    CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS,
+    CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE,
+    CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
+    CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER,
+    CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN,
     CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_RUNS, CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK, CAPABILITY_SET_VALUES,
@@ -80,7 +80,8 @@ pub struct RunOptions {
     pub schedule: Option<String>,
     /// Qualified name of the part performing the behavior, whose attributes it reads and writes.
     pub performer: Option<String>,
-    /// Return a state's documented execution records.
+    /// Return the run's documented execution records: a state's, or an action's token steps,
+    /// waits, accepts, decisions, assignments and completion.
     pub trace: bool,
     /// Simulated time, in seconds, to run for (`sysml -advance`); `None` runs to completion.
     pub advance: Option<f64>,
@@ -91,6 +92,9 @@ pub struct RunOptions {
     pub draws: Option<String>,
     /// The step, in seconds, the run's clock ticks by (`sysml -clock-step`); 0 is continuous.
     pub clock_step: f64,
+    /// Signals to post to an action's performer in order, each once every token of the run
+    /// waits, as the REPL's `%send` does; needs a performer. (A state run's events are an argument.)
+    pub events: Vec<String>,
 }
 
 /// What to ask a verification and of whom.
@@ -688,11 +692,13 @@ impl Connection {
         &self,
         schedule: Option<&str>,
         performer: Option<&str>,
+        trace: Option<&'static str>,
     ) -> Result<Vec<&'static str>, Error> {
         let mut capabilities = schedule_capabilities(schedule);
         if performer.is_some_and(|p| !p.is_empty()) {
             capabilities.push(CAPABILITY_PERFORMER);
         }
+        capabilities.extend(trace);
         self.require_all(&capabilities)?;
         Ok(capabilities)
     }
@@ -706,7 +712,11 @@ impl Connection {
         schedule: Option<&str>,
     ) -> Result<wire::ExecuteActionResponse, Error> {
         let inputs = self.named_to_wire(inputs)?;
-        let capabilities = self.run_capabilities(schedule, options.performer.as_deref())?;
+        let capabilities = self.run_capabilities(
+            schedule,
+            options.performer.as_deref(),
+            options.trace.then_some(CAPABILITY_ACTION_TRACE),
+        )?;
         self.gated_rpc(
             "ExecuteAction",
             wire::ExecuteActionRequest {
@@ -719,6 +729,8 @@ impl Connection {
                 seed: options.seed,
                 draws: options.draws.clone().unwrap_or_default(),
                 clock_step: options.clock_step,
+                trace: options.trace,
+                events: options.events.clone(),
             },
             &capabilities,
         )
@@ -733,10 +745,11 @@ impl Connection {
         schedule: Option<&str>,
         trace: bool,
     ) -> Result<wire::ExecuteStateResponse, Error> {
-        let mut capabilities = self.run_capabilities(schedule, options.performer.as_deref())?;
-        if trace {
-            capabilities.push(CAPABILITY_STATE_TRACE);
-        }
+        let capabilities = self.run_capabilities(
+            schedule,
+            options.performer.as_deref(),
+            trace.then_some(CAPABILITY_STATE_TRACE),
+        )?;
         self.gated_rpc(
             "ExecuteState",
             wire::ExecuteStateRequest {
@@ -763,8 +776,13 @@ impl Connection {
         inputs: &BTreeMap<String, Value>,
         options: &RunOptions,
     ) -> Result<ActionRun, Error> {
-        Self::refuse_action_trace(options)?;
         refuse_exploring(options.schedule.as_deref(), "explore_action")?;
+        if !options.events.is_empty() && options.performer.as_deref().is_none_or(str::is_empty) {
+            return Err(Error::InvalidRequest(
+                "events are posted to the object performing the action: name one as performer"
+                    .to_owned(),
+            ));
+        }
         let response = self.run_action(
             model_hash,
             action_id,
@@ -774,13 +792,18 @@ impl Connection {
         )?;
         let wire = response.clone();
         let diagnostics = diagnostics_of(&response.diagnostics);
+        let trace = response
+            .trace
+            .into_iter()
+            .map(document_event_from_wire)
+            .collect::<Result<Vec<_>, _>>()?;
         if !response.error.is_empty() {
             return Err(Error::Execution {
                 message: response.error,
                 reason: FailureReason::Unspecified,
                 diagnostics,
-                trace: Vec::new(),
-                trace_dropped: 0,
+                trace,
+                trace_dropped: response.trace_dropped,
                 final_time: response.final_time,
             });
         }
@@ -789,6 +812,8 @@ impl Connection {
             performer: value_map(&response.performer_attributes)?,
             final_time: response.final_time,
             diagnostics,
+            trace,
+            trace_dropped: response.trace_dropped,
             wire,
         })
     }
@@ -802,20 +827,15 @@ impl Connection {
         inputs: &BTreeMap<String, Value>,
         options: &RunOptions,
     ) -> Result<Exploration, Error> {
-        Self::refuse_action_trace(options)?;
+        if options.trace || !options.events.is_empty() {
+            return Err(Error::InvalidRequest(
+                "a trace or events describe one run, not an exploration".to_owned(),
+            ));
+        }
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
         let response = self.run_action(model_hash, action_id, inputs, options, Some(schedule))?;
         exploration_of(ExploredResponse::Action(Box::new(response)))
-    }
-
-    fn refuse_action_trace(options: &RunOptions) -> Result<(), Error> {
-        if options.trace {
-            return Err(Error::InvalidRequest(
-                "a state trace is only valid for a state run".to_owned(),
-            ));
-        }
-        Ok(())
     }
 
     /// Run a state machine once, dispatching `events` in order.

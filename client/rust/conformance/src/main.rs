@@ -615,7 +615,7 @@ impl Runner {
         };
         match self.connection.parse_sources(&documents, &options) {
             Ok(model) => self.model_json(&model),
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => self.in_band(
                     "sysml.ParseSourcesResponse",
                     &wire::ParseSourcesResponse {
@@ -661,7 +661,7 @@ impl Runner {
             Ok(conversion) => {
                 Answer::Response(self.wire_json("sysml.ConvertResponse", conversion.wire()))
             }
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => self.in_band(
                     "sysml.ConvertResponse",
                     &wire::ConvertResponse {
@@ -909,7 +909,7 @@ impl Runner {
             Ok(result) => {
                 Answer::Response(self.wire_json("sysml.ImportDataResponse", result.wire()))
             }
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => Answer::Response(self.wire_json(
                     "sysml.ImportDataResponse",
                     &wire::ImportDataResponse {
@@ -948,7 +948,7 @@ impl Runner {
             Ok(result) => {
                 Answer::Response(self.wire_json("sysml.CompareResultsResponse", result.wire()))
             }
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => Answer::Response(self.wire_json(
                     "sysml.CompareResultsResponse",
                     &wire::CompareResultsResponse {
@@ -995,7 +995,7 @@ impl Runner {
         };
         let response = match checked {
             Ok(result) => result.wire().clone(),
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => wire::CheckBehaviorResponse {
                     verdict: "undecided".to_owned(),
                     error: failure.error,
@@ -1054,6 +1054,7 @@ impl Runner {
             seed: request.seed,
             draws: optional(request.draws),
             clock_step: request.clock_step,
+            events: Vec::new(),
         };
         let hash = &request.model_hash;
         let action = &request.action_symbol_id;
@@ -1068,18 +1069,20 @@ impl Runner {
                     Answer::Response(self.wire_json("sysml.ExecuteActionResponse", run.wire()))
                 })
         };
-        answer.unwrap_or_else(|error| match Failure::of(error) {
-            Ok(failure) => self.in_band(
-                "sysml.ExecuteActionResponse",
-                &wire::ExecuteActionResponse {
-                    error: failure.error,
-                    diagnostics: failure.diagnostics,
-                    final_time: failure.final_time,
-                    ..Default::default()
-                },
-            ),
-            Err(answer) => answer,
-        })
+        answer.unwrap_or_else(
+            |error| match Failure::of(error, self.connection.capabilities()) {
+                Ok(failure) => self.in_band(
+                    "sysml.ExecuteActionResponse",
+                    &wire::ExecuteActionResponse {
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        final_time: failure.final_time,
+                        ..Default::default()
+                    },
+                ),
+                Err(answer) => answer,
+            },
+        )
     }
 
     fn execute_state(&self, request: &DynamicMessage) -> Answer {
@@ -1095,6 +1098,7 @@ impl Runner {
             seed: request.seed,
             draws: optional(request.draws),
             clock_step: request.clock_step,
+            events: Vec::new(),
         };
         let hash = &request.model_hash;
         let machine = &request.state_machine_symbol_id;
@@ -1109,20 +1113,22 @@ impl Runner {
                     Answer::Response(self.wire_json("sysml.ExecuteStateResponse", run.wire()))
                 })
         };
-        answer.unwrap_or_else(|error| match Failure::of(error) {
-            Ok(failure) => self.in_band(
-                "sysml.ExecuteStateResponse",
-                &wire::ExecuteStateResponse {
-                    error: failure.error,
-                    diagnostics: failure.diagnostics,
-                    trace: failure.trace,
-                    trace_dropped: failure.trace_dropped,
-                    final_time: failure.final_time,
-                    ..Default::default()
-                },
-            ),
-            Err(answer) => answer,
-        })
+        answer.unwrap_or_else(
+            |error| match Failure::of(error, self.connection.capabilities()) {
+                Ok(failure) => self.in_band(
+                    "sysml.ExecuteStateResponse",
+                    &wire::ExecuteStateResponse {
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        trace: failure.trace,
+                        trace_dropped: failure.trace_dropped,
+                        final_time: failure.final_time,
+                        ..Default::default()
+                    },
+                ),
+                Err(answer) => answer,
+            },
+        )
     }
 
     fn list_engines(&self, request: &DynamicMessage) -> Answer {
@@ -1175,8 +1181,11 @@ impl Runner {
     }
 
     /// A refused verification: a wrong kind answers in the verdict, anything else beside it.
-    fn refused_verdict(error: Error) -> Result<(Option<wire::Verdict>, Failure), Answer> {
-        let failure = Failure::of(error)?;
+    fn refused_verdict(
+        error: Error,
+        capabilities: &opensysml::Capabilities,
+    ) -> Result<(Option<wire::Verdict>, Failure), Answer> {
+        let failure = Failure::of(error, capabilities)?;
         if failure.reason == FailureReason::WrongKind {
             let verdict = wire::Verdict {
                 failure_reason: failure.reason(),
@@ -1219,7 +1228,7 @@ impl Runner {
                     ..Default::default()
                 }
             }
-            Err(error) => match Self::refused_verdict(error) {
+            Err(error) => match Self::refused_verdict(error, self.connection.capabilities()) {
                 Ok((verdict, failure)) => wire::VerifyConstraintResponse {
                     verdict,
                     error: failure.error,
@@ -1260,7 +1269,7 @@ impl Runner {
                     ..Default::default()
                 }
             }
-            Err(error) => match Self::refused_verdict(error) {
+            Err(error) => match Self::refused_verdict(error, self.connection.capabilities()) {
                 Ok((verdict, failure)) => wire::VerifyRequirementResponse {
                     verdict,
                     error: failure.error,
@@ -1287,7 +1296,7 @@ impl Runner {
             Ok(satisfaction) => Answer::Response(
                 self.wire_json("sysml.VerifySatisfactionResponse", satisfaction.wire()),
             ),
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => self.in_band(
                     "sysml.VerifySatisfactionResponse",
                     &wire::VerifySatisfactionResponse {
@@ -1316,7 +1325,7 @@ impl Runner {
             Ok(validation) => Answer::Response(
                 self.wire_json("sysml.ValidateInstanceResponse", validation.wire()),
             ),
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => self.in_band(
                     "sysml.ValidateInstanceResponse",
                     &wire::ValidateInstanceResponse {
@@ -1350,7 +1359,7 @@ impl Runner {
             Ok(result) => {
                 Answer::Response(self.wire_json("sysml.EvaluateCalcResponse", result.wire()))
             }
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => self.in_band(
                     "sysml.EvaluateCalcResponse",
                     &wire::EvaluateCalcResponse {
@@ -1401,7 +1410,7 @@ impl Runner {
             Error::AnalysisRun { result, .. } => {
                 self.in_band("sysml.RunAnalysisResponse", result.wire())
             }
-            error => match Failure::of(error) {
+            error => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => self.in_band(
                     "sysml.RunAnalysisResponse",
                     &wire::RunAnalysisResponse {
@@ -1446,7 +1455,7 @@ impl Runner {
         };
         match self.connection.run_runs(&request.model_hash, &options) {
             Ok(runs) => Answer::Response(self.wire_json("sysml.RunRunsResponse", runs.wire())),
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => self.in_band(
                     "sysml.RunRunsResponse",
                     &wire::RunRunsResponse {
@@ -1471,7 +1480,7 @@ impl Runner {
             .self_check(&request.model_hash, &request.self_check_package)
         {
             Ok(check) => Answer::Response(self.wire_json("sysml.SelfCheckResponse", check.wire())),
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => self.in_band(
                     "sysml.SelfCheckResponse",
                     &wire::SelfCheckResponse {
@@ -1533,7 +1542,7 @@ impl Runner {
             Ok(recording) => {
                 Answer::Response(self.wire_json("sysml.RecordRunResponse", recording.wire()))
             }
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => self.in_band(
                     "sysml.RecordRunResponse",
                     &wire::RecordRunResponse {
@@ -1589,7 +1598,7 @@ impl Runner {
             .run_sweep(&request.model_hash, &request.symbol_id, &ranges, &options)
         {
             Ok(table) => Answer::Response(self.wire_json("sysml.RunSweepResponse", table.wire())),
-            Err(error) => match Failure::of(error) {
+            Err(error) => match Failure::of(error, self.connection.capabilities()) {
                 Ok(failure) => self.in_band(
                     "sysml.RunSweepResponse",
                     &wire::RunSweepResponse {
@@ -1683,7 +1692,7 @@ struct Failure {
 }
 
 impl Failure {
-    fn of(error: Error) -> Result<Self, Answer> {
+    fn of(error: Error, capabilities: &opensysml::Capabilities) -> Result<Self, Answer> {
         match error {
             Error::Execution {
                 message,
@@ -1698,7 +1707,7 @@ impl Failure {
                 diagnostics: diagnostics_wire(&diagnostics),
                 trace: trace
                     .iter()
-                    .map(opensysml::document_event_to_wire)
+                    .map(|event| opensysml::document_event_to_wire(event, capabilities))
                     .collect::<Result<_, _>>()
                     .map_err(classify_error)?,
                 trace_dropped,
