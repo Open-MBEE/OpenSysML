@@ -37,9 +37,6 @@ type EvalContext struct {
 	// resolving holds the features whose own value is being evaluated, so a value
 	// written in terms of a same-named outer one does not resolve to itself.
 	resolving map[string]bool
-	// openInputs marks a member read of a condition, where a declared `in` nothing binds
-	// reads undetermined rather than falling back to the object's same-named feature.
-	openInputs bool
 
 	// calcRun is the calc evaluation whose output feature is being computed, so an
 	// output binding written in terms of the calc's other outputs reads them from
@@ -49,6 +46,9 @@ type EvalContext struct {
 	// inBehaviorBody marks a statement of a behavior body, which reaches the
 	// object performing it only through names that resolve to its features.
 	inBehaviorBody bool
+	// openInputs marks a member read of a condition, where a declared `in` nothing binds
+	// reads undetermined rather than falling back to the object's same-named feature.
+	openInputs bool
 
 	// valuing is the pin whose value the expression states, so `inout log = log`
 	// written at that pin reads the log around it rather than the pin itself.
