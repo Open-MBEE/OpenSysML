@@ -357,7 +357,7 @@ def connect(host='localhost', port=None, auto_start=True, version=None,
 
 def convert(to_format, file_path=None, content=None, model_hash=None,
             from_format='', tolerate_syntax_errors=False, host='localhost',
-            port=None):
+            port=None, id_form='', include_library_stubs=False):
     """Write a model out in another format (module-level convenience).
 
     Args:
@@ -376,6 +376,15 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
             parser could not read all of it
         host (str): Service hostname, or a ``host:port`` address
         port (int, optional): Service port (default: 50051)
+        id_form (str, optional): How derived element ids are spelled when a
+            graph ('ttl' or 'api-json') is written: :data:`ID_FORM_QUALIFIED`
+            (the default, from each element's qualified name) or
+            :data:`ID_FORM_UUID` (name-based uuids under each root package,
+            the library convention). Declared ids are unchanged
+        include_library_stubs (bool): For api-json, restore the ownerless
+            library stubs written before 0.11.0; by default library elements
+            remain bare references, not roots. Needs the
+            ``convert_library_stubs`` capability
 
     Returns:
         Conversion: The converted model; ``str()`` of it is the text
@@ -383,6 +392,12 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
     Warns:
         ExperimentalFeatureWarning: If either format is RDF, whose mapping is
             experimental (see ``docs/reference/rdf-mapping.md``)
+
+    Raises:
+        InvalidRequestError: If the source is a SysML v1 model, a format or
+            id_form is unknown, or id_form is given for a notation target
+        MissingCapabilityError: If the service cannot convert, or cannot write
+            library stubs and they were asked for
 
     Example:
         >>> import opensysml
@@ -398,6 +413,8 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
         model_hash=model_hash,
         from_format=from_format,
         tolerate_syntax_errors=tolerate_syntax_errors,
+        id_form=id_form,
+        include_library_stubs=include_library_stubs,
     )
 
 
