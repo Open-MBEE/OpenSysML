@@ -513,7 +513,7 @@ export class Runner {
   private async parseFile(request: Record<string, unknown>): Promise<void> {
     const options = {
       ...stringOption(request, "language", "language"),
-      ...flagOption(request, "strict_conformance", "strict"),
+      ...flagOption(request, "strict_conformance", "strictConformance"),
     };
     const content = request["content"];
     if (typeof content === "string") {

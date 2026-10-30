@@ -89,6 +89,60 @@
       }
     },
     {
+      "id": "parse/strict_conformance_refuses_an_extension",
+      "description": "Under strict conformance an OpenSysML-only notation is an error, where the default parse reports it as a warning; a runner that drops the field answers the warning and fails here.",
+      "rpc": "ParseFile",
+      "requires_capabilities": [
+        "strict_conformance"
+      ],
+      "request": {
+        "content": "${fixture:nonstandard_notation.sysml}",
+        "strict_conformance": true
+      },
+      "expect": {
+        "non_empty": [
+          "model_hash"
+        ],
+        "counts": {
+          "diagnostics": 1
+        },
+        "response": {
+          "diagnostics": [
+            {
+              "severity": "error"
+            }
+          ]
+        }
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "strict_conformance"
+      }
+    },
+    {
+      "id": "parse/an_extension_is_a_warning_by_default",
+      "description": "The same OpenSysML-only notation parses with one warning when strict conformance is not asked for.",
+      "rpc": "ParseFile",
+      "request": {
+        "content": "${fixture:nonstandard_notation.sysml}"
+      },
+      "expect": {
+        "non_empty": [
+          "model_hash"
+        ],
+        "counts": {
+          "diagnostics": 1
+        },
+        "response": {
+          "diagnostics": [
+            {
+              "severity": "warning"
+            }
+          ]
+        }
+      }
+    },
+    {
       "id": "parse_sources/several_documents_are_one_model",
       "description": "Two documents parse as one model, so the import between them resolves and each document answers with its own root.",
       "rpc": "ParseSources",
