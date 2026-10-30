@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 924 files)
 
-**Scorecard:** 932 files; 92426 elements matched (18479 ours-only, 37741 pilot-only, 0 of them implied); properties: 1120818 present-equal, 27564 present-different, 1073445 ours-missing, 68202 pilot-missing, 1971713 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
+**Scorecard:** 932 files; 92426 elements matched (18479 ours-only, 37741 pilot-only, 0 of them implied); properties: 1143051 present-equal, 29108 present-different, 1054265 ours-missing, 69343 pilot-missing, 1967116 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 28 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11728 (metaclass, property) rows carry a comparison; 111690 references compared through the unkeyed sentinel, 159865 of our `sysx:` annotations were left out, and 287/347 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
