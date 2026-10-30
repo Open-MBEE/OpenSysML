@@ -76,8 +76,8 @@ package RoverChecks {
 	requirement powerMargin : PowerMargin;
 	satisfy powerMargin by rover.battery;
 
-	// Verifies the requirement against the battery as designed: a case runs
-	// its own body over the subject it binds, not over what a session holds.
+	// Verifies the requirement over the battery the case binds as its subject:
+	// the declared one under the declared rover, the held one under a held rover.
 	verification def MarginCheck {
 		subject b : Battery;
 		objective {

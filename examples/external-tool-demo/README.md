@@ -108,7 +108,7 @@ part heating_run1 : HeatingRun {
         tool = "sysml dev";
         command = "-record-run \"ThermalDemo::heating\"";
         kind = "run";
-        tools = ("ThermalSolver 1.0 from /home/me/.opensysml-tools/thermal.json: /usr/bin/python3 thermal.py --mass 12.5 --power 250 --ambient 290");
+        tools = ("ThermalSolver 1.0 from /home/me/.opensysml-tools/thermal.json: /usr/bin/python3 thermal.py --mass 12.5 --power 250.0 --ambient 290.0");
     }
     ...
 }

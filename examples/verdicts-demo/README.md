@@ -239,8 +239,8 @@ Both answers are correct, and neither is the check. Compare what
    requirement's subject to the battery and evaluating the requirement's
    `require` conditions there. The `verification` cell is a third source
    again — the `VerdictKind` the verifying case's body returned when run — and
-   the table shows the satisfaction *violated* beside a verification that
-   *passed*, which a single expression cannot express.
+   the table shows the satisfaction's verdict beside the verification case's
+   answer, two sources a single expression cannot express.
 7. **Answer as rows.** The result is an ordered, typed row set with `path`,
    `kind`, `name`, `verdict`, `condition`, `reason` and `verification`
    properties, so `WhereFeature`, `OrderBy` and `Project` filter and shape it
