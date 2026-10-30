@@ -64,9 +64,9 @@ $ ./bin/sysml examples/external-tool-demo/thermal.sysml -tool-dry-run ThermalDem
     "--mass"
     "12.5"
     "--power"
-    "250"
+    "250.0"
     "--ambient"
-    "290"
+    "290.0"
   ...
   reply: csv from stdout, header, delimiter ","
     margin: column "margin", row last, type number, unit K

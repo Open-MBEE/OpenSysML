@@ -108,17 +108,19 @@ it and wear one wheel:
 ```
 
 ```text
-✓ Query RoverChecks::Findings returned 3 rows
+✓ Query RoverChecks::Findings returned 4 rows
   Row 1: satisfy powerMargin by rover.battery on RoverChecks::rover.battery: violated
-  Row 2: assert constraint treadLeft on RoverChecks::rover.wheels[3]: violated
-  Row 3: assert constraint warmEnough on RoverChecks::rover.heater: undecided
+  Row 2: verification RoverChecks::marginCheck on RoverChecks::rover.battery: violated
+  Row 3: assert constraint treadLeft on RoverChecks::rover.wheels[3]: violated
+  Row 4: assert constraint warmEnough on RoverChecks::rover.heater: undecided
 ```
 
 The drive took the battery from `100.0` to `40.0`. Its own `aboveFloor`
 (`40 >= 30`) still holds and the rover's `drivable` (`40 > 30`) still holds, but
-the satisfaction of `powerMargin` (`40 - 30 >= 25`) no longer does, and only the
-third wheel's `treadLeft` fails. `Findings` orders violations before the
-undecided heater.
+the satisfaction of `powerMargin` (`40 - 30 >= 25`) no longer does — and with
+it the verification case `marginCheck`, which verifies that requirement over
+the same battery — and only the third wheel's `treadLeft` fails. `Findings`
+orders violations before the undecided heater.
 
 `Verified` shows the requirement-level rows with the outcome of the cases
 verifying each:
@@ -133,17 +135,17 @@ verifying each:
   Row 1: requirement drivable on RoverChecks::rover: holds
     verification = (none)
   Row 2: satisfy powerMargin by rover.battery on RoverChecks::rover.battery: violated
-    verification = "pass"
-  Row 3: verification RoverChecks::marginCheck on RoverChecks::rover.battery: holds
-    verification = "pass"
+    verification = "fail"
+  Row 3: verification RoverChecks::marginCheck on RoverChecks::rover.battery: violated
+    verification = "fail"
 ```
 
-Row 2 is the point of the column: the requirement's verification case
-**passed** while the satisfaction is **violated**. A verification case runs its
-own body over the subject it binds — `subject b = rover.battery`, the battery as
-designed, fully charged — so `marginCheck` reports on the design, and the
-satisfaction row reports on the object as it stands after the drive. Both are
-true; they answer different questions, and the table keeps them apart.
+Row 2 is the point of the column: the satisfaction is **violated** and the
+requirement's verification case answered **fail** for the same reason. A
+verification case runs its own body over the subject it binds — `subject b =
+rover.battery` — and under a held `root` that subject is the battery as it
+stands after the drive, so `marginCheck` reports on the same object the
+satisfaction row does; the table keeps the two answers side by side.
 
 `%validate rover` is the same check reported as a REPL verdict list rather than
 query rows; the two agree row for row.
@@ -164,7 +166,7 @@ as a table, a list and a table. Rendered over the held rover after the drive:
 | RoverChecks::rover | requirement | drivable | holds |  |
 | RoverChecks::rover.battery | constraint | aboveFloor | holds |  |
 | RoverChecks::rover.battery | satisfaction |  | violated | satisfaction satisfy powerMargin by rover.battery: require condition evaluated to false: b.charge - b.floor >= 25.0 |
-| RoverChecks::rover.battery | verification | marginCheck | holds |  |
+| RoverChecks::rover.battery | verification | marginCheck | violated | the verification case answered fail |
 | RoverChecks::rover.wheels\[1\] | constraint | treadLeft | holds |  |
 | RoverChecks::rover.wheels\[2\] | constraint | treadLeft | holds |  |
 | RoverChecks::rover.wheels\[3\] | constraint | treadLeft | violated | constraint treadLeft: assertion evaluated to false: wear \< 0.5 |
@@ -174,6 +176,7 @@ as a table, a list and a table. Rendered over the held rover after the drive:
 ## Findings
 
 - satisfy powerMargin by rover.battery on RoverChecks::rover.battery: violated
+- verification RoverChecks::marginCheck on RoverChecks::rover.battery: violated
 - assert constraint treadLeft on RoverChecks::rover.wheels\[3\]: violated
 - assert constraint warmEnough on RoverChecks::rover.heater: undecided
 ```
