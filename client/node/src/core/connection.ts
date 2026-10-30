@@ -14,6 +14,8 @@ import {
   CAPABILITY_BIG_INT_VALUES,
   CAPABILITY_RATIONAL_VALUES,
   CAPABILITY_CONVERT,
+  CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+  CAPABILITY_CONVERT_COMPACT,
   CAPABILITY_CONVERT_LIBRARY_STUBS,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
@@ -21,6 +23,7 @@ import {
   CAPABILITY_INLINE_LANGUAGE,
   CAPABILITY_MIGRATE,
   CAPABILITY_PARSE_SOURCES,
+  CAPABILITY_PARSE_SOURCES_AFFECTED,
   CAPABILITY_PERFORMER,
   CAPABILITY_STATE_TRACE,
   CAPABILITY_QUERY,
@@ -105,6 +108,7 @@ import {
 import { callRpc, fromHandshakeError, fromRpcError } from "./status.js";
 import { requireString } from "./arguments.js";
 import { decodeDiagnostic, Instance, Model, strictConformanceOf } from "./model.js";
+import type { ParseSourcesOptions } from "./model.js";
 import type { ModelDiagnostic } from "./errors.js";
 import type { ParseOptions } from "./model.js";
 import { sourceDocuments, type Source } from "./sources.js";
@@ -359,8 +363,12 @@ export class Connection {
     return Model.adopt(this, hash);
   }
 
-  /** Parses several documents together as one model, one root per document. */
-  async parseSources(documents: readonly Source[], options: ParseOptions = {}): Promise<Model> {
+  /**
+   * Parses several documents together as one model, one root per document.
+   * Given `baseModelHash`, the model's `affected` names the documents whose
+   * results may differ from that model's.
+   */
+  async parseSources(documents: readonly Source[], options: ParseSourcesOptions = {}): Promise<Model> {
     const sources = sourceDocuments(documents);
     requireCapability(
       this.info,
@@ -381,11 +389,22 @@ export class Connection {
       this.requireStrictConformance();
       capabilities.push(CAPABILITY_STRICT_CONFORMANCE);
     }
+    const baseModelHash = options.baseModelHash ?? "";
+    if (baseModelHash !== "") {
+      requireString("baseModelHash", baseModelHash);
+      requireCapability(
+        this.info,
+        CAPABILITY_PARSE_SOURCES_AFFECTED,
+        upgradeRemedy(CAPABILITY_PARSE_SOURCES_AFFECTED),
+      );
+      capabilities.push(CAPABILITY_PARSE_SOURCES_AFFECTED);
+    }
     const response = await callRpc(
       this.rpc.parseSources(
         create(ParseSourcesRequestSchema, {
           documents: sources.map((source) => source.toPb()),
           strictConformance: strictConformance === true,
+          baseModelHash,
         }),
         this.callOptions(),
       ),
@@ -397,6 +416,7 @@ export class Connection {
       throw new ParseError(response.error, diagnostics);
     }
     return Model.fromRoots(this, response.modelHash, response.roots, diagnostics, {
+      affected: response.affected,
       documents: sources.map((source) => source.documentName),
     });
   }
@@ -440,12 +460,27 @@ export class Connection {
     if (options.includeLibraryStubs) {
       requireCapability(this.info, CAPABILITY_CONVERT_LIBRARY_STUBS, upgradeRemedy(CAPABILITY_CONVERT_LIBRARY_STUBS));
     }
+    const keepDerived = [...(options.keepDerived ?? [])];
+    if (options.compact || options.omitDerived || keepDerived.length > 0) {
+      requireCapability(this.info, CAPABILITY_CONVERT_COMPACT, upgradeRemedy(CAPABILITY_CONVERT_COMPACT));
+    }
+    if (options.includeCheckDiagnostics) {
+      requireCapability(
+        this.info,
+        CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+        upgradeRemedy(CAPABILITY_CONVERT_CHECK_DIAGNOSTICS),
+      );
+    }
     const request = create(ConvertRequestSchema, {
       toFormat,
       fromFormat: options.fromFormat ?? "",
       tolerateSyntaxErrors: options.tolerateSyntaxErrors === true,
       idForm: options.idForm ?? "",
       includeLibraryStubs: options.includeLibraryStubs === true,
+      compact: options.compact === true,
+      omitDerived: options.omitDerived === true,
+      keepDerived,
+      includeCheckDiagnostics: options.includeCheckDiagnostics === true,
     });
     if ("path" in source) {
       request.source = { case: "filePath", value: source.path };

@@ -17,6 +17,7 @@ export type {
   FeatureValue,
   Multiplicity,
   ParseOptions,
+  ParseSourcesOptions,
   SpecializationFacts,
   TypeFacts,
 } from "./model.js";

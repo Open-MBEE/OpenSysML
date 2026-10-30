@@ -91,6 +91,25 @@ export interface ConvertOptions {
   idForm?: IdForm;
   /** Restore pre-0.11.0 ownerless library stubs in API JSON. Default off. */
   includeLibraryStubs?: boolean;
+  /**
+   * For notation converted to API JSON, write the compact document
+   * (`api-json-compact/1`) in place of the element array. Default off;
+   * requires `convert_compact`.
+   */
+  compact?: boolean;
+  /** With `compact`, leave out every derived property of the metamodel. */
+  omitDerived?: boolean;
+  /**
+   * With `omitDerived`, the derived properties still written, named as the
+   * element array names them (`qualifiedName`).
+   */
+  keepDerived?: readonly string[];
+  /**
+   * Report the semantic check's diagnostics in `Conversion.diagnostics` beside
+   * the output, each with its severity. Notation sources only; requires
+   * `convert_check_diagnostics`.
+   */
+  includeCheckDiagnostics?: boolean;
 }
 
 /** A referenced standard-library element, not a model root. */

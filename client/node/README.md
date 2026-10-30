@@ -504,6 +504,18 @@ model.documents;   // the names the parse gave them, in order
 model.roots;       // one root symbol per document
 ```
 
+Parsing the set again after an edit, pass the previous model's `hash` as
+`baseModelHash` and the new model's `affected` names the documents whose
+analysis, diagnostics or conversion may differ from the base's, so results
+computed for the others are kept. Every document is named when the service
+cannot compare the two, such as for a set it has not seen before. The option
+needs the `parse_sources_affected` capability.
+
+```ts
+const edited = await connection.parseSources(documents, { baseModelHash: model.hash });
+for (const name of edited.affected) rerun(name);
+```
+
 ## Conversion and save
 
 `connection.convert` writes a model, a file or source out in another notation —
