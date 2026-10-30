@@ -366,10 +366,8 @@ jobs:
       - name: Lint the protobuf schema
         run: make proto-lint
 
-      # Wire compatibility against the schema the pull request started from: its merge base with
-      # the base branch (a merge group's base_sha), not the branch's tip, or a field another pull
-      # request added there since reads as deleted here. The baseline is a git archive, so a
-      # blob-free fetch of the history is all the shallow checkout needs.
+      # Wire compatibility against the merge base with the base branch (a merge group's base_sha), not
+      # its tip, or a field added there since reads as deleted; a blob-free history fetch reaches it.
       - name: Check the protobuf schema for breaking changes
         env:
           BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
