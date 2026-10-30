@@ -302,8 +302,8 @@ test("an action run returns its requested trace and takes posted events", async 
   }
   const assign = run.trace.find((event) => event.kind === "assign");
   assert.equal(assign?.feature, "remaining");
-  assert.deepEqual(assign?.value, { kind: "int", value: 7n });
-  assert.equal(assign?.token, 1n);
+  assert.deepEqual(assign.value, { kind: "int", value: 7n });
+  assert.equal(assign.token, 1n);
   assert.equal(run.traceDropped, 0);
 
   await assert.rejects(
