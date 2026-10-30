@@ -84,6 +84,7 @@ from opensysml.capabilities import (
 from opensysml.conversion import (
     Conversion,
     EXPERIMENTAL_NOTICE,
+    LibraryReference,
     ExperimentalFeatureWarning,
     MIGRATED_NOT_CONVERTED,
     Migration,
@@ -1682,6 +1683,10 @@ class Connection:
             diagnostics=diagnostics,
             experimental=experimental,
             experimental_notice=notice,
+            library_references=[
+                LibraryReference(id=ref.id, qualified_name=ref.qualified_name, type=ref.type)
+                for ref in response.library_references
+            ],
         )
 
     def migrate(self, to_format, file_path=None, content=None, from_format='',

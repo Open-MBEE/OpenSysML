@@ -390,6 +390,10 @@ Format conversion and migration results, including experimental-feature notices.
     options:
       heading_level: 3
 
+::: opensysml.LibraryReference
+    options:
+      heading_level: 3
+
 ::: opensysml.format_of_path
     options:
       heading_level: 3

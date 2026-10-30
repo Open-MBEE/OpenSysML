@@ -31,6 +31,7 @@ from opensysml.conversion import (
     ID_FORM_QUALIFIED,
     ID_FORM_UUID,
     ExperimentalFeatureWarning,
+    LibraryReference,
     format_of_path,
     is_experimental,
 )
@@ -411,6 +412,28 @@ class TestRoundTripAgainstRealService:
                 (d.severity, d.message) for d in model.diagnostics
             ]
             assert str(again.to_sysml()) == notation
+
+    def test_api_json_names_library_references_separately_and_opts_into_legacy_stubs(
+        self, real_service
+    ):
+        source = "package P { private import SI::*; attribute time = 20 [s]; }\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            plain = conn.convert(FORMAT_API_JSON, content=source, from_format=FORMAT_SYSML)
+            legacy = conn.convert(
+                FORMAT_API_JSON, content=source, from_format=FORMAT_SYSML,
+                include_library_stubs=True,
+            )
+            notation = conn.convert(FORMAT_SYSML, content=source, from_format=FORMAT_SYSML)
+        second = next(ref for ref in plain.library_references if ref.qualified_name == "SI::second")
+        assert second == LibraryReference(
+            id="0c539f7c-20a1-520d-bae0-f3f855517aea", qualified_name="SI::second",
+            type="AttributeUsage",
+        )
+        assert not any(element.get("isLibraryElement") for element in json.loads(plain.content))
+        stub = next(element for element in json.loads(legacy.content) if element["@id"] == second.id)
+        assert stub["qualifiedName"] == "SI::second" and stub["isLibraryElement"] is True
+        assert legacy.library_references == plain.library_references
+        assert notation.library_references == []
 
     def test_uuid_id_form_spells_derived_ids_as_uuids(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
