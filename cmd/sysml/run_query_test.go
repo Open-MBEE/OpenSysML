@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -622,6 +623,71 @@ func TestRunQueryJSONTableSpellsRelationshipsByID(t *testing.T) {
 			t.Errorf("row %s: ownedRelationship spelled %q, want %q", row.Element, row.Cells[1][0], want)
 		}
 	}
+}
+
+const chainClausesModel = `package Observatory {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+
+	part def Subsystem { part lens; }
+
+	part telescope {
+		part optics : Subsystem;
+		part spare : Subsystem;
+		part focus subsets optics.lens, spare, optics.lens;
+	}
+
+	calc def OwnedRelationships :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("elementId", "ownedRelationship")
+		)
+	}
+}
+`
+
+// TestRunQueryJSONTableSpellsEachChainClauseByID: the conversion owns one chain Feature per
+// feature-chain clause, so `subsets optics.lens, spare, optics.lens` is spelled as the three
+// subsettings the writer materializes, in clause order, where clauses naming one element share one.
+func TestRunQueryJSONTableSpellsEachChainClauseByID(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, chainClausesModel, "-run-query", "OwnedRelationships root=telescope", "-json")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Table *struct {
+				Rows []struct {
+					Element string     `json:"element"`
+					Cells   [][]string `json:"cells"`
+				} `json:"rows"`
+			} `json:"table"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	if len(report.Checks) != 1 || report.Checks[0].Table == nil || len(report.Checks[0].Table.Rows) != 3 {
+		t.Fatalf("want one check with a three-row table:\n%s", got.stdout)
+	}
+	for _, row := range report.Checks[0].Table.Rows {
+		if row.Element != "Observatory::telescope::focus" {
+			continue
+		}
+		if len(row.Cells) != 2 || len(row.Cells[0]) != 1 {
+			t.Fatalf("row %s: cells = %v, want one elementId and the ownedRelationship ids", row.Element, row.Cells)
+		}
+		id, _ := strconv.Unquote(row.Cells[0][0])
+		want := []string{id + "_ss0", id + "_ss1", id + "_ss2"}
+		if id == "" || !slices.Equal(row.Cells[1], want) {
+			t.Errorf("row %s: ownedRelationship spelled %v, want %v", row.Element, row.Cells[1], want)
+		}
+		return
+	}
+	t.Fatalf("no row for Observatory::telescope::focus:\n%s", got.stdout)
 }
 
 // TestRunQueryJSONTableSpellsAMultiplicitySubsetting: `multiplicity some subsets many` holds its

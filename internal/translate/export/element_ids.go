@@ -155,6 +155,7 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 			clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelReferences, Target: usage})
 		}
 	}
+	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
 		// The graph holds one object per distinct target, so clauses repeating a target
 		// (`: T, T`) share the one relationship the writer materializes for it.
@@ -164,7 +165,7 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 			if rel == nil || rel.Target == nil || rel.Kind != kind {
 				continue
 			}
-			object := e.clauseObject(rel.Target)
+			object := e.clauseObject(subject, rel, chains)
 			i := slices.Index(objects, object)
 			if i < 0 {
 				i = len(objects)
@@ -197,12 +198,17 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 }
 
 // clauseObject tells apart the objects a head's clauses state, as relationships writes
-// them: a name by what it references, a chain or other expression by its text.
-func (e *encoder) clauseObject(target ast.Node) string {
-	if name, ok := target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
+// them: a feature chain by the chain Feature minted for its clause (headChain: one per
+// clause, so `subsets a.b, a.b` states two), a name by what it references, another
+// expression by its text.
+func (e *encoder) clauseObject(subject rdf.Term, rel *ast.Relationship, chains map[*ast.Relationship]int) string {
+	if k, chained := chains[rel]; chained {
+		return rdf.ExpressionIRI(subject, fmt.Sprintf("chain%d", k)).Value
+	}
+	if name, ok := rel.Target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
 		return e.reference(name).Value
 	}
-	return "expr:" + e.text(target)
+	return "expr:" + e.text(rel.Target)
 }
 
 // inMetadataBody reports whether usage is a member of a metadata usage's body (`@M { x = 1; }`,
