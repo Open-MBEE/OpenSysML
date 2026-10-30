@@ -266,6 +266,9 @@ type RootNamespace struct {
 	// UndefinedOperators are the `~` operator expressions of the document in
 	// source order: KerML leaves DataFunctions::'~' undefined, so a tool warns at each.
 	UndefinedOperators []*OperatorExpr
+	// TypedBy counts the typings the document spells `typed by` (KerML.xtext:600),
+	// on declarations, prefix metadata and body-expression parameters alike.
+	TypedBy int
 }
 
 // PrefixMetadata records a `# QualifiedName` metadata annotation reference.
