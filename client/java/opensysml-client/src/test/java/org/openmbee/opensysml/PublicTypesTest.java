@@ -1056,12 +1056,11 @@ class PublicTypesTest {
                 () -> limited.convert("package P;", "api-json", options));
         assertEquals(Capabilities.CONVERT_COMPACT, refused.capability());
       }
+      ConversionOptions libraryStubs = sysml.withIncludeLibraryStubs(true);
       CapabilityException refused =
           assertThrows(
               CapabilityException.class,
-              () ->
-                  limited.convert(
-                      "package P;", "api-json", sysml.withIncludeLibraryStubs(true)));
+              () -> limited.convert("package P;", "api-json", libraryStubs));
       assertEquals(Capabilities.CONVERT_LIBRARY_STUBS, refused.capability());
     }
   }
