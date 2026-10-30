@@ -1639,6 +1639,79 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void compactApiJsonTrimsDerivedPropertiesAndKeepsTheNamedOnes() {
+    String source = "package P { attribute a : ScalarValues::Integer = 1; }\n";
+    ConversionOptions options = ConversionOptions.defaults().withFromFormat("sysml");
+    Conversion compact = connection.convert(source, "api-json", options.withCompact(true));
+    assertTrue(compact.content().contains("\"format\":\"api-json-compact/1\"")
+        || compact.content().contains("\"format\": \"api-json-compact/1\""), compact.content());
+    assertTrue(compact.content().contains("\"owner\":"), compact.content());
+    Conversion trimmed =
+        connection.convert(
+            source, "api-json", options.withCompact(true).withOmitDerived(true));
+    assertFalse(trimmed.content().contains("\"owner\":"), trimmed.content());
+    Conversion kept =
+        connection.convert(
+            source,
+            "api-json",
+            options.withCompact(true).withOmitDerived(true).withKeepDerived(List.of("owner")));
+    assertTrue(kept.content().contains("\"owner\":"), kept.content());
+    assertTrue(kept.content().length() < compact.content().length());
+    ConversionOptions trimmedArray = options.withOmitDerived(true);
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class, () -> connection.convert(source, "api-json", trimmedArray));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+    assertFalse(connection.parse(source).convert("api-json").content().contains("api-json-compact"));
+  }
+
+  @Test
+  void checkDiagnosticsReportTheSemanticCheckBesideTheConversion() {
+    String broken = "package Broken { part def Boat { part motor : Missing; } }\n";
+    ConversionOptions options = ConversionOptions.defaults().withFromFormat("sysml");
+    Conversion unchecked = connection.convert(broken, "api-json", options);
+    assertEquals(List.of(), unchecked.diagnostics());
+    Conversion checked =
+        connection.convert(broken, "api-json", options.withIncludeCheckDiagnostics(true));
+    assertTrue(
+        checked.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR),
+        checked.diagnostics().toString());
+    assertTrue(checked.diagnostics().stream().allMatch(d -> d.severity() != null));
+    Conversion clean =
+        connection.convert(
+            "package P { attribute a : ScalarValues::Integer = 1; }\n",
+            "api-json",
+            options.withIncludeCheckDiagnostics(true));
+    assertFalse(clean.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR));
+  }
+
+  @Test
+  void aBaseModelNamesTheDocumentsAnEditReaches() {
+    // Names of this test's own: the service relates two models document by document once it
+    // has seen their set more than once, and a model it first answered fresh, under another
+    // test's names, cannot be a base.
+    String library = "package Lib { part def Engine { attribute power : ScalarValues::Real = 120.0; } }\n";
+    String top = "package Top { private import Lib::*; part def Car { part engine : Engine; } part car : Car; }\n";
+    java.util.function.Function<String, List<SourceDocument>> documents =
+        content ->
+            List.of(
+                SourceDocument.inline("affected-lib.sysml", library),
+                SourceDocument.inline("affected-top.sysml", content));
+    connection.parseSources(documents.apply(top + "// first\n"));
+    Model base = connection.parseSources(documents.apply(top));
+    assertEquals(List.of(), base.affected());
+    ParseOptions related = ParseOptions.defaults().withBaseModelHash(base.hash());
+    Model same = connection.parseSources(documents.apply(top), related);
+    assertEquals(base.hash(), same.hash());
+    assertEquals(List.of(), same.affected());
+    Model edited =
+        connection.parseSources(documents.apply(top.replace("part car", "part sedan")), related);
+    assertNotEquals(base.hash(), edited.hash());
+    assertEquals(List.of("affected-top.sysml"), edited.affected());
+    assertEquals(List.of("affected-lib.sysml", "affected-top.sysml"), edited.documents());
+  }
+
+  @Test
   void aConversionAndAnEditResultWriteTheirContent(@org.junit.jupiter.api.io.TempDir Path dir)
       throws Exception {
     Model model = connection.load(fixture("vehicle.sysml"));

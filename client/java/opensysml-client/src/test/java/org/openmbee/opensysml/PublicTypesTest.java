@@ -1031,4 +1031,85 @@ class PublicTypesTest {
         assertThrows(ServiceStartException.class, () -> Connection.open(options));
     assertTrue(refused.getMessage().contains("autoStart"));
   }
+
+  @Test
+  void theCompactFormNeedsConvertCompact() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
+            new Capabilities(
+                "dev", java.util.Set.of(Capabilities.CONVERT, Capabilities.CONVERT_CHECK_DIAGNOSTICS)))) {
+      ConversionOptions sysml = ConversionOptions.defaults().withFromFormat("sysml");
+      for (ConversionOptions options :
+          List.of(
+              sysml.withCompact(true),
+              sysml.withOmitDerived(true),
+              sysml.withKeepDerived(List.of("qualifiedName")))) {
+        CapabilityException refused =
+            assertThrows(
+                CapabilityException.class,
+                () -> limited.convert("package P;", "api-json", options));
+        assertEquals(Capabilities.CONVERT_COMPACT, refused.capability());
+      }
+      CapabilityException refused =
+          assertThrows(
+              CapabilityException.class,
+              () ->
+                  limited.convert(
+                      "package P;", "api-json", sysml.withIncludeLibraryStubs(true)));
+      assertEquals(Capabilities.CONVERT_LIBRARY_STUBS, refused.capability());
+    }
+  }
+
+  @Test
+  void theChecksDiagnosticsNeedConvertCheckDiagnostics() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
+            new Capabilities("dev", java.util.Set.of(Capabilities.CONVERT, Capabilities.CONVERT_COMPACT)))) {
+      ConversionOptions options =
+          ConversionOptions.defaults().withFromFormat("sysml").withIncludeCheckDiagnostics(true);
+      CapabilityException refused =
+          assertThrows(
+              CapabilityException.class, () -> limited.convert("package P;", "api-json", options));
+      assertEquals(Capabilities.CONVERT_CHECK_DIAGNOSTICS, refused.capability());
+    }
+  }
+
+  @Test
+  void aBaseModelNeedsParseSourcesAffectedAndSeveralDocuments() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
+            new Capabilities("dev", java.util.Set.of(Capabilities.PARSE_SOURCES)))) {
+      ParseOptions related = ParseOptions.defaults().withBaseModelHash("base-hash");
+      List<SourceDocument> documents = List.of(SourceDocument.inline("a.sysml", "package A;"));
+      CapabilityException refused =
+          assertThrows(CapabilityException.class, () -> limited.parseSources(documents, related));
+      assertEquals(Capabilities.PARSE_SOURCES_AFFECTED, refused.capability());
+      assertThrows(IllegalArgumentException.class, () -> limited.parse("package A;", related));
+      ParseOptions defaults = ParseOptions.defaults();
+      assertThrows(IllegalArgumentException.class, () -> defaults.withBaseModelHash(""));
+    }
+  }
+
+  @Test
+  void conversionOptionsDefaultToTheElementArrayWithoutCheckDiagnostics() {
+    ConversionOptions defaults = ConversionOptions.defaults();
+    assertFalse(defaults.compact());
+    assertFalse(defaults.omitDerived());
+    assertEquals(List.of(), defaults.keepDerived());
+    assertFalse(defaults.includeCheckDiagnostics());
+    ConversionOptions asked =
+        defaults.withCompact(true).withOmitDerived(true).withKeepDerived(List.of("name"))
+            .withIncludeCheckDiagnostics(true);
+    assertEquals(
+        new ConversionOptions(
+            Optional.empty(), false, Optional.empty(), false, true, true, List.of("name"), true),
+        asked);
+    assertEquals(defaults, new ConversionOptions(Optional.empty(), false));
+  }
 }

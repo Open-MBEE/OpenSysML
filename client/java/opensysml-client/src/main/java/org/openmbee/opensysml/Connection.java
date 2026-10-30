@@ -367,8 +367,9 @@ public final class Connection implements AutoCloseable {
    * @throws ModelException if the documents could not be parsed at all
    * @throws ServiceException if the request names no documents or two documents by one name
    * @throws CapabilityException if the service does not advertise {@code parse_sources}, an inline
-   *     document names a language and it does not advertise {@code inline_language}, or strict
-   *     conformance is asked and it does not advertise {@code strict_conformance}
+   *     document names a language and it does not advertise {@code inline_language}, strict
+   *     conformance is asked and it does not advertise {@code strict_conformance}, or a base model
+   *     is named and it does not advertise {@code parse_sources_affected}
    */
   public Model parseSources(List<SourceDocument> documents, ParseOptions options) {
     Objects.requireNonNull(documents, "documents");
@@ -379,6 +380,13 @@ public final class Connection implements AutoCloseable {
     }
     ParseSourcesRequest.Builder request =
         ParseSourcesRequest.newBuilder().setStrictConformance(options.strictConformance());
+    options
+        .baseModelHash()
+        .ifPresent(
+            base -> {
+              capabilities.require(Capabilities.PARSE_SOURCES_AFFECTED);
+              request.setBaseModelHash(base);
+            });
     List<String> names = new java.util.ArrayList<>(documents.size());
     for (SourceDocument document : documents) {
       if (document.language().isPresent()) {
@@ -394,7 +402,8 @@ public final class Connection implements AutoCloseable {
       throw new ModelException(response.getError(), diagnostics);
     }
     List<Symbol> roots = response.getRootsList().stream().map(Protos::symbol).toList();
-    return new Model(this, response.getModelHash(), roots, diagnostics, names);
+    return new Model(
+        this, response.getModelHash(), roots, diagnostics, names, response.getAffectedList());
   }
 
   /**
@@ -623,6 +632,17 @@ public final class Connection implements AutoCloseable {
       capabilities.require(Capabilities.CONVERT_LIBRARY_STUBS);
       request.setIncludeLibraryStubs(true);
     }
+    if (options.compact() || options.omitDerived() || !options.keepDerived().isEmpty()) {
+      capabilities.require(Capabilities.CONVERT_COMPACT);
+      request
+          .setCompact(options.compact())
+          .setOmitDerived(options.omitDerived())
+          .addAllKeepDerived(options.keepDerived());
+    }
+    if (options.includeCheckDiagnostics()) {
+      capabilities.require(Capabilities.CONVERT_CHECK_DIAGNOSTICS);
+      request.setIncludeCheckDiagnostics(true);
+    }
     ConvertResponse response =
         call("Convert", request.build(), ConvertResponse.getDefaultInstance());
     List<Diagnostic> diagnostics = Protos.diagnostics(response.getDiagnosticsList());
@@ -692,6 +712,11 @@ public final class Connection implements AutoCloseable {
 
   private static ParseFileRequest.Builder request(ParseOptions options) {
     Objects.requireNonNull(options, NAME_OPTIONS);
+    if (options.baseModelHash().isPresent()) {
+      throw new IllegalArgumentException(
+          "baseModelHash relates a parseSources model to a base; a one-document parse has no"
+              + " affected documents to report");
+    }
     return ParseFileRequest.newBuilder()
         .setLanguage(options.language().wireName())
         .setStrictConformance(options.strictConformance());
