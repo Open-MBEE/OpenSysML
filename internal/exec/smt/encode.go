@@ -584,20 +584,23 @@ func stagedSlot(flow lower.ObjectFlow, source, target *solve.Var) string {
 	return slot
 }
 
+// assignmentConstruct prefixes the target of an assignment in diagnostics.
+const assignmentConstruct = "assignment to "
+
 // collectBody translates a body's expressions and registers what it declares.
 func (e *Encoding) collectBody(body []lower.Statement, label string, declared map[string]bool) error {
 	for _, stmt := range body {
 		switch s := stmt.(type) {
 		case lower.Assign:
-			if _, err := e.expression(s.Value, s.Scope, "assignment to "+s.Target, label); err != nil {
+			if _, err := e.expression(s.Value, s.Scope, assignmentConstruct+s.Target, label); err != nil {
 				return err
 			}
-			v, err := e.variable(s.Target, s.Scope, "assignment to "+s.Target, label)
+			v, err := e.variable(s.Target, s.Scope, assignmentConstruct+s.Target, label)
 			if err != nil {
 				return err
 			}
 			if _, derived := e.derived[v.Name]; derived {
-				return &UnsupportedError{Node: label, Construct: "assignment to " + s.Target,
+				return &UnsupportedError{Node: label, Construct: assignmentConstruct + s.Target,
 					Reason: "a feature valued by an expression over other features holds the value written until written again; the encoding computes it from the expression at every read"}
 			}
 		case lower.Declare:
