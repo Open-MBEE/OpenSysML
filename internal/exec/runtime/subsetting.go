@@ -29,6 +29,9 @@ import (
 // A declaration that itself restates sym (`:>> elements` on an object, walked past
 // its library chain) masks nothing on that walk: the target stays the resolved one.
 func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.RelationshipKind) []*symbols.Symbol {
+	if len(ctx.relationshipsOfKind(sym, kind)) == 0 {
+		return nil
+	}
 	key := relatedKey{sym, owner, kind}
 	if features, ok := ctx.model.related[key]; ok {
 		return features

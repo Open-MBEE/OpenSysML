@@ -1,0 +1,7 @@
+The runtime's memo of the features a feature's relationships name, per owner type (#1626),
+no longer records the features that declare no relationship of the kind asked for, which were
+most of its entries and grew with every type an instantiation touched. `FeaturesOf` over
+7 000 types allocates 285 MB per run instead of 310 MB, and a cold `Instantiate` 230 MB
+instead of 252 MB, recovering most of what #1626 added over 0.11.0's 273 MB and 221 MB on
+the same toolchain; the memoized walks of the features that do relate stay memoized, so
+repeated reads still allocate nothing and `GRPCVerifyConstraint` is unchanged.
