@@ -1248,8 +1248,11 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
       status(`${ran} and stopped after ${steps.length} trace records: ${result.error}`, true);
       return;
     }
+    const tokens = new Set(steps.flatMap(({ record }) => (record.token === undefined ? [] : [record.token]))).size;
+    const last = steps[steps.length - 1]?.record;
+    const ended = last === undefined ? "" : last.kind === "complete" ? "; the action completed" : `; the run ends on ${last.text}`;
     const outputs = [...(result.outputs ?? [])].map(([name, value]) => `${name} = ${value}`);
-    status(`${ran}: ${steps.length} trace records${outputs.length === 0 ? "" : `; ${outputs.join(", ")}`}.`);
+    status(`${ran}: ${steps.length} trace records over ${tokens} token${tokens === 1 ? "" : "s"}${ended}${outputs.length === 0 ? "" : ` with ${outputs.join(", ")}`}.`);
   }
 
   // ---- debugging the model ----
