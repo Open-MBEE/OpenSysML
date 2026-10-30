@@ -25,7 +25,7 @@
         <build-helper.version>3.6.2</build-helper.version>
         <maven.compiler.plugin.version>3.16.0</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.6.1</maven.surefire.plugin.version>
-        <jacoco.plugin.version>0.8.15</jacoco.plugin.version>
+        <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
         <!-- Held past their known advisories ahead of the Spring Boot BOM, which manages
              jackson, grpc and httpcomponents lower; bouncycastle, guava and the Apache HttpComponents
              arrive through the client's sigstore-java. -->
