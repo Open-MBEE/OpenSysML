@@ -660,7 +660,7 @@ jobs:
           cache: true
 
       - name: Cache the pilot Xpect suites
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/pilot-xpect-corpus
           key: pilot-xpect-corpus-${{ hashFiles('scripts/download-pilot-xpect.sh', 'scripts/pilot-pin.sh') }}
@@ -884,7 +884,7 @@ jobs:
       # toolchain's identity; the venv is not restored across Python builds.
       - name: Cache the PDF toolchain
         id: toolchain-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/doc-pdf
           key: doc-pdf-toolchain-${{ runner.os }}-${{ hashFiles('scripts/download-doc-pdf-toolchain.sh') }}-py${{ steps.setup-python.outputs.python-version }}
@@ -1326,7 +1326,7 @@ jobs:
 
       # The FMI runner test's FMUs, same pin as the Go gate's.
       - name: Cache the Reference-FMUs
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: examples/reference-fmus
           key: reference-fmus-${{ hashFiles('scripts/download-reference-fmus.sh', 'scripts/reference-fmus-pin.sh') }}
