@@ -16,6 +16,8 @@ from opensysml.model import Model
 from opensysml.action_run import ActionOutputs
 from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
+    CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+    CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
     CAPABILITY_OSLC_QUERY,
     CAPABILITY_APPLY_EDITS,
@@ -37,6 +39,7 @@ from opensysml.capabilities import (
     CAPABILITY_COMMENT_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_PARSE_SOURCES,
+    CAPABILITY_PARSE_SOURCES_AFFECTED,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_CONVERT,
@@ -1455,7 +1458,8 @@ class Connection:
             model.raise_for_errors()
         return model
 
-    def parse_sources(self, documents, strict=False, strict_conformance=False):
+    def parse_sources(self, documents, strict=False, strict_conformance=False,
+                      base_model_hash=''):
         """Parse several documents together as one model.
 
         An import from one document into another resolves, and each
@@ -1478,17 +1482,29 @@ class Connection:
             strict_conformance (bool): Ask whether the documents are conforming
                 SysML v2: notation only OpenSysML accepts is reported as an
                 error rather than a warning.
+            base_model_hash (str): The :attr:`Model.hash` of a model of the
+                same documents the caller holds results of, typically the
+                previous ``parse_sources`` answer. The service then compares
+                the two document by document and names, in
+                :attr:`Model.affected`, the documents whose analysis,
+                diagnostics or conversion may differ, so the caller keeps what
+                it computed for the others. Every document is named when the
+                service cannot compare, such as for a set it has not seen
+                before; a base it no longer holds is not an error. Needs the
+                ``parse_sources_affected`` capability.
 
         Returns:
             Model: The model of all the documents, with one root per document
-            in :attr:`Model.roots` (the first as :attr:`Model.root`) and their
-            names in :attr:`Model.documents`
+            in :attr:`Model.roots` (the first as :attr:`Model.root`), their
+            names in :attr:`Model.documents` and, given a base, the documents
+            that changed in :attr:`Model.affected`
 
         Raises:
             ValueError: If there are no documents, two share a name, or one is
                 of none of the accepted forms
             MissingCapabilityError: If the service predates ``parse_sources``,
-                or ``strict_conformance``/``inline_language`` when asked for
+                or ``strict_conformance``/``inline_language``/
+                ``parse_sources_affected`` when asked for
             ModelFileNotFoundError: If the service cannot read a file
             InvalidRequestError: If the service refuses the documents
             ModelError: If the service could not parse the documents as a
@@ -1523,9 +1539,17 @@ class Connection:
         self._require_strict_conformance(strict_conformance)
         if strict_conformance:
             capabilities.append(CAPABILITY_STRICT_CONFORMANCE)
+        if base_model_hash:
+            require(
+                info,
+                CAPABILITY_PARSE_SOURCES_AFFECTED,
+                upgrade_remedy(CAPABILITY_PARSE_SOURCES_AFFECTED),
+            )
+            capabilities.append(CAPABILITY_PARSE_SOURCES_AFFECTED)
         request = sysml_pb2.ParseSourcesRequest(
             documents=[source.to_pb() for source in sources],
             strict_conformance=strict_conformance,
+            base_model_hash=base_model_hash,
         )
         with translate_rpc_errors(
             not_found=ModelFileNotFoundError,
@@ -1548,7 +1572,8 @@ class Connection:
     
     def convert(self, to_format, file_path=None, content=None, model_hash=None,
                 from_format='', tolerate_syntax_errors=False, id_form='',
-                include_library_stubs=False):
+                include_library_stubs=False, compact=False, omit_derived=False,
+                keep_derived=(), include_check_diagnostics=False):
         """Write a model out in another of the formats OpenSysML writes.
 
         The source is a loaded model, named by its hash, or one named the way
@@ -1581,6 +1606,20 @@ class Connection:
                 library stubs written before 0.11.0; by default library
                 elements remain bare references, not roots. Needs the
                 ``convert_library_stubs`` capability.
+            compact (bool): For notation converted to api-json, write the
+                compact document (``api-json-compact/1``) in place of the
+                element array. Needs the ``convert_compact`` capability.
+            omit_derived (bool): With ``compact``, leave out every derived
+                property of the metamodel.
+            keep_derived (Sequence[str]): With ``omit_derived``, the derived
+                properties still written, named as the element array names
+                them (``qualifiedName``).
+            include_check_diagnostics (bool): Report the semantic check's
+                diagnostics in the result's ``diagnostics`` alongside the
+                output, each with its own severity, so a conversion of a
+                model with errors is told apart from one of a clean model.
+                Notation sources only. Needs the ``convert_check_diagnostics``
+                capability.
 
         A SysML v1 model — ``from_format`` of 'xmi', 'uml' or 'mdzip', or a
         file_path with that extension — is refused: it is migrated, not
@@ -1599,9 +1638,14 @@ class Connection:
                 is given
             InvalidRequestError: If the source is a SysML v1 model, with the
                 help that names :meth:`migrate`; also if a format or id_form
-                is unknown, or id_form is given for a notation target
+                is unknown, id_form is given for a notation target,
+                omit_derived or keep_derived without compact, keep_derived
+                without omit_derived or naming a property that is not
+                derived, compact for other than notation to api-json, or
+                include_check_diagnostics for a graph source
             MissingCapabilityError: If the service cannot convert, or cannot
-                write library stubs and they were asked for
+                write library stubs, the compact form or the check's
+                diagnostics and they were asked for
             ConversionError: If the model could not be written in that format
             ModelFileNotFoundError: If the named file cannot be read
             ModelNotFoundError: If the model is no longer cached
@@ -1638,6 +1682,19 @@ class Connection:
                 CAPABILITY_CONVERT_LIBRARY_STUBS,
                 upgrade_remedy(CAPABILITY_CONVERT_LIBRARY_STUBS),
             )
+        keep_derived = list(keep_derived)
+        if compact or omit_derived or keep_derived:
+            require(
+                self.server_info(),
+                CAPABILITY_CONVERT_COMPACT,
+                upgrade_remedy(CAPABILITY_CONVERT_COMPACT),
+            )
+        if include_check_diagnostics:
+            require(
+                self.server_info(),
+                CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+                upgrade_remedy(CAPABILITY_CONVERT_CHECK_DIAGNOSTICS),
+            )
 
         request = sysml_pb2.ConvertRequest(
             to_format=to_format,
@@ -1645,6 +1702,10 @@ class Connection:
             tolerate_syntax_errors=tolerate_syntax_errors,
             id_form=id_form,
             include_library_stubs=include_library_stubs,
+            compact=compact,
+            omit_derived=omit_derived,
+            keep_derived=keep_derived,
+            include_check_diagnostics=include_check_diagnostics,
         )
         if file_path is not None:
             request.file_path = file_path
