@@ -11,22 +11,31 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		return false
 	}
 	if sym.Recorded() {
-		return !m.isKerMLDoc(sym) && sym.Facts.Node == symbols.NodeUsage &&
-			sym.Facts.Modifiers.Has(symbols.ModMayTimeVary)
+		// Recorded only by this derivation, on a usage or the constraint a
+		// require/assume member declares.
+		return !m.isKerMLDoc(sym) && sym.Facts.Modifiers.Has(symbols.ModMayTimeVary)
 	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || sym.OwnerScope == nil {
+	var portion, actionKind bool
+	switch d := sym.Decl.(type) {
+	case *ast.Usage:
+		portion = d.IsPortion || d.Portion != ast.PortionNone
+		actionKind = d.Kind == ast.UsageAction
+	case *ast.RequireMember, *ast.AssumeMember:
+		// A required or assumed constraint is the ConstraintUsage its member declares.
+	default:
+		return false
+	}
+	if sym.OwnerScope == nil {
 		return false
 	}
 	owner := sym.OwnerScope.Owner()
-	if owner == nil || !m.conformsByName(owner, "Occurrences::Occurrence") ||
-		usage.IsPortion || usage.Portion != ast.PortionNone ||
+	if owner == nil || !m.conformsByName(owner, "Occurrences::Occurrence") || portion ||
 		m.conformsByName(sym, "Links::SelfLink") ||
 		m.conformsByName(sym, "Occurrences::HappensLink") {
 		return false
 	}
 	return !m.EffectiveIsComposite(sym) ||
-		(usage.Kind != ast.UsageAction && !m.conformsByName(sym, "Actions::Action"))
+		(!actionKind && !m.conformsByName(sym, "Actions::Action"))
 }
 
 // UsageMayTimeVaryForOwningType derives Usage::mayTimeVary for the owning type
@@ -74,6 +83,8 @@ func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 		return m.UsageMayTimeVary(sym)
 	case *ast.CrossFeatureMember:
 		return m.isKerMLDoc(sym) && (d.IsVariable || d.IsConstant)
+	case *ast.RequireMember, *ast.AssumeMember:
+		return !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)
 	}
 	return false
 }
