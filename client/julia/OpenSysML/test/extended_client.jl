@@ -187,6 +187,8 @@ end
         @test requests[end].body["idForm"] == "uuid"
         @test requests[end].body["includeLibraryStubs"] === true
         @test asked.library_references == [LibraryReference("0c53", "SI::second", "AttributeUsage")]
+        @test hash(asked.library_references[1]) == hash(LibraryReference("0c53", "SI::second", "AttributeUsage"))
+        @test LibraryReference("0c53", "SI::second", "AttributeUsage") != LibraryReference("0c53", "SI::s", "AttributeUsage")
         @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
                                                                from_format="sysml")
         @test !haskey(requests[end].body, "idForm")

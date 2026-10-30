@@ -8,6 +8,9 @@ struct LibraryReference
     qualified_name::String
     type::String
 end
+Base.:(==)(a::LibraryReference, b::LibraryReference) =
+    a.id == b.id && a.qualified_name == b.qualified_name && a.type == b.type
+Base.hash(ref::LibraryReference, h::UInt) = hash((ref.id, ref.qualified_name, ref.type), h)
 
 """
 A model written out in another format. `library_references` lists the standard-library
@@ -152,9 +155,10 @@ to_api_json(model::Model) = convert_model(model, "api-json")
 
 """Convert and write `model` to a path, inferring its format when omitted."""
 function save(model::Model, path::AbstractString; to_format=nothing,
-              tolerate_syntax_errors=false)
+              tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false)
     format = to_format === nothing ? format_of_path(path) : String(to_format)
-    result = convert_model(model, format; tolerate_syntax_errors=tolerate_syntax_errors)
+    result = convert_model(model, format; tolerate_syntax_errors=tolerate_syntax_errors,
+                           id_form=id_form, include_library_stubs=include_library_stubs)
     open(path, "w") do io
         write(io, result.content)
     end
