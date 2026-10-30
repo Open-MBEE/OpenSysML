@@ -85,3 +85,19 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 		}
 	}
 }
+
+// A KerML body parameter is a KerML Feature: Usage::mayTimeVary is not its to derive.
+func TestKerMLBodyParameterDoesNotVaryInTime(t *testing.T) {
+	const src = `package P {
+		attribute values : Integer[*];
+		attribute positives = values->select { in item : Integer; item > 0 };
+	}`
+	m, root := buildModelWithStdlibNamedKind(t, "body.kerml", source.KindKerML, src)
+	param := bodyParameter(t, root, "item")
+	if m.UsageMayTimeVary(param) {
+		t.Error("KerML body parameter item: mayTimeVary = true, want false")
+	}
+	if m.FeatureIsVariable(param) {
+		t.Error("KerML body parameter item: isVariable = true, want false")
+	}
+}

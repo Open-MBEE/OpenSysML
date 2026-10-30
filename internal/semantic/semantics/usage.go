@@ -15,6 +15,10 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		// require/assume member declares.
 		return !m.isKerMLDoc(sym) && sym.Facts.Modifiers.Has(symbols.ModMayTimeVary)
 	}
+	if m.isKerMLDoc(sym) {
+		// A KerML feature has no Usage::mayTimeVary; its isVariable is declared.
+		return false
+	}
 	var portion, actionKind, bodyParameter bool
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
