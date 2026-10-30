@@ -28,6 +28,14 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.ID_FORM_QUALIFIED
+    options:
+      heading_level: 3
+
+::: opensysml.ID_FORM_UUID
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONSTRAINT_BODY_AUTHORING
     options:
       heading_level: 3

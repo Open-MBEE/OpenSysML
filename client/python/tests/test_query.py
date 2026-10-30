@@ -16,6 +16,7 @@ import grpc
 import pytest
 
 from opensysml.capabilities import (
+    CAPABILITY_OSLC_QUERY,
     CAPABILITY_QUERY,
     CAPABILITY_QUERY_ORDER_BY,
     MissingCapabilityError,
@@ -292,6 +293,43 @@ def test_sorted_query_requires_its_own_capability(fake_service):
     assert len(service.requests) == 1
 
 
+def test_oslc_text_is_sent_in_place_of_the_query(fake_service):
+    """An OSLC query sends just its text: the two forms are mutually exclusive on the wire."""
+    port, service = fake_service(capabilities=(CAPABILITY_QUERY, CAPABILITY_OSLC_QUERY))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        model.query(oslc='sysml:name="vehicle"')
+    (request,) = service.requests
+    assert request.model_hash == model.hash
+    assert request.oslc_query == 'sysml:name="vehicle"'
+    assert not request.HasField("query")
+
+
+def test_oslc_query_requires_its_own_capability(fake_service):
+    """A service that cannot read OSLC text is not sent any; structured queries still go."""
+    port, service = fake_service(capabilities=(CAPABILITY_QUERY,))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.query(oslc='sysml:name="vehicle"')
+        assert excinfo.value.capability == CAPABILITY_OSLC_QUERY
+        assert service.requests == [], "the request was sent to a service that cannot serve it"
+        model.query(COOKBOOK_QUERY)
+    assert len(service.requests) == 1
+
+
+def test_oslc_and_the_standard_query_are_not_combined(fake_service):
+    """Given both, the client refuses rather than silently preferring one."""
+    port, service = fake_service(capabilities=(CAPABILITY_QUERY, CAPABILITY_OSLC_QUERY))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        with pytest.raises(QueryError, match="not both"):
+            model.query(COOKBOOK_QUERY, oslc='sysml:name="vehicle"')
+        with pytest.raises(QueryError, match="not both"):
+            model.query(select=["name"], oslc='sysml:name="vehicle"')
+    assert service.requests == []
+
+
 def test_model_query_sends_its_own_hash(fake_service):
     """A model queries itself: the request names the model it was loaded as."""
     port, service = fake_service()
@@ -393,6 +431,14 @@ class TestQueryAgainstRealService:
                 ],
             })
         assert [e.id for e in elements] == ["Demo::vehicle::wheels"]
+
+    def test_oslc_text_selects_by_name(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(MODEL)
+            elements = model.query(oslc='sysml:name="vehicle"')
+            with pytest.raises(InvalidRequestError):
+                model.query(oslc="sysml:name=")
+        assert [e.id for e in elements] == ["Demo::vehicle"]
 
     def test_an_unknown_property_is_an_error_not_an_empty_answer(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

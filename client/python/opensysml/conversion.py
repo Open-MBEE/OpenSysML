@@ -29,6 +29,13 @@ FORMAT_TURTLE = "ttl"
 #: ``json`` names it too.
 FORMAT_API_JSON = "api-json"
 
+#: ``id_form`` of :meth:`Connection.convert`: derived ids spelled from each element's qualified
+#: name, the default.
+ID_FORM_QUALIFIED = "qualified"
+#: ``id_form`` of :meth:`Connection.convert`: name-based uuids under each root package, the
+#: library convention.
+ID_FORM_UUID = "uuid"
+
 #: Names the service canonicalizes each format to, so a reported format can be
 #: told apart without repeating the alias table.
 _TURTLE_NAMES = frozenset({"ttl", "turtle", "rdf"})
