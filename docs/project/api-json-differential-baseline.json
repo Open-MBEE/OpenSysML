@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:fce31719518c94aaef39d9e13da74e8bf2fd495a934187574087d8aac593c7fb"
+        "sourceDigest": "sha256:f7da5933bed5d75f9beba7165e601fac3ee17b53e67380ac3046643ba6bcd773"
       }
     ],
     "inputs": [
@@ -120,8 +120,8 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1143051,
-      "presentDifferent": 29108,
+      "presentEqual": 1143370,
+      "presentDifferent": 28789,
       "oursMissing": 1054265,
       "pilotMissing": 69343,
       "absentBoth": 1967116,
@@ -161,8 +161,8 @@
         "typeMismatch": 10
       },
       "properties": {
-        "presentEqual": 92335,
-        "presentDifferent": 1938,
+        "presentEqual": 92357,
+        "presentDifferent": 1916,
         "oursMissing": 84784,
         "pilotMissing": 5126,
         "absentBoth": 164386,
@@ -197,8 +197,8 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 334506,
-        "presentDifferent": 8231,
+        "presentEqual": 334628,
+        "presentDifferent": 8109,
         "oursMissing": 305987,
         "pilotMissing": 19290,
         "absentBoth": 576149,
@@ -233,8 +233,8 @@
         "typeMismatch": 15
       },
       "properties": {
-        "presentEqual": 116464,
-        "presentDifferent": 3336,
+        "presentEqual": 116518,
+        "presentDifferent": 3282,
         "oursMissing": 106662,
         "pilotMissing": 6811,
         "absentBoth": 206224,
@@ -306,8 +306,8 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 77965,
-        "presentDifferent": 1702,
+        "presentEqual": 78008,
+        "presentDifferent": 1659,
         "oursMissing": 72909,
         "pilotMissing": 5549,
         "absentBoth": 135000,
@@ -343,8 +343,8 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 16766,
-        "presentDifferent": 438,
+        "presentEqual": 16776,
+        "presentDifferent": 428,
         "oursMissing": 15647,
         "pilotMissing": 1057,
         "absentBoth": 31436,
@@ -380,8 +380,8 @@
         "typeMismatch": 186
       },
       "properties": {
-        "presentEqual": 340047,
-        "presentDifferent": 8792,
+        "presentEqual": 340113,
+        "presentDifferent": 8726,
         "oursMissing": 315526,
         "pilotMissing": 20150,
         "absentBoth": 596774,
@@ -452,8 +452,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 89967,
-        "presentDifferent": 2166,
+        "presentEqual": 89969,
+        "presentDifferent": 2164,
         "oursMissing": 88427,
         "pilotMissing": 4816,
         "absentBoth": 150087,
@@ -2562,8 +2562,8 @@
       0
     ],
     "ActionUsage.isVariable": [
-      510,
-      7,
+      508,
+      9,
       0,
       0,
       0,
@@ -2598,8 +2598,8 @@
       0
     ],
     "ActionUsage.mayTimeVary": [
-      510,
-      7,
+      508,
+      9,
       0,
       0,
       0,
@@ -35106,8 +35106,8 @@
       0
     ],
     "ExhibitStateUsage.isVariable": [
-      14,
-      36,
+      50,
+      0,
       0,
       0,
       0,
@@ -35124,8 +35124,8 @@
       0
     ],
     "ExhibitStateUsage.mayTimeVary": [
-      14,
-      36,
+      50,
+      0,
       0,
       0,
       0,
@@ -47220,8 +47220,8 @@
       0
     ],
     "IncludeUseCaseUsage.isVariable": [
-      2,
-      17,
+      19,
+      0,
       0,
       0,
       0,
@@ -47247,8 +47247,8 @@
       0
     ],
     "IncludeUseCaseUsage.mayTimeVary": [
-      2,
-      17,
+      19,
+      0,
       0,
       0,
       0,
@@ -71052,8 +71052,8 @@
       0
     ],
     "PayloadFeature.isVariable": [
-      52,
-      5,
+      57,
+      0,
       0,
       0,
       0,
@@ -71727,8 +71727,8 @@
       0
     ],
     "PerformActionUsage.isVariable": [
-      125,
-      111,
+      233,
+      3,
       0,
       0,
       0,
@@ -71754,8 +71754,8 @@
       0
     ],
     "PerformActionUsage.mayTimeVary": [
-      125,
-      111,
+      233,
+      3,
       0,
       0,
       0,
@@ -98250,8 +98250,8 @@
       0
     ],
     "UseCaseUsage.isVariable": [
-      27,
-      0,
+      25,
+      2,
       0,
       0,
       0,
@@ -98277,8 +98277,8 @@
       0
     ],
     "UseCaseUsage.mayTimeVary": [
-      27,
-      0,
+      25,
+      2,
       0,
       0,
       0,
