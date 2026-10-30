@@ -129,6 +129,7 @@ end
     @test ConnectError("deadline_exceeded", "timed out", 504) isa ServiceTimeoutError
     @test ConnectError("unimplemented", "unknown method", 501) isa UnsupportedOperationError
     @test ConnectError("unavailable", "offline", 503) isa ServiceUnavailableError
+    @test ConnectError("unauthenticated", "no token", 401) isa AuthenticationError
     @test SymbolNotFoundError("Demo::Car", ["Demo::car"]).name == "Demo::Car"
 
     info = ServerInfo("1.2.3", ["query", "verification"], true, "test service")
@@ -166,6 +167,64 @@ end
         @test occursin(MIGRATED_NOT_CONVERTED, err.msg)
         @test occursin("migrate_file", err.msg)
         @test isempty(requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "convert sends the id form and library stubs asked for" begin
+    answer = Dict{String,Any}("content" => "[]", "fromFormat" => "sysml", "toFormat" => "api-json",
+        "libraryReferences" => [Dict("id" => "0c53", "qualifiedName" => "SI::second",
+                                     "type" => "AttributeUsage")])
+    server, requests, address = recording_service(["convert", "convert_library_stubs"];
+                                                  handler=(method, body) -> answer)
+    conn = external(address)
+    try
+        asked = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+            from_format="sysml", id_form=ID_FORM_UUID, include_library_stubs=true)
+        @test requests[end].method == "Convert"
+        @test requests[end].body["idForm"] == "uuid"
+        @test requests[end].body["includeLibraryStubs"] === true
+        @test asked.library_references == [LibraryReference("0c53", "SI::second", "AttributeUsage")]
+        @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+                                                               from_format="sysml")
+        @test !haskey(requests[end].body, "idForm")
+        @test !haskey(requests[end].body, "includeLibraryStubs")
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["convert"])
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError convert_source(conn, "package P;", "api-json";
+            from_format="sysml", include_library_stubs=true)
+        @test all(request -> request.method != "Convert", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "render_view and import_data send their folding and row forms" begin
+    server, requests, address = recording_service(["render_view", "import_data"];
+        handler=(method, body) -> method == "RenderView" ?
+            Dict{String,Any}("view" => "V", "kind" => "tree", "stated" => "rendered",
+                "nodes" => [Dict("id" => "n0", "name" => "sender", "compartment" => "parts")]) :
+            Dict{String,Any}("files" => Any[]))
+    conn = external(address)
+    model = Model(conn, "hash", Diagnostic[])
+    try
+        folded = render_view(model, "V"; compartments="most")
+        @test requests[end].body["compartments"] == "most"
+        @test folded.nodes[1].compartment == "parts"
+        render_view(model, "V")
+        @test requests[end].body["compartments"] == ""
+        import_data(model, ["fleet.csv" => "element,count\n"]; import_as="values", dry_run=true)
+        @test requests[end].body["importAs"] == "values"
+        import_data(model, ["fleet.csv" => "element,count\n"])
+        @test requests[end].body["importAs"] == "values"
     finally
         close(conn)
         close(server)
@@ -784,6 +843,13 @@ end
                 @test "edge-labels" in shown_view.shown
                 full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
                 @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
+                boxes = render_view(views_model, "#tree:RenderViewDemo::Assembly")
+                @test all(node -> isempty(node.compartment), boxes.nodes)
+                folded = render_view(views_model, "#tree:RenderViewDemo::Assembly"; compartments="most")
+                @test only(filter(node -> node.name == "sender", folded.nodes)).compartment == "parts"
+                @test length(folded.nodes) < length(boxes.nodes)
+                @test_throws InvalidRequestError render_view(views_model, "#tree:RenderViewDemo::Assembly";
+                                                             compartments="rows")
                 deep_model = parse_source(conn, """
                     package Deep {
                         private import Views::*;
@@ -878,6 +944,11 @@ end
                 dry = import_data(import_model, ["fleet.tsv" => "element\tcount\nV::vehicle\t7\n"]; dry_run=true)
                 @test !applied(dry) && isempty(dry.content) && isempty(dry.documents)
                 @test length(dry.files[1].assignments) == 1
+                as_values = import_data(import_model, ["fleet.tsv" => "element\tcount\nV::vehicle\t7\n"];
+                                        import_as="values", dry_run=true)
+                @test length(as_values.files[1].assignments) == 1
+                @test_throws InvalidRequestError import_data(import_model,
+                    ["fleet.tsv" => "element\tcount\nV::vehicle\t7\n"]; import_as="rows", dry_run=true)
                 unchanged = import_data(import_model, ["fleet.csv" => "element,count\n"])
                 @test !applied(unchanged) && unchanged.model_hash == import_model.hash
                 @test isempty(unchanged.documents) && unchanged.files[1].values == 0
@@ -964,6 +1035,28 @@ end
                 @test !isempty(convert_model(document_model, "sysml").content)
                 @test !isempty(to_turtle(document_model).content)
                 @test !isempty(to_api_json(document_model).content)
+                library_source = "package P { private import SI::*; attribute time = 20 [s]; }"
+                plain = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, library_source,
+                    "api-json"; from_format="sysml")
+                second = only(filter(ref -> ref.qualified_name == "SI::second", plain.library_references))
+                @test second == LibraryReference("0c539f7c-20a1-520d-bae0-f3f855517aea", "SI::second",
+                                                 "AttributeUsage")
+                @test !any(element -> get(element, "isLibraryElement", false) === true,
+                           JSON.parse(plain.content))
+                legacy = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, library_source,
+                    "api-json"; from_format="sysml", include_library_stubs=true)
+                stub = only(filter(element -> element["@id"] == second.id, JSON.parse(legacy.content)))
+                @test stub["qualifiedName"] == "SI::second" && stub["isLibraryElement"] === true
+                @test legacy.library_references == plain.library_references
+                @test isempty(convert_source(conn, library_source, "sysml"; from_format="sysml").library_references)
+                qualified_ids = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn,
+                    "package P { part def A; part a : A; }", "api-json"; from_format="sysml")
+                uuid_ids = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn,
+                    "package P { part def A; part a : A; }", "api-json"; from_format="sysml",
+                    id_form=ID_FORM_UUID)
+                @test occursin("\"P__a\"", qualified_ids.content) && !occursin("\"P__a\"", uuid_ids.content)
+                @test_throws InvalidRequestError convert_source(conn, "package P;", "api-json";
+                    from_format="sysml", id_form="short")
                 @test !isempty(convert_file(conn, joinpath(FIXTURES, "simple_part.sysml"), "sysml").content)
                 @test !isempty(convert_source(conn, "package Inline {}", "sysml";
                     from_format="sysml").content)
