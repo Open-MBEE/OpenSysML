@@ -375,13 +375,14 @@ type heldChild struct {
 // heldChildren lists the objects a feature value holds, each under its segment.
 func (w *validationWalk) heldChildren(holder *Instance, feature string, fv *FeatureValue) []heldChild {
 	var out []heldChild
+	named := w.ctx.segmenter(holder)
 	reach := func(val Value, i int) {
 		id, ok := val.Object()
 		if !ok || w.ctx.HoldsNoValue(val) {
 			return
 		}
 		if child, ok := w.ctx.Instance(id); ok {
-			segment, _ := w.ctx.heldSegment(holder, feature, id, i)
+			segment, _ := named.segment(feature, id, i)
 			out = append(out, heldChild{&validatedObject{inst: child}, segment})
 		}
 	}

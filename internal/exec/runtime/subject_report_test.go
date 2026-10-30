@@ -196,13 +196,8 @@ const subsettingCollectionSrc = `package test {
     part outer : Outer;
 }`
 
-// An object is labelled by the declaration it materializes on every surface:
-// `small` for a scalar subsetting usage, `smalls[i]` for an element of a
-// subsetting collection, never by its position in the collection it subsets.
-// The values of a subsetting feature are values of the subsetted one too
-// (KerML §7.3.4.4), and a feature is unordered by default (SysML §7.6.3), so an
-// index into `subsystem` identifies nothing the model fixes, while the
-// declaration is the element the modeller wrote and can address.
+// Validation labels an object by the usage that declares it — `small`, `smalls[2]` —
+// never by its position in the collection that usage subsets (KerML §7.3.4.4, SysML §7.6.3).
 func TestValidationLabelsObjectsByTheirDeclaration(t *testing.T) {
 	for _, tc := range []struct {
 		root string
@@ -231,8 +226,7 @@ func TestValidationLabelsObjectsByTheirDeclaration(t *testing.T) {
 }
 
 // The objects a collection gathers from subsetting usages are held under those
-// usages' segments, so a path listing what an object holds spells them as a
-// verdict does.
+// usages' segments, so a listing of what an object holds spells them as a verdict does.
 func TestHeldObjectsLabelsSubsettingObjectsByTheirDeclaration(t *testing.T) {
 	ctx, pkg := nestedSubjectFixture(t, subsettingCollectionSrc)
 	assembly, err := ctx.Instantiate(memberPath(t, pkg, "assembly"))
@@ -290,5 +284,46 @@ func TestValidationAndCheckAgreeOnANestedSubsettingObject(t *testing.T) {
 	}
 	if len(report.Verdicts) != 1 || !reflect.DeepEqual(report.Verdicts[0].Path, want) {
 		t.Errorf("validation paths = %v, want one verdict on %q", report.Verdicts, want)
+	}
+}
+
+// A usage subsetting a feature through another (`leaf :> middle :> items`)
+// names its object at whichever collection reaches it first.
+func TestValidationLabelsATransitiveSubsettingObjectByItsDeclaration(t *testing.T) {
+	ctx, pkg := nestedSubjectFixture(t, `package test {
+    part def Component {
+        attribute v default = 1.0;
+        assert constraint ok { v < 10.0 }
+    }
+    part def Assembly {
+        part items : Component[*];
+        part middle : Component[*] :> items;
+        part leaf : Component :> middle {
+            attribute :>> v = 99.0;
+        }
+    }
+    part assembly : Assembly;
+}`)
+	assembly, err := ctx.Instantiate(memberPath(t, pkg, "assembly"))
+	if err != nil {
+		t.Fatalf("instantiate assembly: %v", err)
+	}
+	report, err := ctx.ValidateObject(assembly, nil)
+	if err != nil {
+		t.Fatalf("validate assembly: %v", err)
+	}
+	var paths [][]string
+	for _, v := range report.Verdicts {
+		paths = append(paths, v.Path)
+	}
+	if want := [][]string{{"leaf"}}; !reflect.DeepEqual(paths, want) {
+		t.Errorf("validation paths = %q, want %q", paths, want)
+	}
+	held, err := ctx.HeldObjects(assembly)
+	if err != nil {
+		t.Fatalf("held objects: %v", err)
+	}
+	if len(held) != 1 || held[0].Segment != "leaf" {
+		t.Errorf("held segments = %v, want the one object under leaf", held)
 	}
 }

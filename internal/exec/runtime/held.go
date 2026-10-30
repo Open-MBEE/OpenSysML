@@ -7,8 +7,7 @@ import (
 )
 
 // heldObjectEntry is one object a feature of another object holds, under the segment
-// a path names it by (Context.heldSegment): the declaration it materializes, indexed
-// for a collection's element.
+// a path names it by (heldSegmenter.segment): its declaration, indexed for a collection's element.
 type heldObjectEntry struct {
 	Feature  string
 	Segment  string
@@ -40,6 +39,7 @@ func (ctx *Context) HeldObjects(inst *Instance) ([]heldObjectEntry, error) {
 	var indexedAt []bool
 	at := make(map[int64]int)
 	read := make(map[*FeatureValue]bool)
+	named := ctx.segmenter(inst)
 	reach := func(feature string, i int, val Value) {
 		id, ok := val.Object()
 		if !ok || ctx.HoldsNoValue(val) {
@@ -49,7 +49,7 @@ func (ctx *Context) HeldObjects(inst *Instance) ([]heldObjectEntry, error) {
 		if !ok {
 			return
 		}
-		segment, indexed := ctx.heldSegment(inst, feature, id, i)
+		segment, indexed := named.segment(feature, id, i)
 		held := heldObjectEntry{Feature: feature, Segment: segment, Instance: child}
 		if i, seen := at[id]; seen {
 			if indexedAt[i] && !indexed {

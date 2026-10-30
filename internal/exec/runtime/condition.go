@@ -1092,7 +1092,7 @@ type carrier struct {
 	instance *Instance
 	root     *Instance
 	features []string
-	// segments spell the features walked as a path names them (Context.heldSegment),
+	// segments spell the features walked as a path names them (heldSegmenter.segment),
 	// ending in the declaration the carrier materializes: what a verdict labels it by.
 	segments   []string
 	occurrence carrierOccurrence
@@ -1203,36 +1203,39 @@ type heldSegment struct {
 // heldSegments returns the identities the value of holder's feature denotes, a
 // collection's elements included, each under the segment a path names it by.
 func (ctx *Context) heldSegments(holder *Instance, feature string, val Value) []heldSegment {
+	named := ctx.segmenter(holder)
 	if id, ok := val.Object(); ok {
-		segment, _ := ctx.heldSegment(holder, feature, id, -1)
+		segment, _ := named.segment(feature, id, -1)
 		return []heldSegment{{segment: segment, id: id}}
 	}
 	var out []heldSegment
 	for i, element := range standingCollection(val) {
 		if id, ok := element.Object(); ok {
-			segment, _ := ctx.heldSegment(holder, feature, id, i)
+			segment, _ := named.segment(feature, id, i)
 			out = append(out, heldSegment{segment: segment, id: id})
 		}
 	}
 	return out
 }
 
-// heldSegment names, in a path, the object id that holder's feature holds — at
-// position i of its collection, or alone for i < 0 — and reports whether the
-// segment is indexed. The segment is the declaration the object materializes:
-// the feature's name, indexed for a collection's element (`wheels[2]`), unless
-// the object was materialized by another feature of the same holder subsetting
-// the one it was reached through, in which case that usage names it (`small`,
-// or `smalls[2]` within its own collection). The values of a subsetting feature
-// are values of the subsetted feature too (KerML §7.3.4.4), and a feature is
-// unordered by default (SysML §7.6.3), so a position in the subsetted collection
-// identifies nothing the model fixes, while the declaration does; this is the
-// one spelling every surface reporting an object uses. An object a feature
-// merely refers to (`spare := cars#(2)`) is named under that feature as before.
-func (ctx *Context) heldSegment(holder *Instance, feature string, id int64, i int) (segment string, indexed bool) {
-	if child, ok := ctx.instances[id]; ok && holder != nil {
-		if owner, decl := child.Owner(); owner == holder && decl != "" && decl != feature && ctx.subsetsFeature(holder, decl, feature) {
-			if segment, indexed, ok := declaredSegment(holder, decl, id); ok {
+// heldSegmenter names the objects holder's features hold in a path, indexing each
+// subsetting collection once however many of its objects are named.
+type heldSegmenter struct {
+	ctx      *Context
+	holder   *Instance
+	declared map[string]map[int64]int
+}
+
+func (ctx *Context) segmenter(holder *Instance) *heldSegmenter {
+	return &heldSegmenter{ctx: ctx, holder: holder}
+}
+
+// segment names the object id that feature holds, at i of its collection or alone for i < 0: the
+// usage that materialized it where that usage subsets feature (`small`, `smalls[2]`), else feature, indexed.
+func (s *heldSegmenter) segment(feature string, id int64, i int) (segment string, indexed bool) {
+	if child, ok := s.ctx.instances[id]; ok && s.holder != nil {
+		if owner, decl := child.Owner(); owner == s.holder && decl != "" && decl != feature && s.ctx.subsetsFeature(s.holder, decl, feature) {
+			if segment, indexed, ok := s.declaredSegment(decl, id); ok {
 				return segment, indexed
 			}
 		}
@@ -1244,21 +1247,30 @@ func (ctx *Context) heldSegment(holder *Instance, feature string, id int64, i in
 }
 
 // subsetsFeature reports whether holder's feature decl subsets its feature name,
-// directly or through another feature of the holder.
+// directly or through other features of the holder.
 func (ctx *Context) subsetsFeature(holder *Instance, decl, name string) bool {
-	for _, feat := range ctx.subsettingFeaturesOf(holder, name) {
-		if feat.Name == decl {
-			return true
+	seen := map[string]bool{name: true}
+	queue := []string{name}
+	for len(queue) > 0 {
+		next := queue[0]
+		queue = queue[1:]
+		for _, feat := range ctx.subsettingFeaturesOf(holder, next) {
+			if feat.Name == decl {
+				return true
+			}
+			if !seen[feat.Name] {
+				seen[feat.Name] = true
+				queue = append(queue, feat.Name)
+			}
 		}
 	}
 	return false
 }
 
-// declaredSegment names the object id by the feature decl of holder declaring it:
-// the name alone when the feature holds one value, indexed by the object's
-// position when it holds a collection; false when the feature does not hold it.
-func declaredSegment(holder *Instance, decl string, id int64) (segment string, indexed, ok bool) {
-	fv := holder.FeatureValues[decl]
+// declaredSegment names the object id by the holder's feature decl: the name alone for one
+// value, indexed by the object's position in a collection; false when decl does not hold it.
+func (s *heldSegmenter) declaredSegment(decl string, id int64) (segment string, indexed, ok bool) {
+	fv := s.holder.FeatureValues[decl]
 	if fv == nil {
 		return "", false, false
 	}
@@ -1266,12 +1278,24 @@ func declaredSegment(holder *Instance, decl string, id int64) (segment string, i
 	if held, isObject := val.Object(); isObject {
 		return source.NameText(decl), false, held == id
 	}
-	for j, element := range standingCollection(val) {
-		if held, isObject := element.Object(); isObject && held == id {
-			return indexedSegment(source.NameText(decl), j), true, true
+	positions, ok := s.declared[decl]
+	if !ok {
+		positions = map[int64]int{}
+		for j, element := range standingCollection(val) {
+			if held, isObject := element.Object(); isObject {
+				positions[held] = j
+			}
 		}
+		if s.declared == nil {
+			s.declared = map[string]map[int64]int{}
+		}
+		s.declared[decl] = positions
 	}
-	return "", false, false
+	j, ok := positions[id]
+	if !ok {
+		return "", false, false
+	}
+	return indexedSegment(source.NameText(decl), j), true, true
 }
 
 // standingCollection returns the elements a collection value already holds,
