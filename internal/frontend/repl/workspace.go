@@ -138,17 +138,10 @@ func (s *Session) resolveReferences(res Result, roots *submissionRoots, search *
 		return workspaceLoad{}
 	}
 	unresolved := func(name string) bool { return referenceBegins(subjects, name) }
-	var imported []string
-	for _, root := range roots.of(s) {
-		imported = append(imported, project.ImportedRoots(root)...)
-	}
+	imported, referenced := roots.names(s)
 	ws := s.loadDeclaring(s.undeclaredRoots(imported, unresolved), search)
 	if !ws.loaded {
 		// An import no file answers must not keep the qualified names waiting.
-		var referenced []string
-		for _, root := range roots.of(s) {
-			referenced = append(referenced, project.ReferencedRoots(root)...)
-		}
 		more := s.loadDeclaring(s.undeclaredRoots(referenced, unresolved), search)
 		more.notices = append(ws.notices, more.notices...)
 		ws = more
@@ -156,30 +149,28 @@ func (s *Session) resolveReferences(res Result, roots *submissionRoots, search *
 	return ws
 }
 
-// submissionRoots is what a submission's sources parse to, parsed again on first
-// need: the trees a load was accepted from are let go before it is analyzed.
+// submissionRoots is the root namespaces a submission's sources import and
+// reference, by name: a source is parsed once, on first need, and its tree let go.
 type submissionRoots struct {
-	sources []SourceFile
-	roots   []*ast.RootNamespace
-	parsed  bool
+	pending    []SourceFile
+	imported   []string
+	referenced []string
 }
 
-// of is the root namespaces, parsing the sources the first time they are asked for.
-func (r *submissionRoots) of(s *Session) []*ast.RootNamespace {
-	if !r.parsed {
-		r.roots, r.parsed = s.parseRoots(r.sources), true
+// names is the imported and the referenced root names, parsing what is pending.
+func (r *submissionRoots) names(s *Session) (imported, referenced []string) {
+	if len(r.pending) > 0 {
+		for _, root := range s.parseRoots(r.pending) {
+			r.imported = append(r.imported, project.ImportedRoots(root)...)
+			r.referenced = append(r.referenced, project.ReferencedRoots(root)...)
+		}
+		r.pending = nil
 	}
-	return r.roots
+	return r.imported, r.referenced
 }
 
-// add takes in the files a round loaded, parsing just those once the rest are parsed.
-func (r *submissionRoots) add(s *Session, sources []SourceFile) {
-	if r.parsed {
-		r.roots = append(r.roots, s.parseRoots(sources)...)
-		return
-	}
-	r.sources = append(r.sources, sources...)
-}
+// add takes in the files a round loaded, to parse if a later round asks.
+func (r *submissionRoots) add(sources []SourceFile) { r.pending = append(r.pending, sources...) }
 
 // parseRoots parses the sources for the root namespaces they import and reference.
 func (s *Session) parseRoots(sources []SourceFile) []*ast.RootNamespace {
@@ -220,7 +211,7 @@ func (s *Session) pullReferences(ws workspaceLoad, roots *submissionRoots, searc
 		whole = append(whole, more...)
 		all.notices = append(append(all.notices, dropNotices(ws.drops)...), more...)
 		notice(ws.notices)
-		roots.add(s, ws.sources)
+		roots.add(ws.sources)
 		ws = s.resolveReferences(s.generationResult(), roots, search)
 	}
 	notice(ws.notices)
