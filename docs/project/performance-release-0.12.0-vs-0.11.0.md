@@ -818,17 +818,21 @@ reports, with the steal percentage logged per round, and the
 `tests/perf` binary's peak resident set over three cold runs each.
 
 Nothing moved. Bytes and allocations per operation are equal on every
-row, `cc1d477ba` against `1e34d9d95` — `AssignmentLoopStep` 925.8 Ki ·
-8 540, `DerivedReadWriteRead` 2 969 B · 69, the interpreter loops,
-`SetFeatureValueNoDependents` 416 B · 9, `InstantiateWarmModel`
-(120 → 123 Ki ± 9–15 %, 2 009 → 2 029 ± 4–6 %, `~`),
+exact row, `cc1d477ba` against `1e34d9d95` — `AssignmentLoopStep`
+925.8 Ki · 8 540, `DerivedReadWriteRead` 2 969 B · 69, the interpreter
+loops, `SetFeatureValueNoDependents` 416 B · 9,
 `GRPCVerifyConstraint` 766.3 Ki · 14 890, `FeaturesOf` 265.4 Mi ·
 2.103 M, `BatchSatisfy` 465 Mi · 3.815 M, `ExecuteActionFreshContext`
 47.8 Ki · 423, `ExecuteState`, `ActionChain`, `LoadModel/0` 238.1 Ki ·
 2 038 and `LoadModel/1000` 55.8 Mi · 538.0 k (the two `LoadModel` rows
 differ in their last digit, −0.01 % and −0.00 %, p < 0.05, the kind of
-difference `± 0 %` hides) — and sec/op is `~` on all of them, under
-3–7 % steal (p ≥ 0.24). The `tests/perf` binary (`FeaturesOf` and
+difference `± 0 %` hides). `InstantiateWarmModel` is not exact on
+either side (its allocation count varies with the warm model's state,
+± 9–15 % in bytes and ± 4–6 % in count over six rounds) and came out
+120 → 123 Ki and 2 009 → 2 029 allocations, p = 0.39 and 0.38 — a
+difference measured and not resolved, inside the row's own spread, not
+a claim of equality. sec/op is `~` on all of them, under 3–7 % steal
+(p ≥ 0.24). The `tests/perf` binary (`FeaturesOf` and
 `Instantiate`, two iterations) peaks at 366–406 MiB on `cc1d477ba` and
 386–391 on `1e34d9d95` over three cold runs each, the same within the
 spread. #1777 adds state to the runtime context that the measured paths
