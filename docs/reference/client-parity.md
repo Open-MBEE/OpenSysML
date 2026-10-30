@@ -25,19 +25,19 @@ capabilities checked before a call) is typed in every client.
 
 | Option | Python | Node | Java | Rust | Julia | MATLAB |
 | --- | --- | --- | --- | --- | --- | --- |
-| `Convert.id_form` | typed [^py-conv] | typed [^node-conv] | typed [^java-conv] | typed [^rust-conv] | typed [^julia-conv] | typed [^matlab-conv] |
-| `Convert.include_library_stubs` | typed [^py-conv] | typed [^node-conv] | typed [^java-conv] | typed [^rust-conv] | typed [^julia-conv] | typed [^matlab-conv] |
-| `ConvertResponse.library_references` | typed [^py-conv] | typed [^node-conv] | typed [^java-conv] | typed [^rust-conv] | typed [^julia-conv] | typed [^matlab-conv] |
-| `Convert.documents` | typed | typed | typed | typed [^rust-conv] | typed | typed |
-| `Convert.compact`, `omit_derived`, `keep_derived` | — | typed [^node-conv] | — | — | — | — |
-| `Convert.include_check_diagnostics` | — | typed [^node-conv] | — | — | — | — |
-| `Query.oslc_query` | typed [^py-query] | typed [^node-query] | typed | typed | typed | typed |
-| `Query.order_by` (capability gated) | typed [^py-query] | typed [^node-query] | typed | typed | typed | typed |
+| `Convert.id_form` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `Convert.include_library_stubs` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `ConvertResponse.library_references` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `Convert.documents` | typed | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | typed | typed |
+| `Convert.compact`, `omit_derived`, `keep_derived` | — | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | — | — | — | — |
+| `Convert.include_check_diagnostics` | — | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | — | — | — | — |
+| `Query.oslc_query` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_query.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/query.test.ts) | typed | typed | typed | typed |
+| `Query.order_by` (capability gated) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_query.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/query.test.ts) | typed | typed | typed | typed |
 | `ParseSources.base_model_hash` / `affected` | — | — | — | — | — | — |
 | `RunSweep.samples` | typed | typed | typed | typed | typed | typed |
-| `RenderView.compartments` | typed [^py-doc] | typed [^node-doc] | typed [^java-view] | typed [^rust-view] | typed [^julia-live] | typed [^matlab-live] |
-| `RenderView.show`, `depth`, `ports` | typed [^py-doc] | typed [^node-doc] | typed [^java-view] | typed [^rust-view] | typed [^julia-live] | typed [^matlab-live] |
-| `ImportData.import_as` | typed [^py-import] | typed [^node-import] | typed [^java-import] | typed [^rust-import] | typed [^julia-live] | typed [^matlab-live] |
+| `RenderView.compartments` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_document.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/document.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `RenderView.show`, `depth`, `ports` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_document.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/document.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `ImportData.import_as` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_import_compare.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/importCompare.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
 | `RenderDocument.form` (markdown, html, asciidoc) | typed | typed | typed | typed | typed | typed |
 
 ## Cross-cutting features
@@ -49,7 +49,7 @@ capabilities checked before a call) is typed in every client.
 | Transport: Connect protobuf / JSON | typed | typed | typed | typed | typed | typed |
 | In-process WebAssembly engine | — | typed (`connectWasm`) | — | — | — | — |
 | Deadlines / timeouts | typed | typed | typed | typed | typed | typed |
-| Typed `UNAUTHENTICATED` error | typed | typed [^node-err] | typed | typed | typed [^julia-conv] | typed [^matlab-err] |
+| Typed `UNAUTHENTICATED` error | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/errors.test.ts) | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_errors_capabilities.m) |
 | Typed `NOT_FOUND` split (model / file / symbol) | typed | typed | typed | typed | typed | typed |
 | Typed `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `UNAVAILABLE`, `UNIMPLEMENTED` | typed | typed | typed | typed | typed | typed |
 | Missing-capability error carrying the capability | typed | typed | typed | typed | typed | typed |
@@ -71,23 +71,27 @@ carries structured details (diagnostics, symbol suggestions, capability names).
 | `Convert.id_form`, `include_library_stubs`, `RunSweep.samples`, `ImportData.import_as` in the Go package | `client/opensysml` | about half a day |
 | In-process engine without a service | Python, Java, Rust, Julia, MATLAB | large; Node's `connectWasm` is the only one, and the others would need a wasm host each |
 
-[^py-conv]: `client/python/tests/test_conversion.py`
-[^py-query]: `client/python/tests/test_query.py`
-[^py-doc]: `client/python/tests/test_document.py`
-[^py-import]: `client/python/tests/test_import_compare.py`
-[^node-conv]: `client/node/test/convert.test.ts`
-[^node-query]: `client/node/test/query.test.ts`
-[^node-doc]: `client/node/test/document.test.ts`
-[^node-import]: `client/node/test/importCompare.test.ts`
-[^node-err]: `client/node/test/errors.test.ts`
-[^java-conv]: `client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java` (`apiJsonNamesLibraryReferencesSeparatelyAndOptsIntoLegacyStubs`, `convertSpellsDerivedIdsInTheFormAskedFor`) and `EditorTest.java`
-[^java-view]: `ApiIntegrationTest.java` (`renderViewFoldsMembersIntoCompartmentRowsOnRequest`)
-[^java-import]: `ApiIntegrationTest.java` (`importDataNamesWhatEachRowIsMadeIntoAndRefusesAnUnknownForm`)
-[^rust-conv]: `client/rust/opensysml/tests/surface.rs` (`api_json_names_library_references_separately_and_opts_into_legacy_stubs`, `a_model_of_several_documents_converts_only_the_named_ones`) and `src/conversion.rs` unit tests
-[^rust-view]: `client/rust/opensysml/tests/surface.rs` (render view tests)
-[^rust-import]: `client/rust/opensysml/tests/surface.rs` (`import_data_sets_the_values_and_answers_the_edited_model`)
-[^julia-conv]: `client/julia/OpenSysML/test/extended_client.jl` (offline request-shape and error-mapping testsets)
-[^julia-live]: `client/julia/OpenSysML/test/extended_client.jl` (live section against `sysml-grpc`)
-[^matlab-conv]: `client/matlab/tests/test_surface_live.m` and `test_surface_offline.m`
-[^matlab-live]: `client/matlab/tests/test_surface_live.m`
-[^matlab-err]: `client/matlab/tests/test_errors_capabilities.m`
+## Proving tests
+
+Each linked cell above points at one of these files; the test names are the ones to search for.
+
+- `py-conv`: [`client/python/tests/test_conversion.py`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py)
+- `py-query`: [`client/python/tests/test_query.py`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_query.py)
+- `py-doc`: [`client/python/tests/test_document.py`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_document.py)
+- `py-import`: [`client/python/tests/test_import_compare.py`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_import_compare.py)
+- `node-conv`: [`client/node/test/convert.test.ts`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts)
+- `node-query`: [`client/node/test/query.test.ts`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/query.test.ts)
+- `node-doc`: [`client/node/test/document.test.ts`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/document.test.ts)
+- `node-import`: [`client/node/test/importCompare.test.ts`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/importCompare.test.ts)
+- `node-err`: [`client/node/test/errors.test.ts`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/errors.test.ts)
+- `java-conv`: [`client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) (`apiJsonNamesLibraryReferencesSeparatelyAndOptsIntoLegacyStubs`, `convertSpellsDerivedIdsInTheFormAskedFor`) and [`client/java/opensysml-client/src/test/java/org/openmbee/opensysml/EditorTest.java`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/EditorTest.java)
+- `java-view`: [`client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) (`renderViewFoldsMembersIntoCompartmentRowsOnRequest`)
+- `java-import`: [`client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) (`importDataNamesWhatEachRowIsMadeIntoAndRefusesAnUnknownForm`)
+- `rust-conv`: [`client/rust/opensysml/tests/surface.rs`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) (`api_json_names_library_references_separately_and_opts_into_legacy_stubs`, `a_model_of_several_documents_converts_only_the_named_ones`) and [`client/rust/opensysml/src/conversion.rs`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/src/conversion.rs) unit tests
+- `rust-view`: [`client/rust/opensysml/tests/surface.rs`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) (render view tests)
+- `rust-import`: [`client/rust/opensysml/tests/surface.rs`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) (`import_data_sets_the_values_and_answers_the_edited_model`)
+- `julia-conv`: [`client/julia/OpenSysML/test/extended_client.jl`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) (offline request-shape and error-mapping testsets)
+- `julia-live`: [`client/julia/OpenSysML/test/extended_client.jl`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) (live section against `sysml-grpc`)
+- `matlab-conv`: [`client/matlab/tests/test_surface_live.m`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) and `test_surface_offline.m`
+- `matlab-live`: [`client/matlab/tests/test_surface_live.m`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m)
+- `matlab-err`: [`client/matlab/tests/test_errors_capabilities.m`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_errors_capabilities.m)
