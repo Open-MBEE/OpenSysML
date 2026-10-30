@@ -80,10 +80,15 @@ export function formatOfPath(path: string): string {
   return format;
 }
 
+/** Spelling of a graph's derived ids: from each qualified name (the default) or as name-based uuids. */
+export type IdForm = "qualified" | "uuid";
+
 /** Options for writing a model through Convert. */
 export interface ConvertOptions {
   fromFormat?: string;
   tolerateSyntaxErrors?: boolean;
+  /** Spelling of derived ids in a graph. Default `"qualified"`; refused for a notation target. */
+  idForm?: IdForm;
   /** Restore pre-0.11.0 ownerless library stubs in API JSON. Default off. */
   includeLibraryStubs?: boolean;
 }

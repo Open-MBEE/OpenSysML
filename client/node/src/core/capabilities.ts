@@ -60,6 +60,8 @@ export const CAPABILITY_VERDICT_NOTES = "verdict_notes";
 export const CAPABILITY_QUERY = "query";
 /** `orderBy` on `Query`; a service without it would ignore the field. */
 export const CAPABILITY_QUERY_ORDER_BY = "query_order_by";
+/** `QueryRequest.oslcQuery`: a query written as OSLC Query 3.0 parameter text, in place of the standard's Query object. */
+export const CAPABILITY_OSLC_QUERY = "oslc_query";
 /** The `RunDocumentQuery` RPC. */
 export const CAPABILITY_DOCUMENT_QUERY = "document_query";
 /** The `RenderDocument` RPC. */

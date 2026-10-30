@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import { QueryElement, connect } from "../src/node/index.js";
+import { MissingCapabilityError, QueryElement, connect } from "../src/node/index.js";
 import { buildQuery } from "../src/core/query.js";
 import { PrimitiveOperator } from "../src/generated/sysml_pb.js";
 import { useServiceBinary } from "./support/service.js";
@@ -101,6 +101,20 @@ test("an OSLC-only query still sends just the OSLC text", async () => {
 });
 
 // An empty oslc is no OSLC at all: a structured ask beside it sends its Query.
+test("an OSLC query needs the oslc_query capability, a structured one does not", async () => {
+  const connection = await fakeConnection(["query"], () => ({ elements: [] }));
+  await assert.rejects(
+    () => connection.query("hash", { oslc: 'sysml:name="vehicle"' }),
+    (error: unknown) => error instanceof MissingCapabilityError && error.capability === "oslc_query",
+  );
+  assert.deepEqual(await connection.query("hash", { select: ["name"] }), []);
+  await connection.close();
+
+  const able = await fakeConnection(["query", "oslc_query"], () => ({ elements: [] }));
+  assert.deepEqual(await able.query("hash", { oslc: 'sysml:name="vehicle"' }), []);
+  await able.close();
+});
+
 test("an empty oslc still sends the structured query", async () => {
   let seen: { oslcQuery?: string; query?: unknown } | undefined;
   const connection = await fakeConnection(["query"], (method, input) => {
@@ -118,7 +132,7 @@ test("an empty oslc still sends the structured query", async () => {
   await connection.close();
 
   let onlyOslc: { oslcQuery?: string; query?: unknown } | undefined;
-  const again = await fakeConnection(["query"], (method, input) => {
+  const again = await fakeConnection(["query", "oslc_query"], (method, input) => {
     assert.equal(method, "Query");
     onlyOslc = input as { oslcQuery?: string; query?: unknown };
     return { elements: [] };

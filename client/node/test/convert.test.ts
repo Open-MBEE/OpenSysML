@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { before, test } from "node:test";
-import { InvalidRequestError, connect, save } from "../src/node/index.js";
+import { type Conversion, InvalidRequestError, connect, save } from "../src/node/index.js";
 import { SAMPLE, useServiceBinary } from "./support/service.js";
 
 before(() => {
@@ -29,6 +29,26 @@ test("API JSON names library references separately and opts into legacy stubs", 
   assert.equal(stub.qualifiedName, "SI::second");
   assert.equal(stub.isLibraryElement, true);
   assert.deepEqual(legacy.libraryReferences, plain.libraryReferences);
+});
+
+test("API JSON spells derived ids as uuids when asked, over the same elements", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(SAMPLE);
+  const qualified = await model.convert("api-json");
+  const explicit = await model.convert("api-json", { idForm: "qualified" });
+  const uuid = await model.convert("api-json", { idForm: "uuid" });
+  assert.equal(explicit.content, qualified.content);
+  const names = (conversion: Conversion) =>
+    (JSON.parse(conversion.content) as Record<string, unknown>[]).map((element) => element.qualifiedName);
+  assert.deepEqual(names(uuid), names(qualified));
+  const ids = (JSON.parse(uuid.content) as Record<string, string>[]).map((element) => element["@id"]);
+  const uuidForm = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  assert.ok(ids.length > 0 && ids.every((id) => uuidForm.test(id)));
+  assert.notEqual(uuid.content, qualified.content);
+  await assert.rejects(
+    () => model.convert("api-json", { idForm: "camel" as "uuid" }),
+    (error: unknown) => error instanceof InvalidRequestError && /idForm|id_form/.test((error as Error).message),
+  );
 });
 
 test("a model writes itself out in notation", async () => {
