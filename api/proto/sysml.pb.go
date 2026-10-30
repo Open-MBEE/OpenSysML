@@ -5117,8 +5117,11 @@ type ExecuteActionRequest struct {
 	// type no accept node of the performance names is refused, with the accepts
 	// still waiting. The events exhausted, the run goes on to completion (or for
 	// `advance`); a token still waiting at the end is an accept deadlock,
-	// reported in `error` with the message it waits for. Needs a performer and
-	// is refused without one with INVALID_ARGUMENT.
+	// reported in `error` with the message it waits for. Each names a signal or
+	// item definition, qualified or as the action's namespace sees it; a name no
+	// definition answers to is matched by name alone, as ExecuteState's events
+	// are. Posted to the object performer_symbol_id names, as `%send` posts to
+	// one: INVALID_ARGUMENT without it.
 	Events        []string `protobuf:"bytes,11,rep,name=events,proto3" json:"events,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

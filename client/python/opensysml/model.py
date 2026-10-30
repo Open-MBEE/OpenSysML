@@ -761,12 +761,16 @@ class Model:
         return self._client.instantiate(symbol_id, self._hash)
 
     def execute_action(self, action_symbol_id, inputs=None, schedule=None, performer=None,
-                       advance=None, seed=None, draws=None, clock_step=0.0):
+                       advance=None, seed=None, draws=None, clock_step=0.0, trace=False, events=None):
         """Execute one of this model's actions.
 
         Args:
             action_symbol_id (str): FQN of the action definition or usage
             inputs (dict, optional): Input parameter name → Python value
+            trace (bool): Whether to return the run's typed execution trace as
+                ``.trace`` of the result; requires the ``action_trace`` capability
+            events (list[str], optional): Signals to post to the performer in
+                order, each once every token of the run waits; needs ``performer``
             schedule (str, optional): Scheduling policy the run resolves its
                 choice points under — ``"declared"``, ``"reverse"`` (the
                 default) or ``"seed:<n>"``; ``"explore"`` belongs to
@@ -800,7 +804,7 @@ class Model:
         """
         return self._client.execute_action(
             action_symbol_id, self._hash, inputs=inputs, schedule=schedule, performer=performer,
-            advance=advance, seed=seed, draws=draws, clock_step=clock_step,
+            advance=advance, seed=seed, draws=draws, clock_step=clock_step, trace=trace, events=events,
         )
 
     def explore_action(self, action_symbol_id, inputs=None, schedule="explore", performer=None):

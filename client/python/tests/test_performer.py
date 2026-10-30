@@ -18,6 +18,7 @@ from opensysml.capabilities import (
     CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE,
     CAPABILITY_STATE_TRACE,
+    CAPABILITY_ACTION_TRACE,
     CAPABILITY_VERIFICATION,
     MissingCapabilityError,
 )
@@ -47,6 +48,7 @@ EXPLORING = (
 )
 CURRENT = EXPLORING + (CAPABILITY_PERFORMER,)
 CURRENT_TRACE = CURRENT + (CAPABILITY_STATE_TRACE,)
+CURRENT_ACTION_TRACE = CURRENT + (CAPABILITY_ACTION_TRACE,)
 
 
 def test_a_performer_is_carried_on_every_run_request():
@@ -298,3 +300,62 @@ class TestPerformerAgainstTheService:
         (outcome,) = road.explore_state("Road::Car::gear", performer="Road::fastCar")
         assert outcome.final_state == "fast"
         assert outcome.outputs == run["final_context"]
+
+
+def test_action_trace_and_events_are_requested_and_decoded():
+    stub = Mock()
+    stub.ExecuteAction.return_value = sysml_pb2.ExecuteActionResponse(
+        trace=[
+            sysml_pb2.DocumentEvent(kind="step", time=sysml_pb2.DocumentValue(real_value=0), to="burn", token=1, step=1, text="step start -> burn"),
+            sysml_pb2.DocumentEvent(kind="assign", time=sysml_pb2.DocumentValue(real_value=0), state="burn", token=1, step=2,
+                                    feature="remaining", value=sysml_pb2.Value(int_value=7), text="assign remaining = 7"),
+        ],
+        trace_dropped=1,
+    )
+    conn = make_connection(stub, CURRENT_ACTION_TRACE)
+
+    result = conn.execute_action("Wire::Flow", "hash", performer="Wire::craft", trace=True, events=["Go"])
+
+    request = stub.ExecuteAction.call_args.args[0]
+    assert request.trace
+    assert list(request.events) == ["Go"]
+    assert [event.kind for event in result.trace] == ["step", "assign"]
+    assert (result.trace[0].token, result.trace[0].step, result.trace[0].to_state) == (1, 1, "burn")
+    assert (result.trace[1].feature, result.trace[1].value) == ("remaining", 7)
+    assert result.trace[0].value is None
+    assert result.trace_dropped == 1
+
+
+def test_failed_action_trace_is_attached_to_execution_error():
+    stub = Mock()
+    stub.ExecuteAction.return_value = sysml_pb2.ExecuteActionResponse(
+        error="accept deadlock",
+        trace=[sysml_pb2.DocumentEvent(kind="wait", time=sysml_pb2.DocumentValue(real_value=0), state="waiting", event="Go", text="wait Go")],
+    )
+    conn = make_connection(stub, CURRENT_ACTION_TRACE)
+
+    with pytest.raises(ExecutionError, match="accept deadlock") as excinfo:
+        conn.execute_action("Wire::Flow", "hash", performer="Wire::craft", trace=True)
+
+    assert [record.kind for record in excinfo.value.trace] == ["wait"]
+    assert excinfo.value.trace[0].event == "Go"
+
+
+def test_action_trace_is_not_sent_without_its_capability():
+    stub = Mock()
+    conn = make_connection(stub, CURRENT)
+
+    with pytest.raises(MissingCapabilityError) as excinfo:
+        conn.execute_action("Wire::Flow", "hash", trace=True)
+
+    assert excinfo.value.capability == CAPABILITY_ACTION_TRACE
+    stub.ExecuteAction.assert_not_called()
+
+
+def test_action_events_need_a_performer():
+    stub = Mock()
+    conn = make_connection(stub, CURRENT)
+
+    with pytest.raises(ValueError, match="performer"):
+        conn.execute_action("Wire::Flow", "hash", events=["Go"])
+    stub.ExecuteAction.assert_not_called()

@@ -57,6 +57,7 @@ from opensysml.capabilities import (
     CAPABILITY_RUNS,
     CAPABILITY_SELF_CHECK,
     CAPABILITY_STATE_TRACE,
+    CAPABILITY_ACTION_TRACE,
     CAPABILITY_QUERY,
     CAPABILITY_QUERY_ORDER_BY,
     CAPABILITY_RENDER_DOCUMENT,
@@ -2357,13 +2358,21 @@ class Connection:
     
     def execute_action(self, action_symbol_id, model_hash, inputs=None,
                        schedule=None, performer=None, advance=None, seed=None,
-                       draws=None, clock_step=0.0):
+                       draws=None, clock_step=0.0, trace=False, events=None):
         """Execute an action definition.
         
         Args:
             action_symbol_id (str): FQN of action def
             model_hash (str): Hash from ParseFile response
             inputs (dict, optional): Input parameter name → value
+            trace (bool): Whether to return the run's typed execution trace
+                (token steps, waits, accepts, decisions, assignments, completion)
+                as :attr:`~opensysml.ActionOutputs.trace`; requires the
+                ``action_trace`` capability
+            events (list[str], optional): Signals or items to post to the
+                performer in order, each once every token of the run waits, as
+                the REPL's ``%send`` does; the accept waiting for it takes it
+                on the next step. Needs ``performer``
             advance (float, optional): Simulated seconds to run for, as
                 ``sysml -advance`` does; the action is started and its clock
                 moved by this much, and one not completed by then fails with
@@ -2395,11 +2404,13 @@ class Connection:
                 discard the rest. Its ``performer`` holds the performer's
                 attributes as the run left them under ``this.``
                 (``'this.level'``), as an explored outcome's outputs spell them;
-                empty without a performer
+                empty without a performer; its ``trace`` the run's records when
+                requested
             
         Raises:
-            ValueError: If the schedule explores
-            ExecutionError: If execution fails
+            ValueError: If the schedule explores, or events are given without a performer
+            ExecutionError: If execution fails; a traced failure carries its
+                partial ``trace`` and ``trace_dropped``
             ModelNotFoundError: If the service no longer holds the model
             MissingCapabilityError: If an input holds a ``complex`` and the
                 service predates ``complex_values``, an :class:`~opensysml.values.Array`,
@@ -2413,21 +2424,29 @@ class Connection:
                 and the service predates ``tensor_values``, a
                 :class:`~opensysml.values.Metaobject` and the service predates
                 ``metaobject_values``, a schedule is given and the service
-                predates ``schedule``, or a performer is given and the service
-                predates ``performer``; nothing is sent
+                predates ``schedule``, a performer is given and the service
+                predates ``performer``, or a trace is requested and it predates
+                ``action_trace``; nothing is sent
             InvalidRequestError: If the schedule names no policy
         """
         _refuse_exploring(schedule, "explore_action")
+        if events and not performer:
+            raise ValueError("events are posted to the object performing the action: name one with performer")
         response = self._execute_action(action_symbol_id, model_hash, inputs, schedule, performer,
-                                        advance=advance, seed=seed, draws=draws, clock_step=clock_step)
+                                        advance=advance, seed=seed, draws=draws, clock_step=clock_step,
+                                        trace=trace, events=events)
+        trace_events = tuple(document_event_of(event) for event in response.trace)
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
-            raise ExecutionError(response.error, diagnostics=wrapped_diags)
+            raise ExecutionError(response.error, diagnostics=wrapped_diags,
+                                 trace=trace_events, trace_dropped=response.trace_dropped)
         
         return ActionOutputs(
             self._values_to_python(response.outputs),
             self._values_to_python(response.performer_attributes),
             dict(response.order_dependent),
+            trace=trace_events,
+            trace_dropped=response.trace_dropped,
         )
 
     def explore_action(self, action_symbol_id, model_hash, inputs=None,
@@ -2470,10 +2489,10 @@ class Connection:
         return self._exploration_of(response)
 
     def _execute_action(self, action_symbol_id, model_hash, inputs, schedule, performer,
-                        advance=None, seed=None, draws=None, clock_step=0.0):
+                        advance=None, seed=None, draws=None, clock_step=0.0, trace=False, events=None):
         """Send an ExecuteAction request, the schedule's and performer's capabilities checked first."""
         pb_inputs = {name: self._python_to_value(val) for name, val in (inputs or {}).items()}
-        capabilities = self._run_capabilities(schedule, performer)
+        capabilities = self._run_capabilities(schedule, performer, trace, CAPABILITY_ACTION_TRACE)
         req = sysml_pb2.ExecuteActionRequest(
             model_hash=model_hash,
             action_symbol_id=action_symbol_id,
@@ -2482,6 +2501,8 @@ class Connection:
             performer_symbol_id=performer or "",
             draws=draws or "",
             clock_step=clock_step,
+            trace=trace,
+            events=events or [],
         )
         _set_run_options(req, advance, seed)
         with translate_rpc_errors(unimplemented=self._capability_refusal(capabilities)):
@@ -3665,13 +3686,13 @@ class Connection:
         for capability in self._schedule_capabilities(schedule):
             require(self.server_info(), capability, upgrade_remedy(capability))
 
-    def _run_capabilities(self, schedule, performer, trace=False):
-        """The capabilities a run's schedule and performer need, each required of the service."""
+    def _run_capabilities(self, schedule, performer, trace=False, trace_capability=CAPABILITY_STATE_TRACE):
+        """The capabilities a run's schedule, performer and trace need, each required of the service."""
         capabilities = self._schedule_capabilities(schedule)
         if performer:
             capabilities.append(CAPABILITY_PERFORMER)
         if trace:
-            capabilities.append(CAPABILITY_STATE_TRACE)
+            capabilities.append(trace_capability)
         for capability in capabilities:
             require(self.server_info(), capability, upgrade_remedy(capability))
         return capabilities

@@ -71,6 +71,7 @@ const (
 	CapabilitySelfCheck                      = sysmlgrpc.CapabilitySelfCheck
 	CapabilityRecordRun                      = sysmlgrpc.CapabilityRecordRun
 	CapabilityStateTrace                     = sysmlgrpc.CapabilityStateTrace
+	CapabilityActionTrace                    = sysmlgrpc.CapabilityActionTrace
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
