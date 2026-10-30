@@ -271,10 +271,8 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 	return out
 }
 
-// derivedVariabilityOmitted reports a usage's sysml:mayTimeVary or isVariable the
-// candidate derives for an element the graph states none for: both are derived
-// for a usage (Usage::mayTimeVary redefines isVariable), so a graph published
-// without derived properties states no less.
+// derivedVariabilityOmitted reports a usage's derived mayTimeVary or isVariable the
+// candidate states and the graph omits; a publish without derived properties states no less.
 func derivedVariabilityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 	local := strings.TrimPrefix(t.Predicate.Value, rdf.SysML)
 	if local != "mayTimeVary" && local != "isVariable" {
