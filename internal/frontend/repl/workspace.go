@@ -120,7 +120,7 @@ func (s *Session) searchFor(load bool, files []SourceFile) *rootSearch {
 // leave unresolved, found where search looks. Imports come first: a qualified
 // name an import would answer is not looked for until the imports have been
 // (import Lib::*; then Inner::Thing with Lib::Inner).
-func (s *Session) resolveReferences(res Result, sources []SourceFile, search *rootSearch) workspaceLoad {
+func (s *Session) resolveReferences(res Result, roots *submissionRoots, search *rootSearch) workspaceLoad {
 	if search == nil {
 		return workspaceLoad{}
 	}
@@ -138,16 +138,15 @@ func (s *Session) resolveReferences(res Result, sources []SourceFile, search *ro
 		return workspaceLoad{}
 	}
 	unresolved := func(name string) bool { return referenceBegins(subjects, name) }
-	roots := s.parseRoots(sources)
 	var imported []string
-	for _, root := range roots {
+	for _, root := range roots.of(s) {
 		imported = append(imported, project.ImportedRoots(root)...)
 	}
 	ws := s.loadDeclaring(s.undeclaredRoots(imported, unresolved), search)
 	if !ws.loaded {
 		// An import no file answers must not keep the qualified names waiting.
 		var referenced []string
-		for _, root := range roots {
+		for _, root := range roots.of(s) {
 			referenced = append(referenced, project.ReferencedRoots(root)...)
 		}
 		more := s.loadDeclaring(s.undeclaredRoots(referenced, unresolved), search)
@@ -157,10 +156,32 @@ func (s *Session) resolveReferences(res Result, sources []SourceFile, search *ro
 	return ws
 }
 
-// parseRoots parses the sources again for the root namespaces they import and
-// reference. A submission is parsed once to be accepted and the trees are let
-// go before it is analyzed; a reference left unresolved, the rare case, pays
-// for a second parse rather than every load holding its trees through the analysis.
+// submissionRoots is what a submission's sources parse to, parsed again on first
+// need: the trees a load was accepted from are let go before it is analyzed.
+type submissionRoots struct {
+	sources []SourceFile
+	roots   []*ast.RootNamespace
+	parsed  bool
+}
+
+// of is the root namespaces, parsing the sources the first time they are asked for.
+func (r *submissionRoots) of(s *Session) []*ast.RootNamespace {
+	if !r.parsed {
+		r.roots, r.parsed = s.parseRoots(r.sources), true
+	}
+	return r.roots
+}
+
+// add takes in the files a round loaded, parsing just those once the rest are parsed.
+func (r *submissionRoots) add(s *Session, sources []SourceFile) {
+	if r.parsed {
+		r.roots = append(r.roots, s.parseRoots(sources)...)
+		return
+	}
+	r.sources = append(r.sources, sources...)
+}
+
+// parseRoots parses the sources for the root namespaces they import and reference.
 func (s *Session) parseRoots(sources []SourceFile) []*ast.RootNamespace {
 	roots := make([]*ast.RootNamespace, len(sources))
 	model.ParallelFor(s.jobs, len(sources), func(i int) {
@@ -169,12 +190,15 @@ func (s *Session) parseRoots(sources []SourceFile) []*ast.RootNamespace {
 	return roots
 }
 
-// pullReferences carries on from what loading ws did for the submission of
-// sources: the session is rebuilt over the files loaded, and the root
+// pullReferences carries on from what loading ws did for the submission whose
+// roots these are: the session is rebuilt over the files loaded, and the root
 // namespaces the text and those files leave unresolved in turn are loaded the
 // same way, round after round, until a round loads nothing. It reports what
 // the rounds did together, and what rebuilding did to the session.
-func (s *Session) pullReferences(ws workspaceLoad, sources []SourceFile, search *rootSearch) (all workspaceLoad, whole []string) {
+func (s *Session) pullReferences(ws workspaceLoad, roots *submissionRoots, search *rootSearch) (all workspaceLoad, whole []string) {
+	if roots == nil {
+		roots = &submissionRoots{}
+	}
 	// A root two files declare is noticed by every round that wants it; once is enough.
 	noticed := map[string]bool{}
 	notice := func(notices []string) {
@@ -196,8 +220,8 @@ func (s *Session) pullReferences(ws workspaceLoad, sources []SourceFile, search 
 		whole = append(whole, more...)
 		all.notices = append(append(all.notices, dropNotices(ws.drops)...), more...)
 		notice(ws.notices)
-		sources = append(sources, ws.sources...)
-		ws = s.resolveReferences(s.generationResult(), sources, search)
+		roots.add(s, ws.sources)
+		ws = s.resolveReferences(s.generationResult(), roots, search)
 	}
 	notice(ws.notices)
 	return all, whole

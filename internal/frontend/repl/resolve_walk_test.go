@@ -22,7 +22,7 @@ func TestResolvingNothingDoesNotWalkTheText(t *testing.T) {
 	cost := func(n int) float64 {
 		sources := resolvedSources(n)
 		return testing.AllocsPerRun(20, func() {
-			s.resolveReferences(Result{}, sources, search)
+			s.resolveReferences(Result{}, &submissionRoots{sources: sources}, search)
 		})
 	}
 	if small, large := cost(50), cost(100); large > small {
