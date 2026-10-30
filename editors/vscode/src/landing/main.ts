@@ -501,6 +501,7 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
   // adopt redraws a model the shell read; a moved box stays put while its part remains.
   function adopt(next: LandingModel): void {
     model = next;
+    shownValues = [];
     for (const feature of placed.keys()) {
       if (!model.parts.has(feature)) {
         placed.delete(feature);
@@ -521,6 +522,7 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
   function forgetRun(): void {
     if (debugPanel.hidden) {
       run = undefined;
+      showValues([]);
     } else if (rerunning === undefined) {
       void rerun(-1);
     } else {

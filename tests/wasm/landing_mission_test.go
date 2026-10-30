@@ -218,9 +218,9 @@ func TestLandingLunarMissionModel(t *testing.T) {
 		t.Errorf("apollo11 with GoForDescent steps %v, want %v", got, wantPath)
 	}
 	wantAssigned = append(wantAssigned,
-		"descent: assign remaining = 3350 ['m/s']", "surfaceOperations: assign landed = true",
+		"descent: assign remaining = 3350 ['m/s']", "surfaceOperations: assign landed = [true]",
 		"ascent: assign remaining = 1480 ['m/s']", "transEarthInjection: assign remaining = 480 ['m/s']",
-		"splashdown: assign returned = true")
+		"splashdown: assign returned = [true]")
 	if got := assigned(landed); !reflect.DeepEqual(got, wantAssigned) {
 		t.Errorf("apollo11 with GoForDescent assignments %v, want %v", got, wantAssigned)
 	}
