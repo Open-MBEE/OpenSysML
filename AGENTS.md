@@ -212,6 +212,41 @@ the full CI tier is expensive, so run them locally before the PR, every time the
    `-update` and run `make docs-counts`. A library change that adds declarations always moves
    `pilotLibraryElements`; anything else moving is an implementation difference to explain.
 
+### 6.2 Keeping the agent skills current
+
+The skills that teach a coding agent to *use* OpenSysML live in their own repository,
+[`Open-MBEE/OpenSysML-MDK-Skills`](https://github.com/Open-MBEE/OpenSysML-MDK-Skills): one
+`skills/<name>/SKILL.md` per surface (install, CLI, REPL, authoring, checking, analysis engines,
+service, LSP, MCP, Jupyter, WebAssembly, documents, draw.io, RDF conversion, v1 migration,
+troubleshooting, modeling practice, and one per client library). Each is written against this tree
+and states the `sysml -version` it was verified with, so like the extension-library pin it drifts
+the moment a surface here moves. A change an agent would read about is not done until the matching
+skill says the same thing:
+
+1. **What moves a skill.** A `sysml` flag, REPL `%` command, exit status or diagnostic class added,
+   renamed or removed; an MCP tool (a row in `internal/frontend/mcp/catalog`, the `sysml-mcp` man
+   page and `docs/reference/sysml-mcp.md` move with it, and so does `skills/opensysml-mcp`); a gRPC
+   RPC or a client method — each of the seven client skills, not just the one you tested; a rendering,
+   diagram or document form; an environment variable, install option, package or release asset;
+   migrator behaviour the modeling skill describes. If a change touched `docs/reference/` or
+   `docs/guide/`, assume a skill has to follow and check.
+2. **Verify, don't transcribe.** Build the binaries from the OpenSysML branch and check every
+   claim against them — `sysml -help`, `-man`, the REPL `%help`, `sysml-mcp`'s `tool_catalog`, a
+   probe model run through the command — and regenerate tables from the tool's own output rather
+   than by hand. Stamp the `sysml -version` string the skill was verified with. Anything not in a
+   tagged release is worded "in nightly builds and the release after `<latest tag>`"; never name a
+   version that does not exist yet. A gap between the documentation and the binary is an OpenSysML
+   fix, not something the skill papers over.
+3. **Open the skills PR with the OpenSysML PR.** The skills repository has only `main`: branch
+   `<type>/<slug>` from `origin/main`, open against `main`, and reference the OpenSysML PR in the
+   body; its checks are `python3 scripts/validate-skills.py` and `python3 scripts/check-links.py`.
+   It lands after the OpenSysML change is on `develop`, so what it describes is what merged.
+4. **Rev the skills at every release.** When a release is cut, re-verify the skills against the
+   release binaries, replace "nightly builds and the release after `<previous>`" with the tag for
+   what shipped, and update the version stamps. The in-tree `packaging/agent-skills/` set is the
+   smaller, release-pinned copy that ships with the tree; its version strings move with the other
+   version surfaces in the release commit.
+
 ## 7. Code Style & Commits
 
 - **Formatting:** `gofmt` is mandatory (CI-enforced). Follow *Effective Go*. Document exported types/functions.
@@ -271,7 +306,7 @@ Bug-fix discipline (small, scoped diffs) does **not** apply to feature work. For
 4. **Implement layer by layer**, keeping `go build ./...` and `go vet ./...` green at each step.
 5. **Handle all cases explicitly.** Every unsupported path returns a typed error with a clear message — never a silent no-op, panic, or wrong result.
 6. **Remove interim scaffolding** (bridges, temporary fields, debug prints, dead code) before finishing.
-7. **Verify the full gate** (§2) and **update `docs/project/spec-compliance.md`** with honest status flags.
+7. **Verify the full gate** (§2), **update `docs/project/spec-compliance.md`** with honest status flags, and **update the agent skills** the feature's surface is described in (§6.2).
 
 **When a feature is genuinely too large to finish correctly in one pass:** stop and flag it. Deliver a correct, complete *subset* with the remaining scope explicitly documented as known limitations + failing/`t.Skip`-with-reason tests or a `known_failures` entry. Never fake completeness.
 
