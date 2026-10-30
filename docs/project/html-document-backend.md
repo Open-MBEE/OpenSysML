@@ -362,7 +362,7 @@ fallback, not an error.
   for the other forms the way the `-pdf-*` flags already are, except `-html-css`, which the
   PDF form accepts too since its converters read the same HTML.
 - **The shared deliverable options.** A title page, a contents list and section numbering are
-  not PDF-specific — they are exactly what an HTML deliverable wants too — but they are
+  not PDF-specific — they are exactly what an HTML deliverable wants too — but they
   were spelled `-pdf-title-page`, `-pdf-toc` and `-pdf-number-sections`. The proposal was to
   accept `-doc-title-page`, `-doc-toc` and `-doc-number-sections` for both forms and keep the
   `-pdf-*` spellings working as documented aliases, so no existing script breaks. **Decided:**
