@@ -445,6 +445,9 @@ const (
 	// ModAnnotatesOthers marks a metadata usage written with an `about` clause,
 	// whether or not the elements it names resolve (see AnnotatesOthers).
 	ModAnnotatesOthers
+	// ModPayloadFeature marks the payload a flow declares with `of p : T`, a
+	// KerML PayloadFeature whatever its symbol kind (SysML v2.1 textual notation).
+	ModPayloadFeature
 )
 
 // Has reports whether every modifier of mask is set.
