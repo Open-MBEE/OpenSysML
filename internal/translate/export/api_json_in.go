@@ -227,71 +227,19 @@ func expandAPIJSONCompact(data []byte, references *[]APIJSONLibraryReference) ([
 	if err != nil || token != json.Delim('{') {
 		return nil, fmt.Errorf("cannot read the compact API element document")
 	}
-	var ids []string
-	var elementCount int
-	var elementIDsAreIDs bool
-	var referenceKeys []string
-	var elements []apiJSONObject
-	seen := map[string]bool{}
+	document := apiJSONCompactDocument{seen: map[string]bool{}}
 	for decoder.More() {
 		token, err := decoder.Token()
 		if err != nil {
 			return nil, fmt.Errorf("cannot read the compact API element document: %w", err)
 		}
 		key, ok := token.(string)
-		if !ok || seen[key] {
+		if !ok || document.seen[key] {
 			return nil, fmt.Errorf("compact API element document has an invalid or duplicate key %v", token)
 		}
-		seen[key] = true
-		switch key {
-		case "format":
-			var got string
-			if err := decoder.Decode(&got); err != nil || got != CompactAPIJSONFormat {
-				return nil, fmt.Errorf("compact API element document has an invalid format")
-			}
-		case "ids":
-			if err := decoder.Decode(&ids); err != nil {
-				return nil, fmt.Errorf("cannot read compact API id table: %w", err)
-			}
-		case "elementCount":
-			if err := decoder.Decode(&elementCount); err != nil {
-				return nil, fmt.Errorf("cannot read compact API element count: %w", err)
-			}
-		case "elementIdsAreIds":
-			if err := decoder.Decode(&elementIDsAreIDs); err != nil {
-				return nil, fmt.Errorf("cannot read compact API element id marker: %w", err)
-			}
-		case "referenceKeys":
-			if err := decoder.Decode(&referenceKeys); err != nil {
-				return nil, fmt.Errorf("cannot read compact API reference keys: %w", err)
-			}
-		case "libraryReferences":
-			var err error
-			*references, err = readAPIJSONLibraryReferences(decoder)
-			if err != nil {
-				return nil, err
-			}
-		case "elements":
-			token, err := decoder.Token()
-			if err != nil || token != json.Delim('[') {
-				return nil, fmt.Errorf("compact API elements must be an array")
-			}
-			for decoder.More() {
-				token, err := decoder.Token()
-				if err != nil || token != json.Delim('{') {
-					return nil, fmt.Errorf("compact API elements must be objects")
-				}
-				element, err := apiJSONCompactObjectOf(decoder)
-				if err != nil {
-					return nil, err
-				}
-				elements = append(elements, element)
-			}
-			if _, err := decoder.Token(); err != nil {
-				return nil, fmt.Errorf("cannot read compact API element array: %w", err)
-			}
-		default:
-			return nil, fmt.Errorf("compact API element document has unknown key %q", key)
+		document.seen[key] = true
+		if err := document.readField(key, decoder, references); err != nil {
+			return nil, err
 		}
 	}
 	if _, err := decoder.Token(); err != nil {
@@ -300,15 +248,99 @@ func expandAPIJSONCompact(data []byte, references *[]APIJSONLibraryReference) ([
 	if _, err := decoder.Token(); err != io.EOF {
 		return nil, fmt.Errorf("compact API element document holds trailing JSON values")
 	}
+	return document.expand()
+}
+
+// apiJSONCompactDocument is a compact API element document as its fields are read.
+type apiJSONCompactDocument struct {
+	ids              []string
+	elementCount     int
+	elementIDsAreIDs bool
+	referenceKeys    []string
+	elements         []apiJSONObject
+	seen             map[string]bool
+}
+
+// readField decodes the value of the document field key; the library
+// references go to references.
+func (document *apiJSONCompactDocument) readField(key string, decoder *json.Decoder, references *[]APIJSONLibraryReference) error {
+	switch key {
+	case "format":
+		var got string
+		if err := decoder.Decode(&got); err != nil || got != CompactAPIJSONFormat {
+			return fmt.Errorf("compact API element document has an invalid format")
+		}
+	case "ids":
+		if err := decoder.Decode(&document.ids); err != nil {
+			return fmt.Errorf("cannot read compact API id table: %w", err)
+		}
+	case "elementCount":
+		if err := decoder.Decode(&document.elementCount); err != nil {
+			return fmt.Errorf("cannot read compact API element count: %w", err)
+		}
+	case "elementIdsAreIds":
+		if err := decoder.Decode(&document.elementIDsAreIDs); err != nil {
+			return fmt.Errorf("cannot read compact API element id marker: %w", err)
+		}
+	case "referenceKeys":
+		if err := decoder.Decode(&document.referenceKeys); err != nil {
+			return fmt.Errorf("cannot read compact API reference keys: %w", err)
+		}
+	case "libraryReferences":
+		var err error
+		*references, err = readAPIJSONLibraryReferences(decoder)
+		if err != nil {
+			return err
+		}
+	case "elements":
+		var err error
+		document.elements, err = apiJSONCompactElementsOf(decoder)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("compact API element document has unknown key %q", key)
+	}
+	return nil
+}
+
+// apiJSONCompactElementsOf reads the array of compact element objects.
+func apiJSONCompactElementsOf(decoder *json.Decoder) ([]apiJSONObject, error) {
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('[') {
+		return nil, fmt.Errorf("compact API elements must be an array")
+	}
+	var elements []apiJSONObject
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil || token != json.Delim('{') {
+			return nil, fmt.Errorf("compact API elements must be objects")
+		}
+		element, err := apiJSONCompactObjectOf(decoder)
+		if err != nil {
+			return nil, err
+		}
+		elements = append(elements, element)
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, fmt.Errorf("cannot read compact API element array: %w", err)
+	}
+	return elements, nil
+}
+
+// expand checks the document and writes its elements as the standard API
+// element array, each element given its id from the id table.
+func (document *apiJSONCompactDocument) expand() ([]byte, error) {
+	seen, ids, elements := document.seen, document.ids, document.elements
 	if !seen["format"] || !seen["ids"] || !seen["elementCount"] || !seen["referenceKeys"] || !seen["elements"] {
 		return nil, fmt.Errorf("compact API element document is missing a required field")
 	}
-	if elementCount < 0 || elementCount != len(elements) || elementCount > len(ids) {
+	if document.elementCount < 0 || document.elementCount != len(elements) || document.elementCount > len(ids) {
 		return nil, fmt.Errorf("compact API element document has %d elements, %d element objects, and %d ids",
-			elementCount, len(elements), len(ids))
+			document.elementCount, len(elements), len(ids))
 	}
-	bareReferences := make(map[string]bool, len(referenceKeys))
-	for _, key := range referenceKeys {
+	bareReferences := make(map[string]bool, len(document.referenceKeys))
+	for _, key := range document.referenceKeys {
 		bareReferences[key] = true
 	}
 	expandedElements := make([]apiJSONObject, len(elements))
@@ -317,7 +349,7 @@ func expandAPIJSONCompact(data []byte, references *[]APIJSONLibraryReference) ([
 			if member.key == "@id" {
 				return nil, fmt.Errorf("compact element %d carries an @id instead of using the id table", i)
 			}
-			if elementIDsAreIDs && member.key == "elementId" {
+			if document.elementIDsAreIDs && member.key == "elementId" {
 				return nil, fmt.Errorf("compact element %d carries elementId with elementIdsAreIds set", i)
 			}
 		}
@@ -330,7 +362,7 @@ func expandAPIJSONCompact(data []byte, references *[]APIJSONLibraryReference) ([
 			element = append(element, apiJSONMember{key: member.key, value: value})
 		}
 		element = append(element, apiJSONMember{key: "@id", value: ids[i]})
-		if elementIDsAreIDs {
+		if document.elementIDsAreIDs {
 			element = append(element, apiJSONMember{key: "elementId", value: ids[i]})
 		}
 		expandedElements[i] = element
@@ -552,100 +584,160 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 	var annotations []apiJSONAnnotation
 	statedDefaults := apiJSONStatedDefaults(objects)
 	for i := range objects {
-		object := &objects[i]
-		subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
-		metaclass := strings.TrimPrefix(
-			strings.TrimPrefix(strings.TrimPrefix(object.typ, "sysx:"), "sysml:"),
-			rdf.SysML,
-		)
-		typ, err := cache.typeIRI(object.typ)
-		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
-		}
-		builder.Add(subject, rdf.IRI(rdf.RDFType), typ)
-		emittedMappingValues := make(map[string]bool, len(object.mappingValues))
-		memberProperties := make(map[string]bool, len(object.members))
-		for _, member := range object.members {
-			if member.key != apiJSONMappingQualifiedNameKey && member.key != apiJSONMappingValuesKey {
-				memberProperties[member.key] = true
-			}
-		}
-		emitMappingValues := func(property string) error {
-			predicate, sysmlKey, err := cache.predicate(property)
-			if err != nil {
-				return fmt.Errorf("element %q mappingValues: %w", object.id, err)
-			}
-			if err := apiJSONTriples(builder, apiJSONProperty{
-				subject:       subject,
-				predicate:     predicate,
-				sysmlKey:      sysmlKey,
-				mappingValues: true,
-				metaclass:     metaclass,
-			}, object.mappingValues[property], nil, cache, &annotations); err != nil {
-				return fmt.Errorf("element %q mappingValues.%s: %w", object.id, property, err)
-			}
-			return nil
-		}
-		for _, member := range object.members {
-			if member.key == apiJSONMappingQualifiedNameKey {
-				continue
-			}
-			if member.key == apiJSONMappingValuesKey {
-				for _, property := range object.mappingValuesOrder {
-					if memberProperties[property] || emittedMappingValues[property] {
-						continue
-					}
-					if err := emitMappingValues(property); err != nil {
-						return nil, nil, nil, nil, err
-					}
-					emittedMappingValues[property] = true
-				}
-				continue
-			}
-			if _, overridden := object.mappingValues[member.key]; overridden {
-				if err := emitMappingValues(member.key); err != nil {
-					return nil, nil, nil, nil, err
-				}
-				emittedMappingValues[member.key] = true
-				continue
-			}
-			if member.key == "qualifiedName" {
-				continue
-			}
-			if statedDefaults && !object.explicitDefaults[member.key] &&
-				apiJSONImpliedBoolean(typ, member, object.members) {
-				continue
-			}
-			predicate, sysmlKey, err := cache.predicate(member.key)
-			if err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
-			}
-			if err := apiJSONTriples(builder, apiJSONProperty{
-				subject:   subject,
-				predicate: predicate,
-				sysmlKey:  sysmlKey,
-				metaclass: metaclass,
-			}, member.value, nil, cache, &annotations); err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("element %q: %w", object.id, err)
-			}
-		}
-		properties := make([]string, 0, len(object.mappingValues))
-		for property := range object.mappingValues {
-			properties = append(properties, property)
-		}
-		sort.Strings(properties)
-		for _, property := range properties {
-			if emittedMappingValues[property] {
-				continue
-			}
-			if err := emitMappingValues(property); err != nil {
-				return nil, nil, nil, nil, err
-			}
+		if err := apiJSONMappingObjectTriples(builder, cache, &objects[i], statedDefaults, &annotations); err != nil {
+			return nil, nil, nil, nil, err
 		}
 	}
 	graph := builder.Build()
 	graph = apiJSONGraphWithPropertyOrder(graph, objects)
 	graphIndex := newAPIJSONGraphIndex(graph, nil)
+	syntheticRootIndexes := apiJSONSyntheticRootIndexes(graph, graphIndex, objects)
+	return graph, syntheticRootIndexes, annotations, graphIndex, nil
+}
+
+// apiJSONMappingEmitter writes one mapping element's triples: its members as
+// stated, and each mappingValues override once, where the members put it.
+type apiJSONMappingEmitter struct {
+	builder          *rdf.GraphBuilder
+	cache            *apiJSONTermCache
+	annotations      *[]apiJSONAnnotation
+	object           *apiJSONElementData
+	subject          rdf.Term
+	typ              rdf.Term
+	metaclass        string
+	statedDefaults   bool
+	memberProperties map[string]bool
+	emitted          map[string]bool
+}
+
+// apiJSONMappingObjectTriples adds object's type and property triples to builder.
+func apiJSONMappingObjectTriples(builder *rdf.GraphBuilder, cache *apiJSONTermCache, object *apiJSONElementData, statedDefaults bool, annotations *[]apiJSONAnnotation) error {
+	subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
+	metaclass := strings.TrimPrefix(
+		strings.TrimPrefix(strings.TrimPrefix(object.typ, "sysx:"), "sysml:"),
+		rdf.SysML,
+	)
+	typ, err := cache.typeIRI(object.typ)
+	if err != nil {
+		return fmt.Errorf("element %q: %w", object.id, err)
+	}
+	builder.Add(subject, rdf.IRI(rdf.RDFType), typ)
+	emitter := &apiJSONMappingEmitter{
+		builder:          builder,
+		cache:            cache,
+		annotations:      annotations,
+		object:           object,
+		subject:          subject,
+		typ:              typ,
+		metaclass:        metaclass,
+		statedDefaults:   statedDefaults,
+		memberProperties: make(map[string]bool, len(object.members)),
+		emitted:          make(map[string]bool, len(object.mappingValues)),
+	}
+	for _, member := range object.members {
+		if member.key != apiJSONMappingQualifiedNameKey && member.key != apiJSONMappingValuesKey {
+			emitter.memberProperties[member.key] = true
+		}
+	}
+	for _, member := range object.members {
+		if err := emitter.member(member); err != nil {
+			return err
+		}
+	}
+	return emitter.remainingMappingValues()
+}
+
+// member writes one member of the element: the mappingValues member writes
+// the overrides in their stated order, an overridden member its override, a
+// default the stated defaults imply nothing, and any other its value.
+func (emitter *apiJSONMappingEmitter) member(member apiJSONMember) error {
+	object := emitter.object
+	switch member.key {
+	case apiJSONMappingQualifiedNameKey:
+		return nil
+	case apiJSONMappingValuesKey:
+		return emitter.orderedMappingValues()
+	}
+	if _, overridden := object.mappingValues[member.key]; overridden {
+		return emitter.mappingValues(member.key)
+	}
+	if member.key == "qualifiedName" {
+		return nil
+	}
+	if emitter.statedDefaults && !object.explicitDefaults[member.key] &&
+		apiJSONImpliedBoolean(emitter.typ, member, object.members) {
+		return nil
+	}
+	predicate, sysmlKey, err := emitter.cache.predicate(member.key)
+	if err != nil {
+		return fmt.Errorf("element %q: %w", object.id, err)
+	}
+	if err := apiJSONTriples(emitter.builder, apiJSONProperty{
+		subject:   emitter.subject,
+		predicate: predicate,
+		sysmlKey:  sysmlKey,
+		metaclass: emitter.metaclass,
+	}, member.value, nil, emitter.cache, emitter.annotations); err != nil {
+		return fmt.Errorf("element %q: %w", object.id, err)
+	}
+	return nil
+}
+
+// orderedMappingValues writes the overrides in their stated order, except those
+// a member of the element places or an earlier pass wrote.
+func (emitter *apiJSONMappingEmitter) orderedMappingValues() error {
+	for _, property := range emitter.object.mappingValuesOrder {
+		if emitter.memberProperties[property] || emitter.emitted[property] {
+			continue
+		}
+		if err := emitter.mappingValues(property); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// remainingMappingValues writes the overrides no member placed, in name order.
+func (emitter *apiJSONMappingEmitter) remainingMappingValues() error {
+	properties := make([]string, 0, len(emitter.object.mappingValues))
+	for property := range emitter.object.mappingValues {
+		properties = append(properties, property)
+	}
+	sort.Strings(properties)
+	for _, property := range properties {
+		if emitter.emitted[property] {
+			continue
+		}
+		if err := emitter.mappingValues(property); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// mappingValues writes the override of property and records it as written.
+func (emitter *apiJSONMappingEmitter) mappingValues(property string) error {
+	object := emitter.object
+	predicate, sysmlKey, err := emitter.cache.predicate(property)
+	if err != nil {
+		return fmt.Errorf("element %q mappingValues: %w", object.id, err)
+	}
+	if err := apiJSONTriples(emitter.builder, apiJSONProperty{
+		subject:       emitter.subject,
+		predicate:     predicate,
+		sysmlKey:      sysmlKey,
+		mappingValues: true,
+		metaclass:     emitter.metaclass,
+	}, object.mappingValues[property], nil, emitter.cache, emitter.annotations); err != nil {
+		return fmt.Errorf("element %q mappingValues.%s: %w", object.id, property, err)
+	}
+	emitter.emitted[property] = true
+	return nil
+}
+
+// apiJSONSyntheticRootIndexes gives every root element without a member index
+// one in document order, and returns the triples it added.
+func apiJSONSyntheticRootIndexes(graph *rdf.Graph, graphIndex *apiJSONGraphIndex, objects []apiJSONElementData) map[rdf.Triple]struct{} {
 	syntheticRootIndexes := make(map[rdf.Triple]struct{})
 	rootIndex := 0
 	for _, object := range objects {
@@ -677,7 +769,7 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 		}
 		rootIndex++
 	}
-	return graph, syntheticRootIndexes, annotations, graphIndex, nil
+	return syntheticRootIndexes
 }
 
 func apiJSONGraphWithPropertyOrder(graph *rdf.Graph, objects []apiJSONElementData) *rdf.Graph {
