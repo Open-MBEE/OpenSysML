@@ -19,6 +19,7 @@ import opensysml
 from opensysml.capabilities import (
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_PARSE_SOURCES,
+    CAPABILITY_PARSE_SOURCES_AFFECTED,
     CAPABILITY_STRICT_CONFORMANCE,
     MissingCapabilityError,
 )
@@ -66,6 +67,7 @@ ALL_CAPABILITIES = (
     CAPABILITY_PARSE_SOURCES,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
+    CAPABILITY_PARSE_SOURCES_AFFECTED,
 )
 
 
@@ -189,6 +191,7 @@ class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
             model_hash="fake-hash",
             roots=roots,
             diagnostics=[_diagnostic("warning", "unused import", "top.sysml")],
+            affected=["top.sysml"] if request.base_model_hash else [],
         )
 
 
@@ -252,6 +255,25 @@ class TestParseSourcesRequest:
             conn.parse_sources([("a.sysml", "package A;")])
 
         assert [request.strict_conformance for request in service.requests] == [True, False]
+
+    def test_a_base_model_reaches_the_service_and_names_the_affected(self, fake_service):
+        port, service = fake_service()
+        with Connection(port=port, auto_start=False) as conn:
+            related = conn.parse_sources(
+                [("lib.sysml", LIBRARY), ("top.sysml", TOP)], base_model_hash="base-hash"
+            )
+            fresh = conn.parse_sources([("lib.sysml", LIBRARY), ("top.sysml", TOP)])
+        assert [request.base_model_hash for request in service.requests] == ["base-hash", ""]
+        assert related.affected == ("top.sysml",)
+        assert fresh.affected == ()
+
+    def test_a_base_model_requires_its_capability(self, fake_service):
+        port, service = fake_service(capabilities=(CAPABILITY_PARSE_SOURCES,))
+        with Connection(port=port, auto_start=False) as conn, \
+                pytest.raises(MissingCapabilityError) as excinfo:
+            conn.parse_sources([("a.sysml", "package A;")], base_model_hash="base-hash")
+        assert excinfo.value.capability == CAPABILITY_PARSE_SOURCES_AFFECTED
+        assert service.requests == [], "the request was sent to a service that would ignore it"
 
     def test_the_parse_sources_capability_is_required(self, fake_service):
         port, service = fake_service(capabilities=())
@@ -431,6 +453,24 @@ class TestParseSourcesAgainstRealService:
             assert _typed_by(model["Top::Car::engine"]) == "Lib::Engine"
             assert model.find("Engine").id == "Lib::Engine"
             assert model.eval("Top::car.engine.power") == 120.0
+
+    def test_a_base_model_names_the_documents_an_edit_reaches(self):
+        # Names of this test's own: the service relates two models document by
+        # document once it has seen their set more than once, and a model it
+        # first answered fresh, under another test's names, cannot be a base.
+        documents = lambda top: [("affected-lib.sysml", LIBRARY), ("affected-top.sysml", top)]
+        edited_top = TOP.replace("part car : Car;", "part sedan : Car;")
+        with Connection(auto_start=False) as conn:
+            conn.parse_sources(documents(TOP + "// first\n"))
+            base = conn.parse_sources(documents(TOP))
+            assert base.affected == ()
+            same = conn.parse_sources(documents(TOP), base_model_hash=base.hash)
+            assert same.hash == base.hash
+            assert same.affected == ()
+            edited = conn.parse_sources(documents(edited_top), base_model_hash=base.hash)
+            assert edited.hash != base.hash
+            assert edited.affected == ("affected-top.sysml",)
+            assert edited["Top::sedan"].kind == "partUsage"
 
     def test_files_and_inline_content_mix(self, tmp_path):
         lib = tmp_path / "lib.sysml"

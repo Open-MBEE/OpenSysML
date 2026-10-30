@@ -20,6 +20,8 @@ import pytest
 
 from opensysml.capabilities import (
     CAPABILITY_CONVERT,
+    CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+    CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
     MissingCapabilityError,
 )
@@ -229,6 +231,58 @@ def test_convert_sends_the_id_form_and_library_stubs_asked_for(fake_service):
     assert asked.include_library_stubs is True
     assert defaulted.id_form == ""
     assert defaulted.include_library_stubs is False
+
+
+def test_convert_sends_the_compact_options_asked_for(fake_service):
+    """compact, omit_derived, keep_derived and include_check_diagnostics reach the wire."""
+    port, service = fake_service(capabilities=(
+        CAPABILITY_CONVERT, CAPABILITY_CONVERT_COMPACT, CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+    ))
+    with Connection(port=port, auto_start=False) as conn:
+        conn.convert(
+            FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML,
+            compact=True, omit_derived=True, keep_derived=("qualifiedName", "name"),
+            include_check_diagnostics=True,
+        )
+        conn.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML)
+
+    asked, defaulted = service.requests
+    assert asked.compact is True
+    assert asked.omit_derived is True
+    assert list(asked.keep_derived) == ["qualifiedName", "name"]
+    assert asked.include_check_diagnostics is True
+    assert defaulted.compact is False
+    assert defaulted.omit_derived is False
+    assert list(defaulted.keep_derived) == []
+    assert defaulted.include_check_diagnostics is False
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [{"compact": True}, {"omit_derived": True}, {"keep_derived": ["name"]}],
+    ids=["compact", "omit_derived", "keep_derived"],
+)
+def test_the_compact_form_requires_its_capability(fake_service, kwargs):
+    """A service that would write the element array is not asked for the compact form."""
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn, \
+            pytest.raises(MissingCapabilityError) as excinfo:
+        conn.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML, **kwargs)
+    assert excinfo.value.capability == CAPABILITY_CONVERT_COMPACT
+    assert service.requests == [], "the request was sent to a service that would ignore it"
+
+
+def test_check_diagnostics_require_their_capability(fake_service):
+    """A service that would answer without the check's diagnostics is not asked for them."""
+    port, service = fake_service(capabilities=(CAPABILITY_CONVERT, CAPABILITY_CONVERT_COMPACT))
+    with Connection(port=port, auto_start=False) as conn, \
+            pytest.raises(MissingCapabilityError) as excinfo:
+        conn.convert(
+            FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML,
+            include_check_diagnostics=True,
+        )
+    assert excinfo.value.capability == CAPABILITY_CONVERT_CHECK_DIAGNOSTICS
+    assert service.requests == []
 
 
 def test_library_stubs_require_their_own_capability(fake_service):
