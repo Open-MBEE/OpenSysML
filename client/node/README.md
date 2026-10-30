@@ -516,7 +516,13 @@ import { save } from "@openmbee/opensysml";
 const rdf = await connection.convert("turtle", { modelHash: model.hash });
 await save(model, "out.ttl");            // format comes from the extension
 await save(rdf, "copy.ttl");             // a Conversion writes what it holds
+await save(model, "out.json", { idForm: "uuid", includeLibraryStubs: true });
 ```
+
+`save` converts a model with the options `convert` takes (`SaveOptions`:
+`toFormat`, `tolerateSyntaxErrors`, `idForm`, `includeLibraryStubs`), so an
+`idForm` for a notation target is refused and `includeLibraryStubs` needs the
+service's `convert_library_stubs` capability, exactly as through `convert`.
 
 An experimental conversion emits a warning (`process.emitWarning`) rather than
 failing, and reports it through `Conversion.experimentalNotice`.

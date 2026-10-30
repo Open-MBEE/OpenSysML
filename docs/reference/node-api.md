@@ -242,13 +242,15 @@ Beside the model reads above, the client covers every RPC the service offers:
 
 - **`connection.parseSources`** parses several documents as one model
   (`SourceDocument.file`/`inline` per document; `model.documents`, `model.roots`);
-- **`connection.convert`** and Node's **`save(target, path)`** write a model,
-  file or conversion out in `sysml`, `kerml`, `turtle` or `api-json`; a SysML v1
-  model (`xmi`, `uml`, `mdzip`, by `fromFormat` or by extension) is refused with an
-  `InvalidRequestError` naming `migrate`, since it is migrated, not converted;
-  `idForm` (`"qualified"`, the default, or `"uuid"`) chooses how a graph spells
-  its derived ids and `includeLibraryStubs` restores the pre-0.11.0 ownerless
-  library stubs in API JSON;
+- **`connection.convert`** and Node's **`save(target, path, options?)`** write a
+  model, file or conversion out in `sysml`, `kerml`, `turtle` or `api-json`; a
+  SysML v1 model (`xmi`, `uml`, `mdzip`, by `fromFormat` or by extension) is
+  refused with an `InvalidRequestError` naming `migrate`, since it is migrated,
+  not converted; `idForm` (`"qualified"`, the default, or `"uuid"`) chooses how
+  a graph spells its derived ids and `includeLibraryStubs` restores the
+  pre-0.11.0 ownerless library stubs in API JSON — `save` takes both, with
+  `toFormat` and `tolerateSyntaxErrors`, as its `SaveOptions` and hands them to
+  `Model.convert` unchanged, so the same refusals and capability gates apply;
 - **`connection.migrate`** migrates a SysML v1 model from a `path` or inline
   `content` bytes to `sysml` or `ttl`, with `fromFormat`, `report`, `results`,
   `layoutPath`/`layoutContent`, `imageBaseUrl` and `strict` as the command's
