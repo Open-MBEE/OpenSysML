@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -168,5 +169,126 @@ func TestSatisfactionOfItsOwnConditionsRoutesThroughTheSubjectRule(t *testing.T)
 	}
 	if result.Subject == nil || result.Subject.ID != big.ID {
 		t.Errorf("subject = %v, want the object big #%d that carries the assertion", result.Subject, big.ID)
+	}
+}
+
+// subsettingCollectionSrc gathers objects of several declarations into one
+// collection: `small` and the two `smalls` subset `subsystem`, which holds no
+// object of its own, and `outer` nests the whole assembly one level down.
+const subsettingCollectionSrc = `package test {
+    part def Component {
+        attribute v default = 1.0;
+        assert constraint ok { v < 10.0 }
+    }
+    part def Assembly {
+        part subsystem : Component[*];
+        part small : Component :> subsystem {
+            attribute :>> v = 99.0;
+        }
+        part smalls : Component[2] :> subsystem {
+            attribute :>> v = 50.0;
+        }
+    }
+    part def Outer {
+        part inner : Assembly;
+    }
+    part assembly : Assembly;
+    part outer : Outer;
+}`
+
+// An object is labelled by the declaration it materializes on every surface:
+// `small` for a scalar subsetting usage, `smalls[i]` for an element of a
+// subsetting collection, never by its position in the collection it subsets.
+// The values of a subsetting feature are values of the subsetted one too
+// (KerML §7.3.4.4), and a feature is unordered by default (SysML §7.6.3), so an
+// index into `subsystem` identifies nothing the model fixes, while the
+// declaration is the element the modeller wrote and can address.
+func TestValidationLabelsObjectsByTheirDeclaration(t *testing.T) {
+	for _, tc := range []struct {
+		root string
+		want [][]string
+	}{
+		{"assembly", [][]string{{"small"}, {"smalls[1]"}, {"smalls[2]"}}},
+		{"outer", [][]string{{"inner", "small"}, {"inner", "smalls[1]"}, {"inner", "smalls[2]"}}},
+	} {
+		ctx, pkg := nestedSubjectFixture(t, subsettingCollectionSrc)
+		root, err := ctx.Instantiate(memberPath(t, pkg, tc.root))
+		if err != nil {
+			t.Fatalf("instantiate %s: %v", tc.root, err)
+		}
+		report, err := ctx.ValidateObject(root, nil)
+		if err != nil {
+			t.Fatalf("validate %s: %v", tc.root, err)
+		}
+		var got [][]string
+		for _, v := range report.Verdicts {
+			got = append(got, v.Path)
+		}
+		if !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("validate %s: paths = %q, want %q", tc.root, got, tc.want)
+		}
+	}
+}
+
+// The objects a collection gathers from subsetting usages are held under those
+// usages' segments, so a path listing what an object holds spells them as a
+// verdict does.
+func TestHeldObjectsLabelsSubsettingObjectsByTheirDeclaration(t *testing.T) {
+	ctx, pkg := nestedSubjectFixture(t, subsettingCollectionSrc)
+	assembly, err := ctx.Instantiate(memberPath(t, pkg, "assembly"))
+	if err != nil {
+		t.Fatalf("instantiate assembly: %v", err)
+	}
+	held, err := ctx.HeldObjects(assembly)
+	if err != nil {
+		t.Fatalf("held objects: %v", err)
+	}
+	var got []string
+	for _, h := range held {
+		got = append(got, h.Segment)
+	}
+	if want := []string{"small", "smalls[1]", "smalls[2]"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("segments = %q, want %q", got, want)
+	}
+}
+
+// A check about a nested subsetting object and the validation reaching it label
+// the object by one path, the declaration at every segment.
+func TestValidationAndCheckAgreeOnANestedSubsettingObject(t *testing.T) {
+	ctx, pkg := nestedSubjectFixture(t, `package test {
+    part def Component {
+        attribute v default = 1.0;
+        assert constraint ok { v < 10.0 }
+    }
+    part def Assembly {
+        part subsystem : Component[*];
+        part small : Component :> subsystem {
+            attribute :>> v = 99.0;
+        }
+    }
+    part def Outer {
+        part inner : Assembly;
+    }
+    part outer : Outer;
+}`)
+	outer, err := ctx.Instantiate(memberPath(t, pkg, "outer"))
+	if err != nil {
+		t.Fatalf("instantiate outer: %v", err)
+	}
+	ok := memberPath(t, pkg, "Component", "ok")
+	result, err := ctx.CheckConstraintOn(ok, ok.OwnerScope, outer)
+	if err != nil && !errors.Is(err, ErrViolated) {
+		t.Fatalf("ok on outer: %v", err)
+	}
+	want := []string{"inner", "small"}
+	if !reflect.DeepEqual(result.SubjectPath, want) {
+		t.Errorf("check subject path = %q, want %q", result.SubjectPath, want)
+	}
+	report, err := ctx.ValidateObject(outer, nil)
+	if err != nil {
+		t.Fatalf("validate outer: %v", err)
+	}
+	if len(report.Verdicts) != 1 || !reflect.DeepEqual(report.Verdicts[0].Path, want) {
+		t.Errorf("validation paths = %v, want one verdict on %q", report.Verdicts, want)
 	}
 }
