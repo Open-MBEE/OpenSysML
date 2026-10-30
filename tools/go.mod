@@ -12,7 +12,7 @@ require (
 )
 
 require (
-	connectrpc.com/connect v1.20.0 // indirect
+	connectrpc.com/connect v1.21.1 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect

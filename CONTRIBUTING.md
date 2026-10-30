@@ -345,6 +345,9 @@ handled like any other: it opens ready for review, so the full tier runs on it w
 areas` scoping the jobs to the lockfile it touched, Devin Review and the dependency audits run on
 it, and a maintainer merges it once green; rebase it with a `@dependabot rebase` comment, never
 by hand. A security update Dependabot opens outside the weekly schedule follows the same path.
+The one dependency it leaves alone is `editors/vscode`'s `@types/vscode`, pinned at the
+extension's `engines.vscode` floor because `vsce package` refuses a newer typing: raise the two
+together, and `tests/hygiene` fails when the typing exceeds the floor or the ignore rule is gone.
 Dependabot alerts and security updates are repository settings a maintainer switches on; the
 configuration file only schedules version updates.
 

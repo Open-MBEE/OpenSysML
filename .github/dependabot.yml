@@ -39,6 +39,9 @@ updates:
       npm-minor-and-patch:
         patterns: ["*"]
         update-types: [minor, patch]
+    ignore:
+      # editors/vscode's typing must not exceed its engines.vscode floor (vsce refuses it); bump both together when the floor moves.
+      - dependency-name: "@types/vscode"
 
   - package-ecosystem: pip
     directories:

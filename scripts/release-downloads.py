@@ -200,19 +200,24 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.traffic:
         if not token:
-            sys.exit("Error: --traffic needs GITHUB_TOKEN or GH_TOKEN with push access to the repository")
+            print("Error: --traffic needs GITHUB_TOKEN or GH_TOKEN with push access to the repository",
+                  file=sys.stderr)
+            return 1
         try:
             traffic = fetch_traffic(args.repo, token)
         except Exception as error:  # report the HTTP status, not a stack
-            sys.exit(f"Error: reading the traffic of {args.repo} failed: {error}\n"
-                     "The traffic API answers only a token with push access to the repository.")
+            print(f"Error: reading the traffic of {args.repo} failed: {error}\n"
+                  "The traffic API answers only a token with push access to the repository.",
+                  file=sys.stderr)
+            return 1
         sys.stdout.write(render_traffic(traffic))
         return 0
 
     try:
         releases = fetch_releases(args.repo, token)
     except Exception as error:  # report the HTTP status, not a stack
-        sys.exit(f"Error: listing releases of {args.repo} failed: {error}")
+        print(f"Error: listing releases of {args.repo} failed: {error}", file=sys.stderr)
+        return 1
     rows = summarize(releases, stable_only=args.stable)
 
     if args.json:

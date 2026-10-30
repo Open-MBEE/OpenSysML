@@ -83,9 +83,8 @@ class BinaryStagerTest {
     Path pin = Files.createTempFile("digests", ".json");
     Files.writeString(pin, "{\"v1.2.3\":{}}");
     Path staged = Files.createTempDirectory("staged");
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> BinaryStager.main(new String[] {"v9.9.9", staged.toString(), "--from", "", "--digests", pin.toString()}));
+    String[] args = {"v9.9.9", staged.toString(), "--from", "", "--digests", pin.toString()};
+    assertThrows(IllegalArgumentException.class, () -> BinaryStager.main(args));
   }
 
   private static HttpServer server(byte[] payload) throws IOException {

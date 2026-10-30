@@ -586,10 +586,6 @@ jobs:
           no_output_timeout: 30m
 
       - run:
-          name: Check Go dependencies for known vulnerabilities
-          command: make vulncheck
-
-      - run:
           name: Check grpc-go stays out of production code
           command: ./scripts/check-grpc-imports.sh
 
@@ -626,6 +622,22 @@ jobs:
             make proto-buf
             git add -N api/proto
             git diff --exit-code api/proto
+
+  # govulncheck holds a whole module's SSA while it scans: 3.8-4.3 GB at peak for the root
+  # module and for tools/, at the 4 GB ceiling of the medium class, so it has the 8 GB class to itself.
+  go-vulncheck:
+    executor: go-executor
+    resource_class: large
+    steps:
+      - checkout
+      - rehearsal-checkout-tag
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
+
+      - run:
+          name: Check Go dependencies for known vulnerabilities
+          command: make vulncheck
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
   # it gets the larger class and ten executors, one scripts/race-shard.sh shard each,
@@ -4324,6 +4336,10 @@ workflows:
           requires: &after-cancellation
             - Cancel superseded pipelines
           filters: *integration-branches
+      - go-vulncheck:
+          name: Go vulnerability check
+          requires: *after-cancellation
+          filters: *integration-branches
       - go-race-test:
           name: Go race tests
           requires: *after-cancellation
@@ -4421,6 +4437,9 @@ workflows:
           filters: &release-tags
             tags:
               only: /^v.*/
+      - go-vulncheck:
+          name: Go vulnerability check
+          filters: *release-tags
       - go-race-test:
           name: Go race tests
           filters: *release-tags
@@ -4443,6 +4462,7 @@ workflows:
           name: Python client tests
           requires: &go-suite
             - Go static checks
+            - Go vulnerability check
             - Go race tests
             - Go coverage profile
             - Go binaries
@@ -4613,6 +4633,9 @@ workflows:
               ignore: /.*/
             tags:
               only: /^pysysml-v.*/
+      - go-vulncheck:
+          name: Go vulnerability check
+          filters: *pysysml-tags
       - go-race-test:
           name: Go race tests
           filters: *pysysml-tags

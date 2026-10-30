@@ -229,7 +229,7 @@ required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMP
 Go change, the `race-coverage` and `pdf-toolchain` jobs in the full tier only, and the
 `build-and-test` aggregate every job reports to; the protobuf wire-compatibility check runs
 against the branch the pull request merges into (#108). `.circleci/config.yml` runs on `main`,
-on `develop` and on `v*` tags: `go-static`, `go-race-test` (sharded), `go-coverage` and its
+on `develop` and on `v*` tags: `go-static`, `go-vulncheck`, `go-race-test` (sharded), `go-coverage` and its
 merge, `go-gates` and the SonarCloud `scan`, each downloading the corpora it needs and requiring
 them the same way, then the client, editor and plugin tests, the package builds and — on a tag
 or under the `release_rehearsal` parameter (#743, #1443) — the publish jobs for PyPI, npm, Maven

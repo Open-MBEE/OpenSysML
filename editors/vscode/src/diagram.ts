@@ -19,6 +19,7 @@ import {
   validName,
 } from "./edits";
 import { ExportHost, exportRendering, serverElements, serverForms, serverReadsDepth, serverStyles } from "./export";
+import { importReport } from "./importdiagram";
 import {
   APPLY_MODEL_EDIT_CAPABILITY,
   CROSS_DOCUMENT_CAPABILITY,
@@ -579,25 +580,21 @@ export class DiagramPanels implements vscode.Disposable {
       void vscode.window.showErrorMessage(`Cannot import ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`);
       return;
     }
-    const reports = [...(result.unmatched ?? []).map((name) => `${name} is not in the rendering`), ...(result.deleted ?? []).map((name) => `${name} was deleted in the file; the element stays`), ...(result.notices ?? [])];
-    if (result.unknown?.length) {
-      reports.push(`${result.unknown.length} cells name no element`);
+    const report = importReport(basename(file), result);
+    if (report.applies) {
+      const edit = await client.protocol2CodeConverter.asWorkspaceEdit(result.edit as ProtocolWorkspaceEdit);
+      if (!(await vscode.workspace.applyEdit(edit))) {
+        void vscode.window.showErrorMessage(`The layout edits from ${basename(file)} could not be applied`);
+        return;
+      }
     }
-    for (const refusal of result.refused ?? []) {
-      void vscode.window.showErrorMessage(`${basename(file)}: not imported: ${refusal.message}`);
-      return;
+    if (report.severity === "error") {
+      void vscode.window.showErrorMessage(report.message);
+    } else if (report.severity === "warning") {
+      void vscode.window.showWarningMessage(report.message);
+    } else {
+      void vscode.window.showInformationMessage(report.message);
     }
-    if (!result.edit || result.edits.length === 0) {
-      void vscode.window.showInformationMessage(`${basename(file)} matches the rendering of ${result.view}; nothing to import${reports.length ? ` (${reports.join("; ")})` : ""}`);
-      return;
-    }
-    const edit = await client.protocol2CodeConverter.asWorkspaceEdit(result.edit as ProtocolWorkspaceEdit);
-    if (!(await vscode.workspace.applyEdit(edit))) {
-      void vscode.window.showErrorMessage(`The layout edits from ${basename(file)} could not be applied`);
-      return;
-    }
-    const summary = `${result.edits.length} layout ${result.edits.length === 1 ? "edit" : "edits"} imported from ${basename(file)} into ${result.view}`;
-    void (reports.length ? vscode.window.showWarningMessage(`${summary}; ${reports.join("; ")}`) : vscode.window.showInformationMessage(summary));
   }
 
   private async exportedView(client: LanguageClient, uri: string): Promise<string | undefined> {
