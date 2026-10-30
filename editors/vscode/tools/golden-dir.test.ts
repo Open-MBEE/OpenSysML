@@ -77,6 +77,10 @@ describe("confinedPath", () => {
     assert.throws(() => confinedPath([root, "deep", "..", "goldens"].join(path.sep), root), /outside the repository checkout/);
   });
 
+  it("keeps a backslash as part of a name on POSIX", { skip: path.sep !== "/" }, () => {
+    assert.equal(confinedPath(path.join(root, "team\\goldens"), root), path.join(realpathSync(root), "team\\goldens"));
+  });
+
   it("refuses a symlink loop", () => {
     symlinkSync(path.join(root, "b"), path.join(root, "a"));
     symlinkSync(path.join(root, "a"), path.join(root, "b"));

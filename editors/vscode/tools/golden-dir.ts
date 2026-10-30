@@ -14,7 +14,8 @@ function isSymlink(target: string): boolean | null {
   }
 }
 
-const separators = /[\\/]+/;
+// Only the platform separators split components: on POSIX a backslash is part of a name.
+const separators = path.sep === "/" ? /\/+/ : /[\\/]+/;
 
 // The canonical form of a path whose tail may not exist yet: components are resolved in filesystem
 // order, so `..` applies to the symlink target it follows, and a dangling symlink is followed too.
