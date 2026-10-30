@@ -6,7 +6,6 @@ import (
 	"maps"
 	"math"
 	"slices"
-	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view/route"
 )
@@ -18,6 +17,26 @@ import (
 func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 	edges := append([]Edge(nil), r.Edges...)
 	tree := w.drawioTree(r)
+	groups := w.routeGroups(edges, tree)
+	for _, key := range slices.Sorted(maps.Keys(groups)) {
+		g := routeGroup{key: key, edges: groups[key], all: edges, tree: tree}
+		routes, err := w.routeOneGroup(g)
+		if errors.Is(err, route.ErrUnavailable) {
+			w.unrouted = true
+			return edges, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		w.routeGroupFound(g, routes)
+	}
+	return edges, nil
+}
+
+// routeGroups is the index of every edge to route under the container both
+// its ends lie in, "" for the canvas; an edge with a route, or an end that
+// is not a settled box, is left as it is.
+func (w *drawioWriter) routeGroups(edges []Edge, tree drawioTree) map[string][]int {
 	groups := map[string][]int{}
 	for i, edge := range edges {
 		_, from := w.boxes[edge.From]
@@ -32,120 +51,147 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 		}
 		groups[key] = append(groups[key], i)
 	}
-	keys := make([]string, 0, len(groups))
-	for key := range groups {
-		keys = append(keys, key)
+	return groups
+}
+
+// routeGroup is one routing pass: the edges, by index into all, both of whose
+// ends lie in the container key, "" for the canvas.
+type routeGroup struct {
+	key   string
+	edges []int
+	all   []Edge
+	tree  drawioTree
+}
+
+// headersOnly are the containers an end of the group lies in: routes may
+// cross them, so the router sees their headers alone.
+func (g routeGroup) headersOnly() map[string]bool {
+	exempt := map[string]bool{}
+	for _, i := range g.edges {
+		for _, end := range []string{g.all[i].From, g.all[i].To} {
+			for p := g.tree.parents[end]; p != ""; p = g.tree.parents[p] {
+				exempt[p] = true
+			}
+		}
 	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		group := groups[key]
-		exempt := map[string]bool{}
-		for _, i := range group {
-			for _, end := range []string{edges[i].From, edges[i].To} {
-				for p := tree.parents[end]; p != ""; p = tree.parents[p] {
-					exempt[p] = true
-				}
-			}
+	return exempt
+}
+
+// routeOneGroup routes the group's edges inside their container.
+func (w *drawioWriter) routeOneGroup(g routeGroup) ([]route.Route, error) {
+	header := w.boxes[g.key]
+	if g.key != "" {
+		header.Height = w.headroom(g.tree.nodes[g.key])
+	}
+	asked, memberPins, portShapes := w.routeGroupEnds(g, header)
+	shapes := w.routeGroupShapes(g, header, memberPins, portShapes)
+	// An end at a port that is a shape of its own attaches there.
+	for j := range asked {
+		if _, ok := portShapes[asked[j].From+":"+asked[j].FromPort]; ok && asked[j].FromPort != "" {
+			asked[j].From += ":" + asked[j].FromPort
 		}
-		// An edge from the container to a member leaves its header above the
-		// member, through a pin on the header's underside at the member's centre.
-		header := w.boxes[key]
-		if key != "" {
-			header.Height = w.headroom(tree.nodes[key])
+		if _, ok := portShapes[asked[j].To+":"+asked[j].ToPort]; ok && asked[j].ToPort != "" {
+			asked[j].To += ":" + asked[j].ToPort
 		}
-		var memberPins []route.Port
-		portShapes := map[string]route.Shape{}
-		asked := make([]route.Edge, len(group))
-		for j, i := range group {
-			asked[j] = route.Edge{Index: j, From: edges[i].From, To: edges[i].To, FromPort: edges[i].FromPort, ToPort: edges[i].ToPort}
-			if key == "" || (edges[i].From != key && edges[i].To != key) || edges[i].From == edges[i].To {
-				continue
-			}
-			member, port := edges[i].To, edges[i].FromPort
-			if member == key {
-				member, port = edges[i].From, edges[i].ToPort
-			}
-			// The container's own named port is a cell of its own: the edge
-			// leaves it through its inner face, into the container.
-			if shape, ok := w.portShape(tree.nodes[key], w.boxes[key], port, true); ok {
-				portShapes[shape.ID] = shape
-				if edges[i].From == key {
-					w.inward[i] |= drawioFrom
-				} else {
-					w.inward[i] |= drawioTo
-				}
-				continue
-			}
-			pin := route.Port{ID: fmt.Sprintf("\x00member/%d", i), Side: route.South, Flush: true}
-			pin.Offset = min(1, max(0, (w.boxes[member].X+w.boxes[member].Width/2-header.X)/header.Width))
-			memberPins = append(memberPins, pin)
-			if edges[i].From == key {
-				asked[j].FromPort = pin.ID
+	}
+	var bounds *route.Box
+	if g.key != "" {
+		b := route.Box(w.boxes[g.key])
+		bounds = &b
+	}
+	return route.Routes(shapes, asked, bounds)
+}
+
+// routeGroupEnds is the group's edges as asked of the router. An edge from
+// the container to a member leaves its header above the member, through a
+// pin on the header's underside at the member's centre, one of memberPins;
+// an edge at the container's own named port leaves that port's cell, one of
+// portShapes, through its inner face.
+func (w *drawioWriter) routeGroupEnds(g routeGroup, header drawioBox) (asked []route.Edge, memberPins []route.Port, portShapes map[string]route.Shape) {
+	portShapes = map[string]route.Shape{}
+	asked = make([]route.Edge, len(g.edges))
+	for j, i := range g.edges {
+		edge := g.all[i]
+		asked[j] = route.Edge{Index: j, From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort}
+		if g.key == "" || (edge.From != g.key && edge.To != g.key) || edge.From == edge.To {
+			continue
+		}
+		member, port := edge.To, edge.FromPort
+		if member == g.key {
+			member, port = edge.From, edge.ToPort
+		}
+		// The container's own named port is a cell of its own: the edge
+		// leaves it through its inner face, into the container.
+		if shape, ok := w.portShape(g.tree.nodes[g.key], w.boxes[g.key], port, true); ok {
+			portShapes[shape.ID] = shape
+			if edge.From == g.key {
+				w.inward[i] |= drawioFrom
 			} else {
-				asked[j].ToPort = pin.ID
+				w.inward[i] |= drawioTo
 			}
+			continue
 		}
-		shapes := make([]route.Shape, 0, len(tree.order))
-		for _, id := range tree.order {
-			node := tree.nodes[id]
-			box := w.boxes[id]
-			if exempt[id] {
-				box.Height = w.headroom(node)
-			}
-			ports, placed := w.routePorts(node, box)
-			for _, shape := range placed {
-				// The container's port an edge enters it through keeps its inner face.
-				if _, inward := portShapes[shape.ID]; !inward {
-					portShapes[shape.ID] = shape
-				}
-			}
-			shape := route.Shape{ID: id, Box: route.Box(box), Ports: ports}
-			if id == key {
-				shape.Box = route.Box(header)
-				shape.Ports = append(shape.Ports, memberPins...)
-			}
-			shapes = append(shapes, shape)
-		}
-		for _, id := range slices.Sorted(maps.Keys(portShapes)) {
-			shapes = append(shapes, portShapes[id])
-		}
-		// An end at a port that is a shape of its own attaches there.
-		for j := range asked {
-			if _, ok := portShapes[asked[j].From+":"+asked[j].FromPort]; ok && asked[j].FromPort != "" {
-				asked[j].From += ":" + asked[j].FromPort
-			}
-			if _, ok := portShapes[asked[j].To+":"+asked[j].ToPort]; ok && asked[j].ToPort != "" {
-				asked[j].To += ":" + asked[j].ToPort
-			}
-		}
-		var bounds *route.Box
-		if key != "" {
-			b := route.Box(w.boxes[key])
-			bounds = &b
-		}
-		routes, err := route.Routes(shapes, asked, bounds)
-		if errors.Is(err, route.ErrUnavailable) {
-			w.unrouted = true
-			return edges, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		for _, found := range routes {
-			i := group[found.Index]
-			// Routed points carry float noise a declared route never has.
-			for _, p := range found.Points {
-				edges[i].Route = append(edges[i].Route, Point{X: drawioRound(p.X), Y: drawioRound(p.Y)})
-			}
-			w.routed[i] = true
-		}
-		for _, i := range group {
-			if !w.routed[i] {
-				w.unroutable = append(w.unroutable, i)
-			}
+		pin := route.Port{ID: fmt.Sprintf("\x00member/%d", i), Side: route.South, Flush: true}
+		pin.Offset = min(1, max(0, (w.boxes[member].X+w.boxes[member].Width/2-header.X)/header.Width))
+		memberPins = append(memberPins, pin)
+		if edge.From == g.key {
+			asked[j].FromPort = pin.ID
+		} else {
+			asked[j].ToPort = pin.ID
 		}
 	}
-	return edges, nil
+	return asked, memberPins, portShapes
+}
+
+// routeGroupShapes are the router's obstacles: every settled box, those an
+// end lies in reduced to their headers, the group's container as header with
+// the member pins, and every port that is a cell of its own, the positioned
+// ports found here added to portShapes.
+func (w *drawioWriter) routeGroupShapes(g routeGroup, header drawioBox, memberPins []route.Port, portShapes map[string]route.Shape) []route.Shape {
+	exempt := g.headersOnly()
+	shapes := make([]route.Shape, 0, len(g.tree.order))
+	for _, id := range g.tree.order {
+		node := g.tree.nodes[id]
+		box := w.boxes[id]
+		if exempt[id] {
+			box.Height = w.headroom(node)
+		}
+		ports, placed := w.routePorts(node, box)
+		for _, shape := range placed {
+			// The container's port an edge enters it through keeps its inner face.
+			if _, inward := portShapes[shape.ID]; !inward {
+				portShapes[shape.ID] = shape
+			}
+		}
+		shape := route.Shape{ID: id, Box: route.Box(box), Ports: ports}
+		if id == g.key {
+			shape.Box = route.Box(header)
+			shape.Ports = append(shape.Ports, memberPins...)
+		}
+		shapes = append(shapes, shape)
+	}
+	for _, id := range slices.Sorted(maps.Keys(portShapes)) {
+		shapes = append(shapes, portShapes[id])
+	}
+	return shapes
+}
+
+// routeGroupFound copies the routes found onto the group's edges and notes
+// the edges the router found no path for.
+func (w *drawioWriter) routeGroupFound(g routeGroup, routes []route.Route) {
+	for _, found := range routes {
+		i := g.edges[found.Index]
+		// Routed points carry float noise a declared route never has.
+		for _, p := range found.Points {
+			g.all[i].Route = append(g.all[i].Route, Point{X: drawioRound(p.X), Y: drawioRound(p.Y)})
+		}
+		w.routed[i] = true
+	}
+	for _, i := range g.edges {
+		if !w.routed[i] {
+			w.unroutable = append(w.unroutable, i)
+		}
+	}
 }
 
 // routePorts is where a node's drawn ports sit for the router: a port drawn
@@ -250,7 +296,7 @@ func placedPortSide(box drawioBox, g *Geometry) (route.Side, float64) {
 	if d := box.bottom() - cy; d < best {
 		side, best = route.South, d
 	}
-	if d := cx - box.X; d < best {
+	if cx-box.X < best {
 		side = route.West
 	}
 	switch side {
