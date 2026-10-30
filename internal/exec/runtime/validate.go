@@ -310,7 +310,7 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 			w.unread = append(w.unread, fmt.Errorf("%s: %w", strings.Join(append(obj.path, of.Name), "."), err))
 			continue
 		}
-		for _, child := range w.heldChildren(fv, source.NameText(of.Name)) {
+		for _, child := range w.heldChildren(inst, of.Name, fv) {
 			held := holding{parent: obj, name: of.Name, through: feat.Symbol, owner: feat.OwnerType}
 			if reached, ok := w.visited[child.inst.ID]; ok {
 				reached.holdings = append(reached.holdings, held)
@@ -373,21 +373,23 @@ type heldChild struct {
 }
 
 // heldChildren lists the objects a feature value holds, each under its segment.
-func (w *validationWalk) heldChildren(fv *FeatureValue, segment string) []heldChild {
+func (w *validationWalk) heldChildren(holder *Instance, feature string, fv *FeatureValue) []heldChild {
 	var out []heldChild
-	reach := func(val Value, segment string) {
+	reach := func(val Value, i int) {
 		id, ok := val.Object()
 		if !ok || w.ctx.HoldsNoValue(val) {
 			return
 		}
 		if child, ok := w.ctx.Instance(id); ok {
+			segment, _ := w.ctx.heldSegment(holder, feature, id, i)
 			out = append(out, heldChild{&validatedObject{inst: child}, segment})
 		}
 	}
 	if fv.Values.Kind == ValInvalid {
-		reach(fv.Value, segment)
+		reach(fv.Value, -1)
 		return out
 	}
+	segment := source.NameText(feature)
 	var elements []Value
 	switch fv.Values.Kind {
 	case ValSequence:
@@ -405,7 +407,7 @@ func (w *validationWalk) heldChildren(fv *FeatureValue, segment string) []heldCh
 		}
 	}
 	for i, val := range elements {
-		reach(val, indexedSegment(segment, i))
+		reach(val, i)
 	}
 	return out
 }

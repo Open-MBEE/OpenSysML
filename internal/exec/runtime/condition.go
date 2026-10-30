@@ -1092,8 +1092,8 @@ type carrier struct {
 	instance *Instance
 	root     *Instance
 	features []string
-	// segments spell the features walked as a path names them, a collection's
-	// element indexed: what a verdict about the carrier labels it by.
+	// segments spell the features walked as a path names them (Context.heldSegment),
+	// ending in the declaration the carrier materializes: what a verdict labels it by.
 	segments   []string
 	occurrence carrierOccurrence
 }
@@ -1166,7 +1166,7 @@ func (ctx *Context) heldObjectsOf(inst *Instance, through func(*Instance, Object
 			}
 			held = NewSequenceValue(&Sequence{elements: standingElements(fv.HeldValue())})
 		}
-		for _, held := range heldSegments(held, source.NameText(of.Name)) {
+		for _, held := range ctx.heldSegments(inst, of.Name, held) {
 			if child, ok := ctx.instances[held.id]; ok {
 				out = append(out, heldObject{feature: of.Name, instance: child, segment: held.segment})
 			}
@@ -1200,35 +1200,91 @@ type heldSegment struct {
 	id      int64
 }
 
-// heldSegments returns the identities a feature value denotes, a collection's elements
-// included, each under the segment a path names it by: the name, indexed for an element.
-func heldSegments(val Value, name string) []heldSegment {
+// heldSegments returns the identities the value of holder's feature denotes, a
+// collection's elements included, each under the segment a path names it by.
+func (ctx *Context) heldSegments(holder *Instance, feature string, val Value) []heldSegment {
 	if id, ok := val.Object(); ok {
-		return []heldSegment{{segment: name, id: id}}
-	}
-	var elements []Value
-	switch {
-	case val.Kind == ValSequence && val.Sequence() != nil:
-		elements = standingElements(val)
-	case val.Kind == ValSet && val.Set() != nil:
-		elements = val.Set().Elements()
+		segment, _ := ctx.heldSegment(holder, feature, id, -1)
+		return []heldSegment{{segment: segment, id: id}}
 	}
 	var out []heldSegment
-	for i, element := range elements {
+	for i, element := range standingCollection(val) {
 		if id, ok := element.Object(); ok {
-			out = append(out, heldSegment{segment: indexedSegment(name, i), id: id})
+			segment, _ := ctx.heldSegment(holder, feature, id, i)
+			out = append(out, heldSegment{segment: segment, id: id})
 		}
 	}
 	return out
 }
 
+// heldSegment names, in a path, the object id that holder's feature holds — at
+// position i of its collection, or alone for i < 0 — and reports whether the
+// segment is indexed. The segment is the declaration the object materializes:
+// the feature's name, indexed for a collection's element (`wheels[2]`), unless
+// the object is held by another feature of the same holder, a usage subsetting
+// the one it was reached through, in which case that usage names it (`small`,
+// or `smalls[2]` within its own collection). The values of a subsetting feature
+// are values of the subsetted feature too (KerML §7.3.4.4), and a feature is
+// unordered by default (SysML §7.6.3), so a position in the subsetted collection
+// identifies nothing the model fixes, while the declaration does; this is the
+// one spelling every surface reporting an object uses.
+func (ctx *Context) heldSegment(holder *Instance, feature string, id int64, i int) (segment string, indexed bool) {
+	if child, ok := ctx.instances[id]; ok && holder != nil {
+		if owner, decl := child.Owner(); owner == holder && decl != "" && decl != feature {
+			if segment, indexed, ok := declaredSegment(holder, decl, id); ok {
+				return segment, indexed
+			}
+		}
+	}
+	if i < 0 {
+		return source.NameText(feature), false
+	}
+	return indexedSegment(source.NameText(feature), i), true
+}
+
+// declaredSegment names the object id by the feature decl of holder declaring it:
+// the name alone when the feature holds one value, indexed by the object's
+// position when it holds a collection; false when the feature does not hold it.
+func declaredSegment(holder *Instance, decl string, id int64) (segment string, indexed, ok bool) {
+	fv := holder.FeatureValues[decl]
+	if fv == nil {
+		return "", false, false
+	}
+	val := fv.HeldValue()
+	if held, isObject := val.Object(); isObject {
+		return source.NameText(decl), false, held == id
+	}
+	for j, element := range standingCollection(val) {
+		if held, isObject := element.Object(); isObject && held == id {
+			return indexedSegment(source.NameText(decl), j), true, true
+		}
+	}
+	return "", false, false
+}
+
+// standingCollection returns the elements a collection value already holds,
+// without materializing a lazy one; nil for a value that is no collection.
+func standingCollection(val Value) []Value {
+	switch {
+	case val.Kind == ValSequence && val.Sequence() != nil:
+		return standingElements(val)
+	case val.Kind == ValSet && val.Set() != nil:
+		return val.Set().Elements()
+	}
+	return nil
+}
+
 // heldObjects returns the identities a feature value denotes, a collection's
 // elements included.
 func heldObjects(val Value) []int64 {
-	held := heldSegments(val, "")
-	out := make([]int64, len(held))
-	for i, h := range held {
-		out[i] = h.id
+	if id, ok := val.Object(); ok {
+		return []int64{id}
+	}
+	var out []int64
+	for _, element := range standingCollection(val) {
+		if id, ok := element.Object(); ok {
+			out = append(out, id)
+		}
 	}
 	return out
 }
@@ -1313,25 +1369,6 @@ func carrierPath(c carrier, definition string) []string {
 	if decl != "" && walked[len(walked)-1] != decl {
 		walked[len(walked)-1] = decl
 	}
-	return walked
-}
-
-// carrierFeatures is a verdict's path to a nested carrier: the segments walked from its root,
-// a collection's element indexed as validation spells it, ending in the declaration it materializes.
-func (ctx *Context) carrierFeatures(c carrier) []string {
-	if len(c.segments) == 0 || c.instance == nil {
-		return nil
-	}
-	name := "object"
-	if def := ctx.definitionOf(c.instance.Type); def != nil && def.Name != "" {
-		name = def.Name
-	}
-	decl := carrierDeclaration(c, name)
-	if decl == "" || c.features[len(c.features)-1] == decl {
-		return c.segments
-	}
-	walked := append([]string(nil), c.segments...)
-	walked[len(walked)-1] = source.NameText(decl)
 	return walked
 }
 
