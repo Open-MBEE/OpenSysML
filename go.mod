@@ -5,8 +5,8 @@ go 1.26.0
 toolchain go1.27.3
 
 require (
-	connectrpc.com/connect v1.20.0
-	connectrpc.com/grpcreflect v1.3.0
+	connectrpc.com/connect v1.21.1
+	connectrpc.com/grpcreflect v1.3.1
 	github.com/chzyer/readline v1.5.1
 	github.com/go-zeromq/zmq4 v0.17.0
 	github.com/google/jsonschema-go v0.4.3

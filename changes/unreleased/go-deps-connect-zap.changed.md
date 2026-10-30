@@ -1,0 +1,1 @@
+- Bumped `connectrpc.com/connect` to 1.21.1 and `connectrpc.com/grpcreflect` to 1.3.1 in the root and `tools/` modules (the Go bumps of Dependabot PR #1639, which conflicts with develop); no API changes for the gRPC/Connect front end.
