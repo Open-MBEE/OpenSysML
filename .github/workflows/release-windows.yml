@@ -304,7 +304,7 @@ jobs:
         run: scripts/wait-for-release-gate.sh "$TAG" "$COMMIT"
 
       - name: Upload the unsigned MSI to the GitHub Release
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ needs.build.outputs.version }}
           files: dist/release/*
@@ -574,7 +574,7 @@ jobs:
 
       - name: Upload signed assets to the GitHub Release
         if: github.ref_type == 'tag' || inputs.tag != ''
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ needs.build.outputs.version }}
           files: dist/release/*
