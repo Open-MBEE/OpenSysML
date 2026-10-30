@@ -230,19 +230,70 @@ develop before it (`0c1fd6dbd`) against the candidate, three runs each,
 ## Re-runs
 
 The six rounds ran while the machine also built and bisected, and the
-runtime package's sec/op came out with 50–290 % spreads; the rows whose
-only move is in time are not decided by them. They are re-run interleaved
-on the quiet machine, six rounds, three columns, once the fix
-measurements have drained: the whole runtime package; grpc
-`InstantiateWarmModel`; lsp `FormatEdits` and `ReferencesCold`; migrate
-`WriterSiblingBlocks`; the repl load rows; perf `IndexAddExpand`,
-`GRPCVerifyConstraint`, `BatchConstraints`, `BatchSatisfy`, `Lex`, `Parse`,
-`AnalyzeRequirementGroup`, `ActionLoop/for1000`, `Analyze/synthetic`,
-`ExecuteActionFreshContext`, `GRPCEvaluate`, `Instantiate` at two
-iterations; stress `FleetInstantiate`, `HydratePlane/32`, `EditBeside`,
-`Satisfy/32` and `/512`, `ValidateSplit/512/jobs=8`, `EditImported/32`.
-Until that table is here, no time verdict is made on those rows; the
-bytes and allocation verdicts above do not depend on it.
+runtime package's sec/op came out with 50–290 % spreads, so the rows whose
+only move is in time were not decided by them. They were re-run
+interleaved on the quiet machine once every other queue had drained:
+six rounds, three columns, nothing else running (load 1.1–2.5, the
+runner itself), the same "Intel(R) Xeon(R) Processor", 8 CPUs, `benchstat`
+with its default 0.05 threshold. Spreads are 0–5 % unless marked. The
+columns are the same three as above; bytes and allocations did not change
+and are not repeated.
+
+| Row | col 1 | col 2 | col 3 | 2 → 3 | 1 → 3 | Verdict |
+|---|---|---|---|---|---|---|
+| runtime `AssignmentLoopStep` | 1.634 ms | 1.528 ms | 1.658 ms | +8.5 % | +1.5 % | source regression confirmed (#1514/#1461, #1745) |
+| runtime `DerivedReadWriteRead` | 6.360 µs | 5.929 µs | 6.860 µs | +15.7 % | +7.9 % | source regression confirmed (#1619, #1747) |
+| runtime `IntegerArithmeticLoop` | 3.562 ms (±8 %) | 3.281 ms | 3.537 ms | +7.8 % | ~ (p=0.09) | source time regression, no bytes moved; the toolchain hides it from the user |
+| runtime `RealDecimalLoop` | 3.844 ms | 3.439 ms | 3.635 ms | +5.7 % | −5.5 % | same |
+| runtime `SetFeatureValueNoDependents` | 409.5 ns | 373.7 ns | 385.6 ns | +3.2 % | −5.8 % | same, small |
+| grpc `InstantiateWarmModel` | 204.1 µs (±17 %) | 192.3 µs | 216.5 µs | +12.6 % | ~ (p=0.07) | source regression confirmed (#1508/#1512, #1742) |
+| lsp `FormatEdits` | 864.1 µs | 807.0 µs | 841.1 µs | +4.2 % | −2.7 % | source time regression, no bytes moved, unattributed |
+| repl `LoadModel/0` | 428.4 µs | 411.6 µs | 452.3 µs (±20 %) | +9.9 % | +5.6 % | confirmed (#1462, #1746) |
+| repl `LoadModel/1000` | 118.8 ms | 109.7 ms | 105.1 ms | −4.2 % | −11.5 % | improvement stands |
+| migrate `WriterSiblingBlocks` | 1.763 ms | 1.740 ms | 1.721 ms | −1.1 % | −2.4 % | cleared: the suite's +14 % was the machine |
+| perf `IndexAddExpand/synthetic` | 42.94 ms | 38.48 ms | 38.66 ms | ~ | −10.0 % | cleared |
+| perf `ExecuteActionFreshContext` | 49.35 µs | 46.72 µs | 49.58 µs | +6.1 % | ~ | confirmed (#1619, the marks) |
+| perf `BatchConstraints` | 12.28 ms | 11.24 ms | 12.57 ms | +11.8 % | ~ (p=0.07) | source time regression confirmed, unattributed |
+| perf `GRPCVerifyConstraint` | 1.392 ms | 1.316 ms | 1.635 ms | +24.3 % | +17.5 % | source regression confirmed (#1508/#1512, #1742) |
+| stress `FleetInstantiate/32` | 4.921 ms | 4.834 ms | 4.847 ms | ~ | ~ | cleared |
+| stress `FleetInstantiate/128` | 15.25 ms | 14.35 ms | 14.93 ms (±43 %) | +4.1 % | ~ | left in doubt: the candidate's spread is GC pacing |
+| stress `HydratePlane/32` | 75.12 ms | 72.24 ms | 72.37 ms | ~ | −3.7 % | cleared |
+| stress `EditBeside/128` | 3.889 ms | 3.816 ms | 3.804 ms (±48 %) | ~ | ~ | cleared, wide |
+| stress `ValidateSplit/512/jobs=8` | 4.060 s | 3.923 s | 3.637 s | −7.3 % | −10.4 % | the suite's +7 % was the machine; the quiet host shows an improvement |
+| stress `Satisfy/32`, `EditImported/32`, `FleetSatisfy/32` | | | | ~ | ~ / −4 % | cleared |
+
+So of the ten time-only moves the loaded suite flagged, four were the
+machine (`WriterSiblingBlocks`, `IndexAddExpand`, `HydratePlane/32`,
+`EditBeside/128`, and `ValidateSplit/512` reversed sign), and five are
+source: the three interpreter loops, `SetFeatureValueNoDependents` and
+`FormatEdits`, all without a byte or an allocation moving, so they are
+not in the fix list above — they are candidates for the same
+evaluation-context cause as `AssignmentLoopStep` (the loops share its
+path) and are stated here as a residual rather than attributed. On
+every one of them the toolchain gain of column 1 → 2 is larger than the
+source loss, so a user moving from 0.11.0 sees them flat or faster; the
+rows where the user does see a regression are `GRPCVerifyConstraint`
+(+17.5 %), `DerivedReadWriteRead` (+7.9 %), `LoadModel/0` (+5.6 %) and
+`AssignmentLoopStep` (+1.5 %), each with a fix PR. The raw rounds are
+`results/quiet/<column>-round<N>.txt` in the measurement tarball.
+
+### The fixes on the quiet host
+
+The fix branches were measured the same way (six quiet rounds,
+interleaved with the candidate) on the rows above whose time they
+could move. They recover allocations, not time: `perf/eval-context-size`
+(#1745) leaves `AssignmentLoopStep` (1.651 → 1.646 ms), the two
+interpreter loops, `SetFeatureValueNoDependents` and
+`DerivedReadWriteRead` within noise; `perf/derive-marks-footprint`
+(#1747) takes 1.2 % off `DerivedReadWriteRead` (6.772 → 6.693 µs) and
+2 % off `IntegerArithmeticLoop`; `perf/binding-walk-allocs` (#1742)
+leaves `InstantiateWarmModel`, `BatchConstraints` and
+`ExecuteActionFreshContext` within noise and `GRPCVerifyConstraint` at
+1.629 → 1.659 ms (+1.8 %, p=0.03). The time regressions of this table
+therefore survive the fix PRs, which claim bytes and allocations only;
+what they cost is the work #1508/#1512, #1514 and #1619 do, not the
+allocations around it, and recovering it would mean changing what those
+merges compute, which this record does not propose.
 
 ## Fixes
 
