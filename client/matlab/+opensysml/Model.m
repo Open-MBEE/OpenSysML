@@ -9,21 +9,24 @@ classdef Model < handle
         root = []
         documents = {}
         sourcePath = ''
+        affected = {}
     end
 
     methods
-        function m = Model(conn, hash, diags, roots, documents, sourcePath)
+        function m = Model(conn, hash, diags, roots, documents, sourcePath, affected)
             if nargin < 1, conn = []; end
             if nargin < 2, hash = ''; end
             if nargin < 3, diags = {}; end
             if nargin < 4, roots = {}; end
             if nargin < 5, documents = {}; end
             if nargin < 6, sourcePath = ''; end
+            if nargin < 7, affected = {}; end
             m.connection = conn;
             m.hash = hash;
             m.diagnostics = toCells(diags);
             m.documents = textCells(documents);
             m.sourcePath = sourcePath;
+            m.affected = textCells(affected);
             rawRoots = toCells(roots);
             m.roots = cell(1, numel(rawRoots));
             for i = 1:numel(rawRoots)
@@ -116,7 +119,8 @@ classdef Model < handle
                     opensysml.internal.raise('opensysml:argument', ...
                         sprintf('%s options must be name-value pairs', label));
                 end
-                if any(strcmp(args{i}, {'tolerateSyntaxErrors', 'idForm', 'includeLibraryStubs'}))
+                if any(strcmp(args{i}, {'tolerateSyntaxErrors', 'idForm', 'includeLibraryStubs', ...
+                        'compact', 'omitDerived', 'keepDerived', 'includeCheckDiagnostics'}))
                     options(end+1:end+2) = args(i:i+1);
                 else
                     opensysml.internal.raise('opensysml:argument', ...
