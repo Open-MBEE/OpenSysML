@@ -282,6 +282,19 @@ type ParseOption func(*parseOptions)
 type parseOptions struct {
 	language string
 	strict   bool
+	base     string
+}
+
+// WithBaseModel names a model of the same documents the caller holds results
+// of, typically the previous ParseDocuments answer: the new model's Affected
+// then lists the documents whose results may differ from it. ParseDocuments
+// only; requires the parse_sources_affected capability.
+func WithBaseModel(base *Model) ParseOption {
+	return func(o *parseOptions) {
+		if base != nil {
+			o.base = base.Hash
+		}
+	}
 }
 
 // WithLanguage names the notation of inline content: LanguageSysML (the
@@ -398,7 +411,10 @@ func (c *client) ParseFile(ctx context.Context, path string, opts ...ParseOption
 	if err := c.live(); err != nil {
 		return nil, err
 	}
-	req := parseRequest(opts)
+	req, err := parseRequest(opts)
+	if err != nil {
+		return nil, err
+	}
 	req.Source = &pb.ParseFileRequest_FilePath{FilePath: path}
 	return c.parse(ctx, req)
 }
@@ -407,7 +423,10 @@ func (c *client) ParseSource(ctx context.Context, content string, opts ...ParseO
 	if err := c.live(); err != nil {
 		return nil, err
 	}
-	req := parseRequest(opts)
+	req, err := parseRequest(opts)
+	if err != nil {
+		return nil, err
+	}
 	req.Source = &pb.ParseFileRequest_Content{Content: content}
 	return c.parse(ctx, req)
 }
@@ -431,9 +450,15 @@ func (c *client) ParseDocuments(ctx context.Context, documents []Document, opts 
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if options.base != "" {
+		if err := c.requireCapabilities(ctx, CapabilityParseSourcesAffected); err != nil {
+			return nil, err
+		}
+	}
 	req := &pb.ParseSourcesRequest{
 		Documents:         make([]*pb.SourceDocument, 0, len(documents)),
 		StrictConformance: options.strict,
+		BaseModelHash:     options.base,
 	}
 	for _, doc := range documents {
 		pbDoc := &pb.SourceDocument{}
@@ -462,22 +487,28 @@ func (c *client) ParseDocuments(ctx context.Context, documents []Document, opts 
 	for _, root := range resp.Roots {
 		roots = append(roots, symbolFromProto(root))
 	}
-	model := &Model{Hash: resp.ModelHash, Roots: roots, Diagnostics: diagnostics}
+	model := &Model{Hash: resp.ModelHash, Roots: roots, Diagnostics: diagnostics, Affected: resp.Affected}
 	if len(roots) > 0 {
 		model.Root = roots[0]
 	}
 	return model, nil
 }
 
-func parseRequest(opts []ParseOption) *pb.ParseFileRequest {
+func parseRequest(opts []ParseOption) (*pb.ParseFileRequest, error) {
 	var options parseOptions
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if options.base != "" {
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "WithBaseModel applies to ParseDocuments: a model of one document has no documents to relate",
+		}
+	}
 	return &pb.ParseFileRequest{
 		Language:          options.language,
 		StrictConformance: options.strict,
-	}
+	}, nil
 }
 
 func (c *client) parse(ctx context.Context, req *pb.ParseFileRequest) (*Model, error) {

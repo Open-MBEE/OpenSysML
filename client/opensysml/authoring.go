@@ -63,8 +63,43 @@ func pathIsV1(path string) bool {
 type ConvertOption func(*convertOptions)
 
 type convertOptions struct {
-	from      Format
-	tolerated bool
+	from         Format
+	tolerated    bool
+	idForm       IDForm
+	libraryStubs bool
+}
+
+// IDForm is how a graph notation (Turtle, API JSON) spells the ids of elements
+// that declared none.
+type IDForm string
+
+const (
+	// IDFormQualified derives each id from the element's qualified name; the default.
+	IDFormQualified IDForm = "qualified"
+	// IDFormUUID writes name-based uuids under each root package, the library convention.
+	IDFormUUID IDForm = "uuid"
+)
+
+// WithIDForm spells derived element ids as form when a graph notation is
+// written; declared ids are unchanged. Refused for a notation target.
+func WithIDForm(form IDForm) ConvertOption {
+	return func(o *convertOptions) { o.idForm = form }
+}
+
+// WithLibraryStubs restores, in API JSON, the ownerless library stubs written
+// before 0.11.0; by default library elements remain bare references, listed in
+// Conversion.LibraryReferences. Requires the convert_library_stubs capability.
+func WithLibraryStubs() ConvertOption {
+	return func(o *convertOptions) { o.libraryStubs = true }
+}
+
+// LibraryReference is a standard-library element an API JSON conversion
+// references outside its element array, in place of a library stub.
+type LibraryReference struct {
+	ID            string
+	QualifiedName string
+	// Type is the element's metaclass, as API JSON's @type spells it.
+	Type string
 }
 
 // WithFromFormat names the notation to read, for a file whose extension does
@@ -98,6 +133,9 @@ type Conversion struct {
 	ExperimentalNotice string
 	// Diagnostics are the syntax errors tolerated, when any were.
 	Diagnostics []Diagnostic
+	// LibraryReferences are the standard-library elements an API JSON conversion
+	// references outside its element array; empty for any other format.
+	LibraryReferences []LibraryReference
 }
 
 func (c *client) Convert(ctx context.Context, model *Model, to Format, opts ...ConvertOption) (*Conversion, error) {
@@ -161,10 +199,17 @@ func convertRequest(to Format, opts []ConvertOption) *pb.ConvertRequest {
 		FromFormat:           string(options.from),
 		ToFormat:             string(to),
 		TolerateSyntaxErrors: options.tolerated,
+		IdForm:               string(options.idForm),
+		IncludeLibraryStubs:  options.libraryStubs,
 	}
 }
 
 func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversion, error) {
+	if req.IncludeLibraryStubs {
+		if err := c.requireCapabilities(ctx, CapabilityConvertLibraryStubs); err != nil {
+			return nil, err
+		}
+	}
 	resp, err := c.caller.convert(ctx, req)
 	if err != nil {
 		return nil, err
@@ -180,7 +225,19 @@ func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversi
 		Experimental:       resp.Experimental,
 		ExperimentalNotice: resp.ExperimentalNotice,
 		Diagnostics:        diagnostics,
+		LibraryReferences:  libraryReferencesFromProto(resp.LibraryReferences),
 	}, nil
+}
+
+func libraryReferencesFromProto(refs []*pb.LibraryReference) []LibraryReference {
+	if len(refs) == 0 {
+		return nil
+	}
+	out := make([]LibraryReference, 0, len(refs))
+	for _, ref := range refs {
+		out = append(out, LibraryReference{ID: ref.Id, QualifiedName: ref.QualifiedName, Type: ref.Type})
+	}
+	return out
 }
 
 // MigrateOption configures MigrateFile and MigrateSource.
