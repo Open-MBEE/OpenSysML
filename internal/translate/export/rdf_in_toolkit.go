@@ -1649,8 +1649,10 @@ func (d *defaultDropper) dropsLiteral(subject rdf.Term, local string, object rdf
 	case local == "isReference" && object.Value == "true" && d.impliedIncluded(subject):
 		// A derived reference usage writes no `ref` of its own.
 		return true
-	case (local == "mayTimeVary" || local == "isVariable") && object.Value == "true" && d.impliedIncluded(subject):
-		// A feature is variable and time-varying without a keyword.
+	case (local == "mayTimeVary" || local == "isVariable") && object.Value == "true" &&
+		(d.impliedIncluded(subject) || ontology.IsAncestorOrSelf(d.meta(subject), "Feature")):
+		// A usage's isVariable is its derived mayTimeVary, and a `var` keyword is
+		// carried by its prefix: the flag is stated, never a keyword's source.
 		return true
 	case local == "isConstant" && object.Value == "true" &&
 		graph.BoolValue(subject, rdf.SysML+"isEnd") && d.impliedIncluded(subject):

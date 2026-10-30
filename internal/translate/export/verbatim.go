@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 	"regexp"
 	"strings"
 
@@ -263,11 +264,22 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 		}
 	}
 	for _, t := range check.Triples() {
-		if structural(t) && !graph.Has(t) && !derivedNameOmitted(graph, t) {
+		if structural(t) && !graph.Has(t) && !derivedNameOmitted(graph, t) && !derivedVariabilityOmitted(graph, check, t) {
 			out = append(out, t)
 		}
 	}
 	return out
+}
+
+// derivedVariabilityOmitted reports a usage's derived mayTimeVary or isVariable the
+// candidate states and the graph omits; a publish without derived properties states no less.
+func derivedVariabilityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
+	local := strings.TrimPrefix(t.Predicate.Value, rdf.SysML)
+	if local != "mayTimeVary" && local != "isVariable" {
+		return false
+	}
+	return ontology.IsAncestorOrSelf(rdf.LocalName(check.Type(t.Subject)), "Usage") &&
+		!graph.HasProperty(t.Subject, t.Predicate.Value)
 }
 
 // derivedNameOmitted reports a sysml:name the candidate derives for an element

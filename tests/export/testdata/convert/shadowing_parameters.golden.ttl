@@ -108,6 +108,8 @@ elmt:Shadows__Sweep__items
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "items" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Shadows__Speed ;
     sysml:multiplicity expr:Shadows__Sweep__items_pmultiplicity ;
@@ -187,6 +189,8 @@ elmt:Shadows__Sweep__value
     sysml:owningMembership elmt:Shadows__Sweep__value_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadows__Sweep__value_ft0 ;
@@ -445,6 +449,8 @@ elmt:Shadows__Governor__value
     sysml:owningMembership elmt:Shadows__Governor__value_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadows__Governor__value_ft0 ;
@@ -479,6 +485,8 @@ elmt:Shadows__Governor__w
     sysml:owningMembership elmt:Shadows__Governor__w_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "w" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadows__Governor__w_ft0 ;
@@ -1138,6 +1146,8 @@ elmt:Shadows__Governor___405___40trigger__w
     sysml:declaredName "w" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Shadows__Speed ;
