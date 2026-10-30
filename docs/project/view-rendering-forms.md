@@ -1521,23 +1521,23 @@ attribute a rendering in the model chooses it by:
 | `typings` | `showTypings` | The `: Type` and `:> general` text after a name. | §8.2.3 `feature-typing-text` |
 | `qualifiers` | `showQualifiers` | The qualified-name prefix of each name, in the text form as in the diagram forms; without it a name is the shortest suffix of its qualified name that is its own in the rendering. | §8.2.3 `qualified-name` |
 
-In the model, a view chooses them by rendering a usage or definition that specializes a standard
+In the model, a view chooses them by rendering a rendering that subsets a standard
 `Views` rendering and declares the attributes, each `true` to show the element and `false` to
-leave it out; a switch is declared `default` so that a rendering specializing the one declaring it
-redefines it (`:>>`) to turn it again. The renderer recognises the standard rendering through the specialization chain and
+leave it out; a switch is declared `default` so that a rendering subsetting the one declaring it
+redefines it (`:>>`) to turn it again. The renderer recognises the standard rendering through the subsetting chain and
 reads the attributes from the chosen rendering and its generals, the nearest declaration of each
 deciding. An attribute left undeclared keeps the default, so a rendering need only name what it
-changes. The notation stays library-only — `ScalarValues::Boolean`, `rendering def`, `rendering`
-and the standard renderings — and the pilot validates it.
+changes. The notation stays library-only — `ScalarValues::Boolean`, `rendering` and the standard
+renderings — and the pilot validates it.
 
 ```sysml
 private import ScalarValues::Boolean;
-rendering def PlainInterconnection :> Views::asInterconnectionDiagram {
+rendering plainInterconnection :> Views::asInterconnectionDiagram {
     attribute showParameterSymbols : Boolean default = false;
     attribute showEdgeLabels : Boolean default = true;
 }
-rendering labelled :> PlainInterconnection { attribute :>> showParameterSymbols = true; }
-view useCases { expose Lab::*; render PlainInterconnection; }
+rendering labelled :> plainInterconnection { attribute :>> showParameterSymbols = true; }
+view useCases { expose Lab::*; render plainInterconnection; }
 ```
 
 Ad hoc, `-render-show <elements>`, the REPL's `show=<elements>` on `%render` and `%render-document`,

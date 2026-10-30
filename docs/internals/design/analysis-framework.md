@@ -45,7 +45,7 @@ This is the framework that the two model-checking designs are written into:
 [SMT bounded model checking](smt-model-checking.md) encodes it for a solver, and each describes
 by hand — a referee gate, a fallback, a verdict qualified by a bound — what this note makes the
 shared contract. In the architecture's tiers it is the substance of
-[Tier 6, analysis and verification drivers](../architecture.md#tier-6--analysis--verification-drivers--future).
+[Tier 6, analysis and verification drivers](../architecture.md#tier-6--analysis--verification-drivers-).
 
 ## The problem this answers
 
