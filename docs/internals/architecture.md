@@ -438,11 +438,11 @@ Parse + model all behavioral bodies with unified fallback grammar:
 
 **Measured Compliance:** See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for semantic rule → implementation → test case mapping with status (✅ faithful / ⚠️ approximate / ❌ not yet implemented).
 
-### Tier 6 — Analysis & Verification Drivers ⏳ (Future)
+### Tier 6 — Analysis & Verification Drivers ✅
 
 - Analysis case: subject → calc chain → result values
 - Verification case: evaluate requirements → pass/fail
-- Entry points: REPL/LSP commands (`%run`, `%verify`)
+- Entry points: REPL `%analysis`, `%requirement`, `%satisfy`, `%constraint`, `%validate` and `%check`; CLI `-analysis`, `-requirement`, `-satisfy`, `-constraint` and `-validate`; the gRPC `RunAnalysis`, `VerifyRequirement`, `VerifySatisfaction` and `Validate*` calls
 - Design: [the analysis framework](design/analysis-framework.md) — registered engines behind
   one contract, one scale for the strength of an answer, parallel isolated runs; and
   [bring your own engine](design/bring-your-own-engines.md) — how a user's engine, strategy
