@@ -9,13 +9,8 @@ export interface ImportReport {
   applies: boolean;
 }
 
-/**
- * importReport describes the import of `file`, a draw.io page of `result.view`. The
- * server refuses an import as a whole, so a refused result carries one refusal and
- * nothing to apply; a result with nothing to apply is reported as matching the
- * rendering; otherwise the edit is applied and the count reported, as a warning
- * when the import left something alone.
- */
+/** importReport describes the import of `file`, a draw.io page of `result.view`: refused, nothing to apply, or
+ *  the edits to apply and what was left alone. The server refuses an import as a whole, with one refusal. */
 export function importReport(file: string, result: ImportDiagramResult): ImportReport {
   const refusal = result.refused?.[0];
   if (refusal) {
@@ -34,9 +29,8 @@ export function importReport(file: string, result: ImportDiagramResult): ImportR
   return { severity: "information", message: summary, applies: true };
 }
 
-// importRemarks lists what the import left alone: cells of elements the rendering
-// does not draw, elements the file deleted, the server's notices, and how many
-// cells name no element at all.
+// importRemarks lists what the import left alone: cells the rendering does not draw, elements the
+// file deleted, the server's notices, and how many cells name no element at all.
 function importRemarks(result: ImportDiagramResult): string[] {
   const remarks = [
     ...(result.unmatched ?? []).map((name) => `${name} is not in the rendering`),
