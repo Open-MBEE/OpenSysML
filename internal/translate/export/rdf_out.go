@@ -332,6 +332,37 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 // analyzed with and each document's encoder, whose identity tables are the
 // ones the graph's ids were minted from.
 func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
+	res, encoders, err := modelEncodersOf(documents, form)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// declaredIn is the document and declaration each subject was minted for:
+	// two documents declaring one subject would merge two elements into one.
+	declaredIn := map[string]mintedSubject{}
+	for i, e := range encoders {
+		var minted []mintedSubject
+		if documents[i].Referenced {
+			minted = e.declaredSubjects()
+		} else {
+			if err := e.encodeDocument(documents[i].Root); err != nil {
+				return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+			}
+			minted = e.minted
+		}
+		if err := declaredOnce(declaredIn, minted); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	out := mergeDocumentGraphs(encoders, documents)
+	// Each document's encoder annotated its collections from its own triples,
+	// in their order, and no two documents declare one subject (refused above).
+	out.MarkCollectionsSettled()
+	return out, res, encoders, nil
+}
+
+// modelEncodersOf analyzes the model and makes each document's encoder with
+// its identity tables settled: what every id is minted from, before any writing.
+func modelEncodersOf(documents []ModelDocument, form IDForm) (*resolve.Resolver, []*encoder, error) {
 	res, model := analyzeModel(documents)
 	shared := &modelEncoders{declaring: map[ast.Node]*encoder{}}
 	encoders := make([]*encoder, len(documents))
@@ -339,7 +370,7 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 	for i, doc := range documents {
 		e, err := newEncoderOver(doc.File, doc.Root, form, res, model)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("%s: %w", doc.File.Name(), err)
+			return nil, nil, fmt.Errorf("%s: %w", doc.File.Name(), err)
 		}
 		e.model = shared
 		for node := range e.fqn {
@@ -357,36 +388,24 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 			e.ids.qualified = true
 		}
 	}
-	// declaredIn is the document and declaration each subject was minted for:
-	// two documents declaring one subject would merge two elements into one.
-	declaredIn := map[string]mintedSubject{}
-	for i, e := range encoders {
-		var minted []mintedSubject
-		if documents[i].Referenced {
-			minted = e.declaredSubjects()
-		} else {
-			if err := e.encodeDocument(documents[i].Root); err != nil {
-				return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+	return res, encoders, nil
+}
+
+// declaredOnce records minted's subjects in declaredIn, refusing one another
+// document already declares: merging two elements into one subject would be a different model.
+func declaredOnce(declaredIn map[string]mintedSubject, minted []mintedSubject) error {
+	for _, m := range minted {
+		if prior, taken := declaredIn[m.iri]; taken {
+			return &UnsupportedError{
+				What: fmt.Sprintf("the declaration of %s at %s", m.fqn, m.at),
+				Note: fmt.Sprintf("its id lands on the same IRI as %s at %s, which another document declares, and merging two elements into one subject would be a different model", prior.fqn, prior.at),
 			}
-			minted = e.minted
-		}
-		for _, minted := range minted {
-			if prior, taken := declaredIn[minted.iri]; taken {
-				return nil, nil, nil, &UnsupportedError{
-					What: fmt.Sprintf("the declaration of %s at %s", minted.fqn, minted.at),
-					Note: fmt.Sprintf("its id lands on the same IRI as %s at %s, which another document declares, and merging two elements into one subject would be a different model", prior.fqn, prior.at),
-				}
-			}
-		}
-		for _, minted := range minted {
-			declaredIn[minted.iri] = minted
 		}
 	}
-	out := mergeDocumentGraphs(encoders, documents)
-	// Each document's encoder annotated its collections from its own triples,
-	// in their order, and no two documents declare one subject (refused above).
-	out.MarkCollectionsSettled()
-	return out, res, encoders, nil
+	for _, m := range minted {
+		declaredIn[m.iri] = m
+	}
+	return nil
 }
 
 // mergeDocumentGraphs is the written documents' graphs as one (a Referenced
@@ -579,6 +598,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		payloads:           map[*ast.Usage]*ast.Usage{},
 		payloadFeatures:    map[*ast.Usage]bool{},
 		fqn:                map[ast.Node]string{},
+		absorbed:           map[ast.Node]bool{},
 		positional:         map[ast.Node]string{},
 		positionalTaken:    map[string]bool{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
@@ -667,6 +687,9 @@ type encoder struct {
 	subjects map[string]string
 	// idErr holds a collision found where no error can propagate directly.
 	idErr error
+	// absorbed marks the FinalNode a member-attached `then` introduces: the
+	// target end of the following succession, written as that edge, not itself.
+	absorbed map[ast.Node]bool
 	// regions holds each element's lines, bodies the lines its members tile.
 	regions map[rdf.Term]region
 	bodies  map[rdf.Term]region
@@ -979,8 +1002,16 @@ func (e *encoder) provenance(subject rdf.Term, node ast.Node) {
 // later one is identified by its position, like a member declared unnamed.
 // position is the owner's name in a graph that states no effective names.
 func (e *encoder) collect(members []ast.Node, owner, position string) error {
-	for i, member := range e.kept(members) {
+	kept := e.kept(members)
+	for i, member := range kept {
 		node, _ := unwrapMember(member)
+		if _, done := node.(*ast.FinalNode); done && i+1 < len(kept) {
+			if next, _ := unwrapMember(kept[i+1]); next != nil {
+				if edge, ok := next.(*ast.SuccessionEdge); ok && edge.TargetMember == node {
+					e.absorbed[node] = true
+				}
+			}
+		}
 		declared, children := declaredNameAndMembers(node)
 		name := memberName(node)
 		fqn := qualify(owner, name, i)
@@ -1201,14 +1232,9 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, 
 		// target end, not a member of its own: `then done;` is one
 		// SuccessionAsUsage reaching the library's done feature. The edge
 		// carries the node's lines, the text `then done;` was written as.
-		encodes := true
-		if _, done := node.(*ast.FinalNode); done && i+1 < len(kept) {
-			if next, _ := unwrapMember(kept[i+1]); next != nil {
-				if edge, ok := next.(*ast.SuccessionEdge); ok && edge.TargetMember == node {
-					encodes = false
-					regions[i+1] = regions[i]
-				}
-			}
+		encodes := !e.absorbed[node]
+		if !encodes {
+			regions[i+1] = regions[i]
 		}
 		if encodes {
 			h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i + indexOffset,
@@ -1249,6 +1275,51 @@ func (e *encoder) mint(node ast.Node, fqn string) (rdf.Term, error) {
 	}
 	e.minted = append(e.minted, mintedSubject{iri: subject.Value, fqn: fqn, at: e.where(node)})
 	return subject, nil
+}
+
+// writtenDeclarations are the declarations the writer writes, in document order:
+// every collected node but an absorbed final node (encodeMembers) and the
+// statement a named send or assignment is written as (indexTriggerMembers).
+func (e *encoder) writtenDeclarations() []ast.Node {
+	statements := map[ast.Node]bool{}
+	for node := range e.fqn {
+		if usage, ok := node.(*ast.Usage); ok {
+			if statement := nodeStatement(usage); statement != nil {
+				statements[statement] = true
+			}
+		}
+	}
+	nodes := make([]ast.Node, 0, len(e.fqn))
+	for node := range e.fqn {
+		if !e.absorbed[node] && !statements[node] {
+			nodes = append(nodes, node)
+		}
+	}
+	slices.SortFunc(nodes, func(a, b ast.Node) int { return a.Span().Offset - b.Span().Offset })
+	return nodes
+}
+
+// mintDeclarations makes the claims writing the declarations would — each subject
+// (mint) and a member's owning membership (head) — so colliding ids refuse the model.
+func (e *encoder) mintDeclarations() error {
+	for _, node := range e.writtenDeclarations() {
+		fqn := e.fqn[node]
+		subject, err := e.mint(node, fqn)
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(fqn, "::") {
+			continue // a root has no owner, so no owning membership is written
+		}
+		membership := e.ids.owningMembershipOf(node, subject)
+		if prior, taken := e.claim(membership.Value, fqn+"'s owning membership"); taken {
+			return &UnsupportedError{
+				What: fmt.Sprintf("the owning membership of %s", fqn),
+				Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
+			}
+		}
+	}
+	return nil
 }
 
 // head types an element and states its identity, position and membership in

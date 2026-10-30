@@ -1,6 +1,7 @@
 package export
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -11,11 +12,9 @@ import (
 )
 
 // ElementIDs reports the elementId a conversion of a model writes for each of
-// its elements, in the qualified id form. It is read from that conversion
-// itself — ToRDF for one document, modelToRDF (ModelToRDFWith) for several,
-// the paths Convert takes — so a library file's copy, a declared id and scope
-// qualification come out as they are written, and a model the conversion
-// refuses has no ids at all.
+// its elements, in the qualified id form, from the identity tables Convert mints
+// them from (ToRDF's for one document, ModelToRDFWith's for several), so a
+// library file's copy, a declared id and scope qualification come out as written.
 type ElementIDs struct {
 	// byNode keys each id by the declaration the conversion wrote it for: two
 	// identity scopes may declare one qualified name, and only the node tells
@@ -27,38 +26,51 @@ type ElementIDs struct {
 	encoders []*encoder
 }
 
-// NewElementIDs converts the documents of one model and records the elementId
-// written for each element by its qualified (or positional) name. The error is
-// the conversion's: a model Convert refuses has no elementIds to report.
+// NewElementIDs records the elementId Convert writes for each element of the
+// documents' model from the identity tables the ids are minted from — nothing is
+// written — refusing what the declarations' identity claims refuse in Convert:
+// ids colliding within a document (mintDeclarations) or across documents.
 func NewElementIDs(documents []ModelDocument) (*ElementIDs, error) {
-	graph, res, encoders, err := modelToRDF(documents, IDQualifiedName)
+	res, encoders, err := modelEncodersOf(documents, IDQualifiedName)
 	if err != nil {
 		return nil, err
 	}
-	return elementIDsOf(graph, res, encoders), nil
+	referenced := make([]bool, len(documents))
+	for i, doc := range documents {
+		referenced[i] = doc.Referenced
+	}
+	return identityIDsOf(res, encoders, referenced)
 }
 
-// elementIDsOf records the elementId a converted graph writes for each element,
-// by the declaration each encoder wrote it for and by its qualified (or
-// positional) name.
-func elementIDsOf(graph *rdf.Graph, res *resolve.Resolver, encoders []*encoder) *ElementIDs {
-	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{}, res: res, encoders: encoders}
-	for _, subject := range graph.Subjects() {
-		name, named := graph.Lexical(subject, rdf.SysML+pQualifiedName)
-		id, identified := graph.Lexical(subject, rdf.SysML+pElementID)
-		if named && identified {
-			ids.byName[name] = id
+// identityIDsOf records each written declaration's id (its subject's local name)
+// once the claims Convert makes for the documents (as modelToRDF does) succeed.
+func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool) (*ElementIDs, error) {
+	declaredIn := map[string]mintedSubject{}
+	for i, e := range encoders {
+		minted := e.declaredSubjects()
+		if !referenced[i] {
+			if err := e.mintDeclarations(); err != nil {
+				return nil, fmt.Errorf("%s: %w", e.file.Name(), err)
+			}
+			minted = e.minted
+		}
+		if err := declaredOnce(declaredIn, minted); err != nil {
+			return nil, err
 		}
 	}
+	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{}, res: res, encoders: encoders}
 	for _, e := range encoders {
-		for node, fqn := range e.fqn {
-			if id, ok := graph.Lexical(e.ids.subjectForNode(node, fqn), rdf.SysML+pElementID); ok {
-				ids.byNode[node] = id
-				ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
+		for _, node := range e.writtenDeclarations() {
+			fqn := e.fqn[node]
+			id := rdf.LocalName(e.ids.subjectForNode(node, fqn).Value)
+			ids.byNode[node] = id
+			ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
+			if fqn != "" {
+				ids.byName[fqn] = id
 			}
 		}
 	}
-	return ids
+	return ids, nil
 }
 
 // spanKey names a declaration by its document and span, across parses of it.
@@ -146,8 +158,8 @@ func (r *ElementIDReader) Read(doc string, decl ast.Node, fqn string) (string, e
 	return id, nil
 }
 
-// convert makes the ids as Convert writes them: one document is parsed afresh
-// from its text, as ToRDF does; several are written over the trees read.
+// convert mints the ids as Convert writes them: one document is parsed afresh
+// from its text, as ToRDF does; several are taken over the trees read.
 func (r *ElementIDReader) convert() {
 	documents := make([]ModelDocument, 0, len(r.documents))
 	for _, doc := range r.documents {
@@ -180,12 +192,12 @@ func (r *ElementIDReader) convert() {
 			r.err = syntax
 			return
 		}
-		e, err := encodeDocument(file, root, "", IDQualifiedName)
+		e, err := newEncoder(file, root, "", IDQualifiedName)
 		if err != nil {
 			r.err = err
 			return
 		}
-		r.ids = elementIDsOf(e.graph, e.res, []*encoder{e})
+		r.ids, r.err = identityIDsOf(e.res, []*encoder{e}, []bool{false})
 		return
 	}
 	r.ids, r.err = NewElementIDs(documents)

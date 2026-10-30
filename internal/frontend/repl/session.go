@@ -97,6 +97,8 @@ type Session struct {
 	// while it runs (exploreVerdict). Lower-case helpers assume the caller holds both.
 	mu    sync.Mutex
 	state sync.Mutex
+	// elementIDs is the reader the session's queries share (elementIDReader).
+	elementIDs sessionElementIDs
 
 	// interrupt is raised by Interrupt to stop the command under way; every
 	// runtime context the session builds watches it. command holds the context
