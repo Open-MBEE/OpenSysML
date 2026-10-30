@@ -92,7 +92,7 @@ validate the largest generated model. Those are the rows below.
 | repl `LoadModel/elements=0` | allocs/op | 2 022 | 2 022 | 2 155 | +6.6 % (B/op +8.3 %) | #1462, the duplicate-library check kept a list per library package name | `perf/duplicate-libraries-walk` → 2 038 (#1746) |
 | repl `LoadModel/elements=1000` (and /250 +5.4 %, /4000 +5.0 %; +3.5–5 % B/op on every load-heavy row: stress `Load`, `LoadFiles`, `OpenSplit`, `ValidateSplit`, `EditImported`, `ImportValues`, `Analyze/synthetic`, `WorkspaceEdit`, `REPLSubmitSnippet`) | B/op | 55.39 Mi | 55.52 Mi | 58.31 Mi | +5.0 % | #1478 (bisected), the `typed by` notation pass swept every document's expressions | `perf/typed-by-sweep` → 55.8 Mi (#1744) |
 | runtime `AssignmentLoopStep` | B/op | 899.7 Ki | 899.7 Ki | 948.0 Ki | +5.4 % | #1514 and #1461 grew the evaluation context from 152 to 184 bytes | `perf/eval-context-size` → 926 Ki (#1745) |
-| runtime `DerivedReadWriteRead` | B/op · allocs/op | 2 688 · 67 | 2 688 · 67 | 3 328 · 71 | +23.8 % · +6.0 % | #1619 (bisected) marks what a derived value stands on, copying the footprint's reads; #1514 for 64 B | `perf/derive-marks-footprint` → 3 104 · 69 (PR pending), with `perf/eval-context-size` (#1745) |
+| runtime `DerivedReadWriteRead` | B/op · allocs/op | 2 688 · 67 | 2 688 · 67 | 3 328 · 71 | +23.8 % · +6.0 % | #1619 (bisected) marks what a derived value stands on, copying the footprint's reads; #1514 for 64 B | `perf/derive-marks-footprint` → 3 104 · 69 (#1747), with `perf/eval-context-size` (#1745) |
 | perf `GRPCVerifyConstraint` | allocs/op | 14 390 | 14 090 | 16 300 | +15.7 % | #1508 and #1512, the binding walks | `perf/binding-walk-allocs` → 14 887 (#1742) |
 | grpc `InstantiateWarmModel` | allocs/op | 1 990 | 1 960 | 2 170 | +10.5 % (B/op +6.3 %) | the binding walks, as above | the same → 1 996 (#1742) |
 | perf `FeaturesOf` | B/op | 261.7 Mi | 261.2 Mi | 295.8 Mi | +13.3 % (sec/op −7 %) | #1626, the memo of related features recorded every empty relation | `perf/related-features-memo` → 271.2 Mi (#1743) |
@@ -328,6 +328,21 @@ as they open; the branches are named in the summary table.
   MiB, wall 0.15 s on both, both complete under `ulimit -v 2000000` and
   `4000000`. The walk over every library document's root packages
   remains, so the load's time is not back to 0.11.0's.
+- **#1747 `perf/derive-marks-footprint`** (cause #1619): `deriveMarks`
+  cloned the memoized footprint's reads to stamp the object's feature on
+  the reads reached through it, on every derivation of a value held
+  through a part; the feature is now applied to the read as it is looked
+  up, and the marks recorded are the same set. Six rounds, #1619's parent
+  / #1619 / candidate / fix: `DerivedReadWriteRead` 2 816 / 3 328 /
+  3 328 / **3 104 B** per op (0.11.0 rebuilt: 2 688), 67 / 71 / 71 /
+  **69** allocs; `ExecuteActionFreshContext` 403.5 / 424.5 / 424.5 /
+  424.0 allocs — its +21 are the marks themselves and stay; every other
+  row of the package within ±0.2 %. The `runtime.test` binary running
+  the derived read 20 000 times, three cold runs, candidate → fix: peak
+  RSS 116–122 vs 113–120 MiB, wall 0.48 vs 0.47 s, both complete under
+  `ulimit -v 4000000`. The remaining 288 B and two allocations per
+  derivation are what #1619 records; the fix removes the copy, not the
+  marks, and does not claim an RSS change.
 
 ## What this record does not measure
 
