@@ -158,9 +158,8 @@ func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf
 	}
 }
 
-// writtenClauseRelationships records the relationship written for each distinct target of
-// the head's clauses (materializeRelationships), by the clause, or by the target of a clause
-// the head writes without one.
+// writtenClauseRelationships records the relationship written for each distinct target of the
+// head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
 func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
 	_, classifier := node.(*ast.Definition)
 	referenceForm := e.referenceFormOf(node)
@@ -179,9 +178,8 @@ func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.
 	}
 }
 
-// referenceFormOf reports whether a head's `subsets` targets are written as
-// ReferenceSubsettings (referenceSubsettingForm): a satisfy, an end-form binding or a
-// verified requirement that declares none.
+// referenceFormOf reports whether a head's `subsets` are written as ReferenceSubsettings
+// (referenceSubsettingForm): a satisfy, an end-form binding or a verified requirement.
 func (e *encoder) referenceFormOf(node ast.Node) bool {
 	usage, ok := node.(*ast.Usage)
 	if !ok {
@@ -192,9 +190,8 @@ func (e *encoder) referenceFormOf(node ast.Node) bool {
 		(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
 }
 
-// writtenHeadClauses are the clauses of a head whose targets the writer materializes:
-// headClauses, then the objects a usage states without a clause (encode): a metadata body
-// member's implicit redefinition, a bare `variant x;`'s reference.
+// writtenHeadClauses are headClauses plus the objects a usage states without a clause (encode):
+// a metadata body member's implicit redefinition, a bare `variant x;`'s reference.
 func (e *encoder) writtenHeadClauses(node, parent ast.Node, parents map[ast.Node]ast.Node) []*ast.Relationship {
 	clauses := headClauses(node)
 	usage, ok := node.(*ast.Usage)
@@ -210,9 +207,8 @@ func (e *encoder) writtenHeadClauses(node, parent ast.Node, parents map[ast.Node
 	return clauses
 }
 
-// clauseObjects are the distinct objects the head's clauses of kind state, in clause order,
-// and each clause's position among them: clauses repeating a target (`: T, T`) share the one
-// relationship the writer materializes for it.
+// clauseObjects are the distinct objects the head's clauses of kind state, in clause order, and
+// each clause's position among them: clauses repeating a target (`: T, T`) share one relationship.
 func (e *encoder) clauseObjects(subject rdf.Term, clauses []*ast.Relationship, kind ast.RelationshipKind, chains map[*ast.Relationship]int) ([]string, map[*ast.Relationship]int) {
 	var objects []string
 	at := map[*ast.Relationship]int{}
