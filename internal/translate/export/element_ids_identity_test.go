@@ -1,11 +1,13 @@
 package export
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -23,7 +25,7 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 		}
 		texts[filepath.Base(f)] = string(data)
 	}
-	compared := 0
+	compared, ends := 0, 0
 	for name, text := range texts {
 		sf := source.New(name, []byte(text))
 		p := parser.New(sf)
@@ -48,11 +50,29 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 					t.Errorf("%s: %s minted %q (%v), written %q (%v)", name, fqn, got, has, written, ok)
 				}
 				compared++
+				usage, isUsage := node.(*ast.Usage)
+				if !isUsage {
+					continue
+				}
+				// The ends a head binds are written as end features of their own.
+				subject := e.ids.subjectForNode(node, fqn)
+				for i, end := range usage.ConnectorEnds {
+					if end == nil {
+						continue
+					}
+					feature := rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i))
+					written, ok := graph.Lexical(feature, rdf.SysML+pElementID)
+					got, has := minted.bySpan[spanKey{name, end.Span()}]
+					if has != ok || got != written {
+						t.Errorf("%s: %s end %d minted %q (%v), written %q (%v)", name, fqn, i, got, has, written, ok)
+					}
+					ends++
+				}
 			}
 		}
 	}
-	if compared == 0 {
-		t.Fatal("no declaration compared")
+	if compared == 0 || ends == 0 {
+		t.Fatalf("%d declarations and %d connector ends compared, want both", compared, ends)
 	}
 }
 
