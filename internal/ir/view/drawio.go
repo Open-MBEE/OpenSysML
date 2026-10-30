@@ -276,13 +276,13 @@ func (w *drawioWriter) childShift(node *Node, box drawioBox) drawioBox {
 	if node.Geometry.placed() {
 		return drawioBox{}
 	}
-	minX, minY, any := math.Inf(1), math.Inf(1), false
+	minX, minY, found := math.Inf(1), math.Inf(1), false
 	for _, child := range node.Children {
 		if child.Geometry.placed() {
-			minX, minY, any = math.Min(minX, child.Geometry.X), math.Min(minY, child.Geometry.Y), true
+			minX, minY, found = math.Min(minX, child.Geometry.X), math.Min(minY, child.Geometry.Y), true
 		}
 	}
-	if !any {
+	if !found {
 		return drawioBox{}
 	}
 	return drawioBox{X: box.X + drawioNestedPad - minX, Y: box.Y + w.headroom(node) + drawioNestedGap - minY}
@@ -515,6 +515,24 @@ func (w *drawioWriter) attr(name, value string) {
 	w.b.WriteString(`"`)
 }
 
+// The indentation of what the writer puts under <root>: a cell or the <object>
+// wrapping one, what sits inside it, and what sits inside the wrapped cell.
+const (
+	drawioCellIndent        = "        "
+	drawioCellBodyIndent    = drawioCellIndent + "  "
+	drawioWrappedBodyIndent = drawioCellBodyIndent + "  "
+)
+
+// openCell opens a plain cell under <root>, up to its attributes.
+func (w *drawioWriter) openCell() {
+	w.b.WriteString(drawioCellIndent + "<mxCell")
+}
+
+// closeCell closes a plain cell under <root>.
+func (w *drawioWriter) closeCell() {
+	w.b.WriteString(drawioCellIndent + "</mxCell>\n")
+}
+
 // drawioObject are the attributes a semantic cell's <object> carries.
 type drawioObject struct {
 	id, label, fqn, kind, link string
@@ -527,10 +545,10 @@ type drawioName struct {
 	Offset, Len int
 }
 
-// openObject writes the <object> wrapper of a semantic cell; the view is every
-// cell's, the fqn and link those with one.
-func (w *drawioWriter) openObject(indent string, o drawioObject) {
-	w.b.WriteString(indent + "<object")
+// openObject writes the <object> wrapper of a semantic cell and opens the cell
+// it wraps, up to its attributes; the view is every cell's, the fqn and link those with one.
+func (w *drawioWriter) openObject(o drawioObject) {
+	w.b.WriteString(drawioCellIndent + "<object")
 	w.attr("id", o.id)
 	w.attr("label", o.label)
 	if o.fqn != "" {
@@ -545,7 +563,12 @@ func (w *drawioWriter) openObject(indent string, o drawioObject) {
 	if o.name.Len > 0 && w.names != nil {
 		w.names[o.id] = o.name
 	}
-	w.b.WriteString(">\n")
+	w.b.WriteString(">\n" + drawioCellBodyIndent + "<mxCell")
+}
+
+// closeObject closes the cell openObject opened and its <object> wrapper.
+func (w *drawioWriter) closeObject() {
+	w.b.WriteString(drawioCellBodyIndent + "</mxCell>\n" + drawioCellIndent + "</object>\n")
 }
 
 // nodeName locates shown(node)'s token in the label headerLines joins: after
@@ -651,8 +674,7 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 	}
 	compartments := w.compartments(node)
 	header := w.headerHeight(node)
-	w.openObject("        ", drawioObject{id: node.ID, label: strings.Join(w.headerLines(node), "\n"), fqn: fqn, kind: node.Kind, link: w.link(node.Origin), name: w.nodeName(node)})
-	w.b.WriteString("          <mxCell")
+	w.openObject(drawioObject{id: node.ID, label: strings.Join(w.headerLines(node), "\n"), fqn: fqn, kind: node.Kind, link: w.link(node.Origin), name: w.nodeName(node)})
 	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0))
 	w.b.WriteString(` vertex="1"`)
 	if collapsed(node) {
@@ -661,11 +683,11 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 	w.attr("parent", parent)
 	w.b.WriteString(">\n")
 	if collapsed(node) {
-		w.geometry("            ", drawioBox{X: rel.X, Y: rel.Y, Width: rel.Width, Height: header}, nil, &rel)
+		w.geometry(drawioWrappedBodyIndent, drawioBox{X: rel.X, Y: rel.Y, Width: rel.Width, Height: header}, nil, &rel)
 	} else {
-		w.geometry("            ", rel, nil, nil)
+		w.geometry(drawioWrappedBodyIndent, rel, nil, nil)
 	}
-	w.b.WriteString("          </mxCell>\n        </object>\n")
+	w.closeObject()
 	w.cells[node.ID] = true
 	y := header
 	for i, compartment := range compartments {
@@ -681,15 +703,15 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 
 // writeCompartment writes one compartment as a text cell stacked in its node.
 func (w *drawioWriter) writeCompartment(id string, node *Node, compartment Compartment, box drawioBox) {
-	w.b.WriteString("        <mxCell")
+	w.openCell()
 	w.attr("id", id)
 	w.attr("value", strings.Join(w.compartmentLines(node, compartment), "\n"))
 	w.attr("style", "text;html=0;whiteSpace=wrap;strokeColor=inherit;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;portConstraint=eastwest;"+drawioFontStyle(node.Style))
 	w.b.WriteString(` vertex="1"`)
 	w.attr("parent", node.ID)
 	w.b.WriteString(">\n")
-	w.geometry("          ", box, nil, nil)
-	w.b.WriteString("        </mxCell>\n")
+	w.geometry(drawioCellBodyIndent, box, nil, nil)
+	w.closeCell()
 }
 
 // writePorts writes a node's drawn ports as small border cells, inputs left, outputs
@@ -713,8 +735,7 @@ func (w *drawioWriter) writePorts(node *Node, fqn string) {
 		if portFQN == "" && fqn != "" && port.Name != "" && !port.NameSynthesized {
 			portFQN = fqn + "::" + port.Name
 		}
-		w.openObject("        ", drawioObject{id: id, label: w.ports.pinLabel(port), fqn: portFQN, kind: drawioPortKind(port), link: w.link(port.Origin), name: drawioPortName(port)})
-		w.b.WriteString("          <mxCell")
+		w.openObject(drawioObject{id: id, label: w.ports.pinLabel(port), fqn: portFQN, kind: drawioPortKind(port), link: w.link(port.Origin), name: drawioPortName(port)})
 		w.attr("style", drawioPortStyle(side)+drawioStyleOf(nil, ""))
 		w.b.WriteString(` vertex="1"`)
 		w.attr("parent", node.ID)
@@ -724,12 +745,12 @@ func (w *drawioWriter) writePorts(node *Node, fqn string) {
 			if g.HasSize {
 				size = drawioBox{Width: g.Width, Height: g.Height}
 			}
-			w.geometry("            ", drawioBox{X: g.X - box.X, Y: g.Y - box.Y, Width: size.Width, Height: size.Height}, nil, nil)
+			w.geometry(drawioWrappedBodyIndent, drawioBox{X: g.X - box.X, Y: g.Y - box.Y, Width: size.Width, Height: size.Height}, nil, nil)
 		} else {
-			w.relativeGeometry("            ", side, fraction)
+			w.relativeGeometry(drawioWrappedBodyIndent, side, fraction)
 		}
 		w.portBoxes[id] = drawioPortCellBox(box, side, fraction, port.Geometry)
-		w.b.WriteString("          </mxCell>\n        </object>\n")
+		w.closeObject()
 		w.cells[id] = true
 	}
 }
@@ -814,20 +835,30 @@ func (w *drawioWriter) relativeGeometry(indent string, side PortDirection, fract
 	case PortOut:
 		x, y = 1, fraction
 	}
-	w.b.WriteString(indent + "<mxGeometry")
+	w.openGeometry(indent)
 	w.attr("x", formatCoord(x))
 	w.attr("y", formatCoord(y))
 	w.attr("width", formatCoord(drawioPortSize))
 	w.attr("height", formatCoord(drawioPortSize))
 	w.b.WriteString(` relative="1" as="geometry">` + "\n")
 	w.b.WriteString(indent + `  <mxPoint x="-6" y="-6" as="offset"/>` + "\n")
+	w.closeGeometry(indent)
+}
+
+// openGeometry opens a cell's mxGeometry at indent, up to its attributes.
+func (w *drawioWriter) openGeometry(indent string) {
+	w.b.WriteString(indent + "<mxGeometry")
+}
+
+// closeGeometry closes an mxGeometry opened at indent with children.
+func (w *drawioWriter) closeGeometry(indent string) {
 	w.b.WriteString(indent + "</mxGeometry>\n")
 }
 
 // geometry writes an mxGeometry: the box, any route points, and the full box a
 // collapsed cell expands to.
 func (w *drawioWriter) geometry(indent string, box drawioBox, points []Point, alternate *drawioBox) {
-	w.b.WriteString(indent + "<mxGeometry")
+	w.openGeometry(indent)
 	if box.X != 0 {
 		w.attr("x", formatCoord(box.X))
 	}
@@ -849,7 +880,7 @@ func (w *drawioWriter) geometry(indent string, box drawioBox, points []Point, al
 		w.b.WriteString(` as="alternateBounds"/>` + "\n")
 	}
 	w.writePoints(indent+"  ", points)
-	w.b.WriteString(indent + "</mxGeometry>\n")
+	w.closeGeometry(indent)
 }
 
 // writePoints writes a route's waypoints.
@@ -1026,23 +1057,23 @@ func (w *drawioWriter) writeEdge(i int, edge Edge) {
 		// No route, but an end at a port still leaves through the port's face.
 		anchors = w.faceAnchor("exit", source, w.inward[i]&drawioFrom != 0) + w.faceAnchor("entry", target, w.inward[i]&drawioTo != 0)
 	}
-	w.openObject("        ", drawioObject{id: id, label: edge.Label, fqn: w.edgeFQN(edge), kind: edge.Kind.String(), link: w.link(edge.Origin), name: drawioEdgeName(edge)})
-	w.b.WriteString("          <mxCell")
+	w.openObject(drawioObject{id: id, label: edge.Label, fqn: w.edgeFQN(edge), kind: edge.Kind.String(), link: w.link(edge.Origin), name: drawioEdgeName(edge)})
 	w.attr("style", drawioEdgeFullStyle(edge, anchors))
 	w.b.WriteString(` edge="1"`)
 	w.attr("parent", "1")
 	w.attr("source", source)
 	w.attr("target", target)
 	w.b.WriteString(">\n")
-	w.b.WriteString(`            <mxGeometry relative="1" as="geometry"`)
+	w.openGeometry(drawioWrappedBodyIndent)
+	w.b.WriteString(` relative="1" as="geometry"`)
 	if len(points) == 0 {
 		w.b.WriteString("/>\n")
 	} else {
 		w.b.WriteString(">\n")
-		w.writePoints("              ", points)
-		w.b.WriteString("            </mxGeometry>\n")
+		w.writePoints(drawioWrappedBodyIndent+"  ", points)
+		w.closeGeometry(drawioWrappedBodyIndent)
 	}
-	w.b.WriteString("          </mxCell>\n        </object>\n")
+	w.closeObject()
 	w.endLabel(id+":from", id, edge.FromLabel, -0.8, edge.Style)
 	w.endLabel(id+":to", id, edge.ToLabel, 0.8, edge.Style)
 }
@@ -1102,7 +1133,7 @@ func (w *drawioWriter) faceAnchor(end, cell string, inward bool) string {
 	if d := box.bottom() - cy; d < best {
 		fx, fy, best = 0.5, 1, d
 	}
-	if d := cx - box.X; d < best {
+	if cx-box.X < best {
 		fx, fy = 0, 0.5
 	}
 	if inward {
@@ -1142,15 +1173,17 @@ func (w *drawioWriter) endLabel(id, edge, text string, position float64, style *
 	if text == "" {
 		return
 	}
-	w.b.WriteString("        <mxCell")
+	w.openCell()
 	w.attr("id", id)
 	w.attr("value", text)
 	w.attr("style", "edgeLabel;html=0;align=center;verticalAlign=middle;resizable=0;"+drawioFontStyle(style))
 	w.b.WriteString(` vertex="1" connectable="0"`)
 	w.attr("parent", edge)
-	w.b.WriteString(">\n          <mxGeometry")
+	w.b.WriteString(">\n")
+	w.openGeometry(drawioCellBodyIndent)
 	w.attr("x", formatCoord(position))
-	w.b.WriteString(` relative="1" as="geometry"/>` + "\n        </mxCell>\n")
+	w.b.WriteString(` relative="1" as="geometry"/>` + "\n")
+	w.closeCell()
 }
 
 // drawioEdgeFullStyle is an edge's whole style: orthogonal routing unless a
@@ -1265,13 +1298,13 @@ func drawioNoteGroups(notes []Note) [][]int {
 // each subject the group names.
 func (w *drawioWriter) writeNote(group []int, notes []Note, box drawioBox) {
 	id := fmt.Sprintf("note%d", group[0])
-	w.b.WriteString("        <mxCell")
+	w.openCell()
 	w.attr("id", id)
 	w.attr("value", notes[group[0]].Text)
 	w.attr("style", "shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;")
 	w.b.WriteString(` vertex="1" parent="1">` + "\n")
-	w.geometry("          ", box, nil, nil)
-	w.b.WriteString("        </mxCell>\n")
+	w.geometry(drawioCellBodyIndent, box, nil, nil)
+	w.closeCell()
 	anchored := map[string]bool{}
 	for _, i := range group {
 		note := notes[i]
@@ -1286,13 +1319,14 @@ func (w *drawioWriter) writeNote(group []int, notes []Note, box drawioBox) {
 			continue
 		}
 		anchored[target] = true
-		w.b.WriteString("        <mxCell")
+		w.openCell()
 		w.attr("id", fmt.Sprintf("%s:anchor%d", id, len(anchored)-1))
 		w.attr("style", "edgeStyle=none;html=0;dashed=1;endArrow=none;")
 		w.b.WriteString(` edge="1" parent="1"`)
 		w.attr("source", id)
 		w.attr("target", target)
-		w.b.WriteString(">\n          <mxGeometry relative=\"1\" as=\"geometry\"/>\n        </mxCell>\n")
+		w.b.WriteString(">\n" + drawioCellBodyIndent + `<mxGeometry relative="1" as="geometry"/>` + "\n")
+		w.closeCell()
 	}
 }
 
@@ -1302,13 +1336,13 @@ func (w *drawioWriter) writePicture(i int, picture Picture) {
 	if !ok {
 		return
 	}
-	w.b.WriteString("        <mxCell")
+	w.openCell()
 	w.attr("id", fmt.Sprintf("picture%d", i))
 	w.attr("value", picture.Alt)
 	w.attr("style", "shape=image;html=0;imageAspect=0;verticalLabelPosition=bottom;verticalAlign=top;image="+src+";")
 	w.b.WriteString(` vertex="1" parent="1">` + "\n")
-	w.geometry("          ", drawioBox{X: picture.X, Y: picture.Y, Width: picture.Width, Height: picture.Height}, nil, nil)
-	w.b.WriteString("        </mxCell>\n")
+	w.geometry(drawioCellBodyIndent, drawioBox{X: picture.X, Y: picture.Y, Width: picture.Width, Height: picture.Height}, nil, nil)
+	w.closeCell()
 }
 
 // drawioPictureSource is a picture's image as draw.io keeps one in a style,

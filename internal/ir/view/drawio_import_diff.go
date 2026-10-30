@@ -216,20 +216,8 @@ type drawioMatcher struct {
 // position, and diffs each pair.
 func (m *drawioMatcher) match() {
 	m.matched = map[string]bool{}
-	byFQN := map[string][]*DrawioCell{}
-	byKey := map[DrawioEdgeKey][]*DrawioCell{}
 	baseKeys, fileKeys := m.edgesByKey(m.base), m.edgesByKey(m.file)
-	for i := range m.base.Cells {
-		c := &m.base.Cells[i]
-		switch {
-		case c.Vertex && c.FQN != "":
-			byFQN[c.FQN] = append(byFQN[c.FQN], c)
-		case c.Edge && c.Kind != "":
-			if key, ok := baseKeys[c.ID]; ok {
-				byKey[key.unordered()] = append(byKey[key.unordered()], c)
-			}
-		}
-	}
+	byFQN, byKey := m.baselineIndex(baseKeys)
 	var pending []*DrawioCell
 	baseOf := map[*DrawioCell]*DrawioCell{}
 	pair := func(cell, base *DrawioCell) {
@@ -283,6 +271,25 @@ func (m *drawioMatcher) match() {
 		}
 	}
 	m.deleted()
+}
+
+// baselineIndex lists the baseline's named vertices by qualified name and its
+// semantic edges by their unordered ends and kind, each in the baseline's order.
+func (m *drawioMatcher) baselineIndex(baseKeys map[string]DrawioEdgeKey) (map[string][]*DrawioCell, map[DrawioEdgeKey][]*DrawioCell) {
+	byFQN := map[string][]*DrawioCell{}
+	byKey := map[DrawioEdgeKey][]*DrawioCell{}
+	for i := range m.base.Cells {
+		c := &m.base.Cells[i]
+		switch {
+		case c.Vertex && c.FQN != "":
+			byFQN[c.FQN] = append(byFQN[c.FQN], c)
+		case c.Edge && c.Kind != "":
+			if key, ok := baseKeys[c.ID]; ok {
+				byKey[key.unordered()] = append(byKey[key.unordered()], c)
+			}
+		}
+	}
+	return byFQN, byKey
 }
 
 // sameDrawioElement reports whether the file's cell and the baseline's of the
@@ -816,8 +823,8 @@ func drawioPictureWithin(location, dir string) (string, bool) {
 	}
 	// The file a symlink reaches must be under dir too; the location kept is the link the user named.
 	if realBase, err := filepath.EvalSymlinks(base); err == nil {
-		if real, err := filepath.EvalSymlinks(path); err == nil {
-			if realRel, err := filepath.Rel(realBase, real); err != nil || drawioOutside(realRel) {
+		if realPath, err := filepath.EvalSymlinks(path); err == nil {
+			if realRel, err := filepath.Rel(realBase, realPath); err != nil || drawioOutside(realRel) {
 				return "", false
 			}
 		}
