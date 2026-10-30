@@ -1751,14 +1751,26 @@ type actionStepHost interface {
 
 // noteAssign records in the trace the value an assignment wrote, under the
 // action token stepping the statement where one is.
-// heldAfterAssign is what the target holds once written, as the write shaped it; a chained or
-// qualified target, which a nearer name can shadow, is not read back and keeps the value written.
+// heldAfterAssign is what the target holds once written, as the write shaped it, read as a
+// reader of the target would; a chained target is not read back and keeps the value written.
 func (e *stmtEngine) heldAfterAssign(s lower.Assign, written Value) Value {
-	if e.ctx.trace == nil || s.Chain != nil || s.Qualified {
+	if e.ctx.trace == nil || s.Chain != nil {
 		return written
 	}
-	if held, ok, err := e.evalIn(s.Scope).Lookup(s.Target); err == nil && ok {
+	ec := e.evalIn(s.Scope)
+	if !s.Qualified {
+		if held, ok, err := ec.Lookup(s.Target); err == nil && ok {
+			return held
+		}
+		return written
+	}
+	if held, ok, err := ec.frameFeatureValue(s.Owner, s.Feature); err == nil && ok {
 		return held
+	}
+	if self := ec.self; self != nil && ec.ctx.isOrSpecializes(self.Type, s.Owner) {
+		if held, ok, err := ec.selfFeatureValue(s.Target); err == nil && ok {
+			return held
+		}
 	}
 	return written
 }

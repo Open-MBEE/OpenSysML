@@ -154,6 +154,13 @@ func TestActionTraceQualifiedAssignUnderShadowingLocal(t *testing.T) {
 				assign Act::a := 4;
 			}
 		}
+		action def Shaped {
+			attribute a : Integer[1..2] := 1;
+			if true {
+				attribute a : Integer := 9;
+				assign Shaped::a := 4;
+			}
+		}
 	}`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 	trace := NewTraceRecorder()
@@ -178,5 +185,19 @@ func TestActionTraceQualifiedAssignUnderShadowingLocal(t *testing.T) {
 	joined := strings.Join(assigns, "\n")
 	if !strings.Contains(joined, "assign a = 4") || strings.Contains(joined, "assign a = 9") {
 		t.Errorf("assign records:\n%s\nwant Act::a recorded as 4, never as the local's 9", joined)
+	}
+	trace = NewTraceRecorder()
+	ctx.SetTrace(trace)
+	if _, _, err := ctx.ExecuteActionWithEvents(oneSymbol(t, idx, "test::Shaped"), craft, map[string]Value{}, nil); err != nil {
+		t.Fatalf("run Shaped: %v", err)
+	}
+	assigns = assigns[:0]
+	for _, r := range trace.Records() {
+		if r.Kind == TraceAssign {
+			assigns = append(assigns, r.Text())
+		}
+	}
+	if joined := strings.Join(assigns, "\n"); joined != "assign a = [4]" {
+		t.Errorf("assign records:\n%s\nwant Shaped::a recorded as its held [4]", joined)
 	}
 }
