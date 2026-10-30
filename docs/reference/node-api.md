@@ -295,6 +295,44 @@ Beside the model reads above, the client covers every RPC the service offers:
 `connection.rpc` remains the escape hatch — the generated Connect client — and
 `SysMLService` is exported for a caller building its own.
 
+### Compact API JSON and the check's diagnostics
+
+`connection.convert` writes notation to the compact API JSON document
+(`api-json-compact/1`, see [the compact form](api-json-compact.md)) with
+`compact: true`; `omitDerived: true` leaves out every derived property of the
+metamodel and `keepDerived` names the ones still written. `includeCheckDiagnostics:
+true` reports the semantic check's diagnostics in `Conversion.diagnostics` beside the
+output, each with its own `severity`, so a conversion of a model with errors is told
+apart from one of a clean model:
+
+```ts
+const result = await connection.convert("api-json", { content: source }, {
+  compact: true,
+  omitDerived: true,
+  keepDerived: ["qualifiedName"],
+  includeCheckDiagnostics: true,
+});
+const errors = result.diagnostics.filter((d) => d.severity === "error");
+```
+
+The compact options need the `convert_compact` capability and the check's diagnostics
+`convert_check_diagnostics`; a service without them throws `MissingCapabilityError`
+before anything is sent. The service refuses, as `InvalidRequestError`, `omitDerived` or
+`keepDerived` without `compact`, `keepDerived` without `omitDerived` or naming a property
+that is not derived, `compact` for other than notation to `api-json`, and
+`includeCheckDiagnostics` for a graph source.
+
+### Affected documents
+
+`connection.parseSources(documents, { baseModelHash })` names a model of the same
+documents the caller holds results of — typically the previous `parseSources` answer's
+`hash` — and the new model's `affected` lists, in document order, the documents whose
+analysis, diagnostics or conversion may differ from it, so results computed for the
+others are kept. Every document is named when the service cannot compare the two, such
+as for a set it has not seen before; a base the service no longer holds is not an error.
+Needs the `parse_sources_affected` capability, refused as `MissingCapabilityError` before
+the call.
+
 ## Conformance
 
 `npm run conformance -- --allow-skips --report report.json` runs the

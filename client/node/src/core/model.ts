@@ -89,6 +89,17 @@ export interface ParseOptions {
   strict?: boolean;
 }
 
+/** How several documents are parsed as one model. */
+export interface ParseSourcesOptions extends ParseOptions {
+  /**
+   * The `hash` of a model of the same documents the caller holds results of,
+   * typically the previous `parseSources` answer: the new model's `affected`
+   * then names the documents whose results may differ from it. Requires
+   * `parse_sources_affected`.
+   */
+  baseModelHash?: string;
+}
+
 /** Resolves `strictConformance` and its `strict` alias; differing values refuse. */
 export function strictConformanceOf(options: {
   strict?: boolean;
@@ -176,6 +187,13 @@ export class Model {
   readonly diagnostics: readonly ModelDiagnostic[];
   /** The name of each document this model was parsed from, empty for an adopted model. */
   readonly documents: readonly string[];
+  /**
+   * The documents whose analysis, diagnostics or conversion may differ from
+   * the base model's, in document order, when `parseSources` was given a
+   * `baseModelHash`; every document when the service could not compare the
+   * two, and empty for a parse without a base.
+   */
+  readonly affected: readonly string[];
 
   private readonly rootSymbols: readonly ModelSymbol[];
   private readonly ownsConnection: boolean;
@@ -187,6 +205,7 @@ export class Model {
     diagnostics: readonly ModelDiagnostic[];
     ownsConnection: boolean;
     documents?: readonly string[];
+    affected?: readonly string[];
     sourcePath?: string;
   }) {
     this.connection = init.connection;
@@ -195,6 +214,7 @@ export class Model {
     this.diagnostics = init.diagnostics;
     this.ownsConnection = init.ownsConnection;
     this.documents = init.documents ?? [];
+    this.affected = init.affected ?? [];
     this.sourcePath = init.sourcePath;
   }
 
@@ -209,7 +229,7 @@ export class Model {
     hash: string,
     roots: readonly SymbolInfo[],
     diagnostics: readonly ModelDiagnostic[],
-    options: { ownsConnection?: boolean; documents?: readonly string[] } = {},
+    options: { ownsConnection?: boolean; documents?: readonly string[]; affected?: readonly string[] } = {},
   ): Model {
     return new Model({
       connection,
@@ -218,6 +238,7 @@ export class Model {
       diagnostics,
       ownsConnection: options.ownsConnection ?? false,
       ...(options.documents === undefined ? {} : { documents: options.documents }),
+      ...(options.affected === undefined ? {} : { affected: options.affected }),
     });
   }
 

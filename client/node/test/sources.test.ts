@@ -6,12 +6,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { before, test } from "node:test";
 import {
+  MissingCapabilityError,
   ParseError,
   SourceDocument,
   SymbolNotFoundError,
   connect,
   save,
 } from "../src/node/index.js";
+import { CAPABILITY_PARSE_SOURCES_AFFECTED } from "../src/core/capabilities.js";
+import { ALL_CAPABILITIES, fakeConnection } from "./support/fake.js";
 import { useServiceBinary } from "./support/service.js";
 
 before(() => {
@@ -52,6 +55,84 @@ test("several documents parse as one model resolving imports across them", async
   assert.equal(model.roots.length, 2);
   const car = await model.symbol("car");
   assert.equal(car.name, "car");
+});
+
+function recordingParseSources(): {
+  requests: Record<string, unknown>[];
+  answer: (method: string, input: unknown) => unknown;
+} {
+  const requests: Record<string, unknown>[] = [];
+  return {
+    requests,
+    answer: (method, input) => {
+      if (method !== "ParseSources") {
+        throw new Error(`the fake service answers nothing for ${method}`);
+      }
+      const request = input as { documents: { name?: string; filePath?: string }[]; baseModelHash: string };
+      requests.push(request);
+      return {
+        modelHash: "fake",
+        roots: request.documents.map((doc) => ({
+          id: doc.name ?? doc.filePath ?? "",
+          name: "",
+          kind: "Namespace",
+          metadata: {},
+          childIds: [],
+          attributes: [],
+          specializations: [],
+        })),
+        diagnostics: [],
+        error: "",
+        affected: request.baseModelHash === "" ? [] : ["top"],
+      };
+    },
+  };
+}
+
+test("baseModelHash reaches the wire and the affected documents come back", async () => {
+  const { requests, answer } = recordingParseSources();
+  await using connection = await fakeConnection([...ALL_CAPABILITIES, CAPABILITY_PARSE_SOURCES_AFFECTED], answer);
+  const related = await connection.parseSources([["lib", LIBRARY], ["top", TOP]], { baseModelHash: "base-hash" });
+  const fresh = await connection.parseSources([["lib", LIBRARY], ["top", TOP]]);
+  assert.deepEqual(
+    requests.map((request) => request.baseModelHash),
+    ["base-hash", ""],
+  );
+  assert.deepEqual(related.affected, ["top"]);
+  assert.deepEqual(fresh.affected, []);
+});
+
+test("baseModelHash is refused before the call when parse_sources_affected is absent", async () => {
+  const { requests, answer } = recordingParseSources();
+  await using connection = await fakeConnection(ALL_CAPABILITIES, answer);
+  await assert.rejects(
+    connection.parseSources([["lib", LIBRARY]], { baseModelHash: "base-hash" }),
+    (error: unknown) =>
+      error instanceof MissingCapabilityError && error.capability === CAPABILITY_PARSE_SOURCES_AFFECTED,
+  );
+  assert.equal(requests.length, 0, "the request was sent to a service that would ignore it");
+});
+
+test("a base model names the documents an edit reaches", async () => {
+  // Names of this test's own: the service relates two models document by
+  // document once it has seen their set more than once, and a model it first
+  // answered fresh, under another test's names, cannot be a base.
+  const documents = (top: string): [string, string][] => [
+    ["affected-lib", LIBRARY],
+    ["affected-top", top],
+  ];
+  await using connection = await connect();
+  await connection.parseSources(documents(`${TOP}// first\n`));
+  const base = await connection.parseSources(documents(TOP));
+  assert.deepEqual(base.affected, []);
+  const same = await connection.parseSources(documents(TOP), { baseModelHash: base.hash });
+  assert.equal(same.hash, base.hash);
+  assert.deepEqual(same.affected, []);
+  const edited = await connection.parseSources(documents(TOP.replace("part car", "part sedan")), {
+    baseModelHash: base.hash,
+  });
+  assert.notEqual(edited.hash, base.hash);
+  assert.deepEqual(edited.affected, ["affected-top"]);
 });
 
 test("a file path is a document among the inline ones", async () => {
