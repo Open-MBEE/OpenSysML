@@ -164,10 +164,15 @@ functions request a single run.
 ## Conversion and persistence
 
 `opensysml.convert(conn, toFormat, ...)` takes exactly one of `filePath`,
-`content`, or `modelHash`, plus optional `fromFormat` and
-`tolerateSyntaxErrors` name-value arguments. `model.convert(format)` and
+`content`, or `modelHash`, plus optional `fromFormat`,
+`tolerateSyntaxErrors`, `idForm` (`'qualified'`, the default, or `'uuid'`,
+how a graph spells its derived ids) and `includeLibraryStubs` (restore the
+pre-0.11.0 library stubs in API JSON; needs the `convert_library_stubs`
+capability) name-value arguments. `model.convert(format)` and
 `model.save(path, ...)` operate on a parsed model. The returned
-`Conversion` has `content`, `fromFormat`, `toFormat`, `diagnostics`, and
+`Conversion` has `content`, `fromFormat`, `toFormat`, `diagnostics`,
+`libraryReferences` (the standard-library elements API JSON names beside its
+elements, each with `id`, `qualifiedName` and `type`), and
 `write(path)`. `EditResult` also supports `save(path)`.
 
 A SysML v1 model (`.mdzip`, `.xmi`, `.uml`) is migrated, not converted:
@@ -244,7 +249,7 @@ are raised as ordinary errors.
 | --- | --- |
 | `opensysml:argument`, `opensysml:encode`, `opensysml:decode`, `opensysml:unknownArm` | Invalid options, values or wire arms. |
 | `opensysml:transport` | Connection failure, timeout, or non-JSON response. |
-| `opensysml:connect:<kind>` | Connect status such as `modelNotFound`, `symbolNotFound`, `modelFileNotFound`, `invalidRequest`, `unavailable`, `serviceTimeout`, or `unsupportedOperation`. |
+| `opensysml:connect:<kind>` | Connect status such as `modelNotFound`, `symbolNotFound`, `modelFileNotFound`, `invalidRequest`, `unauthenticated`, `unavailable`, `serviceTimeout`, or `unsupportedOperation`. |
 | `opensysml:missingCapability` | Required service capability is not advertised. |
 | `opensysml:staleService` | Service version or required capability set does not match the requested requirements. |
 | `opensysml:diagnostics:<kind>` | Model, conversion, migration, execution, verification or edit failure. Edit failures use `opensysml:diagnostics:edit:<failure>`. |
