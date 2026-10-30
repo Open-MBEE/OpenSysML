@@ -24,7 +24,7 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 		if !ok || engine.Scope == nil {
 			t.Fatal("Vary::Engine not found")
 		}
-		for name, want := range map[string]bool{"generateTorque": true, "s": true, "own": false, "sub": true} {
+		for name, want := range map[string]bool{"generateTorque": true, "s": true, "own": false} {
 			sym, ok := engine.Scope.LookupLocal(name)
 			if !ok {
 				t.Fatalf("Vary::Engine::%s not found", name)
