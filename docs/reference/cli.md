@@ -1071,7 +1071,7 @@ names of connections, flows and bindings along their lines (a sequence diagram's
 theirs); `keywords`, the `«keyword»` over each
 name; `multiplicities`; `typings`, the `: Type` after a name; `qualifiers`, the qualified-name
 prefix of each name; `all`, every one of them. A view's rendering chooses its own in the model, by
-a rendering specializing a standard one with Boolean `showParameterSymbols`, `showEdgeLabels`, …
+a rendering subsetting a standard one with Boolean `showParameterSymbols`, `showEdgeLabels`, …
 attributes ([rendering forms](../project/view-rendering-forms.md#optional-notation-elements));
 the option adds to that choice. The elements apply to the DOT, PlantUML, Mermaid, D2 and text
 forms alike, and to document diagrams. A name that is none of them is refused with status 2 and
