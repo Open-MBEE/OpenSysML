@@ -101,6 +101,9 @@ import java.util.TreeSet;
  * what the call needs.
  */
 public final class Model {
+  /** {@code importAs} of {@link #importData(List, String, boolean, boolean)}: each row sets the features of the element it names. */
+  public static final String IMPORT_AS_VALUES = "values";
+
   private static final String EXPLORE = "explore";
   private static final String NAME_SUBJECT_SYMBOL_ID = "subjectSymbolId";
   private static final String NAME_SYMBOL_ID = "symbolId";
@@ -1855,7 +1858,22 @@ public final class Model {
    */
   public RenderedView renderView(
       String viewName, RenderViewPorts ports, List<String> show, int depth) {
+    return renderView(viewName, ports, show, depth, "");
+  }
+
+  /**
+   * Renders a view as {@link #renderView(String, RenderViewPorts, List, int)} does, folding a
+   * tree rendering's owned members into compartment rows as {@code compartments} says: {@code ""}
+   * or {@code "positioned"} (the default: only the layout-less members of a tree some Layout
+   * positions), {@code "most"} (every owned usage no Layout, nested definition or package keeps a
+   * node) or {@code "ports"} (the port usages, with the ports nested under them).
+   *
+   * @throws ServiceException if {@code compartments} is none the service knows
+   */
+  public RenderedView renderView(
+      String viewName, RenderViewPorts ports, List<String> show, int depth, String compartments) {
     Objects.requireNonNull(viewName, "viewName");
+    Objects.requireNonNull(compartments, "compartments");
     Objects.requireNonNull(ports, "ports");
     Objects.requireNonNull(show, "show");
     if (depth < 0) {
@@ -1871,6 +1889,7 @@ public final class Model {
                 .setPorts(ports.wireName())
                 .addAllShow(show)
                 .setDepth(depth)
+                .setCompartments(compartments)
                 .build(),
             RenderViewResponse.getDefaultInstance());
     return RenderedView.from(response);
@@ -1974,11 +1993,25 @@ public final class Model {
    */
   public ImportResult importData(
       List<DataImport> imports, boolean dryRun, boolean acceptDocuments) {
+    return importData(imports, IMPORT_AS_VALUES, dryRun, acceptDocuments);
+  }
+
+  /**
+   * Imports data as {@link #importData(List, boolean, boolean)} does, with {@code importAs} naming
+   * what each row is made into, as {@code -import-as} does: {@link #IMPORT_AS_VALUES} sets the
+   * features of the element the row names, and is the only form the service supports.
+   *
+   * @throws ServiceException if {@code importAs} is none the service knows
+   */
+  public ImportResult importData(
+      List<DataImport> imports, String importAs, boolean dryRun, boolean acceptDocuments) {
     Objects.requireNonNull(imports, "imports");
+    Objects.requireNonNull(importAs, "importAs");
     connection.capabilities().require(Capabilities.IMPORT_DATA);
     ImportDataRequest.Builder request =
         ImportDataRequest.newBuilder()
             .setModelHash(hash)
+            .setImportAs(importAs)
             .setImportDryRun(dryRun)
             .setAcceptDocuments(acceptDocuments);
     for (DataImport dataImport : imports) {

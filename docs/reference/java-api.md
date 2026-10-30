@@ -260,12 +260,16 @@ model.roots();   // one Symbol per document, in request order
 
 `Connection.convert`/`convertFile` translate source text between notations and
 answer a `Conversion` (`content`, the resolved `fromFormat`/`toFormat`,
-`experimental`/`experimentalNotice`, `diagnostics`); `Model.convert` converts the
+`experimental`/`experimentalNotice`, `diagnostics`, and for `api-json` the
+`libraryReferences` — each a `LibraryReference` with `id`, `qualifiedName` and
+`type` — named outside the element array); `Model.convert` converts the
 parsed model itself. `ConversionOptions` carries a `fromFormat` (else the service
 sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
-`ModelException` carrying the diagnostics rather than converting anyway — and
+`ModelException` carrying the diagnostics rather than converting anyway —
 `idForm` (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived
-element ids of a graph notation (`ttl`, `api-json`). `Conversion.write(Path)`
+element ids of a graph notation (`ttl`, `api-json`), and `includeLibraryStubs`,
+which restores in `api-json` the ownerless library stubs releases before 0.11.0
+wrote (needs the service's `convert_library_stubs` capability). `Conversion.write(Path)`
 saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
 extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
 `severalDocuments()` is set, whose text is in `documents()` alone; a model
@@ -394,8 +398,10 @@ Use `RenderViewPorts.FULL` to include every declared port; the default is
 `MINIMAL`, and `renderView(name, ports, List.of("edge-labels", "typings"))` to draw
 those [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
 besides the ones the view's rendering shows (`"all"` for every one); the
-`RenderedView`'s `shown()` lists the elements drawn. This call requires the
-`render_view` capability.
+`RenderedView`'s `shown()` lists the elements drawn. The five-argument form adds
+`compartments`, how a tree rendering folds owned members into compartment rows
+(`"positioned"`, the default, `"most"` or `"ports"`), each folded node naming
+its `compartment`. This call requires the `render_view` capability.
 
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
 holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,

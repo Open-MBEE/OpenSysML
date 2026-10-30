@@ -1485,6 +1485,27 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void renderViewFoldsMembersIntoCompartmentRowsOnRequest() {
+    Model model = connection.load(fixture("views.sysml"));
+    RenderedView boxes = model.renderView("#tree:RenderViewDemo::Assembly");
+    assertTrue(boxes.nodes().stream().allMatch(node -> node.compartment().isEmpty()));
+    RenderedView folded =
+        model.renderView(
+            "#tree:RenderViewDemo::Assembly", RenderViewPorts.MINIMAL, List.of(), 0, "most");
+    RenderedView.Node sender =
+        folded.nodes().stream().filter(node -> node.name().equals("sender")).findFirst().orElseThrow();
+    assertEquals("parts", sender.compartment());
+    assertTrue(folded.nodes().size() < boxes.nodes().size());
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                model.renderView(
+                    "#tree:RenderViewDemo::Assembly", RenderViewPorts.MINIMAL, List.of(), 0, "rows"));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
   void checkActionWitnessesAViolationAndADivergence() {
     Model model = connection.load(fixture("tank.sysml"));
     CheckOptions options =
@@ -1586,6 +1607,29 @@ class ApiIntegrationTest {
         assertThrows(
             ServiceException.class, () -> connection.convert(source, "api-json", shortIds));
     assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void apiJsonNamesLibraryReferencesSeparatelyAndOptsIntoLegacyStubs() {
+    String source = "package P { private import SI::*; attribute time = 20 [s]; }\n";
+    ConversionOptions options = ConversionOptions.defaults().withFromFormat("sysml");
+    Conversion plain = connection.convert(source, "api-json", options);
+    LibraryReference second =
+        plain.libraryReferences().stream()
+            .filter(ref -> ref.qualifiedName().equals("SI::second"))
+            .findFirst()
+            .orElseThrow();
+    assertEquals("0c539f7c-20a1-520d-bae0-f3f855517aea", second.id());
+    assertEquals("AttributeUsage", second.type());
+    java.util.regex.Pattern stub =
+        java.util.regex.Pattern.compile("\"isLibraryElement\"\\s*:\\s*true");
+    assertFalse(stub.matcher(plain.content()).find(), plain.content());
+    Conversion legacy =
+        connection.convert(source, "api-json", options.withIncludeLibraryStubs(true));
+    assertTrue(legacy.content().contains("\"" + second.id() + "\""), legacy.content());
+    assertTrue(stub.matcher(legacy.content()).find(), legacy.content());
+    assertEquals(plain.libraryReferences(), legacy.libraryReferences());
+    assertEquals(List.of(), connection.convert(source, "sysml", options).libraryReferences());
   }
 
   @Test
@@ -1872,6 +1916,21 @@ class ApiIntegrationTest {
         "snapshots":[{"id":"_r1","values":{"total":4.0}},{"id":"_r2","values":{"total":6.0}}]},
        {"id":"_cn","name":"Cfg::Nothing","observables":[],"snapshots":[]}]}
       """;
+
+  @Test
+  void importDataNamesWhatEachRowIsMadeIntoAndRefusesAnUnknownForm() {
+    Model model = connection.parse(IMPORT_MODEL);
+    List<DataImport> imports =
+        List.of(DataImport.of("fleet.csv", "element,count\nV::vehicle,7\nV::car,9\n"));
+    ImportResult values = model.importData(imports, Model.IMPORT_AS_VALUES, true, false);
+    assertFalse(values.applied());
+    assertEquals(2, values.files().get(0).values());
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class, () -> model.importData(imports, "rows", true, false));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+    assertTrue(refused.getMessage().contains("rows"), refused.getMessage());
+  }
 
   @Test
   void importDataSetsTheValuesAndAnswersTheEditedModel() {

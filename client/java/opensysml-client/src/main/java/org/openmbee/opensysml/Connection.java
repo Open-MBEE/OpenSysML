@@ -620,6 +620,10 @@ public final class Connection implements AutoCloseable {
     request.setToFormat(toFormat).setTolerateSyntaxErrors(options.tolerateSyntaxErrors());
     options.fromFormat().ifPresent(request::setFromFormat);
     options.idForm().ifPresent(request::setIdForm);
+    if (options.includeLibraryStubs()) {
+      capabilities.require(Capabilities.CONVERT_LIBRARY_STUBS);
+      request.setIncludeLibraryStubs(true);
+    }
     ConvertResponse response =
         call("Convert", request.build(), ConvertResponse.getDefaultInstance());
     List<Diagnostic> diagnostics = Protos.diagnostics(response.getDiagnosticsList());

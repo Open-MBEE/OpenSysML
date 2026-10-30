@@ -18,7 +18,10 @@ import java.util.Optional;
  *     "uuid"}; absent is qualified, and the service refuses it for any other direction
  */
 public record ConversionOptions(
-    Optional<String> fromFormat, boolean tolerateSyntaxErrors, Optional<String> idForm) {
+    Optional<String> fromFormat,
+    boolean tolerateSyntaxErrors,
+    Optional<String> idForm,
+    boolean includeLibraryStubs) {
 
   /** Qualified-name derived ids, the default. */
   public static final String ID_FORM_QUALIFIED = "qualified";
@@ -45,7 +48,13 @@ public record ConversionOptions(
    * @param tolerateSyntaxErrors whether unreadable notation is still written back
    */
   public ConversionOptions(Optional<String> fromFormat, boolean tolerateSyntaxErrors) {
-    this(fromFormat, tolerateSyntaxErrors, Optional.empty());
+    this(fromFormat, tolerateSyntaxErrors, Optional.empty(), false);
+  }
+
+  /** Options with the {@code idForm} given and library stubs off. */
+  public ConversionOptions(
+      Optional<String> fromFormat, boolean tolerateSyntaxErrors, Optional<String> idForm) {
+    this(fromFormat, tolerateSyntaxErrors, idForm, false);
   }
 
   /**
@@ -54,7 +63,7 @@ public record ConversionOptions(
    * @return the default options
    */
   public static ConversionOptions defaults() {
-    return new ConversionOptions(Optional.empty(), false, Optional.empty());
+    return new ConversionOptions(Optional.empty(), false, Optional.empty(), false);
   }
 
   /**
@@ -64,7 +73,8 @@ public record ConversionOptions(
    * @return options naming it
    */
   public ConversionOptions withFromFormat(String fromFormat) {
-    return new ConversionOptions(Optional.of(fromFormat), tolerateSyntaxErrors, idForm);
+    return new ConversionOptions(
+        Optional.of(fromFormat), tolerateSyntaxErrors, idForm, includeLibraryStubs);
   }
 
   /**
@@ -74,7 +84,7 @@ public record ConversionOptions(
    * @return options with that tolerance
    */
   public ConversionOptions withTolerateSyntaxErrors(boolean tolerateSyntaxErrors) {
-    return new ConversionOptions(fromFormat, tolerateSyntaxErrors, idForm);
+    return new ConversionOptions(fromFormat, tolerateSyntaxErrors, idForm, includeLibraryStubs);
   }
 
   /**
@@ -85,6 +95,18 @@ public record ConversionOptions(
    */
   public ConversionOptions withIdForm(String idForm) {
     return new ConversionOptions(
-        fromFormat, tolerateSyntaxErrors, Optional.of(Objects.requireNonNull(idForm, "idForm")));
+        fromFormat,
+        tolerateSyntaxErrors,
+        Optional.of(Objects.requireNonNull(idForm, "idForm")),
+        includeLibraryStubs);
+  }
+
+  /**
+   * Options that restore, in api-json, the ownerless library stubs releases before 0.11.0
+   * wrote: one element per referenced standard-library element, marked {@code
+   * isLibraryElement}. Needs the service's {@code convert_library_stubs} capability.
+   */
+  public ConversionOptions withIncludeLibraryStubs(boolean includeLibraryStubs) {
+    return new ConversionOptions(fromFormat, tolerateSyntaxErrors, idForm, includeLibraryStubs);
   }
 }
