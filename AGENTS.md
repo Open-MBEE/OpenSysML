@@ -244,8 +244,10 @@ skill says the same thing:
 4. **Rev the skills at every release.** When a release is cut, re-verify the skills against the
    release binaries, replace "nightly builds and the release after `<previous>`" with the tag for
    what shipped, and update the version stamps. The in-tree `packaging/agent-skills/` set is the
-   smaller, release-pinned copy that ships with the tree; its version strings move with the other
-   version surfaces in the release commit.
+   smaller copy that ships with the tree and carries no verification stamps; its one version
+   string, the Java skill's `<dependency>` snippet, is held to `client/java/pom.xml` by
+   `client/python/tests/test_check_version.py` with the other in-repo references, so the release
+   commit's version bump moves it.
 
 ## 7. Code Style & Commits
 

@@ -1974,8 +1974,9 @@ and the client version the editors name (`opensysml.client.version` in
 `editors/syson/backend/pom.xml`). `check_version.py --java` in
 `build-python-package` fails the release before anything is built when they
 disagree, and the pytest gate in `test_check_version.py` — including the test
-that every in-repo reference names the pom's version — runs on every PR that
-touches either file. The tag must spell the version exactly, `v` aside.
+that every in-repo reference, the dependent poms and the Markdown `<dependency>`
+snippets, names the pom's version — runs on every PR that touches either file.
+The tag must spell the version exactly, `v` aside.
 
 The editors' own versions are in the same lockstep: every manifest
 `check_version.py --editors` reads — the VS Code and SysON frontend
