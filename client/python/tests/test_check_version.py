@@ -257,7 +257,11 @@ def test_java_declared_version_rejects_a_pom_without_own_version(tmp_path):
 
 
 def test_every_in_repo_reference_names_the_poms_version():
-    """The parent pom's version is the one the checkout's consumers must name."""
+    """The parent pom's version is the one the checkout's consumers must name.
+
+    The poms that depend on the client, and the Markdown `<dependency>` snippets a
+    reader copies (the client README, the reference page and the in-tree agent skill).
+    """
     ns = "{http://maven.apache.org/POM/4.0.0}"
     version = check_version.java_declared_version()
     repo = pathlib.Path(check_version.REPO_ROOT)
@@ -277,6 +281,18 @@ def test_every_in_repo_reference_names_the_poms_version():
             break
     else:
         pytest.fail("editors/syson/backend/pom.xml names no opensysml")
+
+    for relpath in (
+        "client/java/README.md",
+        "docs/reference/java-api.md",
+        "packaging/agent-skills/skills/opensysml-java/SKILL.md",
+    ):
+        named = re.findall(
+            r"<artifactId>opensysml</artifactId>\s*<version>([^<]+)</version>",
+            (repo / relpath).read_text(),
+        )
+        assert named, f"{relpath} shows no opensysml dependency"
+        assert named == [version] * len(named), relpath
 
 
 def test_main_prints_the_maven_version_the_tag_names(capsys):

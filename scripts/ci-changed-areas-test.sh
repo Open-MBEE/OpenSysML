@@ -57,6 +57,9 @@ case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
 case_ java-module java,mdk client/java/opensysml-client/pom.xml
 case_ java-manifest java,mdk,python client/java/pom.xml
+case_ java-readme docs,java,mdk,python client/java/README.md
+case_ java-reference docs,python docs/reference/java-api.md
+case_ java-skill docs,python packaging/agent-skills/skills/opensysml-java/SKILL.md
 case_ node-only node client/node/src/node/binary.ts
 case_ node-manifest node,python client/node/package.json
 case_ python-only python client/python/opensysml/connection.py
@@ -85,7 +88,7 @@ case_ vscode-syntaxes docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,
 case_ jupyterlab-syntax docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/jupyterlab/src/syntax.json
 # Any markdown counts as documentation: the site links out to repository files.
 case_ man-page docs packaging/man/man1/sysml.1
-case_ two-client-readmes docs,java,mdk,node client/java/README.md client/node/README.md
+case_ two-client-readmes docs,java,mdk,node,python client/java/README.md client/node/README.md
 case_ two-clients java,mdk,node,python client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
 case_ go-client docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/opensysml/client.go
