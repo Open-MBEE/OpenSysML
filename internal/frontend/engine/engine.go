@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -632,6 +633,14 @@ func (e *Engine) schedulePolicy(spelling string) (runtime.SchedulePolicy, error)
 	return policy, nil
 }
 
+// checkAdvance refuses a run duration the service refuses: NaN, infinite or negative.
+func checkAdvance(advance *float64) error {
+	if advance != nil && (math.IsNaN(*advance) || math.IsInf(*advance, 0) || *advance < 0) {
+		return statusErrorf(codeInvalidArgument, "advance takes a finite, non-negative duration to run for, not %s", semantics.FormatReal(*advance))
+	}
+	return nil
+}
+
 // evaluate evaluates a SysML expression in the context of a parsed model, as
 // grpc's Evaluate does.
 func (e *Engine) evaluate(ctx context.Context, req *JEvaluateRequest) ([]byte, error) {
@@ -853,6 +862,9 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	if err != nil {
 		return nil, err
 	}
+	if err := checkAdvance(req.Advance); err != nil {
+		return nil, err
+	}
 
 	cached, ok := e.get(req.ModelHash)
 	if !ok {
@@ -893,8 +905,13 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 		return marshal(&JExecuteActionResponse{Error: err.Error()})
 	}
 
-	// Execute action with the supplied inputs
-	outputs, performer, err := runtimeCtx.ExecuteActionReportingPerformer(action, self, inputs)
+	// Run to completion, or for the duration asked as the service does for `advance`.
+	var outputs, performer map[string]runtime.Value
+	if req.Advance == nil {
+		outputs, performer, err = runtimeCtx.ExecuteActionReportingPerformer(action, self, inputs)
+	} else {
+		outputs, performer, err = runtimeCtx.ExecuteActionAdvancedBy(action, self, inputs, *req.Advance)
+	}
 	if err != nil {
 		if gone := ctx.Err(); gone != nil {
 			return nil, contextError(gone)
@@ -926,6 +943,9 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	if err != nil {
 		return nil, err
 	}
+	if err := checkAdvance(req.Advance); err != nil {
+		return nil, err
+	}
 
 	cached, ok := e.get(req.ModelHash)
 	if !ok {
@@ -955,7 +975,12 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 		return marshal(&JExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
-	outcome, err := runtimeCtx.StateOutcomePerformedBy(stateMachine, self, req.Events)
+	var outcome runtime.Outcome
+	if req.Advance == nil {
+		outcome, err = runtimeCtx.StateOutcomePerformedBy(stateMachine, self, req.Events)
+	} else {
+		outcome, err = runtimeCtx.StateOutcomeAdvancedBy(stateMachine, self, req.Events, *req.Advance)
+	}
 	if err != nil {
 		if gone := ctx.Err(); gone != nil {
 			return nil, contextError(gone)

@@ -21,6 +21,8 @@ import pytest
 import opensysml
 from opensysml.capabilities import (
     CAPABILITY_CONVERT,
+    CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+    CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
     MissingCapabilityError,
 )
@@ -242,6 +244,58 @@ def test_convert_sends_the_id_form_and_library_stubs_asked_for(fake_service):
     assert defaulted.include_library_stubs is False
 
 
+def test_convert_sends_the_compact_options_asked_for(fake_service):
+    """compact, omit_derived, keep_derived and include_check_diagnostics reach the wire."""
+    port, service = fake_service(capabilities=(
+        CAPABILITY_CONVERT, CAPABILITY_CONVERT_COMPACT, CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+    ))
+    with Connection(port=port, auto_start=False) as conn:
+        conn.convert(
+            FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML,
+            compact=True, omit_derived=True, keep_derived=("qualifiedName", "name"),
+            include_check_diagnostics=True,
+        )
+        conn.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML)
+
+    asked, defaulted = service.requests
+    assert asked.compact is True
+    assert asked.omit_derived is True
+    assert list(asked.keep_derived) == ["qualifiedName", "name"]
+    assert asked.include_check_diagnostics is True
+    assert defaulted.compact is False
+    assert defaulted.omit_derived is False
+    assert list(defaulted.keep_derived) == []
+    assert defaulted.include_check_diagnostics is False
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [{"compact": True}, {"omit_derived": True}, {"keep_derived": ["name"]}],
+    ids=["compact", "omit_derived", "keep_derived"],
+)
+def test_the_compact_form_requires_its_capability(fake_service, kwargs):
+    """A service that would write the element array is not asked for the compact form."""
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn, \
+            pytest.raises(MissingCapabilityError) as excinfo:
+        conn.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML, **kwargs)
+    assert excinfo.value.capability == CAPABILITY_CONVERT_COMPACT
+    assert service.requests == [], "the request was sent to a service that would ignore it"
+
+
+def test_check_diagnostics_require_their_capability(fake_service):
+    """A service that would answer without the check's diagnostics is not asked for them."""
+    port, service = fake_service(capabilities=(CAPABILITY_CONVERT, CAPABILITY_CONVERT_COMPACT))
+    with Connection(port=port, auto_start=False) as conn, \
+            pytest.raises(MissingCapabilityError) as excinfo:
+        conn.convert(
+            FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML,
+            include_check_diagnostics=True,
+        )
+    assert excinfo.value.capability == CAPABILITY_CONVERT_CHECK_DIAGNOSTICS
+    assert service.requests == []
+
+
 def test_library_stubs_require_their_own_capability(fake_service):
     """A service that would write api-json without the stubs is not asked for them."""
     port, service = fake_service()
@@ -296,6 +350,43 @@ def test_module_level_library_stubs_require_their_own_capability(fake_service):
             include_library_stubs=True,
         )
     assert excinfo.value.capability == CAPABILITY_CONVERT_LIBRARY_STUBS
+    assert service.requests == [], "the request was sent to a service that would ignore it"
+
+
+@pytest.mark.usefixtures("no_default_connection")
+def test_module_level_convert_sends_the_compact_options_asked_for(fake_service):
+    """opensysml.convert carries the compact options to the wire as Connection.convert does."""
+    port, service = fake_service(capabilities=(
+        CAPABILITY_CONVERT, CAPABILITY_CONVERT_COMPACT, CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+    ))
+    opensysml.convert(
+        FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML, port=port,
+        compact=True, omit_derived=True, keep_derived=("qualifiedName",),
+        include_check_diagnostics=True,
+    )
+    opensysml.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML, port=port)
+
+    asked, defaulted = service.requests
+    assert asked.compact is True
+    assert asked.omit_derived is True
+    assert list(asked.keep_derived) == ["qualifiedName"]
+    assert asked.include_check_diagnostics is True
+    assert defaulted.compact is False
+    assert defaulted.omit_derived is False
+    assert list(defaulted.keep_derived) == []
+    assert defaulted.include_check_diagnostics is False
+
+
+@pytest.mark.usefixtures("no_default_connection")
+def test_module_level_compact_form_requires_its_capability(fake_service):
+    """opensysml.convert refuses the compact form before asking a service that would ignore it."""
+    port, service = fake_service()
+    with pytest.raises(MissingCapabilityError) as excinfo:
+        opensysml.convert(
+            FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML, port=port,
+            omit_derived=True,
+        )
+    assert excinfo.value.capability == CAPABILITY_CONVERT_COMPACT
     assert service.requests == [], "the request was sent to a service that would ignore it"
 
 
@@ -395,6 +486,71 @@ def test_model_is_written_out_by_its_hash(fake_service, tmp_path):
     assert model.source_path == str(path)
 
 
+COMPACT_OPTIONS = dict(
+    compact=True, omit_derived=True, keep_derived=("qualifiedName",),
+    include_check_diagnostics=True,
+)
+
+
+# Each Model shortcut to api-json, called the same way: (model, directory, **options).
+SHORTCUTS = {
+    "convert": lambda model, _, **options: model.convert(FORMAT_API_JSON, **options),
+    "to_api_json": lambda model, _, **options: model.to_api_json(**options),
+    "save": lambda model, directory, **options: model.save(str(directory / "out.json"), **options),
+}
+
+
+@pytest.mark.parametrize("shortcut", SHORTCUTS.values(), ids=SHORTCUTS.keys())
+def test_model_shortcuts_send_the_compact_options_asked_for(fake_service, tmp_path, shortcut):
+    """Model.convert, to_api_json and save carry the compact options by the model's hash."""
+    port, service = fake_service(capabilities=(
+        CAPABILITY_CONVERT, CAPABILITY_CONVERT_COMPACT, CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+    ))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        shortcut(model, tmp_path, **COMPACT_OPTIONS)
+        shortcut(model, tmp_path)
+
+    asked, defaulted = service.requests
+    for request in (asked, defaulted):
+        assert request.WhichOneof("source") == "model_hash"
+        assert request.model_hash == model.hash
+        assert request.to_format == FORMAT_API_JSON
+    assert asked.compact is True
+    assert asked.omit_derived is True
+    assert list(asked.keep_derived) == ["qualifiedName"]
+    assert asked.include_check_diagnostics is True
+    assert defaulted.compact is False
+    assert defaulted.omit_derived is False
+    assert list(defaulted.keep_derived) == []
+    assert defaulted.include_check_diagnostics is False
+
+
+@pytest.mark.parametrize("shortcut", SHORTCUTS.values(), ids=SHORTCUTS.keys())
+@pytest.mark.parametrize(
+    "options, capability",
+    [
+        ({"compact": True}, CAPABILITY_CONVERT_COMPACT),
+        ({"omit_derived": True}, CAPABILITY_CONVERT_COMPACT),
+        ({"keep_derived": ["name"]}, CAPABILITY_CONVERT_COMPACT),
+        ({"include_check_diagnostics": True}, CAPABILITY_CONVERT_CHECK_DIAGNOSTICS),
+    ],
+    ids=["compact", "omit_derived", "keep_derived", "include_check_diagnostics"],
+)
+def test_model_shortcuts_require_the_options_capabilities(
+    fake_service, tmp_path, shortcut, options, capability
+):
+    """A model shortcut refuses an option its service lacks before anything is sent or written."""
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            shortcut(model, tmp_path, **options)
+    assert excinfo.value.capability == capability
+    assert service.requests == [], "the request was sent to a service that would ignore it"
+    assert not (tmp_path / "out.json").exists()
+
+
 def test_conversion_writes_a_file(fake_service, tmp_path):
     """Saving picks the format from the extension and writes the text."""
     port, service = fake_service()
@@ -484,7 +640,8 @@ class TestRoundTripAgainstRealService:
         )
         assert not any(element.get("isLibraryElement") for element in json.loads(plain.content))
         stub = next(element for element in json.loads(legacy.content) if element["@id"] == second.id)
-        assert stub["qualifiedName"] == "SI::second" and stub["isLibraryElement"] is True
+        assert stub["qualifiedName"] == "SI::second"
+        assert stub["isLibraryElement"] is True
         assert legacy.library_references == plain.library_references
         assert notation.library_references == []
 
@@ -505,6 +662,31 @@ class TestRoundTripAgainstRealService:
         assert engine != ids_of(qualified)["Demo::Engine"]
         assert re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", engine)
         assert json.loads(explicit) == qualified
+
+    def test_compact_api_json_from_the_model_shortcuts(self, real_service, tmp_path):
+        """Model.to_api_json and save write the compact document, and the service refuses omit_derived alone."""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(MODEL)
+            plain = json.loads(str(model.to_api_json()))
+            compact = json.loads(str(model.to_api_json(compact=True)))
+            lean = json.loads(str(model.to_api_json(
+                compact=True, omit_derived=True, keep_derived=["qualifiedName"],
+            )))
+            out = tmp_path / "demo.json"
+            saved = json.loads(str(model.save(str(out), compact=True)))
+            with pytest.raises(InvalidRequestError):
+                model.to_api_json(omit_derived=True)
+            with pytest.raises(InvalidRequestError):
+                model.convert(FORMAT_TURTLE, compact=True)
+
+        assert isinstance(plain, list)
+        assert compact["format"] == "api-json-compact/1"
+        assert compact["elementCount"] == len(plain)
+        assert json.loads(out.read_text()) == saved == compact
+        assert lean["format"] == "api-json-compact/1"
+        engine = next(e for e in lean["elements"] if e.get("declaredName") == "Engine")
+        assert engine["qualifiedName"] == "Demo::Engine"
+        assert "owner" not in engine
 
     def test_turtle_round_trip_returns_an_equivalent_model(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
