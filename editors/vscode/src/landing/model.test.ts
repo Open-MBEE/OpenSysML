@@ -23,6 +23,7 @@ import {
   traceRecord,
 } from "./model";
 import { LUNAR_MISSION_SCENE, MISSION_PHASES_SCENE, STACK_SCENE, programOf } from "./scene";
+import { readSummary } from "./shell";
 
 interface LandingFixture {
   hash: string;
@@ -563,6 +564,7 @@ test("landingModel lifts an action view's nodes out of the action's box and keys
   assert.equal(model.root.symbol, "MissionSequence::apollo11", "the root is the object performing the action");
   assert.equal(stateIdOf(model, "awaitGo"), model.action.nodes.get("awaitGo")?.id);
   assert.equal(stateIdOf(model, "nowhere"), undefined);
+  assert.equal(readSummary(model), "11 steps, 11 successions");
   assert.throws(
     () => landingModel(sceneTarget(LUNAR_MISSION_SCENE), missionFixture.hash, { ...missionRender, nodes: [] }, missionFixture.instances),
     /draws 0 actions/u,

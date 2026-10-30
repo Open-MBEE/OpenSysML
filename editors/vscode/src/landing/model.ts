@@ -699,6 +699,8 @@ export function valueText(value: SysMLValue): string {
       return String(value.value);
     case "string":
       return value.value;
+    case "instance":
+      return `instance #${value.id}`;
     case "sequence":
       return value.elements.map(valueText).join(", ");
     case "undetermined":
