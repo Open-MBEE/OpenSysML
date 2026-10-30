@@ -54,11 +54,14 @@ DataImport(name::AbstractString, content::AbstractString; format="", map="") =
 """
 Set the feature values tabular or JSON data assigns, one row per element, as
 `sysml -import` does. `imports` are `DataImport`s (or `name => content` pairs), imported in
-order; `dry_run` reports the assignments without changing the model; `accept_documents`
+order; `import_as` names what each row is made into, as `-import-as` does (`"values"`, the
+default, sets the features of the element the row names, and is the only form the service
+supports); `dry_run` reports the assignments without changing the model; `accept_documents`
 accepts a multi-document model's edited documents. An import the model refuses raises an
 `OpenSysMLError` and leaves the model unchanged.
 """
-function import_data(model::Model, imports; dry_run::Bool=false, accept_documents::Bool=false)
+function import_data(model::Model, imports; import_as::AbstractString="values",
+                     dry_run::Bool=false, accept_documents::Bool=false)
     conn = model.connection
     require_capability(conn, CAPABILITY_IMPORT_DATA)
     encoded = Any[]
@@ -68,7 +71,8 @@ function import_data(model::Model, imports; dry_run::Bool=false, accept_document
             "importFormat" => entry.format, "importMap" => entry.map))
     end
     request = Dict{String,Any}("modelHash" => model.hash, "imports" => encoded,
-        "importDryRun" => dry_run, "acceptDocuments" => accept_documents)
+        "importAs" => String(import_as), "importDryRun" => dry_run,
+        "acceptDocuments" => accept_documents)
     answer = _translate(; capabilities=(CAPABILITY_IMPORT_DATA,), connection=conn) do
         call(conn, "ImportData", request)
     end

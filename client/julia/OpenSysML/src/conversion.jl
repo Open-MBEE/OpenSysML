@@ -1,3 +1,21 @@
+"""
+A standard-library element an api-json conversion references outside its element array, in
+place of the library stub releases before 0.11.0 wrote: its `id`, `qualified_name` (such as
+`SI::second`) and `type`, the metaclass as API JSON's `@type` spells it.
+"""
+struct LibraryReference
+    id::String
+    qualified_name::String
+    type::String
+end
+Base.:(==)(a::LibraryReference, b::LibraryReference) =
+    a.id == b.id && a.qualified_name == b.qualified_name && a.type == b.type
+Base.hash(ref::LibraryReference, h::UInt) = hash((ref.id, ref.qualified_name, ref.type), h)
+
+"""
+A model written out in another format. `library_references` lists the standard-library
+elements an api-json conversion names outside its element array; empty for any other format.
+"""
 struct Conversion
     content::String
     from_format::String
@@ -5,7 +23,16 @@ struct Conversion
     diagnostics::Vector{Diagnostic}
     experimental::Bool
     experimental_notice::String
+    library_references::Vector{LibraryReference}
 end
+Conversion(content, from_format, to_format, diagnostics, experimental, experimental_notice) =
+    Conversion(content, from_format, to_format, diagnostics, experimental, experimental_notice,
+               LibraryReference[])
+
+"""`id_form` of a conversion: derived ids spelled from each element's qualified name, the default."""
+const ID_FORM_QUALIFIED = "qualified"
+"""`id_form` of a conversion: name-based uuids under each root package, the library convention."""
+const ID_FORM_UUID = "uuid"
 Base.show(io::IO, result::Conversion) =
     print(io, "Conversion($(result.from_format) → $(result.to_format), $(ncodeunits(result.content)) bytes)")
 
@@ -31,10 +58,15 @@ function format_of_path(path::AbstractString)
     formats[extension]
 end
 
-"""Convert exactly one file, inline source, or cached model to another format."""
+"""
+Convert exactly one file, inline source, or cached model to another format. `id_form`
+(`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) spells the derived ids of a graph
+notation; `include_library_stubs` restores, in api-json, the ownerless library stubs releases
+before 0.11.0 wrote, and needs the service's `convert_library_stubs` capability.
+"""
 function _convert(conn::Connection, to_format::AbstractString; file_path=nothing,
                   content=nothing, model_hash=nothing, from_format="",
-                  tolerate_syntax_errors=false)
+                  tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false)
     sources = Pair{String,Any}["file_path" => file_path, "content" => content,
                                "model_hash" => model_hash]
     given = Pair{String,Any}[p for p in sources if last(p) !== nothing]
@@ -50,8 +82,11 @@ function _convert(conn::Connection, to_format::AbstractString; file_path=nothing
                             "migrate_source with the same source"))
     end
     require_capability(conn, CAPABILITY_CONVERT)
+    include_library_stubs && require_capability(conn, CAPABILITY_CONVERT_LIBRARY_STUBS)
     request = Dict{String,Any}("toFormat" => String(to_format),
         "fromFormat" => String(from_format), "tolerateSyntaxErrors" => Bool(tolerate_syntax_errors))
+    isempty(String(id_form)) || (request["idForm"] = String(id_form))
+    include_library_stubs && (request["includeLibraryStubs"] = true)
     request[source_name == "file_path" ? "filePath" :
             source_name == "model_hash" ? "modelHash" : "content"] = String(source_value)
     source_not_found = source_name == "file_path" ? ModelFileNotFoundError : ModelNotFoundError
@@ -67,8 +102,11 @@ function _convert(conn::Connection, to_format::AbstractString; file_path=nothing
                    is_experimental(from_format_answer, to_format_answer)
     notice = String(get(answer, "experimentalNotice", ""))
     experimental && isempty(notice) && (notice = EXPERIMENTAL_NOTICE)
+    references = LibraryReference[LibraryReference(_render_string(ref, "id"),
+        _render_string(ref, "qualifiedName"), _render_string(ref, "type"))
+        for ref in get(answer, "libraryReferences", Any[])]
     result = Conversion(String(get(answer, "content", "")), from_format_answer,
-        to_format_answer, diags, experimental, notice)
+        to_format_answer, diags, experimental, notice, references)
     if result.experimental
         @warn result.experimental_notice
     end
@@ -78,27 +116,33 @@ end
 
 """Convert a file-backed source to `to_format`."""
 convert_file(conn::Connection, path::AbstractString, to_format::AbstractString;
-             from_format="", tolerate_syntax_errors=false) =
+             from_format="", tolerate_syntax_errors=false, id_form="",
+             include_library_stubs::Bool=false) =
     _convert(conn, to_format; file_path=path, from_format=from_format,
-             tolerate_syntax_errors=tolerate_syntax_errors)
+             tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
+             include_library_stubs=include_library_stubs)
 
 """Convert inline source to `to_format`, naming its input format explicitly."""
 convert_source(conn::Connection, content::AbstractString, to_format::AbstractString;
-               from_format, tolerate_syntax_errors=false) =
+               from_format, tolerate_syntax_errors=false, id_form="",
+               include_library_stubs::Bool=false) =
     _convert(conn, to_format; content=content, from_format=from_format,
-             tolerate_syntax_errors=tolerate_syntax_errors)
+             tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
+             include_library_stubs=include_library_stubs)
 
 """Convert a cached model by hash to `to_format`."""
 convert_model(conn::Connection, model_hash::AbstractString, to_format::AbstractString;
-              tolerate_syntax_errors=false) =
+              tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false) =
     _convert(conn, to_format; model_hash=model_hash,
-             tolerate_syntax_errors=tolerate_syntax_errors)
+             tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
+             include_library_stubs=include_library_stubs)
 
 """Convert the source retained for `model` to `to_format`."""
 convert_model(model::Model, to_format::AbstractString;
-              tolerate_syntax_errors=false) =
+              tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false) =
     convert_model(model.connection, model.hash, to_format;
-                  tolerate_syntax_errors=tolerate_syntax_errors)
+                  tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
+                  include_library_stubs=include_library_stubs)
 
 """Write `model` back out as SysML notation."""
 function to_sysml(model::Model; tolerate_syntax_errors=false)
@@ -111,9 +155,10 @@ to_api_json(model::Model) = convert_model(model, "api-json")
 
 """Convert and write `model` to a path, inferring its format when omitted."""
 function save(model::Model, path::AbstractString; to_format=nothing,
-              tolerate_syntax_errors=false)
+              tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false)
     format = to_format === nothing ? format_of_path(path) : String(to_format)
-    result = convert_model(model, format; tolerate_syntax_errors=tolerate_syntax_errors)
+    result = convert_model(model, format; tolerate_syntax_errors=tolerate_syntax_errors,
+                           id_form=id_form, include_library_stubs=include_library_stubs)
     open(path, "w") do io
         write(io, result.content)
     end
