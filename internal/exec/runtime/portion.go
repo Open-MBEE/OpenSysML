@@ -88,6 +88,9 @@ func (inst *Instance) materializeFromWhole(ctx *Context, fv *FeatureValue, name 
 	}
 	ctx.listRead(wfv, fv)
 	val := wfv.HeldValue()
+	if ctx.ownsHeld(fv.Feature) {
+		val = ctx.partsOfWhole(inst, whole, fv.Feature, val)
+	}
 	if val.Kind == ValInvalid {
 		return false, nil
 	}
@@ -104,4 +107,65 @@ func (inst *Instance) materializeFromWhole(ctx *Context, fv *FeatureValue, name 
 	}
 	fv.Materialized = true
 	return true, nil
+}
+
+// partsOfWhole is val, the whole's composite value, as the portion inst holds it: without the whole's portions
+// (inst itself, its sibling slices, members a portion usage still has to make) and inst's wholes; nothing when all go.
+func (ctx *Context) partsOfWhole(inst, whole *Instance, feat *EffectiveFeature, val Value) Value {
+	elements := listedElements(val)
+	kept := make([]Value, 0, len(elements))
+	for _, el := range elements {
+		if id, ok := el.Object(); ok {
+			if obj, found := ctx.instances[id]; found && (ctx.heldPortionOf(obj, whole) || ctx.isPortionOf(inst, obj)) {
+				continue
+			}
+		}
+		kept = append(kept, el)
+	}
+	tail := requiredTail(val)
+	if tail != nil && ctx.requiredArePortionsOf(whole, tail.required) {
+		tail = nil
+	} else if len(kept) == len(elements) {
+		return val
+	}
+	if tail != nil {
+		return NewSequenceValue(&Sequence{elements: kept, elementUnit: tail.elementUnit, required: tail.required})
+	}
+	if len(kept) == 0 {
+		return Value{}
+	}
+	if feat.Scalar() {
+		return kept[0]
+	}
+	return ctx.collectionOf(feat, kept)
+}
+
+// heldPortionOf reports whether obj is whole itself or a portion of it: held under it through portion usages alone.
+func (ctx *Context) heldPortionOf(obj, whole *Instance) bool {
+	for obj != nil {
+		if obj == whole {
+			return true
+		}
+		owner, feature := obj.Owner()
+		if owner == nil {
+			return false
+		}
+		holder := owner.FeatureValues[feature]
+		if holder == nil || holder.Feature == nil || !isPortionUsage(holder.Feature.Symbol) {
+			return false
+		}
+		obj = owner
+	}
+	return false
+}
+
+// requiredArePortionsOf reports whether the members r reserves, made when reached, will be portions of whole:
+// the feature reserving them is a portion usage of whole or of a portion of it.
+func (ctx *Context) requiredArePortionsOf(whole *Instance, r *requiredMembers) bool {
+	owner, found := ctx.instances[r.owner]
+	if !found {
+		return false
+	}
+	holder := owner.FeatureValues[r.feature]
+	return holder != nil && holder.Feature != nil && isPortionUsage(holder.Feature.Symbol) && ctx.heldPortionOf(owner, whole)
 }

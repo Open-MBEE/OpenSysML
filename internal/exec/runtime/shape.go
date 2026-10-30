@@ -543,7 +543,7 @@ func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Nod
 		return nil, nil
 	}
 	scope := bodyScope(typeSym, typeSym.OwnerScope)
-	for _, node := range unwrappedDeclMembers(typeSym.Decl) {
+	for node := range eachUnwrappedDeclMember(typeSym.Decl) {
 		member := memberSymbol(scope, node)
 		if member == nil || member == sym || member.Name != "" {
 			continue

@@ -1000,6 +1000,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.base(&n.NodeBase)
 		e.nodes(n.Members)
 		e.operatorExprs(n.UndefinedOperators)
+		e.w.Int(int64(n.TypedBy))
 	case *ast.SelectExpr:
 		e.base(&n.NodeBase)
 		e.node(n.Operand)
@@ -1514,6 +1515,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		d.base(&n.NodeBase)
 		n.Members = d.nodes()
 		n.UndefinedOperators = d.operatorExprs()
+		n.TypedBy = int(d.r.Int())
 	case *ast.SelectExpr:
 		d.base(&n.NodeBase)
 		n.Operand = d.node()

@@ -63,7 +63,12 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 	w.bodies = append(w.bodies, bodyFrame{members: root.Members, namespaceish: true})
 	w.walk(root.Members)
 	w.bodies = w.bodies[:0]
-	w.typedByInExpressions(root)
+	// The member walk reaches every `typed by` but a body expression's; the
+	// document counts its spellings, so the expression sweep runs only when
+	// one is left to find.
+	if w.typedByReported < root.TypedBy {
+		w.typedByInExpressions(root)
+	}
 	// A comment where no member may start is the parser's own warning, which
 	// strict conformance escalates; the escalated finding replaces the warning.
 	if ctx.Options.Conformance.IsStrict() {
@@ -100,6 +105,8 @@ type notationWalker struct {
 	// inKerMLDeclaration counts the enclosing declarations already reported as
 	// KerML notation; their members move with them, so are not reported again.
 	inKerMLDeclaration int
+	// typedByReported counts the `typed by` findings, against RootNamespace.TypedBy.
+	typedByReported int
 	// keywordName holds the offsets where the parser recovered a keyword written as
 	// a name, the only spans keywordAsName escalates.
 	keywordName map[int]bool
@@ -765,6 +772,7 @@ func (w *notationWalker) typedByRelationships(rels []*ast.Relationship) {
 // typedBy reports a typing spelled `typed by` in a SysML file (SysML.xtext:395 admits
 // `:` and `defined by`; KerML.xtext:600 `typed by`); the fix rewrites the keyword alone.
 func (w *notationWalker) typedBy(span source.Span) {
+	w.typedByReported++
 	w.diags = append(w.diags, diag.Diagnostic{
 		Severity: w.severity,
 		Span:     span,

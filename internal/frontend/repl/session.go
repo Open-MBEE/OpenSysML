@@ -1139,7 +1139,8 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	// A root namespace the submission leaves unresolved may be declared by a
 	// file beside a loaded one or under the workspace; it joins the submission.
 	search := s.searchFor(load, files)
-	if ws, more := s.pullReferences(s.resolveReferences(res, parses, search), parses, search); ws.loaded || len(ws.notices) > 0 {
+	roots := &submissionRoots{pending: files}
+	if ws, more := s.pullReferences(s.resolveReferences(res, roots, search), roots, search); ws.loaded || len(ws.notices) > 0 {
 		if ws.loaded {
 			whole = append(whole, more...)
 			// A loaded file may have replaced an earlier snippet, moving the

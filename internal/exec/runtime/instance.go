@@ -1674,44 +1674,52 @@ func isReferenceUsage(sym *symbols.Symbol) bool {
 // declaresFeatures reports whether a usage's own body restates or adds features,
 // which the object it materializes has to carry.
 func declaresFeatures(sym *symbols.Symbol) bool {
-	return declaresAFeature(unwrappedDeclMembers(sym.Decl))
+	for member := range eachUnwrappedDeclMember(sym.Decl) {
+		if memberDeclaresFeature(member) {
+			return true
+		}
+	}
+	return false
 }
 
 // declaresAFeature reports whether one of a body's members declares a feature: a
 // named or specializing usage, or a state body's named substate or entry, do or
 // exit action, each a feature of the state declaring it (SysML v2 §7.18.2).
 func declaresAFeature(members []ast.Node) bool {
-	for _, member := range members {
-		switch m := member.(type) {
-		case *ast.Usage:
-			if m.Ident.Name != "" || m.Ident.ShortName != "" || len(m.Relationships) > 0 {
-				return true
-			}
-		case *ast.SubjectMember:
-			// A subject the body values or defaults (`subject = x;`) restates the inherited parameter.
-			if m.BindingExpr != nil {
-				return true
-			}
-		case *ast.SubstateMember:
-			if m.Name != "" {
-				return true
-			}
-		case *ast.StateNode:
-			if m.Name != "" {
-				return true
-			}
-		case *ast.EntryMember:
-			if declaresAFeature(m.Actions) {
-				return true
-			}
-		case *ast.DoMember:
-			if declaresAFeature(m.Actions) {
-				return true
-			}
-		case *ast.ExitMember:
-			if declaresAFeature(m.Actions) {
-				return true
-			}
+	return slices.ContainsFunc(members, memberDeclaresFeature)
+}
+
+// memberDeclaresFeature reports whether one body member declares a feature (see declaresAFeature).
+func memberDeclaresFeature(member ast.Node) bool {
+	switch m := member.(type) {
+	case *ast.Usage:
+		if m.Ident.Name != "" || m.Ident.ShortName != "" || len(m.Relationships) > 0 {
+			return true
+		}
+	case *ast.SubjectMember:
+		// A subject the body values or defaults (`subject = x;`) restates the inherited parameter.
+		if m.BindingExpr != nil {
+			return true
+		}
+	case *ast.SubstateMember:
+		if m.Name != "" {
+			return true
+		}
+	case *ast.StateNode:
+		if m.Name != "" {
+			return true
+		}
+	case *ast.EntryMember:
+		if declaresAFeature(m.Actions) {
+			return true
+		}
+	case *ast.DoMember:
+		if declaresAFeature(m.Actions) {
+			return true
+		}
+	case *ast.ExitMember:
+		if declaresAFeature(m.Actions) {
+			return true
 		}
 	}
 	return false

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"iter"
 	"slices"
 	"sort"
 	"strings"
@@ -1622,13 +1623,49 @@ func unwrappedDeclMembers(decl ast.Node) []ast.Node {
 	}
 
 	out := make([]ast.Node, 0, len(members))
-	for _, member := range members {
-		if membership, ok := member.(*ast.Membership); ok {
-			member = membership.Member
-		}
+	for member := range eachUnwrappedDeclMember(decl) {
 		out = append(out, member)
 	}
 	return out
+}
+
+// eachUnwrappedDeclMember yields what unwrappedDeclMembers lists without building the list,
+// for the readers that stop at the first member of interest.
+func eachUnwrappedDeclMember(decl ast.Node) iter.Seq[ast.Node] {
+	return func(yield func(ast.Node) bool) {
+		if oc, ok := ast.OwnedConstraintOf(decl); ok {
+			for _, member := range oc.Body {
+				if !yield(member) {
+					return
+				}
+			}
+			return
+		}
+		switch m := decl.(type) {
+		case *ast.AssumeMember:
+			for _, member := range m.Body {
+				if !yield(member) {
+					return
+				}
+			}
+			return
+		case *ast.RequireMember:
+			for _, member := range m.Body {
+				if !yield(member) {
+					return
+				}
+			}
+			return
+		}
+		for _, member := range ast.DeclMembers(decl) {
+			if membership, ok := member.(*ast.Membership); ok {
+				member = membership.Member
+			}
+			if !yield(member) {
+				return
+			}
+		}
+	}
 }
 
 // QualifiedName renders a symbol's qualified name, falling back to its

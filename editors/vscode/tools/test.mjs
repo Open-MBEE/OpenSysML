@@ -11,11 +11,9 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const extensionDir = fileURLToPath(new URL("..", import.meta.url));
-const tests = [];
-for (const dir of ["src", "tools"]) {
-  const names = await readdir(join(extensionDir, dir), { recursive: true });
-  tests.push(...names.filter((name) => name.endsWith(".test.ts")).map((name) => join(extensionDir, dir, name)));
-}
+const dirs = ["src", "tools"];
+const listings = await Promise.all(dirs.map((dir) => readdir(join(extensionDir, dir), { recursive: true })));
+const tests = dirs.flatMap((dir, i) => listings[i].filter((name) => name.endsWith(".test.ts")).map((name) => join(extensionDir, dir, name)));
 if (tests.length === 0) {
   console.error("no *.test.ts under src/ or tools/");
   process.exit(1);
