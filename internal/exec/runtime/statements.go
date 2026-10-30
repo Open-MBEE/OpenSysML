@@ -886,7 +886,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 	case lower.Assign:
 		value, err := e.assign(s)
 		if err == nil {
-			e.noteAssign(s.Target, value)
+			e.noteAssign(s.Target, e.heldAfterAssign(s, value))
 		}
 		return flowNext, err
 	case lower.Declare:
@@ -1751,6 +1751,18 @@ type actionStepHost interface {
 
 // noteAssign records in the trace the value an assignment wrote, under the
 // action token stepping the statement where one is.
+// heldAfterAssign is what the target holds once written, as the write shaped it; a chained
+// target is not read back, so its record keeps the value the statement gave.
+func (e *stmtEngine) heldAfterAssign(s lower.Assign, written Value) Value {
+	if e.ctx.trace == nil || s.Chain != nil {
+		return written
+	}
+	if held, ok, err := e.evalIn(s.Scope).Lookup(s.Target); err == nil && ok {
+		return held
+	}
+	return written
+}
+
 func (e *stmtEngine) noteAssign(feature string, value Value) {
 	if e.ctx.trace == nil {
 		return

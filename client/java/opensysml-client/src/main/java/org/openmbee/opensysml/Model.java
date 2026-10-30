@@ -839,6 +839,10 @@ public final class Model {
     Objects.requireNonNull(stateMachineSymbolId, "stateMachineSymbolId");
     Objects.requireNonNull(events, "events");
     Objects.requireNonNull(options, NAME_OPTIONS);
+    if (!options.events().isEmpty()) {
+      throw new IllegalArgumentException(
+          "a state run takes its events as an argument, not as ExecutionOptions.withEvents");
+    }
     if (options.trace() && explore) {
       throw new IllegalArgumentException("a trace describes one run, not an exploration");
     }

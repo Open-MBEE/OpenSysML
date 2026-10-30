@@ -93,7 +93,7 @@ func TestActionTraceRecordsFollowTheTokens(t *testing.T) {
 		"step split -> land",
 		"step split -> survey",
 	}
-	branches := []string{"assign landed = true", "step land -> meet", "step survey -> meet"}
+	branches := []string{"assign landed = [true]", "step land -> meet", "step survey -> meet"}
 	tail := []string{"step meet", "step meet -> finish", "step finish -> done", "complete"}
 	if len(got) != len(head)+len(branches)+len(tail) {
 		t.Fatalf("records:\n%s", strings.Join(got, "\n"))

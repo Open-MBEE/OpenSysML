@@ -11,6 +11,7 @@ func TestRuntimeRobustnessActionTrace(t *testing.T) {
 	t.Run("deadlocked_run_keeps_its_records", testActionTraceDeadlockKeepsRecords)
 	t.Run("event_no_accept_waits_for", testActionTraceEventNoAcceptWaitsFor)
 	t.Run("event_after_completion", testActionTraceEventAfterCompletion)
+	t.Run("failed_event_run_releases_its_performance", testActionTraceFailedEventRunReleases)
 }
 
 const actionTraceRobustnessSource = `
@@ -122,5 +123,43 @@ func testActionTraceEventAfterCompletion(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "Go") {
 		t.Fatalf("expected a typed error naming the leftover event, got: %v", err)
+	}
+}
+
+// testActionTraceFailedEventRunReleases: a run with events that fails lets go of the
+// performance it started, as a plain run does, so the context carries nothing of it on.
+func testActionTraceFailedEventRunReleases(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, actionTraceRobustnessSource))
+	craft, err := ctx.Instantiate(oneSymbol(t, idx, "test::craft"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	message := func(name string) Message {
+		msg, err := ctx.SignalMessage(oneSymbol(t, idx, "test::"+name), nil, craft)
+		if err != nil {
+			t.Fatalf("message %s: %v", name, err)
+		}
+		return msg
+	}
+	wait := oneSymbol(t, idx, "test::Wait")
+	err = runWithWatchdog(t, func() error {
+		_, _, err := ctx.ExecuteActionWithEvents(wait, craft, map[string]Value{}, []Message{message("Abort")})
+		return err
+	})
+	if err == nil || !strings.Contains(err.Error(), "Abort") {
+		t.Fatalf("expected the rejected event's error, got: %v", err)
+	}
+	if n := len(ctx.actionExecutors); n != 0 {
+		t.Fatalf("the failed run left %d performance(s) registered on the context", n)
+	}
+	outputs, _, err := ctx.ExecuteActionWithEvents(wait, craft, map[string]Value{}, []Message{message("Go")})
+	if err != nil {
+		t.Fatalf("a fresh run with its event: %v", err)
+	}
+	if got, ok := outputs["count"]; !ok || FormatValue(got) != "1" {
+		t.Errorf("count = %s, want 1", FormatValue(got))
+	}
+	if n := len(ctx.actionExecutors); n != 0 {
+		t.Fatalf("the completed run left %d performance(s) registered on the context", n)
 	}
 }

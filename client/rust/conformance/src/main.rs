@@ -1054,12 +1054,12 @@ impl Runner {
         let options = RunOptions {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
-            trace: false,
+            trace: request.trace,
             advance: request.advance,
             seed: request.seed,
             draws: optional(request.draws),
             clock_step: request.clock_step,
-            events: Vec::new(),
+            events: request.events,
         };
         let hash = &request.model_hash;
         let action = &request.action_symbol_id;
@@ -1082,6 +1082,8 @@ impl Runner {
                         error: failure.error,
                         diagnostics: failure.diagnostics,
                         final_time: failure.final_time,
+                        trace: failure.trace,
+                        trace_dropped: failure.trace_dropped,
                         ..Default::default()
                     },
                 ),

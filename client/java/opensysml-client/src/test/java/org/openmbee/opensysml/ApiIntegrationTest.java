@@ -818,6 +818,13 @@ class ApiIntegrationTest {
         () -> model.exploreState("Test::Machine", List.of(), tracedState));
 
     assertThrows(ModelException.class, () -> model.executeState("Test::NoMachine", List.of()));
+    ExecutionOptions posted = ExecutionOptions.defaults().withEvents("Go");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> model.executeState("Test::Machine", List.of(), posted));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> model.exploreState("Test::Machine", List.of(), posted));
   }
 
   @Test

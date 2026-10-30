@@ -209,6 +209,16 @@ fn explores(schedule: Option<&str>) -> bool {
     schedule.is_some_and(|s| s == SCHEDULE_EXPLORE || s.starts_with("explore:"))
 }
 
+/// A state run takes its events as an argument: `RunOptions::events` is an action run's.
+fn refuse_option_events(options: &RunOptions, method: &str) -> Result<(), Error> {
+    if options.events.is_empty() {
+        return Ok(());
+    }
+    Err(Error::InvalidRequest(format!(
+        "{method} takes its events as an argument, not RunOptions::events"
+    )))
+}
+
 fn refuse_exploring(schedule: Option<&str>, method: &str) -> Result<(), Error> {
     match schedule {
         Some(schedule) if explores(Some(schedule)) => Err(Error::InvalidRequest(format!(
@@ -862,6 +872,7 @@ impl Connection {
         options: &RunOptions,
     ) -> Result<StateRun, Error> {
         refuse_exploring(options.schedule.as_deref(), "explore_state")?;
+        refuse_option_events(options, "execute_state")?;
         let response = self.run_state(
             model_hash,
             machine_id,
@@ -898,6 +909,7 @@ impl Connection {
         events: &[S],
         options: &RunOptions,
     ) -> Result<Exploration, Error> {
+        refuse_option_events(options, "explore_state")?;
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
         if options.trace {
@@ -1438,6 +1450,12 @@ mod tests {
         assert!(!explores(None));
         assert!(refuse_exploring(Some("explore"), "explore_action").is_err());
         assert!(refuse_exploring(Some("random:seed=1"), "explore_action").is_ok());
+        let posted = RunOptions {
+            events: vec!["Go".to_owned()],
+            ..Default::default()
+        };
+        assert!(refuse_option_events(&posted, "execute_state").is_err());
+        assert!(refuse_option_events(&RunOptions::default(), "execute_state").is_ok());
         assert!(require_exploring("first").is_err());
         assert_eq!(engine_field(Some(ENGINE_AUTO)), "");
         assert_eq!(engine_field(Some("smt")), "smt");

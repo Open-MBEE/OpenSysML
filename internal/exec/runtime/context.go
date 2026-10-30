@@ -1823,20 +1823,30 @@ func (ctx *Context) ExecuteActionWithEvents(action *symbols.Symbol, self *Instan
 	if len(events) == 0 {
 		return ctx.ExecuteActionReportingPerformer(action, self, inputs)
 	}
-	exec, _, err := ctx.StartActionPerformedBy(action, self, inputs)
+	exec, reused, err := ctx.StartActionPerformedBy(action, self, inputs)
 	if err != nil {
 		return nil, nil, err
+	}
+	// A performance started for this call is let go of when it fails; a reused one stays its owner's.
+	release := exec.Release
+	if reused {
+		release = func() {}
 	}
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 	if err := ctx.DeliverEvents(exec, events); err != nil {
+		release()
 		return nil, nil, err
 	}
-	if err := ctx.runPerformance(exec, top); err != nil {
+	if err := ctx.runPerformed(exec, top); err != nil {
+		if !paused(err) {
+			release()
+		}
 		return nil, nil, err
 	}
 	outputs, err = exec.ResultsWithError()
 	if err != nil {
+		release()
 		return nil, nil, err
 	}
 	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
