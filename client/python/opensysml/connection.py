@@ -16,6 +16,8 @@ from opensysml.model import Model
 from opensysml.action_run import ActionOutputs
 from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
+    CAPABILITY_CONVERT_LIBRARY_STUBS,
+    CAPABILITY_OSLC_QUERY,
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
@@ -82,6 +84,7 @@ from opensysml.capabilities import (
 from opensysml.conversion import (
     Conversion,
     EXPERIMENTAL_NOTICE,
+    LibraryReference,
     ExperimentalFeatureWarning,
     MIGRATED_NOT_CONVERTED,
     Migration,
@@ -123,7 +126,7 @@ from opensysml.errors import (
     from_rpc_error,
     translate_rpc_errors,
 )
-from opensysml.query import build_query, elements_of
+from opensysml.query import QueryError, build_query, elements_of
 from opensysml.sources import source_documents
 from opensysml.values import (
     Array,
@@ -1544,7 +1547,8 @@ class Connection:
         return model
     
     def convert(self, to_format, file_path=None, content=None, model_hash=None,
-                from_format='', tolerate_syntax_errors=False):
+                from_format='', tolerate_syntax_errors=False, id_form='',
+                include_library_stubs=False):
         """Write a model out in another of the formats OpenSysML writes.
 
         The source is a loaded model, named by its hash, or one named the way
@@ -1568,6 +1572,15 @@ class Connection:
                 the result's diagnostics. Notation to notation only: every other
                 direction builds a graph, where unreadable declarations would go
                 missing silently.
+            id_form (str, optional): How derived element ids are spelled when a
+                graph ('ttl' or 'api-json') is written: :data:`ID_FORM_QUALIFIED`
+                (the default, from each element's qualified name) or
+                :data:`ID_FORM_UUID` (name-based uuids under each root package,
+                the library convention). Declared ids are unchanged.
+            include_library_stubs (bool): For api-json, restore the ownerless
+                library stubs written before 0.11.0; by default library
+                elements remain bare references, not roots. Needs the
+                ``convert_library_stubs`` capability.
 
         A SysML v1 model — ``from_format`` of 'xmi', 'uml' or 'mdzip', or a
         file_path with that extension — is refused: it is migrated, not
@@ -1585,8 +1598,10 @@ class Connection:
             ValueError: If other than one of file_path, content and model_hash
                 is given
             InvalidRequestError: If the source is a SysML v1 model, with the
-                help that names :meth:`migrate`; also if a format is unknown
-            MissingCapabilityError: If the service cannot convert
+                help that names :meth:`migrate`; also if a format or id_form
+                is unknown, or id_form is given for a notation target
+            MissingCapabilityError: If the service cannot convert, or cannot
+                write library stubs and they were asked for
             ConversionError: If the model could not be written in that format
             ModelFileNotFoundError: If the named file cannot be read
             ModelNotFoundError: If the model is no longer cached
@@ -1617,11 +1632,19 @@ class Connection:
             CAPABILITY_CONVERT,
             upgrade_remedy(CAPABILITY_CONVERT),
         )
+        if include_library_stubs:
+            require(
+                self.server_info(),
+                CAPABILITY_CONVERT_LIBRARY_STUBS,
+                upgrade_remedy(CAPABILITY_CONVERT_LIBRARY_STUBS),
+            )
 
         request = sysml_pb2.ConvertRequest(
             to_format=to_format,
             from_format=from_format,
             tolerate_syntax_errors=tolerate_syntax_errors,
+            id_form=id_form,
+            include_library_stubs=include_library_stubs,
         )
         if file_path is not None:
             request.file_path = file_path
@@ -1660,6 +1683,10 @@ class Connection:
             diagnostics=diagnostics,
             experimental=experimental,
             experimental_notice=notice,
+            library_references=[
+                LibraryReference(id=ref.id, qualified_name=ref.qualified_name, type=ref.type)
+                for ref in response.library_references
+            ],
         )
 
     def migrate(self, to_format, file_path=None, content=None, from_format='',
@@ -1839,11 +1866,14 @@ class Connection:
         return result_of(response)
 
     def query(self, model_hash, payload=None, scope=None, select=None, where=None,
-              order_by=None):
+              order_by=None, oslc=None):
         """Run a SysML v2 API & Services Query over a loaded model.
 
         The query is the standard's JSON object, so a cookbook payload works
         verbatim, or the same thing as keywords. See :mod:`opensysml.query`.
+        Alternatively ``oslc`` is OSLC Query 3.0 parameter text, such as
+        ``sysml:name="vehicle"``, which the service evaluates in place of the
+        standard's object; the two are not combined.
 
         Args:
             model_hash (str): Hash of the model to query
@@ -1853,18 +1883,39 @@ class Connection:
             where (dict, optional): Constraint to filter by
             order_by (list, optional): Properties to sort by, in order of
                 precedence, each ascending; empty keeps declaration order
+            oslc (str, optional): OSLC Query 3.0 parameter text evaluated in
+                place of the standard's Query; not combined with the others.
+                An empty string is no OSLC at all, so the structured query
+                (empty, answering every element) is sent instead
 
         Returns:
             list[QueryElement]: The elements selected, in ``order_by`` order,
             or declaration order without one
 
         Raises:
-            QueryError: If the query is not one the standard's model describes
-            MissingCapabilityError: If the service cannot query, or cannot sort
-                and the query has an ``orderBy``
-            InvalidRequestError: If a property or scope is unknown to the service
+            QueryError: If the query is not one the standard's model describes,
+                or ``oslc`` is given beside a structured query
+            MissingCapabilityError: If the service cannot query, cannot sort
+                and the query has an ``orderBy``, or cannot evaluate OSLC
+                text and ``oslc`` is given
+            InvalidRequestError: If a property or scope is unknown to the
+                service, or the OSLC text does not parse
             ModelNotFoundError: If the model is no longer cached
         """
+        if oslc:
+            if any(given is not None for given in (payload, scope, select, where, order_by)):
+                raise QueryError(
+                    "Provide either oslc or the standard's Query (payload or keywords), not both"
+                )
+            needed = (CAPABILITY_QUERY, CAPABILITY_OSLC_QUERY)
+            for capability in needed:
+                require(self.server_info(), capability, upgrade_remedy(capability))
+            request = sysml_pb2.QueryRequest(model_hash=model_hash, oslc_query=oslc)
+            with translate_rpc_errors(
+                unimplemented=self._capability_refusal(needed)
+            ):
+                response = self._stub.Query(request)
+            return elements_of(response)
         query = build_query(payload, scope=scope, select=select, where=where,
                             order_by=order_by)
         needed = (CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY) if query.order_by \

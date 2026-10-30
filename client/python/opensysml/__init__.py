@@ -86,8 +86,8 @@ from opensysml.document import (
     RenderSpan, RenderStyle, RenderedView,
 )
 from opensysml.conversion import (
-    FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, Conversion,
-    ExperimentalFeatureWarning, Migration, MigrationEntry, MigrationReport,
+    FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, ID_FORM_QUALIFIED, ID_FORM_UUID, Conversion,
+    ExperimentalFeatureWarning, LibraryReference, Migration, MigrationEntry, MigrationReport,
     format_of_path, is_experimental, is_v1,
 )
 from opensysml.edit import AppliedEdit, Body, EditedDocument, EditResult, Editor
@@ -136,7 +136,8 @@ __all__ = [
     "UNSET", "UnsetType", "Undetermined",
     "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "Metaobject", "SetValue",
     "TensorQuantity", "InstanceRef",
-    "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE",
+    "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE", "LibraryReference",
+    "ID_FORM_QUALIFIED", "ID_FORM_UUID",
     "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
     "Migration", "MigrationEntry", "MigrationReport", "is_v1",

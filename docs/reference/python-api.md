@@ -28,6 +28,14 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.ID_FORM_QUALIFIED
+    options:
+      heading_level: 3
+
+::: opensysml.ID_FORM_UUID
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONSTRAINT_BODY_AUTHORING
     options:
       heading_level: 3
@@ -379,6 +387,10 @@ Decoded value kinds carried by the service wire format.
 Format conversion and migration results, including experimental-feature notices.
 
 ::: opensysml.Conversion
+    options:
+      heading_level: 3
+
+::: opensysml.LibraryReference
     options:
       heading_level: 3
 

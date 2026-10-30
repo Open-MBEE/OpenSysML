@@ -191,7 +191,8 @@ class Model:
         """Path this model was loaded from, or None if it was loaded inline."""
         return self._source_path
 
-    def convert(self, to_format, tolerate_syntax_errors=False):
+    def convert(self, to_format, tolerate_syntax_errors=False, id_form='',
+                include_library_stubs=False):
         """Write this model out in one of the formats OpenSysML writes.
 
         Converts the source this model was parsed from, not the file as it
@@ -208,6 +209,11 @@ class Model:
                 'api-json' or 'json'
             tolerate_syntax_errors (bool): Write notation back out even when the
                 parser could not read all of it
+            id_form (str, optional): How derived ids are spelled in a graph,
+                :data:`~opensysml.conversion.ID_FORM_QUALIFIED` (the default)
+                or :data:`~opensysml.conversion.ID_FORM_UUID`
+            include_library_stubs (bool): For api-json, restore the ownerless
+                library stubs written before 0.11.0
 
         Returns:
             Conversion: The converted model; ``str()`` of it is the text
@@ -227,6 +233,8 @@ class Model:
             # A model came from ParseFile, which reads notation and nothing else.
             from_format=FORMAT_SYSML,
             tolerate_syntax_errors=tolerate_syntax_errors,
+            id_form=id_form,
+            include_library_stubs=include_library_stubs,
         )
 
     def to_sysml(self, tolerate_syntax_errors=False):
@@ -305,7 +313,8 @@ class Model:
         """
         return Editor(self._hash, self.connection)
 
-    def query(self, payload=None, scope=None, select=None, where=None, order_by=None):
+    def query(self, payload=None, scope=None, select=None, where=None, order_by=None,
+              oslc=None):
         """Run a SysML v2 API & Services Query over this model.
 
         Takes the standard's ``Query`` JSON, so a payload written for the
@@ -321,14 +330,20 @@ class Model:
             where (dict, optional): Constraint to filter by
             order_by (list, optional): Properties to sort by, in order of
                 precedence, each ascending; empty keeps declaration order
+            oslc (str, optional): OSLC Query 3.0 parameter text, such as
+                ``sysml:name="vehicle"``, evaluated in place of the standard's
+                Query; not combined with the others. An empty string is no
+                OSLC at all, so the structured query is sent instead
 
         Returns:
             list[QueryElement]: The elements selected, in ``order_by`` order,
             or declaration order without one
 
         Raises:
-            QueryError: If the query is not one the standard's model describes
-            MissingCapabilityError: If the service cannot query
+            QueryError: If the query is not one the standard's model describes,
+                or ``oslc`` is given beside a structured query
+            MissingCapabilityError: If the service cannot query, or cannot
+                evaluate OSLC text and ``oslc`` is given
             InvalidRequestError: If a property or scope is unknown to the service
             ModelNotFoundError: If the service no longer holds this model
 
@@ -340,6 +355,7 @@ class Model:
         """
         return self.connection.query(
             self._hash, payload, scope=scope, select=select, where=where, order_by=order_by,
+            oslc=oslc,
         )
 
     def run_document_query(self, query_id, bindings=None):

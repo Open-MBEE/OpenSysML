@@ -7,7 +7,9 @@ notation, and a trip through RDF Turtle — which is the part a mock cannot tell
 you anything about.
 """
 
+import json
 import os
+import re
 import subprocess
 import time
 import warnings
@@ -16,13 +18,20 @@ from concurrent import futures
 import grpc
 import pytest
 
-from opensysml.capabilities import CAPABILITY_CONVERT, MissingCapabilityError
+from opensysml.capabilities import (
+    CAPABILITY_CONVERT,
+    CAPABILITY_CONVERT_LIBRARY_STUBS,
+    MissingCapabilityError,
+)
 from opensysml.connection import Connection
 from opensysml.conversion import (
     FORMAT_API_JSON,
     FORMAT_SYSML,
     FORMAT_TURTLE,
+    ID_FORM_QUALIFIED,
+    ID_FORM_UUID,
     ExperimentalFeatureWarning,
+    LibraryReference,
     format_of_path,
     is_experimental,
 )
@@ -203,6 +212,40 @@ def test_service_side_capability_refusal_is_a_missing_capability_error(fake_serv
     assert len(service.requests) == 1
 
 
+def test_convert_sends_the_id_form_and_library_stubs_asked_for(fake_service):
+    """The api-json options reach the wire as given."""
+    port, service = fake_service(
+        capabilities=(CAPABILITY_CONVERT, CAPABILITY_CONVERT_LIBRARY_STUBS)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        conn.convert(
+            FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML,
+            id_form=ID_FORM_UUID, include_library_stubs=True,
+        )
+        conn.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML)
+
+    asked, defaulted = service.requests
+    assert asked.id_form == ID_FORM_UUID
+    assert asked.include_library_stubs is True
+    assert defaulted.id_form == ""
+    assert defaulted.include_library_stubs is False
+
+
+def test_library_stubs_require_their_own_capability(fake_service):
+    """A service that would write api-json without the stubs is not asked for them."""
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            conn.convert(
+                FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML,
+                include_library_stubs=True,
+            )
+        assert excinfo.value.capability == CAPABILITY_CONVERT_LIBRARY_STUBS
+        assert service.requests == [], "the request was sent to a service that would ignore it"
+        conn.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML)
+    assert len(service.requests) == 1
+
+
 def test_convert_sends_the_source_and_formats(fake_service):
     """The request carries what the caller asked for, unchanged."""
     port, service = fake_service()
@@ -369,6 +412,46 @@ class TestRoundTripAgainstRealService:
                 (d.severity, d.message) for d in model.diagnostics
             ]
             assert str(again.to_sysml()) == notation
+
+    def test_api_json_names_library_references_separately_and_opts_into_legacy_stubs(
+        self, real_service
+    ):
+        source = "package P { private import SI::*; attribute time = 20 [s]; }\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            plain = conn.convert(FORMAT_API_JSON, content=source, from_format=FORMAT_SYSML)
+            legacy = conn.convert(
+                FORMAT_API_JSON, content=source, from_format=FORMAT_SYSML,
+                include_library_stubs=True,
+            )
+            notation = conn.convert(FORMAT_SYSML, content=source, from_format=FORMAT_SYSML)
+        second = next(ref for ref in plain.library_references if ref.qualified_name == "SI::second")
+        assert second == LibraryReference(
+            id="0c539f7c-20a1-520d-bae0-f3f855517aea", qualified_name="SI::second",
+            type="AttributeUsage",
+        )
+        assert not any(element.get("isLibraryElement") for element in json.loads(plain.content))
+        stub = next(element for element in json.loads(legacy.content) if element["@id"] == second.id)
+        assert stub["qualifiedName"] == "SI::second" and stub["isLibraryElement"] is True
+        assert legacy.library_references == plain.library_references
+        assert notation.library_references == []
+
+    def test_uuid_id_form_spells_derived_ids_as_uuids(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(MODEL)
+            qualified = json.loads(str(model.convert(FORMAT_API_JSON)))
+            uuids = json.loads(str(model.convert(FORMAT_API_JSON, id_form=ID_FORM_UUID)))
+            explicit = model.convert(FORMAT_API_JSON, id_form=ID_FORM_QUALIFIED).content
+            with pytest.raises(InvalidRequestError):
+                model.convert(FORMAT_API_JSON, id_form="base64")
+
+        def ids_of(elements):
+            return {e["qualifiedName"]: e["@id"] for e in elements if e.get("qualifiedName")}
+
+        assert set(ids_of(qualified)) == set(ids_of(uuids))
+        engine = ids_of(uuids)["Demo::Engine"]
+        assert engine != ids_of(qualified)["Demo::Engine"]
+        assert re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", engine)
+        assert json.loads(explicit) == qualified
 
     def test_turtle_round_trip_returns_an_equivalent_model(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
