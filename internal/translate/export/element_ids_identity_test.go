@@ -17,7 +17,7 @@ import (
 // without writing is the elementId the written graph carries for it.
 func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 	files, _ := filepath.Glob(filepath.Join("..", "..", "..", "examples", "*.sysml"))
-	texts := map[string]string{"dup.sysml": readerModel, "then.sysml": thenDoneModel}
+	texts := map[string]string{"dup.sysml": readerModel, "then.sysml": thenDoneModel, "states.sysml": stateActionsModel}
 	for _, f := range files {
 		data, err := os.ReadFile(f)
 		if err != nil {
@@ -197,5 +197,37 @@ func TestElementIDReaderMintsEveryBoundEnd(t *testing.T) {
 		if forms[form] < 2 {
 			t.Errorf("%s: %d ends compared, want both", form, forms[form])
 		}
+	}
+}
+
+// stateActionsModel declares entry, exit and do actions of a state, in the inline and
+// the named forms: their owning membership is the entry/exit/do member itself.
+const stateActionsModel = "package S {\n\tstate def D;\n\tstate s : D {\n\t\tentry action start;\n\t\tdo action run { action step; }\n\t\texit action stop;\n\t\tentry; then idle;\n\t\tstate idle;\n\t}\n}\n"
+
+// TestElementIDReaderOwningMembershipOfALibraryElement: a standard library element the
+// model only references has an owning membership id too — the one the writer gives it.
+func TestElementIDReaderOwningMembershipOfALibraryElement(t *testing.T) {
+	sf, _, doc := readerIndex(t, "lib.sysml", "package M {\n\tprivate import ScalarValues::*;\n\tattribute x : Real;\n}\n")
+	reader := NewElementIDReader([]ElementIDDocument{{File: sf, Root: doc.Root}})
+	got, err := reader.ReadOwningMembership("", nil, "ScalarValues::Real")
+	if err != nil {
+		t.Fatal(err)
+	}
+	element, ok := reader.ids.Of("ScalarValues::Real")
+	if !ok || got == "" {
+		t.Fatalf("library element id %q (%v), owning membership %q, want both", element, ok, got)
+	}
+	facts := reader.ids.encoders[0].ids
+	var want string
+	for _, sym := range reader.ids.res.Index().LookupQualified("ScalarValues::Real") {
+		if libraryFQN, ok := facts.libraryElement(sym); ok {
+			want = rdf.LocalName(facts.owningMembershipOf(sym.Decl, facts.subjectForNode(sym.Decl, libraryFQN)).Value)
+		}
+	}
+	if got != want {
+		t.Errorf("owning membership = %q, want the writer's %q", got, want)
+	}
+	if root, _ := reader.ReadOwningMembership("", nil, "ScalarValues"); root != "" {
+		t.Errorf("a library root has an owning membership %q, want none", root)
 	}
 }

@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -149,8 +150,22 @@ func (ids *ElementIDs) OwningMembershipOfDeclaration(doc string, decl ast.Node, 
 			return id, true
 		}
 	}
-	id, ok := ids.membershipByName[fqn]
-	return id, ok
+	if id, ok := ids.membershipByName[fqn]; ok {
+		return id, true
+	}
+	// A standard library element the model does not declare: its normative membership,
+	// or the one minted beside it, as owningMembershipOf writes a reference to it.
+	if !strings.Contains(fqn, "::") || len(ids.encoders) == 0 || ids.res == nil || ids.res.Index() == nil {
+		return "", false
+	}
+	facts := ids.encoders[0].ids
+	for _, sym := range ids.res.Index().LookupQualified(fqn) {
+		if libraryFQN, ok := facts.libraryElement(sym); ok {
+			member := facts.subjectForNode(sym.Decl, libraryFQN)
+			return rdf.LocalName(facts.owningMembershipOf(sym.Decl, member).Value), true
+		}
+	}
+	return "", false
 }
 
 // Of is the elementId written for the element named fqn: the model's own as
