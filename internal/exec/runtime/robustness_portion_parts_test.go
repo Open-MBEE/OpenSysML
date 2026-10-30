@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"testing"
 )
 
@@ -75,6 +76,35 @@ func TestRuntimeRobustnessPortionParts(t *testing.T) {
 		}
 		if elements := elementsOf(fv.HeldValue()); len(elements) != 1 || elements[0].Instance != own.ID {
 			t.Fatalf("launch.subparts = %v, want [launch.launch #%d]", elements, own.ID)
+		}
+	})
+
+	t.Run("portions_still_to_be_made_are_not_the_portions_parts", func(t *testing.T) {
+		ctx, inst := instantiateSys(t, `
+			package test {
+				part def Craft {
+					timeslice part shots : Craft[3];
+				}
+				part def Sys { part craft : Craft; }
+			}`)
+		craft := heldObject(t, ctx, inst, "craft")
+		shots, err := craft.GetFeatureValue(ctx, "shots")
+		if err != nil {
+			t.Fatalf("craft.shots = %v", err)
+		}
+		first, ok := ctx.instances[listedElements(shots.HeldValue())[0].Instance]
+		if !ok {
+			t.Fatalf("craft.shots holds no first object: %v", shots.HeldValue())
+		}
+		own, err := first.GetFeatureValue(ctx, "shots")
+		if err != nil {
+			t.Fatalf("shots#(1).shots = %v, want three portions of its own", err)
+		}
+		if got := standingElements(own.HeldValue()); len(got) != 3 || slices.ContainsFunc(got, func(v Value) bool { return v.Instance == first.ID }) {
+			t.Fatalf("shots#(1).shots = %v, want three portions of #%d, none of them itself", got, first.ID)
+		}
+		if sub, err := first.GetFeatureValue(ctx, "subparts"); err != nil || len(standingElements(sub.HeldValue())) != 3 {
+			t.Fatalf("shots#(1).subparts = %v, %v, want its own three shots", sub, err)
 		}
 	})
 
