@@ -159,97 +159,136 @@ func ReadDrawio(data []byte, view string) (*DrawioFile, error) {
 // inline for an uncompressed file, decoded for a compressed one.
 func drawioPages(data []byte) ([]drawioPageData, error) {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
-	var pages []drawioPageData
-	var (
-		root    string
-		inFile  bool
-		current *drawioPageData
-		depth   int
-		text    strings.Builder
-		model   bytes.Buffer
-		enc     *xml.Encoder
-	)
+	var scanner drawioPageScanner
 	for {
 		token, err := decoder.Token()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return nil, &DrawioFileError{Message: "malformed XML", Err: err}
+			return nil, drawioMalformedXML(err)
 		}
-		switch tok := token.(type) {
-		case xml.StartElement:
-			if root == "" {
-				root = tok.Name.Local
-				if root != "mxfile" {
-					return nil, &DrawioFileError{Message: fmt.Sprintf("the root element is <%s>, not <mxfile>", root)}
-				}
-				inFile = true
-				continue
-			}
-			if current == nil {
-				if !inFile || tok.Name.Local != "diagram" {
-					return nil, &DrawioFileError{Message: fmt.Sprintf("<%s> under <mxfile>; a file holds <diagram> pages", tok.Name.Local)}
-				}
-				current = &drawioPageData{name: attrValue(tok.Attr, "name")}
-				text.Reset()
-				model.Reset()
-				enc = nil
-				continue
-			}
-			if depth == 0 {
-				if tok.Name.Local != "mxGraphModel" {
-					return nil, &DrawioFileError{Message: fmt.Sprintf("<%s> under <diagram>; a page holds one <mxGraphModel>", tok.Name.Local)}
-				}
-				enc = xml.NewEncoder(&model)
-			}
-			depth++
-			if err := enc.EncodeToken(tok); err != nil {
-				return nil, &DrawioFileError{Message: "malformed XML", Err: err}
-			}
-		case xml.EndElement:
-			switch {
-			case current != nil && depth > 0:
-				depth--
-				if err := enc.EncodeToken(tok); err != nil {
-					return nil, &DrawioFileError{Message: "malformed XML", Err: err}
-				}
-				if depth == 0 {
-					if err := enc.Flush(); err != nil {
-						return nil, &DrawioFileError{Message: "malformed XML", Err: err}
-					}
-					current.model = append([]byte(nil), model.Bytes()...)
-				}
-			case current != nil:
-				if current.model == nil {
-					decoded, err := decodeDrawioDiagram(text.String())
-					if err != nil {
-						return nil, &DrawioFileError{Message: "page " + strconv.Quote(current.name) + " holds no model", Err: err}
-					}
-					current.model = decoded
-				}
-				pages = append(pages, *current)
-				current = nil
-			default:
-				inFile = false
-			}
-		case xml.CharData:
-			if current != nil && depth == 0 {
-				text.Write(tok)
-			} else if current != nil {
-				if err := enc.EncodeToken(tok); err != nil {
-					return nil, &DrawioFileError{Message: "malformed XML", Err: err}
-				}
-			}
+		if err := scanner.token(token); err != nil {
+			return nil, err
 		}
 	}
-	if root == "" {
+	if scanner.root == "" {
 		return nil, &DrawioFileError{Message: "the file is empty"}
 	}
-	if len(pages) == 0 {
+	if len(scanner.pages) == 0 {
 		return nil, &DrawioFileError{Message: "the file has no <diagram> page"}
 	}
-	return pages, nil
+	return scanner.pages, nil
+}
+
+// drawioMalformedXML is the file error for XML encoding/xml refuses.
+func drawioMalformedXML(err error) error {
+	return &DrawioFileError{Message: "malformed XML", Err: err}
+}
+
+// drawioPageScanner reads an <mxfile> token by token: the <diagram> it is in,
+// whose <mxGraphModel> it re-encodes verbatim, else whose compressed text it collects.
+type drawioPageScanner struct {
+	pages   []drawioPageData
+	root    string
+	inFile  bool
+	current *drawioPageData
+	depth   int
+	text    strings.Builder
+	model   bytes.Buffer
+	enc     *xml.Encoder
+}
+
+func (s *drawioPageScanner) token(token xml.Token) error {
+	switch tok := token.(type) {
+	case xml.StartElement:
+		return s.start(tok)
+	case xml.EndElement:
+		return s.end(tok)
+	case xml.CharData:
+		return s.chars(tok)
+	}
+	return nil
+}
+
+// start opens the root, a page, or an element of the page's model.
+func (s *drawioPageScanner) start(tok xml.StartElement) error {
+	if s.root == "" {
+		s.root = tok.Name.Local
+		if s.root != "mxfile" {
+			return &DrawioFileError{Message: fmt.Sprintf("the root element is <%s>, not <mxfile>", s.root)}
+		}
+		s.inFile = true
+		return nil
+	}
+	if s.current == nil {
+		if !s.inFile || tok.Name.Local != "diagram" {
+			return &DrawioFileError{Message: fmt.Sprintf("<%s> under <mxfile>; a file holds <diagram> pages", tok.Name.Local)}
+		}
+		s.current = &drawioPageData{name: attrValue(tok.Attr, "name")}
+		s.text.Reset()
+		s.model.Reset()
+		s.enc = nil
+		return nil
+	}
+	if s.depth == 0 {
+		if tok.Name.Local != "mxGraphModel" {
+			return &DrawioFileError{Message: fmt.Sprintf("<%s> under <diagram>; a page holds one <mxGraphModel>", tok.Name.Local)}
+		}
+		s.enc = xml.NewEncoder(&s.model)
+	}
+	s.depth++
+	return s.encode(tok)
+}
+
+// end closes an element of the model, finishing it at the model's own close,
+// or a page, decoding its text when it held no inline model, or the root.
+func (s *drawioPageScanner) end(tok xml.EndElement) error {
+	switch {
+	case s.current != nil && s.depth > 0:
+		s.depth--
+		if err := s.encode(tok); err != nil {
+			return err
+		}
+		if s.depth == 0 {
+			if err := s.enc.Flush(); err != nil {
+				return drawioMalformedXML(err)
+			}
+			s.current.model = append([]byte(nil), s.model.Bytes()...)
+		}
+	case s.current != nil:
+		if s.current.model == nil {
+			decoded, err := decodeDrawioDiagram(s.text.String())
+			if err != nil {
+				return &DrawioFileError{Message: "page " + strconv.Quote(s.current.name) + " holds no model", Err: err}
+			}
+			s.current.model = decoded
+		}
+		s.pages = append(s.pages, *s.current)
+		s.current = nil
+	default:
+		s.inFile = false
+	}
+	return nil
+}
+
+// chars is a page's compressed text, or character data inside its model.
+func (s *drawioPageScanner) chars(tok xml.CharData) error {
+	if s.current == nil {
+		return nil
+	}
+	if s.depth == 0 {
+		s.text.Write(tok)
+		return nil
+	}
+	return s.encode(tok)
+}
+
+func (s *drawioPageScanner) encode(tok xml.Token) error {
+	if err := s.enc.EncodeToken(tok); err != nil {
+		return drawioMalformedXML(err)
+	}
+	return nil
 }
 
 // drawioInflateLimit bounds the XML a compressed page may inflate to, so a
@@ -285,13 +324,7 @@ func decodeDrawioDiagram(text string) ([]byte, error) {
 // handle on each semantic cell and every vertex geometry made absolute.
 func readDrawioModel(model []byte) (*DrawioFile, error) {
 	decoder := xml.NewDecoder(bytes.NewReader(model))
-	f := &DrawioFile{byID: map[string]*DrawioCell{}}
-	var (
-		objects []map[string]string
-		open    []*DrawioCell
-		points  bool
-		seen    bool
-	)
+	r := drawioModelReader{f: &DrawioFile{byID: map[string]*DrawioCell{}}}
 	for {
 		token, err := decoder.Token()
 		if err == io.EOF {
@@ -302,100 +335,18 @@ func readDrawioModel(model []byte) (*DrawioFile, error) {
 		}
 		switch tok := token.(type) {
 		case xml.StartElement:
-			attrs := map[string]string{}
-			for _, a := range tok.Attr {
-				attrs[a.Name.Local] = a.Value
-			}
-			switch tok.Name.Local {
-			case "mxGraphModel":
-				seen = true
-				f.PageWidth, _ = strconv.ParseFloat(attrs["pageWidth"], 64)
-				f.PageHeight, _ = strconv.ParseFloat(attrs["pageHeight"], 64)
-				f.Unit = attrs["unit"]
-			case "object", "UserObject":
-				objects = append(objects, attrs)
-			case "mxCell":
-				cell := &DrawioCell{ID: attrs["id"], Parent: attrs["parent"], Value: attrs["value"],
-					Vertex: attrs["vertex"] == "1", Edge: attrs["edge"] == "1", Collapsed: attrs["collapsed"] == "1",
-					Source: attrs["source"], Target: attrs["target"], StyleText: attrs["style"], Style: drawioStyleMap(attrs["style"])}
-				if len(objects) > 0 {
-					o := objects[len(objects)-1]
-					cell.ID, cell.FQN, cell.Kind, cell.View, cell.Link, cell.Label = o["id"], o["fqn"], o["kind"], o["view"], o["link"], o["label"]
-					objects[len(objects)-1] = nil
-				}
-				if cell.ID == "" {
-					return nil, errors.New("an mxCell has no id")
-				}
-				if _, dup := f.byID[cell.ID]; dup {
-					return nil, fmt.Errorf("cell id %q written twice", cell.ID)
-				}
-				open = append(open, cell)
-			case "mxGeometry":
-				if len(open) == 0 {
-					return nil, errors.New("an mxGeometry outside every mxCell")
-				}
-				cell := open[len(open)-1]
-				cell.HasGeometry = true
-				cell.Relative = attrs["relative"] == "1"
-				cell.Geometry, err = drawioBoxOf(attrs)
-				if err != nil {
-					return nil, fmt.Errorf("cell %s: geometry: %w", cell.ID, err)
-				}
-			case "mxRectangle":
-				if len(open) > 0 && attrs["as"] == "alternateBounds" {
-					box, err := drawioBoxOf(attrs)
-					if err != nil {
-						return nil, fmt.Errorf("cell %s: alternate bounds: %w", open[len(open)-1].ID, err)
-					}
-					open[len(open)-1].Alternate = &box
-				}
-			case "Array":
-				points = len(open) > 0 && attrs["as"] == "points"
-			case "mxPoint":
-				if len(open) == 0 {
-					break
-				}
-				cell := open[len(open)-1]
-				if points {
-					box, err := drawioBoxOf(attrs)
-					if err != nil {
-						return nil, fmt.Errorf("cell %s: waypoint: %w", cell.ID, err)
-					}
-					cell.Points = append(cell.Points, Point{X: box.X, Y: box.Y})
-				} else if attrs["as"] == "offset" {
-					box, err := drawioBoxOf(attrs)
-					if err != nil {
-						return nil, fmt.Errorf("cell %s: offset: %w", cell.ID, err)
-					}
-					cell.Offset = Point{X: box.X, Y: box.Y}
-				}
-			}
+			err = r.start(tok)
 		case xml.EndElement:
-			switch tok.Name.Local {
-			case "object", "UserObject":
-				if len(objects) > 0 {
-					if objects[len(objects)-1] != nil {
-						return nil, fmt.Errorf("object %q wraps no mxCell", objects[len(objects)-1]["id"])
-					}
-					objects = objects[:len(objects)-1]
-				}
-			case "mxCell":
-				if len(open) > 0 {
-					cell := open[len(open)-1]
-					open = open[:len(open)-1]
-					if cell.ID != "0" && cell.ID != "1" {
-						f.Cells = append(f.Cells, *cell)
-					}
-					f.byID[cell.ID] = nil
-				}
-			case "Array":
-				points = false
-			}
+			err = r.end(tok)
+		}
+		if err != nil {
+			return nil, err
 		}
 	}
-	if !seen {
+	if !r.seen {
 		return nil, errors.New("no <mxGraphModel>")
 	}
+	f := r.f
 	for i := range f.Cells {
 		f.byID[f.Cells[i].ID] = &f.Cells[i]
 	}
@@ -405,6 +356,146 @@ func readDrawioModel(model []byte) (*DrawioFile, error) {
 	}
 	f.View = f.pageView()
 	return f, nil
+}
+
+// drawioModelReader reads an <mxGraphModel> element by element: the <object>
+// wrappers and cells open around the current element, and whether a waypoint Array is.
+type drawioModelReader struct {
+	f       *DrawioFile
+	objects []map[string]string
+	open    []*DrawioCell
+	points  bool
+	seen    bool
+}
+
+func (r *drawioModelReader) start(tok xml.StartElement) error {
+	attrs := map[string]string{}
+	for _, a := range tok.Attr {
+		attrs[a.Name.Local] = a.Value
+	}
+	switch tok.Name.Local {
+	case "mxGraphModel":
+		r.seen = true
+		r.f.PageWidth, _ = strconv.ParseFloat(attrs["pageWidth"], 64)
+		r.f.PageHeight, _ = strconv.ParseFloat(attrs["pageHeight"], 64)
+		r.f.Unit = attrs["unit"]
+	case "object", "UserObject":
+		r.objects = append(r.objects, attrs)
+	case "mxCell":
+		return r.openCell(attrs)
+	case "mxGeometry":
+		return r.geometry(attrs)
+	case "mxRectangle":
+		return r.rectangle(attrs)
+	case "Array":
+		r.points = len(r.open) > 0 && attrs["as"] == "points"
+	case "mxPoint":
+		return r.point(attrs)
+	}
+	return nil
+}
+
+func (r *drawioModelReader) end(tok xml.EndElement) error {
+	switch tok.Name.Local {
+	case "object", "UserObject":
+		if n := len(r.objects); n > 0 {
+			if r.objects[n-1] != nil {
+				return fmt.Errorf("object %q wraps no mxCell", r.objects[n-1]["id"])
+			}
+			r.objects = r.objects[:n-1]
+		}
+	case "mxCell":
+		if cell := r.innermost(); cell != nil {
+			r.open = r.open[:len(r.open)-1]
+			if cell.ID != "0" && cell.ID != "1" {
+				r.f.Cells = append(r.f.Cells, *cell)
+			}
+			r.f.byID[cell.ID] = nil
+		}
+	case "Array":
+		r.points = false
+	}
+	return nil
+}
+
+// innermost is the cell open around the element being read, nil outside every cell.
+func (r *drawioModelReader) innermost() *DrawioCell {
+	if len(r.open) == 0 {
+		return nil
+	}
+	return r.open[len(r.open)-1]
+}
+
+// openCell opens an mxCell, taking the handle of the <object> wrapping it when one does.
+func (r *drawioModelReader) openCell(attrs map[string]string) error {
+	cell := &DrawioCell{ID: attrs["id"], Parent: attrs["parent"], Value: attrs["value"],
+		Vertex: attrs["vertex"] == "1", Edge: attrs["edge"] == "1", Collapsed: attrs["collapsed"] == "1",
+		Source: attrs["source"], Target: attrs["target"], StyleText: attrs["style"], Style: drawioStyleMap(attrs["style"])}
+	if n := len(r.objects); n > 0 {
+		o := r.objects[n-1]
+		cell.ID, cell.FQN, cell.Kind, cell.View, cell.Link, cell.Label = o["id"], o["fqn"], o["kind"], o["view"], o["link"], o["label"]
+		r.objects[n-1] = nil
+	}
+	if cell.ID == "" {
+		return errors.New("an mxCell has no id")
+	}
+	if _, dup := r.f.byID[cell.ID]; dup {
+		return fmt.Errorf("cell id %q written twice", cell.ID)
+	}
+	r.open = append(r.open, cell)
+	return nil
+}
+
+// geometry is the open cell's mxGeometry.
+func (r *drawioModelReader) geometry(attrs map[string]string) error {
+	cell := r.innermost()
+	if cell == nil {
+		return errors.New("an mxGeometry outside every mxCell")
+	}
+	cell.HasGeometry = true
+	cell.Relative = attrs["relative"] == "1"
+	var err error
+	if cell.Geometry, err = drawioBoxOf(attrs); err != nil {
+		return fmt.Errorf("cell %s: geometry: %w", cell.ID, err)
+	}
+	return nil
+}
+
+// rectangle is the open cell's alternate bounds, the box a collapsed cell expands to.
+func (r *drawioModelReader) rectangle(attrs map[string]string) error {
+	cell := r.innermost()
+	if cell == nil || attrs["as"] != "alternateBounds" {
+		return nil
+	}
+	box, err := drawioBoxOf(attrs)
+	if err != nil {
+		return fmt.Errorf("cell %s: alternate bounds: %w", cell.ID, err)
+	}
+	cell.Alternate = &box
+	return nil
+}
+
+// point is one of the open cell's waypoints inside a points Array, else its label offset.
+func (r *drawioModelReader) point(attrs map[string]string) error {
+	cell := r.innermost()
+	if cell == nil {
+		return nil
+	}
+	switch {
+	case r.points:
+		box, err := drawioBoxOf(attrs)
+		if err != nil {
+			return fmt.Errorf("cell %s: waypoint: %w", cell.ID, err)
+		}
+		cell.Points = append(cell.Points, Point{X: box.X, Y: box.Y})
+	case attrs["as"] == "offset":
+		box, err := drawioBoxOf(attrs)
+		if err != nil {
+			return fmt.Errorf("cell %s: offset: %w", cell.ID, err)
+		}
+		cell.Offset = Point{X: box.X, Y: box.Y}
+	}
+	return nil
 }
 
 // pageView is the view the page's semantic cells name; the one they agree on.

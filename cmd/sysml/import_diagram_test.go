@@ -122,15 +122,15 @@ func TestImportDiagramFlagsNeedTheFile(t *testing.T) {
 func TestImportDiagramWritesThroughSymlinksAndLeavesUnchangedFilesAlone(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
-	real := filepath.Join(dir, "src", "plant.sysml")
-	if err := os.MkdirAll(filepath.Dir(real), 0o755); err != nil {
+	realPath := filepath.Join(dir, "src", "plant.sysml")
+	if err := os.MkdirAll(filepath.Dir(realPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(real, []byte(importDiagramModel), 0o644); err != nil {
+	if err := os.WriteFile(realPath, []byte(importDiagramModel), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	link := filepath.Join(dir, "plant.sysml")
-	if err := os.Symlink(real, link); err != nil {
+	if err := os.Symlink(realPath, link); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
 	other := filepath.Join(dir, "other.sysml")
@@ -149,7 +149,7 @@ func TestImportDiagramWritesThroughSymlinksAndLeavesUnchangedFilesAlone(t *testi
 	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
 		t.Fatalf("plant.sysml is no longer a symlink: %v %v", info, err)
 	}
-	if text, _ := os.ReadFile(real); !strings.Contains(string(text), "Layout about Plant::Loop::pump") {
+	if text, _ := os.ReadFile(realPath); !strings.Contains(string(text), "Layout about Plant::Loop::pump") {
 		t.Errorf("linked model not edited:\n%s", text)
 	}
 	if after, err := os.Stat(other); err != nil || !os.SameFile(before, after) || !after.ModTime().Equal(before.ModTime()) {
