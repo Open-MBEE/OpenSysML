@@ -795,7 +795,7 @@ jobs:
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
           XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
         run: |
-          ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
+          ok() { local result="$1"; [ "$result" = success ] || [ "$result" = skipped ]; }
           if [ "$CHANGES_RESULT" != success ] ||
              ! ok "$BUILD_RESULT" ||
              ! ok "$MDK_PLUGIN_RESULT" ||

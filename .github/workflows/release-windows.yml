@@ -97,7 +97,7 @@ jobs:
           fi
           case "$VERSION" in
             v[0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "Error: VERSION '$VERSION' must look like v<major>.<minor>.<patch>[-suffix]"; exit 1 ;;
+            *) echo "Error: VERSION '$VERSION' must look like v<major>.<minor>.<patch>[-suffix]" >&2; exit 1 ;;
           esac
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
@@ -261,7 +261,7 @@ jobs:
           mkdir -p dist/release
           mv "$msi" dist/release/
           if [ ! -f "dist/release/$(basename "$msi").spdx.json" ]; then
-            echo "Error: no SBOM named after $(basename "$msi") in dist/release:"; ls -l dist/release; exit 1
+            echo "Error: no SBOM named after $(basename "$msi") in dist/release:" >&2; ls -l dist/release >&2; exit 1
           fi
           (cd dist/release && sha256sum ./*.msi ./*.spdx.json | sed 's|\./||' | tee SHA256SUMS-windows-msi.txt)
 
@@ -363,7 +363,7 @@ jobs:
         run: |
           ls -la dist/signed
           for name in sysml sysml-lsp sysml-grpc sysml-mcp; do
-            test -f "dist/signed/${name}-windows-amd64.exe" || { echo "Error: signed ${name}-windows-amd64.exe missing"; exit 1; }
+            test -f "dist/signed/${name}-windows-amd64.exe" || { echo "Error: signed ${name}-windows-amd64.exe missing" >&2; exit 1; }
           done
           for exe in dist/signed/*.exe; do
             make windows-versioninfo-check EXE="$exe" VERSION="$VERSION"
@@ -434,7 +434,7 @@ jobs:
           MSI_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_MSI_ARTIFACT_CONFIGURATION_SLUG }}
         run: |
           if [ -z "$MSI_ARTIFACT_CONFIGURATION_SLUG" ]; then
-            echo "Error: SIGNPATH_MSI_ARTIFACT_CONFIGURATION_SLUG variable is not set; see docs/project/releasing.md."
+            echo "Error: SIGNPATH_MSI_ARTIFACT_CONFIGURATION_SLUG variable is not set; see docs/project/releasing.md." >&2
             exit 1
           fi
 
@@ -558,7 +558,7 @@ jobs:
           cd ../release
           for msi in ./*.msi; do
             if [ ! -f "$msi.spdx.json" ]; then
-              echo "Error: no SBOM named after $msi in dist/release:"; ls -l; exit 1
+              echo "Error: no SBOM named after $msi in dist/release:" >&2; ls -l >&2; exit 1
             fi
           done
           sha256sum sysml-grpc-windows-amd64-signed.exe > sysml-grpc-windows-amd64-signed.exe.sha256
