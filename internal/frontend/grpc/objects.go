@@ -20,7 +20,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
-	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -211,7 +210,7 @@ func (h *heldObjects) queryContext() queryexec.Context {
 		Runtime:  h.rt,
 		Roots:    h.roots(),
 		ElementID: func(sym *symbols.Symbol) (string, error) {
-			return h.model.elementIDReader().Read(sym.DocName, sym.Decl, corequery.QualifiedIdentity(h.idx, sym))
+			return queryexec.ElementIDOf(h.model.elementIDReader(), h.idx, sym)
 		},
 	}
 }

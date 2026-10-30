@@ -185,31 +185,37 @@ config:
   …
   flowchart:
     subGraphTitleMargin:
-      bottom: 24
+      bottom: 72
 ---
 %% LanderViews::descentFlow — action rendering (view def ActionFlowView)
 %% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
 flowchart TD
-  subgraph n0 ["`*«action def»* **Descend**`"]
+  subgraph n0 ["`*«action def»* **Descend**
+parameters
+in fuel`"]
     direction TD
     n1@{ shape: f-circ, label: "" }
     n2("`*«action»*
 **deployParachute**`")
     subgraph n3 ["`*«action»* **burn**
-own flow`"]
+own flow
+parameters
+in propellant`"]
       direction TD
       n3_anchor[" "]
       …
   end
-  n4 --> n5
+  n4 -.-> n5
   …
-  n9 -->|"[altitude #gt; 0.0]"| n8
+  n9 -.->|"[altitude #gt; 0.0]"| n8
   …
 ```
 
-The leading frontmatter carries the theme and, because `burn`'s title still
-spans two lines (its `own flow` note), reserves the height of a cluster title's
-second line, which Mermaid would otherwise draw under the first child. The
+The leading frontmatter carries the theme and, because `burn`'s title spans
+four lines (its `own flow` note and its `parameters` compartment), reserves
+the height of a cluster title's further lines, which Mermaid would otherwise
+draw under the first child. Successions are dashed, the notation's control-flow
+line. The
 `%% not represented` line names what the text form shows and the diagram
 cannot: the names of fork and join bars.
 

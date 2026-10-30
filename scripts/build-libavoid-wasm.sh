@@ -29,7 +29,7 @@ sri_check() {
 	local algorithm="${integrity%%-*}" expected="${integrity#*-}"
 	local actual
 	actual="$(openssl dgst "-$algorithm" -binary "$file" | base64 -w0)"
-	if [ "$actual" != "$expected" ]; then
+	if [[ "$actual" != "$expected" ]]; then
 		echo "$file: integrity $algorithm-$actual, want $integrity" >&2
 		exit 1
 	fi

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -243,7 +244,7 @@ func TestRunQueryJSONOutcome(t *testing.T) {
 }
 
 // TestRunQueryJSON checks that a query's verdict is reported as data a build
-// step reads: its row count and projected columns as named values.
+// step reads: its row count and projected columns as named values, and its table.
 func TestRunQueryJSON(t *testing.T) {
 	binary := buildCLI(t)
 
@@ -260,6 +261,13 @@ func TestRunQueryJSON(t *testing.T) {
 				Name  string `json:"name"`
 				Value string `json:"value"`
 			} `json:"values"`
+			Table *struct {
+				Columns []string `json:"columns"`
+				Rows    []struct {
+					Element string     `json:"element"`
+					Cells   [][]string `json:"cells"`
+				} `json:"rows"`
+			} `json:"table"`
 		} `json:"checks"`
 	}
 	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
@@ -274,6 +282,15 @@ func TestRunQueryJSON(t *testing.T) {
 	}
 	if values["rows"] != "1" || values["columns"] != "name, mass" {
 		t.Errorf("values = %v, want rows = 1 and columns = name, mass", report.Checks[0].Values)
+	}
+	table := report.Checks[0].Table
+	if table == nil || strings.Join(table.Columns, ",") != "name,mass" || len(table.Rows) != 1 {
+		t.Fatalf("table = %+v, want columns name, mass and one row", table)
+	}
+	row := table.Rows[0]
+	if row.Element != "Observatory::telescope::mount" || len(row.Cells) != 2 ||
+		strings.Join(row.Cells[0], "|") != `"mount"` || strings.Join(row.Cells[1], "|") != "15.0" {
+		t.Errorf("row = %+v, want mount with cells [\"mount\"] and [15.0]", row)
 	}
 }
 
@@ -444,4 +461,110 @@ func TestRunQueryOverStatesAndTrace(t *testing.T) {
 	wantReport(t, check(t, binary, stateQueryModel, "-instantiate", "lamp", "-state", "lp lamp", "-advance", "4",
 		"-run-query", "Switched root=lamp"),
 		2, "query Blink::Switched operation events reads the session's trace, and this session records none")
+}
+
+// anonymousModel declares parts without names, which the prompt prints blank.
+const anonymousModel = `package Observatory {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+
+	part def Subsystem;
+
+	part telescope {
+		part : Subsystem;
+		part : Subsystem;
+	}
+
+	calc def OwningMemberships :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("elementId", "owningRelationship")
+		)
+	}
+
+	calc def AnonymousParts :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("elementId")
+		)
+	}
+}
+`
+
+// TestRunQueryJSONTableSpellsAnonymousElementsByID checks that an element without a
+// name is spelled in the table by its elementId — the id its own elementId cell reads.
+func TestRunQueryJSONTableSpellsAnonymousElementsByID(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, anonymousModel, "-run-query", "AnonymousParts root=telescope", "-json")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Table *struct {
+				Columns []string `json:"columns"`
+				Rows    []struct {
+					Element string     `json:"element"`
+					Cells   [][]string `json:"cells"`
+				} `json:"rows"`
+			} `json:"table"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	if len(report.Checks) != 1 || report.Checks[0].Table == nil || len(report.Checks[0].Table.Rows) != 2 {
+		t.Fatalf("want one check with a two-row table:\n%s", got.stdout)
+	}
+	seen := map[string]bool{}
+	for _, row := range report.Checks[0].Table.Rows {
+		if row.Element == "" || seen[row.Element] {
+			t.Errorf("row element spelled %q, want a distinct non-empty elementId", row.Element)
+		}
+		seen[row.Element] = true
+		if len(row.Cells) != 1 || strings.Join(row.Cells[0], "|") != strconv.Quote(row.Element) {
+			t.Errorf("row %s: elementId cell = %v, want the element's own id", row.Element, row.Cells)
+		}
+	}
+}
+
+// TestRunQueryJSONTableSpellsMembershipsByID checks that a part's owning membership —
+// an element with no name the notation writes as part of its member — is spelled in the
+// table by the id the conversion writes for it: the member's id with the membership suffix.
+func TestRunQueryJSONTableSpellsMembershipsByID(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, anonymousModel, "-run-query", "OwningMemberships root=telescope", "-json")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Table *struct {
+				Columns []string `json:"columns"`
+				Rows    []struct {
+					Element string     `json:"element"`
+					Cells   [][]string `json:"cells"`
+				} `json:"rows"`
+			} `json:"table"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	if len(report.Checks) != 1 || report.Checks[0].Table == nil || len(report.Checks[0].Table.Rows) != 2 {
+		t.Fatalf("want one check with a two-row table:\n%s", got.stdout)
+	}
+	for _, row := range report.Checks[0].Table.Rows {
+		if len(row.Cells) != 2 || len(row.Cells[0]) != 1 || len(row.Cells[1]) != 1 {
+			t.Fatalf("row %s: cells = %v, want one elementId and one owningRelationship", row.Element, row.Cells)
+		}
+		id, _ := strconv.Unquote(row.Cells[0][0])
+		if want := id + "_om"; id == "" || row.Cells[1][0] != want {
+			t.Errorf("row %s: owningRelationship spelled %q, want %q", row.Element, row.Cells[1][0], want)
+		}
+	}
 }

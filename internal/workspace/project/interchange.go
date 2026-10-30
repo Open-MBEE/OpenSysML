@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -152,7 +153,9 @@ func EnclosingProjects(path string) []string {
 // anything but letters and digits as one hyphen), so the names a registry
 // spells in a path match the ones the project spells for people. A version
 // written after @ in the last segment, as package URLs do, and the extension of
-// an archive are not part of the name.
+// an archive are not part of the name. The path read is the one of the
+// resource's location (Usage.location): for a pkg:generic package URL, the
+// repository its vcs_url qualifier names.
 func (p *Interchange) Uses(u Usage) bool {
 	segments := resourceSegments(u.Resource)
 	if len(segments) == 0 {
@@ -184,10 +187,22 @@ func (u Usage) standardLibrary() bool {
 }
 
 // spellsLocation reports whether the usage's resource spells where a project is
-// kept rather than the project: a version-control package URL, or a URL of any scheme but pkg.
+// kept rather than the project: a version-control location — a pkg:generic
+// package URL carrying one in its vcs_url qualifier, the pkg:git/, pkg:svn/ and
+// pkg:hg/ spellings, a bare <vcs>+<transport>:// URL — or a URL of any scheme but pkg.
 func (u Usage) spellsLocation() bool {
-	lower := strings.ToLower(u.Resource)
-	for _, vcs := range []string{"pkg:git/", "pkg:svn/", "pkg:hg/"} {
+	location, err := u.location()
+	return err != nil || spellsLocation(u.Resource, location)
+}
+
+// spellsLocation reports whether a resource with the given location spells where a
+// project is kept: an unwrapped location, pkg:svn/ or pkg:hg/, or a URL of any scheme but pkg.
+func spellsLocation(resource, location string) bool {
+	if location != resource {
+		return true
+	}
+	lower := strings.ToLower(location)
+	for _, vcs := range []string{"pkg:svn/", "pkg:hg/"} {
 		if strings.HasPrefix(lower, vcs) {
 			return true
 		}
@@ -205,13 +220,123 @@ func (u Usage) key() string {
 	return strings.Join(segments, "/")
 }
 
+// vcsURLQualifier is the ECMA-427 qualifier (Annex B.3.5) that carries the
+// location of a version-controlled package in a pkg:generic package URL.
+const vcsURLQualifier = "vcs_url"
+
+// location is where the usage's resource says the project is kept, as a
+// version-control URL: <vcs>+<transport>://<host>/<path>[@<version>][#<subpath>]
+// (ECMA-427 Annex B.3.5). A package URL of type generic carries one in its
+// vcs_url qualifier, percent-encoded — pkg:generic/<name>?vcs_url=… is how
+// package managers write a repository — and that value, decoded, is the
+// location; pkg:git/<host>/<path> is the same repository over https. Any other
+// resource is its own location. A vcs_url that does not decode to such a URL is
+// an error: the usage spells a location, but not one that names a project.
+func (u Usage) location() (string, error) {
+	return resourceLocation(u.Resource)
+}
+
+// resourceLocation is Usage.location over a resource IRI.
+func resourceLocation(resource string) (string, error) {
+	if rest, ok := cutPrefixFold(resource, "pkg:git/"); ok {
+		return "git+https://" + rest, nil
+	}
+	rest, ok := cutPrefixFold(resource, "pkg:generic/")
+	if !ok {
+		return resource, nil
+	}
+	// A package URL's subpath follows the whole query, after every qualifier.
+	rest, subpath, _ := strings.Cut(rest, "#")
+	_, query, ok := strings.Cut(rest, "?")
+	if !ok {
+		return resource, nil
+	}
+	// A + in a purl qualifier is a literal, not the space a form encodes.
+	values, err := url.ParseQuery(strings.ReplaceAll(query, "+", "%2B"))
+	if err != nil {
+		return "", fmt.Errorf("the qualifiers do not decode: %w", err)
+	}
+	vcsURLs, ok := values[vcsURLQualifier]
+	switch {
+	case !ok:
+		return resource, nil
+	case len(vcsURLs) > 1:
+		return "", fmt.Errorf("%d vcs_url qualifiers, where one is expected", len(vcsURLs))
+	case vcsURLs[0] == "":
+		return "", errors.New("an empty vcs_url qualifier")
+	}
+	location := vcsURLs[0]
+	if !spellsVCSURL(location) {
+		return "", fmt.Errorf("the vcs_url qualifier %q is not a <vcs>+<transport>://<host>/<path> URL (vcs: git, svn or hg)", location)
+	}
+	switch {
+	case subpath == "":
+	case strings.Contains(location, "#"):
+		return "", fmt.Errorf("a subpath both in the vcs_url qualifier %q and after # (%q)", location, subpath)
+	default:
+		location += "#" + subpath
+	}
+	return location, nil
+}
+
+// versionControl names the version-control systems a vcs_url may begin with:
+// the ones the pkg:git/, pkg:svn/ and pkg:hg/ spellings name.
+var versionControl = map[string]bool{"git": true, "svn": true, "hg": true}
+
+// spellsVCSURL reports whether s is an ECMA-427 Annex B.3.5 version-control URL: a
+// <vcs>[+<transport>] scheme naming a known system, a host (none for <vcs>+file:///) and a path.
+func spellsVCSURL(s string) bool {
+	scheme, rest, ok := strings.Cut(s, "://")
+	if !ok {
+		return false
+	}
+	vcs, transport, _ := strings.Cut(strings.ToLower(scheme), "+")
+	if !versionControl[vcs] || (transport != "" && !isScheme(transport)) {
+		return false
+	}
+	if i := strings.IndexAny(rest, "?#"); i >= 0 {
+		rest = rest[:i]
+	}
+	host, path, ok := strings.Cut(rest, "/")
+	if host == "" && transport != "file" {
+		return false
+	}
+	return ok && strings.Trim(path, "/") != ""
+}
+
+// isScheme reports whether s is a URI scheme: a letter, then letters, digits, + - or .
+func isScheme(s string) bool {
+	for i, r := range strings.ToLower(s) {
+		letter := r >= 'a' && r <= 'z'
+		if !letter && (i == 0 || !(r >= '0' && r <= '9' || r == '+' || r == '-' || r == '.')) {
+			return false
+		}
+	}
+	return s != ""
+}
+
+// cutPrefixFold is strings.CutPrefix comparing the prefix without regard to case.
+func cutPrefixFold(s, prefix string) (string, bool) {
+	if len(s) < len(prefix) || !strings.EqualFold(s[:len(prefix)], prefix) {
+		return s, false
+	}
+	return s[len(prefix):], true
+}
+
 // resourceSegments splits a resource IRI into the path segments that name the
-// project, without its scheme, query, package-URL version or archive
-// extension. A fragment names a project directory within the repository the
-// path names (pkg:git/host/acme/widgets#packages/gears): that project is named
-// by the fragment's last segment, under the repository's owner. An archive
-// holds no directory a fragment could name, so one on its IRI is passed over.
+// project, without its scheme, query, package-URL version or archive extension,
+// nor the .git suffix of a resource spelling a repository; a resource whose
+// location does not decode names nothing. A fragment names a project directory
+// within the repository the path names (pkg:git/host/acme/widgets#packages/gears):
+// that project is named by the fragment's last segment, under the repository's
+// owner. An archive holds no directory a fragment could name, so one on its IRI is passed over.
 func resourceSegments(resource string) []string {
+	location, err := resourceLocation(resource)
+	if err != nil {
+		return nil
+	}
+	repository := spellsLocation(resource, location)
+	resource = location
 	fragment := ""
 	if i := strings.IndexByte(resource, '#'); i >= 0 {
 		resource, fragment = resource[:i], resource[i+1:]
@@ -233,6 +358,9 @@ func resourceSegments(resource string) []string {
 		archive := strings.EqualFold(path.Ext(last), ArchiveExt)
 		if archive {
 			last = last[:len(last)-len(ArchiveExt)]
+		}
+		if repository {
+			last = strings.TrimSuffix(last, ".git")
 		}
 		if sub := pathSegments(fragment); len(sub) > 0 && !archive {
 			last = sub[len(sub)-1]
@@ -285,8 +413,25 @@ func (u Usage) constraint() string {
 }
 
 // resourceVersion is the version written after @ in the last path segment of a
-// resource IRI (before any query or fragment, after a trailing slash); empty when none is.
+// resource IRI (before any query or fragment, after a trailing slash); empty
+// when none is. For a pkg:generic resource naming a repository the version is
+// the one in its vcs_url, else the one after @ in the purl's name.
 func resourceVersion(resource string) string {
+	location, err := resourceLocation(resource)
+	if err != nil {
+		return ""
+	}
+	if location != resource {
+		if v := pathVersion(location); v != "" {
+			return v
+		}
+	}
+	return pathVersion(resource)
+}
+
+// pathVersion is the version written after @ in the last path segment of an
+// IRI, before any query or fragment and after a trailing slash.
+func pathVersion(resource string) string {
 	if i := strings.IndexAny(resource, "?#"); i >= 0 {
 		resource = resource[:i]
 	}

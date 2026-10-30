@@ -4260,6 +4260,7 @@ func (p *Parser) typedBySpan(clauseTok lexer.Token) source.Span {
 	if clauseTok.Kind != lexer.Keyword || clauseTok.KeywordID != "typed" {
 		return source.Span{}
 	}
+	p.typedByCount++
 	return p.spanFrom(clauseTok.Span.Offset)
 }
 

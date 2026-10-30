@@ -1351,7 +1351,7 @@ func (ctx *Context) checkResultOf(holds bool, subject carrier) CheckResult {
 		Holds:       holds,
 		Subject:     subject.instance,
 		SubjectRoot: subject.root,
-		SubjectPath: ctx.carrierFeatures(subject),
+		SubjectPath: subject.segments,
 	}
 }
 

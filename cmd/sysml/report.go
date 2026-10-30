@@ -163,6 +163,8 @@ type checkResult struct {
 	// Rows are the runs a sweep made, one per row of its table; `null` for every
 	// other kind of check.
 	Rows []checkRow `json:"rows"`
+	// Table is the row set a document query returned, as data; only a query has one.
+	Table *checkTable `json:"table,omitempty"`
 	// Outcomes are the distinct outcomes an exploration reached, in canonical
 	// order, and Exploration how it ended; only a run under `explore` has them.
 	Outcomes    []checkOutcome    `json:"outcomes,omitempty"`
@@ -632,6 +634,36 @@ type checkRow struct {
 	Error string `json:"error"`
 }
 
+// checkTable is a document query's row set in the JSON report.
+type checkTable struct {
+	// Columns are the projected properties, in order; Rows one entry per returned row.
+	Columns []string        `json:"columns"`
+	Rows    []checkTableRow `json:"rows"`
+}
+
+// checkTableRow is one row: its element, and per column the values the cell holds
+// as the prompt prints them — empty for an empty cell, several for a collection.
+type checkTableRow struct {
+	Element string     `json:"element"`
+	Cells   [][]string `json:"cells"`
+}
+
+// checkTableOf converts a query's table into the reported form; nil for no table.
+func checkTableOf(table *repl.VerdictTable) *checkTable {
+	if table == nil {
+		return nil
+	}
+	out := &checkTable{Columns: append([]string{}, table.Columns...), Rows: make([]checkTableRow, 0, len(table.Rows))}
+	for _, row := range table.Rows {
+		cells := make([][]string, len(row.Cells))
+		for i, cell := range row.Cells {
+			cells[i] = append([]string{}, cell...)
+		}
+		out.Rows = append(out.Rows, checkTableRow{Element: row.Element, Cells: cells})
+	}
+	return out
+}
+
 // checkRows converts the runs of a sweep into the reported form.
 func checkRows(rows []repl.VerdictRow) []checkRow {
 	if len(rows) == 0 {
@@ -855,6 +887,7 @@ func (r *reporter) finish() int {
 			Verifications: verificationVerdicts(v.Verifications),
 			Evaluations:   caseEvaluations(v.Evaluations),
 			Rows:          checkRows(v.Rows),
+			Table:         checkTableOf(v.Table),
 			Outcomes:      checkOutcomes(v.Outcomes),
 			Exploration:   checkExplorationOf(v.Exploration),
 			Plan:          checkPlanOf(v.Plan),

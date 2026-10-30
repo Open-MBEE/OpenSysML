@@ -5,7 +5,6 @@ package modeldoc
 import (
 	"errors"
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
@@ -98,6 +97,6 @@ func elementIDs(idx *symbols.Index, r *model.Reading) func(*symbols.Symbol) (str
 		return nil
 	}
 	return func(sym *symbols.Symbol) (string, error) {
-		return read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
+		return queryexec.ElementIDOf(read, idx, sym)
 	}
 }

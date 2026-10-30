@@ -220,7 +220,10 @@ func (ctx *Context) resolveBindings(inst *Instance, target *FeatureValue, name s
 	var unmet []lower.Binding
 	path := name
 	for current := inst; current != nil; {
-		bindings := ctx.bindingsOf(current, path)
+		var bindings []lower.Binding
+		if ctx.declaresBindings(current) {
+			bindings = ctx.bindingsOf(current, path)
+		}
 		if len(bindings) != 0 {
 			ctx.resolvingBindings[key] = true
 			result, err := ctx.resolveBindingSet(current, inst, target, path, bindings, key)
@@ -237,7 +240,7 @@ func (ctx *Context) resolveBindings(inst *Instance, target *FeatureValue, name s
 			}
 		}
 		owner, ownerFeature := current.Owner()
-		if owner == nil || ownerFeature == "" {
+		if owner == nil || ownerFeature == "" || !ctx.ownersDeclareBindings(owner) {
 			break
 		}
 		path = ownerFeature + "." + path

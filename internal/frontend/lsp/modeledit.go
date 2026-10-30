@@ -389,40 +389,65 @@ func (op ModelEditOperation) operation(content []byte) (modeledit.Operation, err
 		out.Type = op.Type
 		return out, nil
 	case EditAddSequence:
-		out := modeledit.Operation{
-			Kind: modeledit.OpAddSequence, Owner: op.Owner,
-			SequenceKeyword: op.Keyword, SequenceRef: op.Ref,
-			MemberKind: op.MemberKind, MemberName: op.Name,
-			Type: op.Type, After: op.After, Multiplicity: op.Multiplicity,
-			SequenceCondition: op.Condition, SequenceValue: op.Value,
-			SequenceTarget: op.Target, SequenceVia: op.Via,
-			SequenceUntil: op.Until, SequenceParameter: op.Parameter,
-		}
-		for _, item := range op.Body {
-			if item.Kind != EditAddSequence {
-				return modeledit.Operation{}, errors.New("a nested action-body item must be addSequence")
-			}
-			child, err := item.operation(content)
-			if err != nil {
-				return modeledit.Operation{}, err
-			}
-			out.SequenceBody = append(out.SequenceBody, child)
-		}
-		for _, item := range op.ElseBody {
-			if item.Kind != EditAddSequence {
-				return modeledit.Operation{}, errors.New("a nested action-body item must be addSequence")
-			}
-			child, err := item.operation(content)
-			if err != nil {
-				return modeledit.Operation{}, err
-			}
-			out.SequenceElse = append(out.SequenceElse, child)
-		}
-		return out, nil
+		return op.sequenceOperation(content)
 	case EditDelete:
 		return modeledit.Delete(op.Target, op.Cascade), nil
 	case EditMove:
 		return modeledit.Move(op.Target, op.Owner), nil
+	case EditSetCanvas:
+		canvas, err := op.Canvas.canvas()
+		if err != nil {
+			return modeledit.Operation{}, err
+		}
+		return modeledit.SetCanvas(op.Target, canvas), nil
+	case EditSetLayout, EditSetRoute, EditSetStyle, EditSetNote, EditSetPicture:
+		return op.renderingOperation(content)
+	}
+	return modeledit.Operation{}, fmt.Errorf("kind %q is none of %s", op.Kind,
+		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditAddSequence, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas, EditSetStyle, EditSetNote, EditSetPicture}, ", "))
+}
+
+// sequenceOperation reads an addSequence with its nested bodies.
+func (op ModelEditOperation) sequenceOperation(content []byte) (modeledit.Operation, error) {
+	out := modeledit.Operation{
+		Kind: modeledit.OpAddSequence, Owner: op.Owner,
+		SequenceKeyword: op.Keyword, SequenceRef: op.Ref,
+		MemberKind: op.MemberKind, MemberName: op.Name,
+		Type: op.Type, After: op.After, Multiplicity: op.Multiplicity,
+		SequenceCondition: op.Condition, SequenceValue: op.Value,
+		SequenceTarget: op.Target, SequenceVia: op.Via,
+		SequenceUntil: op.Until, SequenceParameter: op.Parameter,
+	}
+	var err error
+	if out.SequenceBody, err = sequenceBody(op.Body, content); err != nil {
+		return modeledit.Operation{}, err
+	}
+	if out.SequenceElse, err = sequenceBody(op.ElseBody, content); err != nil {
+		return modeledit.Operation{}, err
+	}
+	return out, nil
+}
+
+// sequenceBody reads the items of a nested action body, each an addSequence.
+func sequenceBody(items []ModelEditOperation, content []byte) ([]modeledit.Operation, error) {
+	var body []modeledit.Operation
+	for _, item := range items {
+		if item.Kind != EditAddSequence {
+			return nil, errors.New("a nested action-body item must be addSequence")
+		}
+		child, err := item.operation(content)
+		if err != nil {
+			return nil, err
+		}
+		body = append(body, child)
+	}
+	return body, nil
+}
+
+// renderingOperation reads the operations that may target an element by its
+// declaration: the layout, route and style of a view's element, a note and a picture.
+func (op ModelEditOperation) renderingOperation(content []byte) (modeledit.Operation, error) {
+	switch op.Kind {
 	case EditSetLayout:
 		layout, err := op.Layout.layout()
 		if err != nil {
@@ -444,12 +469,6 @@ func (op ModelEditOperation) operation(content []byte) (modeledit.Operation, err
 			return modeledit.SetRouteAt(rangeToSpan(content, *op.Declaration), op.View, route), nil
 		}
 		return modeledit.SetRoute(op.Target, op.View, route), nil
-	case EditSetCanvas:
-		canvas, err := op.Canvas.canvas()
-		if err != nil {
-			return modeledit.Operation{}, err
-		}
-		return modeledit.SetCanvas(op.Target, canvas), nil
 	case EditSetStyle:
 		style := op.Style.style()
 		if op.Declaration != nil {
@@ -468,7 +487,7 @@ func (op ModelEditOperation) operation(content []byte) (modeledit.Operation, err
 			return modeledit.SetNoteAt(rangeToSpan(content, *op.Declaration), note), nil
 		}
 		return modeledit.SetNote(op.Target, op.View, note), nil
-	case EditSetPicture:
+	default:
 		picture := op.Picture.picture()
 		if op.Declaration != nil {
 			if op.View != "" {
@@ -481,8 +500,6 @@ func (op ModelEditOperation) operation(content []byte) (modeledit.Operation, err
 		}
 		return modeledit.SetPicture(op.Target, picture), nil
 	}
-	return modeledit.Operation{}, fmt.Errorf("kind %q is none of %s", op.Kind,
-		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditAddSequence, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas, EditSetStyle, EditSetNote, EditSetPicture}, ", "))
 }
 
 // note reads the wire note as the edit layer writes it; nil clears.

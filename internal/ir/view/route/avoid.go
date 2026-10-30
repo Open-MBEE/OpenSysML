@@ -4,7 +4,7 @@ package route
 
 import (
 	"context"
-	_ "embed"
+	_ "embed" // go:embed of the router module, libavoid.wasm
 	"fmt"
 	"os"
 	"sync"
@@ -124,7 +124,7 @@ func instantiateHost(ctx context.Context, r wazero.Runtime, compiled wazero.Comp
 		}
 		return 1
 	}).Export("emscripten_resize_heap")
-	env.NewFunctionBuilder().WithFunc(func(buf, max, format, tm, locale uint32) uint32 { return 0 }).Export("strftime_l")
+	env.NewFunctionBuilder().WithFunc(func(buf, maxSize, format, tm, locale uint32) uint32 { return 0 }).Export("strftime_l")
 	_, err = env.Instantiate(ctx)
 	return err
 }
@@ -145,7 +145,6 @@ func cString(m api.Module, at uint32) string {
 // session is one instance of the router module; its calls go through the
 // WebIDL binder's exports, and its first failure ends the session's work.
 type session struct {
-	ctx   context.Context
 	mod   api.Module
 	err   error
 	fns   map[string]api.Function
@@ -157,8 +156,8 @@ func (e *engine) newSession(ctx context.Context) (*session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("libavoid: %w", err)
 	}
-	s := &session{ctx: ctx, mod: mod, fns: map[string]api.Function{}}
-	s.call("__wasm_call_ctors")
+	s := &session{mod: mod, fns: map[string]api.Function{}}
+	s.call(ctx, "__wasm_call_ctors")
 	return s, s.err
 }
 
@@ -177,9 +176,9 @@ func (e *engine) acquire(ctx context.Context) (*session, error) {
 
 // release keeps an instance whose objects were all destroyed for the next
 // pass, so its code stack and memory stay grown; a failed one is dropped.
-func (e *engine) release(s *session) {
+func (e *engine) release(ctx context.Context, s *session) {
 	if s.err != nil {
-		_ = s.mod.Close(s.ctx)
+		_ = s.mod.Close(ctx)
 		return
 	}
 	e.mu.Lock()
@@ -188,7 +187,7 @@ func (e *engine) release(s *session) {
 }
 
 // call invokes an export; after a failure every call is a no-op returning 0.
-func (s *session) call(name string, args ...uint64) uint64 {
+func (s *session) call(ctx context.Context, name string, args ...uint64) uint64 {
 	if s.err != nil {
 		return 0
 	}
@@ -202,7 +201,7 @@ func (s *session) call(name string, args ...uint64) uint64 {
 	}
 	// The stack carries the arguments in and the result (at most one) out.
 	s.stack = append(append(s.stack[:0], args...), 0)
-	if err := fn.CallWithStack(s.ctx, s.stack); err != nil {
+	if err := fn.CallWithStack(ctx, s.stack); err != nil {
 		s.err = fmt.Errorf("libavoid: %s: %w", name, err)
 		return 0
 	}
@@ -210,8 +209,8 @@ func (s *session) call(name string, args ...uint64) uint64 {
 }
 
 // callF64 is call for an export returning an f64.
-func (s *session) callF64(name string, args ...uint64) float64 {
-	return api.DecodeF64(s.call(name, args...))
+func (s *session) callF64(ctx context.Context, name string, args ...uint64) float64 {
+	return api.DecodeF64(s.call(ctx, name, args...))
 }
 
 func f64(v float64) uint64 { return api.EncodeF64(v) }

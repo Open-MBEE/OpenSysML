@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -24,6 +25,11 @@ type ElementIDs struct {
 	byName   map[string]string
 	res      *resolve.Resolver
 	encoders []*encoder
+	// membershipByNode, membershipBySpan and membershipByName are the ids written
+	// for the owning membership of each declared element, keyed as the element's.
+	membershipByNode map[ast.Node]string
+	membershipBySpan map[spanKey]string
+	membershipByName map[string]string
 }
 
 // NewElementIDs records the elementId Convert writes for each element of the
@@ -58,19 +64,53 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 			return nil, err
 		}
 	}
-	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{}, res: res, encoders: encoders}
+	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{},
+		membershipByNode: map[ast.Node]string{}, membershipBySpan: map[spanKey]string{}, membershipByName: map[string]string{},
+		res: res, encoders: encoders}
 	for _, e := range encoders {
+		parents := e.parentDeclarations()
 		for _, node := range e.writtenDeclarations() {
 			fqn := e.fqn[node]
-			id := rdf.LocalName(e.ids.subjectForNode(node, fqn).Value)
+			subject := e.ids.subjectForNode(node, fqn)
+			id := rdf.LocalName(subject.Value)
 			ids.byNode[node] = id
 			ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
 			if fqn != "" {
 				ids.byName[fqn] = id
 			}
+			if membership, ok := e.writtenOwningMembership(node, parents[node], fqn); ok {
+				local := rdf.LocalName(membership.Value)
+				ids.membershipByNode[node] = local
+				ids.membershipBySpan[spanKey{e.file.Name(), node.Span()}] = local
+				ids.membershipByName[fqn] = local
+			}
+			for i, end := range writtenConnectorEnds(node) {
+				if end == nil {
+					continue
+				}
+				endID := rdf.LocalName(e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i)).Value)
+				ids.byNode[end] = endID
+				ids.bySpan[spanKey{e.file.Name(), end.Span()}] = endID
+			}
 		}
 	}
 	return ids, nil
+}
+
+// writtenConnectorEnds are the ends of a head that binds them (`connect a to b`),
+// by position, as bindingEnds writes them: nil where no end feature is written.
+func writtenConnectorEnds(node ast.Node) []*ast.ConnectorEnd {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !verbatimUsage(usage) || len(usage.ConnectorEnds) == 0 {
+		return nil
+	}
+	ends := make([]*ast.ConnectorEnd, len(usage.ConnectorEnds))
+	for i, end := range usage.ConnectorEnds {
+		if end != nil && end.AttachedTarget() != nil {
+			ends[i] = end
+		}
+	}
+	return ends
 }
 
 // spanKey names a declaration by its document and span, across parses of it.
@@ -94,6 +134,38 @@ func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (str
 		}
 	}
 	return ids.Of(fqn)
+}
+
+// OwningMembershipOfDeclaration is the elementId written for the owning membership
+// of the element declared at decl in doc, named fqn; false for a root or an unknown element.
+func (ids *ElementIDs) OwningMembershipOfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
+	if ids == nil {
+		return "", false
+	}
+	if decl != nil {
+		if id, ok := ids.membershipByNode[decl]; ok {
+			return id, true
+		}
+		if id, ok := ids.membershipBySpan[spanKey{doc, decl.Span()}]; ok {
+			return id, true
+		}
+	}
+	if id, ok := ids.membershipByName[fqn]; ok {
+		return id, true
+	}
+	// A standard library element the model does not declare: its normative membership,
+	// or the one minted beside it, as owningMembershipOf writes a reference to it.
+	if !strings.Contains(fqn, "::") || len(ids.encoders) == 0 || ids.res == nil || ids.res.Index() == nil {
+		return "", false
+	}
+	facts := ids.encoders[0].ids
+	for _, sym := range ids.res.Index().LookupQualified(fqn) {
+		if libraryFQN, ok := facts.libraryElement(sym); ok {
+			member := facts.subjectForNode(sym.Decl, libraryFQN)
+			return rdf.LocalName(facts.owningMembershipOf(sym.Decl, member).Value), true
+		}
+	}
+	return "", false
 }
 
 // Of is the elementId written for the element named fqn: the model's own as
@@ -155,6 +227,20 @@ func (r *ElementIDReader) Read(doc string, decl ast.Node, fqn string) (string, e
 		return "", r.err
 	}
 	id, _ := r.ids.OfDeclaration(doc, decl, fqn)
+	return id, nil
+}
+
+// ReadOwningMembership is the elementId of the owning membership of the element
+// declared at decl in doc, named fqn; empty where the conversion writes none.
+func (r *ElementIDReader) ReadOwningMembership(doc string, decl ast.Node, fqn string) (string, error) {
+	if r == nil {
+		return "", nil
+	}
+	r.once.Do(r.convert)
+	if r.err != nil {
+		return "", r.err
+	}
+	id, _ := r.ids.OwningMembershipOfDeclaration(doc, decl, fqn)
 	return id, nil
 }
 

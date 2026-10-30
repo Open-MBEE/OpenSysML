@@ -1755,7 +1755,8 @@ case a definition owns runs once per held object of that definition — every li
 a second `Instantiate` of its name displaced included — and reports a `verificationVerdicts`
 entry about each, naming the object by `instanceId`, and a `satisfy`
 a definition states is decided per held object with `instancePath` spelling the object's path
-from the root it was instantiated under (`cheap[2]`), as `ValidateInstance` spells it. The
+from the root it was instantiated under (`cheap[2]`; `small` or `smalls[2]` for an object a
+subsetting usage declares), as `ValidateInstance` spells it. The
 `instances` carry every object a verdict is about. With nothing held, the answer is about
 declared defaults, and a definition-owned case is `inconclusive` asking for an object. A
 sweep that would make one more object than `OPENSYSML_GRPC_MAX_HELD_OBJECTS` allows is
@@ -1907,8 +1908,9 @@ Reading the response:
 - Each of `verdicts` is a `Verdict` as above — `kind` is `"constraint"`, `"requirement"` or
   `"satisfy"`, and `holds`, `condition`, `error`, `requirementId` mean what they mean there — with
   one field more: `instancePath`, where the object the verdict is about sits under the root
-  (`engine.injector`, `wheels[2]`, one-based for a collection element), omitted for the root
-  itself. `instanceId` keys the object in `instances` as before.
+  (`engine.injector`, `wheels[2]`, one-based for a collection element; `small` or `smalls[2]`
+  for an object a subsetting usage declares, never its position in the collection it subsets),
+  omitted for the root itself. `instanceId` keys the object in `instances` as before.
 - `summary.holds` is `true` only when every verdict holds **and** the walk was complete. The
   example's summary has no `holds` and no `error`, so the object is a real *not valid*: three
   of its four assertions are false. A summary with `error` is undecided — an assertion that could
@@ -2649,7 +2651,8 @@ ninth arm, **`verdict`**, a `DocumentVerdict` with `assertion` (the assertion ch
 `elementId` `DocumentValue` — an anonymous `satisfy` keeps its `elementType` and has an empty
 `elementId`), `kind` (`constraint`, `requirement`, `satisfaction`, `binding`, `verification`), `text`
 (the assertion as written), `path` (the object checked, from the bound element down —
-`Garage::car.wheels[2]`), `verdict` (`holds`, `violated`, `undecided`), and, where they apply,
+`Garage::car.wheels[2]`, an object a subsetting usage declares by that usage, `Garage::assembly.small`),
+`verdict` (`holds`, `violated`, `undecided`), and, where they apply,
 `condition` (the expression found false), `reason` (why a row is violated or undecided — an
 undecided row always carries one) and `verification` (the verdict kinds — `pass`, `fail`,
 `inconclusive`, `error` — of the verification cases verifying the requirement). An element

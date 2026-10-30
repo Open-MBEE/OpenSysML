@@ -5,7 +5,6 @@ import (
 
 	"errors"
 	"fmt"
-	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 	"strconv"
@@ -33,14 +32,14 @@ func (s *Session) RunDocumentQuery(invocation string) Verdict {
 		return s.withTrace(unresolvedVerdict(invocation, "a document query to run must be named"))
 	}
 	name := fields[0]
-	lines, values, err := s.runDocumentQuery(name, fields[1:])
+	lines, values, table, err := s.runDocumentQuery(name, fields[1:])
 	if err != nil {
 		verdict := unresolvedVerdict(name, err.Error())
 		verdict.Lines = append(verdict.Lines, queryexec.OutcomeLines(err)...)
 		verdict.Outcome = queryOutcome(err)
 		return s.withTrace(verdict)
 	}
-	return s.withTrace(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values})
+	return s.withTrace(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values, Table: table})
 }
 
 // doRunQuery carries out %run-query, reporting a query that could not be run
@@ -50,7 +49,7 @@ func (s *Session) doRunQuery(invocation string) ([]string, bool, error) {
 	if len(fields) == 0 {
 		return []string{runQueryUsage}, false, nil
 	}
-	lines, _, err := s.runDocumentQuery(fields[0], fields[1:])
+	lines, _, _, err := s.runDocumentQuery(fields[0], fields[1:])
 	if err != nil {
 		return append([]string{errPrefix + err.Error()}, queryexec.OutcomeLines(err)...), false, nil
 	}
@@ -165,34 +164,35 @@ func bracketDelta(token string) int {
 
 // runDocumentQuery resolves the named query definition, compiles it to a plan,
 // binds the arguments and executes the plan against the session's model.
-func (s *Session) runDocumentQuery(name string, args []string) ([]string, []NamedValue, error) {
+func (s *Session) runDocumentQuery(name string, args []string) ([]string, []NamedValue, *VerdictTable, error) {
 	sym, fqn, err := s.lookupSymbol(name)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return nil, nil, fmt.Errorf("runtime init: %w", err)
+		return nil, nil, nil, fmt.Errorf("runtime init: %w", err)
 	}
 	idx := s.browseIndex()
 	model, resolver := ctx.Semantics(), ctx.Resolver()
 	if !queryplan.IsQueryDefinition(idx, model, sym) {
-		return nil, nil, fmt.Errorf("%s is not a document query: one is a calc def specializing DocumentQueries::Query", notationName(fqn))
+		return nil, nil, nil, fmt.Errorf("%s is not a document query: one is a calc def specializing DocumentQueries::Query", notationName(fqn))
 	}
 	program, err := queryplan.Compile(idx, model, resolver, sym)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	bindings, err := s.queryBindings(ctx, regroupBindings(args))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	result, err := queryexec.Execute(program, s.queryContext(ctx), bindings, queryexec.Options{})
+	context := s.queryContext(ctx)
+	result, err := queryexec.Execute(program, context, bindings, queryexec.Options{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	lines, values := renderRowSet(notationName(fqn), result)
-	return lines, values, nil
+	lines, values, table := renderRowSet(notationName(fqn), result, context.ElementID)
+	return lines, values, table, nil
 }
 
 // queryContext is the context the session's queries execute in: its model, and
@@ -222,7 +222,7 @@ func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
 	}
 	if read := s.elementIDReader(); read != nil {
 		context.ElementID = func(sym *symbols.Symbol) (string, error) {
-			return read(sym.DocName, sym.Decl, corequery.QualifiedIdentity(index, sym))
+			return queryexec.ElementIDOf(read, index, sym)
 		}
 	}
 	return context
@@ -425,9 +425,9 @@ func (s *Session) queryValueList(ctx *runtime.Context, elements []runtime.Value)
 	return out, nil
 }
 
-// renderRowSet reports an executed query's ordered rows and projected cells as
-// the prompt prints them, with the row and column counts as reportable values.
-func renderRowSet(name string, result *queryexec.RowSet) ([]string, []NamedValue) {
+// renderRowSet reports an executed query's rows as the prompt prints them, the row and
+// column counts as values, and the table as data (nameless elements by elementId there).
+func renderRowSet(name string, result *queryexec.RowSet, elementID func(*symbols.Symbol) (string, error)) ([]string, []NamedValue, *VerdictTable) {
 	rows := result.Rows()
 	columns := result.Columns()
 	lines := []string{fmt.Sprintf("✓ Query %s returned %s", name, countOf(len(rows), "row", "rows"))}
@@ -438,20 +438,46 @@ func renderRowSet(name string, result *queryexec.RowSet) ([]string, []NamedValue
 	if len(names) > 0 {
 		lines = append(lines, "  Columns: "+strings.Join(names, ", "))
 	}
+	table := &VerdictTable{Columns: names, Rows: make([]VerdictTableRow, 0, len(rows))}
 	for i, row := range rows {
-		lines = append(lines, fmt.Sprintf("  Row %d: %s", i+1, formatQueryValue(row.Element())))
+		element := formatQueryValue(row.Element())
+		lines = append(lines, fmt.Sprintf("  Row %d: %s", i+1, element))
+		cells := make([][]string, len(names))
 		for j, cell := range row.Cells() {
 			if j >= len(names) {
 				break
 			}
 			lines = append(lines, fmt.Sprintf("    %s = %s", names[j], formatQueryCell(cell)))
+			cells[j] = queryCellValues(cell, elementID)
 		}
+		table.Rows = append(table.Rows, VerdictTableRow{Element: tableValue(row.Element(), elementID), Cells: cells})
 	}
 	values := []NamedValue{{Name: "rows", Value: strconv.Itoa(len(rows))}}
 	if len(names) > 0 {
 		values = append(values, NamedValue{Name: "columns", Value: strings.Join(names, ", ")})
 	}
-	return lines, values
+	return lines, values, table
+}
+
+// queryCellValues is a cell's values as the table spells each; empty for an empty cell.
+func queryCellValues(cell queryexec.Cell, elementID func(*symbols.Symbol) (string, error)) []string {
+	values := cell.Values()
+	out := make([]string, len(values))
+	for i, value := range values {
+		out[i] = tableValue(value, elementID)
+	}
+	return out
+}
+
+// tableValue spells a value as the prompt does, except an element without a name
+// (printed blank or as ”), which the table spells by its elementId when one is read.
+func tableValue(value queryexec.Value, elementID func(*symbols.Symbol) (string, error)) string {
+	if sym, ok := value.Element(); ok && sym.Name == "" && elementID != nil {
+		if id, err := elementID(sym); err == nil && id != "" {
+			return id
+		}
+	}
+	return formatQueryValue(value)
 }
 
 // formatQueryCell renders one projected cell: nothing, one value, or a

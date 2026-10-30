@@ -32,9 +32,9 @@ calc def Misspelt :> Query {
 	in root : Element;
 	Project(source = PartUsages(root = root), properties = ("name", "isCompost"))
 }
-calc def Aliases :> Query {
+calc def Crossings :> Query {
 	in root : Element;
-	Project(source = PartUsages(root = root), properties = ("name", "aliasIds"))
+	Project(source = PartUsages(root = root), properties = ("name", "crossFeature"))
 }
 `
 
@@ -147,15 +147,15 @@ func TestExecuteUnknownPropertyOffersTheMetaclassProperties(t *testing.T) {
 func TestExecuteUnservedPropertyNamesTheGap(t *testing.T) {
 	fixture := loadExecutionFixture(t, metaclassPropertyModel)
 	bindings := Bindings{"root": {ElementValue(fixture.symbol(t, "Scope"))}}
-	_, err := fixture.execute(t, "Aliases", bindings, Options{})
+	_, err := fixture.execute(t, "Crossings", bindings, Options{})
 	var typed *Error
 	if !errors.As(err, &typed) || typed.Kind != ErrorUnservedProperty {
-		t.Fatalf("Aliases gives %v, want an unserved-property error", err)
+		t.Fatalf("Crossings gives %v, want an unserved-property error", err)
 	}
-	if typed.Expected != "Element::aliasIds" || typed.Target != "Observatory::Scope::telescope" {
-		t.Fatalf("error names %s of %s, want Element::aliasIds of Observatory::Scope::telescope", typed.Expected, typed.Target)
+	if typed.Expected != "Feature::crossFeature" || typed.Target != "Observatory::Scope::telescope" {
+		t.Fatalf("error names %s of %s, want Feature::crossFeature of Observatory::Scope::telescope", typed.Expected, typed.Target)
 	}
-	want := fmt.Sprintf("query %s reads Element::aliasIds of Observatory::Scope::telescope, a metamodel property OpenSysML does not derive yet", typed.Query)
+	want := fmt.Sprintf("query %s reads Feature::crossFeature of Observatory::Scope::telescope, a metamodel property OpenSysML does not derive yet", typed.Query)
 	if !strings.HasPrefix(err.Error(), want) {
 		t.Fatalf("message %q, want prefix %q", err.Error(), want)
 	}

@@ -1,11 +1,13 @@
 package export
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -15,7 +17,7 @@ import (
 // without writing is the elementId the written graph carries for it.
 func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 	files, _ := filepath.Glob(filepath.Join("..", "..", "..", "examples", "*.sysml"))
-	texts := map[string]string{"dup.sysml": readerModel, "then.sysml": thenDoneModel}
+	texts := map[string]string{"dup.sysml": readerModel, "then.sysml": thenDoneModel, "states.sysml": stateActionsModel}
 	for _, f := range files {
 		data, err := os.ReadFile(f)
 		if err != nil {
@@ -23,7 +25,7 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 		}
 		texts[filepath.Base(f)] = string(data)
 	}
-	compared := 0
+	compared, ends, memberships := 0, 0, 0
 	for name, text := range texts {
 		sf := source.New(name, []byte(text))
 		p := parser.New(sf)
@@ -48,11 +50,38 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 					t.Errorf("%s: %s minted %q (%v), written %q (%v)", name, fqn, got, has, written, ok)
 				}
 				compared++
+				// A member's owning membership is written as a subject of its own.
+				membership, membershipWritten := graph.Object(e.ids.subjectForNode(node, fqn), rdf.SysML+pOwningMembership)
+				mintedMembership, hasMembership := minted.membershipBySpan[spanKey{name, node.Span()}]
+				if membershipWritten || hasMembership {
+					if hasMembership != membershipWritten || mintedMembership != rdf.LocalName(membership.Value) {
+						t.Errorf("%s: %s owning membership minted %q (%v), written %q (%v)", name, fqn, mintedMembership, hasMembership, membership.Value, membershipWritten)
+					}
+					memberships++
+				}
+				usage, isUsage := node.(*ast.Usage)
+				if !isUsage {
+					continue
+				}
+				// The ends a head binds are written as end features of their own.
+				subject := e.ids.subjectForNode(node, fqn)
+				for i, end := range usage.ConnectorEnds {
+					if end == nil {
+						continue
+					}
+					feature := rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i))
+					written, ok := graph.Lexical(feature, rdf.SysML+pElementID)
+					got, has := minted.bySpan[spanKey{name, end.Span()}]
+					if has != ok || got != written {
+						t.Errorf("%s: %s end %d minted %q (%v), written %q (%v)", name, fqn, i, got, has, written, ok)
+					}
+					ends++
+				}
 			}
 		}
 	}
-	if compared == 0 {
-		t.Fatal("no declaration compared")
+	if compared == 0 || ends == 0 || memberships == 0 {
+		t.Fatalf("%d declarations, %d connector ends and %d owning memberships compared, want all", compared, ends, memberships)
 	}
 }
 
@@ -112,5 +141,93 @@ func TestElementIDReaderClaimsWhatTheWriterClaims(t *testing.T) {
 	}
 	if _, err := NewElementIDs(docs); err != nil {
 		t.Fatalf("a referenced document's repeated id was refused, where the writer writes the model: %v", err)
+	}
+}
+
+const boundEndsModel = `package P {
+	part def D { port p; attribute x; }
+	part a : D; part b : D;
+	connect a to b;
+	connection named connect a to b;
+	interface i connect a.p to b.p;
+	bind a.x = b.x;
+	action def A {
+		action x; action y;
+		succession first x then y;
+	}
+}
+`
+
+// TestElementIDReaderMintsEveryBoundEnd: each form of head that binds ends — an
+// anonymous and a named connection, an interface, a binding, a succession — has
+// every end's id minted as the writer writes it.
+func TestElementIDReaderMintsEveryBoundEnd(t *testing.T) {
+	sf, _, doc := readerIndex(t, "ends.sysml", boundEndsModel)
+	docs := []ModelDocument{{File: sf, Root: doc.Root}}
+	graph, _, encoders, err := modelToRDF(docs, IDQualifiedName)
+	if err != nil {
+		t.Fatalf("modelToRDF: %v", err)
+	}
+	minted, err := NewElementIDs(docs)
+	if err != nil {
+		t.Fatalf("NewElementIDs: %v", err)
+	}
+	forms := map[string]int{}
+	for _, e := range encoders {
+		for node, fqn := range e.fqn {
+			usage, ok := node.(*ast.Usage)
+			if !ok || len(usage.ConnectorEnds) == 0 {
+				continue
+			}
+			subject := e.ids.subjectForNode(node, fqn)
+			for i, end := range usage.ConnectorEnds {
+				written, ok := graph.Lexical(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), rdf.SysML+pElementID)
+				if !ok || written == "" {
+					t.Errorf("%s end %d: the writer states no elementId", fqn, i)
+				}
+				got, has := minted.OfDeclaration("ends.sysml", end, "")
+				if !has || got != written {
+					t.Errorf("%s end %d: minted %q (%v), written %q", fqn, i, got, has, written)
+				}
+				forms[usage.Keyword]++
+			}
+		}
+	}
+	for _, form := range []string{"connect", "connection", "interface", "bind", "succession"} {
+		if forms[form] < 2 {
+			t.Errorf("%s: %d ends compared, want both", form, forms[form])
+		}
+	}
+}
+
+// stateActionsModel declares entry, exit and do actions of a state, in the inline and
+// the named forms: their owning membership is the entry/exit/do member itself.
+const stateActionsModel = "package S {\n\tstate def D;\n\tstate s : D {\n\t\tentry action start;\n\t\tdo action run { action step; }\n\t\texit action stop;\n\t\tentry; then idle;\n\t\tstate idle;\n\t}\n}\n"
+
+// TestElementIDReaderOwningMembershipOfALibraryElement: a standard library element the
+// model only references has an owning membership id too — the one the writer gives it.
+func TestElementIDReaderOwningMembershipOfALibraryElement(t *testing.T) {
+	sf, _, doc := readerIndex(t, "lib.sysml", "package M {\n\tprivate import ScalarValues::*;\n\tattribute x : Real;\n}\n")
+	reader := NewElementIDReader([]ElementIDDocument{{File: sf, Root: doc.Root}})
+	got, err := reader.ReadOwningMembership("", nil, "ScalarValues::Real")
+	if err != nil {
+		t.Fatal(err)
+	}
+	element, ok := reader.ids.Of("ScalarValues::Real")
+	if !ok || got == "" {
+		t.Fatalf("library element id %q (%v), owning membership %q, want both", element, ok, got)
+	}
+	facts := reader.ids.encoders[0].ids
+	var want string
+	for _, sym := range reader.ids.res.Index().LookupQualified("ScalarValues::Real") {
+		if libraryFQN, ok := facts.libraryElement(sym); ok {
+			want = rdf.LocalName(facts.owningMembershipOf(sym.Decl, facts.subjectForNode(sym.Decl, libraryFQN)).Value)
+		}
+	}
+	if got != want {
+		t.Errorf("owning membership = %q, want the writer's %q", got, want)
+	}
+	if root, _ := reader.ReadOwningMembership("", nil, "ScalarValues"); root != "" {
+		t.Errorf("a library root has an owning membership %q, want none", root)
 	}
 }
