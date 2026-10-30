@@ -325,7 +325,7 @@ func TestValidateAndVerifyLabelASubsettingObjectByItsDeclaration(t *testing.T) {
 	}
 	want := []string{"small", "smalls[1]", "smalls[2]"}
 	for _, kind := range []string{"constraint", "satisfy"} {
-		if got := strings.Join(paths[kind], " "); got != strings.Join(want, " ") {
+		if strings.Join(paths[kind], " ") != strings.Join(want, " ") {
 			t.Errorf("ValidateInstance %s paths = %q, want %q", kind, paths[kind], want)
 		}
 	}
@@ -338,7 +338,7 @@ func TestValidateAndVerifyLabelASubsettingObjectByItsDeclaration(t *testing.T) {
 	for _, v := range satisfied.Verdicts {
 		swept = append(swept, v.InstancePath)
 	}
-	if got := strings.Join(swept, " "); got != strings.Join(want, " ") {
+	if strings.Join(swept, " ") != strings.Join(want, " ") {
 		t.Errorf("VerifySatisfaction paths = %q, want %q", swept, want)
 	}
 }
