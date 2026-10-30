@@ -25,7 +25,7 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		m.conformsByName(sym, "Occurrences::HappensLink") {
 		return false
 	}
-	return !usageIsComposite(usage) ||
+	return !m.EffectiveIsComposite(sym) ||
 		(usage.Kind != ast.UsageAction && !m.conformsByName(sym, "Actions::Action"))
 }
 

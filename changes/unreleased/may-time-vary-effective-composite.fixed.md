@@ -1,0 +1,1 @@
+- `Usage::mayTimeVary` (and so a usage's `isVariable`) is derived over the usage's effective `isComposite`: a performed action or exhibited state, referential by the notation (`perform`, `exhibit`), may vary in time as the specification derives (SysML v2.1 §8.3.6.4 `deriveUsageMayTimeVary`); the reflective read answered `false` for them.
