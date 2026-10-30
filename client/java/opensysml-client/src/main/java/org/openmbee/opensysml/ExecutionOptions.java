@@ -1,5 +1,6 @@
 package org.openmbee.opensysml;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -15,7 +16,7 @@ import java.util.OptionalLong;
  * @param performer the object the behavior runs on, as {@code sysml -action "<action> <object>"}
  *     names it: a part definition or usage to make an object of, or a path from one into its parts
  *     ({@code "Mission::mission.vehicle"}), made for the run. Absent runs outside any object.
- * @param trace whether a state run returns its documented execution trace
+ * @param trace whether a state or action run returns its documented execution trace
  * @param advance simulated time, in seconds, to run for ({@code sysml -advance}): the behavior is
  *     started and its clock moved by this much; an action not completed by then fails with the
  *     instant it waits for. Absent runs to completion.
@@ -25,6 +26,9 @@ import java.util.OptionalLong;
  *     default), {@code "min"}, {@code "max"} or {@code "average"}
  * @param clockStep the step, in seconds, the run's clock ticks by ({@code sysml -clock-step}); 0
  *     is a continuous clock
+ * @param events signals to post to an action's performer in order, each once every token of the
+ *     run waits, as the REPL's {@code %send} does; the accept waiting for one takes it on the next
+ *     step. Needs a performer. (A state run's events are an argument of its own.)
  */
 public record ExecutionOptions(
     Optional<String> schedule,
@@ -33,7 +37,8 @@ public record ExecutionOptions(
     OptionalDouble advance,
     OptionalLong seed,
     Optional<String> draws,
-    double clockStep) {
+    double clockStep,
+    List<String> events) {
 
   private static final String EXPLORE = "explore";
 
@@ -49,6 +54,7 @@ public record ExecutionOptions(
     Objects.requireNonNull(advance, "advance");
     Objects.requireNonNull(seed, "seed");
     Objects.requireNonNull(draws, "draws");
+    events = List.copyOf(events);
   }
 
   /**
@@ -64,7 +70,8 @@ public record ExecutionOptions(
         OptionalDouble.empty(),
         OptionalLong.empty(),
         Optional.empty(),
-        0);
+        0,
+        List.of());
   }
 
   /**
@@ -75,7 +82,7 @@ public record ExecutionOptions(
    */
   public ExecutionOptions withSchedule(String schedule) {
     return new ExecutionOptions(
-        Optional.of(schedule), performer, trace, advance, seed, draws, clockStep);
+        Optional.of(schedule), performer, trace, advance, seed, draws, clockStep, events);
   }
 
   /**
@@ -86,12 +93,13 @@ public record ExecutionOptions(
    */
   public ExecutionOptions withPerformer(String performer) {
     return new ExecutionOptions(
-        schedule, Optional.of(performer), trace, advance, seed, draws, clockStep);
+        schedule, Optional.of(performer), trace, advance, seed, draws, clockStep, events);
   }
 
   /** The same options with a state-run trace requested. */
   public ExecutionOptions withTrace() {
-    return new ExecutionOptions(schedule, performer, true, advance, seed, draws, clockStep);
+    return new ExecutionOptions(
+        schedule, performer, true, advance, seed, draws, clockStep, events);
   }
 
   /**
@@ -102,7 +110,7 @@ public record ExecutionOptions(
    */
   public ExecutionOptions withAdvance(double seconds) {
     return new ExecutionOptions(
-        schedule, performer, trace, OptionalDouble.of(seconds), seed, draws, clockStep);
+        schedule, performer, trace, OptionalDouble.of(seconds), seed, draws, clockStep, events);
   }
 
   /**
@@ -113,7 +121,7 @@ public record ExecutionOptions(
    */
   public ExecutionOptions withSeed(long seed) {
     return new ExecutionOptions(
-        schedule, performer, trace, advance, OptionalLong.of(seed), draws, clockStep);
+        schedule, performer, trace, advance, OptionalLong.of(seed), draws, clockStep, events);
   }
 
   /**
@@ -124,7 +132,7 @@ public record ExecutionOptions(
    */
   public ExecutionOptions withDraws(String draws) {
     return new ExecutionOptions(
-        schedule, performer, trace, advance, seed, Optional.of(draws), clockStep);
+        schedule, performer, trace, advance, seed, Optional.of(draws), clockStep, events);
   }
 
   /**
@@ -134,7 +142,19 @@ public record ExecutionOptions(
    * @return options ticking by it
    */
   public ExecutionOptions withClockStep(double seconds) {
-    return new ExecutionOptions(schedule, performer, trace, advance, seed, draws, seconds);
+    return new ExecutionOptions(
+        schedule, performer, trace, advance, seed, draws, seconds, events);
+  }
+
+  /**
+   * Posts these signals to the action's performer, in order, as the run waits.
+   *
+   * @param events the signal or item definitions to post, qualified or as the action sees them
+   * @return these options with the events
+   */
+  public ExecutionOptions withEvents(String... events) {
+    return new ExecutionOptions(
+        schedule, performer, trace, advance, seed, draws, clockStep, List.of(events));
   }
 
   /**

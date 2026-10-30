@@ -238,6 +238,9 @@ public final class Capabilities {
   /** The {@code trace} field on {@code ExecuteStateRequest}. */
   public static final String STATE_TRACE = "state_trace";
 
+  /** The {@code trace} field on {@code ExecuteActionRequest}: the run's token steps, waits, accepts, decisions and assignments. */
+  public static final String ACTION_TRACE = "action_trace";
+
   /** The execution responses report {@code final_time}, the run's simulation clock when it ended, in seconds. */
   public static final String FINAL_TIME = "final_time";
 

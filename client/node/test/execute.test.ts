@@ -9,7 +9,7 @@ import {
   DocumentValueSchema,
   ExecuteStateResponseSchema,
 } from "../src/generated/sysml_pb.js";
-import { ExecutionError, InvalidRequestError, connect, formatValue } from "../src/node/index.js";
+import { ExecutionError, InvalidRequestError, MissingCapabilityError, connect, formatValue } from "../src/node/index.js";
 import type { SysMLValue } from "../src/node/index.js";
 import { fakeConnection } from "./support/fake.js";
 import { useServiceBinary } from "./support/service.js";
@@ -240,6 +240,88 @@ test("a failed traced state run carries its partial trace on the execution error
         assert.equal(error.trace[0].kind, "entry");
         assert.equal(error.trace[0].state, "active");
         assert.equal(error.traceDropped, 2);
+        return true;
+      },
+    );
+  } finally {
+    await connection.close();
+  }
+});
+
+const ACTION_TRACE_MODEL = `
+package Trace {
+  private import ScalarValues::*;
+  item def Go;
+  part def Craft;
+  part craft : Craft;
+  action def Flow {
+    in budget : Integer;
+    attribute remaining : Integer = budget;
+    out landed : Boolean = false;
+    first start;
+    then action burn assign remaining := remaining - 3;
+    then decide route;
+      if remaining >= 5 then waiting;
+      else finish;
+    action waiting accept go : Go;
+    then action land assign landed := true;
+    then finish;
+    action finish;
+    then done;
+  }
+}
+`;
+
+test("an action run returns its requested trace and takes posted events", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(ACTION_TRACE_MODEL);
+  const inputs = { budget: { kind: "int" as const, value: 10n } };
+
+  await assert.rejects(
+    () => model.executeAction("Trace::Flow", { inputs, performer: "Trace::craft", trace: true }),
+    (error: unknown) => {
+      assert.ok(error instanceof ExecutionError);
+      assert.match(error.message, /accept deadlock/);
+      const last = error.trace[error.trace.length - 1];
+      assert.equal(last.kind, "wait");
+      assert.equal(last.event, "Go");
+      return true;
+    },
+  );
+
+  const run = await model.executeAction("Trace::Flow", {
+    inputs,
+    performer: "Trace::craft",
+    trace: true,
+    events: ["Go"],
+  });
+  assert.deepEqual(run.outputs.get("landed"), { kind: "sequence", elements: [{ kind: "boolean", value: true }] });
+  const kinds = run.trace.map((event) => event.kind);
+  for (const kind of ["step", "assign", "decide", "wait", "accept", "complete"]) {
+    assert.ok(kinds.includes(kind), `trace lacks ${kind}: ${kinds.join(",")}`);
+  }
+  const assign = run.trace.find((event) => event.kind === "assign");
+  assert.equal(assign?.feature, "remaining");
+  assert.deepEqual(assign?.value, { kind: "int", value: 7n });
+  assert.equal(assign?.token, 1n);
+  assert.equal(run.traceDropped, 0);
+
+  await assert.rejects(
+    () => model.executeAction("Trace::Flow", { inputs, events: ["Go"] }),
+    InvalidRequestError,
+  );
+});
+
+test("an action trace is not sent without its capability", async () => {
+  const connection = await fakeConnection(["performer"], () => {
+    assert.fail("ExecuteAction was sent without the capability");
+  });
+  try {
+    await assert.rejects(
+      () => connection.executeAction("model-hash", "Trace::Flow", { trace: true }),
+      (error: unknown) => {
+        assert.ok(error instanceof MissingCapabilityError);
+        assert.equal(error.capability, "action_trace");
         return true;
       },
     );

@@ -685,6 +685,14 @@ class ApiIntegrationTest {
           succession first init then Running;
           succession first Running then done;
         }
+        item def Go;
+        part def Craft;
+        part craft : Craft;
+        action waits {
+          first start;
+          then action hold accept go : Go;
+          then done;
+        }
       }
       """;
 
@@ -706,9 +714,41 @@ class ApiIntegrationTest {
     assertEquals(new Value.IntegerValue(3), declared.outputs().get("x"));
     ExecutionOptions traced = ExecutionOptions.defaults().withTrace();
     assertThrows(
-        IllegalArgumentException.class, () -> model.executeAction("Test::addFive", Map.of(), traced));
-    assertThrows(
         IllegalArgumentException.class, () -> model.exploreAction("Test::race", Map.of(), traced));
+  }
+
+  @Test
+  void aTracedActionRunReportsItsStepsAndTakesPostedEvents() {
+    Model model = connection.parse(BEHAVIOR);
+    ExecutionOptions traced = ExecutionOptions.defaults().withTrace();
+    ActionRun run = model.executeAction("Test::addFive", Map.of(), traced);
+    assertEquals(new Value.IntegerValue(5), run.outputs().get("result"));
+    List<String> kinds = run.trace().stream().map(DocumentValue.DocumentEvent::kind).toList();
+    assertTrue(kinds.containsAll(List.of("step", "assign", "complete")), kinds.toString());
+    DocumentValue.DocumentEvent assign =
+        run.trace().stream().filter(e -> e.kind().equals("assign")).findFirst().orElseThrow();
+    assertEquals("result", assign.feature());
+    assertEquals(Optional.of(new Value.IntegerValue(5)), assign.value());
+    assertEquals(1L, assign.token());
+    assertEquals(0, run.traceDropped());
+
+    ExecutionOptions performed = traced.withPerformer("Test::craft");
+    ModelException waiting =
+        assertThrows(
+            ModelException.class, () -> model.executeAction("Test::waits", Map.of(), performed));
+    assertEquals("wait", waiting.trace().get(waiting.trace().size() - 1).kind());
+    assertEquals("Go", waiting.trace().get(waiting.trace().size() - 1).event());
+
+    ActionRun sent = model.executeAction("Test::waits", Map.of(), performed.withEvents("Go"));
+    List<String> sentKinds = sent.trace().stream().map(DocumentValue.DocumentEvent::kind).toList();
+    assertTrue(sentKinds.containsAll(List.of("wait", "accept", "complete")), sentKinds.toString());
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> model.executeAction("Test::waits", Map.of(), traced.withEvents("Go")));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> model.exploreAction("Test::race", Map.of(), performed.withEvents("Go")));
   }
 
   @Test

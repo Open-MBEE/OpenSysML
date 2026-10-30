@@ -612,7 +612,11 @@ class PublicTypesTest {
             "",
             List.of(),
             List.of(),
-            "");
+            "",
+            0,
+            0,
+            "",
+            Optional.empty());
     ModelException original =
         new ModelException(
             "rejected", FailureReason.UNSPECIFIED, diagnostics, List.of(event), 2);
