@@ -1061,8 +1061,7 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 }
 
 // isAssertedConstraint reports a constraint usage written `assert constraint c`
-// or the shorthand `assert c` (SysML.xtext AssertConstraintUsage), from its
-// declaration or its record.
+// or `assert c` (SysML.xtext AssertConstraintUsage), from its declaration or record.
 func isAssertedConstraint(sym *symbols.Symbol) bool {
 	if sym.Kind != symbols.SymbolConstraintUsage {
 		return false
