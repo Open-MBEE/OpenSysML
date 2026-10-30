@@ -26,7 +26,7 @@ func chainNoteAllocs(t *testing.T, n int) (float64, int) {
 		t.Fatal("rig.panel.area did not parse as a nested chain")
 	}
 	base, parts := ast.FeatureChainBase(chain)
-	if decls := ec.chainDeclarations(chain, base, parts); len(decls) != 2 || decls[0] != lookupOne(t, idx, "test::Rig::panel") || decls[1] != lookupOne(t, idx, "test::Panel::area") {
+	if decls := ec.chainDeclarations(chain, base, parts); decls == nil || len(decls.syms) != 2 || decls.syms[0] != lookupOne(t, idx, "test::Rig::panel") || decls.syms[1] != lookupOne(t, idx, "test::Panel::area") {
 		t.Fatalf("chainDeclarations(rig, panel.area) = %v, want Rig::panel and Panel::area", decls)
 	}
 	flatten := testing.AllocsPerRun(20, func() {
