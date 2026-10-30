@@ -1712,6 +1712,25 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void unnamedInlineDocumentsAreNamedAsTheServiceNamesThem() {
+    java.util.function.Function<String, SourceDocument> unnamed =
+        content ->
+            new SourceDocument(Optional.empty(), Optional.of(content), Optional.empty(), Optional.empty());
+    java.util.function.Function<String, List<SourceDocument>> documents =
+        content -> List.of(unnamed.apply("package UnnamedLib { part def Engine; }\n"), unnamed.apply(content));
+    String top = "package UnnamedTop { private import UnnamedLib::*; part engine : Engine; }\n";
+    connection.parseSources(documents.apply(top + "// first\n"));
+    Model base = connection.parseSources(documents.apply(top));
+    assertEquals(List.of("<content-0>", "<content-1>"), base.documents());
+    Model edited =
+        connection.parseSources(
+            documents.apply(top.replace("part engine", "part motor")),
+            ParseOptions.defaults().withBaseModelHash(base.hash()));
+    assertEquals(List.of("<content-1>"), edited.affected());
+    assertTrue(edited.documents().containsAll(edited.affected()));
+  }
+
+  @Test
   void aConversionAndAnEditResultWriteTheirContent(@org.junit.jupiter.api.io.TempDir Path dir)
       throws Exception {
     Model model = connection.load(fixture("vehicle.sysml"));

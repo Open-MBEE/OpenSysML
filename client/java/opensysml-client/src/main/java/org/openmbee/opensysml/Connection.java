@@ -388,12 +388,17 @@ public final class Connection implements AutoCloseable {
               request.setBaseModelHash(base);
             });
     List<String> names = new java.util.ArrayList<>(documents.size());
-    for (SourceDocument document : documents) {
+    for (int position = 0; position < documents.size(); position++) {
+      SourceDocument document = documents.get(position);
       if (document.language().isPresent()) {
         capabilities.require(Capabilities.INLINE_LANGUAGE);
       }
       request.addDocuments(Protos.proto(document));
-      names.add(document.file().map(Path::toString).orElseGet(() -> document.name().orElse("")));
+      // An unnamed inline document is named by the service after its position, so the names
+      // here match what diagnostics and the affected list report.
+      String fallback = "<content-" + position + ">";
+      names.add(
+          document.file().map(Path::toString).orElseGet(() -> document.name().orElse(fallback)));
     }
     ParseSourcesResponse response =
         call("ParseSources", request.build(), ParseSourcesResponse.getDefaultInstance());
