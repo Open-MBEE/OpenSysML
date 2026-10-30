@@ -207,7 +207,8 @@ class Model:
         return self._source_path
 
     def convert(self, to_format, tolerate_syntax_errors=False, id_form='',
-                include_library_stubs=False):
+                include_library_stubs=False, compact=False, omit_derived=False,
+                keep_derived=(), include_check_diagnostics=False):
         """Write this model out in one of the formats OpenSysML writes.
 
         Converts the source this model was parsed from, not the file as it
@@ -229,6 +230,18 @@ class Model:
                 or :data:`~opensysml.conversion.ID_FORM_UUID`
             include_library_stubs (bool): For api-json, restore the ownerless
                 library stubs written before 0.11.0
+            compact (bool): For api-json, write the compact document
+                (``api-json-compact/1``) in place of the element array. Needs
+                the ``convert_compact`` capability.
+            omit_derived (bool): With ``compact``, leave out every derived
+                property of the metamodel.
+            keep_derived (Sequence[str]): With ``omit_derived``, the derived
+                properties still written, named as the element array names
+                them (``qualifiedName``).
+            include_check_diagnostics (bool): Report the semantic check's
+                diagnostics in the result's ``diagnostics`` alongside the
+                output, each with its own severity. Needs the
+                ``convert_check_diagnostics`` capability.
 
         Returns:
             Conversion: The converted model; ``str()`` of it is the text
@@ -239,8 +252,15 @@ class Model:
 
         Raises:
             ConversionError: If the model could not be written in that format
-            MissingCapabilityError: If the service cannot convert
-            grpc.RpcError: If the service no longer holds this model
+            InvalidRequestError: If a format or id_form is unknown, id_form is
+                given for a notation target, omit_derived or keep_derived
+                without compact, keep_derived without omit_derived or naming
+                a property that is not derived, or compact for other than
+                api-json
+            MissingCapabilityError: If the service cannot convert, or cannot
+                write library stubs, the compact form or the check's
+                diagnostics and they were asked for
+            ModelNotFoundError: If the service no longer holds this model
         """
         return self.connection.convert(
             to_format,
@@ -250,6 +270,10 @@ class Model:
             tolerate_syntax_errors=tolerate_syntax_errors,
             id_form=id_form,
             include_library_stubs=include_library_stubs,
+            compact=compact,
+            omit_derived=omit_derived,
+            keep_derived=keep_derived,
+            include_check_diagnostics=include_check_diagnostics,
         )
 
     def to_sysml(self, tolerate_syntax_errors=False):
@@ -272,18 +296,45 @@ class Model:
         """
         return self.convert(FORMAT_TURTLE)
 
-    def to_api_json(self):
+    def to_api_json(self, compact=False, omit_derived=False, keep_derived=(),
+                    include_check_diagnostics=False):
         """Write this model out in the OMG API's JSON element form.
 
         It is the same experimental RDF mapping as Turtle, spelled as the
         element objects the SysML v2 API serves.
 
+        Args:
+            compact (bool): Write the compact document (``api-json-compact/1``)
+                in place of the element array. Needs the ``convert_compact``
+                capability.
+            omit_derived (bool): With ``compact``, leave out every derived
+                property of the metamodel.
+            keep_derived (Sequence[str]): With ``omit_derived``, the derived
+                properties still written.
+            include_check_diagnostics (bool): Report the semantic check's
+                diagnostics in the result's ``diagnostics``. Needs the
+                ``convert_check_diagnostics`` capability.
+
         Returns:
             Conversion: The JSON; ``str()`` of it is the text
-        """
-        return self.convert(FORMAT_API_JSON)
 
-    def save(self, path, to_format=None, tolerate_syntax_errors=False):
+        Raises:
+            InvalidRequestError: If omit_derived or keep_derived is given
+                without compact, or keep_derived without omit_derived
+            MissingCapabilityError: If the service cannot write the compact
+                form or the check's diagnostics and they were asked for
+        """
+        return self.convert(
+            FORMAT_API_JSON,
+            compact=compact,
+            omit_derived=omit_derived,
+            keep_derived=keep_derived,
+            include_check_diagnostics=include_check_diagnostics,
+        )
+
+    def save(self, path, to_format=None, tolerate_syntax_errors=False,
+             compact=False, omit_derived=False, keep_derived=(),
+             include_check_diagnostics=False):
         """Write this model to ``path``, in the format its extension names.
 
         Args:
@@ -291,6 +342,16 @@ class Model:
             to_format (str, optional): Format to write, overriding the extension
             tolerate_syntax_errors (bool): Write notation back out even when the
                 parser could not read all of it
+            compact (bool): For api-json, write the compact document
+                (``api-json-compact/1``) in place of the element array. Needs
+                the ``convert_compact`` capability.
+            omit_derived (bool): With ``compact``, leave out every derived
+                property of the metamodel.
+            keep_derived (Sequence[str]): With ``omit_derived``, the derived
+                properties still written.
+            include_check_diagnostics (bool): Report the semantic check's
+                diagnostics in the result's ``diagnostics``. Needs the
+                ``convert_check_diagnostics`` capability.
 
         Returns:
             Conversion: What was written
@@ -298,10 +359,19 @@ class Model:
         Raises:
             ValueError: If no to_format was given and the extension names none
             ConversionError: If the model could not be written in that format
+            InvalidRequestError: If omit_derived or keep_derived is given
+                without compact, keep_derived without omit_derived, or
+                compact for other than api-json
+            MissingCapabilityError: If the service cannot write the compact
+                form or the check's diagnostics and they were asked for
         """
         conversion = self.convert(
             to_format or format_of_path(path),
             tolerate_syntax_errors=tolerate_syntax_errors,
+            compact=compact,
+            omit_derived=omit_derived,
+            keep_derived=keep_derived,
+            include_check_diagnostics=include_check_diagnostics,
         )
         conversion.write(path)
         return conversion
