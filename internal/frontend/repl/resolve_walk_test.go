@@ -4,18 +4,14 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-func resolvedParses(n int) []parsed {
+func resolvedSources(n int) []SourceFile {
 	var sb strings.Builder
 	for i := 0; i < n; i++ {
 		fmt.Fprintf(&sb, "package P%d { attribute a%d = %d; }\n", i, i, i)
 	}
-	root := parser.New(source.New("typed", []byte(sb.String()))).ParseFile()
-	return []parsed{{root: root}}
+	return []SourceFile{{Name: "typed", Text: sb.String()}}
 }
 
 // A submission that leaves nothing unresolved looks for no root namespace, so
@@ -24,9 +20,9 @@ func TestResolvingNothingDoesNotWalkTheText(t *testing.T) {
 	s, dir := workspaceSession(t)
 	search := &rootSearch{find: s.workspaceIndex().Declaring, where: "under " + dir, onDemand: true}
 	cost := func(n int) float64 {
-		parses := resolvedParses(n)
+		sources := resolvedSources(n)
 		return testing.AllocsPerRun(20, func() {
-			s.resolveReferences(Result{}, parses, search)
+			s.resolveReferences(Result{}, sources, search)
 		})
 	}
 	if small, large := cost(50), cost(100); large > small {

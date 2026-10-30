@@ -70,12 +70,12 @@ func (s *Session) doWorkspace() []string {
 }
 
 // workspaceLoad is what resolving references did: the files it accepted into
-// the current generation, if any, their parses, what they declared, what
+// the current generation, if any, their sources, what they declared, what
 // accepting them dropped, and the lines to report about it.
 type workspaceLoad struct {
 	loaded   bool
 	files    []string
-	parses   []parsed
+	sources  []SourceFile
 	declared []string
 	drops    []dropReport
 	notices  []string
@@ -115,12 +115,12 @@ func (s *Session) searchFor(load bool, files []SourceFile) *rootSearch {
 	return nil
 }
 
-// resolveReferences loads, for a submission whose text parsed to parses and
-// analyzed to res, the files declaring the root namespaces its imports and
-// qualified references leave unresolved, found where search looks. Imports
-// come first: a qualified name an import would answer is not looked for until
-// the imports have been (import Lib::*; then Inner::Thing with Lib::Inner).
-func (s *Session) resolveReferences(res Result, parses []parsed, search *rootSearch) workspaceLoad {
+// resolveReferences loads, for a submission of sources that analyzed to res,
+// the files declaring the root namespaces its imports and qualified references
+// leave unresolved, found where search looks. Imports come first: a qualified
+// name an import would answer is not looked for until the imports have been
+// (import Lib::*; then Inner::Thing with Lib::Inner).
+func (s *Session) resolveReferences(res Result, sources []SourceFile, search *rootSearch) workspaceLoad {
 	if search == nil {
 		return workspaceLoad{}
 	}
@@ -138,16 +138,17 @@ func (s *Session) resolveReferences(res Result, parses []parsed, search *rootSea
 		return workspaceLoad{}
 	}
 	unresolved := func(name string) bool { return referenceBegins(subjects, name) }
+	roots := s.parseRoots(sources)
 	var imported []string
-	for _, pre := range parses {
-		imported = append(imported, project.ImportedRoots(pre.root)...)
+	for _, root := range roots {
+		imported = append(imported, project.ImportedRoots(root)...)
 	}
 	ws := s.loadDeclaring(s.undeclaredRoots(imported, unresolved), search)
 	if !ws.loaded {
 		// An import no file answers must not keep the qualified names waiting.
 		var referenced []string
-		for _, pre := range parses {
-			referenced = append(referenced, project.ReferencedRoots(pre.root)...)
+		for _, root := range roots {
+			referenced = append(referenced, project.ReferencedRoots(root)...)
 		}
 		more := s.loadDeclaring(s.undeclaredRoots(referenced, unresolved), search)
 		more.notices = append(ws.notices, more.notices...)
@@ -156,12 +157,24 @@ func (s *Session) resolveReferences(res Result, parses []parsed, search *rootSea
 	return ws
 }
 
-// pullReferences carries on from what loading ws did for the text parsed to
-// parses: the session is rebuilt over the files loaded, and the root
+// parseRoots parses the sources again for the root namespaces they import and
+// reference. A submission is parsed once to be accepted and the trees are let
+// go before it is analyzed; a reference left unresolved, the rare case, pays
+// for a second parse rather than every load holding its trees through the analysis.
+func (s *Session) parseRoots(sources []SourceFile) []*ast.RootNamespace {
+	roots := make([]*ast.RootNamespace, len(sources))
+	model.ParallelFor(s.jobs, len(sources), func(i int) {
+		roots[i] = preparseWithKind(sources[i].Name, sources[i].Text, sources[i].Kind).root
+	})
+	return roots
+}
+
+// pullReferences carries on from what loading ws did for the submission of
+// sources: the session is rebuilt over the files loaded, and the root
 // namespaces the text and those files leave unresolved in turn are loaded the
 // same way, round after round, until a round loads nothing. It reports what
 // the rounds did together, and what rebuilding did to the session.
-func (s *Session) pullReferences(ws workspaceLoad, parses []parsed, search *rootSearch) (all workspaceLoad, whole []string) {
+func (s *Session) pullReferences(ws workspaceLoad, sources []SourceFile, search *rootSearch) (all workspaceLoad, whole []string) {
 	// A root two files declare is noticed by every round that wants it; once is enough.
 	noticed := map[string]bool{}
 	notice := func(notices []string) {
@@ -183,8 +196,8 @@ func (s *Session) pullReferences(ws workspaceLoad, parses []parsed, search *root
 		whole = append(whole, more...)
 		all.notices = append(append(all.notices, dropNotices(ws.drops)...), more...)
 		notice(ws.notices)
-		parses = append(parses, ws.parses...)
-		ws = s.resolveReferences(s.generationResult(), parses, search)
+		sources = append(sources, ws.sources...)
+		ws = s.resolveReferences(s.generationResult(), sources, search)
 	}
 	notice(ws.notices)
 	return all, whole
@@ -318,13 +331,14 @@ func (s *Session) loadDeclaring(names []string, search *rootSearch) workspaceLoa
 		out.notices = append(out.notices, errPrefix+err.Error())
 		return out
 	}
-	out.parses = make([]parsed, len(read.files))
+	parses := make([]parsed, len(read.files))
 	model.ParallelFor(s.jobs, len(read.files), func(i int) {
-		out.parses[i] = preparseWithKind(read.files[i].Name, read.files[i].Text, read.files[i].Kind)
+		parses[i] = preparseWithKind(read.files[i].Name, read.files[i].Text, read.files[i].Kind)
 	})
+	out.sources = read.files
 	seen := map[string]bool{}
 	for i, f := range read.files {
-		names, dropped := s.acceptParsed(f.Name, f.key(), fileKeyOf(f.Of), f.Text, out.parses[i], f.Kind)
+		names, dropped := s.acceptParsed(f.Name, f.key(), fileKeyOf(f.Of), f.Text, parses[i], f.Kind)
 		s.snippets[len(s.snippets)-1].onDemand = search.onDemand
 		if f.Of != "" {
 			out.files = append(out.files, f.Of)
