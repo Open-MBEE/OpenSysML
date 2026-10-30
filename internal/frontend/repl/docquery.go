@@ -5,7 +5,6 @@ import (
 
 	"errors"
 	"fmt"
-	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 	"strconv"
@@ -223,7 +222,7 @@ func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
 	}
 	if read := s.elementIDReader(); read != nil {
 		context.ElementID = func(sym *symbols.Symbol) (string, error) {
-			return read(sym.DocName, sym.Decl, corequery.QualifiedIdentity(index, sym))
+			return queryexec.ElementIDOf(read, index, sym)
 		}
 	}
 	return context

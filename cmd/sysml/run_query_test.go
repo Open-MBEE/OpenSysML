@@ -475,6 +475,14 @@ const anonymousModel = `package Observatory {
 		part : Subsystem;
 	}
 
+	calc def OwningMemberships :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("elementId", "owningRelationship")
+		)
+	}
+
 	calc def AnonymousParts :> Query {
 		in root : Element;
 		Project(
@@ -519,6 +527,44 @@ func TestRunQueryJSONTableSpellsAnonymousElementsByID(t *testing.T) {
 		seen[row.Element] = true
 		if len(row.Cells) != 1 || strings.Join(row.Cells[0], "|") != strconv.Quote(row.Element) {
 			t.Errorf("row %s: elementId cell = %v, want the element's own id", row.Element, row.Cells)
+		}
+	}
+}
+
+// TestRunQueryJSONTableSpellsMembershipsByID checks that a part's owning membership —
+// an element with no name the notation writes as part of its member — is spelled in the
+// table by the id the conversion writes for it: the member's id with the membership suffix.
+func TestRunQueryJSONTableSpellsMembershipsByID(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, anonymousModel, "-run-query", "OwningMemberships root=telescope", "-json")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Table *struct {
+				Columns []string `json:"columns"`
+				Rows    []struct {
+					Element string     `json:"element"`
+					Cells   [][]string `json:"cells"`
+				} `json:"rows"`
+			} `json:"table"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	if len(report.Checks) != 1 || report.Checks[0].Table == nil || len(report.Checks[0].Table.Rows) != 2 {
+		t.Fatalf("want one check with a two-row table:\n%s", got.stdout)
+	}
+	for _, row := range report.Checks[0].Table.Rows {
+		if len(row.Cells) != 2 || len(row.Cells[0]) != 1 || len(row.Cells[1]) != 1 {
+			t.Fatalf("row %s: cells = %v, want one elementId and one owningRelationship", row.Element, row.Cells)
+		}
+		id, _ := strconv.Unquote(row.Cells[0][0])
+		if want := id + "_om"; id == "" || row.Cells[1][0] != want {
+			t.Errorf("row %s: owningRelationship spelled %q, want %q", row.Element, row.Cells[1][0], want)
 		}
 	}
 }
