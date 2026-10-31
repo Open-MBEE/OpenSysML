@@ -101,6 +101,7 @@ function expand(node, inner, style) {
     case 'value': {
       const text = plainText(inner);
       if (text === null) return [{ kind: 'unsupported', construct: 'styled ' + node.kind + ' text' }];
+      // An unlabelled value run carries no text; the planner shows the value.
       if (node.kind === 'value' && text === '') return [node];
       return [{ ...node, text }];
     }
@@ -178,6 +179,12 @@ function lineOf(node) {
   return typeof line === 'number' ? line : 0;
 }
 
+async function blocksOf(nodes, walk) {
+  const out = [];
+  for (const node of nodes) out.push(await walk(node));
+  return out;
+}
+
 async function block(node) {
   const base = { kind: node.getContext(), line: lineOf(node) };
   if (node.getContext() === 'section') return section(node, base);
@@ -196,7 +203,7 @@ async function block(node) {
       });
       // A delimited admonition holds blocks (none, when empty); a one-line one holds inline text.
       if (node.getContentModel() === 'compound') {
-        admonition.blocks = await Promise.all(node.getBlocks().map(block));
+        admonition.blocks = await blocksOf(node.getBlocks(), block);
       } else {
         admonition.runs = runsOf(await node.getContent(), 'plain');
       }
@@ -206,14 +213,14 @@ async function block(node) {
       return Object.assign(base, {
         kind: 'list',
         ordered: false,
-        items: await Promise.all(node.getItems().map(listItem)),
+        items: await blocksOf(node.getItems(), listItem),
       });
     case 'olist':
       return Object.assign(base, {
         kind: 'list',
         ordered: true,
         start: listStart(node.getAttribute('start')),
-        items: await Promise.all(node.getItems().map(listItem)),
+        items: await blocksOf(node.getItems(), listItem),
       });
     case 'table':
       return Object.assign(base, table(node));
@@ -233,7 +240,7 @@ async function section(node, base) {
     level: node.getLevel(),
     id: node.getId() || '',
     runs: runsOf(node.getTitle(), 'plain'),
-    blocks: await Promise.all(node.getBlocks().map(block)),
+    blocks: await blocksOf(node.getBlocks(), block),
   });
 }
 
@@ -247,7 +254,7 @@ function listStart(attribute) {
 
 async function listItem(item) {
   const entry = { line: lineOf(item), runs: runsOf(item.getText() || '', 'plain') };
-  if (item.hasBlocks()) entry.blocks = await Promise.all(item.getBlocks().map(block));
+  if (item.hasBlocks()) entry.blocks = await blocksOf(item.getBlocks(), block);
   return entry;
 }
 
@@ -297,7 +304,7 @@ async function main() {
     extension_registry: registry,
     attributes: { stem: 'latexmath', 'skip-front-matter': '', 'sectids!': '' },
   });
-  const blocks = await Promise.all(doc.getBlocks().map(block));
+  const blocks = await blocksOf(doc.getBlocks(), block);
   if (doc.hasHeader()) blocks.unshift({ kind: 'header', line: 1 });
   const out = { blocks };
   process.stdout.write(JSON.stringify(out) + '\n');
