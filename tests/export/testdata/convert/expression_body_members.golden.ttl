@@ -208,6 +208,8 @@ expr:Bodies__Scaled___401_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "y" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Bodies__Real ;
     sysml:owner expr:Bodies__Scaled___401_pbody ;
     sysml:owningRelationship expr:Bodies__Scaled___401_pin0_om ;
