@@ -169,6 +169,8 @@ elmt:ReferenceSubsets__design__vehicle_5fdesign
     sysml:declaredName "vehicle_design" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSubsetting elmt:ReferenceSubsets__design__vehicle_5fdesign_ss0 ;
@@ -205,6 +207,8 @@ elmt:ReferenceSubsets__design__spare
     sysml:declaredName "spare" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSubsetting elmt:ReferenceSubsets__design__spare_ss0 ;
@@ -241,6 +245,8 @@ elmt:ReferenceSubsets__design__spare_20wheel
     sysml:declaredName "spare wheel" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSubsetting elmt:ReferenceSubsets__design__spare_20wheel_ss0 ;
@@ -277,6 +283,8 @@ elmt:ReferenceSubsets__design__fleet
     sysml:declaredName "fleet" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
     sysml:multiplicity expr:ReferenceSubsets__design__fleet_pmultiplicity ;
     sysml:ownedRelationship expr:ReferenceSubsets__design__fleet_pmultiplicity_om, elmt:ReferenceSubsets__design__fleet_ss0 ;
@@ -381,6 +389,8 @@ elmt:ReferenceSubsets__design__presidentOfCountry
     sysml:declaredName "presidentOfCountry" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:ReferenceSubsets__Person ;
     sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
     sysml:multiplicity expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;

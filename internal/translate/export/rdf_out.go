@@ -1732,6 +1732,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isEnd", n.IsEnd},
 			{"isChain", n.IsChain},
 			{"isConstant", n.IsConstant},
+			// A payload is a PayloadFeature, a KerML Feature with no `var` keyword.
+			{"isVariable", !payload && e.usageIsVariable(n)},
+			{"mayTimeVary", ontology.IsAncestorOrSelf(metaclass, "Usage") && e.usageMayTimeVary(n)},
 			{"isEvent", n.IsEvent && metaclass != mEventOccurrenceUsage},
 			{"isIndividual", n.IsIndividual},
 			// A snapshot or timeslice is a portion by its kind (OccurrenceUsage::portionKind).
@@ -2277,6 +2280,21 @@ func (e *encoder) variantMember(node ast.Node, ownerTerm rdf.Term) bool {
 		return false
 	}
 	return usage.IsVariant || enumeratedValue(usage, e.metaclassOf(ownerTerm))
+}
+
+// usageIsVariable derives Feature::isVariable for a usage as the semantic model
+// does: a `var` declaration, or for a SysML usage its derived mayTimeVary
+// (Usage::mayTimeVary redefines isVariable, SysML v2 §8.3.6.4).
+func (e *encoder) usageIsVariable(n *ast.Usage) bool {
+	sym := e.ids.declSym[n]
+	return sym != nil && e.ids.model.FeatureIsVariable(sym)
+}
+
+// usageMayTimeVary derives Usage::mayTimeVary (deriveUsageMayTimeVary); a KerML
+// feature has no such property.
+func (e *encoder) usageMayTimeVary(n *ast.Usage) bool {
+	sym := e.ids.declSym[n]
+	return sym != nil && !e.ids.model.IsKerMLFeature(sym) && e.ids.model.UsageMayTimeVary(sym)
 }
 
 // enumeratedValue reports whether usage is an enumerated value: an enumeration

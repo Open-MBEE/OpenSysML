@@ -113,6 +113,8 @@ elmt:FlowsAndViews__FuelPort__fuelSupply
     sysml:owningMembership elmt:FlowsAndViews__FuelPort__fuelSupply_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "fuelSupply" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        out item fuelSupply;\n" .
@@ -237,6 +239,8 @@ elmt:FlowsAndViews__FuelInterface__supplierPort
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "supplierPort" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__FuelPort ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__FuelInterface__supplierPort_ft0 ;
@@ -272,6 +276,8 @@ elmt:FlowsAndViews__FuelInterface__consumerPort
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "consumerPort" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__FuelPort ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__FuelInterface__consumerPort_ft0 ;
@@ -604,6 +610,8 @@ elmt:FlowsAndViews__vehicle__tank
     sysml:owningMembership elmt:FlowsAndViews__vehicle__tank_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "tank" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__vehicle__tank_ft0 ;
@@ -638,6 +646,8 @@ elmt:FlowsAndViews__vehicle__spares
     sysml:owningMembership elmt:FlowsAndViews__vehicle__spares_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "spares" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
     sysml:subsets elmt:FlowsAndViews__tanks ;
@@ -745,6 +755,8 @@ elmt:FlowsAndViews__vehicle__firstSpare
     sysml:owningMembership elmt:FlowsAndViews__vehicle__firstSpare_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "firstSpare" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "spares.self"^^sysx:Expression ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__vehicle__firstSpare_ft0 ;
@@ -779,6 +791,8 @@ elmt:FlowsAndViews__vehicle__engine
     sysml:owningMembership elmt:FlowsAndViews__vehicle__engine_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "engine" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Engine ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__vehicle__engine_ft0 ;
@@ -812,6 +826,8 @@ elmt:FlowsAndViews__vehicle___404
     sysml:owningRelationship elmt:FlowsAndViews__vehicle___404_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicle___404_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:FlowsAndViews__vehicle___404_pend0, expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:ownedRelationship expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
     sysml:ownedMembership expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
@@ -984,6 +1000,8 @@ elmt:FlowsAndViews__Measure__measured
     sysml:owningMembership elmt:FlowsAndViews__Measure__measured_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "measured" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:subsets elmt:FlowsAndViews__Tank ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1020,6 +1038,8 @@ elmt:FlowsAndViews__Measure__mass
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "mass" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;

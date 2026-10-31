@@ -107,10 +107,15 @@ import {
 } from "../generated/sysml_pb.js";
 import { callRpc, fromHandshakeError, fromRpcError } from "./status.js";
 import { requireString } from "./arguments.js";
-import { decodeDiagnostic, Instance, Model, strictConformanceOf } from "./model.js";
-import type { ParseSourcesOptions } from "./model.js";
+import {
+  decodeDiagnostic,
+  Instance,
+  Model,
+  strictConformanceOf,
+  type ParseOptions,
+  type ParseSourcesOptions,
+} from "./model.js";
 import type { ModelDiagnostic } from "./errors.js";
-import type { ParseOptions } from "./model.js";
 import { sourceDocuments, type Source } from "./sources.js";
 import {
   Conversion,
