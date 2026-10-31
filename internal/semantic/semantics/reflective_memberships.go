@@ -51,6 +51,20 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
+// isSatisfySubjectSymbol reports whether sym is the subject parameter a satisfy
+// usage's `by` clause declares (symbols.buildSatisfySubjects), which a
+// SubjectMembership owns.
+func isSatisfySubjectSymbol(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Kind != symbols.SymbolReferenceUsage {
+		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Node == symbols.NodeSubject
+	}
+	rel, ok := sym.Decl.(*ast.Relationship)
+	return ok && rel.Kind == ast.RelSubject
+}
+
 // ownedThroughAnnotation reports whether owner owns member through an
 // Annotation rather than a Membership: a `#M` prefix metadata feature, or an
 // annotating element in the body of a relationship or alias (KerML 8.2.3.3.1).
@@ -255,6 +269,9 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 func (m *Model) sysmlMembershipMetaclassName(owner, member *symbols.Symbol) string {
 	if m.isKerMLDoc(member) {
 		return ""
+	}
+	if isSatisfySubjectSymbol(member) {
+		return "SubjectMembership"
 	}
 	if isMetadataBodyMember(member) {
 		return ""
