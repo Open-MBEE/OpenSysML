@@ -211,6 +211,14 @@ the full CI tier is expensive, so run them locally before the PR, every time the
    into `docs/project/pilot-differential.md` / `api-json-differential.md`, then re-record with
    `-update` and run `make docs-counts`. A library change that adds declarations always moves
    `pilotLibraryElements`; anything else moving is an implementation difference to explain.
+4. The api-json baseline's `api-json-writer` provenance digests **every non-test `.go` file of
+   `internal/translate/export`** — the RDF/api-json writer *and* the reverse converter
+   (`rdf_in*.go`), element ids, names, addresses — so any commit touching that package, however
+   small, moves the digest and turns the `rest` shard red on `TestCommittedBaselineStatesThisRepositorysProvenance`.
+   Before pushing such a commit (including a review fix pushed after a re-record): run
+   `go run -C tools ./cmd/pilot-apijson-diff -update` over the real corpus directories, confirm that
+   only `sourceDigest` moved (account for anything else in `docs/project/api-json-differential.md`),
+   and run `go test -C tools -count=1 ./referee/apijson` as the pre-push check.
 
 ### 6.2 Keeping the agent skills current
 
