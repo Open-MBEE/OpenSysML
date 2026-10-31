@@ -138,6 +138,7 @@ func buildNamespaceDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia 
 		defineIdent(scope, id, sym)
 		scope.AddChild(child)
 		buildCrossFeature(child, d)
+		buildSatisfySubjects(child, d)
 		buildMembers(child, d.Members)
 		buildConnectorEnds(child, d)
 		return true
@@ -459,6 +460,21 @@ func ConstraintBodyScope(parent *Scope, decl ast.Node) *Scope {
 // end that declares a name (`connect bead references t.bead`) is a named
 // member; one that only names what it attaches to (`connect a to b`) is an
 // anonymous one.
+// buildSatisfySubjects registers the subject parameter each `by` clause of a
+// satisfy usage declares (SysML 8.3.19): an unnamed reference usage, declared
+// by the clause's relationship, that precedes the body's members.
+func buildSatisfySubjects(scope *Scope, u *ast.Usage) {
+	if u.Kind != ast.UsageSatisfy {
+		return
+	}
+	for _, rel := range u.Relationships {
+		if rel == nil || rel.Kind != ast.RelSubject || rel.Target == nil {
+			continue
+		}
+		buildAnonymousNode(scope, rel, SymbolReferenceUsage, nil, ast.VisibilityDefault, nil)
+	}
+}
+
 func buildConnectorEnds(scope *Scope, u *ast.Usage) {
 	for _, end := range u.ConnectorEnds {
 		if end == nil {

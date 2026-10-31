@@ -15,7 +15,10 @@ func TestSatisfySubjectMembershipIsOwned(t *testing.T) {
 		requirement def R;
 		part def Sys;
 		part sys : Sys {
-			satisfy requirement r : R by sys;
+			satisfy requirement r : R by sys {
+				require constraint { true }
+			}
+			satisfy requirement r2 : R by sys;
 		}
 	}`
 	m, root := buildModelWithLibraryNamedKind(t, "satisfy.sysml", source.KindSysML, src)
@@ -47,8 +50,19 @@ func TestSatisfySubjectMembershipIsOwned(t *testing.T) {
 	if got := m.OwningMembership(subject); got != membership {
 		t.Errorf("subject owning membership = %v, want the subject membership", got)
 	}
-	if n := len(m.OwnedRelationships(satisfy)); n != 2 {
-		// The requirement's ReferenceSubsetting and the subject membership.
-		t.Errorf("%d owned relationships, want 2", n)
+	if got := m.OwnedMemberships(satisfy); len(got) != 2 || got[0] != membership {
+		// The subject precedes the body's required constraint, as declared.
+		t.Errorf("owned memberships = %v, want the subject membership first of 2", got)
+	}
+	if got := m.SubjectParameterOf(satisfy); got != subject {
+		t.Errorf("subject parameter = %v, want the by subject", got)
+	}
+	if got := ownedMembersOf(satisfy); len(got) != 2 || got[0] != subject {
+		t.Errorf("owned members = %v, want the subject first of 2", got)
+	}
+	r2, _ := sys.Scope.LookupLocal("r2")
+	other := m.SubjectParameterOf(r2)
+	if other == nil || other == subject || other.DeclSpan == subject.DeclSpan || other.DeclSpan == (source.Span{}) {
+		t.Errorf("r2's subject %v must be its own, with its own non-empty span (r's: %v)", other, subject.DeclSpan)
 	}
 }

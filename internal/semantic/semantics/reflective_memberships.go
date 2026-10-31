@@ -47,51 +47,19 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 		return true
 	})
-	for _, subject := range m.satisfySubjectSymbols(sym) {
-		out = append(out, &symbols.Symbol{
-			Kind:     symbols.SymbolRelationship,
-			DocName:  sym.DocName,
-			DeclSpan: subject.DeclSpan,
-			Implicit: &symbols.ImplicitRelationship{
-				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: subject,
-			},
-		})
-		ordinal++
-	}
 	m.memberships[sym] = out
 	return out
 }
 
-// satisfySubjectSymbols synthesizes the subject parameter a satisfy usage's
-// `by` clause declares: an unnamed ReferenceUsage the usage owns through a
-// SubjectMembership (SysML 8.3.19, SatisfyRequirementUsage), which the
-// builder registers no symbol for. Its declaration is the `by` relationship.
-func (m *Model) satisfySubjectSymbols(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym.Kind != symbols.SymbolSatisfyRequirementUsage || sym.Recorded() {
-		return nil
-	}
-	decl, ok := sym.Decl.(*ast.Usage)
-	if !ok || decl.Kind != ast.UsageSatisfy {
-		return nil
-	}
-	var out []*symbols.Symbol
-	for _, rel := range decl.Relationships {
-		if rel == nil || rel.Kind != ast.RelSubject || rel.Target == nil {
-			continue
-		}
-		out = append(out, &symbols.Symbol{
-			Kind: symbols.SymbolReferenceUsage, Decl: rel, DocName: sym.DocName,
-			DeclSpan: rel.Span(), OwnerScope: sym.Scope,
-		})
-	}
-	return out
-}
-
-// isSatisfySubjectSymbol reports whether sym is the subject parameter
-// satisfySubjectSymbols synthesizes for a satisfy usage's `by` clause.
+// isSatisfySubjectSymbol reports whether sym is the subject parameter a satisfy
+// usage's `by` clause declares (symbols.buildSatisfySubjects), which a
+// SubjectMembership owns.
 func isSatisfySubjectSymbol(sym *symbols.Symbol) bool {
-	if sym == nil || sym.Kind != symbols.SymbolReferenceUsage || sym.Recorded() {
+	if sym == nil || sym.Kind != symbols.SymbolReferenceUsage {
 		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Node == symbols.NodeSubject
 	}
 	rel, ok := sym.Decl.(*ast.Relationship)
 	return ok && rel.Kind == ast.RelSubject

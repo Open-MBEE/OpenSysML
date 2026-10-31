@@ -169,6 +169,12 @@ func NodeKindOf(decl ast.Node) NodeKind {
 		return NodeCrossFeature
 	case *ast.SubjectMember:
 		return NodeSubject
+	case *ast.Relationship:
+		// The subject parameter a satisfy usage's `by` clause declares.
+		if decl.(*ast.Relationship).Kind == ast.RelSubject {
+			return NodeSubject
+		}
+		return NodeOther
 	case *ast.AssumeMember:
 		return NodeAssume
 	case *ast.RequireMember:
