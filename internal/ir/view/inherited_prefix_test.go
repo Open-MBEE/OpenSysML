@@ -45,7 +45,7 @@ func TestInheritedUsagesAreMarkedUnderEveryKindOfOwner(t *testing.T) {
 func TestWritersPrefixInheritedUsages(t *testing.T) {
 	rendering := render(t, "inherited-prefix.sysml", "InheritedPrefixViews::rigTree")
 	for form, wants := range map[Form][]string{
-		FormText:     {"  part d : APart\n    attribute mass\n    port ^aPort : APort\n    part ^engine : Engine\n", "  part c\n    port ^aPort : APort\n"},
+		FormText:     {"  part d : APart\n    port ^aPort : APort\n    attribute mass\n    part ^engine : Engine\n", "  part c\n    port ^aPort : APort\n"},
 		FormMermaid:  {"**^aPort : APort**", "**^mass**", "**mass**`\")", "**^cooler : Engine**"},
 		FormDot:      {"<b>^aPort : APort</b>", "<b>^mass</b>", "<b>mass</b>", "<b>^cooler : Engine</b>"},
 		FormPlantUML: {"**^aPort : APort**", "**^mass**", "**mass**\" as", "**^cooler : Engine**"},
@@ -60,6 +60,25 @@ func TestWritersPrefixInheritedUsages(t *testing.T) {
 				t.Errorf("%s lacks %q:\n%s", form, want, out)
 			}
 		}
+	}
+}
+
+// A member redefining an inherited one is listed in the redefined member's
+// place, after the inherited members its definition declares before it, so
+// refining a part in a usage body does not move it; a redefinition that masks
+// nothing stays where the body declares it.
+func TestRedefiningMemberKeepsTheRedefinedMembersPlace(t *testing.T) {
+	rendering := render(t, "inherited-prefix.sysml", "InheritedPrefixViews::rigTree")
+	out, err := rendering.WriteWith(FormText, Options{Show: AllShown()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "  part d : APart\n    port ^aPort : APort\n    attribute mass\n    part ^engine : Engine\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("part d does not list its redefined mass in APart's place:\n%s", out)
+	}
+	if before := "  part b : BPart\n    attribute ^mass\n    part ^cooler : Engine\n"; !strings.Contains(out, before) {
+		t.Errorf("BPart's own order moved:\n%s", out)
 	}
 }
 
@@ -257,5 +276,24 @@ func TestBehaviourNodesFromASupertypeAreInherited(t *testing.T) {
 	}
 	if text := flow.textWith(Options{Show: AllShown()}); !strings.Contains(text, "  action ^a\n") {
 		t.Errorf("action text lacks ^a:\n%s", text)
+	}
+}
+
+// Redefinitions declared out of order, and own members around them, keep the
+// redefined members' places.
+func TestRedefiningMembersKeepInheritedOrder(t *testing.T) {
+	rendering := render(t, "inherited-order.sysml", "InheritedOrderViews::rigTree")
+	out, err := rendering.WriteWith(FormText, Options{Show: AllShown()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"  part swapped : Swapped\n    part ^right : Engine\n    part ^left : Engine\n    attribute ^gap\n",
+		"  part trailed : Ends\n    part ^left : Engine\n    attribute ^gap\n    part right : Engine\n    part extra : Engine\n",
+		"  part led : Ends\n    part extra : Engine\n    part left : Engine\n    attribute ^gap\n    part ^right : Engine\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("want\n%s\nin\n%s", want, out)
+		}
 	}
 }
