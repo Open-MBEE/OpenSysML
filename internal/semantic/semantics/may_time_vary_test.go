@@ -171,3 +171,51 @@ func buildModelWithLibraryNamedKind(t *testing.T, name string, kind source.Kind,
 	r.ResolveDocument(name, root)
 	return m, idx.DocumentRoot(name)
 }
+
+func TestConnectorEndMayTimeVaryFromItsConnector(t *testing.T) {
+	const src = `package P {
+		part def D {
+			part a;
+			part b;
+			connection c connect a to b;
+			succession s first a then b;
+		}
+	}`
+	m, root := buildModelWithLibraryNamedKind(t, "ends.sysml", source.KindSysML, src)
+	p, ok := root.LookupLocal("P")
+	if !ok {
+		t.Fatal("P not found")
+	}
+	d, ok := p.Scope.LookupLocal("D")
+	if !ok {
+		t.Fatal("P::D not found")
+	}
+	// A connection is an Occurrence, so its ends vary in time; a succession is
+	// no Occurrence, so its ends do not.
+	for name, want := range map[string]bool{"c": true, "s": false} {
+		connector, ok := d.Scope.LookupLocal(name)
+		if !ok || connector.Scope == nil {
+			t.Fatalf("P::D::%s not found", name)
+		}
+		ends := 0
+		connector.Scope.ForEachMember(func(end *symbols.Symbol) bool {
+			if end.Kind != symbols.SymbolConnectorEnd {
+				return true
+			}
+			ends++
+			if got := m.UsageMayTimeVary(end); got != want {
+				t.Errorf("%s end %d: mayTimeVary = %v, want %v", name, ends, got, want)
+			}
+			if got := m.UsageMayTimeVaryForOwningType(end, connector); got != want {
+				t.Errorf("%s end %d: mayTimeVary for owning type = %v, want %v", name, ends, got, want)
+			}
+			if got := m.FeatureIsVariable(end); got != want {
+				t.Errorf("%s end %d: isVariable = %v, want %v", name, ends, got, want)
+			}
+			return true
+		})
+		if ends != 2 {
+			t.Errorf("%s: %d ends, want 2", name, ends)
+		}
+	}
+}
