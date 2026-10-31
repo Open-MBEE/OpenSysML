@@ -1679,10 +1679,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return m.ExpressionArguments(sym), true
 	case "ownedFeature":
-		var features []*symbols.Symbol
-		for _, member := range m.expressionOwnedParts(sym) {
-			features = append(features, member)
-		}
+		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		for _, member := range ownedMembersOf(sym) {
 			if member.IsFeature() {
 				features = append(features, member)
