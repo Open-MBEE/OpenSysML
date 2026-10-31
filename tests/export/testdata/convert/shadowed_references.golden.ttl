@@ -139,6 +139,8 @@ elmt:Shadowing__Packet__data_20field
     sysml:owningMembership elmt:Shadowing__Packet__data_20field_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "data field" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Field ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadowing__Packet__data_20field_ft0 ;
@@ -173,6 +175,8 @@ elmt:Shadowing__Packet__payload
     sysml:owningMembership elmt:Shadowing__Packet__payload_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "payload" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        part payload;\n" .
 
@@ -244,6 +248,8 @@ elmt:Shadowing__Thermal_20Packet__packet_20data_20field
     sysml:owningMembership elmt:Shadowing__Thermal_20Packet__packet_20data_20field_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "packet data field" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Shadowing__packet_20data_20field ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:Shadowing__Thermal_20Packet__packet_20data_20field_rd0 ;
@@ -279,6 +285,8 @@ elmt:Shadowing__Thermal_20Packet__data_20field
     sysml:owningMembership elmt:Shadowing__Thermal_20Packet__data_20field_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "data field" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Shadowing__Packet__data_20field ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadowing__Thermal_20Packet__data_20field__data_20field ;
@@ -420,6 +428,8 @@ elmt:Shadowing__Bus__payload
     sysml:owningMembership elmt:Shadowing__Bus__payload_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "payload" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:subsets elmt:Shadowing__payload ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSubsetting elmt:Shadowing__Bus__payload_ss0 ;
@@ -454,6 +464,8 @@ elmt:Shadowing__Bus__cargo
     sysml:owningMembership elmt:Shadowing__Bus__cargo_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "cargo" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:subsets elmt:Shadowing__payload ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSubsetting elmt:Shadowing__Bus__cargo_ss0 ;
@@ -489,6 +501,8 @@ elmt:Shadowing__Bus__carried
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "carried" ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:Shadowing__Bus__payload ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:Shadowing__Bus__carried_rs ;
@@ -551,6 +565,8 @@ elmt:Shadowing__Bus__wrapped
     sysml:owningMembership elmt:Shadowing__Bus__wrapped_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "wrapped" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Packet ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadowing__Bus__wrapped_ft0 ;
@@ -585,6 +601,8 @@ elmt:Shadowing__Bus__raw
     sysml:owningMembership elmt:Shadowing__Bus__raw_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "raw" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Bus__Packet ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadowing__Bus__raw_ft0 ;
@@ -619,6 +637,8 @@ elmt:Shadowing__Bus__link
     sysml:owningMembership elmt:Shadowing__Bus__link_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "link" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend1 ;
     sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_om, expr:Shadowing__Bus__link_pend1_om ;
     sysml:ownedMembership expr:Shadowing__Bus__link_pend0_om, expr:Shadowing__Bus__link_pend1_om ;
@@ -657,6 +677,8 @@ expr:Shadowing__Bus__link_pend0
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__link_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing__Bus__link ;
     sysml:owningRelationship expr:Shadowing__Bus__link_pend0_om ;
     sysml:owningMembership expr:Shadowing__Bus__link_pend0_om ;
@@ -737,6 +759,8 @@ expr:Shadowing__Bus__link_pend1
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__link_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing__Bus__link ;
     sysml:owningRelationship expr:Shadowing__Bus__link_pend1_om ;
     sysml:owningMembership expr:Shadowing__Bus__link_pend1_om ;
@@ -817,6 +841,8 @@ elmt:Shadowing__Bus__budgeted
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "budgeted" ;
     sysx:declaredPrefix "assert" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Budget ;
     sysml:subject elmt:Shadowing__Bus__payload ;
     sysml:ownedRelationship elmt:Shadowing__Bus__budgeted_ft0, elmt:Shadowing__Bus__budgeted_subject_om ;
@@ -845,6 +871,8 @@ elmt:Shadowing__Bus__budgeted_subject
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__budgeted_subject" ;
     sysml:qualifiedName "Shadowing::Bus::budgeted::_subject" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing__Bus__budgeted ;
     sysml:owningRelationship elmt:Shadowing__Bus__budgeted_subject_om ;
     sysml:owningMembership elmt:Shadowing__Bus__budgeted_subject_om ;
@@ -1025,6 +1053,8 @@ elmt:Shadowing___408_subject
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing___408_subject" ;
     sysml:qualifiedName "Shadowing::@8::_subject" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing___408 ;
     sysml:owningRelationship elmt:Shadowing___408_subject_om ;
     sysml:owningMembership elmt:Shadowing___408_subject_om ;
@@ -1183,6 +1213,8 @@ elmt:Shadowing__Study__vehicle
     sysml:owningMembership elmt:Shadowing__Study__vehicle_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "vehicle" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Shadowing__Bus ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1257,6 +1289,8 @@ elmt:Shadowing__study__vehicle
     sysml:owningRelationship elmt:Shadowing__study__vehicle_om ;
     sysml:owningMembership elmt:Shadowing__study__vehicle_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:subsets elmt:Shadowing__bus ;
     sysml:redefines elmt:Shadowing__Study__vehicle ;
@@ -1337,6 +1371,8 @@ elmt:Shadowing__deeper__load
     sysml:owningMembership elmt:Shadowing__deeper__load_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "load" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Shadowing__deeper__load_pvalue ;
     sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_om ;
     sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_om ;
@@ -1579,6 +1615,8 @@ elmt:Shadowing__Frame__packet_20data_20field
     sysml:owningMembership elmt:Shadowing__Frame__packet_20data_20field_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "packet data field" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Field ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadowing__Frame__packet_20data_20field_ft0 ;
@@ -1614,6 +1652,8 @@ elmt:Shadowing__Frame__outer
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "outer" ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Frame ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadowing__Frame__outer_ft0 ;
@@ -1649,6 +1689,8 @@ elmt:Shadowing__Frame__inner
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "inner" ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Frame__Frame ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadowing__Frame__inner_ft0 ;

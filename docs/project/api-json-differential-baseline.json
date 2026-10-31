@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:e8a4508062648cab4a1c499ec0af68bd6c6911b6ff2249050860bb535c87edb5"
+        "sourceDigest": "sha256:1916ecb9d0101ac03eb479492efc1fa8f137b559543fdab8fa4fa45586645edb"
       }
     ],
     "inputs": [
@@ -89,7 +89,7 @@
         "digest": "sha256:4f350c5a695cda953e0fb8f1b9b273c998f57480b9770bf063b6ca51a96cdf13"
       }
     ],
-    "recorded": "2026-10-30"
+    "recorded": "2026-10-31"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -120,17 +120,17 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1120818,
-      "presentDifferent": 27564,
-      "oursMissing": 1073445,
-      "pilotMissing": 68202,
-      "absentBoth": 1971713,
+      "presentEqual": 1144068,
+      "presentDifferent": 28091,
+      "oursMissing": 1054265,
+      "pilotMissing": 69343,
+      "absentBoth": 1967116,
       "indeterminate": 26127,
       "pilotNondeterministic": 514
     },
-    "rows": 11728,
+    "rows": 11735,
     "unkeyedReferences": 111690,
-    "extensionProperties": 159865,
+    "extensionProperties": 159867,
     "duplicateElements": {
       "ours": 527,
       "pilot": 83393
@@ -161,11 +161,11 @@
         "typeMismatch": 10
       },
       "properties": {
-        "presentEqual": 90295,
-        "presentDifferent": 1842,
-        "oursMissing": 86610,
+        "presentEqual": 92397,
+        "presentDifferent": 1876,
+        "oursMissing": 84784,
         "pilotMissing": 5126,
-        "absentBoth": 164696,
+        "absentBoth": 164386,
         "indeterminate": 1594,
         "pilotNondeterministic": 62
       },
@@ -197,11 +197,11 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 327975,
-        "presentDifferent": 7668,
-        "oursMissing": 311994,
+        "presentEqual": 334904,
+        "presentDifferent": 7833,
+        "oursMissing": 305987,
         "pilotMissing": 19290,
-        "absentBoth": 577236,
+        "absentBoth": 576149,
         "indeterminate": 6664,
         "pilotNondeterministic": 172
       },
@@ -233,11 +233,11 @@
         "typeMismatch": 15
       },
       "properties": {
-        "presentEqual": 114006,
-        "presentDifferent": 3162,
-        "oursMissing": 108820,
+        "presentEqual": 116560,
+        "presentDifferent": 3240,
+        "oursMissing": 106662,
         "pilotMissing": 6811,
-        "absentBoth": 206698,
+        "absentBoth": 206224,
         "indeterminate": 2194,
         "pilotNondeterministic": 66
       },
@@ -270,11 +270,11 @@
         "typeMismatch": 1034
       },
       "properties": {
-        "presentEqual": 73725,
+        "presentEqual": 74444,
         "presentDifferent": 2504,
-        "oursMissing": 63918,
-        "pilotMissing": 5784,
-        "absentBoth": 106739,
+        "oursMissing": 63871,
+        "pilotMissing": 6503,
+        "absentBoth": 106067,
         "indeterminate": 1421,
         "pilotNondeterministic": 9
       },
@@ -306,11 +306,11 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 76404,
-        "presentDifferent": 1567,
-        "oursMissing": 74068,
-        "pilotMissing": 5295,
-        "absentBoth": 135537,
+        "presentEqual": 78054,
+        "presentDifferent": 1613,
+        "oursMissing": 72909,
+        "pilotMissing": 5549,
+        "absentBoth": 135000,
         "indeterminate": 1985,
         "pilotNondeterministic": 7
       },
@@ -343,11 +343,11 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 16445,
+        "presentEqual": 16776,
         "presentDifferent": 428,
-        "oursMissing": 15857,
-        "pilotMissing": 1042,
-        "absentBoth": 31557,
+        "oursMissing": 15647,
+        "pilotMissing": 1057,
+        "absentBoth": 31436,
         "indeterminate": 376,
         "pilotNondeterministic": 0
       },
@@ -380,11 +380,11 @@
         "typeMismatch": 186
       },
       "properties": {
-        "presentEqual": 332672,
-        "presentDifferent": 8320,
-        "oursMissing": 322123,
-        "pilotMissing": 19997,
-        "absentBoth": 598024,
+        "presentEqual": 340337,
+        "presentDifferent": 8502,
+        "oursMissing": 315526,
+        "pilotMissing": 20150,
+        "absentBoth": 596774,
         "indeterminate": 9710,
         "pilotNondeterministic": 162
       },
@@ -416,9 +416,9 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 555,
+        "presentEqual": 557,
         "presentDifferent": 1,
-        "oursMissing": 454,
+        "oursMissing": 452,
         "pilotMissing": 41,
         "absentBoth": 993,
         "indeterminate": 13,
@@ -452,11 +452,11 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 88741,
-        "presentDifferent": 2072,
-        "oursMissing": 89601,
+        "presentEqual": 90039,
+        "presentDifferent": 2094,
+        "oursMissing": 88427,
         "pilotMissing": 4816,
-        "absentBoth": 150233,
+        "absentBoth": 150087,
         "indeterminate": 2170,
         "pilotNondeterministic": 36
       },
@@ -807,11 +807,11 @@
       0
     ],
     "AcceptActionUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -825,9 +825,9 @@
       0
     ],
     "AcceptActionUsage.mayTimeVary": [
-      0,
-      0,
       47,
+      0,
+      0,
       0,
       0,
       0,
@@ -2562,11 +2562,11 @@
       0
     ],
     "ActionUsage.isVariable": [
+      508,
+      9,
       0,
       0,
-      11,
       0,
-      506,
       0,
       0
     ],
@@ -2598,9 +2598,9 @@
       0
     ],
     "ActionUsage.mayTimeVary": [
+      508,
+      9,
       0,
-      0,
-      517,
       0,
       0,
       0,
@@ -4731,11 +4731,11 @@
       0
     ],
     "AllocationUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -4758,9 +4758,9 @@
       0
     ],
     "AllocationUsage.mayTimeVary": [
-      0,
-      0,
       10,
+      0,
+      0,
       0,
       0,
       0,
@@ -6639,11 +6639,11 @@
       0
     ],
     "AnalysisCaseUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -6657,9 +6657,9 @@
       0
     ],
     "AnalysisCaseUsage.mayTimeVary": [
-      0,
-      0,
       41,
+      0,
+      0,
       0,
       0,
       0,
@@ -7890,11 +7890,11 @@
       0
     ],
     "AssertConstraintUsage.isVariable": [
+      79,
       0,
       0,
-      71,
       0,
-      8,
+      0,
       0,
       0
     ],
@@ -7908,9 +7908,9 @@
       0
     ],
     "AssertConstraintUsage.mayTimeVary": [
-      0,
-      0,
       79,
+      0,
+      0,
       0,
       0,
       0,
@@ -8907,11 +8907,11 @@
       0
     ],
     "AssignmentActionUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -8925,9 +8925,9 @@
       0
     ],
     "AssignmentActionUsage.mayTimeVary": [
-      0,
-      0,
       111,
+      0,
+      0,
       0,
       0,
       0,
@@ -11652,11 +11652,11 @@
       0
     ],
     "AttributeUsage.isVariable": [
+      2547,
+      2,
       0,
       0,
-      2207,
       0,
-      342,
       0,
       0
     ],
@@ -11688,9 +11688,9 @@
       0
     ],
     "AttributeUsage.mayTimeVary": [
+      2547,
+      2,
       0,
-      0,
-      2549,
       0,
       0,
       0,
@@ -13119,15 +13119,24 @@
       0
     ],
     "BindingConnector.isVariable": [
+      8,
       0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "BindingConnector.isVariation": [
       0,
       0,
       0,
       8,
       0,
+      0,
       0
     ],
-    "BindingConnector.isVariation": [
+    "BindingConnector.mayTimeVary": [
       0,
       0,
       0,
@@ -13867,10 +13876,10 @@
     ],
     "BindingConnectorAsUsage.isVariable": [
       0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -13885,8 +13894,8 @@
     ],
     "BindingConnectorAsUsage.mayTimeVary": [
       0,
-      0,
       3,
+      0,
       0,
       0,
       0,
@@ -16341,11 +16350,11 @@
       0
     ],
     "CalculationUsage.isVariable": [
+      117,
       0,
       0,
-      9,
       0,
-      108,
+      0,
       0,
       0
     ],
@@ -16359,9 +16368,9 @@
       0
     ],
     "CalculationUsage.mayTimeVary": [
-      0,
-      0,
       117,
+      0,
+      0,
       0,
       0,
       0,
@@ -18195,11 +18204,11 @@
       0
     ],
     "CaseUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -18213,9 +18222,9 @@
       0
     ],
     "CaseUsage.mayTimeVary": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0,
@@ -21822,11 +21831,11 @@
       0
     ],
     "ConcernUsage.isVariable": [
+      21,
       0,
       0,
-      13,
       0,
-      8,
+      0,
       0,
       0
     ],
@@ -21849,9 +21858,9 @@
       0
     ],
     "ConcernUsage.mayTimeVary": [
-      0,
-      0,
       21,
+      0,
+      0,
       0,
       0,
       0,
@@ -24936,11 +24945,11 @@
       0
     ],
     "ConnectionUsage.isVariable": [
+      87,
       0,
       0,
-      63,
       0,
-      24,
+      0,
       0,
       0
     ],
@@ -24972,9 +24981,9 @@
       0
     ],
     "ConnectionUsage.mayTimeVary": [
-      0,
-      0,
       87,
+      0,
+      0,
       0,
       0,
       0,
@@ -27528,11 +27537,11 @@
       0
     ],
     "ConstraintUsage.isVariable": [
+      33,
+      169,
       0,
       0,
-      188,
       0,
-      14,
       0,
       0
     ],
@@ -27555,9 +27564,9 @@
       0
     ],
     "ConstraintUsage.mayTimeVary": [
+      33,
+      169,
       0,
-      0,
-      202,
       0,
       0,
       0,
@@ -29634,11 +29643,11 @@
       0
     ],
     "DecisionNode.isVariable": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -29652,9 +29661,9 @@
       0
     ],
     "DecisionNode.mayTimeVary": [
-      0,
-      0,
       51,
+      0,
+      0,
       0,
       0,
       0,
@@ -33117,11 +33126,11 @@
       0
     ],
     "EnumerationUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       69,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -33144,9 +33153,9 @@
       0
     ],
     "EnumerationUsage.mayTimeVary": [
-      0,
-      0,
       69,
+      0,
+      0,
       0,
       0,
       0,
@@ -34035,11 +34044,11 @@
       0
     ],
     "EventOccurrenceUsage.isVariable": [
+      179,
       0,
       0,
-      172,
       0,
-      7,
+      0,
       0,
       0
     ],
@@ -34062,9 +34071,9 @@
       0
     ],
     "EventOccurrenceUsage.mayTimeVary": [
-      0,
-      0,
       179,
+      0,
+      0,
       0,
       0,
       0,
@@ -35097,9 +35106,9 @@
       0
     ],
     "ExhibitStateUsage.isVariable": [
-      0,
-      0,
       50,
+      0,
+      0,
       0,
       0,
       0,
@@ -35115,9 +35124,9 @@
       0
     ],
     "ExhibitStateUsage.mayTimeVary": [
-      0,
-      0,
       50,
+      0,
+      0,
       0,
       0,
       0,
@@ -36807,11 +36816,11 @@
       0
     ],
     "Feature.isVariable": [
-      9089,
+      10190,
       0,
-      75,
       0,
-      1026,
+      0,
+      0,
       0,
       0
     ],
@@ -36829,6 +36838,15 @@
       0,
       0,
       116,
+      0,
+      0,
+      0
+    ],
+    "Feature.mayTimeVary": [
+      0,
+      0,
+      0,
+      1101,
       0,
       0,
       0
@@ -40047,15 +40065,24 @@
       0
     ],
     "Flow.isVariable": [
+      3,
       0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "Flow.isVariation": [
       0,
       0,
       0,
       3,
       0,
+      0,
       0
     ],
-    "Flow.isVariation": [
+    "Flow.mayTimeVary": [
       0,
       0,
       0,
@@ -42324,11 +42351,11 @@
       0
     ],
     "FlowUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -42342,9 +42369,9 @@
       0
     ],
     "FlowUsage.mayTimeVary": [
-      0,
-      0,
       106,
+      0,
+      0,
       0,
       0,
       0,
@@ -43458,11 +43485,11 @@
       0
     ],
     "ForLoopActionUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -43485,9 +43512,9 @@
       0
     ],
     "ForLoopActionUsage.mayTimeVary": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0,
@@ -44430,11 +44457,11 @@
       0
     ],
     "ForkNode.isVariable": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -44448,9 +44475,9 @@
       0
     ],
     "ForkNode.mayTimeVary": [
-      0,
-      0,
       17,
+      0,
+      0,
       0,
       0,
       0,
@@ -46176,11 +46203,11 @@
       0
     ],
     "IfActionUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -46194,9 +46221,9 @@
       0
     ],
     "IfActionUsage.mayTimeVary": [
-      0,
-      0,
       4,
+      0,
+      0,
       0,
       0,
       0,
@@ -47193,9 +47220,9 @@
       0
     ],
     "IncludeUseCaseUsage.isVariable": [
-      0,
-      0,
       19,
+      0,
+      0,
       0,
       0,
       0,
@@ -47220,9 +47247,9 @@
       0
     ],
     "IncludeUseCaseUsage.mayTimeVary": [
-      0,
-      0,
       19,
+      0,
+      0,
       0,
       0,
       0,
@@ -50271,11 +50298,11 @@
       0
     ],
     "InterfaceUsage.isVariable": [
+      43,
       0,
       0,
-      34,
       0,
-      9,
+      0,
       0,
       0
     ],
@@ -50298,9 +50325,9 @@
       0
     ],
     "InterfaceUsage.mayTimeVary": [
-      0,
-      0,
       43,
+      0,
+      0,
       0,
       0,
       0,
@@ -51360,15 +51387,24 @@
       0
     ],
     "Invariant.isVariable": [
+      1,
       0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "Invariant.isVariation": [
       0,
       0,
       0,
       1,
       0,
+      0,
       0
     ],
-    "Invariant.isVariation": [
+    "Invariant.mayTimeVary": [
       0,
       0,
       0,
@@ -53421,11 +53457,11 @@
       0
     ],
     "ItemUsage.isVariable": [
+      368,
       0,
       0,
-      341,
       0,
-      27,
+      0,
       0,
       0
     ],
@@ -53457,9 +53493,9 @@
       0
     ],
     "ItemUsage.mayTimeVary": [
-      0,
-      0,
       368,
+      0,
+      0,
       0,
       0,
       0,
@@ -54456,11 +54492,11 @@
       0
     ],
     "JoinNode.isVariable": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -54474,9 +54510,9 @@
       0
     ],
     "JoinNode.mayTimeVary": [
-      0,
-      0,
       16,
+      0,
+      0,
       0,
       0,
       0,
@@ -59109,11 +59145,11 @@
       0
     ],
     "MergeNode.isVariable": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -59127,9 +59163,9 @@
       0
     ],
     "MergeNode.mayTimeVary": [
-      0,
-      0,
       24,
+      0,
+      0,
       0,
       0,
       0,
@@ -61800,15 +61836,24 @@
       0
     ],
     "MetadataFeature.isVariable": [
+      1,
       0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "MetadataFeature.isVariation": [
       0,
       0,
       0,
       1,
       0,
+      0,
       0
     ],
-    "MetadataFeature.isVariation": [
+    "MetadataFeature.mayTimeVary": [
       0,
       0,
       0,
@@ -62457,11 +62502,11 @@
       0
     ],
     "MetadataUsage.isVariable": [
+      379,
+      5,
       0,
       0,
       0,
-      0,
-      384,
       0,
       0
     ],
@@ -62484,9 +62529,9 @@
       0
     ],
     "MetadataUsage.mayTimeVary": [
+      379,
+      5,
       0,
-      0,
-      384,
       0,
       0,
       0,
@@ -66822,11 +66867,11 @@
       0
     ],
     "OccurrenceUsage.isVariable": [
+      144,
       0,
       0,
-      26,
       0,
-      118,
+      0,
       0,
       0
     ],
@@ -66849,9 +66894,9 @@
       0
     ],
     "OccurrenceUsage.mayTimeVary": [
+      137,
+      7,
       0,
-      0,
-      144,
       0,
       0,
       0,
@@ -69990,11 +70035,11 @@
       0
     ],
     "PartUsage.isVariable": [
+      1950,
+      31,
       0,
       0,
-      1491,
       0,
-      490,
       0,
       0
     ],
@@ -70035,9 +70080,9 @@
       0
     ],
     "PartUsage.mayTimeVary": [
+      1950,
+      31,
       0,
-      0,
-      1981,
       0,
       0,
       0,
@@ -71682,11 +71727,11 @@
       0
     ],
     "PerformActionUsage.isVariable": [
-      0,
-      0,
       233,
-      0,
       3,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -71709,9 +71754,9 @@
       0
     ],
     "PerformActionUsage.mayTimeVary": [
+      233,
+      3,
       0,
-      0,
-      236,
       0,
       0,
       0,
@@ -73662,11 +73707,11 @@
       0
     ],
     "PortUsage.isVariable": [
+      490,
+      2,
       0,
       0,
-      484,
       0,
-      8,
       0,
       0
     ],
@@ -73689,9 +73734,9 @@
       0
     ],
     "PortUsage.mayTimeVary": [
+      490,
+      2,
       0,
-      0,
-      492,
       0,
       0,
       0,
@@ -75687,11 +75732,11 @@
       0
     ],
     "ReferenceUsage.isVariable": [
+      2302,
+      22,
       0,
       0,
-      2088,
       0,
-      236,
       0,
       0
     ],
@@ -75723,9 +75768,9 @@
       0
     ],
     "ReferenceUsage.mayTimeVary": [
+      2302,
+      22,
       0,
-      0,
-      2324,
       0,
       0,
       0,
@@ -77433,11 +77478,11 @@
       0
     ],
     "RenderingUsage.isVariable": [
+      37,
       0,
       0,
-      35,
       0,
-      2,
+      0,
       0,
       0
     ],
@@ -77469,9 +77514,9 @@
       0
     ],
     "RenderingUsage.mayTimeVary": [
-      0,
-      0,
       37,
+      0,
+      0,
       0,
       0,
       0,
@@ -79656,11 +79701,11 @@
       0
     ],
     "RequirementUsage.isVariable": [
+      267,
+      1,
       0,
       0,
-      162,
       0,
-      106,
       0,
       0
     ],
@@ -79683,9 +79728,9 @@
       0
     ],
     "RequirementUsage.mayTimeVary": [
+      267,
+      1,
       0,
-      0,
-      268,
       0,
       0,
       0,
@@ -81645,11 +81690,11 @@
       0
     ],
     "SatisfyRequirementUsage.isVariable": [
+      80,
       0,
       0,
-      53,
       0,
-      27,
+      0,
       0,
       0
     ],
@@ -81663,9 +81708,9 @@
       0
     ],
     "SatisfyRequirementUsage.mayTimeVary": [
-      0,
-      0,
       80,
+      0,
+      0,
       0,
       0,
       0,
@@ -83364,11 +83409,11 @@
       0
     ],
     "SendActionUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -83382,9 +83427,9 @@
       0
     ],
     "SendActionUsage.mayTimeVary": [
-      0,
-      0,
       26,
+      0,
+      0,
       0,
       0,
       0,
@@ -85947,11 +85992,11 @@
       0
     ],
     "StateUsage.isVariable": [
+      306,
       0,
       0,
-      1,
       0,
-      305,
+      0,
       0,
       0
     ],
@@ -85965,9 +86010,9 @@
       0
     ],
     "StateUsage.mayTimeVary": [
-      0,
-      0,
       306,
+      0,
+      0,
       0,
       0,
       0,
@@ -88800,15 +88845,24 @@
       0
     ],
     "Succession.isVariable": [
+      26,
       0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "Succession.isVariation": [
       0,
       0,
       0,
       26,
       0,
+      0,
       0
     ],
-    "Succession.isVariation": [
+    "Succession.mayTimeVary": [
       0,
       0,
       0,
@@ -89592,11 +89646,11 @@
       0
     ],
     "SuccessionAsUsage.isVariable": [
+      1,
+      11,
       0,
       0,
       0,
-      0,
-      12,
       0,
       0
     ],
@@ -89610,9 +89664,9 @@
       0
     ],
     "SuccessionAsUsage.mayTimeVary": [
+      1,
+      11,
       0,
-      0,
-      12,
       0,
       0,
       0,
@@ -90645,15 +90699,24 @@
       0
     ],
     "SuccessionFlow.isVariable": [
+      1,
       0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "SuccessionFlow.isVariation": [
       0,
       0,
       0,
       1,
       0,
+      0,
       0
     ],
-    "SuccessionFlow.isVariation": [
+    "SuccessionFlow.mayTimeVary": [
       0,
       0,
       0,
@@ -91500,11 +91563,11 @@
       0
     ],
     "SuccessionFlowUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -91518,9 +91581,9 @@
       0
     ],
     "SuccessionFlowUsage.mayTimeVary": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0,
@@ -92562,11 +92625,11 @@
       0
     ],
     "TerminateActionUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -92580,9 +92643,9 @@
       0
     ],
     "TerminateActionUsage.mayTimeVary": [
-      0,
-      0,
       11,
+      0,
+      0,
       0,
       0,
       0,
@@ -94029,11 +94092,11 @@
       0
     ],
     "TransitionUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -94047,9 +94110,9 @@
       0
     ],
     "TransitionUsage.mayTimeVary": [
-      0,
-      0,
       60,
+      0,
+      0,
       0,
       0,
       0,
@@ -96342,11 +96405,11 @@
       0
     ],
     "Usage.isVariable": [
+      30,
       0,
       0,
-      22,
       0,
-      8,
+      0,
       0,
       0
     ],
@@ -96360,9 +96423,9 @@
       0
     ],
     "Usage.mayTimeVary": [
-      0,
-      0,
       30,
+      0,
+      0,
       0,
       0,
       0,
@@ -98187,11 +98250,11 @@
       0
     ],
     "UseCaseUsage.isVariable": [
+      25,
+      2,
       0,
       0,
-      1,
       0,
-      26,
       0,
       0
     ],
@@ -98214,9 +98277,9 @@
       0
     ],
     "UseCaseUsage.mayTimeVary": [
+      25,
+      2,
       0,
-      0,
-      27,
       0,
       0,
       0,
@@ -100320,11 +100383,11 @@
       0
     ],
     "VerificationCaseUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -100338,9 +100401,9 @@
       0
     ],
     "VerificationCaseUsage.mayTimeVary": [
-      0,
-      0,
       43,
+      0,
+      0,
       0,
       0,
       0,
@@ -102354,11 +102417,11 @@
       0
     ],
     "ViewUsage.isVariable": [
+      101,
       0,
       0,
-      11,
       0,
-      90,
+      0,
       0,
       0
     ],
@@ -102390,9 +102453,9 @@
       0
     ],
     "ViewUsage.mayTimeVary": [
-      0,
-      0,
       101,
+      0,
+      0,
       0,
       0,
       0,
@@ -104298,11 +104361,11 @@
       0
     ],
     "ViewpointUsage.isVariable": [
+      9,
       0,
       0,
-      2,
       0,
-      7,
+      0,
       0,
       0
     ],
@@ -104316,9 +104379,9 @@
       0
     ],
     "ViewpointUsage.mayTimeVary": [
-      0,
-      0,
       9,
+      0,
+      0,
       0,
       0,
       0,
@@ -105369,11 +105432,11 @@
       0
     ],
     "WhileLoopActionUsage.isVariable": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -105387,9 +105450,9 @@
       0
     ],
     "WhileLoopActionUsage.mayTimeVary": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0,

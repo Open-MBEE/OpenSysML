@@ -1340,8 +1340,8 @@ type CheckResult struct {
 	SubjectRoot *Instance
 	SubjectPath []string
 
-	// Vacuous says why a holding requirement check judged no condition: it
-	// states no required constraint. Empty for a verdict about conditions.
+	// Vacuous says why a holding requirement check judged no required condition:
+	// it states none, or an assumption did not hold. Empty for a verdict about conditions.
 	Vacuous string
 }
 
@@ -1655,8 +1655,8 @@ func bodyScope(sym *symbols.Symbol, fallback *symbols.Scope) *symbols.Scope {
 
 // EvaluateRequirement evaluates a requirement definition/usage naming no object,
 // choosing its subject as EvaluateConstraint does.
-// Returns (satisfied, error). Validates subject/actor types and evaluates assume/require expressions.
-// Assume members always pass (trusted), require members must evaluate to true.
+// Returns (satisfied, error). Validates subject/actor types and evaluates assume/require expressions:
+// the requirement holds when its assumptions imply its required conditions (RequirementConstraintCheck::result).
 func (ctx *Context) EvaluateRequirement(sym *symbols.Symbol, scope *symbols.Scope) (bool, error) {
 	return ctx.EvaluateRequirementOn(sym, scope, nil)
 }
@@ -1720,14 +1720,12 @@ func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 		bindings: mapFrame(reqBindings),
 		negated:  NegatedDecl(sym),
 	}
-	holds, err := ctx.evaluateConditions(check, conds)
+	verdict, err := ctx.judgeConditions(check, conds)
 	if err != nil {
 		err = unboundSubjectError(err, "requirement", sym.Name, ctx.unboundSubjectNames(sym, members, subject.instance))
 	}
-	result := ctx.checkResultOf(holds, subject)
-	if err == nil && holds {
-		result.Vacuous = vacuity(check, conds)
-	}
+	result := ctx.checkResultOf(verdict.holds, subject)
+	result.Vacuous = verdict.vacuous
 	return result, err
 }
 

@@ -75,6 +75,8 @@ elmt:P__Node__next
     sysml:owningMembership elmt:P__Node__next_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "next" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:P__Node ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:P__Node__next_ft0 ;
@@ -174,6 +176,8 @@ elmt:P__H__q
     sysml:owningMembership elmt:P__H__q_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "q" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:P__Node ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:P__H__q_ft0 ;
@@ -248,6 +252,8 @@ elmt:P__h__r
     sysml:declaredName "r" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:P__h__r_pvalue ;
     sysml:ownedRelationship expr:P__h__r_pvalue_om ;
     sysml:ownedMembership expr:P__h__r_pvalue_om ;
@@ -545,6 +551,8 @@ expr:P__c_pend0
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__c_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:P__c ;
     sysml:owningRelationship expr:P__c_pend0_om ;
     sysml:owningMembership expr:P__c_pend0_om ;
@@ -637,6 +645,8 @@ expr:P__c_pend1
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__c_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:P__c ;
     sysml:owningRelationship expr:P__c_pend1_om ;
     sysml:owningMembership expr:P__c_pend1_om ;

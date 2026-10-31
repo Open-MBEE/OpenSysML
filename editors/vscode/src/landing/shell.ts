@@ -312,23 +312,27 @@ export function mountShell(root: HTMLElement, scene: Scene, options: MountOption
     }
     srcEl.value = "Loading the model…";
     srcEl.readOnly = true;
-    publishedSource().then(
-      (text) => {
-        srcEl.value = text;
-        srcEl.readOnly = false;
-        srcEl.focus();
-        srcEl.setSelectionRange(0, 0);
-        srcEl.scrollTop = 0;
-        // The engine is fetched now, so the first edit redraws without a wait.
-        void engine().catch(() => undefined);
-      },
-      (error: unknown) => {
-        srcEl.value = "";
-        srcEl.readOnly = false;
-        status(`Could not load the model: ${message(error)}. Hide and reopen the editor to try again.`, true);
-      },
-    );
+    void loadSource();
   });
+
+  // loadSource fills the editor with the published model, then fetches the engine so the first edit redraws without a wait.
+  async function loadSource(): Promise<void> {
+    let text: string;
+    try {
+      text = await publishedSource();
+    } catch (error: unknown) {
+      srcEl.value = "";
+      srcEl.readOnly = false;
+      status(`Could not load the model: ${message(error)}. Hide and reopen the editor to try again.`, true);
+      return;
+    }
+    srcEl.value = text;
+    srcEl.readOnly = false;
+    srcEl.focus();
+    srcEl.setSelectionRange(0, 0);
+    srcEl.scrollTop = 0;
+    void engine().catch(() => undefined);
+  }
   on(srcEl, "input", () => {
     if (!srcEl.readOnly) {
       status("Loading the engine and reading the model…");

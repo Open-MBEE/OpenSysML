@@ -108,6 +108,8 @@ elmt:Ordered__Mixed__x
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Ordered__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -206,6 +208,8 @@ expr:Ordered__Mixed___401_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "a" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Ordered__Real ;
     sysml:owner expr:Ordered__Mixed___401_pbody ;
     sysml:owningRelationship expr:Ordered__Mixed___401_pin0_om ;
@@ -267,6 +271,8 @@ expr:Ordered__Mixed___401_pin2
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "b" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Ordered__Real ;
     sysml:owner expr:Ordered__Mixed___401_pbody ;
     sysml:owningRelationship expr:Ordered__Mixed___401_pin2_om ;

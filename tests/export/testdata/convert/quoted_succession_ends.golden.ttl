@@ -554,6 +554,8 @@ elmt:QuotedSuccessionEnds__provide_20power__s
     sysml:owningMembership elmt:QuotedSuccessionEnds__provide_20power__s_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "s" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:QuotedSuccessionEnds__provide_20power__s_pend0, expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
     sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power__s_pend0_om, expr:QuotedSuccessionEnds__provide_20power__s_pend1_om ;
     sysml:ownedMembership expr:QuotedSuccessionEnds__provide_20power__s_pend0_om, expr:QuotedSuccessionEnds__provide_20power__s_pend1_om ;
@@ -891,6 +893,8 @@ elmt:QuotedSuccessionEnds__drive___403
     sysml:owningRelationship elmt:QuotedSuccessionEnds__drive___403_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__drive___403_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:QuotedSuccessionEnds__drive___403_pend0, expr:QuotedSuccessionEnds__drive___403_pend1 ;
     sysml:ownedRelationship expr:QuotedSuccessionEnds__drive___403_pend0_om, expr:QuotedSuccessionEnds__drive___403_pend1_om ;
     sysml:ownedMembership expr:QuotedSuccessionEnds__drive___403_pend0_om, expr:QuotedSuccessionEnds__drive___403_pend1_om ;
