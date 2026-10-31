@@ -394,6 +394,8 @@ expr:FlowsAndViews__FuelInterface___402_pend0_pff
     sysml:owner expr:FlowsAndViews__FuelInterface___402_pend0 ;
     sysml:owningRelationship expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
     sysml:owningMembership expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:FlowsAndViews__FuelPort__fuelSupply ;
     sysml:ownedRedefinition expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0 ;
     sysml:ownedSubsetting expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0 ;
@@ -463,6 +465,8 @@ expr:FlowsAndViews__FuelInterface___402_pend1_pff
     sysml:owner expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:owningRelationship expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
     sysml:owningMembership expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:FlowsAndViews__FuelPort__fuelSupply ;
     sysml:ownedRedefinition expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0 ;
     sysml:ownedSubsetting expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0 ;
@@ -868,6 +872,8 @@ expr:FlowsAndViews__vehicle___404_pend0
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "FlowsAndViews__vehicle___404_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:FlowsAndViews__vehicle___404 ;
     sysml:owningRelationship expr:FlowsAndViews__vehicle___404_pend0_om ;
     sysml:owningMembership expr:FlowsAndViews__vehicle___404_pend0_om ;
@@ -910,6 +916,8 @@ expr:FlowsAndViews__vehicle___404_pend1
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "FlowsAndViews__vehicle___404_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:FlowsAndViews__vehicle___404 ;
     sysml:owningRelationship expr:FlowsAndViews__vehicle___404_pend1_om ;
     sysml:owningMembership expr:FlowsAndViews__vehicle___404_pend1_om ;

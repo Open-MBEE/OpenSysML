@@ -368,6 +368,8 @@ elmt:Machines__Lamp__on__heat___404_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__heat___404_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__heat___404 ;
     sysml:owningRelationship elmt:Machines__Lamp__on__heat___404_linkparam_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__heat___404_linkparam_om .
@@ -669,6 +671,8 @@ elmt:Machines__Lamp__on__light___404_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__light___404_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__light___404 ;
     sysml:owningRelationship elmt:Machines__Lamp__on__light___404_linkparam_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__light___404_linkparam_om .
@@ -827,6 +831,8 @@ elmt:Machines__Lamp__on__light___405_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__light___405_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__light___405 ;
     sysml:owningRelationship elmt:Machines__Lamp__on__light___405_linkparam_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__light___405_linkparam_om .
@@ -985,6 +991,8 @@ elmt:Machines__Lamp___404_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___404_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___404 ;
     sysml:owningRelationship elmt:Machines__Lamp___404_linkparam_om ;
     sysml:owningMembership elmt:Machines__Lamp___404_linkparam_om .
@@ -1143,6 +1151,8 @@ elmt:Machines__Lamp___405_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___405_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___405 ;
     sysml:owningRelationship elmt:Machines__Lamp___405_linkparam_om ;
     sysml:owningMembership elmt:Machines__Lamp___405_linkparam_om .
@@ -1301,6 +1311,8 @@ elmt:Machines__Lamp___406_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___406_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___406 ;
     sysml:owningRelationship elmt:Machines__Lamp___406_linkparam_om ;
     sysml:owningMembership elmt:Machines__Lamp___406_linkparam_om .

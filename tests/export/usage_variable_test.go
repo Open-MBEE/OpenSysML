@@ -69,6 +69,103 @@ func TestUsageIsVariableIsItsDerivedMayTimeVary(t *testing.T) {
 	}
 }
 
+// A usage the exporter mints for a declaration — a connector end, a
+// transition's or trigger's parameter, a satisfy's subject, a flow end's
+// feature — varies in time when its owning type is an Occurrence
+// (deriveUsageMayTimeVary): a connection or action yes, a succession (a Link) no.
+func TestMintedUsagesStateTheirDerivedMayTimeVary(t *testing.T) {
+	src := `package Minted {
+	item def Fuel;
+	part def Tank { out port fuelOut; }
+	part def Engine { in port fuelIn; }
+	requirement def R { subject engineOfInterest : Engine; }
+	part def System {
+		part tank : Tank;
+		part engine : Engine;
+		connection c connect tank to engine;
+		succession s first tank then engine;
+		flow f of Fuel from tank.fuelOut to engine.fuelIn;
+		satisfy requirement r : R by engine;
+		state def M {
+			state off;
+			state on;
+			transition t first off accept go : Fuel via engine.fuelIn then on;
+		}
+	}
+}
+`
+	turtle := roundTripsExactly(t, src)
+	g, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	owners := map[string]string{}
+	for _, triple := range g.Triples() {
+		if triple.Predicate.Value == rdf.SysML+"owner" {
+			owners[triple.Subject.Value] = triple.Object.Value
+		}
+	}
+	var (
+		connectionEnds, successionEnds, flowEnds, flowFeatures, transitionParams, acceptParams, subjects, declaredSubjects int
+	)
+	for _, subject := range g.Subjects() {
+		owner := owners[subject.Value]
+		ownerClass := rdf.LocalName(g.Type(rdf.IRI(owner)))
+		class := rdf.LocalName(g.Type(subject))
+		isEnd, _ := g.Lexical(subject, rdf.SysML+"isEnd")
+		switch {
+		case ownerClass == "ConnectionUsage" && isEnd == "true":
+			connectionEnds++
+			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
+			wantLexical(t, g, subject.Value, rdf.SysML+"mayTimeVary", "true")
+		case ownerClass == "SuccessionAsUsage" && isEnd == "true":
+			successionEnds++
+			wantNoProperty(t, g, subject, rdf.SysML+"isVariable")
+			wantNoProperty(t, g, subject, rdf.SysML+"mayTimeVary")
+		case class == "FlowEnd":
+			flowEnds++
+			wantNoProperty(t, g, subject, rdf.SysML+"isVariable")
+			wantNoProperty(t, g, subject, rdf.SysML+"mayTimeVary")
+		case ownerClass == "FlowEnd" && class == "ReferenceUsage":
+			flowFeatures++
+			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
+			wantLexical(t, g, subject.Value, rdf.SysML+"mayTimeVary", "true")
+		case ownerClass == "TransitionUsage" && class == "ReferenceUsage":
+			transitionParams++
+			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
+			wantLexical(t, g, subject.Value, rdf.SysML+"mayTimeVary", "true")
+		case ownerClass == "AcceptActionUsage" && class == "ReferenceUsage":
+			acceptParams++
+			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
+			wantLexical(t, g, subject.Value, rdf.SysML+"mayTimeVary", "true")
+		case ownerClass == "RequirementDefinition" && class == "ReferenceUsage":
+			declaredSubjects++
+			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
+			wantLexical(t, g, subject.Value, rdf.SysML+"mayTimeVary", "true")
+		case ownerClass == "SatisfyRequirementUsage" && class == "ReferenceUsage":
+			subjects++
+			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
+			wantLexical(t, g, subject.Value, rdf.SysML+"mayTimeVary", "true")
+		}
+	}
+	for name, n := range map[string]int{
+		"connection ends": connectionEnds, "succession ends": successionEnds, "flow ends": flowEnds,
+		"flow end features": flowFeatures, "transition parameters": transitionParams,
+		"accept parameters": acceptParams, "satisfy subjects": subjects, "declared subjects": declaredSubjects,
+	} {
+		if n == 0 {
+			t.Errorf("no %s exported", name)
+		}
+	}
+}
+
+func wantNoProperty(t *testing.T, g *rdf.Graph, subject rdf.Term, predicate string) {
+	t.Helper()
+	if g.HasProperty(subject, predicate) {
+		t.Errorf("%s states %s, want none", subject.Value, rdf.LocalName(predicate))
+	}
+}
+
 // An expression body's parameter is owned by the Expression, an Occurrence, so
 // a SysML one varies in time (deriveUsageMayTimeVary); a KerML one is a Feature.
 func TestBodyParameterStatesItsDerivedMayTimeVary(t *testing.T) {

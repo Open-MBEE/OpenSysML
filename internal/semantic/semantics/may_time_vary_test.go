@@ -1,6 +1,9 @@
 package semantics
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -107,4 +110,71 @@ func TestKerMLBodyParameterDoesNotVaryInTime(t *testing.T) {
 	if m.FeatureIsVariable(param) {
 		t.Error("KerML body parameter item: isVariable = true, want false")
 	}
+}
+
+// A usage that declares nothing of its own varies in time under an Occurrence
+// owner: a connection or action, not a succession (a Link), nor a KerML owner.
+func TestUsageMayTimeVaryUnderOwner(t *testing.T) {
+	const src = `package P {
+		part def D {
+			part a;
+			part b;
+			connection c connect a to b;
+			succession s first a then b;
+			attribute v : ScalarValues::Real;
+		}
+	}`
+	m, root := buildModelWithLibraryNamedKind(t, "under.sysml", source.KindSysML, src)
+	p, ok := root.LookupLocal("P")
+	if !ok {
+		t.Fatal("P not found")
+	}
+	d, ok := p.Scope.LookupLocal("D")
+	if !ok {
+		t.Fatal("P::D not found")
+	}
+	for name, want := range map[string]bool{"c": true, "s": false, "v": false} {
+		sym, ok := d.Scope.LookupLocal(name)
+		if !ok {
+			t.Fatalf("P::D::%s not found", name)
+		}
+		if got := m.UsageMayTimeVaryUnder(sym); got != want {
+			t.Errorf("under %s: mayTimeVary = %v, want %v", name, got, want)
+		}
+	}
+	if !m.UsageMayTimeVaryUnderKind(ast.UsageAction) {
+		t.Error("under an action usage: mayTimeVary = false, want true")
+	}
+	if m.UsageMayTimeVaryUnderKind(ast.UsageAttribute) {
+		t.Error("under an attribute usage: mayTimeVary = true, want false")
+	}
+	if !m.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source") {
+		t.Error("under a flow end (Flows::Flow::source : Occurrence): mayTimeVary = false, want true")
+	}
+	if m.UsageMayTimeVaryUnder(nil) {
+		t.Error("under no owner: mayTimeVary = true, want false")
+	}
+}
+
+// buildModelWithLibraryNamedKind is buildModelWithStdlibNamedKind with the
+// standard library marked as the library it is, so library-only lookups resolve.
+func buildModelWithLibraryNamedKind(t *testing.T, name string, kind source.Kind, src string) (*Model, *symbols.Scope) {
+	t.Helper()
+	idx := stdlibIndex(t)
+	for _, doc := range idx.Documents() {
+		if doc != name {
+			idx.MarkLibrary(doc)
+		}
+	}
+	p := parser.New(source.New(name, []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	idx.AddDocumentWithKind(name, root, kind)
+	r := resolve.New(idx)
+	m := NewModel(r)
+	r.SetModel(m)
+	r.ResolveDocument(name, root)
+	return m, idx.DocumentRoot(name)
 }

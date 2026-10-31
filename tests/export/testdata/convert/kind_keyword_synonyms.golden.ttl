@@ -286,6 +286,8 @@ expr:Synonyms___407_pend0
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Synonyms___407_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Synonyms___407 ;
     sysml:owningRelationship expr:Synonyms___407_pend0_om ;
     sysml:owningMembership expr:Synonyms___407_pend0_om ;
@@ -328,6 +330,8 @@ expr:Synonyms___407_pend1
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Synonyms___407_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Synonyms___407 ;
     sysml:owningRelationship expr:Synonyms___407_pend1_om ;
     sysml:owningMembership expr:Synonyms___407_pend1_om ;

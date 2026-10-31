@@ -11,6 +11,7 @@ package export
 import (
 	"cmp"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"strings"
 
@@ -517,7 +518,7 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 // ReferenceUsage owned through a SubjectMembership whose FeatureValue is a
 // FeatureReferenceExpression of the subject — the shape `subject = <expr>`
 // has, since a satisfy's `by` is the subject it evaluates the requirement for.
-func (e *encoder) subjectParameter(subject rdf.Term, owner string, target ast.Node) error {
+func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *symbols.Symbol, target ast.Node) error {
 	usage := e.ids.minted(rdf.RelationshipIRI(subject, "_subject"), subject, "_subject")
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(usage), usage, rdf.OwningMembershipSuffix)
 	for _, c := range []struct{ iri, standsFor string }{
@@ -534,6 +535,10 @@ func (e *encoder) subjectParameter(subject rdf.Term, owner string, target ast.No
 	e.typed(usage, mReferenceUsage)
 	e.graph.Add(usage, e.sysml(pElementID), rdf.String(rdf.LocalName(usage.Value)))
 	e.graph.Add(usage, e.sysml(pQualifiedName), rdf.String(owner+"::_subject"))
+	// The subject is a referential usage owned by the satisfy usage, an Occurrence.
+	if e.ids.model.UsageMayTimeVaryUnder(ownerSym) {
+		e.flags(usage, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+	}
 	e.emitMembershipCore(membership, usage, subject, mSubjectMembership, true)
 	e.graph.Add(membership, e.sysml(pOwnedSubjectParameter), usage)
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), usage)
@@ -579,12 +584,12 @@ func (e *encoder) subjectFeatureChainValue(usage rdf.Term, target ast.Node, chai
 // subjectParameters emits a subject parameter per `by` target the head states
 // (SysML.xtext SatisfyRequirementUsage `subject`); the collapsed `subject`
 // property the relationships pass wrote stays beside it.
-func (e *encoder) subjectParameters(subject rdf.Term, owner string, rels []*ast.Relationship) error {
+func (e *encoder) subjectParameters(subject rdf.Term, owner string, ownerSym *symbols.Symbol, rels []*ast.Relationship) error {
 	for _, rel := range rels {
 		if rel == nil || rel.Kind != ast.RelSubject || rel.Target == nil {
 			continue
 		}
-		if err := e.subjectParameter(subject, owner, rel.Target); err != nil {
+		if err := e.subjectParameter(subject, owner, ownerSym, rel.Target); err != nil {
 			return err
 		}
 	}

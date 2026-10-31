@@ -551,6 +551,8 @@ expr:P__c_pend0
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__c_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:P__c ;
     sysml:owningRelationship expr:P__c_pend0_om ;
     sysml:owningMembership expr:P__c_pend0_om ;
@@ -643,6 +645,8 @@ expr:P__c_pend1
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__c_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:P__c ;
     sysml:owningRelationship expr:P__c_pend1_om ;
     sysml:owningMembership expr:P__c_pend1_om ;

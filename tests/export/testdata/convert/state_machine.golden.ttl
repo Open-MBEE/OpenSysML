@@ -572,6 +572,8 @@ elmt:StateMachine__VehicleStates__active___401_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active___401_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active___401 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active___401_linkparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___401_linkparam_om .
@@ -593,6 +595,8 @@ elmt:StateMachine__VehicleStates__active___401_triggerparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active___401_triggerparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active___401 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active___401_triggerparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___401_triggerparam_om .
@@ -833,6 +837,8 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart_linkparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart_linkparam_om .
@@ -854,6 +860,8 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_triggerparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_triggerparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart_triggerparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart_triggerparam_om .
@@ -1093,6 +1101,8 @@ elmt:StateMachine__VehicleStates___405_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates___405_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates___405 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates___405_linkparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates___405_linkparam_om .
@@ -1323,6 +1333,8 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff_linkparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff_linkparam_om .
@@ -1344,6 +1356,8 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_triggerparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_triggerparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff_triggerparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff_triggerparam_om .
@@ -1542,6 +1556,8 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_om ;
