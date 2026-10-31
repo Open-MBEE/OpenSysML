@@ -28,7 +28,7 @@ elmt:Chains
 
 elmt:Chains___400
     a sysml:Comment ;
-    sysml:qualifiedName "Chains::@0" ;
+    sysx:positionalName "Chains::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;

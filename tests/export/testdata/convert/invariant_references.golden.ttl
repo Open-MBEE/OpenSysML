@@ -28,7 +28,7 @@ elmt:InvariantReferences
 
 elmt:InvariantReferences___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "InvariantReferences::@0" ;
+    sysx:positionalName "InvariantReferences::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -189,7 +189,7 @@ elmt:InvariantReferences__Tank__level_om
 
 elmt:InvariantReferences__Tank___403
     a sysml:ConstraintUsage ;
-    sysml:qualifiedName "InvariantReferences::Tank::@3" ;
+    sysx:positionalName "InvariantReferences::Tank::@3" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -225,7 +225,7 @@ elmt:InvariantReferences__Tank___403_om
 elmt:InvariantReferences__Tank___403___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "InvariantReferences::Tank::@3::@0" ;
+    sysx:positionalName "InvariantReferences::Tank::@3::@0" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "15"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -326,7 +326,7 @@ elmt:InvariantReferences__Tank__holds_om
 elmt:InvariantReferences__Tank__holds___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "InvariantReferences::Tank::holds::@0" ;
+    sysx:positionalName "InvariantReferences::Tank::holds::@0" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "21"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -469,7 +469,7 @@ expr:InvariantReferences__Tank__holds___400_pout_om
 
 elmt:InvariantReferences__Tank___405
     a sysml:ConstraintUsage ;
-    sysml:qualifiedName "InvariantReferences::Tank::@5" ;
+    sysx:positionalName "InvariantReferences::Tank::@5" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -505,7 +505,7 @@ elmt:InvariantReferences__Tank___405_om
 elmt:InvariantReferences__Tank___405___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "InvariantReferences::Tank::@5::@0" ;
+    sysx:positionalName "InvariantReferences::Tank::@5::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "15"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -774,7 +774,7 @@ elmt:InvariantReferences__Tank__bounded_om
 elmt:InvariantReferences__Tank__bounded___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "InvariantReferences::Tank::bounded::@0" ;
+    sysx:positionalName "InvariantReferences::Tank::bounded::@0" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;
@@ -965,7 +965,7 @@ expr:InvariantReferences__Tank__bounded___400_pout_om
 elmt:InvariantReferences__Tank__bounded___401
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "InvariantReferences::Tank::bounded::@1" ;
+    sysx:positionalName "InvariantReferences::Tank::bounded::@1" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;

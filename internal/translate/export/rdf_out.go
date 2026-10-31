@@ -888,7 +888,7 @@ func (e *encoder) libraryNames() {
 		named[ref.subject.Value] = true
 		e.graph.Add(ref.subject, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
 		e.graph.Add(ref.subject, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.subject.Value)))
-		e.graph.Add(ref.subject, e.sysml(pQualifiedName), rdf.String(ref.fqn))
+		e.graph.Add(ref.subject, addressTerm(ref.fqn), rdf.String(ref.fqn))
 		if declared, _ := declaredNameAndMembers(ref.node); declared != "" {
 			e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared))
 		}
@@ -1425,7 +1425,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 		h.node, h.visibility, h.fqn, h.owner, h.index, h.metaclass, h.lines, h.inline
 	e.graph.Add(subject, rdf.IRI(rdf.RDFType), metaclass)
 	if h.local.Value == "" {
-		e.graph.Add(subject, e.sysml(pQualifiedName), rdf.String(fqn))
+		e.graph.Add(subject, addressTerm(fqn), rdf.String(fqn))
 		e.offsets[subject.Value] = node.Span().Offset
 		e.sourceRange(subject, node.Span())
 	}

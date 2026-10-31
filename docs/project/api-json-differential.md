@@ -112,10 +112,10 @@ Elements are matched by a **stable key**, computed identically on both sides:
   owned related elements, in order, which is how the metamodel derives `ownedElement`;
 - a document's root elements by the document: `/<file>/<metaclass>#i`.
 
-A positional name this repository's writer spells for an unnamed element (`Demo::@1`,
+A positional address this repository's writer spells for an unnamed element (`Demo::@1`,
 `Legacy::@4::@trigger`) is not a name — the metamodel derives no `qualifiedName` for an unnamed
-element — so such an element is keyed structurally and its stated `qualifiedName` is measured
-against the pilot's null. Identical copies of one element on a side are one element (the pilot
+element, and the writer states the address as `sysx:positionalName`, not as `qualifiedName` — so
+such an element is keyed structurally, and its `qualifiedName` is measured as the pilot's null. Identical copies of one element on a side are one element (the pilot
 writes an element in every file whose traversal reaches it; `duplicateElements`); elements two of
 which compute one key but differ are dropped from matching (`ambiguousKeys`); elements no key
 addresses (`unkeyableElements`: on the pilot's side the ownerless connectors it synthesizes and

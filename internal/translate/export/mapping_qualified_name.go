@@ -730,7 +730,7 @@ func graphWithoutQualifiedNames(graph *rdf.Graph) *rdf.Graph {
 	}
 	triples := make([]rdf.Triple, 0, graph.Len())
 	for _, triple := range graph.Triples() {
-		if triple.Predicate.Value != rdf.SysML+pQualifiedName {
+		if triple.Predicate.Value != rdf.SysML+pQualifiedName && triple.Predicate.Value != rdf.OpenSysML+xPositionalName {
 			triples = append(triples, triple)
 		}
 	}

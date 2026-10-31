@@ -424,7 +424,7 @@ elmt:ConnectorEnds__Vehicle__transitionLink_om
 
 elmt:ConnectorEnds__Vehicle___406
     a sysml:Connector ;
-    sysml:qualifiedName "ConnectorEnds::Vehicle::@6" ;
+    sysx:positionalName "ConnectorEnds::Vehicle::@6" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "14"^^xsd:integer ;
@@ -592,7 +592,7 @@ expr:ConnectorEnds__Vehicle___406_pend1_prs
 
 elmt:ConnectorEnds__Vehicle___407
     a sysml:Connector ;
-    sysml:qualifiedName "ConnectorEnds::Vehicle::@7" ;
+    sysx:positionalName "ConnectorEnds::Vehicle::@7" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "15"^^xsd:integer ;
@@ -762,7 +762,7 @@ expr:ConnectorEnds__Vehicle___407_pend1_prs
 
 elmt:ConnectorEnds__Vehicle___408
     a sysml:Connector ;
-    sysml:qualifiedName "ConnectorEnds::Vehicle::@8" ;
+    sysx:positionalName "ConnectorEnds::Vehicle::@8" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -1046,7 +1046,7 @@ expr:ConnectorEnds__Vehicle___408_pend1_pupperBound_om
 
 elmt:ConnectorEnds__Vehicle___409
     a sysml:Connector ;
-    sysml:qualifiedName "ConnectorEnds::Vehicle::@9" ;
+    sysx:positionalName "ConnectorEnds::Vehicle::@9" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -1217,7 +1217,7 @@ expr:ConnectorEnds__Vehicle___409_pend1_prs
 
 elmt:ConnectorEnds__Vehicle___4010
     a sysml:Connector ;
-    sysml:qualifiedName "ConnectorEnds::Vehicle::@10" ;
+    sysx:positionalName "ConnectorEnds::Vehicle::@10" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -1657,7 +1657,7 @@ expr:ConnectorEnds__Vehicle__link_pend1_prs
 
 elmt:ConnectorEnds__Vehicle___4012
     a sysml:Connector ;
-    sysml:qualifiedName "ConnectorEnds::Vehicle::@12" ;
+    sysx:positionalName "ConnectorEnds::Vehicle::@12" ;
     sysx:sourceLine "20"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "20"^^xsd:integer ;
@@ -1827,7 +1827,7 @@ expr:ConnectorEnds__Vehicle___4012_pend1_prs
 
 elmt:ConnectorEnds__Vehicle___4013
     a sysml:Connector ;
-    sysml:qualifiedName "ConnectorEnds::Vehicle::@13" ;
+    sysx:positionalName "ConnectorEnds::Vehicle::@13" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "21"^^xsd:integer ;
@@ -1996,7 +1996,7 @@ expr:ConnectorEnds__Vehicle___4013_pend1_prs
 
 elmt:ConnectorEnds__Vehicle___4014
     a sysml:Connector ;
-    sysml:qualifiedName "ConnectorEnds::Vehicle::@14" ;
+    sysx:positionalName "ConnectorEnds::Vehicle::@14" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "22"^^xsd:integer ;
@@ -2165,7 +2165,7 @@ expr:ConnectorEnds__Vehicle___4014_pend1_prs
 
 elmt:ConnectorEnds__Vehicle___4015
     a sysml:Connector ;
-    sysml:qualifiedName "ConnectorEnds::Vehicle::@15" ;
+    sysx:positionalName "ConnectorEnds::Vehicle::@15" ;
     sysx:sourceLine "23"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "23"^^xsd:integer ;

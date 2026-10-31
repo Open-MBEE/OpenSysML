@@ -299,7 +299,7 @@ elmt:FlowsAndViews__FuelInterface__consumerPort_om
 
 elmt:FlowsAndViews__FuelInterface___402
     a sysml:FlowUsage ;
-    sysml:qualifiedName "FlowsAndViews::FuelInterface::@2" ;
+    sysx:positionalName "FlowsAndViews::FuelInterface::@2" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -818,7 +818,7 @@ elmt:FlowsAndViews__vehicle__engine_om
 
 elmt:FlowsAndViews__vehicle___404
     a sysml:AllocationUsage ;
-    sysml:qualifiedName "FlowsAndViews::vehicle::@4" ;
+    sysx:positionalName "FlowsAndViews::vehicle::@4" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -1100,7 +1100,7 @@ elmt:FlowsAndViews__StructureView_om
 
 elmt:FlowsAndViews__StructureView___400
     a sysml:ElementFilterMembership ;
-    sysml:qualifiedName "FlowsAndViews::StructureView::@0" ;
+    sysx:positionalName "FlowsAndViews::StructureView::@0" ;
     sysx:sourceLine "25"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "25"^^xsd:integer ;
@@ -1236,7 +1236,7 @@ elmt:FlowsAndViews__vehicleView_om
 
 elmt:FlowsAndViews__vehicleView___400
     a sysml:MembershipExpose ;
-    sysml:qualifiedName "FlowsAndViews::vehicleView::@0" ;
+    sysx:positionalName "FlowsAndViews::vehicleView::@0" ;
     sysx:sourceLine "28"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "28"^^xsd:integer ;

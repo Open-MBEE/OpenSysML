@@ -158,7 +158,7 @@ elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque_om
 elmt:QuotedSuccessionEnds__provide_20power___403
     a sysml:SuccessionAsUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "QuotedSuccessionEnds::provide power::@3" ;
+    sysx:positionalName "QuotedSuccessionEnds::provide power::@3" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -286,7 +286,7 @@ expr:QuotedSuccessionEnds__provide_20power___403_pend1_prs
 elmt:QuotedSuccessionEnds__provide_20power___404
     a sysml:SuccessionAsUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "QuotedSuccessionEnds::provide power::@4" ;
+    sysx:positionalName "QuotedSuccessionEnds::provide power::@4" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -414,7 +414,7 @@ expr:QuotedSuccessionEnds__provide_20power___404_pend1_prs
 elmt:QuotedSuccessionEnds__provide_20power___405
     a sysml:SuccessionAsUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "QuotedSuccessionEnds::provide power::@5" ;
+    sysx:positionalName "QuotedSuccessionEnds::provide power::@5" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -746,7 +746,7 @@ elmt:QuotedSuccessionEnds__drive__enter_20vehicle_om
 elmt:QuotedSuccessionEnds__drive___401
     a sysml:SuccessionAsUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "QuotedSuccessionEnds::drive::@1" ;
+    sysx:positionalName "QuotedSuccessionEnds::drive::@1" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "13"^^xsd:integer ;
@@ -881,7 +881,7 @@ elmt:QuotedSuccessionEnds__drive__start_20engine_om
 
 elmt:QuotedSuccessionEnds__drive___403
     a sysml:SuccessionAsUsage ;
-    sysml:qualifiedName "QuotedSuccessionEnds::drive::@3" ;
+    sysx:positionalName "QuotedSuccessionEnds::drive::@3" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "15"^^xsd:integer ;

@@ -133,7 +133,7 @@ elmt:Bodies__Scaled__x_om
 elmt:Bodies__Scaled___401
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "Bodies::Scaled::@1" ;
+    sysx:positionalName "Bodies::Scaled::@1" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "5"^^xsd:integer ;

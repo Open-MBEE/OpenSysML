@@ -1013,7 +1013,7 @@ elmt:Shadowing__budget_om
 
 elmt:Shadowing___408
     a sysml:SatisfyRequirementUsage ;
-    sysml:qualifiedName "Shadowing::@8" ;
+    sysx:positionalName "Shadowing::@8" ;
     sysx:sourceLine "28"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "28"^^xsd:integer ;
@@ -1052,7 +1052,7 @@ elmt:Shadowing___408_subject
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing___408_subject" ;
-    sysml:qualifiedName "Shadowing::@8::_subject" ;
+    sysx:positionalName "Shadowing::@8::_subject" ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing___408 ;
@@ -1890,7 +1890,7 @@ elmt:Shadowing__Consumer__Lib__Cell_om
 
 elmt:Shadowing__Consumer___401
     a sysml:MembershipImport ;
-    sysml:qualifiedName "Shadowing::Consumer::@1" ;
+    sysx:positionalName "Shadowing::Consumer::@1" ;
     sysx:sourceLine "51"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "51"^^xsd:integer ;
@@ -2032,7 +2032,7 @@ elmt:Shadowing__Exposed__Lib_om
 
 elmt:Shadowing__Exposed___401
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "Shadowing::Exposed::@1" ;
+    sysx:positionalName "Shadowing::Exposed::@1" ;
     sysx:sourceLine "57"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "57"^^xsd:integer ;

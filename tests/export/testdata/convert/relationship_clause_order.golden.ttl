@@ -29,7 +29,7 @@ elmt:ClauseOrder
 
 elmt:ClauseOrder___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "ClauseOrder::@0" ;
+    sysx:positionalName "ClauseOrder::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;

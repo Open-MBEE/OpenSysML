@@ -100,7 +100,7 @@ func newAPIJSONNameIndex(graph *rdf.Graph, graphIndex *apiJSONGraphIndex) *apiJS
 		if name, ok := graph.Lexical(subject, rdf.SysML+pDeclaredShortName); ok {
 			index.addOwnedName(subject, name)
 		}
-		if name, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+		if name, ok := addressOf(graph, subject); ok {
 			index.addOwnedName(subject, name)
 		}
 	}
@@ -732,7 +732,7 @@ func apiJSONNameMatches(graph *rdf.Graph, subject rdf.Term, name string) bool {
 	if value, ok := graph.Lexical(subject, rdf.SysML+pDeclaredName); ok && value == name {
 		return true
 	}
-	if value, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok && value == name {
+	if value, ok := addressOf(graph, subject); ok && value == name {
 		return true
 	}
 	return false
