@@ -308,7 +308,7 @@ func (e *encoder) bodyExpression(subject rdf.Term, owner string, n *ast.BodyExpr
 	e.graph.Add(body, e.sysx(xHasBody), rdf.Bool(true))
 	// The parts keep the ids they had off the reference node, so an id form
 	// does not move with the body node between them.
-	if err := e.bodyDeclarations(body, subject, owner, n.Params, n.Members); err != nil {
+	if err := e.bodyDeclarations(body, subject, owner, n, n.Params, n.Members); err != nil {
 		return err
 	}
 	if n.Result != nil {
@@ -457,7 +457,7 @@ func expressionMetaclass(node ast.Node) string {
 // bodyDeclarations emits what an expression body declares ahead of its result,
 // parameters and members alike, indexed in the one order they were written.
 // The body owns them; their ids are minted off base.
-func (e *encoder) bodyDeclarations(subject, base rdf.Term, owner string, params []ast.BodyParam, members []ast.Node) error {
+func (e *encoder) bodyDeclarations(subject, base rdf.Term, owner string, body *ast.BodyExpr, params []ast.BodyParam, members []ast.Node) error {
 	type declaration struct {
 		offset int
 		param  *ast.BodyParam
@@ -476,7 +476,7 @@ func (e *encoder) bodyDeclarations(subject, base rdf.Term, owner string, params 
 	for i, decl := range declarations {
 		var err error
 		if decl.param != nil {
-			err = e.bodyParameter(subject, base, owner, i, *decl.param)
+			err = e.bodyParameter(subject, base, owner, body, i, *decl.param)
 		} else {
 			err = e.bodyMember(subject, base, owner, i, decl.member)
 		}
@@ -489,7 +489,7 @@ func (e *encoder) bodyDeclarations(subject, base rdf.Term, owner string, params 
 
 // bodyParameter emits one parameter of an expression body as a node of its
 // own, so its type, value and bounds are structure, not text.
-func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, index int, param ast.BodyParam) error {
+func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.BodyExpr, index int, param ast.BodyParam) error {
 	node := e.ids.mintedNode(rdf.ExpressionIRI(base, fmt.Sprintf("in%d", index)), base, fmt.Sprintf("in%d", index))
 	e.graph.Add(subject, e.sysx(xBodyParameter), node)
 	e.graph.Add(node, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(keywordMetaclass["ref"]))
@@ -497,7 +497,13 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, index int,
 	e.graph.Add(node, e.sysx(xMemberIndex), rdf.Int(index))
 	e.graph.Add(node, e.sysml(pDirection), rdf.String(directionKeyword(ast.DirIn)))
 	e.name(node, param.Name)
-	e.flags(node, []boolProperty{{"isReference", param.IsReference}})
+	// The parameter's symbol derives its variability; a body it declares as its
+	// node is looked up by the parameter's name (deriveUsageMayTimeVary).
+	var variable, timeVarying bool
+	if sym := e.ids.bodyParamSym[body][param.Name]; sym != nil {
+		variable, timeVarying = e.ids.model.FeatureIsVariable(sym), e.ids.model.UsageMayTimeVary(sym)
+	}
+	e.flags(node, []boolProperty{{"isReference", param.IsReference}, {"isVariable", variable}, {"mayTimeVary", timeVarying}})
 	if param.Type != nil {
 		e.headRelationship(node, ast.RelTyping, e.reference(param.Type), param.Type)
 	}
@@ -509,7 +515,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, index int,
 	if err := e.expression(node, e.sysml(pValue), pValue, owner, param.Value); err != nil {
 		return err
 	}
-	return e.bodyDeclarations(node, node, owner, nil, param.Members)
+	return e.bodyDeclarations(node, node, owner, nil, nil, param.Members)
 }
 
 // bodyMember emits one declaration of an expression body as the member it is:

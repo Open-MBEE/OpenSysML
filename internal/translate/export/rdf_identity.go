@@ -39,9 +39,12 @@ type identityFacts struct {
 	byNode map[ast.Node]elementIdentity
 	// declSym is the symbol each declaration node was resolved as, which a
 	// metadata body's members need to find the feature their name restates.
-	declSym    map[ast.Node]*symbols.Symbol
-	consumed   map[ast.Node]bool
-	provenance map[ast.Node]*identity.Scope
+	declSym map[ast.Node]*symbols.Symbol
+	// bodyParamSym is the symbol of each expression body's parameter by name; a
+	// body parameter declares the body node, so declSym cannot hold it.
+	bodyParamSym map[*ast.BodyExpr]map[string]*symbols.Symbol
+	consumed     map[ast.Node]bool
+	provenance   map[ast.Node]*identity.Scope
 	// qualified reports a multi-scope document, whose scoped elements get
 	// IRIs qualified by their scope so ids repeated across scopes stay apart.
 	qualified bool
@@ -135,18 +138,19 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 	table := identity.Build(model, res, res.Index().DocumentRoot(name))
 
 	facts := &identityFacts{
-		form:       form,
-		byFQN:      map[string]elementIdentity{},
-		byNode:     map[ast.Node]elementIdentity{},
-		declSym:    map[ast.Node]*symbols.Symbol{},
-		consumed:   map[ast.Node]bool{},
-		provenance: map[ast.Node]*identity.Scope{},
-		model:      model,
-		res:        res,
-		library:    map[*symbols.Symbol]string{},
-		pkg:        map[string]string{},
-		pkgOf:      map[string]string{},
-		localOf:    map[string]string{},
+		form:         form,
+		byFQN:        map[string]elementIdentity{},
+		byNode:       map[ast.Node]elementIdentity{},
+		declSym:      map[ast.Node]*symbols.Symbol{},
+		bodyParamSym: map[*ast.BodyExpr]map[string]*symbols.Symbol{},
+		consumed:     map[ast.Node]bool{},
+		provenance:   map[ast.Node]*identity.Scope{},
+		model:        model,
+		res:          res,
+		library:      map[*symbols.Symbol]string{},
+		pkg:          map[string]string{},
+		pkgOf:        map[string]string{},
+		localOf:      map[string]string{},
 	}
 	scopeKeys := map[string]bool{}
 	for _, sym := range table.Symbols() {
@@ -193,6 +197,12 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		facts.byNode[sym.Decl] = el
 		if sym.Decl != nil {
 			facts.declSym[sym.Decl] = sym
+		}
+		if body, ok := sym.Decl.(*ast.BodyExpr); ok && sym.Name != "" {
+			if facts.bodyParamSym[body] == nil {
+				facts.bodyParamSym[body] = map[string]*symbols.Symbol{}
+			}
+			facts.bodyParamSym[body][sym.Name] = sym
 		}
 	}
 	facts.qualified = len(scopeKeys) > 1

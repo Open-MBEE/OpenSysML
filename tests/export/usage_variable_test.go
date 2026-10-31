@@ -160,3 +160,30 @@ func wantNoProperty(t *testing.T, g *rdf.Graph, subject rdf.Term, predicate stri
 		t.Errorf("%s states %s, want none", subject.Value, rdf.LocalName(predicate))
 	}
 }
+
+// An expression body's parameter is owned by the Expression, an Occurrence, so
+// a SysML one varies in time (deriveUsageMayTimeVary); a KerML one is a Feature.
+func TestBodyParameterStatesItsDerivedMayTimeVary(t *testing.T) {
+	src := `package Vary {
+	attribute values : Real[*];
+	attribute positives = values->select { in v : Real; v > 0 };
+}
+`
+	turtle := roundTripsExactly(t, src)
+	g, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	found := false
+	for _, subject := range g.Subjects() {
+		if name, ok := g.Lexical(subject, rdf.SysML+"declaredName"); !ok || name != "v" {
+			continue
+		}
+		found = true
+		wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
+		wantLexical(t, g, subject.Value, rdf.SysML+"mayTimeVary", "true")
+	}
+	if !found {
+		t.Fatal("body parameter v not exported")
+	}
+}

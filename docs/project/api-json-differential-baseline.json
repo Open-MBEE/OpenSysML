@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:354ea9d0398b8e8d3e5c51622774c5acfef7abe41921b2f66f02dc2c52ecd309"
+        "sourceDigest": "sha256:f44d91a215974f79d2bd0cf1a4db2e17ecd83fed10f5c62e12250361677e856b"
       }
     ],
     "inputs": [
@@ -89,7 +89,7 @@
         "digest": "sha256:4f350c5a695cda953e0fb8f1b9b273c998f57480b9770bf063b6ca51a96cdf13"
       }
     ],
-    "recorded": "2026-10-31"
+    "recorded": "2026-10-30"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -120,8 +120,8 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1144028,
-      "presentDifferent": 28131,
+      "presentEqual": 1143410,
+      "presentDifferent": 28749,
       "oursMissing": 1054265,
       "pilotMissing": 69343,
       "absentBoth": 1967116,
@@ -161,8 +161,8 @@
         "typeMismatch": 10
       },
       "properties": {
-        "presentEqual": 92393,
-        "presentDifferent": 1880,
+        "presentEqual": 92361,
+        "presentDifferent": 1912,
         "oursMissing": 84784,
         "pilotMissing": 5126,
         "absentBoth": 164386,
@@ -197,8 +197,8 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 334894,
-        "presentDifferent": 7843,
+        "presentEqual": 334638,
+        "presentDifferent": 8099,
         "oursMissing": 305987,
         "pilotMissing": 19290,
         "absentBoth": 576149,
@@ -233,8 +233,8 @@
         "typeMismatch": 15
       },
       "properties": {
-        "presentEqual": 116558,
-        "presentDifferent": 3242,
+        "presentEqual": 116520,
+        "presentDifferent": 3280,
         "oursMissing": 106662,
         "pilotMissing": 6811,
         "absentBoth": 206224,
@@ -306,8 +306,8 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 78054,
-        "presentDifferent": 1613,
+        "presentEqual": 78008,
+        "presentDifferent": 1659,
         "oursMissing": 72909,
         "pilotMissing": 5549,
         "absentBoth": 135000,
@@ -380,8 +380,8 @@
         "typeMismatch": 186
       },
       "properties": {
-        "presentEqual": 340315,
-        "presentDifferent": 8524,
+        "presentEqual": 340135,
+        "presentDifferent": 8704,
         "oursMissing": 315526,
         "pilotMissing": 20150,
         "absentBoth": 596774,
@@ -452,8 +452,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 90037,
-        "presentDifferent": 2096,
+        "presentEqual": 89971,
+        "presentDifferent": 2162,
         "oursMissing": 88427,
         "pilotMissing": 4816,
         "absentBoth": 150087,
@@ -73707,8 +73707,8 @@
       0
     ],
     "PortUsage.isVariable": [
-      490,
-      2,
+      470,
+      22,
       0,
       0,
       0,
@@ -73734,8 +73734,8 @@
       0
     ],
     "PortUsage.mayTimeVary": [
-      490,
-      2,
+      470,
+      22,
       0,
       0,
       0,
@@ -75732,8 +75732,8 @@
       0
     ],
     "ReferenceUsage.isVariable": [
-      2282,
-      42,
+      1993,
+      331,
       0,
       0,
       0,
@@ -75768,8 +75768,8 @@
       0
     ],
     "ReferenceUsage.mayTimeVary": [
-      2282,
-      42,
+      1993,
+      331,
       0,
       0,
       0,
