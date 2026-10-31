@@ -79,6 +79,9 @@ type Stereotype struct {
 	// BaseID is the value of the base_* attribute; Base resolves it.
 	BaseID string
 	Base   *Element
+	// document is the archive entry the application was read from, which a
+	// relative href in BaseID is resolved against.
+	document string
 	// Definition is the uml:Stereotype the application instantiates, when a
 	// document read defines it and the application can be traced to it: through
 	// the tool's stereotypesHREFS table, or by name within the profile the
@@ -770,7 +773,8 @@ func stereotypeText(raw *xmi.Element) string {
 
 func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 	s := &Stereotype{
-		ID: raw.ID, Name: raw.Tag, Namespace: raw.Space, Tags: map[string][]string{}, attrValues: map[string]int{},
+		document: m.document,
+		ID:       raw.ID, Name: raw.Tag, Namespace: raw.Space, Tags: map[string][]string{}, attrValues: map[string]int{},
 	}
 	for name, value := range raw.Attrs {
 		switch {
@@ -912,7 +916,7 @@ func (m *Model) link() {
 	for _, s := range m.Stereotypes {
 		base, ok := m.byID[s.BaseID]
 		if !ok {
-			base, ok = m.hrefBase(s.BaseID)
+			base, ok = m.hrefBase(s.BaseID, s.document)
 		}
 		if ok {
 			s.Base = base
@@ -945,10 +949,11 @@ func (m *Model) link() {
 	m.readDocuments()
 }
 
-// hrefBase resolves a stereotype base named by href: `#_c` is this document's
-// _c, `shared.xmi#_c` the _c of that archive entry when it was read; an href
-// into a document not read names nothing here, whatever its fragment.
-func (m *Model) hrefBase(href string) (*Element, bool) {
+// hrefBase resolves a stereotype base named by href from the archive entry
+// from: `#_c` is this document's _c, `lib/shared.xmi#_c` the _c defined by the
+// entry that path names relative to from's directory, when it was read; an
+// href into a document not read names nothing here, whatever its fragment.
+func (m *Model) hrefBase(href, from string) (*Element, bool) {
 	i := strings.LastIndexByte(href, '#')
 	if i < 0 {
 		return nil, false
@@ -958,8 +963,13 @@ func (m *Model) hrefBase(href string) (*Element, bool) {
 	if !ok || doc == "" {
 		return e, ok
 	}
-	entry := m.documents[frag]
-	if entry == doc || (!strings.Contains(doc, "/") && path.Base(entry) == doc) {
+	if from == "" {
+		return nil, false
+	}
+	if !path.IsAbs(doc) {
+		doc = path.Join(path.Dir(from), doc)
+	}
+	if m.documents[frag] == strings.TrimPrefix(path.Clean(doc), "/") {
 		return e, true
 	}
 	return nil, false

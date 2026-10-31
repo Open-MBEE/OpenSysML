@@ -1077,24 +1077,47 @@ func TestHrefBaseIntoABundledDocument(t *testing.T) {
   <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
     <packagedElement xmi:type="uml:Class" xmi:id="_x" name="X"/>
   </uml:Model>
-  <sysml:Block xmi:id="_st_c"><base_Class href="shared.xmi#_c"/></sysml:Block>
+  <sysml:Block xmi:id="_st_c"><base_Class href="lib/shared.xmi#_c"/></sysml:Block>
+  <sysml:Block xmi:id="_st_d"><base_Class href="../common/shared.xmi#_d"/></sysml:Block>
   <sysml:Block xmi:id="_st_x"><base_Class href="external.xmi#_x"/></sysml:Block>
+  <sysml:Block xmi:id="_st_e"><base_Class href="shared.xmi#_e"/></sysml:Block>
 </xmi:XMI>`
 	shared := head + `
   <uml:Model xmi:type="uml:Model" xmi:id="_s" name="S">
     <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C"/>
   </uml:Model>
 </xmi:XMI>`
-	m, err := Parse(archive(t, "", map[string][]byte{"main.xmi": []byte(main), "lib/shared.xmi": []byte(shared)}))
+	common := head + `
+  <uml:Model xmi:type="uml:Model" xmi:id="_cm" name="Common">
+    <packagedElement xmi:type="uml:Class" xmi:id="_d" name="D"/>
+  </uml:Model>
+</xmi:XMI>`
+	decoy := head + `
+  <uml:Model xmi:type="uml:Model" xmi:id="_dm" name="Decoy">
+    <packagedElement xmi:type="uml:Class" xmi:id="_e" name="E"/>
+  </uml:Model>
+</xmi:XMI>`
+	m, err := Parse(archive(t, "", map[string][]byte{
+		"models/main.xmi":       []byte(main),
+		"models/lib/shared.xmi": []byte(shared),
+		"common/shared.xmi":     []byte(common),
+		"shared.xmi":            []byte(decoy),
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The bundled entry's _c is the base; external.xmi was not read, so its
-	// _x is not this archive's _x.
-	if st := m.Lookup("_c").Stereotypes; len(st) != 1 || st[0].Name != "Block" {
-		t.Errorf("_c stereotypes = %+v", st)
+	// A relative href names an entry relative to the application's own entry:
+	// models/lib/shared.xmi and common/shared.xmi are read and hold the bases.
+	for _, id := range []string{"_c", "_d"} {
+		if st := m.Lookup(id).Stereotypes; len(st) != 1 || st[0].Name != "Block" {
+			t.Errorf("%s stereotypes = %+v", id, st)
+		}
 	}
-	if st := m.Lookup("_x").Stereotypes; len(st) != 0 {
-		t.Errorf("_x stereotypes = %+v", st)
+	// models/external.xmi was not read, so its _x is not this archive's _x; and
+	// shared.xmi#_e from models/ names models/shared.xmi, not the root's shared.xmi.
+	for _, id := range []string{"_x", "_e"} {
+		if st := m.Lookup(id).Stereotypes; len(st) != 0 {
+			t.Errorf("%s stereotypes = %+v", id, st)
+		}
 	}
 }
