@@ -1,0 +1,1 @@
+- Use Asciidoctor.js 4.1.1 for `rep language "asciidoc"` bodies, clearing GHSA-g3hv-75wg-m249 from the converter's dependency tree; 4.x has no runtime dependencies.
