@@ -1140,7 +1140,7 @@ func (n *normalizer) stateQualifiedNames() {
 		if membershipSubject[subject.Value] || nodeMember[subject.Value] && expressionMetaclasses[m] {
 			continue
 		}
-		if hasAddress(graph, subject) {
+		if statesAddress(graph, subject) {
 			continue
 		}
 		_, owned := memberOwner[subject.Value]

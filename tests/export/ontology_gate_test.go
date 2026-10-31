@@ -78,7 +78,8 @@ func TestOwningNamespaceNamesANamespace(t *testing.T) {
 			if property == rdf.SysML+"owningNamespace" {
 				t.Errorf("%s: <%s> states owningNamespace <%s>, a sysml:%s, which is no namespace",
 					filepath.Base(path), triple.Subject.Value, triple.Object.Value, owner)
-			} else if graph.HasProperty(triple.Subject, rdf.SysML+"qualifiedName") {
+			} else if graph.HasProperty(triple.Subject, rdf.SysML+"qualifiedName") ||
+				graph.HasProperty(triple.Subject, rdf.OpenSysML+"positionalName") {
 				relationshipOwned++
 			}
 		}
