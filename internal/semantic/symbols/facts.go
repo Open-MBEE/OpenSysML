@@ -152,11 +152,13 @@ const (
 	NodeJoin
 	NodeMerge
 	NodeDecision
+	// NodeConjugatedPortDef is the ConjugatedPortDefinition a port definition implies.
+	NodeConjugatedPortDef
 )
 
 // NodeKindOf classifies a declaring node.
 func NodeKindOf(decl ast.Node) NodeKind {
-	switch decl.(type) {
+	switch decl := decl.(type) {
 	case nil:
 		return NodeNone
 	case *ast.Definition:
@@ -169,6 +171,11 @@ func NodeKindOf(decl ast.Node) NodeKind {
 		return NodeCrossFeature
 	case *ast.SubjectMember:
 		return NodeSubject
+	case *ImpliedDecl:
+		if decl.Form == ImpliedConjugatedPortDefinition {
+			return NodeConjugatedPortDef
+		}
+		return NodeOther
 	case *ast.AssumeMember:
 		return NodeAssume
 	case *ast.RequireMember:

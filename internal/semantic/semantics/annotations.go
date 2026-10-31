@@ -1118,6 +1118,9 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	if isAssertedConstraint(sym) {
 		return "AssertConstraintUsage"
 	}
+	if sym.IsConjugatedPortDefinition() {
+		return "ConjugatedPortDefinition"
+	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ForkNode:
 		return "ForkNode"
