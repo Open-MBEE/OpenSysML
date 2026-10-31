@@ -677,6 +677,8 @@ expr:Shadowing__Bus__link_pend0
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__link_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing__Bus__link ;
     sysml:owningRelationship expr:Shadowing__Bus__link_pend0_om ;
     sysml:owningMembership expr:Shadowing__Bus__link_pend0_om ;
@@ -757,6 +759,8 @@ expr:Shadowing__Bus__link_pend1
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__link_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing__Bus__link ;
     sysml:owningRelationship expr:Shadowing__Bus__link_pend1_om ;
     sysml:owningMembership expr:Shadowing__Bus__link_pend1_om ;
@@ -867,6 +871,8 @@ elmt:Shadowing__Bus__budgeted_subject
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__budgeted_subject" ;
     sysml:qualifiedName "Shadowing::Bus::budgeted::_subject" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing__Bus__budgeted ;
     sysml:owningRelationship elmt:Shadowing__Bus__budgeted_subject_om ;
     sysml:owningMembership elmt:Shadowing__Bus__budgeted_subject_om ;
@@ -1047,6 +1053,8 @@ elmt:Shadowing___408_subject
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing___408_subject" ;
     sysml:qualifiedName "Shadowing::@8::_subject" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing___408 ;
     sysml:owningRelationship elmt:Shadowing___408_subject_om ;
     sysml:owningMembership elmt:Shadowing___408_subject_om ;

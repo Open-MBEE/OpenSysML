@@ -26,6 +26,8 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		actionKind = d.Kind == ast.UsageAction
 	case *ast.RequireMember, *ast.AssumeMember:
 		// A required or assumed constraint is the ConstraintUsage its member declares.
+	case *ast.SubjectMember:
+		// A subject parameter is the ReferenceUsage its SubjectMembership declares.
 	case *ast.BodyExpr:
 		// An expression body's parameter: its owning type is the Expression, a
 		// Performance and so an Occurrence (KerML Performances::Performance).
@@ -44,6 +46,26 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 	}
 	return !m.EffectiveIsComposite(sym) ||
 		(!actionKind && !m.conformsByName(sym, "Actions::Action"))
+}
+
+// UsageMayTimeVaryUnder derives Usage::mayTimeVary for a referential usage that
+// declares nothing of its own — a connector end, a parameter a transition or a
+// satisfy's subject implies — whose owning type is owner (deriveUsageMayTimeVary).
+func (m *Model) UsageMayTimeVaryUnder(owner *symbols.Symbol) bool {
+	return owner != nil && !m.isKerMLDoc(owner) && m.conformsByName(owner, "Occurrences::Occurrence")
+}
+
+// UsageMayTimeVaryUnderKind is UsageMayTimeVaryUnder for an owning usage declared
+// by nothing but its kind, read through the kind's implicit library base.
+func (m *Model) UsageMayTimeVaryUnderKind(kind ast.UsageKind) bool {
+	base, ok := implicitUsageBases[kind]
+	return ok && m.conformsByName(m.librarySymbol(base), "Occurrences::Occurrence")
+}
+
+// UsageMayTimeVaryUnderLibraryFeature is UsageMayTimeVaryUnder for an owning
+// feature the notation fixes as redefining the library feature fqn.
+func (m *Model) UsageMayTimeVaryUnderLibraryFeature(fqn string) bool {
+	return m.conformsByName(m.librarySymbol(fqn), "Occurrences::Occurrence")
 }
 
 // isPayloadFeature reports a flow's payload: a PayloadFeature is a KerML Feature,
@@ -70,7 +92,7 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 		switch d := sym.Decl.(type) {
 		case *ast.Usage:
 			isPortion = d.IsPortion || d.Portion != ast.PortionNone
-		case *ast.RequireMember, *ast.AssumeMember, *ast.BodyExpr:
+		case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr:
 		default:
 			return false
 		}
@@ -106,7 +128,7 @@ func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 		return m.UsageMayTimeVary(sym)
 	case *ast.CrossFeatureMember:
 		return m.isKerMLDoc(sym) && (d.IsVariable || d.IsConstant)
-	case *ast.RequireMember, *ast.AssumeMember, *ast.BodyExpr:
+	case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr:
 		return !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)
 	}
 	return false

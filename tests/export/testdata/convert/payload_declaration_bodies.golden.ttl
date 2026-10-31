@@ -419,6 +419,8 @@ expr:Payloads__Ctx___402_pend0_pff
     sysml:owner expr:Payloads__Ctx___402_pend0 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_pend0_pff_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend0_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Payloads__A__i ;
     sysml:ownedRedefinition expr:Payloads__Ctx___402_pend0_pff_rd0 ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend0_pff_rd0 ;
@@ -488,6 +490,8 @@ expr:Payloads__Ctx___402_pend1_pff
     sysml:owner expr:Payloads__Ctx___402_pend1 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_pend1_pff_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend1_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Payloads__B__j ;
     sysml:ownedRedefinition expr:Payloads__Ctx___402_pend1_pff_rd0 ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend1_pff_rd0 ;

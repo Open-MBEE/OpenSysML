@@ -989,6 +989,8 @@ elmt:Prefixed__Braking__brakes
     sysml:owningMembership elmt:Prefixed__Braking__brakes_om ;
     sysml:declaredName "brakes" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__Braking__brakes___400 ;
     sysml:ownedMembership elmt:Prefixed__Braking__brakes___400_om ;
     sysml:ownedRelationship elmt:Prefixed__Braking__brakes___400_om, elmt:Prefixed__Braking__brakes_ft0 ;

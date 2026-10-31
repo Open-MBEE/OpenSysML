@@ -404,6 +404,8 @@ elmt:Accepts__Watch__framed___401
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:Accepts__Watch__framed___401_pvalue ;
     sysml:ownedRelationship expr:Accepts__Watch__framed___401_pvalue_om ;
