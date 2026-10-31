@@ -626,8 +626,9 @@ type snapshotDecoder struct {
 	syms   []Symbol
 	facts  []LibraryFacts
 	// implied shares one ImpliedDecl between the symbol and the scope it declares,
-	// which separate sections read.
-	implied map[impliedKey]*ImpliedDecl
+	// which separate sections read concurrently; impliedMu guards it.
+	impliedMu sync.Mutex
+	implied   map[impliedKey]*ImpliedDecl
 }
 
 // sectionReader decodes one section; its arenas are its own, so sections can
@@ -665,6 +666,8 @@ func (d *sectionReader) decl() ast.Node {
 		return n
 	}
 	key := impliedKey{of: n, form: ImpliedForm(form - 1)} // #nosec G115 -- bounded above.
+	d.impliedMu.Lock()
+	defer d.impliedMu.Unlock()
 	if decl, ok := d.implied[key]; ok {
 		return decl
 	}

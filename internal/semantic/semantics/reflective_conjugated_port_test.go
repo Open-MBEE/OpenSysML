@@ -63,6 +63,18 @@ func TestPortDefinitionOwnsItsConjugate(t *testing.T) {
 	if got, ok := m.ReflectiveElements(conjugation, "relatedElement"); !ok || len(got) != 2 || got[0] != conjugate || got[1] != q {
 		t.Errorf("relatedElement of the conjugation = %v, want [~Q Q]", got)
 	}
+	if got, ok := m.ReflectiveElements(conjugate, "ownedConjugator"); !ok || len(got) != 1 || got[0] != conjugation {
+		t.Errorf("ownedConjugator of ~Q = %v, want its PortConjugation", got)
+	}
+	if got, ok := m.ReflectiveFeatureValue(conjugate, "isConjugated"); !ok || !got.Bool {
+		t.Errorf("isConjugated of ~Q = %v, %v; want true", got, ok)
+	}
+	if got, ok := m.ReflectiveFeatureValue(q, "isConjugated"); !ok || got.Bool {
+		t.Errorf("isConjugated of Q = %v, %v; want false", got, ok)
+	}
+	if symbols.KeyOf(q) == symbols.KeyOf(conjugate) || symbols.KeyOf(q).String() == symbols.KeyOf(conjugate).String() {
+		t.Errorf("Q and ~Q share the element key %s", symbols.KeyOf(q))
+	}
 	if got := m.OwnedMemberships(conjugate); len(got) != 0 {
 		t.Errorf("the conjugate owns %d memberships, want none", len(got))
 	}
