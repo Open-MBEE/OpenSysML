@@ -899,12 +899,12 @@ func looksLikeName(s string) bool {
 // stereotype defining it. An application of an element outside the documents
 // read (a proxy) is kept unresolved, since nothing in the model is extended by it.
 func (m *Model) link() {
-	// A base named by href (`<base_Class href="#_c"/>`) is the element whose
-	// id its fragment is, as a proxy's href is below.
+	// A base named by a local href (`<base_Class href="#_c"/>`) is the element
+	// whose id its fragment is; one in another document is a proxy, unresolved.
 	for _, s := range m.Stereotypes {
 		base, ok := m.byID[s.BaseID]
-		if i := strings.LastIndexByte(s.BaseID, '#'); !ok && i >= 0 {
-			base, ok = m.byID[s.BaseID[i+1:]]
+		if !ok && strings.HasPrefix(s.BaseID, "#") {
+			base, ok = m.byID[s.BaseID[1:]]
 		}
 		if ok {
 			s.Base = base

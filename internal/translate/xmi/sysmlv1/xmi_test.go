@@ -1041,11 +1041,16 @@ func TestLocalHrefBaseAndDecoratedBodies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// An href base is the element its fragment names, local or in this archive.
-	for _, id := range []string{"_c", "_d"} {
-		if st := m.Lookup(id).Stereotypes; len(st) != 1 || st[0].Name != "Block" {
-			t.Errorf("%s stereotypes = %+v", id, st)
-		}
+	// A local href base is the element its fragment names; a base in another
+	// document is not this document's _d, whatever its fragment.
+	if st := m.Lookup("_c").Stereotypes; len(st) != 1 || st[0].Name != "Block" {
+		t.Errorf("_c stereotypes = %+v", st)
+	}
+	if st := m.Lookup("_d").Stereotypes; len(st) != 0 {
+		t.Errorf("_d stereotypes = %+v", st)
+	}
+	if st := m.Stereotypes; len(st) != 2 || st[1].Base != nil {
+		t.Errorf("stereotypes = %+v", st)
 	}
 	// xml:space and xml:lang on a body leave it the property it serializes.
 	if got := m.Lookup("_note").Attrs["body"]; got != "Keep   this" {
