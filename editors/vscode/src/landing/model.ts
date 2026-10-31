@@ -539,7 +539,10 @@ function machineModel(
       }
       const { parent: _parent, ...lifted } = node;
       nodes.push(parent === machine ? lifted : node);
-      const path = node.name === "" ? above : above === undefined ? node.name : `${above}.${node.name}`;
+      let path = above;
+      if (node.name !== "") {
+        path = above === undefined ? node.name : `${above}.${node.name}`;
+      }
       if (node.name !== "" && path !== undefined && node.kind !== "region") {
         const state: LandingState = { id: node.id, name: node.name, path, kind: node.kind, initial: node.detail === "initial" };
         states.set(path, state);
