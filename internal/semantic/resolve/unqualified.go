@@ -471,6 +471,10 @@ func (r *Resolver) implicitParameters(scope *symbols.Scope) []*symbols.Symbol {
 // feature is implicit: any declared relationship other than a typing would have
 // named it, or ruled it out, when scopes were built.
 func impliesNamingFeature(sym *symbols.Symbol) bool {
+	if rel, ok := sym.Decl.(*ast.Relationship); ok {
+		// A satisfy usage's `by` subject redefines the requirement's subject.
+		return rel.Kind == ast.RelSubject
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || !isParameter(sym) {
 		return false
@@ -487,10 +491,16 @@ func impliesNamingFeature(sym *symbols.Symbol) bool {
 // result, the features an implicit redefinition matches (SysML 7.6.5).
 func isParameter(sym *symbols.Symbol) bool {
 	if sym.Recorded() {
-		return sym.Facts.Modifiers.Has(symbols.ModParameter)
+		return sym.Facts.Modifiers.Has(symbols.ModParameter) || sym.Facts.Node == symbols.NodeSubject
 	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && (usage.Direction != ast.DirNone || usage.IsResult)
+	switch d := sym.Decl.(type) {
+	case *ast.SubjectMember:
+		// A subject is its requirement's or case's first parameter (SysML 7.19.1).
+		return true
+	case *ast.Usage:
+		return d.Direction != ast.DirNone || d.IsResult
+	}
+	return false
 }
 
 // simpleName is sym's own name without the qualification an indexed symbol
