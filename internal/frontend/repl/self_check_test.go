@@ -53,7 +53,7 @@ func TestSelfCheckAppliesValidationLibraryToWorkspaceElements(t *testing.T) {
 		"validateControlNodeIsComposite":                6,
 		"validateEventOccurrenceUsageIsReference":       2,
 		"validateEnumerationDefinitionIsVariation":      1,
-		"validatePortDefinitionOwnedUsagesNotComposite": 2,
+		"validatePortDefinitionOwnedUsagesNotComposite": 4, // two port definitions and the conjugates they imply
 		"validateAttributeUsageIsReference":             7,
 	} {
 		got := 0

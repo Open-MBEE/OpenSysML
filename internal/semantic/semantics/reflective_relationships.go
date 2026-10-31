@@ -114,7 +114,8 @@ func portConjugationElements(sym *symbols.Symbol, feature string) ([]*symbols.Sy
 		return []*symbols.Symbol{rel.Member}, true
 	case "relatedElement":
 		return []*symbols.Symbol{rel.Owner, rel.Member}, true
-	case "ownedRelatedElement", "ownedRelationship", "ownedElement":
+	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
+		"owningMembership", "owningNamespace", "documentation", "textualRepresentation":
 		return []*symbols.Symbol{}, true
 	}
 	return nil, false
