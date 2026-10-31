@@ -362,11 +362,9 @@ def connect(host='localhost', port=None, auto_start=True, version=None,
 
 def convert(to_format, file_path=None, content=None, model_hash=None,
             from_format='', tolerate_syntax_errors=False, host='localhost',
-            port=None, **options):
+            port=None, id_form='', include_library_stubs=False, compact=False,
+            omit_derived=False, keep_derived=(), include_check_diagnostics=False):
     """Write a model out in another format (module-level convenience).
-
-    The keyword options after ``port`` are those of
-    :meth:`Connection.convert`, passed on by name with its defaults.
 
     Args:
         to_format (str): 'sysml', 'kerml', 'text', 'ttl', 'turtle', 'rdf',
@@ -438,7 +436,12 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
         model_hash=model_hash,
         from_format=from_format,
         tolerate_syntax_errors=tolerate_syntax_errors,
-        **options,
+        id_form=id_form,
+        include_library_stubs=include_library_stubs,
+        compact=compact,
+        omit_derived=omit_derived,
+        keep_derived=keep_derived,
+        include_check_diagnostics=include_check_diagnostics,
     )
 
 
