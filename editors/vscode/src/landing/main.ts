@@ -36,7 +36,7 @@ import {
 import { carried, obstacles, resettle } from "./carry";
 import { download, exportFrame, exportSvg, rasterSize, rasterize } from "./export";
 import { quantityText } from "./present";
-import { SCENES, STACK_SCENE, chooseScene, type Scene, type SceneAction, type SceneClock, type SceneDiagram } from "./scene";
+import { SCENES, STACK_SCENE, chooseScene, type Scene, type SceneAction, type SceneBox, type SceneClock, type SceneDiagram } from "./scene";
 import { message, mountShell, shortName, type Mounted, type MountOptions } from "./shell";
 import { mountTable } from "./table";
 import { wireTabs } from "./tabs";
@@ -412,27 +412,35 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
     syncValues();
   }
 
+  function tint(group: SVGGElement, box: SceneBox): void {
+    const tone = form.tone(box, scene);
+    if (tone !== undefined) {
+      group.dataset.osmlTone = tone;
+    }
+  }
+
   function decorate(): void {
-    const stateIds = new Set([...(model.machine?.states.values() ?? [])].map((state) => state.id));
-    const nodeIds = new Set([...(model.action?.nodes.values() ?? [])].map((node) => node.id));
+    const states = new Map([...(model.machine?.states.values() ?? [])].map((state) => [state.id, state]));
+    const steps = new Map([...(model.action?.nodes.values() ?? [])].map((node) => [node.id, node]));
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-node")) {
       const id = group.dataset.opensysmlId ?? "";
-      if (stateIds.has(id)) {
+      const state = states.get(id);
+      if (state) {
         group.classList.add("osml-state");
+        tint(group, { kind: "state", state });
         continue;
       }
-      if (nodeIds.has(id)) {
+      const step = steps.get(id);
+      if (step) {
         group.classList.add("osml-step");
+        tint(group, { kind: "step", step });
         continue;
       }
       const part = partOf(id);
       if (!part) {
         continue;
       }
-      const tone = form.tone(part, scene);
-      if (tone !== undefined) {
-        group.dataset.osmlTone = tone;
-      }
+      tint(group, { kind: "part", part });
       // A nested part is drawn beside its project's group, not inside it, so it takes the pointer itself.
       if (part.owner !== undefined) {
         group.classList.add("osml-nested");
