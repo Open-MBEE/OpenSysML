@@ -126,6 +126,8 @@ elmt:ShadowBody__Sensor__value
     sysml:owningMembership elmt:ShadowBody__Sensor__value_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:ShadowBody__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ShadowBody__Sensor__value_ft0 ;
@@ -160,6 +162,8 @@ elmt:ShadowBody__Sensor__readings
     sysml:owningMembership elmt:ShadowBody__Sensor__readings_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "readings" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:ShadowBody__Speed ;
     sysml:multiplicity expr:ShadowBody__Sensor__readings_pmultiplicity ;
     sysml:ownedRelationship elmt:ShadowBody__Sensor__readings_ft0, expr:ShadowBody__Sensor__readings_pmultiplicity_om ;
@@ -238,6 +242,8 @@ elmt:ShadowBody__Sensor__highs
     sysml:owningMembership elmt:ShadowBody__Sensor__highs_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "highs" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:ShadowBody__Sensor__highs_pvalue ;
     sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_om ;
     sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_om ;

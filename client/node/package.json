@@ -69,6 +69,11 @@
     "@sigstore/tuf": "5.0.0",
     "@sigstore/verify": "4.1.2"
   },
+  "overrides": {
+    "@tufjs/models": {
+      "minimatch": "11.0.1"
+    }
+  },
   "peerDependencies": {
     "@openmbee/opensysml-wasm": "0.11.0"
   },

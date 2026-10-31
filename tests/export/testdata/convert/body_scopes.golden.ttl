@@ -177,6 +177,8 @@ elmt:Scopes__D__xs
     sysml:owningMembership elmt:Scopes__D__xs_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "xs" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute xs;\n" .
 
@@ -207,6 +209,8 @@ elmt:Scopes__D__one
     sysml:owningMembership elmt:Scopes__D__one_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "one" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Scopes__D__one_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__one_pvalue_om ;
     sysml:ownedMembership expr:Scopes__D__one_pvalue_om ;
@@ -570,6 +574,8 @@ elmt:Scopes__D__two
     sysml:owningMembership elmt:Scopes__D__two_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "two" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Scopes__D__two_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__two_pvalue_om ;
     sysml:ownedMembership expr:Scopes__D__two_pvalue_om ;
@@ -933,6 +939,8 @@ elmt:Scopes__D__outside
     sysml:owningMembership elmt:Scopes__D__outside_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "outside" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Scopes__D__outside_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__outside_pvalue_om ;
     sysml:ownedMembership expr:Scopes__D__outside_pvalue_om ;
@@ -1024,6 +1032,8 @@ elmt:Scopes__D__g
     sysml:owningMembership elmt:Scopes__D__g_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "g" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Lib__Gauge ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Scopes__D__g_ft0 ;

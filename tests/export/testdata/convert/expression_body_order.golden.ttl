@@ -108,6 +108,8 @@ elmt:Ordered__Mixed__x
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Ordered__Real ;
     sysx:hasBody "false"^^xsd:boolean ;

@@ -112,6 +112,8 @@ elmt:Conjugation__CommunicationPort__signal
     sysml:owningMembership elmt:Conjugation__CommunicationPort__signal_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "signal" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        out item signal;\n" .
@@ -181,6 +183,8 @@ elmt:Conjugation__Ground__groundPort
     sysml:owningMembership elmt:Conjugation__Ground__groundPort_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "groundPort" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Conjugation__Ground__groundPort_ft0 ;
@@ -215,6 +219,8 @@ elmt:Conjugation__Ground__spacePort
     sysml:owningMembership elmt:Conjugation__Ground__spacePort_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "spacePort" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:conjugatedTyping "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -289,6 +295,8 @@ elmt:Conjugation__Link__a
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Conjugation__Link__a_ft0 ;
@@ -324,6 +332,8 @@ elmt:Conjugation__Link__b
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:conjugatedTyping "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
