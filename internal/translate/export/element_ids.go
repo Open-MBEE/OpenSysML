@@ -114,6 +114,15 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 				ids.membershipByNode[end] = membership
 				ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
 			}
+			for _, rel := range writtenSatisfySubjects(node) {
+				// The subject parameter a `by` clause declares, and its membership (subjectParameter).
+				usage := e.ids.minted(rdf.RelationshipIRI(subject, "_subject"), subject, "_subject")
+				ids.byNode[rel] = rdf.LocalName(usage.Value)
+				ids.bySpan[spanKey{e.file.Name(), rel.Span()}] = ids.byNode[rel]
+				membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(usage), usage, rdf.OwningMembershipSuffix).Value)
+				ids.membershipByNode[rel] = membership
+				ids.membershipBySpan[spanKey{e.file.Name(), rel.Span()}] = membership
+			}
 			for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
 				ids.relationshipByNode[key] = id
 				ids.relationshipBySpan[spanKey{e.file.Name(), key.Span()}] = id
@@ -565,6 +574,22 @@ func (r *ElementIDReader) convert() {
 		return
 	}
 	r.ids, r.err = NewElementIDs(documents)
+}
+
+// writtenSatisfySubjects are the `by` clauses of a satisfy usage the writer emits a
+// subject parameter for (subjectParameters).
+func writtenSatisfySubjects(node ast.Node) []*ast.Relationship {
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.Kind != ast.UsageSatisfy {
+		return nil
+	}
+	var out []*ast.Relationship
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind == ast.RelSubject && rel.Target != nil {
+			out = append(out, rel)
+		}
+	}
+	return out
 }
 
 // conjugateIDs are the ids written for the conjugated port definition a port
