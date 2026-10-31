@@ -179,10 +179,8 @@ function lineOf(node) {
   return typeof line === 'number' ? line : 0;
 }
 
-async function blocksOf(nodes, walk) {
-  const out = [];
-  for (const node of nodes) out.push(await walk(node));
-  return out;
+function blocksOf(nodes, walk) {
+  return Promise.all(nodes.map((node) => walk(node)));
 }
 
 async function block(node) {
