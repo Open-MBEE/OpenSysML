@@ -1856,7 +1856,9 @@ func (ctx *Context) startActionAdvancedBy(action *symbols.Symbol, self *Instance
 	}
 	release := exec.Release
 	if reused {
-		release = func() {}
+		release = func() {
+			// A reused execution is released by whoever first started it.
+		}
 	}
 	if _, err := ctx.Advance(duration); err != nil {
 		release()
