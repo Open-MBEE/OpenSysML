@@ -464,9 +464,11 @@ func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
 	}
 }
 
-// conjugatedPortDefinition emits the conjugate of a port definition: the
-// `~P` the conjugated typing of a port usage names, which the metamodel owns
-// as a ConjugatedPortDefinition of P with a PortConjugation between them.
+// conjugateSegment addresses an unnamed implied conjugate under its owner.
+const conjugateSegment = "@conjugated"
+
+// conjugatedPortDefinition emits a port definition's implied conjugate and its
+// PortConjugation; only an original name gives the conjugate a declared name.
 func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.Definition) {
 	conjugated := e.ids.minted(rdf.RelationshipIRI(subject, "_conjugated"), subject, "_conjugated")
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(conjugated), conjugated, rdf.OwningMembershipSuffix)
@@ -485,20 +487,14 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 	}
 	e.typed(conjugated, mConjugatedPortDefinition)
 	e.graph.Add(conjugated, e.sysml(pElementID), rdf.String(rdf.LocalName(conjugated.Value)))
-	// The conjugate is named by position: references read a qualifiedName,
-	// which the derived `~` name does not give them.
-	// A conjugate is named after whichever names the original declares
-	// (SysML 8.3.11.3): `~P` for a name, `~<p>` for a short name.
-	effective := n.Ident.Name
-	if effective == "" {
-		effective = n.Ident.ShortName
-	}
-	e.graph.Add(conjugated, addressTerm(fqn), rdf.String(fqn+"::"+identity.EscapeName("~"+effective)))
+	address := fqn + "::" + conjugateSegment
 	if n.Ident.Name != "" {
-		e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String("~"+n.Ident.Name))
-	}
-	if n.Ident.ShortName != "" {
-		e.graph.Add(conjugated, e.sysml(pDeclaredShortName), rdf.String("~"+n.Ident.ShortName))
+		name := "~" + n.Ident.Name
+		address = fqn + "::" + identity.EscapeName(name)
+		e.graph.Add(conjugated, addressTerm(address), rdf.String(address))
+		e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String(name))
+	} else {
+		e.graph.Add(conjugated, addressTerm(address), rdf.String(address))
 	}
 	e.emitMembershipCore(membership, conjugated, subject, mOwningMembership, true)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)

@@ -9,10 +9,8 @@ import (
 type ImpliedForm uint8
 
 const (
-	// ImpliedConjugatedPortDefinition is the ConjugatedPortDefinition `~P`
-	// every port definition P owns (SysML 8.3.11.3: a PortDefinition owns its
-	// conjugatedPortDefinition through an OwningMembership; the conjugate owns a
-	// PortConjugation back to P). The notation writes none of it.
+	// ImpliedConjugatedPortDefinition is a PortDefinition's implied conjugate;
+	// its effective name is null without a name, else `~` plus that name; it declares no short name.
 	ImpliedConjugatedPortDefinition ImpliedForm = iota
 )
 
@@ -64,21 +62,17 @@ func (s *Symbol) IsConjugatedPortDefinition() bool {
 	return ok && d.Form == ImpliedConjugatedPortDefinition
 }
 
-// buildConjugatedPortDefinition registers, as the first member of a port
-// definition's scope, the ConjugatedPortDefinition it implies: named `~P`
-// and short-named `~<short>` after whichever names P declares, a port
-// definition in kind, declared by an ImpliedDecl over P's node.
+// buildConjugatedPortDefinition registers the first owned member: its effective
+// name is `~` plus the original's name or null; it declares no short name.
 func buildConjugatedPortDefinition(scope *Scope, d *ast.Definition) {
 	if d.Kind != ast.DefPort || (d.Ident.Name == "" && d.Ident.ShortName == "") {
 		return
 	}
 	decl := &ImpliedDecl{Of: d, Form: ImpliedConjugatedPortDefinition}
-	id := ast.Identification{NameSpan: d.Ident.NameSpan, ShortNameSpan: d.Ident.ShortNameSpan}
+	id := ast.Identification{}
 	if d.Ident.Name != "" {
 		id.Name = "~" + d.Ident.Name
-	}
-	if d.Ident.ShortName != "" {
-		id.ShortName = "~" + d.Ident.ShortName
+		id.NameSpan = d.Ident.NameSpan
 	}
 	child := NewScope(scope, decl)
 	sym := newSymbol(id, SymbolPortDef, decl, ast.VisibilityDefault, child, scope, nil)
