@@ -1,6 +1,7 @@
 package export
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -67,4 +68,36 @@ func TestElementIDReaderSpellsTheConjugateAsTheConversionWritesIt(t *testing.T) 
 	if got, err := reader.ReadRelationship(sym.DocName, sym.Decl); err != nil || got != written[rdf.SysML+"PortConjugation"] {
 		t.Errorf("ReadRelationship conjugation = %q, %v; want %q", got, err, written[rdf.SysML+"PortConjugation"])
 	}
+}
+
+// A port definition declared by a short name alone has a conjugate named by
+// that short name: `~<s>`, no declared name, addressed as `P::'~s'`.
+func TestConversionNamesAShortNamedPortsConjugateByItsShortName(t *testing.T) {
+	sf, _, _ := readerIndex(t, "short.sysml", "package P { port def <s>; }\n")
+	graph, err := ToRDF(sf, parser.New(sf).ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	for _, subject := range graph.Subjects() {
+		for _, class := range graph.Objects(subject, rdf.RDFType) {
+			if class.Value != rdf.SysML+"ConjugatedPortDefinition" {
+				continue
+			}
+			if got := graph.Objects(subject, rdf.SysML+"declaredName"); len(got) != 0 {
+				t.Errorf("declaredName = %v, want none for a short-named original", got)
+			}
+			if got := graph.Objects(subject, rdf.SysML+"declaredShortName"); len(got) != 1 || got[0].Value != "~s" {
+				t.Errorf("declaredShortName = %v, want ~s", got)
+			}
+			// The original's address may be positional (#1805); the conjugate's
+			// segment under it is its effective name.
+			address := append(graph.Objects(subject, rdf.SysML+"qualifiedName"),
+				graph.Objects(subject, rdf.OpenSysML+xPositionalName)...)
+			if len(address) != 1 || !strings.HasSuffix(address[0].Value, "::'~s'") {
+				t.Errorf("address = %v, want one ending in ::'~s'", address)
+			}
+			return
+		}
+	}
+	t.Fatal("the conversion writes no ConjugatedPortDefinition")
 }
