@@ -25,8 +25,13 @@ func featureValueOf(sym *symbols.Symbol) (value ast.Node, isDefault, isInitial b
 // a value. The FeatureValue that owns it is among the feature's
 // OwnedMemberships.
 func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil {
+	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
+	}
+	if sym.Expr != nil {
+		// A synthesized `in` parameter binds its operand; no other
+		// expression part declares a value.
+		return m.expressionParameterValue(sym)
 	}
 	if cached, ok := m.valueExpressions[sym]; ok {
 		return cached
@@ -51,7 +56,7 @@ func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
 // isValueExpressionSymbol reports whether sym is the value expression a
 // FeatureValue owns.
 func isValueExpressionSymbol(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionValue
+	return isExpressionSymbol(sym)
 }
 
 // expressionMetaclassName is the KerML metaclass of an expression element, by

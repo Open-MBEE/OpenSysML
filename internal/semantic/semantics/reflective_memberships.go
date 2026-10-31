@@ -15,7 +15,13 @@ import (
 // Annotation (prefix metadata, a relationship body's annotating element) has no
 // membership (KerML 8.2.3.3.1 OwnedAnnotation).
 func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Scope == nil {
+	if m == nil || sym == nil || sym.Implicit != nil {
+		return nil
+	}
+	if sym.Expr != nil {
+		return m.expressionMemberships(sym)
+	}
+	if sym.Scope == nil {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -259,6 +265,14 @@ func (m *Model) implicitOwnedRelationships(sym *symbols.Symbol) []*symbols.Symbo
 func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if isValueExpressionSymbol(member) {
 		return "FeatureValue"
+	}
+	if member != nil && member.Expr != nil {
+		switch member.Expr.Role {
+		case symbols.ExpressionParameter:
+			return "ParameterMembership"
+		case symbols.ExpressionResult:
+			return "ReturnParameterMembership"
+		}
 	}
 	if name := m.sysmlMembershipMetaclassName(owner, member); name != "" {
 		return name

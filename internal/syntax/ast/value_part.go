@@ -19,3 +19,31 @@ func ValuePartOf(node Node) (value Node, isDefault, isInitial, ok bool) {
 	}
 	return value, isDefault, isInitial, true
 }
+
+// ExpressionOperands are the operands an expression's notation writes, in the
+// order the metamodel owns them as arguments (KerML 8.4.4.9: one `in`
+// parameter per operand, bound by a FeatureValue), and whether a type
+// argument follows them as one more parameter. A nil operand keeps its
+// position. An invocation's, a body's and a change event's arguments follow
+// rules of their own and are not listed here.
+func ExpressionOperands(node Node) (operands []Node, typeArgument bool) {
+	switch n := node.(type) {
+	case *OperatorExpr:
+		return n.Operands, n.TypeRef != nil
+	case *CastExpr:
+		return nil, true
+	case *FeatureChainExpr:
+		return []Node{n.Operand}, false
+	case *IndexExpr:
+		return []Node{n.Operand, n.Index}, false
+	case *CollectExpr:
+		return []Node{n.Operand, n.Body}, false
+	case *SelectExpr:
+		return []Node{n.Operand, n.Body}, false
+	case *SequenceExpr:
+		return n.Elements, false
+	case *TimeEvent:
+		return []Node{n.Duration}, false
+	}
+	return nil, false
+}

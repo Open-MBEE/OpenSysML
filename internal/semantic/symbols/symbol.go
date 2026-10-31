@@ -115,6 +115,9 @@ const (
 	// which the reflective layer synthesizes from the notation's expression node.
 	// It is last: the stdlib snapshot records kinds by number.
 	SymbolExpression
+	// SymbolKerMLFeature classifies a KerML Feature the reflective layer
+	// synthesizes without a declaration: an expression's parameter.
+	SymbolKerMLFeature
 )
 
 var symbolKindNames = map[SymbolKind]string{
@@ -125,6 +128,7 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolDependency:              "dependency",
 	SymbolRelationship:            "relationship",
 	SymbolExpression:              "expression",
+	SymbolKerMLFeature:            "feature",
 	SymbolMultiplicity:            "multiplicity",
 	SymbolComment:                 "comment",
 	SymbolDocumentation:           "documentation",
@@ -216,7 +220,8 @@ func (k SymbolKind) IsFeature() bool {
 		SymbolAllocationUsage, SymbolActionUsage, SymbolStateUsage, SymbolCalcUsage,
 		SymbolConstraintUsage, SymbolRequirementUsage, SymbolSatisfyRequirementUsage,
 		SymbolCaseUsage, SymbolAnalysisCaseUsage, SymbolVerificationCaseUsage, SymbolUseCaseUsage,
-		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity, SymbolReferenceUsage:
+		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity, SymbolReferenceUsage,
+		SymbolKerMLFeature:
 		return true
 	}
 	return false

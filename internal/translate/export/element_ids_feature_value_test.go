@@ -51,3 +51,88 @@ func TestElementIDReaderSpellsTheFeatureValueAsTheConversionWritesIt(t *testing.
 		t.Errorf("ReadOwningMembership value expression = %q, %v; want %q", got, err, membership)
 	}
 }
+
+// The ids the reader answers for an expression's synthesized parameters (`in0`…,
+// `out`), their memberships, and for its operands and their FeatureValues are
+// the ones the conversion writes for them.
+func TestElementIDReaderSpellsExpressionPartsAsTheConversionWritesThem(t *testing.T) {
+	sf, index, doc := readerIndex(t, "operands.sysml", "package P { part def R { attribute a : ScalarValues::Real; attribute mass = a + 2; } }\n")
+	graph, err := ToRDF(sf, parser.New(sf).ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	ids := func(subject rdf.Term) string {
+		for _, id := range graph.Objects(subject, rdf.SysML+"elementId") {
+			return id.Value
+		}
+		return ""
+	}
+	written := map[string]map[string]bool{} // class → elementIds
+	direction := map[string]string{}        // parameter elementId → direction
+	for _, subject := range graph.Subjects() {
+		for _, class := range graph.Objects(subject, rdf.RDFType) {
+			name := class.Value[len(rdf.SysML):]
+			switch name {
+			case "ParameterMembership", "ReturnParameterMembership", "FeatureValue", "LiteralInteger", "FeatureReferenceExpression":
+				if written[name] == nil {
+					written[name] = map[string]bool{}
+				}
+				written[name][ids(subject)] = true
+			case "Feature":
+				for _, d := range graph.Objects(subject, rdf.SysML+"direction") {
+					direction[ids(subject)] = d.Value
+				}
+			}
+		}
+	}
+	// `a + 2` and the reference `a` each yield a result; the literal does not.
+	if len(written["ParameterMembership"]) != 2 || len(written["ReturnParameterMembership"]) != 2 || len(written["FeatureValue"]) != 3 {
+		t.Fatalf("the conversion writes %d ParameterMemberships, %d ReturnParameterMemberships, %d FeatureValues; want 2, 2, 3", len(written["ParameterMembership"]), len(written["ReturnParameterMembership"]), len(written["FeatureValue"]))
+	}
+
+	matches := index.LookupQualified("P::R::mass")
+	if len(matches) != 1 {
+		t.Fatalf("P::R::mass names %d declarations, want 1", len(matches))
+	}
+	usage := matches[0].Decl.(*ast.Usage)
+	operands, typeArgument := ast.ExpressionOperands(usage.Value)
+	if len(operands) != 2 || typeArgument {
+		t.Fatalf("a + 2 writes %d operands (type argument %v), want 2, false", len(operands), typeArgument)
+	}
+	reader := NewElementIDReader([]ElementIDDocument{doc})
+	for slot, want := range map[string]struct{ membership, direction string }{
+		"in0": {"ParameterMembership", "in"},
+		"in1": {"ParameterMembership", "in"},
+		"out": {"ReturnParameterMembership", "out"},
+	} {
+		element, membership, err := reader.ReadExpressionPart(matches[0].DocName, usage.Value, slot)
+		if err != nil || element == "" || membership == "" {
+			t.Errorf("ReadExpressionPart %s = %q, %q, %v", slot, element, membership, err)
+			continue
+		}
+		if direction[element] != want.direction {
+			t.Errorf("%s: the conversion writes direction %q for %q, want %q", slot, direction[element], element, want.direction)
+		}
+		if !written[want.membership][membership] {
+			t.Errorf("%s: the conversion writes no %s %q", slot, want.membership, membership)
+		}
+	}
+	for i, class := range []string{"FeatureReferenceExpression", "LiteralInteger"} {
+		element, err := reader.Read(matches[0].DocName, operands[i], "")
+		if err != nil || !written[class][element] {
+			t.Errorf("Read operand %d = %q, %v; the conversion writes %s %v", i, element, err, class, written[class])
+		}
+		membership, err := reader.ReadOwningMembership(matches[0].DocName, operands[i], "")
+		if err != nil || !written["FeatureValue"][membership] {
+			t.Errorf("ReadOwningMembership operand %d = %q, %v; the conversion writes FeatureValues %v", i, membership, err, written["FeatureValue"])
+		}
+	}
+	if element, membership, err := reader.ReadExpressionPart(matches[0].DocName, operands[0], "out"); err != nil || direction[element] != "out" || !written["ReturnParameterMembership"][membership] {
+		t.Errorf("ReadExpressionPart reference out = %q, %q, %v; want the written result parameter", element, membership, err)
+	}
+	if _, _, err := reader.ReadExpressionPart(matches[0].DocName, operands[1], "out"); err != nil {
+		t.Errorf("ReadExpressionPart literal out: %v", err)
+	} else if element, _, _ := reader.ReadExpressionPart(matches[0].DocName, operands[1], "out"); element != "" {
+		t.Errorf("a literal has a result parameter %q", element)
+	}
+}
