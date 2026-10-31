@@ -63,7 +63,8 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
   `xmi:type` or `xmi:id` is an owned element (`<lowerValue xmi:type="uml:LiteralInteger" …/>`),
   never a property value; XML's own `xml:space`/`xml:lang` on a child do not change that it
   serializes a property (`<body xml:space="preserve">x + 1</body>`); a `base_*` child written as
-  `href="#_5"` names the element its fragment is; where a document states a property both ways
+  `href="#_5"` names the element its fragment is, `href="shared.xmi#_5"` the one that entry of
+  the same archive defines (a document not read extends nothing); where a document states a property both ways
   the attribute wins.
 - **Eclipse UML2 serializations of the SysML profile**, as Cameo's "Eclipse UML2 (v5.x)
   XMI" export writes them: a package of the profile with no URI of its own gets the hostless

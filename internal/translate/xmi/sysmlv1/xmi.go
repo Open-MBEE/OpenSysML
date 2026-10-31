@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"sort"
 	"strings"
 	"unicode"
@@ -144,7 +145,11 @@ type Model struct {
 	// StrayParagraphs are collaborator paragraphs no document's view shows.
 	StrayParagraphs []*DocGenParagraph
 	byID            map[string]*Element
-	proxies         map[string]*Element
+	// documents names the archive entry that defines each id, for the hrefs
+	// into a bundled document; document is the entry being read.
+	documents map[string]string
+	document  string
+	proxies   map[string]*Element
 	// fragments lists the proxies whose hrefs share a fragment, in first-seen
 	// order; a bare fragment resolves only while one proxy carries it.
 	fragments       map[string][]*Element
@@ -526,6 +531,8 @@ func (m *Model) parseEntry(f *zip.File) error {
 	if err != nil {
 		return err
 	}
+	m.document = f.Name
+	defer func() { m.document = "" }()
 	if err := m.parseDocument(content); err != nil {
 		return fmt.Errorf("archive entry %s: %w", f.Name, err)
 	}
@@ -534,7 +541,7 @@ func (m *Model) parseEntry(f *zip.File) error {
 
 func newModel() *Model {
 	return &Model{
-		byID: map[string]*Element{}, proxies: map[string]*Element{}, fragments: map[string][]*Element{},
+		byID: map[string]*Element{}, documents: map[string]string{}, proxies: map[string]*Element{}, fragments: map[string][]*Element{},
 		stereotypeHrefs: map[stereotypeKey]string{}, ancestors: map[*Element][]*Element{},
 	}
 }
@@ -831,6 +838,9 @@ func (m *Model) newElement(raw *xmi.Element, parent *Element) *Element {
 	}
 	if e.ID != "" {
 		m.byID[e.ID] = e
+		if m.document != "" {
+			m.documents[e.ID] = m.document
+		}
 	}
 	return e
 }
@@ -899,12 +909,10 @@ func looksLikeName(s string) bool {
 // stereotype defining it. An application of an element outside the documents
 // read (a proxy) is kept unresolved, since nothing in the model is extended by it.
 func (m *Model) link() {
-	// A base named by a local href (`<base_Class href="#_c"/>`) is the element
-	// whose id its fragment is; one in another document is a proxy, unresolved.
 	for _, s := range m.Stereotypes {
 		base, ok := m.byID[s.BaseID]
-		if !ok && strings.HasPrefix(s.BaseID, "#") {
-			base, ok = m.byID[s.BaseID[1:]]
+		if !ok {
+			base, ok = m.hrefBase(s.BaseID)
 		}
 		if ok {
 			s.Base = base
@@ -935,6 +943,26 @@ func (m *Model) link() {
 	}
 	m.readTables()
 	m.readDocuments()
+}
+
+// hrefBase resolves a stereotype base named by href: `#_c` is this document's
+// _c, `shared.xmi#_c` the _c of that archive entry when it was read; an href
+// into a document not read names nothing here, whatever its fragment.
+func (m *Model) hrefBase(href string) (*Element, bool) {
+	i := strings.LastIndexByte(href, '#')
+	if i < 0 {
+		return nil, false
+	}
+	doc, frag := href[:i], href[i+1:]
+	e, ok := m.byID[frag]
+	if !ok || doc == "" {
+		return e, ok
+	}
+	entry := m.documents[frag]
+	if entry == doc || (!strings.Contains(doc, "/") && path.Base(entry) == doc) {
+		return e, true
+	}
+	return nil, false
 }
 
 // stereotypeDefinitions lists every uml:Stereotype the documents read define.

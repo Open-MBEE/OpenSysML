@@ -1067,3 +1067,34 @@ func TestLocalHrefBaseAndDecoratedBodies(t *testing.T) {
 		t.Errorf("body read as an owned element: %+v", owned)
 	}
 }
+
+func TestHrefBaseIntoABundledDocument(t *testing.T) {
+	const head = `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">`
+	main := head + `
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_x" name="X"/>
+  </uml:Model>
+  <sysml:Block xmi:id="_st_c"><base_Class href="shared.xmi#_c"/></sysml:Block>
+  <sysml:Block xmi:id="_st_x"><base_Class href="external.xmi#_x"/></sysml:Block>
+</xmi:XMI>`
+	shared := head + `
+  <uml:Model xmi:type="uml:Model" xmi:id="_s" name="S">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C"/>
+  </uml:Model>
+</xmi:XMI>`
+	m, err := Parse(archive(t, "", map[string][]byte{"main.xmi": []byte(main), "lib/shared.xmi": []byte(shared)}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The bundled entry's _c is the base; external.xmi was not read, so its
+	// _x is not this archive's _x.
+	if st := m.Lookup("_c").Stereotypes; len(st) != 1 || st[0].Name != "Block" {
+		t.Errorf("_c stereotypes = %+v", st)
+	}
+	if st := m.Lookup("_x").Stereotypes; len(st) != 0 {
+		t.Errorf("_x stereotypes = %+v", st)
+	}
+}
