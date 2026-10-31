@@ -44,6 +44,13 @@ func ImpliedDeclOf(sym *Symbol) (*ImpliedDecl, bool) {
 	return d, ok
 }
 
+// Implied reports whether sym declares an element the abstract syntax implies
+// rather than one the notation writes: no text, diagram or outline shows it.
+func (s *Symbol) Implied() bool {
+	_, ok := ImpliedDeclOf(s)
+	return ok || (s.Recorded() && s.Facts.Node == NodeConjugatedPortDef)
+}
+
 // IsConjugatedPortDefinition reports whether sym is the ConjugatedPortDefinition
 // a port definition implies, parsed or recorded.
 func (s *Symbol) IsConjugatedPortDefinition() bool {

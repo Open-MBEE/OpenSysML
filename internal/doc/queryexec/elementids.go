@@ -55,6 +55,11 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 				return read.ReadRelationship(rel.Member.DocName, rel.Member.Decl)
 			}
 			return "", nil
+		case symbols.ImplicitPortConjugation:
+			if rel.Owner != nil && rel.Owner.Decl != nil {
+				return read.ReadRelationship(rel.Owner.DocName, rel.Owner.Decl)
+			}
+			return "", nil
 		}
 	}
 	return read.Read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
