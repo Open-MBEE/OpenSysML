@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // featureValueOf is the value part a feature's declaration writes (KerML
@@ -15,11 +16,7 @@ func featureValueOf(sym *symbols.Symbol) (value ast.Node, isDefault, isInitial b
 	if sym == nil || sym.Recorded() {
 		return nil, false, false, false
 	}
-	u, isUsage := sym.Decl.(*ast.Usage)
-	if !isUsage || u.Value == nil {
-		return nil, false, false, false
-	}
-	return u.Value, u.ValueIsDefault, u.ValueIsInitial, true
+	return ast.ValuePartOf(sym.Decl)
 }
 
 // ValueExpression is the expression element a feature's value is (KerML
@@ -75,9 +72,14 @@ func expressionMetaclassName(node ast.Node) string {
 		return "NullExpression"
 	case *ast.QualifiedName, *ast.FeatureReference, *ast.BodyExpr:
 		return "FeatureReferenceExpression"
-	case *ast.OperatorExpr, *ast.CastExpr, *ast.SequenceExpr, *ast.IndexExpr:
-		_ = n
+	case *ast.OperatorExpr, *ast.CastExpr, *ast.SequenceExpr:
 		return "OperatorExpression"
+	case *ast.IndexExpr:
+		// `x[i]` is the `[` operator; only `x#(i)` is an IndexExpression.
+		if n.Bracket {
+			return "OperatorExpression"
+		}
+		return "IndexExpression"
 	case *ast.FeatureChainExpr:
 		return "FeatureChainExpression"
 	case *ast.InvocationExpr:
@@ -129,7 +131,7 @@ func expressionValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, 
 		}
 	case *ast.LiteralString:
 		if feature == "value" {
-			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: n.Value}, true
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: source.StringValue(n.Value)}, true
 		}
 	case *ast.OperatorExpr:
 		if feature == "operator" {

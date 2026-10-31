@@ -107,3 +107,64 @@ func TestValuedFeatureOwnsItsFeatureValue(t *testing.T) {
 		t.Errorf("operator of count's expression = %v (ok %v), want +", got, ok)
 	}
 }
+
+func TestEveryValuePartOwnsAFeatureValue(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			requirement def Q {
+				subject s = 3;
+				assume constraint a default true;
+				require constraint r := false;
+				attribute items : ScalarValues::Real[*];
+				attribute label = "a\nb";
+				attribute hashed = items#(1);
+				attribute bracketed = items[1];
+			}
+		}
+	`)
+	pkg, _ := root.LookupLocal("P")
+	q := member(t, m, pkg, "Q")
+	for name, want := range map[string]struct {
+		metaclass          string
+		isDefault, initial bool
+	}{
+		"s":         {"LiteralInteger", false, false},
+		"a":         {"LiteralBoolean", true, false},
+		"r":         {"LiteralBoolean", false, true},
+		"label":     {"LiteralString", false, false},
+		"hashed":    {"IndexExpression", false, false},
+		"bracketed": {"OperatorExpression", false, false},
+	} {
+		sym := member(t, m, q, name)
+		expr := m.ValueExpression(sym)
+		if expr == nil {
+			t.Errorf("%s: no value expression", name)
+			continue
+		}
+		if got := m.MetaclassOf(expr); got == nil || got.Name != want.metaclass {
+			t.Errorf("%s: expression metaclass = %v, want %s", name, got, want.metaclass)
+		}
+		memberships := m.OwnedMemberships(sym)
+		if len(memberships) == 0 || m.MetaclassOf(memberships[0]) == nil || m.MetaclassOf(memberships[0]).Name != "FeatureValue" {
+			t.Errorf("%s: first owned membership = %v, want its FeatureValue", name, memberships)
+			continue
+		}
+		fv := memberships[0]
+		if got, ok := m.ReflectiveElements(fv, "value"); !ok || len(got) != 1 || got[0] != expr {
+			t.Errorf("%s: value of the FeatureValue = %v (ok %v), want the expression", name, got, ok)
+		}
+		if got, _ := m.ReflectiveFeatureValue(fv, "isDefault"); got.Bool != want.isDefault {
+			t.Errorf("%s: isDefault = %v, want %v", name, got.Bool, want.isDefault)
+		}
+		if got, _ := m.ReflectiveFeatureValue(fv, "isInitial"); got.Bool != want.initial {
+			t.Errorf("%s: isInitial = %v, want %v", name, got.Bool, want.initial)
+		}
+		if rels := m.OwnedRelationships(sym); len(rels) == 0 || rels[0] != fv {
+			t.Errorf("%s: ownedRelationship does not lead with the FeatureValue: %v", name, rels)
+		}
+	}
+	label := m.ValueExpression(member(t, m, q, "label"))
+	if got, ok := m.ReflectiveFeatureValue(label, "value"); !ok || got.Str != "a\nb" {
+		t.Errorf("value of the string literal = %q (ok %v), want the decoded %q", got.Str, ok, "a\nb")
+	}
+}
