@@ -877,12 +877,8 @@ func circularReference(conds []Condition) *symbols.Symbol {
 	return nil
 }
 
-// evaluateStepsConditions is the loop of judgeConditions for one body that
-// states steps: the steps run once against the chain's features and bindings,
-// then each condition of the body is evaluated in the frame they left — judged
-// on its own Required, as judgeConditions judges one, so an assumption failing
-// among them decides a requirement check and nothing else. done reports a
-// verdict reached early, which a condition failing may settle.
+// evaluateStepsConditions is judgeConditions' loop over one body stating steps: the steps run
+// once, then each condition is judged in the frame they left; done reports a verdict settled early.
 func (ctx *Context) evaluateStepsConditions(activation int64, check conditionCheck, cond Condition, features map[string]scopedExpr, self *Instance) (verdict conditionVerdict, done bool, err error) {
 	scoped, bindings := features, check.bindings
 	for _, constraint := range cond.Constraints {

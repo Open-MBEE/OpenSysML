@@ -143,9 +143,8 @@ func TestConstraintOverUndeterminedOperandIsNotDecided(t *testing.T) {
 	}
 }
 
-// An assumption that does not hold is not a violation: the requirement is
-// `allTrue(assumptions()) implies allTrue(constraints())`, true whatever the
-// required condition reads once an assumption is false.
+// An assumption that does not hold is not a violation: `allTrue(assumptions()) implies
+// allTrue(constraints())` is true whatever the required condition reads.
 func TestRequirementAssumptionIsNotRequired(t *testing.T) {
 	src := `
 		package test {

@@ -73,11 +73,8 @@ package Repro {
 }
 `
 
-// TestSatisfyFailedAssumptionHoldsVacuously pins the text of the verdict a failed
-// assumption earns: the requirement is `allTrue(assumptions()) implies
-// allTrue(constraints())`, so `off` satisfies it and the standing names the
-// assumption; `on` meets the assumption and fails the required constraint; and the
-// denial over `off` fails with the same reason.
+// TestSatisfyFailedAssumptionHoldsVacuously pins the verdict text of a failed assumption: `off`
+// satisfies the requirement naming it, `on` fails the required constraint, denying `off` fails.
 func TestSatisfyFailedAssumptionHoldsVacuously(t *testing.T) {
 	s := loadSource(t, failedAssumptionModel)
 	wantsInOrder(t, run(t, s, "%satisfy"),

@@ -6,10 +6,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessRequirementAssumption covers the failure modes of judging a
-// requirement as `allTrue(assumptions()) implies allTrue(constraints())`: an
-// assumption that cannot be evaluated is the error, never a vacuous pass, and a
-// denied requirement whose assumption fails is a violation naming the assumption.
+// TestRuntimeRobustnessRequirementAssumption covers the failure modes of `allTrue(assumptions())
+// implies allTrue(constraints())`: an unevaluable assumption is the error, a denied one a violation.
 func TestRuntimeRobustnessRequirementAssumption(t *testing.T) {
 	const thing = `
 		part def Thing { attribute enabled : Boolean; attribute level : Integer; }
