@@ -13,9 +13,10 @@ one of the seven pull requests of [Fixes](#fixes), which all merged into
 full method, then re-probed the export rows on `5e0322e0c` and again on
 `d01e4f49c` when #1760 and #1774 landed on them; it is
 [The release candidate](#the-release-candidate), which also accounts
-for every merge up to `develop` `9a4ffcd83`, re-checking the runtime
-rows at `1e34d9d95` when #1777 landed on them and the semantics rows at
-`9a4ffcd83` when #1784 did. The
+for every merge up to `develop` `e022cbca0`, re-checking the runtime
+rows at `1e34d9d95` when #1777 landed on them, the semantics rows at
+`9a4ffcd83` when #1784 did, and the export rows at `e022cbca0` when
+#1783 did. The
 first pass stays in the record as the pre-fix measurement so that what
 the fixes gave back is visible row by row. The record follows the
 method of the [0.11.0 against 0.10.1](performance-release-0.11.0-vs-0.10.1.md)
@@ -421,7 +422,7 @@ built on it is measured in full in
 
 ## What this record does not measure
 
-- Anything after `9a4ffcd83`, and #1771 by anything but its own pull
+- Anything after `e022cbca0`, and #1771 by anything but its own pull
   request's benchstat ([After the measured heads](#after-the-measured-heads)).
 - The merges between `1c6bb1972` and `ab88ea950` on their own: they are
   measured only inside the release candidate, never one at a time
@@ -884,11 +885,53 @@ Whole binary, three runs each after a warm-up, `cc1d477ba` against
 byte-identical. The resident set does not resolve the +1.5 % of bytes;
 the allocation counts do.
 
-So the candidate of this record is `develop` at `9a4ffcd83`: its runtime,
+After #1784, `develop` took #1781 (a workflow and a hygiene test) and
+#1786 (`client/**`) to `fdc373e43`, and then #1783 (`fix(export): the RDF
+export states a usage's isVariable and mayTimeVary as the metamodel
+does`, `e022cbca0`), on the export path again: `git diff --stat
+fdc373e43 e022cbca0 -- '*.go' go.mod go.sum` names
+`internal/translate/export/api_json_absence.go` (+19/−2),
+`api_json_booleans.go` (+6/−1), `rdf_out.go` (+18), `verbatim.go`
+(+13/−1), `rdf_in_toolkit.go` (+4/−2) and four test files under
+`tests/export` — nothing outside `internal/translate/export`. The export
+rows were re-probed a third time, six interleaved rounds of
+`tests/export` (the `WriteAPIJSON*` and RDF rows) and the stress
+`ConvertAPIJSON` rows at `e022cbca0` against `d01e4f49c`, the previous
+export measurement, then the whole-binary element-ID query, the RDF
+export and the 12 086-element load against the `d01e4f49c` binary.
+
+Six rounds at 0–2 % steal, `d01e4f49c` against `e022cbca0`, bytes and
+allocations exact on every row, and every row moved by a little, in the
+direction of the output: `WriteAPIJSON` writes +0.37–2.20 % more output
+(`ISQAtomicNuclear/standard` 7.778 → 7.809 Mi, `then_after_members/compact`
+338.6 → 346.1 Ki — the `isVariable` and `mayTimeVary` statements the fix
+adds), for +0.06–0.57 % bytes (`SimpleVehicleModel/compact` 254.0 →
+255.5 Mi) and +0.26–0.90 % allocations (`then_after_members/standard`
+167.9 k → 169.4 k), all p = 0.002; stress `ConvertAPIJSON/32` 6.864 →
+6.919 Gi (+0.79 %) and 33.93 → 34.34 M allocations (+1.19 %), `/128`
+28.05 → 28.24 Gi (+0.68 %) and 132.2 → 133.8 M (+1.19 %), p = 0.002.
+sec/op is `~` on all of them (`ConvertAPIJSON/128` 71.0 → 62.5 s at
+± 21–31 %, p = 0.31; `WriteAPIJSON/SimpleVehicleModel/standard` 765 →
+541 ms, p = 0.18). The cause is #1783 itself, the only change between
+the two heads: each usage's export now states two more booleans and
+their absence form, and each costs its string. Whole binary, three runs
+each after a warm-up, `d01e4f49c` against `e022cbca0`: the element-ID
+query on 6 198 elements 230–254 → 242–248 MiB (0.72–0.96 → 0.73–1.39 s),
+on 12 086 elements 363–380 → 361–383 MiB (1.35–2.78 → 1.33–2.88 s),
+three queries in one run 395–402 → 397–399 MiB; `-convert ttl` of the
+12 086-element model 12.5–15.1 → 13.0–13.8 s and 4.29–4.61 → 4.31–4.92
+GiB resident; `-validate` of the same model 165–173 → 173 MiB at 0.25 s
+on both. Nothing a user sees moves beyond the run-to-run spread. One
+residual this probe surfaced and does not attribute to #1783, since
+both sides pay it: the Turtle export of a 12 086-element model holds
+4.3–4.9 GiB resident for 13 s where `-validate` of the same model holds
+173 MiB — the RDF writer's footprint, worth its own measurement.
+
+So the candidate of this record is `develop` at `e022cbca0`: its runtime,
 load, REPL, LSP and whole-binary rows measured at `cc1d477ba` and
 re-checked at `1e34d9d95` and `9a4ffcd83` on the rows above (#1771
-measured in its own pull request), its export rows at `d01e4f49c` (and
-at `5e0322e0c` before #1774). Still open at the time of writing is #1754, which
+measured in its own pull request), its export rows at `e022cbca0` (and
+at `d01e4f49c` and `5e0322e0c` before #1783 and #1774). Still open at the time of writing is #1754, which
 removes deprecated `cmd/` flags and a client field — not on any measured
 path.
 
@@ -924,6 +967,6 @@ of the first pass — stand as the record's time verdicts, and the fixes'
 own quiet A/B ([The fixes on the quiet host](#the-fixes-on-the-quiet-host))
 is the evidence that the fixes moved bytes, not time.
 
-Should anything that touches Go land between `9a4ffcd83` and the
+Should anything that touches Go land between `e022cbca0` and the
 release branch after all, its rows are re-probed interleaved against
 `cc1d477ba` and this section is amended, as the 0.11.0 record's was.
