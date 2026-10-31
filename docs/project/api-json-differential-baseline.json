@@ -120,8 +120,8 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1144068,
-      "presentDifferent": 28091,
+      "presentEqual": 1144182,
+      "presentDifferent": 27977,
       "oursMissing": 1054265,
       "pilotMissing": 69343,
       "absentBoth": 1967116,
@@ -161,8 +161,8 @@
         "typeMismatch": 10
       },
       "properties": {
-        "presentEqual": 92397,
-        "presentDifferent": 1876,
+        "presentEqual": 92405,
+        "presentDifferent": 1868,
         "oursMissing": 84784,
         "pilotMissing": 5126,
         "absentBoth": 164386,
@@ -197,8 +197,8 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 334904,
-        "presentDifferent": 7833,
+        "presentEqual": 334958,
+        "presentDifferent": 7779,
         "oursMissing": 305987,
         "pilotMissing": 19290,
         "absentBoth": 576149,
@@ -233,8 +233,8 @@
         "typeMismatch": 15
       },
       "properties": {
-        "presentEqual": 116560,
-        "presentDifferent": 3240,
+        "presentEqual": 116604,
+        "presentDifferent": 3196,
         "oursMissing": 106662,
         "pilotMissing": 6811,
         "absentBoth": 206224,
@@ -306,8 +306,8 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 78054,
-        "presentDifferent": 1613,
+        "presentEqual": 78062,
+        "presentDifferent": 1605,
         "oursMissing": 72909,
         "pilotMissing": 5549,
         "absentBoth": 135000,
@@ -2562,8 +2562,8 @@
       0
     ],
     "ActionUsage.isVariable": [
-      508,
-      9,
+      510,
+      7,
       0,
       0,
       0,
@@ -2598,8 +2598,8 @@
       0
     ],
     "ActionUsage.mayTimeVary": [
-      508,
-      9,
+      510,
+      7,
       0,
       0,
       0,
@@ -70035,8 +70035,8 @@
       0
     ],
     "PartUsage.isVariable": [
-      1950,
-      31,
+      1981,
+      0,
       0,
       0,
       0,
@@ -70080,8 +70080,8 @@
       0
     ],
     "PartUsage.mayTimeVary": [
-      1950,
-      31,
+      1981,
+      0,
       0,
       0,
       0,
@@ -71727,8 +71727,8 @@
       0
     ],
     "PerformActionUsage.isVariable": [
-      233,
-      3,
+      235,
+      1,
       0,
       0,
       0,
@@ -71754,8 +71754,8 @@
       0
     ],
     "PerformActionUsage.mayTimeVary": [
-      233,
-      3,
+      235,
+      1,
       0,
       0,
       0,
@@ -73707,8 +73707,8 @@
       0
     ],
     "PortUsage.isVariable": [
-      490,
-      2,
+      492,
+      0,
       0,
       0,
       0,
@@ -73734,8 +73734,8 @@
       0
     ],
     "PortUsage.mayTimeVary": [
-      490,
-      2,
+      492,
+      0,
       0,
       0,
       0,
@@ -75732,8 +75732,8 @@
       0
     ],
     "ReferenceUsage.isVariable": [
-      2302,
-      22,
+      2319,
+      5,
       0,
       0,
       0,
@@ -75768,8 +75768,8 @@
       0
     ],
     "ReferenceUsage.mayTimeVary": [
-      2302,
-      22,
+      2319,
+      5,
       0,
       0,
       0,
@@ -79701,8 +79701,8 @@
       0
     ],
     "RequirementUsage.isVariable": [
-      267,
-      1,
+      268,
+      0,
       0,
       0,
       0,
@@ -79728,8 +79728,8 @@
       0
     ],
     "RequirementUsage.mayTimeVary": [
-      267,
-      1,
+      268,
+      0,
       0,
       0,
       0,
@@ -98250,8 +98250,8 @@
       0
     ],
     "UseCaseUsage.isVariable": [
-      25,
-      2,
+      27,
+      0,
       0,
       0,
       0,
@@ -98277,8 +98277,8 @@
       0
     ],
     "UseCaseUsage.mayTimeVary": [
-      25,
-      2,
+      27,
+      0,
       0,
       0,
       0,
