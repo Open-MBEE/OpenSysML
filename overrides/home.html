@@ -498,7 +498,10 @@
       flex-wrap: wrap;
       gap: .4rem;
       align-items: center;
-      margin-bottom: .45rem;
+      margin: 0 0 .45rem;
+      padding: 0;
+      border: 0;
+      min-width: 0;
     }
     .osml-debug__label { font-weight: 700; margin-right: .2rem; }
     .osml-debug button,
@@ -998,15 +1001,15 @@
         <p class="osml-schematic__status" data-osml-status aria-live="polite">This is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 9 MB, downloaded once).</p>
       </div>
       <div class="osml-debug" id="osml-schematic-debug" data-osml-debugger hidden>
-        <div class="osml-debug__bar" role="group" aria-label="Send an event to the state machine" data-osml-debug-events>
+        <fieldset class="osml-debug__bar" aria-label="Send an event to the state machine" data-osml-debug-events>
           <span class="osml-debug__label">Send</span>
           <button type="button" data-osml-send="Commit">Commit</button>
           <button type="button" data-osml-send="Pull">Pull</button>
           <button type="button" data-osml-send="Check">Check</button>
           <button type="button" data-osml-send="Push">Push</button>
           <button type="button" data-osml-debug-reset title="Start again with no events">Reset</button>
-        </div>
-        <div class="osml-debug__bar" role="group" aria-label="Step through the run">
+        </fieldset>
+        <fieldset class="osml-debug__bar" aria-label="Step through the run">
           <button type="button" data-osml-step-back aria-label="Step back">&#9664; Back</button>
           <button type="button" data-osml-play aria-pressed="false">&#9654; Play</button>
           <button type="button" data-osml-step aria-label="Step forward">Step &#9654;</button>
@@ -1022,7 +1025,7 @@
             <input type="number" min="0" step="1" inputmode="numeric" placeholder="none" data-osml-seed aria-describedby="osml-debug-seed-hint">
           </label>
           <button type="button" data-osml-reseed data-osml-debug-events>New seed</button>
-        </div>
+        </fieldset>
         <p class="osml-debug__hint" id="osml-debug-seed-hint" data-osml-for="stack">The start and each <code>Pull</code> out of Flexo are free choices; a seed picks each branch at random, the same way every time. Run picks a new random seed unless you set one, and shows it here so the debugger can replay that path. With no seed the debugger takes the engine's default branch.</p>
         <p class="osml-debug__hint" data-osml-for="phases" hidden>Each record carries the simulated instant the engine wrote it at; the machine makes no free choices, so the run is the same every time. Step through the records or play them to watch the clock advance.</p>
         <p class="osml-debug__hint" data-osml-for="apollo" hidden>Each record names the token and the executor step it was written at; the events the run posts are the toggles under the stage. Step through the records to watch the token advance and each assignment land.</p>

@@ -1207,16 +1207,17 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
     if (signal.aborted) {
       return;
     }
-    const last = result.visited[result.visited.length - 1];
+    const last = result.visited.at(-1);
     const stopped = result.finalTime === undefined ? "" : ` The clock stopped at t = ${secondsText(result.finalTime)}`;
     const final = last === undefined ? undefined : model.machine?.states.get(last);
-    const reached = steps.filter((step) => step.edge?.to === last && step.record.time !== undefined).pop();
-    const ending =
-      final?.kind === "final"
-        ? `; the machine completed when a transition reached ${stateLabel(last)}${reached ? ` at t = ${quantityText(reached.record.time!)}` : ""}.`
-        : last === undefined
-          ? "."
-          : ` with the machine still in ${stateLabel(last)}.`;
+    const reached = steps.findLast((step) => step.edge?.to === last && step.record.time !== undefined);
+    let ending = ".";
+    if (final?.kind === "final") {
+      const at = reached ? ` at t = ${quantityText(reached.record.time!)}` : "";
+      ending = `; the machine completed when a transition reached ${stateLabel(last)}${at}.`;
+    } else if (last !== undefined) {
+      ending = ` with the machine still in ${stateLabel(last)}.`;
+    }
     status(`${ran}.${stopped}${ending}`);
   }
 
