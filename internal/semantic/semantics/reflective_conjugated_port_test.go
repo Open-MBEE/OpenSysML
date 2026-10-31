@@ -12,6 +12,7 @@ func TestPortDefinitionOwnsItsConjugate(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `
 		package P {
 			port def <q> Q { attribute x; }
+			port def <s>;
 			part def R;
 		}
 	`)
@@ -77,6 +78,13 @@ func TestPortDefinitionOwnsItsConjugate(t *testing.T) {
 	}
 	if got := m.OwnedMemberships(conjugate); len(got) != 0 {
 		t.Errorf("the conjugate owns %d memberships, want none", len(got))
+	}
+	short, ok := pkg.Scope.LookupLocal("s")
+	if !ok {
+		t.Fatal("port def <s> not found")
+	}
+	if got := m.OwnedMemberships(short); len(got) != 1 || got[0].Implicit.Member.ShortName != "~s" || got[0].Implicit.Member.Name != "~s" {
+		t.Errorf("a short-named port definition owns %v, want its conjugate <~s>", got)
 	}
 	if got := m.OwnedMemberships(r); len(got) != 0 {
 		t.Errorf("a part definition owns %d memberships, want none", len(got))

@@ -66,17 +66,16 @@ func (s *Symbol) IsConjugatedPortDefinition() bool {
 
 // buildConjugatedPortDefinition registers, as the first member of a port
 // definition's scope, the ConjugatedPortDefinition it implies: named `~P`
-// (short name `~<short>` when P has one), a port definition in kind, declared
-// by an ImpliedDecl over P's node.
+// and short-named `~<short>` after whichever names P declares, a port
+// definition in kind, declared by an ImpliedDecl over P's node.
 func buildConjugatedPortDefinition(scope *Scope, d *ast.Definition) {
-	if d.Kind != ast.DefPort || d.Ident.Name == "" {
+	if d.Kind != ast.DefPort || (d.Ident.Name == "" && d.Ident.ShortName == "") {
 		return
 	}
 	decl := &ImpliedDecl{Of: d, Form: ImpliedConjugatedPortDefinition}
-	id := ast.Identification{
-		Name:          "~" + d.Ident.Name,
-		NameSpan:      d.Ident.NameSpan,
-		ShortNameSpan: d.Ident.ShortNameSpan,
+	id := ast.Identification{NameSpan: d.Ident.NameSpan, ShortNameSpan: d.Ident.ShortNameSpan}
+	if d.Ident.Name != "" {
+		id.Name = "~" + d.Ident.Name
 	}
 	if d.Ident.ShortName != "" {
 		id.ShortName = "~" + d.Ident.ShortName
