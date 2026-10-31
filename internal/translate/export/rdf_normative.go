@@ -488,13 +488,15 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 	e.typed(conjugated, mConjugatedPortDefinition)
 	e.graph.Add(conjugated, e.sysml(pElementID), rdf.String(rdf.LocalName(conjugated.Value)))
 	address := fqn + "::" + conjugateSegment
-	if n.Ident.Name != "" {
-		name := "~" + n.Ident.Name
+	named := n.Ident.Name != ""
+	name := ""
+	if named {
+		name = "~" + n.Ident.Name
 		address = fqn + "::" + identity.EscapeName(name)
-		e.graph.Add(conjugated, addressTerm(address), rdf.String(address))
+	}
+	e.graph.Add(conjugated, addressTerm(address), rdf.String(address))
+	if named {
 		e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String(name))
-	} else {
-		e.graph.Add(conjugated, addressTerm(address), rdf.String(address))
 	}
 	e.emitMembershipCore(membership, conjugated, subject, mOwningMembership, true)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
