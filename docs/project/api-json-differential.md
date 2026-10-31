@@ -230,21 +230,21 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 924 files)
 
-**Scorecard:** 932 files; 92426 elements matched (18479 ours-only, 37741 pilot-only, 0 of them implied); properties: 1143744 present-equal, 28415 present-different, 1054265 ours-missing, 69343 pilot-missing, 1967116 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
+**Scorecard:** 932 files; 92426 elements matched (18479 ours-only, 37741 pilot-only, 0 of them implied); properties: 1144028 present-equal, 28131 present-different, 1054265 ours-missing, 69343 pilot-missing, 1967116 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 28 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11728 (metaclass, property) rows carry a comparison; 111690 references compared through the unkeyed sentinel, 159865 of our `sysx:` annotations were left out, and 287/347 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 92375 | 1898 | 84784 | 5126 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 26536 | 6150 | 9580 | 334856 | 7881 | 305987 | 19290 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 116534 | 3266 | 106662 | 6811 |
+| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 92393 | 1880 | 84784 | 5126 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 26536 | 6150 | 9580 | 334894 | 7843 | 305987 | 19290 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 116558 | 3242 | 106662 | 6811 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6399 | 1166 | 1842 | 74444 | 2504 | 63871 | 6503 |
-| `examples/spec-examples` | 511 | 7074 | 990 | 2656 | 78032 | 1635 | 72909 | 5549 |
+| `examples/spec-examples` | 511 | 7074 | 990 | 2656 | 78054 | 1613 | 72909 | 5549 |
 | `tests/testdata` | 40 | 1460 | 175 | 511 | 16776 | 428 | 15647 | 1057 |
-| `examples` | 53 | 26937 | 6046 | 15045 | 340155 | 8684 | 315526 | 20150 |
+| `examples` | 53 | 26937 | 6046 | 15045 | 340315 | 8524 | 315526 | 20150 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 557 | 1 | 452 | 41 |
-| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 90015 | 2118 | 88427 | 4816 |
+| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 90037 | 2096 | 88427 | 4816 |
 
 **Defaulted parameters of an invocation** (re-recorded with the extension libraries at
 `DocumentQueries::WhereType(…, exact = false)` and `Differ`): the pilot's `InvocationExpression.parameter`
