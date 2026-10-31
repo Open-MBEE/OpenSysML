@@ -73,7 +73,7 @@ func TestMintedUsagesStateTheirDerivedMayTimeVary(t *testing.T) {
 	item def Fuel;
 	part def Tank { out port fuelOut; }
 	part def Engine { in port fuelIn; }
-	requirement def R;
+	requirement def R { subject engineOfInterest : Engine; }
 	part def System {
 		part tank : Tank;
 		part engine : Engine;
@@ -101,7 +101,7 @@ func TestMintedUsagesStateTheirDerivedMayTimeVary(t *testing.T) {
 		}
 	}
 	var (
-		connectionEnds, successionEnds, flowEnds, flowFeatures, transitionParams, acceptParams, subjects int
+		connectionEnds, successionEnds, flowEnds, flowFeatures, transitionParams, acceptParams, subjects, declaredSubjects int
 	)
 	for _, subject := range g.Subjects() {
 		owner := owners[subject.Value]
@@ -133,6 +133,10 @@ func TestMintedUsagesStateTheirDerivedMayTimeVary(t *testing.T) {
 			acceptParams++
 			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
 			wantLexical(t, g, subject.Value, rdf.SysML+"mayTimeVary", "true")
+		case ownerClass == "RequirementDefinition" && class == "ReferenceUsage":
+			declaredSubjects++
+			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
+			wantLexical(t, g, subject.Value, rdf.SysML+"mayTimeVary", "true")
 		case ownerClass == "SatisfyRequirementUsage" && class == "ReferenceUsage":
 			subjects++
 			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
@@ -142,7 +146,7 @@ func TestMintedUsagesStateTheirDerivedMayTimeVary(t *testing.T) {
 	for name, n := range map[string]int{
 		"connection ends": connectionEnds, "succession ends": successionEnds, "flow ends": flowEnds,
 		"flow end features": flowFeatures, "transition parameters": transitionParams,
-		"accept parameters": acceptParams, "satisfy subjects": subjects,
+		"accept parameters": acceptParams, "satisfy subjects": subjects, "declared subjects": declaredSubjects,
 	} {
 		if n == 0 {
 			t.Errorf("no %s exported", name)

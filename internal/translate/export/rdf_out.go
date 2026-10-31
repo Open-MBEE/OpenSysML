@@ -2036,6 +2036,13 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		head(rdf.SysMLTerm(mReferenceUsage))
 		e.ident(subject, n.Ident)
 		e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
+		// A usage: its isVariable is the derived Usage::mayTimeVary.
+		if sym := e.ids.declSym[n]; sym != nil {
+			e.flags(subject, []boolProperty{
+				{"isVariable", e.ids.model.FeatureIsVariable(sym)},
+				{"mayTimeVary", e.ids.model.UsageMayTimeVary(sym)},
+			})
+		}
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Body); err != nil {
 			return err
 		}
