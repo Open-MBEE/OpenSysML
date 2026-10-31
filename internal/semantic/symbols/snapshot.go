@@ -208,6 +208,18 @@ func (e *snapshotEncoder) node(n ast.Node) {
 	e.w.Uint(id)
 }
 
+// decl writes a symbol's declaration: the node, then the form of the ImpliedDecl
+// wrapping it plus one, or 0 for a written declaration.
+func (e *snapshotEncoder) decl(n ast.Node) {
+	if implied, ok := n.(*ImpliedDecl); ok {
+		e.node(implied.Of)
+		e.w.Int(int64(implied.Form) + 1)
+		return
+	}
+	e.node(n)
+	e.w.Int(0)
+}
+
 func (e *snapshotEncoder) fail(what string) {
 	if e.err == nil {
 		e.err = fmt.Errorf("symbols: snapshot: %s", what)
@@ -249,7 +261,7 @@ func (e *snapshotEncoder) writeScopes() {
 	for _, s := range e.scopeList {
 		e.scope(s.parent)
 		e.sym(s.owner)
-		e.node(s.node)
+		e.decl(s.node)
 		e.w.Bool(s.bodyLocal)
 		e.w.String(s.docName)
 		e.strings(s.names)
@@ -270,7 +282,7 @@ func (e *snapshotEncoder) writeSymbols() {
 	for _, s := range e.symList {
 		e.w.String(s.Name)
 		e.w.Int(int64(s.Kind))
-		e.node(s.Decl)
+		e.decl(s.Decl)
 		e.w.Int(int64(s.Visibility))
 		e.span(s.DeclSpan)
 		e.span(s.NameSpan)
@@ -613,6 +625,10 @@ type snapshotDecoder struct {
 	scopes []Scope
 	syms   []Symbol
 	facts  []LibraryFacts
+	// implied shares one ImpliedDecl between the symbol and the scope it declares,
+	// which separate sections read concurrently; impliedMu guards it.
+	impliedMu sync.Mutex
+	implied   map[impliedKey]*ImpliedDecl
 }
 
 // sectionReader decodes one section; its arenas are its own, so sections can
@@ -629,8 +645,38 @@ type sectionReader struct {
 	filterSlices pack.Arena[ElementFilter]
 }
 
+type impliedKey struct {
+	of   ast.Node
+	form ImpliedForm
+}
+
 func (d *snapshotDecoder) section(r *pack.Reader) *sectionReader {
 	return &sectionReader{snapshotDecoder: d, r: r}
+}
+
+// decl reads what snapshotEncoder.decl wrote.
+func (d *sectionReader) decl() ast.Node {
+	n := d.node()
+	form := d.r.Int()
+	if form == 0 {
+		return n
+	}
+	if form < 0 || form-1 > int64(ImpliedConjugatedPortDefinition) {
+		d.r.Fail("implied form")
+		return n
+	}
+	key := impliedKey{of: n, form: ImpliedForm(form - 1)} // #nosec G115 -- bounded above.
+	d.impliedMu.Lock()
+	defer d.impliedMu.Unlock()
+	if decl, ok := d.implied[key]; ok {
+		return decl
+	}
+	if d.implied == nil {
+		d.implied = map[impliedKey]*ImpliedDecl{}
+	}
+	decl := &ImpliedDecl{Of: key.of, Form: key.form}
+	d.implied[key] = decl
+	return decl
 }
 
 // node reads a reference to a syntax node; 0 is nil.
@@ -735,7 +781,7 @@ func (d *sectionReader) readScopes() {
 		s := &d.scopes[i]
 		s.parent = d.scope()
 		s.owner = d.sym()
-		s.node = d.node()
+		s.node = d.decl()
 		s.bodyLocal = d.r.Bool()
 		s.docName = d.r.String()
 		s.names = d.strings()
@@ -760,7 +806,7 @@ func (d *sectionReader) readSymbols() {
 		s := &d.syms[i]
 		s.Name = d.r.String()
 		s.Kind = SymbolKind(d.r.Int())
-		s.Decl = d.node()
+		s.Decl = d.decl()
 		s.Visibility = ast.Visibility(d.r.Int())
 		s.DeclSpan = d.span()
 		s.NameSpan = d.span()

@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"strings"
 	"sync"
@@ -31,6 +32,10 @@ type ElementIDs struct {
 	membershipByNode map[ast.Node]string
 	membershipBySpan map[spanKey]string
 	membershipByName map[string]string
+	// conjugateByNode and conjugateBySpan are the ids written for the conjugated
+	// port definition each port definition implies, keyed as the port definition's.
+	conjugateByNode map[ast.Node]conjugateIDs
+	conjugateBySpan map[spanKey]conjugateIDs
 	// relationshipByNode and relationshipBySpan are the ids written for the relationship
 	// elements a declaration's notation implies (writtenRelationships), by the node each
 	// is written for: a head clause, a bound end, a dependency's prefix metadata.
@@ -73,6 +78,7 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{},
 		membershipByNode: map[ast.Node]string{}, membershipBySpan: map[spanKey]string{}, membershipByName: map[string]string{},
 		relationshipByNode: map[ast.Node]string{}, relationshipBySpan: map[spanKey]string{},
+		conjugateByNode: map[ast.Node]conjugateIDs{}, conjugateBySpan: map[spanKey]conjugateIDs{},
 		res: res, encoders: encoders}
 	for _, e := range encoders {
 		parents := e.parentDeclarations()
@@ -90,6 +96,11 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 				ids.membershipByNode[node] = local
 				ids.membershipBySpan[spanKey{e.file.Name(), node.Span()}] = local
 				ids.membershipByName[fqn] = local
+			}
+			if def, ok := node.(*ast.Definition); ok && def.Kind == ast.DefPort {
+				conjugate := e.ids.conjugateIDsOf(subject)
+				ids.conjugateByNode[node] = conjugate
+				ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 			}
 			for i, end := range writtenConnectorEnds(node) {
 				if end == nil {
@@ -361,6 +372,10 @@ func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (str
 	if ids == nil {
 		return "", false
 	}
+	if implied, ok := decl.(*symbols.ImpliedDecl); ok {
+		conjugate, ok := ids.conjugateOf(doc, implied)
+		return conjugate.element, ok
+	}
 	if decl != nil {
 		if id, ok := ids.byNode[decl]; ok {
 			return id, true
@@ -377,6 +392,10 @@ func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (str
 func (ids *ElementIDs) OwningMembershipOfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
 	if ids == nil {
 		return "", false
+	}
+	if implied, ok := decl.(*symbols.ImpliedDecl); ok {
+		conjugate, ok := ids.conjugateOf(doc, implied)
+		return conjugate.membership, ok
 	}
 	if decl != nil {
 		if id, ok := ids.membershipByNode[decl]; ok {
@@ -409,6 +428,10 @@ func (ids *ElementIDs) OwningMembershipOfDeclaration(doc string, decl ast.Node, 
 func (ids *ElementIDs) RelationshipOf(doc string, node ast.Node) (string, bool) {
 	if ids == nil || node == nil {
 		return "", false
+	}
+	if implied, ok := node.(*symbols.ImpliedDecl); ok {
+		conjugate, ok := ids.conjugateOf(doc, implied)
+		return conjugate.conjugation, ok
 	}
 	if id, ok := ids.relationshipByNode[node]; ok {
 		return id, true
@@ -567,4 +590,36 @@ func writtenSatisfySubjects(node ast.Node) []*ast.Relationship {
 		}
 	}
 	return out
+}
+
+// conjugateIDs are the ids written for the conjugated port definition a port
+// definition implies: the conjugate, its owning membership and its PortConjugation
+// (SysML 8.3.11.3), minted as rdf_normative.go's conjugatedPortDefinition writes them.
+type conjugateIDs struct {
+	element, membership, conjugation string
+}
+
+// conjugateIDsOf mints the conjugate's ids for the port definition written as subject.
+func (f *identityFacts) conjugateIDsOf(subject rdf.Term) conjugateIDs {
+	conjugated := f.minted(rdf.RelationshipIRI(subject, "_conjugated"), subject, "_conjugated")
+	membership := f.minted(rdf.OwningMembershipIRIOf(conjugated), conjugated, rdf.OwningMembershipSuffix)
+	conjugation := f.minted(rdf.RelationshipIRI(conjugated, "_pc"), conjugated, "_pc")
+	return conjugateIDs{
+		element:     rdf.LocalName(conjugated.Value),
+		membership:  rdf.LocalName(membership.Value),
+		conjugation: rdf.LocalName(conjugation.Value),
+	}
+}
+
+// conjugateOf finds the ids of the conjugate implied for the port definition
+// an ImpliedDecl is keyed to, by node in this parse or by span in another.
+func (ids *ElementIDs) conjugateOf(doc string, implied *symbols.ImpliedDecl) (conjugateIDs, bool) {
+	if implied == nil || implied.Form != symbols.ImpliedConjugatedPortDefinition || implied.Of == nil {
+		return conjugateIDs{}, false
+	}
+	if c, ok := ids.conjugateByNode[implied.Of]; ok {
+		return c, true
+	}
+	c, ok := ids.conjugateBySpan[spanKey{doc, implied.Of.Span()}]
+	return c, ok
 }
