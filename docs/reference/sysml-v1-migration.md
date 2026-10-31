@@ -61,7 +61,10 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
   per end, `<base_Class xmi:idref="_5"/>`; XMI 2.5.1 § 9.4.4), as the OMG's own UML XMI files
   and some exporters write them, migrate to the same notation and report. A child with an
   `xmi:type` or `xmi:id` is an owned element (`<lowerValue xmi:type="uml:LiteralInteger" …/>`),
-  never a property value; where a document states a property both ways the attribute wins.
+  never a property value; XML's own `xml:space`/`xml:lang` on a child do not change that it
+  serializes a property (`<body xml:space="preserve">x + 1</body>`); a `base_*` child written as
+  `href="#_5"` names the element its fragment is; where a document states a property both ways
+  the attribute wins.
 - **Eclipse UML2 serializations of the SysML profile**, as Cameo's "Eclipse UML2 (v5.x)
   XMI" export writes them: a package of the profile with no URI of its own gets the hostless
   nsURI Eclipse UML2 derives from its qualified name — `http:///SysML/Blocks.ecore`,

@@ -174,3 +174,32 @@ func TestOwnedChildrenAreNotScalars(t *testing.T) {
 		t.Errorf("Values(c) = %q", got)
 	}
 }
+
+func TestXMLMetadataDoesNotMakeAChildOwned(t *testing.T) {
+	d, err := Parse(strings.NewReader(`<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001">
+  <specification xmi:type="uml:OpaqueExpression" xmi:id="s">
+    <body xml:space="preserve">x + 1</body>
+    <body xml:lang="en">two</body>
+    <lowerValue value="1"/>
+  </specification>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := d.ByID("s")
+	// xml:space and xml:lang describe the text; the child still serializes the property.
+	body := s.First("body")
+	if !body.IsScalar() || body.XMLAttrs["space"] != "preserve" || len(body.Attrs) != 0 {
+		t.Errorf("decorated body = %+v", body)
+	}
+	if got := s.Attr("body"); got != "x + 1" {
+		t.Errorf("Attr(body) = %q", got)
+	}
+	if got := s.Values("body"); !reflect.DeepEqual(got, []string{"x + 1", "two"}) {
+		t.Errorf("Values(body) = %q", got)
+	}
+	// Any other attribute makes the child an element of its own.
+	if lo := s.First("lowerValue"); lo.IsScalar() || s.Attr("lowerValue") != "" {
+		t.Errorf("lowerValue read as scalar: %+v", lo)
+	}
+}

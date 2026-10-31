@@ -17,6 +17,9 @@ func isXMI(a xml.Attr) bool {
 	return IsXMINamespace(a.Name.Space)
 }
 
+// xmlNamespace is the namespace of XML's own attributes, xml:space and xml:lang.
+const xmlNamespace = "http://www.w3.org/XML/1998/namespace"
+
 // IsXMINamespace reports whether ns is an XMI namespace.
 func IsXMINamespace(ns string) bool {
 	return isNamedNamespace(ns, "XMI")
@@ -63,6 +66,9 @@ type Element struct {
 	ID       string
 	Attrs    map[string]string
 	XMIAttrs map[string]string
+	// XMLAttrs are the attributes of the XML namespace itself (xml:space,
+	// xml:lang), metadata about the text rather than properties of the element.
+	XMLAttrs map[string]string
 	// Namespaces are the xmlns declarations on this element, prefix to URI;
 	// the default namespace is under "".
 	Namespaces map[string]string
@@ -119,8 +125,8 @@ func (e *Element) Values(name string) []string {
 }
 
 // IsScalar reports whether the element serializes a property value of its
-// parent rather than an owned element: no xmi:type or xmi:id, no attribute of
-// any kind (so no idref or href) and no child elements, only text.
+// parent rather than an owned element: no xmi:type or xmi:id, no attribute
+// other than XML's own (so no idref or href) and no child elements, only text.
 func (e *Element) IsScalar() bool {
 	return e != nil && e.Parent != nil && e.Type == "" && e.ID == "" &&
 		len(e.Attrs) == 0 && len(e.XMIAttrs) == 0 && len(e.Children) == 0
@@ -313,6 +319,11 @@ func newElement(t xml.StartElement) *Element {
 			e.declare(a.Name.Local, a.Value)
 		case a.Name.Local == "xmlns":
 			e.declare("", a.Value)
+		case a.Name.Space == xmlNamespace:
+			if e.XMLAttrs == nil {
+				e.XMLAttrs = map[string]string{}
+			}
+			e.XMLAttrs[a.Name.Local] = a.Value
 		default:
 			e.Attrs[a.Name.Local] = a.Value
 		}

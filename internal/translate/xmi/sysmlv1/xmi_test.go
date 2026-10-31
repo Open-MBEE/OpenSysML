@@ -1010,3 +1010,55 @@ func TestElementSerializationReadsAsAttributes(t *testing.T) {
 		t.Error("the base_Class attribute did not win over the child")
 	}
 }
+
+func TestLocalHrefBaseAndDecoratedBodies(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_note">
+        <body xml:space="preserve">Keep   this</body>
+      </ownedComment>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_spec">
+          <body xml:space="preserve">x + 1</body>
+          <language xml:lang="en">OCL</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_d" name="D"/>
+  </uml:Model>
+  <sysml:Block xmi:id="_st_c">
+    <base_Class href="#_c"/>
+  </sysml:Block>
+  <sysml:Block xmi:id="_st_d">
+    <base_Class href="model.xmi#_d"/>
+  </sysml:Block>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// An href base is the element its fragment names, local or in this archive.
+	for _, id := range []string{"_c", "_d"} {
+		if st := m.Lookup(id).Stereotypes; len(st) != 1 || st[0].Name != "Block" {
+			t.Errorf("%s stereotypes = %+v", id, st)
+		}
+	}
+	// xml:space and xml:lang on a body leave it the property it serializes.
+	if got := m.Lookup("_note").Attrs["body"]; got != "Keep   this" {
+		t.Errorf("comment body = %q", got)
+	}
+	spec := m.Lookup("_spec")
+	if got := spec.Values("body"); !slices.Equal(got, []string{"x + 1"}) {
+		t.Errorf("bodies = %q", got)
+	}
+	if got := spec.Values("language"); !slices.Equal(got, []string{"OCL"}) {
+		t.Errorf("languages = %q", got)
+	}
+	if owned := spec.Owned("body"); len(owned) != 0 {
+		t.Errorf("body read as an owned element: %+v", owned)
+	}
+}
