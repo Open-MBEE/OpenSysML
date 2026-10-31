@@ -11,7 +11,8 @@ import (
 // specializes Actions::Action does not vary in time; a performed action and an
 // exhibited state are referential by the notation, so they do; a required or
 // assumed constraint is the ConstraintUsage its member declares; a flow's
-// payload is a PayloadFeature, no usage, and never varies in time.
+// payload is a PayloadFeature, no usage, and never varies in time; a variant's
+// VariantMembership is no FeatureMembership, so it has no owningType.
 func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 	src := `package Vary {
 	state def S;
@@ -20,6 +21,7 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 	requirement r : R { require constraint c2 { true } assume constraint c4 { true } constraint c3 { true } }
 	item def Fuel;
 	part def Car { part tank; part eng; flow fuelFlow of fuel : Fuel from tank to eng; }
+	variation part def EngineChoices :> Engine { variant part e4 : Engine; variant part e6 : Engine; part plain : Engine; }
 	attribute values : Real[*];
 	attribute positives = values->select { in v : Real; v > 0 };
 }
@@ -40,6 +42,10 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 		car, ok := vary.Scope.LookupLocal("Car")
 		if !ok || car.Scope == nil {
 			t.Fatal("Vary::Car not found")
+		}
+		choices, ok := vary.Scope.LookupLocal("EngineChoices")
+		if !ok || choices.Scope == nil {
+			t.Fatal("Vary::EngineChoices not found")
 		}
 		flow, ok := car.Scope.LookupLocal("fuelFlow")
 		if !ok || flow.Scope == nil {
@@ -68,6 +74,7 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 			{engine, "generateTorque", true}, {engine, "s", true}, {engine, "own", false},
 			{r, "c2", true}, {r, "c4", true}, {r, "c3", true},
 			{car, "fuelFlow", false}, {flow, "fuel", false},
+			{choices, "e4", false}, {choices, "e6", false}, {choices, "plain", true},
 		} {
 			sym, ok := c.owner.Scope.LookupLocal(c.name)
 			if !ok {

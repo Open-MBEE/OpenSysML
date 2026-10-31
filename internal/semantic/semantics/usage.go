@@ -33,7 +33,9 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 	default:
 		return false
 	}
-	if sym.OwnerScope == nil || m.isPayloadFeature(sym) {
+	if sym.OwnerScope == nil || m.isPayloadFeature(sym) || IsVariant(sym) {
+		// A variant's VariantMembership is an OwningMembership, no
+		// FeatureMembership, so the variant has no owningType.
 		return false
 	}
 	owner := sym.OwnerScope.Owner()
@@ -75,7 +77,7 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 			return false
 		}
 	}
-	if owner == nil || m.isPayloadFeature(sym) || !m.conformsByName(owner, "Occurrences::Occurrence") ||
+	if owner == nil || m.isPayloadFeature(sym) || IsVariant(sym) || !m.conformsByName(owner, "Occurrences::Occurrence") ||
 		isPortion ||
 		m.conformsByName(sym, "Links::SelfLink") ||
 		m.conformsByName(sym, "Occurrences::HappensLink") {

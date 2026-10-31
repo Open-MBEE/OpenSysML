@@ -89,7 +89,7 @@
         "digest": "sha256:4f350c5a695cda953e0fb8f1b9b273c998f57480b9770bf063b6ca51a96cdf13"
       }
     ],
-    "recorded": "2026-10-30"
+    "recorded": "2026-10-31"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -120,8 +120,8 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1143410,
-      "presentDifferent": 28749,
+      "presentEqual": 1143524,
+      "presentDifferent": 28635,
       "oursMissing": 1054265,
       "pilotMissing": 69343,
       "absentBoth": 1967116,
@@ -161,8 +161,8 @@
         "typeMismatch": 10
       },
       "properties": {
-        "presentEqual": 92361,
-        "presentDifferent": 1912,
+        "presentEqual": 92369,
+        "presentDifferent": 1904,
         "oursMissing": 84784,
         "pilotMissing": 5126,
         "absentBoth": 164386,
@@ -197,8 +197,8 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 334638,
-        "presentDifferent": 8099,
+        "presentEqual": 334692,
+        "presentDifferent": 8045,
         "oursMissing": 305987,
         "pilotMissing": 19290,
         "absentBoth": 576149,
@@ -233,8 +233,8 @@
         "typeMismatch": 15
       },
       "properties": {
-        "presentEqual": 116520,
-        "presentDifferent": 3280,
+        "presentEqual": 116564,
+        "presentDifferent": 3236,
         "oursMissing": 106662,
         "pilotMissing": 6811,
         "absentBoth": 206224,
@@ -306,8 +306,8 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 78008,
-        "presentDifferent": 1659,
+        "presentEqual": 78016,
+        "presentDifferent": 1651,
         "oursMissing": 72909,
         "pilotMissing": 5549,
         "absentBoth": 135000,
@@ -2562,8 +2562,8 @@
       0
     ],
     "ActionUsage.isVariable": [
-      508,
-      9,
+      510,
+      7,
       0,
       0,
       0,
@@ -2598,8 +2598,8 @@
       0
     ],
     "ActionUsage.mayTimeVary": [
-      508,
-      9,
+      510,
+      7,
       0,
       0,
       0,
@@ -70035,8 +70035,8 @@
       0
     ],
     "PartUsage.isVariable": [
-      1950,
-      31,
+      1981,
+      0,
       0,
       0,
       0,
@@ -70080,8 +70080,8 @@
       0
     ],
     "PartUsage.mayTimeVary": [
-      1950,
-      31,
+      1981,
+      0,
       0,
       0,
       0,
@@ -71727,8 +71727,8 @@
       0
     ],
     "PerformActionUsage.isVariable": [
-      233,
-      3,
+      235,
+      1,
       0,
       0,
       0,
@@ -71754,8 +71754,8 @@
       0
     ],
     "PerformActionUsage.mayTimeVary": [
-      233,
-      3,
+      235,
+      1,
       0,
       0,
       0,
@@ -73707,8 +73707,8 @@
       0
     ],
     "PortUsage.isVariable": [
-      470,
-      22,
+      472,
+      20,
       0,
       0,
       0,
@@ -73734,8 +73734,8 @@
       0
     ],
     "PortUsage.mayTimeVary": [
-      470,
-      22,
+      472,
+      20,
       0,
       0,
       0,
@@ -75732,8 +75732,8 @@
       0
     ],
     "ReferenceUsage.isVariable": [
-      1993,
-      331,
+      2010,
+      314,
       0,
       0,
       0,
@@ -75768,8 +75768,8 @@
       0
     ],
     "ReferenceUsage.mayTimeVary": [
-      1993,
-      331,
+      2010,
+      314,
       0,
       0,
       0,
@@ -79701,8 +79701,8 @@
       0
     ],
     "RequirementUsage.isVariable": [
-      267,
-      1,
+      268,
+      0,
       0,
       0,
       0,
@@ -79728,8 +79728,8 @@
       0
     ],
     "RequirementUsage.mayTimeVary": [
-      267,
-      1,
+      268,
+      0,
       0,
       0,
       0,
@@ -98250,8 +98250,8 @@
       0
     ],
     "UseCaseUsage.isVariable": [
-      25,
-      2,
+      27,
+      0,
       0,
       0,
       0,
@@ -98277,8 +98277,8 @@
       0
     ],
     "UseCaseUsage.mayTimeVary": [
-      25,
-      2,
+      27,
+      0,
       0,
       0,
       0,
