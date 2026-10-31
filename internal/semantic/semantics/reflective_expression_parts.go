@@ -48,9 +48,11 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 	if m == nil || !isExpressionSymbol(expr) {
 		return nil
 	}
+	defer m.own(expr).LeaveDoc()
 	if parts, ok := m.expressionParts[expr]; ok {
 		return parts
 	}
+	journal(m, m.expressionParts, expr, expr.Decl)
 	parts := &expressionParts{}
 	operands, typeArgument := ast.ExpressionOperands(expr.Decl)
 	for i, operand := range operands {
@@ -166,9 +168,11 @@ func expressionResultList(m *Model, expr *symbols.Symbol) []*symbols.Symbol {
 // conversion writes them: an expression's ParameterMemberships in operand
 // order then its ReturnParameterMembership; an `in` parameter's FeatureValue.
 func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.memberships[sym]; ok {
 		return cached
 	}
+	journal(m, m.memberships, sym, sym.Decl)
 	var members []*symbols.Symbol
 	if isExpressionSymbol(sym) {
 		members = m.expressionOwnedParts(sym)

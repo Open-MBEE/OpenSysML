@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -169,5 +170,86 @@ func TestExpressionOwnsItsParametersAndResult(t *testing.T) {
 	z := m.ValueExpression(member(t, m, d, "z"))
 	if len(m.ExpressionParameters(z)) != 0 || m.ExpressionResult(z) != nil || len(m.OwnedMemberships(z)) != 0 {
 		t.Error("the literal value of z owns parts")
+	}
+}
+
+// A real literal's value is the exact rational its notation states, exponent
+// notation included (KerML LiteralRational::value), as the evaluator reads it.
+func TestLiteralRealValueReadsExponentNotation(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			part def D {
+				attribute e = 1e3;
+				attribute f = 2.5E-1;
+				attribute g = 0.75;
+			}
+		}
+	`)
+	pkg, _ := root.LookupLocal("P")
+	d := member(t, m, pkg, "D")
+	for name, want := range map[string]*big.Rat{"e": big.NewRat(1000, 1), "f": big.NewRat(1, 4), "g": big.NewRat(3, 4)} {
+		expr := m.ValueExpression(member(t, m, d, name))
+		if expr == nil || m.MetaclassOf(expr).Name != "LiteralRational" {
+			t.Fatalf("%s: value expression %v", name, expr)
+		}
+		got, ok := m.reflectiveFeatureValue(expr, "value")
+		if !ok || got.Kind != symbols.FilterValueRational || got.Rat.Cmp(want) != 0 {
+			t.Errorf("%s.value = %v (%v), want %v", name, got, ok, want)
+		}
+	}
+}
+
+// Feature::valuation is the feature's FeatureValue; a feature without a value
+// part has none. A parameter shares its expression's node but states none of
+// the expression's own values.
+func TestFeatureValuationAndParameterValues(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			part def D {
+				attribute a : ScalarValues::Real;
+				attribute x = a + 2;
+			}
+		}
+	`)
+	pkg, _ := root.LookupLocal("P")
+	d := member(t, m, pkg, "D")
+	x, a := member(t, m, d, "x"), member(t, m, d, "a")
+	valuation, ok := m.ReflectiveElements(x, "valuation")
+	if !ok || len(valuation) != 1 || m.MetaclassOf(valuation[0]).Name != "FeatureValue" || valuation[0] != m.OwnedMemberships(x)[0] {
+		t.Errorf("x.valuation = %v (%v), want x's FeatureValue", valuation, ok)
+	}
+	if none, ok := m.ReflectiveElements(a, "valuation"); !ok || len(none) != 0 {
+		t.Errorf("a.valuation = %v (%v), want none", none, ok)
+	}
+	if _, ok := m.ReflectiveElements(d, "valuation"); ok {
+		t.Error("a part definition derives valuation")
+	}
+	expr := m.ValueExpression(x)
+	if got, ok := m.reflectiveFeatureValue(expr, "operator"); !ok || got.Str != "+" {
+		t.Errorf("x.value.operator = %v (%v)", got, ok)
+	}
+	for _, part := range append(m.ExpressionParameters(expr), m.ExpressionResult(expr)) {
+		if got, ok := m.reflectiveFeatureValue(part, "operator"); ok {
+			t.Errorf("a parameter of x's expression states operator %v", got)
+		}
+		if got, ok := m.reflectiveFeatureValue(part, "value"); ok {
+			t.Errorf("a parameter of x's expression states value %v", got)
+		}
+	}
+}
+
+// A valued symbol without a body scope still owns its FeatureValue.
+func TestScopelessValuedSymbolOwnsItsFeatureValue(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P { part def D { attribute x = 1; } }`)
+	pkg, _ := root.LookupLocal("P")
+	x := member(t, m, member(t, m, pkg, "D"), "x")
+	scopeless := *x
+	scopeless.Scope = nil
+	memberships := m.OwnedMemberships(&scopeless)
+	if len(memberships) != 1 || m.MetaclassOf(memberships[0]).Name != "FeatureValue" {
+		t.Fatalf("OwnedMemberships(scope-less x) = %d, want the FeatureValue", len(memberships))
+	}
+	if m.ValueExpression(&scopeless) != memberships[0].Implicit.Member {
+		t.Error("the FeatureValue owns another expression")
 	}
 }

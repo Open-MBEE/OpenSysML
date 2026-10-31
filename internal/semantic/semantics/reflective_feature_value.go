@@ -125,11 +125,11 @@ func expressionValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, 
 		if feature != "value" {
 			break
 		}
-		r, ok := new(big.Rat).SetString(n.Value)
-		if !ok {
+		v, err := ParseRational(n.Value, DefaultMaxIntegerBits)
+		if err != nil {
 			return symbols.FilterValue{}, false
 		}
-		return symbols.FilterValue{Kind: symbols.FilterValueRational, Rat: r}, true
+		return symbols.FilterValue{Kind: symbols.FilterValueRational, Rat: v.Rat()}, true
 	case *ast.LiteralBool:
 		if feature == "value" {
 			return boolValue(n.Value), true

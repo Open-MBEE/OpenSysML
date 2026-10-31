@@ -1678,6 +1678,22 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.ExpressionArguments(sym), true
+	case "valuation":
+		// KerML 8.3.3.3.5 Feature::valuation: the FeatureValue among the
+		// feature's owned memberships, if its declaration has a value part.
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		value := m.ValueExpression(sym)
+		if value == nil {
+			return []*symbols.Symbol{}, true
+		}
+		for _, membership := range m.OwnedMemberships(sym) {
+			if membership.Implicit != nil && membership.Implicit.Member == value {
+				return []*symbols.Symbol{membership}, true
+			}
+		}
+		return []*symbols.Symbol{}, true
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		for _, member := range ownedMembersOf(sym) {
@@ -2184,7 +2200,8 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return value, true
 		}
 	}
-	if sym.Expr != nil {
+	if sym.Expr != nil && !isExpressionParameterSymbol(sym) {
+		// A parameter shares its expression's node but states none of its values.
 		if value, ok := expressionValue(sym, feature); ok {
 			return value, true
 		}

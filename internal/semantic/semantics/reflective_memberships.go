@@ -21,18 +21,19 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Expr != nil {
 		return m.expressionMemberships(sym)
 	}
-	if sym.Scope == nil {
-		return nil
-	}
 	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.memberships[sym]; ok {
 		return cached
+	}
+	value := m.ValueExpression(sym)
+	if sym.Scope == nil && value == nil {
+		return nil
 	}
 	journal(m, m.memberships, sym, sym.Decl)
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	ordinal := 0
-	if value := m.ValueExpression(sym); value != nil {
+	if value != nil {
 		// The feature's value part declares a FeatureValue that owns the
 		// expression (KerML 8.3.3.3.5 Feature::valuation subsets ownedMembership),
 		// ahead of the body's memberships, as the conversion writes it.
@@ -46,6 +47,10 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 		ordinal++
+	}
+	if sym.Scope == nil {
+		m.memberships[sym] = out
+		return out
 	}
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
 		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) {
