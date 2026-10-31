@@ -13,12 +13,13 @@ one of the seven pull requests of [Fixes](#fixes), which all merged into
 full method, then re-probed the export rows on `5e0322e0c` and again on
 `d01e4f49c` when #1760 and #1774 landed on them; it is
 [The release candidate](#the-release-candidate), which also accounts
-for every merge up to `develop` `df2bc173c`, re-checking the runtime
+for every merge up to `develop` `d16ca71e0`, re-checking the runtime
 rows at `1e34d9d95` when #1777 landed on them, the semantics rows at
 `9a4ffcd83` when #1784 did, the export rows at `e022cbca0` when
 #1783 did and at `86fa09ec9` when #1792 did, all of them at
-`a37809a6c` when #1795 and #1791 did, and the runtime and gRPC rows at
-`df2bc173c` when #1778 did. The
+`a37809a6c` when #1795 and #1791 did, the runtime and gRPC rows at
+`df2bc173c` when #1778 did, and the load, derived and export rows at
+`d16ca71e0` when #1797 and #1785 did. The
 first pass stays in the record as the pre-fix measurement so that what
 the fixes gave back is visible row by row. The record follows the
 method of the [0.11.0 against 0.10.1](performance-release-0.11.0-vs-0.10.1.md)
@@ -424,7 +425,7 @@ built on it is measured in full in
 
 ## What this record does not measure
 
-- Anything after `df2bc173c`, and #1771 by anything but its own pull
+- Anything after `d16ca71e0`, and #1771 by anything but its own pull
   request's benchstat ([After the measured heads](#after-the-measured-heads)).
 - The merges between `1c6bb1972` and `ab88ea950` on their own: they are
   measured only inside the release candidate, never one at a time
@@ -1047,7 +1048,7 @@ pair showed), the element-ID query of 12 086 elements 1.5–4.2 → 1.3–3.1 s
 and 332–379 → 339–382 MiB, `-validate` of the same model 0.25–0.32 →
 0.28–0.35 s and 160–170 → 160–176 MiB.
 
-One more merge followed: #1778 (`feat(engine): trace events for action
+#1778 followed (`feat(engine): trace events for action
 execution`, `develop` `df2bc173c`) is Go on the runtime and gRPC paths —
 `git diff --stat a37809a6c df2bc173c -- '*.go' go.mod go.sum` names
 `internal/exec/runtime/statements.go` (+104/−54), `context.go` (+67/−7),
@@ -1078,14 +1079,73 @@ action-executor example 0.02–0.04 s on both, 12 086 elements 0.24–0.25 s
 and 168–176 → 161–168 MiB; the binary grows 59 736 224 → 59 768 992 bytes
 (+32 KiB, the trace event types and their protobuf).
 
-So the candidate of this record is `develop` at `df2bc173c`: its runtime,
+Two more merges followed, both Go. #1797 (`fix(semantics): a variant
+usage has no owning type`, `develop` `06be28ed6`) is
+`internal/semantic/semantics/usage.go` +4/−2 — an `IsVariant(sym)` guard
+in `UsageMayTimeVary` and `UsageMayTimeVaryForOwningType`, on the
+derivation #1784 added — plus `may_time_vary_test.go` and
+`tests/export/usage_variable_test.go`. Six interleaved rounds of repl
+`LoadModel`, the runtime derived rows, grpc `InstantiateWarmModel`, the
+libs and model packages and the corpus-backed `tests/perf` rows at
+1.3–3.3 % steal, `df2bc173c` against `d16ca71e0`: bytes and allocations
+equal in every sample or `~` on every row — `LoadModel/1000`
+56.71 → 56.69 Mi · 563.8 k on both (#1784's finding stands as reported),
+`/0` 238.1 Ki · 2 038, `/250` 14.30 Mi · 145.8 k and `/4000` 226.9 Mi ·
+2.235 M on both; `REPLLoadFile` 594.1 → 593.5 Mi · 5.789 M on both,
+`Analyze/synthetic` 504.5 → 504.3 Mi · 5.178 M, `ImportValues/nested`
+(2 000 parts, 5 attributes) 493.2 → 493.5 Mi · 6.369 M, `FeaturesOf`
+265.3 → 265.2 Mi · 2.103 M, `DerivedReadWriteRead` 2.969 Ki · 69,
+`MaterializePlainAttributes` 621, `GRPCVerifyConstraint` 766.3 Ki ·
+14 886 on both, `InstantiateWarmModel` 119.3 → 120.5 Ki · 2 006 → 2 012
+(p = 0.24 and 0.22, inside its ± 1–2 %). The guard is one field read
+per usage on a path that already walked to the owner; it allocates
+nothing. sec/op is `~` on every row but `BatchSatisfy` (1.81 → 1.58 ms
+per assertion at ± 15–38 %, p = 0.041, the faster side the new one; not
+read). Whole binary, three runs after a warm-up: floor 0.02–0.04 s and
+75–76 MiB on both, 12 086 elements 0.27–0.37 → 0.26–0.34 s and 173–177
+→ 172–177 MiB, the Apollo 11 model 0.32–0.69 → 0.32–0.49 s with its
+report byte-identical; the binaries are equal in size (59 768 992 bytes).
+
+#1785 (`refactor(export): split writtenRelationships into per-source
+helpers`, `develop` `d16ca71e0`) is
+`internal/translate/export/element_ids.go` +95/−48 alone: the RDF
+writer's relationship-ID bookkeeping, one function, becomes
+`writtenEndFeatureReferences`, `writtenDependencyAnnotation`,
+`writtenClauseRelationships`, `writtenBoundEndReferences` and their
+helpers (`writtenHeadClauses`, `clauseObjects`, `referenceFormOf`,
+`referenceSubsettingID`) for Sonar's cognitive-complexity rule — the
+same lookups and the same maps and slices, in the same order. Six
+interleaved rounds of `tests/export` and the stress `ConvertAPIJSON`
+rows (`satellites=512` skipped, as above), `df2bc173c` against
+`d16ca71e0` at 0–1 % steal: `WriteAPIJSON` output byte-identical on the
+ISQ and `then_after_members` fixtures (7.809 Mi, 3.211 Mi, 859.3 Ki and
+346.0 Ki in every sample) and 8 bytes larger on `SimpleVehicleModel`
+(14 484 246 → 14 484 254 standard, 4 386 802 → 4 386 810 compact). Those
+8 bytes are #1797's, not #1785's: the two outputs, diffed, differ only in
+the `isVariable` and `mayTimeVary` of the model's four variant usages,
+`true` → `false` (one byte per boolean), and the same two rows lose
+40–50 allocations per op (1.723 M and 1.787 M on both sides to four
+digits, p = 0.002) — the owner walk the guard now skips. B/op is equal
+to four digits on every `WriteAPIJSON` row (212.6, 164.9, 349.8 → 349.9,
+255.5 → 255.4, 24.64 and 19.75 Mi) and allocations `~` on the other four;
+`ConvertAPIJSON/32` 6.929 Gi · 34.37 M and `/128` 28.27 Gi · 134.0 M on
+both (p = 0.18–0.94); sec/op `~` on every row (`/128` 56.4 → 49.9 s at
+± 10–13 %, p = 0.18). #1785 leaves no trace in any row. Whole binary,
+three runs after a warm-up: `-convert ttl` of 12 086 elements
+13.9–15.1 → 14.3–15.7 s and 3.9–4.9 → 3.9–4.8 GiB, the element-ID query
+of the same model 1.4–4.1 → 1.4–4.8 s and 347–384 → 346–361 MiB,
+`-validate` 0.26–0.34 → 0.25–0.30 s and 168–176 → 166–171 MiB; the
+binaries are equal in size.
+
+So the candidate of this record is `develop` at `d16ca71e0`: its runtime,
 load, REPL, LSP and whole-binary rows measured at `cc1d477ba` and
-re-checked at `1e34d9d95`, `9a4ffcd83` and `a37809a6c` on the rows above
-and at `df2bc173c` on the runtime and gRPC rows (#1771 measured in its
-own pull request), its export rows at `e022cbca0` and re-checked at
-`86fa09ec9` and `a37809a6c` (and at `d01e4f49c` and `5e0322e0c` before
-#1783 and #1774), and #1793, #1794, #1787, #1788, #1752 and #1775
-Go-neutral by diff.
+re-checked at `1e34d9d95`, `9a4ffcd83` and `a37809a6c` on the rows above,
+at `df2bc173c` on the runtime and gRPC rows and at `d16ca71e0` on the
+load and derived rows (#1771 measured in its own pull request), its
+export rows at `e022cbca0` and re-checked at `86fa09ec9`, `a37809a6c`
+and `d16ca71e0` (and at `d01e4f49c` and `5e0322e0c` before #1783 and
+#1774), and #1793, #1794, #1787, #1788, #1752 and #1775 Go-neutral by
+diff.
 
 
 ### The quiet re-run
@@ -1119,6 +1179,6 @@ of the first pass — stand as the record's time verdicts, and the fixes'
 own quiet A/B ([The fixes on the quiet host](#the-fixes-on-the-quiet-host))
 is the evidence that the fixes moved bytes, not time.
 
-Should anything that touches Go land between `df2bc173c` and the
+Should anything that touches Go land between `d16ca71e0` and the
 release branch after all, its rows are re-probed interleaved against
 `cc1d477ba` and this section is amended, as the 0.11.0 record's was.
