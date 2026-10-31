@@ -1534,7 +1534,15 @@ func SimpleSymbolName(sym *symbols.Symbol) string {
 
 // ownerSymbol returns the element a symbol is a member of.
 func ownerSymbol(sym *symbols.Symbol) *symbols.Symbol {
-	if sym == nil || sym.OwnerScope == nil {
+	if sym == nil {
+		return nil
+	}
+	if sym.Expr != nil {
+		// An expression element is owned by the feature or expression it is
+		// the value, operand or parameter of.
+		return sym.Expr.Owner
+	}
+	if sym.OwnerScope == nil {
 		return nil
 	}
 	return sym.OwnerScope.Owner()

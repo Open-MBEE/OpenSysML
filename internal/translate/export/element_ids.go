@@ -102,6 +102,16 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 				ids.conjugateByNode[node] = conjugate
 				ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 			}
+			if usage, ok := node.(*ast.Usage); ok && usage.Value != nil {
+				// The value expression a feature's value part declares, and the
+				// FeatureValue that owns it (featureValue, expressionOwnership).
+				value := e.ids.mintedNode(rdf.ExpressionIRI(subject, pValue), subject, pValue)
+				ids.byNode[usage.Value] = rdf.LocalName(value.Value)
+				ids.bySpan[spanKey{e.file.Name(), usage.Value.Span()}] = ids.byNode[usage.Value]
+				membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
+				ids.membershipByNode[usage.Value] = membership
+				ids.membershipBySpan[spanKey{e.file.Name(), usage.Value.Span()}] = membership
+			}
 			for i, end := range writtenConnectorEnds(node) {
 				if end == nil {
 					continue

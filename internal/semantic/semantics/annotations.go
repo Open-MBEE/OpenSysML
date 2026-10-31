@@ -1121,6 +1121,9 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	if sym.IsConjugatedPortDefinition() {
 		return "ConjugatedPortDefinition"
 	}
+	if sym.Expr != nil {
+		return expressionMetaclassName(sym.Decl)
+	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ForkNode:
 		return "ForkNode"
@@ -1621,10 +1624,10 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return m.DifferencingTypes(sym), true
 	case "owner":
-		if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
-			return nil, true
+		if owner := ownerSymbol(sym); owner != nil {
+			return []*symbols.Symbol{owner}, true
 		}
-		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
+		return nil, true
 	case "ownedMember":
 		return ownedMembersOf(sym), true
 	case "ownedElement":
@@ -1857,7 +1860,13 @@ func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) 
 // the named ones in declaration order and then those declared without a
 // name, its documentation, and the chaining features its relationships own.
 func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
-	members := ownedMembersOf(sym)
+	var members []*symbols.Symbol
+	if value := m.ValueExpression(sym); value != nil {
+		// The value expression comes first, as its FeatureValue leads the
+		// feature's owned memberships.
+		members = append(members, value)
+	}
+	members = append(members, ownedMembersOf(sym)...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2137,6 +2146,11 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	}
 	if sym.Kind == symbols.SymbolAlias {
 		if value, ok := m.aliasMembershipValue(sym, feature); ok {
+			return value, true
+		}
+	}
+	if sym.Expr != nil {
+		if value, ok := expressionValue(sym, feature); ok {
 			return value, true
 		}
 	}
