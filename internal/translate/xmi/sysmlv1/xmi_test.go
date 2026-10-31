@@ -71,10 +71,13 @@ func TestReferences(t *testing.T) {
 	if typ == nil || !typ.IsProxy() || typ.Name != "String" {
 		t.Errorf("href type = %+v", typ)
 	}
-	// An opaque body is the element's text.
-	body := m.Lookup("_dv_total").Owned("body")
-	if len(body) != 1 || strings.TrimSpace(body[0].Text) != "mass + engine.mass" {
+	// An opaque body written as a child element is a property, not an owned element.
+	total := m.Lookup("_dv_total")
+	if body := total.Values("body"); len(body) != 1 || strings.TrimSpace(body[0]) != "mass + engine.mass" {
 		t.Errorf("body = %+v", body)
+	}
+	if owned := total.Owned("body"); len(owned) != 0 {
+		t.Errorf("body owned = %+v", owned)
 	}
 }
 
@@ -910,5 +913,211 @@ func TestAttachedStreamReadFromExtension(t *testing.T) {
 	}
 	if got := m.Lookup("_plain").AttachedStream; got != "" {
 		t.Errorf("a comment with no attachment: AttachedStream = %q, want empty", got)
+	}
+}
+
+// Properties and references serialized as child elements (XMI 2.5.1 § 9.4.4)
+// read as the attributes they are equivalent to; owned elements stay owned.
+func TestElementSerializationReadsAsAttributes(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m">
+    <name>M</name>
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <name>Ignored</name>
+      <isAbstract>true</isAbstract>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p">
+        <name>b</name>
+        <aggregation>composite</aggregation>
+        <type xmi:idref="_b"/>
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_lo">
+          <value>1</value>
+        </lowerValue>
+      </ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_spec">
+          <body>x &gt; 0</body>
+          <body>x &lt; 9</body>
+          <language>OCL</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b">
+      <name>B</name>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="_assoc">
+      <memberEnd xmi:idref="_p"/>
+      <memberEnd xmi:idref="_q"/>
+      <ownedEnd xmi:type="uml:Property" xmi:id="_q" type="_a" association="_assoc"/>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_st_a">
+    <base_Class xmi:idref="_a"/>
+    <isEncapsulated>true</isEncapsulated>
+  </sysml:Block>
+  <sysml:Requirement xmi:id="_st_b" base_Class="_b">
+    <base_Class xmi:idref="_a"/>
+    <text>B shall exist.</text>
+  </sysml:Requirement>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := m.Lookup("_m").Name; got != "M" {
+		t.Errorf("root name = %q", got)
+	}
+	a := m.Lookup("_a")
+	// The attribute wins over a child stating the same property.
+	if a.Name != "A" || a.Attrs["isAbstract"] != "true" {
+		t.Errorf("a = %q %v", a.Name, a.Attrs)
+	}
+	if owned := a.Owned("name"); len(owned) != 0 {
+		t.Errorf("name read as an owned element: %+v", owned)
+	}
+	p := m.Lookup("_p")
+	if p.Name != "b" || p.Attrs["aggregation"] != "composite" {
+		t.Errorf("p = %q %v", p.Name, p.Attrs)
+	}
+	if typ := m.Ref(p, "type"); typ == nil || typ.ID != "_b" {
+		t.Errorf("type = %+v", typ)
+	}
+	if lo := p.Owned("lowerValue"); len(lo) != 1 || lo[0].Type != "LiteralInteger" || lo[0].Attrs["value"] != "1" {
+		t.Errorf("lowerValue = %+v", lo)
+	}
+	spec := m.Lookup("_spec")
+	if got := spec.Values("body"); !slices.Equal(got, []string{"x > 0", "x < 9"}) {
+		t.Errorf("bodies = %q", got)
+	}
+	if got := spec.Values("language"); !slices.Equal(got, []string{"OCL"}) {
+		t.Errorf("languages = %q", got)
+	}
+	if ends := m.Refs(m.Lookup("_assoc"), "memberEnd"); len(ends) != 2 || ends[0].ID != "_p" || ends[1].ID != "_q" {
+		t.Errorf("memberEnd = %+v", ends)
+	}
+	// A base_* child links the stereotype to its element; a tag child is a tag.
+	block := a.Stereotype("Block")
+	if block == nil || block.Tag("isEncapsulated") != "true" || len(block.Tags["base_Class"]) != 0 {
+		t.Errorf("Block = %+v", block)
+	}
+	req := m.Lookup("_b").Stereotype("Requirement")
+	if req == nil || req.Tag("text") != "B shall exist." {
+		t.Errorf("Requirement = %+v", req)
+	}
+	if a.Stereotype("Requirement") != nil {
+		t.Error("the base_Class attribute did not win over the child")
+	}
+}
+
+func TestLocalHrefBaseAndDecoratedBodies(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_note">
+        <body xml:space="preserve">Keep   this</body>
+      </ownedComment>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_spec">
+          <body xml:space="preserve">x + 1</body>
+          <language xml:lang="en">OCL</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_d" name="D"/>
+  </uml:Model>
+  <sysml:Block xmi:id="_st_c">
+    <base_Class href="#_c"/>
+  </sysml:Block>
+  <sysml:Block xmi:id="_st_d">
+    <base_Class href="model.xmi#_d"/>
+  </sysml:Block>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A local href base is the element its fragment names; a base in another
+	// document is not this document's _d, whatever its fragment.
+	if st := m.Lookup("_c").Stereotypes; len(st) != 1 || st[0].Name != "Block" {
+		t.Errorf("_c stereotypes = %+v", st)
+	}
+	if st := m.Lookup("_d").Stereotypes; len(st) != 0 {
+		t.Errorf("_d stereotypes = %+v", st)
+	}
+	if st := m.Stereotypes; len(st) != 2 || st[1].Base != nil {
+		t.Errorf("stereotypes = %+v", st)
+	}
+	// xml:space and xml:lang on a body leave it the property it serializes.
+	if got := m.Lookup("_note").Attrs["body"]; got != "Keep   this" {
+		t.Errorf("comment body = %q", got)
+	}
+	spec := m.Lookup("_spec")
+	if got := spec.Values("body"); !slices.Equal(got, []string{"x + 1"}) {
+		t.Errorf("bodies = %q", got)
+	}
+	if got := spec.Values("language"); !slices.Equal(got, []string{"OCL"}) {
+		t.Errorf("languages = %q", got)
+	}
+	if owned := spec.Owned("body"); len(owned) != 0 {
+		t.Errorf("body read as an owned element: %+v", owned)
+	}
+}
+
+func TestHrefBaseIntoABundledDocument(t *testing.T) {
+	const head = `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">`
+	main := head + `
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_x" name="X"/>
+  </uml:Model>
+  <sysml:Block xmi:id="_st_c"><base_Class href="lib/shared.xmi#_c"/></sysml:Block>
+  <sysml:Block xmi:id="_st_d"><base_Class href="../common/shared.xmi#_d"/></sysml:Block>
+  <sysml:Block xmi:id="_st_x"><base_Class href="external.xmi#_x"/></sysml:Block>
+  <sysml:Block xmi:id="_st_e"><base_Class href="shared.xmi#_e"/></sysml:Block>
+</xmi:XMI>`
+	shared := head + `
+  <uml:Model xmi:type="uml:Model" xmi:id="_s" name="S">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C"/>
+  </uml:Model>
+</xmi:XMI>`
+	common := head + `
+  <uml:Model xmi:type="uml:Model" xmi:id="_cm" name="Common">
+    <packagedElement xmi:type="uml:Class" xmi:id="_d" name="D"/>
+  </uml:Model>
+</xmi:XMI>`
+	decoy := head + `
+  <uml:Model xmi:type="uml:Model" xmi:id="_dm" name="Decoy">
+    <packagedElement xmi:type="uml:Class" xmi:id="_e" name="E"/>
+  </uml:Model>
+</xmi:XMI>`
+	m, err := Parse(archive(t, "", map[string][]byte{
+		"models/main.xmi":       []byte(main),
+		"models/lib/shared.xmi": []byte(shared),
+		"common/shared.xmi":     []byte(common),
+		"shared.xmi":            []byte(decoy),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A relative href names an entry relative to the application's own entry:
+	// models/lib/shared.xmi and common/shared.xmi are read and hold the bases.
+	for _, id := range []string{"_c", "_d"} {
+		if st := m.Lookup(id).Stereotypes; len(st) != 1 || st[0].Name != "Block" {
+			t.Errorf("%s stereotypes = %+v", id, st)
+		}
+	}
+	// models/external.xmi was not read, so its _x is not this archive's _x; and
+	// shared.xmi#_e from models/ names models/shared.xmi, not the root's shared.xmi.
+	for _, id := range []string{"_x", "_e"} {
+		if st := m.Lookup(id).Stereotypes; len(st) != 0 {
+			t.Errorf("%s stereotypes = %+v", id, st)
+		}
 	}
 }
