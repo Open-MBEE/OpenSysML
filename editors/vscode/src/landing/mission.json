@@ -1,0 +1,1578 @@
+{
+  "hash": "b861900f257122580e56514dfdf1b5a42906cbbfc7245c41b4fb900b19ade2b3",
+  "render": {
+    "kind": "action",
+    "stated": "no view declared; rendering MissionSequence::LunarMission directly",
+    "nodes": [
+      {
+        "id": "n0",
+        "kind": "action def",
+        "name": "MissionSequence::LunarMission",
+        "ports": [
+          {
+            "id": "n0.0",
+            "name": "budget",
+            "direction": "in"
+          },
+          {
+            "id": "n0.1",
+            "name": "landed",
+            "direction": "out"
+          },
+          {
+            "id": "n0.2",
+            "name": "returned",
+            "direction": "out"
+          }
+        ],
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 22,
+          "startCol": 5,
+          "endLine": 44,
+          "endCol": 6
+        }
+      },
+      {
+        "id": "n1",
+        "kind": "initial",
+        "name": "start",
+        "nameSynthesized": true,
+        "parent": "n0",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 28,
+          "startCol": 9,
+          "endLine": 28,
+          "endCol": 21
+        }
+      },
+      {
+        "id": "n2",
+        "kind": "action",
+        "name": "translunarInjection",
+        "parent": "n0",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 29,
+          "startCol": 14,
+          "endLine": 29,
+          "endCol": 86
+        }
+      },
+      {
+        "id": "n3",
+        "kind": "action",
+        "name": "lunarOrbitInsertion",
+        "parent": "n0",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 30,
+          "startCol": 14,
+          "endLine": 30,
+          "endCol": 85
+        }
+      },
+      {
+        "id": "n4",
+        "kind": "decision",
+        "name": "landingGo",
+        "parent": "n0",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 31,
+          "startCol": 14,
+          "endLine": 31,
+          "endCol": 31
+        }
+      },
+      {
+        "id": "n5",
+        "kind": "action",
+        "name": "awaitGo",
+        "parent": "n0",
+        "ports": [
+          {
+            "id": "n5.0",
+            "name": "go",
+            "direction": "out"
+          },
+          {
+            "id": "n5.1",
+            "name": "payload",
+            "direction": "inout",
+            "inherited": true
+          },
+          {
+            "id": "n5.2",
+            "name": "receiver",
+            "direction": "in",
+            "inherited": true
+          }
+        ],
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 35,
+          "startCol": 9,
+          "endLine": 35,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n6",
+        "kind": "action",
+        "name": "descent",
+        "parent": "n0",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 36,
+          "startCol": 14,
+          "endLine": 36,
+          "endCol": 74
+        }
+      },
+      {
+        "id": "n7",
+        "kind": "action",
+        "name": "surfaceOperations",
+        "parent": "n0",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 37,
+          "startCol": 14,
+          "endLine": 37,
+          "endCol": 61
+        }
+      },
+      {
+        "id": "n8",
+        "kind": "action",
+        "name": "ascent",
+        "parent": "n0",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 38,
+          "startCol": 14,
+          "endLine": 38,
+          "endCol": 73
+        }
+      },
+      {
+        "id": "n9",
+        "kind": "action",
+        "name": "transEarthInjection",
+        "parent": "n0",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 41,
+          "startCol": 9,
+          "endLine": 41,
+          "endCol": 81
+        }
+      },
+      {
+        "id": "n10",
+        "kind": "action",
+        "name": "splashdown",
+        "parent": "n0",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 42,
+          "startCol": 14,
+          "endLine": 42,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n11",
+        "kind": "final",
+        "name": "done",
+        "nameSynthesized": true,
+        "parent": "n0",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 43,
+          "startCol": 14,
+          "endLine": 43,
+          "endCol": 19
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "n1",
+        "to": "n2",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 29,
+          "startCol": 9,
+          "endLine": 29,
+          "endCol": 13
+        }
+      },
+      {
+        "from": "n2",
+        "to": "n3",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 30,
+          "startCol": 9,
+          "endLine": 30,
+          "endCol": 13
+        }
+      },
+      {
+        "from": "n3",
+        "to": "n4",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 31,
+          "startCol": 9,
+          "endLine": 31,
+          "endCol": 13
+        }
+      },
+      {
+        "from": "n4",
+        "to": "n5",
+        "label": "[remaining \u003e= 3970 ['m/s']]",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 32,
+          "startCol": 13,
+          "endLine": 32,
+          "endCol": 55
+        }
+      },
+      {
+        "from": "n4",
+        "to": "n9",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 33,
+          "startCol": 13,
+          "endLine": 33,
+          "endCol": 38
+        }
+      },
+      {
+        "from": "n5",
+        "to": "n6",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 36,
+          "startCol": 9,
+          "endLine": 36,
+          "endCol": 13
+        }
+      },
+      {
+        "from": "n6",
+        "to": "n7",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 37,
+          "startCol": 9,
+          "endLine": 37,
+          "endCol": 13
+        }
+      },
+      {
+        "from": "n7",
+        "to": "n8",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 38,
+          "startCol": 9,
+          "endLine": 38,
+          "endCol": 13
+        }
+      },
+      {
+        "from": "n8",
+        "to": "n9",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 39,
+          "startCol": 9,
+          "endLine": 39,
+          "endCol": 34
+        }
+      },
+      {
+        "from": "n9",
+        "to": "n10",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 42,
+          "startCol": 9,
+          "endLine": 42,
+          "endCol": 13
+        }
+      },
+      {
+        "from": "n10",
+        "to": "n11",
+        "kind": "succession",
+        "origin": {
+          "file": "mission-sequence.sysml",
+          "startLine": 43,
+          "startCol": 9,
+          "endLine": 43,
+          "endCol": 13
+        }
+      }
+    ],
+    "shown": [
+      "port-symbols",
+      "compartments",
+      "edge-labels",
+      "keywords"
+    ]
+  },
+  "instances": [
+    {
+      "id": "1",
+      "typeSymbolId": "MissionSequence::apollo11",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "budget": {
+          "featureName": "budget",
+          "value": {
+            "quantity": {
+              "intMagnitude": "9500",
+              "unit": "'m/s'",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mission": {
+          "featureName": "mission",
+          "value": {
+            "instanceId": "2"
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "values": [
+            {
+              "instanceId": "2"
+            }
+          ],
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "2",
+      "typeSymbolId": "MissionSequence::Flight::mission",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "ascent": {
+          "featureName": "ascent",
+          "value": {
+            "instanceId": "3"
+          },
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "awaitGo": {
+          "featureName": "awaitGo",
+          "value": {
+            "instanceId": "4"
+          },
+          "materialized": true
+        },
+        "budget": {
+          "featureName": "budget",
+          "values": [
+            {
+              "quantity": {
+                "intMagnitude": "9500",
+                "unit": "'m/s'",
+                "unitTerm": {
+                  "scaleNum": 1,
+                  "scaleDen": 1,
+                  "factors": [
+                    {
+                      "unitId": "SI::metre",
+                      "exponent": 1
+                    },
+                    {
+                      "unitId": "SI::second",
+                      "exponent": -1
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "descent": {
+          "featureName": "descent",
+          "value": {
+            "instanceId": "5"
+          },
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "landed": {
+          "featureName": "landed",
+          "values": [
+            {
+              "boolValue": false
+            }
+          ],
+          "materialized": true
+        },
+        "landingGo": {
+          "featureName": "landingGo"
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "lunarOrbitInsertion": {
+          "featureName": "lunarOrbitInsertion",
+          "value": {
+            "instanceId": "6"
+          },
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "remaining": {
+          "featureName": "remaining",
+          "value": {
+            "quantity": {
+              "intMagnitude": "5450",
+              "unit": "'m/s'",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "returned": {
+          "featureName": "returned",
+          "values": [
+            {
+              "boolValue": false
+            }
+          ],
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "splashdown": {
+          "featureName": "splashdown",
+          "value": {
+            "instanceId": "7"
+          },
+          "materialized": true
+        },
+        "start": {
+          "featureName": "start",
+          "value": {
+            "instanceId": "8"
+          },
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "values": [
+            {
+              "instanceId": "9"
+            },
+            {
+              "instanceId": "6"
+            },
+            {
+              "instanceId": "4"
+            },
+            {
+              "instanceId": "5"
+            },
+            {
+              "instanceId": "10"
+            },
+            {
+              "instanceId": "3"
+            },
+            {
+              "instanceId": "11"
+            },
+            {
+              "instanceId": "7"
+            }
+          ],
+          "materialized": true
+        },
+        "surfaceOperations": {
+          "featureName": "surfaceOperations",
+          "value": {
+            "instanceId": "10"
+          },
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transEarthInjection": {
+          "featureName": "transEarthInjection",
+          "value": {
+            "instanceId": "11"
+          },
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "translunarInjection": {
+          "featureName": "translunarInjection",
+          "value": {
+            "instanceId": "9"
+          },
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "3",
+      "typeSymbolId": "MissionSequence::LunarMission::ascent",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "4",
+      "typeSymbolId": "MissionSequence::LunarMission::awaitGo",
+      "featureValues": {
+        "aState": {
+          "featureName": "aState",
+          "value": {
+            "instanceId": "12"
+          },
+          "materialized": true
+        },
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "go": {
+          "featureName": "go"
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "values": [
+            {
+              "instanceId": "12"
+            }
+          ],
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "12",
+      "typeSymbolId": "Actions::AcceptAction::aState",
+      "featureValues": {
+        "aTransition": {
+          "featureName": "aTransition"
+        },
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "doAction": {
+          "featureName": "doAction",
+          "value": {
+            "instanceId": "13"
+          },
+          "materialized": true
+        },
+        "entryAction": {
+          "featureName": "entryAction",
+          "value": {
+            "instanceId": "14"
+          },
+          "materialized": true
+        },
+        "exclusiveStates": {
+          "featureName": "exclusiveStates",
+          "materialized": true
+        },
+        "exitAction": {
+          "featureName": "exitAction",
+          "value": {
+            "instanceId": "15"
+          },
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "isTriggerDuring": {
+          "featureName": "isTriggerDuring",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "stateTransitions": {
+          "featureName": "stateTransitions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "values": [
+            {
+              "instanceId": "13"
+            }
+          ],
+          "materialized": true
+        },
+        "substates": {
+          "featureName": "substates",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "13",
+      "typeSymbolId": "Actions::Action",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "14",
+      "typeSymbolId": "States::StateAction::entryAction",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "15",
+      "typeSymbolId": "Actions::Action",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "5",
+      "typeSymbolId": "MissionSequence::LunarMission::descent",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "6",
+      "typeSymbolId": "MissionSequence::LunarMission::lunarOrbitInsertion",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "7",
+      "typeSymbolId": "MissionSequence::LunarMission::splashdown",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "9",
+      "typeSymbolId": "MissionSequence::LunarMission::translunarInjection",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "10",
+      "typeSymbolId": "MissionSequence::LunarMission::surfaceOperations",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "11",
+      "typeSymbolId": "MissionSequence::LunarMission::transEarthInjection",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      }
+    }
+  ]
+}
