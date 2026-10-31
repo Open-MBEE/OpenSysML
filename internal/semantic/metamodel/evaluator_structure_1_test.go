@@ -153,6 +153,58 @@ func TestStructureQualifiedNameEscapesNameSegments(t *testing.T) {
 	}
 }
 
+func TestConjugatedPortQualifiedNamesUseEvaluatorEscaping(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "conjugated-qualified-name.sysml", `package P {
+		port def <s>;
+		port def <q> Q;
+		port def R;
+	}`)
+	pkg := testSymbol(t, root, "P")
+	short := testSymbol(t, pkg.Scope, "s")
+	named := testSymbol(t, pkg.Scope, "Q")
+	plain := testSymbol(t, pkg.Scope, "R")
+	cases := []struct {
+		original          *symbols.Symbol
+		wantName          string
+		wantQualifiedName string
+	}{
+		{original: short},
+		{original: named, wantName: "~Q", wantQualifiedName: "P::Q::'~Q'"},
+		{original: plain, wantName: "~R", wantQualifiedName: "P::R::'~R'"},
+	}
+	structure := testDocumentStructure(evaluator, root, pkg, short, named, plain)
+	for _, tc := range cases {
+		memberships := evaluator.model.OwnedMemberships(tc.original)
+		if len(memberships) != 1 || memberships[0].Implicit == nil || memberships[0].Implicit.Member == nil {
+			t.Fatalf("OwnedMemberships(%s) = %#v; want its implied conjugate", tc.original.Name, memberships)
+		}
+		conjugate := ElementOf(memberships[0].Implicit.Member)
+		structure.metaclasses[conjugate.Key()] = "ConjugatedPortDefinition"
+	}
+	evaluator.options.Structure = structure
+
+	for _, tc := range cases {
+		conjugate := ElementOf(evaluator.model.OwnedMemberships(tc.original)[0].Implicit.Member)
+		for _, property := range []struct {
+			name string
+			want string
+		}{
+			{name: "name", want: tc.wantName},
+			{name: "shortName"},
+			{name: "qualifiedName", want: tc.wantQualifiedName},
+		} {
+			got := testProperty(t, evaluator, conjugate, "Element", property.name)
+			if property.want == "" {
+				if got.Kind != NullValue {
+					t.Errorf("%s Element::%s = %#v; want null", tc.original.Name, property.name, got)
+				}
+			} else if got.Kind != StringValue || got.String != property.want {
+				t.Errorf("%s Element::%s = %#v; want %q", tc.original.Name, property.name, got, property.want)
+			}
+		}
+	}
+}
+
 func TestStructureQualifiedNameUsesOwnedNamespacesAndRejectsDuplicateNames(t *testing.T) {
 	evaluator, root := newTestEvaluator(t, "qualified-name-structure.sysml", `package 'Space Name' {
 		part def 'Wheel Type';

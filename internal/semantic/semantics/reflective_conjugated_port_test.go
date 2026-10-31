@@ -119,7 +119,7 @@ func TestConjugatedPortDefinitionNamesFollowTheOriginalName(t *testing.T) {
 	} {
 		assertReflectiveString(t, m, shortConjugate, feature, want)
 	}
-	// Native qualifiedName spells `~Q` unquoted; the pilot uses `P::Q::'~Q'`.
+	// Reflective qualifiedName is unquoted for all names; evaluator escaping is tested by TestConjugatedPortQualifiedNamesUseEvaluatorEscaping.
 	for feature, want := range map[string]string{
 		"name": "~Q", "declaredName": "~Q", "shortName": "", "declaredShortName": "",
 		"qualifiedName": "P::Q::~Q",
