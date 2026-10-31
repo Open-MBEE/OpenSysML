@@ -949,10 +949,8 @@ func (m *Model) link() {
 	m.readDocuments()
 }
 
-// hrefBase resolves a stereotype base named by href from the archive entry
-// from: `#_c` is this document's _c, `lib/shared.xmi#_c` the _c defined by the
-// entry that path names relative to from's directory, when it was read; an
-// href into a document not read names nothing here, whatever its fragment.
+// hrefBase resolves a base href from the application's archive entry: `#_c` is
+// this document's _c, `lib/shared.xmi#_c` that entry's; an unread document's is nothing.
 func (m *Model) hrefBase(href, from string) (*Element, bool) {
 	i := strings.LastIndexByte(href, '#')
 	if i < 0 {
