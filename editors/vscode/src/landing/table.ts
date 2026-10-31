@@ -117,6 +117,11 @@ export function fillCell(td: HTMLElement, cell: TableCell): void {
 }
 
 // mountTable lists a scene as a table and has Run fill its rolled-up column.
+// delay resolves after ms; a timeline of such delays from one start schedules an animation's steps.
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function mountTable(root: HTMLElement, scene: Scene, form: SceneTable, options: MountOptions): Mounted {
   if (scene.program.kind !== "rollup") {
     throw new Error(`scene ${scene.id} is a table but has no roll-up to list`);
@@ -144,6 +149,7 @@ export function mountTable(root: HTMLElement, scene: Scene, form: SceneTable, op
     },
     busy: () => false,
     reset: () => undefined,
+    reprogram: () => undefined,
     syncControls: () => undefined,
   });
   const { status, engine, runnable } = shell;
@@ -161,37 +167,38 @@ export function mountTable(root: HTMLElement, scene: Scene, form: SceneTable, op
     return wrap.querySelector<HTMLTableRowElement>(`tr[data-osml-id="${CSS.escape(id)}"]`);
   }
 
-  function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  // animateRollup fills the rolled-up column a level at a time from the deepest parts up, lighting each level's rows.
+  // animateRollup fills the rolled-up column a level at a time from the deepest parts up, lighting each level's rows:
+  // level i lights at i × step on one timeline, and the last level stays lit for a step before the lights go out.
   async function animateRollup(levels: readonly string[][]): Promise<void> {
-    const cells = new Map(table.rows.map((row) => [row.id, row.cells[row.cells.length - 1]]));
+    const cells = new Map(table.rows.map((row) => [row.id, row.cells.at(-1)]));
+    const step = reduceMotion.matches ? 350 : 900;
     let lit: HTMLTableRowElement[] = [];
-    try {
-      for (const ids of levels) {
-        if (signal.aborted) {
-          break;
-        }
-        for (const row of lit) {
-          row.classList.remove("is-live");
-        }
-        lit = [];
-        for (const id of ids) {
-          const row = rowOf(id);
-          const td = wrap.querySelector<HTMLElement>(`td[data-osml-cell="${CSS.escape(id)}"]`);
-          const cell = cells.get(id);
-          if (td && cell) {
-            fillCell(td, cell);
-          }
-          if (row) {
-            row.classList.add("is-live");
-            lit.push(row);
-          }
-        }
-        await delay(reduceMotion.matches ? 350 : 900);
+    function lightLevel(ids: readonly string[]): void {
+      if (signal.aborted) {
+        return;
       }
+      for (const row of lit) {
+        row.classList.remove("is-live");
+      }
+      lit = [];
+      for (const id of ids) {
+        const row = rowOf(id);
+        const td = wrap.querySelector<HTMLElement>(`td[data-osml-cell="${CSS.escape(id)}"]`);
+        const cell = cells.get(id);
+        if (td && cell) {
+          fillCell(td, cell);
+        }
+        if (row) {
+          row.classList.add("is-live");
+          lit.push(row);
+        }
+      }
+    }
+    try {
+      await Promise.all([
+        ...levels.map((ids, i) => delay(i * step).then(() => lightLevel(ids))),
+        delay(levels.length * step),
+      ]);
     } finally {
       for (const row of lit) {
         row.classList.remove("is-live");

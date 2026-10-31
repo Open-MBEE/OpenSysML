@@ -2,7 +2,7 @@
 // controls that change it (status line, editor, variant toggles); a form draws what it adopts.
 import type { Connection } from "@openmbee/opensysml/browser";
 import { blocks, readModel, sceneTarget, snapshotModel, type Diagnostic, type LandingModel, type SceneTarget } from "./model";
-import { requiredVariant, variantChain, type Scene, type SceneControl, type SceneVariant } from "./scene";
+import { programOf, requiredVariant, variantChain, type Scene, type SceneControl, type SceneProgram, type SceneVariant } from "./scene";
 
 const EDIT_DELAY = 300;
 
@@ -26,6 +26,8 @@ export interface ShellHooks {
   busy(): boolean;
   /** The published text is back in the editor: the form forgets what the visitor did to the stage. */
   reset(): void;
+  /** A variant changed what Run executes over the same model: the form forgets the previous program's run. */
+  reprogram(): void;
   /** `running` changed: the form syncs the controls it owns. */
   syncControls(): void;
 }
@@ -35,6 +37,8 @@ export interface Shell {
   readonly model: LandingModel;
   /** The root shown: the scene's own, or a variant's while its toggle is on. */
   readonly target: SceneTarget;
+  /** What Run executes: the scene's program, or a variant's while its toggle is on. */
+  readonly program: SceneProgram;
   /** Whether `model` was read live rather than taken from the snapshot. */
   readonly live: boolean;
   /** Whether a Run is in progress; the controls that would change the model wait. */
@@ -61,6 +65,14 @@ export function diagnosticText(diagnostic: Diagnostic): string {
 /** shortName is the last segment of a qualified name: `saturnV` of `MassRollup::saturnV`. */
 export function shortName(symbol: string): string {
   return symbol.slice(symbol.lastIndexOf("::") + 2);
+}
+
+/** readSummary counts what a read model shows: a machine's states and transitions, else parts and interfaces. */
+export function readSummary(model: LandingModel): string {
+  if (model.machine) {
+    return `${model.machine.states.size} states, ${model.render.edges.length} transitions`;
+  }
+  return `${model.parts.size} parts, ${model.render.edges.length} interfaces`;
 }
 
 export const sameTarget = (a: SceneTarget, b: SceneTarget): boolean => a.rootSymbol === b.rootSymbol && a.view === b.view;
@@ -170,7 +182,7 @@ export function mountShell(root: HTMLElement, scene: Scene, options: MountOption
       adopt(outcome.model, source);
     }
     const ms = Math.max(1, Math.round(performance.now() - started));
-    status(`The engine read the model in ${ms} ms: ${outcome.model.parts.size} parts, ${outcome.model.render.edges.length} interfaces.`);
+    status(`The engine read the model in ${ms} ms: ${readSummary(outcome.model)}.`);
     return outcome.model;
   }
 
@@ -240,8 +252,12 @@ export function mountShell(root: HTMLElement, scene: Scene, options: MountOption
     if (running) {
       return;
     }
+    const before = programOf(scene, variant);
     variant = next;
     target = next === undefined ? sceneTarget(scene) : { rootSymbol: next.rootSymbol, view: next.view };
+    if (sameTarget(target, model.target) && programOf(scene, variant) !== before) {
+      hooks.reprogram();
+    }
     // A read of the previous root still in flight is superseded, as an edit supersedes a read.
     const revision = ++editSequence;
     syncVariantControls();
@@ -291,23 +307,27 @@ export function mountShell(root: HTMLElement, scene: Scene, options: MountOption
     }
     srcEl.value = "Loading the model…";
     srcEl.readOnly = true;
-    publishedSource().then(
-      (text) => {
-        srcEl.value = text;
-        srcEl.readOnly = false;
-        srcEl.focus();
-        srcEl.setSelectionRange(0, 0);
-        srcEl.scrollTop = 0;
-        // The engine is fetched now, so the first edit redraws without a wait.
-        void engine().catch(() => undefined);
-      },
-      (error: unknown) => {
-        srcEl.value = "";
-        srcEl.readOnly = false;
-        status(`Could not load the model: ${message(error)}. Hide and reopen the editor to try again.`, true);
-      },
-    );
+    void loadSource();
   });
+
+  // loadSource fills the editor with the published model, then fetches the engine so the first edit redraws without a wait.
+  async function loadSource(): Promise<void> {
+    let text: string;
+    try {
+      text = await publishedSource();
+    } catch (error: unknown) {
+      srcEl.value = "";
+      srcEl.readOnly = false;
+      status(`Could not load the model: ${message(error)}. Hide and reopen the editor to try again.`, true);
+      return;
+    }
+    srcEl.value = text;
+    srcEl.readOnly = false;
+    srcEl.focus();
+    srcEl.setSelectionRange(0, 0);
+    srcEl.scrollTop = 0;
+    void engine().catch(() => undefined);
+  }
   on(srcEl, "input", () => {
     if (!srcEl.readOnly) {
       status("Loading the engine and reading the model…");
@@ -342,6 +362,9 @@ export function mountShell(root: HTMLElement, scene: Scene, options: MountOption
     },
     get target() {
       return target;
+    },
+    get program() {
+      return programOf(scene, variant);
     },
     get live() {
       return live;

@@ -1,0 +1,1 @@
+- Patch GHSA-g3hv-75wg-m249 by resolving the production minimatch dependency to 11.0.1 in the VS Code extension under `vscode-languageclient` and in the Node client under `@tufjs/models`.

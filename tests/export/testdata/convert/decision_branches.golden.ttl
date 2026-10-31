@@ -97,6 +97,8 @@ elmt:Branches__Charge__level
     sysml:owningMembership elmt:Branches__Charge__level_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "level" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Branches__Charge__level_ft0 ;

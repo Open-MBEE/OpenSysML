@@ -105,6 +105,8 @@ elmt:Documented__Wheel__radius
     sysml:owningMembership elmt:Documented__Wheel__radius_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "radius" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Documented__Wheel__radius_ft0 ;
@@ -165,6 +167,8 @@ elmt:Documented__Wheel__hub
     sysml:owningMembership elmt:Documented__Wheel__hub_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "hub" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Documented__Hub ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Documented__Wheel__hub_ft0 ;
@@ -296,6 +300,8 @@ elmt:Documented__Hub__stuff
     sysml:owningMembership elmt:Documented__Hub__stuff_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "stuff" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        out item stuff;\n" .
@@ -393,6 +399,8 @@ elmt:Documented__wheel__serial
     sysml:owningMembership elmt:Documented__wheel__serial_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "serial" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute serial;\n" .
 

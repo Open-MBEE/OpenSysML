@@ -145,6 +145,25 @@ func TestPRWorkflowPullRequestReadsHaveMergeGroupBranch(t *testing.T) {
 	}
 }
 
+// The protobuf baseline is where the pull request forked from its base branch (a merge
+// group's base_sha), not the branch's tip, or a field added there since reads as deleted.
+func TestPRWorkflowProtoBaselineIsTheMergeBase(t *testing.T) {
+	workflow, _ := loadPRWorkflow(t)
+	step := prWorkflowStep(t, workflow, "static-and-integrity", "Check the protobuf schema for breaking changes")
+	if !strings.Contains(step.Env["BASE_SHA"], "github.event_name == 'merge_group' && github.event.merge_group.base_sha") {
+		t.Errorf("pr.yml protobuf breaking check BASE_SHA = %q does not use the merge group's base_sha", step.Env["BASE_SHA"])
+	}
+	if !strings.Contains(step.Env["HEAD_SHA"], "github.event.pull_request.head.sha") {
+		t.Errorf("pr.yml protobuf breaking check HEAD_SHA = %q does not name the pull request's head", step.Env["HEAD_SHA"])
+	}
+	if !strings.Contains(step.Run, `git merge-base "origin/$BASE_REF" "$HEAD_SHA"`) {
+		t.Errorf("pr.yml protobuf breaking check = %q does not compare against the merge base", step.Run)
+	}
+	if strings.Contains(step.Run, `BUF_BREAKING_REF="origin/`) {
+		t.Errorf("pr.yml protobuf breaking check = %q compares against the base branch's tip", step.Run)
+	}
+}
+
 func TestPRWorkflowAggregateReportsOnEveryEvent(t *testing.T) {
 	workflow, raw := loadPRWorkflow(t)
 	aggregate, ok := workflow.Jobs["build-and-test"]

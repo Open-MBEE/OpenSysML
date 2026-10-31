@@ -80,6 +80,8 @@ elmt:Vehicles__Vehicle__mass
     sysml:owningMembership elmt:Vehicles__Vehicle__mass_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "mass" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Vehicles__Vehicle__mass_ft0 ;
@@ -114,6 +116,8 @@ elmt:Vehicles__Vehicle__engine
     sysml:owningMembership elmt:Vehicles__Vehicle__engine_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "engine" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Vehicles__Engine ;
     sysml:multiplicity expr:Vehicles__Vehicle__engine_pmultiplicity ;
     sysml:ownedRelationship elmt:Vehicles__Vehicle__engine_ft0, expr:Vehicles__Vehicle__engine_pmultiplicity_om ;

@@ -133,6 +133,8 @@ elmt:Views__ByReference__tree
     sysml:owningRelationship elmt:Views__ByReference__tree_om ;
     sysml:owningMembership elmt:Views__ByReference__tree_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:Views__tree ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:Views__ByReference__tree_rs ;
@@ -202,6 +204,8 @@ elmt:Views__ByDeclaration__t2
     sysml:owningMembership elmt:Views__ByDeclaration__t2_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "t2" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Views__Tree ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Views__ByDeclaration__t2_ft0 ;
@@ -270,6 +274,8 @@ elmt:Views__WithBody__tree
     sysml:owningRelationship elmt:Views__WithBody__tree_om ;
     sysml:owningMembership elmt:Views__WithBody__tree_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:Views__tree ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Views__WithBody__tree___400 ;

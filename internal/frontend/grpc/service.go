@@ -1395,7 +1395,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err != nil {
 				return runtime.Outcome{}, err
 			}
-			outcome, err := opts.actionOutcome(rt, req.ActionSymbolId, action, self, inputs)
+			outcome, err := opts.actionOutcome(rt, action, self, inputs)
 			if err != nil {
 				return runtime.Outcome{}, fmt.Errorf("action execution failed: %w", err)
 			}
@@ -1419,7 +1419,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 
 	// Execute action with the supplied inputs
 	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (actionRun, error) {
-		return opts.runAction(rt, req.ActionSymbolId, action, self, inputs)
+		return opts.runAction(rt, action, self, inputs)
 	}, func(ran actionRun, err error) analysis.Answer { return heldAnswer(ran.outputs, err) })
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone

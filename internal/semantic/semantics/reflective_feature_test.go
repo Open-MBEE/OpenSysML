@@ -414,6 +414,9 @@ func TestReflectiveFeatureFlagsOnRecordedUsagesAndControlNodes(t *testing.T) {
 				facts.Modifiers |= symbols.ModNonunique
 			}
 		}
+		if srcModel.IsFlowPayload(sym) {
+			facts.Modifiers |= symbols.ModPayloadFeature
+		}
 		if srcModel.UsageMayTimeVary(sym) {
 			facts.Modifiers |= symbols.ModMayTimeVary
 		}
@@ -979,6 +982,12 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 		Supers:   []symbols.ElementRef{},
 	}
 	facts.Annotations = model.DeclaredAnnotationFactsOf(sym)
+	if model.IsFlowPayload(sym) {
+		facts.Modifiers |= symbols.ModPayloadFeature
+	}
+	if model.UsageMayTimeVary(sym) {
+		facts.Modifiers |= symbols.ModMayTimeVary
+	}
 	if sym.Kind == symbols.SymbolAlias {
 		if target, ok := model.resolver.ResolveAliasTarget(sym); ok {
 			if ref, found := idx.RefTo(target); found {

@@ -366,15 +366,23 @@ jobs:
       - name: Lint the protobuf schema
         run: make proto-lint
 
-      # Wire compatibility against the branch this pull request (or merge group, as
-      # refs/heads/<branch>) merges into; the baseline is a git archive, so a shallow fetch does.
+      # Wire compatibility against the merge base with the base branch (a merge group's base_sha), not
+      # its tip, or a field added there since reads as deleted; a blob-free history fetch reaches it.
       - name: Check the protobuf schema for breaking changes
         env:
           BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
+          BASE_SHA: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
+          HEAD_SHA: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || github.event.pull_request.head.sha }}
         run: |
           BASE_REF=${BASE_REF#refs/heads/}
-          git fetch --no-tags --depth=1 origin "$BASE_REF"
-          make proto-breaking BUF_BREAKING_REF="origin/$BASE_REF"
+          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+            git fetch --no-tags --filter=tree:0 --unshallow origin "$BASE_REF" "$HEAD_SHA"
+          else
+            git fetch --no-tags --filter=tree:0 origin "$BASE_REF" "$HEAD_SHA"
+          fi
+          baseline=${BASE_SHA:-$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")}
+          echo "comparing against $(git rev-parse --short "$baseline")"
+          make proto-breaking BUF_BREAKING_REF="$baseline"
 
       # Race shards skip tests gated here; keep Makefile RACE_SHARD_SKIP and RACE_SHARD_TOOLS_SKIP in sync.
       # Re-run the corpus gate on its own so its verdict is legible in the log

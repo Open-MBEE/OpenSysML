@@ -58,6 +58,11 @@ test('special characters come back as the characters written', () => {
   ]);
 });
 
+test('document-scoped counters are substituted in block order', () => {
+  const blocks = convert('{counter:n}\n\n{counter:n}\n\n{counter:n}\n');
+  assert.deepEqual(blocks.map((block) => block.runs.map((run) => run.text)), [['1'], ['2'], ['3']]);
+});
+
 test('lists carry their items with line numbers, and nested lists as item blocks', () => {
   const [ulist, olist] = convert('* one\n* two _soft_\n\n[start=1]\n. first\n. second\n** deep\n');
   assert.equal(ulist.kind, 'list');

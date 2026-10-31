@@ -1,6 +1,7 @@
 import type {
   Connection,
   DocumentEvent,
+  DocumentValue,
   Instance,
   Magnitude,
   ModelDiagnostic,
@@ -10,7 +11,7 @@ import type {
 import { ExecutionError, Model, ParseError, instanceFromJson, renderedViewFromJson } from "@openmbee/opensysml/browser";
 import { normalizeRender } from "../protocol";
 import type { RenderEdge, RenderNode, RenderResult } from "../protocol";
-import type { Scene, SceneJourney } from "./scene";
+import type { Scene, SceneClock, SceneJourney, SceneProgram } from "./scene";
 
 export interface Diagnostic {
   message: string;
@@ -38,6 +39,27 @@ export interface LandingPart {
   owner?: string;
 }
 
+/** A state of the machine a scene draws: its box, and the name the trace records it under. */
+export interface LandingState {
+  id: string;
+  /** The state's name as the trace records carry it: `prelaunch`; the start pseudostate has none. */
+  name: string;
+  /** The names from the machine down to this state, dotted: `onSurface.landing`; the name itself at the top. */
+  path: string;
+  /** What RenderView drew it as: `start`, `state` or `final`. */
+  kind: string;
+  /** Whether the machine enters this state first, as RenderView details it. */
+  initial: boolean;
+}
+
+/** The state machine a scene draws: its states by path and, where that is unambiguous, by name. */
+export interface LandingMachine {
+  /** The state definition drawn: `MissionSequence::MissionPhases`. */
+  symbol: string;
+  /** Keyed by `LandingState.path`; a nested state is also keyed by its bare name when no other state has it. */
+  states: Map<string, LandingState>;
+}
+
 /** What the root is drawn as: its symbol and the view RenderView draws of it. */
 export interface SceneTarget {
   rootSymbol: string;
@@ -52,6 +74,8 @@ export interface LandingModel {
   parts: Map<string, LandingPart>;
   /** The root itself, which the parts compose; it is not drawn as a box, so it is not among `parts`. */
   root: LandingPart;
+  /** The state machine the view draws, when it draws one rather than the root's composition. */
+  machine?: LandingMachine;
 }
 
 export type ModelRead = { diagnostics: Diagnostic[]; model?: LandingModel };
@@ -90,12 +114,16 @@ export interface TraceRecord {
   event?: string;
   alternatives?: string[];
   taken?: string;
+  /** The simulated instant the record was written at, when the engine timed it. */
+  time?: EngineQuantity;
   text: string;
 }
 
 export interface JourneyRun {
   visited: string[];
   trace: TraceRecord[];
+  /** The simulated instant the clock stopped at; absent when the run failed. */
+  finalTime?: number;
   error?: string;
 }
 
@@ -254,10 +282,23 @@ function diagnosticOf(diagnostic: ModelDiagnostic): Diagnostic {
   };
 }
 
+/** recordTime is the instant a trace record carries, as the page prints it; undefined when untimed. */
+function recordTime(time: DocumentValue): EngineQuantity | undefined {
+  if (typeof time === "number" || typeof time === "bigint") {
+    return { magnitude: time.toString(), unit: "" };
+  }
+  if (typeof time === "object" && "magnitude" in time && "unit" in time) {
+    return { magnitude: magnitudeText(time.magnitude), unit: time.unit };
+  }
+  return undefined;
+}
+
 /** Shapes a trace event as the debugger's record; absent fields are omitted. */
 export function traceRecord(event: DocumentEvent): TraceRecord {
+  const time = recordTime(event.time);
   return {
     kind: event.kind,
+    ...(time === undefined ? {} : { time }),
     ...(event.state === "" ? {} : { state: event.state }),
     ...(event.fromState === "" ? {} : { from: event.fromState }),
     ...(event.toState === "" ? {} : { to: event.toState }),
@@ -282,6 +323,9 @@ export function landingModel(
   render: RenderResult,
   instances: readonly EngineInstance[],
 ): LandingModel {
+  if (render.kind === "state") {
+    return machineModel(target, hash, render, instances);
+  }
   const { rootSymbol } = target;
   const rootName = rootSymbol.slice(rootSymbol.lastIndexOf("::") + 2);
   const root = render.nodes.find(
@@ -303,32 +347,8 @@ export function landingModel(
   const nodes: RenderNode[] = [];
   const parts = new Map<string, LandingPart>();
 
-  const partOf = (node: RenderNode, instance: EngineInstance | undefined, path: string, owner: string | undefined): LandingPart => {
-    const attrs: Record<string, string> = {};
-    const quantities: Record<string, EngineQuantity> = {};
-    const unvalued: Record<string, string> = {};
-    for (const [name, featureValue] of Object.entries(instance?.featureValues ?? {})) {
-      if (featureValue.value?.stringValue !== undefined) {
-        attrs[name] = featureValue.value.stringValue;
-      } else if (featureValue.value?.quantity !== undefined) {
-        quantities[name] = featureValue.value.quantity;
-      } else if (featureValue.error !== undefined) {
-        unvalued[name] = featureValue.error;
-      }
-    }
-    attrs.label ??= node.name;
-    return {
-      id: node.id,
-      feature: node.name,
-      path,
-      symbol: instance?.typeSymbolId ?? node.type,
-      type: node.type,
-      attrs,
-      quantities,
-      unvalued,
-      ...(owner === undefined ? {} : { owner }),
-    };
-  };
+  const partOf = (node: RenderNode, instance: EngineInstance | undefined, path: string, owner: string | undefined): LandingPart =>
+    partRecord(node.id, node.name, node.type, instance, path, owner);
 
   // place draws `drawn`, a copy of `source` standing for `instance`, then the boxes below it;
   // `suffix` is what the copies above it added to their ids, so each copy's subtree has its own.
@@ -410,6 +430,107 @@ export function landingModel(
     edges: render.edges.filter((edge) => retained.has(edge.from) && retained.has(edge.to)),
   });
   return { hash, target, render: normalized, parts, root: { ...partOf(root, rootInstance, rootName, undefined), feature: rootName } };
+}
+
+/** partRecord is one object as the page keeps it: the instance's values under the box drawn for it. */
+function partRecord(
+  id: string,
+  feature: string,
+  type: string,
+  instance: EngineInstance | undefined,
+  path: string,
+  owner: string | undefined,
+): LandingPart {
+  const attrs: Record<string, string> = {};
+  const quantities: Record<string, EngineQuantity> = {};
+  const unvalued: Record<string, string> = {};
+  for (const [name, featureValue] of Object.entries(instance?.featureValues ?? {})) {
+    if (featureValue.value?.stringValue !== undefined) {
+      attrs[name] = featureValue.value.stringValue;
+    } else if (featureValue.value?.quantity !== undefined) {
+      quantities[name] = featureValue.value.quantity;
+    } else if (featureValue.error !== undefined) {
+      unvalued[name] = featureValue.error;
+    }
+  }
+  attrs.label ??= feature;
+  return {
+    id,
+    feature,
+    path,
+    symbol: instance?.typeSymbolId ?? type,
+    type,
+    attrs,
+    quantities,
+    unvalued,
+    ...(owner === undefined ? {} : { owner }),
+  };
+}
+
+/**
+ * machineModel is a state view as the page keeps it: the machine's own states lifted out of
+ * its box, the states and regions nested in them kept where they are, the transitions kept,
+ * and the root the object the machine runs on, as Instantiate materialized it.
+ */
+function machineModel(
+  target: SceneTarget,
+  hash: string,
+  render: RenderResult,
+  instances: readonly EngineInstance[],
+): LandingModel {
+  const { rootSymbol } = target;
+  const rootName = rootSymbol.slice(rootSymbol.lastIndexOf("::") + 2);
+  const machines = render.nodes.filter((node) => node.parent === undefined);
+  if (machines.length !== 1) {
+    throw new Error(`rendered state view draws ${machines.length} machines, want one`);
+  }
+  const [machine] = machines;
+  const states = new Map<string, LandingState>();
+  const byName = new Map<string, LandingState[]>();
+  const nodes: RenderNode[] = [];
+  // keep walks below `parent`: its children lifted when it is the machine, nested ones left in place.
+  const keep = (parent: RenderNode, above: string | undefined): void => {
+    for (const node of render.nodes) {
+      if (node.parent !== parent.id) {
+        continue;
+      }
+      const { parent: _parent, ...lifted } = node;
+      nodes.push(parent === machine ? lifted : node);
+      const path = node.name === "" ? above : above === undefined ? node.name : `${above}.${node.name}`;
+      if (node.name !== "" && path !== undefined && node.kind !== "region") {
+        const state: LandingState = { id: node.id, name: node.name, path, kind: node.kind, initial: node.detail === "initial" };
+        states.set(path, state);
+        byName.set(node.name, [...(byName.get(node.name) ?? []), state]);
+      }
+      keep(node, path);
+    }
+  };
+  keep(machine, undefined);
+  for (const [name, named] of byName) {
+    if (named.length === 1 && !states.has(name)) {
+      states.set(name, named[0]);
+    }
+  }
+  const retained = new Set(nodes.map((node) => node.id));
+  const normalized = normalizeRender({
+    ...render,
+    nodes,
+    edges: render.edges.filter((edge) => retained.has(edge.from) && retained.has(edge.to)),
+  });
+  const rootInstance = instances.find((instance) => instance.typeSymbolId === rootSymbol);
+  return {
+    hash,
+    target,
+    render: normalized,
+    parts: new Map(),
+    root: partRecord(machine.id, rootName, "", rootInstance, rootName, undefined),
+    machine: { symbol: machine.name, states },
+  };
+}
+
+/** stateIdOf is the box a state the engine named is drawn as: a machine's state (by path or unambiguous name), or the part a journey's state stands for. */
+export function stateIdOf(model: LandingModel, state: string): string | undefined {
+  return model.machine?.states.get(state)?.id ?? model.parts.get(state)?.id;
 }
 
 /** sceneTarget is the root a scene draws by default, before any variant is switched on. */
@@ -531,9 +652,34 @@ export async function journey(
     ...(seed === undefined ? {} : { schedule: `seed:${seed}` }),
   });
   return result.statesVisited.flatMap((state) => {
-    const id = model.parts.get(state)?.id;
+    const id = stateIdOf(model, state);
     return id === undefined ? [] : [id];
   });
+}
+
+/** clockOf is the clocked run a scene's program is; another program has none. */
+export function clockOf(program: SceneProgram): SceneClock {
+  if (program.kind !== "clock") {
+    throw new Error(`a ${program.kind} program runs no clock`);
+  }
+  return program;
+}
+
+/** Runs the program's machine, performed by its object, for its simulated duration, with the trace. */
+export async function runClock(connection: Connection, program: SceneClock, model: LandingModel): Promise<JourneyRun> {
+  try {
+    const result = await connection.executeState(model.hash, program.symbol, {
+      performer: program.performer,
+      advance: program.advance,
+      trace: true,
+    });
+    return { visited: result.statesVisited, trace: result.trace.map(traceRecord), finalTime: result.finalTime };
+  } catch (error) {
+    if (error instanceof ExecutionError) {
+      return { visited: [], trace: error.trace.map(traceRecord), error: errorMessage(error) };
+    }
+    throw error;
+  }
 }
 
 /** Runs the scene's state machine on `events` with its trace; a seed picks each free choice. */

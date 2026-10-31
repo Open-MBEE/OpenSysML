@@ -206,6 +206,8 @@ elmt:Accepts__Observe__trigger__scene
     sysml:declaredName "scene" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:type elmt:Accepts__Scene ;
@@ -280,6 +282,8 @@ elmt:Accepts__Watch__lens
     sysml:owningMembership elmt:Accepts__Watch__lens_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "lens" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Accepts__Camera ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Accepts__Watch__lens_ft0 ;
@@ -361,6 +365,8 @@ elmt:Accepts__Watch__framed__scene
     sysml:declaredName "scene" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:type elmt:Accepts__Scene ;
@@ -398,6 +404,8 @@ elmt:Accepts__Watch__framed___401
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:Accepts__Watch__framed___401_pvalue ;
     sysml:ownedRelationship expr:Accepts__Watch__framed___401_pvalue_om ;
