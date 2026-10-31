@@ -49,6 +49,42 @@ func TestRuntimeRobustnessRequirementAssumption(t *testing.T) {
 			t.Errorf("err = %v, want the non-boolean assumption reported", err)
 		}
 	})
+	t.Run("an assumption declared after the required condition is judged first", func(t *testing.T) {
+		ctx, pkg := conditionFixture(t, `package test {
+			private import ScalarValues::*;
+			requirement r { require constraint { false } assume constraint { false } }
+			assert not requirement nr { require constraint { false } assume constraint { false } }
+			requirement stepped {
+				attribute a : Real = 2.0;
+				require constraint { assign a := a + 1; a < 0 }
+				assume constraint { a > 10 }
+			}
+			requirement erring {
+				attribute a : Real = 2.0;
+				require constraint { a / 0 > 1 and 1 }
+				assume constraint { false }
+			}
+		}`)
+		for _, name := range []string{"r", "stepped", "erring"} {
+			sym := requirementNamed(t, pkg, name)
+			result, err := ctx.CheckRequirementOn(sym, sym.OwnerScope, nil)
+			if err != nil || !result.Holds {
+				t.Fatalf("%s: holds = %v, err = %v, want a vacuous pass", name, result.Holds, err)
+			}
+			if !strings.Contains(result.Vacuous, "vacuous: assumption") {
+				t.Errorf("%s: vacuity %q, want the failed assumption named", name, result.Vacuous)
+			}
+		}
+		sym := requirementNamed(t, pkg, "nr")
+		result, err := ctx.CheckRequirementOn(sym, sym.OwnerScope, nil)
+		var violation *ViolationError
+		if !errors.As(err, &violation) || result.Holds {
+			t.Fatalf("nr: holds = %v, err = %v, want a *ViolationError", result.Holds, err)
+		}
+		if !strings.Contains(violation.Condition, "assumption false of requirement nr did not hold") {
+			t.Errorf("nr: violation names %q, want the assumption", violation.Condition)
+		}
+	})
 	t.Run("a failed assumption makes the requirement hold vacuously, saying which", func(t *testing.T) {
 		ctx, pkg := conditionFixture(t, `package test {
 			private import ScalarValues::*;`+thing+`

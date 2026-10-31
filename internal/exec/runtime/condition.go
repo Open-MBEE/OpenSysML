@@ -673,7 +673,8 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 // judgeConditions is evaluateConditions with the verdict's vacuity. A requirement
 // check is Requirements::RequirementConstraintCheck::result, `allTrue(assumptions())
 // implies allTrue(constraints())`: an assumption that does not hold makes it true
-// whatever its required conditions read. A constraint's assumption binds no result.
+// whatever its required conditions read, so the assumptions are judged first.
+// A constraint's assumption binds no result.
 func (ctx *Context) judgeConditions(check conditionCheck, conds []Condition) (conditionVerdict, error) {
 	if conflict := conflictingResultExpression(conds); conflict != nil {
 		return conditionVerdict{}, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
@@ -697,7 +698,7 @@ func (ctx *Context) judgeConditions(check conditionCheck, conds []Condition) (co
 	activation, endStep := ctx.beginStep()
 	defer endStep()
 	required := false
-	for _, cond := range conds {
+	for _, cond := range check.assumptionsFirst(conds) {
 		required = required || cond.Required
 		if err := ctx.circularCondition(check, cond); err != nil {
 			return conditionVerdict{}, err
@@ -731,6 +732,28 @@ func (ctx *Context) judgeConditions(check conditionCheck, conds []Condition) (co
 		return conditionVerdict{}, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
 	}
 	return conditionVerdict{holds: true}, nil
+}
+
+// assumptionsFirst orders a requirement check's conditions so its assumptions are
+// judged before its required conditions, whatever order the body declares them in:
+// `implies` reads its consequent only once its antecedent holds (KerML 9.2.3
+// ControlFunctions::implies). A constraint's conditions keep declaration order.
+func (c conditionCheck) assumptionsFirst(conds []Condition) []Condition {
+	if !c.isRequirementCheck() {
+		return conds
+	}
+	ordered := make([]Condition, 0, len(conds))
+	for _, cond := range conds {
+		if !cond.Required {
+			ordered = append(ordered, cond)
+		}
+	}
+	for _, cond := range conds {
+		if cond.Required {
+			ordered = append(ordered, cond)
+		}
+	}
+	return ordered
 }
 
 // decidedBy reports whether cond evaluating to false settles the check: a required
@@ -882,7 +905,7 @@ func (ctx *Context) evaluateStepsConditions(activation int64, check conditionChe
 	if len(cond.Group) == 0 {
 		return verdict, false, check.noResultValue("the body's steps leave it no result expression to evaluate")
 	}
-	for _, sub := range cond.Group {
+	for _, sub := range check.assumptionsFirst(cond.Group) {
 		if err := ctx.circularCondition(check, sub); err != nil {
 			return verdict, false, err
 		}
