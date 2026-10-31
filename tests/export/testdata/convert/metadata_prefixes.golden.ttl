@@ -738,6 +738,8 @@ elmt:Prefixed__context__stopped
     sysml:owningMembership elmt:Prefixed__context__stopped_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "stopped" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__context__stopped___400 ;
     sysml:ownedMembership elmt:Prefixed__context__stopped___400_om ;
     sysml:ownedRelationship elmt:Prefixed__context__stopped___400_om, elmt:Prefixed__context__stopped_ft0 ;
@@ -807,6 +809,8 @@ elmt:Prefixed__context__moving
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "moving" ;
     sysml:isNegated "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__context__moving___400 ;
     sysml:ownedMembership elmt:Prefixed__context__moving___400_om ;
     sysml:ownedRelationship elmt:Prefixed__context__moving___400_om, elmt:Prefixed__context__moving_ft0 ;
@@ -876,6 +880,8 @@ elmt:Prefixed__context__go
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "go" ;
     sysx:declaredPrefix "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__context__go___400 ;
     sysml:ownedMembership elmt:Prefixed__context__go___400_om ;
     sysml:ownedRelationship elmt:Prefixed__context__go___400_om, elmt:Prefixed__context__go_ft0 ;

@@ -500,6 +500,8 @@ elmt:Synonyms__Vehicle__idling
     sysml:owningMembership elmt:Synonyms__Vehicle__idling_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "exhibit" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Synonyms__Idle ;
     sysml:references "idling" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -540,6 +542,8 @@ elmt:Synonyms__Vehicle__safe
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "safe" ;
     sysx:declaredKeyword "assert" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Synonyms__Safe ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Synonyms__Vehicle__safe_ft0 ;
@@ -575,6 +579,8 @@ elmt:Synonyms__Vehicle__alsoSafe
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "alsoSafe" ;
     sysx:declaredKeyword "inv" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Synonyms__Safe ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Synonyms__Vehicle__alsoSafe_ft0 ;
@@ -674,6 +680,8 @@ elmt:Synonyms__Dashboard__display
     sysml:owningRelationship elmt:Synonyms__Dashboard__display_om ;
     sysml:owningMembership elmt:Synonyms__Dashboard__display_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references "display" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:Synonyms__Dashboard__display_rs ;
@@ -709,6 +717,8 @@ elmt:Synonyms__Dashboard___401
     sysml:owningRelationship elmt:Synonyms__Dashboard___401_om ;
     sysml:owningMembership elmt:Synonyms__Dashboard___401_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Synonyms__AsTree ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Synonyms__Dashboard___401_ft0 ;

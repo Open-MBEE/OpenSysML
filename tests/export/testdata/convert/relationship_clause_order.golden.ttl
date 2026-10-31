@@ -92,6 +92,8 @@ elmt:ClauseOrder__Quantity__num
     sysml:owningMembership elmt:ClauseOrder__Quantity__num_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "num" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ClauseOrder__Quantity__num_ft0 ;
@@ -161,6 +163,8 @@ elmt:ClauseOrder__Ratio__num
     sysml:owningRelationship elmt:ClauseOrder__Ratio__num_om ;
     sysml:owningMembership elmt:ClauseOrder__Ratio__num_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:redefines elmt:ClauseOrder__Quantity__num ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -264,6 +268,8 @@ elmt:ClauseOrder__Mission__context
     sysml:owningMembership elmt:ClauseOrder__Mission__context_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "context" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:ClauseOrder__Ctx ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ClauseOrder__Mission__context_ft0 ;
