@@ -383,14 +383,14 @@
     "vscode-languageclient": "9.0.1"
   },
   "devDependencies": {
-    "@types/node": "22.10.5",
+    "@types/node": "22.20.5",
     "@types/vscode": "1.86.0",
-    "@vscode/vsce": "3.2.2",
+    "@vscode/vsce": "3.9.2",
     "c8": "12.0.0",
     "esbuild": "0.28.2",
     "jsdom": "26.1.0",
     "type-fest": "4.41.0",
-    "typescript": "5.7.3"
+    "typescript": "5.9.3"
   },
   "overrides": {
     "@azure/msal-node": "^7.1.0",
