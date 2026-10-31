@@ -623,6 +623,8 @@ elmt:Shadows__Governor___404_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadows__Governor___404_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadows__Governor___404 ;
     sysml:owningRelationship elmt:Shadows__Governor___404_linkparam_om ;
     sysml:owningMembership elmt:Shadows__Governor___404_linkparam_om .
@@ -974,6 +976,8 @@ elmt:Shadows__Governor___405_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadows__Governor___405_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadows__Governor___405 ;
     sysml:owningRelationship elmt:Shadows__Governor___405_linkparam_om ;
     sysml:owningMembership elmt:Shadows__Governor___405_linkparam_om .
@@ -995,6 +999,8 @@ elmt:Shadows__Governor___405_triggerparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadows__Governor___405_triggerparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadows__Governor___405 ;
     sysml:owningRelationship elmt:Shadows__Governor___405_triggerparam_om ;
     sysml:owningMembership elmt:Shadows__Governor___405_triggerparam_om .

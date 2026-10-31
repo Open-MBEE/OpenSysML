@@ -1722,6 +1722,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if n.PrefixKeyword != "" && !assertedConstraint(n) && !prefixCarriedByGraph(n) {
 			e.graph.Add(subject, e.sysx(xDeclaredPrefix), rdf.String(n.PrefixKeyword))
 		}
+		// A trigger's parameters declare nothing of their own: their owning type
+		// is the AcceptActionUsage the trigger implies, an action.
+		_, triggerParam := e.triggerParams[n]
+		triggerVaries := triggerParam && e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction)
 		e.flags(subject, []boolProperty{
 			{"isAbstract", n.IsAbstract || n.IsVariation},
 			{"isVariation", n.IsVariation},
@@ -1733,8 +1737,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isChain", n.IsChain},
 			{"isConstant", n.IsConstant},
 			// A payload is a PayloadFeature, a KerML Feature with no `var` keyword.
-			{"isVariable", !payload && e.usageIsVariable(n)},
-			{"mayTimeVary", ontology.IsAncestorOrSelf(metaclass, "Usage") && e.usageMayTimeVary(n)},
+			{"isVariable", !payload && (e.usageIsVariable(n) || triggerVaries)},
+			{"mayTimeVary", ontology.IsAncestorOrSelf(metaclass, "Usage") && (e.usageMayTimeVary(n) || triggerVaries)},
 			{"isEvent", n.IsEvent && metaclass != mEventOccurrenceUsage},
 			{"isIndividual", n.IsIndividual},
 			// A snapshot or timeslice is a portion by its kind (OccurrenceUsage::portionKind).
@@ -1799,7 +1803,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		// A `satisfy R by s` head states its subject through a SubjectMembership
 		// holding an unnamed reference to s (SysML.xtext SatisfyRequirementUsage).
-		if err := e.subjectParameters(subject, within, n.Relationships); err != nil {
+		if err := e.subjectParameters(subject, within, e.ids.declSym[n], n.Relationships); err != nil {
 			return err
 		}
 		// A declaration head that binds ends (connect/bind/flow/succession),
@@ -2491,7 +2495,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -2513,7 +2517,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			continue
 		}
 		feature, element := ast.EndSelection(target)
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: feature, element: element, flow: true}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: feature, element: element, flow: true}); err != nil {
 			return err
 		}
 	}
@@ -2556,6 +2560,9 @@ func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error
 // its multiplicity and the name and `references` keyword it was written with.
 type connectorEndSpec struct {
 	owner, slot string
+	// ownerSym is the connector usage the end is owned by, when declared: its
+	// owning type for Usage::mayTimeVary. A minted succession's ends have none.
+	ownerSym    *symbols.Symbol
 	index, ends int
 	target      ast.Node
 	// targetTerm is a resolved member IRI the end references, for an end
@@ -2598,6 +2605,11 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	e.typed(feature, metaclass)
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
 	e.graph.Add(feature, e.sysml(pIsEnd), rdf.Bool(true))
+	// A declared connector's end is a referential usage owned by it (a FlowEnd
+	// is a KerML Feature); it varies in time when the connector is an Occurrence.
+	if ontology.IsAncestorOrSelf(metaclass, "Usage") && e.ids.model.UsageMayTimeVaryUnder(end.ownerSym) {
+		e.flags(feature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+	}
 	e.graph.Add(subject, e.sysml(pConnectorEnd), feature)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
@@ -2692,6 +2704,11 @@ func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) {
 	e.graph.Add(feature, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(feature, e.sysml(pOwnedFeature), flowFeature)
 	e.emitMembershipCore(membership, flowFeature, feature, mFeatureMembership, true)
+	// Its owning type is the FlowEnd, which redefines Flows::Flow::source or
+	// target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6).
+	if e.file.Kind() != source.KindKerML && e.ids.model.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source") {
+		e.flags(flowFeature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+	}
 	e.graph.Add(flowFeature, e.sysml(relationshipProperty[ast.RelRedefines]), last)
 }
 

@@ -1393,6 +1393,8 @@ elmt:R90__Run___403_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__Run___403_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:R90__Run___403 ;
     sysml:owningRelationship elmt:R90__Run___403_linkparam_om ;
     sysml:owningMembership elmt:R90__Run___403_linkparam_om .
