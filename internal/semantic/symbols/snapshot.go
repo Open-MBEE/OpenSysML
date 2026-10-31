@@ -653,7 +653,6 @@ func (d *snapshotDecoder) section(r *pack.Reader) *sectionReader {
 	return &sectionReader{snapshotDecoder: d, r: r}
 }
 
-// node reads a reference to a syntax node; 0 is nil.
 // decl reads what snapshotEncoder.decl wrote.
 func (d *sectionReader) decl() ast.Node {
 	n := d.node()
@@ -661,7 +660,11 @@ func (d *sectionReader) decl() ast.Node {
 	if form == 0 {
 		return n
 	}
-	key := impliedKey{of: n, form: ImpliedForm(form - 1)}
+	if form < 0 || form-1 > int64(ImpliedConjugatedPortDefinition) {
+		d.r.Fail("implied form")
+		return n
+	}
+	key := impliedKey{of: n, form: ImpliedForm(form - 1)} // #nosec G115 -- bounded above.
 	if decl, ok := d.implied[key]; ok {
 		return decl
 	}
@@ -673,6 +676,7 @@ func (d *sectionReader) decl() ast.Node {
 	return decl
 }
 
+// node reads a reference to a syntax node; 0 is nil.
 func (d *sectionReader) node() ast.Node {
 	n, ok := d.ast.Node(d.r.Uint())
 	if !ok {
