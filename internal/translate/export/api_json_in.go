@@ -1176,7 +1176,8 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 					object.specQualifiedName = mappingQualifiedNameFromSpec(name)
 					object.hasSpecQualifiedName = true
 				}
-			case apiJSONMappingQualifiedNameKey:
+			case apiJSONMappingQualifiedNameKey, "sysx:" + xPositionalName:
+				// Either key is the element's address in this mapping.
 				if name, ok := value.(string); ok && name != "" {
 					object.mappingQualifiedName = name
 				}
