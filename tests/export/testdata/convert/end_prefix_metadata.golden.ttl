@@ -176,7 +176,7 @@ elmt:EndPrefixMetadata__Derivation_om
 elmt:EndPrefixMetadata__Derivation___405
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "EndPrefixMetadata::Derivation::@5" ;
+    sysx:positionalName "EndPrefixMetadata::Derivation::@5" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -248,7 +248,7 @@ elmt:EndPrefixMetadata__Derivation__r1_om
 elmt:EndPrefixMetadata__Derivation__r1___400
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1::@0" ;
+    sysx:positionalName "EndPrefixMetadata::Derivation::r1::@0" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -320,7 +320,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f1_om
 elmt:EndPrefixMetadata__Derivation__r1_5f1___400
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_1::@0" ;
+    sysx:positionalName "EndPrefixMetadata::Derivation::r1_1::@0" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -392,7 +392,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f2_om
 elmt:EndPrefixMetadata__Derivation__r1_5f2___400
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_2::@0" ;
+    sysx:positionalName "EndPrefixMetadata::Derivation::r1_2::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -464,7 +464,7 @@ elmt:EndPrefixMetadata__Derivation__cause_om
 
 elmt:EndPrefixMetadata__Derivation__cause___400
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "EndPrefixMetadata::Derivation::cause::@0" ;
+    sysx:positionalName "EndPrefixMetadata::Derivation::cause::@0" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -726,7 +726,7 @@ elmt:EndPrefixMetadata__context__req1_5f1_om
 
 elmt:EndPrefixMetadata__context___402
     a sysml:ConnectionUsage ;
-    sysml:qualifiedName "EndPrefixMetadata::context::@2" ;
+    sysx:positionalName "EndPrefixMetadata::context::@2" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "19"^^xsd:integer ;
@@ -772,7 +772,7 @@ elmt:EndPrefixMetadata__context___402_om
 elmt:EndPrefixMetadata__context___402___402
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "EndPrefixMetadata::context::@2::@2" ;
+    sysx:positionalName "EndPrefixMetadata::context::@2::@2" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -802,7 +802,7 @@ elmt:EndPrefixMetadata__context___402___402_om
 
 elmt:EndPrefixMetadata__context___402__r1
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "EndPrefixMetadata::context::@2::r1" ;
+    sysx:positionalName "EndPrefixMetadata::context::@2::r1" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -858,7 +858,7 @@ expr:EndPrefixMetadata__context___402__r1_prs
 
 elmt:EndPrefixMetadata__context___402__r1_5f1
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "EndPrefixMetadata::context::@2::r1_1" ;
+    sysx:positionalName "EndPrefixMetadata::context::@2::r1_1" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;

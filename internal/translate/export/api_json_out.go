@@ -473,7 +473,7 @@ func apiJSONHasPropertyOrderSidecar(element apiJSONObject, graph *rdf.Graph, sub
 			return true
 		}
 	}
-	return graph.HasProperty(subject, rdf.SysML+pQualifiedName)
+	return hasAddress(graph, subject)
 }
 
 func apiJSONGraphPropertyOrder(graph *rdf.Graph, subject rdf.Term) []string {
@@ -635,14 +635,14 @@ func apiJSONNaturalPropertyOrderWithScratch(
 		order = append(order, "")
 		copy(order[insertAt+1:], order[insertAt:])
 		order[insertAt] = "qualifiedName"
-	} else if !hasQualifiedName && graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+	} else if !hasQualifiedName && hasAddress(graph, subject) {
 		order = append(order, "")
 		copy(order[1:], order[:len(order)-1])
 		order[0] = "qualifiedName"
 	}
 
 	if hasQualifiedName || mappingQualifiedNameIndex >= 0 ||
-		graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+		hasAddress(graph, subject) {
 		sidecarOnly = append(sidecarOnly, "qualifiedName")
 	}
 

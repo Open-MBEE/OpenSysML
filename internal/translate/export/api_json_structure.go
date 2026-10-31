@@ -607,5 +607,5 @@ func (s *apiJSONGraphStructure) QualifiedName(element metamodel.Element) (string
 	if !ok || !LibraryReference(s.graph, subject) {
 		return "", false
 	}
-	return s.graph.Lexical(subject, rdf.SysML+pQualifiedName)
+	return addressOf(s.graph, subject)
 }

@@ -67,10 +67,13 @@ export function shortName(symbol: string): string {
   return symbol.slice(symbol.lastIndexOf("::") + 2);
 }
 
-/** readSummary counts what a read model shows: a machine's states and transitions, else parts and interfaces. */
+/** readSummary counts what a read model shows: a machine's states and transitions, an action's steps and successions, else parts and interfaces. */
 export function readSummary(model: LandingModel): string {
   if (model.machine) {
     return `${model.machine.states.size} states, ${model.render.edges.length} transitions`;
+  }
+  if (model.action) {
+    return `${model.action.nodes.size} steps, ${model.render.edges.length} successions`;
   }
   return `${model.parts.size} parts, ${model.render.edges.length} interfaces`;
 }
@@ -269,6 +272,8 @@ export function mountShell(root: HTMLElement, scene: Scene, options: MountOption
       }
       if (current && next !== undefined) {
         status(next.hint);
+      } else if (current) {
+        status(`Showing ${shortName(scene.rootSymbol)} again: ${readSummary(current)}.`);
       }
       if (!current) {
         revertVariant();

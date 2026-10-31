@@ -455,7 +455,7 @@ elmt:Chains__ctx__supplier_om
 
 elmt:Chains__ctx___402
     a sysml:ConnectionUsage ;
-    sysml:qualifiedName "Chains::ctx::@2" ;
+    sysx:positionalName "Chains::ctx::@2" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;

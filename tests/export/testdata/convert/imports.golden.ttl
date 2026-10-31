@@ -28,7 +28,7 @@ elmt:Importer
 
 elmt:Importer___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "Importer::@0" ;
+    sysx:positionalName "Importer::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -46,7 +46,7 @@ elmt:Importer___400
 
 elmt:Importer___401
     a sysml:MembershipImport ;
-    sysml:qualifiedName "Importer::@1" ;
+    sysx:positionalName "Importer::@1" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "3"^^xsd:integer ;
@@ -64,7 +64,7 @@ elmt:Importer___401
 
 elmt:Importer___402
     a sysml:MembershipImport ;
-    sysml:qualifiedName "Importer::@2" ;
+    sysx:positionalName "Importer::@2" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "4"^^xsd:integer ;

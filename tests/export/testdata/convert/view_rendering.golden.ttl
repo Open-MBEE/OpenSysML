@@ -303,7 +303,7 @@ elmt:Views__WithBody__tree_om
 
 elmt:Views__WithBody__tree___400
     a sysml:Documentation ;
-    sysml:qualifiedName "Views::WithBody::tree::@0" ;
+    sysx:positionalName "Views::WithBody::tree::@0" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;

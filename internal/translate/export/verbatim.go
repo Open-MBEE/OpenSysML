@@ -352,7 +352,7 @@ func (d *decoder) writerAt(offset int) *element {
 // owning an element, or the subject that points at a membership or expression node.
 func holderOf(g *rdf.Graph, iri string) string {
 	subject := rdf.IRI(iri)
-	if g.HasProperty(subject, rdf.SysML+pQualifiedName) {
+	if hasAddress(g, subject) {
 		for _, property := range []string{pOwningNamespace, pOwner} {
 			if owner, ok := g.Object(subject, rdf.SysML+property); ok && owner.IsIRI() {
 				return owner.Value
