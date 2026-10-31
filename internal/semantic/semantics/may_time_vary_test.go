@@ -212,6 +212,20 @@ func TestConnectorEndMayTimeVaryFromItsConnector(t *testing.T) {
 			if got := m.FeatureIsVariable(end); got != want {
 				t.Errorf("%s end %d: isVariable = %v, want %v", name, ends, got, want)
 			}
+			// An end that varies in time is constant (KerML 1.0 §8.3.3.3.4).
+			if got := m.FeatureIsConstant(end); got != want {
+				t.Errorf("%s end %d: isConstant = %v, want %v", name, ends, got, want)
+			}
+			if got, ok := m.ReflectiveFeatureValues(end, "isConstant"); !ok || len(got) != 1 || got[0].Bool != want {
+				t.Errorf("%s end %d: reflective isConstant = %v, %v; want [%v]", name, ends, got, ok, want)
+			}
+			ro := m.FeatureReadOnly(end)
+			if want && (ro.Kind != ReadOnlyConstant || !ro.ImpliedByEnd || ro.Declared != end) {
+				t.Errorf("%s end %d: read-only = %+v, want constant implied by the end itself", name, ends, ro)
+			}
+			if !want && ro.Kind != 0 {
+				t.Errorf("%s end %d: read-only = %+v, want writable", name, ends, ro)
+			}
 			return true
 		})
 		if ends != 2 {
