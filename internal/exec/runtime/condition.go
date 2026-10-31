@@ -670,11 +670,8 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	return verdict.holds, err
 }
 
-// judgeConditions is evaluateConditions with the verdict's vacuity. A requirement
-// check is Requirements::RequirementConstraintCheck::result, `allTrue(assumptions())
-// implies allTrue(constraints())`: an assumption that does not hold makes it true
-// whatever its required conditions read, so the assumptions are judged first.
-// A constraint's assumption binds no result.
+// judgeConditions is evaluateConditions with the verdict's vacuity: a requirement check is
+// `allTrue(assumptions()) implies allTrue(constraints())`; a constraint's assumption binds no result.
 func (ctx *Context) judgeConditions(check conditionCheck, conds []Condition) (conditionVerdict, error) {
 	if conflict := conflictingResultExpression(conds); conflict != nil {
 		return conditionVerdict{}, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
@@ -734,10 +731,8 @@ func (ctx *Context) judgeConditions(check conditionCheck, conds []Condition) (co
 	return conditionVerdict{holds: true}, nil
 }
 
-// assumptionsFirst orders a requirement check's conditions so its assumptions are
-// judged before its required conditions, whatever order the body declares them in:
-// `implies` reads its consequent only once its antecedent holds (KerML 9.2.3
-// ControlFunctions::implies). A constraint's conditions keep declaration order.
+// assumptionsFirst judges a requirement's assumptions before its required conditions whatever
+// the body's order, as `implies` reads its consequent after its antecedent; a constraint's keep it.
 func (c conditionCheck) assumptionsFirst(conds []Condition) []Condition {
 	if !c.isRequirementCheck() {
 		return conds
@@ -756,17 +751,14 @@ func (c conditionCheck) assumptionsFirst(conds []Condition) []Condition {
 	return ordered
 }
 
-// decidedBy reports whether cond evaluating to false settles the check: a required
-// condition always does, an assumption only a requirement's, whose result is the
-// implication. A constraint's assumption binds no result, so it decides nothing.
+// decidedBy reports whether cond reading false settles the check: a required condition
+// always does, an assumption only a requirement's (a constraint's binds no result).
 func (c conditionCheck) decidedBy(cond Condition) bool {
 	return cond.Required || c.isRequirementCheck()
 }
 
-// failedCondition is the verdict a condition evaluating to false settles the check
-// with. A required condition failing is the violation — or exactly what a negated
-// element asserts. An assumption failing makes the implication true, so the check
-// holds vacuously and a negated one fails, the violation naming the assumption.
+// failedCondition is the verdict cond reading false settles the check with: a required one
+// is the violation (what a negated check asserts); an assumption makes the implication true.
 func (c conditionCheck) failedCondition(cond Condition) (conditionVerdict, error) {
 	if cond.Required {
 		if c.negated {
@@ -841,10 +833,8 @@ func (c conditionCheck) claimed() *symbols.Symbol {
 	return c.sym
 }
 
-// vacuousClaim says why a requirement over no required condition holds:
-// `allTrue(assumptions()) implies allTrue(constraints())` over no constraint is
-// true (SysML v2 9.2.11 Requirements; KerML 9.2.3 ControlFunctions::allTrue over
-// an empty sequence).
+// vacuousClaim says why a requirement over no required condition holds: `allTrue(constraints())`
+// over no constraint is true (KerML 9.2.3 ControlFunctions::allTrue over an empty sequence).
 func vacuousClaim(sym *symbols.Symbol) string {
 	return fmt.Sprintf("%s %s states no required constraint, so it holds vacuously", requirementKeyword(sym), sym.Name)
 }
