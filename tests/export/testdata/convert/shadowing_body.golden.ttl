@@ -431,6 +431,8 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "value" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
     sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om ;
     sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om .

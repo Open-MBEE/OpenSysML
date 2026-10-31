@@ -398,6 +398,8 @@ expr:Scopes__D__one_pvalue_pa0_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "limit" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner expr:Scopes__D__one_pvalue_pa0_pbody ;
     sysml:owningRelationship expr:Scopes__D__one_pvalue_pa0_pin0_om ;
     sysml:owningMembership expr:Scopes__D__one_pvalue_pa0_pin0_om .
@@ -763,6 +765,8 @@ expr:Scopes__D__two_pvalue_pa0_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "Gauge" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner expr:Scopes__D__two_pvalue_pa0_pbody ;
     sysml:owningRelationship expr:Scopes__D__two_pvalue_pa0_pin0_om ;
     sysml:owningMembership expr:Scopes__D__two_pvalue_pa0_pin0_om .

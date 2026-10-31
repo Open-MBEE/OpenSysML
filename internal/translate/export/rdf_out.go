@@ -1536,7 +1536,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	// member's body declares into the expression body it lies in.
 	members := func(members []ast.Node) error {
 		if local {
-			return e.bodyDeclarations(subject, subject, within, nil, members)
+			return e.bodyDeclarations(subject, subject, within, nil, nil, members)
 		}
 		return e.encode(members, fqn, subject)
 	}
