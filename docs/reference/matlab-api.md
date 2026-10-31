@@ -144,6 +144,9 @@ points are `opensysml.exploreAction`, `opensysml.exploreState`, and
 `executeState(..., 'trace', true)` returns typed `DocumentEvent` entries in
 `trace` and the discarded-record count in `traceDropped`; it checks the
 `state_trace` capability before sending the request.
+`executeAction(..., 'trace', true, 'events', {'Go'}, 'performer', ...)` does the same
+for an action under `action_trace`; each event is posted to the performer once
+every token waits.
 A failed traced run keeps its existing error identifier; `lastError().details`
 includes its partial `trace` and `traceDropped`.
 

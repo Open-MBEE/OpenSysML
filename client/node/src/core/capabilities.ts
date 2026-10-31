@@ -131,6 +131,8 @@ export const CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore";
 export const CAPABILITY_PERFORMER = "performer";
 /** `trace` on `ExecuteStateRequest`, returning documented events from one run. */
 export const CAPABILITY_STATE_TRACE = "state_trace";
+/** `trace` on `ExecuteActionRequest`, returning the run's token steps, waits, accepts, decisions and assignments. */
+export const CAPABILITY_ACTION_TRACE = "action_trace";
 /** The `ListEngines` RPC, the `engine` field selecting an analysis engine, and `engine`, `strength` and `bounds` on the answers. */
 export const CAPABILITY_ENGINES = "engines";
 /** A model-level result the model leaves open as `Value.undetermined`, read as an `undetermined` value. */

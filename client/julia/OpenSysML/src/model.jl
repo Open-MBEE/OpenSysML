@@ -76,10 +76,14 @@ Model(conn::Connection, hash, diagnostics, documents, roots, source_path=nothing
 struct ActionOutputs <: AbstractDict{String,Any}
     outputs::Dict{String,Any}
     performer::Dict{String,Any}
+    trace::Vector{DocumentEvent}
+    trace_dropped::Int
 end
-ActionOutputs(outputs::AbstractDict, performer::AbstractDict=Dict{String,Any}()) =
+ActionOutputs(outputs::AbstractDict, performer::AbstractDict=Dict{String,Any}(),
+              trace::Vector{DocumentEvent}=DocumentEvent[], trace_dropped::Integer=0) =
     ActionOutputs(Dict{String,Any}(String(k) => v for (k, v) in outputs),
-                  Dict{String,Any}(String(k) => v for (k, v) in performer))
+                  Dict{String,Any}(String(k) => v for (k, v) in performer), trace,
+                  Int(trace_dropped))
 Base.length(outputs::ActionOutputs) = length(outputs.outputs)
 Base.iterate(outputs::ActionOutputs, state...) = iterate(outputs.outputs, state...)
 Base.getindex(outputs::ActionOutputs, key::String) = outputs.outputs[key]
@@ -440,15 +444,25 @@ function refresh_diagnostics(model::Model; disable_lint=(), enable_lint=())
     Diagnostic[Diagnostic(d) for d in get(answer, "diagnostics", Any[])]
 end
 
+"""
+Execute an action once. `trace` answers its token steps, waits, accepts, decisions and
+assignments; `events` are signals posted to `performer` in order, each once every token waits.
+"""
 function execute_action(model::Model, action_id::AbstractString; inputs=Dict(),
                         schedule::AbstractString="", performer=nothing, advance=nothing,
-                        seed=nothing, draws=nothing, clock_step::Real=0.0)
+                        seed=nothing, draws=nothing, clock_step::Real=0.0, trace::Bool=false,
+                        events=())
     _check_schedule(schedule)
+    events = String[string(e) for e in events]
+    isempty(events) || performer !== nothing ||
+        throw(ArgumentError("events are posted to the object performing the action: name a performer"))
     encoded = _encoded_inputs(model, inputs)
     _schedule_preflight(model.connection, schedule)
     performer !== nothing && require_capability(model.connection, CAPABILITY_PERFORMER)
+    trace && require_capability(model.connection, CAPABILITY_ACTION_TRACE)
     needed = String[_schedule_capabilities(schedule)...]
     performer !== nothing && push!(needed, CAPABILITY_PERFORMER)
+    trace && push!(needed, CAPABILITY_ACTION_TRACE)
     request = Dict{String,Any}("modelHash" => model.hash, "actionSymbolId" => String(action_id),
                                "inputs" => encoded)
     _run_options!(request; advance=advance, seed=seed, draws=draws, clock_step=clock_step)
@@ -458,13 +472,21 @@ function execute_action(model::Model, action_id::AbstractString; inputs=Dict(),
     if performer !== nothing
         request["performerSymbolId"] = String(performer)
     end
+    trace && (request["trace"] = true)
+    isempty(events) || (request["events"] = events)
     answer = _translate(; capabilities=Tuple(unique(needed)), connection=model.connection) do
         call(model.connection, "ExecuteAction", request)
     end
-    _check_error(answer, "ExecuteAction")
+    trace_events = DocumentEvent[
+        _document_value(Dict{String,Any}("event" => event))
+        for event in get(answer, "trace", Any[])
+    ]
+    trace_dropped = Int(get(answer, "traceDropped", 0))
+    _check_error(answer, "ExecuteAction"; trace=trace_events, trace_dropped=trace_dropped)
     decoded = decode_values(answer)
     return ActionOutputs(get(decoded, "outputs", Dict{String,Any}()),
-                         get(decoded, "performerAttributes", Dict{String,Any}()))
+                         get(decoded, "performerAttributes", Dict{String,Any}()),
+                         trace_events, trace_dropped)
 end
 
 """Execute a state machine with optional events, scheduling, performer, or trace."""

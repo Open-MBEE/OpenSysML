@@ -269,7 +269,10 @@ Beside the model reads above, the client covers every RPC the service offers:
   schedule — the two families refuse each other's `schedule`, as the wire does.
   `model.executeState(symbolId, { trace: true })` requests typed `DocumentEvent`
   records in `trace` and reports discarded records in `traceDropped`; it requires
-  `state_trace` and cannot be combined with an explore schedule; both calls take
+  `state_trace` and cannot be combined with an explore schedule;
+  `model.executeAction(symbolId, {}, { trace: true, events: ["Go"], performer })` does the
+  same for an action under `action_trace` — token steps, waits, accepts, decisions and
+  assignments (`feature`, `value`) — posting each event once every token waits; both calls take
   the run options of the `sysml` command — `advance` (simulated seconds, reported
   back in `finalTime`), `seed`, `draws` (`"random"`, `"min"`, `"max"` or
   `"average"`) and `clockStep` — and `runAnalysis` takes `toolDryRun` to preview

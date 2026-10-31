@@ -516,6 +516,10 @@ export class Model {
       draws?: string;
       /** The step the run's clock ticks by, in seconds; 0 is a continuous clock. */
       clockStep?: number;
+      /** Return the run's typed trace; needs the `action_trace` capability. */
+      trace?: boolean;
+      /** Signals to post to the performer in order as the run waits; needs `performer`. */
+      events?: readonly string[];
     } = {},
   ) {
     return this.connection.executeAction(this.hash, actionSymbolId, options);

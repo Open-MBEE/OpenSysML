@@ -125,6 +125,8 @@ pub const CAPABILITY_SCHEDULE_EXPLORE: &str = "schedule_explore";
 pub const CAPABILITY_PERFORMER: &str = "performer";
 /// The `trace` field of an `ExecuteStateRequest`.
 pub const CAPABILITY_STATE_TRACE: &str = "state_trace";
+/// The `trace` field of an `ExecuteActionRequest`: the run's token steps, waits, accepts, decisions and assignments.
+pub const CAPABILITY_ACTION_TRACE: &str = "action_trace";
 /// `final_time` populated on an action or state run's response.
 pub const CAPABILITY_FINAL_TIME: &str = "final_time";
 /// `ListEngines`, the `engine` selection and the standing reported on responses.

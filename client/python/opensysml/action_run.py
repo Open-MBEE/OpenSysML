@@ -17,9 +17,15 @@ class ActionOutputs(dict):
             took, and :meth:`~opensysml.connection.Connection.explore_action`
             shows the set. An output nothing order-dependent wrote is absent;
             empty from a service without the ``order_dependence`` capability.
+        trace (tuple[DocumentEvent, ...]): The run's records when requested
+            with ``trace=True``: each token step, wait, accept, send, decision,
+            assignment and the completion, in order
+        trace_dropped (int): Oldest trace records the service discarded
     """
 
-    def __init__(self, outputs=(), performer=None, order_dependent=None):
+    def __init__(self, outputs=(), performer=None, order_dependent=None, trace=(), trace_dropped=0):
         super().__init__(outputs)
         self.performer = dict(performer or {})
         self.order_dependent = dict(order_dependent or {})
+        self.trace = tuple(trace)
+        self.trace_dropped = trace_dropped

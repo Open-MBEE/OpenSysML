@@ -667,13 +667,16 @@ public final class Model {
    * @param inputs values for its input parameters, by name
    * @param options the schedule the run resolves its choice points under and the object performing
    *     it; an exploring schedule belongs to {@link #exploreAction}
-   * @return the outputs it produced
-   * @throws IllegalArgumentException if the schedule explores or a state trace is requested
-   * @throws ModelException if the action could not be executed
+   * @return the outputs it produced, with its trace when one was asked for
+   * @throws IllegalArgumentException if the schedule explores, or events are given without a
+   *     performer
+   * @throws ModelException if the action could not be executed; a traced failure carries its
+   *     partial trace
    * @throws ServiceException if the service does not hold this model, or the schedule names no
    *     policy
    * @throws CapabilityException if a schedule is named and the service does not advertise {@code
-   *     schedule}, or a performer and it does not advertise {@code performer}
+   *     schedule}, a performer and it does not advertise {@code performer}, or a trace and it does
+   *     not advertise {@code action_trace}
    */
   public ActionRun executeAction(
       String actionSymbolId, Map<String, Value> inputs, ExecutionOptions options) {
@@ -723,15 +726,24 @@ public final class Model {
     Objects.requireNonNull(actionSymbolId, "actionSymbolId");
     Objects.requireNonNull(inputs, "inputs");
     Objects.requireNonNull(options, NAME_OPTIONS);
+    if (explore && (options.trace() || !options.events().isEmpty())) {
+      throw new IllegalArgumentException("a trace or events describe one run, not an exploration");
+    }
+    if (!options.events().isEmpty() && options.performer().isEmpty()) {
+      throw new IllegalArgumentException(
+          "events are posted to the object performing the action: name one with withPerformer");
+    }
     if (options.trace()) {
-      throw new IllegalArgumentException("a state trace is only valid for a state run");
+      connection.capabilities().require(Capabilities.ACTION_TRACE);
     }
     ExecuteActionRequest.Builder request =
         ExecuteActionRequest.newBuilder()
             .setModelHash(hash)
             .setActionSymbolId(actionSymbolId)
             .putAllInputs(Protos.protos(inputs, connection.capabilities()))
-            .setSchedule(schedule(options, explore));
+            .setSchedule(schedule(options, explore))
+            .setTrace(options.trace())
+            .addAllEvents(options.events());
     options.performer().ifPresent(request::setPerformerSymbolId);
     options.advance().ifPresent(request::setAdvance);
     options.seed().ifPresent(request::setSeed);
@@ -744,8 +756,8 @@ public final class Model {
           response.getError(),
           FailureReason.UNSPECIFIED,
           Protos.diagnostics(response.getDiagnosticsList()),
-          List.of(),
-          0,
+          Protos.documentEvents(response.getTraceList()),
+          response.getTraceDropped(),
           response.getFinalTime());
     }
     return response;
@@ -827,6 +839,10 @@ public final class Model {
     Objects.requireNonNull(stateMachineSymbolId, "stateMachineSymbolId");
     Objects.requireNonNull(events, "events");
     Objects.requireNonNull(options, NAME_OPTIONS);
+    if (!options.events().isEmpty()) {
+      throw new IllegalArgumentException(
+          "a state run takes its events as an argument, not as ExecutionOptions.withEvents");
+    }
     if (options.trace() && explore) {
       throw new IllegalArgumentException("a trace describes one run, not an exploration");
     }

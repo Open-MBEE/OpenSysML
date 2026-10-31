@@ -156,6 +156,9 @@ answer.
 `RunOptions.trace` opts a state run into typed `DocumentEvent` records in
 `StateRun.trace`, with `StateRun.trace_dropped` reporting records the service
 discarded. The option requires `state_trace` and is refused with exploration.
+On an action it fills `ActionRun.trace` under `action_trace` — token steps, waits,
+accepts, decisions and assignments (`feature`, `value`) — and `RunOptions.events`
+posts signals to the performer in order, each once every token waits.
 
 ## Editing
 
