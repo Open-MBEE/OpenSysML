@@ -3,9 +3,10 @@
 use std::fmt;
 
 use crate::domain::{
-    quantity_from_wire, rational_from_wire, rational_to_wire, BigInteger, Quantity,
+    quantity_from_wire, rational_from_wire, rational_to_wire, value_from_wire, BigInteger,
+    Capabilities, Quantity, Value,
 };
-use crate::encode::{quantity_rational_as_real, quantity_to_wire, wire_exact_f64};
+use crate::encode::{quantity_rational_as_real, quantity_to_wire, value_to_wire, wire_exact_f64};
 use crate::error::Error;
 use crate::rational::Rational;
 use crate::wire;
@@ -153,8 +154,16 @@ pub struct DocumentEvent {
     pub payload: Vec<String>,
     /// The choices a choice point offered.
     pub alternatives: Vec<String>,
-    /// The choice it took.
+    /// The choice it took, or the branch a decide took.
     pub taken: String,
+    /// The action token a step, wait, assign, decide or accept record is about; 0 for none.
+    pub token: i64,
+    /// The executor step that made the record; 0 for none.
+    pub step: i32,
+    /// The feature an assign record wrote.
+    pub feature: String,
+    /// What that feature holds since; `None` for every other kind.
+    pub value: Option<Box<Value>>,
 }
 
 pub(crate) fn document_event_from_wire(event: wire::DocumentEvent) -> Result<DocumentEvent, Error> {
@@ -176,11 +185,21 @@ pub(crate) fn document_event_from_wire(event: wire::DocumentEvent) -> Result<Doc
         payload: event.payload,
         alternatives: event.alternatives,
         taken: event.taken,
+        token: event.token,
+        step: event.step,
+        feature: event.feature,
+        value: event
+            .value
+            .map(|value| value_from_wire(value).map(Box::new))
+            .transpose()?,
     })
 }
 
-/// Encode a typed state-run event for a service response.
-pub fn document_event_to_wire(event: &DocumentEvent) -> Result<wire::DocumentEvent, Error> {
+/// Encode a typed run event for a service response, its assigned value as `capabilities` allow.
+pub fn document_event_to_wire(
+    event: &DocumentEvent,
+    capabilities: &Capabilities,
+) -> Result<wire::DocumentEvent, Error> {
     Ok(wire::DocumentEvent {
         kind: event.kind.clone(),
         time: Some(Box::new(bound_value("trace time", &event.time)?)),
@@ -201,6 +220,14 @@ pub fn document_event_to_wire(event: &DocumentEvent) -> Result<wire::DocumentEve
         payload: event.payload.clone(),
         alternatives: event.alternatives.clone(),
         taken: event.taken.clone(),
+        token: event.token,
+        step: event.step,
+        feature: event.feature.clone(),
+        value: event
+            .value
+            .as_ref()
+            .map(|value| value_to_wire(value, capabilities))
+            .transpose()?,
     })
 }
 
@@ -252,7 +279,7 @@ pub enum DocumentValue {
     /// A state; answered, never bound.
     State(DocumentState),
     /// An event; answered, never bound.
-    Event(DocumentEvent),
+    Event(Box<DocumentEvent>),
 }
 
 impl fmt::Display for DocumentValue {
@@ -988,7 +1015,7 @@ fn row_of(row: wire::DocumentQueryRow) -> Result<DocumentRow, Error> {
                     .and_then(|object| object.element.clone())
                     .unwrap_or_default();
                 out.object = event.object.clone();
-                out.event = Some(event);
+                out.event = Some(*event);
             }
             _ => unreachable!("the arms matched above decode to themselves"),
         },
@@ -1080,7 +1107,7 @@ fn value_of(value: wire::DocumentValue) -> Result<DocumentValue, Error> {
                 Some(time) => value_of(*time)?,
                 None => return Err(Error::Decode("document event carries no time".to_owned())),
             };
-            DocumentValue::Event(DocumentEvent {
+            DocumentValue::Event(Box::new(DocumentEvent {
                 kind: event.kind,
                 time: Box::new(time),
                 text: event.text,
@@ -1094,7 +1121,14 @@ fn value_of(value: wire::DocumentValue) -> Result<DocumentValue, Error> {
                 payload: event.payload,
                 alternatives: event.alternatives,
                 taken: event.taken,
-            })
+                token: event.token,
+                step: event.step,
+                feature: event.feature,
+                value: event
+                    .value
+                    .map(|value| value_from_wire(value).map(Box::new))
+                    .transpose()?,
+            }))
         }
         None => {
             return Err(Error::Decode(

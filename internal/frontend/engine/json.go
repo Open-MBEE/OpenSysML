@@ -475,6 +475,8 @@ type JExecuteActionRequest struct {
 	Inputs            map[string]*JValue `json:"inputs,omitempty"`
 	Schedule          string             `json:"schedule,omitempty"`
 	PerformerSymbolId string             `json:"performerSymbolId,omitempty"`
+	Trace             bool               `json:"trace,omitempty"`
+	Events            []string           `json:"events,omitempty"`
 	// Advance is the simulated time, in seconds, to run for; nil runs to completion.
 	Advance *float64 `json:"advance,omitempty"`
 }
@@ -485,6 +487,8 @@ type JExecuteActionResponse struct {
 	Diagnostics         []*JDiagnostic     `json:"diagnostics,omitempty"`
 	FinalTime           F64                `json:"finalTime,omitempty"`
 	PerformerAttributes map[string]*JValue `json:"performerAttributes,omitempty"`
+	Trace               []JDocumentEvent   `json:"trace,omitempty"`
+	TraceDropped        int                `json:"traceDropped,omitempty"`
 }
 
 type JExecuteStateRequest struct {
@@ -509,7 +513,7 @@ type JExecuteStateResponse struct {
 }
 
 // JDocumentEvent is the DocumentEvent message: one documented record of a traced
-// state-machine run, as the service's ExecuteState answers it.
+// run, as the service's ExecuteState and ExecuteAction answer it.
 type JDocumentEvent struct {
 	Kind         string           `json:"kind"`
 	Time         *JDocumentValue  `json:"time,omitempty"`
@@ -524,6 +528,10 @@ type JDocumentEvent struct {
 	Alternatives []string         `json:"alternatives,omitempty"`
 	Taken        string           `json:"taken,omitempty"`
 	Text         string           `json:"text"`
+	Token        I64              `json:"token,omitempty"`
+	Step         int              `json:"step,omitempty"`
+	Feature      string           `json:"feature,omitempty"`
+	Value        *JValue          `json:"value,omitempty"`
 }
 
 // JDocumentObject is the DocumentObject message: an object Instantiate created,

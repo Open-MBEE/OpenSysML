@@ -1,0 +1,1 @@
+- The RDF writer's bookkeeping of the relationship ids it writes for a declaration (`writtenRelationships` in `internal/translate/export`) is split into one helper per source of relationships — an `end` feature's `references`, a dependency's prefix metadata, the head's clauses and a bound end's reference subsetting — with no change to the ids written or to the writer's speed.

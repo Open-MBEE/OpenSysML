@@ -23,6 +23,7 @@ import {
 import { DocumentQueryError, UnsupportedValueError } from "./errors.js";
 import {
   decodeBigInteger,
+  decodeValue,
   decodeRational,
   encodeQuantityMagnitude,
   encodeRational,
@@ -190,7 +191,7 @@ export class DocumentState {
 
 /** A row an `Events` query answered: one record of a session's trace. Answered only. */
 export class DocumentEvent {
-  /** "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate". */
+  /** "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate"; an action's run adds "step", "wait", "assign", "decide" and "complete". */
   readonly kind: string;
   /** The instant the record was written at: a quantity, an int or a real. */
   readonly time: DocumentValue;
@@ -212,10 +213,18 @@ export class DocumentEvent {
   readonly payload: readonly string[];
   /** What a choice drew from, in order. */
   readonly alternatives: readonly string[];
-  /** The alternative the choice took. */
+  /** The alternative the choice took, or the branch a decide took. */
   readonly taken: string;
   /** The record as the trace prints it. */
   readonly text: string;
+  /** The action token a step, wait, assign, decide or accept record is about; 0n for a record of none. */
+  readonly token: bigint;
+  /** The executor step that made the record; 0 for none. */
+  readonly step: number;
+  /** The feature an assign record wrote. */
+  readonly feature: string;
+  /** What that feature holds since; undefined for any other record. */
+  readonly value: SysMLValue | undefined;
 
   constructor(init: {
     kind: string;
@@ -231,6 +240,10 @@ export class DocumentEvent {
     payload?: readonly string[];
     alternatives?: readonly string[];
     taken?: string;
+    token?: bigint;
+    step?: number;
+    feature?: string;
+    value?: SysMLValue;
   }) {
     this.kind = init.kind;
     this.time = init.time;
@@ -245,6 +258,10 @@ export class DocumentEvent {
     this.payload = init.payload ?? [];
     this.alternatives = init.alternatives ?? [];
     this.taken = init.taken ?? "";
+    this.token = init.token ?? 0n;
+    this.step = init.step ?? 0;
+    this.feature = init.feature ?? "";
+    this.value = init.value;
   }
 
   toString(): string {
@@ -539,6 +556,10 @@ function eventOf(event: NonNullable<Extract<PbDocumentValue["kind"], { case: "ev
     payload: [...event.payload],
     alternatives: [...event.alternatives],
     taken: event.taken,
+    token: event.token,
+    step: event.step,
+    feature: event.feature,
+    ...(event.value === undefined ? {} : { value: decodeValue(event.value) }),
   });
 }
 

@@ -1329,7 +1329,9 @@ public final class Protos {
         values(response.getOutputsMap()),
         finalTimeReported ? OptionalDouble.of(response.getFinalTime()) : OptionalDouble.empty(),
         diagnostics(response.getDiagnosticsList()),
-        values(response.getPerformerAttributesMap()));
+        values(response.getPerformerAttributesMap()),
+        documentEvents(response.getTraceList()),
+        response.getTraceDropped());
   }
 
   /**
@@ -2186,7 +2188,11 @@ public final class Protos {
         event.getEvent(),
         event.getPayloadList(),
         event.getAlternativesList(),
-        event.getTaken());
+        event.getTaken(),
+        event.getToken(),
+        event.getStep(),
+        event.getFeature(),
+        event.hasValue() ? Optional.of(readable(event.getValue())) : Optional.empty());
   }
 
   /**

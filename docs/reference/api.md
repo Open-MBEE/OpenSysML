@@ -65,6 +65,12 @@ discarded older records in `StateRun.Trace` and `StateRun.TraceDropped`. It requ
 When a traced run fails, the existing `FailureError` carries its partial records in `Trace`
 and the discarded count in `TraceDropped`.
 
+The same `WithTrace()` on `ExecuteAction` returns the run's token steps, waits, accepts,
+decisions, assignments (`Feature` and `Value`) and completion in `ActionRun.Trace` and
+`ActionRun.TraceDropped`; it requires the `action_trace` capability. `WithEvents(names...)`
+posts signals or items to the performer in order, each once every token of the run waits —
+the waiting `accept` takes it on the next step — and needs `WithPerformer`.
+
 A `Session` (`opensysml.OpenSession(client, model)`) is the interactive counterpart of those
 one-run calls: it keeps its clock, its schedule (`SetSchedule`) and the objects it instantiated
 between calls, so `Instantiate`, `ActiveStates`, `Transitions`, `Accepts`, `Send`, `Advance`,

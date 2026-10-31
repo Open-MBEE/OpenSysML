@@ -419,6 +419,19 @@ end
         @test action["intValue"] == 7
         @test action["bad"] isa UnsupportedValueError
         @test action.performer == Dict{String,Any}("this.speed" => 3.0)
+        @test action.trace == DocumentEvent[] && action.trace_dropped == 0
+        @test_throws ArgumentError execute_action(model, "A"; events=["Go"])
+        @test_throws MissingCapabilityError execute_action(model, "A"; trace=true)
+        conn.info = ServerInfo("", [CAPABILITY_ACTION_TRACE, CAPABILITY_PERFORMER], true, conn.origin)
+        canned[] = """{"outputs":{"landed":{"boolValue":true}},"trace":[{"kind":"wait","time":{"realValue":0},"text":"wait Go","token":"1","step":3,"event":"Go"},{"kind":"assign","time":{"realValue":0},"text":"assign remaining = 7","token":"1","step":5,"feature":"remaining","value":{"intValue":"7"}}],"traceDropped":1}"""
+        traced = execute_action(model, "A"; trace=true, events=["Go"], performer="P::p")
+        @test traced["landed"] == true
+        @test [e.kind for e in traced.trace] == ["wait", "assign"]
+        @test traced.trace[1].token == 1 && traced.trace[1].step == 3 && traced.trace[1].event == "Go"
+        @test traced.trace[2].feature == "remaining" && traced.trace[2].value == 7
+        @test traced.trace_dropped == 1
+        @test occursin("\"trace\":true", requested[]) && occursin("\"events\":[\"Go\"]", requested[])
+        conn.info = ServerInfo("", String[], true, conn.origin)
         canned[] = """{"finalContext":{"intValue":{"intValue":"3"}},"statesVisited":["s"]}"""
         state_run = execute_state(model, "S")
         @test state_run isa StateRun

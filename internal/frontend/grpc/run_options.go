@@ -61,15 +61,15 @@ func (o runOptions) apply(rt *runtime.Context) {
 	_ = rt.SetClockStep(o.clockStep) // checked by readRunOptions
 }
 
-// runAction runs action performed by self on rt: to completion, or for the
-// duration asked, in which case one that has not completed is runtime.ErrNotCompleted.
-func (o runOptions) runAction(rt *runtime.Context, action *symbols.Symbol, self *runtime.Instance, inputs map[string]runtime.Value) (actionRun, error) {
+// runAction runs action performed by self on rt, posting events as the run waits: to completion,
+// or for the duration asked, in which case one that has not completed is runtime.ErrNotCompleted.
+func (o runOptions) runAction(rt *runtime.Context, action *symbols.Symbol, self *runtime.Instance, inputs map[string]runtime.Value, events []runtime.Message) (actionRun, error) {
 	var run actionRun
 	var err error
 	if o.advance == nil {
-		run.outputs, run.performer, err = rt.ExecuteActionReportingPerformer(action, self, inputs)
+		run.outputs, run.performer, err = rt.ExecuteActionWithEvents(action, self, inputs, events)
 	} else {
-		run.outputs, run.performer, err = rt.ExecuteActionAdvancedBy(action, self, inputs, *o.advance)
+		run.outputs, run.performer, err = rt.ExecuteActionAdvancedBy(action, self, inputs, events, *o.advance)
 	}
 	if err != nil {
 		return actionRun{}, err

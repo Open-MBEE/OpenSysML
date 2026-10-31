@@ -937,7 +937,7 @@ class InstantiateResponse(_message.Message):
     def __init__(self, instance: _Optional[_Union[Instance, _Mapping]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ...) -> None: ...
 
 class ExecuteActionRequest(_message.Message):
-    __slots__ = ("model_hash", "action_symbol_id", "inputs", "schedule", "performer_symbol_id", "advance", "seed", "draws", "clock_step")
+    __slots__ = ("model_hash", "action_symbol_id", "inputs", "schedule", "performer_symbol_id", "advance", "seed", "draws", "clock_step", "trace", "events")
     class InputsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -954,6 +954,8 @@ class ExecuteActionRequest(_message.Message):
     SEED_FIELD_NUMBER: _ClassVar[int]
     DRAWS_FIELD_NUMBER: _ClassVar[int]
     CLOCK_STEP_FIELD_NUMBER: _ClassVar[int]
+    TRACE_FIELD_NUMBER: _ClassVar[int]
+    EVENTS_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     action_symbol_id: str
     inputs: _containers.MessageMap[str, Value]
@@ -963,10 +965,12 @@ class ExecuteActionRequest(_message.Message):
     seed: int
     draws: str
     clock_step: float
-    def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ..., advance: _Optional[float] = ..., seed: _Optional[int] = ..., draws: _Optional[str] = ..., clock_step: _Optional[float] = ...) -> None: ...
+    trace: bool
+    events: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ..., advance: _Optional[float] = ..., seed: _Optional[int] = ..., draws: _Optional[str] = ..., clock_step: _Optional[float] = ..., trace: _Optional[bool] = ..., events: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ExecuteActionResponse(_message.Message):
-    __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time", "performer_attributes", "order_dependent")
+    __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time", "performer_attributes", "order_dependent", "trace", "trace_dropped")
     class OutputsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -996,6 +1000,8 @@ class ExecuteActionResponse(_message.Message):
     FINAL_TIME_FIELD_NUMBER: _ClassVar[int]
     PERFORMER_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     ORDER_DEPENDENT_FIELD_NUMBER: _ClassVar[int]
+    TRACE_FIELD_NUMBER: _ClassVar[int]
+    TRACE_DROPPED_FIELD_NUMBER: _ClassVar[int]
     outputs: _containers.MessageMap[str, Value]
     error: str
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
@@ -1004,7 +1010,9 @@ class ExecuteActionResponse(_message.Message):
     final_time: float
     performer_attributes: _containers.MessageMap[str, Value]
     order_dependent: _containers.ScalarMap[str, int]
-    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., performer_attributes: _Optional[_Mapping[str, Value]] = ..., order_dependent: _Optional[_Mapping[str, int]] = ...) -> None: ...
+    trace: _containers.RepeatedCompositeFieldContainer[DocumentEvent]
+    trace_dropped: int
+    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., performer_attributes: _Optional[_Mapping[str, Value]] = ..., order_dependent: _Optional[_Mapping[str, int]] = ..., trace: _Optional[_Iterable[_Union[DocumentEvent, _Mapping]]] = ..., trace_dropped: _Optional[int] = ...) -> None: ...
 
 class ExecuteStateRequest(_message.Message):
     __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule", "performer_symbol_id", "trace", "advance", "seed", "draws", "clock_step")
@@ -2403,7 +2411,7 @@ class DocumentState(_message.Message):
     def __init__(self, object: _Optional[_Union[DocumentObject, _Mapping]] = ..., machine: _Optional[str] = ..., name: _Optional[str] = ..., state_path: _Optional[str] = ..., state: _Optional[_Union[DocumentValue, _Mapping]] = ..., region: _Optional[str] = ..., enclosing: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class DocumentEvent(_message.Message):
-    __slots__ = ("kind", "time", "object", "machine", "state", "to", "target", "event", "payload", "alternatives", "taken", "text")
+    __slots__ = ("kind", "time", "object", "machine", "state", "to", "target", "event", "payload", "alternatives", "taken", "text", "token", "step", "feature", "value")
     KIND_FIELD_NUMBER: _ClassVar[int]
     TIME_FIELD_NUMBER: _ClassVar[int]
     OBJECT_FIELD_NUMBER: _ClassVar[int]
@@ -2417,6 +2425,10 @@ class DocumentEvent(_message.Message):
     ALTERNATIVES_FIELD_NUMBER: _ClassVar[int]
     TAKEN_FIELD_NUMBER: _ClassVar[int]
     TEXT_FIELD_NUMBER: _ClassVar[int]
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
     kind: str
     time: DocumentValue
     object: DocumentObject
@@ -2429,7 +2441,11 @@ class DocumentEvent(_message.Message):
     alternatives: _containers.RepeatedScalarFieldContainer[str]
     taken: str
     text: str
-    def __init__(self, kind: _Optional[str] = ..., time: _Optional[_Union[DocumentValue, _Mapping]] = ..., object: _Optional[_Union[DocumentObject, _Mapping]] = ..., machine: _Optional[str] = ..., state: _Optional[str] = ..., to: _Optional[str] = ..., target: _Optional[_Union[DocumentObject, _Mapping]] = ..., event: _Optional[str] = ..., payload: _Optional[_Iterable[str]] = ..., alternatives: _Optional[_Iterable[str]] = ..., taken: _Optional[str] = ..., text: _Optional[str] = ..., **kwargs) -> None: ...
+    token: int
+    step: int
+    feature: str
+    value: Value
+    def __init__(self, kind: _Optional[str] = ..., time: _Optional[_Union[DocumentValue, _Mapping]] = ..., object: _Optional[_Union[DocumentObject, _Mapping]] = ..., machine: _Optional[str] = ..., state: _Optional[str] = ..., to: _Optional[str] = ..., target: _Optional[_Union[DocumentObject, _Mapping]] = ..., event: _Optional[str] = ..., payload: _Optional[_Iterable[str]] = ..., alternatives: _Optional[_Iterable[str]] = ..., taken: _Optional[str] = ..., text: _Optional[str] = ..., token: _Optional[int] = ..., step: _Optional[int] = ..., feature: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., **kwargs) -> None: ...
 
 class DocumentQueryColumn(_message.Message):
     __slots__ = ("name",)

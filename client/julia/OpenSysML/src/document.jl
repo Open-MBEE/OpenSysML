@@ -212,7 +212,10 @@ function _document_value(raw)
             String(get(v, "from", "")), String(get(v, "to", "")),
             target_raw isa AbstractDict ? _document_object(target_raw) : nothing,
             String(get(v, "event", "")), String[String(x) for x in get(v, "payload", Any[])],
-            String[String(x) for x in get(v, "alternatives", Any[])], String(get(v, "taken", "")))
+            String[String(x) for x in get(v, "alternatives", Any[])], String(get(v, "taken", "")),
+            parse(Int64, string(get(v, "token", 0))), Int(get(v, "step", 0)),
+            String(get(v, "feature", "")),
+            haskey(v, "value") ? decode_value(v["value"]) : nothing)
     end
     throw(UnsupportedValueError("unknown document value arm"))
 end

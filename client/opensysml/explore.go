@@ -150,8 +150,11 @@ func (c *client) ExploreAction(
 	for _, opt := range opts {
 		opt(&options)
 	}
-	if err := refuseTrace(options.trace, "WithTrace is only valid for ExecuteState"); err != nil {
+	if err := refuseTrace(options.trace, "a trace describes one run, not an exploration"); err != nil {
 		return nil, err
+	}
+	if len(options.events) > 0 {
+		return nil, &StatusError{Code: CodeInvalidArgument, Message: "events are posted to one run, not an exploration"}
 	}
 	policy, err := explorePolicy("ExploreAction", options.schedule)
 	if err != nil {
