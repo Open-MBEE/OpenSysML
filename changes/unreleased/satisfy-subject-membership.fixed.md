@@ -1,0 +1,1 @@
+- The reflective read lists the subject parameter a satisfy usage's `by` clause declares — an unnamed `ReferenceUsage` the usage owns through a `SubjectMembership` (SysML v2 §8.3.19) — among the usage's `ownedRelationship`, `ownedMembership` and `ownedMember`, with the elementIds the RDF export writes for both, where it listed nothing for the clause.
