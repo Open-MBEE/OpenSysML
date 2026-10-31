@@ -66,7 +66,7 @@ elmt:Documented__Wheel_om
 
 elmt:Documented__Wheel___400
     a sysml:Documentation ;
-    sysml:qualifiedName "Documented::Wheel::@0" ;
+    sysx:positionalName "Documented::Wheel::@0" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "3"^^xsd:integer ;
@@ -128,7 +128,7 @@ elmt:Documented__Wheel__radius_om
 
 elmt:Documented__Wheel___402
     a sysml:Comment ;
-    sysml:qualifiedName "Documented::Wheel::@2" ;
+    sysx:positionalName "Documented::Wheel::@2" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "5"^^xsd:integer ;
@@ -261,7 +261,7 @@ elmt:Documented__Hub_conjugated_pc
 
 elmt:Documented__Hub___400
     a sysml:Documentation ;
-    sysml:qualifiedName "Documented::Hub::@0" ;
+    sysx:positionalName "Documented::Hub::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -360,7 +360,7 @@ elmt:Documented__wheel_om
 
 elmt:Documented__wheel___400
     a sysml:Documentation ;
-    sysml:qualifiedName "Documented::wheel::@0" ;
+    sysx:positionalName "Documented::wheel::@0" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "13"^^xsd:integer ;

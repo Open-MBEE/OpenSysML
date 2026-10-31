@@ -28,7 +28,7 @@ elmt:Branches
 
 elmt:Branches___400
     a sysml:MembershipImport ;
-    sysml:qualifiedName "Branches::@0" ;
+    sysx:positionalName "Branches::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -151,7 +151,7 @@ elmt:Branches__Charge__check_om
 elmt:Branches__Charge___402
     a sysml:DecisionNode ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Branches::Charge::@2" ;
+    sysx:positionalName "Branches::Charge::@2" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "14"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -179,7 +179,7 @@ elmt:Branches__Charge___402_om
 elmt:Branches__Charge___403
     a sysml:SuccessionAsUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "Branches::Charge::@3" ;
+    sysx:positionalName "Branches::Charge::@3" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -284,7 +284,7 @@ expr:Branches__Charge___403_pend1_prs
 elmt:Branches__Charge___404
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Branches::Charge::@4" ;
+    sysx:positionalName "Branches::Charge::@4" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -602,7 +602,7 @@ elmt:Branches__Charge___404_succession_om
 elmt:Branches__Charge___405
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Branches::Charge::@5" ;
+    sysx:positionalName "Branches::Charge::@5" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -1009,7 +1009,7 @@ elmt:Branches__Charge__pick_om
 elmt:Branches__Charge___409
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Branches::Charge::@9" ;
+    sysx:positionalName "Branches::Charge::@9" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;
@@ -1327,7 +1327,7 @@ elmt:Branches__Charge___409_succession_om
 elmt:Branches__Charge___4010
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Branches::Charge::@10" ;
+    sysx:positionalName "Branches::Charge::@10" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "13"^^xsd:integer ;

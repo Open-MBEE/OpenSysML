@@ -129,7 +129,7 @@ func toSysML(graph *rdf.Graph, warn func(string), owned bool) ([]byte, error) {
 	}
 	statedNames := map[string]bool{}
 	for _, subject := range graph.Subjects() {
-		if graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+		if hasAddress(graph, subject) {
 			statedNames[subject.Value] = true
 		}
 	}
@@ -879,7 +879,9 @@ func (d *decoder) readElement(subject rdf.Term) (*element, error) {
 	}
 	el.indexStated = d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex)
 	el.trailing = !el.indexStated && d.isResultExpression(el)
-	el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName)
+	if el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName); el.qname == "" {
+		el.qname, _ = addressOf(d.graph, subject)
+	}
 	if !el.indexStated && !el.trailing && d.statedNames[subject.Value] {
 		if n, ok := positionalIndex(d.graph, subject); ok {
 			el.memberIndex, el.positional = n, true
@@ -944,7 +946,7 @@ func (d *decoder) isMembership(subject rdf.Term) bool {
 	metaclass := d.metaclass(subject)
 	return metaclass != "" && (metaclass == mFeatureValue || metaclass == mParameterMembership ||
 		ontology.IsAncestorOrSelf(metaclass, mOwningMembership) || d.prefixAnnotation(subject)) &&
-		!d.graph.HasProperty(subject, rdf.SysML+pQualifiedName)
+		!hasAddress(d.graph, subject)
 }
 
 // prefixAnnotation reports whether subject is the Annotation by which a
@@ -983,7 +985,7 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 	// An expression-metaclass member that carries a qualified name is a member
 	// element of its own — `in expr keep : T` declares one — not a node.
 	if d.isExpressionIRI(member) || expressionMetaclasses[d.metaclass(member)] &&
-		!d.graph.HasProperty(member, rdf.SysML+pQualifiedName) {
+		!hasAddress(d.graph, member) {
 		return true
 	}
 	// A `message` owns its ends through ParameterMembership
@@ -1007,7 +1009,7 @@ func (d *decoder) isExpressionIRI(term rdf.Term) bool {
 // expressionOwner reports whether a term can own an expression parameter.
 func (d *decoder) expressionOwner(term rdf.Term) bool {
 	return d.isExpressionIRI(term) || expressionMetaclasses[d.metaclass(term)] &&
-		!d.graph.HasProperty(term, rdf.SysML+pQualifiedName)
+		!hasAddress(d.graph, term)
 }
 
 // readMembership records the ownership edge an OwningMembership stands for. Both
@@ -1336,7 +1338,7 @@ func (d *decoder) referencedElement(iri string) (*element, error) {
 			}
 		}
 	}
-	if !d.graph.HasProperty(rdf.IRI(target.iri), rdf.SysML+pQualifiedName) {
+	if !hasAddress(d.graph, rdf.IRI(target.iri)) {
 		if d.transparentRoot(target) {
 			// The document wrapper names nothing; a reference to it is
 			// resolved without a spelling.
@@ -1418,7 +1420,7 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 				Note: note,
 			}
 		}
-		if stated, ok := d.graph.Lexical(subject, rdf.SysML+pQualifiedName); ok && stated != lib.qname {
+		if stated, ok := addressOf(d.graph, subject); ok && stated != lib.qname {
 			return nil, &UnsupportedError{
 				What: fmt.Sprintf("the library element <%s>", subject.Value),
 				Note: fmt.Sprintf("the graph names it %s, but the bundled standard library gives id %q to %s", stated, id, lib.qname),
@@ -1482,7 +1484,7 @@ func (d *decoder) resolveLibraryElement(iri, id string) (*identity.LibraryElemen
 }
 
 func (d *decoder) librarySubjectName(subject rdf.Term) (string, string, bool) {
-	if name, ok := d.graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+	if name, ok := addressOf(d.graph, subject); ok {
 		return name, "qualified name", true
 	}
 	var names []string
@@ -1492,7 +1494,7 @@ func (d *decoder) librarySubjectName(subject rdf.Term) (string, string, bool) {
 			return "", "", false
 		}
 		seen[current.Value] = true
-		if name, ok := d.graph.Lexical(current, rdf.SysML+pQualifiedName); ok {
+		if name, ok := addressOf(d.graph, current); ok {
 			return name + qualifiedNameSuffix(names), "name and owners", len(names) > 0
 		}
 		name, ok := d.graph.Lexical(current, rdf.SysML+pDeclaredName)
@@ -3065,7 +3067,7 @@ func (d *decoder) importHead(el *element) (string, error) {
 // filter package `import X::*[c]` stands for — or nothing.
 func (d *decoder) filterPackageOf(subject rdf.Term) (rdf.Term, bool) {
 	pkg, ok := d.graph.Object(subject, rdf.SysML+pImportedNamespace)
-	if !ok || d.metaclass(pkg) != mPackage || d.graph.HasProperty(pkg, rdf.SysML+pQualifiedName) {
+	if !ok || d.metaclass(pkg) != mPackage || hasAddress(d.graph, pkg) {
 		return rdf.Term{}, false
 	}
 	owner, ok := d.graph.Object(pkg, rdf.SysML+pOwningRelationship)

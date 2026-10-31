@@ -108,7 +108,7 @@ elmt:Scopes
 
 elmt:Scopes___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "Scopes::@0" ;
+    sysx:positionalName "Scopes::@0" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;

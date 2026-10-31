@@ -43,7 +43,7 @@ func TestAnonymousKeywordsAreTypedWhereTheVocabularyStatesThem(t *testing.T) {
 			"sysx:declaredKeyword \"event\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:references <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;",
 			"a sysml:FeatureChaining ;",
 		},
-		forbade: []string{"sysml:isEvent", "a sysml:OccurrenceUsage ;\n    sysml:qualifiedName \"AnonymousEvents::Sender::@"},
+		forbade: []string{"sysml:isEvent", "a sysml:OccurrenceUsage ;\n    sysx:positionalName \"AnonymousEvents::Sender::@"},
 	}, {
 		fixture: "anonymous_portions.sysml",
 		want: []string{
@@ -132,8 +132,8 @@ func TestAnonymousKeywordsComeBackFromTheTypedFactsAlone(t *testing.T) {
 // keyword: the decoder refuses rather than spelling the canonical keyword.
 func TestContradictoryKeywordGraphsAreRefused(t *testing.T) {
 	snapshot := "    sysx:declaredKeyword \"snapshot\" ;\n    sysml:isPortion \"true\"^^xsd:boolean ;\n    sysml:portionKind \"snapshot\" ;\n    sysml:redefines elmt:ed80d442-d498-5236-96ae-71a8a52531d2 ;"
-	event := "    a sysml:EventOccurrenceUsage ;\n    sysml:qualifiedName \"AnonymousEvents::Sender::@1\" ;"
-	asserted := "    a sysml:AssertConstraintUsage ;\n    sysml:qualifiedName \"AnonymousAssertions::Vehicle::@2\" ;"
+	event := "    a sysml:EventOccurrenceUsage ;\n    sysx:positionalName \"AnonymousEvents::Sender::@1\" ;"
+	asserted := "    a sysml:AssertConstraintUsage ;\n    sysx:positionalName \"AnonymousAssertions::Vehicle::@2\" ;"
 	cases := []struct {
 		name, fixture, old, new string
 		want                    []string

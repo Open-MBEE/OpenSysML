@@ -326,7 +326,7 @@ func TestAnonymousVariantWithASingleNameLiteralIsRefused(t *testing.T) {
 			block = strings.ReplaceAll(block, "elmt:P__e2 ", `"e2" `)
 			block = strings.ReplaceAll(block, `{\"@id\":\"P__e2\"}`, `\"e2\"`)
 			block = strings.Replace(block, "    sysml:name \"e2\" ;\n", "", 1)
-			block = strings.Replace(block, `sysml:qualifiedName "P::V::e2"`, `sysml:qualifiedName "P::V::@1"`, 1)
+			block = strings.Replace(block, `sysml:qualifiedName "P::V::e2"`, `sysx:positionalName "P::V::@1"`, 1)
 		}
 		blocks[i] = block
 	}

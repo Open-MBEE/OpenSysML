@@ -314,7 +314,7 @@ elmt:ActionNodes__Drive__Stop_om
 
 elmt:ActionNodes__Drive___404
     a sysml:Membership ;
-    sysml:qualifiedName "ActionNodes::Drive::@4" ;
+    sysx:positionalName "ActionNodes::Drive::@4" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -482,7 +482,7 @@ elmt:ActionNodes__Drive__pick_om
 elmt:ActionNodes__Drive___4010
     a sysml:PerformActionUsage ;
     sysml:name "brake" ;
-    sysml:qualifiedName "ActionNodes::Drive::@10" ;
+    sysx:positionalName "ActionNodes::Drive::@10" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -550,7 +550,7 @@ elmt:ActionNodes__Drive__Brake_om
 elmt:ActionNodes__Drive___4012
     a sysml:AssignmentActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ActionNodes::Drive::@12" ;
+    sysx:positionalName "ActionNodes::Drive::@12" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -699,7 +699,7 @@ expr:ActionNodes__Drive___4012_pvalue_om
 elmt:ActionNodes__Drive___4013
     a sysml:SendActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ActionNodes::Drive::@13" ;
+    sysx:positionalName "ActionNodes::Drive::@13" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "19"^^xsd:integer ;
@@ -845,7 +845,7 @@ expr:ActionNodes__Drive___4013_preceiver_om
 elmt:ActionNodes__Drive___4014
     a sysml:SendActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ActionNodes::Drive::@14" ;
+    sysx:positionalName "ActionNodes::Drive::@14" ;
     sysx:sourceLine "20"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "20"^^xsd:integer ;
@@ -991,7 +991,7 @@ expr:ActionNodes__Drive___4014_preceiver_om
 
 elmt:ActionNodes__Drive___4015
     a sysml:AcceptActionUsage ;
-    sysml:qualifiedName "ActionNodes::Drive::@15" ;
+    sysx:positionalName "ActionNodes::Drive::@15" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "21"^^xsd:integer ;
@@ -1028,7 +1028,7 @@ elmt:ActionNodes__Drive___4015_om
 
 elmt:ActionNodes__Drive___4015___400
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "ActionNodes::Drive::@15::@0" ;
+    sysx:positionalName "ActionNodes::Drive::@15::@0" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
     sysx:sourceEndLine "21"^^xsd:integer ;
@@ -1382,7 +1382,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_om
 elmt:ActionNodes__Drive___4016
     a sysml:TerminateActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ActionNodes::Drive::@16" ;
+    sysx:positionalName "ActionNodes::Drive::@16" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "22"^^xsd:integer ;
@@ -1410,7 +1410,7 @@ elmt:ActionNodes__Drive___4016_om
 elmt:ActionNodes__Drive___4017
     a sysml:TerminateActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ActionNodes::Drive::@17" ;
+    sysx:positionalName "ActionNodes::Drive::@17" ;
     sysx:sourceLine "23"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "23"^^xsd:integer ;
@@ -1496,7 +1496,7 @@ expr:ActionNodes__Drive___4017_pexpression_om
 
 elmt:ActionNodes__Drive___4018
     a sysml:Membership ;
-    sysml:qualifiedName "ActionNodes::Drive::@18" ;
+    sysx:positionalName "ActionNodes::Drive::@18" ;
     sysx:sourceLine "24"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "24"^^xsd:integer ;
@@ -1513,7 +1513,7 @@ elmt:ActionNodes__Drive___4018
 
 elmt:ActionNodes__Drive___4019
     a sysml:SuccessionAsUsage ;
-    sysml:qualifiedName "ActionNodes::Drive::@19" ;
+    sysx:positionalName "ActionNodes::Drive::@19" ;
     sysx:sourceLine "25"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "25"^^xsd:integer ;
@@ -1648,7 +1648,7 @@ expr:ActionNodes__Drive___4019_pend1_prs
 
 elmt:ActionNodes__Drive___4020
     a sysml:SuccessionAsUsage ;
-    sysml:qualifiedName "ActionNodes::Drive::@20" ;
+    sysx:positionalName "ActionNodes::Drive::@20" ;
     sysx:sourceLine "26"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "26"^^xsd:integer ;

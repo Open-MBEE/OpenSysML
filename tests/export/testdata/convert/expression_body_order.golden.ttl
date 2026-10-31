@@ -133,7 +133,7 @@ elmt:Ordered__Mixed__x_om
 elmt:Ordered__Mixed___401
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "Ordered::Mixed::@1" ;
+    sysx:positionalName "Ordered::Mixed::@1" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "5"^^xsd:integer ;
@@ -892,7 +892,7 @@ elmt:Ordered__Declares_om
 elmt:Ordered__Declares___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "Ordered::Declares::@0" ;
+    sysx:positionalName "Ordered::Declares::@0" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;

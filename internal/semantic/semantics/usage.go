@@ -28,6 +28,9 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		// A required or assumed constraint is the ConstraintUsage its member declares.
 	case *ast.SubjectMember:
 		// A subject parameter is the ReferenceUsage its SubjectMembership declares.
+	case *ast.ConnectorEnd:
+		// A connector's end is the usage its EndFeatureMembership declares; its
+		// owning type is the connector.
 	case *ast.BodyExpr:
 		// An expression body's parameter: its owning type is the Expression, a
 		// Performance and so an Occurrence (KerML Performances::Performance).
@@ -94,7 +97,7 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 		switch d := sym.Decl.(type) {
 		case *ast.Usage:
 			isPortion = d.IsPortion || d.Portion != ast.PortionNone
-		case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr:
+		case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr, *ast.ConnectorEnd:
 		default:
 			return false
 		}
@@ -130,7 +133,7 @@ func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 		return m.UsageMayTimeVary(sym)
 	case *ast.CrossFeatureMember:
 		return m.isKerMLDoc(sym) && (d.IsVariable || d.IsConstant)
-	case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr:
+	case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr, *ast.ConnectorEnd:
 		return !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)
 	}
 	return false

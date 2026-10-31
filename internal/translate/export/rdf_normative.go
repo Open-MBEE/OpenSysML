@@ -487,7 +487,7 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 	e.graph.Add(conjugated, e.sysml(pElementID), rdf.String(rdf.LocalName(conjugated.Value)))
 	// The conjugate is named by position: references read a qualifiedName,
 	// which the derived `~` name does not give them.
-	e.graph.Add(conjugated, e.sysml(pQualifiedName), rdf.String(fqn+"::"+identity.EscapeName("~"+n.Ident.Name)))
+	e.graph.Add(conjugated, addressTerm(fqn), rdf.String(fqn+"::"+identity.EscapeName("~"+n.Ident.Name)))
 	e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String("~"+n.Ident.Name))
 	if n.Ident.ShortName != "" {
 		e.graph.Add(conjugated, e.sysml(pDeclaredShortName), rdf.String("~"+n.Ident.ShortName))
@@ -534,7 +534,7 @@ func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *sym
 	}
 	e.typed(usage, mReferenceUsage)
 	e.graph.Add(usage, e.sysml(pElementID), rdf.String(rdf.LocalName(usage.Value)))
-	e.graph.Add(usage, e.sysml(pQualifiedName), rdf.String(owner+"::_subject"))
+	e.graph.Add(usage, addressTerm(owner), rdf.String(owner+"::_subject"))
 	// The subject is a referential usage owned by the satisfy usage, an Occurrence.
 	if e.ids.model.UsageMayTimeVaryUnder(ownerSym) {
 		e.flags(usage, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})

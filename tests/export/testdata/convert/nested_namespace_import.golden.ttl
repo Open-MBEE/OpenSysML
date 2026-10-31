@@ -183,7 +183,7 @@ elmt:NestedNamespaceImport__Pkg2_om
 
 elmt:NestedNamespaceImport__Pkg2___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "NestedNamespaceImport::Pkg2::@0" ;
+    sysx:positionalName "NestedNamespaceImport::Pkg2::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -201,7 +201,7 @@ elmt:NestedNamespaceImport__Pkg2___400
 
 elmt:NestedNamespaceImport__Pkg2___401
     a sysml:MembershipImport ;
-    sysml:qualifiedName "NestedNamespaceImport::Pkg2::@1" ;
+    sysx:positionalName "NestedNamespaceImport::Pkg2::@1" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -220,7 +220,7 @@ elmt:NestedNamespaceImport__Pkg2___401
 
 elmt:NestedNamespaceImport__Pkg2___402
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "NestedNamespaceImport::Pkg2::@2" ;
+    sysx:positionalName "NestedNamespaceImport::Pkg2::@2" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;

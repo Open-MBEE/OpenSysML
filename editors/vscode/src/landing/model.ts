@@ -11,7 +11,7 @@ import type {
 import { ExecutionError, Model, ParseError, instanceFromJson, renderedViewFromJson } from "@openmbee/opensysml/browser";
 import { normalizeRender } from "../protocol";
 import type { RenderEdge, RenderNode, RenderResult } from "../protocol";
-import type { Scene, SceneClock, SceneJourney, SceneProgram } from "./scene";
+import type { Scene, SceneAction, SceneClock, SceneJourney, SceneProgram } from "./scene";
 
 export interface Diagnostic {
   message: string;
@@ -60,6 +60,22 @@ export interface LandingMachine {
   states: Map<string, LandingState>;
 }
 
+/** A node of the action a scene draws: its box, and the name the trace records it under. */
+export interface LandingActionNode {
+  id: string;
+  /** The node's name as the trace records carry it: `awaitGo`. */
+  name: string;
+  /** What RenderView drew it as: `initial`, `action`, `decision`, `final`. */
+  kind: string;
+}
+
+/** The action a scene draws: its nodes by name. */
+export interface LandingAction {
+  /** The action definition drawn: `MissionSequence::LunarMission`. */
+  symbol: string;
+  nodes: Map<string, LandingActionNode>;
+}
+
 /** What the root is drawn as: its symbol and the view RenderView draws of it. */
 export interface SceneTarget {
   rootSymbol: string;
@@ -76,6 +92,8 @@ export interface LandingModel {
   root: LandingPart;
   /** The state machine the view draws, when it draws one rather than the root's composition. */
   machine?: LandingMachine;
+  /** The action the view draws, when it draws one. */
+  action?: LandingAction;
 }
 
 export type ModelRead = { diagnostics: Diagnostic[]; model?: LandingModel };
@@ -107,7 +125,7 @@ export interface EngineInstance {
 }
 
 export interface TraceRecord {
-  kind: string; // entry | exit | accept | transition | choice | send | do | guard
+  kind: string; // entry | exit | accept | transition | choice | send | do | guard | step | wait | decide | assign | complete
   state?: string;
   from?: string;
   to?: string;
@@ -116,7 +134,21 @@ export interface TraceRecord {
   taken?: string;
   /** The simulated instant the record was written at, when the engine timed it. */
   time?: EngineQuantity;
+  /** The action token the record is about, as the executor numbers them. */
+  token?: string;
+  /** The executor step the record was written at. */
+  step?: number;
+  /** The feature an `assign` record wrote, and the value the engine wrote to it, printed. */
+  feature?: string;
+  value?: string;
   text: string;
+}
+
+/** A value an action run assigned, as its `assign` record reports it: at which node, to which feature. */
+export interface Assignment {
+  at: string;
+  feature: string;
+  value: string;
 }
 
 export interface JourneyRun {
@@ -124,6 +156,8 @@ export interface JourneyRun {
   trace: TraceRecord[];
   /** The simulated instant the clock stopped at; absent when the run failed. */
   finalTime?: number;
+  /** An action's outputs as the engine returned them, printed; absent when the run failed. */
+  outputs?: Map<string, string>;
   error?: string;
 }
 
@@ -133,6 +167,8 @@ export interface DebugStep {
   state?: string;
   /** This record's transition, when it is one. */
   edge?: { from: string; to: string };
+  /** The values an action run has assigned up to this record, in order. */
+  assigned: Assignment[];
   /** How many events have been accepted up to and including this record. */
   accepted: number;
   /** An accept record that fired no transition before the next accept or the end of the trace. */
@@ -305,6 +341,10 @@ export function traceRecord(event: DocumentEvent): TraceRecord {
     ...(event.event === "" ? {} : { event: event.event }),
     ...(event.alternatives.length === 0 ? {} : { alternatives: [...event.alternatives] }),
     ...(event.taken === "" ? {} : { taken: event.taken }),
+    ...(event.token === 0n ? {} : { token: String(event.token) }),
+    ...(event.step === 0 ? {} : { step: event.step }),
+    ...(event.feature === "" ? {} : { feature: event.feature }),
+    ...(event.value === undefined ? {} : { value: valueText(event.value) }),
     text: event.text,
   };
 }
@@ -325,6 +365,9 @@ export function landingModel(
 ): LandingModel {
   if (render.kind === "state") {
     return machineModel(target, hash, render, instances);
+  }
+  if (render.kind === "action") {
+    return actionModel(target, hash, render, instances);
   }
   const { rootSymbol } = target;
   const rootName = rootSymbol.slice(rootSymbol.lastIndexOf("::") + 2);
@@ -528,9 +571,56 @@ function machineModel(
   };
 }
 
-/** stateIdOf is the box a state the engine named is drawn as: a machine's state (by path or unambiguous name), or the part a journey's state stands for. */
+/**
+ * actionModel is an action view as the page keeps it: the action's own nodes lifted out of its
+ * box and keyed by the name the trace records carry, the successions kept, and the root the
+ * object performing the action, as Instantiate materialized it.
+ */
+function actionModel(
+  target: SceneTarget,
+  hash: string,
+  render: RenderResult,
+  instances: readonly EngineInstance[],
+): LandingModel {
+  const { rootSymbol } = target;
+  const rootName = rootSymbol.slice(rootSymbol.lastIndexOf("::") + 2);
+  const actions = render.nodes.filter((node) => node.parent === undefined);
+  if (actions.length !== 1) {
+    throw new Error(`rendered action view draws ${actions.length} actions, want one`);
+  }
+  const [action] = actions;
+  const nodes = new Map<string, LandingActionNode>();
+  const kept: RenderNode[] = [];
+  for (const node of render.nodes) {
+    if (node.parent !== action.id) {
+      continue;
+    }
+    const { parent: _parent, ...lifted } = node;
+    kept.push(lifted);
+    if (node.name !== "") {
+      nodes.set(node.name, { id: node.id, name: node.name, kind: node.kind });
+    }
+  }
+  const retained = new Set(kept.map((node) => node.id));
+  const normalized = normalizeRender({
+    ...render,
+    nodes: kept,
+    edges: render.edges.filter((edge) => retained.has(edge.from) && retained.has(edge.to)),
+  });
+  const rootInstance = instances.find((instance) => instance.typeSymbolId === rootSymbol);
+  return {
+    hash,
+    target,
+    render: normalized,
+    parts: new Map(),
+    root: partRecord(action.id, rootName, "", rootInstance, rootName, undefined),
+    action: { symbol: action.name, nodes },
+  };
+}
+
+/** stateIdOf is the box a state the engine named is drawn as: a machine's state (by path or unambiguous name), an action's node, or the part a journey's state stands for. */
 export function stateIdOf(model: LandingModel, state: string): string | undefined {
-  return model.machine?.states.get(state)?.id ?? model.parts.get(state)?.id;
+  return model.machine?.states.get(state)?.id ?? model.action?.nodes.get(state)?.id ?? model.parts.get(state)?.id;
 }
 
 /** sceneTarget is the root a scene draws by default, before any variant is switched on. */
@@ -605,6 +695,14 @@ export function valueText(value: SysMLValue): string {
       return String(value.value);
     case "rational":
       return `${value.numerator}/${value.denominator}`;
+    case "boolean":
+      return String(value.value);
+    case "string":
+      return value.value;
+    case "instance":
+      return `instance #${value.id}`;
+    case "sequence":
+      return value.elements.map(valueText).join(", ");
     case "undetermined":
       return value.reason === "" ? "undetermined" : `undetermined (${value.reason})`;
     case "unset":
@@ -682,6 +780,28 @@ export async function runClock(connection: Connection, program: SceneClock, mode
   }
 }
 
+/** Performs the program's action on its object, posting its events as the run waits, with the trace. */
+export async function runAction(connection: Connection, program: SceneAction, model: LandingModel): Promise<JourneyRun> {
+  try {
+    const result = await connection.executeAction(model.hash, program.symbol, {
+      performer: program.performer,
+      events: program.events,
+      trace: true,
+    });
+    const outputs = new Map<string, string>();
+    for (const [name, value] of result.outputs) {
+      outputs.set(name, value instanceof Error ? value.message : valueText(value));
+    }
+    const trace = result.trace.map(traceRecord);
+    return { visited: trace.flatMap((record) => (record.kind === "step" && record.to !== undefined ? [record.to] : [])), trace, outputs };
+  } catch (error) {
+    if (error instanceof ExecutionError) {
+      return { visited: [], trace: error.trace.map(traceRecord), error: errorMessage(error) };
+    }
+    throw error;
+  }
+}
+
 /** Runs the scene's state machine on `events` with its trace; a seed picks each free choice. */
 export async function runJourney(
   connection: Connection,
@@ -708,25 +828,36 @@ export async function runJourney(
 export function debugSteps(trace: readonly TraceRecord[]): DebugStep[] {
   let state: string | undefined;
   let accepted = 0;
+  let assigned: Assignment[] = [];
   return trace.map((record, index) => {
     if (record.kind === "entry" && record.state !== undefined) {
       state = record.state;
     }
+    // An action's token is at the node a `step` arrived at; a wait, decide or assign names the node it is at.
+    if (record.kind === "step" && record.to !== undefined) {
+      state = record.to;
+    } else if ((record.kind === "wait" || record.kind === "decide" || record.kind === "assign") && record.state !== undefined) {
+      state = record.state;
+    }
+    if (record.kind === "assign" && record.state !== undefined && record.feature !== undefined && record.value !== undefined) {
+      assigned = [...assigned, { at: record.state, feature: record.feature, value: record.value }];
+    }
     if (record.kind === "accept") {
       accepted += 1;
     }
+    const moved = (record.kind === "transition" || record.kind === "step") && record.from !== undefined && record.to !== undefined;
     const step: DebugStep = {
       record,
       ...(state === undefined ? {} : { state }),
-      ...(record.kind === "transition" && record.from !== undefined && record.to !== undefined
-        ? { edge: { from: record.from, to: record.to } }
-        : {}),
+      ...(moved ? { edge: { from: record.from!, to: record.to! } } : {}),
+      assigned,
       accepted,
     };
     if (record.kind === "accept") {
       let fired = false;
+      // An accept fired when a transition or an action step moved on before the next accept.
       for (let next = index + 1; next < trace.length && trace[next].kind !== "accept"; next += 1) {
-        if (trace[next].kind === "transition") {
+        if (trace[next].kind === "transition" || trace[next].kind === "step") {
           fired = true;
           break;
         }

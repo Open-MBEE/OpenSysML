@@ -524,11 +524,11 @@ func TestUUIDQuotedRootPackage(t *testing.T) {
 		t.Fatalf("ToRDFWith: %v", err)
 	}
 	pkg := identity.NamespaceOf(rdf.Element + rdf.EncodeElementID("'Sep::Pkg'"))
-	if !graph.HasProperty(rdf.ElementIRIForID(pkg), rdf.SysML+"qualifiedName") {
+	if !hasAddress(graph, rdf.ElementIRIForID(pkg)) {
 		t.Fatalf("the package's id is not its namespace uuid %s:\n%s", pkg, rdf.WriteTurtle(graph))
 	}
 	member := rdf.ElementIRIForID(identity.DerivedID(pkg, rdf.EncodeElementID("'Sep::Pkg'::p")))
-	if !graph.HasProperty(member, rdf.SysML+"qualifiedName") {
+	if !hasAddress(graph, member) {
 		t.Fatalf("the member's id is not derived under the root uuid %s:\n%s", member, rdf.WriteTurtle(graph))
 	}
 	back, err := ToSysML(graph)
