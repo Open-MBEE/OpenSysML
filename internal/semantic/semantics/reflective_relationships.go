@@ -31,6 +31,12 @@ func (m *Model) ImplicitRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 // facts at the matching ordinals for a record.
 func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
+	if owner.IsConjugatedPortDefinition() {
+		if original := owner.OwnerScope.Owner(); original != nil {
+			out = append(out, portConjugationSymbol(owner, original))
+		}
+		return out
+	}
 	if owner.Recorded() {
 		for ordinal, rel := range owner.Facts.Relationships {
 			if implicitRelationshipKind(rel.Kind) && !rel.Echo {
@@ -83,6 +89,38 @@ func implicitRelationshipSymbol(owner *symbols.Symbol, ordinal int, kind ast.Rel
 	}
 }
 
+// portConjugationSymbol is the PortConjugation a conjugated port definition
+// owns: its conjugatedType is the conjugate, its originalPortDefinition the
+// port definition the conjugate is implied for.
+func portConjugationSymbol(conjugate, original *symbols.Symbol) *symbols.Symbol {
+	return &symbols.Symbol{
+		Kind:     symbols.SymbolRelationship,
+		DocName:  conjugate.DocName,
+		DeclSpan: conjugate.DeclSpan,
+		Implicit: &symbols.ImplicitRelationship{
+			Owner: conjugate, Kind: ast.RelSpecializes, Conjugated: true,
+			Form: symbols.ImplicitPortConjugation, Member: original,
+		},
+	}
+}
+
+// portConjugationElements answers a PortConjugation's element-valued features.
+func portConjugationElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	rel := sym.Implicit
+	switch feature {
+	case "source", "conjugatedType", "owningRelatedElement", "owner", "owningType":
+		return []*symbols.Symbol{rel.Owner}, true
+	case "target", "originalType", "originalPortDefinition":
+		return []*symbols.Symbol{rel.Member}, true
+	case "relatedElement":
+		return []*symbols.Symbol{rel.Owner, rel.Member}, true
+	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
+		"owningMembership", "owningNamespace", "documentation", "textualRepresentation":
+		return []*symbols.Symbol{}, true
+	}
+	return nil, false
+}
+
 // IncludeUseCaseEcho reports whether rels[i] is the `includes` the parser
 // echoes for `include use case uc : UC`: a RelIncludes immediately followed by
 // the RelTyping whose target it repeats node-for-node. The full form carries
@@ -125,6 +163,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "Annotation"
 	case symbols.ImplicitImport:
 		return m.importMetaclassName(sym)
+	case symbols.ImplicitPortConjugation:
+		return "PortConjugation"
 	}
 	switch rel.Kind {
 	case ast.RelSpecializes:
@@ -342,6 +382,8 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 		return m.annotationElements(sym, feature)
 	case symbols.ImplicitImport:
 		return m.importElements(sym, feature)
+	case symbols.ImplicitPortConjugation:
+		return portConjugationElements(sym, feature)
 	}
 	meta := m.implicitMetaclassName(sym)
 	src, tgt, tgtOK := m.implicitRelationshipEnds(sym)
@@ -535,7 +577,7 @@ func (m *Model) ownedImplicitRelationships(sym *symbols.Symbol, kinds map[string
 }
 
 var (
-	conjugationMetaclass   = map[string]bool{"Conjugation": true}
+	conjugationMetaclass   = map[string]bool{"Conjugation": true, "PortConjugation": true}
 	redefinitionMetaclass  = map[string]bool{"Redefinition": true}
 	referenceSubsetting    = map[string]bool{"ReferenceSubsetting": true}
 	crossSubsetting        = map[string]bool{"CrossSubsetting": true}

@@ -125,6 +125,7 @@ func buildNamespaceDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia 
 		sym := newSymbol(d.Ident, definitionSymbolKind(d.Kind), d, vis, child, scope, trivia)
 		defineIdent(scope, d.Ident, sym)
 		scope.AddChild(child)
+		buildConjugatedPortDefinition(child, d)
 		buildMembers(child, d.Members)
 		return true
 	case *ast.Usage:

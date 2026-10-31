@@ -487,8 +487,16 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 	e.graph.Add(conjugated, e.sysml(pElementID), rdf.String(rdf.LocalName(conjugated.Value)))
 	// The conjugate is named by position: references read a qualifiedName,
 	// which the derived `~` name does not give them.
-	e.graph.Add(conjugated, addressTerm(fqn), rdf.String(fqn+"::"+identity.EscapeName("~"+n.Ident.Name)))
-	e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String("~"+n.Ident.Name))
+	// A conjugate is named after whichever names the original declares
+	// (SysML 8.3.11.3): `~P` for a name, `~<p>` for a short name.
+	effective := n.Ident.Name
+	if effective == "" {
+		effective = n.Ident.ShortName
+	}
+	e.graph.Add(conjugated, addressTerm(fqn), rdf.String(fqn+"::"+identity.EscapeName("~"+effective)))
+	if n.Ident.Name != "" {
+		e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String("~"+n.Ident.Name))
+	}
 	if n.Ident.ShortName != "" {
 		e.graph.Add(conjugated, e.sysml(pDeclaredShortName), rdf.String("~"+n.Ident.ShortName))
 	}

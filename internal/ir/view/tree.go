@@ -331,7 +331,7 @@ func (r *Renderer) containedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	seen := map[*symbols.Symbol]bool{}
 	for _, list := range [][]*symbols.Symbol{sym.Scope.Members(), sym.Scope.AnonymousMembers()} {
 		for _, member := range list {
-			if member == sym || seen[member] || !r.contentKind(member) {
+			if member == sym || seen[member] || member.Implied() || !r.contentKind(member) {
 				continue
 			}
 			seen[member] = true

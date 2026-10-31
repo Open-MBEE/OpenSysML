@@ -23,6 +23,10 @@ const (
 	ImplicitAnnotatingRelationship
 	// ImplicitImport reflects the Import declared by Decl in the namespace Owner.
 	ImplicitImport
+	// ImplicitPortConjugation reflects the PortConjugation the conjugated port
+	// definition Owner owns back to the port definition Member it conjugates
+	// (SysML 8.3.11.3).
+	ImplicitPortConjugation
 )
 
 // ImplicitRelationship is a relationship the abstract syntax holds as an
