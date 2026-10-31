@@ -16,7 +16,9 @@ import (
 const xPositionalName = "positionalName"
 
 // isPositionalName reports whether an address holds a positional segment: an
-// unquoted segment beginning with `@`. A name `'@2'` is quoted in an address.
+// unquoted segment beginning with `@`, the writer's address for an unnamed
+// member (`@2`) or a minted one (`@trigger`). A declared name beginning with
+// `@` is quoted in an address (identitySegment), so `P::'@abc'` is a name.
 func isPositionalName(name string) bool {
 	for _, segment := range identitySegments(name) {
 		if strings.HasPrefix(segment, "@") {
