@@ -194,7 +194,6 @@ func w9cIsCase(sym *symbols.Symbol) bool {
 // of the requirement it satisfies, which the operand is bound to.
 func (c *w9cBindingChecker) checkSatisfySubject(sym *symbols.Symbol, u *ast.Usage) {
 	var by ast.Node
-	var clause *ast.Relationship
 	typed := false
 	for _, rel := range u.Relationships {
 		if rel == nil || rel.Target == nil {
@@ -202,7 +201,7 @@ func (c *w9cBindingChecker) checkSatisfySubject(sym *symbols.Symbol, u *ast.Usag
 		}
 		switch rel.Kind {
 		case ast.RelSubject:
-			by, clause = rel.Target, rel
+			by = rel.Target
 		case ast.RelTyping:
 			typed = true
 		}
@@ -214,15 +213,7 @@ func (c *w9cBindingChecker) checkSatisfySubject(sym *symbols.Symbol, u *ast.Usag
 	if requirement, _ := c.model.SatisfyTarget(sym); requirement == nil || !typed && !requirement.IsFeature() {
 		return
 	}
-	// The `by` clause declares the satisfy's own, untyped subject parameter; the
-	// operand is judged against the subject it redefines, the requirement's.
-	subject := c.model.SubjectParameterOf(sym)
-	if subject != nil && subject.Decl == ast.Node(clause) {
-		if _, inherited := c.model.SubjectsOf(sym); len(inherited) > 0 {
-			subject = inherited[0]
-		}
-	}
-	want := c.model.FeatureTypeSet(subject)
+	want := c.model.FeatureTypeSet(c.model.SubjectParameterOf(sym))
 	if len(want) == 0 || c.valueConforms(kit.DeclarationScope(sym), by, want) {
 		return
 	}

@@ -1555,7 +1555,9 @@ func (ctx *Context) subjectParameterNames(sym *symbols.Symbol) []string {
 	if subject == nil {
 		return nil
 	}
-	names := bindingNames(subject.Name, subject.ShortName)
+	// An unnamed subject (a satisfy's `by` subject) is read by the names it takes
+	// from the subject it redefines (KerML 8.3.3.3 effectiveName).
+	names := bindingNames(ctx.model.semantics.EffectiveNameOf(subject), ctx.model.semantics.EffectiveShortNameOf(subject))
 	for _, redefined := range ctx.redefinedFeatures(subject, sym) {
 		for _, n := range bindingNames(redefined.Name, redefined.ShortName) {
 			if !slices.Contains(names, n) {

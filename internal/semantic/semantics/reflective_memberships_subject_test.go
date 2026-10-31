@@ -12,8 +12,8 @@ import (
 // reflective read lists among the usage's owned relationships.
 func TestSatisfySubjectMembershipIsOwned(t *testing.T) {
 	const src = `package P {
-		requirement def R;
 		part def Sys;
+		requirement def R { subject s : Sys; }
 		part sys : Sys {
 			satisfy requirement r : R by sys {
 				require constraint { true }
@@ -59,6 +59,12 @@ func TestSatisfySubjectMembershipIsOwned(t *testing.T) {
 	}
 	if got := ownedMembersOf(satisfy); len(got) != 2 || got[0] != subject {
 		t.Errorf("owned members = %v, want the subject first of 2", got)
+	}
+	if got := m.ImplicitRoleRedefinitions(subject); len(got) != 1 || got[0] == nil || got[0].Name != "s" {
+		t.Errorf("subject redefines %v, want R's subject s", got)
+	}
+	if got := m.FeatureTypeSet(subject); len(got) != 1 || got[0].Name != "Sys" {
+		t.Errorf("subject types = %v, want [Sys] through the redefined subject", got)
 	}
 	r2, _ := sys.Scope.LookupLocal("r2")
 	other := m.SubjectParameterOf(r2)
