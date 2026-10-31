@@ -456,12 +456,19 @@ func (d *decoder) parameterMember(el *element) bool {
 // is the `~` of the original's name, which the notation derives rather than
 // writing.
 func (d *decoder) verifyConjugated(el, parent *element) error {
-	name, _ := d.stringOf(el, rdf.SysML+pDeclaredName)
+	// The conjugate is named after whichever names the original declares: a
+	// declared name, else a declared short name, else the address segment.
+	property := pDeclaredName
 	original, ok := d.stringOf(parent, rdf.SysML+pDeclaredName)
 	if !ok {
-		segments := identitySegments(parent.qname)
-		original = identityName(segments[len(segments)-1])
+		if short, hasShort := d.stringOf(parent, rdf.SysML+pDeclaredShortName); hasShort {
+			property, original = pDeclaredShortName, short
+		} else {
+			segments := identitySegments(parent.qname)
+			original = identityName(segments[len(segments)-1])
+		}
 	}
+	name, _ := d.stringOf(el, rdf.SysML+property)
 	expected := "~" + original
 	if name != expected {
 		return &UnsupportedError{

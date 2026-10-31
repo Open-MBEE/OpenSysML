@@ -101,3 +101,20 @@ func TestConversionNamesAShortNamedPortsConjugateByItsShortName(t *testing.T) {
 	}
 	t.Fatal("the conversion writes no ConjugatedPortDefinition")
 }
+
+// A short-named port definition's graph converts back: the reverse converter
+// checks the conjugate's short name against the original's.
+func TestShortNamedPortDefinitionRoundTripsThroughRDF(t *testing.T) {
+	sf, _, _ := readerIndex(t, "short_rt.sysml", "package P { port def <s>; }\n")
+	graph, err := ToRDF(sf, parser.New(sf).ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	out, err := ToSysML(graph)
+	if err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	if !strings.Contains(string(out), "port def <s>") {
+		t.Errorf("round trip lost the port definition:\n%s", out)
+	}
+}
