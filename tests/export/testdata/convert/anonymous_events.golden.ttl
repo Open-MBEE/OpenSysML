@@ -167,7 +167,7 @@ elmt:AnonymousEvents__Sender__exchange_om
 
 elmt:AnonymousEvents__Sender___401
     a sysml:EventOccurrenceUsage ;
-    sysml:qualifiedName "AnonymousEvents::Sender::@1" ;
+    sysx:positionalName "AnonymousEvents::Sender::@1" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -273,7 +273,7 @@ elmt:AnonymousEvents__Sender__ack_om
 
 elmt:AnonymousEvents__Sender___403
     a sysml:EventOccurrenceUsage ;
-    sysml:qualifiedName "AnonymousEvents::Sender::@3" ;
+    sysx:positionalName "AnonymousEvents::Sender::@3" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -304,7 +304,7 @@ elmt:AnonymousEvents__Sender___403_om
 
 elmt:AnonymousEvents__Sender___404
     a sysml:EventOccurrenceUsage ;
-    sysml:qualifiedName "AnonymousEvents::Sender::@4" ;
+    sysx:positionalName "AnonymousEvents::Sender::@4" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;

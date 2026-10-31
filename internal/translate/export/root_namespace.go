@@ -286,7 +286,7 @@ func transparentRootSubject(graph *rdf.Graph, subject rdf.Term) bool {
 		!graph.HasProperty(subject, rdf.SysML+pOwningRelationship) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredShortName) &&
-		!graph.HasProperty(subject, rdf.SysML+pQualifiedName) &&
+		!hasAddress(graph, subject) &&
 		!graph.HasProperty(subject, rdf.OpenSysML+xHasBody)
 }
 
@@ -392,7 +392,7 @@ func uuidForm(graph *rdf.Graph, root rdf.Term) bool {
 // rootLocalID is the qualified-name-derived id a root carries in the
 // qualified form, the name the uuid form hashes.
 func rootLocalID(graph *rdf.Graph, root rdf.Term) string {
-	if name, ok := graph.Lexical(root, rdf.SysML+pQualifiedName); ok {
+	if name, ok := addressOf(graph, root); ok {
 		return rdf.EncodeElementID(name)
 	}
 	if name, ok := graph.Lexical(root, rdf.SysML+pDeclaredName); ok {

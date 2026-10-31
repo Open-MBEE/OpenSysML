@@ -324,7 +324,7 @@ elmt:SendNew__Downlink__ground_om
 elmt:SendNew__Downlink___402
     a sysml:SendActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "SendNew::Downlink::@2" ;
+    sysx:positionalName "SendNew::Downlink::@2" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;
@@ -522,7 +522,7 @@ expr:SendNew__Downlink___402_preceiver_om
 elmt:SendNew__Downlink___403
     a sysml:SendActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "SendNew::Downlink::@3" ;
+    sysx:positionalName "SendNew::Downlink::@3" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;

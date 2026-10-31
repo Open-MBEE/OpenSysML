@@ -30,7 +30,7 @@ elmt:ShadowBody
 
 elmt:ShadowBody___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "ShadowBody::@0" ;
+    sysx:positionalName "ShadowBody::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;

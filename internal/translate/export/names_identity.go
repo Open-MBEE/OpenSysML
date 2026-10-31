@@ -6,7 +6,9 @@ import (
 )
 
 func identitySegment(name string) string {
-	if positionalSegment(name) || strings.Contains(name, "::") || strings.HasPrefix(name, "'") {
+	// An unquoted `@` segment is the writer's address for an unnamed or minted
+	// member, so a declared name beginning with `@` is quoted to stay a name.
+	if strings.HasPrefix(name, "@") || strings.Contains(name, "::") || strings.HasPrefix(name, "'") {
 		var segment strings.Builder
 		segment.Grow(len(name) + 2)
 		segment.WriteByte('\'')

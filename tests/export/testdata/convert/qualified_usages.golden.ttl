@@ -1047,7 +1047,7 @@ elmt:Q__ctx__sr_om
 
 elmt:Q__ctx___4010
     a sysml:SatisfyRequirementUsage ;
-    sysml:qualifiedName "Q::ctx::@10" ;
+    sysx:positionalName "Q::ctx::@10" ;
     sysx:sourceLine "31"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "31"^^xsd:integer ;
@@ -1120,7 +1120,7 @@ elmt:Q__ctx__ac_om
 
 elmt:Q__ctx___4012
     a sysml:AssertConstraintUsage ;
-    sysml:qualifiedName "Q::ctx::@12" ;
+    sysx:positionalName "Q::ctx::@12" ;
     sysx:sourceLine "33"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "33"^^xsd:integer ;

@@ -94,9 +94,9 @@ func TestCrossFeatureNameTakenByBodyMemberRoundTrips(t *testing.T) {
 	if bodyMember.Value == crossFeature.Value {
 		t.Fatal("the body member and cross feature share an IRI")
 	}
-	for _, qname := range []string{"P::C::x::x1", "P::C::x::@1"} {
-		if !strings.Contains(string(turtle), `sysml:qualifiedName "`+qname+`"`) {
-			t.Errorf("Turtle lacks qualified name %q:\n%s", qname, turtle)
+	for predicate, qname := range map[string]string{"sysml:qualifiedName": "P::C::x::x1", "sysx:positionalName": "P::C::x::@1"} {
+		if !strings.Contains(string(turtle), predicate+` "`+qname+`"`) {
+			t.Errorf("Turtle lacks %s %q:\n%s", predicate, qname, turtle)
 		}
 	}
 	back := structuralRoundTrip(t, "cross-feature-name-collision.sysml", turtle)

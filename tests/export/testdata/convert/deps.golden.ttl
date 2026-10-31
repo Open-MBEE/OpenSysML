@@ -82,7 +82,7 @@ elmt:Deps__B_om
 
 elmt:Deps___402
     a sysml:Dependency ;
-    sysml:qualifiedName "Deps::@2" ;
+    sysx:positionalName "Deps::@2" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "4"^^xsd:integer ;
