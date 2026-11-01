@@ -1447,10 +1447,11 @@ func (c *pkgClient) applyEdits(ctx context.Context, request protoreflect.Message
 	if err != nil {
 		return nil, apiError(err)
 	}
-	response := &pb.ApplyEditsResponse{
-		//lint:ignore SA1019 the scenarios pin the deprecated field's compatibility
-		Content:     result.Content,
-		Diagnostics: diagnosticsToProto(result.Diagnostics),
+	response := &pb.ApplyEditsResponse{Diagnostics: diagnosticsToProto(result.Diagnostics)}
+	// The wire fills the sole-document content for a model of one document,
+	// which the public API carries in Documents alone.
+	if len(model.Roots) == 1 && len(result.Documents) == 1 {
+		response.Content = result.Documents[0].Content
 	}
 	for _, document := range result.Documents {
 		response.Documents = append(response.Documents, &pb.EditedDocument{

@@ -120,10 +120,9 @@ fmt.Println(exploration.Status()) // complete (6 runs)
 ```
 
 `ApplyEdits` rewrites a model's source and answers an `EditResult`: `Documents` is the edited
-notation of every document the batch reached, each under the name the parse gave it, and
-`Content` is the same notation for a model of exactly one document — the field the sole-document
-contract answered first, kept so a caller written against it is unchanged; it is empty for a model
-of several, even when the batch rewrote only one of them. The operations name elements declared
+notation of every document the batch reached, each under the name the parse gave it — for a
+model of one document, that one. (`EditResult.Content`, the sole-document notation the contract
+answered first, was deprecated in 0.9.0 and removed in 0.12.0.) The operations name elements declared
 in the model's first document; `ApplyDocumentEdits` names another. A rename or cascade delete
 follows its references into the model's other documents, every touched document is re-parsed
 and re-analysed together, and either all of them are answered or the refusal — an `*EditError`
@@ -132,8 +131,8 @@ request's `accept_documents`, which is what lets a model of several documents be
 request without it, as every earlier client sends, is refused on such a model with
 `FAILED_PRECONDITION` as before, so a caller reading `content` alone is never handed an empty one.
 A service advertising `apply_edits` without `edit_documents` (`CapabilityEditDocuments`) predates
-`Documents`: it edits a model of one document and answers `Content` alone, so a caller checks the
-capability before reading `Documents`, `Referrers` or an applied edit's `Document`.
+`Documents` and answers `content` alone, which this client no longer reads: `ApplyEdits` and
+`ApplyDocumentEdits` require the capability and are refused with `CodeUnimplemented` without it.
 
 `add_member` accepts the existing `specializes`, type, multiplicity and value fields, plus
 `body_expression`, `is_abstract`, `redefines`, `is_default` and `direction`. `body_expression`

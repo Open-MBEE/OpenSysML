@@ -135,7 +135,7 @@ outside the mapping. It never writes a partial model.
 
 The same conversion is available as the service method `Convert`, which `GetServerInfo` reports as
 the `convert` capability. It accepts either a `file_path` that the service opens or `content`
-passed inline, takes the same format names as `-from` and `-to`, and returns the written text
+passed inline, takes the same format names as `-from` and `-convert`, and returns the written text
 with its formats, or an `error` together with the diagnostics that explain it.
 `tolerate_syntax_errors` writes notation despite syntax errors; it is rejected for any direction
 that builds a graph, where an unparsed declaration would be silently dropped.

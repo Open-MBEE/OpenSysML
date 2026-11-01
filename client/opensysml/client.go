@@ -232,9 +232,8 @@ type Client interface {
 	// them all with an EditError. The edits target the model's first document —
 	// its only one when parsed from a file or source — and a rename or cascade
 	// delete follows references into every other document of the model, whose
-	// rewritten notation the result lists. Requires the apply_edits capability;
-	// a model of several documents, and a result listing Documents, the
-	// edit_documents capability too.
+	// rewritten notation the result lists. Requires the apply_edits and
+	// edit_documents capabilities.
 	ApplyEdits(ctx context.Context, model *Model, edits ...Edit) (*EditResult, error)
 
 	// ApplyDocumentEdits is ApplyEdits with the edits targeting the document
