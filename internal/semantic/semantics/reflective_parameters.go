@@ -77,7 +77,7 @@ func (m *Model) parameterListElements(sym *symbols.Symbol) ([]*symbols.Symbol, b
 		return nil, false
 	}
 	if isExpressionSymbol(sym) {
-		return m.expressionOwnedParts(sym), true
+		return m.expressionParameterParts(sym), true
 	}
 	var out []*symbols.Symbol
 	for _, parameter := range m.BehaviorParametersOf(sym) {
@@ -93,7 +93,7 @@ func (m *Model) directedFeatureElements(sym *symbols.Symbol) ([]*symbols.Symbol,
 		return nil, false
 	}
 	if isExpressionSymbol(sym) {
-		return m.expressionOwnedParts(sym), true
+		return m.expressionParameterParts(sym), true
 	}
 	return m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut), true
 }

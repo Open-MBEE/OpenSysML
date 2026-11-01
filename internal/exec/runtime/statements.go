@@ -1743,9 +1743,8 @@ func (e *stmtEngine) assign(s lower.Assign) (value Value, err error) {
 	return value, e.host.assignOuter(e.env, s.Target, value, s)
 }
 
-// actionStepHost is a host stepping an action token, which the trace names the
-// assignments of.
-type actionStepHost interface {
+// assignRecorder records assignments made while stepping an action token.
+type assignRecorder interface {
 	recordAssign(feature string, value Value)
 }
 
@@ -1779,7 +1778,7 @@ func (e *stmtEngine) noteAssign(feature string, value Value) {
 	if e.ctx.trace == nil {
 		return
 	}
-	if host, ok := e.host.(actionStepHost); ok {
+	if host, ok := e.host.(assignRecorder); ok {
 		host.recordAssign(feature, value)
 	}
 }

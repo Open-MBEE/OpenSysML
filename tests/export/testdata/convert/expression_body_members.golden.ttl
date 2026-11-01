@@ -181,14 +181,14 @@ expr:Bodies__Scaled___401_pbody
     sysx:bodyParameter expr:Bodies__Scaled___401_pin0 ;
     sysml:ownedRelationship expr:Bodies__Scaled___401_pin0_om, expr:Bodies__Scaled___401_pm1_om, expr:Bodies__Scaled___401_presult_om ;
     sysml:ownedMembership expr:Bodies__Scaled___401_pin0_om, expr:Bodies__Scaled___401_pm1_om, expr:Bodies__Scaled___401_presult_om ;
-    sysml:ownedFeatureMembership expr:Bodies__Scaled___401_pin0_om, expr:Bodies__Scaled___401_pm1_om ;
-    sysml:ownedFeature expr:Bodies__Scaled___401_pin0, expr:Bodies__Scaled___401_pm1 ;
+    sysml:ownedFeatureMembership expr:Bodies__Scaled___401_pin0_om, expr:Bodies__Scaled___401_pm1_om, expr:Bodies__Scaled___401_presult_om ;
+    sysml:ownedFeature expr:Bodies__Scaled___401_pin0, expr:Bodies__Scaled___401_pm1, expr:Bodies__Scaled___401_presult ;
     sysx:bodyMember expr:Bodies__Scaled___401_pm1 ;
     sysx:resultExpression expr:Bodies__Scaled___401_presult ;
     json:ownedRelationship "[{\"@id\":\"Bodies__Scaled___401_pin0_om\"},{\"@id\":\"Bodies__Scaled___401_pm1_om\"},{\"@id\":\"Bodies__Scaled___401_presult_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Scaled___401_pin0_om\"},{\"@id\":\"Bodies__Scaled___401_pm1_om\"},{\"@id\":\"Bodies__Scaled___401_presult_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Bodies__Scaled___401_pin0_om\"},{\"@id\":\"Bodies__Scaled___401_pm1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Bodies__Scaled___401_pin0\"},{\"@id\":\"Bodies__Scaled___401_pm1\"}]" .
+    json:ownedFeatureMembership "[{\"@id\":\"Bodies__Scaled___401_pin0_om\"},{\"@id\":\"Bodies__Scaled___401_pm1_om\"},{\"@id\":\"Bodies__Scaled___401_presult_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Bodies__Scaled___401_pin0\"},{\"@id\":\"Bodies__Scaled___401_pm1\"},{\"@id\":\"Bodies__Scaled___401_presult\"}]" .
 
 expr:Bodies__Scaled___401_pbody_om
     a sysml:FeatureMembership ;
@@ -643,6 +643,7 @@ expr:Bodies__Scaled___401_presult_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_pbody ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_pbody ;
+    sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult ;
     sysml:ownedResultExpression expr:Bodies__Scaled___401_presult .
 
 expr:Bodies__Scaled___401_pout

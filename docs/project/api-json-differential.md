@@ -230,21 +230,21 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 924 files)
 
-**Scorecard:** 932 files; 92426 elements matched (18479 ours-only, 37741 pilot-only, 0 of them implied); properties: 1144182 present-equal, 27977 present-different, 1054265 ours-missing, 69343 pilot-missing, 1967116 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
+**Scorecard:** 932 files; 92426 elements matched (18479 ours-only, 37741 pilot-only, 0 of them implied); properties: 1144254 present-equal, 27934 present-different, 1054236 ours-missing, 69343 pilot-missing, 1967116 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 28 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11728 (metaclass, property) rows carry a comparison; 111690 references compared through the unkeyed sentinel, 159865 of our `sysx:` annotations were left out, and 287/347 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 92405 | 1868 | 84784 | 5126 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 26536 | 6150 | 9580 | 334958 | 7779 | 305987 | 19290 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 116604 | 3196 | 106662 | 6811 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6399 | 1166 | 1842 | 74444 | 2504 | 63871 | 6503 |
-| `examples/spec-examples` | 511 | 7074 | 990 | 2656 | 78062 | 1605 | 72909 | 5549 |
+| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 92411 | 1864 | 84782 | 5126 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 26536 | 6150 | 9580 | 334973 | 7769 | 305982 | 19290 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 116607 | 3194 | 106661 | 6811 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6399 | 1166 | 1842 | 74458 | 2497 | 63864 | 6503 |
+| `examples/spec-examples` | 511 | 7074 | 990 | 2656 | 78065 | 1605 | 72906 | 5549 |
 | `tests/testdata` | 40 | 1460 | 175 | 511 | 16776 | 428 | 15647 | 1057 |
-| `examples` | 53 | 26937 | 6046 | 15045 | 340337 | 8502 | 315526 | 20150 |
+| `examples` | 53 | 26937 | 6046 | 15045 | 340365 | 8484 | 315516 | 20150 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 557 | 1 | 452 | 41 |
-| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 90039 | 2094 | 88427 | 4816 |
+| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 90042 | 2092 | 88426 | 4816 |
 
 **Defaulted parameters of an invocation** (re-recorded with the extension libraries at
 `DocumentQueries::WhereType(…, exact = false)` and `Differ`): the pilot's `InvocationExpression.parameter`
@@ -254,6 +254,17 @@ included, while this repository's writer lists the bound ones — so the 34 `Whe
 properties (`InvocationExpression.input` 368 → 334 equal, `.parameter` 382 → 348) when the library
 gained the parameter. The further pilot-library elements (198 for `exact`, 810 for `Differ`) are the
 new declarations themselves. No other row moved. Listing the defaulted parameters is a writer follow-up.
+
+**A body's result membership is a FeatureMembership** (re-recorded when the writer began stating a
+`ResultExpressionMembership` as the `FeatureMembership` subclass it is, KerML 8.3.4.1): the body
+Expression of `{ in x; … }` now lists it under `ownedFeatureMembership` and its result under
+`ownedFeature`, and the membership states `ownedMemberFeature`, as the pilot does — so
+`Expression.ownedFeatureMembership` moved 11 → 38 present-equal (26 present-different, 1 ours-missing
+gone), `Expression.ownedFeature` 6 → 24 equal (30 → 13 different) and
+`ResultExpressionMembership.ownedMemberFeature` 382 → 409 equal (29 → 2 ours-missing). The
+`Expression.ownedFeature` rows still different are bodies whose `in` parameter the pilot types
+`Feature` where ours writes `ReferenceUsage` (`Simple Tests/Expansion.kerml`), so the two
+parameters key apart. No other row moved.
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 

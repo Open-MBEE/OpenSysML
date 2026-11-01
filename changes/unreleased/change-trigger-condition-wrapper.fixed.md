@@ -1,0 +1,1 @@
+- A change trigger (`accept e when a > 1`) now reads natively as the RDF and API-JSON conversions write it: its `in` parameter binds a `FeatureReferenceExpression` whose `referent` is the written condition, which the wrapper owns through a `FeatureMembership` beside its `out` result; element ids match (`…_pa0`, `…_pa0_pchange`, `…_pa0_pout`).
