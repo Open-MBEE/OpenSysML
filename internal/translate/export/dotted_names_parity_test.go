@@ -1,6 +1,7 @@
 package export
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,8 +16,9 @@ import (
 )
 
 // The parser spells a dotted expression name as a receiver chain or nested chain
-// expressions, never as one chained qualified name: native and written memberships agree.
-func TestDottedExpressionNamesOwnNoChainFeature(t *testing.T) {
+// expressions, never as one chained qualified name. Only a receiver-reached call
+// (`q.p.f(1)`) owns a chain Feature, at `function`, natively as the conversion writes it.
+func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.T) {
 	text := `package P {
 	calc def F { in x : ScalarValues::Real; return y : ScalarValues::Real = x; }
 	part def Pt { attribute a : ScalarValues::Real; attribute b : ScalarValues::Real; calc f : F; }
@@ -28,6 +30,7 @@ func TestDottedExpressionNamesOwnNoChainFeature(t *testing.T) {
 		attribute e = q->Pt::f(1);
 		attribute g = q.p->Pt::f(2);
 		attribute h = new Pt(1, 2);
+		attribute m = q.p.f(q.p.f(1));
 	}
 }
 `
@@ -60,6 +63,7 @@ func TestDottedExpressionNamesOwnNoChainFeature(t *testing.T) {
 		return "?"
 	}
 	reader := NewElementIDReader([]ElementIDDocument{{File: sf, Root: root, ParseDiags: p.Diagnostics}})
+	pkg, _ := index.DocumentRoot(sf.Name()).LookupLocal("P")
 	var checked int
 	var check func(name string, expr *symbols.Symbol)
 	check = func(name string, expr *symbols.Symbol) {
@@ -79,9 +83,66 @@ func TestDottedExpressionNamesOwnNoChainFeature(t *testing.T) {
 		if strings.Join(native, ",") != strings.Join(written, ",") {
 			t.Errorf("%s (%s): native owns %v, the conversion writes %v", name, classOf(subjectOf[id]), native, written)
 		}
+		// Only a call reached through a pure chain of names (`q.p.f(1)`, nested or not)
+		// instantiates a chain Feature.
+		wantChain := false
+		if call, ok := expr.Decl.(*ast.InvocationExpr); ok {
+			wantChain = call.Type == nil && ast.ReceiverChain(call.Operand) != nil
+		}
+		chain := model.ExpressionChainFeature(expr)
+		if (chain != nil) != wantChain {
+			t.Errorf("%s: native chain Feature %v", name, chain)
+		}
 		for _, slot := range []string{"function", "targetFeature"} {
-			if element, _, err := reader.ReadExpressionPart(sf.Name(), expr.Decl, slot); err == nil && element != "" {
-				t.Errorf("%s: the conversion owns a chain Feature at %s (%s)", name, slot, element)
+			element, _, err := reader.ReadExpressionPart(sf.Name(), expr.Decl, slot)
+			owns := err == nil && element != ""
+			if owns != (wantChain && slot == "function") {
+				t.Errorf("%s: the conversion owns a chain Feature at %s = %v (%s)", name, slot, owns, element)
+			}
+			if !owns || chain == nil {
+				continue
+			}
+			var written []string
+			for _, link := range graph.Objects(subjectOf[element], rdf.SysML+"chainingFeature") {
+				written = append(written, classOf(link)+":"+graph.Objects(link, rdf.SysML+"declaredName")[0].Value)
+			}
+			var native []string
+			for _, link := range model.ChainingFeatures(chain) {
+				native = append(native, model.MetaclassOf(link).Name+":"+link.Name)
+			}
+			if got, want := strings.Join(native, ","), strings.Join(written, ","); got != want || len(native) != 3 {
+				t.Errorf("%s: native chains %v, the conversion writes %v", name, native, written)
+			}
+			if got := classOf(subjectOf[element]); got != "Feature" || model.MetaclassOf(chain).Name != "Feature" {
+				t.Errorf("%s: chain Feature written as %s, native %s", name, got, model.MetaclassOf(chain).Name)
+			}
+			// Expression::function is the typing Function (KerML 8.3.4.7.3): `f`'s calc
+			// def F on both ledgers; the chain Feature is the instantiated type.
+			F, _ := pkg.Scope.LookupLocal("F")
+			fID, _ := reader.Read(sf.Name(), F.Decl, "")
+			if function := graph.Objects(subjectOf[id], rdf.SysML+"function"); len(function) != 1 || function[0] != subjectOf[fID] {
+				t.Errorf("%s: the conversion states function %v, want F (%s)", name, function, fID)
+			}
+			if got, ok := model.ReflectiveElements(expr, "function"); !ok || len(got) != 1 || got[0] != F {
+				t.Errorf("%s: native function is %v, want F", name, got)
+			}
+			owned, _ := model.ReflectiveElements(expr, "ownedElement")
+			if len(owned) == 0 || owned[0] != chain {
+				t.Errorf("%s: native ownedElement %v does not lead with the chain Feature", name, owned)
+			}
+			if features, _ := model.ReflectiveElements(expr, "ownedFeature"); slices.Contains(features, chain) {
+				t.Errorf("%s: the chain Feature is owned through an OwningMembership, not an owned feature", name)
+			}
+			chainings, _ := model.ReflectiveElements(chain, "ownedFeatureChaining")
+			writtenChainings := graph.Objects(subjectOf[element], rdf.SysML+"ownedFeatureChaining")
+			if len(chainings) != 3 || len(chainings) != len(writtenChainings) {
+				t.Errorf("%s: native ownedFeatureChaining %d, the conversion writes %d", name, len(chainings), len(writtenChainings))
+			}
+			for i, chaining := range chainings {
+				target, _ := model.ReflectiveElements(chaining, "chainingFeature")
+				if model.MetaclassOf(chaining).Name != "FeatureChaining" || len(target) != 1 || target[0] != model.ChainingFeatures(chain)[i] {
+					t.Errorf("%s: ownedFeatureChaining[%d] is %s to %v", name, i, model.MetaclassOf(chaining).Name, target)
+				}
 			}
 		}
 		for i, parameter := range model.ExpressionParameters(expr) {
@@ -90,17 +151,17 @@ func TestDottedExpressionNamesOwnNoChainFeature(t *testing.T) {
 			}
 		}
 	}
-	pkg, _ := index.DocumentRoot(sf.Name()).LookupLocal("P")
 	d, _ := pkg.Scope.LookupLocal("D")
-	for _, name := range []string{"c", "d", "e", "g", "h"} {
+	for _, name := range []string{"c", "d", "e", "g", "h", "m"} {
 		feature, ok := d.Scope.LookupLocal(name)
 		if !ok {
 			t.Fatalf("no attribute %s", name)
 		}
 		check(name, model.ValueExpression(feature))
 	}
-	if checked < 10 {
-		t.Errorf("checked only %d expressions", checked)
+	// c, q.p, q; d, 1; e, q, 1; g, q.p, q, 2; h, 1, 2; m, q.p.f(1), 1.
+	if checked != 18 {
+		t.Errorf("checked %d expressions, want 18", checked)
 	}
 	ast.Inspect(root, func(node ast.Node) bool {
 		var name *ast.QualifiedName
@@ -117,4 +178,88 @@ func TestDottedExpressionNamesOwnNoChainFeature(t *testing.T) {
 		}
 		return true
 	})
+}
+
+// A receiver-reached call's function is the Function typing its chain's final
+// link on both ledgers: inherited through a subsetting, or the library Calculation
+// every calc usage implies — the one Function of a calc usage typed by no Function.
+func TestReceiverCalleeFunctionIsTheTypingFunction(t *testing.T) {
+	text := `package P {
+	calc def F { in x : ScalarValues::Real; return y : ScalarValues::Real = x; }
+	part def Pt {
+		calc base : F;
+		calc derived :> base;
+		calc untyped;
+		calc real : ScalarValues::Real;
+		calc explicit : Calculations::Calculation;
+	}
+	part def D {
+		part p : Pt;
+		attribute a = p.derived(1);
+		attribute b = p.untyped(1);
+		attribute c = p.real(1);
+	}
+}
+`
+	sf := source.New("typing.sysml", []byte(text))
+	p := parser.New(sf)
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse: %v", p.Diagnostics)
+	}
+	index := libs.NewModelIndex()
+	index.AddDocument(sf.Name(), root)
+	index.ExpandWildcardImports()
+	resolver := resolve.New(index)
+	model := semantics.NewModel(resolver)
+	resolver.ResolveDocument(sf.Name(), root)
+	graph, err := ToRDF(sf, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	subjectOf := map[string]rdf.Term{}
+	for _, subject := range graph.Subjects() {
+		for _, id := range graph.Objects(subject, rdf.SysML+"elementId") {
+			subjectOf[id.Value] = subject
+		}
+	}
+	reader := NewElementIDReader([]ElementIDDocument{{File: sf, Root: root, ParseDiags: p.Diagnostics}})
+	pkg, _ := index.DocumentRoot(sf.Name()).LookupLocal("P")
+	d, _ := pkg.Scope.LookupLocal("D")
+	F, _ := pkg.Scope.LookupLocal("F")
+	calculation, ok := resolver.ResolveQualified(nil, ast.QualifiedNameOf("Calculations", "Calculation"))
+	if !ok || calculation == nil {
+		t.Fatal("the library Calculation did not resolve")
+	}
+	pt, _ := pkg.Scope.LookupLocal("Pt")
+	explicit, _ := pt.Scope.LookupLocal("explicit")
+	explicitID, _ := reader.Read(sf.Name(), explicit.Decl, "")
+	librarySubject := graph.Objects(subjectOf[explicitID], rdf.SysML+"type")
+	if len(librarySubject) != 1 {
+		t.Fatalf("the explicit Calculation typing is written as %v", librarySubject)
+	}
+	for name, want := range map[string]*symbols.Symbol{"a": F, "b": calculation, "c": calculation} {
+		attr, _ := d.Scope.LookupLocal(name)
+		expr := model.ValueExpression(attr)
+		if expr == nil {
+			t.Fatalf("%s: no value expression", name)
+		}
+		id, err := reader.Read(sf.Name(), expr.Decl, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		written := graph.Objects(subjectOf[id], rdf.SysML+"function")
+		native, _ := model.ReflectiveElements(expr, "function")
+		wantSubject := librarySubject[0]
+		if want == F {
+			wantID, _ := reader.Read(sf.Name(), F.Decl, "")
+			wantSubject = subjectOf[wantID]
+		}
+		if len(written) != 1 || written[0] != wantSubject {
+			t.Errorf("%s: the conversion states function %v, want %s", name, written, want.Name)
+		}
+		if len(native) != 1 || native[0] != want {
+			t.Errorf("%s: native function is %v, want %s", name, native, want.Name)
+		}
+	}
 }

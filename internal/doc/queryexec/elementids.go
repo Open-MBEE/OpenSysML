@@ -56,6 +56,8 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 		return "body", true
 	case symbols.ExpressionBodyResult:
 		return "result", true
+	case symbols.ExpressionChainFeature:
+		return sym.Expr.Slot, true
 	}
 	return "", false
 }
@@ -103,6 +105,12 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 			if rel.Decl != nil {
 				return read.Read(sym.DocName, rel.Decl, "")
 			}
+		case symbols.ImplicitFeatureChaining:
+			if chain := rel.Owner; chain != nil && chain.Expr != nil && chain.Expr.Owner != nil {
+				element, _, err := read.ReadExpressionPart(chain.DocName, chain.Expr.Owner.Decl, chain.Expr.Slot+"."+rel.Slot)
+				return element, err
+			}
+			return "", nil
 		case symbols.ImplicitReferenceMembership:
 			if rel.Owner != nil && rel.Owner.Decl != nil {
 				_, membership, err := read.ReadExpressionPart(rel.Owner.DocName, rel.Owner.Decl, rel.Slot)

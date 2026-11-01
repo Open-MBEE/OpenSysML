@@ -1122,7 +1122,7 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		return "ConjugatedPortDefinition"
 	}
 	if sym.Expr != nil {
-		if isExpressionParameterSymbol(sym) {
+		if isExpressionParameterSymbol(sym) || sym.Expr.Role == symbols.ExpressionChainFeature {
 			return "Feature"
 		}
 		return expressionElementMetaclassName(sym)
@@ -1621,7 +1621,14 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			}
 		}
 		return ends, true
+	case "ownedFeatureChaining":
+		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+			return m.OwnedRelationships(sym), true
+		}
 	case "chainingFeature":
+		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+			return m.ChainingFeatures(sym), true
+		}
 		if !m.reflectiveMetaclassConforms(sym, "Feature") {
 			return nil, false
 		}
@@ -1890,6 +1897,12 @@ func (m *Model) reflectiveFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.FeatureTypeSetWithImplied(sym)
 }
 
+// FunctionTypes: the Functions among a feature's effective types (declared, inherited, or implied
+// by its kind) — those typing an expression that instantiates it (KerML 8.3.4.7.3).
+func (m *Model) FunctionTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	return m.conformingTypes(sym, "Function")
+}
+
 func (m *Model) conformingTypes(sym *symbols.Symbol, target string) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for _, typ := range m.reflectiveFeatureTypes(sym) {
@@ -1930,7 +1943,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		// feature's owned memberships.
 		members = append(members, value)
 	}
-	members = append(members, m.expressionOwnedParts(sym)...)
+	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, ownedMembersOf(sym)...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
@@ -2225,7 +2238,8 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return value, true
 		}
 	}
-	if sym.Expr != nil && !isExpressionParameterSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper {
+	if sym.Expr != nil && !isExpressionParameterSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper &&
+		sym.Expr.Role != symbols.ExpressionChainFeature {
 		// A parameter shares its expression's node but states none of its values.
 		if value, ok := expressionValue(sym, feature); ok {
 			return value, true
