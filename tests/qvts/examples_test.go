@@ -205,7 +205,10 @@ func markdownFenceBlocks(markdown string) []markdownFence {
 		}
 		info := strings.TrimSpace(strings.TrimPrefix(opening, "```"))
 		start := i + 1
-		for i++; i < len(lines) && !strings.HasPrefix(strings.TrimSpace(lines[i]), "```"); i++ {
+		for i++; i < len(lines); i++ {
+			if strings.HasPrefix(strings.TrimSpace(lines[i]), "```") {
+				break
+			}
 		}
 		if i < len(lines) {
 			blocks = append(blocks, markdownFence{
