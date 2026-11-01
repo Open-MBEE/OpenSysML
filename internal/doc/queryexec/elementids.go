@@ -88,50 +88,8 @@ func bodyParameterSlot(sym *symbols.Symbol) (span source.Span, slot string, ok b
 // Annotation as the metadata's; one the conversion never writes reads empty.
 func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) (string, error) {
 	if rel := sym.Implicit; rel != nil {
-		switch rel.Form {
-		case symbols.ImplicitMembership:
-			if slot, ok := expressionPartSlot(rel.Member); ok {
-				_, membership, err := read.ReadExpressionPart(rel.Member.DocName, rel.Member.Expr.Owner.Decl, slot)
-				return membership, err
-			}
-			if span, slot, ok := bodyParameterSlot(rel.Member); ok {
-				_, membership, err := read.ReadExpressionPart(rel.Member.DocName, spanNode{span}, slot)
-				return membership, err
-			}
-			if rel.Member != nil {
-				return read.ReadOwningMembership(rel.Member.DocName, rel.Member.Decl, query.QualifiedIdentity(idx, rel.Member))
-			}
-		case symbols.ImplicitImport:
-			if rel.Decl != nil {
-				return read.Read(sym.DocName, rel.Decl, "")
-			}
-		case symbols.ImplicitFeatureChaining:
-			if chain := rel.Owner; chain != nil && chain.Expr != nil && chain.Expr.Owner != nil {
-				element, _, err := read.ReadExpressionPart(chain.DocName, chain.Expr.Owner.Decl, chain.Expr.Slot+"."+rel.Slot)
-				return element, err
-			}
-			return "", nil
-		case symbols.ImplicitReferenceMembership:
-			if rel.Owner != nil && rel.Owner.Decl != nil {
-				_, membership, err := read.ReadExpressionPart(rel.Owner.DocName, rel.Owner.Decl, rel.Slot)
-				return membership, err
-			}
-			return "", nil
-		case symbols.ImplicitWritten:
-			if node := writtenRelationshipNode(rel); node != nil {
-				return read.ReadRelationship(sym.DocName, node)
-			}
-			return "", nil
-		case symbols.ImplicitOwnedAnnotation:
-			if rel.Member != nil && rel.Member.Decl != nil {
-				return read.ReadRelationship(rel.Member.DocName, rel.Member.Decl)
-			}
-			return "", nil
-		case symbols.ImplicitPortConjugation:
-			if rel.Owner != nil && rel.Owner.Decl != nil {
-				return read.ReadRelationship(rel.Owner.DocName, rel.Owner.Decl)
-			}
-			return "", nil
+		if id, ok, err := implicitRelationshipID(read, idx, sym, rel); ok {
+			return id, err
 		}
 	}
 	if slot, ok := expressionPartSlot(sym); ok {
@@ -143,6 +101,63 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		return element, err
 	}
 	return read.Read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
+}
+
+// implicitRelationshipID is the elementId of the relationship sym records implicitly,
+// read as the conversion writes it; ok is false for an implied membership without a
+// member, which reads as sym's own element.
+func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol, rel *symbols.ImplicitRelationship) (id string, ok bool, err error) {
+	switch rel.Form {
+	case symbols.ImplicitMembership:
+		if slot, ok := expressionPartSlot(rel.Member); ok {
+			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, rel.Member.Expr.Owner.Decl, slot)
+			return membership, true, err
+		}
+		if span, slot, ok := bodyParameterSlot(rel.Member); ok {
+			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, spanNode{span}, slot)
+			return membership, true, err
+		}
+		if rel.Member != nil {
+			id, err = read.ReadOwningMembership(rel.Member.DocName, rel.Member.Decl, query.QualifiedIdentity(idx, rel.Member))
+			return id, true, err
+		}
+	case symbols.ImplicitImport:
+		if rel.Decl != nil {
+			id, err = read.Read(sym.DocName, rel.Decl, "")
+			return id, true, err
+		}
+	case symbols.ImplicitFeatureChaining:
+		if chain := rel.Owner; chain != nil && chain.Expr != nil && chain.Expr.Owner != nil {
+			element, _, err := read.ReadExpressionPart(chain.DocName, chain.Expr.Owner.Decl, chain.Expr.Slot+"."+rel.Slot)
+			return element, true, err
+		}
+		return "", true, nil
+	case symbols.ImplicitReferenceMembership:
+		if rel.Owner != nil && rel.Owner.Decl != nil {
+			_, membership, err := read.ReadExpressionPart(rel.Owner.DocName, rel.Owner.Decl, rel.Slot)
+			return membership, true, err
+		}
+		return "", true, nil
+	case symbols.ImplicitWritten:
+		if node := writtenRelationshipNode(rel); node != nil {
+			id, err = read.ReadRelationship(sym.DocName, node)
+			return id, true, err
+		}
+		return "", true, nil
+	case symbols.ImplicitOwnedAnnotation:
+		if rel.Member != nil && rel.Member.Decl != nil {
+			id, err = read.ReadRelationship(rel.Member.DocName, rel.Member.Decl)
+			return id, true, err
+		}
+		return "", true, nil
+	case symbols.ImplicitPortConjugation:
+		if rel.Owner != nil && rel.Owner.Decl != nil {
+			id, err = read.ReadRelationship(rel.Owner.DocName, rel.Owner.Decl)
+			return id, true, err
+		}
+		return "", true, nil
+	}
+	return "", false, nil
 }
 
 // writtenRelationshipNode is the node the conversion writes rel's relationship element
