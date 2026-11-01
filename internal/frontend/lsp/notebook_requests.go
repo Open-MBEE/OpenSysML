@@ -25,22 +25,25 @@ func (s *Server) cellHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 		}
 		var result any
 		var err error
-		if json.Unmarshal(req.Params(), &params) == nil && s.notebooks.owning(params.TextDocument.URI) != nil {
-			result, err = s.cellRequest(ctx, req, params.TextDocument.URI)
+		var nb *notebookDocument
+		if json.Unmarshal(req.Params(), &params) == nil {
+			nb = s.notebooks.owning(params.TextDocument.URI)
+		}
+		if nb != nil {
+			result, err = s.cellRequest(ctx, req, nb, params.TextDocument.URI)
 		} else {
 			result, err = inner(ctx, req)
 		}
 		if err != nil || result == nil {
 			return result, err
 		}
-		return s.cellResult(req.Method(), result)
+		return s.cellResult(req.Method(), result, nb)
 	}
 }
 
 // cellRequest answers a request on the cell at u. A cell of a language the
 // server does not read answers nothing.
-func (s *Server) cellRequest(ctx context.Context, req *jsonrpc2.Request, u uri.URI) (any, error) {
-	nb := s.notebooks.owning(u)
+func (s *Server) cellRequest(ctx context.Context, req *jsonrpc2.Request, nb *notebookDocument, u uri.URI) (any, error) {
 	cell := nb.cell(u)
 	if cell == nil || !cell.inSource() {
 		return nil, nil
@@ -217,8 +220,9 @@ func cellTokens(toks *protocol.SemanticTokens, cell *notebookCell) *protocol.Sem
 
 // cellResult moves every position of a result that stands in an open
 // notebook's document to the cell it stands in, working on the result's JSON
-// so one rule covers every answer shape.
-func (s *Server) cellResult(method string, result any) (any, error) {
+// so one rule covers every answer shape; a bare range is in implicit, the
+// notebook whose cell was asked.
+func (s *Server) cellResult(method string, result any, implicit *notebookDocument) (any, error) {
 	raw, err := protocol.Marshal(result)
 	if err != nil {
 		return nil, err
@@ -230,7 +234,7 @@ func (s *Server) cellResult(method string, result any) (any, error) {
 	if method == protocol.MethodCodeLensResolve {
 		s.cellLensCommand(value)
 	}
-	return s.mapValue(value, nil), nil
+	return s.mapValue(value, implicit), nil
 }
 
 // notebookOf is the open notebook whose document a URI names, nil otherwise.

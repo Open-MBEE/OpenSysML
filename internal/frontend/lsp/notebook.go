@@ -3,6 +3,7 @@ package lsp
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -10,6 +11,8 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/notebook"
 )
@@ -389,6 +392,7 @@ func (s *Server) sendNotebookDiagnosticsLocked(ctx context.Context, nb *notebook
 			diags = append(diags, f.Diagnostic)
 		}
 		pos := positionsFor(content)
+		diags = append(diags, s.laterCellReferences(nb)...)
 		for _, d := range diags {
 			ld := protocolDiagnostic(pos, d)
 			if cell, rng, ok := nb.toCellRange(ld.Range); ok {
@@ -401,4 +405,72 @@ func (s *Server) sendNotebookDiagnosticsLocked(ctx context.Context, nb *notebook
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{URI: cell, Diagnostics: sets[cell]})
 	}
 	s.queueRenderChanged(ctx, nb.name)
+}
+
+// laterCellReferences reports each reference in a cell to a declaration in a
+// later cell: the document resolves it, as a file resolves a forward
+// reference, but the kernel runs cells in order and would not have seen it.
+func (s *Server) laterCellReferences(nb *notebookDocument) []diag.Diagnostic {
+	doc := s.ws.Document(nb.name)
+	if doc == nil || doc.Scope == nil {
+		return nil
+	}
+	pos := positionsFor(nb.source)
+	var out []diag.Diagnostic
+	seen := map[*symbols.Symbol]bool{}
+	var visit func(scope *symbols.Scope)
+	visit = func(scope *symbols.Scope) {
+		for _, sym := range scope.Members() {
+			if seen[sym] || sym.DocName != nb.name || sym.NameSpan.Len == 0 {
+				continue
+			}
+			seen[sym] = true
+			declared := nb.cellAt(int(pos.position(sym.NameSpan.Offset).Line))
+			refs, err := s.ws.ReferencesTo(sym)
+			if err != nil || declared == nil {
+				continue
+			}
+			for _, ref := range refs {
+				if ref.Doc != nb.name {
+					continue
+				}
+				from := nb.cellAt(int(pos.position(ref.Span.Offset).Line))
+				if from != nil && nb.cellIndex(from) < nb.cellIndex(declared) {
+					out = append(out, diag.Diagnostic{
+						Severity: diag.SeverityError,
+						Span:     ref.Span,
+						Message:  fmt.Sprintf("%s is declared in a later cell; the kernel runs cells in order", sym.Name),
+						Source:   "notebook",
+					})
+				}
+			}
+		}
+		for _, child := range scope.Children() {
+			visit(child)
+		}
+	}
+	visit(doc.Scope)
+	return firstSegments(out, nb.source)
+}
+
+// firstSegments keeps the first reported segment of each qualified name: the
+// later segments resolve through the first, so one mark says it.
+func firstSegments(diags []diag.Diagnostic, content []byte) []diag.Diagnostic {
+	slices.SortFunc(diags, func(a, b diag.Diagnostic) int { return a.Span.Offset - b.Span.Offset })
+	var out []diag.Diagnostic
+	for _, d := range diags {
+		if n := len(out); n > 0 {
+			prev := out[n-1].Span.End()
+			if prev <= d.Span.Offset && d.Span.Offset <= len(content) && strings.TrimSpace(string(content[prev:d.Span.Offset])) == "::" {
+				continue
+			}
+		}
+		out = append(out, d)
+	}
+	return out
+}
+
+// cellIndex is the position of cell in the notebook.
+func (d *notebookDocument) cellIndex(cell *notebookCell) int {
+	return slices.Index(d.cells, cell)
 }
