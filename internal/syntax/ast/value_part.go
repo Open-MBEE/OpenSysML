@@ -22,23 +22,16 @@ func ValuePartOf(node Node) (value Node, isDefault, isInitial, ok bool) {
 	return value, isDefault, isInitial, true
 }
 
-// ExpressionOperand is one operand of an expression, at the slot the RDF
-// conversion names it by and bound to the `in` parameter Index of the
-// expression; Index is -1 for an operand no parameter binds (an invocation's
-// receiver when no function is named).
+// ExpressionOperand is an operand at the slot the RDF conversion names it by,
+// bound to `in` parameter Index of its expression (-1: no parameter binds it).
 type ExpressionOperand struct {
 	Node  Node
 	Slot  string
 	Index int
 }
 
-// ExpressionOperands are the operands of an expression node in the order the
-// RDF conversion writes them, and the parameter index of a type argument, or
-// -1 when the expression has none: an operator's operands then its type
-// argument; a cast's type argument alone; an invocation's receiver (`x->f(…)`),
-// positional arguments and named arguments; an index's operand and index; a
-// collect's or select's operand and body; a sequence's elements; a time
-// event's duration. Nil for any other node.
+// ExpressionOperands are an expression's operands in the order the RDF conversion
+// writes them, and its type argument's parameter index (-1 when it has none).
 func ExpressionOperands(node Node) (operands []ExpressionOperand, typeArgument int) {
 	positional := func(nodes []Node, first int) {
 		for i, n := range nodes {

@@ -284,10 +284,8 @@ func TestOperatorExpressionOperatorForEveryNotationForm(t *testing.T) {
 	}
 }
 
-// An invocation owns one `in` parameter per argument — the receiver of the
-// arrow form first, then positional, then named arguments — each binding its
-// argument through a FeatureValue, and its result, as the conversion writes
-// them; a constructor the same without a receiver.
+// An invocation or constructor owns one `in` parameter per argument (receiver,
+// positional, named), each binding it through a FeatureValue, and its result.
 func TestInvocationOwnsItsArgumentParameters(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `
 		package P {
