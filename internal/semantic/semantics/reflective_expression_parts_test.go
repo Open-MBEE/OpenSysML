@@ -609,6 +609,18 @@ func TestBodyExpressionOwnsItsBodyParametersAndResult(t *testing.T) {
 	if kValue := m.ValueExpression(k); kValue == nil || m.MetaclassOf(kValue).Name != "LiteralInteger" {
 		t.Errorf("k's value = %v", kValue)
 	}
+	if owned, _ := m.ReflectiveElements(reference, "ownedElement"); len(owned) != 2 || owned[0] != body {
+		t.Errorf("reference ownedElement = %v, want the body then the result", owned)
+	}
+	if owned, _ := m.ReflectiveElements(body, "ownedElement"); len(owned) != 3 || owned[0] != q || owned[1] != k || owned[2] != result {
+		t.Errorf("body ownedElement = %v, want q, k, result", owned)
+	}
+	if owned, _ := m.ReflectiveElements(body, "ownedFeature"); len(owned) != 3 || owned[0] != q || owned[2] != result {
+		t.Errorf("body ownedFeature = %v", owned)
+	}
+	if owned, _ := m.ReflectiveElements(body, "parameter"); len(owned) != 0 {
+		t.Errorf("body parameter = %v, want none (its in features are FeatureMembers)", owned)
+	}
 	if again := m.OwnedMemberships(reference)[0].Implicit.Member; again != body || m.OwnedMemberships(body)[2].Implicit.Member != result {
 		t.Error("a second read synthesizes different identities")
 	}

@@ -256,6 +256,12 @@ func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
 		// ahead of its result (changeArgument).
 		out = append(out, parts.condition)
 	}
+	if parts.body != nil {
+		// A `{ … }` reference owns its body ahead of its result (bodyExpression).
+		out = append(out, parts.body)
+	}
+	// A body owns its parameters and members ahead of its result.
+	out = append(out, parts.members...)
 	if parts.result != nil {
 		out = append(out, parts.result)
 	}
@@ -270,7 +276,8 @@ func (m *Model) expressionParameterParts(expr *symbols.Symbol) []*symbols.Symbol
 		return nil
 	}
 	out := append([]*symbols.Symbol{}, parts.params...)
-	if parts.result != nil {
+	if parts.result != nil && parts.result.Expr.Role == symbols.ExpressionResult {
+		// A body's result expression is a ResultExpressionMember, not a parameter.
 		out = append(out, parts.result)
 	}
 	return out
