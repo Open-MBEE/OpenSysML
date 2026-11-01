@@ -306,3 +306,21 @@ func TestNotebookLanguageFollowsItsFirstModelCell(t *testing.T) {
 		t.Error("a cell outside the model answers hover")
 	}
 }
+
+// Removing the SysML cell above an identical KerML cell changes the notebook's
+// language though not its text: the text is parsed again, as KerML.
+func TestNotebookLanguageChangeReparsesUnchangedText(t *testing.T) {
+	nb := openCells(t, []cellSpec{{"sysml", "part def A;\n"}, {"kerml", "part def A;\n"}})
+	if diags := nb.awaitDiagnostics(nb.cells[0]); len(diags) != 0 {
+		t.Errorf("SysML cell: %s", asJSON(diags))
+	}
+	if diags := nb.awaitDiagnostics(nb.cells[1]); len(diags) != 1 || !strings.Contains(asJSON(diags), "kerml cell in a sysml notebook") {
+		t.Errorf("KerML cell in a SysML notebook: %s", asJSON(diags))
+	}
+	nb.change(2, fmt.Sprintf(`{"structure": {"array": {"start": 0, "deleteCount": 1, "cells": []}, "didClose": [{"uri": %q}]}}`, nb.cells[0]))
+	nb.awaitDiagnostics(nb.cells[0])
+	diags := nb.awaitDiagnostics(nb.cells[1])
+	if len(diags) == 0 || strings.Contains(asJSON(diags), "notebook") {
+		t.Errorf("part def in a KerML notebook: want KerML syntax diagnostics, got %s", asJSON(diags))
+	}
+}

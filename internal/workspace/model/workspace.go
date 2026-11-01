@@ -387,12 +387,15 @@ func (w *Workspace) OpenWithKind(name string, content []byte, version int, kind 
 }
 
 // setOpenBuffer records a copy of an open buffer and reindexes it, unless the
-// loaded document already holds that text, when only the version moves.
+// loaded document already holds that text in that language, when only the
+// version moves.
 func (w *Workspace) setOpenBuffer(name string, content []byte, version int) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.open[name] = true
-	if held := w.docs[name]; held != nil && !held.Recorded() && bytes.Equal(held.Content, content) {
+	held := w.docs[name]
+	sameKind := held != nil && (w.kinds[name] == source.KindUnknown || w.kinds[name] == held.Kind())
+	if held != nil && sameKind && !held.Recorded() && bytes.Equal(held.Content, content) {
 		if held.Version != version {
 			versioned := *held
 			versioned.Version = version
