@@ -452,28 +452,45 @@ func (d *decoder) parameterMember(el *element) bool {
 	return kind
 }
 
-// verifyConjugated checks a conjugated port definition against its owner: it
-// is the `~` of the original's name, which the notation derives rather than
-// writing.
+// verifyConjugated checks the conjugate's declared names against its original.
 func (d *decoder) verifyConjugated(el, parent *element) error {
-	// The conjugate is named after whichever names the original declares: a
-	// declared name, else a declared short name, else the address segment.
-	property := pDeclaredName
-	original, ok := d.stringOf(parent, rdf.SysML+pDeclaredName)
-	if !ok {
-		if short, hasShort := d.stringOf(parent, rdf.SysML+pDeclaredShortName); hasShort {
-			property, original = pDeclaredShortName, short
-		} else {
-			segments := identitySegments(parent.qname)
-			original = identityName(segments[len(segments)-1])
+	expectedName := ""
+	if original, ok := d.stringOf(parent, rdf.SysML+pDeclaredName); ok {
+		expectedName = "~" + original
+	} else if parent.qname != "" {
+		segments := identitySegments(parent.qname)
+		last := segments[len(segments)-1]
+		if !positionalSegment(last) {
+			expectedName = "~" + identityName(last)
 		}
 	}
-	name, _ := d.stringOf(el, rdf.SysML+property)
-	expected := "~" + original
-	if name != expected {
+	statedNames := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pDeclaredName)
+	nameValues := make([]string, len(statedNames))
+	for i, value := range statedNames {
+		nameValues[i] = value.Value
+	}
+	if len(statedNames) > 1 || expectedName == "" && len(statedNames) != 0 ||
+		expectedName != "" && (len(statedNames) != 1 || !statedNames[0].IsLiteral() || statedNames[0].Value != expectedName) {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the conjugated port definition <%s>", el.iri),
-			Note: fmt.Sprintf("it is named %q where the port definition it conjugates is %q, and the conjugate is derived as ~ rather than written", name, expected),
+			Note: fmt.Sprintf("its declaredName is %q where the original requires %q", strings.Join(nameValues, ", "), expectedName),
+		}
+	}
+	short, hasShort := d.stringOf(parent, rdf.SysML+pDeclaredShortName)
+	expectedShort := ""
+	if hasShort {
+		expectedShort = "~" + short
+	}
+	statedShorts := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pDeclaredShortName)
+	if len(statedShorts) > 0 && (len(statedShorts) != 1 || expectedShort == "" ||
+		!statedShorts[0].IsLiteral() || statedShorts[0].Value != expectedShort) {
+		found := make([]string, len(statedShorts))
+		for i, value := range statedShorts {
+			found[i] = value.Value
+		}
+		return &UnsupportedError{
+			What: fmt.Sprintf("the conjugated port definition <%s>", el.iri),
+			Note: fmt.Sprintf("its declaredShortName is %q where the original permits no value or the legacy value %q", strings.Join(found, ", "), expectedShort),
 		}
 	}
 	return nil

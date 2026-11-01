@@ -1,5 +1,5 @@
 // Writing a model back out, in SysML notation or RDF Turtle. The formats are
-// named as the `sysml` CLI's -from/-to name them.
+// named as the `sysml` CLI's -from/-convert name them.
 
 import { byCodeUnit } from "./capabilities.js";
 import type { ModelDiagnostic } from "./errors.js";
