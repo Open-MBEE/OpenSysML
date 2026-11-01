@@ -1,0 +1,11 @@
+loaded 2 files:
+  examples/qvts/lander.sysml
+  examples/qvts/queries.sysml
+✓ package Lander
+✓ package QVTSDemo
+SysML v2 REPL — %help for commands, Ctrl-D to exit
+✓ Query QVTSDemo::CabinMass returned 1 row
+  Columns: qualifiedName, mass
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+    mass = 320.0

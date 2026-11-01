@@ -1,0 +1,7 @@
+✓ package Lander
+✓ package QVTSDemo
+sysml: query QVTSDemo::MissingMassFilter reads feature mass of Lander::lander::cabinEngine, which has no such feature (also absent on Lander::lander::engineBay)
+  path error at Feature(mass): expected a feature named mass on the element
+    at Lander::lander::cabinEngine; features: []
+  path error at Feature(mass): expected a feature named mass on the element
+    at Lander::lander::engineBay; features: []
