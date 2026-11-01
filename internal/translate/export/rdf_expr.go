@@ -2093,7 +2093,7 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 	// else names a second callee.
 	var agree bool
 	if collapsed.IsIRI() {
-		agree = len(segments) > 0 && d.typesChainEnd(segments[len(segments)-1], collapsed)
+		agree = len(segments) > 0 && d.typesChainEnd(segments[len(segments)-1], collapsed, in)
 	} else {
 		agree = collapsed.Value == strings.Join(spelled, ".")
 	}
@@ -2114,13 +2114,18 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 // a Function typing it: one the feature or a feature it subsets or redefines
 // states, or — where none states one — the library type the feature's kind
 // implies (an untyped calc usage is a Calculation).
-func (d *decoder) typesChainEnd(end, function rdf.Term) bool {
+func (d *decoder) typesChainEnd(end, function rdf.Term, in *element) bool {
 	if end == function {
 		return true
 	}
 	types := d.statedTypes(end, map[rdf.Term]bool{})
 	if len(types) == 0 {
-		implied, ok := impliedLibraryType[d.metaclass(end)]
+		implied, ok := impliedFunctionType[d.metaclass(end)]
+		if d.kerml(in) && d.metaclass(end) == "ConstraintUsage" {
+			// KerML's `inv` is written as a ConstraintUsage; its implied type is
+			// the library BooleanEvaluation (KerML 8.4.2), not the SysML check.
+			implied, ok = "Performances::BooleanEvaluation", true
+		}
 		if !ok {
 			return false
 		}
@@ -2130,11 +2135,23 @@ func (d *decoder) typesChainEnd(end, function rdf.Term) bool {
 	return slices.Contains(types, function)
 }
 
-// impliedLibraryType is the library type an untyped usage of a kind is typed
-// by (SysML v2 8.3.11 implied typing), by the usage's metaclass, for the kinds
-// whose type is a Function.
-var impliedLibraryType = map[string]string{
-	"CalculationUsage": "Calculations::Calculation",
+// impliedFunctionType is the library Function an untyped usage is typed by
+// (SysML v2 8.3.11, KerML 8.4.2 implied typing), by the usage's metaclass, for
+// the kinds whose implied type is a Function — the function a call reaching
+// such a usage has; TestImpliedFunctionTypeIsTheModelsImpliedTyping holds it
+// to the semantic model.
+var impliedFunctionType = map[string]string{
+	"CalculationUsage":      "Calculations::Calculation",
+	"ConstraintUsage":       "Constraints::ConstraintCheck",
+	"RequirementUsage":      "Requirements::RequirementCheck",
+	"ConcernUsage":          "Requirements::ConcernCheck",
+	"ViewpointUsage":        "Views::ViewpointCheck",
+	"CaseUsage":             "Cases::Case",
+	"AnalysisCaseUsage":     "AnalysisCases::AnalysisCase",
+	"VerificationCaseUsage": "VerificationCases::VerificationCase",
+	"UseCaseUsage":          "UseCases::UseCase",
+	"Expression":            "Performances::Evaluation",
+	"BooleanUsage":          "Performances::BooleanEvaluation",
 }
 
 // statedTypes are the types a feature states, in its collapsed `type` and its
