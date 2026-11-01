@@ -5,9 +5,56 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
+
+func TestExpressionMemosAreLazy(t *testing.T) {
+	m, _, replace := trackedModel(t, symbols.NewIndex(), "values.sysml")
+	if m.valueExpressions != nil || m.expressionParts != nil || m.bodySymbols != nil {
+		t.Fatal("constructing a model allocated unused expression memos")
+	}
+	src := "package P { attribute plain; attribute x = 1 + 2; attribute y = { in v; v }; }"
+	scope := replace(src)
+	p := sym(t, scope, "P")
+	if m.ValueExpression(sym(t, p.Scope, "plain")) != nil {
+		t.Fatal("a feature without a value has a value expression")
+	}
+	if m.valueExpressions != nil || m.expressionParts != nil || m.bodySymbols != nil {
+		t.Fatal("reading a feature without a value allocated expression memos")
+	}
+	x := sym(t, p.Scope, "x")
+	expr := m.ValueExpression(x)
+	if expr == nil || m.valueExpressions == nil || m.expressionParts != nil || m.bodySymbols != nil {
+		t.Fatal("reading a value did not initialize only its value-expression memo")
+	}
+	parts := m.expressionPartsOf(expr)
+	if parts == nil || m.expressionParts == nil || m.bodySymbols != nil {
+		t.Fatal("reading expression parts did not initialize their memo")
+	}
+	if m.ValueExpression(x) != expr || m.expressionPartsOf(expr) != parts {
+		t.Fatal("repeated reflection changed the expression's identities")
+	}
+	y := sym(t, p.Scope, "y")
+	bodyParts := m.expressionPartsOf(m.ValueExpression(y))
+	if bodyParts == nil || bodyParts.body == nil || m.bodySymbols == nil {
+		t.Fatal("reflecting a body did not initialize its body-symbol memo")
+	}
+	body, ok := bodyParts.body.Decl.(*ast.BodyExpr)
+	if !ok || m.bodySymbols[body] != bodyParts.body {
+		t.Fatal("the body-symbol memo did not retain the reflected body's identity")
+	}
+	scope = replace(src)
+	if _, stale := m.bodySymbols[body]; stale {
+		t.Fatal("the previous document's body-symbol entry survived the edit")
+	}
+	freshY := sym(t, sym(t, scope, "P").Scope, "y")
+	fresh := m.expressionPartsOf(m.ValueExpression(freshY))
+	if fresh == nil || fresh.body == nil || fresh.body == bodyParts.body {
+		t.Fatal("the new document did not get its own body expression")
+	}
+}
 
 // trackedModel holds idx in a tracking resolver, the way a workspace holds its
 // persistent model, and returns a function replacing the document called name.
