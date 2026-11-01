@@ -42,11 +42,6 @@ const (
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>]"
 )
 
-// isMeta reports whether a trimmed input line is a meta command.
-func isMeta(line string) bool {
-	return strings.HasPrefix(strings.TrimSpace(line), "%")
-}
-
 // parseArgs splits a command line into arguments, handling quoted strings.
 // A double-quoted string is one argument with its quotes removed, which is how a
 // file path holding spaces is written; a SysML single-quoted name is one

@@ -64,6 +64,29 @@ use; `opensysml/applyModelEdit` computes the edits that would make a document sa
 something else and hands them back for the client to apply, so the change lands
 in the editor's own buffer and undo history.
 
+## Notebook documents
+
+The server synchronizes notebooks as the protocol defines them (`notebookDocumentSync`, for
+notebooks holding a cell in `sysml` or `kerml`; `notebookDocument/didOpen`, `didChange`, `didSave`
+and `didClose`), and a client that syncs a notebook this way may make every `textDocument/*`
+request on its cells. A notebook is one document to the server: the text of its `sysml` and
+`kerml` code cells in notebook order, each cell's `%` command lines and bare expressions blank
+(the kernel's reading of a loaded notebook, see [the kernel](jupyter-kernel.md)), so a later
+cell resolves names an earlier cell declares. The document's language is its first model
+cell's: a `kerml` cell in a notebook whose first model cell is `sysml` (or the reverse) is not
+part of it and receives one information diagnostic saying so. A cell of another kind or
+language is not part of it; a cell whose language changes joins or leaves it.
+
+Every answer is in the cell's terms. Diagnostics are published per cell, each cell receiving
+its own set after every change (an edit, an inserted, deleted or moved cell), and an empty set
+when the cell leaves the notebook or the notebook closes; a reference to a declaration in a
+later cell is reported as an error from source `notebook`. Positions in a request are read in
+the cell; positions in an answer — hover and lens ranges, locations, text and workspace edits,
+document symbols, inlay hints, semantic tokens — are the cell's, and a location in another
+open notebook's document names that notebook's cell. `textDocument/documentSymbol`,
+`codeLens` and `semanticTokens` on a cell answer that cell's part of the notebook;
+`textDocument/formatting` on a cell formats that cell's lines.
+
 ## Strict conformance (setting)
 
 Whether the server judges a document as conforming SysML v2 (reporting notation

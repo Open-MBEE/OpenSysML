@@ -2,12 +2,14 @@ import { JupyterFrontEnd, JupyterFrontEndPlugin } from '@jupyterlab/application'
 import { IEditorLanguageRegistry } from '@jupyterlab/codemirror';
 import { LanguageSupport, StreamLanguage } from '@codemirror/language';
 
+import { braceFolding } from './fold';
 import { kerml, sysml } from './sysml';
 
 /**
  * Registers the sysml and kerml CodeMirror languages, under the names, MIME
  * types and file extensions the sysml kernel's language_info reports, so
- * notebook cells, .sysml/.kerml files and ```sysml Markdown blocks are highlighted.
+ * notebook cells, .sysml/.kerml files and ```sysml Markdown blocks are
+ * highlighted and their `{ … }` blocks fold.
  */
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'jupyterlab-opensysml:languages',
@@ -20,14 +22,14 @@ const plugin: JupyterFrontEndPlugin<void> = {
       displayName: 'SysML v2',
       mime: 'text/x-sysml',
       extensions: ['sysml'],
-      support: new LanguageSupport(StreamLanguage.define(sysml))
+      support: new LanguageSupport(StreamLanguage.define(sysml), braceFolding)
     });
     languages.addLanguage({
       name: 'kerml',
       displayName: 'KerML',
       mime: 'text/x-kerml',
       extensions: ['kerml'],
-      support: new LanguageSupport(StreamLanguage.define(kerml))
+      support: new LanguageSupport(StreamLanguage.define(kerml), braceFolding)
     });
   }
 };

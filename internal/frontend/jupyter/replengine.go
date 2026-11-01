@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/notebook"
 )
 
 // errPrefix marks a line the prompt prints for a failure.
@@ -33,7 +34,7 @@ func (e *REPLEngine) Session() *repl.Session { return e.session }
 // Execute runs the cell's statements in order and stops at the first that
 // fails, as a cell of any other kernel does.
 func (e *REPLEngine) Execute(code string, out Output) error {
-	for _, stmt := range repl.Statements(code) {
+	for _, stmt := range notebook.Statements(code) {
 		if err := e.execute(stmt, out); err != nil {
 			return err
 		}
@@ -42,11 +43,11 @@ func (e *REPLEngine) Execute(code string, out Output) error {
 }
 
 // execute runs one statement.
-func (e *REPLEngine) execute(stmt repl.Statement, out Output) error {
-	if stmt.Meta {
+func (e *REPLEngine) execute(stmt notebook.Statement, out Output) error {
+	if stmt.Command {
 		return e.meta(stmt.Text, out)
 	}
-	if expr, ok := repl.BareExpression(stmt.Text); ok {
+	if expr, ok := notebook.BareExpression(stmt.Text); ok {
 		lines, err := e.session.EvalBare(expr)
 		if err != nil {
 			return execError("EvaluationError", err.Error(), lines)
@@ -259,12 +260,12 @@ func byteOffset(s string, cursor int) int {
 // IsComplete reports whether the cell is ready to run: a declaration left open
 // by a brace, parenthesis or bracket is not, and its continuation is indented.
 func (e *REPLEngine) IsComplete(code string) (IsCompleteStatus, string) {
-	stmts := repl.Statements(code)
+	stmts := notebook.Statements(code)
 	if len(stmts) == 0 {
 		return Complete, ""
 	}
 	last := stmts[len(stmts)-1]
-	if !last.Meta && repl.NeedsContinuation(last.Text) {
+	if !last.Command && notebook.NeedsContinuation(last.Text) {
 		return Incomplete, "  "
 	}
 	return Complete, ""
