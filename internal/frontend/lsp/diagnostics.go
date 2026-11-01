@@ -44,6 +44,10 @@ func (s *Server) publishOpenDiagnostics(ctx context.Context, name string) {
 // pubMu, so a client sees the diagnostics of an analysis before the render
 // notification of the same one.
 func (s *Server) sendDiagnosticsLocked(ctx context.Context, name string) {
+	if nb := s.notebooks.named(name); nb != nil {
+		s.sendNotebookDiagnosticsLocked(ctx, nb)
+		return
+	}
 	out := []protocol.Diagnostic{}
 	if content, diags, ok := s.ws.AnalyzedContent(name); ok {
 		for _, f := range s.ws.FindingsOn(name) {

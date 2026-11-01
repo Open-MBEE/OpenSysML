@@ -54,6 +54,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 				// cross-document refresh would never run.
 				Save: &protocol.SaveOptions{IncludeText: new(false)},
 			},
+			NotebookDocumentSync:    notebookSyncOptions(),
 			HoverProvider:           protocol.Boolean(true),
 			DefinitionProvider:      protocol.Boolean(true),
 			ReferencesProvider:      protocol.Boolean(true),

@@ -32,6 +32,9 @@ type Workspace struct {
 	changes map[string]uint64
 	onDisk  map[string][]byte // last-known on-disk bytes, used when a doc is not open
 	open    map[string]bool   // names with an authoritative open buffer
+	// kinds is the language of each open buffer whose name does not tell it,
+	// a notebook's cells opened as one SysML document.
+	kinds map[string]source.Kind
 	index   *symbols.Index
 	// library is every library file the index held at construction, so a displaced
 	// one can come back; libraryRoots names their top-level packages.
@@ -173,6 +176,7 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 		changes:      map[string]uint64{},
 		onDisk:       map[string][]byte{},
 		open:         map[string]bool{},
+		kinds:        map[string]source.Kind{},
 		index:        idx,
 		library:      map[string]libraryFile{},
 		libraryRoots: map[string]bool{},
@@ -373,6 +377,15 @@ func (w *Workspace) Open(name string, content []byte, version int) {
 	w.setOpenBuffer(name, content, version)
 }
 
+// OpenWithKind is Open for a buffer whose language its name does not tell: the
+// buffer is parsed as kind for as long as it is open.
+func (w *Workspace) OpenWithKind(name string, content []byte, version int, kind source.Kind) {
+	w.mu.Lock()
+	w.kinds[name] = kind
+	w.mu.Unlock()
+	w.setOpenBuffer(name, content, version)
+}
+
 // setOpenBuffer records a copy of an open buffer and reindexes it, unless the
 // loaded document already holds that text, when only the version moves.
 func (w *Workspace) setOpenBuffer(name string, content []byte, version int) {
@@ -454,6 +467,7 @@ func (w *Workspace) Close(name string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	delete(w.open, name)
+	delete(w.kinds, name)
 	disk, ok := w.onDisk[name]
 	if !ok {
 		w.removeLocked(name)
@@ -470,6 +484,7 @@ func (w *Workspace) Remove(name string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	delete(w.open, name)
+	delete(w.kinds, name)
 	delete(w.onDisk, name)
 	w.removeLocked(name)
 }
@@ -477,8 +492,8 @@ func (w *Workspace) Remove(name string) {
 // reindexLocked reparses name and incrementally updates the global index.
 // Caller must hold the write lock.
 func (w *Workspace) reindexLocked(name string, content []byte, version int) {
-	kind := source.KindUnknown
-	if held := w.docs[name]; held != nil {
+	kind := w.kinds[name]
+	if held := w.docs[name]; held != nil && kind == source.KindUnknown {
 		kind = held.Kind()
 	}
 	doc := newDocument(name, content, version, kind)
