@@ -36,7 +36,7 @@ import {
 import { carried, obstacles, resettle } from "./carry";
 import { download, exportFrame, exportSvg, rasterSize, rasterize } from "./export";
 import { quantityText } from "./present";
-import { SCENES, STACK_SCENE, chooseScene, type Scene, type SceneAction, type SceneBox, type SceneClock, type SceneDiagram } from "./scene";
+import { SCENES, STACK_SCENE, chooseScene, type Scene, type SceneAction, type SceneBox, type SceneClock, type SceneDiagram, type SceneProgram } from "./scene";
 import { message, mountShell, shortName, type Mounted, type MountOptions } from "./shell";
 import { mountTable } from "./table";
 import { wireTabs } from "./tabs";
@@ -1186,6 +1186,45 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
 
   const secondsText = (seconds: number): string => `${seconds.toLocaleString("en-US")} s`;
 
+  async function runProgram(
+    client: Connection,
+    program: SceneProgram,
+    current: LandingModel,
+    seed: number | undefined,
+  ): Promise<JourneyRun> {
+    switch (program.kind) {
+      case "clock":
+        return runClock(client, program, current);
+      case "action":
+        return runAction(client, program, current);
+      case "journey":
+      case "rollup":
+        return runJourney(client, scene, current, sent, seed);
+      default: {
+        const exhaustive: never = program;
+        throw exhaustive;
+      }
+    }
+  }
+
+  function runSubject(program: SceneProgram, schedule: string): string {
+    switch (program.kind) {
+      case "clock":
+        return `on ${shortName(program.performer)} for ${secondsText(program.advance)}`;
+      case "action": {
+        const events = program.events.length === 0 ? "" : ` with ${program.events.join(", ")}`;
+        return `on ${shortName(program.performer)}${events}`;
+      }
+      case "journey":
+      case "rollup":
+        return `on ${sent.length} events under ${schedule}`;
+      default: {
+        const exhaustive: never = program;
+        throw exhaustive;
+      }
+    }
+  }
+
   // runClocked performs the machine on the clock and replays the trace the engine recorded:
   // each state lit as its entry record comes, the token on each transition, the status
   // line reading the clock from the records.
@@ -1260,10 +1299,17 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
       return;
     }
     const tokens = new Set(steps.flatMap(({ record }) => (record.token === undefined ? [] : [record.token]))).size;
-    const last = steps[steps.length - 1]?.record;
-    const ended = last === undefined ? "" : last.kind === "complete" ? "; the action completed" : `; the run ends on ${last.text}`;
+    const last = steps.at(-1)?.record;
+    let ended = "";
+    if (last?.kind === "complete") {
+      ended = "; the action completed";
+    } else if (last !== undefined) {
+      ended = `; the run ends on ${last.text}`;
+    }
     const outputs = [...(result.outputs ?? [])].map(([name, value]) => `${name} = ${value}`);
-    status(`${ran}: ${steps.length} trace records over ${tokens} token${tokens === 1 ? "" : "s"}${ended}${outputs.length === 0 ? "" : ` with ${outputs.join(", ")}`}.`);
+    const withOutputs = outputs.length === 0 ? "" : ` with ${outputs.join(", ")}`;
+    const tokenNoun = tokens === 1 ? "token" : "tokens";
+    status(`${ran}: ${steps.length} trace records over ${tokens} ${tokenNoun}${ended}${withOutputs}.`);
   }
 
   // ---- debugging the model ----
@@ -1392,21 +1438,13 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
       const started = performance.now();
       const program = shell.program;
       const machine = shortName(program.kind === "rollup" ? scene.rootSymbol : program.symbol);
-      run = program.kind === "clock"
-        ? await runClock(client, program, current)
-        : program.kind === "action"
-          ? await runAction(client, program, current)
-          : await runJourney(client, scene, current, sent, seed);
+      run = await runProgram(client, program, current, seed);
       runSeed = seed;
       steps = debugSteps(run.trace);
       const ms = Math.max(1, Math.round(performance.now() - started));
       const schedule = seed === undefined ? "the default schedule" : `seed ${seed}`;
       const rpc = program.kind === "action" ? "ExecuteAction" : "ExecuteState";
-      const over = program.kind === "clock"
-        ? `on ${shortName(program.performer)} for ${secondsText(program.advance)}`
-        : program.kind === "action"
-          ? `on ${shortName(program.performer)}${program.events.length === 0 ? "" : ` with ${program.events.join(", ")}`}`
-          : `on ${sent.length} events under ${schedule}`;
+      const over = runSubject(program, schedule);
       status(
         run.error
           ? `${rpc} failed after ${steps.length} trace records: ${run.error}`
