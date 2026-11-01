@@ -743,12 +743,14 @@ class ApiIntegrationTest {
     List<String> sentKinds = sent.trace().stream().map(DocumentValue.DocumentEvent::kind).toList();
     assertTrue(sentKinds.containsAll(List.of("wait", "accept", "complete")), sentKinds.toString());
 
+    ExecutionOptions eventsWithoutPerformer = traced.withEvents("Go");
     assertThrows(
         IllegalArgumentException.class,
-        () -> model.executeAction("Test::waits", Map.of(), traced.withEvents("Go")));
+        () -> model.executeAction("Test::waits", Map.of(), eventsWithoutPerformer));
+    ExecutionOptions exploringWithEvents = performed.withEvents("Go");
     assertThrows(
         IllegalArgumentException.class,
-        () -> model.exploreAction("Test::race", Map.of(), performed.withEvents("Go")));
+        () -> model.exploreAction("Test::race", Map.of(), exploringWithEvents));
   }
 
   @Test
