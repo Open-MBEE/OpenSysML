@@ -468,12 +468,15 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 			return []*symbols.Symbol{parts.body}
 		}
 		// Expression::function is the Function typing the expression (KerML
-		// 8.3.4.7.3): a receiver-reached call has one only when its chain
-		// reaches a Function; the chain Feature itself is the instantiated type.
+		// 8.3.4.7.3, 8.3.4.8.8): for a receiver-reached call the Function types
+		// of its chain's final link; the chain Feature itself is the instantiated type.
 		if feature == "function" && parts.chain != nil {
 			links := m.ChainingFeatures(parts.chain)
-			if n := len(links); n > 0 && m.reflectiveMetaclassConforms(links[n-1], "Function") {
-				return []*symbols.Symbol{links[n-1]}
+			if n := len(links); n > 0 {
+				if m.reflectiveMetaclassConforms(links[n-1], "Function") {
+					return []*symbols.Symbol{links[n-1]}
+				}
+				return append([]*symbols.Symbol{}, m.conformingTypes(links[n-1], "Function")...)
 			}
 			return []*symbols.Symbol{}
 		}

@@ -63,6 +63,7 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 		return "?"
 	}
 	reader := NewElementIDReader([]ElementIDDocument{{File: sf, Root: root, ParseDiags: p.Diagnostics}})
+	pkg, _ := index.DocumentRoot(sf.Name()).LookupLocal("P")
 	var checked int
 	var check func(name string, expr *symbols.Symbol)
 	check = func(name string, expr *symbols.Symbol) {
@@ -115,13 +116,15 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 			if got := classOf(subjectOf[element]); got != "Feature" || model.MetaclassOf(chain).Name != "Feature" {
 				t.Errorf("%s: chain Feature written as %s, native %s", name, got, model.MetaclassOf(chain).Name)
 			}
-			// Expression::function is the typing Function (KerML 8.3.4.7.3); `f` is a
-			// calc usage, so neither ledger states one — the chain is the instantiated type.
-			if function := graph.Objects(subjectOf[id], rdf.SysML+"function"); len(function) != 0 {
-				t.Errorf("%s: the conversion states function %v for a chain reaching a usage", name, function)
+			// Expression::function is the typing Function (KerML 8.3.4.7.3): `f`'s calc
+			// def F on both ledgers; the chain Feature is the instantiated type.
+			F, _ := pkg.Scope.LookupLocal("F")
+			fID, _ := reader.Read(sf.Name(), F.Decl, "")
+			if function := graph.Objects(subjectOf[id], rdf.SysML+"function"); len(function) != 1 || function[0] != subjectOf[fID] {
+				t.Errorf("%s: the conversion states function %v, want F (%s)", name, function, fID)
 			}
-			if got, ok := model.ReflectiveElements(expr, "function"); !ok || len(got) != 0 {
-				t.Errorf("%s: native function is %v for a chain reaching a usage", name, got)
+			if got, ok := model.ReflectiveElements(expr, "function"); !ok || len(got) != 1 || got[0] != F {
+				t.Errorf("%s: native function is %v, want F", name, got)
 			}
 			owned, _ := model.ReflectiveElements(expr, "ownedElement")
 			if len(owned) == 0 || owned[0] != chain {
@@ -148,7 +151,6 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 			}
 		}
 	}
-	pkg, _ := index.DocumentRoot(sf.Name()).LookupLocal("P")
 	d, _ := pkg.Scope.LookupLocal("D")
 	for _, name := range []string{"c", "d", "e", "g", "h", "m"} {
 		feature, ok := d.Scope.LookupLocal(name)

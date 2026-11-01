@@ -520,9 +520,10 @@ triples come); a set of classes with no such member is refused, naming the subje
   chain `q.p`, and the conversion writes it as KerML 8.2.5.8.3 does
   (`InstantiatedTypeMember` → `OwnedFeatureChainMember`) — an `OwningMembership`
   at the `function` slot owning a chain `Feature` with one `FeatureChaining` per
-  link (`q`, `p`, `f`), the instantiated type; `sysml:function` only when the
-  chain reaches a `Function`, since `Expression::function` is the Function
-  typing the expression (KerML 8.3.4.7.3), not the usage invoked; the arguments
+  link (`q`, `p`, `f`), the instantiated type; `sysml:function` is the
+  `Function` typing the final link (`Expression::function`, KerML 8.3.4.7.3) —
+  `f`'s calc def, or the library `Calculations::Calculation` an untyped calc
+  usage implies — omitted only when that link does not resolve; the arguments
   alone as `in` parameters, no `operand` — and the reflective read owns the same
   Feature,
   chainings and ids. `p.a.b` stays nested chain expressions with one-segment

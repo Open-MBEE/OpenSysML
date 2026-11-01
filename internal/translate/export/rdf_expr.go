@@ -9,11 +9,13 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -666,20 +668,21 @@ func chainedText(name *ast.QualifiedName) string {
 }
 
 // receiverChainCallee owns the chain Feature a receiver-reached call instantiates,
-// one FeatureChaining per link (KerML 8.3.3.3.5); sysml:function is written only
-// when the chain reaches a Function, as Expression::function is the Function
-// typing the expression (KerML 8.3.4.7.3), not the feature invoked.
+// one FeatureChaining per link (KerML 8.3.3.3.5). Expression::function is the
+// Function typing the expression (KerML 8.3.4.7.3, 8.3.4.8.8): the Function
+// types of the final link — its declared types, else the library type its kind
+// implies — written only when that link resolves.
 func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedName) {
 	chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
 	e.typed(chain, mFeature)
 	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
 	terms := make([]rdf.Term, len(links))
-	var last ast.Node
+	var final *symbols.Symbol
 	for i, link := range links {
 		sym, ok := e.res.PartSymbol(link, len(link.Parts)-1)
 		terms[i] = e.linkOrText(link, sym, ok)
-		if ok {
-			last = sym.Decl
+		if ok && i == len(links)-1 {
+			final = sym
 		}
 	}
 	e.featureChainings(chain, terms)
@@ -687,9 +690,36 @@ func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedNa
 	e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
-	if last != nil && ontology.IsAncestorOrSelf(declaredMetaclass(last), "Function") {
-		e.graph.Add(subject, e.sysml(pFunction), terms[len(terms)-1])
+	for _, function := range e.typingFunctions(final, terms[len(terms)-1]) {
+		e.graph.Add(subject, e.sysml(pFunction), function)
 	}
+}
+
+// typingFunctions are the Function types of a resolved feature: the types its
+// declaration states, else the library type its usage kind implies (KerML
+// 8.3.3.3 Feature::type; SysML 8.3.11 implied typing); a Function itself types
+// the expression directly.
+func (e *encoder) typingFunctions(sym *symbols.Symbol, term rdf.Term) []rdf.Term {
+	if sym == nil {
+		return nil
+	}
+	if ontology.IsAncestorOrSelf(declaredMetaclass(sym.Decl), "Function") {
+		return []rdf.Term{term}
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return nil
+	}
+	var out []rdf.Term
+	for _, rel := range usage.Relationships {
+		if name, isName := rel.Target.(*ast.QualifiedName); rel.Kind == ast.RelTyping && isName {
+			out = append(out, e.reference(name))
+		}
+	}
+	if len(out) == 0 && usage.Kind == ast.UsageCalc {
+		out = append(out, e.libraryReference(ast.QualifiedNameOf("Calculations", "Calculation")))
+	}
+	return out
 }
 
 // calleeMembership emits the relationship an invocation owns to what it
@@ -2062,11 +2092,13 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 	if !hasCollapsed {
 		return text, nil
 	}
-	// The function is the chain's last feature when it resolves, else
-	// the whole chain's spelling; anything else names a second callee.
+	// The function is the chain's last feature, or a Function typing it
+	// (Expression::function, KerML 8.3.4.7.3) — declared, or the library type
+	// implied when it declares none; else the whole chain's spelling. Anything
+	// else names a second callee.
 	var agree bool
 	if collapsed.IsIRI() {
-		agree = len(segments) > 0 && segments[len(segments)-1] == collapsed
+		agree = len(segments) > 0 && d.typesChainEnd(segments[len(segments)-1], collapsed)
 	} else {
 		agree = collapsed.Value == strings.Join(spelled, ".")
 	}
@@ -2081,6 +2113,32 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 		}
 	}
 	return text, nil
+}
+
+// typesChainEnd reports whether function is a chain's final feature itself or
+// a type of it: one its FeatureTypings state, or a library type where it
+// states none (the implied typing of an untyped usage).
+func (d *decoder) typesChainEnd(end, function rdf.Term) bool {
+	if end == function {
+		return true
+	}
+	types := d.graph.Objects(end, rdf.SysML+relationshipProperty[ast.RelTyping])
+	for _, owned := range d.graph.Objects(end, rdf.SysML+pOwnedRelationship) {
+		if d.metaclass(owned) != mFeatureTyping {
+			continue
+		}
+		for _, property := range headClauseTargets[mFeatureTyping] {
+			if typ, ok := d.graph.Object(owned, rdf.SysML+property); ok {
+				types = append(types, typ)
+				break
+			}
+		}
+	}
+	if len(types) == 0 {
+		target, err := d.referencedElement(function.Value)
+		return err == nil && target.library
+	}
+	return slices.Contains(types, function)
 }
 
 // expressionOperands rebuilds operands from parameter memberships, with legacy
