@@ -230,17 +230,17 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1157055 present-equal, 28075 present-different, 1067052 ours-missing, 69936 pilot-missing, 1987233 absent-both, 26340 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1157055 present-equal, 28075 present-different, 1067050 ours-missing, 69936 pilot-missing, 1987233 absent-both, 26342 indeterminate, 516 pilot-nondeterministic.
 
-The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112893 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
+The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 92411 | 1864 | 84782 | 5126 |
 | `examples/pilot-corpora/sysml-examples` | 99 | 26554 | 6118 | 9562 | 335225 | 7723 | 306136 | 19296 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 116607 | 3194 | 106661 | 6811 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 74549 | 2474 | 63910 | 6504 |
-| `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 78118 | 1593 | 72927 | 5550 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 74549 | 2474 | 63909 | 6504 |
+| `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 78118 | 1593 | 72926 | 5550 |
 | `tests/testdata` | 40 | 1460 | 175 | 511 | 16776 | 428 | 15647 | 1057 |
 | `examples` | 56 | 27928 | 6075 | 15212 | 352770 | 8706 | 328111 | 20735 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 557 | 1 | 452 | 41 |
@@ -277,12 +277,14 @@ present-equal, 28156 → 28075 present-different), so `InvocationExpression.owne
 374 → 378, `.input` 359 → 362, `.argument` 495 → 498, `.operand` lost its 4 pilot-missing rows,
 `Feature.chainingFeature` 195 → 199 equal and `Feature.ownedFeatureChaining` 271 → 275 (4 ours-missing
 gone each), with the chains' `ReturnParameterMembership`/`ParameterMembership`/`LiteralInteger` rows
-following. `InvocationExpression.function` moved 117 → 119 equal (17 → 15 ours-missing): the writer now
-states the `Function` typing the chain's final link (`Expression::function`, KerML 8.3.4.7.3) — its
-declared type, or the library `Calculation` an untyped calc usage implies — and two of the four calls
-agree with the pilot; the two still ours-missing reach a final link the writer types by neither route
-(a KerML feature with no declared Function type), and stating the typing Function of every call form
-is a writer follow-up. No other row moved.
+following. `InvocationExpression.function` moved 117 → 119 equal, 17 → 13 ours-missing, 397 → 399 indeterminate:
+the writer now states the `Function` typing the chain's final link (`Expression::function`, KerML
+8.3.4.7.3) — the link's effective type set as the reflective read derives it: declared, inherited
+through a subsetting or redefinition, or the library Function its kind implies — so every
+receiver-reached call states one; two agree with the pilot, the other two state the Function the
+final link inherits or its kind implies, a library element the comparison cannot key (indeterminate).
+The chains' `FeatureReferenceExpression.function` and `LiteralInteger.function` rows gain an
+ours-missing each from the newly matched expressions, as the rest of that family does. No other row moved.
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 

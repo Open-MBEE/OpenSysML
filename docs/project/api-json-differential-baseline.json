@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:cdaf04a4d55e73aca444bbcfaf7e7e16de69c82216a28f2480010995fda478e7"
+        "sourceDigest": "sha256:0b0c38071bf90b0dcfffb6cb1d6d38670325595c2aa64f2da1c24769694dd1c4"
       }
     ],
     "inputs": [
@@ -122,14 +122,14 @@
     "properties": {
       "presentEqual": 1157055,
       "presentDifferent": 28075,
-      "oursMissing": 1067052,
+      "oursMissing": 1067050,
       "pilotMissing": 69936,
       "absentBoth": 1987233,
-      "indeterminate": 26340,
+      "indeterminate": 26342,
       "pilotNondeterministic": 516
     },
     "rows": 11735,
-    "unkeyedReferences": 112893,
+    "unkeyedReferences": 112895,
     "extensionProperties": 162741,
     "duplicateElements": {
       "ours": 527,
@@ -272,10 +272,10 @@
       "properties": {
         "presentEqual": 74549,
         "presentDifferent": 2474,
-        "oursMissing": 63910,
+        "oursMissing": 63909,
         "pilotMissing": 6504,
         "absentBoth": 106175,
-        "indeterminate": 1421,
+        "indeterminate": 1422,
         "pilotNondeterministic": 9
       },
       "duplicateElements": {
@@ -308,10 +308,10 @@
       "properties": {
         "presentEqual": 78118,
         "presentDifferent": 1593,
-        "oursMissing": 72927,
+        "oursMissing": 72926,
         "pilotMissing": 5550,
         "absentBoth": 135065,
-        "indeterminate": 1985,
+        "indeterminate": 1986,
         "pilotNondeterministic": 7
       },
       "duplicateElements": {
@@ -51893,10 +51893,10 @@
     "InvocationExpression.function": [
       119,
       6,
-      15,
+      13,
       0,
       0,
-      397,
+      399,
       0
     ],
     "InvocationExpression.importedMembership": [
