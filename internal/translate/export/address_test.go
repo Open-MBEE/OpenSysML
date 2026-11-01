@@ -6,7 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// A positional segment is `@` plus a canonical integer; an at-sign name is a name.
+// Unquoted @ segments are positional; quoted @ names stay declared names.
 func TestAddressTermTellsAPositionFromAnAtSignName(t *testing.T) {
 	cases := map[string]string{
 		"P::@2":       rdf.OpenSysML + xPositionalName,
@@ -31,5 +31,34 @@ func TestAddressTermTellsAPositionFromAnAtSignName(t *testing.T) {
 		if got := addressTerm(name).Value; got != want {
 			t.Errorf("addressTerm(%q) = %s, want %s", name, got, want)
 		}
+	}
+}
+
+func TestPositionalNameScanDoesNotAllocate(t *testing.T) {
+	for name, want := range map[string]bool{
+		"":                          false,
+		"P":                         false,
+		"::":                        false,
+		"P::":                       false,
+		"P::@2":                     true,
+		"@trigger":                  true,
+		"P::'@2'":                   false,
+		"P::'name::@2'":             false,
+		`P::'name\'::@2'`:           false,
+		`P::'name\\'::@2`:           true,
+		"P::'unfinished::@2":        true,
+		"P::'closed'next::@0":       true,
+		"P::@0::'name::@1'::member": true,
+	} {
+		t.Run(name, func(t *testing.T) {
+			var got bool
+			allocs := testing.AllocsPerRun(100, func() { got = isPositionalName(name) })
+			if got != want {
+				t.Errorf("isPositionalName(%q) = %v, want %v", name, got, want)
+			}
+			if allocs != 0 {
+				t.Errorf("isPositionalName(%q) allocated %g times, want none", name, allocs)
+			}
+		})
 	}
 }

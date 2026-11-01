@@ -15,17 +15,19 @@ import (
 // as sysx:positionalName and sysml:qualifiedName is reserved for names.
 const xPositionalName = "positionalName"
 
-// isPositionalName reports whether an address holds a positional segment: an
-// unquoted segment beginning with `@`, the writer's address for an unnamed
-// member (`@2`) or a minted one (`@trigger`). A declared name beginning with
-// `@` is quoted in an address (identitySegment), so `P::'@abc'` is a name.
+// isPositionalName reports whether an address has an unquoted @ segment,
+// the writer's address for an unnamed or minted member, rather than a name.
 func isPositionalName(name string) bool {
-	for _, segment := range identitySegments(name) {
+	for {
+		segment, rest, more := cutIdentitySegment(name)
 		if strings.HasPrefix(segment, "@") {
 			return true
 		}
+		if !more {
+			return false
+		}
+		name = rest
 	}
-	return false
 }
 
 // addressTerm is the predicate an element's address is stated by:
