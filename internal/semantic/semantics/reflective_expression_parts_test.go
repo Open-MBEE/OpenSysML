@@ -109,7 +109,7 @@ func TestExpressionOwnsItsParametersAndResult(t *testing.T) {
 		if got, ok := m.ReflectiveElements(args[i], "owner"); !ok || len(got) != 1 || got[0] != params[i] {
 			t.Errorf("a%d.owner is not in%d", i, i)
 		}
-		if got := m.ValueExpression(params[i]); got != args[i] {
+		if m.ValueExpression(params[i]) != args[i] {
 			t.Errorf("in%d binds another value", i)
 		}
 		fv := m.OwnedMemberships(params[i])

@@ -384,7 +384,7 @@ func (m *Model) stepNestedFQN(owner *symbols.Symbol, composite bool) string {
 			return stepFallbackFQNs[1]
 		}
 		return ""
-	case m.conformsByName(owner, "Occurrences::Occurrence"):
+	case m.conformsByName(owner, occurrenceFQN):
 		return stepFallbackFQNs[2]
 	}
 	return ""
