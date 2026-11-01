@@ -248,6 +248,9 @@ func expressionReference(node ast.Node) (slot string, name *ast.QualifiedName, l
 		if n.Member != nil && !ast.QualifiedNameHasChain(n.Member) {
 			return "targetFeature", n.Member, false
 		}
+	case *ast.MetadataAccessExpr:
+		// The conversion files a metadata access's referenced element at `function`.
+		return "function", n.Ref, true
 	}
 	return "", nil, false
 }
@@ -274,4 +277,37 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 		}
 	}
 	return []*symbols.Symbol{}
+}
+
+// referenceMembershipElements is ReflectiveElements for a plain Membership an
+// expression owns: it relates the expression to the element it names and owns
+// nothing (KerML 8.3.2.5 Membership; ownedMemberElement is OwningMembership's).
+func referenceMembershipElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	rel := sym.Implicit
+	switch feature {
+	case "source", "membershipOwningNamespace", "owningRelatedElement", "owner":
+		return []*symbols.Symbol{rel.Owner}, true
+	case "target", "memberElement":
+		return []*symbols.Symbol{rel.Member}, true
+	case "relatedElement":
+		return []*symbols.Symbol{rel.Owner, rel.Member}, true
+	case "ownedRelatedElement", "ownedElement", "ownedRelationship":
+		return []*symbols.Symbol{}, true
+	}
+	return nil, false
+}
+
+// referenceMembershipValue is reflectiveFeatureValue for a plain Membership an
+// expression owns: its member's names, and the public visibility the
+// conversion leaves unstated (KerML 8.3.2.5 Membership::visibility default).
+func (m *Model) referenceMembershipValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {
+	switch feature {
+	case "memberName":
+		return stringOrEmpty(SimpleSymbolName(sym.Implicit.Member)), true
+	case "memberShortName":
+		return stringOrEmpty(m.EffectiveShortNameOf(sym.Implicit.Member)), true
+	case "visibility":
+		return m.visibilityValue(ast.VisibilityPublic), true
+	}
+	return symbols.FilterValue{}, false
 }

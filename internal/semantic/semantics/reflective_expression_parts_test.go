@@ -357,6 +357,7 @@ func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
 				attribute call = F(1);
 				attribute chain = p.q;
 				attribute dangling = nothere;
+				attribute meta = Pt.metadata;
 			}
 		}
 	`)
@@ -414,13 +415,29 @@ func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
 			if got, ok := m.ReflectiveElements(membership, "owner"); !ok || len(got) != 1 || got[0] != expr {
 				t.Errorf("%s: Membership.owner is not the expression", c.name)
 			}
-			if _, ok := m.ReflectiveElements(membership, "ownedMemberElement"); !ok {
-				t.Errorf("%s: Membership derives no ownedMemberElement", c.name)
+			if _, ok := m.ReflectiveElements(membership, "ownedMemberElement"); ok {
+				t.Errorf("%s: a plain Membership derives ownedMemberElement", c.name)
+			}
+			if got, ok := m.ReflectiveElements(membership, "ownedRelatedElement"); !ok || len(got) != 0 {
+				t.Errorf("%s: Membership.ownedRelatedElement = %v (%v), want none", c.name, names(got), ok)
+			}
+			if got, ok := m.reflectiveFeatureValue(membership, "visibility"); !ok || got.Sym == nil || got.Sym.Name != "public" {
+				t.Errorf("%s: Membership.visibility = %v (%v), want the public literal", c.name, got, ok)
+			}
+			if got, ok := m.reflectiveFeatureValue(membership, "memberName"); !ok || got.Str != c.target.Name {
+				t.Errorf("%s: Membership.memberName = %v (%v)", c.name, got, ok)
 			}
 		}
 		if again := m.OwnedMemberships(expr); len(again) != len(memberships) || again[0] != memberships[0] {
 			t.Errorf("%s: memberships are not stable across reads", c.name)
 		}
+	}
+	meta := m.ValueExpression(member(t, m, d, "meta"))
+	if got := names(m.OwnedMemberships(meta)); len(got) != 1 || got[0] != "Membership" {
+		t.Errorf("a metadata access owns %v, want its Membership", got)
+	}
+	if got, ok := m.ReflectiveElements(meta, "referencedElement"); !ok || len(got) != 1 || got[0] != pt {
+		t.Errorf("metadata access referencedElement = %v (%v), want Pt", names(got), ok)
 	}
 	dangling := m.ValueExpression(member(t, m, d, "dangling"))
 	if got := names(m.OwnedMemberships(dangling)); len(got) != 1 || got[0] != "ReturnParameterMembership" {

@@ -750,6 +750,8 @@ func expressionReferenceSlot(node ast.Node) (slot string, name *ast.QualifiedNam
 		if n.Member != nil && !ast.QualifiedNameHasChain(n.Member) {
 			return "targetFeature", n.Member, true
 		}
+	case *ast.MetadataAccessExpr:
+		return "function", n.Ref, true
 	}
 	return "", nil, false
 }

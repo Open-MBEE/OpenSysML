@@ -1686,6 +1686,14 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.expressionReferencedElements(sym, feature), true
+	case "referencedElement":
+		if !isExpressionSymbol(sym) {
+			return nil, false
+		}
+		if _, ok := sym.Decl.(*ast.MetadataAccessExpr); !ok {
+			return nil, false
+		}
+		return m.expressionReferencedElements(sym, "function"), true
 	case "valuation":
 		// KerML 8.3.3.3.5 Feature::valuation: the FeatureValue among the
 		// feature's owned memberships, if its declaration has a value part.
