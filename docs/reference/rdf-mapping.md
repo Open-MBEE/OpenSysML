@@ -520,8 +520,9 @@ triples come); a set of classes with no such member is refused, naming the subje
   chain `q.p`, and the conversion writes it as KerMLExpressions does
   (`InstantiatedTypeMember` → `OwnedFeatureChain`) — an `OwningMembership` at
   the `function` slot owning a chain `Feature` with one `FeatureChaining` per
-  link (`q`, `p`, `f`), `function` naming the last link, the arguments alone as
-  `in` parameters, no `operand` — and the reflective read owns the same Feature,
+  link (`q`, `p`, `f`), `function` naming that chain Feature (the instantiated
+  type), the arguments alone as `in` parameters, no `operand` — and the
+  reflective read owns the same Feature,
   chainings and ids. `p.a.b` stays nested chain expressions with one-segment
   members, one `FeatureChainExpression` per link, so no `targetFeature` chain
   Feature arises from the notation
