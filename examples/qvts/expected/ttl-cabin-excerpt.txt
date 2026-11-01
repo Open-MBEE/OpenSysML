@@ -1,0 +1,4 @@
+elmt:Lander__lander__cabin
+    a sysml:PartUsage ;
+    sysml:qualifiedName "Lander::lander::cabin" ;
+    sysml:elementId "Lander__lander__cabin" ;

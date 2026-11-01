@@ -1,0 +1,13 @@
+✓ package Lander
+✓ package QVTSDemo
+✓ Query QVTSDemo::MassTable returned 3 rows
+  Columns: qualifiedName, mass
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+    mass = 320.0
+  Row 2: Lander::lander::engine
+    qualifiedName = "Lander::lander::engine"
+    mass = 145.0
+  Row 3: Lander::lander::scienceBay
+    qualifiedName = "Lander::lander::scienceBay"
+    mass = (none)

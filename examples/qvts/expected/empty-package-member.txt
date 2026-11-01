@@ -1,0 +1,5 @@
+✓ package Lander
+✓ package QVTSDemo
+sysml: query QVTSDemo::EmptyPackageMember names no element Lander::Empty::nothing: Lander::Empty has no member nothing
+  path error at Named(Lander::Empty::nothing): expected exactly one element with that qualified name
+    at Lander::Empty; members: []
