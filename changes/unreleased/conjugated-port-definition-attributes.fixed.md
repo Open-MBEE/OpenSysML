@@ -1,1 +1,1 @@
-The implied `ConjugatedPortDefinition` a port definition owns (SysML v2 8.3.12.3) now answers its plain Type attributes natively — `isAbstract`, `isSufficient`, `isConstant`, `isParallel` read `false`, as the RDF export states them — where the reflective read left them underived.
+- The implied `ConjugatedPortDefinition` a port definition owns (SysML v2 8.3.12.3) now answers its plain Type attributes natively — `isAbstract`, `isSufficient`, `isConstant`, `isParallel` read `false`, as the RDF export states them — where the reflective read left them underived.
