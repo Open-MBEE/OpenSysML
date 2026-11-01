@@ -1152,7 +1152,7 @@ func namespaceMembers(e *sysmlv1.Element) []*sysmlv1.Element {
 func ownerWritten(role string) bool {
 	switch role {
 	case "ownedComment", "generalization", "lowerValue", "upperValue", "defaultValue",
-		"end", "specification", "type", "general", "annotatedElement", "body", "language",
+		"end", "specification", "type", "general", "annotatedElement",
 		"ownedEnd", "memberEnd", "value", "slot", "ownedLiteral", "ownedParameter", "region",
 		"argument", "result", "inputValue", "outputValue", "object", "target", "insertAt", "removeAt":
 		return true
