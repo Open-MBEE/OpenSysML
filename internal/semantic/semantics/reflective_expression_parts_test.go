@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -421,7 +422,7 @@ func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
 			if got, ok := m.ReflectiveElements(membership, "ownedRelatedElement"); !ok || len(got) != 0 {
 				t.Errorf("%s: Membership.ownedRelatedElement = %v (%v), want none", c.name, names(got), ok)
 			}
-			if got, ok := m.reflectiveFeatureValue(membership, "visibility"); !ok || got.Sym == nil || got.Sym.Name != "public" {
+			if got, ok := m.reflectiveFeatureValue(membership, "visibility"); !ok || !strings.HasSuffix(got.RefFQN, "::public") {
 				t.Errorf("%s: Membership.visibility = %v (%v), want the public literal", c.name, got, ok)
 			}
 			if got, ok := m.reflectiveFeatureValue(membership, "memberName"); !ok || got.Str != c.target.Name {
