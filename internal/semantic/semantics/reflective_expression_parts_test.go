@@ -532,8 +532,8 @@ func TestChangeTriggerOwnsItsConditionThroughAWrapper(t *testing.T) {
 
 // A `{ in q; attribute k = 2; q * k }` value is a FeatureReferenceExpression
 // owning, through a FeatureMembership, the body Expression it refers to; the
-// body owns its parameters through ParameterMemberships (KerMLExpressions
-// BodyParameterMember), its members, and its result through a
+// body owns its parameters and members through FeatureMemberships (the type
+// body both notations give an expression body) and its result through a
 // ResultExpressionMembership, in source order, as the conversion writes them.
 func TestBodyExpressionOwnsItsBodyParametersAndResult(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `
@@ -573,7 +573,7 @@ func TestBodyExpressionOwnsItsBodyParametersAndResult(t *testing.T) {
 		kinds = append(kinds, m.MetaclassOf(membership).Name)
 		members = append(members, m.MetaclassOf(membership.Implicit.Member).Name)
 	}
-	if strings.Join(kinds, ",") != "ParameterMembership,FeatureMembership,ResultExpressionMembership" ||
+	if strings.Join(kinds, ",") != "FeatureMembership,FeatureMembership,ResultExpressionMembership" ||
 		strings.Join(members, ",") != "ReferenceUsage,AttributeUsage,OperatorExpression" {
 		t.Fatalf("the body owns %v holding %v", kinds, members)
 	}
@@ -635,7 +635,7 @@ func TestBodyExpressionOwnsItsBodyParametersAndResult(t *testing.T) {
 	}
 	bodyParts := m2.OwnedMemberships(reduceBody)
 	if len(bodyParts) != 3 || bodyParts[0].Implicit.Member != a ||
-		m2.MetaclassOf(bodyParts[1]).Name != "ParameterMembership" ||
+		m2.MetaclassOf(bodyParts[1]).Name != "FeatureMembership" ||
 		m2.MetaclassOf(bodyParts[2]).Name != "ResultExpressionMembership" {
 		t.Errorf("the reduce body owns %v", bodyParts)
 	}

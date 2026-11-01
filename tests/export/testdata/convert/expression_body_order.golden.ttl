@@ -183,16 +183,12 @@ expr:Ordered__Mixed___401_pbody
     sysml:ownedMembership expr:Ordered__Mixed___401_pin0_om, expr:Ordered__Mixed___401_pm1_om, expr:Ordered__Mixed___401_pin2_om, expr:Ordered__Mixed___401_presult_om ;
     sysml:ownedFeatureMembership expr:Ordered__Mixed___401_pin0_om, expr:Ordered__Mixed___401_pm1_om, expr:Ordered__Mixed___401_pin2_om, expr:Ordered__Mixed___401_presult_om ;
     sysml:ownedFeature expr:Ordered__Mixed___401_pin0, expr:Ordered__Mixed___401_pm1, expr:Ordered__Mixed___401_pin2, expr:Ordered__Mixed___401_presult ;
-    sysml:parameter expr:Ordered__Mixed___401_pin0, expr:Ordered__Mixed___401_pin2 ;
-    sysml:input expr:Ordered__Mixed___401_pin0, expr:Ordered__Mixed___401_pin2 ;
     sysx:bodyMember expr:Ordered__Mixed___401_pm1 ;
     sysx:resultExpression expr:Ordered__Mixed___401_presult ;
     json:ownedRelationship "[{\"@id\":\"Ordered__Mixed___401_pin0_om\"},{\"@id\":\"Ordered__Mixed___401_pm1_om\"},{\"@id\":\"Ordered__Mixed___401_pin2_om\"},{\"@id\":\"Ordered__Mixed___401_presult_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Ordered__Mixed___401_pin0_om\"},{\"@id\":\"Ordered__Mixed___401_pm1_om\"},{\"@id\":\"Ordered__Mixed___401_pin2_om\"},{\"@id\":\"Ordered__Mixed___401_presult_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Ordered__Mixed___401_pin0_om\"},{\"@id\":\"Ordered__Mixed___401_pm1_om\"},{\"@id\":\"Ordered__Mixed___401_pin2_om\"},{\"@id\":\"Ordered__Mixed___401_presult_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Ordered__Mixed___401_pin0\"},{\"@id\":\"Ordered__Mixed___401_pm1\"},{\"@id\":\"Ordered__Mixed___401_pin2\"},{\"@id\":\"Ordered__Mixed___401_presult\"}]" ;
-    json:parameter "[{\"@id\":\"Ordered__Mixed___401_pin0\"},{\"@id\":\"Ordered__Mixed___401_pin2\"}]" ;
-    json:input "[{\"@id\":\"Ordered__Mixed___401_pin0\"},{\"@id\":\"Ordered__Mixed___401_pin2\"}]" .
+    json:ownedFeature "[{\"@id\":\"Ordered__Mixed___401_pin0\"},{\"@id\":\"Ordered__Mixed___401_pm1\"},{\"@id\":\"Ordered__Mixed___401_pin2\"},{\"@id\":\"Ordered__Mixed___401_presult\"}]" .
 
 expr:Ordered__Mixed___401_pbody_om
     a sysml:FeatureMembership ;
@@ -223,7 +219,7 @@ expr:Ordered__Mixed___401_pin0
     sysml:ownedRelationship expr:Ordered__Mixed___401_pin0_ft0 .
 
 expr:Ordered__Mixed___401_pin0_om
-    a sysml:ParameterMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "Ordered__Mixed___401_pin0_om" ;
     sysml:owner expr:Ordered__Mixed___401_pbody ;
     sysml:memberElement expr:Ordered__Mixed___401_pin0 ;
@@ -231,8 +227,7 @@ expr:Ordered__Mixed___401_pin0_om
     sysml:ownedRelatedElement expr:Ordered__Mixed___401_pin0 ;
     sysml:owningRelatedElement expr:Ordered__Mixed___401_pbody ;
     sysml:membershipOwningNamespace expr:Ordered__Mixed___401_pbody ;
-    sysml:ownedMemberFeature expr:Ordered__Mixed___401_pin0 ;
-    sysml:ownedMemberParameter expr:Ordered__Mixed___401_pin0 .
+    sysml:ownedMemberFeature expr:Ordered__Mixed___401_pin0 .
 
 expr:Ordered__Mixed___401_pm1
     a sysml:AttributeUsage ;
@@ -287,7 +282,7 @@ expr:Ordered__Mixed___401_pin2
     sysml:ownedRelationship expr:Ordered__Mixed___401_pin2_ft0 .
 
 expr:Ordered__Mixed___401_pin2_om
-    a sysml:ParameterMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "Ordered__Mixed___401_pin2_om" ;
     sysml:owner expr:Ordered__Mixed___401_pbody ;
     sysml:memberElement expr:Ordered__Mixed___401_pin2 ;
@@ -295,8 +290,7 @@ expr:Ordered__Mixed___401_pin2_om
     sysml:ownedRelatedElement expr:Ordered__Mixed___401_pin2 ;
     sysml:owningRelatedElement expr:Ordered__Mixed___401_pbody ;
     sysml:membershipOwningNamespace expr:Ordered__Mixed___401_pbody ;
-    sysml:ownedMemberFeature expr:Ordered__Mixed___401_pin2 ;
-    sysml:ownedMemberParameter expr:Ordered__Mixed___401_pin2 .
+    sysml:ownedMemberFeature expr:Ordered__Mixed___401_pin2 .
 
 expr:Ordered__Mixed___401_presult
     a sysml:OperatorExpression ;

@@ -409,8 +409,6 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody
     sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om ;
     sysml:ownedFeatureMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om ;
     sysml:ownedFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
-    sysml:parameter expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
-    sysml:input expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
     sysx:resultExpression expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
     json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_om\"}]" ;
@@ -442,7 +440,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0
     sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om .
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om
-    a sysml:ParameterMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_pin0_om" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
     sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
@@ -450,8 +448,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om
     sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
     sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
     sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
-    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
-    sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 .
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 .
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_presult
     a sysml:OperatorExpression ;

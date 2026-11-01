@@ -342,7 +342,7 @@ func TestElementIDReaderSpellsABodyExpressionAsTheConversionWritesIt(t *testing.
 	}
 	param := spanOnly{body.Params[0].Span}
 	element, membership, err := reader.ReadExpressionPart(matches[0].DocName, param, "in0")
-	if err != nil || classOf[element] != "ReferenceUsage" || classOf[membership] != "ParameterMembership" || !strings.HasSuffix(element, "_pin0") {
+	if err != nil || classOf[element] != "ReferenceUsage" || classOf[membership] != "FeatureMembership" || !strings.HasSuffix(element, "_pin0") {
 		t.Errorf("in0 = %s (%s), %s (%s), %v", element, classOf[element], membership, classOf[membership], err)
 	}
 	k := body.Members[0]

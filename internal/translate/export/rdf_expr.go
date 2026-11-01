@@ -335,11 +335,6 @@ func (e *encoder) bodyMembership(owner, member rdf.Term, metaclass string) rdf.T
 		e.graph.Add(owner, e.sysml(pOwnedFeature), member)
 		e.graph.Add(membership, e.sysml(pOwnedMemberFeature), member)
 	}
-	if metaclass == mParameterMembership {
-		e.graph.Add(membership, e.sysml(pOwnedMemberParameter), member)
-		e.graph.Add(owner, e.sysml(pParameter), member)
-		e.graph.Add(owner, e.sysml(pInput), member)
-	}
 	return membership
 }
 
@@ -498,8 +493,10 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 		e.headRelationship(node, ast.RelTyping, e.reference(param.Type), param.Type)
 	}
 	e.relationships(node, owner, param.Relationships)
-	// KerMLExpressions BodyParameterMember returns ParameterMembership.
-	e.bodyMembership(subject, node, mParameterMembership)
+	// Both notations override KerMLExpressions' ExpressionBody with a type
+	// body (KerML.xtext FunctionBodyPart, SysML.xtext CalculationBody), whose
+	// `in` feature is a FeatureMember: a FeatureMembership, as the pilot writes.
+	e.bodyMembership(subject, node, mFeatureMembership)
 	if err := e.multiplicity(node, owner, param.Multiplicity); err != nil {
 		return err
 	}

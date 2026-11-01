@@ -284,8 +284,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		}
 	}
 	if isBodyParameterSymbol(member) {
-		// KerMLExpressions BodyParameterMember returns ParameterMembership.
-		return "ParameterMembership"
+		// A body's `in` feature is a FeatureMember of the type body both
+		// notations give an expression body (KerML.xtext FunctionBodyPart,
+		// SysML.xtext CalculationBody), as the conversion writes it.
+		return "FeatureMembership"
 	}
 	if name := m.sysmlMembershipMetaclassName(owner, member); name != "" {
 		return name
