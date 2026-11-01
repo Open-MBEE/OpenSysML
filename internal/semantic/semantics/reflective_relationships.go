@@ -165,6 +165,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return m.importMetaclassName(sym)
 	case symbols.ImplicitPortConjugation:
 		return "PortConjugation"
+	case symbols.ImplicitReferenceMembership:
+		return "Membership"
 	}
 	switch rel.Kind {
 	case ast.RelSpecializes:
@@ -384,6 +386,8 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 		return m.importElements(sym, feature)
 	case symbols.ImplicitPortConjugation:
 		return portConjugationElements(sym, feature)
+	case symbols.ImplicitReferenceMembership:
+		return referenceMembershipElements(sym, feature)
 	}
 	meta := m.implicitMetaclassName(sym)
 	src, tgt, tgtOK := m.implicitRelationshipEnds(sym)
@@ -521,6 +525,10 @@ func (m *Model) implicitRelationshipValue(sym *symbols.Symbol, feature string) (
 		}
 	case symbols.ImplicitImport:
 		if value, ok := m.importValue(sym, feature); ok {
+			return value, true
+		}
+	case symbols.ImplicitReferenceMembership:
+		if value, ok := m.referenceMembershipValue(sym, feature); ok {
 			return value, true
 		}
 	}

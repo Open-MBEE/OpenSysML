@@ -201,3 +201,47 @@ func TestElementIDReaderSpellsInvocationArgumentsAsTheConversionWritesThem(t *te
 		}
 	}
 }
+
+// The plain Membership an expression owns to what it names reads the id the
+// conversion writes for it (`referent`, `function`, `targetFeature`).
+func TestElementIDReaderSpellsReferenceMembershipsAsTheConversionWritesThem(t *testing.T) {
+	sf, index, doc := readerIndex(t, "references.sysml", `package P {
+	calc def F { in a : ScalarValues::Real; return r : ScalarValues::Real = a; }
+	part def Pt { attribute q : ScalarValues::Real; }
+	part def R {
+		attribute a : ScalarValues::Real;
+		part p : Pt;
+		attribute ref = a;
+		attribute call = F(1);
+		attribute chain = p.q;
+	}
+}
+`)
+	graph, err := ToRDF(sf, parser.New(sf).ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	memberships := map[string]bool{}
+	for _, subject := range graph.Subjects() {
+		for _, class := range graph.Objects(subject, rdf.RDFType) {
+			if class.Value != rdf.SysML+"Membership" {
+				continue
+			}
+			for _, id := range graph.Objects(subject, rdf.SysML+"elementId") {
+				memberships[id.Value] = true
+			}
+		}
+	}
+	reader := NewElementIDReader([]ElementIDDocument{doc})
+	for feature, slot := range map[string]string{"P::R::ref": "referent", "P::R::call": "function", "P::R::chain": "targetFeature"} {
+		matches := index.LookupQualified(feature)
+		if len(matches) != 1 {
+			t.Fatalf("%s names %d declarations", feature, len(matches))
+		}
+		usage := matches[0].Decl.(*ast.Usage)
+		element, membership, err := reader.ReadExpressionPart(matches[0].DocName, usage.Value, slot)
+		if err != nil || element != "" || !memberships[membership] {
+			t.Errorf("%s %s = %q, %q, %v; the conversion writes Memberships %v", feature, slot, element, membership, err, memberships)
+		}
+	}
+}
