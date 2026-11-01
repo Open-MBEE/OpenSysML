@@ -956,6 +956,10 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 			return val, nil
 		}
 	}
+	// A satisfy usage's `by` subject awaits its satisfaction's binding, as a subject does.
+	if rel, ok := currentSym.Decl.(*ast.Relationship); ok && rel.Kind == ast.RelSubject {
+		return ec.resolvedWithoutValue(currentSym, qn)
+	}
 	// A library feature reads through the feature seam, whatever the library
 	// declares for it and whether or not the cache kept its declaration.
 	if val, ok, err := ec.ctx.libraryFeatureValue(currentSym); ok {

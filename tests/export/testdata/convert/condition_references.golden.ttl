@@ -30,7 +30,7 @@ elmt:ConditionReferences
 
 elmt:ConditionReferences___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "ConditionReferences::@0" ;
+    sysx:positionalName "ConditionReferences::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -99,6 +99,8 @@ elmt:ConditionReferences__Resistance__structuralIntegrityMaintained
     sysml:owningMembership elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "structuralIntegrityMaintained" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_ft0 ;
@@ -133,6 +135,8 @@ elmt:ConditionReferences__Resistance__a
     sysml:owningMembership elmt:ConditionReferences__Resistance__a_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ConditionReferences__Resistance__a_ft0 ;
@@ -167,6 +171,8 @@ elmt:ConditionReferences__Resistance__b
     sysml:owningMembership elmt:ConditionReferences__Resistance__b_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ConditionReferences__Resistance__b_ft0 ;
@@ -201,6 +207,8 @@ elmt:ConditionReferences__Resistance__x
     sysml:owningMembership elmt:ConditionReferences__Resistance__x_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ConditionReferences__Resistance__x_ft0 ;
@@ -223,7 +231,7 @@ elmt:ConditionReferences__Resistance__x_om
 elmt:ConditionReferences__Resistance___404
     a sysml:ConstraintUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@4" ;
+    sysx:positionalName "ConditionReferences::Resistance::@4" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -260,7 +268,7 @@ elmt:ConditionReferences__Resistance___404_om
 elmt:ConditionReferences__Resistance___404___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@4::@0" ;
+    sysx:positionalName "ConditionReferences::Resistance::@4::@0" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "30"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -325,7 +333,7 @@ expr:ConditionReferences__Resistance___404___400_pout_om
 elmt:ConditionReferences__Resistance___405
     a sysml:ConstraintUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@5" ;
+    sysx:positionalName "ConditionReferences::Resistance::@5" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -362,7 +370,7 @@ elmt:ConditionReferences__Resistance___405_om
 elmt:ConditionReferences__Resistance___405___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@5::@0" ;
+    sysx:positionalName "ConditionReferences::Resistance::@5::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "30"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -506,7 +514,7 @@ expr:ConditionReferences__Resistance___405___400_pout_om
 elmt:ConditionReferences__Resistance___406
     a sysml:ConstraintUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@6" ;
+    sysx:positionalName "ConditionReferences::Resistance::@6" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -543,7 +551,7 @@ elmt:ConditionReferences__Resistance___406_om
 elmt:ConditionReferences__Resistance___406___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@6::@0" ;
+    sysx:positionalName "ConditionReferences::Resistance::@6::@0" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "29"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -608,7 +616,7 @@ expr:ConditionReferences__Resistance___406___400_pout_om
 elmt:ConditionReferences__Resistance___407
     a sysml:ConstraintUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@7" ;
+    sysx:positionalName "ConditionReferences::Resistance::@7" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;
@@ -646,7 +654,7 @@ elmt:ConditionReferences__Resistance___407_om
 elmt:ConditionReferences__Resistance___407___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@7::@0" ;
+    sysx:positionalName "ConditionReferences::Resistance::@7::@0" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "43"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;
@@ -750,7 +758,7 @@ elmt:ConditionReferences__Resistance__named_om
 elmt:ConditionReferences__Resistance__named___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::named::@0" ;
+    sysx:positionalName "ConditionReferences::Resistance::named::@0" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "49"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;
@@ -976,7 +984,7 @@ expr:ConditionReferences__Resistance__named___400_pout_om
 
 elmt:ConditionReferences__Resistance___409
     a sysml:ConstraintUsage ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@9" ;
+    sysx:positionalName "ConditionReferences::Resistance::@9" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "13"^^xsd:integer ;
@@ -988,6 +996,8 @@ elmt:ConditionReferences__Resistance___409
     sysml:owningRelationship elmt:ConditionReferences__Resistance___409_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___409_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___409___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance___409___400_om ;
@@ -1011,7 +1021,7 @@ elmt:ConditionReferences__Resistance___409_om
 elmt:ConditionReferences__Resistance___409___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@9::@0" ;
+    sysx:positionalName "ConditionReferences::Resistance::@9::@0" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "22"^^xsd:integer ;
     sysx:sourceEndLine "13"^^xsd:integer ;
@@ -1250,6 +1260,8 @@ elmt:ConditionReferences__Resistance__c1
     sysml:owningMembership elmt:ConditionReferences__Resistance__c1_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "c1" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance__c1___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance__c1___400_om ;
@@ -1273,7 +1285,7 @@ elmt:ConditionReferences__Resistance__c1_om
 elmt:ConditionReferences__Resistance__c1___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::c1::@0" ;
+    sysx:positionalName "ConditionReferences::Resistance::c1::@0" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "25"^^xsd:integer ;
     sysx:sourceEndLine "14"^^xsd:integer ;
@@ -1337,7 +1349,7 @@ expr:ConditionReferences__Resistance__c1___400_pout_om
 
 elmt:ConditionReferences__Resistance___4011
     a sysml:AssertConstraintUsage ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@11" ;
+    sysx:positionalName "ConditionReferences::Resistance::@11" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "15"^^xsd:integer ;
@@ -1349,6 +1361,8 @@ elmt:ConditionReferences__Resistance___4011
     sysml:owningRelationship elmt:ConditionReferences__Resistance___4011_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___4011_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___4011___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance___4011___400_om ;
@@ -1372,7 +1386,7 @@ elmt:ConditionReferences__Resistance___4011_om
 elmt:ConditionReferences__Resistance___4011___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@11::@0" ;
+    sysx:positionalName "ConditionReferences::Resistance::@11::@0" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "29"^^xsd:integer ;
     sysx:sourceEndLine "15"^^xsd:integer ;
@@ -1436,7 +1450,7 @@ expr:ConditionReferences__Resistance___4011___400_pout_om
 
 elmt:ConditionReferences__Resistance___4012
     a sysml:AssertConstraintUsage ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@12" ;
+    sysx:positionalName "ConditionReferences::Resistance::@12" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -1448,6 +1462,8 @@ elmt:ConditionReferences__Resistance___4012
     sysml:owningRelationship elmt:ConditionReferences__Resistance___4012_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___4012_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___4012___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance___4012___400_om ;
@@ -1471,7 +1487,7 @@ elmt:ConditionReferences__Resistance___4012_om
 elmt:ConditionReferences__Resistance___4012___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@12::@0" ;
+    sysx:positionalName "ConditionReferences::Resistance::@12::@0" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "29"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -1614,7 +1630,7 @@ expr:ConditionReferences__Resistance___4012___400_pout_om
 
 elmt:ConditionReferences__Resistance___4013
     a sysml:AssertConstraintUsage ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@13" ;
+    sysx:positionalName "ConditionReferences::Resistance::@13" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -1627,6 +1643,8 @@ elmt:ConditionReferences__Resistance___4013
     sysml:owningMembership elmt:ConditionReferences__Resistance___4013_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:isNegated "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Resistance___4013___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Resistance___4013___400_om ;
@@ -1650,7 +1668,7 @@ elmt:ConditionReferences__Resistance___4013_om
 elmt:ConditionReferences__Resistance___4013___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Resistance::@13::@0" ;
+    sysx:positionalName "ConditionReferences::Resistance::@13::@0" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "33"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -1765,6 +1783,8 @@ elmt:ConditionReferences__Rover__ok
     sysml:owningMembership elmt:ConditionReferences__Rover__ok_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ok" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ConditionReferences__Rover__ok_ft0 ;
@@ -1799,6 +1819,8 @@ elmt:ConditionReferences__Rover__n
     sysml:owningMembership elmt:ConditionReferences__Rover__n_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "n" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ConditionReferences__Rover__n_ft0 ;
@@ -1820,7 +1842,7 @@ elmt:ConditionReferences__Rover__n_om
 
 elmt:ConditionReferences__Rover___402
     a sysml:AssertConstraintUsage ;
-    sysml:qualifiedName "ConditionReferences::Rover::@2" ;
+    sysx:positionalName "ConditionReferences::Rover::@2" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "22"^^xsd:integer ;
@@ -1832,6 +1854,8 @@ elmt:ConditionReferences__Rover___402
     sysml:owningRelationship elmt:ConditionReferences__Rover___402_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___402_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover___402___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Rover___402___400_om ;
@@ -1855,7 +1879,7 @@ elmt:ConditionReferences__Rover___402_om
 elmt:ConditionReferences__Rover___402___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Rover::@2::@0" ;
+    sysx:positionalName "ConditionReferences::Rover::@2::@0" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "29"^^xsd:integer ;
     sysx:sourceEndLine "22"^^xsd:integer ;
@@ -1919,7 +1943,7 @@ expr:ConditionReferences__Rover___402___400_pout_om
 
 elmt:ConditionReferences__Rover___403
     a sysml:AssertConstraintUsage ;
-    sysml:qualifiedName "ConditionReferences::Rover::@3" ;
+    sysx:positionalName "ConditionReferences::Rover::@3" ;
     sysx:sourceLine "23"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "26"^^xsd:integer ;
@@ -1931,6 +1955,8 @@ elmt:ConditionReferences__Rover___403
     sysml:owningRelationship elmt:ConditionReferences__Rover___403_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___403_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover___403___400, elmt:ConditionReferences__Rover___403___401 ;
     sysml:ownedMembership elmt:ConditionReferences__Rover___403___400_om, elmt:ConditionReferences__Rover___403___401_om ;
@@ -1960,7 +1986,7 @@ elmt:ConditionReferences__Rover___403_om
 elmt:ConditionReferences__Rover___403___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Rover::@3::@0" ;
+    sysx:positionalName "ConditionReferences::Rover::@3::@0" ;
     sysx:sourceLine "24"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "24"^^xsd:integer ;
@@ -2151,7 +2177,7 @@ expr:ConditionReferences__Rover___403___400_pout_om
 elmt:ConditionReferences__Rover___403___401
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Rover::@3::@1" ;
+    sysx:positionalName "ConditionReferences::Rover::@3::@1" ;
     sysx:sourceLine "25"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "25"^^xsd:integer ;
@@ -2216,7 +2242,7 @@ expr:ConditionReferences__Rover___403___401_pout_om
 
 elmt:ConditionReferences__Rover___404
     a sysml:ConstraintUsage ;
-    sysml:qualifiedName "ConditionReferences::Rover::@4" ;
+    sysx:positionalName "ConditionReferences::Rover::@4" ;
     sysx:sourceLine "27"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "27"^^xsd:integer ;
@@ -2228,6 +2254,8 @@ elmt:ConditionReferences__Rover___404
     sysml:owningRelationship elmt:ConditionReferences__Rover___404_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___404_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover___404___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Rover___404___400_om ;
@@ -2251,7 +2279,7 @@ elmt:ConditionReferences__Rover___404_om
 elmt:ConditionReferences__Rover___404___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Rover::@4::@0" ;
+    sysx:positionalName "ConditionReferences::Rover::@4::@0" ;
     sysx:sourceLine "27"^^xsd:integer ;
     sysx:sourceColumn "22"^^xsd:integer ;
     sysx:sourceEndLine "27"^^xsd:integer ;
@@ -2328,6 +2356,8 @@ elmt:ConditionReferences__Rover__inv1
     sysml:owningMembership elmt:ConditionReferences__Rover__inv1_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "inv1" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ConditionReferences__Rover__inv1___400 ;
     sysml:ownedMembership elmt:ConditionReferences__Rover__inv1___400_om ;
@@ -2351,7 +2381,7 @@ elmt:ConditionReferences__Rover__inv1_om
 elmt:ConditionReferences__Rover__inv1___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "ConditionReferences::Rover::inv1::@0" ;
+    sysx:positionalName "ConditionReferences::Rover::inv1::@0" ;
     sysx:sourceLine "28"^^xsd:integer ;
     sysx:sourceColumn "27"^^xsd:integer ;
     sysx:sourceEndLine "28"^^xsd:integer ;

@@ -338,6 +338,9 @@ const CapabilityPerformer = "performer"
 // CapabilityStateTrace names the ExecuteState trace request field.
 const CapabilityStateTrace = "state_trace"
 
+// CapabilityActionTrace names the ExecuteAction trace request field.
+const CapabilityActionTrace = "action_trace"
+
 // CapabilityMetaobjectValues names the capability of carrying an element
 // reflected on as an instance of its metaclass (`x meta T`, the last element of
 // `x.metadata`) as Value.metaobject, rather than as an unsupported null.
@@ -393,6 +396,7 @@ var capabilities = []string{
 	CapabilityBigIntValues,
 	CapabilityRationalValues,
 	CapabilityStateTrace,
+	CapabilityActionTrace,
 	CapabilityRenderView,
 	CapabilityExportGraphs,
 	CapabilityImportData,
@@ -1325,6 +1329,21 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	if err != nil {
 		return nil, err
 	}
+	_, explores := schedule.Exploration()
+	if req.Trace && explores {
+		return nil, statusError(connect.CodeInvalidArgument, "action traces are unavailable under an explore schedule")
+	}
+	if req.Trace {
+		if err := s.requireCapability(CapabilityActionTrace); err != nil {
+			return nil, err
+		}
+	}
+	if len(req.Events) > 0 && explores {
+		return nil, statusError(connect.CodeInvalidArgument, "events cannot be posted under an explore schedule")
+	}
+	if len(req.Events) > 0 && req.PerformerSymbolId == "" {
+		return nil, statusError(connect.CodeInvalidArgument, "events are posted to the object performing the action: name one in performer_symbol_id")
+	}
 	if req.PerformerSymbolId != "" {
 		if err := s.requireCapability(CapabilityPerformer); err != nil {
 			return nil, err
@@ -1353,6 +1372,11 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	runtimeCtx, release := s.newRuntime(ctx, cached)
 	defer release()
 	opts.apply(runtimeCtx)
+	var traceRecorder *runtime.TraceRecorder
+	if req.Trace {
+		traceRecorder = runtime.NewEventRecorder(s.maxHeldEvents)
+		runtimeCtx.SetTrace(traceRecorder)
+	}
 
 	// Converted against the model's index, so a quantity input keeps the base
 	// units it is commensurable with instead of binding an unusable value.
@@ -1380,7 +1404,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		return resp, err
 	}
 
-	if _, explores := schedule.Exploration(); explores {
+	if explores {
 		// Inputs are read and the performer made again on each run's own context,
 		// so an object among them belongs to the run that binds it.
 		x, err := s.exploreWith(ctx, req.ActionSymbolId, schedule, analysis.Auto(), cached, opts, func(rt *runtime.Context) (runtime.Outcome, error) {
@@ -1395,7 +1419,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err != nil {
 				return runtime.Outcome{}, err
 			}
-			outcome, err := opts.actionOutcome(rt, req.ActionSymbolId, action, self, inputs)
+			outcome, err := opts.actionOutcome(rt, action, self, inputs)
 			if err != nil {
 				return runtime.Outcome{}, fmt.Errorf("action execution failed: %w", err)
 			}
@@ -1414,12 +1438,18 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		return &pb.ExecuteActionResponse{Error: err.Error()}, nil
+		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		return &pb.ExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
+	}
+	events, err := eventMessages(cached, runtimeCtx, action, req.Events, self)
+	if err != nil {
+		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		return &pb.ExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
 	// Execute action with the supplied inputs
 	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (actionRun, error) {
-		return opts.runAction(rt, req.ActionSymbolId, action, self, inputs)
+		return opts.runAction(rt, action, self, inputs, events)
 	}, func(ran actionRun, err error) analysis.Answer { return heldAnswer(ran.outputs, err) })
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
@@ -1427,11 +1457,14 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
+	trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteActionResponse{
-			Error:       fmt.Sprintf("action execution failed: %v", err),
-			Diagnostics: diags,
-			FinalTime:   s.finalTime(runtimeCtx),
+			Error:        fmt.Sprintf("action execution failed: %v", err),
+			Diagnostics:  diags,
+			FinalTime:    s.finalTime(runtimeCtx),
+			Trace:        trace,
+			TraceDropped: dropped,
 		}, nil
 	}
 
@@ -1441,7 +1474,30 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		FinalTime:           s.finalTime(runtimeCtx),
 		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached.Index),
 		OrderDependent:      s.orderDependent(runtimeCtx, ran.outputs),
+		Trace:               trace,
+		TraceDropped:        dropped,
 	}, nil
+}
+
+// eventMessages builds the messages ExecuteAction's events post to self, in
+// order: a signal definition's message where the name resolves to one, qualified
+// or from action's namespaces, else one matched by name alone, as the REPL's
+// %send sends an undeclared signal.
+func eventMessages(cached *CachedModel, rt *runtime.Context, action *symbols.Symbol, events []string, self *runtime.Instance) ([]runtime.Message, error) {
+	messages := make([]runtime.Message, 0, len(events))
+	for _, event := range events {
+		sym := resolveEvent(cached.LookupNamedMember, action, event)
+		if sym == nil {
+			messages = append(messages, runtime.NamedSignalMessage(event, self))
+			continue
+		}
+		msg, err := rt.SignalMessage(sym, nil, self)
+		if err != nil {
+			return nil, fmt.Errorf("event %s: %w", event, err)
+		}
+		messages = append(messages, msg)
+	}
+	return messages, nil
 }
 
 // orderDependent is, for each value an unresolved choice point of the run
@@ -1549,7 +1605,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := stateTraceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
 		return &pb.ExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
@@ -1564,7 +1620,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	finalContext, statesVisited := ran.final, ran.visited
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
-	trace, dropped := stateTraceToProto(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteStateResponse{
 			Error:        fmt.Sprintf("state machine execution failed: %v", err),
@@ -1592,7 +1648,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}, nil
 }
 
-func stateTraceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
+func (s *Service) traceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
 	if recorder == nil {
 		return nil, 0
 	}
@@ -1600,6 +1656,9 @@ func stateTraceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtim
 	trace := make([]*pb.DocumentEvent, len(events))
 	for i, event := range events {
 		trace[i] = documentEvent(idx, event)
+		if _, value, ok := event.Assigned(); ok {
+			trace[i].Value = s.valueToProto(rt, value, idx)
+		}
 	}
 	dropped, _ := recorder.Dropped()
 	return trace, traceDroppedCountToInt32(int64(dropped))
@@ -1639,4 +1698,18 @@ func (s *Service) rootSymbol(model *CachedModel, doc *CachedDocument) *pb.Symbol
 func computeHash(content string) string {
 	hash := sha256.Sum256([]byte(content))
 	return fmt.Sprintf("%x", hash)
+}
+
+// resolveEvent finds the definition an event name denotes: as written, else as
+// each namespace enclosing action sees it, innermost first; nil for none.
+func resolveEvent(lookup func(string) []*symbols.Symbol, action *symbols.Symbol, event string) *symbols.Symbol {
+	if syms := lookup(event); len(syms) > 0 {
+		return syms[0]
+	}
+	for owner := action.Owner(); owner != nil; owner = owner.Owner() {
+		if syms := lookup(symbols.FQNOf(owner) + "::" + event); len(syms) > 0 {
+			return syms[0]
+		}
+	}
+	return nil
 }

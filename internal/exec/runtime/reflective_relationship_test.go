@@ -128,7 +128,7 @@ func TestReflectivePlainUsageRelationships(t *testing.T) {
 		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.ownedRelatedElement":              "[meta(test::Derived::deep::<unnamed> : KerML::Core::Feature)]",
 		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.ownedElement":                     "[]",
 		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.redefinedFeature.owner":           "[meta(test::Derived::deep : SysML::Systems::AttributeUsage)]",
-		"(test::Derived::x meta SysML::AttributeUsage).ownedElement":                                          "[]",
+		"(test::Derived::x meta SysML::AttributeUsage).ownedElement":                                          "[meta(test::Derived::x::<unnamed> : KerML::Kernel::LiteralRational)]",
 		"(test::Derived::x meta SysML::AttributeUsage).ownedRedefinition.ownedRelatedElement":                 "[]",
 		"(test::Derived meta SysML::PartDefinition).ownedSubclassification.general":                           "[meta(test::Base : SysML::Systems::PartDefinition)]",
 		"(test::Derived meta SysML::PartDefinition).ownedSpecialization.specific":                             "[meta(test::Derived : SysML::Systems::PartDefinition)]",

@@ -108,6 +108,8 @@ elmt:Shadows__Sweep__items
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "items" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Shadows__Speed ;
     sysml:multiplicity expr:Shadows__Sweep__items_pmultiplicity ;
@@ -187,6 +189,8 @@ elmt:Shadows__Sweep__value
     sysml:owningMembership elmt:Shadows__Sweep__value_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadows__Sweep__value_ft0 ;
@@ -209,7 +213,7 @@ elmt:Shadows__Sweep__value_om
 elmt:Shadows__Sweep___402
     a sysml:ForLoopActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Shadows::Sweep::@2" ;
+    sysx:positionalName "Shadows::Sweep::@2" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -303,7 +307,7 @@ expr:Shadows__Sweep___402_pcollection_om
 
 elmt:Shadows__Sweep___402__cur
     a sysml:AttributeUsage ;
-    sysml:qualifiedName "Shadows::Sweep::@2::cur" ;
+    sysx:positionalName "Shadows::Sweep::@2::cur" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -445,6 +449,8 @@ elmt:Shadows__Governor__value
     sysml:owningMembership elmt:Shadows__Governor__value_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadows__Governor__value_ft0 ;
@@ -479,6 +485,8 @@ elmt:Shadows__Governor__w
     sysml:owningMembership elmt:Shadows__Governor__w_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "w" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadows__Governor__w_ft0 ;
@@ -561,7 +569,7 @@ elmt:Shadows__Governor__fast_om
 elmt:Shadows__Governor___404
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Shadows::Governor::@4" ;
+    sysx:positionalName "Shadows::Governor::@4" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "15"^^xsd:integer ;
@@ -615,6 +623,8 @@ elmt:Shadows__Governor___404_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadows__Governor___404_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadows__Governor___404 ;
     sysml:owningRelationship elmt:Shadows__Governor___404_linkparam_om ;
     sysml:owningMembership elmt:Shadows__Governor___404_linkparam_om .
@@ -912,7 +922,7 @@ elmt:Shadows__Governor___404_succession_om
 elmt:Shadows__Governor___405
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Shadows::Governor::@5" ;
+    sysx:positionalName "Shadows::Governor::@5" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -966,6 +976,8 @@ elmt:Shadows__Governor___405_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadows__Governor___405_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadows__Governor___405 ;
     sysml:owningRelationship elmt:Shadows__Governor___405_linkparam_om ;
     sysml:owningMembership elmt:Shadows__Governor___405_linkparam_om .
@@ -987,6 +999,8 @@ elmt:Shadows__Governor___405_triggerparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadows__Governor___405_triggerparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Shadows__Governor___405 ;
     sysml:owningRelationship elmt:Shadows__Governor___405_triggerparam_om ;
     sysml:owningMembership elmt:Shadows__Governor___405_triggerparam_om .
@@ -1088,7 +1102,7 @@ expr:Shadows__Governor___405_succession_pend1_prs
 elmt:Shadows__Governor___405___40trigger
     a sysml:AcceptActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Shadows::Governor::@5::@trigger" ;
+    sysx:positionalName "Shadows::Governor::@5::@trigger" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "35"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -1123,7 +1137,7 @@ elmt:Shadows__Governor___405___40trigger_om
 
 elmt:Shadows__Governor___405___40trigger__w
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "Shadows::Governor::@5::@trigger::w" ;
+    sysx:positionalName "Shadows::Governor::@5::@trigger::w" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "42"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -1138,6 +1152,8 @@ elmt:Shadows__Governor___405___40trigger__w
     sysml:declaredName "w" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Shadows__Speed ;

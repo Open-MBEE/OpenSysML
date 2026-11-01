@@ -233,7 +233,7 @@ func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, index map[string]
 		if feature.IsIRI() {
 			if name, ok := graph.Lexical(feature, rdf.SysML+pDeclaredName); ok {
 				segments = append(segments, nameText(name))
-			} else if name, ok := graph.Lexical(feature, rdf.SysML+pQualifiedName); ok {
+			} else if name, ok := addressOf(graph, feature); ok {
 				segments = append(segments, lastSegmentText(name))
 			} else if name := unresolved[feature.Value[strings.LastIndex(feature.Value, ":")+1:]]; name != "" {
 				if _, qualified := source.QualifiedNameSegments(name); qualified {
@@ -491,7 +491,7 @@ func (n *normalizer) orderedMembersOf(owner string) []rdf.Term {
 // positionalIndex is the member position a qualifiedName of the form
 // `Owner::@n` states, for an anonymous member named by its place.
 func positionalIndex(graph *rdf.Graph, m rdf.Term) (int, bool) {
-	name, ok := graph.Lexical(m, rdf.SysML+pQualifiedName)
+	name, ok := addressOf(graph, m)
 	if !ok {
 		return 0, false
 	}
@@ -1078,7 +1078,7 @@ func (n *normalizer) nameOf(subject rdf.Term) string {
 	}
 	visiting[subject.Value] = true
 	defer delete(visiting, subject.Value)
-	if q, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+	if q, ok := addressOf(graph, subject); ok {
 		qname[subject.Value] = q
 		return q
 	}
@@ -1140,7 +1140,7 @@ func (n *normalizer) stateQualifiedNames() {
 		if membershipSubject[subject.Value] || nodeMember[subject.Value] && expressionMetaclasses[m] {
 			continue
 		}
-		if graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+		if statesAddress(graph, subject) {
 			continue
 		}
 		_, owned := memberOwner[subject.Value]
@@ -1160,7 +1160,7 @@ func (n *normalizer) stateQualifiedNames() {
 				continue
 			}
 		}
-		graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(n.nameOf(subject)))
+		graph.Add(subject, addressTerm(n.nameOf(subject)), rdf.String(n.nameOf(subject)))
 	}
 }
 
@@ -1623,7 +1623,7 @@ func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.
 	if referenceNameProps[local] && object.Datatype != rdf.OpenSysML+dtExpression && !json {
 		object = rdf.String(canonicalName(object.Value))
 	}
-	if local == pQualifiedName && !json {
+	if (local == pQualifiedName || local == xPositionalName) && !json {
 		object = rdf.String(plainQualifiedName(object.Value))
 	}
 	return object, !d.dropsLiteral(triple.Subject, local, object)
@@ -1649,8 +1649,10 @@ func (d *defaultDropper) dropsLiteral(subject rdf.Term, local string, object rdf
 	case local == "isReference" && object.Value == "true" && d.impliedIncluded(subject):
 		// A derived reference usage writes no `ref` of its own.
 		return true
-	case (local == "mayTimeVary" || local == "isVariable") && object.Value == "true" && d.impliedIncluded(subject):
-		// A feature is variable and time-varying without a keyword.
+	case (local == "mayTimeVary" || local == "isVariable") && object.Value == "true" &&
+		(d.impliedIncluded(subject) || ontology.IsAncestorOrSelf(d.meta(subject), "Feature")):
+		// A usage's isVariable is its derived mayTimeVary, and a `var` keyword is
+		// carried by its prefix: the flag is stated, never a keyword's source.
 		return true
 	case local == "isConstant" && object.Value == "true" &&
 		graph.BoolValue(subject, rdf.SysML+"isEnd") && d.impliedIncluded(subject):

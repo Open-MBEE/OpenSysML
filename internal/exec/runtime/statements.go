@@ -884,61 +884,11 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 	case lower.Send:
 		return flowNext, e.host.send(e.evalIn(s.Scope), s)
 	case lower.Assign:
-		if s.Target == "" {
-			return flowNext, fmt.Errorf("%s: unsupported assignment target", e.host.describe())
+		value, err := e.assign(s)
+		if err == nil {
+			e.noteAssign(s.Target, e.heldAfterAssign(s, value))
 		}
-		if err := e.ctx.checkAssignable(e.host.describe, s); err != nil {
-			return flowNext, err
-		}
-		value, err := e.evalIn(s.Scope).Eval(s.Value)
-		if err != nil {
-			return flowNext, fmt.Errorf("eval assignment RHS: %w", err)
-		}
-		// A chained target writes the object its chain reaches, whatever the body
-		// declares of the name it starts from, so no host binding applies to it.
-		if s.Chain != nil {
-			return flowNext, e.host.assignChain(e.evalIn(s.Scope), s, value)
-		}
-		// A qualified target names the feature on the object its qualifier denotes:
-		// the performance running that def (`Probe::count` is the Probe run's own
-		// count), else the performing object (`Scope::azimuth` on a Scope), as a
-		// name shadowed by a nearer declaration still reaches it.
-		if s.Qualified {
-			ec := e.evalIn(s.Scope)
-			// The qualifier denoting this body's own run makes the write the
-			// unqualified one: the host writes and streams it as `assign n := 3`.
-			if e.env.data.runs(ec.ctx, s.Owner) {
-				if !e.host.declaredOutput(s.Target) && e.env.rootDeclares(s.Target) {
-					return flowNext, e.host.assignOuter(e.env, s.Target, value, s)
-				}
-				if !e.host.declaredOutput(s.Target) && e.env.data.has(s.Target) {
-					return flowNext, e.host.assignData(e.env, s.Target, value, s)
-				}
-				return flowNext, e.host.assignOuter(e.env, s.Target, value, s)
-			}
-			return flowNext, e.host.assignForeign(ec, s, value)
-		}
-		// An output is bound by the host even when the body's data holds it, so a
-		// second binding is reported; a block-local of the name shadows it.
-		if e.env.holdsLocal(s.Target) {
-			if err := e.ctx.checkBodyWrite(e.host, s, &value); err != nil {
-				return flowNext, err
-			}
-			rootLocal := e.env.rootLocal(s.Target)
-			e.env.assignLocal(e.ctx, s.Target, value)
-			if rootLocal {
-				if mirror, ok := e.host.(rootLocalMirror); ok {
-					return flowNext, mirror.mirrorRootLocal(s.Target, value)
-				}
-			}
-			return flowNext, nil
-		}
-		if !e.host.declaredOutput(s.Target) {
-			if e.env.data.has(s.Target) {
-				return flowNext, e.host.assignData(e.env, s.Target, value, s)
-			}
-		}
-		return flowNext, e.host.assignOuter(e.env, s.Target, value, s)
+		return flowNext, err
 	case lower.Declare:
 		if s.Binding && s.Value != nil {
 			var cells *bodyCells
@@ -1732,4 +1682,104 @@ func (e *stmtEngine) condition(expr ast.Node, scope *symbols.Scope, what string)
 func (e *stmtEngine) checkBodyDeclaration(scope *symbols.Scope, name string, value *Value) error {
 	_, calc := e.host.(*calcStmtHost)
 	return e.ctx.checkBodyDeclarationHeld(scope, e.host.describe, name, value, !calc)
+}
+
+// assign runs an assignment statement and returns the value it wrote.
+func (e *stmtEngine) assign(s lower.Assign) (value Value, err error) {
+	if s.Target == "" {
+		return value, fmt.Errorf("%s: unsupported assignment target", e.host.describe())
+	}
+	if err := e.ctx.checkAssignable(e.host.describe, s); err != nil {
+		return value, err
+	}
+	value, err = e.evalIn(s.Scope).Eval(s.Value)
+	if err != nil {
+		return value, fmt.Errorf("eval assignment RHS: %w", err)
+	}
+	// A chained target writes the object its chain reaches, whatever the body
+	// declares of the name it starts from, so no host binding applies to it.
+	if s.Chain != nil {
+		return value, e.host.assignChain(e.evalIn(s.Scope), s, value)
+	}
+	// A qualified target names the feature on the object its qualifier denotes:
+	// the performance running that def (`Probe::count` is the Probe run's own
+	// count), else the performing object (`Scope::azimuth` on a Scope), as a
+	// name shadowed by a nearer declaration still reaches it.
+	if s.Qualified {
+		ec := e.evalIn(s.Scope)
+		// The qualifier denoting this body's own run makes the write the
+		// unqualified one: the host writes and streams it as `assign n := 3`.
+		if e.env.data.runs(ec.ctx, s.Owner) {
+			if !e.host.declaredOutput(s.Target) && e.env.rootDeclares(s.Target) {
+				return value, e.host.assignOuter(e.env, s.Target, value, s)
+			}
+			if !e.host.declaredOutput(s.Target) && e.env.data.has(s.Target) {
+				return value, e.host.assignData(e.env, s.Target, value, s)
+			}
+			return value, e.host.assignOuter(e.env, s.Target, value, s)
+		}
+		return value, e.host.assignForeign(ec, s, value)
+	}
+	// An output is bound by the host even when the body's data holds it, so a
+	// second binding is reported; a block-local of the name shadows it.
+	if e.env.holdsLocal(s.Target) {
+		if err := e.ctx.checkBodyWrite(e.host, s, &value); err != nil {
+			return value, err
+		}
+		rootLocal := e.env.rootLocal(s.Target)
+		e.env.assignLocal(e.ctx, s.Target, value)
+		if rootLocal {
+			if mirror, ok := e.host.(rootLocalMirror); ok {
+				return value, mirror.mirrorRootLocal(s.Target, value)
+			}
+		}
+		return value, nil
+	}
+	if !e.host.declaredOutput(s.Target) {
+		if e.env.data.has(s.Target) {
+			return value, e.host.assignData(e.env, s.Target, value, s)
+		}
+	}
+	return value, e.host.assignOuter(e.env, s.Target, value, s)
+}
+
+// actionStepHost is a host stepping an action token, which the trace names the
+// assignments of.
+type actionStepHost interface {
+	recordAssign(feature string, value Value)
+}
+
+// noteAssign records in the trace the value an assignment wrote, under the
+// action token stepping the statement where one is.
+// heldAfterAssign is what the target holds once written, as the write shaped it, read as a
+// reader of the target would; a chained target is not read back and keeps the value written.
+func (e *stmtEngine) heldAfterAssign(s lower.Assign, written Value) Value {
+	if e.ctx.trace == nil || s.Chain != nil {
+		return written
+	}
+	ec := e.evalIn(s.Scope)
+	if !s.Qualified {
+		if held, ok, err := ec.Lookup(s.Target); err == nil && ok {
+			return held
+		}
+		return written
+	}
+	if held, ok, err := ec.frameFeatureValue(s.Owner, s.Feature); err == nil && ok {
+		return held
+	}
+	if self := ec.self; self != nil && ec.ctx.isOrSpecializes(self.Type, s.Owner) {
+		if held, ok, err := ec.selfFeatureValue(s.Target); err == nil && ok {
+			return held
+		}
+	}
+	return written
+}
+
+func (e *stmtEngine) noteAssign(feature string, value Value) {
+	if e.ctx.trace == nil {
+		return
+	}
+	if host, ok := e.host.(actionStepHost); ok {
+		host.recordAssign(feature, value)
+	}
 }

@@ -129,12 +129,15 @@ for (Outcome outcome : all.outcomes()) {
 `executeAction`/`executeState` run once and answer an `ActionRun` (`outputs`,
 `finalTime`, `diagnostics`) or a `StateRun` (`statesVisited`, `finalContext`,
 `finalTime`, `diagnostics`). `finalTime` is filled only by a service advertising
-`final_time`. `ExecutionOptions` carries a `schedule`, a `performer`, and the
-state-run-only `withTrace()` option. The client checks their respective
-capabilities (`schedule`, `performer`, `state_trace`) before the call; an unknown
+`final_time`. `ExecutionOptions` carries a `schedule`, a `performer`, `withTrace()` and, for an
+action, `withEvents(...)` — signals posted to the performer in order, each once
+every token waits. The client checks their respective capabilities (`schedule`,
+`performer`, `state_trace` or `action_trace`) before the call; an unknown
 schedule or trace with exploration is refused as `INVALID_ARGUMENT`. A requested
-trace is returned as typed `DocumentEvent` values in `StateRun.trace()` with
-`traceDropped()` reporting records discarded by the service's bound.
+trace is returned as typed `DocumentEvent` values in `StateRun.trace()` or
+`ActionRun.trace()` (token steps, waits, accepts, decisions, assignments with
+`feature()` and `value()`) with `traceDropped()` reporting records discarded by
+the service's bound.
 `ExecutionOptions` also carries the run options of the `sysml` command: `withAdvance(seconds)`
 runs for a simulated duration and reports the clock in `finalTime`, `withSeed(n)` seeds the
 model's own draws, `withDraws("min")` (or `"max"`, `"average"`, `"random"`) chooses how they
@@ -260,17 +263,49 @@ model.roots();   // one Symbol per document, in request order
 
 `Connection.convert`/`convertFile` translate source text between notations and
 answer a `Conversion` (`content`, the resolved `fromFormat`/`toFormat`,
-`experimental`/`experimentalNotice`, `diagnostics`); `Model.convert` converts the
+`experimental`/`experimentalNotice`, `diagnostics`, and for `api-json` the
+`libraryReferences` — each a `LibraryReference` with `id`, `qualifiedName` and
+`type` — named outside the element array); `Model.convert` converts the
 parsed model itself. `ConversionOptions` carries a `fromFormat` (else the service
 sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
-`ModelException` carrying the diagnostics rather than converting anyway — and
+`ModelException` carrying the diagnostics rather than converting anyway —
 `idForm` (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived
-element ids of a graph notation (`ttl`, `api-json`). `Conversion.write(Path)`
+element ids of a graph notation (`ttl`, `api-json`), and `includeLibraryStubs`,
+which restores in `api-json` the ownerless library stubs releases before 0.11.0
+wrote (needs the service's `convert_library_stubs` capability). `Conversion.write(Path)`
 saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
 extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
 `severalDocuments()` is set, whose text is in `documents()` alone; a model
 adopted by hash first edits without reading documents, which the service refuses
 for a model of several, and only then with them.
+
+For notation converted to `api-json`, `withCompact(true)` writes the compact document
+(`api-json-compact/1`, see [the compact form](api-json-compact.md)) in place of the
+element array; `withOmitDerived(true)` leaves out every derived property of the metamodel
+and `withKeepDerived(List.of("qualifiedName"))` names the ones still written. These need
+the service's `convert_compact` capability, and the service refuses, as a
+`ServiceException` of `INVALID_ARGUMENT`, `omitDerived` or `keepDerived` without `compact`,
+`keepDerived` without `omitDerived` or naming a property that is not derived, and `compact`
+for any other direction. `withIncludeCheckDiagnostics(true)` (capability
+`convert_check_diagnostics`, notation sources only) reports the semantic check's
+diagnostics in the `Conversion`'s `diagnostics` beside the output, each `Diagnostic` with
+its own `severity`, so a conversion of a model with errors is told apart from one of a
+clean model.
+
+Parsing a set of documents again after an edit, `ParseOptions.withBaseModelHash(model.hash())`
+relates the parse to the previous model and the new `Model.affected()` names, in document
+order, the documents whose analysis, diagnostics or conversion may differ from it, so results
+computed for the others are kept; every document when the service could not compare the two,
+such as for a set it had not seen before. It needs the `parse_sources_affected` capability,
+and a one-document `load`/`parse` refuses the option with an `IllegalArgumentException`.
+
+```java
+Model edited =
+    connection.parseSources(documents, ParseOptions.defaults().withBaseModelHash(model.hash()));
+for (String name : edited.affected()) {
+  rerun(name);
+}
+```
 
 A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive — is **migrated,
 not converted**: `convert`/`convertFile` refuse it with a `ServiceException` of
@@ -394,8 +429,10 @@ Use `RenderViewPorts.FULL` to include every declared port; the default is
 `MINIMAL`, and `renderView(name, ports, List.of("edge-labels", "typings"))` to draw
 those [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
 besides the ones the view's rendering shows (`"all"` for every one); the
-`RenderedView`'s `shown()` lists the elements drawn. This call requires the
-`render_view` capability.
+`RenderedView`'s `shown()` lists the elements drawn. The five-argument form adds
+`compartments`, how a tree rendering folds owned members into compartment rows
+(`"positioned"`, the default, `"most"` or `"ports"`), each folded node naming
+its `compartment`. This call requires the `render_view` capability.
 
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
 holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,

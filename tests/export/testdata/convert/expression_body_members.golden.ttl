@@ -108,6 +108,8 @@ elmt:Bodies__Scaled__x
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Bodies__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -131,7 +133,7 @@ elmt:Bodies__Scaled__x_om
 elmt:Bodies__Scaled___401
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "Bodies::Scaled::@1" ;
+    sysx:positionalName "Bodies::Scaled::@1" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "5"^^xsd:integer ;
@@ -206,6 +208,8 @@ expr:Bodies__Scaled___401_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "y" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Bodies__Real ;
     sysml:owner expr:Bodies__Scaled___401_pbody ;
     sysml:owningRelationship expr:Bodies__Scaled___401_pin0_om ;

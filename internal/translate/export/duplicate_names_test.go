@@ -53,7 +53,7 @@ func withoutIdentitySourceText(graph *rdf.Graph) *rdf.Graph {
 func elementSubjectsByQualifiedName(graph *rdf.Graph) map[string]string {
 	subjects := make(map[string]string)
 	for _, subject := range graph.Subjects() {
-		if qname, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName"); ok {
+		if qname, ok := addressOf(graph, subject); ok {
 			subjects[qname] = subject.Value
 		}
 	}
@@ -140,10 +140,10 @@ func TestDuplicateMemberNamesExportAPI(t *testing.T) {
 }
 
 // TestDuplicateMemberNamesExportTurtle checks the same two elements land in
-// the Turtle, named P::A and P::@2, both declared as A.
+// the Turtle, the first named P::A, the second addressed as P::@2, both declared as A.
 func TestDuplicateMemberNamesExportTurtle(t *testing.T) {
 	turtle := string(rdf.WriteTurtle(duplicateGraph(t, duplicateSource, IDQualifiedName)))
-	for _, want := range []string{`sysml:qualifiedName "P::A"`, `sysml:qualifiedName "P::@2"`} {
+	for _, want := range []string{`sysml:qualifiedName "P::A"`, `sysx:positionalName "P::@2"`} {
 		if !strings.Contains(turtle, want) {
 			t.Fatalf("the Turtle lacks %s:\n%s", want, turtle)
 		}
@@ -274,7 +274,7 @@ func TestDuplicateMemberNamesToolkit(t *testing.T) {
 	qualified := map[string]string{}
 	for _, subject := range normative.Subjects() {
 		if name, ok := normative.Lexical(subject, rdf.SysML+pDeclaredName); ok {
-			qualified[name], _ = normative.Lexical(subject, rdf.SysML+pQualifiedName)
+			qualified[name], _ = addressOf(normative, subject)
 		}
 	}
 	for name, want := range map[string]string{
@@ -336,7 +336,7 @@ func TestDuplicateRootNamesToolkit(t *testing.T) {
 		"x2": "@2::X",
 	} {
 		subject := rdf.IRI(rdf.Element + id)
-		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		got, ok := addressOf(normative, subject)
 		if !ok || got != want {
 			t.Errorf("%s has qualified name %q, want %q", id, got, want)
 		}
@@ -571,7 +571,7 @@ func TestDuplicateRootNamesToolkitWrapperOrder(t *testing.T) {
 		"x2": "@2::X",
 	} {
 		subject := rdf.IRI(rdf.Element + id)
-		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		got, ok := addressOf(normative, subject)
 		if !ok || got != want {
 			t.Errorf("%s has qualified name %q, want %q", id, got, want)
 		}
@@ -661,7 +661,7 @@ func TestDuplicateRootNamesToolkitPartialMemberIndex(t *testing.T) {
 		"x2": "@2::X",
 	} {
 		subject := rdf.IRI(rdf.Element + id)
-		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		got, ok := addressOf(normative, subject)
 		if !ok || got != want {
 			t.Errorf("%s has qualified name %q, want %q", id, got, want)
 		}
@@ -690,7 +690,7 @@ func TestDuplicateRootNamesToolkitRelationshipPosition(t *testing.T) {
 			break
 		}
 	}
-	if got, ok := notation.Lexical(dependency, rdf.SysML+pQualifiedName); !ok || got != "@1" {
+	if got, ok := addressOf(notation, dependency); !ok || got != "@1" {
 		t.Errorf("notation dependency has qualified name %q, want @1", got)
 	}
 	notationNames := rootPackageAndPartNames(notation)
@@ -733,12 +733,12 @@ func TestDuplicateRootNamesToolkitRelationshipPosition(t *testing.T) {
 				"x2": "@3::X",
 			} {
 				subject := rdf.IRI(rdf.Element + id)
-				got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+				got, ok := addressOf(normative, subject)
 				if !ok || got != want {
 					t.Errorf("%s has qualified name %q, want %q", id, got, want)
 				}
 			}
-			if normative.HasProperty(rdf.IRI(rdf.Element+"dep"), rdf.SysML+pQualifiedName) {
+			if hasAddress(normative, rdf.IRI(rdf.Element+"dep")) {
 				t.Error("the unnamed root dependency has a qualified name")
 			}
 			if got := rootPackageAndPartNames(normative); !sameNameSet(got, notationNames) {
@@ -775,7 +775,7 @@ func TestToolkitRootMemberIndexesOrderRoots(t *testing.T) {
 		"x2": "@3::X",
 	} {
 		subject := rdf.IRI(rdf.Element + id)
-		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		got, ok := addressOf(normative, subject)
 		if !ok || got != want {
 			t.Errorf("%s has qualified name %q, want %q", id, got, want)
 		}
@@ -857,7 +857,7 @@ func TestAPIJSONRoundTripPartialRootIndexes(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if name, ok := roundTrip.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+		if name, ok := addressOf(roundTrip, subject); ok {
 			namesByID[id] = name
 		}
 	}
@@ -887,7 +887,7 @@ func TestAPIJSONRoundTripPartialRootIndexes(t *testing.T) {
 			t.Fatalf("written API JSON has no element with qualified name %q", name)
 		}
 		subject := rdf.ReferenceIRI(rdf.Term{}, id)
-		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		got, ok := addressOf(normative, subject)
 		if !ok || got != want {
 			t.Errorf("%s has qualified name %q, want %q", name, got, want)
 		}
@@ -900,7 +900,7 @@ func rootPackageAndPartNames(graph *rdf.Graph) map[string]bool {
 		if !graph.HasProperty(subject, rdf.SysML+pDeclaredName) {
 			continue
 		}
-		if name, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+		if name, ok := addressOf(graph, subject); ok {
 			names[name] = true
 		}
 	}
@@ -1159,9 +1159,7 @@ func TestDuplicateMemberNamesPositionalCollision(t *testing.T) {
 		}
 		for _, element := range apiElements(t, document) {
 			id, _ := element["@id"].(string)
-			qname, _ := imported.Lexical(
-				rdf.ReferenceIRI(rdf.Term{}, id), rdf.SysML+pQualifiedName,
-			)
+			qname, _ := addressOf(imported, rdf.ReferenceIRI(rdf.Term{}, id))
 			switch qname {
 			case "Demo::Dup", "Demo::'@2'", "Demo::@2":
 				id, _ := element["@id"].(string)

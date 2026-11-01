@@ -1340,8 +1340,8 @@ type CheckResult struct {
 	SubjectRoot *Instance
 	SubjectPath []string
 
-	// Vacuous says why a holding requirement check judged no condition: it
-	// states no required constraint. Empty for a verdict about conditions.
+	// Vacuous says why a holding requirement check judged no required condition:
+	// it states none, or an assumption did not hold. Empty for a verdict about conditions.
 	Vacuous string
 }
 
@@ -1555,7 +1555,9 @@ func (ctx *Context) subjectParameterNames(sym *symbols.Symbol) []string {
 	if subject == nil {
 		return nil
 	}
-	names := bindingNames(subject.Name, subject.ShortName)
+	// An unnamed subject (a satisfy's `by` subject) is read by the names it takes
+	// from the subject it redefines (KerML 8.3.3.3 effectiveName).
+	names := bindingNames(ctx.model.semantics.EffectiveNameOf(subject), ctx.model.semantics.EffectiveShortNameOf(subject))
 	for _, redefined := range ctx.redefinedFeatures(subject, sym) {
 		for _, n := range bindingNames(redefined.Name, redefined.ShortName) {
 			if !slices.Contains(names, n) {
@@ -1655,8 +1657,8 @@ func bodyScope(sym *symbols.Symbol, fallback *symbols.Scope) *symbols.Scope {
 
 // EvaluateRequirement evaluates a requirement definition/usage naming no object,
 // choosing its subject as EvaluateConstraint does.
-// Returns (satisfied, error). Validates subject/actor types and evaluates assume/require expressions.
-// Assume members always pass (trusted), require members must evaluate to true.
+// Returns (satisfied, error). Validates subject/actor types and evaluates assume/require expressions:
+// the requirement holds when its assumptions imply its required conditions (RequirementConstraintCheck::result).
 func (ctx *Context) EvaluateRequirement(sym *symbols.Symbol, scope *symbols.Scope) (bool, error) {
 	return ctx.EvaluateRequirementOn(sym, scope, nil)
 }
@@ -1720,14 +1722,12 @@ func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 		bindings: mapFrame(reqBindings),
 		negated:  NegatedDecl(sym),
 	}
-	holds, err := ctx.evaluateConditions(check, conds)
+	verdict, err := ctx.judgeConditions(check, conds)
 	if err != nil {
 		err = unboundSubjectError(err, "requirement", sym.Name, ctx.unboundSubjectNames(sym, members, subject.instance))
 	}
-	result := ctx.checkResultOf(holds, subject)
-	if err == nil && holds {
-		result.Vacuous = vacuity(check, conds)
-	}
+	result := ctx.checkResultOf(verdict.holds, subject)
+	result.Vacuous = verdict.vacuous
 	return result, err
 }
 
@@ -1814,6 +1814,126 @@ func (ctx *Context) ExecuteActionReportingPerformer(action *symbols.Symbol, self
 		return nil, nil, err
 	}
 	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
+}
+
+// ExecuteActionWithEvents runs an action as ExecuteActionReportingPerformer does,
+// posting each of events to the run in turn once every token of it waits, as the
+// REPL's %send does, and running on; without events it is that call.
+func (ctx *Context) ExecuteActionWithEvents(action *symbols.Symbol, self *Instance, inputs map[string]Value, events []Message) (outputs, performer map[string]Value, err error) {
+	if len(events) == 0 {
+		return ctx.ExecuteActionReportingPerformer(action, self, inputs)
+	}
+	exec, reused, err := ctx.StartActionPerformedBy(action, self, inputs)
+	if err != nil {
+		return nil, nil, err
+	}
+	// A performance started for this call is let go of when it fails; a reused one stays its owner's.
+	release := exec.Release
+	if reused {
+		release = func() {}
+	}
+	top := ctx.runDepth == 0
+	defer ctx.beginRun()()
+	if err := ctx.DeliverEvents(exec, events); err != nil {
+		release()
+		return nil, nil, err
+	}
+	if err := ctx.runPerformed(exec, top); err != nil {
+		if !paused(err) {
+			release()
+		}
+		return nil, nil, err
+	}
+	outputs, err = exec.ResultsWithError()
+	if err != nil {
+		release()
+		return nil, nil, err
+	}
+	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
+}
+
+// DeliverEvents posts each of events to exec's run in turn: the run goes until it
+// completes or every token waits, the event is posted, and an accept node waiting
+// for it takes it on the next step. One no waiting accept takes is an error, as
+// is one the run completed before.
+func (ctx *Context) DeliverEvents(exec *ActionExecutor, events []Message) error {
+	for _, msg := range events {
+		if err := exec.RunToQuiescence(); err != nil {
+			return fmt.Errorf("execute action: %w", err)
+		}
+		if exec.State().Ended() {
+			return fmt.Errorf("execute action: event %s was posted after the action completed", msg.SignalType)
+		}
+		ctx.PostMessage(msg)
+		if !exec.HasPendingSignal() {
+			return fmt.Errorf("execute action: no accept of the action waits for event %s: %s", msg.SignalType, exec.describeWaits(nil))
+		}
+	}
+	return nil
+}
+
+// ErrNotCompleted is the typed error an action run for a duration that has not
+// completed by its end fails with; the message names where it stopped.
+var ErrNotCompleted = errors.New("action did not complete")
+
+// ActionOutcomeAdvancedBy runs action as ActionOutcomePerformedBy does, but for duration of
+// simulated time, as `sysml -action X -advance T` does; one still running then is ErrNotCompleted.
+func (ctx *Context) ActionOutcomeAdvancedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value, duration float64) (Outcome, error) {
+	exec, release, err := ctx.startActionAdvancedBy(action, self, inputs, nil, duration)
+	if err != nil {
+		return Outcome{}, err
+	}
+	defer release()
+	if _, err := exec.ResultsWithError(); err != nil {
+		return Outcome{}, err
+	}
+	return (&Invocation{Actions: []*ActionExecutor{exec}}).Outcome(), nil
+}
+
+// ExecuteActionAdvancedBy runs action as ExecuteActionWithEvents does, but for
+// duration of simulated time as ActionOutcomeAdvancedBy does.
+func (ctx *Context) ExecuteActionAdvancedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value, events []Message, duration float64) (outputs, performer map[string]Value, err error) {
+	exec, release, err := ctx.startActionAdvancedBy(action, self, inputs, events, duration)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer release()
+	outputs, err = exec.ResultsWithError()
+	if err != nil {
+		return nil, nil, err
+	}
+	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
+}
+
+// startActionAdvancedBy starts the performance a run to completion would run, posts events as it
+// waits and moves the clock by duration; release lets go of one started for the call, not of a reused one.
+func (ctx *Context) startActionAdvancedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value, events []Message, duration float64) (*ActionExecutor, func(), error) {
+	exec, reused, err := ctx.StartActionPerformedBy(action, self, inputs)
+	if err != nil {
+		return nil, nil, err
+	}
+	release := exec.Release
+	if reused {
+		release = func() {}
+	}
+	if err := ctx.DeliverEvents(exec, events); err != nil {
+		release()
+		return nil, nil, err
+	}
+	if _, err := ctx.Advance(duration); err != nil {
+		release()
+		return nil, nil, err
+	}
+	if !exec.State().Ended() {
+		err := fmt.Errorf("%w: action %s stopped at %s at simulation time %s without completing",
+			ErrNotCompleted, ctx.QualifiedName(action), exec.State(), semantics.FormatReal(ctx.Clock().Now()))
+		if next, ok := exec.NextWait(); ok {
+			err = fmt.Errorf("%w; the clock must reach t=%s for it to go on", err, semantics.FormatReal(next))
+		}
+		release()
+		return nil, nil, err
+	}
+	return exec, release, nil
 }
 
 // performAction runs action to completion, performed by self, and returns the
@@ -2012,6 +2132,28 @@ func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events 
 func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *Instance, events []string) (Outcome, error) {
 	exec, err := ctx.performState(stateMachine, self, events)
 	if err != nil {
+		return Outcome{}, err
+	}
+	if _, err := exec.StateDataWithError(); err != nil {
+		return Outcome{}, err
+	}
+	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil
+}
+
+// StateOutcomeAdvancedBy runs a state machine as StateOutcomePerformedBy does, but sends the
+// events and then moves the clock by duration, as `sysml -state X -advance T` does.
+func (ctx *Context) StateOutcomeAdvancedBy(stateMachine *symbols.Symbol, self *Instance, events []string, duration float64) (Outcome, error) {
+	exec, reused, err := ctx.StartStatePerformedBy(stateMachine, self)
+	if err != nil {
+		return Outcome{}, err
+	}
+	if !reused {
+		defer exec.Release()
+	}
+	for _, event := range events {
+		exec.SendSignal(event, nil)
+	}
+	if _, err := ctx.Advance(duration); err != nil {
 		return Outcome{}, err
 	}
 	if _, err := exec.StateDataWithError(); err != nil {

@@ -15,17 +15,43 @@ import (
 // Annotation (prefix metadata, a relationship body's annotating element) has no
 // membership (KerML 8.2.3.3.1 OwnedAnnotation).
 func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Scope == nil {
+	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
+	}
+	if sym.Expr != nil {
+		return m.expressionMemberships(sym)
 	}
 	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.memberships[sym]; ok {
 		return cached
 	}
+	value := m.ValueExpression(sym)
+	if sym.Scope == nil && value == nil {
+		return nil
+	}
 	journal(m, m.memberships, sym, sym.Decl)
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	ordinal := 0
+	if value != nil {
+		// The feature's value part declares a FeatureValue that owns the
+		// expression (KerML 8.3.3.3.5 Feature::valuation subsets ownedMembership),
+		// ahead of the body's memberships, as the conversion writes it.
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   value.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: value,
+			},
+		})
+		ordinal++
+	}
+	if sym.Scope == nil {
+		m.memberships[sym] = out
+		return out
+	}
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
 		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) {
 			return true
@@ -49,6 +75,20 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	})
 	m.memberships[sym] = out
 	return out
+}
+
+// isSatisfySubjectSymbol reports whether sym is the subject parameter a satisfy
+// usage's `by` clause declares (symbols.buildSatisfySubjects), which a
+// SubjectMembership owns.
+func isSatisfySubjectSymbol(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Kind != symbols.SymbolReferenceUsage {
+		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Node == symbols.NodeSubject
+	}
+	rel, ok := sym.Decl.(*ast.Relationship)
+	return ok && rel.Kind == ast.RelSubject
 }
 
 // ownedThroughAnnotation reports whether owner owns member through an
@@ -228,6 +268,17 @@ func (m *Model) implicitOwnedRelationships(sym *symbols.Symbol) []*symbols.Symbo
 // the SysML membership the member's declaration implies (SysML 8.3), else an
 // OwningMembership.
 func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
+	if isValueExpressionSymbol(member) {
+		return "FeatureValue"
+	}
+	if member != nil && member.Expr != nil {
+		switch member.Expr.Role {
+		case symbols.ExpressionParameter:
+			return "ParameterMembership"
+		case symbols.ExpressionResult:
+			return "ReturnParameterMembership"
+		}
+	}
 	if name := m.sysmlMembershipMetaclassName(owner, member); name != "" {
 		return name
 	}
@@ -255,6 +306,9 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 func (m *Model) sysmlMembershipMetaclassName(owner, member *symbols.Symbol) string {
 	if m.isKerMLDoc(member) {
 		return ""
+	}
+	if isSatisfySubjectSymbol(member) {
+		return "SubjectMembership"
 	}
 	if isMetadataBodyMember(member) {
 		return ""
@@ -404,6 +458,16 @@ func (m *Model) membershipElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return member, true
+	case "featureWithValue":
+		if !m.reflectiveMetaclassConforms(sym, "FeatureValue") {
+			return nil, false
+		}
+		return owner, true
+	case "value":
+		if !m.reflectiveMetaclassConforms(sym, "FeatureValue") {
+			return nil, false
+		}
+		return member, true
 	case "ownedResultExpression":
 		if !m.reflectiveMetaclassConforms(sym, "ResultExpressionMembership") {
 			return nil, false
@@ -513,6 +577,15 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 		return stringOrEmpty(m.EffectiveShortNameOf(rel.Member)), true
 	case "visibility":
 		return m.visibilityValue(rel.Member.Visibility), true
+	case "isDefault", "isInitial":
+		if !isValueExpressionSymbol(rel.Member) {
+			break
+		}
+		_, isDefault, isInitial, _ := featureValueOf(rel.Owner)
+		if feature == "isDefault" {
+			return boolValue(isDefault), true
+		}
+		return boolValue(isInitial), true
 	case "kind":
 		if m.reflectiveMetaclassConforms(sym, "RequirementConstraintMembership") {
 			// A RequirementVerificationMembership has kind = requirement (SysML 8.3.19).

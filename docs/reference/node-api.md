@@ -154,6 +154,7 @@ knowing its members.
 | `ServiceError` | the service could not be reached, started, or answered nothing usable |
 | `ServiceUnavailableError` | the service was unreachable, refused the stream, or died before answering; in a browser also a fetch that never answered (dead address, CORS refusal, mid-call loss), which arrives as `UNKNOWN` |
 | `ServiceStartError` | a private child failed to start, or died while it was needed |
+| `AuthenticationError` | the service refused the call's credentials: no bearer token, or not the one it expects (`UNAUTHENTICATED`) |
 | `StaleServiceError` | the running service reports another version than `version` asked for |
 | `ClosedConnectionError` | the connection was closed and cannot be used again |
 | `ParseError` | a file could not be read, or its content did not parse; carries `diagnostics` |
@@ -240,10 +241,15 @@ Beside the model reads above, the client covers every RPC the service offers:
 
 - **`connection.parseSources`** parses several documents as one model
   (`SourceDocument.file`/`inline` per document; `model.documents`, `model.roots`);
-- **`connection.convert`** and Node's **`save(target, path)`** write a model,
-  file or conversion out in `sysml`, `kerml`, `turtle` or `api-json`; a SysML v1
-  model (`xmi`, `uml`, `mdzip`, by `fromFormat` or by extension) is refused with an
-  `InvalidRequestError` naming `migrate`, since it is migrated, not converted;
+- **`connection.convert`** and Node's **`save(target, path, options?)`** write a
+  model, file or conversion out in `sysml`, `kerml`, `turtle` or `api-json`; a
+  SysML v1 model (`xmi`, `uml`, `mdzip`, by `fromFormat` or by extension) is
+  refused with an `InvalidRequestError` naming `migrate`, since it is migrated,
+  not converted; `idForm` (`"qualified"`, the default, or `"uuid"`) chooses how
+  a graph spells its derived ids and `includeLibraryStubs` restores the
+  pre-0.11.0 ownerless library stubs in API JSON — `save` takes both, with
+  `toFormat` and `tolerateSyntaxErrors`, as its `SaveOptions` and hands them to
+  `Model.convert` unchanged, so the same refusals and capability gates apply;
 - **`connection.migrate`** migrates a SysML v1 model from a `path` or inline
   `content` bytes to `sysml` or `ttl`, with `fromFormat`, `report`, `results`,
   `layoutPath`/`layoutContent`, `imageBaseUrl` and `strict` as the command's
@@ -262,7 +268,10 @@ Beside the model reads above, the client covers every RPC the service offers:
   schedule — the two families refuse each other's `schedule`, as the wire does.
   `model.executeState(symbolId, { trace: true })` requests typed `DocumentEvent`
   records in `trace` and reports discarded records in `traceDropped`; it requires
-  `state_trace` and cannot be combined with an explore schedule; both calls take
+  `state_trace` and cannot be combined with an explore schedule;
+  `model.executeAction(symbolId, {}, { trace: true, events: ["Go"], performer })` does the
+  same for an action under `action_trace` — token steps, waits, accepts, decisions and
+  assignments (`feature`, `value`) — posting each event once every token waits; both calls take
   the run options of the `sysml` command — `advance` (simulated seconds, reported
   back in `finalTime`), `seed`, `draws` (`"random"`, `"min"`, `"max"` or
   `"average"`) and `clockStep` — and `runAnalysis` takes `toolDryRun` to preview
@@ -287,6 +296,44 @@ Beside the model reads above, the client covers every RPC the service offers:
 
 `connection.rpc` remains the escape hatch — the generated Connect client — and
 `SysMLService` is exported for a caller building its own.
+
+### Compact API JSON and the check's diagnostics
+
+`connection.convert` writes notation to the compact API JSON document
+(`api-json-compact/1`, see [the compact form](api-json-compact.md)) with
+`compact: true`; `omitDerived: true` leaves out every derived property of the
+metamodel and `keepDerived` names the ones still written. `includeCheckDiagnostics:
+true` reports the semantic check's diagnostics in `Conversion.diagnostics` beside the
+output, each with its own `severity`, so a conversion of a model with errors is told
+apart from one of a clean model:
+
+```ts
+const result = await connection.convert("api-json", { content: source }, {
+  compact: true,
+  omitDerived: true,
+  keepDerived: ["qualifiedName"],
+  includeCheckDiagnostics: true,
+});
+const errors = result.diagnostics.filter((d) => d.severity === "error");
+```
+
+The compact options need the `convert_compact` capability and the check's diagnostics
+`convert_check_diagnostics`; a service without them throws `MissingCapabilityError`
+before anything is sent. The service refuses, as `InvalidRequestError`, `omitDerived` or
+`keepDerived` without `compact`, `keepDerived` without `omitDerived` or naming a property
+that is not derived, `compact` for other than notation to `api-json`, and
+`includeCheckDiagnostics` for a graph source.
+
+### Affected documents
+
+`connection.parseSources(documents, { baseModelHash })` names a model of the same
+documents the caller holds results of — typically the previous `parseSources` answer's
+`hash` — and the new model's `affected` lists, in document order, the documents whose
+analysis, diagnostics or conversion may differ from it, so results computed for the
+others are kept. Every document is named when the service cannot compare the two, such
+as for a set it has not seen before; a base the service no longer holds is not an error.
+Needs the `parse_sources_affected` capability, refused as `MissingCapabilityError` before
+the call.
 
 ## Conformance
 

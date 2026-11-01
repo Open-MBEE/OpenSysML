@@ -98,7 +98,7 @@ func mappingShapeDisagreements(t *testing.T, path string, graph *rdf.Graph) int 
 	named := map[string]bool{}
 	var stripped []rdf.Triple
 	for _, triple := range graph.Triples() {
-		if triple.Predicate.Value == rdf.SysML+"qualifiedName" {
+		if triple.Predicate.Value == rdf.SysML+"qualifiedName" || triple.Predicate.Value == rdf.OpenSysML+"positionalName" {
 			named[triple.Subject.Value] = true
 			continue
 		}

@@ -1379,6 +1379,7 @@ pub struct Model {
     hash: String,
     roots: Vec<Symbol>,
     documents: Vec<String>,
+    affected: Vec<String>,
     source_path: Option<PathBuf>,
     diagnostics: Vec<Diagnostic>,
     pub(crate) connection: Connection,
@@ -1411,6 +1412,7 @@ impl Model {
             response: ModelResponse::File(Box::new(wire)),
             roots,
             documents,
+            affected: Vec::new(),
             source_path,
             connection,
         })
@@ -1435,6 +1437,7 @@ impl Model {
                 .cloned()
                 .map(Diagnostic::from)
                 .collect(),
+            affected: wire.affected.clone(),
             response: ModelResponse::Sources(wire),
             roots,
             documents,
@@ -1449,6 +1452,7 @@ impl Model {
             hash: hash.to_owned(),
             roots: Vec::new(),
             documents: Vec::new(),
+            affected: Vec::new(),
             source_path: None,
             diagnostics: Vec::new(),
             connection,
@@ -1517,6 +1521,14 @@ impl Model {
     /// The names of the documents the model was parsed from, in order.
     pub fn documents(&self) -> &[String] {
         &self.documents
+    }
+    /// The documents whose analysis, diagnostics or conversion may differ from the base model's,
+    /// in document order and named as [`Model::documents`] names them, when `parse_sources` was
+    /// given a [`SourcesOptions::base_model_hash`](crate::SourcesOptions::base_model_hash): a
+    /// caller keeps what it computed for the others. Every document when the service could not
+    /// compare the two, such as for a set it had not seen before; empty for a parse without a base.
+    pub fn affected(&self) -> &[String] {
+        &self.affected
     }
     /// The file the model was parsed from, when it was one file.
     pub fn source_path(&self) -> Option<&Path> {

@@ -868,7 +868,6 @@ read	Probe::p1.sr.concerns	systems	Requirements::RequirementCheck::concerns	empt
 read	Probe::p1.sr.constraints	systems	Requirements::RequirementCheck::constraints	empty
 read	Probe::p1.sr.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.sr.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	error requirement sr: subject binding: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1
-read	Probe::p1.sr.s	model	Probe::R1::s	error feature value sr.s: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1
 read	Probe::p1.sr.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::P1::sr
 read	Probe::p1.sr.sh	model	Probe::R1::sh	object:Probe::P2
 read	Probe::p1.sr.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
@@ -881,7 +880,6 @@ read	Probe::p1.srOne.concerns	systems	Requirements::RequirementCheck::concerns	e
 read	Probe::p1.srOne.constraints	systems	Requirements::RequirementCheck::constraints	empty
 read	Probe::p1.srOne.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.srOne.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
-read	Probe::p1.srOne.s	model	Probe::R1::s	object:Probe::p2
 read	Probe::p1.srOne.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::P1::srOne
 read	Probe::p1.srOne.sh	model	Probe::R1::sh	object:Probe::P2
 read	Probe::p1.srOne.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty

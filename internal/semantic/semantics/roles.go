@@ -522,6 +522,16 @@ func ownedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
 			out = append(out, found)
 		}
 	}
+	if usage, ok := sym.Decl.(*ast.Usage); ok && role == subjectRole && usage.Kind == ast.UsageSatisfy {
+		for _, rel := range usage.Relationships {
+			if rel == nil || rel.Kind != ast.RelSubject {
+				continue
+			}
+			if found := memberSymbol(sym.Scope, rel); found != nil {
+				out = append(out, found)
+			}
+		}
+	}
 	return out
 }
 
@@ -575,6 +585,13 @@ func roleOf(sym *symbols.Symbol) caseRole {
 func roleOfNode(node ast.Node) caseRole {
 	if wrapper, ok := node.(*ast.Membership); ok {
 		node = wrapper.Member
+	}
+	if rel, ok := node.(*ast.Relationship); ok {
+		// A satisfy usage's `by` clause declares its subject parameter.
+		if rel.Kind == ast.RelSubject {
+			return subjectRole
+		}
+		return noCaseRole
 	}
 	switch d := node.(type) {
 	case *ast.SubjectMember:

@@ -105,6 +105,33 @@ pub struct ConvertOptions {
     /// names the parse gave them; references into the others link their ids. Empty writes
     /// every document. Needs the `convert_documents` capability.
     pub documents: Vec<String>,
+    /// For API JSON, restore the ownerless library stubs releases before 0.11.0 wrote, one
+    /// element per referenced library element. Needs the `convert_library_stubs` capability.
+    pub include_library_stubs: bool,
+    /// For notation converted to API JSON, write the compact document (`api-json-compact/1`)
+    /// in place of the element array. Needs the `convert_compact` capability.
+    pub compact: bool,
+    /// With `compact`, leave out every derived property of the metamodel.
+    pub omit_derived: bool,
+    /// With `omit_derived`, the derived properties still written, named as the element array
+    /// names them (`qualifiedName`).
+    pub keep_derived: Vec<String>,
+    /// Report the semantic check's diagnostics in [`Conversion::diagnostics`] beside the
+    /// output, each with its severity. Notation sources only; needs the
+    /// `convert_check_diagnostics` capability.
+    pub include_check_diagnostics: bool,
+}
+
+/// A standard-library element an API JSON conversion references outside its element array,
+/// in place of the library stub releases before 0.11.0 wrote.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LibraryReference {
+    /// The element's id, as the conversion's references spell it.
+    pub id: String,
+    /// The element's qualified name, such as `SI::second`.
+    pub qualified_name: String,
+    /// The element's metaclass, as API JSON's `@type` spells it.
+    pub r#type: String,
 }
 
 /// A converted model.
@@ -122,6 +149,9 @@ pub struct Conversion {
     pub experimental: bool,
     /// What makes the conversion experimental; empty when it is not.
     pub experimental_notice: String,
+    /// The standard-library elements an API JSON conversion references outside its element
+    /// array; empty for any other format.
+    pub library_references: Vec<LibraryReference>,
     wire: wire::ConvertResponse,
 }
 
@@ -159,11 +189,11 @@ pub(crate) fn request_of(
             .map(|form| form.as_str().to_owned())
             .unwrap_or_default(),
         documents: options.documents.clone(),
-        compact: false,
-        omit_derived: false,
-        keep_derived: Vec::new(),
-        include_check_diagnostics: false,
-        include_library_stubs: false,
+        compact: options.compact,
+        omit_derived: options.omit_derived,
+        keep_derived: options.keep_derived.clone(),
+        include_check_diagnostics: options.include_check_diagnostics,
+        include_library_stubs: options.include_library_stubs,
         source: Some(match source {
             ConvertSource::File(path) => Source::FilePath(path.to_string_lossy().into_owned()),
             ConvertSource::Content(content) => Source::Content(content.clone()),
@@ -201,6 +231,15 @@ pub(crate) fn conversion_of(response: wire::ConvertResponse) -> Result<Conversio
         diagnostics,
         experimental,
         experimental_notice,
+        library_references: response
+            .library_references
+            .into_iter()
+            .map(|reference| LibraryReference {
+                id: reference.id,
+                qualified_name: reference.qualified_name,
+                r#type: reference.r#type,
+            })
+            .collect(),
         wire,
     })
 }
@@ -223,6 +262,56 @@ mod tests {
             format_of_path("noext"),
             Err(Error::InvalidRequest(_))
         ));
+    }
+
+    #[test]
+    fn requests_carry_the_library_stubs_and_id_form_asked_for() {
+        let asked = request_of(
+            FORMAT_API_JSON,
+            &ConvertSource::Content("package P;".to_owned()),
+            &ConvertOptions {
+                id_form: Some(IdForm::Uuid),
+                include_library_stubs: true,
+                ..Default::default()
+            },
+        );
+        assert_eq!(asked.id_form, "uuid");
+        assert!(asked.include_library_stubs);
+        let defaulted = request_of(
+            FORMAT_API_JSON,
+            &ConvertSource::Content("package P;".to_owned()),
+            &ConvertOptions::default(),
+        );
+        assert_eq!(defaulted.id_form, "");
+        assert!(!defaulted.include_library_stubs);
+    }
+
+    #[test]
+    fn requests_carry_the_compact_and_check_diagnostics_options_asked_for() {
+        let asked = request_of(
+            FORMAT_API_JSON,
+            &ConvertSource::Content("package P;".to_owned()),
+            &ConvertOptions {
+                compact: true,
+                omit_derived: true,
+                keep_derived: vec!["qualifiedName".to_owned(), "owner".to_owned()],
+                include_check_diagnostics: true,
+                ..Default::default()
+            },
+        );
+        assert!(asked.compact);
+        assert!(asked.omit_derived);
+        assert_eq!(asked.keep_derived, ["qualifiedName", "owner"]);
+        assert!(asked.include_check_diagnostics);
+        let defaulted = request_of(
+            FORMAT_API_JSON,
+            &ConvertSource::Content("package P;".to_owned()),
+            &ConvertOptions::default(),
+        );
+        assert!(!defaulted.compact);
+        assert!(!defaulted.omit_derived);
+        assert!(defaulted.keep_derived.is_empty());
+        assert!(!defaulted.include_check_diagnostics);
     }
 
     #[test]

@@ -229,6 +229,37 @@ class EditorTest {
   }
 
   @Test
+  void libraryStubsNeedTheirCapabilityBeforeAnythingIsSent() {
+    try (Connection connection = offline(Capabilities.CONVERT)) {
+      ConversionOptions stubs = ConversionOptions.defaults().withIncludeLibraryStubs(true);
+      Model model = model(connection);
+      CapabilityException refused =
+          assertThrows(CapabilityException.class, () -> model.convert("api-json", stubs));
+      assertEquals(Capabilities.CONVERT_LIBRARY_STUBS, refused.capability());
+      ConversionOptions sysmlStubs = stubs.withFromFormat("sysml");
+      assertThrows(
+          CapabilityException.class,
+          () -> connection.convert("package P;", "api-json", sysmlStubs));
+    }
+  }
+
+  @Test
+  void conversionOptionsCarryTheLibraryStubsAndAConversionItsReferences() {
+    ConversionOptions options =
+        ConversionOptions.defaults().withIncludeLibraryStubs(true).withFromFormat("sysml");
+    assertTrue(options.includeLibraryStubs());
+    assertEquals(Optional.of("sysml"), options.fromFormat());
+    assertFalse(ConversionOptions.defaults().includeLibraryStubs());
+    assertFalse(options.withIncludeLibraryStubs(false).includeLibraryStubs());
+    Conversion plain = new Conversion("{}", "sysml", "api-json", List.of(), false, "");
+    assertEquals(List.of(), plain.libraryReferences());
+    LibraryReference second = new LibraryReference("0c53", "SI::second", "AttributeUsage");
+    Conversion referencing =
+        new Conversion("{}", "sysml", "api-json", List.of(), false, "", List.of(second));
+    assertEquals(List.of(second), referencing.libraryReferences());
+  }
+
+  @Test
   void aConversionNamesTheFormatOfAPathAndWritesItsContent(@TempDir Path directory)
       throws Exception {
     assertEquals("sysml", Conversion.formatOf(Path.of("a.sysml")));

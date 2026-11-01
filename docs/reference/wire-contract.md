@@ -1364,8 +1364,14 @@ trace prints. This transition record was captured from a traced `ExecuteState` c
 {"kind":"transition", "time":{"quantity":{"realMagnitude":0, "unit":"s", "unitTerm":{"scaleNum":1, "scaleDen":1, "factors":[{"unitId":"SI::second", "exponent":1}]}}}, "machine":"Machine", "from":"init", "to":"Running", "text":"transition: init -> Running"}
 ```
 
-The `state_trace` capability is checked before sending the option; a service that withholds it
-refuses the request with `UNIMPLEMENTED`. Tracing an explore schedule is `INVALID_ARGUMENT`,
+`ExecuteActionRequest.trace` (capability `action_trace`) answers the same `DocumentEvent`
+records for an action: `step` (a token entering a node, `token` and `step` numbering it), `wait`
+(an accept parked on `event`), `accept`, `send`, `decide` (`alternatives` and `taken`), `assign`
+(`feature` and `value` as the engine wrote them) and `complete`. `ExecuteActionRequest.events`
+posts signals or items to the performer in order, each once every token waits, so the accept
+takes it on the next step; it needs `performer_symbol_id`, and a run whose tokens wait with no
+event left fails with its partial trace. The `state_trace` capability is checked before sending
+the option; a service that withholds it refuses the request with `UNIMPLEMENTED`. Tracing an explore schedule is `INVALID_ARGUMENT`,
 because one trace describes one run, not the outcomes of several runs. A failed run still returns
 the records made before failure. The response retains the newest records up to the service's
 held-event limit and reports discarded older records as `traceDropped`; without the option,

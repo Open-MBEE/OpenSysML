@@ -520,7 +520,6 @@ func (e *encoder) mintedComposites() {
 
 // encodeDocument writes the graph of the document the encoder was made for.
 func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
-	e.src = newAuthoredSource(e.file, root)
 	if err := e.encode(root.Members, "", rdf.Term{}); err != nil {
 		return err
 	}
@@ -586,6 +585,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 	}
 	e := &encoder{
 		file:               file,
+		src:                newAuthoredSource(file, root),
 		graph:              rdf.NewGraph(),
 		res:                res,
 		declared:           map[string]bool{},
@@ -888,7 +888,7 @@ func (e *encoder) libraryNames() {
 		named[ref.subject.Value] = true
 		e.graph.Add(ref.subject, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
 		e.graph.Add(ref.subject, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.subject.Value)))
-		e.graph.Add(ref.subject, e.sysml(pQualifiedName), rdf.String(ref.fqn))
+		e.graph.Add(ref.subject, addressTerm(ref.fqn), rdf.String(ref.fqn))
 		if declared, _ := declaredNameAndMembers(ref.node); declared != "" {
 			e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared))
 		}
@@ -909,6 +909,9 @@ func (e *encoder) libraryNames() {
 	}
 }
 
+// owningMembershipClaim, after an element's name, says what a claimed membership IRI stands for.
+const owningMembershipClaim = "'s owning membership"
+
 // claimLibrary reserves the IRIs of a library element the document links to,
 // and of its owning membership, so no element declared here lands on them.
 func (e *encoder) claimLibrary(node ast.Node, fqn string) {
@@ -916,7 +919,7 @@ func (e *encoder) claimLibrary(node ast.Node, fqn string) {
 	claims := []struct{ iri, standsFor string }{{subject.Value, fqn}}
 	if e.ids.normativeMembership(node) {
 		claims = append(claims, struct{ iri, standsFor string }{
-			e.ids.owningMembershipOf(node, subject).Value, fqn + "'s owning membership",
+			e.ids.owningMembershipOf(node, subject).Value, fqn + owningMembershipClaim,
 		})
 	}
 	if e.libraryRefs == nil {
@@ -1357,7 +1360,7 @@ func (e *encoder) mintDeclarations() error {
 		if !ok || membership == e.ids.subjectForNode(parents[node], e.fqn[parents[node]]) {
 			continue // no membership of its own to claim
 		}
-		if prior, taken := e.claim(membership.Value, fqn+"'s owning membership"); taken {
+		if prior, taken := e.claim(membership.Value, fqn+owningMembershipClaim); taken {
 			return &UnsupportedError{
 				What: fmt.Sprintf("the owning membership of %s", fqn),
 				Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
@@ -1422,7 +1425,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 		h.node, h.visibility, h.fqn, h.owner, h.index, h.metaclass, h.lines, h.inline
 	e.graph.Add(subject, rdf.IRI(rdf.RDFType), metaclass)
 	if h.local.Value == "" {
-		e.graph.Add(subject, e.sysml(pQualifiedName), rdf.String(fqn))
+		e.graph.Add(subject, addressTerm(fqn), rdf.String(fqn))
 		e.offsets[subject.Value] = node.Span().Offset
 		e.sourceRange(subject, node.Span())
 	}
@@ -1533,7 +1536,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	// member's body declares into the expression body it lies in.
 	members := func(members []ast.Node) error {
 		if local {
-			return e.bodyDeclarations(subject, subject, within, nil, members)
+			return e.bodyDeclarations(subject, subject, within, nil, nil, members)
 		}
 		return e.encode(members, fqn, subject)
 	}
@@ -1719,6 +1722,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if n.PrefixKeyword != "" && !assertedConstraint(n) && !prefixCarriedByGraph(n) {
 			e.graph.Add(subject, e.sysx(xDeclaredPrefix), rdf.String(n.PrefixKeyword))
 		}
+		// A trigger's parameters declare nothing of their own: their owning type
+		// is the AcceptActionUsage the trigger implies, an action.
+		_, triggerParam := e.triggerParams[n]
+		triggerVaries := triggerParam && e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction)
 		e.flags(subject, []boolProperty{
 			{"isAbstract", n.IsAbstract || n.IsVariation},
 			{"isVariation", n.IsVariation},
@@ -1729,6 +1736,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isEnd", n.IsEnd},
 			{"isChain", n.IsChain},
 			{"isConstant", n.IsConstant},
+			// A payload is a PayloadFeature, a KerML Feature with no `var` keyword.
+			{"isVariable", !payload && (e.usageIsVariable(n) || triggerVaries)},
+			{"mayTimeVary", ontology.IsAncestorOrSelf(metaclass, "Usage") && (e.usageMayTimeVary(n) || triggerVaries)},
 			{"isEvent", n.IsEvent && metaclass != mEventOccurrenceUsage},
 			{"isIndividual", n.IsIndividual},
 			// A snapshot or timeslice is a portion by its kind (OccurrenceUsage::portionKind).
@@ -1793,7 +1803,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		// A `satisfy R by s` head states its subject through a SubjectMembership
 		// holding an unnamed reference to s (SysML.xtext SatisfyRequirementUsage).
-		if err := e.subjectParameters(subject, within, n.Relationships); err != nil {
+		if err := e.subjectParameters(subject, within, e.ids.declSym[n], n.Relationships); err != nil {
 			return err
 		}
 		// A declaration head that binds ends (connect/bind/flow/succession),
@@ -2026,6 +2036,13 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		head(rdf.SysMLTerm(mReferenceUsage))
 		e.ident(subject, n.Ident)
 		e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
+		// A usage: its isVariable is the derived Usage::mayTimeVary.
+		if sym := e.ids.declSym[n]; sym != nil {
+			e.flags(subject, []boolProperty{
+				{"isVariable", e.ids.model.FeatureIsVariable(sym)},
+				{"mayTimeVary", e.ids.model.UsageMayTimeVary(sym)},
+			})
+		}
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Body); err != nil {
 			return err
 		}
@@ -2170,7 +2187,7 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	}
 	membership := e.ids.owningMembershipOf(node, member)
 	// The membership shares the element namespace, so its IRI is reserved too.
-	if prior, taken := e.claim(membership.Value, memberFQN+"'s owning membership"); taken && e.idErr == nil {
+	if prior, taken := e.claim(membership.Value, memberFQN+owningMembershipClaim); taken && e.idErr == nil {
 		e.idErr = &UnsupportedError{
 			What: fmt.Sprintf("the owning membership of %s", memberFQN),
 			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
@@ -2274,6 +2291,21 @@ func (e *encoder) variantMember(node ast.Node, ownerTerm rdf.Term) bool {
 		return false
 	}
 	return usage.IsVariant || enumeratedValue(usage, e.metaclassOf(ownerTerm))
+}
+
+// usageIsVariable derives Feature::isVariable for a usage as the semantic model
+// does: a `var` declaration, or for a SysML usage its derived mayTimeVary
+// (Usage::mayTimeVary redefines isVariable, SysML v2 §8.3.6.4).
+func (e *encoder) usageIsVariable(n *ast.Usage) bool {
+	sym := e.ids.declSym[n]
+	return sym != nil && e.ids.model.FeatureIsVariable(sym)
+}
+
+// usageMayTimeVary derives Usage::mayTimeVary (deriveUsageMayTimeVary); a KerML
+// feature has no such property.
+func (e *encoder) usageMayTimeVary(n *ast.Usage) bool {
+	sym := e.ids.declSym[n]
+	return sym != nil && !e.ids.model.IsKerMLFeature(sym) && e.ids.model.UsageMayTimeVary(sym)
 }
 
 // enumeratedValue reports whether usage is an enumerated value: an enumeration
@@ -2470,7 +2502,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -2492,7 +2524,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			continue
 		}
 		feature, element := ast.EndSelection(target)
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: feature, element: element, flow: true}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: feature, element: element, flow: true}); err != nil {
 			return err
 		}
 	}
@@ -2535,6 +2567,9 @@ func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error
 // its multiplicity and the name and `references` keyword it was written with.
 type connectorEndSpec struct {
 	owner, slot string
+	// ownerSym is the connector usage the end is owned by, when declared: its
+	// owning type for Usage::mayTimeVary. A minted succession's ends have none.
+	ownerSym    *symbols.Symbol
 	index, ends int
 	target      ast.Node
 	// targetTerm is a resolved member IRI the end references, for an end
@@ -2577,6 +2612,11 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	e.typed(feature, metaclass)
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
 	e.graph.Add(feature, e.sysml(pIsEnd), rdf.Bool(true))
+	// A declared connector's end is a referential usage owned by it (a FlowEnd
+	// is a KerML Feature); it varies in time when the connector is an Occurrence.
+	if ontology.IsAncestorOrSelf(metaclass, "Usage") && e.ids.model.UsageMayTimeVaryUnder(end.ownerSym) {
+		e.flags(feature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+	}
 	e.graph.Add(subject, e.sysml(pConnectorEnd), feature)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
@@ -2671,6 +2711,11 @@ func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) {
 	e.graph.Add(feature, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(feature, e.sysml(pOwnedFeature), flowFeature)
 	e.emitMembershipCore(membership, flowFeature, feature, mFeatureMembership, true)
+	// Its owning type is the FlowEnd, which redefines Flows::Flow::source or
+	// target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6).
+	if e.file.Kind() != source.KindKerML && e.ids.model.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source") {
+		e.flags(flowFeature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+	}
 	e.graph.Add(flowFeature, e.sysml(relationshipProperty[ast.RelRedefines]), last)
 }
 

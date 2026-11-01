@@ -113,6 +113,8 @@ elmt:FlowsAndViews__FuelPort__fuelSupply
     sysml:owningMembership elmt:FlowsAndViews__FuelPort__fuelSupply_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "fuelSupply" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        out item fuelSupply;\n" .
@@ -237,6 +239,8 @@ elmt:FlowsAndViews__FuelInterface__supplierPort
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "supplierPort" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__FuelPort ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__FuelInterface__supplierPort_ft0 ;
@@ -272,6 +276,8 @@ elmt:FlowsAndViews__FuelInterface__consumerPort
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "consumerPort" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__FuelPort ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__FuelInterface__consumerPort_ft0 ;
@@ -293,7 +299,7 @@ elmt:FlowsAndViews__FuelInterface__consumerPort_om
 
 elmt:FlowsAndViews__FuelInterface___402
     a sysml:FlowUsage ;
-    sysml:qualifiedName "FlowsAndViews::FuelInterface::@2" ;
+    sysx:positionalName "FlowsAndViews::FuelInterface::@2" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -388,6 +394,8 @@ expr:FlowsAndViews__FuelInterface___402_pend0_pff
     sysml:owner expr:FlowsAndViews__FuelInterface___402_pend0 ;
     sysml:owningRelationship expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
     sysml:owningMembership expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:FlowsAndViews__FuelPort__fuelSupply ;
     sysml:ownedRedefinition expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0 ;
     sysml:ownedSubsetting expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0 ;
@@ -457,6 +465,8 @@ expr:FlowsAndViews__FuelInterface___402_pend1_pff
     sysml:owner expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:owningRelationship expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
     sysml:owningMembership expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:FlowsAndViews__FuelPort__fuelSupply ;
     sysml:ownedRedefinition expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0 ;
     sysml:ownedSubsetting expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0 ;
@@ -604,6 +614,8 @@ elmt:FlowsAndViews__vehicle__tank
     sysml:owningMembership elmt:FlowsAndViews__vehicle__tank_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "tank" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__vehicle__tank_ft0 ;
@@ -638,6 +650,8 @@ elmt:FlowsAndViews__vehicle__spares
     sysml:owningMembership elmt:FlowsAndViews__vehicle__spares_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "spares" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
     sysml:subsets elmt:FlowsAndViews__tanks ;
@@ -745,6 +759,8 @@ elmt:FlowsAndViews__vehicle__firstSpare
     sysml:owningMembership elmt:FlowsAndViews__vehicle__firstSpare_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "firstSpare" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "spares.self"^^sysx:Expression ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__vehicle__firstSpare_ft0 ;
@@ -779,6 +795,8 @@ elmt:FlowsAndViews__vehicle__engine
     sysml:owningMembership elmt:FlowsAndViews__vehicle__engine_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "engine" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Engine ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__vehicle__engine_ft0 ;
@@ -800,7 +818,7 @@ elmt:FlowsAndViews__vehicle__engine_om
 
 elmt:FlowsAndViews__vehicle___404
     a sysml:AllocationUsage ;
-    sysml:qualifiedName "FlowsAndViews::vehicle::@4" ;
+    sysx:positionalName "FlowsAndViews::vehicle::@4" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -812,6 +830,8 @@ elmt:FlowsAndViews__vehicle___404
     sysml:owningRelationship elmt:FlowsAndViews__vehicle___404_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicle___404_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:FlowsAndViews__vehicle___404_pend0, expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:ownedRelationship expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
     sysml:ownedMembership expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
@@ -852,6 +872,8 @@ expr:FlowsAndViews__vehicle___404_pend0
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "FlowsAndViews__vehicle___404_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:FlowsAndViews__vehicle___404 ;
     sysml:owningRelationship expr:FlowsAndViews__vehicle___404_pend0_om ;
     sysml:owningMembership expr:FlowsAndViews__vehicle___404_pend0_om ;
@@ -894,6 +916,8 @@ expr:FlowsAndViews__vehicle___404_pend1
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "FlowsAndViews__vehicle___404_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:FlowsAndViews__vehicle___404 ;
     sysml:owningRelationship expr:FlowsAndViews__vehicle___404_pend1_om ;
     sysml:owningMembership expr:FlowsAndViews__vehicle___404_pend1_om ;
@@ -984,6 +1008,8 @@ elmt:FlowsAndViews__Measure__measured
     sysml:owningMembership elmt:FlowsAndViews__Measure__measured_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "measured" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:subsets elmt:FlowsAndViews__Tank ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1020,6 +1046,8 @@ elmt:FlowsAndViews__Measure__mass
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "mass" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1072,7 +1100,7 @@ elmt:FlowsAndViews__StructureView_om
 
 elmt:FlowsAndViews__StructureView___400
     a sysml:ElementFilterMembership ;
-    sysml:qualifiedName "FlowsAndViews::StructureView::@0" ;
+    sysx:positionalName "FlowsAndViews::StructureView::@0" ;
     sysx:sourceLine "25"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "25"^^xsd:integer ;
@@ -1208,7 +1236,7 @@ elmt:FlowsAndViews__vehicleView_om
 
 elmt:FlowsAndViews__vehicleView___400
     a sysml:MembershipExpose ;
-    sysml:qualifiedName "FlowsAndViews::vehicleView::@0" ;
+    sysx:positionalName "FlowsAndViews::vehicleView::@0" ;
     sysx:sourceLine "28"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "28"^^xsd:integer ;

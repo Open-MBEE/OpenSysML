@@ -36,6 +36,8 @@ type ExecuteActionInput struct {
 	Seed              *uint64                   `json:"seed,omitempty" jsonschema:"seed the model's own draws (weighted decisions, random functions) are taken from (sysml -seed); the same seed draws the same run"`
 	Draws             string                    `json:"draws,omitempty" jsonschema:"how the run resolves RandomFunctions draws (sysml -draws): random (default, from seed), min, max or average"`
 	ClockStep         float64                   `json:"clockStep,omitempty" jsonschema:"the step in seconds the run's clock ticks by (sysml -clock-step); 0 is a continuous clock"`
+	Trace             bool                      `json:"trace,omitempty" jsonschema:"also answer the run's typed trace (token steps, waits, accepts, decisions, assignments, completion), up to a failure; unavailable under explore"`
+	Events            []string                  `json:"events,omitempty" jsonschema:"signals or items to post to the performer in order, each once every token of the run waits (the REPL's %send); needs performerSymbolId"`
 }
 
 // ExecuteStateInput runs a state machine.
@@ -114,7 +116,9 @@ func (g *group) registerRuntime(s *mcp.Server) {
 			"REPL's %run). Inputs are bound by parameter name. Under an explore schedule every linearization the model admits is run " +
 			"and the answer is the set of distinct `outcomes` with how the exploration ended, instead of one run's outputs. The run is " +
 			"bounded by the service's OPENSYSML_MAX_* budgets; a budget hit is reported in `error`. `advance`, `seed`, `draws` and " +
-			"`clockStep` are the run options of `sysml -advance`, `-seed`, `-draws` and `-clock-step`. The result is the " +
+			"`clockStep` are the run options of `sysml -advance`, `-seed`, `-draws` and `-clock-step`. With `trace` the answer also " +
+			"carries every record the run made (token steps, waits, accepts, decisions, assignments, completion), up to a failure; " +
+			"`events` are posted to the performer in order, each once every token waits. The result is the " +
 			"ExecuteActionResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Execute action"),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in ExecuteActionInput) (*mcp.CallToolResult, Result, error) {
@@ -148,6 +152,7 @@ func (g *group) registerRuntime(s *mcp.Server) {
 			fmt.Fprintf(&b, "final time %g s\n", resp.GetFinalTime())
 		}
 		b.WriteString(explorationText(resp.GetOutcomes(), resp.GetExploration()))
+		b.WriteString(traceText(resp.GetTrace(), resp.GetTraceDropped()))
 		b.WriteString(diagnosticsText(resp.GetDiagnostics()))
 		return answer(resp, m, b.String())
 	})
@@ -189,15 +194,7 @@ func (g *group) registerRuntime(s *mcp.Server) {
 		if resp.GetFinalTime() != 0 {
 			fmt.Fprintf(&b, "final time %g s\n", resp.GetFinalTime())
 		}
-		if len(resp.GetTrace()) > 0 {
-			b.WriteString("trace:\n")
-			for _, ev := range resp.GetTrace() {
-				fmt.Fprintf(&b, "  %s\n", ev.GetText())
-			}
-			if resp.GetTraceDropped() > 0 {
-				fmt.Fprintf(&b, "  (%d oldest records dropped)\n", resp.GetTraceDropped())
-			}
-		}
+		b.WriteString(traceText(resp.GetTrace(), resp.GetTraceDropped()))
 		b.WriteString(explorationText(resp.GetOutcomes(), resp.GetExploration()))
 		b.WriteString(diagnosticsText(resp.GetDiagnostics()))
 		return answer(resp, m, b.String())
@@ -274,4 +271,20 @@ func explorationText(outcomes []*pb.Outcome, status *pb.ExplorationStatus) strin
 func instantiateAnnotations() *mcp.ToolAnnotations {
 	closed, destructive := false, false
 	return &mcp.ToolAnnotations{Title: "Instantiate", DestructiveHint: &destructive, OpenWorldHint: &closed}
+}
+
+// traceText lists a run's trace records, one per line, and how many oldest ones were dropped.
+func traceText(trace []*pb.DocumentEvent, dropped int32) string {
+	if len(trace) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("trace:\n")
+	for _, ev := range trace {
+		fmt.Fprintf(&b, "  %s\n", ev.GetText())
+	}
+	if dropped > 0 {
+		fmt.Fprintf(&b, "  (%d oldest records dropped)\n", dropped)
+	}
+	return b.String()
 }

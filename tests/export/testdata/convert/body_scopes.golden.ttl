@@ -108,7 +108,7 @@ elmt:Scopes
 
 elmt:Scopes___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "Scopes::@0" ;
+    sysx:positionalName "Scopes::@0" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -177,6 +177,8 @@ elmt:Scopes__D__xs
     sysml:owningMembership elmt:Scopes__D__xs_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "xs" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute xs;\n" .
 
@@ -207,6 +209,8 @@ elmt:Scopes__D__one
     sysml:owningMembership elmt:Scopes__D__one_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "one" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Scopes__D__one_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__one_pvalue_om ;
     sysml:ownedMembership expr:Scopes__D__one_pvalue_om ;
@@ -394,6 +398,8 @@ expr:Scopes__D__one_pvalue_pa0_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "limit" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner expr:Scopes__D__one_pvalue_pa0_pbody ;
     sysml:owningRelationship expr:Scopes__D__one_pvalue_pa0_pin0_om ;
     sysml:owningMembership expr:Scopes__D__one_pvalue_pa0_pin0_om .
@@ -570,6 +576,8 @@ elmt:Scopes__D__two
     sysml:owningMembership elmt:Scopes__D__two_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "two" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Scopes__D__two_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__two_pvalue_om ;
     sysml:ownedMembership expr:Scopes__D__two_pvalue_om ;
@@ -757,6 +765,8 @@ expr:Scopes__D__two_pvalue_pa0_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "Gauge" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner expr:Scopes__D__two_pvalue_pa0_pbody ;
     sysml:owningRelationship expr:Scopes__D__two_pvalue_pa0_pin0_om ;
     sysml:owningMembership expr:Scopes__D__two_pvalue_pa0_pin0_om .
@@ -933,6 +943,8 @@ elmt:Scopes__D__outside
     sysml:owningMembership elmt:Scopes__D__outside_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "outside" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Scopes__D__outside_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__outside_pvalue_om ;
     sysml:ownedMembership expr:Scopes__D__outside_pvalue_om ;
@@ -1024,6 +1036,8 @@ elmt:Scopes__D__g
     sysml:owningMembership elmt:Scopes__D__g_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "g" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Lib__Gauge ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Scopes__D__g_ft0 ;

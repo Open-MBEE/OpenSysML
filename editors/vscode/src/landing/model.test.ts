@@ -7,17 +7,23 @@ import { ExecutionError, renderedViewFromJson } from "@openmbee/opensysml/browse
 import type { RenderResult } from "../protocol";
 import {
   EngineInstance,
+  clockOf,
   debugSteps,
   landingModel,
   journey,
   readModel,
   renderResult,
+  runAction,
+  runClock,
   runJourney,
+  stateIdOf,
   TraceRecord,
   journeyOf,
   sceneTarget,
+  traceRecord,
 } from "./model";
-import { STACK_SCENE } from "./scene";
+import { LUNAR_MISSION_SCENE, MISSION_PHASES_SCENE, STACK_SCENE, programOf } from "./scene";
+import { readSummary } from "./shell";
 
 interface LandingFixture {
   hash: string;
@@ -29,6 +35,10 @@ interface LandingFixture {
 const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
 const fixtureView = renderedViewFromJson(fixture.render);
 const fixtureRender: RenderResult = renderResult(fixtureView);
+const phasesFixture = JSON.parse(readFileSync("src/landing/phases.json", "utf8")) as LandingFixture;
+const phasesRender: RenderResult = renderResult(renderedViewFromJson(phasesFixture.render));
+const missionFixture = JSON.parse(readFileSync("src/landing/mission.json", "utf8")) as LandingFixture;
+const missionRender: RenderResult = renderResult(renderedViewFromJson(missionFixture.render));
 
 const PROJECTS = ["flexo", "opensysml", "pilot"];
 const COMPONENTS: Record<string, string[]> = {
@@ -109,14 +119,22 @@ function typedInstance(instance: EngineInstance): Instance {
 }
 
 function traceEvent(record: TraceRecord): DocumentEvent {
+  const time = record.time === undefined
+    ? undefined
+    : { kind: "quantity", magnitude: { kind: "real", value: Number(record.time.magnitude) }, unit: record.time.unit };
   return {
     kind: record.kind,
+    time,
     state: record.state ?? "",
     fromState: record.from ?? "",
     toState: record.to ?? "",
     event: record.event ?? "",
     alternatives: record.alternatives ?? [],
     taken: record.taken ?? "",
+    token: record.token === undefined ? 0n : BigInt(record.token),
+    step: record.step ?? 0,
+    feature: record.feature ?? "",
+    value: record.value === undefined ? undefined : { kind: "string", value: record.value },
     text: record.text,
   } as unknown as DocumentEvent;
 }
@@ -130,13 +148,23 @@ interface FakeAnswers {
   diagnostics?: unknown[];
   statesVisited?: string[];
   trace?: TraceRecord[];
+  finalTime?: number;
+  /** An action's outputs, by name. */
+  outputs?: Map<string, SysMLValue>;
   executeError?: Error;
+  /** Features of the root the instantiation could not value, by the error it gives each. */
+  rootErrors?: Record<string, string>;
+  /** The reason Evaluate gives for an undetermined feature. */
+  evalReason?: string;
 }
 
 /** A connection answering as the fixture's engine would, recording every call. */
 function fakeConnection(answers: FakeAnswers = {}): { connection: Connection; calls: Call[] } {
   const calls: Call[] = [];
   const instances = fixture.instances.map(typedInstance);
+  for (const [name, error] of Object.entries(answers.rootErrors ?? {})) {
+    (instances[0].features as Map<string, FeatureValue>).set(name, { kind: "error", error } as unknown as FeatureValue);
+  }
   const connection = {
     parseSources(...params: unknown[]) {
       calls.push({ method: "ParseSources", params });
@@ -146,6 +174,10 @@ function fakeConnection(answers: FakeAnswers = {}): { connection: Connection; ca
         instantiate(name: string) {
           calls.push({ method: "Instantiate", params: [fixture.hash, name] });
           return Promise.resolve({ root: instances[0], all: instances.slice(1) });
+        },
+        eval(...params: unknown[]) {
+          calls.push({ method: "Eval", params });
+          return Promise.resolve({ kind: "undetermined", reason: answers.evalReason ?? "", countLower: "1", countUpper: "1" });
         },
       });
     },
@@ -161,6 +193,21 @@ function fakeConnection(answers: FakeAnswers = {}): { connection: Connection; ca
       return Promise.resolve({
         statesVisited: answers.statesVisited ?? [],
         trace: (answers.trace ?? []).map(traceEvent),
+        finalTime: answers.finalTime ?? 0,
+      });
+    },
+    executeAction(...params: unknown[]) {
+      calls.push({ method: "ExecuteAction", params });
+      if (answers.executeError) {
+        return Promise.reject(answers.executeError);
+      }
+      return Promise.resolve({
+        outputs: answers.outputs ?? new Map(),
+        performer: new Map(),
+        finalTime: answers.finalTime ?? 0,
+        trace: (answers.trace ?? []).map(traceEvent),
+        traceDropped: 0,
+        orderDependent: new Map(),
       });
     },
   };
@@ -199,6 +246,24 @@ test("readModel requests a minimal interconnection render before instantiating t
   assert.deepEqual([...read.model.parts.keys()], [...expected.parts.keys()]);
   assert.deepEqual(read.model.parts.get("opensysml.engine"), expected.parts.get("opensysml.engine"));
   assert.deepEqual(read.model.render.edges, expected.render.edges);
+});
+
+test("readModel asks the engine why the root's unvalued feature is so, on the root's own path", async () => {
+  const { connection, calls } = fakeConnection({
+    rootErrors: { totalMass: "feature value stack.totalMass: no value for feature mass" },
+    evalReason: "mass has no value in the model",
+  });
+  const read = await readModel(connection, STACK_SCENE, "model source");
+  assert.ok(read.model);
+  assert.equal(read.model.root.feature, "stack");
+  assert.deepEqual(read.model.root.unvalued, { totalMass: "mass has no value in the model" });
+  assert.deepEqual(
+    calls.filter(({ method }) => method === "Eval").map(({ params }) => params),
+    [["OpenSysMLStack::stack.totalMass"]],
+  );
+  for (const part of read.model.parts.values()) {
+    assert.deepEqual(part.unvalued, {}, `${part.path} is valued`);
+  }
 });
 
 test("journey maps visited feature names to node ids and drops unknown states", async () => {
@@ -284,6 +349,100 @@ test("runJourney returns the partial trace of a failed run and rethrows other er
 
   const unavailable = fakeConnection({ executeError: new Error("engine unavailable") });
   await assert.rejects(runJourney(unavailable.connection, STACK_SCENE, model, ["Commit"]), /engine unavailable/);
+});
+
+test("landingModel lifts a state view's states out of the machine's box and keys them by name", () => {
+  const model = landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, phasesRender, phasesFixture.instances);
+  assert.ok(model.machine, "a state view gives a machine");
+  assert.equal(model.machine.symbol, "MissionSequence::MissionPhases");
+  assert.deepEqual(
+    [...model.machine.states.keys()],
+    ["prelaunch", "translunarCoast", "lunarOrbit", "onSurface", "transEarthCoast", "recovered", "done"],
+  );
+  assert.equal(model.machine.states.get("prelaunch")?.initial, true);
+  assert.equal(model.machine.states.get("onSurface")?.path, "onSurface");
+  assert.equal(model.machine.states.get("onSurface")?.initial, false);
+  assert.equal(model.machine.states.get("done")?.kind, "final");
+  assert.equal(model.parts.size, 0, "a state is not a part");
+  assert.equal(model.render.nodes.length, 8, "six states, the start and the final");
+  assert.ok(model.render.nodes.every((node) => node.parent === undefined), "the states are drawn at the top level");
+  assert.equal(model.render.edges.length, 7);
+  assert.deepEqual(
+    model.render.edges.map((edge) => edge.label),
+    ["", "after 9000 [s]", "after 270000 [s]", "after 100000 [s]", "after 78000 [s]", "after 245000 [s]", ""],
+  );
+  assert.equal(model.root.symbol, "MissionSequence::mission", "the root is the object the machine runs on");
+  assert.equal(model.root.feature, "mission");
+  assert.equal(stateIdOf(model, "onSurface"), model.machine.states.get("onSurface")?.id);
+  assert.equal(stateIdOf(model, "nowhere"), undefined);
+  const stack = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
+  assert.equal(stack.machine, undefined);
+
+  // The initial marker leads the detail; a state with entry behavior after it is still the one entered first.
+  const behaved: RenderResult = {
+    ...phasesRender,
+    nodes: phasesRender.nodes.map((node) => (node.name === "prelaunch" ? { ...node, detail: "initial, entry / count := 0" } : node)),
+  };
+  const entered = landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, behaved, phasesFixture.instances);
+  assert.equal(entered.machine?.states.get("prelaunch")?.initial, true, "entry behavior after the marker keeps the state initial");
+  assert.equal(entered.machine?.states.get("translunarCoast")?.initial, false);
+
+  // A state nested in a composite stays under it, keyed by its path and, being the only `landing`, by name.
+  const surface = model.machine.states.get("onSurface")!;
+  const nested: RenderResult = {
+    ...phasesRender,
+    nodes: [
+      ...phasesRender.nodes,
+      { id: "n9", kind: "state", name: "landing", type: "", detail: "", parent: surface.id },
+      { id: "n10", kind: "state", name: "prelaunch", type: "", detail: "", parent: surface.id },
+    ],
+    edges: [...phasesRender.edges, { from: surface.id, to: "n9", kind: "transition", label: "" }],
+  };
+  const composite = landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, nested, phasesFixture.instances);
+  assert.equal(composite.render.nodes.find((node) => node.id === "n9")?.parent, surface.id, "a nested state keeps its parent");
+  assert.equal(composite.render.edges.filter((edge) => edge.to === "n9").length, 1, "the transition into it is kept");
+  assert.equal(composite.machine?.states.get("onSurface.landing")?.id, "n9");
+  assert.equal(stateIdOf(composite, "landing"), "n9");
+  assert.equal(composite.machine?.states.get("onSurface.prelaunch")?.id, "n10");
+  assert.equal(stateIdOf(composite, "prelaunch"), model.machine.states.get("prelaunch")?.id, "a repeated name stays with the machine's own state");
+  assert.equal(stateIdOf(stack, "flexo"), stack.parts.get("flexo")?.id, "a journey's states name parts");
+  assert.throws(
+    () => landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, { ...phasesRender, nodes: [] }, phasesFixture.instances),
+    /draws 0 machines/u,
+  );
+});
+
+test("runClock performs the machine on its object for the duration and keeps each record's instant", async () => {
+  const model = landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, phasesRender, phasesFixture.instances);
+  const trace: TraceRecord[] = [
+    { kind: "entry", state: "prelaunch", time: { magnitude: "0", unit: "s" }, text: "enter: prelaunch" },
+    {
+      kind: "transition",
+      from: "prelaunch",
+      to: "translunarCoast",
+      event: "time",
+      time: { magnitude: "9000", unit: "s" },
+      text: "transition: prelaunch -> translunarCoast (event: time)",
+    },
+  ];
+  const { connection, calls } = fakeConnection({ statesVisited: ["prelaunch", "translunarCoast"], finalTime: 400000, trace });
+  const program = clockOf(MISSION_PHASES_SCENE.program);
+  const run = await runClock(connection, program, model);
+  assert.deepEqual(calls[0], {
+    method: "ExecuteState",
+    params: [phasesFixture.hash, "MissionSequence::MissionPhases", { performer: "MissionSequence::mission", advance: 400000, trace: true }],
+  });
+  assert.deepEqual(run, { visited: ["prelaunch", "translunarCoast"], trace, finalTime: 400000 });
+  assert.throws(() => clockOf(STACK_SCENE.program), /runs no clock/u);
+
+  const failed = fakeConnection({
+    executeError: new ExecutionError("state machine execution failed: budget", "unspecified", [], trace.map(traceEvent)),
+  });
+  assert.deepEqual(await runClock(failed.connection, program, model), {
+    visited: [],
+    trace,
+    error: "state machine execution failed: budget",
+  });
 });
 
 test("debugSteps tracks active state, transitions, accepts, and ignored events", () => {
@@ -392,4 +551,110 @@ test("renderResult states no x and y for a geometry that only folds the node", (
   assert.equal(folded.x, undefined);
   assert.equal(folded.y, undefined);
   assert.deepEqual([pinned.x, pinned.y], [10, 20]);
+});
+
+test("landingModel lifts an action view's nodes out of the action's box and keys them by name", () => {
+  const model = landingModel(sceneTarget(LUNAR_MISSION_SCENE), missionFixture.hash, missionRender, missionFixture.instances);
+  assert.ok(model.action, "an action view gives an action");
+  assert.equal(model.action.symbol, "MissionSequence::LunarMission");
+  assert.deepEqual(
+    [...model.action.nodes.keys()],
+    ["start", "translunarInjection", "lunarOrbitInsertion", "landingGo", "awaitGo", "descent", "surfaceOperations", "ascent", "transEarthInjection", "splashdown", "done"],
+  );
+  assert.equal(model.action.nodes.get("start")?.kind, "initial");
+  assert.equal(model.action.nodes.get("landingGo")?.kind, "decision");
+  assert.equal(model.action.nodes.get("done")?.kind, "final");
+  assert.equal(model.machine, undefined);
+  assert.equal(model.parts.size, 0, "an action node is not a part");
+  assert.equal(model.render.nodes.length, 11, "nine steps, the start and the final");
+  assert.ok(model.render.nodes.every((node) => node.parent === undefined), "the nodes are drawn at the top level");
+  assert.equal(model.render.edges.length, 11);
+  assert.deepEqual(model.render.edges.filter((edge) => edge.label !== "").map((edge) => edge.label), ["[remaining >= 3970 ['m/s']]"]);
+  assert.equal(model.root.symbol, "MissionSequence::apollo11", "the root is the object performing the action");
+  assert.equal(stateIdOf(model, "awaitGo"), model.action.nodes.get("awaitGo")?.id);
+  assert.equal(stateIdOf(model, "nowhere"), undefined);
+  assert.equal(readSummary(model), "11 steps, 11 successions");
+  assert.throws(
+    () => landingModel(sceneTarget(LUNAR_MISSION_SCENE), missionFixture.hash, { ...missionRender, nodes: [] }, missionFixture.instances),
+    /draws 0 actions/u,
+  );
+});
+
+test("traceRecord keeps an action record's token, step, feature and printed value", () => {
+  const record: TraceRecord = {
+    kind: "assign", state: "translunarInjection", token: "1", step: 2, feature: "remaining",
+    value: "6350 'm/s'", text: "assign remaining = 6350 ['m/s']",
+  };
+  assert.deepEqual(traceRecord(traceEvent(record)), record);
+  const bare: TraceRecord = { kind: "complete", step: 13, text: "complete" };
+  assert.deepEqual(traceRecord(traceEvent(bare)), bare);
+});
+
+test("runAction performs the action on its object with its events and keeps the outputs and the partial trace", async () => {
+  const model = landingModel(sceneTarget(LUNAR_MISSION_SCENE), missionFixture.hash, missionRender, missionFixture.instances);
+  const trace: TraceRecord[] = [
+    { kind: "step", to: "start", token: "1", step: 1, text: "step start" },
+    { kind: "step", from: "start", to: "translunarInjection", token: "1", step: 1, text: "step start -> translunarInjection" },
+    { kind: "assign", state: "translunarInjection", token: "1", step: 2, feature: "remaining", value: "6350 'm/s'", text: "assign remaining = 6350 ['m/s']" },
+    { kind: "complete", step: 3, text: "complete" },
+  ];
+  const outputs = new Map<string, SysMLValue>([
+    ["landed", { kind: "boolean", value: true }],
+    ["remaining", { kind: "quantity", magnitude: { kind: "int", value: 480n }, unit: "'m/s'" } as unknown as SysMLValue],
+  ]);
+  const { connection, calls } = fakeConnection({ trace, outputs });
+  const [go] = LUNAR_MISSION_SCENE.variants;
+  const program = programOf(LUNAR_MISSION_SCENE, go);
+  assert.equal(program.kind, "action");
+  const run = await runAction(connection, program, model);
+  assert.deepEqual(calls[0], {
+    method: "ExecuteAction",
+    params: [missionFixture.hash, "MissionSequence::LunarMission", { performer: "MissionSequence::apollo11", events: ["GoForDescent"], trace: true }],
+  });
+  assert.deepEqual(run, {
+    visited: ["start", "translunarInjection"],
+    trace,
+    outputs: new Map([["landed", "true"], ["remaining", "480 'm/s'"]]),
+  });
+
+  const failed = fakeConnection({
+    executeError: new ExecutionError("action execution failed: accept deadlock in action LunarMission", "unspecified", [], trace.slice(0, 3).map(traceEvent)),
+  });
+  assert.deepEqual(await runAction(failed.connection, program, model), {
+    visited: [],
+    trace: trace.slice(0, 3),
+    error: "action execution failed: accept deadlock in action LunarMission",
+  });
+  await assert.rejects(runAction(fakeConnection({ executeError: new Error("offline") }).connection, program, model), /offline/u);
+});
+
+test("debugSteps follows an action's token through its steps and accumulates the values it assigns", () => {
+  const trace: TraceRecord[] = [
+    { kind: "step", to: "start", token: "1", step: 1, text: "step start" },
+    { kind: "step", from: "start", to: "translunarInjection", token: "1", step: 1, text: "step start -> translunarInjection" },
+    { kind: "assign", state: "translunarInjection", token: "1", step: 2, feature: "remaining", value: "6350 'm/s'", text: "assign remaining = 6350 ['m/s']" },
+    { kind: "step", from: "translunarInjection", to: "landingGo", token: "1", step: 2, text: "step translunarInjection -> landingGo" },
+    { kind: "decide", state: "landingGo", alternatives: ["1->awaitGo", "2->transEarthInjection"], taken: "1->awaitGo", token: "1", step: 3, text: "decide landingGo -> 1->awaitGo" },
+    { kind: "step", from: "landingGo", to: "awaitGo", token: "1", step: 3, text: "step landingGo -> awaitGo" },
+    { kind: "wait", state: "awaitGo", event: "GoForDescent", token: "1", step: 4, text: "wait GoForDescent" },
+    { kind: "accept", state: "awaitGo", event: "GoForDescent", token: "1", step: 5, text: "accept GoForDescent" },
+    { kind: "step", from: "awaitGo", to: "descent", token: "1", step: 5, text: "step awaitGo -> descent" },
+    { kind: "assign", state: "descent", token: "1", step: 6, feature: "remaining", value: "3350 'm/s'", text: "assign remaining = 3350 ['m/s']" },
+    { kind: "complete", step: 7, text: "complete" },
+  ];
+  const steps = debugSteps(trace);
+  assert.deepEqual(
+    steps.map(({ state }) => state),
+    ["start", "translunarInjection", "translunarInjection", "landingGo", "landingGo", "awaitGo", "awaitGo", "awaitGo", "descent", "descent", "descent"],
+  );
+  assert.deepEqual(steps[1].edge, { from: "start", to: "translunarInjection" });
+  assert.equal(Object.hasOwn(steps[0], "edge"), false, "the first step arrives from nowhere");
+  assert.equal(Object.hasOwn(steps[2], "edge"), false);
+  assert.deepEqual(steps.map(({ assigned }) => assigned.length), [0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2]);
+  assert.deepEqual(steps[9].assigned, [
+    { at: "translunarInjection", feature: "remaining", value: "6350 'm/s'" },
+    { at: "descent", feature: "remaining", value: "3350 'm/s'" },
+  ]);
+  assert.deepEqual(steps.map(({ accepted }) => accepted), [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]);
+  assert.equal(Object.hasOwn(steps[7], "ignored"), false, "an action's accept is followed by a step, not a transition");
 });

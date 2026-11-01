@@ -186,7 +186,7 @@ elmt:StateMachine__VehicleStates_om
 
 elmt:StateMachine__VehicleStates___400
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "StateMachine::VehicleStates::@0" ;
+    sysx:positionalName "StateMachine::VehicleStates::@0" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -236,7 +236,7 @@ elmt:StateMachine__VehicleStates__off_om
 
 elmt:StateMachine__VehicleStates__off___400
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "StateMachine::VehicleStates::off::@0" ;
+    sysx:positionalName "StateMachine::VehicleStates::off::@0" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -258,7 +258,7 @@ elmt:StateMachine__VehicleStates__off___400
 elmt:StateMachine__VehicleStates__off___400__Warm
     a sysml:PerformActionUsage ;
     sysml:name "Warm" ;
-    sysml:qualifiedName "StateMachine::VehicleStates::off::@0::Warm" ;
+    sysx:positionalName "StateMachine::VehicleStates::off::@0::Warm" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "19"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -270,6 +270,8 @@ elmt:StateMachine__VehicleStates__off___400__Warm
     sysml:owningMembership elmt:StateMachine__VehicleStates__off___400 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:StateMachine__VehicleStates__off___400__Warm_rs ;
@@ -314,7 +316,7 @@ elmt:StateMachine__VehicleStates__starting_om
 
 elmt:StateMachine__VehicleStates__starting___400
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "StateMachine::VehicleStates::starting::@0" ;
+    sysx:positionalName "StateMachine::VehicleStates::starting::@0" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;
@@ -335,7 +337,7 @@ elmt:StateMachine__VehicleStates__starting___400
 
 elmt:StateMachine__VehicleStates__starting___400__ready
     a sysml:PerformActionUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::starting::@0::ready" ;
+    sysx:positionalName "StateMachine::VehicleStates::starting::@0::ready" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "19"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;
@@ -347,6 +349,8 @@ elmt:StateMachine__VehicleStates__starting___400__ready
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___400 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ready" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:StateMachine__VehicleStates__starting___400__ready_ft0 ;
@@ -355,7 +359,7 @@ elmt:StateMachine__VehicleStates__starting___400__ready
 
 elmt:StateMachine__VehicleStates__starting___401
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "StateMachine::VehicleStates::starting::@1" ;
+    sysx:positionalName "StateMachine::VehicleStates::starting::@1" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;
@@ -376,7 +380,7 @@ elmt:StateMachine__VehicleStates__starting___401
 
 elmt:StateMachine__VehicleStates__starting___401__running
     a sysml:PerformActionUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::starting::@1::running" ;
+    sysx:positionalName "StateMachine::VehicleStates::starting::@1::running" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;
@@ -388,6 +392,8 @@ elmt:StateMachine__VehicleStates__starting___401__running
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___401 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "running" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:StateMachine__VehicleStates__starting___401__running_ft0 ;
@@ -396,7 +402,7 @@ elmt:StateMachine__VehicleStates__starting___401__running
 
 elmt:StateMachine__VehicleStates__starting___402
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "StateMachine::VehicleStates::starting::@2" ;
+    sysx:positionalName "StateMachine::VehicleStates::starting::@2" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "13"^^xsd:integer ;
@@ -418,7 +424,7 @@ elmt:StateMachine__VehicleStates__starting___402
 elmt:StateMachine__VehicleStates__starting___402__Warm
     a sysml:PerformActionUsage ;
     sysml:name "Warm" ;
-    sysml:qualifiedName "StateMachine::VehicleStates::starting::@2::Warm" ;
+    sysx:positionalName "StateMachine::VehicleStates::starting::@2::Warm" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "18"^^xsd:integer ;
     sysx:sourceEndLine "13"^^xsd:integer ;
@@ -430,6 +436,8 @@ elmt:StateMachine__VehicleStates__starting___402__Warm
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___402 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:StateMachine__VehicleStates__starting___402__Warm_rs ;
@@ -477,7 +485,7 @@ elmt:StateMachine__VehicleStates__active_om
 
 elmt:StateMachine__VehicleStates__active___400
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active::@0" ;
+    sysx:positionalName "StateMachine::VehicleStates::active::@0" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -498,7 +506,7 @@ elmt:StateMachine__VehicleStates__active___400
 
 elmt:StateMachine__VehicleStates__active___400__monitor
     a sysml:PerformActionUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active::@0::monitor" ;
+    sysx:positionalName "StateMachine::VehicleStates::active::@0::monitor" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -510,6 +518,8 @@ elmt:StateMachine__VehicleStates__active___400__monitor
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___400 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "monitor" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:StateMachine__VehicleStates__active___400__monitor_ft0 ;
@@ -519,7 +529,7 @@ elmt:StateMachine__VehicleStates__active___400__monitor
 elmt:StateMachine__VehicleStates__active___401
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active::@1" ;
+    sysx:positionalName "StateMachine::VehicleStates::active::@1" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -562,6 +572,8 @@ elmt:StateMachine__VehicleStates__active___401_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active___401_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active___401 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active___401_linkparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___401_linkparam_om .
@@ -583,6 +595,8 @@ elmt:StateMachine__VehicleStates__active___401_triggerparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active___401_triggerparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active___401 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active___401_triggerparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___401_triggerparam_om .
@@ -684,7 +698,7 @@ expr:StateMachine__VehicleStates__active___401_succession_pend1_prs
 elmt:StateMachine__VehicleStates__active___401___40trigger
     a sysml:AcceptActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active::@1::@trigger" ;
+    sysx:positionalName "StateMachine::VehicleStates::active::@1::@trigger" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -719,7 +733,7 @@ elmt:StateMachine__VehicleStates__active___401___40trigger_om
 
 elmt:StateMachine__VehicleStates__active___401___40trigger__sig
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active::@1::@trigger::sig" ;
+    sysx:positionalName "StateMachine::VehicleStates::active::@1::@trigger::sig" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "20"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -734,6 +748,8 @@ elmt:StateMachine__VehicleStates__active___401___40trigger__sig
     sysml:declaredName "sig" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:StateMachine__Signal ;
@@ -821,6 +837,8 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart_linkparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart_linkparam_om .
@@ -842,6 +860,8 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_triggerparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_triggerparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart_triggerparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart_triggerparam_om .
@@ -943,7 +963,7 @@ expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_prs
 elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger
     a sysml:AcceptActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "StateMachine::VehicleStates::off_to_start::@trigger" ;
+    sysx:positionalName "StateMachine::VehicleStates::off_to_start::@trigger" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "43"^^xsd:integer ;
     sysx:sourceEndLine "19"^^xsd:integer ;
@@ -978,7 +998,7 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om
 
 elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::off_to_start::@trigger::sig" ;
+    sysx:positionalName "StateMachine::VehicleStates::off_to_start::@trigger::sig" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "50"^^xsd:integer ;
     sysx:sourceEndLine "19"^^xsd:integer ;
@@ -993,6 +1013,8 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig
     sysml:declaredName "sig" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:StateMachine__Signal ;
@@ -1027,7 +1049,7 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession_om
 elmt:StateMachine__VehicleStates___405
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "StateMachine::VehicleStates::@5" ;
+    sysx:positionalName "StateMachine::VehicleStates::@5" ;
     sysx:sourceLine "20"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "20"^^xsd:integer ;
@@ -1079,6 +1101,8 @@ elmt:StateMachine__VehicleStates___405_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates___405_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates___405 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates___405_linkparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates___405_linkparam_om .
@@ -1309,6 +1333,8 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff_linkparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff_linkparam_om .
@@ -1330,6 +1356,8 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_triggerparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_triggerparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff_triggerparam_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff_triggerparam_om .
@@ -1431,7 +1459,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_prs
 elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger
     a sysml:AcceptActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::@trigger" ;
+    sysx:positionalName "StateMachine::VehicleStates::active_to_off::@trigger" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "47"^^xsd:integer ;
     sysx:sourceEndLine "21"^^xsd:integer ;
@@ -1474,7 +1502,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::@trigger::sig" ;
+    sysx:positionalName "StateMachine::VehicleStates::active_to_off::@trigger::sig" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "54"^^xsd:integer ;
     sysx:sourceEndLine "21"^^xsd:integer ;
@@ -1489,6 +1517,8 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig
     sysml:declaredName "sig" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:StateMachine__Signal ;
@@ -1512,7 +1542,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::@trigger::@1" ;
+    sysx:positionalName "StateMachine::VehicleStates::active_to_off::@trigger::@1" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "71"^^xsd:integer ;
     sysx:sourceEndLine "21"^^xsd:integer ;
@@ -1526,6 +1556,8 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_om ;
@@ -1723,6 +1755,8 @@ elmt:StateMachine__VehicleStates__lane
     sysml:owningMembership elmt:StateMachine__VehicleStates__lane_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "lane" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:StateMachine__Bus ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:StateMachine__VehicleStates__lane_ft0 ;
@@ -1846,7 +1880,7 @@ elmt:StateMachine__Nested__idle__substate_om
 
 elmt:StateMachine__Nested__idle__substate___400
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "StateMachine::Nested::idle::substate::@0" ;
+    sysx:positionalName "StateMachine::Nested::idle::substate::@0" ;
     sysx:sourceLine "27"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
     sysx:sourceEndLine "27"^^xsd:integer ;
@@ -1868,7 +1902,7 @@ elmt:StateMachine__Nested__idle__substate___400
 elmt:StateMachine__Nested__idle__substate___400__Warm
     a sysml:PerformActionUsage ;
     sysml:name "Warm" ;
-    sysml:qualifiedName "StateMachine::Nested::idle::substate::@0::Warm" ;
+    sysx:positionalName "StateMachine::Nested::idle::substate::@0::Warm" ;
     sysx:sourceLine "27"^^xsd:integer ;
     sysx:sourceColumn "23"^^xsd:integer ;
     sysx:sourceEndLine "27"^^xsd:integer ;
@@ -1880,6 +1914,8 @@ elmt:StateMachine__Nested__idle__substate___400__Warm
     sysml:owningMembership elmt:StateMachine__Nested__idle__substate___400 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:StateMachine__Nested__idle__substate___400__Warm_rs ;
@@ -1927,7 +1963,7 @@ elmt:StateMachine__Composite_om
 
 elmt:StateMachine__Composite___400
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "StateMachine::Composite::@0" ;
+    sysx:positionalName "StateMachine::Composite::@0" ;
     sysx:sourceLine "32"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "32"^^xsd:integer ;
@@ -1945,7 +1981,7 @@ elmt:StateMachine__Composite___400
 elmt:StateMachine__Composite___401
     a sysml:SuccessionAsUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "StateMachine::Composite::@1" ;
+    sysx:positionalName "StateMachine::Composite::@1" ;
     sysx:sourceLine "33"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "33"^^xsd:integer ;
@@ -2034,7 +2070,7 @@ elmt:StateMachine__Composite__waiting_om
 
 elmt:StateMachine__Composite___404
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "StateMachine::Composite::@4" ;
+    sysx:positionalName "StateMachine::Composite::@4" ;
     sysx:sourceLine "36"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "38"^^xsd:integer ;
@@ -2055,7 +2091,7 @@ elmt:StateMachine__Composite___404
 
 elmt:StateMachine__Composite___404___400
     a sysml:PerformActionUsage ;
-    sysml:qualifiedName "StateMachine::Composite::@4::@0" ;
+    sysx:positionalName "StateMachine::Composite::@4::@0" ;
     sysx:sourceLine "36"^^xsd:integer ;
     sysx:sourceColumn "15"^^xsd:integer ;
     sysx:sourceEndLine "38"^^xsd:integer ;
@@ -2066,6 +2102,8 @@ elmt:StateMachine__Composite___404___400
     sysml:owningRelationship elmt:StateMachine__Composite___404 ;
     sysml:owningMembership elmt:StateMachine__Composite___404 ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:StateMachine__Composite___404___400__Warm ;
     sysml:ownedMembership elmt:StateMachine__Composite___404___400__Warm_om ;
@@ -2076,7 +2114,7 @@ elmt:StateMachine__Composite___404___400
 elmt:StateMachine__Composite___404___400__Warm
     a sysml:PerformActionUsage ;
     sysml:name "Warm" ;
-    sysml:qualifiedName "StateMachine::Composite::@4::@0::Warm" ;
+    sysx:positionalName "StateMachine::Composite::@4::@0::Warm" ;
     sysx:sourceLine "37"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "37"^^xsd:integer ;
@@ -2089,6 +2127,8 @@ elmt:StateMachine__Composite___404___400__Warm
     sysml:owningMembership elmt:StateMachine__Composite___404___400__Warm_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:StateMachine__Composite___404___400__Warm_rs ;

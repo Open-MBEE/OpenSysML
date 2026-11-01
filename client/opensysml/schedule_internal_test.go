@@ -88,12 +88,23 @@ func TestStateTraceIsNotSentWithoutTheCapability(t *testing.T) {
 	wantUnimplemented(t, "ExecuteState", err)
 }
 
-func TestTraceOptionIsLimitedToSingleStateRuns(t *testing.T) {
+func TestActionTraceIsNotSentWithoutTheCapability(t *testing.T) {
+	old := &oldCaller{t: t, capabilities: []string{CapabilityVerification, CapabilitySchedule}}
+	c := &client{caller: old}
+	_, err := c.ExecuteAction(context.Background(), &Model{Hash: "h"}, "A", nil, WithTrace())
+	wantUnimplemented(t, "ExecuteAction", err)
+}
+
+func TestTraceOptionIsLimitedToSingleRuns(t *testing.T) {
 	c := &client{caller: &oldCaller{t: t}}
 	model := &Model{Hash: "h"}
 	for _, operation := range []func() error{
 		func() error {
-			_, err := c.ExecuteAction(context.Background(), model, "A", nil, WithTrace())
+			_, err := c.ExecuteAction(context.Background(), model, "A", nil, WithEvents("Go"))
+			return err
+		},
+		func() error {
+			_, err := c.ExploreAction(context.Background(), model, "A", nil, WithEvents("Go"))
 			return err
 		},
 		func() error {

@@ -17,6 +17,7 @@ export type {
   FeatureValue,
   Multiplicity,
   ParseOptions,
+  ParseSourcesOptions,
   SpecializationFacts,
   TypeFacts,
 } from "./model.js";
@@ -38,7 +39,7 @@ export {
   migrationReportOf,
   pathIsV1,
 } from "./conversion.js";
-export type { ConvertOptions, LibraryReference, MigrateOptions, MigrationEntry } from "./conversion.js";
+export type { ConvertOptions, IdForm, LibraryReference, MigrateOptions, MigrationEntry } from "./conversion.js";
 export {
   QueryElement,
   TYPE_COMPOSITE_CONSTRAINT,
@@ -203,8 +204,10 @@ export {
   CAPABILITY_SELF_CHECK,
   CAPABILITY_RECORD_RUN,
   CAPABILITY_STATE_TRACE,
+  CAPABILITY_ACTION_TRACE,
   CAPABILITY_QUERY,
   CAPABILITY_QUERY_ORDER_BY,
+  CAPABILITY_OSLC_QUERY,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_SEQUENCE_AUTHORING,
@@ -268,6 +271,7 @@ export {
   InstanceTypeError,
   InvalidEditError,
   InvalidRequestError,
+  AuthenticationError,
   MemberNameTakenError,
   MigrationError,
   MoveReferencedError,

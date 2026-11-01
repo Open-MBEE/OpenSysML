@@ -238,6 +238,8 @@ elmt:OtherPkg__Inner__Wheel__size
     sysml:owningMembership elmt:OtherPkg__Inner__Wheel__size_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "size" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            attribute size;\n" .
 
@@ -341,7 +343,7 @@ elmt:R90
 
 elmt:R90___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "R90::@0" ;
+    sysx:positionalName "R90::@0" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -429,6 +431,8 @@ elmt:R90__A__custodyBudget
     sysml:owningMembership elmt:R90__A__custodyBudget_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "custodyBudget" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:R90__A__custodyBudget_ft0 ;
@@ -463,6 +467,8 @@ elmt:R90__A__t
     sysml:owningMembership elmt:R90__A__t_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "t" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__Tempo ;
     sysml:value expr:R90__A__t_pvalue ;
     sysml:ownedRelationship elmt:R90__A__t_ft0, expr:R90__A__t_pvalue_om ;
@@ -558,6 +564,8 @@ elmt:R90__A__b2
     sysml:owningMembership elmt:R90__A__b2_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "b2" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:R90__A__b2_ft0 ;
@@ -592,6 +600,8 @@ elmt:R90__A__b3
     sysml:owningMembership elmt:R90__A__b3_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "b3" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:R90__A__b3_ft0 ;
@@ -626,6 +636,8 @@ elmt:R90__A__w
     sysml:owningMembership elmt:R90__A__w_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "w" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__Inner__Wheel ;
     sysml:subsets elmt:OtherPkg__Inner__wheels ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -666,6 +678,8 @@ elmt:R90__A__spare
     sysml:declaredName "spare" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:OtherPkg__spare ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:R90__A__spare_rs ;
@@ -701,6 +715,8 @@ elmt:R90__A__size
     sysml:owningMembership elmt:R90__A__size_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "size" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute size;\n" .
 
@@ -731,6 +747,8 @@ elmt:R90__A__s
     sysml:owningMembership elmt:R90__A__s_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "s" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:R90__A__s_pvalue ;
     sysml:ownedRelationship expr:R90__A__s_pvalue_om ;
     sysml:ownedMembership expr:R90__A__s_pvalue_om ;
@@ -908,6 +926,8 @@ elmt:R90__A__unresolved
     sysml:owningMembership elmt:R90__A__unresolved_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "unresolved" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Elsewhere::Missing" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:R90__A__unresolved_ft0 ;
@@ -979,6 +999,8 @@ elmt:R90__B__w
     sysml:owningRelationship elmt:R90__B__w_om ;
     sysml:owningMembership elmt:R90__B__w_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__Inner__Wheel ;
     sysml:redefines elmt:R90__A__w ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1051,6 +1073,8 @@ elmt:R90__G1__x
     sysml:owningMembership elmt:R90__G1__x_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "x" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        part x;\n" .
 
@@ -1114,6 +1138,8 @@ elmt:R90__G2__x
     sysml:owningMembership elmt:R90__G2__x_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "x" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        part x;\n" .
 
@@ -1184,6 +1210,8 @@ elmt:R90__H__x
     sysml:owningRelationship elmt:R90__H__x_om ;
     sysml:owningMembership elmt:R90__H__x_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:R90__G2__x ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:R90__H__x_rd0 ;
@@ -1243,7 +1271,7 @@ elmt:R90__Run_om
 
 elmt:R90__Run___400
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "R90::Run::@0" ;
+    sysx:positionalName "R90::Run::@0" ;
     sysx:sourceLine "42"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "42"^^xsd:integer ;
@@ -1260,7 +1288,7 @@ elmt:R90__Run___400
 elmt:R90__Run___401
     a sysml:SuccessionAsUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "R90::Run::@1" ;
+    sysx:positionalName "R90::Run::@1" ;
     sysx:sourceLine "42"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
     sysx:sourceEndLine "42"^^xsd:integer ;
@@ -1318,7 +1346,7 @@ elmt:R90__Run__idle_om
 elmt:R90__Run___403
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "R90::Run::@3" ;
+    sysx:positionalName "R90::Run::@3" ;
     sysx:sourceLine "44"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "44"^^xsd:integer ;
@@ -1365,6 +1393,8 @@ elmt:R90__Run___403_linkparam
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__Run___403_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:R90__Run___403 ;
     sysml:owningRelationship elmt:R90__Run___403_linkparam_om ;
     sysml:owningMembership elmt:R90__Run___403_linkparam_om .
@@ -1617,7 +1647,7 @@ elmt:Meta__Tagged_om
 elmt:Meta__Tagged___400
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "Meta::Tagged::@0" ;
+    sysx:positionalName "Meta::Tagged::@0" ;
     sysx:sourceLine "52"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "52"^^xsd:integer ;
@@ -1695,7 +1725,7 @@ elmt:Filtered
 
 elmt:Filtered___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "Filtered::@0" ;
+    sysx:positionalName "Filtered::@0" ;
     sysx:sourceLine "56"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "56"^^xsd:integer ;
@@ -1874,6 +1904,8 @@ elmt:Filtered__C__other
     sysml:owningMembership elmt:Filtered__C__other_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "other" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Meta__Tagged ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Filtered__C__other_ft0 ;
@@ -1895,7 +1927,7 @@ elmt:Filtered__C__other_om
 
 elmt:Filtered___402
     a sysml:ElementFilterMembership ;
-    sysml:qualifiedName "Filtered::@2" ;
+    sysx:positionalName "Filtered::@2" ;
     sysx:sourceLine "60"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "60"^^xsd:integer ;

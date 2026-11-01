@@ -199,6 +199,8 @@ elmt:ActionNodes__Drive__speed
     sysml:owningMembership elmt:ActionNodes__Drive__speed_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "speed" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        in attribute speed;\n" .
@@ -230,6 +232,8 @@ elmt:ActionNodes__Drive__log
     sysml:owningMembership elmt:ActionNodes__Drive__log_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "log" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute log;\n" .
 
@@ -260,6 +264,8 @@ elmt:ActionNodes__Drive__antenna
     sysml:owningMembership elmt:ActionNodes__Drive__antenna_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "antenna" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:ActionNodes__Radio ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ActionNodes__Drive__antenna_ft0 ;
@@ -308,7 +314,7 @@ elmt:ActionNodes__Drive__Stop_om
 
 elmt:ActionNodes__Drive___404
     a sysml:Membership ;
-    sysml:qualifiedName "ActionNodes::Drive::@4" ;
+    sysx:positionalName "ActionNodes::Drive::@4" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -476,7 +482,7 @@ elmt:ActionNodes__Drive__pick_om
 elmt:ActionNodes__Drive___4010
     a sysml:PerformActionUsage ;
     sysml:name "brake" ;
-    sysml:qualifiedName "ActionNodes::Drive::@10" ;
+    sysx:positionalName "ActionNodes::Drive::@10" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -489,6 +495,8 @@ elmt:ActionNodes__Drive___4010
     sysml:owningMembership elmt:ActionNodes__Drive___4010_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:ActionNodes__Drive__brake ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:ActionNodes__Drive___4010_rs ;
@@ -542,7 +550,7 @@ elmt:ActionNodes__Drive__Brake_om
 elmt:ActionNodes__Drive___4012
     a sysml:AssignmentActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ActionNodes::Drive::@12" ;
+    sysx:positionalName "ActionNodes::Drive::@12" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -691,7 +699,7 @@ expr:ActionNodes__Drive___4012_pvalue_om
 elmt:ActionNodes__Drive___4013
     a sysml:SendActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ActionNodes::Drive::@13" ;
+    sysx:positionalName "ActionNodes::Drive::@13" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "19"^^xsd:integer ;
@@ -837,7 +845,7 @@ expr:ActionNodes__Drive___4013_preceiver_om
 elmt:ActionNodes__Drive___4014
     a sysml:SendActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ActionNodes::Drive::@14" ;
+    sysx:positionalName "ActionNodes::Drive::@14" ;
     sysx:sourceLine "20"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "20"^^xsd:integer ;
@@ -983,7 +991,7 @@ expr:ActionNodes__Drive___4014_preceiver_om
 
 elmt:ActionNodes__Drive___4015
     a sysml:AcceptActionUsage ;
-    sysml:qualifiedName "ActionNodes::Drive::@15" ;
+    sysx:positionalName "ActionNodes::Drive::@15" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "21"^^xsd:integer ;
@@ -1020,7 +1028,7 @@ elmt:ActionNodes__Drive___4015_om
 
 elmt:ActionNodes__Drive___4015___400
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "ActionNodes::Drive::@15::@0" ;
+    sysx:positionalName "ActionNodes::Drive::@15::@0" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
     sysx:sourceEndLine "21"^^xsd:integer ;
@@ -1034,6 +1042,8 @@ elmt:ActionNodes__Drive___4015___400
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:value expr:ActionNodes__Drive___4015___400_pvalue ;
@@ -1372,7 +1382,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_om
 elmt:ActionNodes__Drive___4016
     a sysml:TerminateActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ActionNodes::Drive::@16" ;
+    sysx:positionalName "ActionNodes::Drive::@16" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "22"^^xsd:integer ;
@@ -1400,7 +1410,7 @@ elmt:ActionNodes__Drive___4016_om
 elmt:ActionNodes__Drive___4017
     a sysml:TerminateActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "ActionNodes::Drive::@17" ;
+    sysx:positionalName "ActionNodes::Drive::@17" ;
     sysx:sourceLine "23"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "23"^^xsd:integer ;
@@ -1486,7 +1496,7 @@ expr:ActionNodes__Drive___4017_pexpression_om
 
 elmt:ActionNodes__Drive___4018
     a sysml:Membership ;
-    sysml:qualifiedName "ActionNodes::Drive::@18" ;
+    sysx:positionalName "ActionNodes::Drive::@18" ;
     sysx:sourceLine "24"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "24"^^xsd:integer ;
@@ -1503,7 +1513,7 @@ elmt:ActionNodes__Drive___4018
 
 elmt:ActionNodes__Drive___4019
     a sysml:SuccessionAsUsage ;
-    sysml:qualifiedName "ActionNodes::Drive::@19" ;
+    sysx:positionalName "ActionNodes::Drive::@19" ;
     sysx:sourceLine "25"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "25"^^xsd:integer ;
@@ -1515,6 +1525,8 @@ elmt:ActionNodes__Drive___4019
     sysml:owningRelationship elmt:ActionNodes__Drive___4019_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4019_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
@@ -1636,7 +1648,7 @@ expr:ActionNodes__Drive___4019_pend1_prs
 
 elmt:ActionNodes__Drive___4020
     a sysml:SuccessionAsUsage ;
-    sysml:qualifiedName "ActionNodes::Drive::@20" ;
+    sysx:positionalName "ActionNodes::Drive::@20" ;
     sysx:sourceLine "26"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "26"^^xsd:integer ;
@@ -1648,6 +1660,8 @@ elmt:ActionNodes__Drive___4020
     sysml:owningRelationship elmt:ActionNodes__Drive___4020_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4020_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;

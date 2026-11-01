@@ -8,6 +8,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"sort"
 	"strings"
@@ -673,9 +674,9 @@ func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMembe
 	if qualifiedText(n.Source) != "" {
 		e.transitionSourceMember(subject, n.Source)
 	}
-	e.emptyParameterMember(subject, "linkparam")
+	e.emptyParameterMember(subject, "linkparam", e.ids.declSym[n])
 	if e.triggerPayload(n) != nil {
-		e.emptyParameterMember(subject, "triggerparam")
+		e.emptyParameterMember(subject, "triggerparam", e.ids.declSym[n])
 	}
 }
 
@@ -710,7 +711,7 @@ func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.Qualified
 
 // emptyParameterMember emits an EmptyParameterMember: a ParameterMembership
 // owning an EmptyUsage, a ReferenceUsage that declares nothing.
-func (e *encoder) emptyParameterMember(subject rdf.Term, slot string) {
+func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, owner *symbols.Symbol) {
 	// Minted as an element, as the transition's succession is: an
 	// expression-part id would read back from the element form as a node.
 	feature := e.ids.minted(rdf.IRI(subject.Value+"_"+slot), subject, "_"+slot)
@@ -719,6 +720,10 @@ func (e *encoder) emptyParameterMember(subject rdf.Term, slot string) {
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
 	// A parameter with no direction of its own is an `in` parameter.
 	e.graph.Add(feature, e.sysml(pDirection), rdf.String("in"))
+	// It is a referential usage the transition owns, and a transition is an action.
+	if e.ids.model.UsageMayTimeVaryUnder(owner) {
+		e.flags(feature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
@@ -751,7 +756,7 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 		return false, err
 	}
 	e.graph.Add(accepter, rdf.IRI(rdf.RDFType), e.sysml(mAcceptAction))
-	e.graph.Add(accepter, e.sysml(pQualifiedName), rdf.String(accepterFQN))
+	e.graph.Add(accepter, addressTerm(accepterFQN), rdf.String(accepterFQN))
 	// The accept a trigger declares is placed where the trigger is written.
 	e.sourceRange(accepter, n.TriggerSpan)
 	e.graph.Add(accepter, e.sysml(pElementID), rdf.String(rdf.LocalName(accepter.Value)))

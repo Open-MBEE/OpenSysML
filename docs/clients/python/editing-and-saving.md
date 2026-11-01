@@ -14,12 +14,22 @@ model.save("out.sysml")
 
 opensysml.convert("ttl", file_path="model.sysml")
 opensysml.convert("sysml", content=turtle.content, from_format="ttl")
+opensysml.convert("api-json", file_path="model.sysml", id_form=opensysml.ID_FORM_UUID)
 ```
 
 A `Conversion` carries output text, source and target formats, and whether
 the mapping is experimental. `str()` and `len()` operate on its text;
 `write(path)` saves it. File formats are inferred from extensions; inline
 content must name `from_format`.
+
+When a graph (`ttl` or `api-json`) is written, `id_form` spells the derived
+element ids: `ID_FORM_QUALIFIED` (the default, from each element's qualified
+name) or `ID_FORM_UUID` (name-based uuids under each root package, the library
+convention). `include_library_stubs=True` restores the ownerless library stubs
+api-json carried before 0.11.0; it needs the service's `convert_library_stubs`
+capability, and a service without it raises `MissingCapabilityError` before
+anything is sent. Both are taken alike by `opensysml.convert`,
+`Connection.convert` and `Model.convert`.
 
 Turtle conversion is experimental and raises `ExperimentalFeatureWarning`.
 The mapping carries supported model structure and body behavior, and refuses
@@ -187,3 +197,38 @@ settings are documented in the [migration reference](../../reference/sysml-v1-mi
 Migration is experimental and raises `ExperimentalFeatureWarning`. `convert`
 refuses a v1 source with an `InvalidRequestError` directing callers to
 `migrate`.
+
+## Compact API JSON and the check's diagnostics
+
+`convert` writes notation to the compact API JSON document
+(`api-json-compact/1`, see the [compact form](../../reference/api-json-compact.md))
+with `compact=True`; `omit_derived=True` leaves out every derived property of the
+metamodel and `keep_derived` names the ones still written. `include_check_diagnostics=True`
+reports the semantic check's diagnostics in the result's `diagnostics` alongside the
+output, each with its own `severity`, so a conversion of a model with errors is told apart
+from one of a clean model:
+
+```python
+result = conn.convert(
+    "api-json", content=source, from_format="sysml",
+    compact=True, omit_derived=True, keep_derived=["qualifiedName"],
+    include_check_diagnostics=True,
+)
+errors = [d for d in result.diagnostics if d.severity == "error"]
+```
+
+The four options are taken alike by `opensysml.convert`, `Connection.convert`,
+`Model.convert`, `Model.to_api_json` and `Model.save`, so a loaded model writes
+its compact form without dropping to its connection:
+
+```python
+model.to_api_json(compact=True, omit_derived=True, keep_derived=["qualifiedName"])
+model.save("model.json", compact=True)
+```
+
+The compact options need the `convert_compact` capability and the check's diagnostics
+`convert_check_diagnostics`; a service without them raises `MissingCapabilityError`
+before anything is sent. The service refuses, as `InvalidRequestError`, `omit_derived` or
+`keep_derived` without `compact`, `keep_derived` without `omit_derived` or naming a
+property that is not derived, `compact` for other than notation to `api-json`, and
+`include_check_diagnostics` for a graph source.

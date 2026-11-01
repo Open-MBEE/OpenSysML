@@ -75,6 +75,8 @@ elmt:SendNew__Telemetry__frames
     sysml:owningMembership elmt:SendNew__Telemetry__frames_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "frames" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute frames;\n" .
 
@@ -262,6 +264,8 @@ elmt:SendNew__Downlink__antenna
     sysml:owningMembership elmt:SendNew__Downlink__antenna_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "antenna" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:SendNew__Radio ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:SendNew__Downlink__antenna_ft0 ;
@@ -296,6 +300,8 @@ elmt:SendNew__Downlink__ground
     sysml:owningMembership elmt:SendNew__Downlink__ground_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "ground" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:SendNew__Station ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:SendNew__Downlink__ground_ft0 ;
@@ -318,7 +324,7 @@ elmt:SendNew__Downlink__ground_om
 elmt:SendNew__Downlink___402
     a sysml:SendActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "SendNew::Downlink::@2" ;
+    sysx:positionalName "SendNew::Downlink::@2" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;
@@ -516,7 +522,7 @@ expr:SendNew__Downlink___402_preceiver_om
 elmt:SendNew__Downlink___403
     a sysml:SendActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "SendNew::Downlink::@3" ;
+    sysx:positionalName "SendNew::Downlink::@3" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;

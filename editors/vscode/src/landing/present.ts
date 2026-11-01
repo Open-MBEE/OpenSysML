@@ -1,6 +1,6 @@
 import type { RenderResult } from "../protocol";
-import type { EngineQuantity, LandingModel, LandingPart } from "./model";
-import type { Scene, SceneTone } from "./scene";
+import type { EngineQuantity, LandingModel } from "./model";
+import type { SceneBox, SceneTone } from "./scene";
 
 /**
  * presentedStack is the landing model as the hero draws the stack: each project's box
@@ -30,23 +30,47 @@ export function presentedStack(model: LandingModel): RenderResult {
   };
 }
 
+/**
+ * presentedPhases is the landing model as the hero draws a state machine: the states as the
+ * view drew them, each transition labelled with the wait that fires it.
+ */
+export function presentedPhases(model: LandingModel): RenderResult {
+  return model.render;
+}
+
+/** presentedMission is the landing model as the hero draws an action: its steps as the view drew them, each succession a wire. */
+export function presentedMission(model: LandingModel): RenderResult {
+  return model.render;
+}
+
 const STACK_TONES: Record<string, SceneTone> = { runtime: "primary", reference: "secondary", "model store": "accent" };
 
 /** stackTone fills a project's box by the kind its model declares; a component stays plain. */
-export function stackTone(part: LandingPart): SceneTone | undefined {
-  return STACK_TONES[part.attrs.kind ?? ""];
+export function stackTone(box: SceneBox): SceneTone | undefined {
+  return box.kind === "part" ? STACK_TONES[box.part.attrs.kind ?? ""] : undefined;
 }
 
-/**
- * rollupTone fills a top-level part's box as the stack fills its projects, and accents any
- * part whose rolled-up feature the engine left undetermined; a nested, valued part stays plain.
- */
-export function rollupTone(part: LandingPart, scene: Scene): SceneTone | undefined {
-  const feature = rolledUp(scene);
-  if (feature !== undefined && part.unvalued[feature] !== undefined) {
-    return "accent";
+/** phaseTone fills a state's box: the one the machine enters first in the accent, the others primary; the start and final symbols stay plain. */
+export function phaseTone(box: SceneBox): SceneTone | undefined {
+  if (box.kind !== "state" || box.state.kind !== "state") {
+    return undefined;
   }
-  return part.owner === undefined ? "primary" : undefined;
+  return box.state.initial ? "accent" : "primary";
+}
+
+/** missionTone fills an action's box: a step primary, the decide that picks its branch in the accent; the initial and final symbols stay plain. */
+export function missionTone(box: SceneBox): SceneTone | undefined {
+  if (box.kind !== "step") {
+    return undefined;
+  }
+  switch (box.step.kind) {
+    case "action":
+      return "primary";
+    case "decision":
+      return "accent";
+    default:
+      return undefined;
+  }
 }
 
 /** quantityText is a quantity as the hero prints it: the engine's digits grouped, then the unit. */
@@ -55,52 +79,4 @@ export function quantityText(quantity: EngineQuantity): string {
     ? BigInt(quantity.magnitude).toLocaleString("en-US")
     : quantity.magnitude;
   return `${grouped} ${quantity.unit}`;
-}
-
-/** rolledUp is the feature a roll-up scene reports on every box; absent for another kind of scene. */
-export function rolledUp(scene: Scene): string | undefined {
-  return scene.program.kind === "rollup" ? scene.program.feature : undefined;
-}
-
-/**
- * valueLine is a box's detail line for one feature: the quantity the instance holds, or
- * the engine's reason when the instantiation could not value it; empty when it has neither.
- */
-export function valueLine(model: LandingModel, id: string, feature: string): string {
-  const part = [...model.parts.values()].find((candidate) => candidate.id === id);
-  if (!part) {
-    return "";
-  }
-  const quantity = part.quantities[feature];
-  if (quantity !== undefined) {
-    return `${feature} = ${quantityText(quantity)}`;
-  }
-  const reason = part.unvalued[feature];
-  return reason === undefined ? "" : `${feature} undetermined: ${reason}`;
-}
-
-/**
- * presentedRollup is the landing model as the hero draws a roll-up: each part's box
- * headed by its feature name and type, with the rolled-up feature's value as the detail
- * line, nested as the composition nests. Binding wires carry no labels.
- */
-export function presentedRollup(model: LandingModel, scene: Scene): RenderResult {
-  const feature = rolledUp(scene);
-  const byId = new Map([...model.parts.values()].map((part) => [part.id, part]));
-  return {
-    ...model.render,
-    nodes: model.render.nodes.map((node) => {
-      const part = byId.get(node.id);
-      if (!part) {
-        return node;
-      }
-      return {
-        ...node,
-        name: part.feature,
-        type: part.type,
-        detail: feature === undefined ? "" : valueLine(model, node.id, feature),
-      };
-    }),
-    edges: model.render.edges.map((edge) => ({ ...edge, label: "" })),
-  };
 }

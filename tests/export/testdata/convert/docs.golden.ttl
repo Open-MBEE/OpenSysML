@@ -28,7 +28,7 @@ elmt:Documented
 
 elmt:Documented___400
     a sysml:Documentation ;
-    sysml:qualifiedName "Documented::@0" ;
+    sysx:positionalName "Documented::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -85,7 +85,7 @@ elmt:Documented__Wheel_om
 
 elmt:Documented__Wheel___400
     a sysml:Documentation ;
-    sysml:qualifiedName "Documented::Wheel::@0" ;
+    sysx:positionalName "Documented::Wheel::@0" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "4"^^xsd:integer ;
@@ -111,7 +111,7 @@ elmt:Documented__Wheel___400_om
 
 elmt:Documented___402
     a sysml:Comment ;
-    sysml:qualifiedName "Documented::@2" ;
+    sysx:positionalName "Documented::@2" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;

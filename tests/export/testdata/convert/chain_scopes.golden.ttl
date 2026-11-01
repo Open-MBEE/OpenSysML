@@ -80,6 +80,8 @@ elmt:Gen__G1__x
     sysml:owningMembership elmt:Gen__G1__x_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute x;\n" .
 
@@ -110,6 +112,8 @@ elmt:Gen__G1__y
     sysml:owningMembership elmt:Gen__G1__y_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "y" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute y;\n" .
 
@@ -173,6 +177,8 @@ elmt:Gen__G2__x
     sysml:owningMembership elmt:Gen__G2__x_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "x" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute x;\n" .
 
@@ -292,6 +298,8 @@ elmt:Chains__Axle__hub
     sysml:owningMembership elmt:Chains__Axle__hub_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "hub" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__Wheel ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Chains__Axle__hub_ft0 ;
@@ -364,6 +372,8 @@ elmt:Chains__Car__w
     sysml:owningMembership elmt:Chains__Car__w_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "w" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__Wheel ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Chains__Car__w_ft0 ;
@@ -398,6 +408,8 @@ elmt:Chains__Car__axle
     sysml:owningMembership elmt:Chains__Car__axle_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "axle" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__Axle ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Chains__Car__axle_ft0 ;
@@ -432,6 +444,8 @@ elmt:Chains__Car__a
     sysml:owningMembership elmt:Chains__Car__a_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__a_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__a_pvalue_om ;
     sysml:ownedMembership expr:Chains__Car__a_pvalue_om ;
@@ -609,6 +623,8 @@ elmt:Chains__Car__b
     sysml:owningMembership elmt:Chains__Car__b_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__b_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__b_pvalue_om ;
     sysml:ownedMembership expr:Chains__Car__b_pvalue_om ;
@@ -786,6 +802,8 @@ elmt:Chains__Car__c
     sysml:owningMembership elmt:Chains__Car__c_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "c" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__c_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__c_pvalue_om ;
     sysml:ownedMembership expr:Chains__Car__c_pvalue_om ;
@@ -963,6 +981,8 @@ elmt:Chains__Car__d
     sysml:owningMembership elmt:Chains__Car__d_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "d" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__d_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__d_pvalue_om ;
     sysml:ownedMembership expr:Chains__Car__d_pvalue_om ;
@@ -1226,6 +1246,8 @@ elmt:Chains__Car__e
     sysml:owningMembership elmt:Chains__Car__e_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "e" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__e_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__e_pvalue_om ;
     sysml:ownedMembership expr:Chains__Car__e_pvalue_om ;
@@ -1489,6 +1511,8 @@ elmt:Chains__Car__spare
     sysml:owningMembership elmt:Chains__Car__spare_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "spare" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:subsets elmt:Chains__Car__w ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSubsetting elmt:Chains__Car__spare_ss0 ;
@@ -1523,6 +1547,8 @@ elmt:Chains__Car__f
     sysml:owningMembership elmt:Chains__Car__f_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "f" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__f_pvalue ;
     sysml:ownedRelationship expr:Chains__Car__f_pvalue_om ;
     sysml:ownedMembership expr:Chains__Car__f_pvalue_om ;

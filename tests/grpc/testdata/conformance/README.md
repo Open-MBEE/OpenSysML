@@ -49,7 +49,8 @@ empty else blocks are not authorable.
 | `advance`, `seed`, `draws`, `clock_step` | ExecuteAction | the run options of `sysml -advance`, `-seed`, `-draws` and `-clock-step`; absent sends none |
 | `disable_lint`, `enable_lint` | GetDiagnostics | lint codes left out of, and opt-in lint codes kept in, the diagnostics, as `sysml -disable-lint`/`-enable-lint` select them |
 | `expected_codes`, `absent_codes` | GetDiagnostics | diagnostic codes the answer must carry, and must not |
-| `events` | ExecuteState | event names injected, in order |
+| `events` | ExecuteState, ExecuteAction | event names injected, in order; an action's are posted to its performer once every token waits, each taken by the accept waiting for it |
+| `trace`, `expected_trace` | ExecuteAction | ask for the run's trace, and the text of every record of it in order (`step a -> b`, `wait Go`, `accept Go`, `decide route -> 1->b`, `assign x = 3`, `complete`), checked on a failed run too |
 | `trace`, `expected_trace_objects` | ExecuteState | ask for the run's trace, and the usages the objects taking its transitions are held under, in first-appearance order, one per object (a machine run on the exhibited usage's own path traces its owner's one run) |
 | `advance`, `expected_final_time` | ExecuteState | the simulated time to run for after the events, and the clock the run ended at |
 | `performer_symbol_id` | CheckBehavior, ExecuteAction, ExecuteState | FQN of the part/usage whose object performs the behavior, or a path from one into what it holds; an ExecuteAction on it joins the performance that object already holds or runs, so `inputs` must be the bindings its declaration states (an `instance_id` input names an object of the instantiated performer) |

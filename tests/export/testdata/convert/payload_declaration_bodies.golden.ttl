@@ -128,6 +128,8 @@ elmt:Payloads__A__i
     sysml:owningMembership elmt:Payloads__A__i_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "i" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:type elmt:Payloads__Fuel ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -194,6 +196,8 @@ elmt:Payloads__B__j
     sysml:owningMembership elmt:Payloads__B__j_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "j" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Payloads__Fuel ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -265,6 +269,8 @@ elmt:Payloads__Ctx__x
     sysml:owningMembership elmt:Payloads__Ctx__x_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "x" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__A ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx__x_ft0 ;
@@ -298,6 +304,8 @@ elmt:Payloads__Ctx__y
     sysml:owningMembership elmt:Payloads__Ctx__y_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "y" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__B ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx__y_ft0 ;
@@ -318,7 +326,7 @@ elmt:Payloads__Ctx__y_om
 
 elmt:Payloads__Ctx___402
     a sysml:FlowUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@2" ;
+    sysx:positionalName "Payloads::Ctx::@2" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -411,6 +419,8 @@ expr:Payloads__Ctx___402_pend0_pff
     sysml:owner expr:Payloads__Ctx___402_pend0 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_pend0_pff_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend0_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Payloads__A__i ;
     sysml:ownedRedefinition expr:Payloads__Ctx___402_pend0_pff_rd0 ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend0_pff_rd0 ;
@@ -480,6 +490,8 @@ expr:Payloads__Ctx___402_pend1_pff
     sysml:owner expr:Payloads__Ctx___402_pend1 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_pend1_pff_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend1_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Payloads__B__j ;
     sysml:ownedRedefinition expr:Payloads__Ctx___402_pend1_pff_rd0 ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend1_pff_rd0 ;
@@ -498,7 +510,7 @@ expr:Payloads__Ctx___402_pend1_pff_om
 
 elmt:Payloads__Ctx___402__fuel
     a sysml:PayloadFeature ;
-    sysml:qualifiedName "Payloads::Ctx::@2::fuel" ;
+    sysx:positionalName "Payloads::Ctx::@2::fuel" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -531,7 +543,7 @@ elmt:Payloads__Ctx___402__fuel_om
 
 elmt:Payloads__Ctx___402__w
     a sysml:AttributeUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@2::w" ;
+    sysx:positionalName "Payloads::Ctx::@2::w" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "47"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -544,6 +556,8 @@ elmt:Payloads__Ctx___402__w
     sysml:owningMembership elmt:Payloads__Ctx___402__w_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "w" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__Prio ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx___402__w_ft0 ;
@@ -799,7 +813,7 @@ elmt:Payloads__Ctx__m__cmd_om
 
 elmt:Payloads__Ctx___404
     a sysml:FlowUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@4" ;
+    sysx:positionalName "Payloads::Ctx::@4" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -1001,7 +1015,7 @@ expr:Payloads__Ctx___404_pend1_prs
 
 elmt:Payloads__Ctx___404__cmd
     a sysml:PayloadFeature ;
-    sysml:qualifiedName "Payloads::Ctx::@4::cmd" ;
+    sysx:positionalName "Payloads::Ctx::@4::cmd" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "20"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -1181,7 +1195,7 @@ expr:Payloads__Ctx___404__cmd_pvalue_om
 
 elmt:Payloads__Ctx___404__w
     a sysml:AttributeUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@4::w" ;
+    sysx:positionalName "Payloads::Ctx::@4::w" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "57"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -1194,6 +1208,8 @@ elmt:Payloads__Ctx___404__w
     sysml:owningMembership elmt:Payloads__Ctx___404__w_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "w" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__Prio ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx___404__w_ft0 ;

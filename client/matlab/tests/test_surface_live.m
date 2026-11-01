@@ -60,9 +60,78 @@ function test_surface_live()
     modelConversion = simple.convert('sysml');
     assert_equal(ischar(sysmlConversion.content), true, 'Model.toSysml');
     assert_equal(ischar(modelConversion.content), true, 'Model.convert');
+    assert_equal(isempty(modelConversion.libraryReferences), true, 'notation names no library references');
     warningState = warning;
     warning('off', 'opensysml:experimental');
     warningCleanup = onCleanup(@() warning(warningState));
+    librarySource = 'package P { private import SI::*; attribute time = 20 [s]; }';
+    plain = opensysml.convert(conn, 'api-json', 'content', librarySource, 'fromFormat', 'sysml');
+    referenceNames = cellfun(@(ref) ref.qualifiedName, plain.libraryReferences, 'UniformOutput', false);
+    second = plain.libraryReferences{find(strcmp(referenceNames, 'SI::second'), 1)};
+    assert_equal(second.id, '0c539f7c-20a1-520d-bae0-f3f855517aea', 'library reference id');
+    assert_equal(second.type, 'AttributeUsage', 'library reference type');
+    assert_equal(isempty(strfind(plain.content, '"isLibraryElement":true')) && ...
+        isempty(strfind(plain.content, '"isLibraryElement": true')), true, 'no stubs by default');
+    legacy = opensysml.convert(conn, 'api-json', 'content', librarySource, 'fromFormat', 'sysml', ...
+        'includeLibraryStubs', true);
+    assert_equal(isempty(strfind(legacy.content, second.id)), false, 'stub written for the reference');
+    assert_equal(isempty(strfind(legacy.content, '"isLibraryElement":true')) && ...
+        isempty(strfind(legacy.content, '"isLibraryElement": true')), false, 'stubs on request');
+    assert_equal(numel(legacy.libraryReferences), numel(plain.libraryReferences), 'stubs keep the references');
+    qualifiedIds = opensysml.convert(conn, 'api-json', 'content', 'package P { part def A; part a : A; }', ...
+        'fromFormat', 'sysml');
+    uuidIds = opensysml.convert(conn, 'api-json', 'content', 'package P { part def A; part a : A; }', ...
+        'fromFormat', 'sysml', 'idForm', 'uuid');
+    assert_equal(isempty(strfind(qualifiedIds.content, '"P__a"')), false, 'qualified ids by default');
+    assert_equal(isempty(strfind(uuidIds.content, '"P__a"')), true, 'uuid ids on request');
+    idModel = opensysml.parseSource(conn, 'package P { part def A; part a : A; }', 'name', 'ids.sysml');
+    assert_equal(isempty(strfind(idModel.convert('api-json', 'idForm', 'uuid').content, '"P__a"')), ...
+        true, 'Model.convert forwards idForm');
+    libraryModel = opensysml.parseSource(conn, librarySource, 'name', 'library.sysml');
+    modelLegacy = libraryModel.convert('api-json', 'includeLibraryStubs', true);
+    assert_equal(isempty(strfind(modelLegacy.content, second.id)), false, 'Model.convert forwards library stubs');
+    assert_equal(numel(modelLegacy.libraryReferences), numel(plain.libraryReferences), 'Model.convert keeps references');
+    expect_identifier(@() opensysml.convert(conn, 'api-json', 'content', 'package P;', ...
+        'fromFormat', 'sysml', 'idForm', 'short'), 'opensysml:connect:invalidRequest', 'unknown id form');
+    compactSource = 'package Compact { part def A; part a : A; }';
+    compactJson = opensysml.convert(conn, 'api-json', 'content', compactSource, 'fromFormat', 'sysml', ...
+        'compact', true);
+    assert_equal(isempty(strfind(compactJson.content, 'api-json-compact/1')), false, 'compact document');
+    assert_equal(isempty(strfind(compactJson.content, '"owner"')), false, 'compact keeps derived properties');
+    trimmed = opensysml.convert(conn, 'api-json', 'content', compactSource, 'fromFormat', 'sysml', ...
+        'compact', true, 'omitDerived', true);
+    assert_equal(isempty(strfind(trimmed.content, '"owner"')), true, 'omitDerived drops owner');
+    kept = opensysml.convert(conn, 'api-json', 'content', compactSource, 'fromFormat', 'sysml', ...
+        'compact', true, 'omitDerived', true, 'keepDerived', {'owner'});
+    assert_equal(isempty(strfind(kept.content, '"owner"')), false, 'keepDerived keeps owner');
+    expect_identifier(@() opensysml.convert(conn, 'api-json', 'content', compactSource, ...
+        'fromFormat', 'sysml', 'omitDerived', true), 'opensysml:connect:invalidRequest', ...
+        'omitDerived needs compact');
+    compactModel = opensysml.parseSource(conn, compactSource, 'name', 'compact.sysml');
+    assert_equal(isempty(strfind(compactModel.convert('api-json', 'compact', true, 'omitDerived', true).content, ...
+        '"owner"')), true, 'Model.convert forwards the compact options');
+    brokenSource = 'package Broken { part def A; part a : Missing; }';
+    plainBroken = opensysml.convert(conn, 'api-json', 'content', brokenSource, 'fromFormat', 'sysml');
+    checkedBroken = opensysml.convert(conn, 'api-json', 'content', brokenSource, 'fromFormat', 'sysml', ...
+        'includeCheckDiagnostics', true);
+    assert_equal(isempty(plainBroken.diagnostics), true, 'no check diagnostics by default');
+    assert_equal(isempty(checkedBroken.diagnostics), false, 'check diagnostics on request');
+    severities = cellfun(@(d) d.severity, checkedBroken.diagnostics, 'UniformOutput', false);
+    assert_equal(any(strcmp(severities, 'error')), true, 'check diagnostics keep their severity');
+    checkedClean = opensysml.convert(conn, 'api-json', 'content', compactSource, 'fromFormat', 'sysml', ...
+        'includeCheckDiagnostics', true);
+    assert_equal(isempty(checkedClean.diagnostics), true, 'a clean model checks clean');
+    affectedLib = {'octave-affected-lib.sysml', 'package AffectedLib { part def Engine; }'};
+    affectedTop = 'package AffectedTop { private import AffectedLib::*; part engine : Engine; }';
+    opensysml.parseSources(conn, {affectedLib, {'octave-affected-top.sysml', [affectedTop ' // seed']}});
+    affectedBase = opensysml.parseSources(conn, {affectedLib, {'octave-affected-top.sysml', affectedTop}});
+    assert_equal(isempty(affectedBase.affected), true, 'no affected documents without a base');
+    unchanged = opensysml.parseSources(conn, {affectedLib, {'octave-affected-top.sysml', affectedTop}}, ...
+        'baseModelHash', affectedBase.hash);
+    assert_equal(isempty(unchanged.affected), true, 'an unchanged re-parse affects nothing');
+    edited = opensysml.parseSources(conn, {affectedLib, {'octave-affected-top.sysml', ...
+        strrep(affectedTop, 'part engine', 'part motor')}}, 'baseModelHash', affectedBase.hash);
+    assert_equal(edited.affected, {'octave-affected-top.sysml'}, 'an edit names its document');
     vehicle = fullfile(fixtures, 'vehicle.xmi');
     assert_error(@() opensysml.convert(conn, 'sysml', 'filePath', vehicle), ...
         'opensysml:argument', 'convert refuses a v1 model');
@@ -228,6 +297,16 @@ function test_surface_live()
         true, 'RenderView origins');
     assert_equal(numel(renderedViewMethod.edges), numel(renderedView.edges), ...
         'Model.renderView');
+    boxes = opensysml.renderView(viewModel, '#tree:RenderViewDemo::Assembly');
+    boxNodes = boxes.nodes;
+    assert_equal(all(arrayfun(@(node) isempty(node.compartment), boxNodes)), true, 'boxes name no compartment');
+    folded = opensysml.renderView(viewModel, '#tree:RenderViewDemo::Assembly', 'compartments', 'most');
+    foldedNodes = folded.nodes;
+    sender = foldedNodes(strcmp({foldedNodes.name}, 'sender'));
+    assert_equal(sender(1).compartment, 'parts', 'folded node names its compartment');
+    assert_equal(numel(foldedNodes) < numel(boxNodes), true, 'folding draws fewer nodes');
+    expect_identifier(@() opensysml.renderView(viewModel, '#tree:RenderViewDemo::Assembly', ...
+        'compartments', 'rows'), 'opensysml:connect:invalidRequest', 'unknown compartments');
     fullView = opensysml.renderView(viewModel, 'RenderViewDemo::connections', 'ports', 'full');
     allPortNames = {};
     for n = 1:numel(fullView.nodes)
@@ -253,6 +332,11 @@ function test_surface_live()
     dry = importModel.importData({struct('name', 'fleet.tsv', 'content', sprintf('element\tcount\nV::vehicle\t7\n'))}, ...
         'dryRun', true);
     assert_equal(numel(dry.files{1}.assignments), 1, 'ImportData dry run assignment');
+    asValues = importModel.importData({struct('name', 'fleet.tsv', 'content', sprintf('element\tcount\nV::vehicle\t7\n'))}, ...
+        'importAs', 'values', 'dryRun', true);
+    assert_equal(numel(asValues.files{1}.assignments), 1, 'ImportData importAs values');
+    expect_identifier(@() importModel.importData({struct('name', 'fleet.tsv', 'content', sprintf('element\tcount\nV::vehicle\t7\n'))}, ...
+        'importAs', 'rows', 'dryRun', true), 'opensysml:connect:invalidRequest', 'ImportData unknown importAs');
     assert_equal(isempty(dry.modelHash) && isempty(dry.content), true, 'ImportData dry run leaves the model');
     expect_identifier(@() opensysml.importData(importModel, ...
         {struct('name', 'fleet.csv', 'content', sprintf('element,count\nV::car,9\nV::Nowhere,1\n'))}), 'opensysml:', 'ImportData unknown element');

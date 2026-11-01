@@ -685,6 +685,14 @@ class ApiIntegrationTest {
           succession first init then Running;
           succession first Running then done;
         }
+        item def Go;
+        part def Craft;
+        part craft : Craft;
+        action waits {
+          first start;
+          then action hold accept go : Go;
+          then done;
+        }
       }
       """;
 
@@ -706,9 +714,41 @@ class ApiIntegrationTest {
     assertEquals(new Value.IntegerValue(3), declared.outputs().get("x"));
     ExecutionOptions traced = ExecutionOptions.defaults().withTrace();
     assertThrows(
-        IllegalArgumentException.class, () -> model.executeAction("Test::addFive", Map.of(), traced));
-    assertThrows(
         IllegalArgumentException.class, () -> model.exploreAction("Test::race", Map.of(), traced));
+  }
+
+  @Test
+  void aTracedActionRunReportsItsStepsAndTakesPostedEvents() {
+    Model model = connection.parse(BEHAVIOR);
+    ExecutionOptions traced = ExecutionOptions.defaults().withTrace();
+    ActionRun run = model.executeAction("Test::addFive", Map.of(), traced);
+    assertEquals(new Value.IntegerValue(5), run.outputs().get("result"));
+    List<String> kinds = run.trace().stream().map(DocumentValue.DocumentEvent::kind).toList();
+    assertTrue(kinds.containsAll(List.of("step", "assign", "complete")), kinds.toString());
+    DocumentValue.DocumentEvent assign =
+        run.trace().stream().filter(e -> e.kind().equals("assign")).findFirst().orElseThrow();
+    assertEquals("result", assign.feature());
+    assertEquals(Optional.of(new Value.IntegerValue(5)), assign.value());
+    assertEquals(1L, assign.token());
+    assertEquals(0, run.traceDropped());
+
+    ExecutionOptions performed = traced.withPerformer("Test::craft");
+    ModelException waiting =
+        assertThrows(
+            ModelException.class, () -> model.executeAction("Test::waits", Map.of(), performed));
+    assertEquals("wait", waiting.trace().get(waiting.trace().size() - 1).kind());
+    assertEquals("Go", waiting.trace().get(waiting.trace().size() - 1).event());
+
+    ActionRun sent = model.executeAction("Test::waits", Map.of(), performed.withEvents("Go"));
+    List<String> sentKinds = sent.trace().stream().map(DocumentValue.DocumentEvent::kind).toList();
+    assertTrue(sentKinds.containsAll(List.of("wait", "accept", "complete")), sentKinds.toString());
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> model.executeAction("Test::waits", Map.of(), traced.withEvents("Go")));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> model.exploreAction("Test::race", Map.of(), performed.withEvents("Go")));
   }
 
   @Test
@@ -778,6 +818,13 @@ class ApiIntegrationTest {
         () -> model.exploreState("Test::Machine", List.of(), tracedState));
 
     assertThrows(ModelException.class, () -> model.executeState("Test::NoMachine", List.of()));
+    ExecutionOptions posted = ExecutionOptions.defaults().withEvents("Go");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> model.executeState("Test::Machine", List.of(), posted));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> model.exploreState("Test::Machine", List.of(), posted));
   }
 
   @Test
@@ -1485,6 +1532,27 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void renderViewFoldsMembersIntoCompartmentRowsOnRequest() {
+    Model model = connection.load(fixture("views.sysml"));
+    RenderedView boxes = model.renderView("#tree:RenderViewDemo::Assembly");
+    assertTrue(boxes.nodes().stream().allMatch(node -> node.compartment().isEmpty()));
+    RenderedView folded =
+        model.renderView(
+            "#tree:RenderViewDemo::Assembly", RenderViewPorts.MINIMAL, List.of(), 0, "most");
+    RenderedView.Node sender =
+        folded.nodes().stream().filter(node -> node.name().equals("sender")).findFirst().orElseThrow();
+    assertEquals("parts", sender.compartment());
+    assertTrue(folded.nodes().size() < boxes.nodes().size());
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                model.renderView(
+                    "#tree:RenderViewDemo::Assembly", RenderViewPorts.MINIMAL, List.of(), 0, "rows"));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
   void checkActionWitnessesAViolationAndADivergence() {
     Model model = connection.load(fixture("tank.sysml"));
     CheckOptions options =
@@ -1586,6 +1654,127 @@ class ApiIntegrationTest {
         assertThrows(
             ServiceException.class, () -> connection.convert(source, "api-json", shortIds));
     assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void apiJsonNamesLibraryReferencesSeparatelyAndOptsIntoLegacyStubs() {
+    String source = "package P { private import SI::*; attribute time = 20 [s]; }\n";
+    ConversionOptions options = ConversionOptions.defaults().withFromFormat("sysml");
+    Conversion plain = connection.convert(source, "api-json", options);
+    LibraryReference second =
+        plain.libraryReferences().stream()
+            .filter(ref -> ref.qualifiedName().equals("SI::second"))
+            .findFirst()
+            .orElseThrow();
+    assertEquals("0c539f7c-20a1-520d-bae0-f3f855517aea", second.id());
+    assertEquals("AttributeUsage", second.type());
+    java.util.regex.Pattern stub =
+        java.util.regex.Pattern.compile("\"isLibraryElement\"\\s*:\\s*true");
+    assertFalse(stub.matcher(plain.content()).find(), plain.content());
+    Conversion legacy =
+        connection.convert(source, "api-json", options.withIncludeLibraryStubs(true));
+    assertTrue(legacy.content().contains("\"" + second.id() + "\""), legacy.content());
+    assertTrue(stub.matcher(legacy.content()).find(), legacy.content());
+    assertEquals(plain.libraryReferences(), legacy.libraryReferences());
+    assertEquals(List.of(), connection.convert(source, "sysml", options).libraryReferences());
+    Model model = connection.parse(source);
+    Conversion parsed =
+        model.convert("api-json", ConversionOptions.defaults().withIncludeLibraryStubs(true));
+    assertTrue(stub.matcher(parsed.content()).find(), parsed.content());
+    assertEquals(plain.libraryReferences(), parsed.libraryReferences());
+    assertFalse(stub.matcher(model.convert("api-json").content()).find());
+  }
+
+  @Test
+  void compactApiJsonTrimsDerivedPropertiesAndKeepsTheNamedOnes() {
+    String source = "package P { attribute a : ScalarValues::Integer = 1; }\n";
+    ConversionOptions options = ConversionOptions.defaults().withFromFormat("sysml");
+    Conversion compact = connection.convert(source, "api-json", options.withCompact(true));
+    assertTrue(compact.content().contains("\"format\":\"api-json-compact/1\"")
+        || compact.content().contains("\"format\": \"api-json-compact/1\""), compact.content());
+    assertTrue(compact.content().contains("\"owner\":"), compact.content());
+    Conversion trimmed =
+        connection.convert(
+            source, "api-json", options.withCompact(true).withOmitDerived(true));
+    assertFalse(trimmed.content().contains("\"owner\":"), trimmed.content());
+    Conversion kept =
+        connection.convert(
+            source,
+            "api-json",
+            options.withCompact(true).withOmitDerived(true).withKeepDerived(List.of("owner")));
+    assertTrue(kept.content().contains("\"owner\":"), kept.content());
+    assertTrue(kept.content().length() < compact.content().length());
+    ConversionOptions trimmedArray = options.withOmitDerived(true);
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class, () -> connection.convert(source, "api-json", trimmedArray));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+    assertFalse(connection.parse(source).convert("api-json").content().contains("api-json-compact"));
+  }
+
+  @Test
+  void checkDiagnosticsReportTheSemanticCheckBesideTheConversion() {
+    String broken = "package Broken { part def Boat { part motor : Missing; } }\n";
+    ConversionOptions options = ConversionOptions.defaults().withFromFormat("sysml");
+    Conversion unchecked = connection.convert(broken, "api-json", options);
+    assertEquals(List.of(), unchecked.diagnostics());
+    Conversion checked =
+        connection.convert(broken, "api-json", options.withIncludeCheckDiagnostics(true));
+    assertTrue(
+        checked.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR),
+        checked.diagnostics().toString());
+    assertTrue(checked.diagnostics().stream().allMatch(d -> d.severity() != null));
+    Conversion clean =
+        connection.convert(
+            "package P { attribute a : ScalarValues::Integer = 1; }\n",
+            "api-json",
+            options.withIncludeCheckDiagnostics(true));
+    assertFalse(clean.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR));
+  }
+
+  @Test
+  void aBaseModelNamesTheDocumentsAnEditReaches() {
+    // Names of this test's own: the service relates two models document by document once it
+    // has seen their set more than once, and a model it first answered fresh, under another
+    // test's names, cannot be a base.
+    String library = "package Lib { part def Engine { attribute power : ScalarValues::Real = 120.0; } }\n";
+    String top = "package Top { private import Lib::*; part def Car { part engine : Engine; } part car : Car; }\n";
+    java.util.function.Function<String, List<SourceDocument>> documents =
+        content ->
+            List.of(
+                SourceDocument.inline("affected-lib.sysml", library),
+                SourceDocument.inline("affected-top.sysml", content));
+    connection.parseSources(documents.apply(top + "// first\n"));
+    Model base = connection.parseSources(documents.apply(top));
+    assertEquals(List.of(), base.affected());
+    ParseOptions related = ParseOptions.defaults().withBaseModelHash(base.hash());
+    Model same = connection.parseSources(documents.apply(top), related);
+    assertEquals(base.hash(), same.hash());
+    assertEquals(List.of(), same.affected());
+    Model edited =
+        connection.parseSources(documents.apply(top.replace("part car", "part sedan")), related);
+    assertNotEquals(base.hash(), edited.hash());
+    assertEquals(List.of("affected-top.sysml"), edited.affected());
+    assertEquals(List.of("affected-lib.sysml", "affected-top.sysml"), edited.documents());
+  }
+
+  @Test
+  void unnamedInlineDocumentsAreNamedAsTheServiceNamesThem() {
+    java.util.function.Function<String, SourceDocument> unnamed =
+        content ->
+            new SourceDocument(Optional.empty(), Optional.of(content), Optional.empty(), Optional.empty());
+    java.util.function.Function<String, List<SourceDocument>> documents =
+        content -> List.of(unnamed.apply("package UnnamedLib { part def Engine; }\n"), unnamed.apply(content));
+    String top = "package UnnamedTop { private import UnnamedLib::*; part engine : Engine; }\n";
+    connection.parseSources(documents.apply(top + "// first\n"));
+    Model base = connection.parseSources(documents.apply(top));
+    assertEquals(List.of("<content-0>", "<content-1>"), base.documents());
+    Model edited =
+        connection.parseSources(
+            documents.apply(top.replace("part engine", "part motor")),
+            ParseOptions.defaults().withBaseModelHash(base.hash()));
+    assertEquals(List.of("<content-1>"), edited.affected());
+    assertTrue(edited.documents().containsAll(edited.affected()));
   }
 
   @Test
@@ -1872,6 +2061,21 @@ class ApiIntegrationTest {
         "snapshots":[{"id":"_r1","values":{"total":4.0}},{"id":"_r2","values":{"total":6.0}}]},
        {"id":"_cn","name":"Cfg::Nothing","observables":[],"snapshots":[]}]}
       """;
+
+  @Test
+  void importDataNamesWhatEachRowIsMadeIntoAndRefusesAnUnknownForm() {
+    Model model = connection.parse(IMPORT_MODEL);
+    List<DataImport> imports =
+        List.of(DataImport.of("fleet.csv", "element,count\nV::vehicle,7\nV::car,9\n"));
+    ImportResult values = model.importData(imports, Model.IMPORT_AS_VALUES, true, false);
+    assertFalse(values.applied());
+    assertEquals(2, values.files().get(0).values());
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class, () -> model.importData(imports, "rows", true, false));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+    assertTrue(refused.getMessage().contains("rows"), refused.getMessage());
+  }
 
   @Test
   void importDataSetsTheValuesAndAnswersTheEditedModel() {

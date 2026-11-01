@@ -1705,3 +1705,73 @@ func TestCheckActionAgainstService(t *testing.T) {
 		t.Errorf("negative depth: %v, want INVALID_ARGUMENT", err)
 	}
 }
+
+const actionTraceSource = `
+package Trace {
+  private import ScalarValues::*;
+  item def Go;
+  part def Craft;
+  part craft : Craft;
+  action def Flow {
+    in budget : Integer;
+    attribute remaining : Integer = budget;
+    out landed : Boolean = false;
+    first start;
+    then action burn assign remaining := remaining - 3;
+    then decide route;
+      if remaining >= 5 then waiting;
+      else finish;
+    action waiting accept go : Go;
+    then action land assign landed := true;
+    then finish;
+    action finish;
+    then done;
+  }
+}
+`
+
+// WithTrace on an action answers the run's records; WithEvents posts to the
+// performer once the run waits, and a run left waiting fails with its partial trace.
+func TestExecuteActionTraceAndEvents(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, actionTraceSource)
+	inputs := map[string]opensysml.Value{"budget": opensysml.Int(10)}
+
+	_, err := client.ExecuteAction(context.Background(), model, "Trace::Flow", inputs,
+		opensysml.PerformedBy("Trace::craft"), opensysml.WithTrace())
+	var failure *opensysml.FailureError
+	if !errors.As(err, &failure) || !strings.Contains(failure.Message, "accept deadlock") {
+		t.Fatalf("ExecuteAction without the event: %v, want an accept deadlock", err)
+	}
+	if n := len(failure.Trace); n == 0 || failure.Trace[n-1].Kind != "wait" || failure.Trace[n-1].Event != "Go" {
+		t.Fatalf("partial trace = %v, want it to end waiting for Go", failure.Trace)
+	}
+
+	run, err := client.ExecuteAction(context.Background(), model, "Trace::Flow", inputs,
+		opensysml.PerformedBy("Trace::craft"), opensysml.WithTrace(), opensysml.WithEvents("Go"))
+	if err != nil {
+		t.Fatalf("ExecuteAction with the event: %v", err)
+	}
+	if sole(t, "landed", run.Outputs["landed"]) != opensysml.Bool(true) {
+		t.Errorf("landed = %#v, want Bool(true)", run.Outputs["landed"])
+	}
+	var kinds []string
+	for _, event := range run.Trace {
+		kinds = append(kinds, event.Kind)
+		if event.Kind == "assign" && event.Feature == "remaining" && event.Value != opensysml.Int(7) {
+			t.Errorf("assign remaining = %#v, want Int(7)", event.Value)
+		}
+	}
+	joined := strings.Join(kinds, ",")
+	for _, want := range []string{"step,", "assign,", "decide,", "wait,", "accept,", "complete"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("trace kinds %s lack %q", joined, strings.TrimSuffix(want, ","))
+		}
+	}
+
+	_, err = client.ExecuteAction(context.Background(), model, "Trace::Flow", inputs, opensysml.WithEvents("Go"))
+	var status *opensysml.StatusError
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("WithEvents without PerformedBy: %v, want CodeInvalidArgument", err)
+	}
+}

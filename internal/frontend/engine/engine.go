@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -632,6 +633,14 @@ func (e *Engine) schedulePolicy(spelling string) (runtime.SchedulePolicy, error)
 	return policy, nil
 }
 
+// checkAdvance refuses a run duration the service refuses: NaN, infinite or negative.
+func checkAdvance(advance *float64) error {
+	if advance != nil && (math.IsNaN(*advance) || math.IsInf(*advance, 0) || *advance < 0) {
+		return statusErrorf(codeInvalidArgument, "advance takes a finite, non-negative duration to run for, not %s", semantics.FormatReal(*advance))
+	}
+	return nil
+}
+
 // evaluate evaluates a SysML expression in the context of a parsed model, as
 // grpc's Evaluate does.
 func (e *Engine) evaluate(ctx context.Context, req *JEvaluateRequest) ([]byte, error) {
@@ -853,6 +862,13 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	if err != nil {
 		return nil, err
 	}
+	if err := checkAdvance(req.Advance); err != nil {
+		return nil, err
+	}
+
+	if len(req.Events) > 0 && req.PerformerSymbolId == "" {
+		return nil, statusError(codeInvalidArgument, "events are posted to the object performing the action: name one in performerSymbolId")
+	}
 
 	cached, ok := e.get(req.ModelHash)
 	if !ok {
@@ -888,13 +904,30 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
+	var traceRecorder *runtime.TraceRecorder
+	if req.Trace {
+		traceRecorder = runtime.NewEventRecorder(stateTraceLimit)
+		runtimeCtx.SetTrace(traceRecorder)
+	}
 	self, err := e.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		return marshal(&JExecuteActionResponse{Error: err.Error()})
+		trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+		return marshal(&JExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
+	}
+	events, err := eventMessages(cached, runtimeCtx, action, req.Events, self)
+	if err != nil {
+		trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+		return marshal(&JExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
-	// Execute action with the supplied inputs
-	outputs, performer, err := runtimeCtx.ExecuteActionReportingPerformer(action, self, inputs)
+	// Run to completion, or for the duration asked as the service does for `advance`;
+	// either way the events are posted to the run as it waits.
+	var outputs, performer map[string]runtime.Value
+	if req.Advance == nil {
+		outputs, performer, err = runtimeCtx.ExecuteActionWithEvents(action, self, inputs, events)
+	} else {
+		outputs, performer, err = runtimeCtx.ExecuteActionAdvancedBy(action, self, inputs, events, *req.Advance)
+	}
 	if err != nil {
 		if gone := ctx.Err(); gone != nil {
 			return nil, contextError(gone)
@@ -903,11 +936,14 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := runNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
+	trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteActionResponse{
-			Error:       fmt.Sprintf("action execution failed: %v", err),
-			Diagnostics: diags,
-			FinalTime:   F64(runtimeCtx.Clock().Now()),
+			Error:        fmt.Sprintf("action execution failed: %v", err),
+			Diagnostics:  diags,
+			FinalTime:    F64(runtimeCtx.Clock().Now()),
+			Trace:        trace,
+			TraceDropped: dropped,
 		})
 	}
 
@@ -916,7 +952,29 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 		Diagnostics:         diags,
 		FinalTime:           F64(runtimeCtx.Clock().Now()),
 		PerformerAttributes: valuesToProto(runtimeCtx, performer, cached.Index),
+		Trace:               trace,
+		TraceDropped:        dropped,
 	})
+}
+
+// eventMessages builds the messages executeAction's events post to self, in
+// order, as grpc's ExecuteAction does: a signal definition's message where the
+// name resolves to one, else one matched by name alone.
+func eventMessages(cached *cachedModel, rt *runtime.Context, action *symbols.Symbol, events []string, self *runtime.Instance) ([]runtime.Message, error) {
+	messages := make([]runtime.Message, 0, len(events))
+	for _, event := range events {
+		sym := resolveEvent(func(id string) []*symbols.Symbol { return lookupNamed(cached.Index, id) }, action, event)
+		if sym == nil {
+			messages = append(messages, runtime.NamedSignalMessage(event, self))
+			continue
+		}
+		msg, err := rt.SignalMessage(sym, nil, self)
+		if err != nil {
+			return nil, fmt.Errorf("event %s: %w", event, err)
+		}
+		messages = append(messages, msg)
+	}
+	return messages, nil
 }
 
 // executeState executes a state machine, as grpc's non-exploring ExecuteState
@@ -924,6 +982,9 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([]byte, error) {
 	schedule, err := e.schedulePolicy(req.Schedule)
 	if err != nil {
+		return nil, err
+	}
+	if err := checkAdvance(req.Advance); err != nil {
 		return nil, err
 	}
 
@@ -951,11 +1012,16 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	self, err := e.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := stateTraceToJSON(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
 		return marshal(&JExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
-	outcome, err := runtimeCtx.StateOutcomePerformedBy(stateMachine, self, req.Events)
+	var outcome runtime.Outcome
+	if req.Advance == nil {
+		outcome, err = runtimeCtx.StateOutcomePerformedBy(stateMachine, self, req.Events)
+	} else {
+		outcome, err = runtimeCtx.StateOutcomeAdvancedBy(stateMachine, self, req.Events, *req.Advance)
+	}
 	if err != nil {
 		if gone := ctx.Err(); gone != nil {
 			return nil, contextError(gone)
@@ -963,7 +1029,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	finalContext, statesVisited := outcome.Outputs, outcome.StateVisits
 	diags := runNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
-	trace, dropped := stateTraceToJSON(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteStateResponse{
 			Error:        fmt.Sprintf("state machine execution failed: %v", err),
@@ -984,7 +1050,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	})
 }
 
-func stateTraceToJSON(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]JDocumentEvent, int) {
+func traceToJSON(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]JDocumentEvent, int) {
 	if recorder == nil {
 		return nil, 0
 	}
@@ -992,6 +1058,9 @@ func stateTraceToJSON(rt *runtime.Context, idx *symbols.Index, recorder *runtime
 	trace := make([]JDocumentEvent, len(events))
 	for i, event := range events {
 		trace[i] = documentEventToJSON(idx, event)
+		if _, value, ok := event.Assigned(); ok {
+			trace[i].Value = valueToProto(rt, value, idx)
+		}
 	}
 	dropped, _ := recorder.Dropped()
 	return trace, dropped
@@ -1012,6 +1081,11 @@ func documentEventToJSON(idx *symbols.Index, event queryexec.Event) JDocumentEve
 		Alternatives: event.Alternatives(),
 		Taken:        event.Taken(),
 		Text:         event.Text(),
+		Token:        I64(event.Token()),
+		Step:         event.Step(),
+	}
+	if feature, _, ok := event.Assigned(); ok {
+		out.Feature = feature
 	}
 	if inst, label := event.Object(); inst != nil {
 		out.Object = documentObjectToJSON(idx, queryexec.ObjectValue(inst, label))
@@ -1191,4 +1265,18 @@ func unquotedName(id string) (string, bool) {
 		segments = append(segments, part.Text)
 	}
 	return strings.Join(segments, "::"), true
+}
+
+// resolveEvent finds the definition an event name denotes, as grpc's ExecuteAction
+// does: as written, else as each namespace enclosing action sees it, innermost first.
+func resolveEvent(lookup func(string) []*symbols.Symbol, action *symbols.Symbol, event string) *symbols.Symbol {
+	if syms := lookup(event); len(syms) > 0 {
+		return syms[0]
+	}
+	for owner := action.Owner(); owner != nil; owner = owner.Owner() {
+		if syms := lookup(symbols.FQNOf(owner) + "::" + event); len(syms) > 0 {
+			return syms[0]
+		}
+	}
+	return nil
 }

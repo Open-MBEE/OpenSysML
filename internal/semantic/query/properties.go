@@ -60,7 +60,8 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 	case PropertyGeneral:
 		return r.generals(sym)
 	case PropertyIsAbstract:
-		if sym.DeclaresUsage() || sym.DeclaresDefinition() {
+		// Type::isAbstract: a definition or any feature, a connector's end included.
+		if sym.DeclaresUsage() || sym.DeclaresDefinition() || sym.IsFeature() {
 			return []string{strconv.FormatBool(symbols.IsAbstract(sym))}, true
 		}
 	case PropertyIsIndividual:

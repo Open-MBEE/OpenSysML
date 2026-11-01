@@ -24,6 +24,8 @@ import java.util.TreeSet;
  *     a notation conversion is stable
  * @param experimentalNotice what is experimental about it, in the service's own wording; empty
  *     when {@code experimental} is false
+ * @param libraryReferences the standard-library elements an api-json conversion references
+ *     outside its element array; empty for any other format
  */
 public record Conversion(
     String content,
@@ -31,7 +33,8 @@ public record Conversion(
     String toFormat,
     List<Diagnostic> diagnostics,
     boolean experimental,
-    String experimentalNotice) {
+    String experimentalNotice,
+    List<LibraryReference> libraryReferences) {
 
   /**
    * Creates a conversion, copying its diagnostics.
@@ -42,6 +45,7 @@ public record Conversion(
    * @param diagnostics the diagnostics
    * @param experimental whether the conversion is experimental
    * @param experimentalNotice the notice, never {@code null}
+   * @param libraryReferences the library references, copied
    */
   public Conversion {
     Objects.requireNonNull(content, "content");
@@ -49,6 +53,18 @@ public record Conversion(
     Objects.requireNonNull(toFormat, "toFormat");
     diagnostics = List.copyOf(diagnostics);
     Objects.requireNonNull(experimentalNotice, "experimentalNotice");
+    libraryReferences = List.copyOf(libraryReferences);
+  }
+
+  /** Creates a conversion that references no standard-library element. */
+  public Conversion(
+      String content,
+      String fromFormat,
+      String toFormat,
+      List<Diagnostic> diagnostics,
+      boolean experimental,
+      String experimentalNotice) {
+    this(content, fromFormat, toFormat, diagnostics, experimental, experimentalNotice, List.of());
   }
 
   private static final Map<String, String> EXTENSIONS =

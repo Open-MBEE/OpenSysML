@@ -30,6 +30,9 @@ type performances struct {
 	// behavior is the action or state machine the trace names as making what
 	// these performances send and draw; nil for a body no behavior owns.
 	behavior *symbols.Symbol
+	// stepping is the token whose step is running, in the step-th executor step.
+	stepping int64
+	step     int
 	// thisOccurrence materializes the performance occurrence `this` denotes the
 	// first time a directly run definition denotes it; nil where none can be.
 	thisOccurrence func() (*Instance, error)

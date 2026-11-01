@@ -85,8 +85,8 @@ from opensysml.document import (
     RenderSpan, RenderStyle, RenderedView,
 )
 from opensysml.conversion import (
-    FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, Conversion,
-    ExperimentalFeatureWarning, Migration, MigrationEntry, MigrationReport,
+    FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, ID_FORM_QUALIFIED, ID_FORM_UUID, Conversion,
+    ExperimentalFeatureWarning, LibraryReference, Migration, MigrationEntry, MigrationReport,
     format_of_path, is_experimental, is_v1,
 )
 from opensysml.edit import AppliedEdit, Body, EditedDocument, EditResult, Editor
@@ -135,7 +135,8 @@ __all__ = [
     "UNSET", "UnsetType", "Undetermined",
     "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "Metaobject", "SetValue",
     "TensorQuantity", "InstanceRef",
-    "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE",
+    "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE", "LibraryReference",
+    "ID_FORM_QUALIFIED", "ID_FORM_UUID",
     "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
     "Migration", "MigrationEntry", "MigrationReport", "is_v1",
@@ -242,7 +243,7 @@ def loads(content, host='localhost', port=None, language=None, strict=False,
 
 
 def parse_sources(documents, host='localhost', port=None, strict=False,
-                  strict_conformance=False):
+                  strict_conformance=False, base_model_hash=''):
     """Parse several documents as one model using the default connection.
 
     Each document is a path, a ``(name, content)`` pair of inline source, or a
@@ -258,13 +259,17 @@ def parse_sources(documents, host='localhost', port=None, strict=False,
             than returning one whose lookups fail later
         strict_conformance (bool): Ask whether the documents are conforming
             SysML v2: notation only OpenSysML accepts is an error, not a warning
+        base_model_hash (str): The hash of a model of the same documents the
+            caller holds results of; the new model's :attr:`Model.affected`
+            then names the documents whose results may differ from it
 
     Returns:
         Model: The model of all the documents
 
     Raises:
         ValueError: If there are no documents or two share a name
-        MissingCapabilityError: If the service predates ``parse_sources``
+        MissingCapabilityError: If the service predates ``parse_sources``, or
+            ``parse_sources_affected`` when a base is given
         ModelFileNotFoundError: If the service cannot read a file
         ModelError: If the documents could not be parsed as a model, or if
             strict and the model has error diagnostics
@@ -276,7 +281,8 @@ def parse_sources(documents, host='localhost', port=None, strict=False,
         else _get_default_connection(host, port)
     )
     return connection.parse_sources(
-        documents, strict=strict, strict_conformance=strict_conformance
+        documents, strict=strict, strict_conformance=strict_conformance,
+        base_model_hash=base_model_hash,
     )
 
 
@@ -354,7 +360,8 @@ def connect(host='localhost', port=None, auto_start=True, version=None,
 
 def convert(to_format, file_path=None, content=None, model_hash=None,
             from_format='', tolerate_syntax_errors=False, host='localhost',
-            port=None):
+            port=None, id_form='', include_library_stubs=False, compact=False,
+            omit_derived=False, keep_derived=(), include_check_diagnostics=False):
     """Write a model out in another format (module-level convenience).
 
     Args:
@@ -373,6 +380,27 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
             parser could not read all of it
         host (str): Service hostname, or a ``host:port`` address
         port (int, optional): Service port (default: 50051)
+        id_form (str, optional): How derived element ids are spelled when a
+            graph ('ttl' or 'api-json') is written: :data:`ID_FORM_QUALIFIED`
+            (the default, from each element's qualified name) or
+            :data:`ID_FORM_UUID` (name-based uuids under each root package,
+            the library convention). Declared ids are unchanged
+        include_library_stubs (bool): For api-json, restore the ownerless
+            library stubs written before 0.11.0; by default library elements
+            remain bare references, not roots. Needs the
+            ``convert_library_stubs`` capability
+        compact (bool): For notation converted to api-json, write the compact
+            document (``api-json-compact/1``) in place of the element array.
+            Needs the ``convert_compact`` capability
+        omit_derived (bool): With ``compact``, leave out every derived property
+            of the metamodel
+        keep_derived (Sequence[str]): With ``omit_derived``, the derived
+            properties still written, named as the element array names them
+            (``qualifiedName``)
+        include_check_diagnostics (bool): Report the semantic check's
+            diagnostics in the result's ``diagnostics`` alongside the output,
+            each with its own severity. Notation sources only. Needs the
+            ``convert_check_diagnostics`` capability
 
     Returns:
         Conversion: The converted model; ``str()`` of it is the text
@@ -380,6 +408,17 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
     Warns:
         ExperimentalFeatureWarning: If either format is RDF, whose mapping is
             experimental (see ``docs/reference/rdf-mapping.md``)
+
+    Raises:
+        InvalidRequestError: If the source is a SysML v1 model, a format or
+            id_form is unknown, id_form is given for a notation target,
+            omit_derived or keep_derived without compact, keep_derived without
+            omit_derived or naming a property that is not derived, compact for
+            other than notation to api-json, or include_check_diagnostics for
+            a graph source
+        MissingCapabilityError: If the service cannot convert, or cannot write
+            library stubs, the compact form or the check's diagnostics and they
+            were asked for
 
     Example:
         >>> import opensysml
@@ -395,6 +434,12 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
         model_hash=model_hash,
         from_format=from_format,
         tolerate_syntax_errors=tolerate_syntax_errors,
+        id_form=id_form,
+        include_library_stubs=include_library_stubs,
+        compact=compact,
+        omit_derived=omit_derived,
+        keep_derived=keep_derived,
+        include_check_diagnostics=include_check_diagnostics,
     )
 
 

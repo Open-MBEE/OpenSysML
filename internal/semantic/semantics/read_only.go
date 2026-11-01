@@ -91,8 +91,12 @@ func featureModifiers(sym *symbols.Symbol) (mods symbols.Modifiers, ok bool) {
 		set(d.IsVariable, symbols.ModVariable)
 		set(d.IsDerived, symbols.ModDerived)
 		return mods, true
+	case *ast.ConnectorEnd:
+		// A connector's end notates no modifier of its own.
+		return 0, true
 	}
-	if sym.Recorded() && (sym.Facts.Node == symbols.NodeUsage || sym.Facts.Node == symbols.NodeCrossFeature) {
+	if sym.Recorded() && (sym.Facts.Node == symbols.NodeUsage || sym.Facts.Node == symbols.NodeCrossFeature ||
+		sym.Facts.Node == symbols.NodeConnectorEnd) {
 		return sym.Facts.Modifiers, true
 	}
 	return 0, false
@@ -203,10 +207,14 @@ func (m *Model) implicitlyConstantEnd(sym *symbols.Symbol) bool {
 	if sym == nil || m.isKerMLDoc(sym) {
 		return false
 	}
-	if d, ok := sym.Decl.(*ast.Usage); ok {
+	switch d := sym.Decl.(type) {
+	case *ast.Usage:
 		return d.IsEnd && m.UsageMayTimeVary(sym)
+	case *ast.ConnectorEnd:
+		return m.UsageMayTimeVary(sym)
 	}
-	return sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModEnd) && m.UsageMayTimeVary(sym)
+	return sym.Recorded() && (sym.Facts.Modifiers.Has(symbols.ModEnd) || sym.Facts.Node == symbols.NodeConnectorEnd) &&
+		m.UsageMayTimeVary(sym)
 }
 
 // ownedFeatureText names a feature by its owner and its own name (`Base::x`).

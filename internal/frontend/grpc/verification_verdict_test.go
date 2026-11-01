@@ -234,8 +234,7 @@ const declaredSatisfactionModel = `package Demo {
 	part good : Widget;
 
 	assert satisfy requirement zeroed by good {
-		subject w : Widget;
-		require constraint { w.m == 0 }
+		require constraint { good.m == 0 }
 	}
 
 	verification def Check {

@@ -28,7 +28,7 @@ elmt:Chains
 
 elmt:Chains___400
     a sysml:Comment ;
-    sysml:qualifiedName "Chains::@0" ;
+    sysx:positionalName "Chains::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -100,6 +100,8 @@ elmt:Chains__V__e
     sysml:owningMembership elmt:Chains__V__e_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "e" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__V ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Chains__V__e_ft0 ;

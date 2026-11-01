@@ -102,6 +102,8 @@ elmt:AnonymousPortions__Vehicle__fuel
     sysml:owningMembership elmt:AnonymousPortions__Vehicle__fuel_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "fuel" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:AnonymousPortions__Fuel ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:AnonymousPortions__Vehicle__fuel_ft0 ;
@@ -247,6 +249,8 @@ elmt:AnonymousPortions__car__start__fuel
     sysml:owningRelationship elmt:AnonymousPortions__car__start__fuel_om ;
     sysml:owningMembership elmt:AnonymousPortions__car__start__fuel_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car__start__fuel_pvalue ;
     sysml:ownedRelationship elmt:AnonymousPortions__car__start__fuel_rd0, expr:AnonymousPortions__car__start__fuel_pvalue_om ;
@@ -349,6 +353,8 @@ elmt:AnonymousPortions__car__portionOfLife__fuel
     sysml:owningRelationship elmt:AnonymousPortions__car__portionOfLife__fuel_om ;
     sysml:owningMembership elmt:AnonymousPortions__car__portionOfLife__fuel_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car__portionOfLife__fuel_pvalue ;
     sysml:ownedRelationship elmt:AnonymousPortions__car__portionOfLife__fuel_rd0, expr:AnonymousPortions__car__portionOfLife__fuel_pvalue_om ;
@@ -454,6 +460,8 @@ elmt:AnonymousPortions__car__done__fuel
     sysml:owningRelationship elmt:AnonymousPortions__car__done__fuel_om ;
     sysml:owningMembership elmt:AnonymousPortions__car__done__fuel_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car__done__fuel_pvalue ;
     sysml:ownedRelationship elmt:AnonymousPortions__car__done__fuel_rd0, expr:AnonymousPortions__car__done__fuel_pvalue_om ;
@@ -501,7 +509,7 @@ expr:AnonymousPortions__car__done__fuel_pvalue_om
 
 elmt:AnonymousPortions__car___403
     a sysml:OccurrenceUsage ;
-    sysml:qualifiedName "AnonymousPortions::car::@3" ;
+    sysx:positionalName "AnonymousPortions::car::@3" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -531,7 +539,7 @@ elmt:AnonymousPortions__car___403_om
 
 elmt:AnonymousPortions__car___404
     a sysml:OccurrenceUsage ;
-    sysml:qualifiedName "AnonymousPortions::car::@4" ;
+    sysx:positionalName "AnonymousPortions::car::@4" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;

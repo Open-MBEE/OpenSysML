@@ -108,6 +108,8 @@ elmt:Quoted_20Names__Rover_20Model__dry_20mass
     sysml:owningMembership elmt:Quoted_20Names__Rover_20Model__dry_20mass_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "dry mass" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Quoted_20Names__Mass_20_28kg_29 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Quoted_20Names__Rover_20Model__dry_20mass_ft0 ;
@@ -142,6 +144,8 @@ elmt:Quoted_20Names__Rover_20Model__mass_20limit
     sysml:owningMembership elmt:Quoted_20Names__Rover_20Model__mass_20limit_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "mass limit" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
     sysml:ownedMembership elmt:Quoted_20Names__Rover_20Model__mass_20limit___400_om ;
@@ -166,7 +170,7 @@ elmt:Quoted_20Names__Rover_20Model__mass_20limit_om
 elmt:Quoted_20Names__Rover_20Model__mass_20limit___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "Quoted Names::Rover Model::mass limit::@0" ;
+    sysx:positionalName "Quoted Names::Rover Model::mass limit::@0" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -370,6 +374,8 @@ elmt:Quoted_20Names__Rover_20Model__is_20light
     sysml:owningMembership elmt:Quoted_20Names__Rover_20Model__is_20light_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "is light" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Quoted_20Names__Rover_20Model__is_20light_ft0 ;
@@ -559,7 +565,7 @@ elmt:Consumer
 
 elmt:Consumer___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "Consumer::@0" ;
+    sysx:positionalName "Consumer::@0" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -609,7 +615,7 @@ elmt:Consumer__r_om
 
 elmt:Consumer___402
     a sysml:Dependency ;
-    sysml:qualifiedName "Consumer::@2" ;
+    sysx:positionalName "Consumer::@2" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "19"^^xsd:integer ;

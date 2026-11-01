@@ -102,7 +102,7 @@ func (d *decoder) normativeImplied(el, parent *element) (bool, error) {
 	}
 	switch {
 	case impliedRelationshipMetaclasses[el.metaclass]:
-		if !ownedByParent() || d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pQualifiedName) ||
+		if !ownedByParent() || hasAddress(d.graph, rdf.IRI(el.iri)) ||
 			d.graph.HasProperty(rdf.IRI(el.iri), rdf.OpenSysML+xDeclaredKeyword) {
 			return false, nil
 		}
@@ -114,7 +114,7 @@ func (d *decoder) normativeImplied(el, parent *element) (bool, error) {
 		if parent == nil || parent.metaclass != mConjugatedPortDefinition {
 			return false, nil
 		}
-		if d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pQualifiedName) {
+		if hasAddress(d.graph, rdf.IRI(el.iri)) {
 			return false, nil
 		}
 		return true, nil
@@ -331,8 +331,9 @@ func (r *impliedEnds) checkable() bool {
 		if !r.actualIRI[value] {
 			return true
 		}
-		for _, property := range []string{pDeclaredName, pDeclaredShortName, pQualifiedName} {
-			if r.d.graph.HasProperty(rdf.IRI(value), rdf.SysML+property) {
+		for _, property := range []string{rdf.SysML + pDeclaredName, rdf.SysML + pDeclaredShortName,
+			rdf.SysML + pQualifiedName, rdf.OpenSysML + xPositionalName} {
+			if r.d.graph.HasProperty(rdf.IRI(value), property) {
 				return true
 			}
 		}
@@ -455,12 +456,19 @@ func (d *decoder) parameterMember(el *element) bool {
 // is the `~` of the original's name, which the notation derives rather than
 // writing.
 func (d *decoder) verifyConjugated(el, parent *element) error {
-	name, _ := d.stringOf(el, rdf.SysML+pDeclaredName)
+	// The conjugate is named after whichever names the original declares: a
+	// declared name, else a declared short name, else the address segment.
+	property := pDeclaredName
 	original, ok := d.stringOf(parent, rdf.SysML+pDeclaredName)
 	if !ok {
-		segments := identitySegments(parent.qname)
-		original = identityName(segments[len(segments)-1])
+		if short, hasShort := d.stringOf(parent, rdf.SysML+pDeclaredShortName); hasShort {
+			property, original = pDeclaredShortName, short
+		} else {
+			segments := identitySegments(parent.qname)
+			original = identityName(segments[len(segments)-1])
+		}
 	}
+	name, _ := d.stringOf(el, rdf.SysML+property)
 	expected := "~" + original
 	if name != expected {
 		return &UnsupportedError{
@@ -908,7 +916,7 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 	switch {
 	case el.metaclass == mMembership && !owned:
 		source := firstIRI(d.graph, subject, pMemberElement, pTarget)
-		if source.Value == "" || d.graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+		if source.Value == "" || hasAddress(d.graph, subject) {
 			return false, nil
 		}
 		return agree(pSource, source, "source")

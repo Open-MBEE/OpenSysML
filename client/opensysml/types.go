@@ -71,6 +71,7 @@ const (
 	CapabilitySelfCheck                      = sysmlgrpc.CapabilitySelfCheck
 	CapabilityRecordRun                      = sysmlgrpc.CapabilityRecordRun
 	CapabilityStateTrace                     = sysmlgrpc.CapabilityStateTrace
+	CapabilityActionTrace                    = sysmlgrpc.CapabilityActionTrace
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
@@ -78,6 +79,8 @@ const (
 	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
 	CapabilityConvertCompact                 = sysmlgrpc.CapabilityConvertCompact
 	CapabilityConvertCheckDiagnostics        = sysmlgrpc.CapabilityConvertCheckDiagnostics
+	CapabilityConvertLibraryReferences       = sysmlgrpc.CapabilityConvertLibraryReferences
+	CapabilityConvertLibraryStubs            = sysmlgrpc.CapabilityConvertLibraryStubs
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
 )
@@ -111,6 +114,9 @@ type Model struct {
 	// Diagnostics from parsing and semantic analysis. A syntax error is a
 	// diagnostic here, not a failed call.
 	Diagnostics []Diagnostic
+	// Affected names the documents whose results may differ from the base
+	// model's, when ParseDocuments was given WithBaseModel; nil otherwise.
+	Affected []string
 }
 
 // Errors are the model's diagnostics of severity "error", the ones that make a

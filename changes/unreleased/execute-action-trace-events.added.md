@@ -1,0 +1,1 @@
+- `ExecuteAction` takes `trace` and `events`: the run's trace comes back as `DocumentEvent` records of each token step, wait, accept, send, decision, assignment and the completion (capability `action_trace`, in the wasm module too), and the events are posted to the performer in turn as the run waits, as the REPL's `%send` does; every client passes both options.

@@ -1831,7 +1831,7 @@ to A/B the two surfaces on the same model. The call shapes are **not** the ones 
 suggest: there is no `parse_file` on `Connection` — use `c.load_from_content(src)` (or `c.load(path)`),
 which returns a `Model` whose hash is `model.hash` (not `.model_hash`). Then
 `c.execute_action("Pkg::action", model.hash)` returns a plain `{name: value}` dict, and a runtime
-failure raises `opensysml.errors.RuntimeError` with the executor's message
+failure raises `opensysml.ExecutionError` with the executor's message
 (`action execution failed: execute action: …`). If you must attach to a service you started
 yourself, `opensysml.connect("localhost", 50551, auto_start=False)` avoids the
 `Binary not found at ~/.opensysml/bin/sysml-grpc` error — but prefer the auto-start path per above.
@@ -3447,8 +3447,8 @@ number rather than quoting the table.
   `m.eval('mass', subject='Demo::sedan')` must be `1200.0`. Without the redefinition both paths
   return the same number and the test proves nothing.
   - On `Model` the kwarg is `subject=`; on `Connection.eval` it is `subject_symbol_id=` and the
-    model hash comes **second**. Module-level `opensysml.evaluate` also takes `subject=`; the
-    deprecated `opensysml.eval` forwards to it and warns `DeprecationWarning`.
+    model hash comes **second**. Module-level `opensysml.evaluate` also takes `subject=` (the
+    `opensysml.eval` alias was removed in 0.12.0).
   - A `subject=` plus an explicit `context_symbol_id=` still reads the object, and derived slots
     (`attribute doubled = mass * 2.0`) follow the object too.
   - A *definition* as subject is accepted (it is instantiated and reads its own redefinition), and an
@@ -3951,19 +3951,18 @@ tests skip rather than fail.
 
 ## The evaluate/eval split and generated-base planning (PR #218)
 
-- **Since the rename, `opensysml.evaluate` is the real module-level evaluator and `opensysml.eval` is a
-  forwarder that emits `DeprecationWarning` and is out of `opensysml.__all__`.** Test both sides:
-  `evaluate(...)` must produce **zero** DeprecationWarnings (catch them with
-  `warnings.catch_warnings(record=True)` + `simplefilter("always")`), `eval(...)` must return the
-  identical value and warn exactly once with a message naming `opensysml.evaluate`, and
-  `from opensysml import *` must bind `evaluate` but not `eval`. `subject` is the **last** parameter of
-  `evaluate` precisely so a pre-rename positional call
-  `eval(expr, None, hash, None, host, port)` still binds host/port — prove that argument really is the
-  host by also calling it with a bogus address (`"203.0.113.9", 59999`) and requiring a
+- **`opensysml.evaluate` is the module-level evaluator; the `opensysml.eval` forwarder and the
+  `opensysml.RuntimeError` / `opensysml.errors.RuntimeError` aliases were removed in 0.12.0** (they
+  warned `DeprecationWarning` from 0.9.0). Test that `evaluate(...)` produces **zero** warnings (catch
+  them with `warnings.catch_warnings(record=True)` + `simplefilter("always")`), that
+  `from opensysml import *` binds `evaluate` and `ExecutionError` but neither `eval` nor
+  `RuntimeError`, and that `opensysml.eval` / `opensysml.errors.RuntimeError` raise `AttributeError`.
+  `subject` is the **last** parameter of `evaluate`, so a pre-rename positional call
+  `evaluate(expr, None, hash, None, host, port)` still binds host/port — prove that argument really is
+  the host by also calling it with a bogus address (`"203.0.113.9", 59999`) and requiring a
   `ConnectionError`; that call takes ~30-60s to time out, so give the runner a generous timeout.
-- **`opensysml.errors.RuntimeError` is a warn-on-access alias of `ExecutionError`** served by the module
-  `__getattr__` and absent from `errors.__all__`. Check it by *catching a real failure* with it
-  (`except opensysml.errors.RuntimeError` around a cyclic-slot eval), not just by identity.
+- **`opensysml.ExecutionError` is also a built-in `RuntimeError`**, so `except RuntimeError` catches a
+  real failure (a cyclic-slot eval) — check it by catching, not just by identity.
 - **`generate.py` elides a base that another declared base already specializes, silently and by design**
   (`_without_implied`): `part def Backwards :> Vehicle, Hybrid` where `Hybrid :> Vehicle` emits
   `class Backwards(Hybrid):` with **no** comment, because `Vehicle` is still in the MRO. Only a base the

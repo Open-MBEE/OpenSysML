@@ -140,6 +140,8 @@ elmt:Chains__IU__pip
     sysml:owningMembership elmt:Chains__IU__pip_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "pip" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IP ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Chains__IU__pip_ft0 ;
@@ -213,6 +215,8 @@ elmt:Chains__ctx__launchVehicle
     sysml:owningMembership elmt:Chains__ctx__launchVehicle_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "launchVehicle" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Ext::LV" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Chains__ctx__launchVehicle_ft0 ;
@@ -247,6 +251,8 @@ elmt:Chains__ctx__supplier
     sysml:owningMembership elmt:Chains__ctx__supplier_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "supplier" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IU ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Chains__ctx__supplier_ft0 ;
@@ -268,7 +274,7 @@ elmt:Chains__ctx__supplier_om
 
 elmt:Chains__ctx___402
     a sysml:ConnectionUsage ;
-    sysml:qualifiedName "Chains::ctx::@2" ;
+    sysx:positionalName "Chains::ctx::@2" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -280,6 +286,8 @@ elmt:Chains__ctx___402
     sysml:owningRelationship elmt:Chains__ctx___402_om ;
     sysml:owningMembership elmt:Chains__ctx___402_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:Chains__ctx___402_pend0, expr:Chains__ctx___402_pend1 ;
     sysml:ownedRelationship expr:Chains__ctx___402_pend0_om, expr:Chains__ctx___402_pend1_om ;
     sysml:ownedMembership expr:Chains__ctx___402_pend0_om, expr:Chains__ctx___402_pend1_om ;
@@ -316,6 +324,8 @@ expr:Chains__ctx___402_pend0
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__ctx___402_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Chains__ctx___402 ;
     sysml:owningRelationship expr:Chains__ctx___402_pend0_om ;
     sysml:owningMembership expr:Chains__ctx___402_pend0_om ;
@@ -408,6 +418,8 @@ expr:Chains__ctx___402_pend1
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__ctx___402_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:Chains__ctx___402 ;
     sysml:owningRelationship expr:Chains__ctx___402_pend1_om ;
     sysml:owningMembership expr:Chains__ctx___402_pend1_om ;
@@ -500,6 +512,8 @@ elmt:Chains__ctx__r
     sysml:declaredName "r" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines expr:Chains__ctx__r_pchain0 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:Chains__ctx__r_rd0 ;

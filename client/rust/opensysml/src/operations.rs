@@ -3,16 +3,18 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::capabilities::{
-    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK, CAPABILITY_COMPARE_RESULTS,
-    CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT, CAPABILITY_CONVERT_DOCUMENTS,
-    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES,
-    CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA,
-    CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
-    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
-    CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY,
-    CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN, CAPABILITY_RENDER_DOCUMENT,
-    CAPABILITY_RENDER_DOCUMENT_ASCIIDOC, CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_RUNS,
-    CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK, CAPABILITY_SET_VALUES,
+    upgrade_remedy, CAPABILITY_ACTION_TRACE, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK,
+    CAPABILITY_COMPARE_RESULTS, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
+    CAPABILITY_CONVERT_CHECK_DIAGNOSTICS, CAPABILITY_CONVERT_COMPACT, CAPABILITY_CONVERT_DOCUMENTS,
+    CAPABILITY_CONVERT_LIBRARY_STUBS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
+    CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES,
+    CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE,
+    CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE,
+    CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PARSE_SOURCES_AFFECTED,
+    CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES,
+    CAPABILITY_RECORD_RUN, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
+    CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_RUNS, CAPABILITY_SCHEDULE,
+    CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK, CAPABILITY_SET_VALUES,
     CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES,
     CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_ARGUMENTS,
     CAPABILITY_VERIFICATION_QUESTIONS,
@@ -62,12 +64,17 @@ const VALUE_CAPABILITIES: &[&str] = &[
 ];
 
 /// Options for parsing several documents as one model.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SourcesOptions {
     /// Refuse a model the service reported errors for, as [`Error::ModelErrors`].
     pub strict: bool,
     /// Require strict SysML v2 conformance.
     pub strict_conformance: bool,
+    /// The [`Model::hash`] of a model of the same documents the caller holds results of,
+    /// typically the previous `parse_sources` answer: the new model's [`Model::affected`] then
+    /// names the documents whose results may differ from it. Empty asks for nothing. Needs the
+    /// `parse_sources_affected` capability.
+    pub base_model_hash: String,
 }
 
 /// How to run an action or state machine.
@@ -79,7 +86,8 @@ pub struct RunOptions {
     pub schedule: Option<String>,
     /// Qualified name of the part performing the behavior, whose attributes it reads and writes.
     pub performer: Option<String>,
-    /// Return a state's documented execution records.
+    /// Return the run's documented execution records: a state's, or an action's token steps,
+    /// waits, accepts, decisions, assignments and completion.
     pub trace: bool,
     /// Simulated time, in seconds, to run for (`sysml -advance`); `None` runs to completion.
     pub advance: Option<f64>,
@@ -90,6 +98,9 @@ pub struct RunOptions {
     pub draws: Option<String>,
     /// The step, in seconds, the run's clock ticks by (`sysml -clock-step`); 0 is continuous.
     pub clock_step: f64,
+    /// Signals to post to an action's performer in order, each once every token of the run
+    /// waits, as the REPL's `%send` does; needs a performer. (A state run's events are an argument.)
+    pub events: Vec<String>,
 }
 
 /// What to ask a verification and of whom.
@@ -198,6 +209,16 @@ fn explores(schedule: Option<&str>) -> bool {
     schedule.is_some_and(|s| s == SCHEDULE_EXPLORE || s.starts_with("explore:"))
 }
 
+/// A state run takes its events as an argument: `RunOptions::events` is an action run's.
+fn refuse_option_events(options: &RunOptions, method: &str) -> Result<(), Error> {
+    if options.events.is_empty() {
+        return Ok(());
+    }
+    Err(Error::InvalidRequest(format!(
+        "{method} takes its events as an argument, not RunOptions::events"
+    )))
+}
+
 fn refuse_exploring(schedule: Option<&str>, method: &str) -> Result<(), Error> {
     match schedule {
         Some(schedule) if explores(Some(schedule)) => Err(Error::InvalidRequest(format!(
@@ -304,13 +325,16 @@ impl Connection {
         if options.strict_conformance {
             capabilities.push(CAPABILITY_STRICT_CONFORMANCE);
         }
+        if !options.base_model_hash.is_empty() {
+            capabilities.push(CAPABILITY_PARSE_SOURCES_AFFECTED);
+        }
         self.require_all(&capabilities)?;
         let response: wire::ParseSourcesResponse = self.gated_rpc(
             "ParseSources",
             wire::ParseSourcesRequest {
                 documents: encoded,
                 strict_conformance: options.strict_conformance,
-                base_model_hash: String::new(),
+                base_model_hash: options.base_model_hash.clone(),
             },
             &capabilities,
         )?;
@@ -359,6 +383,15 @@ impl Connection {
         let mut required = vec![CAPABILITY_CONVERT];
         if !options.documents.is_empty() {
             required.push(CAPABILITY_CONVERT_DOCUMENTS);
+        }
+        if options.include_library_stubs {
+            required.push(CAPABILITY_CONVERT_LIBRARY_STUBS);
+        }
+        if options.compact || options.omit_derived || !options.keep_derived.is_empty() {
+            required.push(CAPABILITY_CONVERT_COMPACT);
+        }
+        if options.include_check_diagnostics {
+            required.push(CAPABILITY_CONVERT_CHECK_DIAGNOSTICS);
         }
         self.require_all(&required)?;
         let response =
@@ -684,11 +717,13 @@ impl Connection {
         &self,
         schedule: Option<&str>,
         performer: Option<&str>,
+        trace: Option<&'static str>,
     ) -> Result<Vec<&'static str>, Error> {
         let mut capabilities = schedule_capabilities(schedule);
         if performer.is_some_and(|p| !p.is_empty()) {
             capabilities.push(CAPABILITY_PERFORMER);
         }
+        capabilities.extend(trace);
         self.require_all(&capabilities)?;
         Ok(capabilities)
     }
@@ -702,7 +737,11 @@ impl Connection {
         schedule: Option<&str>,
     ) -> Result<wire::ExecuteActionResponse, Error> {
         let inputs = self.named_to_wire(inputs)?;
-        let capabilities = self.run_capabilities(schedule, options.performer.as_deref())?;
+        let capabilities = self.run_capabilities(
+            schedule,
+            options.performer.as_deref(),
+            options.trace.then_some(CAPABILITY_ACTION_TRACE),
+        )?;
         self.gated_rpc(
             "ExecuteAction",
             wire::ExecuteActionRequest {
@@ -715,6 +754,8 @@ impl Connection {
                 seed: options.seed,
                 draws: options.draws.clone().unwrap_or_default(),
                 clock_step: options.clock_step,
+                trace: options.trace,
+                events: options.events.clone(),
             },
             &capabilities,
         )
@@ -729,10 +770,11 @@ impl Connection {
         schedule: Option<&str>,
         trace: bool,
     ) -> Result<wire::ExecuteStateResponse, Error> {
-        let mut capabilities = self.run_capabilities(schedule, options.performer.as_deref())?;
-        if trace {
-            capabilities.push(CAPABILITY_STATE_TRACE);
-        }
+        let capabilities = self.run_capabilities(
+            schedule,
+            options.performer.as_deref(),
+            trace.then_some(CAPABILITY_STATE_TRACE),
+        )?;
         self.gated_rpc(
             "ExecuteState",
             wire::ExecuteStateRequest {
@@ -759,8 +801,13 @@ impl Connection {
         inputs: &BTreeMap<String, Value>,
         options: &RunOptions,
     ) -> Result<ActionRun, Error> {
-        Self::refuse_action_trace(options)?;
         refuse_exploring(options.schedule.as_deref(), "explore_action")?;
+        if !options.events.is_empty() && options.performer.as_deref().is_none_or(str::is_empty) {
+            return Err(Error::InvalidRequest(
+                "events are posted to the object performing the action: name one as performer"
+                    .to_owned(),
+            ));
+        }
         let response = self.run_action(
             model_hash,
             action_id,
@@ -770,13 +817,18 @@ impl Connection {
         )?;
         let wire = response.clone();
         let diagnostics = diagnostics_of(&response.diagnostics);
+        let trace = response
+            .trace
+            .into_iter()
+            .map(document_event_from_wire)
+            .collect::<Result<Vec<_>, _>>()?;
         if !response.error.is_empty() {
             return Err(Error::Execution {
                 message: response.error,
                 reason: FailureReason::Unspecified,
                 diagnostics,
-                trace: Vec::new(),
-                trace_dropped: 0,
+                trace,
+                trace_dropped: response.trace_dropped,
                 final_time: response.final_time,
             });
         }
@@ -785,6 +837,8 @@ impl Connection {
             performer: value_map(&response.performer_attributes)?,
             final_time: response.final_time,
             diagnostics,
+            trace,
+            trace_dropped: response.trace_dropped,
             wire,
         })
     }
@@ -798,20 +852,15 @@ impl Connection {
         inputs: &BTreeMap<String, Value>,
         options: &RunOptions,
     ) -> Result<Exploration, Error> {
-        Self::refuse_action_trace(options)?;
+        if options.trace || !options.events.is_empty() {
+            return Err(Error::InvalidRequest(
+                "a trace or events describe one run, not an exploration".to_owned(),
+            ));
+        }
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
         let response = self.run_action(model_hash, action_id, inputs, options, Some(schedule))?;
         exploration_of(ExploredResponse::Action(Box::new(response)))
-    }
-
-    fn refuse_action_trace(options: &RunOptions) -> Result<(), Error> {
-        if options.trace {
-            return Err(Error::InvalidRequest(
-                "a state trace is only valid for a state run".to_owned(),
-            ));
-        }
-        Ok(())
     }
 
     /// Run a state machine once, dispatching `events` in order.
@@ -823,6 +872,7 @@ impl Connection {
         options: &RunOptions,
     ) -> Result<StateRun, Error> {
         refuse_exploring(options.schedule.as_deref(), "explore_state")?;
+        refuse_option_events(options, "execute_state")?;
         let response = self.run_state(
             model_hash,
             machine_id,
@@ -859,6 +909,7 @@ impl Connection {
         events: &[S],
         options: &RunOptions,
     ) -> Result<Exploration, Error> {
+        refuse_option_events(options, "explore_state")?;
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
         if options.trace {
@@ -1269,6 +1320,9 @@ pub struct DataImport {
 /// Options of [`Connection::import_data`].
 #[derive(Clone, Debug, Default)]
 pub struct DataImportOptions {
+    /// What each row is made into, as `-import-as` reads it: `values`, the default, sets the
+    /// features of the element the row names; nothing else is supported.
+    pub import_as: Option<String>,
     /// Report the values the imports would set, changing nothing.
     pub dry_run: bool,
     /// Accept every edited document of a model of several.
@@ -1317,7 +1371,7 @@ impl Connection {
                     import_map: i.map.clone().unwrap_or_default(),
                 })
                 .collect(),
-            import_as: String::new(),
+            import_as: options.import_as.clone().unwrap_or_default(),
             import_dry_run: options.dry_run,
             accept_documents: options.accept_documents,
         };
@@ -1396,6 +1450,12 @@ mod tests {
         assert!(!explores(None));
         assert!(refuse_exploring(Some("explore"), "explore_action").is_err());
         assert!(refuse_exploring(Some("random:seed=1"), "explore_action").is_ok());
+        let posted = RunOptions {
+            events: vec!["Go".to_owned()],
+            ..Default::default()
+        };
+        assert!(refuse_option_events(&posted, "execute_state").is_err());
+        assert!(refuse_option_events(&RunOptions::default(), "execute_state").is_ok());
         assert!(require_exploring("first").is_err());
         assert_eq!(engine_field(Some(ENGINE_AUTO)), "");
         assert_eq!(engine_field(Some("smt")), "smt");

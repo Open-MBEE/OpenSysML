@@ -1,0 +1,1 @@
+- A satisfy usage's `by` clause is its subject, so a body that declares another subject is reported as `Only one subject is allowed.` at the extra subject, as in the pilot implementation.

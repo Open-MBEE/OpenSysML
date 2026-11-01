@@ -22,8 +22,8 @@ abstract type ConnectError <: OpenSysMLError end
 const ServiceError = ConnectError
 
 for name in (:ServiceCallError, :ModelNotFoundError, :ModelFileNotFoundError,
-             :InvalidRequestError, :ServiceTimeoutError, :UnsupportedOperationError,
-             :ServiceUnavailableError)
+             :InvalidRequestError, :AuthenticationError, :ServiceTimeoutError,
+             :UnsupportedOperationError, :ServiceUnavailableError)
     @eval begin
         struct $name <: ConnectError
             code::String
@@ -48,6 +48,7 @@ function ConnectError(code::AbstractString, message::AbstractString, http_status
           c in ("invalid_argument", "failed_precondition", "out_of_range") ? InvalidRequestError :
           c in ("deadline_exceeded", "cancelled", "canceled") ? ServiceTimeoutError :
           c == "unimplemented" ? UnsupportedOperationError :
+          c == "unauthenticated" ? AuthenticationError :
           c == "unavailable" ? ServiceUnavailableError : ServiceCallError
     cls(String(code), m, Int(http_status))
 end

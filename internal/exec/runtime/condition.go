@@ -50,8 +50,8 @@ type Condition struct {
 	// whole conjunction Group stands for.
 	Negated bool
 
-	// Required distinguishes a required condition from an assumption, which is
-	// trusted rather than required to hold.
+	// Required distinguishes a required condition from an assumption: a
+	// requirement holds when its assumptions imply its required conditions.
 	Required bool
 
 	// Constraints are the named constraint usages stating the condition through
@@ -653,24 +653,37 @@ func (c conditionCheck) name() string {
 	return c.sym.Name
 }
 
+// conditionVerdict is what evaluating an element's conditions established.
+type conditionVerdict struct {
+	holds bool
+
+	// vacuous says why a holding requirement check judged no required condition:
+	// it states none, or an assumption did not hold. "" for a verdict about conditions.
+	vacuous string
+}
+
 // evaluateConditions evaluates conds in order and reports whether every required
 // one holds, or — for a negated element — whether one of them fails. check.self
 // is the subject already, as checkSubject resolved it.
 func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) (bool, error) {
+	verdict, err := ctx.judgeConditions(check, conds)
+	return verdict.holds, err
+}
+
+// judgeConditions is evaluateConditions with the verdict's vacuity: a requirement check is
+// `allTrue(assumptions()) implies allTrue(constraints())`; a constraint's assumption binds no result.
+func (ctx *Context) judgeConditions(check conditionCheck, conds []Condition) (conditionVerdict, error) {
 	if conflict := conflictingResultExpression(conds); conflict != nil {
-		return false, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
+		return conditionVerdict{}, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
 			check.kind, check.name(), check.what, conflictText(conflict), errConflictingResultExpressions)
 	}
 	// A requirement over no required constraint is true whatever its assumptions
 	// read, so they are not evaluated; a constraint stating nothing binds no result.
 	if check.isRequirementCheck() && !requiresAny(conds) {
-		if check.negated {
-			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: vacuousClaim(check.claimed())}
-		}
-		return true, nil
+		return check.vacuous(vacuousClaim(check.claimed()))
 	}
 	if len(conds) == 0 {
-		return false, check.noResultValue("the constraint declares no condition")
+		return conditionVerdict{}, check.noResultValue("the constraint declares no condition")
 	}
 	features := ctx.conditionFeatures(check.sym)
 	self := check.self
@@ -682,45 +695,87 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	activation, endStep := ctx.beginStep()
 	defer endStep()
 	required := false
-	for _, cond := range conds {
+	for _, cond := range check.assumptionsFirst(conds) {
 		required = required || cond.Required
 		if err := ctx.circularCondition(check, cond); err != nil {
-			return false, err
+			return conditionVerdict{}, err
 		}
 		if cond.Steps != nil && !cond.Negated {
 			// The body's steps ran once; each condition it left is judged on its
 			// own Required, as the conditions of a body stating no steps are.
-			done, err := ctx.evaluateStepsConditions(activation, check, cond, features, self)
+			verdict, done, err := ctx.evaluateStepsConditions(activation, check, cond, features, self)
 			if err != nil {
-				return false, err
+				return conditionVerdict{}, err
 			}
 			if done {
-				return true, nil
+				return verdict, nil
 			}
 			continue
 		}
 		holds, err := ctx.conditionHolds(activation, cond, features, self, check.frames, check.bindings)
 		if err != nil {
-			return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
+			return conditionVerdict{}, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 		}
-		if cond.Required && !holds {
-			// A negated element asserts exactly this: one required condition
-			// failing makes the negated assertion hold.
-			if check.negated {
-				return true, nil
-			}
-			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: conditionLabel(cond)}
+		if !holds && check.decidedBy(cond) {
+			return check.failedCondition(cond)
 		}
 	}
 	if check.negated {
-		// A constraint's assumption is trusted rather than checked, so a negated
-		// constraint stating only assumptions denies nothing.
+		// A constraint's assumption binds no result, so a negated constraint
+		// stating only assumptions denies nothing.
 		if !required {
-			return false, check.noResultValue("the constraint declares no required condition, only assumptions")
+			return conditionVerdict{}, check.noResultValue("the constraint declares no required condition, only assumptions")
 		}
-		return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
+		return conditionVerdict{}, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
 	}
-	return true, nil
+	return conditionVerdict{holds: true}, nil
+}
+
+// assumptionsFirst judges a requirement's assumptions before its required conditions whatever
+// the body's order, as `implies` reads its consequent after its antecedent; a constraint's keep it.
+func (c conditionCheck) assumptionsFirst(conds []Condition) []Condition {
+	if !c.isRequirementCheck() {
+		return conds
+	}
+	ordered := make([]Condition, 0, len(conds))
+	for _, cond := range conds {
+		if !cond.Required {
+			ordered = append(ordered, cond)
+		}
+	}
+	for _, cond := range conds {
+		if cond.Required {
+			ordered = append(ordered, cond)
+		}
+	}
+	return ordered
+}
+
+// decidedBy reports whether cond reading false settles the check: a required condition
+// always does, an assumption only a requirement's (a constraint's binds no result).
+func (c conditionCheck) decidedBy(cond Condition) bool {
+	return cond.Required || c.isRequirementCheck()
+}
+
+// failedCondition is the verdict cond reading false settles the check with: a required one
+// is the violation (what a negated check asserts); an assumption makes the implication true.
+func (c conditionCheck) failedCondition(cond Condition) (conditionVerdict, error) {
+	if cond.Required {
+		if c.negated {
+			return conditionVerdict{holds: true}, nil
+		}
+		return conditionVerdict{}, &ViolationError{Kind: c.kind, Element: c.name(), What: c.what, Condition: conditionLabel(cond)}
+	}
+	return c.vacuous(failedAssumption(c.claimed(), cond))
+}
+
+// vacuous is the verdict of a requirement check true for the reason why rather
+// than on its required conditions; a negated one fails for that same reason.
+func (c conditionCheck) vacuous(why string) (conditionVerdict, error) {
+	if c.negated {
+		return conditionVerdict{}, &ViolationError{Kind: c.kind, Element: c.name(), What: c.what, Condition: why}
+	}
+	return conditionVerdict{holds: true, vacuous: "vacuous: " + why}, nil
 }
 
 // noResultValue is the error for a constraint whose result nothing binds (KerML 1.1
@@ -770,17 +825,6 @@ func (c conditionCheck) isRequirementCheck() bool {
 	return false
 }
 
-// vacuity is why a requirement check over no required condition is true:
-// `allTrue(assumptions()) implies allTrue(constraints())` over no constraint is
-// true (SysML v2 9.2.11 Requirements; KerML 9.2.3 ControlFunctions::allTrue over
-// an empty sequence). "" for a check that is not vacuous.
-func vacuity(check conditionCheck, conds []Condition) string {
-	if !check.isRequirementCheck() || requiresAny(conds) {
-		return ""
-	}
-	return "vacuous: " + vacuousClaim(check.claimed())
-}
-
 // claimed is the requirement whose claim the check judges.
 func (c conditionCheck) claimed() *symbols.Symbol {
 	if c.about != nil {
@@ -789,9 +833,16 @@ func (c conditionCheck) claimed() *symbols.Symbol {
 	return c.sym
 }
 
-// vacuousClaim says what a requirement over no required condition claims.
+// vacuousClaim says why a requirement over no required condition holds: `allTrue(constraints())`
+// over no constraint is true (KerML 9.2.3 ControlFunctions::allTrue over an empty sequence).
 func vacuousClaim(sym *symbols.Symbol) string {
 	return fmt.Sprintf("%s %s states no required constraint, so it holds vacuously", requirementKeyword(sym), sym.Name)
+}
+
+// failedAssumption says why a requirement whose assumption cond does not hold
+// holds: `false implies allTrue(constraints())` is true.
+func failedAssumption(sym *symbols.Symbol, cond Condition) string {
+	return fmt.Sprintf("assumption %s of %s %s did not hold, so it holds vacuously", conditionLabel(cond), requirementKeyword(sym), sym.Name)
 }
 
 // requirementKeyword is the keyword a requirement was declared with
@@ -826,40 +877,34 @@ func circularReference(conds []Condition) *symbols.Symbol {
 	return nil
 }
 
-// evaluateStepsConditions is the loop of evaluateConditions for one body that
-// states steps: the steps run once against the chain's features and bindings,
-// then each condition of the body is evaluated in the frame they left — judged
-// on its own Required, so an assumption failing among them still denies
-// nothing. done reports a verdict reached early, which happens only for a
-// negated element, where one required condition failing is the verdict.
-func (ctx *Context) evaluateStepsConditions(activation int64, check conditionCheck, cond Condition, features map[string]scopedExpr, self *Instance) (done bool, err error) {
+// evaluateStepsConditions is judgeConditions' loop over one body stating steps: the steps run
+// once, then each condition is judged in the frame they left; done reports a verdict settled early.
+func (ctx *Context) evaluateStepsConditions(activation int64, check conditionCheck, cond Condition, features map[string]scopedExpr, self *Instance) (verdict conditionVerdict, done bool, err error) {
 	scoped, bindings := features, check.bindings
 	for _, constraint := range cond.Constraints {
 		scoped, bindings = ctx.constraintScope(scoped, bindings, constraint)
 	}
 	stepFrame, err := ctx.runConstraintSteps(cond.Steps, scoped, self, check.frames, bindings)
 	if err != nil {
-		return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
+		return verdict, false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 	}
 	if len(cond.Group) == 0 {
-		return false, check.noResultValue("the body's steps leave it no result expression to evaluate")
+		return verdict, false, check.noResultValue("the body's steps leave it no result expression to evaluate")
 	}
-	for _, sub := range cond.Group {
+	for _, sub := range check.assumptionsFirst(cond.Group) {
 		if err := ctx.circularCondition(check, sub); err != nil {
-			return false, err
+			return verdict, false, err
 		}
 		holds, err := ctx.conditionHoldsAt(activation, sub, scoped, self, check.frames, bindings, &stepFrame)
 		if err != nil {
-			return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
+			return verdict, false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 		}
-		if sub.Required && !holds {
-			if check.negated {
-				return true, nil
-			}
-			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: conditionLabel(sub)}
+		if !holds && check.decidedBy(sub) {
+			verdict, err = check.failedCondition(sub)
+			return verdict, true, err
 		}
 	}
-	return false, nil
+	return verdict, false, nil
 }
 
 // conditionSubject is the object a check is about: the one supplied when it

@@ -40,10 +40,10 @@ func TestAnonymousKeywordsAreTypedWhereTheVocabularyStatesThem(t *testing.T) {
 		fixture: "anonymous_events.sysml",
 		want: []string{
 			"a sysml:EventOccurrenceUsage ;",
-			"sysx:declaredKeyword \"event\" ;\n    sysml:references <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;",
+			"sysx:declaredKeyword \"event\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:references <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;",
 			"a sysml:FeatureChaining ;",
 		},
-		forbade: []string{"sysml:isEvent", "a sysml:OccurrenceUsage ;\n    sysml:qualifiedName \"AnonymousEvents::Sender::@"},
+		forbade: []string{"sysml:isEvent", "a sysml:OccurrenceUsage ;\n    sysx:positionalName \"AnonymousEvents::Sender::@"},
 	}, {
 		fixture: "anonymous_portions.sysml",
 		want: []string{
@@ -55,8 +55,8 @@ func TestAnonymousKeywordsAreTypedWhereTheVocabularyStatesThem(t *testing.T) {
 		fixture: "anonymous_assertions.sysml",
 		want: []string{
 			"a sysml:AssertConstraintUsage ;",
-			"sysx:declaredKeyword \"assert\" ;\n    sysml:references elmt:AnonymousAssertions__massConstraint ;",
-			"sysml:isNegated \"true\"^^xsd:boolean ;\n    sysml:references elmt:AnonymousAssertions__massConstraint ;",
+			"sysx:declaredKeyword \"assert\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:references elmt:AnonymousAssertions__massConstraint ;",
+			"sysml:isNegated \"true\"^^xsd:boolean ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:references elmt:AnonymousAssertions__massConstraint ;",
 		},
 		forbade: []string{"sysx:declaredPrefix \"assert\""},
 	}, {
@@ -132,8 +132,8 @@ func TestAnonymousKeywordsComeBackFromTheTypedFactsAlone(t *testing.T) {
 // keyword: the decoder refuses rather than spelling the canonical keyword.
 func TestContradictoryKeywordGraphsAreRefused(t *testing.T) {
 	snapshot := "    sysx:declaredKeyword \"snapshot\" ;\n    sysml:isPortion \"true\"^^xsd:boolean ;\n    sysml:portionKind \"snapshot\" ;\n    sysml:redefines elmt:ed80d442-d498-5236-96ae-71a8a52531d2 ;"
-	event := "    a sysml:EventOccurrenceUsage ;\n    sysml:qualifiedName \"AnonymousEvents::Sender::@1\" ;"
-	asserted := "    a sysml:AssertConstraintUsage ;\n    sysml:qualifiedName \"AnonymousAssertions::Vehicle::@2\" ;"
+	event := "    a sysml:EventOccurrenceUsage ;\n    sysx:positionalName \"AnonymousEvents::Sender::@1\" ;"
+	asserted := "    a sysml:AssertConstraintUsage ;\n    sysx:positionalName \"AnonymousAssertions::Vehicle::@2\" ;"
 	cases := []struct {
 		name, fixture, old, new string
 		want                    []string
@@ -163,17 +163,17 @@ func TestContradictoryKeywordGraphsAreRefused(t *testing.T) {
 		want: []string{"the `event` declaration <urn:sysmlv2:element:AnonymousEvents__Sender___401>", "it declares a name (sysml:declaredName), which `event` written as the kind keyword cannot", "a declaration is written `event occurrence <name>`"},
 	}, {
 		name: "event_named_unreferenced", fixture: "anonymous_events.sysml",
-		old:  "    sysx:declaredKeyword \"event\" ;\n    sysml:references <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;",
+		old:  "    sysx:declaredKeyword \"event\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:references <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;",
 		new:  "    sysx:declaredKeyword \"event\" ;\n    sysml:declaredName \"e\" ;",
 		want: []string{"the `event` declaration <urn:sysmlv2:element:AnonymousEvents__Sender___401>", "would come back as a reference to a different element"},
 	}, {
 		name: "assert_named_body", fixture: "anonymous_assertions.sysml",
-		old:  "    sysx:declaredKeyword \"assert\" ;\n    sysml:references elmt:AnonymousAssertions__massConstraint ;",
+		old:  "    sysx:declaredKeyword \"assert\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:references elmt:AnonymousAssertions__massConstraint ;",
 		new:  "    sysx:declaredKeyword \"assert\" ;\n    sysml:declaredName \"c2\" ;",
 		want: []string{"the `assert` declaration <urn:sysmlv2:element:AnonymousAssertions__Vehicle___402>", "nothing but a body or a multiplicity follows", "a declaration is written `assert constraint <name>`"},
 	}, {
 		name: "assert_named_multiplicity", fixture: "anonymous_assertions.sysml",
-		old:  "    sysx:declaredKeyword \"assert\" ;\n    sysml:references elmt:AnonymousAssertions__massConstraint ;",
+		old:  "    sysx:declaredKeyword \"assert\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:references elmt:AnonymousAssertions__massConstraint ;",
 		new:  "    sysx:declaredKeyword \"assert\" ;\n    sysml:declaredName \"c2\" ;\n    sysml:upperBound \"1\"^^xsd:integer ;\n    sysml:references elmt:AnonymousAssertions__massConstraint ;",
 		want: []string{"the `assert` declaration <urn:sysmlv2:element:AnonymousAssertions__Vehicle___402>", "nothing but a body or a multiplicity follows"},
 	}, {

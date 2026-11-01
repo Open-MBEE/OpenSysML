@@ -9,21 +9,24 @@ classdef Model < handle
         root = []
         documents = {}
         sourcePath = ''
+        affected = {}
     end
 
     methods
-        function m = Model(conn, hash, diags, roots, documents, sourcePath)
+        function m = Model(conn, hash, diags, roots, documents, sourcePath, affected)
             if nargin < 1, conn = []; end
             if nargin < 2, hash = ''; end
             if nargin < 3, diags = {}; end
             if nargin < 4, roots = {}; end
             if nargin < 5, documents = {}; end
             if nargin < 6, sourcePath = ''; end
+            if nargin < 7, affected = {}; end
             m.connection = conn;
             m.hash = hash;
             m.diagnostics = toCells(diags);
             m.documents = textCells(documents);
             m.sourcePath = sourcePath;
+            m.affected = textCells(affected);
             rawRoots = toCells(roots);
             m.roots = cell(1, numel(rawRoots));
             for i = 1:numel(rawRoots)
@@ -71,22 +74,9 @@ classdef Model < handle
         end
 
         function conversion = convert(m, toFormat, varargin)
-            tolerate = false;
-            for i = 1:2:numel(varargin)
-                if i == numel(varargin)
-                    opensysml.internal.raise('opensysml:argument', ...
-                        'Model.convert options must be name-value pairs');
-                end
-                if strcmp(varargin{i}, 'tolerateSyntaxErrors')
-                    tolerate = varargin{i+1};
-                else
-                    opensysml.internal.raise('opensysml:argument', ...
-                        sprintf('Model.convert has no option ''%s''', varargin{i}));
-                end
-            end
+            options = m.conversionOptions(varargin, 'Model.convert');
             conversion = opensysml.convert(m.connection, toFormat, ...
-                'modelHash', m.hash, 'fromFormat', 'sysml', ...
-                'tolerateSyntaxErrors', tolerate);
+                'modelHash', m.hash, 'fromFormat', 'sysml', options{:});
         end
 
         function conversion = toSysml(m, varargin)
@@ -103,23 +93,40 @@ classdef Model < handle
 
         function conversion = save(m, path, varargin)
             toFormat = '';
-            tolerate = false;
+            rest = {};
             for i = 1:2:numel(varargin)
                 if i == numel(varargin)
                     opensysml.internal.raise('opensysml:argument', ...
                         'Model.save options must be name-value pairs');
                 end
-                switch varargin{i}
-                    case 'format', toFormat = char(varargin{i+1});
-                    case 'tolerateSyntaxErrors', tolerate = varargin{i+1};
-                    otherwise
-                        opensysml.internal.raise('opensysml:argument', ...
-                            sprintf('Model.save has no option ''%s''', varargin{i}));
+                if strcmp(varargin{i}, 'format')
+                    toFormat = char(varargin{i+1});
+                else
+                    rest(end+1:end+2) = varargin(i:i+1);
                 end
             end
+            options = m.conversionOptions(rest, 'Model.save');
             if isempty(toFormat), toFormat = opensysml.formatOfPath(path); end
-            conversion = m.convert(toFormat, 'tolerateSyntaxErrors', tolerate);
+            conversion = m.convert(toFormat, options{:});
             conversion.write(path);
+        end
+
+        function options = conversionOptions(~, args, label)
+        %CONVERSIONOPTIONS The convert options a model method forwards, as name-value pairs.
+            options = {};
+            for i = 1:2:numel(args)
+                if i == numel(args)
+                    opensysml.internal.raise('opensysml:argument', ...
+                        sprintf('%s options must be name-value pairs', label));
+                end
+                if any(strcmp(args{i}, {'tolerateSyntaxErrors', 'idForm', 'includeLibraryStubs', ...
+                        'compact', 'omitDerived', 'keepDerived', 'includeCheckDiagnostics'}))
+                    options(end+1:end+2) = args(i:i+1);
+                else
+                    opensysml.internal.raise('opensysml:argument', ...
+                        sprintf('%s has no option ''%s''', label, args{i}));
+                end
+            end
         end
 
         function results = query(m, varargin)

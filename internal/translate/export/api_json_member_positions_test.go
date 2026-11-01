@@ -110,7 +110,7 @@ func TestAPIJSONMappingNamesCountDirectOwnedDeclarations(t *testing.T) {
 				"member":            "P::@1",
 			} {
 				subject := rdf.ElementIRIForID(id)
-				got, ok := decoded.Lexical(subject, rdf.SysML+"qualifiedName")
+				got, ok := addressOf(decoded, subject)
 				if !ok || got != want {
 					t.Errorf("%s qualifiedName = %q, present=%v; want %q", id, got, ok, want)
 				}

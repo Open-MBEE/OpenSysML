@@ -30,7 +30,7 @@ elmt:HeadOrder
 
 elmt:HeadOrder___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "HeadOrder::@0" ;
+    sysx:positionalName "HeadOrder::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -153,6 +153,8 @@ elmt:HeadOrder__Base__m
     sysml:owningMembership elmt:HeadOrder__Base__m_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "m" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:HeadOrder__Mass ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:HeadOrder__Base__m_ft0 ;
@@ -187,6 +189,8 @@ elmt:HeadOrder__Base__n
     sysml:owningMembership elmt:HeadOrder__Base__n_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "n" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:HeadOrder__Base__n_ft0 ;
@@ -221,6 +225,8 @@ elmt:HeadOrder__Base__p
     sysml:owningMembership elmt:HeadOrder__Base__p_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "p" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:HeadOrder__Base__p_ft0 ;
@@ -296,6 +302,8 @@ elmt:HeadOrder__Derived__m
     sysml:owningRelationship elmt:HeadOrder__Derived__m_om ;
     sysml:owningMembership elmt:HeadOrder__Derived__m_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:HeadOrder__Base__m ;
     sysml:value expr:HeadOrder__Derived__m_pvalue ;
     sysml:ownedRelationship elmt:HeadOrder__Derived__m_rd0, expr:HeadOrder__Derived__m_pvalue_om ;
@@ -356,6 +364,8 @@ elmt:HeadOrder__Derived__n
     sysml:owningRelationship elmt:HeadOrder__Derived__n_om ;
     sysml:owningMembership elmt:HeadOrder__Derived__n_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:redefines elmt:HeadOrder__Base__n ;
     sysml:value expr:HeadOrder__Derived__n_pvalue ;
@@ -419,6 +429,8 @@ elmt:HeadOrder__Derived__q
     sysml:owningMembership elmt:HeadOrder__Derived__q_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "q" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:subsets elmt:HeadOrder__Derived__p ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -457,6 +469,8 @@ elmt:HeadOrder__Derived__r
     sysml:owningMembership elmt:HeadOrder__Derived__r_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "r" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:value expr:HeadOrder__Derived__r_pvalue ;
     sysml:ownedRelationship elmt:HeadOrder__Derived__r_ft0, expr:HeadOrder__Derived__r_pvalue_om ;
@@ -516,6 +530,8 @@ elmt:HeadOrder__Derived__p
     sysml:owningRelationship elmt:HeadOrder__Derived__p_om ;
     sysml:owningMembership elmt:HeadOrder__Derived__p_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:HeadOrder__Base__p ;
     sysml:isDefault "true"^^xsd:boolean ;
     sysml:value expr:HeadOrder__Derived__p_pvalue ;
@@ -578,6 +594,8 @@ elmt:HeadOrder__Derived__s
     sysml:owningMembership elmt:HeadOrder__Derived__s_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "s" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:subsets elmt:HeadOrder__Derived__p ;
     sysml:multiplicity expr:HeadOrder__Derived__s_pmultiplicity ;
@@ -660,6 +678,8 @@ elmt:HeadOrder__Derived__t
     sysml:owningMembership elmt:HeadOrder__Derived__t_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "t" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:subsets elmt:HeadOrder__Derived__p ;
     sysml:multiplicity expr:HeadOrder__Derived__t_pmultiplicity ;
@@ -766,6 +786,8 @@ elmt:HeadOrder__Derived__u
     sysml:owningMembership elmt:HeadOrder__Derived__u_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "u" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:HeadOrder__Derived__u___401, elmt:HeadOrder__Derived__u___400 ;
     sysml:ownedMembership elmt:HeadOrder__Derived__u___401_om, expr:HeadOrder__Derived__u_pmultiplicity_om, expr:HeadOrder__Derived__u_pvalue_om, elmt:HeadOrder__Derived__u___400_om ;
     sysml:ownedRelationship elmt:HeadOrder__Derived__u___401_om, elmt:HeadOrder__Derived__u_ft0, expr:HeadOrder__Derived__u_pmultiplicity_om, expr:HeadOrder__Derived__u_pvalue_om, elmt:HeadOrder__Derived__u___400_om ;
@@ -797,7 +819,7 @@ elmt:HeadOrder__Derived__u_om
 elmt:HeadOrder__Derived__u___401
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "HeadOrder::Derived::u::@1" ;
+    sysx:positionalName "HeadOrder::Derived::u::@1" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -890,7 +912,7 @@ expr:HeadOrder__Derived__u_pvalue_om
 
 elmt:HeadOrder__Derived__u___400
     a sysml:Documentation ;
-    sysml:qualifiedName "HeadOrder::Derived::u::@0" ;
+    sysx:positionalName "HeadOrder::Derived::u::@0" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "19"^^xsd:integer ;

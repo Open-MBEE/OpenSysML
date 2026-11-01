@@ -1,0 +1,1 @@
+- The landing page's mass table lights its roll-up levels from one timeline — each level scheduled at its offset from the start, the last held for a step — instead of waiting between levels, and its source editor loads the published model in one asynchronous step; what the page shows is unchanged.

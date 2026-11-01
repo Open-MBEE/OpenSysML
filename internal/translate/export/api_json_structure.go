@@ -127,49 +127,61 @@ func newAPIJSONGraphStructure(index *apiJSONGraphIndex) *apiJSONGraphStructure {
 	s.owningMembershipByMember = make([][]rdf.Term, len(subjects))
 	s.owningRelatedByRelationship = make([][]rdf.Term, len(subjects))
 	for position, subject := range subjects {
-		class, ok := s.metaclass(subject)
-		if ok {
-			aspect := apiJSONGraphAspectPrefix + strconv.Itoa(position)
-			element := metamodel.Element{Aspect: aspect}
-			if ontology.IsAncestorOrSelf(class, "Membership") {
-				element = metamodel.MembershipElement(metamodel.Membership{Aspect: aspect})
-			}
-			s.elements[position] = element
-		}
-		if id, ok := rdf.SubjectID(subject); ok {
-			s.byID[id] = append(s.byID[id], position)
-		}
+		s.placeElement(position, subject)
 	}
 	for _, subject := range subjects {
-		if _, ok := s.element(subject); !ok {
-			continue
-		}
-		class, _ := s.metaclass(subject)
-		if ontology.IsAncestorOrSelf(class, "Relationship") {
-			for _, owner := range graph.ObjectsView(subject, rdf.SysML+"owningRelatedElement") {
-				s.appendSubjectRelated(&s.ownedRelationshipsByEnd, owner, subject)
-			}
-			for _, member := range graph.ObjectsView(subject, rdf.SysML+"ownedRelatedElement") {
-				s.appendSubjectRelated(&s.owningRelationshipByOwned, member, subject)
-			}
-		}
-		if ontology.IsAncestorOrSelf(class, "Membership") {
-			property, declared := ontology.PropertyOf(class, "memberElement")
-			if declared && !property.Derived {
-				for _, member := range graph.ObjectsView(subject, rdf.SysML+"memberElement") {
-					s.appendSubjectRelated(&s.owningMembershipByMember, member, subject)
-				}
-			}
-			for _, namespace := range graph.ObjectsView(subject, rdf.SysML+"membershipOwningNamespace") {
-				s.appendSubjectRelated(&s.ownedRelationshipsByEnd, namespace, subject)
-				s.appendSubjectRelated(&s.owningRelatedByRelationship, subject, namespace)
-			}
-		}
-		for _, relationship := range graph.ObjectsView(subject, rdf.SysML+"ownedRelationship") {
-			s.appendSubjectRelated(&s.owningRelatedByRelationship, relationship, subject)
-		}
+		s.indexOwnership(subject)
 	}
 	return s
+}
+
+// placeElement makes the element at position stand for subject and files the
+// position under the subject's id.
+func (s *apiJSONGraphStructure) placeElement(position int, subject rdf.Term) {
+	if class, ok := s.metaclass(subject); ok {
+		aspect := apiJSONGraphAspectPrefix + strconv.Itoa(position)
+		element := metamodel.Element{Aspect: aspect}
+		if ontology.IsAncestorOrSelf(class, "Membership") {
+			element = metamodel.MembershipElement(metamodel.Membership{Aspect: aspect})
+		}
+		s.elements[position] = element
+	}
+	if id, ok := rdf.SubjectID(subject); ok {
+		s.byID[id] = append(s.byID[id], position)
+	}
+}
+
+// indexOwnership files subject under its related elements: a relationship under
+// its ends, a membership under its member and namespace, and under owned relationships.
+func (s *apiJSONGraphStructure) indexOwnership(subject rdf.Term) {
+	if _, ok := s.element(subject); !ok {
+		return
+	}
+	graph := s.graph
+	class, _ := s.metaclass(subject)
+	if ontology.IsAncestorOrSelf(class, "Relationship") {
+		for _, owner := range graph.ObjectsView(subject, rdf.SysML+"owningRelatedElement") {
+			s.appendSubjectRelated(&s.ownedRelationshipsByEnd, owner, subject)
+		}
+		for _, member := range graph.ObjectsView(subject, rdf.SysML+"ownedRelatedElement") {
+			s.appendSubjectRelated(&s.owningRelationshipByOwned, member, subject)
+		}
+	}
+	if ontology.IsAncestorOrSelf(class, "Membership") {
+		property, declared := ontology.PropertyOf(class, "memberElement")
+		if declared && !property.Derived {
+			for _, member := range graph.ObjectsView(subject, rdf.SysML+"memberElement") {
+				s.appendSubjectRelated(&s.owningMembershipByMember, member, subject)
+			}
+		}
+		for _, namespace := range graph.ObjectsView(subject, rdf.SysML+"membershipOwningNamespace") {
+			s.appendSubjectRelated(&s.ownedRelationshipsByEnd, namespace, subject)
+			s.appendSubjectRelated(&s.owningRelatedByRelationship, subject, namespace)
+		}
+	}
+	for _, relationship := range graph.ObjectsView(subject, rdf.SysML+"ownedRelationship") {
+		s.appendSubjectRelated(&s.owningRelatedByRelationship, relationship, subject)
+	}
 }
 
 func (s *apiJSONGraphStructure) appendSubjectRelated(index *[][]rdf.Term, subject, related rdf.Term) {
@@ -595,5 +607,5 @@ func (s *apiJSONGraphStructure) QualifiedName(element metamodel.Element) (string
 	if !ok || !LibraryReference(s.graph, subject) {
 		return "", false
 	}
-	return s.graph.Lexical(subject, rdf.SysML+pQualifiedName)
+	return addressOf(s.graph, subject)
 }
