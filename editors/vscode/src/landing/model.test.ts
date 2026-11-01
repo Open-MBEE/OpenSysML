@@ -378,6 +378,15 @@ test("landingModel lifts a state view's states out of the machine's box and keys
   const stack = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   assert.equal(stack.machine, undefined);
 
+  // The initial marker leads the detail; a state with entry behavior after it is still the one entered first.
+  const behaved: RenderResult = {
+    ...phasesRender,
+    nodes: phasesRender.nodes.map((node) => (node.name === "prelaunch" ? { ...node, detail: "initial, entry / count := 0" } : node)),
+  };
+  const entered = landingModel(sceneTarget(MISSION_PHASES_SCENE), phasesFixture.hash, behaved, phasesFixture.instances);
+  assert.equal(entered.machine?.states.get("prelaunch")?.initial, true, "entry behavior after the marker keeps the state initial");
+  assert.equal(entered.machine?.states.get("translunarCoast")?.initial, false);
+
   // A state nested in a composite stays under it, keyed by its path and, being the only `landing`, by name.
   const surface = model.machine.states.get("onSurface")!;
   const nested: RenderResult = {
