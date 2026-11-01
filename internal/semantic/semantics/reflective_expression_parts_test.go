@@ -440,6 +440,14 @@ func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
 	if got, ok := m.ReflectiveElements(meta, "referencedElement"); !ok || len(got) != 1 || got[0] != pt {
 		t.Errorf("metadata access referencedElement = %v (%v), want Pt", names(got), ok)
 	}
+	if _, ok := m.ReflectiveElements(meta, "function"); ok {
+		t.Error("a metadata access derives a function")
+	}
+	for _, feature := range []string{"owningRelationship", "ownedAnnotation", "ownedMembership"} {
+		if got, ok := m.ReflectiveElements(m.OwnedMemberships(meta)[0], feature); !ok || len(got) != 0 {
+			t.Errorf("Membership.%s = %v (%v), want empty", feature, names(got), ok)
+		}
+	}
 	dangling := m.ValueExpression(member(t, m, d, "dangling"))
 	if got := names(m.OwnedMemberships(dangling)); len(got) != 1 || got[0] != "ReturnParameterMembership" {
 		t.Errorf("an unresolved reference owns %v, want its result only", got)

@@ -291,7 +291,8 @@ func referenceMembershipElements(sym *symbols.Symbol, feature string) ([]*symbol
 		return []*symbols.Symbol{rel.Member}, true
 	case "relatedElement":
 		return []*symbols.Symbol{rel.Owner, rel.Member}, true
-	case "ownedRelatedElement", "ownedElement", "ownedRelationship":
+	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
+		"owningMembership", "owningNamespace", "documentation", "textualRepresentation", "ownedImport", "ownedMembership":
 		return []*symbols.Symbol{}, true
 	}
 	return nil, false

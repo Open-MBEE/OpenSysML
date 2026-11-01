@@ -1685,6 +1685,15 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		if !isExpressionSymbol(sym) {
 			return nil, false
 		}
+		if feature == "function" {
+			// Only an instantiation expression has a function; a metadata
+			// access files its referenced element at the same slot.
+			switch sym.Decl.(type) {
+			case *ast.InvocationExpr, *ast.ConstructorExpr:
+			default:
+				return nil, false
+			}
+		}
 		return m.expressionReferencedElements(sym, feature), true
 	case "referencedElement":
 		if !isExpressionSymbol(sym) {
