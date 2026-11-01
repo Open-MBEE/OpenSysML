@@ -25,8 +25,13 @@ func featureValueOf(sym *symbols.Symbol) (value ast.Node, isDefault, isInitial b
 // a value. The FeatureValue that owns it is among the feature's
 // OwnedMemberships.
 func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil {
+	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
+	}
+	if sym.Expr != nil {
+		// A synthesized `in` parameter binds its operand; no other
+		// expression part declares a value.
+		return m.expressionParameterValue(sym)
 	}
 	if cached, ok := m.valueExpressions[sym]; ok {
 		return cached
@@ -51,7 +56,7 @@ func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
 // isValueExpressionSymbol reports whether sym is the value expression a
 // FeatureValue owns.
 func isValueExpressionSymbol(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionValue
+	return isExpressionSymbol(sym)
 }
 
 // expressionMetaclassName is the KerML metaclass of an expression element, by
@@ -120,11 +125,11 @@ func expressionValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, 
 		if feature != "value" {
 			break
 		}
-		r, ok := new(big.Rat).SetString(n.Value)
-		if !ok {
+		v, err := ParseRational(n.Value, DefaultMaxIntegerBits)
+		if err != nil {
 			return symbols.FilterValue{}, false
 		}
-		return symbols.FilterValue{Kind: symbols.FilterValueRational, Rat: r}, true
+		return symbols.FilterValue{Kind: symbols.FilterValueRational, Rat: v.Rat()}, true
 	case *ast.LiteralBool:
 		if feature == "value" {
 			return boolValue(n.Value), true
@@ -136,6 +141,22 @@ func expressionValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, 
 	case *ast.OperatorExpr:
 		if feature == "operator" {
 			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: n.Operator.String()}, true
+		}
+	case *ast.CastExpr:
+		if feature == "operator" {
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: ast.OpAs.String()}, true
+		}
+	case *ast.IndexExpr:
+		if feature == "operator" {
+			operator := "#"
+			if n.Bracket {
+				operator = "["
+			}
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: operator}, true
+		}
+	case *ast.SequenceExpr:
+		if feature == "operator" {
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: ","}, true
 		}
 	}
 	return symbols.FilterValue{}, false

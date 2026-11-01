@@ -167,3 +167,40 @@ func TestImplicitRelationshipsFollowTheDeclaringDocument(t *testing.T) {
 		t.Fatal("the new document's relationship object is the previous one's")
 	}
 }
+
+// Replacing a document drops the expression parts and the synthesized
+// memberships built from its previous tree, so neither its old expressions nor
+// their parameters stay referenced.
+func TestExpressionPartsFollowTheDeclaringDocument(t *testing.T) {
+	m, _, replace := trackedModel(t, stdlibIndex(t), "parts.sysml")
+	src := `package P { part def D { attribute x = 1 + 2; } }`
+	scope := replace(src)
+	oldX := nestedSym(t, scope, "P::D::x")
+	oldExpr := m.ValueExpression(oldX)
+	if oldExpr == nil {
+		t.Fatal("x: no value expression")
+	}
+	oldParams := m.ExpressionParameters(oldExpr)
+	if len(oldParams) != 2 || len(m.OwnedMemberships(oldExpr)) != 3 || len(m.OwnedMemberships(oldParams[0])) != 1 {
+		t.Fatalf("x's expression owns %d parameters, %d memberships", len(oldParams), len(m.OwnedMemberships(oldExpr)))
+	}
+	scope = replace(src)
+	if _, stale := m.valueExpressions[oldX]; stale {
+		t.Error("the previous document's value expression survived the edit")
+	}
+	if _, stale := m.expressionParts[oldExpr]; stale {
+		t.Error("the previous document's expression parts survived the edit")
+	}
+	for _, sym := range []*symbols.Symbol{oldExpr, oldParams[0], oldParams[1]} {
+		if _, stale := m.memberships[sym]; stale {
+			t.Error("the previous document's synthesized memberships survived the edit")
+		}
+	}
+	newExpr := m.ValueExpression(nestedSym(t, scope, "P::D::x"))
+	if newExpr == nil || newExpr == oldExpr {
+		t.Fatal("the new document's value expression is the previous one's")
+	}
+	if fresh := m.ExpressionParameters(newExpr); len(fresh) != 2 || fresh[0] == oldParams[0] {
+		t.Fatal("the new document's parameters are the previous ones'")
+	}
+}

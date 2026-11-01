@@ -1122,6 +1122,9 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		return "ConjugatedPortDefinition"
 	}
 	if sym.Expr != nil {
+		if isExpressionParameterSymbol(sym) {
+			return "Feature"
+		}
 		return expressionMetaclassName(sym.Decl)
 	}
 	switch decl := sym.Decl.(type) {
@@ -1497,6 +1500,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
 		}
+		if isExpressionSymbol(sym) {
+			return m.ExpressionParameters(sym), true
+		}
 		if behaviorLike(sym) {
 			out := m.InputParametersOf(sym)
 			return includeSubjectParameterInOrder(m, sym, out), true
@@ -1509,6 +1515,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "output":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
+		}
+		if isExpressionSymbol(sym) {
+			return expressionResultList(m, sym), true
 		}
 		if behaviorLike(sym) {
 			var out []*symbols.Symbol
@@ -1532,6 +1541,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			!m.reflectiveMetaclassConforms(sym, "Step") {
 			return nil, false
 		}
+		if isExpressionSymbol(sym) {
+			return m.expressionOwnedParts(sym), true
+		}
 		var out []*symbols.Symbol
 		for _, parameter := range m.BehaviorParametersOf(sym) {
 			if parameter.Symbol != nil {
@@ -1542,6 +1554,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "directedFeature":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
+		}
+		if isExpressionSymbol(sym) {
+			return m.expressionOwnedParts(sym), true
 		}
 		return m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut), true
 	case "subjectParameter":
@@ -1566,6 +1581,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		if !m.reflectiveMetaclassConforms(sym, "Expression") &&
 			!m.reflectiveMetaclassConforms(sym, "Function") {
 			return nil, false
+		}
+		if isExpressionSymbol(sym) {
+			return expressionResultList(m, sym), true
 		}
 		if result := m.ResultParameterOf(sym); result != nil {
 			return []*symbols.Symbol{result}, true
@@ -1655,8 +1673,29 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return []*symbols.Symbol{}, true
+	case "argument":
+		if !isExpressionSymbol(sym) {
+			return nil, false
+		}
+		return m.ExpressionArguments(sym), true
+	case "valuation":
+		// KerML 8.3.3.3.5 Feature::valuation: the FeatureValue among the
+		// feature's owned memberships, if its declaration has a value part.
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		value := m.ValueExpression(sym)
+		if value == nil {
+			return []*symbols.Symbol{}, true
+		}
+		for _, membership := range m.OwnedMemberships(sym) {
+			if membership.Implicit != nil && membership.Implicit.Member == value {
+				return []*symbols.Symbol{membership}, true
+			}
+		}
+		return []*symbols.Symbol{}, true
 	case "ownedFeature":
-		var features []*symbols.Symbol
+		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		for _, member := range ownedMembersOf(sym) {
 			if member.IsFeature() {
 				features = append(features, member)
@@ -1866,6 +1905,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		// feature's owned memberships.
 		members = append(members, value)
 	}
+	members = append(members, m.expressionOwnedParts(sym)...)
 	members = append(members, ownedMembersOf(sym)...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
@@ -2065,6 +2105,17 @@ func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol
 // ReflectiveDirection is the direction sym's feature declaration states
 // (Feature::direction); ok is false where sym declares no feature.
 func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
+	if sym != nil && sym.Expr != nil {
+		// An expression's synthesized parameters are directed as the
+		// conversion writes them; the expression itself declares no direction.
+		switch sym.Expr.Role {
+		case symbols.ExpressionParameter:
+			return ast.DirIn, true
+		case symbols.ExpressionResult:
+			return ast.DirOut, true
+		}
+		return ast.DirNone, true
+	}
 	if sym != nil && sym.Recorded() {
 		if !sym.IsFeature() {
 			return ast.DirNone, false
@@ -2149,7 +2200,8 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return value, true
 		}
 	}
-	if sym.Expr != nil {
+	if sym.Expr != nil && !isExpressionParameterSymbol(sym) {
+		// A parameter shares its expression's node but states none of its values.
 		if value, ok := expressionValue(sym, feature); ok {
 			return value, true
 		}

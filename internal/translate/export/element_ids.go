@@ -36,6 +36,11 @@ type ElementIDs struct {
 	// port definition each port definition implies, keyed as the port definition's.
 	conjugateByNode map[ast.Node]conjugateIDs
 	conjugateBySpan map[spanKey]conjugateIDs
+	// partByNode and partBySpan are the ids written for the parameters an
+	// expression owns without a node of their own (`in0`…, `out`), keyed by the
+	// expression's node and the slot the conversion names them by.
+	partByNode map[partKey]partIDs
+	partBySpan map[spanPartKey]partIDs
 	// relationshipByNode and relationshipBySpan are the ids written for the relationship
 	// elements a declaration's notation implies (writtenRelationships), by the node each
 	// is written for: a head clause, a bound end, a dependency's prefix metadata.
@@ -79,6 +84,7 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 		membershipByNode: map[ast.Node]string{}, membershipBySpan: map[spanKey]string{}, membershipByName: map[string]string{},
 		relationshipByNode: map[ast.Node]string{}, relationshipBySpan: map[spanKey]string{},
 		conjugateByNode: map[ast.Node]conjugateIDs{}, conjugateBySpan: map[spanKey]conjugateIDs{},
+		partByNode: map[partKey]partIDs{}, partBySpan: map[spanPartKey]partIDs{},
 		res: res, encoders: encoders}
 	for _, e := range encoders {
 		parents := e.parentDeclarations()
@@ -111,6 +117,7 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 				membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
 				ids.membershipByNode[valued] = membership
 				ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = membership
+				e.registerExpressionIDs(ids, value, valued)
 			}
 			for i, end := range writtenConnectorEnds(node) {
 				if end == nil {
@@ -371,6 +378,22 @@ func writtenConnectorEnds(node ast.Node) []*ast.ConnectorEnd {
 }
 
 // spanKey names a declaration by its document and span, across parses of it.
+type partKey struct {
+	node ast.Node
+	slot string
+}
+
+type spanPartKey struct {
+	span spanKey
+	slot string
+}
+
+// partIDs are the ids of a synthesized expression parameter and of the
+// membership through which its expression owns it.
+type partIDs struct {
+	element, membership string
+}
+
 type spanKey struct {
 	doc  string
 	span source.Span
@@ -378,6 +401,22 @@ type spanKey struct {
 
 // OfDeclaration is the elementId written for the element declared at decl in
 // document doc, named fqn: the node's own, its span's in a reparse, else Of(fqn).
+// OfExpressionPart is the id written for the parameter at slot of the
+// expression written at node (`in0`… for its operands and type argument,
+// `out` for its result), and of the membership that owns it.
+func (ids *ElementIDs) OfExpressionPart(doc string, node ast.Node, slot string) (element, membership string, ok bool) {
+	if ids == nil || node == nil {
+		return "", "", false
+	}
+	if part, ok := ids.partByNode[partKey{node, slot}]; ok {
+		return part.element, part.membership, true
+	}
+	if part, ok := ids.partBySpan[spanPartKey{spanKey{doc, node.Span()}, slot}]; ok {
+		return part.element, part.membership, true
+	}
+	return "", "", false
+}
+
 func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
 	if ids == nil {
 		return "", false
@@ -514,6 +553,20 @@ func (r *ElementIDReader) Read(doc string, decl ast.Node, fqn string) (string, e
 
 // ReadOwningMembership is the elementId of the owning membership of the element
 // declared at decl in doc, named fqn; empty where the conversion writes none.
+// ReadExpressionPart reads the ids of the parameter at slot of the expression
+// written at node, and of the membership that owns it.
+func (r *ElementIDReader) ReadExpressionPart(doc string, node ast.Node, slot string) (element, membership string, err error) {
+	if r == nil {
+		return "", "", nil
+	}
+	r.once.Do(r.convert)
+	if r.err != nil {
+		return "", "", r.err
+	}
+	element, membership, _ = r.ids.OfExpressionPart(doc, node, slot)
+	return element, membership, nil
+}
+
 func (r *ElementIDReader) ReadOwningMembership(doc string, decl ast.Node, fqn string) (string, error) {
 	if r == nil {
 		return "", nil
@@ -632,4 +685,41 @@ func (ids *ElementIDs) conjugateOf(doc string, implied *symbols.ImpliedDecl) (co
 	}
 	c, ok := ids.conjugateBySpan[spanKey{doc, implied.Of.Span()}]
 	return c, ok
+}
+
+// registerExpressionIDs records the ids the conversion writes for the parts of
+// the expression at node, written as subject: each operand (`a%d`) with the
+// FeatureValue that owns it, the `in` parameter binding it, the type
+// argument's parameter, and the `out` result parameter, then the operands'
+// own parts (expressionOperandOwnership, typeArgument, resultParameter).
+func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node ast.Node) {
+	operands, typeArgument := ast.ExpressionOperands(node)
+	for i, operand := range operands {
+		if operand == nil {
+			continue
+		}
+		path := fmt.Sprintf("a%d", i)
+		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, path), subject, path)
+		ids.byNode[operand] = rdf.LocalName(child.Value)
+		ids.bySpan[spanKey{e.file.Name(), operand.Span()}] = ids.byNode[operand]
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(child), child, rdf.OwningMembershipSuffix).Value)
+		ids.membershipByNode[operand] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), operand.Span()}] = membership
+		e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", i))
+		e.registerExpressionIDs(ids, child, operand)
+	}
+	if typeArgument {
+		e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", len(operands)))
+	}
+	if resultBearing[expressionMetaclass(node)] {
+		e.registerExpressionPart(ids, subject, node, "out")
+	}
+}
+
+func (e *encoder) registerExpressionPart(ids *ElementIDs, subject rdf.Term, node ast.Node, slot string) {
+	part := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(part), part, rdf.OwningMembershipSuffix)
+	recorded := partIDs{element: rdf.LocalName(part.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{node, slot}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
 }
