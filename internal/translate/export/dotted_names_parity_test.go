@@ -14,13 +14,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// A dotted name in an expression never reaches the conversion as one chained
-// qualified name: the parser spells `q.p.f(1)` as an invocation whose receiver
-// is the chain and `p.a.b` as nested chain expressions with one-segment members,
-// so the chain Feature the conversion owns for a chained `function` or
-// `targetFeature` (calleeMembership, FeatureChainExpr) arises only from a graph
-// read back. The reflective read therefore owns, for every expression such a
-// value nests, exactly the memberships the conversion writes, in its order.
+// The parser spells a dotted expression name as a receiver chain or nested chain
+// expressions, never as one chained qualified name: native and written memberships agree.
 func TestDottedExpressionNamesOwnNoChainFeature(t *testing.T) {
 	text := `package P {
 	calc def F { in x : ScalarValues::Real; return y : ScalarValues::Real = x; }
