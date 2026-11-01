@@ -282,6 +282,7 @@ func TestElementIDReaderSpellsAChangeTriggerAsTheConversionWritesIt(t *testing.T
 		"in0":    {"Feature", "ParameterMembership"},
 		"a0":     {"FeatureReferenceExpression", "FeatureValue"},
 		"a0.out": {"Feature", "ReturnParameterMembership"},
+		"out":    {"Feature", "ReturnParameterMembership"},
 	} {
 		element, membership, err := reader.ReadExpressionPart(matches[0].DocName, trigger, slot)
 		if err != nil || classOf[element] != want[0] || classOf[membership] != want[1] {

@@ -147,6 +147,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			Visibility: expr.Visibility,
 			Expr:       &symbols.ExpressionElement{Owner: parameter, Role: symbols.ExpressionChangeWrapper},
 		})
+		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
 		m.expressionParts[expr] = parts
 		return parts
 	}
@@ -245,6 +246,25 @@ func (m *Model) expressionParameterValue(param *symbols.Symbol) *symbols.Symbol 
 // expressionOwnedParts are the elements expr owns, parameters first then the
 // result, as the conversion lists them.
 func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
+	parts := m.expressionPartsOf(expr)
+	if parts == nil {
+		return nil
+	}
+	out := append([]*symbols.Symbol{}, parts.params...)
+	if parts.condition != nil {
+		// A change wrapper owns its condition through a FeatureMembership,
+		// ahead of its result (changeArgument).
+		out = append(out, parts.condition)
+	}
+	if parts.result != nil {
+		out = append(out, parts.result)
+	}
+	return out
+}
+
+// expressionParameterParts are the parameters expr owns, `in` ones first then
+// the result: what its `parameter` and `directedFeature` list.
+func (m *Model) expressionParameterParts(expr *symbols.Symbol) []*symbols.Symbol {
 	parts := m.expressionPartsOf(expr)
 	if parts == nil {
 		return nil
