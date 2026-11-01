@@ -1,6 +1,8 @@
 package queryexec
 
 import (
+	"fmt"
+
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
@@ -27,6 +29,23 @@ type ElementIDReader interface {
 	Read(doc string, decl ast.Node, fqn string) (string, error)
 	ReadOwningMembership(doc string, decl ast.Node, fqn string) (string, error)
 	ReadRelationship(doc string, node ast.Node) (string, error)
+	ReadExpressionPart(doc string, node ast.Node, slot string) (element, membership string, err error)
+}
+
+// expressionPartSlot is the slot the conversion names a synthesized
+// expression parameter by: `in%d` for an operand's or type argument's
+// parameter, `out` for the result.
+func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
+	if sym == nil || sym.Expr == nil || sym.Expr.Owner == nil {
+		return "", false
+	}
+	switch sym.Expr.Role {
+	case symbols.ExpressionParameter:
+		return fmt.Sprintf("in%d", sym.Expr.Index), true
+	case symbols.ExpressionResult:
+		return "out", true
+	}
+	return "", false
 }
 
 // ElementIDOf is sym's elementId through read. A relationship the notation writes as
@@ -38,6 +57,10 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 	if rel := sym.Implicit; rel != nil {
 		switch rel.Form {
 		case symbols.ImplicitMembership:
+			if slot, ok := expressionPartSlot(rel.Member); ok {
+				_, membership, err := read.ReadExpressionPart(rel.Member.DocName, rel.Member.Expr.Owner.Decl, slot)
+				return membership, err
+			}
 			if rel.Member != nil {
 				return read.ReadOwningMembership(rel.Member.DocName, rel.Member.Decl, query.QualifiedIdentity(idx, rel.Member))
 			}
@@ -61,6 +84,10 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 			}
 			return "", nil
 		}
+	}
+	if slot, ok := expressionPartSlot(sym); ok {
+		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Expr.Owner.Decl, slot)
+		return element, err
 	}
 	return read.Read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
 }
