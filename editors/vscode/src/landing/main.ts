@@ -1200,10 +1200,6 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
       case "journey":
       case "rollup":
         return runJourney(client, scene, current, sent, seed);
-      default: {
-        const exhaustive: never = program;
-        throw exhaustive;
-      }
     }
   }
 
@@ -1218,10 +1214,6 @@ function mount(root: HTMLElement, scene: Scene, form: SceneDiagram, options: Mou
       case "journey":
       case "rollup":
         return `on ${sent.length} events under ${schedule}`;
-      default: {
-        const exhaustive: never = program;
-        throw exhaustive;
-      }
     }
   }
 
