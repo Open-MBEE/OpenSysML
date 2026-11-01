@@ -665,11 +665,7 @@ func commentRawBody(c *sysmlv1.Element) string {
 	if c == nil {
 		return ""
 	}
-	body := c.Attrs["body"]
-	if o := firstOwned(c, "body"); o != nil && strings.TrimSpace(body) == "" {
-		body = o.Text
-	}
-	return body
+	return c.Attrs["body"]
 }
 
 // imageSource reads the image an image-paragraph comment names: the first
