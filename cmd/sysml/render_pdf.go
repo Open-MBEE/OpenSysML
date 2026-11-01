@@ -24,9 +24,6 @@ func init() {
 		fs.BoolVar(&htmlShowCSS, "html-default-css", false, "Write the default document stylesheet, or with -html-theme that theme's whole sheet, and exit")
 		fs.StringVar(&htmlMermaid, "html-mermaid", "", "Have the page load Mermaid to draw its diagrams: cdn loads a pinned release from jsDelivr, a URL the script it names")
 		fs.StringVar(&htmlMath, "html-math", "", "Have the page load MathJax to typeset its formulas: cdn loads a pinned release from jsDelivr, a URL the script it names")
-		fs.BoolVar(&pdfTitlePage, "pdf-title-page", false, "Former name of -doc-title-page, which also shapes HTML")
-		fs.BoolVar(&pdfTOC, "pdf-toc", false, "Former name of -doc-toc, which also shapes HTML")
-		fs.BoolVar(&pdfNumbering, "pdf-number-sections", false, "Former name of -doc-number-sections, which also shapes HTML")
 	})
 }
 

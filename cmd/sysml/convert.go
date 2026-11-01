@@ -16,14 +16,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
-// deprecatedFlag rejects a flag that has been replaced, so the old spelling
-// reports what to write instead of "flag provided but not defined".
-type deprecatedFlag struct{ instead string }
-
-func (f *deprecatedFlag) String() string { return "" }
-
-func (f *deprecatedFlag) Set(string) error { return errors.New(f.instead) }
-
 // runConvert converts the model named on the command line to the format
 // -convert asks for, writing to -o or to stdout.
 //
