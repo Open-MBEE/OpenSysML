@@ -3507,7 +3507,7 @@
         "clause": "8.3.21.9",
         "name": "validateRequirementUsageOnlyOneSubject"
       },
-      "checks": "A requirement usage has at most one subject",
+      "checks": "A requirement usage has at most one subject; a satisfy usage's `by` clause counts as its subject",
       "implementation": "internal/check/passes/at_most_one_member.go:checkAtMostOneMember",
       "message": "—",
       "negativeCase": "`semantic/s29-requirement-two-subjects.sysml`, `semantic/s92-requirement-references-second-subject.sysml`",

@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   MASS_ROLLUP_SCENE,
+  LUNAR_MISSION_SCENE,
   MISSION_PHASES_SCENE,
   SCENES,
   STACK_SCENE,
@@ -14,7 +15,7 @@ import {
 } from "./scene";
 
 test("the scenes declare distinct ids, controls, programs and snapshots", () => {
-  assert.deepEqual(SCENES.map(({ id }) => id), ["stack", "mass", "phases"]);
+  assert.deepEqual(SCENES.map(({ id }) => id), ["stack", "mass", "phases", "apollo"]);
   assert.equal(STACK_SCENE.program.kind, "journey");
   assert.deepEqual(STACK_SCENE.controls, ["run", "edit", "debug", "download"]);
   assert.equal(MASS_ROLLUP_SCENE.program.kind, "rollup");
@@ -25,6 +26,9 @@ test("the scenes declare distinct ids, controls, programs and snapshots", () => 
   assert.equal(MISSION_PHASES_SCENE.program.kind, "clock");
   assert.equal(MISSION_PHASES_SCENE.view, "#state:MissionSequence::MissionPhases");
   assert.deepEqual(MISSION_PHASES_SCENE.controls, ["run", "edit", "debug", "download"]);
+  assert.equal(LUNAR_MISSION_SCENE.program.kind, "action");
+  assert.equal(LUNAR_MISSION_SCENE.view, "#action:MissionSequence::LunarMission");
+  assert.equal(LUNAR_MISSION_SCENE.rootSymbol, "MissionSequence::apollo11", "the root is the object performing the action");
   for (const scene of SCENES) {
     assert.ok(scene.snapshot.hash.length > 0, `${scene.id} has a snapshot hash`);
     assert.ok(Array.isArray(scene.snapshot.instances) && scene.snapshot.instances.length > 0, `${scene.id} has instances`);
@@ -64,6 +68,28 @@ test("the clocked scene's variant keeps the root and the view but advances the c
   assert.equal(programOf(MASS_ROLLUP_SCENE, iu), MASS_ROLLUP_SCENE.program);
 });
 
+test("the mission scene's toggles post the event, change the performer, or perform the unordered action", () => {
+  const [go, apollo8, unordered] = LUNAR_MISSION_SCENE.variants;
+  assert.deepEqual(programOf(LUNAR_MISSION_SCENE, undefined), {
+    kind: "action", symbol: "MissionSequence::LunarMission", performer: "MissionSequence::apollo11", events: [],
+  });
+  assert.equal(go?.rootSymbol, LUNAR_MISSION_SCENE.rootSymbol);
+  assert.equal(go?.view, LUNAR_MISSION_SCENE.view);
+  assert.deepEqual(programOf(LUNAR_MISSION_SCENE, go), {
+    kind: "action", symbol: "MissionSequence::LunarMission", performer: "MissionSequence::apollo11", events: ["GoForDescent"],
+  });
+  assert.equal(apollo8?.rootSymbol, "MissionSequence::apollo8");
+  assert.equal(apollo8?.view, LUNAR_MISSION_SCENE.view);
+  assert.deepEqual(programOf(LUNAR_MISSION_SCENE, apollo8), {
+    kind: "action", symbol: "MissionSequence::LunarMission", performer: "MissionSequence::apollo8", events: [],
+  });
+  assert.equal(unordered?.view, "#action:MissionSequence::LunarMissionUnordered");
+  assert.deepEqual(programOf(LUNAR_MISSION_SCENE, unordered), {
+    kind: "action", symbol: "MissionSequence::LunarMissionUnordered", performer: "MissionSequence::apollo11", events: [],
+  });
+  assert.ok(LUNAR_MISSION_SCENE.variants.every((variant) => variant.requires === undefined), "the toggles stand alone");
+});
+
 test("forcedSceneId reads the scene from the query or the fragment", () => {
   assert.equal(forcedSceneId(new URL("https://example.test/")), undefined);
   assert.equal(forcedSceneId(new URL("https://example.test/?scene=mass")), "mass");
@@ -81,18 +107,19 @@ test("chooseScene honours a forced scene and falls back to the random draw", () 
   assert.equal(chooseScene(SCENES, new URL("https://example.test/#scene=stack"), never), STACK_SCENE);
   assert.equal(chooseScene(SCENES, new URL("https://example.test/?scene=nonesuch"), () => 0), STACK_SCENE);
   assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 0), STACK_SCENE);
-  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 0.5), MASS_ROLLUP_SCENE);
-  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 0.999999), MISSION_PHASES_SCENE);
-  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 1), MISSION_PHASES_SCENE);
+  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 0.25), MASS_ROLLUP_SCENE);
+  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 0.5), MISSION_PHASES_SCENE);
+  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 0.999999), LUNAR_MISSION_SCENE);
+  assert.equal(chooseScene(SCENES, new URL("https://example.test/"), () => 1), LUNAR_MISSION_SCENE);
   assert.throws(() => chooseScene([], new URL("https://example.test/")), /no scene/u);
 });
 
 test("chooseScene draws each scene in proportion to the draw", () => {
   const counts = new Map<string, number>();
-  const draws = 999;
+  const draws = 1000;
   for (let i = 0; i < draws; i++) {
     const scene = chooseScene(SCENES, new URL("https://example.test/"), () => i / draws);
     counts.set(scene.id, (counts.get(scene.id) ?? 0) + 1);
   }
-  assert.deepEqual([...counts.entries()], [["stack", draws / 3], ["mass", draws / 3], ["phases", draws / 3]]);
+  assert.deepEqual([...counts.entries()], [["stack", draws / 4], ["mass", draws / 4], ["phases", draws / 4], ["apollo", draws / 4]]);
 });

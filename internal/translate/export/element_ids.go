@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"strings"
 	"sync"
@@ -31,6 +32,15 @@ type ElementIDs struct {
 	membershipByNode map[ast.Node]string
 	membershipBySpan map[spanKey]string
 	membershipByName map[string]string
+	// conjugateByNode and conjugateBySpan are the ids written for the conjugated
+	// port definition each port definition implies, keyed as the port definition's.
+	conjugateByNode map[ast.Node]conjugateIDs
+	conjugateBySpan map[spanKey]conjugateIDs
+	// partByNode and partBySpan are the ids written for the parameters an
+	// expression owns without a node of their own (`in0`…, `out`), keyed by the
+	// expression's node and the slot the conversion names them by.
+	partByNode map[partKey]partIDs
+	partBySpan map[spanPartKey]partIDs
 	// relationshipByNode and relationshipBySpan are the ids written for the relationship
 	// elements a declaration's notation implies (writtenRelationships), by the node each
 	// is written for: a head clause, a bound end, a dependency's prefix metadata.
@@ -73,6 +83,8 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{},
 		membershipByNode: map[ast.Node]string{}, membershipBySpan: map[spanKey]string{}, membershipByName: map[string]string{},
 		relationshipByNode: map[ast.Node]string{}, relationshipBySpan: map[spanKey]string{},
+		conjugateByNode: map[ast.Node]conjugateIDs{}, conjugateBySpan: map[spanKey]conjugateIDs{},
+		partByNode: map[partKey]partIDs{}, partBySpan: map[spanPartKey]partIDs{},
 		res: res, encoders: encoders}
 	for _, e := range encoders {
 		parents := e.parentDeclarations()
@@ -91,6 +103,22 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 				ids.membershipBySpan[spanKey{e.file.Name(), node.Span()}] = local
 				ids.membershipByName[fqn] = local
 			}
+			if def, ok := node.(*ast.Definition); ok && def.Kind == ast.DefPort {
+				conjugate := e.ids.conjugateIDsOf(subject)
+				ids.conjugateByNode[node] = conjugate
+				ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
+			}
+			if valued, _, _, ok := ast.ValuePartOf(node); ok {
+				// The value expression a declaration's value part writes, and the
+				// FeatureValue that owns it (featureValue, expressionOwnership).
+				value := e.ids.mintedNode(rdf.ExpressionIRI(subject, pValue), subject, pValue)
+				ids.byNode[valued] = rdf.LocalName(value.Value)
+				ids.bySpan[spanKey{e.file.Name(), valued.Span()}] = ids.byNode[valued]
+				membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
+				ids.membershipByNode[valued] = membership
+				ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = membership
+				e.registerExpressionIDs(ids, value, valued)
+			}
 			for i, end := range writtenConnectorEnds(node) {
 				if end == nil {
 					continue
@@ -102,6 +130,15 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 				membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
 				ids.membershipByNode[end] = membership
 				ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
+			}
+			for _, rel := range writtenSatisfySubjects(node) {
+				// The subject parameter a `by` clause declares, and its membership (subjectParameter).
+				usage := e.ids.minted(rdf.RelationshipIRI(subject, "_subject"), subject, "_subject")
+				ids.byNode[rel] = rdf.LocalName(usage.Value)
+				ids.bySpan[spanKey{e.file.Name(), rel.Span()}] = ids.byNode[rel]
+				membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(usage), usage, rdf.OwningMembershipSuffix).Value)
+				ids.membershipByNode[rel] = membership
+				ids.membershipBySpan[spanKey{e.file.Name(), rel.Span()}] = membership
 			}
 			for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
 				ids.relationshipByNode[key] = id
@@ -121,80 +158,127 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 // metadata (the metadata).
 func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node) map[ast.Node]string {
 	out := map[ast.Node]string{}
-	local := func(term rdf.Term) string { return rdf.LocalName(term.Value) }
-	rs := func(feature rdf.Term) string {
-		return local(e.ids.mintedNode(rdf.ExpressionIRI(feature, "rs"), feature, "rs"))
+	e.writtenEndFeatureReferences(node, subject, out)
+	e.writtenDependencyAnnotation(node, parent, subject, out)
+	e.writtenClauseRelationships(node, parent, subject, parents, out)
+	e.writtenBoundEndReferences(node, subject, out)
+	return out
+}
+
+// referenceSubsettingID is the id of the ReferenceSubsetting written under feature (referenceSubsetting).
+func (e *encoder) referenceSubsettingID(feature rdf.Term) string {
+	return rdf.LocalName(e.ids.mintedNode(rdf.ExpressionIRI(feature, "rs"), feature, "rs").Value)
+}
+
+// writtenEndFeatureReferences records the ReferenceSubsetting of each `references` clause
+// of an `end` feature (endReferences), by the clause.
+func (e *encoder) writtenEndFeatureReferences(node ast.Node, subject rdf.Term, out map[ast.Node]string) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !usage.IsEnd {
+		return
 	}
-	if usage, ok := node.(*ast.Usage); ok && usage.IsEnd {
-		for _, rel := range usage.Relationships {
-			if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
-				out[rel] = rs(subject)
-			}
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
+			out[rel] = e.referenceSubsettingID(subject)
 		}
 	}
-	if _, ok := node.(*ast.PrefixMetadata); ok {
-		if _, dependency := parent.(*ast.Dependency); dependency {
-			out[node] = local(e.ids.minted(rdf.RelationshipIRI(subject, AnnotationSuffix), subject, AnnotationSuffix))
-		}
+}
+
+// writtenDependencyAnnotation records the Annotation written for a dependency's prefix
+// metadata, by the metadata.
+func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf.Term, out map[ast.Node]string) {
+	if _, ok := node.(*ast.PrefixMetadata); !ok {
+		return
 	}
+	if _, dependency := parent.(*ast.Dependency); dependency {
+		out[node] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, AnnotationSuffix), subject, AnnotationSuffix).Value)
+	}
+}
+
+// writtenClauseRelationships records the relationship written for each distinct target of the
+// head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
+func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
 	_, classifier := node.(*ast.Definition)
-	referenceForm := false
-	if usage, ok := node.(*ast.Usage); ok {
-		form, _ := e.endFormOf(usage)
-		referenceForm = usage.Kind == ast.UsageSatisfy || form != "" ||
-			(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
-	}
-	clauses := headClauses(node)
-	// The objects a head states without a clause come after the clauses' (encode): a
-	// metadata body member's implicit redefinition, a bare `variant x;`'s reference.
-	if usage, ok := node.(*ast.Usage); ok {
-		if e.implicitMetadataBodyTarget(inMetadataBody(usage, parent, parents), usage).Value != "" {
-			clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelRedefines, Target: usage})
-		}
-		if e.variantReferenceTarget(usage).Value != "" {
-			clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelReferences, Target: usage})
-		}
-	}
+	referenceForm := e.referenceFormOf(node)
+	clauses := e.writtenHeadClauses(node, parent, parents)
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
-		// The graph holds one object per distinct target, so clauses repeating a target
-		// (`: T, T`) share the one relationship the writer materializes for it.
-		var objects []string
-		at := map[*ast.Relationship]int{}
-		for _, rel := range clauses {
-			if rel == nil || rel.Target == nil || rel.Kind != kind {
-				continue
-			}
-			object := e.clauseObject(subject, rel, chains)
-			i := slices.Index(objects, object)
-			if i < 0 {
-				i = len(objects)
-				objects = append(objects, object)
-			}
-			at[rel] = i
-		}
+		objects, at := e.clauseObjects(subject, clauses, kind, chains)
 		for rel, i := range at {
 			suffix := relationshipSuffix(kind, classifier, referenceForm, len(objects), i)
 			key := ast.Node(rel)
 			if rel.Span().Len == 0 {
 				key = rel.Target
 			}
-			out[key] = local(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix))
+			out[key] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix).Value)
 		}
 	}
+}
+
+// referenceFormOf reports whether a head's `subsets` are written as ReferenceSubsettings
+// (referenceSubsettingForm): a satisfy, an end-form binding or a verified requirement.
+func (e *encoder) referenceFormOf(node ast.Node) bool {
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	form, _ := e.endFormOf(usage)
+	return usage.Kind == ast.UsageSatisfy || form != "" ||
+		(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
+}
+
+// writtenHeadClauses are headClauses plus the objects a usage states without a clause (encode):
+// a metadata body member's implicit redefinition, a bare `variant x;`'s reference.
+func (e *encoder) writtenHeadClauses(node, parent ast.Node, parents map[ast.Node]ast.Node) []*ast.Relationship {
+	clauses := headClauses(node)
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return clauses
+	}
+	if e.implicitMetadataBodyTarget(inMetadataBody(usage, parent, parents), usage).Value != "" {
+		clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelRedefines, Target: usage})
+	}
+	if e.variantReferenceTarget(usage).Value != "" {
+		clauses = append(append([]*ast.Relationship{}, clauses...), &ast.Relationship{Kind: ast.RelReferences, Target: usage})
+	}
+	return clauses
+}
+
+// clauseObjects are the distinct objects the head's clauses of kind state, in clause order, and
+// each clause's position among them: clauses repeating a target (`: T, T`) share one relationship.
+func (e *encoder) clauseObjects(subject rdf.Term, clauses []*ast.Relationship, kind ast.RelationshipKind, chains map[*ast.Relationship]int) ([]string, map[*ast.Relationship]int) {
+	var objects []string
+	at := map[*ast.Relationship]int{}
+	for _, rel := range clauses {
+		if rel == nil || rel.Target == nil || rel.Kind != kind {
+			continue
+		}
+		object := e.clauseObject(subject, rel, chains)
+		i := slices.Index(objects, object)
+		if i < 0 {
+			i = len(objects)
+			objects = append(objects, object)
+		}
+		at[rel] = i
+	}
+	return objects, at
+}
+
+// writtenBoundEndReferences records the ReferenceSubsetting of each end feature a head
+// binds (bindingEnds), by the end and by the `references` clause naming its target.
+func (e *encoder) writtenBoundEndReferences(node ast.Node, subject rdf.Term, out map[ast.Node]string) {
 	for i, end := range writtenConnectorEnds(node) {
 		if end == nil {
 			continue
 		}
 		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
-		out[end] = rs(feature)
+		out[end] = e.referenceSubsettingID(feature)
 		for _, rel := range end.Relationships {
 			if rel != nil && rel.Kind == ast.RelReferences && rel.Target == end.AttachedTarget() {
 				out[rel] = out[end]
 			}
 		}
 	}
-	return out
 }
 
 // clauseObject tells apart the objects a head's clauses state, as relationships writes them:
@@ -294,6 +378,22 @@ func writtenConnectorEnds(node ast.Node) []*ast.ConnectorEnd {
 }
 
 // spanKey names a declaration by its document and span, across parses of it.
+type partKey struct {
+	node ast.Node
+	slot string
+}
+
+type spanPartKey struct {
+	span spanKey
+	slot string
+}
+
+// partIDs are the ids of a synthesized expression parameter and of the
+// membership through which its expression owns it.
+type partIDs struct {
+	element, membership string
+}
+
 type spanKey struct {
 	doc  string
 	span source.Span
@@ -301,9 +401,29 @@ type spanKey struct {
 
 // OfDeclaration is the elementId written for the element declared at decl in
 // document doc, named fqn: the node's own, its span's in a reparse, else Of(fqn).
+// OfExpressionPart is the id written for the parameter at slot of the
+// expression written at node (`in0`… for its operands and type argument,
+// `out` for its result), and of the membership that owns it.
+func (ids *ElementIDs) OfExpressionPart(doc string, node ast.Node, slot string) (element, membership string, ok bool) {
+	if ids == nil || node == nil {
+		return "", "", false
+	}
+	if part, ok := ids.partByNode[partKey{node, slot}]; ok {
+		return part.element, part.membership, true
+	}
+	if part, ok := ids.partBySpan[spanPartKey{spanKey{doc, node.Span()}, slot}]; ok {
+		return part.element, part.membership, true
+	}
+	return "", "", false
+}
+
 func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
 	if ids == nil {
 		return "", false
+	}
+	if implied, ok := decl.(*symbols.ImpliedDecl); ok {
+		conjugate, ok := ids.conjugateOf(doc, implied)
+		return conjugate.element, ok
 	}
 	if decl != nil {
 		if id, ok := ids.byNode[decl]; ok {
@@ -321,6 +441,10 @@ func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (str
 func (ids *ElementIDs) OwningMembershipOfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
 	if ids == nil {
 		return "", false
+	}
+	if implied, ok := decl.(*symbols.ImpliedDecl); ok {
+		conjugate, ok := ids.conjugateOf(doc, implied)
+		return conjugate.membership, ok
 	}
 	if decl != nil {
 		if id, ok := ids.membershipByNode[decl]; ok {
@@ -353,6 +477,10 @@ func (ids *ElementIDs) OwningMembershipOfDeclaration(doc string, decl ast.Node, 
 func (ids *ElementIDs) RelationshipOf(doc string, node ast.Node) (string, bool) {
 	if ids == nil || node == nil {
 		return "", false
+	}
+	if implied, ok := node.(*symbols.ImpliedDecl); ok {
+		conjugate, ok := ids.conjugateOf(doc, implied)
+		return conjugate.conjugation, ok
 	}
 	if id, ok := ids.relationshipByNode[node]; ok {
 		return id, true
@@ -425,6 +553,20 @@ func (r *ElementIDReader) Read(doc string, decl ast.Node, fqn string) (string, e
 
 // ReadOwningMembership is the elementId of the owning membership of the element
 // declared at decl in doc, named fqn; empty where the conversion writes none.
+// ReadExpressionPart reads the ids of the parameter at slot of the expression
+// written at node, and of the membership that owns it.
+func (r *ElementIDReader) ReadExpressionPart(doc string, node ast.Node, slot string) (element, membership string, err error) {
+	if r == nil {
+		return "", "", nil
+	}
+	r.once.Do(r.convert)
+	if r.err != nil {
+		return "", "", r.err
+	}
+	element, membership, _ = r.ids.OfExpressionPart(doc, node, slot)
+	return element, membership, nil
+}
+
 func (r *ElementIDReader) ReadOwningMembership(doc string, decl ast.Node, fqn string) (string, error) {
 	if r == nil {
 		return "", nil
@@ -495,4 +637,121 @@ func (r *ElementIDReader) convert() {
 		return
 	}
 	r.ids, r.err = NewElementIDs(documents)
+}
+
+// writtenSatisfySubjects are the `by` clauses of a satisfy usage the writer emits a
+// subject parameter for (subjectParameters).
+func writtenSatisfySubjects(node ast.Node) []*ast.Relationship {
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.Kind != ast.UsageSatisfy {
+		return nil
+	}
+	var out []*ast.Relationship
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind == ast.RelSubject && rel.Target != nil {
+			out = append(out, rel)
+		}
+	}
+	return out
+}
+
+// conjugateIDs are the ids written for the conjugated port definition a port
+// definition implies: the conjugate, its owning membership and its PortConjugation
+// (SysML 8.3.11.3), minted as rdf_normative.go's conjugatedPortDefinition writes them.
+type conjugateIDs struct {
+	element, membership, conjugation string
+}
+
+// conjugateIDsOf mints the conjugate's ids for the port definition written as subject.
+func (f *identityFacts) conjugateIDsOf(subject rdf.Term) conjugateIDs {
+	conjugated := f.minted(rdf.RelationshipIRI(subject, "_conjugated"), subject, "_conjugated")
+	membership := f.minted(rdf.OwningMembershipIRIOf(conjugated), conjugated, rdf.OwningMembershipSuffix)
+	conjugation := f.minted(rdf.RelationshipIRI(conjugated, "_pc"), conjugated, "_pc")
+	return conjugateIDs{
+		element:     rdf.LocalName(conjugated.Value),
+		membership:  rdf.LocalName(membership.Value),
+		conjugation: rdf.LocalName(conjugation.Value),
+	}
+}
+
+// conjugateOf finds the ids of the conjugate implied for the port definition
+// an ImpliedDecl is keyed to, by node in this parse or by span in another.
+func (ids *ElementIDs) conjugateOf(doc string, implied *symbols.ImpliedDecl) (conjugateIDs, bool) {
+	if implied == nil || implied.Form != symbols.ImpliedConjugatedPortDefinition || implied.Of == nil {
+		return conjugateIDs{}, false
+	}
+	if c, ok := ids.conjugateByNode[implied.Of]; ok {
+		return c, true
+	}
+	c, ok := ids.conjugateBySpan[spanKey{doc, implied.Of.Span()}]
+	return c, ok
+}
+
+// registerExpressionIDs records the ids the conversion writes for the parts of
+// the expression at node, written as subject: each operand (`a%d`) with the
+// FeatureValue that owns it, the `in` parameter binding it, the type
+// argument's parameter, and the `out` result parameter, then the operands'
+// own parts (expressionOperandOwnership, typeArgument, resultParameter).
+func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node ast.Node) {
+	operands, typeArgument := ast.ExpressionOperands(node)
+	for _, operand := range operands {
+		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, operand.Slot), subject, operand.Slot)
+		ids.byNode[operand.Node] = rdf.LocalName(child.Value)
+		ids.bySpan[spanKey{e.file.Name(), operand.Node.Span()}] = ids.byNode[operand.Node]
+		if operand.Index >= 0 {
+			membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(child), child, rdf.OwningMembershipSuffix).Value)
+			ids.membershipByNode[operand.Node] = membership
+			ids.membershipBySpan[spanKey{e.file.Name(), operand.Node.Span()}] = membership
+			e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", operand.Index))
+		}
+		e.registerExpressionIDs(ids, child, operand.Node)
+	}
+	if typeArgument >= 0 {
+		e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", typeArgument))
+	}
+	if slot, _, _ := expressionReferenceSlot(node); slot != "" {
+		membership := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		recorded := partIDs{membership: rdf.LocalName(membership.Value)}
+		ids.partByNode[partKey{node, slot}] = recorded
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+	}
+	if resultBearing[expressionMetaclass(node)] {
+		e.registerExpressionPart(ids, subject, node, "out")
+	}
+}
+
+func (e *encoder) registerExpressionPart(ids *ElementIDs, subject rdf.Term, node ast.Node, slot string) {
+	part := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(part), part, rdf.OwningMembershipSuffix)
+	recorded := partIDs{element: rdf.LocalName(part.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{node, slot}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+}
+
+// expressionReferenceSlot is the slot of the plain Membership the conversion
+// writes for the element an expression names (referentMembershipNode,
+// calleeMembership): a reference's referent, an undotted invocation's function,
+// an undotted chain's target feature.
+func expressionReferenceSlot(node ast.Node) (slot string, name *ast.QualifiedName, ok bool) {
+	switch n := node.(type) {
+	case *ast.QualifiedName:
+		return "referent", n, true
+	case *ast.FeatureReference:
+		return "referent", n.Name, true
+	case *ast.InvocationExpr:
+		if n.Type != nil && !ast.QualifiedNameHasChain(n.Type) {
+			return "function", n.Type, true
+		}
+	case *ast.ConstructorExpr:
+		if n.Type != nil && !ast.QualifiedNameHasChain(n.Type) {
+			return "function", n.Type, true
+		}
+	case *ast.FeatureChainExpr:
+		if n.Member != nil && !ast.QualifiedNameHasChain(n.Member) {
+			return "targetFeature", n.Member, true
+		}
+	case *ast.MetadataAccessExpr:
+		return "function", n.Ref, true
+	}
+	return "", nil, false
 }

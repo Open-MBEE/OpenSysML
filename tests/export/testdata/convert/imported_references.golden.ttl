@@ -343,7 +343,7 @@ elmt:R90
 
 elmt:R90___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "R90::@0" ;
+    sysx:positionalName "R90::@0" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -1271,7 +1271,7 @@ elmt:R90__Run_om
 
 elmt:R90__Run___400
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "R90::Run::@0" ;
+    sysx:positionalName "R90::Run::@0" ;
     sysx:sourceLine "42"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "42"^^xsd:integer ;
@@ -1288,7 +1288,7 @@ elmt:R90__Run___400
 elmt:R90__Run___401
     a sysml:SuccessionAsUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "R90::Run::@1" ;
+    sysx:positionalName "R90::Run::@1" ;
     sysx:sourceLine "42"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
     sysx:sourceEndLine "42"^^xsd:integer ;
@@ -1346,7 +1346,7 @@ elmt:R90__Run__idle_om
 elmt:R90__Run___403
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "R90::Run::@3" ;
+    sysx:positionalName "R90::Run::@3" ;
     sysx:sourceLine "44"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "44"^^xsd:integer ;
@@ -1647,7 +1647,7 @@ elmt:Meta__Tagged_om
 elmt:Meta__Tagged___400
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "Meta::Tagged::@0" ;
+    sysx:positionalName "Meta::Tagged::@0" ;
     sysx:sourceLine "52"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "52"^^xsd:integer ;
@@ -1725,7 +1725,7 @@ elmt:Filtered
 
 elmt:Filtered___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "Filtered::@0" ;
+    sysx:positionalName "Filtered::@0" ;
     sysx:sourceLine "56"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "56"^^xsd:integer ;
@@ -1927,7 +1927,7 @@ elmt:Filtered__C__other_om
 
 elmt:Filtered___402
     a sysml:ElementFilterMembership ;
-    sysml:qualifiedName "Filtered::@2" ;
+    sysx:positionalName "Filtered::@2" ;
     sysx:sourceLine "60"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "60"^^xsd:integer ;

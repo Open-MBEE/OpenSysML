@@ -258,6 +258,7 @@ CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore"
 #: behavior outside any object, so the client refuses to send a performer.
 CAPABILITY_PERFORMER = "performer"
 CAPABILITY_STATE_TRACE = "state_trace"
+CAPABILITY_ACTION_TRACE = "action_trace"
 
 #: ``final_time`` populated on an action or state run's response: the run's
 #: simulation clock when it ended, in seconds, read as the ``final_time`` of

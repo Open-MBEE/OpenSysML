@@ -687,13 +687,33 @@ fn an_action_runs_explores_and_a_state_machine_steps() {
         trace: true,
         ..Default::default()
     };
-    assert!(matches!(
-        model.execute_action("Demo::addFive", &BTreeMap::new(), &trace_for_action),
-        Err(Error::InvalidRequest(message)) if message.contains("state run")
-    ));
+    let traced = model
+        .execute_action("Demo::addFive", &BTreeMap::new(), &trace_for_action)
+        .expect("traced action run");
+    let kinds: Vec<&str> = traced.trace.iter().map(|e| e.kind.as_str()).collect();
+    assert!(
+        kinds.contains(&"step") && kinds.contains(&"complete"),
+        "{kinds:?}"
+    );
+    let assign = traced
+        .trace
+        .iter()
+        .find(|e| e.kind == "assign")
+        .expect("assign record");
+    assert_eq!(assign.feature, "result");
+    assert_eq!(assign.value.as_deref(), Some(&Value::Integer(5.into())));
+    assert_eq!(traced.trace_dropped, 0);
     assert!(matches!(
         model.explore_action("Demo::race", &BTreeMap::new(), &trace_for_action),
-        Err(Error::InvalidRequest(message)) if message.contains("state run")
+        Err(Error::InvalidRequest(message)) if message.contains("one run")
+    ));
+    let events_without_performer = RunOptions {
+        events: vec!["Go".to_owned()],
+        ..Default::default()
+    };
+    assert!(matches!(
+        model.execute_action("Demo::addFive", &BTreeMap::new(), &events_without_performer),
+        Err(Error::InvalidRequest(message)) if message.contains("performer")
     ));
     assert!(matches!(
         model.explore_state::<&str>("Demo::Machine", &[], &trace_for_action),

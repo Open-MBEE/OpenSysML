@@ -28,6 +28,9 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		// A required or assumed constraint is the ConstraintUsage its member declares.
 	case *ast.SubjectMember:
 		// A subject parameter is the ReferenceUsage its SubjectMembership declares.
+	case *ast.ConnectorEnd:
+		// A connector's end is the usage its EndFeatureMembership declares; its
+		// owning type is the connector.
 	case *ast.BodyExpr:
 		// An expression body's parameter: its owning type is the Expression, a
 		// Performance and so an Occurrence (KerML Performances::Performance).
@@ -35,7 +38,9 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 	default:
 		return false
 	}
-	if sym.OwnerScope == nil || m.isPayloadFeature(sym) {
+	if sym.OwnerScope == nil || m.isPayloadFeature(sym) || IsVariant(sym) {
+		// A variant's VariantMembership is an OwningMembership, no
+		// FeatureMembership, so the variant has no owningType.
 		return false
 	}
 	owner := sym.OwnerScope.Owner()
@@ -92,12 +97,12 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 		switch d := sym.Decl.(type) {
 		case *ast.Usage:
 			isPortion = d.IsPortion || d.Portion != ast.PortionNone
-		case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr:
+		case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr, *ast.ConnectorEnd:
 		default:
 			return false
 		}
 	}
-	if owner == nil || m.isPayloadFeature(sym) || !m.conformsByName(owner, "Occurrences::Occurrence") ||
+	if owner == nil || m.isPayloadFeature(sym) || IsVariant(sym) || !m.conformsByName(owner, "Occurrences::Occurrence") ||
 		isPortion ||
 		m.conformsByName(sym, "Links::SelfLink") ||
 		m.conformsByName(sym, "Occurrences::HappensLink") {
@@ -128,7 +133,7 @@ func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 		return m.UsageMayTimeVary(sym)
 	case *ast.CrossFeatureMember:
 		return m.isKerMLDoc(sym) && (d.IsVariable || d.IsConstant)
-	case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr:
+	case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr, *ast.ConnectorEnd:
 		return !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)
 	}
 	return false

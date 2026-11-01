@@ -1360,7 +1360,7 @@ func TestPrefixAndPositionNamedMemberConvertDistinctly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	for _, want := range []string{`sysml:qualifiedName "P::Car::'@1'"`, `sysml:qualifiedName "P::Car::@1"`} {
+	for _, want := range []string{`sysml:qualifiedName "P::Car::'@1'"`, `sysx:positionalName "P::Car::@1"`} {
 		if !strings.Contains(string(turtle), want) {
 			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
 		}
@@ -2297,7 +2297,7 @@ elmt:P::a
 
 <urn:sysmlv2:element:P::@1>
     a sysml:SuccessionAsUsage ;
-    sysml:qualifiedName "P::@1" ;
+    sysx:positionalName "P::@1" ;
     sysml:owningNamespace elmt:P ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:sourceFeature elmt:P::a .
@@ -2335,7 +2335,7 @@ func TestDuplicateNameConverts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a duplicate name was refused: %v", err)
 	}
-	for _, want := range []string{`sysml:qualifiedName "P::A"`, `sysml:qualifiedName "P::@1"`} {
+	for _, want := range []string{`sysml:qualifiedName "P::A"`, `sysx:positionalName "P::@1"`} {
 		if !strings.Contains(string(out), want) {
 			t.Errorf("the Turtle lacks %s:\n%s", want, out)
 		}
@@ -2350,7 +2350,7 @@ func TestPositionalNameCollisionConverts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	for _, want := range []string{`sysml:qualifiedName "P::'@2'"`, `sysml:qualifiedName "P::@2"`} {
+	for _, want := range []string{`sysml:qualifiedName "P::'@2'"`, `sysx:positionalName "P::@2"`} {
 		if !strings.Contains(string(turtle), want) {
 			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
 		}
@@ -3393,7 +3393,10 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 			}
 			qname, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
 			if !ok {
-				t.Errorf("%s: subject %s has no qualified name", path, subject.Value)
+				qname, ok = graph.Lexical(subject, rdf.OpenSysML+"positionalName")
+			}
+			if !ok {
+				t.Errorf("%s: subject %s has no qualified name or positional name", path, subject.Value)
 				continue
 			}
 			if want := rdf.Element + rdf.EncodeElementID(qname); subject.Value != want {

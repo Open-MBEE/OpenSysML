@@ -26,6 +26,7 @@ import {
   CAPABILITY_PARSE_SOURCES_AFFECTED,
   CAPABILITY_PERFORMER,
   CAPABILITY_STATE_TRACE,
+  CAPABILITY_ACTION_TRACE,
   CAPABILITY_QUERY,
   CAPABILITY_QUERY_ORDER_BY,
   CAPABILITY_OSLC_QUERY,
@@ -923,17 +924,29 @@ export class Connection {
       draws?: string;
       /** Seconds the run's clock ticks by (`sysml -clock-step`); 0 is continuous. */
       clockStep?: number;
+      /** Return the run's typed trace (token steps, waits, accepts, decisions, assignments, completion); needs `action_trace`. */
+      trace?: boolean;
+      /** Signals to post to the performer in order, each once every token of the run waits, as the REPL's `%send` does; needs `performer`. */
+      events?: readonly string[];
     } = {},
   ): Promise<{
     outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     performer: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     finalTime: number;
+    /** The run's records when `trace` was asked for, in order. */
+    trace: DocumentEvent[];
+    traceDropped: number;
     /** Output name → how many of the run's unresolved choice points touch it; the
      * value then stands only up to the order the run took, and `exploreAction`
      * shows the set. Absent for an output nothing order-dependent wrote. */
     orderDependent: ReadonlyMap<string, number>;
   }> {
     refuseExploring(options.schedule, "exploreAction");
+    if ((options.events?.length ?? 0) > 0 && !options.performer) {
+      throw new InvalidRequestError(
+        "events are posted to the object performing the action: name one with performer",
+      );
+    }
     const response = await this.sendExecuteAction(
       modelHash,
       actionSymbolId,
@@ -944,12 +957,16 @@ export class Connection {
         response.error,
         "unspecified",
         response.diagnostics.map(decodeDiagnostic),
+        response.trace.map(documentEventOf),
+        response.traceDropped,
       );
     }
     return {
       outputs: valuesMap(Object.entries(response.outputs)),
       performer: valuesMap(Object.entries(response.performerAttributes)),
       finalTime: response.finalTime,
+      trace: response.trace.map(documentEventOf),
+      traceDropped: response.traceDropped,
       orderDependent: new Map(Object.entries(response.orderDependent)),
     };
   }
@@ -983,6 +1000,8 @@ export class Connection {
       seed?: bigint;
       draws?: string;
       clockStep?: number;
+      trace?: boolean;
+      events?: readonly string[];
     },
   ): Promise<ExecuteActionResponse> {
     const inputs: Record<string, ReturnType<typeof toValue>> = {};
@@ -992,6 +1011,8 @@ export class Connection {
     const capabilities = this.runCapabilities(
       options.schedule,
       options.performer,
+      options.trace,
+      CAPABILITY_ACTION_TRACE,
     );
     const response = await callRpc(
       this.rpc.executeAction(
@@ -1005,6 +1026,8 @@ export class Connection {
           seed: options.seed,
           draws: options.draws ?? "",
           clockStep: options.clockStep ?? 0,
+          trace: options.trace ?? false,
+          events: [...(options.events ?? [])],
         }),
         this.callOptions(),
       ),
@@ -1873,13 +1896,14 @@ export class Connection {
     schedule: string | undefined,
     performer: string | undefined,
     trace = false,
+    traceCapability = CAPABILITY_STATE_TRACE,
   ): string[] {
     const capabilities = scheduleCapabilities(schedule);
     if (performer !== undefined && performer !== "") {
       capabilities.push(CAPABILITY_PERFORMER);
     }
     if (trace) {
-      capabilities.push(CAPABILITY_STATE_TRACE);
+      capabilities.push(traceCapability);
     }
     for (const capability of capabilities) {
       requireCapability(this.info, capability, upgradeRemedy(capability));

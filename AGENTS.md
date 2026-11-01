@@ -211,8 +211,18 @@ the full CI tier is expensive, so run them locally before the PR, every time the
    into `docs/project/pilot-differential.md` / `api-json-differential.md`, then re-record with
    `-update` and run `make docs-counts`. A library change that adds declarations always moves
    `pilotLibraryElements`; anything else moving is an implementation difference to explain.
+### 6.2 Changing `internal/translate/export`: the api-json writer provenance
 
-### 6.2 Keeping the agent skills current
+The api-json baseline's `api-json-writer` provenance digests **every non-test `.go` file of
+`internal/translate/export`** — the RDF/api-json writer *and* the reverse converter
+(`rdf_in*.go`), element ids, names, addresses — so any commit touching that package, however
+small, moves the digest and turns the `rest` shard red on `TestCommittedBaselineStatesThisRepositorysProvenance`.
+Before pushing such a commit (including a review fix pushed after a re-record): run
+`go run -C tools ./cmd/pilot-apijson-diff -update` over the real corpus directories, confirm that
+only `sourceDigest` moved (account for anything else in `docs/project/api-json-differential.md`),
+and run `go test -C tools -count=1 ./referee/apijson` as the pre-push check.
+
+### 6.3 Keeping the agent skills current
 
 The skills that teach a coding agent to *use* OpenSysML live in their own repository,
 [`Open-MBEE/OpenSysML-MDK-Skills`](https://github.com/Open-MBEE/OpenSysML-MDK-Skills): one
@@ -308,7 +318,7 @@ Bug-fix discipline (small, scoped diffs) does **not** apply to feature work. For
 4. **Implement layer by layer**, keeping `go build ./...` and `go vet ./...` green at each step.
 5. **Handle all cases explicitly.** Every unsupported path returns a typed error with a clear message — never a silent no-op, panic, or wrong result.
 6. **Remove interim scaffolding** (bridges, temporary fields, debug prints, dead code) before finishing.
-7. **Verify the full gate** (§2), **update `docs/project/spec-compliance.md`** with honest status flags, and **update the agent skills** the feature's surface is described in (§6.2).
+7. **Verify the full gate** (§2), **update `docs/project/spec-compliance.md`** with honest status flags, and **update the agent skills** the feature's surface is described in (§6.3).
 
 **When a feature is genuinely too large to finish correctly in one pass:** stop and flag it. Deliver a correct, complete *subset* with the remaining scope explicitly documented as known limitations + failing/`t.Skip`-with-reason tests or a `known_failures` entry. Never fake completeness.
 

@@ -326,7 +326,7 @@ elmt:Payloads__Ctx__y_om
 
 elmt:Payloads__Ctx___402
     a sysml:FlowUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@2" ;
+    sysx:positionalName "Payloads::Ctx::@2" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -510,7 +510,7 @@ expr:Payloads__Ctx___402_pend1_pff_om
 
 elmt:Payloads__Ctx___402__fuel
     a sysml:PayloadFeature ;
-    sysml:qualifiedName "Payloads::Ctx::@2::fuel" ;
+    sysx:positionalName "Payloads::Ctx::@2::fuel" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -543,7 +543,7 @@ elmt:Payloads__Ctx___402__fuel_om
 
 elmt:Payloads__Ctx___402__w
     a sysml:AttributeUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@2::w" ;
+    sysx:positionalName "Payloads::Ctx::@2::w" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "47"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -813,7 +813,7 @@ elmt:Payloads__Ctx__m__cmd_om
 
 elmt:Payloads__Ctx___404
     a sysml:FlowUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@4" ;
+    sysx:positionalName "Payloads::Ctx::@4" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -1015,7 +1015,7 @@ expr:Payloads__Ctx___404_pend1_prs
 
 elmt:Payloads__Ctx___404__cmd
     a sysml:PayloadFeature ;
-    sysml:qualifiedName "Payloads::Ctx::@4::cmd" ;
+    sysx:positionalName "Payloads::Ctx::@4::cmd" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "20"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -1195,7 +1195,7 @@ expr:Payloads__Ctx___404__cmd_pvalue_om
 
 elmt:Payloads__Ctx___404__w
     a sysml:AttributeUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@4::w" ;
+    sysx:positionalName "Payloads::Ctx::@4::w" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "57"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;

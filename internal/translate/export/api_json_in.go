@@ -93,7 +93,7 @@ func apiJSONGraphWithQualifiedNames(
 			continue
 		}
 		subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
-		if graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+		if hasAddress(graph, subject) {
 			continue
 		}
 		if qualifiedNameIndex := slices.Index(object.mappingPropertyOrder, "qualifiedName"); qualifiedNameIndex >= 0 {
@@ -179,17 +179,17 @@ func apiJSONGraphWithQualifiedNames(
 	for i, triple := range triples {
 		position := apiJSONQualifiedNamePosition{triple.Subject, triple.Predicate.Value}
 		if name, ok := before[position]; ok && !emitted[position] {
-			builder.Add(triple.Subject, rdf.SysMLTerm(pQualifiedName), rdf.String(name))
+			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
 			emitted[position] = true
 		}
 		builder.AddTriple(triple)
 		if name, ok := afterType[triple.Subject]; ok && triple.Predicate.Value == rdf.RDFType {
-			builder.Add(triple.Subject, rdf.SysMLTerm(pQualifiedName), rdf.String(name))
+			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
 			delete(afterType, triple.Subject)
 		}
 		if name, ok := after[position]; ok &&
 			(i+1 == len(triples) || triples[i+1].Subject != triple.Subject || triples[i+1].Predicate.Value != triple.Predicate.Value) {
-			builder.Add(triple.Subject, rdf.SysMLTerm(pQualifiedName), rdf.String(name))
+			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
 		}
 	}
 	return builder.Build()
@@ -1176,7 +1176,8 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 					object.specQualifiedName = mappingQualifiedNameFromSpec(name)
 					object.hasSpecQualifiedName = true
 				}
-			case apiJSONMappingQualifiedNameKey:
+			case apiJSONMappingQualifiedNameKey, "sysx:" + xPositionalName:
+				// Either key is the element's address in this mapping.
 				if name, ok := value.(string); ok && name != "" {
 					object.mappingQualifiedName = name
 				}

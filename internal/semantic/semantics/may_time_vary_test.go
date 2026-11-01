@@ -14,7 +14,8 @@ import (
 // specializes Actions::Action does not vary in time; a performed action and an
 // exhibited state are referential by the notation, so they do; a required or
 // assumed constraint is the ConstraintUsage its member declares; a flow's
-// payload is a PayloadFeature, no usage, and never varies in time.
+// payload is a PayloadFeature, no usage, and never varies in time; a variant's
+// VariantMembership is no FeatureMembership, so it has no owningType.
 func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 	src := `package Vary {
 	state def S;
@@ -23,6 +24,7 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 	requirement r : R { require constraint c2 { true } assume constraint c4 { true } constraint c3 { true } }
 	item def Fuel;
 	part def Car { part tank; part eng; flow fuelFlow of fuel : Fuel from tank to eng; }
+	variation part def EngineChoices :> Engine { variant part e4 : Engine; variant part e6 : Engine; part plain : Engine; }
 	attribute values : Real[*];
 	attribute positives = values->select { in v : Real; v > 0 };
 }
@@ -43,6 +45,10 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 		car, ok := vary.Scope.LookupLocal("Car")
 		if !ok || car.Scope == nil {
 			t.Fatal("Vary::Car not found")
+		}
+		choices, ok := vary.Scope.LookupLocal("EngineChoices")
+		if !ok || choices.Scope == nil {
+			t.Fatal("Vary::EngineChoices not found")
 		}
 		flow, ok := car.Scope.LookupLocal("fuelFlow")
 		if !ok || flow.Scope == nil {
@@ -71,6 +77,7 @@ func TestMayTimeVaryReadsTheEffectiveComposite(t *testing.T) {
 			{engine, "generateTorque", true}, {engine, "s", true}, {engine, "own", false},
 			{r, "c2", true}, {r, "c4", true}, {r, "c3", true},
 			{car, "fuelFlow", false}, {flow, "fuel", false},
+			{choices, "e4", false}, {choices, "e6", false}, {choices, "plain", true},
 		} {
 			sym, ok := c.owner.Scope.LookupLocal(c.name)
 			if !ok {
@@ -170,4 +177,66 @@ func buildModelWithLibraryNamedKind(t *testing.T, name string, kind source.Kind,
 	r.SetModel(m)
 	r.ResolveDocument(name, root)
 	return m, idx.DocumentRoot(name)
+}
+
+func TestConnectorEndMayTimeVaryFromItsConnector(t *testing.T) {
+	const src = `package P {
+		part def D {
+			part a;
+			part b;
+			connection c connect a to b;
+			succession s first a then b;
+		}
+	}`
+	m, root := buildModelWithLibraryNamedKind(t, "ends.sysml", source.KindSysML, src)
+	p, ok := root.LookupLocal("P")
+	if !ok {
+		t.Fatal("P not found")
+	}
+	d, ok := p.Scope.LookupLocal("D")
+	if !ok {
+		t.Fatal("P::D not found")
+	}
+	// A connection is an Occurrence, so its ends vary in time; a succession is
+	// no Occurrence, so its ends do not.
+	for name, want := range map[string]bool{"c": true, "s": false} {
+		connector, ok := d.Scope.LookupLocal(name)
+		if !ok || connector.Scope == nil {
+			t.Fatalf("P::D::%s not found", name)
+		}
+		ends := 0
+		connector.Scope.ForEachMember(func(end *symbols.Symbol) bool {
+			if end.Kind != symbols.SymbolConnectorEnd {
+				return true
+			}
+			ends++
+			if got := m.UsageMayTimeVary(end); got != want {
+				t.Errorf("%s end %d: mayTimeVary = %v, want %v", name, ends, got, want)
+			}
+			if got := m.UsageMayTimeVaryForOwningType(end, connector); got != want {
+				t.Errorf("%s end %d: mayTimeVary for owning type = %v, want %v", name, ends, got, want)
+			}
+			if got := m.FeatureIsVariable(end); got != want {
+				t.Errorf("%s end %d: isVariable = %v, want %v", name, ends, got, want)
+			}
+			// An end that varies in time is constant (KerML 1.0 §8.3.3.3.4).
+			if got := m.FeatureIsConstant(end); got != want {
+				t.Errorf("%s end %d: isConstant = %v, want %v", name, ends, got, want)
+			}
+			if got, ok := m.ReflectiveFeatureValues(end, "isConstant"); !ok || len(got) != 1 || got[0].Bool != want {
+				t.Errorf("%s end %d: reflective isConstant = %v, %v; want [%v]", name, ends, got, ok, want)
+			}
+			ro := m.FeatureReadOnly(end)
+			if want && (ro.Kind != ReadOnlyConstant || !ro.ImpliedByEnd || ro.Declared != end) {
+				t.Errorf("%s end %d: read-only = %+v, want constant implied by the end itself", name, ends, ro)
+			}
+			if !want && ro.Kind != 0 {
+				t.Errorf("%s end %d: read-only = %+v, want writable", name, ends, ro)
+			}
+			return true
+		})
+		if ends != 2 {
+			t.Errorf("%s: %d ends, want 2", name, ends)
+		}
+	}
 }

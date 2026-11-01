@@ -129,12 +129,15 @@ for (Outcome outcome : all.outcomes()) {
 `executeAction`/`executeState` run once and answer an `ActionRun` (`outputs`,
 `finalTime`, `diagnostics`) or a `StateRun` (`statesVisited`, `finalContext`,
 `finalTime`, `diagnostics`). `finalTime` is filled only by a service advertising
-`final_time`. `ExecutionOptions` carries a `schedule`, a `performer`, and the
-state-run-only `withTrace()` option. The client checks their respective
-capabilities (`schedule`, `performer`, `state_trace`) before the call; an unknown
+`final_time`. `ExecutionOptions` carries a `schedule`, a `performer`, `withTrace()` and, for an
+action, `withEvents(...)` — signals posted to the performer in order, each once
+every token waits. The client checks their respective capabilities (`schedule`,
+`performer`, `state_trace` or `action_trace`) before the call; an unknown
 schedule or trace with exploration is refused as `INVALID_ARGUMENT`. A requested
-trace is returned as typed `DocumentEvent` values in `StateRun.trace()` with
-`traceDropped()` reporting records discarded by the service's bound.
+trace is returned as typed `DocumentEvent` values in `StateRun.trace()` or
+`ActionRun.trace()` (token steps, waits, accepts, decisions, assignments with
+`feature()` and `value()`) with `traceDropped()` reporting records discarded by
+the service's bound.
 `ExecutionOptions` also carries the run options of the `sysml` command: `withAdvance(seconds)`
 runs for a simulated duration and reports the clock in `finalTime`, `withSeed(n)` seeds the
 model's own draws, `withDraws("min")` (or `"max"`, `"average"`, `"random"`) chooses how they

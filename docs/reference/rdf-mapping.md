@@ -127,7 +127,17 @@ Qualified-name segments keep their bare spelling unless a name would read back
 as a position — `@` followed by a canonical non-negative integer — or contains
 `::` or begins with a literal `'`. Those names use unrestricted-name quotes,
 so the named member `P::'@2'` remains distinct from the positional identity
-`P::@2`. Names that need no quotes keep their existing IRI spelling. For example,
+`P::@2`. Names that need no quotes keep their existing IRI spelling.
+
+An element's address is stated by one of two predicates. A named element whose
+owners are all named states its qualified name as `sysml:qualifiedName`, the
+property the metamodel derives (KerML §8.3.2.1). An unnamed element, or any
+element owned under one, has no qualified name in the metamodel — the
+derivation needs a name and an owning namespace that has a qualified name —
+so its address, with a positional segment (`P::@2`, `P::@2::x`), is stated as
+`sysx:positionalName` instead, and `sysml:qualifiedName` is absent, as the
+pilot implementation's API leaves it null. The IRI encodes the address either
+way, and a reader of this mapping takes either predicate for the address. For example,
 `P::'@2'` encodes as `P___27_402_27`. Inside the quotes, `\` and `'` are
 backslash-escaped.
 
@@ -619,6 +629,7 @@ The `sysx:` properties:
 
 | Property | Why it exists |
 |----------|---------------|
+| `sysx:positionalName` | The address of an element the metamodel derives no `qualifiedName` for: an unnamed element, or one owned under an unnamed element, is named by its position among its owner's members (`P::@2`, `P::@2::x`), and that address is what its IRI encodes. Stating it under `sysml:qualifiedName` would assert a qualified name the metamodel leaves null. |
 | `sysx:memberIndex` | Declaration order. The notation is sensitive to the order of members; an RDF graph is an unordered set, so the index is what lets a conversion back to notation reproduce the original sequence. |
 | `sysx:hasBody` | Distinguishes `part def A;` from `part def A { }`, which are different source and would otherwise convert back identically. Also marks an expression body node, so `{}` rebuilds from structure. |
 | `sysx:sourceText`, `sysx:sourceTail` | The element's lines as written, comments and blank lines included, which a conversion back to notation prefers while they still state what the graph states. An element with members carries the lines ahead of them as its text and those after them as its tail. See [Source text](#source-text). |
@@ -1341,7 +1352,7 @@ that states it as both `sysml:memberElement` and `sysml:ownedResultExpression`:
 ```turtle
 elmt:P__Double___401
     a sysml:OperatorExpression ;
-    sysml:qualifiedName "P::Double::@1" ;
+    sysx:positionalName "P::Double::@1" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningMembership elmt:P__Double___401_om ;
     sysml:operator "*" ;
@@ -1997,7 +2008,8 @@ prefix carrying a name, an `about` clause or a body (the grammar's
 first member with the name keeps the qualified name, as the language's own
 naming rule fixes it, and each later one is identified by its position among
 the owner's members — `Demo::Dup` then `Demo::@2` for two `part def Dup` at
-positions 0 and 2 — the same name a member declared unnamed takes. A member
+positions 0 and 2 — the same address a member declared unnamed takes, stated
+as `sysx:positionalName`. A member
 declared unnamed but named by its naming feature (`part :>> engine;`,
 `perform a;`) is `Demo::car::engine`, not `Demo::car::@0`, and a later member
 deriving a name already taken is positioned like a later duplicate. Both

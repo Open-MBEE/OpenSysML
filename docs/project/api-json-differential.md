@@ -112,10 +112,10 @@ Elements are matched by a **stable key**, computed identically on both sides:
   owned related elements, in order, which is how the metamodel derives `ownedElement`;
 - a document's root elements by the document: `/<file>/<metaclass>#i`.
 
-A positional name this repository's writer spells for an unnamed element (`Demo::@1`,
+A positional address this repository's writer spells for an unnamed element (`Demo::@1`,
 `Legacy::@4::@trigger`) is not a name — the metamodel derives no `qualifiedName` for an unnamed
-element — so such an element is keyed structurally and its stated `qualifiedName` is measured
-against the pilot's null. Identical copies of one element on a side are one element (the pilot
+element, and the writer states the address as `sysx:positionalName`, not as `qualifiedName` — so
+such an element is keyed structurally, and its `qualifiedName` is measured as the pilot's null. Identical copies of one element on a side are one element (the pilot
 writes an element in every file whose traversal reaches it; `duplicateElements`); elements two of
 which compute one key but differ are dropped from matching (`ambiguousKeys`); elements no key
 addresses (`unkeyableElements`: on the pilot's side the ownerless connectors it synthesizes and
@@ -230,17 +230,17 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 924 files)
 
-**Scorecard:** 932 files; 92426 elements matched (18479 ours-only, 37741 pilot-only, 0 of them implied); properties: 1144068 present-equal, 28091 present-different, 1054265 ours-missing, 69343 pilot-missing, 1967116 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
+**Scorecard:** 932 files; 92426 elements matched (18479 ours-only, 37741 pilot-only, 0 of them implied); properties: 1144182 present-equal, 27977 present-different, 1054265 ours-missing, 69343 pilot-missing, 1967116 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 28 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11728 (metaclass, property) rows carry a comparison; 111690 references compared through the unkeyed sentinel, 159865 of our `sysx:` annotations were left out, and 287/347 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 92397 | 1876 | 84784 | 5126 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 26536 | 6150 | 9580 | 334904 | 7833 | 305987 | 19290 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 116560 | 3240 | 106662 | 6811 |
+| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 92405 | 1868 | 84784 | 5126 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 26536 | 6150 | 9580 | 334958 | 7779 | 305987 | 19290 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 116604 | 3196 | 106662 | 6811 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6399 | 1166 | 1842 | 74444 | 2504 | 63871 | 6503 |
-| `examples/spec-examples` | 511 | 7074 | 990 | 2656 | 78054 | 1613 | 72909 | 5549 |
+| `examples/spec-examples` | 511 | 7074 | 990 | 2656 | 78062 | 1605 | 72909 | 5549 |
 | `tests/testdata` | 40 | 1460 | 175 | 511 | 16776 | 428 | 15647 | 1057 |
 | `examples` | 53 | 26937 | 6046 | 15045 | 340337 | 8502 | 315526 | 20150 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 557 | 1 | 452 | 41 |

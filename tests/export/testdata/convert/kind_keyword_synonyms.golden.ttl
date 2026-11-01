@@ -236,7 +236,7 @@ elmt:Synonyms__note_om
 
 elmt:Synonyms___407
     a sysml:AllocationUsage ;
-    sysml:qualifiedName "Synonyms::@7" ;
+    sysx:positionalName "Synonyms::@7" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -709,7 +709,7 @@ elmt:Synonyms__Dashboard__display_om
 
 elmt:Synonyms__Dashboard___401
     a sysml:RenderingUsage ;
-    sysml:qualifiedName "Synonyms::Dashboard::@1" ;
+    sysx:positionalName "Synonyms::Dashboard::@1" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "21"^^xsd:integer ;

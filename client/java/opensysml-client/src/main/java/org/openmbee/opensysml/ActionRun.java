@@ -19,7 +19,9 @@ public record ActionRun(
     Map<String, Value> outputs,
     OptionalDouble finalTime,
     List<Diagnostic> diagnostics,
-    Map<String, Value> performer) {
+    Map<String, Value> performer,
+    List<DocumentValue.DocumentEvent> trace,
+    int traceDropped) {
 
   /**
    * Creates an action run, copying its collections.
@@ -28,12 +30,31 @@ public record ActionRun(
    * @param finalTime the final time, when reported
    * @param diagnostics the diagnostics
    * @param performer the performer's attributes by outcome key
+   * @param trace the run's records when a trace was asked for, in order
+   * @param traceDropped oldest trace records the service discarded
    */
   public ActionRun {
     outputs = Map.copyOf(outputs);
     Objects.requireNonNull(finalTime, "finalTime");
     diagnostics = List.copyOf(diagnostics);
     performer = Map.copyOf(performer);
+    trace = List.copyOf(trace);
+  }
+
+  /**
+   * Creates an untraced action run.
+   *
+   * @param outputs the outputs by name
+   * @param finalTime the final time, when reported
+   * @param diagnostics the diagnostics
+   * @param performer the performer's attributes by outcome key
+   */
+  public ActionRun(
+      Map<String, Value> outputs,
+      OptionalDouble finalTime,
+      List<Diagnostic> diagnostics,
+      Map<String, Value> performer) {
+    this(outputs, finalTime, diagnostics, performer, List.of(), 0);
   }
 
   /**

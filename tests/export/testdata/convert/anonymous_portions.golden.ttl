@@ -509,7 +509,7 @@ expr:AnonymousPortions__car__done__fuel_pvalue_om
 
 elmt:AnonymousPortions__car___403
     a sysml:OccurrenceUsage ;
-    sysml:qualifiedName "AnonymousPortions::car::@3" ;
+    sysx:positionalName "AnonymousPortions::car::@3" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -539,7 +539,7 @@ elmt:AnonymousPortions__car___403_om
 
 elmt:AnonymousPortions__car___404
     a sysml:OccurrenceUsage ;
-    sysml:qualifiedName "AnonymousPortions::car::@4" ;
+    sysx:positionalName "AnonymousPortions::car::@4" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;

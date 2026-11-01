@@ -41,6 +41,11 @@ var eventKinds = map[string]runtime.TraceKind{
 	"choice":     runtime.TraceChoice,
 	"guard":      runtime.TraceGuard,
 	"terminate":  runtime.TraceTerminate,
+	"step":       runtime.TraceStep,
+	"wait":       runtime.TraceWait,
+	"assign":     runtime.TraceAssign,
+	"decide":     runtime.TraceDecide,
+	"complete":   runtime.TraceComplete,
 }
 
 // EventsFromTrace converts documented trace records into rows in run order.
@@ -357,6 +362,12 @@ func eventName(record runtime.TraceRecord) string {
 		return record.To
 	case runtime.TraceEntry, runtime.TraceExit, runtime.TraceDo:
 		return record.State
+	case runtime.TraceStep, runtime.TraceDecide:
+		return record.To
+	case runtime.TraceWait:
+		return record.Event
+	case runtime.TraceAssign:
+		return record.Feature
 	case runtime.TraceChoice:
 		if choice, ok := record.Note.(runtime.ChoicePoint); ok {
 			return choice.Kind.String()

@@ -110,6 +110,14 @@ const (
 	// (§7.6.3). It is an attribute usage for every purpose but the metaclass it
 	// names.
 	SymbolReferenceUsage
+	// SymbolExpression classifies an expression the abstract syntax holds as an
+	// element of its own (a feature's value, an operand, a result parameter),
+	// which the reflective layer synthesizes from the notation's expression node.
+	// It is last: the stdlib snapshot records kinds by number.
+	SymbolExpression
+	// SymbolKerMLFeature classifies a KerML Feature the reflective layer
+	// synthesizes without a declaration: an expression's parameter.
+	SymbolKerMLFeature
 )
 
 var symbolKindNames = map[SymbolKind]string{
@@ -119,6 +127,8 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolAlias:                   "alias",
 	SymbolDependency:              "dependency",
 	SymbolRelationship:            "relationship",
+	SymbolExpression:              "expression",
+	SymbolKerMLFeature:            "feature",
 	SymbolMultiplicity:            "multiplicity",
 	SymbolComment:                 "comment",
 	SymbolDocumentation:           "documentation",
@@ -210,7 +220,8 @@ func (k SymbolKind) IsFeature() bool {
 		SymbolAllocationUsage, SymbolActionUsage, SymbolStateUsage, SymbolCalcUsage,
 		SymbolConstraintUsage, SymbolRequirementUsage, SymbolSatisfyRequirementUsage,
 		SymbolCaseUsage, SymbolAnalysisCaseUsage, SymbolVerificationCaseUsage, SymbolUseCaseUsage,
-		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity, SymbolReferenceUsage:
+		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity, SymbolReferenceUsage,
+		SymbolKerMLFeature:
 		return true
 	}
 	return false
@@ -356,6 +367,10 @@ type Symbol struct {
 	// Facts is the derived analysis installed for a library symbol, a memo of
 	// work its declaration would otherwise repeat. Nil for everything else.
 	Facts *LibraryFacts
+
+	// Expr is set on a symbol the reflective layer synthesizes for an
+	// expression element (SymbolExpression); nil for a declared symbol.
+	Expr *ExpressionElement
 
 	// ShortName is the short name from Identification (e.g., "kg" for "kilogram").
 	// Empty if the declaration states none.

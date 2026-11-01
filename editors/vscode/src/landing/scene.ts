@@ -1,7 +1,8 @@
 import type { RenderResult } from "../protocol";
-import type { LandingModel, LandingPart } from "./model";
-import { presentedPhases, presentedStack, stackTone } from "./present";
+import type { LandingActionNode, LandingModel, LandingPart, LandingState } from "./model";
+import { missionTone, phaseTone, presentedMission, presentedPhases, presentedStack, stackTone } from "./present";
 import mass from "./mass.json";
+import mission from "./mission.json";
 import phases from "./phases.json";
 import stack from "./stack.json";
 
@@ -32,18 +33,35 @@ export interface SceneClock {
   advance: number;
 }
 
-export type SceneProgram = SceneJourney | SceneRollup | SceneClock;
+/** A scene whose Run performs an action on an object, posting events as the run waits, and animates the trace it records. */
+export interface SceneAction {
+  kind: "action";
+  /** The action ExecuteAction performs: `MissionSequence::LunarMission`. */
+  symbol: string;
+  /** The object performing it: `MissionSequence::apollo11`. */
+  performer: string;
+  /** The events posted to the performer in order, each once the run waits for it. */
+  events: readonly string[];
+}
+
+export type SceneProgram = SceneJourney | SceneRollup | SceneClock | SceneAction;
 
 /** The hero's fill for a box, one of the three the page defines; a box with none is drawn plain. */
 export type SceneTone = "primary" | "secondary" | "accent";
+
+/** A box the hero draws: a part of the root's composition, a state of its machine or a step of its action. */
+export type SceneBox =
+  | { kind: "part"; part: LandingPart }
+  | { kind: "state"; state: LandingState }
+  | { kind: "step"; step: LandingActionNode };
 
 /** A scene drawn as a diagram: the view's boxes and wires, laid out and movable. */
 export interface SceneDiagram {
   kind: "diagram";
   /** How the hero draws the model: the boxes' heads and detail lines. */
   present: (model: LandingModel, scene: Scene) => RenderResult;
-  /** The tone a part's box is filled with; undefined leaves it plain. */
-  tone: (part: LandingPart, scene: Scene) => SceneTone | undefined;
+  /** The tone a box is filled with; undefined leaves it plain. */
+  tone: (box: SceneBox, scene: Scene) => SceneTone | undefined;
   /** The file name Download PNG saves the drawing under. */
   pngName: string;
 }
@@ -173,7 +191,7 @@ export const MISSION_PHASES_SCENE: Scene = {
   show: ["edge-labels"],
   snapshot: phases,
   controls: ["run", "edit", "debug", "download"],
-  form: { kind: "diagram", present: presentedPhases, tone: () => undefined, pngName: "mission-phases.png" },
+  form: { kind: "diagram", present: presentedPhases, tone: phaseTone, pngName: "mission-phases.png" },
   program: { kind: "clock", symbol: "MissionSequence::MissionPhases", performer: "MissionSequence::mission", advance: 400000 },
   variants: [
     {
@@ -188,7 +206,52 @@ export const MISSION_PHASES_SCENE: Scene = {
   ],
 };
 
-export const SCENES: readonly Scene[] = [STACK_SCENE, MASS_ROLLUP_SCENE, MISSION_PHASES_SCENE];
+const LUNAR_MISSION = "#action:MissionSequence::LunarMission";
+
+export const LUNAR_MISSION_SCENE: Scene = {
+  id: "apollo",
+  title: "Apollo 11 mission",
+  description: "A lunar mission's steps as an action the engine performs, with the velocity budget left after each burn",
+  documentName: "mission-sequence.sysml",
+  rootSymbol: "MissionSequence::apollo11",
+  view: LUNAR_MISSION,
+  show: ["edge-labels"],
+  snapshot: mission,
+  controls: ["run", "edit", "debug", "download"],
+  form: { kind: "diagram", present: presentedMission, tone: missionTone, pngName: "lunar-mission.png" },
+  program: { kind: "action", symbol: "MissionSequence::LunarMission", performer: "MissionSequence::apollo11", events: [] },
+  variants: [
+    {
+      id: "go",
+      label: "Send GoForDescent",
+      activeLabel: "Hold at awaitGo",
+      rootSymbol: "MissionSequence::apollo11",
+      view: LUNAR_MISSION,
+      hint: "Run now posts GoForDescent to Apollo 11 once the accept at awaitGo waits for it, and the run goes on through descent, surfaceOperations, ascent and the return.",
+      program: { kind: "action", symbol: "MissionSequence::LunarMission", performer: "MissionSequence::apollo11", events: ["GoForDescent"] },
+    },
+    {
+      id: "apollo8",
+      label: "Fly Apollo 8",
+      activeLabel: "Fly Apollo 11",
+      rootSymbol: "MissionSequence::apollo8",
+      view: LUNAR_MISSION,
+      hint: "Apollo 8 flies the same action with a 5500 m/s budget: the decide at landingGo takes whichever branch the engine's guard allows.",
+      program: { kind: "action", symbol: "MissionSequence::LunarMission", performer: "MissionSequence::apollo8", events: [] },
+    },
+    {
+      id: "unordered",
+      label: "Remove the start",
+      activeLabel: "Restore the start",
+      rootSymbol: "MissionSequence::apollo11",
+      view: "#action:MissionSequence::LunarMissionUnordered",
+      hint: "LunarMissionUnordered declares three steps with no first and no then: Run shows what the engine makes of an action with no starting step.",
+      program: { kind: "action", symbol: "MissionSequence::LunarMissionUnordered", performer: "MissionSequence::apollo11", events: [] },
+    },
+  ],
+};
+
+export const SCENES: readonly Scene[] = [STACK_SCENE, MASS_ROLLUP_SCENE, MISSION_PHASES_SCENE, LUNAR_MISSION_SCENE];
 
 /** requiredVariant is the variant `variant` builds on; undefined when it stands alone. */
 export function requiredVariant(scene: Scene, variant: SceneVariant): SceneVariant | undefined {

@@ -424,6 +424,28 @@ func TestInstantiateReportsTheObject(t *testing.T) {
 	}
 }
 
+func TestExecuteActionTraceReportsTheRunsRecords(t *testing.T) {
+	h := attach(t, newService(t))
+	hash := h.parse()
+	var resp pb.ExecuteActionResponse
+	_, out := h.ok("execute_action", map[string]any{
+		"modelHash": hash, "actionSymbolId": "Demo::Count", "inputs": map[string]any{"lo": value("intValue", "41")}, "trace": true,
+	}, &resp)
+	kinds := make([]string, 0, len(resp.GetTrace()))
+	for _, ev := range resp.GetTrace() {
+		kinds = append(kinds, ev.GetKind())
+	}
+	if resp.GetError() != "" || !slices.Contains(kinds, "step") || !slices.Contains(kinds, "complete") {
+		t.Errorf("traced Count(41): kinds %v, error %q\n%s", kinds, resp.GetError(), out)
+	}
+	if !strings.Contains(out, "trace:\n") {
+		t.Errorf("text lacks the trace:\n%s", out)
+	}
+	if msg := h.fails("execute_action", map[string]any{"modelHash": hash, "actionSymbolId": "Demo::Count", "events": []string{"Go"}}); !strings.Contains(msg, "INVALID_ARGUMENT") {
+		t.Errorf("events without a performer: %s", msg)
+	}
+}
+
 func TestExecuteActionBindsInputsAndReportsOutputs(t *testing.T) {
 	h := attach(t, newService(t))
 	hash := h.parse()

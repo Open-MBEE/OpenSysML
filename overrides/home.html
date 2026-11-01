@@ -261,7 +261,7 @@
       stroke: #181818;
       stroke-width: 1;
     }
-    /* A scene tones its boxes: the stack by kind, the roll-up by what the engine found. */
+    /* A scene tones its boxes: the stack by kind, a behavior by what each node is. */
     .osml-diagram g[data-osml-tone="primary"] > .shape,
     .osml-diagram g[data-osml-tone="primary"] .port-shape { fill: #e3f2fd; stroke: #1565c0; }
     .osml-diagram g[data-osml-tone="primary"] .keyword { fill: #1565c0; }
@@ -378,13 +378,25 @@
     .osml-nodecard__close:hover { opacity: 1; }
     /* A run of the model: the token travels the wires the execution crossed. */
     .osml-diagram g.osml-part.is-live > .shape,
-    .osml-diagram g.osml-state.is-live > .shape {
+    .osml-diagram g.osml-state.is-live > .shape,
+    .osml-diagram g.osml-step.is-live > .shape {
       stroke: #ffd54f;
       stroke-width: 3;
     }
     .osml-diagram g.osml-part.is-live,
-    .osml-diagram g.osml-state.is-live {
+    .osml-diagram g.osml-state.is-live,
+    .osml-diagram g.osml-step.is-live {
       filter: drop-shadow(0 0 .5rem #ffd54f);
+    }
+    /* A value an action run assigned, written under the step that assigned it as the trace reports it. */
+    .osml-diagram text.osml-value {
+      font-size: 11px;
+      font-weight: 600;
+      fill: #ffd54f;
+      paint-order: stroke;
+      stroke: rgba(13, 27, 62, .85);
+      stroke-width: 3px;
+      pointer-events: none;
     }
     .osml-diagram g.opensysml-edge.is-live .line {
       stroke: #ffd54f;
@@ -486,7 +498,10 @@
       flex-wrap: wrap;
       gap: .4rem;
       align-items: center;
-      margin-bottom: .45rem;
+      margin: 0 0 .45rem;
+      padding: 0;
+      border: 0;
+      min-width: 0;
     }
     .osml-debug__label { font-weight: 700; margin-right: .2rem; }
     .osml-debug button,
@@ -963,6 +978,7 @@
         <button type="button" role="tab" id="osml-tab-stack" data-osml-scene="stack" data-osml-model="{{ 'assets/opensysml-stack.sysml' | url }}" aria-selected="false" aria-controls="osml-schematic-stage" tabindex="-1">OpenSysML stack</button>
         <button type="button" role="tab" id="osml-tab-mass" data-osml-scene="mass" data-osml-model="{{ base_url }}/assets/repl-examples/mass-rollup.sysml" aria-selected="false" aria-controls="osml-schematic-stage" tabindex="-1">Saturn V mass roll-up</button>
         <button type="button" role="tab" id="osml-tab-phases" data-osml-scene="phases" data-osml-model="{{ base_url }}/assets/repl-examples/mission-sequence.sysml" aria-selected="false" aria-controls="osml-schematic-stage" tabindex="-1">Mission phases on the clock</button>
+        <button type="button" role="tab" id="osml-tab-apollo" data-osml-scene="apollo" data-osml-model="{{ base_url }}/assets/repl-examples/mission-sequence.sysml" aria-selected="false" aria-controls="osml-schematic-stage" tabindex="-1">Apollo 11 mission</button>
       </div>
       <div class="osml-schematic__stage" id="osml-schematic-stage" role="tabpanel" data-osml-stage>
         <div class="osml-schematic__zoom" role="group" aria-label="Zoom the diagram" data-osml-zoom hidden>
@@ -975,6 +991,7 @@
       <p class="osml-schematic__caption" data-osml-for="stack">One open interchange, two implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Zoom with the buttons, <kbd>Ctrl</kbd>+scroll or a pinch, and drag the background to pan. Edit the model and the engine redraws the diagram as you type.</p>
       <p class="osml-schematic__caption" data-osml-for="mass" hidden>A launch vehicle whose total mass is a recursive roll-up over its parts, listed one part per row. The masses are the model's; <code>totalMass</code> is the engine's: Run instantiates the stages and engines and fills the column from the engines up. Edit a mass and run again; add the instrument unit, whose mass the model leaves out on purpose, and the roll-up comes back undetermined, naming the missing value; give it its mass and it completes.</p>
       <p class="osml-schematic__caption" data-osml-for="phases" hidden>A lunar mission's phases as a state machine whose transitions fire on the clock: <code>after 9000 [s]</code> out of <code>prelaunch</code>, 270,000 s of translunar coast, and so on to recovery. Run performs the machine on the mission and advances the engine's simulated clock by 400,000 s; the trace the engine records lights each phase at the instant it was entered and walks the token along each transition as it fires, and the run stops on the surface with the machine still waiting there. Advance to 800,000 s instead and the last timed transition fires at t = 702,000 s, reaching <code>done</code>. Debug the run steps through the records one by one, clock instant included.</p>
+      <p class="osml-schematic__caption" data-osml-for="apollo" hidden>A lunar mission as an action: each burn is a step that assigns the velocity budget it leaves, <code>remaining</code>, and a <code>decide</code> lets the landing go only while enough is left. Run performs the action on Apollo 11 and replays the trace the engine records: the token moves step to step, each assigned <code>remaining</code> appears under the burn that wrote it, and the run stops at <code>awaitGo</code>, whose <code>accept</code> waits for a <code>GoForDescent</code> nothing has sent. Send GoForDescent and the run posts it to the waiting accept and goes on to splashdown; fly Apollo 8 and its smaller budget sends the decide the other way; remove the start and see what the engine makes of an action with no first step.</p>
       <div class="osml-schematic__run">
         <button type="button" class="osml-btn osml-btn--primary" data-osml-run>&#9654; Run the model</button>
         <button type="button" class="osml-btn" data-osml-source aria-expanded="false" aria-controls="osml-schematic-edit">Edit the model</button>
@@ -984,15 +1001,15 @@
         <p class="osml-schematic__status" data-osml-status aria-live="polite">This is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 9 MB, downloaded once).</p>
       </div>
       <div class="osml-debug" id="osml-schematic-debug" data-osml-debugger hidden>
-        <div class="osml-debug__bar" role="group" aria-label="Send an event to the state machine" data-osml-debug-events>
+        <fieldset class="osml-debug__bar" aria-label="Send an event to the state machine" data-osml-debug-events>
           <span class="osml-debug__label">Send</span>
           <button type="button" data-osml-send="Commit">Commit</button>
           <button type="button" data-osml-send="Pull">Pull</button>
           <button type="button" data-osml-send="Check">Check</button>
           <button type="button" data-osml-send="Push">Push</button>
           <button type="button" data-osml-debug-reset title="Start again with no events">Reset</button>
-        </div>
-        <div class="osml-debug__bar" role="group" aria-label="Step through the run">
+        </fieldset>
+        <fieldset class="osml-debug__bar" aria-label="Step through the run">
           <button type="button" data-osml-step-back aria-label="Step back">&#9664; Back</button>
           <button type="button" data-osml-play aria-pressed="false">&#9654; Play</button>
           <button type="button" data-osml-step aria-label="Step forward">Step &#9654;</button>
@@ -1008,16 +1025,17 @@
             <input type="number" min="0" step="1" inputmode="numeric" placeholder="none" data-osml-seed aria-describedby="osml-debug-seed-hint">
           </label>
           <button type="button" data-osml-reseed data-osml-debug-events>New seed</button>
-        </div>
+        </fieldset>
         <p class="osml-debug__hint" id="osml-debug-seed-hint" data-osml-for="stack">The start and each <code>Pull</code> out of Flexo are free choices; a seed picks each branch at random, the same way every time. Run picks a new random seed unless you set one, and shows it here so the debugger can replay that path. With no seed the debugger takes the engine's default branch.</p>
         <p class="osml-debug__hint" data-osml-for="phases" hidden>Each record carries the simulated instant the engine wrote it at; the machine makes no free choices, so the run is the same every time. Step through the records or play them to watch the clock advance.</p>
+        <p class="osml-debug__hint" data-osml-for="apollo" hidden>Each record names the token and the executor step it was written at; the events the run posts are the toggles under the stage. Step through the records to watch the token advance and each assignment land.</p>
         <p class="osml-debug__now" data-osml-debug-now aria-live="polite"></p>
         <p class="osml-debug__queue" data-osml-debug-events>Waiting events: <span data-osml-debug-queue>empty</span></p>
         <ol class="osml-debug__trace" data-osml-debug-trace aria-label="The run's trace"></ol>
       </div>
       <div class="osml-schematic__edit" id="osml-schematic-edit" data-osml-editor hidden>
         <textarea class="osml-schematic__src" data-osml-src spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="The diagram's SysML model" aria-describedby="osml-schematic-hint"></textarea>
-        <p class="osml-schematic__hint" id="osml-schematic-hint">The engine re-reads the model as you type. <span data-osml-for="stack">Try changing a <code>label</code> or <code>lang</code>, adding a <code>part</code> of type <code>Project</code>, connecting it with another <code>interface</code>, or deleting a <code>;</code> to see a diagnostic.</span><span data-osml-for="mass" hidden>Try changing an engine's <code>mass</code> or a stage's <code>propellantMass</code> and run the model again to see every total follow, giving the <code>InstrumentUnit</code> a <code>mass</code> of its own to settle the undetermined roll-up without the usage's, or deleting a <code>;</code> to see a diagnostic.</span><span data-osml-for="phases" hidden>Try changing a transition's <code>after</code> wait so a phase ends sooner or later, adding a <code>state</code> with a transition into it, or deleting a <code>;</code> to see a diagnostic.</span> <button type="button" data-osml-reset>Reset</button></p>
+        <p class="osml-schematic__hint" id="osml-schematic-hint">The engine re-reads the model as you type. <span data-osml-for="stack">Try changing a <code>label</code> or <code>lang</code>, adding a <code>part</code> of type <code>Project</code>, connecting it with another <code>interface</code>, or deleting a <code>;</code> to see a diagnostic.</span><span data-osml-for="mass" hidden>Try changing an engine's <code>mass</code> or a stage's <code>propellantMass</code> and run the model again to see every total follow, giving the <code>InstrumentUnit</code> a <code>mass</code> of its own to settle the undetermined roll-up without the usage's, or deleting a <code>;</code> to see a diagnostic.</span><span data-osml-for="phases" hidden>Try changing a transition's <code>after</code> wait so a phase ends sooner or later, adding a <code>state</code> with a transition into it, or deleting a <code>;</code> to see a diagnostic.</span><span data-osml-for="apollo" hidden>Try changing a burn's <code>assign remaining := remaining - …</code> or Apollo 11's <code>budget</code> so the decide at <code>landingGo</code> goes the other way, adding a step with a <code>then</code> into it, or deleting a <code>;</code> to see a diagnostic.</span> <button type="button" data-osml-reset>Reset</button></p>
       </div>
     </div>
 <script>

@@ -16,6 +16,7 @@ type ElementKey struct {
 	ordinal int  // which relationship of the owner, 0 for the element itself
 	form    int  // the ImplicitForm of that relationship
 	chain   bool // the feature that relationship's chain target denotes
+	implied int  // the ImpliedForm of an implied element plus one, 0 for a written one
 }
 
 // KeyOf is the identity of the element sym declares. A relationship written
@@ -37,7 +38,19 @@ func KeyOf(sym *Symbol) ElementKey {
 	case sym.DocName == "":
 		return ElementKey{sym: sym}
 	}
-	return ElementKey{doc: sym.DocName, span: sym.DeclSpan}
+	// An implied element shares the span of the declaration it is implied
+	// for (parsed or recorded), so its form tells the two apart.
+	return ElementKey{doc: sym.DocName, span: sym.DeclSpan, implied: impliedFormKey(sym)}
+}
+
+func impliedFormKey(sym *Symbol) int {
+	if decl, ok := ImpliedDeclOf(sym); ok {
+		return int(decl.Form) + 1
+	}
+	if sym.Recorded() && sym.Facts.Node == NodeConjugatedPortDef {
+		return int(ImpliedConjugatedPortDefinition) + 1
+	}
+	return 0
 }
 
 // String spells the key, distinct for distinct elements, for use in a name.
@@ -53,6 +66,9 @@ func (k ElementKey) String() string {
 		if k.form != 0 {
 			base = fmt.Sprintf("%s\x00f%d", base, k.form)
 		}
+	}
+	if k.implied != 0 {
+		base = fmt.Sprintf("%s\x00i%d", base, k.implied)
 	}
 	if k.chain {
 		return base + "\x00chain"

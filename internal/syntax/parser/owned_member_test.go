@@ -214,7 +214,7 @@ func TestMemberInsideOwningBodyStaysClean(t *testing.T) {
 		{"nested requirement", "requirement def R { requirement sub { actor a : Person; stakeholder s : Person; } }"},
 		{"concern def", "concern def C { subject v : V; actor a : Person; stakeholder s : Person; }"},
 		{"viewpoint usage", "viewpoint vp { subject v : V; actor a : Person; stakeholder s : Person; }"},
-		{"satisfy body", "part p { satisfy r by p { subject v : V; actor a : Person; } }"},
+		{"satisfy body", "part p { satisfy r { subject v : V; actor a : Person; } }"},
 		{"frame body", "requirement def R { frame c { stakeholder s : Person; actor a : Person; } }"},
 		{"frame in requirement", "concern def C; requirement r { frame concern c : C; frame c; }"},
 		{"frame in concern", "concern def C; concern k { frame concern c : C; frame c; }"},

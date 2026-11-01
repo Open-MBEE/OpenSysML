@@ -30,7 +30,7 @@ elmt:HeadOrder
 
 elmt:HeadOrder___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "HeadOrder::@0" ;
+    sysx:positionalName "HeadOrder::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -819,7 +819,7 @@ elmt:HeadOrder__Derived__u_om
 elmt:HeadOrder__Derived__u___401
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "HeadOrder::Derived::u::@1" ;
+    sysx:positionalName "HeadOrder::Derived::u::@1" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -912,7 +912,7 @@ expr:HeadOrder__Derived__u_pvalue_om
 
 elmt:HeadOrder__Derived__u___400
     a sysml:Documentation ;
-    sysml:qualifiedName "HeadOrder::Derived::u::@0" ;
+    sysx:positionalName "HeadOrder::Derived::u::@0" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "19"^^xsd:integer ;

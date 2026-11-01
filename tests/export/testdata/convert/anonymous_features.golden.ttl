@@ -442,7 +442,7 @@ expr:AnonymousFeatures__v__engine_pvalue_om
 elmt:AnonymousFeatures__v___403
     a sysml:AttributeUsage ;
     sysml:name "accessedFeature" ;
-    sysml:qualifiedName "AnonymousFeatures::v::@3" ;
+    sysx:positionalName "AnonymousFeatures::v::@3" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "14"^^xsd:integer ;

@@ -72,11 +72,9 @@ func (a *activity) timingOf(o *sysmlv1.Element) (*timing, string) {
 			return nil, "the observation's event " + describe(e) + " is the handler body of " + describe(hs[0]) + ", which the activity does not perform, so no clock can be read at it"
 		}
 	}
-	ends := strings.Fields(o.Attrs["firstEvent"])
-	for _, c := range o.Children {
-		if c.Role == "firstEvent" {
-			ends = append(ends, strings.TrimSpace(c.Text))
-		}
+	var ends []string
+	for _, v := range o.Values("firstEvent") {
+		ends = append(ends, strings.Fields(v)...)
 	}
 	t := &timing{o: o, from: events[0], to: events[len(events)-1]}
 	at := func(i int, dflt bool) bool {

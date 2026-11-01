@@ -213,7 +213,7 @@ elmt:Shadows__Sweep__value_om
 elmt:Shadows__Sweep___402
     a sysml:ForLoopActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Shadows::Sweep::@2" ;
+    sysx:positionalName "Shadows::Sweep::@2" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -307,7 +307,7 @@ expr:Shadows__Sweep___402_pcollection_om
 
 elmt:Shadows__Sweep___402__cur
     a sysml:AttributeUsage ;
-    sysml:qualifiedName "Shadows::Sweep::@2::cur" ;
+    sysx:positionalName "Shadows::Sweep::@2::cur" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -569,7 +569,7 @@ elmt:Shadows__Governor__fast_om
 elmt:Shadows__Governor___404
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Shadows::Governor::@4" ;
+    sysx:positionalName "Shadows::Governor::@4" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "15"^^xsd:integer ;
@@ -922,7 +922,7 @@ elmt:Shadows__Governor___404_succession_om
 elmt:Shadows__Governor___405
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Shadows::Governor::@5" ;
+    sysx:positionalName "Shadows::Governor::@5" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -1102,7 +1102,7 @@ expr:Shadows__Governor___405_succession_pend1_prs
 elmt:Shadows__Governor___405___40trigger
     a sysml:AcceptActionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "Shadows::Governor::@5::@trigger" ;
+    sysx:positionalName "Shadows::Governor::@5::@trigger" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "35"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -1137,7 +1137,7 @@ elmt:Shadows__Governor___405___40trigger_om
 
 elmt:Shadows__Governor___405___40trigger__w
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "Shadows::Governor::@5::@trigger::w" ;
+    sysx:positionalName "Shadows::Governor::@5::@trigger::w" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "42"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;

@@ -390,7 +390,7 @@ elmt:Accepts__Watch__framed__scene_om
 
 elmt:Accepts__Watch__framed___401
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "Accepts::Watch::framed::@1" ;
+    sysx:positionalName "Accepts::Watch::framed::@1" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "48"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
