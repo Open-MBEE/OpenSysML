@@ -68,6 +68,12 @@ func TestIdentityNameSegments(t *testing.T) {
 		segments []string
 		names    []string
 	}{
+		{"", []string{""}, []string{""}},
+		{"::", []string{"", ""}, []string{"", ""}},
+		{"P::", []string{"P", ""}, []string{"P", ""}},
+		{"::P", []string{"", "P"}, []string{"", "P"}},
+		{"P::'unfinished::@2", []string{"P", "'unfinished", "@2"}, []string{"P", "'unfinished", "@2"}},
+		{"P::'closed'next::@2", []string{"P", "'closed'next", "@2"}, []string{"P", "'closed'next", "@2"}},
 		{"'A::B'::X", []string{"'A::B'", "X"}, []string{"A::B", "X"}},
 		{"P::'@2'::@0", []string{"P", "'@2'", "@0"}, []string{"P", "@2", "@0"}},
 	} {
