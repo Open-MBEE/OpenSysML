@@ -375,3 +375,54 @@ type spanOnly struct{ span source.Span }
 func (n spanOnly) Span() source.Span            { return n.span }
 func (n spanOnly) LeadingTrivia() []ast.Trivia  { return nil }
 func (n spanOnly) TrailingTrivia() []ast.Trivia { return nil }
+
+func TestElementIDReaderSpellsANestedBodyMemberAsTheConversionWritesIt(t *testing.T) {
+	sf, index, doc := readerIndex(t, "nested_body.sysml", `package P {
+	part def D {
+		attribute y = { in keep = { in v; v }; attribute k { attribute inner = 2; } k };
+	}
+}
+`)
+	graph, err := ToRDF(sf, parser.New(sf).ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	idOf := map[string]string{}
+	for _, subject := range graph.Subjects() {
+		for _, name := range graph.Objects(subject, rdf.SysML+"declaredName") {
+			for _, id := range graph.Objects(subject, rdf.SysML+"elementId") {
+				idOf[name.Value] = id.Value
+			}
+		}
+	}
+	matches := index.LookupQualified("P::D::y")
+	if len(matches) != 1 {
+		t.Fatalf("P::D::y names %d declarations", len(matches))
+	}
+	body := matches[0].Decl.(*ast.Usage).Value.(*ast.BodyExpr)
+	reader := NewElementIDReader([]ElementIDDocument{doc})
+	k := body.Members[0]
+	if m, ok := k.(*ast.Membership); ok {
+		k = m.Member
+	}
+	inner := k.(*ast.Usage).Members[0]
+	if m, ok := inner.(*ast.Membership); ok {
+		inner = m.Member
+	}
+	element, err := reader.Read(matches[0].DocName, inner, "")
+	if err != nil || element == "" || element != idOf["inner"] {
+		t.Errorf("inner = %q, %v; the conversion writes %q", element, err, idOf["inner"])
+	}
+	if membership, err := reader.ReadOwningMembership(matches[0].DocName, inner, ""); err != nil || membership == "" {
+		t.Errorf("inner membership = %q, %v", membership, err)
+	}
+	innerValue := inner.(*ast.Usage).Value
+	if element, err = reader.Read(matches[0].DocName, innerValue, ""); err != nil || element == "" {
+		t.Errorf("inner value = %q, %v", element, err)
+	}
+	innerBody := body.Params[0].Value.(*ast.BodyExpr)
+	v := spanOnly{innerBody.Params[0].Span}
+	if element, _, err = reader.ReadExpressionPart(matches[0].DocName, v, "in0"); err != nil || element != idOf["v"] {
+		t.Errorf("v = %q, %v; the conversion writes %q", element, err, idOf["v"])
+	}
+}

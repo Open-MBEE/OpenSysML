@@ -668,3 +668,57 @@ func TestBodyExpressionOwnsItsBodyParametersAndResult(t *testing.T) {
 		t.Errorf("the reduce body owns %v", bodyParts)
 	}
 }
+
+func TestBodyParameterValueOwnsTheBodyItDeclares(t *testing.T) {
+	// A fresh model finds a nested body's parameter owner through the body
+	// parameter whose value holds it, before anything reflected either body.
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			part def D {
+				attribute y = { in keep = { in v; v }; keep };
+			}
+		}
+	`)
+	pkg, _ := root.LookupLocal("P")
+	y := member(t, m, member(t, m, pkg, "D"), "y")
+	var v, keep *symbols.Symbol
+	var walk func(scope *symbols.Scope)
+	walk = func(scope *symbols.Scope) {
+		scope.ForEachMember(func(sym *symbols.Symbol) bool {
+			switch sym.Name {
+			case "v":
+				v = sym
+			case "keep":
+				keep = sym
+			}
+			return true
+		})
+		for _, child := range scope.Children() {
+			walk(child)
+		}
+	}
+	walk(root)
+	if v == nil || keep == nil {
+		t.Fatalf("parameters v = %v, keep = %v", v, keep)
+	}
+	inner := m.ownerOf(v)
+	if inner == nil || m.MetaclassOf(inner).Name != "Expression" {
+		t.Fatalf("v's owner = %v", inner)
+	}
+	keepValue := m.ValueExpression(keep)
+	if keepValue == nil || m.MetaclassOf(keepValue).Name != "FeatureReferenceExpression" {
+		t.Fatalf("keep's value = %v", keepValue)
+	}
+	if owned := m.OwnedMemberships(keepValue); len(owned) != 2 || owned[0].Implicit.Member != inner {
+		t.Errorf("keep's value owns %v, want the inner body first", owned)
+	}
+	if m.ownerOf(inner) != keepValue || m.ownerOf(keep) == nil || m.ownerOf(m.ownerOf(keep)) != m.ValueExpression(y) {
+		t.Errorf("owner chain: inner → %v, keep → %v", m.ownerOf(inner), m.ownerOf(keep))
+	}
+	if memberships := m.OwnedMemberships(keep); len(memberships) != 1 || m.MetaclassOf(memberships[0]).Name != "FeatureValue" {
+		t.Errorf("keep owns %v, want its FeatureValue", memberships)
+	}
+	if m.ownerOf(v) != inner {
+		t.Errorf("v's owner moved to %v after reading the outer body", m.ownerOf(v))
+	}
+}

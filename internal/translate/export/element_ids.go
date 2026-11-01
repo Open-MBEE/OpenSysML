@@ -796,7 +796,19 @@ func (e *encoder) registerBodyDeclarations(ids *ElementIDs, base rdf.Term, param
 			ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = valueMembership
 			e.registerExpressionIDs(ids, value, valued)
 		}
+		// A local member's own members declare into the body it lies in,
+		// minted off the member (encodeMember's local case).
+		e.registerBodyDeclarations(ids, local, nil, localMembers(decl.Decl))
 	}
+}
+
+// localMembers are the members a body-local declaration owns, as encodeMember
+// feeds them to bodyDeclarations.
+func localMembers(decl ast.Node) []ast.Node {
+	if usage, ok := decl.(*ast.Usage); ok {
+		return bodyMembers(usage)
+	}
+	return ast.DeclMembers(decl)
 }
 
 func (e *encoder) registerExpressionPart(ids *ElementIDs, subject rdf.Term, node ast.Node, slot string) {

@@ -16,6 +16,19 @@ func featureValueOf(sym *symbols.Symbol) (value ast.Node, isDefault, isInitial b
 	if sym == nil || sym.Recorded() {
 		return nil, false, false, false
 	}
+	if isBodyParameterSymbol(sym) {
+		// A body's `in x = e` parameter shares the body node; its span finds
+		// the declaration, whose value the conversion writes (bodyParameter).
+		for i := range sym.Decl.(*ast.BodyExpr).Params {
+			if param := &sym.Decl.(*ast.BodyExpr).Params[i]; param.Span == sym.DeclSpan {
+				if param.Value == nil {
+					return nil, false, false, false
+				}
+				return param.Value, false, false, true
+			}
+		}
+		return nil, false, false, false
+	}
 	return ast.ValuePartOf(sym.Decl)
 }
 
