@@ -79,6 +79,9 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 	if parts, ok := m.expressionParts[expr]; ok {
 		return parts
 	}
+	if m.expressionParts == nil {
+		m.expressionParts = make(map[*symbols.Symbol]*expressionParts)
+	}
 	journal(m, m.expressionParts, expr, expr.Decl)
 	parts := &expressionParts{}
 	if expr.Expr.Role == symbols.ExpressionChangeWrapper {
@@ -129,6 +132,9 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			DeclSpan:   body.Span(),
 			Visibility: expr.Visibility,
 			Expr:       &symbols.ExpressionElement{Owner: expr, Role: symbols.ExpressionBody},
+		}
+		if m.bodySymbols == nil {
+			m.bodySymbols = make(map[*ast.BodyExpr]*symbols.Symbol)
 		}
 		journal(m, m.bodySymbols, body, body)
 		m.bodySymbols[body] = parts.body

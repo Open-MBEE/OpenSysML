@@ -1,0 +1,5 @@
+✓ package Lander
+✓ package QVTSDemo
+✓ Query QVTSDemo::ToleratedMassFilter returned 2 rows
+  Row 1: Lander::lander::cabin
+  Row 2: Lander::lander::engine

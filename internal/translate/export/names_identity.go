@@ -25,29 +25,27 @@ func identitySegment(name string) string {
 }
 
 func identitySegments(qname string) []string {
-	if qname == "" {
-		return []string{""}
-	}
 	var segments []string
-	for start := 0; ; {
-		if start == len(qname) {
-			return append(segments, "")
+	for {
+		segment, rest, more := cutIdentitySegment(qname)
+		segments = append(segments, segment)
+		if !more {
+			return segments
 		}
-		if end, ok := quotedSegmentEnd(qname, start); ok {
-			segments = append(segments, qname[start:end])
-			if end == len(qname) {
-				return segments
-			}
-			start = end + 2
-			continue
-		}
-		separator := strings.Index(qname[start:], "::")
-		if separator < 0 {
-			return append(segments, qname[start:])
-		}
-		segments = append(segments, qname[start:start+separator])
-		start += separator + 2
+		qname = rest
 	}
+}
+
+func cutIdentitySegment(qname string) (segment, rest string, more bool) {
+	if qname != "" {
+		if end, ok := quotedSegmentEnd(qname, 0); ok {
+			if end == len(qname) {
+				return qname, "", false
+			}
+			return qname[:end], qname[end+2:], true
+		}
+	}
+	return strings.Cut(qname, "::")
 }
 
 // quotedSegmentEnd is where the quoted segment opening at start closes, when

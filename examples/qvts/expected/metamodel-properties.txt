@@ -1,0 +1,19 @@
+✓ package Lander
+✓ package QVTSDemo
+✓ Query QVTSDemo::MetamodelProperties returned 3 rows
+  Columns: qualifiedName, elementId, isComposite, declaredName
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+    elementId = "Lander__lander__cabin"
+    isComposite = true
+    declaredName = "cabin"
+  Row 2: Lander::lander::engine
+    qualifiedName = "Lander::lander::engine"
+    elementId = "Lander__lander__engine"
+    isComposite = true
+    declaredName = "engine"
+  Row 3: Lander::lander::scienceBay
+    qualifiedName = "Lander::lander::scienceBay"
+    elementId = "Lander__lander__scienceBay"
+    isComposite = true
+    declaredName = "scienceBay"

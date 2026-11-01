@@ -53,6 +53,9 @@ func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
 	if !ok {
 		return nil
 	}
+	if m.valueExpressions == nil {
+		m.valueExpressions = make(map[*symbols.Symbol]*symbols.Symbol)
+	}
 	journal(m, m.valueExpressions, sym, sym.Decl)
 	expr := &symbols.Symbol{
 		Kind:       symbols.SymbolExpression,
