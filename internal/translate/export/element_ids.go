@@ -752,6 +752,17 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 		ids.partByNode[partKey{node, slot}] = recorded
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
 	}
+	if slot, links, ok := expressionChainSlot(node); ok {
+		e.registerExpressionPart(ids, subject, node, slot)
+		chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		for i := 0; i < links; i++ {
+			position := fmt.Sprintf("fc%d", i)
+			chaining := e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position)
+			recorded := partIDs{element: rdf.LocalName(chaining.Value)}
+			ids.partByNode[partKey{node, slot + "." + position}] = recorded
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + "." + position}] = recorded
+		}
+	}
 	if resultBearing[expressionMetaclass(node)] {
 		e.registerExpressionPart(ids, subject, node, "out")
 	}
@@ -809,6 +820,39 @@ func localMembers(decl ast.Node) []ast.Node {
 		return bodyMembers(usage)
 	}
 	return ast.DeclMembers(decl)
+}
+
+// expressionChainSlot is the slot of the chain Feature the conversion owns for
+// a receiver-reached call or a dotted function or target name, and its links.
+func expressionChainSlot(node ast.Node) (slot string, links int, ok bool) {
+	dotted := func(name *ast.QualifiedName) int {
+		n := 1
+		for i := 1; i < len(name.Parts); i++ {
+			if name.Parts[i].Chained {
+				n++
+			}
+		}
+		return n
+	}
+	switch n := node.(type) {
+	case *ast.InvocationExpr:
+		if n.Type == nil {
+			if chain := ast.ReceiverChain(n.Operand); chain != nil {
+				return "function", len(chain), true
+			}
+		} else if ast.QualifiedNameHasChain(n.Type) {
+			return "function", dotted(n.Type), true
+		}
+	case *ast.ConstructorExpr:
+		if n.Type != nil && ast.QualifiedNameHasChain(n.Type) {
+			return "function", dotted(n.Type), true
+		}
+	case *ast.FeatureChainExpr:
+		if n.Member != nil && ast.QualifiedNameHasChain(n.Member) {
+			return "targetFeature", dotted(n.Member), true
+		}
+	}
+	return "", 0, false
 }
 
 func (e *encoder) registerExpressionPart(ids *ElementIDs, subject rdf.Term, node ast.Node, slot string) {

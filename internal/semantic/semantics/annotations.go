@@ -1122,7 +1122,7 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		return "ConjugatedPortDefinition"
 	}
 	if sym.Expr != nil {
-		if isExpressionParameterSymbol(sym) {
+		if isExpressionParameterSymbol(sym) || sym.Expr.Role == symbols.ExpressionChainFeature {
 			return "Feature"
 		}
 		return expressionElementMetaclassName(sym)
@@ -1622,6 +1622,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return ends, true
 	case "chainingFeature":
+		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+			return m.ChainingFeatures(sym), true
+		}
 		if !m.reflectiveMetaclassConforms(sym, "Feature") {
 			return nil, false
 		}
@@ -2225,7 +2228,8 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return value, true
 		}
 	}
-	if sym.Expr != nil && !isExpressionParameterSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper {
+	if sym.Expr != nil && !isExpressionParameterSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper &&
+		sym.Expr.Role != symbols.ExpressionChainFeature {
 		// A parameter shares its expression's node but states none of its values.
 		if value, ok := expressionValue(sym, feature); ok {
 			return value, true

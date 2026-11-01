@@ -281,6 +281,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "FeatureMembership"
 		case symbols.ExpressionBodyResult:
 			return "ResultExpressionMembership"
+		case symbols.ExpressionChainFeature:
+			return "OwningMembership"
 		}
 	}
 	if isBodyParameterSymbol(member) {

@@ -167,6 +167,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "PortConjugation"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
+	case symbols.ImplicitFeatureChaining:
+		return "FeatureChaining"
 	}
 	switch rel.Kind {
 	case ast.RelSpecializes:
@@ -388,6 +390,8 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 		return portConjugationElements(sym, feature)
 	case symbols.ImplicitReferenceMembership:
 		return referenceMembershipElements(sym, feature)
+	case symbols.ImplicitFeatureChaining:
+		return featureChainingElements(sym, feature)
 	}
 	meta := m.implicitMetaclassName(sym)
 	src, tgt, tgtOK := m.implicitRelationshipEnds(sym)

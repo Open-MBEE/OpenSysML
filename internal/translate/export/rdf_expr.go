@@ -673,7 +673,8 @@ func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedNa
 	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
 	terms := make([]rdf.Term, len(links))
 	for i, link := range links {
-		terms[i] = e.reference(link)
+		sym, ok := e.res.PartSymbol(link, len(link.Parts)-1)
+		terms[i] = e.linkOrText(link, sym, ok)
 	}
 	e.featureChainings(chain, terms)
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
@@ -1147,6 +1148,13 @@ func (d *decoder) segmentOwners(node rdf.Term, parents map[string][]rdf.Term, se
 	owners := d.expressionOwners(node, parents)
 	if len(owners) > 0 || len(segments) == 0 {
 		return owners
+	}
+	// A chain feature an expression owns (`q.p.f(1)` names its function by
+	// one) is written where that expression is.
+	if owner, ok := d.graph.Object(node, rdf.SysML+pOwner); ok && d.isExpressionNode(owner) {
+		if owners = d.expressionOwners(owner, parents); len(owners) > 0 {
+			return owners
+		}
 	}
 	if end, ok := d.graph.Object(node, rdf.SysML+pOwner); ok {
 		if subject, ok := d.graph.Object(end, rdf.SysML+pOwner); ok {
@@ -1981,6 +1989,29 @@ func (d *decoder) metadataAccessReference(node rdf.Term, in *element) (string, e
 		"a metadata access owns a Membership of the element it reads the metadata of")
 }
 
+// chainLinkName renders one link of a chain feature written in `in` after the
+// element operand names: a segment, spelled as chooseNames chose, never a plain
+// reference (noteSegment records it as a segment). It returns the element reached.
+func (d *decoder) chainLinkName(term rdf.Term, operand string, in *element) (string, string, error) {
+	if term.IsLiteral() {
+		if term.Datatype == rdf.OpenSysML+dtExpression {
+			return term.Value, "", nil
+		}
+		return qualifiedNameText(term.Value), "", nil
+	}
+	target, name, err := d.namedMember(term)
+	if err != nil {
+		return "", "", err
+	}
+	if d.names != nil {
+		key := segmentKey{member: d.writtenQName(in), operand: operand, name: name, target: target.qname}
+		if spelling, ok := d.names.segments[key]; ok {
+			return qualifiedNameText(spelling), target.qname, nil
+		}
+	}
+	return nameText(name), target.qname, nil
+}
+
 // calleeRelationships is the function a Membership the invocation owns names,
 // and the chain feature an OwningMembership it owns holds.
 func (d *decoder) calleeRelationships(node rdf.Term) (member, chain rdf.Term, err error) {
@@ -2013,12 +2044,14 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 		return "", err
 	}
 	var parts, spelled []string
+	operand := ""
 	for _, segment := range segments {
-		name, err := d.referenceName(segment, in)
+		name, target, err := d.chainLinkName(segment, operand, in)
 		if err != nil {
 			return "", err
 		}
 		parts = append(parts, name)
+		operand = target
 		if segment.IsLiteral() {
 			name = segment.Value
 		}
@@ -2027,10 +2060,6 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 	text := strings.Join(parts, ".")
 	if !hasCollapsed {
 		return text, nil
-	}
-	name, err := d.referenceName(collapsed, in)
-	if err != nil {
-		return "", err
 	}
 	// The function is the chain's last feature when it resolves, else
 	// the whole chain's spelling; anything else names a second callee.
@@ -2041,6 +2070,10 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 		agree = collapsed.Value == strings.Join(spelled, ".")
 	}
 	if !agree {
+		name, err := d.referenceName(collapsed, in)
+		if err != nil {
+			return "", err
+		}
 		return "", &UnsupportedError{
 			What: fmt.Sprintf("the expression <%s>", node.Value),
 			Note: fmt.Sprintf("its function is %s, but the chain feature it owns reaches %s, and the two statements cannot both hold", name, text),

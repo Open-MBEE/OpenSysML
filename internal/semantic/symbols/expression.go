@@ -30,6 +30,9 @@ const (
 	// ExpressionBodyResult is a body's result expression, owned through a
 	// ResultExpressionMembership; Owner is the body.
 	ExpressionBodyResult
+	// ExpressionChainFeature is the Feature a dotted function or target name
+	// reaches through, owned by the expression at Slot (KerML 8.3.3.3.3).
+	ExpressionChainFeature
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer
@@ -42,4 +45,5 @@ type ExpressionElement struct {
 	Owner *Symbol        // the feature or expression that owns this element
 	Role  ExpressionRole // what the element is to its owner
 	Index int            // the operand or parameter position, 0 otherwise
+	Slot  string         // the position the conversion names a chain feature by
 }
