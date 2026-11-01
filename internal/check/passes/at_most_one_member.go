@@ -217,6 +217,9 @@ func ownedFeatureMembers(decl ast.Node) []ast.Node {
 			}
 		}
 	}
+	if len(members) == 0 {
+		return typeMembers(decl)
+	}
 	return append(members, typeMembers(decl)...)
 }
 

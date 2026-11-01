@@ -1,0 +1,10 @@
+✓ package Lander
+✓ package QVTSDemo
+✓ Query QVTSDemo::ExactPartUsages returned 3 rows
+  Columns: qualifiedName
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+  Row 2: Lander::lander::engine
+    qualifiedName = "Lander::lander::engine"
+  Row 3: Lander::lander::scienceBay
+    qualifiedName = "Lander::lander::scienceBay"

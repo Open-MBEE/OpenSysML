@@ -1,0 +1,5 @@
+✓ package Lander
+✓ package QVTSDemo
+sysml: query QVTSDemo::MisspelledName names no element Lander::lander::cabni: Lander::lander has no member cabni — did you mean cabin?
+  path error at Named(Lander::lander::cabni): expected exactly one element with that qualified name
+    at Lander::lander; members: [cabin (PartUsage), cabinEngine (ConnectionUsage), engine (PartUsage), engineBay (ConnectionUsage), scienceBay (PartUsage)]; nearest: cabin
