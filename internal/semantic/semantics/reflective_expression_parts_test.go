@@ -253,3 +253,33 @@ func TestScopelessValuedSymbolOwnsItsFeatureValue(t *testing.T) {
 		t.Error("the FeatureValue owns another expression")
 	}
 }
+
+// An OperatorExpression's `operator` reads as the conversion writes it for
+// every notation form: a sequence's `,`, a cast's `as`, an index's `[` or `#`.
+func TestOperatorExpressionOperatorForEveryNotationForm(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			part def D {
+				attribute items : ScalarValues::Real[*];
+				attribute seq = (1, 2);
+				attribute cast = items as ScalarValues::Integer;
+				attribute classified = (as ScalarValues::Integer);
+				attribute bracketed = items[1];
+				attribute hashed = items#(1);
+				attribute sum = 1 + 2;
+			}
+		}
+	`)
+	pkg, _ := root.LookupLocal("P")
+	d := member(t, m, pkg, "D")
+	for name, want := range map[string]string{"seq": ",", "cast": "as", "classified": "as", "bracketed": "[", "hashed": "#", "sum": "+"} {
+		expr := m.ValueExpression(member(t, m, d, name))
+		if expr == nil {
+			t.Fatalf("%s: no value expression", name)
+		}
+		got, ok := m.reflectiveFeatureValue(expr, "operator")
+		if !ok || got.Kind != symbols.FilterValueString || got.Str != want {
+			t.Errorf("%s.operator = %q (%v), want %q", name, got.Str, ok, want)
+		}
+	}
+}

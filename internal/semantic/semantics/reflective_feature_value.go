@@ -142,6 +142,22 @@ func expressionValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, 
 		if feature == "operator" {
 			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: n.Operator.String()}, true
 		}
+	case *ast.CastExpr:
+		if feature == "operator" {
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: ast.OpAs.String()}, true
+		}
+	case *ast.IndexExpr:
+		if feature == "operator" {
+			operator := "#"
+			if n.Bracket {
+				operator = "["
+			}
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: operator}, true
+		}
+	case *ast.SequenceExpr:
+		if feature == "operator" {
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: ","}, true
+		}
 	}
 	return symbols.FilterValue{}, false
 }
