@@ -15,6 +15,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/notebook"
 )
 
 // SessionName names a session; empty is the default session.
@@ -337,7 +338,7 @@ func Register(s *mcp.Server, m *Manager) {
 		if line == "" {
 			return CommandResult{}, errors.New("line is required: a % command, see %help")
 		}
-		if !repl.IsMeta(line) {
+		if !notebook.IsCommand(line) {
 			return CommandResult{}, fmt.Errorf("%q is no %% command; declarations go to session_submit and expressions to session_eval", line)
 		}
 		lines, quit, err := sess.RunMeta(line)

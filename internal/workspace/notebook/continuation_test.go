@@ -1,4 +1,4 @@
-package repl
+package notebook
 
 import "testing"
 
@@ -33,8 +33,8 @@ func TestNeedsContinuation(t *testing.T) {
 		{`attribute s = "a\"b";`, false},
 	}
 	for _, c := range cases {
-		if got := needsContinuation(c.src); got != c.want {
-			t.Errorf("needsContinuation(%q) = %v, want %v", c.src, got, c.want)
+		if got := NeedsContinuation(c.src); got != c.want {
+			t.Errorf("NeedsContinuation(%q) = %v, want %v", c.src, got, c.want)
 		}
 	}
 }
