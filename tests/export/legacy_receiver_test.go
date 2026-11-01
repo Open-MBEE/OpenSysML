@@ -9,9 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
-// A receiver-reached call whose final link is a calc usage typed by no Function — directly
-// (`: Real`) or through a subsetting — states the implied library Calculation as its function
-// and reads back from the graph alone.
+// A call reaching a calc usage typed by no Function (`: Real`, or so through a subsetting)
+// states the implied library Calculation as its function and reads back from the graph alone.
 func TestReceiverCalleeImpliedFunctionRoundTrips(t *testing.T) {
 	src := "package P {\n\tpart def Pt {\n\t\tcalc real : ScalarValues::Real;\n\t\tcalc viaReal :> real;\n\t}\n\tpart def D {\n\t\tpart p : Pt;\n\t\tattribute a = p.real(1);\n\t\tattribute b = p.viaReal(1);\n\t}\n}\n"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
