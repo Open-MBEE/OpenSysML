@@ -1125,7 +1125,7 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		if isExpressionParameterSymbol(sym) {
 			return "Feature"
 		}
-		return expressionMetaclassName(sym.Decl)
+		return expressionElementMetaclassName(sym)
 	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ForkNode:
@@ -1542,7 +1542,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		if isExpressionSymbol(sym) {
-			return m.expressionOwnedParts(sym), true
+			return m.expressionParameterParts(sym), true
 		}
 		var out []*symbols.Symbol
 		for _, parameter := range m.BehaviorParametersOf(sym) {
@@ -1556,7 +1556,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		if isExpressionSymbol(sym) {
-			return m.expressionOwnedParts(sym), true
+			return m.expressionParameterParts(sym), true
 		}
 		return m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut), true
 	case "subjectParameter":
@@ -2225,7 +2225,7 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return value, true
 		}
 	}
-	if sym.Expr != nil && !isExpressionParameterSymbol(sym) {
+	if sym.Expr != nil && !isExpressionParameterSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper {
 		// A parameter shares its expression's node but states none of its values.
 		if value, ok := expressionValue(sym, feature); ok {
 			return value, true

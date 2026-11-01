@@ -693,6 +693,43 @@ func (ids *ElementIDs) conjugateOf(doc string, implied *symbols.ImpliedDecl) (co
 // argument's parameter, and the `out` result parameter, then the operands'
 // own parts (expressionOperandOwnership, typeArgument, resultParameter).
 func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node ast.Node) {
+	if event, ok := node.(*ast.ChangeEvent); ok && event.Condition != nil {
+		// changeArgument: `in0` binds the wrapper `a0`, whose referent is the
+		// condition at `change`; the wrapper's result is minted off `a0`.
+		e.registerExpressionPart(ids, subject, node, "in0")
+		e.registerExpressionPart(ids, subject, node, "a0")
+		wrapper := e.ids.mintedNode(rdf.ExpressionIRI(subject, "a0"), subject, "a0")
+		change := e.ids.mintedNode(rdf.ExpressionIRI(wrapper, "change"), wrapper, "change")
+		ids.byNode[event.Condition] = rdf.LocalName(change.Value)
+		ids.bySpan[spanKey{e.file.Name(), event.Condition.Span()}] = ids.byNode[event.Condition]
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(change), change, rdf.OwningMembershipSuffix).Value)
+		ids.membershipByNode[event.Condition] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), event.Condition.Span()}] = membership
+		result := e.ids.mintedNode(rdf.ExpressionIRI(wrapper, "out"), wrapper, "out")
+		resultMembership := e.ids.minted(rdf.OwningMembershipIRIOf(result), result, rdf.OwningMembershipSuffix)
+		recorded := partIDs{element: rdf.LocalName(result.Value), membership: rdf.LocalName(resultMembership.Value)}
+		ids.partByNode[partKey{node, "a0.out"}] = recorded
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "a0.out"}] = recorded
+		e.registerExpressionIDs(ids, change, event.Condition)
+		e.registerExpressionPart(ids, subject, node, "out")
+		return
+	}
+	if body, ok := node.(*ast.BodyExpr); ok {
+		// bodyExpression: the reference owns the body at `body`, the body its
+		// parameters at `in%d` and members at `m%d` (all minted off the
+		// reference), and its result at `result`; the reference's `out` follows.
+		e.registerExpressionPart(ids, subject, node, "body")
+		e.registerBodyDeclarations(ids, subject, body.Params, body.Members)
+		if body.Result != nil {
+			e.registerExpressionPart(ids, subject, node, "result")
+			result := e.ids.mintedNode(rdf.ExpressionIRI(subject, "result"), subject, "result")
+			ids.byNode[body.Result] = rdf.LocalName(result.Value)
+			ids.bySpan[spanKey{e.file.Name(), body.Result.Span()}] = ids.byNode[body.Result]
+			ids.membershipByNode[body.Result] = ids.partByNode[partKey{node, "result"}].membership
+			ids.membershipBySpan[spanKey{e.file.Name(), body.Result.Span()}] = ids.membershipByNode[body.Result]
+			e.registerExpressionIDs(ids, result, body.Result)
+		}
+	}
 	operands, typeArgument := ast.ExpressionOperands(node)
 	for _, operand := range operands {
 		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, operand.Slot), subject, operand.Slot)
@@ -718,6 +755,60 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 	if resultBearing[expressionMetaclass(node)] {
 		e.registerExpressionPart(ids, subject, node, "out")
 	}
+}
+
+// registerBodyDeclarations records the ids of an expression body's parameters
+// and members as bodyDeclarations mints them off base: a parameter under the
+// body node at its slot, a member under its own declaration, each with the
+// membership owning it; a parameter's value and nested members follow.
+func (e *encoder) registerBodyDeclarations(ids *ElementIDs, base rdf.Term, params []ast.BodyParam, members []ast.Node) {
+	for _, decl := range ast.BodyDeclarations(params, members) {
+		local := e.ids.mintedNode(rdf.ExpressionIRI(base, decl.Slot()), base, decl.Slot())
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(local), local, rdf.OwningMembershipSuffix).Value)
+		if decl.Param != nil {
+			recorded := partIDs{element: rdf.LocalName(local.Value), membership: membership}
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), decl.Param.Span}, decl.Slot()}] = recorded
+			if decl.Param.Value != nil {
+				value := e.ids.mintedNode(rdf.ExpressionIRI(local, pValue), local, pValue)
+				ids.byNode[decl.Param.Value] = rdf.LocalName(value.Value)
+				ids.bySpan[spanKey{e.file.Name(), decl.Param.Value.Span()}] = ids.byNode[decl.Param.Value]
+				valueMembership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
+				ids.membershipByNode[decl.Param.Value] = valueMembership
+				ids.membershipBySpan[spanKey{e.file.Name(), decl.Param.Value.Span()}] = valueMembership
+				e.registerExpressionIDs(ids, value, decl.Param.Value)
+			}
+			e.registerBodyDeclarations(ids, local, nil, decl.Param.Members)
+			continue
+		}
+		if decl.Decl == nil {
+			continue
+		}
+		ids.byNode[decl.Decl] = rdf.LocalName(local.Value)
+		ids.bySpan[spanKey{e.file.Name(), decl.Decl.Span()}] = ids.byNode[decl.Decl]
+		ids.membershipByNode[decl.Decl] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), decl.Decl.Span()}] = membership
+		if valued, _, _, ok := ast.ValuePartOf(decl.Decl); ok {
+			value := e.ids.mintedNode(rdf.ExpressionIRI(local, pValue), local, pValue)
+			ids.byNode[valued] = rdf.LocalName(value.Value)
+			ids.bySpan[spanKey{e.file.Name(), valued.Span()}] = ids.byNode[valued]
+			valueMembership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
+			ids.membershipByNode[valued] = valueMembership
+			ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = valueMembership
+			e.registerExpressionIDs(ids, value, valued)
+		}
+		// A local member's own members declare into the body it lies in,
+		// minted off the member (encodeMember's local case).
+		e.registerBodyDeclarations(ids, local, nil, localMembers(decl.Decl))
+	}
+}
+
+// localMembers are the members a body-local declaration owns, as encodeMember
+// feeds them to bodyDeclarations.
+func localMembers(decl ast.Node) []ast.Node {
+	if usage, ok := decl.(*ast.Usage); ok {
+		return bodyMembers(usage)
+	}
+	return ast.DeclMembers(decl)
 }
 
 func (e *encoder) registerExpressionPart(ids *ElementIDs, subject rdf.Term, node ast.Node, slot string) {

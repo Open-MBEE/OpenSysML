@@ -2,10 +2,12 @@ package export
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -243,5 +245,184 @@ func TestElementIDReaderSpellsReferenceMembershipsAsTheConversionWritesThem(t *t
 		if err != nil || element != "" || !memberships[membership] {
 			t.Errorf("%s %s = %q, %q, %v; the conversion writes Memberships %v", feature, slot, element, membership, err, memberships)
 		}
+	}
+}
+
+// A change trigger's parts read as changeArgument writes them: `in0` binds the
+// wrapper `a0` (a FeatureReferenceExpression), whose referent is the condition
+// at `change` under a FeatureMembership, and whose result is its own `out`.
+func TestElementIDReaderSpellsAChangeTriggerAsTheConversionWritesIt(t *testing.T) {
+	sf, index, doc := readerIndex(t, "change.sysml", `package P {
+	action def A {
+		attribute a : ScalarValues::Real;
+		action acc accept e when a > 1;
+	}
+}
+`)
+	graph, err := ToRDF(sf, parser.New(sf).ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	classOf := map[string]string{}
+	for _, subject := range graph.Subjects() {
+		for _, class := range graph.Objects(subject, rdf.RDFType) {
+			for _, id := range graph.Objects(subject, rdf.SysML+"elementId") {
+				classOf[id.Value] = strings.TrimPrefix(class.Value, rdf.SysML)
+			}
+		}
+	}
+	matches := index.LookupQualified("P::A::acc::e")
+	if len(matches) != 1 {
+		t.Fatalf("payload names %d declarations", len(matches))
+	}
+	trigger := matches[0].Decl.(*ast.Usage).Value
+	condition := trigger.(*ast.ChangeEvent).Condition
+	reader := NewElementIDReader([]ElementIDDocument{doc})
+	for slot, want := range map[string][2]string{
+		"in0":    {"Feature", "ParameterMembership"},
+		"a0":     {"FeatureReferenceExpression", "FeatureValue"},
+		"a0.out": {"Feature", "ReturnParameterMembership"},
+		"out":    {"Feature", "ReturnParameterMembership"},
+	} {
+		element, membership, err := reader.ReadExpressionPart(matches[0].DocName, trigger, slot)
+		if err != nil || classOf[element] != want[0] || classOf[membership] != want[1] {
+			t.Errorf("%s = %s (%s), %s (%s), %v; want %v", slot, element, classOf[element], membership, classOf[membership], err, want)
+		}
+	}
+	element, err := reader.Read(matches[0].DocName, condition, "")
+	if err != nil || classOf[element] != "OperatorExpression" || !strings.HasSuffix(element, "_pa0_pchange") {
+		t.Errorf("condition = %s (%s), %v", element, classOf[element], err)
+	}
+	membership, err := reader.ReadOwningMembership(matches[0].DocName, condition, "")
+	if err != nil || classOf[membership] != "FeatureMembership" {
+		t.Errorf("condition membership = %s (%s), %v", membership, classOf[membership], err)
+	}
+	if operand, _, err := reader.ReadExpressionPart(matches[0].DocName, condition, "in0"); err != nil || classOf[operand] != "Feature" {
+		t.Errorf("condition in0 = %s (%s), %v", operand, classOf[operand], err)
+	}
+}
+
+// The ids the reader answers for a `{ … }` value's body, its parameters (by their
+// spans), its members, its result and the reference's own result are the ones the
+// conversion writes for them, each with the membership that owns it.
+func TestElementIDReaderSpellsABodyExpressionAsTheConversionWritesIt(t *testing.T) {
+	sf, index, doc := readerIndex(t, "body.sysml", `package P {
+	part def D {
+		attribute y = { in q : ScalarValues::Real; attribute k = 2; q * k };
+	}
+}
+`)
+	graph, err := ToRDF(sf, parser.New(sf).ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	classOf := map[string]string{}
+	for _, subject := range graph.Subjects() {
+		for _, class := range graph.Objects(subject, rdf.RDFType) {
+			for _, id := range graph.Objects(subject, rdf.SysML+"elementId") {
+				classOf[id.Value] = strings.TrimPrefix(class.Value, rdf.SysML)
+			}
+		}
+	}
+	matches := index.LookupQualified("P::D::y")
+	if len(matches) != 1 {
+		t.Fatalf("P::D::y names %d declarations", len(matches))
+	}
+	reference := matches[0].Decl.(*ast.Usage).Value
+	body := reference.(*ast.BodyExpr)
+	reader := NewElementIDReader([]ElementIDDocument{doc})
+	for slot, want := range map[string][2]string{
+		"body":   {"Expression", "FeatureMembership"},
+		"result": {"OperatorExpression", "ResultExpressionMembership"},
+		"out":    {"Feature", "ReturnParameterMembership"},
+	} {
+		element, membership, err := reader.ReadExpressionPart(matches[0].DocName, reference, slot)
+		if err != nil || classOf[element] != want[0] || classOf[membership] != want[1] {
+			t.Errorf("%s = %s (%s), %s (%s), %v; want %v", slot, element, classOf[element], membership, classOf[membership], err, want)
+		}
+	}
+	param := spanOnly{body.Params[0].Span}
+	element, membership, err := reader.ReadExpressionPart(matches[0].DocName, param, "in0")
+	if err != nil || classOf[element] != "ReferenceUsage" || classOf[membership] != "FeatureMembership" || !strings.HasSuffix(element, "_pin0") {
+		t.Errorf("in0 = %s (%s), %s (%s), %v", element, classOf[element], membership, classOf[membership], err)
+	}
+	k := body.Members[0]
+	if m, ok := k.(*ast.Membership); ok {
+		k = m.Member
+	}
+	element, err = reader.Read(matches[0].DocName, k, "")
+	if err != nil || classOf[element] != "AttributeUsage" || !strings.HasSuffix(element, "_pm1") {
+		t.Errorf("k = %s (%s), %v", element, classOf[element], err)
+	}
+	if membership, err = reader.ReadOwningMembership(matches[0].DocName, k, ""); err != nil || classOf[membership] != "FeatureMembership" {
+		t.Errorf("k membership = %s (%s), %v", membership, classOf[membership], err)
+	}
+	kValue := k.(*ast.Usage).Value
+	if element, err = reader.Read(matches[0].DocName, kValue, ""); err != nil || classOf[element] != "LiteralInteger" {
+		t.Errorf("k value = %s (%s), %v", element, classOf[element], err)
+	}
+	if element, err = reader.Read(matches[0].DocName, body.Result, ""); err != nil || classOf[element] != "OperatorExpression" || !strings.HasSuffix(element, "_presult") {
+		t.Errorf("result = %s (%s), %v", element, classOf[element], err)
+	}
+	if operand, _, err := reader.ReadExpressionPart(matches[0].DocName, body.Result, "in0"); err != nil || classOf[operand] != "Feature" {
+		t.Errorf("result in0 = %s (%s), %v", operand, classOf[operand], err)
+	}
+}
+
+// spanOnly stands for a body parameter, which has no node of its own.
+type spanOnly struct{ span source.Span }
+
+func (n spanOnly) Span() source.Span            { return n.span }
+func (n spanOnly) LeadingTrivia() []ast.Trivia  { return nil }
+func (n spanOnly) TrailingTrivia() []ast.Trivia { return nil }
+
+func TestElementIDReaderSpellsANestedBodyMemberAsTheConversionWritesIt(t *testing.T) {
+	sf, index, doc := readerIndex(t, "nested_body.sysml", `package P {
+	part def D {
+		attribute y = { in keep = { in v; v }; attribute k { attribute inner = 2; } k };
+	}
+}
+`)
+	graph, err := ToRDF(sf, parser.New(sf).ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	idOf := map[string]string{}
+	for _, subject := range graph.Subjects() {
+		for _, name := range graph.Objects(subject, rdf.SysML+"declaredName") {
+			for _, id := range graph.Objects(subject, rdf.SysML+"elementId") {
+				idOf[name.Value] = id.Value
+			}
+		}
+	}
+	matches := index.LookupQualified("P::D::y")
+	if len(matches) != 1 {
+		t.Fatalf("P::D::y names %d declarations", len(matches))
+	}
+	body := matches[0].Decl.(*ast.Usage).Value.(*ast.BodyExpr)
+	reader := NewElementIDReader([]ElementIDDocument{doc})
+	k := body.Members[0]
+	if m, ok := k.(*ast.Membership); ok {
+		k = m.Member
+	}
+	inner := k.(*ast.Usage).Members[0]
+	if m, ok := inner.(*ast.Membership); ok {
+		inner = m.Member
+	}
+	element, err := reader.Read(matches[0].DocName, inner, "")
+	if err != nil || element == "" || element != idOf["inner"] {
+		t.Errorf("inner = %q, %v; the conversion writes %q", element, err, idOf["inner"])
+	}
+	if membership, err := reader.ReadOwningMembership(matches[0].DocName, inner, ""); err != nil || membership == "" {
+		t.Errorf("inner membership = %q, %v", membership, err)
+	}
+	innerValue := inner.(*ast.Usage).Value
+	if element, err = reader.Read(matches[0].DocName, innerValue, ""); err != nil || element == "" {
+		t.Errorf("inner value = %q, %v", element, err)
+	}
+	innerBody := body.Params[0].Value.(*ast.BodyExpr)
+	v := spanOnly{innerBody.Params[0].Span}
+	if element, _, err = reader.ReadExpressionPart(matches[0].DocName, v, "in0"); err != nil || element != idOf["v"] {
+		t.Errorf("v = %q, %v; the conversion writes %q", element, err, idOf["v"])
 	}
 }
