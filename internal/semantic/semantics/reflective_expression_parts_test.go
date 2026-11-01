@@ -283,3 +283,63 @@ func TestOperatorExpressionOperatorForEveryNotationForm(t *testing.T) {
 		}
 	}
 }
+
+// An invocation owns one `in` parameter per argument — the receiver of the
+// arrow form first, then positional, then named arguments — each binding its
+// argument through a FeatureValue, and its result, as the conversion writes
+// them; a constructor the same without a receiver.
+func TestInvocationOwnsItsArgumentParameters(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			calc def F { in a : ScalarValues::Real; in b : ScalarValues::Real; return r : ScalarValues::Real = a + b; }
+			part def Pt { attribute px : ScalarValues::Real; attribute py : ScalarValues::Real; }
+			part def D {
+				attribute items : ScalarValues::Real[*];
+				attribute positional = F(1, 2);
+				attribute named = F(a = 1, b = 2);
+				attribute arrow = items->F(3);
+				attribute built = new Pt(1, 2);
+			}
+		}
+	`)
+	pkg, _ := root.LookupLocal("P")
+	d := member(t, m, pkg, "D")
+	cases := []struct {
+		name      string
+		metaclass string
+		args      []string
+	}{
+		{"positional", "InvocationExpression", []string{"LiteralInteger", "LiteralInteger"}},
+		{"named", "InvocationExpression", []string{"LiteralInteger", "LiteralInteger"}},
+		{"arrow", "InvocationExpression", []string{"FeatureReferenceExpression", "LiteralInteger"}},
+		{"built", "ConstructorExpression", []string{"LiteralInteger", "LiteralInteger"}},
+	}
+	for _, c := range cases {
+		expr := m.ValueExpression(member(t, m, d, c.name))
+		if expr == nil || m.MetaclassOf(expr).Name != c.metaclass {
+			t.Fatalf("%s: value expression %v", c.name, expr)
+		}
+		params, args := m.ExpressionParameters(expr), m.ExpressionArguments(expr)
+		if len(params) != len(c.args) || len(args) != len(c.args) {
+			t.Errorf("%s: %d parameters, %d arguments, want %d", c.name, len(params), len(args), len(c.args))
+			continue
+		}
+		for i, want := range c.args {
+			if got := m.MetaclassOf(args[i]).Name; got != want {
+				t.Errorf("%s argument %d is %s, want %s", c.name, i, got, want)
+			}
+			if params[i].Expr.Index != i || m.ValueExpression(params[i]) != args[i] {
+				t.Errorf("%s: in%d does not bind argument %d", c.name, params[i].Expr.Index, i)
+			}
+			if fv := m.OwnedMemberships(params[i]); len(fv) != 1 || m.MetaclassOf(fv[0]).Name != "FeatureValue" {
+				t.Errorf("%s: in%d owns %d memberships", c.name, i, len(fv))
+			}
+		}
+		if m.ExpressionResult(expr) == nil {
+			t.Errorf("%s: no result parameter", c.name)
+		}
+		if got := len(m.OwnedMemberships(expr)); got != len(c.args)+1 {
+			t.Errorf("%s owns %d memberships, want %d", c.name, got, len(c.args)+1)
+		}
+	}
+}

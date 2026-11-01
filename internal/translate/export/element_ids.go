@@ -694,22 +694,20 @@ func (ids *ElementIDs) conjugateOf(doc string, implied *symbols.ImpliedDecl) (co
 // own parts (expressionOperandOwnership, typeArgument, resultParameter).
 func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node ast.Node) {
 	operands, typeArgument := ast.ExpressionOperands(node)
-	for i, operand := range operands {
-		if operand == nil {
-			continue
+	for _, operand := range operands {
+		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, operand.Slot), subject, operand.Slot)
+		ids.byNode[operand.Node] = rdf.LocalName(child.Value)
+		ids.bySpan[spanKey{e.file.Name(), operand.Node.Span()}] = ids.byNode[operand.Node]
+		if operand.Index >= 0 {
+			membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(child), child, rdf.OwningMembershipSuffix).Value)
+			ids.membershipByNode[operand.Node] = membership
+			ids.membershipBySpan[spanKey{e.file.Name(), operand.Node.Span()}] = membership
+			e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", operand.Index))
 		}
-		path := fmt.Sprintf("a%d", i)
-		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, path), subject, path)
-		ids.byNode[operand] = rdf.LocalName(child.Value)
-		ids.bySpan[spanKey{e.file.Name(), operand.Span()}] = ids.byNode[operand]
-		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(child), child, rdf.OwningMembershipSuffix).Value)
-		ids.membershipByNode[operand] = membership
-		ids.membershipBySpan[spanKey{e.file.Name(), operand.Span()}] = membership
-		e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", i))
-		e.registerExpressionIDs(ids, child, operand)
+		e.registerExpressionIDs(ids, child, operand.Node)
 	}
-	if typeArgument {
-		e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", len(operands)))
+	if typeArgument >= 0 {
+		e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", typeArgument))
 	}
 	if resultBearing[expressionMetaclass(node)] {
 		e.registerExpressionPart(ids, subject, node, "out")

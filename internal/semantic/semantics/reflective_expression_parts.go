@@ -55,22 +55,25 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 	journal(m, m.expressionParts, expr, expr.Decl)
 	parts := &expressionParts{}
 	operands, typeArgument := ast.ExpressionOperands(expr.Decl)
-	for i, operand := range operands {
-		if operand == nil {
+	for _, operand := range operands {
+		if operand.Index < 0 {
+			// A receiver no function is named for is an operand the
+			// conversion writes without a parameter binding it.
 			continue
 		}
-		parts.params = append(parts.params, m.expressionParameter(expr, symbols.ExpressionParameter, i))
+		parameter := m.expressionParameter(expr, symbols.ExpressionParameter, operand.Index)
+		parts.params = append(parts.params, parameter)
 		parts.operands = append(parts.operands, &symbols.Symbol{
 			Kind:       symbols.SymbolExpression,
 			DocName:    expr.DocName,
-			Decl:       operand,
-			DeclSpan:   operand.Span(),
+			Decl:       operand.Node,
+			DeclSpan:   operand.Node.Span(),
 			Visibility: expr.Visibility,
-			Expr:       &symbols.ExpressionElement{Owner: parts.params[len(parts.params)-1], Role: symbols.ExpressionArgument, Index: i},
+			Expr:       &symbols.ExpressionElement{Owner: parameter, Role: symbols.ExpressionArgument, Index: operand.Index},
 		})
 	}
-	if typeArgument {
-		parts.params = append(parts.params, m.expressionParameter(expr, symbols.ExpressionParameter, len(operands)))
+	if typeArgument >= 0 {
+		parts.params = append(parts.params, m.expressionParameter(expr, symbols.ExpressionParameter, typeArgument))
 		parts.operands = append(parts.operands, nil)
 	}
 	if resultBearingExpressions[expressionMetaclassName(expr.Decl)] {
