@@ -219,7 +219,10 @@ func (m *Model) ExpressionArguments(expr *symbols.Symbol) []*symbols.Symbol {
 // ExpressionResult is the `out` parameter of the expression element expr, nil
 // for an expression whose evaluation yields none (a literal, a reference).
 func (m *Model) ExpressionResult(expr *symbols.Symbol) *symbols.Symbol {
-	if parts := m.expressionPartsOf(expr); parts != nil {
+	if parts := m.expressionPartsOf(expr); parts != nil && parts.result != nil &&
+		parts.result.Expr.Role == symbols.ExpressionResult {
+		// A body's result expression is a ResultExpressionMember the body
+		// owns, not the result parameter the conversion omits for it.
 		return parts.result
 	}
 	return nil
@@ -276,9 +279,8 @@ func (m *Model) expressionParameterParts(expr *symbols.Symbol) []*symbols.Symbol
 		return nil
 	}
 	out := append([]*symbols.Symbol{}, parts.params...)
-	if parts.result != nil && parts.result.Expr.Role == symbols.ExpressionResult {
-		// A body's result expression is a ResultExpressionMember, not a parameter.
-		out = append(out, parts.result)
+	if result := m.ExpressionResult(expr); result != nil {
+		out = append(out, result)
 	}
 	return out
 }

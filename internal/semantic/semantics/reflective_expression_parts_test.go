@@ -621,6 +621,14 @@ func TestBodyExpressionOwnsItsBodyParametersAndResult(t *testing.T) {
 	if owned, _ := m.ReflectiveElements(body, "parameter"); len(owned) != 0 {
 		t.Errorf("body parameter = %v, want none (its in features are FeatureMembers)", owned)
 	}
+	for _, feature := range []string{"result", "output"} {
+		if got, _ := m.ReflectiveElements(body, feature); len(got) != 0 || m.ExpressionResult(body) != nil {
+			t.Errorf("body %s = %v, want none: the conversion writes no result parameter for a body", feature, got)
+		}
+		if got, _ := m.ReflectiveElements(reference, feature); len(got) != 1 || got[0] != m.ExpressionResult(reference) {
+			t.Errorf("reference %s = %v, want its out parameter", feature, got)
+		}
+	}
 	if again := m.OwnedMemberships(reference)[0].Implicit.Member; again != body || m.OwnedMemberships(body)[2].Implicit.Member != result {
 		t.Error("a second read synthesizes different identities")
 	}
