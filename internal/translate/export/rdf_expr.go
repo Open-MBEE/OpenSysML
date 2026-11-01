@@ -594,6 +594,11 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 	if function != nil {
 		e.graph.Add(subject, e.sysml(pFunction), e.calleeReference(function))
 		e.calleeMembership(subject, function)
+	} else if links := ast.ReceiverChain(operand); links != nil {
+		// `q.p.f(1)` names its function by the chain its receiver spells
+		// (KerMLExpressions InstantiatedTypeMember → OwnedFeatureChain).
+		e.receiverChainCallee(subject, links)
+		operand = nil
 	}
 	first := 0
 	if operand != nil {
@@ -658,6 +663,24 @@ func chainedText(name *ast.QualifiedName) string {
 		out.WriteString(part.Text)
 	}
 	return out.String()
+}
+
+// receiverChainCallee owns the chain Feature a receiver-reached call names its
+// function by, one FeatureChaining per link; the function is the last link.
+func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedName) {
+	chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
+	e.typed(chain, mFeature)
+	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+	terms := make([]rdf.Term, len(links))
+	for i, link := range links {
+		terms[i] = e.reference(link)
+	}
+	e.featureChainings(chain, terms)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
+	e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pFunction), terms[len(terms)-1])
 }
 
 // calleeMembership emits the relationship an invocation owns to what it

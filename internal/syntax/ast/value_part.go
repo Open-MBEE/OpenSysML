@@ -45,6 +45,10 @@ func ExpressionOperands(node Node) (operands []ExpressionOperand, typeArgument i
 	}
 	invocation := func(receiver Node, function *QualifiedName, args []Node, named []NamedArg) {
 		first := 0
+		if receiver != nil && function == nil && ReceiverChain(receiver) != nil {
+			// `q.p.f(1)`: the receiver is the chain naming the function, not an operand.
+			receiver = nil
+		}
 		if receiver != nil {
 			index := -1
 			if function != nil {
@@ -87,6 +91,38 @@ func ExpressionOperands(node Node) (operands []ExpressionOperand, typeArgument i
 		invocation(nil, n.Type, n.Args, n.NamedArgs)
 	}
 	return operands, -1
+}
+
+// ReceiverChain is the feature chain a call reached through its receiver names
+// its function by (`q.p.f(1)`: q, p, f), one single-segment name per link; nil
+// when any link is an expression rather than a name.
+func ReceiverChain(receiver Node) []*QualifiedName {
+	var links []*QualifiedName
+	for {
+		switch n := receiver.(type) {
+		case *FeatureChainExpr:
+			if n.Member == nil || QualifiedNameHasChain(n.Member) {
+				return nil
+			}
+			links = append(links, n.Member)
+			receiver = n.Operand
+			continue
+		case *FeatureReference:
+			links = append(links, n.Name)
+		case *QualifiedName:
+			links = append(links, n)
+		default:
+			return nil
+		}
+		break
+	}
+	if len(links) < 2 {
+		return nil
+	}
+	for i, j := 0, len(links)-1; i < j; i, j = i+1, j-1 {
+		links[i], links[j] = links[j], links[i]
+	}
+	return links
 }
 
 // QualifiedNameHasChain reports whether name reaches its element through a
