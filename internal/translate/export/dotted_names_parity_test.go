@@ -15,8 +15,9 @@ import (
 )
 
 // The parser spells a dotted expression name as a receiver chain or nested chain
-// expressions, never as one chained qualified name: native and written memberships agree.
-func TestDottedExpressionNamesOwnNoChainFeature(t *testing.T) {
+// expressions, never as one chained qualified name. Only a receiver-reached call
+// (`q.p.f(1)`) owns a chain Feature, at `function`, natively as the conversion writes it.
+func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.T) {
 	text := `package P {
 	calc def F { in x : ScalarValues::Real; return y : ScalarValues::Real = x; }
 	part def Pt { attribute a : ScalarValues::Real; attribute b : ScalarValues::Real; calc f : F; }
@@ -79,9 +80,32 @@ func TestDottedExpressionNamesOwnNoChainFeature(t *testing.T) {
 		if strings.Join(native, ",") != strings.Join(written, ",") {
 			t.Errorf("%s (%s): native owns %v, the conversion writes %v", name, classOf(subjectOf[id]), native, written)
 		}
+		chain := model.ExpressionChainFeature(expr)
+		if (chain != nil) != (name == "d") {
+			t.Errorf("%s: native chain Feature %v", name, chain)
+		}
 		for _, slot := range []string{"function", "targetFeature"} {
-			if element, _, err := reader.ReadExpressionPart(sf.Name(), expr.Decl, slot); err == nil && element != "" {
-				t.Errorf("%s: the conversion owns a chain Feature at %s (%s)", name, slot, element)
+			element, _, err := reader.ReadExpressionPart(sf.Name(), expr.Decl, slot)
+			owns := err == nil && element != ""
+			if owns != (name == "d" && slot == "function") {
+				t.Errorf("%s: the conversion owns a chain Feature at %s = %v (%s)", name, slot, owns, element)
+			}
+			if !owns || chain == nil {
+				continue
+			}
+			var written []string
+			for _, link := range graph.Objects(subjectOf[element], rdf.SysML+"chainingFeature") {
+				written = append(written, classOf(link)+":"+graph.Objects(link, rdf.SysML+"declaredName")[0].Value)
+			}
+			var native []string
+			for _, link := range model.ChainingFeatures(chain) {
+				native = append(native, model.MetaclassOf(link).Name+":"+link.Name)
+			}
+			if got, want := strings.Join(native, ","), strings.Join(written, ","); got != want || len(native) != 3 {
+				t.Errorf("%s: native chains %v, the conversion writes %v", name, native, written)
+			}
+			if got := classOf(subjectOf[element]); got != "Feature" || model.MetaclassOf(chain).Name != "Feature" {
+				t.Errorf("%s: chain Feature written as %s, native %s", name, got, model.MetaclassOf(chain).Name)
 			}
 		}
 		for i, parameter := range model.ExpressionParameters(expr) {

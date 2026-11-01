@@ -32,6 +32,7 @@ func TestCalleeTextChainAgreesByIdentity(t *testing.T) {
 		}, nil, nil, nil)
 		for iri, qname := range map[rdf.Term]string{foo: "Service::foo", other: "Other::foo"} {
 			g.Add(iri, rdf.SysMLTerm(pQualifiedName), rdf.String(qname))
+			g.Add(iri, rdf.SysMLTerm(pDeclaredName), rdf.String("foo"))
 			d.byIRI[iri.Value] = &element{iri: iri.Value, qname: qname}
 		}
 		return d
