@@ -101,6 +101,48 @@ func TestPositionalIdentitiesUsesExporterNames(t *testing.T) {
 	}
 }
 
+func TestPositionalIdentityIgnoresImpliedConjugate(t *testing.T) {
+	file := source.New("short-port.sysml", []byte(`package P { port def <s>; }`))
+	p := parser.New(file)
+	root := p.ParseFile()
+	index := symbols.NewIndex()
+	index.AddDocument(file.Name(), root)
+	pkg := index.LookupQualified("P")[0]
+	short, ok := pkg.Scope.LookupLocal("s")
+	if !ok {
+		t.Fatal("index has no short-named port definition")
+	}
+	var conjugate *symbols.Symbol
+	for _, member := range short.Scope.AllMembers() {
+		if member.IsConjugatedPortDefinition() {
+			conjugate = member
+			break
+		}
+	}
+	if conjugate == nil || conjugate.DeclSpan != short.DeclSpan {
+		t.Fatalf("conjugate %v does not share the original declaration span", conjugate)
+	}
+	names, err := DeclarationNames(file, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names[short.Decl.Span()]; got != "P::@0" {
+		t.Fatalf("short port declaration name = %q, want P::@0", got)
+	}
+	identifies := func(sym *symbols.Symbol) bool {
+		if sym == short || sym == conjugate {
+			return false
+		}
+		return index.GetFQN(sym) != ""
+	}
+	if !positionalSymbol(short, file.Name(), identifies) {
+		t.Fatal("short-named port definition is not eligible for its positional identity")
+	}
+	if positionalSymbol(conjugate, file.Name(), identifies) {
+		t.Fatal("implied conjugate is eligible for its original's positional identity")
+	}
+}
+
 func TestIsPositionalIdentityRequiresCanonicalIndex(t *testing.T) {
 	for _, test := range []struct {
 		name string

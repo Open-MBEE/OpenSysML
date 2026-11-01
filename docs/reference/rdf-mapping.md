@@ -794,7 +794,7 @@ sees the same relationships SysML.xtext produces.
 | `:>> mass`, `redefines mass` | a `sysml:Redefinition` (`<S>_rd<i>`) with `redefiningFeature`/`redefinedFeature` |
 | `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
 | `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
-| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`, so `port p`'s `FeatureTyping` reads `type: ~P` |
+| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; a named `P` gives its conjugate `declaredName "~P"` (never `declaredShortName`), while an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
 | `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
 | `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword |
 | `objective { verify r; }` | a `sysml:RequirementVerificationMembership` owning a `sysml:RequirementUsage` that references `r` (its `sysml:ReferenceSubsetting`), with `sysml:kind "requirement"` |
@@ -2274,7 +2274,10 @@ The mapping materializes the same relationship elements the toolkit emits
 the `Membership` an expression referent is carried by — the table above) and
 writes the same unnamed root `Namespace` with its `OwningMembership` (see
 [The root namespace](#the-root-namespace)), so the toolkit's lifter reads this
-form's output back to the notation it came from. The per-`@type` element
+form's output back to the notation it came from. A conjugate has
+`declaredName "~P"` only when its original declares a name and never has a
+`declaredShortName`; otherwise it is addressed as `<owner>::@conjugated`. The
+per-`@type` element
 counts of the two still differ where the toolkit's own JSON is sparser than
 the metamodel: it writes no `ReturnParameterMembership` for an expression
 whose result is unused, spells a chained callee as `FeatureChaining`s on one
