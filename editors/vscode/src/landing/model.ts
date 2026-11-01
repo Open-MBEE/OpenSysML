@@ -48,8 +48,13 @@ export interface LandingState {
   path: string;
   /** What RenderView drew it as: `start`, `state` or `final`. */
   kind: string;
-  /** Whether the machine enters this state first, as RenderView details it. */
+  /** Whether the machine enters this state first: RenderView's detail leads with `initial`, ahead of any behavior. */
   initial: boolean;
+}
+
+/** initialState reads RenderView's leading `initial` marker from a state's detail, which lists its entry/do/exit behavior after it. */
+function initialState(detail: string): boolean {
+  return detail.split(", ")[0] === "initial";
 }
 
 /** The state machine a scene draws: its states by path and, where that is unambiguous, by name. */
@@ -544,7 +549,7 @@ function machineModel(
         path = above === undefined ? node.name : `${above}.${node.name}`;
       }
       if (node.name !== "" && path !== undefined && node.kind !== "region") {
-        const state: LandingState = { id: node.id, name: node.name, path, kind: node.kind, initial: node.detail === "initial" };
+        const state: LandingState = { id: node.id, name: node.name, path, kind: node.kind, initial: initialState(node.detail) };
         states.set(path, state);
         byName.set(node.name, [...(byName.get(node.name) ?? []), state]);
       }

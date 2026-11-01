@@ -1,6 +1,6 @@
 import type { RenderResult } from "../protocol";
-import type { LandingModel, LandingPart } from "./model";
-import { presentedMission, presentedPhases, presentedStack, stackTone } from "./present";
+import type { LandingActionNode, LandingModel, LandingPart, LandingState } from "./model";
+import { missionTone, phaseTone, presentedMission, presentedPhases, presentedStack, stackTone } from "./present";
 import mass from "./mass.json";
 import mission from "./mission.json";
 import phases from "./phases.json";
@@ -49,13 +49,19 @@ export type SceneProgram = SceneJourney | SceneRollup | SceneClock | SceneAction
 /** The hero's fill for a box, one of the three the page defines; a box with none is drawn plain. */
 export type SceneTone = "primary" | "secondary" | "accent";
 
+/** A box the hero draws: a part of the root's composition, a state of its machine or a step of its action. */
+export type SceneBox =
+  | { kind: "part"; part: LandingPart }
+  | { kind: "state"; state: LandingState }
+  | { kind: "step"; step: LandingActionNode };
+
 /** A scene drawn as a diagram: the view's boxes and wires, laid out and movable. */
 export interface SceneDiagram {
   kind: "diagram";
   /** How the hero draws the model: the boxes' heads and detail lines. */
   present: (model: LandingModel, scene: Scene) => RenderResult;
-  /** The tone a part's box is filled with; undefined leaves it plain. */
-  tone: (part: LandingPart, scene: Scene) => SceneTone | undefined;
+  /** The tone a box is filled with; undefined leaves it plain. */
+  tone: (box: SceneBox, scene: Scene) => SceneTone | undefined;
   /** The file name Download PNG saves the drawing under. */
   pngName: string;
 }
@@ -185,7 +191,7 @@ export const MISSION_PHASES_SCENE: Scene = {
   show: ["edge-labels"],
   snapshot: phases,
   controls: ["run", "edit", "debug", "download"],
-  form: { kind: "diagram", present: presentedPhases, tone: () => undefined, pngName: "mission-phases.png" },
+  form: { kind: "diagram", present: presentedPhases, tone: phaseTone, pngName: "mission-phases.png" },
   program: { kind: "clock", symbol: "MissionSequence::MissionPhases", performer: "MissionSequence::mission", advance: 400000 },
   variants: [
     {
@@ -212,7 +218,7 @@ export const LUNAR_MISSION_SCENE: Scene = {
   show: ["edge-labels"],
   snapshot: mission,
   controls: ["run", "edit", "debug", "download"],
-  form: { kind: "diagram", present: presentedMission, tone: () => undefined, pngName: "lunar-mission.png" },
+  form: { kind: "diagram", present: presentedMission, tone: missionTone, pngName: "lunar-mission.png" },
   program: { kind: "action", symbol: "MissionSequence::LunarMission", performer: "MissionSequence::apollo11", events: [] },
   variants: [
     {
