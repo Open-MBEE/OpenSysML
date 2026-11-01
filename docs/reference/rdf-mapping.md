@@ -1271,7 +1271,9 @@ The rules the tree follows:
 - **An expression body is structure too.** `{ in y : Real; y + x }` is a
   `sysml:Expression` node whose `sysx:bodyParameter`s are nodes of their own —
   each typed `sysml:ReferenceUsage` with `sysml:direction "in"`, its name, `ref`
-  flag, `sysml:type`, bounds, `sysml:value` and any body of its own — and whose
+  flag, `sysml:type`, bounds, `sysml:value` and any body of its own, owned
+  through a `sysml:ParameterMembership` (KerMLExpressions `BodyParameterMember`),
+  so the body states each as `sysml:parameter` and `sysml:input` — and whose
   `sysx:resultExpression` is the tree of the expression after them, so a nested
   body (`{ in y : Real; f(x = { in z : Real; z + y }) }`) and an `in expr`
   parameter's body (`in expr keep : Boolean { in v : Real; v > x }`) rebuild from

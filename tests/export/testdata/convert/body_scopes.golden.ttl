@@ -374,11 +374,15 @@ expr:Scopes__D__one_pvalue_pa0_pbody
     sysx:bodyParameter expr:Scopes__D__one_pvalue_pa0_pin0 ;
     sysml:ownedRelationship expr:Scopes__D__one_pvalue_pa0_pin0_om, expr:Scopes__D__one_pvalue_pa0_presult_om ;
     sysml:ownedMembership expr:Scopes__D__one_pvalue_pa0_pin0_om, expr:Scopes__D__one_pvalue_pa0_presult_om ;
-    sysml:ownedFeatureMembership expr:Scopes__D__one_pvalue_pa0_pin0_om ;
-    sysml:ownedFeature expr:Scopes__D__one_pvalue_pa0_pin0 ;
+    sysml:ownedFeatureMembership expr:Scopes__D__one_pvalue_pa0_pin0_om, expr:Scopes__D__one_pvalue_pa0_presult_om ;
+    sysml:ownedFeature expr:Scopes__D__one_pvalue_pa0_pin0, expr:Scopes__D__one_pvalue_pa0_presult ;
+    sysml:parameter expr:Scopes__D__one_pvalue_pa0_pin0 ;
+    sysml:input expr:Scopes__D__one_pvalue_pa0_pin0 ;
     sysx:resultExpression expr:Scopes__D__one_pvalue_pa0_presult ;
     json:ownedRelationship "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult\"}]" .
 
 expr:Scopes__D__one_pvalue_pa0_pbody_om
     a sysml:FeatureMembership ;
@@ -405,7 +409,7 @@ expr:Scopes__D__one_pvalue_pa0_pin0
     sysml:owningMembership expr:Scopes__D__one_pvalue_pa0_pin0_om .
 
 expr:Scopes__D__one_pvalue_pa0_pin0_om
-    a sysml:FeatureMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "Scopes__D__one_pvalue_pa0_pin0_om" ;
     sysml:owner expr:Scopes__D__one_pvalue_pa0_pbody ;
     sysml:memberElement expr:Scopes__D__one_pvalue_pa0_pin0 ;
@@ -413,7 +417,8 @@ expr:Scopes__D__one_pvalue_pa0_pin0_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pa0_pin0 ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pa0_pbody ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue_pa0_pbody ;
-    sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pa0_pin0 .
+    sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pa0_pin0 ;
+    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pa0_pin0 .
 
 expr:Scopes__D__one_pvalue_pa0_presult
     a sysml:FeatureReferenceExpression ;
@@ -470,6 +475,7 @@ expr:Scopes__D__one_pvalue_pa0_presult_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pa0_presult ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pa0_pbody ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue_pa0_pbody ;
+    sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pa0_presult ;
     sysml:ownedResultExpression expr:Scopes__D__one_pvalue_pa0_presult .
 
 expr:Scopes__D__one_pvalue_pa0_pout
@@ -741,11 +747,15 @@ expr:Scopes__D__two_pvalue_pa0_pbody
     sysx:bodyParameter expr:Scopes__D__two_pvalue_pa0_pin0 ;
     sysml:ownedRelationship expr:Scopes__D__two_pvalue_pa0_pin0_om, expr:Scopes__D__two_pvalue_pa0_presult_om ;
     sysml:ownedMembership expr:Scopes__D__two_pvalue_pa0_pin0_om, expr:Scopes__D__two_pvalue_pa0_presult_om ;
-    sysml:ownedFeatureMembership expr:Scopes__D__two_pvalue_pa0_pin0_om ;
-    sysml:ownedFeature expr:Scopes__D__two_pvalue_pa0_pin0 ;
+    sysml:ownedFeatureMembership expr:Scopes__D__two_pvalue_pa0_pin0_om, expr:Scopes__D__two_pvalue_pa0_presult_om ;
+    sysml:ownedFeature expr:Scopes__D__two_pvalue_pa0_pin0, expr:Scopes__D__two_pvalue_pa0_presult ;
+    sysml:parameter expr:Scopes__D__two_pvalue_pa0_pin0 ;
+    sysml:input expr:Scopes__D__two_pvalue_pa0_pin0 ;
     sysx:resultExpression expr:Scopes__D__two_pvalue_pa0_presult ;
     json:ownedRelationship "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult\"}]" .
 
 expr:Scopes__D__two_pvalue_pa0_pbody_om
     a sysml:FeatureMembership ;
@@ -772,7 +782,7 @@ expr:Scopes__D__two_pvalue_pa0_pin0
     sysml:owningMembership expr:Scopes__D__two_pvalue_pa0_pin0_om .
 
 expr:Scopes__D__two_pvalue_pa0_pin0_om
-    a sysml:FeatureMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "Scopes__D__two_pvalue_pa0_pin0_om" ;
     sysml:owner expr:Scopes__D__two_pvalue_pa0_pbody ;
     sysml:memberElement expr:Scopes__D__two_pvalue_pa0_pin0 ;
@@ -780,7 +790,8 @@ expr:Scopes__D__two_pvalue_pa0_pin0_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pa0_pin0 ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pa0_pbody ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue_pa0_pbody ;
-    sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pa0_pin0 .
+    sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pa0_pin0 ;
+    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pa0_pin0 .
 
 expr:Scopes__D__two_pvalue_pa0_presult
     a sysml:FeatureReferenceExpression ;
@@ -837,6 +848,7 @@ expr:Scopes__D__two_pvalue_pa0_presult_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pa0_presult ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pa0_pbody ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue_pa0_pbody ;
+    sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pa0_presult ;
     sysml:ownedResultExpression expr:Scopes__D__two_pvalue_pa0_presult .
 
 expr:Scopes__D__two_pvalue_pa0_pout

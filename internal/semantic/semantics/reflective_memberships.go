@@ -277,9 +277,15 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "ParameterMembership"
 		case symbols.ExpressionResult:
 			return "ReturnParameterMembership"
-		case symbols.ExpressionChangeCondition:
+		case symbols.ExpressionChangeCondition, symbols.ExpressionBody:
 			return "FeatureMembership"
+		case symbols.ExpressionBodyResult:
+			return "ResultExpressionMembership"
 		}
+	}
+	if isBodyParameterSymbol(member) {
+		// KerMLExpressions BodyParameterMember returns ParameterMembership.
+		return "ParameterMembership"
 	}
 	if name := m.sysmlMembershipMetaclassName(owner, member); name != "" {
 		return name

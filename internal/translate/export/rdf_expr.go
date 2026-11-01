@@ -330,10 +330,15 @@ func (e *encoder) bodyMembership(owner, member rdf.Term, metaclass string) rdf.T
 	e.emitMembershipCore(membership, member, owner, metaclass, true)
 	e.graph.Add(owner, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(owner, e.sysml(pOwnedMembership), membership)
-	if metaclass == mFeatureMembership {
+	if ontology.IsAncestorOrSelf(metaclass, mFeatureMembership) {
 		e.graph.Add(owner, e.sysml(pOwnedFeatureMembership), membership)
 		e.graph.Add(owner, e.sysml(pOwnedFeature), member)
 		e.graph.Add(membership, e.sysml(pOwnedMemberFeature), member)
+	}
+	if metaclass == mParameterMembership {
+		e.graph.Add(membership, e.sysml(pOwnedMemberParameter), member)
+		e.graph.Add(owner, e.sysml(pParameter), member)
+		e.graph.Add(owner, e.sysml(pInput), member)
 	}
 	return membership
 }
@@ -458,27 +463,12 @@ func expressionMetaclass(node ast.Node) string {
 // parameters and members alike, indexed in the one order they were written.
 // The body owns them; their ids are minted off base.
 func (e *encoder) bodyDeclarations(subject, base rdf.Term, owner string, body *ast.BodyExpr, params []ast.BodyParam, members []ast.Node) error {
-	type declaration struct {
-		offset int
-		param  *ast.BodyParam
-		member ast.Node
-	}
-	declarations := make([]declaration, 0, len(params)+len(members))
-	for i := range params {
-		declarations = append(declarations, declaration{offset: params[i].Span.Offset, param: &params[i]})
-	}
-	for _, member := range members {
-		declarations = append(declarations, declaration{offset: member.Span().Offset, member: member})
-	}
-	sort.SliceStable(declarations, func(i, j int) bool {
-		return declarations[i].offset < declarations[j].offset
-	})
-	for i, decl := range declarations {
+	for _, decl := range ast.BodyDeclarations(params, members) {
 		var err error
-		if decl.param != nil {
-			err = e.bodyParameter(subject, base, owner, body, i, *decl.param)
+		if decl.Param != nil {
+			err = e.bodyParameter(subject, base, owner, body, decl.Index, *decl.Param)
 		} else {
-			err = e.bodyMember(subject, base, owner, i, decl.member)
+			err = e.bodyMember(subject, base, owner, decl.Index, decl.Member)
 		}
 		if err != nil {
 			return err
@@ -508,7 +498,8 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 		e.headRelationship(node, ast.RelTyping, e.reference(param.Type), param.Type)
 	}
 	e.relationships(node, owner, param.Relationships)
-	e.bodyMembership(subject, node, mFeatureMembership)
+	// KerMLExpressions BodyParameterMember returns ParameterMembership.
+	e.bodyMembership(subject, node, mParameterMembership)
 	if err := e.multiplicity(node, owner, param.Multiplicity); err != nil {
 		return err
 	}

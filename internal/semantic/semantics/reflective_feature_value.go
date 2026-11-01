@@ -56,9 +56,16 @@ func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
 // isValueExpressionSymbol reports whether sym is the value expression a
 // FeatureValue owns.
 func isValueExpressionSymbol(sym *symbols.Symbol) bool {
-	// A change wrapper's condition is owned through a FeatureMembership, not
-	// bound as a value (changeArgument).
-	return isExpressionSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeCondition
+	if !isExpressionSymbol(sym) {
+		return false
+	}
+	switch sym.Expr.Role {
+	case symbols.ExpressionChangeCondition, symbols.ExpressionBody, symbols.ExpressionBodyResult:
+		// Owned through a FeatureMembership or ResultExpressionMembership,
+		// not bound as a value (changeArgument, bodyExpression).
+		return false
+	}
+	return true
 }
 
 // expressionMetaclassName is the KerML metaclass of an expression element, by
