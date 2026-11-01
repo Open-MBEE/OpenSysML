@@ -545,3 +545,188 @@ func TestChangeTriggerOwnsItsConditionThroughAWrapper(t *testing.T) {
 		t.Error("a second read synthesizes different identities")
 	}
 }
+
+// A `{ in q; attribute k = 2; q * k }` value is a FeatureReferenceExpression
+// owning, through a FeatureMembership, the body Expression it refers to; the
+// body owns its parameters and members through FeatureMemberships (the type
+// body both notations give an expression body) and its result through a
+// ResultExpressionMembership, in source order, as the conversion writes them.
+func TestBodyExpressionOwnsItsBodyParametersAndResult(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			part def D {
+				attribute xs : ScalarValues::Real[0..*];
+				attribute y = { in q : ScalarValues::Real; attribute k = 2; q * k };
+				attribute total = xs->reduce { in a; in b; a + b };
+			}
+		}
+	`)
+	pkg, _ := root.LookupLocal("P")
+	d := member(t, m, pkg, "D")
+	y := member(t, m, d, "y")
+	reference := m.ValueExpression(y)
+	if reference == nil || m.MetaclassOf(reference).Name != "FeatureReferenceExpression" {
+		t.Fatalf("y's value = %v", reference)
+	}
+	memberships := m.OwnedMemberships(reference)
+	if len(memberships) != 2 || m.MetaclassOf(memberships[0]).Name != "FeatureMembership" ||
+		m.MetaclassOf(memberships[1]).Name != "ReturnParameterMembership" {
+		t.Fatalf("the reference owns %v", memberships)
+	}
+	body := memberships[0].Implicit.Member
+	if m.MetaclassOf(body).Name != "Expression" || m.ownerOf(body) != reference {
+		t.Errorf("body = %s owned by %v", m.MetaclassOf(body).Name, m.ownerOf(body))
+	}
+	if referent, _ := m.ReflectiveElements(reference, "referent"); len(referent) != 1 || referent[0] != body {
+		t.Errorf("reference referent = %v", referent)
+	}
+	if len(m.ExpressionParameters(reference)) != 0 {
+		t.Errorf("the reference binds %d params, want none", len(m.ExpressionParameters(reference)))
+	}
+	parts := m.OwnedMemberships(body)
+	var kinds, members []string
+	for _, membership := range parts {
+		kinds = append(kinds, m.MetaclassOf(membership).Name)
+		members = append(members, m.MetaclassOf(membership.Implicit.Member).Name)
+	}
+	if strings.Join(kinds, ",") != "FeatureMembership,FeatureMembership,ResultExpressionMembership" ||
+		strings.Join(members, ",") != "ReferenceUsage,AttributeUsage,OperatorExpression" {
+		t.Fatalf("the body owns %v holding %v", kinds, members)
+	}
+	q, k, result := parts[0].Implicit.Member, parts[1].Implicit.Member, parts[2].Implicit.Member
+	if q.Name != "q" || k.Name != "k" {
+		t.Errorf("body declares %q, %q", q.Name, k.Name)
+	}
+	if m.ownerOf(q) != body || m.ownerOf(k) != body || m.ownerOf(result) != body {
+		t.Errorf("owners: q %v, k %v, result %v", m.ownerOf(q), m.ownerOf(k), m.ownerOf(result))
+	}
+	if value, ok := m.reflectiveFeatureValue(result, "operator"); !ok || value.Str != "*" {
+		t.Errorf("result operator = %v, %v", value, ok)
+	}
+	if len(m.ExpressionParameters(result)) != 2 {
+		t.Errorf("result binds %d params", len(m.ExpressionParameters(result)))
+	}
+	if kValue := m.ValueExpression(k); kValue == nil || m.MetaclassOf(kValue).Name != "LiteralInteger" {
+		t.Errorf("k's value = %v", kValue)
+	}
+	if owned, _ := m.ReflectiveElements(reference, "ownedElement"); len(owned) != 2 || owned[0] != body {
+		t.Errorf("reference ownedElement = %v, want the body then the result", owned)
+	}
+	if owned, _ := m.ReflectiveElements(body, "ownedElement"); len(owned) != 3 || owned[0] != q || owned[1] != k || owned[2] != result {
+		t.Errorf("body ownedElement = %v, want q, k, result", owned)
+	}
+	if owned, _ := m.ReflectiveElements(body, "ownedFeature"); len(owned) != 3 || owned[0] != q || owned[2] != result {
+		t.Errorf("body ownedFeature = %v", owned)
+	}
+	if owned, _ := m.ReflectiveElements(body, "parameter"); len(owned) != 0 {
+		t.Errorf("body parameter = %v, want none (its in features are FeatureMembers)", owned)
+	}
+	for _, feature := range []string{"result", "output"} {
+		if got, _ := m.ReflectiveElements(body, feature); len(got) != 0 || m.ExpressionResult(body) != nil {
+			t.Errorf("body %s = %v, want none: the conversion writes no result parameter for a body", feature, got)
+		}
+		if got, _ := m.ReflectiveElements(reference, feature); len(got) != 1 || got[0] != m.ExpressionResult(reference) {
+			t.Errorf("reference %s = %v, want its out parameter", feature, got)
+		}
+	}
+	if again := m.OwnedMemberships(reference)[0].Implicit.Member; again != body || m.OwnedMemberships(body)[2].Implicit.Member != result {
+		t.Error("a second read synthesizes different identities")
+	}
+
+	// A fresh model finds a parameter's owner before anything reflected its body.
+	m2, root2 := buildModelWithStdlib(t, `
+		package P {
+			part def D {
+				attribute xs : ScalarValues::Real[0..*];
+				attribute total = xs->reduce { in a; in b; a + b };
+			}
+		}
+	`)
+	pkg2, _ := root2.LookupLocal("P")
+	total := member(t, m2, member(t, m2, pkg2, "D"), "total")
+	var a *symbols.Symbol
+	var walk func(scope *symbols.Scope)
+	walk = func(scope *symbols.Scope) {
+		scope.ForEachMember(func(sym *symbols.Symbol) bool {
+			if sym.Name == "a" {
+				a = sym
+			}
+			return a == nil
+		})
+		for _, child := range scope.Children() {
+			walk(child)
+		}
+	}
+	walk(root2)
+	if a == nil {
+		t.Fatal("no parameter a")
+	}
+	reduceBody := m2.ownerOf(a)
+	if reduceBody == nil || m2.MetaclassOf(reduceBody).Name != "Expression" {
+		t.Fatalf("a's owner = %v", reduceBody)
+	}
+	args := m2.ExpressionArguments(m2.ValueExpression(total))
+	if len(args) != 2 || m2.OwnedMemberships(args[1])[0].Implicit.Member != reduceBody {
+		t.Errorf("the reduce's body argument does not own a's body: %v", args)
+	}
+	bodyParts := m2.OwnedMemberships(reduceBody)
+	if len(bodyParts) != 3 || bodyParts[0].Implicit.Member != a ||
+		m2.MetaclassOf(bodyParts[1]).Name != "FeatureMembership" ||
+		m2.MetaclassOf(bodyParts[2]).Name != "ResultExpressionMembership" {
+		t.Errorf("the reduce body owns %v", bodyParts)
+	}
+}
+
+func TestBodyParameterValueOwnsTheBodyItDeclares(t *testing.T) {
+	// A fresh model finds a nested body's parameter owner through the body
+	// parameter whose value holds it, before anything reflected either body.
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			part def D {
+				attribute y = { in keep = { in v; v }; keep };
+			}
+		}
+	`)
+	pkg, _ := root.LookupLocal("P")
+	y := member(t, m, member(t, m, pkg, "D"), "y")
+	var v, keep *symbols.Symbol
+	var walk func(scope *symbols.Scope)
+	walk = func(scope *symbols.Scope) {
+		scope.ForEachMember(func(sym *symbols.Symbol) bool {
+			switch sym.Name {
+			case "v":
+				v = sym
+			case "keep":
+				keep = sym
+			}
+			return true
+		})
+		for _, child := range scope.Children() {
+			walk(child)
+		}
+	}
+	walk(root)
+	if v == nil || keep == nil {
+		t.Fatalf("parameters v = %v, keep = %v", v, keep)
+	}
+	inner := m.ownerOf(v)
+	if inner == nil || m.MetaclassOf(inner).Name != "Expression" {
+		t.Fatalf("v's owner = %v", inner)
+	}
+	keepValue := m.ValueExpression(keep)
+	if keepValue == nil || m.MetaclassOf(keepValue).Name != "FeatureReferenceExpression" {
+		t.Fatalf("keep's value = %v", keepValue)
+	}
+	if owned := m.OwnedMemberships(keepValue); len(owned) != 2 || owned[0].Implicit.Member != inner {
+		t.Errorf("keep's value owns %v, want the inner body first", owned)
+	}
+	if m.ownerOf(inner) != keepValue || m.ownerOf(keep) == nil || m.ownerOf(m.ownerOf(keep)) != m.ValueExpression(y) {
+		t.Errorf("owner chain: inner → %v, keep → %v", m.ownerOf(inner), m.ownerOf(keep))
+	}
+	if memberships := m.OwnedMemberships(keep); len(memberships) != 1 || m.MetaclassOf(memberships[0]).Name != "FeatureValue" {
+		t.Errorf("keep owns %v, want its FeatureValue", memberships)
+	}
+	if m.ownerOf(v) != inner {
+		t.Errorf("v's owner moved to %v after reading the outer body", m.ownerOf(v))
+	}
+}

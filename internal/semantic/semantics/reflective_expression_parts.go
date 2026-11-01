@@ -16,7 +16,9 @@ type expressionParts struct {
 	params    []*symbols.Symbol
 	operands  []*symbols.Symbol // operands[i] is the value of params[i]; nil for a type argument
 	result    *symbols.Symbol
-	condition *symbols.Symbol // a change wrapper's referent, the written condition
+	condition *symbols.Symbol   // a change wrapper's referent, the written condition
+	body      *symbols.Symbol   // a `{ … }` reference's referent, the body Expression
+	members   []*symbols.Symbol // a body's parameters and members, in the conversion's order
 }
 
 // resultBearingExpressions are the expression metaclasses whose evaluation
@@ -36,7 +38,8 @@ func isExpressionSymbol(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Expr.Role {
-	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition:
+	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition,
+		symbols.ExpressionBody, symbols.ExpressionBodyResult:
 		return true
 	}
 	return false
@@ -46,8 +49,13 @@ func isExpressionSymbol(sym *symbols.Symbol) bool {
 // sym: a change wrapper is the FeatureReferenceExpression the conversion
 // writes; every other element is classified by its node.
 func expressionElementMetaclassName(sym *symbols.Symbol) string {
-	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
-		return "FeatureReferenceExpression"
+	if sym.Expr != nil {
+		switch sym.Expr.Role {
+		case symbols.ExpressionChangeWrapper:
+			return "FeatureReferenceExpression"
+		case symbols.ExpressionBody:
+			return "Expression"
+		}
 	}
 	return expressionMetaclassName(sym.Decl)
 }
@@ -82,6 +90,46 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			Visibility: expr.Visibility,
 			Expr:       &symbols.ExpressionElement{Owner: expr, Role: symbols.ExpressionChangeCondition},
 		}
+		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
+		m.expressionParts[expr] = parts
+		return parts
+	}
+	if expr.Expr.Role == symbols.ExpressionBody {
+		// The body owns the parameters and members its scope declares, in the
+		// conversion's order, then its result (bodyExpression).
+		body := expr.Decl.(*ast.BodyExpr)
+		scope := m.bodyScopeOf(expr)
+		for _, decl := range ast.BodyDeclarations(body.Params, body.Members) {
+			if member := bodyDeclarationSymbol(scope, body, decl); member != nil {
+				parts.members = append(parts.members, member)
+			}
+		}
+		if body.Result != nil {
+			parts.result = &symbols.Symbol{
+				Kind:       symbols.SymbolExpression,
+				DocName:    expr.DocName,
+				Decl:       body.Result,
+				DeclSpan:   body.Result.Span(),
+				Visibility: expr.Visibility,
+				Expr:       &symbols.ExpressionElement{Owner: expr, Role: symbols.ExpressionBodyResult},
+			}
+		}
+		m.expressionParts[expr] = parts
+		return parts
+	}
+	if body, ok := expr.Decl.(*ast.BodyExpr); ok {
+		// A `{ … }` is a FeatureReferenceExpression whose referent is the body
+		// Expression it owns, beside its result (KerMLExpressions BodyExpression).
+		parts.body = &symbols.Symbol{
+			Kind:       symbols.SymbolExpression,
+			DocName:    expr.DocName,
+			Decl:       body,
+			DeclSpan:   body.Span(),
+			Visibility: expr.Visibility,
+			Expr:       &symbols.ExpressionElement{Owner: expr, Role: symbols.ExpressionBody},
+		}
+		journal(m, m.bodySymbols, body, body)
+		m.bodySymbols[body] = parts.body
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
 		m.expressionParts[expr] = parts
 		return parts
@@ -171,7 +219,10 @@ func (m *Model) ExpressionArguments(expr *symbols.Symbol) []*symbols.Symbol {
 // ExpressionResult is the `out` parameter of the expression element expr, nil
 // for an expression whose evaluation yields none (a literal, a reference).
 func (m *Model) ExpressionResult(expr *symbols.Symbol) *symbols.Symbol {
-	if parts := m.expressionPartsOf(expr); parts != nil {
+	if parts := m.expressionPartsOf(expr); parts != nil && parts.result != nil &&
+		parts.result.Expr.Role == symbols.ExpressionResult {
+		// A body's result expression is a ResultExpressionMember the body
+		// owns, not the result parameter the conversion omits for it.
 		return parts.result
 	}
 	return nil
@@ -208,6 +259,12 @@ func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
 		// ahead of its result (changeArgument).
 		out = append(out, parts.condition)
 	}
+	if parts.body != nil {
+		// A `{ … }` reference owns its body ahead of its result (bodyExpression).
+		out = append(out, parts.body)
+	}
+	// A body owns its parameters and members ahead of its result.
+	out = append(out, parts.members...)
 	if parts.result != nil {
 		out = append(out, parts.result)
 	}
@@ -222,8 +279,8 @@ func (m *Model) expressionParameterParts(expr *symbols.Symbol) []*symbols.Symbol
 		return nil
 	}
 	out := append([]*symbols.Symbol{}, parts.params...)
-	if parts.result != nil {
-		out = append(out, parts.result)
+	if result := m.ExpressionResult(expr); result != nil {
+		out = append(out, result)
 	}
 	return out
 }
@@ -275,6 +332,19 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		// The wrapper owns its condition through a FeatureMembership, then its result.
 		parts := m.expressionPartsOf(sym)
 		owning(parts.condition)
+		owning(parts.result)
+	} else if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionBody {
+		// The body owns its parameters and members, then its result.
+		parts := m.expressionPartsOf(sym)
+		for _, member := range parts.members {
+			owning(member)
+		}
+		if parts.result != nil {
+			owning(parts.result)
+		}
+	} else if parts := m.expressionPartsOf(sym); parts != nil && parts.body != nil {
+		// A `{ … }` reference owns its body through a FeatureMembership, then its result.
+		owning(parts.body)
 		owning(parts.result)
 	} else if isExpressionSymbol(sym) {
 		// The conversion's order: a reference's referent and an invocation's
@@ -347,6 +417,11 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 	if expr.Expr != nil && expr.Expr.Role == symbols.ExpressionChangeWrapper && feature == "referent" {
 		return []*symbols.Symbol{m.expressionPartsOf(expr).condition}
 	}
+	if feature == "referent" {
+		if parts := m.expressionPartsOf(expr); parts != nil && parts.body != nil {
+			return []*symbols.Symbol{parts.body}
+		}
+	}
 	for _, membership := range m.OwnedMemberships(expr) {
 		if rel := membership.Implicit; rel != nil && rel.Form == symbols.ImplicitReferenceMembership && rel.Slot == feature {
 			return []*symbols.Symbol{rel.Member}
@@ -387,4 +462,147 @@ func (m *Model) referenceMembershipValue(sym *symbols.Symbol, feature string) (s
 		return m.visibilityValue(ast.VisibilityPublic), true
 	}
 	return symbols.FilterValue{}, false
+}
+
+// bodyScopeOf is the scope a body Expression's declarations live in: the child
+// scope the symbol builder gave the body, found under the declaration whose
+// expression holds it; nil for a body declaring nothing.
+func (m *Model) bodyScopeOf(body *symbols.Symbol) *symbols.Scope {
+	node, _ := body.Decl.(*ast.BodyExpr)
+	root := body
+	for root != nil && root.Expr != nil {
+		root = root.Expr.Owner
+	}
+	if node == nil || root == nil {
+		return nil
+	}
+	for _, scope := range []*symbols.Scope{root.Scope, root.OwnerScope} {
+		if found := findBodyScope(scope, node); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+// findBodyScope is the child of scope, or of a body-local child of it, whose
+// node is body.
+func findBodyScope(scope *symbols.Scope, body *ast.BodyExpr) *symbols.Scope {
+	if scope == nil {
+		return nil
+	}
+	for _, child := range scope.Children() {
+		if child.Node() == body {
+			return child
+		}
+		if child.BodyLocal() {
+			if found := findBodyScope(child, body); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
+}
+
+// bodyDeclarationSymbol is the symbol scope declares for one declaration of
+// body: a parameter's shares the body as its node and carries the parameter's
+// span; a member's is declared at the member.
+func bodyDeclarationSymbol(scope *symbols.Scope, body *ast.BodyExpr, decl ast.BodyDeclaration) *symbols.Symbol {
+	if scope == nil {
+		return nil
+	}
+	var found *symbols.Symbol
+	scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member == nil {
+			return true
+		}
+		switch {
+		case decl.Param != nil && member.Decl == body && member.DeclSpan == decl.Param.Span:
+			found = member
+		case decl.Param == nil && decl.Decl != nil && member.Decl == decl.Decl:
+			found = member
+		}
+		return found == nil
+	})
+	return found
+}
+
+// isBodyParameterSymbol reports whether sym is a parameter an expression body
+// declares (`{ in x; … }`): the builder declares it against the body node.
+func isBodyParameterSymbol(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Expr != nil || sym.OwnerScope == nil || !sym.OwnerScope.BodyLocal() {
+		return false
+	}
+	_, ok := sym.Decl.(*ast.BodyExpr)
+	return ok && sym.OwnerScope.Node() == sym.Decl
+}
+
+// bodyDeclaredBy is the body Expression declaring sym, for a symbol a body's
+// scope holds (its parameters and members); nil otherwise. The body's symbol
+// is synthesized under the expression holding the body, so the declaration
+// whose value reaches it is searched when none has been reflected yet.
+func (m *Model) bodyDeclaredBy(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || sym.Expr != nil || sym.OwnerScope == nil || !sym.OwnerScope.BodyLocal() {
+		return nil
+	}
+	body, ok := sym.OwnerScope.Node().(*ast.BodyExpr)
+	if !ok {
+		return nil
+	}
+	if found, ok := m.bodySymbols[body]; ok {
+		return found
+	}
+	root := sym.OwnerScope
+	for root != nil && root.Owner() == nil {
+		root = root.Parent()
+	}
+	if root == nil {
+		return nil
+	}
+	// The body sits in the value of the scope's owner or of one of its
+	// members, whichever spans it.
+	span := body.Span()
+	reflect := func(decl *symbols.Symbol) bool {
+		if value := m.ValueExpression(decl); value != nil &&
+			value.DeclSpan.Offset <= span.Offset && span.Offset+span.Len <= value.DeclSpan.Offset+value.DeclSpan.Len {
+			m.reflectBodiesUnder(value)
+		}
+		_, found := m.bodySymbols[body]
+		return !found
+	}
+	if reflect(root.Owner()) {
+		root.ForEachMember(reflect)
+	}
+	if _, found := m.bodySymbols[body]; !found {
+		root.ForEachAnonymousMember(reflect)
+	}
+	return m.bodySymbols[body]
+}
+
+// reflectBodiesUnder reflects every body expression under expr, so each is
+// recorded against its node.
+func (m *Model) reflectBodiesUnder(expr *symbols.Symbol) {
+	if expr == nil {
+		return
+	}
+	parts := m.expressionPartsOf(expr)
+	if parts == nil {
+		return
+	}
+	if parts.condition != nil {
+		m.reflectBodiesUnder(parts.condition)
+	}
+	if parts.body != nil {
+		m.reflectBodiesUnder(parts.body)
+	}
+	for _, member := range parts.members {
+		if value := m.ValueExpression(member); value != nil {
+			m.reflectBodiesUnder(value)
+		}
+	}
+	if parts.result != nil && parts.result.Expr.Role == symbols.ExpressionBodyResult {
+		m.reflectBodiesUnder(parts.result)
+	}
+	for _, operand := range parts.operands {
+		m.reflectBodiesUnder(operand)
+	}
 }

@@ -16,6 +16,19 @@ func featureValueOf(sym *symbols.Symbol) (value ast.Node, isDefault, isInitial b
 	if sym == nil || sym.Recorded() {
 		return nil, false, false, false
 	}
+	if isBodyParameterSymbol(sym) {
+		// A body's `in x = e` parameter shares the body node; its span finds
+		// the declaration, whose value the conversion writes (bodyParameter).
+		for i := range sym.Decl.(*ast.BodyExpr).Params {
+			if param := &sym.Decl.(*ast.BodyExpr).Params[i]; param.Span == sym.DeclSpan {
+				if param.Value == nil {
+					return nil, false, false, false
+				}
+				return param.Value, false, false, true
+			}
+		}
+		return nil, false, false, false
+	}
 	return ast.ValuePartOf(sym.Decl)
 }
 
@@ -56,9 +69,16 @@ func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
 // isValueExpressionSymbol reports whether sym is the value expression a
 // FeatureValue owns.
 func isValueExpressionSymbol(sym *symbols.Symbol) bool {
-	// A change wrapper's condition is owned through a FeatureMembership, not
-	// bound as a value (changeArgument).
-	return isExpressionSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeCondition
+	if !isExpressionSymbol(sym) {
+		return false
+	}
+	switch sym.Expr.Role {
+	case symbols.ExpressionChangeCondition, symbols.ExpressionBody, symbols.ExpressionBodyResult:
+		// Owned through a FeatureMembership or ResultExpressionMembership,
+		// not bound as a value (changeArgument, bodyExpression).
+		return false
+	}
+	return true
 }
 
 // expressionMetaclassName is the KerML metaclass of an expression element, by

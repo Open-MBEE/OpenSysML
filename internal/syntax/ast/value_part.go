@@ -1,6 +1,9 @@
 package ast
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // ValuePartOf is the value part a declaration writes (KerML 8.3.3.3.5
 // FeatureValue): the expression, and whether its operator is `default` or `:=`.
@@ -95,4 +98,45 @@ func QualifiedNameHasChain(name *QualifiedName) bool {
 		}
 	}
 	return false
+}
+
+// BodyDeclaration is one declaration of an expression body (`{ in x; attribute
+// y = 2; x + y }`) at the position the RDF conversion numbers it by: Param for a
+// parameter, written at slot `in%d`, else Member, written at slot `m%d`.
+type BodyDeclaration struct {
+	Index  int
+	Param  *BodyParam
+	Member Node // the member as written, membership wrapper and all
+	Decl   Node // the declaration the member holds
+}
+
+// Slot is the name the conversion writes the declaration under.
+func (d BodyDeclaration) Slot() string {
+	if d.Param != nil {
+		return fmt.Sprintf("in%d", d.Index)
+	}
+	return fmt.Sprintf("m%d", d.Index)
+}
+
+// BodyDeclarations are the parameters and members of an expression body in the
+// order the RDF conversion numbers them: source order across both lists.
+func BodyDeclarations(params []BodyParam, members []Node) []BodyDeclaration {
+	out := make([]BodyDeclaration, 0, len(params)+len(members))
+	for i := range params {
+		out = append(out, BodyDeclaration{Param: &params[i]})
+	}
+	for _, member := range members {
+		out = append(out, BodyDeclaration{Member: member, Decl: unwrapMember(member)})
+	}
+	offset := func(d BodyDeclaration) int {
+		if d.Param != nil {
+			return d.Param.Span.Offset
+		}
+		return d.Member.Span().Offset
+	}
+	sort.SliceStable(out, func(i, j int) bool { return offset(out[i]) < offset(out[j]) })
+	for i := range out {
+		out[i].Index = i
+	}
+	return out
 }

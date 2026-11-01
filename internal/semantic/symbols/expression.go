@@ -23,6 +23,13 @@ const (
 	// ExpressionChangeCondition is the condition a change wrapper owns through
 	// a FeatureMembership and refers to; Owner is the wrapper.
 	ExpressionChangeCondition
+	// ExpressionBody is the Expression a `{ … }` body writes, which the
+	// FeatureReferenceExpression owning it refers to (KerMLExpressions
+	// BodyExpression); Owner is that reference, Decl the body node.
+	ExpressionBody
+	// ExpressionBodyResult is a body's result expression, owned through a
+	// ResultExpressionMembership; Owner is the body.
+	ExpressionBodyResult
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

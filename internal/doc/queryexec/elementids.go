@@ -52,8 +52,31 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 		return prefix + "out", true
 	case symbols.ExpressionChangeWrapper:
 		return "a0", true
+	case symbols.ExpressionBody:
+		return "body", true
+	case symbols.ExpressionBodyResult:
+		return "result", true
 	}
 	return "", false
+}
+
+// bodyParameterSlot is the slot the conversion mints a body's parameter at
+// (`in%d`, its position among the body's declarations), keyed by the
+// parameter's own span: every parameter of a body shares the body as its node.
+func bodyParameterSlot(sym *symbols.Symbol) (span source.Span, slot string, ok bool) {
+	if sym == nil || sym.Expr != nil || sym.OwnerScope == nil || !sym.OwnerScope.BodyLocal() {
+		return source.Span{}, "", false
+	}
+	body, isBody := sym.Decl.(*ast.BodyExpr)
+	if !isBody || sym.OwnerScope.Node() != body {
+		return source.Span{}, "", false
+	}
+	for _, decl := range ast.BodyDeclarations(body.Params, body.Members) {
+		if decl.Param != nil && decl.Param.Span == sym.DeclSpan {
+			return decl.Param.Span, decl.Slot(), true
+		}
+	}
+	return source.Span{}, "", false
 }
 
 // ElementIDOf is sym's elementId through read. A relationship the notation writes as
@@ -67,6 +90,10 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		case symbols.ImplicitMembership:
 			if slot, ok := expressionPartSlot(rel.Member); ok {
 				_, membership, err := read.ReadExpressionPart(rel.Member.DocName, rel.Member.Expr.Owner.Decl, slot)
+				return membership, err
+			}
+			if span, slot, ok := bodyParameterSlot(rel.Member); ok {
+				_, membership, err := read.ReadExpressionPart(rel.Member.DocName, spanNode{span}, slot)
 				return membership, err
 			}
 			if rel.Member != nil {
@@ -101,6 +128,10 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 	}
 	if slot, ok := expressionPartSlot(sym); ok {
 		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Expr.Owner.Decl, slot)
+		return element, err
+	}
+	if span, slot, ok := bodyParameterSlot(sym); ok {
+		element, _, err := read.ReadExpressionPart(sym.DocName, spanNode{span}, slot)
 		return element, err
 	}
 	return read.Read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
@@ -155,3 +186,11 @@ func OpenElementIDs(docs []ElementIDDocument) ElementIDReader {
 	}
 	return elementIDSource(docs)
 }
+
+// spanNode stands for a body parameter, which has no node of its own, at the
+// span the conversion keys its ids by.
+type spanNode struct{ span source.Span }
+
+func (n spanNode) Span() source.Span            { return n.span }
+func (n spanNode) LeadingTrivia() []ast.Trivia  { return nil }
+func (n spanNode) TrailingTrivia() []ast.Trivia { return nil }
