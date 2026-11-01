@@ -515,7 +515,13 @@ triples come); a set of classes with no such member is refused, naming the subje
   alias's owning membership. The same rule links a succession's `sourceFeature` (an implied `first
   start then a` names the `start` the owner inherits from `Actions::Action`),
   a feature chain's `targetFeature`, a feature reference's `referent` and an
-  invocation's `function`. A literal carries the name itself,
+  invocation's `function`. A dotted name never reaches these from the notation:
+  the parser spells `q.p.f(1)` as an invocation whose receiver is the chain and
+  `p.a.b` as nested chain expressions with one-segment members, so the chain
+  `Feature` the conversion owns for a chained `function` or `targetFeature` (an
+  `OwningMembership` owning a `Feature` with `FeatureChaining`s) arises only
+  from a graph read back, and the reflective read owns no such Feature
+  (`TestDottedExpressionNamesOwnNoChainFeature`). A literal carries the name itself,
   without the quotes an unrestricted name is written with; a target that is an
   expression rather than a name (a feature chain, say) is carried as the text it
   was written as, typed `sysx:Expression` to tell the two apart. These
