@@ -107,6 +107,13 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 			if got := classOf(subjectOf[element]); got != "Feature" || model.MetaclassOf(chain).Name != "Feature" {
 				t.Errorf("%s: chain Feature written as %s, native %s", name, got, model.MetaclassOf(chain).Name)
 			}
+			function := graph.Objects(subjectOf[id], rdf.SysML+"function")
+			if len(function) != 1 || function[0] != subjectOf[element] {
+				t.Errorf("%s: the conversion's function is %v, not the chain Feature", name, function)
+			}
+			if got, ok := model.ReflectiveElements(expr, "function"); !ok || len(got) != 1 || got[0] != chain {
+				t.Errorf("%s: native function is %v, not the chain Feature", name, got)
+			}
 		}
 		for i, parameter := range model.ExpressionParameters(expr) {
 			if operand := model.ValueExpression(parameter); operand != nil {

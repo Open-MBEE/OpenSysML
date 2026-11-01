@@ -681,7 +681,9 @@ func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedNa
 	e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
-	e.graph.Add(subject, e.sysml(pFunction), terms[len(terms)-1])
+	// The function is the chain Feature itself (InvocationExpression::function
+	// derives from instantiatedType, the InstantiatedTypeMember's member).
+	e.graph.Add(subject, e.sysml(pFunction), chain)
 }
 
 // calleeMembership emits the relationship an invocation owns to what it
@@ -1148,13 +1150,6 @@ func (d *decoder) segmentOwners(node rdf.Term, parents map[string][]rdf.Term, se
 	owners := d.expressionOwners(node, parents)
 	if len(owners) > 0 || len(segments) == 0 {
 		return owners
-	}
-	// A chain feature an expression owns (`q.p.f(1)` names its function by
-	// one) is written where that expression is.
-	if owner, ok := d.graph.Object(node, rdf.SysML+pOwner); ok && d.isExpressionNode(owner) {
-		if owners = d.expressionOwners(owner, parents); len(owners) > 0 {
-			return owners
-		}
 	}
 	if end, ok := d.graph.Object(node, rdf.SysML+pOwner); ok {
 		if subject, ok := d.graph.Object(end, rdf.SysML+pOwner); ok {
@@ -2061,11 +2056,11 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 	if !hasCollapsed {
 		return text, nil
 	}
-	// The function is the chain's last feature when it resolves, else
-	// the whole chain's spelling; anything else names a second callee.
+	// The function is the chain Feature itself or its last feature when it
+	// resolves, else the whole chain's spelling; anything else names a second callee.
 	var agree bool
 	if collapsed.IsIRI() {
-		agree = len(segments) > 0 && segments[len(segments)-1] == collapsed
+		agree = collapsed == chain || len(segments) > 0 && segments[len(segments)-1] == collapsed
 	} else {
 		agree = collapsed.Value == strings.Join(spelled, ".")
 	}

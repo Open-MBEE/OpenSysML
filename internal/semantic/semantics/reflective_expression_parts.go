@@ -436,9 +436,13 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 	if expr.Expr != nil && expr.Expr.Role == symbols.ExpressionChangeWrapper && feature == "referent" {
 		return []*symbols.Symbol{m.expressionPartsOf(expr).condition}
 	}
-	if feature == "referent" {
-		if parts := m.expressionPartsOf(expr); parts != nil && parts.body != nil {
+	if parts := m.expressionPartsOf(expr); parts != nil {
+		if feature == "referent" && parts.body != nil {
 			return []*symbols.Symbol{parts.body}
+		}
+		// A receiver-reached call's function is the chain Feature it owns.
+		if feature == "function" && parts.chain != nil {
+			return []*symbols.Symbol{parts.chain}
 		}
 	}
 	for _, membership := range m.OwnedMemberships(expr) {
