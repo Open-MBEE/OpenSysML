@@ -72,8 +72,10 @@ and `didClose`), and a client that syncs a notebook this way may make every `tex
 request on its cells. A notebook is one document to the server: the text of its `sysml` and
 `kerml` code cells in notebook order, each cell's `%` command lines and bare expressions blank
 (the kernel's reading of a loaded notebook, see [the kernel](jupyter-kernel.md)), so a later
-cell resolves names an earlier cell declares. A cell of another kind or language is not part of
-it; a cell whose language changes joins or leaves it.
+cell resolves names an earlier cell declares. The document's language is its first model
+cell's: a `kerml` cell in a notebook whose first model cell is `sysml` (or the reverse) is not
+part of it and receives one information diagnostic saying so. A cell of another kind or
+language is not part of it; a cell whose language changes joins or leaves it.
 
 Every answer is in the cell's terms. Diagnostics are published per cell, each cell receiving
 its own set after every change (an edit, an inserted, deleted or moved cell), and an empty set

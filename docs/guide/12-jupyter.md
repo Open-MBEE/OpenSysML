@@ -234,7 +234,8 @@ The server reads the notebook as **one model**, the code cells in notebook order
 `%load wheels.ipynb` reads a notebook into a session: a later cell sees what an earlier cell
 declares, each cell's `%` command lines and bare expressions are left out rather than parsed
 as SysML, and a problem is reported in the cell and on the line it stands on. Markdown cells
-and cells in another language are not part of the model.
+and cells in another language are not part of the model; a notebook is SysML or KerML as its
+first code cell is, and a cell in the other language is told it is left out.
 
 The editor and the kernel read the same cells differently, and the difference shows:
 

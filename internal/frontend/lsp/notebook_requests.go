@@ -103,13 +103,7 @@ func (s *Server) cellRequest(ctx context.Context, req *jsonrpc2.Request, nb *not
 		p.TextDocument.URI = docURI
 		result, err := s.DocumentSymbol(ctx, p)
 		if syms, ok := result.(protocol.DocumentSymbolSlice); ok {
-			var own protocol.DocumentSymbolSlice
-			for _, sym := range syms {
-				if inCell(sym.Range) {
-					own = append(own, sym)
-				}
-			}
-			return own, err
+			return cellSymbols(syms, inCell), err
 		}
 		return result, err
 	case protocol.MethodTextDocumentCodeLens:
@@ -190,6 +184,23 @@ func (s *Server) cellRequest(ctx context.Context, req *jsonrpc2.Request, nb *not
 	return nil, nil
 }
 
+// cellSymbols is the part of a symbol tree declared in one cell: a symbol
+// named in the cell with the children named there, and the children named
+// there of a symbol named in another cell, lifted to its place.
+func cellSymbols(syms []protocol.DocumentSymbol, inCell func(protocol.Range) bool) protocol.DocumentSymbolSlice {
+	own := protocol.DocumentSymbolSlice{}
+	for _, sym := range syms {
+		children := cellSymbols(sym.Children, inCell)
+		if inCell(sym.SelectionRange) {
+			sym.Children = children
+			own = append(own, sym)
+		} else {
+			own = append(own, children...)
+		}
+	}
+	return own
+}
+
 // cellTokens keeps the tokens of the document on the cell's lines, encoded
 // relative to the cell's first line.
 func cellTokens(toks *protocol.SemanticTokens, cell *notebookCell) *protocol.SemanticTokens {
@@ -268,15 +279,19 @@ func (s *Server) mapValue(value any, implicit *notebookDocument) any {
 			}
 			return v
 		}
+		// done holds the keys mapped with the document their uri names, which
+		// the loop below must not read again as the request document's.
+		done := map[string]bool{"uri": true, "targetUri": true, "changes": true, "documentChanges": true, "data": true}
 		if nb := s.notebookOf(v["uri"]); nb != nil {
+			done["range"] = true
 			if rng, ok := v["range"].(map[string]any); ok && isRange(rng) {
 				if cell, mapped, ok := nb.toCellRange(decodeRange(rng)); ok {
 					v["uri"], v["range"] = string(cell), encodeValue(mapped)
 				}
 			}
-			implicit = nb
 		}
 		if nb := s.notebookOf(v["targetUri"]); nb != nil {
+			done["targetRange"], done["targetSelectionRange"] = true, true
 			s.mapTarget(v, nb)
 		}
 		if changes, ok := v["changes"].(map[string]any); ok {
@@ -287,7 +302,7 @@ func (s *Server) mapValue(value any, implicit *notebookDocument) any {
 		}
 		for key, field := range v {
 			switch {
-			case key == "uri" || key == "targetUri" || key == "changes" || key == "documentChanges" || key == "data":
+			case done[key]:
 			case implicit != nil && isPositional(key, field):
 				v[key] = s.mapPositional(field, implicit)
 			default:

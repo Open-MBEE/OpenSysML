@@ -45,7 +45,10 @@ type notebookDocument struct {
 	name    string
 	version int32
 	cells   []*notebookCell
-	source  []byte
+	// language is the document's, sysml or kerml: the first model cell's. A
+	// synced cell in the other language is not part of the document.
+	language string
+	source   []byte
 }
 
 // notebookCell is one cell of a notebook. Content is nil for a cell the client
@@ -62,9 +65,22 @@ type notebookCell struct {
 	lines     int
 }
 
+// synced reports whether the cell is a code cell whose text the client sends.
+func (c *notebookCell) synced() bool {
+	return c.content != nil && c.kind == protocol.NotebookCellKindCode && slices.Contains(cellLanguages, c.language)
+}
+
 // inSource reports whether the cell's text is part of the notebook's document.
 func (c *notebookCell) inSource() bool {
-	return c.content != nil && c.kind == protocol.NotebookCellKindCode && slices.Contains(cellLanguages, c.language)
+	return c.startLine >= 0
+}
+
+// kind is the language the document is parsed as.
+func (d *notebookDocument) kind() source.Kind {
+	if d.language == "kerml" {
+		return source.KindKerML
+	}
+	return source.KindSysML
 }
 
 // newNotebookDocument reads an opened notebook: its cells in order, the synced
@@ -102,11 +118,18 @@ func (d *notebookDocument) cell(u uri.URI) *notebookCell {
 // as the kernel loads them, `%` command and expression lines blank, one cell
 // after another with a line break between.
 func (d *notebookDocument) compose() {
+	d.language = ""
+	for _, cell := range d.cells {
+		if cell.synced() {
+			d.language = cell.language
+			break
+		}
+	}
 	var buf bytes.Buffer
 	line := 0
 	for _, cell := range d.cells {
 		cell.startLine, cell.lines = -1, 0
-		if !cell.inSource() {
+		if !cell.synced() || cell.language != d.language {
 			continue
 		}
 		text, _ := notebook.Declarations(string(cell.content))
@@ -179,11 +202,21 @@ func (d *notebookDocument) splice(array protocol.NotebookCellArrayChange) {
 func (d *notebookDocument) syncedCells() []uri.URI {
 	var out []uri.URI
 	for _, cell := range d.cells {
-		if cell.inSource() {
+		if cell.synced() {
 			out = append(out, cell.document)
 		}
 	}
 	return out
+}
+
+// strayDiagnostic is the one diagnostic a synced cell outside the document
+// receives: a kerml cell in a sysml notebook, or the reverse.
+func (d *notebookDocument) strayDiagnostic(cell *notebookCell) protocol.Diagnostic {
+	return protocol.Diagnostic{
+		Severity: protocol.DiagnosticSeverityInformation,
+		Message:  protocol.String(fmt.Sprintf("a %s cell in a %s notebook is not part of the notebook's model", cell.language, d.language)),
+		Source:   protocol.NewOptional("notebook"),
+	}
 }
 
 // cellAt is the cell a document line stands in: the last to begin at or
@@ -306,7 +339,7 @@ func (s *Server) DidOpenNotebookDocument(ctx context.Context, params *protocol.D
 	s.notebooks.set(nb)
 	before := s.ws.Generation()
 	s.debugEdit(ctx, "", func() {
-		s.ws.OpenWithKind(nb.name, nb.source, int(nb.version), source.KindSysML)
+		s.ws.OpenWithKind(nb.name, nb.source, int(nb.version), nb.kind())
 		s.indexOpenedDirectory(nb.name)
 	})
 	s.publishDiagnostics(ctx, nb.name)
@@ -326,7 +359,7 @@ func (s *Server) DidChangeNotebookDocument(ctx context.Context, params *protocol
 	}
 	nb := old.changed(params.NotebookDocument.Version, params.Change)
 	s.notebooks.set(nb)
-	s.debugEdit(ctx, "", func() { s.ws.Update(nb.name, nb.source, int(nb.version)) })
+	s.debugEdit(ctx, "", func() { s.ws.OpenWithKind(nb.name, nb.source, int(nb.version), nb.kind()) })
 	kept := nb.syncedCells()
 	for _, cell := range old.syncedCells() {
 		if !slices.Contains(kept, cell) {
@@ -399,6 +432,11 @@ func (s *Server) sendNotebookDiagnosticsLocked(ctx context.Context, nb *notebook
 				ld.Range = rng
 				sets[cell] = append(sets[cell], ld)
 			}
+		}
+	}
+	for _, cell := range nb.cells {
+		if cell.synced() && !cell.inSource() {
+			sets[cell.document] = append(sets[cell.document], nb.strayDiagnostic(cell))
 		}
 	}
 	for _, cell := range cells {

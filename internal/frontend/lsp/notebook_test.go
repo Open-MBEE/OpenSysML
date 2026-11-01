@@ -27,22 +27,31 @@ const (
 
 func openNotebook(t *testing.T) *notebookSession {
 	t.Helper()
+	return openCells(t, []cellSpec{{"sysml", cellPackage}, {"sysml", cellUsage}, {"markdown", ""}, {"sysml", cellMixed}})
+}
+
+// cellSpec is a cell to open: its language and text; a Markdown cell is not synced.
+type cellSpec struct{ language, text string }
+
+func openCells(t *testing.T, specs []cellSpec) *notebookSession {
+	t.Helper()
 	w := newWireSession(t)
 	nb := &notebookSession{wireSession: w, uri: string(uri.File(filepath.Join(t.TempDir(), "model.ipynb")))}
-	for i := range 4 {
+	var cells, texts []string
+	for i, spec := range specs {
 		nb.cells = append(nb.cells, fmt.Sprintf("vscode-notebook-cell:/model.ipynb#cell%d", i))
+		if spec.language == "markdown" {
+			cells = append(cells, fmt.Sprintf(`{"kind": 1, "document": %q}`, nb.cells[i]))
+			continue
+		}
+		cells = append(cells, fmt.Sprintf(`{"kind": 2, "document": %q}`, nb.cells[i]))
+		texts = append(texts, fmt.Sprintf(`{"uri": %q, "languageId": %q, "version": 1, "text": %s}`, nb.cells[i], spec.language, jsonString(spec.text)))
 	}
 	w.call("initialize", `{"capabilities":{}}`)
 	w.notify("initialized", `{}`)
 	w.notify("notebookDocument/didOpen", fmt.Sprintf(`{
-		"notebookDocument": {"uri": %q, "notebookType": "jupyter-notebook", "version": 1, "cells": [
-			{"kind": 2, "document": %q}, {"kind": 2, "document": %q}, {"kind": 1, "document": %q}, {"kind": 2, "document": %q}]},
-		"cellTextDocuments": [
-			{"uri": %q, "languageId": "sysml", "version": 1, "text": %s},
-			{"uri": %q, "languageId": "sysml", "version": 1, "text": %s},
-			{"uri": %q, "languageId": "sysml", "version": 1, "text": %s}]}`,
-		nb.uri, nb.cells[0], nb.cells[1], nb.cells[2], nb.cells[3],
-		nb.cells[0], jsonString(cellPackage), nb.cells[1], jsonString(cellUsage), nb.cells[3], jsonString(cellMixed)))
+		"notebookDocument": {"uri": %q, "notebookType": "jupyter-notebook", "version": 1, "cells": [%s]},
+		"cellTextDocuments": [%s]}`, nb.uri, strings.Join(cells, ", "), strings.Join(texts, ", ")))
 	return nb
 }
 
@@ -236,5 +245,64 @@ func TestNotebookCellRequestsAnswerInCellCoordinates(t *testing.T) {
 	}
 	if hover := nb.callOn("textDocument/hover", 3, 0, 2); hover != nil {
 		t.Errorf("hover on a %%help line: %s", asJSON(hover))
+	}
+}
+
+// A declaration on a later line of a later cell is found at that line of that
+// cell: the location is mapped once, with the document its URI names.
+func TestNotebookLocationsInLaterCellsMapOnce(t *testing.T) {
+	nb := openNotebook(t)
+	for _, cell := range []int{0, 1, 3} {
+		nb.awaitDiagnostics(nb.cells[cell])
+	}
+	late := "vscode-notebook-cell:/model.ipynb#late"
+	nb.change(2, fmt.Sprintf(`{"structure": {
+		"array": {"start": 4, "deleteCount": 0, "cells": [{"kind": 2, "document": %q}]},
+		"didOpen": [{"uri": %q, "languageId": "sysml", "version": 1, "text": %s}]}}`,
+		late, late, jsonString("\n\npart def Missing;\n")))
+	nb.awaitDiagnostics(late)
+	definition := asJSON(nb.callOn("textDocument/definition", 3, 2, 10))
+	if !strings.Contains(definition, fmt.Sprintf(`"uri":%q`, late)) || !strings.Contains(definition, `"start":{"character":0,"line":2}`) {
+		t.Errorf("definition of Missing, declared on line 2 of the last cell: %s", definition)
+	}
+	references := asJSON(nb.call("textDocument/references", fmt.Sprintf(
+		`{"textDocument":{"uri":%q},"position":{"line":2,"character":10},"context":{"includeDeclaration":true}}`, late)))
+	if !strings.Contains(references, fmt.Sprintf(`"uri":%q`, nb.cells[3])) || !strings.Contains(references, `"start":{"character":9,"line":2}`) {
+		t.Errorf("references to Missing from its declaration: %s", references)
+	}
+}
+
+// A package opened in one cell and closed in the next: each cell's outline
+// holds what is named in it, the member lifted out of the package it is in.
+func TestNotebookDocumentSymbolsFollowTheCellTheyAreNamedIn(t *testing.T) {
+	nb := openCells(t, []cellSpec{{"sysml", "package P {\n"}, {"sysml", "  part def A;\n}\n"}})
+	nb.awaitDiagnostics(nb.cells[0])
+	nb.awaitDiagnostics(nb.cells[1])
+	first := asJSON(nb.call("textDocument/documentSymbol", fmt.Sprintf(`{"textDocument":{"uri":%q}}`, nb.cells[0])))
+	if !strings.Contains(first, `"name":"P"`) || strings.Contains(first, `"name":"A"`) || !strings.Contains(first, `"end":{"character":0,"line":1}`) {
+		t.Errorf("symbols of the cell opening the package: %s", first)
+	}
+	second := asJSON(nb.call("textDocument/documentSymbol", fmt.Sprintf(`{"textDocument":{"uri":%q}}`, nb.cells[1])))
+	if !strings.Contains(second, `"name":"A"`) || strings.Contains(second, `"name":"P"`) {
+		t.Errorf("symbols of the cell declaring the member: %s", second)
+	}
+}
+
+// A notebook's language is its first model cell's; a cell in the other
+// language is told it is not part of the model rather than misparsed.
+func TestNotebookLanguageFollowsItsFirstModelCell(t *testing.T) {
+	nb := openCells(t, []cellSpec{{"kerml", "classifier C;\n"}, {"kerml", "feature f : C;\n"}, {"sysml", "part def D;\n"}})
+	if diags := nb.awaitDiagnostics(nb.cells[0]); len(diags) != 0 {
+		t.Errorf("KerML cell parsed as KerML: %s", asJSON(diags))
+	}
+	if diags := nb.awaitDiagnostics(nb.cells[1]); len(diags) != 0 {
+		t.Errorf("KerML cell referencing the first: %s", asJSON(diags))
+	}
+	diags := nb.awaitDiagnostics(nb.cells[2])
+	if len(diags) != 1 || !strings.Contains(asJSON(diags), "a sysml cell in a kerml notebook") {
+		t.Errorf("SysML cell in a KerML notebook: %s", asJSON(diags))
+	}
+	if nb.callOn("textDocument/hover", 2, 0, 10) != nil {
+		t.Error("a cell outside the model answers hover")
 	}
 }
