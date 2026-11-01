@@ -179,3 +179,87 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 		return true
 	})
 }
+
+// A receiver-reached call's function is the Function typing its chain's final
+// link on both ledgers: inherited through a subsetting, or the library Calculation
+// every calc usage implies — the one Function of a calc usage typed by no Function.
+func TestReceiverCalleeFunctionIsTheTypingFunction(t *testing.T) {
+	text := `package P {
+	calc def F { in x : ScalarValues::Real; return y : ScalarValues::Real = x; }
+	part def Pt {
+		calc base : F;
+		calc derived :> base;
+		calc untyped;
+		calc real : ScalarValues::Real;
+		calc explicit : Calculations::Calculation;
+	}
+	part def D {
+		part p : Pt;
+		attribute a = p.derived(1);
+		attribute b = p.untyped(1);
+		attribute c = p.real(1);
+	}
+}
+`
+	sf := source.New("typing.sysml", []byte(text))
+	p := parser.New(sf)
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse: %v", p.Diagnostics)
+	}
+	index := libs.NewModelIndex()
+	index.AddDocument(sf.Name(), root)
+	index.ExpandWildcardImports()
+	resolver := resolve.New(index)
+	model := semantics.NewModel(resolver)
+	resolver.ResolveDocument(sf.Name(), root)
+	graph, err := ToRDF(sf, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	subjectOf := map[string]rdf.Term{}
+	for _, subject := range graph.Subjects() {
+		for _, id := range graph.Objects(subject, rdf.SysML+"elementId") {
+			subjectOf[id.Value] = subject
+		}
+	}
+	reader := NewElementIDReader([]ElementIDDocument{{File: sf, Root: root, ParseDiags: p.Diagnostics}})
+	pkg, _ := index.DocumentRoot(sf.Name()).LookupLocal("P")
+	d, _ := pkg.Scope.LookupLocal("D")
+	F, _ := pkg.Scope.LookupLocal("F")
+	calculation, ok := resolver.ResolveQualified(nil, ast.QualifiedNameOf("Calculations", "Calculation"))
+	if !ok || calculation == nil {
+		t.Fatal("the library Calculation did not resolve")
+	}
+	pt, _ := pkg.Scope.LookupLocal("Pt")
+	explicit, _ := pt.Scope.LookupLocal("explicit")
+	explicitID, _ := reader.Read(sf.Name(), explicit.Decl, "")
+	librarySubject := graph.Objects(subjectOf[explicitID], rdf.SysML+"type")
+	if len(librarySubject) != 1 {
+		t.Fatalf("the explicit Calculation typing is written as %v", librarySubject)
+	}
+	for name, want := range map[string]*symbols.Symbol{"a": F, "b": calculation, "c": calculation} {
+		attr, _ := d.Scope.LookupLocal(name)
+		expr := model.ValueExpression(attr)
+		if expr == nil {
+			t.Fatalf("%s: no value expression", name)
+		}
+		id, err := reader.Read(sf.Name(), expr.Decl, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		written := graph.Objects(subjectOf[id], rdf.SysML+"function")
+		native, _ := model.ReflectiveElements(expr, "function")
+		wantSubject := librarySubject[0]
+		if want == F {
+			wantID, _ := reader.Read(sf.Name(), F.Decl, "")
+			wantSubject = subjectOf[wantID]
+		}
+		if len(written) != 1 || written[0] != wantSubject {
+			t.Errorf("%s: the conversion states function %v, want %s", name, written, want.Name)
+		}
+		if len(native) != 1 || native[0] != want {
+			t.Errorf("%s: native function is %v, want %s", name, native, want.Name)
+		}
+	}
+}

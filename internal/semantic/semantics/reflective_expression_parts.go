@@ -476,7 +476,7 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 				if m.reflectiveMetaclassConforms(links[n-1], "Function") {
 					return []*symbols.Symbol{links[n-1]}
 				}
-				return append([]*symbols.Symbol{}, m.conformingTypes(links[n-1], "Function")...)
+				return append([]*symbols.Symbol{}, m.FunctionTypes(links[n-1])...)
 			}
 			return []*symbols.Symbol{}
 		}

@@ -669,9 +669,8 @@ func chainedText(name *ast.QualifiedName) string {
 
 // receiverChainCallee owns the chain Feature a receiver-reached call instantiates,
 // one FeatureChaining per link (KerML 8.3.3.3.5). Expression::function is the
-// Function typing the expression (KerML 8.3.4.7.3, 8.3.4.8.8): the Function
-// types of the final link — its declared types, else the library type its kind
-// implies — written only when that link resolves.
+// Function typing the expression (KerML 8.3.4.7.3, 8.3.4.8.8): the Functions
+// among the final link's effective types, written only when that link resolves.
 func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedName) {
 	chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
 	e.typed(chain, mFeature)
@@ -695,10 +694,10 @@ func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedNa
 	}
 }
 
-// typingFunctions are the Function types of a resolved feature: the types its
-// declaration states, else the library type its usage kind implies (KerML
-// 8.3.3.3 Feature::type; SysML 8.3.11 implied typing); a Function itself types
-// the expression directly.
+// typingFunctions are the Functions typing a resolved feature — the effective
+// type set the semantic model derives (declared, inherited through subsetting
+// or redefinition, or the library type its kind implies), Functions only, as the
+// reflective read answers `function`; a Function itself types the expression.
 func (e *encoder) typingFunctions(sym *symbols.Symbol, term rdf.Term) []rdf.Term {
 	if sym == nil {
 		return nil
@@ -706,18 +705,14 @@ func (e *encoder) typingFunctions(sym *symbols.Symbol, term rdf.Term) []rdf.Term
 	if ontology.IsAncestorOrSelf(declaredMetaclass(sym.Decl), "Function") {
 		return []rdf.Term{term}
 	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok {
+	if e.ids.model == nil {
 		return nil
 	}
 	var out []rdf.Term
-	for _, rel := range usage.Relationships {
-		if name, isName := rel.Target.(*ast.QualifiedName); rel.Kind == ast.RelTyping && isName {
-			out = append(out, e.reference(name))
+	for _, typ := range e.ids.model.FunctionTypes(sym) {
+		if decl, fqn, ok := e.linked(typ, true); ok {
+			out = append(out, e.ids.subjectForNode(decl, fqn))
 		}
-	}
-	if len(out) == 0 && usage.Kind == ast.UsageCalc {
-		out = append(out, e.libraryReference(ast.QualifiedNameOf("Calculations", "Calculation")))
 	}
 	return out
 }
@@ -2116,29 +2111,70 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 }
 
 // typesChainEnd reports whether function is a chain's final feature itself or
-// a type of it: one its FeatureTypings state, or a library type where it
-// states none (the implied typing of an untyped usage).
+// a Function typing it: one the feature or a feature it subsets or redefines
+// states, or — where none states one — the library type the feature's kind
+// implies (an untyped calc usage is a Calculation).
 func (d *decoder) typesChainEnd(end, function rdf.Term) bool {
 	if end == function {
 		return true
 	}
-	types := d.graph.Objects(end, rdf.SysML+relationshipProperty[ast.RelTyping])
-	for _, owned := range d.graph.Objects(end, rdf.SysML+pOwnedRelationship) {
-		if d.metaclass(owned) != mFeatureTyping {
+	types := d.statedTypes(end, map[rdf.Term]bool{})
+	if len(types) == 0 {
+		implied, ok := impliedLibraryType[d.metaclass(end)]
+		if !ok {
+			return false
+		}
+		target, err := d.referencedElement(function.Value)
+		return err == nil && target.library && target.qname == implied
+	}
+	return slices.Contains(types, function)
+}
+
+// impliedLibraryType is the library type an untyped usage of a kind is typed
+// by (SysML v2 8.3.11 implied typing), by the usage's metaclass, for the kinds
+// whose type is a Function.
+var impliedLibraryType = map[string]string{
+	"CalculationUsage": "Calculations::Calculation",
+}
+
+// statedTypes are the types a feature states, in its collapsed `type` and its
+// FeatureTypings, and those of the features it subsets or redefines when it
+// states none of its own (KerML 8.3.3.3 Feature::type through specialization).
+func (d *decoder) statedTypes(feature rdf.Term, seen map[rdf.Term]bool) []rdf.Term {
+	if seen[feature] {
+		return nil
+	}
+	seen[feature] = true
+	types := d.graph.Objects(feature, rdf.SysML+relationshipProperty[ast.RelTyping])
+	var generals []rdf.Term
+	for _, kind := range []ast.RelationshipKind{ast.RelSubsets, ast.RelRedefines, ast.RelReferences} {
+		generals = append(generals, d.graph.Objects(feature, rdf.SysML+relationshipProperty[kind])...)
+	}
+	for _, owned := range d.graph.Objects(feature, rdf.SysML+pOwnedRelationship) {
+		metaclass := d.metaclass(owned)
+		var into *[]rdf.Term
+		switch metaclass {
+		case mFeatureTyping:
+			into = &types
+		case mSubsetting, mRedefinition, mReferenceSubsetting:
+			into = &generals
+		default:
 			continue
 		}
-		for _, property := range headClauseTargets[mFeatureTyping] {
-			if typ, ok := d.graph.Object(owned, rdf.SysML+property); ok {
-				types = append(types, typ)
+		for _, property := range headClauseTargets[metaclass] {
+			if target, ok := d.graph.Object(owned, rdf.SysML+property); ok {
+				*into = append(*into, target)
 				break
 			}
 		}
 	}
-	if len(types) == 0 {
-		target, err := d.referencedElement(function.Value)
-		return err == nil && target.library
+	if len(types) > 0 {
+		return types
 	}
-	return slices.Contains(types, function)
+	for _, general := range generals {
+		types = append(types, d.statedTypes(general, seen)...)
+	}
+	return types
 }
 
 // expressionOperands rebuilds operands from parameter memberships, with legacy
