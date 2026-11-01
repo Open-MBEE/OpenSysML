@@ -39,11 +39,19 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 	if sym == nil || sym.Expr == nil || sym.Expr.Owner == nil {
 		return "", false
 	}
+	// A change wrapper's parts are minted off the wrapper (`a0`), itself
+	// minted off the trigger whose node every part shares.
+	prefix := ""
+	if owner := sym.Expr.Owner; owner.Expr != nil && owner.Expr.Role == symbols.ExpressionChangeWrapper {
+		prefix = "a0."
+	}
 	switch sym.Expr.Role {
 	case symbols.ExpressionParameter:
-		return fmt.Sprintf("in%d", sym.Expr.Index), true
+		return prefix + fmt.Sprintf("in%d", sym.Expr.Index), true
 	case symbols.ExpressionResult:
-		return "out", true
+		return prefix + "out", true
+	case symbols.ExpressionChangeWrapper:
+		return "a0", true
 	}
 	return "", false
 }

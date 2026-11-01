@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -243,5 +244,59 @@ func TestElementIDReaderSpellsReferenceMembershipsAsTheConversionWritesThem(t *t
 		if err != nil || element != "" || !memberships[membership] {
 			t.Errorf("%s %s = %q, %q, %v; the conversion writes Memberships %v", feature, slot, element, membership, err, memberships)
 		}
+	}
+}
+
+// A change trigger's parts read as changeArgument writes them: `in0` binds the
+// wrapper `a0` (a FeatureReferenceExpression), whose referent is the condition
+// at `change` under a FeatureMembership, and whose result is its own `out`.
+func TestElementIDReaderSpellsAChangeTriggerAsTheConversionWritesIt(t *testing.T) {
+	sf, index, doc := readerIndex(t, "change.sysml", `package P {
+	action def A {
+		attribute a : ScalarValues::Real;
+		action acc accept e when a > 1;
+	}
+}
+`)
+	graph, err := ToRDF(sf, parser.New(sf).ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	classOf := map[string]string{}
+	for _, subject := range graph.Subjects() {
+		for _, class := range graph.Objects(subject, rdf.RDFType) {
+			for _, id := range graph.Objects(subject, rdf.SysML+"elementId") {
+				classOf[id.Value] = strings.TrimPrefix(class.Value, rdf.SysML)
+			}
+		}
+	}
+	matches := index.LookupQualified("P::A::acc::e")
+	if len(matches) != 1 {
+		t.Fatalf("payload names %d declarations", len(matches))
+	}
+	trigger := matches[0].Decl.(*ast.Usage).Value
+	condition := trigger.(*ast.ChangeEvent).Condition
+	reader := NewElementIDReader([]ElementIDDocument{doc})
+	for slot, want := range map[string][2]string{
+		"in0":    {"Feature", "ParameterMembership"},
+		"a0":     {"FeatureReferenceExpression", "FeatureValue"},
+		"a0.out": {"Feature", "ReturnParameterMembership"},
+		"out":    {"Feature", "ReturnParameterMembership"},
+	} {
+		element, membership, err := reader.ReadExpressionPart(matches[0].DocName, trigger, slot)
+		if err != nil || classOf[element] != want[0] || classOf[membership] != want[1] {
+			t.Errorf("%s = %s (%s), %s (%s), %v; want %v", slot, element, classOf[element], membership, classOf[membership], err, want)
+		}
+	}
+	element, err := reader.Read(matches[0].DocName, condition, "")
+	if err != nil || classOf[element] != "OperatorExpression" || !strings.HasSuffix(element, "_pa0_pchange") {
+		t.Errorf("condition = %s (%s), %v", element, classOf[element], err)
+	}
+	membership, err := reader.ReadOwningMembership(matches[0].DocName, condition, "")
+	if err != nil || classOf[membership] != "FeatureMembership" {
+		t.Errorf("condition membership = %s (%s), %v", membership, classOf[membership], err)
+	}
+	if operand, _, err := reader.ReadExpressionPart(matches[0].DocName, condition, "in0"); err != nil || classOf[operand] != "Feature" {
+		t.Errorf("condition in0 = %s (%s), %v", operand, classOf[operand], err)
 	}
 }

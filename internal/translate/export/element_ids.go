@@ -693,6 +693,27 @@ func (ids *ElementIDs) conjugateOf(doc string, implied *symbols.ImpliedDecl) (co
 // argument's parameter, and the `out` result parameter, then the operands'
 // own parts (expressionOperandOwnership, typeArgument, resultParameter).
 func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node ast.Node) {
+	if event, ok := node.(*ast.ChangeEvent); ok && event.Condition != nil {
+		// changeArgument: `in0` binds the wrapper `a0`, whose referent is the
+		// condition at `change`; the wrapper's result is minted off `a0`.
+		e.registerExpressionPart(ids, subject, node, "in0")
+		e.registerExpressionPart(ids, subject, node, "a0")
+		wrapper := e.ids.mintedNode(rdf.ExpressionIRI(subject, "a0"), subject, "a0")
+		change := e.ids.mintedNode(rdf.ExpressionIRI(wrapper, "change"), wrapper, "change")
+		ids.byNode[event.Condition] = rdf.LocalName(change.Value)
+		ids.bySpan[spanKey{e.file.Name(), event.Condition.Span()}] = ids.byNode[event.Condition]
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(change), change, rdf.OwningMembershipSuffix).Value)
+		ids.membershipByNode[event.Condition] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), event.Condition.Span()}] = membership
+		result := e.ids.mintedNode(rdf.ExpressionIRI(wrapper, "out"), wrapper, "out")
+		resultMembership := e.ids.minted(rdf.OwningMembershipIRIOf(result), result, rdf.OwningMembershipSuffix)
+		recorded := partIDs{element: rdf.LocalName(result.Value), membership: rdf.LocalName(resultMembership.Value)}
+		ids.partByNode[partKey{node, "a0.out"}] = recorded
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "a0.out"}] = recorded
+		e.registerExpressionIDs(ids, change, event.Condition)
+		e.registerExpressionPart(ids, subject, node, "out")
+		return
+	}
 	operands, typeArgument := ast.ExpressionOperands(node)
 	for _, operand := range operands {
 		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, operand.Slot), subject, operand.Slot)
