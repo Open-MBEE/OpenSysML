@@ -507,7 +507,8 @@ func recordedOwnedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
 func recordedMemberRole(member *symbols.Symbol) caseRole {
 	if member.Facts.Node == symbols.NodeSubject {
 		return subjectRole
-	} else if member.Facts.Node == symbols.NodeUsage {
+	}
+	if member.Facts.Node == symbols.NodeUsage {
 		switch member.Facts.UsageKind {
 		case ast.UsageSubject:
 			return subjectRole
