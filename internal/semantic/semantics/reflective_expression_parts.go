@@ -13,9 +13,10 @@ import (
 // writes exactly these (rdf_expr.go expressionOperandOwnership, typeArgument,
 // resultParameter), so the reflective read synthesizes them in the same order.
 type expressionParts struct {
-	params   []*symbols.Symbol
-	operands []*symbols.Symbol // operands[i] is the value of params[i]; nil for a type argument
-	result   *symbols.Symbol
+	params    []*symbols.Symbol
+	operands  []*symbols.Symbol // operands[i] is the value of params[i]; nil for a type argument
+	result    *symbols.Symbol
+	condition *symbols.Symbol // a change wrapper's referent, the written condition
 }
 
 // resultBearingExpressions are the expression metaclasses whose evaluation
@@ -31,8 +32,24 @@ var resultBearingExpressions = map[string]bool{
 // isExpressionSymbol reports whether sym is an expression element the
 // reflective read synthesized: a value or an operand.
 func isExpressionSymbol(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Expr != nil &&
-		(sym.Expr.Role == symbols.ExpressionValue || sym.Expr.Role == symbols.ExpressionArgument)
+	if sym == nil || sym.Expr == nil {
+		return false
+	}
+	switch sym.Expr.Role {
+	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition:
+		return true
+	}
+	return false
+}
+
+// expressionElementMetaclassName is the metaclass of the expression element
+// sym: a change wrapper is the FeatureReferenceExpression the conversion
+// writes; every other element is classified by its node.
+func expressionElementMetaclassName(sym *symbols.Symbol) string {
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
+		return "FeatureReferenceExpression"
+	}
+	return expressionMetaclassName(sym.Decl)
 }
 
 // isExpressionParameterSymbol reports whether sym is a parameter the
@@ -54,6 +71,37 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 	}
 	journal(m, m.expressionParts, expr, expr.Decl)
 	parts := &expressionParts{}
+	if expr.Expr.Role == symbols.ExpressionChangeWrapper {
+		// The wrapper owns the condition it refers to and its result; the
+		// condition's own parts hang off the condition (changeArgument).
+		parts.condition = &symbols.Symbol{
+			Kind:       symbols.SymbolExpression,
+			DocName:    expr.DocName,
+			Decl:       expr.Decl.(*ast.ChangeEvent).Condition,
+			DeclSpan:   expr.Decl.(*ast.ChangeEvent).Condition.Span(),
+			Visibility: expr.Visibility,
+			Expr:       &symbols.ExpressionElement{Owner: expr, Role: symbols.ExpressionChangeCondition},
+		}
+		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
+		m.expressionParts[expr] = parts
+		return parts
+	}
+	if event, ok := expr.Decl.(*ast.ChangeEvent); ok && event.Condition != nil {
+		// A change trigger binds one `in` parameter to a wrapper whose
+		// referent is the condition, as the conversion writes it.
+		parameter := m.expressionParameter(expr, symbols.ExpressionParameter, 0)
+		parts.params = append(parts.params, parameter)
+		parts.operands = append(parts.operands, &symbols.Symbol{
+			Kind:       symbols.SymbolExpression,
+			DocName:    expr.DocName,
+			Decl:       expr.Decl,
+			DeclSpan:   expr.DeclSpan,
+			Visibility: expr.Visibility,
+			Expr:       &symbols.ExpressionElement{Owner: parameter, Role: symbols.ExpressionChangeWrapper},
+		})
+		m.expressionParts[expr] = parts
+		return parts
+	}
 	operands, typeArgument := ast.ExpressionOperands(expr.Decl)
 	for _, operand := range operands {
 		if operand.Index < 0 {
@@ -76,7 +124,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 		parts.params = append(parts.params, m.expressionParameter(expr, symbols.ExpressionParameter, typeArgument))
 		parts.operands = append(parts.operands, nil)
 	}
-	if resultBearingExpressions[expressionMetaclassName(expr.Decl)] {
+	if resultBearingExpressions[expressionElementMetaclassName(expr)] {
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
 	}
 	m.expressionParts[expr] = parts
@@ -203,7 +251,12 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 	}
-	if isExpressionSymbol(sym) {
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
+		// The wrapper owns its condition through a FeatureMembership, then its result.
+		parts := m.expressionPartsOf(sym)
+		owning(parts.condition)
+		owning(parts.result)
+	} else if isExpressionSymbol(sym) {
 		// The conversion's order: a reference's referent and an invocation's
 		// function lead; a chain's target follows its operand; the result ends.
 		slot, name, leads := expressionReference(sym.Decl)
@@ -271,6 +324,9 @@ func (m *Model) referencedSymbol(name *ast.QualifiedName) *symbols.Symbol {
 // expressionReferencedElements is the element the expression's reference
 // membership at the slot named feature holds, read from its owned memberships.
 func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature string) []*symbols.Symbol {
+	if expr.Expr != nil && expr.Expr.Role == symbols.ExpressionChangeWrapper && feature == "referent" {
+		return []*symbols.Symbol{m.expressionPartsOf(expr).condition}
+	}
 	for _, membership := range m.OwnedMemberships(expr) {
 		if rel := membership.Implicit; rel != nil && rel.Form == symbols.ImplicitReferenceMembership && rel.Slot == feature {
 			return []*symbols.Symbol{rel.Member}

@@ -456,3 +456,76 @@ func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
 		t.Errorf("an unresolved reference's referent = %v (%v)", names(got), ok)
 	}
 }
+
+// A change trigger (`accept when a > 1`) binds its `in` parameter to a
+// FeatureReferenceExpression whose referent is the written condition, as the
+// conversion writes it: the wrapper owns the condition through a
+// FeatureMembership and its own result; the condition keeps its own parts.
+func TestChangeTriggerOwnsItsConditionThroughAWrapper(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			action def A {
+				attribute a : ScalarValues::Real;
+				action acc accept e when a > 1;
+			}
+		}
+	`)
+	var payload *symbols.Symbol
+	var walk func(scope *symbols.Scope)
+	walk = func(scope *symbols.Scope) {
+		visit := func(sym *symbols.Symbol) bool {
+			if usage, ok := sym.Decl.(*ast.Usage); ok {
+				if _, ok := usage.Value.(*ast.ChangeEvent); ok {
+					payload = sym
+				}
+			}
+			return true
+		}
+		scope.ForEachMember(visit)
+		scope.ForEachAnonymousMember(visit)
+		for _, child := range scope.Children() {
+			walk(child)
+		}
+	}
+	walk(root)
+	if payload == nil {
+		t.Fatal("no payload declares a change trigger")
+	}
+	trigger := m.ValueExpression(payload)
+	if trigger == nil || m.MetaclassOf(trigger).Name != "TriggerInvocationExpression" {
+		t.Fatalf("payload value = %v", trigger)
+	}
+	params := m.ExpressionParameters(trigger)
+	args := m.ExpressionArguments(trigger)
+	if len(params) != 1 || len(args) != 1 || m.MetaclassOf(args[0]).Name != "FeatureReferenceExpression" {
+		t.Fatalf("trigger binds %d params, %d args (%v)", len(params), len(args), args)
+	}
+	wrapper := args[0]
+	if m.ValueExpression(params[0]) != wrapper || m.ownerOf(wrapper) != params[0] {
+		t.Errorf("in0 does not bind the wrapper")
+	}
+	memberships := m.OwnedMemberships(wrapper)
+	if len(memberships) != 2 || m.MetaclassOf(memberships[0]).Name != "FeatureMembership" ||
+		m.MetaclassOf(memberships[1]).Name != "ReturnParameterMembership" {
+		t.Fatalf("wrapper owns %v", memberships)
+	}
+	condition := memberships[0].Implicit.Member
+	if m.MetaclassOf(condition).Name != "OperatorExpression" || m.ownerOf(condition) != wrapper {
+		t.Errorf("condition = %s owned by %v", m.MetaclassOf(condition).Name, m.ownerOf(condition))
+	}
+	if referent, _ := m.ReflectiveElements(wrapper, "referent"); len(referent) != 1 || referent[0] != condition {
+		t.Errorf("wrapper referent = %v", referent)
+	}
+	if got, ok := m.reflectiveFeatureValue(wrapper, "operator"); ok {
+		t.Errorf("wrapper answers operator %v", got)
+	}
+	if value, ok := m.reflectiveFeatureValue(condition, "operator"); !ok || value.Str != ">" {
+		t.Errorf("condition operator = %v, %v", value, ok)
+	}
+	if len(m.ExpressionParameters(condition)) != 2 {
+		t.Errorf("condition binds %d params", len(m.ExpressionParameters(condition)))
+	}
+	if again := m.ExpressionArguments(trigger); again[0] != wrapper || m.OwnedMemberships(wrapper)[0].Implicit.Member != condition {
+		t.Error("a second read synthesizes different identities")
+	}
+}

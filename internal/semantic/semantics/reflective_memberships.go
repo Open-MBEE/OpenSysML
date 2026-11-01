@@ -277,6 +277,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "ParameterMembership"
 		case symbols.ExpressionResult:
 			return "ReturnParameterMembership"
+		case symbols.ExpressionChangeCondition:
+			return "FeatureMembership"
 		}
 	}
 	if name := m.sysmlMembershipMetaclassName(owner, member); name != "" {
