@@ -667,10 +667,8 @@ func chainedText(name *ast.QualifiedName) string {
 	return out.String()
 }
 
-// receiverChainCallee owns the chain Feature a receiver-reached call instantiates,
-// one FeatureChaining per link (KerML 8.3.3.3.5). Expression::function is the
-// Function typing the expression (KerML 8.3.4.7.3, 8.3.4.8.8): the Functions
-// among the final link's effective types, written only when that link resolves.
+// receiverChainCallee owns the chain Feature a receiver-reached call instantiates (KerML 8.3.3.3.5)
+// and states the Functions typing its final link as `function` (KerML 8.3.4.7.3, 8.3.4.8.8).
 func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedName) {
 	chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
 	e.typed(chain, mFeature)
@@ -694,10 +692,8 @@ func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedNa
 	}
 }
 
-// typingFunctions are the Functions typing a resolved feature — the effective
-// type set the semantic model derives (declared, inherited through subsetting
-// or redefinition, or the library type its kind implies), Functions only, as the
-// reflective read answers `function`; a Function itself types the expression.
+// typingFunctions: the Functions among a feature's effective types (Model.FunctionTypes), as the
+// reflective `function` answers them; a Function itself types the expression directly.
 func (e *encoder) typingFunctions(sym *symbols.Symbol, term rdf.Term) []rdf.Term {
 	if sym == nil {
 		return nil
@@ -2110,36 +2106,26 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 	return text, nil
 }
 
-// typesChainEnd reports whether function is a chain's final feature itself or
-// a Function typing it: one the feature or a feature it subsets or redefines
-// states, or — where none states one — the library type the feature's kind
-// implies (an untyped calc usage is a Calculation).
+// typesChainEnd: function is the chain's final feature, a type it states or inherits, or the
+// library Function its kind implies — the set Model.FunctionTypes derives on the writer's side.
 func (d *decoder) typesChainEnd(end, function rdf.Term, in *element) bool {
-	if end == function {
+	if end == function || slices.Contains(d.statedTypes(end, map[rdf.Term]bool{}), function) {
 		return true
 	}
-	types := d.statedTypes(end, map[rdf.Term]bool{})
-	if len(types) == 0 {
-		implied, ok := impliedFunctionType[d.metaclass(end)]
-		if d.kerml(in) && d.metaclass(end) == "ConstraintUsage" {
-			// KerML's `inv` is written as a ConstraintUsage; its implied type is
-			// the library BooleanEvaluation (KerML 8.4.2), not the SysML check.
-			implied, ok = "Performances::BooleanEvaluation", true
-		}
-		if !ok {
-			return false
-		}
-		target, err := d.referencedElement(function.Value)
-		return err == nil && target.library && target.qname == implied
+	implied, ok := impliedFunctionType[d.metaclass(end)]
+	if d.kerml(in) && d.metaclass(end) == "ConstraintUsage" {
+		// KerML's `inv` is written as a ConstraintUsage; it implies BooleanEvaluation (KerML 8.4.2).
+		implied, ok = "Performances::BooleanEvaluation", true
 	}
-	return slices.Contains(types, function)
+	if !ok {
+		return false
+	}
+	target, err := d.referencedElement(function.Value)
+	return err == nil && target.library && target.qname == implied
 }
 
-// impliedFunctionType is the library Function an untyped usage is typed by
-// (SysML v2 8.3.11, KerML 8.4.2 implied typing), by the usage's metaclass, for
-// the kinds whose implied type is a Function — the function a call reaching
-// such a usage has; TestImpliedFunctionTypeIsTheModelsImpliedTyping holds it
-// to the semantic model.
+// impliedFunctionType: the library Function a usage of each kind is typed by (SysML v2 8.3.11,
+// KerML 8.4.2); TestImpliedFunctionTypeIsTheModelsImpliedTyping holds it to the semantic model.
 var impliedFunctionType = map[string]string{
 	"CalculationUsage":      "Calculations::Calculation",
 	"ConstraintUsage":       "Constraints::ConstraintCheck",
@@ -2154,9 +2140,8 @@ var impliedFunctionType = map[string]string{
 	"BooleanUsage":          "Performances::BooleanEvaluation",
 }
 
-// statedTypes are the types a feature states, in its collapsed `type` and its
-// FeatureTypings, and those of the features it subsets or redefines when it
-// states none of its own (KerML 8.3.3.3 Feature::type through specialization).
+// statedTypes: a feature's collapsed `type` and FeatureTyping targets, else those of the features
+// it subsets, redefines or references (KerML 8.3.3.3 Feature::type through specialization).
 func (d *decoder) statedTypes(feature rdf.Term, seen map[rdf.Term]bool) []rdf.Term {
 	if seen[feature] {
 		return nil

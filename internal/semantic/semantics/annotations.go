@@ -1897,10 +1897,8 @@ func (m *Model) reflectiveFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.FeatureTypeSetWithImplied(sym)
 }
 
-// FunctionTypes are the Functions among a feature's effective types — declared,
-// inherited through its subsettings and redefinitions, or the library type its
-// kind implies — the Functions that type an expression instantiating it
-// (KerML 8.3.4.7.3 Expression::function).
+// FunctionTypes: the Functions among a feature's effective types (declared, inherited, or implied
+// by its kind) — those typing an expression that instantiates it (KerML 8.3.4.7.3).
 func (m *Model) FunctionTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.conformingTypes(sym, "Function")
 }

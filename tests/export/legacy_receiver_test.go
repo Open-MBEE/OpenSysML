@@ -9,6 +9,29 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
+// A receiver-reached call whose final link is a calc usage typed by no Function — directly
+// (`: Real`) or through a subsetting — states the implied library Calculation as its function
+// and reads back from the graph alone.
+func TestReceiverCalleeImpliedFunctionRoundTrips(t *testing.T) {
+	src := "package P {\n\tpart def Pt {\n\t\tcalc real : ScalarValues::Real;\n\t\tcalc viaReal :> real;\n\t}\n\tpart def D {\n\t\tpart p : Pt;\n\t\tattribute a = p.real(1);\n\t\tattribute b = p.viaReal(1);\n\t}\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if strings.Count(string(turtle), "sysml:function ") != 2 {
+		t.Fatalf("want both calls to state a function:\n%s", turtle)
+	}
+	back, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("from the graph alone: %v", err)
+	}
+	for _, want := range []string{"attribute a = p.real(1);", "attribute b = p.viaReal(1);"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("%s did not read back:\n%s", want, back)
+		}
+	}
+}
+
 // A graph written before the conversion owned a receiver-reached call's chain
 // Feature — the receiver `q.p` as a bare sysml:operand FeatureChainExpression —
 // still reads back as the call it came from.

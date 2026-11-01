@@ -69,7 +69,7 @@ func TestCalleeTextChainAgreesByIdentity(t *testing.T) {
 		{"the type of the last feature", typeF, []rdf.Term{rdf.String("s"), foo}, false, true, false},
 		{"the type the last feature inherits", typeF, []rdf.Term{rdf.String("s"), foo}, false, false, true},
 		{"the typing the untyped calc implies", calculation, []rdf.Term{rdf.String("s"), foo}, false, false, false},
-		{"a typed feature's implied typing", calculation, []rdf.Term{rdf.String("s"), foo}, true, true, false},
+		{"a typed feature's implied typing still holds", calculation, []rdf.Term{rdf.String("s"), foo}, false, true, false},
 		{"another library Function", evaluation, []rdf.Term{rdf.String("s"), foo}, true, false, false},
 		{"whole spelling", rdf.String("s.foo"), []rdf.Term{rdf.String("s"), rdf.String("foo")}, false, false, false},
 		{"longer spelling ending alike", rdf.String("myfoo"), []rdf.Term{rdf.String("s"), rdf.String("foo")}, true, false, false},
