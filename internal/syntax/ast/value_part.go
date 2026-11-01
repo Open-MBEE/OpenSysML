@@ -85,3 +85,14 @@ func ExpressionOperands(node Node) (operands []ExpressionOperand, typeArgument i
 	}
 	return operands, -1
 }
+
+// QualifiedNameHasChain reports whether name reaches its element through a
+// dotted feature chain (`a.b`), which the metamodel owns as a chain feature.
+func QualifiedNameHasChain(name *QualifiedName) bool {
+	for i := 1; i < len(name.Parts); i++ {
+		if name.Parts[i].Chained {
+			return true
+		}
+	}
+	return false
+}

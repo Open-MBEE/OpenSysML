@@ -709,6 +709,12 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 	if typeArgument >= 0 {
 		e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", typeArgument))
 	}
+	if slot, _, _ := expressionReferenceSlot(node); slot != "" {
+		membership := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		recorded := partIDs{membership: rdf.LocalName(membership.Value)}
+		ids.partByNode[partKey{node, slot}] = recorded
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+	}
 	if resultBearing[expressionMetaclass(node)] {
 		e.registerExpressionPart(ids, subject, node, "out")
 	}
@@ -720,4 +726,30 @@ func (e *encoder) registerExpressionPart(ids *ElementIDs, subject rdf.Term, node
 	recorded := partIDs{element: rdf.LocalName(part.Value), membership: rdf.LocalName(membership.Value)}
 	ids.partByNode[partKey{node, slot}] = recorded
 	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+}
+
+// expressionReferenceSlot is the slot of the plain Membership the conversion
+// writes for the element an expression names (referentMembershipNode,
+// calleeMembership): a reference's referent, an undotted invocation's function,
+// an undotted chain's target feature.
+func expressionReferenceSlot(node ast.Node) (slot string, name *ast.QualifiedName, ok bool) {
+	switch n := node.(type) {
+	case *ast.QualifiedName:
+		return "referent", n, true
+	case *ast.FeatureReference:
+		return "referent", n.Name, true
+	case *ast.InvocationExpr:
+		if n.Type != nil && !ast.QualifiedNameHasChain(n.Type) {
+			return "function", n.Type, true
+		}
+	case *ast.ConstructorExpr:
+		if n.Type != nil && !ast.QualifiedNameHasChain(n.Type) {
+			return "function", n.Type, true
+		}
+	case *ast.FeatureChainExpr:
+		if n.Member != nil && !ast.QualifiedNameHasChain(n.Member) {
+			return "targetFeature", n.Member, true
+		}
+	}
+	return "", nil, false
 }

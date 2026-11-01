@@ -336,8 +336,97 @@ func TestInvocationOwnsItsArgumentParameters(t *testing.T) {
 		if m.ExpressionResult(expr) == nil {
 			t.Errorf("%s: no result parameter", c.name)
 		}
-		if got := len(m.OwnedMemberships(expr)); got != len(c.args)+1 {
-			t.Errorf("%s owns %d memberships, want %d", c.name, got, len(c.args)+1)
+		// The Membership to the function, the parameters, the result.
+		if got := len(m.OwnedMemberships(expr)); got != len(c.args)+2 {
+			t.Errorf("%s owns %d memberships, want %d", c.name, got, len(c.args)+2)
 		}
+	}
+}
+
+// An expression owns a plain Membership to the element it names — a reference's
+// referent, an invocation's function, a chain's target — as the conversion writes it.
+func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			calc def F { in a : ScalarValues::Real; return r : ScalarValues::Real = a; }
+			part def Pt { attribute q : ScalarValues::Real; }
+			part def D {
+				attribute a : ScalarValues::Real;
+				part p : Pt;
+				attribute ref = a;
+				attribute call = F(1);
+				attribute chain = p.q;
+				attribute dangling = nothere;
+			}
+		}
+	`)
+	pkg, _ := root.LookupLocal("P")
+	d := member(t, m, pkg, "D")
+	f, pt := member(t, m, pkg, "F"), member(t, m, pkg, "Pt")
+	a, q := member(t, m, d, "a"), member(t, m, pt, "q")
+	names := func(syms []*symbols.Symbol) []string {
+		var out []string
+		for _, sym := range syms {
+			out = append(out, m.MetaclassOf(sym).Name)
+		}
+		return out
+	}
+	for _, c := range []struct {
+		name, slot string
+		target     *symbols.Symbol
+		order      []string
+	}{
+		{"ref", "referent", a, []string{"Membership", "ReturnParameterMembership"}},
+		{"call", "function", f, []string{"Membership", "ParameterMembership", "ReturnParameterMembership"}},
+		{"chain", "targetFeature", q, []string{"ParameterMembership", "Membership", "ReturnParameterMembership"}},
+	} {
+		expr := m.ValueExpression(member(t, m, d, c.name))
+		memberships := m.OwnedMemberships(expr)
+		got := names(memberships)
+		if len(got) != len(c.order) {
+			t.Errorf("%s owns %v, want %v", c.name, got, c.order)
+			continue
+		}
+		for i := range c.order {
+			if got[i] != c.order[i] {
+				t.Errorf("%s owns %v, want %v", c.name, got, c.order)
+				break
+			}
+			if memberships[i].Implicit.Ordinal != i {
+				t.Errorf("%s membership %d has ordinal %d", c.name, i, memberships[i].Implicit.Ordinal)
+			}
+		}
+		elements, ok := m.ReflectiveElements(expr, c.slot)
+		if !ok || len(elements) != 1 || elements[0] != c.target {
+			t.Errorf("%s.%s = %v (%v), want the named element", c.name, c.slot, names(elements), ok)
+		}
+		for _, membership := range memberships {
+			rel := membership.Implicit
+			if rel.Form != symbols.ImplicitReferenceMembership {
+				continue
+			}
+			if rel.Member != c.target || rel.Slot != c.slot {
+				t.Errorf("%s: the Membership names %v at %q", c.name, rel.Member, rel.Slot)
+			}
+			if got, ok := m.ReflectiveElements(membership, "memberElement"); !ok || len(got) != 1 || got[0] != c.target {
+				t.Errorf("%s: Membership.memberElement = %v", c.name, names(got))
+			}
+			if got, ok := m.ReflectiveElements(membership, "owner"); !ok || len(got) != 1 || got[0] != expr {
+				t.Errorf("%s: Membership.owner is not the expression", c.name)
+			}
+			if _, ok := m.ReflectiveElements(membership, "ownedMemberElement"); !ok {
+				t.Errorf("%s: Membership derives no ownedMemberElement", c.name)
+			}
+		}
+		if again := m.OwnedMemberships(expr); len(again) != len(memberships) || again[0] != memberships[0] {
+			t.Errorf("%s: memberships are not stable across reads", c.name)
+		}
+	}
+	dangling := m.ValueExpression(member(t, m, d, "dangling"))
+	if got := names(m.OwnedMemberships(dangling)); len(got) != 1 || got[0] != "ReturnParameterMembership" {
+		t.Errorf("an unresolved reference owns %v, want its result only", got)
+	}
+	if got, ok := m.ReflectiveElements(dangling, "referent"); !ok || len(got) != 0 {
+		t.Errorf("an unresolved reference's referent = %v (%v)", names(got), ok)
 	}
 }

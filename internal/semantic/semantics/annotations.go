@@ -1663,6 +1663,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "documentation":
 		return m.documentationSymbols(sym), true
 	case "relatedFeature", "sourceFeature", "targetFeature":
+		if feature == "targetFeature" && isExpressionSymbol(sym) {
+			return m.expressionReferencedElements(sym, feature), true
+		}
 		if !m.reflectiveMetaclassConforms(sym, "Connector") {
 			return nil, false
 		}
@@ -1678,6 +1681,11 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.ExpressionArguments(sym), true
+	case "referent", "function":
+		if !isExpressionSymbol(sym) {
+			return nil, false
+		}
+		return m.expressionReferencedElements(sym, feature), true
 	case "valuation":
 		// KerML 8.3.3.3.5 Feature::valuation: the FeatureValue among the
 		// feature's owned memberships, if its declaration has a value part.

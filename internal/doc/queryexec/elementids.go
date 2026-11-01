@@ -68,6 +68,12 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 			if rel.Decl != nil {
 				return read.Read(sym.DocName, rel.Decl, "")
 			}
+		case symbols.ImplicitReferenceMembership:
+			if rel.Owner != nil && rel.Owner.Decl != nil {
+				_, membership, err := read.ReadExpressionPart(rel.Owner.DocName, rel.Owner.Decl, rel.Slot)
+				return membership, err
+			}
+			return "", nil
 		case symbols.ImplicitWritten:
 			if node := writtenRelationshipNode(rel); node != nil {
 				return read.ReadRelationship(sym.DocName, node)

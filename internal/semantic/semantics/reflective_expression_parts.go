@@ -176,24 +176,102 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	journal(m, m.memberships, sym, sym.Decl)
-	var members []*symbols.Symbol
-	if isExpressionSymbol(sym) {
-		members = m.expressionOwnedParts(sym)
-	} else if value := m.expressionParameterValue(sym); value != nil {
-		members = []*symbols.Symbol{value}
-	}
-	out := make([]*symbols.Symbol, 0, len(members))
-	for ordinal, member := range members {
+	var out []*symbols.Symbol
+	owning := func(member *symbols.Symbol) {
 		out = append(out, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    sym.DocName,
 			DeclSpan:   member.DeclSpan,
 			Visibility: sym.Visibility,
 			Implicit: &symbols.ImplicitRelationship{
-				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: member,
+				Owner: sym, Ordinal: len(out), Form: symbols.ImplicitMembership, Member: member,
 			},
 		})
 	}
+	reference := func(slot string, name *ast.QualifiedName) {
+		target := m.referencedSymbol(name)
+		if target == nil {
+			return
+		}
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   sym.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: len(out), Form: symbols.ImplicitReferenceMembership, Member: target, Slot: slot,
+			},
+		})
+	}
+	if isExpressionSymbol(sym) {
+		// The conversion's order: a reference's referent and an invocation's
+		// function lead; a chain's target follows its operand; the result ends.
+		slot, name, leads := expressionReference(sym.Decl)
+		if leads {
+			reference(slot, name)
+		}
+		for _, parameter := range m.ExpressionParameters(sym) {
+			owning(parameter)
+		}
+		if !leads && name != nil {
+			reference(slot, name)
+		}
+		if result := m.ExpressionResult(sym); result != nil {
+			owning(result)
+		}
+	} else if value := m.expressionParameterValue(sym); value != nil {
+		owning(value)
+	}
 	m.memberships[sym] = out
 	return out
+}
+
+// expressionReference is the element an expression names by a plain Membership,
+// at the slot the conversion writes it: a reference's referent, an invocation's
+// function (leading its parameters), a chain's target (following its operand).
+// A dotted name owns a chain feature instead and is not listed here.
+func expressionReference(node ast.Node) (slot string, name *ast.QualifiedName, leads bool) {
+	switch n := node.(type) {
+	case *ast.QualifiedName:
+		return "referent", n, true
+	case *ast.FeatureReference:
+		return "referent", n.Name, true
+	case *ast.InvocationExpr:
+		if n.Type != nil && !ast.QualifiedNameHasChain(n.Type) {
+			return "function", n.Type, true
+		}
+	case *ast.ConstructorExpr:
+		if n.Type != nil && !ast.QualifiedNameHasChain(n.Type) {
+			return "function", n.Type, true
+		}
+	case *ast.FeatureChainExpr:
+		if n.Member != nil && !ast.QualifiedNameHasChain(n.Member) {
+			return "targetFeature", n.Member, false
+		}
+	}
+	return "", nil, false
+}
+
+// referencedSymbol is what the resolver bound name's last segment to, nil
+// while it is unresolved.
+func (m *Model) referencedSymbol(name *ast.QualifiedName) *symbols.Symbol {
+	if name == nil || len(name.Parts) == 0 {
+		return nil
+	}
+	sym, ok := m.resolver.PartSymbol(name, len(name.Parts)-1)
+	if !ok {
+		return nil
+	}
+	return sym
+}
+
+// expressionReferencedElements is the element the expression's reference
+// membership at the slot named feature holds, read from its owned memberships.
+func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature string) []*symbols.Symbol {
+	for _, membership := range m.OwnedMemberships(expr) {
+		if rel := membership.Implicit; rel != nil && rel.Form == symbols.ImplicitReferenceMembership && rel.Slot == feature {
+			return []*symbols.Symbol{rel.Member}
+		}
+	}
+	return []*symbols.Symbol{}
 }

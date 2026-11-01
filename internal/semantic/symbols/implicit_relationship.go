@@ -27,6 +27,10 @@ const (
 	// definition Owner owns back to the port definition Member it conjugates
 	// (SysML 8.3.11.3).
 	ImplicitPortConjugation
+	// ImplicitReferenceMembership reflects the Membership (not owning) an
+	// expression Owner holds to the element Member it names at Slot (KerML
+	// 8.2.5.8.3 FeatureReferenceMember; an invocation's function; a chain's target).
+	ImplicitReferenceMembership
 )
 
 // ImplicitRelationship is a relationship the abstract syntax holds as an
@@ -42,6 +46,7 @@ type ImplicitRelationship struct {
 	Form       ImplicitForm         // what the relationship is
 	Member     *Symbol              // the element at the other end of a membership or annotation
 	Decl       ast.Node             // the import declaration of an ImplicitImport
+	Slot       string               // the position the conversion names an ImplicitReferenceMembership by
 }
 
 // ImplicitOrdinal is the position sym's written relationship holds among its
