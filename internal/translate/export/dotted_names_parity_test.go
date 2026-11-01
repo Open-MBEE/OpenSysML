@@ -1,6 +1,7 @@
 package export
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -29,6 +30,7 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 		attribute e = q->Pt::f(1);
 		attribute g = q.p->Pt::f(2);
 		attribute h = new Pt(1, 2);
+		attribute m = q.p.f(q.p.f(1));
 	}
 }
 `
@@ -80,14 +82,20 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 		if strings.Join(native, ",") != strings.Join(written, ",") {
 			t.Errorf("%s (%s): native owns %v, the conversion writes %v", name, classOf(subjectOf[id]), native, written)
 		}
+		// Only a call reached through a pure chain of names (`q.p.f(1)`, nested or not)
+		// instantiates a chain Feature.
+		wantChain := false
+		if call, ok := expr.Decl.(*ast.InvocationExpr); ok {
+			wantChain = call.Type == nil && ast.ReceiverChain(call.Operand) != nil
+		}
 		chain := model.ExpressionChainFeature(expr)
-		if (chain != nil) != (name == "d") {
+		if (chain != nil) != wantChain {
 			t.Errorf("%s: native chain Feature %v", name, chain)
 		}
 		for _, slot := range []string{"function", "targetFeature"} {
 			element, _, err := reader.ReadExpressionPart(sf.Name(), expr.Decl, slot)
 			owns := err == nil && element != ""
-			if owns != (name == "d" && slot == "function") {
+			if owns != (wantChain && slot == "function") {
 				t.Errorf("%s: the conversion owns a chain Feature at %s = %v (%s)", name, slot, owns, element)
 			}
 			if !owns || chain == nil {
@@ -107,12 +115,31 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 			if got := classOf(subjectOf[element]); got != "Feature" || model.MetaclassOf(chain).Name != "Feature" {
 				t.Errorf("%s: chain Feature written as %s, native %s", name, got, model.MetaclassOf(chain).Name)
 			}
-			function := graph.Objects(subjectOf[id], rdf.SysML+"function")
-			if len(function) != 1 || function[0] != subjectOf[element] {
-				t.Errorf("%s: the conversion's function is %v, not the chain Feature", name, function)
+			// Expression::function is the typing Function (KerML 8.3.4.7.3); `f` is a
+			// calc usage, so neither ledger states one — the chain is the instantiated type.
+			if function := graph.Objects(subjectOf[id], rdf.SysML+"function"); len(function) != 0 {
+				t.Errorf("%s: the conversion states function %v for a chain reaching a usage", name, function)
 			}
-			if got, ok := model.ReflectiveElements(expr, "function"); !ok || len(got) != 1 || got[0] != chain {
-				t.Errorf("%s: native function is %v, not the chain Feature", name, got)
+			if got, ok := model.ReflectiveElements(expr, "function"); !ok || len(got) != 0 {
+				t.Errorf("%s: native function is %v for a chain reaching a usage", name, got)
+			}
+			owned, _ := model.ReflectiveElements(expr, "ownedElement")
+			if len(owned) == 0 || owned[0] != chain {
+				t.Errorf("%s: native ownedElement %v does not lead with the chain Feature", name, owned)
+			}
+			if features, _ := model.ReflectiveElements(expr, "ownedFeature"); slices.Contains(features, chain) {
+				t.Errorf("%s: the chain Feature is owned through an OwningMembership, not an owned feature", name)
+			}
+			chainings, _ := model.ReflectiveElements(chain, "ownedFeatureChaining")
+			writtenChainings := graph.Objects(subjectOf[element], rdf.SysML+"ownedFeatureChaining")
+			if len(chainings) != 3 || len(chainings) != len(writtenChainings) {
+				t.Errorf("%s: native ownedFeatureChaining %d, the conversion writes %d", name, len(chainings), len(writtenChainings))
+			}
+			for i, chaining := range chainings {
+				target, _ := model.ReflectiveElements(chaining, "chainingFeature")
+				if model.MetaclassOf(chaining).Name != "FeatureChaining" || len(target) != 1 || target[0] != model.ChainingFeatures(chain)[i] {
+					t.Errorf("%s: ownedFeatureChaining[%d] is %s to %v", name, i, model.MetaclassOf(chaining).Name, target)
+				}
 			}
 		}
 		for i, parameter := range model.ExpressionParameters(expr) {
@@ -123,15 +150,16 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 	}
 	pkg, _ := index.DocumentRoot(sf.Name()).LookupLocal("P")
 	d, _ := pkg.Scope.LookupLocal("D")
-	for _, name := range []string{"c", "d", "e", "g", "h"} {
+	for _, name := range []string{"c", "d", "e", "g", "h", "m"} {
 		feature, ok := d.Scope.LookupLocal(name)
 		if !ok {
 			t.Fatalf("no attribute %s", name)
 		}
 		check(name, model.ValueExpression(feature))
 	}
-	if checked < 10 {
-		t.Errorf("checked only %d expressions", checked)
+	// c, q.p, q; d, 1; e, q, 1; g, q.p, q, 2; h, 1, 2; m, q.p.f(1), 1.
+	if checked != 18 {
+		t.Errorf("checked %d expressions, want 18", checked)
 	}
 	ast.Inspect(root, func(node ast.Node) bool {
 		var name *ast.QualifiedName

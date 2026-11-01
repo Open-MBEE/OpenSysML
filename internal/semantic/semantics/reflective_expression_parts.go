@@ -258,6 +258,27 @@ func (m *Model) expressionParameterValue(param *symbols.Symbol) *symbols.Symbol 
 	return nil
 }
 
+// expressionOwnedElements are expressionOwnedParts with the chain Feature expr
+// owns through an OwningMembership (so an owned element, not an owned feature),
+// where the conversion lists it: a function's chain leads, a target's follows
+// its operand.
+func (m *Model) expressionOwnedElements(expr *symbols.Symbol) []*symbols.Symbol {
+	parts := m.expressionOwnedParts(expr)
+	chain := m.ExpressionChainFeature(expr)
+	if chain == nil {
+		return parts
+	}
+	if _, _, leads := expressionChain(expr.Decl); leads {
+		return append([]*symbols.Symbol{chain}, parts...)
+	}
+	out := append([]*symbols.Symbol{}, parts...)
+	at := len(out)
+	if result := m.ExpressionResult(expr); result != nil && at > 0 && out[at-1] == result {
+		at--
+	}
+	return append(out[:at], append([]*symbols.Symbol{chain}, out[at:]...)...)
+}
+
 // expressionOwnedParts are the elements expr owns, parameters first then the
 // result, as the conversion lists them.
 func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
@@ -446,9 +467,15 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 		if feature == "referent" && parts.body != nil {
 			return []*symbols.Symbol{parts.body}
 		}
-		// A receiver-reached call's function is the chain Feature it owns.
+		// Expression::function is the Function typing the expression (KerML
+		// 8.3.4.7.3): a receiver-reached call has one only when its chain
+		// reaches a Function; the chain Feature itself is the instantiated type.
 		if feature == "function" && parts.chain != nil {
-			return []*symbols.Symbol{parts.chain}
+			links := m.ChainingFeatures(parts.chain)
+			if n := len(links); n > 0 && m.reflectiveMetaclassConforms(links[n-1], "Function") {
+				return []*symbols.Symbol{links[n-1]}
+			}
+			return []*symbols.Symbol{}
 		}
 	}
 	for _, membership := range m.OwnedMemberships(expr) {
@@ -636,11 +663,11 @@ func (m *Model) reflectBodiesUnder(expr *symbols.Symbol) {
 	}
 }
 
-// expressionChain is the chain of names an expression names its function or
-// target by, at the slot the conversion owns the chain Feature at: a call
-// reached through its receiver (`q.p.f(1)`, receiverChainCallee) and a dotted
-// function or target name (calleeMembership, FeatureChainExpr). A function leads
-// the parameters; a target follows its operand.
+// expressionChain is the chain of names an expression instantiates or targets,
+// at the slot the conversion owns the chain Feature at: a call reached through
+// its receiver (`q.p.f(1)`, KerML 8.2.5.8.3 InstantiatedTypeMember) and a dotted
+// function or target name (calleeMembership, FeatureChainExpr). A function's
+// chain leads the parameters; a target's follows its operand.
 func expressionChain(node ast.Node) (slot string, links []*ast.QualifiedName, leads bool) {
 	dotted := func(name *ast.QualifiedName) []*ast.QualifiedName {
 		var out []*ast.QualifiedName

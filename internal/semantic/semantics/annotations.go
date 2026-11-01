@@ -1621,6 +1621,10 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			}
 		}
 		return ends, true
+	case "ownedFeatureChaining":
+		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+			return m.OwnedRelationships(sym), true
+		}
 	case "chainingFeature":
 		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
 			return m.ChainingFeatures(sym), true
@@ -1933,7 +1937,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		// feature's owned memberships.
 		members = append(members, value)
 	}
-	members = append(members, m.expressionOwnedParts(sym)...)
+	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, ownedMembersOf(sym)...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {

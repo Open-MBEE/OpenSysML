@@ -517,12 +517,14 @@ triples come); a set of classes with no such member is refused, naming the subje
   a feature chain's `targetFeature`, a feature reference's `referent` and an
   invocation's `function`. A dotted name reaches these from the notation in one
   form only: the parser spells `q.p.f(1)` as an invocation whose receiver is the
-  chain `q.p`, and the conversion writes it as KerMLExpressions does
-  (`InstantiatedTypeMember` → `OwnedFeatureChain`) — an `OwningMembership` at
-  the `function` slot owning a chain `Feature` with one `FeatureChaining` per
-  link (`q`, `p`, `f`), `function` naming that chain Feature (the instantiated
-  type), the arguments alone as `in` parameters, no `operand` — and the
-  reflective read owns the same Feature,
+  chain `q.p`, and the conversion writes it as KerML 8.2.5.8.3 does
+  (`InstantiatedTypeMember` → `OwnedFeatureChainMember`) — an `OwningMembership`
+  at the `function` slot owning a chain `Feature` with one `FeatureChaining` per
+  link (`q`, `p`, `f`), the instantiated type; `sysml:function` only when the
+  chain reaches a `Function`, since `Expression::function` is the Function
+  typing the expression (KerML 8.3.4.7.3), not the usage invoked; the arguments
+  alone as `in` parameters, no `operand` — and the reflective read owns the same
+  Feature,
   chainings and ids. `p.a.b` stays nested chain expressions with one-segment
   members, one `FeatureChainExpression` per link, so no `targetFeature` chain
   Feature arises from the notation

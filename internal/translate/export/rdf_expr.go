@@ -595,8 +595,8 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 		e.graph.Add(subject, e.sysml(pFunction), e.calleeReference(function))
 		e.calleeMembership(subject, function)
 	} else if links := ast.ReceiverChain(operand); links != nil {
-		// `q.p.f(1)` names its function by the chain its receiver spells
-		// (KerMLExpressions InstantiatedTypeMember → OwnedFeatureChain).
+		// `q.p.f(1)` instantiates the chain its receiver spells (KerML 8.2.5.8.3
+		// InstantiatedTypeMember → OwnedFeatureChainMember, 8.3.4.8.8).
 		e.receiverChainCallee(subject, links)
 		operand = nil
 	}
@@ -665,25 +665,31 @@ func chainedText(name *ast.QualifiedName) string {
 	return out.String()
 }
 
-// receiverChainCallee owns the chain Feature a receiver-reached call names its
-// function by, one FeatureChaining per link; the function is the last link.
+// receiverChainCallee owns the chain Feature a receiver-reached call instantiates,
+// one FeatureChaining per link (KerML 8.3.3.3.5); sysml:function is written only
+// when the chain reaches a Function, as Expression::function is the Function
+// typing the expression (KerML 8.3.4.7.3), not the feature invoked.
 func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedName) {
 	chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
 	e.typed(chain, mFeature)
 	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
 	terms := make([]rdf.Term, len(links))
+	var last ast.Node
 	for i, link := range links {
 		sym, ok := e.res.PartSymbol(link, len(link.Parts)-1)
 		terms[i] = e.linkOrText(link, sym, ok)
+		if ok {
+			last = sym.Decl
+		}
 	}
 	e.featureChainings(chain, terms)
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
 	e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
-	// The function is the chain Feature itself (InvocationExpression::function
-	// derives from instantiatedType, the InstantiatedTypeMember's member).
-	e.graph.Add(subject, e.sysml(pFunction), chain)
+	if last != nil && ontology.IsAncestorOrSelf(declaredMetaclass(last), "Function") {
+		e.graph.Add(subject, e.sysml(pFunction), terms[len(terms)-1])
+	}
 }
 
 // calleeMembership emits the relationship an invocation owns to what it
@@ -2056,11 +2062,11 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 	if !hasCollapsed {
 		return text, nil
 	}
-	// The function is the chain Feature itself or its last feature when it
-	// resolves, else the whole chain's spelling; anything else names a second callee.
+	// The function is the chain's last feature when it resolves, else
+	// the whole chain's spelling; anything else names a second callee.
 	var agree bool
 	if collapsed.IsIRI() {
-		agree = collapsed == chain || len(segments) > 0 && segments[len(segments)-1] == collapsed
+		agree = len(segments) > 0 && segments[len(segments)-1] == collapsed
 	} else {
 		agree = collapsed.Value == strings.Join(spelled, ".")
 	}
