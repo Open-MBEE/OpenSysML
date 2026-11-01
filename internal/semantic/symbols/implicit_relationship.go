@@ -31,6 +31,9 @@ const (
 	// expression Owner holds to the element Member it names at Slot (KerML
 	// 8.2.5.8.3 FeatureReferenceMember; an invocation's function; a chain's target).
 	ImplicitReferenceMembership
+	// ImplicitFeatureChaining reflects the FeatureChaining a chain feature
+	// Owner holds to one Member of its chain, at Slot `fc%d` (KerML 8.3.3.3.3).
+	ImplicitFeatureChaining
 )
 
 // ImplicitRelationship is a relationship the abstract syntax holds as an

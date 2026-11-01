@@ -515,13 +515,23 @@ triples come); a set of classes with no such member is refused, naming the subje
   alias's owning membership. The same rule links a succession's `sourceFeature` (an implied `first
   start then a` names the `start` the owner inherits from `Actions::Action`),
   a feature chain's `targetFeature`, a feature reference's `referent` and an
-  invocation's `function`. A dotted name never reaches these from the notation:
-  the parser spells `q.p.f(1)` as an invocation whose receiver is the chain and
-  `p.a.b` as nested chain expressions with one-segment members, so the chain
-  `Feature` the conversion owns for a chained `function` or `targetFeature` (an
-  `OwningMembership` owning a `Feature` with `FeatureChaining`s) arises only
-  from a graph read back, and the reflective read owns no such Feature
-  (`TestDottedExpressionNamesOwnNoChainFeature`). A literal carries the name itself,
+  invocation's `function`. A dotted name reaches these from the notation in one
+  form only: the parser spells `q.p.f(1)` as an invocation whose receiver is the
+  chain `q.p`, and the conversion writes it as KerML 8.2.5.8.3 does
+  (`InstantiatedTypeMember` → `OwnedFeatureChainMember`) — an `OwningMembership`
+  at the `function` slot owning a chain `Feature` with one `FeatureChaining` per
+  link (`q`, `p`, `f`), the instantiated type; `sysml:function` is the
+  `Function` typing the final link (`Expression::function`, KerML 8.3.4.7.3) —
+  `f`'s calc def, or the library `Calculations::Calculation` an untyped calc
+  usage implies — omitted only when that link does not resolve; the arguments
+  alone as `in` parameters, no `operand` — and the reflective read owns the same
+  Feature,
+  chainings and ids. `p.a.b` stays nested chain expressions with one-segment
+  members, one `FeatureChainExpression` per link, so no `targetFeature` chain
+  Feature arises from the notation
+  (`TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee`). A
+  receiver that is not a pure chain of names (`(a + b).f(1)`, `x[1].f()`) keeps
+  its `operand` form. A literal carries the name itself,
   without the quotes an unrestricted name is written with; a target that is an
   expression rather than a name (a feature chain, say) is carried as the text it
   was written as, typed `sysx:Expression` to tell the two apart. These
@@ -2289,8 +2299,9 @@ form's output back to the notation it came from. A conjugate has
 per-`@type` element
 counts of the two still differ where the toolkit's own JSON is sparser than
 the metamodel: it writes no `ReturnParameterMembership` for an expression
-whose result is unused, spells a chained callee as `FeatureChaining`s on one
-feature where this mapping owns a `FeatureChainExpression` per link, and
+whose result is unused, spells a chained target (`p.a.b`) as `FeatureChaining`s
+on one feature where this mapping owns a `FeatureChainExpression` per link (a
+chained callee, `q.p.f(1)`, both spell as one chain feature), and
 writes a `sysml:CaseDefinition` where an `analysis def` is an
 `AnalysisCaseDefinition`. What the toolkit does not
 read are the `sysx:` extension metaclasses listed above, and one place where

@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -19,6 +20,7 @@ type expressionParts struct {
 	condition *symbols.Symbol   // a change wrapper's referent, the written condition
 	body      *symbols.Symbol   // a `{ … }` reference's referent, the body Expression
 	members   []*symbols.Symbol // a body's parameters and members, in the conversion's order
+	chain     *symbols.Symbol   // the Feature a receiver-reached call names its function by
 }
 
 // resultBearingExpressions are the expression metaclasses whose evaluation
@@ -182,6 +184,10 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 	if resultBearingExpressions[expressionElementMetaclassName(expr)] {
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
 	}
+	if slot, _, _ := expressionChain(expr.Decl); slot != "" {
+		parts.chain = m.expressionParameter(expr, symbols.ExpressionChainFeature, 0)
+		parts.chain.Expr.Slot = slot
+	}
 	m.expressionParts[expr] = parts
 	return parts
 }
@@ -252,6 +258,27 @@ func (m *Model) expressionParameterValue(param *symbols.Symbol) *symbols.Symbol 
 	return nil
 }
 
+// expressionOwnedElements are expressionOwnedParts with the chain Feature expr
+// owns through an OwningMembership (so an owned element, not an owned feature),
+// where the conversion lists it: a function's chain leads, a target's follows
+// its operand.
+func (m *Model) expressionOwnedElements(expr *symbols.Symbol) []*symbols.Symbol {
+	parts := m.expressionOwnedParts(expr)
+	chain := m.ExpressionChainFeature(expr)
+	if chain == nil {
+		return parts
+	}
+	if _, _, leads := expressionChain(expr.Decl); leads {
+		return append([]*symbols.Symbol{chain}, parts...)
+	}
+	out := append([]*symbols.Symbol{}, parts...)
+	at := len(out)
+	if result := m.ExpressionResult(expr); result != nil && at > 0 && out[at-1] == result {
+		at--
+	}
+	return append(out[:at], append([]*symbols.Symbol{chain}, out[at:]...)...)
+}
+
 // expressionOwnedParts are the elements expr owns, parameters first then the
 // result, as the conversion lists them.
 func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
@@ -307,6 +334,11 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	journal(m, m.memberships, sym, sym.Decl)
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+		out := m.chainFeatureMemberships(sym)
+		m.memberships[sym] = out
+		return out
+	}
 	var out []*symbols.Symbol
 	owning := func(member *symbols.Symbol) {
 		out = append(out, &symbols.Symbol{
@@ -356,14 +388,22 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		// The conversion's order: a reference's referent and an invocation's
 		// function lead; a chain's target follows its operand; the result ends.
 		slot, name, leads := expressionReference(sym.Decl)
+		chain := m.ExpressionChainFeature(sym)
+		_, _, chainLeads := expressionChain(sym.Decl)
 		if leads {
 			reference(slot, name)
+		}
+		if chain != nil && chainLeads {
+			owning(chain)
 		}
 		for _, parameter := range m.ExpressionParameters(sym) {
 			owning(parameter)
 		}
 		if !leads && name != nil {
 			reference(slot, name)
+		}
+		if chain != nil && !chainLeads {
+			owning(chain)
 		}
 		if result := m.ExpressionResult(sym); result != nil {
 			owning(result)
@@ -423,9 +463,21 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 	if expr.Expr != nil && expr.Expr.Role == symbols.ExpressionChangeWrapper && feature == "referent" {
 		return []*symbols.Symbol{m.expressionPartsOf(expr).condition}
 	}
-	if feature == "referent" {
-		if parts := m.expressionPartsOf(expr); parts != nil && parts.body != nil {
+	if parts := m.expressionPartsOf(expr); parts != nil {
+		if feature == "referent" && parts.body != nil {
 			return []*symbols.Symbol{parts.body}
+		}
+		// Expression::function (KerML 8.3.4.7.3, 8.3.4.8.8): for a receiver-reached call, the
+		// Functions typing its chain's final link; the chain Feature is the instantiated type.
+		if feature == "function" && parts.chain != nil {
+			links := m.ChainingFeatures(parts.chain)
+			if n := len(links); n > 0 {
+				if m.reflectiveMetaclassConforms(links[n-1], "Function") {
+					return []*symbols.Symbol{links[n-1]}
+				}
+				return append([]*symbols.Symbol{}, m.FunctionTypes(links[n-1])...)
+			}
+			return []*symbols.Symbol{}
 		}
 	}
 	for _, membership := range m.OwnedMemberships(expr) {
@@ -611,4 +663,104 @@ func (m *Model) reflectBodiesUnder(expr *symbols.Symbol) {
 	for _, operand := range parts.operands {
 		m.reflectBodiesUnder(operand)
 	}
+}
+
+// expressionChain is the chain of names an expression instantiates or targets,
+// at the slot the conversion owns the chain Feature at: a call reached through
+// its receiver (`q.p.f(1)`, KerML 8.2.5.8.3 InstantiatedTypeMember) and a dotted
+// function or target name (calleeMembership, FeatureChainExpr). A function's
+// chain leads the parameters; a target's follows its operand.
+func expressionChain(node ast.Node) (slot string, links []*ast.QualifiedName, leads bool) {
+	dotted := func(name *ast.QualifiedName) []*ast.QualifiedName {
+		var out []*ast.QualifiedName
+		start := 0
+		for i := 1; i <= len(name.Parts); i++ {
+			if i == len(name.Parts) || name.Parts[i].Chained {
+				out = append(out, &ast.QualifiedName{Parts: name.Parts[start:i]})
+				start = i
+			}
+		}
+		return out
+	}
+	switch n := node.(type) {
+	case *ast.InvocationExpr:
+		if n.Type == nil {
+			if links := ast.ReceiverChain(n.Operand); links != nil {
+				return "function", links, true
+			}
+		} else if ast.QualifiedNameHasChain(n.Type) {
+			return "function", dotted(n.Type), true
+		}
+	case *ast.ConstructorExpr:
+		if n.Type != nil && ast.QualifiedNameHasChain(n.Type) {
+			return "function", dotted(n.Type), true
+		}
+	case *ast.FeatureChainExpr:
+		if n.Member != nil && ast.QualifiedNameHasChain(n.Member) {
+			return "targetFeature", dotted(n.Member), false
+		}
+	}
+	return "", nil, false
+}
+
+// ExpressionChainFeature is the Feature the expression element expr owns for the
+// dotted name of its function or target feature; nil where the name is plain.
+func (m *Model) ExpressionChainFeature(expr *symbols.Symbol) *symbols.Symbol {
+	if parts := m.expressionPartsOf(expr); parts != nil {
+		return parts.chain
+	}
+	return nil
+}
+
+// chainFeatureMemberships are the FeatureChainings a chain Feature owns, one per
+// segment of the dotted name, each to the feature the segment resolves to
+// (qualifiedChainReferences); a segment resolving to nothing owns none.
+func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol {
+	_, links, _ := expressionChain(chain.Expr.Owner.Decl)
+	var out []*symbols.Symbol
+	for _, link := range links {
+		target := m.referencedSymbol(link)
+		if target == nil {
+			continue
+		}
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    chain.DocName,
+			DeclSpan:   chain.DeclSpan,
+			Visibility: chain.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: chain, Ordinal: len(out), Form: symbols.ImplicitFeatureChaining,
+				Member: target, Slot: fmt.Sprintf("fc%d", len(out)),
+			},
+		})
+	}
+	return out
+}
+
+// ChainingFeatures are the features a chain Feature chains, in order.
+func (m *Model) ChainingFeatures(chain *symbols.Symbol) []*symbols.Symbol {
+	links := []*symbols.Symbol{}
+	for _, chaining := range m.OwnedRelationships(chain) {
+		if chaining.Implicit != nil && chaining.Implicit.Form == symbols.ImplicitFeatureChaining {
+			links = append(links, chaining.Implicit.Member)
+		}
+	}
+	return links
+}
+
+// featureChainingElements is ReflectiveElements for a reflected FeatureChaining.
+func featureChainingElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	rel := sym.Implicit
+	switch feature {
+	case "source", "featureChained", "owningRelatedElement", "owner":
+		return []*symbols.Symbol{rel.Owner}, true
+	case "target", "chainingFeature":
+		return []*symbols.Symbol{rel.Member}, true
+	case "relatedElement":
+		return []*symbols.Symbol{rel.Owner, rel.Member}, true
+	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
+		"owningMembership", "owningNamespace", "documentation", "textualRepresentation":
+		return []*symbols.Symbol{}, true
+	}
+	return nil, false
 }
