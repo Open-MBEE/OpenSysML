@@ -711,6 +711,7 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 		ids.partByNode[partKey{node, "a0.out"}] = recorded
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "a0.out"}] = recorded
 		e.registerExpressionIDs(ids, change, event.Condition)
+		e.registerExpressionPart(ids, subject, node, "out")
 		return
 	}
 	operands, typeArgument := ast.ExpressionOperands(node)

@@ -1542,7 +1542,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		if isExpressionSymbol(sym) {
-			return m.expressionOwnedParts(sym), true
+			return m.expressionParameterParts(sym), true
 		}
 		var out []*symbols.Symbol
 		for _, parameter := range m.BehaviorParametersOf(sym) {
@@ -1556,7 +1556,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		if isExpressionSymbol(sym) {
-			return m.expressionOwnedParts(sym), true
+			return m.expressionParameterParts(sym), true
 		}
 		return m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut), true
 	case "subjectParameter":
