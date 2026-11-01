@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:5dd704f358f905c71c6a0109c813629633e91a7d7714957b8c635eae38f8fdfd"
+        "sourceDigest": "sha256:cdaf04a4d55e73aca444bbcfaf7e7e16de69c82216a28f2480010995fda478e7"
       }
     ],
     "inputs": [
@@ -120,9 +120,9 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1157053,
+      "presentEqual": 1157055,
       "presentDifferent": 28075,
-      "oursMissing": 1067054,
+      "oursMissing": 1067052,
       "pilotMissing": 69936,
       "absentBoth": 1987233,
       "indeterminate": 26340,
@@ -197,9 +197,9 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 335223,
+        "presentEqual": 335225,
         "presentDifferent": 7723,
-        "oursMissing": 306138,
+        "oursMissing": 306136,
         "pilotMissing": 19296,
         "absentBoth": 576463,
         "indeterminate": 6664,
@@ -51891,9 +51891,9 @@
       0
     ],
     "InvocationExpression.function": [
-      117,
+      119,
       6,
-      17,
+      15,
       0,
       0,
       397,
