@@ -35,7 +35,7 @@ type Workspace struct {
 	// kinds is the language of each open buffer whose name does not tell it,
 	// a notebook's cells opened as one SysML document.
 	kinds map[string]source.Kind
-	index   *symbols.Index
+	index *symbols.Index
 	// library is every library file the index held at construction, so a displaced
 	// one can come back; libraryRoots names their top-level packages.
 	library      map[string]libraryFile
