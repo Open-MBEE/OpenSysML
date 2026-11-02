@@ -168,7 +168,35 @@ func (ids *ElementIDs) recordSatisfySubjects(e *encoder, node ast.Node, subject 
 		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(usage), usage, rdf.OwningMembershipSuffix).Value)
 		ids.membershipByNode[rel] = membership
 		ids.membershipBySpan[spanKey{e.file.Name(), rel.Span()}] = membership
+		ids.recordSatisfySubjectValue(e, rel, usage)
 	}
+}
+
+// recordSatisfySubjectValue records the ids of a subject's `by` value: a plain name's as any
+// value part's; a chain's FeatureReferenceExpression owning its chain Feature at `referent`
+// (subjectFeatureChainValue), the FeatureChainings and the result.
+func (ids *ElementIDs) recordSatisfySubjectValue(e *encoder, rel *ast.Relationship, usage rdf.Term) {
+	chain := ast.ReceiverChain(rel.Target)
+	if chain == nil {
+		ids.recordValuePart(e, rel, usage)
+		return
+	}
+	value := e.ids.mintedNode(rdf.ExpressionIRI(usage, pValue), usage, pValue)
+	ids.byNode[rel.Target] = rdf.LocalName(value.Value)
+	ids.bySpan[spanKey{e.file.Name(), rel.Target.Span()}] = ids.byNode[rel.Target]
+	membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
+	ids.membershipByNode[rel.Target] = membership
+	ids.membershipBySpan[spanKey{e.file.Name(), rel.Target.Span()}] = membership
+	e.registerExpressionPart(ids, value, rel.Target, "referent")
+	referent := e.ids.mintedNode(rdf.ExpressionIRI(value, "referent"), value, "referent")
+	for i := range chain {
+		position := fmt.Sprintf("fc%d", i)
+		chaining := e.ids.mintedNode(rdf.ExpressionIRI(referent, position), referent, position)
+		recorded := partIDs{element: rdf.LocalName(chaining.Value)}
+		ids.partByNode[partKey{rel.Target, "referent." + position}] = recorded
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), rel.Target.Span()}, "referent." + position}] = recorded
+	}
+	e.registerExpressionPart(ids, value, rel.Target, "out")
 }
 
 // writtenRelationships are the ids of the relationship elements the writer makes for the

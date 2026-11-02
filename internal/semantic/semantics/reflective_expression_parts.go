@@ -59,7 +59,26 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		}
 	}
+	if isSatisfySubjectChainValue(sym) {
+		return "FeatureReferenceExpression"
+	}
 	return expressionMetaclassName(sym.Decl)
+}
+
+// isSatisfySubjectChainValue reports a satisfy subject's `by a.b` value: a FeatureReferenceExpression
+// whose referent is a chain Feature it owns (SysML.xtext SatisfactionReferenceExpression).
+func isSatisfySubjectChainValue(sym *symbols.Symbol) bool {
+	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionValue &&
+		isSatisfySubjectSymbol(sym.Expr.Owner) && ast.ReceiverChain(sym.Decl) != nil
+}
+
+// expressionChainOf is expressionChain for the expression element expr: a satisfy subject's
+// `by a.b` value owns its chain at `referent`, leading its result.
+func (m *Model) expressionChainOf(expr *symbols.Symbol) (slot string, links []*ast.QualifiedName, leads bool) {
+	if isSatisfySubjectChainValue(expr) {
+		return "referent", ast.ReceiverChain(expr.Decl), true
+	}
+	return expressionChain(expr.Decl)
 }
 
 // isExpressionParameterSymbol reports whether sym is a parameter the
@@ -159,6 +178,14 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 		m.expressionParts[expr] = parts
 		return parts
 	}
+	if isSatisfySubjectChainValue(expr) {
+		// The subject's `by a.b` binds no parameter: its chain Feature leads its result.
+		parts.chain = m.expressionParameter(expr, symbols.ExpressionChainFeature, 0)
+		parts.chain.Expr.Slot = "referent"
+		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
+		m.expressionParts[expr] = parts
+		return parts
+	}
 	operands, typeArgument := ast.ExpressionOperands(expr.Decl)
 	for _, operand := range operands {
 		if operand.Index < 0 {
@@ -184,7 +211,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 	if resultBearingExpressions[expressionElementMetaclassName(expr)] {
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
 	}
-	if slot, _, _ := expressionChain(expr.Decl); slot != "" {
+	if slot, _, _ := m.expressionChainOf(expr); slot != "" {
 		parts.chain = m.expressionParameter(expr, symbols.ExpressionChainFeature, 0)
 		parts.chain.Expr.Slot = slot
 	}
@@ -268,7 +295,7 @@ func (m *Model) expressionOwnedElements(expr *symbols.Symbol) []*symbols.Symbol 
 	if chain == nil {
 		return parts
 	}
-	if _, _, leads := expressionChain(expr.Decl); leads {
+	if _, _, leads := m.expressionChainOf(expr); leads {
 		return append([]*symbols.Symbol{chain}, parts...)
 	}
 	out := append([]*symbols.Symbol{}, parts...)
@@ -388,8 +415,12 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		// The conversion's order: a reference's referent and an invocation's
 		// function lead; a chain's target follows its operand; the result ends.
 		slot, name, leads := expressionReference(sym.Decl)
+		if isSatisfySubjectChainValue(sym) {
+			// The chain Feature at `referent` stands for the name; no plain Membership names it.
+			name = nil
+		}
 		chain := m.ExpressionChainFeature(sym)
-		_, _, chainLeads := expressionChain(sym.Decl)
+		_, _, chainLeads := m.expressionChainOf(sym)
 		if leads {
 			reference(slot, name)
 		}
@@ -466,6 +497,9 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 	if parts := m.expressionPartsOf(expr); parts != nil {
 		if feature == "referent" && parts.body != nil {
 			return []*symbols.Symbol{parts.body}
+		}
+		if feature == "referent" && parts.chain != nil && parts.chain.Expr.Slot == "referent" {
+			return []*symbols.Symbol{parts.chain}
 		}
 		// Expression::function (KerML 8.3.4.7.3, 8.3.4.8.8): for a receiver-reached call, the
 		// Functions typing its chain's final link; the chain Feature is the instantiated type.
@@ -716,7 +750,7 @@ func (m *Model) ExpressionChainFeature(expr *symbols.Symbol) *symbols.Symbol {
 // segment of the dotted name, each to the feature the segment resolves to
 // (qualifiedChainReferences); a segment resolving to nothing owns none.
 func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol {
-	_, links, _ := expressionChain(chain.Expr.Owner.Decl)
+	_, links, _ := m.expressionChainOf(chain.Expr.Owner)
 	var out []*symbols.Symbol
 	for _, link := range links {
 		target := m.referencedSymbol(link)

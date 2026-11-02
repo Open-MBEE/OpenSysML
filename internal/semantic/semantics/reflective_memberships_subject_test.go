@@ -68,8 +68,8 @@ func TestSatisfySubjectMembershipIsOwned(t *testing.T) {
 	}
 	// The subject is a referential usage of the satisfy usage, an Occurrence: it varies in
 	// time, and its `by` value is the FeatureValue it owns, as the conversion writes them.
-	if !m.UsageMayTimeVary(subject) || !m.FeatureIsVariable(subject) {
-		t.Errorf("subject mayTimeVary = %v, isVariable = %v, want true, true", m.UsageMayTimeVary(subject), m.FeatureIsVariable(subject))
+	if !m.UsageMayTimeVary(subject) || !m.FeatureIsVariable(subject) || !m.UsageMayTimeVaryForOwningType(subject, satisfy) {
+		t.Errorf("subject mayTimeVary = %v (for its owning type %v), isVariable = %v, want true", m.UsageMayTimeVary(subject), m.UsageMayTimeVaryForOwningType(subject, satisfy), m.FeatureIsVariable(subject))
 	}
 	if got, ok := m.ReflectiveFeatureValue(subject, "isVariable"); !ok || got.Kind != symbols.FilterValueBool || !got.Bool {
 		t.Errorf("isVariable of the subject = %+v (ok %v), want true", got, ok)

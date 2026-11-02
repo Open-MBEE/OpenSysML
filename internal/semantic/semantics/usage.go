@@ -103,6 +103,11 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 		case *ast.Usage:
 			isPortion = d.IsPortion || d.Portion != ast.PortionNone
 		case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr, *ast.ConnectorEnd:
+		case *ast.Relationship:
+			// A satisfy's `by` subject parameter.
+			if d.Kind != ast.RelSubject {
+				return false
+			}
 		default:
 			return false
 		}
