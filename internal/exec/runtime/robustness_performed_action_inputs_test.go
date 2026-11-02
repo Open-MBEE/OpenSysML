@@ -87,8 +87,8 @@ func unboundUsageModel(mult string) string {
 // object itself and its other features stand; an optional input runs nothing.
 func testPerformedActionUnboundInput(t *testing.T, mult string, required bool) {
 	ctx, inst, err := instantiateWithLibraries(t, unboundInputModel(mult), "test::slow")
-	if err != nil {
-		t.Fatalf("instantiate slow: %v", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("instantiate slow: %v, want the unbound input recorded on toastBread", err)
 	}
 	fv, err := inst.GetFeatureValue(ctx, "cycleTime")
 	if err != nil {
@@ -263,7 +263,7 @@ func testPerformedActionOtherFailureFailsCreation(t *testing.T) {
 }`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 	waiters := len(ctx.clock.waiters)
-	if _, err := ctx.Instantiate(oneSymbol(t, idx, "test::Host")); !errors.Is(err, ErrTypeMismatch) {
+	if _, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::Host")); !errors.Is(err, ErrTypeMismatch) {
 		t.Fatalf("instantiate Host = %v, want ErrTypeMismatch", err)
 	}
 	if got := len(ctx.clock.waiters); got != waiters {
@@ -357,8 +357,8 @@ func testSnapshotRestoreUndoesRecordedFailure(t *testing.T) {
 // ended the same way rather than starting over.
 func testHeldImageCarriesRecordedFailure(t *testing.T) {
 	ctx, inst, err := instantiateWithLibraries(t, unboundInputModel("[1]"), "test::slow")
-	if err != nil {
-		t.Fatalf("instantiate slow: %v", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("instantiate slow: %v, want the unbound input recorded on toastBread", err)
 	}
 	behavior, ok := inst.behavior("toastBread")
 	if !ok || !errors.Is(behavior.Err, errUnboundParameter) {
@@ -526,7 +526,7 @@ func testNoFlowPerformedActionChecksItsInputs(t *testing.T) {
 			}
 		`
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
-		_, err := ctx.Instantiate(idx.LookupQualified("test::Camera")[0])
+		_, err := instantiateReporting(ctx, idx.LookupQualified("test::Camera")[0])
 		if !errors.Is(err, tc.want) {
 			t.Errorf("%s: Instantiate(Camera) = %v; want %v", name, err, tc.want)
 		}
@@ -544,7 +544,7 @@ func testNoFlowPerformedActionRefusesReturnParameter(t *testing.T) {
 		}
 	`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
-	_, err := ctx.Instantiate(idx.LookupQualified("test::Camera")[0])
+	_, err := instantiateReporting(ctx, idx.LookupQualified("test::Camera")[0])
 	if !errors.Is(err, errActionResultParameter) {
 		t.Fatalf("Instantiate(Camera) = %v; want errActionResultParameter", err)
 	}

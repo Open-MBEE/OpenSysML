@@ -102,13 +102,28 @@ func recordsFailure(b *ObjectBehavior, err error) bool {
 	return b != nil && b.typeBound && !exhaustsBudget(err)
 }
 
+// runtimeBounds are the errors of the context's own bounds (Budgets and the
+// object limit): reaching one is the run's failure, never a behavior's.
+var runtimeBounds = []error{
+	ErrInstanceLimitExceeded,
+	ErrStepLimitExceeded,
+	ErrActionStepLimitExceeded,
+	ErrStateEventLimitExceeded,
+	ErrDoStepLimitExceeded,
+	ErrElementLimitExceeded,
+	ErrCalcRecursionLimit,
+	ErrIntegerSizeLimit,
+	errStatementOrderSweepLimit,
+	errBehaviorBudget,
+}
+
 // exhaustsBudget reports whether err is one of the context's bounds being reached.
 func exhaustsBudget(err error) bool {
 	var budget *budgetExceededError
 	if errors.As(err, &budget) {
 		return true
 	}
-	for _, bound := range []error{ErrInstanceLimitExceeded, ErrStepLimitExceeded, ErrActionStepLimitExceeded, ErrStateEventLimitExceeded, ErrDoStepLimitExceeded, errBehaviorBudget} {
+	for _, bound := range runtimeBounds {
 		if errors.Is(err, bound) {
 			return true
 		}
