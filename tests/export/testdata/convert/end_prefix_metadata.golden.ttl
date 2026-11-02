@@ -221,6 +221,7 @@ elmt:EndPrefixMetadata__Derivation__r1
     sysml:declaredName "r1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__Derivation__r1___400 ;
@@ -293,6 +294,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f1
     sysml:declaredName "r1_1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
@@ -365,6 +367,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f2
     sysml:declaredName "r1_2" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
@@ -438,6 +441,7 @@ elmt:EndPrefixMetadata__Derivation__cause
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:EndPrefixMetadata__Req1 ;
@@ -548,6 +552,7 @@ elmt:EndPrefixMetadata__Derivation__effect
     sysml:declaredName "effect" ;
     sysml:isReference "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
@@ -817,6 +822,7 @@ elmt:EndPrefixMetadata__context___402__r1
     sysml:declaredName "r1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting expr:EndPrefixMetadata__context___402__r1_prs ;
@@ -873,6 +879,7 @@ elmt:EndPrefixMetadata__context___402__r1_5f1
     sysml:declaredName "r1_1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting expr:EndPrefixMetadata__context___402__r1_5f1_prs ;

@@ -1,4 +1,4 @@
-sha256 487201258febb8360320a46064f0c9158178d3a94e43de19fe144d31f459183e bytes 276529 lines 5090
+sha256 91bd92fee37a55e4473c60003dd347087119855ca738164ca9a23fff78e45252 bytes 276873 lines 5098
 @prefix elmt: <urn:sysmlv2:element:> .
 @prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
