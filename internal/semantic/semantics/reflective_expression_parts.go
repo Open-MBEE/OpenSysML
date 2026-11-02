@@ -367,83 +367,95 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	var out []*symbols.Symbol
-	owning := func(member *symbols.Symbol) {
-		out = append(out, &symbols.Symbol{
-			Kind:       symbols.SymbolRelationship,
-			DocName:    sym.DocName,
-			DeclSpan:   member.DeclSpan,
-			Visibility: sym.Visibility,
-			Implicit: &symbols.ImplicitRelationship{
-				Owner: sym, Ordinal: len(out), Form: symbols.ImplicitMembership, Member: member,
-			},
-		})
-	}
-	reference := func(slot string, name *ast.QualifiedName) {
-		target := m.referencedSymbol(name)
-		if target == nil {
-			return
-		}
-		out = append(out, &symbols.Symbol{
-			Kind:       symbols.SymbolRelationship,
-			DocName:    sym.DocName,
-			DeclSpan:   sym.DeclSpan,
-			Visibility: sym.Visibility,
-			Implicit: &symbols.ImplicitRelationship{
-				Owner: sym, Ordinal: len(out), Form: symbols.ImplicitReferenceMembership, Member: target, Slot: slot,
-			},
-		})
-	}
 	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
 		// The wrapper owns its condition through a FeatureMembership, then its result.
 		parts := m.expressionPartsOf(sym)
-		owning(parts.condition)
-		owning(parts.result)
+		out = appendOwningMembership(out, sym, parts.condition)
+		out = appendOwningMembership(out, sym, parts.result)
 	} else if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionBody {
 		// The body owns its parameters and members, then its result.
 		parts := m.expressionPartsOf(sym)
 		for _, member := range parts.members {
-			owning(member)
+			out = appendOwningMembership(out, sym, member)
 		}
 		if parts.result != nil {
-			owning(parts.result)
+			out = appendOwningMembership(out, sym, parts.result)
 		}
 	} else if parts := m.expressionPartsOf(sym); parts != nil && parts.body != nil {
 		// A `{ … }` reference owns its body through a FeatureMembership, then its result.
-		owning(parts.body)
-		owning(parts.result)
+		out = appendOwningMembership(out, sym, parts.body)
+		out = appendOwningMembership(out, sym, parts.result)
 	} else if isExpressionSymbol(sym) {
-		// The conversion's order: a reference's referent and an invocation's
-		// function lead; a chain's target follows its operand; the result ends.
-		slot, name, leads := expressionReference(sym.Decl)
-		if isSatisfySubjectChainValue(sym) {
-			// The chain Feature at `referent` stands for the name; no plain Membership names it.
-			name = nil
-		}
-		chain := m.ExpressionChainFeature(sym)
-		_, _, chainLeads := m.expressionChainOf(sym)
-		if leads {
-			reference(slot, name)
-		}
-		if chain != nil && chainLeads {
-			owning(chain)
-		}
-		for _, parameter := range m.ExpressionParameters(sym) {
-			owning(parameter)
-		}
-		if !leads && name != nil {
-			reference(slot, name)
-		}
-		if chain != nil && !chainLeads {
-			owning(chain)
-		}
-		if result := m.ExpressionResult(sym); result != nil {
-			owning(result)
-		}
+		out = m.plainExpressionMemberships(sym)
 	} else if value := m.expressionParameterValue(sym); value != nil {
-		owning(value)
+		out = appendOwningMembership(out, sym, value)
 	}
 	m.memberships[sym] = out
 	return out
+}
+
+// plainExpressionMemberships lists a plain expression's owned memberships in
+// conversion order: referent or function first, chain target, then the result.
+func (m *Model) plainExpressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	slot, name, leads := expressionReference(sym.Decl)
+	if isSatisfySubjectChainValue(sym) {
+		// The chain Feature at `referent` stands for the name; no plain Membership names it.
+		name = nil
+	}
+	chain := m.ExpressionChainFeature(sym)
+	_, _, chainLeads := m.expressionChainOf(sym)
+	if leads {
+		out = m.appendReferenceMembership(out, sym, slot, name)
+	}
+	if chain != nil && chainLeads {
+		out = appendOwningMembership(out, sym, chain)
+	}
+	for _, parameter := range m.ExpressionParameters(sym) {
+		out = appendOwningMembership(out, sym, parameter)
+	}
+	if !leads && name != nil {
+		out = m.appendReferenceMembership(out, sym, slot, name)
+	}
+	if chain != nil && !chainLeads {
+		out = appendOwningMembership(out, sym, chain)
+	}
+	if result := m.ExpressionResult(sym); result != nil {
+		out = appendOwningMembership(out, sym, result)
+	}
+	return out
+}
+
+// appendOwningMembership appends the membership through which owner owns
+// member, at the next ordinal.
+func appendOwningMembership(out []*symbols.Symbol, owner, member *symbols.Symbol) []*symbols.Symbol {
+	return append(out, &symbols.Symbol{
+		Kind:       symbols.SymbolRelationship,
+		DocName:    owner.DocName,
+		DeclSpan:   member.DeclSpan,
+		Visibility: owner.Visibility,
+		Implicit: &symbols.ImplicitRelationship{
+			Owner: owner, Ordinal: len(out), Form: symbols.ImplicitMembership, Member: member,
+		},
+	})
+}
+
+// appendReferenceMembership appends the Membership through which owner names
+// the element name resolves to, at slot; nothing while the name is unresolved.
+func (m *Model) appendReferenceMembership(out []*symbols.Symbol, owner *symbols.Symbol, slot string, name *ast.QualifiedName) []*symbols.Symbol {
+	target := m.referencedSymbol(name)
+	if target == nil {
+		return out
+	}
+	return append(out, &symbols.Symbol{
+		Kind:       symbols.SymbolRelationship,
+		DocName:    owner.DocName,
+		DeclSpan:   owner.DeclSpan,
+		Visibility: owner.Visibility,
+		Implicit: &symbols.ImplicitRelationship{
+			Owner: owner, Ordinal: len(out), Form: symbols.ImplicitReferenceMembership, Member: target, Slot: slot,
+		},
+	})
 }
 
 // expressionReference is the element an expression names by a plain Membership,
