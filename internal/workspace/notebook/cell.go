@@ -79,12 +79,15 @@ func IsCommand(line string) bool {
 	return strings.HasPrefix(strings.TrimSpace(line), "%")
 }
 
+// cellSourceName names the source a cell's text is read as.
+const cellSourceName = "<cell>"
+
 // NeedsContinuation reports whether src is an unfinished submission: a brace,
 // parenthesis or bracket it opens is not yet closed, or it ends inside a
 // string, quoted name or comment, so the prompt reads another line before
 // submitting it. Each counter clamps at 0 so a stray closer forces nothing.
 func NeedsContinuation(src string) bool {
-	lx := lexer.New(source.New("<cell>", []byte(src)))
+	lx := lexer.New(source.New(cellSourceName, []byte(src)))
 	var brace, paren, bracket int
 	for {
 		tok := lx.Next()
@@ -124,12 +127,12 @@ func BareExpression(src string) (string, bool) {
 	if trimmed == "" {
 		return "", false
 	}
-	fp := parser.New(source.New("<cell>", []byte(src)))
+	fp := parser.New(source.New(cellSourceName, []byte(src)))
 	fp.ParseFile()
 	if len(fp.Diagnostics) == 0 {
 		return "", false
 	}
-	p := parser.New(source.New("<cell>", []byte(trimmed)))
+	p := parser.New(source.New(cellSourceName, []byte(trimmed)))
 	if expr := p.ParseExpression(); expr == nil || len(p.Diagnostics) > 0 || p.Offset() != len(trimmed) {
 		return "", false
 	}
