@@ -1023,17 +1023,24 @@ func (d *decoder) expressionOwner(term rdf.Term) bool {
 // checkStatedMembershipEnds validates the stated ends of every membership, the named ones an alias
 // or `first` writes included: readMembership checks only the structural ones it reads.
 func (d *decoder) checkStatedMembershipEnds() error {
-	seen := map[string]bool{}
-	for _, triple := range d.graph.Triples() {
-		predicate := triple.Predicate.Value
-		if predicate != rdf.SysML+pSource && predicate != rdf.SysML+pTarget && predicate != rdf.SysML+pRelatedElement {
+	if d.names != nil {
+		// A later pass re-reads the graph the first pass validated.
+		return nil
+	}
+	for _, subject := range d.graph.SubjectsView() {
+		if !(ontology.IsAncestorOrSelf(d.metaclass(subject), mMembership) || d.nodeMembership[subject.Value]) {
 			continue
 		}
-		subject := triple.Subject
-		if seen[subject.Value] || !(ontology.IsAncestorOrSelf(d.metaclass(subject), mMembership) || d.nodeMembership[subject.Value]) {
+		var stated string
+		for _, property := range []string{pSource, pTarget, pRelatedElement} {
+			if _, ok := d.graph.Object(subject, rdf.SysML+property); ok {
+				stated = property
+				break
+			}
+		}
+		if stated == "" {
 			continue
 		}
-		seen[subject.Value] = true
 		what := fmt.Sprintf("the membership <%s>", subject.Value)
 		owner, hasOwner := d.graph.Object(subject, rdf.SysML+pMembershipOwningNamespace)
 		if !hasOwner {
@@ -1046,7 +1053,7 @@ func (d *decoder) checkStatedMembershipEnds() error {
 		if !member.IsIRI() {
 			return &UnsupportedError{
 				What: what,
-				Note: fmt.Sprintf("its member is the name %q, which no element of the graph answers to, yet it states sysml:%s — an end needs an element", member.Value, predicate[len(rdf.SysML):]),
+				Note: fmt.Sprintf("its member is the name %q, which no element of the graph answers to, yet it states sysml:%s — an end needs an element", member.Value, stated),
 			}
 		}
 		if err := d.membershipEndsAgree(subject, what, owner, member); err != nil {
