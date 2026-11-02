@@ -3706,10 +3706,75 @@ func (ec *EvalContext) enclosingRun(shape *calcShape) []frame {
 // arguments written after it (KerMLExpressions InstantiatedTypeMember → OwnedFeatureChain).
 func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.FeatureChainExpr) (Value, error) {
 	callee := chainText(chain)
-	fn, err := ec.chainCallee(chain)
+	if chain.Member == nil || len(chain.Member.Parts) != 1 {
+		fn, err := ec.Eval(chain)
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.invokeChainCallee(n, callee, fn)
+	}
+	receiver, err := ec.Eval(chain.Operand)
+	// A usage no object stands for is called through the object it would materialize,
+	// under the probe a chain read makes, which the call runs within.
+	if err != nil || receiver.Kind == ValUndetermined {
+		val, ok, derr := ec.underDeclaredObject(chain.Operand, chain.Member.Parts, func(obj Value, _ *symbols.Symbol) (Value, error) {
+			return ec.invokeChainOn(n, chain, callee, obj)
+		})
+		if ok {
+			return val, derr
+		}
+		if derr != nil {
+			return Value{}, derr
+		}
+	}
 	if err != nil {
 		return Value{}, err
 	}
+	return ec.invokeChainOn(n, chain, callee, receiver)
+}
+
+// invokeChainOn calls the member a one-segment chain names on the receiver's value.
+func (ec *EvalContext) invokeChainOn(n *ast.InvocationExpr, chain *ast.FeatureChainExpr, callee string, receiver Value) (Value, error) {
+	name := chain.Member.Parts[0].Text
+	if id, isObject := receiver.Object(); isObject {
+		if inst, ok := ec.ctx.instances[id]; ok {
+			sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name)
+			// A constraint of the receiver's object called without arguments is the result of
+			// its check on that object, as `allTrue(assumptions())` reads a requirement's.
+			if found && isConstraintUsageSymbol(sym) {
+				if len(n.Args) > 0 || len(n.NamedArgs) > 0 {
+					return Value{}, fmt.Errorf("%w: %s is a constraint of its object and takes no arguments", errCalcArity, callee)
+				}
+				parts := []ast.NameSegment{chain.Member.Parts[0], {Text: "result"}}
+				return ec.chainMemberValue(receiver, parts, name)
+			}
+			if _, held := inst.FeatureValues[name]; !held && found && isCalcUsageSymbol(sym) {
+				fn, err := NewEvalContextIn(ec.ctx, sym.OwnerScope, inst).functionValueOf(sym)
+				if err != nil {
+					return Value{}, err
+				}
+				return ec.invokeChainCallee(n, callee, fn)
+			}
+		}
+	}
+	fn, err := ec.chainMemberValue(receiver, chain.Member.Parts, "")
+	if err != nil {
+		return Value{}, err
+	}
+	return ec.invokeChainCallee(n, callee, fn)
+}
+
+// isConstraintUsageSymbol reports a symbol declaring a constraint usage.
+func isConstraintUsageSymbol(sym *symbols.Symbol) bool {
+	if _, owned := ast.OwnedConstraintOf(sym.Decl); owned {
+		return true
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageConstraint
+}
+
+// invokeChainCallee applies the function value a feature chain denotes to the call's arguments.
+func (ec *EvalContext) invokeChainCallee(n *ast.InvocationExpr, callee string, fn Value) (Value, error) {
 	fn = soleElement(fn)
 	if fn.Kind != ValFunction {
 		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, DescribeValue(fn))
@@ -3723,29 +3788,6 @@ func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.Fea
 		return Value{}, err
 	}
 	return ec.invokeFunction(callee, fn, callArgs)
-}
-
-// chainCallee is what a feature chain denotes in call position: a calc of the receiver's
-// object is the function applied over it even where a bare read would compute its result.
-func (ec *EvalContext) chainCallee(chain *ast.FeatureChainExpr) (Value, error) {
-	if chain.Member == nil || len(chain.Member.Parts) != 1 {
-		return ec.Eval(chain)
-	}
-	receiver, err := ec.Eval(chain.Operand)
-	if err != nil {
-		return Value{}, err
-	}
-	name := chain.Member.Parts[0].Text
-	if id, isObject := receiver.Object(); isObject {
-		if inst, ok := ec.ctx.instances[id]; ok {
-			if _, held := inst.FeatureValues[name]; !held {
-				if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
-					return NewEvalContextIn(ec.ctx, sym.OwnerScope, inst).functionValueOf(sym)
-				}
-			}
-		}
-	}
-	return ec.chainMemberValue(receiver, chain.Member.Parts, "")
 }
 
 // chainText spells a feature chain as written, `holder.scale`.
