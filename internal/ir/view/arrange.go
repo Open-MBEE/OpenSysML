@@ -219,7 +219,7 @@ func (a *arranger) fitted(node *Node) drawioBox {
 	if g := node.Geometry; g.placed() {
 		corner.X, corner.Y = g.X, g.Y
 	}
-	probe := &arranger{labels: a.labels, ports: a.ports, positions: a.positions, boxes: map[string]drawioBox{}}
+	probe := a.probe()
 	probe.settleChildren(node, corner)
 	right, bottom := 0.0, 0.0
 	for _, child := range node.Children {
@@ -227,6 +227,12 @@ func (a *arranger) fitted(node *Node) drawioBox {
 		bottom = math.Max(bottom, probe.boxes[child.ID].bottom()-corner.Y)
 	}
 	return drawioBox{Width: math.Max(width, right+drawioNestedPad), Height: math.Max(height, bottom+drawioNestedPad)}
+}
+
+// probe is an arranger sizing and placing as a does, with nothing settled,
+// for measuring a container's children before they are settled under it.
+func (a *arranger) probe() *arranger {
+	return &arranger{labels: a.labels, ports: a.ports, positions: a.positions, side: a.side, portRoom: a.portRoom, pixelPins: a.pixelPins, boxes: map[string]drawioBox{}}
 }
 
 // headroom is the height of a node's header and compartments, under which its

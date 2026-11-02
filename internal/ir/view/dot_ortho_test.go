@@ -1,6 +1,7 @@
 package view
 
 import (
+	"html"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,10 +15,15 @@ import (
 
 // The orthogonal DOT form's goldens: every drawing a port ends an edge in,
 // the issue's nested parts, a ported toaster and the pinned actions of a flow.
-var orthoFixtures = []struct{ name, file, view string }{
-	{"ortho-site", "ortho-site.sysml", "Ctx::v"},
-	{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView"},
-	{"action", "action.sysml", "FlowViews::driveView"},
+var orthoFixtures = []struct {
+	name, file, view string
+	pins             bool // an edge ends at a pin
+}{
+	{"ortho-site", "ortho-site.sysml", "Ctx::v", true},
+	{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", true},
+	{"action", "action.sysml", "FlowViews::driveView", true},
+	// Ports drawn as nodes of their own, under a Layout that folds engine without placing it.
+	{"layout-collapsed-links", "layout-collapsed.sysml", "FoldedViews::foldOnlyLinks", false},
 }
 
 // orthoOptions ask for the orthogonal routing with every edge label shown.
@@ -41,7 +47,7 @@ func TestDOTOrthoGridGoldens(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("%s does not notice the grid:\n%s", fixture.view, got)
 		}
-		checkOrthoDOT(t, fixture.view, got)
+		checkOrthoDOT(t, fixture.view, got, fixture.pins)
 	}
 }
 
@@ -60,7 +66,7 @@ func TestDOTOrthoLayeredWithInstalledDot(t *testing.T) {
 		if strings.Contains(got, "not represented: lines ortho") {
 			t.Errorf("%s is noticed, not laid out:\n%s", fixture.view, got)
 		}
-		checkOrthoDOT(t, fixture.view, got)
+		checkOrthoDOT(t, fixture.view, got, fixture.pins)
 		drawWithGraphviz(t, dot, fixture.name, got)
 	}
 }
@@ -115,30 +121,61 @@ func drawWithGraphviz(t *testing.T, dot, name, source string) {
 }
 
 var (
+	orthoNodeLine = regexp.MustCompile(`^\s*"([^"]+)" \[.*width=([0-9.]+), height=([0-9.]+), fixedsize=true, pos="([-0-9.]+),([-0-9.]+)!"`)
+	orthoBBAttr   = regexp.MustCompile(`bb="([-0-9.]+),([-0-9.]+),([-0-9.]+),([-0-9.]+)"`)
 	orthoPinLine  = regexp.MustCompile(`^\s*"([^"]+)" \[shape=box, label="", xlabel=.*?width=([0-9.]+), height=([0-9.]+), fixedsize=true, pos="([-0-9.]+),([-0-9.]+)!"`)
 	orthoEdgeLine = regexp.MustCompile(`^\s*"([^"]+)" -> "([^"]+)" \[(.*)\];$`)
 	orthoPosAttr  = regexp.MustCompile(`pos="([^"]*)"`)
 )
 
 // checkOrthoDOT checks a routed orthogonal drawing: Graphviz is told to draw
-// where the writer put things, every edge at a pin is routed with a plain
-// label on its route, each route is axis-parallel and ends inside the pin
-// squares it joins, and only an edge left unrouted keeps an external label.
-func checkOrthoDOT(t *testing.T, view, got string) {
+// where the writer put things, every node sits inside the clusters around it
+// (a pin straddles its owner's border), every edge at a pin is routed with a
+// plain label on its route, each route is axis-parallel and ends inside the
+// pin squares it joins, and only an edge left unrouted keeps an external label.
+func checkOrthoDOT(t *testing.T, view, got string, pins bool) {
 	t.Helper()
 	if !strings.Contains(got, "// layout: neato -n2\n") || !strings.Contains(got, "layout=neato, inputscale=72, dpi=72") {
 		t.Errorf("%s is not drawn where it was laid out:\n%s", view, got)
 	}
-	pins := map[string]nodeBox{}
+	pinBoxes := map[string]nodeBox{}
+	var clusters []nodeBox
 	routed, pinned := 0, 0
 	for _, line := range strings.Split(got, "\n") {
-		if m := orthoPinLine.FindStringSubmatch(line); m != nil {
-			w, _ := strconv.ParseFloat(m[2], 64)
-			h, _ := strconv.ParseFloat(m[3], 64)
-			x, _ := strconv.ParseFloat(m[4], 64)
-			y, _ := strconv.ParseFloat(m[5], 64)
-			w, h = w*72, h*72
-			pins[m[1]] = nodeBox{low: Point{X: x - w/2, Y: y - h/2}, high: Point{X: x + w/2, Y: y + h/2}}
+		switch {
+		case strings.HasPrefix(strings.TrimSpace(line), "subgraph "):
+			clusters = append(clusters, nodeBox{})
+		case strings.TrimSpace(line) == "}" && len(clusters) > 0:
+			clusters = clusters[:len(clusters)-1]
+		case len(clusters) > 0 && orthoBBAttr.MatchString(line):
+			m := orthoBBAttr.FindStringSubmatch(line)
+			x1, _ := strconv.ParseFloat(m[1], 64)
+			y1, _ := strconv.ParseFloat(m[2], 64)
+			x2, _ := strconv.ParseFloat(m[3], 64)
+			y2, _ := strconv.ParseFloat(m[4], 64)
+			clusters[len(clusters)-1] = nodeBox{low: Point{X: x1, Y: y1}, high: Point{X: x2, Y: y2}}
+		}
+		m := orthoNodeLine.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		w, _ := strconv.ParseFloat(m[2], 64)
+		h, _ := strconv.ParseFloat(m[3], 64)
+		x, _ := strconv.ParseFloat(m[4], 64)
+		y, _ := strconv.ParseFloat(m[5], 64)
+		w, h = w*72, h*72
+		box := nodeBox{low: Point{X: x - w/2, Y: y - h/2}, high: Point{X: x + w/2, Y: y + h/2}}
+		if orthoPinLine.MatchString(line) {
+			pinBoxes[m[1]] = box
+			continue
+		}
+		for _, cluster := range clusters {
+			if cluster.low == cluster.high {
+				continue
+			}
+			if !cluster.holds(box.low) || !cluster.holds(box.high) {
+				t.Errorf("%s: %s %v lies outside its cluster %v: %s", view, m[1], box, cluster, line)
+			}
 		}
 	}
 	for _, line := range strings.Split(got, "\n") {
@@ -157,8 +194,8 @@ func checkOrthoDOT(t *testing.T, view, got string) {
 		if strings.Contains(attrs, "label=") && pos != nil && !strings.Contains(attrs, "lp=") {
 			t.Errorf("%s: a routed edge's label is not placed: %s", view, line)
 		}
-		_, fromPin := pins[from]
-		_, toPin := pins[to]
+		_, fromPin := pinBoxes[from]
+		_, toPin := pinBoxes[to]
 		if fromPin || toPin {
 			pinned++
 			if pos == nil {
@@ -176,14 +213,14 @@ func checkOrthoDOT(t *testing.T, view, got string) {
 				t.Errorf("%s: route segment %v -> %v is not axis-parallel: %s", view, points[i-1], points[i], line)
 			}
 		}
-		if box, ok := pins[from]; ok && !box.holds(start) {
+		if box, ok := pinBoxes[from]; ok && !box.holds(start) {
 			t.Errorf("%s: route starts at %v, outside pin %s %v: %s", view, start, from, box, line)
 		}
-		if box, ok := pins[to]; ok && !box.holds(end) {
+		if box, ok := pinBoxes[to]; ok && !box.holds(end) {
 			t.Errorf("%s: route ends at %v, outside pin %s %v: %s", view, end, to, box, line)
 		}
 	}
-	if pinned == 0 || routed == 0 {
+	if routed == 0 || pins && pinned == 0 || !pins && pinned > 0 {
 		t.Errorf("%s: %d edge(s) at a pin, %d routed; the fixture proves nothing:\n%s", view, pinned, routed, got)
 	}
 }
@@ -230,7 +267,7 @@ func dotPosPoints(t *testing.T, pos string) (points []Point, start, end Point) {
 // The orthogonal form keeps the node names of an unpositioned drawing: the
 // layout is the writer's own, not a Layout's, so names are not shortened. A
 // notation symbol a positioned drawing draws as its glyph carries its name
-// as an external label.
+// as an external label. A Layout that only folds a node still folds it.
 func TestDOTOrthoKeepsNodeLabels(t *testing.T) {
 	t.Setenv(layout.EnvVar, "no-such-dot")
 	for _, fixture := range orthoFixtures {
@@ -244,10 +281,13 @@ func TestDOTOrthoKeepsNodeLabels(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, name := range dotBoldNames(splines) {
-			plain := strings.TrimSuffix(strings.TrimPrefix(name, "<b>"), "</b>")
+			plain := html.UnescapeString(strings.TrimSuffix(strings.TrimPrefix(name, "<b>"), "</b>"))
 			if !strings.Contains(ortho, name) && !strings.Contains(ortho, "xlabel="+dotQuote(plain)) {
 				t.Errorf("%s: ortho drops the name %s the default routing writes:\n%s", fixture.view, name, ortho)
 			}
+		}
+		if folded := strings.Count(splines, `comment="collapsed"`); strings.Count(ortho, `comment="collapsed"`) != folded || fixture.name == "layout-collapsed-links" && folded == 0 {
+			t.Errorf("%s: the default routing folds %d node(s), ortho %d:\n%s", fixture.view, folded, strings.Count(ortho, `comment="collapsed"`), ortho)
 		}
 	}
 }

@@ -55,7 +55,14 @@ func (r *Rendering) arranged(options Options, direction Direction) (*Rendering, 
 	place = func(nodes []*Node) {
 		for _, node := range nodes {
 			if box, ok := a.boxes[node.ID]; ok {
-				node.Geometry = &Geometry{X: box.X, Y: box.Y, Width: box.Width, Height: box.Height, HasSize: true}
+				// A Layout that only folds or hides keeps doing so where the box puts the
+				// node. A port drawn as a node of its own keeps the box its label fits, as
+				// the unpositioned form draws it: a sized one would be a pin on its owner.
+				placed := Geometry{X: box.X, Y: box.Y, Width: box.Width, Height: box.Height, HasSize: !isPortKind(node.Kind)}
+				if g := node.Geometry; g != nil {
+					placed.Collapsed, placed.Hidden = g.Collapsed, g.Hidden
+				}
+				node.Geometry = &placed
 			}
 			place(node.Children)
 		}

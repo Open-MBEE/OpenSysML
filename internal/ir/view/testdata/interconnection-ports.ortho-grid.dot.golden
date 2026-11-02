@@ -11,8 +11,8 @@ digraph "ToasterViews::toasterView" {
     label=<<font point-size="10"><i>«part def»</i></font><br/><b>Toaster</b>>;
     color=black;
     penwidth=0.5;
-    bb="50,-282,294,-50";
-    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="172,-166!", pin=true];
+    bb="50,-282,298.44,-50";
+    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="174.22,-166!", pin=true];
     "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>heating</b>>, margin=0, pos="106.5,-160.5!", pin=true, width=1.125, height=0.5138888888888888, fixedsize=true];
     "n1.0" [shape=box, label="", xlabel="^durationIn", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="106.5,-136!", pin=true];
     "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>control</b>>, margin=0, pos="239.72,-160.5!", pin=true, width=1.1866666666666665, height=0.5138888888888888, fixedsize=true];
