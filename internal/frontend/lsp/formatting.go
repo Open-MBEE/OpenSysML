@@ -184,11 +184,8 @@ func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 	return edits
 }
 
-// regroupLines joins the formatted lines that came from one line of the
-// original, so a line the layout split is still one line to the diff and its
-// rewrite one edit within it. The formatter never joins lines or moves text
-// between them, so each original line's non-whitespace text is that of a run
-// of formatted lines; should it not be, the lines are left as they are.
+// regroupLines joins the formatted lines that came from one original line, so
+// a split line is one edit within it; lines it cannot match are left as they are.
 func regroupLines(oldLines, newLines []string) []string {
 	out := make([]string, 0, len(oldLines))
 	j := 0
@@ -226,9 +223,8 @@ func regroupLines(oldLines, newLines []string) []string {
 	return out
 }
 
-// consumeText matches the non-whitespace bytes of line against those of old
-// from i on, answering the index in old past the matched text and the
-// whitespace after it, or -1 where the two differ.
+// consumeText matches line's non-whitespace bytes against old from i on,
+// answering the index past them and any whitespace after, or -1 on a mismatch.
 func consumeText(old string, i int, line string) int {
 	for k := 0; k < len(line); k++ {
 		if isSpace(line[k]) {

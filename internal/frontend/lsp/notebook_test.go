@@ -362,10 +362,8 @@ func TestNotebookCellLensesCountReferencesAndRunNothing(t *testing.T) {
 	}
 }
 
-// Formatting a cell lays its statements out within the cell: the package cell
-// is one line that splits, and the edit doing so stays on that line of the
-// cell. The cells already laid out get no edit that changes their text, and
-// no cell's edits reach a line outside it.
+// Formatting a cell lays its statements out within the cell: the one-line
+// package cell splits on its line, and no cell's edits change text or leave the cell.
 func TestNotebookCellFormattingStaysInTheCell(t *testing.T) {
 	nb := openNotebook(t)
 	nb.awaitDiagnostics(nb.cells[0])

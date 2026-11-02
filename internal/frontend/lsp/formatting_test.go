@@ -215,9 +215,8 @@ func TestFormattingDeletesCollapsedBlankLines(t *testing.T) {
 	}
 }
 
-// Columns are UTF-16 code units: an astral-plane character counts as two. The
-// layout splits the statement off the comment before it, and the edit doing so
-// starts after the emoji.
+// Columns are UTF-16 code units: an astral-plane character counts as two, and
+// the edit splitting the statement off the comment starts after the emoji.
 func TestFormattingPositionsAreUTF16(t *testing.T) {
 	src := "package P {\n    /* 😀 */ part def Car;   \n  attribute s = \"🚗\";\n}\n"
 	edits, got := formatDoc(t, src, spaces4)
@@ -346,11 +345,8 @@ func TestTrimCommonKeepsCRLFWhole(t *testing.T) {
 	}
 }
 
-// Every corpus model formats to exactly what format.Source produces with the
-// server's options when the edits are applied, including files that need no
-// edits or do not parse. Fixtures written with several statements on a line
-// are laid out, so the split case is exercised; fixtures already laid out get
-// no edits at all.
+// Applying the edits to every corpus model gives exactly what format.Source
+// produces with the server's options; both split and already laid-out fixtures occur.
 func TestFormattingEditsReproduceFormatterOutput(t *testing.T) {
 	var laidOut, split int
 	for _, path := range formattingCorpus(t) {
@@ -413,8 +409,8 @@ func mangleIndentation(src string) string {
 	return b.String()
 }
 
-// checkFormattingEdits applies the server's edits to src and compares the
-// result with the formatter's, reporting whether the layout split a line.
+// checkFormattingEdits compares the applied edits with the formatter's output,
+// reporting whether the layout split a line.
 func checkFormattingEdits(t *testing.T, path, src string) (split bool) {
 	t.Helper()
 	s, name := openFormatDoc(t, src)
@@ -631,9 +627,8 @@ func TestRangeFormattingTrimsBlankRunWithinSelectionOnly(t *testing.T) {
 	}
 }
 
-// Every edit RangeFormatting returns lies on the selected lines, whatever the
-// selection — a line the layout splits included — and selecting everything
-// reproduces the formatter's output.
+// Every edit RangeFormatting returns lies on the selected lines (a split line
+// included), whatever the selection; selecting everything reproduces the formatter's output.
 func TestRangeFormattingNeverLeavesSelection(t *testing.T) {
 	src := "package P {\n\n\n  part def Car;   \n\n\n\n\tpart def Bus {\n  \n\n  attribute n;\n\n  }\n\n part def Van { part def Wheel; part def Door; }\n\n}\n\n\n"
 	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4))
@@ -707,9 +702,8 @@ func TestFormattingHonoursNotIdempotentGuard(t *testing.T) {
 	}
 }
 
-// A one-line model is laid out one statement per line: the layout of issue
-// 1840, with tabs when the client sends no options and the client's indent
-// otherwise. The split is one edit within the line.
+// A one-line model is laid out one statement per line by one edit within the
+// line, with tabs when the client sends no options.
 func TestFormattingLaysStatementsOutOnePerLine(t *testing.T) {
 	src := "package P { part def A; }\n"
 	cases := []struct {
