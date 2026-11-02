@@ -103,9 +103,8 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 	return read.Read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
 }
 
-// implicitRelationshipID is the elementId of the relationship sym records implicitly,
-// read as the conversion writes it; ok is false for an implied membership without a
-// member, which reads as sym's own element.
+// implicitRelationshipID reads the elementId of the relationship sym records implicitly,
+// as the conversion writes it; ok is false when the id is sym's own element's.
 func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol, rel *symbols.ImplicitRelationship) (id string, ok bool, err error) {
 	switch rel.Form {
 	case symbols.ImplicitMembership:
