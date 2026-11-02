@@ -1735,7 +1735,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isAll", n.IsAll},
 			{"isEnd", n.IsEnd},
 			{"isChain", n.IsChain},
-			{"isConstant", n.IsConstant},
+			// A declared end that varies in time is constant though `constant` is not notated (SysML v2.1 §8.2.2.6.1).
+			{"isConstant", n.IsConstant || (n.IsEnd && ontology.IsAncestorOrSelf(metaclass, "Usage") && e.usageMayTimeVary(n))},
 			// A payload is a PayloadFeature, a KerML Feature with no `var` keyword.
 			{"isVariable", !payload && (e.usageIsVariable(n) || triggerVaries)},
 			{"mayTimeVary", ontology.IsAncestorOrSelf(metaclass, "Usage") && (e.usageMayTimeVary(n) || triggerVaries)},
@@ -2612,10 +2613,10 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	e.typed(feature, metaclass)
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
 	e.graph.Add(feature, e.sysml(pIsEnd), rdf.Bool(true))
-	// A declared connector's end is a referential usage owned by it (a FlowEnd
-	// is a KerML Feature); it varies in time when the connector is an Occurrence.
+	// A declared connector's end is a referential usage owned by it (a FlowEnd is a KerML Feature);
+	// it varies in time when the connector is an Occurrence, and is then constant (SysML v2.1 §8.2.2.6.1).
 	if ontology.IsAncestorOrSelf(metaclass, "Usage") && e.ids.model.UsageMayTimeVaryUnder(end.ownerSym) {
-		e.flags(feature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+		e.flags(feature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}, {"isConstant", true}})
 	}
 	e.graph.Add(subject, e.sysml(pConnectorEnd), feature)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)

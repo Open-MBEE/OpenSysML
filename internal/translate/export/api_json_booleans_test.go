@@ -20,6 +20,11 @@ const booleansModel = `package P {
         part a : D;
         ref part b : D;
         attribute e : ScalarValues::Boolean = false;
+        connection c connect a to b;
+    }
+    connection def CD {
+        end part src : D;
+        end part dst : D;
     }
 }
 `
@@ -110,9 +115,12 @@ func TestAPIJSONStatesEveryNonDerivedBoolean(t *testing.T) {
 		"P__D":              {"isAbstract": false, "isVariation": false, "isSufficient": false, "isIndividual": false},
 		"P__D__a_om":        {"isImplied": false},
 		"P__D__e_pvalue_om": {"isDefault": false, "isInitial": false, "isImplied": false},
-		"P_ns":              {apiJSONStatedDefaultsKey: true},
-		"P":                 {apiJSONStatedDefaultsKey: nil},
-		"P__D__e_pvalue":    {"value": false, "isComposite": false, "isVariable": false, "mayTimeVary": nil},
+		// A connection's end varies in time and is therefore constant (SysML v2.1 §8.2.2.6.1).
+		"P__D__c_pend0":  {"isEnd": true, "isVariable": true, "mayTimeVary": true, "isConstant": true},
+		"P__CD__src":     {"isEnd": true, "mayTimeVary": true, "isConstant": true},
+		"P_ns":           {apiJSONStatedDefaultsKey: true},
+		"P":              {apiJSONStatedDefaultsKey: nil},
+		"P__D__e_pvalue": {"value": false, "isComposite": false, "isVariable": false, "mayTimeVary": nil},
 	} {
 		element, ok := elements[id]
 		if !ok {

@@ -239,6 +239,7 @@ elmt:FlowsAndViews__FuelInterface__supplierPort
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "supplierPort" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__FuelPort ;
@@ -276,6 +277,7 @@ elmt:FlowsAndViews__FuelInterface__consumerPort
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "consumerPort" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__FuelPort ;
@@ -874,6 +876,7 @@ expr:FlowsAndViews__vehicle___404_pend0
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:owner elmt:FlowsAndViews__vehicle___404 ;
     sysml:owningRelationship expr:FlowsAndViews__vehicle___404_pend0_om ;
     sysml:owningMembership expr:FlowsAndViews__vehicle___404_pend0_om ;
@@ -918,6 +921,7 @@ expr:FlowsAndViews__vehicle___404_pend1
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:owner elmt:FlowsAndViews__vehicle___404 ;
     sysml:owningRelationship expr:FlowsAndViews__vehicle___404_pend1_om ;
     sysml:owningMembership expr:FlowsAndViews__vehicle___404_pend1_om ;
