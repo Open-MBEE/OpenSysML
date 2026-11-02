@@ -323,11 +323,8 @@ func TestImplicitSubsettingsRefStep(t *testing.T) {
 	}
 }
 
-// A requirement's composite `assume`/`require` constraint subsets the
-// RequirementCheck collection its membership's kind names (SysML v2 8.3.20.4
-// checkConstraintUsageRequirementConstraintSpecialization), whether written as
-// the constraint member of a definition or a usage, in the reference form, or as
-// a prefixed constraint usage; a `ref` constraint and a plain one do not.
+// A requirement's composite `assume`/`require` constraint — braced, typed, in the reference form,
+// of a definition or a usage — subsets the collection its kind names; a `ref` or plain one does not.
 func TestImplicitSubsettingsRequirementConstraints(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
 		private import ScalarValues::Integer;

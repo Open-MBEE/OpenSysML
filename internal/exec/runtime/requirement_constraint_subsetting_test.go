@@ -20,10 +20,8 @@ const requirementConstraintSubsettingModel = `package test {
 	}
 }`
 
-// A requirement's `assume`/`require` constraints subset the RequirementCheck
-// collections their membership kind names (SysML v2 8.3.20.4), the inherited
-// ones of its definition included, so the runtime sees them among the
-// collections' subsetters; the verdicts they hold stay where they were.
+// The runtime sees a requirement's `assume`/`require` constraints, its definition's included,
+// among the subsetters of `assumptions`/`constraints`, while their verdicts hold as before.
 func TestRequirementConstraintsSubsetTheRequirementCheckCollections(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, requirementConstraintSubsettingModel)
 	instantiateQualified(t, ctx, idx, "test::vehicleUnderTest")

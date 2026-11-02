@@ -331,11 +331,8 @@ func caseNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (
 	return calcNestedFQN(owner, composite, portion)
 }
 
-// requirementConstraintFQN is the RequirementCheck collection a requirement's
-// composite `assume`/`require` constraint subsets (SysML v2 8.3.20.4
-// checkConstraintUsageRequirementConstraintSpecialization): `assumptions` or
-// `constraints` by the membership's kind; "" for one that is not composite or
-// whose owner is no requirement, since only a requirement owns such a membership.
+// requirementConstraintFQN is the RequirementCheck collection a requirement's composite
+// `assume`/`require` constraint subsets (SysML v2 8.3.20.4), "" for a `ref` or non-requirement one.
 func requirementConstraintFQN(u NestedUsage, owner NestedOwner) string {
 	if !u.Composite || !ownerInRequirementFamily(owner) {
 		return ""
