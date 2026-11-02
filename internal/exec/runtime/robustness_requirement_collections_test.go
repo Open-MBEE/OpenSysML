@@ -9,8 +9,8 @@ import (
 // requirement's `assumptions` and `constraints` collections (Requirements.sysml
 // `RequirementCheck`), whose members are the objects of its assume and require
 // constraints: an assumption whose expression cannot evaluate is the error, under
-// the member's `result` and under the collection's invocation alike, never `false`;
-// one reading an unbound subject is undetermined; a requirement stating no
+// the member's `result` and under the collection's invocation alike, never `false`,
+// and whatever an earlier member read; one reading an unbound subject is undetermined; a requirement stating no
 // assumption holds vacuously, `allTrue` over no member being true; and the
 // collection takes no arguments.
 func TestRuntimeRobustnessRequirementCollections(t *testing.T) {
@@ -29,6 +29,12 @@ func TestRuntimeRobustnessRequirementCollections(t *testing.T) {
 			assume constraint perZero :> assumptions { vehicle.fuelMass / 0 > 0 }
 		}
 		requirement unbound : FuelRequirement;
+		requirement def UnboundThenDivides {
+			subject vehicle : Vehicle;
+			assume constraint reads :> assumptions { vehicle.fuelMass >= 0 }
+			assume constraint perZero :> assumptions { 1 / 0 > 0 }
+		}
+		requirement unboundThenDivides : UnboundThenDivides;
 		requirement def NoAssumption {
 			subject vehicle : Vehicle;
 			require constraint fuelLimit :> constraints { vehicle.fuelMass <= 2000 }
@@ -65,6 +71,18 @@ func TestRuntimeRobustnessRequirementCollections(t *testing.T) {
 		for _, expr := range []string{"nonnegativeFuel.result", "assumptions.result", "allTrue(assumptions())", "constraints.result", "allTrue(constraints())", "result"} {
 			if got := mustEvalOn(t, ctx, req, expr); got.Kind != ValUndetermined {
 				t.Errorf("%s = %s, want undetermined", expr, FormatValue(got))
+			}
+		}
+	})
+
+	t.Run("an error after an undetermined member is the error", func(t *testing.T) {
+		req := instantiate(t, "test::unboundThenDivides")
+		if got := mustEvalOn(t, ctx, req, "reads.result"); got.Kind != ValUndetermined {
+			t.Errorf("reads.result = %s, want undetermined", FormatValue(got))
+		}
+		for _, expr := range []string{"assumptions()", "allTrue(assumptions())", "assumptions.result"} {
+			if _, err := evalOn(t, ctx, req, expr); err == nil || !strings.Contains(err.Error(), "zero") {
+				t.Errorf("%s: err = %v, want the division by zero", expr, err)
 			}
 		}
 	})

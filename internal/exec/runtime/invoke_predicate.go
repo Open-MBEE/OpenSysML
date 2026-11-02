@@ -179,9 +179,11 @@ func (ec *EvalContext) invokePredicateDirect(sym *symbols.Symbol, args calcArgs)
 // invokeConstraintCollection invokes a constraint feature of the object being
 // evaluated that holds many objects — a requirement's `assumptions()`, each member the
 // object of a constraint usage subsetting it — as the sequence of the members' results
-// (Requirements.sysml `allTrue(assumptions()) implies allTrue(constraints())`), one
-// member's undetermined result leaving the whole undetermined. Not ok for a scalar
-// constraint, one taking arguments, or one that is no feature of the object.
+// (Requirements.sysml `allTrue(assumptions()) implies allTrue(constraints())`): a member
+// whose evaluation fails is the error whatever the others read, else one member's
+// undetermined result leaves the whole undetermined, as a chain over the members reads
+// them. Not ok for a scalar constraint, one taking arguments, or one that is no feature
+// of the object.
 func (ec *EvalContext) invokeConstraintCollection(sym *symbols.Symbol, args calcArgs) (Value, bool, error) {
 	self := ec.self
 	if self == nil || sym == nil || sym.Kind != symbols.SymbolConstraintUsage || len(args.positional) > 0 || len(args.named) > 0 {
@@ -204,6 +206,7 @@ func (ec *EvalContext) invokeConstraintCollection(sym *symbols.Symbol, args calc
 		return Value{}, true, err
 	}
 	results := make([]Value, 0, len(members))
+	var undetermined *Value
 	for _, member := range members {
 		obj, ok := ec.ctx.Instance(member.Instance)
 		if member.Kind != ValInstance || !ok {
@@ -213,10 +216,13 @@ func (ec *EvalContext) invokeConstraintCollection(sym *symbols.Symbol, args calc
 		if err != nil {
 			return Value{}, true, fmt.Errorf("invoke %s: %w", name, err)
 		}
-		if result.Kind == ValUndetermined {
-			return result, true, nil
+		if result.Kind == ValUndetermined && undetermined == nil {
+			undetermined = &result
 		}
 		results = append(results, result)
+	}
+	if undetermined != nil {
+		return *undetermined, true, nil
 	}
 	return sequenceOf(results), true, nil
 }
