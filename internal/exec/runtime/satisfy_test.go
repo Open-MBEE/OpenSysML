@@ -336,6 +336,55 @@ func TestReadInSatisfactionKeepsTheObjectsItMakes(t *testing.T) {
 	}
 }
 
+// TestSatisfactionOverlayKeepsAWriteMadeUnderIt checks that removing a satisfaction's
+// chain overlay reinstalls the feature's own declaration but keeps a value written to the
+// feature while the overlay stood, as a condition's step may write it.
+func TestSatisfactionOverlayKeepsAWriteMadeUnderIt(t *testing.T) {
+	src := `package ChainProbe {
+		private import ScalarValues::Integer;
+		part def Vehicle { attribute fuel : Integer default 0; }
+		part vehicle1 : Vehicle;
+		requirement def Full {
+			subject vehicle : Vehicle;
+			require constraint { vehicle.fuel == 1300 }
+		}
+		satisfy requirement check : Full by vehicle1 {
+			attribute redefines vehicle1.fuel = 1300;
+		}
+	}`
+	ctx, a := satisfactionOf(t, src, "satisfy check by vehicle1")
+	subject, err := ctx.SatisfySubject(a)
+	if err != nil {
+		t.Fatalf("SatisfySubject: %v", err)
+	}
+	_, bindings, err := ctx.satisfactionBindings(a, a.Symbol, subject)
+	if err != nil {
+		t.Fatalf("satisfactionBindings: %v", err)
+	}
+	fv := subject.FeatureValues["fuel"]
+	own := fv.Feature
+	undo, err := ctx.overlaySatisfierChains(a, subject, bindings)
+	if err != nil {
+		t.Fatalf("overlaySatisfierChains: %v", err)
+	}
+	if got, err := ctx.readFeatureValue(fv, "fuel"); err != nil || FormatValue(got) != "1300" {
+		t.Fatalf("fuel under the overlay = %s, %v; want 1300", FormatValue(got), err)
+	}
+	nine := Value{Kind: ValConst, Const: semantics.IntValue(9)}
+	if err := subject.storeFeatureValue(ctx, fv, "fuel", nine); err != nil {
+		t.Fatalf("write fuel: %v", err)
+	}
+	if err := undo(); err != nil {
+		t.Fatalf("undo: %v", err)
+	}
+	if fv.Feature != own {
+		t.Fatalf("fuel is declared by %v after the overlay, want its own %v", fv.Feature.Symbol, own.Symbol)
+	}
+	if got, err := ctx.readFeatureValue(fv, "fuel"); err != nil || FormatValue(got) != "9" || !fv.Written {
+		t.Fatalf("fuel after the overlay = %s, written %v, %v; want the written 9", FormatValue(got), fv.Written, err)
+	}
+}
+
 // statedSatisfyModel states satisfactions with no `by`: one by a definition,
 // about every object of it, and one by a usage, about the usage's own object.
 const statedSatisfyModel = `

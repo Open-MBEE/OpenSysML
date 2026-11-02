@@ -333,7 +333,7 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 
 // ReadInSatisfaction evaluates ref, written in scope, as a's require conditions read it on subject:
 // with the requirement's subject and other members bound as checkSatisfactionOn binds them.
-func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, scope *symbols.Scope, ref ast.Node) (Value, error) {
+func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, scope *symbols.Scope, ref ast.Node) (_ Value, retErr error) {
 	defer ctx.beginRun()()
 	if a == nil || a.Symbol == nil {
 		return Value{}, ErrNotASatisfaction
@@ -347,7 +347,11 @@ func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, s
 	if err != nil {
 		return Value{}, err
 	}
-	defer undo()
+	defer func() {
+		if undoErr := undo(); undoErr != nil && retErr == nil {
+			retErr = undoErr
+		}
+	}()
 	activation, endStep := ctx.beginStep()
 	defer endStep()
 	ec := NewEvalContextIn(ctx, scope, subject)
@@ -361,7 +365,7 @@ func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, s
 
 // checkSatisfactionOn is CheckSatisfactionOn evaluated on the object it resolved
 // to, named by where it was reached from.
-func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Symbol, reached carrier) (CheckResult, error) {
+func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Symbol, reached carrier) (_ CheckResult, retErr error) {
 	subject := reached.instance
 
 	// Every subject the chain declares names the object `by` supplies, which is
@@ -376,7 +380,11 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	if err != nil {
 		return ctx.satisfactionResult(false, subject, reached), err
 	}
-	defer undo()
+	defer func() {
+		if undoErr := undo(); undoErr != nil && retErr == nil {
+			retErr = fmt.Errorf("%s: %w", a.Text(), undoErr)
+		}
+	}()
 
 	conds := ctx.conditionsOf(target, members)
 	check := conditionCheck{
@@ -400,17 +408,20 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 
 // overlaySatisfierChains installs the chain redefinitions the satisfaction declares on the
 // objects it binds, for one check (SysML v2 §7.21.4); undo removes those installs alone.
-func (ctx *Context) overlaySatisfierChains(a *SatisfyAssertion, subject *Instance, bindings map[string]Value) (undo func(), err error) {
+func (ctx *Context) overlaySatisfierChains(a *SatisfyAssertion, subject *Instance, bindings map[string]Value) (undo func() error, err error) {
 	chains := ctx.satisfierChains(a, subject, bindings)
 	if len(chains) == 0 {
-		return func() {}, nil
+		return func() error { return nil }, nil
 	}
-	// The objects a chain walks exist before the overlay, so the installs below
-	// are the only journaled changes and nothing the check creates is undone.
+	// The objects a chain walks exist before the overlay, as a condition reading
+	// them would make them, so the installs reach them and undo can reinstall them.
+	var overlaid []overlaidFeature
 	for _, c := range chains {
-		if err := ctx.materializeBelow(c.object, c.rest[:len(c.rest)-1]); err != nil {
+		walked, err := ctx.materializeBelow(c.object, c.rest)
+		if err != nil {
 			return nil, fmt.Errorf("%s: %w", a.Text(), err)
 		}
+		overlaid = append(overlaid, walked...)
 	}
 	mark := ctx.markJournal()
 	ctx.journals++
@@ -422,38 +433,56 @@ func (ctx *Context) overlaySatisfierChains(a *SatisfyAssertion, subject *Instanc
 		}
 	}
 	end := ctx.markJournal()
-	return func() { ctx.undoJournaled(mark, end) }, nil
+	return func() error { return ctx.removeOverlay(mark, end, overlaid) }, nil
 }
 
-// undoJournaled restores the feature values written and the changes noted between two
-// marks of the journal opened at from, leaving later changes as they are.
-func (ctx *Context) undoJournaled(from, to journalMark) {
-	for i := to.writes - 1; i >= from.writes; i-- {
-		ctx.invalidateDependents(ctx.journalWrites[i].fv)
-		*ctx.journalWrites[i].fv = ctx.journalWrites[i].prior
-	}
+// overlaidFeature is a feature value a satisfaction's chain walks or ends at, with the
+// declaration it had before the overlay.
+type overlaidFeature struct {
+	inst    *Instance
+	fv      *FeatureValue
+	feature *EffectiveFeature
+}
+
+// removeOverlay reinstalls the declaration each overlaid feature value had, keeping a value
+// written since, undoes the tails the overlay carried and closes its journal.
+func (ctx *Context) removeOverlay(from, to journalMark, overlaid []overlaidFeature) error {
+	var first error
 	for i := to.undos - 1; i >= from.undos; i-- {
 		ctx.journalUndos[i]()
 	}
-	ctx.writes++
+	for i := len(overlaid) - 1; i >= 0; i-- {
+		o := overlaid[i]
+		if o.fv.Feature == o.feature {
+			continue
+		}
+		if err := ctx.installFeatureValue(o.inst, o.fv, o.feature); err != nil && first == nil {
+			first = err
+		}
+	}
 	ctx.journals--
 	if ctx.journals == 0 {
 		ctx.journalWrites, ctx.journalUndos = ctx.journalWrites[:from.writes], ctx.journalUndos[:from.undos]
 	}
+	return first
 }
 
-// materializeBelow reads the features of path down from inst, so that the objects inst
-// owns along it exist, as refineNestedBelow walks them.
-func (ctx *Context) materializeBelow(inst *Instance, path []string) error {
-	if len(path) == 0 {
-		return nil
+// materializeBelow reads the features path walks down from inst, so that the objects inst
+// owns along it exist, and returns every feature value on the way with its declaration.
+func (ctx *Context) materializeBelow(inst *Instance, path []string) ([]overlaidFeature, error) {
+	fv := inst.FeatureValues[path[0]]
+	if fv == nil || fv.Feature == nil {
+		return nil, nil
 	}
-	fv, err := inst.materializeFeatureValue(ctx, path[0], nil)
-	if err != nil {
-		return err
+	walked := []overlaidFeature{{inst: inst, fv: fv, feature: fv.Feature}}
+	if len(path) == 1 {
+		return walked, nil
 	}
-	if fv == nil || fv.Feature == nil || !ctx.ownsHeld(fv.Feature) {
-		return nil
+	if _, err := inst.materializeFeatureValue(ctx, path[0], nil); err != nil {
+		return nil, err
+	}
+	if !ctx.ownsHeld(fv.Feature) {
+		return walked, nil
 	}
 	for _, el := range standingElements(fv.HeldValue()) {
 		id, ok := el.Object()
@@ -461,12 +490,14 @@ func (ctx *Context) materializeBelow(inst *Instance, path []string) error {
 			continue
 		}
 		if child, ok := ctx.instances[id]; ok && child.owner == inst && inst.FeatureValues[child.ownerFeature] == fv {
-			if err := ctx.materializeBelow(child, path[1:]); err != nil {
-				return err
+			below, err := ctx.materializeBelow(child, path[1:])
+			if err != nil {
+				return nil, err
 			}
+			walked = append(walked, below...)
 		}
 	}
-	return nil
+	return walked, nil
 }
 
 // satisfierChain is a nested redefinition reaching below an object a satisfaction
