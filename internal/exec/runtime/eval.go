@@ -3713,12 +3713,19 @@ func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.Fea
 		}
 		return ec.invokeChainCallee(n, callee, fn)
 	}
+	name := chain.Member.Parts[0].Text
 	receiver, err := ec.Eval(chain.Operand)
 	// A usage no object stands for is called through the object it would materialize,
-	// under the probe a chain read makes, which the call runs within.
+	// under the probe a chain read makes: the receiver is reached and called within it.
 	if err != nil || receiver.Kind == ValUndetermined {
-		val, ok, derr := ec.underDeclaredObject(chain.Operand, chain.Member.Parts, func(obj Value, _ *symbols.Symbol) (Value, error) {
-			return ec.invokeChainOn(n, chain, callee, obj)
+		base, parts := ast.FeatureChainBase(chain)
+		val, ok, derr := ec.underDeclaredObject(base, parts, func(obj Value, owner *symbols.Symbol) (Value, error) {
+			if len(parts) > 1 {
+				if obj, err = ec.chainMemberValue(obj, parts[:len(parts)-1], owner.Name); err != nil {
+					return Value{}, err
+				}
+			}
+			return ec.invokeChainOn(n, name, callee, obj)
 		})
 		if ok {
 			return val, derr
@@ -3730,12 +3737,12 @@ func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.Fea
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.invokeChainOn(n, chain, callee, receiver)
+	return ec.invokeChainOn(n, name, callee, receiver)
 }
 
-// invokeChainOn calls the member a one-segment chain names on the receiver's value.
-func (ec *EvalContext) invokeChainOn(n *ast.InvocationExpr, chain *ast.FeatureChainExpr, callee string, receiver Value) (Value, error) {
-	name := chain.Member.Parts[0].Text
+// invokeChainOn calls the member name of the receiver's value.
+func (ec *EvalContext) invokeChainOn(n *ast.InvocationExpr, name, callee string, receiver Value) (Value, error) {
+	member := []ast.NameSegment{{Text: name}}
 	if id, isObject := receiver.Object(); isObject {
 		if inst, ok := ec.ctx.instances[id]; ok {
 			sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name)
@@ -3745,9 +3752,10 @@ func (ec *EvalContext) invokeChainOn(n *ast.InvocationExpr, chain *ast.FeatureCh
 				if len(n.Args) > 0 || len(n.NamedArgs) > 0 {
 					return Value{}, fmt.Errorf("%w: %s is a constraint of its object and takes no arguments", errCalcArity, callee)
 				}
-				parts := []ast.NameSegment{chain.Member.Parts[0], {Text: "result"}}
-				return ec.chainMemberValue(receiver, parts, name)
+				return ec.chainMemberValue(receiver, append(member, ast.NameSegment{Text: "result"}), name)
 			}
+			// A calc of the receiver's object is the function applied over it even where
+			// a bare read would compute its result.
 			if _, held := inst.FeatureValues[name]; !held && found && isCalcUsageSymbol(sym) {
 				fn, err := NewEvalContextIn(ec.ctx, sym.OwnerScope, inst).functionValueOf(sym)
 				if err != nil {
@@ -3757,7 +3765,7 @@ func (ec *EvalContext) invokeChainOn(n *ast.InvocationExpr, chain *ast.FeatureCh
 			}
 		}
 	}
-	fn, err := ec.chainMemberValue(receiver, chain.Member.Parts, "")
+	fn, err := ec.chainMemberValue(receiver, member, "")
 	if err != nil {
 		return Value{}, err
 	}
