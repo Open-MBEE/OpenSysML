@@ -44,7 +44,7 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		return false
 	}
 	owner := sym.OwnerScope.Owner()
-	if !bodyParameter && (owner == nil || !m.conformsByName(owner, "Occurrences::Occurrence")) || portion ||
+	if !bodyParameter && (owner == nil || !m.conformsByName(owner, occurrenceFQN)) || portion ||
 		m.conformsByName(sym, "Links::SelfLink") ||
 		m.conformsByName(sym, "Occurrences::HappensLink") {
 		return false
@@ -57,20 +57,20 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 // declares nothing of its own — a connector end, a parameter a transition or a
 // satisfy's subject implies — whose owning type is owner (deriveUsageMayTimeVary).
 func (m *Model) UsageMayTimeVaryUnder(owner *symbols.Symbol) bool {
-	return owner != nil && !m.isKerMLDoc(owner) && m.conformsByName(owner, "Occurrences::Occurrence")
+	return owner != nil && !m.isKerMLDoc(owner) && m.conformsByName(owner, occurrenceFQN)
 }
 
 // UsageMayTimeVaryUnderKind is UsageMayTimeVaryUnder for an owning usage declared
 // by nothing but its kind, read through the kind's implicit library base.
 func (m *Model) UsageMayTimeVaryUnderKind(kind ast.UsageKind) bool {
 	base, ok := implicitUsageBases[kind]
-	return ok && m.conformsByName(m.librarySymbol(base), "Occurrences::Occurrence")
+	return ok && m.conformsByName(m.librarySymbol(base), occurrenceFQN)
 }
 
 // UsageMayTimeVaryUnderLibraryFeature is UsageMayTimeVaryUnder for an owning
 // feature the notation fixes as redefining the library feature fqn.
 func (m *Model) UsageMayTimeVaryUnderLibraryFeature(fqn string) bool {
-	return m.conformsByName(m.librarySymbol(fqn), "Occurrences::Occurrence")
+	return m.conformsByName(m.librarySymbol(fqn), occurrenceFQN)
 }
 
 // isPayloadFeature reports a flow's payload: a PayloadFeature is a KerML Feature,
@@ -102,7 +102,7 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 			return false
 		}
 	}
-	if owner == nil || m.isPayloadFeature(sym) || IsVariant(sym) || !m.conformsByName(owner, "Occurrences::Occurrence") ||
+	if owner == nil || m.isPayloadFeature(sym) || IsVariant(sym) || !m.conformsByName(owner, occurrenceFQN) ||
 		isPortion ||
 		m.conformsByName(sym, "Links::SelfLink") ||
 		m.conformsByName(sym, "Occurrences::HappensLink") {
