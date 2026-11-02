@@ -1,0 +1,54 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Collections" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="requirement" abstract=false variation=false name="FuelRequirement"
+          (SubjectMember name="vehicle" type="Vehicle")
+          (AssumeMember constraint="nonnegativeFuel"
+            (Relationship kind="subsets" target=assumptions
+              (*ast.QualifiedName))
+            (ConstraintMember assert=true negated=false
+              (OperatorExpr operator=">="
+                (FeatureChainExpr member="fuelMass"
+                  (FeatureReference name="vehicle"))
+                (LiteralInteger value="0"))))
+          (RequireMember constraint="fuelLimit"
+            (Relationship kind="subsets" target=constraints
+              (*ast.QualifiedName))
+            (ConstraintMember assert=true negated=false
+              (OperatorExpr operator="<="
+                (FeatureChainExpr member="fuelMass"
+                  (FeatureReference name="vehicle"))
+                (LiteralInteger value="2000"))))))
+      (Membership visibility="default"
+        (Usage kind="requirement" name="fullTankRequirement" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=FuelRequirement
+            (*ast.QualifiedName))
+          (SubjectMember name="vehicle" type="Vehicle")
+          (AssumeMember constraint="fullTank"
+            (Relationship kind="subsets" target=assumptions
+              (*ast.QualifiedName))
+            (ConstraintMember assert=true negated=false
+              (OperatorExpr operator="=="
+                (FeatureChainExpr member="fuelMass"
+                  (FeatureReference name="vehicle"))
+                (FeatureChainExpr member="fuelFullMass"
+                  (FeatureReference name="vehicle")))))))
+      (Membership visibility="default"
+        (Usage kind="verification case" name="check" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="verification"
+          (Membership visibility="default"
+            (Usage kind="objective" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="verify"
+                (Relationship kind="subsets" target=fullTankRequirement
+                  (*ast.QualifiedName)))))
+          (Usage kind="attribute" name="verdict" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=VerdictKind
+              (*ast.QualifiedName))
+            (OperatorExpr operator="if"
+              (InvocationExpr type="allTrue"
+                (InvocationExpr type=""
+                  (FeatureChainExpr member="assumptions"
+                    (FeatureReference name="fullTankRequirement"))))
+              (InvocationExpr type="PassIf"
+                (InvocationExpr type="fullTankRequirement"))
+              (FeatureReference name="VerdictKind::inconclusive"))))))))
