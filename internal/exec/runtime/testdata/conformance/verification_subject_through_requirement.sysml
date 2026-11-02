@@ -1,9 +1,5 @@
-// A verification case binds its subject through a requirement's subject
-// (`massLimit.vehicle`), itself bound to a package-level part. No object stands
-// for the requirement, so the chain is read from the object the requirement
-// would materialize under a probe; the part the subject names stood before the
-// probe, so it is kept as read, and the case decides the explicit verdict its
-// body selects — the same verdict the case bound to the part directly decides.
+// A case binding its subject through a requirement's subject (`massLimit.vehicle`) reads the
+// instantiated part the requirement's probe leaves standing, and decides the verdict its body selects.
 package test {
 	private import ScalarValues::Integer;
 	private import VerificationCases::VerdictKind;

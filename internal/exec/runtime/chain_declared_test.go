@@ -165,9 +165,8 @@ package test {
 }
 `
 
-// A chain to a member bound to an object standing outside the probe — a requirement's
-// subject bound to an instantiated part — reads that object, since the probe's rollback
-// leaves it; a member bound to an object the probe itself made stays undetermined.
+// A member holding an object standing before the probe (a requirement subject bound to
+// an instantiated part) reads that object; one the probe made stays undetermined.
 func TestChainThroughPackageUsageReadsObjectStandingBeforeProbe(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, subjectChainModel)
 	ctx := NewContext(typedModel(model, resolver), 10000)
