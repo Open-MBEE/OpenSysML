@@ -1,1 +1,0 @@
-- The `not represented` notice of a `most` (COMPMOST) or `ports` (COMPTREE) compartment folding no longer counts the members a folded row has from its type as "left undrawn": they belong to the type, which is drawn or reachable from the row. Only the members the folded usage declares itself, which no row and no type shows, are still counted.
