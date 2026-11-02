@@ -407,11 +407,13 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody
     sysx:bodyParameter expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
     sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om ;
     sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om ;
-    sysml:ownedFeatureMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om ;
-    sysml:ownedFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
+    sysml:ownedFeatureMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om ;
+    sysml:ownedFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
     sysx:resultExpression expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
     json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pin0\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult\"}]" .
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om
     a sysml:FeatureMembership ;
@@ -629,6 +631,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om
     sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
     sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
     sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
     sysml:ownedResultExpression expr:ShadowBody__Sensor__highs_pvalue_pa0_presult .
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_pout

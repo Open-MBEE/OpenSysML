@@ -1,0 +1,1 @@
+- The implied `ConjugatedPortDefinition` a port definition owns (SysML v2 8.3.12.3) now answers its Type attributes `isAbstract` and `isSufficient` natively as `false`, where the reflective read left them underived.

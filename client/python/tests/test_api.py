@@ -1,6 +1,5 @@
 """Tests for opensysml module-level convenience API."""
 
-import warnings
 
 import pytest
 from unittest.mock import patch, MagicMock, Mock
@@ -205,22 +204,6 @@ class TestModuleLevelAPI:
             )
     
     @pytest.mark.usefixtures("no_default_connection")
-    def test_opensysml_eval_still_works_and_warns(self):
-        """The deprecated name evaluates the same way, warning about itself."""
-        with patch('opensysml.Connection') as MockConnection:
-            mock_conn = Mock()
-            MockConnection.return_value = mock_conn
-            mock_conn.eval.return_value = 42
-
-            with pytest.warns(DeprecationWarning, match="opensysml.evaluate"):
-                result = opensysml.eval("6 * 7", model_hash="model-abc")
-
-            assert result == 42
-        # The name to write is exported; the deprecated one is not.
-        assert "evaluate" in opensysml.__all__
-        assert "eval" not in opensysml.__all__
-
-    @pytest.mark.usefixtures("no_default_connection")
     def test_opensysml_evaluate_takes_the_address_positionally(self):
         """subject comes last, so a positional call still binds host and port."""
         with patch('opensysml.Connection') as MockConnection:
@@ -335,34 +318,7 @@ class TestModuleLevelAPI:
 
 
 class TestRenamedNames:
-    """The two names that shadowed a built-in, and the aliases left behind."""
-
-    def test_the_old_names_resolve_to_the_new_objects(self):
-        """`opensysml.eval` is `evaluate` and `opensysml.RuntimeError` is `ExecutionError`."""
-        for old, new in (("eval", opensysml.evaluate), ("RuntimeError", opensysml.ExecutionError)):
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter("always")
-                alias = getattr(opensysml, old)
-            assert alias is new
-            assert len(caught) == 1
-            assert issubclass(caught[0].category, DeprecationWarning)
-            assert new.__name__ in str(caught[0].message)
-
-    @pytest.mark.usefixtures("no_default_connection")
-    def test_an_old_snippet_still_runs_through_the_alias(self):
-        """A script written against `opensysml.eval` keeps working, warning included."""
-        with patch('opensysml.Connection') as MockConnection:
-            mock_conn = Mock()
-            MockConnection.return_value = mock_conn
-            mock_conn.eval.return_value = 4
-
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", DeprecationWarning)
-                assert opensysml.eval("2 + 2", model_hash="h") == 4
-
-            mock_conn.eval.assert_called_once_with(
-                "2 + 2", "h", context_symbol_id=None, subject_symbol_id=None
-            )
+    """The two names that shadowed a built-in are gone, not aliased."""
 
     def test_the_old_names_no_longer_shadow_a_builtin_on_star_import(self):
         """Which is the point of the rename: `import *` binds neither name."""

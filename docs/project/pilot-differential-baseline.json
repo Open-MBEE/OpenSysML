@@ -68,8 +68,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 53,
-        "digest": "sha256:a0cdf364481ce778888eb2a8b345288358930ecd0e80cfb27e9de9e1fbf7aec1"
+        "files": 56,
+        "digest": "sha256:d3948cf3a8679f1889662186568ec8fda8cf539978474ca3e76ccd622569bbdf"
       },
       {
         "name": "probes",
@@ -86,17 +86,17 @@
         "digest": "sha256:4f350c5a695cda953e0fb8f1b9b273c998f57480b9770bf063b6ca51a96cdf13"
       }
     ],
-    "recorded": "2026-10-30"
+    "recorded": "2026-11-01"
   },
   "totals": {
-    "files": 921,
-    "filesFullyAgreeing": 519,
-    "agreement": 1098,
+    "files": 924,
+    "filesFullyAgreeing": 522,
+    "agreement": 1102,
     "severityMismatch": 11,
     "openSysMLOnly": 359,
     "pilotOnly": 2462,
-    "openSysMLDiagnostics": 1468,
-    "pilotDiagnostics": 3571
+    "openSysMLDiagnostics": 1472,
+    "pilotDiagnostics": 3575
   },
   "roots": [
     {
@@ -17881,14 +17881,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 53,
-        "filesFullyAgreeing": 46,
-        "agreement": 0,
+        "files": 56,
+        "filesFullyAgreeing": 49,
+        "agreement": 4,
         "severityMismatch": 0,
         "openSysMLOnly": 8,
         "pilotOnly": 65,
-        "openSysMLDiagnostics": 8,
-        "pilotDiagnostics": 65
+        "openSysMLDiagnostics": 12,
+        "pilotDiagnostics": 69
       },
       "files": [
         {
@@ -17993,6 +17993,38 @@
               "count": 1
             }
           ]
+        },
+        {
+          "path": "qvts/duplicates.sysml",
+          "agreement": [
+            {
+              "line": 8,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 9,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 12,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 13,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": []
         },
         {
           "path": "runtime-showcase/delta-v-budget.sysml",
@@ -18338,7 +18370,7 @@
     {
       "side": "pilot",
       "message": "Duplicate of other owned member name",
-      "count": 89
+      "count": 93
     },
     {
       "side": "pilot",
@@ -18348,7 +18380,7 @@
     {
       "side": "opensysml",
       "message": "Duplicate of other owned member name",
-      "count": 10
+      "count": 14
     },
     {
       "side": "opensysml",
@@ -25453,14 +25485,14 @@
       }
     ],
     "totals": {
-      "files": 921,
-      "filesFullyAgreeing": 520,
-      "agreement": 1098,
+      "files": 924,
+      "filesFullyAgreeing": 523,
+      "agreement": 1102,
       "severityMismatch": 11,
       "openSysMLOnly": 358,
       "pilotOnly": 2462,
-      "openSysMLDiagnostics": 1467,
-      "pilotDiagnostics": 3571
+      "openSysMLDiagnostics": 1471,
+      "pilotDiagnostics": 3575
     },
     "findings": [
       {

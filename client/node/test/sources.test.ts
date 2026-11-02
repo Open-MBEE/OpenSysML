@@ -45,6 +45,19 @@ const BROKEN = `package Broken {
 }
 `;
 
+// An OpenSysML notation extension (`choice`), a warning by default and an error under strict conformance.
+const EXTENDED = `package P {
+  state def S {
+    entry; then a;
+    state a;
+    state b;
+    choice c;
+    transition a_c first a then c;
+    transition c_b first c then b;
+  }
+}
+`;
+
 test("several documents parse as one model resolving imports across them", async () => {
   await using connection = await connect();
   const model = await connection.parseSources([
@@ -165,18 +178,16 @@ test("a broken document reports diagnostics naming it", async () => {
   assert.ok(model.diagnostics.every((diagnostic) => diagnostic.file === "broken"));
 });
 
-test("strict is a deprecated alias of strictConformance; disagreeing values refuse", async () => {
+test("strictConformance makes an OpenSysML-only notation the error the default parse reports as a warning", async () => {
   await using connection = await connect();
-  await assert.rejects(
-    () => connection.parseSources([["top", TOP]], { strict: true, strictConformance: false }),
-    RangeError,
-  );
-  await assert.rejects(
-    () => connection.loads(TOP, { strict: false, strictConformance: true }),
-    RangeError,
-  );
-  const model = await connection.parseSources([["broken", BROKEN]], { strict: true });
-  assert.throws(() => model.raiseForErrors(), ParseError);
+  const lenient = await connection.parseSources([["extended", EXTENDED]]);
+  assert.equal(lenient.errors.length, 0);
+  assert.ok(lenient.diagnostics.some((diagnostic) => diagnostic.severity === "warning"));
+  const strict = await connection.parseSources([["extended", EXTENDED]], { strictConformance: true });
+  assert.ok(strict.errors.length > 0);
+  assert.throws(() => strict.raiseForErrors(), ParseError);
+  const loaded = await connection.loads(EXTENDED, { strictConformance: true });
+  assert.ok(loaded.errors.length > 0);
 });
 
 test("a document whose name another takes is refused before it is sent", async () => {

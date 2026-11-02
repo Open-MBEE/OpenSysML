@@ -1,7 +1,6 @@
 """Tests for translating gRPC failures into the opensysml exception hierarchy."""
 
 import builtins
-import warnings
 
 import grpc
 import pytest
@@ -175,15 +174,6 @@ class TestExecutionError:
         exc = ExecutionError("evaluation failed", diagnostics=["d"])
         assert exc.message == "evaluation failed"
         assert exc.diagnostics == ["d"]
-
-    def test_the_old_name_is_a_deprecated_alias(self):
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            alias = errors.RuntimeError
-        assert alias is ExecutionError
-        assert len(caught) == 1
-        assert issubclass(caught[0].category, DeprecationWarning)
-        assert "ExecutionError" in str(caught[0].message)
 
     def test_the_old_name_is_gone_from_the_star_import_surface(self):
         # Which is the point: `from opensysml.errors import *` no longer shadows

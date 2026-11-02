@@ -362,11 +362,12 @@ fallback, not an error.
   for the other forms the way the `-pdf-*` flags already are, except `-html-css`, which the
   PDF form accepts too since its converters read the same HTML.
 - **The shared deliverable options.** A title page, a contents list and section numbering are
-  not PDF-specific — they are exactly what an HTML deliverable wants too — but they are
-  spelled `-pdf-title-page`, `-pdf-toc` and `-pdf-number-sections` today. The proposal is to
+  not PDF-specific — they are exactly what an HTML deliverable wants too — but they
+  were spelled `-pdf-title-page`, `-pdf-toc` and `-pdf-number-sections`. The proposal was to
   accept `-doc-title-page`, `-doc-toc` and `-doc-number-sections` for both forms and keep the
-  `-pdf-*` spellings working as documented aliases, so no existing script breaks. **Open
-  decision:** whether to keep the aliases indefinitely or deprecate them for 1.0.
+  `-pdf-*` spellings working as documented aliases, so no existing script breaks. **Decided:**
+  the aliases were listed as deprecated from 0.9.0 and removed in 0.12.0; only the `-doc-*`
+  spellings remain.
 - **REPL and service.** `%render-document` keeps printing Markdown; a terminal has no use for
   markup. The gRPC `RenderDocument` request grows a form field defaulting to Markdown, so the
   Python client can ask for HTML, and the LSP's document preview keeps its Markdown, which is

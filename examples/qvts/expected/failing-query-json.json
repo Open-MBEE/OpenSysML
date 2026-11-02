@@ -1,0 +1,49 @@
+{
+  "status": "unresolved",
+  "exit": 2,
+  "checks": [
+    {
+      "subject": "QVTSDemo::MissingMassProject",
+      "status": "unresolved",
+      "values": null,
+      "lines": [
+        "error: query QVTSDemo::MissingMassProject reads feature mass of Lander::lander::cabinEngine, which has no such feature (also absent on Lander::lander::engineBay)",
+        "  path error at Feature(mass): expected a feature named mass on the element",
+        "    at Lander::lander::cabinEngine; features: []",
+        "  path error at Feature(mass): expected a feature named mass on the element",
+        "    at Lander::lander::engineBay; features: []"
+      ],
+      "outcome": {
+        "failures": [
+          {
+            "step": "Feature(mass)",
+            "expected": "a feature named mass on the element",
+            "frontier": {
+              "at": "Lander::lander::cabinEngine",
+              "features": [],
+              "nearest": null
+            }
+          },
+          {
+            "step": "Feature(mass)",
+            "expected": "a feature named mass on the element",
+            "frontier": {
+              "at": "Lander::lander::engineBay",
+              "features": [],
+              "nearest": null
+            }
+          }
+        ],
+        "outcome": "pathError",
+        "step": "Feature(mass)"
+      },
+      "rows": null
+    }
+  ],
+  "diagnostics": null,
+  "output": [
+    "✓ package Lander",
+    "✓ package QVTSDemo"
+  ],
+  "errors": null
+}

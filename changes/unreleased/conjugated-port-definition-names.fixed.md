@@ -1,0 +1,1 @@
+- Name an implied conjugated port definition only when its original declares a name; keep short-name-only conjugates anonymous and address them positionally in RDF.

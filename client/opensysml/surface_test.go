@@ -1160,8 +1160,8 @@ func TestApplyEditsAnswersTheEditedSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if !strings.Contains(result.Content, "1050.0") {
-		t.Errorf("edited source does not carry the new value:\n%s", result.Content)
+	if len(result.Documents) != 1 || !strings.Contains(result.Documents[0].Content, "1050.0") {
+		t.Errorf("edited source does not carry the new value:\n%+v", result.Documents)
 	}
 	if len(result.Applied) != 1 {
 		t.Fatalf("applied = %d edits, want 1", len(result.Applied))
@@ -1186,8 +1186,8 @@ func TestApplyEditsListsTheOneDocumentUnderTheParsesName(t *testing.T) {
 	if len(result.Documents) != 1 || result.Documents[0].Name != "demo.sysml" {
 		t.Fatalf("documents = %+v, want the one document named demo.sysml", result.Documents)
 	}
-	if result.Documents[0].Content != result.Content || result.Content == "" {
-		t.Errorf("content = %q, documents[0].content = %q, want the same notation", result.Content, result.Documents[0].Content)
+	if !strings.Contains(result.Documents[0].Content, "1050.0") {
+		t.Errorf("documents[0].content = %q, want the edited notation", result.Documents[0].Content)
 	}
 	if len(result.Applied) != 1 || result.Applied[0].Document != "demo.sysml" {
 		t.Errorf("applied = %+v, want one edit in demo.sysml", result.Applied)
@@ -1219,9 +1219,6 @@ func TestApplyEditsRenamesAcrossDocumentsAndLeavesContentEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if result.Content != "" {
-		t.Errorf("content = %q, want empty for a model of two documents", result.Content)
-	}
 	if len(result.Documents) != 2 || result.Documents[0].Name != "lib.sysml" || result.Documents[1].Name != "car.sysml" {
 		t.Fatalf("documents = %+v, want lib.sysml then car.sysml", result.Documents)
 	}
@@ -1246,9 +1243,6 @@ func TestApplyDocumentEditsTargetsTheNamedDocument(t *testing.T) {
 	}
 	if len(result.Documents) != 1 || result.Documents[0].Name != "car.sysml" {
 		t.Fatalf("documents = %+v, want car.sysml alone", result.Documents)
-	}
-	if result.Content != "" {
-		t.Errorf("content = %q, want empty for a model of two documents", result.Content)
 	}
 	_, err = client.ApplyDocumentEdits(context.Background(), model, "nope.sysml",
 		opensysml.Rename{Target: "Car::wheel", NewName: "tyre"})
@@ -1281,7 +1275,7 @@ func TestApplyEditsRefusalNamesReferrersByDocument(t *testing.T) {
 // A service without edit_documents edits one document alone and answers Content
 // alone, so a client checks the capability before reading Documents, before
 // editing a model of several documents, and before naming a document.
-func TestApplyEditsWithoutEditDocumentsAnswersContentAlone(t *testing.T) {
+func TestApplyEditsRequiresEditDocuments(t *testing.T) {
 	svc, err := sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(16, "test", []string{opensysml.CapabilityEditDocuments})
 	if err != nil {
 		t.Fatalf("NewServiceWithUnavailableCapabilitiesForTesting: %v", err)
@@ -1302,23 +1296,14 @@ func TestApplyEditsWithoutEditDocumentsAnswersContentAlone(t *testing.T) {
 		t.Fatalf("capabilities = %v, want apply_edits without edit_documents", info.Capabilities)
 	}
 
+	// Such a service answers the sole-document `content` alone, which this
+	// client no longer reads, so the edit is refused before it is sent.
 	one := parse(t, client, editableSource)
-	result, err := client.ApplyEdits(ctx, one, opensysml.SetValue{Target: "Demo::SC::unitMass", Value: "1050.0"})
-	if err != nil {
-		t.Fatalf("ApplyEdits: %v", err)
+	_, err = client.ApplyEdits(ctx, one, opensysml.SetValue{Target: "Demo::SC::unitMass", Value: "1050.0"})
+	if !errors.Is(err, opensysml.CodeUnimplemented) || !strings.Contains(err.Error(), opensysml.CapabilityEditDocuments) {
+		t.Errorf("a model of one: err = %v, want CodeUnimplemented naming edit_documents", err)
 	}
-	if !strings.Contains(result.Content, "1050.0") || len(result.Documents) != 0 {
-		t.Errorf("content=%q documents=%+v, want the notation in Content alone", result.Content, result.Documents)
-	}
-	if len(result.Applied) != 1 || result.Applied[0].Document != "" {
-		t.Errorf("applied = %+v, want one edit naming no document", result.Applied)
-	}
-
 	two := parseTwo(t, client)
-	_, err = client.ApplyEdits(ctx, two, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
-	if !errors.Is(err, opensysml.CodeFailedPrecondition) || !strings.Contains(err.Error(), opensysml.CapabilityEditDocuments) {
-		t.Errorf("a model of two: err = %v, want CodeFailedPrecondition naming edit_documents", err)
-	}
 	_, err = client.ApplyDocumentEdits(ctx, two, "car.sysml", opensysml.Rename{Target: "Car::wheel", NewName: "tyre"})
 	if !errors.Is(err, opensysml.CodeUnimplemented) || !strings.Contains(err.Error(), opensysml.CapabilityEditDocuments) {
 		t.Errorf("naming a document: err = %v, want CodeUnimplemented naming edit_documents", err)
@@ -1348,11 +1333,15 @@ func TestApplyEditsRenamesAndRewritesTheReferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if strings.Contains(result.Content, ": SC") {
-		t.Errorf("the reference to the renamed element still reads SC:\n%s", result.Content)
+	if len(result.Documents) != 1 {
+		t.Fatalf("documents = %+v, want the one edited document", result.Documents)
 	}
-	if !strings.Contains(result.Content, "part sc : Spacecraft") {
-		t.Errorf("the reference was not rewritten:\n%s", result.Content)
+	edited := result.Documents[0].Content
+	if strings.Contains(edited, ": SC") {
+		t.Errorf("the reference to the renamed element still reads SC:\n%s", edited)
+	}
+	if !strings.Contains(edited, "part sc : Spacecraft") {
+		t.Errorf("the reference was not rewritten:\n%s", edited)
 	}
 }
 
@@ -1373,6 +1362,15 @@ func TestApplyEditsRefusesDeletingAReferencedElement(t *testing.T) {
 	}
 }
 
+// editedNotation is the edited notation of a model of one document.
+func editedNotation(t *testing.T, result *opensysml.EditResult) string {
+	t.Helper()
+	if len(result.Documents) != 1 {
+		t.Fatalf("documents = %+v, want the one edited document", result.Documents)
+	}
+	return result.Documents[0].Content
+}
+
 func TestApplyEditsAddsAMember(t *testing.T) {
 	client := newClient(t)
 	model := parse(t, client, editableSource)
@@ -1381,8 +1379,8 @@ func TestApplyEditsAddsAMember(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if !strings.Contains(result.Content, "attribute margin") {
-		t.Errorf("the member was not added:\n%s", result.Content)
+	if edited := editedNotation(t, result); !strings.Contains(edited, "attribute margin") {
+		t.Errorf("the member was not added:\n%s", edited)
 	}
 }
 
@@ -1396,8 +1394,8 @@ func TestApplyEditsAddsAConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if !strings.Contains(result.Content, "allocation alloc1 allocate a to b;") {
-		t.Errorf("the connection was not added:\n%s", result.Content)
+	if edited := editedNotation(t, result); !strings.Contains(edited, "allocation alloc1 allocate a to b;") {
+		t.Errorf("the connection was not added:\n%s", edited)
 	}
 }
 
@@ -1422,8 +1420,8 @@ func TestApplyEditsAddsATypedConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if !strings.Contains(result.Content, "connection cable : Cable connect left.p to right.p;") {
-		t.Errorf("the typed connection was not added:\n%s", result.Content)
+	if edited := editedNotation(t, result); !strings.Contains(edited, "connection cable : Cable connect left.p to right.p;") {
+		t.Errorf("the typed connection was not added:\n%s", edited)
 	}
 }
 

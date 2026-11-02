@@ -425,8 +425,11 @@ built on it is measured in full in
 
 ## What this record does not measure
 
-- Anything after `d16ca71e0`, and #1771 by anything but its own pull
-  request's benchstat ([After the measured heads](#after-the-measured-heads)).
+- In the original candidate measurement, anything after `d16ca71e0`, and
+  #1771 by anything but its own pull request's benchstat
+  ([After the measured heads](#after-the-measured-heads)). The separate
+  [later develop comparison](#develop-after-the-candidate) below measures
+  the three pinned revisions it names, not arbitrary newer heads.
 - The merges between `1c6bb1972` and `ab88ea950` on their own: they are
   measured only inside the release candidate, never one at a time
   ([The cut point](#the-cut-point)).
@@ -1182,3 +1185,482 @@ is the evidence that the fixes moved bytes, not time.
 Should anything that touches Go land between `d16ca71e0` and the
 release branch after all, its rows are re-probed interleaved against
 `cc1d477ba` and this section is amended, as the 0.11.0 record's was.
+
+
+## Develop after the candidate
+
+This is a new three-revision measurement, not an extrapolation from a pull
+request. The preceding section says: “So the candidate of this record is
+`develop` at `d16ca71e0`”. That is the second column, rather than the earlier
+`b4d0a35c4`.
+
+| Column | Revision |
+|---|---|
+| 0.11.0 rebuilt | `ddf4df00037d6ddbfb1fa9d743a4389f75c9e2dc` (`v0.11.0`) |
+| Accounted develop | `d16ca71e0a56eb75022ed7e8df037737e2de8cc5` |
+| Pinned later develop | `5edbe6686009ae84b198e94493e69d316ae46fb7` |
+
+All three use Go 1.27.3, linux/amd64, the same Intel Xeon KVM host with eight
+virtual CPUs and `GOMAXPROCS=8`. Each detached worktree was built with
+`make build`; the pilot and training corpora were real copies, not symlinks.
+Six rounds include all three configurations, interleaved, using
+`-run '^$' -bench . -benchmem -count 1`. The long stress suite starts first;
+its 512-satellite conversion is excluded as in Method. The known failing
+rows in Method remain failures on all three revisions, not performance
+observations. CPU model, toolchain, GOMAXPROCS and per-round `vmstat` are
+recorded. There is no other local benchmark/build during a measurement,
+but the hypervisor still steals CPU time (including samples around 2–3%).
+Timing therefore needs confirmation; allocations are the stronger evidence.
+
+Every metric significant between the second and third columns in either
+the original suite or its six-round quiet confirmation appears below,
+including improvements, output sizes, counts, custom per-element units and
+movements that did not confirm. The three value columns are the original
+six-round medians, never mixed with medians from a different benchmark
+invocation. “Quiet” reports the accounted-to-pinned delta and benchstat
+test from the confirmation; `~` means not significant there. A dash means
+that metric was not emitted on that revision. Bytes are bytes (not MiB)
+unless a table says otherwise. The last column distinguishes required
+semantic cost, avoidable work and an unconfirmed observation; a significant
+allocation change alone does not establish an avoidable regression.
+
+### Every moved benchmark metric
+
+#### `internal/exec/runtime`
+
+| Benchmark | Metric | 0.11.0 rebuilt | Accounted develop | Pinned develop | Quiet confirmation | Cause and verdict |
+|---|---|---:|---:|---:|---|---|
+| `BehaviorOrdersLibraryModel` | B/op | 144,976 | 145,472 | 145,632 | +0.11%; p=0.002 n=6 | Eager expression-memo allocation; #1826 removes unused memo tables, with measured residuals below. |
+| `BehaviorOrdersLibraryModel` | allocs/op | 1,727 | 1,736 | 1,738 | +0.12%; p=0.002 n=6 | Eager expression-memo allocation; #1826 removes unused memo tables, with measured residuals below. |
+| `IntegerArithmeticNestedLoop` | sec/op | 0.00528667 | 0.00641081 | 0.00548265 | ~ | Timing not reliably reproduced as a slowdown on the shared host; no timing fix claimed. |
+
+#### `internal/frontend/grpc`
+
+| Benchmark | Metric | 0.11.0 rebuilt | Accounted develop | Pinned develop | Quiet confirmation | Cause and verdict |
+|---|---|---:|---:|---:|---|---|
+| `ParseFileColdShared` | B/op | 4,929,591.5 | 4,946,979 | 4,947,694 | ~ | Initial movement not significant in the quiet confirmation; no regression established. |
+| `ParseFileColdShared` | allocs/op | 31,192 | 31,300.5 | 31,310.5 | +0.04%; p=0.009 n=6 | Larger semantic snapshot/model construction; required members plus the separately measured lazy-memo opportunity. |
+
+#### `internal/frontend/lsp`
+
+| Benchmark | Metric | 0.11.0 rebuilt | Accounted develop | Pinned develop | Quiet confirmation | Cause and verdict |
+|---|---|---:|---:|---:|---|---|
+| `ReferencesCold` | B/op | 142,437,336 | 142,558,502.5 | 145,783,155.5 | +2.30%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+
+#### `internal/frontend/repl`
+
+| Benchmark | Metric | 0.11.0 rebuilt | Accounted develop | Pinned develop | Quiet confirmation | Cause and verdict |
+|---|---|---:|---:|---:|---|---|
+| `Diagnostics/attributes=200` | B/diagnostic | 908.8 | 908.8 | 909.6 | +0.09%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Diagnostics/attributes=200` | B/op | 363,519 | 363,521.5 | 363,841 | +0.09%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Diagnostics/attributes=200` | allocs/op | 1,732 | 1,732 | 1,736 | +0.23%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Diagnostics/attributes=50` | B/diagnostic | 1,037 | 1,037 | 1,040 | +0.29%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Diagnostics/attributes=50` | B/op | 103,716 | 103,717 | 104,036.5 | +0.31%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Diagnostics/attributes=50` | allocs/op | 670 | 670 | 674 | +0.60%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Diagnostics/attributes=800` | B/diagnostic | 806.2 | 806.2 | 806.4 | +0.02%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Diagnostics/attributes=800` | B/op | 1,289,845 | 1,289,855 | 1,290,177.5 | +0.02%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Diagnostics/attributes=800` | allocs/op | 6,490 | 6,490 | 6,494 | +0.06%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadModel/elements=0` | B/op | 233,433 | 244,033.5 | 244,513 | +0.20%; p=0.002 n=6 | Eager expression-memo allocation; #1826 removes unused memo tables, with measured residuals below. |
+| `LoadModel/elements=0` | allocs/op | 2,022 | 2,038 | 2,044 | +0.29%; p=0.002 n=6 | Eager expression-memo allocation; #1826 removes unused memo tables, with measured residuals below. |
+| `LoadModel/elements=1000` | B/element | 58,272.5 | 59,460.5 | 59,505 | ~ | Initial movement not significant in the quiet confirmation; no regression established. |
+| `LoadModel/elements=1000` | B/op | 58,272,624 | 59,460,800.5 | 59,505,279 | ~ | Initial movement not significant in the quiet confirmation; no regression established. |
+| `LoadModel/elements=1000` | allocs/op | 533,102 | 563,779 | 564,985 | +0.21%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadModel/elements=250` | B/element | 58,559.5 | 59,988 | 60,054 | +0.11%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadModel/elements=250` | B/op | 14,639,872 | 14,997,111 | 15,013,603 | +0.11%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadModel/elements=250` | allocs/op | 137,891 | 145,763 | 146,069 | +0.21%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadModel/elements=4000` | B/element | 58,292.5 | 59,488.5 | 59,536 | +0.12%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadModel/elements=4000` | B/op | 233,170,360 | 237,952,424 | 238,143,860 | +0.12%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadModel/elements=4000` | allocs/op | 2,113,421 | 2,235,321.5 | 2,240,125 | +0.22%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `RunCalc/elements=4000` | sec/op | 5.224e-06 | 5.9195e-06 | 4.632e-06 | ~ | Timing not reliably reproduced as a slowdown on the shared host; no timing fix claimed. |
+
+#### `internal/workspace/libs`
+
+| Benchmark | Metric | 0.11.0 rebuilt | Accounted develop | Pinned develop | Quiet confirmation | Cause and verdict |
+|---|---|---:|---:|---:|---|---|
+| `DecodeSnapshot` | B/op | 40,835,109.5 | 41,083,550 | 41,190,935.5 | +0.26%; p=0.002 n=6 | Larger semantic snapshot/model construction; required members plus the separately measured lazy-memo opportunity. |
+| `DecodeSnapshot` | allocs/op | 72,057 | 72,090 | 72,093 | +0.00%; p=0.002 n=6 | Larger semantic snapshot/model construction; required members plus the separately measured lazy-memo opportunity. |
+| `ExpandWildcardImports` | B/op | 16,103,843.5 | 16,104,524 | 16,104,539 | +0.00%; p=0.002 n=6 | Larger semantic snapshot/model construction; required members plus the separately measured lazy-memo opportunity. |
+| `ExpandWildcardImports` | allocs/op | 145,704 | 145,724 | 145,725 | +0.00%; p=0.002 n=6 | Larger semantic snapshot/model construction; required members plus the separately measured lazy-memo opportunity. |
+| `IndexLibrary` | B/op | 14,770,056.5 | 14,775,739 | 14,777,888.5 | +0.01%; p=0.002 n=6 | Larger semantic snapshot/model construction; required members plus the separately measured lazy-memo opportunity. |
+| `IndexLibrary` | allocs/op | 108,116 | 108,190 | 108,207 | +0.02%; p=0.002 n=6 | Larger semantic snapshot/model construction; required members plus the separately measured lazy-memo opportunity. |
+
+#### `internal/workspace/model`
+
+| Benchmark | Metric | 0.11.0 rebuilt | Accounted develop | Pinned develop | Quiet confirmation | Cause and verdict |
+|---|---|---:|---:|---:|---|---|
+| `AnalyseResolved` | B/op | 664,547 | 665,426.5 | 666,483 | +0.16%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `AnalyseResolved` | allocs/op | 7,701 | 7,701 | 7,704 | +0.04%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `AnalyseResolved` | sec/op | 0.00184853 | 0.00168742 | 0.00156899 | ~ | Timing not reliably reproduced as a slowdown on the shared host; no timing fix claimed. |
+| `AnalyseUnresolved` | B/op | 14,521,736 | 14,560,248.5 | 14,567,633 | +0.05%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `AnalyseUnresolved` | allocs/op | 151,263 | 151,903 | 152,057 | +0.10%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+
+#### `tests/codegen`
+
+| Benchmark | Metric | 0.11.0 rebuilt | Accounted develop | Pinned develop | Quiet confirmation | Cause and verdict |
+|---|---|---:|---:|---:|---|---|
+| `CompiledCalc/Fib(25)/go` | sec/op | 0.00184215 | 0.0020508 | 0.0017872 | ~ | Timing not reliably reproduced as a slowdown on the shared host; no timing fix claimed. |
+| `CompiledCalc/Hypot(3.0,4.0)/interpreted` | B/op | 8,450.5 | 8,557 | 8,543.5 | ~ | Initial movement not significant in the quiet confirmation; no regression established. |
+
+#### `tests/export`
+
+| Benchmark | Metric | 0.11.0 rebuilt | Accounted develop | Pinned develop | Quiet confirmation | Cause and verdict |
+|---|---|---:|---:|---:|---|---|
+| `WriteAPIJSON/ISQAtomicNuclear/compact` | B/op | 202,600,375.5 | 172,903,605 | 173,436,091 | +0.31%; p=0.002 n=6 | Required extra serialized identities/properties; the scanner fix removes some ISQ allocation overhead, not the whole writer increase. |
+| `WriteAPIJSON/ISQAtomicNuclear/compact` | allocs/op | 1,800,335.5 | 1,446,802.5 | 1,465,033.5 | +1.26%; p=0.002 n=6 | Required extra serialized identities/properties; the scanner fix removes some ISQ allocation overhead, not the whole writer increase. |
+| `WriteAPIJSON/ISQAtomicNuclear/compact` | output-B | 3,335,945 | 3,366,806 | 3,376,236 | +0.28%; p=0.002 n=6 | Required additional semantic members/output; keep the corrected result. |
+| `WriteAPIJSON/ISQAtomicNuclear/standard` | B/op | 261,963,284 | 222,958,111.5 | 223,513,690.5 | +0.25%; p=0.002 n=6 | Required extra serialized identities/properties; the scanner fix removes some ISQ allocation overhead, not the whole writer increase. |
+| `WriteAPIJSON/ISQAtomicNuclear/standard` | allocs/op | 1,865,984.5 | 1,391,962 | 1,410,195.5 | +1.31%; p=0.002 n=6 | Required extra serialized identities/properties; the scanner fix removes some ISQ allocation overhead, not the whole writer increase. |
+| `WriteAPIJSON/ISQAtomicNuclear/standard` | output-B | 8,155,901 | 8,188,286 | 8,198,556 | +0.13%; p=0.002 n=6 | Required additional semantic members/output; keep the corrected result. |
+| `WriteAPIJSON/SimpleVehicleModel/compact` | B/op | 283,994,471.5 | 267,949,469 | 268,703,368.5 | +0.30%; p=0.002 n=6 | Required extra serialized identities/properties; the scanner fix removes some ISQ allocation overhead, not the whole writer increase. |
+| `WriteAPIJSON/SimpleVehicleModel/compact` | allocs/op | 2,123,053 | 1,787,388 | 1,807,883 | +1.15%; p=0.002 n=6 | Required extra serialized identities/properties; the scanner fix removes some ISQ allocation overhead, not the whole writer increase. |
+| `WriteAPIJSON/SimpleVehicleModel/compact` | output-B | 4,333,342 | 4,386,810 | 4,383,470 | -0.08%; p=0.002 n=6 | Required additional semantic members/output; keep the corrected result. |
+| `WriteAPIJSON/SimpleVehicleModel/standard` | B/op | 403,162,140 | 366,537,822 | 367,537,505 | +0.26%; p=0.002 n=6 | Required extra serialized identities/properties; the scanner fix removes some ISQ allocation overhead, not the whole writer increase. |
+| `WriteAPIJSON/SimpleVehicleModel/standard` | allocs/op | 2,200,094 | 1,723,092.5 | 1,743,583.5 | +1.19%; p=0.002 n=6 | Required extra serialized identities/properties; the scanner fix removes some ISQ allocation overhead, not the whole writer increase. |
+| `WriteAPIJSON/SimpleVehicleModel/standard` | output-B | 14,431,120 | 14,484,254 | 14,470,202 | -0.10%; p=0.002 n=6 | Required additional semantic members/output; keep the corrected result. |
+| `WriteAPIJSON/then_after_members/compact` | B/op | 23,210,201.5 | 20,710,441.5 | 20,688,777 | -0.10%; p=0.002 n=6 | Smaller allocation result retained; no regression or corrective change inferred. |
+| `WriteAPIJSON/then_after_members/compact` | allocs/op | 209,705.5 | 174,467 | 176,506 | +1.17%; p=0.002 n=6 | Required extra serialized identities/properties; the scanner fix removes some ISQ allocation overhead, not the whole writer increase. |
+| `WriteAPIJSON/then_after_members/compact` | output-B | 346,288 | 354,316 | 345,214 | -2.57%; p=0.002 n=6 | Required additional semantic members/output; keep the corrected result. |
+| `WriteAPIJSON/then_after_members/standard` | B/op | 29,336,603.5 | 25,840,714 | 25,802,511.5 | -0.15%; p=0.002 n=6 | Smaller allocation result retained; no regression or corrective change inferred. |
+| `WriteAPIJSON/then_after_members/standard` | allocs/op | 218,568.5 | 169,632 | 171,670.5 | +1.20%; p=0.002 n=6 | Required extra serialized identities/properties; the scanner fix removes some ISQ allocation overhead, not the whole writer increase. |
+| `WriteAPIJSON/then_after_members/standard` | output-B | 869,946 | 879,885 | 866,269 | -1.55%; p=0.002 n=6 | Required additional semantic members/output; keep the corrected result. |
+
+#### `tests/perf`
+
+| Benchmark | Metric | 0.11.0 rebuilt | Accounted develop | Pinned develop | Quiet confirmation | Cause and verdict |
+|---|---|---:|---:|---:|---|---|
+| `Analyze/synthetic` | B/op | 514,661,448 | 529,089,728 | 532,988,024 | +0.69%; p=0.002 n=6 | Subject/role semantics plus avoidable member copying/model memos; partial fixes, not a whole-row recovery. |
+| `Analyze/synthetic` | allocs/op | 4,800,719.5 | 5,178,280.5 | 5,289,276.5 | +2.14%; p=0.002 n=6 | Subject/role semantics plus avoidable member copying/model memos; partial fixes, not a whole-row recovery. |
+| `AnalyzeRequirementGroup/members=16` | B/op | 486,986 | 487,577 | 487,993 | +0.09%; p=0.002 n=6 | Body copying plus model memos: avoidable portion addressed by #1824 and #1826; residual stated below. |
+| `AnalyzeRequirementGroup/members=16` | allocs/op | 5,532 | 5,532 | 5,535 | +0.05%; p=0.002 n=6 | Body copying plus model memos: avoidable portion addressed by #1824 and #1826; residual stated below. |
+| `AnalyzeRequirementGroup/members=32` | B/op | 792,362.5 | 793,465 | 794,137 | +0.08%; p=0.002 n=6 | Body copying plus model memos: avoidable portion addressed by #1824 and #1826; residual stated below. |
+| `AnalyzeRequirementGroup/members=32` | allocs/op | 8,861 | 8,861 | 8,864 | +0.03%; p=0.002 n=6 | Body copying plus model memos: avoidable portion addressed by #1824 and #1826; residual stated below. |
+| `AnalyzeRequirementGroup/members=64` | B/op | 1,424,209 | 1,426,329.5 | 1,427,644.5 | +0.09%; p=0.002 n=6 | Body copying plus model memos: avoidable portion addressed by #1824 and #1826; residual stated below. |
+| `AnalyzeRequirementGroup/members=64` | allocs/op | 15,377 | 15,377 | 15,380 | +0.02%; p=0.002 n=6 | Body copying plus model memos: avoidable portion addressed by #1824 and #1826; residual stated below. |
+| `AnalyzeRequirementGroup/members=8` | B/op | 311,849 | 312,183 | 312,471 | +0.09%; p=0.002 n=6 | Body copying plus model memos: avoidable portion addressed by #1824 and #1826; residual stated below. |
+| `AnalyzeRequirementGroup/members=8` | allocs/op | 3,730 | 3,730 | 3,733 | +0.08%; p=0.002 n=6 | Body copying plus model memos: avoidable portion addressed by #1824 and #1826; residual stated below. |
+| `BatchSatisfy` | B/op | 476,820,664 | 487,621,456 | 492,720,392 | +0.99%; p=0.002 n=6 | New satisfy subjects, role redefinitions and their semantic queries; required correctness cost. |
+| `BatchSatisfy` | allocs/op | 4,201,755.5 | 3,815,494.5 | 3,959,610 | +3.59%; p=0.002 n=6 | New satisfy subjects, role redefinitions and their semantic queries; required correctness cost. |
+| `ExecuteState` | B/op | 903,955 | 892,256 | 910,095.5 | ~ | Initial movement not significant in the quiet confirmation; no regression established. |
+| `ExecuteState` | allocs/op | 14,965.5 | 12,494 | 12,492 | ~ | Initial movement not significant in the quiet confirmation; no regression established. |
+| `FQNOf` | B/op | 735,040 | 735,040 | 743,040 | +1.09%; p=0.002 n=6 | More indexed expression/subject members; total work grows, not a new per-symbol lookup algorithm. |
+| `FQNOf` | allocs/op | 40,000 | 40,000 | 41,000 | +2.50%; p=0.002 n=6 | More indexed expression/subject members; total work grows, not a new per-symbol lookup algorithm. |
+| `FQNOf` | sec/op | 0.00152981 | 0.00169912 | 0.00189099 | -21.03%; p=0.009 n=6 | Timing not reliably reproduced as a slowdown on the shared host; no timing fix claimed. |
+| `FQNOf` | sec/sym | 3.8245e-08 | 4.2475e-08 | 4.612e-08 | -22.95%; p=0.009 n=6 | Timing not reliably reproduced as a slowdown on the shared host; no timing fix claimed. |
+| `FQNOf` | syms | 40,001 | 40,001 | 41,001 | +2.50%; p=0.002 n=6 | Required additional semantic members/output; keep the corrected result. |
+| `GRPCParseFileUncached` | B/op | 190,090,620.5 | 190,267,051.5 | 203,528,038 | +5.91%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/flat/parts=100/attrs=3` | B/op | 13,190,096.5 | 13,650,022.5 | 13,660,661.5 | +0.08%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/flat/parts=100/attrs=3` | allocs/op | 163,938 | 172,901 | 173,115 | +0.12%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/flat/parts=2000/attrs=3` | B/op | 293,943,220 | 300,147,360 | 300,340,394 | +0.06%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/flat/parts=2000/attrs=3` | allocs/op | 3,082,074.5 | 3,254,498 | 3,258,512.5 | +0.12%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/flat/parts=2000/attrs=5` | B/op | 412,497,402 | 423,149,442 | 423,471,190 | +0.07%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/flat/parts=2000/attrs=5` | allocs/op | 4,613,727.5 | 4,906,220 | 4,910,230.5 | +0.08%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/flat/parts=500/attrs=3` | B/op | 70,188,405 | 71,720,178.5 | 71,769,019 | +0.07%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/flat/parts=500/attrs=3` | allocs/op | 777,675 | 821,043.5 | 822,057 | +0.12%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/nested/parts=100/attrs=3` | B/op | 18,179,009 | 19,270,408.5 | 19,284,225.5 | +0.07%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/nested/parts=100/attrs=3` | allocs/op | 219,810 | 249,959 | 250,373 | +0.17%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/nested/parts=2000/attrs=3` | B/op | 361,004,084 | 382,565,642 | 382,822,608 | +0.07%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/nested/parts=2000/attrs=3` | allocs/op | 4,167,427 | 4,763,835.5 | 4,771,855 | +0.17%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/nested/parts=2000/attrs=5` | allocs/op | 5,652,108.5 | 6,368,619 | 6,376,587.5 | +0.13%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/nested/parts=500/attrs=3` | B/op | 87,251,431.5 | 92,622,080 | 92,687,149 | +0.07%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ImportValues/nested/parts=500/attrs=3` | allocs/op | 1,050,399 | 1,199,763.5 | 1,201,777 | +0.17%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `IndexAddExpand/synthetic` | B/op | 44,844,247 | 44,972,281.5 | 45,301,916.5 | +2.66%; p=0.015 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `IndexAddExpand/synthetic` | allocs/op | 317,285.5 | 318,335.5 | 322,729.5 | +3.68%; p=0.009 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `IndexAddExpand/vehicle` | B/op | 15,885,222.5 | 15,895,229 | 16,029,785.5 | +0.94%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `IndexAddExpand/vehicle` | allocs/op | 137,688 | 137,700 | 138,090 | +0.29%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `IndexAddOnly/synthetic` | allocs/op | 307,275.5 | 308,701 | 313,360.5 | +2.40%; p=0.015 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `IndexAddOnly/vehicle` | B/op | 1,193,189.5 | 1,193,254.5 | 1,367,512.5 | +14.61%; p=0.002 n=6 | Required conjugated-port registrations cross Go map capacity boundaries; no benchmark-specific reservation shipped. |
+| `IndexAddOnly/vehicle` | allocs/op | 9,612.5 | 9,613 | 9,980.5 | +3.82%; p=0.002 n=6 | Required conjugated-port registrations cross Go map capacity boundaries; no benchmark-specific reservation shipped. |
+| `Instantiate` | B/op | 215,406,876 | 320,848,240 | 218,254,200 | -32.00%; p=0.002 n=6 | Smaller allocation result retained; no regression or corrective change inferred. |
+| `Instantiate` | allocs/op | 2,107,747.5 | 2,495,279 | 1,732,203.5 | -30.58%; p=0.002 n=6 | Smaller allocation result retained; no regression or corrective change inferred. |
+| `Instantiate` | sec/inst | 0.000677159 | 0.00118005 | 0.000640353 | -58.10%; p=0.026 n=6 | Timing not reliably reproduced as a slowdown on the shared host; no timing fix claimed. |
+| `Instantiate` | sec/op | 0.677159 | 1.18005 | 0.640353 | -58.10%; p=0.026 n=6 | Timing not reliably reproduced as a slowdown on the shared host; no timing fix claimed. |
+| `REPLLoadFile` | B/op | 652,072,008 | 622,713,416 | 626,721,488 | +0.64%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `REPLLoadFile` | allocs/op | 5,758,271 | 5,789,380.5 | 5,901,390.5 | +1.93%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `REPLLoadFile` | sec/op | 1.53615 | 1.68219 | 1.53979 | -31.99%; p=0.041 n=6 | Timing not reliably reproduced as a slowdown on the shared host; no timing fix claimed. |
+| `REPLSubmitSnippet` | B/op | 591,369,608 | 606,245,848 | 611,464,576 | +0.84%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `REPLSubmitSnippet` | allocs/op | 5,613,690.5 | 5,991,307 | 6,107,356.5 | +1.94%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `WorkspaceEdit/synthetic` | B/op | 90,906,081 | 91,156,482 | 91,754,430.5 | +0.43%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `WorkspaceEdit/synthetic` | allocs/op | 680,523.5 | 680,522 | 687,524.5 | +1.03%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `WorkspaceEdit/synthetic/reindex+diagnostics` | B/op | 538,079,520 | 552,345,480 | 569,459,152 | +2.95%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `WorkspaceEdit/synthetic/reindex+diagnostics` | allocs/op | 5,248,490.5 | 5,625,615.5 | 5,744,625.5 | +2.11%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `WorkspaceEdit/vehicle` | B/op | 15,240,223 | 15,231,887.5 | 15,285,616 | +0.48%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `WorkspaceEdit/vehicle` | allocs/op | 166,074.5 | 166,073.5 | 166,595 | +0.31%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `WorkspaceEdit/vehicle/reindex+diagnostics` | B/op | 153,895,739.5 | 152,962,798 | 164,395,061 | +7.50%; p=0.002 n=6 | Expanded conjugate namespace enumeration and element-set growth; required members retained (profile below). |
+| `WorkspaceEdit/vehicle/reindex+diagnostics` | allocs/op | 921,411.5 | 909,707.5 | 914,749.5 | +0.55%; p=0.002 n=6 | Expanded conjugate namespace enumeration and element-set growth; required members retained (profile below). |
+| `WorkspaceEditSmallDocBesideLarge` | B/op | 26,080,908.5 | 26,146,577 | 26,947,215 | +3.05%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `WorkspaceEditSmallDocBesideLarge` | allocs/op | 114,689 | 114,707 | 114,708.5 | ~ | Initial movement not significant in the quiet confirmation; no regression established. |
+
+#### `tests/stressmodel`
+
+| Benchmark | Metric | 0.11.0 rebuilt | Accounted develop | Pinned develop | Quiet confirmation | Cause and verdict |
+|---|---|---:|---:|---:|---|---|
+| `ConvertAPIJSON/satellites=128/elements=24167` | B/op | 32,437,800,128 | 30,359,675,952 | 30,379,125,248 | +0.07%; p=0.002 n=6 | Larger correct semantic/output graph plus avoidable address splitting; address fix and residual below. |
+| `ConvertAPIJSON/satellites=128/elements=24167` | allocs/op | 159,810,293.5 | 133,957,186 | 134,478,051.5 | +0.39%; p=0.002 n=6 | Larger correct semantic/output graph plus avoidable address splitting; address fix and residual below. |
+| `ConvertAPIJSON/satellites=32/elements=6227` | B/op | 7,848,764,948 | 7,438,934,836 | 7,445,502,600 | +0.11%; p=0.004 n=6 | Larger correct semantic/output graph plus avoidable address splitting; address fix and residual below. |
+| `ConvertAPIJSON/satellites=32/elements=6227` | B/s | 11.8 MB/s | 12.42 MB/s | 11.62 MB/s | -7.35%; p=0.041 n=6 | Timing movement failed the additional six-round confirmation; host/GC-sensitive, not an established source regression. |
+| `ConvertAPIJSON/satellites=32/elements=6227` | allocs/op | 40,294,864.5 | 34,373,302.5 | 34,507,432 | +0.39%; p=0.002 n=6 | Larger correct semantic/output graph plus avoidable address splitting; address fix and residual below. |
+| `ConvertAPIJSON/satellites=32/elements=6227` | sec/op | 12.5992 | 11.9716 | 12.823 | +7.90%; p=0.041 n=6 | Timing movement failed the additional six-round confirmation; host/GC-sensitive, not an established source regression. |
+| `EditBeside/satellites=128` | B/op | 1,922,511.5 | 1,926,680.5 | 1,992,493 | +3.36%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `EditBeside/satellites=32` | B/op | 598,379 | 599,521 | 613,691.5 | +2.33%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `EditBeside/satellites=512` | B/op | 7,342,103.5 | 7,364,479.5 | 7,574,767 | +2.91%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `EditImported/satellites=128/files=6` | B/op | 536,775,156 | 563,230,252 | 565,552,660 | +0.43%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `EditImported/satellites=128/files=6` | allocs/op | 8,673,192 | 9,475,181 | 9,520,836.5 | +0.48%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `EditImported/satellites=32/files=6` | B/op | 158,593,088 | 165,389,696 | 165,590,676 | +0.21%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `EditImported/satellites=32/files=6` | allocs/op | 2,498,021 | 2,702,123.5 | 2,713,843 | +0.43%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `EditImported/satellites=512/files=6` | B/op | 2,119,725,416 | 2,225,800,400 | 2,241,323,928 | +0.71%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `EditImported/satellites=512/files=6` | allocs/op | 33,369,928.5 | 36,563,577 | 36,744,915.5 | +0.50%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `FleetSatisfy/satellites=128/assertions=36` | B/op | 943,433.5 | 949,006.5 | 949,464.5 | +0.05%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `FleetSatisfy/satellites=128/assertions=36` | allocs/op | 16,202 | 15,595.5 | 15,636.5 | +0.26%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `FleetSatisfy/satellites=32/assertions=24` | B/op | 610,149.5 | 612,970.5 | 613,415.5 | +0.07%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `FleetSatisfy/satellites=32/assertions=24` | allocs/op | 10,460.5 | 10,060.5 | 10,091.5 | +0.30%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `FleetSatisfy/satellites=512/assertions=108` | allocs/op | 49,852 | 48,006 | 48,103.5 | +0.26%; p=0.013 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `HydratePlane/satellites=128/files=6` | B/op | 66,519,417.5 | 66,532,436.5 | 66,049,675 | -0.68%; p=0.009 n=6 | Smaller allocation result retained; no regression or corrective change inferred. |
+| `HydratePlane/satellites=128/files=6` | allocs/op | 781,773 | 782,202 | 785,044.5 | +0.36%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `HydratePlane/satellites=32/files=6` | B/op | 23,359,729 | 23,399,837.5 | 23,144,916 | -0.92%; p=0.002 n=6 | Smaller allocation result retained; no regression or corrective change inferred. |
+| `HydratePlane/satellites=32/files=6` | allocs/op | 286,502.5 | 286,935 | 287,641 | +0.25%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `HydratePlane/satellites=512/files=6` | B/op | 241,648,596 | 242,380,348 | 243,491,896 | +0.70%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `HydratePlane/satellites=512/files=6` | allocs/op | 2,761,708 | 2,762,163 | 2,773,614.5 | +0.42%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=128/elements=24167` | B/element | 27,671 | 28,824.5 | 29,194 | +1.28%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=128/elements=24167` | B/op | 668,728,696 | 696,600,140 | 705,526,936 | +1.28%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=128/elements=24167` | allocs/op | 9,432,147.5 | 10,234,741.5 | 10,281,295.5 | +0.45%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=128/elements=24167` | live-B/element | 2,534 | 2,550 | 2,559 | +0.35%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=128/elements=24167` | live-B/op | 61,241,336 | 61,631,960 | 61,835,480 | +0.33%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=32/elements=6227` | B/element | 28,805 | 29,951.5 | 30,289 | +1.13%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=32/elements=6227` | B/op | 179,369,521 | 186,507,048 | 188,610,822 | +1.13%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=32/elements=6227` | allocs/op | 2,441,050 | 2,645,750.5 | 2,657,641 | +0.45%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=32/elements=6227` | live-B/element | 2,911 | 2,927 | 2,936 | +0.31%; p=0.013 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=32/elements=6227` | live-B/op | 18,127,424 | 18,227,032 | 18,281,752 | +0.30%; p=0.035 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=512/elements=95927` | B/element | 27,396 | 28,545.5 | 28,883 | +1.21%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=512/elements=95927` | B/op | 2,628,010,464 | 2,738,268,240 | 2,770,637,416 | +1.21%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=512/elements=95927` | allocs/op | 37,397,514 | 40,591,753.5 | 40,776,642.5 | +0.46%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=512/elements=95927` | live-B/element | 2,447 | 2,463.5 | 2,472 | +0.37%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Load/satellites=512/elements=95927` | live-B/op | 234,728,880 | 236,329,292 | 237,107,656 | +0.36%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadFiles/satellites=128/files=6` | B/op | 662,117,000 | 689,614,780 | 694,538,244 | +0.82%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadFiles/satellites=128/files=6` | allocs/op | 8,817,015.5 | 9,619,905 | 9,664,914.5 | +0.47%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadFiles/satellites=32/files=6` | B/op | 195,497,042 | 202,344,536 | 203,556,956 | +0.51%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadFiles/satellites=32/files=6` | allocs/op | 2,443,823 | 2,648,775 | 2,660,270 | +0.43%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadFiles/satellites=512/files=6` | B/op | 2,592,073,912 | 2,699,569,232 | 2,719,518,208 | +0.73%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `LoadFiles/satellites=512/files=6` | allocs/op | 34,302,960.5 | 37,497,478 | 37,676,271 | +0.48%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=128/files=6/cold` | B/op | 762,814,088 | 790,461,950 | 794,226,478 | +0.47%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=128/files=6/cold` | allocs/op | 10,760,683 | 11,562,179.5 | 11,609,286 | +0.42%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=128/files=6/warm` | B/op | 224,628,979.5 | 224,671,400 | 227,232,812.5 | +1.11%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=128/files=6/warm` | allocs/op | 1,753,985.5 | 1,754,799 | 1,765,820.5 | +0.63%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=32/files=6/cold` | B/op | 230,353,311.5 | 237,900,395 | 239,275,631.5 | +0.71%; p=0.009 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=32/files=6/cold` | allocs/op | 3,036,824.5 | 3,243,647.5 | 3,258,036.5 | +0.48%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=32/files=6/warm` | B/op | 85,058,659 | 85,074,995 | 85,690,840 | +0.74%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=32/files=6/warm` | allocs/op | 704,922 | 705,736.5 | 708,631 | +0.41%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=512/files=6/cold` | B/op | 2,952,724,244 | 3,064,140,468 | 3,079,950,608 | +0.49%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=512/files=6/cold` | allocs/op | 41,632,122 | 44,828,144 | 45,019,497.5 | +0.43%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=512/files=6/warm` | B/op | 954,020,708 | 954,538,856 | 963,760,444 | +0.98%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `OpenSplit/satellites=512/files=6/warm` | allocs/op | 5,948,334.5 | 5,949,162.5 | 5,992,695.5 | +0.73%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Satisfy/satellites=128/assertions=384` | B/op | 9,168,248 | 9,225,624.5 | 9,228,964.5 | +0.04%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Satisfy/satellites=128/assertions=384` | allocs/op | 154,277 | 148,134 | 148,525 | +0.26%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Satisfy/satellites=32/assertions=96` | B/op | 2,293,856 | 2,308,193 | 2,309,227.5 | +0.04%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Satisfy/satellites=32/assertions=96` | allocs/op | 38,761 | 37,225 | 37,328 | +0.28%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Satisfy/satellites=512/assertions=1536` | B/op | 36,681,513 | 36,903,584 | 36,915,797.5 | +0.04%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `Satisfy/satellites=512/assertions=1536` | allocs/op | 616,401 | 591,849.5 | 593,383 | +0.26%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=128/files=6/jobs=1` | B/op | 841,064,616 | 870,030,532 | 874,388,112 | +0.49%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=128/files=6/jobs=1` | allocs/op | 11,273,023 | 12,077,396.5 | 12,125,500.5 | +0.40%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=128/files=6/jobs=8` | B/op | 842,792,832 | 872,266,312 | 876,287,938 | +0.45%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=128/files=6/jobs=8` | allocs/op | 11,287,384.5 | 12,092,145 | 12,138,598.5 | +0.38%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=128/files=6/jobs=8` | sec/op | 1.09857 | 1.05093 | 1.2163 | +26.59%; p=0.015 n=6 | Timing movement failed the additional six-round confirmation; host/GC-sensitive, not an established source regression. |
+| `ValidateSplit/satellites=32/files=6/jobs=1` | B/op | 248,890,276 | 256,505,864 | 257,715,120 | +0.47%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=32/files=6/jobs=1` | allocs/op | 3,156,652 | 3,363,098.5 | 3,375,418 | +0.37%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=32/files=6/jobs=8` | B/op | 251,146,348 | 259,054,910 | 260,092,207.5 | +0.50%; p=0.041 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=32/files=6/jobs=8` | allocs/op | 3,172,753 | 3,381,803.5 | 3,392,698.5 | +0.33%; p=0.026 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=512/files=6/jobs=1` | B/op | 3,274,132,600 | 3,388,953,136 | 3,404,245,668 | +0.48%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=512/files=6/jobs=1` | allocs/op | 43,733,864 | 46,930,257.5 | 47,121,255.5 | +0.41%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=512/files=6/jobs=8` | B/op | 3,273,138,720 | 3,389,575,736 | 3,404,607,992 | +0.44%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+| `ValidateSplit/satellites=512/files=6/jobs=8` | allocs/op | 43,734,166 | 46,930,358 | 47,121,296.5 | +0.41%; p=0.002 n=6 | Larger correct semantic/index graph and associated model queries; retain required objects, with the separate lazy-memo opportunity below. |
+
+### Attribution and the limits of a capacity “fix”
+
+Bisection walks `git rev-list --reverse --first-parent` between the
+accounted and pinned heads, including squash/direct commits, and checks
+both sides of the identified transition. A threshold identifies a moved
+metric; it does not by itself decide whether the underlying work is wrong.
+
+| Probe | First-parent transition | Observation and verdict |
+|---|---|---|
+| `index-vehicle` | [`664cf8970`](https://github.com/Open-MBEE/OpenSysML/commit/664cf8970443cd231a56ee5ef7683e0afccdd189) | New conjugated-port definitions add required names and cross the map capacity boundary. |
+| `fqn` | [`bd2b6ae1b`](https://github.com/Open-MBEE/OpenSysML/commit/bd2b6ae1b574dc0e6f07a79a01baf79e3015cecd) | Expression/subject membership adds symbols to the timed enumeration. |
+| `requirement-members` | [`8d67629b6`](https://github.com/Open-MBEE/OpenSysML/commit/8d67629b695096babc62b039f358bc450e29d858) | The 8-member allocation-count threshold finds eager model memos, not the body-copy root; do not conflate those causes. |
+| `edit-beside` | [`664cf8970`](https://github.com/Open-MBEE/OpenSysML/commit/664cf8970443cd231a56ee5ef7683e0afccdd189) | New conjugate scopes and members are now indexed and enumerated during edits. |
+| `api-json` | [`01cf854fd`](https://github.com/Open-MBEE/OpenSysML/commit/01cf854fd12a662e170eb5bf89ded85bd2de66cf) | Required serialized properties increase writer work; the address-split profile also includes untimed graph setup. |
+| `empty-load` | [`7ce9252be`](https://github.com/Open-MBEE/OpenSysML/commit/7ce9252bee424ca75ea4350471b98e796b0890b8) | Unused expression memo maps are allocated at model construction; #1826 makes them lazy. |
+
+The body-copy helper itself was introduced by the satisfy-subject change
+in #1808 (`fa971e65c`). A zero-allocation test fails on the old helper and
+passes when a declaration with no prepended subject borrows its body.
+The 64-member profile attributes 116,352 bytes across 101 checks to that
+copy. This is distinct from the 8-member allocation-count bisection above.
+
+The vehicle index grows from 896 FQN entries and 888 reverse-name entries
+to 923 and 915; the new conjugate scopes are real semantic content. In this
+Go runtime the maps cross the 896-entry load boundary of a 1,024-slot
+table. The two generic `layer.set` allocation profiles grow by about
+9.48 and 5.26 MiB across 101 indexes (about 149 KiB per index), explaining
+most of the approximately 174 KiB increase. Conjugate construction itself
+also grows (about 1.5 MiB across the same profile). The raw Symbol struct
+grows from 200 to 208 bytes; that alone is not proof of an 8-byte heap
+increase per allocation because allocator size classes intervene.
+
+The larger workspace vehicle row was profiled separately, not explained
+away by the smaller index row: ten timed edits plus setup add about
+90.95 MiB in `elementList.add` and 57.82 MiB flat in `appendSubtree` across
+the profile. These are namespace traversal/deduplication sets over the
+expanded conjugate hierarchy. Synthetic analysis and satisfy profiles add
+`subjectRelationships`, `caseRoleRedefinitions` and `explicitRedefinitions`:
+the subjects and their types/redefinitions are now represented rather than
+omitted. The synthetic profile also contains the avoidable member-body copy.
+
+No required symbols or output properties are removed to make a row smaller.
+No capacity constant is fitted to the vehicle model. An upper-bound reserve
+can retain oversized maps for duplicate FQNs, aliases and merged namespaces;
+an exact count adds a traversal/deduplication structure. Neither is a proved
+general improvement here. The index increase is classified as required
+semantic registrations amplified by runtime capacity growth, not an
+established avoidable index regression. This does not claim that the index
+or namespace traversal is globally optimal.
+
+### Timing confirmation
+
+No source timing regression is established. The first quiet run appeared
+to move split validation at 128 satellites/jobs=8 by +26.59% (1.1001 →
+1.3925 s, p=0.015) and 32-satellite conversion by +7.90% (14.4737 →
+15.6165 s, p=0.041). Six additional alternating focused rounds reverse
+both directions: 1.549 → 1.425 s (p=1.000) and 16.84 → 14.69 s
+(p=0.937), respectively. CPU profiles have the same map/GC hotspots; they
+do not isolate a new CPU algorithm responsible for the first timing result.
+The allocation changes persist. The timing result is host/GC-sensitive,
+not a speed regression that an allocation fix can honestly claim to cure.
+
+### The fixes, paired against their own baseline
+
+Each result is six alternating-order paired rounds with the same toolchain
+and GOMAXPROCS. These medians belong to these paired invocations, not to
+the three-column table above. In particular, synthetic analysis and other
+cache-sensitive rows must not borrow a byte total from a differently
+warmed benchmark process to calculate a residual.
+
+- [Borrow unchanged member bodies](https://github.com/Open-MBEE/OpenSysML/pull/1824),
+  head `062792fe9ed37a25dd0ce8586d643a29579713df`, against pinned develop:
+  the 64-member check falls from 1,427,643 to 1,426,489 B/op and from
+  15,380 to 15,379 allocations. Accounted develop is 1,426,335.5 B/op:
+  this recovers most of the increase, not all. The 8/16/32-member checks
+  also lose one allocation and 127.5/255.5/510 bytes, respectively
+  (all p=0.002). The body is never mutated; satisfy subjects still precede
+  it. Existing diagnostics and fixtures stay unchanged. No timing win is
+  claimed.
+- [Scan positional addresses](https://github.com/Open-MBEE/OpenSysML/pull/1827),
+  head `8c1ecc2f357d658480b0686178c7ad2ccf4b973a`: quote-aware detection shares the
+  identity-segment cutter without materializing the segment slice. Empty,
+  malformed, escaped, quoted-`@` and positional cases retain their answers;
+  the focused allocation tests require zero allocations. The 32-satellite
+  conversion, freshly paired against develop `bb5809b78`, falls from
+  34,507,433.5 to 34,483,544 allocations (−23,889.5, −0.07%, p=0.002).
+  This remains about +0.32% above the original accounted-develop result
+  (34,373,317.5); that older number is context, not a paired recovery total.
+  ISQ standard/compact writer modes lose about 1,541 allocations (−0.11%,
+  p=0.002). Although graph construction precedes their timer, writer
+  qualified-name evaluation calls `addressOf` and encoded-address detection
+  inside it: the scanner is not wholly outside timed writer work.
+  Other writer allocation rows do not
+  significantly improve. In particular the
+  complete writer increase is not recovered; its added correct properties
+  still have to be serialized. Output byte counts are identical before
+  and after this fix; API-JSON regeneration changes only writer
+  `sourceDigest`, not a scorecard.
+  Compact SimpleVehicleModel timing initially moved from 0.5022 to 0.5461
+  s/op (+8.73%, p=0.004). Six additional isolated alternating pairs with
+  the same binaries instead measured 0.5615 to 0.4978 s/op (p=0.093,
+  not significant): the apparent slowdown reversed and did not reproduce.
+  Both results are retained; no favorable timing delta is claimed as a win.
+- [Lazy expression-memo initialization](https://github.com/Open-MBEE/OpenSysML/pull/1826),
+  head `4975b4b9cabc27cfef15b1db1bd61f84a33018b4`, freshly paired against
+  develop `ea9429f25` after #1817/#1823 merged. Empty load falls from
+  244,785 to 244,273 B/op and from 2,048 to 2,039 allocations; the 64-member
+  check falls from 1,427,691.5 to 1,427,546 B/op and from 15,381 to 15,378
+  allocations. The 8/16/32-member checks also lose three allocations
+  (all allocation p=0.002). This pair predates #1824's independent fix.
+  `valueExpressions`, `expressionParts` and the new `bodySymbols` table
+  stay nil until their first write, before journaling. Repeated reads
+  preserve memoized pointer identity; document replacement invalidates
+  the old body entry. Required expression objects remain. No timing or
+  RSS recovery is claimed, nor a return of every row to accounted develop.
+
+### Whole binary and controlled GC
+
+Three cold processes per workload/revision, after an unreported warm-up,
+use the existing whole-binary method. Generated model sizes are verified
+as 3,254, 6,198 and 12,086 elements. Each cell is median elapsed seconds /
+peak RSS MiB; output/verdict digests and exits were retained. As in
+[Export element IDs](#export-element-ids), 0.11.0 does not expose
+`elementId` as a query property, so those three cells are not applicable
+rather than a comparable successful query with missing measurements.
+
+| Workload | 0.11.0 rebuilt | Accounted develop | Pinned develop |
+|---|---:|---:|---:|
+| `action-executor` | 0.03 s / 73.38 MiB | 0.03 s / 75.75 MiB | 0.05 s / 76.25 MiB |
+| `apollo` | 0.44 s / 167.50 MiB | 0.38 s / 171.25 MiB | 0.42 s / 172.88 MiB |
+| `disposal-robot` | 0.05 s / 79.88 MiB | 0.07 s / 81.75 MiB | 0.06 s / 81.88 MiB |
+| `generated-12086` | 0.32 s / 164.00 MiB | 0.28 s / 168.38 MiB | 0.33 s / 179.88 MiB |
+| `generated-3254` | 0.12 s / 105.88 MiB | 0.13 s / 105.62 MiB | 0.15 s / 106.62 MiB |
+| `generated-6198` | 0.17 s / 119.25 MiB | 0.17 s / 121.12 MiB | 0.17 s / 130.25 MiB |
+| `ids-12086` | not measured | 2.33 s / 392.90 MiB | 3.11 s / 455.57 MiB |
+| `ids-12086-three` | not measured | 2.7 s / 471.97 MiB | 3.01 s / 492.84 MiB |
+| `ids-6198` | not measured | 1.16 s / 260.12 MiB | 1.4 s / 275.23 MiB |
+| `process-floor` | 0.02 s / 71.88 MiB | 0.03 s / 74.12 MiB | 0.03 s / 74.12 MiB |
+| `session-floor` | 0.04 s / 72.50 MiB | 0.03 s / 74.12 MiB | 0.03 s / 75.00 MiB |
+| `ttl-12086` | 20.6 s / 4048.39 MiB | 17.1 s / 4230.09 MiB | 17.1 s / 4766.32 MiB |
+
+All moved RSS rows were re-run in six alternating accounted/develop pairs;
+none of the whole-binary wall-time rows confirmed a significant slowdown.
+The significant RSS movements are listed in full, not just the largest:
+
+| Workload | Accounted RSS MiB | Pinned RSS MiB | Quiet confirmation |
+|---|---:|---:|---|
+| `process-floor` | 74.19 | 74.56 | +0.51%; p=0.037 n=6 |
+| `session-floor` | 74.19 | 75.12 | +1.26%; p=0.026 n=6 |
+| `ids-6198` | 260.44 | 289.21 | +11.05%; p=0.015 n=6 |
+| `ids-12086` | 397.84 | 433.29 | +8.91%; p=0.002 n=6 |
+| `ids-12086-three` | 464.94 | 545.15 | +17.25%; p=0.002 n=6 |
+
+Default-GC RSS is not retained semantic memory alone. Re-running the
+12,086-element validation with controlled GC gives the following medians
+of three runs (all completed successfully):
+
+| Setting | 0.11.0 rebuilt RSS MiB | Accounted RSS MiB | Pinned RSS MiB |
+|---|---:|---:|---:|
+| `GOGC25` | 146.94 | 150.06 | 151.12 |
+| `GOMEMLIMIT120MiB` | 142.00 | 144.29 | 144.56 |
+| `address1200000KiB` | 163.50 | 173.88 | 169.62 |
+
+The accounted-to-pinned validation RSS difference shrinks to about 1 MiB
+at GOGC=25 and about 0.3 MiB with GOMEMLIMIT=120MiB. Address-space-limited
+runs also complete. That supports a substantial GC/heap-headroom effect,
+not a claim that all default-GC RSS growth is a retained leak. The larger
+identity-query RSS changes remain workload-specific; these GC probes do
+not prove their entire cause. Neither small allocation fix is presented
+as recovering those RSS differences.
+
+The identity queries were also re-run with GOGC=25: three alternating-order
+cold pairs after a warm-up. Their RSS gap does **not** disappear:
+
+| Workload | Accounted RSS MiB | Pinned RSS MiB |
+|---|---:|---:|
+| `ids-12086` | 328.86 | 366.47 |
+| `ids-12086-three` | 348.75 | 384.47 |
+| `ids-6198` | 222.00 | 241.12 |
+
+Allocation profiles of the 12,086-element model and three identity queries
+show 14,141 versus 14,340 result rows per query. Total sampled allocation
+space falls from 766.48 to 641.01 MiB, while `identityIDsOf` grows by about
+56.39 MiB cumulatively and `registerExpressionIDs` by 49.72 MiB; the
+26.48 MiB increase under `registerExpressionPart` is nested inside those
+totals, not additive. Required expression identities consume more space
+even though other work allocates less. The end-of-command profile is not
+a retained-model measurement: the CLI model is then unreachable. These
+profiles do not establish a retained leak, and the validation-only GC
+result cannot be generalized to identity queries. The workload-specific
+peak-RSS residual is retained explicitly, not claimed recovered by the fixes.

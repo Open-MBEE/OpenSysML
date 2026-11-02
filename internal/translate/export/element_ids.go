@@ -80,73 +80,95 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 			return nil, err
 		}
 	}
-	ids := &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{},
+	ids := newElementIDTables(res, encoders)
+	for _, e := range encoders {
+		parents := e.parentDeclarations()
+		for _, node := range e.writtenDeclarations() {
+			ids.recordDeclaration(e, node, parents)
+		}
+	}
+	return ids, nil
+}
+
+func newElementIDTables(res *resolve.Resolver, encoders []*encoder) *ElementIDs {
+	return &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{},
 		membershipByNode: map[ast.Node]string{}, membershipBySpan: map[spanKey]string{}, membershipByName: map[string]string{},
 		relationshipByNode: map[ast.Node]string{}, relationshipBySpan: map[spanKey]string{},
 		conjugateByNode: map[ast.Node]conjugateIDs{}, conjugateBySpan: map[spanKey]conjugateIDs{},
 		partByNode: map[partKey]partIDs{}, partBySpan: map[spanPartKey]partIDs{},
 		res: res, encoders: encoders}
-	for _, e := range encoders {
-		parents := e.parentDeclarations()
-		for _, node := range e.writtenDeclarations() {
-			fqn := e.fqn[node]
-			subject := e.ids.subjectForNode(node, fqn)
-			id := rdf.LocalName(subject.Value)
-			ids.byNode[node] = id
-			ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
-			if fqn != "" {
-				ids.byName[fqn] = id
-			}
-			if membership, ok := e.writtenOwningMembership(node, parents[node], fqn); ok {
-				local := rdf.LocalName(membership.Value)
-				ids.membershipByNode[node] = local
-				ids.membershipBySpan[spanKey{e.file.Name(), node.Span()}] = local
-				ids.membershipByName[fqn] = local
-			}
-			if def, ok := node.(*ast.Definition); ok && def.Kind == ast.DefPort {
-				conjugate := e.ids.conjugateIDsOf(subject)
-				ids.conjugateByNode[node] = conjugate
-				ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
-			}
-			if valued, _, _, ok := ast.ValuePartOf(node); ok {
-				// The value expression a declaration's value part writes, and the
-				// FeatureValue that owns it (featureValue, expressionOwnership).
-				value := e.ids.mintedNode(rdf.ExpressionIRI(subject, pValue), subject, pValue)
-				ids.byNode[valued] = rdf.LocalName(value.Value)
-				ids.bySpan[spanKey{e.file.Name(), valued.Span()}] = ids.byNode[valued]
-				membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
-				ids.membershipByNode[valued] = membership
-				ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = membership
-				e.registerExpressionIDs(ids, value, valued)
-			}
-			for i, end := range writtenConnectorEnds(node) {
-				if end == nil {
-					continue
-				}
-				feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
-				ids.byNode[end] = rdf.LocalName(feature.Value)
-				ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
-				// The head owns each end through a membership minted beside it (bindingEnds).
-				membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
-				ids.membershipByNode[end] = membership
-				ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
-			}
-			for _, rel := range writtenSatisfySubjects(node) {
-				// The subject parameter a `by` clause declares, and its membership (subjectParameter).
-				usage := e.ids.minted(rdf.RelationshipIRI(subject, "_subject"), subject, "_subject")
-				ids.byNode[rel] = rdf.LocalName(usage.Value)
-				ids.bySpan[spanKey{e.file.Name(), rel.Span()}] = ids.byNode[rel]
-				membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(usage), usage, rdf.OwningMembershipSuffix).Value)
-				ids.membershipByNode[rel] = membership
-				ids.membershipBySpan[spanKey{e.file.Name(), rel.Span()}] = membership
-			}
-			for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
-				ids.relationshipByNode[key] = id
-				ids.relationshipBySpan[spanKey{e.file.Name(), key.Span()}] = id
-			}
-		}
+}
+
+func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[ast.Node]ast.Node) {
+	fqn := e.fqn[node]
+	subject := e.ids.subjectForNode(node, fqn)
+	id := rdf.LocalName(subject.Value)
+	ids.byNode[node] = id
+	ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
+	if fqn != "" {
+		ids.byName[fqn] = id
 	}
-	return ids, nil
+	if membership, ok := e.writtenOwningMembership(node, parents[node], fqn); ok {
+		local := rdf.LocalName(membership.Value)
+		ids.membershipByNode[node] = local
+		ids.membershipBySpan[spanKey{e.file.Name(), node.Span()}] = local
+		ids.membershipByName[fqn] = local
+	}
+	if def, ok := node.(*ast.Definition); ok && def.Kind == ast.DefPort {
+		conjugate := e.ids.conjugateIDsOf(subject)
+		ids.conjugateByNode[node] = conjugate
+		ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
+	}
+	ids.recordValuePart(e, node, subject)
+	ids.recordConnectorEnds(e, node, subject)
+	ids.recordSatisfySubjects(e, node, subject)
+	for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
+		ids.relationshipByNode[key] = id
+		ids.relationshipBySpan[spanKey{e.file.Name(), key.Span()}] = id
+	}
+}
+
+func (ids *ElementIDs) recordValuePart(e *encoder, node ast.Node, subject rdf.Term) {
+	valued, _, _, ok := ast.ValuePartOf(node)
+	if !ok {
+		return
+	}
+	// The value expression a declaration's value part writes, and the
+	// FeatureValue that owns it (featureValue, expressionOwnership).
+	value := e.ids.mintedNode(rdf.ExpressionIRI(subject, pValue), subject, pValue)
+	ids.byNode[valued] = rdf.LocalName(value.Value)
+	ids.bySpan[spanKey{e.file.Name(), valued.Span()}] = ids.byNode[valued]
+	membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
+	ids.membershipByNode[valued] = membership
+	ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = membership
+	e.registerExpressionIDs(ids, value, valued)
+}
+
+func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rdf.Term) {
+	for i, end := range writtenConnectorEnds(node) {
+		if end == nil {
+			continue
+		}
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
+		ids.byNode[end] = rdf.LocalName(feature.Value)
+		ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
+		// The head owns each end through a membership minted beside it (bindingEnds).
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
+		ids.membershipByNode[end] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
+	}
+}
+
+func (ids *ElementIDs) recordSatisfySubjects(e *encoder, node ast.Node, subject rdf.Term) {
+	for _, rel := range writtenSatisfySubjects(node) {
+		// The subject parameter a `by` clause declares, and its membership (subjectParameter).
+		usage := e.ids.minted(rdf.RelationshipIRI(subject, "_subject"), subject, "_subject")
+		ids.byNode[rel] = rdf.LocalName(usage.Value)
+		ids.bySpan[spanKey{e.file.Name(), rel.Span()}] = ids.byNode[rel]
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(usage), usage, rdf.OwningMembershipSuffix).Value)
+		ids.membershipByNode[rel] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), rel.Span()}] = membership
+	}
 }
 
 // writtenRelationships are the ids of the relationship elements the writer makes for the
@@ -693,6 +715,43 @@ func (ids *ElementIDs) conjugateOf(doc string, implied *symbols.ImpliedDecl) (co
 // argument's parameter, and the `out` result parameter, then the operands'
 // own parts (expressionOperandOwnership, typeArgument, resultParameter).
 func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node ast.Node) {
+	if event, ok := node.(*ast.ChangeEvent); ok && event.Condition != nil {
+		// changeArgument: `in0` binds the wrapper `a0`, whose referent is the
+		// condition at `change`; the wrapper's result is minted off `a0`.
+		e.registerExpressionPart(ids, subject, node, "in0")
+		e.registerExpressionPart(ids, subject, node, "a0")
+		wrapper := e.ids.mintedNode(rdf.ExpressionIRI(subject, "a0"), subject, "a0")
+		change := e.ids.mintedNode(rdf.ExpressionIRI(wrapper, "change"), wrapper, "change")
+		ids.byNode[event.Condition] = rdf.LocalName(change.Value)
+		ids.bySpan[spanKey{e.file.Name(), event.Condition.Span()}] = ids.byNode[event.Condition]
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(change), change, rdf.OwningMembershipSuffix).Value)
+		ids.membershipByNode[event.Condition] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), event.Condition.Span()}] = membership
+		result := e.ids.mintedNode(rdf.ExpressionIRI(wrapper, "out"), wrapper, "out")
+		resultMembership := e.ids.minted(rdf.OwningMembershipIRIOf(result), result, rdf.OwningMembershipSuffix)
+		recorded := partIDs{element: rdf.LocalName(result.Value), membership: rdf.LocalName(resultMembership.Value)}
+		ids.partByNode[partKey{node, "a0.out"}] = recorded
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "a0.out"}] = recorded
+		e.registerExpressionIDs(ids, change, event.Condition)
+		e.registerExpressionPart(ids, subject, node, "out")
+		return
+	}
+	if body, ok := node.(*ast.BodyExpr); ok {
+		// bodyExpression: the reference owns the body at `body`, the body its
+		// parameters at `in%d` and members at `m%d` (all minted off the
+		// reference), and its result at `result`; the reference's `out` follows.
+		e.registerExpressionPart(ids, subject, node, "body")
+		e.registerBodyDeclarations(ids, subject, body.Params, body.Members)
+		if body.Result != nil {
+			e.registerExpressionPart(ids, subject, node, "result")
+			result := e.ids.mintedNode(rdf.ExpressionIRI(subject, "result"), subject, "result")
+			ids.byNode[body.Result] = rdf.LocalName(result.Value)
+			ids.bySpan[spanKey{e.file.Name(), body.Result.Span()}] = ids.byNode[body.Result]
+			ids.membershipByNode[body.Result] = ids.partByNode[partKey{node, "result"}].membership
+			ids.membershipBySpan[spanKey{e.file.Name(), body.Result.Span()}] = ids.membershipByNode[body.Result]
+			e.registerExpressionIDs(ids, result, body.Result)
+		}
+	}
 	operands, typeArgument := ast.ExpressionOperands(node)
 	for _, operand := range operands {
 		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, operand.Slot), subject, operand.Slot)
@@ -715,9 +774,107 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 		ids.partByNode[partKey{node, slot}] = recorded
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
 	}
+	if slot, links, ok := expressionChainSlot(node); ok {
+		e.registerExpressionPart(ids, subject, node, slot)
+		chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		for i := 0; i < links; i++ {
+			position := fmt.Sprintf("fc%d", i)
+			chaining := e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position)
+			recorded := partIDs{element: rdf.LocalName(chaining.Value)}
+			ids.partByNode[partKey{node, slot + "." + position}] = recorded
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + "." + position}] = recorded
+		}
+	}
 	if resultBearing[expressionMetaclass(node)] {
 		e.registerExpressionPart(ids, subject, node, "out")
 	}
+}
+
+// registerBodyDeclarations records the ids of an expression body's parameters
+// and members as bodyDeclarations mints them off base: a parameter under the
+// body node at its slot, a member under its own declaration, each with the
+// membership owning it; a parameter's value and nested members follow.
+func (e *encoder) registerBodyDeclarations(ids *ElementIDs, base rdf.Term, params []ast.BodyParam, members []ast.Node) {
+	for _, decl := range ast.BodyDeclarations(params, members) {
+		local := e.ids.mintedNode(rdf.ExpressionIRI(base, decl.Slot()), base, decl.Slot())
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(local), local, rdf.OwningMembershipSuffix).Value)
+		if decl.Param != nil {
+			recorded := partIDs{element: rdf.LocalName(local.Value), membership: membership}
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), decl.Param.Span}, decl.Slot()}] = recorded
+			if decl.Param.Value != nil {
+				value := e.ids.mintedNode(rdf.ExpressionIRI(local, pValue), local, pValue)
+				ids.byNode[decl.Param.Value] = rdf.LocalName(value.Value)
+				ids.bySpan[spanKey{e.file.Name(), decl.Param.Value.Span()}] = ids.byNode[decl.Param.Value]
+				valueMembership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
+				ids.membershipByNode[decl.Param.Value] = valueMembership
+				ids.membershipBySpan[spanKey{e.file.Name(), decl.Param.Value.Span()}] = valueMembership
+				e.registerExpressionIDs(ids, value, decl.Param.Value)
+			}
+			e.registerBodyDeclarations(ids, local, nil, decl.Param.Members)
+			continue
+		}
+		if decl.Decl == nil {
+			continue
+		}
+		ids.byNode[decl.Decl] = rdf.LocalName(local.Value)
+		ids.bySpan[spanKey{e.file.Name(), decl.Decl.Span()}] = ids.byNode[decl.Decl]
+		ids.membershipByNode[decl.Decl] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), decl.Decl.Span()}] = membership
+		if valued, _, _, ok := ast.ValuePartOf(decl.Decl); ok {
+			value := e.ids.mintedNode(rdf.ExpressionIRI(local, pValue), local, pValue)
+			ids.byNode[valued] = rdf.LocalName(value.Value)
+			ids.bySpan[spanKey{e.file.Name(), valued.Span()}] = ids.byNode[valued]
+			valueMembership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
+			ids.membershipByNode[valued] = valueMembership
+			ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = valueMembership
+			e.registerExpressionIDs(ids, value, valued)
+		}
+		// A local member's own members declare into the body it lies in,
+		// minted off the member (encodeMember's local case).
+		e.registerBodyDeclarations(ids, local, nil, localMembers(decl.Decl))
+	}
+}
+
+// localMembers are the members a body-local declaration owns, as encodeMember
+// feeds them to bodyDeclarations.
+func localMembers(decl ast.Node) []ast.Node {
+	if usage, ok := decl.(*ast.Usage); ok {
+		return bodyMembers(usage)
+	}
+	return ast.DeclMembers(decl)
+}
+
+// expressionChainSlot is the slot of the chain Feature the conversion owns for
+// a receiver-reached call or a dotted function or target name, and its links.
+func expressionChainSlot(node ast.Node) (slot string, links int, ok bool) {
+	dotted := func(name *ast.QualifiedName) int {
+		n := 1
+		for i := 1; i < len(name.Parts); i++ {
+			if name.Parts[i].Chained {
+				n++
+			}
+		}
+		return n
+	}
+	switch n := node.(type) {
+	case *ast.InvocationExpr:
+		if n.Type == nil {
+			if chain := ast.ReceiverChain(n.Operand); chain != nil {
+				return "function", len(chain), true
+			}
+		} else if ast.QualifiedNameHasChain(n.Type) {
+			return "function", dotted(n.Type), true
+		}
+	case *ast.ConstructorExpr:
+		if n.Type != nil && ast.QualifiedNameHasChain(n.Type) {
+			return "function", dotted(n.Type), true
+		}
+	case *ast.FeatureChainExpr:
+		if n.Member != nil && ast.QualifiedNameHasChain(n.Member) {
+			return "targetFeature", dotted(n.Member), true
+		}
+	}
+	return "", 0, false
 }
 
 func (e *encoder) registerExpressionPart(ids *ElementIDs, subject rdf.Term, node ast.Node, slot string) {

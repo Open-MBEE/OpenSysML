@@ -16,6 +16,23 @@ const (
 	// ExpressionResult is the result parameter of an expression (a Feature,
 	// direction out), owned through a ReturnParameterMembership.
 	ExpressionResult
+	// ExpressionChangeWrapper is the FeatureReferenceExpression a change
+	// trigger's `in` parameter binds, whose referent is the written condition
+	// (SysML 8.3.16.4 TriggerInvocationExpression, `when`); Owner is the parameter.
+	ExpressionChangeWrapper
+	// ExpressionChangeCondition is the condition a change wrapper owns through
+	// a FeatureMembership and refers to; Owner is the wrapper.
+	ExpressionChangeCondition
+	// ExpressionBody is the Expression a `{ … }` body writes, which the
+	// FeatureReferenceExpression owning it refers to (KerMLExpressions
+	// BodyExpression); Owner is that reference, Decl the body node.
+	ExpressionBody
+	// ExpressionBodyResult is a body's result expression, owned through a
+	// ResultExpressionMembership; Owner is the body.
+	ExpressionBodyResult
+	// ExpressionChainFeature is the Feature a dotted function or target name
+	// reaches through, owned by the expression at Slot (KerML 8.3.3.3.3).
+	ExpressionChainFeature
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer
@@ -28,4 +45,5 @@ type ExpressionElement struct {
 	Owner *Symbol        // the feature or expression that owns this element
 	Role  ExpressionRole // what the element is to its owner
 	Index int            // the operand or parameter position, 0 otherwise
+	Slot  string         // the position the conversion names a chain feature by
 }

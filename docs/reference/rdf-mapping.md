@@ -515,7 +515,23 @@ triples come); a set of classes with no such member is refused, naming the subje
   alias's owning membership. The same rule links a succession's `sourceFeature` (an implied `first
   start then a` names the `start` the owner inherits from `Actions::Action`),
   a feature chain's `targetFeature`, a feature reference's `referent` and an
-  invocation's `function`. A literal carries the name itself,
+  invocation's `function`. A dotted name reaches these from the notation in one
+  form only: the parser spells `q.p.f(1)` as an invocation whose receiver is the
+  chain `q.p`, and the conversion writes it as KerML 8.2.5.8.3 does
+  (`InstantiatedTypeMember` → `OwnedFeatureChainMember`) — an `OwningMembership`
+  at the `function` slot owning a chain `Feature` with one `FeatureChaining` per
+  link (`q`, `p`, `f`), the instantiated type; `sysml:function` is the
+  `Function` typing the final link (`Expression::function`, KerML 8.3.4.7.3) —
+  `f`'s calc def, or the library `Calculations::Calculation` an untyped calc
+  usage implies — omitted only when that link does not resolve; the arguments
+  alone as `in` parameters, no `operand` — and the reflective read owns the same
+  Feature,
+  chainings and ids. `p.a.b` stays nested chain expressions with one-segment
+  members, one `FeatureChainExpression` per link, so no `targetFeature` chain
+  Feature arises from the notation
+  (`TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee`). A
+  receiver that is not a pure chain of names (`(a + b).f(1)`, `x[1].f()`) keeps
+  its `operand` form. A literal carries the name itself,
   without the quotes an unrestricted name is written with; a target that is an
   expression rather than a name (a feature chain, say) is carried as the text it
   was written as, typed `sysx:Expression` to tell the two apart. These
@@ -794,7 +810,7 @@ sees the same relationships SysML.xtext produces.
 | `:>> mass`, `redefines mass` | a `sysml:Redefinition` (`<S>_rd<i>`) with `redefiningFeature`/`redefinedFeature` |
 | `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
 | `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
-| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`, so `port p`'s `FeatureTyping` reads `type: ~P` |
+| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; a named `P` gives its conjugate `declaredName "~P"` (never `declaredShortName`), while an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
 | `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
 | `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword |
 | `objective { verify r; }` | a `sysml:RequirementVerificationMembership` owning a `sysml:RequirementUsage` that references `r` (its `sysml:ReferenceSubsetting`), with `sysml:kind "requirement"` |
@@ -1271,7 +1287,10 @@ The rules the tree follows:
 - **An expression body is structure too.** `{ in y : Real; y + x }` is a
   `sysml:Expression` node whose `sysx:bodyParameter`s are nodes of their own —
   each typed `sysml:ReferenceUsage` with `sysml:direction "in"`, its name, `ref`
-  flag, `sysml:type`, bounds, `sysml:value` and any body of its own — and whose
+  flag, `sysml:type`, bounds, `sysml:value` and any body of its own, owned
+  through a `sysml:FeatureMembership` (the type body both notations give an
+  expression body: KerML.xtext `FunctionBodyPart`, SysML.xtext `CalculationBody`;
+  KerMLExpressions' `BodyParameterMember` is overridden) — and whose
   `sysx:resultExpression` is the tree of the expression after them, so a nested
   body (`{ in y : Real; f(x = { in z : Real; z + y }) }`) and an `in expr`
   parameter's body (`in expr keep : Boolean { in v : Real; v > x }`) rebuild from
@@ -2274,11 +2293,15 @@ The mapping materializes the same relationship elements the toolkit emits
 the `Membership` an expression referent is carried by — the table above) and
 writes the same unnamed root `Namespace` with its `OwningMembership` (see
 [The root namespace](#the-root-namespace)), so the toolkit's lifter reads this
-form's output back to the notation it came from. The per-`@type` element
+form's output back to the notation it came from. A conjugate has
+`declaredName "~P"` only when its original declares a name and never has a
+`declaredShortName`; otherwise it is addressed as `<owner>::@conjugated`. The
+per-`@type` element
 counts of the two still differ where the toolkit's own JSON is sparser than
 the metamodel: it writes no `ReturnParameterMembership` for an expression
-whose result is unused, spells a chained callee as `FeatureChaining`s on one
-feature where this mapping owns a `FeatureChainExpression` per link, and
+whose result is unused, spells a chained target (`p.a.b`) as `FeatureChaining`s
+on one feature where this mapping owns a `FeatureChainExpression` per link (a
+chained callee, `q.p.f(1)`, both spell as one chain feature), and
 writes a `sysml:CaseDefinition` where an `analysis def` is an
 `AnalysisCaseDefinition`. What the toolkit does not
 read are the `sysx:` extension metaclasses listed above, and one place where

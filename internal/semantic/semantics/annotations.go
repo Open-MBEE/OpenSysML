@@ -1122,10 +1122,10 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		return "ConjugatedPortDefinition"
 	}
 	if sym.Expr != nil {
-		if isExpressionParameterSymbol(sym) {
+		if isExpressionParameterSymbol(sym) || sym.Expr.Role == symbols.ExpressionChainFeature {
 			return "Feature"
 		}
-		return expressionMetaclassName(sym.Decl)
+		return expressionElementMetaclassName(sym)
 	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ForkNode:
@@ -1451,6 +1451,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.requirementElements(sym, feature); ok {
 		return elems, true
 	}
+	if elems, ok := m.parameterElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1496,99 +1499,6 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			}
 		}
 		return out, true
-	case "input":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		if isExpressionSymbol(sym) {
-			return m.ExpressionParameters(sym), true
-		}
-		if behaviorLike(sym) {
-			out := m.InputParametersOf(sym)
-			return includeSubjectParameterInOrder(m, sym, out), true
-		}
-		out := m.directedFeatures(sym, ast.DirIn, ast.DirInOut)
-		if m.reflectiveMetaclassConforms(sym, "RequirementUsage") {
-			out = includeSubjectParameterInOrder(m, sym, out)
-		}
-		return out, true
-	case "output":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		if isExpressionSymbol(sym) {
-			return expressionResultList(m, sym), true
-		}
-		if behaviorLike(sym) {
-			var out []*symbols.Symbol
-			for _, parameter := range m.BehaviorParametersOf(sym) {
-				if parameter.Symbol == nil || parameter.IsResult ||
-					(parameter.Direction != ast.DirOut && parameter.Direction != ast.DirInOut) {
-					continue
-				}
-				out = append(out, parameter.Symbol)
-			}
-			for _, parameter := range m.BehaviorParametersOf(sym) {
-				if parameter.Symbol != nil && parameter.IsResult {
-					out = append(out, parameter.Symbol)
-				}
-			}
-			return out, true
-		}
-		return m.directedFeatures(sym, ast.DirOut, ast.DirInOut), true
-	case "parameter":
-		if !m.reflectiveMetaclassConforms(sym, "Behavior") &&
-			!m.reflectiveMetaclassConforms(sym, "Step") {
-			return nil, false
-		}
-		if isExpressionSymbol(sym) {
-			return m.expressionOwnedParts(sym), true
-		}
-		var out []*symbols.Symbol
-		for _, parameter := range m.BehaviorParametersOf(sym) {
-			if parameter.Symbol != nil {
-				out = append(out, parameter.Symbol)
-			}
-		}
-		return includeSubjectParameterInOrder(m, sym, out), true
-	case "directedFeature":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		if isExpressionSymbol(sym) {
-			return m.expressionOwnedParts(sym), true
-		}
-		return m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut), true
-	case "subjectParameter":
-		if !m.ownsSubjectParameter(sym) {
-			return nil, false
-		}
-		if subject := m.SubjectParameterOf(sym); subject != nil {
-			return []*symbols.Symbol{subject}, true
-		}
-		return nil, true
-	case "objectiveRequirement":
-		if !m.ownsObjectiveRequirement(sym) {
-			return nil, false
-		}
-		owned, inherited := m.ObjectivesOf(sym)
-		objectives := append(owned, inherited...)
-		if len(objectives) > 0 && objectives[0] != nil {
-			return []*symbols.Symbol{objectives[0]}, true
-		}
-		return nil, true
-	case "result":
-		if !m.reflectiveMetaclassConforms(sym, "Expression") &&
-			!m.reflectiveMetaclassConforms(sym, "Function") {
-			return nil, false
-		}
-		if isExpressionSymbol(sym) {
-			return expressionResultList(m, sym), true
-		}
-		if result := m.ResultParameterOf(sym); result != nil {
-			return []*symbols.Symbol{result}, true
-		}
-		return nil, true
 	case "individualDefinition":
 		if !m.reflectiveMetaclassConforms(sym, "OccurrenceUsage") {
 			return nil, false
@@ -1621,7 +1531,14 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			}
 		}
 		return ends, true
+	case "ownedFeatureChaining":
+		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+			return m.OwnedRelationships(sym), true
+		}
 	case "chainingFeature":
+		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+			return m.ChainingFeatures(sym), true
+		}
 		if !m.reflectiveMetaclassConforms(sym, "Feature") {
 			return nil, false
 		}
@@ -1890,6 +1807,12 @@ func (m *Model) reflectiveFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.FeatureTypeSetWithImplied(sym)
 }
 
+// FunctionTypes: the Functions among a feature's effective types (declared, inherited, or implied
+// by its kind) — those typing an expression that instantiates it (KerML 8.3.4.7.3).
+func (m *Model) FunctionTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	return m.conformingTypes(sym, "Function")
+}
+
 func (m *Model) conformingTypes(sym *symbols.Symbol, target string) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for _, typ := range m.reflectiveFeatureTypes(sym) {
@@ -1930,7 +1853,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		// feature's owned memberships.
 		members = append(members, value)
 	}
-	members = append(members, m.expressionOwnedParts(sym)...)
+	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, ownedMembersOf(sym)...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
@@ -2225,7 +2148,8 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return value, true
 		}
 	}
-	if sym.Expr != nil && !isExpressionParameterSymbol(sym) {
+	if sym.Expr != nil && !isExpressionParameterSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper &&
+		sym.Expr.Role != symbols.ExpressionChainFeature {
 		// A parameter shares its expression's node but states none of its values.
 		if value, ok := expressionValue(sym, feature); ok {
 			return value, true
@@ -2353,16 +2277,25 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		case "language":
 			return stringOrEmpty(source.StringValue(d.Language)), true
 		}
+	case *symbols.ImpliedDecl:
+		// The implied conjugated port definition (SysML v2 8.3.12.3) is declared by nothing,
+		// so its plain Type attributes read their defaults.
+		if sym.IsConjugatedPortDefinition() {
+			switch feature {
+			case "isAbstract", "isSufficient":
+				return boolValue(false), true
+			}
+		}
 	case *ast.Definition:
 		switch feature {
 		case "isAbstract":
 			return boolValue(d.IsAbstract || IsVariation(sym)), true
 		case "isSufficient":
 			return boolValue(d.IsAll || m.reflectiveMetaclassConforms(sym, "ConnectionDefinition")), true
-		case "isConstant":
-			return boolValue(d.IsConstant), true
 		case "isParallel":
-			return boolValue(d.IsParallel), true
+			if m.reflectiveMetaclassConforms(sym, "StateDefinition") {
+				return boolValue(d.IsParallel), true
+			}
 		}
 	case *ast.Usage:
 		switch feature {
@@ -2371,7 +2304,9 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		case "isVariant":
 			return boolValue(IsVariant(sym)), true
 		case "isParallel":
-			return boolValue(d.IsParallel), true
+			if m.reflectiveMetaclassConforms(sym, "StateUsage") {
+				return boolValue(d.IsParallel), true
+			}
 		}
 	}
 	if sym.Recorded() && feature == "isIndividual" {

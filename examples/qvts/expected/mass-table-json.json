@@ -1,0 +1,79 @@
+{
+  "status": "holds",
+  "exit": 0,
+  "checks": [
+    {
+      "subject": "QVTSDemo::MassTable",
+      "status": "holds",
+      "values": [
+        {
+          "name": "rows",
+          "value": "3"
+        },
+        {
+          "name": "columns",
+          "value": "qualifiedName, mass"
+        }
+      ],
+      "lines": [
+        "✓ Query QVTSDemo::MassTable returned 3 rows",
+        "  Columns: qualifiedName, mass",
+        "  Row 1: Lander::lander::cabin",
+        "    qualifiedName = \"Lander::lander::cabin\"",
+        "    mass = 320.0",
+        "  Row 2: Lander::lander::engine",
+        "    qualifiedName = \"Lander::lander::engine\"",
+        "    mass = 145.0",
+        "  Row 3: Lander::lander::scienceBay",
+        "    qualifiedName = \"Lander::lander::scienceBay\"",
+        "    mass = (none)"
+      ],
+      "rows": null,
+      "table": {
+        "columns": [
+          "qualifiedName",
+          "mass"
+        ],
+        "rows": [
+          {
+            "element": "Lander::lander::cabin",
+            "cells": [
+              [
+                "\"Lander::lander::cabin\""
+              ],
+              [
+                "320.0"
+              ]
+            ]
+          },
+          {
+            "element": "Lander::lander::engine",
+            "cells": [
+              [
+                "\"Lander::lander::engine\""
+              ],
+              [
+                "145.0"
+              ]
+            ]
+          },
+          {
+            "element": "Lander::lander::scienceBay",
+            "cells": [
+              [
+                "\"Lander::lander::scienceBay\""
+              ],
+              []
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": null,
+  "output": [
+    "✓ package Lander",
+    "✓ package QVTSDemo"
+  ],
+  "errors": null
+}

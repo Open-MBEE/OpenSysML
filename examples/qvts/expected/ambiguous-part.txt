@@ -1,0 +1,17 @@
+examples/qvts/duplicates.sysml:8:10: warning[name-conflict]: Duplicate of other owned member name
+    part repeated : Instrument;
+         ^~~~~~~~
+examples/qvts/duplicates.sysml:9:10: warning[name-conflict]: Duplicate of other owned member name
+    part repeated : Instrument;
+         ^~~~~~~~
+examples/qvts/duplicates.sysml:12:9: warning[name-conflict]: Duplicate of other owned member name
+        attribute :>> mass = 3.0;
+        ^~~~~~~~~~~~~~~~~~~~~~~~~
+examples/qvts/duplicates.sysml:13:9: warning[name-conflict]: Duplicate of other owned member name
+        attribute :>> mass = 4.0;
+        ^~~~~~~~~~~~~~~~~~~~~~~~~
+✓ package Lander
+✓ package Duplicates
+✓ package QVTSDemo
+sysml: query QVTSDemo::AmbiguousPart names 2 elements Duplicates::repeated: Duplicates::repeated (declared 2 times)
+  model error at Named(Duplicates::repeated): Duplicates violates ambiguousName: Duplicates::repeated (declared 2 times)

@@ -155,7 +155,10 @@ type Model struct {
 	// bodyApplications is the operation each body expression is passed to, indexed per
 	// document root on first query (see bodyparam.go).
 	bodyApplications map[*ast.BodyExpr]bodyApplication
-	bodyIndexed      map[*symbols.Scope]bool
+	// bodySymbols is the body Expression reflected for each `{ … }`, so a
+	// parameter or member the body declares finds its owner.
+	bodySymbols map[*ast.BodyExpr]*symbols.Symbol
+	bodyIndexed map[*symbols.Scope]bool
 	// assumedSupers holds the supertypes a reducer's first parameter is judged under
 	// while its reducer's result is typed (see bodyparam.go).
 	assumedSupers map[*symbols.Symbol]assumedSupertypes
@@ -251,8 +254,6 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		assumedSupers:         make(map[*symbols.Symbol]assumedSupertypes),
 		implicitRels:          make(map[*symbols.Symbol][]*symbols.Symbol),
 		memberships:           make(map[*symbols.Symbol][]*symbols.Symbol),
-		valueExpressions:      make(map[*symbols.Symbol]*symbols.Symbol),
-		expressionParts:       make(map[*symbols.Symbol]*expressionParts),
 		ownedAnnotations:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		annotatingRels:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		ownedImports:          make(map[*symbols.Symbol][]*symbols.Symbol),

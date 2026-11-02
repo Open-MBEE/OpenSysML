@@ -112,7 +112,6 @@ import {
   decodeDiagnostic,
   Instance,
   Model,
-  strictConformanceOf,
   type ParseOptions,
   type ParseSourcesOptions,
 } from "./model.js";
@@ -390,7 +389,7 @@ export class Connection {
       );
       capabilities.push(CAPABILITY_INLINE_LANGUAGE);
     }
-    const strictConformance = strictConformanceOf(options);
+    const { strictConformance } = options;
     if (strictConformance === true) {
       this.requireStrictConformance();
       capabilities.push(CAPABILITY_STRICT_CONFORMANCE);

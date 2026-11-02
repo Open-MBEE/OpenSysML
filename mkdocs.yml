@@ -248,6 +248,7 @@ nav:
       - guide/10-troubleshooting.md
       - guide/11-migrating-from-sysml-v1.md
       - guide/12-jupyter.md
+      - guide/qvts.md
       - guide/modeling-fleets.md
       - guide/modeling-product-lines.md
   - Document generation:

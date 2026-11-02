@@ -1555,6 +1555,9 @@ func (m *Model) ownerOf(sym *symbols.Symbol) *symbols.Symbol {
 	if owner := ownerSymbol(sym); owner != nil {
 		return owner
 	}
+	if body := m.bodyDeclaredBy(sym); body != nil {
+		return body
+	}
 	if sym == nil || m.resolver == nil || m.resolver.Index() == nil {
 		return nil
 	}

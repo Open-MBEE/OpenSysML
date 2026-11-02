@@ -1,6 +1,5 @@
 """opensysml - Python client library for OpenSysML SysML v2 parser."""
 
-import warnings
 
 from opensysml._version import VERSION as _declared_version
 from opensysml.connection import (
@@ -179,7 +178,6 @@ __all__ = [
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
     "load", "loads", "parse_sources", "connect", "convert", "migrate", "read_json",
-    # "eval" is deprecated in favour of "evaluate", so it is not exported.
     "evaluate", "instantiate",
     "DEFAULT_PORT", "split_target",
     "__version__"
@@ -596,24 +594,3 @@ def instantiate(symbol_id, file_path=None, model_hash=None, host='localhost',
     
     return conn.instantiate(symbol_id, model_hash)
 
-
-#: Names that shadowed a built-in, and what each is called now. Served through
-#: __getattr__ so a star-import no longer binds over the built-in.
-_RENAMED_NAMES = {"eval": "evaluate", "RuntimeError": "ExecutionError"}
-
-
-def __getattr__(name):
-    """Serve a renamed name with the object it became, warning about its use.
-
-    ``opensysml.eval`` is :func:`evaluate` and ``opensysml.RuntimeError`` is
-    :class:`~opensysml.errors.ExecutionError`, so existing snippets keep working.
-    """
-    replacement = _RENAMED_NAMES.get(name)
-    if replacement is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    warnings.warn(
-        f"opensysml.{name} is deprecated; use opensysml.{replacement} instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return globals()[replacement]

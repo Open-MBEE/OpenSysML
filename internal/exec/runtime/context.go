@@ -1830,7 +1830,9 @@ func (ctx *Context) ExecuteActionWithEvents(action *symbols.Symbol, self *Instan
 	// A performance started for this call is let go of when it fails; a reused one stays its owner's.
 	release := exec.Release
 	if reused {
-		release = func() {}
+		release = func() {
+			// A reused performance stays its owner's to release.
+		}
 	}
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()

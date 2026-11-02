@@ -52,11 +52,11 @@ func TestActionTraceRecordsFollowTheTokens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	go_, err := ctx.SignalMessage(oneSymbol(t, idx, "test::Go"), nil, craft)
+	goSignal, err := ctx.SignalMessage(oneSymbol(t, idx, "test::Go"), nil, craft)
 	if err != nil {
 		t.Fatalf("message: %v", err)
 	}
-	if err := ctx.DeliverEvents(exec, []Message{go_}); err != nil {
+	if err := ctx.DeliverEvents(exec, []Message{goSignal}); err != nil {
 		t.Fatalf("deliver: %v", err)
 	}
 	if err := exec.RunToCompletion(); err != nil {
