@@ -1653,6 +1653,11 @@ func untypedPerformanceUsage(sym *symbols.Symbol) bool {
 	if owned, ok := ast.OwnedConstraintOf(sym.Decl); ok {
 		return owned.Value == nil
 	}
+	switch sym.Decl.(type) {
+	case *ast.AssumeMember, *ast.RequireMember:
+		// The reference form (`assume c;`) checks the named constraint on this object.
+		return true
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && usage.Value == nil && (performanceUsageKind(usage.Kind) || usage.IsRequirementConstraint())
 }
