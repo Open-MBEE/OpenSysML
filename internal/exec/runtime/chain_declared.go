@@ -24,6 +24,7 @@ func (ec *EvalContext) declaredChainValue(base ast.Node, parts []ast.NameSegment
 	ec.ctx.chainStack = append(ec.ctx.chainStack, read)
 	defer func() { ec.ctx.chainStack = ec.ctx.chainStack[:len(ec.ctx.chainStack)-1] }()
 	defer ec.ctx.beginProbe()()
+	made := ec.ctx.ids.next
 	inst, err := ec.ctx.materialize(owner, 0, nil, "")
 	if err != nil {
 		return Value{}, true, err
@@ -46,11 +47,23 @@ func (ec *EvalContext) declaredChainValue(base ast.Node, parts []ast.NameSegment
 	if err != nil {
 		return Value{}, true, err
 	}
-	// What the object leaves open, and the objects and calcs it holds, go back with it.
-	if val.Kind == ValUndetermined || val.Kind == ValFunction || len(instancesOf(ec.ctx, standingElements(val))) > 0 {
+	// What the object leaves open, and the calcs and objects made under the probe it
+	// holds, go back with it; an object standing before the probe is kept as read.
+	if val.Kind == ValUndetermined || val.Kind == ValFunction || madeUnderProbe(ec.ctx, val, made) {
 		return Value{}, false, nil
 	}
 	return val, true, nil
+}
+
+// madeUnderProbe reports whether val holds an object whose identity was taken from
+// mark on: one made under the probe begun at mark, which its rollback takes back.
+func madeUnderProbe(ctx *Context, val Value, mark int64) bool {
+	for _, inst := range instancesOf(ctx, standingElements(val)) {
+		if inst.ID >= mark {
+			return true
+		}
+	}
+	return false
 }
 
 // readsDeclaredMembers reports whether a chain through sym is read from the object it would
