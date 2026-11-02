@@ -1451,6 +1451,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.requirementElements(sym, feature); ok {
 		return elems, true
 	}
+	if elems, ok := m.parameterElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1496,99 +1499,6 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			}
 		}
 		return out, true
-	case "input":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		if isExpressionSymbol(sym) {
-			return m.ExpressionParameters(sym), true
-		}
-		if behaviorLike(sym) {
-			out := m.InputParametersOf(sym)
-			return includeSubjectParameterInOrder(m, sym, out), true
-		}
-		out := m.directedFeatures(sym, ast.DirIn, ast.DirInOut)
-		if m.reflectiveMetaclassConforms(sym, "RequirementUsage") {
-			out = includeSubjectParameterInOrder(m, sym, out)
-		}
-		return out, true
-	case "output":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		if isExpressionSymbol(sym) {
-			return expressionResultList(m, sym), true
-		}
-		if behaviorLike(sym) {
-			var out []*symbols.Symbol
-			for _, parameter := range m.BehaviorParametersOf(sym) {
-				if parameter.Symbol == nil || parameter.IsResult ||
-					(parameter.Direction != ast.DirOut && parameter.Direction != ast.DirInOut) {
-					continue
-				}
-				out = append(out, parameter.Symbol)
-			}
-			for _, parameter := range m.BehaviorParametersOf(sym) {
-				if parameter.Symbol != nil && parameter.IsResult {
-					out = append(out, parameter.Symbol)
-				}
-			}
-			return out, true
-		}
-		return m.directedFeatures(sym, ast.DirOut, ast.DirInOut), true
-	case "parameter":
-		if !m.reflectiveMetaclassConforms(sym, "Behavior") &&
-			!m.reflectiveMetaclassConforms(sym, "Step") {
-			return nil, false
-		}
-		if isExpressionSymbol(sym) {
-			return m.expressionParameterParts(sym), true
-		}
-		var out []*symbols.Symbol
-		for _, parameter := range m.BehaviorParametersOf(sym) {
-			if parameter.Symbol != nil {
-				out = append(out, parameter.Symbol)
-			}
-		}
-		return includeSubjectParameterInOrder(m, sym, out), true
-	case "directedFeature":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		if isExpressionSymbol(sym) {
-			return m.expressionParameterParts(sym), true
-		}
-		return m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut), true
-	case "subjectParameter":
-		if !m.ownsSubjectParameter(sym) {
-			return nil, false
-		}
-		if subject := m.SubjectParameterOf(sym); subject != nil {
-			return []*symbols.Symbol{subject}, true
-		}
-		return nil, true
-	case "objectiveRequirement":
-		if !m.ownsObjectiveRequirement(sym) {
-			return nil, false
-		}
-		owned, inherited := m.ObjectivesOf(sym)
-		objectives := append(owned, inherited...)
-		if len(objectives) > 0 && objectives[0] != nil {
-			return []*symbols.Symbol{objectives[0]}, true
-		}
-		return nil, true
-	case "result":
-		if !m.reflectiveMetaclassConforms(sym, "Expression") &&
-			!m.reflectiveMetaclassConforms(sym, "Function") {
-			return nil, false
-		}
-		if isExpressionSymbol(sym) {
-			return expressionResultList(m, sym), true
-		}
-		if result := m.ResultParameterOf(sym); result != nil {
-			return []*symbols.Symbol{result}, true
-		}
-		return nil, true
 	case "individualDefinition":
 		if !m.reflectiveMetaclassConforms(sym, "OccurrenceUsage") {
 			return nil, false
