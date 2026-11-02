@@ -1,0 +1,7 @@
+{
+  "type": "state",
+  "evaluate": "test::Relay::contacts",
+  "performers": [
+    {"object": "test::relay", "finalState": "open"}
+  ]
+}
