@@ -20,7 +20,7 @@ import (
 // to exercise the error paths the real one only takes on a formatter bug.
 var formatSource = format.Source
 
-// Formatting re-indents the whole document as one edit per changed region, so
+// Formatting lays the whole document out as one edit per changed region, so
 // the editor keeps its undo history, cursor and folds.
 func (s *Server) Formatting(ctx context.Context, params *protocol.DocumentFormattingParams) ([]protocol.TextEdit, error) {
 	return s.formattingEdits(params.TextDocument.URI, params.Options, allLines)
@@ -78,9 +78,10 @@ func lineSpan(r protocol.Range) (first, last uint32) {
 	return first, last
 }
 
-// formatOptions maps the client's editor settings onto the formatter's.
+// formatOptions maps the client's editor settings onto the formatter's. The
+// statements are laid out one per line, as a `-convert sysml` writes them.
 func formatOptions(opts protocol.FormattingOptions) format.Options {
-	out := format.Options{IndentWidth: int(opts.TabSize), UseTabs: !opts.InsertSpaces}
+	out := format.Options{IndentWidth: int(opts.TabSize), UseTabs: !opts.InsertSpaces, BreakStatements: true}
 	if out.IndentWidth <= 0 {
 		out.IndentWidth = format.DefaultOptions.IndentWidth
 	}
@@ -90,10 +91,12 @@ func formatOptions(opts protocol.FormattingOptions) format.Options {
 // formatEdits returns the ordered, non-overlapping edits on the lines of w that
 // turn content into formatted. Lines are matched on their non-whitespace text,
 // since that is all the formatter preserves; each changed line becomes one edit
-// and each run of dropped lines one deletion.
+// — the lines a statement layout splits it into included — and each run of
+// dropped lines one deletion.
 func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 	oldLines, oldOffsets := cutLines(content)
 	newLines, _ := cutLines(formatted)
+	newLines = regroupLines(oldLines, newLines)
 	table := newLineTable(content, oldOffsets)
 	w.from, w.to = max(w.from, 0), min(w.to, len(oldLines))
 
@@ -181,6 +184,84 @@ func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 	return edits
 }
 
+// regroupLines joins the formatted lines that came from one line of the
+// original, so a line the layout split is still one line to the diff and its
+// rewrite one edit within it. The formatter never joins lines or moves text
+// between them, so each original line's non-whitespace text is that of a run
+// of formatted lines; should it not be, the lines are left as they are.
+func regroupLines(oldLines, newLines []string) []string {
+	out := make([]string, 0, len(oldLines))
+	j := 0
+	for _, old := range oldLines {
+		i := skipSpace(old, 0)
+		if i == len(old) {
+			continue
+		}
+		for j < len(newLines) && blank(newLines[j]) {
+			out = append(out, newLines[j])
+			j++
+		}
+		from := j
+		for i < len(old) {
+			if j == len(newLines) {
+				return newLines
+			}
+			if i = consumeText(old, i, newLines[j]); i < 0 {
+				return newLines
+			}
+			j++
+		}
+		if j-from == 1 {
+			out = append(out, newLines[from])
+		} else {
+			out = append(out, strings.Join(newLines[from:j], ""))
+		}
+	}
+	for ; j < len(newLines); j++ {
+		if !blank(newLines[j]) {
+			return newLines
+		}
+		out = append(out, newLines[j])
+	}
+	return out
+}
+
+// consumeText matches the non-whitespace bytes of line against those of old
+// from i on, answering the index in old past the matched text and the
+// whitespace after it, or -1 where the two differ.
+func consumeText(old string, i int, line string) int {
+	for k := 0; k < len(line); k++ {
+		if isSpace(line[k]) {
+			continue
+		}
+		if i == len(old) || old[i] != line[k] {
+			return -1
+		}
+		i = skipSpace(old, i+1)
+	}
+	return i
+}
+
+// skipSpace is the index of the first non-whitespace byte of s at or after i.
+func skipSpace(s string, i int) int {
+	for i < len(s) && isSpace(s[i]) {
+		i++
+	}
+	return i
+}
+
+func blank(line string) bool {
+	return skipSpace(line, 0) == len(line)
+}
+
+func isSpace(c byte) bool {
+	switch c {
+	case ' ', '\t', '\r', '\n', '\f', '\v':
+		return true
+	}
+	return false
+}
+
 // uniform reports whether every id is the given one.
 func uniform(ids []int, id int) bool {
 	for _, other := range ids {
@@ -224,10 +305,8 @@ func (k *lineKeys) of(lines []string, size int) []int {
 	ends := make([]int, len(lines))
 	for i, line := range lines {
 		for j := 0; j < len(line); j++ {
-			switch c := line[j]; c {
-			case ' ', '\t', '\r', '\n', '\f', '\v':
-			default:
-				stripped.WriteByte(c)
+			if !isSpace(line[j]) {
+				stripped.WriteByte(line[j])
 			}
 		}
 		ends[i] = stripped.Len()

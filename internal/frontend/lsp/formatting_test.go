@@ -203,7 +203,7 @@ func TestFormattingEditsOnlyChangedLines(t *testing.T) {
 func TestFormattingDeletesCollapsedBlankLines(t *testing.T) {
 	src := "package P {\n    part def Car;\n\n\n\n    part def Bus;\n}\n"
 	edits, got := formatDoc(t, src, spaces4)
-	want, err := format.Source("fmt.sysml", []byte(src), format.DefaultOptions)
+	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,21 +215,26 @@ func TestFormattingDeletesCollapsedBlankLines(t *testing.T) {
 	}
 }
 
-// Columns are UTF-16 code units: an astral-plane character counts as two.
+// Columns are UTF-16 code units: an astral-plane character counts as two. The
+// layout splits the statement off the comment before it, and the edit doing so
+// starts after the emoji.
 func TestFormattingPositionsAreUTF16(t *testing.T) {
 	src := "package P {\n    /* 😀 */ part def Car;   \n  attribute s = \"🚗\";\n}\n"
 	edits, got := formatDoc(t, src, spaces4)
-	want, err := format.Source("fmt.sysml", []byte(src), format.DefaultOptions)
+	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != string(want) {
 		t.Fatalf("got %q, want %q", got, string(want))
 	}
-	// "    /* 😀 */ part def Car;" is 26 UTF-16 units (28 bytes): the emoji
-	// is two units, four bytes.
+	if want := "package P {\n    /* 😀 */\n    part def Car;\n    attribute s = \"🚗\";\n}\n"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	// "    /* 😀 */" is 12 UTF-16 units (14 bytes) and the line 29 units (31
+	// bytes): the emoji is two units, four bytes.
 	wantEdits := []protocol.TextEdit{
-		{Range: protocol.Range{Start: pos(1, 26), End: pos(1, 29)}, NewText: ""},
+		{Range: protocol.Range{Start: pos(1, 12), End: pos(1, 29)}, NewText: "\n    part def Car;"},
 		{Range: protocol.Range{Start: pos(2, 2), End: pos(2, 2)}, NewText: "  "},
 	}
 	if len(edits) != len(wantEdits) || edits[0] != wantEdits[0] || edits[1] != wantEdits[1] {
@@ -341,19 +346,30 @@ func TestTrimCommonKeepsCRLFWhole(t *testing.T) {
 	}
 }
 
-// Every corpus model formats to exactly what format.Source produces when the
-// edits are applied, including files that need no edits or do not parse.
+// Every corpus model formats to exactly what format.Source produces with the
+// server's options when the edits are applied, including files that need no
+// edits or do not parse. Fixtures written with several statements on a line
+// are laid out, so the split case is exercised; fixtures already laid out get
+// no edits at all.
 func TestFormattingEditsReproduceFormatterOutput(t *testing.T) {
+	var laidOut, split int
 	for _, path := range formattingCorpus(t) {
 		content, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
 		t.Run(filepath.Base(path), func(t *testing.T) {
-			checkFormattingEdits(t, path, string(content))
+			if checkFormattingEdits(t, path, string(content)) {
+				split++
+			} else {
+				laidOut++
+			}
 			// A mangled copy changes many lines at once.
 			checkFormattingEdits(t, path, mangleIndentation(string(content)))
 		})
+	}
+	if split == 0 || laidOut == 0 {
+		t.Fatalf("%d fixtures were split and %d already laid out; want both cases covered", split, laidOut)
 	}
 }
 
@@ -397,7 +413,9 @@ func mangleIndentation(src string) string {
 	return b.String()
 }
 
-func checkFormattingEdits(t *testing.T, path, src string) {
+// checkFormattingEdits applies the server's edits to src and compares the
+// result with the formatter's, reporting whether the layout split a line.
+func checkFormattingEdits(t *testing.T, path, src string) (split bool) {
 	t.Helper()
 	s, name := openFormatDoc(t, src)
 	edits, err := s.Formatting(context.Background(), &protocol.DocumentFormattingParams{
@@ -411,9 +429,9 @@ func checkFormattingEdits(t *testing.T, path, src string) {
 		if len(edits) != 0 {
 			t.Fatalf("%s: edits = %d for a document with parse errors, want none", path, len(edits))
 		}
-		return
+		return false
 	}
-	want, err := format.Source(name, []byte(src), format.DefaultOptions)
+	want, err := format.Source(name, []byte(src), formatOptions(spaces4))
 	if err != nil {
 		t.Fatalf("%s: format.Source: %v", path, err)
 	}
@@ -423,6 +441,12 @@ func checkFormattingEdits(t *testing.T, path, src string) {
 	if got := applyOrderedEdits(t, src, edits); got != string(want) {
 		t.Fatalf("%s: applying %d edits gives\n%s\nwant\n%s", path, len(edits), got, want)
 	}
+	for _, e := range edits {
+		if strings.Contains(e.NewText, "\n") && e.Range.Start.Line == e.Range.End.Line {
+			split = true
+		}
+	}
+	return split
 }
 
 // Computing the edits costs far less than the formatter's own pass, even on the
@@ -440,7 +464,7 @@ func TestFormattingDiffIsCheaperThanFormatting(t *testing.T) {
 		}
 	}
 	mangled := []byte(mangleIndentation(string(largest)))
-	formatted, err := format.Source("largest.sysml", mangled, format.DefaultOptions)
+	formatted, err := format.Source("largest.sysml", mangled, formatOptions(spaces4))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -458,7 +482,7 @@ func TestFormattingDiffIsCheaperThanFormatting(t *testing.T) {
 		// on a loaded runner hits both or neither; the best round of each survives it.
 		formatTime, diffTime := time.Duration(math.MaxInt64), time.Duration(math.MaxInt64)
 		for range 20 {
-			formatTime = min(formatTime, timed(func() { _, _ = format.Source("largest.sysml", mangled, format.DefaultOptions) }))
+			formatTime = min(formatTime, timed(func() { _, _ = format.Source("largest.sysml", mangled, formatOptions(spaces4)) }))
 			diffTime = min(diffTime, timed(func() { formatEdits(mangled, formatted, allLines) }))
 		}
 		t.Logf("%d bytes: format %v, diff %v", len(mangled), formatTime, diffTime)
@@ -478,7 +502,7 @@ func BenchmarkFormatEdits(b *testing.B) {
 		b.Fatal(err)
 	}
 	mangled := []byte(mangleIndentation(string(content)))
-	formatted, err := format.Source("b.sysml", mangled, format.DefaultOptions)
+	formatted, err := format.Source("b.sysml", mangled, formatOptions(spaces4))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -608,10 +632,11 @@ func TestRangeFormattingTrimsBlankRunWithinSelectionOnly(t *testing.T) {
 }
 
 // Every edit RangeFormatting returns lies on the selected lines, whatever the
-// selection, and selecting everything reproduces the formatter's output.
+// selection — a line the layout splits included — and selecting everything
+// reproduces the formatter's output.
 func TestRangeFormattingNeverLeavesSelection(t *testing.T) {
-	src := "package P {\n\n\n  part def Car;   \n\n\n\n\tpart def Bus {\n  \n\n  attribute n;\n\n  }\n\n\n}\n\n\n"
-	want, err := format.Source("fmt.sysml", []byte(src), format.DefaultOptions)
+	src := "package P {\n\n\n  part def Car;   \n\n\n\n\tpart def Bus {\n  \n\n  attribute n;\n\n  }\n\n part def Van { part def Wheel; part def Door; }\n\n}\n\n\n"
+	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -679,5 +704,94 @@ func TestFormattingHonoursNotIdempotentGuard(t *testing.T) {
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)}, Range: lines(0, 3), Options: spaces4,
 	}); !errors.Is(err, boom) {
 		t.Fatalf("RangeFormatting err = %v, want %v", err, boom)
+	}
+}
+
+// A one-line model is laid out one statement per line: the layout of issue
+// 1840, with tabs when the client sends no options and the client's indent
+// otherwise. The split is one edit within the line.
+func TestFormattingLaysStatementsOutOnePerLine(t *testing.T) {
+	src := "package P { part def A; }\n"
+	cases := []struct {
+		name string
+		opts protocol.FormattingOptions
+		want string
+		edit protocol.TextEdit
+	}{
+		{"no options", protocol.FormattingOptions{}, "package P {\n\tpart def A;\n}\n",
+			protocol.TextEdit{Range: protocol.Range{Start: pos(0, 11), End: pos(0, 24)}, NewText: "\n\tpart def A;\n"}},
+		{"four spaces", spaces4, "package P {\n    part def A;\n}\n",
+			protocol.TextEdit{Range: protocol.Range{Start: pos(0, 11), End: pos(0, 24)}, NewText: "\n    part def A;\n"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			edits, got := formatDoc(t, src, tc.opts)
+			if got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
+			}
+			if len(edits) != 1 || edits[0] != tc.edit {
+				t.Fatalf("edits = %+v, want [%+v]", edits, tc.edit)
+			}
+		})
+	}
+}
+
+// Bodies the layout keeps on their line stay as written, and a one-liner body
+// among them is expanded as -convert sysml expands it.
+func TestFormattingLeavesSingleLineBodiesAlone(t *testing.T) {
+	src := "package P {\n    part def E {}\n    assert constraint { x > 0 }\n    attribute all = items->forAll { in x; x > 0 };\n    part def Q; // note\n    enum def Color { red; green; blue; }\n}\n"
+	edits, got := formatDoc(t, src, spaces4)
+	want := "package P {\n    part def E {}\n    assert constraint { x > 0 }\n    attribute all = items->forAll { in x; x > 0 };\n    part def Q; // note\n    enum def Color {\n        red;\n        green;\n        blue;\n    }\n}\n"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	if len(edits) != 1 || edits[0].Range.Start.Line != 5 || edits[0].Range.End.Line != 5 {
+		t.Fatalf("edits = %+v, want one edit on the enum line", edits)
+	}
+}
+
+// Selecting one line of a file whose lines each hold several statements lays
+// that line out and leaves the others as they are.
+func TestRangeFormattingSplitsSelectedLineOnly(t *testing.T) {
+	src := "package P {\n    part def A; part def B;\n    part def C; part def D;\n}\n"
+	edits := rangeEditsFor(t, src, lines(1, 2))
+	if len(edits) == 0 {
+		t.Fatal("no edits for the selected one-liner")
+	}
+	for _, e := range edits {
+		if first, last := lineSpan(e.Range); first != 1 || last != 1 {
+			t.Fatalf("edit %+v leaves line 1", e)
+		}
+	}
+	want := "package P {\n    part def A;\n    part def B;\n    part def C; part def D;\n}\n"
+	if got := applyOrderedEdits(t, src, edits); got != want {
+		t.Fatalf("applied = %q, want %q", got, want)
+	}
+	if got := applyOrderedEdits(t, src, formatEditsFor(t, src, spaces4)); got != "package P {\n    part def A;\n    part def B;\n    part def C;\n    part def D;\n}\n" {
+		t.Fatalf("whole-file formatting = %q", got)
+	}
+}
+
+// regroupLines joins the formatted lines of one original line and passes
+// blank lines through; lines it cannot account for are left ungrouped.
+func TestRegroupLines(t *testing.T) {
+	cases := []struct {
+		name          string
+		old, new, out []string
+	}{
+		{"split", []string{"a { b; }\n"}, []string{"a {\n", "  b;\n", "}\n"}, []string{"a {\n  b;\n}\n"}},
+		{"blanks kept", []string{"a;\n", "\n", "b; c;\n"}, []string{"a;\n", "\n", "b;\n", "c;\n"}, []string{"a;\n", "\n", "b;\nc;\n"}},
+		{"blank dropped", []string{"a;\n", "\n", "\n", "b;\n"}, []string{"a;\n", "\n", "b;\n"}, []string{"a;\n", "\n", "b;\n"}},
+		{"newline added", []string{"a;"}, []string{"a;\n"}, []string{"a;\n"}},
+		{"text moved", []string{"a;\n", "b;\n"}, []string{"a; b;\n"}, []string{"a; b;\n"}},
+		{"text lost", []string{"a; b;\n"}, []string{"a;\n"}, []string{"a;\n"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := regroupLines(tc.old, tc.new)
+			if strings.Join(got, "|") != strings.Join(tc.out, "|") {
+				t.Fatalf("regroupLines = %q, want %q", got, tc.out)
+			}
+		})
 	}
 }

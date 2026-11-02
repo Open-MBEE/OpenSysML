@@ -85,7 +85,8 @@ the cell; positions in an answer — hover and lens ranges, locations, text and 
 document symbols, inlay hints, semantic tokens — are the cell's, and a location in another
 open notebook's document names that notebook's cell. `textDocument/documentSymbol`,
 `codeLens` and `semanticTokens` on a cell answer that cell's part of the notebook;
-`textDocument/formatting` on a cell formats that cell's lines. A cell's code lenses are its
+`textDocument/formatting` on a cell formats that cell's lines, laying its statements out one
+per line with every edit within the cell. A cell's code lenses are its
 reference counts only: the kernel runs a cell, so the *Run* and *Evaluate* lenses, which hand
 `sysml` a model file on disk, are offered on a document with a `file:` URI alone.
 

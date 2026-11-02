@@ -104,8 +104,9 @@ on a line of its own, each level indented — so a model generated on one line c
 statement per line. Every lexeme is kept, and so is every line break the author wrote; a body
 holding only an expression (`assert constraint { x > 0 }`), an empty body, the body of an
 expression (`->forAll { in x; ... }`) and a note at the end of a line stay as written.
-`sysml model.sysml -convert sysml -o model.sysml` is therefore the way to tidy a file; the
-editor's Format Document and a save (below) keep the author's line breaks.
+`sysml model.sysml -convert sysml -o model.sysml` is therefore the way to tidy a file from the
+command line, and the editor's Format Document lays a file out the same way; a save (below)
+writes the text as it stands.
 
 ### The standard library as a model
 

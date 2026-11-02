@@ -43,7 +43,8 @@ type Options struct {
 var DefaultOptions = Options{IndentWidth: 4}
 
 // ConvertOptions are DefaultOptions with BreakStatements: what a conversion to
-// notation writes, since its input may be generated text with no line breaks.
+// notation and the editor's formatting write, since their input may be
+// generated text with no line breaks.
 var ConvertOptions = Options{IndentWidth: 4, BreakStatements: true}
 
 // ErrNotIdempotent reports that formatting would have changed the token stream.
