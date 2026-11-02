@@ -195,22 +195,54 @@ func (ctx *Context) connectorOwnedBindings(decl *symbols.Symbol) []lower.Binding
 	return out
 }
 
-// connectorEndAttachmentPaths maps each named end of a connector usage to the
-// feature path it attaches. An end that selects one element of a collection
+// connectorEndAttachmentPaths maps each name of each end of a connector usage —
+// the end's own and those of the ends it redefines, by clause or by position in
+// a general connector, which are one feature with it — to the feature path the
+// end attaches. An end that selects one element of a collection
 // (`connect a.ports#(1) to b.q`) attaches a value rather than a feature, so no
 // path can be re-rooted at it.
 func (ctx *Context) connectorEndAttachmentPaths(connSym *symbols.Symbol) map[string]string {
 	ends := ctx.model.semantics.ConnectorEndAttachments(connSym)
 	paths := make(map[string]string, len(ends))
 	for _, end := range ends {
-		if end.Name == "" || end.Selection != nil {
+		if end.Selection != nil {
 			continue
 		}
-		if path := lower.FeaturePath(end.Attachment); path != "" {
-			paths[end.Name] = path
+		path := lower.FeaturePath(end.Attachment)
+		if path == "" {
+			continue
+		}
+		for _, name := range ctx.connectorEndNames(end) {
+			if _, taken := paths[name]; !taken {
+				paths[name] = path
+			}
 		}
 	}
 	return paths
+}
+
+// connectorEndNames lists the names under which a connector end's feature is
+// known: the effective name of the end and the names of every feature its
+// declaration redefines.
+func (ctx *Context) connectorEndNames(end semantics.ConnectorEndAttachment) []string {
+	var names []string
+	if end.Name != "" {
+		names = append(names, end.Name)
+	}
+	for _, sym := range []*symbols.Symbol{end.Declared, end.EndFeature} {
+		if sym == nil {
+			continue
+		}
+		if name := symbols.LastSegment(sym.Name); name != "" {
+			names = append(names, name)
+		}
+		for _, redefined := range ctx.model.semantics.AllRedefinedFeatures(sym) {
+			if name := symbols.LastSegment(redefined.Name); name != "" {
+				names = append(names, name)
+			}
+		}
+	}
+	return names
 }
 
 // connectorMayBeAbsent reports a connector usage whose stated lower bound is zero:

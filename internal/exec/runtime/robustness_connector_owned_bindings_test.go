@@ -13,6 +13,7 @@ func TestRuntimeRobustnessConnectorOwnedBindings(t *testing.T) {
 	t.Run("conflicting_values_from_both_sides", testConflictingValuesFromBothSides)
 	t.Run("binding_rooted_at_no_end", testBindingRootedAtNoEnd)
 	t.Run("absent_connector_binds_nothing", testAbsentConnectorBindsNothing)
+	t.Run("each_connector_of_one_definition_is_checked", testEachConnectorOfOneDefinitionIsChecked)
 }
 
 // featureValueAt reads the feature value a dotted path names from inst, through
@@ -128,4 +129,55 @@ func testAbsentConnectorBindsNothing(t *testing.T) {
 			}
 		}`)
 	wantUnset(t, ctx, inst, "k.dst.voltage", "a connector that may not exist binds nothing")
+}
+
+const sharedDefinitionPartialBindings = `package P {
+	item def Node;
+	part def Holder { item nodes : Node [2]; }
+	connection def Share { end a : Holder; end b : Holder; binding [1] bind [0..1] a.nodes = [0..1] b.nodes; }
+	part def Mesh {
+		part p : Holder;
+		part q : Holder;
+		part r : Holder;
+		connection toQ : Share connect p to q;
+		connection toR : Share connect p to r;
+	}
+}`
+
+// testEachConnectorOfOneDefinitionIsChecked: a binding one connection def owns binds
+// different features through each connection of the definition, and validation
+// checks each, not only the first.
+func testEachConnectorOfOneDefinitionIsChecked(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<shared-definition-partial-bindings>", parseAndBuild(t, sharedDefinitionPartialBindings))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Mesh"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	report, err := ctx.ValidateObject(inst, nil)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	// The connector objects carry the definition's binding over their own ends;
+	// the verdicts about the mesh are the ones over the connected features.
+	var onMesh []ObjectVerdict
+	for _, v := range report.Verdicts {
+		if v.Subject == inst {
+			onMesh = append(onMesh, v)
+		}
+	}
+	if len(onMesh) != 2 {
+		t.Fatalf("%d verdict(s) on the mesh, want one per connection: %+v", len(onMesh), onMesh)
+	}
+	for i, want := range []string{"p.nodes and q.nodes share 0 value(s) where the binding links 1", "p.nodes and r.nodes share 0 value(s) where the binding links 1"} {
+		v := onMesh[i]
+		if v.Kind != AssertionBinding || v.Status != ValidationViolated || !errors.Is(v.Err, ErrViolated) {
+			t.Errorf("verdict %d = %s %s %v, want a violated binding", i+1, v.Kind, v.Status, v.Err)
+		}
+		if v.Err == nil || !strings.Contains(v.Err.Error(), want) {
+			t.Errorf("verdict %d error %v does not name %q", i+1, v.Err, want)
+		}
+	}
+	if report.Valid() {
+		t.Error("an object violating a connector-owned binding is reported valid")
+	}
 }

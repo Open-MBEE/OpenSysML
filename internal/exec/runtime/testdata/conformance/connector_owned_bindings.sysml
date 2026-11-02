@@ -18,6 +18,8 @@ package test {
 	interface def Plain { end a : Pw; end b : ~Pw; }
 	interface def Derived :> L;
 	connection def Wire { end a : Pw; end b : ~Pw; bind a.voltage = b.voltage; }
+	interface def RenamedEnds :> L { end input :>> a; end output :>> b; }
+	interface def PositionalEnds :> L { end input : Pw; end output : ~Pw; }
 
 	part def Src { port src : Pw { attribute :>> voltage = 28; } }
 	part def Snk { port dst : ~Pw; }
@@ -50,6 +52,16 @@ package test {
 		part k : Snk;
 		interface i : Derived connect s.src to k.dst;
 	}
+	part def RenamedEndsBinding {
+		part s : Src;
+		part k : Snk;
+		interface i : RenamedEnds connect s.src to k.dst;
+	}
+	part def PositionalEndsBinding {
+		part s : Src;
+		part k : Snk;
+		interface i : PositionalEnds connect s.src to k.dst;
+	}
 	part def ConjugatedSideBinding {
 		part s : Bare;
 		part k : Snk { port :>> dst { attribute :>> voltage = 12; } }
@@ -66,6 +78,8 @@ package test {
 	part system {
 		part direct : DirectBinding;
 		part definition : DefinitionBinding;
+		part renamed : RenamedEndsBinding;
+		part positional : PositionalEndsBinding;
 		part usageBody : UsageBodyBinding;
 		part connectionDefinition : ConnectionDefinitionBinding;
 		part inherited : InheritedBinding;
@@ -77,6 +91,8 @@ package test {
 		assert constraint usageBodyBindingHolds { usageBody.k.dst.voltage == 28 }
 		assert constraint connectionDefinitionBindingHolds { connectionDefinition.k.dst.voltage == 28 }
 		assert constraint inheritedBindingHolds { inherited.k.dst.voltage == 28 }
+		assert constraint renamedEndsBindingHolds { renamed.k.dst.voltage == 28 }
+		assert constraint positionalEndsBindingHolds { positional.k.dst.voltage == 28 }
 		assert constraint conjugatedSideBindingHolds { conjugatedSide.s.src.voltage == 12 }
 		assert constraint chainedBindingsHold { chained.k.dst.voltage == 28 and chained.r.inlet.voltage == 28 and chained.r.outlet.voltage == 28 }
 	}
