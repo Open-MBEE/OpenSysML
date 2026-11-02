@@ -125,6 +125,7 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 		d.demoteAll()
 		return
 	}
+	d.holders = holderIndex{}
 	for _, t := range disagreeingTriples(d.graph, check.graph) {
 		if d.restatesAnotherDisagreement(t, check) {
 			continue
@@ -264,7 +265,8 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 		}
 	}
 	for _, t := range check.Triples() {
-		if structural(t) && !graph.Has(t) && !derivedNameOmitted(graph, t) && !derivedVariabilityOmitted(graph, check, t) {
+		if structural(t) && !graph.Has(t) && !derivedNameOmitted(graph, t) && !derivedVariabilityOmitted(graph, check, t) &&
+			!derivedMembershipOmitted(graph, check, t) {
 			out = append(out, t)
 		}
 	}
@@ -280,6 +282,30 @@ func derivedVariabilityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 	}
 	return ontology.IsAncestorOrSelf(rdf.LocalName(check.Type(t.Subject)), "Usage") &&
 		!graph.HasProperty(t.Subject, t.Predicate.Value)
+}
+
+// derivedMembershipOmitted reports a membership's source, target, relatedElement,
+// memberName or memberShortName — as a sysml: statement or the collection annotation
+// of one — the candidate states and the graph omits: each is derived from the
+// ownership edges and the member (KerML 8.3.2.3.5 Membership), so a graph written
+// before the writer stated them states no less.
+func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
+	var key string
+	switch {
+	case strings.HasPrefix(t.Predicate.Value, rdf.SysML):
+		key = strings.TrimPrefix(t.Predicate.Value, rdf.SysML)
+	case rdf.IsAnnotationJSON(t.Predicate.Value):
+		key = strings.TrimPrefix(t.Predicate.Value, rdf.AnnotationJSON)
+	default:
+		return false
+	}
+	switch key {
+	case pSource, pTarget, pRelatedElement, pMemberName, pMemberShortName:
+	default:
+		return false
+	}
+	return ontology.IsAncestorOrSelf(rdf.LocalName(check.Type(t.Subject)), mMembership) &&
+		!graph.HasProperty(t.Subject, rdf.SysML+key) && !graph.HasProperty(t.Subject, rdf.AnnotationJSON+key)
 }
 
 // derivedNameOmitted reports a sysml:name the candidate derives for an element
@@ -308,9 +334,9 @@ func (d *decoder) blame(iri string, check *encoder) (*element, string) {
 		if offset, ok := check.offsets[iri]; ok {
 			return d.writerAt(offset), ""
 		}
-		holder := holderOf(d.graph, iri)
+		holder := holderOf(d.graph, &d.holders, iri)
 		if holder == "" {
-			holder = holderOf(check.graph, iri)
+			holder = holderOf(check.graph, &check.holders, iri)
 		}
 		iri = holder
 	}
@@ -350,7 +376,7 @@ func (d *decoder) writerAt(offset int) *element {
 
 // holderOf returns the subject a node hangs off: the namespace or relationship
 // owning an element, or the subject that points at a membership or expression node.
-func holderOf(g *rdf.Graph, iri string) string {
+func holderOf(g *rdf.Graph, holders *holderIndex, iri string) string {
 	subject := rdf.IRI(iri)
 	if hasAddress(g, subject) {
 		for _, property := range []string{pOwningNamespace, pOwner} {
@@ -363,10 +389,30 @@ func holderOf(g *rdf.Graph, iri string) string {
 	if !g.HasProperty(subject, rdf.RDFType) {
 		return ""
 	}
-	for _, t := range g.Triples() {
-		if t.Object.IsIRI() && t.Object.Value == iri && t.Subject.Value != iri {
-			return t.Subject.Value
+	return holders.pointingAt(g, iri)
+}
+
+// holderIndex gives the first subject whose statement points at each node of a
+// graph, from one walk of its triples; a walk per blamed node made a decode
+// quadratic in model size. It is built on first use and answers for the graph
+// as it then stood, so a pass over a graph that grew starts a new one.
+type holderIndex struct {
+	first map[string]string
+}
+
+// pointingAt returns the first subject of g with a statement whose object is iri,
+// other than iri itself.
+func (h *holderIndex) pointingAt(g *rdf.Graph, iri string) string {
+	if h.first == nil {
+		h.first = make(map[string]string)
+		for _, t := range g.Triples() {
+			if !t.Object.IsIRI() || t.Subject.Value == t.Object.Value {
+				continue
+			}
+			if _, seen := h.first[t.Object.Value]; !seen {
+				h.first[t.Object.Value] = t.Subject.Value
+			}
 		}
 	}
-	return ""
+	return h.first[iri]
 }
