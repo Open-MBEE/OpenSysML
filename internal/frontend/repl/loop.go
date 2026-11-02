@@ -6,8 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/notebook"
 )
 
 const (
@@ -51,7 +50,7 @@ func Loop(r LineReader, out io.Writer, s *Session) error {
 			return err
 		}
 		// Meta commands only at the primary prompt with an empty buffer.
-		if buf.Len() == 0 && isMeta(line) {
+		if buf.Len() == 0 && notebook.IsCommand(line) {
 			metaOut, quit, merr := s.RunMeta(line)
 			printLines(w, metaOut)
 			_ = w.Flush()
@@ -77,7 +76,7 @@ func Loop(r LineReader, out io.Writer, s *Session) error {
 			buf.WriteByte('\n')
 		}
 		buf.WriteString(line)
-		if needsContinuation(buf.String()) {
+		if notebook.NeedsContinuation(buf.String()) {
 			prompt = contPrompt
 			continue
 		}
@@ -93,7 +92,7 @@ func Loop(r LineReader, out io.Writer, s *Session) error {
 // submit evaluates a bare expression as %eval does, so `2 + 3` at the prompt
 // answers rather than failing as a declaration; anything else joins the buffer.
 func submit(w io.Writer, s *Session, src string) {
-	if expr, ok := bareExpression(src); ok {
+	if expr, ok := notebook.BareExpression(src); ok {
 		lines, err := s.EvalBare(expr)
 		if err != nil {
 			printLines(w, []string{"error: " + err.Error()})
@@ -103,26 +102,6 @@ func submit(w io.Writer, s *Session, src string) {
 		return
 	}
 	printLines(w, renderResult(s.Submit(src), s.Verbosity()))
-}
-
-// bareExpression reports whether src reads as an expression and not as a
-// namespace member. Only input the file grammar rejects is offered to the
-// expression grammar, so every declaration keeps its meaning.
-func bareExpression(src string) (string, bool) {
-	trimmed := strings.TrimSpace(src)
-	if trimmed == "" {
-		return "", false
-	}
-	fp := parser.New(source.New("<repl-input>", []byte(src)))
-	fp.ParseFile()
-	if len(fp.Diagnostics) == 0 {
-		return "", false
-	}
-	p := parser.New(source.New("<repl-input>", []byte(trimmed)))
-	if expr := p.ParseExpression(); expr == nil || len(p.Diagnostics) > 0 || p.Offset() != len(trimmed) {
-		return "", false
-	}
-	return trimmed, true
 }
 
 // metaErrorLines prints a meta command's error: every line of a usage error,

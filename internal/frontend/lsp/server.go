@@ -53,6 +53,8 @@ type Server struct {
 	folders          []string
 	// openDirs are the directories indexed for documents opened under no folder.
 	openDirs map[string]bool
+	// notebooks are the open notebooks, each analyzed as one document.
+	notebooks notebooks
 	// libraryRoots are the directories installed projects are looked for
 	// under, besides the well-known ones beneath a folder's project.
 	libraryRoots []string
@@ -151,7 +153,7 @@ func (lspCodec) Unmarshal(data []byte, v any) error { return protocol.Unmarshal(
 // off the read loop so one slow request cannot stall the stream, and the custom
 // methods ahead of the protocol's.
 func runHandler(s *Server) jsonrpc2.Handler {
-	serve := s.stdlibHandler(s.debugHandler(s.renderHandler(s.importDiagramHandler(s.modelEditHandler(notificationErrorsStayLocal(s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler))))))))
+	serve := s.stdlibHandler(s.debugHandler(s.renderHandler(s.importDiagramHandler(s.modelEditHandler(notificationErrorsStayLocal(s.changeHandler(s.cellHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler)))))))))
 	// The lifecycle wrapper runs outside inOrder so that shutdown, exit and
 	// the messages after them are ordered as the client sent them.
 	return s.lifecycleHandler(protocol.CancelHandler(inOrder(answerCancelled(serve))))
