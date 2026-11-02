@@ -103,9 +103,11 @@ func TestApplyRenameIsOneUpdateOfTheRetainedID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The element and the OwningMembership whose memberName is its name, both under their retained ids.
 	sent := repo.sent()
-	if len(sent) != 1 || sent[0].Kind != reposync.KindUpdate || sent[0].ID != "8f3a41d0" {
-		t.Fatalf("a rename must reach the repository as one update of the retained id, got %+v", sent)
+	if len(sent) != 2 || sent[0].Kind != reposync.KindUpdate || sent[0].ID != "8f3a41d0" ||
+		sent[1].Kind != reposync.KindUpdate || sent[1].ID != "8f3a41d0_om" {
+		t.Fatalf("a rename must reach the repository as updates of the retained ids, got %+v", sent)
 	}
 	renamed := false
 	for _, triple := range sent[0].Content {
@@ -116,8 +118,8 @@ func TestApplyRenameIsOneUpdateOfTheRetainedID(t *testing.T) {
 	if !renamed {
 		t.Errorf("the update does not carry the new name: %+v", sent[0].Content)
 	}
-	if result.LastCommit() != "c1" || !result.Complete() || len(result.Applied) != 1 {
-		t.Errorf("result does not record the one completed commit: %+v", result)
+	if result.LastCommit() != "c1" || !result.Complete() || len(result.Applied) != 2 {
+		t.Errorf("result does not record the completed commit of both updates: %+v", result)
 	}
 	assertEmptyDiff(t, local, repo)
 }

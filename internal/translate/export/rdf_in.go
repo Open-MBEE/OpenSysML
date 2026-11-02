@@ -1017,6 +1017,37 @@ func (d *decoder) expressionOwner(term rdf.Term) bool {
 // name for the property and once under the Relationship's — and either spelling
 // is accepted, since a graph from another tool may carry only one; spellings
 // that disagree, a literal end, or a second membership claiming the member are
+// membershipEndsAgree refuses a membership whose stated source, target or relatedElement
+// is not the owner, the member, or both in that order (KerML 8.3.2.3.5, 8.3.2.5.2).
+func (d *decoder) membershipEndsAgree(subject rdf.Term, what string, owner, member rdf.Term) error {
+	want := map[string][]rdf.Term{pSource: {owner}, pTarget: {member}, pRelatedElement: {owner, member}}
+	for _, property := range []string{pSource, pTarget, pRelatedElement} {
+		stated := d.graph.Objects(subject, rdf.SysML+property)
+		if len(stated) == 0 {
+			continue
+		}
+		if !slices.Equal(stated, want[property]) {
+			return &UnsupportedError{
+				What: what,
+				Note: fmt.Sprintf("its sysml:%s is %s, but a membership's ends are its owning namespace <%s> and its member <%s>, which its ownership edges state", property, termsText(stated), owner.Value, member.Value),
+			}
+		}
+	}
+	return nil
+}
+
+func termsText(terms []rdf.Term) string {
+	parts := make([]string, 0, len(terms))
+	for _, term := range terms {
+		if term.IsIRI() {
+			parts = append(parts, "<"+term.Value+">")
+		} else {
+			parts = append(parts, fmt.Sprintf("%q", term.Value))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
 // refused, since each would drop an edge.
 func (d *decoder) readMembership(subject rdf.Term) error {
 	what := fmt.Sprintf("the membership <%s>", subject.Value)
@@ -1045,6 +1076,9 @@ func (d *decoder) readMembership(subject rdf.Term) error {
 				}
 			}
 		}
+	}
+	if err := d.membershipEndsAgree(subject, what, owner, member); err != nil {
+		return err
 	}
 	m := membership{iri: subject.Value, owner: owner.Value, member: member.Value}
 	if d.isNodeMembership(subject) {

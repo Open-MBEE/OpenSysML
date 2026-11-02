@@ -1876,8 +1876,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if n.Ident.ShortName != "" {
 			e.graph.Add(subject, e.sysml(pMemberShortName), rdf.String(n.Ident.ShortName))
 		}
-		e.graph.Add(subject, e.sysml(pMemberElement), e.reference(n.For))
-		e.membershipEnds(subject, ownerTerm, e.reference(n.For))
+		target := e.reference(n.For)
+		e.graph.Add(subject, e.sysml(pMemberElement), target)
+		if target.IsIRI() {
+			e.membershipEnds(subject, ownerTerm, target)
+		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		return members(n.Body)
 

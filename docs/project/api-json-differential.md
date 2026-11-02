@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1291318 present-equal, 32953 present-different, 923805 ours-missing, 70249 pilot-missing, 1987230 absent-both, 30446 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1291382 present-equal, 32953 present-different, 923659 ours-missing, 70249 pilot-missing, 1987230 absent-both, 30528 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
@@ -303,9 +303,9 @@ The scorecard is mostly **ours-missing**: this repository's writer emits a subse
 names — on every membership shape it mints, and the reflective read began deriving `memberName` as the
 member's *effective* name, KerML 8.2.4, so an unnamed parameter is named by the one it redefines):
 75 rows moved, all of them `source`, `target`, `relatedElement`, `memberName` or `memberShortName` of a
-membership metaclass; 1157295 → 1291318 present-equal, 1067050 → 923805 ours-missing, 27835 → 32953
-present-different, 26342 → 30446 indeterminate, 69936 → 70249 pilot-missing. `source` is now equal
-wherever the pilot states it (42556 rows, 0 different). `target` and `relatedElement` inherit each
+membership metaclass; 1157295 → 1291382 present-equal, 1067050 → 923659 ours-missing, 27835 → 32953
+present-different, 26342 → 30528 indeterminate, 69936 → 70249 pilot-missing. `source` is now equal
+wherever the pilot states it (42604 rows, 0 different). `target` and `relatedElement` inherit each
 metaclass's `memberElement` row verbatim — `FeatureMembership` 9476 equal / 570 different / 898
 indeterminate, `OwningMembership` 9046 / 431 / 226, `ReturnParameterMembership` 4512 / 343, … — because the
 end *is* the member, so where the member keys apart (an unnamed member we key positionally, a

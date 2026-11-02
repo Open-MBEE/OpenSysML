@@ -371,7 +371,11 @@ elmt:ActionNodes__Drive___404
     sysml:membershipOwningNamespace elmt:ActionNodes__Drive ;
     sysx:declaredKeyword "first" ;
     sysml:memberElement <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
-    sysx:sourceText "        first start;\n" .
+    sysml:source elmt:ActionNodes__Drive ;
+    sysml:target <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:relatedElement elmt:ActionNodes__Drive, <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysx:sourceText "        first start;\n" ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive\"},{\"@id\":\"9a0d2905-0f9c-5bb4-af74-9780d6db1817\"}]" .
 
 elmt:ActionNodes__Drive__brake
     a sysml:ActionUsage ;
@@ -1752,7 +1756,11 @@ elmt:ActionNodes__Drive___4018
     sysml:membershipOwningNamespace elmt:ActionNodes__Drive ;
     sysx:declaredKeyword "done" ;
     sysml:memberElement <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
-    sysx:sourceText "        done;\n" .
+    sysml:source elmt:ActionNodes__Drive ;
+    sysml:target <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:relatedElement elmt:ActionNodes__Drive, <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysx:sourceText "        done;\n" ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive\"},{\"@id\":\"0cdc3cd3-b06c-5c32-beda-0cf4ba164a64\"}]" .
 
 elmt:ActionNodes__Drive___4019
     a sysml:SuccessionAsUsage ;
