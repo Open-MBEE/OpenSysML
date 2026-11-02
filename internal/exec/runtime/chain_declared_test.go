@@ -147,3 +147,55 @@ func TestRequireConstraintReadsPackageUsageMember(t *testing.T) {
 		}
 	}
 }
+
+// subjectChainModel binds a requirement's subject to a package-level part, so a
+// chain to the subject names an object the probe reading the requirement did not make.
+const subjectChainModel = `
+package test {
+	private import ScalarValues::*;
+	part def Vehicle { attribute fuelMass : Integer; }
+	part fullTankVehicle : Vehicle { attribute redefines fuelMass = -200; }
+	requirement massLimit {
+		subject vehicle : Vehicle = fullTankVehicle;
+		require constraint { vehicle.fuelMass <= 2000 }
+	}
+	requirement def MassLimit { subject vehicle : Vehicle; }
+	requirement typedLimit : MassLimit { subject vehicle = fullTankVehicle; }
+	requirement ownLimit { subject vehicle : Vehicle; }
+}
+`
+
+// A chain to a member bound to an object standing outside the probe — a requirement's
+// subject bound to an instantiated part — reads that object, since the probe's rollback
+// leaves it; a member bound to an object the probe itself made stays undetermined.
+func TestChainThroughPackageUsageReadsObjectStandingBeforeProbe(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, subjectChainModel)
+	ctx := NewContext(typedModel(model, resolver), 10000)
+	pkg, _ := root.LookupLocal("test")
+	vehicle, ok := pkg.Scope.LookupLocal("fullTankVehicle")
+	if !ok {
+		t.Fatal("fullTankVehicle not declared")
+	}
+
+	val, err := ctx.EvalWithScope(parseExpr(t, "massLimit.vehicle"), pkg.Scope)
+	wantUndetermined(t, "massLimit.vehicle before instantiation", val, err, "[1]")
+
+	inst, err := ctx.Instantiate(vehicle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := FormatValue(Value{Kind: ValInstance, Instance: inst.ID})
+	for _, src := range []string{"massLimit.vehicle", "typedLimit.vehicle"} {
+		val, err := ctx.EvalWithScope(parseExpr(t, src), pkg.Scope)
+		wantFormatted(t, src, val, err, want)
+	}
+	val, err = ctx.EvalWithScope(parseExpr(t, "massLimit.vehicle.fuelMass"), pkg.Scope)
+	wantFormatted(t, "massLimit.vehicle.fuelMass", val, err, "-200")
+	val, err = ctx.EvalWithScope(parseExpr(t, "ownLimit.vehicle"), pkg.Scope)
+	wantUndetermined(t, "ownLimit.vehicle", val, err, "[1]")
+	for _, inst := range ctx.instances {
+		if usage, ok := inst.Type.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageRequirement {
+			t.Errorf("requirement %s materialized by a model-level chain read", inst.Type.Name)
+		}
+	}
+}
