@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -16,6 +17,9 @@ import (
 // isPredicateDecl reports a declaration an invocation applies as a predicate: a
 // constraint or requirement definition or usage, an objective among the latter.
 func isPredicateDecl(decl ast.Node) bool {
+	if _, ok := ast.OwnedConstraintOf(decl); ok {
+		return true
+	}
 	switch d := decl.(type) {
 	case *ast.Definition:
 		return d.Kind == ast.DefConstraint || d.Kind == ast.DefRequirement
@@ -98,6 +102,9 @@ func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
 // conditions hold, reading an enclosing run's bindings as a nested calc does.
 func (ec *EvalContext) invokePredicate(sym *symbols.Symbol, args calcArgs) (Value, error) {
 	ctx := ec.ctx
+	if val, ok, err := ec.invokeConstraintCollection(sym, args); ok {
+		return val, err
+	}
 	shape := ctx.predicateShapeOf(sym)
 	if predicateOrderAware(ctx, sym) {
 		return ctx.invokeOrderedPredicate(shape, args, ec.self, func() (Value, error) {
@@ -167,6 +174,87 @@ func (ec *EvalContext) invokePredicateDirect(sym *symbols.Symbol, args calcArgs)
 		return Value{}, calcFrame(shape.Kind, shape.Name, err)
 	}
 	return boolValue(holds), nil
+}
+
+// invokeConstraintCollection invokes a constraint feature of the object being
+// evaluated that holds many objects — a requirement's `assumptions()`, each member the
+// object of a constraint usage subsetting it — as the sequence of the members' results
+// (Requirements.sysml `allTrue(assumptions()) implies allTrue(constraints())`): a member
+// whose evaluation fails is the error whatever the others read, else one member's
+// undetermined result leaves the whole undetermined, as a chain over the members reads
+// them. Not ok for a scalar constraint, one taking arguments, or one that is no feature
+// of the object.
+func (ec *EvalContext) invokeConstraintCollection(sym *symbols.Symbol, args calcArgs) (Value, bool, error) {
+	self := ec.self
+	if self == nil || sym == nil || sym.Kind != symbols.SymbolConstraintUsage || len(args.positional) > 0 || len(args.named) > 0 {
+		return Value{}, false, nil
+	}
+	name, ok := ec.ctx.featureNamed(self, sym)
+	if !ok || self.FeatureValues[name].Feature.Scalar() {
+		return Value{}, false, nil
+	}
+	fv, err := self.GetFeatureValue(ec.ctx, name)
+	if err != nil {
+		return Value{}, true, err
+	}
+	held := fv.HeldValue()
+	if held.Kind == ValUndetermined {
+		return held, true, nil
+	}
+	members, err := ec.ctx.HeldElements(held)
+	if err != nil {
+		return Value{}, true, err
+	}
+	results := make([]Value, 0, len(members))
+	var undetermined *Value
+	for _, member := range members {
+		obj, ok := ec.ctx.Instance(member.Instance)
+		if member.Kind != ValInstance || !ok {
+			return Value{}, true, fmt.Errorf("invoke %s: member %s is no object", name, FormatValue(member))
+		}
+		result, err := ec.ctx.objectResult(obj)
+		if err != nil {
+			return Value{}, true, fmt.Errorf("invoke %s: %w", name, err)
+		}
+		if result.Kind == ValUndetermined && undetermined == nil {
+			undetermined = &result
+		}
+		results = append(results, result)
+	}
+	if undetermined != nil {
+		return *undetermined, true, nil
+	}
+	return sequenceOf(results), true, nil
+}
+
+// featureNamed is the name under which inst holds the feature sym: the one of its
+// shape whose symbol is sym, else sym's own name where a redefinition restates it.
+func (ctx *Context) featureNamed(inst *Instance, sym *symbols.Symbol) (string, bool) {
+	for name, fv := range inst.FeatureValues {
+		if fv.Feature != nil && fv.Feature.Symbol == sym {
+			return name, true
+		}
+	}
+	if fv, ok := inst.FeatureValues[sym.Name]; ok && fv.Feature != nil && slices.Contains(ctx.redefinedFeatures(fv.Feature.Symbol, inst.Type), sym) {
+		return sym.Name, true
+	}
+	return "", false
+}
+
+// objectResult is the value of the result parameter the object's type declares or
+// inherits (KerML 8.4.4.6), read as a member of the object.
+func (ctx *Context) objectResult(inst *Instance) (Value, error) {
+	for _, m := range ctx.model.semantics.MembersOf(inst.Type) {
+		if !resultParameter(m) {
+			continue
+		}
+		fv, err := inst.MemberValue(ctx, m.Name)
+		if err != nil {
+			return Value{}, err
+		}
+		return fv.HeldValue(), nil
+	}
+	return Value{}, fmt.Errorf("%w: %s declares no result", ErrNoSuchFeature, SymbolText(inst.Type))
 }
 
 // flattenFrames is frames as one frame of its own storage, an inner binding

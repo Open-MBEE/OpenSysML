@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -17,12 +15,6 @@ private import DocumentQueries::*;
 private import KerML::Root::Element;
 private import ScalarValues::*;
 `
-
-type executionFixture struct {
-	index    *symbols.Index
-	model    *semantics.Model
-	resolver *resolve.Resolver
-}
 
 func loadExecutionFixture(t *testing.T, body string) executionFixture {
 	t.Helper()

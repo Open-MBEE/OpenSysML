@@ -156,7 +156,18 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
 		ids.membershipByNode[end] = membership
 		ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
+		// A chain end's ReferenceSubsetting owns the chain Feature it denotes (chainFeature).
+		if _, chained := end.AttachedTarget().(*ast.FeatureChainExpr); chained || qualifiedNameChained(end.AttachedTarget()) {
+			chain := rdf.LocalName(e.ids.mintedNode(rdf.ExpressionIRI(feature, "chain"), feature, "chain").Value)
+			ids.partByNode[partKey{end, "chain"}] = partIDs{element: chain}
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "chain"}] = partIDs{element: chain}
+		}
 	}
+}
+
+func qualifiedNameChained(target ast.Node) bool {
+	name, ok := target.(*ast.QualifiedName)
+	return ok && qualifiedNameHasChain(name)
 }
 
 func (ids *ElementIDs) recordSatisfySubjects(e *encoder, node ast.Node, subject rdf.Term) {
