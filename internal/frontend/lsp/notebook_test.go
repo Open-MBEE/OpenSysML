@@ -361,3 +361,28 @@ func TestNotebookCellLensesCountReferencesAndRunNothing(t *testing.T) {
 		t.Errorf("resolved reference lens on P::A: %s", resolved)
 	}
 }
+
+// Formatting a cell lays its statements out within the cell: the one-line
+// package cell splits on its line, and no cell's edits change text or leave the cell.
+func TestNotebookCellFormattingStaysInTheCell(t *testing.T) {
+	nb := openNotebook(t)
+	nb.awaitDiagnostics(nb.cells[0])
+	options := `"options":{"tabSize":4,"insertSpaces":true}`
+	edits := asJSON(nb.call("textDocument/formatting", fmt.Sprintf(`{"textDocument":{"uri":%q},%s}`, nb.cells[0], options)))
+	want := `[{"newText":"\n    part def A;\n","range":{"end":{"character":24,"line":0},"start":{"character":11,"line":0}}}]`
+	if edits != want {
+		t.Errorf("formatting the package cell = %s, want %s", edits, want)
+	}
+	for i, text := range map[int]string{1: cellUsage, 3: cellMixed} {
+		reply, _ := nb.call("textDocument/formatting", fmt.Sprintf(`{"textDocument":{"uri":%q},%s}`, nb.cells[i], options)).([]any)
+		lines := strings.Count(text, "\n") + 1
+		for _, e := range reply {
+			edit := e.(map[string]any)
+			rng := edit["range"].(map[string]any)
+			end := rng["end"].(map[string]any)["line"].(float64)
+			if edit["newText"] != "" || int(end) >= lines {
+				t.Errorf("cell %d: edit %s changes the text or leaves the cell's %d lines", i, asJSON(edit), lines)
+			}
+		}
+	}
+}

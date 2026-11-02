@@ -239,8 +239,8 @@ func parse(req *parseRequest) ([]byte, error) {
 	return marshal(&parseResponse{Diagnostics: parseDiagnostics(file, p)})
 }
 
-// formatDocument answers the request's content re-indented, as a sysml→sysml
-// Convert does: a document with syntax errors is refused in the response's
+// formatDocument answers the request's content laid out one statement per
+// line and re-indented, as a sysml→sysml Convert does: a document with syntax errors is refused in the response's
 // error unless the request tolerated them, and a formatter failure reports
 // itself there too — neither is an RPC error.
 func formatDocument(req *formatRequest) ([]byte, error) {
@@ -255,7 +255,7 @@ func formatDocument(req *formatRequest) ([]byte, error) {
 			Diagnostics: syntaxDiagnostics(file, p),
 		})
 	}
-	out, ferr := format.Source(contentName, []byte(req.Content), format.DefaultOptions)
+	out, ferr := format.Source(contentName, []byte(req.Content), format.ConvertOptions)
 	if ferr != nil {
 		return marshal(&formatResponse{Error: ferr.Error()})
 	}

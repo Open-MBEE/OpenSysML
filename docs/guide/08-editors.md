@@ -378,11 +378,14 @@ same way, so its imports of sibling files resolve rather than being reported unr
 - ✅ Completion (trigger characters `:` and `.`; typed kinds and details, `v.` offers members of `v`'s type, `Pkg::` offers that namespace's members, library names included)
 - ✅ Document symbols (outline view)
 - ✅ Workspace symbols (global search)
-- ✅ Document formatting (`textDocument/formatting`; the reply is one small edit per changed
-  region, never a rewrite of the whole file, so the editor keeps its undo history, cursor,
-  selection and folds)
+- ✅ Document formatting (`textDocument/formatting`; lays the statements out one per line and
+  re-indents, as `sysml -convert sysml` does, so `package P { part def A; }` becomes three
+  lines while the author's own line breaks are kept; the reply is one small edit per changed
+  region — a line the layout splits is one edit within that line — never a rewrite of the whole
+  file, so the editor keeps its undo history, cursor, selection and folds)
 - ✅ Range formatting (`textDocument/rangeFormatting`; formats the selected lines only, widening a
-  partial-line selection to whole lines. Indentation is computed from the whole file's structure,
+  partial-line selection to whole lines; a selected line may expand into several, and nothing
+  outside the selection moves. Indentation is computed from the whole file's structure,
   so a selection deep in a nested block is indented consistently with its surroundings)
 - ✅ Rename, with prepare (`textDocument/prepareRename`, `textDocument/rename`)
 - ✅ Semantic tokens, full document and range (`textDocument/semanticTokens/full`,
@@ -465,7 +468,8 @@ file and renames a definition:
 ```
 
 Each formatting edit touches only the characters that change; lines the formatter would leave
-alone get no edit at all, and the range request answers only the edits on the selected lines. The
+alone get no edit at all, a line holding several statements is laid out by one edit within it,
+and the range request answers only the edits on the selected lines. The
 rename edits the declaration and the `part w : Wheel` reference together, because it works from
 name resolution rather than textual replacement. A rename rewrites only the name under the
 cursor — an element's long name or its `<short>` name — where it is declared and wherever a
