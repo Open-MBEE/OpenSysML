@@ -25,7 +25,7 @@ package test {
 		return verdict : VerdictKind =
 			if fullTankRequirement.nonnegativeFuel.result == false
 				and fullTankRequirement.nonnegativeFuel() == false
-				and fullTankRequirement.fullTank.result
+				and fullTankRequirement.fullTank.result == true
 				and fullTankRequirement.fullTank() ? VerdictKind::pass else VerdictKind::fail;
 	}
 }
