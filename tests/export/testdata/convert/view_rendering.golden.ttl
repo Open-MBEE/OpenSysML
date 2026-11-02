@@ -51,7 +51,12 @@ elmt:Views__Tree_om
     sysml:ownedMemberElement elmt:Views__Tree ;
     sysml:ownedRelatedElement elmt:Views__Tree ;
     sysml:owningRelatedElement elmt:Views ;
-    sysml:membershipOwningNamespace elmt:Views .
+    sysml:membershipOwningNamespace elmt:Views ;
+    sysml:source elmt:Views ;
+    sysml:target elmt:Views__Tree ;
+    sysml:relatedElement elmt:Views, elmt:Views__Tree ;
+    sysml:memberName "Tree" ;
+    json:relatedElement "[{\"@id\":\"Views\"},{\"@id\":\"Views__Tree\"}]" .
 
 elmt:Views__tree
     a sysml:RenderingUsage ;
@@ -83,7 +88,12 @@ elmt:Views__tree_om
     sysml:ownedMemberElement elmt:Views__tree ;
     sysml:ownedRelatedElement elmt:Views__tree ;
     sysml:owningRelatedElement elmt:Views ;
-    sysml:membershipOwningNamespace elmt:Views .
+    sysml:membershipOwningNamespace elmt:Views ;
+    sysml:source elmt:Views ;
+    sysml:target elmt:Views__tree ;
+    sysml:relatedElement elmt:Views, elmt:Views__tree ;
+    sysml:memberName "tree" ;
+    json:relatedElement "[{\"@id\":\"Views\"},{\"@id\":\"Views__tree\"}]" .
 
 elmt:Views__ByReference
     a sysml:ViewDefinition ;
@@ -116,7 +126,12 @@ elmt:Views__ByReference_om
     sysml:ownedMemberElement elmt:Views__ByReference ;
     sysml:ownedRelatedElement elmt:Views__ByReference ;
     sysml:owningRelatedElement elmt:Views ;
-    sysml:membershipOwningNamespace elmt:Views .
+    sysml:membershipOwningNamespace elmt:Views ;
+    sysml:source elmt:Views ;
+    sysml:target elmt:Views__ByReference ;
+    sysml:relatedElement elmt:Views, elmt:Views__ByReference ;
+    sysml:memberName "ByReference" ;
+    json:relatedElement "[{\"@id\":\"Views\"},{\"@id\":\"Views__ByReference\"}]" .
 
 elmt:Views__ByReference__tree
     a sysml:RenderingUsage ;
@@ -152,9 +167,14 @@ elmt:Views__ByReference__tree_om
     sysml:ownedRelatedElement elmt:Views__ByReference__tree ;
     sysml:owningRelatedElement elmt:Views__ByReference ;
     sysml:membershipOwningNamespace elmt:Views__ByReference ;
+    sysml:source elmt:Views__ByReference ;
+    sysml:target elmt:Views__ByReference__tree ;
+    sysml:relatedElement elmt:Views__ByReference, elmt:Views__ByReference__tree ;
+    sysml:memberName "tree" ;
     sysml:ownedRendering elmt:Views__ByReference__tree ;
     sysml:ownedMemberFeature elmt:Views__ByReference__tree ;
-    sysml:owningType elmt:Views__ByReference .
+    sysml:owningType elmt:Views__ByReference ;
+    json:relatedElement "[{\"@id\":\"Views__ByReference\"},{\"@id\":\"Views__ByReference__tree\"}]" .
 
 elmt:Views__ByDeclaration
     a sysml:ViewDefinition ;
@@ -187,7 +207,12 @@ elmt:Views__ByDeclaration_om
     sysml:ownedMemberElement elmt:Views__ByDeclaration ;
     sysml:ownedRelatedElement elmt:Views__ByDeclaration ;
     sysml:owningRelatedElement elmt:Views ;
-    sysml:membershipOwningNamespace elmt:Views .
+    sysml:membershipOwningNamespace elmt:Views ;
+    sysml:source elmt:Views ;
+    sysml:target elmt:Views__ByDeclaration ;
+    sysml:relatedElement elmt:Views, elmt:Views__ByDeclaration ;
+    sysml:memberName "ByDeclaration" ;
+    json:relatedElement "[{\"@id\":\"Views\"},{\"@id\":\"Views__ByDeclaration\"}]" .
 
 elmt:Views__ByDeclaration__t2
     a sysml:RenderingUsage ;
@@ -222,9 +247,14 @@ elmt:Views__ByDeclaration__t2_om
     sysml:ownedRelatedElement elmt:Views__ByDeclaration__t2 ;
     sysml:owningRelatedElement elmt:Views__ByDeclaration ;
     sysml:membershipOwningNamespace elmt:Views__ByDeclaration ;
+    sysml:source elmt:Views__ByDeclaration ;
+    sysml:target elmt:Views__ByDeclaration__t2 ;
+    sysml:relatedElement elmt:Views__ByDeclaration, elmt:Views__ByDeclaration__t2 ;
+    sysml:memberName "t2" ;
     sysml:ownedRendering elmt:Views__ByDeclaration__t2 ;
     sysml:ownedMemberFeature elmt:Views__ByDeclaration__t2 ;
-    sysml:owningType elmt:Views__ByDeclaration .
+    sysml:owningType elmt:Views__ByDeclaration ;
+    json:relatedElement "[{\"@id\":\"Views__ByDeclaration\"},{\"@id\":\"Views__ByDeclaration__t2\"}]" .
 
 elmt:Views__WithBody
     a sysml:ViewDefinition ;
@@ -257,7 +287,12 @@ elmt:Views__WithBody_om
     sysml:ownedMemberElement elmt:Views__WithBody ;
     sysml:ownedRelatedElement elmt:Views__WithBody ;
     sysml:owningRelatedElement elmt:Views ;
-    sysml:membershipOwningNamespace elmt:Views .
+    sysml:membershipOwningNamespace elmt:Views ;
+    sysml:source elmt:Views ;
+    sysml:target elmt:Views__WithBody ;
+    sysml:relatedElement elmt:Views, elmt:Views__WithBody ;
+    sysml:memberName "WithBody" ;
+    json:relatedElement "[{\"@id\":\"Views\"},{\"@id\":\"Views__WithBody\"}]" .
 
 elmt:Views__WithBody__tree
     a sysml:RenderingUsage ;
@@ -297,9 +332,14 @@ elmt:Views__WithBody__tree_om
     sysml:ownedRelatedElement elmt:Views__WithBody__tree ;
     sysml:owningRelatedElement elmt:Views__WithBody ;
     sysml:membershipOwningNamespace elmt:Views__WithBody ;
+    sysml:source elmt:Views__WithBody ;
+    sysml:target elmt:Views__WithBody__tree ;
+    sysml:relatedElement elmt:Views__WithBody, elmt:Views__WithBody__tree ;
+    sysml:memberName "tree" ;
     sysml:ownedRendering elmt:Views__WithBody__tree ;
     sysml:ownedMemberFeature elmt:Views__WithBody__tree ;
-    sysml:owningType elmt:Views__WithBody .
+    sysml:owningType elmt:Views__WithBody ;
+    json:relatedElement "[{\"@id\":\"Views__WithBody\"},{\"@id\":\"Views__WithBody__tree\"}]" .
 
 elmt:Views__WithBody__tree___400
     a sysml:Documentation ;
@@ -325,7 +365,11 @@ elmt:Views__WithBody__tree___400_om
     sysml:ownedMemberElement elmt:Views__WithBody__tree___400 ;
     sysml:ownedRelatedElement elmt:Views__WithBody__tree___400 ;
     sysml:owningRelatedElement elmt:Views__WithBody__tree ;
-    sysml:membershipOwningNamespace elmt:Views__WithBody__tree .
+    sysml:membershipOwningNamespace elmt:Views__WithBody__tree ;
+    sysml:source elmt:Views__WithBody__tree ;
+    sysml:target elmt:Views__WithBody__tree___400 ;
+    sysml:relatedElement elmt:Views__WithBody__tree, elmt:Views__WithBody__tree___400 ;
+    json:relatedElement "[{\"@id\":\"Views__WithBody__tree\"},{\"@id\":\"Views__WithBody__tree___400\"}]" .
 
 elmt:Views__tree_ft0
     a sysml:FeatureTyping ;

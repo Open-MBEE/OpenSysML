@@ -705,6 +705,7 @@ func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.Qualified
 	e.graph.Add(membership, e.sysml(pMemberElement), e.edgeReference(source))
 	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
 	e.graph.Add(membership, e.sysml(pMembershipOwningNamespace), subject)
+	e.membershipEnds(membership, subject, e.edgeReference(source))
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 }

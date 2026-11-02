@@ -951,7 +951,11 @@ elmt:Demo__Vehicle_om
     sysml:ownedMemberElement elmt:Demo__Vehicle ;
     sysml:ownedRelatedElement elmt:Demo__Vehicle ;
     sysml:owningRelatedElement elmt:Demo ;
-    sysml:membershipOwningNamespace elmt:Demo .
+    sysml:membershipOwningNamespace elmt:Demo ;
+    sysml:source elmt:Demo ;
+    sysml:target elmt:Demo__Vehicle ;
+    sysml:relatedElement elmt:Demo, elmt:Demo__Vehicle ;
+    sysml:memberName "Vehicle" .
 
 elmt:Demo__Vehicle
     a sysml:PartDefinition ;
@@ -960,6 +964,13 @@ elmt:Demo__Vehicle
     sysml:owningRelationship elmt:Demo__Vehicle_om ;
     sysml:owningMembership elmt:Demo__Vehicle_om .
 ```
+
+A membership also states the Relationship ends KerML derives for it — `sysml:source` is
+the owning namespace, `sysml:target` the member, `sysml:relatedElement` both in that order —
+and the member's effective names as `sysml:memberName` / `sysml:memberShortName` (KerML
+8.3.2.3.5; an unnamed feature is named by the one it redefines, KerML 8.2.4). Every membership shape carries them (`FeatureMembership`, `FeatureValue`,
+`ParameterMembership`, `SubjectMembership`, …). Reading a graph back, they restate the
+ownership edges above and are checked through them, not as references of their own.
 
 - A membership's id is the member's id with `_om` appended, which no element id
   can be: an `_` in an element id starts either `__` for `::` or a hex escape.

@@ -51,7 +51,12 @@ elmt:Deps__A_om
     sysml:ownedMemberElement elmt:Deps__A ;
     sysml:ownedRelatedElement elmt:Deps__A ;
     sysml:owningRelatedElement elmt:Deps ;
-    sysml:membershipOwningNamespace elmt:Deps .
+    sysml:membershipOwningNamespace elmt:Deps ;
+    sysml:source elmt:Deps ;
+    sysml:target elmt:Deps__A ;
+    sysml:relatedElement elmt:Deps, elmt:Deps__A ;
+    sysml:memberName "A" ;
+    json:relatedElement "[{\"@id\":\"Deps\"},{\"@id\":\"Deps__A\"}]" .
 
 elmt:Deps__B
     a sysml:PartDefinition ;
@@ -78,7 +83,12 @@ elmt:Deps__B_om
     sysml:ownedMemberElement elmt:Deps__B ;
     sysml:ownedRelatedElement elmt:Deps__B ;
     sysml:owningRelatedElement elmt:Deps ;
-    sysml:membershipOwningNamespace elmt:Deps .
+    sysml:membershipOwningNamespace elmt:Deps ;
+    sysml:source elmt:Deps ;
+    sysml:target elmt:Deps__B ;
+    sysml:relatedElement elmt:Deps, elmt:Deps__B ;
+    sysml:memberName "B" ;
+    json:relatedElement "[{\"@id\":\"Deps\"},{\"@id\":\"Deps__B\"}]" .
 
 elmt:Deps___402
     a sysml:Dependency ;
@@ -106,7 +116,11 @@ elmt:Deps___402_om
     sysml:ownedMemberElement elmt:Deps___402 ;
     sysml:ownedRelatedElement elmt:Deps___402 ;
     sysml:owningRelatedElement elmt:Deps ;
-    sysml:membershipOwningNamespace elmt:Deps .
+    sysml:membershipOwningNamespace elmt:Deps ;
+    sysml:source elmt:Deps ;
+    sysml:target elmt:Deps___402 ;
+    sysml:relatedElement elmt:Deps, elmt:Deps___402 ;
+    json:relatedElement "[{\"@id\":\"Deps\"},{\"@id\":\"Deps___402\"}]" .
 
 elmt:Deps__named
     a sysml:Dependency ;
@@ -135,4 +149,9 @@ elmt:Deps__named_om
     sysml:ownedMemberElement elmt:Deps__named ;
     sysml:ownedRelatedElement elmt:Deps__named ;
     sysml:owningRelatedElement elmt:Deps ;
-    sysml:membershipOwningNamespace elmt:Deps .
+    sysml:membershipOwningNamespace elmt:Deps ;
+    sysml:source elmt:Deps ;
+    sysml:target elmt:Deps__named ;
+    sysml:relatedElement elmt:Deps, elmt:Deps__named ;
+    sysml:memberName "named" ;
+    json:relatedElement "[{\"@id\":\"Deps\"},{\"@id\":\"Deps__named\"}]" .

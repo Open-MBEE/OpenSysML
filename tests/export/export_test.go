@@ -464,6 +464,19 @@ func relinkedProperty(t *testing.T, graph []byte, subject, property, from, to st
 	return []byte(strings.Join(blocks, "\n\n"))
 }
 
+// relinkedMember relinks the member a Membership names — memberElement, target and relatedElement,
+// the json annotation of the latter included — from one element to another.
+func relinkedMember(t *testing.T, graph []byte, membership, owner, from, to string) []byte {
+	t.Helper()
+	graph = relinkedProperty(t, graph, membership, "memberElement", from, to)
+	graph = relinkedProperty(t, graph, membership, "target", from, to)
+	graph = relinkedProperty(t, graph, membership, "relatedElement", owner+", "+from, owner+", "+to)
+	id := func(term string) string { return term[strings.Index(term, ":")+1:] }
+	return []byte(strings.Replace(string(graph),
+		`json:relatedElement "[{\"@id\":\"`+id(owner)+`\"},{\"@id\":\"`+id(from)+`\"}]"`,
+		`json:relatedElement "[{\"@id\":\"`+id(owner)+`\"},{\"@id\":\"`+id(to)+`\"}]"`, 1))
+}
+
 // refusedAsUnsupported requires a graph to be refused rather than written as
 // notation that would read back as a different graph.
 func refusedAsUnsupported(t *testing.T, name string, graph []byte, why string) {
@@ -571,7 +584,7 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 	// connector's first end, whether or not the notation is kept with the graph.
 	relinkedValue := relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
 	// The membership the edge materializes carries the same member.
-	relinkedValue = relinkedProperty(t, relinkedValue, "expr:P__v_pvalue_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
+	relinkedValue = relinkedMember(t, relinkedValue, "expr:P__v_pvalue_ptargetFeature", "expr:P__v_pvalue", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(relinkedValue)); !strings.Contains(back, "attribute v = a.B::x;") {
 		t.Errorf("the relinked value should be written qualified\n%s", back)
 	}
@@ -598,19 +611,19 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 	}
 	// A target no chain from a can name — the package itself — is refused.
 	packageTarget := relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P")
-	packageTarget = relinkedProperty(t, packageTarget, "expr:P__v_pvalue_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P")
+	packageTarget = relinkedMember(t, packageTarget, "expr:P__v_pvalue_ptargetFeature", "expr:P__v_pvalue", "elmt:P__A__x", "elmt:P")
 	refusedAsUnsupported(t, "chain-package", packageTarget,
 		"no spelling of the segment reads as the element the graph names from the operand")
 	// The sum repeats `a.x`: the occurrence still reaching A::x must not vouch
 	// for the one relinked to B::x, which is spelled to reach its own element.
 	repeated := relinkedProperty(t, structural, "expr:P__w_pvalue_pa1", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
-	repeated = relinkedProperty(t, repeated, "expr:P__w_pvalue_pa1_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
+	repeated = relinkedMember(t, repeated, "expr:P__w_pvalue_pa1_ptargetFeature", "expr:P__w_pvalue_pa1", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(repeated)); !strings.Contains(back, "attribute w = a.x + a.B::x;") {
 		t.Errorf("each repeated chain should be spelled for its own element\n%s", back)
 	}
 	// Both relinked, neither occurrence reads as A::x any more.
 	both := relinkedProperty(t, repeated, "expr:P__w_pvalue_pa0", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
-	both = relinkedProperty(t, both, "expr:P__w_pvalue_pa0_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
+	both = relinkedMember(t, both, "expr:P__w_pvalue_pa0_ptargetFeature", "expr:P__w_pvalue_pa0", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(both)); !strings.Contains(back, "attribute w = a.B::x + a.B::x;") {
 		t.Errorf("both relinked chains should be spelled qualified\n%s", back)
 	}
@@ -637,7 +650,7 @@ func TestSharedChainIsCheckedInEveryDeclaration(t *testing.T) {
 	structural := withoutTriples(t, graph, "sysx:sourceText")
 	// w's value is v's chain: its root, linked to P::a, is spelled to reach it
 	// from both declarations, so both state A::x.
-	shared := relinked(t, structural, "sysml:value expr:P__H__w_pvalue ;", "sysml:value expr:P__v_pvalue ;")
+	shared := relinkedProperty(t, structural, "elmt:P__H__w", "value", "expr:P__H__w_pvalue", "expr:P__v_pvalue")
 	shared = relinkedProperty(t, shared, "expr:P__H__w_pvalue_om", "value", "expr:P__H__w_pvalue", "expr:P__v_pvalue")
 	back, err := convert.Convert("shared.ttl", shared, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
@@ -656,7 +669,7 @@ func TestSharedChainIsCheckedInEveryDeclaration(t *testing.T) {
 		t.Errorf("w should reach A::x through a qualified segment\n%s", back)
 	}
 	// The same with w's chain shared into v, so the qualifying owner is the other one.
-	shared = relinked(t, structural, "sysml:value expr:P__v_pvalue ;", "sysml:value expr:P__H__w_pvalue ;")
+	shared = relinkedProperty(t, structural, "elmt:P__v", "value", "expr:P__v_pvalue", "expr:P__H__w_pvalue")
 	shared = relinkedProperty(t, shared, "expr:P__v_pvalue_om", "value", "expr:P__v_pvalue", "expr:P__H__w_pvalue")
 	byName = relinked(t, shared, "sysml:referent elmt:P__H__a ;", `sysml:referent "a" ;`)
 	if back := toNotation(t, byName); !strings.Contains(back, "attribute v = a.B::x;") {

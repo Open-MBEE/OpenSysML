@@ -110,7 +110,12 @@ elmt:Importer__Deep_om
     sysml:ownedMemberElement elmt:Importer__Deep ;
     sysml:ownedRelatedElement elmt:Importer__Deep ;
     sysml:owningRelatedElement elmt:Importer ;
-    sysml:membershipOwningNamespace elmt:Importer .
+    sysml:membershipOwningNamespace elmt:Importer ;
+    sysml:source elmt:Importer ;
+    sysml:target elmt:Importer__Deep ;
+    sysml:relatedElement elmt:Importer, elmt:Importer__Deep ;
+    sysml:memberName "Deep" ;
+    json:relatedElement "[{\"@id\":\"Importer\"},{\"@id\":\"Importer__Deep\"}]" .
 
 elmt:Importer__Deep__Item
     a sysml:PartDefinition ;
@@ -137,7 +142,12 @@ elmt:Importer__Deep__Item_om
     sysml:ownedMemberElement elmt:Importer__Deep__Item ;
     sysml:ownedRelatedElement elmt:Importer__Deep__Item ;
     sysml:owningRelatedElement elmt:Importer__Deep ;
-    sysml:membershipOwningNamespace elmt:Importer__Deep .
+    sysml:membershipOwningNamespace elmt:Importer__Deep ;
+    sysml:source elmt:Importer__Deep ;
+    sysml:target elmt:Importer__Deep__Item ;
+    sysml:relatedElement elmt:Importer__Deep, elmt:Importer__Deep__Item ;
+    sysml:memberName "Item" ;
+    json:relatedElement "[{\"@id\":\"Importer__Deep\"},{\"@id\":\"Importer__Deep__Item\"}]" .
 
 <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31>
     a sysml:DataType ;

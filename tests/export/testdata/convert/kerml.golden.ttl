@@ -51,7 +51,12 @@ elmt:Structural__Frame_om
     sysml:ownedMemberElement elmt:Structural__Frame ;
     sysml:ownedRelatedElement elmt:Structural__Frame ;
     sysml:owningRelatedElement elmt:Structural ;
-    sysml:membershipOwningNamespace elmt:Structural .
+    sysml:membershipOwningNamespace elmt:Structural ;
+    sysml:source elmt:Structural ;
+    sysml:target elmt:Structural__Frame ;
+    sysml:relatedElement elmt:Structural, elmt:Structural__Frame ;
+    sysml:memberName "Frame" ;
+    json:relatedElement "[{\"@id\":\"Structural\"},{\"@id\":\"Structural__Frame\"}]" .
 
 elmt:Structural__Move
     a sysml:Behavior ;
@@ -78,7 +83,12 @@ elmt:Structural__Move_om
     sysml:ownedMemberElement elmt:Structural__Move ;
     sysml:ownedRelatedElement elmt:Structural__Move ;
     sysml:owningRelatedElement elmt:Structural ;
-    sysml:membershipOwningNamespace elmt:Structural .
+    sysml:membershipOwningNamespace elmt:Structural ;
+    sysml:source elmt:Structural ;
+    sysml:target elmt:Structural__Move ;
+    sysml:relatedElement elmt:Structural, elmt:Structural__Move ;
+    sysml:memberName "Move" ;
+    json:relatedElement "[{\"@id\":\"Structural\"},{\"@id\":\"Structural__Move\"}]" .
 
 elmt:Structural__Thing
     a sysml:Class ;
@@ -105,7 +115,12 @@ elmt:Structural__Thing_om
     sysml:ownedMemberElement elmt:Structural__Thing ;
     sysml:ownedRelatedElement elmt:Structural__Thing ;
     sysml:owningRelatedElement elmt:Structural ;
-    sysml:membershipOwningNamespace elmt:Structural .
+    sysml:membershipOwningNamespace elmt:Structural ;
+    sysml:source elmt:Structural ;
+    sysml:target elmt:Structural__Thing ;
+    sysml:relatedElement elmt:Structural, elmt:Structural__Thing ;
+    sysml:memberName "Thing" ;
+    json:relatedElement "[{\"@id\":\"Structural\"},{\"@id\":\"Structural__Thing\"}]" .
 
 elmt:Structural__Link
     a sysml:Association ;
@@ -132,4 +147,9 @@ elmt:Structural__Link_om
     sysml:ownedMemberElement elmt:Structural__Link ;
     sysml:ownedRelatedElement elmt:Structural__Link ;
     sysml:owningRelatedElement elmt:Structural ;
-    sysml:membershipOwningNamespace elmt:Structural .
+    sysml:membershipOwningNamespace elmt:Structural ;
+    sysml:source elmt:Structural ;
+    sysml:target elmt:Structural__Link ;
+    sysml:relatedElement elmt:Structural, elmt:Structural__Link ;
+    sysml:memberName "Link" ;
+    json:relatedElement "[{\"@id\":\"Structural\"},{\"@id\":\"Structural__Link\"}]" .

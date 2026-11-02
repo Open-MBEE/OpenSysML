@@ -1270,6 +1270,12 @@ func (d *decoder) checkReferences() error {
 				triple.Predicate.Value == rdf.SysML+pTarget) {
 			continue
 		}
+		// A membership's ends restate its owner and member, which its ownership edges already check.
+		if (ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), mMembership) || d.nodeMembership[triple.Subject.Value]) &&
+			(triple.Predicate.Value == rdf.SysML+pSource || triple.Predicate.Value == rdf.SysML+pTarget ||
+				triple.Predicate.Value == rdf.SysML+pRelatedElement) {
+			continue
+		}
 		if _, err := d.referencedElement(triple.Object.Value); err != nil {
 			return err
 		}
