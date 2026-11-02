@@ -1,0 +1,1 @@
+- A query's `isAbstract` and `isIndividual` of the implied `ConjugatedPortDefinition` a port definition owns (SysML v2 8.3.12.3) read `false`, as the conversion states them, where the property reader answered nothing for a definition that declares nothing.
