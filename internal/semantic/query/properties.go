@@ -60,12 +60,12 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 	case PropertyGeneral:
 		return r.generals(sym)
 	case PropertyIsAbstract:
-		// Type::isAbstract: a definition or any feature, a connector's end included.
-		if sym.DeclaresUsage() || sym.DeclaresDefinition() || sym.IsFeature() {
+		// Type::isAbstract: a definition (the implied conjugated port definition included) or any feature, a connector's end included.
+		if sym.DeclaresUsage() || sym.DeclaresDefinition() || sym.IsFeature() || sym.IsConjugatedPortDefinition() {
 			return []string{strconv.FormatBool(symbols.IsAbstract(sym))}, true
 		}
 	case PropertyIsIndividual:
-		if sym.DeclaresUsage() || sym.DeclaresDefinition() {
+		if sym.DeclaresUsage() || sym.DeclaresDefinition() || sym.IsConjugatedPortDefinition() {
 			return []string{strconv.FormatBool(individual(sym))}, true
 		}
 	case PropertyMultiplicityLower, PropertyMultiplicityUpper:

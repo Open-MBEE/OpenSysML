@@ -31,9 +31,8 @@ func TestReceiverCalleeImpliedFunctionRoundTrips(t *testing.T) {
 	}
 }
 
-// A graph written before the conversion owned a receiver-reached call's chain
-// Feature — the receiver `q.p` as a bare sysml:operand FeatureChainExpression —
-// still reads back as the call it came from.
+// An older graph that wrote the receiver `q.p` as a bare sysml:operand
+// FeatureChainExpression still imports as the call `q.p.f(1)`.
 func TestLegacyReceiverOperandGraphStillImports(t *testing.T) {
 	turtle, err := os.ReadFile(filepath.Join("testdata", "convert", "legacy_receiver_operand.ttl"))
 	if err != nil {

@@ -2282,7 +2282,7 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		// so its plain Type attributes read their defaults.
 		if sym.IsConjugatedPortDefinition() {
 			switch feature {
-			case "isAbstract", "isSufficient", "isConstant", "isParallel":
+			case "isAbstract", "isSufficient":
 				return boolValue(false), true
 			}
 		}
@@ -2292,10 +2292,10 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return boolValue(d.IsAbstract || IsVariation(sym)), true
 		case "isSufficient":
 			return boolValue(d.IsAll || m.reflectiveMetaclassConforms(sym, "ConnectionDefinition")), true
-		case "isConstant":
-			return boolValue(d.IsConstant), true
 		case "isParallel":
-			return boolValue(d.IsParallel), true
+			if m.reflectiveMetaclassConforms(sym, "StateDefinition") {
+				return boolValue(d.IsParallel), true
+			}
 		}
 	case *ast.Usage:
 		switch feature {
@@ -2304,7 +2304,9 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		case "isVariant":
 			return boolValue(IsVariant(sym)), true
 		case "isParallel":
-			return boolValue(d.IsParallel), true
+			if m.reflectiveMetaclassConforms(sym, "StateUsage") {
+				return boolValue(d.IsParallel), true
+			}
 		}
 	}
 	if sym.Recorded() && feature == "isIndividual" {
