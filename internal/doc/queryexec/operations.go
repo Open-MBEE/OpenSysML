@@ -798,6 +798,16 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 	return values, present, err
 }
 
+// reflectiveQueryableValues answers a queryable property the reader leaves unanswered from the
+// element's metaclass: a relationship's type and general, an expression's isAbstract.
+func (e *executor) reflectiveQueryableValues(sym *symbols.Symbol, property string) []Value {
+	values, err := e.reflectiveFeatureValues(queryplan.Expression{}, property, sym)
+	if err != nil {
+		return nil
+	}
+	return values
+}
+
 func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([]Value, bool, error) {
 	if _, _, isObject := row.Object(); isObject {
 		values, present, err := e.objectPropertyValues(row, property)
@@ -824,7 +834,7 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 			return nil, true, e.unevaluable(queryplan.Expression{}, property, row, e.elementIDErr)
 		}
 		if !present {
-			return nil, true, nil
+			return e.reflectiveQueryableValues(sym, property), true, nil
 		}
 		result := make([]Value, 0, len(values))
 		for _, value := range values {
