@@ -59,42 +59,13 @@ func (s *Server) cellRequest(ctx context.Context, req *jsonrpc2.Request, nb *not
 	inCell := func(r protocol.Range) bool {
 		return nb.cellAt(int(r.Start.Line)) == cell
 	}
+	if result, ok, err := s.cellPositionRequest(ctx, req, docURI, at); ok {
+		return result, err
+	}
+	if result, ok, err := s.cellRangeRequest(ctx, req, docURI, span, cell); ok {
+		return result, err
+	}
 	switch req.Method() {
-	case protocol.MethodTextDocumentHover:
-		p, err := decodeParams[protocol.HoverParams](req)
-		if err != nil {
-			return nil, err
-		}
-		p.TextDocument.URI, p.Position = docURI, at(p.Position)
-		return s.Hover(ctx, p)
-	case protocol.MethodTextDocumentDefinition:
-		p, err := decodeParams[protocol.DefinitionParams](req)
-		if err != nil {
-			return nil, err
-		}
-		p.TextDocument.URI, p.Position = docURI, at(p.Position)
-		return s.Definition(ctx, p)
-	case protocol.MethodTextDocumentReferences:
-		p, err := decodeParams[protocol.ReferenceParams](req)
-		if err != nil {
-			return nil, err
-		}
-		p.TextDocument.URI, p.Position = docURI, at(p.Position)
-		return s.References(ctx, p)
-	case protocol.MethodTextDocumentCompletion:
-		p, err := decodeParams[protocol.CompletionParams](req)
-		if err != nil {
-			return nil, err
-		}
-		p.TextDocument.URI, p.Position = docURI, at(p.Position)
-		return s.Completion(ctx, p)
-	case protocol.MethodTextDocumentSignatureHelp:
-		p, err := decodeParams[protocol.SignatureHelpParams](req)
-		if err != nil {
-			return nil, err
-		}
-		p.TextDocument.URI, p.Position = docURI, at(p.Position)
-		return s.SignatureHelp(ctx, p)
 	case protocol.MethodTextDocumentDocumentSymbol:
 		p, err := decodeParams[protocol.DocumentSymbolParams](req)
 		if err != nil {
@@ -121,50 +92,12 @@ func (s *Server) cellRequest(ctx context.Context, req *jsonrpc2.Request, nb *not
 			}
 		}
 		return own, err
-	case protocol.MethodTextDocumentInlayHint:
-		p, err := decodeParams[protocol.InlayHintParams](req)
-		if err != nil {
-			return nil, err
-		}
-		p.TextDocument.URI, p.Range = docURI, span(p.Range)
-		return s.InlayHint(ctx, p)
-	case protocol.MethodTextDocumentCodeAction:
-		p, err := decodeParams[protocol.CodeActionParams](req)
-		if err != nil {
-			return nil, err
-		}
-		p.TextDocument.URI, p.Range = docURI, span(p.Range)
-		for i := range p.Context.Diagnostics {
-			p.Context.Diagnostics[i].Range = span(p.Context.Diagnostics[i].Range)
-		}
-		return s.CodeAction(ctx, p)
 	case protocol.MethodTextDocumentFormatting:
 		p, err := decodeParams[protocol.DocumentFormattingParams](req)
 		if err != nil {
 			return nil, err
 		}
 		return s.formattingEdits(docURI, p.Options, lineWindow{cell.startLine, cell.startLine + cell.lines})
-	case protocol.MethodTextDocumentRangeFormatting:
-		p, err := decodeParams[protocol.DocumentRangeFormattingParams](req)
-		if err != nil {
-			return nil, err
-		}
-		p.TextDocument.URI, p.Range = docURI, span(p.Range)
-		return s.RangeFormatting(ctx, p)
-	case protocol.MethodTextDocumentPrepareRename:
-		p, err := decodeParams[protocol.PrepareRenameParams](req)
-		if err != nil {
-			return nil, err
-		}
-		p.TextDocument.URI, p.Position = docURI, at(p.Position)
-		return s.PrepareRename(ctx, p)
-	case protocol.MethodTextDocumentRename:
-		p, err := decodeParams[protocol.RenameParams](req)
-		if err != nil {
-			return nil, err
-		}
-		p.TextDocument.URI, p.Position = docURI, at(p.Position)
-		return s.Rename(ctx, p)
 	case protocol.MethodTextDocumentSemanticTokensFull:
 		p, err := decodeParams[protocol.SemanticTokensParams](req)
 		if err != nil {
@@ -173,16 +106,115 @@ func (s *Server) cellRequest(ctx context.Context, req *jsonrpc2.Request, nb *not
 		p.TextDocument.URI = docURI
 		toks, err := s.SemanticTokensFull(ctx, p)
 		return cellTokens(toks, cell), err
+	}
+	return nil, nil
+}
+
+// cellPositionRequest answers a request at one position of the cell, moved to
+// the document by at; ok is false for any other request.
+func (s *Server) cellPositionRequest(ctx context.Context, req *jsonrpc2.Request, docURI uri.URI, at func(protocol.Position) protocol.Position) (any, bool, error) {
+	switch req.Method() {
+	case protocol.MethodTextDocumentHover:
+		p, err := decodeParams[protocol.HoverParams](req)
+		if err != nil {
+			return nil, true, err
+		}
+		p.TextDocument.URI, p.Position = docURI, at(p.Position)
+		result, err := s.Hover(ctx, p)
+		return result, true, err
+	case protocol.MethodTextDocumentDefinition:
+		p, err := decodeParams[protocol.DefinitionParams](req)
+		if err != nil {
+			return nil, true, err
+		}
+		p.TextDocument.URI, p.Position = docURI, at(p.Position)
+		result, err := s.Definition(ctx, p)
+		return result, true, err
+	case protocol.MethodTextDocumentReferences:
+		p, err := decodeParams[protocol.ReferenceParams](req)
+		if err != nil {
+			return nil, true, err
+		}
+		p.TextDocument.URI, p.Position = docURI, at(p.Position)
+		result, err := s.References(ctx, p)
+		return result, true, err
+	case protocol.MethodTextDocumentCompletion:
+		p, err := decodeParams[protocol.CompletionParams](req)
+		if err != nil {
+			return nil, true, err
+		}
+		p.TextDocument.URI, p.Position = docURI, at(p.Position)
+		result, err := s.Completion(ctx, p)
+		return result, true, err
+	case protocol.MethodTextDocumentSignatureHelp:
+		p, err := decodeParams[protocol.SignatureHelpParams](req)
+		if err != nil {
+			return nil, true, err
+		}
+		p.TextDocument.URI, p.Position = docURI, at(p.Position)
+		result, err := s.SignatureHelp(ctx, p)
+		return result, true, err
+	case protocol.MethodTextDocumentPrepareRename:
+		p, err := decodeParams[protocol.PrepareRenameParams](req)
+		if err != nil {
+			return nil, true, err
+		}
+		p.TextDocument.URI, p.Position = docURI, at(p.Position)
+		result, err := s.PrepareRename(ctx, p)
+		return result, true, err
+	case protocol.MethodTextDocumentRename:
+		p, err := decodeParams[protocol.RenameParams](req)
+		if err != nil {
+			return nil, true, err
+		}
+		p.TextDocument.URI, p.Position = docURI, at(p.Position)
+		result, err := s.Rename(ctx, p)
+		return result, true, err
+	}
+	return nil, false, nil
+}
+
+// cellRangeRequest answers a request over a range of the cell, moved to the
+// document by span; ok is false for any other request.
+func (s *Server) cellRangeRequest(ctx context.Context, req *jsonrpc2.Request, docURI uri.URI, span func(protocol.Range) protocol.Range, cell *notebookCell) (any, bool, error) {
+	switch req.Method() {
+	case protocol.MethodTextDocumentInlayHint:
+		p, err := decodeParams[protocol.InlayHintParams](req)
+		if err != nil {
+			return nil, true, err
+		}
+		p.TextDocument.URI, p.Range = docURI, span(p.Range)
+		result, err := s.InlayHint(ctx, p)
+		return result, true, err
+	case protocol.MethodTextDocumentCodeAction:
+		p, err := decodeParams[protocol.CodeActionParams](req)
+		if err != nil {
+			return nil, true, err
+		}
+		p.TextDocument.URI, p.Range = docURI, span(p.Range)
+		for i := range p.Context.Diagnostics {
+			p.Context.Diagnostics[i].Range = span(p.Context.Diagnostics[i].Range)
+		}
+		result, err := s.CodeAction(ctx, p)
+		return result, true, err
+	case protocol.MethodTextDocumentRangeFormatting:
+		p, err := decodeParams[protocol.DocumentRangeFormattingParams](req)
+		if err != nil {
+			return nil, true, err
+		}
+		p.TextDocument.URI, p.Range = docURI, span(p.Range)
+		result, err := s.RangeFormatting(ctx, p)
+		return result, true, err
 	case protocol.MethodTextDocumentSemanticTokensRange:
 		p, err := decodeParams[protocol.SemanticTokensRangeParams](req)
 		if err != nil {
-			return nil, err
+			return nil, true, err
 		}
 		p.TextDocument.URI, p.Range = docURI, span(p.Range)
 		toks, err := s.SemanticTokensRange(ctx, p)
-		return cellTokens(toks, cell), err
+		return cellTokens(toks, cell), true, err
 	}
-	return nil, nil
+	return nil, false, nil
 }
 
 // cellSymbols is the part of a symbol tree declared in one cell: a symbol
@@ -272,46 +304,53 @@ func (s *Server) mapValue(value any, implicit *notebookDocument) any {
 			v[i] = s.mapValue(v[i], implicit)
 		}
 	case map[string]any:
-		if isRange(v) {
-			if implicit != nil {
-				if _, rng, ok := implicit.toCellRange(decodeRange(v)); ok {
-					return encodeValue(rng)
-				}
-			}
-			return v
-		}
-		// done holds the keys mapped with the document their uri names, which
-		// the loop below must not read again as the request document's.
-		done := map[string]bool{"uri": true, "targetUri": true, "changes": true, "documentChanges": true, "data": true}
-		if nb := s.notebookOf(v["uri"]); nb != nil {
-			done["range"] = true
-			if rng, ok := v["range"].(map[string]any); ok && isRange(rng) {
-				if cell, mapped, ok := nb.toCellRange(decodeRange(rng)); ok {
-					v["uri"], v["range"] = string(cell), encodeValue(mapped)
-				}
+		return s.mapObject(v, implicit)
+	}
+	return value
+}
+
+// mapObject is mapValue for an object: a range is moved whole; otherwise the
+// keys a uri names the document of are mapped with it and the rest in turn.
+func (s *Server) mapObject(v map[string]any, implicit *notebookDocument) any {
+	if isRange(v) {
+		if implicit != nil {
+			if _, rng, ok := implicit.toCellRange(decodeRange(v)); ok {
+				return encodeValue(rng)
 			}
 		}
-		if nb := s.notebookOf(v["targetUri"]); nb != nil {
-			done["targetRange"], done["targetSelectionRange"] = true, true
-			s.mapTarget(v, nb)
-		}
-		if changes, ok := v["changes"].(map[string]any); ok {
-			v["changes"] = s.mapChanges(changes)
-		}
-		if docs, ok := v["documentChanges"].([]any); ok {
-			v["documentChanges"] = s.mapDocumentChanges(docs)
-		}
-		for key, field := range v {
-			switch {
-			case done[key]:
-			case implicit != nil && isPositional(key, field):
-				v[key] = s.mapPositional(field, implicit)
-			default:
-				v[key] = s.mapValue(field, implicit)
+		return v
+	}
+	// done holds the keys mapped with the document their uri names, which
+	// the loop below must not read again as the request document's.
+	done := map[string]bool{"uri": true, "targetUri": true, "changes": true, "documentChanges": true, "data": true}
+	if nb := s.notebookOf(v["uri"]); nb != nil {
+		done["range"] = true
+		if rng, ok := v["range"].(map[string]any); ok && isRange(rng) {
+			if cell, mapped, ok := nb.toCellRange(decodeRange(rng)); ok {
+				v["uri"], v["range"] = string(cell), encodeValue(mapped)
 			}
 		}
 	}
-	return value
+	if nb := s.notebookOf(v["targetUri"]); nb != nil {
+		done["targetRange"], done["targetSelectionRange"] = true, true
+		s.mapTarget(v, nb)
+	}
+	if changes, ok := v["changes"].(map[string]any); ok {
+		v["changes"] = s.mapChanges(changes)
+	}
+	if docs, ok := v["documentChanges"].([]any); ok {
+		v["documentChanges"] = s.mapDocumentChanges(docs)
+	}
+	for key, field := range v {
+		switch {
+		case done[key]:
+		case implicit != nil && isPositional(key, field):
+			v[key] = s.mapPositional(field, implicit)
+		default:
+			v[key] = s.mapValue(field, implicit)
+		}
+	}
+	return v
 }
 
 // isPositional reports whether key holds a range or position of the document.
