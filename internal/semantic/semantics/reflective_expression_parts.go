@@ -394,10 +394,8 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// plainExpressionMemberships are the memberships an expression that is neither
-// a body, a change wrapper nor a `{ … }` reference owns, in the conversion's
-// order: a reference's referent and an invocation's function lead; a chain's
-// target follows its operand; the result ends.
+// plainExpressionMemberships lists a plain expression's owned memberships in
+// conversion order: referent or function first, chain target, then the result.
 func (m *Model) plainExpressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	slot, name, leads := expressionReference(sym.Decl)
