@@ -164,17 +164,21 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 	return "", false, nil
 }
 
-// connectorEndChain is the connector end whose chain sym denotes (`connect a.b to c`), when it is one.
+// connectorEndChain is the connector end whose attachment chain sym denotes (`connect a.b to c`):
+// the ReferenceSubsetting of the attached target, not a chained redefinition the end also owns.
 func connectorEndChain(sym *symbols.Symbol) (*ast.ConnectorEnd, bool) {
 	if sym.Chain == nil || sym.Chain.Relationship == nil || sym.Chain.Relationship.Implicit == nil {
 		return nil, false
 	}
-	owner := sym.Chain.Relationship.Implicit.Owner
-	if owner == nil {
+	rel := sym.Chain.Relationship.Implicit
+	if rel.Owner == nil || rel.Node == nil || !rel.Kind.ReferenceSubsets() {
 		return nil, false
 	}
-	end, ok := owner.Decl.(*ast.ConnectorEnd)
-	return end, ok
+	end, ok := rel.Owner.Decl.(*ast.ConnectorEnd)
+	if !ok || rel.Node.Target != end.AttachedTarget() {
+		return nil, false
+	}
+	return end, true
 }
 
 // writtenRelationshipNode is the node the conversion writes rel's relationship element
