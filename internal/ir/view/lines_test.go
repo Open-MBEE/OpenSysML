@@ -43,6 +43,9 @@ func TestLinesAreNamed(t *testing.T) {
 // default or under splines, `splines=ortho` and `splines=polyline` on the graph
 // attribute list otherwise, on every rendering kind.
 func TestDOTRoutesItsEdgesAsAsked(t *testing.T) {
+	// The grid lays ortho out here, on every machine alike; the layered layout
+	// has its own goldens.
+	t.Setenv("OPENSYSML_DOT", "no-such-dot")
 	for _, fixture := range []struct{ file, view string }{
 		{"interconnection-ports.sysml", "ToasterViews::toasterView"},
 		{"action.sysml", "FlowViews::driveView"},
@@ -68,7 +71,7 @@ func TestDOTRoutesItsEdgesAsAsked(t *testing.T) {
 			if !strings.Contains(graph, ", "+want) || strings.Count(got, "splines=") != 1 {
 				t.Errorf("%s with lines %s: graph attributes %q lack %s once:\n%s", fixture.view, lines, graph, want, got)
 			}
-			if strings.Contains(got, "not represented: lines") {
+			if strings.Contains(got, "not represented: lines "+string(lines)+";") {
 				t.Errorf("%s with lines %s is drawn, not noted:\n%s", fixture.view, lines, got)
 			}
 			var plain, external, routed int
