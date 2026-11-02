@@ -31,7 +31,17 @@ func openFormatDoc(t *testing.T, src string) (*Server, string) {
 // formatEditsFor runs Formatting on src and returns its edits.
 func formatEditsFor(t *testing.T, src string, opts protocol.FormattingOptions) []protocol.TextEdit {
 	t.Helper()
+	return formatEditsKeeping(t, src, opts, false)
+}
+
+// formatEditsKeeping formats as formatEditsFor does, the keepLineBreaks setting
+// pushed first when asked.
+func formatEditsKeeping(t *testing.T, src string, opts protocol.FormattingOptions, keepLineBreaks bool) []protocol.TextEdit {
+	t.Helper()
 	s, name := openFormatDoc(t, src)
+	if keepLineBreaks {
+		changeConfiguration(t, s, map[string]any{"sysml": map[string]any{"keepLineBreaks": true}})
+	}
 	edits, err := s.Formatting(context.Background(), &protocol.DocumentFormattingParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 		Options:      opts,
@@ -203,7 +213,7 @@ func TestFormattingEditsOnlyChangedLines(t *testing.T) {
 func TestFormattingDeletesCollapsedBlankLines(t *testing.T) {
 	src := "package P {\n    part def Car;\n\n\n\n    part def Bus;\n}\n"
 	edits, got := formatDoc(t, src, spaces4)
-	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4))
+	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,10 +227,61 @@ func TestFormattingDeletesCollapsedBlankLines(t *testing.T) {
 
 // Columns are UTF-16 code units: an astral-plane character counts as two, and
 // the edit splitting the statement off the comment starts after the emoji.
+// With keepLineBreaks the reporter's one-liner is already formatted: no edits,
+// whatever the indentation settings.
+func TestKeepLineBreaksLeavesAOneLinerAlone(t *testing.T) {
+	src := "package P { part def A; }\n"
+	for _, tc := range []struct {
+		name string
+		opts protocol.FormattingOptions
+	}{{"no options", protocol.FormattingOptions{}}, {"four spaces", spaces4}} {
+		t.Run(tc.name, func(t *testing.T) {
+			edits := formatEditsKeeping(t, src, tc.opts, true)
+			if len(edits) != 0 {
+				t.Fatalf("edits = %+v, want none", edits)
+			}
+			want, err := format.Source("fmt.sysml", []byte(src), formatOptions(tc.opts, true))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(want) != src {
+				t.Fatalf("formatter rewrote %q to %q", src, want)
+			}
+		})
+	}
+}
+
+// With keepLineBreaks the formatter only trims and re-indents: the line with the
+// emoji keeps its statement and loses its trailing blanks.
+func TestKeepLineBreaksPositionsAreUTF16(t *testing.T) {
+	src := "package P {\n    /* 😀 */ part def Car;   \n  attribute s = \"🚗\";\n}\n"
+	edits := formatEditsKeeping(t, src, spaces4, true)
+	got := applyOrderedEdits(t, src, edits)
+	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != string(want) {
+		t.Fatalf("got %q, want %q", got, string(want))
+	}
+	if want := "package P {\n    /* 😀 */ part def Car;\n    attribute s = \"🚗\";\n}\n"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	// "    /* 😀 */ part def Car;" is 26 UTF-16 units (28 bytes): the emoji
+	// is two units, four bytes.
+	wantEdits := []protocol.TextEdit{
+		{Range: protocol.Range{Start: pos(1, 26), End: pos(1, 29)}, NewText: ""},
+		{Range: protocol.Range{Start: pos(2, 2), End: pos(2, 2)}, NewText: "  "},
+	}
+	if len(edits) != len(wantEdits) || edits[0] != wantEdits[0] || edits[1] != wantEdits[1] {
+		t.Fatalf("edits = %+v, want %+v", edits, wantEdits)
+	}
+}
+
 func TestFormattingPositionsAreUTF16(t *testing.T) {
 	src := "package P {\n    /* 😀 */ part def Car;   \n  attribute s = \"🚗\";\n}\n"
 	edits, got := formatDoc(t, src, spaces4)
-	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4))
+	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -427,7 +488,7 @@ func checkFormattingEdits(t *testing.T, path, src string) (split bool) {
 		}
 		return false
 	}
-	want, err := format.Source(name, []byte(src), formatOptions(spaces4))
+	want, err := format.Source(name, []byte(src), formatOptions(spaces4, false))
 	if err != nil {
 		t.Fatalf("%s: format.Source: %v", path, err)
 	}
@@ -460,7 +521,7 @@ func TestFormattingDiffIsCheaperThanFormatting(t *testing.T) {
 		}
 	}
 	mangled := []byte(mangleIndentation(string(largest)))
-	formatted, err := format.Source("largest.sysml", mangled, formatOptions(spaces4))
+	formatted, err := format.Source("largest.sysml", mangled, formatOptions(spaces4, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -478,7 +539,7 @@ func TestFormattingDiffIsCheaperThanFormatting(t *testing.T) {
 		// on a loaded runner hits both or neither; the best round of each survives it.
 		formatTime, diffTime := time.Duration(math.MaxInt64), time.Duration(math.MaxInt64)
 		for range 20 {
-			formatTime = min(formatTime, timed(func() { _, _ = format.Source("largest.sysml", mangled, formatOptions(spaces4)) }))
+			formatTime = min(formatTime, timed(func() { _, _ = format.Source("largest.sysml", mangled, formatOptions(spaces4, false)) }))
 			diffTime = min(diffTime, timed(func() { formatEdits(mangled, formatted, allLines) }))
 		}
 		t.Logf("%d bytes: format %v, diff %v", len(mangled), formatTime, diffTime)
@@ -498,7 +559,7 @@ func BenchmarkFormatEdits(b *testing.B) {
 		b.Fatal(err)
 	}
 	mangled := []byte(mangleIndentation(string(content)))
-	formatted, err := format.Source("b.sysml", mangled, formatOptions(spaces4))
+	formatted, err := format.Source("b.sysml", mangled, formatOptions(spaces4, false))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -631,7 +692,7 @@ func TestRangeFormattingTrimsBlankRunWithinSelectionOnly(t *testing.T) {
 // included), whatever the selection; selecting everything reproduces the formatter's output.
 func TestRangeFormattingNeverLeavesSelection(t *testing.T) {
 	src := "package P {\n\n\n  part def Car;   \n\n\n\n\tpart def Bus {\n  \n\n  attribute n;\n\n  }\n\n part def Van { part def Wheel; part def Door; }\n\n}\n\n\n"
-	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4))
+	want, err := format.Source("fmt.sysml", []byte(src), formatOptions(spaces4, false))
 	if err != nil {
 		t.Fatal(err)
 	}

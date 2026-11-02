@@ -105,6 +105,7 @@ type formatRequest struct {
 	Content              string `json:"content,omitempty"`
 	Language             string `json:"language,omitempty"`
 	TolerateSyntaxErrors bool   `json:"tolerateSyntaxErrors,omitempty"`
+	KeepLineBreaks       bool   `json:"keepLineBreaks,omitempty"`
 }
 
 type formatResponse struct {
@@ -239,10 +240,8 @@ func parse(req *parseRequest) ([]byte, error) {
 	return marshal(&parseResponse{Diagnostics: parseDiagnostics(file, p)})
 }
 
-// formatDocument answers the request's content laid out one statement per
-// line and re-indented, as a sysml→sysml Convert does: a document with syntax errors is refused in the response's
-// error unless the request tolerated them, and a formatter failure reports
-// itself there too — neither is an RPC error.
+// formatDocument answers the request's content laid out one statement per line
+// and re-indented as a sysml→sysml Convert does, or re-indented only with keepLineBreaks.
 func formatDocument(req *formatRequest) ([]byte, error) {
 	file, p, err := parseContent(req.Language, req.Content)
 	if err != nil {
@@ -255,7 +254,11 @@ func formatDocument(req *formatRequest) ([]byte, error) {
 			Diagnostics: syntaxDiagnostics(file, p),
 		})
 	}
-	out, ferr := format.Source(contentName, []byte(req.Content), format.ConvertOptions)
+	layout := format.ConvertOptions
+	if req.KeepLineBreaks {
+		layout = format.DefaultOptions
+	}
+	out, ferr := format.Source(contentName, []byte(req.Content), layout)
 	if ferr != nil {
 		return marshal(&formatResponse{Error: ferr.Error()})
 	}

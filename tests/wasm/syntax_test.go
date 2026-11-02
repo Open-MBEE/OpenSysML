@@ -244,6 +244,32 @@ func TestSyntaxCLIParity(t *testing.T) {
 		t.Errorf("Format echoed the badly indented input unchanged")
 	}
 
+	// With keepLineBreaks, Format keeps the input's line breaks as a save does:
+	// a one-line body stays on its line instead of being laid out.
+	const oneLiner = "package P { part def A; }\n"
+	for _, tc := range []struct {
+		keep bool
+		want string
+	}{{false, "package P {\n    part def A;\n}\n"}, {true, oneLiner}} {
+		req, err := json.Marshal(map[string]any{"content": oneLiner, "keepLineBreaks": tc.keep})
+		if err != nil {
+			t.Fatal(err)
+		}
+		kbody, err := fsyntax.Call(ctx, "Format", req)
+		if err != nil {
+			t.Fatalf("Format refused: %v", err)
+		}
+		var kept struct {
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal(kbody, &kept); err != nil {
+			t.Fatalf("decoding the Format answer: %v\n%s", err, kbody)
+		}
+		if kept.Content != tc.want {
+			t.Errorf("Format keepLineBreaks=%v content = %q, want %q", tc.keep, kept.Content, tc.want)
+		}
+	}
+
 	// A document with syntax errors is refused in the response's error, with
 	// the message the converter reports — unless the request tolerates them.
 	ebody, err := fsyntax.Call(ctx, "Format", []byte(syntaxParams(t, "malformed.sysml", nil)))

@@ -212,9 +212,10 @@ it even smaller than the engine. Like the engine, the `js` build installs a host
 - `Parse` takes `{content, language}` and answers `{"diagnostics":[…]}`: the parser's syntax
   errors, then its warnings, each as the Diagnostic message a `ParseFile` answer carries;
   a clean document answers `{}`.
-- `Format` takes `{content, language, tolerateSyntaxErrors}` and answers
+- `Format` takes `{content, language, tolerateSyntaxErrors, keepLineBreaks}` and answers
   `{content, diagnostics, error}` as a `sysml`→`sysml` `Convert` does: the source laid out
-  one statement per line and re-indented, or — when the input has syntax errors and the request did not tolerate them —
+  one statement per line and re-indented (re-indented only, the author's line breaks kept,
+  when `keepLineBreaks` is true), or — when the input has syntax errors and the request did not tolerate them —
   `error` with the converter's message and `diagnostics` listing them. It refuses invalid
   input unless `tolerateSyntaxErrors` is set.
 - `Tokens` takes `{content, language}` and answers `{"legend":{…},"data":[…]}`: the full
