@@ -85,7 +85,14 @@ func (ctx *Context) constraintObjectResult(inst *Instance, sym *symbols.Symbol, 
 		ctx.libraryDeclared(fv.Feature.Symbol) {
 		return Value{}, false, nil
 	}
-	val, err := ctx.constraintResultValue(fv.Feature.Symbol, owner, sym, feat.Multiplicity)
+	usage := fv.Feature.Symbol
+	// `assume r;` naming a requirement is that requirement's own check, implication included.
+	if target := ctx.referencedRequirement(usage.OwnerScope, usage.Decl, ast.ConditionReference(usage.Decl)); target != nil && RequireRequirement(target) == nil {
+		result, err := ctx.CheckRequirementOn(target, target.OwnerScope, owner)
+		val, err := ctx.checkResultValue(result, err, sym, feat.Multiplicity)
+		return val, true, err
+	}
+	val, err := ctx.constraintResultValue(usage, owner, sym, feat.Multiplicity)
 	return val, true, err
 }
 
@@ -94,6 +101,11 @@ func (ctx *Context) constraintObjectResult(inst *Instance, sym *symbols.Symbol, 
 // of it is unbound; any other failure of the evaluation is the error.
 func (ctx *Context) constraintResultValue(sym *symbols.Symbol, self *Instance, read *symbols.Symbol, count semantics.Range) (Value, error) {
 	result, err := ctx.CheckConstraintOn(sym, sym.OwnerScope, self)
+	return ctx.checkResultValue(result, err, read, count)
+}
+
+// checkResultValue is a check's outcome as the value of the feature read (see constraintResultValue).
+func (ctx *Context) checkResultValue(result CheckResult, err error, read *symbols.Symbol, count semantics.Range) (Value, error) {
 	if err != nil {
 		if unboundInput(err) {
 			return undeterminedFeatureValue(err.Error(), count, read), nil
