@@ -171,6 +171,9 @@ type Context struct {
 
 	// readRecorders collect feature values read by an observed change condition.
 	readRecorders [][]*FeatureValue
+	// verdictReads collect the feature values a verdict's conditions read, one
+	// list per verdict being judged (see behavior_start_failure.go).
+	verdictReads [][]*FeatureValue
 
 	// declarative makes the context read declared values only: no classifier
 	// behavior starts when an object is materialized (see DeclaredReader).
@@ -1316,7 +1319,7 @@ func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope,
 	}
 	// Evaluate every condition the constraint states, inherited ones included.
 	conds := ctx.conditionsOf(sym, members)
-	holds, err := ctx.evaluateConditions(conditionCheck{
+	verdict, err := ctx.judgeVerdict(conditionCheck{
 		sym:      sym,
 		kind:     "constraint",
 		what:     "assertion",
@@ -1324,7 +1327,7 @@ func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope,
 		bindings: mapFrame(bindings),
 		negated:  NegatedDecl(sym),
 	}, conds)
-	return ctx.checkResultOf(holds, subject), err
+	return ctx.checkResultOf(verdict.holds, subject), err
 }
 
 // CheckResult is the outcome of one check: whether it holds, the object its
@@ -1722,7 +1725,7 @@ func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 		bindings: mapFrame(reqBindings),
 		negated:  NegatedDecl(sym),
 	}
-	verdict, err := ctx.judgeConditions(check, conds)
+	verdict, err := ctx.judgeVerdict(check, conds)
 	if err != nil {
 		err = unboundSubjectError(err, "requirement", sym.Name, ctx.unboundSubjectNames(sym, members, subject.instance))
 	}
@@ -2382,6 +2385,9 @@ func (ctx *Context) stateRunFor(stateMachine *symbols.Symbol, self *Instance, to
 	behavior, err := exhibitedBy(stateMachine, self)
 	if err != nil {
 		return nil, false, err
+	}
+	if behavior != nil && behavior.Err != nil {
+		return nil, true, behavior.Err
 	}
 	if behavior != nil && behavior.State != nil {
 		return behavior.State, true, nil

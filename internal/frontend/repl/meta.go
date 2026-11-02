@@ -2694,7 +2694,9 @@ func (s *Session) satisfyVerdictOn(ctx *runtime.Context, a *runtime.SatisfyAsser
 	// A `satisfy requirement r by p` declares its requirement rather than
 	// referencing one, so the assertion names it.
 	req := a.AssertedRequirement()
-	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req, subject)
+	verdict := satisfactionVerdict(a, result, err, subject, owner)
+	verdict.Lines = append(verdict.Lines, startFailureLines(ctx, subject, "  ")...)
+	verdict = s.withVerifications(verdict, ctx, req, subject)
 	return standing(verdict, plan)
 }
 
@@ -3391,6 +3393,9 @@ func (s *Session) debugExhibitedMachine(
 	behavior, ok := inst.ExhibitedState()
 	if !ok {
 		return nil, fmt.Errorf("object %q exhibits no state machine", label)
+	}
+	if behavior.Err != nil {
+		return nil, fmt.Errorf("object %q runs no state machine to debug: %w", label, behavior.Err)
 	}
 	return s.attachExhibitedMachine(ctx, name, label, inst, behavior), nil
 }
