@@ -66,6 +66,21 @@ func TestSatisfySubjectMembershipIsOwned(t *testing.T) {
 	if got := m.FeatureTypeSet(subject); len(got) != 1 || got[0].Name != "Sys" {
 		t.Errorf("subject types = %v, want [Sys] through the redefined subject", got)
 	}
+	// The subject is a referential usage of the satisfy usage, an Occurrence: it varies in
+	// time, and its `by` value is the FeatureValue it owns, as the conversion writes them.
+	if !m.UsageMayTimeVary(subject) || !m.FeatureIsVariable(subject) || !m.UsageMayTimeVaryForOwningType(subject, satisfy) {
+		t.Errorf("subject mayTimeVary = %v (for its owning type %v), isVariable = %v, want true", m.UsageMayTimeVary(subject), m.UsageMayTimeVaryForOwningType(subject, satisfy), m.FeatureIsVariable(subject))
+	}
+	if got, ok := m.ReflectiveFeatureValue(subject, "isVariable"); !ok || got.Kind != symbols.FilterValueBool || !got.Bool {
+		t.Errorf("isVariable of the subject = %+v (ok %v), want true", got, ok)
+	}
+	value := m.ValueExpression(subject)
+	if value == nil {
+		t.Fatal("the subject has no value expression for its `by sys`")
+	}
+	if got := m.OwnedMemberships(subject); len(got) != 1 || got[0].Implicit == nil || got[0].Implicit.Member != value || m.implicitMetaclassName(got[0]) != "FeatureValue" {
+		t.Errorf("subject owned memberships = %v, want one FeatureValue owning its value", got)
+	}
 	r2, _ := sys.Scope.LookupLocal("r2")
 	other := m.SubjectParameterOf(r2)
 	if other == nil || other == subject || other.DeclSpan == subject.DeclSpan || other.DeclSpan == (source.Span{}) {

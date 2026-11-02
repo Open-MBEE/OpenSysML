@@ -15,6 +15,7 @@ import { DocumentRendering } from "./document";
 import { CROSS_DOCUMENT_CAPABILITY, STDLIB_SCHEME } from "./protocol";
 import { SHOW_REFERENCES_COMMAND, showReferencesArguments } from "./references";
 import { ElementRunner } from "./run";
+import { documentSelector } from "./selector";
 import { declaredVersion, serverReport } from "./serverinfo";
 import { StdlibDocuments } from "./stdlib";
 
@@ -130,14 +131,7 @@ async function startClient(): Promise<void> {
     debug: { command, args, transport: TransportKind.stdio },
   };
   const clientOptions: LanguageClientOptions = {
-    // The library's virtual documents are served too, so hover and navigation
-    // work inside them.
-    documentSelector: [
-      { scheme: "file", language: "sysml" },
-      { scheme: "file", language: "kerml" },
-      { scheme: STDLIB_SCHEME, language: "sysml" },
-      { scheme: STDLIB_SCHEME, language: "kerml" },
-    ],
+    documentSelector: documentSelector(STDLIB_SCHEME),
     outputChannel: output,
     synchronize: { fileEvents: watcher },
     middleware: {
