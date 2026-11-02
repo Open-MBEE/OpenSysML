@@ -442,41 +442,6 @@ func relinked(t *testing.T, graph []byte, link, to string) []byte {
 	return []byte(strings.Replace(string(graph), link, to, 1))
 }
 
-func relinkedProperty(t *testing.T, graph []byte, subject, property, from, to string) []byte {
-	t.Helper()
-	blocks := strings.Split(string(graph), "\n\n")
-	needle := "sysml:" + property + " " + from
-	replacement := "sysml:" + property + " " + to
-	found := 0
-	for i, block := range blocks {
-		if !strings.Contains(block, subject+"\n") {
-			continue
-		}
-		if strings.Count(block, needle) != 1 {
-			continue
-		}
-		blocks[i] = strings.Replace(block, needle, replacement, 1)
-		found++
-	}
-	if found != 1 {
-		t.Fatalf("subject %q has property %q %d times, want once\n%s", subject, property, found, graph)
-	}
-	return []byte(strings.Join(blocks, "\n\n"))
-}
-
-// relinkedMember relinks the member a Membership names — memberElement, target and relatedElement,
-// the json annotation of the latter included — from one element to another.
-func relinkedMember(t *testing.T, graph []byte, membership, owner, from, to string) []byte {
-	t.Helper()
-	graph = relinkedProperty(t, graph, membership, "memberElement", from, to)
-	graph = relinkedProperty(t, graph, membership, "target", from, to)
-	graph = relinkedProperty(t, graph, membership, "relatedElement", owner+", "+from, owner+", "+to)
-	id := func(term string) string { return term[strings.Index(term, ":")+1:] }
-	return []byte(strings.Replace(string(graph),
-		`json:relatedElement "[{\"@id\":\"`+id(owner)+`\"},{\"@id\":\"`+id(from)+`\"}]"`,
-		`json:relatedElement "[{\"@id\":\"`+id(owner)+`\"},{\"@id\":\"`+id(to)+`\"}]"`, 1))
-}
-
 // refusedAsUnsupported requires a graph to be refused rather than written as
 // notation that would read back as a different graph.
 func refusedAsUnsupported(t *testing.T, name string, graph []byte, why string) {
@@ -696,8 +661,9 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 	}
 	structuralRoundTrip(t, "initial", graph)
 	structural := withoutTriples(t, graph, "sysx:sourceText")
-	const link = "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__inner__s2"
-	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__s1"),
+	// The member and the ends that restate it move together.
+	const membership, body = "elmt:P__Outer__inner___401", "elmt:P__Outer__inner"
+	refusedAsUnsupported(t, "initial", relinkedMember(t, structural, membership, body, "elmt:P__Outer__inner__s2", "elmt:P__Outer__s1"),
 		"`first s1` does not name P::Outer::s1 in the body it is written in")
 	// A same-named sibling of the body would read as the start instead.
 	shadowed := strings.Replace(src, "action s1;", "action s2;", 1)
@@ -706,7 +672,7 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	structural = withoutTriples(t, graph, "sysx:sourceText")
-	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__s2"),
+	refusedAsUnsupported(t, "initial", relinkedMember(t, structural, membership, body, "elmt:P__Outer__inner__s2", "elmt:P__Outer__s2"),
 		"`first s2` does not name P::Outer::s2 in the body it is written in")
 }
 

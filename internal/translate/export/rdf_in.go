@@ -843,6 +843,9 @@ func (d *decoder) build() ([]*element, error) {
 	if err := d.verifyNormativeNodes(); err != nil {
 		return nil, err
 	}
+	if err := d.checkStatedMembershipEnds(); err != nil {
+		return nil, err
+	}
 	if err := d.checkReferences(); err != nil {
 		return nil, err
 	}
@@ -1017,10 +1020,51 @@ func (d *decoder) expressionOwner(term rdf.Term) bool {
 // name for the property and once under the Relationship's — and either spelling
 // is accepted, since a graph from another tool may carry only one; spellings
 // that disagree, a literal end, or a second membership claiming the member are
+// checkStatedMembershipEnds validates the stated ends of every membership, the named ones an alias
+// or `first` writes included: readMembership checks only the structural ones it reads.
+func (d *decoder) checkStatedMembershipEnds() error {
+	seen := map[string]bool{}
+	for _, triple := range d.graph.Triples() {
+		predicate := triple.Predicate.Value
+		if predicate != rdf.SysML+pSource && predicate != rdf.SysML+pTarget && predicate != rdf.SysML+pRelatedElement {
+			continue
+		}
+		subject := triple.Subject
+		if seen[subject.Value] || !(ontology.IsAncestorOrSelf(d.metaclass(subject), mMembership) || d.nodeMembership[subject.Value]) {
+			continue
+		}
+		seen[subject.Value] = true
+		what := fmt.Sprintf("the membership <%s>", subject.Value)
+		owner, hasOwner := d.graph.Object(subject, rdf.SysML+pMembershipOwningNamespace)
+		if !hasOwner {
+			owner, hasOwner = d.graph.Object(subject, rdf.SysML+pOwningRelatedElement)
+		}
+		member, hasMember := d.graph.Object(subject, rdf.SysML+pMemberElement)
+		if !hasOwner || !hasMember {
+			continue
+		}
+		if !member.IsIRI() {
+			return &UnsupportedError{
+				What: what,
+				Note: fmt.Sprintf("its member is the name %q, which no element of the graph answers to, yet it states sysml:%s — an end needs an element", member.Value, predicate[len(rdf.SysML):]),
+			}
+		}
+		if err := d.membershipEndsAgree(subject, what, owner, member); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // membershipEndsAgree refuses a membership whose stated source, target or relatedElement
 // is not the owner, the member, or both in that order (KerML 8.3.2.3.5, 8.3.2.5.2).
 func (d *decoder) membershipEndsAgree(subject rdf.Term, what string, owner, member rdf.Term) error {
-	want := map[string][]rdf.Term{pSource: {owner}, pTarget: {member}, pRelatedElement: {owner, member}}
+	// A namespace aliasing itself has one related element: the triples are a set.
+	related := []rdf.Term{owner, member}
+	if owner == member {
+		related = related[:1]
+	}
+	want := map[string][]rdf.Term{pSource: {owner}, pTarget: {member}, pRelatedElement: related}
 	for _, property := range []string{pSource, pTarget, pRelatedElement} {
 		stated := d.graph.Objects(subject, rdf.SysML+property)
 		if len(stated) == 0 {

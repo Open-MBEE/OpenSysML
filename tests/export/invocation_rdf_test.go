@@ -78,8 +78,13 @@ func TestInvocationOfAnUndefinedFunctionIsRefused(t *testing.T) {
 	}
 	// Both statements of the callee, collapsed and the Membership's member, move together.
 	dangling := strings.ReplaceAll(stripped, "sysml:function elmt:Calls__twice ;", "sysml:function elmt:Calls__nowhere ;")
-	dangling = strings.ReplaceAll(dangling, "_pfunction\" ;\n    sysml:memberElement elmt:Calls__twice ;", "_pfunction\" ;\n    sysml:memberElement elmt:Calls__nowhere ;")
-	_, err := convert.Convert("calls.ttl", []byte(dangling), convert.FormatTurtle, convert.FormatSysML)
+	blocks := strings.Split(dangling, "\n\n")
+	for i, block := range blocks {
+		if strings.Contains(block, "_pfunction\n") && strings.Contains(block, "elmt:Calls__twice") {
+			blocks[i] = strings.ReplaceAll(block, "Calls__twice", "Calls__nowhere")
+		}
+	}
+	_, err := convert.Convert("calls.ttl", []byte(strings.Join(blocks, "\n\n")), convert.FormatTurtle, convert.FormatSysML)
 	if err == nil {
 		t.Fatal("an invocation of an undefined function was written")
 	}
