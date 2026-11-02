@@ -188,6 +188,10 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		}
 		return "FeatureTyping"
 	case ast.RelSubsets:
+		// `satisfy r;` and `verify r;` subset their requirement in the reference form (SysML.xtext).
+		if rel.Owner != nil && ast.IsReferenceSubsetting(rel.Owner.Decl, rel.Node) {
+			return "ReferenceSubsetting"
+		}
 		return "Subsetting"
 	case ast.RelRedefines:
 		return "Redefinition"
