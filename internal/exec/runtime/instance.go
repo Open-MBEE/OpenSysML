@@ -1636,19 +1636,25 @@ func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
 	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol) || untypedPerformanceUsage(feat.Symbol)) {
 		return false
 	}
-	usage := feat.Symbol.Decl.(*ast.Usage)
-	return !usage.IsReference
+	usage, ok := feat.Symbol.Decl.(*ast.Usage)
+	return !ok || !usage.IsReference
 }
 
-// untypedPerformanceUsage reports an action or state usage declaring no type and no value,
-// a performance its owner holds as it holds a typed one: one object for a usage declaring no
-// multiplicity, as many as a fixed bound states, none made up for an open bound.
+// untypedPerformanceUsage reports an action or state usage, or a requirement's `assume`/`require`
+// constraint, declaring no type and no value, a performance its owner holds as it holds a typed
+// one: one object for a usage declaring no multiplicity, as many as a fixed bound states, none
+// made up for an open bound.
 func untypedPerformanceUsage(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	// A requirement's `assume`/`require` constraint is composite by its grammar (no `ref`),
+	// an object of the collection it subsets (SysML v2 §8.3.20.4, Requirements.sysml).
+	if owned, ok := ast.OwnedConstraintOf(sym.Decl); ok {
+		return owned.Value == nil
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && usage.Value == nil && performanceUsageKind(usage.Kind)
+	return ok && usage.Value == nil && (performanceUsageKind(usage.Kind) || usage.IsRequirementConstraint())
 }
 
 // untypedPortUsage reports a port usage, whose object a binding connector can join to another's.
