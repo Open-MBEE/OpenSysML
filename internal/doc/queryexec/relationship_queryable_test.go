@@ -62,3 +62,21 @@ calc def Ends :> Query {
 		}
 	}
 }
+
+// An untyped feature's type stays the reader's answer — none — rather than its implied types.
+func TestUntypedFeatureTypeStaysEmpty(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part untyped;
+calc def Types :> Query {
+	in rows : Element[0..*];
+	Project(source = rows, properties = ("type"))
+}
+`)
+	result, err := fixture.execute(t, "Types", Bindings{"rows": {ElementValue(fixture.symbol(t, "untyped"))}}, Options{})
+	if err != nil {
+		t.Fatalf("execute Types: %v", err)
+	}
+	if texts := cellTexts(t, result, 0); len(texts) != 1 || texts[0] != "" {
+		t.Fatalf("type of an untyped part = %q, want one empty cell", texts)
+	}
+}

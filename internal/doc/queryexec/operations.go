@@ -798,9 +798,12 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 	return values, present, err
 }
 
-// reflectiveQueryableValues answers a queryable property the reader leaves unanswered from the
-// element's metaclass: a relationship's type and general, an expression's isAbstract.
+// reflectiveQueryableValues answers a queryable property of a row the reader does not describe — a
+// relationship object or an expression — from its metaclass; a declared feature or type keeps the reader's answer.
 func (e *executor) reflectiveQueryableValues(sym *symbols.Symbol, property string) []Value {
+	if sym == nil || (sym.Implicit == nil && sym.Expr == nil) {
+		return nil
+	}
 	values, err := e.reflectiveFeatureValues(queryplan.Expression{}, property, sym)
 	if err != nil {
 		return nil
