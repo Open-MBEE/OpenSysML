@@ -343,11 +343,11 @@ func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, s
 	if err != nil {
 		return Value{}, err
 	}
-	rollback, err := ctx.overlaySatisfierChains(a, subject, bindings)
+	undo, err := ctx.overlaySatisfierChains(a, subject, bindings)
 	if err != nil {
 		return Value{}, err
 	}
-	defer rollback()
+	defer undo()
 	activation, endStep := ctx.beginStep()
 	defer endStep()
 	ec := NewEvalContextIn(ctx, scope, subject)
@@ -372,11 +372,11 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	if err != nil {
 		return ctx.satisfactionResult(false, subject, reached), err
 	}
-	rollback, err := ctx.overlaySatisfierChains(a, subject, bindings)
+	undo, err := ctx.overlaySatisfierChains(a, subject, bindings)
 	if err != nil {
 		return ctx.satisfactionResult(false, subject, reached), err
 	}
-	defer rollback()
+	defer undo()
 
 	conds := ctx.conditionsOf(target, members)
 	check := conditionCheck{
@@ -399,20 +399,74 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 }
 
 // overlaySatisfierChains installs the chain redefinitions the satisfaction declares on the
-// objects it binds, for one check (SysML v2 §7.21.4); the rollback removes them again.
-func (ctx *Context) overlaySatisfierChains(a *SatisfyAssertion, subject *Instance, bindings map[string]Value) (rollback func(), err error) {
+// objects it binds, for one check (SysML v2 §7.21.4); undo removes those installs alone.
+func (ctx *Context) overlaySatisfierChains(a *SatisfyAssertion, subject *Instance, bindings map[string]Value) (undo func(), err error) {
 	chains := ctx.satisfierChains(a, subject, bindings)
 	if len(chains) == 0 {
 		return func() {}, nil
 	}
-	_, rollback = ctx.beginJournal()
+	// The objects a chain walks exist before the overlay, so the installs below
+	// are the only journaled changes and nothing the check creates is undone.
 	for _, c := range chains {
-		if err := ctx.refineChildBelow(c.object.owner, c.object, c.rest, c.sym); err != nil {
-			rollback()
+		if err := ctx.materializeBelow(c.object, c.rest[:len(c.rest)-1]); err != nil {
 			return nil, fmt.Errorf("%s: %w", a.Text(), err)
 		}
 	}
-	return rollback, nil
+	mark := ctx.markJournal()
+	ctx.journals++
+	for _, c := range chains {
+		if err := ctx.refineChildBelow(c.object.owner, c.object, c.rest, c.sym); err != nil {
+			ctx.journals--
+			ctx.rollbackJournal(mark)
+			return nil, fmt.Errorf("%s: %w", a.Text(), err)
+		}
+	}
+	end := ctx.markJournal()
+	return func() { ctx.undoJournaled(mark, end) }, nil
+}
+
+// undoJournaled restores the feature values written and the changes noted between two
+// marks of the journal opened at from, leaving later changes as they are.
+func (ctx *Context) undoJournaled(from, to journalMark) {
+	for i := to.writes - 1; i >= from.writes; i-- {
+		ctx.invalidateDependents(ctx.journalWrites[i].fv)
+		*ctx.journalWrites[i].fv = ctx.journalWrites[i].prior
+	}
+	for i := to.undos - 1; i >= from.undos; i-- {
+		ctx.journalUndos[i]()
+	}
+	ctx.writes++
+	ctx.journals--
+	if ctx.journals == 0 {
+		ctx.journalWrites, ctx.journalUndos = ctx.journalWrites[:from.writes], ctx.journalUndos[:from.undos]
+	}
+}
+
+// materializeBelow reads the features of path down from inst, so that the objects inst
+// owns along it exist, as refineNestedBelow walks them.
+func (ctx *Context) materializeBelow(inst *Instance, path []string) error {
+	if len(path) == 0 {
+		return nil
+	}
+	fv, err := inst.materializeFeatureValue(ctx, path[0], nil)
+	if err != nil {
+		return err
+	}
+	if fv == nil || fv.Feature == nil || !ctx.ownsHeld(fv.Feature) {
+		return nil
+	}
+	for _, el := range standingElements(fv.HeldValue()) {
+		id, ok := el.Object()
+		if !ok {
+			continue
+		}
+		if child, ok := ctx.instances[id]; ok && child.owner == inst && inst.FeatureValues[child.ownerFeature] == fv {
+			if err := ctx.materializeBelow(child, path[1:]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // satisfierChain is a nested redefinition reaching below an object a satisfaction

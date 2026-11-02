@@ -265,6 +265,77 @@ func TestReadInSatisfactionReadsTheCheckChain(t *testing.T) {
 	fuel("after the check", "0")
 }
 
+// TestReadInSatisfactionKeepsTheObjectsItMakes checks that a read or a check under a
+// chain redefinition keeps the objects it materializes below the subject: a read of a
+// lazy part returns an object the context still knows, and only the chain is undone.
+func TestReadInSatisfactionKeepsTheObjectsItMakes(t *testing.T) {
+	src := `package LazyProbe {
+		private import ScalarValues::Integer;
+		part def Inner { attribute power : Integer default 0; }
+		part def Sub { part inner : Inner; }
+		part def Thing { part sub : Sub; }
+		part craft : Thing;
+		requirement def Deep {
+			subject vehicle : Thing;
+			require constraint { vehicle.sub.inner.power == 7 }
+		}
+		satisfy requirement check : Deep by craft {
+			attribute redefines craft.sub.inner.power = 7;
+		}
+	}`
+	ctx, a := satisfactionOf(t, src, "satisfy check by craft")
+	subject, err := ctx.SatisfySubject(a)
+	if err != nil {
+		t.Fatalf("SatisfySubject: %v", err)
+	}
+	conditions := ctx.ConditionsOf(a.Symbol, a.Symbol.OwnerScope)
+	expression, ok := conditions[0].Expr.(*ast.OperatorExpr)
+	if len(conditions) != 1 || !ok || len(expression.Operands) != 2 {
+		t.Fatalf("conditions = %+v, want one binary operator", conditions)
+	}
+	power, err := ctx.ReadInSatisfaction(a, subject, conditions[0].Scope, expression.Operands[0])
+	if err != nil || FormatValue(power) != "7" {
+		t.Fatalf("ReadInSatisfaction(power) = %s, %v; want 7", FormatValue(power), err)
+	}
+	// vehicle.sub.inner.power nests as ((vehicle.sub).inner).power.
+	var sub ast.Node = expression.Operands[0]
+	for range 2 {
+		chain, ok := sub.(*ast.FeatureChainExpr)
+		if !ok {
+			t.Fatalf("operand = %#v, want a feature chain", sub)
+		}
+		sub = chain.Operand
+	}
+	held, err := ctx.ReadInSatisfaction(a, subject, conditions[0].Scope, sub)
+	if err != nil {
+		t.Fatalf("ReadInSatisfaction(sub): %v", err)
+	}
+	id, ok := held.Object()
+	if !ok {
+		t.Fatalf("ReadInSatisfaction(sub) = %s, want an object", FormatValue(held))
+	}
+	subObject, ok := ctx.Instance(id)
+	if !ok {
+		t.Fatalf("object %d the read returned is gone", id)
+	}
+	result, err := ctx.CheckSatisfactionOn(a, subject)
+	if err != nil || !result.Holds {
+		t.Fatalf("CheckSatisfactionOn = %+v, %v; want holds", result, err)
+	}
+	if again, _ := subject.FeatureValues["sub"].Value.Object(); again != id {
+		t.Fatalf("craft.sub is object %d after the check, was %d", again, id)
+	}
+	innerID, _ := subObject.FeatureValues["inner"].Value.Object()
+	inner, ok := ctx.Instance(innerID)
+	if !ok {
+		t.Fatalf("craft.sub.inner is gone after the check")
+	}
+	got, err := ctx.readFeatureValue(inner.FeatureValues["power"], "power")
+	if err != nil || FormatValue(got) != "0" {
+		t.Fatalf("craft.sub.inner.power after the check = %s, %v; want 0", FormatValue(got), err)
+	}
+}
+
 // statedSatisfyModel states satisfactions with no `by`: one by a definition,
 // about every object of it, and one by a usage, about the usage's own object.
 const statedSatisfyModel = `

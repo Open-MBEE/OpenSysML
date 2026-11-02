@@ -266,8 +266,9 @@ func (ctx *Context) refineChildBelow(inst, child *Instance, rest []string, sym *
 		feat := ctx.effectiveFeature(rest[0], sym, child.Type)
 		return ctx.installFeatureValue(child, cfv, &feat)
 	}
-	ctx.noteProbeUndo(func() { child.nested = child.nested[:len(child.nested)-1] })
-	child.nested = append(child.nested, pendingRedefinition{rest: rest, sym: sym})
+	carried := pendingRedefinition{rest: rest, sym: sym}
+	ctx.noteProbeUndo(func() { child.nested = withoutLastPending(child.nested, carried) })
+	child.nested = append(child.nested, carried)
 	return ctx.refineNestedBelow(child, rest, sym)
 }
 
@@ -404,4 +405,14 @@ func hasRedefines(member *symbols.Symbol) bool {
 		}
 	}
 	return false
+}
+
+// withoutLastPending is pending without its last entry equal to p.
+func withoutLastPending(pending []pendingRedefinition, p pendingRedefinition) []pendingRedefinition {
+	for i := len(pending) - 1; i >= 0; i-- {
+		if pending[i].sym == p.sym && slices.Equal(pending[i].rest, p.rest) {
+			return slices.Delete(pending, i, i+1)
+		}
+	}
+	return pending
 }
