@@ -2277,6 +2277,15 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		case "language":
 			return stringOrEmpty(source.StringValue(d.Language)), true
 		}
+	case *symbols.ImpliedDecl:
+		// The implied conjugated port definition (SysML v2 8.3.12.3) is declared by nothing,
+		// so its plain Type attributes read their defaults.
+		if sym.IsConjugatedPortDefinition() {
+			switch feature {
+			case "isAbstract", "isSufficient", "isConstant", "isParallel":
+				return boolValue(false), true
+			}
+		}
 	case *ast.Definition:
 		switch feature {
 		case "isAbstract":
