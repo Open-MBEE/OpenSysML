@@ -176,17 +176,20 @@ func (ids *ElementIDs) recordSatisfySubjects(e *encoder, node ast.Node, subject 
 // value part's; a chain's FeatureReferenceExpression owning its chain Feature at `referent`
 // (subjectFeatureChainValue), the FeatureChainings and the result.
 func (ids *ElementIDs) recordSatisfySubjectValue(e *encoder, rel *ast.Relationship, usage rdf.Term) {
+	// The clause and its target share one span, so the value is a part of the clause at
+	// `value`; the span fallbacks read it for an expression node at the clause's span.
+	value := e.ids.mintedNode(rdf.ExpressionIRI(usage, pValue), usage, pValue)
+	membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
+	ids.byNode[rel.Target] = rdf.LocalName(value.Value)
+	ids.membershipByNode[rel.Target] = membership
+	recorded := partIDs{element: rdf.LocalName(value.Value), membership: membership}
+	ids.partByNode[partKey{rel, "value"}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), rel.Span()}, "value"}] = recorded
 	chain := ast.ReceiverChain(rel.Target)
 	if chain == nil {
-		ids.recordValuePart(e, rel, usage)
+		e.registerExpressionIDs(ids, value, rel.Target)
 		return
 	}
-	value := e.ids.mintedNode(rdf.ExpressionIRI(usage, pValue), usage, pValue)
-	ids.byNode[rel.Target] = rdf.LocalName(value.Value)
-	ids.bySpan[spanKey{e.file.Name(), rel.Target.Span()}] = ids.byNode[rel.Target]
-	membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
-	ids.membershipByNode[rel.Target] = membership
-	ids.membershipBySpan[spanKey{e.file.Name(), rel.Target.Span()}] = membership
 	e.registerExpressionPart(ids, value, rel.Target, "referent")
 	referent := e.ids.mintedNode(rdf.ExpressionIRI(value, "referent"), value, "referent")
 	for i := range chain {
@@ -197,6 +200,16 @@ func (ids *ElementIDs) recordSatisfySubjectValue(e *encoder, rel *ast.Relationsh
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), rel.Target.Span()}, "referent." + position}] = recorded
 	}
 	e.registerExpressionPart(ids, value, rel.Target, "out")
+}
+
+// satisfySubjectValueAt is the id pair of a satisfy subject's value when decl is an expression
+// node at a `by` clause's span (the two share it); false for the clause itself or any other node.
+func (ids *ElementIDs) satisfySubjectValueAt(doc string, decl ast.Node) (partIDs, bool) {
+	if _, isClause := decl.(*ast.Relationship); isClause || decl == nil {
+		return partIDs{}, false
+	}
+	recorded, ok := ids.partBySpan[spanPartKey{spanKey{doc, decl.Span()}, "value"}]
+	return recorded, ok
 }
 
 // writtenRelationships are the ids of the relationship elements the writer makes for the
@@ -479,6 +492,9 @@ func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (str
 		if id, ok := ids.byNode[decl]; ok {
 			return id, true
 		}
+		if value, ok := ids.satisfySubjectValueAt(doc, decl); ok {
+			return value.element, true
+		}
 		if id, ok := ids.bySpan[spanKey{doc, decl.Span()}]; ok {
 			return id, true
 		}
@@ -499,6 +515,9 @@ func (ids *ElementIDs) OwningMembershipOfDeclaration(doc string, decl ast.Node, 
 	if decl != nil {
 		if id, ok := ids.membershipByNode[decl]; ok {
 			return id, true
+		}
+		if value, ok := ids.satisfySubjectValueAt(doc, decl); ok {
+			return value.membership, true
 		}
 		if id, ok := ids.membershipBySpan[spanKey{doc, decl.Span()}]; ok {
 			return id, true
