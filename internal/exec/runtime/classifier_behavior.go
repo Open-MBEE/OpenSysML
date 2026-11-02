@@ -1038,9 +1038,16 @@ func (ctx *Context) failBehavior(b *ObjectBehavior, err error) {
 // the work it left paused, all through the journal so a restore undoes them.
 func (ctx *Context) endFailedPerformance(b *ObjectBehavior, err error) {
 	ctx.failBehavior(b, err)
-	if b.Action != nil && b.Action.occurrence != nil {
-		if life := ctx.lives[b.Action.occurrence.ID]; life.began != 0 {
-			ctx.endPerformanceLife(b.Action.occurrence)
+	var occurrence *Instance
+	switch {
+	case b.Action != nil:
+		occurrence = b.Action.occurrence
+	case b.State != nil:
+		occurrence = b.State.occurrence
+	}
+	if occurrence != nil {
+		if life := ctx.lives[occurrence.ID]; life.began != 0 {
+			ctx.endPerformanceLife(occurrence)
 		}
 	}
 	b.leaveClock()

@@ -96,9 +96,24 @@ func (e *UndecidedError) Is(target error) bool { return target == ErrVerdictUnde
 // recordsFailure reports whether an error of a behavior is recorded on the
 // behavior rather than failing what ran it: any failure of a behavior the
 // object's type bound, at its start or while the creation ran it to quiescence,
-// except the context's bound on live objects, which no behavior owns.
+// except a bound of the context's own — on live objects, steps or events —
+// which no behavior owns and which stays the creation's failure.
 func recordsFailure(b *ObjectBehavior, err error) bool {
-	return b != nil && b.typeBound && !errors.Is(err, ErrInstanceLimitExceeded)
+	return b != nil && b.typeBound && !exhaustsBudget(err)
+}
+
+// exhaustsBudget reports whether err is one of the context's bounds being reached.
+func exhaustsBudget(err error) bool {
+	var budget *budgetExceededError
+	if errors.As(err, &budget) {
+		return true
+	}
+	for _, bound := range []error{ErrInstanceLimitExceeded, ErrStepLimitExceeded, ErrActionStepLimitExceeded, ErrStateEventLimitExceeded, ErrDoStepLimitExceeded, errBehaviorBudget} {
+		if errors.Is(err, bound) {
+			return true
+		}
+	}
+	return false
 }
 
 // unstartedBehavior is the record of a behavior bound by the object's type that
@@ -228,15 +243,19 @@ func (ctx *Context) undecidedBy(check conditionCheck, reads []*FeatureValue) err
 // value, naming the feature: a plain name the body writes is the performer's own
 // feature (or its performance occurrence's), a chained or qualified one any
 // object's feature of that declaration or name, and a body whose targets are not
-// decidable from the lowered graph may write any feature of its performer.
+// decidable from the lowered graph (a chain from a computed base, or no graph at
+// all) may write any feature of any object.
 func (ctx *Context) mayWrite(b *ObjectBehavior, fv *FeatureValue) (string, bool) {
 	if fv.Feature == nil {
 		return "", false
 	}
 	fp := b.failedFootprint()
 	own := b.holdsOwn(fv)
-	if fp.Dynamic && own != "" {
-		return own, true
+	if fp.Dynamic {
+		if own != "" {
+			return own, true
+		}
+		return fv.Feature.Name, true
 	}
 	read := lower.Place{Sym: fv.Feature.Symbol, Name: fv.Feature.Name}
 	for _, w := range fp.Writes {
