@@ -2352,7 +2352,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// (KerML.xtext BasicFeaturePrefix `isComposite ?= 'composite' | isPortion ?= 'portion'`).
 		{"portion", isPortion},
 		{"composite", kerml && compositeWord},
-		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant")},
+		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant") && !d.derivedConstantEnd(el)},
 		{"individual", d.boolOf(el, rdf.SysML+"isIndividual")},
 		{"snapshot", portion == "snapshot"},
 		{"timeslice", portion == "timeslice"},
@@ -3619,6 +3619,12 @@ func (d *decoder) kerml(el *element) bool {
 
 // constantKeyword spells isConstant for the grammar: KerML.xtext FeaturePrefix
 // `isConstant ?= 'const'`, SysML.xtext RefPrefix `isConstant ?= 'constant'`.
+// derivedConstantEnd reports an end stated to vary in time: its isConstant is derived
+// (SysML v2.1 §8.2.2.6.1), so the notation carries no `constant` keyword for it.
+func (d *decoder) derivedConstantEnd(el *element) bool {
+	return d.boolOf(el, rdf.SysML+"isEnd") && d.boolOf(el, rdf.SysML+"mayTimeVary")
+}
+
 func constantKeyword(kerml bool) string {
 	if kerml {
 		return "const"
@@ -4015,7 +4021,7 @@ func (d *decoder) crossFeaturePrefixWords(cross *element) ([]string, error) {
 		keyword string
 		set     bool
 	}{
-		{constantKeyword(kerml), d.boolOf(cross, rdf.SysML+"isConstant")},
+		{constantKeyword(kerml), d.boolOf(cross, rdf.SysML+"isConstant") && !d.derivedConstantEnd(cross)},
 		{"ref", d.boolOf(cross, rdf.SysML+"isReference")},
 	} {
 		if flag.set {

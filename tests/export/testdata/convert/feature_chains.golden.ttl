@@ -284,6 +284,7 @@ elmt:Chains__II__a
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IP ;
@@ -321,6 +322,7 @@ elmt:Chains__II__b
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IP ;
@@ -507,6 +509,7 @@ expr:Chains__ctx___402_pend0
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:owner elmt:Chains__ctx___402 ;
     sysml:owningRelationship expr:Chains__ctx___402_pend0_om ;
     sysml:owningMembership expr:Chains__ctx___402_pend0_om ;
@@ -601,6 +604,7 @@ expr:Chains__ctx___402_pend1
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:owner elmt:Chains__ctx___402 ;
     sysml:owningRelationship expr:Chains__ctx___402_pend1_om ;
     sysml:owningMembership expr:Chains__ctx___402_pend1_om ;
@@ -734,6 +738,7 @@ expr:Chains__ctx__ic_pend0
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:owner elmt:Chains__ctx__ic ;
     sysml:owningRelationship expr:Chains__ctx__ic_pend0_om ;
     sysml:owningMembership expr:Chains__ctx__ic_pend0_om ;
@@ -828,6 +833,7 @@ expr:Chains__ctx__ic_pend1
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:owner elmt:Chains__ctx__ic ;
     sysml:owningRelationship expr:Chains__ctx__ic_pend1_om ;
     sysml:owningMembership expr:Chains__ctx__ic_pend1_om ;
