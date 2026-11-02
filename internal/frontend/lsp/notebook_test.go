@@ -324,3 +324,40 @@ func TestNotebookLanguageChangeReparsesUnchangedText(t *testing.T) {
 		t.Errorf("part def in a KerML notebook: want KerML syntax diagnostics, got %s", asJSON(diags))
 	}
 }
+
+// A cell is run by the kernel, not by `sysml` from disk: its lenses count
+// references, resolved in the cell's terms, and none runs or evaluates.
+func TestNotebookCellLensesCountReferencesAndRunNothing(t *testing.T) {
+	nb := openCells(t, []cellSpec{
+		{"sysml", "package P {\n    part def A;\n    action def Go;\n    calc def Area;\n}\n"},
+		{"sysml", "part a : P::A;\naction go : P::Go;\n"},
+	})
+	nb.awaitDiagnostics(nb.cells[0])
+	lenses, _ := nb.call("textDocument/codeLens", fmt.Sprintf(`{"textDocument":{"uri":%q}}`, nb.cells[0])).([]any)
+	if strings.Contains(asJSON(lenses), runElementCommand) {
+		t.Errorf("a cell offers a Run or Evaluate lens: %s", asJSON(lenses))
+	}
+	var partLens any
+	counted := map[string]bool{}
+	for _, lens := range lenses {
+		fields, _ := lens.(map[string]any)
+		data, _ := fields["data"].(map[string]any)
+		element, _ := data["element"].(string)
+		counted[element] = true
+		if element == "P::A" {
+			partLens = lens
+		}
+	}
+	for _, fqn := range []string{"P::A", "P::Go", "P::Area"} {
+		if !counted[fqn] {
+			t.Errorf("no reference lens on %s in the cell: %s", fqn, asJSON(lenses))
+		}
+	}
+	if partLens == nil {
+		t.Fatalf("no reference lens on P::A: %s", asJSON(lenses))
+	}
+	resolved := asJSON(nb.call("codeLens/resolve", asJSON(partLens)))
+	if !strings.Contains(resolved, `"title":"1 reference"`) || !strings.Contains(resolved, nb.cells[1]) {
+		t.Errorf("resolved reference lens on P::A: %s", resolved)
+	}
+}

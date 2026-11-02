@@ -229,7 +229,9 @@ imports are followed to the files beside it as a loaded file's are.
 
 With the [VS Code extension](08-editors.md) installed, a notebook on the `sysml` kernel is also a
 language-server client: the cells have the diagnostics, hover, completion, go to definition,
-references, code lenses, inlay hints, semantic highlighting and formatting a `.sysml` file has.
+references, reference-count code lenses, inlay hints, semantic highlighting and formatting a
+`.sysml` file has. A cell has no *Run* or *Evaluate* lens: those run a model file on disk with
+`sysml`, and a cell is run by the kernel.
 The server reads the notebook as **one model**, the code cells in notebook order, the way
 `%load wheels.ipynb` reads a notebook into a session: a later cell sees what an earlier cell
 declares, each cell's `%` command lines and bare expressions are left out rather than parsed

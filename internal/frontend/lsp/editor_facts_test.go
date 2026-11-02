@@ -330,6 +330,37 @@ func TestCodeLensResolveCountsReferences(t *testing.T) {
 	}
 }
 
+// `sysml` reads the element's file from disk, so a document of another scheme
+// keeps its reference counts and offers no Run or Evaluate lens.
+func TestCodeLensRunsOnlyFilesOnDisk(t *testing.T) {
+	s := NewServer(model.NewWorkspace())
+	u := uri.URI("untitled:Untitled-1")
+	if err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{URI: u, Version: 1, Text: editorFactsModel},
+	}); err != nil {
+		t.Fatalf("DidOpen: %v", err)
+	}
+	lenses, err := s.CodeLens(context.Background(), &protocol.CodeLensParams{TextDocument: protocol.TextDocumentIdentifier{URI: u}})
+	if err != nil {
+		t.Fatalf("CodeLens: %v", err)
+	}
+	counts := map[string]bool{}
+	for _, lens := range lenses {
+		if lens.Command.Command != "" {
+			t.Errorf("lens %q (%s) on a document not on disk", lens.Command.Title, lens.Command.Command)
+			continue
+		}
+		if data, ok := lensData(&lens); ok && data.URI == u {
+			counts[data.Element] = true
+		}
+	}
+	for _, fqn := range []string{"Demo::Fall", "Demo::Rover", "Demo::Charge", "Demo::Mission", "Demo::Positive"} {
+		if !counts[fqn] {
+			t.Errorf("no reference lens on %s; got %v", fqn, counts)
+		}
+	}
+}
+
 func TestCodeLensSkipsLibraryDocuments(t *testing.T) {
 	s, _ := openEditorFactsModel(t)
 	lenses, err := s.CodeLens(context.Background(), &protocol.CodeLensParams{

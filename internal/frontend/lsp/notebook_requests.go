@@ -115,7 +115,8 @@ func (s *Server) cellRequest(ctx context.Context, req *jsonrpc2.Request, nb *not
 		lenses, err := s.CodeLens(ctx, p)
 		var own []protocol.CodeLens
 		for _, lens := range lenses {
-			if inCell(lens.Range) {
+			// The kernel runs a cell; a Run lens would hand `sysml` the notebook file.
+			if inCell(lens.Range) && lens.Command.Command != runElementCommand {
 				own = append(own, lens)
 			}
 		}
