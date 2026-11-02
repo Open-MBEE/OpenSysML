@@ -30,6 +30,7 @@ func (r *Rendering) arranged(options Options, direction Direction) (*Rendering, 
 		}
 	}
 	a.side = func(port Port) route.Side { return dotPortSide(port, sources) }
+	a.pixelPins = true
 	a.portRoom = func(port Port) float64 {
 		width, _ := dotTextExtent([]string{a.ports.pinLabel(port)}, dotPinPts)
 		return dotPinSize + width + 2*dotMarginWidth

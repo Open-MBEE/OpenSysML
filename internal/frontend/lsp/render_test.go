@@ -1708,6 +1708,10 @@ func TestRenderLines(t *testing.T) {
 	if got := render(t, view.FormDot, "splines"); strings.Contains(got, "splines=") {
 		t.Errorf("splines states a routing:\n%s", got)
 	}
+	t.Setenv("OPENSYSML_DOT", "no-such-dot")
+	if got := render(t, view.FormDot, "ortho"); !strings.Contains(got, "// layout: neato -n2\n") || !strings.Contains(got, `"n0.0" -> "n1.0" [arrowhead=none, penwidth=3, pos="`) || !strings.Contains(got, "lines ortho laid out on a grid, not layered: no Graphviz dot at OPENSYSML_DOT=no-such-dot") {
+		t.Errorf("ortho is not laid out and routed by the writer, every edge ending on its port:\n%s", got)
+	}
 	for _, c := range []struct {
 		form        view.Form
 		lines, want string

@@ -23,6 +23,7 @@ type arranger struct {
 	positions  map[string]drawioBox  // node ID -> the box a layered layout gave it, taken ahead of the grid
 	side       func(Port) route.Side // the border a drawn port sits on; nil is the draw.io form's
 	portRoom   func(Port) float64    // the border length a drawn port and its name take; nil takes none
+	pixelPins  bool                  // pins sit on half pixels, where the DOT form centres its pin squares
 	unrouted   bool                  // this build has no router; the form routes on opening
 	routed     map[int]bool          // the edges (by index) the router gave their route
 	unroutable []int                 // the edges (by index) the router found no path for
@@ -488,6 +489,12 @@ func (a *arranger) routePorts(node *Node, box drawioBox) ([]route.Port, []route.
 			continue
 		}
 		side, fraction := a.portPlace(node, port)
+		if length := box.Width; a.pixelPins {
+			if !side.Vertical() {
+				length = box.Height
+			}
+			fraction = halfPixel(fraction*length) / length
+		}
 		pins = append(pins, route.Port{ID: port.ID, Side: side, Offset: fraction})
 	}
 	return pins, shapes

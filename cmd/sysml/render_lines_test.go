@@ -6,12 +6,15 @@ import (
 )
 
 // -render-lines chooses how the dot or plantuml form routes its edges: splines,
-// the default, leaves the engine's curved routing unstated; ortho writes
-// `splines=ortho` and `skinparam linetype ortho`, polyline likewise; mermaid
-// notes the routing; a routing there is none of is refused with the three there
-// are, and the flag without something to render likewise.
+// the default, leaves the engine's curved routing unstated; ortho lays the
+// DOT drawing out and routes it itself, every edge ending on its port, for
+// `neato -n2` to draw, and writes `skinparam linetype ortho`; polyline writes
+// `splines=polyline` and `skinparam linetype polyline`; mermaid notes the
+// routing; a routing there is none of is refused with the three there are,
+// and the flag without something to render likewise.
 func TestRenderLines(t *testing.T) {
 	binary := buildCLI(t)
+	t.Setenv("OPENSYSML_DOT", "no-such-dot")
 
 	plain := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot")
 	if plain.status != exitHolds || strings.Contains(plain.stdout, "splines=") {
@@ -35,6 +38,25 @@ func TestRenderLines(t *testing.T) {
 		if !strings.Contains(got.stdout, c.want) {
 			t.Errorf("-render-lines %s on %s is missing %q:\n%s", c.lines, c.form, c.want, got.stdout)
 		}
+	}
+
+	ortho := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot", "-render-lines", "ortho", "-render-show", "edge-labels")
+	if ortho.status != exitHolds {
+		t.Fatalf("-render-lines ortho: exit status = %d\n%s", ortho.status, ortho.output())
+	}
+	for _, want := range []string{
+		"// not represented: lines ortho laid out on a grid, not layered: no Graphviz dot at OPENSYSML_DOT=no-such-dot\n",
+		"// layout: neato -n2\n",
+		`"n0.0" -> "n1.0" [label="wire", arrowhead=none, penwidth=3, pos="`,
+		`"n0.0" [shape=box, label="", xlabel="^out1"`,
+		`"n1.0" [shape=box, label="", xlabel="^in1"`,
+	} {
+		if !strings.Contains(ortho.stdout, want) {
+			t.Errorf("-render-lines ortho is missing %q:\n%s", want, ortho.stdout)
+		}
+	}
+	if strings.Contains(ortho.stdout, "xlabel=\"wire\"") {
+		t.Errorf("-render-lines ortho leaves the routed edge's label external:\n%s", ortho.stdout)
 	}
 
 	unknown := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot", "-render-lines", "curved")

@@ -7,6 +7,10 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
+### Fixed
+
+- `-render-lines ortho` (REPL `%render … ortho`, `%viz --style ORTHOLINE`, LSP and MCP `"lines": "ortho"`) ends every DOT edge on its port: the DOT form no longer hands the orthogonal routing to Graphviz, whose router ignores ports and places no edge label, but lays the drawing out itself — with Graphviz's layered `dot` (`OPENSYSML_DOT`, else `PATH`), or on a deterministic grid under a `// not represented:` notice naming what to install — routes every edge with libavoid inside the container both its ends lie in, and writes the positioned graph for `neato -n2` to draw, as its `// layout:` header says, edge labels on the routes. `splines` and `polyline` are unchanged.
+
 ## 0.11.0 — 2026-10-23
 
 ### Added
