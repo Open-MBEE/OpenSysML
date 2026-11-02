@@ -1,0 +1,41 @@
+sha256 ca59406059c117db59d2d3f5e86f1fdf1160fffc1c07ba8cc39f7b46b519ccf1 bytes 215576 lines 3028
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:ConditionReferences
+    a sysml:Package ;
+    sysml:qualifiedName "ConditionReferences" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "30"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "ConditionReferences" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "ConditionReferences" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:ConditionReferences___400, elmt:ConditionReferences__Resistance_om, elmt:ConditionReferences__Rover_om ;
+    sysml:ownedImport elmt:ConditionReferences___400 ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance, elmt:ConditionReferences__Rover ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance_om, elmt:ConditionReferences__Rover_om ;
+    sysx:sourceText "package ConditionReferences {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences___400\"},{\"@id\":\"ConditionReferences__Resistance_om\"},{\"@id\":\"ConditionReferences__Rover_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConditionReferences__Resistance\"},{\"@id\":\"ConditionReferences__Rover\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Resistance_om\"},{\"@id\":\"ConditionReferences__Rover_om\"}]" .
+
+elmt:ConditionReferences___400
+    a sysml:NamespaceImport ;
+    sysx:positionalName "ConditionReferences::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
+    sysml:elementId "ConditionReferences___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences ;

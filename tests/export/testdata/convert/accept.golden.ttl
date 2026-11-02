@@ -52,7 +52,12 @@ elmt:Accepts__Scene_om
     sysml:ownedMemberElement elmt:Accepts__Scene ;
     sysml:ownedRelatedElement elmt:Accepts__Scene ;
     sysml:owningRelatedElement elmt:Accepts ;
-    sysml:membershipOwningNamespace elmt:Accepts .
+    sysml:membershipOwningNamespace elmt:Accepts ;
+    sysml:source elmt:Accepts ;
+    sysml:target elmt:Accepts__Scene ;
+    sysml:relatedElement elmt:Accepts, elmt:Accepts__Scene ;
+    sysml:memberName "Scene" ;
+    json:relatedElement "[{\"@id\":\"Accepts\"},{\"@id\":\"Accepts__Scene\"}]" .
 
 elmt:Accepts__Camera
     a sysml:PortDefinition ;
@@ -83,7 +88,12 @@ elmt:Accepts__Camera_om
     sysml:ownedMemberElement elmt:Accepts__Camera ;
     sysml:ownedRelatedElement elmt:Accepts__Camera ;
     sysml:owningRelatedElement elmt:Accepts ;
-    sysml:membershipOwningNamespace elmt:Accepts .
+    sysml:membershipOwningNamespace elmt:Accepts ;
+    sysml:source elmt:Accepts ;
+    sysml:target elmt:Accepts__Camera ;
+    sysml:relatedElement elmt:Accepts, elmt:Accepts__Camera ;
+    sysml:memberName "Camera" ;
+    json:relatedElement "[{\"@id\":\"Accepts\"},{\"@id\":\"Accepts__Camera\"}]" .
 
 elmt:Accepts__Camera_conjugated
     a sysml:ConjugatedPortDefinition ;
@@ -104,7 +114,11 @@ elmt:Accepts__Camera_conjugated_om
     sysml:ownedMemberElement elmt:Accepts__Camera_conjugated ;
     sysml:ownedRelatedElement elmt:Accepts__Camera_conjugated ;
     sysml:owningRelatedElement elmt:Accepts__Camera ;
-    sysml:membershipOwningNamespace elmt:Accepts__Camera .
+    sysml:membershipOwningNamespace elmt:Accepts__Camera ;
+    sysml:source elmt:Accepts__Camera ;
+    sysml:target elmt:Accepts__Camera_conjugated ;
+    sysml:relatedElement elmt:Accepts__Camera, elmt:Accepts__Camera_conjugated ;
+    json:relatedElement "[{\"@id\":\"Accepts__Camera\"},{\"@id\":\"Accepts__Camera_conjugated\"}]" .
 
 elmt:Accepts__Camera_conjugated_pc
     a sysml:PortConjugation ;
@@ -150,7 +164,12 @@ elmt:Accepts__Observe_om
     sysml:ownedMemberElement elmt:Accepts__Observe ;
     sysml:ownedRelatedElement elmt:Accepts__Observe ;
     sysml:owningRelatedElement elmt:Accepts ;
-    sysml:membershipOwningNamespace elmt:Accepts .
+    sysml:membershipOwningNamespace elmt:Accepts ;
+    sysml:source elmt:Accepts ;
+    sysml:target elmt:Accepts__Observe ;
+    sysml:relatedElement elmt:Accepts, elmt:Accepts__Observe ;
+    sysml:memberName "Observe" ;
+    json:relatedElement "[{\"@id\":\"Accepts\"},{\"@id\":\"Accepts__Observe\"}]" .
 
 elmt:Accepts__Observe__trigger
     a sysml:AcceptActionUsage ;
@@ -186,8 +205,13 @@ elmt:Accepts__Observe__trigger_om
     sysml:ownedRelatedElement elmt:Accepts__Observe__trigger ;
     sysml:owningRelatedElement elmt:Accepts__Observe ;
     sysml:membershipOwningNamespace elmt:Accepts__Observe ;
+    sysml:source elmt:Accepts__Observe ;
+    sysml:target elmt:Accepts__Observe__trigger ;
+    sysml:relatedElement elmt:Accepts__Observe, elmt:Accepts__Observe__trigger ;
+    sysml:memberName "trigger" ;
     sysml:ownedMemberFeature elmt:Accepts__Observe__trigger ;
-    sysml:owningType elmt:Accepts__Observe .
+    sysml:owningType elmt:Accepts__Observe ;
+    json:relatedElement "[{\"@id\":\"Accepts__Observe\"},{\"@id\":\"Accepts__Observe__trigger\"}]" .
 
 elmt:Accepts__Observe__trigger__scene
     a sysml:ReferenceUsage ;
@@ -225,9 +249,14 @@ elmt:Accepts__Observe__trigger__scene_om
     sysml:ownedRelatedElement elmt:Accepts__Observe__trigger__scene ;
     sysml:owningRelatedElement elmt:Accepts__Observe__trigger ;
     sysml:membershipOwningNamespace elmt:Accepts__Observe__trigger ;
+    sysml:source elmt:Accepts__Observe__trigger ;
+    sysml:target elmt:Accepts__Observe__trigger__scene ;
+    sysml:relatedElement elmt:Accepts__Observe__trigger, elmt:Accepts__Observe__trigger__scene ;
+    sysml:memberName "scene" ;
     sysml:ownedMemberParameter elmt:Accepts__Observe__trigger__scene ;
     sysml:ownedMemberFeature elmt:Accepts__Observe__trigger__scene ;
-    sysml:owningType elmt:Accepts__Observe__trigger .
+    sysml:owningType elmt:Accepts__Observe__trigger ;
+    json:relatedElement "[{\"@id\":\"Accepts__Observe__trigger\"},{\"@id\":\"Accepts__Observe__trigger__scene\"}]" .
 
 elmt:Accepts__Watch
     a sysml:ActionDefinition ;
@@ -265,7 +294,12 @@ elmt:Accepts__Watch_om
     sysml:ownedMemberElement elmt:Accepts__Watch ;
     sysml:ownedRelatedElement elmt:Accepts__Watch ;
     sysml:owningRelatedElement elmt:Accepts ;
-    sysml:membershipOwningNamespace elmt:Accepts .
+    sysml:membershipOwningNamespace elmt:Accepts ;
+    sysml:source elmt:Accepts ;
+    sysml:target elmt:Accepts__Watch ;
+    sysml:relatedElement elmt:Accepts, elmt:Accepts__Watch ;
+    sysml:memberName "Watch" ;
+    json:relatedElement "[{\"@id\":\"Accepts\"},{\"@id\":\"Accepts__Watch\"}]" .
 
 elmt:Accepts__Watch__lens
     a sysml:PortUsage ;
@@ -300,8 +334,13 @@ elmt:Accepts__Watch__lens_om
     sysml:ownedRelatedElement elmt:Accepts__Watch__lens ;
     sysml:owningRelatedElement elmt:Accepts__Watch ;
     sysml:membershipOwningNamespace elmt:Accepts__Watch ;
+    sysml:source elmt:Accepts__Watch ;
+    sysml:target elmt:Accepts__Watch__lens ;
+    sysml:relatedElement elmt:Accepts__Watch, elmt:Accepts__Watch__lens ;
+    sysml:memberName "lens" ;
     sysml:ownedMemberFeature elmt:Accepts__Watch__lens ;
-    sysml:owningType elmt:Accepts__Watch .
+    sysml:owningType elmt:Accepts__Watch ;
+    json:relatedElement "[{\"@id\":\"Accepts__Watch\"},{\"@id\":\"Accepts__Watch__lens\"}]" .
 
 elmt:Accepts__Watch__framed
     a sysml:AcceptActionUsage ;
@@ -345,8 +384,13 @@ elmt:Accepts__Watch__framed_om
     sysml:ownedRelatedElement elmt:Accepts__Watch__framed ;
     sysml:owningRelatedElement elmt:Accepts__Watch ;
     sysml:membershipOwningNamespace elmt:Accepts__Watch ;
+    sysml:source elmt:Accepts__Watch ;
+    sysml:target elmt:Accepts__Watch__framed ;
+    sysml:relatedElement elmt:Accepts__Watch, elmt:Accepts__Watch__framed ;
+    sysml:memberName "framed" ;
     sysml:ownedMemberFeature elmt:Accepts__Watch__framed ;
-    sysml:owningType elmt:Accepts__Watch .
+    sysml:owningType elmt:Accepts__Watch ;
+    json:relatedElement "[{\"@id\":\"Accepts__Watch\"},{\"@id\":\"Accepts__Watch__framed\"}]" .
 
 elmt:Accepts__Watch__framed__scene
     a sysml:ReferenceUsage ;
@@ -384,9 +428,14 @@ elmt:Accepts__Watch__framed__scene_om
     sysml:ownedRelatedElement elmt:Accepts__Watch__framed__scene ;
     sysml:owningRelatedElement elmt:Accepts__Watch__framed ;
     sysml:membershipOwningNamespace elmt:Accepts__Watch__framed ;
+    sysml:source elmt:Accepts__Watch__framed ;
+    sysml:target elmt:Accepts__Watch__framed__scene ;
+    sysml:relatedElement elmt:Accepts__Watch__framed, elmt:Accepts__Watch__framed__scene ;
+    sysml:memberName "scene" ;
     sysml:ownedMemberParameter elmt:Accepts__Watch__framed__scene ;
     sysml:ownedMemberFeature elmt:Accepts__Watch__framed__scene ;
-    sysml:owningType elmt:Accepts__Watch__framed .
+    sysml:owningType elmt:Accepts__Watch__framed ;
+    json:relatedElement "[{\"@id\":\"Accepts__Watch__framed\"},{\"@id\":\"Accepts__Watch__framed__scene\"}]" .
 
 elmt:Accepts__Watch__framed___401
     a sysml:ReferenceUsage ;
@@ -421,9 +470,13 @@ elmt:Accepts__Watch__framed___401_om
     sysml:ownedRelatedElement elmt:Accepts__Watch__framed___401 ;
     sysml:owningRelatedElement elmt:Accepts__Watch__framed ;
     sysml:membershipOwningNamespace elmt:Accepts__Watch__framed ;
+    sysml:source elmt:Accepts__Watch__framed ;
+    sysml:target elmt:Accepts__Watch__framed___401 ;
+    sysml:relatedElement elmt:Accepts__Watch__framed, elmt:Accepts__Watch__framed___401 ;
     sysml:ownedMemberParameter elmt:Accepts__Watch__framed___401 ;
     sysml:ownedMemberFeature elmt:Accepts__Watch__framed___401 ;
-    sysml:owningType elmt:Accepts__Watch__framed .
+    sysml:owningType elmt:Accepts__Watch__framed ;
+    json:relatedElement "[{\"@id\":\"Accepts__Watch__framed\"},{\"@id\":\"Accepts__Watch__framed___401\"}]" .
 
 expr:Accepts__Watch__framed___401_pvalue
     a sysml:FeatureReferenceExpression ;
@@ -448,7 +501,11 @@ expr:Accepts__Watch__framed___401_pvalue_preferent
     sysml:elementId "Accepts__Watch__framed___401_pvalue_preferent" ;
     sysml:memberElement elmt:Accepts__Watch__lens ;
     sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
-    sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue .
+    sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:source expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:target elmt:Accepts__Watch__lens ;
+    sysml:relatedElement expr:Accepts__Watch__framed___401_pvalue, elmt:Accepts__Watch__lens ;
+    json:relatedElement "[{\"@id\":\"Accepts__Watch__framed___401_pvalue\"},{\"@id\":\"Accepts__Watch__lens\"}]" .
 
 expr:Accepts__Watch__framed___401_pvalue_pout
     a sysml:Feature ;
@@ -468,8 +525,12 @@ expr:Accepts__Watch__framed___401_pvalue_pout_om
     sysml:ownedRelatedElement expr:Accepts__Watch__framed___401_pvalue_pout ;
     sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue ;
     sysml:membershipOwningNamespace expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:source expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:target expr:Accepts__Watch__framed___401_pvalue_pout ;
+    sysml:relatedElement expr:Accepts__Watch__framed___401_pvalue, expr:Accepts__Watch__framed___401_pvalue_pout ;
     sysml:ownedMemberFeature expr:Accepts__Watch__framed___401_pvalue_pout ;
-    sysml:ownedMemberParameter expr:Accepts__Watch__framed___401_pvalue_pout .
+    sysml:ownedMemberParameter expr:Accepts__Watch__framed___401_pvalue_pout ;
+    json:relatedElement "[{\"@id\":\"Accepts__Watch__framed___401_pvalue\"},{\"@id\":\"Accepts__Watch__framed___401_pvalue_pout\"}]" .
 
 expr:Accepts__Watch__framed___401_pvalue_om
     a sysml:FeatureValue ;
@@ -480,8 +541,12 @@ expr:Accepts__Watch__framed___401_pvalue_om
     sysml:ownedRelatedElement expr:Accepts__Watch__framed___401_pvalue ;
     sysml:owningRelatedElement elmt:Accepts__Watch__framed___401 ;
     sysml:membershipOwningNamespace elmt:Accepts__Watch__framed___401 ;
+    sysml:source elmt:Accepts__Watch__framed___401 ;
+    sysml:target expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:relatedElement elmt:Accepts__Watch__framed___401, expr:Accepts__Watch__framed___401_pvalue ;
     sysml:featureWithValue elmt:Accepts__Watch__framed___401 ;
-    sysml:value expr:Accepts__Watch__framed___401_pvalue .
+    sysml:value expr:Accepts__Watch__framed___401_pvalue ;
+    json:relatedElement "[{\"@id\":\"Accepts__Watch__framed___401\"},{\"@id\":\"Accepts__Watch__framed___401_pvalue\"}]" .
 
 elmt:Accepts__Observe__trigger__scene_ft0
     a sysml:FeatureTyping ;

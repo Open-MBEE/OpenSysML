@@ -52,7 +52,12 @@ elmt:Bodies__Real_om
     sysml:ownedMemberElement elmt:Bodies__Real ;
     sysml:ownedRelatedElement elmt:Bodies__Real ;
     sysml:owningRelatedElement elmt:Bodies ;
-    sysml:membershipOwningNamespace elmt:Bodies .
+    sysml:membershipOwningNamespace elmt:Bodies ;
+    sysml:source elmt:Bodies ;
+    sysml:target elmt:Bodies__Real ;
+    sysml:relatedElement elmt:Bodies, elmt:Bodies__Real ;
+    sysml:memberName "Real" ;
+    json:relatedElement "[{\"@id\":\"Bodies\"},{\"@id\":\"Bodies__Real\"}]" .
 
 elmt:Bodies__Scaled
     a sysml:CalculationDefinition ;
@@ -90,7 +95,12 @@ elmt:Bodies__Scaled_om
     sysml:ownedMemberElement elmt:Bodies__Scaled ;
     sysml:ownedRelatedElement elmt:Bodies__Scaled ;
     sysml:owningRelatedElement elmt:Bodies ;
-    sysml:membershipOwningNamespace elmt:Bodies .
+    sysml:membershipOwningNamespace elmt:Bodies ;
+    sysml:source elmt:Bodies ;
+    sysml:target elmt:Bodies__Scaled ;
+    sysml:relatedElement elmt:Bodies, elmt:Bodies__Scaled ;
+    sysml:memberName "Scaled" ;
+    json:relatedElement "[{\"@id\":\"Bodies\"},{\"@id\":\"Bodies__Scaled\"}]" .
 
 elmt:Bodies__Scaled__x
     a sysml:ReferenceUsage ;
@@ -127,8 +137,13 @@ elmt:Bodies__Scaled__x_om
     sysml:ownedRelatedElement elmt:Bodies__Scaled__x ;
     sysml:owningRelatedElement elmt:Bodies__Scaled ;
     sysml:membershipOwningNamespace elmt:Bodies__Scaled ;
+    sysml:source elmt:Bodies__Scaled ;
+    sysml:target elmt:Bodies__Scaled__x ;
+    sysml:relatedElement elmt:Bodies__Scaled, elmt:Bodies__Scaled__x ;
+    sysml:memberName "x" ;
     sysml:ownedMemberFeature elmt:Bodies__Scaled__x ;
-    sysml:owningType elmt:Bodies__Scaled .
+    sysml:owningType elmt:Bodies__Scaled ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled\"},{\"@id\":\"Bodies__Scaled__x\"}]" .
 
 elmt:Bodies__Scaled___401
     a sysml:FeatureReferenceExpression ;
@@ -166,9 +181,14 @@ elmt:Bodies__Scaled___401_om
     sysml:ownedRelatedElement elmt:Bodies__Scaled___401 ;
     sysml:owningRelatedElement elmt:Bodies__Scaled ;
     sysml:membershipOwningNamespace elmt:Bodies__Scaled ;
+    sysml:source elmt:Bodies__Scaled ;
+    sysml:target elmt:Bodies__Scaled___401 ;
+    sysml:relatedElement elmt:Bodies__Scaled, elmt:Bodies__Scaled___401 ;
+    sysml:memberName "y" ;
     sysml:ownedMemberFeature elmt:Bodies__Scaled___401 ;
     sysml:owningType elmt:Bodies__Scaled ;
-    sysml:ownedResultExpression elmt:Bodies__Scaled___401 .
+    sysml:ownedResultExpression elmt:Bodies__Scaled___401 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled\"},{\"@id\":\"Bodies__Scaled___401\"}]" .
 
 expr:Bodies__Scaled___401_pbody
     a sysml:Expression ;
@@ -199,7 +219,11 @@ expr:Bodies__Scaled___401_pbody_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_pbody ;
     sysml:owningRelatedElement elmt:Bodies__Scaled___401 ;
     sysml:membershipOwningNamespace elmt:Bodies__Scaled___401 ;
-    sysml:ownedMemberFeature expr:Bodies__Scaled___401_pbody .
+    sysml:source elmt:Bodies__Scaled___401 ;
+    sysml:target expr:Bodies__Scaled___401_pbody ;
+    sysml:relatedElement elmt:Bodies__Scaled___401, expr:Bodies__Scaled___401_pbody ;
+    sysml:ownedMemberFeature expr:Bodies__Scaled___401_pbody ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401\"},{\"@id\":\"Bodies__Scaled___401_pbody\"}]" .
 
 expr:Bodies__Scaled___401_pin0
     a sysml:ReferenceUsage ;
@@ -227,7 +251,11 @@ expr:Bodies__Scaled___401_pin0_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_pin0 ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_pbody ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_pbody ;
-    sysml:ownedMemberFeature expr:Bodies__Scaled___401_pin0 .
+    sysml:source expr:Bodies__Scaled___401_pbody ;
+    sysml:target expr:Bodies__Scaled___401_pin0 ;
+    sysml:relatedElement expr:Bodies__Scaled___401_pbody, expr:Bodies__Scaled___401_pin0 ;
+    sysml:ownedMemberFeature expr:Bodies__Scaled___401_pin0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_pbody\"},{\"@id\":\"Bodies__Scaled___401_pin0\"}]" .
 
 expr:Bodies__Scaled___401_pm1
     a sysml:AttributeUsage ;
@@ -262,7 +290,11 @@ expr:Bodies__Scaled___401_pm1_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_pm1 ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_pbody ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_pbody ;
-    sysml:ownedMemberFeature expr:Bodies__Scaled___401_pm1 .
+    sysml:source expr:Bodies__Scaled___401_pbody ;
+    sysml:target expr:Bodies__Scaled___401_pm1 ;
+    sysml:relatedElement expr:Bodies__Scaled___401_pbody, expr:Bodies__Scaled___401_pm1 ;
+    sysml:ownedMemberFeature expr:Bodies__Scaled___401_pm1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_pbody\"},{\"@id\":\"Bodies__Scaled___401_pm1\"}]" .
 
 expr:Bodies__Scaled___401_presult
     a sysml:OperatorExpression ;
@@ -357,8 +389,12 @@ expr:Bodies__Scaled___401_presult_pa0_pa0_pout_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pa0_pa0_pout ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pa0_pa0 ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult_pa0_pa0 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pa0_pa0 ;
+    sysml:target expr:Bodies__Scaled___401_presult_pa0_pa0_pout ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pa0_pa0, expr:Bodies__Scaled___401_presult_pa0_pa0_pout ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pa0_pa0_pout ;
-    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pa0_pout .
+    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pa0_pout ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa0_pa0\"},{\"@id\":\"Bodies__Scaled___401_presult_pa0_pa0_pout\"}]" .
 
 expr:Bodies__Scaled___401_presult_pa0_pin0
     a sysml:Feature ;
@@ -380,8 +416,12 @@ expr:Bodies__Scaled___401_presult_pa0_pin0_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pa0_pin0 ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pa0 ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult_pa0 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pa0 ;
+    sysml:target expr:Bodies__Scaled___401_presult_pa0_pin0 ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pa0, expr:Bodies__Scaled___401_presult_pa0_pin0 ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pa0_pin0 ;
-    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pin0 .
+    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pin0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa0\"},{\"@id\":\"Bodies__Scaled___401_presult_pa0_pin0\"}]" .
 
 expr:Bodies__Scaled___401_presult_pa0_pa0_om
     a sysml:FeatureValue ;
@@ -392,8 +432,12 @@ expr:Bodies__Scaled___401_presult_pa0_pa0_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pa0_pa0 ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pa0_pin0 ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult_pa0_pin0 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pa0_pin0 ;
+    sysml:target expr:Bodies__Scaled___401_presult_pa0_pa0 ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pa0_pin0, expr:Bodies__Scaled___401_presult_pa0_pa0 ;
     sysml:featureWithValue expr:Bodies__Scaled___401_presult_pa0_pin0 ;
-    sysml:value expr:Bodies__Scaled___401_presult_pa0_pa0 .
+    sysml:value expr:Bodies__Scaled___401_presult_pa0_pa0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa0_pin0\"},{\"@id\":\"Bodies__Scaled___401_presult_pa0_pa0\"}]" .
 
 expr:Bodies__Scaled___401_presult_pa0_pa1
     a sysml:FeatureReferenceExpression ;
@@ -438,8 +482,12 @@ expr:Bodies__Scaled___401_presult_pa0_pa1_pout_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pa0_pa1_pout ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pa0_pa1 ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult_pa0_pa1 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pa0_pa1 ;
+    sysml:target expr:Bodies__Scaled___401_presult_pa0_pa1_pout ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pa0_pa1, expr:Bodies__Scaled___401_presult_pa0_pa1_pout ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pa0_pa1_pout ;
-    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pa1_pout .
+    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pa1_pout ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa0_pa1\"},{\"@id\":\"Bodies__Scaled___401_presult_pa0_pa1_pout\"}]" .
 
 expr:Bodies__Scaled___401_presult_pa0_pin1
     a sysml:Feature ;
@@ -461,8 +509,12 @@ expr:Bodies__Scaled___401_presult_pa0_pin1_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pa0_pin1 ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pa0 ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult_pa0 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pa0 ;
+    sysml:target expr:Bodies__Scaled___401_presult_pa0_pin1 ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pa0, expr:Bodies__Scaled___401_presult_pa0_pin1 ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pa0_pin1 ;
-    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pin1 .
+    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pin1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa0\"},{\"@id\":\"Bodies__Scaled___401_presult_pa0_pin1\"}]" .
 
 expr:Bodies__Scaled___401_presult_pa0_pa1_om
     a sysml:FeatureValue ;
@@ -473,8 +525,12 @@ expr:Bodies__Scaled___401_presult_pa0_pa1_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pa0_pa1 ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pa0_pin1 ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult_pa0_pin1 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pa0_pin1 ;
+    sysml:target expr:Bodies__Scaled___401_presult_pa0_pa1 ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pa0_pin1, expr:Bodies__Scaled___401_presult_pa0_pa1 ;
     sysml:featureWithValue expr:Bodies__Scaled___401_presult_pa0_pin1 ;
-    sysml:value expr:Bodies__Scaled___401_presult_pa0_pa1 .
+    sysml:value expr:Bodies__Scaled___401_presult_pa0_pa1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa0_pin1\"},{\"@id\":\"Bodies__Scaled___401_presult_pa0_pa1\"}]" .
 
 expr:Bodies__Scaled___401_presult_pa0_pout
     a sysml:Feature ;
@@ -494,8 +550,12 @@ expr:Bodies__Scaled___401_presult_pa0_pout_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pa0_pout ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pa0 ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult_pa0 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pa0 ;
+    sysml:target expr:Bodies__Scaled___401_presult_pa0_pout ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pa0, expr:Bodies__Scaled___401_presult_pa0_pout ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pa0_pout ;
-    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pout .
+    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pout ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa0\"},{\"@id\":\"Bodies__Scaled___401_presult_pa0_pout\"}]" .
 
 expr:Bodies__Scaled___401_presult_pin0
     a sysml:Feature ;
@@ -517,8 +577,12 @@ expr:Bodies__Scaled___401_presult_pin0_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pin0 ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult ;
+    sysml:source expr:Bodies__Scaled___401_presult ;
+    sysml:target expr:Bodies__Scaled___401_presult_pin0 ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult, expr:Bodies__Scaled___401_presult_pin0 ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pin0 ;
-    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pin0 .
+    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pin0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult\"},{\"@id\":\"Bodies__Scaled___401_presult_pin0\"}]" .
 
 expr:Bodies__Scaled___401_presult_pa0_om
     a sysml:FeatureValue ;
@@ -529,8 +593,12 @@ expr:Bodies__Scaled___401_presult_pa0_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pa0 ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pin0 ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult_pin0 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pin0 ;
+    sysml:target expr:Bodies__Scaled___401_presult_pa0 ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pin0, expr:Bodies__Scaled___401_presult_pa0 ;
     sysml:featureWithValue expr:Bodies__Scaled___401_presult_pin0 ;
-    sysml:value expr:Bodies__Scaled___401_presult_pa0 .
+    sysml:value expr:Bodies__Scaled___401_presult_pa0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pin0\"},{\"@id\":\"Bodies__Scaled___401_presult_pa0\"}]" .
 
 expr:Bodies__Scaled___401_presult_pa1
     a sysml:FeatureReferenceExpression ;
@@ -555,7 +623,11 @@ expr:Bodies__Scaled___401_presult_pa1_preferent
     sysml:elementId "Bodies__Scaled___401_presult_pa1_preferent" ;
     sysml:memberElement elmt:Bodies__Scaled__x ;
     sysml:owner expr:Bodies__Scaled___401_presult_pa1 ;
-    sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pa1 .
+    sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pa1 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pa1 ;
+    sysml:target elmt:Bodies__Scaled__x ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pa1, elmt:Bodies__Scaled__x ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa1\"},{\"@id\":\"Bodies__Scaled__x\"}]" .
 
 expr:Bodies__Scaled___401_presult_pa1_pout
     a sysml:Feature ;
@@ -575,8 +647,12 @@ expr:Bodies__Scaled___401_presult_pa1_pout_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pa1_pout ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pa1 ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult_pa1 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pa1 ;
+    sysml:target expr:Bodies__Scaled___401_presult_pa1_pout ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pa1, expr:Bodies__Scaled___401_presult_pa1_pout ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pa1_pout ;
-    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa1_pout .
+    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa1_pout ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa1\"},{\"@id\":\"Bodies__Scaled___401_presult_pa1_pout\"}]" .
 
 expr:Bodies__Scaled___401_presult_pin1
     a sysml:Feature ;
@@ -598,8 +674,12 @@ expr:Bodies__Scaled___401_presult_pin1_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pin1 ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult ;
+    sysml:source expr:Bodies__Scaled___401_presult ;
+    sysml:target expr:Bodies__Scaled___401_presult_pin1 ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult, expr:Bodies__Scaled___401_presult_pin1 ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pin1 ;
-    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pin1 .
+    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pin1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult\"},{\"@id\":\"Bodies__Scaled___401_presult_pin1\"}]" .
 
 expr:Bodies__Scaled___401_presult_pa1_om
     a sysml:FeatureValue ;
@@ -610,8 +690,12 @@ expr:Bodies__Scaled___401_presult_pa1_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pa1 ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult_pin1 ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult_pin1 ;
+    sysml:source expr:Bodies__Scaled___401_presult_pin1 ;
+    sysml:target expr:Bodies__Scaled___401_presult_pa1 ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult_pin1, expr:Bodies__Scaled___401_presult_pa1 ;
     sysml:featureWithValue expr:Bodies__Scaled___401_presult_pin1 ;
-    sysml:value expr:Bodies__Scaled___401_presult_pa1 .
+    sysml:value expr:Bodies__Scaled___401_presult_pa1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pin1\"},{\"@id\":\"Bodies__Scaled___401_presult_pa1\"}]" .
 
 expr:Bodies__Scaled___401_presult_pout
     a sysml:Feature ;
@@ -631,8 +715,12 @@ expr:Bodies__Scaled___401_presult_pout_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult_pout ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_presult ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_presult ;
+    sysml:source expr:Bodies__Scaled___401_presult ;
+    sysml:target expr:Bodies__Scaled___401_presult_pout ;
+    sysml:relatedElement expr:Bodies__Scaled___401_presult, expr:Bodies__Scaled___401_presult_pout ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pout ;
-    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pout .
+    sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pout ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult\"},{\"@id\":\"Bodies__Scaled___401_presult_pout\"}]" .
 
 expr:Bodies__Scaled___401_presult_om
     a sysml:ResultExpressionMembership ;
@@ -643,8 +731,12 @@ expr:Bodies__Scaled___401_presult_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_presult ;
     sysml:owningRelatedElement expr:Bodies__Scaled___401_pbody ;
     sysml:membershipOwningNamespace expr:Bodies__Scaled___401_pbody ;
+    sysml:source expr:Bodies__Scaled___401_pbody ;
+    sysml:target expr:Bodies__Scaled___401_presult ;
+    sysml:relatedElement expr:Bodies__Scaled___401_pbody, expr:Bodies__Scaled___401_presult ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult ;
-    sysml:ownedResultExpression expr:Bodies__Scaled___401_presult .
+    sysml:ownedResultExpression expr:Bodies__Scaled___401_presult ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_pbody\"},{\"@id\":\"Bodies__Scaled___401_presult\"}]" .
 
 expr:Bodies__Scaled___401_pout
     a sysml:Feature ;
@@ -664,8 +756,12 @@ expr:Bodies__Scaled___401_pout_om
     sysml:ownedRelatedElement expr:Bodies__Scaled___401_pout ;
     sysml:owningRelatedElement elmt:Bodies__Scaled___401 ;
     sysml:membershipOwningNamespace elmt:Bodies__Scaled___401 ;
+    sysml:source elmt:Bodies__Scaled___401 ;
+    sysml:target expr:Bodies__Scaled___401_pout ;
+    sysml:relatedElement elmt:Bodies__Scaled___401, expr:Bodies__Scaled___401_pout ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_pout ;
-    sysml:ownedMemberParameter expr:Bodies__Scaled___401_pout .
+    sysml:ownedMemberParameter expr:Bodies__Scaled___401_pout ;
+    json:relatedElement "[{\"@id\":\"Bodies__Scaled___401\"},{\"@id\":\"Bodies__Scaled___401_pout\"}]" .
 
 elmt:Bodies__Scaled__x_ft0
     a sysml:FeatureTyping ;

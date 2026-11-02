@@ -87,6 +87,16 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 			add(membership, sysml(pOwnedRelatedElement), root)
 			add(membership, sysml(pOwningRelatedElement), w.namespace)
 			add(membership, sysml(pMembershipOwningNamespace), w.namespace)
+			add(membership, sysml(pSource), w.namespace)
+			add(membership, sysml(pTarget), root)
+			add(membership, sysml(pRelatedElement), w.namespace)
+			add(membership, sysml(pRelatedElement), root)
+			if name, ok := graph.Lexical(root, rdf.SysML+pDeclaredName); ok {
+				add(membership, sysml(pMemberName), rdf.String(name))
+			}
+			if short, ok := graph.Lexical(root, rdf.SysML+pDeclaredShortName); ok {
+				add(membership, sysml(pMemberShortName), rdf.String(short))
+			}
 		}
 	}
 	for _, triple := range graph.Triples() {

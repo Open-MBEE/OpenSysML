@@ -52,7 +52,12 @@ elmt:ConnectorEnds__Engine_om
     sysml:ownedMemberElement elmt:ConnectorEnds__Engine ;
     sysml:ownedRelatedElement elmt:ConnectorEnds__Engine ;
     sysml:owningRelatedElement elmt:ConnectorEnds ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds ;
+    sysml:source elmt:ConnectorEnds ;
+    sysml:target elmt:ConnectorEnds__Engine ;
+    sysml:relatedElement elmt:ConnectorEnds, elmt:ConnectorEnds__Engine ;
+    sysml:memberName "Engine" ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds\"},{\"@id\":\"ConnectorEnds__Engine\"}]" .
 
 elmt:ConnectorEnds__Tank
     a sysml:ClassUsage ;
@@ -89,7 +94,12 @@ elmt:ConnectorEnds__Tank_om
     sysml:ownedMemberElement elmt:ConnectorEnds__Tank ;
     sysml:ownedRelatedElement elmt:ConnectorEnds__Tank ;
     sysml:owningRelatedElement elmt:ConnectorEnds ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds ;
+    sysml:source elmt:ConnectorEnds ;
+    sysml:target elmt:ConnectorEnds__Tank ;
+    sysml:relatedElement elmt:ConnectorEnds, elmt:ConnectorEnds__Tank ;
+    sysml:memberName "Tank" ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds\"},{\"@id\":\"ConnectorEnds__Tank\"}]" .
 
 elmt:ConnectorEnds__Tank__main
     a sysml:AttributeUsage ;
@@ -122,8 +132,13 @@ elmt:ConnectorEnds__Tank__main_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Tank__main ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Tank ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Tank ;
+    sysml:source elmt:ConnectorEnds__Tank ;
+    sysml:target elmt:ConnectorEnds__Tank__main ;
+    sysml:relatedElement elmt:ConnectorEnds__Tank, elmt:ConnectorEnds__Tank__main ;
+    sysml:memberName "main" ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Tank__main ;
-    sysml:owningType elmt:ConnectorEnds__Tank .
+    sysml:owningType elmt:ConnectorEnds__Tank ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Tank\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
 elmt:ConnectorEnds__Tank__x
     a sysml:AttributeUsage ;
@@ -152,8 +167,13 @@ elmt:ConnectorEnds__Tank__x_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Tank__x ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Tank ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Tank ;
+    sysml:source elmt:ConnectorEnds__Tank ;
+    sysml:target elmt:ConnectorEnds__Tank__x ;
+    sysml:relatedElement elmt:ConnectorEnds__Tank, elmt:ConnectorEnds__Tank__x ;
+    sysml:memberName "x" ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Tank__x ;
-    sysml:owningType elmt:ConnectorEnds__Tank .
+    sysml:owningType elmt:ConnectorEnds__Tank ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Tank\"},{\"@id\":\"ConnectorEnds__Tank__x\"}]" .
 
 elmt:ConnectorEnds__Trigger
     a sysml:ClassUsage ;
@@ -180,7 +200,12 @@ elmt:ConnectorEnds__Trigger_om
     sysml:ownedMemberElement elmt:ConnectorEnds__Trigger ;
     sysml:ownedRelatedElement elmt:ConnectorEnds__Trigger ;
     sysml:owningRelatedElement elmt:ConnectorEnds ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds ;
+    sysml:source elmt:ConnectorEnds ;
+    sysml:target elmt:ConnectorEnds__Trigger ;
+    sysml:relatedElement elmt:ConnectorEnds, elmt:ConnectorEnds__Trigger ;
+    sysml:memberName "Trigger" ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds\"},{\"@id\":\"ConnectorEnds__Trigger\"}]" .
 
 elmt:ConnectorEnds__Vehicle
     a sysml:ClassUsage ;
@@ -218,7 +243,12 @@ elmt:ConnectorEnds__Vehicle_om
     sysml:ownedMemberElement elmt:ConnectorEnds__Vehicle ;
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:owningRelatedElement elmt:ConnectorEnds ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds ;
+    sysml:source elmt:ConnectorEnds ;
+    sysml:target elmt:ConnectorEnds__Vehicle ;
+    sysml:relatedElement elmt:ConnectorEnds, elmt:ConnectorEnds__Vehicle ;
+    sysml:memberName "Vehicle" ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds\"},{\"@id\":\"ConnectorEnds__Vehicle\"}]" .
 
 elmt:ConnectorEnds__Vehicle__eng
     a sysml:AttributeUsage ;
@@ -252,8 +282,13 @@ elmt:ConnectorEnds__Vehicle__eng_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle__eng ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle__eng ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle__eng ;
+    sysml:memberName "eng" ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle__eng ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle__eng\"}]" .
 
 elmt:ConnectorEnds__Vehicle__tanks
     a sysml:AttributeUsage ;
@@ -287,8 +322,13 @@ elmt:ConnectorEnds__Vehicle__tanks_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle__tanks ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:memberName "tanks" ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle__tanks ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle__tanks\"}]" .
 
 elmt:ConnectorEnds__Vehicle__a
     a sysml:AttributeUsage ;
@@ -322,8 +362,13 @@ elmt:ConnectorEnds__Vehicle__a_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle__a ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle__a ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle__a ;
+    sysml:memberName "a" ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle__a ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle__a\"}]" .
 
 elmt:ConnectorEnds__Vehicle__b
     a sysml:AttributeUsage ;
@@ -353,8 +398,13 @@ elmt:ConnectorEnds__Vehicle__b_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle__b ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle__b ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle__b ;
+    sysml:memberName "b" ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle__b ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle__b\"}]" .
 
 elmt:ConnectorEnds__Vehicle__trigger
     a sysml:AttributeUsage ;
@@ -388,8 +438,13 @@ elmt:ConnectorEnds__Vehicle__trigger_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle__trigger ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle__trigger ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle__trigger ;
+    sysml:memberName "trigger" ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle__trigger ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle__trigger\"}]" .
 
 elmt:ConnectorEnds__Vehicle__transitionLink
     a sysml:AttributeUsage ;
@@ -419,8 +474,13 @@ elmt:ConnectorEnds__Vehicle__transitionLink_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle__transitionLink ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle__transitionLink ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle__transitionLink ;
+    sysml:memberName "transitionLink" ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle__transitionLink ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle__transitionLink\"}]" .
 
 elmt:ConnectorEnds__Vehicle___406
     a sysml:Connector ;
@@ -465,8 +525,12 @@ elmt:ConnectorEnds__Vehicle___406_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle___406 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle___406 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle___406 ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle___406 ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle___406\"}]" .
 
 expr:ConnectorEnds__Vehicle___406_pend0
     a sysml:ReferenceUsage ;
@@ -490,7 +554,11 @@ expr:ConnectorEnds__Vehicle___406_pend0_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___406_pend0 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___406_pend0 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___406 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___406 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___406 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___406 ;
+    sysml:target expr:ConnectorEnds__Vehicle___406_pend0 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___406, expr:ConnectorEnds__Vehicle___406_pend0 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___406\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___406_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -532,7 +600,11 @@ expr:ConnectorEnds__Vehicle___406_pend1_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___406_pend1 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___406_pend1 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___406 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___406 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___406 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___406 ;
+    sysml:target expr:ConnectorEnds__Vehicle___406_pend1 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___406, expr:ConnectorEnds__Vehicle___406_pend1 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___406\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___406_pend1_pchain
     a sysml:Feature ;
@@ -633,8 +705,12 @@ elmt:ConnectorEnds__Vehicle___407_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle___407 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle___407 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle___407 ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle___407 ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle___407\"}]" .
 
 expr:ConnectorEnds__Vehicle___407_pend0
     a sysml:ReferenceUsage ;
@@ -660,7 +736,11 @@ expr:ConnectorEnds__Vehicle___407_pend0_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___407_pend0 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___407_pend0 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___407 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___407 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___407 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___407 ;
+    sysml:target expr:ConnectorEnds__Vehicle___407_pend0 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___407, expr:ConnectorEnds__Vehicle___407_pend0 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___407\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___407_pend0_pchain
     a sysml:Feature ;
@@ -740,7 +820,11 @@ expr:ConnectorEnds__Vehicle___407_pend1_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___407_pend1 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___407_pend1 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___407 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___407 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___407 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___407 ;
+    sysml:target expr:ConnectorEnds__Vehicle___407_pend1 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___407, expr:ConnectorEnds__Vehicle___407_pend1 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___407\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___407_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -803,8 +887,12 @@ elmt:ConnectorEnds__Vehicle___408_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle___408 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle___408 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle___408 ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle___408 ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle___408\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend0
     a sysml:ReferenceUsage ;
@@ -834,7 +922,11 @@ expr:ConnectorEnds__Vehicle___408_pend0_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___408_pend0 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___408_pend0 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___408 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___408 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___408 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___408 ;
+    sysml:target expr:ConnectorEnds__Vehicle___408_pend0 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___408, expr:ConnectorEnds__Vehicle___408_pend0 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend0_pchain
     a sysml:Feature ;
@@ -911,7 +1003,11 @@ expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___408_pend0 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend0 .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend0 ;
+    sysml:source expr:ConnectorEnds__Vehicle___408_pend0 ;
+    sysml:target expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___408_pend0, expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pmultiplicity\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend0_pupperBound
     a sysml:LiteralInteger ;
@@ -931,7 +1027,11 @@ expr:ConnectorEnds__Vehicle___408_pend0_pupperBound_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___408_pend0_pupperBound ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___408_pend0_pupperBound ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
+    sysml:source expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
+    sysml:target expr:ConnectorEnds__Vehicle___408_pend0_pupperBound ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity, expr:ConnectorEnds__Vehicle___408_pend0_pupperBound ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pmultiplicity\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pupperBound\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend1
     a sysml:ReferenceUsage ;
@@ -960,7 +1060,11 @@ expr:ConnectorEnds__Vehicle___408_pend1_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___408_pend1 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___408_pend1 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___408 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___408 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___408 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___408 ;
+    sysml:target expr:ConnectorEnds__Vehicle___408_pend1 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___408, expr:ConnectorEnds__Vehicle___408_pend1 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -1002,7 +1106,11 @@ expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___408_pend1 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend1 .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend1 ;
+    sysml:source expr:ConnectorEnds__Vehicle___408_pend1 ;
+    sysml:target expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___408_pend1, expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_pmultiplicity\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend1_plowerBound
     a sysml:LiteralInteger ;
@@ -1022,7 +1130,11 @@ expr:ConnectorEnds__Vehicle___408_pend1_plowerBound_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___408_pend1_plowerBound ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___408_pend1_plowerBound ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
+    sysml:source expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
+    sysml:target expr:ConnectorEnds__Vehicle___408_pend1_plowerBound ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity, expr:ConnectorEnds__Vehicle___408_pend1_plowerBound ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_pmultiplicity\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_plowerBound\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend1_pupperBound
     a sysml:LiteralInteger ;
@@ -1042,7 +1154,11 @@ expr:ConnectorEnds__Vehicle___408_pend1_pupperBound_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___408_pend1_pupperBound ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___408_pend1_pupperBound ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
+    sysml:source expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
+    sysml:target expr:ConnectorEnds__Vehicle___408_pend1_pupperBound ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity, expr:ConnectorEnds__Vehicle___408_pend1_pupperBound ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_pmultiplicity\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_pupperBound\"}]" .
 
 elmt:ConnectorEnds__Vehicle___409
     a sysml:Connector ;
@@ -1087,8 +1203,12 @@ elmt:ConnectorEnds__Vehicle___409_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle___409 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle___409 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle___409 ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle___409 ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle___409\"}]" .
 
 expr:ConnectorEnds__Vehicle___409_pend0
     a sysml:ReferenceUsage ;
@@ -1115,7 +1235,11 @@ expr:ConnectorEnds__Vehicle___409_pend0_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___409_pend0 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___409_pend0 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___409 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___409 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___409 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___409 ;
+    sysml:target expr:ConnectorEnds__Vehicle___409_pend0 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___409, expr:ConnectorEnds__Vehicle___409_pend0 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___409\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___409_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -1157,7 +1281,11 @@ expr:ConnectorEnds__Vehicle___409_pend1_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___409_pend1 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___409_pend1 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___409 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___409 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___409 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___409 ;
+    sysml:target expr:ConnectorEnds__Vehicle___409_pend1 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___409, expr:ConnectorEnds__Vehicle___409_pend1 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___409\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___409_pend1_pchain
     a sysml:Feature ;
@@ -1260,9 +1388,13 @@ elmt:ConnectorEnds__Vehicle___4010_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle___4010 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle___4010 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle___4010 ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle___4010 ;
     sysml:owningType elmt:ConnectorEnds__Vehicle ;
-    sysml:visibility "private" .
+    sysml:visibility "private" ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle___4010\"}]" .
 
 expr:ConnectorEnds__Vehicle___4010_pend0
     a sysml:ReferenceUsage ;
@@ -1291,7 +1423,11 @@ expr:ConnectorEnds__Vehicle___4010_pend0_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4010_pend0 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4010_pend0 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4010 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4010 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4010 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4010 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4010_pend0 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4010, expr:ConnectorEnds__Vehicle___4010_pend0 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4010\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___4010_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -1333,7 +1469,11 @@ expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4010_pend0 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend0 .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend0 ;
+    sysml:source expr:ConnectorEnds__Vehicle___4010_pend0 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4010_pend0, expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_pmultiplicity\"}]" .
 
 expr:ConnectorEnds__Vehicle___4010_pend0_plowerBound
     a sysml:LiteralInteger ;
@@ -1353,7 +1493,11 @@ expr:ConnectorEnds__Vehicle___4010_pend0_plowerBound_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4010_pend0_plowerBound ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4010_pend0_plowerBound ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
+    sysml:source expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
+    sysml:target expr:ConnectorEnds__Vehicle___4010_pend0_plowerBound ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity, expr:ConnectorEnds__Vehicle___4010_pend0_plowerBound ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_pmultiplicity\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_plowerBound\"}]" .
 
 expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound
     a sysml:LiteralInteger ;
@@ -1373,7 +1517,11 @@ expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
+    sysml:source expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
+    sysml:target expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity, expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_pmultiplicity\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_pupperBound\"}]" .
 
 expr:ConnectorEnds__Vehicle___4010_pend1
     a sysml:ReferenceUsage ;
@@ -1402,7 +1550,11 @@ expr:ConnectorEnds__Vehicle___4010_pend1_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4010_pend1 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4010_pend1 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4010 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4010 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4010 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4010 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4010_pend1 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4010, expr:ConnectorEnds__Vehicle___4010_pend1 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4010\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___4010_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -1444,7 +1596,11 @@ expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4010_pend1 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend1 .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend1 ;
+    sysml:source expr:ConnectorEnds__Vehicle___4010_pend1 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4010_pend1, expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_pmultiplicity\"}]" .
 
 expr:ConnectorEnds__Vehicle___4010_pend1_plowerBound
     a sysml:LiteralInteger ;
@@ -1464,7 +1620,11 @@ expr:ConnectorEnds__Vehicle___4010_pend1_plowerBound_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4010_pend1_plowerBound ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4010_pend1_plowerBound ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
+    sysml:source expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
+    sysml:target expr:ConnectorEnds__Vehicle___4010_pend1_plowerBound ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity, expr:ConnectorEnds__Vehicle___4010_pend1_plowerBound ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_pmultiplicity\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_plowerBound\"}]" .
 
 expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound
     a sysml:LiteralInfinity ;
@@ -1483,7 +1643,11 @@ expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity .
+    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
+    sysml:source expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
+    sysml:target expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity, expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_pmultiplicity\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_pupperBound\"}]" .
 
 elmt:ConnectorEnds__Vehicle__link
     a sysml:Connector ;
@@ -1530,8 +1694,13 @@ elmt:ConnectorEnds__Vehicle__link_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle__link ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle__link ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle__link ;
+    sysml:memberName "link" ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle__link ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle__link\"}]" .
 
 expr:ConnectorEnds__Vehicle__link_pend0
     a sysml:ReferenceUsage ;
@@ -1555,7 +1724,11 @@ expr:ConnectorEnds__Vehicle__link_pend0_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle__link_pend0 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle__link_pend0 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle__link ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle__link .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle__link ;
+    sysml:source elmt:ConnectorEnds__Vehicle__link ;
+    sysml:target expr:ConnectorEnds__Vehicle__link_pend0 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle__link, expr:ConnectorEnds__Vehicle__link_pend0 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle__link\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle__link_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -1597,7 +1770,11 @@ expr:ConnectorEnds__Vehicle__link_pend1_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle__link_pend1 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle__link_pend1 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle__link ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle__link .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle__link ;
+    sysml:source elmt:ConnectorEnds__Vehicle__link ;
+    sysml:target expr:ConnectorEnds__Vehicle__link_pend1 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle__link, expr:ConnectorEnds__Vehicle__link_pend1 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle__link\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle__link_pend1_pchain
     a sysml:Feature ;
@@ -1700,8 +1877,12 @@ elmt:ConnectorEnds__Vehicle___4012_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle___4012 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle___4012 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle___4012 ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle___4012 ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle___4012\"}]" .
 
 expr:ConnectorEnds__Vehicle___4012_pend0
     a sysml:ReferenceUsage ;
@@ -1725,7 +1906,11 @@ expr:ConnectorEnds__Vehicle___4012_pend0_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4012_pend0 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4012_pend0 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4012 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4012 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4012 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4012 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4012_pend0 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4012, expr:ConnectorEnds__Vehicle___4012_pend0 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4012\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___4012_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -1767,7 +1952,11 @@ expr:ConnectorEnds__Vehicle___4012_pend1_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4012_pend1 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4012_pend1 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4012 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4012 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4012 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4012 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4012_pend1 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4012, expr:ConnectorEnds__Vehicle___4012_pend1 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4012\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___4012_pend1_pchain
     a sysml:Feature ;
@@ -1869,8 +2058,12 @@ elmt:ConnectorEnds__Vehicle___4013_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle___4013 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle___4013 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle___4013 ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle___4013 ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle___4013\"}]" .
 
 expr:ConnectorEnds__Vehicle___4013_pend0
     a sysml:ReferenceUsage ;
@@ -1894,7 +2087,11 @@ expr:ConnectorEnds__Vehicle___4013_pend0_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4013_pend0 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4013_pend0 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4013 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4013 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4013 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4013 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4013_pend0 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4013, expr:ConnectorEnds__Vehicle___4013_pend0 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4013\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___4013_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -1936,7 +2133,11 @@ expr:ConnectorEnds__Vehicle___4013_pend1_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4013_pend1 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4013_pend1 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4013 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4013 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4013 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4013 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4013_pend1 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4013, expr:ConnectorEnds__Vehicle___4013_pend1 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4013\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___4013_pend1_pchain
     a sysml:Feature ;
@@ -2038,8 +2239,12 @@ elmt:ConnectorEnds__Vehicle___4014_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle___4014 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle___4014 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle___4014 ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle___4014 ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle___4014\"}]" .
 
 expr:ConnectorEnds__Vehicle___4014_pend0
     a sysml:ReferenceUsage ;
@@ -2063,7 +2268,11 @@ expr:ConnectorEnds__Vehicle___4014_pend0_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4014_pend0 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4014_pend0 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4014 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4014 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4014 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4014 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4014_pend0 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4014, expr:ConnectorEnds__Vehicle___4014_pend0 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4014\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___4014_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -2105,7 +2314,11 @@ expr:ConnectorEnds__Vehicle___4014_pend1_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4014_pend1 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4014_pend1 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4014 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4014 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4014 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4014 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4014_pend1 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4014, expr:ConnectorEnds__Vehicle___4014_pend1 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4014\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___4014_pend1_pchain
     a sysml:Feature ;
@@ -2206,8 +2419,12 @@ elmt:ConnectorEnds__Vehicle___4015_om
     sysml:ownedRelatedElement elmt:ConnectorEnds__Vehicle___4015 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle ;
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle ;
+    sysml:source elmt:ConnectorEnds__Vehicle ;
+    sysml:target elmt:ConnectorEnds__Vehicle___4015 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle, elmt:ConnectorEnds__Vehicle___4015 ;
     sysml:ownedMemberFeature elmt:ConnectorEnds__Vehicle___4015 ;
-    sysml:owningType elmt:ConnectorEnds__Vehicle .
+    sysml:owningType elmt:ConnectorEnds__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle\"},{\"@id\":\"ConnectorEnds__Vehicle___4015\"}]" .
 
 expr:ConnectorEnds__Vehicle___4015_pend0
     a sysml:ReferenceUsage ;
@@ -2231,7 +2448,11 @@ expr:ConnectorEnds__Vehicle___4015_pend0_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4015_pend0 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4015_pend0 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4015 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4015 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4015 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4015 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4015_pend0 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4015, expr:ConnectorEnds__Vehicle___4015_pend0 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4015\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___4015_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -2273,7 +2494,11 @@ expr:ConnectorEnds__Vehicle___4015_pend1_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4015_pend1 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4015_pend1 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4015 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4015 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4015 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4015 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4015_pend1 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4015, expr:ConnectorEnds__Vehicle___4015_pend1 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4015\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___4015_pend1_pchain
     a sysml:Feature ;
@@ -2353,7 +2578,11 @@ expr:ConnectorEnds__Vehicle___4015_pend2_om
     sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4015_pend2 ;
     sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4015_pend2 ;
     sysml:owningRelatedElement elmt:ConnectorEnds__Vehicle___4015 ;
-    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4015 .
+    sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___4015 ;
+    sysml:source elmt:ConnectorEnds__Vehicle___4015 ;
+    sysml:target expr:ConnectorEnds__Vehicle___4015_pend2 ;
+    sysml:relatedElement elmt:ConnectorEnds__Vehicle___4015, expr:ConnectorEnds__Vehicle___4015_pend2 ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4015\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend2\"}]" .
 
 expr:ConnectorEnds__Vehicle___4015_pend2_prs
     a sysml:ReferenceSubsetting ;

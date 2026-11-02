@@ -63,7 +63,12 @@ elmt:Vehicles__Vehicle_om
     sysml:ownedMemberElement elmt:Vehicles__Vehicle ;
     sysml:ownedRelatedElement elmt:Vehicles__Vehicle ;
     sysml:owningRelatedElement elmt:Vehicles ;
-    sysml:membershipOwningNamespace elmt:Vehicles .
+    sysml:membershipOwningNamespace elmt:Vehicles ;
+    sysml:source elmt:Vehicles ;
+    sysml:target elmt:Vehicles__Vehicle ;
+    sysml:relatedElement elmt:Vehicles, elmt:Vehicles__Vehicle ;
+    sysml:memberName "Vehicle" ;
+    json:relatedElement "[{\"@id\":\"Vehicles\"},{\"@id\":\"Vehicles__Vehicle\"}]" .
 
 elmt:Vehicles__Vehicle__mass
     a sysml:AttributeUsage ;
@@ -98,8 +103,13 @@ elmt:Vehicles__Vehicle__mass_om
     sysml:ownedRelatedElement elmt:Vehicles__Vehicle__mass ;
     sysml:owningRelatedElement elmt:Vehicles__Vehicle ;
     sysml:membershipOwningNamespace elmt:Vehicles__Vehicle ;
+    sysml:source elmt:Vehicles__Vehicle ;
+    sysml:target elmt:Vehicles__Vehicle__mass ;
+    sysml:relatedElement elmt:Vehicles__Vehicle, elmt:Vehicles__Vehicle__mass ;
+    sysml:memberName "mass" ;
     sysml:ownedMemberFeature elmt:Vehicles__Vehicle__mass ;
-    sysml:owningType elmt:Vehicles__Vehicle .
+    sysml:owningType elmt:Vehicles__Vehicle ;
+    json:relatedElement "[{\"@id\":\"Vehicles__Vehicle\"},{\"@id\":\"Vehicles__Vehicle__mass\"}]" .
 
 elmt:Vehicles__Vehicle__engine
     a sysml:PartUsage ;
@@ -138,8 +148,13 @@ elmt:Vehicles__Vehicle__engine_om
     sysml:ownedRelatedElement elmt:Vehicles__Vehicle__engine ;
     sysml:owningRelatedElement elmt:Vehicles__Vehicle ;
     sysml:membershipOwningNamespace elmt:Vehicles__Vehicle ;
+    sysml:source elmt:Vehicles__Vehicle ;
+    sysml:target elmt:Vehicles__Vehicle__engine ;
+    sysml:relatedElement elmt:Vehicles__Vehicle, elmt:Vehicles__Vehicle__engine ;
+    sysml:memberName "engine" ;
     sysml:ownedMemberFeature elmt:Vehicles__Vehicle__engine ;
-    sysml:owningType elmt:Vehicles__Vehicle .
+    sysml:owningType elmt:Vehicles__Vehicle ;
+    json:relatedElement "[{\"@id\":\"Vehicles__Vehicle\"},{\"@id\":\"Vehicles__Vehicle__engine\"}]" .
 
 expr:Vehicles__Vehicle__engine_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -160,7 +175,11 @@ expr:Vehicles__Vehicle__engine_pmultiplicity_om
     sysml:ownedMemberElement expr:Vehicles__Vehicle__engine_pmultiplicity ;
     sysml:ownedRelatedElement expr:Vehicles__Vehicle__engine_pmultiplicity ;
     sysml:owningRelatedElement elmt:Vehicles__Vehicle__engine ;
-    sysml:membershipOwningNamespace elmt:Vehicles__Vehicle__engine .
+    sysml:membershipOwningNamespace elmt:Vehicles__Vehicle__engine ;
+    sysml:source elmt:Vehicles__Vehicle__engine ;
+    sysml:target expr:Vehicles__Vehicle__engine_pmultiplicity ;
+    sysml:relatedElement elmt:Vehicles__Vehicle__engine, expr:Vehicles__Vehicle__engine_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Vehicles__Vehicle__engine\"},{\"@id\":\"Vehicles__Vehicle__engine_pmultiplicity\"}]" .
 
 expr:Vehicles__Vehicle__engine_pupperBound
     a sysml:LiteralInteger ;
@@ -180,7 +199,11 @@ expr:Vehicles__Vehicle__engine_pupperBound_om
     sysml:ownedMemberElement expr:Vehicles__Vehicle__engine_pupperBound ;
     sysml:ownedRelatedElement expr:Vehicles__Vehicle__engine_pupperBound ;
     sysml:owningRelatedElement expr:Vehicles__Vehicle__engine_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Vehicles__Vehicle__engine_pmultiplicity .
+    sysml:membershipOwningNamespace expr:Vehicles__Vehicle__engine_pmultiplicity ;
+    sysml:source expr:Vehicles__Vehicle__engine_pmultiplicity ;
+    sysml:target expr:Vehicles__Vehicle__engine_pupperBound ;
+    sysml:relatedElement expr:Vehicles__Vehicle__engine_pmultiplicity, expr:Vehicles__Vehicle__engine_pupperBound ;
+    json:relatedElement "[{\"@id\":\"Vehicles__Vehicle__engine_pmultiplicity\"},{\"@id\":\"Vehicles__Vehicle__engine_pupperBound\"}]" .
 
 elmt:Vehicles__Engine
     a sysml:PartDefinition ;
@@ -207,7 +230,12 @@ elmt:Vehicles__Engine_om
     sysml:ownedMemberElement elmt:Vehicles__Engine ;
     sysml:ownedRelatedElement elmt:Vehicles__Engine ;
     sysml:owningRelatedElement elmt:Vehicles ;
-    sysml:membershipOwningNamespace elmt:Vehicles .
+    sysml:membershipOwningNamespace elmt:Vehicles ;
+    sysml:source elmt:Vehicles ;
+    sysml:target elmt:Vehicles__Engine ;
+    sysml:relatedElement elmt:Vehicles, elmt:Vehicles__Engine ;
+    sysml:memberName "Engine" ;
+    json:relatedElement "[{\"@id\":\"Vehicles\"},{\"@id\":\"Vehicles__Engine\"}]" .
 
 elmt:Vehicles__Vehicle__mass_ft0
     a sysml:FeatureTyping ;

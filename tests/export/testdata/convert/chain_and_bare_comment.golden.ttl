@@ -50,7 +50,11 @@ elmt:Chains___400_om
     sysml:ownedMemberElement elmt:Chains___400 ;
     sysml:ownedRelatedElement elmt:Chains___400 ;
     sysml:owningRelatedElement elmt:Chains ;
-    sysml:membershipOwningNamespace elmt:Chains .
+    sysml:membershipOwningNamespace elmt:Chains ;
+    sysml:source elmt:Chains ;
+    sysml:target elmt:Chains___400 ;
+    sysml:relatedElement elmt:Chains, elmt:Chains___400 ;
+    json:relatedElement "[{\"@id\":\"Chains\"},{\"@id\":\"Chains___400\"}]" .
 
 elmt:Chains__V
     a sysml:PartDefinition ;
@@ -83,7 +87,12 @@ elmt:Chains__V_om
     sysml:ownedMemberElement elmt:Chains__V ;
     sysml:ownedRelatedElement elmt:Chains__V ;
     sysml:owningRelatedElement elmt:Chains ;
-    sysml:membershipOwningNamespace elmt:Chains .
+    sysml:membershipOwningNamespace elmt:Chains ;
+    sysml:source elmt:Chains ;
+    sysml:target elmt:Chains__V ;
+    sysml:relatedElement elmt:Chains, elmt:Chains__V ;
+    sysml:memberName "V" ;
+    json:relatedElement "[{\"@id\":\"Chains\"},{\"@id\":\"Chains__V\"}]" .
 
 elmt:Chains__V__e
     a sysml:PartUsage ;
@@ -118,8 +127,13 @@ elmt:Chains__V__e_om
     sysml:ownedRelatedElement elmt:Chains__V__e ;
     sysml:owningRelatedElement elmt:Chains__V ;
     sysml:membershipOwningNamespace elmt:Chains__V ;
+    sysml:source elmt:Chains__V ;
+    sysml:target elmt:Chains__V__e ;
+    sysml:relatedElement elmt:Chains__V, elmt:Chains__V__e ;
+    sysml:memberName "e" ;
     sysml:ownedMemberFeature elmt:Chains__V__e ;
-    sysml:owningType elmt:Chains__V .
+    sysml:owningType elmt:Chains__V ;
+    json:relatedElement "[{\"@id\":\"Chains__V\"},{\"@id\":\"Chains__V__e\"}]" .
 
 elmt:Chains__v
     a sysml:PartUsage ;
@@ -151,7 +165,12 @@ elmt:Chains__v_om
     sysml:ownedMemberElement elmt:Chains__v ;
     sysml:ownedRelatedElement elmt:Chains__v ;
     sysml:owningRelatedElement elmt:Chains ;
-    sysml:membershipOwningNamespace elmt:Chains .
+    sysml:membershipOwningNamespace elmt:Chains ;
+    sysml:source elmt:Chains ;
+    sysml:target elmt:Chains__v ;
+    sysml:relatedElement elmt:Chains, elmt:Chains__v ;
+    sysml:memberName "v" ;
+    json:relatedElement "[{\"@id\":\"Chains\"},{\"@id\":\"Chains__v\"}]" .
 
 elmt:Chains__c
     a sysml:PartUsage ;
@@ -184,7 +203,12 @@ elmt:Chains__c_om
     sysml:ownedMemberElement elmt:Chains__c ;
     sysml:ownedRelatedElement elmt:Chains__c ;
     sysml:owningRelatedElement elmt:Chains ;
-    sysml:membershipOwningNamespace elmt:Chains .
+    sysml:membershipOwningNamespace elmt:Chains ;
+    sysml:source elmt:Chains ;
+    sysml:target elmt:Chains__c ;
+    sysml:relatedElement elmt:Chains, elmt:Chains__c ;
+    sysml:memberName "c" ;
+    json:relatedElement "[{\"@id\":\"Chains\"},{\"@id\":\"Chains__c\"}]" .
 
 elmt:Chains__Named
     a sysml:Comment ;
@@ -212,7 +236,12 @@ elmt:Chains__Named_om
     sysml:ownedMemberElement elmt:Chains__Named ;
     sysml:ownedRelatedElement elmt:Chains__Named ;
     sysml:owningRelatedElement elmt:Chains ;
-    sysml:membershipOwningNamespace elmt:Chains .
+    sysml:membershipOwningNamespace elmt:Chains ;
+    sysml:source elmt:Chains ;
+    sysml:target elmt:Chains__Named ;
+    sysml:relatedElement elmt:Chains, elmt:Chains__Named ;
+    sysml:memberName "Named" ;
+    json:relatedElement "[{\"@id\":\"Chains\"},{\"@id\":\"Chains__Named\"}]" .
 
 elmt:Chains__V__e_ft0
     a sysml:FeatureTyping ;

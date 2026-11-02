@@ -69,9 +69,10 @@ func TestRenameIsAnUpdateKeyedByID(t *testing.T) {
 	if n := len(byKind(set, reposync.KindDelete)) + len(byKind(set, reposync.KindCreate)); n != 0 {
 		t.Errorf("a rename produced %d delete/create entries, want 0:\n%s", n, set.Text())
 	}
+	// The element and the OwningMembership whose memberName is its name, both under the annotated id.
 	updates := byKind(set, reposync.KindUpdate)
-	if len(updates) != 1 || updates[0].ID != "8f3a41d0" {
-		t.Fatalf("a rename must be one update of the annotated id:\n%s", set.Text())
+	if len(updates) != 2 || updates[0].ID != "8f3a41d0" || updates[1].ID != "8f3a41d0_om" {
+		t.Fatalf("a rename must be the updates of the annotated id and its membership:\n%s", set.Text())
 	}
 	renamed := false
 	for _, delta := range updates[0].Deltas {
@@ -224,8 +225,10 @@ func TestRepositoryChangeSinceLastSeenIsAConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The element and the OwningMembership whose memberName is its name both changed there.
 	conflicts := byKind(set, reposync.KindConflict)
-	if len(conflicts) != 1 || conflicts[0].Conflict != reposync.ConflictRepositoryChanged {
+	if len(conflicts) != 2 || conflicts[0].Conflict != reposync.ConflictRepositoryChanged ||
+		conflicts[1].Conflict != reposync.ConflictRepositoryChanged || conflicts[1].ID != "8f3a41d0_om" {
 		t.Fatalf("a repository change since the last-seen commit must be a conflict:\n%s", set.Text())
 	}
 

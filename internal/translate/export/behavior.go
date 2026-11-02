@@ -119,7 +119,11 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		// `done;` is a Membership of the library's Actions::Action::done.
 		head(rdf.SysMLTerm(mMembership))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("done"))
-		e.graph.Add(subject, e.sysml(pMemberElement), e.libraryReference(libraryDone))
+		done := e.libraryReference(libraryDone)
+		e.graph.Add(subject, e.sysml(pMemberElement), done)
+		if ns, ok := e.graph.Object(subject, rdf.SysML+pMembershipOwningNamespace); ok && done.IsIRI() {
+			e.membershipEnds(subject, ns, done)
+		}
 		return true, nil
 
 	case *ast.ForkNode:
@@ -290,6 +294,9 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 			e.graph.Add(subject, e.sysml(pSourceFeature), start)
 		} else {
 			e.graph.Add(subject, e.sysml(pMemberElement), start)
+			if ns, ok := e.graph.Object(subject, rdf.SysML+pMembershipOwningNamespace); ok && start.IsIRI() {
+				e.membershipEnds(subject, ns, start)
+			}
 		}
 	}
 	if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
@@ -705,6 +712,9 @@ func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.Qualified
 	e.graph.Add(membership, e.sysml(pMemberElement), e.edgeReference(source))
 	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
 	e.graph.Add(membership, e.sysml(pMembershipOwningNamespace), subject)
+	if member := e.edgeReference(source); member.IsIRI() {
+		e.membershipEnds(membership, subject, member)
+	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 }

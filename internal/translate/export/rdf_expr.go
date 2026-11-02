@@ -775,6 +775,9 @@ func (e *encoder) referenceMembershipAt(subject, target, membership rdf.Term) {
 	e.graph.Add(membership, e.sysml(pMemberElement), target)
 	e.graph.Add(membership, e.sysml(pOwner), subject)
 	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
+	if target.IsIRI() {
+		e.membershipEnds(membership, subject, target)
+	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 }

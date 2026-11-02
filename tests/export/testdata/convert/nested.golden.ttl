@@ -55,7 +55,12 @@ elmt:Outer__Inner_om
     sysml:ownedMemberElement elmt:Outer__Inner ;
     sysml:ownedRelatedElement elmt:Outer__Inner ;
     sysml:owningRelatedElement elmt:Outer ;
-    sysml:membershipOwningNamespace elmt:Outer .
+    sysml:membershipOwningNamespace elmt:Outer ;
+    sysml:source elmt:Outer ;
+    sysml:target elmt:Outer__Inner ;
+    sysml:relatedElement elmt:Outer, elmt:Outer__Inner ;
+    sysml:memberName "Inner" ;
+    json:relatedElement "[{\"@id\":\"Outer\"},{\"@id\":\"Outer__Inner\"}]" .
 
 elmt:Outer__Inner__Widget
     a sysml:PartDefinition ;
@@ -82,7 +87,12 @@ elmt:Outer__Inner__Widget_om
     sysml:ownedMemberElement elmt:Outer__Inner__Widget ;
     sysml:ownedRelatedElement elmt:Outer__Inner__Widget ;
     sysml:owningRelatedElement elmt:Outer__Inner ;
-    sysml:membershipOwningNamespace elmt:Outer__Inner .
+    sysml:membershipOwningNamespace elmt:Outer__Inner ;
+    sysml:source elmt:Outer__Inner ;
+    sysml:target elmt:Outer__Inner__Widget ;
+    sysml:relatedElement elmt:Outer__Inner, elmt:Outer__Inner__Widget ;
+    sysml:memberName "Widget" ;
+    json:relatedElement "[{\"@id\":\"Outer__Inner\"},{\"@id\":\"Outer__Inner__Widget\"}]" .
 
 elmt:Outer__Inner__Sub
     a sysml:Namespace ;
@@ -113,7 +123,12 @@ elmt:Outer__Inner__Sub_om
     sysml:ownedMemberElement elmt:Outer__Inner__Sub ;
     sysml:ownedRelatedElement elmt:Outer__Inner__Sub ;
     sysml:owningRelatedElement elmt:Outer__Inner ;
-    sysml:membershipOwningNamespace elmt:Outer__Inner .
+    sysml:membershipOwningNamespace elmt:Outer__Inner ;
+    sysml:source elmt:Outer__Inner ;
+    sysml:target elmt:Outer__Inner__Sub ;
+    sysml:relatedElement elmt:Outer__Inner, elmt:Outer__Inner__Sub ;
+    sysml:memberName "Sub" ;
+    json:relatedElement "[{\"@id\":\"Outer__Inner\"},{\"@id\":\"Outer__Inner__Sub\"}]" .
 
 elmt:Outer__Inner__Sub__Gear
     a sysml:PartDefinition ;
@@ -140,4 +155,9 @@ elmt:Outer__Inner__Sub__Gear_om
     sysml:ownedMemberElement elmt:Outer__Inner__Sub__Gear ;
     sysml:ownedRelatedElement elmt:Outer__Inner__Sub__Gear ;
     sysml:owningRelatedElement elmt:Outer__Inner__Sub ;
-    sysml:membershipOwningNamespace elmt:Outer__Inner__Sub .
+    sysml:membershipOwningNamespace elmt:Outer__Inner__Sub ;
+    sysml:source elmt:Outer__Inner__Sub ;
+    sysml:target elmt:Outer__Inner__Sub__Gear ;
+    sysml:relatedElement elmt:Outer__Inner__Sub, elmt:Outer__Inner__Sub__Gear ;
+    sysml:memberName "Gear" ;
+    json:relatedElement "[{\"@id\":\"Outer__Inner__Sub\"},{\"@id\":\"Outer__Inner__Sub__Gear\"}]" .

@@ -63,7 +63,12 @@ elmt:Values__Total_om
     sysml:ownedMemberElement elmt:Values__Total ;
     sysml:ownedRelatedElement elmt:Values__Total ;
     sysml:owningRelatedElement elmt:Values ;
-    sysml:membershipOwningNamespace elmt:Values .
+    sysml:membershipOwningNamespace elmt:Values ;
+    sysml:source elmt:Values ;
+    sysml:target elmt:Values__Total ;
+    sysml:relatedElement elmt:Values, elmt:Values__Total ;
+    sysml:memberName "Total" ;
+    json:relatedElement "[{\"@id\":\"Values\"},{\"@id\":\"Values__Total\"}]" .
 
 elmt:Values__Total__x
     a sysml:ReferenceUsage ;
@@ -100,8 +105,13 @@ elmt:Values__Total__x_om
     sysml:ownedRelatedElement elmt:Values__Total__x ;
     sysml:owningRelatedElement elmt:Values__Total ;
     sysml:membershipOwningNamespace elmt:Values__Total ;
+    sysml:source elmt:Values__Total ;
+    sysml:target elmt:Values__Total__x ;
+    sysml:relatedElement elmt:Values__Total, elmt:Values__Total__x ;
+    sysml:memberName "x" ;
     sysml:ownedMemberFeature elmt:Values__Total__x ;
-    sysml:owningType elmt:Values__Total .
+    sysml:owningType elmt:Values__Total ;
+    json:relatedElement "[{\"@id\":\"Values__Total\"},{\"@id\":\"Values__Total__x\"}]" .
 
 elmt:Values__Total__y
     a sysml:ReferenceUsage ;
@@ -138,8 +148,13 @@ elmt:Values__Total__y_om
     sysml:ownedRelatedElement elmt:Values__Total__y ;
     sysml:owningRelatedElement elmt:Values__Total ;
     sysml:membershipOwningNamespace elmt:Values__Total ;
+    sysml:source elmt:Values__Total ;
+    sysml:target elmt:Values__Total__y ;
+    sysml:relatedElement elmt:Values__Total, elmt:Values__Total__y ;
+    sysml:memberName "y" ;
     sysml:ownedMemberFeature elmt:Values__Total__y ;
-    sysml:owningType elmt:Values__Total .
+    sysml:owningType elmt:Values__Total ;
+    json:relatedElement "[{\"@id\":\"Values__Total\"},{\"@id\":\"Values__Total__y\"}]" .
 
 elmt:Values__Total__result
     a sysml:ReferenceUsage ;
@@ -177,9 +192,14 @@ elmt:Values__Total__result_om
     sysml:ownedRelatedElement elmt:Values__Total__result ;
     sysml:owningRelatedElement elmt:Values__Total ;
     sysml:membershipOwningNamespace elmt:Values__Total ;
+    sysml:source elmt:Values__Total ;
+    sysml:target elmt:Values__Total__result ;
+    sysml:relatedElement elmt:Values__Total, elmt:Values__Total__result ;
+    sysml:memberName "result" ;
     sysml:ownedMemberParameter elmt:Values__Total__result ;
     sysml:ownedMemberFeature elmt:Values__Total__result ;
-    sysml:owningType elmt:Values__Total .
+    sysml:owningType elmt:Values__Total ;
+    json:relatedElement "[{\"@id\":\"Values__Total\"},{\"@id\":\"Values__Total__result\"}]" .
 
 elmt:Values__Sized
     a sysml:PartDefinition ;
@@ -217,7 +237,12 @@ elmt:Values__Sized_om
     sysml:ownedMemberElement elmt:Values__Sized ;
     sysml:ownedRelatedElement elmt:Values__Sized ;
     sysml:owningRelatedElement elmt:Values ;
-    sysml:membershipOwningNamespace elmt:Values .
+    sysml:membershipOwningNamespace elmt:Values ;
+    sysml:source elmt:Values ;
+    sysml:target elmt:Values__Sized ;
+    sysml:relatedElement elmt:Values, elmt:Values__Sized ;
+    sysml:memberName "Sized" ;
+    json:relatedElement "[{\"@id\":\"Values\"},{\"@id\":\"Values__Sized\"}]" .
 
 elmt:Values__Sized__size
     a sysml:AttributeUsage ;
@@ -255,8 +280,13 @@ elmt:Values__Sized__size_om
     sysml:ownedRelatedElement elmt:Values__Sized__size ;
     sysml:owningRelatedElement elmt:Values__Sized ;
     sysml:membershipOwningNamespace elmt:Values__Sized ;
+    sysml:source elmt:Values__Sized ;
+    sysml:target elmt:Values__Sized__size ;
+    sysml:relatedElement elmt:Values__Sized, elmt:Values__Sized__size ;
+    sysml:memberName "size" ;
     sysml:ownedMemberFeature elmt:Values__Sized__size ;
-    sysml:owningType elmt:Values__Sized .
+    sysml:owningType elmt:Values__Sized ;
+    json:relatedElement "[{\"@id\":\"Values__Sized\"},{\"@id\":\"Values__Sized__size\"}]" .
 
 expr:Values__Sized__size_pvalue
     a sysml:LiteralRational ;
@@ -277,8 +307,12 @@ expr:Values__Sized__size_pvalue_om
     sysml:ownedRelatedElement expr:Values__Sized__size_pvalue ;
     sysml:owningRelatedElement elmt:Values__Sized__size ;
     sysml:membershipOwningNamespace elmt:Values__Sized__size ;
+    sysml:source elmt:Values__Sized__size ;
+    sysml:target expr:Values__Sized__size_pvalue ;
+    sysml:relatedElement elmt:Values__Sized__size, expr:Values__Sized__size_pvalue ;
     sysml:featureWithValue elmt:Values__Sized__size ;
-    sysml:value expr:Values__Sized__size_pvalue .
+    sysml:value expr:Values__Sized__size_pvalue ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__size\"},{\"@id\":\"Values__Sized__size_pvalue\"}]" .
 
 elmt:Values__Sized__label
     a sysml:AttributeUsage ;
@@ -316,8 +350,13 @@ elmt:Values__Sized__label_om
     sysml:ownedRelatedElement elmt:Values__Sized__label ;
     sysml:owningRelatedElement elmt:Values__Sized ;
     sysml:membershipOwningNamespace elmt:Values__Sized ;
+    sysml:source elmt:Values__Sized ;
+    sysml:target elmt:Values__Sized__label ;
+    sysml:relatedElement elmt:Values__Sized, elmt:Values__Sized__label ;
+    sysml:memberName "label" ;
     sysml:ownedMemberFeature elmt:Values__Sized__label ;
-    sysml:owningType elmt:Values__Sized .
+    sysml:owningType elmt:Values__Sized ;
+    json:relatedElement "[{\"@id\":\"Values__Sized\"},{\"@id\":\"Values__Sized__label\"}]" .
 
 expr:Values__Sized__label_pvalue
     a sysml:LiteralString ;
@@ -338,8 +377,12 @@ expr:Values__Sized__label_pvalue_om
     sysml:ownedRelatedElement expr:Values__Sized__label_pvalue ;
     sysml:owningRelatedElement elmt:Values__Sized__label ;
     sysml:membershipOwningNamespace elmt:Values__Sized__label ;
+    sysml:source elmt:Values__Sized__label ;
+    sysml:target expr:Values__Sized__label_pvalue ;
+    sysml:relatedElement elmt:Values__Sized__label, expr:Values__Sized__label_pvalue ;
     sysml:featureWithValue elmt:Values__Sized__label ;
-    sysml:value expr:Values__Sized__label_pvalue .
+    sysml:value expr:Values__Sized__label_pvalue ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__label\"},{\"@id\":\"Values__Sized__label_pvalue\"}]" .
 
 elmt:Values__Sized__total
     a sysml:AttributeUsage ;
@@ -377,8 +420,13 @@ elmt:Values__Sized__total_om
     sysml:ownedRelatedElement elmt:Values__Sized__total ;
     sysml:owningRelatedElement elmt:Values__Sized ;
     sysml:membershipOwningNamespace elmt:Values__Sized ;
+    sysml:source elmt:Values__Sized ;
+    sysml:target elmt:Values__Sized__total ;
+    sysml:relatedElement elmt:Values__Sized, elmt:Values__Sized__total ;
+    sysml:memberName "total" ;
     sysml:ownedMemberFeature elmt:Values__Sized__total ;
-    sysml:owningType elmt:Values__Sized .
+    sysml:owningType elmt:Values__Sized ;
+    json:relatedElement "[{\"@id\":\"Values__Sized\"},{\"@id\":\"Values__Sized__total\"}]" .
 
 expr:Values__Sized__total_pvalue
     a sysml:OperatorExpression ;
@@ -435,8 +483,12 @@ expr:Values__Sized__total_pvalue_pin0_om
     sysml:ownedRelatedElement expr:Values__Sized__total_pvalue_pin0 ;
     sysml:owningRelatedElement expr:Values__Sized__total_pvalue ;
     sysml:membershipOwningNamespace expr:Values__Sized__total_pvalue ;
+    sysml:source expr:Values__Sized__total_pvalue ;
+    sysml:target expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:relatedElement expr:Values__Sized__total_pvalue, expr:Values__Sized__total_pvalue_pin0 ;
     sysml:ownedMemberFeature expr:Values__Sized__total_pvalue_pin0 ;
-    sysml:ownedMemberParameter expr:Values__Sized__total_pvalue_pin0 .
+    sysml:ownedMemberParameter expr:Values__Sized__total_pvalue_pin0 ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__total_pvalue\"},{\"@id\":\"Values__Sized__total_pvalue_pin0\"}]" .
 
 expr:Values__Sized__total_pvalue_pa0_om
     a sysml:FeatureValue ;
@@ -447,8 +499,12 @@ expr:Values__Sized__total_pvalue_pa0_om
     sysml:ownedRelatedElement expr:Values__Sized__total_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Values__Sized__total_pvalue_pin0 ;
     sysml:membershipOwningNamespace expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:source expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:target expr:Values__Sized__total_pvalue_pa0 ;
+    sysml:relatedElement expr:Values__Sized__total_pvalue_pin0, expr:Values__Sized__total_pvalue_pa0 ;
     sysml:featureWithValue expr:Values__Sized__total_pvalue_pin0 ;
-    sysml:value expr:Values__Sized__total_pvalue_pa0 .
+    sysml:value expr:Values__Sized__total_pvalue_pa0 ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__total_pvalue_pin0\"},{\"@id\":\"Values__Sized__total_pvalue_pa0\"}]" .
 
 expr:Values__Sized__total_pvalue_pa1
     a sysml:LiteralRational ;
@@ -480,8 +536,12 @@ expr:Values__Sized__total_pvalue_pin1_om
     sysml:ownedRelatedElement expr:Values__Sized__total_pvalue_pin1 ;
     sysml:owningRelatedElement expr:Values__Sized__total_pvalue ;
     sysml:membershipOwningNamespace expr:Values__Sized__total_pvalue ;
+    sysml:source expr:Values__Sized__total_pvalue ;
+    sysml:target expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:relatedElement expr:Values__Sized__total_pvalue, expr:Values__Sized__total_pvalue_pin1 ;
     sysml:ownedMemberFeature expr:Values__Sized__total_pvalue_pin1 ;
-    sysml:ownedMemberParameter expr:Values__Sized__total_pvalue_pin1 .
+    sysml:ownedMemberParameter expr:Values__Sized__total_pvalue_pin1 ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__total_pvalue\"},{\"@id\":\"Values__Sized__total_pvalue_pin1\"}]" .
 
 expr:Values__Sized__total_pvalue_pa1_om
     a sysml:FeatureValue ;
@@ -492,8 +552,12 @@ expr:Values__Sized__total_pvalue_pa1_om
     sysml:ownedRelatedElement expr:Values__Sized__total_pvalue_pa1 ;
     sysml:owningRelatedElement expr:Values__Sized__total_pvalue_pin1 ;
     sysml:membershipOwningNamespace expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:source expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:target expr:Values__Sized__total_pvalue_pa1 ;
+    sysml:relatedElement expr:Values__Sized__total_pvalue_pin1, expr:Values__Sized__total_pvalue_pa1 ;
     sysml:featureWithValue expr:Values__Sized__total_pvalue_pin1 ;
-    sysml:value expr:Values__Sized__total_pvalue_pa1 .
+    sysml:value expr:Values__Sized__total_pvalue_pa1 ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__total_pvalue_pin1\"},{\"@id\":\"Values__Sized__total_pvalue_pa1\"}]" .
 
 expr:Values__Sized__total_pvalue_pout
     a sysml:Feature ;
@@ -513,8 +577,12 @@ expr:Values__Sized__total_pvalue_pout_om
     sysml:ownedRelatedElement expr:Values__Sized__total_pvalue_pout ;
     sysml:owningRelatedElement expr:Values__Sized__total_pvalue ;
     sysml:membershipOwningNamespace expr:Values__Sized__total_pvalue ;
+    sysml:source expr:Values__Sized__total_pvalue ;
+    sysml:target expr:Values__Sized__total_pvalue_pout ;
+    sysml:relatedElement expr:Values__Sized__total_pvalue, expr:Values__Sized__total_pvalue_pout ;
     sysml:ownedMemberFeature expr:Values__Sized__total_pvalue_pout ;
-    sysml:ownedMemberParameter expr:Values__Sized__total_pvalue_pout .
+    sysml:ownedMemberParameter expr:Values__Sized__total_pvalue_pout ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__total_pvalue\"},{\"@id\":\"Values__Sized__total_pvalue_pout\"}]" .
 
 expr:Values__Sized__total_pvalue_om
     a sysml:FeatureValue ;
@@ -525,8 +593,12 @@ expr:Values__Sized__total_pvalue_om
     sysml:ownedRelatedElement expr:Values__Sized__total_pvalue ;
     sysml:owningRelatedElement elmt:Values__Sized__total ;
     sysml:membershipOwningNamespace elmt:Values__Sized__total ;
+    sysml:source elmt:Values__Sized__total ;
+    sysml:target expr:Values__Sized__total_pvalue ;
+    sysml:relatedElement elmt:Values__Sized__total, expr:Values__Sized__total_pvalue ;
     sysml:featureWithValue elmt:Values__Sized__total ;
-    sysml:value expr:Values__Sized__total_pvalue .
+    sysml:value expr:Values__Sized__total_pvalue ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__total\"},{\"@id\":\"Values__Sized__total_pvalue\"}]" .
 
 elmt:Values__Total__x_ft0
     a sysml:FeatureTyping ;

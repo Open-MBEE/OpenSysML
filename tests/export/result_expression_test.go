@@ -44,7 +44,7 @@ func TestResultExpressionIsAResultExpressionMembership(t *testing.T) {
 		"elmt:Results__AfterMembers___403_om\n    a sysml:ResultExpressionMembership ;",
 		"sysml:ownedMemberElement elmt:Results__AfterMembers___403 ;",
 		"sysml:ownedMemberFeature elmt:Results__AfterMembers___403 ;",
-		"sysml:ownedResultExpression elmt:Results__AfterMembers___403 .",
+		"sysml:ownedResultExpression elmt:Results__AfterMembers___403 ;",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph lacks\n%s\n--- graph ---\n%s", want, turtle)
@@ -138,7 +138,7 @@ func withoutResultMembers(t *testing.T, turtle []byte) []byte {
 func TestResultExpressionComesBackFromItsMembershipAlone(t *testing.T) {
 	turtle := convertFixture(t, "result_expressions")
 	stripped := withoutResultMembers(t, withoutSourceText(t, turtle))
-	if !strings.Contains(string(stripped), "sysml:owningType elmt:Results__AfterMembers ;\n    sysml:ownedResultExpression elmt:Results__AfterMembers___403 .") {
+	if !strings.Contains(string(stripped), "sysml:owningType elmt:Results__AfterMembers ;\n    sysml:ownedResultExpression elmt:Results__AfterMembers___403 ;") {
 		t.Fatalf("expected the result membership to keep only its ownedResultExpression:\n%s", stripped)
 	}
 	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
@@ -166,8 +166,8 @@ func TestMalformedMembershipEndsAreRefused(t *testing.T) {
 	turtle := string(withoutTriples(t, convertFixture(t, "result_expressions"), "sysx:sourceText"))
 	for _, tc := range []struct{ from, to, extra, want string }{
 		{
-			"    sysml:ownedResultExpression elmt:Results__AfterMembers___403 .",
-			"    sysml:ownedResultExpression elmt:Results__Only___400 .",
+			"    sysml:ownedResultExpression elmt:Results__AfterMembers___403 ;",
+			"    sysml:ownedResultExpression elmt:Results__Only___400 ;",
 			"",
 			"the membership <urn:sysmlv2:element:Results__AfterMembers___403_om>: it states both <urn:sysmlv2:element:Results__AfterMembers___403> and <urn:sysmlv2:element:Results__Only___400> as its member",
 		},
@@ -184,8 +184,8 @@ func TestMalformedMembershipEndsAreRefused(t *testing.T) {
 			"the membership <urn:sysmlv2:element:Results__Only___400_om>: it states both <urn:sysmlv2:element:Results__Only> and <urn:sysmlv2:element:Results> as its owning namespace",
 		},
 		{
-			"    sysml:ownedResultExpression elmt:Results__AfterMembers___403 .",
-			`    sysml:ownedResultExpression "Results__AfterMembers___403" .`,
+			"    sysml:ownedResultExpression elmt:Results__AfterMembers___403 ;",
+			`    sysml:ownedResultExpression "Results__AfterMembers___403" ;`,
 			"",
 			`the membership <urn:sysmlv2:element:Results__AfterMembers___403_om>: its sysml:ownedResultExpression is the literal "Results__AfterMembers___403"`,
 		},
@@ -196,8 +196,8 @@ func TestMalformedMembershipEndsAreRefused(t *testing.T) {
 			`the membership <urn:sysmlv2:element:Results__Only___400_om>: its sysml:membershipOwningNamespace is the literal "Results::Only"`,
 		},
 		{
-			"    sysml:ownedResultExpression elmt:Results__Only___400 .",
-			"    sysml:ownedResultExpression elmt:Results__Only___400 .",
+			"    sysml:ownedResultExpression elmt:Results__Only___400 ;",
+			"    sysml:ownedResultExpression elmt:Results__Only___400 ;",
 			"elmt:Results__Only___400_om2 a sysml:ResultExpressionMembership ;\n    sysml:membershipOwningNamespace elmt:Results__Double ;\n    sysml:memberElement elmt:Results__Only___400 .",
 			"both own <urn:sysmlv2:element:Results__Only___400>",
 		},
