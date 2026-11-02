@@ -53,17 +53,13 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 		r = p.omit(r)
 	}
 	w := &drawioWriter{
+		arranger:  newArranger(labelsOf(r.Roots, false, nil, r.Shown), r.portView(options.Ports)),
 		fills:     familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels:    labelsOf(r.Roots, false, nil, r.Shown),
 		names:     map[string]drawioName{},
-		ports:     r.portView(options.Ports),
 		links:     options.Links,
 		view:      r.View,
-		boxes:     map[string]drawioBox{},
 		cells:     map[string]bool{},
 		portBoxes: map[string]drawioBox{},
-		routed:    map[int]bool{},
-		inward:    map[int]drawioEnds{},
 		fqns:      map[string]bool{},
 	}
 	if r.Kind == KindAction {
@@ -87,25 +83,17 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 
 // drawioWriter composes one draw.io file from a rendering.
 type drawioWriter struct {
-	fills      familyFills
-	labels     labeller
-	ports      portView
-	used       map[string]map[string]bool
-	links      Links
-	view       string
-	boxes      map[string]drawioBox  // node ID -> its box in canvas coordinates
-	unrouted   bool                  // this build has no router; draw.io routes on opening
-	cells      map[string]bool       // the cell IDs written, the ends an edge may attach to
-	portBoxes  map[string]drawioBox  // port cell ID -> its box in canvas coordinates
-	routed     map[int]bool          // the edges (by index) the router gave their route
-	unroutable []int                 // the edges (by index) the router found no path for
-	inward     map[int]drawioEnds    // per edge, the ends that lead into the port's owner
-	fqns       map[string]bool       // the qualified names written on cells so far
-	names      map[string]drawioName // cell ID -> where its label shows the declared name
-	edgeIDs    map[[2]string]string  // edge ends -> its cell ID, the anchor an edge note joins
-	grid       int                   // nodes and notes laid on the grid for want of a position
-	extent     drawioBox             // the bounds of everything placed
-	b          strings.Builder
+	arranger
+	fills     familyFills
+	used      map[string]map[string]bool
+	links     Links
+	view      string
+	cells     map[string]bool       // the cell IDs written, the ends an edge may attach to
+	portBoxes map[string]drawioBox  // port cell ID -> its box in canvas coordinates
+	fqns      map[string]bool       // the qualified names written on cells so far
+	names     map[string]drawioName // cell ID -> where its label shows the declared name
+	edgeIDs   map[[2]string]string  // edge ends -> its cell ID, the anchor an edge note joins
+	b         strings.Builder
 }
 
 // drawioBox is an axis-aligned box in canvas coordinates: the top-left corner
@@ -150,240 +138,6 @@ const (
 	drawioBarWidth    = 10
 	drawioJunctionDim = 12
 )
-
-// layout settles a box for every node: the stated one, or one fitted to the
-// label and the children, on a deterministic grid when nothing places it.
-func (w *drawioWriter) layout(r *Rendering) {
-	var placed, unplaced []*Node
-	for _, root := range r.Roots {
-		if root.Geometry.placed() {
-			placed = append(placed, root)
-		} else {
-			unplaced = append(unplaced, root)
-		}
-	}
-	for _, root := range placed {
-		w.settle(root, drawioBox{X: root.Geometry.X, Y: root.Geometry.Y})
-		w.extend(w.boxes[root.ID])
-	}
-	for _, picture := range r.Pictures {
-		w.extend(drawioBox{X: picture.X, Y: picture.Y, Width: picture.Width, Height: picture.Height})
-	}
-	for _, note := range r.Notes {
-		if note.HasSize {
-			w.extend(drawioBox{X: note.X, Y: note.Y, Width: note.Width, Height: note.Height})
-		}
-	}
-	for _, edge := range r.Edges {
-		for _, p := range edge.Route {
-			w.extend(drawioBox{X: p.X, Y: p.Y})
-		}
-	}
-	sizes := make([]drawioBox, len(unplaced))
-	for i, root := range unplaced {
-		sizes[i] = w.fitted(root)
-	}
-	origin := drawioBox{X: drawioGridGap, Y: drawioGridGap}
-	if w.grid = len(unplaced); len(placed) > 0 || w.extent.Width > 0 {
-		origin.Y = w.extent.bottom() + drawioGridGap
-		origin.X = math.Min(drawioGridGap, w.extent.X)
-	}
-	for i, box := range drawioGrid(sizes, origin, drawioGridGap) {
-		w.settle(unplaced[i], box)
-		w.extend(box)
-	}
-}
-
-// extend grows the placed extent to cover a box.
-func (w *drawioWriter) extend(box drawioBox) {
-	if w.extent.Width == 0 && w.extent.Height == 0 && w.extent.X == 0 && w.extent.Y == 0 {
-		w.extent = box
-		return
-	}
-	x, y := math.Min(w.extent.X, box.X), math.Min(w.extent.Y, box.Y)
-	right, bottom := math.Max(w.extent.right(), box.right()), math.Max(w.extent.bottom(), box.bottom())
-	w.extent = drawioBox{X: x, Y: y, Width: right - x, Height: bottom - y}
-}
-
-// drawioGrid lays boxes of the given sizes in rows from origin, as many a row
-// as fits a square, each row as tall as its tallest box; the order is kept.
-func drawioGrid(sizes []drawioBox, origin drawioBox, gap float64) []drawioBox {
-	boxes := make([]drawioBox, len(sizes))
-	if len(sizes) == 0 {
-		return boxes
-	}
-	columns := int(math.Ceil(math.Sqrt(float64(len(sizes)))))
-	x, y, rowHeight := origin.X, origin.Y, 0.0
-	for i, size := range sizes {
-		if i > 0 && i%columns == 0 {
-			x, y, rowHeight = origin.X, y+rowHeight+gap, 0
-		}
-		boxes[i] = drawioBox{X: x, Y: y, Width: size.Width, Height: size.Height}
-		x += size.Width + gap
-		rowHeight = math.Max(rowHeight, size.Height)
-	}
-	return boxes
-}
-
-// settle fixes a node's box at a corner, sized as fitted sizes it, and settles
-// the nodes under it.
-func (w *drawioWriter) settle(node *Node, at drawioBox) {
-	size := w.fitted(node)
-	box := drawioBox{X: at.X, Y: at.Y, Width: size.Width, Height: size.Height}
-	w.boxes[node.ID] = box
-	w.settleChildren(node, box)
-}
-
-// settleChildren places a container's children: placed ones keep their stated offset,
-// the rest fill a grid under the header, compartments and placed children.
-func (w *drawioWriter) settleChildren(node *Node, box drawioBox) {
-	if len(node.Children) == 0 {
-		return
-	}
-	shift := w.childShift(node, box)
-	var unplaced []*Node
-	for _, child := range node.Children {
-		if child.Geometry.placed() {
-			w.settle(child, drawioBox{X: child.Geometry.X + shift.X, Y: child.Geometry.Y + shift.Y})
-		} else {
-			unplaced = append(unplaced, child)
-		}
-	}
-	sizes := make([]drawioBox, len(unplaced))
-	for i, child := range unplaced {
-		sizes[i] = w.fitted(child)
-	}
-	// Under a header the router needs a channel; a container of stated size
-	// keeps the pad, since its children must fit the size it states.
-	gap := drawioNestedGap
-	if g := node.Geometry; g != nil && g.HasSize {
-		gap = drawioNestedPad
-	}
-	origin := drawioBox{X: box.X + drawioNestedPad, Y: box.Y + w.headroom(node) + gap}
-	for _, child := range node.Children {
-		if child.Geometry.placed() {
-			origin.Y = math.Max(origin.Y, w.boxes[child.ID].bottom()+gap)
-		}
-	}
-	for i, child := range drawioGrid(sizes, origin, gap) {
-		w.settle(unplaced[i], child)
-	}
-}
-
-// childShift is what a container's placed children move by: nothing when the
-// container is placed too, else the offset putting their bounds under its header.
-func (w *drawioWriter) childShift(node *Node, box drawioBox) drawioBox {
-	if node.Geometry.placed() {
-		return drawioBox{}
-	}
-	minX, minY, found := math.Inf(1), math.Inf(1), false
-	for _, child := range node.Children {
-		if child.Geometry.placed() {
-			minX, minY, found = math.Min(minX, child.Geometry.X), math.Min(minY, child.Geometry.Y), true
-		}
-	}
-	if !found {
-		return drawioBox{}
-	}
-	return drawioBox{X: box.X + drawioNestedPad - minX, Y: box.Y + w.headroom(node) + drawioNestedGap - minY}
-}
-
-// fitted is the size a node is drawn at: the stated one, else a glyph's fixed
-// size, else the label's box grown to enclose the children settled under it.
-func (w *drawioWriter) fitted(node *Node) drawioBox {
-	if g := node.Geometry; g != nil && g.HasSize {
-		return drawioBox{Width: g.Width, Height: g.Height}
-	}
-	if width, height, ok := drawioGlyphSizeOf(node); ok {
-		return drawioBox{Width: width, Height: height}
-	}
-	width, height := w.labels.dotBox(node)
-	if len(w.labels.compartments(node)) > 0 || len(node.Children) > 0 {
-		width = math.Max(width, drawioMinWidth)
-	}
-	if len(node.Children) == 0 {
-		return drawioBox{Width: width, Height: height}
-	}
-	// Children are settled from the container's corner, placed ones sitting at
-	// their absolute Layouts, so their extent is known; settle moves them after.
-	corner := drawioBox{Width: width, Height: height}
-	if g := node.Geometry; g.placed() {
-		corner.X, corner.Y = g.X, g.Y
-	}
-	probe := &drawioWriter{labels: w.labels, ports: w.ports, boxes: map[string]drawioBox{}}
-	probe.settleChildren(node, corner)
-	right, bottom := 0.0, 0.0
-	for _, child := range node.Children {
-		right = math.Max(right, probe.boxes[child.ID].right()-corner.X)
-		bottom = math.Max(bottom, probe.boxes[child.ID].bottom()-corner.Y)
-	}
-	return drawioBox{Width: math.Max(width, right+drawioNestedPad), Height: math.Max(height, bottom+drawioNestedPad)}
-}
-
-// headroom is the height of a node's header and compartments, under which its
-// nested children sit.
-func (w *drawioWriter) headroom(node *Node) float64 {
-	height := w.headerHeight(node)
-	for _, compartment := range w.compartments(node) {
-		height += w.compartmentHeight(node, compartment)
-	}
-	return height
-}
-
-// headerHeight is the height of a node's title strip: its keyword, head and
-// detail lines with a margin above and below.
-func (w *drawioWriter) headerHeight(node *Node) float64 {
-	lines := w.headerLines(node)
-	if len(lines) == 0 {
-		return 2 * dotMarginHeight
-	}
-	_, height := dotTextExtent(lines, w.labels.sizeOf(node))
-	return math.Ceil(height + 2*dotMarginHeight)
-}
-
-// compartmentHeight is the height of a compartment's cell: its name and rows.
-func (w *drawioWriter) compartmentHeight(node *Node, compartment Compartment) float64 {
-	_, height := dotTextExtent(w.compartmentLines(node, compartment), w.labels.sizeOf(node))
-	return math.Ceil(height + 2*dotMarginHeight)
-}
-
-// headerLines are the lines of a node's title: keyword, head and details.
-func (w *drawioWriter) headerLines(node *Node) []string {
-	var lines []string
-	if keyword := w.labels.keyword(node); keyword != "" {
-		lines = append(lines, keyword)
-	}
-	lines = append(lines, w.labels.headLines(node)...)
-	lines = append(lines, w.labels.details(node)...)
-	return append(lines, w.labels.parameterLines(node)...)
-}
-
-// compartments are the compartments a node's cell stacks: those shown, less
-// any a Layout hides and any left without a row.
-func (w *drawioWriter) compartments(node *Node) []Compartment {
-	var out []Compartment
-	for _, compartment := range w.labels.compartments(node) {
-		var rows []*Node
-		for _, row := range compartment.Rows {
-			if !hiddenRow(node, row) {
-				rows = append(rows, row)
-			}
-		}
-		if len(rows) > 0 {
-			out = append(out, Compartment{Name: compartment.Name, Rows: rows})
-		}
-	}
-	return out
-}
-
-// compartmentLines are a compartment cell's label lines: its name, then its rows.
-func (w *drawioWriter) compartmentLines(node *Node, compartment Compartment) []string {
-	lines := []string{compartment.Name}
-	for _, row := range compartment.Rows {
-		lines = append(lines, strings.Split(w.labels.rowText(row), "\n")...)
-	}
-	return lines
-}
 
 // drawioGlyphSizeOf is the fixed size a notation symbol is drawn at, when the
 // node is one: a dot, a ring, a bar, a diamond.
