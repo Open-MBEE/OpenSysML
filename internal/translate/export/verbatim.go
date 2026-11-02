@@ -284,11 +284,8 @@ func derivedVariabilityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 		!graph.HasProperty(t.Subject, t.Predicate.Value)
 }
 
-// derivedMembershipOmitted reports a membership's source, target, relatedElement,
-// memberName or memberShortName — as a sysml: statement or the collection annotation
-// of one — the candidate states and the graph omits: each is derived from the
-// ownership edges and the member (KerML 8.3.2.3.5 Membership), so a graph written
-// before the writer stated them states no less.
+// derivedMembershipOmitted reports a Membership end or name (sysml: statement or its
+// collection annotation) the candidate derives (KerML 8.3.2.3.5) and the graph omits.
 func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 	var key string
 	switch {
@@ -392,10 +389,8 @@ func holderOf(g *rdf.Graph, holders *holderIndex, iri string) string {
 	return holders.pointingAt(g, iri)
 }
 
-// holderIndex gives the first subject whose statement points at each node of a
-// graph, from one walk of its triples; a walk per blamed node made a decode
-// quadratic in model size. It is built on first use and answers for the graph
-// as it then stood, so a pass over a graph that grew starts a new one.
+// holderIndex maps each node to the first subject pointing at it, from one walk of
+// the graph instead of one per blamed node; a pass over a grown graph starts anew.
 type holderIndex struct {
 	first map[string]string
 }

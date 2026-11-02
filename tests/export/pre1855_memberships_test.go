@@ -10,10 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
-// Turtle written before the writer stated a Membership's source, target,
-// relatedElement and memberName reads back from its source text untouched: a
-// statement the graph omits and the candidate derives is no evidence the text
-// is stale. A memberName the graph does state differently still is.
+// Turtle written before the writer stated a Membership's ends and names reads back
+// from its source text untouched; a memberName the graph states differently demotes.
 func TestPre1855MembershipsKeepVerbatimText(t *testing.T) {
 	turtle, err := os.ReadFile(filepath.Join("testdata", "pre1855_memberships.ttl"))
 	if err != nil {

@@ -38,9 +38,8 @@ func graphOfNotation(tb testing.TB, notation string) *rdf.Graph {
 	return graph
 }
 
-// withoutMembershipStatements drops the source, target, relatedElement, memberName
-// and memberShortName statements of every Membership, as a writer before them
-// left the graph, and returns how many it dropped.
+// withoutMembershipStatements drops every Membership's ends and names, as a writer
+// before them left the graph, and returns how many statements it dropped.
 func withoutMembershipStatements(graph *rdf.Graph) (*rdf.Graph, int) {
 	stripped := rdf.NewGraphOf(append([]rdf.Triple(nil), graph.Triples()...), graph.Prefixes)
 	dropped := 0
