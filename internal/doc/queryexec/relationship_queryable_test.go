@@ -1,6 +1,7 @@
 package queryexec
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"strconv"
 	"strings"
 	"testing"
@@ -78,5 +79,30 @@ calc def Types :> Query {
 	}
 	if texts := cellTexts(t, result, 0); len(texts) != 1 || texts[0] != "" {
 		t.Fatalf("type of an untyped part = %q, want one empty cell", texts)
+	}
+}
+
+// A keyword-first relationship is a declared element whose ends the metaclass answers.
+func TestKeywordFirstRelationshipAnswersGeneral(t *testing.T) {
+	fixture := loadExecutionSources(t, "package Observatory {"+executionImports+`
+calc def Generals :> Query {
+	in rows : Element[0..*];
+	Project(source = rows, properties = ("general"))
+}
+}`, map[string]string{"relationships.kerml": `package K {
+	classifier A;
+	classifier B;
+	specialization Gen subtype A specializes B;
+}`})
+	gen := symbols.PreferDeclared(fixture.index.LookupQualified("K::Gen"))
+	if len(gen) != 1 {
+		t.Fatalf("lookup K::Gen: got %d symbols", len(gen))
+	}
+	result, err := fixture.execute(t, "Generals", Bindings{"rows": {ElementValue(gen[0])}}, Options{})
+	if err != nil {
+		t.Fatalf("execute Generals: %v", err)
+	}
+	if texts := cellTexts(t, result, 0); len(texts) != 1 || texts[0] != "K::B" {
+		t.Fatalf("general of Gen = %q, want K::B", texts)
 	}
 }

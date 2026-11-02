@@ -44,6 +44,12 @@ func loadExecutionFixtureFile(t *testing.T, path string) executionFixture {
 
 func loadExecutionSource(t *testing.T, content string) executionFixture {
 	t.Helper()
+	return loadExecutionSources(t, content, nil)
+}
+
+// loadExecutionSources loads the SysML fixture beside other documents, keyed by file name.
+func loadExecutionSources(t *testing.T, content string, others map[string]string) executionFixture {
+	t.Helper()
 	index := libs.NewModelIndex()
 	name := "query-execution.sysml"
 	sf := source.New(name, []byte(content))
@@ -53,6 +59,14 @@ func loadExecutionSource(t *testing.T, content string) executionFixture {
 		t.Fatalf("parse fixture: %v", p.Diagnostics)
 	}
 	index.AddDocument(name, root)
+	for other, text := range others {
+		op := parser.New(source.New(other, []byte(text)))
+		otherRoot := op.ParseFile()
+		if len(op.Diagnostics) > 0 {
+			t.Fatalf("parse %s: %v", other, op.Diagnostics)
+		}
+		index.AddDocument(other, otherRoot)
+	}
 	index.ExpandWildcardImports()
 	resolver := resolve.New(index)
 	model := passes.NewTypedModel(resolver)
