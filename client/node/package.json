@@ -87,7 +87,7 @@
     "@types/make-fetch-happen": "^10.0.4",
     "@types/node": "22.20.5",
     "c8": "12.0.0",
-    "eslint": "10.13.0",
+    "eslint": "10.14.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.72.1"
   }
