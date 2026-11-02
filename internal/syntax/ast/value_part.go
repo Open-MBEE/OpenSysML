@@ -18,6 +18,11 @@ func ValuePartOf(node Node) (value Node, isDefault, isInitial, ok bool) {
 		value, isDefault, isInitial = n.Value, n.ValueIsDefault, n.ValueIsInitial
 	case *RequireMember:
 		value, isDefault, isInitial = n.Value, n.ValueIsDefault, n.ValueIsInitial
+	case *Relationship:
+		// A satisfy's `by s` declares a subject parameter whose value is s (SysML v2 8.3.19).
+		if n.Kind == RelSubject {
+			value = n.Target
+		}
 	}
 	if value == nil {
 		return nil, false, false, false
