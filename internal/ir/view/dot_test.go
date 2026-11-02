@@ -1086,7 +1086,7 @@ func TestDOTSettlesUnplacedNodes(t *testing.T) {
 // and that no two strip boxes overlap.
 func assertStripBelow(t *testing.T, r *Rendering, floor float64) {
 	t.Helper()
-	w := newDOTWriter(r, Options{})
+	w := newDOTWriter(r, Options{}, false)
 	stated := map[string]nodeBox{}
 	for id, box := range w.boxes {
 		stated[id] = box

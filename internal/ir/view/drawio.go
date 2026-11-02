@@ -503,7 +503,7 @@ func (w *drawioWriter) writePorts(node *Node, fqn string) {
 		} else {
 			w.relativeGeometry(drawioWrappedBodyIndent, side, fraction)
 		}
-		w.portBoxes[id] = drawioPortCellBox(box, side, fraction, port.Geometry)
+		w.portBoxes[id] = portCellBox(box, routeSide(side), fraction, port.Geometry)
 		w.closeObject()
 		w.cells[id] = true
 	}
@@ -550,37 +550,6 @@ func drawioPortStyle(side PortDirection) string {
 
 // relativeGeometry writes a port's geometry as a fraction of its owner's
 // border, offset to centre the square on the edge.
-// drawioPortCellBox is a port cell's box on the page: its stated geometry
-// when placed, else where relativeGeometry puts it on its owner's box.
-func drawioPortCellBox(box drawioBox, side PortDirection, fraction float64, g *Geometry) drawioBox {
-	if g.placed() {
-		size := drawioBox{Width: drawioPortSize, Height: drawioPortSize}
-		if g.HasSize {
-			size = drawioBox{Width: g.Width, Height: g.Height}
-		}
-		return drawioBox{X: g.X, Y: g.Y, Width: size.Width, Height: size.Height}
-	}
-	return drawioPortBox(box, side, fraction)
-}
-
-// drawioPortBox is where a port drawn at fraction along side sits on the page,
-// as relativeGeometry places it.
-func drawioPortBox(box drawioBox, side PortDirection, fraction float64) drawioBox {
-	x, y := fraction, 0.0
-	switch side {
-	case PortIn:
-		x, y = 0, fraction
-	case PortOut:
-		x, y = 1, fraction
-	}
-	return drawioBox{
-		X:      box.X + x*box.Width - drawioPortSize/2,
-		Y:      box.Y + y*box.Height - drawioPortSize/2,
-		Width:  drawioPortSize,
-		Height: drawioPortSize,
-	}
-}
-
 func (w *drawioWriter) relativeGeometry(indent string, side PortDirection, fraction float64) {
 	x, y := fraction, 0.0
 	switch side {

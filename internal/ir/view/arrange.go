@@ -22,6 +22,7 @@ type arranger struct {
 	boxes      map[string]drawioBox  // node ID -> its box in canvas coordinates
 	positions  map[string]drawioBox  // node ID -> the box a layered layout gave it, taken ahead of the grid
 	side       func(Port) route.Side // the border a drawn port sits on; nil is the draw.io form's
+	portRoom   func(Port) float64    // the border length a drawn port and its name take; nil takes none
 	unrouted   bool                  // this build has no router; the form routes on opening
 	routed     map[int]bool          // the edges (by index) the router gave their route
 	unroutable []int                 // the edges (by index) the router found no path for
@@ -64,19 +65,35 @@ func (a *arranger) layout(r *Rendering) {
 			a.extend(drawioBox{X: p.X, Y: p.Y})
 		}
 	}
-	sizes := make([]drawioBox, len(unplaced))
-	for i, root := range unplaced {
+	gridded := a.settlePositioned(unplaced)
+	sizes := make([]drawioBox, len(gridded))
+	for i, root := range gridded {
 		sizes[i] = a.fitted(root)
 	}
 	origin := drawioBox{X: drawioGridGap, Y: drawioGridGap}
-	if a.grid = len(unplaced); len(placed) > 0 || a.extent.Width > 0 {
+	if a.grid = len(gridded); len(placed) > 0 || a.extent.Width > 0 {
 		origin.Y = a.extent.bottom() + drawioGridGap
 		origin.X = math.Min(drawioGridGap, a.extent.X)
 	}
 	for i, box := range drawioGrid(sizes, origin, drawioGridGap) {
-		a.settle(unplaced[i], box)
+		a.settle(gridded[i], box)
 		a.extend(box)
 	}
+}
+
+// settlePositioned settles the nodes the layered layout placed where it put
+// them and returns the rest, for the grid.
+func (a *arranger) settlePositioned(nodes []*Node) []*Node {
+	var left []*Node
+	for _, node := range nodes {
+		if at, ok := a.positions[node.ID]; ok {
+			a.settle(node, at)
+			a.extend(a.boxes[node.ID])
+		} else {
+			left = append(left, node)
+		}
+	}
+	return left
 }
 
 // extend grows the placed extent to cover a box.
@@ -134,6 +151,7 @@ func (a *arranger) settleChildren(node *Node, box drawioBox) {
 			unplaced = append(unplaced, child)
 		}
 	}
+	unplaced = a.settlePositioned(unplaced)
 	sizes := make([]drawioBox, len(unplaced))
 	for i, child := range unplaced {
 		sizes[i] = a.fitted(child)
@@ -173,11 +191,15 @@ func (a *arranger) childShift(node *Node, box drawioBox) drawioBox {
 	return drawioBox{X: box.X + drawioNestedPad - minX, Y: box.Y + a.headroom(node) + drawioNestedGap - minY}
 }
 
-// fitted is the size a node is drawn at: the stated one, else a glyph's fixed
-// size, else the label's box grown to enclose the children settled under it.
+// fitted is the size a node is drawn at: the stated one, else the one the
+// layered layout grew a container to, else a glyph's fixed size, else the
+// label's box grown to enclose the children settled under it.
 func (a *arranger) fitted(node *Node) drawioBox {
 	if g := node.Geometry; g != nil && g.HasSize {
 		return drawioBox{Width: g.Width, Height: g.Height}
+	}
+	if at, ok := a.positions[node.ID]; ok && len(node.Children) > 0 {
+		return drawioBox{Width: at.Width, Height: at.Height}
 	}
 	if width, height, ok := drawioGlyphSizeOf(node); ok {
 		return drawioBox{Width: width, Height: height}
@@ -186,6 +208,7 @@ func (a *arranger) fitted(node *Node) drawioBox {
 	if len(a.labels.compartments(node)) > 0 || len(node.Children) > 0 {
 		width = math.Max(width, drawioMinWidth)
 	}
+	width, height = math.Max(width, a.portsRoom(node, route.North, route.South)), math.Max(height, a.portsRoom(node, route.West, route.East))
 	if len(node.Children) == 0 {
 		return drawioBox{Width: width, Height: height}
 	}
@@ -456,10 +479,6 @@ func (a *arranger) routePorts(node *Node, box drawioBox) ([]route.Port, []route.
 	if len(ports) == 0 {
 		return nil, nil
 	}
-	sides := map[PortDirection][]Port{}
-	for _, port := range ports {
-		sides[drawioPortSide(port)] = append(sides[drawioPortSide(port)], port)
-	}
 	var pins []route.Port
 	var shapes []route.Shape
 	for _, port := range ports {
@@ -468,10 +487,78 @@ func (a *arranger) routePorts(node *Node, box drawioBox) ([]route.Port, []route.
 			shapes = append(shapes, shape)
 			continue
 		}
-		side := drawioPortSide(port)
-		pins = append(pins, route.Port{ID: port.ID, Side: routeSide(side), Offset: float64(drawioPortIndex(sides[side], port)+1) / float64(len(sides[side])+1)})
+		side, fraction := a.portPlace(node, port)
+		pins = append(pins, route.Port{ID: port.ID, Side: side, Offset: fraction})
 	}
 	return pins, shapes
+}
+
+// portsRoom is the border length the drawn ports on the fuller of two
+// opposite sides of a node take, so the node is drawn long enough for them.
+func (a *arranger) portsRoom(node *Node, sides ...route.Side) float64 {
+	if a.portRoom == nil {
+		return 0
+	}
+	room := map[route.Side]float64{}
+	for _, port := range a.ports.of(node) {
+		if !port.Geometry.placed() {
+			room[a.portSide(port)] += a.portRoom(port)
+		}
+	}
+	longest := 0.0
+	for _, side := range sides {
+		longest = math.Max(longest, room[side])
+	}
+	return longest
+}
+
+// portSide is the border a drawn port sits on: the form's choice, else the
+// draw.io form's, inputs left, outputs right and the rest along the top.
+func (a *arranger) portSide(port Port) route.Side {
+	if a.side != nil {
+		return a.side(port)
+	}
+	return routeSide(drawioPortSide(port))
+}
+
+// portPlace is where a node's drawn port sits on its border: its side and the
+// fraction along it, the ports of a side spaced evenly in their order.
+func (a *arranger) portPlace(node *Node, port Port) (route.Side, float64) {
+	side := a.portSide(port)
+	var peers []Port
+	for _, p := range a.ports.of(node) {
+		if a.portSide(p) == side {
+			peers = append(peers, p)
+		}
+	}
+	return side, float64(drawioPortIndex(peers, port)+1) / float64(len(peers)+1)
+}
+
+// portCellBox is a port cell's box on the page: its stated geometry at the
+// port's size when it has one, else the square straddling its border.
+func portCellBox(box drawioBox, side route.Side, fraction float64, g *Geometry) drawioBox {
+	if g.placed() {
+		size := drawioBox{Width: drawioPortSize, Height: drawioPortSize}
+		if g.HasSize {
+			size = drawioBox{Width: g.Width, Height: g.Height}
+		}
+		return drawioBox{X: g.X, Y: g.Y, Width: size.Width, Height: size.Height}
+	}
+	x, y := fraction, 0.0
+	switch side {
+	case route.West:
+		x, y = 0, fraction
+	case route.East:
+		x, y = 1, fraction
+	case route.South:
+		y = 1
+	}
+	return drawioBox{
+		X:      box.X + x*box.Width - drawioPortSize/2,
+		Y:      box.Y + y*box.Height - drawioPortSize/2,
+		Width:  drawioPortSize,
+		Height: drawioPortSize,
+	}
 }
 
 // portShape is a port cell of node as a shape of its own, named like the
@@ -481,19 +568,12 @@ func (a *arranger) portShape(node *Node, box drawioBox, portID string, inward bo
 	if node == nil || portID == "" {
 		return route.Shape{}, false
 	}
-	ports := a.ports.of(node)
-	sides := map[PortDirection][]Port{}
-	for _, port := range ports {
-		sides[drawioPortSide(port)] = append(sides[drawioPortSide(port)], port)
-	}
-	for _, port := range ports {
+	for _, port := range a.ports.of(node) {
 		if port.ID != portID {
 			continue
 		}
-		side := drawioPortSide(port)
-		fraction := float64(drawioPortIndex(sides[side], port)+1) / float64(len(sides[side])+1)
-		cell := drawioPortCellBox(box, side, fraction, port.Geometry)
-		face := routeSide(side)
+		face, fraction := a.portPlace(node, port)
+		cell := portCellBox(box, face, fraction, port.Geometry)
 		if port.Geometry.placed() {
 			face, _ = placedPortSide(box, port.Geometry)
 		}

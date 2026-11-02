@@ -62,7 +62,7 @@ func Place(path string, g Graph) (map[string]Box, error) {
 	if err := cmd.Run(); err != nil {
 		return nil, &Error{Path: path, Err: err, Stderr: strings.TrimSpace(stderr.String())}
 	}
-	boxes, err := parse(stdout.Bytes())
+	boxes, err := parse(stdout.Bytes(), g.containers())
 	if err != nil {
 		return nil, &Error{Path: path, Err: err, Stderr: strings.TrimSpace(stderr.String())}
 	}
@@ -84,6 +84,22 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) Unwrap() error { return e.Err }
+
+// containers are the IDs of the nodes with children, drawn as clusters.
+func (g Graph) containers() map[string]bool {
+	out := map[string]bool{}
+	var walk func(nodes []Node)
+	walk = func(nodes []Node) {
+		for _, node := range nodes {
+			if len(node.Children) > 0 {
+				out[node.ID] = true
+			}
+			walk(node.Children)
+		}
+	}
+	walk(g.Nodes)
+	return out
+}
 
 // dot is the positions-only graph: every leaf a fixed-size box, every
 // container a cluster whose label reserves its header, every edge drawn to
@@ -164,8 +180,9 @@ type object struct {
 }
 
 // parse reads the boxes out of dot's answer, flipping Graphviz's y-up points
-// into pixels from the top-left corner.
-func parse(answer []byte) (map[string]Box, error) {
+// into pixels from the top-left corner, whole: dot prints inches to five
+// places, noise a drawing has no use for.
+func parse(answer []byte, containers map[string]bool) (map[string]Box, error) {
 	var g graph
 	if err := json.Unmarshal(answer, &g); err != nil {
 		return nil, fmt.Errorf("layout answer: %w", err)
@@ -174,6 +191,7 @@ func parse(answer []byte) (map[string]Box, error) {
 	if err != nil {
 		return nil, fmt.Errorf("layout answer: graph bb %q: %w", g.BB, err)
 	}
+	top = math.Ceil(top)
 	boxes := make(map[string]Box, len(g.Objects))
 	for _, o := range g.Objects {
 		switch {
@@ -182,9 +200,10 @@ func parse(answer []byte) (map[string]Box, error) {
 			if err != nil {
 				return nil, fmt.Errorf("layout answer: cluster %s bb %q: %w", o.Name, o.BB, err)
 			}
+			x1, y1, x2, y2 = math.Floor(x1), math.Floor(y1), math.Ceil(x2), math.Ceil(y2)
 			boxes[strings.TrimPrefix(o.Name, "cluster_")] = Box{X: x1, Y: top - y2, Width: x2 - x1, Height: y2 - y1}
-		case o.Width == "0.01" && o.Height == "0.01":
-			// A container's anchor point: the cluster places it.
+		case containers[o.Name]:
+			// A container's anchor point: its cluster places it.
 		default:
 			cx, cy, err := pair(o.Pos)
 			if err != nil {
@@ -195,8 +214,8 @@ func parse(answer []byte) (map[string]Box, error) {
 			if errW != nil || errH != nil {
 				return nil, fmt.Errorf("layout answer: node %s size %q by %q", o.Name, o.Width, o.Height)
 			}
-			w, h = w*Points, h*Points
-			boxes[o.Name] = Box{X: cx - w/2, Y: top - cy - h/2, Width: w, Height: h}
+			w, h = math.Round(w*Points), math.Round(h*Points)
+			boxes[o.Name] = Box{X: math.Round(cx - w/2), Y: math.Round(top - cy - h/2), Width: w, Height: h}
 		}
 	}
 	return boxes, nil
