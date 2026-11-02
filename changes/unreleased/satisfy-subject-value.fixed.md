@@ -1,0 +1,1 @@
+- The subject parameter a satisfy usage's `by` clause declares (SysML v2 8.3.19) now reads natively as the conversion writes it: it varies in time, being a referential usage of the satisfy usage, an Occurrence (`isVariable`, `mayTimeVary` true), and it owns the FeatureValue binding it to the `by` value, where the reflective read left `isVariable` false and the value unowned.

@@ -28,6 +28,11 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		// A required or assumed constraint is the ConstraintUsage its member declares.
 	case *ast.SubjectMember:
 		// A subject parameter is the ReferenceUsage its SubjectMembership declares.
+	case *ast.Relationship:
+		// A satisfy's `by` subject is a parameter too; its owning type is the satisfy usage.
+		if d.Kind != ast.RelSubject {
+			return false
+		}
 	case *ast.ConnectorEnd:
 		// A connector's end is the usage its EndFeatureMembership declares; its
 		// owning type is the connector.
@@ -135,6 +140,9 @@ func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 		return m.isKerMLDoc(sym) && (d.IsVariable || d.IsConstant)
 	case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr, *ast.ConnectorEnd:
 		return !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)
+	case *ast.Relationship:
+		// A satisfy's `by` subject parameter.
+		return d.Kind == ast.RelSubject && !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)
 	}
 	return false
 }
