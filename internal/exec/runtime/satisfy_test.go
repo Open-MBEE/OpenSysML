@@ -218,6 +218,53 @@ func TestReadInSatisfactionReadsThroughTheSubject(t *testing.T) {
 	}
 }
 
+// TestReadInSatisfactionReadsTheCheckChain checks that a read in a satisfaction sees the
+// chain redefinition the satisfy usage declares through its subject, as the check does,
+// and that the object reads its own value again once either is over.
+func TestReadInSatisfactionReadsTheCheckChain(t *testing.T) {
+	src := `package ChainProbe {
+		private import ScalarValues::Integer;
+		part def Vehicle { attribute fuel : Integer default 0; }
+		part vehicle1 : Vehicle;
+		requirement def Full {
+			subject vehicle : Vehicle;
+			attribute target : Integer default 1300;
+			require constraint { vehicle.fuel == target }
+		}
+		satisfy requirement check : Full by vehicle1 {
+			attribute redefines vehicle1.fuel = 1300;
+		}
+	}`
+	ctx, a := satisfactionOf(t, src, "satisfy check by vehicle1")
+	subject, err := ctx.SatisfySubject(a)
+	if err != nil {
+		t.Fatalf("SatisfySubject: %v", err)
+	}
+	conditions := ctx.ConditionsOf(a.Symbol, a.Symbol.OwnerScope)
+	expression, ok := conditions[0].Expr.(*ast.OperatorExpr)
+	if len(conditions) != 1 || !ok || len(expression.Operands) != 2 {
+		t.Fatalf("conditions = %+v, want one binary operator", conditions)
+	}
+	fuel := func(where string, want string) {
+		t.Helper()
+		got, err := ctx.readFeatureValue(subject.FeatureValues["fuel"], "fuel")
+		if err != nil || FormatValue(got) != want {
+			t.Fatalf("%s: vehicle1.fuel = %s, %v; want %s", where, FormatValue(got), err, want)
+		}
+	}
+	fuel("before", "0")
+	value, err := ctx.ReadInSatisfaction(a, subject, conditions[0].Scope, expression.Operands[0])
+	if err != nil || FormatValue(value) != "1300" {
+		t.Fatalf("ReadInSatisfaction = %s, %v; want 1300", FormatValue(value), err)
+	}
+	fuel("after the read", "0")
+	result, err := ctx.CheckSatisfactionOn(a, subject)
+	if err != nil || !result.Holds {
+		t.Fatalf("CheckSatisfactionOn = %+v, %v; want holds", result, err)
+	}
+	fuel("after the check", "0")
+}
+
 // statedSatisfyModel states satisfactions with no `by`: one by a definition,
 // about every object of it, and one by a usage, about the usage's own object.
 const statedSatisfyModel = `

@@ -343,6 +343,11 @@ func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, s
 	if err != nil {
 		return Value{}, err
 	}
+	rollback, err := ctx.overlaySatisfierChains(a, subject, bindings)
+	if err != nil {
+		return Value{}, err
+	}
+	defer rollback()
 	activation, endStep := ctx.beginStep()
 	defer endStep()
 	ec := NewEvalContextIn(ctx, scope, subject)
@@ -367,18 +372,11 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	if err != nil {
 		return ctx.satisfactionResult(false, subject, reached), err
 	}
-	// The chain redefinitions the satisfy usage and the requirement it states
-	// declare hold while the subject is bound to the satisfying feature (SysML v2
-	// §7.21.4): they overlay the objects of this check and are rolled back after it.
-	if chains := ctx.satisfierChains(a, subject, bindings); len(chains) > 0 {
-		_, rollback := ctx.beginJournal()
-		defer rollback()
-		for _, c := range chains {
-			if err := ctx.refineChildBelow(c.object.owner, c.object, c.rest, c.sym); err != nil {
-				return ctx.satisfactionResult(false, subject, reached), fmt.Errorf("%s: %w", a.Text(), err)
-			}
-		}
+	rollback, err := ctx.overlaySatisfierChains(a, subject, bindings)
+	if err != nil {
+		return ctx.satisfactionResult(false, subject, reached), err
 	}
+	defer rollback()
 
 	conds := ctx.conditionsOf(target, members)
 	check := conditionCheck{
@@ -400,6 +398,23 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	return result, err
 }
 
+// overlaySatisfierChains installs the chain redefinitions the satisfaction declares on the
+// objects it binds, for one check (SysML v2 §7.21.4); the rollback removes them again.
+func (ctx *Context) overlaySatisfierChains(a *SatisfyAssertion, subject *Instance, bindings map[string]Value) (rollback func(), err error) {
+	chains := ctx.satisfierChains(a, subject, bindings)
+	if len(chains) == 0 {
+		return func() {}, nil
+	}
+	_, rollback = ctx.beginJournal()
+	for _, c := range chains {
+		if err := ctx.refineChildBelow(c.object.owner, c.object, c.rest, c.sym); err != nil {
+			rollback()
+			return nil, fmt.Errorf("%s: %w", a.Text(), err)
+		}
+	}
+	return rollback, nil
+}
+
 // satisfierChain is a nested redefinition reaching below an object a satisfaction
 // check binds: rest is the chain under that object, sym the redefining member.
 type satisfierChain struct {
@@ -408,11 +423,8 @@ type satisfierChain struct {
 	sym    *symbols.Symbol
 }
 
-// satisfierChains are the nested redefinitions the satisfy usage and its member
-// sources (the requirement it references or is typed by, and their generals)
-// declare whose chain starts at the satisfying feature or at a parameter the
-// check binds to objects — the subject, an actor, a stakeholder — paired with the
-// objects they reach below under this check, most specific declaration first.
+// satisfierChains are the chains the satisfy usage and its member sources declare from the
+// satisfying feature or a bound parameter, with the objects they reach, most specific first.
 func (ctx *Context) satisfierChains(a *SatisfyAssertion, subject *Instance, bindings map[string]Value) []satisfierChain {
 	if a.Symbol == nil || subject == nil {
 		return nil
@@ -446,9 +458,8 @@ type satisfierRoot struct {
 	objects []*Instance
 }
 
-// satisfierRoots are the paths a satisfaction's chains can start at: the `by`
-// operand as written (`vehicle1`, or `config.child` for a chained one), reaching
-// the subject, and every bound name reaching the objects it holds.
+// satisfierRoots are the paths a satisfaction's chains can start at: the `by` operand as
+// written (`vehicle1`, or `config.child`) reaching the subject, and every bound name.
 func (ctx *Context) satisfierRoots(a *SatisfyAssertion, subject *Instance, bindings map[string]Value) []satisfierRoot {
 	var roots []satisfierRoot
 	if a.SubjectRoot != nil {
