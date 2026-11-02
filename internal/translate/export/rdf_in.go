@@ -3617,14 +3617,14 @@ func (d *decoder) kerml(el *element) bool {
 	return language == "kerml"
 }
 
-// constantKeyword spells isConstant for the grammar: KerML.xtext FeaturePrefix
-// `isConstant ?= 'const'`, SysML.xtext RefPrefix `isConstant ?= 'constant'`.
 // derivedConstantEnd reports an end stated to vary in time: its isConstant is derived
 // (SysML v2.1 §8.2.2.6.1), so the notation carries no `constant` keyword for it.
 func (d *decoder) derivedConstantEnd(el *element) bool {
 	return d.boolOf(el, rdf.SysML+"isEnd") && d.boolOf(el, rdf.SysML+"mayTimeVary")
 }
 
+// constantKeyword spells isConstant for the grammar: KerML.xtext FeaturePrefix
+// `isConstant ?= 'const'`, SysML.xtext RefPrefix `isConstant ?= 'constant'`.
 func constantKeyword(kerml bool) string {
 	if kerml {
 		return "const"
