@@ -136,12 +136,92 @@ func (ctx *Context) objectBindings(typeSym *symbols.Symbol) []lower.Binding {
 	chain := ctx.model.semantics.AllSupertypes(typeSym)
 	for i := len(chain) - 1; i >= 0; i-- {
 		if chain[i] != nil {
-			bindings = append(bindings, lower.ToBindings(chain[i].Decl, DeclScope(chain[i]))...)
+			bindings = append(bindings, ctx.declaredBindings(chain[i])...)
+			bindings = append(bindings, ctx.connectorOwnedBindings(chain[i])...)
 		}
 	}
-	bindings = append(bindings, lower.ToBindings(typeSym.Decl, DeclScope(typeSym))...)
+	bindings = append(bindings, ctx.declaredBindings(typeSym)...)
+	bindings = append(bindings, ctx.connectorOwnedBindings(typeSym)...)
 	ctx.model.bindingIR[typeSym] = bindings
 	return bindings
+}
+
+// declaredBindings lowers the bindings sym's own declaration states.
+func (ctx *Context) declaredBindings(sym *symbols.Symbol) []lower.Binding {
+	return lower.ToBindings(sym.Decl, DeclScope(sym))
+}
+
+// connectorOwnedBindings is what the connector usages decl declares bind among
+// decl's features: the bindings each owns — in its body, its definition and the
+// definition's supertypes — rewritten from its end features onto the features
+// the ends attach (KerML 1.1 §8.4.4.6.2: the related features of a binding
+// connector have the same values; SysML v2 §7.13: an interface or connection
+// end is the connected usage). A library-declared binding states the kernel
+// frame of the connector object, not the model's features, a variant is a choice
+// the variation offers rather than a connector it holds, and a usage whose lower
+// bound is zero may denote no connector, so none of them contributes.
+func (ctx *Context) connectorOwnedBindings(decl *symbols.Symbol) []lower.Binding {
+	if decl == nil || ctx.libraryDeclared(decl) {
+		return nil
+	}
+	var out []lower.Binding
+	for _, member := range unwrappedDeclMembers(decl.Decl) {
+		usage, ok := member.(*ast.Usage)
+		if !ok || usage.IsVariant {
+			continue
+		}
+		connSym := DeclScope(decl).MemberDeclaring(usage)
+		if connSym == nil && usage.Ident.Name == "" && usage.Ident.ShortName == "" {
+			connSym = anonymousConnectorSymbol(decl, usage)
+		}
+		if connSym == nil || !ctx.model.semantics.IsConnectorUsage(connSym) || ctx.connectorMayBeAbsent(connSym, usage) {
+			continue
+		}
+		attachments := ctx.connectorEndAttachmentPaths(connSym)
+		if len(attachments) == 0 {
+			continue
+		}
+		for _, source := range append(ctx.model.semantics.AllSupertypes(connSym), connSym) {
+			if source == nil || ctx.libraryDeclared(source) {
+				continue
+			}
+			for _, binding := range ctx.declaredBindings(source) {
+				if through, ok := binding.ThroughEnds(attachments); ok {
+					out = append(out, through)
+				}
+			}
+		}
+	}
+	return out
+}
+
+// connectorEndAttachmentPaths maps each named end of a connector usage to the
+// feature path it attaches. An end that selects one element of a collection
+// (`connect a.ports#(1) to b.q`) attaches a value rather than a feature, so no
+// path can be re-rooted at it.
+func (ctx *Context) connectorEndAttachmentPaths(connSym *symbols.Symbol) map[string]string {
+	ends := ctx.model.semantics.ConnectorEndAttachments(connSym)
+	paths := make(map[string]string, len(ends))
+	for _, end := range ends {
+		if end.Name == "" || end.Selection != nil {
+			continue
+		}
+		if path := lower.FeaturePath(end.Attachment); path != "" {
+			paths[end.Name] = path
+		}
+	}
+	return paths
+}
+
+// connectorMayBeAbsent reports a connector usage whose stated lower bound is zero:
+// `connection c : L [0..*] connect a.p to b.q` may denote no link at all, and a
+// link that may not exist binds nothing.
+func (ctx *Context) connectorMayBeAbsent(connSym *symbols.Symbol, usage *ast.Usage) bool {
+	if usage.Multiplicity == nil {
+		return false
+	}
+	r, ok := ctx.model.semantics.RangeIn(connSym.OwnerScope, usage.Multiplicity)
+	return ok && r.Lower.Known && !r.Lower.Infinite && r.Lower.Value == 0
 }
 
 func (ctx *Context) bindingsForFeature(typeSym *symbols.Symbol, name string) []lower.Binding {

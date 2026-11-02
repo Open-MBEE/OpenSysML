@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "instantiate": "test::system",
+  "constraints": {
+    "directBindingHolds": true,
+    "definitionBindingHolds": true,
+    "usageBodyBindingHolds": true,
+    "connectionDefinitionBindingHolds": true,
+    "inheritedBindingHolds": true,
+    "conjugatedSideBindingHolds": true,
+    "chainedBindingsHold": true
+  },
+  "materialization": {}
+}

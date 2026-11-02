@@ -160,3 +160,58 @@ func TestToBindingsKeepsTheFeatureAnIndexedEndSelectsFrom(t *testing.T) {
 		}
 	}
 }
+
+func TestBindingThroughEndsReRootsEndPaths(t *testing.T) {
+	p := parser.New(source.New("through.sysml", []byte(`package P {
+		interface def L {
+			end a : Pw;
+			end b : ~Pw;
+			attribute reading;
+			bind a.voltage = b.voltage;
+			bind a.voltage = reading;
+			bind a = b;
+		}
+	}`)))
+	file := p.ParseFile()
+	idx := symbols.NewIndex()
+	idx.AddDocument("through.sysml", file)
+	scope := idx.DocumentRoot("through.sysml")
+	var def *ast.Definition
+	for _, member := range file.Members {
+		pkg, ok := member.(*ast.Membership).Member.(*ast.Package)
+		if !ok {
+			continue
+		}
+		def = pkg.Members[0].(*ast.Membership).Member.(*ast.Definition)
+	}
+	bindings := ToBindings(def, scope)
+	if len(bindings) != 3 {
+		t.Fatalf("ToBindings lowered %d bindings, want 3", len(bindings))
+	}
+	attachments := map[string]string{"a": "s.src", "b": "k.dst"}
+	through, ok := bindings[0].ThroughEnds(attachments)
+	if !ok || through.Ends[0].Path != "s.src.voltage" || through.Ends[1].Path != "k.dst.voltage" {
+		t.Errorf("bind a.voltage = b.voltage through the ends = %q = %q (%v), want s.src.voltage = k.dst.voltage", through.Ends[0].Path, through.Ends[1].Path, ok)
+	}
+	if through.Decl != bindings[0].Decl || through.Scope != bindings[0].Scope {
+		t.Errorf("the rewritten binding lost its declaration or scope")
+	}
+	if bindings[0].Ends[0].Path != "a.voltage" {
+		t.Errorf("ThroughEnds rewrote the original binding's end to %q", bindings[0].Ends[0].Path)
+	}
+	if _, ok := bindings[1].ThroughEnds(attachments); ok {
+		t.Errorf("bind a.voltage = reading was rewritten, though reading is the connector's own feature")
+	}
+	through, ok = bindings[2].ThroughEnds(attachments)
+	if !ok || through.Ends[0].Path != "s.src" || through.Ends[1].Path != "k.dst" {
+		t.Errorf("bind a = b through the ends = %q = %q (%v), want s.src = k.dst", through.Ends[0].Path, through.Ends[1].Path, ok)
+	}
+	expression := bindings[0]
+	expression.Ends[1] = BindingEnd{Expr: expression.Ends[1].Expr}
+	if _, ok := expression.ThroughEnds(attachments); ok {
+		t.Errorf("a binding whose right end is an expression over no feature path was rewritten")
+	}
+	if _, ok := bindings[0].ThroughEnds(map[string]string{"a": "s.src"}); ok {
+		t.Errorf("a binding over an end attached to nothing was rewritten")
+	}
+}
