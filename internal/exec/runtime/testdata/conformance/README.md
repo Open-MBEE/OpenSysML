@@ -482,6 +482,12 @@ JSON number past 2^53 is read through a float64 that may round its digits.
 - `error`: text the evaluation must fail with, for a case whose contract is a
   diagnostic — satisfying a requirement that states no condition. Set it
   instead of a verdict.
+- `instantiate`: qualified name of the satisfying feature to materialize before
+  the check, which is then judged on that object (`CheckSatisfactionOn`) rather
+  than on one the assertion instantiates itself, for a case whose contract is
+  what the check does to an object that already exists — the REPL's
+  `%instantiate` followed by `%satisfy`. Omit to let the assertion pick its
+  subject.
 
 ### For Verification Cases (`RunVerification`)
 
