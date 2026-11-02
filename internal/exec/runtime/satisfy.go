@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -332,7 +333,7 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 
 // ReadInSatisfaction evaluates ref, written in scope, as a's require conditions read it on subject:
 // with the requirement's subject and other members bound as checkSatisfactionOn binds them.
-func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, scope *symbols.Scope, ref ast.Node) (Value, error) {
+func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, scope *symbols.Scope, ref ast.Node) (_ Value, retErr error) {
 	defer ctx.beginRun()()
 	if a == nil || a.Symbol == nil {
 		return Value{}, ErrNotASatisfaction
@@ -342,6 +343,15 @@ func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, s
 	if err != nil {
 		return Value{}, err
 	}
+	undo, err := ctx.overlaySatisfierChains(a, subject, bindings)
+	if err != nil {
+		return Value{}, err
+	}
+	defer func() {
+		if undoErr := undo(); undoErr != nil && retErr == nil {
+			retErr = undoErr
+		}
+	}()
 	activation, endStep := ctx.beginStep()
 	defer endStep()
 	ec := NewEvalContextIn(ctx, scope, subject)
@@ -355,7 +365,7 @@ func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, s
 
 // checkSatisfactionOn is CheckSatisfactionOn evaluated on the object it resolved
 // to, named by where it was reached from.
-func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Symbol, reached carrier) (CheckResult, error) {
+func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Symbol, reached carrier) (_ CheckResult, retErr error) {
 	subject := reached.instance
 
 	// Every subject the chain declares names the object `by` supplies, which is
@@ -366,6 +376,15 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	if err != nil {
 		return ctx.satisfactionResult(false, subject, reached), err
 	}
+	undo, err := ctx.overlaySatisfierChains(a, subject, bindings)
+	if err != nil {
+		return ctx.satisfactionResult(false, subject, reached), err
+	}
+	defer func() {
+		if undoErr := undo(); undoErr != nil && retErr == nil {
+			retErr = fmt.Errorf("%s: %w", a.Text(), undoErr)
+		}
+	}()
 
 	conds := ctx.conditionsOf(target, members)
 	check := conditionCheck{
@@ -385,6 +404,172 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	result := ctx.satisfactionResult(verdict.holds, subject, reached)
 	result.Vacuous = verdict.vacuous
 	return result, err
+}
+
+// overlaySatisfierChains installs the chain redefinitions the satisfaction declares on the
+// objects it binds, for one check (SysML v2 §7.21.4); undo removes those installs alone.
+func (ctx *Context) overlaySatisfierChains(a *SatisfyAssertion, subject *Instance, bindings map[string]Value) (undo func() error, err error) {
+	chains := ctx.satisfierChains(a, subject, bindings)
+	if len(chains) == 0 {
+		return func() error { return nil }, nil
+	}
+	// The objects a chain walks exist before the overlay, as a condition reading
+	// them would make them, so the installs reach them and undo can reinstall them.
+	var overlaid []overlaidFeature
+	for _, c := range chains {
+		walked, err := ctx.materializeBelow(c.object, c.rest)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", a.Text(), err)
+		}
+		overlaid = append(overlaid, walked...)
+	}
+	mark := ctx.markJournal()
+	ctx.journals++
+	for _, c := range chains {
+		if err := ctx.refineChildBelow(c.object.owner, c.object, c.rest, c.sym); err != nil {
+			ctx.journals--
+			ctx.rollbackJournal(mark)
+			return nil, fmt.Errorf("%s: %w", a.Text(), err)
+		}
+	}
+	end := ctx.markJournal()
+	return func() error { return ctx.removeOverlay(mark, end, overlaid) }, nil
+}
+
+// overlaidFeature is a feature value a satisfaction's chain walks or ends at, with the
+// declaration it had before the overlay.
+type overlaidFeature struct {
+	inst    *Instance
+	fv      *FeatureValue
+	feature *EffectiveFeature
+}
+
+// removeOverlay reinstalls the declaration each overlaid feature value had, keeping a value
+// written since, undoes the tails the overlay carried and closes its journal.
+func (ctx *Context) removeOverlay(from, to journalMark, overlaid []overlaidFeature) error {
+	var first error
+	for i := to.undos - 1; i >= from.undos; i-- {
+		ctx.journalUndos[i]()
+	}
+	for i := len(overlaid) - 1; i >= 0; i-- {
+		o := overlaid[i]
+		if o.fv.Feature == o.feature {
+			continue
+		}
+		if err := ctx.installFeatureValue(o.inst, o.fv, o.feature); err != nil && first == nil {
+			first = err
+		}
+	}
+	ctx.journals--
+	if ctx.journals == 0 {
+		ctx.journalWrites, ctx.journalUndos = ctx.journalWrites[:from.writes], ctx.journalUndos[:from.undos]
+	}
+	return first
+}
+
+// materializeBelow reads the features path walks down from inst, so that the objects inst
+// owns along it exist, and returns every feature value on the way with its declaration.
+func (ctx *Context) materializeBelow(inst *Instance, path []string) ([]overlaidFeature, error) {
+	fv := inst.FeatureValues[path[0]]
+	if fv == nil || fv.Feature == nil {
+		return nil, nil
+	}
+	walked := []overlaidFeature{{inst: inst, fv: fv, feature: fv.Feature}}
+	if len(path) == 1 {
+		return walked, nil
+	}
+	if _, err := inst.materializeFeatureValue(ctx, path[0], nil); err != nil {
+		return nil, err
+	}
+	if !ctx.ownsHeld(fv.Feature) {
+		return walked, nil
+	}
+	for _, el := range standingElements(fv.HeldValue()) {
+		id, ok := el.Object()
+		if !ok {
+			continue
+		}
+		if child, ok := ctx.instances[id]; ok && child.owner == inst && inst.FeatureValues[child.ownerFeature] == fv {
+			below, err := ctx.materializeBelow(child, path[1:])
+			if err != nil {
+				return nil, err
+			}
+			walked = append(walked, below...)
+		}
+	}
+	return walked, nil
+}
+
+// satisfierChain is a nested redefinition reaching below an object a satisfaction
+// check binds: rest is the chain under that object, sym the redefining member.
+type satisfierChain struct {
+	object *Instance
+	rest   []string
+	sym    *symbols.Symbol
+}
+
+// satisfierChains are the chains the satisfy usage and its member sources declare from the
+// satisfying feature or a bound parameter, with the objects they reach, most specific first.
+func (ctx *Context) satisfierChains(a *SatisfyAssertion, subject *Instance, bindings map[string]Value) []satisfierChain {
+	if a.Symbol == nil || subject == nil {
+		return nil
+	}
+	roots := ctx.satisfierRoots(a, subject, bindings)
+	var out []satisfierChain
+	seen := make(map[*symbols.Symbol]bool)
+	for _, src := range append([]*symbols.Symbol{a.Symbol}, ctx.model.semantics.MemberSources(a.Symbol)...) {
+		if src == nil || seen[src] {
+			continue
+		}
+		seen[src] = true
+		for _, nr := range ctx.model.semantics.NestedRedefinitionsOf(src) {
+			for _, root := range roots {
+				if len(nr.Path) <= len(root.path) || !slices.Equal(nr.Path[:len(root.path)], root.path) {
+					continue
+				}
+				for _, obj := range root.objects {
+					out = append(out, satisfierChain{object: obj, rest: nr.Path[len(root.path):], sym: nr.Feature})
+				}
+			}
+		}
+	}
+	return out
+}
+
+// satisfierRoot is a feature path a chain declared by the satisfaction can start
+// with, and the objects it denotes under the check.
+type satisfierRoot struct {
+	path    []string
+	objects []*Instance
+}
+
+// satisfierRoots are the paths a satisfaction's chains can start at: the `by` operand as
+// written (`vehicle1`, or `config.child`) reaching the subject, and every bound name.
+func (ctx *Context) satisfierRoots(a *SatisfyAssertion, subject *Instance, bindings map[string]Value) []satisfierRoot {
+	var roots []satisfierRoot
+	if a.SubjectRoot != nil {
+		for _, name := range bindingNames(a.SubjectRoot.Name, a.SubjectRoot.ShortName) {
+			roots = append(roots, satisfierRoot{path: append([]string{name}, a.SubjectPath...), objects: []*Instance{subject}})
+		}
+	} else if a.Subject != nil {
+		for _, name := range bindingNames(a.Subject.Name, a.Subject.ShortName) {
+			roots = append(roots, satisfierRoot{path: []string{name}, objects: []*Instance{subject}})
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(bindings)) {
+		var objects []*Instance
+		for _, el := range elementsOf(bindings[name]) {
+			if id, ok := el.Object(); ok {
+				if inst, ok := ctx.instances[id]; ok {
+					objects = append(objects, inst)
+				}
+			}
+		}
+		if len(objects) > 0 {
+			roots = append(roots, satisfierRoot{path: []string{name}, objects: objects})
+		}
+	}
+	return roots
 }
 
 // satisfactionBindings are the members of target's requirement chain and the values

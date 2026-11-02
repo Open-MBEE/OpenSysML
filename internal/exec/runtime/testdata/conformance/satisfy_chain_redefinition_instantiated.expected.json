@@ -1,0 +1,5 @@
+{
+  "type": "satisfy",
+  "instantiate": "ChainProbe::vehicle1",
+  "satisfied": true
+}

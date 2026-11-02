@@ -1,0 +1,8 @@
+{
+  "type": "satisfy",
+  "evaluate": "ReferencedProbe::context",
+  "assertions": {
+    "satisfy full by vehicle1": true,
+    "satisfy plain by vehicle1": false
+  }
+}

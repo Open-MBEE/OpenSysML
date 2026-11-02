@@ -1743,6 +1743,13 @@ func runSatisfyConformance(t *testing.T, ctx *Context, idx *symbols.Index, path 
 	if len(assertions) == 0 {
 		t.Fatalf("no satisfaction assertion found")
 	}
+	var subject *Instance
+	if expected.Instantiate != "" {
+		var err error
+		if subject, err = ctx.Instantiate(oneSymbol(t, idx, expected.Instantiate)); err != nil {
+			t.Fatalf("instantiate %s: %v", expected.Instantiate, err)
+		}
+	}
 	if expected.Error != "" || expected.Satisfied != nil {
 		if len(assertions) != 1 {
 			t.Fatalf("%d satisfaction assertions found, want 1: name each verdict under \"assertions\"", len(assertions))
@@ -1752,6 +1759,11 @@ func runSatisfyConformance(t *testing.T, ctx *Context, idx *symbols.Index, path 
 	verdicts := make(map[string]bool, len(assertions))
 	for _, a := range assertions {
 		satisfied, err := ctx.EvaluateSatisfaction(a)
+		if subject != nil {
+			var result CheckResult
+			result, err = ctx.CheckSatisfactionOn(a, subject)
+			satisfied = result.Holds
+		}
 		if expected.Error != "" {
 			if err == nil {
 				t.Fatalf("expected evaluation to fail with %q, it reported satisfied = %v", expected.Error, satisfied)
