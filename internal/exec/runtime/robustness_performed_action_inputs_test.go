@@ -87,8 +87,11 @@ func unboundUsageModel(mult string) string {
 // object itself and its other features stand; an optional input runs nothing.
 func testPerformedActionUnboundInput(t *testing.T, mult string, required bool) {
 	ctx, inst, err := instantiateWithLibraries(t, unboundInputModel(mult), "test::slow")
-	if !errors.Is(err, errUnboundParameter) {
+	if required && !errors.Is(err, errUnboundParameter) {
 		t.Fatalf("instantiate slow: %v, want the unbound input recorded on toastBread", err)
+	}
+	if !required && err != nil {
+		t.Fatalf("instantiate slow: %v, want the optional input to run nothing", err)
 	}
 	fv, err := inst.GetFeatureValue(ctx, "cycleTime")
 	if err != nil {

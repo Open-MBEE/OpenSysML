@@ -277,19 +277,17 @@
         "OccurrenceFunctions::addNew",
         "OccurrenceFunctions::addNewAt"
       ],
-      "refused": [
+      "refused": [],
+      "wrong": [
         {
           "declaration": "OccurrenceFunctions::removeOld",
-          "error": "errNotABehavior",
-          "message": "performed action go of object #1: action node work: not a behavior: removeOld is not an action (kermlType)"
+          "mismatch": "OccurrenceFunctions::removeOld: type = instance (Const.Kind=0), want Boolean"
         },
         {
           "declaration": "OccurrenceFunctions::removeOldAt",
-          "error": "errNotABehavior",
-          "message": "performed action go of object #1: action node work: not a behavior: removeOldAt is not an action (kermlType)"
+          "mismatch": "OccurrenceFunctions::removeOldAt: type = instance (Const.Kind=0), want Boolean"
         }
-      ],
-      "wrong": []
+      ]
     }
   ]
 }

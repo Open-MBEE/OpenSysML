@@ -727,7 +727,7 @@ func testConnectorWhoseStartFailsLeavesNoTrace(t *testing.T) {
 					transition first poke then ping;
 					state ping { entry send Ping() to good; }
 					transition first ping then fail;
-					state fail { entry action bad { assign good.nosuch := 1; } }
+					state fail { entry action bad { while true { assign good.heard := good.heard + 1; } } }
 				}
 			}
 			connection def Fine {
@@ -755,8 +755,8 @@ func testConnectorWhoseStartFailsLeavesNoTrace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Sys: %v", err)
 	}
-	if _, err := inst.GetFeatureValue(ctx, "faulty"); !errors.Is(err, ErrNoSuchFeature) {
-		t.Fatalf("expected ErrNoSuchFeature from the connector's behavior, got: %v", err)
+	if _, err := inst.GetFeatureValue(ctx, "faulty"); !exhaustsBudget(err) {
+		t.Fatalf("expected the runtime's bound reached by the connector's behavior, got: %v", err)
 	}
 	if fv := inst.FeatureValues["faulty"]; fv != nil && fv.Materialized {
 		t.Errorf("the connector whose start failed is held: %+v", fv)
@@ -833,8 +833,11 @@ func testConnectorAnsweredByAFailingBehaviorIsKept(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Sys: %v", err)
 	}
-	if _, err := inst.GetFeatureValue(ctx, "fine"); !errors.Is(err, ErrUnresolvedReference) {
-		t.Fatalf("expected the listener's behavior to fail on its unresolved reference, got: %v", err)
+	if _, err := inst.GetFeatureValue(ctx, "fine"); err != nil {
+		t.Fatalf("reading the connector the listener failed answering: %v", err)
+	}
+	if err := startFailure(ctx, good); !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("expected the listener's behavior to record its unresolved reference, got: %v", err)
 	}
 	fv := inst.FeatureValues["fine"]
 	if fv == nil || !fv.Materialized || fv.Value.Kind != ValInstance {

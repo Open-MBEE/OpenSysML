@@ -1133,9 +1133,12 @@ func TestSignalLeftForASiblingWhoseGuardFails(t *testing.T) {
 	t.Run("drained", func(t *testing.T) {
 		ctx, left, right, ping := twinWithPing(t)
 		ctx.PostMessage(ping)
-		err := ctx.drainObjectBehaviors()
-		if err == nil || !strings.Contains(err.Error(), wantErr) {
-			t.Fatalf("drainObjectBehaviors() = %v, want the guard error %q", err, wantErr)
+		if err := ctx.drainObjectBehaviors(); err != nil {
+			t.Fatalf("drainObjectBehaviors() = %v, want the guard failure recorded on the right machine", err)
+		}
+		failed := ctx.StartFailures(right.self)
+		if len(failed) != 1 || failed[0].State != right || !strings.Contains(failed[0].Err.Error(), wantErr) {
+			t.Fatalf("failed behaviors = %v, want the right machine alone with the guard error %q", failed, wantErr)
 		}
 		if got := activeLeaf(left) + "/" + activeLeaf(right); got != "idle/idle" {
 			t.Errorf("left/right = %s after the failed guard, want idle/idle", got)
