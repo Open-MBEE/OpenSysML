@@ -44,10 +44,14 @@ func TestPortDefinitionOwnsItsConjugate(t *testing.T) {
 	if got, ok := m.LookupMember(q, "~Q"); !ok || got != conjugate {
 		t.Errorf("Q::'~Q' resolves to %v, want the conjugate", got)
 	}
-	// Declared by nothing, the conjugate's plain attributes read false, as the conversion states them.
-	for _, feature := range []string{"isAbstract", "isSufficient", "isConstant", "isParallel", "isIndividual", "isVariation"} {
+	for _, feature := range []string{"isAbstract", "isSufficient", "isIndividual", "isVariation"} {
 		if got, ok := m.ReflectiveFeatureValue(conjugate, feature); !ok || got.Kind != symbols.FilterValueBool || got.Bool {
 			t.Errorf("%s of ~Q = %+v (ok %v), want false", feature, got, ok)
+		}
+	}
+	for _, feature := range []string{"isConstant", "isParallel"} {
+		if got, ok := m.ReflectiveFeatureValue(conjugate, feature); ok {
+			t.Errorf("%s of ~Q = %+v, want absent", feature, got)
 		}
 	}
 
