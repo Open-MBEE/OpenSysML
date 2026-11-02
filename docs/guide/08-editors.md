@@ -240,8 +240,9 @@ LSP client; only the syntax highlighting is specific to VS Code.
 ### Running an element from the editor
 
 Above each executable `action`, `state`, `calc`, `constraint` and `requirement` declared
-outside another behavior the server offers a *Run* or *Evaluate* code lens naming it, and above
-each definition a reference count that opens the references peek. Clicking *Run* or *Evaluate*
+outside another behavior in a model file on disk the server offers a *Run* or *Evaluate* code
+lens naming it, and above each definition a reference count that opens the references peek — in
+a notebook cell too, which the kernel runs and so has no *Run* or *Evaluate* lens. Clicking *Run* or *Evaluate*
 saves every unsaved model file and runs the matching `sysml` check over the workspace folders —
 `sysml -action Demo::Charge <folder>`, `-state`, `-calc`, `-constraint` or `-requirement` — as
 a task, so the result appears in the task terminal and a name another file declares without an
@@ -424,7 +425,8 @@ same way, so its imports of sibling files resolve rather than being reported unr
   (`editor.action.showReferences`, whose URI, position and locations the VS Code extension
   converts from their protocol form), and a *Run* (action, state) or *Evaluate* (calc,
   constraint, requirement) command, titled with the element's name, on each executable
-  declaration that is not a step or substate of another behavior. The command is
+  declaration that is not a step or substate of another behavior, in a document with a `file:`
+  URI only (not in a notebook cell, which the kernel runs). The command is
   `opensysml.runElement` with the document URI, the element's qualified name and its kind;
   the VS Code extension implements it, and another client registers a command of that name
 - ✅ Inlay hints (`textDocument/inlayHint`): after the name of a feature declared without a

@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
@@ -37,10 +38,8 @@ type codeLensData struct {
 	Name    int     `json:"name"`
 }
 
-// CodeLens answers the lenses of a document: a reference count on each
-// definition, resolved on demand, and a Run or Evaluate command on each
-// executable action, state, calc, constraint and requirement declaration that
-// is not a step of another behavior.
+// CodeLens answers a document's lenses: a reference count on each definition,
+// and in a file on disk a Run or Evaluate command on each top-level behavior.
 func (s *Server) CodeLens(ctx context.Context, params *protocol.CodeLensParams) ([]protocol.CodeLens, error) {
 	name := uriToName(params.TextDocument.URI)
 	if s.ws.IsLibraryDocument(name) {
@@ -52,6 +51,7 @@ func (s *Server) CodeLens(ctx context.Context, params *protocol.CodeLensParams) 
 	}
 	pos := positionsOf(doc)
 	docURI := params.TextDocument.URI
+	runnable := onDisk(docURI)
 	out := []protocol.CodeLens{}
 	var encodeErr error
 	seen := map[*symbols.Symbol]bool{}
@@ -76,7 +76,7 @@ func (s *Server) CodeLens(ctx context.Context, params *protocol.CodeLensParams) 
 				out = append(out, protocol.CodeLens{Range: rng, Data: data})
 			}
 			// `sysml` runs an element by name, so a name declared twice runs nothing.
-			if kind, ok := executableKind(sym); ok && len(s.ws.LookupQualified(fqn)) == 1 {
+			if kind, ok := executableKind(sym); runnable && ok && len(s.ws.LookupQualified(fqn)) == 1 {
 				command, err := runCommand(docURI, fqn, sym.Name, kind)
 				if err != nil {
 					encodeErr = err
@@ -184,6 +184,9 @@ func (s *Server) definitionNamed(doc, fqn string, nameAt int) *symbols.Symbol {
 	}
 	return nil
 }
+
+// onDisk reports whether u names a file `sysml` can read to run an element in it.
+func onDisk(u uri.URI) bool { return strings.EqualFold(u.Scheme(), "file") }
 
 // runCommand is the lens command running or evaluating the named element.
 func runCommand(docURI uri.URI, fqn, name, kind string) (protocol.Command, error) {

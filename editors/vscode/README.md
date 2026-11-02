@@ -178,8 +178,9 @@ each cell the kernel's language, so the grammar colors it, and the language clie
 synchronizes the notebook with `sysml-lsp` as one document of its code cells in notebook
 order: a later cell resolves what an earlier one declares, `%` kernel commands and bare
 expressions are left out rather than parsed, and the cells have diagnostics, hover,
-completion, navigation, references, code lenses, inlay hints, semantic highlighting and
-formatting. The editor reads the cells top to bottom while the kernel holds what has been run,
+completion, navigation, references, reference-count code lenses, inlay hints, semantic
+highlighting and formatting; a cell is run by the kernel, so it has no *Run* or *Evaluate*
+lens. The editor reads the cells top to bottom while the kernel holds what has been run,
 so a reference to a later cell is a warning and a cell run before an edit above it is not what
 the editor shows; the guide's
 [Editing a notebook in VS Code](../../docs/guide/12-jupyter.md#editing-a-notebook-in-vs-code)
@@ -188,8 +189,10 @@ lists the differences.
 ## Running an element from a code lens
 
 Above each executable `action`, `state`, `calc`, `constraint` and `requirement`
-the server offers a *Run* or *Evaluate* lens (and above each definition a
-reference count, which opens the references peek). Clicking *Run* or *Evaluate*
+in a model file on disk the server offers a *Run* or *Evaluate* lens (and above
+each definition a reference count, which opens the references peek, in a
+notebook cell too: a cell is run by the kernel, so it has no *Run* or *Evaluate*
+lens). Clicking *Run* or *Evaluate*
 saves every unsaved model file and runs the matching `sysml` check over the
 workspace folders — `sysml -action Demo::Charge <folder>`, `-state`, `-calc`,
 `-constraint` or `-requirement` — as a task, so the result appears in the task

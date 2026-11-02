@@ -1,0 +1,1 @@
+- `sysml-lsp` offers *Run* and *Evaluate* code lenses only on a model file on disk (a `file:` URI), the only document the `sysml` runner can read: a notebook cell, which the kernel runs, and a document of another scheme keep their reference-count lenses but no longer show a run button that could only fail.
