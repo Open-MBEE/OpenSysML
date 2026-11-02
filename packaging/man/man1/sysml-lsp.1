@@ -22,6 +22,11 @@ Show this help (shorthand)
 .B \-help
 Show this help and exit
 .TP
+.B \-keep\-line\-breaks
+Format documents keeping the author's line breaks, fixing indentation and
+spacing only, instead of laying statements out one per line (a client may also
+set the keepLineBreaks setting)
+.TP
 .BI \-library\-root " value"
 Look for the installed projects a workspace's project uses under this
 directory too, besides the well\-known ones in the project (.sysand/lib);
@@ -52,14 +57,20 @@ Show version information
 .SH STARTING THE SERVER
 .RS 2
 .nf
-sysml\-lsp          # What an editor runs
-sysml\-lsp \-stdio   # The same, for a client that names the transport
-sysml\-lsp \-strict  # Serve strict conformance from the start
+# What an editor runs
+sysml\-lsp
+# The same, for a client that names the transport
+sysml\-lsp \-stdio
+# Serve strict conformance from the start
+sysml\-lsp \-strict
+# Format documents keeping the author's line breaks
+sysml\-lsp \-keep\-line\-breaks
 .fi
 .RE
 .PP
 A client that reads a strictConformance setting can ask for strict conformance
-instead, which then applies from the moment it is set.
+instead, which then applies from the moment it is set; a keepLineBreaks
+setting likewise stands in for \-keep\-line\-breaks.
 .SH EXIT STATUS
 The status reports how the session ended:
 .TP

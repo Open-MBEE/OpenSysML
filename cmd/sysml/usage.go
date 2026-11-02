@@ -725,6 +725,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&convertFormat, "convert", "", convertUsage())
 	fs.StringVar(&libraryReferencesPath, "library-references", "", "With -convert api-json, write the referenced standard-library name table to this JSON side file; the element array stays unchanged")
 	fs.BoolVar(&includeLibraryStubs, "include-library-stubs", false, "With -convert api-json, restore pre-0.11.0 ownerless library stubs for legacy readers (default off)")
+	fs.BoolVar(&keepLineBreaks, "keep-line-breaks", false, "With -convert sysml or kerml, keep the author's line breaks and fix indentation and spacing only, instead of laying statements out one per line (default off)")
 	fs.StringVar(&fromFormat, "from", "", fromUsage())
 	fs.Var(&dataImports, "import", "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element, before -convert writes the model; an element column names the element and each other column a feature, as `mass [kg]` (repeatable)")
 	fs.StringVar(&importAs, "import-as", "values", "What -import makes of each row: values, which sets the features of the element the row names")
@@ -858,6 +859,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("convert", formatArg),
 			usage.Opt("library-references", fileArg),
 			usage.Opt("include-library-stubs", ""),
+			usage.Opt("keep-line-breaks", ""),
 			usage.Opt("stdlib", ""),
 			usage.Opt("metaclass-graph", ""),
 			usage.Opt("metamodel-table", ""),

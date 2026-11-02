@@ -90,6 +90,11 @@
           "default": true,
           "description": "Start the language server. Turn this off to keep syntax highlighting only."
         },
+        "opensysml.format.keepLineBreaks": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Keep the author's line breaks when formatting: one-line bodies such as `enum def Color { red; green; blue; }` stay on one line and only indentation and spacing are fixed. Off, Format Document lays statements out one per line as `sysml -convert sysml` does."
+        },
         "opensysml.trace.server": {
           "type": "string",
           "enum": [

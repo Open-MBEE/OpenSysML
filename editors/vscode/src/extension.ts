@@ -3,6 +3,7 @@ import { delimiter, dirname, join } from "node:path";
 import * as vscode from "vscode";
 import {
   ClientCapabilities,
+  DidChangeConfigurationNotification,
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
@@ -17,6 +18,7 @@ import { SHOW_REFERENCES_COMMAND, showReferencesArguments } from "./references";
 import { ElementRunner } from "./run";
 import { documentSelector } from "./selector";
 import { declaredVersion, serverReport } from "./serverinfo";
+import { FORMAT_SECTION, serverSettings } from "./settings";
 import { StdlibDocuments } from "./stdlib";
 
 const EXECUTABLE = process.platform === "win32" ? "sysml-lsp.exe" : "sysml-lsp";
@@ -79,6 +81,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("opensysml.server")) {
         void restart();
+      } else if (event.affectsConfiguration(FORMAT_SECTION)) {
+        // Formatting settings reach the running server without a restart.
+        void client?.sendNotification(DidChangeConfigurationNotification.type, {
+          settings: serverSettings(vscode.workspace.getConfiguration("opensysml")),
+        });
       }
     }),
     vscode.workspace.onDidGrantWorkspaceTrust(() => void restart()),
@@ -133,6 +140,7 @@ async function startClient(): Promise<void> {
   const clientOptions: LanguageClientOptions = {
     documentSelector: documentSelector(STDLIB_SCHEME),
     outputChannel: output,
+    initializationOptions: serverSettings(config),
     synchronize: { fileEvents: watcher },
     middleware: {
       // A reference-count lens resolves to the editor's references peek, whose

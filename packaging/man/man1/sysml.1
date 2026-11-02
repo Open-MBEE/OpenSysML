@@ -254,6 +254,11 @@ this JSON side file; the element array stays unchanged
 With \-convert api\-json, restore pre\-0.11.0 ownerless library stubs for
 legacy readers (default off)
 .TP
+.B \-keep\-line\-breaks
+With \-convert sysml or kerml, keep the author's line breaks and fix
+indentation and spacing only, instead of laying statements out one per line
+(default off)
+.TP
 .B \-stdlib
 With \-convert ttl or api\-json, convert the bundled standard library \(em
 every KerML and SysML file of it, as one model whose elements carry their

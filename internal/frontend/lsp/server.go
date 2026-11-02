@@ -68,12 +68,21 @@ type Server struct {
 	completionMarkdown bool
 	// crossDocument records that the client advertised CrossDocumentCapability.
 	crossDocument bool
+	// keepLineBreaks makes formatting keep the author's line breaks instead of
+	// laying statements out one per line: the keepLineBreaks setting.
+	keepLineBreaks bool
 	// version is what initialize reports as the server's version.
 	version string
 }
 
 // Option configures a Server at construction.
 type Option func(*Server)
+
+// WithKeepLineBreaks starts the server formatting with the author's line breaks
+// kept, as the -keep-line-breaks flag asks; a client's setting may change it later.
+func WithKeepLineBreaks(keep bool) Option {
+	return func(s *Server) { s.keepLineBreaks = keep }
+}
 
 // WithVersion sets the version initialize reports in serverInfo, which is the
 // version of the binary serving: the one its -version flag prints.

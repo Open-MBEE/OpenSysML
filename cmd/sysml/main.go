@@ -121,6 +121,7 @@ var (
 	convertFormat               string
 	libraryReferencesPath       string
 	includeLibraryStubs         bool
+	keepLineBreaks              bool
 	conversionLibraryReferences []export.APIJSONLibraryReference
 	stdlibModel                 bool
 	migrateFormat               string
@@ -655,6 +656,10 @@ func runCLI() int {
 	}
 	if (flagGiven("library-references") || includeLibraryStubs) && convertFormat == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -library-references and -include-library-stubs require -convert api-json")
+		return 2
+	}
+	if keepLineBreaks && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -keep-line-breaks requires -convert sysml or kerml")
 		return 2
 	}
 	if flagGiven("library-references") && libraryReferencesPath == "" {

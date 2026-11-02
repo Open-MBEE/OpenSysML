@@ -26,6 +26,10 @@ const enabledLintsKey = "enabledLints"
 // looked for under, spelled as the CLI's -library-root flag.
 const libraryRootsKey = "libraryRoots"
 
+// keepLineBreaksKey is the setting that makes formatting keep the author's line
+// breaks, spelled as the CLI's -keep-line-breaks flag.
+const keepLineBreaksKey = "keepLineBreaks"
+
 // settingsSection is the section an editor nests this server's settings under.
 const settingsSection = "sysml"
 
@@ -57,14 +61,33 @@ func (s *Server) applyConformanceSettings(ctx context.Context, payload any) bool
 	return true
 }
 
+// applyFormatSettings switches whether formatting keeps the author's line
+// breaks to what a payload asks; a payload without the boolean leaves it alone.
+func (s *Server) applyFormatSettings(payload any) bool {
+	value, ok := sysmlSetting(payload, keepLineBreaksKey)
+	if !ok {
+		return false
+	}
+	keep, ok := boolSetting(value)
+	if !ok {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	changed := s.keepLineBreaks != keep
+	s.keepLineBreaks = keep
+	return changed
+}
+
 // DidChangeConfiguration applies the settings the client pushed. Only the
-// conformance mode, the disabled and enabled lints and the library roots are
-// read; a payload that mentions none of them changes nothing.
+// conformance mode, the lints, the library roots and keepLineBreaks are read;
+// a payload that mentions none of them changes nothing.
 func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.DidChangeConfigurationParams) error {
 	if params == nil {
 		return nil
 	}
 	settings := decodeSettings(params.Settings)
+	s.applyFormatSettings(settings)
 	modeChanged := s.applyConformanceSettings(ctx, settings)
 	lintsChanged := s.applyLintSettings(ctx, settings)
 	if s.applyLibraryRootsSetting(settings) {
