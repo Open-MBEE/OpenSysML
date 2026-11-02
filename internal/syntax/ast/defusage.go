@@ -609,6 +609,12 @@ func (u *Usage) IsRequirementConstraint() bool {
 	return u.PrefixKeyword == "require" || u.PrefixKeyword == "assume"
 }
 
+// IsAssumedConstraint reports whether the usage is a requirement's `assume`
+// constraint (a RequirementConstraintMembership of kind assumption).
+func (u *Usage) IsAssumedConstraint() bool {
+	return u.IsRequirementConstraint() && (u.Keyword == "assume" || u.PrefixKeyword == "assume")
+}
+
 // ReferenceSubsetting returns the usage's OwnedReferenceSubsetting clause, or
 // nil. The reference form of satisfy/verify (`satisfy r;`) is parsed as a plain
 // subsetting of the requirement it names (SysML.xtext:2119, 2272).
