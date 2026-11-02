@@ -1,0 +1,57 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::check",
+  "verdict": "inconclusive",
+  "verdicts": {
+    "obj": "satisfied"
+  },
+  "reads": {
+    "test::assumptionResults": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Boolean",
+          "value": false
+        },
+        {
+          "type": "Boolean",
+          "value": true
+        }
+      ]
+    },
+    "test::assumptionsAllTrue": {
+      "type": "Boolean",
+      "value": false
+    },
+    "test::assumptionsAllTrueRead": {
+      "type": "Boolean",
+      "value": false
+    },
+    "test::constraintResults": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Boolean",
+          "value": true
+        }
+      ]
+    },
+    "test::constraintsAllTrue": {
+      "type": "Boolean",
+      "value": true
+    },
+    "test::inheritedAssumption": {
+      "type": "Boolean",
+      "value": true
+    },
+    "test::localAssumption": {
+      "type": "Boolean",
+      "value": false
+    },
+    "test::requirementResult": {
+      "type": "Boolean",
+      "value": true
+    }
+  }
+}

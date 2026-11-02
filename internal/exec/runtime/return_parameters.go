@@ -59,6 +59,9 @@ func (ctx *Context) returnParameterValue(inst *Instance, sym *symbols.Symbol, fe
 		}
 		return fv.HeldValue(), nil
 	}
+	if val, ok, err := ctx.constraintObjectResult(inst, sym, feat); ok {
+		return val, err
+	}
 	switch {
 	case IsVerificationCaseSymbol(typ):
 		return ctx.verificationVerdictValue(typ, inst, sym, feat)
@@ -66,6 +69,42 @@ func (ctx *Context) returnParameterValue(inst *Instance, sym *symbols.Symbol, fe
 		return ctx.conditionResultValue(typ, inst, sym, feat)
 	}
 	return unsetFeatureValue(sym.Name, feat.Multiplicity, sym), nil
+}
+
+// constraintObjectResult is the result parameter sym of the object a model constraint
+// usage holds (`assume constraint fullTank { … }`), a member of every collection the
+// usage subsets (Requirements.sysml `assumptions`): the usage checked on the object
+// declaring it, three-valued. Not ok for an object no constraint usage holds.
+func (ctx *Context) constraintObjectResult(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, bool, error) {
+	owner, name := inst.Owner()
+	if owner == nil {
+		return Value{}, false, nil
+	}
+	fv, ok := owner.FeatureValues[name]
+	if !ok || fv.Feature == nil || fv.Feature.Symbol == nil || fv.Feature.Symbol.Kind != symbols.SymbolConstraintUsage ||
+		ctx.libraryDeclared(fv.Feature.Symbol) {
+		return Value{}, false, nil
+	}
+	val, err := ctx.constraintResultValue(fv.Feature.Symbol, owner, sym, feat.Multiplicity)
+	return val, true, err
+}
+
+// constraintResultValue is the constraint usage sym checked on self, as the value of
+// the feature read: its verdict, `false` for a violation, undetermined where an input
+// of it is unbound; any other failure of the evaluation is the error.
+func (ctx *Context) constraintResultValue(sym *symbols.Symbol, self *Instance, read *symbols.Symbol, count semantics.Range) (Value, error) {
+	result, err := ctx.CheckConstraintOn(sym, sym.OwnerScope, self)
+	if err != nil {
+		if unboundInput(err) {
+			return undeterminedFeatureValue(err.Error(), count, read), nil
+		}
+		var violation *ViolationError
+		if errors.As(err, &violation) {
+			return boolValue(false), nil
+		}
+		return Value{}, err
+	}
+	return boolValue(result.Holds), nil
 }
 
 // statesConditions reports whether sym is a definition or usage whose result is
@@ -311,28 +350,36 @@ func (ec *EvalContext) enactedConstraint(inst *Instance, name string) (*symbols.
 	}
 	sym := fv.Feature.Symbol
 	if !semantics.StatesOwnCondition(sym) || !fv.Feature.Scalar() || fv.Feature.DefaultValue != nil ||
-		ec.ctx.libraryDeclared(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) || fv.Materialized || fv.HeldValue().Kind != ValInvalid {
+		ec.ctx.libraryDeclared(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) {
+		return nil, false
+	}
+	// The usage's own object, materialized as a member of a collection it subsets,
+	// is the same predicate: the usage reads alike before and after that read.
+	if (fv.Materialized || fv.HeldValue().Kind != ValInvalid) && !ec.ctx.ownObjectOf(inst, name, fv.HeldValue()) {
 		return nil, false
 	}
 	return sym, true
+}
+
+// ownObjectOf reports whether held is the one object inst's feature name materialized
+// for itself, which that feature owns.
+func (ctx *Context) ownObjectOf(inst *Instance, name string, held Value) bool {
+	if held.Kind != ValInstance {
+		return false
+	}
+	obj, ok := ctx.Instance(held.Instance)
+	if !ok {
+		return false
+	}
+	owner, feature := obj.Owner()
+	return owner == inst && feature == name
 }
 
 // constraintUsageRead answers a read of the constraint usage sym the object inst
 // enacts as the constraint evaluated on inst: its verdict, undetermined where an
 // input of it is unbound.
 func (ec *EvalContext) constraintUsageRead(inst *Instance, sym *symbols.Symbol) (Value, error) {
-	result, err := ec.ctx.CheckConstraintOn(sym, sym.OwnerScope, inst)
-	if err != nil {
-		if unboundInput(err) {
-			return undeterminedFeatureValue(err.Error(), inst.FeatureValues[sym.Name].Feature.Multiplicity, sym), nil
-		}
-		var violation *ViolationError
-		if errors.As(err, &violation) {
-			return boolValue(false), nil
-		}
-		return Value{}, err
-	}
-	return boolValue(result.Holds), nil
+	return ec.ctx.constraintResultValue(sym, inst, sym, inst.FeatureValues[sym.Name].Feature.Multiplicity)
 }
 
 // constraintMemberValue reads a member of the constraint usage sym on inst — an `in`
