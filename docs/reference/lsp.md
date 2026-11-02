@@ -80,7 +80,7 @@ language is not part of it; a cell whose language changes joins or leaves it.
 Every answer is in the cell's terms. Diagnostics are published per cell, each cell receiving
 its own set after every change (an edit, an inserted, deleted or moved cell), and an empty set
 when the cell leaves the notebook or the notebook closes; a reference to a declaration in a
-later cell is reported as an error from source `notebook`. Positions in a request are read in
+later cell is reported as a warning from source `notebook`. Positions in a request are read in
 the cell; positions in an answer — hover and lens ranges, locations, text and workspace edits,
 document symbols, inlay hints, semantic tokens — are the cell's, and a location in another
 open notebook's document names that notebook's cell. `textDocument/documentSymbol`,

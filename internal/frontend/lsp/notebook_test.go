@@ -123,8 +123,8 @@ func TestNotebookReorderMovesDiagnosticsToTheCellThatLostItsContext(t *testing.T
 	}
 	nb.change(2, fmt.Sprintf(`{"structure": {"array": {"start": 0, "deleteCount": 2, "cells": [{"kind": 2, "document": %q}, {"kind": 2, "document": %q}]}}}`,
 		nb.cells[1], nb.cells[0]))
-	if diags := nb.awaitDiagnostics(nb.cells[1]); len(diags) != 1 || diagnosticLines(diags)[0] != 0 || !strings.Contains(asJSON(diags), "later cell") {
-		t.Errorf("usage cell moved above the package: want one later-cell diagnostic on line 0, got %s", asJSON(diags))
+	if diags := nb.awaitDiagnostics(nb.cells[1]); len(diags) != 1 || diagnosticLines(diags)[0] != 0 || !strings.Contains(asJSON(diags), "later cell") || !strings.Contains(asJSON(diags), `"severity":2`) {
+		t.Errorf("usage cell moved above the package: want one later-cell warning on line 0, got %s", asJSON(diags))
 	}
 	if diags := nb.awaitDiagnostics(nb.cells[0]); len(diags) != 0 {
 		t.Errorf("package cell after the move: %s", asJSON(diags))

@@ -180,7 +180,7 @@ order: a later cell resolves what an earlier one declares, `%` kernel commands a
 expressions are left out rather than parsed, and the cells have diagnostics, hover,
 completion, navigation, references, code lenses, inlay hints, semantic highlighting and
 formatting. The editor reads the cells top to bottom while the kernel holds what has been run,
-so a reference to a later cell is marked and a cell run before an edit above it is not what
+so a reference to a later cell is a warning and a cell run before an edit above it is not what
 the editor shows; the guide's
 [Editing a notebook in VS Code](../../docs/guide/12-jupyter.md#editing-a-notebook-in-vs-code)
 lists the differences.

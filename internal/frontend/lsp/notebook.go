@@ -445,7 +445,7 @@ func (s *Server) sendNotebookDiagnosticsLocked(ctx context.Context, nb *notebook
 	s.queueRenderChanged(ctx, nb.name)
 }
 
-// laterCellReferences reports each reference in a cell to a declaration in a
+// laterCellReferences warns of each reference in a cell to a declaration in a
 // later cell: the document resolves it, as a file resolves a forward
 // reference, but the kernel runs cells in order and would not have seen it.
 func (s *Server) laterCellReferences(nb *notebookDocument) []diag.Diagnostic {
@@ -475,7 +475,7 @@ func (s *Server) laterCellReferences(nb *notebookDocument) []diag.Diagnostic {
 				from := nb.cellAt(int(pos.position(ref.Span.Offset).Line))
 				if from != nil && nb.cellIndex(from) < nb.cellIndex(declared) {
 					out = append(out, diag.Diagnostic{
-						Severity: diag.SeverityError,
+						Severity: diag.SeverityWarning,
 						Span:     ref.Span,
 						Message:  fmt.Sprintf("%s is declared in a later cell; the kernel runs cells in order", sym.Name),
 						Source:   "notebook",

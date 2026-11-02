@@ -245,10 +245,10 @@ The editor and the kernel read the same cells differently, and the difference sh
   holds nothing new; a declaration the notebook no longer contains stays declared until the
   kernel restarts. The editor cannot show any of this; a cell that runs clean may have a mark,
   and a cell marked clean may fail to run.
-- **A reference to a later cell is marked.** The model resolves it, as a file resolves a
+- **A reference to a later cell is a warning.** The model resolves it, as a file resolves a
   forward reference, but the kernel would not have run that cell yet, so the first segment of
-  the name is marked `P is declared in a later cell; the kernel runs cells in order`. Move the
-  declaring cell up, or accept that the cell must be run after it.
+  the name carries the warning `P is declared in a later cell; the kernel runs cells in order`.
+  Move the declaring cell up, or accept that the cell must be run after it.
 - **Re-running redeclares.** Running a cell twice in the kernel replaces what it declared the
   first time; the editor sees each declaration once, so a duplicate the kernel accepts is not
   one the editor reports, and vice versa.
