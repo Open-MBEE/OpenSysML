@@ -96,6 +96,11 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Expr.Owner.Decl, slot)
 		return element, err
 	}
+	if end, ok := connectorEndChain(sym); ok {
+		// The chain Feature a connector end's ReferenceSubsetting owns is minted under the end.
+		element, _, err := read.ReadExpressionPart(sym.DocName, end, "chain")
+		return element, err
+	}
 	if span, slot, ok := bodyParameterSlot(sym); ok {
 		element, _, err := read.ReadExpressionPart(sym.DocName, spanNode{span}, slot)
 		return element, err
@@ -157,6 +162,19 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		return "", true, nil
 	}
 	return "", false, nil
+}
+
+// connectorEndChain is the connector end whose chain sym denotes (`connect a.b to c`), when it is one.
+func connectorEndChain(sym *symbols.Symbol) (*ast.ConnectorEnd, bool) {
+	if sym.Chain == nil || sym.Chain.Relationship == nil || sym.Chain.Relationship.Implicit == nil {
+		return nil, false
+	}
+	owner := sym.Chain.Relationship.Implicit.Owner
+	if owner == nil {
+		return nil, false
+	}
+	end, ok := owner.Decl.(*ast.ConnectorEnd)
+	return end, ok
 }
 
 // writtenRelationshipNode is the node the conversion writes rel's relationship element
