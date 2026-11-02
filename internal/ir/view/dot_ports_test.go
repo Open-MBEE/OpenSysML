@@ -54,7 +54,7 @@ func TestPortEndOfOmittedOwnerIsNoEndpoint(t *testing.T) {
 				{From: "A", To: "C", Kind: EdgeSuccession},
 			},
 		}
-		w := newDOTWriter(rendering, Options{})
+		w := newDOTWriter(rendering, Options{}, false)
 		if end := w.portEnd("B", "B.0"); end != "" {
 			t.Errorf("%s: port end at the omitted owner is %q, want none", name, end)
 		}

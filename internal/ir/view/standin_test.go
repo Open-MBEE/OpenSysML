@@ -122,7 +122,7 @@ func TestDOTLeadsHalfRoutedJoinsOutOfTheDrawnBox(t *testing.T) {
 		},
 	}
 	out := withoutStandIns(r)
-	w := newDOTWriter(out, Options{Style: StyleCameo})
+	w := newDOTWriter(out, Options{Style: StyleCameo}, false)
 	box := w.boxes["a"]
 	if c := box.centre(); c != (Point{X: 50, Y: 50}) || box.low.X <= 0 || box.high.X >= 100 {
 		t.Fatalf("a is not boxed between the ends of its own routes: %+v", box)
@@ -171,7 +171,7 @@ func TestHalfRoutedJoinPlacesAnEndNothingElseDoes(t *testing.T) {
 	if len(out.Edges) != 1 || !out.Edges[0].openFrom || out.Edges[0].openTo {
 		t.Fatalf("joined edges = %+v, want a->c open at a", out.Edges)
 	}
-	w := newDOTWriter(out, Options{Style: StyleCameo})
+	w := newDOTWriter(out, Options{Style: StyleCameo}, false)
 	box, ok := w.boxes["a"]
 	if !ok || math.Abs(box.high.Y-100) > 1e-9 || box.low.X >= 20 || box.high.X <= 20 || box.low.Y >= box.high.Y-1 {
 		t.Fatalf("a's box = %+v, %v; want one with its bottom border through (20, 100)", box, ok)
@@ -277,7 +277,7 @@ func TestDOTPinnedFlowLabelsAreTheirOwnNames(t *testing.T) {
 			t.Errorf("%s lacks %s: %q", edge, label, line)
 		}
 	}
-	w := newDOTWriter(rendering, Options{Show: AllShown(), Style: StyleCameo})
+	w := newDOTWriter(rendering, Options{Show: AllShown(), Style: StyleCameo}, false)
 	for _, edge := range []Edge{
 		{Label: "value to value", Name: "feed", FromPort: "n1.0", Kind: EdgeFlow},
 		{Label: "value to value", Name: "feed", ToPort: "n2.0", Kind: EdgeFlow},

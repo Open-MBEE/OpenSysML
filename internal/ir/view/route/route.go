@@ -57,7 +57,9 @@ const (
 	West  Side = "west"
 )
 
-func (s Side) vertical() bool { return s == North || s == South }
+// Vertical reports whether the side is the top or bottom border, along which
+// an offset runs horizontally.
+func (s Side) Vertical() bool { return s == North || s == South }
 
 // Port is a connection point on a shape's border at Offset (0..1) along Side;
 // a Flush port sits on the border itself with no square straddling it.
@@ -103,7 +105,7 @@ func (s *Shape) port(id string) *Port {
 
 // PortCenter is the point on the border where a port sits.
 func PortCenter(box Box, port Port) Point {
-	if port.Side.vertical() {
+	if port.Side.Vertical() {
 		y := box.Y
 		if port.Side == South {
 			y = box.Y + box.Height
@@ -298,7 +300,7 @@ func alignPortFace(route []Point, pointIndex, adjacentIndex int, box Box, port P
 	face := portPoint(box, port)
 	route[pointIndex] = face
 	adjacent := route[adjacentIndex]
-	vertical := port.Side.vertical()
+	vertical := port.Side.Vertical()
 	actual, expected := adjacent.Y, face.Y
 	if vertical {
 		actual, expected = adjacent.X, face.X

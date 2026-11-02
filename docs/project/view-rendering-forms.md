@@ -749,13 +749,42 @@ value, states nothing and leaves Graphviz its curved splines; `ortho` adds `spli
 graph attribute list and `polyline` `splines=polyline`, after `compound` and before the positioned
 layout's `layout=neato` scale attributes, so a pinned drawing keeps its routes and only the edges
 Graphviz still routes follow the setting (where pinned boxes touch, Graphviz falls back to straight
-edges). Under `ortho` an edge's `label` is written as `xlabel`, since Graphviz places no label on an
-orthogonal edge but does place an external one. Graphviz's orthogonal router also ignores edge
-ports, so an edge drawn to a part's pin may run through the part's body to reach it; the default
-splines honour the pins. These are the Pilot visualizer's `ORTHOLINE` and
-`POLYLINE` styles, which `%viz` maps to them; PlantUML draws the same routing as
-`skinparam linetype ortho|polyline`, and Mermaid and D2, which route no edge themselves, note it
-(`lines ortho; mermaid routes no edge itself, the dot and plantuml forms do`).
+edges). These are the Pilot visualizer's `ORTHOLINE` and `POLYLINE` styles, which `%viz` maps to
+them; PlantUML draws the same routing as `skinparam linetype ortho|polyline`, and Mermaid and D2,
+which route no edge themselves, note it (`lines ortho; mermaid routes no edge itself, the dot and
+plantuml forms do`).
+
+Graphviz's orthogonal router ignores edge ports and places no label on the edges it routes, so
+under `ortho` the DOT form does not hand it the routing. A drawing the model leaves unpositioned
+(one with edges, other than a containment tree, whose edges meet no port) is laid out and routed
+by the writer itself, through the `arranger` the draw.io form lays out and routes with
+(`arrange.go`), and written as a positioned drawing: every node is given the box the layout
+settled it in, as a `Layout` would, every edge the orthogonal route libavoid found around the
+boxes, inside the container both its ends lie in (`routeGroups`), and the writer's positioned path
+then writes pin nodes for the ports, each route ending on its pin square, `label` with `lp` on
+the route, and `layout=neato`, `inputscale=72`, `dpi=72`, for `neato -n2` to draw as the
+`// layout:` header says; Graphviz only draws. The layout comes from one of two sources,
+in order:
+
+- **Graphviz's layered layout**, the default. `internal/ir/view/layout` runs `dot -Tjson0` over a
+  positions-only graph — the same nodes and edges, every leaf a fixed box at the size the writer
+  fits its label to (widened for its pins and their names), every container a cluster whose label
+  reserves its header, no routing — and reads the boxes back in whole pixels. `dot` is the one
+  `OPENSYSML_DOT` names, else the one on `PATH`, as the PDF backend finds it; a
+  `// not represented: lines ortho laid out on a grid, not layered: …` notice names what is
+  missing when neither is found. The result varies with the Graphviz version, so its goldens
+  (`testdata/*.ortho.dot.golden`) are recorded against the pinned **16.1.0** that
+  `scripts/download-doc-pdf-toolchain.sh` provisions; `TestDOTOrthoLayeredWithInstalledDot` reads
+  `dot -V`, skips without a dot or on another version, and fails on another version where
+  `OPENSYSML_REQUIRE_PDF_TOOLCHAIN` says the toolchain is present, as the PDF toolchain CI job does.
+- **The grid**, the fallback: the deterministic placement the draw.io form uses, under the notice.
+  Its goldens (`testdata/*.ortho-grid.dot.golden`) run everywhere.
+
+A port's side is the one the unpositioned DOT form gives it, an output or a connector's source below
+and the rest above; the pins are centred on half pixels, where the pin squares sit. A build with no
+router (`route.ErrUnavailable`, the WebAssembly targets) and a drawing the model positions keep
+Graphviz's routing: there an edge's `label` is still written as `xlabel`, since Graphviz places no
+label on an orthogonal edge but does place an external one.
 
 ## Style
 
@@ -1685,7 +1714,7 @@ refuse D2:
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, VS Code, documents | `-render-show <elements>` on `-render`, `-render-all`, `-render-document` and `-render-documents`; `%render <view> <form> show=<elements>` and `%render-document <name> <form> show=<elements>`; `"show": [...]` on `opensysml/render`, `opensysml/renderDocument`, the sysml-engine `RenderView` request and the gRPC `RenderView` RPC (`model.render_view(view, show=[...])` in Python), the `openSysmlRenderElements` capability listing the names and the result's `shown` what was drawn; a document diagram's `show` attribute; the `opensysml.diagram.show` setting in the diagram panel and export; a view's rendering chooses its own in the model ([optional notation elements](#optional-notation-elements)) | [`docs/reference/cli.md`](../reference/cli.md), [`docs/reference/repl-commands.md`](../reference/repl-commands.md), [`docs/reference/lsp.md`](../reference/lsp.md), [`editors/vscode/README.md`](../../editors/vscode/README.md) |
 | CLI, REPL, LSP, documents | `-render-ports minimal\|full` on `-render` and `-render-all`; `%render <view> <form> [minimal\|full]` in any order with the palette and style; `"ports": "full"` on `opensysml/render`, the displays listed by the `openSysmlRenderPorts` capability; `Diagram::ports` in a document, carried as `view.Options.Ports` (`invalid-ports`, `unsupported-ports` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
-| CLI, REPL, LSP | `-render-lines splines\|ortho\|polyline` on `-render` and `-render-all`; `%render <view> dot\|plantuml [splines\|ortho\|polyline]` in any order with the palette, style and port display, and `%viz --style ORTHOLINE\|POLYLINE`; `"lines": "ortho"` on `opensysml/render`, the routings listed by the `openSysmlRenderLines` capability; carried as `view.Options.Lines` (`UnknownLinesError`) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
+| CLI, REPL, LSP | `-render-lines splines\|ortho\|polyline` on `-render` and `-render-all`; `%render <view> dot\|plantuml [splines\|ortho\|polyline]` in any order with the palette, style and port display, and `%viz --style ORTHOLINE\|POLYLINE`; `"lines": "ortho"` on `opensysml/render`, the routings listed by the `openSysmlRenderLines` capability; carried as `view.Options.Lines` (`UnknownLinesError`); `ortho` lays the DOT form out and routes it itself ([Edge routing](#edge-routing)), `OPENSYSML_DOT` naming the Graphviz `dot` it layers with | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, gRPC, clients, documents | `-render-compartments positioned\|most\|ports` on `-render`, `-render-all`, `-render-document` and `-render-documents`; `%render <view> <form> compartments=<folding>`; `%viz --style COMPMOST\|COMPTREE`; `"compartments": "most"` on `opensysml/render`, the foldings listed by the `openSysmlRenderCompartments` capability; `compartments` on gRPC `RenderView`, whose rows carry their parent's `compartment`, and on the Python, Go, Rust and Node clients; carried as `view.Options.Compartments` (`UnknownCompartmentsError`) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
 | CLI, REPL, LSP, VS Code | A table or matrix view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each tabular view and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is never inside the records: the CLI writes it to standard error, LSP returns it in the response, and `%render` lists it after a blank line | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |

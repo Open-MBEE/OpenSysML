@@ -475,7 +475,10 @@ func doc() usage.Doc {
 					"PlantUML forms: splines (default), each engine's curved routing, ortho, " +
 					"axis-parallel segments, or polyline, straight segments, as the Pilot " +
 					"visualizer's ORTHOLINE and POLYLINE styles do; Mermaid and D2 note the " +
-					"routing. A DiagramLayout Style on a member colours it over " +
+					"routing. Under ortho the DOT form lays the drawing out itself, with " +
+					"Graphviz's dot (OPENSYSML_DOT, else PATH) or on a grid, and routes every " +
+					"edge to its port, writing a positioned graph for neato -n2 to draw. " +
+					"A DiagramLayout Style on a member colours it over " +
 					"either look, and a Note is drawn beside the member it is about. " +
 					"A view whose members carry DiagramLayout positions draws the placed " +
 					"members and the edges between them in every graph form, and leaves a " +
@@ -748,7 +751,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
 	fs.StringVar(&renderLink, "render-link", "", "Source link template for -render, -render-all, -render-document, -render-documents and -render-run. Placeholders: {file}, {line}, {col}, {qname}, {id}; {file} is the path as loaded (use absolute paths for vscode:// or file:// links)")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
-	fs.StringVar(&renderLines, "render-lines", "", "How the dot or plantuml form of -render or -render-all routes its edges: splines (default), each engine's curved routing, ortho, axis-parallel segments, or polyline, straight segments; the Pilot visualizer's ORTHOLINE and POLYLINE styles. Mermaid and D2 note the routing as not represented")
+	fs.StringVar(&renderLines, "render-lines", "", "How the dot or plantuml form of -render or -render-all routes its edges: splines (default), each engine's curved routing, ortho, axis-parallel segments (the dot form laid out with Graphviz's dot, OPENSYSML_DOT else PATH, or on a grid, and routed to its ports for neato -n2 to draw), or polyline, straight segments; the Pilot visualizer's ORTHOLINE and POLYLINE styles. Mermaid and D2 note the routing as not represented")
 	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection or mixed rendering: minimal (default), the ports its interconnection edges end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
 	fs.StringVar(&renderShow, "render-show", "", "Optional notation elements -render, -render-all and document diagrams draw besides the default (port symbols, compartments and keywords), comma-separated: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all; a view's own rendering adds its elements too")
 	fs.IntVar(&renderDepth, "render-depth", 0, "How many levels of nested elements -render and -render-all draw below each exposed element of a tree or interconnection rendering, overriding the depth the view states; 0 (default) draws every level the view's own depth allows")
