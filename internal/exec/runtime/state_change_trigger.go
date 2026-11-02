@@ -304,13 +304,8 @@ func (e *StateExecutor) probeChangeGuard(poll *changePoll, state *ast.StateNode,
 	return pass, nil, nil
 }
 
-// changeConditionHolds evaluates one change condition in the scope the
-// transition was written in, the machine's data shadowing it. A condition that
-// reads a feature carrying no value has no result, so it has not become true: a
-// ChangeSignal is sent when the result "changes from false to true" (KerML 1.1
-// §9.2.13 Observation), and a feature nothing has written yet decides nothing.
-// Such a condition does not hold and names the feature it waits on, while an
-// evaluation that fails on its own terms is still an error.
+// changeConditionHolds evaluates one change condition in the scope the transition was
+// written in; a read of an unvalued feature gives it no result, so it has not become true.
 func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans *lower.Transition) (holds bool, unvalued, err error) {
 	if e.changeEvaluating {
 		return false, nil, fmt.Errorf("change condition evaluation is reentrant")
