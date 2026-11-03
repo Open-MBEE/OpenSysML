@@ -6,9 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// TestBindingAndSuccessionSubsetTheirKerMLBases: a binding subsets Links::selfLinks and a
-// succession Occurrences::happensBeforeLinks (KerML 1.1 §8.4.4.7.1, §8.4.4.8.1), so their
-// implied ends take the names of the ends they redefine and neither varies in time.
+// TestBindingAndSuccessionSubsetTheirKerMLBases: a binding subsets Links::selfLinks, a succession
+// Occurrences::happensBeforeLinks (KerML 1.1 §8.4.4.7.1, §8.4.4.8.1); ends named by what they redefine.
 func TestBindingAndSuccessionSubsetTheirKerMLBases(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
     part def D {
