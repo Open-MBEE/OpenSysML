@@ -736,6 +736,8 @@ type decoder struct {
 	wanted *wanted
 	// printed and usedExpr are written as source text in this pass and rebuilt
 	// canonically; demoted and demotedExpr had their text proved stale earlier.
+	// holders answers blame's reverse lookups over graph for one demoteStale pass.
+	holders     holderIndex
 	printed     map[*element]bool
 	rebuilt     map[*element]bool
 	demoted     map[*element]bool
