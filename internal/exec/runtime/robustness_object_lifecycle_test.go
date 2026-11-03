@@ -490,7 +490,7 @@ func testObjectLifecycleFailedConstructorWrites(t *testing.T) {
 				perform action go {
 					first start;
 					then action write { assign p.count := 1; }
-					then action fail { assign p.count := 1/0; }
+					then action fail { while true { assign p.count := p.count + 1; } }
 					then done;
 				}
 			}
@@ -524,10 +524,11 @@ func testObjectLifecycleFailedConstructorDestroy(t *testing.T) {
 			}
 			part def Worker {
 				ref part p : Plant;
+				attribute n : Integer = 0;
 				perform action go {
 					first start;
 					then action kill { assign p := destroy(p); }
-					then action fail { assign p.count := 1/0; }
+					then action fail { while true { assign n := n + 1; } }
 					then done;
 				}
 			}
@@ -1063,7 +1064,7 @@ func testObjectLifecycleRefusedWriteJournal(t *testing.T) {
 			part def Rack {
 				part slot : Device[0..1] {
 					attribute bad : Integer;
-					perform action boom { first start; then action b { assign bad := 1/0; } then done; }
+					perform action boom { first start; then action b { while true { assign bad := 1; } } then done; }
 				}
 			}
 			part def Shelf { part slot : Device[0..1]; }
@@ -1094,7 +1095,7 @@ func testObjectLifecycleRolledBackTrace(t *testing.T) {
 			part def Rack {
 				part slot : Device[0..1] {
 					attribute bad : Integer;
-					perform action boom { first start; then action b { assign bad := 1/0; } then done; }
+					perform action boom { first start; then action b { while true { assign bad := 1; } } then done; }
 				}
 			}
 			part def Shelf {
@@ -1109,7 +1110,7 @@ func testObjectLifecycleRolledBackTrace(t *testing.T) {
 				perform action go {
 					first start;
 					then action write { assign p.count := 1; }
-					then action fail { assign p.count := 1/0; }
+					then action fail { while true { assign p.count := p.count + 1; } }
 					then done;
 				}
 			}

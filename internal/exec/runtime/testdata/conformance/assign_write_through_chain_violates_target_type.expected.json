@@ -2,5 +2,5 @@
 	"type": "instance",
 	"libraries": true,
 	"instantiate": "test::Board",
-	"error": "cannot write \"x\" (string) to a feature typed by Integer"
+	"startFailures": ["cannot write \"x\" (string) to a feature typed by Integer"]
 }

@@ -147,6 +147,9 @@ func (ctx *Context) noteRead(inst *Instance, fv *FeatureValue) {
 			ctx.readRecorders[len(ctx.readRecorders)-1] = append(reads, fv)
 		}
 	}
+	if len(ctx.verdictReads) != 0 {
+		ctx.noteVerdictRead(fv)
+	}
 	if len(ctx.tracing) != 0 {
 		ctx.observeRead(inst, fv)
 	}

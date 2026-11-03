@@ -259,6 +259,10 @@ type ExpectedOutcome struct {
 	// Validation states what validating the instance as a whole reports: every
 	// assertion about it and the objects it holds, in report order.
 	Validation *ExpectedValidation `json:"validation,omitempty"`
+	// StartFailures are the behaviors of the instance, or of objects it holds,
+	// that failed to start, by the text of each failure in attachment order; the
+	// instance stands with them recorded. Omitted, every behavior must start.
+	StartFailures []string `json:"startFailures,omitempty"`
 }
 
 // ExpectedMaterialization is the report of reading an instance's feature values in full:
@@ -1801,6 +1805,26 @@ func runSatisfyConformance(t *testing.T, ctx *Context, idx *symbols.Index, path 
 // runInstanceConformance instantiates a type and validates the values its feature values
 // hold, including derived defaults, plus the verdict of each constraint the
 // instance carries.
+// validateStartFailures checks the behaviors of the instance that failed to start
+// against the texts the case states, in order, each matched as a substring.
+func validateStartFailures(t *testing.T, ctx *Context, inst *Instance, want []string) {
+	t.Helper()
+	failed := ctx.StartFailures(inst)
+	if len(failed) != len(want) {
+		var got []string
+		for _, b := range failed {
+			got = append(got, b.Err.Error())
+		}
+		t.Errorf("startFailures: %d behavior(s) failed to start, want %d: %q", len(failed), len(want), got)
+		return
+	}
+	for i, b := range failed {
+		if !strings.Contains(b.Err.Error(), want[i]) {
+			t.Errorf("startFailures[%d] = %q, want it to contain %q", i, b.Err.Error(), want[i])
+		}
+	}
+}
+
 func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome, forceOwned bool) {
 	if expected.Instantiate == "" {
 		t.Fatalf("instance case declares no \"instantiate\" type")
@@ -1845,6 +1869,7 @@ func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path
 	}
 
 	validateIdentity(t, ctx, inst, expected)
+	validateStartFailures(t, ctx, inst, expected.StartFailures)
 	validateObjectRuns(t, ctx, typeSym, inst, expected)
 	validateMaterialization(t, ctx, inst, expected.Materialization)
 	validateValidation(t, ctx, caseDocumentRoots(idx, path, expected), inst, expected.Validation)

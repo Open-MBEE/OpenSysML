@@ -1395,7 +1395,7 @@ func TestRefusedClassificationUndoesWhatItsBehaviorsDid(t *testing.T) {
 			}
 			exhibit state break {
 				entry; then on;
-				state on { entry action fail { assign hits := 1 / 0; } }
+				state on { entry action fail { while true { assign hits := hits + 1; } } }
 			}
 		}
 		item def Rack { item raw : Counter [1]; }
@@ -1409,8 +1409,8 @@ func TestRefusedClassificationUndoesWhatItsBehaviorsDid(t *testing.T) {
 	}
 	before := FormatValue(hits.HeldValue())
 
-	if err := ctx.classify(raw, idx.LookupQualified("test::Tallied")[0]); !errors.Is(err, ErrDivisionByZero) {
-		t.Fatalf("classify(raw, Tallied) = %v, want ErrDivisionByZero", err)
+	if err := ctx.classify(raw, idx.LookupQualified("test::Tallied")[0]); !exhaustsBudget(err) {
+		t.Fatalf("classify(raw, Tallied) = %v, want the runtime's bound reached", err)
 	}
 	if len(raw.classifiers) != 0 || len(raw.behaviors) != 0 || len(ctx.objectBehaviors) != 0 {
 		t.Fatalf("a refused classification left raw classified by %v running %d behaviors (context: %d)",
@@ -1440,7 +1440,7 @@ func TestRefusedClassificationUndoesTheVariantsItSelected(t *testing.T) {
 			item car : Car [1] { attribute :>> power = power::strong; }
 			exhibit state tally {
 				entry; then on;
-				state on { entry action bump { assign hits := car.power / hits; } }
+				state on { entry action bump { while hits == 0 { assign hits := hits + 0; } assign hits := car.power / hits; } }
 			}
 		}
 		item def Rack { item raw : Counter [1]; item own : Car [1] { attribute :>> power = power::weak; } }
@@ -1457,8 +1457,8 @@ func TestRefusedClassificationUndoesTheVariantsItSelected(t *testing.T) {
 		t.Fatalf("own selected %q before classifying, want weak", got)
 	}
 
-	if err := ctx.classify(raw, idx.LookupQualified("test::Tallied")[0]); !errors.Is(err, ErrDivisionByZero) {
-		t.Fatalf("classify(raw, Tallied) = %v, want ErrDivisionByZero", err)
+	if err := ctx.classify(raw, idx.LookupQualified("test::Tallied")[0]); !exhaustsBudget(err) {
+		t.Fatalf("classify(raw, Tallied) = %v, want the runtime's bound reached", err)
 	}
 	if !maps.Equal(ctx.selectedVariants, before) {
 		t.Fatalf("a refused classification changed the variants selected from %v to %v", before, ctx.selectedVariants)
@@ -1474,7 +1474,7 @@ func TestRefusedCollectionClassificationUndoesTheEarlierObjects(t *testing.T) {
 		item def Tallied :> Counter {
 			exhibit state tally {
 				entry; then on;
-				state on { entry action bump { assign hits := 10 / hits; } }
+				state on { entry action bump { while hits == 0 { assign hits := hits + 0; } assign hits := 10 / hits; } }
 			}
 		}
 		item def Rack {
@@ -1487,8 +1487,8 @@ func TestRefusedCollectionClassificationUndoesTheEarlierObjects(t *testing.T) {
 	rack := instantiateQualified(t, ctx, idx, "test::rack")
 
 	// lead is classified before trail's behavior fails; the read materializes it all the same.
-	if _, err := rack.GetFeatureValue(ctx, "tallied"); !errors.Is(err, ErrDivisionByZero) {
-		t.Fatalf("rack.tallied = %v, want ErrDivisionByZero", err)
+	if _, err := rack.GetFeatureValue(ctx, "tallied"); !exhaustsBudget(err) {
+		t.Fatalf("rack.tallied = %v, want the runtime's bound reached", err)
 	}
 	held := rack.FeatureValues["lead"].HeldValue()
 	lead, ok := ctx.getInstance(held.Instance)
@@ -1518,7 +1518,7 @@ func TestRefusedCollectionClassificationAbandonsWhatItsBehaviorsMade(t *testing.
 			item gauge : Gauge [1];
 			exhibit state tally {
 				entry; then on;
-				state on { entry action bump { assign hits := gauge.reading / hits; } }
+				state on { entry action bump { while hits == 0 { assign hits := hits + 0; } assign hits := gauge.reading / hits; } }
 			}
 		}
 		item def Rack {
@@ -1535,8 +1535,8 @@ func TestRefusedCollectionClassificationAbandonsWhatItsBehaviorsMade(t *testing.
 	var held []int64
 	var occurrences map[*symbols.Symbol][]int64
 	for attempt := 1; attempt <= 3; attempt++ {
-		if _, err := rack.GetFeatureValue(ctx, "tallied"); !errors.Is(err, ErrDivisionByZero) {
-			t.Fatalf("attempt %d: rack.tallied = %v, want ErrDivisionByZero", attempt, err)
+		if _, err := rack.GetFeatureValue(ctx, "tallied"); !exhaustsBudget(err) {
+			t.Fatalf("attempt %d: rack.tallied = %v, want the runtime's bound reached", attempt, err)
 		}
 		if attempt == 1 {
 			held, occurrences = ctx.InstanceIDs(), maps.Clone(ctx.occurrences)

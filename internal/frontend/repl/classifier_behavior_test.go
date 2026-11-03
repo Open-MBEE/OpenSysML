@@ -221,6 +221,31 @@ func TestStateReportsAnObjectExhibitingNoMachine(t *testing.T) {
 	wants(t, run(t, s, "%state VariantRouting::alpha"), "exhibits no state machine")
 }
 
+// An object whose only machine could not start is created with the failure
+// recorded: `%instantiate` reports it beside the object, and `%state` reports it
+// rather than attaching a machine or calling the object machineless.
+func TestStateReportsAMachineThatFailedToStart(t *testing.T) {
+	s := loadFixture(t, "../../exec/runtime/testdata/conformance/behavior_start_failure_independent_verdict.sysml")
+	wants(t, run(t, s, "%instantiate test::relay"), "Created instance", "warning:", "contacts", "no initial state")
+
+	wants(t, run(t, s, "%state test::relay"), "runs no state machine to debug", "no initial state")
+}
+
+// `%state <object>` debugs the machine that started: a machine declared before it
+// that failed to start is a record on the object, not the machine to debug.
+func TestStatePrefersAMachineThatStartedOverOneThatFailed(t *testing.T) {
+	s := loadSource(t, `package P {
+		part def Host {
+			exhibit state broken { state lonely; }
+			exhibit state working { entry; then idle; state idle; }
+		}
+		part host : Host;
+	}`)
+	wants(t, run(t, s, "%instantiate P::host"), "Created instance", "warning:", "broken")
+
+	wants(t, run(t, s, "%state P::host"), `Debugging state machine "working"`, "Current state: idle")
+}
+
 // objectIDIn reports the object identity a command's output names, written either
 // as `#<n>` or as `ID: <n>`.
 func objectIDIn(t *testing.T, out string) string {

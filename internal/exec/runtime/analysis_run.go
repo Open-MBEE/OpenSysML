@@ -732,7 +732,8 @@ func (ctx *Context) analysisVerdict(kind, name string, check conditionCheck, con
 		verdict.Status = VerdictSatisfied
 		return verdict
 	}
-	holds, err := ctx.evaluateConditions(check, conds)
+	verdict0, err := ctx.judgeVerdict(check, conds)
+	holds := verdict0.holds
 	var violation *ViolationError
 	switch {
 	case err == nil && holds:

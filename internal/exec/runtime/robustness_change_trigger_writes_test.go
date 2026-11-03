@@ -82,7 +82,7 @@ func TestRuntimeRobustnessChangeTriggerWrites(t *testing.T) {
 						perform action pulsing {
 							first start;
 							then action rise { assign ready := true; }
-							then action fail { assign zero := 1 / zero; }
+							then action fail { while true { assign zero := zero + 1; } }
 							then done;
 						}
 					}
@@ -124,8 +124,8 @@ func TestRuntimeRobustnessChangeTriggerWrites(t *testing.T) {
 		beforeFired := maps.Clone(exec.changeFired)
 
 		exec.SendSignal("Go", nil)
-		if err := exec.ProcessNextEvent(); !errors.Is(err, ErrDivisionByZero) {
-			t.Fatalf("ProcessNextEvent(Go) = %v, want ErrDivisionByZero", err)
+		if err := exec.ProcessNextEvent(); !exhaustsBudget(err) {
+			t.Fatalf("ProcessNextEvent(Go) = %v, want the runtime's bound reached", err)
 		}
 		if !maps.Equal(exec.changePending, beforePending) {
 			t.Fatalf("changePending after rollback = %v, want %v", exec.changePending, beforePending)

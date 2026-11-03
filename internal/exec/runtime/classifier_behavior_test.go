@@ -1031,7 +1031,7 @@ func TestExhibitedStateNamingNothingWithNoInitialStateIsReported(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, src)
 			ctx := NewContext(typedModel(model, resolver), 10000)
 
-			_, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
+			_, err := instantiateReporting(ctx, resolveSymbol(t, root, "Controller"))
 			if !errors.Is(err, errNoInitialState) {
 				t.Fatalf("error = %v, want ErrNoInitialState", err)
 			}
@@ -1516,26 +1516,27 @@ func TestFailedMaterializationLeavesNoBehaviorBehind(t *testing.T) {
 	`
 	ctx, root := behaviorContext(t, src)
 
-	broken, err := ctx.Instantiate(resolveSymbol(t, root, "Broken"))
-	if err == nil {
-		t.Fatal("expected the unresolved machine to fail materialization")
+	broken, err := instantiateReporting(ctx, resolveSymbol(t, root, "Broken"))
+	if !errors.Is(err, errNoInitialState) {
+		t.Fatalf("error = %v, want the bodiless machine recorded as failed", err)
 	}
-	if broken != nil {
-		t.Errorf("failed materialization answered object %v", broken)
+	if broken == nil {
+		t.Fatal("the object whose machine could not start was not created")
 	}
-	if got := len(ctx.objectBehaviors); got != 0 {
-		t.Errorf("%d behavior(s) left attached after a failed materialization", got)
+	if got := len(ctx.StartFailures(broken)); got != 1 {
+		t.Errorf("%d behavior(s) recorded as failed, want the bodiless machine alone", got)
 	}
 	if got := len(ctx.pendingBehaviors); got != 0 {
-		t.Errorf("%d behavior(s) left queued after a failed materialization", got)
+		t.Errorf("%d behavior(s) left queued after the failed start", got)
 	}
 
+	attached := len(ctx.objectBehaviors)
 	fine, err := ctx.Instantiate(resolveSymbol(t, root, "Fine"))
 	if err != nil {
 		t.Fatalf("Instantiate after a failed one: %v", err)
 	}
-	if got := len(ctx.objectBehaviors); got != 1 {
-		t.Errorf("%d behaviors attached, want only the new object's", got)
+	if got := len(ctx.objectBehaviors); got != attached+1 {
+		t.Errorf("%d behaviors attached, want %d: the new object's beside the first's", got, attached+1)
 	}
 	if _, ok := fine.ExhibitedState(); !ok {
 		t.Error("the new object exhibits no machine")
@@ -1619,14 +1620,15 @@ func TestFailedMaterializationLeavesNoNeighbourBehind(t *testing.T) {
 	pkg := resolveSymbol(t, root, "test")
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
-	if _, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "bad")); err == nil {
-		t.Fatal("expected the machine with no initial state to fail materialization")
+	bad, err := instantiateReporting(ctx, resolveSymbol(t, pkg.Scope, "bad"))
+	if !errors.Is(err, errNoInitialState) {
+		t.Fatalf("error = %v, want the machine with no initial state recorded as failed", err)
 	}
-	if got := len(ctx.instances); got != 0 {
-		t.Errorf("%d object(s) left alive after a failed creation, want none", got)
+	if _, live := ctx.Instance(bad.ID); !live {
+		t.Error("the object whose machine could not start is not held")
 	}
-	if got := len(ctx.objectBehaviors); got != 0 {
-		t.Errorf("%d behavior(s) left attached after a failed creation", got)
+	if got := len(ctx.StartFailures(bad)); got != 1 {
+		t.Errorf("%d behavior(s) recorded as failed, want the machine alone", got)
 	}
 }
 
@@ -1729,17 +1731,21 @@ func TestFailedNestedStartFailsTheHolder(t *testing.T) {
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
 	sym := resolveSymbol(t, pkg.Scope, "group")
-	if _, err := ctx.Instantiate(sym); err == nil {
-		t.Fatal("expected the part whose machine has no initial state to fail its holder's creation")
+	group, err := instantiateReporting(ctx, sym)
+	if !errors.Is(err, errNoInitialState) {
+		t.Fatalf("error = %v, want the held part's machine recorded as failed, its holder created", err)
 	}
-	if got := len(ctx.instances); got != 0 {
-		t.Errorf("%d object(s) left alive after a failed creation, want none", got)
+	if _, live := ctx.Instance(group.ID); !live {
+		t.Error("the holder of the part whose machine could not start is not held")
 	}
-	if got := len(ctx.objectBehaviors); got != 0 {
-		t.Errorf("%d behavior(s) left attached after a failed creation", got)
+	if _, live := ctx.Instance(fvInstance(t, ctx, group, "bad").ID); !live {
+		t.Error("the part whose machine could not start is not held")
 	}
-	if _, named := ctx.occurrences[sym]; named {
-		t.Error("the failed creation is still what the usage denotes")
+	if got := len(ctx.StartFailures(group)); got != 1 {
+		t.Errorf("%d behavior(s) recorded as failed, want the part's machine alone", got)
+	}
+	if _, named := ctx.occurrences[sym]; !named {
+		t.Error("the creation is not what the usage denotes")
 	}
 }
 
