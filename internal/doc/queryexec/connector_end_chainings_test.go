@@ -32,6 +32,9 @@ func TestConnectorEndChainFeatureOwnsItsChainings(t *testing.T) {
 		if !ok || len(owned) != 2 {
 			t.Fatalf("end %d: chain Feature owns %d relationships (%v), want 2 FeatureChainings", i, len(owned), ok)
 		}
+		if chainings, ok := fixture.model.ReflectiveElements(chain, "ownedFeatureChaining"); !ok || len(chainings) != 2 || chainings[0] != owned[0] || chainings[1] != owned[1] {
+			t.Errorf("end %d: ownedFeatureChaining %v (%v), want the owned FeatureChainings", i, chainings, ok)
+		}
 		for j, chaining := range owned {
 			if got := fixture.model.MetaclassOf(chaining).Name; got != "FeatureChaining" {
 				t.Errorf("end %d chaining %d: metaclass %s, want FeatureChaining", i, j, got)

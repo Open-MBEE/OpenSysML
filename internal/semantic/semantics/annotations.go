@@ -1532,7 +1532,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return ends, true
 	case "ownedFeatureChaining":
-		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+		if (sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature) || sym.Chain != nil {
 			return m.OwnedRelationships(sym), true
 		}
 	case "chainingFeature":

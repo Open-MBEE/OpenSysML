@@ -122,6 +122,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordValuePart(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
+	ids.registerHeadChains(e, subject, chainTargets(e.writtenHeadClauses(node, parents[node], parents)))
 	for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
 		ids.relationshipByNode[key] = id
 		ids.relationshipBySpan[spanKey{e.file.Name(), key.Span()}] = id
@@ -378,6 +379,24 @@ func (e *encoder) writtenBoundEndReferences(node ast.Node, subject rdf.Term, out
 			if rel != nil && rel.Kind == ast.RelReferences && rel.Target == end.AttachedTarget() {
 				out[rel] = out[end]
 			}
+		}
+	}
+}
+
+// registerHeadChains records the chain Feature a head clause's chain target denotes (headChain,
+// at chain<k>) and its FeatureChainings (fc<n>) under the clause's target, for the id reader.
+func (ids *ElementIDs) registerHeadChains(e *encoder, subject rdf.Term, chains map[*ast.Relationship]int) {
+	for rel, k := range chains {
+		slot := fmt.Sprintf("chain%d", k)
+		chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		ids.partByNode[partKey{rel.Target, "chain"}] = partIDs{element: rdf.LocalName(chain.Value)}
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), rel.Target.Span()}, "chain"}] = partIDs{element: rdf.LocalName(chain.Value)}
+		for i := 0; i < endChainLinks(rel.Target); i++ {
+			position := fmt.Sprintf("fc%d", i)
+			chaining := e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position)
+			recorded := partIDs{element: rdf.LocalName(chaining.Value)}
+			ids.partByNode[partKey{rel.Target, "chain." + position}] = recorded
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), rel.Target.Span()}, "chain." + position}] = recorded
 		}
 	}
 }
