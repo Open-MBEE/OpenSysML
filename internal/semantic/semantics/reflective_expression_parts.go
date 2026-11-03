@@ -445,6 +445,9 @@ func appendOwningMembership(out []*symbols.Symbol, owner, member *symbols.Symbol
 func (m *Model) appendReferenceMembership(out []*symbols.Symbol, owner *symbols.Symbol, slot string, name *ast.QualifiedName) []*symbols.Symbol {
 	target := m.referencedSymbol(name)
 	if target == nil {
+		target = m.subjectValueTarget(owner)
+	}
+	if target == nil {
 		return out
 	}
 	return append(out, &symbols.Symbol{
@@ -763,9 +766,13 @@ func (m *Model) ExpressionChainFeature(expr *symbols.Symbol) *symbols.Symbol {
 // (qualifiedChainReferences); a segment resolving to nothing owns none.
 func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol {
 	_, links, _ := m.expressionChainOf(chain.Expr.Owner)
+	path := m.subjectValuePath(chain.Expr.Owner, len(links))
 	var out []*symbols.Symbol
-	for _, link := range links {
+	for i, link := range links {
 		target := m.referencedSymbol(link)
+		if target == nil && path != nil {
+			target = path[i]
+		}
 		if target == nil {
 			continue
 		}
@@ -809,4 +816,42 @@ func featureChainingElements(sym *symbols.Symbol, feature string) ([]*symbols.Sy
 		return []*symbols.Symbol{}, true
 	}
 	return nil, false
+}
+
+// subjectValueRelationship is the `by` clause whose value expr is, and the satisfy usage
+// writing it; nil for any other expression. The clause's name is resolved on demand, as
+// RelationshipTarget reads every written relationship, not only by the document walk.
+func subjectValueRelationship(expr *symbols.Symbol) (*symbols.Symbol, *ast.Relationship) {
+	if expr == nil || expr.Expr == nil || expr.Expr.Role != symbols.ExpressionValue || !isSatisfySubjectSymbol(expr.Expr.Owner) {
+		return nil, nil
+	}
+	subject := expr.Expr.Owner
+	rel, ok := subject.Decl.(*ast.Relationship)
+	if !ok || subject.OwnerScope == nil {
+		return nil, nil
+	}
+	return subject.OwnerScope.Owner(), rel
+}
+
+// subjectValueTarget is the feature a satisfy subject's plain `by f` value names.
+func (m *Model) subjectValueTarget(expr *symbols.Symbol) *symbols.Symbol {
+	satisfy, rel := subjectValueRelationship(expr)
+	if satisfy == nil {
+		return nil
+	}
+	return m.RelationshipTarget(satisfy, rel)
+}
+
+// subjectValuePath is the features a satisfy subject's `by a.b` value chains, outermost
+// first; nil unless the chain resolves to exactly links features.
+func (m *Model) subjectValuePath(expr *symbols.Symbol, links int) []*symbols.Symbol {
+	satisfy, rel := subjectValueRelationship(expr)
+	if satisfy == nil {
+		return nil
+	}
+	path := m.ChainTargetPath(satisfy, rel.Kind, rel.Target)
+	if len(path) != links {
+		return nil
+	}
+	return path
 }
