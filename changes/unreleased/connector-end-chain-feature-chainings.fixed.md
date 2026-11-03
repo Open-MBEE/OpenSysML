@@ -1,0 +1,1 @@
+- The chain Feature a connector end's chain target denotes (`connect a.o to b.i`) owns one FeatureChaining per link on the reflective read, identified as the conversion mints them (`…_pchain_pfc0`), so a relationship-aware query lists them as the RDF export does.
