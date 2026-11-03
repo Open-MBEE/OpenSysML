@@ -218,6 +218,13 @@ func TestHint(t *testing.T) {
 			unquoted: []string{"SA-1", "SA-2", "SA-3", "SA-4"},
 			want:     "unresolved reference: SA — did you mean 'SA-1', 'SA-2' or 'SA-3'? Names containing '-' must be quoted.",
 		},
+		{
+			name:       "room for a candidate",
+			word:       "SA",
+			candidates: []string{"P::SA"},
+			unquoted:   []string{"SA-1", "SA-2", "SA 3"},
+			want:       "unresolved reference: SA — did you mean 'SA-1', 'SA-2' or P::SA? Names containing '-' must be quoted.",
+		},
 	}
 
 	for _, tt := range tests {

@@ -1556,13 +1556,7 @@ func (idx *Index) indexScope(doc string, scope *Scope, prefix string) {
 		idx.addContribution(doc, fqnEntry{fqn: fqn, sym: sym})
 
 		// Also index under short name FQN if different
-		// Try cached shortName first (for stdlib), fallback to extracting from Decl
-		shortName := sym.ShortName
-		if shortName == "" {
-			id, _ := DeclIdent(sym.Decl)
-			shortName = id.ShortName
-		}
-		if shortName != "" && shortName != sym.Name {
+		if shortName := shortNameOf(sym); shortName != "" && shortName != sym.Name {
 			shortFQN := joinFQN(prefix, shortName)
 			idx.register(shortFQN, sym)
 			idx.addContribution(doc, fqnEntry{fqn: shortFQN, sym: sym})
@@ -2199,14 +2193,39 @@ func NameChain(sym *Symbol) []string {
 	return names
 }
 
-// HasFQN reports whether sym's fully-qualified name is fqn, without building
-// that name: the segments are compared against the owner chain from the end,
+// HasFQN reports whether fqn is a fully-qualified name of sym, without building
+// one: the last segment is sym's name or its short name (`SI::km` names
+// kilometre), and the rest is compared against the owner chain from the end,
 // skipping unnamed owners as FQNOf does.
 func HasFQN(sym *Symbol, fqn string) bool {
 	if sym == nil {
 		return fqn == ""
 	}
-	rest, name, scope := fqn, sym.Name, sym.OwnerScope
+	if hasFQNAs(sym, fqn, sym.Name) {
+		return true
+	}
+	short := shortNameOf(sym)
+	return short != "" && short != sym.Name && hasFQNAs(sym, fqn, short)
+}
+
+// ShortNamed reports whether fqn reaches sym by its short name rather than its
+// name: `SI::min` reaches the minute, which `SI::minute` names.
+func ShortNamed(sym *Symbol, fqn string) bool {
+	return sym != nil && !hasFQNAs(sym, fqn, sym.Name)
+}
+
+// shortNameOf is sym's short name: as recorded, else as its declaration spells it.
+func shortNameOf(sym *Symbol) string {
+	if sym.ShortName != "" {
+		return sym.ShortName
+	}
+	id, _ := DeclIdent(sym.Decl)
+	return id.ShortName
+}
+
+// hasFQNAs is HasFQN with sym's last segment taken to be name.
+func hasFQNAs(sym *Symbol, fqn, name string) bool {
+	rest, scope := fqn, sym.OwnerScope
 	for {
 		if !strings.HasSuffix(rest, name) {
 			return false
