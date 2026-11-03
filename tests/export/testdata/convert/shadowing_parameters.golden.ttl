@@ -303,7 +303,6 @@ expr:Shadows__Sweep___402_pcollection
 expr:Shadows__Sweep___402_pcollection_preferent
     a sysml:Membership ;
     sysml:elementId "Shadows__Sweep___402_pcollection_preferent" ;
-    sysml:memberName "items" ;
     sysml:memberElement elmt:Shadows__Sweep__items ;
     sysml:owner expr:Shadows__Sweep___402_pcollection ;
     sysml:owningRelatedElement expr:Shadows__Sweep___402_pcollection ;
@@ -410,7 +409,6 @@ expr:Shadows__Sweep___402__cur_pvalue
 expr:Shadows__Sweep___402__cur_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "Shadows__Sweep___402__cur_pvalue_preferent" ;
-    sysml:memberName "value" ;
     sysml:memberElement "value" ;
     sysml:owner expr:Shadows__Sweep___402__cur_pvalue ;
     sysml:owningRelatedElement expr:Shadows__Sweep___402__cur_pvalue .
@@ -874,7 +872,6 @@ expr:Shadows__Governor___404_pguard_pa0
 expr:Shadows__Governor___404_pguard_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Shadows__Governor___404_pguard_pa0_preferent" ;
-    sysml:memberName "value" ;
     sysml:memberElement "value" ;
     sysml:owner expr:Shadows__Governor___404_pguard_pa0 ;
     sysml:owningRelatedElement expr:Shadows__Governor___404_pguard_pa0 .
@@ -1392,7 +1389,6 @@ expr:Shadows__Governor___405_pguard_pa0
 expr:Shadows__Governor___405_pguard_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Shadows__Governor___405_pguard_pa0_preferent" ;
-    sysml:memberName "w" ;
     sysml:memberElement elmt:Shadows__Governor___405___40trigger__w ;
     sysml:owner expr:Shadows__Governor___405_pguard_pa0 ;
     sysml:owningRelatedElement expr:Shadows__Governor___405_pguard_pa0 ;

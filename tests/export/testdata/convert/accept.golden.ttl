@@ -500,7 +500,6 @@ expr:Accepts__Watch__framed___401_pvalue
 expr:Accepts__Watch__framed___401_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "Accepts__Watch__framed___401_pvalue_preferent" ;
-    sysml:memberName "lens" ;
     sysml:memberElement elmt:Accepts__Watch__lens ;
     sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
     sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue ;

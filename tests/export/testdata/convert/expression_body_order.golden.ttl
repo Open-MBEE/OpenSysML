@@ -399,7 +399,6 @@ expr:Ordered__Mixed___401_presult_pa0_pa0
 expr:Ordered__Mixed___401_presult_pa0_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Ordered__Mixed___401_presult_pa0_pa0_preferent" ;
-    sysml:memberName "a" ;
     sysml:memberElement "a" ;
     sysml:owner expr:Ordered__Mixed___401_presult_pa0_pa0 ;
     sysml:owningRelatedElement expr:Ordered__Mixed___401_presult_pa0_pa0 .
@@ -493,7 +492,6 @@ expr:Ordered__Mixed___401_presult_pa0_pa1
 expr:Ordered__Mixed___401_presult_pa0_pa1_preferent
     a sysml:Membership ;
     sysml:elementId "Ordered__Mixed___401_presult_pa0_pa1_preferent" ;
-    sysml:memberName "b" ;
     sysml:memberElement "b" ;
     sysml:owner expr:Ordered__Mixed___401_presult_pa0_pa1 ;
     sysml:owningRelatedElement expr:Ordered__Mixed___401_presult_pa0_pa1 .
@@ -680,7 +678,6 @@ expr:Ordered__Mixed___401_presult_pa1_pa0
 expr:Ordered__Mixed___401_presult_pa1_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Ordered__Mixed___401_presult_pa1_pa0_preferent" ;
-    sysml:memberName "k" ;
     sysml:memberElement "k" ;
     sysml:owner expr:Ordered__Mixed___401_presult_pa1_pa0 ;
     sysml:owningRelatedElement expr:Ordered__Mixed___401_presult_pa1_pa0 .
@@ -774,7 +771,6 @@ expr:Ordered__Mixed___401_presult_pa1_pa1
 expr:Ordered__Mixed___401_presult_pa1_pa1_preferent
     a sysml:Membership ;
     sysml:elementId "Ordered__Mixed___401_presult_pa1_pa1_preferent" ;
-    sysml:memberName "x" ;
     sysml:memberElement elmt:Ordered__Mixed__x ;
     sysml:owner expr:Ordered__Mixed___401_presult_pa1_pa1 ;
     sysml:owningRelatedElement expr:Ordered__Mixed___401_presult_pa1_pa1 ;

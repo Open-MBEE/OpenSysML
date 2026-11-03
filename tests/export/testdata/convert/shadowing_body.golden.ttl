@@ -326,7 +326,6 @@ expr:ShadowBody__Sensor__highs_pvalue
 expr:ShadowBody__Sensor__highs_pvalue_pfunction
     a sysml:Membership ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pfunction" ;
-    sysml:memberName "select" ;
     sysml:memberElement elmt:d2b84130-4d51-5e96-9ce6-150b5bd9ff56 ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;
     sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue ;
@@ -356,7 +355,6 @@ expr:ShadowBody__Sensor__highs_pvalue_poperand
 expr:ShadowBody__Sensor__highs_pvalue_poperand_preferent
     a sysml:Membership ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_poperand_preferent" ;
-    sysml:memberName "readings" ;
     sysml:memberElement elmt:ShadowBody__Sensor__readings ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_poperand ;
     sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_poperand ;
@@ -561,7 +559,6 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0
 expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent" ;
-    sysml:memberName "value" ;
     sysml:memberElement "value" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
     sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 .

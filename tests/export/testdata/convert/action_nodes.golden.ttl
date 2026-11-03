@@ -691,7 +691,6 @@ expr:ActionNodes__Drive___4012_ptarget
 expr:ActionNodes__Drive___4012_ptarget_preferent
     a sysml:Membership ;
     sysml:elementId "ActionNodes__Drive___4012_ptarget_preferent" ;
-    sysml:memberName "log" ;
     sysml:memberElement elmt:ActionNodes__Drive__log ;
     sysml:owner expr:ActionNodes__Drive___4012_ptarget ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4012_ptarget ;
@@ -760,7 +759,6 @@ expr:ActionNodes__Drive___4012_pvalue
 expr:ActionNodes__Drive___4012_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "ActionNodes__Drive___4012_pvalue_preferent" ;
-    sysml:memberName "speed" ;
     sysml:memberElement elmt:ActionNodes__Drive__speed ;
     sysml:owner expr:ActionNodes__Drive___4012_pvalue ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4012_pvalue ;
@@ -869,7 +867,6 @@ expr:ActionNodes__Drive___4013_ppayload
 expr:ActionNodes__Drive___4013_ppayload_pfunction
     a sysml:Membership ;
     sysml:elementId "ActionNodes__Drive___4013_ppayload_pfunction" ;
-    sysml:memberName "Command" ;
     sysml:memberElement elmt:ActionNodes__Command ;
     sysml:owner expr:ActionNodes__Drive___4013_ppayload ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4013_ppayload ;
@@ -938,7 +935,6 @@ expr:ActionNodes__Drive___4013_preceiver
 expr:ActionNodes__Drive___4013_preceiver_preferent
     a sysml:Membership ;
     sysml:elementId "ActionNodes__Drive___4013_preceiver_preferent" ;
-    sysml:memberName "antenna" ;
     sysml:memberElement elmt:ActionNodes__Drive__antenna ;
     sysml:owner expr:ActionNodes__Drive___4013_preceiver ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4013_preceiver ;
@@ -1046,7 +1042,6 @@ expr:ActionNodes__Drive___4014_ppayload
 expr:ActionNodes__Drive___4014_ppayload_pfunction
     a sysml:Membership ;
     sysml:elementId "ActionNodes__Drive___4014_ppayload_pfunction" ;
-    sysml:memberName "Command" ;
     sysml:memberElement elmt:ActionNodes__Command ;
     sysml:owner expr:ActionNodes__Drive___4014_ppayload ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4014_ppayload ;
@@ -1115,7 +1110,6 @@ expr:ActionNodes__Drive___4014_preceiver
 expr:ActionNodes__Drive___4014_preceiver_preferent
     a sysml:Membership ;
     sysml:elementId "ActionNodes__Drive___4014_preceiver_preferent" ;
-    sysml:memberName "antenna" ;
     sysml:memberElement elmt:ActionNodes__Drive__antenna ;
     sysml:owner expr:ActionNodes__Drive___4014_preceiver ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4014_preceiver ;
@@ -1335,7 +1329,6 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0
 expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0_preferent" ;
-    sysml:memberName "speed" ;
     sysml:memberElement elmt:ActionNodes__Drive__speed ;
     sysml:owner expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0 ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0 ;
@@ -1702,7 +1695,6 @@ expr:ActionNodes__Drive___4017_pexpression
 expr:ActionNodes__Drive___4017_pexpression_preferent
     a sysml:Membership ;
     sysml:elementId "ActionNodes__Drive___4017_pexpression_preferent" ;
-    sysml:memberName "brake" ;
     sysml:memberElement elmt:ActionNodes__Drive__brake ;
     sysml:owner expr:ActionNodes__Drive___4017_pexpression ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4017_pexpression ;

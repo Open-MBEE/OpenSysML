@@ -578,7 +578,6 @@ expr:R90__A__t_pvalue
 expr:R90__A__t_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "R90__A__t_pvalue_preferent" ;
-    sysml:memberName "operative" ;
     sysml:memberElement elmt:OtherPkg__Tempo__operative ;
     sysml:owner expr:R90__A__t_pvalue ;
     sysml:owningRelatedElement expr:R90__A__t_pvalue ;
@@ -920,7 +919,6 @@ expr:R90__A__s_pvalue_pa0
 expr:R90__A__s_pvalue_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "R90__A__s_pvalue_pa0_preferent" ;
-    sysml:memberName "w" ;
     sysml:memberElement elmt:R90__A__w ;
     sysml:owner expr:R90__A__s_pvalue_pa0 ;
     sysml:owningRelatedElement expr:R90__A__s_pvalue_pa0 ;
@@ -1000,7 +998,6 @@ expr:R90__A__s_pvalue_pa0_om
 expr:R90__A__s_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "R90__A__s_pvalue_ptargetFeature" ;
-    sysml:memberName "size" ;
     sysml:memberElement elmt:OtherPkg__Inner__Wheel__size ;
     sysml:owner expr:R90__A__s_pvalue ;
     sysml:owningRelatedElement expr:R90__A__s_pvalue ;

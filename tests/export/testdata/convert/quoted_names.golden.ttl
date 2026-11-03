@@ -258,7 +258,6 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0
 expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_preferent" ;
-    sysml:memberName "dry mass" ;
     sysml:memberElement elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
     sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 ;
     sysml:owningRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 ;

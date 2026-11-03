@@ -179,10 +179,10 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 
 	case *ast.QualifiedName:
 		// A position whose notation is a bare name holds the feature it names.
-		e.featureReferent(subject, e.reference(n), e.referencedMemberName(n))
+		e.featureReferent(subject, e.reference(n))
 
 	case *ast.FeatureReference:
-		e.featureReferent(subject, e.reference(n.Name), e.referencedMemberName(n.Name))
+		e.featureReferent(subject, e.reference(n.Name))
 
 	case *ast.OperatorExpr:
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(n.Operator.String()))
@@ -220,7 +220,7 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 			// A named member is the memberElement of a Membership the expression
 			// owns (FeatureChainMember); targetFeature is derived from it.
 			target := e.reference(n.Member)
-			e.referenceMembershipAt(subject, target, e.referentMembershipNode(subject, "targetFeature"), e.referencedMemberName(n.Member))
+			e.referenceMembershipAt(subject, target, e.referentMembershipNode(subject, "targetFeature"))
 			e.graph.Add(subject, e.sysml(pTargetFeature), target)
 		}
 
@@ -253,7 +253,7 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		// (KerML.xtext MetadataAccessExpression `ownedRelationship += ElementReferenceMember`);
 		// referencedElement is derived from it (validateMetadataAccessExpressionReferencedElement).
 		target := e.reference(n.Ref)
-		e.referenceMembership(subject, target, "function", e.referencedMemberName(n.Ref))
+		e.referenceMembership(subject, target, "function")
 		e.graph.Add(subject, e.sysml(pReferencedElement), target)
 
 	case *ast.BodyExpr:
@@ -729,14 +729,14 @@ func (e *encoder) calleeMembership(subject rdf.Term, function *ast.QualifiedName
 		e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 		return
 	}
-	e.referenceMembership(subject, e.reference(function), "function", e.referencedMemberName(function))
+	e.referenceMembership(subject, e.reference(function), "function")
 }
 
 // featureReferent states the Feature a FeatureReferenceExpression reads: the
 // memberElement of the Membership it owns (KerML 8.2.5.8.3 FeatureReferenceMember),
 // from which referent is derived (deriveFeatureReferenceExpressionReferent).
-func (e *encoder) featureReferent(subject, target rdf.Term, name string) {
-	e.referenceMembershipAt(subject, target, e.referentMembershipNode(subject, "referent"), name)
+func (e *encoder) featureReferent(subject, target rdf.Term) {
+	e.referenceMembershipAt(subject, target, e.referentMembershipNode(subject, "referent"))
 	e.graph.Add(subject, e.sysml(pReferent), target)
 }
 
@@ -763,31 +763,15 @@ func (e *encoder) referentMembershipNode(subject rdf.Term, slot string) rdf.Term
 // memberElement is the element the expression names (KerML.xtext
 // ElementReferenceMember), as the metamodel has it rather than as a collapsed edge.
 // The path is the position the Membership holds under the expression's id.
-func (e *encoder) referenceMembership(subject, target rdf.Term, path, name string) {
-	e.referenceMembershipAt(subject, target, e.ids.mintedNode(rdf.ExpressionIRI(subject, path), subject, path), name)
-}
-
-// referencedMemberName is the name of the element a reference links to, which the Membership
-// holding it states as memberName (KerML 8.3.2.3.5); "" for a name that links to nothing.
-func (e *encoder) referencedMemberName(name *ast.QualifiedName) string {
-	sym, ok := e.links[name]
-	if !ok {
-		sym, ok = e.res.PartSymbol(name, len(name.Parts)-1)
-	}
-	if !ok || sym == nil {
-		return ""
-	}
-	return semantics.SimpleSymbolName(sym)
+func (e *encoder) referenceMembership(subject, target rdf.Term, path string) {
+	e.referenceMembershipAt(subject, target, e.ids.mintedNode(rdf.ExpressionIRI(subject, path), subject, path))
 }
 
 // referenceMembershipAt emits the Membership node given, owned by the expression
 // subject, whose memberElement is target.
-func (e *encoder) referenceMembershipAt(subject, target, membership rdf.Term, name string) {
+func (e *encoder) referenceMembershipAt(subject, target, membership rdf.Term) {
 	e.typed(membership, mMembership)
 	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
-	if name != "" {
-		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
-	}
 	e.graph.Add(membership, e.sysml(pMemberElement), target)
 	e.graph.Add(membership, e.sysml(pOwner), subject)
 	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)

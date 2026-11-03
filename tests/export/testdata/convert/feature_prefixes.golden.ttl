@@ -602,7 +602,6 @@ expr:FeaturePrefixes__C__pv_pvalue
 expr:FeaturePrefixes__C__pv_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "FeaturePrefixes__C__pv_pvalue_preferent" ;
-    sysml:memberName "p" ;
     sysml:memberElement elmt:FeaturePrefixes__C__p ;
     sysml:owner expr:FeaturePrefixes__C__pv_pvalue ;
     sysml:owningRelatedElement expr:FeaturePrefixes__C__pv_pvalue ;

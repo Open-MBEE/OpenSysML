@@ -404,7 +404,6 @@ expr:Branches__Charge___404_pguard_pa0
 expr:Branches__Charge___404_pguard_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Branches__Charge___404_pguard_pa0_preferent" ;
-    sysml:memberName "level" ;
     sysml:memberElement elmt:Branches__Charge__level ;
     sysml:owner expr:Branches__Charge___404_pguard_pa0 ;
     sysml:owningRelatedElement expr:Branches__Charge___404_pguard_pa0 ;
@@ -771,7 +770,6 @@ expr:Branches__Charge___405_pguard_pa0
 expr:Branches__Charge___405_pguard_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Branches__Charge___405_pguard_pa0_preferent" ;
-    sysml:memberName "level" ;
     sysml:memberElement elmt:Branches__Charge__level ;
     sysml:owner expr:Branches__Charge___405_pguard_pa0 ;
     sysml:owningRelatedElement expr:Branches__Charge___405_pguard_pa0 ;
@@ -1242,7 +1240,6 @@ expr:Branches__Charge___409_pguard_pa0
 expr:Branches__Charge___409_pguard_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Branches__Charge___409_pguard_pa0_preferent" ;
-    sysml:memberName "level" ;
     sysml:memberElement elmt:Branches__Charge__level ;
     sysml:owner expr:Branches__Charge___409_pguard_pa0 ;
     sysml:owningRelatedElement expr:Branches__Charge___409_pguard_pa0 ;

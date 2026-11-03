@@ -6,8 +6,8 @@ import (
 )
 
 // TestImpliedMembershipsStateTheirMemberNames: the memberships the conversion implies — a connector
-// end's, a conjugated port definition's, a satisfy subject's, an expression referent's — state
-// memberName as the model derives it, and an import states its source and target.
+// end's, a conjugated port definition's, a satisfy subject's — state memberName as the model derives it,
+// an expression's referent Membership none, and an import states its source and target.
 func TestImpliedMembershipsStateTheirMemberNames(t *testing.T) {
 	src := `package P {
 	private import ScalarValues::*;
@@ -32,11 +32,10 @@ func TestImpliedMembershipsStateTheirMemberNames(t *testing.T) {
 `
 	turtle := roundTripsExactly(t, src)
 	want := map[string][]string{
-		"expr:P__c_pend0_om":                         {`sysml:memberName "source"`},
-		"expr:P__c_pend1_om":                         {`sysml:memberName "target"`},
-		"elmt:P__Pt_conjugated_om":                   {`sysml:memberName "~Pt"`},
-		"elmt:P__obs___400_subject_om":               {`sysml:memberName "subj"`},
-		"expr:P__obs___400_subject_pvalue_preferent": {`sysml:memberName "s"`},
+		"expr:P__c_pend0_om":           {`sysml:memberName "source"`},
+		"expr:P__c_pend1_om":           {`sysml:memberName "target"`},
+		"elmt:P__Pt_conjugated_om":     {`sysml:memberName "~Pt"`},
+		"elmt:P__obs___400_subject_om": {`sysml:memberName "subj"`},
 	}
 	blocks := strings.Split(string(turtle), "\n\n")
 	for subject, wants := range want {
@@ -74,7 +73,9 @@ func TestImpliedMembershipsStateTheirMemberNames(t *testing.T) {
 	if imports != 2 {
 		t.Errorf("found %d import blocks, want 2", imports)
 	}
-	if !strings.Contains(string(turtle), `sysml:memberName "a"`) {
-		t.Errorf("the referent Membership of s.a's target feature states its member's name")
+	for _, block := range blocks {
+		if strings.HasPrefix(block, "expr:P__obs___400_subject_pvalue_preferent") && strings.Contains(block, "sysml:memberName") {
+			t.Errorf("a plain Membership an expression owns specifies no memberName\n%s", block)
+		}
 	}
 }

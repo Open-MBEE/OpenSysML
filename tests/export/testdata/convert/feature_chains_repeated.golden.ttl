@@ -374,7 +374,6 @@ expr:P__h__r_pvalue_pa0_pa0
 expr:P__h__r_pvalue_pa0_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "P__h__r_pvalue_pa0_pa0_preferent" ;
-    sysml:memberName "n" ;
     sysml:memberElement elmt:P__n ;
     sysml:owner expr:P__h__r_pvalue_pa0_pa0 ;
     sysml:owningRelatedElement expr:P__h__r_pvalue_pa0_pa0 ;
@@ -454,7 +453,6 @@ expr:P__h__r_pvalue_pa0_pa0_om
 expr:P__h__r_pvalue_pa0_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "P__h__r_pvalue_pa0_ptargetFeature" ;
-    sysml:memberName "next" ;
     sysml:memberElement elmt:P__Node__next ;
     sysml:owner expr:P__h__r_pvalue_pa0 ;
     sysml:owningRelatedElement expr:P__h__r_pvalue_pa0 ;
@@ -534,7 +532,6 @@ expr:P__h__r_pvalue_pa0_om
 expr:P__h__r_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "P__h__r_pvalue_ptargetFeature" ;
-    sysml:memberName "next" ;
     sysml:memberElement elmt:P__Node__next ;
     sysml:owner expr:P__h__r_pvalue ;
     sysml:owningRelatedElement expr:P__h__r_pvalue ;

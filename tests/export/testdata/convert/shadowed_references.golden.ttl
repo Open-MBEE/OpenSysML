@@ -1032,7 +1032,6 @@ expr:Shadowing__Bus__budgeted_subject_pvalue
 expr:Shadowing__Bus__budgeted_subject_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "Shadowing__Bus__budgeted_subject_pvalue_preferent" ;
-    sysml:memberName "payload" ;
     sysml:memberElement elmt:Shadowing__Bus__payload ;
     sysml:owner expr:Shadowing__Bus__budgeted_subject_pvalue ;
     sysml:owningRelatedElement expr:Shadowing__Bus__budgeted_subject_pvalue ;
@@ -1246,7 +1245,6 @@ expr:Shadowing___408_subject_pvalue
 expr:Shadowing___408_subject_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "Shadowing___408_subject_pvalue_preferent" ;
-    sysml:memberName "payload" ;
     sysml:memberElement elmt:Shadowing__payload ;
     sysml:owner expr:Shadowing___408_subject_pvalue ;
     sysml:owningRelatedElement expr:Shadowing___408_subject_pvalue ;
@@ -1632,7 +1630,6 @@ expr:Shadowing__deeper__load_pvalue_pa0
 expr:Shadowing__deeper__load_pvalue_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Shadowing__deeper__load_pvalue_pa0_preferent" ;
-    sysml:memberName "vehicle" ;
     sysml:memberElement elmt:Shadowing__study__vehicle ;
     sysml:owner expr:Shadowing__deeper__load_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Shadowing__deeper__load_pvalue_pa0 ;
@@ -1712,7 +1709,6 @@ expr:Shadowing__deeper__load_pvalue_pa0_om
 expr:Shadowing__deeper__load_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Shadowing__deeper__load_pvalue_ptargetFeature" ;
-    sysml:memberName "cargo" ;
     sysml:memberElement elmt:Shadowing__Bus__cargo ;
     sysml:owner expr:Shadowing__deeper__load_pvalue ;
     sysml:owningRelatedElement expr:Shadowing__deeper__load_pvalue ;

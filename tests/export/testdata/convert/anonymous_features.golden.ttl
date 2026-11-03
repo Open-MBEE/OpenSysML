@@ -452,7 +452,6 @@ expr:AnonymousFeatures__v__engine_pvalue
 expr:AnonymousFeatures__v__engine_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "AnonymousFeatures__v__engine_pvalue_preferent" ;
-    sysml:memberName "e" ;
     sysml:memberElement elmt:AnonymousFeatures__e ;
     sysml:owner expr:AnonymousFeatures__v__engine_pvalue ;
     sysml:owningRelatedElement expr:AnonymousFeatures__v__engine_pvalue ;
