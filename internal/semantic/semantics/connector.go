@@ -907,8 +907,6 @@ func (m *Model) DeclaredSuccessionEndName(sym *symbols.Symbol, i int) string {
 	return m.ImpliedEndName(ast.UsageSuccession, i)
 }
 
-// generalEndAt returns the end at position i of the first connector sym
-// specializes that has one there, which sym's end at that position redefines.
 // ImpliedEndName names the end at i of a connector the notation mints with no
 // declaration of its own: the end its kind's base declares there, else the binary name.
 func (m *Model) ImpliedEndName(kind ast.UsageKind, i int) string {
@@ -925,10 +923,10 @@ func (m *Model) ImpliedEndName(kind ast.UsageKind, i int) string {
 	return ""
 }
 
+// generalEndAt returns the end at position i of the first general sym specializes that has one
+// there — a connector, or a feature such as Links::selfLinks declaring ends — which sym's end redefines.
 func (m *Model) generalEndAt(sym *symbols.Symbol, i int) *symbols.Symbol {
 	for _, sup := range m.DirectSupertypes(sym) {
-		// A general with ends names them: a connector, or a library feature such as
-		// Links::selfLinks that declares end features of its own.
 		if ends := m.endsOf(sup); i < len(ends) && ends[i] != nil {
 			return ends[i]
 		}
