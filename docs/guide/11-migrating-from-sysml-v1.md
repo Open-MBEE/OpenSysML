@@ -60,10 +60,10 @@ is printed:
 $ sysml Vehicle.xmi -migrate sysml -o Vehicle.sysml -migration-report Vehicle.report.txt
 note: SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status
 wrote Vehicle.report.txt (migration report: migrated 95 element(s): 77 mapped, 15 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to))
-wrote Vehicle.sysml (sysml, 6808 bytes)
+wrote Vehicle.sysml (sysml, 8281 bytes)
 ```
 
-The summary is the first thing to read: 93 v1 elements, of which 77 have a direct v2 form, 13
+The summary is the first thing to read: 95 v1 elements, of which 77 have a direct v2 form, 15
 were written as the nearest v2 construct, and 3 have none. The 2 skipped are the SysML profile
 application and the profile itself — not model content, so they count against
 nothing; the other skipped count is for the model's own elements nothing refers to, such as an

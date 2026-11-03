@@ -43,12 +43,14 @@ examples/self-check-rules/rover.sysml:10:2: error[self-check-rule]: Acme::Modeli
 Self-model check: 14 elements, 89 checks, 1 violations, 1 unevaluated
 ```
 
-Exit status 1: one of the 80 constraint applications failed, named by the rule's
+Exit status 1: one of the 89 constraint applications failed, named by the rule's
 qualified name and the element it rejected. Each element of a rule package is
 checked by nothing — `Acme` declares rules, not a model — so the element count
 covers `rover.sysml`'s declarations plus the enclosing `Acme` package only.
 
-The bundled checks alone find nothing wrong with the rover:
+The bundled checks alone report no violation on the rover; the one rule the reflective model
+cannot evaluate for the conjugated port definition `~Bus` is counted as unevaluated, not as a
+violation:
 
 ```bash
 ./bin/sysml examples/self-check-rules/rover.sysml -self-check

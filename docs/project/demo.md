@@ -316,8 +316,9 @@ $ sysml -debug -e "1" broken.sysml
 sysml: broken.sysml did not analyse cleanly
 ```
 
-The `✓ package Typo` line is worth pausing on: the parser recovered and still produced the package,
-which is why the REPL keeps going after an error.
+The `[debug]` line is worth pausing on: it names the pass that produced the diagnostic (`[syntax]`)
+and counts the diagnostics over the whole buffer, so a parse error and a resolution error are told
+apart at a glance.
 
 Only the *syntax* error is reported even though `Snesor` is still misspelled: validation is tiered,
 so name resolution is not run on a file that does not parse.
