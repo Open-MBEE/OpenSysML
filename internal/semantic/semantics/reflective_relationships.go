@@ -192,6 +192,9 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		}
 		return "FeatureTyping"
 	case ast.RelSubsets:
+		if isReferenceSubsetting(rel) {
+			return "ReferenceSubsetting"
+		}
 		return "Subsetting"
 	case ast.RelRedefines:
 		return "Redefinition"
@@ -665,4 +668,31 @@ func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
 		})
 	}
 	return out
+}
+
+// isReferenceSubsetting reports whether rel is its owner's OwnedReferenceSubsetting — the
+// `satisfy r;` / `verify r;` form (SysML.xtext) — by the written clause or, for a record, its facts.
+func isReferenceSubsetting(rel *symbols.ImplicitRelationship) bool {
+	if rel.Owner == nil {
+		return false
+	}
+	if !rel.Owner.Recorded() {
+		return ast.IsReferenceSubsetting(rel.Owner.Decl, rel.Node)
+	}
+	facts := rel.Owner.Facts
+	if rel.Ordinal < 0 || rel.Ordinal >= len(facts.Relationships) {
+		return false
+	}
+	if facts.Relationships[rel.Ordinal].Kind.ReferenceSubsets() {
+		return true
+	}
+	// As ast.Usage.ReferenceSubsetting: a satisfy's first subsetting, unless it declares its requirement.
+	kind, isUsage := rel.Owner.UsageKind()
+	satisfies := isUsage && kind == ast.UsageSatisfy && facts.Modifiers&symbols.ModDeclaresRequirement == 0
+	for ordinal, rf := range facts.Relationships {
+		if rf.Kind.ReferenceSubsets() || (rf.Kind == ast.RelSubsets && satisfies) {
+			return ordinal == rel.Ordinal
+		}
+	}
+	return false
 }

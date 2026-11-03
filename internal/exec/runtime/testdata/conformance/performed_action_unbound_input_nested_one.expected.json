@@ -2,6 +2,7 @@
 	"type": "instance",
 	"libraries": true,
 	"instantiate": "test::slow",
+	"startFailures": ["unbound parameter: action ApplyHeat: input parameter energy is bound by no argument"],
 	"slots": {
 		"cycleTime": {"type": "Quantity", "value": 200.0, "unit": "SI::s"}
 	}
