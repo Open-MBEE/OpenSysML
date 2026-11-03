@@ -951,6 +951,20 @@ func TestPromptScopeIsTheLastNamespaceDeclared(t *testing.T) {
 	wants(t, run(t, s, "%eval b"), "is ambiguous", "P2::b", "P3::b")
 }
 
+// Qualified prompt names resolve from the working namespace; `$::` or a
+// pinned context reaches members hidden by a namesake in that namespace.
+func TestPromptQualifiedNamesResolveFromTheWorkingNamespace(t *testing.T) {
+	s := NewSession()
+	s.Submit(`package Rover {
+		part def Rover { attribute dryMass = 180.0; }
+		calc rangeKm { in charge; in wattHoursPerKm; charge / wattHoursPerKm }
+	}`)
+	wants(t, run(t, s, "%eval Rover::dryMass * 2"), "= 360.0")
+	wants(t, run(t, s, "%eval Rover::rangeKm(600, 12)"), "unresolved reference: Rover::rangeKm")
+	wants(t, run(t, s, "%eval $::Rover::rangeKm(600, 12)"), "= [50.0]")
+	wants(t, run(t, s, "%eval in Rover : rangeKm(600, 12)"), "= [50.0]")
+}
+
 // %calc parses its arguments as expressions, so an argument that contains
 // spaces — a quantity, a parenthesized expression, a nested call — survives.
 func TestCalcParsesExpressionArguments(t *testing.T) {
