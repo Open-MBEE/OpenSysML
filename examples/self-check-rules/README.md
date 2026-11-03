@@ -37,16 +37,20 @@ make build-sysml
 ```text
 ✓ package Rover
 ✓ package Acme
+? examples/self-check-rules/rover.sysml:3:2: SysMLValidation::validatePortDefinitionOwnedUsagesNotComposite for Rover::Bus::~Bus could not be evaluated
+  Error: constraint SysMLValidation::validatePortDefinitionOwnedUsagesNotComposite: constraint validatePortDefinitionOwnedUsagesNotComposite: require condition evaluation failed: reflective feature is not derived: SysML::Systems::ConjugatedPortDefinition::ownedUsage for Rover::Bus::~Bus
 examples/self-check-rules/rover.sysml:10:2: error[self-check-rule]: Acme::ModelingRules::partDefinitionHasDocumentation fails for Rover::SensorBus
-Self-model check: 12 elements, 80 checks, 1 violations, 0 unevaluated
+Self-model check: 14 elements, 89 checks, 1 violations, 1 unevaluated
 ```
 
-Exit status 1: one of the 80 constraint applications failed, named by the rule's
+Exit status 1: one of the 89 constraint applications failed, named by the rule's
 qualified name and the element it rejected. Each element of a rule package is
 checked by nothing — `Acme` declares rules, not a model — so the element count
 covers `rover.sysml`'s declarations plus the enclosing `Acme` package only.
 
-The bundled checks alone find nothing wrong with the rover:
+The bundled checks alone report no violation on the rover; the one rule the reflective model
+cannot evaluate for the conjugated port definition `~Bus` is counted as unevaluated, not as a
+violation:
 
 ```bash
 ./bin/sysml examples/self-check-rules/rover.sysml -self-check
@@ -54,7 +58,9 @@ The bundled checks alone find nothing wrong with the rover:
 
 ```text
 ✓ package Rover
-Self-model check: 11 elements, 75 checks, 0 violations, 0 unevaluated
+? examples/self-check-rules/rover.sysml:3:2: SysMLValidation::validatePortDefinitionOwnedUsagesNotComposite for Rover::Bus::~Bus could not be evaluated
+  Error: constraint SysMLValidation::validatePortDefinitionOwnedUsagesNotComposite: constraint validatePortDefinitionOwnedUsagesNotComposite: require condition evaluation failed: reflective feature is not derived: SysML::Systems::ConjugatedPortDefinition::ownedUsage for Rover::Bus::~Bus
+Self-model check: 13 elements, 84 checks, 0 violations, 1 unevaluated
 ```
 
 Exit status 0.

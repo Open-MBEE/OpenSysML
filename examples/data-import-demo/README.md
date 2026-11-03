@@ -29,12 +29,14 @@ cd examples/data-import-demo
 python3 tools/simulate.py                        # optional: regenerates results/
 ```
 
-Before the import the model cannot answer the question it is for:
+Before the import the model cannot answer the question it is for — `battery.capacity` holds no
+value, so the calculation that reads it is undetermined:
 
 ```bash
 $ ../../bin/sysml rover.sysml -eval 'RoverDemo::scout.specificEnergy'
 ✓ package RoverDemo
-sysml: evaluation failed: feature value scout.specificEnergy: no value for feature battery.capacity
+✓ RoverDemo::scout.specificEnergy
+  = <undetermined>
 ```
 
 ## Previewing
