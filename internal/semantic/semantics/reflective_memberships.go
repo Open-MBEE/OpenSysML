@@ -584,7 +584,7 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 	rel := sym.Implicit
 	switch feature {
 	case "memberName", "ownedMemberName":
-		return stringOrEmpty(SimpleSymbolName(rel.Member)), true
+		return stringOrEmpty(m.EffectiveNameOf(rel.Member)), true
 	case "memberShortName", "ownedMemberShortName":
 		return stringOrEmpty(m.EffectiveShortNameOf(rel.Member)), true
 	case "visibility":

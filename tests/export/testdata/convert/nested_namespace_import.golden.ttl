@@ -58,7 +58,12 @@ elmt:NestedNamespaceImport__Pkg1_om
     sysml:ownedMemberElement elmt:NestedNamespaceImport__Pkg1 ;
     sysml:ownedRelatedElement elmt:NestedNamespaceImport__Pkg1 ;
     sysml:owningRelatedElement elmt:NestedNamespaceImport ;
-    sysml:membershipOwningNamespace elmt:NestedNamespaceImport .
+    sysml:membershipOwningNamespace elmt:NestedNamespaceImport ;
+    sysml:source elmt:NestedNamespaceImport ;
+    sysml:target elmt:NestedNamespaceImport__Pkg1 ;
+    sysml:relatedElement elmt:NestedNamespaceImport, elmt:NestedNamespaceImport__Pkg1 ;
+    sysml:memberName "Pkg1" ;
+    json:relatedElement "[{\"@id\":\"NestedNamespaceImport\"},{\"@id\":\"NestedNamespaceImport__Pkg1\"}]" .
 
 elmt:NestedNamespaceImport__Pkg1__A
     a sysml:PartDefinition ;
@@ -85,7 +90,12 @@ elmt:NestedNamespaceImport__Pkg1__A_om
     sysml:ownedMemberElement elmt:NestedNamespaceImport__Pkg1__A ;
     sysml:ownedRelatedElement elmt:NestedNamespaceImport__Pkg1__A ;
     sysml:owningRelatedElement elmt:NestedNamespaceImport__Pkg1 ;
-    sysml:membershipOwningNamespace elmt:NestedNamespaceImport__Pkg1 .
+    sysml:membershipOwningNamespace elmt:NestedNamespaceImport__Pkg1 ;
+    sysml:source elmt:NestedNamespaceImport__Pkg1 ;
+    sysml:target elmt:NestedNamespaceImport__Pkg1__A ;
+    sysml:relatedElement elmt:NestedNamespaceImport__Pkg1, elmt:NestedNamespaceImport__Pkg1__A ;
+    sysml:memberName "A" ;
+    json:relatedElement "[{\"@id\":\"NestedNamespaceImport__Pkg1\"},{\"@id\":\"NestedNamespaceImport__Pkg1__A\"}]" .
 
 elmt:NestedNamespaceImport__Pkg1__Pkg11
     a sysml:Package ;
@@ -116,7 +126,12 @@ elmt:NestedNamespaceImport__Pkg1__Pkg11_om
     sysml:ownedMemberElement elmt:NestedNamespaceImport__Pkg1__Pkg11 ;
     sysml:ownedRelatedElement elmt:NestedNamespaceImport__Pkg1__Pkg11 ;
     sysml:owningRelatedElement elmt:NestedNamespaceImport__Pkg1 ;
-    sysml:membershipOwningNamespace elmt:NestedNamespaceImport__Pkg1 .
+    sysml:membershipOwningNamespace elmt:NestedNamespaceImport__Pkg1 ;
+    sysml:source elmt:NestedNamespaceImport__Pkg1 ;
+    sysml:target elmt:NestedNamespaceImport__Pkg1__Pkg11 ;
+    sysml:relatedElement elmt:NestedNamespaceImport__Pkg1, elmt:NestedNamespaceImport__Pkg1__Pkg11 ;
+    sysml:memberName "Pkg11" ;
+    json:relatedElement "[{\"@id\":\"NestedNamespaceImport__Pkg1\"},{\"@id\":\"NestedNamespaceImport__Pkg1__Pkg11\"}]" .
 
 elmt:NestedNamespaceImport__Pkg1__Pkg11__B
     a sysml:PartDefinition ;
@@ -143,7 +158,12 @@ elmt:NestedNamespaceImport__Pkg1__Pkg11__B_om
     sysml:ownedMemberElement elmt:NestedNamespaceImport__Pkg1__Pkg11__B ;
     sysml:ownedRelatedElement elmt:NestedNamespaceImport__Pkg1__Pkg11__B ;
     sysml:owningRelatedElement elmt:NestedNamespaceImport__Pkg1__Pkg11 ;
-    sysml:membershipOwningNamespace elmt:NestedNamespaceImport__Pkg1__Pkg11 .
+    sysml:membershipOwningNamespace elmt:NestedNamespaceImport__Pkg1__Pkg11 ;
+    sysml:source elmt:NestedNamespaceImport__Pkg1__Pkg11 ;
+    sysml:target elmt:NestedNamespaceImport__Pkg1__Pkg11__B ;
+    sysml:relatedElement elmt:NestedNamespaceImport__Pkg1__Pkg11, elmt:NestedNamespaceImport__Pkg1__Pkg11__B ;
+    sysml:memberName "B" ;
+    json:relatedElement "[{\"@id\":\"NestedNamespaceImport__Pkg1__Pkg11\"},{\"@id\":\"NestedNamespaceImport__Pkg1__Pkg11__B\"}]" .
 
 elmt:NestedNamespaceImport__Pkg2
     a sysml:Package ;
@@ -179,7 +199,12 @@ elmt:NestedNamespaceImport__Pkg2_om
     sysml:ownedMemberElement elmt:NestedNamespaceImport__Pkg2 ;
     sysml:ownedRelatedElement elmt:NestedNamespaceImport__Pkg2 ;
     sysml:owningRelatedElement elmt:NestedNamespaceImport ;
-    sysml:membershipOwningNamespace elmt:NestedNamespaceImport .
+    sysml:membershipOwningNamespace elmt:NestedNamespaceImport ;
+    sysml:source elmt:NestedNamespaceImport ;
+    sysml:target elmt:NestedNamespaceImport__Pkg2 ;
+    sysml:relatedElement elmt:NestedNamespaceImport, elmt:NestedNamespaceImport__Pkg2 ;
+    sysml:memberName "Pkg2" ;
+    json:relatedElement "[{\"@id\":\"NestedNamespaceImport\"},{\"@id\":\"NestedNamespaceImport__Pkg2\"}]" .
 
 elmt:NestedNamespaceImport__Pkg2___400
     a sysml:NamespaceImport ;
@@ -267,7 +292,12 @@ elmt:NestedNamespaceImport__Pkg2__a_om
     sysml:ownedMemberElement elmt:NestedNamespaceImport__Pkg2__a ;
     sysml:ownedRelatedElement elmt:NestedNamespaceImport__Pkg2__a ;
     sysml:owningRelatedElement elmt:NestedNamespaceImport__Pkg2 ;
-    sysml:membershipOwningNamespace elmt:NestedNamespaceImport__Pkg2 .
+    sysml:membershipOwningNamespace elmt:NestedNamespaceImport__Pkg2 ;
+    sysml:source elmt:NestedNamespaceImport__Pkg2 ;
+    sysml:target elmt:NestedNamespaceImport__Pkg2__a ;
+    sysml:relatedElement elmt:NestedNamespaceImport__Pkg2, elmt:NestedNamespaceImport__Pkg2__a ;
+    sysml:memberName "a" ;
+    json:relatedElement "[{\"@id\":\"NestedNamespaceImport__Pkg2\"},{\"@id\":\"NestedNamespaceImport__Pkg2__a\"}]" .
 
 elmt:NestedNamespaceImport__Pkg2__b
     a sysml:PartUsage ;
@@ -299,7 +329,12 @@ elmt:NestedNamespaceImport__Pkg2__b_om
     sysml:ownedMemberElement elmt:NestedNamespaceImport__Pkg2__b ;
     sysml:ownedRelatedElement elmt:NestedNamespaceImport__Pkg2__b ;
     sysml:owningRelatedElement elmt:NestedNamespaceImport__Pkg2 ;
-    sysml:membershipOwningNamespace elmt:NestedNamespaceImport__Pkg2 .
+    sysml:membershipOwningNamespace elmt:NestedNamespaceImport__Pkg2 ;
+    sysml:source elmt:NestedNamespaceImport__Pkg2 ;
+    sysml:target elmt:NestedNamespaceImport__Pkg2__b ;
+    sysml:relatedElement elmt:NestedNamespaceImport__Pkg2, elmt:NestedNamespaceImport__Pkg2__b ;
+    sysml:memberName "b" ;
+    json:relatedElement "[{\"@id\":\"NestedNamespaceImport__Pkg2\"},{\"@id\":\"NestedNamespaceImport__Pkg2__b\"}]" .
 
 elmt:NestedNamespaceImport__Pkg2__a_ft0
     a sysml:FeatureTyping ;

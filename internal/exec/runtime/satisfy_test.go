@@ -218,6 +218,173 @@ func TestReadInSatisfactionReadsThroughTheSubject(t *testing.T) {
 	}
 }
 
+// TestReadInSatisfactionReadsTheCheckChain checks that a read in a satisfaction sees the
+// chain redefinition the satisfy usage declares through its subject, as the check does,
+// and that the object reads its own value again once either is over.
+func TestReadInSatisfactionReadsTheCheckChain(t *testing.T) {
+	src := `package ChainProbe {
+		private import ScalarValues::Integer;
+		part def Vehicle { attribute fuel : Integer default 0; }
+		part vehicle1 : Vehicle;
+		requirement def Full {
+			subject vehicle : Vehicle;
+			attribute target : Integer default 1300;
+			require constraint { vehicle.fuel == target }
+		}
+		satisfy requirement check : Full by vehicle1 {
+			attribute redefines vehicle1.fuel = 1300;
+		}
+	}`
+	ctx, a := satisfactionOf(t, src, "satisfy check by vehicle1")
+	subject, err := ctx.SatisfySubject(a)
+	if err != nil {
+		t.Fatalf("SatisfySubject: %v", err)
+	}
+	conditions := ctx.ConditionsOf(a.Symbol, a.Symbol.OwnerScope)
+	expression, ok := conditions[0].Expr.(*ast.OperatorExpr)
+	if len(conditions) != 1 || !ok || len(expression.Operands) != 2 {
+		t.Fatalf("conditions = %+v, want one binary operator", conditions)
+	}
+	fuel := func(where string, want string) {
+		t.Helper()
+		got, err := ctx.readFeatureValue(subject.FeatureValues["fuel"], "fuel")
+		if err != nil || FormatValue(got) != want {
+			t.Fatalf("%s: vehicle1.fuel = %s, %v; want %s", where, FormatValue(got), err, want)
+		}
+	}
+	fuel("before", "0")
+	value, err := ctx.ReadInSatisfaction(a, subject, conditions[0].Scope, expression.Operands[0])
+	if err != nil || FormatValue(value) != "1300" {
+		t.Fatalf("ReadInSatisfaction = %s, %v; want 1300", FormatValue(value), err)
+	}
+	fuel("after the read", "0")
+	result, err := ctx.CheckSatisfactionOn(a, subject)
+	if err != nil || !result.Holds {
+		t.Fatalf("CheckSatisfactionOn = %+v, %v; want holds", result, err)
+	}
+	fuel("after the check", "0")
+}
+
+// TestReadInSatisfactionKeepsTheObjectsItMakes checks that a read or a check under a
+// chain redefinition keeps the objects it materializes below the subject: a read of a
+// lazy part returns an object the context still knows, and only the chain is undone.
+func TestReadInSatisfactionKeepsTheObjectsItMakes(t *testing.T) {
+	src := `package LazyProbe {
+		private import ScalarValues::Integer;
+		part def Inner { attribute power : Integer default 0; }
+		part def Sub { part inner : Inner; }
+		part def Thing { part sub : Sub; }
+		part craft : Thing;
+		requirement def Deep {
+			subject vehicle : Thing;
+			require constraint { vehicle.sub.inner.power == 7 }
+		}
+		satisfy requirement check : Deep by craft {
+			attribute redefines craft.sub.inner.power = 7;
+		}
+	}`
+	ctx, a := satisfactionOf(t, src, "satisfy check by craft")
+	subject, err := ctx.SatisfySubject(a)
+	if err != nil {
+		t.Fatalf("SatisfySubject: %v", err)
+	}
+	conditions := ctx.ConditionsOf(a.Symbol, a.Symbol.OwnerScope)
+	expression, ok := conditions[0].Expr.(*ast.OperatorExpr)
+	if len(conditions) != 1 || !ok || len(expression.Operands) != 2 {
+		t.Fatalf("conditions = %+v, want one binary operator", conditions)
+	}
+	power, err := ctx.ReadInSatisfaction(a, subject, conditions[0].Scope, expression.Operands[0])
+	if err != nil || FormatValue(power) != "7" {
+		t.Fatalf("ReadInSatisfaction(power) = %s, %v; want 7", FormatValue(power), err)
+	}
+	// vehicle.sub.inner.power nests as ((vehicle.sub).inner).power.
+	var sub ast.Node = expression.Operands[0]
+	for range 2 {
+		chain, ok := sub.(*ast.FeatureChainExpr)
+		if !ok {
+			t.Fatalf("operand = %#v, want a feature chain", sub)
+		}
+		sub = chain.Operand
+	}
+	held, err := ctx.ReadInSatisfaction(a, subject, conditions[0].Scope, sub)
+	if err != nil {
+		t.Fatalf("ReadInSatisfaction(sub): %v", err)
+	}
+	id, ok := held.Object()
+	if !ok {
+		t.Fatalf("ReadInSatisfaction(sub) = %s, want an object", FormatValue(held))
+	}
+	subObject, ok := ctx.Instance(id)
+	if !ok {
+		t.Fatalf("object %d the read returned is gone", id)
+	}
+	result, err := ctx.CheckSatisfactionOn(a, subject)
+	if err != nil || !result.Holds {
+		t.Fatalf("CheckSatisfactionOn = %+v, %v; want holds", result, err)
+	}
+	if again, _ := subject.FeatureValues["sub"].Value.Object(); again != id {
+		t.Fatalf("craft.sub is object %d after the check, was %d", again, id)
+	}
+	innerID, _ := subObject.FeatureValues["inner"].Value.Object()
+	inner, ok := ctx.Instance(innerID)
+	if !ok {
+		t.Fatalf("craft.sub.inner is gone after the check")
+	}
+	got, err := ctx.readFeatureValue(inner.FeatureValues["power"], "power")
+	if err != nil || FormatValue(got) != "0" {
+		t.Fatalf("craft.sub.inner.power after the check = %s, %v; want 0", FormatValue(got), err)
+	}
+}
+
+// TestSatisfactionOverlayKeepsAWriteMadeUnderIt checks that removing a satisfaction's
+// chain overlay reinstalls the feature's own declaration but keeps a value written to the
+// feature while the overlay stood, as a condition's step may write it.
+func TestSatisfactionOverlayKeepsAWriteMadeUnderIt(t *testing.T) {
+	src := `package ChainProbe {
+		private import ScalarValues::Integer;
+		part def Vehicle { attribute fuel : Integer default 0; }
+		part vehicle1 : Vehicle;
+		requirement def Full {
+			subject vehicle : Vehicle;
+			require constraint { vehicle.fuel == 1300 }
+		}
+		satisfy requirement check : Full by vehicle1 {
+			attribute redefines vehicle1.fuel = 1300;
+		}
+	}`
+	ctx, a := satisfactionOf(t, src, "satisfy check by vehicle1")
+	subject, err := ctx.SatisfySubject(a)
+	if err != nil {
+		t.Fatalf("SatisfySubject: %v", err)
+	}
+	_, bindings, err := ctx.satisfactionBindings(a, a.Symbol, subject)
+	if err != nil {
+		t.Fatalf("satisfactionBindings: %v", err)
+	}
+	fv := subject.FeatureValues["fuel"]
+	own := fv.Feature
+	undo, err := ctx.overlaySatisfierChains(a, subject, bindings)
+	if err != nil {
+		t.Fatalf("overlaySatisfierChains: %v", err)
+	}
+	if got, err := ctx.readFeatureValue(fv, "fuel"); err != nil || FormatValue(got) != "1300" {
+		t.Fatalf("fuel under the overlay = %s, %v; want 1300", FormatValue(got), err)
+	}
+	nine := Value{Kind: ValConst, Const: semantics.IntValue(9)}
+	if err := subject.storeFeatureValue(ctx, fv, "fuel", nine); err != nil {
+		t.Fatalf("write fuel: %v", err)
+	}
+	if err := undo(); err != nil {
+		t.Fatalf("undo: %v", err)
+	}
+	if fv.Feature != own {
+		t.Fatalf("fuel is declared by %v after the overlay, want its own %v", fv.Feature.Symbol, own.Symbol)
+	}
+	if got, err := ctx.readFeatureValue(fv, "fuel"); err != nil || FormatValue(got) != "9" || !fv.Written {
+		t.Fatalf("fuel after the overlay = %s, written %v, %v; want the written 9", FormatValue(got), fv.Written, err)
+	}
+}
+
 // statedSatisfyModel states satisfactions with no `by`: one by a definition,
 // about every object of it, and one by a usage, about the usage's own object.
 const statedSatisfyModel = `

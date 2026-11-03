@@ -113,6 +113,28 @@ mode's verdict. A client that cannot send settings can start the server with
 [the guide](../guide/03-command-line.md#strict-conformance) explains what the mode
 changes.
 
+## Keep line breaks (setting)
+
+Whether formatting keeps the author's line breaks instead of laying the statements out one
+per line is controlled by a boolean setting, `keepLineBreaks` (default `false`). It is read
+from `initialize`'s `initializationOptions` and from `workspace/didChangeConfiguration`, in
+the same three shapes:
+
+```json
+{ "keepLineBreaks": true }
+{ "sysml": { "keepLineBreaks": true } }
+{ "sysml.keepLineBreaks": true }
+```
+
+A payload that does not mention it leaves the setting alone, and a value that is not a
+boolean is ignored. While it is on, `textDocument/formatting`, `textDocument/rangeFormatting`
+and a notebook cell's formatting fix indentation and spacing only, so a one-line body such as
+`enum def Color { red; green; blue; }` stays on its line; the client's `tabSize` and
+`insertSpaces` are honoured either way. A client that cannot send settings can start the
+server with `-keep-line-breaks` instead. Both correspond to the CLI's
+`-convert sysml -keep-line-breaks` and to the `keepLineBreaks` field of the syntax service's
+`Format` request ([WebAssembly](wasm.md#the-syntax-service)).
+
 ## Diagnostic codes
 
 Every published diagnostic carries `code`, the stable kebab-case code of the rule that

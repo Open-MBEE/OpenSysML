@@ -53,7 +53,13 @@ elmt:Prefixed__Safety_om
     sysml:ownedMemberElement elmt:Prefixed__Safety ;
     sysml:ownedRelatedElement elmt:Prefixed__Safety ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__Safety ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__Safety ;
+    sysml:memberName "Safety" ;
+    sysml:memberShortName "safe" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__Safety\"}]" .
 
 elmt:Prefixed__Reviewed
     a sysml:MetadataDefinition ;
@@ -80,7 +86,12 @@ elmt:Prefixed__Reviewed_om
     sysml:ownedMemberElement elmt:Prefixed__Reviewed ;
     sysml:ownedRelatedElement elmt:Prefixed__Reviewed ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__Reviewed ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__Reviewed ;
+    sysml:memberName "Reviewed" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__Reviewed\"}]" .
 
 elmt:Prefixed__Car
     a sysml:PartDefinition ;
@@ -110,7 +121,12 @@ elmt:Prefixed__Car_om
     sysml:ownedMemberElement elmt:Prefixed__Car ;
     sysml:ownedRelatedElement elmt:Prefixed__Car ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__Car ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__Car ;
+    sysml:memberName "Car" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__Car\"}]" .
 
 elmt:Prefixed__Car___400
     a sysml:MetadataUsage ;
@@ -141,7 +157,11 @@ elmt:Prefixed__Car___400_om
     sysml:ownedMemberElement elmt:Prefixed__Car___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__Car___400 ;
     sysml:owningRelatedElement elmt:Prefixed__Car ;
-    sysml:membershipOwningNamespace elmt:Prefixed__Car .
+    sysml:membershipOwningNamespace elmt:Prefixed__Car ;
+    sysml:source elmt:Prefixed__Car ;
+    sysml:target elmt:Prefixed__Car___400 ;
+    sysml:relatedElement elmt:Prefixed__Car, elmt:Prefixed__Car___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Car\"},{\"@id\":\"Prefixed__Car___400\"}]" .
 
 elmt:Prefixed__Vehicle
     a sysml:PartDefinition ;
@@ -175,7 +195,12 @@ elmt:Prefixed__Vehicle_om
     sysml:ownedMemberElement elmt:Prefixed__Vehicle ;
     sysml:ownedRelatedElement elmt:Prefixed__Vehicle ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__Vehicle ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__Vehicle ;
+    sysml:memberName "Vehicle" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__Vehicle\"}]" .
 
 elmt:Prefixed__Vehicle___400
     a sysml:MetadataUsage ;
@@ -206,7 +231,11 @@ elmt:Prefixed__Vehicle___400_om
     sysml:ownedMemberElement elmt:Prefixed__Vehicle___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__Vehicle___400 ;
     sysml:owningRelatedElement elmt:Prefixed__Vehicle ;
-    sysml:membershipOwningNamespace elmt:Prefixed__Vehicle .
+    sysml:membershipOwningNamespace elmt:Prefixed__Vehicle ;
+    sysml:source elmt:Prefixed__Vehicle ;
+    sysml:target elmt:Prefixed__Vehicle___400 ;
+    sysml:relatedElement elmt:Prefixed__Vehicle, elmt:Prefixed__Vehicle___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Vehicle\"},{\"@id\":\"Prefixed__Vehicle___400\"}]" .
 
 elmt:Prefixed__Vehicle___401
     a sysml:MetadataUsage ;
@@ -237,7 +266,11 @@ elmt:Prefixed__Vehicle___401_om
     sysml:ownedMemberElement elmt:Prefixed__Vehicle___401 ;
     sysml:ownedRelatedElement elmt:Prefixed__Vehicle___401 ;
     sysml:owningRelatedElement elmt:Prefixed__Vehicle ;
-    sysml:membershipOwningNamespace elmt:Prefixed__Vehicle .
+    sysml:membershipOwningNamespace elmt:Prefixed__Vehicle ;
+    sysml:source elmt:Prefixed__Vehicle ;
+    sysml:target elmt:Prefixed__Vehicle___401 ;
+    sysml:relatedElement elmt:Prefixed__Vehicle, elmt:Prefixed__Vehicle___401 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Vehicle\"},{\"@id\":\"Prefixed__Vehicle___401\"}]" .
 
 elmt:Prefixed__car
     a sysml:PartUsage ;
@@ -272,7 +305,12 @@ elmt:Prefixed__car_om
     sysml:ownedMemberElement elmt:Prefixed__car ;
     sysml:ownedRelatedElement elmt:Prefixed__car ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__car ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__car ;
+    sysml:memberName "car" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__car\"}]" .
 
 elmt:Prefixed__car___400
     a sysml:MetadataUsage ;
@@ -303,7 +341,11 @@ elmt:Prefixed__car___400_om
     sysml:ownedMemberElement elmt:Prefixed__car___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__car___400 ;
     sysml:owningRelatedElement elmt:Prefixed__car ;
-    sysml:membershipOwningNamespace elmt:Prefixed__car .
+    sysml:membershipOwningNamespace elmt:Prefixed__car ;
+    sysml:source elmt:Prefixed__car ;
+    sysml:target elmt:Prefixed__car___400 ;
+    sysml:relatedElement elmt:Prefixed__car, elmt:Prefixed__car___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__car\"},{\"@id\":\"Prefixed__car___400\"}]" .
 
 elmt:Prefixed__spare
     a sysml:PartUsage ;
@@ -340,7 +382,12 @@ elmt:Prefixed__spare_om
     sysml:ownedRelatedElement elmt:Prefixed__spare ;
     sysml:owningRelatedElement elmt:Prefixed ;
     sysml:membershipOwningNamespace elmt:Prefixed ;
-    sysml:visibility "private" .
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__spare ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__spare ;
+    sysml:memberName "spare" ;
+    sysml:visibility "private" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__spare\"}]" .
 
 elmt:Prefixed__spare___400
     a sysml:MetadataUsage ;
@@ -371,7 +418,11 @@ elmt:Prefixed__spare___400_om
     sysml:ownedMemberElement elmt:Prefixed__spare___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__spare___400 ;
     sysml:owningRelatedElement elmt:Prefixed__spare ;
-    sysml:membershipOwningNamespace elmt:Prefixed__spare .
+    sysml:membershipOwningNamespace elmt:Prefixed__spare ;
+    sysml:source elmt:Prefixed__spare ;
+    sysml:target elmt:Prefixed__spare___400 ;
+    sysml:relatedElement elmt:Prefixed__spare, elmt:Prefixed__spare___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__spare\"},{\"@id\":\"Prefixed__spare___400\"}]" .
 
 elmt:Prefixed__option
     a sysml:PartUsage ;
@@ -408,7 +459,12 @@ elmt:Prefixed__option_om
     sysml:ownedRelatedElement elmt:Prefixed__option ;
     sysml:owningRelatedElement elmt:Prefixed ;
     sysml:membershipOwningNamespace elmt:Prefixed ;
-    sysml:ownedVariantUsage elmt:Prefixed__option .
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__option ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__option ;
+    sysml:memberName "option" ;
+    sysml:ownedVariantUsage elmt:Prefixed__option ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__option\"}]" .
 
 elmt:Prefixed__option___400
     a sysml:MetadataUsage ;
@@ -439,7 +495,11 @@ elmt:Prefixed__option___400_om
     sysml:ownedMemberElement elmt:Prefixed__option___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__option___400 ;
     sysml:owningRelatedElement elmt:Prefixed__option ;
-    sysml:membershipOwningNamespace elmt:Prefixed__option .
+    sysml:membershipOwningNamespace elmt:Prefixed__option ;
+    sysml:source elmt:Prefixed__option ;
+    sysml:target elmt:Prefixed__option___400 ;
+    sysml:relatedElement elmt:Prefixed__option, elmt:Prefixed__option___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__option\"},{\"@id\":\"Prefixed__option___400\"}]" .
 
 elmt:Prefixed__wheel
     a sysml:PartUsage ;
@@ -475,7 +535,12 @@ elmt:Prefixed__wheel_om
     sysml:ownedMemberElement elmt:Prefixed__wheel ;
     sysml:ownedRelatedElement elmt:Prefixed__wheel ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__wheel ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__wheel ;
+    sysml:memberName "wheel" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__wheel\"}]" .
 
 elmt:Prefixed__wheel___400
     a sysml:MetadataUsage ;
@@ -506,7 +571,11 @@ elmt:Prefixed__wheel___400_om
     sysml:ownedMemberElement elmt:Prefixed__wheel___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__wheel___400 ;
     sysml:owningRelatedElement elmt:Prefixed__wheel ;
-    sysml:membershipOwningNamespace elmt:Prefixed__wheel .
+    sysml:membershipOwningNamespace elmt:Prefixed__wheel ;
+    sysml:source elmt:Prefixed__wheel ;
+    sysml:target elmt:Prefixed__wheel___400 ;
+    sysml:relatedElement elmt:Prefixed__wheel, elmt:Prefixed__wheel___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__wheel\"},{\"@id\":\"Prefixed__wheel___400\"}]" .
 
 elmt:Prefixed__Notes
     a sysml:Package ;
@@ -536,7 +605,12 @@ elmt:Prefixed__Notes_om
     sysml:ownedMemberElement elmt:Prefixed__Notes ;
     sysml:ownedRelatedElement elmt:Prefixed__Notes ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__Notes ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__Notes ;
+    sysml:memberName "Notes" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__Notes\"}]" .
 
 elmt:Prefixed__Notes___400
     a sysml:MetadataUsage ;
@@ -567,7 +641,11 @@ elmt:Prefixed__Notes___400_om
     sysml:ownedMemberElement elmt:Prefixed__Notes___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__Notes___400 ;
     sysml:owningRelatedElement elmt:Prefixed__Notes ;
-    sysml:membershipOwningNamespace elmt:Prefixed__Notes .
+    sysml:membershipOwningNamespace elmt:Prefixed__Notes ;
+    sysml:source elmt:Prefixed__Notes ;
+    sysml:target elmt:Prefixed__Notes___400 ;
+    sysml:relatedElement elmt:Prefixed__Notes, elmt:Prefixed__Notes___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Notes\"},{\"@id\":\"Prefixed__Notes___400\"}]" .
 
 elmt:Prefixed___409
     a sysml:Dependency ;
@@ -597,7 +675,11 @@ elmt:Prefixed___409_om
     sysml:ownedMemberElement elmt:Prefixed___409 ;
     sysml:ownedRelatedElement elmt:Prefixed___409 ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed___409 ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed___409 ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed___409\"}]" .
 
 elmt:Prefixed___409___400
     a sysml:MetadataUsage ;
@@ -652,7 +734,12 @@ elmt:Prefixed__Stopped_om
     sysml:ownedMemberElement elmt:Prefixed__Stopped ;
     sysml:ownedRelatedElement elmt:Prefixed__Stopped ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__Stopped ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__Stopped ;
+    sysml:memberName "Stopped" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__Stopped\"}]" .
 
 elmt:Prefixed__Move
     a sysml:ActionDefinition ;
@@ -679,7 +766,12 @@ elmt:Prefixed__Move_om
     sysml:ownedMemberElement elmt:Prefixed__Move ;
     sysml:ownedRelatedElement elmt:Prefixed__Move ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__Move ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__Move ;
+    sysml:memberName "Move" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__Move\"}]" .
 
 elmt:Prefixed__context
     a sysml:PartUsage ;
@@ -721,7 +813,12 @@ elmt:Prefixed__context_om
     sysml:ownedMemberElement elmt:Prefixed__context ;
     sysml:ownedRelatedElement elmt:Prefixed__context ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__context ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__context ;
+    sysml:memberName "context" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__context\"}]" .
 
 elmt:Prefixed__context__stopped
     a sysml:AssertConstraintUsage ;
@@ -759,8 +856,13 @@ elmt:Prefixed__context__stopped_om
     sysml:ownedRelatedElement elmt:Prefixed__context__stopped ;
     sysml:owningRelatedElement elmt:Prefixed__context ;
     sysml:membershipOwningNamespace elmt:Prefixed__context ;
+    sysml:source elmt:Prefixed__context ;
+    sysml:target elmt:Prefixed__context__stopped ;
+    sysml:relatedElement elmt:Prefixed__context, elmt:Prefixed__context__stopped ;
+    sysml:memberName "stopped" ;
     sysml:ownedMemberFeature elmt:Prefixed__context__stopped ;
-    sysml:owningType elmt:Prefixed__context .
+    sysml:owningType elmt:Prefixed__context ;
+    json:relatedElement "[{\"@id\":\"Prefixed__context\"},{\"@id\":\"Prefixed__context__stopped\"}]" .
 
 elmt:Prefixed__context__stopped___400
     a sysml:MetadataUsage ;
@@ -791,7 +893,11 @@ elmt:Prefixed__context__stopped___400_om
     sysml:ownedMemberElement elmt:Prefixed__context__stopped___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__context__stopped___400 ;
     sysml:owningRelatedElement elmt:Prefixed__context__stopped ;
-    sysml:membershipOwningNamespace elmt:Prefixed__context__stopped .
+    sysml:membershipOwningNamespace elmt:Prefixed__context__stopped ;
+    sysml:source elmt:Prefixed__context__stopped ;
+    sysml:target elmt:Prefixed__context__stopped___400 ;
+    sysml:relatedElement elmt:Prefixed__context__stopped, elmt:Prefixed__context__stopped___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__context__stopped\"},{\"@id\":\"Prefixed__context__stopped___400\"}]" .
 
 elmt:Prefixed__context__moving
     a sysml:AssertConstraintUsage ;
@@ -830,8 +936,13 @@ elmt:Prefixed__context__moving_om
     sysml:ownedRelatedElement elmt:Prefixed__context__moving ;
     sysml:owningRelatedElement elmt:Prefixed__context ;
     sysml:membershipOwningNamespace elmt:Prefixed__context ;
+    sysml:source elmt:Prefixed__context ;
+    sysml:target elmt:Prefixed__context__moving ;
+    sysml:relatedElement elmt:Prefixed__context, elmt:Prefixed__context__moving ;
+    sysml:memberName "moving" ;
     sysml:ownedMemberFeature elmt:Prefixed__context__moving ;
-    sysml:owningType elmt:Prefixed__context .
+    sysml:owningType elmt:Prefixed__context ;
+    json:relatedElement "[{\"@id\":\"Prefixed__context\"},{\"@id\":\"Prefixed__context__moving\"}]" .
 
 elmt:Prefixed__context__moving___400
     a sysml:MetadataUsage ;
@@ -862,7 +973,11 @@ elmt:Prefixed__context__moving___400_om
     sysml:ownedMemberElement elmt:Prefixed__context__moving___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__context__moving___400 ;
     sysml:owningRelatedElement elmt:Prefixed__context__moving ;
-    sysml:membershipOwningNamespace elmt:Prefixed__context__moving .
+    sysml:membershipOwningNamespace elmt:Prefixed__context__moving ;
+    sysml:source elmt:Prefixed__context__moving ;
+    sysml:target elmt:Prefixed__context__moving___400 ;
+    sysml:relatedElement elmt:Prefixed__context__moving, elmt:Prefixed__context__moving___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__context__moving\"},{\"@id\":\"Prefixed__context__moving___400\"}]" .
 
 elmt:Prefixed__context__go
     a sysml:PerformActionUsage ;
@@ -901,8 +1016,13 @@ elmt:Prefixed__context__go_om
     sysml:ownedRelatedElement elmt:Prefixed__context__go ;
     sysml:owningRelatedElement elmt:Prefixed__context ;
     sysml:membershipOwningNamespace elmt:Prefixed__context ;
+    sysml:source elmt:Prefixed__context ;
+    sysml:target elmt:Prefixed__context__go ;
+    sysml:relatedElement elmt:Prefixed__context, elmt:Prefixed__context__go ;
+    sysml:memberName "go" ;
     sysml:ownedMemberFeature elmt:Prefixed__context__go ;
-    sysml:owningType elmt:Prefixed__context .
+    sysml:owningType elmt:Prefixed__context ;
+    json:relatedElement "[{\"@id\":\"Prefixed__context\"},{\"@id\":\"Prefixed__context__go\"}]" .
 
 elmt:Prefixed__context__go___400
     a sysml:MetadataUsage ;
@@ -933,7 +1053,11 @@ elmt:Prefixed__context__go___400_om
     sysml:ownedMemberElement elmt:Prefixed__context__go___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__context__go___400 ;
     sysml:owningRelatedElement elmt:Prefixed__context__go ;
-    sysml:membershipOwningNamespace elmt:Prefixed__context__go .
+    sysml:membershipOwningNamespace elmt:Prefixed__context__go ;
+    sysml:source elmt:Prefixed__context__go ;
+    sysml:target elmt:Prefixed__context__go___400 ;
+    sysml:relatedElement elmt:Prefixed__context__go, elmt:Prefixed__context__go___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__context__go\"},{\"@id\":\"Prefixed__context__go___400\"}]" .
 
 elmt:Prefixed__Braking
     a sysml:RequirementDefinition ;
@@ -971,7 +1095,12 @@ elmt:Prefixed__Braking_om
     sysml:ownedMemberElement elmt:Prefixed__Braking ;
     sysml:ownedRelatedElement elmt:Prefixed__Braking ;
     sysml:owningRelatedElement elmt:Prefixed ;
-    sysml:membershipOwningNamespace elmt:Prefixed .
+    sysml:membershipOwningNamespace elmt:Prefixed ;
+    sysml:source elmt:Prefixed ;
+    sysml:target elmt:Prefixed__Braking ;
+    sysml:relatedElement elmt:Prefixed, elmt:Prefixed__Braking ;
+    sysml:memberName "Braking" ;
+    json:relatedElement "[{\"@id\":\"Prefixed\"},{\"@id\":\"Prefixed__Braking\"}]" .
 
 elmt:Prefixed__Braking__brakes
     a sysml:ReferenceUsage ;
@@ -1010,10 +1139,15 @@ elmt:Prefixed__Braking__brakes_om
     sysml:ownedRelatedElement elmt:Prefixed__Braking__brakes ;
     sysml:owningRelatedElement elmt:Prefixed__Braking ;
     sysml:membershipOwningNamespace elmt:Prefixed__Braking ;
+    sysml:source elmt:Prefixed__Braking ;
+    sysml:target elmt:Prefixed__Braking__brakes ;
+    sysml:relatedElement elmt:Prefixed__Braking, elmt:Prefixed__Braking__brakes ;
+    sysml:memberName "brakes" ;
     sysml:ownedSubjectParameter elmt:Prefixed__Braking__brakes ;
     sysml:ownedMemberParameter elmt:Prefixed__Braking__brakes ;
     sysml:ownedMemberFeature elmt:Prefixed__Braking__brakes ;
-    sysml:owningType elmt:Prefixed__Braking .
+    sysml:owningType elmt:Prefixed__Braking ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking\"},{\"@id\":\"Prefixed__Braking__brakes\"}]" .
 
 elmt:Prefixed__Braking__brakes___400
     a sysml:MetadataUsage ;
@@ -1044,7 +1178,11 @@ elmt:Prefixed__Braking__brakes___400_om
     sysml:ownedMemberElement elmt:Prefixed__Braking__brakes___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__Braking__brakes___400 ;
     sysml:owningRelatedElement elmt:Prefixed__Braking__brakes ;
-    sysml:membershipOwningNamespace elmt:Prefixed__Braking__brakes .
+    sysml:membershipOwningNamespace elmt:Prefixed__Braking__brakes ;
+    sysml:source elmt:Prefixed__Braking__brakes ;
+    sysml:target elmt:Prefixed__Braking__brakes___400 ;
+    sysml:relatedElement elmt:Prefixed__Braking__brakes, elmt:Prefixed__Braking__brakes___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking__brakes\"},{\"@id\":\"Prefixed__Braking__brakes___400\"}]" .
 
 elmt:Prefixed__Braking___401
     a sysml:ConstraintUsage ;
@@ -1081,10 +1219,14 @@ elmt:Prefixed__Braking___401_om
     sysml:ownedRelatedElement elmt:Prefixed__Braking___401 ;
     sysml:owningRelatedElement elmt:Prefixed__Braking ;
     sysml:membershipOwningNamespace elmt:Prefixed__Braking ;
+    sysml:source elmt:Prefixed__Braking ;
+    sysml:target elmt:Prefixed__Braking___401 ;
+    sysml:relatedElement elmt:Prefixed__Braking, elmt:Prefixed__Braking___401 ;
     sysml:kind "assumption" ;
     sysml:ownedConstraint elmt:Prefixed__Braking___401 ;
     sysml:ownedMemberFeature elmt:Prefixed__Braking___401 ;
-    sysml:owningType elmt:Prefixed__Braking .
+    sysml:owningType elmt:Prefixed__Braking ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking\"},{\"@id\":\"Prefixed__Braking___401\"}]" .
 
 elmt:Prefixed__Braking___401___401
     a sysml:MetadataUsage ;
@@ -1115,7 +1257,11 @@ elmt:Prefixed__Braking___401___401_om
     sysml:ownedMemberElement elmt:Prefixed__Braking___401___401 ;
     sysml:ownedRelatedElement elmt:Prefixed__Braking___401___401 ;
     sysml:owningRelatedElement elmt:Prefixed__Braking___401 ;
-    sysml:membershipOwningNamespace elmt:Prefixed__Braking___401 .
+    sysml:membershipOwningNamespace elmt:Prefixed__Braking___401 ;
+    sysml:source elmt:Prefixed__Braking___401 ;
+    sysml:target elmt:Prefixed__Braking___401___401 ;
+    sysml:relatedElement elmt:Prefixed__Braking___401, elmt:Prefixed__Braking___401___401 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking___401\"},{\"@id\":\"Prefixed__Braking___401___401\"}]" .
 
 elmt:Prefixed__Braking___401___400
     a sysml:LiteralBoolean ;
@@ -1142,9 +1288,13 @@ elmt:Prefixed__Braking___401___400_om
     sysml:ownedRelatedElement elmt:Prefixed__Braking___401___400 ;
     sysml:owningRelatedElement elmt:Prefixed__Braking___401 ;
     sysml:membershipOwningNamespace elmt:Prefixed__Braking___401 ;
+    sysml:source elmt:Prefixed__Braking___401 ;
+    sysml:target elmt:Prefixed__Braking___401___400 ;
+    sysml:relatedElement elmt:Prefixed__Braking___401, elmt:Prefixed__Braking___401___400 ;
     sysml:ownedMemberFeature elmt:Prefixed__Braking___401___400 ;
     sysml:owningType elmt:Prefixed__Braking___401 ;
-    sysml:ownedResultExpression elmt:Prefixed__Braking___401___400 .
+    sysml:ownedResultExpression elmt:Prefixed__Braking___401___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking___401\"},{\"@id\":\"Prefixed__Braking___401___400\"}]" .
 
 elmt:Prefixed__Braking___402
     a sysml:ConstraintUsage ;
@@ -1181,10 +1331,14 @@ elmt:Prefixed__Braking___402_om
     sysml:ownedRelatedElement elmt:Prefixed__Braking___402 ;
     sysml:owningRelatedElement elmt:Prefixed__Braking ;
     sysml:membershipOwningNamespace elmt:Prefixed__Braking ;
+    sysml:source elmt:Prefixed__Braking ;
+    sysml:target elmt:Prefixed__Braking___402 ;
+    sysml:relatedElement elmt:Prefixed__Braking, elmt:Prefixed__Braking___402 ;
     sysml:kind "requirement" ;
     sysml:ownedConstraint elmt:Prefixed__Braking___402 ;
     sysml:ownedMemberFeature elmt:Prefixed__Braking___402 ;
-    sysml:owningType elmt:Prefixed__Braking .
+    sysml:owningType elmt:Prefixed__Braking ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking\"},{\"@id\":\"Prefixed__Braking___402\"}]" .
 
 elmt:Prefixed__Braking___402___401
     a sysml:MetadataUsage ;
@@ -1215,7 +1369,11 @@ elmt:Prefixed__Braking___402___401_om
     sysml:ownedMemberElement elmt:Prefixed__Braking___402___401 ;
     sysml:ownedRelatedElement elmt:Prefixed__Braking___402___401 ;
     sysml:owningRelatedElement elmt:Prefixed__Braking___402 ;
-    sysml:membershipOwningNamespace elmt:Prefixed__Braking___402 .
+    sysml:membershipOwningNamespace elmt:Prefixed__Braking___402 ;
+    sysml:source elmt:Prefixed__Braking___402 ;
+    sysml:target elmt:Prefixed__Braking___402___401 ;
+    sysml:relatedElement elmt:Prefixed__Braking___402, elmt:Prefixed__Braking___402___401 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking___402\"},{\"@id\":\"Prefixed__Braking___402___401\"}]" .
 
 elmt:Prefixed__Braking___402___400
     a sysml:LiteralBoolean ;
@@ -1242,9 +1400,13 @@ elmt:Prefixed__Braking___402___400_om
     sysml:ownedRelatedElement elmt:Prefixed__Braking___402___400 ;
     sysml:owningRelatedElement elmt:Prefixed__Braking___402 ;
     sysml:membershipOwningNamespace elmt:Prefixed__Braking___402 ;
+    sysml:source elmt:Prefixed__Braking___402 ;
+    sysml:target elmt:Prefixed__Braking___402___400 ;
+    sysml:relatedElement elmt:Prefixed__Braking___402, elmt:Prefixed__Braking___402___400 ;
     sysml:ownedMemberFeature elmt:Prefixed__Braking___402___400 ;
     sysml:owningType elmt:Prefixed__Braking___402 ;
-    sysml:ownedResultExpression elmt:Prefixed__Braking___402___400 .
+    sysml:ownedResultExpression elmt:Prefixed__Braking___402___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking___402\"},{\"@id\":\"Prefixed__Braking___402___400\"}]" .
 
 elmt:Prefixed__Braking__stopped
     a sysml:ConstraintUsage ;
@@ -1281,10 +1443,15 @@ elmt:Prefixed__Braking__stopped_om
     sysml:ownedRelatedElement elmt:Prefixed__Braking__stopped ;
     sysml:owningRelatedElement elmt:Prefixed__Braking ;
     sysml:membershipOwningNamespace elmt:Prefixed__Braking ;
+    sysml:source elmt:Prefixed__Braking ;
+    sysml:target elmt:Prefixed__Braking__stopped ;
+    sysml:relatedElement elmt:Prefixed__Braking, elmt:Prefixed__Braking__stopped ;
+    sysml:memberName "stopped" ;
     sysml:kind "assumption" ;
     sysml:ownedConstraint elmt:Prefixed__Braking__stopped ;
     sysml:ownedMemberFeature elmt:Prefixed__Braking__stopped ;
-    sysml:owningType elmt:Prefixed__Braking .
+    sysml:owningType elmt:Prefixed__Braking ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking\"},{\"@id\":\"Prefixed__Braking__stopped\"}]" .
 
 elmt:Prefixed__Braking__stopped___400
     a sysml:MetadataUsage ;
@@ -1315,7 +1482,11 @@ elmt:Prefixed__Braking__stopped___400_om
     sysml:ownedMemberElement elmt:Prefixed__Braking__stopped___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__Braking__stopped___400 ;
     sysml:owningRelatedElement elmt:Prefixed__Braking__stopped ;
-    sysml:membershipOwningNamespace elmt:Prefixed__Braking__stopped .
+    sysml:membershipOwningNamespace elmt:Prefixed__Braking__stopped ;
+    sysml:source elmt:Prefixed__Braking__stopped ;
+    sysml:target elmt:Prefixed__Braking__stopped___400 ;
+    sysml:relatedElement elmt:Prefixed__Braking__stopped, elmt:Prefixed__Braking__stopped___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking__stopped\"},{\"@id\":\"Prefixed__Braking__stopped___400\"}]" .
 
 elmt:Prefixed__Braking__braked
     a sysml:ConstraintUsage ;
@@ -1353,10 +1524,15 @@ elmt:Prefixed__Braking__braked_om
     sysml:ownedRelatedElement elmt:Prefixed__Braking__braked ;
     sysml:owningRelatedElement elmt:Prefixed__Braking ;
     sysml:membershipOwningNamespace elmt:Prefixed__Braking ;
+    sysml:source elmt:Prefixed__Braking ;
+    sysml:target elmt:Prefixed__Braking__braked ;
+    sysml:relatedElement elmt:Prefixed__Braking, elmt:Prefixed__Braking__braked ;
+    sysml:memberName "braked" ;
     sysml:kind "requirement" ;
     sysml:ownedConstraint elmt:Prefixed__Braking__braked ;
     sysml:ownedMemberFeature elmt:Prefixed__Braking__braked ;
-    sysml:owningType elmt:Prefixed__Braking .
+    sysml:owningType elmt:Prefixed__Braking ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking\"},{\"@id\":\"Prefixed__Braking__braked\"}]" .
 
 elmt:Prefixed__Braking__braked___400
     a sysml:MetadataUsage ;
@@ -1387,7 +1563,11 @@ elmt:Prefixed__Braking__braked___400_om
     sysml:ownedMemberElement elmt:Prefixed__Braking__braked___400 ;
     sysml:ownedRelatedElement elmt:Prefixed__Braking__braked___400 ;
     sysml:owningRelatedElement elmt:Prefixed__Braking__braked ;
-    sysml:membershipOwningNamespace elmt:Prefixed__Braking__braked .
+    sysml:membershipOwningNamespace elmt:Prefixed__Braking__braked ;
+    sysml:source elmt:Prefixed__Braking__braked ;
+    sysml:target elmt:Prefixed__Braking__braked___400 ;
+    sysml:relatedElement elmt:Prefixed__Braking__braked, elmt:Prefixed__Braking__braked___400 ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking__braked\"},{\"@id\":\"Prefixed__Braking__braked___400\"}]" .
 
 expr:Prefixed__Braking__braked_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -1408,7 +1588,11 @@ expr:Prefixed__Braking__braked_pmultiplicity_om
     sysml:ownedMemberElement expr:Prefixed__Braking__braked_pmultiplicity ;
     sysml:ownedRelatedElement expr:Prefixed__Braking__braked_pmultiplicity ;
     sysml:owningRelatedElement elmt:Prefixed__Braking__braked ;
-    sysml:membershipOwningNamespace elmt:Prefixed__Braking__braked .
+    sysml:membershipOwningNamespace elmt:Prefixed__Braking__braked ;
+    sysml:source elmt:Prefixed__Braking__braked ;
+    sysml:target expr:Prefixed__Braking__braked_pmultiplicity ;
+    sysml:relatedElement elmt:Prefixed__Braking__braked, expr:Prefixed__Braking__braked_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking__braked\"},{\"@id\":\"Prefixed__Braking__braked_pmultiplicity\"}]" .
 
 expr:Prefixed__Braking__braked_pupperBound
     a sysml:LiteralInteger ;
@@ -1428,7 +1612,11 @@ expr:Prefixed__Braking__braked_pupperBound_om
     sysml:ownedMemberElement expr:Prefixed__Braking__braked_pupperBound ;
     sysml:ownedRelatedElement expr:Prefixed__Braking__braked_pupperBound ;
     sysml:owningRelatedElement expr:Prefixed__Braking__braked_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Prefixed__Braking__braked_pmultiplicity .
+    sysml:membershipOwningNamespace expr:Prefixed__Braking__braked_pmultiplicity ;
+    sysml:source expr:Prefixed__Braking__braked_pmultiplicity ;
+    sysml:target expr:Prefixed__Braking__braked_pupperBound ;
+    sysml:relatedElement expr:Prefixed__Braking__braked_pmultiplicity, expr:Prefixed__Braking__braked_pupperBound ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking__braked_pmultiplicity\"},{\"@id\":\"Prefixed__Braking__braked_pupperBound\"}]" .
 
 expr:Prefixed__Braking__braked_pvalue
     a sysml:LiteralBoolean ;
@@ -1449,8 +1637,12 @@ expr:Prefixed__Braking__braked_pvalue_om
     sysml:ownedRelatedElement expr:Prefixed__Braking__braked_pvalue ;
     sysml:owningRelatedElement elmt:Prefixed__Braking__braked ;
     sysml:membershipOwningNamespace elmt:Prefixed__Braking__braked ;
+    sysml:source elmt:Prefixed__Braking__braked ;
+    sysml:target expr:Prefixed__Braking__braked_pvalue ;
+    sysml:relatedElement elmt:Prefixed__Braking__braked, expr:Prefixed__Braking__braked_pvalue ;
     sysml:featureWithValue elmt:Prefixed__Braking__braked ;
-    sysml:value expr:Prefixed__Braking__braked_pvalue .
+    sysml:value expr:Prefixed__Braking__braked_pvalue ;
+    json:relatedElement "[{\"@id\":\"Prefixed__Braking__braked\"},{\"@id\":\"Prefixed__Braking__braked_pvalue\"}]" .
 
 elmt:Prefixed__Car___400_ft0
     a sysml:FeatureTyping ;

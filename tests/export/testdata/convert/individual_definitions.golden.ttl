@@ -52,7 +52,12 @@ elmt:IndividualDefinitions__Astronaut_om
     sysml:ownedMemberElement elmt:IndividualDefinitions__Astronaut ;
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Astronaut ;
     sysml:owningRelatedElement elmt:IndividualDefinitions ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions ;
+    sysml:source elmt:IndividualDefinitions ;
+    sysml:target elmt:IndividualDefinitions__Astronaut ;
+    sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__Astronaut ;
+    sysml:memberName "Astronaut" ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Astronaut\"}]" .
 
 elmt:IndividualDefinitions__Neil_20Armstrong
     a sysml:PartDefinition ;
@@ -84,7 +89,12 @@ elmt:IndividualDefinitions__Neil_20Armstrong_om
     sysml:ownedMemberElement elmt:IndividualDefinitions__Neil_20Armstrong ;
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Neil_20Armstrong ;
     sysml:owningRelatedElement elmt:IndividualDefinitions ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions ;
+    sysml:source elmt:IndividualDefinitions ;
+    sysml:target elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:memberName "Neil Armstrong" ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Neil_20Armstrong\"}]" .
 
 elmt:IndividualDefinitions__Sample
     a sysml:ItemDefinition ;
@@ -111,7 +121,12 @@ elmt:IndividualDefinitions__Sample_om
     sysml:ownedMemberElement elmt:IndividualDefinitions__Sample ;
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Sample ;
     sysml:owningRelatedElement elmt:IndividualDefinitions ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions ;
+    sysml:source elmt:IndividualDefinitions ;
+    sysml:target elmt:IndividualDefinitions__Sample ;
+    sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__Sample ;
+    sysml:memberName "Sample" ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Sample\"}]" .
 
 elmt:IndividualDefinitions__Sample_2010005
     a sysml:ItemDefinition ;
@@ -139,7 +154,12 @@ elmt:IndividualDefinitions__Sample_2010005_om
     sysml:ownedMemberElement elmt:IndividualDefinitions__Sample_2010005 ;
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Sample_2010005 ;
     sysml:owningRelatedElement elmt:IndividualDefinitions ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions ;
+    sysml:source elmt:IndividualDefinitions ;
+    sysml:target elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:memberName "Sample 10005" ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Sample_2010005\"}]" .
 
 elmt:IndividualDefinitions__FirstLanding
     a sysml:OccurrenceDefinition ;
@@ -167,7 +187,12 @@ elmt:IndividualDefinitions__FirstLanding_om
     sysml:ownedMemberElement elmt:IndividualDefinitions__FirstLanding ;
     sysml:ownedRelatedElement elmt:IndividualDefinitions__FirstLanding ;
     sysml:owningRelatedElement elmt:IndividualDefinitions ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions ;
+    sysml:source elmt:IndividualDefinitions ;
+    sysml:target elmt:IndividualDefinitions__FirstLanding ;
+    sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__FirstLanding ;
+    sysml:memberName "FirstLanding" ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__FirstLanding\"}]" .
 
 elmt:IndividualDefinitions__PlantFlag
     a sysml:ActionDefinition ;
@@ -195,7 +220,12 @@ elmt:IndividualDefinitions__PlantFlag_om
     sysml:ownedMemberElement elmt:IndividualDefinitions__PlantFlag ;
     sysml:ownedRelatedElement elmt:IndividualDefinitions__PlantFlag ;
     sysml:owningRelatedElement elmt:IndividualDefinitions ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions ;
+    sysml:source elmt:IndividualDefinitions ;
+    sysml:target elmt:IndividualDefinitions__PlantFlag ;
+    sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__PlantFlag ;
+    sysml:memberName "PlantFlag" ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__PlantFlag\"}]" .
 
 elmt:IndividualDefinitions__Spacecraft
     a sysml:PartDefinition ;
@@ -224,7 +254,12 @@ elmt:IndividualDefinitions__Spacecraft_om
     sysml:ownedMemberElement elmt:IndividualDefinitions__Spacecraft ;
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Spacecraft ;
     sysml:owningRelatedElement elmt:IndividualDefinitions ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions ;
+    sysml:source elmt:IndividualDefinitions ;
+    sysml:target elmt:IndividualDefinitions__Spacecraft ;
+    sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__Spacecraft ;
+    sysml:memberName "Spacecraft" ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Spacecraft\"}]" .
 
 elmt:IndividualDefinitions__Eagle
     a sysml:IndividualDefinition ;
@@ -255,7 +290,12 @@ elmt:IndividualDefinitions__Eagle_om
     sysml:ownedMemberElement elmt:IndividualDefinitions__Eagle ;
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Eagle ;
     sysml:owningRelatedElement elmt:IndividualDefinitions ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions ;
+    sysml:source elmt:IndividualDefinitions ;
+    sysml:target elmt:IndividualDefinitions__Eagle ;
+    sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__Eagle ;
+    sysml:memberName "Eagle" ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Eagle\"}]" .
 
 elmt:IndividualDefinitions__Mission
     a sysml:PartDefinition ;
@@ -293,7 +333,12 @@ elmt:IndividualDefinitions__Mission_om
     sysml:ownedMemberElement elmt:IndividualDefinitions__Mission ;
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission ;
     sysml:owningRelatedElement elmt:IndividualDefinitions ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions ;
+    sysml:source elmt:IndividualDefinitions ;
+    sysml:target elmt:IndividualDefinitions__Mission ;
+    sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__Mission ;
+    sysml:memberName "Mission" ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Mission\"}]" .
 
 elmt:IndividualDefinitions__Mission__crew
     a sysml:PartUsage ;
@@ -332,8 +377,13 @@ elmt:IndividualDefinitions__Mission__crew_om
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__crew ;
     sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
     sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:source elmt:IndividualDefinitions__Mission ;
+    sysml:target elmt:IndividualDefinitions__Mission__crew ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission, elmt:IndividualDefinitions__Mission__crew ;
+    sysml:memberName "crew" ;
     sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__crew ;
-    sysml:owningType elmt:IndividualDefinitions__Mission .
+    sysml:owningType elmt:IndividualDefinitions__Mission ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission\"},{\"@id\":\"IndividualDefinitions__Mission__crew\"}]" .
 
 expr:IndividualDefinitions__Mission__crew_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -354,7 +404,11 @@ expr:IndividualDefinitions__Mission__crew_pmultiplicity_om
     sysml:ownedMemberElement expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
     sysml:ownedRelatedElement expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
     sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__crew ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission__crew .
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission__crew ;
+    sysml:source elmt:IndividualDefinitions__Mission__crew ;
+    sysml:target expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission__crew, expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission__crew\"},{\"@id\":\"IndividualDefinitions__Mission__crew_pmultiplicity\"}]" .
 
 expr:IndividualDefinitions__Mission__crew_pupperBound
     a sysml:LiteralInfinity ;
@@ -373,7 +427,11 @@ expr:IndividualDefinitions__Mission__crew_pupperBound_om
     sysml:ownedMemberElement expr:IndividualDefinitions__Mission__crew_pupperBound ;
     sysml:ownedRelatedElement expr:IndividualDefinitions__Mission__crew_pupperBound ;
     sysml:owningRelatedElement expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:IndividualDefinitions__Mission__crew_pmultiplicity .
+    sysml:membershipOwningNamespace expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
+    sysml:source expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
+    sysml:target expr:IndividualDefinitions__Mission__crew_pupperBound ;
+    sysml:relatedElement expr:IndividualDefinitions__Mission__crew_pmultiplicity, expr:IndividualDefinitions__Mission__crew_pupperBound ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission__crew_pmultiplicity\"},{\"@id\":\"IndividualDefinitions__Mission__crew_pupperBound\"}]" .
 
 elmt:IndividualDefinitions__Mission__commander
     a sysml:PartUsage ;
@@ -413,8 +471,13 @@ elmt:IndividualDefinitions__Mission__commander_om
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__commander ;
     sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
     sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:source elmt:IndividualDefinitions__Mission ;
+    sysml:target elmt:IndividualDefinitions__Mission__commander ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission, elmt:IndividualDefinitions__Mission__commander ;
+    sysml:memberName "commander" ;
     sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__commander ;
-    sysml:owningType elmt:IndividualDefinitions__Mission .
+    sysml:owningType elmt:IndividualDefinitions__Mission ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission\"},{\"@id\":\"IndividualDefinitions__Mission__commander\"}]" .
 
 elmt:IndividualDefinitions__Mission__returned
     a sysml:ItemUsage ;
@@ -450,8 +513,13 @@ elmt:IndividualDefinitions__Mission__returned_om
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__returned ;
     sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
     sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:source elmt:IndividualDefinitions__Mission ;
+    sysml:target elmt:IndividualDefinitions__Mission__returned ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission, elmt:IndividualDefinitions__Mission__returned ;
+    sysml:memberName "returned" ;
     sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__returned ;
-    sysml:owningType elmt:IndividualDefinitions__Mission .
+    sysml:owningType elmt:IndividualDefinitions__Mission ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission\"},{\"@id\":\"IndividualDefinitions__Mission__returned\"}]" .
 
 elmt:IndividualDefinitions__Mission__landing
     a sysml:OccurrenceUsage ;
@@ -487,8 +555,13 @@ elmt:IndividualDefinitions__Mission__landing_om
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__landing ;
     sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
     sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:source elmt:IndividualDefinitions__Mission ;
+    sysml:target elmt:IndividualDefinitions__Mission__landing ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission, elmt:IndividualDefinitions__Mission__landing ;
+    sysml:memberName "landing" ;
     sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__landing ;
-    sysml:owningType elmt:IndividualDefinitions__Mission .
+    sysml:owningType elmt:IndividualDefinitions__Mission ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission\"},{\"@id\":\"IndividualDefinitions__Mission__landing\"}]" .
 
 elmt:IndividualDefinitions__Mission__flag
     a sysml:ActionUsage ;
@@ -522,8 +595,13 @@ elmt:IndividualDefinitions__Mission__flag_om
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__flag ;
     sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
     sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:source elmt:IndividualDefinitions__Mission ;
+    sysml:target elmt:IndividualDefinitions__Mission__flag ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission, elmt:IndividualDefinitions__Mission__flag ;
+    sysml:memberName "flag" ;
     sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__flag ;
-    sysml:owningType elmt:IndividualDefinitions__Mission .
+    sysml:owningType elmt:IndividualDefinitions__Mission ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission\"},{\"@id\":\"IndividualDefinitions__Mission__flag\"}]" .
 
 elmt:IndividualDefinitions__Mission__lander
     a sysml:PartUsage ;
@@ -559,8 +637,13 @@ elmt:IndividualDefinitions__Mission__lander_om
     sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__lander ;
     sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
     sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:source elmt:IndividualDefinitions__Mission ;
+    sysml:target elmt:IndividualDefinitions__Mission__lander ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission, elmt:IndividualDefinitions__Mission__lander ;
+    sysml:memberName "lander" ;
     sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__lander ;
-    sysml:owningType elmt:IndividualDefinitions__Mission .
+    sysml:owningType elmt:IndividualDefinitions__Mission ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission\"},{\"@id\":\"IndividualDefinitions__Mission__lander\"}]" .
 
 elmt:IndividualDefinitions__Neil_20Armstrong_sc0
     a sysml:Subclassification ;

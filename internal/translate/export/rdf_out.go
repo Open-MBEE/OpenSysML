@@ -642,6 +642,8 @@ type encoder struct {
 	// the language reaches from where it is written, not to one of the same name.
 	res      *resolve.Resolver
 	declared map[string]bool
+	// holders answers blame's reverse lookups over graph, which is final once encoded.
+	holders holderIndex
 	// metadataBodies holds the qualified names of the metadata usages and the nested
 	// members of their bodies: a keywordless member there is a ReferenceUsage.
 	metadataBodies map[string]bool
@@ -1876,7 +1878,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if n.Ident.ShortName != "" {
 			e.graph.Add(subject, e.sysml(pMemberShortName), rdf.String(n.Ident.ShortName))
 		}
-		e.graph.Add(subject, e.sysml(pMemberElement), e.reference(n.For))
+		target := e.reference(n.For)
+		e.graph.Add(subject, e.sysml(pMemberElement), target)
+		if target.IsIRI() {
+			e.membershipEnds(subject, ownerTerm, target)
+		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		return members(n.Body)
 
@@ -2064,7 +2070,13 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// A `filter <cond>` member is an ElementFilterMembership owning the
 		// condition expression (KerML ElementFilterMembership::condition).
 		head(rdf.SysMLTerm(mElementFilterMembership))
-		return e.expression(subject, e.sysml(pCondition), "filter", within, n.Condition)
+		if err := e.expression(subject, e.sysml(pCondition), "filter", within, n.Condition); err != nil {
+			return err
+		}
+		if condition, ok := e.graph.Object(subject, rdf.SysML+pCondition); ok {
+			e.membershipEnds(subject, ownerTerm, condition)
+		}
+		return nil
 
 	case *ast.ErrorNode:
 		return &UnsupportedError{
@@ -2213,6 +2225,7 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 		metaclass = mFeatureMembership
 	}
 	e.emitMembershipCore(membership, member, owner, metaclass, !isRelationship(ownerClass))
+	e.memberNames(membership, node)
 	if membershipExtra != nil {
 		membershipExtra(membership)
 	}
@@ -2267,6 +2280,15 @@ func (e *encoder) prefixAnnotation(annotation, member, owner rdf.Term, memberFQN
 	return annotation
 }
 
+// membershipEnds states a Membership's source as its owning namespace and target as its member
+// (KerML 8.3.2.3.5); relatedElement is source then target (8.3.2.5.2).
+func (e *encoder) membershipEnds(membership, owner, member rdf.Term) {
+	e.graph.Add(membership, e.sysml(pSource), owner)
+	e.graph.Add(membership, e.sysml(pTarget), member)
+	e.graph.Add(membership, e.sysml(pRelatedElement), owner)
+	e.graph.Add(membership, e.sysml(pRelatedElement), member)
+}
+
 // emitMembershipCore writes the shared ownership triples for a membership.
 func (e *encoder) emitMembershipCore(membership, member, owner rdf.Term, metaclass string, namespace bool) {
 	e.graph.Add(member, e.sysml(pOwner), owner)
@@ -2281,6 +2303,25 @@ func (e *encoder) emitMembershipCore(membership, member, owner rdf.Term, metacla
 	e.graph.Add(membership, e.sysml(pOwningRelatedElement), owner)
 	if namespace {
 		e.graph.Add(membership, e.sysml(pMembershipOwningNamespace), owner)
+	}
+	e.membershipEnds(membership, owner, member)
+}
+
+// memberNames states Membership::memberName — the declared name, else the written naming feature's as
+// sysml:name spells it, else the effective name the model derives — and memberShortName (KerML 8.3.2.3.5, 8.2.4).
+func (e *encoder) memberNames(membership rdf.Term, node ast.Node) {
+	name, short := memberName(node), ""
+	if sym := e.ids.declSym[node]; sym != nil {
+		if name == "" {
+			name = e.ids.model.EffectiveNameOf(sym)
+		}
+		short = e.ids.model.EffectiveShortNameOf(sym)
+	}
+	if name != "" {
+		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
+	}
+	if short != "" {
+		e.graph.Add(membership, e.sysml(pMemberShortName), rdf.String(short))
 	}
 }
 

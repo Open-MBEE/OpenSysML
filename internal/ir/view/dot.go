@@ -92,7 +92,17 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	if options.Unplaced != UnplacedStrip || options.Compartments.automatic() {
 		r = foldCompartments(withoutStandIns(r), options.Compartments)
 	}
-	w := newDOTWriter(r, options)
+	arranged := r
+	var notices []string
+	if options.Lines == LinesOrtho {
+		var err error
+		if arranged, notices, err = r.arranged(options, direction); err != nil {
+			return "", err
+		}
+	}
+	w := newDOTWriter(arranged, options, arranged != r)
+	w.notices = append(w.notices, notices...)
+	r = arranged
 	edges := w.settleEdges(r, options.Unplaced)
 	b := &w.b
 	w.writeHeader(r)
@@ -256,8 +266,10 @@ func (w *dotWriter) dotBB(box nodeBox) string {
 // it, the clusters and the palette's families collected. A positioned drawing
 // omits the nodes it places nowhere before the labels are needed — under
 // UnplacedStrip none is — and keeps the notes of the nodes left drawn and, under
-// the minimal display, the pins of the edges left drawn.
-func newDOTWriter(r *Rendering, options Options) *dotWriter {
+// the minimal display, the pins of the edges left drawn. An arranged drawing
+// is one the writer itself laid out and routed for the orthogonal lines, so
+// its nodes keep the names an unpositioned drawing gives them.
+func newDOTWriter(r *Rendering, options Options, arranged bool) *dotWriter {
 	skin := skinOf(options.Style)
 	w := &dotWriter{kind: r.Kind, tree: r.Kind == KindTree, nesting: r.nestingEdges(), nodes: r.nodeTree(), action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, spread: map[string]boundarySide{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
@@ -277,7 +289,7 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	}
 	w.ports = r.portViewOver(options.Ports, edges)
 	w.lines = options.Lines
-	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.positioned(), w.omitted, r.Shown)
+	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.positioned() && !arranged, w.omitted, r.Shown)
 	w.labels.skin = skin
 	w.placeNodes(r.Roots, r.Edges)
 	w.edges = w.ledEdges(r.Edges)
@@ -1231,8 +1243,8 @@ func (w *dotWriter) writeEdge(edge Edge, attrs []string) {
 		fmt.Fprintf(&w.b, "  %s -> %s;\n", from, to)
 		return
 	}
-	if w.lines == LinesOrtho {
-		// Graphviz places no label on an orthogonal edge; an xlabel it does.
+	if w.lines == LinesOrtho && len(edge.Route) < 2 {
+		// Graphviz places no label on an orthogonal edge it routes; an xlabel it does.
 		for i, attr := range attrs {
 			if strings.HasPrefix(attr, "label=") {
 				attrs[i] = "x" + attr

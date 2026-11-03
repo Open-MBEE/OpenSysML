@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:47dda6db249aa2067ee3139876ccc83129eb9cdca30b5339f25ff27aed468396"
+        "sourceDigest": "sha256:ae442b0065ce6ecccae3732848a93d0d27b66b209296e0194ae8f104d55572b9"
       }
     ],
     "inputs": [
@@ -120,16 +120,16 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1157295,
-      "presentDifferent": 27835,
-      "oursMissing": 1067050,
-      "pilotMissing": 69936,
-      "absentBoth": 1987233,
-      "indeterminate": 26342,
+      "presentEqual": 1291382,
+      "presentDifferent": 32953,
+      "oursMissing": 923659,
+      "pilotMissing": 70249,
+      "absentBoth": 1987230,
+      "indeterminate": 30528,
       "pilotNondeterministic": 516
     },
     "rows": 11735,
-    "unkeyedReferences": 112895,
+    "unkeyedReferences": 114833,
     "extensionProperties": 162741,
     "duplicateElements": {
       "ours": 527,
@@ -161,12 +161,12 @@
         "typeMismatch": 10
       },
       "properties": {
-        "presentEqual": 92423,
-        "presentDifferent": 1852,
-        "oursMissing": 84782,
-        "pilotMissing": 5126,
+        "presentEqual": 103325,
+        "presentDifferent": 2163,
+        "oursMissing": 73261,
+        "pilotMissing": 5157,
         "absentBoth": 164386,
-        "indeterminate": 1594,
+        "indeterminate": 1902,
         "pilotNondeterministic": 62
       },
       "duplicateElements": {
@@ -197,12 +197,12 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 335328,
-        "presentDifferent": 7620,
-        "oursMissing": 306136,
-        "pilotMissing": 19296,
+        "presentEqual": 372875,
+        "presentDifferent": 8932,
+        "oursMissing": 265955,
+        "pilotMissing": 19377,
         "absentBoth": 576463,
-        "indeterminate": 6664,
+        "indeterminate": 7986,
         "pilotNondeterministic": 172
       },
       "duplicateElements": {
@@ -233,12 +233,12 @@
         "typeMismatch": 15
       },
       "properties": {
-        "presentEqual": 116621,
-        "presentDifferent": 3180,
-        "oursMissing": 106661,
-        "pilotMissing": 6811,
+        "presentEqual": 130057,
+        "presentDifferent": 3881,
+        "oursMissing": 92134,
+        "pilotMissing": 6856,
         "absentBoth": 206224,
-        "indeterminate": 2194,
+        "indeterminate": 2584,
         "pilotNondeterministic": 66
       },
       "duplicateElements": {
@@ -270,12 +270,12 @@
         "typeMismatch": 1034
       },
       "properties": {
-        "presentEqual": 74549,
-        "presentDifferent": 2474,
-        "oursMissing": 63909,
-        "pilotMissing": 6504,
+        "presentEqual": 83448,
+        "presentDifferent": 3132,
+        "oursMissing": 54226,
+        "pilotMissing": 6531,
         "absentBoth": 106175,
-        "indeterminate": 1422,
+        "indeterminate": 1548,
         "pilotNondeterministic": 9
       },
       "duplicateElements": {
@@ -306,12 +306,12 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 78186,
-        "presentDifferent": 1525,
-        "oursMissing": 72926,
-        "pilotMissing": 5550,
-        "absentBoth": 135065,
-        "indeterminate": 1986,
+        "presentEqual": 88109,
+        "presentDifferent": 1789,
+        "oursMissing": 62467,
+        "pilotMissing": 5602,
+        "absentBoth": 135062,
+        "indeterminate": 2258,
         "pilotNondeterministic": 7
       },
       "duplicateElements": {
@@ -343,12 +343,12 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 16783,
-        "presentDifferent": 421,
-        "oursMissing": 15647,
-        "pilotMissing": 1057,
+        "presentEqual": 18938,
+        "presentDifferent": 485,
+        "oursMissing": 13390,
+        "pilotMissing": 1064,
         "absentBoth": 31436,
-        "indeterminate": 376,
+        "indeterminate": 414,
         "pilotNondeterministic": 0
       },
       "duplicateElements": {
@@ -380,12 +380,12 @@
         "typeMismatch": 186
       },
       "properties": {
-        "presentEqual": 352806,
-        "presentDifferent": 8670,
-        "oursMissing": 328111,
-        "pilotMissing": 20735,
+        "presentEqual": 393260,
+        "presentDifferent": 10192,
+        "oursMissing": 284757,
+        "pilotMissing": 20805,
         "absentBoth": 616404,
-        "indeterminate": 9923,
+        "indeterminate": 11301,
         "pilotNondeterministic": 164
       },
       "duplicateElements": {
@@ -416,12 +416,12 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 557,
+        "presentEqual": 627,
         "presentDifferent": 1,
-        "oursMissing": 452,
+        "oursMissing": 380,
         "pilotMissing": 41,
         "absentBoth": 993,
-        "indeterminate": 13,
+        "indeterminate": 15,
         "pilotNondeterministic": 0
       },
       "duplicateElements": {
@@ -452,12 +452,12 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 90042,
-        "presentDifferent": 2092,
-        "oursMissing": 88426,
+        "presentEqual": 100743,
+        "presentDifferent": 2378,
+        "oursMissing": 77089,
         "pilotMissing": 4816,
         "absentBoth": 150087,
-        "indeterminate": 2170,
+        "indeterminate": 2520,
         "pilotNondeterministic": 36
       },
       "duplicateElements": {
@@ -3372,9 +3372,9 @@
       0
     ],
     "ActorMembership.memberName": [
-      0,
-      0,
       71,
+      0,
+      0,
       0,
       0,
       0,
@@ -3516,27 +3516,27 @@
       0
     ],
     "ActorMembership.relatedElement": [
-      0,
-      0,
       71,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "ActorMembership.source": [
-      0,
-      0,
       71,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "ActorMembership.target": [
-      0,
-      0,
       71,
+      0,
+      0,
       0,
       0,
       0,
@@ -31803,27 +31803,27 @@
       0
     ],
     "ElementFilterMembership.relatedElement": [
+      30,
+      27,
       0,
-      0,
-      57,
       0,
       0,
       0,
       0
     ],
     "ElementFilterMembership.source": [
-      0,
-      0,
       57,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "ElementFilterMembership.target": [
+      30,
+      27,
       0,
-      0,
-      57,
       0,
       0,
       0,
@@ -32055,27 +32055,27 @@
       0
     ],
     "EndFeatureMembership.relatedElement": [
+      129,
+      395,
       0,
-      0,
-      524,
       0,
       0,
       0,
       0
     ],
     "EndFeatureMembership.source": [
-      0,
-      0,
       524,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "EndFeatureMembership.target": [
+      129,
+      395,
       0,
-      0,
-      524,
       0,
       0,
       0,
@@ -38391,18 +38391,18 @@
       0
     ],
     "FeatureMembership.memberName": [
-      0,
-      0,
-      9391,
-      0,
+      9025,
+      4,
+      362,
+      196,
       0,
       0,
       0
     ],
     "FeatureMembership.memberShortName": [
-      0,
-      0,
       70,
+      0,
+      0,
       0,
       0,
       0,
@@ -38535,30 +38535,30 @@
       0
     ],
     "FeatureMembership.relatedElement": [
+      9476,
+      570,
       0,
       0,
-      10944,
       0,
-      0,
-      0,
+      898,
       0
     ],
     "FeatureMembership.source": [
-      0,
-      0,
       10944,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "FeatureMembership.target": [
+      9476,
+      570,
       0,
       0,
-      10944,
       0,
-      0,
-      0,
+      898,
       0
     ],
     "FeatureMembership.textualRepresentation": [
@@ -39678,27 +39678,27 @@
       0
     ],
     "FeatureValue.relatedElement": [
+      7014,
+      308,
       0,
-      0,
-      7322,
       0,
       0,
       0,
       0
     ],
     "FeatureValue.source": [
-      0,
-      0,
       7322,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "FeatureValue.target": [
+      7014,
+      308,
       0,
-      0,
-      7322,
       0,
       0,
       0,
@@ -45195,10 +45195,10 @@
       0
     ],
     "FramedConcernMembership.memberName": [
-      0,
-      0,
       12,
       0,
+      0,
+      2,
       0,
       0,
       0
@@ -45357,27 +45357,27 @@
       0
     ],
     "FramedConcernMembership.relatedElement": [
+      12,
+      2,
       0,
-      0,
-      14,
       0,
       0,
       0,
       0
     ],
     "FramedConcernMembership.source": [
-      0,
-      0,
       14,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "FramedConcernMembership.target": [
+      12,
+      2,
       0,
-      0,
-      14,
       0,
       0,
       0,
@@ -58326,30 +58326,30 @@
       0
     ],
     "Membership.relatedElement": [
+      2199,
+      15,
+      88,
       0,
       0,
-      3271,
-      0,
-      0,
-      0,
+      969,
       0
     ],
     "Membership.source": [
+      3183,
       0,
-      0,
-      3271,
+      88,
       0,
       0,
       0,
       0
     ],
     "Membership.target": [
+      2200,
+      14,
+      88,
       0,
       0,
-      3271,
-      0,
-      0,
-      0,
+      969,
       0
     ],
     "Membership.textualRepresentation": [
@@ -65643,9 +65643,9 @@
       0
     ],
     "ObjectiveMembership.memberName": [
-      0,
-      0,
       88,
+      0,
+      0,
       0,
       0,
       0,
@@ -65787,27 +65787,27 @@
       0
     ],
     "ObjectiveMembership.relatedElement": [
+      28,
+      60,
       0,
-      0,
-      88,
       0,
       0,
       0,
       0
     ],
     "ObjectiveMembership.source": [
-      0,
-      0,
       88,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "ObjectiveMembership.target": [
+      28,
+      60,
       0,
-      0,
-      88,
       0,
       0,
       0,
@@ -68307,19 +68307,19 @@
       0
     ],
     "OwningMembership.memberName": [
-      0,
-      0,
-      5706,
-      0,
+      5399,
+      151,
+      156,
+      107,
       0,
       0,
       0
     ],
     "OwningMembership.memberShortName": [
+      52,
       0,
-      0,
-      53,
-      0,
+      1,
+      1,
       0,
       0,
       0
@@ -68433,30 +68433,30 @@
       0
     ],
     "OwningMembership.relatedElement": [
+      9046,
+      434,
       0,
       0,
-      9706,
       0,
-      0,
-      0,
+      226,
       0
     ],
     "OwningMembership.source": [
-      0,
-      0,
       9706,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "OwningMembership.target": [
-      0,
-      0,
-      9703,
+      9046,
+      431,
       0,
       3,
       0,
+      226,
       0
     ],
     "OwningMembership.textualRepresentation": [
@@ -68766,9 +68766,9 @@
       0
     ],
     "ParameterMembership.memberName": [
+      24,
       0,
-      0,
-      4569,
+      4545,
       0,
       0,
       0,
@@ -68901,27 +68901,27 @@
       0
     ],
     "ParameterMembership.relatedElement": [
+      4375,
+      210,
       0,
-      0,
-      4585,
       0,
       0,
       0,
       0
     ],
     "ParameterMembership.source": [
-      0,
-      0,
       4585,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "ParameterMembership.target": [
+      4375,
+      210,
       0,
-      0,
-      4585,
       0,
       0,
       0,
@@ -78288,18 +78288,18 @@
       0
     ],
     "RequirementConstraintMembership.memberName": [
-      0,
-      0,
       31,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "RequirementConstraintMembership.memberShortName": [
-      0,
-      0,
       11,
+      0,
+      0,
       0,
       0,
       0,
@@ -78450,27 +78450,27 @@
       0
     ],
     "RequirementConstraintMembership.relatedElement": [
+      172,
+      1,
       0,
-      0,
-      173,
       0,
       0,
       0,
       0
     ],
     "RequirementConstraintMembership.source": [
-      0,
-      0,
       173,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "RequirementConstraintMembership.target": [
+      172,
+      1,
       0,
-      0,
-      173,
       0,
       0,
       0,
@@ -80574,18 +80574,18 @@
       0
     ],
     "RequirementVerificationMembership.memberName": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "RequirementVerificationMembership.memberShortName": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -80745,27 +80745,27 @@
       0
     ],
     "RequirementVerificationMembership.relatedElement": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "RequirementVerificationMembership.source": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "RequirementVerificationMembership.target": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
@@ -80997,27 +80997,27 @@
       0
     ],
     "ResultExpressionMembership.relatedElement": [
-      0,
-      0,
       430,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "ResultExpressionMembership.source": [
-      0,
-      0,
       430,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "ResultExpressionMembership.target": [
-      0,
-      0,
       430,
+      0,
+      0,
       0,
       0,
       0,
@@ -81123,9 +81123,9 @@
       0
     ],
     "ReturnParameterMembership.memberName": [
+      131,
       0,
-      0,
-      4855,
+      4724,
       0,
       0,
       0,
@@ -81258,27 +81258,27 @@
       0
     ],
     "ReturnParameterMembership.relatedElement": [
+      4512,
+      343,
       0,
-      0,
-      4855,
       0,
       0,
       0,
       0
     ],
     "ReturnParameterMembership.source": [
-      0,
-      0,
       4855,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "ReturnParameterMembership.target": [
+      4512,
+      343,
       0,
-      0,
-      4855,
       0,
       0,
       0,
@@ -84381,9 +84381,9 @@
       0
     ],
     "StakeholderMembership.memberName": [
-      0,
-      0,
       15,
+      0,
+      0,
       0,
       0,
       0,
@@ -84525,27 +84525,27 @@
       0
     ],
     "StakeholderMembership.relatedElement": [
-      0,
-      0,
       15,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "StakeholderMembership.source": [
-      0,
-      0,
       15,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "StakeholderMembership.target": [
-      0,
-      0,
       15,
+      0,
+      0,
       0,
       0,
       0,
@@ -88098,9 +88098,9 @@
       0
     ],
     "SubjectMembership.memberName": [
-      0,
-      0,
-      377,
+      307,
+      3,
+      67,
       0,
       0,
       0,
@@ -88242,27 +88242,27 @@
       0
     ],
     "SubjectMembership.relatedElement": [
+      343,
+      34,
       0,
-      0,
-      377,
       0,
       0,
       0,
       0
     ],
     "SubjectMembership.source": [
-      0,
-      0,
       377,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "SubjectMembership.target": [
+      343,
+      34,
       0,
-      0,
-      377,
       0,
       0,
       0,
@@ -93570,9 +93570,9 @@
       0
     ],
     "TransitionFeatureMembership.memberName": [
+      16,
       0,
-      0,
-      79,
+      63,
       0,
       0,
       0,
@@ -93696,27 +93696,27 @@
       0
     ],
     "TransitionFeatureMembership.relatedElement": [
+      1,
+      78,
       0,
-      0,
-      79,
       0,
       0,
       0,
       0
     ],
     "TransitionFeatureMembership.source": [
-      0,
-      0,
       79,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "TransitionFeatureMembership.target": [
+      1,
+      78,
       0,
-      0,
-      79,
       0,
       0,
       0,
@@ -99051,10 +99051,10 @@
       0
     ],
     "VariantMembership.memberName": [
-      0,
-      0,
       135,
       0,
+      0,
+      2,
       0,
       0,
       0
@@ -99168,27 +99168,27 @@
       0
     ],
     "VariantMembership.relatedElement": [
+      140,
+      3,
       0,
-      0,
-      143,
       0,
       0,
       0,
       0
     ],
     "VariantMembership.source": [
-      0,
-      0,
       143,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "VariantMembership.target": [
+      140,
+      3,
       0,
-      0,
-      143,
       0,
       0,
       0,
@@ -101913,10 +101913,10 @@
       0
     ],
     "ViewRenderingMembership.memberName": [
-      0,
-      0,
       33,
       0,
+      0,
+      2,
       0,
       0,
       0
@@ -102057,27 +102057,27 @@
       0
     ],
     "ViewRenderingMembership.relatedElement": [
+      33,
+      2,
       0,
-      0,
-      35,
       0,
       0,
       0,
       0
     ],
     "ViewRenderingMembership.source": [
-      0,
-      0,
       35,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "ViewRenderingMembership.target": [
+      33,
+      2,
       0,
-      0,
-      35,
       0,
       0,
       0,

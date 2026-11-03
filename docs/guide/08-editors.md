@@ -62,6 +62,16 @@ extension, start the server in strict mode instead:
 }
 ```
 
+### Keeping the author's line breaks
+
+Format Document lays the statements out one per line, as `sysml -convert sysml` does. To keep
+the author's line breaks instead — a one-line body such as `enum def Color { red; green; blue; }`
+stays on one line and only indentation and spacing are fixed — turn on the extension's
+`opensysml.format.keepLineBreaks` setting; the extension sends it to the server as the boolean
+`sysml.keepLineBreaks` ([LSP extensions](../reference/lsp.md#keep-line-breaks-setting)) at
+start and again whenever it changes, with no restart. Another editor sets the same setting, or
+starts the server with `sysml-lsp -keep-line-breaks`.
+
 ### Working inside a package-manager project
 
 A workspace folder that is a project — a directory holding a `.project.json`, as a SysML v2
@@ -380,7 +390,8 @@ same way, so its imports of sibling files resolve rather than being reported unr
 - ✅ Workspace symbols (global search)
 - ✅ Document formatting (`textDocument/formatting`; lays the statements out one per line and
   re-indents, as `sysml -convert sysml` does, so `package P { part def A; }` becomes three
-  lines while the author's own line breaks are kept; the reply is one small edit per changed
+  lines while the author's own line breaks are kept — or, with the `keepLineBreaks` setting,
+  re-indents only; the reply is one small edit per changed
   region — a line the layout splits is one edit within that line — never a rewrite of the whole
   file, so the editor keeps its undo history, cursor, selection and folds)
 - ✅ Range formatting (`textDocument/rangeFormatting`; formats the selected lines only, widening a

@@ -61,7 +61,12 @@ elmt:Conjugation__CommunicationPort_om
     sysml:ownedMemberElement elmt:Conjugation__CommunicationPort ;
     sysml:ownedRelatedElement elmt:Conjugation__CommunicationPort ;
     sysml:owningRelatedElement elmt:Conjugation ;
-    sysml:membershipOwningNamespace elmt:Conjugation .
+    sysml:membershipOwningNamespace elmt:Conjugation ;
+    sysml:source elmt:Conjugation ;
+    sysml:target elmt:Conjugation__CommunicationPort ;
+    sysml:relatedElement elmt:Conjugation, elmt:Conjugation__CommunicationPort ;
+    sysml:memberName "CommunicationPort" ;
+    json:relatedElement "[{\"@id\":\"Conjugation\"},{\"@id\":\"Conjugation__CommunicationPort\"}]" .
 
 elmt:Conjugation__CommunicationPort_conjugated
     a sysml:ConjugatedPortDefinition ;
@@ -82,7 +87,11 @@ elmt:Conjugation__CommunicationPort_conjugated_om
     sysml:ownedMemberElement elmt:Conjugation__CommunicationPort_conjugated ;
     sysml:ownedRelatedElement elmt:Conjugation__CommunicationPort_conjugated ;
     sysml:owningRelatedElement elmt:Conjugation__CommunicationPort ;
-    sysml:membershipOwningNamespace elmt:Conjugation__CommunicationPort .
+    sysml:membershipOwningNamespace elmt:Conjugation__CommunicationPort ;
+    sysml:source elmt:Conjugation__CommunicationPort ;
+    sysml:target elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:relatedElement elmt:Conjugation__CommunicationPort, elmt:Conjugation__CommunicationPort_conjugated ;
+    json:relatedElement "[{\"@id\":\"Conjugation__CommunicationPort\"},{\"@id\":\"Conjugation__CommunicationPort_conjugated\"}]" .
 
 elmt:Conjugation__CommunicationPort_conjugated_pc
     a sysml:PortConjugation ;
@@ -127,8 +136,13 @@ elmt:Conjugation__CommunicationPort__signal_om
     sysml:ownedRelatedElement elmt:Conjugation__CommunicationPort__signal ;
     sysml:owningRelatedElement elmt:Conjugation__CommunicationPort ;
     sysml:membershipOwningNamespace elmt:Conjugation__CommunicationPort ;
+    sysml:source elmt:Conjugation__CommunicationPort ;
+    sysml:target elmt:Conjugation__CommunicationPort__signal ;
+    sysml:relatedElement elmt:Conjugation__CommunicationPort, elmt:Conjugation__CommunicationPort__signal ;
+    sysml:memberName "signal" ;
     sysml:ownedMemberFeature elmt:Conjugation__CommunicationPort__signal ;
-    sysml:owningType elmt:Conjugation__CommunicationPort .
+    sysml:owningType elmt:Conjugation__CommunicationPort ;
+    json:relatedElement "[{\"@id\":\"Conjugation__CommunicationPort\"},{\"@id\":\"Conjugation__CommunicationPort__signal\"}]" .
 
 elmt:Conjugation__Ground
     a sysml:PartDefinition ;
@@ -166,7 +180,12 @@ elmt:Conjugation__Ground_om
     sysml:ownedMemberElement elmt:Conjugation__Ground ;
     sysml:ownedRelatedElement elmt:Conjugation__Ground ;
     sysml:owningRelatedElement elmt:Conjugation ;
-    sysml:membershipOwningNamespace elmt:Conjugation .
+    sysml:membershipOwningNamespace elmt:Conjugation ;
+    sysml:source elmt:Conjugation ;
+    sysml:target elmt:Conjugation__Ground ;
+    sysml:relatedElement elmt:Conjugation, elmt:Conjugation__Ground ;
+    sysml:memberName "Ground" ;
+    json:relatedElement "[{\"@id\":\"Conjugation\"},{\"@id\":\"Conjugation__Ground\"}]" .
 
 elmt:Conjugation__Ground__groundPort
     a sysml:PortUsage ;
@@ -201,8 +220,13 @@ elmt:Conjugation__Ground__groundPort_om
     sysml:ownedRelatedElement elmt:Conjugation__Ground__groundPort ;
     sysml:owningRelatedElement elmt:Conjugation__Ground ;
     sysml:membershipOwningNamespace elmt:Conjugation__Ground ;
+    sysml:source elmt:Conjugation__Ground ;
+    sysml:target elmt:Conjugation__Ground__groundPort ;
+    sysml:relatedElement elmt:Conjugation__Ground, elmt:Conjugation__Ground__groundPort ;
+    sysml:memberName "groundPort" ;
     sysml:ownedMemberFeature elmt:Conjugation__Ground__groundPort ;
-    sysml:owningType elmt:Conjugation__Ground .
+    sysml:owningType elmt:Conjugation__Ground ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Ground\"},{\"@id\":\"Conjugation__Ground__groundPort\"}]" .
 
 elmt:Conjugation__Ground__spacePort
     a sysml:PortUsage ;
@@ -238,8 +262,13 @@ elmt:Conjugation__Ground__spacePort_om
     sysml:ownedRelatedElement elmt:Conjugation__Ground__spacePort ;
     sysml:owningRelatedElement elmt:Conjugation__Ground ;
     sysml:membershipOwningNamespace elmt:Conjugation__Ground ;
+    sysml:source elmt:Conjugation__Ground ;
+    sysml:target elmt:Conjugation__Ground__spacePort ;
+    sysml:relatedElement elmt:Conjugation__Ground, elmt:Conjugation__Ground__spacePort ;
+    sysml:memberName "spacePort" ;
     sysml:ownedMemberFeature elmt:Conjugation__Ground__spacePort ;
-    sysml:owningType elmt:Conjugation__Ground .
+    sysml:owningType elmt:Conjugation__Ground ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Ground\"},{\"@id\":\"Conjugation__Ground__spacePort\"}]" .
 
 elmt:Conjugation__Link
     a sysml:InterfaceDefinition ;
@@ -277,7 +306,12 @@ elmt:Conjugation__Link_om
     sysml:ownedMemberElement elmt:Conjugation__Link ;
     sysml:ownedRelatedElement elmt:Conjugation__Link ;
     sysml:owningRelatedElement elmt:Conjugation ;
-    sysml:membershipOwningNamespace elmt:Conjugation .
+    sysml:membershipOwningNamespace elmt:Conjugation ;
+    sysml:source elmt:Conjugation ;
+    sysml:target elmt:Conjugation__Link ;
+    sysml:relatedElement elmt:Conjugation, elmt:Conjugation__Link ;
+    sysml:memberName "Link" ;
+    json:relatedElement "[{\"@id\":\"Conjugation\"},{\"@id\":\"Conjugation__Link\"}]" .
 
 elmt:Conjugation__Link__a
     a sysml:PortUsage ;
@@ -314,8 +348,13 @@ elmt:Conjugation__Link__a_om
     sysml:ownedRelatedElement elmt:Conjugation__Link__a ;
     sysml:owningRelatedElement elmt:Conjugation__Link ;
     sysml:membershipOwningNamespace elmt:Conjugation__Link ;
+    sysml:source elmt:Conjugation__Link ;
+    sysml:target elmt:Conjugation__Link__a ;
+    sysml:relatedElement elmt:Conjugation__Link, elmt:Conjugation__Link__a ;
+    sysml:memberName "a" ;
     sysml:ownedMemberFeature elmt:Conjugation__Link__a ;
-    sysml:owningType elmt:Conjugation__Link .
+    sysml:owningType elmt:Conjugation__Link ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Link\"},{\"@id\":\"Conjugation__Link__a\"}]" .
 
 elmt:Conjugation__Link__b
     a sysml:PortUsage ;
@@ -353,8 +392,13 @@ elmt:Conjugation__Link__b_om
     sysml:ownedRelatedElement elmt:Conjugation__Link__b ;
     sysml:owningRelatedElement elmt:Conjugation__Link ;
     sysml:membershipOwningNamespace elmt:Conjugation__Link ;
+    sysml:source elmt:Conjugation__Link ;
+    sysml:target elmt:Conjugation__Link__b ;
+    sysml:relatedElement elmt:Conjugation__Link, elmt:Conjugation__Link__b ;
+    sysml:memberName "b" ;
     sysml:ownedMemberFeature elmt:Conjugation__Link__b ;
-    sysml:owningType elmt:Conjugation__Link .
+    sysml:owningType elmt:Conjugation__Link ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Link\"},{\"@id\":\"Conjugation__Link__b\"}]" .
 
 elmt:Conjugation__Ground__groundPort_ft0
     a sysml:FeatureTyping ;

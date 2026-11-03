@@ -337,16 +337,21 @@ type AssignTarget struct {
 
 // assignTarget reports the chained target an assignment states, flattening a
 // nested chain into one walk. It reports false for a plain or
-// namespace-qualified name, neither of which reaches through an object.
+// namespace-qualified name, neither of which reaches through an object. A chain
+// from a computed base (`gauges#(1).reading`) is a walk from that expression,
+// written for diagnostics as the base elided.
 func assignTarget(node ast.Node) (*AssignTarget, string, bool) {
 	chain, ok := node.(*ast.FeatureChainExpr)
 	if !ok {
 		return nil, "", false
 	}
 	base, segments := flattenChain(chain)
-	text := FeaturePath(node)
-	if base == nil || len(segments) == 0 || text == "" {
+	if base == nil || len(segments) == 0 {
 		return nil, "", false
+	}
+	text := FeaturePath(node)
+	if text == "" {
+		text = "(…)." + strings.Join(segments, ".")
 	}
 	return &AssignTarget{
 		Base:  base,
@@ -2262,8 +2267,16 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 			Scope:       scope,
 		}
 	}
+	name := ast.SimpleName(m.Target)
+	if name == "" {
+		return Unsupported{
+			Description: "assignment to a target naming no feature",
+			Node:        m,
+			Scope:       scope,
+		}
+	}
 	return Assign{
-		Target: ast.SimpleName(m.Target),
+		Target: name,
 		Value:  m.Value,
 		Node:   m,
 		Scope:  scope,

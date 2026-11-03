@@ -50,7 +50,10 @@ func (s *Server) formattingEdits(docURI uri.URI, opts protocol.FormattingOptions
 	if doc == nil || len(doc.ParseDiagnostics) > 0 {
 		return nil, nil
 	}
-	out, err := formatSource(name, doc.Content, formatOptions(opts))
+	s.mu.Lock()
+	keep := s.keepLineBreaks
+	s.mu.Unlock()
+	out, err := formatSource(name, doc.Content, formatOptions(opts, keep))
 	if errors.Is(err, format.ErrNotIdempotent) {
 		// The formatter declined to rewrite the file. That is its bug, not the
 		// author's, so leave the document alone rather than raise it in the editor.
@@ -78,10 +81,10 @@ func lineSpan(r protocol.Range) (first, last uint32) {
 	return first, last
 }
 
-// formatOptions maps the client's editor settings onto the formatter's. The
-// statements are laid out one per line, as a `-convert sysml` writes them.
-func formatOptions(opts protocol.FormattingOptions) format.Options {
-	out := format.Options{IndentWidth: int(opts.TabSize), UseTabs: !opts.InsertSpaces, BreakStatements: true}
+// formatOptions maps the client's editor settings onto the formatter's: statements
+// laid out one per line as `-convert sysml` writes them, unless keepLineBreaks.
+func formatOptions(opts protocol.FormattingOptions, keepLineBreaks bool) format.Options {
+	out := format.Options{IndentWidth: int(opts.TabSize), UseTabs: !opts.InsertSpaces, BreakStatements: !keepLineBreaks}
 	if out.IndentWidth <= 0 {
 		out.IndentWidth = format.DefaultOptions.IndentWidth
 	}

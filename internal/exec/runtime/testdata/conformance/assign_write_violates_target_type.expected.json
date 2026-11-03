@@ -2,5 +2,5 @@
 	"type": "instance",
 	"libraries": true,
 	"instantiate": "test::Rig",
-	"error": "cannot write \"not a number\" (string) to a feature typed by Real"
+	"startFailures": ["cannot write \"not a number\" (string) to a feature typed by Real"]
 }

@@ -106,7 +106,9 @@ holding only an expression (`assert constraint { x > 0 }`), an empty body, the b
 expression (`->forAll { in x; ... }`) and a note at the end of a line stay as written.
 `sysml model.sysml -convert sysml -o model.sysml` is therefore the way to tidy a file from the
 command line, and the editor's Format Document lays a file out the same way; a save (below)
-writes the text as it stands.
+writes the text as it stands. To keep every line break instead and fix indentation and spacing
+only, pass `-keep-line-breaks` with `-convert sysml`, or turn on the editor's `keepLineBreaks`
+setting ([Editors](08-editors.md#keeping-the-authors-line-breaks)).
 
 ### The standard library as a model
 

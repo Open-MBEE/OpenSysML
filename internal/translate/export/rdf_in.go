@@ -736,6 +736,8 @@ type decoder struct {
 	wanted *wanted
 	// printed and usedExpr are written as source text in this pass and rebuilt
 	// canonically; demoted and demotedExpr had their text proved stale earlier.
+	// holders answers blame's reverse lookups over graph for one demoteStale pass.
+	holders     holderIndex
 	printed     map[*element]bool
 	rebuilt     map[*element]bool
 	demoted     map[*element]bool
@@ -841,6 +843,9 @@ func (d *decoder) build() ([]*element, error) {
 		}
 	}
 	if err := d.verifyNormativeNodes(); err != nil {
+		return nil, err
+	}
+	if err := d.checkStatedMembershipEnds(); err != nil {
 		return nil, err
 	}
 	if err := d.checkReferences(); err != nil {
@@ -1017,6 +1022,85 @@ func (d *decoder) expressionOwner(term rdf.Term) bool {
 // name for the property and once under the Relationship's — and either spelling
 // is accepted, since a graph from another tool may carry only one; spellings
 // that disagree, a literal end, or a second membership claiming the member are
+// checkStatedMembershipEnds validates the stated ends of every membership, the named ones an alias
+// or `first` writes included: readMembership checks only the structural ones it reads.
+func (d *decoder) checkStatedMembershipEnds() error {
+	if d.names != nil {
+		// A later pass re-reads the graph the first pass validated.
+		return nil
+	}
+	for _, subject := range d.graph.SubjectsView() {
+		if !(ontology.IsAncestorOrSelf(d.metaclass(subject), mMembership) || d.nodeMembership[subject.Value]) {
+			continue
+		}
+		var stated string
+		for _, property := range []string{pSource, pTarget, pRelatedElement} {
+			if _, ok := d.graph.Object(subject, rdf.SysML+property); ok {
+				stated = property
+				break
+			}
+		}
+		if stated == "" {
+			continue
+		}
+		what := fmt.Sprintf("the membership <%s>", subject.Value)
+		owner, hasOwner := d.graph.Object(subject, rdf.SysML+pMembershipOwningNamespace)
+		if !hasOwner {
+			owner, hasOwner = d.graph.Object(subject, rdf.SysML+pOwningRelatedElement)
+		}
+		member, hasMember := d.graph.Object(subject, rdf.SysML+pMemberElement)
+		if !hasOwner || !hasMember {
+			continue
+		}
+		if !member.IsIRI() {
+			return &UnsupportedError{
+				What: what,
+				Note: fmt.Sprintf("its member is the name %q, which no element of the graph answers to, yet it states sysml:%s — an end needs an element", member.Value, stated),
+			}
+		}
+		if err := d.membershipEndsAgree(subject, what, owner, member); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// membershipEndsAgree refuses a membership whose stated source, target or relatedElement
+// is not the owner, the member, or both in that order (KerML 8.3.2.3.5, 8.3.2.5.2).
+func (d *decoder) membershipEndsAgree(subject rdf.Term, what string, owner, member rdf.Term) error {
+	// A namespace aliasing itself has one related element: the triples are a set.
+	related := []rdf.Term{owner, member}
+	if owner == member {
+		related = related[:1]
+	}
+	want := map[string][]rdf.Term{pSource: {owner}, pTarget: {member}, pRelatedElement: related}
+	for _, property := range []string{pSource, pTarget, pRelatedElement} {
+		stated := d.graph.Objects(subject, rdf.SysML+property)
+		if len(stated) == 0 {
+			continue
+		}
+		if !slices.Equal(stated, want[property]) {
+			return &UnsupportedError{
+				What: what,
+				Note: fmt.Sprintf("its sysml:%s is %s, but a membership's ends are its owning namespace <%s> and its member <%s>, which its ownership edges state", property, termsText(stated), owner.Value, member.Value),
+			}
+		}
+	}
+	return nil
+}
+
+func termsText(terms []rdf.Term) string {
+	parts := make([]string, 0, len(terms))
+	for _, term := range terms {
+		if term.IsIRI() {
+			parts = append(parts, "<"+term.Value+">")
+		} else {
+			parts = append(parts, fmt.Sprintf("%q", term.Value))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
 // refused, since each would drop an edge.
 func (d *decoder) readMembership(subject rdf.Term) error {
 	what := fmt.Sprintf("the membership <%s>", subject.Value)
@@ -1045,6 +1129,9 @@ func (d *decoder) readMembership(subject rdf.Term) error {
 				}
 			}
 		}
+	}
+	if err := d.membershipEndsAgree(subject, what, owner, member); err != nil {
+		return err
 	}
 	m := membership{iri: subject.Value, owner: owner.Value, member: member.Value}
 	if d.isNodeMembership(subject) {
@@ -1268,6 +1355,12 @@ func (d *decoder) checkReferences() error {
 		if d.metaclass(triple.Subject) == mReferenceSubsetting &&
 			(triple.Predicate.Value == rdf.SysML+pSource ||
 				triple.Predicate.Value == rdf.SysML+pTarget) {
+			continue
+		}
+		// A membership's ends restate its owner and member, which its ownership edges already check.
+		if (ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), mMembership) || d.nodeMembership[triple.Subject.Value]) &&
+			(triple.Predicate.Value == rdf.SysML+pSource || triple.Predicate.Value == rdf.SysML+pTarget ||
+				triple.Predicate.Value == rdf.SysML+pRelatedElement) {
 			continue
 		}
 		if _, err := d.referencedElement(triple.Object.Value); err != nil {

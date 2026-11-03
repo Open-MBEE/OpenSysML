@@ -69,7 +69,7 @@ func instantiateBounded(t *testing.T, src, fqn string) error {
 				done <- fmt.Errorf("Instantiate panicked: %v", r)
 			}
 		}()
-		_, err := ctx.Instantiate(sym)
+		_, err := instantiateReporting(ctx, sym)
 		done <- err
 	}()
 	select {

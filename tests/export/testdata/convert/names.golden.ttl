@@ -52,7 +52,13 @@ elmt:Named__Vehicle_om
     sysml:ownedMemberElement elmt:Named__Vehicle ;
     sysml:ownedRelatedElement elmt:Named__Vehicle ;
     sysml:owningRelatedElement elmt:Named ;
-    sysml:membershipOwningNamespace elmt:Named .
+    sysml:membershipOwningNamespace elmt:Named ;
+    sysml:source elmt:Named ;
+    sysml:target elmt:Named__Vehicle ;
+    sysml:relatedElement elmt:Named, elmt:Named__Vehicle ;
+    sysml:memberName "Vehicle" ;
+    sysml:memberShortName "v1" ;
+    json:relatedElement "[{\"@id\":\"Named\"},{\"@id\":\"Named__Vehicle\"}]" .
 
 elmt:Named__Car
     a sysml:Membership ;
@@ -70,8 +76,12 @@ elmt:Named__Car
     sysx:declaredKeyword "alias" ;
     sysml:memberName "Car" ;
     sysml:memberElement elmt:Named__Vehicle ;
+    sysml:source elmt:Named ;
+    sysml:target elmt:Named__Vehicle ;
+    sysml:relatedElement elmt:Named, elmt:Named__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "    alias Car for Vehicle;\n" .
+    sysx:sourceText "    alias Car for Vehicle;\n" ;
+    json:relatedElement "[{\"@id\":\"Named\"},{\"@id\":\"Named__Vehicle\"}]" .
 
 elmt:Named__Mass
     a sysml:AttributeDefinition ;
@@ -99,4 +109,10 @@ elmt:Named__Mass_om
     sysml:ownedMemberElement elmt:Named__Mass ;
     sysml:ownedRelatedElement elmt:Named__Mass ;
     sysml:owningRelatedElement elmt:Named ;
-    sysml:membershipOwningNamespace elmt:Named .
+    sysml:membershipOwningNamespace elmt:Named ;
+    sysml:source elmt:Named ;
+    sysml:target elmt:Named__Mass ;
+    sysml:relatedElement elmt:Named, elmt:Named__Mass ;
+    sysml:memberName "Mass" ;
+    sysml:memberShortName "m" ;
+    json:relatedElement "[{\"@id\":\"Named\"},{\"@id\":\"Named__Mass\"}]" .

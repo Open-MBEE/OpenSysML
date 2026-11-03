@@ -59,7 +59,12 @@ elmt:Mult__exactlyOne_om
     sysml:ownedMemberElement elmt:Mult__exactlyOne ;
     sysml:ownedRelatedElement elmt:Mult__exactlyOne ;
     sysml:owningRelatedElement elmt:Mult ;
-    sysml:membershipOwningNamespace elmt:Mult .
+    sysml:membershipOwningNamespace elmt:Mult ;
+    sysml:source elmt:Mult ;
+    sysml:target elmt:Mult__exactlyOne ;
+    sysml:relatedElement elmt:Mult, elmt:Mult__exactlyOne ;
+    sysml:memberName "exactlyOne" ;
+    json:relatedElement "[{\"@id\":\"Mult\"},{\"@id\":\"Mult__exactlyOne\"}]" .
 
 <urn:opensysml:expr:Mult__exactlyOne_plowerBound>
     a sysml:LiteralInteger ;
@@ -79,7 +84,11 @@ elmt:Mult__exactlyOne_om
     sysml:ownedMemberElement <urn:opensysml:expr:Mult__exactlyOne_plowerBound> ;
     sysml:ownedRelatedElement <urn:opensysml:expr:Mult__exactlyOne_plowerBound> ;
     sysml:owningRelatedElement elmt:Mult__exactlyOne ;
-    sysml:membershipOwningNamespace elmt:Mult__exactlyOne .
+    sysml:membershipOwningNamespace elmt:Mult__exactlyOne ;
+    sysml:source elmt:Mult__exactlyOne ;
+    sysml:target <urn:opensysml:expr:Mult__exactlyOne_plowerBound> ;
+    sysml:relatedElement elmt:Mult__exactlyOne, <urn:opensysml:expr:Mult__exactlyOne_plowerBound> ;
+    json:relatedElement "[{\"@id\":\"Mult__exactlyOne\"},{\"@id\":\"Mult__exactlyOne_plowerBound\"}]" .
 
 <urn:opensysml:expr:Mult__exactlyOne_pupperBound>
     a sysml:LiteralInteger ;
@@ -99,7 +108,11 @@ elmt:Mult__exactlyOne_om
     sysml:ownedMemberElement <urn:opensysml:expr:Mult__exactlyOne_pupperBound> ;
     sysml:ownedRelatedElement <urn:opensysml:expr:Mult__exactlyOne_pupperBound> ;
     sysml:owningRelatedElement elmt:Mult__exactlyOne ;
-    sysml:membershipOwningNamespace elmt:Mult__exactlyOne .
+    sysml:membershipOwningNamespace elmt:Mult__exactlyOne ;
+    sysml:source elmt:Mult__exactlyOne ;
+    sysml:target <urn:opensysml:expr:Mult__exactlyOne_pupperBound> ;
+    sysml:relatedElement elmt:Mult__exactlyOne, <urn:opensysml:expr:Mult__exactlyOne_pupperBound> ;
+    json:relatedElement "[{\"@id\":\"Mult__exactlyOne\"},{\"@id\":\"Mult__exactlyOne_pupperBound\"}]" .
 
 elmt:Mult__optional
     a sysml:MultiplicityRange ;
@@ -134,7 +147,12 @@ elmt:Mult__optional_om
     sysml:ownedMemberElement elmt:Mult__optional ;
     sysml:ownedRelatedElement elmt:Mult__optional ;
     sysml:owningRelatedElement elmt:Mult ;
-    sysml:membershipOwningNamespace elmt:Mult .
+    sysml:membershipOwningNamespace elmt:Mult ;
+    sysml:source elmt:Mult ;
+    sysml:target elmt:Mult__optional ;
+    sysml:relatedElement elmt:Mult, elmt:Mult__optional ;
+    sysml:memberName "optional" ;
+    json:relatedElement "[{\"@id\":\"Mult\"},{\"@id\":\"Mult__optional\"}]" .
 
 <urn:opensysml:expr:Mult__optional_plowerBound>
     a sysml:LiteralInteger ;
@@ -154,7 +172,11 @@ elmt:Mult__optional_om
     sysml:ownedMemberElement <urn:opensysml:expr:Mult__optional_plowerBound> ;
     sysml:ownedRelatedElement <urn:opensysml:expr:Mult__optional_plowerBound> ;
     sysml:owningRelatedElement elmt:Mult__optional ;
-    sysml:membershipOwningNamespace elmt:Mult__optional .
+    sysml:membershipOwningNamespace elmt:Mult__optional ;
+    sysml:source elmt:Mult__optional ;
+    sysml:target <urn:opensysml:expr:Mult__optional_plowerBound> ;
+    sysml:relatedElement elmt:Mult__optional, <urn:opensysml:expr:Mult__optional_plowerBound> ;
+    json:relatedElement "[{\"@id\":\"Mult__optional\"},{\"@id\":\"Mult__optional_plowerBound\"}]" .
 
 <urn:opensysml:expr:Mult__optional_pupperBound>
     a sysml:LiteralInteger ;
@@ -174,7 +196,11 @@ elmt:Mult__optional_om
     sysml:ownedMemberElement <urn:opensysml:expr:Mult__optional_pupperBound> ;
     sysml:ownedRelatedElement <urn:opensysml:expr:Mult__optional_pupperBound> ;
     sysml:owningRelatedElement elmt:Mult__optional ;
-    sysml:membershipOwningNamespace elmt:Mult__optional .
+    sysml:membershipOwningNamespace elmt:Mult__optional ;
+    sysml:source elmt:Mult__optional ;
+    sysml:target <urn:opensysml:expr:Mult__optional_pupperBound> ;
+    sysml:relatedElement elmt:Mult__optional, <urn:opensysml:expr:Mult__optional_pupperBound> ;
+    json:relatedElement "[{\"@id\":\"Mult__optional\"},{\"@id\":\"Mult__optional_pupperBound\"}]" .
 
 elmt:Mult__single
     a sysml:Multiplicity ;
@@ -207,7 +233,12 @@ elmt:Mult__single_om
     sysml:ownedMemberElement elmt:Mult__single ;
     sysml:ownedRelatedElement elmt:Mult__single ;
     sysml:owningRelatedElement elmt:Mult ;
-    sysml:membershipOwningNamespace elmt:Mult .
+    sysml:membershipOwningNamespace elmt:Mult ;
+    sysml:source elmt:Mult ;
+    sysml:target elmt:Mult__single ;
+    sysml:relatedElement elmt:Mult, elmt:Mult__single ;
+    sysml:memberName "single" ;
+    json:relatedElement "[{\"@id\":\"Mult\"},{\"@id\":\"Mult__single\"}]" .
 
 elmt:Mult__single_ss0
     a sysml:Subsetting ;

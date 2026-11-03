@@ -1,0 +1,70 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::probe",
+  "outputs": {
+    "one": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Boolean",
+          "value": true
+        }
+      ]
+    }
+  },
+  "reads": {
+    "test::externalAssumptions": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Boolean",
+          "value": false
+        }
+      ]
+    },
+    "test::externalAllTrue": {
+      "type": "Boolean",
+      "value": false
+    },
+    "test::externalResult": {
+      "type": "Boolean",
+      "value": true
+    },
+    "test::externalConstraints": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Boolean",
+          "value": true
+        }
+      ]
+    },
+    "test::guardedAssumptions": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Boolean",
+          "value": true
+        }
+      ]
+    },
+    "test::guardedAllTrue": {
+      "type": "Boolean",
+      "value": true
+    },
+    "test::guardedConstraints": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Boolean",
+          "value": true
+        }
+      ]
+    },
+    "test::guardedResult": {
+      "type": "Boolean",
+      "value": true
+    }
+  }
+}

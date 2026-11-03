@@ -61,7 +61,12 @@ elmt:Colors__Color_om
     sysml:ownedMemberElement elmt:Colors__Color ;
     sysml:ownedRelatedElement elmt:Colors__Color ;
     sysml:owningRelatedElement elmt:Colors ;
-    sysml:membershipOwningNamespace elmt:Colors .
+    sysml:membershipOwningNamespace elmt:Colors ;
+    sysml:source elmt:Colors ;
+    sysml:target elmt:Colors__Color ;
+    sysml:relatedElement elmt:Colors, elmt:Colors__Color ;
+    sysml:memberName "Color" ;
+    json:relatedElement "[{\"@id\":\"Colors\"},{\"@id\":\"Colors__Color\"}]" .
 
 elmt:Colors__Color__red
     a sysml:EnumerationUsage ;
@@ -91,7 +96,12 @@ elmt:Colors__Color__red_om
     sysml:ownedRelatedElement elmt:Colors__Color__red ;
     sysml:owningRelatedElement elmt:Colors__Color ;
     sysml:membershipOwningNamespace elmt:Colors__Color ;
-    sysml:ownedVariantUsage elmt:Colors__Color__red .
+    sysml:source elmt:Colors__Color ;
+    sysml:target elmt:Colors__Color__red ;
+    sysml:relatedElement elmt:Colors__Color, elmt:Colors__Color__red ;
+    sysml:memberName "red" ;
+    sysml:ownedVariantUsage elmt:Colors__Color__red ;
+    json:relatedElement "[{\"@id\":\"Colors__Color\"},{\"@id\":\"Colors__Color__red\"}]" .
 
 elmt:Colors__Color__green
     a sysml:EnumerationUsage ;
@@ -121,7 +131,12 @@ elmt:Colors__Color__green_om
     sysml:ownedRelatedElement elmt:Colors__Color__green ;
     sysml:owningRelatedElement elmt:Colors__Color ;
     sysml:membershipOwningNamespace elmt:Colors__Color ;
-    sysml:ownedVariantUsage elmt:Colors__Color__green .
+    sysml:source elmt:Colors__Color ;
+    sysml:target elmt:Colors__Color__green ;
+    sysml:relatedElement elmt:Colors__Color, elmt:Colors__Color__green ;
+    sysml:memberName "green" ;
+    sysml:ownedVariantUsage elmt:Colors__Color__green ;
+    json:relatedElement "[{\"@id\":\"Colors__Color\"},{\"@id\":\"Colors__Color__green\"}]" .
 
 elmt:Colors__Color__blue
     a sysml:EnumerationUsage ;
@@ -151,4 +166,9 @@ elmt:Colors__Color__blue_om
     sysml:ownedRelatedElement elmt:Colors__Color__blue ;
     sysml:owningRelatedElement elmt:Colors__Color ;
     sysml:membershipOwningNamespace elmt:Colors__Color ;
-    sysml:ownedVariantUsage elmt:Colors__Color__blue .
+    sysml:source elmt:Colors__Color ;
+    sysml:target elmt:Colors__Color__blue ;
+    sysml:relatedElement elmt:Colors__Color, elmt:Colors__Color__blue ;
+    sysml:memberName "blue" ;
+    sysml:ownedVariantUsage elmt:Colors__Color__blue ;
+    json:relatedElement "[{\"@id\":\"Colors__Color\"},{\"@id\":\"Colors__Color__blue\"}]" .

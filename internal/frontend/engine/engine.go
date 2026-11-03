@@ -770,7 +770,7 @@ func (e *Engine) instantiate(ctx context.Context, req *JInstantiateRequest) ([]b
 	runtimeCtx := e.newRuntime(ctx, cached)
 
 	var graph instanceGraph
-	_, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
+	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
 		graph = instanceGraphToProto(runtimeCtx, inst, cached.Index)
 		for _, err := range graph.Errors {
 			if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
@@ -785,8 +785,9 @@ func (e *Engine) instantiate(ctx context.Context, req *JInstantiateRequest) ([]b
 		})
 	}
 	return marshal(&JInstantiateResponse{
-		Instance:  graph.Root,
-		Instances: graph.All,
+		Instance:    graph.Root,
+		Instances:   graph.All,
+		Diagnostics: runNoteDiagnosticsToProto(runtimeCtx.StartFailureNotes(inst), cached),
 	})
 }
 

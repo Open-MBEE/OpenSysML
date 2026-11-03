@@ -422,8 +422,28 @@ func instantiateInSource(t *testing.T, src, fqn string) (*Context, *Instance, er
 		t.Fatal("parse failed")
 	}
 	idx, _, ctx := buildRuntime(t, "<test>", file)
-	inst, err := ctx.Instantiate(oneSymbol(t, idx, fqn))
+	inst, err := instantiateReporting(ctx, oneSymbol(t, idx, fqn))
 	return ctx, inst, err
+}
+
+// instantiateReporting is Instantiate answering, beside the object it made, the
+// failure recorded on a behavior of the object that could not start: the object
+// stands, and a case whose contract is that failure reads it here.
+func instantiateReporting(ctx *Context, sym *symbols.Symbol) (*Instance, error) {
+	inst, err := ctx.Instantiate(sym)
+	if err != nil {
+		return inst, err
+	}
+	return inst, startFailure(ctx, inst)
+}
+
+// startFailure is the first failure recorded on a behavior of inst, or of an
+// object it holds, that could not start; nil when every behavior started.
+func startFailure(ctx *Context, inst *Instance) error {
+	for _, b := range ctx.StartFailures(inst) {
+		return b.Err
+	}
+	return nil
 }
 
 // instantiateWithLibraries materializes the named type declared in src over an
@@ -431,7 +451,7 @@ func instantiateInSource(t *testing.T, src, fqn string) (*Context, *Instance, er
 func instantiateWithLibraries(t *testing.T, src, fqn string) (*Context, *Instance, error) {
 	t.Helper()
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
-	inst, err := ctx.Instantiate(oneSymbol(t, idx, fqn))
+	inst, err := instantiateReporting(ctx, oneSymbol(t, idx, fqn))
 	return ctx, inst, err
 }
 

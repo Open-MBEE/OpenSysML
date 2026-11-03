@@ -56,7 +56,12 @@ elmt:Chains__IP_om
     sysml:ownedMemberElement elmt:Chains__IP ;
     sysml:ownedRelatedElement elmt:Chains__IP ;
     sysml:owningRelatedElement elmt:Chains ;
-    sysml:membershipOwningNamespace elmt:Chains .
+    sysml:membershipOwningNamespace elmt:Chains ;
+    sysml:source elmt:Chains ;
+    sysml:target elmt:Chains__IP ;
+    sysml:relatedElement elmt:Chains, elmt:Chains__IP ;
+    sysml:memberName "IP" ;
+    json:relatedElement "[{\"@id\":\"Chains\"},{\"@id\":\"Chains__IP\"}]" .
 
 elmt:Chains__IP_conjugated
     a sysml:ConjugatedPortDefinition ;
@@ -77,7 +82,11 @@ elmt:Chains__IP_conjugated_om
     sysml:ownedMemberElement elmt:Chains__IP_conjugated ;
     sysml:ownedRelatedElement elmt:Chains__IP_conjugated ;
     sysml:owningRelatedElement elmt:Chains__IP ;
-    sysml:membershipOwningNamespace elmt:Chains__IP .
+    sysml:membershipOwningNamespace elmt:Chains__IP ;
+    sysml:source elmt:Chains__IP ;
+    sysml:target elmt:Chains__IP_conjugated ;
+    sysml:relatedElement elmt:Chains__IP, elmt:Chains__IP_conjugated ;
+    json:relatedElement "[{\"@id\":\"Chains__IP\"},{\"@id\":\"Chains__IP_conjugated\"}]" .
 
 elmt:Chains__IP_conjugated_pc
     a sysml:PortConjugation ;
@@ -123,7 +132,12 @@ elmt:Chains__IU_om
     sysml:ownedMemberElement elmt:Chains__IU ;
     sysml:ownedRelatedElement elmt:Chains__IU ;
     sysml:owningRelatedElement elmt:Chains ;
-    sysml:membershipOwningNamespace elmt:Chains .
+    sysml:membershipOwningNamespace elmt:Chains ;
+    sysml:source elmt:Chains ;
+    sysml:target elmt:Chains__IU ;
+    sysml:relatedElement elmt:Chains, elmt:Chains__IU ;
+    sysml:memberName "IU" ;
+    json:relatedElement "[{\"@id\":\"Chains\"},{\"@id\":\"Chains__IU\"}]" .
 
 elmt:Chains__IU__pip
     a sysml:PortUsage ;
@@ -158,8 +172,13 @@ elmt:Chains__IU__pip_om
     sysml:ownedRelatedElement elmt:Chains__IU__pip ;
     sysml:owningRelatedElement elmt:Chains__IU ;
     sysml:membershipOwningNamespace elmt:Chains__IU ;
+    sysml:source elmt:Chains__IU ;
+    sysml:target elmt:Chains__IU__pip ;
+    sysml:relatedElement elmt:Chains__IU, elmt:Chains__IU__pip ;
+    sysml:memberName "pip" ;
     sysml:ownedMemberFeature elmt:Chains__IU__pip ;
-    sysml:owningType elmt:Chains__IU .
+    sysml:owningType elmt:Chains__IU ;
+    json:relatedElement "[{\"@id\":\"Chains__IU\"},{\"@id\":\"Chains__IU__pip\"}]" .
 
 elmt:Chains__ctx
     a sysml:PartUsage ;
@@ -198,7 +217,12 @@ elmt:Chains__ctx_om
     sysml:ownedMemberElement elmt:Chains__ctx ;
     sysml:ownedRelatedElement elmt:Chains__ctx ;
     sysml:owningRelatedElement elmt:Chains ;
-    sysml:membershipOwningNamespace elmt:Chains .
+    sysml:membershipOwningNamespace elmt:Chains ;
+    sysml:source elmt:Chains ;
+    sysml:target elmt:Chains__ctx ;
+    sysml:relatedElement elmt:Chains, elmt:Chains__ctx ;
+    sysml:memberName "ctx" ;
+    json:relatedElement "[{\"@id\":\"Chains\"},{\"@id\":\"Chains__ctx\"}]" .
 
 elmt:Chains__ctx__launchVehicle
     a sysml:PartUsage ;
@@ -233,8 +257,13 @@ elmt:Chains__ctx__launchVehicle_om
     sysml:ownedRelatedElement elmt:Chains__ctx__launchVehicle ;
     sysml:owningRelatedElement elmt:Chains__ctx ;
     sysml:membershipOwningNamespace elmt:Chains__ctx ;
+    sysml:source elmt:Chains__ctx ;
+    sysml:target elmt:Chains__ctx__launchVehicle ;
+    sysml:relatedElement elmt:Chains__ctx, elmt:Chains__ctx__launchVehicle ;
+    sysml:memberName "launchVehicle" ;
     sysml:ownedMemberFeature elmt:Chains__ctx__launchVehicle ;
-    sysml:owningType elmt:Chains__ctx .
+    sysml:owningType elmt:Chains__ctx ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx\"},{\"@id\":\"Chains__ctx__launchVehicle\"}]" .
 
 elmt:Chains__ctx__supplier
     a sysml:PartUsage ;
@@ -269,8 +298,13 @@ elmt:Chains__ctx__supplier_om
     sysml:ownedRelatedElement elmt:Chains__ctx__supplier ;
     sysml:owningRelatedElement elmt:Chains__ctx ;
     sysml:membershipOwningNamespace elmt:Chains__ctx ;
+    sysml:source elmt:Chains__ctx ;
+    sysml:target elmt:Chains__ctx__supplier ;
+    sysml:relatedElement elmt:Chains__ctx, elmt:Chains__ctx__supplier ;
+    sysml:memberName "supplier" ;
     sysml:ownedMemberFeature elmt:Chains__ctx__supplier ;
-    sysml:owningType elmt:Chains__ctx .
+    sysml:owningType elmt:Chains__ctx ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx\"},{\"@id\":\"Chains__ctx__supplier\"}]" .
 
 elmt:Chains__ctx___402
     a sysml:ConnectionUsage ;
@@ -316,8 +350,12 @@ elmt:Chains__ctx___402_om
     sysml:ownedRelatedElement elmt:Chains__ctx___402 ;
     sysml:owningRelatedElement elmt:Chains__ctx ;
     sysml:membershipOwningNamespace elmt:Chains__ctx ;
+    sysml:source elmt:Chains__ctx ;
+    sysml:target elmt:Chains__ctx___402 ;
+    sysml:relatedElement elmt:Chains__ctx, elmt:Chains__ctx___402 ;
     sysml:ownedMemberFeature elmt:Chains__ctx___402 ;
-    sysml:owningType elmt:Chains__ctx .
+    sysml:owningType elmt:Chains__ctx ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx\"},{\"@id\":\"Chains__ctx___402\"}]" .
 
 expr:Chains__ctx___402_pend0
     a sysml:ReferenceUsage ;
@@ -344,7 +382,11 @@ expr:Chains__ctx___402_pend0_om
     sysml:ownedMemberElement expr:Chains__ctx___402_pend0 ;
     sysml:ownedRelatedElement expr:Chains__ctx___402_pend0 ;
     sysml:owningRelatedElement elmt:Chains__ctx___402 ;
-    sysml:membershipOwningNamespace elmt:Chains__ctx___402 .
+    sysml:membershipOwningNamespace elmt:Chains__ctx___402 ;
+    sysml:source elmt:Chains__ctx___402 ;
+    sysml:target expr:Chains__ctx___402_pend0 ;
+    sysml:relatedElement elmt:Chains__ctx___402, expr:Chains__ctx___402_pend0 ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx___402\"},{\"@id\":\"Chains__ctx___402_pend0\"}]" .
 
 expr:Chains__ctx___402_pend0_pchain
     a sysml:Feature ;
@@ -439,7 +481,11 @@ expr:Chains__ctx___402_pend1_om
     sysml:ownedMemberElement expr:Chains__ctx___402_pend1 ;
     sysml:ownedRelatedElement expr:Chains__ctx___402_pend1 ;
     sysml:owningRelatedElement elmt:Chains__ctx___402 ;
-    sysml:membershipOwningNamespace elmt:Chains__ctx___402 .
+    sysml:membershipOwningNamespace elmt:Chains__ctx___402 ;
+    sysml:source elmt:Chains__ctx___402 ;
+    sysml:target expr:Chains__ctx___402_pend1 ;
+    sysml:relatedElement elmt:Chains__ctx___402, expr:Chains__ctx___402_pend1 ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx___402\"},{\"@id\":\"Chains__ctx___402_pend1\"}]" .
 
 expr:Chains__ctx___402_pend1_pchain
     a sysml:Feature ;
@@ -533,8 +579,13 @@ elmt:Chains__ctx__r_om
     sysml:ownedRelatedElement elmt:Chains__ctx__r ;
     sysml:owningRelatedElement elmt:Chains__ctx ;
     sysml:membershipOwningNamespace elmt:Chains__ctx ;
+    sysml:source elmt:Chains__ctx ;
+    sysml:target elmt:Chains__ctx__r ;
+    sysml:relatedElement elmt:Chains__ctx, elmt:Chains__ctx__r ;
+    sysml:memberName "r" ;
     sysml:ownedMemberFeature elmt:Chains__ctx__r ;
-    sysml:owningType elmt:Chains__ctx .
+    sysml:owningType elmt:Chains__ctx ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx\"},{\"@id\":\"Chains__ctx__r\"}]" .
 
 expr:Chains__ctx__r_pchain0
     a sysml:Feature ;
