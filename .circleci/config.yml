@@ -3942,22 +3942,43 @@ jobs:
                   exit 1 ;;
               esac
             done
-            docker run -d --name opensysml-check openmbee/opensysml:check
+            # The image serves -host 0.0.0.0, which sysml-grpc refuses without a
+            # bearer token (it binds loopback by default), so the check runs it
+            # as a deployment does: the token in OPENSYSML_GRPC_TOKEN and, with
+            # no TLS inside the check, -allow-insecure-token-transport.
+            token=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+            docker run -d --name opensysml-check -e OPENSYSML_GRPC_TOKEN="$token" \
+              openmbee/opensysml:check \
+              -host 0.0.0.0 -port 50051 -health-port 8081 -allow-insecure-token-transport
+            fail() {
+              echo "Error: $1"
+              echo "--- opensysml-check logs:"
+              docker logs opensysml-check 2>&1 | tail -n 20 || true
+              exit 1
+            }
             curl() {
               docker run --rm --network container:opensysml-check curlimages/curl:8.11.1 \
-                -fsS --retry 10 --retry-connrefused --retry-delay 1 "$@"
+                -sS --retry 10 --retry-connrefused --retry-delay 1 "$@"
             }
-            health=$(curl http://localhost:8081/health)
+            # /health needs no token.
+            health=$(curl -f http://localhost:8081/health) || fail "/health did not answer."
             echo "$health"
             case "$health" in
               *'"status":"ok"'*) ;;
-              *) echo "Error: /health did not answer ok."; exit 1 ;;
+              *) fail "/health did not answer ok: '${health}'." ;;
             esac
-            info=$(curl -X POST -H 'Content-Type: application/json' -d '{}' \
-              http://localhost:50051/sysml.SysMLService/GetServerInfo)
+            # A call without the token is refused: the image fails closed off loopback.
+            denied=$(curl -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' \
+              http://localhost:50051/sysml.SysMLService/GetServerInfo) || fail "GetServerInfo without a token did not answer."
+            case "$denied" in
+              401) echo "ok: GetServerInfo without a token is refused (401)" ;;
+              *) fail "GetServerInfo without a token answered HTTP ${denied}, not 401." ;;
+            esac
+            info=$(curl -f -X POST -H 'Content-Type: application/json' -H "Authorization: Bearer ${token}" -d '{}' \
+              http://localhost:50051/sysml.SysMLService/GetServerInfo) || fail "GetServerInfo with the token did not answer."
             case "$info" in
               *"\"version\":\"${CIRCLE_TAG}\""*) echo "ok: GetServerInfo reports ${CIRCLE_TAG}" ;;
-              *) echo "Error: GetServerInfo answered '${info}', not version ${CIRCLE_TAG}."; exit 1 ;;
+              *) fail "GetServerInfo answered '${info}', not version ${CIRCLE_TAG}." ;;
             esac
             docker rm -f opensysml-check >/dev/null
 
