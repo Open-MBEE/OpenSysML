@@ -501,8 +501,8 @@ checked after the result is bound is not a form the runtime offers, and none is 
 | `TradeStudies` | 7 | 6 | 1 | 0 |
 | `StateSpaceRepresentation` | 17 | 10 | 7 | 0 |
 | `VectorFunctions` | 39 | 30 | 9 | 0 |
-| `OccurrenceFunctions` | 8 | 6 | 2 | 0 |
-| **Total** | **76** | **57** | **19** | **0** |
+| `OccurrenceFunctions` | 8 | 6 | 0 | 2 |
+| **Total** | **76** | **57** | **17** | **2** |
 
 **Refused, by name** (the typed error the runtime answered with):
 
@@ -523,8 +523,11 @@ checked after the result is bound is not a form the runtime offers, and none is 
 - `VectorFunctions::norm::lengthZero` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::norm::lengthZero: constraint lengthZero: require condition evaluation failed: no value: condition is undetermined: l has no value in the model
 - `VectorFunctions::angle::commutivity` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model
 - `VectorFunctions::angle::lengthInsensitive` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::lengthInsensitive: constraint lengthInsensitive: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model
-- `OccurrenceFunctions::removeOld` — `errNotABehavior`: performed action go of object #1: action node work: not a behavior: removeOld is not an action (kermlType)
-- `OccurrenceFunctions::removeOldAt` — `errNotABehavior`: performed action go of object #1: action node work: not a behavior: removeOldAt is not an action (kermlType)
+
+**Wrong, by name** (the value the runtime produced, against the check):
+
+- `OccurrenceFunctions::removeOld` — OccurrenceFunctions::removeOld: type = instance (Const.Kind=0), want Boolean
+- `OccurrenceFunctions::removeOldAt` — OccurrenceFunctions::removeOldAt: type = instance (Const.Kind=0), want Boolean
 <!-- doc-counts:end analysis-libraries -->
 
 ### Constraint

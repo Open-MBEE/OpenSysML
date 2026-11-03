@@ -878,11 +878,15 @@ func testConnectorAnsweredByAFailingBehaviorIsKept(t *testing.T) {
 	}
 
 	// An anonymous connector is kept the same way, in its slot.
-	if _, err := ctx.occurrenceOf(resolveSymbol(t, pkg.Scope, "other")); err != nil {
+	other, err := ctx.occurrenceOf(resolveSymbol(t, pkg.Scope, "other"))
+	if err != nil {
 		t.Fatalf("occurrenceOf other: %v", err)
 	}
-	if _, err := inst.OwnedConnectors(ctx); !errors.Is(err, ErrUnresolvedReference) {
-		t.Fatalf("expected the other listener's behavior to fail on its unresolved reference, got: %v", err)
+	if _, err := inst.OwnedConnectors(ctx); err != nil {
+		t.Fatalf("materializing the connector the other listener failed answering: %v", err)
+	}
+	if err := startFailure(ctx, other); !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("expected the other listener's behavior to record its unresolved reference, got: %v", err)
 	}
 	if got := len(ctx.messages); got != 0 {
 		t.Errorf("%d message(s) left on the bus: the other listener took the signal before failing", got)

@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::relay",
+  "startFailures": ["exhibited state machine contacts of relay: no initial state found in state machine contacts"],
+  "slots": {
+    "rating": {"type": "Real", "value": 10.0}
+  },
+  "validation": {
+    "verdicts": [
+      {"kind": "satisfaction", "assertion": "satisfy ratingOk by relay", "status": "undecided",
+       "error": "rating may still be written by exhibited state machine contacts"}
+    ],
+    "valid": false
+  }
+}

@@ -172,10 +172,11 @@ func (ctx *Context) behaviorAttached(inst *Instance, member *symbols.Symbol) {
 }
 
 // ExhibitedState returns the machine the object exhibits, and false when it
-// exhibits none. With several, it returns the first declared.
+// exhibits none that started: a machine that failed to start is its record
+// (StartFailures), not a machine to run. With several, it returns the first declared.
 func (inst *Instance) ExhibitedState() (*ObjectBehavior, bool) {
 	for _, b := range inst.behaviors {
-		if b.Kind == lower.ExhibitedState {
+		if b.Kind == lower.ExhibitedState && b.Err == nil {
 			return b, true
 		}
 	}
