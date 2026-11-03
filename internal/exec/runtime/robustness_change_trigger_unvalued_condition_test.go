@@ -10,10 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// A change condition reading a feature that carries no value has no result, so
-// it has not become true: the machine waits on it, naming the feature, and the
-// write that gives the feature a value is what makes it fire. An evaluation
-// that fails on its own terms is still an error.
+// A change condition reading an unvalued feature waits for the write that values it;
+// one that fails to evaluate fails its machine, recorded, the object standing.
 func TestRuntimeRobustnessChangeTriggerUnvaluedCondition(t *testing.T) {
 	const relaySource = `package test {
 		private import ScalarValues::*;
@@ -96,7 +94,7 @@ func TestRuntimeRobustnessChangeTriggerUnvaluedCondition(t *testing.T) {
 	}
 
 	t.Run("a condition that fails to evaluate is still an error", func(t *testing.T) {
-		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		ctx, divider, err := instantiateWithLibraries(t, `package test {
 			private import ScalarValues::*;
 			part def Divider {
 				attribute zero : Integer = 0;
@@ -108,13 +106,33 @@ func TestRuntimeRobustnessChangeTriggerUnvaluedCondition(t *testing.T) {
 				}
 			}
 			part divider : Divider;
-		}`))
-		matches := idx.LookupQualified("test::divider")
-		if len(matches) != 1 {
-			t.Fatalf("divider: got %d matching symbols, want 1", len(matches))
+		}`, "test::divider")
+		if !errors.Is(err, ErrDivisionByZero) {
+			t.Fatalf("instantiate divider: %v, want the condition's division by zero recorded on the machine", err)
 		}
-		if _, err := ctx.occurrenceOf(matches[0]); !errors.Is(err, ErrDivisionByZero) {
-			t.Fatalf("occurrenceOf(divider) = %v, want ErrDivisionByZero", err)
+		if _, live := ctx.Instance(divider.ID); !live {
+			t.Fatal("the object whose change condition failed to evaluate is not held")
+		}
+		failed := ctx.StartFailures(divider)
+		if len(failed) != 1 || failed[0].Name != "m" || failed[0].State == nil {
+			t.Fatalf("failed behaviors = %v, want the machine m alone", failed)
+		}
+		if !errors.Is(failed[0].Err, ErrDivisionByZero) || !strings.Contains(failed[0].Err.Error(), "change condition") {
+			t.Errorf("recorded failure = %v, want the change condition's ErrDivisionByZero", failed[0].Err)
+		}
+		if strings.Contains(failed[0].Err.Error(), "no result yet") {
+			t.Errorf("recorded failure = %v, want an error, not a wait", failed[0].Err)
+		}
+		if !failed[0].completed() {
+			t.Error("the failed machine is not ended")
+		}
+		notes := ctx.StartFailureNotes(divider)
+		if len(notes) != 1 {
+			t.Fatalf("notes = %v, want one for the failed machine", notes)
+		}
+		d := notes[0].Diagnostic()
+		if d.Code != BehaviorStartFailureCode || !strings.Contains(d.Message, "state machine m") || !strings.Contains(d.Message, ErrDivisionByZero.Error()) {
+			t.Errorf("diagnostic = %+v, want %s naming machine m and its division by zero", d, BehaviorStartFailureCode)
 		}
 	})
 }
