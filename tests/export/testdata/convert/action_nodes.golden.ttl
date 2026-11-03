@@ -1776,8 +1776,6 @@ elmt:ActionNodes__Drive___4019
     sysml:owningRelationship elmt:ActionNodes__Drive___4019_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4019_om ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:isVariable "true"^^xsd:boolean ;
-    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
@@ -1923,8 +1921,6 @@ elmt:ActionNodes__Drive___4020
     sysml:owningRelationship elmt:ActionNodes__Drive___4020_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4020_om ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:isVariable "true"^^xsd:boolean ;
-    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;

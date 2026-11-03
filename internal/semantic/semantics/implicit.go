@@ -47,6 +47,8 @@ var implicitUsageBases = map[ast.UsageKind]string{
 	ast.UsageActor:            partsFQN,
 	ast.UsageStakeholder:      partsFQN,
 	ast.UsageConnection:       "Connections::connections",
+	ast.UsageBinding:          "Links::selfLinks",
+	ast.UsageSuccession:       "Occurrences::happensBeforeLinks",
 	ast.UsagePort:             "Ports::ports",
 	ast.UsageInterface:        "Interfaces::interfaces",
 	ast.UsageAllocation:       "Allocations::allocations",

@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1291382 present-equal, 32953 present-different, 923659 ours-missing, 70249 pilot-missing, 1987230 absent-both, 30528 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1291410 present-equal, 32925 present-different, 923659 ours-missing, 70249 pilot-missing, 1987230 absent-both, 30528 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
@@ -327,6 +327,18 @@ none is stated. The `memberName` rows still ours-missing — `ParameterMembershi
 library feature it implicitly redefines (`result`, `source`, `logical`, `accepter`, `vehicle`): our
 effective name follows a declared redefinition or reference, not an implied one, on both ledgers; a
 separate family. No other row moved.
+
+**A binding and a succession subset their KerML bases** (re-recorded when the model began giving a
+SysML binding connector `Links::selfLinks` and a succession `Occurrences::happensBeforeLinks` as their
+implied base, KerML 1.1 §8.4.4.7.1 and §8.4.4.8.1, where both had fallen back to `Base::things`): 4
+scorecard rows moved, all to equal; 1291382 → 1291410 present-equal, 32953 → 32925 present-different.
+`BindingConnectorAsUsage.isVariable`/`mayTimeVary` (3 rows each) and `SuccessionAsUsage.isVariable`/
+`mayTimeVary` (12 each) now read `false` on both sides: SysML v2 §8.3.6.4 derives `mayTimeVary` false
+for a usage conforming to `Links::SelfLink` or `Occurrences::HappensLink`, which the model could not
+see while the base was missing. The 18 `EndFeatureMembership.memberName` rows those usages' implied
+ends still differ on (`source`/`target` here, `thisThing`/`sameThing` and `earlierOccurrence`/
+`laterOccurrence` in the pilot) are the end names the ends now redefine; they move once the writer
+states a minted end's `memberName`.
 
 ### Where the two sides state different values
 
