@@ -97,3 +97,61 @@ func TestUnboundParametersSurviveTheRoundTrip(t *testing.T) {
 		t.Errorf("the rebuilt notation states another graph:\n%s", firstLineDifference(stripped, withoutSourceText(t, again)))
 	}
 }
+
+const selectedCallee = `package Selected {
+    calc def F {
+        in x : ScalarValues::Real;
+        in extra : ScalarValues::Real default = 2.0;
+        return r : ScalarValues::Real = x + extra;
+    }
+    part q {
+        calc f : F;
+    }
+    attribute w : ScalarValues::Real = q.f(1.0);
+    part def A {
+        calc def g {
+            in a : ScalarValues::Real;
+            in b : ScalarValues::Real default = 1.0;
+            return r : ScalarValues::Real = a + b;
+        }
+    }
+    part def B {
+        calc def g {
+            in a : ScalarValues::Boolean;
+            in c : ScalarValues::Boolean default = true;
+            return r : ScalarValues::Boolean = a and c;
+        }
+    }
+    part def C :> A, B {
+        attribute one : ScalarValues::Real = g(1.0);
+        attribute two : ScalarValues::Boolean = g(false);
+    }
+    requirement def R {
+        subject s : ScalarValues::Real[0..1];
+        in a : ScalarValues::Real;
+    }
+    attribute checked : ScalarValues::Boolean = R(a = 1.0);
+}
+`
+
+// A receiver chain's call lists the parameters of the Function typing its final link that
+// no argument binds; an overloaded name lists only the parameters of the overload the arguments' types select;
+// a requirement's unbound subject is its first input parameter.
+func TestInvocationListsTheSelectedCalleesUnboundParameters(t *testing.T) {
+	g := turtleOf(t, "selected", selectedCallee)
+	for _, tc := range []struct {
+		feature   string
+		predicate string
+		want      string
+	}{
+		{"Selected::w", "input", "urn:opensysml:expr:Selected__w_pvalue_pin0 urn:sysmlv2:element:Selected__F__extra"},
+		{"Selected::w", "parameter", "urn:opensysml:expr:Selected__w_pvalue_pin0 urn:opensysml:expr:Selected__w_pvalue_pout urn:sysmlv2:element:Selected__F__extra"},
+		{"Selected::C::one", "input", "urn:opensysml:expr:Selected__C__one_pvalue_pin0 urn:sysmlv2:element:Selected__A__g__b"},
+		{"Selected::C::two", "input", "urn:opensysml:expr:Selected__C__two_pvalue_pin0 urn:sysmlv2:element:Selected__B__g__c"},
+		{"Selected::checked", "input", "urn:opensysml:expr:Selected__checked_pvalue_pin0 urn:sysmlv2:element:Selected__R__s"},
+	} {
+		if got := strings.Join(inputsOf(t, g, tc.feature, tc.predicate), " "); got != tc.want {
+			t.Errorf("%s value's %s = %q, want %q", tc.feature, tc.predicate, got, tc.want)
+		}
+	}
+}

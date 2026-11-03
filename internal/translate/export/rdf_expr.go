@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -155,7 +156,7 @@ func (e *encoder) expressionStructure(subject rdf.Term, owner string, node ast.N
 	if resultBearing[expressionMetaclass(node)] {
 		e.resultParameter(subject)
 	}
-	e.unboundParameters(subject, node)
+	e.unboundParameters(subject, owner, node)
 	return nil
 }
 
@@ -640,26 +641,25 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 
 // unboundParameters lists under parameter the callee's parameters no argument binds and
 // no owned feature redefines, the `in` ones under input too (KerML 8.3.4.8.8), after the result as the pilot orders them.
-func (e *encoder) unboundParameters(subject rdf.Term, node ast.Node) {
+func (e *encoder) unboundParameters(subject rdf.Term, owner string, node ast.Node) {
 	var (
-		function *ast.QualifiedName
-		operand  ast.Node
-		args     []ast.Node
-		named    []ast.NamedArg
+		operand ast.Node
+		args    []ast.Node
+		named   []ast.NamedArg
 	)
 	switch n := node.(type) {
 	case *ast.InvocationExpr:
-		function, operand, args, named = n.Type, n.Operand, n.Args, n.NamedArgs
+		operand, args, named = n.Operand, n.Args, n.NamedArgs
+		if n.Type == nil {
+			operand = nil
+		}
 	case *ast.ConstructorExpr:
-		function, args, named = n.Type, n.Args, n.NamedArgs
+		args, named = n.Args, n.NamedArgs
 	default:
 		return
 	}
-	if function == nil || e.ids.model == nil {
-		return
-	}
-	callee, ok := e.res.PartSymbol(function, len(function.Parts)-1)
-	if !ok || callee == nil {
+	callee := e.invokedBehavior(owner, node)
+	if callee == nil {
 		return
 	}
 	positional := len(args)
@@ -678,19 +678,84 @@ func (e *encoder) unboundParameters(subject rdf.Term, node ast.Node) {
 			boundSymbols[p.Symbol] = true
 		}
 	}
-	for _, p := range e.ids.model.BehaviorParametersOf(callee) {
-		if p.IsResult || p.Symbol == nil || boundSymbols[p.Symbol] {
-			continue
+	emit := func(sym *symbols.Symbol, input bool) {
+		if sym == nil || boundSymbols[sym] {
+			return
 		}
-		term := e.symbolTerm(p.Symbol)
+		term := e.symbolTerm(sym)
 		if !term.IsIRI() {
-			continue
+			return
 		}
 		e.graph.Add(subject, e.sysml(pParameter), term)
-		if p.Direction == ast.DirIn || p.Direction == ast.DirInOut {
+		if input {
 			e.graph.Add(subject, e.sysml(pInput), term)
 		}
 	}
+	// A requirement's or case's subject is its first input parameter (SysML v2 §7.19.1, §7.20.1).
+	emit(e.ids.model.SubjectParameterOf(callee), true)
+	for _, p := range e.ids.model.BehaviorParametersOf(callee) {
+		if !p.IsResult {
+			emit(p.Symbol, p.Direction == ast.DirIn || p.Direction == ast.DirInOut)
+		}
+	}
+}
+
+// invokedBehavior is the behavior an invocation calls: the overload the checker selects by its arguments
+// among those its name denotes from the owner's scope, or the one Function typing a receiver chain's final link.
+func (e *encoder) invokedBehavior(owner string, node ast.Node) *symbols.Symbol {
+	if e.ids.model == nil {
+		return nil
+	}
+	switch n := node.(type) {
+	case *ast.InvocationExpr:
+		if n.Type == nil {
+			return e.receiverChainFunction(ast.ReceiverChain(n.Operand))
+		}
+		scope := e.callSiteScope(owner, n.Type)
+		if scope == nil {
+			return nil
+		}
+		return passes.SelectInvocation(e.res, e.ids.model, scope, n, semantics.PerformsBehavior).Selected
+	case *ast.ConstructorExpr:
+		if n.Type == nil {
+			return nil
+		}
+		if callee, ok := e.res.PartSymbol(n.Type, len(n.Type.Parts)-1); ok {
+			return callee
+		}
+	}
+	return nil
+}
+
+// callSiteScope is the scope an invocation's name is read in: its owner's, or where the owner has
+// no symbol of its own (an unnamed element), the scope declaring the name's first referent.
+func (e *encoder) callSiteScope(owner string, function *ast.QualifiedName) *symbols.Scope {
+	if sym := e.ids.symByFQN[owner]; sym != nil && sym.Scope != nil {
+		return sym.Scope
+	}
+	if sym, ok := e.res.PartSymbol(function, len(function.Parts)-1); ok && sym != nil {
+		return sym.OwnerScope
+	}
+	return nil
+}
+
+// receiverChainFunction is the Function a receiver chain's final link is or is typed by, when it is one.
+func (e *encoder) receiverChainFunction(links []*ast.QualifiedName) *symbols.Symbol {
+	if len(links) == 0 {
+		return nil
+	}
+	last := links[len(links)-1]
+	final, ok := e.res.PartSymbol(last, len(last.Parts)-1)
+	if !ok || final == nil {
+		return nil
+	}
+	if ontology.IsAncestorOrSelf(declaredMetaclass(final.Decl), "Function") {
+		return final
+	}
+	if functions := e.ids.model.FunctionTypes(final); len(functions) == 1 {
+		return functions[0]
+	}
+	return nil
 }
 
 // calleeReference is the collapsed function: the element it resolves to, else

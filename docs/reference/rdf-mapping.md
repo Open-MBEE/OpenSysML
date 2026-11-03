@@ -1215,10 +1215,13 @@ The rules the tree follows:
   `ownedFeatureMembership`, and a `FeatureValue` membership whose `value` is
   the operand expression. `sysml:parameter`/`sysml:input` identify the
   parameters, while the JSON annotation preserves their RDF order. An
-  invocation also lists under both the invoked function's `in` parameters no
-  argument binds — `Time::DurationOf::clock` for `DurationOf(o)` — by the
-  parameter's own identity (KerML 8.3.4.8.7: an invocation's parameters are
-  its function's); the decoder rebuilds the call from the owned operands alone.
+  invocation also lists under `parameter` the invoked behavior's parameters no
+  argument binds — `Time::DurationOf::clock` for `DurationOf(o)`, an `out`, a
+  requirement's or case's subject — the `in` ones under `input` too, by the
+  parameter's own identity (KerML 8.3.4.8.8: an invocation's parameters are
+  its function's). The behavior is the overload the arguments select from the
+  call site (none when ambiguous), or the Function typing a receiver chain's
+  final link; the decoder rebuilds the call from the owned operands alone.
 - **Metaclasses are the standard ones** where the metamodel names them:
   `LiteralBoolean`, `LiteralInteger`, `LiteralRational`, `LiteralString`,
   `LiteralInfinity`, `NullExpression`, `FeatureReferenceExpression`,
