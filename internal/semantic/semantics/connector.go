@@ -858,7 +858,12 @@ func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEnd
 		case i < len(owned) && owned[i] != nil && owned[i].Name != "":
 			att.Name, att.EndFeature = symbols.LastSegment(owned[i].Name), owned[i]
 		case general != nil:
-			att.Name, att.EndFeature = symbols.LastSegment(general.Name), general
+			att.EndFeature = general
+			if name := m.EffectiveNameOf(general); name != "" {
+				att.Name = symbols.LastSegment(name)
+			} else if len(ends) == 2 {
+				att.Name = binaryConnectorEndNames[i]
+			}
 		case len(ends) == 2:
 			att.Name = binaryConnectorEndNames[i]
 		}
@@ -891,6 +896,17 @@ func (m *Model) FlowEndAttachments(sym *symbols.Symbol) []FlowEndAttachment {
 	return out
 }
 
+// DeclaredSuccessionEndName names the end at i of a declared succession: the end of its
+// declared connection type it redefines, else the end of Occurrences::happensBeforeLinks.
+func (m *Model) DeclaredSuccessionEndName(sym *symbols.Symbol, i int) string {
+	if general := m.generalEndAt(sym, i); general != nil {
+		if name := m.EffectiveNameOf(general); name != "" {
+			return symbols.LastSegment(name)
+		}
+	}
+	return m.ImpliedEndName(ast.UsageSuccession, i)
+}
+
 // generalEndAt returns the end at position i of the first connector sym
 // specializes that has one there, which sym's end at that position redefines.
 // ImpliedEndName names the end at i of a connector the notation mints with no
@@ -911,9 +927,8 @@ func (m *Model) ImpliedEndName(kind ast.UsageKind, i int) string {
 
 func (m *Model) generalEndAt(sym *symbols.Symbol, i int) *symbols.Symbol {
 	for _, sup := range m.DirectSupertypes(sym) {
-		if !m.isConnectorLike(sup) {
-			continue
-		}
+		// A general with ends names them: a connector, or a library feature such as
+		// Links::selfLinks that declares end features of its own.
 		if ends := m.endsOf(sup); i < len(ends) && ends[i] != nil {
 			return ends[i]
 		}

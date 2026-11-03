@@ -2668,9 +2668,9 @@ func (e *encoder) endMemberName(sym *symbols.Symbol, i int) string {
 	if i < len(ends) && ends[i].Name != "" {
 		return ends[i].Name
 	}
-	// A declared succession is no connector object: its ends are named by its kind's base.
+	// A declared succession is no connector object: its ends are named by its type's or its kind's base's.
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageSuccession {
-		return e.ids.model.ImpliedEndName(usage.Kind, i)
+		return e.ids.model.DeclaredSuccessionEndName(sym, i)
 	}
 	return ""
 }

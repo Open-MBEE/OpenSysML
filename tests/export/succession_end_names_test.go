@@ -48,3 +48,59 @@ func TestMintedSuccessionEndsAreNamedAsHappensBeforeNames(t *testing.T) {
 		t.Errorf("a succession end is not a binary connector's source/target")
 	}
 }
+
+// TestTypedSuccessionEndsAreNamedAsItsConnectionDefinitionsEnds: the minted ends of a succession
+// typed by a connection definition redefine that definition's ends and take their names.
+func TestTypedSuccessionEndsAreNamedAsItsConnectionDefinitionsEnds(t *testing.T) {
+	src := `package P {
+	part def A;
+	part def B;
+	connection def AB {
+		end head : A;
+		end tail : B;
+	}
+	part def Q {
+		part a : A;
+		part b : B;
+		succession s : AB first a then b;
+	}
+}
+`
+	turtle := string(roundTripsExactly(t, src))
+	for _, name := range []string{"head", "tail"} {
+		if !strings.Contains(turtle, `sysml:memberName "`+name+`"`) {
+			t.Errorf("no end of the typed succession is named %q as AB's end is", name)
+		}
+	}
+	for _, name := range []string{"earlierOccurrence", "laterOccurrence"} {
+		if strings.Contains(turtle, `sysml:memberName "`+name+`"`) {
+			t.Errorf("a typed succession's end is named %q, not as the end of AB it redefines", name)
+		}
+	}
+}
+
+// TestSuccessionTypedByAnAssociationWithUnnamedEndsTakesTheirEffectiveNames: an end of the typed
+// succession redefines an unnamed end of its association, which is named by the end it redefines.
+func TestSuccessionTypedByAnAssociationWithUnnamedEndsTakesTheirEffectiveNames(t *testing.T) {
+	src := `package P {
+	private import Occurrences::*;
+	occurrence def A;
+	occurrence def B;
+	assoc Link specializes HappensBefore {
+		end feature redefines earlierOccurrence : A;
+		end feature redefines laterOccurrence : B;
+	}
+	occurrence def Q {
+		occurrence a : A;
+		occurrence b : B;
+		succession s : Link first a then b;
+	}
+}
+`
+	turtle := string(roundTripsExactly(t, src))
+	for _, name := range []string{"earlierOccurrence", "laterOccurrence"} {
+		if !strings.Contains(turtle, `sysml:memberName "`+name+`"`) {
+			t.Errorf("no end of the association-typed succession is named %q", name)
+		}
+	}
+}
