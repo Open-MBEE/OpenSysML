@@ -6,9 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// TestSatisfySubjectValueNamesItsReferentOnDemand: a satisfy subject's `by` value owns the Membership
-// to the feature it names, and a chained value's chain Feature its FeatureChainings, before any
-// document walk resolved the clause — as a query over the model reads them.
+// TestSatisfySubjectValueNamesItsReferentOnDemand: a `by` value owns the Membership to the feature it
+// names, a chained one its chain Feature's FeatureChainings, before any document walk resolved the clause.
 func TestSatisfySubjectValueNamesItsReferentOnDemand(t *testing.T) {
 	fixture := loadExecutionSource(t, `package Observatory {
 	part def Sys { part sub : Sys; }

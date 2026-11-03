@@ -819,8 +819,7 @@ func featureChainingElements(sym *symbols.Symbol, feature string) ([]*symbols.Sy
 }
 
 // subjectValueRelationship is the `by` clause whose value expr is, and the satisfy usage
-// writing it; nil for any other expression. The clause's name is resolved on demand, as
-// RelationshipTarget reads every written relationship, not only by the document walk.
+// writing it — resolved on demand, as every written relationship is; nil for any other expression.
 func subjectValueRelationship(expr *symbols.Symbol) (*symbols.Symbol, *ast.Relationship) {
 	if expr == nil || expr.Expr == nil || expr.Expr.Role != symbols.ExpressionValue || !isSatisfySubjectSymbol(expr.Expr.Owner) {
 		return nil, nil
