@@ -59,10 +59,9 @@ func (r *Resolver) suggestionFor(scope *symbols.Scope, name string, at ast.Node)
 	}
 	out := suggestion{spellings: suggest.Rank(cands)}
 	// A name declared as written is unresolved for want of an import, not a
-	// quote: the declarations it merely starts are not offered beside it.
-	if !declaredAs(out.spellings, name) {
-		out.unquoted = r.unquotedFor(scope, name, key.call)
-	}
+	// quote: of the declarations it merely starts, only those in scope are
+	// offered beside it, not those a path would reach as the name's own does.
+	out.unquoted = r.unquotedFor(scope, name, key.call, !declaredAs(out.spellings, name))
 	journalNew(r, r.suggestions, key, at)
 	r.suggestions[key] = out
 	return out
@@ -98,14 +97,17 @@ func (r *Resolver) namesSomething(fqn string) bool {
 }
 
 // unquotedFor returns the declared names name is the unquoted start of, as typed
-// from scope: bare when they resolve there, else by the path declaring them,
-// when that path resolves from scope too — a private member's does not.
-func (r *Resolver) unquotedFor(scope *symbols.Scope, name string, call bool) []string {
+// from scope: bare when they resolve there, else, when byPath, by the path
+// declaring them, when that path resolves from scope too — a private member's does not.
+func (r *Resolver) unquotedFor(scope *symbols.Scope, name string, call, byPath bool) []string {
 	table := r.suggestTable()
 	var cands []suggest.Candidate
 	for _, full := range table.Unquoted(name) {
 		if res := r.walkUnqualified(scope, full); res.ok {
 			cands = append(cands, suggest.Candidate{Spelling: suggest.Name(full), InScope: true, Library: r.idx.Library(res.sym)})
+			continue
+		}
+		if !byPath {
 			continue
 		}
 		for _, fqn := range table.Declared(full) {

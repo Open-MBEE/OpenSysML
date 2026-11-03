@@ -132,3 +132,19 @@ func TestUnresolvedNameHintMatchesTheDiagnostic(t *testing.T) {
 		t.Errorf("UnresolvedName(Zzz) = %q, want the name alone", got)
 	}
 }
+
+// A quoted declaration in scope stays offered when the bare name is also declared
+// as written elsewhere: the import does not displace the reachable quoted name.
+func TestQuotedDeclarationInScopeSurvivesAnExportedNamesake(t *testing.T) {
+	r := resolveDoc(t, "d.sysml", `package P { part def SA; }
+	package T {
+		part def 'SA-506';
+		part d : SA;
+	}`)
+	got := diagnosticContaining(r, "unresolved reference: SA")
+	for _, want := range []string{"'SA-506'", "P::SA"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("diagnostic = %q, want %q in it", got, want)
+		}
+	}
+}
