@@ -908,8 +908,9 @@ func TestReflectiveTypeCompositionEndsAndPortionKind(t *testing.T) {
 			"P::Timeline::interval": "timeslice",
 		} {
 			sym := nestedSym(t, fixture.root, path)
+			// An enumeration-valued property reads the literal, as visibility does.
 			value, ok := fixture.model.ReflectiveFeatureValue(sym, "portionKind")
-			if !ok || value.Kind != symbols.FilterValueString || value.Str != want {
+			if want = "SysML::Systems::PortionKind::" + want; !ok || value.Kind != symbols.FilterValueRef || value.RefFQN != want {
 				t.Errorf("%s.portionKind = %v (present %t), want %q", path, value, ok, want)
 			}
 		}

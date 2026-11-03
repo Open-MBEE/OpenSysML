@@ -658,6 +658,15 @@ func (m *Model) enumLiteralValue(kind *symbols.Symbol, name string) (symbols.Fil
 	return symbols.FilterValue{Kind: symbols.FilterValueRef, RefFQN: fqn}, true
 }
 
+// enumLiteralOrEmpty is the literal of kind called name, as an enumeration-valued property reads it
+// (the literal, not its name); the empty value where name is empty or the library declares none.
+func (m *Model) enumLiteralOrEmpty(kind *symbols.Symbol, name string) symbols.FilterValue {
+	if value, ok := m.enumLiteralValue(kind, name); ok {
+		return value
+	}
+	return emptyValue()
+}
+
 // importElements is ReflectiveElements for a reflected Import object.
 func (m *Model) importElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
 	rel := sym.Implicit
