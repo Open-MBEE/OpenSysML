@@ -197,12 +197,12 @@ engine: check
 sysml> %check-witness witnesses
 check-witness: witnesses
 sysml> %check-bounds depth=3
-check-bounds: depth=3, states=1000000 (default), timeout=off
+check-bounds: depth=3, states=1000000 (default), unroll=4 (default), timeout=off
 sysml> %action Mission::race
 ? Action Mission::race: no violation within bounds (5 states, 4 moves, depth 3; bounds hit: depth)
   standing: outcomes (bounded over schedules: 5 states, 4 moves searched, depth=3 (reached))
 sysml> %check-bounds off
-check-bounds: depth=10000 (default), states=1000000 (default), timeout=off
+check-bounds: depth=10000 (default), states=1000000 (default), unroll=4 (default), timeout=off
 sysml> %action Mission::race
 ✗ Action Mission::race: divergent (11 states, 10 moves, depth 6)
   divergent: x ends as 1 or 2
@@ -452,13 +452,17 @@ Demo::summary - tree rendering (the view states no rendering; a tree is the defa
 part def Vehicle
   attribute mass
   part wheel
-    attribute diameter
+    attribute ^diameter
 view detail
   part def Wheel
     attribute diameter
 
 relationships:
-  Vehicle *-- Wheel: wheel
+  Vehicle o-- mass
+  Vehicle *-- wheel
+  wheel --:|> Wheel
+  wheel o-- diameter
+  Wheel o-- diameter
 
 sysml> %render Demo::summary mermaid
 ---
@@ -490,22 +494,22 @@ flowchart TD
 **Vehicle**`"]
     n1("`*«attribute»*
 **mass**`")
-  n0 --- n1
     n2("`*«part»*
 **wheel**`")
       n3("`*«attribute»*
-**diameter**`")
-  n2 --- n3
-  n0 --- n2
+**^diameter**`")
   n4("`*«view»*
 **detail**`")
     n5["`*«part def»*
 **Wheel**`"]
       n6("`*«attribute»*
 **diameter**`")
-  n5 --- n6
   n4 --- n5
-  n0 ---|"◆ wheel"| n5
+  n0 ---|"◇"| n1
+  n0 ---|"◆"| n2
+  n2 -->|"typing"| n5
+  n2 ---|"◇"| n3
+  n5 ---|"◇"| n6
 ```
 
 A diagram node's label leads with the kind in guillemets and puts the element's name on the next
@@ -567,17 +571,17 @@ digraph "Demo::summary" {
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];
   "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
-  "n0" -> "n1" [arrowhead=none];
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>wheel</b>>];
-  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>diameter</b>>];
-  "n2" -> "n3" [arrowhead=none];
-  "n0" -> "n2" [arrowhead=none];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>^diameter</b>>];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>detail</b>>];
   "n5" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Wheel</b>>];
   "n6" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>diameter</b>>];
-  "n5" -> "n6" [arrowhead=none];
   "n4" -> "n5" [arrowhead=none];
-  "n0" -> "n5" [headlabel="wheel", dir=back, arrowtail=diamond];
+  "n0" -> "n1" [dir=back, arrowtail=odiamond];
+  "n0" -> "n2" [dir=back, arrowtail=diamond];
+  "n2" -> "n5" [arrowhead=onormaldotdot];
+  "n2" -> "n3" [dir=back, arrowtail=odiamond];
+  "n5" -> "n6" [dir=back, arrowtail=odiamond];
 }
 ```
 
@@ -664,7 +668,7 @@ hide circle
 hide empty members
 class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
 class "<size:10>//«attribute»//</size>\n**mass**" as n1 <<attribute>> <<usage>>
-n0 -- n1
+n0 o-- n1
 …
 @enduml
 ```
@@ -689,10 +693,15 @@ classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
 n0: "«part def»\nVehicle" { class: definition }
 n1: "«attribute»\nmass" { class: usage }
-n0 -- n1: { class: edge }
+…
+n0 <- n1: { class: reference }
+n0 <- n2: { class: composition }
 …
 ```
 

@@ -436,7 +436,7 @@ package Acme {
 		private import SequenceFunctions::*;
 		constraint def partDefinitionHasDocumentation {
 			in pd : SysML::PartDefinition;
-			not pd.documentation->isEmpty();
+			not pd.documentation->isEmpty()
 		}
 	}
 }

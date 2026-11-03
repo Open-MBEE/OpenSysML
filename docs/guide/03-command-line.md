@@ -622,11 +622,11 @@ $ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
   ID: 1
   Use %features An::barge to inspect
 sweep An::CostAnalysis — 3 run(s)
-limit | total | verdict                   | time
-------+-------+---------------------------+--------
-30.0  | 37.0  | affordable: not satisfied | 0.416ms
-35.0  | 37.0  | affordable: not satisfied | 0.019ms
-40.0  | 37.0  | affordable: satisfied     | 0.012ms
+limit | total  | verdict                   | time
+------+--------+---------------------------+--------
+30.0  | [37.0] | affordable: not satisfied | 0.416ms
+35.0  | [37.0] | affordable: not satisfied | 0.019ms
+40.0  | [37.0] | affordable: satisfied     | 0.012ms
   standing: table (observed: 3 rows)
 exit=1
 ```
@@ -640,11 +640,11 @@ wall time each run took, so it is the one column two runs of the same table do n
 $ sysml -calc "An::Sum(2.0)" -sweep "b=0.0..10.0" -samples 3 -seed 42 analysis.sysml
 ✓ package An
 samples An::Sum — 3 run(s), seed 42
-b                  | result             | time
--------------------+--------------------+--------
-8.254725069980449  | 10.254725069980449 | 0.035ms
-0.4281995136143024 | 2.4281995136143024 | 0.001ms
-7.76073049711954   | 9.760730497119539  | 0.000ms
+b                  | result               | time
+-------------------+----------------------+--------
+8.254725069980449  | [10.254725069980449] | 0.035ms
+0.4281995136143024 | [2.4281995136143024] | 0.001ms
+7.76073049711954   | [9.760730497119539]  | 0.000ms
   standing: table (observed: 3 rows)
 ```
 
