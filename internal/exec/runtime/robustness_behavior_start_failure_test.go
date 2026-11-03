@@ -20,6 +20,7 @@ func TestRuntimeRobustnessBehaviorStartFailure(t *testing.T) {
 	t.Run("verdict_reading_what_the_failed_body_may_write_is_undecided", testStartFailureDependentVerdictUndecided)
 	t.Run("verdict_reading_what_a_dynamic_write_may_reach_is_undecided", testStartFailureDynamicWriteUndecided)
 	t.Run("runtime_bound_reached_still_fails_the_creation", testStartFailureBudgetStillFailsCreation)
+	t.Run("failures_are_placed_by_their_owners_among_many_objects", testStartFailuresPlacedByOwner)
 }
 
 const relayModel = `package test {
@@ -217,3 +218,38 @@ func testStartFailureBudgetStillFailsCreation(t *testing.T) {
 		t.Errorf("host = %v, %d object(s) held; want the creation rolled back", host, len(ctx.instances))
 	}
 }
+
+// The failures reported beside a new object are placed by their objects' owners: the
+// many made before it, failed or not, are not attributed to it, nor its own lost among them.
+func testStartFailuresPlacedByOwner(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, crowdModel))
+	relay, plain := oneSymbol(t, idx, "test::relay"), oneSymbol(t, idx, "test::plain")
+	const crowd = 200
+	var last *Instance
+	for i := 0; i < crowd; i++ {
+		inst, err := ctx.Instantiate(relay)
+		if err != nil {
+			t.Fatalf("instantiate relay %d: %v", i, err)
+		}
+		last = inst
+	}
+	if failed := ctx.StartFailures(last); len(failed) != 1 || failed[0].Object != last {
+		t.Fatalf("failed behaviors of the last relay = %v, want its own contacts machine alone", failed)
+	}
+	inst, err := ctx.Instantiate(plain)
+	if err != nil {
+		t.Fatalf("instantiate plain: %v", err)
+	}
+	if failed := ctx.StartFailures(inst); len(failed) != 0 {
+		t.Fatalf("failed behaviors of plain = %v, want none: the relays' failures are theirs", failed)
+	}
+}
+
+// crowdModel is a part whose machine cannot start beside one with no behavior,
+// for a context crowded with objects of either.
+const crowdModel = `package test {
+	part def Relay { exhibit state contacts { state open; state closed; } }
+	part def Plain { attribute n = 1; }
+	part relay : Relay;
+	part plain : Plain;
+}`
