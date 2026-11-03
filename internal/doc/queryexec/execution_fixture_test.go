@@ -5,10 +5,21 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
+
+type executionFixture struct {
+	index    *symbols.Index
+	model    *semantics.Model
+	resolver *resolve.Resolver
+	file     *source.SourceFile
+	root     *ast.RootNamespace
+}
 
 func loadExecutionSource(t *testing.T, content string) executionFixture {
 	t.Helper()
@@ -48,5 +59,7 @@ func loadExecutionSources(t *testing.T, content string, others map[string]string
 		index:    index,
 		model:    model,
 		resolver: resolver,
+		file:     sf,
+		root:     root,
 	}
 }

@@ -1,6 +1,7 @@
 // A verification's returned expression reads a package-level requirement usage as the
 // object the usage would materialize, as a chain read does: calling the requirement's
-// `assumptions` collection on it is the result of its checks, `[]` while nothing fills it.
+// `assumptions` collection on it evaluates its assumed constraints on that object —
+// `nonnegativeFuel` fails for a fuel mass of -200, so the case is inconclusive.
 package test {
 	private import ScalarValues::Integer;
 	private import ControlFunctions::allTrue;

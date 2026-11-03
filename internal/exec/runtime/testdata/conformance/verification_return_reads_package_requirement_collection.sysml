@@ -1,6 +1,6 @@
 // A verification's returned expression reads the `result` of a package-level requirement's
-// `assumptions` collection through the object the usage would materialize: `[]` while
-// nothing fills the collection, so `allTrue` of it holds.
+// `assumptions` collection through the object the usage would materialize: the verdicts of
+// its assumed constraints, `false` for `nonnegativeFuel` here, so `allTrue` of it does not hold.
 package test {
 	private import ScalarValues::Integer;
 	private import ControlFunctions::allTrue;

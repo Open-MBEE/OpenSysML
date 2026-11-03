@@ -35,7 +35,7 @@ func TestRuntimeRobustnessVerificationReturnReads(t *testing.T) {
 		})
 	}
 	t.Run("probe_leaves_no_object_standing", func(t *testing.T) {
-		ctx, verdict, err := verificationReturnRun(t, "allTrue(fullTankRequirement.assumptions())")
+		ctx, verdict, err := verificationReturnRun(t, "fullTankRequirement.fullTank()")
 		if err != nil || verdict.Kind != VerdictPass {
 			t.Fatalf("verdict = %s (%q), err = %v; want pass", verdict.Kind, verdict.Detail, err)
 		}
