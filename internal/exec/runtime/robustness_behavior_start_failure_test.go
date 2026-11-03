@@ -55,8 +55,8 @@ func testStartFailureMachineRecorded(t *testing.T) {
 	if len(notes) != 1 || !strings.Contains(notes[0].Describe(), "contacts") || !strings.Contains(notes[0].Describe(), "no initial state") {
 		t.Errorf("notes = %v, want one naming contacts and its failure", notes)
 	}
-	if _, running := relay.ExhibitedState(); running {
-		t.Error("the failed machine is offered as the object's running machine")
+	if b, ok := relay.ExhibitedState(); !ok || b.Err == nil {
+		t.Errorf("ExhibitedState = %v, %t; want the failed machine with its failure recorded", b, ok)
 	}
 }
 
