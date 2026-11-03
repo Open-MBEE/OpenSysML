@@ -2183,7 +2183,7 @@ jobs:
       # extension every distribution ships (make jupyterlab-build).
       - run:
           name: Install build tooling
-          command: python -m pip install --upgrade pip build twine packaging jupyterlab==4.6.4
+          command: python -m pip install --upgrade pip build twine packaging jupyterlab==4.6.5
 
       - run:
           name: Resolve the version from the tag

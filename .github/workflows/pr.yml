@@ -999,7 +999,7 @@ jobs:
       # extension the kernel package ships. The generated syntax table is
       # gated by go test ./editors/... in the Go suite.
       - name: Install JupyterLab
-        run: pip install --only-binary ":all:" jupyterlab==4.6.4
+        run: pip install --only-binary ":all:" jupyterlab==4.6.5
 
       - name: Audit the extension's dependencies
         run: make audit-npm NPM_LOCK_DIRS=editors/jupyterlab
