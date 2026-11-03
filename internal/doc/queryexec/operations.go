@@ -49,6 +49,33 @@ func (e *executor) ownedRows(expression queryplan.Expression, row Value) ([]Valu
 	return out, nil
 }
 
+// ownedRelationshipRows returns the rows an element row owns as KerML 8.3.2.1 defines ownership:
+// its ownedRelationship, and for a relationship its ownedRelatedElement; an object's held objects.
+func (e *executor) ownedRelationshipRows(expression queryplan.Expression, row Value) ([]Value, error) {
+	if _, _, ok := row.Object(); ok {
+		return e.heldObjects(expression, row)
+	}
+	sym, _ := row.Element()
+	var out []Value
+	for _, rel := range e.context.Model.OwnedRelationships(sym) {
+		out = append(out, ElementValue(rel))
+	}
+	if related, ok := e.context.Model.ReflectiveElements(sym, "ownedRelatedElement"); ok {
+		for _, elem := range related {
+			out = append(out, ElementValue(elem))
+		}
+	}
+	return out, nil
+}
+
+// relationshipsArgument reads Descendants' relationships flag: false when omitted.
+func (e *executor) relationshipsArgument(expression queryplan.Expression) (bool, error) {
+	if !hasArgument(expression, "relationships") {
+		return false, nil
+	}
+	return e.booleanArgument(expression, "relationships")
+}
+
 // ownerRow returns the row owning a row: the owner of an element's scope, or the
 // object holding an object.
 func (e *executor) ownerRow(row Value) (Value, bool) {
@@ -136,6 +163,14 @@ func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequenc
 	if err != nil {
 		return sequence{}, err
 	}
+	relationships, err := e.relationshipsArgument(expression)
+	if err != nil {
+		return sequence{}, err
+	}
+	owned := e.ownedRows
+	if relationships {
+		owned = e.ownedRelationshipRows
+	}
 	type pending struct {
 		row   Value
 		depth int64
@@ -153,11 +188,11 @@ func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequenc
 		if maxDepth.reached(next.depth) {
 			continue
 		}
-		owned, err := e.ownedRows(expression, next.row)
+		rows, err := owned(expression, next.row)
 		if err != nil {
 			return sequence{}, err
 		}
-		for _, member := range owned {
+		for _, member := range rows {
 			key := keyOfRow(member)
 			if _, duplicate := seen[key]; duplicate {
 				continue
