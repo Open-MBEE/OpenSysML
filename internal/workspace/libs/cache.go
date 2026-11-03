@@ -6,10 +6,12 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -19,21 +21,30 @@ import (
 // again and only takes up space.
 const maxIdleAge = 30 * 24 * time.Hour
 
-// Cache persists reduced library IndexRecords to disk keyed by content hash and
-// format version. A hit lets the loader skip lexing/parsing entirely. The same
-// mechanism serves git dependencies (Plan 5c) since it keys purely on content.
+// Cache persists reduced library IndexRecords to disk keyed by document name,
+// content hash and format version. A hit lets the loader skip deriving the
+// facts entirely. The same mechanism serves git dependencies (Plan 5c) since
+// it keys purely on names and content.
 type Cache struct {
 	dir string
 }
 
+// ErrNoCacheRoot is the error NewCache wraps when the process has no cache root
+// at all: nothing names one (neither $XDG_CACHE_HOME nor the user cache directory
+// is defined), or the one named lies outside the filesystem the process can reach,
+// as under a WASI host that preopened only the model's directory. It is not a
+// failure of a root that exists; a caller holds every document loaded instead.
+var ErrNoCacheRoot = errors.New("no record cache root")
+
 // NewCache resolves the cache directory ($XDG_CACHE_HOME or os.UserCacheDir),
-// appends "sysml-ls/libs", creates it, and returns a ready Cache.
+// appends "sysml-ls/libs", creates it, and returns a ready Cache. The error wraps
+// ErrNoCacheRoot when the process has no cache root to create it under.
 func NewCache() (*Cache, error) {
 	base := os.Getenv("XDG_CACHE_HOME")
 	if base == "" {
 		d, err := os.UserCacheDir()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: %w", ErrNoCacheRoot, err)
 		}
 		base = d
 	}
@@ -46,27 +57,42 @@ func NewCacheIn(base string) (*Cache, error) {
 	// #nosec G703 -- the base directory is the user's own XDG_CACHE_HOME or OS
 	// cache directory, and the joined suffix is a constant.
 	if err := os.MkdirAll(dir, 0o750); err != nil {
+		if cacheRootUnreachable(err) {
+			return nil, fmt.Errorf("%w: %w", ErrNoCacheRoot, err)
+		}
 		return nil, err
 	}
 	return &Cache{dir: dir}, nil
 }
 
-// keyFor derives a cache key from the file content, the digest of the library
-// set it belongs to, the build that produced the record, and the format
-// version. Any change yields a distinct key, so stale entries are simply never
-// found (miss) rather than requiring explicit invalidation. The set digest is
-// part of the key because a record holds values derived from sibling files — a
-// unit reduction follows a reference unit or prefix declared elsewhere — which
+// cacheRootUnreachable reports an error saying the filesystem has no place for the
+// cache root — EBADF, a path outside what a sandboxing host exposes; ENOSYS, a
+// build with no filesystem — as against a root that exists and refuses (EACCES,
+// ENOTDIR, EROFS), which is a failure worth reporting.
+func cacheRootUnreachable(err error) bool {
+	return errors.Is(err, syscall.EBADF) || errors.Is(err, syscall.ENOSYS) || hostDeniedPath(err)
+}
+
+// keyFor derives a cache key from the file's name and content, the digest of
+// the library set it belongs to, the build that produced the record, and the
+// format version. Any change yields a distinct key, so stale entries are simply
+// never found (miss) rather than requiring explicit invalidation. The set digest
+// is part of the key because a record holds values derived from sibling files —
+// a unit reduction follows a reference unit or prefix declared elsewhere — which
 // the file's own content does not cover. The build ID is part of it because a
 // record also holds values the code computes, such as a symbol kind, which no
-// input covers.
-func (c *Cache) keyFor(content []byte, setDigest string) string {
-	return c.keyForSum(sha256.Sum256(content), setDigest)
+// input covers. The name is part of it because a record names the documents its
+// facts refer to: two files of equal content in one set are two documents,
+// each resolving its references from its own place in the set.
+func (c *Cache) keyFor(name string, content []byte, setDigest string) string {
+	return c.keyForSum(name, sha256.Sum256(content), setDigest)
 }
 
 // keyForSum is keyFor given the file content's sha256 sum.
-func (c *Cache) keyForSum(sum [sha256.Size]byte, setDigest string) string {
-	return hex.EncodeToString(sum[:]) + "-s" + setDigest + "-b" + buildID() + "-v" + strconv.Itoa(formatVersion)
+func (c *Cache) keyForSum(name string, sum [sha256.Size]byte, setDigest string) string {
+	nameSum := sha256.Sum256([]byte(name))
+	return hex.EncodeToString(sum[:]) + "-n" + hex.EncodeToString(nameSum[:8]) +
+		"-s" + setDigest + "-b" + buildID() + "-v" + strconv.Itoa(formatVersion)
 }
 
 func (c *Cache) path(key string) string {

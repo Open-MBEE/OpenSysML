@@ -1,0 +1,18 @@
+ParameterCalcViews::definitions - tree rendering (render asTreeDiagram)
+
+calc def Add
+  in x
+  in y
+  out result
+calc def Scale
+  in x
+  in factor
+  inout count
+  out doubled
+  out r
+action def Heat
+  in bread
+  out toast
+constraint def Between
+  in low
+  in value

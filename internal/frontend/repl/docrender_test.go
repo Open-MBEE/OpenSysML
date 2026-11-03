@@ -69,7 +69,8 @@ const docDiagramModel = `package Imaging {
 		in root : Element;
 		Project(
 			source = WhereType(source = OwnedElements(source = root), type = "PartUsage"),
-			properties = ("name", "mass")
+			properties = ("name", "mass"),
+			tolerate = true  // the connection link is a part usage with no mass
 		)
 	}
 

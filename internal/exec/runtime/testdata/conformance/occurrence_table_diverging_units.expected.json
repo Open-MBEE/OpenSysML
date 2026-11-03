@@ -5,9 +5,9 @@
   "materialization": {},
   "validation": {
     "verdicts": [
-      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[1]", "status": "holds"},
-      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[2]", "status": "violated", "error": "evaluated to false"},
-      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[3]", "status": "holds"},
+      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "unit1", "status": "holds"},
+      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "unit2", "status": "violated", "error": "evaluated to false"},
+      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "unit3", "status": "holds"},
       {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[4]", "status": "holds"},
       {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[5]", "status": "holds"},
       {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[6]", "status": "holds"}

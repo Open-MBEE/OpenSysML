@@ -15,6 +15,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/notebook"
 )
 
 // SessionName names a session; empty is the default session.
@@ -23,6 +24,13 @@ type SessionName struct {
 }
 
 func (n SessionName) sessionName() string { return n.Session }
+
+// SessionOpenInput names the session to open and, optionally, the directory
+// its unresolved root namespaces are looked for under.
+type SessionOpenInput struct {
+	SessionName
+	Root string `json:"root,omitempty" jsonschema:"directory under the workspace root, relative to it or absolute, whose model files load when a submission imports or qualifies a root namespace nothing in the session declares; omit to resolve against the session and the library only"`
+}
 
 // sessionNamer is a tool input naming the session it addresses.
 type sessionNamer interface{ sessionName() string }
@@ -182,10 +190,10 @@ type CommandResult struct {
 func Register(s *mcp.Server, m *Manager) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "session_open",
-		Description: "Open a named REPL session: an empty model that declarations, instances and runs accumulate into across calls. The default session opens itself on first use, so this is only needed for a second, independent session.",
+		Description: "Open a named REPL session: an empty model that declarations, instances and runs accumulate into across calls. The default session opens itself on first use, so this is only needed for a second, independent session, or for one with a root: a directory under the workspace root whose model files load on demand, as %load would load them, when a submission imports or qualifies a root namespace that neither the session nor the library declares.",
 		Annotations: toolkit.Mutating("Open session", false),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SessionName) (*mcp.CallToolResult, SessionOpened, error) {
-		name, err := m.Open(in.Session)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SessionOpenInput) (*mcp.CallToolResult, SessionOpened, error) {
+		name, err := m.OpenIn(in.Session, in.Root)
 		return nil, SessionOpened{Session: name}, err
 	})
 	mcp.AddTool(s, &mcp.Tool{
@@ -330,7 +338,7 @@ func Register(s *mcp.Server, m *Manager) {
 		if line == "" {
 			return CommandResult{}, errors.New("line is required: a % command, see %help")
 		}
-		if !repl.IsMeta(line) {
+		if !notebook.IsCommand(line) {
 			return CommandResult{}, fmt.Errorf("%q is no %% command; declarations go to session_submit and expressions to session_eval", line)
 		}
 		lines, quit, err := sess.RunMeta(line)

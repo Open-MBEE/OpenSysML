@@ -1,0 +1,50 @@
+MixedMemberships::memberships - mixed rendering (render asMixedDiagram)
+
+package MixedMemberships
+  package Library
+    attribute def Pressure
+    port def FluidPort
+  part def Impeller
+  part def Pump
+    attribute pressure
+    port outlet
+    part impeller
+    part spare
+    action prime (declares no nodes)
+    state armed (declares no states)
+    part def Seal
+  concern def Containment
+  requirement def Safety
+    require constraint minPressure
+    assume constraint primedPump
+    assert constraint sealed
+    frame contained
+  view memberships
+  view membershipsLayout
+
+relationships:
+  MixedMemberships +-- Library
+  Library +-- Pressure
+  Library +-- FluidPort
+  MixedMemberships +-- Impeller
+  MixedMemberships +-- Pump
+  Pump o-- pressure
+  Pump o-- outlet
+  Pump *-- impeller
+  Pump o-- spare
+  Pump *-- prime
+  Pump *-- armed
+  Pump +-- Seal
+  MixedMemberships +-- Containment
+  MixedMemberships +-- Safety
+  Safety -> minPressure: require
+  Safety -> primedPump: assume
+  Safety -> sealed: assert
+  Safety -> contained: frame
+  MixedMemberships *-- memberships
+  MixedMemberships *-- membershipsLayout
+  contained --:|> Containment
+  outlet --:|> FluidPort
+  impeller --:|> Impeller
+  spare --:|> Impeller
+  pressure --:|> Pressure

@@ -54,14 +54,22 @@ export const CAPABILITY_VERIFICATION = "verification";
 export const CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions";
 /** `arguments` and `named_arguments` on VerifyConstraint and VerifyRequirement. */
 export const CAPABILITY_VERIFICATION_ARGUMENTS = "verification_arguments";
+/** `notes` on every Verdict; a service without it answers with none. */
+export const CAPABILITY_VERDICT_NOTES = "verdict_notes";
 /** The `Query` RPC. */
 export const CAPABILITY_QUERY = "query";
+/** `orderBy` on `Query`; a service without it would ignore the field. */
+export const CAPABILITY_QUERY_ORDER_BY = "query_order_by";
+/** `QueryRequest.oslcQuery`: a query written as OSLC Query 3.0 parameter text, in place of the standard's Query object. */
+export const CAPABILITY_OSLC_QUERY = "oslc_query";
 /** The `RunDocumentQuery` RPC. */
 export const CAPABILITY_DOCUMENT_QUERY = "document_query";
 /** The `RenderDocument` RPC. */
 export const CAPABILITY_RENDER_DOCUMENT = "render_document";
 /** `form` on `RenderDocumentRequest` asking for HTML rather than Markdown. */
 export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
+/** `form` on `RenderDocumentRequest` asking for AsciiDoc, answered in `asciidoc`. */
+export const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc";
 /** The `RenderView` RPC, returning typed diagram data. */
 export const CAPABILITY_RENDER_VIEW = "render_view";
 /** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */
@@ -123,6 +131,8 @@ export const CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore";
 export const CAPABILITY_PERFORMER = "performer";
 /** `trace` on `ExecuteStateRequest`, returning documented events from one run. */
 export const CAPABILITY_STATE_TRACE = "state_trace";
+/** `trace` on `ExecuteActionRequest`, returning the run's token steps, waits, accepts, decisions and assignments. */
+export const CAPABILITY_ACTION_TRACE = "action_trace";
 /** The `ListEngines` RPC, the `engine` field selecting an analysis engine, and `engine`, `strength` and `bounds` on the answers. */
 export const CAPABILITY_ENGINES = "engines";
 /** A model-level result the model leaves open as `Value.undetermined`, read as an `undetermined` value. */
@@ -135,6 +145,10 @@ export const CAPABILITY_RATIONAL_VALUES = "rational_values";
 export const CAPABILITY_CONVERT_DOCUMENTS = "convert_documents";
 /** `ConvertRequest.compact`, `omitDerived` and `keepDerived`: api-json written as the compact document (an id table and handles), optionally without derived properties. */
 export const CAPABILITY_CONVERT_COMPACT = "convert_compact";
+/** The standard-library name table outside API JSON's element array. */
+export const CAPABILITY_CONVERT_LIBRARY_REFERENCES = "convert_library_references";
+/** Opt-in ownerless library stubs for legacy API JSON readers. */
+export const CAPABILITY_CONVERT_LIBRARY_STUBS = "convert_library_stubs";
 /** `ConvertRequest.includeCheckDiagnostics`: the semantic check's diagnostics, each with its own severity, reported alongside the converted output. */
 export const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 /** `ParseSourcesRequest.baseModelHash` and `ParseSourcesResponse.affected`: the documents whose results may differ from the base model's, so a client re-reads only those after an edit. */

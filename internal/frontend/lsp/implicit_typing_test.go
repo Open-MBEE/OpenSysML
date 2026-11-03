@@ -41,7 +41,7 @@ func TestPublishDiagnosticsAcceptsImplicitlyInheritedMember(t *testing.T) {
 func TestHoverOnUntypedUsageStillReportsItsKind(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/implicit_hover.sysml").Filename()
+	name := uri.File("/tmp/implicit_hover.sysml").FsPath()
 	ws.Open(name, []byte(implicitStateSrc), 1)
 	defer ws.Close(name)
 
@@ -55,8 +55,8 @@ func TestHoverOnUntypedUsageStillReportsItsKind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if res == nil || !strings.Contains(res.Contents.Value, "state") ||
-		!strings.Contains(res.Contents.Value, "normal") {
+	if res == nil || !strings.Contains(hoverMarkup(t, res).Value, "state") ||
+		!strings.Contains(hoverMarkup(t, res).Value, "normal") {
 		t.Fatalf("hover on `normal` = %+v, want its own kind and name", res)
 	}
 }

@@ -274,7 +274,7 @@ func (nw *nameWalk) locals(s *symbols.Scope, prefix string, depth int, inside, i
 			if decl.hide && semantics.NotYetMember(sym, decl.sym) {
 				continue // not yet a member of the namespace it is written in
 			}
-			nw.add(prefix, leafName(name), sym, depth)
+			nw.add(prefix, symbols.LastSegment(name), sym, depth)
 			nw.add(prefix, sym.ShortName, sym, depth)
 		}
 	}
@@ -316,7 +316,7 @@ func (nw *nameWalk) inherited(owner *symbols.Symbol, prefix string, depth int, i
 		if !ok {
 			continue
 		}
-		nw.add(prefix, leafName(sym.Name), sym, depth)
+		nw.add(prefix, symbols.LastSegment(sym.Name), sym, depth)
 		nw.add(prefix, sym.ShortName, sym, depth)
 		nw.leave(chain)
 	}
@@ -517,12 +517,12 @@ func (nw *nameWalk) importOne(s *symbols.Scope, imp *ast.Import, prefix string, 
 			nw.add(prefix, written, sym, depth)
 			// An element imported by one of its own two names keeps both;
 			// an alias name belongs to the alias, not to its target.
-			if written == leafName(sym.Name) || written == sym.ShortName {
-				nw.add(prefix, leafName(sym.Name), sym, depth)
+			if written == symbols.LastSegment(sym.Name) || written == sym.ShortName {
+				nw.add(prefix, symbols.LastSegment(sym.Name), sym, depth)
 				nw.add(prefix, sym.ShortName, sym, depth)
 			}
 		} else {
-			nw.add(prefix, leafName(sym.Name), sym, depth)
+			nw.add(prefix, symbols.LastSegment(sym.Name), sym, depth)
 			nw.add(prefix, sym.ShortName, sym, depth)
 			// The descent resolves in each namespace it reaches, so what a
 			// type there declares as a supertype's member is named there too.
@@ -632,7 +632,7 @@ func (nw *nameWalk) implicitMembers(prefix string, sym *symbols.Symbol, depth in
 		if !ok {
 			continue
 		}
-		nw.add(prefix, leafName(m.Name), m, depth)
+		nw.add(prefix, symbols.LastSegment(m.Name), m, depth)
 		nw.add(prefix, m.ShortName, m, depth)
 		nw.leave(chain)
 	}
@@ -687,14 +687,6 @@ func importedName(imp *ast.Import) string {
 		return ""
 	}
 	return imp.Imported.Parts[len(imp.Imported.Parts)-1].Text
-}
-
-// leafName is a name without the qualification an indexed symbol carries.
-func leafName(name string) string {
-	if i := strings.LastIndex(name, "::"); i >= 0 {
-		return name[i+2:]
-	}
-	return name
 }
 
 // importsIn returns the imports declared directly in a namespace-bearing node.

@@ -45,8 +45,7 @@ func mustQuantityModel(t *testing.T) (*Service, string, *symbols.Index, *semanti
 
 	srv := mustNewService(t, 4)
 	resp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: quantityModel},
-		ContentHash: "quantity-model",
+		Source: &pb.ParseFileRequest_Content{Content: quantityModel},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
@@ -1058,8 +1057,7 @@ package A {
 }
 `
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "quantity-action-input",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
@@ -1123,8 +1121,7 @@ package V {
 }
 `
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "quantity-verdict",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)

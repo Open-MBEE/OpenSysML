@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The vehicle model in XMI "element serialization" (XMI 2.5.1 § 9.4.4): every
+     scalar property and reference a child element, as the OMG UML XMI files and
+     some exporters write them. attribute_form.xmi is the same model with attributes. -->
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m">
+    <name>Model</name>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg">
+      <name>VehicleExample</name>
+      <packagedElement xmi:type="uml:Class" xmi:id="_vehicle">
+        <name>Vehicle</name>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_vehicle_cmt">
+          <body>The vehicle under design.</body>
+          <annotatedElement xmi:idref="_vehicle"/>
+        </ownedComment>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_vehicle_engine">
+          <name>engine</name>
+          <visibility>public</visibility>
+          <aggregation>composite</aggregation>
+          <type xmi:idref="_engine"/>
+          <association xmi:idref="_assoc"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_vehicle_engine_lo">
+            <value>1</value>
+          </lowerValue>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_vehicle_engine_hi">
+            <value>1</value>
+          </upperValue>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_engine">
+        <name>Engine</name>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc">
+        <name>vehicle_engine</name>
+        <memberEnd xmi:idref="_vehicle_engine"/>
+        <memberEnd xmi:idref="_assoc_vehicle"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_assoc_vehicle">
+          <name>vehicle</name>
+          <type xmi:idref="_vehicle"/>
+          <association xmi:idref="_assoc"/>
+        </ownedEnd>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_mass">
+        <name>MassRequirement</name>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_st_vehicle">
+    <base_Class xmi:idref="_vehicle"/>
+  </sysml:Block>
+  <sysml:Block xmi:id="_st_engine">
+    <base_Class xmi:idref="_engine"/>
+  </sysml:Block>
+  <sysml:Requirement xmi:id="_st_req_mass">
+    <base_Class xmi:idref="_req_mass"/>
+    <id>R1</id>
+    <text>The vehicle shall have a mass of less than 1500 kg.</text>
+  </sysml:Requirement>
+</xmi:XMI>

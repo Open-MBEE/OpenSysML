@@ -588,16 +588,19 @@ func (ctx *Context) releaseDeferredBehavior(behavior *ObjectBehavior) error {
 		behavior.Action = started.Action
 		behavior.State = started.State
 		behavior.Err = started.Err
+		if err == nil {
+			ctx.recordFiredSuccessions(behavior)
+		}
 	}
 	behavior.deferred = nil
 	if err != nil {
-		if started == nil || !errors.Is(err, errUnboundParameter) {
+		if !recordsFailure(behavior, err) {
 			if started != nil {
 				started.leaveClock()
 			}
 			return err
 		}
-		ctx.endFailedPerformance(behavior, fmt.Errorf("%s: %w", behavior.Describe(), err))
+		ctx.endFailedPerformance(behavior, err)
 	}
 	ctx.workChanged()
 	return nil

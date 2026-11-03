@@ -8,7 +8,6 @@ grpc`` and switch on status codes to tell a missing file from a dead service.
 """
 
 import builtins
-import warnings
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -40,6 +39,15 @@ class ConnectionError(OpenSysMLError, builtins.ConnectionError):
         super().__init__(message)
         self.message = message
         self.code = code
+
+
+class AuthenticationError(ConnectionError):
+    """Raised when the service wants a bearer token the call did not carry, or
+    carried wrong.
+
+    A service reachable from other machines is served only with a token; give
+    this client the same one with ``token=`` or ``$OPENSYSML_GRPC_TOKEN``.
+    """
 
 
 class ChecksumMismatchError(ConnectionError):
@@ -228,7 +236,7 @@ class ExecutionError(OpenSysMLError, builtins.RuntimeError):
 
     Also a built-in :class:`RuntimeError`, so ``except RuntimeError`` catches it
     — which is what the traceback's ``opensysml.errors.RuntimeError`` used to
-    promise and not deliver. That old name is a deprecated alias of this class.
+    promise and not deliver; that old name was an alias of this class until 0.12.0.
 
     Attributes:
         message (str): Error description
@@ -538,6 +546,7 @@ _CODE_ERRORS = {
     grpc.StatusCode.FAILED_PRECONDITION: InvalidRequestError,
     grpc.StatusCode.OUT_OF_RANGE: InvalidRequestError,
     grpc.StatusCode.UNAVAILABLE: ConnectionError,
+    grpc.StatusCode.UNAUTHENTICATED: AuthenticationError,
     grpc.StatusCode.DEADLINE_EXCEEDED: ServiceTimeoutError,
     grpc.StatusCode.CANCELLED: ServiceTimeoutError,
     grpc.StatusCode.UNIMPLEMENTED: UnsupportedOperationError,
@@ -630,29 +639,6 @@ def translate_rpc_errors(not_found=ModelNotFoundError, unimplemented=None):
         raise from_rpc_error(
             exc, not_found=not_found, unimplemented=unimplemented
         ) from exc
-
-
-#: Names kept for callers of older versions, and what they are now.
-_DEPRECATED_NAMES = {"RuntimeError": ExecutionError}
-
-
-def __getattr__(name):
-    """Serve the deprecated ``RuntimeError`` alias, warning about its use.
-
-    It is the same class as :class:`ExecutionError`, so ``except
-    opensysml.errors.RuntimeError`` keeps working; it is gone from ``__all__`` so
-    that a star-import no longer shadows the built-in with it.
-    """
-    replacement = _DEPRECATED_NAMES.get(name)
-    if replacement is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    warnings.warn(
-        f"opensysml.errors.{name} is deprecated; use "
-        f"opensysml.errors.{replacement.__name__} instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return replacement
 
 
 __all__ = [

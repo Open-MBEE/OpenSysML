@@ -15,8 +15,12 @@ pub const CAPABILITY_VERIFICATION: &str = "verification";
 pub const CAPABILITY_VERIFICATION_QUESTIONS: &str = "verification_questions";
 /// `arguments` and `named_arguments` on VerifyConstraint and VerifyRequirement.
 pub const CAPABILITY_VERIFICATION_ARGUMENTS: &str = "verification_arguments";
+/// `notes` on every Verdict; a service without it answers with none.
+pub const CAPABILITY_VERDICT_NOTES: &str = "verdict_notes";
 /// The `Query` RPC.
 pub const CAPABILITY_QUERY: &str = "query";
+/// `order_by` on `Query`; a service without it would ignore the field.
+pub const CAPABILITY_QUERY_ORDER_BY: &str = "query_order_by";
 /// OSLC Query 3.0 parameter text on the `Query` RPC.
 pub const CAPABILITY_OSLC_QUERY: &str = "oslc_query";
 /// The `RunDocumentQuery` RPC.
@@ -25,6 +29,8 @@ pub const CAPABILITY_DOCUMENT_QUERY: &str = "document_query";
 pub const CAPABILITY_RENDER_DOCUMENT: &str = "render_document";
 /// `RenderDocumentRequest.form`, asking for the HTML page instead of Markdown.
 pub const CAPABILITY_RENDER_DOCUMENT_HTML: &str = "render_document_html";
+/// `form` on `RenderDocumentRequest` asking for AsciiDoc, answered in `asciidoc`.
+pub const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC: &str = "render_document_asciidoc";
 /// The `RenderView` RPC, rendering named views as machine-readable diagram data.
 pub const CAPABILITY_RENDER_VIEW: &str = "render_view";
 /// The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON.
@@ -119,6 +125,8 @@ pub const CAPABILITY_SCHEDULE_EXPLORE: &str = "schedule_explore";
 pub const CAPABILITY_PERFORMER: &str = "performer";
 /// The `trace` field of an `ExecuteStateRequest`.
 pub const CAPABILITY_STATE_TRACE: &str = "state_trace";
+/// The `trace` field of an `ExecuteActionRequest`: the run's token steps, waits, accepts, decisions and assignments.
+pub const CAPABILITY_ACTION_TRACE: &str = "action_trace";
 /// `final_time` populated on an action or state run's response.
 pub const CAPABILITY_FINAL_TIME: &str = "final_time";
 /// `ListEngines`, the `engine` selection and the standing reported on responses.
@@ -139,6 +147,12 @@ pub const CAPABILITY_CONVERT_DOCUMENTS: &str = "convert_documents";
 /// `ConvertRequest.compact`, `omit_derived` and `keep_derived`: api-json written as the compact
 /// document (an id table and handles), optionally without derived properties.
 pub const CAPABILITY_CONVERT_COMPACT: &str = "convert_compact";
+/// `ConvertResponse.library_references`: api-json written with library elements as bare
+/// references, named outside the element array.
+pub const CAPABILITY_CONVERT_LIBRARY_REFERENCES: &str = "convert_library_references";
+/// `ConvertRequest.include_library_stubs`: api-json written with the ownerless library stubs of
+/// releases before 0.11.0 restored.
+pub const CAPABILITY_CONVERT_LIBRARY_STUBS: &str = "convert_library_stubs";
 /// `ConvertRequest.include_check_diagnostics`: the semantic check's diagnostics, each with its
 /// own severity, reported alongside the converted output.
 pub const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS: &str = "convert_check_diagnostics";

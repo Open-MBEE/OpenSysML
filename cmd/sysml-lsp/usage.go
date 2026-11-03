@@ -13,12 +13,13 @@ const lspCommand = "sysml-lsp"
 
 // options is what the command line resolves to.
 type options struct {
-	strict        bool
-	noRecordCache bool
-	libraryRoots  pathList
-	showVersion   bool
-	showHelp      bool
-	showMan       bool
+	strict         bool
+	keepLineBreaks bool
+	noRecordCache  bool
+	libraryRoots   pathList
+	showVersion    bool
+	showHelp       bool
+	showMan        bool
 }
 
 // registerFlags declares the server's flags on fs, so a run, the help and the
@@ -30,6 +31,8 @@ func registerFlags(fs *flag.FlagSet) *options {
 	var o options
 	fs.BoolVar(&o.strict, "strict", false,
 		"Serve strict conformance from the start: notation no pinned SysML v2 production admits is an error (a client may also set the strictConformance setting)")
+	fs.BoolVar(&o.keepLineBreaks, "keep-line-breaks", false,
+		"Format documents keeping the author's line breaks, fixing indentation and spacing only, instead of laying statements out one per line (a client may also set the keepLineBreaks setting)")
 	fs.BoolVar(&o.noRecordCache, "no-record-cache", false,
 		"Parse every document and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.Var(&o.libraryRoots, "library-root",
@@ -75,10 +78,12 @@ func doc() usage.Doc {
 				usage.Ex(lspCommand, "What an editor runs"),
 				usage.Ex("sysml-lsp -stdio", "The same, for a client that names the transport"),
 				usage.Ex("sysml-lsp -strict", "Serve strict conformance from the start"),
+				usage.Ex("sysml-lsp -keep-line-breaks", "Format documents keeping the author's line breaks"),
 			},
 			Paragraphs: []string{
 				"A client that reads a strictConformance setting can ask for strict " +
-					"conformance instead, which then applies from the moment it is set.",
+					"conformance instead, which then applies from the moment it is set; " +
+					"a keepLineBreaks setting likewise stands in for -keep-line-breaks.",
 			},
 		}, {
 			Title: "Exit status",

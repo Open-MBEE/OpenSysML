@@ -5,7 +5,7 @@
 	"outputs": {
 		"sameRun": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
 		"acrossRuns": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
-		"before": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
-		"after": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]}
+		"beforeRebind": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+		"afterRebind": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]}
 	}
 }

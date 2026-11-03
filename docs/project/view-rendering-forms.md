@@ -35,16 +35,37 @@ how a picture is drawn, not what the model is, so a tree over a package of migra
 those views without the `metadata` and `render` nodes their annotations would add. Once a tree's
 nodes are built, `treeEdges` (`tree_edges.go`) draws the relationships between them that the
 general view's definition graph draws: a `specialization` from an element to each general it
-specializes, subsets or redefines; a `composition` or `reference` from an element to the definition
-typing each part, item, port, attribute, occurrence, enumeration or `ref` usage it owns, labelled
-with the usage's name and multiplicity; and the `typing` of a usage whose owner is not drawn. Both
-ends must be nodes of the same rendering, and so must the usage a composition stands for — one the
-depth bound leaves undrawn draws no edge — an element drawn twice draws from its first node, and no
-edge joins a node to one nested in it, since the nesting is that membership. A usage's `Style`
-dresses its composition edge as it does its node; its `Note` stays anchored to the node. A composition's
-origin is the usage it stands for, so a `Route` about the usage routes it and `DrawnIn` reports the
-usage drawn as an edge; a specialization's or typing's origin is the name its clause relates to,
-no member of its own, so it carries no route and a client lays it out itself. The
+specializes, subsets or redefines; the `typing` of each usage to its drawn definition; and the
+feature membership of each part, item, port, attribute, occurrence, enumeration or `ref` usage
+drawn under its owner, declared or inherited, as a `composition` (filled diamond at the owner) or a
+`reference` (hollow diamond) from the owner to the usage's node, with the usage's multiplicity at
+the usage's end — the glyphs of SysML v2 §8.2.3.6, the diamond read from the model's
+`Feature::isComposite` (`semantics.Model.UsageIsComposite`: a `ref`, an attribute, a port outside a
+port, an end, a directed or an enumeration usage is non-composite). The writers draw that edge in
+place of the containment line they draw to every other child, so a usage hangs off its owner by its
+membership glyph alone. The directed parameters of a calculation, action or constraint definition
+or usage — `in`, `out`, `inout` and `return` — are no member nodes of a tree: `treeParameter`
+(`tree_parameters.go`) pins each on its owner's node as a `Port` with `Parameter` set and the
+direction `pinDirection` reads, where §8.2.3.17, §8.2.3.19 and §8.2.3.20 set a calc's, action's and
+constraint's parameters (`param-l*`, `param-r*`, `param-b*`). A `return` declaring no name is the
+`result` pin, named by the `Function::result` it redefines (§7.19.2); a usage typed by a definition
+pins each parameter once, its own redefining ones as declared and the definition's others as
+inherited (`^y`). The text form lists the pins under their node direction first (`in x : Integer`,
+the type under `typings`), DOT and D2 draw them as pins, and Mermaid's flowchart and PlantUML's
+class diagram, which have no pin on a tree node, list them in a `parameters` compartment
+(`labeller.parameterLines`). The pins are the tree's model structure and stay whatever
+`parameter-symbols` says, as its members do. A usage listed in a compartment row instead of drawn as a node (the
+compartment foldings, or a positioned tree's unplaced members) folds its membership and typing into
+one edge from its owner to each drawn definition, labelled with the usage's name and multiplicity
+at the definition's end — the property association a block definition diagram draws. Both
+ends of a relationship edge must be nodes of the same rendering — a usage the depth bound leaves
+undrawn draws no edge — an element drawn twice draws from its first node, and no specialization or
+typing joins a node to one nested in it. A usage's `Style` dresses its membership edge as it does
+its node; its `Note` stays anchored to the node. A membership edge's origin is the usage it stands
+for, so a `Route` about the usage routes it — the usage's node, which such a route places nowhere,
+folds into a row unless a Layout places it — and `DrawnIn` reports the usage drawn as an edge; a
+specialization's or typing's origin is the name its clause relates to, no member of its own, so it
+carries no route and a client lays it out itself. The
 `MigrationMetadata::SynthesizedName` and `MigrationMetadata::StandIn` markers a migration leaves
 in a body are left out the same way: they record what the migration did, not what the model
 holds. Every other metadata usage — a user's `metadata Approved about errorCBE { by = "review"; }`,
@@ -177,17 +198,21 @@ What each of the other graphs draws, as nodes from the exposed set and edges bet
 | Kind | Nodes | Edges (`EdgeKind`) |
 | --- | --- | --- |
 | `requirement` | requirement and concern definitions and usages, labelled with their short name as `id` and the first line of their documentation or text, and the drawn ends of the relationships below | `satisfy` (from the satisfying feature), `verify` (from each verification case whose objectives verify it: its own, and those it inherits and does not redefine or restate by name, as the runtime runs them), `derive` (a `#derivation` connection's `derivedRequirement` from its `originalRequirement`), `refine` (a `#refinement` dependency), `allocate`, `specialization`, `typing` |
-| `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing`, `composition` (a part, item or other composite feature to the drawn definitions typing it, named by the feature) and `reference` (a `ref` feature likewise) |
+| `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing` (a drawn usage to its definition), `composition` (a drawn owner to a composite usage drawn as a node, its multiplicity at the usage's end; or, for a usage of the owner's that is not drawn, the owner to the drawn definitions typing it, named by the usage) and `reference` (a usage the model derives as non-composite — `ref`, attribute, port outside a port, end, directed or enumeration usage — likewise) |
 | `package` | packages | `containment` (an owned package) and `import` (a membership or namespace import, recursive or not, to the package it names, or to the package owning the member it names, labelled `::<member>`; one edge per import declaration, linked to it) |
 
 A relationship end that does not resolve draws no edge and is listed as a notice, and a cycle (mutually recursive part
 definitions, requirements deriving each other, packages importing each other) is drawn once per
 edge: the graph is built from symbols, never by following edges. Node and edge order is the model's
-declaration order, so a rendering is deterministic. The writers draw `specialization` as UML's
-hollow triangle, `typing` dashed, `composition` with a filled diamond and `reference` with a hollow one (a Mermaid flowchart, which has
-no diamond head, leads the edge's label with `◆` or `◇` instead), each
-requirement relationship dashed and named by its keyword (`«satisfy»`, `«verify»`), as the
-interconnection already does for its requirement and allocation edges. The Cameo style frames
+declaration order, so a rendering is deterministic. The writers draw each relationship with the
+glyph of its §8.2.3 production — `specialization` and `subsetting` a solid hollow triangle,
+`typing` the same with two dots at its base, `redefinition` the same with a bar, `composition` a
+filled and `reference` a hollow diamond at the owner (a Mermaid flowchart, which has no diamond
+head, leads the edge's label with `◆` or `◇` instead), `containment` a circle-plus at the
+namespace, an import a dashed open arrow labelled `«import»`, and each requirement relationship a
+solid open arrow named by its keyword (`«satisfy»`, `«verify»`, `«allocate»`), as the
+interconnection already does for its requirement and allocation edges; a `derive` or `refine` is
+the dashed `binary-dependency`. The [notation table](#notation-table) lists every glyph per form. The Cameo style frames
 the three kinds `req`, `bdd` and `pkg`.
 
 ### The verdicts overlay
@@ -242,6 +267,23 @@ A state's compartment lines name its behaviours (`stateBehaviorLabel`, `behavior
 else by the activity its type performs (`do action : Initialize` reads `Initialize`), else by
 what its anonymous body does — the message it sends or the one assignment it makes — and the
 keyword alone when none of that names it.
+
+A usage drawn or listed under an owner that does not declare it — one the owner has through
+typing, subclassification or subsetting — is marked inherited (`Node.Inherited`, set by the tree
+and interconnection walks, the case walk's inherited actors and subjects, and the action pins a
+node takes from its type; `Port.Inherited` for a pinned port), and every form writes the
+notation's `^` before its name (SysML v2.1 §8.2.3.6, `usage-name-with-alias` and `el-prefix`):
+`^mass` in a node head, a compartment row and the text form, `^aPort : APort` for a typed one, a
+pin's `^aPort` label, and the end label of a folded membership edge. A redefinition the owner
+declares is its own and reads bare (`attribute :>> mass` under `part d : APart` lists `mass`,
+beside `^aPort`), as does every member of a definition under the definition itself. The
+`usagePrefix` in `label.go` is the one place the glyph comes from. The data form and the JSON the
+LSP, the engine and the gRPC `RenderView` answer carry the mark as a field beside the bare name
+(`Inherited` on `NodeData` and `Port`, `inherited` on `RenderNode` and `RenderPort`) rather than
+in `name`, because the canvas and the clients key on names — the canvas's `labelHead` and
+`portName` add the `^` when they draw. The derived-feature prefix `/` of the same production is a
+different fact (the `derived` keyword, which the compartment row keeps as a prefix word) and is not
+drawn as a glyph.
 
 The name and type a node carries (`Node.Name`, `Node.Type`, the JSON's `name` and `type`) stay
 as the walk spells them — a root's name qualified, a nested member's simple, a type as the
@@ -356,8 +398,34 @@ remain tree-content nodes. Typing, specialization, perform and exhibit reference
 when both endpoints are present in the drawing. Mermaid and DOT keep state/action control nodes;
 the PlantUML component dialect writes them as explicit keyword-bearing circles or rectangles.
 
+A member drawn nested in the node of the owner declaring it hangs off one membership edge, from the
+owner's node to the member's, with the glyph §8.2.3 gives that membership — one rule for every
+kind, `Renderer.memberEdge` in `tree_edges.go`, applied by `mixedWalk.membershipEdges`: a
+membership the notation draws as a relationship of its own keeps that glyph and keyword (`require`,
+`assume`, `assert`, `frame`, `event`, a portion); every other usage's feature membership is the
+`composition` or `reference` diamond by the model's `isComposite`, with the usage's multiplicity at
+its end (a part, `ref` part, port, attribute, action or state usage, a view usage); and a member
+that is no feature — a nested package, a nested definition — is the owned membership's
+`containment` circle-plus. No membership is drawn twice: a behavior's body (the states and action
+nodes inside a state or action def) is drawn in that diagram's own notation, a case's roles by the
+case notation (its actor and subject lines, the composition to a nested case), and a parameter
+symbol — a subject, actor or stakeholder — is a parameter of its owner, not a member drawn apart.
+The edges come in the nodes' order, an owner's before its members' own. Each is a nesting edge
+(`Rendering.nestingEdges`), so the forms draw it once: the text form lists it under
+`relationships:`; PlantUML writes the arrow from the container to the member inside it, which it
+draws from the container's border; DOT and Mermaid write nothing for it, since Graphviz cannot clip
+an edge at a cluster holding its other end and a flowchart has no edge from a subgraph's border,
+both running it from an invisible anchor inside the container instead — the nesting is the drawing
+of the membership there, as it was. Only the member's own membership is left out (`nestedMembership`:
+declared where the member's node was); a relationship stated about a nested member, such as
+`require inner;` beside `constraint inner`, keeps its edge in every form. A member a view exposes
+apart from its owner is a separate node in every form, and the edge is drawn to it. A `Route` about a nested usage steers its membership
+edge, as in a tree, and the usage's typing or specialization takes a `Route` about the usage naming
+the definition; a positioned drawing that leaves the usage's node unplaced folds the membership and
+typing into the owner's labelled edge to the definition, as the positioned tree does.
+
 The writers preserve the same semantics with each notation's native shapes: Mermaid uses stadium
-cases, boxes for actors and subjects, notes for objectives, dashed include/typing/reference arrows,
+cases, boxes for actors and subjects, notes for objectives, solid include/typing/perform/exhibit arrows,
 undirected association lines and dotted anchor lines; DOT uses ellipses, boxes and note-shaped
 objectives with the corresponding edge attributes; PlantUML uses `usecase`, `actor`, subject
 rectangles and notes. Graph kinds keep Mermaid as their machine form. Markdown, CSV and TSV are
@@ -394,11 +462,11 @@ table records what each rendering feature writes:
 | Feature | Mermaid syntax and behavior |
 | --- | --- |
 | Definitions, regions, package kinds | Square flowchart nodes, `n0["…"]`; cases use stadium nodes, actors and subjects use keyword-bearing rectangles, and objectives use note nodes. Other non-symbol leaves are rounded `n0("…")` nodes. Cameo follows the DOT skin's rounded rule. |
-| Tree containment | Plain shaped nodes joined by `---`; tree nodes are never subgraphs and have no synthetic anchors. |
+| Tree containment | Plain shaped nodes joined by `---`; tree nodes are never subgraphs and have no synthetic anchors. A calc's, action's or constraint's parameter pins are lines of the node's label under a `parameters` heading (`in x : Integer`). |
 | Initial, final, junction, fork and join | `f-circ` for initial and junction nodes, `fr-circ` for final nodes, and `fork` for fork/join bars. Only fork/join bars use the `control` class. Named fork/join nodes are listed in a notice because the bar draws no label. |
 | Decision, merge, choice and history | Diamonds; empty and synthesized decision names use a blank diamond. Shallow/deep history use `(("H"))` and `(("H*"))`. |
 | State pseudostates and final transitions | Mermaid state stereotypes (`<<fork>>`, `<<join>>`, `<<choice>>`) and `[*]` for initial/final markers. A final in the same state body is implicit; cross-body final transitions retain the explicit final and receive a notice. |
-| Edges | `===` for connections/bindings, `-.->` for flows and typing/references, `-.->|"«include»"|` for includes, `---` for associations and tree containment, `-.-` for anchors, and `-->|"«specializes»"|` for specialization. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
+| Edges | `===` for connections/bindings, `-->` for flows, typing, transitions, satisfy/verify/allocate and `-->|"«include»"|` for includes (solid, as the notation draws them), `-.->` for successions, succession flows, imports, exposes and dependencies, `---` for memberships, associations and tree containment, `-.-` for anchors, and `-->|"«specializes»"|` for specialization. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
 | Markdown labels | Flowchart node labels use bold head lines, an italic keyword line and plain details. Container titles put the italic keyword and bold name on one line, then any further head lines and details. Unsafe punctuation, list-like starts, non-multiplicity `*` and non-intraword `_` use the plain escaped label instead. Leaf state, sequence and edge labels are unchanged. |
 | Theme variables | Common font, primary/secondary/tertiary, background, line/text and note variables are shared. Flowcharts add cluster and edge-label variables; state diagrams add state, composite and transition variables; sequences add actor, signal, label-box, activation and sequence-number variables. |
 | Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |
@@ -537,12 +605,14 @@ digraph "VehicleViews::vehicleView" {
   frame's pins are set on the cluster's border as a positioned node's are (`writePins` on the
   root cluster). The text form lists a node's pins under it by direction and name (`in bread`)
   and names the pins an edge joins as its ends (`heat.t => pack.t`, `ToastBread.bread ==
-  heat.b`), labelling the edge by its own name alone as DOT does. Mermaid's flowchart draws the
-  pins an edge ends at (`n0_p0 ===|"bread = b"| n1_p0`) and names the rest in a `not
-  represented` notice, `N pin(s) not drawn (…); a flowchart draws the pins an edge ends at`.
-  PlantUML's state grammar, which an action rendering uses, has no pin: the edge keeps its label
-  naming the pins (`n0 -- n1 : bread = b`) and every pin is named in a `not represented` notice,
-  `N pin(s) not drawn (…); PlantUML's state grammar has no pin, so the edges name them`.
+  heat.b`), labelling the edge by its own name alone as DOT does. Mermaid's flowchart and D2 draw
+  the pins an edge ends at (`n0_p0 ===|"bread = b"| n1_p0`) and list the rest in a `parameters`
+  compartment of their node (`labeller.parameterLines`, the pins `Rendering.unconnectedPin`
+  names), one line per pin as the tree form writes it (`in x`, `out ^result`, typed under
+  `typings`). PlantUML's state grammar, which an action rendering uses, has no pin: the edge keeps
+  its label naming the pins (`n0 -- n1 : bread = b`) and every pin is listed in its node's
+  `parameters` compartment. The `N pin(s) not drawn` notice remains for a pin that is neither
+  drawn nor listed.
 - **Interconnection ports.** A part's node carries as its `Ports` the ports it has from its
   definition and what that specializes without declaring them itself (`featureWalk.pinPorts`,
   `Renderer.typedPorts` in `interconnection.go`: `Model.MembersOf` less the part's own members
@@ -590,14 +660,9 @@ digraph "VehicleViews::vehicleView" {
   too. The parameters are shown and hidden with the port symbols (`port-symbols`), not the
   parameter symbols a case's actors are. A mixed rendering draws constraints the same way
   (`mixedStructural`).
-- **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
-
-  | `EdgeKind` | Mermaid | DOT |
-  | --- | --- | --- |
-  | connection | `---` | `arrowhead=none, penwidth=3` |
-  | binding | `---` | `arrowhead=none` |
-  | transition, succession | `-->` | solid, default arrowhead |
-  | flow | `-.->` | `style=dashed` |
+- **Edges.** Every edge kind is drawn with the glyph of its SysML v2 §8.2.3 production, as the
+  [notation table](#notation-table) lists per form; the Mermaid and DOT forms agree on direction
+  and on dashing (`---` is `arrowhead=none`, `-.->` is `style=dashed`, `===` the heavy connection).
 
   An interconnection draws a `binding` between two features as an edge of its own kind, a plain
   undirected line beside the heavy connection (`==` in the text form, `--` in PlantUML), and
@@ -620,6 +685,63 @@ Three methods of the writer produce every attribute list — `graphAttributes`,
 cluster) and `dotEdgeAttributes` — so what is said about a node or an edge changes without
 touching how the graph is walked.
 
+### Notation table
+
+Every relationship edge is drawn with the glyph of its production in the SysML v2 graphical
+notation (§8.2.3), the production's figure being the oracle. One row per production: the
+`EdgeKind` the view model gives it, then the glyph each form writes — the DOT edge attributes after
+the label, the PlantUML arrow, the Mermaid arrow, the D2 arrow and class, the SVG marker the VS Code
+canvas ends the edge in (`start` at the edge's source) — and whether the drawing is **conformant**,
+**approximate** (the medium cannot draw the glyph; the nearest it has, with what is missing) or
+**differs from pilot** (the spec and the Pilot's PlantUML visualizer disagree and the spec wins).
+`TestNotationTableMatchesTheWriters` (`internal/ir/view/notation_table_test.go`) and the canvas
+test read this table and hold the writers to it, so a glyph changes here and in the code together.
+
+| Production | `EdgeKind` | DOT | PlantUML | Mermaid | D2 | draw.io | Canvas | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `connection` | `connection` | `arrowhead=none, penwidth=3` | `-[thickness=3]-` | `===` | `-- connection` | `endArrow=none;strokeWidth=3` | `none` | conformant | The Pilot's heavy undirected connector; `penwidth=3` is dropped under the cameo style. |
+| `binding-connection` | `binding` | `arrowhead=none` | `--` | `===` | `-- edge` | `endArrow=none` | `none` | conformant | Labelled `=` where the binding has no name of its own, in every form. |
+| `flow` | `flow` | *(default)* | `-->` | `-->` | `-> edge` | `endArrow=block;endFill=1` | `end arrow` | approximate | Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it). |
+| `aflow-succession` | `succession` | `style=dashed, arrowhead=vee` | `-[dashed]->` | `-.->` | `-> succession` | `dashed=1;endArrow=open` | `end arrow-open` | differs from pilot | Dashed with an open head and the guard as its text; the Pilot draws a succession solid. Mermaid's `-.->` and D2's dashed arrow carry a filled head. |
+| `transition`, `st-succession` | `transition` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `endArrow=open` | `end arrow-open` | approximate | Solid with an open head; Mermaid and D2 have only a filled head. |
+| `subclassification`, `specialization` | `specialization` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-hollow` | approximate | Solid hollow triangle; Mermaid has no triangle head and names the kind as the edge text instead. |
+| `subsetting` | `subsetting` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-hollow` | approximate | The same hollow triangle, no text; Mermaid writes `subsetting` as the edge text, having no triangle. |
+| `redefinition` | `redefinition` | `arrowhead=onormaltee` | `--\|\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-bar` | approximate | Hollow triangle with a bar across the line: Graphviz sets the tee behind the triangle, D2 has no bar and draws the plain triangle, Mermaid writes `redefinition` as the edge text. |
+| `definition` | `typing` | `arrowhead=onormaldotdot` | `--:\|>` | `-->` | `-> specialization` | `dashed=1;endArrow=block;endFill=0` | `end triangle-dots` | approximate | Solid hollow triangle at the definition with two dots at its base: Graphviz sets the dots in line behind the triangle, D2 has no dots and draws the plain triangle, Mermaid writes `typing` as the edge text. |
+| `composite-feature-membership` | `composition` | `dir=back, arrowtail=diamond` | `*--` | `---` | `<- composition` | `startArrow=diamondThin;startFill=1;endArrow=none` | `start diamond-filled` | approximate | Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. A mixed rendering draws it from an owner to every composite usage nested in its node — a part, action or state usage, a view usage — where PlantUML and the text form show it and DOT and Mermaid leave it to the nesting ([case and mixed diagrams](#case-and-mixed-diagrams)). |
+| `noncomposite-feature-membership` | `reference` | `dir=back, arrowtail=odiamond` | `o--` | `---` | `<- reference` | `startArrow=diamondThin;startFill=0;endArrow=none` | `start diamond-hollow` | approximate | Hollow diamond at the owner; Mermaid leads the edge text with `◇`. A mixed rendering draws it to every referential usage nested in its owner's node — a `ref` part, an attribute, a port — as above. |
+| `owned-membership` | `containment` | `dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0` | `+--` | `---` | `<- containment` | `startArrow=circlePlus;startFill=0;endArrow=none` | `start circle-plus` | approximate | Circle-plus at the namespace: Graphviz has no such arrow, so a `+` tail label is set on its hollow circle; D2 puts a `+` arrowhead label beside its circle; Mermaid draws a plain line, a tree's nesting showing the ownership. A mixed rendering draws it from an owner to every nested member that is no feature — a nested package or definition — as above. |
+| `import`, `top-level-import`, `recursive-import` | `import` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Dashed open arrow labelled `«import»`, `«import»*` for a namespace import, `«import»**` for a recursive one, the visibility inside the guillemets (`«private import»`). |
+| `binary-dependency` | `dependency`, `derive`, `refine` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Dashed open arrow; a derivation or refinement carries `«derive»` or `«refine»` as its text. |
+| `satisfy-edge` | `satisfy` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«satisfy»`. |
+| `verify-relationship` | `verify` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«verify»`. |
+| `allocate-relationship` | `allocate` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«allocate»`. |
+| `include-use-case-relationship` | `include` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«include»`. |
+| `perform-edge` | `perform` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«perform»`, from the performing usage to the action. |
+| `exhibit-edge` | `exhibit` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«exhibit»`, from the exhibiting usage to the state. |
+| `association` (actor or subject line, connection definition) | `association` | `dir=none` | `--` | `---` | `-- edge` | `endArrow=none` | `none` | conformant | Plain undirected line. |
+| objective anchor | `anchor` | `dir=none, style=dashed` | `..` | `-.-` | `-> edge` | `dashed=1;endArrow=none` | `none` | conformant | Dashed line without a head, the note's anchor. |
+| `succession-flow` | `succession flow` | `style=dashed` | `-[dashed]->` | `-.->` | `-> successionflow` | `dashed=1;endArrow=block;endFill=1` | `end arrow` | differs from pilot | Dashed with a filled head and `«succession flow»` as its text, between the ends of a `succession flow` in action and interconnection renderings; the succession it also states is not drawn twice, except for the guard of a succession that gates it, and the keyword stays when connector names are hidden. The Pilot writes `..>`, an open head. |
+| `require-edge`, `assume-edge`, `assert-edge` | `require`, `assume`, `assert` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«require»`, `«assume»` or `«assert»`, from the requirer, assumer or assertor to the constraint or requirement it declares (`require constraint c { … }`) or names (`require r1;`), in the requirement and definition graphs and the mixed rendering; a tree nests the declared forms in their owner, and a mixed rendering nests them and draws this edge from the owner to the nested node, as it draws every nested membership. |
+| `frame-edge` | `frame` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | differs from pilot | Solid open arrow labelled `«frame»`, from the framer to the concern it declares or names, as above. The Pilot has no rule of its own and writes a feature membership's `*--`. |
+| `event-edge` | `event` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«event»`, from the eventer to an `event occurrence` it owns, in the definition graph, the tree and the mixed rendering, which draw the membership of each usage. |
+| `portion-relationship` | `portion` | `dir=back, arrowtail=dot` | `#--` | `---` | `<- portion` | `startArrow=oval;startFill=1;endArrow=none` | `start portion` | approximate | Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle. The Pilot writes `*--`. |
+| `reference-subsetting` | `reference subsetting` | `arrowhead=onormaldot` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-four-dots` | approximate | Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML and D2 draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--\|>`. |
+| `unowned-membership` | `unowned membership` | `dir=back, arrowtail=odot` | `0--` | `---` | `<- membership` | `startArrow=oval;startFill=0;endArrow=none` | `start circle-hollow` | differs from pilot | Solid line with a hollow circle at the namespace, from a package to a drawn package it holds by `alias`, the alias name at the member's end, in the package graph; Mermaid draws a plain line with `○` leading the text. The Pilot writes `+..`, dashed with a circle-plus. |
+| `expose-r`, `toplevel-expose-r`, `recursive-expose-r` | `expose` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Dashed open arrow labelled `«expose»`, `«expose»*` or `«expose»**` as an import is, from a view usage to an element it exposes when both are drawn apart (a tree or mixed rendering), one edge per distinct exposure (two statements that say the same draw one edge, as imports do); the exposures a nested view's node holds as its children are shown by the nesting. |
+
+The Mermaid cells are the flowchart arrows; `mermaidEdgeLabel` adds the kind's name as the edge text
+where the arrow alone would not tell a specialization, subsetting, redefinition or typing apart. The
+canvas dashes a `succession`, `succession flow`, `import`, `derive`, `refine`, `dependency`, `expose` or
+`anchor` edge by its CSS class. Under the cameo style a tree's `containment` is Cameo's filled diamond instead.
+
+The n-ary association and connection dots, the `flow-on-connection` item box and the
+sequence-diagram `message` and `sq-succession` glyphs remain undrawn as such: a connection with
+more than two ends is drawn as its pairs, a flow on a connection as a flow, and a sequence message
+as the grammar's own arrow. `testdata/notation-glyphs.sysml` exercises the succession flow,
+require, assume, assert, frame, event, portion, reference subsetting, unowned membership and
+expose edges in each rendering kind that draws them (`glyphs-*.golden`).
+
 ### Edge routing
 
 `view.Options.Lines` is how the writer routes its edges: `splines`, the default and the empty
@@ -627,13 +749,42 @@ value, states nothing and leaves Graphviz its curved splines; `ortho` adds `spli
 graph attribute list and `polyline` `splines=polyline`, after `compound` and before the positioned
 layout's `layout=neato` scale attributes, so a pinned drawing keeps its routes and only the edges
 Graphviz still routes follow the setting (where pinned boxes touch, Graphviz falls back to straight
-edges). Under `ortho` an edge's `label` is written as `xlabel`, since Graphviz places no label on an
-orthogonal edge but does place an external one. Graphviz's orthogonal router also ignores edge
-ports, so an edge drawn to a part's pin may run through the part's body to reach it; the default
-splines honour the pins. These are the Pilot visualizer's `ORTHOLINE` and
-`POLYLINE` styles, which `%viz` maps to them; PlantUML draws the same routing as
-`skinparam linetype ortho|polyline`, and Mermaid and D2, which route no edge themselves, note it
-(`lines ortho; mermaid routes no edge itself, the dot and plantuml forms do`).
+edges). These are the Pilot visualizer's `ORTHOLINE` and `POLYLINE` styles, which `%viz` maps to
+them; PlantUML draws the same routing as `skinparam linetype ortho|polyline`, and Mermaid and D2,
+which route no edge themselves, note it (`lines ortho; mermaid routes no edge itself, the dot and
+plantuml forms do`).
+
+Graphviz's orthogonal router ignores edge ports and places no label on the edges it routes, so
+under `ortho` the DOT form does not hand it the routing. A drawing the model leaves unpositioned
+(one with edges, other than a containment tree, whose edges meet no port) is laid out and routed
+by the writer itself, through the `arranger` the draw.io form lays out and routes with
+(`arrange.go`), and written as a positioned drawing: every node is given the box the layout
+settled it in, as a `Layout` would, every edge the orthogonal route libavoid found around the
+boxes, inside the container both its ends lie in (`routeGroups`), and the writer's positioned path
+then writes pin nodes for the ports, each route ending on its pin square, `label` with `lp` on
+the route, and `layout=neato`, `inputscale=72`, `dpi=72`, for `neato -n2` to draw as the
+`// layout:` header says; Graphviz only draws. The layout comes from one of two sources,
+in order:
+
+- **Graphviz's layered layout**, the default. `internal/ir/view/layout` runs `dot -Tjson0` over a
+  positions-only graph — the same nodes and edges, every leaf a fixed box at the size the writer
+  fits its label to (widened for its pins and their names), every container a cluster whose label
+  reserves its header, no routing — and reads the boxes back in whole pixels. `dot` is the one
+  `OPENSYSML_DOT` names, else the one on `PATH`, as the PDF backend finds it; a
+  `// not represented: lines ortho laid out on a grid, not layered: …` notice names what is
+  missing when neither is found. The result varies with the Graphviz version, so its goldens
+  (`testdata/*.ortho.dot.golden`) are recorded against the pinned **16.1.0** that
+  `scripts/download-doc-pdf-toolchain.sh` provisions; `TestDOTOrthoLayeredWithInstalledDot` reads
+  `dot -V`, skips without a dot or on another version, and fails on another version where
+  `OPENSYSML_REQUIRE_PDF_TOOLCHAIN` says the toolchain is present, as the PDF toolchain CI job does.
+- **The grid**, the fallback: the deterministic placement the draw.io form uses, under the notice.
+  Its goldens (`testdata/*.ortho-grid.dot.golden`) run everywhere.
+
+A port's side is the one the unpositioned DOT form gives it, an output or a connector's source below
+and the rest above; the pins are centred on half pixels, where the pin squares sit. A build with no
+router (`route.ErrUnavailable`, the WebAssembly targets) and a drawing the model positions keep
+Graphviz's routing: there an edge's `label` is still written as `xlabel`, since Graphviz places no
+label on an orthogonal edge but does place an external one.
 
 ## Style
 
@@ -940,7 +1091,7 @@ digraph "PlantViews::placedView" {
   row's owner (deduplicated; one whose ends both fall inside one owner is dropped), the owner's
   containment of the row is dropped as the nesting the row stands for, a note anchored at a row
   moves to the owner, and the notice counts the members `drawn as compartment rows of their
-  owner` (the nested members left undrawn counted apart, as above). In the data form a row is a
+  owner`; a member the row has from its type is the type's own and not noticed, one the row declares itself is counted apart, as above). In the data form a row is a
   node whose `compartment` names the compartment of its `parent`. The default output is unchanged
   in every form (`tree-compartments-most.*`, `tree-compartments-ports.*` goldens beside the
   positioned `tree-compartments.*`). Nothing folds when `compartments` is not shown (`ElementCompartments`
@@ -1094,7 +1245,8 @@ pseudostate shape only when nothing else is attached.
   Mermaid and DOT trees draw containment — a tree of edges, no nested containers — so the three
   forms show the same picture and a tree has no blocks. The Pilot's `comp def`/`comp usage`
   element kinds exist only in the PlantUML fork and are not emitted; every element is a standard
-  `class`.
+  `class`, a calc's, action's or constraint's parameter pins listed in its label under a
+  `parameters` heading, as the Mermaid tree lists them.
 - **`interconnection`** — nested `rectangle` blocks: a node with children is `rectangle "…" as
   n<i> <<kind>> {` … `}`, indented two spaces a level, a leaf a one-line `rectangle`. A port is a
   nested rectangle inside its owner, not a `portin`/`portout`: the released jar's port grammar
@@ -1182,7 +1334,7 @@ one `skinparam` the block cannot express. The translation of the same two source
 | note `BackGroundColor #FEFFDD`, 13 pt | `note { BackGroundColor #FEFFDD; FontSize 13 }` — no note is drawn today, the rule is there for one |
 | Pilot `skinparam wrapWidth 300` | `skinparam wrapWidth 300`, the one rule written as a `skinparam`; DOT could not wrap |
 | Pilot `hide circle` | `hide circle` on the class diagram (a tree), where the circle exists |
-| Pilot `-[thickness=3]-` connectors, `-->` flows and successions | `-[thickness=3]-` for `EdgeConnection`; `-->` for a transition or succession; `-[dashed]->` for a flow, as the Pilot's `VAction` dashes flows |
+| Pilot `-[thickness=3]-` connectors, `-->` flows and successions | `-[thickness=3]-` for `EdgeConnection`; `-->` for a transition and for a flow (solid with the notation's filled head, which PlantUML has not; the Pilot's `VAction` dashes flows, the notation does not); `-[dashed]->` for a succession, as the `aflow-succession` glyph dashes it |
 | initial and final pseudo-states | PlantUML's own `<<start>>`/`<<end>>` dots, filled black by `start, end, activityBar { BackGroundColor black }` (the `element` rule would otherwise leave them and the fork/join bars hollow) |
 
 So the three rules DOT could not honour — the 20-unit usage radius, shadows off and the 300 px
@@ -1235,14 +1387,16 @@ One shape per kind, chosen so each golden is drawn losslessly:
 | `requirement`, `definition`, `package` | Flat nodes, `definition`, `usage` or `package` by their keyword, joined in the class-diagram notation the PlantUML form uses (see below) |
 | `sequence` | One `sequence: "" { shape: sequence_diagram … }` container holding the lifelines in root order and the `->` messages in edge order, one for one with the Mermaid form |
 
-Edges follow the Pilot: `--` at `stroke-width: 3` for a connection, `--` for a binding, `->` with
-`stroke-dash: 3` for a flow, `->` for a transition or succession, labelled as the DOT form labels
-them. A GeneralView graph's relationships each take a class of the same name: `specialization` a
-hollow triangle head, `typing` the same dashed, `composition` and `reference` a filled and a hollow
-diamond at the owner, `containment` a circle at the owner — those three written owner `<-` owned,
+Edges follow §8.2.3 as the [notation table](#notation-table) lists them: `--` at `stroke-width: 3`
+for a connection, `--` for a binding, `->` for a flow or a transition, `->` with `stroke-dash: 3`
+for a succession, labelled as the DOT form labels them. A GeneralView graph's relationships take a
+class named for the glyph: `specialization` a hollow triangle head (a typing, subsetting and
+redefinition too — D2 has no dots or bar to add), `composition` and `reference` a filled and a hollow
+diamond at the owner, `containment` a circle at the owner carrying a `+` arrowhead label, D2 having
+no circle-plus — those three written owner `<-` owned,
 so the head at the owner is the only one, D2 drawing a source arrowhead only where the connection
-has one — and import, satisfy, verify, derive, refine
-and allocate one dashed `dependency` arrow, labelled. A case or mixed rendering has no D2 form. `TB`/`LR`/`BT`/`RL` become `direction: down`/`right`/`up`/`left` — D2 draws every direction,
+has one — and import, derive and refine one dashed `dependency` arrow, satisfy, verify, allocate
+and include a plain `edge` arrow, each labelled. A case or mixed rendering has no D2 form. `TB`/`LR`/`BT`/`RL` become `direction: down`/`right`/`up`/`left` — D2 draws every direction,
 where PlantUML does not. Every label is one double-quoted string with `\`, `"`, a newline and the
 `${` substitution escaped; every node is the rendering's identifier-safe ID, quoted where it holds
 a `.` (`"n1.0"`) so D2 does not read it as a path.
@@ -1250,7 +1404,7 @@ a `.` (`"n1.0"`) so D2 does not read it as a path.
 The look is the [DOT style](#style) restated as D2 classes: `definition` square and `usage` with
 `border-radius: 8`, both white with a `#181818` 1 px stroke and 14 pt black text; `package` and
 `region` containers (the region's `stroke-dash: 3` for an orthogonal region, as DOT dashes it);
-`pin` at 10 pt; `edge` 1 px, `connection` 3 px, `flow` dashed, all with 13 pt labels; the
+`pin` at 10 pt; `edge` 1 px, `connection` 3 px, `succession` dashed, all with 13 pt labels; the
 pseudostate classes above. A palette fills a node as `style: { fill: "#hex"; stroke: "#hex" }`
 after its class, the [palette rules](#palettes) shared with DOT unchanged — same family, same
 tint, same contrast lightening, same hex per node — and a container's fill is written the same
@@ -1264,6 +1418,111 @@ Mermaid and PlantUML forms share, D2 laying the diagram out itself. A `-render-l
 each located node's and edge's URL as `link: "…"`
 beside its `class` — see [Source links](#source-links).
 
+## draw.io
+
+The `drawio` form is for people who edit diagrams in [diagrams.net](https://www.diagrams.net)
+(draw.io): the desktop application, the web editor and the VS Code draw.io extension all open the
+file as it is written, so a view can be rendered, arranged and annotated there and kept beside the
+model. It is an uncompressed `mxGraphModel` document — `<mxfile host="OpenSysML">` holding one
+`<diagram>` named for the view — written by pure text emission over the rendering tree like the
+other forms: every attribute value is escaped by `encoding/xml`, every cell id is derived from
+the rendering's node and edge identifiers and the cells come in rendering order, so two runs over
+one model write byte-identical files. No draw.io is run to write it, and none is needed to open it.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram name="VehicleViews::vehicleView">
+    <mxGraphModel grid="1" page="1" pageWidth="827" pageHeight="1169">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part def»&#xA;Vehicle" fqn="Vehicles::Vehicle" kind="part def" view="VehicleViews::vehicleView" link="vehicle.sysml:3">
+          <mxCell style="swimlane;childLayout=stackLayout;…" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="160" height="78" as="geometry"/>
+          </mxCell>
+        </object>
+        …
+```
+
+Every semantic cell — a node, a port, an edge — is wrapped in an `<object>` carrying the
+element's handle beside draw.io's own `label`: `kind`, the node's keyword (`part def`, `state`,
+`initial`, …) or the edge's kind; `view`, the view rendered; `link`, the declaration's
+`file:line` when the element has one; and `fqn`, the declaration's qualified name, on a node, a
+port (for a `start` or `done` the model did not declare, the owner's member a Layout names it as,
+`Machines::VehicleStates::start`), and an edge that is a declaration of its own (a connection, flow, succession, transition,
+dependency and the like). An edge drawn from a member's declaration — a composition, a typing —
+carries no `fqn` and is matched by its `link` and the `source` and `target` cells it joins.
+Compartment rows and edge end labels are plain `mxCell`s and carry none of these. The `fqn` is
+exact and the same for every cell of one element, so a tool reading an edited file back can
+match each cell to its declaration; a later round trip of positions edited in draw.io builds on
+it.
+
+| Rendering | draw.io |
+| --- | --- |
+| Node | A `swimlane` with `childLayout=stackLayout`: the header holds the «kind» keyword line over the name (and type), each compartment is one stacked child text cell whose label is the compartment's lines; a definition square, a usage and a package with `rounded=1` where the DOT style rounds them; `Geometry.Collapsed` is `collapsed="1"` with the header's size, hidden compartments are left out, a referential, stand-in or inherited node dashed, greyed or `^`-prefixed as the notation table draws it |
+| Nested children | Child vertices of the container cell with container-relative geometry (draw.io positions a child from its parent's corner; the rendering's absolute coordinates are converted) |
+| Ports and pins | Small child cells on the owner's border, in-ports left, out-ports right, the rest spread along the top; an edge naming `FromPort`/`ToPort` attaches to the port cell |
+| Pseudostates | The UML template's shapes: `ellipse` filled for initial and junction, a ringed filled ellipse for final, a bar for fork and join, a rhombus for decision, choice and merge, a circle labelled `H` for history, `umlDestroy` (an ×) for terminate |
+| Edges | `edgeStyle=none` through the edge's waypoints, stated or routed (below), `edgeStyle=orthogonalEdgeStyle` for draw.io to route when it has none, with the §8.2.3 glyph per `EdgeKind` ([notation table](#notation-table), draw.io column): generalization (and subsetting, redefinition) `endArrow=block;endFill=0`, typing the same dashed, composition `startArrow=diamondThin;startFill=1` and reference `startArrow=diamondThin;startFill=0` (the diamond at the owner), containment `startArrow=circlePlus`, a connection `endArrow=none;strokeWidth=3`, a binding a plain line, a flow `endArrow=block;endFill=1`, a succession `dashed=1;endArrow=open`, a transition `endArrow=open`, import, dependency, derive, refine, satisfy, verify, allocate and the rest `dashed=1;endArrow=open` with the stereotype as the label; `Label` is the edge's value, `FromLabel` and `ToLabel` child `edgeLabel` cells at each end |
+| Geometry | `mxGeometry x y width height` from `DiagramLayout::Layout`; a `Route` as `<Array as="points">` of `mxPoint`s; a `Style` as `fillColor`, `strokeColor`, `fontColor`, `fontFamily`, `fontSize` and `fontStyle` (1 bold, 2 italic, 3 both); a `Canvas` as the model's `pageWidth`/`pageHeight` in its unit |
+| Notes | A `shape=note` cell holding the text and a dashed anchor edge to every subject the annotation is about (one box per annotation) |
+| Pictures | A `shape=image` cell with the image embedded the way draw.io stores one in a style, `image=data:<type>,<base64>`, for a local file or a declared data URL under the [trust rules](#optional-notation-elements) the SVG and document writers apply; a refused or remote picture is a notice |
+| Notices | Leading `<!-- not represented: … -->` comments, as the other forms list theirs in their comment syntax |
+
+draw.io needs a geometry for every vertex, so a view with no stated layout — `Geometry` absent or
+`Unplaced` — is laid on a deterministic grid, each box sized from its label and compartments the
+way the diagram panel sizes it, and the file opens with a comment saying the diagram was not laid
+out: draw.io's *Arrange › Layout*, or `drawio --normalize --layout elkLayered` on the command line
+of draw.io desktop 32 and later, arranges it. The writer adds no layout engine; a positioned view
+keeps every position and route it states, as the DOT form does.
+
+Every edge the view leaves unrouted is routed before writing, so the file carries each bend and
+opens the same everywhere rather than being routed afresh by each editor: the route's two ends
+become the edge's `exitX`/`exitY` and `entryX`/`entryY` anchors on their cells (taken exactly,
+`exitPerimeter=0`), its bends the waypoints between. The router is libavoid,
+the orthogonal router the VS Code diagram panel draws with, run in-process from its WebAssembly
+build (`internal/ir/view/route`, `libavoid-js` 0.4.5 under wazero; `scripts/build-libavoid-wasm.sh`
+reproduces the module) with the panel's parameters: a clearance of 16 pixels about every box, bends
+nudged 8 pixels apart, a connector leaving a box through pins along the side it faces and a named
+port through the port's own face — then short jogs are straightened as the panel straightens
+them, so an edge comes out point for point as the panel draws it (the route package checks
+this against routes recorded from the panel's own router). The edges are routed container by container — those two members
+of one container share stay inside that container, with its header and its other members as
+obstacles and the ancestors an end lies in reduced to their headers; an edge from a container to
+its own member leaves the header's underside above the member. Containers are padded by more than
+twice the clearance so a path fits between neighbours. A stated `Route` is never re-routed, and
+an edge the router finds no path for (two boxes nearer than twice the clearance plus their
+port squares; the grid and the members of a container keep that distance plus a nudging lane,
+50 px) is written without
+waypoints under `edgeStyle=orthogonalEdgeStyle`, for draw.io to route as before, under a notice
+naming the edge and its cells; an end at a port keeps its face as the anchor, the inner face when
+the edge leads into the port's owner. A member drawn outside its container is routed in the
+nearest container holding both ends. Routed waypoints are written to a thousandth of a pixel; a
+stated `Route` keeps its points. An edge that is a declaration of its own — a connection, flow,
+succession, transition, dependency and the like — carries its qualified name as `fqn` on its
+`<object>`, as the nodes do; an edge drawn from a member's declaration, such as a composition or a
+typing, carries none. The `js` and `wasip1` builds of `sysml`
+carry no router (a WebAssembly runtime inside WebAssembly would route several times slower and
+add to the download): they write every unrouted edge that way, under a notice, and draw.io routes
+them when the file opens.
+
+Supported kinds are `tree`, `interconnection`, `state`, `action`, `case`, `mixed`,
+`requirement`, `definition` and `package`. A `sequence` (and the timeline it implies) has no
+draw.io form: mxGraph has no sequence-diagram grammar, only free shapes, and a faithful lifeline
+drawing would mean laying the messages out here; the Mermaid, PlantUML and D2 forms draw
+sequences. A table or matrix refuses the form with the typed wrong-form error every graph form
+returns. The form is a view form, offered wherever forms are enumerated, but not a document
+diagram form: a document embeds a drawn figure, and nothing rasterizes a draw.io file in the PDF
+or HTML backends yet, so `-diagram-form drawio` is not offered until one does.
+
+The goldens (`internal/ir/view/testdata/*.drawio.golden`, beside the D2 goldens of the same
+models) are parsed whole by `encoding/xml` in the tests, every vertex checked for a geometry and
+every edge for a source and a target cell that exists, every `<object>` for its `fqn`, `kind`
+and `view`; the parent-relative conversion and the grid have unit tests of their own. The
+exported files were opened with draw.io desktop 32.6.1 (`drawio -x -f svg`), which draws them as
+written.
+
 ## Optional notation elements
 
 SysML v2.0 (ptc/25-04-05) leaves several notation elements to the diagram: §7.26.5 says a
@@ -1275,13 +1534,15 @@ ports drawn or not, an edge's label, the `«keyword»` and the name's qualificat
 multiplicity, a feature's `: Type`. A rendering draws the required notation and, of the
 optional, what it is told to show. `view.DefaultShown` is the default, one named constant:
 port symbols, compartments and keywords, the three the notation's own examples draw on every
-node. Each element has a name every surface uses and a Boolean
+node. An action's or calculation's parameter pins are no optional element: the action and
+calculation node forms carry them as `param-l*`/`param-r*`/`param-b*` (§8.2.3.17, §8.2.3.19), so
+`narrow` keeps them whatever is shown (`actionPinNode`). Each element has a name every surface uses and a Boolean
 attribute a rendering in the model chooses it by:
 
 | Element | Attribute | What it draws | Optional by |
 | --- | --- | --- | --- |
-| `parameter-symbols` | `showParameterSymbols` | A case's `actor`, `subject` and `stakeholder` parameters and an action's parameter pins as squares on the node's boundary. Without them a connection that ended at a parameter ends at the node that declares it: one line per connection, one node per actor. A tree lists a case's parameters as members, which stay. | §7.26.5; §8.2.3 `distinguished-parameter`, `distinguished-parameter-link` |
-| `port-symbols` | `showPortSymbols` | A part's ports, and a constraint's parameters, as pins on its boundary. Without them a connection that ended at a port ends at the part, a binding that ended at a parameter at the constraint; a port drawn as a nested member of a tree is model structure and stays. Default. | §7.26.5; §8.2.3 `port-node` |
+| `parameter-symbols` | `showParameterSymbols` | A case's `actor`, `subject` and `stakeholder` parameters as squares on the node's boundary (an action's parameter pins are its node form's, always drawn). Without them a connection that ended at a parameter ends at the node that declares it: one line per connection, one node per actor. A tree lists a case's parameters as members and a calc's, action's or constraint's as pins of their owner, all of which stay. | §7.26.5; §8.2.3 `distinguished-parameter`, `distinguished-parameter-link` |
+| `port-symbols` | `showPortSymbols` | A part's ports, and a constraint's parameters, as pins on its boundary. Without them a connection that ended at a port ends at the part, a binding that ended at a parameter at the constraint; a port drawn as a nested member of a tree is model structure and stays, as are a tree's parameter pins. Default. | §7.26.5; §8.2.3 `port-node` |
 | `compartments` | `showCompartments` | The lists of nested features inside a node. Default. | §7.26.5; §8.2.3 `compartment` |
 | `edge-labels` | `showEdgeLabels` | The names of connections, flows, bindings and allocations along their lines. Without them no label box is left. A sequence diagram's message lines keep their labels: the label is the message. | §8.2.3 `edge-label` |
 | `keywords` | `showKeywords` | The `«keyword»` over each name (`«part def»`, `«part»`, `«enum def»`, …), as the notation's examples, the pilot and SysON draw every node. Default. | §8.2.3 `keyword-list` |
@@ -1289,23 +1550,23 @@ attribute a rendering in the model chooses it by:
 | `typings` | `showTypings` | The `: Type` and `:> general` text after a name. | §8.2.3 `feature-typing-text` |
 | `qualifiers` | `showQualifiers` | The qualified-name prefix of each name, in the text form as in the diagram forms; without it a name is the shortest suffix of its qualified name that is its own in the rendering. | §8.2.3 `qualified-name` |
 
-In the model, a view chooses them by rendering a usage or definition that specializes a standard
+In the model, a view chooses them by rendering a rendering that subsets a standard
 `Views` rendering and declares the attributes, each `true` to show the element and `false` to
-leave it out; a switch is declared `default` so that a rendering specializing the one declaring it
-redefines it (`:>>`) to turn it again. The renderer recognises the standard rendering through the specialization chain and
+leave it out; a switch is declared `default` so that a rendering subsetting the one declaring it
+redefines it (`:>>`) to turn it again. The renderer recognises the standard rendering through the subsetting chain and
 reads the attributes from the chosen rendering and its generals, the nearest declaration of each
 deciding. An attribute left undeclared keeps the default, so a rendering need only name what it
-changes. The notation stays library-only — `ScalarValues::Boolean`, `rendering def`, `rendering`
-and the standard renderings — and the pilot validates it.
+changes. The notation stays library-only — `ScalarValues::Boolean`, `rendering` and the standard
+renderings — and the pilot validates it.
 
 ```sysml
 private import ScalarValues::Boolean;
-rendering def PlainInterconnection :> Views::asInterconnectionDiagram {
+rendering plainInterconnection :> Views::asInterconnectionDiagram {
     attribute showParameterSymbols : Boolean default = false;
     attribute showEdgeLabels : Boolean default = true;
 }
-rendering labelled :> PlainInterconnection { attribute :>> showParameterSymbols = true; }
-view useCases { expose Lab::*; render PlainInterconnection; }
+rendering labelled :> plainInterconnection { attribute :>> showParameterSymbols = true; }
+view useCases { expose Lab::*; render plainInterconnection; }
 ```
 
 Ad hoc, `-render-show <elements>`, the REPL's `show=<elements>` on `%render` and `%render-document`,
@@ -1318,6 +1579,50 @@ with their edges' ends moved to the node that declared them and a note anchored 
 likewise, hidden labels, typings, multiplicities, keywords, compartments and qualifiers are left
 unwritten, so DOT, Mermaid, PlantUML, D2, text and `Rendering.Data` agree. A name none of the
 elements has is refused with the names there are.
+
+### Round trip
+
+A draw.io file the form wrote can be edited in draw.io and read back: `sysml model.sysml
+-import-diagram view.drawio [-view <name>] [-dry-run]`, the LSP request `opensysml/importDiagram`,
+the MCP tool `import_diagram` and the VS Code command *Import layout from draw.io…* each render
+the view the file names, export it again as the writer would, and compare the file with that
+export cell by cell. Only what differs becomes an edit, applied through the model editor as a
+drag in the diagram panel is: a moved, resized or collapsed node is a `Layout` (absolute
+coordinates, as the notation reads them; a container the model did not place is pinned with its
+children so a child moved inside it lands where the file has it), a re-routed edge a `Route` (a
+straightened one clears it), a recoloured cell a `Style`, a changed page size a `Canvas`, a moved
+or retyped note a `Note` with the text the file has (line breaks kept; a note formatted in draw.io
+is decoded from the HTML it saves), a moved picture or one pointed at another file a `Picture`
+whose location names that file as the writer would, relative to the view's document (a path, an
+absolute path or a `file:` URL, each under that directory: the import reads no file outside it). A node, port or named edge whose text was
+retyped is a rename when the new text is the writer's own label with exactly the declared name
+replaced by one SysML name — an identifier or a quoted `'…'` name, as the lexer reads it. The
+rename goes through the model editor's `rename`, so the declaration and every reference to it move,
+across documents — the declaration may be in a document other than the view's — and in the view's
+own `expose`, `about` and layout lines; a member renamed together with its owner is renamed first,
+by the path the file still names it with; its target is the
+qualified path the import gives a `Layout` of the same cell, so a member drawn under an inheritor
+(`Loop::sensor::waterOut`) renames the declaration that path resolves to, not a usage of it. A
+cell moved and retyped at once imports as one `Layout` and one rename, the rename applied last so
+the layout still resolves. Nodes and ports are matched by the `fqn` the writer stamps,
+edges by their ends, kind and order, notes and pictures by position; positions within half a
+pixel are unchanged, so an untouched export imports nothing and the routes the writer computed
+itself are never written back unless the user moved them. The compressed form draw.io desktop
+saves by default is read as the uncompressed one is, and a file with several pages needs the
+view named. What the import cannot carry is reported, not written: cells naming no element
+(nothing is created), elements the rendering lacks (renamed or gone), cells the file lost
+(nothing is deleted), a port recoloured (ports are drawn by direction), a note re-anchored, a
+label moved, and an edge re-routed that no `Route` steers yet, such as a typing edge drawn beside
+its membership edge. So is a retyping the rename rule does not cover, each with a one-line reason
+naming the cell: a label edited beyond its name (a keyword, `: Type`, multiplicity, parameter
+line or compartment row), a new name that is not one SysML name (empty, a keyword, two words, an
+unterminated quote), a name an existing member already holds (the rename check's own message), a
+cell whose name is synthesized and so has none to rename, and an element the view draws twice
+(an inherited member in a tree) whose copies disagree. A note emptied is reported, since a `Note`
+with no text is not one, and so is a picture given embedded `data:` content, a URL, a file outside
+the view's directory, or a file that does not read as an image — no `Picture` location names those. Retyping a name to the same
+text imports nothing and reports nothing. `-dry-run` prints the planned edits and a unified diff
+of every document they change and writes nothing.
 
 ## Limiting what a view draws
 
@@ -1409,7 +1714,7 @@ refuse D2:
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, VS Code, documents | `-render-show <elements>` on `-render`, `-render-all`, `-render-document` and `-render-documents`; `%render <view> <form> show=<elements>` and `%render-document <name> <form> show=<elements>`; `"show": [...]` on `opensysml/render`, `opensysml/renderDocument`, the sysml-engine `RenderView` request and the gRPC `RenderView` RPC (`model.render_view(view, show=[...])` in Python), the `openSysmlRenderElements` capability listing the names and the result's `shown` what was drawn; a document diagram's `show` attribute; the `opensysml.diagram.show` setting in the diagram panel and export; a view's rendering chooses its own in the model ([optional notation elements](#optional-notation-elements)) | [`docs/reference/cli.md`](../reference/cli.md), [`docs/reference/repl-commands.md`](../reference/repl-commands.md), [`docs/reference/lsp.md`](../reference/lsp.md), [`editors/vscode/README.md`](../../editors/vscode/README.md) |
 | CLI, REPL, LSP, documents | `-render-ports minimal\|full` on `-render` and `-render-all`; `%render <view> <form> [minimal\|full]` in any order with the palette and style; `"ports": "full"` on `opensysml/render`, the displays listed by the `openSysmlRenderPorts` capability; `Diagram::ports` in a document, carried as `view.Options.Ports` (`invalid-ports`, `unsupported-ports` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
-| CLI, REPL, LSP | `-render-lines splines\|ortho\|polyline` on `-render` and `-render-all`; `%render <view> dot\|plantuml [splines\|ortho\|polyline]` in any order with the palette, style and port display, and `%viz --style ORTHOLINE\|POLYLINE`; `"lines": "ortho"` on `opensysml/render`, the routings listed by the `openSysmlRenderLines` capability; carried as `view.Options.Lines` (`UnknownLinesError`) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
+| CLI, REPL, LSP | `-render-lines splines\|ortho\|polyline` on `-render` and `-render-all`; `%render <view> dot\|plantuml [splines\|ortho\|polyline]` in any order with the palette, style and port display, and `%viz --style ORTHOLINE\|POLYLINE`; `"lines": "ortho"` on `opensysml/render`, the routings listed by the `openSysmlRenderLines` capability; carried as `view.Options.Lines` (`UnknownLinesError`); `ortho` lays the DOT form out and routes it itself ([Edge routing](#edge-routing)), `OPENSYSML_DOT` naming the Graphviz `dot` it layers with | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, gRPC, clients, documents | `-render-compartments positioned\|most\|ports` on `-render`, `-render-all`, `-render-document` and `-render-documents`; `%render <view> <form> compartments=<folding>`; `%viz --style COMPMOST\|COMPTREE`; `"compartments": "most"` on `opensysml/render`, the foldings listed by the `openSysmlRenderCompartments` capability; `compartments` on gRPC `RenderView`, whose rows carry their parent's `compartment`, and on the Python, Go, Rust and Node clients; carried as `view.Options.Compartments` (`UnknownCompartmentsError`) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
 | CLI, REPL, LSP, VS Code | A table or matrix view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each tabular view and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is never inside the records: the CLI writes it to standard error, LSP returns it in the response, and `%render` lists it after a blank line | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |

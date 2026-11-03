@@ -1,0 +1,35 @@
+= AsciiDoc Report
+:stem: latexmath
+
+Plain _em_ *strong* `co&#92;de` link:https://x.io/a[lbl] link:https://y.io[https&#58;//y.io] mirror the mount <<summary,the summary>> <<notes,notes>> stem:[m \propto D^2] © end.
+
+* one
+* two _soft_
+
+*Note:* Mind the *gap*.
+
+. first
+. second
+
+.Masses
+[cols="75,25",options="header"]
+|===
+| Part | Mass
+| Mirror | 12 kg
+| Mount | 4 kg
+|===
+
+.Scaling
+[stem]
+++++
+m \propto D^2
+++++
+
+.Optics
+image::https://example.test/figures/optics.png[The optics]
+
+[[summary]]
+A classic paragraph beside the body.
+
+[[notes]]
+The *named* paragraph keeps its anchor; see <<summary,summary>> and the mirror.

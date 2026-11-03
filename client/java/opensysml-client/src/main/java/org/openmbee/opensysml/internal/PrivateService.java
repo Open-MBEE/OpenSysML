@@ -1,5 +1,6 @@
 package org.openmbee.opensysml.internal;
 
+import org.openmbee.opensysml.ConnectionOptions;
 import org.openmbee.opensysml.ServiceStartException;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -67,6 +68,9 @@ public final class PrivateService {
             "0",
             "-report-address",
             "-exit-with-parent");
+    // The child serves loopback for this process alone: the token meant for a
+    // remote service must not become one the child demands.
+    builder.environment().remove(ConnectionOptions.TOKEN_ENV);
     Process process;
     try {
       process = builder.start();

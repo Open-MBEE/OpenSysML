@@ -3,16 +3,16 @@
   "instantiate": "test::Hull",
   "libraries": true,
   "slots": {
-    "timeEnclosed": {"type": "Integer", "value": 3},
+    "timeEnclosed": {"type": "Undetermined", "value": "[1]"},
     "selfFirst": {"type": "Boolean", "value": true},
     "portsFollow": {"type": "Boolean", "value": true},
-    "spaceTimeEnclosed": {"type": "Integer", "value": 1},
-    "slices": {"type": "Integer", "value": 1},
-    "portEnclosed": {"type": "Integer", "value": 1},
-    "partEnclosed": {"type": "Integer", "value": 1},
-    "timeEnclosedOccurrences": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}]},
-    "timeSlices": {"type": "Sequence", "elements": [{"type": "Instance"}]},
-    "q1.timeEnclosedOccurrences": {"type": "Sequence", "elements": [{"type": "Instance"}]},
-    "pa.timeEnclosedOccurrences": {"type": "Sequence", "elements": [{"type": "Instance"}]}
+    "spaceTimeEnclosed": {"type": "Undetermined", "value": "[1]"},
+    "slices": {"type": "Undetermined", "value": "[1]"},
+    "portEnclosed": {"type": "Undetermined", "value": "[1]"},
+    "partEnclosed": {"type": "Undetermined", "value": "[1]"},
+    "timeEnclosedOccurrences": {"type": "Undetermined", "value": "[5..*]"},
+    "timeSlices": {"type": "Undetermined", "value": "[3..*]"},
+    "q1.timeEnclosedOccurrences": {"type": "Undetermined", "value": "[3..*]"},
+    "pa.timeEnclosedOccurrences": {"type": "Undetermined", "value": "[3..*]"}
   }
 }

@@ -73,6 +73,12 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 		out = append(out, m.declaredAnnotations(sym)...)
 		out = append(out, m.aboutAnnotations(sym)...)
 	}
+	// Asked while the `about` index is still being built (a view's filter
+	// resolving), the answer is partial: given, not kept.
+	if m.aboutBuilding {
+		delete(m.annotations, sym)
+		return out
+	}
 	m.annotations[sym] = out
 	return out
 }
@@ -121,7 +127,7 @@ func (m *Model) DeclaredAnnotationFactsOf(sym *symbols.Symbol) []symbols.Annotat
 // clause states on the elements it names — its type and bound values — as an
 // interface record keeps it; nil for any other symbol.
 func (m *Model) AboutAnnotationFactsOf(sym *symbols.Symbol) *symbols.AnnotationFacts {
-	if sym == nil || sym.Kind != symbols.SymbolMetadataUsage || !annotatesOthers(sym.Decl) {
+	if sym == nil || sym.Kind != symbols.SymbolMetadataUsage || !symbols.AnnotatesOthers(sym.Decl) {
 		return nil
 	}
 	a, ok := m.metadataAnnotation(sym.OwnerScope, sym.Decl)
@@ -138,7 +144,7 @@ func (m *Model) AboutAnnotationFactsOf(sym *symbols.Symbol) *symbols.AnnotationF
 // AnnotatedElementsOf returns the elements a metadata usage annotates through
 // its `about` clause, resolved; nil for any other symbol.
 func (m *Model) AnnotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym.Kind != symbols.SymbolMetadataUsage || !annotatesOthers(sym.Decl) {
+	if sym.Kind != symbols.SymbolMetadataUsage || !symbols.AnnotatesOthers(sym.Decl) {
 		return nil
 	}
 	targets := m.annotatedElements(sym.OwnerScope, sym.Decl)
@@ -405,7 +411,7 @@ func (m *Model) declaredAnnotations(sym *symbols.Symbol) []annotation {
 		// `part seatBelt {@Safety{isMandatory = true;}}`: a metadata usage written
 		// as a member annotates the element owning the body, unless it states
 		// what it annotates with an `about` clause.
-		if !isMetadataUsage(member) || annotatesOthers(member) {
+		if !isMetadataUsage(member) || symbols.AnnotatesOthers(member) {
 			continue
 		}
 		if a, ok := m.metadataAnnotation(memberScope(sym, scope), member); ok {
@@ -525,7 +531,7 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string][]symbols.FilterVal
 		if !ok {
 			continue
 		}
-		name := simpleSymbolName(member)
+		name := SimpleSymbolName(member)
 		if name == "" {
 			continue
 		}
@@ -632,8 +638,14 @@ func (m *Model) annotationsAbout() map[*symbols.Symbol][]annotation {
 	return m.aboutAnnots
 }
 
+// AboutBuilding reports whether the `about` index is being built, when what the
+// model answers about annotations — and the filters reading them — is partial.
+func (m *Model) AboutBuilding() bool { return m.aboutBuilding }
+
 // buildAbout indexes the `about` metadata usages of every gathered document.
 func (m *Model) buildAbout() {
+	m.aboutBuilding = true
+	defer func() { m.aboutBuilding = false }()
 	m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
 	m.aboutByDecl = make(map[ast.Node][]annotation)
 	gathers := m.gathers()
@@ -675,7 +687,7 @@ func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
 		m.indexRecordedAboutUsage(sym)
 		return
 	}
-	if !annotatesOthers(sym.Decl) {
+	if !symbols.AnnotatesOthers(sym.Decl) {
 		return
 	}
 	a, ok := m.metadataAnnotation(sym.OwnerScope, sym.Decl)
@@ -743,10 +755,6 @@ func (m *Model) annotatedElements(scope *symbols.Scope, decl ast.Node) []aboutTa
 	}
 	return out
 }
-
-// annotatesOthers reports whether a metadata usage states what it annotates
-// (`metadata m about p;`, `@M about p;`), rather than annotating the element owning it.
-func annotatesOthers(decl ast.Node) bool { return symbols.AnnotatesOthers(decl) }
 
 // annotationValues reads the feature values an annotation body binds, as in
 // `@Safety{isMandatory = true;}`. A binding whose value is not a constant or an
@@ -832,7 +840,7 @@ func (m *Model) annotationValue(scope *symbols.Scope, value ast.Node) symbols.Fi
 	}
 	switch e := value.(type) {
 	case *ast.LiteralString:
-		return symbols.FilterValue{Kind: symbols.FilterValueString, Str: unquote(e.Value)}
+		return symbols.FilterValue{Kind: symbols.FilterValueString, Str: source.StringValue(e.Value)}
 	case *ast.FeatureReference:
 		if sym, ok := m.resolver.ResolveQualified(scope, e.Name); ok && sym != nil {
 			if fqn := m.fqnOf(sym); fqn != "" {
@@ -1022,6 +1030,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 			return meta
 		}
 	}
+	// A flow's declared payload is a KerML PayloadFeature in either language
+	// (SysML v2.1 textual notation, FlowPayloadFeature: PayloadFeature : Feature).
+	if m.IsFlowPayload(sym) {
+		if meta := m.kermlMetaclass("PayloadFeature"); meta != nil {
+			return meta
+		}
+	}
 	if isMetadataBodyFeature(sym) {
 		return m.metadataBodyFeatureMetaclass(m.isKerMLDoc(sym))
 	}
@@ -1052,6 +1067,45 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	return m.sysmlMetaclass(sysmlMetaclassName(sym))
 }
 
+// isAssertedConstraint reports a constraint usage written `assert constraint c`
+// or `assert c` (SysML.xtext AssertConstraintUsage), from its declaration or record.
+// IsFlowPayload reports the payload a flow declares with `of p : T`; a recorded
+// symbol carries it as ModPayloadFeature.
+func (m *Model) IsFlowPayload(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModPayloadFeature)
+	}
+	if sym.Decl == nil || sym.OwnerScope == nil {
+		return false
+	}
+	owner := sym.OwnerScope.Owner()
+	if owner == nil {
+		return false
+	}
+	flow, ok := owner.Decl.(*ast.Usage)
+	return ok && flow.FlowEnds != nil && flow.FlowEnds.PayloadDecl != nil &&
+		ast.Node(flow.FlowEnds.PayloadDecl) == sym.Decl
+}
+
+func isAssertedConstraint(sym *symbols.Symbol) bool {
+	if sym.Kind != symbols.SymbolConstraintUsage {
+		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModAssert)
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usageAsserts(usage)
+}
+
+// usageAsserts is the `assert` of either spelling of an asserted constraint.
+func usageAsserts(usage *ast.Usage) bool {
+	return usage.Keyword == "assert" || usage.PrefixKeyword == "assert"
+}
+
 // sysmlMetaclassName is the SysML metaclass of sym's declaration: by its symbol
 // kind, or by the declaration where the kind spans several (SysML.xtext).
 func sysmlMetaclassName(sym *symbols.Symbol) string {
@@ -1060,6 +1114,18 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	}
 	if sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModEvent) {
 		return "EventOccurrenceUsage"
+	}
+	if isAssertedConstraint(sym) {
+		return "AssertConstraintUsage"
+	}
+	if sym.IsConjugatedPortDefinition() {
+		return "ConjugatedPortDefinition"
+	}
+	if sym.Expr != nil {
+		if isExpressionParameterSymbol(sym) || sym.Expr.Role == symbols.ExpressionChainFeature {
+			return "Feature"
+		}
+		return expressionElementMetaclassName(sym)
 	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ForkNode:
@@ -1385,6 +1451,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.requirementElements(sym, feature); ok {
 		return elems, true
 	}
+	if elems, ok := m.parameterElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1430,84 +1499,6 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			}
 		}
 		return out, true
-	case "input":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		if behaviorLike(sym) {
-			out := m.InputParametersOf(sym)
-			return includeSubjectParameterInOrder(m, sym, out), true
-		}
-		out := m.directedFeatures(sym, ast.DirIn, ast.DirInOut)
-		if m.reflectiveMetaclassConforms(sym, "RequirementUsage") {
-			out = includeSubjectParameterInOrder(m, sym, out)
-		}
-		return out, true
-	case "output":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		if behaviorLike(sym) {
-			var out []*symbols.Symbol
-			for _, parameter := range m.BehaviorParametersOf(sym) {
-				if parameter.Symbol == nil || parameter.IsResult ||
-					(parameter.Direction != ast.DirOut && parameter.Direction != ast.DirInOut) {
-					continue
-				}
-				out = append(out, parameter.Symbol)
-			}
-			for _, parameter := range m.BehaviorParametersOf(sym) {
-				if parameter.Symbol != nil && parameter.IsResult {
-					out = append(out, parameter.Symbol)
-				}
-			}
-			return out, true
-		}
-		return m.directedFeatures(sym, ast.DirOut, ast.DirInOut), true
-	case "parameter":
-		if !m.reflectiveMetaclassConforms(sym, "Behavior") &&
-			!m.reflectiveMetaclassConforms(sym, "Step") {
-			return nil, false
-		}
-		var out []*symbols.Symbol
-		for _, parameter := range m.BehaviorParametersOf(sym) {
-			if parameter.Symbol != nil {
-				out = append(out, parameter.Symbol)
-			}
-		}
-		return includeSubjectParameterInOrder(m, sym, out), true
-	case "directedFeature":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		return m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut), true
-	case "subjectParameter":
-		if !m.ownsSubjectParameter(sym) {
-			return nil, false
-		}
-		if subject := m.SubjectParameterOf(sym); subject != nil {
-			return []*symbols.Symbol{subject}, true
-		}
-		return nil, true
-	case "objectiveRequirement":
-		if !m.ownsObjectiveRequirement(sym) {
-			return nil, false
-		}
-		owned, inherited := m.ObjectivesOf(sym)
-		objectives := append(owned, inherited...)
-		if len(objectives) > 0 && objectives[0] != nil {
-			return []*symbols.Symbol{objectives[0]}, true
-		}
-		return nil, true
-	case "result":
-		if !m.reflectiveMetaclassConforms(sym, "Expression") &&
-			!m.reflectiveMetaclassConforms(sym, "Function") {
-			return nil, false
-		}
-		if result := m.ResultParameterOf(sym); result != nil {
-			return []*symbols.Symbol{result}, true
-		}
-		return nil, true
 	case "individualDefinition":
 		if !m.reflectiveMetaclassConforms(sym, "OccurrenceUsage") {
 			return nil, false
@@ -1540,7 +1531,14 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			}
 		}
 		return ends, true
+	case "ownedFeatureChaining":
+		if (sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature) || sym.Chain != nil {
+			return m.OwnedRelationships(sym), true
+		}
 	case "chainingFeature":
+		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+			return m.ChainingFeatures(sym), true
+		}
 		if !m.reflectiveMetaclassConforms(sym, "Feature") {
 			return nil, false
 		}
@@ -1561,10 +1559,10 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return m.DifferencingTypes(sym), true
 	case "owner":
-		if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
-			return nil, true
+		if owner := ownerSymbol(sym); owner != nil {
+			return []*symbols.Symbol{owner}, true
 		}
-		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
+		return nil, true
 	case "ownedMember":
 		return ownedMembersOf(sym), true
 	case "ownedElement":
@@ -1582,12 +1580,64 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "documentation":
 		return m.documentationSymbols(sym), true
 	case "relatedFeature", "sourceFeature", "targetFeature":
+		if feature == "targetFeature" && isExpressionSymbol(sym) {
+			return m.expressionReferencedElements(sym, feature), true
+		}
 		if !m.reflectiveMetaclassConforms(sym, "Connector") {
 			return nil, false
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
+	case "ownedRelatedElement", "owningRelatedElement":
+		// A declared connector relates features its types own; its own owner is a membership's.
+		if !m.reflectiveMetaclassConforms(sym, "Connector") {
+			return nil, false
+		}
+		return []*symbols.Symbol{}, true
+	case "argument":
+		if !isExpressionSymbol(sym) {
+			return nil, false
+		}
+		return m.ExpressionArguments(sym), true
+	case "referent", "function":
+		if !isExpressionSymbol(sym) {
+			return nil, false
+		}
+		if feature == "function" {
+			// Only an instantiation expression has a function; a metadata
+			// access files its referenced element at the same slot.
+			switch sym.Decl.(type) {
+			case *ast.InvocationExpr, *ast.ConstructorExpr:
+			default:
+				return nil, false
+			}
+		}
+		return m.expressionReferencedElements(sym, feature), true
+	case "referencedElement":
+		if !isExpressionSymbol(sym) {
+			return nil, false
+		}
+		if _, ok := sym.Decl.(*ast.MetadataAccessExpr); !ok {
+			return nil, false
+		}
+		return m.expressionReferencedElements(sym, "function"), true
+	case "valuation":
+		// KerML 8.3.3.3.5 Feature::valuation: the FeatureValue among the
+		// feature's owned memberships, if its declaration has a value part.
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		value := m.ValueExpression(sym)
+		if value == nil {
+			return []*symbols.Symbol{}, true
+		}
+		for _, membership := range m.OwnedMemberships(sym) {
+			if membership.Implicit != nil && membership.Implicit.Member == value {
+				return []*symbols.Symbol{membership}, true
+			}
+		}
+		return []*symbols.Symbol{}, true
 	case "ownedFeature":
-		var features []*symbols.Symbol
+		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		for _, member := range ownedMembersOf(sym) {
 			if member.IsFeature() {
 				features = append(features, member)
@@ -1754,30 +1804,13 @@ func (m *Model) reflectiveFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 			return []*symbols.Symbol{annot.typ}
 		}
 	}
-	types := append([]*symbols.Symbol(nil), m.FeatureTypeSet(sym)...)
-	if !m.reflectiveMetaclassConforms(sym, "PartUsage") || m.resolver == nil || m.resolver.Index() == nil {
-		return types
-	}
-	for _, base := range m.resolver.Index().LookupQualified("Parts::parts") {
-		if base == nil || !base.IsFeature() {
-			continue
-		}
-		for _, typ := range m.baseFeatureTypes(base, nil) {
-			typFQN := m.fqnOf(typ)
-			found := false
-			for _, existing := range types {
-				if existing == typ || m.fqnOf(existing) == typFQN {
-					found = true
-					break
-				}
-			}
-			if !found {
-				types = append(types, typ)
-			}
-		}
-		break
-	}
-	return m.mostSpecificTypes(types)
+	return m.FeatureTypeSetWithImplied(sym)
+}
+
+// FunctionTypes: the Functions among a feature's effective types (declared, inherited, or implied
+// by its kind) — those typing an expression that instantiates it (KerML 8.3.4.7.3).
+func (m *Model) FunctionTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	return m.conformingTypes(sym, "Function")
 }
 
 func (m *Model) conformingTypes(sym *symbols.Symbol, target string) []*symbols.Symbol {
@@ -1814,7 +1847,14 @@ func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) 
 // the named ones in declaration order and then those declared without a
 // name, its documentation, and the chaining features its relationships own.
 func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
-	members := ownedMembersOf(sym)
+	var members []*symbols.Symbol
+	if value := m.ValueExpression(sym); value != nil {
+		// The value expression comes first, as its FeatureValue leads the
+		// feature's owned memberships.
+		members = append(members, value)
+	}
+	members = append(members, m.expressionOwnedElements(sym)...)
+	members = append(members, ownedMembersOf(sym)...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2013,6 +2053,17 @@ func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol
 // ReflectiveDirection is the direction sym's feature declaration states
 // (Feature::direction); ok is false where sym declares no feature.
 func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
+	if sym != nil && sym.Expr != nil {
+		// An expression's synthesized parameters are directed as the
+		// conversion writes them; the expression itself declares no direction.
+		switch sym.Expr.Role {
+		case symbols.ExpressionParameter:
+			return ast.DirIn, true
+		case symbols.ExpressionResult:
+			return ast.DirOut, true
+		}
+		return ast.DirNone, true
+	}
 	if sym != nil && sym.Recorded() {
 		if !sym.IsFeature() {
 			return ast.DirNone, false
@@ -2097,10 +2148,34 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return value, true
 		}
 	}
+	if sym.Expr != nil && !isExpressionParameterSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper &&
+		sym.Expr.Role != symbols.ExpressionChainFeature {
+		// A parameter shares its expression's node but states none of its values.
+		if value, ok := expressionValue(sym, feature); ok {
+			return value, true
+		}
+	}
 	switch feature {
 	case "isImplied":
-		if _, ok := sym.RelationshipDecl(); ok || sym.Kind == symbols.SymbolAlias {
+		if _, ok := sym.RelationshipDecl(); ok || sym.Kind == symbols.SymbolAlias ||
+			m.reflectiveMetaclassConforms(sym, "Relationship") {
 			return boolValue(false), true
+		}
+	case "aliasIds":
+		// No notation sets Element::aliasIds (KerML 1.1 §8.3.2.1): every element has none.
+		return emptyValue(), true
+	case "isImpliedIncluded":
+		// Element::isImpliedIncluded is false: implied relationships are not included here.
+		return boolValue(false), true
+	case "reqId":
+		// RequirementDefinition/Usage::reqId redefines declaredShortName (SysML.sysml).
+		if m.reflectiveMetaclassConforms(sym, "RequirementDefinition") ||
+			m.reflectiveMetaclassConforms(sym, "RequirementUsage") {
+			return stringOrEmpty(sym.ShortName), true
+		}
+	case "isNegated":
+		if m.reflectiveMetaclassConforms(sym, "Invariant") {
+			return boolValue(isNegatedDeclaration(sym)), true
 		}
 	case "isConjugated":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
@@ -2108,14 +2183,14 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
 	case "name", "declaredName":
-		return stringOrEmpty(simpleSymbolName(sym)), true
+		return stringOrEmpty(SimpleSymbolName(sym)), true
 	case "shortName":
 		return stringOrEmpty(m.EffectiveShortNameOf(sym)), true
 	case "declaredShortName":
 		return stringOrEmpty(sym.ShortName), true
 	case "qualifiedName":
 		// Element::qualifiedName is null for an unnamed element (KerML 1.1 §8.3.2.1).
-		if simpleSymbolName(sym) == "" {
+		if SimpleSymbolName(sym) == "" {
 			return emptyValue(), true
 		}
 		return stringOrEmpty(m.fqnOf(sym)), true
@@ -2127,18 +2202,18 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		if direction == ast.DirNone {
 			return emptyValue(), true
 		}
-		return stringOrEmpty(direction.String()), true
+		return m.enumLiteralOrEmpty(m.kermlMetaclass("FeatureDirectionKind"), direction.String()), true
 	case "portionKind":
 		if !m.reflectiveMetaclassConforms(sym, "OccurrenceUsage") {
 			return symbols.FilterValue{}, false
 		}
+		portion := ""
 		if sym.Recorded() {
-			return stringOrEmpty(sym.Facts.Portion.Keyword()), true
+			portion = sym.Facts.Portion.Keyword()
+		} else if usage, ok := sym.Decl.(*ast.Usage); ok {
+			portion = usage.Portion.Keyword()
 		}
-		if usage, ok := sym.Decl.(*ast.Usage); ok {
-			return stringOrEmpty(usage.Portion.Keyword()), true
-		}
-		return emptyValue(), true
+		return m.enumLiteralOrEmpty(m.sysmlMetaclass("PortionKind"), portion), true
 	}
 	if feature == "isAbstract" && sym.Recorded() && sym.Kind.IsDefinition() {
 		return boolValue(sym.Facts.Abstract || IsVariation(sym)), true
@@ -2202,16 +2277,25 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		case "language":
 			return stringOrEmpty(source.StringValue(d.Language)), true
 		}
+	case *symbols.ImpliedDecl:
+		// The implied conjugated port definition (SysML v2 8.3.12.3) is declared by nothing,
+		// so its plain Type attributes read their defaults.
+		if sym.IsConjugatedPortDefinition() {
+			switch feature {
+			case "isAbstract", "isSufficient":
+				return boolValue(false), true
+			}
+		}
 	case *ast.Definition:
 		switch feature {
 		case "isAbstract":
 			return boolValue(d.IsAbstract || IsVariation(sym)), true
 		case "isSufficient":
 			return boolValue(d.IsAll || m.reflectiveMetaclassConforms(sym, "ConnectionDefinition")), true
-		case "isConstant":
-			return boolValue(d.IsConstant), true
 		case "isParallel":
-			return boolValue(d.IsParallel), true
+			if m.reflectiveMetaclassConforms(sym, "StateDefinition") {
+				return boolValue(d.IsParallel), true
+			}
 		}
 	case *ast.Usage:
 		switch feature {
@@ -2220,7 +2304,9 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		case "isVariant":
 			return boolValue(IsVariant(sym)), true
 		case "isParallel":
-			return boolValue(d.IsParallel), true
+			if m.reflectiveMetaclassConforms(sym, "StateUsage") {
+				return boolValue(d.IsParallel), true
+			}
 		}
 	}
 	if sym.Recorded() && feature == "isIndividual" {
@@ -2228,7 +2314,20 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return boolValue(sym.Facts.Modifiers.Has(symbols.ModIndividual)), true
 		}
 	}
+	if feature == "isSufficient" && m.reflectiveMetaclassConforms(sym, "Type") {
+		// A Type declared without `all` (a connector end, a cross feature) is not sufficient.
+		return boolValue(false), true
+	}
 	return symbols.FilterValue{}, false
+}
+
+// isNegatedDeclaration is the `not` of an invariant's declaration (`assert not …`).
+func isNegatedDeclaration(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModNegated)
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsNegated
 }
 
 type reflectiveFeatureFlags struct {

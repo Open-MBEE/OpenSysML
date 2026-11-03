@@ -21,7 +21,7 @@ func w6bRename(t *testing.T, at string, newName string) string {
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/w6b_alias_rename.sysml").Filename()
+	name := uri.File("/tmp/w6b_alias_rename.sysml").FsPath()
 	ws.Open(name, []byte(w6bRenameSrc), 1)
 
 	edit, err := s.Rename(context.Background(), &protocol.RenameParams{
@@ -88,7 +88,7 @@ func TestW6BRenameTargetLeavesAliasUsesAlone(t *testing.T) {
 func TestW6BReferencesOfTargetIncludeAliasUses(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/w6b_alias_refs.sysml").Filename()
+	name := uri.File("/tmp/w6b_alias_refs.sysml").FsPath()
 	ws.Open(name, []byte(w6bRenameSrc), 1)
 
 	locs, err := s.References(context.Background(), &protocol.ReferenceParams{
@@ -110,7 +110,7 @@ func TestW6BReferencesOfTargetIncludeAliasUses(t *testing.T) {
 func TestW6BReferencesOfAliasAreItsNameOccurrences(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/w6b_alias_refs2.sysml").Filename()
+	name := uri.File("/tmp/w6b_alias_refs2.sysml").FsPath()
 	ws.Open(name, []byte(w6bRenameSrc), 1)
 
 	locs, err := s.References(context.Background(), &protocol.ReferenceParams{

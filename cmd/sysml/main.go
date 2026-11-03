@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	_ "github.com/Open-MBEE/OpenSysML/internal/doc/queryexec/elementids" // queries report the elementId the conversion writes
 	"io"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -100,77 +102,85 @@ func writableFile(dir, name string) (string, bool) {
 
 // CLI flags
 var (
-	evalExprs          stringSlice
-	showHelp           bool
-	showMan            bool
-	showVersion        bool
-	debugMode          bool
-	quietMode          bool
-	traceMode          bool
-	renderRuns         stringSlice
-	schedule           schedulePolicy
-	listEngines        bool
-	metaclassGraph     bool
-	explainCodes       codeNames
-	probeEngines       bool
-	engine             engineSelection
-	jobsFlag           jobsSetting
-	convertFormat      string
-	stdlibModel        bool
-	migrateFormat      string
-	bundleDir          string
-	unbundleFile       string
-	queryText          string
-	outputPath         string
-	fromFormat         string
-	idForm             string
-	migrationReport    string
-	migrationResults   string
-	layoutPath         string
-	imageBaseURL       string
-	renderView         string
-	graphsSubject      string
-	renderAllDir       string
-	renderForm         string
-	renderPalette      string
-	renderLink         string
-	renderUnplaced     string
-	renderCompartments string
-	renderStyle        string
-	renderPorts        string
-	renderLines        string
-	renderShow         string
-	renderDepth        int
-	renderOverlay      string
-	renderDoc          string
-	listWhat           string
-	listKinds          string
-	listForm           string
-	renderDocsDir      string
-	docForm            string
-	diagramForm        string
-	pdfEngine          string
-	pdfTitlePage       bool
-	pdfTOC             bool
-	pdfNumbering       bool
-	docNumberFigures   bool
-	htmlCSS            stringSlice
-	htmlNoCSS          bool
-	htmlShowCSS        bool
-	htmlFragment       bool
-	htmlMermaid        string
-	htmlMath           string
-	htmlTheme          string
-	strictMode         bool
-	portableMode       bool
-	disabledLints      lintList
-	enabledLints       lintList
-	libraryRoots       pathList
-	noRecordCache      bool
-	modelChecks        checks
-	compileCalc        string
-	compileTarget      string
-	compileSource      bool
+	evalExprs                   stringSlice
+	showHelp                    bool
+	showMan                     bool
+	showVersion                 bool
+	debugMode                   bool
+	quietMode                   bool
+	traceMode                   bool
+	renderRuns                  stringSlice
+	schedule                    schedulePolicy
+	listEngines                 bool
+	metaclassGraph              bool
+	metamodelTable              bool
+	explainCodes                codeNames
+	probeEngines                bool
+	engine                      engineSelection
+	jobsFlag                    jobsSetting
+	convertFormat               string
+	libraryReferencesPath       string
+	includeLibraryStubs         bool
+	keepLineBreaks              bool
+	conversionLibraryReferences []export.APIJSONLibraryReference
+	stdlibModel                 bool
+	migrateFormat               string
+	bundleDir                   string
+	unbundleFile                string
+	queryText                   string
+	outputPath                  string
+	fromFormat                  string
+	idForm                      string
+	migrationReport             string
+	migrationResults            string
+	layoutPath                  string
+	imageBaseURL                string
+	renderView                  string
+	importDiagramPath           string
+	importView                  string
+	dryRun                      bool
+	graphsSubject               string
+	renderAllDir                string
+	renderForm                  string
+	renderPalette               string
+	renderLink                  string
+	renderUnplaced              string
+	renderCompartments          string
+	renderStyle                 string
+	renderPorts                 string
+	renderLines                 string
+	renderShow                  string
+	renderDepth                 int
+	renderOverlay               string
+	renderDoc                   string
+	listWhat                    string
+	listKinds                   string
+	listForm                    string
+	renderDocsDir               string
+	docForm                     string
+	diagramForm                 string
+	pdfEngine                   string
+	pdfTitlePage                bool
+	pdfTOC                      bool
+	pdfNumbering                bool
+	docNumberFigures            bool
+	htmlCSS                     stringSlice
+	htmlNoCSS                   bool
+	htmlShowCSS                 bool
+	htmlFragment                bool
+	htmlMermaid                 string
+	htmlMath                    string
+	htmlTheme                   string
+	strictMode                  bool
+	portableMode                bool
+	disabledLints               lintList
+	enabledLints                lintList
+	libraryRoots                pathList
+	noRecordCache               bool
+	modelChecks                 checks
+	compileCalc                 string
+	compileTarget               string
+	compileSource               bool
 
 	syncDiffWith       string
 	syncApplyTo        string
@@ -443,12 +453,24 @@ func runCLI() int {
 		}
 	}
 
+	if flagGiven("import-diagram") && importDiagramPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -import-diagram needs the draw.io file to import")
+		return 2
+	}
+	if importView != "" && importDiagramPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -view names the page -import-diagram reads; name the file with -import-diagram")
+		return 2
+	}
+	if dryRun && importDiagramPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -dry-run shows what -import-diagram would write; name the file with -import-diagram")
+		return 2
+	}
 	if renderForm != "" && renderView == "" && renderAllDir == "" && len(renderRuns) == 0 {
 		fmt.Fprintln(os.Stderr, "sysml: -render-form is the form -render or -render-all writes; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
 	if renderPalette != "" && renderView == "" && renderAllDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML or D2 with; name the view to render with -render or a directory with -render-all")
+		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML, D2 or drawio with; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
 	if renderOverlay != "" && renderView == "" && renderAllDir == "" {
@@ -499,7 +521,7 @@ func runCLI() int {
 		case len(args) > 0:
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet, which no model shapes; ask for it without model files")
 			return 2
-		case modelRunRequested() || metaclassGraph:
+		case modelRunRequested() || metaclassGraph || metamodelTable:
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven():
@@ -523,7 +545,7 @@ func runCLI() int {
 		case len(args) > 0:
 			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy of the pinned metamodel, which no model shapes; ask for it without model files")
 			return 2
-		case modelRunRequested() || htmlShowCSS:
+		case modelRunRequested() || htmlShowCSS || metamodelTable:
 			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven() ||
@@ -533,6 +555,28 @@ func runCLI() int {
 			return 2
 		}
 		if err := writeMetaclassGraph(); err != nil {
+			return fail(err)
+		}
+		return exitHolds
+	}
+
+	// The metamodel table is likewise a property of the pin: one JSON record of
+	// every metaclass, property and enumeration, for generators outside this module.
+	if metamodelTable {
+		switch {
+		case len(args) > 0:
+			fmt.Fprintln(os.Stderr, "sysml: -metamodel-table writes the pinned metamodel's table, which no model shapes; ask for it without model files")
+			return 2
+		case modelRunRequested() || htmlShowCSS:
+			fmt.Fprintln(os.Stderr, "sysml: -metamodel-table writes the metamodel table and nothing else; ask for it in its own run")
+			return 2
+		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven() ||
+			fromFormat != "" || strictMode || syncBase != "" || syncState != "" ||
+			syncConfirmDeletes || syncMintIDs || syncAnnotate != "":
+			fmt.Fprintln(os.Stderr, "sysml: -metamodel-table writes the metamodel table, which reads no input; the input, repository and document options do not apply")
+			return 2
+		}
+		if err := writeMetamodelTable(); err != nil {
 			return fail(err)
 		}
 		return exitHolds
@@ -608,6 +652,18 @@ func runCLI() int {
 	}
 	if convertFormat != "" && migrateFormat != "" {
 		fmt.Fprintln(os.Stderr, "sysml: -convert and -migrate are mutually exclusive: a SysML v1 model is migrated, a v2 model or an RDF graph converted; ask for one per run")
+		return 2
+	}
+	if (flagGiven("library-references") || includeLibraryStubs) && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -library-references and -include-library-stubs require -convert api-json")
+		return 2
+	}
+	if keepLineBreaks && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -keep-line-breaks requires -convert sysml or kerml")
+		return 2
+	}
+	if flagGiven("library-references") && libraryReferencesPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -library-references is empty; name a JSON side file")
 		return 2
 	}
 	if migrationReport != "" && migrateFormat == "" {
@@ -766,6 +822,30 @@ func runCLI() int {
 			return fail(err)
 		}
 		return status
+	}
+
+	if importDiagramPath != "" {
+		switch {
+		case renderView != "" || renderAllDir != "" || convertFormat != "" || migrateFormat != "" || graphsSubject != "" || renderDoc != "" || renderDocsDir != "":
+			fmt.Fprintln(os.Stderr, "sysml: -import-diagram writes the model; -render, -render-all, -render-document, -render-documents, -convert, -migrate and -graphs each write documents out; ask for one per run")
+			return 2
+		case outputPath != "":
+			fmt.Fprintln(os.Stderr, "sysml: -import-diagram writes the model files in place and cannot be combined with -output")
+			return 2
+		case queryText != "" || len(evalExprs) > 0 || fromFormat != "":
+			fmt.Fprintln(os.Stderr, "sysml: -import-diagram cannot be combined with -query, -eval or -from")
+			return 2
+		case modelChecks.requested():
+			return refuse(modelChecks,
+				"-import-diagram writes the model and decides nothing about it; check it in its own run")
+		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
+		if err := runImportDiagram(args); err != nil {
+			return fail(err)
+		}
+		return exitHolds
 	}
 
 	if renderAllDir != "" {
@@ -1048,6 +1128,13 @@ func runInteractiveWithFiles(files []string) int {
 	loaded, err := loadFiles(sess, files)
 	if err != nil {
 		return fail(err)
+	}
+	// A root namespace typed at the prompt that nothing declares is looked for
+	// in the model files under the working directory.
+	if cwd, err := os.Getwd(); err == nil {
+		if err := sess.SetWorkspaceRoot(cwd); err != nil {
+			return fail(err)
+		}
 	}
 	terminal := atTerminal()
 

@@ -1,14 +1,13 @@
 package mcp
 
 import (
-	"crypto/subtle"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
 )
 
@@ -24,9 +23,10 @@ const ProtectedResourceMetadataPath = wellKnownPrefix + HTTPPath
 const TokenEnv = "OPENSYSML_MCP_TOKEN" // #nosec G101 -- a variable name, not a credential
 
 // BearerToken is the one access token the HTTP transport accepts (RFC 6750),
-// issued out of band by whoever runs the server; the zero value is no token.
+// issued out of band by whoever runs the server, with the endpoint it
+// protects; the zero value is no token.
 type BearerToken struct {
-	secret []byte
+	guard.Token
 	// public is the endpoint's URL as clients reach it; nil reads each request.
 	public *url.URL
 }
@@ -34,17 +34,12 @@ type BearerToken struct {
 // NewBearerToken reads a token as RFC 6750 § 2.1 spells one (b64token), so a
 // client can send what the server was given; anything else is refused.
 func NewBearerToken(s string) (BearerToken, error) {
-	if s == "" {
-		return BearerToken{}, errors.New("the token is empty")
+	token, err := guard.New(s)
+	if err != nil {
+		return BearerToken{}, err
 	}
-	if !isB64Token(s) {
-		return BearerToken{}, errors.New("a token is letters, digits and -._~+/ with trailing = only (RFC 6750 b64token), with no spaces or line breaks")
-	}
-	return BearerToken{secret: []byte(s)}, nil
+	return BearerToken{Token: token}, nil
 }
-
-// Set reports whether a token is configured.
-func (t BearerToken) Set() bool { return len(t.secret) > 0 }
 
 // At names the URL clients reach the endpoint at behind a proxy (an origin
 // alone means its /mcp, / the root); empty derives it from each request.
@@ -89,28 +84,6 @@ func (t BearerToken) PublicURL() string {
 	return t.public.String()
 }
 
-// matches compares a presented token in constant time.
-func (t BearerToken) matches(presented string) bool {
-	return t.Set() && subtle.ConstantTimeCompare(t.secret, []byte(presented)) == 1
-}
-
-// isB64Token reports whether s is a b64token of RFC 6750 § 2.1.
-func isB64Token(s string) bool {
-	body := strings.TrimRight(s, "=")
-	if body == "" {
-		return false
-	}
-	for _, r := range body {
-		switch {
-		case 'A' <= r && r <= 'Z', 'a' <= r && r <= 'z', '0' <= r && r <= '9':
-		case r == '-', r == '.', r == '_', r == '~', r == '+', r == '/':
-		default:
-			return false
-		}
-	}
-	return true
-}
-
 // Handler requires Authorization: Bearer TOKEN of every request (RFC 6750
 // § 2.1), answering 401 with a challenge or 400 otherwise; no token serves next.
 func (t BearerToken) Handler(next http.Handler) http.Handler {
@@ -118,37 +91,22 @@ func (t BearerToken) Handler(next http.Handler) http.Handler {
 		return next
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		scheme, credentials, _ := strings.Cut(strings.TrimSpace(r.Header.Get("Authorization")), " ")
-		credentials = strings.TrimSpace(credentials)
-		switch {
-		case scheme == "":
-			t.challenge(w, r, http.StatusUnauthorized, "", "")
-		case !strings.EqualFold(scheme, "Bearer"):
-			t.challenge(w, r, http.StatusUnauthorized, "invalid_request", "the Authorization scheme must be Bearer")
-		case !isB64Token(credentials):
-			t.challenge(w, r, http.StatusBadRequest, "invalid_request", "the bearer token is malformed")
-		case !t.matches(credentials):
-			t.challenge(w, r, http.StatusUnauthorized, "invalid_token", "the bearer token is not this server's")
-		default:
-			next.ServeHTTP(w, r)
+		if refusal := t.Check(r.Header.Get("Authorization")); refusal != guard.Accepted {
+			t.challenge(w, r, refusal)
+			return
 		}
+		next.ServeHTTP(w, r)
 	})
 }
 
 // challenge writes the refusal with the WWW-Authenticate header naming the
 // metadata and the RFC 6750 § 3.1 error code (none when nothing was presented).
-func (t BearerToken) challenge(w http.ResponseWriter, r *http.Request, status int, code, description string) {
+func (t BearerToken) challenge(w http.ResponseWriter, r *http.Request, refusal guard.Refusal) {
 	params := []string{`realm="sysml-mcp"`, fmt.Sprintf("resource_metadata=%q", t.resourceMetadataURL(r))}
-	if code != "" {
-		params = append(params, fmt.Sprintf("error=%q", code), fmt.Sprintf("error_description=%q", description))
-	}
+	params = append(params, refusal.ChallengeParams()...)
 	w.Header().Set("WWW-Authenticate", "Bearer "+strings.Join(params, ", "))
 	w.Header().Set("Cache-Control", "no-store")
-	message := "Unauthorized: this server requires a bearer token; send Authorization: Bearer TOKEN"
-	if description != "" {
-		message = http.StatusText(status) + ": " + description
-	}
-	http.Error(w, message, status)
+	http.Error(w, refusal.Message(), refusal.HTTPStatus())
 }
 
 // ServeMetadata answers the endpoint's protected resource metadata (RFC 9728

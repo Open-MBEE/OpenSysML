@@ -3,6 +3,7 @@ package lower
 import (
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -80,12 +81,21 @@ func (g *StateGraph) lowerFootprints() {
 // behaviorFootprint is what running the behavior's statements touches, and the
 // activity of the state it belongs to, which stopping it writes.
 func behaviorFootprint(graph *StateGraph, behavior StateBehavior) Footprint {
-	b := &footprintBuilder{resolver: graph.resolver}
+	b := &footprintBuilder{resolver: graph.resolver, sem: graph.Semantics()}
 	b.statements(behavior.Body)
 	if behavior.Owner != nil {
 		b.read(graph.activity(behavior.Owner))
 	}
 	return b.footprint
+}
+
+// Semantics is the semantic model over the graph's resolver, built once and
+// shared by every footprint of the graph; nil without a resolver.
+func (g *StateGraph) Semantics() *semantics.Model {
+	if g.sem == nil && g.resolver != nil {
+		g.sem = semantics.NewModel(g.resolver)
+	}
+	return g.sem
 }
 
 // activity is the place standing for whether the state is active.
@@ -112,7 +122,7 @@ func (g *StateGraph) BranchFootprints() map[*Transition]Footprint {
 // guard, probability and effects touch and the state it enters; a further
 // pseudostate is not followed and leaves the footprint dynamic.
 func branchFootprint(graph *StateGraph, seg *Transition) Footprint {
-	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: graph.resolver}, graph: graph, crossed: make(map[*ast.PseudostateNode]bool)}
+	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: graph.resolver, sem: graph.Semantics()}, graph: graph, crossed: make(map[*ast.PseudostateNode]bool)}
 	b.reads(seg.BodyScope, seg.Guard)
 	if seg.Probability != nil {
 		b.reads(seg.BodyScope, seg.Probability.Expr)
@@ -197,7 +207,7 @@ func (g *StateGraph) branchFootprintFrom(source *ast.StateNode, seg *Transition,
 	if fp, ok := g.branchFrom[key]; ok {
 		return fp
 	}
-	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: g.resolver}, graph: g, crossed: make(map[*ast.PseudostateNode]bool)}
+	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: g.resolver, sem: g.Semantics()}, graph: g, crossed: make(map[*ast.PseudostateNode]bool)}
 	if shared {
 		b.exitedBefore = make(map[*ast.StateNode]bool)
 		for state := source; state != nil && state != upTo; state = g.ParentState[state] {
@@ -224,7 +234,7 @@ func (g *StateGraph) JoinSegmentFootprints(join *ast.PseudostateNode, segs []*Tr
 	plan := g.JoinPlans[join]
 	fps := make([]Footprint, len(segs))
 	for i, seg := range segs {
-		b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: g.resolver}, graph: g, crossed: make(map[*ast.PseudostateNode]bool)}
+		b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: g.resolver, sem: g.Semantics()}, graph: g, crossed: make(map[*ast.PseudostateNode]bool)}
 		source, fromState := seg.Source.(*ast.StateNode)
 		if plan == nil || !fromState {
 			b.footprint.Dynamic = true
@@ -248,7 +258,7 @@ func (g *StateGraph) JoinSegmentFootprints(join *ast.PseudostateNode, segs []*Tr
 // transitionBuilder projects a transition out of a state, without the do
 // behaviors of the states it enters when withoutDo is set.
 func transitionBuilder(graph *StateGraph, trans *Transition, withoutDo bool) *stateFootprintBuilder {
-	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: graph.resolver}, graph: graph, crossed: make(map[*ast.PseudostateNode]bool), withoutDo: withoutDo}
+	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: graph.resolver, sem: graph.Semantics()}, graph: graph, crossed: make(map[*ast.PseudostateNode]bool), withoutDo: withoutDo}
 	source := trans.Source.(*ast.StateNode)
 	b.read(graph.activity(source))
 	b.trigger(trans)

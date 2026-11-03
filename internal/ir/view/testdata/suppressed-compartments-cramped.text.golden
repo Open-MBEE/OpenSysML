@@ -8,3 +8,10 @@ part def Imaging at (10, 10) size 200×33
   constraint focus
   action capture
   item 'frame'
+
+relationships:
+  Imaging o-- resolution
+  Imaging o-- exposure
+  Imaging o-- mount
+  Imaging o-- data
+  Imaging *-- 'frame'

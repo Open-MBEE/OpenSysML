@@ -12,7 +12,7 @@ OpaqueBehavior	Executive::Executive Behavior::<Region>::<Transition>::stamp	_sta
 TimeEvent	<TimeEvent>	_afterAligning	(written where a trigger refers to it, as accept after 3.0 [SI::s])
 TimeEvent	<TimeEvent>	_afterPhasing	(written where a trigger refers to it, as accept after 2.0 [SI::s])
 «Block» Class	Executive	_exec	-> Model::Executive
-StateMachine	Executive::Executive Behavior	_sm	-> Model::Executive::'Executive Behavior'	(acts on its owner Executive, which it takes as its parameter context, since its this is the def's own occurrence)
+StateMachine	Executive::Executive Behavior	_sm	-> Model::Executive::'Executive Behavior'	(acts on its owner Executive, which it takes as its parameter context, since its this names no feature of the owner)
 Region	Executive::Executive Behavior::<Region>	_r	(the one region is written as the body of its owner)
 Pseudostate	Executive::Executive Behavior::<Region>::<Pseudostate>	_init	(written as the entry of the region)
 Transition	Executive::Executive Behavior::<Region>::<Transition>	_tStart

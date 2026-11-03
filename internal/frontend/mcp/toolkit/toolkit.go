@@ -5,6 +5,7 @@ package toolkit
 
 import (
 	"math"
+	"unicode/utf16"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.lsp.dev/protocol"
@@ -43,7 +44,8 @@ func (p Position) ToProtocol(lineText string) protocol.Position {
 		if i >= want {
 			break
 		}
-		units += utf16Len(r)
+		// #nosec G115 -- RuneLen is 1 or 2 for a rune decoded from a string.
+		units += uint32(utf16.RuneLen(r))
 	}
 	return protocol.Position{Line: lineNumber(line), Character: units}
 }
@@ -66,15 +68,9 @@ func FromProtocol(pos protocol.Position, lineText string) Position {
 		if units >= pos.Character {
 			break
 		}
-		units += utf16Len(r)
+		// #nosec G115 -- see above.
+		units += uint32(utf16.RuneLen(r))
 		chars++
 	}
 	return Position{Line: int(pos.Line) + 1, Column: chars + 1}
-}
-
-func utf16Len(r rune) uint32 {
-	if r >= 0x10000 {
-		return 2
-	}
-	return 1
 }

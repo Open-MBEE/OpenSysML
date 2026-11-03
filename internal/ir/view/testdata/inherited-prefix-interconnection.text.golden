@@ -1,0 +1,21 @@
+InheritedPrefixViews::rigLinks - interconnection rendering (render asInterconnectionDiagram)
+
+part def Rig
+  part a
+    port ^aPort
+    attribute ^mass
+    part ^engine
+  part b
+    attribute ^mass
+    part ^cooler
+    part ^engine
+  part c
+    attribute ^mass
+    part ^engine
+  part d
+    port ^aPort
+    attribute mass
+    part ^engine
+
+connections:
+  a.aPort -- d.aPort

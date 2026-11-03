@@ -75,6 +75,8 @@ type Model struct {
 	// redefined memoizes, per feature of a type, the features it redefines
 	// transitively; callers read the shared slice and never append to it.
 	redefined map[featureOfType][]*symbols.Symbol
+	// chainDeclarations memoizes the declarations a chain expression's segments name per base.
+	chainDeclarations map[chainDeclarationsKey]*chainDecls
 
 	// writeTargets memoizes the declaration an assignment's target names, per
 	// scope the statement was written in: what a value written must conform to.
@@ -141,6 +143,8 @@ type Model struct {
 	// behavingFeatures memoizes behavingParts and redefGroups redefinitionGroups, per type.
 	behavingFeatures map[*symbols.Symbol][]int
 	redefGroups      map[*symbols.Symbol][][]string
+	// slots memoizes featureSlot: the name a type holds each feature's value under.
+	slots map[featureOfType]string
 	// subsetters memoizes, per type, the features subsetting each named feature of it
 	// under any of its redefinition names; callers read the shared slice.
 	subsetters map[*symbols.Symbol]map[string][]EffectiveFeature
@@ -148,6 +152,12 @@ type Model struct {
 	// declaredSubsettedNames; callers read the shared slices.
 	subsetted         map[featureOfType][]string
 	declaredSubsetted map[featureOfType][]string
+	// relationships memoizes relationshipsOfKind per feature and kind, related relatedFeatures
+	// per feature, owner and kind; callers read the shared slices, which have no spare capacity.
+	relationships map[relationshipsKey][]*ast.Relationship
+	related       map[relatedKey][]*symbols.Symbol
+	// subsetsTransitively memoizes the walk of the same name per feature, owner and target.
+	subsetsTransitively map[subsettingKey]bool
 
 	// toolExecutions memoizes toolExecutionOf per action; toolUnits the units tool
 	// answers spell, per scope they are read in.
@@ -171,6 +181,11 @@ type Model struct {
 	// classifierBehaviors memoizes the behaviors each type binds to its objects:
 	// the machines it exhibits and the actions it performs.
 	classifierBehaviors map[*symbols.Symbol][]classifierBehaviorDecl
+
+	// actionGraphs memoizes, per action, its lowered flow and performance shape;
+	// actionInterfaces the interface a tool performance binds. Lazy, like names.
+	actionGraphs     map[*symbols.Symbol]*loweredAction
+	actionInterfaces map[*symbols.Symbol]*loweredAction
 
 	behaviorOrdersReady bool
 	behaviorOrders      []lower.BehaviorOrder
@@ -241,6 +256,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		holders:             make(map[*symbols.Symbol]map[string][]string),
 		returnedParams:      make(map[*calcShape]*returnedAnalysis),
 		redefined:           make(map[featureOfType][]*symbols.Symbol),
+		chainDeclarations:   make(map[chainDeclarationsKey]*chainDecls),
 		writeTargets:        make(map[writeTargetKey]*writeTarget),
 		calcShapes:          make(map[*symbols.Symbol]*calcShape),
 		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
@@ -256,9 +272,13 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		behaving:            make(map[*symbols.Symbol]bool),
 		behavingFeatures:    make(map[*symbols.Symbol][]int),
 		redefGroups:         make(map[*symbols.Symbol][][]string),
+		slots:               make(map[featureOfType]string),
 		subsetters:          make(map[*symbols.Symbol]map[string][]EffectiveFeature),
 		subsetted:           make(map[featureOfType][]string),
 		declaredSubsetted:   make(map[featureOfType][]string),
+		relationships:       make(map[relationshipsKey][]*ast.Relationship),
+		related:             make(map[relatedKey][]*symbols.Symbol),
+		subsetsTransitively: make(map[subsettingKey]bool),
 		toolExecutions:      make(map[*symbols.Symbol]*toolExecution),
 		toolUnits:           make(map[toolUnitKey]semantics.Unit),
 		objectConns:         make(map[*symbols.Symbol][]lower.Connection),
@@ -437,10 +457,63 @@ func (m *Model) expressionFootprint(scope *symbols.Scope, expr ast.Node) lower.F
 	if fp, ok := m.footprints[key]; ok {
 		return fp
 	}
-	fp := lower.ExpressionFootprint(scope, expr)
+	fp := lower.ExpressionFootprint(m.resolver, m.semantics, scope, expr)
 	if m.footprints == nil {
 		m.footprints = map[footprintKey]lower.Footprint{}
 	}
 	m.footprints[key] = fp
 	return fp
+}
+
+// loweredAction is an action lowered once per Model: its graph, and the shape of
+// a performance of it once the first performance built one (shape.features set).
+type loweredAction struct {
+	graph *lower.ActionGraph
+	shape performanceShape
+}
+
+// actionGraph is the lowered flow of sym's body, started, lowered once per Model: a
+// function of the model alone, completed only by Subflow.Unfold's own lazy memo.
+func (m *Model) actionGraph(sym *symbols.Symbol) (*lower.ActionGraph, error) {
+	if lowered, ok := m.actionGraphs[sym]; ok {
+		return lowered.graph, nil
+	}
+	graph, err := lower.ToActionGraphWith(sym.Decl, DeclScope(sym), m.resolver)
+	if err != nil {
+		return nil, err
+	}
+	lower.StartFlow(graph)
+	if m.actionGraphs == nil {
+		m.actionGraphs = map[*symbols.Symbol]*loweredAction{}
+	}
+	m.actionGraphs[sym] = &loweredAction{graph: graph}
+	return graph, nil
+}
+
+// actionInterface is the interface a tool performance of sym binds, lowered once per Model.
+func (m *Model) actionInterface(sym *symbols.Symbol) (*lower.ActionGraph, error) {
+	if lowered, ok := m.actionInterfaces[sym]; ok {
+		return lowered.graph, nil
+	}
+	graph, err := lower.ToActionInterface(sym.Decl, DeclScope(sym))
+	if err != nil {
+		return nil, err
+	}
+	if m.actionInterfaces == nil {
+		m.actionInterfaces = map[*symbols.Symbol]*loweredAction{}
+	}
+	m.actionInterfaces[sym] = &loweredAction{graph: graph}
+	return graph, nil
+}
+
+// loweredAs is the Model's lowering of action whose graph is graph, nil when the
+// graph was lowered elsewhere (a state's do-flow block is).
+func (m *Model) loweredAs(action *symbols.Symbol, graph *lower.ActionGraph) *loweredAction {
+	if lowered := m.actionGraphs[action]; lowered != nil && lowered.graph == graph {
+		return lowered
+	}
+	if lowered := m.actionInterfaces[action]; lowered != nil && lowered.graph == graph {
+		return lowered
+	}
+	return nil
 }

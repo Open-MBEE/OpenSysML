@@ -33,6 +33,7 @@ class ResultTypesTest {
         Optional.empty(),
         Optional.empty(),
         List.of(),
+        List.of(),
         Standing.none());
   }
 
@@ -182,6 +183,7 @@ class ResultTypesTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            List.of(),
             List.of(),
             Standing.none());
     CaseEvaluation loser =
@@ -381,6 +383,7 @@ class ResultTypesTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            List.of(),
             List.of(),
             Standing.none());
     Verification verification = new Verification(about, List.of(), List.of(sedan), List.of());

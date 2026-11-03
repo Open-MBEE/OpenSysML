@@ -23,7 +23,8 @@ class EditorTest {
 
   private static Connection offline(String... capabilities) {
     return new Connection(
-        new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+        new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
         new Capabilities("dev", Set.of(capabilities)));
   }
 
@@ -187,13 +188,30 @@ class EditorTest {
   }
 
   @Test
+  void asciiDocRenderingNeedsItsOwnCapability() {
+    try (Connection connection = offline(Capabilities.RENDER_DOCUMENT)) {
+      Model model = model(connection);
+      CapabilityException refused =
+          assertThrows(
+              CapabilityException.class,
+              () -> model.renderDocument("Demo::Doc", DocumentForm.ASCIIDOC));
+      assertEquals(Capabilities.RENDER_DOCUMENT_ASCIIDOC, refused.capability());
+    }
+  }
+
+  @Test
   void documentFormsReadTheirWireNames() {
     assertEquals(DocumentForm.MARKDOWN, DocumentForm.fromWireName(""));
     assertEquals(DocumentForm.MARKDOWN, DocumentForm.fromWireName("markdown"));
     assertEquals(DocumentForm.HTML, DocumentForm.fromWireName("html"));
+    assertEquals(DocumentForm.ASCIIDOC, DocumentForm.fromWireName("asciidoc"));
     assertThrows(IllegalArgumentException.class, () -> DocumentForm.fromWireName("pdf"));
     RenderedDocument html = new RenderedDocument(DocumentForm.HTML, "<p>x</p>");
     assertEquals("<p>x</p>", html.html());
+    assertEquals("", html.asciidoc());
+    RenderedDocument asciidoc = new RenderedDocument(DocumentForm.ASCIIDOC, "= x");
+    assertEquals("= x", asciidoc.asciidoc());
+    assertEquals("", asciidoc.html());
     assertEquals("", html.markdown());
     assertEquals("# x", new RenderedDocument("# x").markdown());
   }
@@ -208,6 +226,37 @@ class EditorTest {
     assertEquals(Optional.of("uuid"), options.idForm());
     assertEquals(Optional.of("sysml"), options.fromFormat());
     assertEquals(Optional.empty(), ConversionOptions.defaults().idForm());
+  }
+
+  @Test
+  void libraryStubsNeedTheirCapabilityBeforeAnythingIsSent() {
+    try (Connection connection = offline(Capabilities.CONVERT)) {
+      ConversionOptions stubs = ConversionOptions.defaults().withIncludeLibraryStubs(true);
+      Model model = model(connection);
+      CapabilityException refused =
+          assertThrows(CapabilityException.class, () -> model.convert("api-json", stubs));
+      assertEquals(Capabilities.CONVERT_LIBRARY_STUBS, refused.capability());
+      ConversionOptions sysmlStubs = stubs.withFromFormat("sysml");
+      assertThrows(
+          CapabilityException.class,
+          () -> connection.convert("package P;", "api-json", sysmlStubs));
+    }
+  }
+
+  @Test
+  void conversionOptionsCarryTheLibraryStubsAndAConversionItsReferences() {
+    ConversionOptions options =
+        ConversionOptions.defaults().withIncludeLibraryStubs(true).withFromFormat("sysml");
+    assertTrue(options.includeLibraryStubs());
+    assertEquals(Optional.of("sysml"), options.fromFormat());
+    assertFalse(ConversionOptions.defaults().includeLibraryStubs());
+    assertFalse(options.withIncludeLibraryStubs(false).includeLibraryStubs());
+    Conversion plain = new Conversion("{}", "sysml", "api-json", List.of(), false, "");
+    assertEquals(List.of(), plain.libraryReferences());
+    LibraryReference second = new LibraryReference("0c53", "SI::second", "AttributeUsage");
+    Conversion referencing =
+        new Conversion("{}", "sysml", "api-json", List.of(), false, "", List.of(second));
+    assertEquals(List.of(second), referencing.libraryReferences());
   }
 
   @Test

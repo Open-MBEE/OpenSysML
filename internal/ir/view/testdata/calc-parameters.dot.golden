@@ -1,0 +1,21 @@
+// view: ParameterCalcViews::calculations
+// kind: tree
+// stated: render asTreeDiagram
+// layout: dot
+digraph "ParameterCalcViews::calculations" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n0.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">x</font></td><td port="n0.1" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">y</font></td></tr><tr><td colspan="4"><font point-size="10"><i>«calc»</i></font><br/><b>add</b></td></tr><tr><td port="n0.2" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">result</font></td></tr></table>>];
+  "n1" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Sensor</b>>];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>a</b>>];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>b</b>>];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>gain</b>>];
+  "n5" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n5.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">x</font></td><td port="n5.1" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">^y</font></td></tr><tr><td colspan="4"><font point-size="10"><i>«calc»</i></font><br/><b>sum</b></td></tr><tr><td port="n5.2" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">^result</font></td></tr></table>>];
+  "n1" -> "n5" [arrowhead=none];
+  "n6" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n6.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">factor</font></td><td port="n6.1" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">^x</font></td><td port="n6.2" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">^count</font></td></tr><tr><td colspan="6"><font point-size="10"><i>«calc»</i></font><br/><b>scaled</b></td></tr><tr><td port="n6.3" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">^doubled</font></td><td port="n6.4" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">^r</font></td></tr></table>>];
+  "n1" -> "n6" [arrowhead=none];
+  "n1" -> "n2" [dir=back, arrowtail=odiamond];
+  "n1" -> "n3" [dir=back, arrowtail=odiamond];
+  "n1" -> "n4" [dir=back, arrowtail=odiamond];
+}

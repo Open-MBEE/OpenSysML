@@ -38,3 +38,16 @@ func writeMetaclassGraph() error {
 	}
 	return writeOutputFile(outputPath, out, "metaclass hierarchy")
 }
+
+// writeMetamodelTable writes the generated metamodel table as JSON to stdout or to -output.
+func writeMetamodelTable() error {
+	out, err := ontology.MarshalTable()
+	if err != nil {
+		return err
+	}
+	if outputPath == "" {
+		_, err := os.Stdout.Write(out)
+		return err
+	}
+	return writeOutputFile(outputPath, out, "metamodel table")
+}

@@ -28,24 +28,24 @@ flowchart TD
 **vehicle**`")
     n1("`*«attribute»*
 **mass**`")
-  n0 --- n1
     n2("`*«part»*
 **wheel**`")
       n3("`*«attribute»*
 **pressure**`")
-  n2 --- n3
       n4("`*«part»*
 **hub**
 nested deeper than 2 levels; not shown`")
-  n2 --- n4
-  n0 --- n2
     n5("`*«part»*
 **engine**`")
       n6("`*«part»*
 **piston**
 nested deeper than 2 levels; not shown`")
-  n5 --- n6
       n7("`*«port»*
 **fuelIn**`")
-  n5 --- n7
-  n0 --- n5
+  n0 ---|"◇"| n1
+  n0 ---|"◆"| n2
+  n0 ---|"◆"| n5
+  n2 ---|"◇"| n3
+  n2 ---|"◆"| n4
+  n5 ---|"◆"| n6
+  n5 ---|"◇"| n7

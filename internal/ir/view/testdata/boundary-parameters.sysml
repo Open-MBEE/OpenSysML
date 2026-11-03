@@ -4,6 +4,7 @@
 // parts; and
 // a migration made up one connection's name.
 package BoundaryParameters {
+    private import ScalarValues::*;
     part Operator;
     part Administrator;
     part 'Service Technician';

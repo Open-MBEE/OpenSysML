@@ -1,6 +1,7 @@
 package libs
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
@@ -28,11 +29,18 @@ func recordCacheFromValue(raw string) bool {
 
 // OpenRecordCache is the record cache a command holds its closed documents
 // through when the flag and the environment leave it on: the shared cache
-// directory, nil when either switches it off or the directory cannot be made
-// (the reason returned), in which case every document is held loaded.
+// directory, nil when either switches it off, nil without an error when the
+// process has no cache root (ErrNoCacheRoot: no $HOME, or a root outside what a
+// WASI host preopened — nothing to report, the process was built that way), and
+// nil with the reason when a root that exists refuses the directory. Without a
+// cache every document is held loaded.
 func OpenRecordCache(noCache bool) (*Cache, error) {
 	if noCache || !RecordCacheFromEnv() {
 		return nil, nil
 	}
-	return NewCache()
+	cache, err := NewCache()
+	if errors.Is(err, ErrNoCacheRoot) {
+		return nil, nil
+	}
+	return cache, err
 }

@@ -1,4 +1,4 @@
-.PHONY: all build docker extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
+.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -20,11 +20,20 @@ GO_BUILD := CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)"
 GO_INSTALL := CGO_ENABLED=0 go install -ldflags "$(LDFLAGS)"
 
 # Static-analysis tool versions, pinned so CI and local runs agree
-STATICCHECK_VERSION := 2025.1.1
+STATICCHECK_VERSION := 2026.2.2
 # Unbounded, staticcheck's heap on this module peaks near 4 GiB, which the 4 GiB CI
 # executor kills it for; the soft limit holds the peak near 2 GiB for ~10% more GC time.
 STATICCHECK_ENV := GOMEMLIMIT=2GiB
-GOSEC_VERSION := v2.22.5
+GOSEC_VERSION := v2.30.0
+GOSEC_EXCLUDE := -exclude=G602,G703
+# Dependency-audit tool versions: govulncheck runs through `go run`; the others come
+# from scripts/download-sca-tools.sh, pinned and SHA-256 verified there.
+GOVULNCHECK_VERSION := v1.9.0
+CYCLONEDX_MAVEN_VERSION := 2.9.1
+SCA_BIN := build/sca/bin
+PIP_AUDIT := build/sca/venv/bin/pip-audit
+# `npm audit` fails on production advisories at this severity and above, in every lockfile directory.
+NPM_AUDIT_LEVEL := moderate
 BUF_VERSION := v1.57.2
 GO_WINRES_VERSION := v0.3.3
 
@@ -58,6 +67,10 @@ PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
 VSCODE_DIR := editors/vscode
 JUPYTERLAB_DIR := editors/jupyterlab
 MCP_NPM_DIR := packaging/npm/sysml-mcp
+NPM_LOCK_DIRS := $(NODE_DIR) $(MCP_NPM_DIR) $(VSCODE_DIR) $(JUPYTERLAB_DIR) editors/syson/frontend scripts/asciidoc
+PYTHON_PROJECT_DIRS := $(PYTHON_DIR) $(JUPYTER_KERNEL_DIR) packaging/pypi-pysysml
+PYTHON_REQUIREMENTS := docs-requirements.txt
+JAVA_PROJECT_DIRS := client/java editors/syson editors/mdk
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -77,7 +90,9 @@ TOOLS_DIR := tools
 COVERAGE_PACKAGES ?= ./...
 COVERAGE_TOOLS ?= ./...
 COVERAGE_PROFILE ?= coverage.txt
-COVERAGE_SHARDS := runtime model export rest migrate cli
+# The coverage job's nodes: the race shards except runtime-corpus, since without -race
+# internal/exec/runtime runs whole in about 19 minutes under -coverpkg (see .circleci/config.yml).
+COVERAGE_SHARDS := runtime model export graph codegen tools rest migrate cli
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
@@ -185,7 +200,7 @@ build-release-wasm: ## Build release bin/wasm/release/{sysml-wasm.wasm,sysml-pro
 	@echo "Building release WebAssembly assets..."
 	@mkdir -p $(WASM_DIR)/release
 	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -o $(WASM_DIR)/release/sysml-wasm.wasm ./cmd/sysml-wasm
-	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -tags sysml_prod -o $(WASM_DIR)/release/sysml-prod.wasm ./cmd/sysml
+	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -tags sysml_re -o $(WASM_DIR)/release/sysml-prod.wasm ./cmd/sysml
 	gzip -9nf $(WASM_DIR)/release/sysml-prod.wasm
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/release/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/release/sysml-wasm.wasm, sysml-prod.wasm.gz and wasm_exec.js ($(VERSION))"
@@ -323,27 +338,32 @@ test: ## Run Go tests with race detection and coverage
 RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
 # The runtime-corpus shard: the suites that run every model of the conformance corpus,
 # about half the package's time under -race.
+RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$
 RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
-test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|rest|migrate|cli)
+test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|graph|codegen|tools|rest|migrate|cli)
 	@echo "Running Go race tests, shard $(SHARD)..."
 	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
 	@# under -race on the CI runners, so it runs as two shards of about half that each.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
-	  runtime-corpus) go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  runtime-corpus) go test -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage-exploration.txt -covermode=atomic $$pkgs && \
+	    go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs && \
+	    tail -n +2 coverage-exploration.txt >> coverage.txt && python3 scripts/dedupe-coverage.py coverage.txt ;; \
 	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	esac
-	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
+	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
+	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
+	case "$(SHARD)" in rest|tools) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./... ;; esac
 
-test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export" | "rest migrate cli")
+test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export graph" | "rest migrate cli codegen")
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export graph codegen tools rest migrate cli"; exit 1; }
 	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
 	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs
-	case " $(SHARDS) " in *" rest "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
+	case " $(SHARDS) " in *" rest "*|*" tools "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
@@ -360,24 +380,24 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_PACKAGES)
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
 	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> $(COVERAGE_PROFILE)
-	@# The tools' tests exercise product packages too; their profile credits those.
+	@# The tools' tests exercise product packages too; their profile credits those. It is
+	@# written under GO_COUNTER_DIR, where no shard's COVERAGE_PROFILE (coverage-tools.txt) can be.
 	if [ -n "$(COVERAGE_TOOLS)" ]; then \
-		go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=../coverage-tools.txt -covermode=atomic $(COVERAGE_TOOLS) && \
-		tail -n +2 coverage-tools.txt >> $(COVERAGE_PROFILE) && \
-		rm coverage-tools.txt; \
+		go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=$(GO_COUNTER_DIR)/tools.txt -covermode=atomic $(COVERAGE_TOOLS) && \
+		tail -n +2 $(GO_COUNTER_DIR)/tools.txt >> $(COVERAGE_PROFILE); \
 	fi
 	@# -coverpkg repeats every block once per test binary; see the script's header.
 	python3 scripts/dedupe-coverage.py $(COVERAGE_PROFILE)
 	@go tool cover -func=$(COVERAGE_PROFILE) | tail -n 1
 
-coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|rest|migrate|cli)
-	@# The race shards' packages; tests/wasm and the tools, which no race shard runs, go with runtime.
+coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|graph|codegen|tools|rest|migrate|cli)
+	@# The race shards' packages; the tools module goes with tools (tests/wasm), as in test-shard.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && \
 	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt \
-		COVERAGE_PACKAGES="$$(echo $$pkgs) $(if $(filter runtime,$(SHARD)),./tests/wasm)" \
-		COVERAGE_TOOLS="$(if $(filter runtime,$(SHARD)),./...)"
+		COVERAGE_PACKAGES="$$(echo $$pkgs)" \
+		COVERAGE_TOOLS="$(if $(filter tools,$(SHARD)),./...)"
 
-coverage-merge: ## Merge the shard profiles coverage-runtime/model/export/rest/migrate/cli.txt into coverage.txt
+coverage-merge: ## Merge the shard profiles coverage-<shard>.txt of every COVERAGE_SHARDS shard into coverage.txt
 	{ echo "mode: atomic"; for shard in $(COVERAGE_SHARDS); do tail -n +2 coverage-$$shard.txt || exit 1; done; } > coverage.txt
 	python3 scripts/dedupe-coverage.py coverage.txt
 	@go tool cover -func=coverage.txt | tail -n 1
@@ -388,10 +408,37 @@ lint: ## Run static analysis (staticcheck + gosec), as CI does
 	$(STATICCHECK_ENV) go run -C $(TOOLS_DIR) honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
 	@echo "Running gosec..."
 	@# Generated protobuf code is excluded: its unsafe.Pointer use (G103) comes
-	@# from protoc-gen-go and is not ours to change.
-	module_go_version=$$(go list -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
-	module_go_version=$$(go list -C $(TOOLS_DIR) -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run -C $(TOOLS_DIR) github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
+	@# from protoc-gen-go and is not ours to change. G703 (path taint) flags every
+	@# file a user names on the command line or in a project, which is what these
+	@# binaries open; G602's index analysis does not follow the length checks that
+	@# precede each flagged index. Neither was part of the gate before gosec 2.30.
+	module_go_version=$$(go list -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated $(GOSEC_EXCLUDE) ./...
+	module_go_version=$$(go list -C $(TOOLS_DIR) -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run -C $(TOOLS_DIR) github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated $(GOSEC_EXCLUDE) ./...
 	@echo "✓ Lint passed"
+
+vulncheck: ## Fail on known vulnerabilities reachable from the Go modules (govulncheck), as CI does
+	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+	go run -C $(TOOLS_DIR) golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+
+sca-tools: ## Provision the pinned cargo-audit, osv-scanner and pip-audit under build/sca
+	./scripts/download-sca-tools.sh
+
+audit-npm: ## Fail on $(NPM_AUDIT_LEVEL)+ advisories against the production dependencies of every npm lockfile (NPM_LOCK_DIRS=dir... narrows)
+	@for dir in $(NPM_LOCK_DIRS); do echo "npm audit $$dir" && npm --prefix "$$dir" audit --omit=dev --audit-level=$(NPM_AUDIT_LEVEL) || exit 1; done
+
+audit-python: ## Fail on known vulnerabilities in the Python packages' dependencies and the pinned requirements files (pip-audit --strict)
+	@for dir in $(PYTHON_PROJECT_DIRS); do echo "pip-audit $$dir" && $(PIP_AUDIT) --strict --progress-spinner off "$$dir" || exit 1; done
+	@for file in $(PYTHON_REQUIREMENTS); do echo "pip-audit -r $$file" && $(PIP_AUDIT) --strict --progress-spinner off -r "$$file" || exit 1; done
+
+audit-rust: ## Fail on RustSec advisories against client/rust/Cargo.lock (cargo audit)
+	$(SCA_BIN)/cargo-audit audit --file client/rust/Cargo.lock
+
+audit-java: ## Fail on OSV advisories against the Maven trees' compile and runtime dependencies (JAVA_PROJECT_DIRS=dir... narrows)
+	@# A CycloneDX SBOM carries the versions Maven resolved, reactor modules included, which osv-scanner's own pom resolver cannot follow.
+	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && mvn -B -q -f "$$dir/pom.xml" org.cyclonedx:cyclonedx-maven-plugin:$(CYCLONEDX_MAVEN_VERSION):makeAggregateBom -DoutputFormat=json -DoutputName=bom -DincludeTestScope=false && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
+
+audit: vulncheck audit-npm audit-python audit-rust audit-java ## Run every dependency audit, as CI and the release procedure do
+	@echo "✓ Dependency audits passed"
 
 test-short: ## Run Go tests without race detection
 	@echo "Running Go tests without race detection..."
@@ -403,6 +450,14 @@ extension-libraries-check: ## Check the vendored extension libraries match their
 
 extension-libraries-sync: ## Re-vendor the extension libraries from the pinned upstream commit
 	./scripts/sync-extension-libraries.sh
+
+extension-libraries-pin-check: ## After moving the extension-library pin: every Java-free gate the full tier runs over the vendored libraries
+	./scripts/sync-extension-libraries.sh --check
+	go run -C $(TOOLS_DIR) ./gen/snapshot -check
+	go test -count=1 ./tests/hygiene -run 'TestEngineContract'
+	go test -C $(TOOLS_DIR) -count=1 ./referee/diff ./referee/apijson -run 'TestCommittedBaselineStatesThisRepositorysProvenance|TestProvenance'
+	go test -count=1 ./internal/frontend/repl ./internal/workspace/libs ./internal/ir/queryplan ./internal/doc/queryexec
+	@echo "✓ the vendored extension libraries pass every pin gate"
 
 stdlib-snapshot: ## Regenerate the embedded snapshot of the bundled library after editing $(LIBS_DIR)/stdlib
 	go generate ./$(LIBS_DIR)
@@ -561,9 +616,12 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(PYTHON) -m coverage erase --rcfile=scripts/coverage-scripts.ini
 	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
+	$(SCRIPTS_COVERAGE) scripts/release-announce-test.py
+	$(SCRIPTS_COVERAGE) scripts/release-downloads-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_install_scripts-test.py
+	$(SCRIPTS_COVERAGE) scripts/mkdocs_security-test.py
 	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
 	$(SCRIPTS_COVERAGE) scripts/go-test-stream-test.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py

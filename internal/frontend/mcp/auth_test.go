@@ -28,7 +28,7 @@ func TestNewBearerToken(t *testing.T) {
 		}
 	}
 	var none BearerToken
-	if none.Set() || none.matches("") {
+	if none.Set() || none.Matches("") {
 		t.Error("the zero token is set or matches the empty string")
 	}
 }

@@ -110,7 +110,7 @@ func (r *Renderer) classifyFilter(p *symbols.FilterPredicate, selected map[Kind]
 		if p.Op == symbols.FilterMetaClassify {
 			op = "@@"
 		}
-		return op + simpleName(p.TypeFQN), true
+		return op + symbols.LastSegment(p.TypeFQN), true
 	case symbols.FilterOr:
 		parts := make([]string, 0, len(p.Operands))
 		for _, operand := range p.Operands {
@@ -142,7 +142,7 @@ func (r *Renderer) metaclassGraph(fqn string) (Kind, bool) {
 	}
 	names := map[string]bool{}
 	for _, sym := range append([]*symbols.Symbol{metas[0]}, r.model.AllSupertypes(metas[0])...) {
-		names[simpleName(r.fqn(sym))] = true
+		names[symbols.LastSegment(r.fqn(sym))] = true
 	}
 	has := func(set []string) bool { return slices.ContainsFunc(set, func(n string) bool { return names[n] }) }
 	switch {
@@ -166,10 +166,13 @@ type generalGraph struct {
 	view  *symbols.Symbol
 	kind  Kind
 	out   *Rendering
-	ids   nodeIDs
+	ids   *nodeIDs
 	nodes map[symbols.ElementKey]*Node
 	order []*symbols.Symbol
 	edges map[generalEdgeKey]bool
+	// exposed is what the view exposes when the graph overlays a rendering of
+	// another kind, whose ends it draws only when exposed; nil for a general graph.
+	exposed map[symbols.ElementKey]bool
 }
 
 type generalEdgeKey struct {
@@ -182,7 +185,7 @@ type generalEdgeKey struct {
 // renderGeneral draws the exposed elements the graph's kind admits as nodes,
 // in exposure order, and the relationships between them as edges.
 func (r *Renderer) renderGeneral(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
-	g := &generalGraph{r: r, view: view, kind: out.Kind, out: out,
+	g := &generalGraph{r: r, view: view, kind: out.Kind, out: out, ids: &nodeIDs{},
 		nodes: map[symbols.ElementKey]*Node{}, edges: map[generalEdgeKey]bool{}}
 	library, other := 0, 0
 	viewInLibrary := view != nil && r.libraryDeclared(view)
@@ -258,6 +261,11 @@ func generalNodeKind(r *Renderer, sym *symbols.Symbol) bool {
 		return sym.Kind != symbols.SymbolMetadataDef
 	case *ast.Usage:
 		return sym.Kind != symbols.SymbolMetadataUsage
+	case *ast.RequireMember, *ast.AssumeMember:
+		// The constraint a `require constraint` or `assume constraint` member
+		// declares; one naming a constraint instead is drawn as the edge to it.
+		_, declares := ast.OwnedConstraintOf(sym.Decl)
+		return declares && sym.Kind == symbols.SymbolConstraintUsage
 	}
 	return false
 }
@@ -309,7 +317,9 @@ func (g *generalGraph) drawn(sym *symbols.Symbol) *Node {
 // add records an edge once: an import edge once per import declaration.
 func (g *generalGraph) add(edge Edge) {
 	key := generalEdgeKey{from: edge.From, to: edge.To, label: edge.text(), kind: edge.Kind}
-	if edge.Kind == EdgeImport {
+	// Distinct declarations draw distinct import edges, and distinct exposed
+	// relationships distinct edges, each with its own route.
+	if edge.Kind == EdgeImport || g.exposed != nil {
 		key.origin = edge.Origin
 	}
 	if g.edges[key] {
@@ -420,7 +430,8 @@ func (r *Renderer) relationshipOwnerName(sym *symbols.Symbol) string {
 }
 
 // structuralEdges draws what a definition or usage node states of itself:
-// its specializations and typings, and its ownership by a drawn owner.
+// its specializations and typings, and its membership in a drawn owner, a
+// composition or reference from the owner with its multiplicity at its end.
 func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 	from := g.drawn(sym)
 	for _, rel := range semantics.RelationshipsOf(sym) {
@@ -441,16 +452,98 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 		}
 	}
 	g.featureEdges(sym, from)
-	if _, usage := sym.Decl.(*ast.Usage); !usage || sym.OwnerScope == nil {
+	g.statedEdges(sym, from)
+	if sym.OwnerScope == nil || !ownedUsage(sym) {
 		return
 	}
 	if owner := g.drawn(sym.OwnerScope.Owner()); owner != nil && owner != from {
-		kind := EdgeComposition
-		if !compositeUsage(sym) {
-			kind = EdgeReference
-		}
-		g.add(Edge{From: owner.ID, To: from.ID, Kind: kind, Origin: symbolOrigin(sym)})
+		edge := Edge{From: owner.ID, To: from.ID, ToLabel: g.r.usageMultiplicity(sym), Origin: symbolOrigin(sym)}
+		g.r.memberEdge(sym, &edge)
+		g.add(edge)
 	}
+}
+
+// ownedUsage reports whether sym is a usage its owner draws a membership edge
+// to: one declared as such, or the constraint a require or assume member declares.
+func ownedUsage(sym *symbols.Symbol) bool {
+	switch sym.Decl.(type) {
+	case *ast.Usage, *ast.RequireMember, *ast.AssumeMember:
+		return true
+	}
+	return false
+}
+
+// membershipEdge is the edge a drawn owner draws to a member it owns, with its
+// label: the notation's require, assume, assert, frame, event and portion
+// glyphs for the memberships that have one, else the composition (filled
+// diamond) or reference (hollow diamond) of a feature membership.
+func memberRelationship(member *symbols.Symbol) (EdgeKind, string, bool) {
+	switch decl := member.Decl.(type) {
+	case *ast.RequireMember:
+		return EdgeRequire, EdgeRequire.String(), true
+	case *ast.AssumeMember:
+		return EdgeAssume, EdgeAssume.String(), true
+	case *ast.Usage:
+		switch {
+		case decl.PrefixKeyword == "assert":
+			return EdgeAssert, EdgeAssert.String(), true
+		case decl.Kind == ast.UsageFramedConcern:
+			return EdgeFrame, EdgeFrame.String(), true
+		case decl.IsEvent:
+			return EdgeEvent, EdgeEvent.String(), true
+		case decl.Portion != ast.PortionNone:
+			return EdgePortion, "", true
+		}
+	}
+	return 0, "", false
+}
+
+// statedEdges draws what a member of sym states of another drawn element by
+// naming it rather than declaring it: `require r1;`, `assume c;`, `assert c;`
+// and `frame concern;`, from sym to the named element.
+func (g *generalGraph) statedEdges(sym *symbols.Symbol, from *Node) {
+	if sym.Scope == nil {
+		return
+	}
+	for _, member := range append(slices.Clone(sym.Scope.Members()), sym.Scope.AnonymousMembers()...) {
+		kind, ref, ok := statedReference(member)
+		if !ok {
+			continue
+		}
+		target, resolved := g.r.resolveEnd(member.OwnerScope, ref)
+		if !resolved {
+			g.unresolved(kind.String()+" membership", sym, ref)
+			continue
+		}
+		if to := g.drawn(target); to != nil && to != from {
+			g.add(Edge{From: from.ID, To: to.ID, Kind: kind, Label: kind.String(), Origin: symbolOrigin(member)})
+		}
+	}
+}
+
+// statedReference is the element a require, assume, assert or frame member
+// names rather than declares, and the edge the membership draws to it.
+func statedReference(member *symbols.Symbol) (EdgeKind, ast.Node, bool) {
+	switch decl := member.Decl.(type) {
+	case *ast.RequireMember:
+		ref := ast.ConstraintReferenceOf(decl)
+		return EdgeRequire, ref, ref != nil
+	case *ast.AssumeMember:
+		ref := ast.ConstraintReferenceOf(decl)
+		return EdgeAssume, ref, ref != nil
+	case *ast.Usage:
+		rel := decl.ReferenceSubsetting()
+		if rel == nil || rel.Target == nil {
+			return 0, nil, false
+		}
+		switch {
+		case decl.PrefixKeyword == "assert":
+			return EdgeAssert, rel.Target, true
+		case decl.Kind == ast.UsageFramedConcern:
+			return EdgeFrame, rel.Target, true
+		}
+	}
+	return 0, nil, false
 }
 
 // structuralEdgeKind is the edge a declared relationship draws, and its label.
@@ -465,13 +558,10 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 		if _, usage := member.Decl.(*ast.Usage); !usage || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
 			continue
 		}
-		kind := EdgeComposition
-		if !compositeUsage(member) {
-			kind = EdgeReference
-		}
+		kind := g.r.membershipKind(member)
 		for _, typ := range g.r.model.DeclaredTypes(member) {
 			if to := g.drawn(typ); to != nil {
-				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: simpleName(g.r.fqn(member)), Origin: symbolOrigin(member)})
+				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)})
 			}
 		}
 	}
@@ -482,24 +572,15 @@ func structuralEdgeKind(kind ast.RelationshipKind) (EdgeKind, string, bool) {
 	case ast.RelSpecializes:
 		return EdgeSpecialization, "", true
 	case ast.RelSubsets:
-		return EdgeSpecialization, "subsets", true
+		return EdgeSubsetting, "", true
 	case ast.RelRedefines:
-		return EdgeSpecialization, "redefines", true
+		return EdgeRedefinition, "", true
+	case ast.RelReferences:
+		return EdgeReferenceSubsetting, "references", true
 	case ast.RelTyping:
 		return EdgeTyping, "", true
 	}
 	return 0, "", false
-}
-
-// compositeUsage reports whether a usage is composite: one not declared `ref`
-// and not an attribute or reference usage, which are always referential.
-func compositeUsage(sym *symbols.Symbol) bool {
-	switch sym.Kind {
-	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage, symbols.SymbolEnumerationUsage:
-		return false
-	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && !usage.IsReference
 }
 
 // packageEdges draws a package's containment by a drawn package and its
@@ -514,6 +595,31 @@ func (g *generalGraph) packageEdges(pkg *symbols.Symbol) {
 	if pkg.Scope == nil {
 		return
 	}
+	g.aliasEdges(pkg, node)
+	g.importEdges(pkg, node)
+}
+
+// aliasEdges draws the package's aliases of drawn elements as unowned memberships.
+func (g *generalGraph) aliasEdges(pkg *symbols.Symbol, node *Node) {
+	for _, member := range pkg.Scope.Members() {
+		if member.Kind != symbols.SymbolAlias {
+			continue
+		}
+		target, ok := g.r.resolver.ResolveAliasTarget(member)
+		if !ok || target == nil {
+			if alias, isAlias := member.Decl.(*ast.Alias); isAlias && alias.For != nil {
+				g.unresolved("alias", pkg, alias.For)
+			}
+			continue
+		}
+		if to := g.drawn(target); to != nil && to != node {
+			g.add(Edge{From: node.ID, To: to.ID, Kind: EdgeUnownedMembership, ToLabel: member.Name, Origin: symbolOrigin(member)})
+		}
+	}
+}
+
+// importEdges draws the package's imports of drawn packages, or of members of them.
+func (g *generalGraph) importEdges(pkg *symbols.Symbol, node *Node) {
 	for _, imp := range pkg.Scope.Imports() {
 		if imp == nil || imp.IsExpose || imp.Imported == nil {
 			continue
@@ -536,21 +642,30 @@ func (g *generalGraph) packageEdges(pkg *symbols.Symbol) {
 	}
 }
 
-// importLabel is an import edge's label: what the import brings in.
+// importLabel is an import edge's text as §8.2.3 writes it: `«import»`, `*`
+// after it for a namespace import, `**` for a recursive one.
 func importLabel(imp *ast.Import) string {
-	label := "import"
+	label := "«import»"
 	if imp.Visibility == ast.VisibilityPrivate {
-		label = "private import"
+		label = "«private import»"
 	}
+	return label + importSuffix(imp)
+}
+
+// exposeLabel is an expose edge's label, suffixed as an import's is.
+func exposeLabel(imp *ast.Import) string {
+	return "«expose»" + importSuffix(imp)
+}
+
+// importSuffix is what an import or expose brings in beyond the named element.
+func importSuffix(imp *ast.Import) string {
 	switch {
-	case imp.Kind == ast.ImportNamespace && imp.IsRecursive:
-		label += " ::*::**"
-	case imp.Kind == ast.ImportNamespace:
-		label += " ::*"
 	case imp.IsRecursive:
-		label += " ::**"
+		return "**"
+	case imp.Kind == ast.ImportNamespace:
+		return "*"
 	}
-	return label
+	return ""
 }
 
 // requirementRelationships finds, in declaration order across the model's own
@@ -611,7 +726,7 @@ func (r *Renderer) modelElements() []*symbols.Symbol {
 		members := append(slices.Clone(scope.Members()), scope.AnonymousMembers()...)
 		sort.SliceStable(members, func(i, j int) bool { return members[i].DeclSpan.Offset < members[j].DeclSpan.Offset })
 		for _, member := range members {
-			if seen[member] || member.OwnerScope != scope {
+			if seen[member] || member.OwnerScope != scope || member.Implied() {
 				continue
 			}
 			seen[member] = true
@@ -629,16 +744,20 @@ func (r *Renderer) modelElements() []*symbols.Symbol {
 
 // relate is the edge between two relationship ends when the rendering draws
 // one of them, drawing the other beside it; a library element is not drawn.
+// Overlaying another rendering, it draws an undrawn end only when exposed.
 func (g *generalGraph) relate(from, to *symbols.Symbol, kind EdgeKind, origin *symbols.Symbol) (Edge, bool) {
-	if g.drawn(from) == nil && g.drawn(to) == nil {
+	if g.exposed == nil && g.drawn(from) == nil && g.drawn(to) == nil {
 		return Edge{}, false
 	}
 	for _, end := range []*symbols.Symbol{from, to} {
-		if g.drawn(end) == nil && g.r.libraryDeclared(end) {
+		if g.drawn(end) != nil {
+			continue
+		}
+		if g.r.libraryDeclared(end) || g.exposed != nil && !g.exposed[symbols.KeyOf(end)] {
 			return Edge{}, false
 		}
 	}
-	return Edge{From: g.node(from).ID, To: g.node(to).ID, Kind: kind, Label: kind.String(), Origin: symbolOrigin(origin)}, true
+	return Edge{From: g.node(from).ID, To: g.node(to).ID, Kind: kind, Label: "«" + kind.String() + "»", Origin: symbolOrigin(origin)}, true
 }
 
 // resolvedEnds resolves both ends of a relationship, reporting an end that
@@ -674,8 +793,8 @@ func (g *generalGraph) satisfyEdges(sym *symbols.Symbol) []Edge {
 			return nil
 		}
 		requirement = resolved
-	} else if types := g.r.model.DeclaredTypes(sym); len(types) > 0 {
-		requirement = types[0]
+	} else {
+		requirement = g.declaredRequirement(sym)
 	}
 	var satisfier *symbols.Symbol
 	if ends.Satisfier != nil {
@@ -767,10 +886,7 @@ func (g *generalGraph) verified(verification, member *symbols.Symbol) []*symbols
 		return nil
 	}
 	if usage.DeclaresRequirement {
-		if types := g.r.model.DeclaredTypes(member); len(types) > 0 {
-			return types
-		}
-		return []*symbols.Symbol{member}
+		return []*symbols.Symbol{g.declaredRequirement(member)}
 	}
 	rel := usage.ReferenceSubsetting()
 	if rel == nil || rel.Target == nil {
@@ -818,13 +934,8 @@ func (g *generalGraph) deriveEdges(sym *symbols.Symbol) []Edge {
 		if !isOriginal && !isDerived {
 			continue
 		}
-		rel := usage.ReferenceSubsetting()
-		if rel == nil || rel.Target == nil {
-			continue
-		}
-		target, ok := g.r.resolveEnd(end.OwnerScope, rel.Target)
+		target, ok := g.endTarget(sym, end, "derivation")
 		if !ok {
-			g.unresolved("derivation", sym, rel.Target)
 			continue
 		}
 		if isOriginal {
@@ -844,8 +955,74 @@ func (g *generalGraph) deriveEdges(sym *symbols.Symbol) []Edge {
 	return out
 }
 
+// declaredRequirement is the requirement a member declaring one stands for:
+// the type it is declared with, else the requirement it subsets or redefines,
+// else the member itself.
+func (g *generalGraph) declaredRequirement(member *symbols.Symbol) *symbols.Symbol {
+	if types := g.r.model.DeclaredTypes(member); len(types) > 0 {
+		return types[0]
+	}
+	for _, rel := range semantics.RelationshipsOf(member) {
+		if rel == nil || rel.Target == nil || rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines {
+			continue
+		}
+		if target, ok := g.r.generalizationTarget(member, rel); ok {
+			return target
+		}
+	}
+	return member
+}
+
+// endTarget is the element an end of the relationship rel names, by reference
+// subsetting or by subsetting; one naming no element is skipped, one naming
+// an element that does not resolve is noticed.
+func (g *generalGraph) endTarget(rel, end *symbols.Symbol, name string) (*symbols.Symbol, bool) {
+	usage, ok := end.Decl.(*ast.Usage)
+	if !ok {
+		return nil, false
+	}
+	ref := usage.ReferenceSubsetting()
+	if ref == nil {
+		for _, r := range semantics.RelationshipsOf(end) {
+			if r != nil && r.Target != nil && r.Kind == ast.RelSubsets {
+				ref = r
+				break
+			}
+		}
+	}
+	if ref == nil || ref.Target == nil {
+		return nil, false
+	}
+	target, ok := g.r.resolveEnd(end.OwnerScope, ref.Target)
+	if !ok {
+		g.unresolved(name, rel, ref.Target)
+		return nil, false
+	}
+	return target, true
+}
+
+// derivation reports whether a connection, or a connection def, has an end
+// annotated as a derivation's original or derived requirement.
+func (g *generalGraph) derivation(sym *symbols.Symbol) bool {
+	if sym.Scope == nil {
+		return false
+	}
+	for _, end := range append(slices.Clone(sym.Scope.Members()), sym.Scope.AnonymousMembers()...) {
+		if g.r.annotatedBy(end, originalMetadata) || g.r.annotatedBy(end, derivedMetadata) {
+			return true
+		}
+	}
+	return false
+}
+
 // refineEdges draws a #refinement dependency from each client to each supplier.
 func (g *generalGraph) refineEdges(sym *symbols.Symbol) []Edge {
+	return g.dependencyEdges(sym, EdgeRefine, "refinement")
+}
+
+// dependencyEdges draws a dependency as an edge of the kind from each client
+// to each supplier.
+func (g *generalGraph) dependencyEdges(sym *symbols.Symbol, kind EdgeKind, name string) []Edge {
 	dep, ok := sym.Decl.(*ast.Dependency)
 	if !ok {
 		return nil
@@ -853,14 +1030,127 @@ func (g *generalGraph) refineEdges(sym *symbols.Symbol) []Edge {
 	var out []Edge
 	for _, client := range dep.Clients {
 		for _, supplier := range dep.Suppliers {
-			source, target, ok := g.resolvedEnds("refinement", sym, sym.OwnerScope, client, supplier)
+			source, target, ok := g.resolvedEnds(name, sym, sym.OwnerScope, client, supplier)
 			if !ok {
 				continue
 			}
-			if edge, ok := g.relate(source, target, EdgeRefine, sym); ok {
-				out = append(out, edge)
+			edge, ok := g.relate(source, target, kind, sym)
+			if !ok {
+				continue
 			}
+			if kind == EdgeDependency {
+				edge.Label = g.dependencyLabel(sym)
+			}
+			out = append(out, edge)
 		}
 	}
 	return out
+}
+
+// dependencyLabel is the name a dependency of no particular kind is drawn
+// with, which the notation makes optional; a name a migration made up is none.
+func (g *generalGraph) dependencyLabel(sym *symbols.Symbol) string {
+	if sym.Name == "" || g.r.model.NameSynthesized(sym) {
+		return ""
+	}
+	return localName(sym)
+}
+
+// connectionEdges draws a binary connection between the elements it connects,
+// labelled with its name.
+func (g *generalGraph) connectionEdges(sym *symbols.Symbol) []Edge {
+	ends := g.r.model.ConnectorEndAttachments(sym)
+	if len(ends) != 2 {
+		return nil
+	}
+	source, target, ok := g.resolvedEnds("connection", sym, sym.OwnerScope, ends[0].Attachment, ends[1].Attachment)
+	if !ok {
+		return nil
+	}
+	edge, ok := g.relate(source, target, EdgeConnection, sym)
+	if !ok {
+		return nil
+	}
+	edge.Label = g.r.connectorLabel(sym)
+	return []Edge{edge}
+}
+
+// verifyMemberEdges draws, from the verification case whose objective holds
+// a `verify` member, an edge to each requirement the member names.
+func (g *generalGraph) verifyMemberEdges(member *symbols.Symbol) []Edge {
+	objective := member.Owner()
+	if objective == nil || objective.Owner() == nil {
+		return nil
+	}
+	verification := objective.Owner()
+	var out []Edge
+	for _, requirement := range g.verified(verification, member) {
+		if edge, ok := g.relate(verification, requirement, EdgeVerify, member); ok {
+			out = append(out, edge)
+		}
+	}
+	return out
+}
+
+// relationshipEdges are the edges a dependency-like relationship draws: a
+// verify member, a satisfy, an allocation, a dependency (a refinement when so
+// annotated), a connection or connection def whose ends are a derivation's, a
+// plain connection. ok is false when sym is no such relationship.
+func (g *generalGraph) relationshipEdges(sym *symbols.Symbol) (edges []Edge, ok bool) {
+	if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && usage.IsVerifiedRequirement() {
+		return g.verifyMemberEdges(sym), true
+	}
+	switch {
+	case sym.Kind == symbols.SymbolSatisfyRequirementUsage:
+		return g.satisfyEdges(sym), true
+	case sym.Kind == symbols.SymbolAllocationUsage:
+		return g.allocateEdges(sym), true
+	case sym.Kind == symbols.SymbolDependency && g.r.annotatedBy(sym, refinementMetadata):
+		return g.refineEdges(sym), true
+	case sym.Kind == symbols.SymbolDependency:
+		return g.dependencyEdges(sym, EdgeDependency, "dependency"), true
+	case sym.Kind == symbols.SymbolConnectionDef && g.derivation(sym):
+		return g.deriveEdges(sym), true
+	case sym.Kind == symbols.SymbolConnectionUsage && (g.r.annotatedBy(sym, derivationMetadata) || g.derivation(sym)):
+		return g.deriveEdges(sym), true
+	case sym.Kind == symbols.SymbolConnectionUsage:
+		return g.connectionEdges(sym), true
+	}
+	return nil, false
+}
+
+// exposedRelationships draws, on a rendering of another kind whose nodes drawn
+// stand for their elements, the dependency-like relationships view exposes
+// between the nodes of their ends, following their Route annotations: the
+// graphical notation draws a dependency between any two element nodes a view
+// shows. An exposed end no node draws yet gets a plain node, so the line has
+// both ends. It returns the exposed elements drawn this way.
+func (r *Renderer) exposedRelationships(view *symbols.Symbol, exposed []*symbols.Symbol, ids *nodeIDs,
+	drawn map[symbols.ElementKey]*Node, out *Rendering) map[*symbols.Symbol]bool {
+	g := &generalGraph{r: r, view: view, kind: out.Kind, out: out, ids: ids, nodes: drawn,
+		edges: map[generalEdgeKey]bool{}, exposed: map[symbols.ElementKey]bool{}}
+	for _, sym := range exposed {
+		g.exposed[symbols.KeyOf(sym)] = true
+	}
+	used := map[*symbols.Symbol]bool{}
+	for _, sym := range exposed {
+		edges, ok := g.relationshipEdges(sym)
+		if !ok {
+			continue
+		}
+		used[sym] = true
+		if len(edges) == 0 {
+			out.Notices = append(out.Notices, fmt.Sprintf("%s %s is drawn between the nodes of its ends; the view does not show both, so no edge is drawn",
+				declKind(sym), r.notationName(sym)))
+		}
+		for _, edge := range edges {
+			edge.Route = r.routeOf(view, sym, out)
+			edge.Style = r.edgeDress(view, sym, edge.From, edge.To, out)
+			g.add(edge)
+		}
+	}
+	for _, sym := range g.order {
+		used[sym] = true
+	}
+	return used
 }

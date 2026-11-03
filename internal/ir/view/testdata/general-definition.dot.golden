@@ -21,16 +21,16 @@ digraph "GeneralViews::definitionView" {
   "n12" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>heavyVehicle::mass</b>>];
   "n13" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Engine</b>>];
   "n2" -> "n1" [arrowhead=empty];
-  "n5" -> "n0" [arrowhead=empty, style=dashed];
-  "n6" -> "n0" [arrowhead=empty, style=dashed];
-  "n7" -> "n4" [arrowhead=empty, style=dashed];
+  "n5" -> "n0" [arrowhead=onormaldotdot];
+  "n6" -> "n0" [arrowhead=onormaldotdot];
+  "n7" -> "n4" [arrowhead=onormaldotdot];
   "n0" -> "n8" [dir=back, arrowtail=odiamond];
-  "n9" -> "n1" [arrowhead=empty, style=dashed];
+  "n9" -> "n1" [arrowhead=onormaldotdot];
   "n0" -> "n9" [dir=back, arrowtail=diamond];
-  "n10" -> "n3" [arrowhead=empty, style=dashed];
+  "n10" -> "n3" [arrowhead=onormaldotdot];
   "n0" -> "n10" [dir=back, arrowtail=odiamond];
-  "n11" -> "n8" [label="redefines", arrowhead=empty];
+  "n11" -> "n8" [arrowhead=onormaltee];
   "n5" -> "n11" [dir=back, arrowtail=odiamond];
-  "n12" -> "n8" [label="redefines", arrowhead=empty];
+  "n12" -> "n8" [arrowhead=onormaltee];
   "n6" -> "n12" [dir=back, arrowtail=odiamond];
 }

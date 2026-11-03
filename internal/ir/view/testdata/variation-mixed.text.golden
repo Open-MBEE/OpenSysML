@@ -11,4 +11,10 @@ variation part def EngineChoices
 
 relationships:
   engine -- transmission
-  engine ..> EngineChoices
+  vehicleFamily *-- engine
+  vehicleFamily *-- transmission
+  transmission o-- manual
+  transmission *-- automatic
+  EngineChoices o-- fourCylinder
+  EngineChoices o-- sixCylinder
+  engine --:|> EngineChoices

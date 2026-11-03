@@ -11,7 +11,7 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.10.1</version>
+  <version>0.12.0</version>
 </dependency>
 ```
 
@@ -61,7 +61,11 @@ service that lacks what the caller needs, and the binary controls `binaryPath`,
 `allowUnpinnedDownload`. Each has an environment form —
 `OPENSYSML_SERVICE`, `OPENSYSML_GRPC_BINARY`, `OPENSYSML_GRPC_VERSION`,
 `OPENSYSML_GITHUB_REPO`, `OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` — named as constants
-on `ConnectionOptions`. A connection asked for a release — `downloadVersion` or
+on `ConnectionOptions`. `token(...)` (environment form `OPENSYSML_GRPC_TOKEN`) is
+the bearer token a service other machines reach requires, sent as
+`Authorization: Bearer` on every call; a wrong or missing one is a
+`ServiceException` with status `UNAUTHENTICATED`. A private child needs no token
+and is started without `OPENSYSML_GRPC_TOKEN` in its environment. A connection asked for a release — `downloadVersion` or
 `$OPENSYSML_GRPC_VERSION`, `"latest"` resolved once — refuses at open a service
 that reports another version with `StaleServiceException`, whose `reason()` and
 `remedy()` say what was found and how to reach the release asked for.
@@ -125,12 +129,15 @@ for (Outcome outcome : all.outcomes()) {
 `executeAction`/`executeState` run once and answer an `ActionRun` (`outputs`,
 `finalTime`, `diagnostics`) or a `StateRun` (`statesVisited`, `finalContext`,
 `finalTime`, `diagnostics`). `finalTime` is filled only by a service advertising
-`final_time`. `ExecutionOptions` carries a `schedule`, a `performer`, and the
-state-run-only `withTrace()` option. The client checks their respective
-capabilities (`schedule`, `performer`, `state_trace`) before the call; an unknown
+`final_time`. `ExecutionOptions` carries a `schedule`, a `performer`, `withTrace()` and, for an
+action, `withEvents(...)` — signals posted to the performer in order, each once
+every token waits. The client checks their respective capabilities (`schedule`,
+`performer`, `state_trace` or `action_trace`) before the call; an unknown
 schedule or trace with exploration is refused as `INVALID_ARGUMENT`. A requested
-trace is returned as typed `DocumentEvent` values in `StateRun.trace()` with
-`traceDropped()` reporting records discarded by the service's bound.
+trace is returned as typed `DocumentEvent` values in `StateRun.trace()` or
+`ActionRun.trace()` (token steps, waits, accepts, decisions, assignments with
+`feature()` and `value()`) with `traceDropped()` reporting records discarded by
+the service's bound.
 `ExecutionOptions` also carries the run options of the `sysml` command: `withAdvance(seconds)`
 runs for a simulated duration and reports the clock in `finalTime`, `withSeed(n)` seeds the
 model's own draws, `withDraws("min")` (or `"max"`, `"average"`, `"random"`) chooses how they
@@ -206,7 +213,12 @@ Analysis bound = model.runAnalysis("Trade::perOffset",
 `Calculation`, `Analysis` and every `Verdict` carry the `Standing` of the answer:
 which `engine` answered (`run`, `explore`, `solve`, `sweep`), the `strength` of
 its answer (`observed`, `witnessed`, `bounded`, `proved`, or `not covered`) and
-the `bounds` it ran under, each `reached` or not. `model.withEngine("solve")` (or
+the `bounds` it ran under, each `reached` or not. A `Verdict` also lists the `notes`
+a solver's answer rests on, each a `VerdictNote` of kind `KIND_ASSUMED_ONE` (a feature
+read as one value or object while only the default `0..*` multiplicity governs it) or
+`KIND_UNCOVERED` (an object-holding feature whose own assertions the question does not
+state), with the feature as `subject` and the note's `text`; a service without the
+`verdict_notes` capability answers with none. `model.withEngine("solve")` (or
 `Standing.ENGINE_AUTO`/`ENGINE_ALL`) binds every question the model is asked to an
 engine, and `connection.listEngines()` names what is available; both need the
 `engines` capability. A run whose objective stops on an error throws an `AnalysisException`
@@ -229,9 +241,11 @@ parts.get(0).id(); parts.get(0).type(); parts.get(0).properties();  // qualified
 List<QueryElement> same = model.queryOslc("oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name");
 ```
 
-`Condition` is sealed over `Comparison` (`equal`, `greater`, `less`, each
-`negated()`) and `Combination` (`all`, `any`), so the query is a value a caller can
-build and inspect. `queryOslc` needs the `oslc_query` capability; a scope naming
+`Condition` is sealed over `Comparison` (`equalTo`, `in`, `instanceOf`, `greater`,
+`greaterOrEqual`, `less`, `lessOrEqual`, each `negated()`) and `Combination` (`all`,
+`any`, of at least two conditions), so the query is a value a caller can build and
+inspect; `Query.orderBy(List.of("@type", "name"))` sorts the answer by each property
+in turn, ascending. `queryOslc` needs the `oslc_query` capability; a scope naming
 no element is refused as `INVALID_ARGUMENT`.
 
 ### Several documents, and conversion
@@ -249,17 +263,49 @@ model.roots();   // one Symbol per document, in request order
 
 `Connection.convert`/`convertFile` translate source text between notations and
 answer a `Conversion` (`content`, the resolved `fromFormat`/`toFormat`,
-`experimental`/`experimentalNotice`, `diagnostics`); `Model.convert` converts the
+`experimental`/`experimentalNotice`, `diagnostics`, and for `api-json` the
+`libraryReferences` — each a `LibraryReference` with `id`, `qualifiedName` and
+`type` — named outside the element array); `Model.convert` converts the
 parsed model itself. `ConversionOptions` carries a `fromFormat` (else the service
 sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
-`ModelException` carrying the diagnostics rather than converting anyway — and
+`ModelException` carrying the diagnostics rather than converting anyway —
 `idForm` (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived
-element ids of a graph notation (`ttl`, `api-json`). `Conversion.write(Path)`
+element ids of a graph notation (`ttl`, `api-json`), and `includeLibraryStubs`,
+which restores in `api-json` the ownerless library stubs releases before 0.11.0
+wrote (needs the service's `convert_library_stubs` capability). `Conversion.write(Path)`
 saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
 extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
 `severalDocuments()` is set, whose text is in `documents()` alone; a model
 adopted by hash first edits without reading documents, which the service refuses
 for a model of several, and only then with them.
+
+For notation converted to `api-json`, `withCompact(true)` writes the compact document
+(`api-json-compact/1`, see [the compact form](api-json-compact.md)) in place of the
+element array; `withOmitDerived(true)` leaves out every derived property of the metamodel
+and `withKeepDerived(List.of("qualifiedName"))` names the ones still written. These need
+the service's `convert_compact` capability, and the service refuses, as a
+`ServiceException` of `INVALID_ARGUMENT`, `omitDerived` or `keepDerived` without `compact`,
+`keepDerived` without `omitDerived` or naming a property that is not derived, and `compact`
+for any other direction. `withIncludeCheckDiagnostics(true)` (capability
+`convert_check_diagnostics`, notation sources only) reports the semantic check's
+diagnostics in the `Conversion`'s `diagnostics` beside the output, each `Diagnostic` with
+its own `severity`, so a conversion of a model with errors is told apart from one of a
+clean model.
+
+Parsing a set of documents again after an edit, `ParseOptions.withBaseModelHash(model.hash())`
+relates the parse to the previous model and the new `Model.affected()` names, in document
+order, the documents whose analysis, diagnostics or conversion may differ from it, so results
+computed for the others are kept; every document when the service could not compare the two,
+such as for a set it had not seen before. It needs the `parse_sources_affected` capability,
+and a one-document `load`/`parse` refuses the option with an `IllegalArgumentException`.
+
+```java
+Model edited =
+    connection.parseSources(documents, ParseOptions.defaults().withBaseModelHash(model.hash()));
+for (String name : edited.affected()) {
+  rerun(name);
+}
+```
 
 A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive — is **migrated,
 not converted**: `convert`/`convertFile` refuse it with a `ServiceException` of
@@ -383,8 +429,10 @@ Use `RenderViewPorts.FULL` to include every declared port; the default is
 `MINIMAL`, and `renderView(name, ports, List.of("edge-labels", "typings"))` to draw
 those [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
 besides the ones the view's rendering shows (`"all"` for every one); the
-`RenderedView`'s `shown()` lists the elements drawn. This call requires the
-`render_view` capability.
+`RenderedView`'s `shown()` lists the elements drawn. The five-argument form adds
+`compartments`, how a tree rendering folds owned members into compartment rows
+(`"positioned"`, the default, `"most"` or `"ports"`), each folded node naming
+its `compartment`. This call requires the `render_view` capability.
 
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
 holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,
@@ -477,7 +525,8 @@ and `verifyConstraint` returns it.
 `Connection.open` calls `GetServerInfo` once and keeps what it reported.
 Negotiation is on the advertised **names** — the constants on `Capabilities`, such
 as `EVALUATE_SUBJECT`, `FEATURE_VALUES`, `STRICT_CONFORMANCE`, `INLINE_LANGUAGE`,
-`PARSE_SOURCES`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT`, `RENDER_DOCUMENT_HTML` —
+`PARSE_SOURCES`, `QUERY`, `QUERY_ORDER_BY`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT`,
+`RENDER_DOCUMENT_HTML` —
 never on the version string:
 
 ```java

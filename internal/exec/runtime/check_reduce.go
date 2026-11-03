@@ -146,6 +146,7 @@ func unionFootprints(f, g lower.Footprint) lower.Footprint {
 		Dynamic:    f.Dynamic || g.Dynamic,
 		Creates:    f.Creates || g.Creates,
 		Routes:     f.Routes || g.Routes,
+		Flows:      append(slices.Clone(f.Flows), g.Flows...),
 	}
 }
 

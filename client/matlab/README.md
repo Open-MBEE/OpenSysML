@@ -30,7 +30,11 @@ conn = opensysml.private('binary', '/path/to/sysml-grpc', 'timeout', 30);
 ```
 
 `private` accepts `binary`, `timeout`, `version`, and `capabilities`
-name-value options; `external` accepts `version` and `capabilities`.
+name-value options; `external` accepts `version`, `capabilities` and `token` —
+the bearer token a service on an address other machines reach requires, sent as
+`Authorization: Bearer` on every call, read from `OPENSYSML_GRPC_TOKEN` when the
+option is absent. `private` starts its child without that variable in its
+environment: a private child needs no token.
 `connect` forwards the applicable requirements to whichever connection it
 selects. When no binary is named, `private` checks
 `OPENSYSML_GRPC_BINARY`, `~/.opensysml/bin/sysml-grpc`, then `PATH`. The
@@ -69,6 +73,9 @@ symbols = model.walk(3);
 `SourceDocument.inline(name, content, language)` names inline content for
 diagnostics; its language is `sysml` or `kerml`. A cell of documents can
 mix these forms. `parseSources` parses related documents as one model.
+`parseSources(conn, docs, 'baseModelHash', model.hash)` relates a parse to a
+previous model and `model.affected` names the documents whose results may
+differ from it (needs `parse_sources_affected`).
 `parseFile`, `parseSource`, and `parseSources` accept `strict`,
 `strictConformance`, and `raiseForErrors` options; `strict` is an alias
 for `strictConformance`. `strictConformance` requires that capability.
@@ -136,7 +143,8 @@ Options are MATLAB name-value pairs such as `inputs`, `events`,
 `engine`, and `question`, as supported by each call.
 
 - `Verdict` records a verification or execution outcome and provides
-  `explain`, `raiseForError`, and logical conversion.
+  `explain`, `raiseForError`, and logical conversion; its `notes` list what a
+  solver's answer rests on (`kind` `assumed_one` or `uncovered`, `subject`, `text`).
 - `Validation` groups instance verdicts, diagnostics, verification
   records, summary and `valid`, `violated`, `undecided`, and `explain`.
   Its `instances` property is an ordered cell array in service order.
@@ -159,10 +167,19 @@ functions request a single run.
 ## Conversion and persistence
 
 `opensysml.convert(conn, toFormat, ...)` takes exactly one of `filePath`,
-`content`, or `modelHash`, plus optional `fromFormat` and
-`tolerateSyntaxErrors` name-value arguments. `model.convert(format)` and
+`content`, or `modelHash`, plus optional `fromFormat`,
+`tolerateSyntaxErrors`, `idForm` (`'qualified'`, the default, or `'uuid'`,
+how a graph spells its derived ids) and `includeLibraryStubs` (restore the
+pre-0.11.0 library stubs in API JSON; needs the `convert_library_stubs`
+capability), `compact`, `omitDerived` and `keepDerived` (the compact API JSON
+document, with or without the metamodel's derived properties; need
+`convert_compact`) and `includeCheckDiagnostics` (the semantic check's
+diagnostics beside the output, each with its severity; needs
+`convert_check_diagnostics`) name-value arguments. `model.convert(format)` and
 `model.save(path, ...)` operate on a parsed model. The returned
-`Conversion` has `content`, `fromFormat`, `toFormat`, `diagnostics`, and
+`Conversion` has `content`, `fromFormat`, `toFormat`, `diagnostics`,
+`libraryReferences` (the standard-library elements API JSON names beside its
+elements, each with `id`, `qualifiedName` and `type`), and
 `write(path)`. `EditResult` also supports `save(path)`.
 
 A SysML v1 model (`.mdzip`, `.xmi`, `.uml`) is migrated, not converted:
@@ -190,7 +207,8 @@ document query and returns `DocumentQueryResult` (`columns` and `rows`).
 Bindings may be a struct or `containers.Map`; scalar values and the
 `ElementRef`/`ObjectRef` helpers represent supported binding types.
 `model.renderDocument(documentId, 'form', 'markdown')` renders Markdown;
-`'html'` requires the `render_document_html` capability.
+`'html'` requires the `render_document_html` capability and `'asciidoc'` the
+`render_document_asciidoc` capability.
 
 ## Authoring edits
 
@@ -238,7 +256,7 @@ are raised as ordinary errors.
 | --- | --- |
 | `opensysml:argument`, `opensysml:encode`, `opensysml:decode`, `opensysml:unknownArm` | Invalid options, values or wire arms. |
 | `opensysml:transport` | Connection failure, timeout, or non-JSON response. |
-| `opensysml:connect:<kind>` | Connect status such as `modelNotFound`, `symbolNotFound`, `modelFileNotFound`, `invalidRequest`, `unavailable`, `serviceTimeout`, or `unsupportedOperation`. |
+| `opensysml:connect:<kind>` | Connect status such as `modelNotFound`, `symbolNotFound`, `modelFileNotFound`, `invalidRequest`, `unauthenticated`, `unavailable`, `serviceTimeout`, or `unsupportedOperation`. |
 | `opensysml:missingCapability` | Required service capability is not advertised. |
 | `opensysml:staleService` | Service version or required capability set does not match the requested requirements. |
 | `opensysml:diagnostics:<kind>` | Model, conversion, migration, execution, verification or edit failure. Edit failures use `opensysml:diagnostics:edit:<failure>`. |

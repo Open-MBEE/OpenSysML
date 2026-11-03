@@ -1,0 +1,123 @@
+{
+  "libraries": true,
+  "type": "instance",
+  "instantiate": "test::Bench",
+  "slots": {
+    "scaledW": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "scaledK": {
+      "type": "Real",
+      "value": 2.0
+    },
+    "scaledResult": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "underLimit": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "underSlack": {
+      "type": "Real",
+      "value": 1.0
+    },
+    "underVerdict": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "underResult": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "scaledWCount": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "underLimitCount": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "scaledOneW": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "chainedV": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "chainedResult": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "oversSlack": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "oversVerdict": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "scaledOneS": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "scaledOneResult": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "underOneLimit": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "underOneVerdict": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "underOneResult": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "ratedN": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "ratedResult": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "scoredN": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "scoredLoc": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "scoredResult": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "checkedVerdict": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "pkgScoredResult": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "actIn": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "actOut": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "actK": {
+      "type": "Integer",
+      "value": 3
+    }
+  }
+}

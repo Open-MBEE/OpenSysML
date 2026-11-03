@@ -171,7 +171,8 @@ test("the sysml-mcp platform packages carry the binary, LICENSE and man page, na
     packages: { name: string; directory: string; digest: string }[];
   };
   const built = manifest.packages.filter((entry) => entry.name.startsWith(`${mcp.name}-`));
-  assert.equal(manifest.packages.length, ASSETS.length + MCP_ASSETS.length);
+  // The platform packages and, beside them, the runner's alias package.
+  assert.equal(manifest.packages.length, ASSETS.length + MCP_ASSETS.length + 1);
   assert.deepEqual(built.map((entry) => entry.name).sort(), Object.keys(mcp.optionalDependencies).sort());
 
   for (const entry of built) {
@@ -204,6 +205,61 @@ test("the sysml-mcp platform packages carry the binary, LICENSE and man page, na
     assert.ok(readme.includes(entry.digest));
     assert.ok(readme.includes(mcp.name));
   }
+});
+
+test("@openmbee/opensysml-mcp is generated from packaging/npm/sysml-mcp with both commands and the same platform pins", () => {
+  const out = mkdtempSync(join(tmpdir(), "packages-"));
+  const result = run(fakeRelease(), out, undefined, "0.0.0-test", fakeRelease({ assets: MCP_ASSETS }));
+  assert.equal(result.status, 0, result.stderr);
+
+  const source = JSON.parse(readFileSync(join(MCP_ROOT, "package.json"), "utf8")) as Record<string, unknown> & {
+    name: string;
+    description: string;
+    bin: Record<string, string>;
+    optionalDependencies: Record<string, string>;
+  };
+  const manifest = JSON.parse(readFileSync(join(out, "packages.json"), "utf8")) as {
+    packages: { name: string; directory: string; digest?: string; alias?: string }[];
+  };
+  const entry = manifest.packages.find((candidate) => candidate.name === "@openmbee/opensysml-mcp");
+  assert.ok(entry, "packages.json lists the alias");
+  assert.equal(entry.alias, source.name);
+  assert.equal(entry.digest, undefined);
+  assert.equal(entry.directory, join(out, "opensysml-mcp"));
+
+  const alias = JSON.parse(readFileSync(join(entry.directory, "package.json"), "utf8")) as typeof source & {
+    version: string;
+    mcpName?: string;
+    scripts?: unknown;
+  };
+  assert.equal(alias.name, "@openmbee/opensysml-mcp");
+  assert.equal(alias.version, "0.0.0-test");
+  assert.equal(alias.description, source.description.replaceAll(`npx -y ${source.name}`, "npx -y @openmbee/opensysml-mcp"));
+  assert.notEqual(alias.description, source.description);
+  // Both commands are the runner's one shim; npx runs the one named for the package.
+  const shim = source.bin["sysml-mcp"];
+  assert.deepEqual(alias.bin, { "sysml-mcp": shim, "opensysml-mcp": shim });
+  // The platform packages are @openmbee/sysml-mcp's own, pinned at the built version.
+  assert.deepEqual(Object.keys(alias.optionalDependencies).sort(), Object.keys(source.optionalDependencies).sort());
+  assert.deepEqual(new Set(Object.values(alias.optionalDependencies)), new Set(["0.0.0-test"]));
+  // The registry listing stays with @openmbee/sysml-mcp.
+  assert.equal(alias.mcpName, undefined);
+  assert.equal(alias.scripts, undefined);
+  assert.equal(alias.dependencies, undefined);
+  for (const key of ["license", "repository", "homepage", "keywords", "type", "engines", "files"]) {
+    assert.deepEqual(alias[key], source[key], `${key} is the runner's`);
+  }
+
+  // The shim and its library are the runner's files, byte for byte.
+  for (const file of ["bin/sysml-mcp.js", "lib/main.js", "lib/platform.js"]) {
+    assert.equal(readFileSync(join(entry.directory, file), "utf8"), readFileSync(join(MCP_ROOT, file), "utf8"), file);
+  }
+  const readme = readFileSync(join(entry.directory, "README.md"), "utf8");
+  assert.ok(readme.startsWith("# @openmbee/opensysml-mcp\n"));
+  assert.ok(readme.includes("npx -y @openmbee/opensysml-mcp -root ."));
+  assert.ok(readme.includes(`[\`${source.name}\`](https://www.npmjs.com/package/${source.name})`));
+  assert.ok(readme.includes("`@openmbee/sysml-mcp-<os>-<cpu>`"), "the platform package names are kept");
+  assert.ok(!/@openmbee\/sysml-mcp(?![-\w`\]])/.test(readme.replace(`[\`${source.name}\`](https://www.npmjs.com/package/${source.name})`, "")));
 });
 
 test("a sysml-mcp binary whose digest does not match its sidecar is refused", () => {

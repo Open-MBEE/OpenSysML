@@ -1,0 +1,24 @@
+{
+  "type": "instance",
+  "instantiate": "test::Bench",
+  "slots": {
+    "rig.areaW": {"type": "Rational", "value": "2.0"},
+    "rig.areaH": {"type": "Rational", "value": "3.0"},
+    "rig.areaScale": {"type": "Rational", "value": "10.0"},
+    "rig.areaResult": {"type": "Rational", "value": "6.0"},
+    "rig.fitsLimit": {"type": "Rational", "value": "100.0"},
+    "rig.fitsMargin": {"type": "Rational", "value": "5.0"},
+    "rig.fitsResult": {"type": "Boolean", "value": true},
+    "rigAreaW": {"type": "Rational", "value": "2.0"},
+    "rigAreaH": {"type": "Rational", "value": "3.0"},
+    "rigAreaScale": {"type": "Rational", "value": "10.0"},
+    "rigAreaResult": {"type": "Rational", "value": "6.0"},
+    "rigFitsLimit": {"type": "Rational", "value": "100.0"},
+    "rigFitsMargin": {"type": "Rational", "value": "5.0"},
+    "rigFitsResult": {"type": "Boolean", "value": true},
+    "rigArea": {"type": "Rational", "value": "6.0"},
+    "rigFits": {"type": "Boolean", "value": true},
+    "rig.sm": {"type": "Instance"},
+    "rig.sm.e": {"type": "Instance"}
+  }
+}

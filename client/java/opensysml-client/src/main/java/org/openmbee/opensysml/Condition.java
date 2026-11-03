@@ -5,8 +5,9 @@ import java.util.Objects;
 
 /**
  * A {@link Query} filter: one comparison of a property, or several conditions combined. Build one
- * with {@link #equalTo}, {@link #greater}, {@link #less}, {@link #all} or {@link #any}, and negate it
- * with {@link #negated()}.
+ * with {@link #equalTo}, {@link #in}, {@link #instanceOf}, {@link #greater}, {@link
+ * #greaterOrEqual}, {@link #less}, {@link #lessOrEqual}, {@link #all} or {@link #any}, and negate
+ * it with {@link #negated()}.
  */
 public sealed interface Condition {
 
@@ -46,8 +47,55 @@ public sealed interface Condition {
   }
 
   /**
-   * A condition matching an element every condition matches. An empty list fails the call: it has
-   * no defensible verdict.
+   * A condition matching an element whose property is at least the value.
+   *
+   * @param property the property
+   * @param value the value
+   * @return the comparison
+   */
+  static Comparison greaterOrEqual(String property, String value) {
+    return new Comparison(property, Comparison.Operator.GREATER_OR_EQUAL, List.of(value), false);
+  }
+
+  /**
+   * A condition matching an element whose property is at most the value.
+   *
+   * @param property the property
+   * @param value the value
+   * @return the comparison
+   */
+  static Comparison lessOrEqual(String property, String value) {
+    return new Comparison(property, Comparison.Operator.LESS_OR_EQUAL, List.of(value), false);
+  }
+
+  /**
+   * A condition matching an element whose property is a member of the values given, the
+   * standard's {@code in} operator. An empty list fails the call.
+   *
+   * @param property the property
+   * @param values the values it may be one of
+   * @return the comparison
+   */
+  static Comparison in(String property, List<String> values) {
+    return new Comparison(property, Comparison.Operator.IN, values, false);
+  }
+
+  /**
+   * A condition matching an element whose metaclass conforms to any of the named metaclasses
+   * ({@code "Usage"}, {@code "Feature"}, {@code "Element"}, ...), the standard's {@code
+   * instanceOf} operator on {@code "@type"}. A name the library declares no metaclass for fails
+   * the call.
+   *
+   * @param metaclasses the metaclass names
+   * @return the comparison
+   */
+  static Comparison instanceOf(List<String> metaclasses) {
+    return new Comparison("@type", Comparison.Operator.INSTANCE_OF, metaclasses, false);
+  }
+
+  /**
+   * A condition matching an element every condition matches. Fewer than two conditions fail the
+   * call: the standard combines at least two.
    *
    * @param conditions the conditions
    * @return the combination
@@ -57,7 +105,8 @@ public sealed interface Condition {
   }
 
   /**
-   * A condition matching an element at least one condition matches. An empty list fails the call.
+   * A condition matching an element at least one condition matches. Fewer than two conditions
+   * fail the call.
    *
    * @param conditions the conditions
    * @return the combination
@@ -80,8 +129,8 @@ public sealed interface Condition {
    *
    * @param property the property compared
    * @param operator how it is compared
-   * @param values what it is compared against: any of them for {@link Operator#EQUAL}, the one
-   *     value for the others
+   * @param values what it is compared against: any of them for {@link Operator#EQUAL}, {@link
+   *     Operator#IN} and {@link Operator#INSTANCE_OF}, the one value for the others
    * @param inverse whether the comparison's verdict is negated
    */
   record Comparison(String property, Operator operator, List<String> values, boolean inverse)
@@ -94,7 +143,15 @@ public sealed interface Condition {
       /** The property is greater than the value. */
       GREATER,
       /** The property is less than the value. */
-      LESS
+      LESS,
+      /** The property is at least the value. */
+      GREATER_OR_EQUAL,
+      /** The property is at most the value. */
+      LESS_OR_EQUAL,
+      /** The property is a member of the values. */
+      IN,
+      /** The element's metaclass conforms to one of the named metaclasses. */
+      INSTANCE_OF
     }
 
     /**

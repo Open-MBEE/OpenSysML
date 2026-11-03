@@ -3,6 +3,7 @@ import { delimiter, dirname, join } from "node:path";
 import * as vscode from "vscode";
 import {
   ClientCapabilities,
+  DidChangeConfigurationNotification,
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
@@ -15,7 +16,9 @@ import { DocumentRendering } from "./document";
 import { CROSS_DOCUMENT_CAPABILITY, STDLIB_SCHEME } from "./protocol";
 import { SHOW_REFERENCES_COMMAND, showReferencesArguments } from "./references";
 import { ElementRunner } from "./run";
+import { documentSelector } from "./selector";
 import { declaredVersion, serverReport } from "./serverinfo";
+import { FORMAT_SECTION, serverSettings } from "./settings";
 import { StdlibDocuments } from "./stdlib";
 
 const EXECUTABLE = process.platform === "win32" ? "sysml-lsp.exe" : "sysml-lsp";
@@ -78,6 +81,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("opensysml.server")) {
         void restart();
+      } else if (event.affectsConfiguration(FORMAT_SECTION)) {
+        // Formatting settings reach the running server without a restart.
+        void client?.sendNotification(DidChangeConfigurationNotification.type, {
+          settings: serverSettings(vscode.workspace.getConfiguration("opensysml")),
+        });
       }
     }),
     vscode.workspace.onDidGrantWorkspaceTrust(() => void restart()),
@@ -130,15 +138,9 @@ async function startClient(): Promise<void> {
     debug: { command, args, transport: TransportKind.stdio },
   };
   const clientOptions: LanguageClientOptions = {
-    // The library's virtual documents are served too, so hover and navigation
-    // work inside them.
-    documentSelector: [
-      { scheme: "file", language: "sysml" },
-      { scheme: "file", language: "kerml" },
-      { scheme: STDLIB_SCHEME, language: "sysml" },
-      { scheme: STDLIB_SCHEME, language: "kerml" },
-    ],
+    documentSelector: documentSelector(STDLIB_SCHEME),
     outputChannel: output,
+    initializationOptions: serverSettings(config),
     synchronize: { fileEvents: watcher },
     middleware: {
       // A reference-count lens resolves to the editor's references peek, whose

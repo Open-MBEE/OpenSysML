@@ -1,6 +1,9 @@
 package ast
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func bitnot(operand Node) *OperatorExpr {
 	return &OperatorExpr{Operator: OpBitNot, Operands: []Node{operand}}
@@ -72,5 +75,43 @@ func TestInspectPrunesAndTerminates(t *testing.T) {
 	Inspect(loop, func(Node) bool { count++; return true })
 	if count != 1 {
 		t.Errorf("cyclic package visited %d times, want 1", count)
+	}
+}
+
+// The walk descends only through fields a node can be reached by: a usage's
+// prefixes, value and multiplicity, not its keyword, flags or spans.
+func TestNodeFieldsSkipScalarFields(t *testing.T) {
+	typ := reflect.TypeOf(Usage{})
+	plan := map[string]bool{}
+	for _, i := range nodeFields(typ) {
+		plan[typ.Field(i).Name] = true
+	}
+	for _, name := range []string{"Prefixes", "Value", "Multiplicity", "Members", "Relationships"} {
+		if !plan[name] {
+			t.Errorf("Usage.%s is not walked", name)
+		}
+	}
+	for _, name := range []string{"Keyword", "IsAbstract", "IndividualKeyword", "Pos"} {
+		if plan[name] {
+			t.Errorf("Usage.%s is walked but can hold no node", name)
+		}
+	}
+	if again := nodeFields(typ); len(again) != len(nodeFields(typ)) {
+		t.Errorf("plan changed between calls")
+	}
+}
+
+func BenchmarkInspect(b *testing.B) {
+	var members []Node
+	for i := 0; i < 200; i++ {
+		members = append(members, &Usage{Keyword: "attribute", Value: &OperatorExpr{
+			Operator: OpAdd, Operands: []Node{&LiteralInteger{Value: "1"}, &LiteralInteger{Value: "2"}},
+		}})
+	}
+	root := &RootNamespace{Members: []Node{&Package{Members: members}}}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		n := 0
+		Inspect(root, func(Node) bool { n++; return true })
 	}
 }

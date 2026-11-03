@@ -161,7 +161,7 @@ func TestCameoFrameNamesFirstDrawnRoot(t *testing.T) {
 }
 
 // A child drawn inside its owner's box is a compartment row of it, so the
-// positioned DOT tree writes no containment edge — the row already nests the
+// positioned DOT tree writes no edge to it — the row already lists the
 // member. A child boxed outside the owner's box keeps its edge, and an
 // unpositioned tree keeps them all. The Mermaid and PlantUML trees draw no
 // compartments, so their edges stand whatever the geometry.
@@ -210,15 +210,15 @@ func TestCompartmentRowDrawsNoContainmentEdge(t *testing.T) {
 			t.Errorf("unpositioned DOT lacks %s:\n%s", edge, dot)
 		}
 	}
-	if mermaid := rendering.MermaidWith(fullNotation); !strings.Contains(mermaid, owner.ID+" --- "+owner.Children[0].ID) {
-		t.Errorf("Mermaid lacks a containment edge; it draws no compartments:\n%s", mermaid)
+	if mermaid := rendering.MermaidWith(fullNotation); !strings.Contains(mermaid, owner.ID+" ---|\"◇\"| "+owner.Children[0].ID) {
+		t.Errorf("Mermaid lacks the membership edge; it draws no compartments:\n%s", mermaid)
 	}
 	plantuml, err := rendering.PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
-	if !strings.Contains(plantuml, owner.ID+" -- "+owner.Children[0].ID) {
-		t.Errorf("PlantUML lacks a containment edge; it draws no compartments:\n%s", plantuml)
+	if !strings.Contains(plantuml, owner.ID+" o-- "+owner.Children[0].ID) {
+		t.Errorf("PlantUML lacks the membership edge; it draws no compartments:\n%s", plantuml)
 	}
 }
 

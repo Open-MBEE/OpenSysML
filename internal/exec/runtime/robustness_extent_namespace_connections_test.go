@@ -1,0 +1,139 @@
+package runtime
+
+import (
+	"errors"
+	"testing"
+)
+
+// TestRuntimeRobustnessExtentNamespaceConnections: a namespace-level connection with an unreachable
+// end (alone, in a `[2]`, under a `bind`), bound connectors attached differently, and an extent
+// reaching them return the typed error, leave no connector behind, never panic.
+func TestRuntimeRobustnessExtentNamespaceConnections(t *testing.T) {
+	t.Run("an end naming an unresolvable feature is refused", func(t *testing.T) {
+		src := `package test {
+			connection def Link { end a; end b; }
+			part sys { part x; part y; }
+			connection outer : Link connect sys.x to sys.missing;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		_, err := evalIn(t, ctx, pkg.Scope, "outer")
+		if !errors.Is(err, errConnectorEnd) {
+			t.Fatalf("outer = %v, want errConnectorEnd", err)
+		}
+		if ids := ctx.occurrences[lookupOne(t, idx, "test::outer")]; len(ids) != 0 {
+			t.Fatalf("occurrences[outer] = %v, want none: the refused connector records no occurrence", ids)
+		}
+		if n := countInstancesOfType(ctx, "Link"); n != 0 {
+			t.Fatalf("%d Link remained after its end was refused, want none", n)
+		}
+	})
+
+	t.Run("an extent reaching the refused connector reports the end", func(t *testing.T) {
+		src := `package test {
+			connection def Link { end a; end b; }
+			part sys { part x; part y; connection inner : Link connect x to y; }
+			connection outer : Link connect sys.x to sys.missing;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		_, err := evalIn(t, ctx, pkg.Scope, "all Link")
+		if !errors.Is(err, errConnectorEnd) {
+			t.Fatalf("all Link = %v, want errConnectorEnd", err)
+		}
+	})
+
+	t.Run("a connector of several objects with an unreachable end is refused whole", func(t *testing.T) {
+		src := `package test {
+			connection def Link { end a; end b; }
+			part sys { part x; part y; }
+			connection pair : Link[2] connect sys.x to sys.nothere;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		_, err := evalIn(t, ctx, pkg.Scope, "pair")
+		if !errors.Is(err, errConnectorEnd) {
+			t.Fatalf("pair = %v, want errConnectorEnd", err)
+		}
+		if ids := ctx.occurrences[lookupOne(t, idx, "test::pair")]; len(ids) != 0 {
+			t.Errorf("occurrences[pair] = %v after the refusal, want none", ids)
+		}
+		if n := countInstancesOfType(ctx, "Link"); n != 0 {
+			t.Errorf("%d Link left behind, want none", n)
+		}
+	})
+
+	t.Run("bound connectors attaching to different features are a binding conflict", func(t *testing.T) {
+		src := `package test {
+			connection def Link { end a; end b; }
+			part sys { part x; part y; part z; }
+			connection c : Link connect sys.x to sys.y;
+			connection d : Link connect sys.x to sys.z;
+			bind c = d;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		_, err := evalIn(t, ctx, pkg.Scope, "c")
+		if !errors.Is(err, errBindingConflict) {
+			t.Fatalf("c = %v, want errBindingConflict", err)
+		}
+		if n := countInstancesOfType(ctx, "Link"); n != 0 {
+			t.Errorf("%d Link left behind, want none", n)
+		}
+	})
+
+	t.Run("a bound connector with an unreachable end is refused", func(t *testing.T) {
+		src := `package test {
+			connection def Link { end a; end b; }
+			part sys { part x; part y; }
+			connection c : Link connect sys.x to sys.y;
+			connection d : Link connect sys.x to sys.nothere;
+			bind c = d;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		for _, expr := range []string{"c", "d", "all Link"} {
+			if _, err := evalIn(t, ctx, pkg.Scope, expr); !errors.Is(err, errConnectorEnd) && !errors.Is(err, errBindingConflict) {
+				t.Fatalf("%s = %v, want errConnectorEnd or errBindingConflict", expr, err)
+			}
+		}
+		if n := countInstancesOfType(ctx, "Link"); n != 0 {
+			t.Errorf("%d Link left behind, want none", n)
+		}
+	})
+
+	t.Run("an end naming the connector itself is refused", func(t *testing.T) {
+		src := `package test {
+			connection def Link { end a; end b; }
+			part sys { part x; }
+			connection loop : Link connect loop to sys.x;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		_, err := evalIn(t, ctx, pkg.Scope, "loop")
+		if !errors.Is(err, errConnectorEnd) && !errors.Is(err, ErrCyclicFeatureValue) {
+			t.Fatalf("loop = %v, want errConnectorEnd or ErrCyclicFeatureValue", err)
+		}
+	})
+}
+
+// countInstancesOfType counts the live objects classified by a type of the given name,
+// the usage they were made from or a definition it is typed by.
+func countInstancesOfType(ctx *Context, name string) int {
+	n := 0
+	for _, inst := range ctx.instances {
+		for _, typ := range inst.types() {
+			if typ != nil && typ.Name == name {
+				n++
+				break
+			}
+		}
+	}
+	return n
+}

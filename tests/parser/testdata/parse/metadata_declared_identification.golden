@@ -14,7 +14,7 @@
           (Membership visibility="default"
             (PrefixMetadata type="Security"))
           (Membership visibility="default"
-            (PrefixMetadata type="Security" name="m3"))
+            (PrefixMetadata type="Security" name="m3" typedBy=true))
           (Membership visibility="default"
             (PrefixMetadata type="Security" name="m4"
               (Membership visibility="default"

@@ -1,10 +1,12 @@
 package semantics
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -299,7 +301,8 @@ func TestImplicitSubsettingsRenderRendering(t *testing.T) {
 }
 
 // A `ref step` is a reference, not a composite nested performance, so it must
-// not enter the owner's `subperformances`; a composite `step` does.
+// not enter the owner's `subperformances`; a composite `step` does. A behavior
+// still encloses every step it owns (KerML checkStepEnclosedPerformanceSpecialization).
 func TestImplicitSubsettingsRefStep(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
 		action outer {
@@ -314,7 +317,85 @@ func TestImplicitSubsettingsRefStep(t *testing.T) {
 		t.Errorf("ImplicitSubsettings(inner) = %v, want [Performances::Performance::subperformances]", fqns(got))
 	}
 	borrowed := nestedSym(t, root, "P::outer::borrowed")
-	if got := m.ImplicitSubsettings(borrowed); len(got) != 0 {
-		t.Errorf("ImplicitSubsettings(borrowed) = %v, want none for a ref step", fqns(got))
+	got = m.ImplicitSubsettings(borrowed)
+	if len(got) != 1 || symbols.FQNOf(got[0]) != "Performances::Performance::enclosedPerformances" {
+		t.Errorf("ImplicitSubsettings(borrowed) = %v, want [Performances::Performance::enclosedPerformances] for a ref step", fqns(got))
+	}
+}
+
+// A requirement's composite `assume`/`require` constraint — braced, typed, in the reference form,
+// of a definition or a usage — subsets the collection its kind names; a `ref` or plain one does not.
+func TestImplicitSubsettingsRequirementConstraints(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+		private import ScalarValues::Integer;
+		constraint def C;
+		part def Vehicle { attribute fuelMass : Integer; }
+		requirement def FuelRequirement {
+			subject vehicle : Vehicle;
+			assume constraint nonnegativeFuel { vehicle.fuelMass >= 0 }
+			require constraint maxFuel { vehicle.fuelMass <= 2000 }
+			require constraint typed : C;
+			constraint plain : C;
+			ref constraint borrowed : C;
+		}
+		requirement fullTank : FuelRequirement {
+			assume constraint full { vehicle.fuelMass == 2000 }
+			require constraint belowMax : C;
+			assume typed;
+			require plain;
+		}
+		verification case def Check {
+			require constraint c1 : C;
+		}
+	}`)
+	const assumptions, constraints = "Requirements::RequirementCheck::assumptions", "Requirements::RequirementCheck::constraints"
+	cases := []struct {
+		path string
+		want string
+	}{
+		{"P::FuelRequirement::nonnegativeFuel", assumptions},
+		{"P::FuelRequirement::maxFuel", constraints},
+		{"P::FuelRequirement::typed", constraints},
+		{"P::FuelRequirement::plain", "Occurrences::Occurrence::suboccurrences"},
+		{"P::FuelRequirement::borrowed", ""},
+		{"P::fullTank::full", assumptions},
+		{"P::fullTank::belowMax", constraints},
+		{"P::fullTank::typed", assumptions}, // the reference form, named by what it references
+		{"P::fullTank::plain", constraints},
+		{"P::Check::c1", ""}, // a case owns no RequirementConstraintMembership
+	}
+	for _, tc := range cases {
+		sym := nestedSym(t, root, tc.path)
+		got := m.ImplicitSubsettings(sym)
+		if tc.want == "" {
+			if len(got) != 0 {
+				t.Errorf("ImplicitSubsettings(%s) = %v, want none", tc.path, fqns(got))
+			}
+			continue
+		}
+		if len(got) != 1 || symbols.FQNOf(got[0]) != tc.want {
+			t.Errorf("ImplicitSubsettings(%s) = %v, want [%s]", tc.path, fqns(got), tc.want)
+		}
+	}
+}
+
+// ImplicitSubsettingCandidates answers the same for the declaration kinds alone.
+func TestImplicitSubsettingCandidatesRequirementConstraint(t *testing.T) {
+	owner := NestedOwner{Def: ast.DefRequirement, IsDef: true}
+	cases := []struct {
+		u     NestedUsage
+		owner NestedOwner
+		want  []string
+	}{
+		{NestedUsage{Kind: ast.UsageConstraint, Composite: true, RequirementConstraint: true, Assumed: true}, owner, []string{"Requirements::RequirementCheck::assumptions"}},
+		{NestedUsage{Kind: ast.UsageConstraint, Composite: true, RequirementConstraint: true}, owner, []string{"Requirements::RequirementCheck::constraints"}},
+		{NestedUsage{Kind: ast.UsageConstraint, Composite: true, RequirementConstraint: true}, NestedOwner{Usage: ast.UsageSatisfy}, []string{"Requirements::RequirementCheck::constraints"}},
+		{NestedUsage{Kind: ast.UsageConstraint, RequirementConstraint: true}, owner, nil},
+		{NestedUsage{Kind: ast.UsageConstraint, Composite: true, RequirementConstraint: true}, NestedOwner{Def: ast.DefVerificationCase, IsDef: true}, nil},
+	}
+	for _, tc := range cases {
+		if got := ImplicitSubsettingCandidates(tc.u, tc.owner); !slices.Equal(got, tc.want) {
+			t.Errorf("ImplicitSubsettingCandidates(%+v, %+v) = %v, want %v", tc.u, tc.owner, got, tc.want)
+		}
 	}
 }

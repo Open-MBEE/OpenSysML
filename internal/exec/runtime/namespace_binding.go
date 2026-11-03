@@ -90,7 +90,7 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 			if _, ok := member.Decl.(*ast.Usage); !ok {
 				return true
 			}
-			for _, rel := range relationshipsOfKind(member, ast.RelSubsets) {
+			for _, rel := range ctx.relationshipsOfKind(member, ast.RelSubsets) {
 				if target := ctx.model.semantics.RelationshipTarget(member, rel); target != nil {
 					out.subsetters[target] = append(out.subsetters[target], member)
 				}
@@ -106,7 +106,7 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 					} else {
 						class = merge(class.members[len(class.members)-1], u)
 					}
-					if !containsSymbol(class.members, u) {
+					if !slices.Contains(class.members, u) {
 						class.members = append(class.members, u)
 					}
 				}
@@ -147,16 +147,6 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 	}
 	ctx.model.namespaceUsageIndex = out
 	return out
-}
-
-// containsSymbol reports whether syms holds sym.
-func containsSymbol(syms []*symbols.Symbol, sym *symbols.Symbol) bool {
-	for _, s := range syms {
-		if s == sym {
-			return true
-		}
-	}
-	return false
 }
 
 // namespaceEndUsage resolves a binding end written as a name to the usage it
@@ -243,6 +233,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 	}
 	ctx.resolvingNamespaceClasses[class] = true
 	defer delete(ctx.resolvingNamespaceClasses, class)
+	drain := func() error { return nil }
 
 	type held struct {
 		val  Value
@@ -401,8 +392,11 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			return nil, true, err
 		}
 		mark := len(ctx.created)
+		var commit, rollback func()
+		commit, rollback, drain = ctx.connectorJournal(earliest)
 		members, err := ctx.materializeMembers(earliest, int(count), nil, "")
 		if err != nil {
+			rollback()
 			ctx.abandonInstancesSince(mark)
 			release()
 			return nil, true, fmt.Errorf("usage %s: %w", SymbolText(earliest), err)
@@ -411,6 +405,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		for _, inst := range members {
 			obj, err := ctx.objectValue(inst)
 			if err != nil {
+				rollback()
 				ctx.abandonInstancesSince(mark)
 				release()
 				return nil, true, err
@@ -437,6 +432,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 				delete(ctx.occurrences, member)
 				ctx.unbindNamespace(member)
 			}
+			rollback()
 			ctx.abandonInstancesSince(mark)
 			release()
 			return nil, true, err
@@ -452,6 +448,9 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 				if err := ctx.classifyHeld(member, val); err != nil {
 					return fail(err)
 				}
+				if err := ctx.checkBoundConnectorEnds(member, members); err != nil {
+					return fail(fmt.Errorf("%w: `%s`: %v", errBindingConflict, text, err))
+				}
 			}
 			v, err := newEvalContext(ctx, member.OwnerScope).conformDeclared(member, val)
 			if err != nil {
@@ -463,6 +462,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
 			return fail(err)
 		}
+		commit()
 		release()
 	} else {
 		val := vals[0].val
@@ -494,6 +494,9 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			if err != nil {
 				return fail(fmt.Errorf("%w: `%s`: %v", errBindingConflict, text, err))
 			}
+			if err := ctx.checkBoundConnectorEnds(member, ctx.liveInstances(boundPrefixObjects(v))); err != nil {
+				return fail(fmt.Errorf("%w: `%s`: %v", errBindingConflict, text, err))
+			}
 			ctx.occurrences[member] = boundPrefixObjects(v)
 			if seq := requiredTail(v); seq != nil {
 				ctx.recordOccurrenceTail(member, seq.required)
@@ -501,6 +504,12 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			}
 			ctx.bindNamespace(member, v)
 		}
+	}
+	// The class is resolved and recorded: the older behaviors a connector it made woke may
+	// answer now, and read its members.
+	delete(ctx.resolvingNamespaceClasses, class)
+	if err := drain(); err != nil {
+		return nil, true, err
 	}
 	if val, ok := ctx.namespaceBindings[want]; ok {
 		return ctx.liveInstances(boundPrefixObjects(val)), true, nil
@@ -645,16 +654,17 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 	var contributed []*Instance
 	var optional []*symbols.Symbol
 	for _, sub := range subs {
-		if ctx.optionalValueless(sub) {
+		objs, err := ctx.denotedSubsetObjects(sub)
+		// A valueless optional subsetter holding nothing of its own may still be filled.
+		if err == nil && len(objs) == 0 && ctx.optionalValueless(sub) {
 			optional = append(optional, sub)
 			continue
 		}
-		objs, err := ctx.denotedSubsetObjects(sub)
 		if err != nil {
 			return fail(fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(sub), SymbolText(sym), err))
 		}
 		for _, inst := range objs {
-			if !containsInstance(contributed, inst.ID) {
+			if !slices.ContainsFunc(contributed, func(o *Instance) bool { return o.ID == inst.ID }) {
 				contributed = append(contributed, inst)
 				ids = append(ids, inst.ID)
 			}
@@ -663,6 +673,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 
 	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
 	abstract := symbols.IsAbstract(sym)
+	commit, rollback, drain := noJournal()
 	if !abstract {
 		count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("usage %s", SymbolText(sym)))
 		if err != nil {
@@ -677,6 +688,11 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			}
 		}
 		mark := len(ctx.created)
+		commit, rollback, drain = ctx.connectorJournal(sym)
+		failWhole := func(err error) ([]*Instance, bool, error) {
+			rollback()
+			return fail(err)
+		}
 		var newObjs []*Instance
 		for _, sub := range optional {
 			if count == 0 {
@@ -692,7 +708,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			if lazy {
 				if err := ctx.chargeElements(spare); err != nil {
 					ctx.abandonInstancesSince(mark)
-					return fail(err)
+					return failWhole(err)
 				}
 			}
 			var filled []int64
@@ -700,7 +716,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 				inst, err := ctx.materialize(sub, 0, nil, "")
 				if err != nil {
 					ctx.abandonInstancesSince(mark)
-					return fail(err)
+					return failWhole(err)
 				}
 				filled = append(filled, inst.ID)
 				newObjs = append(newObjs, inst)
@@ -715,7 +731,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 				seq, err := ctx.withRequired(nil, sym, nil, "", count)
 				if err != nil {
 					ctx.abandonInstancesSince(mark)
-					return fail(err)
+					return failWhole(err)
 				}
 				tail = seq.required
 				ctx.recordOccurrenceTail(sym, tail)
@@ -725,7 +741,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 		made, err := ctx.materializeMembers(sym, int(count), nil, "")
 		if err != nil {
 			ctx.abandonInstancesSince(mark)
-			return fail(err)
+			return failWhole(err)
 		}
 		newObjs = append(newObjs, made...)
 		for _, inst := range newObjs {
@@ -734,7 +750,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 		}
 		if err := ctx.startClassifierBehaviorsOf(newObjs, mark); err != nil {
 			ctx.abandonInstancesSince(mark)
-			return fail(err)
+			return failWhole(err)
 		}
 	}
 	var tailCount int64
@@ -742,11 +758,101 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 		tailCount = tail.count
 	}
 	if msg := mult.CountViolation(int64(len(contributed)) + tailCount); msg != "" {
+		rollback()
 		return fail(fmt.Errorf("usage %s: %w: %s", SymbolText(sym), ErrMultiplicityViolation, msg))
 	}
 	ctx.occurrences[sym] = ids
+	commit()
 	release()
+	// Recorded and no longer collecting: the older behaviors a connector it made woke may
+	// answer now, and read the usage.
+	delete(ctx.namespaceCollecting, sym)
+	if err := drain(); err != nil {
+		return nil, true, err
+	}
 	return contributed, true, nil
+}
+
+// namespaceValued reports whether a binding connector or a class of bound usages
+// gives a namespace usage its value, so the model fixes what it holds.
+func (ctx *Context) namespaceValued(sym *symbols.Symbol) bool {
+	if _, ok := ctx.namespaceBindings[sym]; ok {
+		return true
+	}
+	class, member := ctx.namespaceClassMember(sym)
+	if class != nil {
+		return true
+	}
+	_, ok := ctx.namespaceBindings[member]
+	return member != nil && ok
+}
+
+// openDenotedValue reads a namespace usage of open count nothing binds as its subsetters'
+// contributions (KerML 1.0 §7.3.4.4): closed where they meet the lower bound, else undetermined.
+func (ctx *Context) openDenotedValue(sym *symbols.Symbol, mult semantics.Range) (val Value, decided bool, err error) {
+	if _, exact := mult.Exactly(); exact || ctx.namespaceValued(sym) {
+		return Value{}, false, nil
+	}
+	if ctx.namespaceCollecting[sym] {
+		return Value{}, false, fmt.Errorf("%w: usage %s subsets itself", ErrCyclicFeatureValue, SymbolText(sym))
+	}
+	ctx.namespaceCollecting[sym] = true
+	defer delete(ctx.namespaceCollecting, sym)
+	var contributed []Value
+	var ids []int64
+	var atLeast int64
+	add := func(insts []*Instance) error {
+		for _, inst := range insts {
+			if slices.Contains(ids, inst.ID) {
+				continue
+			}
+			obj, err := ctx.objectValue(inst)
+			if err != nil {
+				return err
+			}
+			ids = append(ids, inst.ID)
+			contributed = append(contributed, obj)
+		}
+		return nil
+	}
+	contribute := func(sym *symbols.Symbol) error {
+		for _, sub := range ctx.namespaceModelIndex().subsetters[sym] {
+			// A valueless optional usage nothing binds contributes what subsets it in turn, within
+			// its own multiplicity: subsetting is transitive, and no object is made up for it.
+			if ctx.optionalValueless(sub) && !ctx.namesObjects(sub) && !ctx.namespaceValued(sub) {
+				objs, _, err := ctx.namespacedSubsetObjects(sub)
+				if err != nil {
+					return fmt.Errorf("subsetting usage %s: %w", SymbolText(sub), err)
+				}
+				if err := add(objs); err != nil {
+					return err
+				}
+				continue
+			}
+			val, err := ctx.denotedValue(sub)
+			if err != nil {
+				return fmt.Errorf("subsetting usage %s: %w", SymbolText(sub), err)
+			}
+			if val.Kind == ValUndetermined {
+				atLeast = max(atLeast, fewestOf(ctx.featureMultiplicity(sub, ctx.findOwnerType(sub))))
+				val = sequenceOf(knownElementsOf(val))
+			}
+			if err := add(ctx.liveInstances(heldObjects(val))); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := contribute(sym); err != nil {
+		return Value{}, false, err
+	}
+	// The count is closed only where both bounds are known and the contributions meet the lower one.
+	if held := int64(len(contributed)); mult.Upper.Known && mult.Lower.Known && !mult.Lower.Infinite && max(atLeast, fewestOf(mult)) <= held {
+		return Value{}, false, nil
+	}
+	feature := &EffectiveFeature{Name: sym.Name, Symbol: sym, Multiplicity: mult}
+	open := &openPopulation{Stopped: true, Contributed: contributed, AtLeast: atLeast}
+	return openCollectionValue(ctx.QualifiedName(sym), feature, open), true, nil
 }
 
 // denotedSubsetObjects is the objects a usage subsetting a namespace usage
@@ -761,14 +867,4 @@ func (ctx *Context) denotedSubsetObjects(sym *symbols.Symbol) ([]*Instance, erro
 		return ctx.liveInstances(heldObjects(val)), nil
 	}
 	return ctx.denotedObjects(sym)
-}
-
-// containsInstance reports whether objs holds the object id names.
-func containsInstance(objs []*Instance, id int64) bool {
-	for _, inst := range objs {
-		if inst.ID == id {
-			return true
-		}
-	}
-	return false
 }

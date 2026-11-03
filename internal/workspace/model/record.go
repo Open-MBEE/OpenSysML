@@ -7,9 +7,15 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan/markup"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -50,6 +56,29 @@ func (w *Workspace) InterfaceRecord(name string) (*libs.InterfaceRecord, error) 
 	return w.interfaceRecordLocked(name, doc, w.sourcesLocked())
 }
 
+// plannedElsewhereLocked refuses the record of a document whose query definitions or
+// externally-converted prose bodies another document's plan reads. Caller holds the write lock.
+func (w *Workspace) plannedElsewhereLocked(name string) error {
+	root := w.index.DocumentRoot(name)
+	if root == nil {
+		return nil
+	}
+	_, sem := w.semanticsLocked()
+	for _, sym := range kit.Symbols(nil, root) {
+		if queryplan.IsQueryDefinition(w.index, sem, sym) {
+			return fmt.Errorf("%w: result expression of document query definition %s", libs.ErrUnrecordable, symbols.FQNOf(sym))
+		}
+		decl, ok := sym.Decl.(*ast.TextualRepresentation)
+		if !ok || !docplan.ReadsBody(w.index, sem, sym) {
+			continue
+		}
+		if parser, ok := markup.For(source.StringValue(decl.Language)); ok && parser.External() {
+			return fmt.Errorf("%w: %s body of %s, which an external converter checks", libs.ErrUnrecordable, parser.Language(), symbols.FQNOf(sym))
+		}
+	}
+	return nil
+}
+
 // interfaceRecordLocked is InterfaceRecord for a loaded document, attributing
 // its provenance against src, which a caller writing many records shares.
 // Caller holds the write lock.
@@ -61,6 +90,9 @@ func (w *Workspace) interfaceRecordLocked(name string, doc *Document, src libs.S
 		// Analyzed by a batch that recorded nothing: analyze again, recording.
 		delete(w.batched, name)
 		delete(w.diagCache, name)
+	}
+	if err := w.plannedElsewhereLocked(name); err != nil {
+		return nil, err
 	}
 	diags := w.diagnosticsLocked(name, doc)
 	gathered, err := passes.GatherRelationships(w.contextLocked(), name)

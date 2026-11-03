@@ -49,6 +49,13 @@ var apiJSONOwnedAbsenceExtensionParents = map[string]string{
 	"Pseudostate": "StateUsage",
 }
 
+// apiJSONDerivedVariablePair reports whether property is a usage's isVariable or
+// mayTimeVary: Usage::mayTimeVary redefines Feature::isVariable and derives both.
+func apiJSONDerivedVariablePair(metaclass, property string) bool {
+	return (property == "isVariable" || property == "mayTimeVary") &&
+		ontology.IsAncestorOrSelf(metaclass, "Usage")
+}
+
 func appendAPIJSONOwnedAbsencesWithScratch(
 	graph *rdf.Graph,
 	subject rdf.Term,
@@ -77,8 +84,18 @@ func appendAPIJSONOwnedAbsencesWithScratch(
 	for _, planned := range plan {
 		property := planned.property
 		if apiJSONHasMember(element, property.Name) ||
-			apiJSONHasMember(mappingValues, property.Name) ||
-			property.Derived {
+			apiJSONHasMember(mappingValues, property.Name) {
+			continue
+		}
+		if apiJSONDerivedVariablePair(metaclass, property.Name) {
+			// A usage's isVariable is its derived mayTimeVary; the graph states the
+			// pair only when true, and the OMG API JSON shape states it either way.
+			if !libraryStub && !external {
+				absences = append(absences, apiJSONMember{key: property.Name, value: false})
+			}
+			continue
+		}
+		if property.Derived {
 			continue
 		}
 		var value any

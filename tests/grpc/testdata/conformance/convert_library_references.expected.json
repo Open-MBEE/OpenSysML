@@ -1,0 +1,11 @@
+{
+  "rpc": "Convert",
+  "library_references": [
+    {"id":"0c539f7c-20a1-520d-bae0-f3f855517aea","qualified_name":"SI::second","type":"AttributeUsage"},
+    {"id":"2a413ac9-972d-5182-afd3-46cdde4e0eba","qualified_name":"SI","type":"LibraryPackage"},
+    {"id":"3fcc2ef4-a31c-522b-b69d-717d74bccfa6","qualified_name":"ISQ","type":"LibraryPackage"},
+    {"id":"7e6dd4b3-e45b-5c71-8596-69062380bdc0","qualified_name":"SIPrefixes::milli","type":"AttributeUsage"},
+    {"id":"c6b04dec-209b-5f14-ba38-451f64821004","qualified_name":"SIPrefixes","type":"LibraryPackage"},
+    {"id":"ffba2d6a-c7fc-56f5-b6b1-9c8ba78a4568","qualified_name":"ISQBase::DurationValue","type":"AttributeDefinition"}
+  ]
+}

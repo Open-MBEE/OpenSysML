@@ -109,6 +109,7 @@ func TestD2DrawsEveryNodeAndEdge(t *testing.T) {
 				for _, root := range rendering.Roots {
 					count(root)
 				}
+				containment -= len(rendering.nestingEdges())
 			}
 			if want := len(rendering.Edges) + containment; arrows != want {
 				t.Errorf("D2 draws %d connections, the rendering has %d edges:\n%s", arrows, want, d2)
@@ -129,8 +130,8 @@ func d2Declarations(d2 string) map[string]bool {
 }
 
 // The tree draws containment as the Mermaid and DOT trees do: every node at
-// the root scope, a line from each node to its children, definitions square
-// and usages rounded.
+// the root scope, a membership edge from a node to each structural usage under
+// it and a line to every other child, definitions square and usages rounded.
 func TestD2TreeIsFlat(t *testing.T) {
 	d2, err := render(t, "tree.sysml", "VehicleViews::vehicleView").D2With(fullNotation)
 	if err != nil {
@@ -139,7 +140,8 @@ func TestD2TreeIsFlat(t *testing.T) {
 	for _, want := range []string{
 		"\nn0: \"«part def»\\nVehicles::Vehicle\" { class: definition }\n",
 		"\nn1: \"«part»\\nengine : Engine\" { class: usage }\n",
-		"\nn0 -- n1: { class: edge }\n",
+		"\nn0 <- n1: { class: composition }\n",
+		"\nn0 -- n5: { class: edge }\n",
 		"\n  definition: { style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 14 } }\n",
 		"\n  usage: { style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }\n",
 	} {
@@ -155,14 +157,16 @@ func TestD2TreeIsFlat(t *testing.T) {
 			t.Errorf("tree D2 declares a node inside a container: %q", line)
 		}
 	}
-	if strings.Contains(d2, "->") {
-		t.Errorf("tree D2 draws an arrow:\n%s", d2)
+	for _, line := range strings.Split(d2, "\n") {
+		if strings.Contains(line, "class: edge") && !strings.Contains(line, " -- ") {
+			t.Errorf("tree D2 draws containment as an arrow: %q", line)
+		}
 	}
 }
 
 // The interconnection nests parts as containers, draws the connected ports as
 // pins inside them, and joins pins by their paths: a connection a heavy line,
-// a flow a dashed arrow.
+// a flow a plain arrow.
 func TestD2InterconnectionNestsPorts(t *testing.T) {
 	rendering := render(t, "interconnection.sysml", "PlantViews::loopView")
 	d2, err := rendering.D2With(fullNotation)
@@ -170,7 +174,7 @@ func TestD2InterconnectionNestsPorts(t *testing.T) {
 		t.Fatalf("D2: %v", err)
 	}
 	for _, want := range []string{
-		"\nn0: \"«part def»\\nLoop\" {\n  class: definition\n  n1: \"«part»\\npump : Pump\" {\n    class: usage\n    \"n1.0\": \"outlet\" { class: pin }\n    n2: \"«item»\\nwaterOut : Water\" { class: usage }\n  }\n",
+		"\nn0: \"«part def»\\nLoop\" {\n  class: definition\n  n1: \"«part»\\npump : Pump\" {\n    class: usage\n    \"n1.0\": \"^outlet\" { class: pin }\n    n2: \"«item»\\n^waterOut : Water\" { class: usage }\n  }\n",
 		"\nn0.n1.\"n1.0\" -- n0.n3.\"n3.0\": \"supply\" { class: connection }\n",
 		"\n  connection: { style: { stroke: \"#181818\"; font-size: 13; font-color: black; stroke-width: 3 } }\n",
 		"\n  pin: { style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 10 } }\n",
@@ -183,16 +187,16 @@ func TestD2InterconnectionNestsPorts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("D2 full ports: %v", err)
 	}
-	if !strings.Contains(full, "\"n1.0\": \"«port»\\noutlet : FluidPort\" { class: pin }") {
+	if !strings.Contains(full, "\"n1.0\": \"«port»\\n^outlet : FluidPort\" { class: pin }") {
 		t.Errorf("the full display does not name the port's type:\n%s", full)
 	}
 	flows, err := render(t, "action.sysml", "FlowViews::driveView").D2With(fullNotation)
 	if err != nil {
 		t.Fatalf("D2: %v", err)
 	}
-	if !strings.Contains(flows, "\n  flow: { style: { stroke: \"#181818\"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }\n") ||
-		!strings.Contains(flows, `: "torque to reading" { class: flow }`) {
-		t.Errorf("a flow is not a dashed arrow:\n%s", flows)
+	if !strings.Contains(flows, "\n  edge: { style: { stroke: \"#181818\"; font-size: 13; font-color: black; stroke-width: 1 } }\n") ||
+		!strings.Contains(flows, `: "torque to reading" { class: edge }`) || strings.Contains(flows, "class: flow") {
+		t.Errorf("a flow is not a plain solid arrow:\n%s", flows)
 	}
 }
 
@@ -236,10 +240,8 @@ func TestD2StateDiagram(t *testing.T) {
 	}
 }
 
-// An action graph takes the pseudostate glyphs: a fork and a join a bar, a
-// decision a diamond named by the node, the final a double-bordered dot; the
-// pins an edge ends at are drawn inside their action and joined by path, the
-// rest noticed.
+// An action graph takes the pseudostate glyphs (fork/join bar, decision diamond, final
+// dot); pins an edge ends at are drawn inside their action, the rest listed as parameters.
 func TestD2ActionGlyphsAndPins(t *testing.T) {
 	d2, err := render(t, "action.sysml", "FlowViews::driveView").D2With(fullNotation)
 	if err != nil {
@@ -253,10 +255,9 @@ func TestD2ActionGlyphsAndPins(t *testing.T) {
 		"\n  bar: { shape: rectangle; width: 80; height: 8; style: { fill: black; stroke: black } }\n",
 		"\n  choice: { shape: diamond; style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 14 } }\n",
 		"# not represented: 2 fork/join name(s) (split, sync); D2's fork bar draws no label\n",
-		"# not represented: 1 pin(s) not drawn (provide.fuel); D2 draws the pins an edge ends at\n",
-		"\n  n2: \"«action»\\nprovide : Provide\" {\n    class: usage\n    \"n2.1\": \"torque\" { class: pin }\n  }\n",
+		"\n  n2: \"«action»\\nprovide : Provide\\nparameters\\nin ^fuel\" {\n    class: usage\n    \"n2.1\": \"^torque\" { class: pin }\n  }\n",
 		"\n    \"n3.0\": \"reading\" { class: pin }\n",
-		"\nn0.n2.\"n2.1\" -> n0.n3.\"n3.0\": \"torque to reading\" { class: flow }\n",
+		"\nn0.n2.\"n2.1\" -> n0.n3.\"n3.0\": \"torque to reading\" { class: edge }\n",
 	} {
 		if !strings.Contains(d2, want) {
 			t.Errorf("action D2 lacks %q:\n%s", want, d2)
@@ -311,9 +312,8 @@ func TestD2SequenceDiagram(t *testing.T) {
 	checkD2Renders(t, empty)
 }
 
-// A GeneralView graph draws its relationships in the class-diagram notation:
-// specialization and typing a hollow triangle, composition, reference and
-// containment a diamond or circle at the owner, the rest a dashed dependency.
+// A GeneralView graph draws its relationships with the notation table's D2
+// classes: triangles, diamonds and a circle at the owner, dashed imports.
 func TestD2GeneralGraphNotation(t *testing.T) {
 	definitions, err := render(t, "general.sysml", "GeneralViews::definitionView").D2()
 	if err != nil {
@@ -329,16 +329,16 @@ func TestD2GeneralGraphNotation(t *testing.T) {
 	}
 	for _, c := range []struct{ d2, want string }{
 		{definitions, "\n  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; "},
-		{definitions, "\n  typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: \"#181818\"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }\n"},
+		{definitions, "\n  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: \"#181818\"; font-size: 13; font-color: black; stroke-width: 1 } }\n"},
 		{definitions, "\n  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; "},
 		{definitions, "\n  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; "},
 		{definitions, "\nn2 -> n1: { class: specialization }\n"},
 		{definitions, "\nn0 <- n9: { class: composition }\n"},
-		{packages, "\n  containment: { source-arrowhead: { shape: circle; style: { filled: false } }; "},
+		{packages, "\n  containment: { source-arrowhead: { shape: circle; label: \"+\"; style: { filled: false } }; "},
 		{packages, " <- "},
-		{packages, ": \"private import ::*\" { class: dependency }\n"},
-		{requirements, ": \"satisfy\" { class: dependency }\n"},
-		{requirements, ": \"verify\" { class: dependency }\n"},
+		{packages, ": \"«private import»*\" { class: dependency }\n"},
+		{requirements, ": \"«satisfy»\" { class: edge }\n"},
+		{requirements, ": \"«verify»\" { class: edge }\n"},
 	} {
 		if !strings.Contains(c.d2, c.want) {
 			t.Errorf("general D2 lacks %q:\n%s", c.want, c.d2)
@@ -394,7 +394,7 @@ func TestD2FormSupport(t *testing.T) {
 				wrong.View != tc.view || !errors.Is(err, ErrWrongForm) {
 				t.Fatalf("Write(FormD2) of %s: %v", tc.name, err)
 			}
-			want := fmt.Sprintf("a %s rendering is not written as d2; ask for text, mermaid, dot or plantuml", tc.kind)
+			want := fmt.Sprintf("a %s rendering is not written as d2; ask for text, mermaid, dot, plantuml or drawio", tc.kind)
 			if !strings.Contains(err.Error(), want) {
 				t.Errorf("wrong form error = %q, want it to name %q", err, want)
 			}

@@ -108,7 +108,7 @@ func (ctx *Context) requiredMember(r *requiredMembers, id int64) (*Instance, err
 		owner = ctx.instances[r.owner]
 	}
 	mark := len(ctx.created)
-	inst, err := ctx.materialize(r.typ, id, owner, r.feature)
+	inst, err := ctx.materializeMember(r.typ, id, owner, r.feature)
 	if err != nil {
 		ctx.abandonInstancesSince(mark)
 		return nil, err

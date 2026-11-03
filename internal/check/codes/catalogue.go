@@ -41,6 +41,9 @@ func Catalogue() string {
 						b.WriteString(", ")
 					}
 					fmt.Fprintf(&b, "`%s-%s`", e.Code, k)
+					if severity := e.MemberSeverity(k); severity != e.Severity {
+						fmt.Fprintf(&b, " (a %s)", severity)
+					}
 				}
 				b.WriteString(".\n")
 			}

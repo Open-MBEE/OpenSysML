@@ -50,13 +50,56 @@ type Meta struct {
 	IncludesDerived *bool `json:"includesDerived,omitempty"`
 	IncludesImplied *bool `json:"includesImplied,omitempty"`
 	// Checksum maps member paths to the checksums recorded for them.
-	Checksum map[string][]Checksum `json:"checksum,omitempty"`
+	Checksum map[string]Checksums `json:"checksum,omitempty"`
 }
 
 // Checksum is one recorded digest of a member file.
 type Checksum struct {
 	Value     string `json:"value"`
 	Algorithm string `json:"algorithm"`
+}
+
+// Unrecorded reports a checksum that records no digest, by the algorithm NONE
+// (sysand's placeholder for a member it did not digest) or an empty value.
+func (c Checksum) Unrecorded() bool {
+	return strings.EqualFold(c.Algorithm, "NONE") || c.Value == ""
+}
+
+// Checksums are the checksums recorded for one member: one object per path in
+// the normative schema (KerML-Model-Interchange.json), a list in Table 13's text.
+type Checksums []Checksum
+
+// UnmarshalJSON reads one checksum object or a non-empty list of them.
+func (c *Checksums) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	switch {
+	case bytes.HasPrefix(data, []byte("[")):
+		var list []Checksum
+		if err := json.Unmarshal(data, &list); err != nil {
+			return err
+		}
+		if len(list) == 0 {
+			return errors.New("is an empty list")
+		}
+		*c = list
+	case bytes.HasPrefix(data, []byte("{")):
+		var one Checksum
+		if err := json.Unmarshal(data, &one); err != nil {
+			return err
+		}
+		*c = Checksums{one}
+	default:
+		return errors.New("is neither a checksum object nor a list of them")
+	}
+	return nil
+}
+
+// MarshalJSON writes one checksum as the schema's object, several as a list.
+func (c Checksums) MarshalJSON() ([]byte, error) {
+	if len(c) == 1 {
+		return json.Marshal(c[0])
+	}
+	return json.Marshal([]Checksum(c))
 }
 
 // Archive is a project interchange file read into memory: its project
@@ -224,7 +267,12 @@ func normalizeMemberPath(name string) (string, error) {
 func (a *Archive) readProject() error {
 	content, ok := a.members[ProjectFile]
 	if !ok {
-		return a.missingTopLevel(ProjectFile)
+		if folder := a.folder(); folder != "" {
+			a.reroot(folder)
+			content = a.members[ProjectFile]
+		} else {
+			return a.missingTopLevel(ProjectFile)
+		}
 	}
 	project, err := parseInterchange(a.Path, a.Path+"/"+ProjectFile, content)
 	if err != nil {
@@ -232,6 +280,42 @@ func (a *Archive) readProject() error {
 	}
 	a.Project = project
 	return nil
+}
+
+// folder is the one directory every member lies under when it holds both manifests
+// at its root (an archive of the project's folder, as the OMG releases are), else "".
+func (a *Archive) folder() string {
+	if len(a.names) == 0 {
+		return ""
+	}
+	folder, _, ok := strings.Cut(a.names[0], "/")
+	if !ok {
+		return ""
+	}
+	for _, name := range a.names {
+		if !strings.HasPrefix(name, folder+"/") {
+			return ""
+		}
+	}
+	if _, ok := a.members[folder+"/"+ProjectFile]; !ok {
+		return ""
+	}
+	if _, ok := a.members[folder+"/"+MetaFile]; !ok {
+		return ""
+	}
+	return folder
+}
+
+// reroot reads the archive as the project in folder, noting the layout.
+func (a *Archive) reroot(folder string) {
+	members := make(map[string][]byte, len(a.members))
+	for i, name := range a.names {
+		name = strings.TrimPrefix(name, folder+"/")
+		members[name] = a.members[a.names[i]]
+		a.names[i] = name
+	}
+	a.members = members
+	a.Notes = append(a.Notes, fmt.Sprintf("the archive holds the folder %s/ with the project inside it rather than the project at its top level; read as the project in that folder", folder))
 }
 
 // missingTopLevel reports a required file absent from the top level, naming a
@@ -245,8 +329,8 @@ func (a *Archive) missingTopLevel(file string) error {
 	return fmt.Errorf("no %s at the top level of the archive", file)
 }
 
-// readMeta reads and checks .meta.json: its index and checksums must name
-// members, and every checksum this build can compute must match.
+// readMeta reads and checks .meta.json: its checksums must name members and every
+// one this build can compute must match; an index entry naming no member is noted.
 func (a *Archive) readMeta() error {
 	content, ok := a.members[MetaFile]
 	if !ok {
@@ -256,10 +340,12 @@ func (a *Archive) readMeta() error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", MetaFile, err)
 	}
+	// The index is the project's word, not the reader's: the roots a member
+	// declares come from parsing it, so an entry naming no member is noted.
 	for _, name := range sortedKeys(meta.Index) {
 		member := meta.Index[name]
 		if _, ok := a.members[member]; !ok {
-			return fmt.Errorf("%s: index entry %q names %q, which is not a member of the archive", MetaFile, name, member)
+			a.Notes = append(a.Notes, fmt.Sprintf("%s: index entry %q names %q, which is not a member of the archive; the members' own declarations are read instead", MetaFile, name, member))
 		}
 	}
 	for _, member := range sortedKeys(meta.Checksum) {
@@ -278,10 +364,13 @@ func (a *Archive) readMeta() error {
 }
 
 // verify checks one recorded checksum. An algorithm the schema allows but
-// this build cannot compute is noted rather than refused.
+// this build cannot compute is noted; an unrecorded checksum verifies nothing.
 func (a *Archive) verify(member string, content []byte, sum Checksum) error {
-	if sum.Value == "" || sum.Algorithm == "" {
-		return fmt.Errorf("checksum of %q lacks a value or an algorithm", member)
+	if sum.Algorithm == "" {
+		return fmt.Errorf("checksum of %q lacks an algorithm", member)
+	}
+	if strings.EqualFold(sum.Algorithm, "NONE") {
+		return nil
 	}
 	h, known := newHash(sum.Algorithm)
 	if !known {
@@ -289,6 +378,9 @@ func (a *Archive) verify(member string, content []byte, sum Checksum) error {
 			return fmt.Errorf("checksum of %q uses %q, which is not an algorithm the interchange schema allows", member, sum.Algorithm)
 		}
 		a.Notes = append(a.Notes, fmt.Sprintf("the %s checksum of %s was not verified: this build does not compute %s", sum.Algorithm, member, sum.Algorithm))
+		return nil
+	}
+	if sum.Unrecorded() {
 		return nil
 	}
 	h.Write(content)
@@ -337,8 +429,8 @@ func schemaAlgorithm(algorithm string) bool {
 }
 
 // ParseMeta reads the metadata of Table 13 from the bytes of a .meta.json. A
-// checksum may be recorded as one object or, as the table's text has it, as a
-// list of them.
+// checksum may be recorded as one object, as the schema has it, or as a list
+// of them, as the table's text has it.
 func ParseMeta(content []byte) (Meta, error) {
 	var raw struct {
 		Index           map[string]string          `json:"index"`
@@ -370,23 +462,12 @@ func ParseMeta(content []byte) (Meta, error) {
 		IncludesImplied: raw.IncludesImplied,
 	}
 	if len(raw.Checksum) > 0 {
-		meta.Checksum = make(map[string][]Checksum, len(raw.Checksum))
+		meta.Checksum = make(map[string]Checksums, len(raw.Checksum))
 	}
 	for member, value := range raw.Checksum {
-		var sums []Checksum
-		if bytes.HasPrefix(bytes.TrimSpace(value), []byte("[")) {
-			if err := json.Unmarshal(value, &sums); err != nil {
-				return Meta{}, fmt.Errorf("checksum of %q: %w", member, err)
-			}
-		} else {
-			var one Checksum
-			if err := json.Unmarshal(value, &one); err != nil {
-				return Meta{}, fmt.Errorf("checksum of %q: %w", member, err)
-			}
-			sums = []Checksum{one}
-		}
-		if len(sums) == 0 {
-			return Meta{}, fmt.Errorf("checksum of %q is an empty list", member)
+		var sums Checksums
+		if err := json.Unmarshal(value, &sums); err != nil {
+			return Meta{}, fmt.Errorf("checksum of %q %w", member, err)
 		}
 		meta.Checksum[member] = sums
 	}
@@ -428,13 +509,36 @@ func (a *Archive) Read(member string) ([]byte, error) {
 // Files lists the model files of the archive as the paths they load under:
 // the archive's path with the member's path appended.
 func (a *Archive) Files() []string {
+	nested := a.nestedProjects()
 	var out []string
 	for _, name := range a.names {
-		if IsModelFile(name) {
+		if IsModelFile(name) && !underAny(name, nested) {
 			out = append(out, MemberPath(a.Path, name))
 		}
 	}
 	return out
+}
+
+// nestedProjects lists the directories within the archive, with their trailing
+// slash, that hold a project interchange file of their own.
+func (a *Archive) nestedProjects() []string {
+	var out []string
+	for _, name := range a.names {
+		if dir, base := path.Split(name); dir != "" && base == ProjectFile {
+			out = append(out, dir)
+		}
+	}
+	return out
+}
+
+// underAny reports whether the member name lies under one of the directories.
+func underAny(name string, dirs []string) bool {
+	for _, dir := range dirs {
+		if strings.HasPrefix(name, dir) {
+			return true
+		}
+	}
+	return false
 }
 
 // MemberPath is the path a member of an archive is named by: the archive's
@@ -515,13 +619,15 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-// ArchiveWarnings reports what the archives a load touched fell short of: an
+// Warnings reports what the projects and archives a load touched fell short
+// of: a usage left unlinked between several unclaimed installed projects, an
 // archive under a library root that is not a project interchange file, and a
 // checksum of a loaded archive that could not be verified.
-func (d Discovery) ArchiveWarnings(paths []string) []string {
-	var out []string
-	for _, ae := range d.Around(paths).Malformed {
-		out = append(out, fmt.Sprintf("%s: not a project interchange archive: %v", ae.Path, ae.Err))
+func (d Discovery) Warnings(paths []string) []Warning {
+	around := d.Around(paths)
+	out := append([]Warning(nil), around.Linking...)
+	for _, ae := range around.Malformed {
+		out = append(out, Warning{Path: ae.Path, Message: fmt.Sprintf("not a project interchange archive: %v", ae.Err)})
 	}
 	seen := map[string]bool{}
 	for _, p := range paths {
@@ -538,7 +644,7 @@ func (d Discovery) ArchiveWarnings(paths []string) []string {
 		seen[archive] = true
 		if a, err := openCached(archive); err == nil {
 			for _, note := range a.Notes {
-				out = append(out, archive+": "+note)
+				out = append(out, Warning{Path: archive, Message: note})
 			}
 		}
 	}

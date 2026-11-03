@@ -254,29 +254,14 @@ func Evaluate(model Model, q Query) ([]Element, error) {
 			for _, term := range q.OrderBy {
 				a, aok := out[i].Properties[term.Property]
 				b, bok := out[j].Properties[term.Property]
-				if a == b || (!aok && !bok) {
+				order := CompareOrderValues(term.Property, OrderValue{Text: a, Present: aok}, OrderValue{Text: b, Present: bok})
+				if order == 0 {
 					continue
 				}
-				if !aok {
-					return !term.Desc
-				}
-				if !bok {
-					return term.Desc
-				}
-				less := func(left, right string) bool {
-					if IsOrdered(term.Property) {
-						leftValue, leftErr := ordered(left)
-						rightValue, rightErr := ordered(right)
-						if leftErr == nil && rightErr == nil {
-							return leftValue < rightValue
-						}
-					}
-					return left < right
-				}
 				if term.Desc {
-					return less(b, a)
+					return order > 0
 				}
-				return less(a, b)
+				return order < 0
 			}
 			return false
 		})
@@ -385,6 +370,43 @@ func matchesPredicate(model Model, sym *symbols.Symbol, p Predicate) bool {
 		}
 	}
 	return false
+}
+
+// OrderValue is one element's value of a sort property; Present is false when
+// the element has no such property.
+type OrderValue struct {
+	Text    string
+	Present bool
+}
+
+// CompareOrderValues orders two elements' values of one property for an
+// ascending sort: an absent value precedes a present one; two present values of
+// an ordered property compare as numbers, with "*" the greatest; those of any
+// other property compare byte-wise as text, which puts "false" before "true".
+// The result is negative, zero or positive as a sorts before, with or after b.
+func CompareOrderValues(property string, a, b OrderValue) int {
+	switch {
+	case !a.Present && !b.Present:
+		return 0
+	case !a.Present:
+		return -1
+	case !b.Present:
+		return 1
+	}
+	if IsOrdered(property) {
+		left, leftErr := ordered(a.Text)
+		right, rightErr := ordered(b.Text)
+		if leftErr == nil && rightErr == nil {
+			switch {
+			case left < right:
+				return -1
+			case left > right:
+				return 1
+			}
+			return 0
+		}
+	}
+	return strings.Compare(a.Text, b.Text)
 }
 
 func anyEqual(values, candidates []string) bool {

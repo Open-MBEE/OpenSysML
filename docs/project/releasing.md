@@ -32,7 +32,7 @@ own: it is part of this module, so the core's `v*` tag is what a Go program pins
 Between releases, `.github/workflows/nightly.yml` builds the newest green `develop`
 commit every night with `scripts/build-release-artifacts.sh` — the same targets,
 platforms and layout as `build-release` below — together with the Python wheel and the
-thirteen npm packages, and publishes it as the prerelease `nightly-<yyyymmdd>-<commit>`,
+fourteen npm packages, and publishes it as the prerelease `nightly-<yyyymmdd>-<commit>`,
 kept for 14 days, with the moving alias `nightly` at the newest night; both are never
 marked latest and are signed by the workflow's own GitHub identity rather than the
 CircleCI one the clients pin. The clients go to PyPI and npm as development versions
@@ -40,10 +40,13 @@ CircleCI one the clients pin. The clients go to PyPI and npm as development vers
 dist-tag) through trusted publishing, so no default install and no `latest` moves. It
 touches nothing described on this page: the `nightly*` tags match neither the `v*` filter
 of the `release` workflow nor the Windows signing workflow, `releases/latest` keeps
-resolving to the stable line, and the stable client publication below stays with
-CircleCI and its tokens. [Nightly snapshots](nightly.md) documents it for a user, with the
-one-time trusted-publisher setup; when `build-release` or the client packaging changes
-what it produces, change the nightly workflow so the two stay the same.
+resolving to the stable line, and the stable npm, Maven Central, crates.io and Docker
+publication below stays with CircleCI and its tokens; only the stable PyPI upload also
+goes through GitHub Actions with trusted publishing (`release-pypi.yml`, see [Releasing
+opensysml to PyPI](#releasing-opensysml-to-pypi)). [Nightly snapshots](nightly.md)
+documents it for a user, with the one-time trusted-publisher setup; when `build-release`
+or the client packaging changes what it produces, change the nightly workflow so the two
+stay the same.
 
 ## Before tagging
 
@@ -54,9 +57,19 @@ gofmt -l .            # must print nothing
 go build ./...
 go vet ./...
 make lint             # staticcheck + gosec, as CircleCI runs
+make sca-tools audit  # govulncheck, npm audit, pip-audit, cargo audit, osv-scanner, as CircleCI runs
 go test -race -count=1 ./...
 go test -run TestStdlibConformance ./internal/workspace/libs
 ```
+
+`make audit` must report no finding: every advisory it prints is fixed by moving the
+dependency before the tag, since the same audits run in the release workflow's jobs and fail
+it. A finding no release of the dependency fixes yet is looked up in the
+[CISA Known Exploited Vulnerabilities catalogue](https://www.cisa.gov/known-exploited-vulnerabilities-catalog):
+a listed vulnerability blocks the release until the dependency is replaced or the code stops
+using it; for an unlisted one, record the advisory, the catalogue check and why the release
+proceeds in the release pull request, and open an issue to track the fix. The audit level and
+the ignore list are not changed to make a release pass.
 
 Run the Python client the way CircleCI's `python-test` job does, since a release
 gates on the same suite:
@@ -106,12 +119,14 @@ Central token probes, the Docker Hub login, the GPG key import and test-sign,
 the npm packs, `cargo package`, the Maven build-and-sign and the container
 image's build for both platforms. Only the irreversible commands
 are skipped: cosign keyless signing and attestation (which write to the public
-Rekor log), `ghr` (the GitHub release), `twine upload`, `npm publish`,
-`mvn deploy`, `cargo publish` and the `docker buildx build --push` of the
-container image. A rehearsal exports a stand-in `CIRCLE_TAG`
+Rekor log), `ghr` (the GitHub release), `npm publish`, `mvn deploy`,
+`cargo publish` and the `docker buildx build --push` of the container image.
+The PyPI upload is not this workflow's: `release-pypi.yml` on GitHub Actions has
+a dry run of its own (see [Dry run on TestPyPI](#dry-run-on-testpypi)). A
+rehearsal exports a stand-in `CIRCLE_TAG`
 from `_version.py` (`scripts/rehearsal-version.sh`) before any step reads it,
 so the version bumps must already be on the branch, and the Go suite's jobs
-(`go-static`, `go-race-test`, `go-coverage`, `go-gates`) export it too and tag
+(`go-static`, `go-vulncheck`, `go-race-test`, `go-coverage`, `go-gates`) export it too and tag
 their checkout locally as that release first: a tag build reports the tag as
 the module version in every binary the toolchain builds, a branch build reports
 `(devel)`, and the suite must pass under the former. With both in place the
@@ -136,8 +151,8 @@ curl -X POST "https://circleci.com/api/v2/project/<project-slug>/pipeline/run" \
 ```
 
 The project slug and the pipeline definition id are under *Project Settings →
-Project Setup*. Whoever triggers it must be authorized for all five contexts
-(`PyPI`, `npm`, `Maven Central`, `crates.io`, `DockerHub`), because the same jobs run with
+Project Setup*. Whoever triggers it must be authorized for all six contexts
+(`PyPI`, `npm`, `Maven Central`, `crates.io`, `DockerHub`, `Slack`), because the same jobs run with
 the same contexts. The built binaries are kept only as the pipeline's CircleCI
 artifacts; nothing reaches a registry or a GitHub release.
 
@@ -156,10 +171,19 @@ Day-to-day work merges into `develop`; `main` carries releases only (see
 [CONTRIBUTING.md § Branches](../../CONTRIBUTING.md#branches)). A release is a
 branch that moves the integration state onto `main`:
 
-1. Cut `release/x.y.z` from `develop`:
+1. Audit the dependencies of `develop` before cutting the branch, so the release branch
+   starts without a known vulnerability, and treat each finding as
+   [Before tagging](#before-tagging) describes (fix, or check the CISA KEV catalogue and
+   record the decision in the release pull request):
 
    ```bash
    git checkout develop && git pull
+   make sca-tools audit
+   ```
+
+   Then cut `release/x.y.z`:
+
+   ```bash
    git checkout -b release/0.0.5
    ```
 
@@ -189,7 +213,20 @@ branch that moves the integration state onto `main`:
    rest exactly as locked and leaves the lockfile as it is — each CI job asserts
    that with `git diff --exit-code package-lock.json`, and
    `TestClientInstallsSurviveUnpublishedPlatformPackages` in `tests/hygiene`
-   holds every consumer of the two packages to that command. The pin step
+   holds every consumer of the two packages to that command. The refusal is an
+   npm defect ([npm/cli#9846](https://github.com/npm/cli/issues/9846), fix
+   proposed in [npm/cli#10115](https://github.com/npm/cli/pull/10115)): the same
+   npm's `npm install --package-lock-only` writes that lockfile and its `npm ci`
+   rejects it. Do not work around it by writing the five entries into the
+   lockfile by hand: npm 10 and 11 accept such an entry, but neither ever adds
+   `resolved` and `integrity` to it, so once the tag publishes the packages
+   `npm ci` would install the release's binary without an integrity check and
+   nothing would notice, whereas `npm install` changes the lockfile the moment
+   a package appears and the `git diff` fails. SonarCloud's GitHub Actions rule
+   S8543 flags the three `npm install` workflow steps as unlocked installs; the
+   lockfile check above is the property the rule wants, so those findings are
+   resolved as false positives on SonarCloud (branch mode only: no pull-request
+   analysis exists), not by changing the command. The pin step
    below locks the platform packages once they exist. `client/java/pom.xml` follows
    the same version too: set the parent pom's `<version>`, both modules'
    `<parent><version>`, and the client version in `editors/mdk/pom.xml`
@@ -210,8 +247,8 @@ branch that moves the integration state onto `main`:
    needs (a doc that names the version) lands here too; a feature does not. Check the wire compatibility
    against the released schema, not the branch's own source:
    `make proto-breaking BUF_BREAKING_REF=origin/main` (the default baseline is
-   `origin/develop`; the pull-request workflow uses the base branch, so the PR to `main`
-   makes the same comparison).
+   `origin/develop`; the pull-request workflow uses the merge base with the base branch, so
+   the PR to `main` makes the same comparison).
 
 3. Open a pull request from `release/x.y.z` to `main` and merge it once the
    pull-request workflow is green. Merging into `main` runs CircleCI's
@@ -220,15 +257,23 @@ branch that moves the integration state onto `main`:
 4. Tag `main` as [Tagging](#tagging) describes.
 
 5. Merge the `chore/pin-vx.y.z` pull request the tag's pipeline opens against
-   `develop` (see [Pinned release digests](#pinned-release-digests)). Its
-   lockfiles do not yet name the platform packages the tag just published —
-   `npm install --package-lock-only` in `client/node` could not lock them before
-   they existed, so every install skips them as unresolvable optional
-   dependencies instead of installing the release's binary — so run that on
-   the pin branch (and in `packaging/npm/sysml-mcp`, whose lockfile pins the
-   runner's platform packages the same way) and commit both lockfiles first. Then merge
+   `develop`, and the `hotfix/pin-vx.y.z` one it opens against `main` (see
+   [Pinned release digests](#pinned-release-digests)); without the latter,
+   `main`'s next `build-test` run — and so its SonarCloud scan — fails the
+   hygiene suite until the next release. The `main` one needs a commit
+   before it is green: `main`'s lockfiles do not yet name the platform
+   packages the tag just published — `npm install --package-lock-only` in
+   `client/node` could not lock them before they existed, so every install
+   skips them as unresolvable optional dependencies instead of installing the
+   release's binary, and the pull request's Node job fails on the lockfile
+   that `npm install` then rewrites — so run that on the `hotfix/pin-vx.y.z`
+   branch (and in `packaging/npm/sysml-mcp`, whose lockfile pins the runner's
+   platform packages the same way) once the packages answer on npm, and
+   commit both lockfiles. The `develop` one is cut from a tree that still
+   declares the previous version, so there is nothing to lock there. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
-   changelog, and any hotfix that landed on `main` in the meantime, flow down.
+   changelog, the pin and the lockfiles, and any hotfix that landed on `main`
+   in the meantime, flow down.
    When the release was a `hotfix/` branch, `develop`'s lockfile still locks
    the platform packages of the previous release: run the same
    `npm install --package-lock-only` on the back-merge branch so they lock the
@@ -253,11 +298,36 @@ The tag is the version: CircleCI passes `CIRCLE_TAG` to the build as
 `VERSION`, so `sysml --version` reports it. Rehearse first — see
 [Rehearsing the release](#rehearsing-the-release).
 
+Audit the dependencies once more on the commit being tagged — advisories published since
+the branch was cut count — and tag only when `make audit` is clean or every remaining
+finding has its CISA KEV check recorded in the release pull request, as
+[Before tagging](#before-tagging) describes:
+
 ```bash
 git checkout main && git pull
+make sca-tools audit
 git tag -a v0.0.5 -m "v0.0.5"
 git push origin v0.0.5
 ```
+
+Then write the release notes, before CircleCI publishes the assets, so that
+`ghr -replace` finds a published release to add them to (it does not see a
+draft, see [What CircleCI publishes](#what-circleci-publishes)):
+
+```bash
+python3 scripts/changelog.py release-notes 0.0.5 > notes.md
+gh release create v0.0.5 --title v0.0.5 --notes-file notes.md --verify-tag
+```
+
+`release-notes` renders the version's `CHANGELOG.md` section — one line per
+entry with a link to the full text at the tag when the section is longer than
+GitHub's 125,000-character release body holds, as 0.11.0's is — and ends it
+with the support period as `SECURITY.md` states it (the text between its
+`support-statement` markers, so the two never disagree) and a link to
+[Verifying a release](../guide/security.md#verifying-a-release) on the site;
+the nightly workflow appends the same footer to its notes. Add the
+platform caveats of steps 7–9 under [After the release](#after-the-release)
+above the footer, by hand.
 
 The tag belongs on `Open-MBEE/OpenSysML`, the repository the releases live on
 and where development happens: every release from v0.0.1 on is tagged on its
@@ -301,19 +371,28 @@ so that `dist/` holds:
   registers the kernelspec, and its platform wheels bundle it;
 - `wasm/sysml-wasm.wasm`, `wasm/sysml-prod.wasm.gz` and `wasm/wasm_exec.js`, the
   combined WebAssembly module, the gzip-compressed browser build of the `sysml` REPL
-  (`-tags sysml_prod`, what the site's REPL page runs) and the matching Go runtime,
+  (`-tags sysml_re`, what the site's REPL page runs) and the matching Go runtime,
   each with a `.sha256` sidecar;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
   `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` from those
-  `sysml-grpc` binaries' digests and the same files `publish-pypi` uploads (see
+  `sysml-grpc` binaries' digests and the same files `release-pypi.yml` uploads to PyPI (see
   [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
 - the Jupyter kernel's distributions, `jupyter_opensysml_kernel-<x.y.z>.tar.gz` and one
   `jupyter_opensysml_kernel-<x.y.z>-py3-none-<platform>.whl` per released platform, built
   by `build-jupyter-kernel-package` from the `sysml-jupyter-kernel` binaries and their
   digests (see
   [Releasing jupyter-opensysml-kernel to PyPI](#releasing-jupyter-opensysml-kernel-to-pypi));
+- the npm tarballs `openmbee-opensysml-<x.y.z>.tgz`, `openmbee-sysml-mcp-<x.y.z>.tgz`
+  and `openmbee-opensysml-mcp-<x.y.z>.tgz`, packed by `build-npm-package` from the
+  tree stamped with the `sysml-grpc` digests, the same bytes `publish-npm` publishes
+  (see [Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm));
+- one SPDX 2.3 JSON software bill of materials per archive, wheel, sdist, `sysml-grpc`
+  and `sysml-jupyter-kernel` binary, WebAssembly module and npm tarball, named
+  `<asset>.spdx.json` after the asset it describes (see
+  [The software bills of materials](#the-software-bills-of-materials));
 - `SHA256SUMS.txt` over every archive, every wheel and sdist, every `sysml-grpc` and
-  `sysml-jupyter-kernel` binary and all three WebAssembly assets,
+  `sysml-jupyter-kernel` binary, all three WebAssembly assets, the three npm tarballs
+  and every SBOM,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact
@@ -337,7 +416,8 @@ windows/amd64.
 The two jobs share one workspace: `build-release-binaries` persists the whole
 `dist/` tree, the binaries' `.sha256` sidecars included, and `build-release`
 persists only what it added to it — the manifest, its signature and provenance
-bundles, the WebAssembly sidecars and the Python distributions. Workspace layers are additive, and a path persisted by two
+bundles, the SBOMs, the WebAssembly sidecars and the Python distributions;
+`build-npm-package` persists `dist/npm`, the tarballs it packed. Workspace layers are additive, and a path persisted by two
 upstream jobs fails the attach in every job downstream of both, which is every
 publish job.
 
@@ -359,18 +439,22 @@ that release's assets rather than appending duplicates, and leaves everything
 else on the release alone: notes, title and the prerelease/latest flags survive.
 A tag that has no release yet still gets one created.
 
-`publish-pypi` runs after it, off the same built artifacts, and is the one step
-of a release that cannot be repeated: PyPI never accepts a version twice, so on a
-re-run of a published tag it fails by design while the GitHub assets are replaced
-(see [What the jobs do, in order](#what-the-jobs-do-in-order)). Running it after
-the GitHub release means the package version never exists without the release
-it names; if the GitHub upload fails, nothing irreversible has happened yet.
+The PyPI upload — [`release-pypi.yml`](../../.github/workflows/release-pypi.yml), a
+GitHub Actions workflow the same tag runs — waits for that release and takes the
+distributions from it, and is the one step of a release that cannot be repeated:
+PyPI never accepts a version twice, so on a re-run for a published tag it fails by
+design while the GitHub assets are replaced (see [What the jobs do, in
+order](#what-the-jobs-do-in-order)). Running it after the GitHub release means the
+package version never exists without the release it names; if the GitHub upload
+fails, nothing irreversible has happened yet.
 
 `publish-npm` runs beside it, also after the GitHub release and also not
 repeatable: npm never accepts a version twice. It publishes
 `@openmbee/opensysml-wasm` from `dist/wasm` and the five
 `@openmbee/opensysml-sysml-grpc-<os>-<cpu>` platform packages built from
-`build-release`'s release assets, then the `@openmbee/opensysml` client (see
+`build-release`'s release assets, then the `@openmbee/opensysml` client, and the MCP
+server's runner `@openmbee/sysml-mcp` with its five platform packages and its alias
+`@openmbee/opensysml-mcp` (see
 [Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm)).
 
 `publish-maven` runs beside them, in the same position and with the same
@@ -383,6 +467,23 @@ waiting until Central reports the deployment published (see
 one-way property: a crates.io version cannot be replaced, only yanked. It
 packages and publishes `opensysml` (see
 [Releasing the Rust client to crates.io](#releasing-the-rust-client-to-cratesio)).
+
+`announce-release-slack` runs after `publish-github-release`, independent of
+the registry publishers. It posts the release title and link to the incoming
+webhook URL in `OPENSYSML_WEBHOOK_URL` from the CircleCI context named exactly
+`Slack`. Add the Slack app to the maintainers' channel with *Add New Webhook
+to Workspace*. The post uses the app's display name and icon. The app needs
+only the `incoming-webhook` scope; no bot token or `chat:write` scope is
+needed. Put the webhook URL in the context and restrict it like the others.
+A rehearsal prints the payload instead of posting. A missing context fails
+only this job, and nothing downstream depends on it. Re-running the job posts
+again.
+
+A pre-release tag, such as `v1.2.3-rc.1`, is not announced.
+
+The GitHub Slack app's `releases` subscription is not used: `.github/workflows/nightly.yml`
+publishes two prereleases each night (`nightly-<yyyymmdd>-<commit>` and
+`nightly`), which that subscription would announce too.
 
 Do not go back to `-delete`. It is an alias of `-recreate`: it deletes the
 existing release *and its tag* and creates an empty one, which wipes
@@ -428,6 +529,20 @@ one alongside it).
    A missing bundle means `build-release` did not sign — re-run the tag's
    workflow rather than pinning around it.
 
+   The release's uptake can be read any time afterwards:
+
+   ```bash
+   python3 scripts/release-downloads.py            # downloads per release, newest first, with the total
+   python3 scripts/release-downloads.py --assets   # the per-asset counts under each release
+   python3 scripts/release-downloads.py --by-asset # which binaries are downloaded most, over all releases
+   GH_TOKEN=$(gh auth token) python3 scripts/release-downloads.py --traffic   # clones and views
+   ```
+
+   `--stable` leaves the nightlies out and `--json` prints the figures for another
+   tool. The download counts are public; the clones and views come from GitHub's
+   traffic API, which keeps fourteen days and answers only a token with push
+   access to the repository.
+
    The provenance is checked the same way, against the downloaded archive
    rather than the manifest:
 
@@ -437,6 +552,16 @@ one alongside it).
      --bundle provenance.intoto.json.bundle --type slsaprovenance1 \
      --certificate-oidc-issuer https://oidc.circleci.com/org/1169df8b-0b59-400f-82d2-c9d8e98bdb62 \
      --certificate-identity-regexp '^https://circleci\.com/api/v2/projects/eeb0dddd-237f-4f02-9e51-8e24caef589d/pipeline-definitions/[0-9a-f-]+$'
+   ```
+
+   And the archive's SBOM is a line of the manifest just verified, so its digest
+   is checked against it; what it names must match the binary:
+
+   ```bash
+   curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/download/v0.0.5/opensysml-linux-amd64.tar.gz.spdx.json
+   sha256sum -c SHA256SUMS.txt --ignore-missing
+   jq -r '.packages[] | select(.name == "stdlib") | .versionInfo' opensysml-linux-amd64.tar.gz.spdx.json
+   go version -m sysml | head -1
    ```
 
    Then install the Python client the release published, from the index rather
@@ -451,15 +576,17 @@ one alongside it).
      "import opensysml; print(opensysml.__version__, opensysml.load('examples/state-machine-demo.sysml').diagnostics)"
    ```
 
-2. **Verify the npm upload.** Check the registry sees all thirteen packages at the
+2. **Verify the npm upload.** Check the registry sees all fourteen packages at the
    version and the right dist-tag, and that the npm runner starts the release's
-   server with nothing installed:
+   server with nothing installed, under both of its names:
 
    ```bash
    npm view @openmbee/opensysml@0.0.5 version dist-tags
    npm view @openmbee/opensysml-wasm@0.0.5 version
    npm view @openmbee/sysml-mcp@0.0.5 version dist-tags optionalDependencies
+   npm view @openmbee/opensysml-mcp@0.0.5 version dist-tags optionalDependencies bin
    npx -y @openmbee/sysml-mcp@0.0.5 -version
+   npx -y @openmbee/opensysml-mcp@0.0.5 -version
    ```
 
    Then install it in a temp dir and load a model with `OPENSYSML_BINARY` unset,
@@ -506,14 +633,14 @@ one alongside it).
 5. **Verify the pin pull request landed.** `pin-release-digests`, the last job
    of the tag's workflow, stamps the release into `client/release-digests.json`
    from the manifest, syncs every client copy, and opens
-   `chore/pin-vx.y.z` against `develop`. Merge it (step 5 of
-   [The release branch](#the-release-branch) does so before the back-merge). A
-   missing pull request means the job failed — read its log; the token is the
+   `chore/pin-vx.y.z` against `develop` and `hotfix/pin-vx.y.z` against `main`.
+   Merge both (step 5 of [The release branch](#the-release-branch) does so
+   before the back-merge). A missing pull request means the job failed — read its log; the token is the
    usual cause, see [Pinned release digests](#pinned-release-digests) — and
    until the pin lands, `tests/hygiene` fails the next release branch rather
    than this one. `main` sits on the tagged commit, which cannot hold its own
-   pin, so the test exempts it there; the pin reaches `main` with the next
-   release.
+   pin, so the test exempts that commit; the `hotfix/pin-vx.y.z` pull request
+   is what lets every later commit on `main` pass it.
 
 6. **Let the Homebrew tap pick the release up.** The tap repository
    `Open-MBEE/homebrew-tap` updates itself: a scheduled workflow there resolves
@@ -558,7 +685,15 @@ one alongside it).
    request); re-run it after fixing the cause — see the recovery path in
    [The Windows installer](#the-windows-installer).
 
-10. **Render the Windows package-manager manifests** when a maintainer wants
+10. **Check the PyPI publication landed.** The tag also runs
+    [`release-pypi.yml`](../../.github/workflows/release-pypi.yml), which waits for
+    CircleCI's release and publishes `opensysml` and `jupyter-opensysml-kernel` from it
+    with trusted publishing (see [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)).
+    Both project pages must show the version with its attestations (*Verified details*
+    on PyPI); a run that failed on the index or on Sigstore is retried with
+    `gh workflow run release-pypi.yml -f tag=vX.Y.Z`.
+
+11. **Render the Windows package-manager manifests** when a maintainer wants
     to (re)submit them externally. Nothing here submits anything:
 
     ```bash
@@ -634,7 +769,8 @@ attestation against three published artifacts (a bundle archive, a `sysml-grpc`
 binary and the wheel) under the identity the clients pin, and checks that the
 subjects are the manifest's lines, no more and no fewer, before anything is
 stored; `publish-github-release` uploads the statement and the bundle beside
-`SHA256SUMS.txt`.
+`SHA256SUMS.txt`. Two of the SBOMs are checked the same way, so the subjects
+cover them too.
 
 What this is, and is not. The statement is produced by the build that produced
 the artifacts, on CircleCI's hosted runners, and signed with an identity only
@@ -655,6 +791,101 @@ authoritative statement is the bundle's payload:
 ```bash
 jq -r '.dsseEnvelope.payload' provenance.intoto.json.bundle | base64 -d | jq .
 ```
+
+### The software bills of materials
+
+Before `build-release` writes the manifest, `scripts/release-sbom.py` writes one
+[SPDX 2.3](https://spdx.github.io/spdx-spec/v2.3/) JSON document per asset into
+`dist/sbom/`, named after the asset it describes: `sysml-linux-amd64.tar.gz.spdx.json`
+for the archive, `sysml-grpc-linux-amd64.spdx.json` for the raw binary,
+`opensysml-<x.y.z>-py3-none-any.whl.spdx.json` for the wheel, and so on for every
+archive, wheel, sdist, `sysml-grpc` and `sysml-jupyter-kernel` binary. The manifest
+step then lists them in `SHA256SUMS.txt` like any other asset, so the cosign
+signature over the manifest and the provenance statement's subjects cover them
+without a second signing step, and `publish-github-release` uploads them beside the
+assets. SPDX rather than CycloneDX because it is the ISO standard (ISO/IEC 5962)
+and the format the US federal guidance names first; a consumer who needs
+CycloneDX converts with `syft convert`.
+
+The documents are written by [syft](https://github.com/anchore/syft), installed
+in the job from a pinned release whose SHA-256 is checked, like every other tool
+the pipeline downloads. For a Go executable syft reads the module list the Go
+toolchain embeds in the binary, so an SBOM names the module versions that were
+actually linked — the same list `go version -m <binary>` prints — and the
+toolchain itself as the `stdlib` package. The script then refuses the document
+unless that holds: it runs `go version -m` over every Go executable the asset
+holds (raw, or unpacked from the archive or wheel) and fails the release if any
+module, at its built version, or the toolchain is missing from the SBOM, if the
+SBOM names no component at all, or if it mentions a path of the builder. It also
+replaces syft's random document namespace with the URL the SBOM is published at,
+`https://github.com/Open-MBEE/OpenSysML/releases/download/<tag>/<asset>.spdx.json`,
+so two builds of one tag produce SBOMs that differ only in `creationInfo.created`.
+
+A wheel's SBOM names the Python distribution; the kernel's platform wheels also
+carry their bundled `sysml-jupyter-kernel`, so those name its Go modules too. A
+consumer verifies an SBOM exactly as any asset — the manifest's signature first,
+then the digest:
+
+```bash
+curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/download/v0.12.0/SHA256SUMS.txt
+curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/download/v0.12.0/SHA256SUMS.txt.bundle
+curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/download/v0.12.0/opensysml-linux-amd64.tar.gz.spdx.json
+cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \
+  --certificate-oidc-issuer https://oidc.circleci.com/org/1169df8b-0b59-400f-82d2-c9d8e98bdb62 \
+  --certificate-identity-regexp '^https://circleci\.com/api/v2/projects/eeb0dddd-237f-4f02-9e51-8e24caef589d/pipeline-definitions/[0-9a-f-]+$'
+sha256sum -c SHA256SUMS.txt --ignore-missing
+```
+
+Three classes of asset need another route to the same document, and get it:
+
+- **The WebAssembly modules** (`sysml-wasm.wasm`, `sysml-prod.wasm.gz`). Go embeds
+  the same module information in a wasm module as in any executable, but neither
+  `debug/buildinfo` (so `go version -m`) nor syft reads this file format — `go
+  version -m sysml-wasm.wasm` answers `unrecognized file format`, and syft writes
+  a document naming nothing. The script therefore reads the module list between
+  the markers Go's linker brackets it with and the toolchain string the runtime
+  carries (refusing a module that holds none, or more than one), and writes the
+  SPDX document itself with the same packages syft would record: the main module
+  and every dependency at its built version, and the toolchain as `stdlib`. The
+  same `go version -m`-style check applies to it. `wasm_exec.js` is the
+  toolchain's own file and has no SBOM of its own; the module's `stdlib` package
+  names its version.
+- **The npm tarballs.** `build-npm-package` packs them before the manifest is
+  written (see [What the job does, in order](#what-the-job-does-in-order-1)), so
+  both the tarballs and their SBOMs are lines of `SHA256SUMS.txt`. Each SBOM
+  describes the packed manifest — `package/package.json` as `npm pack` wrote it,
+  at the exact version packed, with the tarball's own digest — and resolves its
+  dependencies through the lockfile: syft catalogues `client/node/package-lock.json`
+  for `@openmbee/opensysml` and `packaging/npm/sysml-mcp/package-lock.json` for
+  `@openmbee/sysml-mcp` and for `@openmbee/opensysml-mcp`, the runner under its
+  other name, whose generated tree has no lockfile of its own and pins the same
+  five platform packages. Development dependencies are not catalogued; peer
+  dependencies are the installer's choice and are not listed. The platform
+  packages a release publishes beside the tarball are pinned exactly but cannot
+  be in the lockfile before they exist (see [Tagging](#tagging)), so one the
+  lockfile lacks — an `@openmbee/` optional dependency pinned at the tarball's
+  own version, nothing else — is recorded from the manifest's pin, with a
+  `sourceInfo` saying so and no digest. The script refuses a tarball whose file
+  name is not the one npm gives its manifest, any other dependency the lockfile
+  does not resolve, or a pin the lockfile resolves to another version.
+- **The Windows installer.** The MSI is built on a Windows runner by
+  `release-windows.yml`, outside this manifest, and bundles the Z3 solver, which
+  syft cannot see inside an MSI. Its SBOM is **derived from the installer's
+  inputs**, not read from the installer: the workflow's `build` job writes it
+  from the four Go executables it built (syft over the staging directory, checked
+  with `go version -m` as above) plus a declared `z3` package from
+  `packaging/msi/z3.pin` — the exact version, the release zip's URL and the
+  SHA-256 the pin verifies, and the five files the installer takes from the zip
+  with their own SHA-256 digests — and the `msi` job lists it beside the
+  installer in `SHA256SUMS-windows-msi.txt`, under the installer's name
+  (`opensysml-<x.y.z>-windows-amd64.msi.spdx.json`). The signed installer's
+  document is written the same way by the `sign` job from the executables
+  SignPath returned — their bytes, so their file digests, differ from the
+  unsigned ones — and listed in `SHA256SUMS-windows-signed.txt`. See
+  [The Windows installer](#the-windows-installer).
+
+The container image carries its own SBOM and provenance, attached by `docker
+buildx` (see [Releasing the container image to Docker Hub](#releasing-the-container-image-to-docker-hub)).
 
 The Python and Node clients keep reading the signed manifest, not the
 provenance; nothing in them changes.
@@ -819,6 +1050,25 @@ not hash it. The unsigned MSI has its own `SHA256SUMS-windows-msi.txt`; for the
 signed one the verifiable statement is its Authenticode signature. Nothing the
 clients download or pin changes.
 
+**The installer's SBOM is derived from its inputs.** syft cannot catalogue an
+MSI, so `scripts/release-sbom.py --msi-inputs` writes
+`opensysml-<x.y.z>-windows-amd64.msi.spdx.json` in the workflow's Linux `build`
+job, from what the MSI is then built from: the four executables that job built
+(their Go module information, checked with `go version -m`) and the Z3 release
+`packaging/msi/z3.pin` names, declared as a `z3` package with the pinned version,
+the zip's URL and SHA-256 (the job downloads the zip and refuses a digest other
+than the pin's, as `build-msi.sh` does) and the five files the installer takes
+from it, each with its digest. The `msi` job downloads that document as a
+workflow artifact, requires it to be named after the MSI it just built, and
+lists both in `SHA256SUMS-windows-msi.txt`. The `sign` job writes
+`opensysml-<x.y.z>-windows-amd64-signed.msi.spdx.json` the same way
+(`--msi-inputs dist/signed --msi-signed`) from the executables SignPath
+returned, whose bytes — so whose file digests — differ from the unsigned ones
+while the module information is the same, and `publish-signed` lists it in
+`SHA256SUMS-windows-signed.txt`. The syft both jobs install is the release the
+CircleCI `build-release` job pins, at the same digest (`tests/hygiene` holds
+the two files to one pin).
+
 **SignPath and the MSI.** Add a second artifact configuration to the SignPath
 project: a single `.msi` file, Authenticode-signed, and put its slug in the
 `SIGNPATH_MSI_ARTIFACT_CONFIGURATION_SLUG` variable. The MSI's executables are
@@ -893,17 +1143,22 @@ assert the table they load pins the tag `$OPENSYSML_EXPECT_PINNED_RELEASE`
 names, which only those two jobs set, after stamping.
 
 The committed table is brought up to date by the release itself. After
-`publish-github-release`, the `pin-release-digests` job checks out `develop`,
-runs `pin_release_checksums.py --from-manifest dist/SHA256SUMS.txt` against the
-default table — the shared `client/release-digests.json`, so every client copy
-is synced in the same stamp — confirms `sync-release-digests.py --check`, and
-opens `chore/pin-vX.Y.Z` against `develop`. A client *built from the next
+`publish-github-release`, the `pin-release-digests` job checks out `develop`
+and then `main`, on each runs `pin_release_checksums.py --from-manifest
+dist/SHA256SUMS.txt` against the default table — the shared
+`client/release-digests.json`, so every client copy is synced in the same
+stamp — confirms `sync-release-digests.py --check`, and opens
+`chore/pin-vX.Y.Z` against `develop` and `hotfix/pin-vX.Y.Z` against `main`
+(only `hotfix/` branches target `main`). A client *built from the next
 revision* — a checkout, or a package of a later release asked for this one —
-then pins it too rather than reaching for the signed manifest. The job is
-idempotent: when `develop` already pins the tag it ends with nothing to open,
-the branch is rebuilt from `develop` on every run (a run repeated after a
-failure replaces the earlier branch), and an open pull request for the branch
-is reused rather than duplicated. A pin already on `develop` that disagrees with
+then pins it too rather than reaching for the signed manifest; and `main`,
+whose head is the tagged commit and so cannot carry its own pin, pins it from
+the hotfix on, which keeps its `build-test` runs — the only ones that scan
+`main` with SonarCloud — green between releases. The job is idempotent: when a
+base already pins the tag it ends with nothing to open against it, each branch
+is rebuilt from its base on every run (a run repeated after a failure replaces
+the earlier branch), and an open pull request for a branch is reused rather
+than duplicated. A pin already on `develop` that disagrees with
 the manifest fails the job, as the script refuses to replace a pin.
 
 The job pushes and opens the pull request with the token
@@ -947,7 +1202,7 @@ supplies `SONAR_TOKEN` (the same context `Open-MBEE/flexo-mms-layer1-service`
 uses, so no new credential is provisioned). It reads
 `sonar-project.properties` at the repository root and four coverage reports
 persisted to the workspace — `coverage.txt` from `go-coverage-merge`, which joins
-`go-coverage`'s four package shards,
+`go-coverage`'s nine package shards,
 `coverage-python.xml` from `python-test`, `coverage-node.lcov` from
 `node-test`, and JaCoCo's `jacoco.xml` per Java module — and it un-shallows the
 clone because SonarCloud needs full history for blame and new-code detection.
@@ -1072,9 +1327,12 @@ that organization.
 ## Releasing opensysml to PyPI
 
 The Python client in `client/python/` is published to PyPI as
-[`opensysml`](https://pypi.org/project/opensysml/) by the `release` workflow — the
-same `v<version>` tag that publishes the binaries, and at the same version: `v0.9.0`
-publishes `opensysml` 0.9.0. Nothing is uploaded from a laptop, and no other tag
+[`opensysml`](https://pypi.org/project/opensysml/) from the same `v<version>` tag that
+runs the `release` workflow and publishes the binaries, and at the same version:
+`v0.9.0` publishes `opensysml` 0.9.0. CircleCI builds the distribution and puts it on
+the GitHub release; the GitHub Actions workflow
+[`release-pypi.yml`](../../.github/workflows/release-pypi.yml) uploads it from there
+with trusted publishing. Nothing is uploaded from a laptop, and no other tag
 publishes the package. Releases up to 0.5.0 were cut on a tag of their own,
 `opensysml-v<version>`, which the workflow no longer matches; the version line
 before that carries on from `pysysml` 0.2.0, which was the same client, so no version
@@ -1106,13 +1364,12 @@ The cost is that a client-only fix is a core release (a patch tag, with the
 binaries rebuilt from the same source), and that one step of a release is
 irreversible: `publish-github-release` runs `ghr -replace`, so re-running a tag's
 workflow replaces the GitHub assets, while a PyPI version can be yanked but never
-re-uploaded. `publish-pypi` therefore refuses a version the index already has, and
-on a re-run of a published tag that job fails by design while the rest of the
-workflow succeeds — the package was already published from the same revision, so
-nothing is missing. The upload runs last, only after the whole suite has passed on
-the tagged revision and the GitHub release is published, so a failure anywhere
-else — a rebuild, an expired GitHub token — never leaves a package on PyPI whose
-release does not exist.
+re-uploaded. The upload therefore refuses a version the index already has, and
+on a re-run for a published tag it fails by design while the rest succeeds — the
+package was already published from the same revision, so nothing is missing. The
+upload runs last, only after the whole suite has passed on the tagged revision and
+the GitHub release is published, so a failure anywhere else — a rebuild, an expired
+GitHub token — never leaves a package on PyPI whose release does not exist.
 
 ### The version, in one place
 
@@ -1156,55 +1413,56 @@ the post-release `0.9.0.post1` and sent to PyPI proper.
 python client/python/scripts/check_version.py --tag v0.9.0-rc1   # prints 0.9.0rc1
 ```
 
-### What the job needs
+### What the publication needs
 
-The token lives in a **restricted context**, not in project environment
-variables, so only the release path can read it:
+The upload is made by [`release-pypi.yml`](../../.github/workflows/release-pypi.yml)
+with [trusted publishing](https://docs.pypi.org/trusted-publishers/): PyPI accepts the
+workflow's short-lived OIDC token, there is no token to store, and every uploaded file
+carries a [PEP 740 attestation](https://docs.pypi.org/attestations/) naming the
+workflow that published it. A maintainer registers the publisher once per project and
+index:
 
-1. In CircleCI, **Organization Settings → Contexts**, in the context named
-   `PyPI` (create it if the organization does not have it yet). A context
-   reference in the config is matched exactly, so the name must be spelled with
-   the same case in both places.
-2. **Restrict it to a security group** (Contexts → `PyPI` → *Add security
-   group*) so only that group's members can run a job that uses it. A context
-   with no group restriction is readable by every project job.
-3. Add the token as `PYPI_API_TOKEN` (an *environment variable* in that
-   context). `TWINE_USERNAME` is `__token__`, set by the job; only the token
-   value belongs in the context.
-4. Optionally add `TEST_PYPI_API_TOKEN`, a TestPyPI token, which is what a
-   pre-release tag uses (see the dry run below).
+- **PyPI** — in the publishing settings of
+  [`opensysml`](https://pypi.org/manage/project/opensysml/settings/publishing/) and of
+  [`jupyter-opensysml-kernel`](https://pypi.org/manage/project/jupyter-opensysml-kernel/settings/publishing/),
+  add a GitHub Actions publisher with owner `Open-MBEE`, repository `OpenSysML`,
+  workflow `release-pypi.yml` and environment `pypi` — beside the nightly's entry
+  (`nightly.yml`, environment `nightly`), which stays.
+- **TestPyPI** — the same two entries on [test.pypi.org](https://test.pypi.org/manage/projects/),
+  which is where a pre-release tag publishes (see [Dry run on
+  TestPyPI](#dry-run-on-testpypi)); without them a pre-release tag's upload fails with the
+  index's authentication error and nothing else changes.
+- **GitHub** — the `pypi` environment is created on the workflow's first run; nothing
+  need be added to it. Protection rules on it (required reviewers, a wait timer) gate the
+  two upload jobs without affecting the GitHub release.
 
-`.circleci/config.yml` references the context from the job in the workflow:
+Until a publisher is registered, its upload job fails with the index's authentication
+error; the release is already published by then and nothing is half done. Keep a
+second owner/maintainer on both PyPI projects, so they are not tied to one account.
 
-```yaml
-      - publish-pypi:
-          context:
-            - PyPI
-```
+### Why a GitHub workflow and not a CircleCI job
 
-Any other variables that context happens to carry are ignored. In particular a
-`PYPI_USERNAME`/`PYPI_PASSWORD` pair cannot publish to PyPI at all: uploads from
-an account with 2FA have required an API token or a trusted publisher since
-2023-06-01, and 2FA has been mandatory for every account since 2024-01-01, so a
-password is answered with a 403.
+Releases up to 0.11.0 were uploaded by a CircleCI job with an API token from the `PyPI`
+context. PyPI attaches an attestation only to a file uploaded by a trusted publisher,
+and CircleCI is not one: the supported providers are GitHub Actions, Google Cloud,
+ActiveState and GitLab CI/CD, and CircleCI support is still open upstream
+([pypi/warehouse#13888](https://github.com/pypi/warehouse/issues/13888), with
+[pypi/warehouse#19349](https://github.com/pypi/warehouse/pull/19349) in review; once PyPI
+accepts CircleCI's identity the upload could move back beside the build). The nightly
+snapshots have published with attestations from the start, so every token-published
+release showed PyPI's *Loss of provenance* warning (0.10.0, 0.10.1 and 0.11.0 keep it:
+an attestation can only be attached at upload, and a version is never re-uploaded;
+[Verifying a release](../guide/security.md#python-packages) says how those files are
+checked against the signed manifest instead). The bytes did not move: CircleCI still
+builds the distributions, lists them in the manifest it signs and publishes them on the
+GitHub release; the workflow takes them from there and publishes them under its own
+identity after checking them against that manifest.
 
-The job refuses to run `twine` when the variable it needs is absent, naming the
-variable and the context, rather than letting PyPI answer with a 403 that reads
-like a permissions problem. It never echoes the token and never prints the
-environment.
-
-### The token the job uses
-
-`opensysml` exists on PyPI (0.3.0 and 0.3.1 are published), so the token in the
-`PyPI` context as `PYPI_API_TOKEN` must be **scoped to the `opensysml` project**,
-never account-scoped: an account-scoped token in CI can publish anything the
-account owns. Keep a second owner/maintainer on the PyPI project as well, so it is
-not tied to one account.
-
-PyPI trusted publishing (OIDC) is not an option: the supported providers are
-GitHub Actions, Google Cloud, ActiveState and GitLab CI/CD, and CircleCI support
-is still open upstream ([pypi/warehouse#13888](https://github.com/pypi/warehouse/issues/13888)).
-An API token is the authentication CircleCI has.
+The `PyPI` context and its `PYPI_API_TOKEN` are read only by the
+[`pysysml` placeholder](#the-final-pysysml-release) job now; nothing of a `v*` release
+reads them. A `PYPI_USERNAME`/`PYPI_PASSWORD` pair cannot publish to PyPI at all:
+uploads from an account with 2FA have required an API token or a trusted publisher
+since 2023-06-01, and 2FA has been mandatory for every account since 2024-01-01.
 
 ### What the jobs do, in order
 
@@ -1233,17 +1491,32 @@ it attaches) and gates `build-release`:
    pins are the manifest's `sysml-grpc-*` lines, signs the manifest, and checks
    the distribution's names carry the tag's version.
 
-`publish-pypi`, which runs last, after the Go suite, the Python client tests,
-`build-release` and `publish-github-release` have all passed on the tagged revision:
+`release-pypi.yml`, which the same tag runs on GitHub Actions, in three jobs:
 
-1. Resolves the version from the tag again and checks the workspace holds the
-   wheel and sdist of that version.
-2. Requires the token for the index it will use.
-3. Refuses to continue if that index already has this version (a re-run of an
-   already-published version fails here, deliberately: it cannot be replaced,
-   and `--skip-existing` would let a half-intended re-run look successful).
-4. `twine check --strict` again, then `twine upload` with
-   `TWINE_USERNAME=__token__` and the token from the context.
+1. `fetch` resolves the version from the tag again, with `check_version.py` for both
+   packages, and routes a pre-release to TestPyPI. It then waits, with
+   `scripts/wait-for-release-gate.sh`, until CircleCI has published the release —
+   `SHA256SUMS.txt.bundle` is uploaded only after the Go suite, every client's tests
+   and `build-release` passed on the tag — and checks the tag still names the commit
+   it checked out. It downloads the wheel, the sdist, the kernel's sdist and five
+   wheels, the manifest and its signature from the release; verifies the signature
+   under the pipeline's identity (the issuer and project the Python client pins);
+   checks each file is a line of the manifest and matches it; runs `twine check
+   --strict`; installs the wheel into a clean virtualenv and, with no binary
+   configured, loads and evaluates a model against the release the tag names (the
+   zero-config smoke `python-zero-config-smoke` also runs on CircleCI); and keeps the
+   files as artifacts of the run.
+2. `pypi` (the client) and `jupyter-kernel` (the kernel package), each in the `pypi`
+   environment with `id-token: write`, refuse to continue if the index already has the
+   version (a re-run for a published release fails here, deliberately: a version cannot
+   be replaced, and `--skip-existing` would let a half-intended re-run look successful)
+   and publish with [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish),
+   which attests each file. The two jobs are independent, so one project refusing a
+   re-run does not block the other.
+
+A publication a transient failure interrupted — Sigstore or the index answering 5xx —
+is retried with `gh workflow run release-pypi.yml -f tag=vX.Y.Z`: the index check makes
+the retry a deliberate failure for a project already published, and the other publishes.
 
 ### Dry run on TestPyPI
 
@@ -1260,8 +1533,8 @@ $EDITOR client/python/opensysml/_version.py
 git tag -a v0.9.0-rc1 -m "v0.9.0-rc1" && git push origin v0.9.0-rc1
 ```
 
-The job resolves the version, sees a PEP 440 pre-release, requires
-`TEST_PYPI_API_TOKEN`, and uploads to `https://test.pypi.org/legacy/`. Verify it
+The workflow resolves the version, sees a PEP 440 pre-release, and uploads to
+`https://test.pypi.org/legacy/` with the TestPyPI trusted publisher. Verify it
 the same way as a real release, pointing pip at TestPyPI but taking the
 dependencies from PyPI:
 
@@ -1275,7 +1548,17 @@ OPENSYSML_GRPC_VERSION=v0.9.0-rc1 python -c "import opensysml; print(opensysml._
 Then set `VERSION` to the final version and tag `v0.9.0`.
 
 Nothing about the pre-release path is required for a normal release; if you skip
-it, no TestPyPI token is needed at all.
+it, no TestPyPI publisher is needed at all.
+
+The workflow itself is rehearsed against any existing release, without a tag:
+
+```bash
+gh workflow run release-pypi.yml -f tag=v0.11.0 -f dry_run=true
+```
+
+fetches, verifies and smoke-tests that release's distributions, looks both versions
+up on the index, and publishes nothing. The CircleCI rehearsal
+(`release_rehearsal`) does not reach this workflow: a branch has no release to fetch.
 
 ### Verifying an upload
 
@@ -1344,10 +1627,12 @@ distributions are built the way the Python client's is, from the binaries themse
 3. `build-release` lists the kernel binaries, their `.sha256` sidecars and the six kernel
    distributions in `SHA256SUMS.txt`, checks every wheel's pins against the manifest it is
    about to sign, and signs it.
-4. `publish-pypi-jupyter-kernel` runs after the GitHub release exists, refuses a version the
-   index already has, and uploads the verified distribution with the same `PyPI` context
-   as `publish-pypi`. The project needs its own trusted-publisher or token entry on PyPI;
-   the token in the context must be allowed to upload to both projects.
+4. `release-pypi.yml` publishes them with the Python client's distribution once the GitHub
+   release exists: it verifies the six files against the signed manifest, refuses a version
+   the index already has, and uploads them with trusted publishing in a job of their own, so
+   a re-run refused for one project does not block the other. The project needs its own
+   trusted-publisher entries on PyPI and TestPyPI (see [What the publication
+   needs](#what-the-publication-needs)).
 
 `tests/hygiene/release_config_test.go` holds the configuration to this order, and
 `pin_release_checksums.py` to the rule that a release carrying any kernel asset carries all
@@ -1366,12 +1651,12 @@ tag that publishes the binaries and `opensysml` — at that version. No other ta
 publishes it; the `client-node-v*` path never ran and is no longer matched.
 The npm packages are published with core releases at the client's version, and
 the `npm` context they need is already in place (see
-[What the job needs](#what-the-job-needs-1)). The same job publishes the MCP
-server's npm runner, `@openmbee/sysml-mcp` (`packaging/npm/sysml-mcp`), and its
-five platform packages, at the same version; see
-[Thirteen packages, one tag](#thirteen-packages-one-tag).
+[What the job needs](#what-the-job-needs)). The same job publishes the MCP
+server's npm runner, `@openmbee/sysml-mcp` (`packaging/npm/sysml-mcp`), its
+five platform packages and its alias `@openmbee/opensysml-mcp`, at the same
+version; see [Fourteen packages, one tag](#fourteen-packages-one-tag).
 
-### Thirteen packages, one tag
+### Fourteen packages, one tag
 
 `@openmbee/opensysml` carries no binary. The service binary comes from one of five
 per-platform packages it names in `optionalDependencies`, which npm installs by
@@ -1414,7 +1699,27 @@ client's are. The win32 package carries the binary CircleCI built and
 `SHA256SUMS.txt` covers, as `@openmbee/opensysml-sysml-grpc-win32-x64` does;
 the Authenticode-signed `sysml-mcp.exe` is produced afterwards by the GitHub
 `release-windows` workflow and reaches only the signed release zip (see
-[Windows Authenticode signing](#windows-authenticode-signing)). Where no
+[Windows Authenticode signing](#windows-authenticode-signing)).
+
+The fourteenth package, `@openmbee/opensysml-mcp`, is the runner under the name the
+other OpenSysML npm packages share (`@openmbee/opensysml`, `@openmbee/opensysml-wasm`,
+`@openmbee/opensysml-sysml-grpc-<os>-<cpu>`), so that `npx -y @openmbee/opensysml-mcp`
+starts the same server. It has no source tree of its own: `npm run platform-packages`
+generates it from `packaging/npm/sysml-mcp` into `client/node/packages/opensysml-mcp`
+whenever it builds the `sysml-mcp` platform packages — the same `bin/`, `lib/` and README,
+the manifest renamed, with `opensysml-mcp` as a second command beside `sysml-mcp` (`npx`
+runs the one named for the package), the same five `@openmbee/sysml-mcp-<os>-<cpu>`
+platform packages pinned at the version being built, and no `mcpName`: the MCP Registry
+listing stays with `@openmbee/sysml-mcp` (see [Listing `sysml-mcp` in the MCP Registry](#listing-sysml-mcp-in-the-mcp-registry)). One set of
+platform binaries therefore serves both names. The alias is published last, after the
+runner it is the other name of, and `scripts/npm-mcp-test.sh` proves the packed alias
+beside this platform's package through both commands before anything is published.
+`@openmbee/opensysml-mcp@0.11.0` was published by hand from the `v0.11.0`
+`packaging/npm/sysml-mcp` tree with exactly the changes the generator now makes (name,
+install line, both commands, no `mcpName`), which is why the generated package keeps that
+shape; the job's refusal of a version already on the registry sees it as published like
+any other version, so a re-run of `v0.11.0` would refuse it rather than publish over it.
+Where no
 platform package matches — a platform with no
 release build — the client falls back to `$OPENSYSML_BINARY`, a binary in
 `~/.opensysml/bin/`, a release download into that cache, `sysml-grpc` on
@@ -1449,7 +1754,7 @@ binary via the platform package; install `@openmbee/opensysml-wasm` at the same
 version for Node's automatic `connectWasm()` package resolution. The cost: a
 client-only fix is a core patch release. And since an npm publish is
 irreversible, the job runs last and refuses
-a version already on the registry, just like `publish-pypi`.
+a version already on the registry, just like the PyPI upload.
 
 ### The version
 
@@ -1464,7 +1769,7 @@ spell the SemVer version exactly, `v` aside.
 ### Pre-releases
 
 A pre-release tag — the same one that sends `opensysml` to TestPyPI — publishes
-all thirteen packages to the `next` dist-tag; `latest` is untouched. Install a
+all fourteen packages to the `next` dist-tag; `latest` is untouched. Install a
 pre-release with `@next` or the exact version (`npx -y @openmbee/sysml-mcp@next`).
 
 ### What the job needs
@@ -1479,7 +1784,10 @@ Everything below is already in place; it is recorded so it can be re-created.
    register the nightly on it on npmjs.com (package *Settings → Trusted
    publishing*: GitHub Actions, repository `Open-MBEE/OpenSysML`, workflow
    `nightly.yml`, environment `nightly`). `@openmbee/sysml-mcp` and its five
-   platform packages ship this way first.
+   platform packages shipped this way first, with `v0.11.0`;
+   `@openmbee/opensysml-mcp` was created by hand at the same version (see
+   [Fourteen packages, one tag](#fourteen-packages-one-tag)), so the nightly's
+   trusted publisher must be registered on it the same way.
 2. A **granular access token** stored as `NPM_TOKEN` in the CircleCI restricted
    context `npm` (lower-case, matched exactly, restricted to a security group).
    The token was created on npmjs.com → *Access Tokens* → *Generate New Token*
@@ -1495,7 +1803,20 @@ Everything below is already in place; it is recorded so it can be re-created.
 
 ### What the job does, in order
 
-`publish-npm` runs after `publish-github-release`, beside `publish-pypi`:
+`build-npm-package` runs beside `build-python-package`, after
+`build-release-binaries` and before `build-release`: it checks the tag against
+`client/node/package.json`, stamps the five `sysml-grpc-*` digests of `dist/grpc`
+into `client/node/release-digests.json` exactly as step 2 below does, builds the
+client from its lockfile (`npm install --ignore-scripts`, the lockfile unchanged),
+packs it into `dist/npm/` and opens the tarball to assert its table pins all five
+service assets for the tag, then packs `@openmbee/sysml-mcp` and, through the
+generator (`npm run platform-packages -- --mcp ../../dist/mcp`), its alias
+`@openmbee/opensysml-mcp`, and persists `dist/npm`. `build-release` writes an
+SBOM per tarball and lists tarballs and SBOMs in the manifest it signs, and
+`publish-github-release` uploads the tarballs with the other assets. Nothing is
+packed again afterwards.
+
+`publish-npm` runs after `publish-github-release`, beside the PyPI workflow:
 
 1. Resolves the version: fails if the tag is not `v<version>` matching
    `client/node/package.json`, picks the `latest`/`next` dist-tag from the
@@ -1506,7 +1827,7 @@ Everything below is already in place; it is recorded so it can be re-created.
    `build-python-package` does for the wheel. Only that file in the working
    copy changes; see [Pinned release digests](#pinned-release-digests).
 3. Requires `NPM_TOKEN` from the `npm` context.
-4. Refuses to run if any of the thirteen packages is already on the registry at
+4. Refuses to run if any of the fourteen packages is already on the registry at
    this version (a publish cannot be repeated).
 5. Installs Z3, then builds and tests the client against the release's linux
    binary (`npm install` from the lockfile, build, typecheck, lint, tests), with
@@ -1516,24 +1837,32 @@ Everything below is already in place; it is recorded so it can be re-created.
    one those questions are undecided and the tests fail.
 6. Builds the five platform packages from `dist/grpc`, the five `sysml-mcp`
    platform packages from `dist/mcp` and the WASM package from `dist/wasm`,
-   checking every asset against its `.sha256` sidecar.
-7. Packs the client into `dist/npm/` with `npm pack` and opens the tarball:
-   its `release-digests.json` must pin all five service assets for the tag,
-   with the digests of the binaries in `dist/grpc`, or the job fails. Then
-   packs `@openmbee/sysml-mcp` beside it: the tarball must be the tag's
-   version with no dependencies and its five platform packages pinned at it,
-   and `scripts/npm-mcp-test.sh` installs that tarball with the linux-x64
-   platform package from step 6 into a throwaway project and speaks
-   `initialize` and `tools/list` to the installed command, or the job fails.
+   checking every asset against its `.sha256` sidecar, and generates
+   `@openmbee/opensysml-mcp` from `packaging/npm/sysml-mcp` beside them.
+7. Takes the three tarballs from `dist/npm/`, where `build-npm-package` packed
+   them before the manifest was written, and checks each against the signed
+   `SHA256SUMS.txt` with `sha256sum --check --strict`. The client's tarball was
+   opened there: its `release-digests.json` must pin all five service assets
+   for the tag, with the digests of the binaries in `dist/grpc`, or that job
+   fails. Here `@openmbee/sysml-mcp`'s tarball must be the tag's version with
+   no dependencies and its five platform packages pinned at it, and
+   `scripts/npm-mcp-test.sh` packs the same tree with the linux-x64 platform
+   package from step 6 into a throwaway project and speaks `initialize` and
+   `tools/list` to the installed command, then does the same with the
+   generated `@openmbee/opensysml-mcp` through both of its commands, or the job
+   fails. Then `@openmbee/opensysml-mcp`'s tarball must be the tag's version,
+   pin the runner's five platform packages at it, declare `sysml-mcp` and
+   `opensysml-mcp` and no `mcpName`.
 8. Authenticates to npm and runs `npm whoami`, so an expired token fails before
    the first publish.
-9. Publishes the WASM and ten platform packages, then the client and
-   `@openmbee/sysml-mcp` — the tarballs verified in step 7, not fresh packs —
+9. Publishes the WASM and ten platform packages, then the client,
+   `@openmbee/sysml-mcp` and last `@openmbee/opensysml-mcp` — the tarballs
+   verified in step 7, the bytes the signed manifest lists, not fresh packs —
    on the resolved dist-tag.
 
 ### If a publish goes wrong
 
-`publish-npm` runs after `publish-github-release` and beside `publish-pypi`, so
+`publish-npm` runs after `publish-github-release` and beside the PyPI workflow, so
 a failure there leaves the GitHub release and PyPI in place. Before the first
 `npm publish` — a version/tag mismatch, a missing or expired token, an `npm
 whoami`, build, test or digest failure — nothing is on npm: fix the cause (for
@@ -1542,7 +1871,7 @@ workflow from failed* — without repeating the rest of the workflow.
 
 After the first publish the version is used: the registry refusal makes a
 re-run fail by design, and a half-published set — some platform packages up,
-the client or `@openmbee/sysml-mcp` not — is not repaired by re-running. `npm deprecate` what went up
+the client, `@openmbee/sysml-mcp` or `@openmbee/opensysml-mcp` not — is not repaired by re-running. `npm deprecate` what went up
 (and `npm unpublish` within 72 hours only if nothing depends on it) and cut the
 next core patch release. Never remove the refusal to force a re-run through.
 
@@ -1597,10 +1926,10 @@ None of these can be provisioned from a checkout. The key and the token live
 in the restricted context **`Maven Central`** (Organization Settings →
 Contexts — a context reference is matched exactly, so the case has to match),
 which holds `CENTRAL_TOKEN_USERNAME`, `CENTRAL_TOKEN_PASSWORD`,
-`GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`, set up like the PyPI and npm contexts
+`GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`, set up like the `npm` context
 (see [what the job needs](#what-the-job-needs)). Contexts restricted to a
 security group admit only their members, so whoever pushes the tag must be
-allowed to use all of them — `PyPI`, `npm`, `Maven Central` and `crates.io` —
+allowed to use all of them — `npm`, `Maven Central` and `crates.io` —
 or the job fails as unauthorized before anything runs. The signing key in
 place is a freshly generated one with a two-year expiry, so the rotation note
 below applies within two years.
@@ -1645,8 +1974,9 @@ and the client version the editors name (`opensysml.client.version` in
 `editors/syson/backend/pom.xml`). `check_version.py --java` in
 `build-python-package` fails the release before anything is built when they
 disagree, and the pytest gate in `test_check_version.py` — including the test
-that every in-repo reference names the pom's version — runs on every PR that
-touches either file. The tag must spell the version exactly, `v` aside.
+that every in-repo reference, the dependent poms and the Markdown `<dependency>`
+snippets, names the pom's version — runs on every PR that touches any of them.
+The tag must spell the version exactly, `v` aside.
 
 The editors' own versions are in the same lockstep: every manifest
 `check_version.py --editors` reads — the VS Code and SysON frontend
@@ -1661,7 +1991,7 @@ The client follows the Python and Node clients' choice (see
 release of the same version tested with it in the same pipeline, and a consumer
 pins one number. The old reason for a separate tag — Central is immutable and
 `ghr -replace` re-runs the `v*` tag — is answered by the job running last and
-refusing a version already on Central, like `publish-pypi` and `publish-npm`.
+refusing a version already on Central, like the PyPI workflow and `publish-npm`.
 The cost stays the same too: a client-only fix is a core patch release.
 
 ### What the build already produces
@@ -1681,7 +2011,14 @@ at `verify` (the passphrase comes from `MAVEN_GPG_PASSPHRASE`, never from a
 pom property or the settings), and `central-publishing-maven-plugin` with
 `autoPublish=true` and `waitUntil=published` — the job publishes the validated
 deployment itself and waits until it is published, so a green job means the
-version is on Central. The irreversible step is guarded by running last, on a
+version is on Central. That wait is silent at Maven's default log level (the
+plugin's per-poll status lines are debug output, which the step must never
+enable — it would print the token) and bounded by the plugin's `waitMaxTime`,
+pinned in the pom at its floor of 1800 s with a `waitPollingInterval` of 5 s;
+the deploy step's `no_output_timeout` is 35m so that the plugin's own timeout,
+not CircleCI's 10m no-output default, ends a wait. `tests/hygiene`
+(`TestMavenPublishStepOutlivesThePluginWait`) holds the two values together.
+The irreversible step is guarded by running last, on a
 revision proven green, and by the refusal of a version already published.
 The plugin's pin has to track Sonatype's Portal API: `0.7.0` rejected the
 `warnings` field the deployment-status response gained in October 2026 and
@@ -1707,7 +2044,7 @@ before `0.9.0`. Consumers get it only by naming it.
 
 ### What the job does, in order
 
-`publish-maven` runs after `publish-github-release`, beside `publish-pypi` and
+`publish-maven` runs after `publish-github-release`, beside the PyPI workflow and
 `publish-npm`:
 
 1. Attaches the release workspace, so `dist/grpc` holds the binaries
@@ -1737,11 +2074,14 @@ before `0.9.0`. Consumers get it only by naming it.
    the parent pom the client's pom names. The jar is rebuilt from the tree
    whose stamped resource step 5 verified. The plugin uploads, Central
    validates, `autoPublish` releases the deployment, and the build waits until
-   it is published.
+   it is published — silently, polling every 5 s for up to 30 minutes
+   (`waitMaxTime`), then fails with `DeploymentPublishTimedOutException` naming
+   the deployment. The step's `no_output_timeout` of 35m stays above that, so
+   the wait ends on the plugin's verdict rather than on CircleCI's cut.
 
 ### If a publish goes wrong
 
-`publish-maven` runs after `publish-github-release` and beside `publish-pypi`
+`publish-maven` runs after `publish-github-release` and beside the PyPI workflow
 and `publish-npm`, so its failure leaves the GitHub release, PyPI and npm in
 place. Before the upload — a tag/version mismatch, a missing variable, a
 Central availability-check error, an expired key or wrong passphrase, a build
@@ -1750,9 +2090,21 @@ from failed*, without repeating the rest of the workflow.
 
 A deployment that fails Central validation is not published — `autoPublish`
 only publishes a valid one: drop it in the portal if it remains, fix the cause,
-and re-run. If the job timed out waiting while Central was still publishing,
-check the portal before anything else; the next run's availability check
-answers whether the version landed.
+and re-run. A red that ends in `DeploymentPublishTimedOutException` means
+Central took longer than the plugin's 30-minute `waitMaxTime` to publish an
+uploaded, validated deployment; it says nothing about whether the version
+landed. Check Central's listing of `org.openmbee:opensysml` (the portal's
+*Deployments* page, or `curl -sI` on the version's pom URL under
+`repo1.maven.org`) before anything else: a version that is there needs no
+re-run, and the refusal step fails one by design; only a version that is not
+there, and a deployment the portal shows as failed, is re-run. A step cut by
+CircleCI itself (`Too long with no output`) is now outside the design: the
+step's `no_output_timeout` outlives the plugin's wait, so that message points
+at a status request that hung rather than at a slow publish, and is checked
+against Central the same way. The `v0.11.0` job was lost to the 10m default:
+the plugin logged `Waiting until Deployment … is published` and nothing more,
+CircleCI killed the step ten minutes later, and Central listed the version
+anyway.
 
 Once published the version is immutable — it cannot be replaced or deleted,
 and the refusal makes a re-run fail by design. A published mistake needs the
@@ -1762,8 +2114,12 @@ next core patch release.
 
 Every release tag also lists [`sysml-mcp`](../reference/sysml-mcp.md) in the official
 [MCP Registry](https://registry.modelcontextprotocol.io) as `org.opensysml/sysml-mcp`, so hosts
-and galleries that read the registry (the GitHub MCP Registry, VS Code's *Browse MCP Servers*,
-third-party directories) find it. The registry holds metadata only: `packaging/mcp/server.json`
+and directories that read the registry find it. The [GitHub MCP Registry](https://github.com/mcp),
+which VS Code's *Browse MCP Servers* and Copilot read, is a curated selection of the official one:
+GitHub onboards a server by hand, on a request in the onboarding thread
+[github/github-mcp-server#1257](https://github.com/github/github-mcp-server/discussions/1257),
+and syncs its later versions from the official registry afterwards, so onboarding is asked for
+once, not per release. The registry holds metadata only: `packaging/mcp/server.json`
 names the npm package `@openmbee/sysml-mcp`, whose `package.json` declares
 `"mcpName": "org.opensysml/sysml-mcp"` and which `npx -y @openmbee/sysml-mcp` runs. The
 workflow `.github/workflows/mcp-registry.yml` runs on the tag, and
@@ -1849,7 +2205,7 @@ it followed are gone.
 A crates.io API token with the publish-new/publish-update scopes — scoped to
 the `opensysml` crate alone once it exists — stored as `CARGO_REGISTRY_TOKEN`
 in the restricted context **`crates.io`** (Organization Settings → Contexts —
-the name is matched exactly, lower-case included), set up like the PyPI, npm
+the name is matched exactly, lower-case included), set up like the `npm`
 and `Maven Central` contexts (see [what the job needs](#what-the-job-needs)).
 Whoever pushes the tag must be allowed to use all of them, as the Java section
 above notes. A token can be given an expiry at creation; rotate it before one
@@ -1919,7 +2275,7 @@ so consumers get it only by naming it exactly.
 ### If a publish goes wrong
 
 `publish-crates` runs after `publish-github-release` and beside
-`publish-pypi`, `publish-npm` and `publish-maven`, so its failure leaves those
+the PyPI workflow, `publish-npm` and `publish-maven`, so its failure leaves those
 in place. Before the upload — a tag/version mismatch, a missing token, a
 crates.io availability-check error, a package dry-run failure — nothing is on
 crates.io: fix the cause and *Rerun workflow from failed*.
@@ -2011,7 +2367,7 @@ and names the skipped push.
 
 ### If a publish goes wrong
 
-`publish-docker` runs after `publish-github-release` and beside `publish-pypi`,
+`publish-docker` runs after `publish-github-release` and beside the PyPI workflow,
 `publish-npm`, `publish-maven` and `publish-crates`, so its failure leaves those
 in place and theirs leave the image in place. Before the push — an empty tag, a
 missing variable, a refused login, a build failure, a binary reporting the wrong

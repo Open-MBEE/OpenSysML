@@ -34,14 +34,27 @@ impl Model {
         to_format: &str,
         tolerate_syntax_errors: bool,
     ) -> Result<Conversion, Error> {
-        self.connection.convert(
+        self.convert_with(
             to_format,
-            &ConvertSource::Model(self.hash().to_owned()),
             &ConvertOptions {
                 from_format: FORMAT_SYSML.to_owned(),
                 tolerate_syntax_errors,
                 ..Default::default()
             },
+        )
+    }
+    /// Convert the model to `to_format` with explicit options, as
+    /// [`crate::Connection::convert`] does for a model the service holds: `id_form`,
+    /// `include_library_stubs` and `documents` are gated and sent as it gates and sends them.
+    pub fn convert_with(
+        &self,
+        to_format: &str,
+        options: &ConvertOptions,
+    ) -> Result<Conversion, Error> {
+        self.connection.convert(
+            to_format,
+            &ConvertSource::Model(self.hash().to_owned()),
+            options,
         )
     }
     /// The model as SysML notation.
@@ -63,12 +76,30 @@ impl Model {
         to_format: Option<&str>,
         tolerate_syntax_errors: bool,
     ) -> Result<Conversion, Error> {
+        self.save_with(
+            path,
+            to_format,
+            &ConvertOptions {
+                from_format: FORMAT_SYSML.to_owned(),
+                tolerate_syntax_errors,
+                ..Default::default()
+            },
+        )
+    }
+    /// Convert the model with explicit options, as [`Model::convert_with`] does, and write
+    /// it to `path`, in `to_format` or the format its extension names.
+    pub fn save_with(
+        &self,
+        path: impl AsRef<Path>,
+        to_format: Option<&str>,
+        options: &ConvertOptions,
+    ) -> Result<Conversion, Error> {
         let path = path.as_ref();
         let format = match to_format {
             Some(format) => format,
             None => format_of_path(path)?,
         };
-        let conversion = self.convert(format, tolerate_syntax_errors)?;
+        let conversion = self.convert_with(format, options)?;
         conversion.write(path)?;
         Ok(conversion)
     }

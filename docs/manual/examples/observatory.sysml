@@ -149,30 +149,30 @@ package Observatory {
 		attribute redefines title = "Telescope Mass Report";
 
 		part intro : Paragraph {
-			attribute redefines text = "Mass rollup and requirement status for the telescope assembly.";
+			:>> text = "Mass rollup and requirement status for the telescope assembly.";
 		}
 
 		part guide : Paragraph {
 			part lead : Span {
-				attribute redefines text = "This report is";
+				:>> text = "This report is";
 			}
 			part generated : Span {
-				attribute redefines text = "generated";
+				:>> text = "generated";
 				attribute redefines style = "emphasis";
 			}
 			part sourceNote : Span {
-				attribute redefines text = "from the model by";
+				:>> text = "from the model by";
 			}
 			part tool : Span {
-				attribute redefines text = "sysml -render-document";
+				:>> text = "sysml -render-document";
 				attribute redefines style = "code";
 			}
 			part docsLink : Link {
-				attribute redefines text = "(OpenSysML)";
+				:>> text = "(OpenSysML)";
 				attribute redefines target = "https://opensysml.org/";
 			}
 			part see : Span {
-				attribute redefines text = "— masses are tabulated in";
+				:>> text = "— masses are tabulated in";
 			}
 			part massesRef : Ref {
 				ref redefines target = breakdown;
@@ -201,7 +201,7 @@ package Observatory {
 				attribute redefines title = "Heavy Subsystems";
 
 				part note : Paragraph {
-					attribute redefines text = "Subsystems at or above 10 kg:";
+					:>> text = "Subsystems at or above 10 kg:";
 				}
 
 				part heavyItems : List {

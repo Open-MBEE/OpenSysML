@@ -1,0 +1,5 @@
+{
+  "type": "constraint",
+  "evaluate": "test::empty",
+  "error": "constraint empty: no value: the constraint declares no condition"
+}

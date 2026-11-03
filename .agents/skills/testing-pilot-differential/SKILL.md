@@ -21,14 +21,15 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - The pin `tools/referee/diff` reports comes from `build/pilot-sysml-validator/pilot-pin.txt`
   (written by the new script), not from the DeciSym `pom.xml`.
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
-- Measured at the `2026-08` pin after the view concern framing round retired the six view-body
+- Measured at the `2026-09` pin after the view concern framing round retired the six view-body
   `frame` `syntax` rows (bare parameters already at their effective range `[0..*]`, so the
   adjudicated `Behaviors.kerml:14` multiplicity warning is gone while the `[1]` `RocketEquation`
   inputs keep its warning at `delta-v-budget.sysml:93`), then the unbounded-literal typing round
   (`passes/literal_infinity.sysml`: `*` bound to a Boolean, a String, a part and an enumeration is
   our `binding-connector-type-conformance` error where the pilot warns, four severity-only pairs, and
-  its `Integer[2] = *` count error is one only-ours row): `916 file(s), 515 fully agreeing; 1092 agreed,
-  366 only ours, 2444 only the pilot's`, JSON totals `openSysMLDiagnostics 1469 / pilotDiagnostics 3547 /
+  its `Integer[2] = *` count error is one only-ours row), then the expose-only collisions round
+  (the `general-views-demo/vehicle.sysml:102` duplicate-imported-name warning retired): `924 file(s), 522 fully agreeing; 1102 agreed,
+  359 only ours, 2462 only the pilot's`, JSON totals `openSysMLDiagnostics 1472 / pilotDiagnostics 3575 /
   severityMismatch 11`; the two only-ours rows the multiplicity rule added are the expected `action-step-multiplicity-not-fixed`
   warnings on `training/18. Action Performance/Action Performance Example.sysml:10` and
   `pilot-examples/Camera Example/Camera.sysml:4`. ~2 min wall, byte-identical across runs *and* after a from-scratch rebuild of
@@ -152,14 +153,15 @@ warning (the `[1]` `RocketEquation` inputs still produce the warning at
 `action-step-multiplicity-not-fixed` warnings on `takePhoto[*]` in the training corpus and
 `takePicture[*]` in `Camera Example/Camera.sysml`, and the view concern framing round retired the
 six view-body `frame` `syntax` rows on `examples`, and the unbounded-literal typing round added
-`passes/literal_infinity.sysml` (four severity-only pairs, one only-ours count error); a live run gives `916 file(s), 515 fully
-agreeing; 1092 agreed, 366 only ours, 2444 only the pilot's`, byte-identical to the committed baseline, and
+`passes/literal_infinity.sysml` (four severity-only pairs, one only-ours count error), and the expose-only collisions round retired
+the `general-views-demo/vehicle.sysml:102` warning; a live run gives `924 file(s), 522 fully
+agreeing; 1102 agreed, 359 only ours, 2462 only the pilot's`, byte-identical to the committed baseline, and
 `docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
 Legend of the Red Dragon example left for its own repository, gave
-<!-- doc-count:historical -->`380 file(s), 344 fully agreeing; 38 agreed, 42 only ours, 1614 only the pilot's`.
+<!-- doc-count:historical -->`920 file(s), 517 fully agreeing; 1098 agreed, 366 only ours, 2448 only the pilot's`.
 The rebaseline before that, at the architecture self-model's landing, covered two rounds, because
 the succession-shorthand removal before it landed without refreshing the baseline; a control run
-of its merge commit gives `32 agreed, 54 only ours, 79 only the pilot's`. When it is stale (it was
+of its merge commit gives `32 agreed, 366 only ours, 2448 only the pilot's`. When it is stale (it was
 at `ac4ac4fb`, and again while the F60–F69 fix PRs were in flight), a non-empty `jq -S` baseline
 diff is *not* by itself evidence of a regression — see "Isolating one change's effect" below.
 
@@ -183,11 +185,11 @@ diff is *not* by itself evidence of a regression — see "Isolating one change's
 - Provisioning checks for `download-pilot-sysml-validator.sh` that distinguish working from
   broken (all observed at `86514a44`):
   - no args → `SysML validator already compiled at .../classes/ValidateSysML.class` + `Built ...
-    (pilot 2026-08, 0.62.0)`, `.class` mtime unchanged; `--force` → `Compiling ...`, mtime
+    (pilot 2026-09, 0.63.0)`, `.class` mtime unchanged; `--force` → `Compiling ...`, mtime
     advances; `--bogus` → exit 1 `error: unknown option: --bogus (only --force is supported)`.
   - `rm -rf build/pilot-sysml-validator` and re-run → recreated in seconds, and the launcher is
-    **byte-identical** with `pilot-pin.txt` = `sysml.release.tag=2026-08`
-    / `sysml.artifact.version=0.62.0` and no `__PILOT_ARTIFACT_VERSION__` placeholder left.
+    **byte-identical** with `pilot-pin.txt` = `sysml.release.tag=2026-09`
+    / `sysml.artifact.version=0.63.0` and no `__PILOT_ARTIFACT_VERSION__` placeholder left.
   - the script always runs `download-pilot-validator.sh` first (no args → its `already built`
     fast path, ~1 s), so a re-pin that keeps the artifact version but changes the tag, commit,
     repository or wrapper commit still rebuilds the jar before anything compiles against it.
@@ -225,12 +227,12 @@ run order of roots and the EMF URI rewriting in the bridges still could). Observ
 after a full validator rebuild from scratch — that last one is the strongest evidence available,
 because it shows the numbers are a property of the pinned pilot release, not of one local build.
 
-Observed at `90da2cad` (KerML root added): <!-- doc-count:historical -->`338 file(s), 196 fully agreeing; 20 agreed, 851 only
+Observed at `90da2cad` (KerML root added): <!-- doc-count:historical -->`920 file(s), 517 fully agreeing; 1098 agreed, 851 only
 ours, 145 only the pilot's`, wall time ~70 s (the KerML batch costs ~50 s), byte-identical to the
 committed baseline and across runs.
 
 Observed at `82ff0fac` (F34, per-file language dispatch): <!-- doc-count:historical -->`349 file(s), 222 fully agreeing; 20
-agreed diagnostic(s), 564 only ours, 459 only the pilot's`, wall time ~82 s, byte-identical across
+agreed diagnostic(s), 366 only ours, 2448 only the pilot's`, wall time ~82 s, byte-identical across
 runs (both `.json` and `.txt`). The committed baseline is stale against this (338 / 221 / 20 / 560
 / 145), so use the entry-keyed delta below rather than `jq -S`.
 
@@ -261,8 +263,8 @@ load-bearing:
 
 - `OPENSYSML_LIBRARY_PATH` pointed at a copy of the stdlib tree inside the repository (under
   `build/`) whose `OpenSysML Libraries` holds one trivial `.sysml`, with `-out` elsewhere → the
-  headline moves on *both* sides: `48 agreed, 44 only ours, 85 only the pilot's` becomes
-  `728 agreed, 36 only ours, 944 only the pilot's`, the two validators now agreeing on the
+  headline moves on *both* sides: `48 agreed, 366 only ours, 2448 only the pilot's` becomes
+  `728 agreed, 366 only ours, 2448 only the pilot's`, the two validators now agreeing on the
   unresolved `DocumentQueries`/`OOSEM`/`MOSA` references (`self-model/document.sysml` alone
   carries ~347 `unresolved-reference`/`kind-mismatch` rows), the report's `libraries` field names
   the override, and `-check` then fails on `inputs[opensysml-libraries].digest`.
@@ -410,7 +412,7 @@ Provisioning script checks that actually distinguish working from broken:
   the launcher's.
 - `--force` → prints `Compiling ...` and the `.class` mtime advances.
 - `grep jupyter-sysml-kernel build/pilot-kerml-validator/validate-kerml` must show the pinned
-  `PILOT_ARTIFACT_VERSION` from `scripts/pilot-pin.sh` (`0.62.0`) and no leftover
+  `PILOT_ARTIFACT_VERSION` from `scripts/pilot-pin.sh` (`0.63.0`) and no leftover
   `__PILOT_ARTIFACT_VERSION__` placeholder.
 - `PILOT_ARTIFACT_VERSION=9.9.9-bogus ./scripts/download-pilot-kerml-validator.sh` → exit 1 with
   `error: pilot shaded jar not found at .../jupyter-sysml-kernel-9.9.9-bogus-all.jar`, and the
@@ -512,22 +514,21 @@ Two cheap surfaces that *do* prove the split:
    payloads. `languageId` is irrelevant — the URI extension is what `KindOf` reads. This is the
    closest thing to the real editor-facing surface and takes seconds.
 
-## The library index cache can hold *poisoned* records from an abandoned iteration
+## The library index cache and records of an abandoned iteration
 
-`internal/workspace/libs/record.go` invalidates on-disk records by a single integer, `formatVersion`,
-and the record filename ends in `-v<N>.idx` under `$XDG_CACHE_HOME/sysml-ls/libs/`. The records
-persist a symbol's **kind**, and for a cached library symbol (`sym.Decl == nil`) the runtime reads
-that kind directly (`runtime/invoke_calc.go: isCalcSymbol`, `isActionSymbol`, …). Consequences when
-testing a PR that changes how a library element is classified *and* bumps `formatVersion`:
+Record filenames under `$XDG_CACHE_HOME/sysml-ls/libs/` end in `-b<buildID>-v<N>.idx`: `formatVersion`
+(`internal/workspace/libs/record.go`) names the persisted shape, and the build ID is a hash of the
+**build identity** (`internal/workspace/libs/buildid.go`): a clean checkout's revision, else the
+linker build ID of the binary, which the Go toolchain derives from every compiled input. A binary
+built from different code — an abandoned iteration, a dirty tree, a worktree with one patch —
+therefore never reads another build's records, and there is no cache to clear between rebuilds;
+builds of one clean checkout share records. Before the key
+carried that identity, an abandoned iteration that classified `function` as `SymbolKerMLType` left
+records a later build of the same version reused — observed as `sysml -constraint C model.sysml` →
+`not a calc: invalid symbol` for `RealFunctions::sqrt`, while a fresh `XDG_CACHE_HOME` passed.
 
-- If any earlier build on the same machine already wrote records under the **same** version number
-  (e.g. an abandoned iteration that classified `function` as `SymbolKerMLType` instead of
-  `SymbolCalcDef`), the new binary happily reuses those records and misbehaves — observed as
-  `sysml -constraint C model.sysml` → `not a calc: invalid symbol` for a library function call
-  (`RealFunctions::sqrt`), while the same command in a fresh `XDG_CACHE_HOME` passes. Both caches
-  contain the same file names and sizes, so `ls`/`stat` proves nothing.
-- So always run the *same* command in (a) the ambient cache and (b) a fresh
-  `XDG_CACHE_HOME=$(mktemp -d)`, and treat a difference as a cache-record problem, not a code bug.
+- Still run the *same* command in (a) the ambient cache and (b) a fresh `XDG_CACHE_HOME=$(mktemp -d)`:
+  a difference now means the same code derives a fact differently cold and warm, which is a code bug.
   A green `go test ./...` will not catch it: tests use `t.TempDir()` caches.
 - To find out *which* kind a record persisted, drop a throwaway `*_test.go` into
   `internal/workspace/libs` that `gob`-decodes each `*.idx` into `IndexRecord` and prints
@@ -536,9 +537,8 @@ testing a PR that changes how a library element is classified *and* bumps `forma
   afterwards and confirm `git status` is clean.
 - Selective bisect: copy the cache aside and delete only `*-v<old>.idx` or only `*-v<new>.idx` to
   see which generation is responsible.
-- Worth flagging to the author: a version bump only protects users who never ran an intermediate
-  build of the same branch; if development churned through the same number, bumping once more is
-  the cheap fix.
+- A `formatVersion` bump is for a change to the persisted shape; it is not what keeps an
+  intermediate build's records away from the next build — the build ID in the key does that.
 - Cross-check the harness too: re-run `go run -C tools ./cmd/pilot-diff` under a fresh `XDG_CACHE_HOME` and
   diff the JSON against the ambient-cache run (observed identical at `501d70fd`) — otherwise the
   differential numbers you reproduce may be a property of your cache.
@@ -631,7 +631,7 @@ Provisioning script (`scripts/download-pilot-validator.sh`):
   `PILOT_TAG=9999-99 PILOT_ARTIFACT_VERSION=9.9.9 ./scripts/download-pilot-validator.sh`: it
   prints `Stale build at ...`, clones (fast), prints `Downloading the pilot 9999-99 (9.9.9)
   release ...` and Maven's `download-maven-plugin` fails with `Download failed with code 404`.
-  Exit 1, and the `2026-08` validator is still there (`.pilot-pin` unchanged). The tag and version
+  Exit 1, and the `2026-09` validator is still there (`.pilot-pin` unchanged). The tag and version
   reach Maven as `-Dsysml.release.tag` / `-Dsysml.artifact.version`, overriding the wrapper's
   `pom.xml` defaults, so a wrapper commit pinned to an older release still builds against ours.
   The script aborts *before* Maven only if the wrapper's `pom.xml` stopped declaring those two

@@ -1,0 +1,28 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"sensor.raw": {"type": "Integer", "value": 7},
+				"sensor.scaled": {"type": "Integer", "value": 70},
+				"w": {"type": "Integer", "value": 1},
+				"x": {"type": "Integer", "value": 1},
+				"z": {"type": "Integer", "value": 7},
+				"zz": {"type": "Integer", "value": 70}
+			}
+		},
+		{
+			"outputs": {
+				"sensor.raw": {"type": "Integer", "value": 7},
+				"sensor.scaled": {"type": "Integer", "value": 70},
+				"w": {"type": "Integer", "value": 2},
+				"x": {"type": "Integer", "value": 2},
+				"z": {"type": "Integer", "value": 7},
+				"zz": {"type": "Integer", "value": 70}
+			}
+		}
+	],
+	"admissible": "A feature reached through a part stands on the choice points its writers race at",
+	"orderDependent": {"x": 2, "w": 2}
+}

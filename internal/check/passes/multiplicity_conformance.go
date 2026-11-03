@@ -39,10 +39,10 @@ func (cc *constraintChecker) checkMultiplicityConformance(sym *symbols.Symbol) {
 			continue
 		}
 		supRange, ok := cc.conformanceMultiplicity(target)
-		if !ok || declaresEndFeature(sym) != declaresEndFeature(target) {
+		if !ok || semantics.DeclaresEndFeature(sym) != semantics.DeclaresEndFeature(target) {
 			continue
 		}
-		if redefines && !declaresEndFeature(sym) && lowerBoundWeakened(subRange, supRange) {
+		if redefines && !semantics.DeclaresEndFeature(sym) && lowerBoundWeakened(subRange, supRange) {
 			cc.diags = append(cc.diags, diag.Diagnostic{
 				Severity: diag.SeverityWarning,
 				Span:     rel.Target.Span(),
@@ -92,28 +92,13 @@ func (cc *constraintChecker) conformanceMultiplicity(sym *symbols.Symbol) (seman
 	if rng, ok := cc.model.MultiplicityOf(sym); ok {
 		return rng, true
 	}
-	if declaresEndFeature(sym) {
+	if semantics.DeclaresEndFeature(sym) {
 		return semantics.AssumedRange(), true
 	}
 	if !cc.model.ImplicitMultiplicityApplies(sym) {
 		return semantics.Range{}, false
 	}
 	return semantics.AssumedRange(), true
-}
-
-// declaresEndFeature reports whether a feature is a connector end or carries the
-// `end` modifier.
-func declaresEndFeature(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	switch d := sym.Decl.(type) {
-	case *ast.ConnectorEnd:
-		return true
-	case *ast.Usage:
-		return d.IsEnd
-	}
-	return false
 }
 
 // resolveRelationshipTarget resolves the feature a relationship of sym names,

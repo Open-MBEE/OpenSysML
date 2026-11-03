@@ -74,3 +74,30 @@ func TestFQNOfSkipsUnnamedOwners(t *testing.T) {
 		}
 	}
 }
+
+// A short name is a name of the element too: `P::sn` and `P::ShortNamed` both
+// name the one declaration, as the index registers it under both.
+func TestHasFQNAcceptsTheShortName(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "s.sysml", "package P { attribute def <sn> ShortNamed; attribute def Plain; }")
+
+	syms := idx.LookupQualified("P::ShortNamed")
+	if len(syms) != 1 {
+		t.Fatalf("LookupQualified(P::ShortNamed) len = %d, want 1", len(syms))
+	}
+	sym := syms[0]
+	for _, fqn := range []string{"P::ShortNamed", "P::sn"} {
+		if !HasFQN(sym, fqn) {
+			t.Errorf("HasFQN(ShortNamed, %q) = false, want true", fqn)
+		}
+	}
+	for _, other := range []string{"sn", "P::snx", "Q::sn", "P::Plain"} {
+		if HasFQN(sym, other) {
+			t.Errorf("HasFQN(ShortNamed, %q) = true, want false", other)
+		}
+	}
+	plain := idx.LookupQualified("P::Plain")
+	if len(plain) != 1 || HasFQN(plain[0], "P::sn") {
+		t.Errorf("HasFQN(Plain, P::sn) = true, want false")
+	}
+}

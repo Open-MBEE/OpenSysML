@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // randomFunctionsFQN names the OpenSysML library of random functions.
@@ -25,9 +26,7 @@ func registerRandomFunctions() {
 // drawCall spells the call a draw records: the function's own name over its
 // arguments as evaluated, `uniform(1, 80)`.
 func drawCall(name string, args []semantics.Value) string {
-	if i := strings.LastIndex(name, "::"); i >= 0 {
-		name = name[i+len("::"):]
-	}
+	name = symbols.LastSegment(name)
 	parts := make([]string, len(args))
 	for i, arg := range args {
 		parts[i] = formatDrawn(arg)

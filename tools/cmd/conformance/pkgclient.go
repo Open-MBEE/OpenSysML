@@ -1447,10 +1447,11 @@ func (c *pkgClient) applyEdits(ctx context.Context, request protoreflect.Message
 	if err != nil {
 		return nil, apiError(err)
 	}
-	response := &pb.ApplyEditsResponse{
-		//lint:ignore SA1019 the scenarios pin the deprecated field's compatibility
-		Content:     result.Content,
-		Diagnostics: diagnosticsToProto(result.Diagnostics),
+	response := &pb.ApplyEditsResponse{Diagnostics: diagnosticsToProto(result.Diagnostics)}
+	// The wire fills the sole-document content for a model of one document,
+	// which the public API carries in Documents alone.
+	if len(model.Roots) == 1 && len(result.Documents) == 1 {
+		response.Content = result.Documents[0].Content
 	}
 	for _, document := range result.Documents {
 		response.Documents = append(response.Documents, &pb.EditedDocument{
@@ -1845,10 +1846,22 @@ func verdictToProto(verdict *opensysml.Verdict) *pb.Verdict {
 		Question:       verdict.Question,
 		Status:         verdict.Status,
 		Witness:        witnessToProto(verdict.Witness),
+		Notes:          notesToProto(verdict.Notes),
 		Engine:         verdict.Standing.Engine,
 		Strength:       verdict.Standing.Strength,
 		Bounds:         boundsToProto(verdict.Standing.Bounds),
 	}
+}
+
+func notesToProto(notes []opensysml.VerdictNote) []*pb.VerdictNote {
+	if len(notes) == 0 {
+		return nil
+	}
+	out := make([]*pb.VerdictNote, 0, len(notes))
+	for _, n := range notes {
+		out = append(out, &pb.VerdictNote{Kind: n.Kind, Subject: n.Subject, Text: n.Text})
+	}
+	return out
 }
 
 func witnessToProto(witness []opensysml.WitnessAssignment) []*pb.WitnessAssignment {
@@ -1898,7 +1911,7 @@ func boundsToProto(bounds []opensysml.Bound) []*pb.Bound {
 // queryFromProto reads a scenario's query into the public builders. It reports
 // false for a query the builders cannot state, such as one naming no operator.
 func queryFromProto(query *pb.Query) (opensysml.Query, bool) {
-	out := opensysml.Query{Scope: query.GetScope(), Select: query.GetSelect()}
+	out := opensysml.Query{Scope: query.GetScope(), Select: query.GetSelect(), OrderBy: query.GetOrderBy()}
 	if query.GetWhere() == nil {
 		return out, true
 	}
@@ -1922,6 +1935,17 @@ func conditionFromProto(constraint *pb.Constraint) (*opensysml.Condition, bool) 
 			condition = opensysml.Greater(primitive.GetProperty(), firstValue(primitive.GetValue()))
 		case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS:
 			condition = opensysml.Less(primitive.GetProperty(), firstValue(primitive.GetValue()))
+		case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL:
+			condition = opensysml.GreaterOrEqual(primitive.GetProperty(), firstValue(primitive.GetValue()))
+		case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL:
+			condition = opensysml.LessOrEqual(primitive.GetProperty(), firstValue(primitive.GetValue()))
+		case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_IN:
+			condition = opensysml.In(primitive.GetProperty(), primitive.GetValue()...)
+		case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF:
+			if primitive.GetProperty() != "@type" {
+				return nil, false
+			}
+			condition = opensysml.InstanceOf(primitive.GetValue()...)
 		default:
 			return nil, false
 		}

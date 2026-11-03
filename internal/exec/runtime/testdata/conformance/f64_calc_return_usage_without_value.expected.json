@@ -3,5 +3,5 @@
   "inputs": [
     {"type": "Real", "value": 21.0}
   ],
-  "error": "no result expression: calc test::selectEngine has no return expression: result parameter selectedEngine binds no value; write the result as the trailing expression of the body, or bind it with `return : <type> = <expr>;`"
+  "error": "no value: calc test::selectEngine has no return expression: result parameter selectedEngine binds no value; write the result as the trailing expression of the body, or bind it with `return : <type> = <expr>;`"
 }

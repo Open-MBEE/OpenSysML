@@ -13,7 +13,13 @@ library package DiagramLayout {
              * usages), references (ref usages), ports, constraints, items
              * (item and flow features) and actions. Unset means drawn;
              * false means the modeler suppressed that compartment on this
-             * symbol, so a renderer omits it rather than clipping it. */
+             * symbol, so a renderer omits it rather than clipping it.
+             * A Layout that binds only collapsed or show… switches is legal
+             * and places nothing: it folds the element, or hides its
+             * compartments, where the view lays it out itself. x and y are
+             * needed only to place the element and are bound together:
+             * binding one without the other is an error, and a size without
+             * a place is refused. */
         attribute x : ScalarValues::Real;
         attribute y : ScalarValues::Real;
         attribute width : ScalarValues::Real[0..1];

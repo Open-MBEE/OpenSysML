@@ -11,7 +11,7 @@
     ]},
     "block.voids.base.edges": {"type": "Instance"},
     "block.voids.af.edges": {"type": "Instance"},
-    "block.voids.be": {"error": "voids.be is bound by `binding [1] bind [0..*] base.edges = [0..*] be`"},
+    "block.voids.be": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
     "block.faces": {"type": "Sequence", "elements": [
       {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
       {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}

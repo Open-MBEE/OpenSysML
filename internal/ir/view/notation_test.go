@@ -301,8 +301,10 @@ func TestHiddenEdgeLabelsTakeTheNameAtPinsWithThem(t *testing.T) {
 	rendering := render(t, "gated-flow.sysml", "GatedViews::passView")
 	named := func(r *Rendering) (names []string) {
 		for _, edge := range r.Edges {
-			if edge.Kind == EdgeFlow && (edge.Name != "" || edge.Label != "") {
-				names = append(names, edge.Name+"/"+edge.Label)
+			// A succession flow's keyword is the glyph's, not a name the labels show.
+			label := strings.TrimSpace(strings.TrimPrefix(edge.Label, successionFlowKeyword))
+			if (edge.Kind == EdgeFlow || edge.Kind == EdgeSuccessionFlow) && (edge.Name != "" || label != "") {
+				names = append(names, edge.Name+"/"+label)
 			}
 		}
 		return names
@@ -423,3 +425,27 @@ func TestUnknownElementsAreRefusedOnEveryForm(t *testing.T) {
 // fullNotation draws every optional notation element, as the tests of the
 // elements' drawing ask for.
 var fullNotation = Options{Show: AllShown()}
+
+// A binding's `=` is the glyph's own text, not a connector's optional name:
+// hiding the edge labels leaves it on the line in every form.
+func TestHiddenEdgeLabelsKeepTheBindingEquals(t *testing.T) {
+	rendering := render(t, "interconnection-constraints.sysml", "ParametricViews::placedView")
+	bindings := 0
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeBinding {
+			bindings++
+		}
+	}
+	if bindings == 0 {
+		t.Fatal("the view draws no binding")
+	}
+	for _, form := range []Form{FormText, FormDot, FormMermaid, FormPlantUML, FormD2} {
+		out, err := rendering.WriteWith(form, Options{})
+		if err != nil {
+			t.Fatalf("%s: %v", form, err)
+		}
+		if got := strings.Count(out, "=\"") + strings.Count(out, ": =\n") + strings.Count(out, "== ") + strings.Count(out, "|\"=\"|"); got < bindings {
+			t.Errorf("%s without edge labels writes = on %d of %d bindings:\n%s", form, got, bindings, out)
+		}
+	}
+}

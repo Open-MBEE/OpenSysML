@@ -111,8 +111,7 @@ func TestComplexCrossesEveryValueSurface(t *testing.T) {
 	ctx := context.Background()
 	srv := mustNewService(t, 4)
 	parsed, err := srv.ParseFile(ctx, &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: complexWireModel},
-		ContentHash: "complex-wire",
+		Source: &pb.ParseFileRequest_Content{Content: complexWireModel},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)

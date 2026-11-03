@@ -58,6 +58,10 @@ package W6D {
     calc def IncAtOutOfRange { return : Integer[*] = (1, 2, 3)->includingAt(7, 9); }
     calc def ExclAt { return : Integer[*] = (1, 2, 3)->excludingAt(2); }
     calc def ExclAtOutOfRange { return : Integer[*] = (1, 2, 3)->excludingAt(4); }
+    calc def ExclAtBeyondTheEnd { return : Integer[*] = (1, 2, 3)->excludingAt(5); }
+    calc def ExclAtStraddling { return : Integer[*] = (1, 2, 3)->excludingAt(2, 9); }
+    calc def ExclAtInverted { return : Integer[*] = (1, 2, 3)->excludingAt(3, 2); }
+    calc def ExclAtInvertedOverlap { return : Integer[*] nonunique = (1, 2, 3)->excludingAt(3, 1); }
     calc def Subseq { return : Integer[*] = (1, 2, 3)->subsequence(2, 3); }
     calc def SubseqOutOfRange { return : Integer[*] = (1, 2, 3)->subsequence(1, 4); }
     calc def SubseqEmptyRange { return : Integer[*] = (1)->subsequence(2, 1); }

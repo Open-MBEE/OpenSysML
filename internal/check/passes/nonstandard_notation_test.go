@@ -626,3 +626,73 @@ func TestPrefixMetadataAfterIndividualIsSilent(t *testing.T) {
 		wantSilent(t, "a.sysml", prelude+member+" }")
 	}
 }
+
+// A typing spelled `typed by` is KerML notation (KerML.xtext:600 TypedBy);
+// SysML.xtext:395 DefinedByKeyword admits `:` and `defined by` only. The
+// warning spans the two keywords and its fix writes the SysML spelling.
+func TestTypedByInSysMLIsKerMLNotation(t *testing.T) {
+	for _, src := range []string{
+		"package P { part def D; part p typed by D; }",
+		"package P { attribute def D; attribute a typed by D; }",
+		"package P { part def D; part p typed by D, D; }",
+		"package P { metadata def M; part def D { @ m typed by M; } }",
+		"package P { metadata def M; @ m typed by M; }",
+		"package P { part def D; requirement def R { subject s typed by D; } }",
+		"package P { constraint def C; requirement def R { assume constraint c typed by C; } }",
+		"package P { constraint def C; requirement def R { require constraint c typed by C; } }",
+		"package P { attribute def A; action def B { for i typed by A in (1, 2) { } } }",
+		"package P { attribute def A; calc def F { return r = { in x typed by A; x }; } }",
+	} {
+		wantNotation(t, "a.sysml", src, CodeKerMLNotation,
+			"`typed by` is KerML notation: the SysML v2 grammar spells a typing `:` or `defined by`")
+	}
+	src := "package P { part def D; part p typed by D; }"
+	root, pd, idx := analyzeInputs(t, "a.sysml", src)
+	if len(pd) != 0 {
+		t.Fatalf("%s: parse errors %+v", src, pd)
+	}
+	got := (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root)
+	if len(got) != 1 {
+		t.Fatalf("%s: got %+v, want one diagnostic", src, got)
+	}
+	if text := src[got[0].Span.Offset : got[0].Span.Offset+got[0].Span.Len]; text != "typed by" {
+		t.Errorf("span covers %q, want `typed by`", text)
+	}
+	if len(got[0].Fixes) != 1 || len(got[0].Fixes[0].Edits) != 1 {
+		t.Fatalf("fixes = %+v, want one fix with one edit", got[0].Fixes)
+	}
+	if edit := got[0].Fixes[0].Edits[0]; src[edit.Span.Offset:edit.Span.End()] != "typed" || edit.NewText != "defined" {
+		t.Errorf("fix edit = %+v, want `defined` over the `typed` keyword", edit)
+	}
+}
+
+// A note between the two keywords is outside the fix's edit, so applying the
+// fix keeps it.
+func TestTypedByFixKeepsANoteBetweenTheKeywords(t *testing.T) {
+	src := "package P { part def D; part p typed // keep this note\n by D; }"
+	root, pd, idx := analyzeInputs(t, "a.sysml", src)
+	if len(pd) != 0 {
+		t.Fatalf("parse errors %+v", pd)
+	}
+	got := (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root)
+	if len(got) != 1 || len(got[0].Fixes) != 1 || len(got[0].Fixes[0].Edits) != 1 {
+		t.Fatalf("got %+v, want one diagnostic with one single-edit fix", got)
+	}
+	edit := got[0].Fixes[0].Edits[0]
+	fixed := src[:edit.Span.Offset] + edit.NewText + src[edit.Span.End():]
+	if want := "package P { part def D; part p defined // keep this note\n by D; }"; fixed != want {
+		t.Errorf("fixed source = %q, want %q", fixed, want)
+	}
+}
+
+// The SysML spellings of a typing stay silent, and `typed by` is the KerML
+// spelling in a KerML file.
+func TestSysMLTypingSpellingsAreSilent(t *testing.T) {
+	for _, src := range []string{
+		"package P { part def D; part p : D; part q defined by D; }",
+		"package P { metadata def M; part def D { @ m : M; @ n defined by M; } }",
+	} {
+		wantSilent(t, "a.sysml", src)
+	}
+	wantSilent(t, "a.kerml", "package P { class D; feature p typed by D; feature q : D; }")
+}

@@ -59,9 +59,6 @@ The registry as it stands:
 | SI-299 | `Domain Libraries/Quantities and Units/SI.sysml`:299 | KerML 7.4.9 | documented without a correction |
 | SI-303 | `Domain Libraries/Quantities and Units/SI.sysml`:303 | KerML 7.2.5.4 | corrected — `: MagneticDipoleMomentUnit` → `: ISQElectromagnetism::MagneticDipoleMomentUnit` |
 | USCustomaryUnits-255 | `Domain Libraries/Quantities and Units/USCustomaryUnits.sysml`:255 | SysML v2 §9.8.9.1 | corrected — `229835/900 [K]` → `(229835/900) [K]` |
-| Flows-46 | `Systems Library/Flows.sysml`:46 | SysML v2.1 Beta 2 §8.3.16.2 | corrected — `Message` gains `end occurrence source/target :>> Transfer::source/target` after its `payload` |
-| Flows-99 | `Systems Library/Flows.sysml`:99 | SysML v2.1 Beta 2 §8.3.16.2 | corrected — `abstract message messages` → `abstract action messages` |
-| Flows-103 | `Systems Library/Flows.sysml`:103 | SysML v2.1 Beta 2 §8.3.16.2 | corrected — `messages` gains `end occurrence source/target :>> Message::source/target, transfers::source/target` after its doc comment |
 
 The library entries are derived in [omg-issues.md](omg-issues.md) under "Defects in the vendored
 quantity libraries".
@@ -94,8 +91,8 @@ verification failed and the entry was removed rather than re-pointed.
   the read rather than serve the file unverified.
 - **One entry per published line.** An entry is keyed to one published line, which
   `AsPublished` must match whole; its `Corrected` text may be that line rewritten or
-  that line followed by the declarations a repair inserts after it (`Flows-46`,
-  `Flows-103`), so a multi-line repair is as many entries as published lines it
+  that line followed by the declarations a repair inserts after it (as the retired
+  `Flows-46` and `Flows-103` did), so a multi-line repair is as many entries as published lines it
   changes. Two entries naming the same file and line are refused; several entries
   for one file are applied together.
 - **No entry without provenance.** A missing citation, a missing derivation, a
@@ -116,8 +113,9 @@ verification failed and the entry was removed rather than re-pointed.
   those findings, as a listed hidden-name correction (a line naming a member two imports
   bring, which KerML 7.2.5.4 hides from the importing namespace; `SI.sysml`:303, the one such
   line) or as a listed line of a validation repair, and each listed repair's finding reported
-  over the published file and cleared over the bundled one (`flow-def-end-not-usage` at
-  `Flows::Message`, answered by the three `Flows.sysml` entries). A correction the checker
+  over the published file and cleared over the bundled one (as `flow-def-end-not-usage` at
+  `Flows::Message` was, answered by three `Flows.sysml` entries until the `2026-09` library
+  published the repair). A correction the checker
   still reports at, a finding that vanishes without an entry, or a correction of a line nothing
   rejects, fails a gate.
 

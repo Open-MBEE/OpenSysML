@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -14,14 +15,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
-
-// deprecatedFlag rejects a flag that has been replaced, so the old spelling
-// reports what to write instead of "flag provided but not defined".
-type deprecatedFlag struct{ instead string }
-
-func (f *deprecatedFlag) String() string { return "" }
-
-func (f *deprecatedFlag) Set(string) error { return errors.New(f.instead) }
 
 // runConvert converts the model named on the command line to the format
 // -convert asks for, writing to -o or to stdout.
@@ -43,9 +36,17 @@ func runConvertExit(files []string) int {
 	return status
 }
 
-func runConvert(files []string) (int, error) {
+func runConvert(files []string) (status int, err error) {
+	defer func() {
+		if err == nil {
+			err = writeLibraryReferences()
+		}
+	}()
 	to, err := parseTargetFormat(convertFormat, "-convert")
 	if err != nil {
+		return 0, err
+	}
+	if err := checkLibraryReferencesPath(files); err != nil {
 		return 0, err
 	}
 	if stdlibModel {
@@ -390,6 +391,18 @@ func convertOptions(from, to convert.Format) (convert.Options, error) {
 	opts := convert.Options{Warn: func(message string) {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", message)
 	}}
+	if (libraryReferencesPath != "" || includeLibraryStubs) && to != convert.FormatAPIJSON {
+		return opts, errors.New("-library-references and -include-library-stubs require -convert api-json")
+	}
+	opts.IncludeLibraryStubs = includeLibraryStubs
+	if keepLineBreaks && (from != convert.FormatSysML || to != convert.FormatSysML) {
+		return opts, errors.New("-keep-line-breaks applies to -convert sysml or kerml of a model in that notation")
+	}
+	opts.KeepLineBreaks = keepLineBreaks
+	conversionLibraryReferences = nil
+	if libraryReferencesPath != "" {
+		opts.LibraryReferences = func(refs []export.APIJSONLibraryReference) { conversionLibraryReferences = refs }
+	}
 	if idForm == "" {
 		return opts, nil
 	}
@@ -588,4 +601,32 @@ func convertModel(files []string, to convert.Format) (int, error) {
 		return 0, err
 	}
 	return exitHolds, nil
+}
+
+func checkLibraryReferencesPath(inputs []string) error {
+	if libraryReferencesPath == "" {
+		return nil
+	}
+	for _, path := range append(slices.Clone(inputs), outputPath) {
+		if path != "" && path != "-" && samePath(libraryReferencesPath, path) {
+			return fmt.Errorf("-library-references names %s; the table must not replace a model input or output", path)
+		}
+	}
+	return nil
+}
+
+func writeLibraryReferences() error {
+	if libraryReferencesPath == "" {
+		return nil
+	}
+	refs := conversionLibraryReferences
+	if refs == nil {
+		refs = []export.APIJSONLibraryReference{}
+	}
+	data, err := json.MarshalIndent(refs, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, err = export.WriteFile(libraryReferencesPath, append(data, '\n'))
+	return err
 }

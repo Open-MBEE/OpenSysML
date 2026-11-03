@@ -33,7 +33,8 @@ calc def Held :> Query {
 	in root : Element;
 	Project(
 		source = Descendants(source = root, maxDepth = 3),
-		properties = ("qualifiedName", "name", "pressure")
+		properties = ("qualifiedName", "name", "pressure"),
+		tolerate = true
 	)
 }
 calc def Direct :> Query {

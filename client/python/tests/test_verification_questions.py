@@ -17,12 +17,13 @@ from opensysml.capabilities import (
     CAPABILITY_FEATURE_VALUES,
     CAPABILITY_VERIFICATION,
     CAPABILITY_VERIFICATION_QUESTIONS,
+    CAPABILITY_VERDICT_NOTES,
     MissingCapabilityError,
 )
 from opensysml.connection import Connection
 from opensysml.errors import InvalidRequestError, WrongKindError
 from opensysml.proto import sysml_pb2
-from opensysml.verdict import QUESTION_EVALUATE, QUESTION_HOLDS, Verdict
+from opensysml.verdict import NOTE_ASSUMED_ONE, NOTE_UNCOVERED, QUESTION_EVALUATE, QUESTION_HOLDS, Verdict
 from tests.service_gate import fail_if_service_promised, is_server_available
 
 #: A solver the tests needing an answer need of the service.
@@ -367,3 +368,61 @@ class TestVerificationQuestions:
     def test_the_capability_is_advertised(self):
         info = self.conn.server_info()
         assert CAPABILITY_VERIFICATION_QUESTIONS in info.capabilities
+
+
+def _verdict_with_notes(*notes):
+    stub = Mock()
+    stub.VerifyConstraint.return_value = sysml_pb2.VerifyConstraintResponse(
+        verdict=sysml_pb2.Verdict(
+            kind="constraint",
+            element_id="Tanks::nonNegative",
+            holds=False,
+            question="holds",
+            status="violated",
+            notes=list(notes),
+        ),
+    )
+    conn = make_connection(
+        stub,
+        capabilities=[
+            CAPABILITY_VERIFICATION,
+            CAPABILITY_VERIFICATION_QUESTIONS,
+            CAPABILITY_VERDICT_NOTES,
+        ],
+    )
+    return conn.verify_constraint("Tanks::nonNegative", "hash1", question="holds")
+
+
+def test_a_verdict_carries_the_one_value_assumption():
+    verdict = _verdict_with_notes(
+        sysml_pb2.VerdictNote(
+            kind="assumed_one",
+            subject="Tanks::Tank::level",
+            text="Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the default [0..*] governs it",
+        )
+    )
+
+    (note,) = verdict.notes
+    assert note.kind == NOTE_ASSUMED_ONE
+    assert note.subject == "Tanks::Tank::level"
+    assert note.text.startswith("Assuming Tanks::Tank::level holds one value")
+    assert "assumed_one" in repr(note)
+
+
+def test_a_verdict_carries_what_the_question_leaves_uncovered():
+    verdict = _verdict_with_notes(
+        sysml_pb2.VerdictNote(
+            kind="uncovered",
+            subject="gear",
+            text="Not in the query: what gear asserts about its own objects, as it may hold more than one object; instantiate and validate an object to check it",
+        )
+    )
+
+    (note,) = verdict.notes
+    assert note.kind == NOTE_UNCOVERED
+    assert note.subject == "gear"
+    assert "may hold more than one object" in note.text
+
+
+def test_a_verdict_without_notes_carries_none():
+    assert _verdict_with_notes().notes == []

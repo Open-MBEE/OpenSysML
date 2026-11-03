@@ -397,7 +397,7 @@ func (m *Model) typeConformance(typ, want *symbols.Symbol) Conformance {
 	if typ == nil {
 		return conformanceUnknown()
 	}
-	return Conformance{Known: true, Holds: m.Conforms(typ, want), Found: leafName(typ.Name)}
+	return Conformance{Known: true, Holds: m.Conforms(typ, want), Found: symbols.LastSegment(typ.Name)}
 }
 
 // featureConformance judges a value that is what a feature holds: the feature's
@@ -424,7 +424,7 @@ func (m *Model) featureConformance(sym, want *symbols.Symbol) Conformance {
 		return conformanceUnknown()
 	}
 	if typ := m.nearestDeclaredType(sym); typ != nil {
-		return Conformance{Known: true, Found: leafName(typ.Name)}
+		return Conformance{Known: true, Found: symbols.LastSegment(typ.Name)}
 	}
 	return Conformance{Known: true, Found: "an untyped feature", Untyped: true}
 }
@@ -639,12 +639,12 @@ func (m *Model) composedFrameIndex(scope *symbols.Scope, index ast.Node) (Compos
 
 // describeQuantity names a quantity by the measurement reference it is written in.
 func (m *Model) describeQuantity(ref *symbols.Symbol) string {
-	found := fmt.Sprintf("a quantity in %s", leafName(ref.Name))
+	found := fmt.Sprintf("a quantity in %s", symbols.LastSegment(ref.Name))
 	if m.IsVectorReference(ref) {
-		found = fmt.Sprintf("a vector quantity in %s", leafName(ref.Name))
+		found = fmt.Sprintf("a vector quantity in %s", symbols.LastSegment(ref.Name))
 	}
 	if typ := m.nearestDeclaredType(ref); typ != nil {
-		found += fmt.Sprintf(" (a %s)", leafName(typ.Name))
+		found += fmt.Sprintf(" (a %s)", symbols.LastSegment(typ.Name))
 	}
 	return found
 }

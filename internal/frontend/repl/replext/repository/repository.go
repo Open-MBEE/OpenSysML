@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/modelsync"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
@@ -181,10 +181,7 @@ func simpleName(graph *rdf.Graph, root rdf.Term, qualified string) string {
 	if name, ok := graph.Lexical(root, rdf.SysML+"declaredName"); ok && name != "" {
 		return name
 	}
-	if i := strings.LastIndex(qualified, "::"); i >= 0 {
-		return qualified[i+2:]
-	}
-	return qualified
+	return symbols.LastSegment(qualified)
 }
 
 func (repository) Publish(ctx context.Context, base string, req replext.PublishRequest) (*replext.PublishResult, error) {

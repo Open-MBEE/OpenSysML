@@ -1,0 +1,51 @@
+@startuml
+' NotationGlyphs::Diagrams::packageGlyphs — package rendering (view def GeneralView, filter @Package)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«package»//</size>\n**NotationGlyphs**" as n0 <<package>>
+class "<size:10>//«package»//</size>\n**Lib**" as n1 <<package>>
+class "<size:10>//«package»//</size>\n**Uses**" as n2 <<package>>
+n0 +-- n1
+n0 +-- n2
+n2 0-- "L" n1
+@enduml

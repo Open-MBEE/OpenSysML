@@ -127,7 +127,7 @@ func (ctx *Context) passedFeatureReferences(scope *symbols.Scope, expr ast.Node)
 				if n.Member == nil || len(n.Member.Parts) == 0 {
 					continue
 				}
-				base, parts := chainBase(n)
+				base, parts := ast.FeatureChainBase(n)
 				members := make([]string, len(parts))
 				for i, part := range parts {
 					members[i] = part.Text

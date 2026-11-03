@@ -1,0 +1,62 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% InheritedPrefixViews::rigLinks — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["`*«part def»* **Rig**`"]
+    direction LR
+    subgraph n1 ["`*«part»* **a**`"]
+      direction LR
+      n1.0["^aPort"]
+      n2("`*«attribute»*
+**^mass**`")
+      n3("`*«part»*
+**^engine**`")
+    end
+    subgraph n4 ["`*«part»* **b**`"]
+      direction LR
+      n5("`*«attribute»*
+**^mass**`")
+      n6("`*«part»*
+**^cooler**`")
+      n7("`*«part»*
+**^engine**`")
+    end
+    subgraph n8 ["`*«part»* **c**`"]
+      direction LR
+      n9("`*«attribute»*
+**^mass**`")
+      n10("`*«part»*
+**^engine**`")
+    end
+    subgraph n11 ["`*«part»* **d**`"]
+      direction LR
+      n11.0["^aPort"]
+      n12("`*«attribute»*
+**mass**`")
+      n13("`*«part»*
+**^engine**`")
+    end
+  end
+  n1.0 === n11.0
+  linkStyle 0 stroke-width:3px

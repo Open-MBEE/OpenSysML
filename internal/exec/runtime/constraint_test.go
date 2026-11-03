@@ -101,7 +101,7 @@ func TestConstraintEvaluation_Assume(t *testing.T) {
 	src := `
 		package test {
 			constraint WithAssumption {
-				assume constraint { 1 > 5 }  // false assumption, but should pass
+				assume constraint { 1 > 5 }  // false assumption: a constraint's decides nothing
 			}
 		}
 	`
@@ -112,7 +112,7 @@ func TestConstraintEvaluation_Assume(t *testing.T) {
 		t.Fatal("WithAssumption not found")
 	}
 
-	// Evaluate - should pass even though assumption is false
+	// Evaluate - holds: a constraint's assumption binds no result, unlike a requirement's
 	satisfied, err := ctx.EvaluateConstraint(constraintSym, testPkg)
 	if err != nil {
 		t.Fatalf("Assumption should not fail: %v", err)
@@ -120,7 +120,7 @@ func TestConstraintEvaluation_Assume(t *testing.T) {
 	if !satisfied {
 		t.Fatal("Constraint with assumption should be satisfied")
 	}
-	t.Logf("✓ Assumption passed (false assumptions are trusted)")
+	t.Logf("✓ Assumption passed (a constraint's assumption decides nothing)")
 }
 
 func TestConstraintEvaluation_Negation(t *testing.T) {
@@ -171,8 +171,8 @@ func TestConstraintWithoutConditionsIsNotAVerdict(t *testing.T) {
 	}
 
 	satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
-	if !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("err = %v, want ErrNoConditions", err)
+	if !errors.Is(err, ErrNoValue) || !strings.Contains(err.Error(), "declares no condition") {
+		t.Fatalf("err = %v, want ErrNoValue naming the missing condition", err)
 	}
 	if satisfied {
 		t.Error("an unevaluated constraint reported as satisfied")

@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "instantiate": "test::Caller",
+  "libraries": true,
+  "slots": {
+    "got": {"type": "Integer", "value": 1},
+    "sentByPerformance": {"type": "Integer", "value": 1},
+    "sentByPart": {"type": "Integer", "value": 1},
+    "fromCall": {"type": "Boolean", "value": true}
+  }
+}

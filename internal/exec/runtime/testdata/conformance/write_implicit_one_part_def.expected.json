@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::P::a",
+	"performers": [{
+		"object": "test::p",
+		"error": "write z of object #1: feature value p.z: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1"
+	}]
+}

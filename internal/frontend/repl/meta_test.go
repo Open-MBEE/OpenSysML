@@ -86,12 +86,6 @@ func TestMetaLoad(t *testing.T) {
 	}
 }
 
-func TestIsMeta(t *testing.T) {
-	if !isMeta("%help") || isMeta("package P") || isMeta("") {
-		t.Fatal("isMeta classification wrong")
-	}
-}
-
 func TestQueryReportsPropertiesTheQueryCanAskFor(t *testing.T) {
 	s := NewSession()
 	if result := s.Submit("package Demo { part def Wheel; part wheel : Wheel; }"); len(result.Diagnostics) != 0 {

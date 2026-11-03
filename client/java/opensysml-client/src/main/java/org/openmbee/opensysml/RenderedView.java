@@ -33,7 +33,10 @@ public record RenderedView(
     shown = List.copyOf(shown);
   }
 
-  /** A flattened rendered node; parents precede children. */
+  /**
+   * A flattened rendered node; parents precede children. {@code compartment} names the compartment
+   * of the parent the node is drawn as a row of ({@code "parts"}, ...); empty for a box.
+   */
   public record Node(
       String id,
       String kind,
@@ -43,12 +46,15 @@ public record RenderedView(
       String detail,
       String text,
       boolean standIn,
+      boolean inherited,
       String parent,
+      String compartment,
       List<Port> ports,
       Optional<Span> origin,
       Optional<Geometry> geometry,
       Optional<Style> style) {
     public Node {
+      Objects.requireNonNull(compartment, "compartment");
       ports = List.copyOf(ports);
       Objects.requireNonNull(origin, "origin");
       Objects.requireNonNull(geometry, "geometry");
@@ -56,8 +62,11 @@ public record RenderedView(
     }
   }
 
-  /** One rendered feature on a node's boundary. */
-  public record Port(String id, String name, String type, String direction) {}
+  /**
+   * One rendered feature on a node's boundary; {@code inherited} when the node's owner has it
+   * from its type rather than declares it, drawn with a {@code ^} before its name.
+   */
+  public record Port(String id, String name, String type, String direction, boolean inherited) {}
 
   /** Position and size of a node; an unplaced one only folds or hides it, x and y carrying no position. */
   public record Geometry(
@@ -150,7 +159,9 @@ public record RenderedView(
                         node.getDetail(),
                         node.getText(),
                         node.getStandIn(),
+                        node.getInherited(),
                         node.getParent(),
+                        node.getCompartment(),
                         node.getPortsList().stream()
                             .map(
                                 port ->
@@ -158,7 +169,8 @@ public record RenderedView(
                                         port.getId(),
                                         port.getName(),
                                         port.getType(),
-                                        port.getDirection()))
+                                        port.getDirection(),
+                                        port.getInherited()))
                             .toList(),
                         node.hasOrigin() ? Optional.of(span(node.getOrigin())) : Optional.empty(),
                         node.hasGeometry()

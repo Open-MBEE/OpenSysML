@@ -407,11 +407,3 @@ func vertexName(node ast.Node) string {
 	}
 	return runtime.ActionNodeName(node)
 }
-
-// qualifiedName renders a qualified name as written, "" for nil.
-func qualifiedName(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	return semantics.QualifiedNameText(qn)
-}

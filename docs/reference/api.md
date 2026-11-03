@@ -26,7 +26,9 @@ Nothing else is installed — the standard library is embedded in the module and
 never shell out — and a `Client` is safe to share across goroutines, so one per process is the
 intended shape. `ParseFile` and `ParseSource` each parse one document; `ParseFiles` and
 `ParseDocuments` parse several as one model, each keeping its own name, so an import between them
-resolves and a diagnostic locates itself in the file it came from.
+resolves and a diagnostic locates itself in the file it came from. `ParseDocuments` given
+`WithBaseModel(previous)` fills the model's `Affected` with the documents whose results may differ
+from the base model's, under the `parse_sources_affected` capability.
 
 `ExecuteAction`, `ExecuteState` and `RunAnalysis` answer one run, under the scheduling policy
 `WithSchedule`/`Schedule` names (`declared`, `reverse`, `seed:<n>`), on the object
@@ -63,6 +65,12 @@ discarded older records in `StateRun.Trace` and `StateRun.TraceDropped`. It requ
 When a traced run fails, the existing `FailureError` carries its partial records in `Trace`
 and the discarded count in `TraceDropped`.
 
+The same `WithTrace()` on `ExecuteAction` returns the run's token steps, waits, accepts,
+decisions, assignments (`Feature` and `Value`) and completion in `ActionRun.Trace` and
+`ActionRun.TraceDropped`; it requires the `action_trace` capability. `WithEvents(names...)`
+posts signals or items to the performer in order, each once every token of the run waits —
+the waiting `accept` takes it on the next step — and needs `WithPerformer`.
+
 A `Session` (`opensysml.OpenSession(client, model)`) is the interactive counterpart of those
 one-run calls: it keeps its clock, its schedule (`SetSchedule`) and the objects it instantiated
 between calls, so `Instantiate`, `ActiveStates`, `Transitions`, `Accepts`, `Send`, `Advance`,
@@ -87,7 +95,13 @@ features can take, `satisfiable` finds one. A `Verdict` answers it through `Ques
 (`holds` | `violated` | `undecided` | `satisfiable` | `unsatisfiable`), and a violated or
 satisfiable answer carries `Witness`, the free features' replayed values with their units and exact
 spellings; undecided names the reason and reports `ReasonUndecided`. A question other than evaluate
-needs the `verification_questions` capability, checked before anything is sent.
+needs the `verification_questions` capability, checked before anything is sent. A solver's answer
+also carries `Notes`, what it rests on, in the order the REPL's `%check` prints them: a feature the
+question reads as one value or object while only the default `0..*` multiplicity governs it (kind
+`assumed_one`, `Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the
+default [0..*] governs it`), and an object-holding feature whose own assertions the question does
+not state (kind `uncovered`). Each note names its `Subject` and carries its `Text`; an evaluation
+carries none, and so does a service without the `verdict_notes` capability.
 
 `VerifyConstraint` and `VerifyRequirement` also take `VerifyArguments(values...)` and
 `VerifyArgument(name, value)`, binding the element's `in` parameters positionally in declaration
@@ -106,10 +120,9 @@ fmt.Println(exploration.Status()) // complete (6 runs)
 ```
 
 `ApplyEdits` rewrites a model's source and answers an `EditResult`: `Documents` is the edited
-notation of every document the batch reached, each under the name the parse gave it, and
-`Content` is the same notation for a model of exactly one document — the field the sole-document
-contract answered first, kept so a caller written against it is unchanged; it is empty for a model
-of several, even when the batch rewrote only one of them. The operations name elements declared
+notation of every document the batch reached, each under the name the parse gave it — for a
+model of one document, that one. (`EditResult.Content`, the sole-document notation the contract
+answered first, was deprecated in 0.9.0 and removed in 0.12.0.) The operations name elements declared
 in the model's first document; `ApplyDocumentEdits` names another. A rename or cascade delete
 follows its references into the model's other documents, every touched document is re-parsed
 and re-analysed together, and either all of them are answered or the refusal — an `*EditError`
@@ -118,8 +131,8 @@ request's `accept_documents`, which is what lets a model of several documents be
 request without it, as every earlier client sends, is refused on such a model with
 `FAILED_PRECONDITION` as before, so a caller reading `content` alone is never handed an empty one.
 A service advertising `apply_edits` without `edit_documents` (`CapabilityEditDocuments`) predates
-`Documents`: it edits a model of one document and answers `Content` alone, so a caller checks the
-capability before reading `Documents`, `Referrers` or an applied edit's `Document`.
+`Documents` and answers `content` alone, which this client no longer reads: `ApplyEdits` and
+`ApplyDocumentEdits` require the capability and are refused with `CodeUnimplemented` without it.
 
 `add_member` accepts the existing `specializes`, type, multiplicity and value fields, plus
 `body_expression`, `is_abstract`, `redefines`, `is_default` and `direction`. `body_expression`
@@ -232,7 +245,10 @@ for _, doc := range result.Documents {
 (`FormatJSON`). `ConvertFile` infers the source format from the extension unless `WithFromFormat`
 names it, and `ConvertSource` requires it. The `Conversion` reports the canonical `From` and `To`,
 and `Experimental` with its `ExperimentalNotice` when either side is RDF or the API's JSON form,
-both experimental mappings.
+both experimental mappings. `WithIDForm(IDFormUUID)` spells the derived ids of a graph notation as
+name-based uuids rather than from qualified names; API JSON names the library elements a model
+uses in `LibraryReferences`, and `WithLibraryStubs()` writes them as the pre-0.11.0 ownerless
+stubs instead, under the `convert_library_stubs` capability.
 
 A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive, `FormatXMI` with
 the aliases `FormatUML` and `FormatMDZip` — is **migrated, not converted**: a conversion is
@@ -1016,7 +1032,9 @@ can filter a model OpenSysML parsed. The standard's schema is authoritative:
 `PrimitiveConstraint`, `CompositeConstraint`.
 
 **Implementation:** `internal/frontend/grpc/query.go` (`Service.Query`), reported from
-`GetServerInfo` as the `query` capability. Python: `model.query(...)`
+`GetServerInfo` as the `query` capability, with `orderBy` under `query_order_by` (a service
+without it would ignore the field, so every client checks before sending a sorted query).
+Python: `model.query(...)`
 (`client/python/opensysml/query.py`). The JSON a hand-written client sends and
 receives for this call is shown, captured, on
 [the wire contract](wire-contract.md#query).
@@ -1027,11 +1045,12 @@ receives for this call is shown, captured, on
 Query          scope[]    elements to consider; empty is the whole loaded model
                select[]   properties to report; empty reports every one
                where      one Constraint; absent selects the whole scope
+               orderBy[]  properties to sort by, in order of precedence; empty keeps declaration order
 
 Constraint     PrimitiveConstraint | CompositeConstraint      (a protobuf oneof)
 
-PrimitiveConstraint   property, operator (= > <), value[], inverse
-CompositeConstraint   operator (and | or), constraint[]        (nests arbitrarily)
+PrimitiveConstraint   property, operator (instanceOf = < <= > >= in), value[], inverse
+CompositeConstraint   operator (and | or), constraint[2..*]    (nests arbitrarily)
 ```
 
 The RPC takes the same shape, with the standard's JSON names preserved, so
@@ -1149,25 +1168,53 @@ Where the standard is vague, these are the choices this implementation makes:
 - `=` compares the property's value as text, and matches if it equals **any** of
   the listed values. The standard writes one value and its clients write a list
   for `@type`; one value is the degenerate case of the same rule.
-- `>` and `<` compare numbers, and require exactly one operand and an ordered
-  property (the `multiplicity*` pair). A non-ordered property, more than one
-  operand, or an operand that is not a number is an `INVALID_ARGUMENT` error, not
-  a false verdict. `*` parses as infinity, so `multiplicityUpper > 1` holds for
-  an unbounded feature.
+- `>`, `>=`, `<` and `<=` compare numbers, and require exactly one operand and an
+  ordered property (the `multiplicity*` pair). A non-ordered property, more than
+  one operand, or an operand that is not a number is an `INVALID_ARGUMENT` error,
+  not a false verdict. `*` parses as infinity, so `multiplicityUpper > 1` holds
+  for an unbounded feature, and the inclusive forms hold at the bound itself
+  (`multiplicityLower <= 2` selects `attribute x : Real [2..*]`).
+- `in` is membership of the property's value in the listed values — the same
+  verdict `=` gives a list, under the operator the standard spells it with. An
+  empty list is malformed.
+- `instanceOf` applies to `@type` only, and asks the metamodel rather than the
+  text: the element's metaclass must **conform to** one of the listed metaclasses
+  through the library's reflective metaclass hierarchy
+  (`semantics.Model.InstanceOf`), so a `PartUsage` is an instance of `Usage`,
+  `Feature` and `Element`, while `@type = Usage` matches nothing (no element's
+  metaclass is the abstract `Usage`). A metaclass the library does not declare,
+  or `instanceOf` on any other property, is an `INVALID_ARGUMENT` error.
+- A `CompositeConstraint` combines **at least two** constraints, as the standard's
+  `constraint : Constraint [2..*]` says; an empty or one-member list is malformed
+  (write the one constraint on its own).
 - An element that *has no value* for the property fails the comparison; this is a
   fact about the element, not a fault in the query.
 - `inverse` negates the verdict of its own constraint, so a constraint and its
   inverse partition the scope.
 - `and`/`or` combine nested verdicts, short-circuiting once one is decisive.
 - The whole `where` tree is judged **before** any element is read, so a fault in
-  it — an unknown property, a missing operator, an empty composite, `>` on an
-  unordered property — is reported whatever the scope holds, including a model
-  that declares nothing (`TestQueryFaultIsReportedWithNoElementsToConsider`), and
-  wherever it sits, including under an already-decisive sibling.
+  it — an unknown property, a missing operator, an empty or one-member composite,
+  `>` on an unordered property, `instanceOf` of an undeclared metaclass — is
+  reported whatever the scope holds, including a model that declares nothing
+  (`TestQueryFaultIsReportedWithNoElementsToConsider`), and wherever it sits,
+  including under an already-decisive sibling.
 - `scope` considers each named element **and everything nested inside it**, in
   declaration order, parents first; a name the model does not have is an error.
   An empty scope enumerates the parsed document (not the standard library, which
   is reachable by naming a library element as a scope).
+- `orderBy` sorts the matched elements by the listed properties in order of
+  precedence, each **ascending**: the first property orders, each later one
+  breaks the ties of those before it, and declaration order breaks the last
+  ones (the sort is stable). An unknown property is an `INVALID_ARGUMENT`
+  error, as it is in `select` and `where`, even when nothing would be sorted.
+  Comparison per property (`corequery.CompareOrderValues`): an element without
+  the property precedes every element with it; two values of an ordered property
+  (`multiplicityLower`, `multiplicityUpper`) compare as numbers with `*` the
+  greatest, so `1 < 9 < 10 < *`; two values of any other property compare
+  byte-wise as text, which puts `false` before `true` and capitals before
+  lower-case names. Every property has one value type, so present-versus-absent
+  is the only mixed comparison. Sorting by a property `select` leaves out does
+  not add it to the answer. The same comparison orders OSLC `oslc.orderBy`.
 
 ### Not supported — by design of the standard
 
@@ -1180,8 +1227,9 @@ one:
   Containment is expressible only as a `scope`; specialization is not expressible
   at all, even though `semantics.Model` can answer it.
 - No `owningProject` / `@id` on the query resource (single-model service, no
-  project or commit store), no derived or computed properties, and no ordering or
-  paging of results — elements come back in declaration order.
+  project or commit store), no derived or computed properties, and no paging of
+  results — elements come back in `orderBy` order, or declaration order without
+  one.
 
 ---
 
@@ -1228,10 +1276,13 @@ above), an object as its id, its path and the usage it stands for.
 `RenderDocument` takes no bindings, because a document binds its queries'
 parameters in the model; it answers the rendered CommonMark Markdown,
 byte-identical to `-render-document` on the same model. Its `form` field
-(`markdown`, the default, or `html`) picks the HTML backend's standalone page
-instead, answered in `html` and byte-identical to `-doc-form html`; asking for
-HTML needs the `render_document_html` capability, and PDF is not offered, since
-it needs the CLI's converter toolchain.
+(`markdown`, the default, `html` or `asciidoc`) picks the HTML backend's
+standalone page instead, answered in `html` and byte-identical to `-doc-form
+html`, or the AsciiDoc backend's document, answered in `asciidoc` and
+byte-identical to `-doc-form asciidoc`; asking for HTML needs the
+`render_document_html` capability and AsciiDoc the `render_document_asciidoc`
+capability, and PDF is not offered, since it needs the CLI's converter
+toolchain.
 
 `RenderView` answers a named view or targeted pseudo-view as ordered nodes,
 edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
@@ -1368,8 +1419,9 @@ it.
 
 Known limitations: the response carries no provenance for *successful* rows
 (only failures name their source), and the document IR is not exposed in a
-structured form — Markdown, and HTML under the `render_document_html`
-capability, are the document forms served; the PDF form `sysml -render-document
+structured form — Markdown, HTML under the `render_document_html` capability
+and AsciiDoc under the `render_document_asciidoc` capability are the document
+forms served; the PDF form `sysml -render-document
 -doc-form pdf` writes is not.
 
 ---
@@ -1613,4 +1665,4 @@ Test fixtures in `testdata/*.sysml`.
 - **[ARCHITECTURE.md](../internals/architecture.md)** — System architecture and design decisions
 - **[the guide](../guide/)** — Getting started guide
 - **[Wire contract](wire-contract.md)** — Connect + JSON field by field, for a client with no generated library
-- **[OMG SysML v2.1 Beta 1 Spec](https://www.omg.org/spec/SysML/2.0)** — Language specification (2026-08 release)
+- **[OMG SysML v2.1 Beta 1 Spec](https://www.omg.org/spec/SysML/2.0)** — Language specification (2026-09 release)

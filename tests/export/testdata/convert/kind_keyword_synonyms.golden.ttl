@@ -53,7 +53,12 @@ elmt:Synonyms__Temperature_om
     sysml:ownedMemberElement elmt:Synonyms__Temperature ;
     sysml:ownedRelatedElement elmt:Synonyms__Temperature ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__Temperature ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__Temperature ;
+    sysml:memberName "Temperature" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__Temperature\"}]" .
 
 elmt:Synonyms__reading
     a sysml:AttributeUsage ;
@@ -86,7 +91,12 @@ elmt:Synonyms__reading_om
     sysml:ownedMemberElement elmt:Synonyms__reading ;
     sysml:ownedRelatedElement elmt:Synonyms__reading ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__reading ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__reading ;
+    sysml:memberName "reading" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__reading\"}]" .
 
 elmt:Synonyms__Average
     a sysml:CalculationDefinition ;
@@ -114,7 +124,12 @@ elmt:Synonyms__Average_om
     sysml:ownedMemberElement elmt:Synonyms__Average ;
     sysml:ownedRelatedElement elmt:Synonyms__Average ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__Average ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__Average ;
+    sysml:memberName "Average" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__Average\"}]" .
 
 elmt:Synonyms__base
     a sysml:OccurrenceUsage ;
@@ -142,7 +157,12 @@ elmt:Synonyms__base_om
     sysml:ownedMemberElement elmt:Synonyms__base ;
     sysml:ownedRelatedElement elmt:Synonyms__base ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__base ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__base ;
+    sysml:memberName "base" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__base\"}]" .
 
 elmt:Synonyms__atStart
     a sysml:OccurrenceUsage ;
@@ -173,7 +193,12 @@ elmt:Synonyms__atStart_om
     sysml:ownedMemberElement elmt:Synonyms__atStart ;
     sysml:ownedRelatedElement elmt:Synonyms__atStart ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__atStart ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__atStart ;
+    sysml:memberName "atStart" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__atStart\"}]" .
 
 elmt:Synonyms__during
     a sysml:OccurrenceUsage ;
@@ -204,7 +229,12 @@ elmt:Synonyms__during_om
     sysml:ownedMemberElement elmt:Synonyms__during ;
     sysml:ownedRelatedElement elmt:Synonyms__during ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__during ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__during ;
+    sysml:memberName "during" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__during\"}]" .
 
 elmt:Synonyms__note
     a sysml:FlowUsage ;
@@ -232,11 +262,16 @@ elmt:Synonyms__note_om
     sysml:ownedMemberElement elmt:Synonyms__note ;
     sysml:ownedRelatedElement elmt:Synonyms__note ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__note ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__note ;
+    sysml:memberName "note" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__note\"}]" .
 
 elmt:Synonyms___407
     a sysml:AllocationUsage ;
-    sysml:qualifiedName "Synonyms::@7" ;
+    sysx:positionalName "Synonyms::@7" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -279,13 +314,20 @@ elmt:Synonyms___407_om
     sysml:ownedMemberElement elmt:Synonyms___407 ;
     sysml:ownedRelatedElement elmt:Synonyms___407 ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms___407 ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms___407 ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms___407\"}]" .
 
 expr:Synonyms___407_pend0
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Synonyms___407_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:owner elmt:Synonyms___407 ;
     sysml:owningRelationship expr:Synonyms___407_pend0_om ;
     sysml:owningMembership expr:Synonyms___407_pend0_om ;
@@ -303,7 +345,12 @@ expr:Synonyms___407_pend0_om
     sysml:ownedMemberElement expr:Synonyms___407_pend0 ;
     sysml:ownedRelatedElement expr:Synonyms___407_pend0 ;
     sysml:owningRelatedElement elmt:Synonyms___407 ;
-    sysml:membershipOwningNamespace elmt:Synonyms___407 .
+    sysml:membershipOwningNamespace elmt:Synonyms___407 ;
+    sysml:source elmt:Synonyms___407 ;
+    sysml:target expr:Synonyms___407_pend0 ;
+    sysml:relatedElement elmt:Synonyms___407, expr:Synonyms___407_pend0 ;
+    sysml:memberName "source" ;
+    json:relatedElement "[{\"@id\":\"Synonyms___407\"},{\"@id\":\"Synonyms___407_pend0\"}]" .
 
 expr:Synonyms___407_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -328,6 +375,9 @@ expr:Synonyms___407_pend1
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Synonyms___407_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:owner elmt:Synonyms___407 ;
     sysml:owningRelationship expr:Synonyms___407_pend1_om ;
     sysml:owningMembership expr:Synonyms___407_pend1_om ;
@@ -345,7 +395,12 @@ expr:Synonyms___407_pend1_om
     sysml:ownedMemberElement expr:Synonyms___407_pend1 ;
     sysml:ownedRelatedElement expr:Synonyms___407_pend1 ;
     sysml:owningRelatedElement elmt:Synonyms___407 ;
-    sysml:membershipOwningNamespace elmt:Synonyms___407 .
+    sysml:membershipOwningNamespace elmt:Synonyms___407 ;
+    sysml:source elmt:Synonyms___407 ;
+    sysml:target expr:Synonyms___407_pend1 ;
+    sysml:relatedElement elmt:Synonyms___407, expr:Synonyms___407_pend1 ;
+    sysml:memberName "target" ;
+    json:relatedElement "[{\"@id\":\"Synonyms___407\"},{\"@id\":\"Synonyms___407_pend1\"}]" .
 
 expr:Synonyms___407_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -390,7 +445,12 @@ elmt:Synonyms__Drive_om
     sysml:ownedMemberElement elmt:Synonyms__Drive ;
     sysml:ownedRelatedElement elmt:Synonyms__Drive ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__Drive ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__Drive ;
+    sysml:memberName "Drive" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__Drive\"}]" .
 
 elmt:Synonyms__Safe
     a sysml:ConstraintDefinition ;
@@ -417,7 +477,12 @@ elmt:Synonyms__Safe_om
     sysml:ownedMemberElement elmt:Synonyms__Safe ;
     sysml:ownedRelatedElement elmt:Synonyms__Safe ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__Safe ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__Safe ;
+    sysml:memberName "Safe" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__Safe\"}]" .
 
 elmt:Synonyms__Idle
     a sysml:StateDefinition ;
@@ -444,7 +509,12 @@ elmt:Synonyms__Idle_om
     sysml:ownedMemberElement elmt:Synonyms__Idle ;
     sysml:ownedRelatedElement elmt:Synonyms__Idle ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__Idle ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__Idle ;
+    sysml:memberName "Idle" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__Idle\"}]" .
 
 elmt:Synonyms__Vehicle
     a sysml:PartDefinition ;
@@ -482,7 +552,12 @@ elmt:Synonyms__Vehicle_om
     sysml:ownedMemberElement elmt:Synonyms__Vehicle ;
     sysml:ownedRelatedElement elmt:Synonyms__Vehicle ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__Vehicle ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__Vehicle ;
+    sysml:memberName "Vehicle" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__Vehicle\"}]" .
 
 elmt:Synonyms__Vehicle__idling
     a sysml:ExhibitStateUsage ;
@@ -500,6 +575,8 @@ elmt:Synonyms__Vehicle__idling
     sysml:owningMembership elmt:Synonyms__Vehicle__idling_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "exhibit" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Synonyms__Idle ;
     sysml:references "idling" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -521,8 +598,13 @@ elmt:Synonyms__Vehicle__idling_om
     sysml:ownedRelatedElement elmt:Synonyms__Vehicle__idling ;
     sysml:owningRelatedElement elmt:Synonyms__Vehicle ;
     sysml:membershipOwningNamespace elmt:Synonyms__Vehicle ;
+    sysml:source elmt:Synonyms__Vehicle ;
+    sysml:target elmt:Synonyms__Vehicle__idling ;
+    sysml:relatedElement elmt:Synonyms__Vehicle, elmt:Synonyms__Vehicle__idling ;
+    sysml:memberName "idling" ;
     sysml:ownedMemberFeature elmt:Synonyms__Vehicle__idling ;
-    sysml:owningType elmt:Synonyms__Vehicle .
+    sysml:owningType elmt:Synonyms__Vehicle ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle\"},{\"@id\":\"Synonyms__Vehicle__idling\"}]" .
 
 elmt:Synonyms__Vehicle__safe
     a sysml:AssertConstraintUsage ;
@@ -540,6 +622,8 @@ elmt:Synonyms__Vehicle__safe
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "safe" ;
     sysx:declaredKeyword "assert" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Synonyms__Safe ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Synonyms__Vehicle__safe_ft0 ;
@@ -556,8 +640,13 @@ elmt:Synonyms__Vehicle__safe_om
     sysml:ownedRelatedElement elmt:Synonyms__Vehicle__safe ;
     sysml:owningRelatedElement elmt:Synonyms__Vehicle ;
     sysml:membershipOwningNamespace elmt:Synonyms__Vehicle ;
+    sysml:source elmt:Synonyms__Vehicle ;
+    sysml:target elmt:Synonyms__Vehicle__safe ;
+    sysml:relatedElement elmt:Synonyms__Vehicle, elmt:Synonyms__Vehicle__safe ;
+    sysml:memberName "safe" ;
     sysml:ownedMemberFeature elmt:Synonyms__Vehicle__safe ;
-    sysml:owningType elmt:Synonyms__Vehicle .
+    sysml:owningType elmt:Synonyms__Vehicle ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle\"},{\"@id\":\"Synonyms__Vehicle__safe\"}]" .
 
 elmt:Synonyms__Vehicle__alsoSafe
     a sysml:ConstraintUsage ;
@@ -575,6 +664,8 @@ elmt:Synonyms__Vehicle__alsoSafe
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "alsoSafe" ;
     sysx:declaredKeyword "inv" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Synonyms__Safe ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Synonyms__Vehicle__alsoSafe_ft0 ;
@@ -591,8 +682,13 @@ elmt:Synonyms__Vehicle__alsoSafe_om
     sysml:ownedRelatedElement elmt:Synonyms__Vehicle__alsoSafe ;
     sysml:owningRelatedElement elmt:Synonyms__Vehicle ;
     sysml:membershipOwningNamespace elmt:Synonyms__Vehicle ;
+    sysml:source elmt:Synonyms__Vehicle ;
+    sysml:target elmt:Synonyms__Vehicle__alsoSafe ;
+    sysml:relatedElement elmt:Synonyms__Vehicle, elmt:Synonyms__Vehicle__alsoSafe ;
+    sysml:memberName "alsoSafe" ;
     sysml:ownedMemberFeature elmt:Synonyms__Vehicle__alsoSafe ;
-    sysml:owningType elmt:Synonyms__Vehicle .
+    sysml:owningType elmt:Synonyms__Vehicle ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe\"}]" .
 
 elmt:Synonyms__AsTree
     a sysml:RenderingDefinition ;
@@ -619,7 +715,12 @@ elmt:Synonyms__AsTree_om
     sysml:ownedMemberElement elmt:Synonyms__AsTree ;
     sysml:ownedRelatedElement elmt:Synonyms__AsTree ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__AsTree ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__AsTree ;
+    sysml:memberName "AsTree" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__AsTree\"}]" .
 
 elmt:Synonyms__Dashboard
     a sysml:ViewDefinition ;
@@ -657,7 +758,12 @@ elmt:Synonyms__Dashboard_om
     sysml:ownedMemberElement elmt:Synonyms__Dashboard ;
     sysml:ownedRelatedElement elmt:Synonyms__Dashboard ;
     sysml:owningRelatedElement elmt:Synonyms ;
-    sysml:membershipOwningNamespace elmt:Synonyms .
+    sysml:membershipOwningNamespace elmt:Synonyms ;
+    sysml:source elmt:Synonyms ;
+    sysml:target elmt:Synonyms__Dashboard ;
+    sysml:relatedElement elmt:Synonyms, elmt:Synonyms__Dashboard ;
+    sysml:memberName "Dashboard" ;
+    json:relatedElement "[{\"@id\":\"Synonyms\"},{\"@id\":\"Synonyms__Dashboard\"}]" .
 
 elmt:Synonyms__Dashboard__display
     a sysml:RenderingUsage ;
@@ -674,6 +780,8 @@ elmt:Synonyms__Dashboard__display
     sysml:owningRelationship elmt:Synonyms__Dashboard__display_om ;
     sysml:owningMembership elmt:Synonyms__Dashboard__display_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references "display" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:Synonyms__Dashboard__display_rs ;
@@ -691,13 +799,18 @@ elmt:Synonyms__Dashboard__display_om
     sysml:ownedRelatedElement elmt:Synonyms__Dashboard__display ;
     sysml:owningRelatedElement elmt:Synonyms__Dashboard ;
     sysml:membershipOwningNamespace elmt:Synonyms__Dashboard ;
+    sysml:source elmt:Synonyms__Dashboard ;
+    sysml:target elmt:Synonyms__Dashboard__display ;
+    sysml:relatedElement elmt:Synonyms__Dashboard, elmt:Synonyms__Dashboard__display ;
+    sysml:memberName "display" ;
     sysml:ownedRendering elmt:Synonyms__Dashboard__display ;
     sysml:ownedMemberFeature elmt:Synonyms__Dashboard__display ;
-    sysml:owningType elmt:Synonyms__Dashboard .
+    sysml:owningType elmt:Synonyms__Dashboard ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Dashboard\"},{\"@id\":\"Synonyms__Dashboard__display\"}]" .
 
 elmt:Synonyms__Dashboard___401
     a sysml:RenderingUsage ;
-    sysml:qualifiedName "Synonyms::Dashboard::@1" ;
+    sysx:positionalName "Synonyms::Dashboard::@1" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "21"^^xsd:integer ;
@@ -709,6 +822,8 @@ elmt:Synonyms__Dashboard___401
     sysml:owningRelationship elmt:Synonyms__Dashboard___401_om ;
     sysml:owningMembership elmt:Synonyms__Dashboard___401_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Synonyms__AsTree ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Synonyms__Dashboard___401_ft0 ;
@@ -725,9 +840,14 @@ elmt:Synonyms__Dashboard___401_om
     sysml:ownedRelatedElement elmt:Synonyms__Dashboard___401 ;
     sysml:owningRelatedElement elmt:Synonyms__Dashboard ;
     sysml:membershipOwningNamespace elmt:Synonyms__Dashboard ;
+    sysml:source elmt:Synonyms__Dashboard ;
+    sysml:target elmt:Synonyms__Dashboard___401 ;
+    sysml:relatedElement elmt:Synonyms__Dashboard, elmt:Synonyms__Dashboard___401 ;
+    sysml:memberName "viewRendering" ;
     sysml:ownedRendering elmt:Synonyms__Dashboard___401 ;
     sysml:ownedMemberFeature elmt:Synonyms__Dashboard___401 ;
-    sysml:owningType elmt:Synonyms__Dashboard .
+    sysml:owningType elmt:Synonyms__Dashboard ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Dashboard\"},{\"@id\":\"Synonyms__Dashboard___401\"}]" .
 
 elmt:Synonyms__reading_ft0
     a sysml:FeatureTyping ;

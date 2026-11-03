@@ -17,7 +17,7 @@ const recordPath = "docs/project/api-json-differential.md"
 
 var (
 	// The headline the record states, re-derived from the baseline's totals.
-	docHeadlinePattern = regexp.MustCompile(`^\*\*Scorecard:\*\* ([0-9]+) files; ([0-9]+) elements matched \(([0-9]+) ours-only, ([0-9]+) pilot-only, ([0-9]+) of them implied\); properties: ([0-9]+) present-equal, ([0-9]+) present-different, ([0-9]+) ours-missing, ([0-9]+) pilot-missing, ([0-9]+) absent-both, ([0-9]+) indeterminate\.$`)
+	docHeadlinePattern = regexp.MustCompile(`^\*\*Scorecard:\*\* ([0-9]+) files; ([0-9]+) elements matched \(([0-9]+) ours-only, ([0-9]+) pilot-only, ([0-9]+) of them implied\); properties: ([0-9]+) present-equal, ([0-9]+) present-different, ([0-9]+) ours-missing, ([0-9]+) pilot-missing, ([0-9]+) absent-both, ([0-9]+) indeterminate, ([0-9]+) pilot-nondeterministic\.$`)
 	// A row of the launch-ready gaps table: rank, metaclass, property, the
 	// ours-missing and present-different counts, then prose columns.
 	docGapRowPattern = regexp.MustCompile("^\\| ([0-9]+) \\| `([A-Za-z]+)` \\| `([A-Za-z]+)` \\| ([0-9]+) \\| ([0-9]+) \\|")
@@ -44,7 +44,7 @@ func TestRecordStatesTheBaselinesFigures(t *testing.T) {
 	}
 	totals := recorded.Totals
 	want := []int{totals.Files, totals.Elements.Matched, totals.Elements.OursOnly, totals.Elements.PilotOnly, totals.Elements.PilotOnlyImplied,
-		totals.Properties.PresentEqual, totals.Properties.PresentDifferent, totals.Properties.OursMissing, totals.Properties.PilotMissing, totals.Properties.AbsentBoth, totals.Properties.Indeterminate}
+		totals.Properties.PresentEqual, totals.Properties.PresentDifferent, totals.Properties.OursMissing, totals.Properties.PilotMissing, totals.Properties.AbsentBoth, totals.Properties.Indeterminate, totals.Properties.PilotNondeterministic}
 	headlines, gapRows := 0, 0
 	for number, line := range strings.Split(string(record), "\n") {
 		if m := docHeadlinePattern.FindStringSubmatch(line); m != nil {

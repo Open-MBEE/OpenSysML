@@ -1134,8 +1134,8 @@ func TestSignalLeftForASiblingWhoseGuardFails(t *testing.T) {
 		ctx, left, right, ping := twinWithPing(t)
 		ctx.PostMessage(ping)
 		err := ctx.drainObjectBehaviors()
-		if err == nil || !strings.Contains(err.Error(), wantErr) {
-			t.Fatalf("drainObjectBehaviors() = %v, want the guard error %q", err, wantErr)
+		if failed := ctx.StartFailures(right.self); err != nil || len(failed) != 1 || failed[0].State != right || !strings.Contains(failed[0].Err.Error(), wantErr) {
+			t.Fatalf("drainObjectBehaviors() = %v, failed %v; want nil and the right machine alone recording the guard error %q", err, failed, wantErr)
 		}
 		if got := activeLeaf(left) + "/" + activeLeaf(right); got != "idle/idle" {
 			t.Errorf("left/right = %s after the failed guard, want idle/idle", got)
@@ -1691,7 +1691,7 @@ func TestPreviewsLeaveACarriedObjectsConnectorIdentitiesKept(t *testing.T) {
 		t.Fatalf("Adopt: %v", err)
 	}
 	link := obj.FeatureValues["link"]
-	if link.Materialized || obj.keptConnectors[link] != linkID {
+	if link.Materialized || !slices.Equal(obj.keptConnectors[link], []int64{linkID}) {
 		t.Fatalf("after the carry-over: link %+v keeping identity %d; want it unmaterialized keeping %d", link, obj.keptConnectors[link], linkID)
 	}
 	life, ok := obj.ExhibitedState()
@@ -1711,8 +1711,8 @@ func TestPreviewsLeaveACarriedObjectsConnectorIdentitiesKept(t *testing.T) {
 	if link.Materialized || len(ctx.instances) != instances {
 		t.Errorf("after Decide: link %+v, %d objects; want it unmaterialized and %d objects as before", link, len(ctx.instances), instances)
 	}
-	if got := obj.keptConnectors[link]; got != linkID {
-		t.Errorf("after Decide, link keeps identity %d; want %d as before", got, linkID)
+	if got := obj.keptConnectors[link]; !slices.Equal(got, []int64{linkID}) {
+		t.Errorf("after Decide, link keeps identities %v; want %d as before", got, linkID)
 	}
 	// The anonymous connectors are materialized under a probe the same way.
 	end := ctx.beginProbe()

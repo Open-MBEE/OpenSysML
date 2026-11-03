@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "instantiate": "test::Caller",
+  "libraries": true,
+  "slots": {
+    "sent": {"type": "Integer", "value": 1},
+    "landed": {"type": "Integer", "value": 1},
+    "ended": {"type": "Undetermined"}
+  }
+}

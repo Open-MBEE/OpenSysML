@@ -966,11 +966,11 @@ func (m *migration) libraryNameNotes() {
 	}
 	for _, r := range list {
 		if m.strict {
-			m.w.line("// " + writeName(r.fresh) + " is written for " + stringLiteral(r.src) + ", a name of the standard library")
+			m.w.line("// " + writeName(r.fresh) + " is written for " + source.StringText(r.src) + ", a name of the standard library")
 			continue
 		}
 		m.w.line("metadata " + prefix + "MigrationMetadata::LibraryNameAvoided about " + writeName(r.fresh) +
-			" { sourceName = " + stringLiteral(r.src) + "; }")
+			" { sourceName = " + source.StringText(r.src) + "; }")
 	}
 }
 
@@ -1152,7 +1152,7 @@ func namespaceMembers(e *sysmlv1.Element) []*sysmlv1.Element {
 func ownerWritten(role string) bool {
 	switch role {
 	case "ownedComment", "generalization", "lowerValue", "upperValue", "defaultValue",
-		"end", "specification", "type", "general", "annotatedElement", "body", "language",
+		"end", "specification", "type", "general", "annotatedElement",
 		"ownedEnd", "memberEnd", "value", "slot", "ownedLiteral", "ownedParameter", "region",
 		"argument", "result", "inputValue", "outputValue", "object", "target", "insertAt", "removeAt":
 		return true
@@ -4413,6 +4413,7 @@ func (m *migration) derive(d *sysmlv1.Element, name string, derived, original *s
 		m.w.line("end #RequirementDerivation::derive derivedRequirement" + m.typing(derived) + m.ref(derived, d) + ";")
 		m.stereotypeAnnotations(d)
 	})
+	m.wroteEdgeAlso(d, m.scope, "derivation", nil, name)
 	segs := append(m.segments(m.scope), name)
 	if m.scope == nil {
 		segs = []string{name}
@@ -4769,13 +4770,13 @@ func (m *migration) appliedStereotype(stereotype, profile string, tags []string)
 		prefix = "$::"
 	}
 	m.w.block("@"+prefix+appliedStereotypeFQN, func() {
-		m.w.line("stereotype = " + stringLiteral(stereotype) + ";")
+		m.w.line("stereotype = " + source.StringText(stereotype) + ";")
 		if profile != "" {
-			m.w.line("profile = " + stringLiteral(profile) + ";")
+			m.w.line("profile = " + source.StringText(profile) + ";")
 		}
 		literals := make([]string, len(tags))
 		for i, t := range tags {
-			literals[i] = stringLiteral(t)
+			literals[i] = source.StringText(t)
 		}
 		switch len(literals) {
 		case 0:

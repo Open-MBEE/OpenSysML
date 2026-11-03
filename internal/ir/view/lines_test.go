@@ -43,6 +43,9 @@ func TestLinesAreNamed(t *testing.T) {
 // default or under splines, `splines=ortho` and `splines=polyline` on the graph
 // attribute list otherwise, on every rendering kind.
 func TestDOTRoutesItsEdgesAsAsked(t *testing.T) {
+	// The grid lays ortho out here, on every machine alike; the layered layout
+	// has its own goldens.
+	t.Setenv("OPENSYSML_DOT", "no-such-dot")
 	for _, fixture := range []struct{ file, view string }{
 		{"interconnection-ports.sysml", "ToasterViews::toasterView"},
 		{"action.sysml", "FlowViews::driveView"},
@@ -68,15 +71,23 @@ func TestDOTRoutesItsEdgesAsAsked(t *testing.T) {
 			if !strings.Contains(graph, ", "+want) || strings.Count(got, "splines=") != 1 {
 				t.Errorf("%s with lines %s: graph attributes %q lack %s once:\n%s", fixture.view, lines, graph, want, got)
 			}
-			if strings.Contains(got, "not represented: lines") {
+			if strings.Contains(got, "not represented: lines "+string(lines)+";") {
 				t.Errorf("%s with lines %s is drawn, not noted:\n%s", fixture.view, lines, got)
 			}
-			var plain, external int
+			var plain, external, routed int
 			for _, line := range strings.Split(got, "\n") {
 				if !strings.Contains(line, " -> ") {
 					continue
 				}
-				if strings.Contains(line, "[label=") || strings.Contains(line, ", label=") {
+				labelled := strings.Contains(line, "[label=") || strings.Contains(line, ", label=")
+				if strings.Contains(line, `pos="`) {
+					routed++
+					if labelled && !strings.Contains(line, "lp=") || strings.Contains(line, "xlabel=") {
+						t.Errorf("%s with lines %s routes an edge without placing its label on the route: %s", fixture.view, lines, line)
+					}
+					continue
+				}
+				if labelled {
 					plain++
 				}
 				if strings.Contains(line, "xlabel=") {
@@ -84,10 +95,10 @@ func TestDOTRoutesItsEdgesAsAsked(t *testing.T) {
 				}
 			}
 			if ortho := lines == LinesOrtho; ortho && plain > 0 || !ortho && external > 0 {
-				t.Errorf("%s with lines %s labels %d edge(s) plainly and %d externally; ortho asks for xlabel alone, polyline for label alone:\n%s", fixture.view, lines, plain, external, got)
+				t.Errorf("%s with lines %s labels %d unrouted edge(s) plainly and %d externally; ortho asks for xlabel alone, polyline for label alone:\n%s", fixture.view, lines, plain, external, got)
 			}
-			if ortho := lines == LinesOrtho; ortho && external == 0 && fixture.view == "ToasterViews::toasterView" {
-				t.Errorf("%s with lines ortho keeps no edge label as an xlabel:\n%s", fixture.view, got)
+			if ortho := lines == LinesOrtho; ortho && routed == 0 || !ortho && routed > 0 {
+				t.Errorf("%s with lines %s routes %d edge(s) itself; ortho routes every edge it can, polyline none:\n%s", fixture.view, lines, routed, got)
 			}
 		}
 	}

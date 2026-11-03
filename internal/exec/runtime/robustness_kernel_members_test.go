@@ -44,15 +44,15 @@ func testKernelMaskedNameNamesRedefinition(t *testing.T) {
 	if !errors.Is(err, ErrNoSuchFeature) || !strings.Contains(err.Error(), "p1 has no member startShot: Parts::Part::start redefines it") {
 		t.Fatalf("Probe::p1.startShot = %v, want ErrNoSuchFeature naming the redefinition", err)
 	}
-	if val, err := eval("Probe::p1.start"); err != nil || val.Kind != ValUndetermined {
-		t.Errorf("Probe::p1.start = %s, %v; want an undetermined read of the redefinition", FormatValue(val), err)
+	if val, err := eval("Probe::p1.start"); err != nil || val.Kind != ValInstance {
+		t.Errorf("Probe::p1.start = %s, %v; want the start snapshot read through the redefinition", FormatValue(val), err)
 	}
 }
 
 func testKernelMemberIsNoMissingFeature(t *testing.T) {
 	_, p1, _, eval := kernelProbeObjects(t)
 	for src, want := range map[string]ValueKind{
-		"Probe::p1.self": ValInstance, "Probe::p1.timeSlices": ValSequence, "Probe::p1.predecessors": ValSequence,
+		"Probe::p1.self": ValInstance, "Probe::p1.timeSlices": ValUndetermined, "Probe::p1.predecessors": ValSequence,
 		"Probe::p1.superoccurrence": ValNull, "Probe::p1.snapshots": ValUndetermined, "Probe::p1.localClock": ValInstance,
 	} {
 		val, err := eval(src)

@@ -33,11 +33,14 @@ const (
 )
 
 // Bundle archives the project directory dir as a project interchange archive
-// (KerML 1.0 §10.3) and returns its bytes with the project they hold. Every
-// regular file under dir is a member except those in hidden directories and
-// hidden files other than the two manifests; a .meta.json the directory has is
-// kept and checked against the files, one it lacks is written from them. The
-// archive is deterministic: members sorted, each with the same fixed time.
+// (KerML 1.0 §10.3) and returns its bytes with the project they hold. A
+// .meta.json the directory has is kept and decides the members: the two
+// manifests and exactly the files it records (checksum keys and index
+// targets), each of which must exist. Without one, the members are what §10.3
+// says an archive holds — the model files under dir, outside hidden entries,
+// library directories and nested projects — and a .meta.json written from
+// them. The archive is deterministic: members sorted, each with the same
+// fixed time.
 func Bundle(dir string) ([]byte, *Interchange, error) {
 	project, err := ReadInterchange(dir)
 	if err != nil {
@@ -88,8 +91,65 @@ func Bundle(dir string) ([]byte, *Interchange, error) {
 }
 
 // bundleMembers reads the files of dir that an archive of it holds, keyed by
-// their slash-separated path under dir.
+// their slash-separated path under dir: the files its .meta.json records, or
+// its model files when it has none.
 func bundleMembers(dir string) (map[string][]byte, error) {
+	meta, err := os.ReadFile(filepath.Join(dir, MetaFile)) // #nosec G304 -- the manifest of the directory being archived.
+	if errors.Is(err, fs.ErrNotExist) {
+		return modelMembers(dir)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return recordedMembers(dir, meta)
+}
+
+// recordedMembers reads the files the directory's .meta.json content records, with the two manifests;
+// a recorded file missing, not regular, or reached through a link leading outside is an error naming it.
+func recordedMembers(dir string, content []byte) (map[string][]byte, error) {
+	meta, err := ParseMeta(content)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", MetaFile, err)
+	}
+	recorded := append([]string{ProjectFile}, sortedKeys(meta.Checksum)...)
+	for _, name := range sortedKeys(meta.Index) {
+		recorded = append(recorded, meta.Index[name])
+	}
+	members := map[string][]byte{MetaFile: content}
+	for _, name := range recorded {
+		member, err := normalizeMemberPath(name)
+		if err != nil {
+			return nil, fmt.Errorf("%s records %q: %w", MetaFile, name, err)
+		}
+		if _, done := members[member]; done {
+			continue
+		}
+		path := filepath.Join(dir, filepath.FromSlash(member))
+		info, err := os.Lstat(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("%s records %s, which is not in the directory", MetaFile, member)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("%s records %s, which is not a regular file", MetaFile, member)
+		}
+		if err := confinedTo(dir, filepath.Dir(path)); err != nil {
+			return nil, fmt.Errorf("%s records %s, which %w", MetaFile, member, err)
+		}
+		content, err := os.ReadFile(path) // #nosec G304 -- a file the manifest of the directory being archived records, confined to it.
+		if err != nil {
+			return nil, err
+		}
+		members[member] = content
+	}
+	return members, nil
+}
+
+// modelMembers reads the project file and model files of a directory without a .meta.json (what §10.3
+// says an archive holds), leaving out hidden entries, library directories and nested projects' trees.
+func modelMembers(dir string) (map[string][]byte, error) {
 	members := map[string][]byte{}
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -101,15 +161,17 @@ func bundleMembers(dir string) (map[string][]byte, error) {
 		}
 		hidden := rel != "." && strings.HasPrefix(d.Name(), ".")
 		if d.IsDir() {
-			if hidden {
+			// A project nested in the directory is a project of its own,
+			// bundled on its own.
+			if hidden || IsLibraryDir(filepath.Dir(path), d.Name()) || (rel != "." && IsProjectDir(path)) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if !d.Type().IsRegular() || (hidden && !(rel == ProjectFile || rel == MetaFile)) {
+		if !d.Type().IsRegular() || (rel != ProjectFile && (hidden || !IsModelFile(rel))) {
 			return nil
 		}
-		content, err := os.ReadFile(path) // #nosec G304 -- a file under the directory being archived.
+		content, err := os.ReadFile(path) // #nosec G304 G122 -- a model file under the directory being archived.
 		if err != nil {
 			return err
 		}
@@ -126,7 +188,7 @@ func bundleMembers(dir string) (map[string][]byte, error) {
 // the index of the top-level namespaces each model file declares, a SHA256
 // checksum of every member, and the metamodel of the files' notation.
 func generateMeta(members map[string][]byte) ([]byte, error) {
-	meta := Meta{Index: map[string]string{}, Checksum: map[string][]Checksum{}, Metamodel: MetamodelKerML}
+	meta := Meta{Index: map[string]string{}, Checksum: map[string]Checksums{}, Metamodel: MetamodelKerML}
 	for name, content := range members {
 		if strings.HasSuffix(name, ".sysml") {
 			meta.Metamodel = MetamodelSysML
@@ -141,7 +203,7 @@ func generateMeta(members map[string][]byte) ([]byte, error) {
 			}
 		}
 		sum := sha256.Sum256(content)
-		meta.Checksum[name] = []Checksum{{Value: hex.EncodeToString(sum[:]), Algorithm: "SHA256"}}
+		meta.Checksum[name] = Checksums{{Value: hex.EncodeToString(sum[:]), Algorithm: "SHA256"}}
 	}
 	meta.Created = createdTime().UTC().Format(time.RFC3339)
 	return marshalMeta(meta)
@@ -160,25 +222,7 @@ func createdTime() time.Time {
 // marshalMeta writes the metadata as the schema spells it, a checksum
 // recorded once as one object.
 func marshalMeta(meta Meta) ([]byte, error) {
-	out := struct {
-		Index           map[string]string `json:"index"`
-		Created         string            `json:"created"`
-		Metamodel       string            `json:"metamodel,omitempty"`
-		IncludesDerived *bool             `json:"includesDerived,omitempty"`
-		IncludesImplied *bool             `json:"includesImplied,omitempty"`
-		Checksum        map[string]any    `json:"checksum,omitempty"`
-	}{Index: meta.Index, Created: meta.Created, Metamodel: meta.Metamodel, IncludesDerived: meta.IncludesDerived, IncludesImplied: meta.IncludesImplied}
-	if len(meta.Checksum) > 0 {
-		out.Checksum = map[string]any{}
-		for name, sums := range meta.Checksum {
-			if len(sums) == 1 {
-				out.Checksum[name] = sums[0]
-			} else {
-				out.Checksum[name] = sums
-			}
-		}
-	}
-	data, err := json.MarshalIndent(out, "", "  ")
+	data, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -25,7 +26,7 @@ type qarg struct {
 }
 
 func qlit(s string) qx { return qx{lit: s} }
-func qstr(s string) qx { return qlit(stringLiteral(s)) }
+func qstr(s string) qx { return qlit(source.StringText(s)) }
 func qint(n int) qx    { return qlit(strconv.Itoa(n)) }
 func qcall(op string, args ...qarg) qx {
 	return qx{op: op, args: args}

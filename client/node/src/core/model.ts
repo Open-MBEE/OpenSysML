@@ -13,7 +13,7 @@ import { requireString, requireSourceText } from "./arguments.js";
 import { EvaluationError, OpenSysMLError, ParseError, SymbolNotFoundError } from "./errors.js";
 import { requireLanguage } from "./sources.js";
 import type { ModelDiagnostic } from "./errors.js";
-import type { Conversion } from "./conversion.js";
+import type { Conversion, ConvertOptions } from "./conversion.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
 import type { BindingValues, DocumentQueryResult } from "./document.js";
 import type { RenderedView } from "./render-view.js";
@@ -82,29 +82,17 @@ export interface ParseOptions {
   language?: string;
   /** Reject the OpenSysML notation extensions; requires `strict_conformance`. */
   strictConformance?: boolean;
-  /**
-   * @deprecated Use `strictConformance`; `strict` is its alias. Passing both
-   * with different values is refused.
-   */
-  strict?: boolean;
 }
 
-/** Resolves `strictConformance` and its `strict` alias; differing values refuse. */
-export function strictConformanceOf(options: {
-  strict?: boolean;
-  strictConformance?: boolean;
-}): boolean | undefined {
-  if (
-    options.strict !== undefined &&
-    options.strictConformance !== undefined &&
-    options.strict !== options.strictConformance
-  ) {
-    throw new RangeError(
-      `strict (${options.strict}) and strictConformance (${options.strictConformance}) disagree; ` +
-        "pass only strictConformance",
-    );
-  }
-  return options.strictConformance ?? options.strict;
+/** How several documents are parsed as one model. */
+export interface ParseSourcesOptions extends ParseOptions {
+  /**
+   * The `hash` of a model of the same documents the caller holds results of,
+   * typically the previous `parseSources` answer: the new model's `affected`
+   * then names the documents whose results may differ from it. Requires
+   * `parse_sources_affected`.
+   */
+  baseModelHash?: string;
 }
 
 /** Where an expression is evaluated. */
@@ -176,6 +164,13 @@ export class Model {
   readonly diagnostics: readonly ModelDiagnostic[];
   /** The name of each document this model was parsed from, empty for an adopted model. */
   readonly documents: readonly string[];
+  /**
+   * The documents whose analysis, diagnostics or conversion may differ from
+   * the base model's, in document order, when `parseSources` was given a
+   * `baseModelHash`; every document when the service could not compare the
+   * two, and empty for a parse without a base.
+   */
+  readonly affected: readonly string[];
 
   private readonly rootSymbols: readonly ModelSymbol[];
   private readonly ownsConnection: boolean;
@@ -187,6 +182,7 @@ export class Model {
     diagnostics: readonly ModelDiagnostic[];
     ownsConnection: boolean;
     documents?: readonly string[];
+    affected?: readonly string[];
     sourcePath?: string;
   }) {
     this.connection = init.connection;
@@ -195,6 +191,7 @@ export class Model {
     this.diagnostics = init.diagnostics;
     this.ownsConnection = init.ownsConnection;
     this.documents = init.documents ?? [];
+    this.affected = init.affected ?? [];
     this.sourcePath = init.sourcePath;
   }
 
@@ -209,7 +206,7 @@ export class Model {
     hash: string,
     roots: readonly SymbolInfo[],
     diagnostics: readonly ModelDiagnostic[],
-    options: { ownsConnection?: boolean; documents?: readonly string[] } = {},
+    options: { ownsConnection?: boolean; documents?: readonly string[]; affected?: readonly string[] } = {},
   ): Model {
     return new Model({
       connection,
@@ -218,6 +215,7 @@ export class Model {
       diagnostics,
       ownsConnection: options.ownsConnection ?? false,
       ...(options.documents === undefined ? {} : { documents: options.documents }),
+      ...(options.affected === undefined ? {} : { affected: options.affected }),
     });
   }
 
@@ -280,7 +278,7 @@ export class Model {
       requireLanguage(options.language);
       requireCapability(connection.info, CAPABILITY_INLINE_LANGUAGE, upgradeRemedy(CAPABILITY_INLINE_LANGUAGE));
     }
-    const strictConformance = strictConformanceOf(options);
+    const { strictConformance } = options;
     if (strictConformance === true) {
       requireCapability(
         connection.info,
@@ -391,7 +389,7 @@ export class Model {
   /** Writes this model out in `toFormat`. */
   convert(
     toFormat: string,
-    options: { fromFormat?: string; tolerateSyntaxErrors?: boolean } = {},
+    options: ConvertOptions = {},
   ): Promise<Conversion> {
     return this.connection.convert(toFormat, { modelHash: this.hash }, options);
   }
@@ -424,10 +422,10 @@ export class Model {
     return this.connection.runDocumentQuery(this.hash, queryId, bindings);
   }
 
-  /** Renders a named document of this model to Markdown or HTML. */
+  /** Renders a named document of this model to Markdown, HTML or AsciiDoc. */
   renderDocument(
     documentId: string,
-    options: { form?: "markdown" | "html" } = {},
+    options: { form?: "markdown" | "html" | "asciidoc" } = {},
   ): Promise<string> {
     return this.connection.renderDocument(this.hash, documentId, options);
   }
@@ -495,6 +493,10 @@ export class Model {
       draws?: string;
       /** The step the run's clock ticks by, in seconds; 0 is a continuous clock. */
       clockStep?: number;
+      /** Return the run's typed trace; needs the `action_trace` capability. */
+      trace?: boolean;
+      /** Signals to post to the performer in order as the run waits; needs `performer`. */
+      events?: readonly string[];
     } = {},
   ) {
     return this.connection.executeAction(this.hash, actionSymbolId, options);

@@ -41,6 +41,11 @@ func TestImportedNameConflicts(t *testing.T) {
 			[]string{"3: Duplicate of imported member name 'x': A::x (import A::*), Base::x (inherited)"}},
 		// An owned redefinition hides both the inherited and the imported name.
 		{"a.sysml", "package A { part x; }\npart def Base { part x; }\npart def Child :> Base { private import A::*; part x :>> x; }", nil},
+		// A view's exposes colliding only among themselves are no conflict;
+		// a plain import beside them is.
+		{"a.sysml", "package V {\npart a { part p; }\npart b { part p; }\nview v { expose a::**; expose b::**; }\n}", nil},
+		{"a.sysml", "package V {\npart a { part p; }\npart b { part p; }\nview v { private import a::*; expose b::*; }\n}",
+			[]string{"4: Duplicate of imported member name 'p': V::a::p (import a::*), V::b::p (import all b::*)"}},
 		// Metaclasses that conform in neither direction are distinguishable here too.
 		{"a.sysml", "package A { attribute x; }\npart def Base { part x; }\npart def Child :> Base { private import A::*; }", nil},
 	} {

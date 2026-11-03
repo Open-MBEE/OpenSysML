@@ -20,22 +20,23 @@ def main() -> None:
 
     print("== the fuel budget of one descent")
     budget = model.run_analysis("Descent::scoutBudget")
-    print(f"fuel left     {budget.outputs['fuelLeft']} kg after {budget.outputs['fuelUsed']} kg burned")
+    fuel_left, fuel_used = budget.outputs["fuelLeft"][0], budget.outputs["fuelUsed"][0]
+    print(f"fuel left     {fuel_left} kg after {fuel_used} kg burned")
     print(f"reserve held  {budget.satisfied}")
 
     long_burn = model.run_analysis("Descent::scoutBudget", named_arguments={"burnTime": 80.0})
-    print(f"80 s burn     {long_burn.outputs['fuelLeft']} kg left, reserve held {long_burn.satisfied}")
+    print(f"80 s burn     {long_burn.outputs['fuelLeft'][0]} kg left, reserve held {long_burn.satisfied}")
     for verdict in long_burn.verdicts:
         print(f"              {verdict.explain()}")
 
     hauler = model.run_analysis("Descent::FuelBudget", subject="Landers::hauler")
-    print(f"the hauler    {hauler.outputs['fuelLeft']} kg left, reserve held {hauler.satisfied}")
+    print(f"the hauler    {hauler.outputs['fuelLeft'][0]} kg left, reserve held {hauler.satisfied}")
 
     print("\n== how far the budget stretches")
     table = model.run_sweep("Descent::scoutBudget", {"burnTime": (20.0, 80.0, 20.0)})
     for row in table:
         held = "holds" if row else "fails"
-        print(f"burnTime {row.inputs['burnTime']:>5}  fuelLeft {row.outputs['fuelLeft']:>6}  reserve {held}")
+        print(f"burnTime {row.inputs['burnTime']:>5}  fuelLeft {row.outputs['fuelLeft'][0]:>6}  reserve {held}")
 
     drawn = model.run_sweep("Descent::scoutBudget", {"burnTime": (20.0, 80.0)}, samples=4, seed=7)
     print(f"seed {drawn.seed}: {len(drawn)} draws, "
@@ -63,7 +64,7 @@ def main() -> None:
     print("\n== the watch and the flight mode on one clock")
     runs = model.explore_analysis("Timing::watchDescent")
     for outcome in runs:
-        print(f"sawBraking = {outcome.outputs['sawBraking']!s:<5} "
+        print(f"sawBraking = {outcome.outputs['sawBraking'][0]!s:<5} "
               f"({outcome.linearizations} order): {outcome.witness[0]}")
 
 

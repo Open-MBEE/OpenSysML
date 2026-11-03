@@ -115,9 +115,10 @@ func rowHoldsBigInt(row *pb.DocumentQueryRow) bool {
 const (
 	renderFormMarkdown = "markdown"
 	renderFormHTML     = "html"
+	renderFormAsciiDoc = "asciidoc"
 )
 
-// RenderDocument renders a named document to Markdown or HTML, as
+// RenderDocument renders a named document to Markdown, HTML or AsciiDoc, as
 // -render-document does.
 func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error) {
 	if err := s.requireCapability(CapabilityRenderDocument); err != nil {
@@ -127,14 +128,19 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	if form == "" {
 		form = renderFormMarkdown
 	}
-	if form != renderFormMarkdown && form != renderFormHTML {
-		return nil, statusErrorf(connect.CodeInvalidArgument,
-			"form %q is not one this service renders: markdown or html", req.Form)
-	}
-	if form == renderFormHTML {
+	switch form {
+	case renderFormMarkdown:
+	case renderFormHTML:
 		if err := s.requireCapability(CapabilityRenderDocumentHTML); err != nil {
 			return nil, err
 		}
+	case renderFormAsciiDoc:
+		if err := s.requireCapability(CapabilityRenderDocumentAsciiDoc); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, statusErrorf(connect.CodeInvalidArgument,
+			"form %q is not one this service renders: markdown, html or asciidoc", req.Form)
 	}
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
@@ -167,8 +173,11 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 		return nil, held.documentStatus(err)
 	}
 	extension := ".md"
-	if form == renderFormHTML {
+	switch form {
+	case renderFormHTML:
 		extension = ".html"
+	case renderFormAsciiDoc:
+		extension = ".adoc"
 	}
 	files, err := modeldoc.DocumentFiles(model.DocumentNames(qctx.Index, qctx.Model), extension)
 	if err != nil {
@@ -180,6 +189,13 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 			return nil, documentStatus(err)
 		}
 		return &pb.RenderDocumentResponse{Html: page, FileName: s.documentFileName(files, sym)}, nil
+	}
+	if form == renderFormAsciiDoc {
+		adoc, err := docrender.AsciiDoc(document, docrender.AsciiDocOptions{Files: files})
+		if err != nil {
+			return nil, documentStatus(err)
+		}
+		return &pb.RenderDocumentResponse{Asciidoc: adoc, FileName: s.documentFileName(files, sym)}, nil
 	}
 	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{Files: files})
 	if err != nil {
@@ -454,6 +470,11 @@ func documentEvent(idx *symbols.Index, event queryexec.Event) *pb.DocumentEvent 
 		Event:   record.Event,
 		Payload: event.Payload(),
 		Text:    event.Text(),
+		Token:   event.Token(),
+		Step:    traceDroppedCountToInt32(int64(event.Step())),
+	}
+	if feature, _, ok := event.Assigned(); ok {
+		out.Feature = feature
 	}
 	if inst, label := event.Object(); inst != nil {
 		out.Object = documentObject(idx, queryexec.ObjectValue(inst, label))
@@ -475,7 +496,7 @@ func documentStatus(err error) error {
 	}
 	var execErr *queryexec.Error
 	if errors.As(err, &execErr) {
-		return statusWithOrigin(queryExecCode(execErr.Kind), err, execErr.Origin)
+		return withQueryOutcome(statusWithOrigin(queryExecCode(execErr.Kind), err, execErr.Origin), execErr)
 	}
 	var docPlanErr *docplan.Error
 	if errors.As(err, &docPlanErr) {
@@ -483,9 +504,63 @@ func documentStatus(err error) error {
 	}
 	var docIRErr *docir.Error
 	if errors.As(err, &docIRErr) {
-		return statusWithOrigin(docIRCode(docIRErr), err, docIRErr.Origin)
+		status := statusWithOrigin(docIRCode(docIRErr), err, docIRErr.Origin)
+		if errors.As(docIRErr.Err, &execErr) {
+			return withQueryOutcome(status, execErr)
+		}
+		return status
 	}
 	return connect.NewError(connect.CodeInternal, err)
+}
+
+// withQueryOutcome attaches the QVTS record behind a failed query to its status
+// as a QueryOutcome detail, so a client reads the frontier and not just the message.
+func withQueryOutcome(status error, execErr *queryexec.Error) error {
+	if execErr.Outcome == nil {
+		return status
+	}
+	var connErr *connect.Error
+	if !errors.As(status, &connErr) {
+		return status
+	}
+	detail, err := connect.NewErrorDetail(queryOutcomeMessage(*execErr.Outcome))
+	if err != nil {
+		return status
+	}
+	connErr.AddDetail(detail)
+	return connErr
+}
+
+// queryOutcomeMessage is the record in its wire form, field for field.
+func queryOutcomeMessage(outcome queryexec.Outcome) *pb.QueryOutcome {
+	out := &pb.QueryOutcome{Kind: outcome.Kind(), Step: outcome.Step().Label()}
+	if outcome.Path != nil {
+		out.Failures = queryFailures(outcome.Path.Failures)
+	}
+	if outcome.Model != nil {
+		for _, f := range outcome.Model.Findings {
+			out.Findings = append(out.Findings, &pb.QueryFinding{
+				Step: f.Step.Label(), Element: f.Element, Constraint: string(f.Constraint), Observed: f.Observed,
+			})
+		}
+		out.PathFailures = queryFailures(outcome.Model.PathFailures)
+	}
+	return out
+}
+
+func queryFailures(failures []queryexec.Failure) []*pb.QueryFailure {
+	out := make([]*pb.QueryFailure, 0, len(failures))
+	for _, f := range failures {
+		frontier := &pb.QueryFrontier{At: f.Frontier.At, Kinds: f.Frontier.Kinds, Nearest: f.Frontier.Nearest}
+		for _, m := range f.Frontier.Members {
+			frontier.Members = append(frontier.Members, &pb.QueryFrontierMember{Name: m.Name, Metaclass: m.Metaclass})
+		}
+		for _, r := range f.Frontier.Features {
+			frontier.Features = append(frontier.Features, &pb.QueryFrontierFeature{Name: r.Name, Type: r.Type})
+		}
+		out = append(out, &pb.QueryFailure{Step: f.Step.Label(), Expected: f.Expected, Frontier: frontier})
+	}
+	return out
 }
 
 // statusWithOrigin fails with the engine's message, naming the source

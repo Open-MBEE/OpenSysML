@@ -117,7 +117,7 @@ func (m *Model) metaclassAnnotatedElementViolation(meta, def *symbols.Symbol) (s
 			return "", false
 		}
 	}
-	return leafName(meta.Name), true
+	return symbols.LastSegment(meta.Name), true
 }
 
 // annotatedElementFeatures are the features the annotation inherits from def that

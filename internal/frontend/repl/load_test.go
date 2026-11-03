@@ -380,3 +380,136 @@ func TestLoadFilePullsInTheSiblingsItImports(t *testing.T) {
 		t.Error("broken.sysml was loaded, want only main and lib")
 	}
 }
+
+// A loaded file's qualified names are followed to its neighbours as its
+// imports are: a library package naming another's view definition only by
+// qualified name brings that package's file in, so the reference resolves.
+func TestLoadingOneFilePullsInTheSiblingsItNamesByQualifiedName(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Method::*;\n    part p : Project;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib", "Method.sysml"), "library package Method {\n    part def Project {\n        view cover : MethodViews::ProjectView { expose this; }\n    }\n}\n")
+	writeFile(t, filepath.Join(dir, "lib", "MethodViews.sysml"), "library package MethodViews {\n    private import Method::*;\n    view def ProjectView;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib", "Other.sysml"), "package Other {\n    view def ProjectView;\n}\n")
+
+	s := NewSession()
+	rep, err := s.LoadPathsReport([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Errors {
+		t.Errorf("load reported errors: %v", rep.Found)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 3 files:") || !strings.Contains(got, "MethodViews.sysml") || strings.Contains(got, "Other.sysml") {
+		t.Errorf("loaded = %q, want main, Method and MethodViews only", got)
+	}
+	if _, _, err := s.lookupSymbol("MethodViews::ProjectView"); err != nil {
+		t.Errorf("MethodViews::ProjectView did not resolve: %v", err)
+	}
+}
+
+// A qualified name an import already answers is not searched for: with
+// Lib::Inner reached through Lib::*, Inner::Thing leaves an unrelated sibling
+// declaring a root Inner alone, as the search is for what resolution left
+// unresolved rather than for every root a file names.
+func TestLoadingOneFileLeavesAloneTheSiblingsItsImportsAnswerFor(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Lib::*;\n    part t : Inner::Thing;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    package Inner {\n        part def Thing;\n    }\n}\n")
+	writeFile(t, filepath.Join(dir, "inner.sysml"), "package Inner {\n    part broken : Nowhere;\n}\n")
+
+	s := NewSession()
+	rep, err := s.LoadPathsReport([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Errors {
+		t.Errorf("load reported errors: %v", rep.Found)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 2 files:") || !strings.Contains(got, "lib.sysml") || strings.Contains(got, "inner.sysml") {
+		t.Errorf("loaded = %q, want main and lib only", got)
+	}
+}
+
+// The files loaded for a reference are read for their own references in turn:
+// a qualified name leads to a file whose import leads to a third.
+func TestLoadingOneFileFollowsTheReferencesOfTheFilesItPulledIn(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    part p : Method::Project;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib", "Method.sysml"), "library package Method {\n    private import Gearbox::*;\n    part def Project :> Thing;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib", "Gearbox.sysml"), "library package Gearbox {\n    part def Thing;\n}\n")
+
+	s := NewSession()
+	rep, err := s.LoadPathsReport([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Errors {
+		t.Errorf("load reported errors: %v", rep.Found)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 3 files:") || !strings.Contains(got, "Gearbox.sysml") {
+		t.Errorf("loaded = %q, want main, Method and Gearbox", got)
+	}
+}
+
+func TestReloadingAFileFindsTheRootItNoLongerDeclaresBesideIt(t *testing.T) {
+	dir := t.TempDir()
+	model := writeFile(t, filepath.Join(dir, "model.sysml"), "package Lib {\n    part def Old;\n}\n")
+
+	s := NewSession()
+	if _, err := s.LoadPathsReport([]string{model}); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, model, "package Main {\n    part x : Lib::Thing;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    part def Thing;\n}\n")
+	rep, err := s.LoadPathsReport([]string{model})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Errors {
+		t.Errorf("reload reported errors: %v", rep.Found)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 2 files:") || !strings.Contains(got, "lib.sysml") {
+		t.Errorf("loaded = %q, want model.sysml and lib.sysml", got)
+	}
+	if _, _, err := s.lookupSymbol("Lib::Thing"); err != nil {
+		t.Errorf("Lib::Thing did not resolve: %v", err)
+	}
+}
+
+func TestAnImportNoFileAnswersDoesNotKeepTheQualifiedNamesWaiting(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Missing::*;\n    part p : Available::Part;\n}\n")
+	writeFile(t, filepath.Join(dir, "available.sysml"), "package Available {\n    part def Part;\n}\n")
+
+	s := NewSession()
+	rep, err := s.LoadPathsReport([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 2 files:") || !strings.Contains(got, "available.sysml") {
+		t.Errorf("loaded = %q, want main and available", got)
+	}
+	found := strings.Join(rep.Found, "\n")
+	if !strings.Contains(found, "unresolved reference: Missing") || strings.Contains(found, "Available") {
+		t.Errorf("want Missing alone unresolved:\n%s", found)
+	}
+	if _, _, err := s.lookupSymbol("Available::Part"); err != nil {
+		t.Errorf("Available::Part did not resolve: %v", err)
+	}
+}
+
+func TestLoadFilesSummarySummarizesThePulledFilesToo(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Lib::*;\n    part w : Widget;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    part def Widget;\n}\n")
+
+	s := NewSession()
+	out, err := s.LoadFilesSummary([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(out, "\n")
+	if !strings.Contains(got, "package Main") || !strings.Contains(got, "package Lib") {
+		t.Errorf("summary = %q, want Main and the pulled Lib summarized", got)
+	}
+}

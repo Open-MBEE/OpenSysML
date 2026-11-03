@@ -181,6 +181,19 @@ func (s *service) address(timeout time.Duration) string {
 	}
 }
 
+// waitLog waits until the service has logged a line containing want: the health
+// listener announces itself from its own goroutine, after the main address.
+func (s *service) waitLog(want string, timeout time.Duration) {
+	s.t.Helper()
+	deadline := time.Now().Add(timeout)
+	for !strings.Contains(s.logs.String(), want) {
+		if time.Now().After(deadline) {
+			s.t.Fatalf("the service did not log %q within %s\nlogs: %s", want, timeout, s.logs.String())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 // waitStatus waits for the process to end and returns its exit status. A
 // process still running when the timeout expires is a leak, and a failure.
 func (s *service) waitStatus(timeout time.Duration) int {
@@ -216,12 +229,18 @@ func (s *service) terminate() {
 // contend for a fixed one.
 func dial(t *testing.T, addr string) pb.SysMLServiceClient {
 	t.Helper()
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	return pb.NewSysMLServiceClient(dialConn(t, addr))
+}
+
+// dialConn is the plaintext grpc-go connection behind dial, for other services.
+func dialConn(t *testing.T, addr string) *grpc.ClientConn {
+	t.Helper()
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("dialling %s: %v", addr, err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	return pb.NewSysMLServiceClient(conn)
+	return conn
 }
 
 // callContext bounds every RPC, so a service that stops answering fails the
@@ -536,7 +555,7 @@ func TestMissingModelIsATypedError(t *testing.T) {
 func TestShutdownWithAnOpenConnection(t *testing.T) {
 	s := startService(t, "-port", "0", "-health-port", "0")
 	addr := s.address(30 * time.Second)
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("dialling %s: %v", addr, err)
 	}

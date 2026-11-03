@@ -305,8 +305,8 @@ func TestGoldenMermaidPalette(t *testing.T) {
 }
 
 func TestMermaidEdgeSyntaxAndLinkStyleIndices(t *testing.T) {
-	if got, want := []string{mermaidArrow(KindInterconnection, EdgeConnection), mermaidArrow(KindInterconnection, EdgeBinding), mermaidArrow(KindAction, EdgeFlow), mermaidArrow(KindAction, EdgeSuccession)},
-		[]string{"===", "===", "-.->", "-->"}; fmt.Sprint(got) != fmt.Sprint(want) {
+	if got, want := []string{mermaidArrow(EdgeConnection), mermaidArrow(EdgeBinding), mermaidArrow(EdgeFlow), mermaidArrow(EdgeSuccession)},
+		[]string{"===", "===", "-->", "-.->"}; fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("arrows = %v, want %v", got, want)
 	}
 	rendering := &Rendering{Kind: KindTree, Roots: []*Node{{
@@ -486,7 +486,7 @@ func TestMermaidPortsUseOnlyConnectedPins(t *testing.T) {
 		strings.Contains(source, "a_p1") ||
 		!strings.Contains(source, "subgraph b [") ||
 		!strings.Contains(source, `b_p0["in"]`) ||
-		!strings.Contains(source, "a_p0 -.-> b_p0") ||
+		!strings.Contains(source, "a_p0 --> b_p0") ||
 		strings.Index(source, `b_p0["in"]`) > strings.Index(source, `child("`) {
 		t.Errorf("port subgraphs or ends:\n%s", source)
 	}
@@ -526,7 +526,7 @@ func TestMermaidFlowchartClustersUseAnchorsForExternalLinksAndNotes(t *testing.T
 	source := rendering.MermaidWith(Options{Palette: PaletteOkabeIto})
 	if !strings.Contains(source, "owner_anchor[\" \"]") ||
 		!strings.Contains(source, "owner_anchor === outside") ||
-		!strings.Contains(source, "outside -.-> owner_anchor") ||
+		!strings.Contains(source, "outside --> owner_anchor") ||
 		!strings.Contains(source, "note0 -.- owner_anchor") ||
 		!strings.Contains(source, "classDef anchor fill:none,stroke:none") ||
 		!strings.Contains(source, "class owner_anchor anchor") ||
@@ -928,12 +928,9 @@ func mermaidPicturesFixture(t *testing.T) *Rendering {
 	if err := os.Mkdir(images, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	var data bytes.Buffer
-	if err := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
-		t.Fatal(err)
-	}
+	data := twoByTwoPNG(t)
 	for _, name := range []string{"bench.png", "logo.png"} {
-		if err := os.WriteFile(filepath.Join(images, name), data.Bytes(), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(images, name), data, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -941,6 +938,17 @@ func mermaidPicturesFixture(t *testing.T) *Rendering {
 		rendering.Pictures[i].Dir = dir
 	}
 	return rendering
+}
+
+// twoByTwoPNG is a transparent 2×2 PNG as fixed bytes: the inline golden records them, and
+// png.Encode's output moves with the toolchain's compress/flate.
+func twoByTwoPNG(t *testing.T) []byte {
+	t.Helper()
+	data, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 func configName(config string) string {

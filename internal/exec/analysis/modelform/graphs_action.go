@@ -724,7 +724,7 @@ func (x *graphsExporter) accept(enclosing *symbols.Scope, a lower.Accept) *Accep
 	scope := orScope(a.Scope, enclosing)
 	return &AcceptForm{
 		Param:        a.ParamName,
-		SignalType:   qualifiedName(a.SignalType),
+		SignalType:   a.SignalType.Text(),
 		ViaPort:      a.ViaPort,
 		ViaSelf:      a.ViaSelf,
 		SubsetsEvent: x.expr(scope, a.SubsetsEvent),
@@ -743,9 +743,9 @@ func (x *graphsExporter) trigger(scope *symbols.Scope, node ast.Node) *TriggerFo
 	switch t := node.(type) {
 	case *ast.AcceptEvent:
 		form.Kind = "accept"
-		form.SignalType = qualifiedName(t.SignalType)
+		form.SignalType = t.SignalType.Text()
 		if qn := ast.AsQualifiedName(t.Subsets); qn != nil {
-			form.Subsets = qualifiedName(qn)
+			form.Subsets = qn.Text()
 		} else {
 			form.Subsets = lower.FeaturePath(t.Subsets)
 		}
@@ -754,7 +754,7 @@ func (x *graphsExporter) trigger(scope *symbols.Scope, node ast.Node) *TriggerFo
 		}
 	case *ast.CallEvent:
 		form.Kind = "call"
-		form.Operation = qualifiedName(t.Operation)
+		form.Operation = t.Operation.Text()
 		for _, p := range t.Parameters {
 			form.Parameters = append(form.Parameters, p.Text)
 		}

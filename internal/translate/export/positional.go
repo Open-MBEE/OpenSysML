@@ -117,7 +117,7 @@ func positionalCandidatesOf(doc PositionalDocument, index *symbols.Index, identi
 // positionalSymbol reports a declared symbol of the document that no
 // qualified identity names.
 func positionalSymbol(sym *symbols.Symbol, docName string, identifies func(*symbols.Symbol) bool) bool {
-	if sym == nil || sym.DocName != docName || identifies(sym) || sym.Decl == nil {
+	if sym == nil || sym.DocName != docName || sym.Implied() || identifies(sym) || sym.Decl == nil {
 		return false
 	}
 	return sym.Name == "" || sym.EffectiveName() || sym.Owner() != nil

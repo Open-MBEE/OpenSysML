@@ -84,6 +84,29 @@ pub struct Verdict {
     /// for an undecided answer. Reported as the "verification_questions" capability.
     #[prost(message, repeated, tag="17")]
     pub witness: ::prost::alloc::vec::Vec<WitnessAssignment>,
+    /// What the answer rests on, as the REPL's solver reports print it: the
+    /// features the question reads as one value or object while only the default
+    /// `0..*` multiplicity governs them, and the object-holding features whose own
+    /// assertions it does not state. In report order; never set by an evaluation.
+    /// Reported as the "verdict_notes" capability.
+    #[prost(message, repeated, tag="18")]
+    pub notes: ::prost::alloc::vec::Vec<VerdictNote>,
+}
+/// VerdictNote is one assumption or omission behind a Verdict, worded once for
+/// every surface.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VerdictNote {
+    /// "assumed_one" (a feature read as holding one value or object while only the
+    /// default `0..*` governs it) or "uncovered" (an object-holding feature whose
+    /// own assertions the question does not state).
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    /// The feature the note is about, as the report names it.
+    #[prost(string, tag="2")]
+    pub subject: ::prost::alloc::string::String,
+    /// The note as a sentence.
+    #[prost(string, tag="3")]
+    pub text: ::prost::alloc::string::String,
 }
 /// WitnessAssignment is one free variable's value in a witnessed assignment:
 /// the assignment the solver found, replayed by the evaluator.
@@ -1275,6 +1298,25 @@ pub struct ExecuteActionRequest {
     /// INVALID_ARGUMENT.
     #[prost(double, tag="9")]
     pub clock_step: f64,
+    /// Ask for the run's trace in ExecuteActionResponse.trace. Advertised as the
+    /// "action_trace" capability; a service withholding it refuses true with
+    /// UNIMPLEMENTED, as does an explore schedule with INVALID_ARGUMENT.
+    #[prost(bool, tag="10")]
+    pub trace: bool,
+    /// Signals or items to post to the performing object, in this order, as the
+    /// REPL's `%send` does: the run goes until it completes or every token waits,
+    /// the next event is then posted to the object's queue and the run goes on,
+    /// an accept node waiting for it taking it on the next step. An event of a
+    /// type no accept node of the performance names is refused, with the accepts
+    /// still waiting. The events exhausted, the run goes on to completion (or for
+    /// `advance`); a token still waiting at the end is an accept deadlock,
+    /// reported in `error` with the message it waits for. Each names a signal or
+    /// item definition, qualified or as the action's namespace sees it; a name no
+    /// definition answers to is matched by name alone, as ExecuteState's events
+    /// are. Posted to the object performer_symbol_id names, as `%send` posts to
+    /// one: INVALID_ARGUMENT without it.
+    #[prost(string, repeated, tag="11")]
+    pub events: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// ExecuteActionResponse contains action execution results
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1310,6 +1352,15 @@ pub struct ExecuteActionResponse {
     /// "order_dependence" capability; empty under an explore schedule.
     #[prost(map="string, int32", tag="8")]
     pub order_dependent: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
+    /// The run's trace in the order the run made it, when the request asked for
+    /// it: the token steps, waits, accepts, sends, decisions, assignments and
+    /// completion of the action, each a DocumentEvent (see its `kind`), also on a
+    /// run that failed, up to the failure. Empty under an explore schedule.
+    #[prost(message, repeated, tag="9")]
+    pub trace: ::prost::alloc::vec::Vec<DocumentEvent>,
+    /// How many of the oldest records the service's held-events bound discarded.
+    #[prost(int32, tag="10")]
+    pub trace_dropped: i32,
 }
 /// ExecuteStateRequest requests state machine execution
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1460,6 +1511,10 @@ pub struct ConvertRequest {
     /// capability.
     #[prost(bool, tag="12")]
     pub include_check_diagnostics: bool,
+    /// For api-json, restore the ownerless library stubs written before 0.11.0.
+    /// Default false: library elements remain bare references, not roots.
+    #[prost(bool, tag="13")]
+    pub include_library_stubs: bool,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
@@ -1505,6 +1560,21 @@ pub struct ConvertResponse {
     /// reports it in. Empty when experimental is false.
     #[prost(string, tag="7")]
     pub experimental_notice: ::prost::alloc::string::String,
+    /// Referenced standard-library names, outside the element array. Populated
+    /// for successful api-json conversions, including compact output.
+    #[prost(message, repeated, tag="8")]
+    pub library_references: ::prost::alloc::vec::Vec<LibraryReference>,
+}
+/// LibraryReference names a referenced standard-library element, not a model root.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LibraryReference {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub qualified_name: ::prost::alloc::string::String,
+    /// Metaclass, as API JSON's @type spells it.
+    #[prost(string, tag="3")]
+    pub r#type: ::prost::alloc::string::String,
 }
 /// MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
 /// file_path the service reads, or the document carried inline as content —
@@ -2768,6 +2838,11 @@ pub struct ServerInfoResponse {
     ///                   and answers with typed rows.
     ///    "render_document" - the RenderDocument RPC renders a named document to
     ///                   Markdown.
+    ///    "query_order_by" - Query.order_by sorts the matched elements; a service
+    ///                   without it would ignore the field, so a client checks.
+    ///    "render_document_html" - RenderDocumentRequest.form takes "html".
+    ///    "render_document_asciidoc" - RenderDocumentRequest.form takes "asciidoc"
+    ///                   and the response carries the document in `asciidoc`.
     ///    "render_view" - the RenderView RPC renders a declared view or targeted
     ///                   pseudo-view as machine-readable diagram data.
     ///    "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
@@ -2848,6 +2923,11 @@ pub struct Query {
     /// Filter every considered element must satisfy. Unset matches all of them.
     #[prost(message, optional, tag="3")]
     pub r#where: ::core::option::Option<Constraint>,
+    /// Properties the matched elements are sorted by, in order of precedence,
+    /// each ascending; elements equal under every one keep declaration order.
+    /// Corresponds to the standard's `orderBy`. An unknown one fails the call.
+    #[prost(string, repeated, tag="4")]
+    pub order_by: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Constraint is the standard's Constraint, whose `@type` discriminates between
 /// its two forms. On the wire the form is the oneof arm, not a type tag.
@@ -2879,13 +2959,14 @@ pub struct PrimitiveConstraint {
     #[prost(enumeration="PrimitiveOperator", tag="3")]
     pub operator: i32,
     /// Values to compare against. The standard writes one value, and its clients
-    /// also write a list for `@type`; with `=` the element matches any of them,
-    /// while `>` and `<` require exactly one.
+    /// also write a list for `@type`; with `=`, `in` and `instanceOf` the element
+    /// matches any of them, while `<`, `<=`, `>` and `>=` require exactly one.
     #[prost(string, repeated, tag="4")]
     pub value: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
-/// CompositeConstraint combines constraints. An empty constraint list fails the
-/// call: it has no defensible verdict.
+/// CompositeConstraint combines constraints. The standard combines at least two
+/// (`constraint : Constraint \[2..*\]`): an empty list has no defensible verdict,
+/// and a one-member list is that member, so either fails the call.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CompositeConstraint {
     #[prost(enumeration="CompositeOperator", tag="1")]
@@ -3544,7 +3625,12 @@ pub struct DocumentState {
 /// session's trace, in the order the run made it.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DocumentEvent {
-    /// "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
+    /// "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or
+    /// "terminate" for a state machine's records; an action's run adds "step" (a
+    /// token arriving at a node), "wait" (a token parking at an accept node),
+    /// "assign" (a feature written), "decide" (a decision node resolved) and
+    /// "complete" (the action's performance completed); its "accept" is the accept
+    /// node taking a message and its "send" a message posted.
     #[prost(string, tag="1")]
     pub kind: ::prost::alloc::string::String,
     /// The clock's instant when the record was made: a quantity in the clock's
@@ -3559,10 +3645,13 @@ pub struct DocumentEvent {
     /// under, else its declared name; empty for the run's own records.
     #[prost(string, tag="4")]
     pub machine: ::prost::alloc::string::String,
-    /// The state entered, exited or stepped by an entry, exit or do record.
+    /// The state entered, exited or stepped by an entry, exit or do record; the
+    /// action node a wait, assign, decide or action accept record is at.
     #[prost(string, tag="5")]
     pub state: ::prost::alloc::string::String,
-    /// A fired transition's source and target states.
+    /// A fired transition's source and target states; a step's source node (empty
+    /// where the token's flow starts) and the node it arrived at; a decide's
+    /// branch taken, as `taken` names it.
     #[prost(string, tag="6")]
     pub from: ::prost::alloc::string::String,
     #[prost(string, tag="7")]
@@ -3571,13 +3660,15 @@ pub struct DocumentEvent {
     /// send addressed to no object.
     #[prost(message, optional, boxed, tag="8")]
     pub target: ::core::option::Option<::prost::alloc::boxed::Box<DocumentObject>>,
-    /// The signal or event accepted or sent, or the trigger a transition fired on.
+    /// The signal or event accepted or sent, the trigger a transition fired on, or
+    /// the message type or trigger a wait record waits for.
     #[prost(string, tag="9")]
     pub event: ::prost::alloc::string::String,
     /// An accept's payload, one `name = value` entry per parameter in name order.
     #[prost(string, repeated, tag="10")]
     pub payload: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// A choice's alternatives, in the order they were offered, and the one taken.
+    /// A choice's alternatives, in the order they were offered, and the one taken;
+    /// a decide's branches as `<position>-><target node>`, and the one taken.
     #[prost(string, repeated, tag="11")]
     pub alternatives: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, tag="12")]
@@ -3585,6 +3676,19 @@ pub struct DocumentEvent {
     /// The line the trace prints for the record.
     #[prost(string, tag="13")]
     pub text: ::prost::alloc::string::String,
+    /// The action token a step, wait, assign, decide or action accept record is
+    /// about, and the executor step (1-based) that made the record; 0 for a record
+    /// of neither (a state machine's, a send from outside the model).
+    #[prost(int64, tag="14")]
+    pub token: i64,
+    #[prost(int32, tag="15")]
+    pub step: i32,
+    /// The feature an assign record wrote and the value it holds since, as the
+    /// run's outputs carry values.
+    #[prost(string, tag="16")]
+    pub feature: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="17")]
+    pub value: ::core::option::Option<Value>,
 }
 /// DocumentQueryColumn is one projected property, in projection order.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -3622,6 +3726,85 @@ pub struct RunDocumentQueryResponse {
     #[prost(message, repeated, tag="2")]
     pub rows: ::prost::alloc::vec::Vec<DocumentQueryRow>,
 }
+/// QueryOutcome is the record behind a document query that could not be run, an error
+/// detail of the failed call: a pathError or modelError at its step, as -json's checks\[\].outcome.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryOutcome {
+    /// "pathError" or "modelError"
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    /// the step the outcome is reported at, as "Named(Observatory::x)"
+    #[prost(string, tag="2")]
+    pub step: ::prost::alloc::string::String,
+    /// a pathError's failures, one per failing element
+    #[prost(message, repeated, tag="3")]
+    pub failures: ::prost::alloc::vec::Vec<QueryFailure>,
+    /// a modelError's findings
+    #[prost(message, repeated, tag="4")]
+    pub findings: ::prost::alloc::vec::Vec<QueryFinding>,
+    /// a modelError's path failures from the same fan-out
+    #[prost(message, repeated, tag="5")]
+    pub path_failures: ::prost::alloc::vec::Vec<QueryFailure>,
+}
+/// QueryFailure is one failure of one step on one element: what the step
+/// expected, and what the model holds where the path stopped resolving.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryFailure {
+    #[prost(string, tag="1")]
+    pub step: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub expected: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub frontier: ::core::option::Option<QueryFrontier>,
+}
+/// QueryFrontier is what the model holds where the path stopped: the last
+/// element that resolved and what it offers in place of what was asked.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryFrontier {
+    /// empty when nothing on the path resolved
+    #[prost(string, tag="1")]
+    pub at: ::prost::alloc::string::String,
+    /// its members, when a name was expected
+    #[prost(message, repeated, tag="2")]
+    pub members: ::prost::alloc::vec::Vec<QueryFrontierMember>,
+    /// its features, when a feature was expected
+    #[prost(message, repeated, tag="3")]
+    pub features: ::prost::alloc::vec::Vec<QueryFrontierFeature>,
+    /// the relationship kinds there are, when a kind was expected
+    #[prost(string, repeated, tag="4")]
+    pub kinds: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// the closest spelling, when a name was expected
+    #[prost(string, tag="5")]
+    pub nearest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryFrontierMember {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub metaclass: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryFrontierFeature {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// empty for an untyped feature
+    #[prost(string, tag="2")]
+    pub r#type: ::prost::alloc::string::String,
+}
+/// QueryFinding is one finding about an element at a step: a constraint the
+/// model violates (ambiguousName, multiplicity, typing, unit) and what was observed.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryFinding {
+    #[prost(string, tag="1")]
+    pub step: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub element: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub constraint: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub observed: ::prost::alloc::string::String,
+}
 /// RenderDocumentRequest renders a named document — a part def specializing
 /// DocumentQueries::Document — to Markdown or HTML. A document binds its
 /// queries' parameters in the model, so the request carries none.
@@ -3634,22 +3817,27 @@ pub struct RenderDocumentRequest {
     /// not declare it, and INVALID_ARGUMENT when it declares something else.
     #[prost(string, tag="2")]
     pub document_id: ::prost::alloc::string::String,
-    /// Form to render: "markdown" (the default when empty) or "html", the
+    /// Form to render: "markdown" (the default when empty), "html", the
     /// standalone page with the default stylesheet that the CLI's -doc-form html
-    /// writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
-    /// converter toolchain and is not offered here.
+    /// writes, or "asciidoc", the document the CLI's -doc-form asciidoc writes
+    /// (under the render_document_asciidoc capability). Any other form fails
+    /// with INVALID_ARGUMENT; PDF needs the CLI's converter toolchain and is not
+    /// offered here.
     #[prost(string, tag="3")]
     pub form: ::prost::alloc::string::String,
 }
 /// RenderDocumentResponse carries the rendered document in the form requested,
 /// byte-for-byte what the CLI's -render-document writes: markdown for the
-/// Markdown form, html for the HTML form, the other left empty.
+/// Markdown form, html for the HTML form, asciidoc for the AsciiDoc form, the
+/// others left empty.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RenderDocumentResponse {
     #[prost(string, tag="1")]
     pub markdown: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub html: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub asciidoc: ::prost::alloc::string::String,
     /// The file a rendered set writes this document to in the requested form
     /// (-render-documents), which the other documents' links to it name.
     /// Populated under the render_document_file_name capability.
@@ -3748,6 +3936,11 @@ pub struct RenderNode {
     /// ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
     #[prost(string, tag="14")]
     pub compartment: ::prost::alloc::string::String,
+    /// The owner the node is drawn or listed under has the usage through typing,
+    /// subclassification or subsetting rather than declares it; the notation
+    /// prefixes its name with `^`. `name` stays the bare name.
+    #[prost(bool, tag="15")]
+    pub inherited: bool,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -3760,6 +3953,9 @@ pub struct RenderPort {
     pub r#type: ::prost::alloc::string::String,
     #[prost(string, tag="4")]
     pub direction: ::prost::alloc::string::String,
+    /// The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
+    #[prost(bool, tag="5")]
+    pub inherited: bool,
 }
 /// RenderEdge joins two rendered nodes and may connect their ports.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4362,7 +4558,8 @@ impl EditFailure {
         }
     }
 }
-/// PrimitiveOperator is the standard's PrimitiveConstraint.operator.
+/// PrimitiveOperator is the standard's PrimitiveConstraint.operator, the seven
+/// literals of API & Services §7.1.4.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum PrimitiveOperator {
@@ -4374,6 +4571,16 @@ pub enum PrimitiveOperator {
     Greater = 2,
     /// "<"
     Less = 3,
+    /// "<="
+    LessEqual = 4,
+    /// ">="
+    GreaterEqual = 5,
+    /// "in": the property's value is one of the listed values.
+    In = 6,
+    /// "instanceOf": the element's metaclass (`property` must be "@type")
+    /// conforms to one of the listed metaclasses, so a PartUsage is an instance
+    /// of Usage, Feature and Element.
+    InstanceOf = 7,
 }
 impl PrimitiveOperator {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -4386,6 +4593,10 @@ impl PrimitiveOperator {
             Self::Equal => "PRIMITIVE_OPERATOR_EQUAL",
             Self::Greater => "PRIMITIVE_OPERATOR_GREATER",
             Self::Less => "PRIMITIVE_OPERATOR_LESS",
+            Self::LessEqual => "PRIMITIVE_OPERATOR_LESS_EQUAL",
+            Self::GreaterEqual => "PRIMITIVE_OPERATOR_GREATER_EQUAL",
+            Self::In => "PRIMITIVE_OPERATOR_IN",
+            Self::InstanceOf => "PRIMITIVE_OPERATOR_INSTANCE_OF",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -4395,6 +4606,10 @@ impl PrimitiveOperator {
             "PRIMITIVE_OPERATOR_EQUAL" => Some(Self::Equal),
             "PRIMITIVE_OPERATOR_GREATER" => Some(Self::Greater),
             "PRIMITIVE_OPERATOR_LESS" => Some(Self::Less),
+            "PRIMITIVE_OPERATOR_LESS_EQUAL" => Some(Self::LessEqual),
+            "PRIMITIVE_OPERATOR_GREATER_EQUAL" => Some(Self::GreaterEqual),
+            "PRIMITIVE_OPERATOR_IN" => Some(Self::In),
+            "PRIMITIVE_OPERATOR_INSTANCE_OF" => Some(Self::InstanceOf),
             _ => None,
         }
     }

@@ -34,7 +34,7 @@ Expect `--- PASS` for `TestTrainingExamplesSemanticErrors`, `TestPilotCorporaDia
 `TestCorpusGatesCacheStateIndependent` (subtests `training` and `pilot-corpora` — the older
 `TestTrainingExamplesCacheStateIndependent` / `TestPilotCorporaCacheStateIndependent` no longer
 exist), plus the error-only `100/100 training files clean` line and three `N/M pilot corpus files clean` lines
-(observed 2026-08: sysml-examples 76/98, sysml-validation 52/56, kerml-examples 51/58 — these move
+(observed 2026-09: sysml-examples 76/98, sysml-validation 52/56, kerml-examples 51/58 — these move
 whenever diagnostics change, so read the current numbers from `docs/project/pilot-corpora.md`
 rather than hard-coding them).
 
@@ -120,7 +120,7 @@ same `pilot_clone`. The pin is `PILOT_TAG` **and** `PILOT_COMMIT`: the clone is 
 `pilot_clone` fails unless `HEAD` is the pinned commit, because a tag is a mutable ref.
 
 - Every destination is stamped with `.pilot-pin` (`<tag> <commit> <repo>`). A destination whose
-  stamp is the current pin prints `Already present at <dest> (pin 2026-08 692170b7…)` and is
+  stamp is the current pin prints `Already present at <dest> (pin 2026-09 38665073…)` and is
   skipped; if *all* are present no clone happens at all. A stamp that differs prints `Stale pin at
   <dest>: fetched from …; re-downloading.` and an unstamped directory prints `No pin recorded at
   <dest>: …; re-downloading.` — both re-fetch, and the old copy is only replaced after the clone
@@ -132,15 +132,15 @@ same `pilot_clone`. The pin is `PILOT_TAG` **and** `PILOT_COMMIT`: the clone is 
 - To prove pinning/sparseness without touching the script, put a logging `git` wrapper first on
   `PATH` (`echo "$*" >> log; /usr/bin/git "$@"`, and after `sparse-checkout` also dump
   `git -C <dir> sparse-checkout list`, `git -C <dir> log -1 --decorate` and `ls <dir>`). Expect
-  `clone --quiet --filter=blob:none --sparse --depth 1 --branch 2026-08 ...`,
+  `clone --quiet --filter=blob:none --sparse --depth 1 --branch 2026-09 ...`,
   `rev-parse HEAD^{commit}`, `sparse-checkout set <only the requested paths>`, HEAD
-  `692170b71867353b8f90341e61556f49a5beb0e5` decorated `tag: 2026-08`, and no unrequested subtree
+  `38665073bbf02849bd309b106eba79cbb3a1ee1d` decorated `tag: 2026-09`, and no unrequested subtree
   on disk.
 - Error paths, all exit 1 and leave the existing destinations untouched: a bogus source path →
   `error: <path> is missing from <repo> at <tag>`; `PILOT_TAG=9999-99` → git's
   `fatal: Remote branch 9999-99 not found in upstream origin` then `error: could not clone <repo>
   at 9999-99, the tag scripts/pilot-pin.sh pins`; `PILOT_COMMIT=<other sha>` (simulates the tag
-  moving upstream) → `error: <repo> tag 2026-08 resolves to 692170b7…, scripts/pilot-pin.sh pins
+  moving upstream) → `error: <repo> tag 2026-09 resolves to 38665073…, scripts/pilot-pin.sh pins
   <other sha>` and nothing is provisioned.
 
 ## The gate runs cold: never compare it against an ad-hoc harness or the CLI
@@ -148,13 +148,16 @@ same `pilot_clone`. The pin is `PILOT_TAG` **and** `PILOT_COMMIT`: the clone is 
 `TestPilotCorporaDiagnostics` does `t.Setenv("XDG_CACHE_HOME", t.TempDir())` before counting, so it
 always indexes the standard library by parsing it. A hand-rolled harness (or `go run ./cmd/sysml
 -validate`, or the LSP) uses the persistent library index under `$XDG_CACHE_HOME/sysml-ls/libs`
-instead, and that index is keyed only by the library content hash plus a schema version (`-v22`) —
-**not** by the OpenSysML build. A change to symbol classification or anything else the index stores
-therefore leaves a stale cache in place, and the same tree can report different diagnostics through
-the two paths (observed: a corpus file clean under the gate but reporting three
-`Must be a valid feature` errors through a warm pre-change cache). When reproducing or refuting a
-gate verdict outside the gate, always `XDG_CACHE_HOME=$(mktemp -d)` first; if the two disagree,
-suspect a stale index before suspecting the gate.
+instead. That index is keyed by the library content, the set digest, the record format version and
+the **build identity** (`internal/workspace/libs/buildid.go`: a clean checkout's revision, else the
+linker build ID of the binary), so a binary built from different code never reads another build's
+records and `rm -rf ~/.cache/sysml-ls` is not needed between rebuilds; builds of one clean checkout
+(a worktree at the same commit, a `make build` repeated) share records, which is correct. Before the key carried the build identity, a change to symbol
+classification left a stale cache in place (observed: a corpus file clean under the gate but
+reporting three `Must be a valid feature` errors through a warm pre-change cache). When reproducing
+or refuting a gate verdict outside the gate, still run under `XDG_CACHE_HOME=$(mktemp -d)` as well as
+the ambient cache: a difference now means a fact is derived differently cold and warm by the same
+code, which is a code bug, not a stale index.
 
 ## Attributing a corpus movement to a commit
 
@@ -183,8 +186,8 @@ gate's own helpers are package-private but reusable (`pilotCorporaGate.files(t)`
 
 `actionlint`, `shellcheck`, `python3 scripts/check-doc-links.py`, `gofmt`, `go vet`,
 `go run -C tools ./cmd/pilot-diff` (validators pre-downloaded; ~4min, prints e.g.
-the headline the committed baseline holds — `916 file(s), 515 fully agreeing; 1092 agreed
-diagnostic(s), 366 only ours, 2444 only the pilot's` at the `2026-08` pin, so read it from
+the headline the committed baseline holds — `924 file(s), 522 fully agreeing; 1102 agreed
+diagnostic(s), 359 only ours, 2462 only the pilot's` at the `2026-09` pin, so read it from
 `docs/project/pilot-differential-baseline.json` rather than from this line)
 and `make lint` (staticcheck+gosec, ~2min) all work. There is **no** `yamllint` and **no**
 `circleci` CLI, so `.circleci/config.yml` can only be parsed as YAML, not schema-validated — say so

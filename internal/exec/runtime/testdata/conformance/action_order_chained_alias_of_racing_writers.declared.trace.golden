@@ -1,0 +1,19 @@
+step 1: token 1@split
+step 2: token 2@a, token 3@b
+stmt assign cell.mark
+  eval literal 1 -> 1
+materialize: cell #1
+stmt assign twin.mark
+  eval literal 2 -> 2
+    eval feature cell -> instance#1
+  eval feature twin -> instance#1
+choice step 3: writes mark of object #1 := 1 by token 2, mark of object #1 := 2 by token 3 (unordered; mark of object #1 := 2 by token 3 stood; order-dependent: mark)
+choice step 3: tokens 2@a, 3@b (unordered; took 2@a first; order-dependent: mark)
+step 3: token 2@sync, token 3@sync
+step 4: token 4@derive
+stmt assign z
+      eval feature cell -> instance#1
+    eval feature twin -> instance#1
+  eval chain mark -> 2
+step 5: token 4@done
+step 6: no active tokens

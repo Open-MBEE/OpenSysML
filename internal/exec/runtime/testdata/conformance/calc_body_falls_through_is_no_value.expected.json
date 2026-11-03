@@ -1,0 +1,7 @@
+{
+  "type": "calc",
+  "inputs": [
+    {"type": "Integer", "value": 5}
+  ],
+  "error": "no value: calc test::maybe ended without a return"
+}

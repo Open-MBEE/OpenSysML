@@ -1,0 +1,12 @@
+✓ package Lander
+✓ package QVTSDemo
+✓ Query QVTSDemo::ChangedMasses returned 2 rows
+  Columns: elementId, left, right
+  Row 1: Lander::lander::cabin
+    elementId = "Lander__lander__cabin"
+    left = 320.0
+    right = 321.0
+  Row 2: Lander::lander::engine
+    elementId = "Lander__lander__engine"
+    left = 145.0
+    right = 146.0

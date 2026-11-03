@@ -378,6 +378,7 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 		})
 	}
 	e.state = StateCompleted
+	e.ctx.unregisterActionExecutor(e)
 	return e.ctx.endedWhole(&e.driven)
 }
 
@@ -463,7 +464,7 @@ func (ctx *Context) performanceBody(performed, callee *symbols.Symbol) (*symbols
 		return nil, nil, nil, err
 	}
 	if tool != nil {
-		graph, err := lower.ToActionInterface(held.Decl, DeclScope(held))
+		graph, err := ctx.model.actionInterface(held)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("lower action interface: %w", err)
 		}
@@ -626,7 +627,8 @@ func (ctx *Context) toolOutput(scope *symbols.Scope, tool string, out ToolOutput
 		return &ToolError{Tool: tool, Kind: ToolMalformed,
 			Detail: out.Variable + ": " + fmt.Sprintf(format, args...)}
 	}
-	mult, _ := ctx.statedMultiplicity(out.Declared)
+	target := ctx.writeTargetOf(out.Declared, out.Parameter)
+	mult := target.mult
 	var value Value
 	if answered.Items != nil {
 		if mult.AtMostOne() {
@@ -675,7 +677,6 @@ func (ctx *Context) toolOutput(scope *symbols.Scope, tool string, out ToolOutput
 			return Value{}, err
 		}
 	}
-	target := ctx.newWriteTarget(out.Declared, out.Parameter, mult)
 	if err := ctx.checkWrite(ctx.protocolScope(scope), out.Parameter, target, &value); err != nil {
 		return Value{}, malformed("%v", err)
 	}

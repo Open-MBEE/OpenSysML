@@ -530,6 +530,69 @@ func TestQuerySelectsWithATypedFilter(t *testing.T) {
 	}
 }
 
+func TestQueryInclusiveMembershipAndInstanceOfConditions(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, querySource)
+	ids := func(where *opensysml.Condition) []string {
+		t.Helper()
+		elements, err := client.Query(context.Background(), model, opensysml.Query{Scope: []string{"Demo"}, Where: where})
+		if err != nil {
+			t.Fatalf("Query: %v", err)
+		}
+		out := make([]string, 0, len(elements))
+		for _, element := range elements {
+			out = append(out, element.ID)
+		}
+		return out
+	}
+	if got := ids(opensysml.GreaterOrEqual("multiplicityLower", "4")); !slices.Equal(got, []string{"Demo::vehicle::wheels"}) {
+		t.Errorf("multiplicityLower >= 4 = %v", got)
+	}
+	if got := ids(opensysml.LessOrEqual("multiplicityUpper", "3")); len(got) != 0 {
+		t.Errorf("multiplicityUpper <= 3 = %v, want none", got)
+	}
+	usages := []string{"Demo::Vehicle::mass", "Demo::vehicle", "Demo::vehicle::wheels", "Demo::spare"}
+	if got := ids(opensysml.In("@type", "PartUsage", "AttributeUsage")); !slices.Equal(got, usages) {
+		t.Errorf("@type in [PartUsage, AttributeUsage] = %v, want %v", got, usages)
+	}
+	if got := ids(opensysml.InstanceOf("Feature")); !slices.Equal(got, usages) {
+		t.Errorf("instanceOf Feature = %v, want %v", got, usages)
+	}
+	if got := ids(opensysml.InstanceOf("Usage").Not()); !slices.Equal(got, []string{"Demo", "Demo::Vehicle", "Demo::Wheel"}) {
+		t.Errorf("not instanceOf Usage = %v", got)
+	}
+	if _, err := client.Query(context.Background(), model, opensysml.Query{Where: opensysml.InstanceOf("Gizmo")}); err == nil {
+		t.Error("instanceOf of an undeclared metaclass succeeded, want an error")
+	}
+	if _, err := client.Query(context.Background(), model, opensysml.Query{Where: opensysml.All(opensysml.Equals("name", "spare"))}); err == nil {
+		t.Error("a one-member All succeeded, want an error")
+	}
+}
+
+func TestQueryOrderBySortsTheAnswer(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, querySource)
+	elements, err := client.Query(context.Background(), model, opensysml.Query{
+		Select:  []string{"name"},
+		Where:   opensysml.InstanceOf("Usage"),
+		OrderBy: []string{"@type", "name"},
+	})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	got := make([]string, 0, len(elements))
+	for _, element := range elements {
+		got = append(got, element.ID)
+	}
+	want := []string{"Demo::Vehicle::mass", "Demo::spare", "Demo::vehicle", "Demo::vehicle::wheels"}
+	if !slices.Equal(got, want) {
+		t.Errorf("orderBy @type, name = %v, want %v", got, want)
+	}
+	if _, err := client.Query(context.Background(), model, opensysml.Query{OrderBy: []string{"colour"}}); err == nil {
+		t.Error("orderBy of an unknown property succeeded, want an error")
+	}
+}
+
 func TestNotOfACompositeNegatesEveryOperand(t *testing.T) {
 	client := newClient(t)
 	model := parse(t, client, querySource)
@@ -1097,8 +1160,8 @@ func TestApplyEditsAnswersTheEditedSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if !strings.Contains(result.Content, "1050.0") {
-		t.Errorf("edited source does not carry the new value:\n%s", result.Content)
+	if len(result.Documents) != 1 || !strings.Contains(result.Documents[0].Content, "1050.0") {
+		t.Errorf("edited source does not carry the new value:\n%+v", result.Documents)
 	}
 	if len(result.Applied) != 1 {
 		t.Fatalf("applied = %d edits, want 1", len(result.Applied))
@@ -1123,8 +1186,8 @@ func TestApplyEditsListsTheOneDocumentUnderTheParsesName(t *testing.T) {
 	if len(result.Documents) != 1 || result.Documents[0].Name != "demo.sysml" {
 		t.Fatalf("documents = %+v, want the one document named demo.sysml", result.Documents)
 	}
-	if result.Documents[0].Content != result.Content || result.Content == "" {
-		t.Errorf("content = %q, documents[0].content = %q, want the same notation", result.Content, result.Documents[0].Content)
+	if !strings.Contains(result.Documents[0].Content, "1050.0") {
+		t.Errorf("documents[0].content = %q, want the edited notation", result.Documents[0].Content)
 	}
 	if len(result.Applied) != 1 || result.Applied[0].Document != "demo.sysml" {
 		t.Errorf("applied = %+v, want one edit in demo.sysml", result.Applied)
@@ -1156,9 +1219,6 @@ func TestApplyEditsRenamesAcrossDocumentsAndLeavesContentEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if result.Content != "" {
-		t.Errorf("content = %q, want empty for a model of two documents", result.Content)
-	}
 	if len(result.Documents) != 2 || result.Documents[0].Name != "lib.sysml" || result.Documents[1].Name != "car.sysml" {
 		t.Fatalf("documents = %+v, want lib.sysml then car.sysml", result.Documents)
 	}
@@ -1183,9 +1243,6 @@ func TestApplyDocumentEditsTargetsTheNamedDocument(t *testing.T) {
 	}
 	if len(result.Documents) != 1 || result.Documents[0].Name != "car.sysml" {
 		t.Fatalf("documents = %+v, want car.sysml alone", result.Documents)
-	}
-	if result.Content != "" {
-		t.Errorf("content = %q, want empty for a model of two documents", result.Content)
 	}
 	_, err = client.ApplyDocumentEdits(context.Background(), model, "nope.sysml",
 		opensysml.Rename{Target: "Car::wheel", NewName: "tyre"})
@@ -1218,7 +1275,7 @@ func TestApplyEditsRefusalNamesReferrersByDocument(t *testing.T) {
 // A service without edit_documents edits one document alone and answers Content
 // alone, so a client checks the capability before reading Documents, before
 // editing a model of several documents, and before naming a document.
-func TestApplyEditsWithoutEditDocumentsAnswersContentAlone(t *testing.T) {
+func TestApplyEditsRequiresEditDocuments(t *testing.T) {
 	svc, err := sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(16, "test", []string{opensysml.CapabilityEditDocuments})
 	if err != nil {
 		t.Fatalf("NewServiceWithUnavailableCapabilitiesForTesting: %v", err)
@@ -1239,23 +1296,14 @@ func TestApplyEditsWithoutEditDocumentsAnswersContentAlone(t *testing.T) {
 		t.Fatalf("capabilities = %v, want apply_edits without edit_documents", info.Capabilities)
 	}
 
+	// Such a service answers the sole-document `content` alone, which this
+	// client no longer reads, so the edit is refused before it is sent.
 	one := parse(t, client, editableSource)
-	result, err := client.ApplyEdits(ctx, one, opensysml.SetValue{Target: "Demo::SC::unitMass", Value: "1050.0"})
-	if err != nil {
-		t.Fatalf("ApplyEdits: %v", err)
+	_, err = client.ApplyEdits(ctx, one, opensysml.SetValue{Target: "Demo::SC::unitMass", Value: "1050.0"})
+	if !errors.Is(err, opensysml.CodeUnimplemented) || !strings.Contains(err.Error(), opensysml.CapabilityEditDocuments) {
+		t.Errorf("a model of one: err = %v, want CodeUnimplemented naming edit_documents", err)
 	}
-	if !strings.Contains(result.Content, "1050.0") || len(result.Documents) != 0 {
-		t.Errorf("content=%q documents=%+v, want the notation in Content alone", result.Content, result.Documents)
-	}
-	if len(result.Applied) != 1 || result.Applied[0].Document != "" {
-		t.Errorf("applied = %+v, want one edit naming no document", result.Applied)
-	}
-
 	two := parseTwo(t, client)
-	_, err = client.ApplyEdits(ctx, two, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
-	if !errors.Is(err, opensysml.CodeFailedPrecondition) || !strings.Contains(err.Error(), opensysml.CapabilityEditDocuments) {
-		t.Errorf("a model of two: err = %v, want CodeFailedPrecondition naming edit_documents", err)
-	}
 	_, err = client.ApplyDocumentEdits(ctx, two, "car.sysml", opensysml.Rename{Target: "Car::wheel", NewName: "tyre"})
 	if !errors.Is(err, opensysml.CodeUnimplemented) || !strings.Contains(err.Error(), opensysml.CapabilityEditDocuments) {
 		t.Errorf("naming a document: err = %v, want CodeUnimplemented naming edit_documents", err)
@@ -1285,11 +1333,15 @@ func TestApplyEditsRenamesAndRewritesTheReferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if strings.Contains(result.Content, ": SC") {
-		t.Errorf("the reference to the renamed element still reads SC:\n%s", result.Content)
+	if len(result.Documents) != 1 {
+		t.Fatalf("documents = %+v, want the one edited document", result.Documents)
 	}
-	if !strings.Contains(result.Content, "part sc : Spacecraft") {
-		t.Errorf("the reference was not rewritten:\n%s", result.Content)
+	edited := result.Documents[0].Content
+	if strings.Contains(edited, ": SC") {
+		t.Errorf("the reference to the renamed element still reads SC:\n%s", edited)
+	}
+	if !strings.Contains(edited, "part sc : Spacecraft") {
+		t.Errorf("the reference was not rewritten:\n%s", edited)
 	}
 }
 
@@ -1310,6 +1362,15 @@ func TestApplyEditsRefusesDeletingAReferencedElement(t *testing.T) {
 	}
 }
 
+// editedNotation is the edited notation of a model of one document.
+func editedNotation(t *testing.T, result *opensysml.EditResult) string {
+	t.Helper()
+	if len(result.Documents) != 1 {
+		t.Fatalf("documents = %+v, want the one edited document", result.Documents)
+	}
+	return result.Documents[0].Content
+}
+
 func TestApplyEditsAddsAMember(t *testing.T) {
 	client := newClient(t)
 	model := parse(t, client, editableSource)
@@ -1318,8 +1379,8 @@ func TestApplyEditsAddsAMember(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if !strings.Contains(result.Content, "attribute margin") {
-		t.Errorf("the member was not added:\n%s", result.Content)
+	if edited := editedNotation(t, result); !strings.Contains(edited, "attribute margin") {
+		t.Errorf("the member was not added:\n%s", edited)
 	}
 }
 
@@ -1333,8 +1394,8 @@ func TestApplyEditsAddsAConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if !strings.Contains(result.Content, "allocation alloc1 allocate a to b;") {
-		t.Errorf("the connection was not added:\n%s", result.Content)
+	if edited := editedNotation(t, result); !strings.Contains(edited, "allocation alloc1 allocate a to b;") {
+		t.Errorf("the connection was not added:\n%s", edited)
 	}
 }
 
@@ -1359,8 +1420,8 @@ func TestApplyEditsAddsATypedConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyEdits: %v", err)
 	}
-	if !strings.Contains(result.Content, "connection cable : Cable connect left.p to right.p;") {
-		t.Errorf("the typed connection was not added:\n%s", result.Content)
+	if edited := editedNotation(t, result); !strings.Contains(edited, "connection cable : Cable connect left.p to right.p;") {
+		t.Errorf("the typed connection was not added:\n%s", edited)
 	}
 }
 
@@ -1642,5 +1703,75 @@ func TestCheckActionAgainstService(t *testing.T) {
 	var status *opensysml.StatusError
 	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
 		t.Errorf("negative depth: %v, want INVALID_ARGUMENT", err)
+	}
+}
+
+const actionTraceSource = `
+package Trace {
+  private import ScalarValues::*;
+  item def Go;
+  part def Craft;
+  part craft : Craft;
+  action def Flow {
+    in budget : Integer;
+    attribute remaining : Integer = budget;
+    out landed : Boolean = false;
+    first start;
+    then action burn assign remaining := remaining - 3;
+    then decide route;
+      if remaining >= 5 then waiting;
+      else finish;
+    action waiting accept go : Go;
+    then action land assign landed := true;
+    then finish;
+    action finish;
+    then done;
+  }
+}
+`
+
+// WithTrace on an action answers the run's records; WithEvents posts to the
+// performer once the run waits, and a run left waiting fails with its partial trace.
+func TestExecuteActionTraceAndEvents(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, actionTraceSource)
+	inputs := map[string]opensysml.Value{"budget": opensysml.Int(10)}
+
+	_, err := client.ExecuteAction(context.Background(), model, "Trace::Flow", inputs,
+		opensysml.PerformedBy("Trace::craft"), opensysml.WithTrace())
+	var failure *opensysml.FailureError
+	if !errors.As(err, &failure) || !strings.Contains(failure.Message, "accept deadlock") {
+		t.Fatalf("ExecuteAction without the event: %v, want an accept deadlock", err)
+	}
+	if n := len(failure.Trace); n == 0 || failure.Trace[n-1].Kind != "wait" || failure.Trace[n-1].Event != "Go" {
+		t.Fatalf("partial trace = %v, want it to end waiting for Go", failure.Trace)
+	}
+
+	run, err := client.ExecuteAction(context.Background(), model, "Trace::Flow", inputs,
+		opensysml.PerformedBy("Trace::craft"), opensysml.WithTrace(), opensysml.WithEvents("Go"))
+	if err != nil {
+		t.Fatalf("ExecuteAction with the event: %v", err)
+	}
+	if sole(t, "landed", run.Outputs["landed"]) != opensysml.Bool(true) {
+		t.Errorf("landed = %#v, want Bool(true)", run.Outputs["landed"])
+	}
+	var kinds []string
+	for _, event := range run.Trace {
+		kinds = append(kinds, event.Kind)
+		if event.Kind == "assign" && event.Feature == "remaining" && event.Value != opensysml.Int(7) {
+			t.Errorf("assign remaining = %#v, want Int(7)", event.Value)
+		}
+	}
+	joined := strings.Join(kinds, ",")
+	for _, want := range []string{"step,", "assign,", "decide,", "wait,", "accept,", "complete"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("trace kinds %s lack %q", joined, strings.TrimSuffix(want, ","))
+		}
+	}
+
+	_, err = client.ExecuteAction(context.Background(), model, "Trace::Flow", inputs, opensysml.WithEvents("Go"))
+	var status *opensysml.StatusError
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("WithEvents without PerformedBy: %v, want CodeInvalidArgument", err)
 	}
 }

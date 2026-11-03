@@ -70,6 +70,7 @@ func (e *Encoding) checkReleases(action string) error {
 	}
 	for _, name := range e.releases {
 		attr, ok := features[name]
+		_, derived := derivation(e.Flow.Graph, attr)
 		switch {
 		case !ok:
 			return &analysis.InputError{Engine: EngineName, Feature: name,
@@ -77,6 +78,9 @@ func (e *Encoding) checkReleases(action string) error {
 		case attr.Output():
 			return &analysis.InputError{Engine: EngineName, Feature: name,
 				Reason: fmt.Sprintf("action %s writes it back rather than reading it", action)}
+		case derived:
+			return &analysis.InputError{Engine: EngineName, Feature: name,
+				Reason: fmt.Sprintf("action %s values it by an expression over other features; free a feature it reads instead", action)}
 		}
 	}
 	return nil

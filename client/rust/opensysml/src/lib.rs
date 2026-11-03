@@ -32,7 +32,7 @@ pub use check::{
     CheckDivergence, CheckDivergentValue, CheckFinal, CheckOptions, CheckResult, CheckSearch,
     CheckViolation, CheckWitness,
 };
-pub use connection::Connection;
+pub use connection::{Connection, TOKEN_ENV};
 pub use domain::{
     Array, BigInteger, Capabilities, Complex, Diagnostic, EnumLiteral, EvalOptions, Evaluation,
     FeatureValue, Function, Instance, Instantiation, Language, Magnitude, MeasurementRef,
@@ -47,7 +47,7 @@ pub use wire::FailureReason;
 pub use capabilities::*;
 pub use conversion::{
     format_of_path, is_experimental, Conversion, ConvertOptions, ConvertSource, IdForm,
-    EXPERIMENTAL_NOTICE, FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE,
+    LibraryReference, EXPERIMENTAL_NOTICE, FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE,
 };
 pub use document::{
     document_event_to_wire, DocumentEvent, DocumentForm, DocumentQueryResult, DocumentRow,

@@ -3,7 +3,7 @@ package llm
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -74,8 +74,10 @@ func ExtractStructure(apiJSON []byte) (Structure, error) {
 			}
 		}
 	}
-	s.Elements = dedupe(s.Elements)
-	s.Relationships = dedupe(s.Relationships)
+	slices.Sort(s.Elements)
+	s.Elements = slices.Compact(s.Elements)
+	slices.Sort(s.Relationships)
+	s.Relationships = slices.Compact(s.Relationships)
 	return s, nil
 }
 
@@ -86,17 +88,6 @@ func anonymous(qn string) bool {
 		}
 	}
 	return false
-}
-
-func dedupe(xs []string) []string {
-	sort.Strings(xs)
-	out := xs[:0]
-	for i, x := range xs {
-		if i == 0 || x != xs[i-1] {
-			out = append(out, x)
-		}
-	}
-	return out
 }
 
 // Jaccard is |A ∩ B| / |A ∪ B| over the fact sets; two empty sets score 1.

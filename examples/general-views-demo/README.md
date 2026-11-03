@@ -16,6 +16,11 @@ sysml vehicle.sysml -render GeneralViews::definitionView -render-form dot -rende
 sysml vehicle.sysml -render GeneralViews::packageView -render-form plantuml
 ```
 
+Every command on `vehicle.sysml` also prints one `name-conflict` warning at line 102:
+`definitionView`'s recursive `expose VehicleStructure::**` brings the `mass` of `Vehicle`,
+`vehicle` and `heavyVehicle` into the view's namespace under one name. The renderings are
+unaffected.
+
 `-render-overlay verdicts` runs the verification cases and colours each requirement by its
 worst verdict: `vehicleMass` passes the light vehicle's test and fails the heavy one's, and
 `emergencyStop`'s test is inconclusive.

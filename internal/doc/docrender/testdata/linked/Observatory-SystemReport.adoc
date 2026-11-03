@@ -1,0 +1,12 @@
+= System Report
+
+Full mass detail is tabulated in xref:Observatory-Mass.20Appendix.adoc#tables-masses[Subsystem Masses] of xref:Observatory-Mass.20Appendix.adoc[Mass Appendix]
+
+== Summary
+
+<<notes,Notes>>
+
+[[notes]]
+== Notes
+
+Margins are provisional.

@@ -57,7 +57,12 @@ elmt:Reqs__Safe_om
     sysml:ownedMemberElement elmt:Reqs__Safe ;
     sysml:ownedRelatedElement elmt:Reqs__Safe ;
     sysml:owningRelatedElement elmt:Reqs ;
-    sysml:membershipOwningNamespace elmt:Reqs .
+    sysml:membershipOwningNamespace elmt:Reqs ;
+    sysml:source elmt:Reqs ;
+    sysml:target elmt:Reqs__Safe ;
+    sysml:relatedElement elmt:Reqs, elmt:Reqs__Safe ;
+    sysml:memberName "Safe" ;
+    json:relatedElement "[{\"@id\":\"Reqs\"},{\"@id\":\"Reqs__Safe\"}]" .
 
 elmt:Reqs__Safe__margin
     a sysml:AttributeUsage ;
@@ -74,6 +79,8 @@ elmt:Reqs__Safe__margin
     sysml:owningMembership elmt:Reqs__Safe__margin_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "margin" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Reqs__Safe__margin_ft0 ;
@@ -90,8 +97,13 @@ elmt:Reqs__Safe__margin_om
     sysml:ownedRelatedElement elmt:Reqs__Safe__margin ;
     sysml:owningRelatedElement elmt:Reqs__Safe ;
     sysml:membershipOwningNamespace elmt:Reqs__Safe ;
+    sysml:source elmt:Reqs__Safe ;
+    sysml:target elmt:Reqs__Safe__margin ;
+    sysml:relatedElement elmt:Reqs__Safe, elmt:Reqs__Safe__margin ;
+    sysml:memberName "margin" ;
     sysml:ownedMemberFeature elmt:Reqs__Safe__margin ;
-    sysml:owningType elmt:Reqs__Safe .
+    sysml:owningType elmt:Reqs__Safe ;
+    json:relatedElement "[{\"@id\":\"Reqs__Safe\"},{\"@id\":\"Reqs__Safe__margin\"}]" .
 
 elmt:Reqs__Positive
     a sysml:ConstraintDefinition ;
@@ -124,7 +136,12 @@ elmt:Reqs__Positive_om
     sysml:ownedMemberElement elmt:Reqs__Positive ;
     sysml:ownedRelatedElement elmt:Reqs__Positive ;
     sysml:owningRelatedElement elmt:Reqs ;
-    sysml:membershipOwningNamespace elmt:Reqs .
+    sysml:membershipOwningNamespace elmt:Reqs ;
+    sysml:source elmt:Reqs ;
+    sysml:target elmt:Reqs__Positive ;
+    sysml:relatedElement elmt:Reqs, elmt:Reqs__Positive ;
+    sysml:memberName "Positive" ;
+    json:relatedElement "[{\"@id\":\"Reqs\"},{\"@id\":\"Reqs__Positive\"}]" .
 
 elmt:Reqs__Positive__value
     a sysml:AttributeUsage ;
@@ -141,6 +158,8 @@ elmt:Reqs__Positive__value
     sysml:owningMembership elmt:Reqs__Positive__value_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Reqs__Positive__value_ft0 ;
@@ -157,8 +176,13 @@ elmt:Reqs__Positive__value_om
     sysml:ownedRelatedElement elmt:Reqs__Positive__value ;
     sysml:owningRelatedElement elmt:Reqs__Positive ;
     sysml:membershipOwningNamespace elmt:Reqs__Positive ;
+    sysml:source elmt:Reqs__Positive ;
+    sysml:target elmt:Reqs__Positive__value ;
+    sysml:relatedElement elmt:Reqs__Positive, elmt:Reqs__Positive__value ;
+    sysml:memberName "value" ;
     sysml:ownedMemberFeature elmt:Reqs__Positive__value ;
-    sysml:owningType elmt:Reqs__Positive .
+    sysml:owningType elmt:Reqs__Positive ;
+    json:relatedElement "[{\"@id\":\"Reqs__Positive\"},{\"@id\":\"Reqs__Positive__value\"}]" .
 
 elmt:Reqs__System
     a sysml:PartDefinition ;
@@ -191,7 +215,12 @@ elmt:Reqs__System_om
     sysml:ownedMemberElement elmt:Reqs__System ;
     sysml:ownedRelatedElement elmt:Reqs__System ;
     sysml:owningRelatedElement elmt:Reqs ;
-    sysml:membershipOwningNamespace elmt:Reqs .
+    sysml:membershipOwningNamespace elmt:Reqs ;
+    sysml:source elmt:Reqs ;
+    sysml:target elmt:Reqs__System ;
+    sysml:relatedElement elmt:Reqs, elmt:Reqs__System ;
+    sysml:memberName "System" ;
+    json:relatedElement "[{\"@id\":\"Reqs\"},{\"@id\":\"Reqs__System\"}]" .
 
 elmt:Reqs__System__safety
     a sysml:RequirementUsage ;
@@ -208,6 +237,8 @@ elmt:Reqs__System__safety
     sysml:owningMembership elmt:Reqs__System__safety_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "safety" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Reqs__Safe ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Reqs__System__safety_ft0 ;
@@ -224,8 +255,13 @@ elmt:Reqs__System__safety_om
     sysml:ownedRelatedElement elmt:Reqs__System__safety ;
     sysml:owningRelatedElement elmt:Reqs__System ;
     sysml:membershipOwningNamespace elmt:Reqs__System ;
+    sysml:source elmt:Reqs__System ;
+    sysml:target elmt:Reqs__System__safety ;
+    sysml:relatedElement elmt:Reqs__System, elmt:Reqs__System__safety ;
+    sysml:memberName "safety" ;
     sysml:ownedMemberFeature elmt:Reqs__System__safety ;
-    sysml:owningType elmt:Reqs__System .
+    sysml:owningType elmt:Reqs__System ;
+    json:relatedElement "[{\"@id\":\"Reqs__System\"},{\"@id\":\"Reqs__System__safety\"}]" .
 
 elmt:Reqs__Safe__margin_ft0
     a sysml:FeatureTyping ;

@@ -78,7 +78,7 @@ package RoverBasic {
 		attribute redefines title = "Rover Requirement Satisfaction";
 
 		part intro : Paragraph {
-			attribute redefines text = "Which part of the rover satisfies each requirement.";
+			:>> text = "Which part of the rover satisfies each requirement.";
 		}
 
 		part matrix : Table {
@@ -89,7 +89,7 @@ package RoverBasic {
 		}
 
 		part gaps : Paragraph {
-			attribute redefines text = "Requirements no part satisfies:";
+			:>> text = "Requirements no part satisfies:";
 		}
 
 		part gapList : List {

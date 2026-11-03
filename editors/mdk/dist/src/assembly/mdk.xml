@@ -4,11 +4,11 @@
   <includeBaseDirectory>false</includeBaseDirectory>
   <dependencySets>
     <dependencySet>
-      <outputDirectory>plugins/org.openmbee.opensysml.mdk</outputDirectory>
+      <outputDirectory>plugins/org.openmbee.mdk.magic</outputDirectory>
       <useProjectArtifact>false</useProjectArtifact>
       <useTransitiveDependencies>true</useTransitiveDependencies>
       <includes>
-        <include>org.openmbee:opensysml-mdk-plugin</include>
+        <include>org.openmbee:magic-mdk-plugin</include>
       </includes>
       <fileMode>0644</fileMode>
     </dependencySet>
@@ -17,7 +17,7 @@
       <useProjectArtifact>false</useProjectArtifact>
       <useTransitiveDependencies>false</useTransitiveDependencies>
       <includes>
-        <include>org.openmbee:opensysml-mdk-bridge</include>
+        <include>org.openmbee:magic-mdk-bridge</include>
       </includes>
       <fileMode>0644</fileMode>
     </dependencySet>
@@ -25,24 +25,23 @@
   <fileSets>
     <fileSet>
       <directory>target/bin</directory>
-      <outputDirectory>plugins/org.openmbee.opensysml.mdk/bin</outputDirectory>
+      <outputDirectory>plugins/org.openmbee.mdk.magic/bin</outputDirectory>
       <fileMode>0755</fileMode>
     </fileSet>
     <fileSet>
       <directory>target/lib</directory>
-      <outputDirectory>plugins/org.openmbee.opensysml.mdk/lib</outputDirectory>
+      <outputDirectory>plugins/org.openmbee.mdk.magic/lib</outputDirectory>
       <fileMode>0644</fileMode>
     </fileSet>
   </fileSets>
   <files>
     <file>
       <source>target/plugin.xml</source>
-      <outputDirectory>plugins/org.openmbee.opensysml.mdk</outputDirectory>
+      <outputDirectory>plugins/org.openmbee.mdk.magic</outputDirectory>
     </file>
     <file>
-      <source>src/main/resources/MDR_Plugin_OpenSysML_MDK_descriptor.xml</source>
+      <source>target/MDR_Plugin_Magic_MDK_91120_descriptor.xml</source>
       <outputDirectory>data/resourcemanager</outputDirectory>
-      <filtered>true</filtered>
     </file>
   </files>
 </assembly>

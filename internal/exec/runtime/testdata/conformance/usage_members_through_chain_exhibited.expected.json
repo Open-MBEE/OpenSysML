@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "instantiate": "test::Bench",
+  "libraries": true,
+  "slots": {
+    "exhibitedEntry": {"type": "Instance"},
+    "declaredEntryK": {"type": "Integer", "value": 1}
+  }
+}

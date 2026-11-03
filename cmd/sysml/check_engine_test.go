@@ -576,11 +576,11 @@ func TestEngineCheckWitnessOfBehaviorsOnOneClockReplays(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !strings.HasPrefix(string(content), "object #1 = Shine::Lamp#1\nt=3.0: action peek of object #1 first of action peek of object #1, state machine glow of object #1\nt=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
-			!strings.Contains(string(content), "choice at t=3.0: due action peek of object #1, state machine glow of object #1 (unordered; ran "+c.first+" first; order-dependent: lit)") {
+			!strings.Contains(string(content), "choice at t=3.0: due action peek of object #1, state machine glow of object #1 (unordered; ran "+c.first+" first; order-dependent: saw)") {
 			t.Errorf("witness %d:\n%s", c.n, content)
 		}
 		replayed := check(t, binary, lampModel, "-schedule", "replay:"+name(c.n), "-trace", "-instantiate", "Shine::Lamp", "-action", peek, "-state", glow, "-advance", "3")
-		wantReport(t, replayed, 0, "ran "+c.first+" first; order-dependent: lit)", "saw = "+c.saw, "Current state: on",
+		wantReport(t, replayed, 0, "ran "+c.first+" first; order-dependent: saw)", "saw = "+c.saw, "Current state: on",
 			"standing: value (observed: 1 run under replay:"+name(c.n)+")")
 	}
 }

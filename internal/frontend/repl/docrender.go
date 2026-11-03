@@ -46,6 +46,19 @@ func (s *Session) RenderDocumentHTML(invocation string, opts docrender.HTMLOptio
 	return docrender.HTML(document, opts)
 }
 
+// RenderDocumentAsciiDoc compiles the named document definition, evaluates its
+// queries against the session's model, and renders the result as AsciiDoc, its
+// cross-document references pointing at the files a set of the model's documents writes.
+func (s *Session) RenderDocumentAsciiDoc(invocation string, opts docrender.AsciiDocOptions) (string, error) {
+	defer s.enter()()
+	document, files, err := s.evaluateDocument(invocation, ".adoc")
+	if err != nil {
+		return "", err
+	}
+	opts.Files = files
+	return docrender.AsciiDoc(document, opts)
+}
+
 // EvaluateDocument compiles the named document definition and evaluates its
 // queries against the session's model, for a backend rendering the result.
 func (s *Session) EvaluateDocument(invocation string) (*docir.Document, error) {
@@ -138,6 +151,15 @@ func (s *Session) RenderDocumentSetHTML(opts docrender.HTMLOptions) ([]RenderedD
 	return s.renderDocumentSet(".html", func(document *docir.Document, files map[string]string) (string, error) {
 		opts.Files = files
 		return docrender.HTML(document, opts)
+	})
+}
+
+// RenderDocumentSetAsciiDoc renders the same set as linked AsciiDoc files,
+// each referring to the others by their .adoc file names.
+func (s *Session) RenderDocumentSetAsciiDoc(opts docrender.AsciiDocOptions) ([]RenderedDocument, error) {
+	return s.renderDocumentSet(".adoc", func(document *docir.Document, files map[string]string) (string, error) {
+		opts.Files = files
+		return docrender.AsciiDoc(document, opts)
 	})
 }
 

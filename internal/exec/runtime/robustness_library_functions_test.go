@@ -254,8 +254,8 @@ func testBodilessModelCalcNamedAsABuiltin(t *testing.T) {
 	`
 	for _, calc := range []string{"Total", "Size", "Parsed", "Added"} {
 		err := calcErrorWithLibraries(t, src, calc, nil, 10000)
-		if !errors.Is(err, errNoResultExpression) {
-			t.Errorf("%s = %v, want %v", calc, err, errNoResultExpression)
+		if !errors.Is(err, ErrNoValue) {
+			t.Errorf("%s = %v, want %v", calc, err, ErrNoValue)
 		}
 	}
 }

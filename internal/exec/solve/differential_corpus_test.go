@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -229,8 +230,12 @@ func mentionsConditions(src []byte) bool {
 	text := string(src)
 	return strings.Contains(text, "constraint") ||
 		strings.Contains(text, "requirement") ||
-		strings.Contains(text, "satisfy")
+		strings.Contains(text, "satisfy") ||
+		invariantKeyword.MatchString(text)
 }
+
+// invariantKeyword is KerML's `inv`, the constraint usage a `.kerml` case states.
+var invariantKeyword = regexp.MustCompile(`\binv\b`)
 
 // modelOf parses one file into a runtime context, loading the standard library
 // when asked for, as the conformance runner does.
@@ -254,7 +259,7 @@ func modelOf(t *testing.T, path string, src []byte, libraries bool) (*runtime.Co
 // needsLibraries reads the conformance case's declaration of whether its model
 // names standard library elements.
 func needsLibraries(path string) bool {
-	data, err := os.ReadFile(strings.TrimSuffix(path, ".sysml") + ".expected.json")
+	data, err := os.ReadFile(strings.TrimSuffix(path, filepath.Ext(path)) + ".expected.json")
 	if err != nil {
 		return true
 	}
@@ -279,7 +284,7 @@ func TestDifferentialConformanceCorpus(t *testing.T) {
 		t.Fatalf("read the conformance corpus: %v", err)
 	}
 	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sysml" {
+		if ext := filepath.Ext(entry.Name()); entry.IsDir() || (ext != ".sysml" && ext != ".kerml") {
 			continue
 		}
 		path := filepath.Join(conformanceDir, entry.Name())

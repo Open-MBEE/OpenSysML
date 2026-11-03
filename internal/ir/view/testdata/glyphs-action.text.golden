@@ -1,0 +1,10 @@
+NotationGlyphs::Diagrams::fillGlyphs - action rendering (view def ActionFlowView)
+
+action def Fill
+  action open
+    out water
+  action pour
+    in water
+
+flow:
+  open.water ~> pour.water: «succession flow»

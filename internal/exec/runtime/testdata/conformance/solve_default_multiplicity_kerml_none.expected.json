@@ -1,0 +1,7 @@
+{
+	"type": "constraint",
+	"libraries": true,
+	"evaluate": "test::Tank::nonNegative",
+	"instantiate": "test::tank",
+	"error": "operator '>=' is not defined for null and a Rational"
+}

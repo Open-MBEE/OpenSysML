@@ -182,12 +182,12 @@ func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedNa
 		return val, true, nil
 	}
 	// A calc-typed feature the element being evaluated binds (`in calc :>> f = g`)
-	// is called as the function it is bound to.
+	// is called as the function it is bound to: a call takes the one function it holds.
 	if val, ok, err := ec.valuedFeatureValue(name); ok {
 		if err != nil {
 			return Value{}, true, err
 		}
-		if val.Kind == ValFunction {
+		if val = soleElement(val); val.Kind == ValFunction {
 			return val, true, nil
 		}
 	}
@@ -196,7 +196,7 @@ func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedNa
 		if err != nil {
 			return Value{}, true, err
 		}
-		if ok && val.Kind == ValFunction {
+		if val = soleElement(val); ok && val.Kind == ValFunction {
 			return val, true, nil
 		}
 	}
@@ -218,6 +218,7 @@ func (ec *EvalContext) declaredFunction(callee *symbols.Symbol) (Value, bool, er
 	if err != nil {
 		return Value{}, true, err
 	}
+	val = soleElement(val)
 	return val, val.Kind == ValFunction, nil
 }
 

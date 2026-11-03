@@ -142,9 +142,9 @@ func TestDOTPlacesConstraintParametersWhereTheirLayoutsSay(t *testing.T) {
 	for _, want := range []string{
 		// input's Layout is (200, 45) 15x15 on amplify's left border at x=200: its
 		// square sits outside that side, level with the Layout's centre, y up.
-		`xlabel="input", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="194,167.5!", pin=true];`,
+		`xlabel="^input", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="194,167.5!", pin=true];`,
 		// output's Layout is at the right border: outside it, at the Layout's centre.
-		`xlabel="output", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="406,152.5!", pin=true];`,
+		`xlabel="^output", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="406,152.5!", pin=true];`,
 		// The binding's route ends on the square, not where the Route point stopped.
 		`"n0" -> "n4.0" [label="signalIn", arrowhead=none, pos="120,165 120,165 200,168 200,168", lp="159.5,179.5"];`,
 	} {
@@ -177,7 +177,7 @@ func TestConstraintParameterLayoutsResolvePerUsage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	for _, want := range []string{`xlabel="input", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="194,`} {
+	for _, want := range []string{`xlabel="^input", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="194,`} {
 		if strings.Count(dot, want) != 2 {
 			t.Errorf("DOT does not place both input squares on the left border:\n%s", dot)
 		}

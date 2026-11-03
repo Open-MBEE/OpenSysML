@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -29,6 +30,9 @@ type performances struct {
 	// behavior is the action or state machine the trace names as making what
 	// these performances send and draw; nil for a body no behavior owns.
 	behavior *symbols.Symbol
+	// stepping is the token whose step is running, in the step-th executor step.
+	stepping int64
+	step     int
 	// thisOccurrence materializes the performance occurrence `this` denotes the
 	// first time a directly run definition denotes it; nil where none can be.
 	thisOccurrence func() (*Instance, error)
@@ -82,8 +86,10 @@ type actionFrame struct {
 	flow   *lower.ActionGraph
 	scope  *symbols.Scope // the namespace the performance's features resolve in
 	parent *actionFrame
-	// body marks a transparent performance for a loop or branch body's own flow.
-	body bool
+	// body marks a performance for a loop or branch body's own flow, which holds no
+	// features of its own; occurrence is the object held for a performance, when one is.
+	body       bool
+	occurrence *Instance
 	// locals are the block-local bindings entered around node in parent's body,
 	// outermost first: a loop variable the node's declarations read.
 	locals     []map[string]Value
@@ -125,6 +131,9 @@ type actionFrame struct {
 	shadowed bool
 	// optional holds the held features whose multiplicity admits no value at all.
 	optional map[string]bool
+	// sharedShape marks features, aliases, declared and unvalued as the Model's
+	// memoized performanceShape maps, copied by ownShape before a write.
+	sharedShape bool
 	// unvalued holds the attributes the performance declares with no value, which
 	// read as missing until written rather than as an enclosing frame's same name.
 	unvalued map[string]bool
@@ -243,24 +252,39 @@ func (b boundEnd) pinText() string {
 	return text + "." + b.Pin
 }
 
-// newRootFrame is the performance of the action itself.
-func (e *ActionExecutor) newRootFrame() *actionFrame {
+// newRootFrame is the performance of the action itself, holding the features of
+// shape: the shape's maps are shared with every run, so a write takes copies first.
+func (e *ActionExecutor) newRootFrame(shape *performanceShape) *actionFrame {
 	root := &actionFrame{
 		graph:       e.graph,
 		scope:       e.graph.Scope,
 		connections: e.graph.Connections,
 		data:        make(map[string]Value),
-		features:    make(map[string]ast.FeatureDirection),
+		features:    shape.features,
+		aliases:     shape.aliases,
+		declared:    shape.declared,
+		unvalued:    shape.unvalued,
+		shadowed:    shape.shadowed,
+		sharedShape: true,
 		subactions:  make(map[ast.Node]*actionFrame),
 		perfs:       &e.performances,
 		run:         e.ctx.newRun(),
 	}
-	e.declareRootFeatures(root)
-	for _, attr := range e.features {
-		root.declareUnvalued(attr.Name, attr.Direction, attr.IsResult, attr.Optional, attr.Value)
-	}
 	e.registerRootBindings(root)
 	return root
+}
+
+// ownShape gives a frame holding its shape's shared maps copies of its own, so a
+// write to them is this performance's alone.
+func (f *actionFrame) ownShape() {
+	if !f.sharedShape {
+		return
+	}
+	f.sharedShape = false
+	f.features = maps.Clone(f.features)
+	f.aliases = maps.Clone(f.aliases)
+	f.declared = maps.Clone(f.declared)
+	f.unvalued = maps.Clone(f.unvalued)
 }
 
 // registerRootBindings installs tracked cells for the root's declared bindings.
@@ -292,12 +316,14 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 		}
 		cell = e.ctx.registerBodyBindingInContext(cells, name, attr.Value, scope, check, context, onDerived)
 		cell.binding.masked = attr.Name
+		cell.binding.place = bindingPlace(attr.Symbol, attr.Name)
 	}
 }
 
-// declareRootFeatures gives root the attributes the graph declares and the
-// features the action holds, aliasing what each redefines.
-func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
+// declareRootFeatures gives root the graph's attributes and the action's features,
+// aliasing what each redefines; a hidden inherited one in attributes marks it shadowed.
+func (e *ActionExecutor) declareRootFeatures(root *actionFrame, attributes []lower.Attribute) {
+	root.ownShape()
 	if root.declared == nil {
 		// Sized for every feature it will hold; grown entry by entry it cost a
 		// dozen allocations per execution.
@@ -317,7 +343,7 @@ func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
 		e.ctx.holdFeature(&root.declared, sym, attr.Name)
 	}
 	e.addFeatureDirections(root.features, &root.aliases, &root.declared, nil, e.action)
-	for _, attr := range e.features {
+	for _, attr := range attributes {
 		root.shadowed = root.shadowed || attr.Shadowed
 	}
 }
@@ -334,6 +360,7 @@ func (e *ActionExecutor) declareAcceptPayloads(root *actionFrame) {
 		if _, taken := root.features[accept.ParamName]; taken {
 			continue
 		}
+		root.ownShape()
 		root.features[accept.ParamName] = ast.DirNone
 		e.ctx.holdFeature(&root.declared, accept.Payload, accept.ParamName)
 	}
@@ -526,6 +553,16 @@ func (e *performances) beginPerformance(
 	return perf, nil
 }
 
+// featurePlace is the place a performance's cell for one of its node's own
+// features records its marks at: the feature as the node's scope declares it.
+func featurePlace(feature lower.Feature) lower.Place {
+	if feature.Shadowed || feature.Scope == nil {
+		return lower.Place{}
+	}
+	sym, _ := resolve.FeatureSymbolInScope(feature.Scope, []string{feature.Name})
+	return bindingPlace(sym, feature.Name)
+}
+
 // seedPerformance seeds perf's pins from deliveries, then the arguments it passes its
 // callee, then input bindings, then its own declared defaults.
 func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGraph, node ast.Node, perf *actionFrame) error {
@@ -546,6 +583,7 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 			e.bodyCells(perf), perf.key(feature.Name), feature.Value, feature.Scope, check, context, nil,
 		)
 		cell.binding.masked = feature.Name
+		cell.binding.place = featurePlace(feature)
 	}
 	if err := e.takeDeliveries(parent, node, perf); err != nil {
 		return err
@@ -661,6 +699,7 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 					cells, name, feature.Value, feature.Scope, check, context, nil,
 				)
 				cell.binding.masked = feature.Name
+				cell.binding.place = featurePlace(feature)
 			}
 			value, err = e.ctx.deriveBodyCell(cells, name, cell)
 		} else {

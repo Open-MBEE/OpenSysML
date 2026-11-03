@@ -16,7 +16,7 @@ const (
 	// maxMaterializeBudget bounds the walk as a whole, charged per feature value read and
 	// per object a feature value holds: nesting multiplies, and reading a feature value materializes
 	// the objects it holds, so breadth costs objects rather than only time.
-	maxMaterializeBudget = 1000
+	maxMaterializeBudget = 4000
 )
 
 // MaterializationErrors reads every feature value of an object, and of the objects its

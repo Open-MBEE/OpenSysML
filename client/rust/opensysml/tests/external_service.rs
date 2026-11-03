@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 
-use opensysml::{Connection, Error, Language, ParseOptions};
+use opensysml::{Connection, Error, Language, ParseOptions, Status};
 
 struct ExternalService {
     child: Child,
@@ -34,6 +34,10 @@ fn service_binary() -> Option<PathBuf> {
 }
 
 fn start_external_service(withheld: &str) -> Option<ExternalService> {
+    start_service(withheld, &[])
+}
+
+fn start_service(withheld: &str, extra: &[&str]) -> Option<ExternalService> {
     let Some(binary) = service_binary() else {
         if env::var("OPENSYSML_REQUIRE_SERVICE").ok().as_deref() == Some("1") {
             panic!("required sysml-grpc binary is unavailable");
@@ -43,6 +47,7 @@ fn start_external_service(withheld: &str) -> Option<ExternalService> {
     };
     let mut child = Command::new(binary)
         .args(["-port", "0", "-health-port", "0", "-report-address"])
+        .args(extra)
         .env("OPENSYSML_TEST_WITHHOLD_CAPABILITIES", withheld)
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -148,4 +153,19 @@ fn instantiation_is_refused_by_a_service_without_feature_values() {
         matches!(&error, Error::MissingCapability { capability, .. } if capability == "feature_values"),
         "{error}"
     );
+}
+
+#[test]
+fn a_guarded_service_admits_the_right_token_and_refuses_the_rest() {
+    let Some(service) = start_service("", &["-token", "rust-token_1"]) else {
+        return;
+    };
+    let admitted =
+        Connection::external_with_token(service.host.clone(), service.port, "rust-token_1")
+            .expect("the right token is admitted");
+    assert!(!admitted.server_info().version.is_empty());
+    match Connection::external_with_token(service.host.clone(), service.port, "wrong") {
+        Err(Error::Service { status, .. }) => assert_eq!(status, Status::Unauthenticated),
+        other => panic!("the wrong token was answered with {other:?}"),
+    }
 }

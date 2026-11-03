@@ -18,9 +18,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
-// syntaxGzipBudget bounds the gzipped js build of sysml-syntax, which serves no resolution
-// and no stdlib: linking either adds 250 KB+ or 1.55 MB and trips it. 1,365,010 bytes on 2026-10-19.
-const syntaxGzipBudget = 1500000
+// syntaxGzipBudget bounds the gzipped js build of sysml-syntax, which serves no resolution and no stdlib:
+// linking either adds 250 KB+ or 1.55 MB and trips it. 1,365,010 bytes on 2026-10-19; 1,645,836 on 2026-10-27 under
+// go1.27.3, whose encoding/json is the json/v2 implementation (1,359,712 with GOEXPERIMENT=nojsonv2).
+const syntaxGzipBudget = 1800000
 
 // syntaxCalls are the calls the stdio session and the host surface both make,
 // one of each method over its fixture.
@@ -241,6 +242,32 @@ func TestSyntaxCLIParity(t *testing.T) {
 	}
 	if formatted.Content == string(unformatted) {
 		t.Errorf("Format echoed the badly indented input unchanged")
+	}
+
+	// With keepLineBreaks, Format keeps the input's line breaks as a save does:
+	// a one-line body stays on its line instead of being laid out.
+	const oneLiner = "package P { part def A; }\n"
+	for _, tc := range []struct {
+		keep bool
+		want string
+	}{{false, "package P {\n    part def A;\n}\n"}, {true, oneLiner}} {
+		req, err := json.Marshal(map[string]any{"content": oneLiner, "keepLineBreaks": tc.keep})
+		if err != nil {
+			t.Fatal(err)
+		}
+		kbody, err := fsyntax.Call(ctx, "Format", req)
+		if err != nil {
+			t.Fatalf("Format refused: %v", err)
+		}
+		var kept struct {
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal(kbody, &kept); err != nil {
+			t.Fatalf("decoding the Format answer: %v\n%s", err, kbody)
+		}
+		if kept.Content != tc.want {
+			t.Errorf("Format keepLineBreaks=%v content = %q, want %q", tc.keep, kept.Content, tc.want)
+		}
 	}
 
 	// A document with syntax errors is refused in the response's error, with

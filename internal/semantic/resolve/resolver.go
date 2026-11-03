@@ -537,6 +537,19 @@ func (r *Resolver) lookupContributedMember(sym *symbols.Symbol, name string, hid
 
 // SetModel attaches a semantic model for inheritance-aware member resolution.
 // Must be called before resolving feature chains if inherited members are needed.
+// settledProvider is a model that knows when the answers it gives — the
+// element filters it evaluates — are partial, its `about` index being built.
+type settledProvider interface {
+	AboutBuilding() bool
+}
+
+// settled reports whether an enumeration read now may be kept: not while the
+// model's answers to its filters are partial.
+func (r *Resolver) settled() bool {
+	model, ok := r.model.(settledProvider)
+	return !ok || !model.AboutBuilding()
+}
+
 func (r *Resolver) SetModel(model MemberLookup) {
 	r.model = model
 	clear(r.enumKept)
@@ -891,13 +904,7 @@ func spanOf(n ast.Node) source.Span {
 // qnText renders a qualified name for diagnostics (segments joined by "::",
 // "$::" prefix when global).
 func qnText(qn *ast.QualifiedName) string {
-	s := ""
-	for i, part := range qn.Parts {
-		if i > 0 {
-			s += "::"
-		}
-		s += part.Text
-	}
+	s := qn.Text()
 	if qn.Global {
 		s = "$::" + s
 	}

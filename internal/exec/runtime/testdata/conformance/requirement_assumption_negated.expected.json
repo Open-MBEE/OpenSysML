@@ -1,0 +1,12 @@
+{
+  "type": "calcUsage",
+  "evaluate": "Repro::probe",
+  "libraries": true,
+  "outputs": {
+    "one": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
+  },
+  "reads": {
+    "Repro::offDenied": {"type": "Boolean", "value": false},
+    "Repro::onDenied": {"type": "Boolean", "value": true}
+  }
+}

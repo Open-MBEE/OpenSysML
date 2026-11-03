@@ -54,7 +54,7 @@ func TestVerificationMethodBodyIsAMetadataBodyUsage(t *testing.T) {
 	// the member's qualifiedName keeps the effective name, and the type is the
 	// metadata definition's normative IRI.
 	for _, want := range []string{
-		`sysml:qualifiedName "S8::T::@0::kind"`,
+		`sysx:positionalName "S8::T::@0::kind"`,
 		`sysml:redefines elmt:`,
 		`sysml:redefinedFeature elmt:`,
 	} {

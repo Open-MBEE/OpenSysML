@@ -142,6 +142,9 @@ type ChoicePoint struct {
 	Touches []string
 	// touched are the places written behind Touches, with the features they resolve to.
 	touched []lower.Place
+	// alike is the run's word on whether two part-held places are one value; nil
+	// for a choice classified by the declarations alone.
+	alike func(p, q lower.Place) bool
 
 	// serial names the choice to the marks of the run's values (order_marks.go).
 	serial int64

@@ -52,7 +52,12 @@ elmt:EndPrefixMetadata__original_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__original ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__original ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata ;
+    sysml:source elmt:EndPrefixMetadata ;
+    sysml:target elmt:EndPrefixMetadata__original ;
+    sysml:relatedElement elmt:EndPrefixMetadata, elmt:EndPrefixMetadata__original ;
+    sysml:memberName "original" ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata\"},{\"@id\":\"EndPrefixMetadata__original\"}]" .
 
 elmt:EndPrefixMetadata__derive
     a sysml:MetadataDefinition ;
@@ -79,7 +84,12 @@ elmt:EndPrefixMetadata__derive_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__derive ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__derive ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata ;
+    sysml:source elmt:EndPrefixMetadata ;
+    sysml:target elmt:EndPrefixMetadata__derive ;
+    sysml:relatedElement elmt:EndPrefixMetadata, elmt:EndPrefixMetadata__derive ;
+    sysml:memberName "derive" ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata\"},{\"@id\":\"EndPrefixMetadata__derive\"}]" .
 
 elmt:EndPrefixMetadata__Req1
     a sysml:RequirementDefinition ;
@@ -106,7 +116,12 @@ elmt:EndPrefixMetadata__Req1_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__Req1 ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Req1 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata ;
+    sysml:source elmt:EndPrefixMetadata ;
+    sysml:target elmt:EndPrefixMetadata__Req1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata, elmt:EndPrefixMetadata__Req1 ;
+    sysml:memberName "Req1" ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata\"},{\"@id\":\"EndPrefixMetadata__Req1\"}]" .
 
 elmt:EndPrefixMetadata__Req1_5f1
     a sysml:RequirementDefinition ;
@@ -133,7 +148,12 @@ elmt:EndPrefixMetadata__Req1_5f1_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__Req1_5f1 ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Req1_5f1 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata ;
+    sysml:source elmt:EndPrefixMetadata ;
+    sysml:target elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata, elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:memberName "Req1_1" ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata\"},{\"@id\":\"EndPrefixMetadata__Req1_5f1\"}]" .
 
 elmt:EndPrefixMetadata__Derivation
     a sysml:ConnectionDefinition ;
@@ -171,12 +191,17 @@ elmt:EndPrefixMetadata__Derivation_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata ;
+    sysml:source elmt:EndPrefixMetadata ;
+    sysml:target elmt:EndPrefixMetadata__Derivation ;
+    sysml:relatedElement elmt:EndPrefixMetadata, elmt:EndPrefixMetadata__Derivation ;
+    sysml:memberName "Derivation" ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata\"},{\"@id\":\"EndPrefixMetadata__Derivation\"}]" .
 
 elmt:EndPrefixMetadata__Derivation___405
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "EndPrefixMetadata::Derivation::@5" ;
+    sysx:positionalName "EndPrefixMetadata::Derivation::@5" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -202,7 +227,11 @@ elmt:EndPrefixMetadata__Derivation___405_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation___405 ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation___405 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:source elmt:EndPrefixMetadata__Derivation ;
+    sysml:target elmt:EndPrefixMetadata__Derivation___405 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation, elmt:EndPrefixMetadata__Derivation___405 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation\"},{\"@id\":\"EndPrefixMetadata__Derivation___405\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__r1
     a sysml:ReferenceUsage ;
@@ -221,6 +250,9 @@ elmt:EndPrefixMetadata__Derivation__r1
     sysml:declaredName "r1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__Derivation__r1___400 ;
     sysml:ownedMembership elmt:EndPrefixMetadata__Derivation__r1___400_om ;
     sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__r1___400_om, elmt:EndPrefixMetadata__Derivation__r1_ft0 ;
@@ -240,13 +272,18 @@ elmt:EndPrefixMetadata__Derivation__r1_om
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:source elmt:EndPrefixMetadata__Derivation ;
+    sysml:target elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation, elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:memberName "r1" ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__Derivation__r1 ;
-    sysml:owningType elmt:EndPrefixMetadata__Derivation .
+    sysml:owningType elmt:EndPrefixMetadata__Derivation ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__r1___400
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1::@0" ;
+    sysx:positionalName "EndPrefixMetadata::Derivation::r1::@0" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -272,7 +309,11 @@ elmt:EndPrefixMetadata__Derivation__r1___400_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__r1___400 ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1___400 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1 ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__r1 .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:target elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__r1, elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1___400\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__r1_5f1
     a sysml:ReferenceUsage ;
@@ -291,6 +332,9 @@ elmt:EndPrefixMetadata__Derivation__r1_5f1
     sysml:declaredName "r1_1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
     sysml:ownedMembership elmt:EndPrefixMetadata__Derivation__r1_5f1___400_om ;
     sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__r1_5f1___400_om, elmt:EndPrefixMetadata__Derivation__r1_5f1_ft0 ;
@@ -310,13 +354,18 @@ elmt:EndPrefixMetadata__Derivation__r1_5f1_om
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:source elmt:EndPrefixMetadata__Derivation ;
+    sysml:target elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation, elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:memberName "r1_1" ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
-    sysml:owningType elmt:EndPrefixMetadata__Derivation .
+    sysml:owningType elmt:EndPrefixMetadata__Derivation ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__r1_5f1___400
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_1::@0" ;
+    sysx:positionalName "EndPrefixMetadata::Derivation::r1_1::@0" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -342,7 +391,11 @@ elmt:EndPrefixMetadata__Derivation__r1_5f1___400_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__r1_5f1 .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:target elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1, elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1___400\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__r1_5f2
     a sysml:ReferenceUsage ;
@@ -361,6 +414,9 @@ elmt:EndPrefixMetadata__Derivation__r1_5f2
     sysml:declaredName "r1_2" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
     sysml:ownedMembership elmt:EndPrefixMetadata__Derivation__r1_5f2___400_om ;
     sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__r1_5f2___400_om, elmt:EndPrefixMetadata__Derivation__r1_5f2_ft0 ;
@@ -380,13 +436,18 @@ elmt:EndPrefixMetadata__Derivation__r1_5f2_om
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:source elmt:EndPrefixMetadata__Derivation ;
+    sysml:target elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation, elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:memberName "r1_2" ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
-    sysml:owningType elmt:EndPrefixMetadata__Derivation .
+    sysml:owningType elmt:EndPrefixMetadata__Derivation ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__r1_5f2___400
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_2::@0" ;
+    sysx:positionalName "EndPrefixMetadata::Derivation::r1_2::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -412,7 +473,11 @@ elmt:EndPrefixMetadata__Derivation__r1_5f2___400_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__r1_5f2 .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:target elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2, elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2___400\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__cause
     a sysml:ReferenceUsage ;
@@ -432,6 +497,9 @@ elmt:EndPrefixMetadata__Derivation__cause
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:EndPrefixMetadata__Req1 ;
     sysml:ownedMember elmt:EndPrefixMetadata__Derivation__cause___400 ;
     sysml:ownedMembership elmt:EndPrefixMetadata__Derivation__cause___400_om ;
@@ -451,12 +519,17 @@ elmt:EndPrefixMetadata__Derivation__cause_om
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__cause ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:source elmt:EndPrefixMetadata__Derivation ;
+    sysml:target elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation, elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:memberName "cause" ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__Derivation__cause ;
-    sysml:owningType elmt:EndPrefixMetadata__Derivation .
+    sysml:owningType elmt:EndPrefixMetadata__Derivation ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation\"},{\"@id\":\"EndPrefixMetadata__Derivation__cause\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__cause___400
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "EndPrefixMetadata::Derivation::cause::@0" ;
+    sysx:positionalName "EndPrefixMetadata::Derivation::cause::@0" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -481,7 +554,11 @@ elmt:EndPrefixMetadata__Derivation__cause___400_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__cause___400 ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__cause___400 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__cause ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__cause .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:target elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__cause, elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__cause\"},{\"@id\":\"EndPrefixMetadata__Derivation__cause___400\"}]" .
 
 expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -502,7 +579,11 @@ expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity_om
     sysml:ownedMemberElement expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
     sysml:ownedRelatedElement expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__cause___400 ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__cause___400 .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    sysml:target expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__cause___400, expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__cause___400\"},{\"@id\":\"EndPrefixMetadata__Derivation__cause___400_pmultiplicity\"}]" .
 
 expr:EndPrefixMetadata__Derivation__cause___400_pupperBound
     a sysml:LiteralInfinity ;
@@ -521,7 +602,11 @@ expr:EndPrefixMetadata__Derivation__cause___400_pupperBound_om
     sysml:ownedMemberElement expr:EndPrefixMetadata__Derivation__cause___400_pupperBound ;
     sysml:ownedRelatedElement expr:EndPrefixMetadata__Derivation__cause___400_pupperBound ;
     sysml:owningRelatedElement expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity .
+    sysml:membershipOwningNamespace expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    sysml:source expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    sysml:target expr:EndPrefixMetadata__Derivation__cause___400_pupperBound ;
+    sysml:relatedElement expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity, expr:EndPrefixMetadata__Derivation__cause___400_pupperBound ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__cause___400_pmultiplicity\"},{\"@id\":\"EndPrefixMetadata__Derivation__cause___400_pupperBound\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__effect
     a sysml:AttributeUsage ;
@@ -540,6 +625,9 @@ elmt:EndPrefixMetadata__Derivation__effect
     sysml:declaredName "effect" ;
     sysml:isReference "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
     sysml:multiplicity expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
     sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__effect_ft0, expr:EndPrefixMetadata__Derivation__effect_pmultiplicity_om ;
@@ -560,8 +648,13 @@ elmt:EndPrefixMetadata__Derivation__effect_om
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__effect ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:source elmt:EndPrefixMetadata__Derivation ;
+    sysml:target elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation, elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:memberName "effect" ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__Derivation__effect ;
-    sysml:owningType elmt:EndPrefixMetadata__Derivation .
+    sysml:owningType elmt:EndPrefixMetadata__Derivation ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation\"},{\"@id\":\"EndPrefixMetadata__Derivation__effect\"}]" .
 
 expr:EndPrefixMetadata__Derivation__effect_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -582,7 +675,11 @@ expr:EndPrefixMetadata__Derivation__effect_pmultiplicity_om
     sysml:ownedMemberElement expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
     sysml:ownedRelatedElement expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__effect ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__effect .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:target expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__effect, expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__effect\"},{\"@id\":\"EndPrefixMetadata__Derivation__effect_pmultiplicity\"}]" .
 
 expr:EndPrefixMetadata__Derivation__effect_pupperBound
     a sysml:LiteralInfinity ;
@@ -601,7 +698,11 @@ expr:EndPrefixMetadata__Derivation__effect_pupperBound_om
     sysml:ownedMemberElement expr:EndPrefixMetadata__Derivation__effect_pupperBound ;
     sysml:ownedRelatedElement expr:EndPrefixMetadata__Derivation__effect_pupperBound ;
     sysml:owningRelatedElement expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:EndPrefixMetadata__Derivation__effect_pmultiplicity .
+    sysml:membershipOwningNamespace expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    sysml:source expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    sysml:target expr:EndPrefixMetadata__Derivation__effect_pupperBound ;
+    sysml:relatedElement expr:EndPrefixMetadata__Derivation__effect_pmultiplicity, expr:EndPrefixMetadata__Derivation__effect_pupperBound ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__effect_pmultiplicity\"},{\"@id\":\"EndPrefixMetadata__Derivation__effect_pupperBound\"}]" .
 
 elmt:EndPrefixMetadata__context
     a sysml:PartUsage ;
@@ -640,7 +741,12 @@ elmt:EndPrefixMetadata__context_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__context ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__context ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata ;
+    sysml:source elmt:EndPrefixMetadata ;
+    sysml:target elmt:EndPrefixMetadata__context ;
+    sysml:relatedElement elmt:EndPrefixMetadata, elmt:EndPrefixMetadata__context ;
+    sysml:memberName "context" ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata\"},{\"@id\":\"EndPrefixMetadata__context\"}]" .
 
 elmt:EndPrefixMetadata__context__req1
     a sysml:RequirementUsage ;
@@ -657,6 +763,8 @@ elmt:EndPrefixMetadata__context__req1
     sysml:owningMembership elmt:EndPrefixMetadata__context__req1_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "req1" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:EndPrefixMetadata__Req1 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:EndPrefixMetadata__context__req1_ft0 ;
@@ -673,8 +781,13 @@ elmt:EndPrefixMetadata__context__req1_om
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__context__req1 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__context ;
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context ;
+    sysml:source elmt:EndPrefixMetadata__context ;
+    sysml:target elmt:EndPrefixMetadata__context__req1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context, elmt:EndPrefixMetadata__context__req1 ;
+    sysml:memberName "req1" ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__context__req1 ;
-    sysml:owningType elmt:EndPrefixMetadata__context .
+    sysml:owningType elmt:EndPrefixMetadata__context ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context\"},{\"@id\":\"EndPrefixMetadata__context__req1\"}]" .
 
 elmt:EndPrefixMetadata__context__req1_5f1
     a sysml:RequirementUsage ;
@@ -691,6 +804,8 @@ elmt:EndPrefixMetadata__context__req1_5f1
     sysml:owningMembership elmt:EndPrefixMetadata__context__req1_5f1_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "req1_1" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:EndPrefixMetadata__context__req1_5f1_ft0 ;
@@ -707,12 +822,17 @@ elmt:EndPrefixMetadata__context__req1_5f1_om
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__context__req1_5f1 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__context ;
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context ;
+    sysml:source elmt:EndPrefixMetadata__context ;
+    sysml:target elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context, elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:memberName "req1_1" ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__context__req1_5f1 ;
-    sysml:owningType elmt:EndPrefixMetadata__context .
+    sysml:owningType elmt:EndPrefixMetadata__context ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context\"},{\"@id\":\"EndPrefixMetadata__context__req1_5f1\"}]" .
 
 elmt:EndPrefixMetadata__context___402
     a sysml:ConnectionUsage ;
-    sysml:qualifiedName "EndPrefixMetadata::context::@2" ;
+    sysx:positionalName "EndPrefixMetadata::context::@2" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "19"^^xsd:integer ;
@@ -724,6 +844,8 @@ elmt:EndPrefixMetadata__context___402
     sysml:owningRelationship elmt:EndPrefixMetadata__context___402_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__context___402_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__context___402___402, elmt:EndPrefixMetadata__context___402__r1, elmt:EndPrefixMetadata__context___402__r1_5f1 ;
     sysml:ownedMembership elmt:EndPrefixMetadata__context___402___402_om, elmt:EndPrefixMetadata__context___402__r1_om, elmt:EndPrefixMetadata__context___402__r1_5f1_om ;
     sysml:ownedRelationship elmt:EndPrefixMetadata__context___402___402_om, elmt:EndPrefixMetadata__context___402_ft0, elmt:EndPrefixMetadata__context___402__r1_om, elmt:EndPrefixMetadata__context___402__r1_5f1_om ;
@@ -750,13 +872,17 @@ elmt:EndPrefixMetadata__context___402_om
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__context___402 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__context ;
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context ;
+    sysml:source elmt:EndPrefixMetadata__context ;
+    sysml:target elmt:EndPrefixMetadata__context___402 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context, elmt:EndPrefixMetadata__context___402 ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__context___402 ;
-    sysml:owningType elmt:EndPrefixMetadata__context .
+    sysml:owningType elmt:EndPrefixMetadata__context ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context\"},{\"@id\":\"EndPrefixMetadata__context___402\"}]" .
 
 elmt:EndPrefixMetadata__context___402___402
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "EndPrefixMetadata::context::@2::@2" ;
+    sysx:positionalName "EndPrefixMetadata::context::@2::@2" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -782,11 +908,15 @@ elmt:EndPrefixMetadata__context___402___402_om
     sysml:ownedMemberElement elmt:EndPrefixMetadata__context___402___402 ;
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__context___402___402 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402 ;
-    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context___402 .
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context___402 ;
+    sysml:source elmt:EndPrefixMetadata__context___402 ;
+    sysml:target elmt:EndPrefixMetadata__context___402___402 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context___402, elmt:EndPrefixMetadata__context___402___402 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context___402\"},{\"@id\":\"EndPrefixMetadata__context___402___402\"}]" .
 
 elmt:EndPrefixMetadata__context___402__r1
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "EndPrefixMetadata::context::@2::r1" ;
+    sysx:positionalName "EndPrefixMetadata::context::@2::r1" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -801,6 +931,9 @@ elmt:EndPrefixMetadata__context___402__r1
     sysml:declaredName "r1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting expr:EndPrefixMetadata__context___402__r1_prs ;
     sysml:ownedSubsetting expr:EndPrefixMetadata__context___402__r1_prs ;
     sysml:ownedSpecialization expr:EndPrefixMetadata__context___402__r1_prs ;
@@ -817,8 +950,13 @@ elmt:EndPrefixMetadata__context___402__r1_om
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__context___402__r1 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402 ;
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context___402 ;
+    sysml:source elmt:EndPrefixMetadata__context___402 ;
+    sysml:target elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context___402, elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:memberName "r1" ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__context___402__r1 ;
-    sysml:owningType elmt:EndPrefixMetadata__context___402 .
+    sysml:owningType elmt:EndPrefixMetadata__context___402 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context___402\"},{\"@id\":\"EndPrefixMetadata__context___402__r1\"}]" .
 
 expr:EndPrefixMetadata__context___402__r1_prs
     a sysml:ReferenceSubsetting ;
@@ -840,7 +978,7 @@ expr:EndPrefixMetadata__context___402__r1_prs
 
 elmt:EndPrefixMetadata__context___402__r1_5f1
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "EndPrefixMetadata::context::@2::r1_1" ;
+    sysx:positionalName "EndPrefixMetadata::context::@2::r1_1" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -855,6 +993,9 @@ elmt:EndPrefixMetadata__context___402__r1_5f1
     sysml:declaredName "r1_1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
     sysml:ownedSubsetting expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
     sysml:ownedSpecialization expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
@@ -871,8 +1012,13 @@ elmt:EndPrefixMetadata__context___402__r1_5f1_om
     sysml:ownedRelatedElement elmt:EndPrefixMetadata__context___402__r1_5f1 ;
     sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402 ;
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context___402 ;
+    sysml:source elmt:EndPrefixMetadata__context___402 ;
+    sysml:target elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context___402, elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:memberName "r1_1" ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__context___402__r1_5f1 ;
-    sysml:owningType elmt:EndPrefixMetadata__context___402 .
+    sysml:owningType elmt:EndPrefixMetadata__context___402 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context___402\"},{\"@id\":\"EndPrefixMetadata__context___402__r1_5f1\"}]" .
 
 expr:EndPrefixMetadata__context___402__r1_5f1_prs
     a sysml:ReferenceSubsetting ;

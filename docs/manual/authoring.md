@@ -27,11 +27,14 @@ part def MassReport :> Document {
 - A `Section` requires a `title` too and renders as a heading one level
   deeper than its parent, saturating at Markdown's level 6.
 - Sections nest arbitrarily; anything a document can contain, a section can.
+- A section is also what a heading in a Markdown or AsciiDoc body opens
+  (see [Markdown prose](#markdown-prose)), so one body can carry a whole
+  document's outline.
 - A document nested inside a document is a planning error.
 
 ## Paragraphs
 
-A `Paragraph` carries exactly one of three things:
+A `Paragraph` carries exactly one of four things:
 
 **Static text** — a literal `text` attribute:
 
@@ -40,6 +43,9 @@ part intro : Paragraph {
 	attribute redefines text = "Mass rollup for the telescope assembly.";
 }
 ```
+
+`:>> text = "..."` is the short spelling of the same redefinition; the two
+forms are equivalent, and the rest of this manual uses the short one.
 
 **A query** — each projected value becomes one plain text run, joined by
 spaces (nested column runs restyle this — see
@@ -59,26 +65,31 @@ renders as `mount segmentControl`.
 **Inline runs** — nested `Span`, `Link` and `Ref` parts, composed in
 declaration order and joined by single spaces (next section).
 
-Giving a paragraph both text and a query, or runs alongside either, is a
-typed planning error rather than a guess about your intent.
+**A Markdown body** — a `rep language "markdown"` whose comment is the
+paragraph's prose, inline markup included — see
+[Markdown prose](#markdown-prose).
+
+Giving a paragraph both text and a query, runs alongside either, or a
+Markdown body alongside any of them, is a typed planning error rather than a
+guess about your intent.
 
 ## Inline runs, links and cross-references
 
 ```sysml
 part guide : Paragraph {
 	part lead : Span {
-		attribute redefines text = "This report is";
+		:>> text = "This report is";
 	}
 	part generated : Span {
-		attribute redefines text = "generated";
+		:>> text = "generated";
 		attribute redefines style = "emphasis";
 	}
 	part tool : Span {
-		attribute redefines text = "sysml -render-document";
+		:>> text = "sysml -render-document";
 		attribute redefines style = "code";
 	}
 	part docsLink : Link {
-		attribute redefines text = "(OpenSysML)";
+		:>> text = "(OpenSysML)";
 		attribute redefines target = "https://opensysml.org/";
 	}
 	part massesRef : Ref {
@@ -156,6 +167,301 @@ gives the unrendered target, and it dangles until that document is rendered
 into the same directory. An unknown target is a typed planning error, and a target usage
 typed by more than one document definition is an ambiguous-target error;
 both carry the reference's source location.
+
+## Markdown prose
+
+Writing every sentence as `Span`, `Link` and `Ref` parts is exact but
+verbose. A KerML textual representation lets you write the prose of a
+document, a section or a paragraph as one Markdown body instead:
+
+```sysml
+part def MassReport :> Document {
+	:>> title = "Telescope Mass Report";
+
+	rep language "markdown" /* This report is *generated* by `sysml -render-document`
+	 * ([OpenSysML](https://opensysml.org/)); see [](sysml:breakdown) for the
+	 * masses, and the mount at [](sysml:telescope.mount). Mass scales as
+	 * $m \propto D^{2.5}$.
+	 *
+	 * - Masses are rolled up from the parts.
+	 * - Margins are computed against the allocation.
+	 */
+
+	part breakdown : Section {
+		:>> title = "Subsystem Masses";
+		part reading : Paragraph {
+			rep language "markdown" /* A **named** paragraph keeps its name as a `Ref` target. */
+		}
+	}
+}
+```
+
+renders as:
+
+```markdown
+This report is *generated* by `sysml -render-document` ([OpenSysML](<https://opensysml.org/>)); see [Subsystem Masses](#breakdown) for the masses, and the mount at mount. Mass scales as $m \propto D^{2.5}$.
+
+- Masses are rolled up from the parts.
+- Margins are computed against the allocation.
+
+<a id="breakdown"></a>
+
+## Subsystem Masses
+
+A **named** paragraph keeps its name as a `Ref` target.
+```
+
+The `rep` is the KerML element for "this element, represented in another
+language" (KerML 1.0 §8.3.2.3.6); its `language` is matched
+case-insensitively, and the body is the comment's text with the `/*`, `*/`
+and the ` * ` margin removed, as for any KerML comment. Two placements are
+supported:
+
+- **In a `Document` or `Section`**, a body expands in place — in declaration
+  order among the sibling parts — into unnamed paragraphs and lists, and its
+  headings open sections (below). Several bodies in one section are several
+  runs of blocks, and `part : Paragraph` and `part : Table` members may sit
+  between them.
+- **In a `part : Paragraph`**, the body must yield exactly one paragraph,
+  which is that paragraph's content; the part keeps its name, so it stays a
+  `Ref` target and HTML anchor. A body beside `text`, inline runs or a query
+  is the usual conflicting-content error, and a heading in it is the
+  `markup-body-not-paragraph` error.
+
+The body is CommonMark with no extensions, mapped onto the content blocks
+the rest of this chapter describes — the Markdown, HTML and PDF outputs are
+the same ones a `Span`/`Link`/`Ref` paragraph produces:
+
+| Markdown | Content |
+| --- | --- |
+| paragraph | `Paragraph` with runs |
+| `*text*`, `**text**`, `` `text` `` | emphasis, strong and code runs |
+| `[label](https://…)`, `<https://…>` | `Link` run |
+| `[label](sysml:<target>)` | `Ref` run — see below |
+| `[label](sysml:value:<target>)` | value run — the feature's value, see below |
+| `$…$` | math run (LaTeX; the pandoc rule: the opening `$` is followed by a non-space, the closing one preceded by one and not followed by a digit) |
+| `- item` / `1. item` lists of single paragraphs | `List` with bullet or number style |
+| `# Title` … `###### Title`, setext `Title` over `===`/`---` | `Section` with that title — see below |
+| line break | one space, as between any two runs |
+
+A `sysml:` link destination is a `Ref` target written in the same notation
+as `ref redefines target = …`: a named content block of this or another
+document (`sysml:breakdown`, `sysml:appendix.budget`), a usage by name or
+feature chain (`sysml:telescope.mount`) or any element through its metadata
+(`sysml:Telescope.metadata`). It is resolved in the scope the body is
+written in. An empty label — `[](sysml:breakdown)` — takes the target's
+title, caption or name as a `Ref` without `text` does.
+
+A `sysml:value:` destination reads a feature's **value** into the prose
+instead of referencing the element: `[](sysml:value:telescope.mass)` renders
+`2290000 [kg]`, exactly as a `SpanColumn` cell projecting `mass` from
+`telescope` would — numbers with their unit, strings, booleans, enumeration
+literals, and a multi-valued feature joined with `, ` as a list cell is. The
+target is a data-valued feature — an attribute, calculation or enumeration
+usage, or a `ref` typed by data types only — named by qualified name or
+feature chain, resolved as a `sysml:` reference is; a feature chain reads
+from its root, a name from the feature's owner (a member written `a::b`
+reads `a`, then `b`). Without a session the
+declared value is read; over a session (`-run`, or a document rendered while
+the REPL holds objects) a target whose root the session holds reads the
+object's current value, as `Objects` rows do. A label precedes the value with
+one space — `[Mass:](sysml:value:telescope.mass)` renders `Mass: 2290000
+[kg]`; an empty label renders the value alone. A target that is a part,
+port, content block, definition or a `ref` to one of those is refused when
+the document is planned (`invalid-value-target`): `sysml:` without `value:`
+references those. A
+feature with no value fails the document's evaluation (`empty-value`) naming
+the feature, never a blank; give the feature a value or a redefinition.
+
+### Headings open sections
+
+A heading in a body owned by a `Document` or `Section` opens a `Section`
+with the heading's text as its title; the blocks after it are that
+section's content until the next heading of the same or a shallower level,
+and a deeper heading nests. Levels are relative to the body's owner: the
+first heading met in the body, whatever its mark, is one level below the
+owner — a body directly in the document starts the level-1 sections, a body
+in a `Section` its subsections — and each later heading is at most one level
+deeper than the open one. A heading that skips a level (`#` then `###`) or
+rises above the first heading's level (`##` first, `#` later) is the
+`markup-heading-level` planning error, naming the heading and its body line.
+Styled text in a heading is flattened to its plain title; a link, reference
+or formula in one is refused as a construct with no title form.
+
+```sysml
+part def MassReport :> Document {
+	:>> title = "Telescope Mass Report";
+
+	rep language "markdown" /* Lead paragraph; see [](sysml:mass_budget).
+	 *
+	 * # Overview
+	 *
+	 * ## Mass budget
+	 *
+	 * - mirror: 12 kg
+	 *
+	 * # Design
+	 */
+
+	part appendix : Section {
+		:>> title = "Appendix";
+		rep language "markdown" /* ## Derivation
+		 * Back to [](sysml:overview). */
+	}
+}
+```
+
+renders the outline `Overview` (1) › `Mass budget` (1.1), `Design` (2),
+`Appendix` (3) › `Derivation` (3.1): the body expands where it is declared,
+so the part-born `appendix` follows the body's sections in declaration
+order, and a body inside a section nests below that section. Numbering,
+tables of contents and title pages (`-doc-number-sections`, `-doc-toc`,
+`-doc-title-page`) treat markup-born and part-born sections alike.
+
+Each such section is named, so it is a `Ref` target and an HTML anchor like
+a `part : Section`. The name is the explicit id when the markup gives one
+(AsciiDoc `[[id]]` or `[#id]` on the title; Markdown has no CommonMark
+spelling for one), kept as written when it is a basic name (`[[MassBudget]]`
+→ `MassBudget`) and otherwise slugged like a title; else a slug of the title:
+lower-cased, every run of characters other than letters and digits replaced
+by one underscore, leading and trailing underscores dropped, an underscore
+prefixed to a leading digit (`Mass budget` → `mass_budget`, `3rd level,
+deep!` → `_3rd_level_deep`, `[[mass-budget]]` → `mass_budget`). Names are
+unique within the document: a derived or explicit name already taken by a
+content part or an earlier heading gets the first free suffix `_2`, `_3`, …
+in body order — the second `Mass budget` above would be `mass_budget_2`.
+The name is not a model element: a `sysml:` destination is resolved against
+the model first, and only a name no element answers to is looked up among
+the document's headings — by name, or by an explicit id exactly as written
+(`sysml:mass-budget` finds `[[mass-budget]]`) — so a model element of the
+same name in scope wins; give the heading an explicit id or refer to the
+element by a longer name. From another document, qualify the name by the
+document definition or a usage of it (`sysml:MassReport::mass_budget`) as
+for a named part; a usage typed by more than one document is the
+`ambiguous-ref-target` error, as for a part. The anchor is the section's
+path, `overview-mass_budget`.
+A nested heading is also a target by its named path — `sysml:overview.mass_budget`,
+or `sysml:appendix.derivation` for a heading in a body inside a `part : Section` —
+qualified the same way from another document (`sysml:MassReport::appendix.derivation`).
+
+Constructs that no content block renders are refused with a typed planning
+error naming the construct and its line within the body, rather than
+dropped or rendered as literal text: block quotes, indented and fenced code
+blocks, HTML blocks and inline HTML, images, thematic breaks, nested lists
+and list items of more than one paragraph, ordered lists not starting at 1,
+link titles, nested emphasis and styled link text. Images and tables have content kinds
+(`Image`, `Table`) and may gain a Markdown spelling later; today they stay
+parts. GFM tables, footnotes, strikethrough and task lists are not enabled
+and read as the paragraphs CommonMark makes of them.
+
+Every run and block planned from a body keeps its position inside the body,
+so a planning error, a hover or an edit points at the prose that caused it,
+not at the `rep` as a whole. A `rep` in a language no parser serves
+(`rep language "asciidoc"`) is refused too (`unsupported-markup-language`),
+so no body is ever silently dropped.
+
+## AsciiDoc prose
+
+The same two placements take an AsciiDoc body — `rep language "asciidoc"` —
+for authors who prefer its one-markup-string-per-paragraph style, its tables
+and its macros:
+
+```sysml
+part def MassReport :> Document {
+	:>> title = "Telescope Mass Report";
+
+	rep language "asciidoc" /* This report is _generated_ by `sysml -render-document`
+	 * (link:https://opensysml.org/[OpenSysML]); see <<breakdown>> for the
+	 * masses, and the mount at sysml:ref[telescope.mount]. Mass scales as
+	 * stem:[m \propto D^{2.5}].
+	 *
+	 * NOTE: Margins are computed against the allocation.
+	 *
+	 * .Allocations
+	 * [cols="3,1"]
+	 * |===
+	 * |Subsystem |Allocation
+	 *
+	 * |Optics |120 kg
+	 * |Structure |80 kg
+	 * |===
+	 */
+
+	part breakdown : Section {
+		:>> title = "Subsystem Masses";
+		part reading : Paragraph {
+			rep language "asciidoc" /* A *named* paragraph keeps its name as a `Ref` target. */
+		}
+	}
+}
+```
+
+The body is parsed by [Asciidoctor.js](https://asciidoctor.org/), run as an
+external converter the way the PDF toolchain's tools are: the
+`scripts/asciidoc/asciidoctor-json.js` script reads the body on stdin and
+writes its block and inline tree as JSON, and the planner maps that tree onto
+the content blocks of this chapter. `./scripts/download-doc-pdf-toolchain.sh`
+installs the pinned Asciidoctor.js beside the script under
+`build/doc-pdf/asciidoctor/`; point `OPENSYSML_ASCIIDOCTOR` at the installed
+`asciidoctor-json.js` (an `asciidoctor-json` on `PATH` is found without it).
+Validation (`sysml -validate`, the editors, the SARIF report) does not need
+the converter installed: a document with an AsciiDoc body and no converter
+gets one `document-plan-markup-tool-missing` warning at its first body, naming
+the converter looked for, where (`OPENSYSML_ASCIIDOCTOR` or `PATH`) and the
+remedy, and its AsciiDoc bodies go unchecked while the rest of the document
+is still validated; `-warnings-as-errors` makes that a failure. A rendering
+needs the body parsed, so `-render-document` fails with the same message
+until the converter is installed, and a converter that is found but fails is
+an error reported with its message — the body is never rendered as literal
+text.
+
+| AsciiDoc | Content |
+| --- | --- |
+| paragraph | `Paragraph` with runs |
+| `_text_`, `*text*`, `` `text` `` | emphasis, strong and code runs |
+| `link:https://…[label]`, `https://…`, `https://…[label]` | `Link` run |
+| `sysml:ref[<target>]`, `sysml:ref[<target>, label]` | `Ref` run — the target as `[label](sysml:<target>)` takes it |
+| `sysml:value[<target>]`, `sysml:value[<target>, label]` | value run — the feature's value as `[label](sysml:value:<target>)` renders it |
+| `<<name>>`, `<<name,label>>` | `Ref` run to the content block, usage or element `name` resolves to, else to the markup-born section of that name |
+| `== Title` … `====== Title`, with `[[id]]` or `[#id]` ahead of it | `Section` with that title, named `id` — see below |
+| `stem:[…]` | math run (LaTeX) |
+| `NOTE: text` and the other admonitions, or a delimited `[NOTE]` block holding one paragraph | `Paragraph` led by a strong `Note:` (`Tip:`, `Important:`, `Warning:`, `Caution:`) run |
+| `* item` / `. item` lists of single paragraphs, numbered from 1 | `List` with bullet or number style |
+| `|===` table of plain-text cells under a header row, `.Title`, `[cols="…"]` | static `Table`: the header row heads the columns, `cols` sizes them as `columnWidths` does, the title is the caption |
+| `[stem]` block with `.Title` | `Formula` with the title as caption |
+| `image::file[alt]` with `.Title` | `Image` with the title as caption |
+| typographic replacements (`(C)`, `--`, `...`) and entities | the characters they stand for |
+
+A table cell is one plain-text value, as a projected cell is: styled text, a
+link, a reference, a macro or math inside a cell is refused.
+
+Section titles open sections exactly as [Markdown headings](#headings-open-sections)
+do — the first title met is one level below the body's owner, a title that
+skips a level or rises above it is the `markup-heading-level` error, and a
+title in a `part : Paragraph` body is refused — with one addition: an
+anchor on the title, `[[mass_budget]]` or `[#mass_budget]`, is the
+section's name, and `<<mass_budget>>` or `sysml:ref[mass_budget]` resolves
+to it. An id spelt with characters a name cannot carry (`[[mass-budget]]`)
+is normalised by the slug rule to `mass_budget`, and an xref written as the
+id, `<<mass-budget>>` or `sysml:ref['mass-budget']`, still finds it. An id
+already taken as an earlier heading's name gets the `_2` suffix and does
+not take that name over, and a repeated id keeps naming its first heading.
+Without an anchor the name is the slug of the title; Asciidoctor's
+automatic `_title` ids are not used.
+
+Constructs no content block renders are refused with a typed planning
+error naming the construct and its body line, as for Markdown: a document
+header (`= Title`), listing,
+literal, example, sidebar, quote, verse, open and passthrough blocks,
+description and callout lists, nested lists and blocks attached to a list
+item, ordered lists not starting at 1 (`[start=3]`), a delimited admonition
+holding anything but one paragraph, thematic and page breaks, tables without a header row or with a footer,
+AsciiMath, inline images, footnotes, keyboard, button and menu macros, index
+terms, superscript, subscript and highlighted text, nested quoted text,
+styled link text, styled block titles, and a block title on a block that has
+no caption. The `sysml:value[<target>]` macro reads a feature's value as the
+Markdown `sysml:value:` destination does, its second positional attribute
+the label: `sysml:value[telescope.mass, Mass:]` renders `Mass: 2290000 [kg]`.
 
 ## Styled query text (column runs)
 
@@ -431,14 +737,14 @@ Formulas are written in LaTeX, inline or displayed. An inline formula is a
 ```sysml
 part intro : Paragraph {
 	part lead : Span {
-		attribute redefines text = "The mirror's mass scales as";
+		:>> text = "The mirror's mass scales as";
 	}
 	part scaling : Span {
-		attribute redefines text = "m \\propto D^{2.5}_{\\text{eff}}";
+		:>> text = "m \\propto D^{2.5}_{\\text{eff}}";
 		attribute redefines style = "math";
 	}
 	part cost : Span {
-		attribute redefines text = "and each $ of budget buys about 1 cm^2 of aperture.";
+		:>> text = "and each $ of budget buys about 1 cm^2 of aperture.";
 	}
 }
 part mirrorArea : Formula {

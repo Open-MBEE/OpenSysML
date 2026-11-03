@@ -507,7 +507,7 @@ func TestMarkdownNilDocument(t *testing.T) {
 
 // TestMarkdownRollupReport renders `mass + sum(subcomponents.totalMass)` as a
 // library writes it: a leaf whose empty subcomponents sum to a zero mass, and
-// stacks whose `default null` subcomponents are the parts subsetting them.
+// stacks whose `default null` subcomponents are the parts subsetting them, summed.
 func TestMarkdownRollupReport(t *testing.T) {
 	got := renderFixtureDocument(t,
 		filepath.Join("testdata", "rollup_report.sysml"),
@@ -516,11 +516,11 @@ func TestMarkdownRollupReport(t *testing.T) {
 		"*Own mass and total mass*\n\n" +
 		"| name | mass | totalMass |\n| --- | --- | --- |\n" +
 		"| leaf | 100 \\[kg\\] | 100 \\[kg\\] |\n" +
-		"| stack | 10 \\[kg\\] |  |\n" +
-		"| tower | 1 \\[kg\\] |  |\n\n" +
+		"| stack | 10 \\[kg\\] | 210 \\[kg\\] |\n" +
+		"| tower | 1 \\[kg\\] | 311 \\[kg\\] |\n\n" +
 		"**leaf** — 100 \\[kg\\]\n\n" +
-		"**stack**\n\n" +
-		"**tower**\n"
+		"**stack** — 210 \\[kg\\]\n\n" +
+		"**tower** — 311 \\[kg\\]\n"
 	if got != want {
 		t.Errorf("rendered Markdown = \n%s\nwant:\n%s", got, want)
 	}

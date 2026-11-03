@@ -471,7 +471,7 @@ is unchanged; the binary is 56 KiB larger (the patch's code).
 | ----- | ------ | ------------------ |
 | `examples/action-executor-demo.sysml` | 0.02 s / 70 MiB | 0.02 s / 71 MiB |
 | `examples/disposal-robot-demo/robot.sysml` | 0.04 s / 77 MiB | 0.04 s / 78 MiB |
-| Apollo 11 (28 files, `scripts/download-apollo11.sh`) | 0.31 s / 162 MiB | 0.33 s / 163 MiB |
+| Apollo 11 (28 files, `airbus/apollo-11-sysml-v2` at `6e9c93f`) | 0.31 s / 162 MiB | 0.33 s / 163 MiB |
 
 The two small examples sit on the session floor and move with it; the
 Apollo 11 model — the one real model in the set — validates in the same

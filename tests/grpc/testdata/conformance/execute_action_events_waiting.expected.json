@@ -1,0 +1,22 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::Flow",
+  "performer_symbol_id": "test::craft",
+  "inputs": {
+    "budget": {
+      "kind": "int_value",
+      "value": 10
+    }
+  },
+  "trace": true,
+  "expected_trace": [
+    "step start",
+    "step start -> burn",
+    "assign remaining = 7",
+    "step burn -> route",
+    "decide route -> 1->waiting",
+    "step route -> waiting",
+    "wait Go"
+  ],
+  "expected_error": "accept deadlock"
+}

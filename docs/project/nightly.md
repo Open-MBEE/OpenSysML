@@ -92,6 +92,29 @@ And one a stable release does not ship:
 The npm packages are not release assets: the seven tarballs go to the registry, where npm
 verifies them against the registry's integrity hashes and the provenance the workflow signs.
 
+Two more are workflow artifacts of the night's run rather than release assets, kept for the
+same 14 days, under the run on the
+[Nightly snapshot workflow page](https://github.com/Open-MBEE/OpenSysML/actions/workflows/nightly.yml)
+(or `gh run download <run-id> -n cameo-plugin` / `-n syson-plugin`):
+
+- `cameo-plugin` — `Magic_MDK_<version>.zip`, the [Cameo plugin](../../editors/mdk/README.md) in
+  its Resource Manager layout, built at the night's commit around the five `sysml-grpc`
+  binaries the night released (verified against `SHA256SUMS.txt`; the zip's `bin/DIGESTS`
+  lists the same digests), after the plugin's own suite ran against the night's service. It is
+  what `mvn -f editors/mdk/pom.xml -Dopensysml.version=<version> package` produces for a
+  release, with the night's binaries in place of a release's (`-Dopensysml.binaries=<dir>`),
+  versioned as the `.vsix` is — `0.9.3-nightly-<yyyymmdd>-<commit>` — and its descriptor's
+  internal version places it above the previous release and below the one it leads to, nights
+  ordered by the day they were built (two nights of one day, a forced rebuild, rank equal);
+- `syson-plugin` — the SysON MDK backend jar and the `@openmbee/syson-mdk` frontend tarball
+  (`npm pack`), the two pieces a [SysON build consumes](../../editors/syson/README.md), with a
+  `SNAPSHOT` line naming the night and commit. The backend is compiled against the
+  repository's API stubs, as the PR gate compiles it; the jar and tarball carry the version
+  the tree declares, not the snapshot's.
+
+Both are skipped, not failed, on a night whose commit predates the plugin's distribution module
+(for the Cameo plugin, its staging of binaries from a directory).
+
 Not in a snapshot: the Windows installer, the Authenticode-signed Windows binaries, the
 Homebrew formula, and the Maven and crates.io client packages. Those belong to the
 stable release.
@@ -209,6 +232,15 @@ re-published under its name.
 
 ## How it is produced
 
+The same workflow runs the dependency audits over `develop` every night, in a job of its
+own that needs no snapshot: `make vulncheck`, `make audit-npm`, `make audit-python`,
+`make audit-rust` and `make audit-java`, the five `make audit` runs and every pull request's
+CI runs on the paths it changes (see
+[CONTRIBUTING.md § CI/CD](../../CONTRIBUTING.md#cicd)). An advisory published against an
+unchanged `develop` therefore fails the next night's run, and each audit runs even when an
+earlier one failed, so one night reports every tree. The publish job needs the audit job, so a
+night whose audit fails publishes nothing: no snapshot ships a known vulnerability.
+
 [`.github/workflows/nightly.yml`](../../.github/workflows/nightly.yml)
 runs at 03:23 UTC and on demand (`workflow_dispatch`, with a `force` input that publishes
 the same commit again as a new night, under today's date — for instance after the workflow
@@ -235,7 +267,10 @@ tarballs; signs the manifest, which now lists the wheel, with its own GitHub OID
 identity; keeps the wheel, sdist and tarballs as workflow artifacts; and publishes the
 per-night release with the repository's own `GITHUB_TOKEN`. A second job recreates the
 alias at the same commit from the night's own assets, title and notes, then deletes the
-per-night releases published more than 14 days ago. Two further jobs, each in the `nightly` GitHub
+per-night releases published more than 14 days ago. Two jobs after the release build the
+Cameo and SysON plugins at the same commit, each fetching the `sysml-grpc` it needs from the
+night's release and checking it against the manifest, and keep them as the run's
+`cameo-plugin` and `syson-plugin` artifacts. Two further jobs, each in the `nightly` GitHub
 environment, publish the wheel and sdist to PyPI with
 [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish) and the
 seven tarballs to npm under the `nightly` dist-tag — platform and WASM packages first, the
@@ -253,8 +288,11 @@ registered once by a maintainer:
 - **PyPI** — in the [`opensysml` project's publishing
   settings](https://pypi.org/manage/project/opensysml/settings/publishing/), add a GitHub
   Actions publisher with owner `Open-MBEE`, repository `OpenSysML`, workflow
-  `nightly.yml` and environment `nightly`. The stable release keeps publishing from
-  CircleCI with its token; the two coexist.
+  `nightly.yml` and environment `nightly`, on both `opensysml` and
+  [`jupyter-opensysml-kernel`](https://pypi.org/manage/project/jupyter-opensysml-kernel/settings/publishing/).
+  The stable release publishes through a second entry of the same shape
+  (`release-pypi.yml`, environment `pypi`; see
+  [Releasing](releasing.md#what-the-publication-needs)); the two coexist.
 - **npm** — for each of `@openmbee/opensysml`, the five `@openmbee/opensysml-sysml-grpc-*`
   packages and `@openmbee/opensysml-wasm`, open the package's settings on npmjs.com,
   choose GitHub Actions under *Trusted Publisher*, and enter organization `Open-MBEE`,

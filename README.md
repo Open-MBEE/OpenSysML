@@ -30,7 +30,7 @@ engineers expect from a modern language ecosystem. It is the runtime of
 [OpenMBEE](https://www.openmbee.org) community; this repository is the MDK, and the pages
 below use "OpenSysML" for it where no confusion with the suite is possible. The MDK is
 the second generation of OpenMBEE's Model Development Kit, expanded and updated for
-SysML v2; its [Cameo plugin](editors/mdk/README.md) is OpenSysML MDK for Cameo.
+SysML v2; its [Cameo plugin](editors/mdk/README.md) is Magic MDK.
 
 **It runs the model.** A validator reads declarations; an expression evaluator computes a value
 from the ones it is handed. OpenSysML materializes the instances a model describes, evaluates
@@ -98,7 +98,7 @@ brew install Open-MBEE/tap/opensysml
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest
 ```
-`sysml -version` then reports the release it was built from (`sysml v0.11.0`), or the commit when
+`sysml -version` then reports the release it was built from (`sysml v0.12.0`), or the commit when
 installed from a checkout.
 
 **Or build from source:**
@@ -133,18 +133,18 @@ with units, and its objective is a requirement. Arguments in parentheses rebind 
 $ sysml -quiet -analysis DeltaVBudget::saturnIBAscent examples/runtime-showcase/delta-v-budget.sysml
 ✓ package DeltaVBudget
 ✓ DeltaVBudget::saturnIBAscent
-  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
-  stage2DeltaV = 6432.955324716369 [SI::'m/s']
-  margin = 70.65198768706614 [SI::'m/s']
+  stage1DeltaV = [3037.6966629706967 [SI::'m/s']]
+  stage2DeltaV = [6432.955324716369 [SI::'m/s']]
+  margin = [70.65198768706614 [SI::'m/s']]
   objective reachesOrbit: satisfied
   standing: value (observed: 1 run under reverse)
 
 $ sysml -quiet -analysis "DeltaVBudget::saturnIBAscent(required = 9800 ['m/s'])" examples/runtime-showcase/delta-v-budget.sysml
 ✓ package DeltaVBudget
 ✗ DeltaVBudget::saturnIBAscent(required = 9800 ['m/s'])
-  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
-  stage2DeltaV = 6432.955324716369 [SI::'m/s']
-  margin = -329.34801231293386 [SI::'m/s']
+  stage1DeltaV = [3037.6966629706967 [SI::'m/s']]
+  stage2DeltaV = [6432.955324716369 [SI::'m/s']]
+  margin = [-329.34801231293386 [SI::'m/s']]
   objective reachesOrbit: not satisfied: margin > 0 ['m/s']
   standing: value (observed: 1 run under reverse)
 ```
@@ -286,7 +286,8 @@ SysML v2:
 - **Language Server** — A standard LSP server (`sysml-lsp`) with live diagnostics, semantic hover, go-to-definition, find references, completion, signature help, workspace-wide symbol search, formatting, rename, semantic tokens, quick fixes, code lenses and inlay hints. A VS Code extension with TextMate grammars for `.sysml` and `.kerml` ships in [editors/vscode](editors/vscode) — its diagram panel draws the model beside the editor with zoom, pan and fit, click-to-select highlighting, show/hide of relationship kinds, drag-to-layout and an ELK auto layout that writes nothing — and any editor with a generic LSP client can drive the server directly — [guide chapter 8](docs/guide/08-editors.md) walks through both. *Not yet:* the extension is not on a marketplace — install the nightly `opensysml-sysml.vsix` or build it from source — and the server answers no semantic token delta requests.
 - **Interactive REPL** — An exploratory modeling environment: define models incrementally, evaluate expressions interactively, instantiate parts, run calculations and inspect runtime state, comparable to IPython or Jupyter for systems engineering.
 - **Jupyter Kernel** — `sysml-jupyter-kernel` runs the REPL session behind the Jupyter protocol, so notebook cells hold SysML: declarations accumulate across cells, expressions evaluate, every `%` command works as at the prompt, and views and documents render as Mermaid, SVG, Markdown, tables, HTML or JSON. `pip install jupyter-opensysml-kernel && python -m jupyter_opensysml_kernel install` registers it ([guide chapter 12](docs/guide/12-jupyter.md)).
-- **MCP Server for Coding Agents** — `sysml-mcp` serves the toolchain to OpenCode, Claude Code, Cursor, Codex, VS Code Copilot, Gemini CLI, Devin and any other Model Context Protocol host over stdio: the language server's workspace, the runtime's one-shot service and persistent REPL sessions as tools an agent calls. `npx -y @openmbee/sysml-mcp` runs it with nothing preinstalled, `sysml-mcp -http 8765` serves one long-lived server over Streamable HTTP for remote agents or several agents over one workspace (loopback as it is, any other address behind a bearer token), and `sysml-mcp -print-config <host>` writes the host's configuration block, in URL form with `-http` ([MCP server reference](docs/reference/sysml-mcp.md)).
+- **MCP Server for Coding Agents** — `sysml-mcp` serves the toolchain to OpenCode, Claude Code, Cursor, Codex, VS Code Copilot, Gemini CLI, Devin and any other Model Context Protocol host over stdio: the language server's workspace, the runtime's one-shot service and persistent REPL sessions as tools an agent calls. `npx -y @openmbee/sysml-mcp` (or `npx -y @openmbee/opensysml-mcp`, the same runner under the name the other npm packages share) runs it with nothing preinstalled, `sysml-mcp -http 8765` serves one long-lived server over Streamable HTTP for remote agents or several agents over one workspace (loopback as it is, any other address behind a bearer token), and `sysml-mcp -print-config <host>` writes the host's configuration block, in URL form with `-http` ([MCP server reference](docs/reference/sysml-mcp.md)).
+- **Apache Airflow Provider** — `airflow-provider-opensysml` makes a model something an Airflow 3 DAG depends on, asks, waits for and is generated from: `sysml_model_asset` schedules a DAG on the model's content, `SysMLAnalysisOperator` and `SysMLVerifyOperator` run cases and ask requirement, constraint, satisfaction and object questions with the service's verdicts, `SysMLRequirementSensor` defers a task until a requirement holds, and `SysMLActionDag` turns an `action def` into the DAG itself from the `graphs:1` export, with the model's `satisfy … by` statements as gates. `pip install airflow-provider-opensysml` ([Airflow provider reference](docs/reference/airflow-provider.md)).
 - **Constraint Solving** *(experimental)* — In addition to evaluating what holds of an object, an external SMT solver determines whether a constraint, requirement or satisfaction assertion *can* hold, which conditions conflict when it cannot, which values would satisfy it, which variants a model permits, and what optimizes an `analysis def`'s objectives. The solver is optional and discovered at runtime. [The REPL command reference](docs/reference/repl-commands.md) documents each command, and [installing a solver](docs/guide/01-install.md#installing-a-solver-optional) describes how to obtain one. The design follows OpenMBEE's [HMF](https://github.com/hivecore-dev/hmf) (see [Acknowledgements](#acknowledgements)).
 - **Embeddable Go API** — `client/opensysml` is the public Go surface: parse, look up symbols, evaluate expressions and instantiate parts from Go code, answered in process by the engine the calling binary already links (no port, no child process and no serialization round trip), or over the Connect protocol against an externally hosted service. See [client/opensysml/README.md](client/opensysml/README.md).
 - **Python Client Library** — gRPC-based Python bindings for programmatic access: parse models, resolve symbols, evaluate expressions, instantiate parts, execute actions/state machines. Includes IPython display hooks for Jupyter notebooks and pandas DataFrame integration. Constraint, requirement, satisfaction and calc verdicts are available as RPCs (`verify_constraint`, `verify_requirement`, `verify_satisfaction`, `calc`).
@@ -315,10 +316,10 @@ The project is under active development, with the core infrastructure operationa
 | Lexer/Parser (structural + behavioral grammar) | ✅ Operational (110/110 stdlib clean - see [conformance gate](internal/workspace/libs/stdlib_conformance_test.go)) |
 | Symbol resolution & type system | ✅ Complete |
 | Semantic layer (operators, builtins, validation) | ✅ Complete |
-| Feature chain resolution (member access) | ✅ Supported subset — Kernel Semantic Library members (`self`, `timeSlices`, `superoccurrence`, `localClock`, `predecessors`, …) stay out of an object's shape and are read-only, answered from what the runtime tracks, the library's declared value, the composition they invert or their multiplicity (see [spec compliance](docs/project/spec-compliance.md#instantiation-and-feature-values-sysml-v2-76-feature-values-kerml-83)) |
+| Feature chain resolution (member access) | ✅ Supported subset — Kernel Semantic Library members (`self`, `timeSlices`, `superoccurrence`, `localClock`, `predecessors`, …) stay out of an object's shape and are read-only, answered from what the runtime tracks, the library's declared value, the composition they invert or their multiplicity (see [spec compliance](docs/project/spec-compliance.md#instantiation-and-feature-values-sysml-v2-763-usages-kerml-7411-feature-values-83)) |
 | Validation passes (typing conformance, redefinition) | ✅ Complete |
 | Native document generation | ✅ Document queries (`%run-query`, `-run-query`), document definitions with sections, paragraphs, inline runs, tables (including grouped, with computed columns), lists and embedded diagrams, rendered to Markdown (`-render-document`, `%render-document`), semantic HTML with an overridable stylesheet (`-doc-form html`), a linked multi-document set (`-render-documents`) with cross-document references, or PDF (`-doc-form pdf`) — see [the document generation manual](docs/manual/README.md) |
-| Expression evaluator & instance model (runtime Tiers 1-3) | ✅ Supported subset — an object carries the Systems, Domain and OpenSysML library features of its kind; its Kernel Semantic Library members are read-only and answered by the Kernel-member read rule rather than materialized (see [spec compliance](docs/project/spec-compliance.md#instantiation-and-feature-values-sysml-v2-76-feature-values-kerml-83)) |
+| Expression evaluator & instance model (runtime Tiers 1-3) | ✅ Supported subset — an object carries the Systems, Domain and OpenSysML library features of its kind; its Kernel Semantic Library members are read-only and answered by the Kernel-member read rule rather than materialized (see [spec compliance](docs/project/spec-compliance.md#instantiation-and-feature-values-sysml-v2-763-usages-kerml-7411-feature-values-83)) |
 | Runtime operators (equality, logical, negation) | ✅ Complete |
 | Workspace/reindex/file watching | ✅ Complete |
 | Behavioral parser (unified grammar with graceful fallback) | ✅ Complete (golden ASTs and negative tests, counted in [spec compliance](docs/project/spec-compliance.md) when the documentation site is built) |
@@ -337,6 +338,7 @@ The project is under active development, with the core infrastructure operationa
 | gRPC service layer | ✅ Complete (parse, symbols, diagnostics, runtime, verification, conversion, edit and Query RPCs), served as gRPC, gRPC-Web and the Connect protocol on one port |
 | Public Go API (`client/opensysml`) | ✅ Complete for its v1 scope: parse, diagnostics, symbols, evaluation, instantiation and capability negotiation, answered in process or over Connect, with the edit API, conversion, verification, behaviour execution and Query out of scope ([client/opensysml/README.md](client/opensysml/README.md)) |
 | Python client library | ✅ Complete for the RPCs that exist (connection lifecycle, parse/symbols/eval/instantiate/execute, constraint/requirement/satisfaction/calc verification, conversion, edits, Query, IPython hooks, DataFrame) |
+| Apache Airflow provider | ✅ Model and requirement assets, analysis and verification operators, deferrable requirement sensors, DAGs generated from an `action def` with `satisfy` gates — over the Python client, in its own repository ([Airflow provider](docs/reference/airflow-provider.md)) |
 | Rust client library | 🚧 Blocking v1 client for parse, diagnostics, symbols, evaluation and instantiation; see the [Rust client README](client/rust/README.md) |
 | Java client library | ✅ Connection lifecycle, parse/symbols/eval/instantiate and capability negotiation, plus typed immutable results for behaviour execution and exploration, verification and validation, calculation, analysis with engine selection, and structured and OSLC query; the edit API, multi-document parsing, conversion, sweeps and the document RPCs are stated as out of scope. Connect protocol over the JDK's own HTTP client, so no gRPC or Netty reaches a host application ([client/java/README.md](client/java/README.md)) |
 | Node/TypeScript client library | ✅ Complete for the same v1 scope, in Node and the browser, over the Connect protocol with protobuf bodies and no native addon; values arrive as discriminated unions ([client/node/README.md](client/node/README.md)) |
@@ -344,13 +346,13 @@ The project is under active development, with the core infrastructure operationa
 | MATLAB/Octave client package | ✅ The same thin Connect-JSON client for MATLAB R2019b+ and GNU Octave 7+ — `matlab.net.http` under MATLAB, a `curl` subprocess under Octave; an Octave built without Java (the snap and the CI build) cannot spawn a private child ([client/matlab/README.md](client/matlab/README.md)) |
 
 <!-- doc-counts:begin refereed-figures -->
-**Measured against the pinned reference** (`PILOT_TAG=2026-08`, artifact `0.62.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
+**Measured against the pinned reference** (`PILOT_TAG=2026-09`, artifact `0.63.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
 
-- **Corpus agreement:** 515 of 916 files agree diagnostic-by-diagnostic; 366 diagnostics are ours alone and 2444 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](docs/project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
-- **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](docs/project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
+- **Corpus agreement:** 522 of 924 files agree diagnostic-by-diagnostic; 359 diagnostics are ours alone and 2462 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](docs/project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
+- **Declared-diagnostic silence:** of the 514 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 247 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](docs/project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
-- **Permissiveness gaps:** of 344 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 328 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](docs/project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 16 defect(s) in the published reference material — 9 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](docs/project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 516 of 916 files agreeing, 365 diagnostics ours alone and 2444 the reference's alone, 0 declared rows we are silent on, and 0 of 344 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Permissiveness gaps:** of 349 invalid models we wrote ourselves, the reference rejects 5 that we accept by default, and 334 both reject; 5 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](docs/project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
+- **Declared errata:** the registry declares 13 defect(s) in the published reference material — 6 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](docs/project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 523 of 924 files agreeing, 358 diagnostics ours alone and 2462 the reference's alone, 0 declared rows we are silent on, and 0 of 349 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](docs/project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.
@@ -362,8 +364,8 @@ What these numbers cannot show: the OMG corpora are demonstrations rather than a
 **Test coverage:** top-level `Test` functions (counted from the `_test.go` files, as `go test ./...` runs them) covering parsers, semantics, runtime (actions, states, instances, operators, validation), behind golden ASTs, negatives, execution conformance cases, golden traces, runtime robustness cases and gRPC conformance and robustness cases. The figures are counted from the tree when the documentation site is built into the test inventory of [spec compliance](docs/project/spec-compliance.md), never committed, so a branch adding a test does not rewrite this page. A test skips only for want of something the run did not provide, and says what: the held-image round trip declines a conformance case that creates no instance, a few gate on a PDF or Mermaid toolchain, a pinned pilot artifact, the PSSM suite, a locale, a case-insensitive filesystem or a live Flexo stack, and the OMG corpus gates skip until the corpora are downloaded unless asked to fail.
 **Parser coverage:** 110/110 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 16 non-normative OpenSysML extensions: `OpenSysML Libraries/AnalysisRecords.sysml`, `DiagramLayout.sysml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `MOSA.sysml`, `MigrationMetadata.sysml`, `OOSEM.sysml`, `OpenSysMLMathFunctions.kerml`, `OpenSysMLRenderings.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateActivity.kerml`, `StateMachines.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml` and `SysMLValidation.sysml`. Conformance verified by [stdlib_conformance_test.go](internal/workspace/libs/stdlib_conformance_test.go). Grammar reference: [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
 **Behavioral execution:** Calc/constraint/requirement/satisfy functional. Action/state executors handle nested invocation, control flow keywords, loop and conditional statements and the send statement (<!-- doc-counts:begin conformance-passing -->every conformance case passing<!-- doc-counts:end conformance-passing -->). Coverage is self-assessed against the specification text and the normative library: the pinned OMG pilot implementation evaluates expressions but does not execute actions or state machines headlessly, so no external implementation currently adjudicates these rows. See [spec compliance](docs/project/spec-compliance.md).
-**Reference differential:** 916 files compared diagnostic-by-diagnostic against the pinned OMG pilot implementation (`2026-08`), 515 in full agreement; every divergence is enumerated and adjudicated in [the differential](docs/project/pilot-differential.md), reproducible with `go run -C tools ./cmd/pilot-diff`.
-**Rejection oracle:** the reverse direction — do we reject what the reference rejects? 344 hand-written invalid models validated by both implementations, 332 rejected by both, 0 the pinned pilot rejects and we accept; the remainder only we reject — the control-node succession rules the pinned pilot leaves unimplemented and a non-Boolean succession guard it accepts once the standard library types it — and every permissiveness gap is enumerated with a reproducer and likely root cause in [the rejection oracle](docs/project/pilot-rejection.md), reproducible with `go run -C tools ./cmd/pilot-reject`. We wrote every case, so the count measures our coverage of the rejection surface, not our conformance — a sample, not a proof.
+**Reference differential:** 924 files compared diagnostic-by-diagnostic against the pinned OMG pilot implementation (`2026-09`), 522 in full agreement; every divergence is enumerated and adjudicated in [the differential](docs/project/pilot-differential.md), reproducible with `go run -C tools ./cmd/pilot-diff`.
+**Rejection oracle:** the reverse direction — do we reject what the reference rejects? 349 hand-written invalid models validated by both implementations, 339 rejected by both, 0 the pinned pilot rejects and we accept; the remainder only we reject — the control-node succession rules the pinned pilot leaves unimplemented and a non-Boolean succession guard it accepts once the standard library types it — and every permissiveness gap is enumerated with a reproducer and likely root cause in [the rejection oracle](docs/project/pilot-rejection.md), reproducible with `go run -C tools ./cmd/pilot-reject`. We wrote every case, so the count measures our coverage of the rejection surface, not our conformance — a sample, not a proof.
 **Training examples:** 100/100 files report no semantic errors, gated by `tests/corpus/testdata/training_examples_expected.txt`; the gate does not count execution-scope warnings. Download with `./scripts/download-training-examples.sh` (from the [OMG training directory](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/sysml/src/training)). See [training examples](docs/project/training-examples.md) for analysis.
 **Semantic layer:** a complete implementation of runtime operators, feature chains and validation rules. See [examples/semantic-layer/](examples/semantic-layer/) for a full demonstration.
 
@@ -426,11 +428,11 @@ github.com/Open-MBEE/OpenSysML
 
 ## Technology
 
-- **Language:** Go 1.25 or later (goroutines for concurrency, a single static binary, and an established record in language servers)
+- **Language:** Go 1.26 or later (goroutines for concurrency, a single static binary, and an established record in language servers)
 - **Parser:** hand-written recursive descent (no framework overhead, full error recovery, sub-millisecond parses)
 - **Grammar source:** OMG pilot Xtext grammars (`SysML.xtext` and `KerMLExpressions`)
-- **Spec compliance:** [OMG SysML v2.1 Beta 1 / KerML 1.1](https://www.omg.org/spec/SysML/2.0) (2026-08 release)
-- **Standard library:** 94 files from [SysML v2 Pilot Implementation 2026-08](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-08), byte-identical, plus the sixteen non-normative `OpenSysML Libraries/` extensions (`OpenSysMLMathFunctions`, `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, [`OOSEM`](docs/project/oosem-library.md), [`MOSA`](docs/project/mosa-library.md), `StateSpaceIntegration`, `Stochastic`, `RandomFunctions`, `Simulation`, `MigrationMetadata`, `AnalysisRecords`, `OpenSysMLRenderings`, [`StateMachines`](docs/project/statemachines-library.md), [`SysMLValidation`](docs/project/validation-constraints.md) and `StateActivity`). The extensions are maintained upstream at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library) — for any SysML v2 tool — and vendored here pinned by `scripts/extension-libraries-pin.sh` ([pin, sync and contract](docs/project/extension-libraries.md))
+- **Spec compliance:** [OMG SysML v2.1 Beta 1 / KerML 1.1](https://www.omg.org/spec/SysML/2.0) (2026-09 release)
+- **Standard library:** 94 files from [SysML v2 Pilot Implementation 2026-09](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-09), byte-identical, plus the sixteen non-normative `OpenSysML Libraries/` extensions (`OpenSysMLMathFunctions`, `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, [`OOSEM`](docs/project/oosem-library.md), [`MOSA`](docs/project/mosa-library.md), `StateSpaceIntegration`, `Stochastic`, `RandomFunctions`, `Simulation`, `MigrationMetadata`, `AnalysisRecords`, `OpenSysMLRenderings`, [`StateMachines`](docs/project/statemachines-library.md), [`SysMLValidation`](docs/project/validation-constraints.md) and `StateActivity`). The extensions are maintained upstream at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library) — for any SysML v2 tool — and vendored here pinned by `scripts/extension-libraries-pin.sh` ([pin, sync and contract](docs/project/extension-libraries.md))
 - **CI/CD:** GitHub Actions checks pull requests; CircleCI builds and tests `main` and `develop` and publishes releases from tags
 
 ## Releases
@@ -466,10 +468,13 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases 
 **Release artifacts:** per-binary archives (`sysml-<os>-<arch>.tar.gz`,
 `sysml-lsp-<os>-<arch>.tar.gz`), `opensysml-<os>-<arch>.tar.gz` bundles containing both
 binaries, `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) with the MCP server, its manual
-page and the LICENSE, and `SHA256SUMS.txt`. Windows also gets an installer,
+page and the LICENSE, an SPDX software bill of materials `<asset>.spdx.json` beside each of
+them, and `SHA256SUMS.txt` covering all of it, signed with cosign (see
+[docs/project/releasing.md](docs/project/releasing.md#the-software-bills-of-materials)). Windows also gets an installer,
 `opensysml-<x.y.z>-windows-amd64.msi` (`sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-mcp`, optional bundled Z3
 solver; see [packaging/msi](packaging/msi/README.md)), built by the GitHub Actions release
-workflow after CircleCI publishes the release, with its digest in `SHA256SUMS-windows-msi.txt`.
+workflow after CircleCI publishes the release, with its digest and that of its input-derived
+SBOM in `SHA256SUMS-windows-msi.txt`.
 macOS binaries are not Developer ID signed or notarized; see
 [docs/project/macos-distribution.md](docs/project/macos-distribution.md). Windows binaries and
 the MSI are Authenticode signed through [SignPath Foundation](https://signpath.org) once the
@@ -527,6 +532,17 @@ and `sysml -convert` reads or pushes a Flexo MMS project branch only when the op
 its branch URL (`http(s)://…/projects/{p}/branches/{b}` or `flexo://{p}/{b}`) there.
 The OMG pilot corpora and reference tools used by the test suite are fetched by developer
 scripts under `scripts/`, which are not part of the shipped binaries.
+
+## Security
+
+Report a vulnerability privately through
+[GitHub's report form](https://github.com/Open-MBEE/OpenSysML/security/advisories/new); the
+response deadlines, the disclosure process, the supported versions and the scope are in
+[SECURITY.md](SECURITY.md), which the documentation site publishes as its
+[Security page](https://runtime.opensysml.org/guide/security/) together with how to verify a
+downloaded release (checksum manifest, cosign signature, provenance, packages and the container
+image) and how to harden a served instance. The site also serves
+[`/.well-known/security.txt`](https://runtime.opensysml.org/.well-known/security.txt) (RFC 9116).
 
 ## Building
 

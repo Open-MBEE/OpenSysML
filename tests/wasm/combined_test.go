@@ -19,7 +19,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 )
 
-const combinedGzipBudget = 10000000
+// combinedGzipBudget bounds the gzipped js build of sysml-wasm: raised to 10,400,000 on
+// 2026-10-27 when go1.27.3 linked it at 10,008,006 bytes (9,570,777 -> 9,908,881 for the
+// same develop source under go1.25.11 and go1.27.3, stripped builds).
+const combinedGzipBudget = 10400000
 
 const combinedModel = `package Demo { part def Item; }`
 
@@ -361,6 +364,7 @@ func TestCombinedWireParity(t *testing.T) {
 		"function_values", "set_values", "tensor_values", "infinity_value",
 		"diagnostic_codes", "schedule", "final_time", "metaobject_values",
 		"undetermined_value", "performer", "big_int_values", "render_view", "state_trace",
+		"action_trace",
 	}
 	if info.Version != "combined-wire-test" {
 		t.Errorf("GetServerInfo version = %q", info.Version)

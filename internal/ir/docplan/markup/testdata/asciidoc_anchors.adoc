@@ -1,0 +1,9 @@
+[[MassBudget]]
+== Mass budget
+
+See <<power-budget>> and sysml:ref[power-budget].
+
+[[power-budget]]
+== Power budget
+
+See <<MassBudget>> and sysml:ref[MassBudget].

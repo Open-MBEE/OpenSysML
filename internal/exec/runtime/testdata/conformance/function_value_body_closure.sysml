@@ -16,7 +16,7 @@ package test {
 	// A nested calc returned as a function keeps the bindings of the run that returned it.
 	calc def Maker {
 		in k : Real;
-		calc scale :> Unary { in :>> x; return : Real = x * k; }
+		calc scale : Unary { in :>> x; return : Real = x * k; }
 		return : Unary = scale;
 	}
 	// A nested usage inheriting its body still closes over a default it declares in the run.

@@ -22,28 +22,28 @@ config:
     edgeLabelBackground: "#FFFFFF"
 ---
 %% CompartmentDemoViews::hub — tree rendering (render asTreeDiagram)
-%% not represented: 5 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+%% not represented: 5 member(s) drawn as compartment rows of their owner
 flowchart TD
   n0["`*«part def»*
 **Hub**
 ports
 input : DataPort
-input.clock : ClockPort
+^input.clock : ClockPort
 output : DataPort
 output.sync : ClockPort
-output.clock : ClockPort`"]
+^output.clock : ClockPort`"]
     n1("`*«attribute»*
 **channels**`")
-  n0 --- n1
     n12("`*«part»*
 **buffer**`")
-  n0 --- n12
     n13("`*«part»*
 **slot**`")
       n14["`*«part def»*
 **Pin**`"]
   n13 --- n14
-  n0 --- n13
   n15["`*«part def»*
 **Buffer**`"]
-  n0 ---|"◆ buffer"| n15
+  n0 ---|"◇"| n1
+  n0 ---|"◆"| n12
+  n0 ---|"◆"| n13
+  n12 -->|"typing"| n15

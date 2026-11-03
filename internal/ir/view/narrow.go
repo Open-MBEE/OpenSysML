@@ -105,6 +105,12 @@ func (n *narrowing) leftOut(parent, node *Node) bool {
 	return parent != nil && !n.shown.Has(ElementParameterSymbols) && parameterSymbol(parent, node)
 }
 
+// actionPinNode reports whether a node's parameter pins are an action's or calc's
+// (its node form's, §8.2.3.17/19, always drawn), not a case's parameter symbols.
+func actionPinNode(node *Node) bool {
+	return !caseNodeKind(node.Kind) && !requirementNodeKind(node.Kind)
+}
+
 // remove maps node and everything nested in it to parent, the node now
 // standing for them.
 func (n *narrowing) remove(node, parent *Node) {
@@ -125,7 +131,9 @@ func (n *narrowing) narrow(node *Node) {
 	for _, port := range node.Ports {
 		pinShown := n.shown.Has(ElementPortSymbols)
 		if port.Parameter {
-			pinShown = n.shown.Has(ElementParameterSymbols)
+			// A tree's parameter pins are model structure, listed as its members are;
+			// an action's or calc's are its node form's: both drawn whatever is shown.
+			pinShown = n.shown.Has(ElementParameterSymbols) || n.kind == KindTree || actionPinNode(node)
 		}
 		if !pinShown {
 			n.redirect[port.ID] = node.ID
@@ -153,8 +161,15 @@ func (n *narrowing) narrow(node *Node) {
 func (n *narrowing) edge(edge *Edge) {
 	edge.From, edge.FromPort = n.end(edge.From, edge.FromPort)
 	edge.To, edge.ToPort = n.end(edge.To, edge.ToPort)
-	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence {
+	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence && !generalViewGraph(n.kind) {
 		edge.Label, edge.Name = "", ""
+		if edge.Kind == EdgeSuccessionFlow {
+			// The keyword is the glyph's, not the connector's optional name.
+			edge.Label = successionFlowKeyword
+		}
+		if edge.Kind == EdgeBinding {
+			edge.Label = bindingKeyword
+		}
 	}
 	if !n.shown.Has(ElementMultiplicities) {
 		labels := []*string{&edge.FromLabel, &edge.ToLabel}
@@ -190,11 +205,21 @@ func (n *narrowing) note(note *Note) {
 	}
 }
 
+// generalViewGraph reports whether a rendering is a GeneralView graph, whose edges
+// are relationships labelled by keyword (`«allocate»`), not connectors by name.
+func generalViewGraph(kind Kind) bool {
+	switch kind {
+	case KindTree, KindRequirement, KindDefinition, KindPackage:
+		return true
+	}
+	return false
+}
+
 // connectorEdge reports whether an edge stands for a connector whose name is
 // an optional label: a connection, interface, flow, binding or allocation.
 func connectorEdge(kind EdgeKind) bool {
 	switch kind {
-	case EdgeConnection, EdgeFlow, EdgeBinding, EdgeAllocate:
+	case EdgeConnection, EdgeFlow, EdgeSuccessionFlow, EdgeBinding, EdgeAllocate:
 		return true
 	}
 	return false

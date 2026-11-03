@@ -648,7 +648,7 @@ class TestModelRuntimeCalls:
         assert model.execute_action("Demo::add", inputs={"result": 10}) == {"result": 15}
         client.execute_action.assert_called_once_with(
             "Demo::add", "hash1", inputs={"result": 10}, schedule=None, performer=None,
-            advance=None, seed=None, draws=None, clock_step=0.0
+            advance=None, seed=None, draws=None, clock_step=0.0, trace=False, events=None
         )
 
     def test_execute_state_passes_the_models_hash_and_events(self):

@@ -29,9 +29,11 @@ type CompactAPIJSONOptions struct {
 	// specialization does not need it.
 	OmitDerived bool
 	// KeepDerived names the derived properties still written when OmitDerived is set.
-	KeepDerived []string
-	Omitted     func(APIJSONOmission)
-	Diagnostic  func(string)
+	KeepDerived         []string
+	Omitted             func(APIJSONOmission)
+	Diagnostic          func(string)
+	IncludeLibraryStubs bool
+	LibraryReferences   func([]APIJSONLibraryReference)
 }
 
 // WriteAPIJSONCompact writes the elements WriteAPIJSON writes in a form built
@@ -42,7 +44,7 @@ type CompactAPIJSONOptions struct {
 //	 "ids":[<id>, …],               // the id table
 //	 "elementCount":N,              // ids[0..N) are the elements, in order
 //	 "elementIdsAreIds":true,       // present only when elementId is left out (below)
-//	 "referenceKeys":[<key>, …],    // keys whose values are bare handles
+//	 "referenceKeys":[<key>, …],    // keys whose values are only references or reference arrays
 //	 "elements":[{"@type":…,…}, …]}
 //
 // Element i has the id ids[i], so it carries no "@id". Under a reference key a
@@ -54,8 +56,11 @@ type CompactAPIJSONOptions struct {
 // another, "elementId" is left out and "elementIdsAreIds" says so: a reader
 // restores it from the table.
 func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, error) {
+	var libraryReferences []APIJSONLibraryReference
 	elements, err := apiJSONElementsWithOptions(graph, APIJSONOptions{
 		Omitted: opts.Omitted, Diagnostic: opts.Diagnostic,
+		IncludeLibraryStubs: opts.IncludeLibraryStubs,
+		LibraryReferences:   func(refs []APIJSONLibraryReference) { libraryReferences = refs },
 	})
 	if err != nil {
 		return nil, err
@@ -109,13 +114,14 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 		}
 	}
 
-	// One pass drops what is left out, hands out the handles, and finds which
-	// keys carry references and which carry numbers: a key that carries both
-	// cannot spell a reference as a bare integer.
+	// One pass applies omissions, hands out handles for every nested reference,
+	// and classifies each kept member's top-level value.
 	kept := make([]apiJSONObject, len(elements))
 	references := map[string]bool{}
-	numbers := map[string]bool{}
+	writtenLibraryIDs := map[string]bool{}
+	disqualified := map[string]bool{}
 	for i, element := range elements {
+		subject := rdf.ReferenceIRI(rdf.Term{}, element[1].value.(string))
 		typ, _ := element[0].value.(string)
 		metaclass := typ
 		if strings.HasPrefix(typ, "sysx:") {
@@ -152,15 +158,34 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				}
 			}
 			members = append(members, member)
-			walkCompactValue(member.value, func(value any) {
-				switch v := value.(type) {
-				case apiJSONReference:
-					handle(v.ID)
-					if member.key != apiJSONMappingValuesKey {
-						references[member.key] = true
+			switch value := member.value.(type) {
+			case nil:
+			case apiJSONReference:
+				references[member.key] = true
+			case []any:
+				if len(value) == 0 {
+					break
+				}
+				allReferences := true
+				for _, item := range value {
+					if _, ok := item.(apiJSONReference); !ok {
+						allReferences = false
+						break
 					}
-				case json.Number:
-					numbers[member.key] = true
+				}
+				if allReferences {
+					references[member.key] = true
+				} else {
+					disqualified[member.key] = true
+				}
+			default:
+				disqualified[member.key] = true
+			}
+			walkCompactValue(member.value, func(value any) {
+				if reference, ok := value.(apiJSONReference); ok {
+					id, _ := rdf.SubjectID(rdf.ReferenceIRI(subject, reference.ID))
+					writtenLibraryIDs[id] = true
+					handle(reference.ID)
 				}
 			})
 		}
@@ -168,11 +193,15 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 	}
 	referenceKeys := make([]string, 0, len(references))
 	for key := range references {
-		if !numbers[key] {
+		if !disqualified[key] {
 			referenceKeys = append(referenceKeys, key)
 		}
 	}
 	slices.Sort(referenceKeys)
+	// Only names referenced by the written document belong in its table.
+	libraryReferences = slices.DeleteFunc(libraryReferences, func(ref APIJSONLibraryReference) bool {
+		return !writtenLibraryIDs[ref.ID]
+	})
 
 	var out bytes.Buffer
 	w := apiJSONWriter{buf: &out, enc: json.NewEncoder(&out)}
@@ -195,6 +224,10 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 	}
 	out.WriteString(`"referenceKeys":`)
 	if err := w.value(referenceKeys); err != nil {
+		return nil, err
+	}
+	out.WriteString(`,"libraryReferences":`)
+	if err := w.value(libraryReferences); err != nil {
 		return nil, err
 	}
 	out.WriteString(`,"elements":[`)
@@ -222,6 +255,9 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 		out.WriteByte('}')
 	}
 	out.WriteString("]}\n")
+	if opts.LibraryReferences != nil {
+		opts.LibraryReferences(libraryReferences)
+	}
 	return out.Bytes(), nil
 }
 

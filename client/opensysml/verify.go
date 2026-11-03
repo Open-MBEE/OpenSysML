@@ -76,6 +76,11 @@ type Verdict struct {
 	// Witness is the assignment witnessing the answer: the free features' values
 	// for a violated holds question or a satisfiable satisfiable question.
 	Witness []WitnessAssignment
+	// Notes is what the answer rests on — the features read as one value or
+	// object while only the default multiplicity governs them, and the
+	// object-holding features whose own assertions the question does not
+	// state — in report order; empty from a service without verdict_notes.
+	Notes []VerdictNote
 	// Standing is how strongly the verdict stands: the engine that answered, the
 	// strength of its evidence and the bounds it ran under.
 	Standing Standing
@@ -722,8 +727,41 @@ func verdictFromProto(verdict *pb.Verdict) *Verdict {
 		Question:       verdict.Question,
 		Status:         verdict.Status,
 		Witness:        witnessFromProto(verdict.Witness),
+		Notes:          notesFromProto(verdict.Notes),
 		Standing:       standingFromProto(verdict.Engine, verdict.Strength, verdict.Bounds),
 	}
+}
+
+// VerdictNote is one assumption or omission behind a Verdict, worded as every
+// surface reports it.
+type VerdictNote struct {
+	// Kind is NoteAssumedOne or NoteUncovered.
+	Kind string
+	// Subject names the feature the note is about, as the report quotes it.
+	Subject string
+	// Text is the note as a sentence.
+	Text string
+}
+
+// Note kinds, as the service spells them.
+const (
+	// NoteAssumedOne marks a feature read as holding one value or object while
+	// only the default `0..*` multiplicity governs it.
+	NoteAssumedOne = "assumed_one"
+	// NoteUncovered marks an object-holding feature whose own assertions the
+	// question does not state.
+	NoteUncovered = "uncovered"
+)
+
+func notesFromProto(notes []*pb.VerdictNote) []VerdictNote {
+	if len(notes) == 0 {
+		return nil
+	}
+	out := make([]VerdictNote, 0, len(notes))
+	for _, n := range notes {
+		out = append(out, VerdictNote{Kind: n.Kind, Subject: n.Subject, Text: n.Text})
+	}
+	return out
 }
 
 func witnessFromProto(witness []*pb.WitnessAssignment) []WitnessAssignment {

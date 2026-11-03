@@ -83,6 +83,12 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			_, err := s.Query(ctx, &pb.QueryRequest{})
 			return err
 		}},
+		{"query order by", CapabilityQueryOrderBy, func(s *Service) error {
+			_, err := s.Query(ctx, &pb.QueryRequest{
+				ModelHash: "any", Query: &pb.Query{OrderBy: []string{"name"}},
+			})
+			return err
+		}},
 		{"oslc query", CapabilityOSLCQuery, func(s *Service) error {
 			_, err := s.Query(ctx, &pb.QueryRequest{OslcQuery: "oslc.where=rdf:type=\"PartUsage\""})
 			return err
@@ -318,6 +324,12 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"render document asciidoc", CapabilityRenderDocumentAsciiDoc, func(s *Service) error {
+			_, err := s.RenderDocument(ctx, &pb.RenderDocumentRequest{
+				ModelHash: "any", DocumentId: "Any", Form: "asciidoc",
+			})
+			return err
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -433,9 +445,9 @@ func TestRenderDocumentFileNameIsWithheldWithoutItsCapability(t *testing.T) {
 }
 
 // The capability is the newest, appended after every one before it.
-func TestRenderDocumentFileNameCapabilityIsTheNewest(t *testing.T) {
-	if all := Capabilities(); all[len(all)-1] != CapabilityOrderDependence {
-		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityOrderDependence)
+func TestVerdictNotesCapabilityIsTheNewest(t *testing.T) {
+	if all := Capabilities(); all[len(all)-1] != CapabilityVerdictNotes {
+		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityVerdictNotes)
 	}
 }
 

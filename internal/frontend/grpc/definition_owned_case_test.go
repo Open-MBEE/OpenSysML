@@ -197,3 +197,83 @@ func wantVerdictObjects(t *testing.T, surface string, got []*pb.VerificationVerd
 		}
 	}
 }
+
+// repeatedObjectsModel holds the definition-owned case's objects with
+// multiplicities, two usages of two objects each, half of them over the cost limit.
+const repeatedObjectsModel = `package Cost {
+	private import ScalarValues::Real;
+
+	requirement def CostRequirement {
+		subject product : Definition;
+		attribute maximumCost : Real;
+		require constraint costOk { product.cost <= maximumCost }
+	}
+	requirement costReq : CostRequirement { :>> maximumCost = 100.0; }
+
+	part def Definition {
+		attribute cost : Real;
+		satisfy costReq;
+		verification costTest {
+			objective costObjective { verify costReq; }
+			return verdict = VerificationCases::PassIf(cost <= 100.0);
+		}
+	}
+
+	part def Fleet {
+		part cheap : Definition [2] { attribute :>> cost = 80.0; }
+		part dear : Definition [2] { attribute :>> cost = 120.0; }
+	}
+	part fleet : Fleet;
+}`
+
+// TestVerifyRunsADefinitionOwnedCaseOnEveryRepeatedObject verifies that
+// VerifyRequirement about the holder and VerifySatisfaction run a case a definition
+// owns once on each object a multiplicity repeats, each verdict naming its own object.
+func TestVerifyRunsADefinitionOwnedCaseOnEveryRepeatedObject(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, repeatedObjectsModel, "definition-owned-repeated")
+	ctx := context.Background()
+	if made, err := srv.Instantiate(ctx, &pb.InstantiateRequest{ModelHash: hash, SymbolId: "Cost::fleet"}); err != nil || made.Error != "" {
+		t.Fatalf("Instantiate(Cost::fleet): %v %q", err, made.GetError())
+	}
+	want := []string{
+		"Cost::Definition::costTest=pass", "Cost::Definition::costTest=pass",
+		"Cost::Definition::costTest=fail", "Cost::Definition::costTest=fail",
+	}
+	distinctObjects := func(surface string, verdicts []*pb.VerificationVerdict) {
+		objects := map[int64]bool{}
+		for _, v := range verdicts {
+			if v.InstanceId == 0 {
+				t.Errorf("%s: a verdict of %s names no object", surface, v.CaseId)
+			}
+			objects[v.InstanceId] = true
+		}
+		if len(objects) != len(verdicts) {
+			t.Errorf("%s: %d verdicts on %d objects, want one per object", surface, len(verdicts), len(objects))
+		}
+	}
+
+	requirement, err := srv.VerifyRequirement(ctx, &pb.VerifyRequirementRequest{ModelHash: hash, SymbolId: "Cost::costReq", SubjectSymbolId: "Cost::fleet"})
+	if err != nil {
+		t.Fatalf("VerifyRequirement: %v", err)
+	}
+	wantVerdicts(t, "VerifyRequirement", requirement.VerificationVerdicts, want...)
+	distinctObjects("VerifyRequirement", requirement.VerificationVerdicts)
+
+	satisfaction, err := srv.VerifySatisfaction(ctx, &pb.VerifySatisfactionRequest{ModelHash: hash})
+	if err != nil {
+		t.Fatalf("VerifySatisfaction: %v", err)
+	}
+	if len(satisfaction.Verdicts) != 4 {
+		t.Fatalf("VerifySatisfaction verdicts = %v, want one per object of the definition", satisfaction.Verdicts)
+	}
+	holds := map[bool]int{}
+	for _, v := range satisfaction.Verdicts {
+		holds[v.Holds]++
+	}
+	if holds[true] != 2 || holds[false] != 2 {
+		t.Errorf("VerifySatisfaction holds = %v, want two holding and two failing", holds)
+	}
+	wantVerdicts(t, "VerifySatisfaction", satisfaction.VerificationVerdicts, want...)
+	distinctObjects("VerifySatisfaction", satisfaction.VerificationVerdicts)
+}

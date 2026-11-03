@@ -1,0 +1,23 @@
+{
+  "rpc": "RunDocumentQuery",
+  "instantiate": ["Garage::assembly"],
+  "query_id": "Garage::Checks",
+  "bindings": [
+    {"parameter": "root", "values": [{"kind": "object", "value": {"path": "assembly"}}]}
+  ],
+  "expected_columns": ["path", "verdict"],
+  "expected_rows": [
+    {
+      "element": {"kind": "verdict", "value": "assert constraint ok on Garage::assembly.small: violated"},
+      "cells": [[{"kind": "string_value", "value": "Garage::assembly.small"}], [{"kind": "string_value", "value": "violated"}]]
+    },
+    {
+      "element": {"kind": "verdict", "value": "assert constraint ok on Garage::assembly.smalls[1]: violated"},
+      "cells": [[{"kind": "string_value", "value": "Garage::assembly.smalls[1]"}], [{"kind": "string_value", "value": "violated"}]]
+    },
+    {
+      "element": {"kind": "verdict", "value": "assert constraint ok on Garage::assembly.smalls[2]: violated"},
+      "cells": [[{"kind": "string_value", "value": "Garage::assembly.smalls[2]"}], [{"kind": "string_value", "value": "violated"}]]
+    }
+  ]
+}

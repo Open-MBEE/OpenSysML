@@ -35,6 +35,10 @@ type LibraryFacts struct {
 	// not recorded, which leaves the declaration to say.
 	Abstract bool
 
+	// LibraryPackage records that the declaration is a `library package` (or a
+	// `standard library package`). False means a plain package or not recorded.
+	LibraryPackage bool
+
 	// Recorded marks the facts of an interface-record symbol, one installed with
 	// no declaration at all (see DocumentRecord). Every field below is then
 	// authoritative: a zero value is the answer, not "derive it".
@@ -148,11 +152,13 @@ const (
 	NodeJoin
 	NodeMerge
 	NodeDecision
+	// NodeConjugatedPortDef is the ConjugatedPortDefinition a port definition implies.
+	NodeConjugatedPortDef
 )
 
 // NodeKindOf classifies a declaring node.
 func NodeKindOf(decl ast.Node) NodeKind {
-	switch decl.(type) {
+	switch d := decl.(type) {
 	case nil:
 		return NodeNone
 	case *ast.Definition:
@@ -165,6 +171,17 @@ func NodeKindOf(decl ast.Node) NodeKind {
 		return NodeCrossFeature
 	case *ast.SubjectMember:
 		return NodeSubject
+	case *ast.Relationship:
+		// The subject parameter a satisfy usage's `by` clause declares.
+		if d.Kind == ast.RelSubject {
+			return NodeSubject
+		}
+		return NodeOther
+	case *ImpliedDecl:
+		if d.Form == ImpliedConjugatedPortDefinition {
+			return NodeConjugatedPortDef
+		}
+		return NodeOther
 	case *ast.AssumeMember:
 		return NodeAssume
 	case *ast.RequireMember:
@@ -434,11 +451,16 @@ const (
 	ModNamesNothing
 	// ModValued marks a usage whose declaration binds it a value (`= v`, `default v`).
 	ModValued
+	// ModAssert marks a constraint usage written `assert constraint c` or `assert c` (an AssertConstraintUsage).
+	ModAssert
 	// ModMayTimeVary marks a SysML usage whose derived Usage::mayTimeVary holds (SysML v2 §8.3.6.4).
 	ModMayTimeVary
 	// ModAnnotatesOthers marks a metadata usage written with an `about` clause,
 	// whether or not the elements it names resolve (see AnnotatesOthers).
 	ModAnnotatesOthers
+	// ModPayloadFeature marks the payload a flow declares with `of p : T`, a
+	// KerML PayloadFeature whatever its symbol kind (SysML v2.1 textual notation).
+	ModPayloadFeature
 )
 
 // Has reports whether every modifier of mask is set.
@@ -449,6 +471,20 @@ func (m Modifiers) Has(mask Modifiers) bool { return m&mask == mask }
 // the declaration answers such a symbol with ErrNeedsHydration.
 func (s *Symbol) Recorded() bool {
 	return s != nil && s.Decl == nil && s.Facts != nil && s.Facts.Recorded
+}
+
+// IsLibraryPackage reports whether sym is declared `library package` (or
+// `standard library package`), reading the installed facts for a symbol with no
+// declaration and the declaration otherwise.
+func IsLibraryPackage(sym *Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if sym.Facts != nil && sym.Facts.LibraryPackage {
+		return true
+	}
+	pkg, ok := sym.Decl.(*ast.Package)
+	return ok && (pkg.IsLibrary || pkg.IsStandard)
 }
 
 // IsAbstract reports whether sym is declared abstract, reading the installed

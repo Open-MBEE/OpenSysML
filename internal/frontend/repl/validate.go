@@ -2,7 +2,6 @@ package repl
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -54,14 +53,14 @@ func (s *Session) validateVerdicts(ref string) []Verdict {
 // objectVerdict renders one assertion's verdict about one object, named by the
 // path it was reached along from the validated object.
 func objectVerdict(v runtime.ObjectVerdict, label string) Verdict {
-	owner := label
-	if len(v.Path) > 0 {
-		owner = label + "." + strings.Join(v.Path, ".")
-	}
+	owner := objectPath(label, v.Path)
 	subject := v.Text + " on " + owner
-	condition := "Assertion"
-	if v.Kind != runtime.AssertionConstraint {
-		condition = "Required condition"
+	condition := "Required condition"
+	switch v.Kind {
+	case runtime.AssertionConstraint:
+		condition = "Assertion"
+	case runtime.AssertionBinding:
+		condition = "Binding"
 	}
 	switch v.Status {
 	case runtime.ValidationHolds:

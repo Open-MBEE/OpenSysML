@@ -24,7 +24,7 @@ func TestRunServesSemanticTokensAndCodeAction(t *testing.T) {
 	go func() { done <- s.Run(context.Background(), server) }()
 
 	const src = "package P {\n    part def Wheel;\n    part w : Wheeel;\n}\n"
-	const file = "file:///tmp/protocol_features.sysml"
+	file := string(tempDocURI(t, "protocol_features.sysml"))
 	doc := map[string]any{"uri": file}
 	requests := []map[string]any{
 		{"jsonrpc": "2.0", "id": 1, "method": "initialize",

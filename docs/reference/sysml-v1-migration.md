@@ -54,7 +54,18 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
   (`sysml:Block`, `sysml:Requirement`, … as `base_Class`/`base_Property` applications). This is
   the interchange export every SysML v1 tool offers, and a tool's export is read as far as it
   is this standard. The UML and SysML namespace versions are not pinned; any
-  `http://www.omg.org/spec/UML/…` / `…/SysML/…` namespace is recognized.
+  `http://www.omg.org/spec/UML/…` / `…/SysML/…` namespace is recognized. Both XMI
+  serializations are read alike: a property or reference written as an XML attribute
+  (`name="Vehicle"`, `type="_6"`, `memberEnd="_7 _8"`, `base_Class="_5"`) and one written as a
+  child element (`<name>Vehicle</name>`, `<type xmi:idref="_6"/>`, one `<memberEnd xmi:idref=…/>`
+  per end, `<base_Class xmi:idref="_5"/>`; XMI 2.5.1 § 9.4.4), as the OMG's own UML XMI files
+  and some exporters write them, migrate to the same notation and report. A child with an
+  `xmi:type` or `xmi:id` is an owned element (`<lowerValue xmi:type="uml:LiteralInteger" …/>`),
+  never a property value; XML's own `xml:space`/`xml:lang` on a child do not change that it
+  serializes a property (`<body xml:space="preserve">x + 1</body>`); a `base_*` child written as
+  `href="#_5"` names the element its fragment is, `href="shared.xmi#_5"` the one that entry of
+  the same archive defines (a document not read extends nothing); where a document states a property both ways
+  the attribute wins.
 - **Eclipse UML2 serializations of the SysML profile**, as Cameo's "Eclipse UML2 (v5.x)
   XMI" export writes them: a package of the profile with no URI of its own gets the hostless
   nsURI Eclipse UML2 derives from its qualified name — `http:///SysML/Blocks.ecore`,
@@ -422,11 +433,11 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 |---|---|
 | a table or matrix: Generic, Instance and Requirement Tables, Dependency and Allocation Matrices, any kind named `… Table`/`… Matrix` | `Views::asElementTable` |
 | internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram`; a parametric diagram's constraint properties are drawn as constraint usages with their parameters as squares on the border, the binding connectors' lines ending at the squares; a parametric diagram of a block of the [Monte Carlo pattern](#monte-carlo-analyses) exposes the block's analysis def in place of the pattern's `Mean` symbol and the def's returns in place of its other statistics, the `Mean` binding routed along the def's `observed` |
-| block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
+| block definition, class, package, object, component, deployment, profile and other structure diagrams, and requirement diagrams | `Views::asTreeDiagram`; a requirement diagram's tree draws the requirements with their nested requirements and the satisfy, verify, derive and refine relationships it shows as dashed edges |
 | an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def`, showing a node or edge of its graph | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
 | a use case diagram | `Views::asInterconnectionDiagram` over the actors' `part` usages, the `use case` and `requirement` usages and the connections written for the actor associations, includes, extends and «Refine»s it shows; the renderer draws a use case's subject and `actor` parameters as pins on its node, not as nested nodes, so an actor is one node and its association one line ending at the use case |
 | a sequence diagram | `view : StandardViewDefinitions::SequenceView` exposing the interaction's `occurrence def`, with a `DiagramLayout::Layout` per lifeline head and a `DiagramLayout::Route` per message line from the diagram's symbols |
-| other behavior diagrams (an activity diagram of a package or one showing nothing of its activity's graph), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
+| other behavior diagrams (an activity diagram of a package or one showing nothing of its activity's graph), content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
 
 A Cameo **Requirement Table** or **Refine Requirement Matrix** is stored without its content:
 the tool computes the table's rows and the matrix's cells from the diagram's owner each time it
@@ -526,6 +537,14 @@ An association block, whose def carries members of its own, a def that inherits 
 specializes another, and one whose end holds a qualifier stay boxes. Because the tree draws such a
 def as a line, a v1 association's diagram route is pinned to it (`Route about WheelToCar`); the
 route of one the tree keeps as a box, an association block with members say, stays `not drawn`.
+A dependency-like relationship — a «Satisfy», «Verify», «Refine», «DeriveReqt», «Allocate» or
+plain dependency, or a connector written as a `connection` — is routed on a view of any form,
+an `ActionFlowView` or `StateTransitionView` included, when the view shows both of its ends (the
+graphical notation draws a dependency between any two element nodes a view shows); the renderer
+draws it as a dashed open-arrow edge labelled with its keyword, or as the connection it was
+written as, between the nodes of its ends, which the action or state rendering adds as plain
+boxes for exposed ends that are no node of its graph. One with an end the view does not show
+is reported `not exposed`.
 A shown
 end the association owns exposes the def rather than the end, so two defs with a same-named end
 shown on one diagram import no duplicate name. A region's initial transition is the bare entry
@@ -1328,9 +1347,9 @@ is refused whole, never read as the one event that does resolve), and observatio
 outside any activity, are comments whose report line says which.
 
 **The object an activity acts on.** A block's own activity acts on the block's object. In
-SysML v2 `this` inside a behavior definition is that definition's own occurrence, so a
-definition owned by a block cannot name the block's features at all — it reads them through a
-reference parameter the migration appends after its declared ones, `in ref context : Host;`,
+SysML v2 `this` inside a behavior definition is typed `Occurrence` (`Occurrence::this : Occurrence[1]`,
+bound to the performer only when the definition is performed), so a block's features are no
+members of it and a definition owned by a block cannot name them through it — it reads them through a reference parameter the migration appends after its declared ones, `in ref context : Host;`,
 spelling them `context.tx`, `context.level`, `context` where a bare `this` value stood. The
 same holds of every block-owned definition whose body needs its owner — an activity reading
 the block's features, sending through its ports, passing the object on — and of an activity no
@@ -1800,9 +1819,9 @@ both library documents, and `ListConcat`, which fUML 1.5 Table 9.7 lists but the
 | `Alf SequenceFunctions::IncludeAllAt(seq1, seq2, index)` | `SequenceFunctions::includingAt(seq1, seq2, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
 | `Alf SequenceFunctions::Excluding(seq, element)` | `SequenceFunctions::excluding(seq, element)` | mapped |
 | `Alf SequenceFunctions::ExcludingOne(seq, element)` | — | unmapped: the v2 library removes every occurrence of an element from a sequence (excluding); none removes the first alone |
-| `Alf SequenceFunctions::ExcludeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq), where v1 gives seq unchanged |
+| `Alf SequenceFunctions::ExcludeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged (one past the end is seq unchanged in both) |
 | `Alf SequenceFunctions::Replacing(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the occurrences of an element in a sequence |
-| `Alf SequenceFunctions::ReplacingAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 fails on an index outside 1..Size(seq), which v1 requires |
+| `Alf SequenceFunctions::ReplacingAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 appends at Size(seq)+1 and fails on an index outside 1..Size(seq)+1, where v1 requires one within 1..Size(seq) |
 | `Alf SequenceFunctions::ReplacingOne(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the first occurrence of an element in a sequence |
 | `Alf SequenceFunctions::Subsequence(seq, lower, upper)` | `SequenceFunctions::subsequence(seq, IntegerFunctions::max(lower, 1), IntegerFunctions::min(upper, SequenceFunctions::size(seq)))` | approximated: the bounds are clamped to 1..Size(seq) as in v1; v2 fails on a lower bound above Size(seq), which v1 leaves undefined |
 | `Alf SequenceFunctions::ToOrderedSet(seq)` | — | unmapped: the v2 library has no function removing the repeated elements of a sequence |
@@ -1828,9 +1847,9 @@ both library documents, and `ListConcat`, which fUML 1.5 Table 9.7 lists but the
 | `Alf CollectionFunctions::includeAllAt(seq1, seq2, index)` | `SequenceFunctions::includingAt(seq1, seq2, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
 | `Alf CollectionFunctions::excluding(seq, element)` | `SequenceFunctions::excluding(seq, element)` | mapped |
 | `Alf CollectionFunctions::excludingOne(seq, element)` | — | unmapped: the v2 library removes every occurrence of an element from a sequence (excluding); none removes the first alone |
-| `Alf CollectionFunctions::excludeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq), where v1 gives seq unchanged |
+| `Alf CollectionFunctions::excludeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged (one past the end is seq unchanged in both) |
 | `Alf CollectionFunctions::replacing(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the occurrences of an element in a sequence |
-| `Alf CollectionFunctions::replacingAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 fails on an index outside 1..Size(seq), which v1 requires |
+| `Alf CollectionFunctions::replacingAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 appends at Size(seq)+1 and fails on an index outside 1..Size(seq)+1, where v1 requires one within 1..Size(seq) |
 | `Alf CollectionFunctions::replacingOne(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the first occurrence of an element in a sequence |
 | `Alf CollectionFunctions::subsequence(seq, lower, upper)` | `SequenceFunctions::subsequence(seq, IntegerFunctions::max(lower, 1), IntegerFunctions::min(upper, SequenceFunctions::size(seq)))` | approximated: the bounds are clamped to 1..Size(seq) as in v1; v2 fails on a lower bound above Size(seq), which v1 leaves undefined |
 | `Alf CollectionFunctions::toOrderedSet(seq)` | — | unmapped: the v2 library has no function removing the repeated elements of a sequence |
@@ -1841,10 +1860,10 @@ both library documents, and `ListConcat`, which fUML 1.5 Table 9.7 lists but the
 | `Alf CollectionFunctions::remove(seq, element)` | `SequenceFunctions::excluding(seq, element)`; `SequenceFunctions::excluding(seq, element)` | approximated: the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
 | `Alf CollectionFunctions::removeAll(seq1, seq2)` | `SequenceFunctions::excluding(seq1, seq2)`; `SequenceFunctions::excluding(seq1, seq2)` | approximated: the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
 | `Alf CollectionFunctions::removeOne(seq, element)` | — | unmapped: the v2 library removes every occurrence of an element from a sequence (excluding); none removes the first alone |
-| `Alf CollectionFunctions::removeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)`; `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq), where v1 gives seq unchanged; the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::removeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)`; `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged (one past the end is seq unchanged in both); the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
 | `Alf CollectionFunctions::replace(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the occurrences of an element in a sequence |
 | `Alf CollectionFunctions::replaceOne(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the first occurrence of an element in a sequence |
-| `Alf CollectionFunctions::replaceAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)`; `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 fails on an index outside 1..Size(seq), which v1 requires; the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::replaceAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)`; `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 appends at Size(seq)+1 and fails on an index outside 1..Size(seq)+1, where v1 requires one within 1..Size(seq); the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
 | `Alf CollectionFunctions::clear(seq)` | `()` | mapped: the inout parameter hands back the empty sequence, as v1 assigns null to it |
 
 ## The opaque-language subset

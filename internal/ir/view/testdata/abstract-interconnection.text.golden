@@ -4,7 +4,7 @@ abstract part vehicleFamily
   abstract port fuel
   abstract part engine
   part chassis
-  attribute mass
+  attribute ^mass
 
 connections:
   engine -- chassis

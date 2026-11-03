@@ -323,6 +323,9 @@ func dumpNamespaceMember(b *strings.Builder, n Node, depth int) bool {
 		if len(v.About) > 0 {
 			fmt.Fprintf(b, ` about=%q`, qnList(v.About))
 		}
+		if v.TypedBy.Len > 0 {
+			b.WriteString(` typedBy=true`)
+		}
 		if v.HasBody && len(v.Body) == 0 {
 			b.WriteString(` emptyBody=true`)
 		}
@@ -507,6 +510,9 @@ func dumpDeclaration(b *strings.Builder, n Node, depth int) bool {
 		fmt.Fprintf(b, `(Relationship kind=%q target=%s`, v.Kind.String(), targetStr)
 		if v.Conjugated {
 			b.WriteString(` conjugated=true`)
+		}
+		if v.TypedBy.Len > 0 {
+			b.WriteString(` typedBy=true`)
 		}
 		var kids []Node
 		if v.Target != nil {

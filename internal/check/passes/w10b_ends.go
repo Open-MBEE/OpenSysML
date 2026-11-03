@@ -16,7 +16,7 @@ import (
 const (
 	msgInterfaceDefEndPort = "An interface definition end must be a port."
 	msgInterfaceEndPort    = "An interface end must be a port."
-	msgFlowDefTooManyEnds  = "A flow connection definition can have at most two ends."
+	msgFlowDefTooManyEnds  = "A flow definition can have at most two ends."
 )
 
 // SysML v2.1 Beta 2 §8.3.13.3 types `connectionEnd : Usage [0..*] {redefines

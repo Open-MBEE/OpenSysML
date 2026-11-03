@@ -10,7 +10,7 @@ import (
 
 // Definition returns the declaration location of the reference under the cursor,
 // in a workspace document or a bundled library one.
-func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionParams) ([]protocol.Location, error) {
+func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionParams) (protocol.DefinitionResult, error) {
 	name := uriToName(params.TextDocument.URI)
 	doc := s.document(name)
 	if doc == nil || doc.Scope == nil {
@@ -26,14 +26,14 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 		// implicitly redefines a metadata-definition feature; jump to that.
 		if sym := usageNameAt(doc.Scope, offset); sym != nil {
 			if target, _, ok := s.ws.MetadataBodyRedefines(sym); ok {
-				return []protocol.Location{s.symbolLocation(name, target)}, nil
+				return protocol.LocationSlice{s.symbolLocation(name, target)}, nil
 			}
 		}
 		// A document query binding's name is not a reference either; it names a
 		// parameter of the query typing the enclosing calc usage. Jump to it.
 		if sym := symbolAtOffset(doc.Scope, offset); sym != nil {
 			if param, ok := s.ws.QueryBindingParameter(sym); ok {
-				return []protocol.Location{s.symbolLocation(name, param)}, nil
+				return protocol.LocationSlice{s.symbolLocation(name, param)}, nil
 			}
 		}
 		return nil, nil
@@ -42,10 +42,10 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	// arguments leave it tied between overloads, goes to every one of them.
 	if !onCalledName(*ref, offset) {
 		if sym, _, ok := s.referencedSegment(name, *ref, offset); ok && sym != nil {
-			return []protocol.Location{s.symbolLocation(name, sym)}, nil
+			return protocol.LocationSlice{s.symbolLocation(name, sym)}, nil
 		}
 	} else if overloads := s.ws.AmbiguousInvocationInDoc(name, *ref); len(overloads) > 0 {
-		locs := make([]protocol.Location, len(overloads))
+		locs := make(protocol.LocationSlice, len(overloads))
 		for i, sym := range overloads {
 			locs[i] = s.symbolLocation(name, sym)
 		}
@@ -55,7 +55,7 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	if !ok || sym == nil {
 		return nil, nil
 	}
-	return []protocol.Location{s.symbolLocation(name, sym)}, nil
+	return protocol.LocationSlice{s.symbolLocation(name, sym)}, nil
 }
 
 // symbolLocation builds a Location for a resolved symbol using the symbol's own

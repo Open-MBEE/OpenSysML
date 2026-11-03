@@ -105,3 +105,39 @@ func TestCommentProseLineTerminators(t *testing.T) {
 		}
 	}
 }
+
+// Every body byte of CommentBodyOffsets maps back onto the raw byte it came
+// from, in order, with a joined "\n" standing on the terminator it replaced.
+func TestCommentBodyOffsets(t *testing.T) {
+	for _, raw := range []string{
+		"/* hello */", "/*hello*/", "/**/", "/* */", "/*\n * a\n * b\n */", "/* a\n * b\n */",
+		"/* a  \n *   b\n *\n * c*/", "/*x\r\n * y*/", "/* a\r * b*/", "/* a\r\n * b\r * c\n * d*/",
+		"/*  \n  x  \n  */", "/*\n\n * a\n*/", "/*\n *\n *\n * a\n*/", "/* *a*\n * - b\n * - c\n */",
+	} {
+		body, offsets := CommentBodyOffsets(raw)
+		if body != CommentBody(raw) {
+			t.Errorf("%q: body %q differs from CommentBody %q", raw, body, CommentBody(raw))
+		}
+		if len(offsets) != len(body)+1 {
+			t.Fatalf("%q: %d offsets for %d body bytes", raw, len(offsets), len(body))
+		}
+		for i := range body {
+			if i > 0 && offsets[i] <= offsets[i-1] {
+				t.Errorf("%q: offsets not increasing at %d: %v", raw, i, offsets)
+			}
+			at := raw[offsets[i]]
+			if body[i] == '\n' {
+				if at != '\n' && at != '\r' {
+					t.Errorf("%q: body break %d maps onto %q at %d", raw, i, at, offsets[i])
+				}
+				continue
+			}
+			if at != body[i] {
+				t.Errorf("%q: body[%d]=%q maps onto raw[%d]=%q", raw, i, body[i], offsets[i], at)
+			}
+		}
+		if end := offsets[len(body)]; end > len(raw) || (len(body) > 0 && end <= offsets[len(body)-1]) {
+			t.Errorf("%q: end offset %d out of order (%v)", raw, end, offsets)
+		}
+	}
+}

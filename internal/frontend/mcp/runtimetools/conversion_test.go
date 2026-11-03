@@ -1,9 +1,40 @@
 package runtimetools
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
+
+	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
+
+func TestConvertLibraryReferencesAndLegacyStubs(t *testing.T) {
+	h := attach(t, newService(t))
+	args := map[string]any{"content": "package P { private import SI::*; attribute x = 20 [s]; }", "fromFormat": "sysml", "toFormat": "api-json"}
+	for _, legacy := range []bool{false, true} {
+		args["includeLibraryStubs"] = legacy
+		var response pb.ConvertResponse
+		h.ok("convert", args, &response)
+		if response.Error != "" || len(response.LibraryReferences) == 0 {
+			t.Fatalf("legacy=%v: %v", legacy, &response)
+		}
+		var elements []struct {
+			Library bool `json:"isLibraryElement"`
+		}
+		if err := json.Unmarshal([]byte(response.Content), &elements); err != nil {
+			t.Fatal(err)
+		}
+		stubs := 0
+		for _, element := range elements {
+			if element.Library {
+				stubs++
+			}
+		}
+		if (stubs > 0) != legacy {
+			t.Fatalf("legacy=%v: got %d library stubs", legacy, stubs)
+		}
+	}
+}
 
 // TestConvertIncludesCheckDiagnostics checks that convert passes
 // includeCheckDiagnostics through, so the check's findings come back with the

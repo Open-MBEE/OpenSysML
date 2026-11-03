@@ -41,6 +41,10 @@ type Result struct {
 	// submission appended whole, where everything from Offset on is its own.
 	own []source.Span
 
+	// pulled is the files loaded for the root namespaces the submission left
+	// unresolved, in load order.
+	pulled []string
+
 	// masked locates the submissions kept out of the analyzed buffer, whose
 	// findings gated no validation tier.
 	masked []source.Span

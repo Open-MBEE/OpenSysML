@@ -1,0 +1,10 @@
+step 1: token 1@split
+step 2: token 2@a, token 3@b
+stmt assign z
+  eval feature x -> 0
+stmt assign x
+  eval literal 1 -> 1
+choice step 3: tokens 2@a, 3@b (unordered; took 3@b first; order-dependent: z)
+step 3: token 2@sync, token 3@sync
+step 4: token 4@done
+step 5: no active tokens

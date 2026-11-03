@@ -129,14 +129,14 @@ func isCalcUsage(sym *symbols.Symbol) bool {
 func (fc *funcCompiler) compileConstructor(n *ast.ConstructorExpr) (Expr, error) {
 	sym, ok := fc.c.resolver.ResolveQualified(fc.scope, n.Type)
 	if !ok {
-		return nil, fc.unsupported(fmt.Sprintf("new %s: the type does not resolve", qnText(n.Type)))
+		return nil, fc.unsupported(fmt.Sprintf("new %s: the type does not resolve", n.Type.Text()))
 	}
 	t, _, why := fc.valueType(sym)
 	if why == "" && !t.IsRec() {
 		why = fmt.Sprintf("%s is not a record type", fc.c.name(sym))
 	}
 	if why != "" {
-		return nil, fc.unsupported(fmt.Sprintf("new %s: %s", qnText(n.Type), why))
+		return nil, fc.unsupported(fmt.Sprintf("new %s: %s", n.Type.Text(), why))
 	}
 	r := t.Rec
 	what := "new " + sym.Name
@@ -169,7 +169,7 @@ func (fc *funcCompiler) compileConstructor(n *ast.ConstructorExpr) (Expr, error)
 	for _, a := range n.NamedArgs {
 		name, msg := fc.constructorLabel(sym, n.Type, a.Name, bound)
 		if _, twice := payload[name]; msg == "" && twice {
-			msg = qnText(a.Name) + " is bound twice"
+			msg = a.Name.Text() + " is bound twice"
 		}
 		if msg != "" {
 			return fail(lets, msg), nil
@@ -248,7 +248,7 @@ func wrapLets(lets []Let, x Expr) Expr {
 // constructorLabel is the feature of typ the named argument qn binds, or the
 // interpreter's message refusing it.
 func (fc *funcCompiler) constructorLabel(typ *symbols.Symbol, typeRef, qn *ast.QualifiedName, bound map[*symbols.Symbol]string) (string, string) {
-	label := qnText(qn)
+	label := qn.Text()
 	if label == "" {
 		return "", "an argument is named by nothing"
 	}
@@ -286,11 +286,14 @@ func (fc *funcCompiler) compileChain(n *ast.FeatureChainExpr) (Expr, error) {
 	if sym, ok := fc.c.resolver.ResolveTarget(fc.scope, n); ok && semantics.IsStateActivity(sym) {
 		return nil, fc.unsupported(fmt.Sprintf("%s: a read of a state's activity (StateActivity::isActive), which only the state machine running the state answers", chainText(n)))
 	}
-	x, err := fc.compileExpr(n.Operand)
+	// One chain is one read from its first operand, as the interpreter spends
+	// it: the chains on the way to the last member are not evaluated as their own.
+	operand, parts := ast.FeatureChainBase(n)
+	x, err := fc.compileExpr(operand)
 	if err != nil {
 		return nil, err
 	}
-	for _, part := range n.Member.Parts {
+	for _, part := range parts {
 		if x, err = fc.member(x, part.Text, chainText(n)); err != nil {
 			return nil, err
 		}
@@ -342,9 +345,9 @@ func (c *Compiler) selfCase(sym *symbols.Symbol, r *Record) *FnCase {
 func chainText(n ast.Node) string {
 	switch n := n.(type) {
 	case *ast.FeatureChainExpr:
-		return chainText(n.Operand) + "." + qnText(n.Member)
+		return chainText(n.Operand) + "." + n.Member.Text()
 	case *ast.FeatureReference:
-		return qnText(n.Name)
+		return n.Name.Text()
 	}
 	return "an expression"
 }

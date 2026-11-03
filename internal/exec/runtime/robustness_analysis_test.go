@@ -64,13 +64,13 @@ func undecidedObjective(t *testing.T, result AnalysisResult) string {
 }
 
 // testTradeStudyWithAnAbstractEvaluationFunction: an evaluation function with no
-// body is a typed missing-body error naming the calc, with the objective
+// body computes no value, reported naming the calc, with the objective
 // undecided and the one evaluation attempted recorded with its error; no pick
 // is fabricated.
 func testTradeStudyWithAnAbstractEvaluationFunction(t *testing.T) {
 	result, err := runTradeStudyExpecting(t, "test::abstractEval")
-	if !errors.Is(err, errNoResultExpression) || !strings.Contains(err.Error(), "test::abstractEval::evaluationFunction") {
-		t.Fatalf("error = %v, want errNoResultExpression naming the evaluation function", err)
+	if !errors.Is(err, ErrNoValue) || !strings.Contains(err.Error(), "test::abstractEval::evaluationFunction") {
+		t.Fatalf("error = %v, want ErrNoValue naming the evaluation function", err)
 	}
 	undecidedObjective(t, result)
 	if len(result.Outputs) != 0 {

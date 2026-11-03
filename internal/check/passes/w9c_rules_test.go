@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -964,4 +965,104 @@ func w9cCheckLines(t *testing.T, got []int, code string, want []int) {
 			t.Fatalf("%s: got lines %v, want %v", code, got, want)
 		}
 	}
+}
+
+// A feature value binds the feature to its result (KerML 8.3.4.5.2), judged by the
+// feature's own type (`R :> Real` vs Integer) at the feature, as the pinned pilot does.
+func TestW9CFeatureValueBindingConformance(t *testing.T) {
+	src := `package Gap {
+    private import ScalarValues::*;
+    attribute def R :> Real;
+    attribute def Pct :> Real { assert constraint { that >= 0.0 and that <= 1.0 } }
+    attribute a1 : R = 5;
+    attribute a2 : R = 5.0;
+    attribute a3 : R = -5;
+    attribute a4 : Real = 5;
+    attribute a5 : R default 5;
+    attribute a6 : R = 5 as R;
+    attribute a7 : Pct = 0.5;
+    attribute a8 : Pct default = 0.0 as Pct;
+    attribute a9 : Integer = 5.5;
+    attribute a10 : String = 5;
+    attribute a11 : R;
+    attribute a12 : R = a11;
+    attribute a13 : Real;
+    attribute a14 : R = a13;
+    part def P { attribute x : R; }
+    part p : P { attribute :>> x = 5; }
+    attribute a15 : Boolean = 5 > 3;
+    attribute def Q :> Rational;
+    attribute def N :> Natural;
+    attribute b : Integer;
+    attribute a16 : R = b;
+    attribute a17 : Q = 5;
+    attribute a18 : N = 5;
+    attribute a19 : Pct = 50;
+    attribute a20 : R = 2 + 3;
+    attribute a21 : R = b + 1;
+    attribute a22 : R[*] = (1, 2);
+    attribute a23 : ISQ::LengthValue = 5 [SI::m];
+    enum def E { e1; e2; }
+    attribute a24 : Integer = E::e1;
+    attribute a25 : String = b;
+    part def P2 { attribute y : R = 5; }
+    part p2 : P2 { attribute :>> y = b; }
+}`
+	diags := w9cLibraryDiags(t, src, false)
+	got := w9cPositions(src, only(diags, "bound-feature-types"))
+	want := []string{"5:5", "20:18", "25:5", "26:5", "28:5", "36:19", "37:20"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("bound-feature-types at %v, want %v", got, want)
+	}
+	// The unrelated primitive kinds stay the type checker's error, not a second report.
+	errs := w9cPositions(src, only(diags, codeBindingConnectorTypeConformance))
+	wantErrs := []string{"13:30", "14:30", "34:31", "35:30"}
+	if !slices.Equal(errs, wantErrs) {
+		t.Fatalf("binding-connector-type-conformance at %v, want %v", errs, wantErrs)
+	}
+}
+
+// A metadata body declaration (`@M { x = 5; }`) and an owned assume/require
+// constraint bind their values too; the pinned pilot reports each at the declaration.
+func TestW9CFeatureValueBindingOfBodyAndOwnedDeclarations(t *testing.T) {
+	src := `package Gap6 {
+    private import ScalarValues::*;
+    attribute def R :> Real;
+    metadata def M { attribute x : R; attribute y : Real; }
+    part p { @M { x = 5; y = 5; } }
+    attribute flag : Boolean;
+    attribute n : Integer;
+    requirement def Rq {
+        require constraint c1 = flag;
+        require constraint c2 = n;
+        assume constraint c3 = 5;
+        constraint c4 = n;
+    }
+    constraint c5 = flag;
+}`
+	got := w9cPositions(src, only(w9cLibraryDiags(t, src, false), "bound-feature-types"))
+	want := []string{"5:19", "9:17", "10:17", "11:16", "12:9", "14:5"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("bound-feature-types at %v, want %v", got, want)
+	}
+}
+
+// w9cPositions lists the 1-based line:column of each diagnostic in source order.
+func w9cPositions(src string, diags []diag.Diagnostic) []string {
+	var out []string
+	for _, d := range diags {
+		line := w8dLine(src, d.Span)
+		col := d.Span.Offset - strings.LastIndex(src[:d.Span.Offset], "\n")
+		out = append(out, fmt.Sprintf("%d:%d", line, col))
+	}
+	slices.SortFunc(out, func(a, b string) int {
+		var la, ca, lb, cb int
+		fmt.Sscanf(a, "%d:%d", &la, &ca)
+		fmt.Sscanf(b, "%d:%d", &lb, &cb)
+		if la != lb {
+			return la - lb
+		}
+		return ca - cb
+	})
+	return out
 }

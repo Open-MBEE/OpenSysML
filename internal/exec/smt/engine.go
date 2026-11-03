@@ -211,7 +211,7 @@ func (r *run) encode() (refusal error, err error) {
 func refusalOf(err error) (error, error) {
 	switch {
 	case errors.Is(err, ErrNotEncoded), errors.Is(err, ErrMalformedFlow), errors.Is(err, ErrSlotOverflow),
-		errors.Is(err, solve.ErrNotTranslatable), errors.Is(err, runtime.ErrNoConditions),
+		errors.Is(err, solve.ErrNotTranslatable), errors.Is(err, runtime.ErrNoValue),
 		errors.Is(err, analysis.ErrInput), errors.Is(err, analysis.ErrDomain):
 		return err, nil
 	}

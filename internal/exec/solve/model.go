@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"math/big"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -61,7 +62,7 @@ func decodeSexpr(v *Var, value sexpr) (ModelValue, error) {
 			break
 		}
 		name := smtName(value.Atom)
-		if !contains(v.Sort.Values, name) {
+		if !slices.Contains(v.Sort.Values, name) {
 			return ModelValue{}, fmt.Errorf("%s is not a value of %s", name, v.Sort.Name)
 		}
 		return ModelValue{Kind: kind, Text: name}, nil
@@ -160,7 +161,7 @@ func (v *Var) ValueOf(given runtime.ToolValue) (ModelValue, error) {
 		case SortString:
 			return ModelValue{Kind: kind, Text: given.Text}, nil
 		case SortDatatype:
-			if !contains(v.Sort.Values, given.Text) {
+			if !slices.Contains(v.Sort.Values, given.Text) {
 				return ModelValue{}, fmt.Errorf("%q is not a value of %s", given.Text, v.Sort.Name)
 			}
 			return ModelValue{Kind: kind, Text: given.Text}, nil

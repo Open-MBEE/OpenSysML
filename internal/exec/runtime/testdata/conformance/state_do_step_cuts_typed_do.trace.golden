@@ -1,4 +1,4 @@
-choice at t=0.0: next do top, dispatch accept Stop (unordered; took do top first; order-dependent: count)
+choice at t=0.0: next do top, dispatch accept Stop (unordered; took do top first; order-dependent: count, n)
 do: top
 stmt action body
   stmt node work

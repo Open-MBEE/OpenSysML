@@ -2,6 +2,7 @@ package solve
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"strings"
 	"testing"
 )
@@ -298,13 +299,13 @@ func TestNegatedElementWithOnlyAssumptions(t *testing.T) {
 		}
 	`)
 	sym := symbolNamed(t, idx, "test::Rig::cn")
-	if _, err := Constraint(ctx, sym, sym.OwnerScope); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("translate: %v, want ErrNoConditions", err)
+	if _, err := Constraint(ctx, sym, sym.OwnerScope); !errors.Is(err, runtime.ErrNoValue) {
+		t.Fatalf("translate: %v, want ErrNoValue", err)
 	}
 }
 
-// TestNoConditions: an element stating no condition has nothing to translate, as
-// evaluating it reports the same.
+// TestNoConditions: a constraint stating no condition binds no result, so it has
+// nothing to translate, as evaluating it reports no value.
 func TestNoConditions(t *testing.T) {
 	ctx, idx := fixture(t, "<test>", `
 		package test {
@@ -312,8 +313,8 @@ func TestNoConditions(t *testing.T) {
 		}
 	`)
 	sym := symbolNamed(t, idx, "test::C")
-	if _, err := Constraint(ctx, sym, sym.OwnerScope); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("translate: %v, want ErrNoConditions", err)
+	if _, err := Constraint(ctx, sym, sym.OwnerScope); !errors.Is(err, runtime.ErrNoValue) {
+		t.Fatalf("translate: %v, want ErrNoValue", err)
 	}
 }
 

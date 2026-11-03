@@ -44,19 +44,19 @@ hide circle
 hide empty members
 class "<size:10>//«part»//</size>\n**vehicleFamily**" as n0 <<part>> <<usage>>
 class "<size:10>//«part»//</size>\n**engine**" as n1 <<part>> <<usage>>
-n0 -- n1
 class "<size:10>//«variation part»//</size>\n**transmission**" as n2 <<variation part>> <<usage>>
 class "<size:10>//«variant»//</size>\n**manual**" as n3 <<variant>> <<usage>>
-n2 -- n3
 class "<size:10>//«variant part»//</size>\n**automatic**" as n4 <<variant part>> <<usage>>
-n2 -- n4
-n0 -- n2
 class "**connect**" as n5 <<connect>> <<usage>>
 n0 -- n5
 class "<size:10>//«variation part def»//</size>\n**EngineChoices**" as n6 <<variation part def>>
 class "<size:10>//«variant»//</size>\n**fourCylinder**" as n7 <<variant>> <<usage>>
-n6 -- n7
 class "<size:10>//«variant»//</size>\n**sixCylinder**" as n8 <<variant>> <<usage>>
-n6 -- n8
-n0 *-- "engine" n6
+n0 *-- n1
+n0 *-- n2
+n1 --:|> n6
+n2 o-- n3
+n2 *-- n4
+n6 o-- n7
+n6 o-- n8
 @enduml

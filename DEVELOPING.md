@@ -38,7 +38,7 @@ see [docs/internals/architecture.md](docs/internals/architecture.md).
 
 ### Build and test
 
-OpenSysML requires Go 1.25 or later. From the repository root:
+OpenSysML requires Go 1.26 or later. From the repository root:
 
 ```bash
 make build

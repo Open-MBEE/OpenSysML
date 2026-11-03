@@ -28,7 +28,7 @@ elmt:Documented
 
 elmt:Documented___400
     a sysml:Documentation ;
-    sysml:qualifiedName "Documented::@0" ;
+    sysx:positionalName "Documented::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -50,7 +50,11 @@ elmt:Documented___400_om
     sysml:ownedMemberElement elmt:Documented___400 ;
     sysml:ownedRelatedElement elmt:Documented___400 ;
     sysml:owningRelatedElement elmt:Documented ;
-    sysml:membershipOwningNamespace elmt:Documented .
+    sysml:membershipOwningNamespace elmt:Documented ;
+    sysml:source elmt:Documented ;
+    sysml:target elmt:Documented___400 ;
+    sysml:relatedElement elmt:Documented, elmt:Documented___400 ;
+    json:relatedElement "[{\"@id\":\"Documented\"},{\"@id\":\"Documented___400\"}]" .
 
 elmt:Documented__Wheel
     a sysml:PartDefinition ;
@@ -81,11 +85,16 @@ elmt:Documented__Wheel_om
     sysml:ownedMemberElement elmt:Documented__Wheel ;
     sysml:ownedRelatedElement elmt:Documented__Wheel ;
     sysml:owningRelatedElement elmt:Documented ;
-    sysml:membershipOwningNamespace elmt:Documented .
+    sysml:membershipOwningNamespace elmt:Documented ;
+    sysml:source elmt:Documented ;
+    sysml:target elmt:Documented__Wheel ;
+    sysml:relatedElement elmt:Documented, elmt:Documented__Wheel ;
+    sysml:memberName "Wheel" ;
+    json:relatedElement "[{\"@id\":\"Documented\"},{\"@id\":\"Documented__Wheel\"}]" .
 
 elmt:Documented__Wheel___400
     a sysml:Documentation ;
-    sysml:qualifiedName "Documented::Wheel::@0" ;
+    sysx:positionalName "Documented::Wheel::@0" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "4"^^xsd:integer ;
@@ -107,11 +116,15 @@ elmt:Documented__Wheel___400_om
     sysml:ownedMemberElement elmt:Documented__Wheel___400 ;
     sysml:ownedRelatedElement elmt:Documented__Wheel___400 ;
     sysml:owningRelatedElement elmt:Documented__Wheel ;
-    sysml:membershipOwningNamespace elmt:Documented__Wheel .
+    sysml:membershipOwningNamespace elmt:Documented__Wheel ;
+    sysml:source elmt:Documented__Wheel ;
+    sysml:target elmt:Documented__Wheel___400 ;
+    sysml:relatedElement elmt:Documented__Wheel, elmt:Documented__Wheel___400 ;
+    json:relatedElement "[{\"@id\":\"Documented__Wheel\"},{\"@id\":\"Documented__Wheel___400\"}]" .
 
 elmt:Documented___402
     a sysml:Comment ;
-    sysml:qualifiedName "Documented::@2" ;
+    sysx:positionalName "Documented::@2" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -134,7 +147,11 @@ elmt:Documented___402_om
     sysml:ownedMemberElement elmt:Documented___402 ;
     sysml:ownedRelatedElement elmt:Documented___402 ;
     sysml:owningRelatedElement elmt:Documented ;
-    sysml:membershipOwningNamespace elmt:Documented .
+    sysml:membershipOwningNamespace elmt:Documented ;
+    sysml:source elmt:Documented ;
+    sysml:target elmt:Documented___402 ;
+    sysml:relatedElement elmt:Documented, elmt:Documented___402 ;
+    json:relatedElement "[{\"@id\":\"Documented\"},{\"@id\":\"Documented___402\"}]" .
 
 elmt:Documented__asJava
     a sysml:TextualRepresentation ;
@@ -162,4 +179,9 @@ elmt:Documented__asJava_om
     sysml:ownedMemberElement elmt:Documented__asJava ;
     sysml:ownedRelatedElement elmt:Documented__asJava ;
     sysml:owningRelatedElement elmt:Documented ;
-    sysml:membershipOwningNamespace elmt:Documented .
+    sysml:membershipOwningNamespace elmt:Documented ;
+    sysml:source elmt:Documented ;
+    sysml:target elmt:Documented__asJava ;
+    sysml:relatedElement elmt:Documented, elmt:Documented__asJava ;
+    sysml:memberName "asJava" ;
+    json:relatedElement "[{\"@id\":\"Documented\"},{\"@id\":\"Documented__asJava\"}]" .

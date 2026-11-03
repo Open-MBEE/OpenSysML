@@ -9,7 +9,7 @@ against the pinned OMG grammars, and states the resulting policy for each.
 ## Ground truth
 
 The grammars are the ones at the pin in `scripts/pilot-pin.sh`
-(`PILOT_TAG=2026-08`, `Systems-Modeling/SysML-v2-Pilot-Implementation`), read
+(`PILOT_TAG=2026-09`, `Systems-Modeling/SysML-v2-Pilot-Implementation`), read
 from a sparse clone rather than vendored:
 
 - `org.omg.kerml.xtext/src/org/omg/kerml/xtext/KerML.xtext` — cited as `KerML.xtext`
@@ -281,6 +281,17 @@ where the literal exists.
 and `OwnedTypeFeaturing` (`:659`) are KerML productions with no SysML
 counterpart, so the clause is parsed everywhere and warned as `kerml-notation`
 in a `.sysml` file, the same treatment `namespace` gets.
+
+`typed by` is a KerML spelling of a production both grammars have: KerML's
+`TypedBy` (`KerML.xtext:600`) reads `':' | 'typed' 'by'` where SysML's
+`TypedBy` (`SysML.xtext:392`) reads `DefinedByKeyword`, which `:395` spells
+`':' | 'defined' 'by'`; `SysML.xtext` has no `typed` literal at all, and the
+pinned pilot answers `part p typed by P;` in a `.sysml` file with
+`no viable alternative at input 'typed'`. The parser reads the three spellings
+alike and records the KerML one on the typing, and the pass warns it as
+`kerml-notation` in a `.sysml` file with a fix that writes `defined by`;
+`.kerml` files are silent. A metadata usage's typing (`@ m typed by Tag;`,
+`SysML.xtext:150` `DefinedByKeyword`) is the same case.
 
 ## Judgment calls
 

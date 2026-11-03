@@ -28,6 +28,7 @@ type actionsJob struct {
 	Needs       yaml.Node         `yaml:"needs"`
 	Environment string            `yaml:"environment"`
 	Permissions map[string]string `yaml:"permissions"`
+	Outputs     map[string]string `yaml:"outputs"`
 	Steps       []actionsStep     `yaml:"steps"`
 }
 
@@ -395,33 +396,37 @@ func TestNightlyNeverRebuildsAPublishedNight(t *testing.T) {
 }
 
 // TestNightlyPublishesTheNpmRunnerWithTheClient checks that a night stamps,
-// builds, proves and publishes @openmbee/sysml-mcp and its five platform
-// packages beside the client's seven: thirteen tarballs, platform packages
-// before the shim that pins them.
+// builds, proves and publishes @openmbee/sysml-mcp, its five platform
+// packages and its alias @openmbee/opensysml-mcp beside the client's seven:
+// fourteen tarballs, platform packages before the shim that pins them, the
+// shim before the alias derived from it.
 func TestNightlyPublishesTheNpmRunnerWithTheClient(t *testing.T) {
 	workflow, _ := loadNightlyWorkflow(t)
 	publish := nightlyJob(t, workflow, "publish").runSteps()
 	if stepIndex(publish, "git diff --stat", "packaging/npm/sysml-mcp/package.json") < 0 {
 		t.Error("the publish job does not show the stamped packaging/npm/sysml-mcp/package.json")
 	}
-	pack := stepIndex(publish, "npm run platform-packages", "--mcp ../../dist/mcp", "../../packaging/npm/sysml-mcp", "-ne 13")
+	pack := stepIndex(publish, "npm run platform-packages", "--mcp ../../dist/mcp", "../../packaging/npm/sysml-mcp ./packages/opensysml-mcp", "-ne 14")
 	switch {
 	case pack < 0:
-		t.Fatal("the publish job does not build the sysml-mcp platform packages and pack @openmbee/sysml-mcp as the thirteenth tarball")
+		t.Fatal("the publish job does not build the sysml-mcp platform packages and pack @openmbee/sysml-mcp and @openmbee/opensysml-mcp as the thirteenth and fourteenth tarballs")
 	case !strings.Contains(publish[pack].Command, "scripts/npm-mcp-test.sh"):
 		t.Error("the publish job does not prove the packed @openmbee/sysml-mcp serves the protocol")
 	case !strings.Contains(publish[pack].Command, "openmbee-sysml-mcp-${NPM_VERSION}.tgz"):
 		t.Error("the publish job does not check that @openmbee/sysml-mcp pins its platform packages at the snapshot version")
+	case !containsAll(publish[pack].Command, "openmbee-opensysml-mcp-${NPM_VERSION}.tgz", `pkg.bin["opensysml-mcp"] === shim`, "pkg.mcpName !== undefined"):
+		t.Error("the publish job does not check that @openmbee/opensysml-mcp pins the runner's platform packages at the snapshot version with both commands and no mcpName")
 	}
 
 	npm := nightlyJob(t, workflow, "npm").runSteps()
-	step := stepIndex(npm, "npm publish", `--tag "$NPM_DIST_TAG"`, "-ne 13")
+	step := stepIndex(npm, "npm publish", `--tag "$NPM_DIST_TAG"`, "-ne 14")
 	if step < 0 {
-		t.Fatal("the npm job does not publish thirteen tarballs")
+		t.Fatal("the npm job does not publish fourteen tarballs")
 	}
 	command := npm[step].Command
 	platforms := strings.Index(command, `openmbee-sysml-mcp-linux-x64-"$NPM_VERSION".tgz`)
 	shim := strings.Index(command, `openmbee-sysml-mcp-"$NPM_VERSION".tgz`)
+	alias := strings.Index(command, `openmbee-opensysml-mcp-"$NPM_VERSION".tgz`)
 	switch {
 	case platforms < 0:
 		t.Error("the npm job does not publish the sysml-mcp platform packages")
@@ -429,9 +434,13 @@ func TestNightlyPublishesTheNpmRunnerWithTheClient(t *testing.T) {
 		t.Error("the npm job does not publish @openmbee/sysml-mcp")
 	case shim < platforms:
 		t.Error("the npm job publishes @openmbee/sysml-mcp before the platform packages it pins")
+	case alias < 0:
+		t.Error("the npm job does not publish @openmbee/opensysml-mcp")
+	case alias < shim:
+		t.Error("the npm job publishes @openmbee/opensysml-mcp before @openmbee/sysml-mcp, the runner it is the other name of")
 	}
-	if stepIndex(npm, "dist-tags.latest", "@openmbee/sysml-mcp") < 0 {
-		t.Error("the npm job does not check, after publishing, that @openmbee/sysml-mcp's latest still names the stable release")
+	if stepIndex(npm, "dist-tags.latest", "@openmbee/sysml-mcp", "@openmbee/opensysml-mcp") < 0 {
+		t.Error("the npm job does not check, after publishing, that the latest of @openmbee/sysml-mcp and @openmbee/opensysml-mcp still names the stable release")
 	}
 }
 
@@ -517,5 +526,72 @@ func TestNightlyManifestListsEachAssetOnce(t *testing.T) {
 		t.Error("SHA256SUMS.txt is checked before the last append to it")
 	case sign >= 0 && sign < check:
 		t.Error("SHA256SUMS.txt is signed before it is checked")
+	}
+}
+
+// The editor plugins are workflow artifacts of the night, built after the per-night release
+// from the binaries it published, each checked against the night's manifest, and kept as
+// long as the release itself. The jobs read the release and write nothing to the repository.
+func TestNightlyKeepsTheEditorPluginsAsArtifactsOfTheNight(t *testing.T) {
+	workflow, _ := loadNightlyWorkflow(t)
+	for name, artifact := range map[string]string{"cameo-plugin": "cameo-plugin", "syson-plugin": "syson-plugin"} {
+		job := nightlyJob(t, workflow, name)
+		if needs := job.needs(); !slices.Contains(needs, "publish") || !slices.Contains(needs, "select") {
+			t.Errorf("the %s job needs %v, not the select job whose commit it checks out and the publish job whose release it reads", name, needs)
+		}
+		if job.Permissions["contents"] != "read" {
+			t.Errorf("the %s job's contents permission is %q; it only downloads the night's release", name, job.Permissions["contents"])
+		}
+		fetched, checked, kept := false, false, false
+		for _, step := range job.Steps {
+			if strings.Contains(step.Run, `gh release download "$VERSION"`) && strings.Contains(step.Run, "SHA256SUMS.txt") {
+				fetched = true
+				if strings.Contains(step.Run, "sha256sum --check --strict") {
+					checked = true
+				}
+				if step.Env["VERSION"] != "${{ needs.publish.outputs.tag }}" {
+					t.Errorf("the %s job fetches VERSION=%q, not the per-night release the publish job created", name, step.Env["VERSION"])
+				}
+			}
+			if strings.HasPrefix(step.Uses, "actions/upload-artifact@") {
+				kept = true
+				if step.With["name"] != artifact {
+					t.Errorf("the %s job keeps artifact %q, not %q as the snapshot page says", name, step.With["name"], artifact)
+				}
+				if step.With["overwrite"] != "true" {
+					t.Errorf("the %s job's artifact does not overwrite the one a re-run already uploaded", name)
+				}
+				if step.With["retention-days"] != "${{ env.RETENTION_DAYS }}" {
+					t.Errorf("the %s job keeps its artifact for %q, not the RETENTION_DAYS the per-night release is kept for", name, step.With["retention-days"])
+				}
+			}
+		}
+		if !fetched || !checked {
+			t.Errorf("the %s job does not fetch the night's sysml-grpc from its release and check it against SHA256SUMS.txt", name)
+		}
+		if !kept {
+			t.Errorf("the %s job keeps no artifact", name)
+		}
+	}
+	packaged, gated := false, false
+	for _, step := range nightlyJob(t, workflow, "cameo-plugin").Steps {
+		if strings.Contains(step.Run, `grep -q 'opensysml.binaries' editors/mdk/dist/pom.xml`) && strings.Contains(step.Run, "present=false") {
+			gated = true
+		}
+		if strings.Contains(step.Run, `-Dopensysml.binaries="$PWD/binaries"`) && strings.Contains(step.Run, "-Dopensysml.requireService=true") {
+			packaged = true
+			if !strings.Contains(step.Run, `-Dopensysml.version="$CORE-$VERSION"`) || step.Env["CORE"] != "${{ needs.publish.outputs.core }}" {
+				t.Errorf("the Cameo plugin is versioned by %q, not the snapshot core with the night as its pre-release part, as the vsix is", step.Env["CORE"])
+			}
+		}
+	}
+	if !packaged {
+		t.Error("the Cameo plugin is not packaged around the binaries fetched from the night's release, with its service-backed tests required")
+	}
+	if !gated {
+		t.Error("a selected commit whose distribution module cannot stage binaries from a directory is not skipped; its stager would reject the night's version")
+	}
+	if workflow.Jobs["publish"].Outputs["core"] != "${{ steps.version.outputs.core }}" {
+		t.Error("the publish job does not expose the snapshot core the plugin job versions by")
 	}
 }

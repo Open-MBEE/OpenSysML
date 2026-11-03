@@ -171,7 +171,7 @@ package RangeDerivation {
 		attribute redefines title = "Rover Requirement Derivation";
 
 		part intro : Paragraph {
-			attribute redefines text = "How the mission requirements flow down to the subsystems, what refines them, and where the flow-down ends without a part to satisfy it.";
+			:>> text = "How the mission requirements flow down to the subsystems, what refines them, and where the flow-down ends without a part to satisfy it.";
 		}
 
 		part lineage : Section {

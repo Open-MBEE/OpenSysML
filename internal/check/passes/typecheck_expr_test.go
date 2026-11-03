@@ -928,6 +928,7 @@ func TestExprBodyValueIsTheExpression(t *testing.T) {
 		{"attribute s : String = { 5 };", "cannot bind Expression value to a feature typed by String"},
 		{"attribute d : DurationValue = { 5 [s] };", "cannot bind Expression value to a feature typed by DurationValue"},
 		{"attribute t : Temp = { 5 };", "cannot bind Expression value to a feature typed by Temp"},
+		{"attribute u = { 5 };", "Bound features should have conforming types"},
 		{"attribute i : Integer = 1 + { 5 };", "operator '+' is not defined for Natural and Expression"},
 		{"attribute i : Integer = -{ 5 };", "operator '-' requires a numeric operand, found Expression"},
 		{"attribute b : Boolean = 5 < { 5 };", "operator '<' is not defined for Natural and Expression"},
@@ -949,7 +950,6 @@ func TestExprBodyValueIsTheExpression(t *testing.T) {
 	for _, decl := range []string{
 		"attribute a : Base::Anything = { 5 };",
 		"expr e = { 5 };",
-		"attribute u = { 5 };",
 		"attribute b : Boolean = flag.{in f; f};",
 		"calc def K { in expr f; return : Integer = f(); } attribute i : Integer = K({ 5 });",
 		"attribute i : Integer = KA({ 5 });",

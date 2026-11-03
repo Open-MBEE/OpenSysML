@@ -1,6 +1,6 @@
 @startuml
 ' CompartmentDemoViews::controllers — tree rendering (render asTreeDiagram)
-' not represented: 4 member(s) drawn as compartment rows of their owner, and 2 node(s) under them left undrawn
+' not represented: 4 member(s) drawn as compartment rows of their owner
 <style>
 root {
   BackGroundColor white

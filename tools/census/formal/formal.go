@@ -1,5 +1,5 @@
 // Package formal reads the check*, derive* and validate* constraints of the
-// pinned formal documents (KerML 1.0 and SysML 2.0) from the Constraints
+// pinned KerML and SysML documents (the editions the manifest pins by SHA-256) from the Constraints
 // subsections of their abstract-syntax clauses and records the ones no pilot
 // validator names as spec-sourced rows of the constraint manifest.
 //
@@ -35,7 +35,7 @@ type Constraint struct {
 const Method = "pdftotext -layout over each pinned PDF; within clause 8.3 (abstract syntax), each `8.3.x…` heading opens a metaclass and the Constraints subsection's bare check*/derive*/validate* lines name its constraints; the leading sentence paragraphs are the prose, the remaining paragraphs the OCL"
 
 var (
-	footerPattern  = regexp.MustCompile(`^\s*(\d+\s+)?(Kernel Modeling Language v1\.0|Systems Modeling Language v2\.0, Part 1)(\s+\d+)?\s*$`)
+	footerPattern  = regexp.MustCompile(`^\s*(\d+\s+)?(Kernel Modeling Language v\d+\.\d+(?:, Beta \d+)?|Systems Modeling Language v\d+\.\d+(?:, Beta \d+)?, Part 1)(\s+\d+)?\s*$`)
 	clauseStart    = regexp.MustCompile(`^8\.3\s+\S`)
 	clauseEnd      = regexp.MustCompile(`^8\.4\s+\S`)
 	headingPattern = regexp.MustCompile(`^(8\.3(?:\.\d+)+)\s+(\S.*?)\s*$`)

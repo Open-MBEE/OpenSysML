@@ -5,10 +5,10 @@ run: performed action go of #1
 step 1: token 1@begin
 stmt assign createdIsFresh
       enter calc OccurrenceFunctions::create
-materialize: fresh #3
+materialize: Widget #3
         eval feature fresh -> instance#3
         bind occ = instance#3 [argument]
-create: fresh #3
+create: Widget #3
       exit calc OccurrenceFunctions::create -> instance#3
     eval invoke create -> instance#3
     eval feature fresh -> instance#3
@@ -42,11 +42,11 @@ stmt assign freshDuringWork
 stmt assign spares
     enter calc OccurrenceFunctions::addNew
       eval feature spares -> ()
-materialize: spare #5
+materialize: Widget #5
       eval feature spare -> instance#5
       bind group = () [argument]
       bind occ = instance#5 [argument]
-create: spare #5
+create: Widget #5
     exit calc OccurrenceFunctions::addNew -> (instance#5)
   eval invoke addNew -> (instance#5)
 stmt assign spareCount

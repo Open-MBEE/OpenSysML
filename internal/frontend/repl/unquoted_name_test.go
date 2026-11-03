@@ -121,13 +121,13 @@ func TestNoQuotingHintWithoutAQuotedDeclaration(t *testing.T) {
 }
 
 // A name holding `::` is offered quoted whole, so the hint can be typed back:
-// `T::'left::right-X'`, not a path through a `left` that is declared nowhere.
+// `T::'fore::aft-X'`, not a path through a `fore` that is declared nowhere.
 func TestUnquotedNameWithAnEmbeddedSeparatorIsQuotedWhole(t *testing.T) {
-	s := submitted(t, `package T { part def 'left::right-X'; }`)
+	s := submitted(t, `package T { part def 'fore::aft-X'; }`)
 	const rule = "Names containing ':' or '-' must be quoted."
-	wants(t, run(t, s, "%instantiate T::left"),
-		"error: unresolved reference: T::left — did you mean T::'left::right-X'? "+rule)
-	wants(t, run(t, s, "%instantiate left"),
-		"error: unresolved reference: left — did you mean T::'left::right-X'? "+rule)
-	wants(t, run(t, s, "%instantiate T::'left::right-X'"), "✓ Created instance")
+	wants(t, run(t, s, "%instantiate T::fore"),
+		"error: unresolved reference: T::fore — did you mean T::'fore::aft-X'? "+rule)
+	wants(t, run(t, s, "%instantiate fore"),
+		"error: unresolved reference: fore — did you mean T::'fore::aft-X'? "+rule)
+	wants(t, run(t, s, "%instantiate T::'fore::aft-X'"), "✓ Created instance")
 }

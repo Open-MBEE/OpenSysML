@@ -10,9 +10,9 @@ import (
 	"testing"
 )
 
-// replGzipBudget bounds the gzipped RE (sysml_re) js build the CLI page downloads
-// for its in-browser REPL.
-const replGzipBudget = 15000000
+// replGzipBudget bounds the gzipped RE (sysml_re) js build the CLI page downloads for its
+// in-browser REPL: raised to 15,600,000 on 2026-10-27 when go1.27.3 linked it at 15,146,881 bytes.
+const replGzipBudget = 15600000
 
 // TestBrowserREPLWalkthroughs runs every walkthrough the CLI page offers
 // (docs/assets/repl-walkthroughs.json) through the page's own host,

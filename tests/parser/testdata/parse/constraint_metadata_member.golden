@@ -42,7 +42,7 @@
       (Membership visibility="default"
         (Usage kind="constraint" name="typed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
           (Membership visibility="default"
-            (PrefixMetadata type="Tag" name="t"))))
+            (PrefixMetadata type="Tag" name="t" typedBy=true))))
       (Membership visibility="default"
         (Usage kind="constraint" name="tagged" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
           (ConstraintMember assert=true negated=false

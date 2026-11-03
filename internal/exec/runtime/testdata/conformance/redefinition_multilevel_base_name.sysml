@@ -1,5 +1,8 @@
-// A chain of redefinitions names one feature at every level, so an expression
-// reading a base name sees the value written under the innermost name.
+// A chain of redefinitions names one feature at every level, so a base name
+// read through a reference typed by the level declaring it sees the value
+// written under the innermost name. Each redefinition removes the name it
+// redefines from its owner's namespace (KerML 1.0 §7.3.4.5), so `bus.own` and
+// `bus.mass` resolve nowhere; the base-typed reference is how the name is read.
 package test {
     private import ScalarValues::Real;
 
@@ -12,9 +15,12 @@ package test {
 
     part reader {
         attribute busDry : Real = bus.dry;
-        attribute busOwn : Real = bus.own;
-        attribute busMass : Real = bus.mass;
-        attribute inheritedMass : Real = inherited.mass;
-        attribute rollUp : Real = bus.mass + inherited.mass;
+        ref busAsSys : Sys = bus;
+        attribute busOwn : Real = busAsSys.own;
+        ref busAsComp : Comp = bus;
+        attribute busMass : Real = busAsComp.mass;
+        ref inheritedAsComp : Comp = inherited;
+        attribute inheritedMass : Real = inheritedAsComp.mass;
+        attribute rollUp : Real = busAsComp.mass + inheritedAsComp.mass;
     }
 }

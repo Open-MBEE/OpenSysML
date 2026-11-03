@@ -57,6 +57,58 @@ sysml> %instances
 (no instances created; 1 instance was dropped when the session was reset — re-run %instantiate)
 ```
 
+## What a result line shows
+
+An expression typed at the prompt, or given to `%eval` or `%calc`, is answered on a `= …` line
+that prints what the result feature holds, in the shape its effective multiplicity gives it:
+
+```
+sysml> private import ScalarValues::*;
+✓ import ScalarValues::*
+sysml> calc add { in x : Integer; in y : Integer; return : Integer; x + y }
+✓ calc add
+sysml> add(2, 2)
+✓ add(2, 2)
+  = [4]
+sysml> 2 + 2
+✓ 2 + 2
+  = 4
+sysml> (1, 2)
+✓ (1, 2)
+  = [1, 2]
+sysml> calc add1 { in x : Integer; in y : Integer; return : Integer[1]; x + y }
+✓ calc add1
+sysml> add1(2, 2)
+✓ add1(2, 2)
+  = 4
+```
+
+The square brackets are this project's display notation for a feature holding a sequence of
+values; they are not KerML source notation. In the notation `(1, 2)` is a sequence expression,
+and `[…]` is a multiplicity (`Wheel[4]`) or the bracket expression that gives a quantity its
+unit (`10 [SI::kg]`); on a `= …` line, `[1, 2]` says only that the feature holds two values, and `[4]`
+that it holds one.
+
+Why `add(2, 2)` holds its one value as a sequence while `2 + 2` does not comes down to the
+multiplicity of each result feature. `add`'s `return : Integer` states none, and a bare `return`
+is a reference usage, to which SysML v2 (§7.6.3) gives no implicit `[1..1]`: its effective
+multiplicity is the `[0..*]` of `Performances::Evaluation::result`, which it redefines (§7.19.2),
+so the one computed value is held as a one-element sequence. `2 + 2` calls the library function
+`ScalarFunctions::'+'`, declared `return : ScalarValue[1]`, so its result holds exactly one value
+and prints bare; `(2 + 2)` is the same expression in parentheses. To have a calculation's result
+print bare, state its multiplicity, as `add1` does: `return : Integer[1]` or `return : Integer[0..1]`
+prints `= 4`, while `return : Integer[0..*]` prints `= [4]`, as the bare form does. The same rule
+holds for an attribute read on an object: `attribute xs : Integer[0..*] = 4;` reads `= [4]` and
+`attribute x : Integer = 4;` reads `= 4`. A feature holding no value reads `= []`, and the null
+expression `()` prints `= null`.
+
+The shape does not change the value. KerML has no scalar apart from a sequence of one: a
+one-element sequence is its element, so `add(2, 2) == 4` is `true` and `add(2, 2) + 1` is `5`.
+Up to 0.10.x the prompt unwrapped a one-element result to its scalar; since 0.11.0 it prints what
+the feature holds. The command line reports a calculation the same way
+([chapter 3](03-command-line.md#running-behavior)), and so does a notebook cell
+([chapter 12](12-jupyter.md#cells)).
+
 ## Seeing the model
 
 `%print` writes the session back to the prompt as notation, either the whole model or, if you
@@ -126,12 +178,15 @@ lines and expressions are skipped rather than run — the load report counts the
 or `--cells tag:<tag>` picks cells; a cell tagged `skip-load` is never loaded. See
 [Reusing another notebook](12-jupyter.md#reusing-another-notebook).
 
-A loaded file's imports are followed to its neighbors: when a file imports a root namespace that
-neither the loaded files nor the standard library declare, the `.sysml` and `.kerml` files beside
-and below it are searched for one declaring that name, and each is loaded too, its own imports
-followed the same way. `%load main.sysml` therefore brings in `parts/lib.sysml` when `main.sysml`
-imports `Lib::*` and only `parts/lib.sysml` declares `package Lib`, and leaves unrelated siblings
-alone; the same holds for a file named on the command line. Hidden directories are not searched.
+A loaded file's references are followed to its neighbors: when the analysis leaves an import, or
+a qualified name (`Views::ProjectView`), unresolved at a root namespace that neither the loaded
+files nor the standard library declare, the `.sysml` and `.kerml` files beside and below the file
+and in the projects around it are searched for one declaring that name, and each is loaded too,
+its own unresolved references followed the same way. `%load main.sysml` therefore brings in
+`parts/lib.sysml` when `main.sysml` imports `Lib::*` and only `parts/lib.sysml` declares
+`package Lib`, and leaves unrelated siblings alone — a sibling declaring a root `Inner` stays out
+when `Inner::Thing` is answered by an imported `Lib::Inner`; the same holds for a file named on the
+command line. Hidden directories are not searched.
 
 A file the parser cannot read is reported the same way as a typed declaration, with the
 diagnostic pointing at the offending line of the file. None of its contents enter the
@@ -175,6 +230,48 @@ the declaration in the file whose name sorts first — the order the editor give
 not the order the files were loaded in — so `P::A` resolves while `P::B` does not; an unqualified reference
 from one opening to the other does not resolve either. Entering a package at the prompt is
 unaffected: it still merges into the package already in the session.
+
+### Imports from files beside the prompt
+
+The prompt also follows the imports *you* type. The directory `sysml` was started in is the
+session's workspace root (`%workspace` shows it), and when a submission imports or qualifies a
+root namespace that neither the session nor the standard library declares, the `.sysml` and
+`.kerml` files under that directory are searched for one declaring the name, and the file is
+loaded as `%load <file>` would load it — in the same submission, so the import resolves at once:
+
+```
+$ ls
+lib.sysml
+$ sysml
+sysml> private import Lib::*;
+✓ import Lib::*
+✓ package Lib
+note: loaded lib.sysml, which declares Lib
+sysml> a
+✓ a
+  = 3
+```
+
+`%eval Lib::a` and `%calc Lib::Twice(3)` on a session that has not loaded `lib.sysml` load it
+the same way. The loaded file's own imports are followed to its neighbours as a `%load`'s are,
+and when the directory holds a `.project.json`, the projects it uses are searched too, through
+the same installed-project lookup the command line's project loading performs — never over the
+network. Hidden directories are not searched.
+
+A file loaded this way is a loaded file like any other: `%list` shows it, its diagnostics name it
+and its line, typing `package Lib { … }` at the prompt replaces it, and `%clear` drops it. One
+difference: `%save` leaves it out when the saved file will find it — beside or below the saved
+file, where a load of that file follows its imports — so a session saved into the workspace does
+not declare `Lib` twice; a save somewhere else, where the import could not be followed, writes the
+declarations the typed text imports along with it, so the saved file still loads on its own.
+
+Only a name the typed text leaves unresolved is looked for, and only a file that declares it at
+its root loads — nothing else under the directory does; `%load dir/` stays the way to load
+everything. When two files under the root declare the same root name, neither loads, and the
+submission reports both (`note: Lib is declared by more than one file under …: a.sysml,
+b/lib.sysml; load the one meant with %load`); load the one meant by name. A candidate file the parser
+cannot read loads with its diagnostics reported against the file, as `%load` reports them. A
+name no file declares is reported as `unresolved reference`, as before, and nothing loads.
 
 ### Known behaviour
 
@@ -316,15 +413,16 @@ no rendering is drawn as a tree:
 sysml> %render Demo::summary
 Demo::summary - tree rendering (the view states no rendering; a tree is the default)
 
-part def Demo::Vehicle
-  attribute mass : Real
-  part wheel : Wheel
-view Demo::summary::detail
-  part def Demo::Wheel
-    attribute diameter : Real
+part def Vehicle
+  attribute mass
+  part wheel
+    attribute diameter
+view detail
+  part def Wheel
+    attribute diameter
 
 relationships:
-  Demo::Vehicle *-- Demo::Wheel: wheel
+  Vehicle *-- Wheel: wheel
 ```
 
 The tree draws the lines a block definition diagram shows between its boxes, wherever both
@@ -388,8 +486,9 @@ it ([the details](../project/view-rendering-forms.md#limiting-what-a-view-draws)
   `view overview { expose vehicle; attribute depth = 2; render asTreeDiagram; }`. An element at the
   bound keeps its ports and compartment rows and says `nested deeper than 2 levels; not shown`.
   `%render Fleet::overview depth=1` overrides it for one render.
-- A `DiagramLayout::Layout` with `collapsed = true` about an element folds its children away in
-  every form: `metadata Layout about vehicle::engine { collapsed = true; }`. A Layout that only
+- A `DiagramLayout::Layout` with `collapsed = true` about an element folds what it nests away in
+  every form, keeping the ports on its boundary and the connectors that end at them:
+  `metadata Layout about vehicle::engine { collapsed = true; }`. A Layout that only
   folds (or only hides compartments with its `show…` switches) needs no `x` and `y`; the form
   still lays the diagram out itself. Give it a position too and the diagram becomes a positioned
   one, in which nodes without a position are left undrawn.
@@ -469,6 +568,35 @@ The pinned name may be an element, in which case the expression reads that eleme
 or an object reference, in which case the expression reads that object's feature values, the same
 values an unpinned `%eval` reads after `%instantiate`. A single `:` separates the context from the
 expression; the `::` inside a qualified name is not a separator.
+
+A qualified name in a prompt expression is resolved from that namespace too, the way KerML
+8.2.3.5.1 resolves one written in a model: the first segment is looked up from the local namespace
+outwards and the remaining segments inside what it found. A member that carries the package's own
+name therefore hides the package. In
+
+```sysml
+package Rover {
+    part def Rover { attribute dryMass = 180.0; }
+    calc rangeKm { in charge; in wattHoursPerKm; charge / wattHoursPerKm }
+}
+```
+
+`Rover` is the part def, so `%eval Rover::dryMass * 2` answers `360.0` and
+`%eval Rover::rangeKm(600, 12)` reports `unresolved reference: Rover::rangeKm`. The specification's
+global scope qualifier `$::` starts the resolution at the root instead, and pinning the context
+reaches the member unqualified:
+
+```
+sysml> %eval $::Rover::rangeKm(600, 12)
+✓ $::Rover::rangeKm(600, 12)
+  = [50.0]
+sysml> %eval in Rover : rangeKm(600, 12)
+✓ rangeKm(600, 12) (in Rover)
+  = [50.0]
+```
+
+`-e` on the command line evaluates the same way, so `sysml -e "$::Rover::rangeKm(600, 12)" rover.sysml`
+is the command-line form.
 
 ### Arguments
 

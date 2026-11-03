@@ -1,0 +1,5 @@
+9:5 error [type/usage-typing] A usage must be typed by definitions.
+10:5 error [type/usage-typing] An occurrence, item or part must be typed by occurrence definitions.
+11:5 warning [name-resolution/name-conflict] Duplicate of inherited member name 'self' from DataValue, Part
+11:5 error [type/usage-typing] An attribute must be typed by attribute definitions.
+12:5 error [type/usage-typing] An action must be typed by action definitions.

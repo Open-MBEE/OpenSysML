@@ -83,10 +83,14 @@
       "evaluated": [
         "StateSpaceRepresentation::GetNextState",
         "StateSpaceRepresentation::GetOutput",
+        "StateSpaceRepresentation::StateSpaceDynamics::getNextState",
+        "StateSpaceRepresentation::StateSpaceDynamics::getOutput",
         "StateSpaceRepresentation::GetDerivative",
         "StateSpaceRepresentation::ContinuousStateSpaceDynamics",
+        "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getDerivative",
         "StateSpaceRepresentation::GetDifference",
-        "StateSpaceRepresentation::DiscreteStateSpaceDynamics"
+        "StateSpaceRepresentation::DiscreteStateSpaceDynamics",
+        "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference"
       ],
       "refused": [
         {
@@ -105,44 +109,24 @@
           "message": "unknown output: test::plant produced no output \"output\""
         },
         {
-          "declaration": "StateSpaceRepresentation::StateSpaceDynamics::getNextState",
-          "error": "errNotAFunction",
-          "message": "not a function: plant.getNextState is undetermined, not a function"
-        },
-        {
-          "declaration": "StateSpaceRepresentation::StateSpaceDynamics::getOutput",
-          "error": "errNotAFunction",
-          "message": "not a function: plant.getOutput is undetermined, not a function"
-        },
-        {
           "declaration": "StateSpaceRepresentation::Integrate",
-          "error": "errNoResultExpression",
-          "message": "calc test::Euler: evaluating the returned expression: no result expression: calc test::Euler::getDerivative has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateDerivative = \u003cexpr\u003e;`"
-        },
-        {
-          "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getDerivative",
-          "error": "errNotAFunction",
-          "message": "not a function: damper.getDerivative is undetermined, not a function"
+          "error": "ErrNoValue",
+          "message": "calc test::Euler: evaluating the returned expression: no value: calc test::Euler::getDerivative has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateDerivative = \u003cexpr\u003e;`"
         },
         {
           "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState",
-          "error": "errNotAFunction",
-          "message": "not a function: damper.getNextState is undetermined, not a function"
+          "error": "ErrNoValue",
+          "message": "calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState: evaluating the returned expression: no value: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate has no return expression: result parameter result binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = \u003cexpr\u003e;`"
         },
         {
           "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate",
-          "error": "errNoResultExpression",
-          "message": "calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState: evaluating the returned expression: no result expression: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate has no return expression: result parameter result binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = \u003cexpr\u003e;`"
-        },
-        {
-          "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference",
-          "error": "errNotAFunction",
-          "message": "not a function: spring.getDifference is undetermined, not a function"
+          "error": "ErrNoValue",
+          "message": "calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState: evaluating the returned expression: no value: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate has no return expression: result parameter result binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = \u003cexpr\u003e;`"
         },
         {
           "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState",
-          "error": "errNotAFunction",
-          "message": "not a function: spring.getNextState is undetermined, not a function"
+          "error": "ErrNoValue",
+          "message": "calc StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState: eval declaration diff: no value: calc StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = \u003cexpr\u003e;`"
         }
       ],
       "wrong": []
@@ -293,19 +277,17 @@
         "OccurrenceFunctions::addNew",
         "OccurrenceFunctions::addNewAt"
       ],
-      "refused": [
+      "refused": [],
+      "wrong": [
         {
           "declaration": "OccurrenceFunctions::removeOld",
-          "error": "errNotABehavior",
-          "message": "performed action go of object #1: action node work: not a behavior: removeOld is not an action (kermlType)"
+          "mismatch": "OccurrenceFunctions::removeOld: type = instance (Const.Kind=0), want Boolean"
         },
         {
           "declaration": "OccurrenceFunctions::removeOldAt",
-          "error": "errNotABehavior",
-          "message": "performed action go of object #1: action node work: not a behavior: removeOldAt is not an action (kermlType)"
+          "mismatch": "OccurrenceFunctions::removeOldAt: type = instance (Const.Kind=0), want Boolean"
         }
-      ],
-      "wrong": []
+      ]
     }
   ]
 }

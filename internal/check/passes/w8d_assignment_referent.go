@@ -199,8 +199,8 @@ func targetText(target ast.Node) string {
 }
 
 // checkChain reports a chained assignment target the runtime cannot write: one
-// written in a calculation body, or one stepping through a feature that may hold
-// several objects.
+// written in a calculation body, or one stepping through a feature whose stated
+// multiplicity lets it hold several objects.
 func (c *assignmentReferentChecker) checkChain(scope *symbols.Scope, chain *ast.FeatureChainExpr) {
 	path := lower.FeaturePath(chain)
 	if path == "" {
@@ -217,8 +217,8 @@ func (c *assignmentReferentChecker) checkChain(scope *symbols.Scope, chain *ast.
 		if !ok || sym == nil {
 			continue
 		}
-		upper := c.model.EffectiveMultiplicityOf(sym).Upper
-		if !upper.Known || (!upper.Infinite && upper.Value <= 1) {
+		stated, ok := c.model.StatedMultiplicityOf(sym)
+		if upper := stated.Upper; !ok || !upper.Known || (!upper.Infinite && upper.Value <= 1) {
 			continue
 		}
 		c.report(chain.Span(), fmt.Sprintf(

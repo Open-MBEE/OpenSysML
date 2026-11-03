@@ -1,0 +1,57 @@
+package org.openmbee.mdk.magic;
+
+import com.nomagic.magicdraw.actions.ActionsConfiguratorsManager;
+import com.nomagic.magicdraw.core.Project;
+import com.nomagic.magicdraw.plugins.Plugin;
+import com.nomagic.magicdraw.uml.BaseElement;
+import java.nio.file.Path;
+import java.util.Map;
+import org.openmbee.opensysml.Connection;
+import org.openmbee.mdk.magic.actions.OperationActions;
+import org.openmbee.mdk.magic.bin.HostBinary;
+import org.openmbee.mdk.magic.bridge.DocGenBridge;
+import org.openmbee.mdk.magic.engine.Engine;
+
+/**
+ * Plugin entry point: registers the context-menu group; the service starts on the first run only.
+ * {@link #docGen} is the surface the MDK DocGen extension reaches through reflection.
+ */
+public final class MagicMdkPlugin extends Plugin {
+  public static final String ID = "org.openmbee.mdk.magic";
+
+  private Engine engine;
+
+  @Override
+  public void init() {
+    OperationActions actions = new OperationActions(this::engine);
+    ActionsConfiguratorsManager manager = ActionsConfiguratorsManager.getInstance();
+    manager.addContainmentBrowserContextConfigurator(actions);
+    manager.addBaseDiagramContextConfigurator("*", actions);
+  }
+
+  @Override
+  public boolean close() {
+    synchronized (this) {
+      if (engine != null) engine.close();
+      engine = null;
+    }
+    Connection.stopSharedServices();
+    return true;
+  }
+
+  @Override
+  public boolean isSupported() {
+    Path pluginDirectory = getDescriptor().getPluginDirectory().toPath();
+    return HostBinary.exists(pluginDirectory);
+  }
+
+  /** Runs one operation for MDK DocGen; see {@link DocGenBridge#run}. */
+  public Map<String, Object> docGen(BaseElement element, String operation, String calcArguments) {
+    return new DocGenBridge(this::engine).run(Project.getProject(element), element, operation, calcArguments);
+  }
+
+  private synchronized Engine engine() {
+    if (engine == null) engine = new Engine(getDescriptor().getPluginDirectory().toPath());
+    return engine;
+  }
+}

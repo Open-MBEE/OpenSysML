@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
@@ -46,9 +46,11 @@ const (
 	// QueryErrMalformedConstraint is a constraint with no form, no operator or
 	// no operand.
 	QueryErrMalformedConstraint
-	// QueryErrUnorderedProperty is > or < on a property that is not ordered.
+	// QueryErrUnorderedProperty is an ordered comparison (<, <=, >, >=) on a
+	// property that is not ordered, or instanceOf on one that is not "@type".
 	QueryErrUnorderedProperty
-	// QueryErrUnparsableValue is an operand the operator cannot compare.
+	// QueryErrUnparsableValue is an operand the operator cannot compare: a
+	// non-number for an ordered comparison, an undeclared metaclass for instanceOf.
 	QueryErrUnparsableValue
 	// QueryErrUnknownScope is a scope naming an element the model does not have.
 	QueryErrUnknownScope
@@ -80,6 +82,11 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	}
 	if req.OslcQuery != "" {
 		if err := s.requireCapability(CapabilityOSLCQuery); err != nil {
+			return nil, err
+		}
+	}
+	if len(req.GetQuery().GetOrderBy()) > 0 {
+		if err := s.requireCapability(CapabilityQueryOrderBy); err != nil {
 			return nil, err
 		}
 	}
@@ -125,8 +132,14 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	if err := validateConstraint(req.Query.Where); err != nil {
 		return nil, queryStatus(err)
 	}
+	if err := eval.resolveMetaclasses(req.Query.Where); err != nil {
+		return nil, queryStatus(err)
+	}
 	projection, err := projectedProperties(req.Query.Select)
 	if err != nil {
+		return nil, queryStatus(err)
+	}
+	if err := validateOrderBy(req.Query.OrderBy); err != nil {
 		return nil, queryStatus(err)
 	}
 	candidates, err := eval.candidates(cached, req.Query.Scope)
@@ -134,17 +147,74 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 		return nil, queryStatus(err)
 	}
 
-	elements := make([]*pb.QueryResultElement, 0, len(candidates))
+	rows := make([]orderedRow, 0, len(candidates))
 	for _, sym := range candidates {
 		if !eval.matches(sym, req.Query.Where) {
 			continue
 		}
-		elements = append(elements, eval.project(sym, projection))
+		rows = append(rows, orderedRow{
+			element: eval.project(sym, projection),
+			keys:    eval.orderKeys(sym, req.Query.OrderBy),
+		})
 	}
 	if eval.elementIDErr != nil {
 		return nil, elementIDStatus(eval.elementIDErr)
 	}
+	sortRows(rows, req.Query.OrderBy)
+	elements := make([]*pb.QueryResultElement, 0, len(rows))
+	for _, row := range rows {
+		elements = append(elements, row.element)
+	}
 	return &pb.QueryResponse{Elements: elements}, nil
+}
+
+// orderedRow is a matched element with its values of the query's orderBy
+// properties, read once so sorting never re-reads the model.
+type orderedRow struct {
+	element *pb.QueryResultElement
+	keys    []corequery.OrderValue
+}
+
+// validateOrderBy checks every sort property is queryable, as select and where
+// are checked: an unknown one is a fault in the query, not an unsorted answer.
+func validateOrderBy(orderBy []string) error {
+	for _, name := range orderBy {
+		if !corequery.IsProperty(name) {
+			return unknownProperty(name)
+		}
+	}
+	return nil
+}
+
+// orderKeys reads an element's values of the sort properties, in orderBy order.
+func (e *queryEval) orderKeys(sym *symbols.Symbol, orderBy []string) []corequery.OrderValue {
+	if len(orderBy) == 0 {
+		return nil
+	}
+	keys := make([]corequery.OrderValue, len(orderBy))
+	for i, name := range orderBy {
+		if values, ok := e.reader.Values(sym, name); ok && len(values) != 0 {
+			keys[i] = corequery.OrderValue{Text: values[0], Present: true}
+		}
+	}
+	return keys
+}
+
+// sortRows orders matched elements by the orderBy properties in order of
+// precedence, each ascending under corequery.CompareOrderValues; the sort is
+// stable, so elements equal under every property keep declaration order.
+func sortRows(rows []orderedRow, orderBy []string) {
+	if len(orderBy) == 0 {
+		return
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		for k, name := range orderBy {
+			if order := corequery.CompareOrderValues(name, rows[i].keys[k], rows[j].keys[k]); order != 0 {
+				return order < 0
+			}
+		}
+		return false
+	})
 }
 
 // elementIDStatus reports a query that read elementId of a model no conversion
@@ -159,9 +229,12 @@ func elementIDStatus(err error) error {
 // element state of its own: every property is read from the index and semantic
 // model on demand.
 type queryEval struct {
-	sc     *symbolfacts.Context
-	reader *corequery.PropertyReader
-	cached *CachedModel
+	// metaclasses are the library declarations the query's instanceOf operands
+	// resolved to, by the name the query wrote.
+	metaclasses map[string]*symbols.Symbol
+	sc          *symbolfacts.Context
+	reader      *corequery.PropertyReader
+	cached      *CachedModel
 	// elementIDErr is why the model has no elementIds, once a property read
 	// asked for one: the conversion that writes them refused the model.
 	elementIDErr error
@@ -227,43 +300,27 @@ func (e *queryEval) elementID(sym *symbols.Symbol) string {
 	if cached == nil {
 		return ""
 	}
-	cached.elementIDsOnce.Do(func() {
-		documents := make([]export.ModelDocument, 0, len(cached.Documents))
-		for _, doc := range cached.Documents {
-			if doc != nil && doc.Source != nil && doc.Root != nil {
-				documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
-			}
-		}
-		// Convert refuses a model of several documents one of which the parser
-		// could not read whole, so no ids are read from its recovered trees.
-		if len(documents) > 1 {
-			for _, doc := range cached.Documents {
-				if doc == nil || doc.Source == nil {
-					continue
-				}
-				if syntax := convert.SyntaxErrorOf(doc.Source.Name(), doc.Source, doc.ParseDiags); syntax != nil {
-					cached.elementIDsErr = syntax
-					return
-				}
-			}
-		}
-		// The ids are the ones Convert writes for this model hash, so they are
-		// read from the same conversion: one document is converted from its
-		// text (convertSource), several from what parse read
-		// (convertModelOfDocuments).
-		if len(documents) == 1 {
-			doc := documents[0].File
-			cached.elementIDs, cached.elementIDsErr = export.NewElementIDsOfDocument(doc.Name(), doc.Bytes())
-			return
-		}
-		cached.elementIDs, cached.elementIDsErr = export.NewElementIDs(documents)
-	})
-	if cached.elementIDsErr != nil {
-		e.elementIDErr = cached.elementIDsErr
+	id, err := cached.elementIDReader().Read(sym.DocName, sym.Decl, e.identity(sym))
+	if err != nil {
+		e.elementIDErr = err
 		return ""
 	}
-	id, _ := cached.elementIDs.OfDeclaration(sym.Decl, e.identity(sym))
 	return id
+}
+
+// elementIDReader reads the ids Convert writes for this model, from one
+// conversion made on first use and shared by every query of the model.
+func (m *CachedModel) elementIDReader() *export.ElementIDReader {
+	m.elementIDsOnce.Do(func() {
+		documents := make([]export.ElementIDDocument, 0, len(m.Documents))
+		for _, doc := range m.Documents {
+			if doc != nil {
+				documents = append(documents, export.ElementIDDocument{File: doc.Source, Root: doc.Root, ParseDiags: doc.ParseDiags})
+			}
+		}
+		m.elementIDs = export.NewElementIDReader(documents)
+	})
+	return m.elementIDs
 }
 
 func (e *queryEval) positionalNames(cached *CachedModel) {
@@ -431,18 +488,79 @@ func validatePrimitive(c *pb.PrimitiveConstraint) error {
 			"PrimitiveConstraint on %q has no value to compare against", c.Property)
 	}
 	switch c.Operator {
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL:
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL, pb.PrimitiveOperator_PRIMITIVE_OPERATOR_IN:
 		return nil
 	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER,
-		pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS:
+		pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS,
+		pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL,
+		pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL:
 		return validateOrdered(c)
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF:
+		return validateInstanceOf(c)
 	default:
 		return queryErrorf(QueryErrMalformedConstraint,
 			"PrimitiveConstraint on %q has no operator", c.Property)
 	}
 }
 
-// validateComposite checks a combination has an operator, something to combine,
+// validateInstanceOf checks instanceOf asks about the element's own metaclass,
+// which only "@type" names, with metaclass names for operands. Whether the
+// library declares each one is checked by resolveMetaclasses.
+func validateInstanceOf(c *pb.PrimitiveConstraint) error {
+	if c.Property != QueryPropType {
+		return queryErrorf(QueryErrUnorderedProperty,
+			"instanceOf applies to %q, the element's metaclass, not to %q",
+			QueryPropType, c.Property)
+	}
+	for _, value := range c.Value {
+		if value == "" {
+			return queryErrorf(QueryErrUnparsableValue,
+				"instanceOf on %q needs a metaclass name to compare against, got %q", c.Property, value)
+		}
+	}
+	return nil
+}
+
+// resolveMetaclasses resolves every instanceOf operand under a constraint to
+// the library's declaration of that metaclass, failing the query on one the
+// library does not declare: no element is an instance of it, and answering
+// "nothing matched" would hide the misspelling.
+func (e *queryEval) resolveMetaclasses(constraint *pb.Constraint) error {
+	if constraint == nil {
+		return nil
+	}
+	switch form := constraint.Constraint.(type) {
+	case *pb.Constraint_Primitive:
+		if form.Primitive.Operator != pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF {
+			return nil
+		}
+		for _, name := range form.Primitive.Value {
+			if _, done := e.metaclasses[name]; done {
+				continue
+			}
+			meta := e.sc.Semantics.Metaclass(name)
+			if meta == nil {
+				return queryErrorf(QueryErrUnparsableValue,
+					"instanceOf on %q needs a metaclass the library declares, got %q",
+					form.Primitive.Property, name)
+			}
+			if e.metaclasses == nil {
+				e.metaclasses = make(map[string]*symbols.Symbol)
+			}
+			e.metaclasses[name] = meta
+		}
+	case *pb.Constraint_Composite:
+		for _, nested := range form.Composite.Constraint {
+			if err := e.resolveMetaclasses(nested); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// validateComposite checks a combination has an operator, at least two
+// constraints to combine (the standard's `constraint : Constraint [2..*]`),
 // and no malformed constraint anywhere beneath it, decisive or not.
 func validateComposite(c *pb.CompositeConstraint) error {
 	if c == nil {
@@ -451,6 +569,10 @@ func validateComposite(c *pb.CompositeConstraint) error {
 	if len(c.Constraint) == 0 {
 		return queryErrorf(QueryErrMalformedConstraint,
 			"CompositeConstraint has no constraints to combine")
+	}
+	if len(c.Constraint) == 1 {
+		return queryErrorf(QueryErrMalformedConstraint,
+			"CompositeConstraint combines at least two constraints, got one; write the constraint on its own")
 	}
 	switch c.Operator {
 	case pb.CompositeOperator_COMPOSITE_OPERATOR_AND, pb.CompositeOperator_COMPOSITE_OPERATOR_OR:
@@ -491,9 +613,12 @@ func (e *queryEval) matchesPrimitive(sym *symbols.Symbol, c *pb.PrimitiveConstra
 		value = values[0]
 	}
 	var verdict bool
-	if c.Operator == pb.PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL {
+	switch c.Operator {
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL, pb.PrimitiveOperator_PRIMITIVE_OPERATOR_IN:
 		verdict = has && equalsAny(value, c.Value)
-	} else {
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF:
+		verdict = has && e.instanceOfAny(sym, c.Value)
+	default:
 		verdict = has && compareOrdered(c, value)
 	}
 	if c.Inverse {
@@ -503,8 +628,9 @@ func (e *queryEval) matchesPrimitive(sym *symbols.Symbol, c *pb.PrimitiveConstra
 }
 
 // equalsAny reports whether the property's value is one of the constraint's.
-// The standard writes a single value, and its clients also write a list for
-// `@type`; one value is the degenerate case of the same rule.
+// The standard writes a single value for `=` and a list for `in`, and its
+// clients also write a list for `@type` under `=`; one value is the degenerate
+// case of the same rule.
 func equalsAny(value string, candidates []string) bool {
 	for _, candidate := range candidates {
 		if value == candidate {
@@ -514,8 +640,19 @@ func equalsAny(value string, candidates []string) bool {
 	return false
 }
 
-// validateOrdered checks > or < has an ordered property and one numeric operand:
-// either fault is a fault in the query, never a false verdict.
+// instanceOfAny reports whether the element's metaclass conforms to one of the
+// named metaclasses, which resolveMetaclasses already resolved.
+func (e *queryEval) instanceOfAny(sym *symbols.Symbol, names []string) bool {
+	for _, name := range names {
+		if e.sc.Semantics.InstanceOf(sym, e.metaclasses[name]) {
+			return true
+		}
+	}
+	return false
+}
+
+// validateOrdered checks an ordered comparison has an ordered property and one
+// numeric operand: either fault is a fault in the query, never a false verdict.
 func validateOrdered(c *pb.PrimitiveConstraint) error {
 	if !corequery.IsOrdered(c.Property) {
 		return queryErrorf(QueryErrUnorderedProperty,
@@ -535,8 +672,9 @@ func validateOrdered(c *pb.PrimitiveConstraint) error {
 	return nil
 }
 
-// compareOrdered evaluates > or < against an element's own value. A value that
-// is not a number fails the comparison: that is a fact about the element.
+// compareOrdered evaluates <, <=, > or >= against an element's own value. A
+// value that is not a number fails the comparison: that is a fact about the
+// element.
 func compareOrdered(c *pb.PrimitiveConstraint, value string) bool {
 	operand, err := parseOrdered(c.Value[0])
 	if err != nil {
@@ -546,10 +684,16 @@ func compareOrdered(c *pb.PrimitiveConstraint, value string) bool {
 	if err != nil {
 		return false
 	}
-	if c.Operator == pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER {
+	switch c.Operator {
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER:
 		return actual > operand
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL:
+		return actual >= operand
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL:
+		return actual <= operand
+	default:
+		return actual < operand
 	}
-	return actual < operand
 }
 
 // parseOrdered reads a number, accepting the unbounded multiplicity "*" as the
@@ -570,6 +714,14 @@ func operatorText(op pb.PrimitiveOperator) string {
 		return ">"
 	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS:
 		return "<"
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL:
+		return "<="
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL:
+		return ">="
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_IN:
+		return "in"
+	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF:
+		return "instanceOf"
 	default:
 		return "(no operator)"
 	}

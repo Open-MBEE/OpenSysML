@@ -132,6 +132,7 @@ type ActionGraph struct {
 	// resolver is the name-resolution tier's, by which lowering tells the metadata
 	// it gives a meaning to (Probability) from any other; nil reads none.
 	resolver *resolve.Resolver
+	sem      *semantics.Model
 
 	// lowering holds the declarations whose action content is being lowered on
 	// this path.
@@ -336,16 +337,21 @@ type AssignTarget struct {
 
 // assignTarget reports the chained target an assignment states, flattening a
 // nested chain into one walk. It reports false for a plain or
-// namespace-qualified name, neither of which reaches through an object.
+// namespace-qualified name, neither of which reaches through an object. A chain
+// from a computed base (`gauges#(1).reading`) is a walk from that expression,
+// written for diagnostics as the base elided.
 func assignTarget(node ast.Node) (*AssignTarget, string, bool) {
 	chain, ok := node.(*ast.FeatureChainExpr)
 	if !ok {
 		return nil, "", false
 	}
 	base, segments := flattenChain(chain)
-	text := FeaturePath(node)
-	if base == nil || len(segments) == 0 || text == "" {
+	if base == nil || len(segments) == 0 {
 		return nil, "", false
+	}
+	text := FeaturePath(node)
+	if text == "" {
+		text = "(…)." + strings.Join(segments, ".")
 	}
 	return &AssignTarget{
 		Base:  base,
@@ -457,6 +463,9 @@ type Loop struct {
 	Variable   string   // `for` only: the name each element is bound to
 	Collection ast.Node // `for` only: the collection iterated over
 	Body       Block
+	// BodyAction is the action usage the loop declares as its body (`loop action
+	// body { … }`), nil for a body of statements alone.
+	BodyAction *symbols.Symbol
 	Node       ast.Node // the loop itself, for diagnostics
 	// Scope is the scope the loop was declared in, which its collection resolves
 	// in; its condition resolves in Body.Scope, which the body declares into.
@@ -464,6 +473,24 @@ type Loop struct {
 }
 
 func (Loop) statement() { /* marker: closed Statement set */ }
+
+// loopBodyAction is the action usage a loop declares as its body (`loop action body
+// { … }`), resolved in the body's scope; nil for a body of statements alone.
+func loopBodyAction(m *ast.WhileLoopActionNode, bodyScope *symbols.Scope) *symbols.Symbol {
+	if bodyScope == nil {
+		return nil
+	}
+	for _, member := range m.Body {
+		usage, ok := unwrapMembership(member).(*ast.Usage)
+		if !ok || !usage.IsBodyParameter || usage.Ident.Name == "" {
+			continue
+		}
+		if sym, found := bodyScope.LookupLocal(usage.Ident.Name); found && sym != nil && sym.Decl == usage {
+			return sym
+		}
+	}
+	return nil
+}
 
 // If is a lowered conditional. The condition is evaluated in the enclosing
 // body, outside both branches. Else is nil when the conditional declared none.
@@ -864,6 +891,18 @@ type ObjectFlow struct {
 // ToActionGraphWith.
 func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, error) {
 	return ToActionGraphWith(actionDecl, scope, nil)
+}
+
+// Resolver is the resolver the graph was lowered with, nil for none.
+func (g *ActionGraph) Resolver() *resolve.Resolver { return g.resolver }
+
+// Semantics is the semantic model over the graph's resolver, built once and
+// shared by every footprint of the graph; nil without a resolver.
+func (g *ActionGraph) Semantics() *semantics.Model {
+	if g.sem == nil && g.resolver != nil {
+		g.sem = semantics.NewModel(g.resolver)
+	}
+	return g.sem
 }
 
 // ToActionGraphWith is ToActionGraph reading the metadata the resolver identifies:
@@ -1761,12 +1800,16 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 }
 
 // declaredFeature is the parameter or attribute a member declares, false for a
-// member declaring none or one with no name.
+// member declaring none or one with no name — but an unnamed result parameter
+// (`return : Integer`) is named by the result feature it redefines.
 func declaredFeature(m *ast.Usage, scope *symbols.Scope) (Feature, bool) {
 	if !DeclaresNodeFeature(m) {
 		return Feature{}, false
 	}
 	name, _ := ast.EffectiveName(m)
+	if name == "" && m.IsResult {
+		name = ast.ResultFeature
+	}
 	if name == "" {
 		return Feature{}, false
 	}
@@ -2121,13 +2164,15 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 		return lowerAssignment(m, scope)
 	case *ast.WhileLoopActionNode:
 		variable, _ := m.Variable.DeclaredName()
+		bodyScope := childScope(scope, m)
 		return Loop{
 			Kind:       m.Kind,
 			Condition:  m.Condition,
 			Until:      m.Until,
 			Variable:   variable,
 			Collection: m.Collection,
-			Body:       lowerBlock(m, m.Body, childScope(scope, m), resolver, ancestors),
+			Body:       lowerBlock(m, m.Body, bodyScope, resolver, ancestors),
+			BodyAction: loopBodyAction(m, bodyScope),
 			Node:       m,
 			Scope:      scope,
 		}
@@ -2222,8 +2267,16 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 			Scope:       scope,
 		}
 	}
+	name := ast.SimpleName(m.Target)
+	if name == "" {
+		return Unsupported{
+			Description: "assignment to a target naming no feature",
+			Node:        m,
+			Scope:       scope,
+		}
+	}
 	return Assign{
-		Target: ast.SimpleName(m.Target),
+		Target: name,
 		Value:  m.Value,
 		Node:   m,
 		Scope:  scope,

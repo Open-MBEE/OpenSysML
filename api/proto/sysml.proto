@@ -217,6 +217,25 @@ message Verdict {
   // satisfiable one: the query's free variables, in query order. Never set
   // for an undecided answer. Reported as the "verification_questions" capability.
   repeated WitnessAssignment witness = 17;
+  // What the answer rests on, as the REPL's solver reports print it: the
+  // features the question reads as one value or object while only the default
+  // `0..*` multiplicity governs them, and the object-holding features whose own
+  // assertions it does not state. In report order; never set by an evaluation.
+  // Reported as the "verdict_notes" capability.
+  repeated VerdictNote notes = 18;
+}
+
+// VerdictNote is one assumption or omission behind a Verdict, worded once for
+// every surface.
+message VerdictNote {
+  // "assumed_one" (a feature read as holding one value or object while only the
+  // default `0..*` governs it) or "uncovered" (an object-holding feature whose
+  // own assertions the question does not state).
+  string kind = 1;
+  // The feature the note is about, as the report names it.
+  string subject = 2;
+  // The note as a sentence.
+  string text = 3;
 }
 
 // WitnessAssignment is one free variable's value in a witnessed assignment:
@@ -1099,6 +1118,23 @@ message ExecuteActionRequest {
   // default, is a continuous clock; a negative or non-finite step is
   // INVALID_ARGUMENT.
   double clock_step = 9;
+  // Ask for the run's trace in ExecuteActionResponse.trace. Advertised as the
+  // "action_trace" capability; a service withholding it refuses true with
+  // UNIMPLEMENTED, as does an explore schedule with INVALID_ARGUMENT.
+  bool trace = 10;
+  // Signals or items to post to the performing object, in this order, as the
+  // REPL's `%send` does: the run goes until it completes or every token waits,
+  // the next event is then posted to the object's queue and the run goes on,
+  // an accept node waiting for it taking it on the next step. An event of a
+  // type no accept node of the performance names is refused, with the accepts
+  // still waiting. The events exhausted, the run goes on to completion (or for
+  // `advance`); a token still waiting at the end is an accept deadlock,
+  // reported in `error` with the message it waits for. Each names a signal or
+  // item definition, qualified or as the action's namespace sees it; a name no
+  // definition answers to is matched by name alone, as ExecuteState's events
+  // are. Posted to the object performer_symbol_id names, as `%send` posts to
+  // one: INVALID_ARGUMENT without it.
+  repeated string events = 11;
 }
 
 // ExecuteActionResponse contains action execution results
@@ -1125,6 +1161,13 @@ message ExecuteActionResponse {
   // output nothing order-dependent wrote is absent. Populated under the
   // "order_dependence" capability; empty under an explore schedule.
   map<string, int32> order_dependent = 8;
+  // The run's trace in the order the run made it, when the request asked for
+  // it: the token steps, waits, accepts, sends, decisions, assignments and
+  // completion of the action, each a DocumentEvent (see its `kind`), also on a
+  // run that failed, up to the failure. Empty under an explore schedule.
+  repeated DocumentEvent trace = 9;
+  // How many of the oldest records the service's held-events bound discarded.
+  int32 trace_dropped = 10;
 }
 
 // ExecuteStateRequest requests state machine execution
@@ -1249,6 +1292,9 @@ message ConvertRequest {
   // syntax errors alone as before. Reported as the "convert_check_diagnostics"
   // capability.
   bool include_check_diagnostics = 12;
+  // For api-json, restore the ownerless library stubs written before 0.11.0.
+  // Default false: library elements remain bare references, not roots.
+  bool include_library_stubs = 13;
 }
 
 // ConvertResponse contains the converted model.
@@ -1272,6 +1318,16 @@ message ConvertResponse {
   // What is experimental about the conversion, in the wording every surface
   // reports it in. Empty when experimental is false.
   string experimental_notice = 7;
+  // Referenced standard-library names, outside the element array. Populated
+  // for successful api-json conversions, including compact output.
+  repeated LibraryReference library_references = 8;
+}
+
+// LibraryReference names a referenced standard-library element, not a model root.
+message LibraryReference {
+  string id = 1;
+  string qualified_name = 2;
+  string type = 3; // Metaclass, as API JSON's @type spells it.
 }
 
 // MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
@@ -2237,6 +2293,11 @@ message ServerInfoResponse {
   //                  and answers with typed rows.
   //   "render_document" - the RenderDocument RPC renders a named document to
   //                  Markdown.
+  //   "query_order_by" - Query.order_by sorts the matched elements; a service
+  //                  without it would ignore the field, so a client checks.
+  //   "render_document_html" - RenderDocumentRequest.form takes "html".
+  //   "render_document_asciidoc" - RenderDocumentRequest.form takes "asciidoc"
+  //                  and the response carries the document in `asciidoc`.
   //   "render_view" - the RenderView RPC renders a declared view or targeted
   //                  pseudo-view as machine-readable diagram data.
   //   "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
@@ -2308,6 +2369,10 @@ message Query {
   repeated string select = 2;
   // Filter every considered element must satisfy. Unset matches all of them.
   Constraint where = 3;
+  // Properties the matched elements are sorted by, in order of precedence,
+  // each ascending; elements equal under every one keep declaration order.
+  // Corresponds to the standard's `orderBy`. An unknown one fails the call.
+  repeated string order_by = 4;
 }
 
 // Constraint is the standard's Constraint, whose `@type` discriminates between
@@ -2328,21 +2393,31 @@ message PrimitiveConstraint {
   string property = 2;
   PrimitiveOperator operator = 3;
   // Values to compare against. The standard writes one value, and its clients
-  // also write a list for `@type`; with `=` the element matches any of them,
-  // while `>` and `<` require exactly one.
+  // also write a list for `@type`; with `=`, `in` and `instanceOf` the element
+  // matches any of them, while `<`, `<=`, `>` and `>=` require exactly one.
   repeated string value = 4;
 }
 
-// PrimitiveOperator is the standard's PrimitiveConstraint.operator.
+// PrimitiveOperator is the standard's PrimitiveConstraint.operator, the seven
+// literals of API & Services §7.1.4.
 enum PrimitiveOperator {
-  PRIMITIVE_OPERATOR_UNSPECIFIED = 0;  // unset; fails the call
-  PRIMITIVE_OPERATOR_EQUAL = 1;        // "="
-  PRIMITIVE_OPERATOR_GREATER = 2;      // ">"
-  PRIMITIVE_OPERATOR_LESS = 3;         // "<"
+  PRIMITIVE_OPERATOR_UNSPECIFIED = 0;    // unset; fails the call
+  PRIMITIVE_OPERATOR_EQUAL = 1;          // "="
+  PRIMITIVE_OPERATOR_GREATER = 2;        // ">"
+  PRIMITIVE_OPERATOR_LESS = 3;           // "<"
+  PRIMITIVE_OPERATOR_LESS_EQUAL = 4;     // "<="
+  PRIMITIVE_OPERATOR_GREATER_EQUAL = 5;  // ">="
+  // "in": the property's value is one of the listed values.
+  PRIMITIVE_OPERATOR_IN = 6;
+  // "instanceOf": the element's metaclass (`property` must be "@type")
+  // conforms to one of the listed metaclasses, so a PartUsage is an instance
+  // of Usage, Feature and Element.
+  PRIMITIVE_OPERATOR_INSTANCE_OF = 7;
 }
 
-// CompositeConstraint combines constraints. An empty constraint list fails the
-// call: it has no defensible verdict.
+// CompositeConstraint combines constraints. The standard combines at least two
+// (`constraint : Constraint [2..*]`): an empty list has no defensible verdict,
+// and a one-member list is that member, so either fails the call.
 message CompositeConstraint {
   CompositeOperator operator = 1;
   repeated Constraint constraint = 2;
@@ -2801,7 +2876,12 @@ message DocumentState {
 // DocumentEvent is one row an `Events` query answered: one record of the
 // session's trace, in the order the run made it.
 message DocumentEvent {
-  // "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
+  // "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or
+  // "terminate" for a state machine's records; an action's run adds "step" (a
+  // token arriving at a node), "wait" (a token parking at an accept node),
+  // "assign" (a feature written), "decide" (a decision node resolved) and
+  // "complete" (the action's performance completed); its "accept" is the accept
+  // node taking a message and its "send" a message posted.
   string kind = 1;
   // The clock's instant when the record was made: a quantity in the clock's
   // unit when the library reduces one, else a bare real of clock units.
@@ -2812,23 +2892,37 @@ message DocumentEvent {
   // The behavior the record is about, by the name the object exhibits it
   // under, else its declared name; empty for the run's own records.
   string machine = 4;
-  // The state entered, exited or stepped by an entry, exit or do record.
+  // The state entered, exited or stepped by an entry, exit or do record; the
+  // action node a wait, assign, decide or action accept record is at.
   string state = 5;
-  // A fired transition's source and target states.
+  // A fired transition's source and target states; a step's source node (empty
+  // where the token's flow starts) and the node it arrived at; a decide's
+  // branch taken, as `taken` names it.
   string from = 6;
   string to = 7;
   // The object a send was addressed to; unset for every other kind and a
   // send addressed to no object.
   DocumentObject target = 8;
-  // The signal or event accepted or sent, or the trigger a transition fired on.
+  // The signal or event accepted or sent, the trigger a transition fired on, or
+  // the message type or trigger a wait record waits for.
   string event = 9;
   // An accept's payload, one `name = value` entry per parameter in name order.
   repeated string payload = 10;
-  // A choice's alternatives, in the order they were offered, and the one taken.
+  // A choice's alternatives, in the order they were offered, and the one taken;
+  // a decide's branches as `<position>-><target node>`, and the one taken.
   repeated string alternatives = 11;
   string taken = 12;
   // The line the trace prints for the record.
   string text = 13;
+  // The action token a step, wait, assign, decide or action accept record is
+  // about, and the executor step (1-based) that made the record; 0 for a record
+  // of neither (a state machine's, a send from outside the model).
+  int64 token = 14;
+  int32 step = 15;
+  // The feature an assign record wrote and the value it holds since, as the
+  // run's outputs carry values.
+  string feature = 16;
+  Value value = 17;
 }
 
 // DocumentQueryColumn is one projected property, in projection order.
@@ -2861,6 +2955,53 @@ message RunDocumentQueryResponse {
   repeated DocumentQueryRow rows = 2;
 }
 
+// QueryOutcome is the record behind a document query that could not be run, an error
+// detail of the failed call: a pathError or modelError at its step, as -json's checks[].outcome.
+message QueryOutcome {
+  string kind = 1;    // "pathError" or "modelError"
+  string step = 2;    // the step the outcome is reported at, as "Named(Observatory::x)"
+  repeated QueryFailure failures = 3;        // a pathError's failures, one per failing element
+  repeated QueryFinding findings = 4;        // a modelError's findings
+  repeated QueryFailure path_failures = 5;   // a modelError's path failures from the same fan-out
+}
+
+// QueryFailure is one failure of one step on one element: what the step
+// expected, and what the model holds where the path stopped resolving.
+message QueryFailure {
+  string step = 1;
+  string expected = 2;
+  QueryFrontier frontier = 3;
+}
+
+// QueryFrontier is what the model holds where the path stopped: the last
+// element that resolved and what it offers in place of what was asked.
+message QueryFrontier {
+  string at = 1;                               // empty when nothing on the path resolved
+  repeated QueryFrontierMember members = 2;    // its members, when a name was expected
+  repeated QueryFrontierFeature features = 3;  // its features, when a feature was expected
+  repeated string kinds = 4;                   // the relationship kinds there are, when a kind was expected
+  string nearest = 5;                          // the closest spelling, when a name was expected
+}
+
+message QueryFrontierMember {
+  string name = 1;
+  string metaclass = 2;
+}
+
+message QueryFrontierFeature {
+  string name = 1;
+  string type = 2;  // empty for an untyped feature
+}
+
+// QueryFinding is one finding about an element at a step: a constraint the
+// model violates (ambiguousName, multiplicity, typing, unit) and what was observed.
+message QueryFinding {
+  string step = 1;
+  string element = 2;
+  string constraint = 3;
+  string observed = 4;
+}
+
 // RenderDocumentRequest renders a named document — a part def specializing
 // DocumentQueries::Document — to Markdown or HTML. A document binds its
 // queries' parameters in the model, so the request carries none.
@@ -2869,19 +3010,23 @@ message RenderDocumentRequest {
   // FQN of the document to render. Fails with NOT_FOUND when the model does
   // not declare it, and INVALID_ARGUMENT when it declares something else.
   string document_id = 2;
-  // Form to render: "markdown" (the default when empty) or "html", the
+  // Form to render: "markdown" (the default when empty), "html", the
   // standalone page with the default stylesheet that the CLI's -doc-form html
-  // writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
-  // converter toolchain and is not offered here.
+  // writes, or "asciidoc", the document the CLI's -doc-form asciidoc writes
+  // (under the render_document_asciidoc capability). Any other form fails
+  // with INVALID_ARGUMENT; PDF needs the CLI's converter toolchain and is not
+  // offered here.
   string form = 3;
 }
 
 // RenderDocumentResponse carries the rendered document in the form requested,
 // byte-for-byte what the CLI's -render-document writes: markdown for the
-// Markdown form, html for the HTML form, the other left empty.
+// Markdown form, html for the HTML form, asciidoc for the AsciiDoc form, the
+// others left empty.
 message RenderDocumentResponse {
   string markdown = 1;
   string html = 2;
+  string asciidoc = 4;
   // The file a rendered set writes this document to in the requested form
   // (-render-documents), which the other documents' links to it name.
   // Populated under the render_document_file_name capability.
@@ -2948,6 +3093,10 @@ message RenderNode {
   // The compartment of the parent node this node is drawn as a row of
   // ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
   string compartment = 14;
+  // The owner the node is drawn or listed under has the usage through typing,
+  // subclassification or subsetting rather than declares it; the notation
+  // prefixes its name with `^`. `name` stays the bare name.
+  bool inherited = 15;
 }
 
 // RenderPort is a feature drawn on a node's border.
@@ -2956,6 +3105,8 @@ message RenderPort {
   string name = 2;
   string type = 3;
   string direction = 4;
+  // The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
+  bool inherited = 5;
 }
 
 // RenderEdge joins two rendered nodes and may connect their ports.

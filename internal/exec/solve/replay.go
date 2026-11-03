@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -105,7 +106,7 @@ func (q *Query) Confirm(values map[string]ModelValue) (bool, string) {
 		if value.Kind != v.Sort.Kind {
 			return false, fmt.Sprintf("the witness gives %s no value of sort %s", v.Name, v.Sort.Name)
 		}
-		if value.Kind == SortDatatype && !contains(v.Sort.Values, value.Text) {
+		if value.Kind == SortDatatype && !slices.Contains(v.Sort.Values, value.Text) {
 			return false, fmt.Sprintf("the witness gives %s %s, not a value of %s", v.Name, value.Text, v.Sort.Name)
 		}
 		val, err := evaluatorValue(value, v.Binary64)

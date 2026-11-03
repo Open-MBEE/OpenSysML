@@ -3,6 +3,7 @@
 
 import { Code, ConnectError } from "@connectrpc/connect";
 import {
+  AuthenticationError,
   InvalidRequestError,
   ModelFileNotFoundError,
   ModelNotFoundError,
@@ -54,6 +55,7 @@ const CODE_ERRORS = new Map<Code, ServiceErrorClass>([
   [Code.Canceled, ServiceTimeoutError],
   [Code.Unavailable, ServiceUnavailableError],
   [Code.Unimplemented, UnsupportedOperationError],
+  [Code.Unauthenticated, AuthenticationError],
 ]);
 
 /**

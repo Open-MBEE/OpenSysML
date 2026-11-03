@@ -1,0 +1,24 @@
+{
+  "type": "instance",
+  "instantiate": "test::Rig",
+  "libraries": true,
+  "slots": {
+    "k.loopEnclosedCount": {"type": "Integer", "value": 3},
+    "k.loopSubperformanceCount": {"type": "Integer", "value": 0},
+    "k.loopSuboccurrenceCount": {"type": "Integer", "value": 0},
+    "k.loopTimeEnclosedCount": {"type": "Integer", "value": 6},
+    "k.firstEnclosedIsFirstBody": {"type": "Boolean", "value": true},
+    "k.bodyEnclosedCount": {"type": "Integer", "value": 1},
+    "k.bodySubperformanceCount": {"type": "Integer", "value": 1},
+    "k.bodyEnclosedIsInc": {"type": "Boolean", "value": true},
+    "k.loopyEnclosedCount": {"type": "Integer", "value": 1},
+    "k.loopySubperformanceCount": {"type": "Integer", "value": 1},
+    "k.loopStartTimeEnclosedCount": {"type": "Integer", "value": 1},
+    "k.entryActionIsEn": {"type": "Boolean", "value": true},
+    "k.smSubactionCount": {"type": "Integer", "value": 1},
+    "k.smSubperformanceCount": {"type": "Integer", "value": 3},
+    "k.smSubactionIsDoAction": {"type": "Boolean", "value": true},
+    "crate.faceSubitemCount": {"type": "Integer", "value": 12},
+    "crate.edgeSubitemCount": {"type": "Integer", "value": 2}
+  }
+}

@@ -323,6 +323,11 @@ XDG_CACHE_HOME=$C ./bin/sysml -validate file.kerml > warm.out 2>&1; echo $?
 cmp cold.out warm.out    # cold and warm must be byte-identical
 ```
 
+- Records are keyed by the build identity (`internal/workspace/libs/buildid.go`: a clean checkout's
+  revision, else the binary's linker build ID) besides the library content and the format version,
+  so no `rm -rf ~/.cache/sysml-ls` is needed between rebuilds: a binary built from different code
+  misses every record and derives again, and builds of one clean checkout share them. Redirect or clear
+  the cache only to measure a cold start or to prove cold == warm.
 - A known reproducer class: implicit parameter redefinition against cached (Decl-less) library
   symbols, e.g. `package R { behavior b { step u : FeatureReferencingPerformances::FeatureWritePerformance { in onOccurrence { feature redefines startingAt; } } } }`
   in a `.kerml` file — cold-clean/warm-broken before cache format 21.
@@ -1702,10 +1707,12 @@ And prove "never listened" with `ss -ltn`, since an exit code alone does not. Tw
 real time:
 
 - `-port 0` makes the *resolved* port observable only in the log line
-  `msg="gRPC server listening" addr=[::]:<port>`. The `-health-port 0` line logs the literal
-  `addr=:0`, so a naive `grep -o 'addr=[^ ]*' | head -1` grabs the health line and you dial port 0
-  ("Connection refused"). Always filter on `gRPC server listening` first, and take the port with
-  `${ADDR##*:}` — `cut -d: -f3` yields `]` for `[::]:41325`.
+  `msg="Connect server listening" addr=127.0.0.1:<port>` (`gRPC server listening` under
+  `-transport grpc`; loopback, since the service binds `localhost` unless `-host` says otherwise,
+  and `-host 0.0.0.0` needs `-token`/`-token-file`/`OPENSYSML_GRPC_TOKEN` or
+  `-allow-unauthenticated`). The `-health-port 0` line logs the literal `addr=localhost:0`, so a
+  naive `grep -o 'addr=[^ ]*' | head -1` grabs the health line and you dial port 0 ("Connection
+  refused"). Always filter on `server listening` first, and take the port with `${ADDR##*:}`.
 - Expected values at 0cf94e80 for `tests/grpc/testdata/conformance/instantiate_derived_slot.sysml`:
   `mass` → `materialized=True kind=real_value 1500.0`, `doubled` → `real_value 3000.0`; a missing
   model path raises `opensysml.errors.ModelFileNotFoundError` ("file not found: open …") and the
@@ -1824,7 +1831,7 @@ to A/B the two surfaces on the same model. The call shapes are **not** the ones 
 suggest: there is no `parse_file` on `Connection` — use `c.load_from_content(src)` (or `c.load(path)`),
 which returns a `Model` whose hash is `model.hash` (not `.model_hash`). Then
 `c.execute_action("Pkg::action", model.hash)` returns a plain `{name: value}` dict, and a runtime
-failure raises `opensysml.errors.RuntimeError` with the executor's message
+failure raises `opensysml.ExecutionError` with the executor's message
 (`action execution failed: execute action: …`). If you must attach to a service you started
 yourself, `opensysml.connect("localhost", 50551, auto_start=False)` avoids the
 `Binary not found at ~/.opensysml/bin/sysml-grpc` error — but prefer the auto-start path per above.
@@ -2889,10 +2896,10 @@ on `main`; the "old" shapes double as A/B canaries against the parent commit.
   naming a missing feature gives
   `<error: connector end cannot be attached: anonymous connector end "a.nope" at <repl>:8:17: member nope not found in instance>`
   — assert the `<repl>:line:col` is present, since that is exactly what the pre-fix path lacked.
-  A connector with multiplicity (`connection multi : Link[2] connect a.p to b.q;`) gives
-  `sys.multi end "multi" at <repl>:8:9: a connector of more than one object has no set of ends to
-  attach` — located too, so assert the `<repl>:line:col` on both. Follow either with `%eval 1 + 1` →
-  `= 2` to show the session survived.
+  A connector with multiplicity (`connection multi : Link[2] connect a.p to b.q;`) is two Links,
+  each with both ends attached (`%eval sys.multi#(2).a == sys.a.p` → `= true`, `size(sys.multi)` →
+  `= 2`), and `[0..*]` an empty `[]`; a `[2]` whose end names a missing feature is refused whole with
+  the same located error. Follow either with `%eval 1 + 1` → `= 2` to show the session survived.
 - **A connector naming itself at an end is `ErrCyclicSlot`, not a hang.** `connection link connect
   link to a.p;` and a mutual pair (`connection here connect there to a.p;` /
   `connection there connect here to a.p;`) both report a cycle.
@@ -3139,7 +3146,7 @@ Discovered while testing inline `entry action { … }` bodies and calc `out` ass
   independent negative assertions. Useful expected strings: `no value: output never assigned`,
   `output bound more than once` (declaration value plus a body assignment; two *body* assignments
   are legal, the last one winning), `assignment outside the calculation body: <name> is not declared
-  by the calculation`, `no result expression: calc … has no return expression`.
+  by the calculation`, `no value: calc … has no return expression`.
 
 ## "Did you mean" suggestions on unresolved references (PR #167)
 
@@ -3440,8 +3447,8 @@ number rather than quoting the table.
   `m.eval('mass', subject='Demo::sedan')` must be `1200.0`. Without the redefinition both paths
   return the same number and the test proves nothing.
   - On `Model` the kwarg is `subject=`; on `Connection.eval` it is `subject_symbol_id=` and the
-    model hash comes **second**. Module-level `opensysml.evaluate` also takes `subject=`; the
-    deprecated `opensysml.eval` forwards to it and warns `DeprecationWarning`.
+    model hash comes **second**. Module-level `opensysml.evaluate` also takes `subject=` (the
+    `opensysml.eval` alias was removed in 0.12.0).
   - A `subject=` plus an explicit `context_symbol_id=` still reads the object, and derived slots
     (`attribute doubled = mass * 2.0`) follow the object too.
   - A *definition* as subject is accepted (it is instantiated and reads its own redefinition), and an
@@ -3634,7 +3641,7 @@ Discriminators that separate a working string runtime from a broken one:
 - A 512 KiB string built by doubling inside a `for` loop (`acc = acc + acc` ×16, then
   `Length(acc)` → 524288) completes in seconds; use it as the cheap no-hang/no-quadratic check.
   Note that a calc whose body assigns to a `return acc` feature returns no value when *invoked from
-  another calc's expression* (`calculation returned no value`), so compute the length inside the
+  another calc's expression* (`no value: calc … ended without a return`), so compute the length inside the
   same body rather than wrapping the loop calc in another one.
 
 ## Runtime budgets, and `calc` recursion in particular (PR #198)
@@ -3944,19 +3951,18 @@ tests skip rather than fail.
 
 ## The evaluate/eval split and generated-base planning (PR #218)
 
-- **Since the rename, `opensysml.evaluate` is the real module-level evaluator and `opensysml.eval` is a
-  forwarder that emits `DeprecationWarning` and is out of `opensysml.__all__`.** Test both sides:
-  `evaluate(...)` must produce **zero** DeprecationWarnings (catch them with
-  `warnings.catch_warnings(record=True)` + `simplefilter("always")`), `eval(...)` must return the
-  identical value and warn exactly once with a message naming `opensysml.evaluate`, and
-  `from opensysml import *` must bind `evaluate` but not `eval`. `subject` is the **last** parameter of
-  `evaluate` precisely so a pre-rename positional call
-  `eval(expr, None, hash, None, host, port)` still binds host/port — prove that argument really is the
-  host by also calling it with a bogus address (`"203.0.113.9", 59999`) and requiring a
+- **`opensysml.evaluate` is the module-level evaluator; the `opensysml.eval` forwarder and the
+  `opensysml.RuntimeError` / `opensysml.errors.RuntimeError` aliases were removed in 0.12.0** (they
+  warned `DeprecationWarning` from 0.9.0). Test that `evaluate(...)` produces **zero** warnings (catch
+  them with `warnings.catch_warnings(record=True)` + `simplefilter("always")`), that
+  `from opensysml import *` binds `evaluate` and `ExecutionError` but neither `eval` nor
+  `RuntimeError`, and that `opensysml.eval` / `opensysml.errors.RuntimeError` raise `AttributeError`.
+  `subject` is the **last** parameter of `evaluate`, so a pre-rename positional call
+  `evaluate(expr, None, hash, None, host, port)` still binds host/port — prove that argument really is
+  the host by also calling it with a bogus address (`"203.0.113.9", 59999`) and requiring a
   `ConnectionError`; that call takes ~30-60s to time out, so give the runner a generous timeout.
-- **`opensysml.errors.RuntimeError` is a warn-on-access alias of `ExecutionError`** served by the module
-  `__getattr__` and absent from `errors.__all__`. Check it by *catching a real failure* with it
-  (`except opensysml.errors.RuntimeError` around a cyclic-slot eval), not just by identity.
+- **`opensysml.ExecutionError` is also a built-in `RuntimeError`**, so `except RuntimeError` catches a
+  real failure (a cyclic-slot eval) — check it by catching, not just by identity.
 - **`generate.py` elides a base that another declared base already specializes, silently and by design**
   (`_without_implied`): `part def Backwards :> Vehicle, Hybrid` where `Hybrid :> Vehicle` emits
   `class Backwards(Hybrid):` with **no** comment, because `Vehicle` is still in the MRO. Only a base the
@@ -4687,7 +4693,7 @@ states no rendering), **interconnection**, **state**, **action**, **table**
 Forms and defaults (`internal/ir/view/form.go`):
 
 When verifying walkthrough output, test the literal command in a real terminal:
-`-render` is destination-dependent (text at a TTY, machine form through a pipe).
+`-render` writes text at a TTY and the machine form through a pipe or into a file, whatever the `-o` extension.
 A piped discovery run can therefore match a Mermaid transcript while the user's
 terminal command does not. Use explicit `-render-form mermaid` when the walkthrough
 promises Mermaid independent of destination; compare the shown diagram block and
@@ -4978,7 +4984,7 @@ Parser PRs that "unblock a form" are best proven with three surfaces, in this or
    `%calc Sc::scaled 21.0` printing `= 42.00`. Typed runtime errors are visible the same way, e.g.
    `error: evaluation failed: unsupported declaration in a body expression: …` for a collection body
    that declares a feature, and
-   `error: calc invocation failed: no result expression: …` for a returned usage with no value.
+   `error: calc invocation failed: no value: …` for a returned usage with no value.
    Always follow an error with `%eval 1 + 1` → `= 2` to show the session survived.
 3. **A whole-corpus A/B sweep** for regressions:
 

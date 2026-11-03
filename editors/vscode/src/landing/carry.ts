@@ -17,14 +17,11 @@ export function obstacles(entries: Iterable<PlacedNode>, moving: string): Placed
     inner.x + inner.width <= outer.x + outer.width &&
     inner.y + inner.height <= outer.y + outer.height;
   return all.filter((entry) => {
-    if (entry.hidden) {
-      return false;
-    }
     const project = projectOf(entry);
     if (project.node.id === moving) {
       return false;
     }
-    return project === entry || project.hidden || !within(entry.box, project.box);
+    return project === entry || !within(entry.box, project.box);
   });
 }
 

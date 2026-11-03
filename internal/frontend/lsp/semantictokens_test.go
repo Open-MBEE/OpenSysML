@@ -82,7 +82,7 @@ const tokenSource = `package P {
 func TestSemanticTokensFullClassifiesDeclarationsAndReferences(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/tokens.sysml").Filename()
+	name := uri.File("/tmp/tokens.sysml").FsPath()
 	ws.Open(name, []byte(tokenSource), 1)
 
 	res, err := s.SemanticTokensFull(context.Background(), &protocol.SemanticTokensParams{
@@ -126,7 +126,7 @@ func TestSemanticTokensFullClassifiesDeclarationsAndReferences(t *testing.T) {
 func TestSemanticTokensFullEncodingIsRelativeAndSorted(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/tokens_order.sysml").Filename()
+	name := uri.File("/tmp/tokens_order.sysml").FsPath()
 	ws.Open(name, []byte(tokenSource), 1)
 
 	res, err := s.SemanticTokensFull(context.Background(), &protocol.SemanticTokensParams{
@@ -163,7 +163,7 @@ func TestSemanticTokensFullEncodingIsRelativeAndSorted(t *testing.T) {
 func TestSemanticTokensFullSplitsMultiLineComment(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/tokens_multiline.sysml").Filename()
+	name := uri.File("/tmp/tokens_multiline.sysml").FsPath()
 	src := "package P {\n    //* two\n     * lines\n     */\n    part w;\n}\n"
 	ws.Open(name, []byte(src), 1)
 
@@ -192,7 +192,7 @@ func TestSemanticTokensFullSplitsMultiLineComment(t *testing.T) {
 func TestSemanticTokensFullUsesUTF16Units(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/tokens_utf16.sysml").Filename()
+	name := uri.File("/tmp/tokens_utf16.sysml").FsPath()
 	// The note holds one astral-plane rune, two UTF-16 units wide.
 	ws.Open(name, []byte("package P {\n    // \U0001F31F\n    part w;\n}\n"), 1)
 
@@ -217,7 +217,7 @@ func TestSemanticTokensFullUsesUTF16Units(t *testing.T) {
 func TestSemanticTokensRangeFiltersToTheRange(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/tokens_range.sysml").Filename()
+	name := uri.File("/tmp/tokens_range.sysml").FsPath()
 	ws.Open(name, []byte(tokenSource), 1)
 
 	res, err := s.SemanticTokensRange(context.Background(), &protocol.SemanticTokensRangeParams{

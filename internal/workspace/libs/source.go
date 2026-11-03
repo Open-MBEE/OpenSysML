@@ -45,6 +45,11 @@ func DefaultSource() Source {
 	return BundledSource()
 }
 
+// LibraryPath is the directory LibraryPathEnvVar names, "" when the bundled
+// library is in use: the directory the names of DefaultSource's files are
+// relative to.
+func LibraryPath() string { return envvar.Lookup(LibraryPathEnvVar) }
+
 // EmbeddedSource returns the standard library exactly as OMG published it,
 // whatever LibraryPathEnvVar says. It is the text the declared errata are
 // verified against; BundledSource is what a process loads.

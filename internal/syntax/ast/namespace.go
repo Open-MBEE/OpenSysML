@@ -181,6 +181,20 @@ func IsFeatureChain(node Node) bool {
 	return false
 }
 
+// FeatureChainBase flattens a nested feature chain: `lander.mass.mDry` is one
+// chain of members from `lander`, not a chain through the value of `lander.mass`.
+func FeatureChainBase(n *FeatureChainExpr) (Node, []NameSegment) {
+	operand, parts := n.Operand, n.Member.Parts
+	for {
+		inner, ok := operand.(*FeatureChainExpr)
+		if !ok || inner.Member == nil || len(inner.Member.Parts) == 0 {
+			return operand, parts
+		}
+		parts = append(append([]NameSegment{}, inner.Member.Parts...), parts...)
+		operand = inner.Operand
+	}
+}
+
 // namingReference returns the named reference subsetting among rels, the
 // naming feature of a member named by what it references.
 func namingReference(rels []*Relationship) *Relationship {
@@ -252,6 +266,9 @@ type RootNamespace struct {
 	// UndefinedOperators are the `~` operator expressions of the document in
 	// source order: KerML leaves DataFunctions::'~' undefined, so a tool warns at each.
 	UndefinedOperators []*OperatorExpr
+	// TypedBy counts the typings the document spells `typed by` (KerML.xtext:600),
+	// on declarations, prefix metadata and body-expression parameters alike.
+	TypedBy int
 }
 
 // PrefixMetadata records a `# QualifiedName` metadata annotation reference.
@@ -267,6 +284,9 @@ type PrefixMetadata struct {
 	HasBody bool
 	// Elements the usage annotates: `@Meta about a, b;` (SysML.xtext:145-147).
 	About []*QualifiedName
+	// TypedBy spans the `typed by` the typing was spelled with (KerML.xtext:1091);
+	// zero for `:` or `defined by`.
+	TypedBy source.Span
 }
 
 // Namespace is `namespace <id> { ... }`.

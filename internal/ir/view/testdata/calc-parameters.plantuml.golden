@@ -1,0 +1,57 @@
+@startuml
+' ParameterCalcViews::calculations — tree rendering (render asTreeDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«calc»//</size>\n**add**\nparameters\nin x\nin y\nout result" as n0 <<calc>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Sensor**" as n1 <<part def>>
+class "<size:10>//«attribute»//</size>\n**a**" as n2 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**b**" as n3 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**gain**" as n4 <<attribute>> <<usage>>
+class "<size:10>//«calc»//</size>\n**sum**\nparameters\nin x\nin ^y\nout ^result" as n5 <<calc>> <<usage>>
+n1 -- n5
+class "<size:10>//«calc»//</size>\n**scaled**\nparameters\nin factor\nin ^x\ninout ^count\nout ^doubled\nout ^r" as n6 <<calc>> <<usage>>
+n1 -- n6
+n1 o-- n2
+n1 o-- n3
+n1 o-- n4
+@enduml

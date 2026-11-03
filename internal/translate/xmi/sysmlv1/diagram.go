@@ -147,13 +147,7 @@ func ownDocumentation(raw *xmi.Element) string {
 		if others {
 			continue
 		}
-		body := c.Attr("body")
-		if body == "" {
-			if b := c.First("body"); b != nil {
-				body = b.Text
-			}
-		}
-		if body = strings.TrimSpace(body); body != "" {
+		if body := strings.TrimSpace(c.Attr("body")); body != "" {
 			return body
 		}
 	}

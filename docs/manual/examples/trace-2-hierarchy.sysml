@@ -234,7 +234,7 @@ package LanderHierarchy {
 		attribute redefines title = "Lander Requirement Traceability";
 
 		part intro : Paragraph {
-			attribute redefines text = "The lander specification as a tree, what satisfies and verifies each requirement, where coverage is missing, and which checks fail.";
+			:>> text = "The lander specification as a tree, what satisfies and verifies each requirement, where coverage is missing, and which checks fail.";
 		}
 
 		part tree : Section {

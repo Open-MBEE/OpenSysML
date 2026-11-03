@@ -37,10 +37,11 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 		if descendants[symbols.KeyOf(elem)] {
 			continue
 		}
-		out.Roots = append(out.Roots, r.treeNode(view, elem, ids, map[*symbols.Symbol]bool{}, 0, true, out))
+		walk := treeWalk{view: view, ids: ids, path: expansion{}, out: out}
+		out.Roots = append(out.Roots, r.treeNode(walk, elem, nil, 0, true))
 	}
 	out.Roots = append(out.Roots, r.nestedViewNodes(view, ids, map[*symbols.Symbol]bool{view: true}, out)...)
-	r.treeEdges(out)
+	r.exposedRelationships(view, exposed, ids, r.treeEdges(out), out)
 }
 
 // exposedDescendants is the key of each exposed element a surviving root's
@@ -103,7 +104,14 @@ func (r *Renderer) treeDescendants(view, sym *symbols.Symbol, members func(*symb
 		defer leave(path, added)
 		folded := depth >= bound || r.collapsedIn(view, sym)
 		for _, member := range members(sym) {
-			if recursive != nil && member.Owner() != sym || folded && !pinnedAt(sym, member) {
+			if recursive != nil && member.Owner() != sym {
+				continue
+			}
+			if treeParameter(sym, member) {
+				out[symbols.KeyOf(member)] = true
+				continue
+			}
+			if folded && !pinnedAt(sym, member) {
 				continue
 			}
 			out[symbols.KeyOf(member)] = true
@@ -138,7 +146,8 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 				if descendants[symbols.KeyOf(elem)] {
 					continue
 				}
-				node.Children = append(node.Children, r.treeNode(sub, elem, ids, map[*symbols.Symbol]bool{}, 0, true, out))
+				walk := treeWalk{view: sub, ids: ids, path: expansion{}, out: out}
+				node.Children = append(node.Children, r.treeNode(walk, elem, nil, 0, true))
 			}
 		}
 		node.Children = append(node.Children, r.nestedViewNodes(sub, ids, rendered, out)...)
@@ -150,26 +159,40 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 	return nodes
 }
 
+// treeWalk is what one walk down a tree shares between its nodes: the view
+// (nil outside any view), the node ids, the expansion path and the rendering.
+type treeWalk struct {
+	view *symbols.Symbol
+	ids  *nodeIDs
+	path expansion
+	out  *Rendering
+}
+
 // treeNode renders one element and what it declares. qualified names the node by
 // qualified name, which is what an exposed element is reported by; a member
-// nested in it is named as it was declared. view is the view the element is
-// shown in, nil outside any view.
-func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expansion, depth int, qualified bool, out *Rendering) *Node {
-	node := r.treeNodeShallow(view, sym, ids, path, depth, qualified, out)
-	if path[sym] {
+// nested in it is named as it was declared.
+func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int, qualified bool) *Node {
+	view, out := walk.view, walk.out
+	node := r.treeNodeShallow(walk, sym, owner, qualified)
+	if walk.path[sym] {
 		return node
 	}
-	recursive, added := r.enter(path, sym)
-	defer leave(path, added)
+	recursive, added := r.enter(walk.path, sym)
+	defer leave(walk.path, added)
 	if recursive != nil {
 		node.Detail = detailWith(node.Detail, recursionNote(recursive))
 	}
-	// At the depth bound, or collapsed, an element keeps its ports and pins — they
-	// count at their owner's depth — and nothing else nested is drawn.
+	// A parameter is a pin of its owner's node, drawn at every depth. At the depth
+	// bound, or collapsed, an element keeps its ports and pins — they count at
+	// their owner's depth — and nothing else nested is drawn.
 	bound, cut := r.walkBound(view), 0
 	folded := depth >= bound || collapsed(node)
 	for _, member := range r.walkMembers(view, sym) {
 		if recursive != nil && member.Owner() != sym {
+			continue
+		}
+		if treeParameter(sym, member) {
+			r.pinParameter(view, node, sym, member, out)
 			continue
 		}
 		if folded && !pinnedAt(sym, member) {
@@ -178,7 +201,9 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expans
 			}
 			continue
 		}
-		node.Children = append(node.Children, r.treeNode(view, member, ids, path, depth+1, false, out))
+		child := r.treeNode(walk, member, sym, depth+1, false)
+		child.Inherited = member.Owner() != sym
+		node.Children = append(node.Children, child)
 	}
 	if cut > 0 {
 		node.Detail = detailWith(node.Detail, cutNote(bound))
@@ -189,16 +214,17 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expans
 
 // treeNodeShallow draws sym without recursively drawing its members; one on
 // the path being expanded above it is noted as already shown.
-func (r *Renderer) treeNodeShallow(view, sym *symbols.Symbol, ids *nodeIDs, path expansion, depth int, qualified bool, out *Rendering) *Node {
+func (r *Renderer) treeNodeShallow(walk treeWalk, sym, owner *symbols.Symbol, qualified bool) *Node {
+	view, out := walk.view, walk.out
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
 	}
-	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: r.headType(sym), Typings: r.headTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(view, sym, out),
-		Style: r.styleOf(view, sym, out), Referential: referenceRow(sym)}
+	node := &Node{ID: walk.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
+		Type: r.headType(sym), Typings: r.headTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.inheritedGeometryOf(view, owner, sym, out),
+		Style: r.inheritedStyleOf(view, owner, sym, out), Referential: r.referenceRow(sym)}
 	out.noteTreeSite(node, view, sym)
-	if path[sym] {
+	if walk.path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")
 		return node
 	}
@@ -245,28 +271,98 @@ func recursionNote(typ *symbols.Symbol) string {
 }
 
 // effectiveMembers returns the elements a containment walk shows beneath an
-// element: the members it declares in its own body, then those it inherits
-// from its definitions and from the features it redefines or subsets (its
-// effective features, KerML Type::feature), source by source in declaration
-// order. A redefining member stands in for the one it redefines, and the
-// connectors a definition declares without a name come along with its named
-// members. A variant is a choice, not a feature of what the variation types,
-// and a member the standard library declares stays out: an attribute typed by
-// a library quantity does not unfold into it.
+// element: the members it declares in its own body, in declaration order, then
+// those it inherits from its definitions and from the features it redefines or
+// subsets (its effective features, KerML Type::feature), source by source in
+// declaration order. A redefining member stands in for the one it redefines,
+// in its place, and the own members declared after it follow it there, so
+// refining a part in a usage body does not move it. The connectors a definition
+// declares without a name come along with its named members. A variant is a
+// choice, not a feature of what the variation types, and a member the standard
+// library declares stays out: an attribute typed by a library quantity does not
+// unfold into it.
 func (r *Renderer) effectiveMembers(sym *symbols.Symbol) []*symbols.Symbol {
-	out := r.containedMembers(sym)
+	own := r.containedMembers(sym)
 	if sym == nil {
 		return nil
 	}
-	seen := make(map[*symbols.Symbol]bool, len(out))
-	for _, member := range out {
+	standsIn := r.standIns(sym, own)
+	inherited := r.inheritedMembers(sym, own, standsIn)
+	at := make(map[*symbols.Symbol]int, len(inherited))
+	for i, member := range inherited {
+		if standIn := standsIn[member]; standIn != nil {
+			if _, ok := at[standIn]; !ok {
+				at[standIn] = i
+			}
+		}
+	}
+	// Own members by the inherited slot they follow: -1 before every inherited
+	// member, otherwise the slot of the last redefining member declared before them.
+	follow := map[int][]*symbols.Symbol{}
+	slot := -1
+	for _, member := range own {
+		if i, ok := at[member]; ok {
+			slot = i
+			continue
+		}
+		follow[slot] = append(follow[slot], member)
+	}
+	out := make([]*symbols.Symbol, 0, len(own)+len(inherited))
+	seen := make(map[*symbols.Symbol]bool, len(own)+len(inherited))
+	emit := func(member *symbols.Symbol) {
+		if !seen[member] {
+			seen[member] = true
+			out = append(out, member)
+		}
+	}
+	for _, member := range follow[-1] {
+		emit(member)
+	}
+	for i, member := range inherited {
+		if standIn := standsIn[member]; standIn != nil {
+			member = standIn
+		}
+		emit(member)
+		for _, member := range follow[i] {
+			emit(member)
+		}
+	}
+	return out
+}
+
+// standIns maps each inherited feature an own member masks (KerML 7.4.7) to that member;
+// a redefinition masking nothing, such as a parameter's positional one, stands in for none.
+func (r *Renderer) standIns(sym *symbols.Symbol, own []*symbols.Symbol) map[*symbols.Symbol]*symbols.Symbol {
+	out := map[*symbols.Symbol]*symbols.Symbol{}
+	for _, member := range own {
+		for _, base := range r.model.MaskingRedefinedFeatures(member) {
+			if base.Owner() != sym && out[base] == nil {
+				out[base] = member
+			}
+		}
+	}
+	return out
+}
+
+// inheritedMembers returns the members sym inherits that a containment walk shows, source
+// by source in declaration order, the ones an own member masks (standsIn) kept in place.
+func (r *Renderer) inheritedMembers(sym *symbols.Symbol, own []*symbols.Symbol, standsIn map[*symbols.Symbol]*symbols.Symbol) []*symbols.Symbol {
+	seen := make(map[*symbols.Symbol]bool, len(own))
+	for _, member := range own {
 		seen[member] = true
 	}
-	inherited := map[*symbols.Symbol]bool{}
+	shown := map[*symbols.Symbol]bool{}
 	for _, member := range r.model.MembersOf(sym) {
 		if member != sym && !seen[member] && member.Owner() != sym && member.IsFeature() && !semantics.IsVariant(member) &&
 			r.contentKind(member) && !r.libraryDeclared(member) {
-			inherited[member] = true
+			shown[member] = true
+		}
+	}
+	var out []*symbols.Symbol
+	add := func(member *symbols.Symbol) {
+		if !seen[member] {
+			seen[member] = true
+			out = append(out, member)
 		}
 	}
 	for _, source := range r.model.MemberSources(sym) {
@@ -278,17 +374,14 @@ func (r *Renderer) effectiveMembers(sym *symbols.Symbol) []*symbols.Symbol {
 			anonymous[member] = true
 		}
 		for _, member := range r.containedMembers(source) {
-			if seen[member] || !(inherited[member] || (anonymous[member] && !r.libraryDeclared(member))) {
-				continue
+			if shown[member] || standsIn[member] != nil || (anonymous[member] && !r.libraryDeclared(member)) {
+				add(member)
 			}
-			seen[member] = true
-			out = append(out, member)
 		}
 	}
-	for _, member := range r.model.MembersOf(sym) {
-		if inherited[member] && !seen[member] {
-			seen[member] = true
-			out = append(out, member)
+	for _, member := range r.model.MembersOfIncludingRedefined(sym) {
+		if shown[member] || standsIn[member] != nil {
+			add(member)
 		}
 	}
 	return out
@@ -305,7 +398,7 @@ func (r *Renderer) containedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	seen := map[*symbols.Symbol]bool{}
 	for _, list := range [][]*symbols.Symbol{sym.Scope.Members(), sym.Scope.AnonymousMembers()} {
 		for _, member := range list {
-			if member == sym || seen[member] || !r.contentKind(member) {
+			if member == sym || seen[member] || member.Implied() || !r.contentKind(member) {
 				continue
 			}
 			seen[member] = true

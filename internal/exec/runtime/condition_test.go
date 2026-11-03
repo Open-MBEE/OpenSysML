@@ -143,7 +143,8 @@ func TestConstraintOverUndeterminedOperandIsNotDecided(t *testing.T) {
 	}
 }
 
-// An assumption that does not hold is not a violation: assumptions are trusted.
+// An assumption that does not hold is not a violation: `allTrue(assumptions()) implies
+// allTrue(constraints())` is true whatever the required condition reads.
 func TestRequirementAssumptionIsNotRequired(t *testing.T) {
 	src := `
 		package test {
@@ -152,15 +153,22 @@ func TestRequirementAssumptionIsNotRequired(t *testing.T) {
 				assume constraint { a <= 1.0 }
 				require constraint { a <= 3.0 }
 			}
+			requirement moot {
+				attribute a = 2.0;
+				assume constraint { a <= 1.0 }
+				require constraint { a <= 0.0 }
+			}
 		}
 	`
 	ctx, pkg := conditionFixture(t, src)
-	satisfied, err := ctx.EvaluateRequirement(requirementNamed(t, pkg, "pessimistic"), pkg)
-	if err != nil {
-		t.Fatalf("evaluation failed: %v", err)
-	}
-	if !satisfied {
-		t.Error("a false assumption should not violate the requirement")
+	for _, name := range []string{"pessimistic", "moot"} {
+		satisfied, err := ctx.EvaluateRequirement(requirementNamed(t, pkg, name), pkg)
+		if err != nil {
+			t.Fatalf("%s: evaluation failed: %v", name, err)
+		}
+		if !satisfied {
+			t.Errorf("%s: a false assumption makes the requirement hold", name)
+		}
 	}
 }
 
@@ -185,8 +193,8 @@ func TestRequirementWithOnlyAssumptionsIsSatisfied(t *testing.T) {
 	}
 }
 
-// A negated element stating only assumptions has nothing to deny, so it is not a
-// verdict either way.
+// A negated constraint stating only assumptions has nothing to deny, so its
+// result binds no value, not a verdict either way.
 func TestNegatedConstraintWithOnlyAssumptionsIsNotAVerdict(t *testing.T) {
 	src := `
 		package test {
@@ -207,8 +215,8 @@ func TestNegatedConstraintWithOnlyAssumptionsIsNotAVerdict(t *testing.T) {
 		t.Fatal("constraint feature cn not found")
 	}
 	satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), inst)
-	if !errors.Is(err, ErrNoConditions) {
-		t.Errorf("expected ErrNoConditions, got: %v", err)
+	if !errors.Is(err, ErrNoValue) || !strings.Contains(err.Error(), "no required condition") {
+		t.Errorf("expected ErrNoValue naming the missing required condition, got: %v", err)
 	}
 	if satisfied {
 		t.Error("an assumption alone is not a verdict about a negated element")

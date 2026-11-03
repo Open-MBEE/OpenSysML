@@ -1052,3 +1052,56 @@ func TestARejectedSubmissionIsLocatedInItself(t *testing.T) {
 		t.Errorf("the error was located at %s:%d:%d, want the submitted text at line 1, column 1", d.File, d.Line, d.Column)
 	}
 }
+
+func TestASessionOpenedWithARootLoadsTheFilesUnderItOnDemand(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "models"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "models", "lib.sysml"), []byte("package Lib { attribute a = 3; }\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cs := connect(t, root)
+
+	var opened SessionOpened
+	must(t, cs, "session_open", args("session", "ws", "root", "models"), &opened)
+	var submitted SubmitResult
+	must(t, cs, "session_submit", args("session", "ws", "text", "private import Lib::*;"), &submitted)
+	if !submitted.Accepted || len(submitted.Diagnostics) != 0 || !slices.Contains(submitted.Declared, "Lib") {
+		t.Errorf("submit over a rooted session = %+v", submitted)
+	}
+	if !strings.Contains(strings.Join(submitted.Notices, "\n"), "note: loaded lib.sysml, which declares Lib") {
+		t.Errorf("notices = %v", submitted.Notices)
+	}
+	var ev EvalResult
+	must(t, cs, "session_eval", args("session", "ws", "expression", "a"), &ev)
+	if ev.Text != "3" {
+		t.Errorf("a = %q", ev.Text)
+	}
+
+	// The default session has no root: the same import stays unresolved.
+	must(t, cs, "session_submit", args("text", "private import Lib::*;"), &submitted)
+	if submitted.Accepted || len(submitted.Diagnostics) == 0 {
+		t.Errorf("submit over the default session = %+v", submitted)
+	}
+	var cmd CommandResult
+	must(t, cs, "repl_command", args("line", "%workspace"), &cmd)
+	if !strings.HasPrefix(cmd.Output, "no workspace root") {
+		t.Errorf("%%workspace on the default session printed %q", cmd.Output)
+	}
+}
+
+func TestASessionRootOutsideTheWorkspaceIsRefused(t *testing.T) {
+	root := t.TempDir()
+	cs := connect(t, root)
+	for _, bad := range []string{"..", filepath.Join(root, "missing"), t.TempDir()} {
+		if res := call(t, cs, "session_open", args("session", "ws", "root", bad), nil); !res.IsError {
+			t.Errorf("session_open with root %q succeeded", bad)
+		}
+	}
+	var names SessionList
+	must(t, cs, "session_list", args(), &names)
+	if slices.Contains(names.Sessions, "ws") {
+		t.Errorf("a refused session was left open: %v", names.Sessions)
+	}
+}

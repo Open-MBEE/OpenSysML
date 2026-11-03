@@ -3,7 +3,9 @@
 ## Overview
 
 **Corpora:** the three pinned OMG pilot corpora, fetched by `./scripts/download-pilot-corpora.sh`
-at release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5` (`scripts/pilot-pin.sh`)
+at release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` (`scripts/pilot-pin.sh`)
+
+`scripts/check-upstream-drift.sh` (the weekly `Upstream drift` workflow) reports when either upstream repository publishes a release newer than this pin, when the pinned tag moves, whether the newest release changed the specification PDFs whose clause numbers [spec-compliance.md](spec-compliance.md) cites, and when the OMG specification pages list a version it has not recorded. It re-pins nothing: a failing run is the cue to move the pin here deliberately and re-run the downloads and gates below.
 
 | Root | Directory | Files |
 |---|---|---|
@@ -142,7 +144,7 @@ go test -count=1 ./tests/corpus -run TestPilotCorpora
 
 The pilot's XMI serialization of the standard library is fetched the same way, from the release
 repository at the pin in `scripts/pilot-pin.sh`, into `build/pilot-library-xmi/`; the identity gate
-over it (`TestPilotLibraryXMI` in `internal/core/identity`) skips while it is absent and fails under
+over it (`TestPilotLibraryXMI` in `tests/identity`) skips while it is absent and fails under
 `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`, which CI sets:
 
 ```bash

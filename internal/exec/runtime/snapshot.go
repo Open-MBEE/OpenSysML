@@ -85,6 +85,7 @@ type runCapture struct {
 	holdingDriven        bool
 	clockRun             *runState
 	stateExecutors       []*StateExecutor
+	actionExecutors      []*ActionExecutor
 }
 
 // traceCapture is a recorder's state at the mark. Records are only appended to, cut
@@ -197,9 +198,11 @@ func (ctx *Context) snapshotWith(actions []*ActionExecutor, states []*StateExecu
 	}
 	for _, capture := range s.actions {
 		s.captureRunState(capture.driven)
+		s.captureRunState(capture.under)
 	}
 	for _, capture := range s.states {
 		s.captureRunState(capture.driven)
+		s.captureRunState(capture.under)
 	}
 	ctx.journals++
 	ctx.snapshots = append(ctx.snapshots, s)
@@ -450,6 +453,7 @@ func (ctx *Context) captureRun() runCapture {
 		holdingDriven:        ctx.holdingDriven,
 		clockRun:             ctx.clockRun.state,
 		stateExecutors:       slices.Clone(ctx.stateExecutors),
+		actionExecutors:      slices.Clone(ctx.actionExecutors),
 	}
 	return c
 }
@@ -474,6 +478,7 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.holdingDriven = c.holdingDriven
 	ctx.clockRun.state = c.clockRun
 	ctx.stateExecutors = slices.Clone(c.stateExecutors)
+	ctx.actionExecutors = slices.Clone(c.actionExecutors)
 	ctx.workChanged()
 }
 
@@ -555,7 +560,7 @@ type actionCapture struct {
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	traversals        []Traversal
 	traversalBase     int
-	driven            *runState
+	driven, under     *runState
 	dynamics          *stateSpaceRun
 	frames            []frameCapture
 	// bodies are the paused work of the tokens, which the tokens keep by identity.
@@ -577,6 +582,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		traversals:       cloneTraversals(e.traversals),
 		traversalBase:    e.traversalBase,
 		driven:           e.driven.state,
+		under:            e.driven.under,
 		dynamics:         e.dynamics.clone(),
 	}
 	for _, perf := range e.reachableFrames() {
@@ -597,7 +603,7 @@ func (c actionCapture) restore() {
 	e.outputListeners = slices.Clone(c.outputListeners)
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
-	e.driven.state = c.driven
+	e.driven.state, e.driven.under = c.driven, c.under
 	e.driven.stir(0)
 	e.dynamics = c.dynamics.clone()
 	for _, perf := range c.frames {
@@ -807,6 +813,7 @@ func cloneNested(nested map[ast.Node][]nestedDelivery) map[ast.Node][]nestedDeli
 // values its states hold, its events, timers, change triggers and do actions.
 type stateCapture struct {
 	exec               *StateExecutor
+	occurrence         *Instance
 	state              ExecutionState
 	activeConfig       *stateConfiguration
 	nextEventID        int64
@@ -828,7 +835,7 @@ type stateCapture struct {
 	lastEventAt        float64
 	doActions          []doActionCapture
 	machineExited      bool
-	driven             *runState
+	driven, under      *runState
 	inRun, moved       bool
 	timerScheduled     mapState[*lower.Transition, bool]
 	timeTriggerVerdict mapState[*lower.Transition, error]
@@ -871,7 +878,7 @@ type doActionCapture struct {
 // behaviors is captured beside it (Snapshot.captureState).
 func (e *StateExecutor) capture() stateCapture {
 	c := stateCapture{
-		exec: e, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
+		exec: e, occurrence: e.occurrence, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
 		nextEventID:        e.nextEventID,
 		stateData:          captureMap(e.stateData),
 		stateAttrs:         make(map[*ast.StateNode]mapState[string, Value], len(e.stateAttrs)),
@@ -890,6 +897,7 @@ func (e *StateExecutor) capture() stateCapture {
 		lastEventAt:        e.lastEventAt,
 		machineExited:      e.machineExited,
 		driven:             e.driven.state,
+		under:              e.driven.under,
 		inRun:              e.inRun,
 		moved:              e.moved,
 		timerScheduled:     captureMap(e.timerScheduled),
@@ -928,6 +936,7 @@ func (e *StateExecutor) capture() stateCapture {
 
 func (c stateCapture) restore() {
 	e := c.exec
+	e.occurrence = c.occurrence
 	e.state, e.activeConfig, e.nextEventID = c.state, cloneConfiguration(c.activeConfig), c.nextEventID
 	if e.eventQueue != nil {
 		e.eventQueue.events = slices.Clone(c.events)
@@ -965,7 +974,7 @@ func (c stateCapture) restore() {
 			act.body.restore()
 		}
 	}
-	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
+	e.machineExited, e.driven.state, e.driven.under, e.inRun, e.moved = c.machineExited, c.driven, c.under, c.inRun, c.moved
 	e.driven.stir(0)
 	e.timerScheduled = c.timerScheduled.restore()
 	e.timeTriggerVerdict = c.timeTriggerVerdict.restore()

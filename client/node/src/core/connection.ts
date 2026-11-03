@@ -14,17 +14,25 @@ import {
   CAPABILITY_BIG_INT_VALUES,
   CAPABILITY_RATIONAL_VALUES,
   CAPABILITY_CONVERT,
+  CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+  CAPABILITY_CONVERT_COMPACT,
+  CAPABILITY_CONVERT_LIBRARY_STUBS,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
   CAPABILITY_FEATURE_VALUES,
   CAPABILITY_INLINE_LANGUAGE,
   CAPABILITY_MIGRATE,
   CAPABILITY_PARSE_SOURCES,
+  CAPABILITY_PARSE_SOURCES_AFFECTED,
   CAPABILITY_PERFORMER,
   CAPABILITY_STATE_TRACE,
+  CAPABILITY_ACTION_TRACE,
   CAPABILITY_QUERY,
+  CAPABILITY_QUERY_ORDER_BY,
+  CAPABILITY_OSLC_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
+  CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
   CAPABILITY_RENDER_VIEW,
   CAPABILITY_CHECK,
   CAPABILITY_EXPORT_GRAPHS,
@@ -100,9 +108,14 @@ import {
 } from "../generated/sysml_pb.js";
 import { callRpc, fromHandshakeError, fromRpcError } from "./status.js";
 import { requireString } from "./arguments.js";
-import { decodeDiagnostic, Instance, Model, strictConformanceOf } from "./model.js";
+import {
+  decodeDiagnostic,
+  Instance,
+  Model,
+  type ParseOptions,
+  type ParseSourcesOptions,
+} from "./model.js";
 import type { ModelDiagnostic } from "./errors.js";
-import type { ParseOptions } from "./model.js";
 import { sourceDocuments, type Source } from "./sources.js";
 import {
   Conversion,
@@ -115,7 +128,7 @@ import {
   migrationReportOf,
   pathIsV1,
 } from "./conversion.js";
-import type { MigrateOptions } from "./conversion.js";
+import type { ConvertOptions, MigrateOptions } from "./conversion.js";
 import {
   buildQuery,
   elementsOf,
@@ -198,6 +211,8 @@ export interface TransportOptions {
   timeoutMs?: number;
   /** Extra headers sent with every call. */
   headers?: Record<string, string>;
+  /** Bearer token every call carries, for a service that requires one. */
+  token?: string;
   /** Called with each response, for logging, metrics or a conformance runner. */
   onResponse?: ResponseTap;
 }
@@ -353,8 +368,12 @@ export class Connection {
     return Model.adopt(this, hash);
   }
 
-  /** Parses several documents together as one model, one root per document. */
-  async parseSources(documents: readonly Source[], options: ParseOptions = {}): Promise<Model> {
+  /**
+   * Parses several documents together as one model, one root per document.
+   * Given `baseModelHash`, the model's `affected` names the documents whose
+   * results may differ from that model's.
+   */
+  async parseSources(documents: readonly Source[], options: ParseSourcesOptions = {}): Promise<Model> {
     const sources = sourceDocuments(documents);
     requireCapability(
       this.info,
@@ -370,16 +389,27 @@ export class Connection {
       );
       capabilities.push(CAPABILITY_INLINE_LANGUAGE);
     }
-    const strictConformance = strictConformanceOf(options);
+    const { strictConformance } = options;
     if (strictConformance === true) {
       this.requireStrictConformance();
       capabilities.push(CAPABILITY_STRICT_CONFORMANCE);
+    }
+    const baseModelHash = options.baseModelHash ?? "";
+    if (baseModelHash !== "") {
+      requireString("baseModelHash", baseModelHash);
+      requireCapability(
+        this.info,
+        CAPABILITY_PARSE_SOURCES_AFFECTED,
+        upgradeRemedy(CAPABILITY_PARSE_SOURCES_AFFECTED),
+      );
+      capabilities.push(CAPABILITY_PARSE_SOURCES_AFFECTED);
     }
     const response = await callRpc(
       this.rpc.parseSources(
         create(ParseSourcesRequestSchema, {
           documents: sources.map((source) => source.toPb()),
           strictConformance: strictConformance === true,
+          baseModelHash,
         }),
         this.callOptions(),
       ),
@@ -391,6 +421,7 @@ export class Connection {
       throw new ParseError(response.error, diagnostics);
     }
     return Model.fromRoots(this, response.modelHash, response.roots, diagnostics, {
+      affected: response.affected,
       documents: sources.map((source) => source.documentName),
     });
   }
@@ -402,7 +433,7 @@ export class Connection {
   async convert(
     toFormat: string,
     source: { path: string } | { content: string } | { modelHash: string },
-    options: { fromFormat?: string; tolerateSyntaxErrors?: boolean } = {},
+    options: ConvertOptions = {},
   ): Promise<Conversion> {
     const given = ["path", "content", "modelHash"].filter(
       (name) => (source as Record<string, unknown>)[name] !== undefined,
@@ -431,10 +462,30 @@ export class Connection {
       CAPABILITY_CONVERT,
       upgradeRemedy(CAPABILITY_CONVERT),
     );
+    if (options.includeLibraryStubs) {
+      requireCapability(this.info, CAPABILITY_CONVERT_LIBRARY_STUBS, upgradeRemedy(CAPABILITY_CONVERT_LIBRARY_STUBS));
+    }
+    const keepDerived = [...(options.keepDerived ?? [])];
+    if (options.compact || options.omitDerived || keepDerived.length > 0) {
+      requireCapability(this.info, CAPABILITY_CONVERT_COMPACT, upgradeRemedy(CAPABILITY_CONVERT_COMPACT));
+    }
+    if (options.includeCheckDiagnostics) {
+      requireCapability(
+        this.info,
+        CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+        upgradeRemedy(CAPABILITY_CONVERT_CHECK_DIAGNOSTICS),
+      );
+    }
     const request = create(ConvertRequestSchema, {
       toFormat,
       fromFormat: options.fromFormat ?? "",
       tolerateSyntaxErrors: options.tolerateSyntaxErrors === true,
+      idForm: options.idForm ?? "",
+      includeLibraryStubs: options.includeLibraryStubs === true,
+      compact: options.compact === true,
+      omitDerived: options.omitDerived === true,
+      keepDerived,
+      includeCheckDiagnostics: options.includeCheckDiagnostics === true,
     });
     if ("path" in source) {
       request.source = { case: "filePath", value: source.path };
@@ -467,6 +518,7 @@ export class Connection {
       throw new ConversionError(response.error, diagnostics);
     }
     return new Conversion({
+      libraryReferences: response.libraryReferences,
       content: response.content,
       fromFormat: response.fromFormat,
       toFormat: response.toFormat,
@@ -576,22 +628,27 @@ export class Connection {
     modelHash: string,
     options: { payload?: QueryPayload } & QueryForm = {},
   ): Promise<QueryElement[]> {
-    requireCapability(
-      this.info,
-      CAPABILITY_QUERY,
-      upgradeRemedy(CAPABILITY_QUERY),
-    );
+    const query = queryField(options);
+    const needed = [CAPABILITY_QUERY];
+    if (query.query === undefined) {
+      needed.push(CAPABILITY_OSLC_QUERY);
+    } else if (query.query.orderBy.length > 0) {
+      needed.push(CAPABILITY_QUERY_ORDER_BY);
+    }
+    for (const capability of needed) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
     const response = await callRpc(
       this.rpc.query(
         create(QueryRequestSchema, {
           modelHash,
           oslcQuery: options.oslc ?? "",
-          ...queryField(options),
+          ...query,
         }),
         this.callOptions(),
       ),
       "model",
-      capabilityRefusal(this.info, [CAPABILITY_QUERY]),
+      capabilityRefusal(this.info, needed),
     );
     return elementsOf(response);
   }
@@ -682,12 +739,14 @@ export class Connection {
     options: { form?: string } = {},
   ): Promise<string> {
     const form = options.form ?? "markdown";
-    if (form !== "markdown" && form !== "html") {
-      throw new RangeError("form must be 'markdown' or 'html'");
+    if (form !== "markdown" && form !== "html" && form !== "asciidoc") {
+      throw new RangeError("form must be 'markdown', 'html' or 'asciidoc'");
     }
     const capabilities = [CAPABILITY_RENDER_DOCUMENT];
     if (form === "html") {
       capabilities.push(CAPABILITY_RENDER_DOCUMENT_HTML);
+    } else if (form === "asciidoc") {
+      capabilities.push(CAPABILITY_RENDER_DOCUMENT_ASCIIDOC);
     }
     for (const capability of capabilities) {
       requireCapability(this.info, capability, upgradeRemedy(capability));
@@ -704,7 +763,10 @@ export class Connection {
       "model",
       capabilityRefusal(this.info, capabilities),
     );
-    return form === "html" ? response.html : response.markdown;
+    if (form === "html") {
+      return response.html;
+    }
+    return form === "asciidoc" ? response.asciidoc : response.markdown;
   }
 
   /**
@@ -861,17 +923,29 @@ export class Connection {
       draws?: string;
       /** Seconds the run's clock ticks by (`sysml -clock-step`); 0 is continuous. */
       clockStep?: number;
+      /** Return the run's typed trace (token steps, waits, accepts, decisions, assignments, completion); needs `action_trace`. */
+      trace?: boolean;
+      /** Signals to post to the performer in order, each once every token of the run waits, as the REPL's `%send` does; needs `performer`. */
+      events?: readonly string[];
     } = {},
   ): Promise<{
     outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     performer: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     finalTime: number;
+    /** The run's records when `trace` was asked for, in order. */
+    trace: DocumentEvent[];
+    traceDropped: number;
     /** Output name → how many of the run's unresolved choice points touch it; the
      * value then stands only up to the order the run took, and `exploreAction`
      * shows the set. Absent for an output nothing order-dependent wrote. */
     orderDependent: ReadonlyMap<string, number>;
   }> {
     refuseExploring(options.schedule, "exploreAction");
+    if ((options.events?.length ?? 0) > 0 && !options.performer) {
+      throw new InvalidRequestError(
+        "events are posted to the object performing the action: name one with performer",
+      );
+    }
     const response = await this.sendExecuteAction(
       modelHash,
       actionSymbolId,
@@ -882,12 +956,16 @@ export class Connection {
         response.error,
         "unspecified",
         response.diagnostics.map(decodeDiagnostic),
+        response.trace.map(documentEventOf),
+        response.traceDropped,
       );
     }
     return {
       outputs: valuesMap(Object.entries(response.outputs)),
       performer: valuesMap(Object.entries(response.performerAttributes)),
       finalTime: response.finalTime,
+      trace: response.trace.map(documentEventOf),
+      traceDropped: response.traceDropped,
       orderDependent: new Map(Object.entries(response.orderDependent)),
     };
   }
@@ -921,6 +999,8 @@ export class Connection {
       seed?: bigint;
       draws?: string;
       clockStep?: number;
+      trace?: boolean;
+      events?: readonly string[];
     },
   ): Promise<ExecuteActionResponse> {
     const inputs: Record<string, ReturnType<typeof toValue>> = {};
@@ -930,6 +1010,8 @@ export class Connection {
     const capabilities = this.runCapabilities(
       options.schedule,
       options.performer,
+      options.trace,
+      CAPABILITY_ACTION_TRACE,
     );
     const response = await callRpc(
       this.rpc.executeAction(
@@ -943,6 +1025,8 @@ export class Connection {
           seed: options.seed,
           draws: options.draws ?? "",
           clockStep: options.clockStep ?? 0,
+          trace: options.trace ?? false,
+          events: [...(options.events ?? [])],
         }),
         this.callOptions(),
       ),
@@ -1490,7 +1574,7 @@ export class Connection {
     );
     const diagnostics = response.diagnostics.map(decodeDiagnostic);
     if (response.error !== "") {
-      raiseFailure(response.error, 0, diagnostics);
+      raiseFailure(response.error, FailureReason.UNSPECIFIED, diagnostics);
     }
     return new SelfCheckResult(response, diagnostics);
   }
@@ -1696,7 +1780,7 @@ export class Connection {
     );
     const diagnostics = response.diagnostics.map(decodeDiagnostic);
     if (response.error !== "") {
-      raiseFailure(response.error, 0, diagnostics);
+      raiseFailure(response.error, FailureReason.UNSPECIFIED, diagnostics);
     }
     return importResultOf(response, diagnostics);
   }
@@ -1811,13 +1895,14 @@ export class Connection {
     schedule: string | undefined,
     performer: string | undefined,
     trace = false,
+    traceCapability = CAPABILITY_STATE_TRACE,
   ): string[] {
     const capabilities = scheduleCapabilities(schedule);
     if (performer !== undefined && performer !== "") {
       capabilities.push(CAPABILITY_PERFORMER);
     }
     if (trace) {
-      capabilities.push(CAPABILITY_STATE_TRACE);
+      capabilities.push(traceCapability);
     }
     for (const capability of capabilities) {
       requireCapability(this.info, capability, upgradeRemedy(capability));

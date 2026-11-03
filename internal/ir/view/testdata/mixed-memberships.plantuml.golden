@@ -1,0 +1,93 @@
+@startuml
+' MixedMemberships::memberships — mixed rendering (render asMixedDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+package "<size:10>//«package»//</size>\n**MixedMemberships**" as n0 <<package>> {
+  package "<size:10>//«package»//</size>\n**Library**" as n1 <<package>> {
+    rectangle "<size:10>//«attribute def»//</size>\n**Pressure**" as n2 <<attribute def>>
+    rectangle "<size:10>//«port def»//</size>\n**FluidPort**" as n8 <<port def>>
+  }
+  rectangle "<size:10>//«part def»//</size>\n**Impeller**" as n9 <<part def>>
+  rectangle "<size:10>//«part def»//</size>\n**Pump**" as n10 <<part def>> {
+    rectangle "<size:10>//«attribute»//</size>\n**pressure**" as n18 <<attribute>> <<usage>>
+    rectangle "<size:10>//«port»//</size>\n**outlet**" as n11 <<port>> <<usage>>
+    rectangle "<size:10>//«part»//</size>\n**impeller**" as n12 <<part>> <<usage>>
+    rectangle "<size:10>//«part»//</size>\n**spare**" as n13 <<part>> <<usage>>
+    rectangle "<size:10>//«action»//</size>\n**prime**\ndeclares no nodes" as n19 <<action>> <<usage>>
+    rectangle "<size:10>//«state»//</size>\n**armed**\ndeclares no states" as n20 <<state>> <<usage>>
+    rectangle "<size:10>//«part def»//</size>\n**Seal**" as n14 <<part def>>
+  }
+  rectangle "<size:10>//«concern def»//</size>\n**Containment**" as n3 <<concern def>>
+  rectangle "<size:10>//«requirement def»//</size>\n**Safety**" as n4 <<requirement def>> {
+    rectangle "<size:10>//«require constraint»//</size>\n**minPressure**" as n15 <<require constraint>> <<usage>>
+    rectangle "<size:10>//«assume constraint»//</size>\n**primedPump**" as n16 <<assume constraint>> <<usage>>
+    rectangle "<size:10>//«assert constraint»//</size>\n**sealed**" as n17 <<assert constraint>> <<usage>>
+    rectangle "<size:10>//«frame»//</size>\n**contained**" as n5 <<frame>> <<usage>>
+  }
+  rectangle "<size:10>//«view»//</size>\n**memberships**" as n6 <<view>> <<usage>>
+  rectangle "<size:10>//«view»//</size>\n**membershipsLayout**" as n7 <<view>> <<usage>>
+}
+n0 +-- n1
+n1 +-- n2
+n1 +-- n8
+n0 +-- n9
+n0 +-- n10
+n10 o-- n18
+n10 o-- n11
+n10 *-- n12
+n10 o-- n13
+n10 *-- n19
+n10 *-- n20
+n10 +-- n14
+n0 +-- n3
+n0 +-- n4
+n4 --> n15 : require
+n4 --> n16 : assume
+n4 --> n17 : assert
+n4 --> n5 : frame
+n0 *-- n6
+n0 *-- n7
+n5 --:|> n3
+n11 --:|> n8
+n12 --:|> n9
+n13 --:|> n9
+n18 --:|> n2
+@enduml

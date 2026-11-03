@@ -1,0 +1,25 @@
+= Optics Design Relations
+:stem: latexmath
+
+== Overview
+
+The mirror's mass scales as stem:[ m \propto D^{2.5}_{\text{eff}} ] and each $ of budget buys about 1 cm&#94;2 of aperture; _see_ <<overview-mirrorArea,Collecting area of a circular mirror>> and the link:https://example.com/aperture[aperture memo]
+
+[[overview-mirrorArea]]
+.Collecting area of a circular mirror
+[stem]
+++++
+A = \pi \left(\frac{D}{2}\right)^2
+
+  = \frac{\pi D^2}{4}
+++++
+
+[stem]
+++++
+\text{cost} = 10^6\,\$ \times D^{2.5} + $
+++++
+
+== Design relations
+
+* f-number stem:[N = \frac{f}{D}]
+* Rayleigh criterion stem:[\theta = 1.22\,\frac{\lambda}{D}]

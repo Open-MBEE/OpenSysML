@@ -38,6 +38,10 @@ const REPORT_HTML = join(
   repoRoot,
   "internal/doc/docrender/testdata/telescope_report.golden.html",
 );
+const REPORT_ADOC = join(
+  repoRoot,
+  "internal/doc/docrender/testdata/telescope_report.golden.adoc",
+);
 const VIEW_FIXTURE = join(repoRoot, "conformance/fixtures/views.sysml");
 const BEHAVIOR_FIXTURE = join(repoRoot, "conformance/fixtures/behavior.sysml");
 
@@ -55,8 +59,9 @@ test("rendered view decoder preserves wire fields and message presence", () => {
       detail: "detail",
       text: "text",
       standIn: true,
+      inherited: true,
       parent: "",
-      ports: [{ id: "n0.0", name: "api", type: "Demo::API", direction: "inout" }],
+      ports: [{ id: "n0.0", name: "api", type: "Demo::API", direction: "inout", inherited: true }],
       origin: { file: "views.sysml", startLine: 4 },
       geometry: { x: 1, y: 2, width: 3, height: 4, hasSize: true, collapsed: true, unplaced: true },
       style: { fill: "#fff", line: "#000", text: "#111", font: "sans", fontSize: 12, bold: true, italic: true },
@@ -83,6 +88,8 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(rendered.view, "Demo::view");
   assert.equal(rendered.nodes[0]?.nameSynthesized, true);
   assert.equal(rendered.nodes[0]?.ports[0]?.direction, "inout");
+  assert.equal(rendered.nodes[0]?.inherited, true);
+  assert.equal(rendered.nodes[0]?.ports[0]?.inherited, true);
   assert.equal(rendered.nodes[0]?.origin?.startLine, 4);
   assert.equal(rendered.nodes[0]?.geometry?.collapsed, true);
   assert.equal(rendered.nodes[0]?.geometry?.unplaced, true);
@@ -206,6 +213,13 @@ test("renderDocument answers the golden html", async () => {
   const model = await connection.loads(readFileSync(REPORT_FIXTURE, "utf8"));
   const html = await model.renderDocument("Observatory::MassReport", { form: "html" });
   assert.equal(html, readFileSync(REPORT_HTML, "utf8"));
+});
+
+test("renderDocument answers the golden asciidoc", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(readFileSync(REPORT_FIXTURE, "utf8"));
+  const asciidoc = await model.renderDocument("Observatory::MassReport", { form: "asciidoc" });
+  assert.equal(asciidoc, readFileSync(REPORT_ADOC, "utf8"));
 });
 
 test("renderView returns ports, edge endpoints, and origins", async () => {

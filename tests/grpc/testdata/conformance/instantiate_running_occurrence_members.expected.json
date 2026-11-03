@@ -1,0 +1,12 @@
+{
+  "rpc": "Instantiate",
+  "symbol_id": "test::Chain",
+  "expected_feature_values": {
+    "ran": {"materialized": true, "value_kind": "int_value", "value": 11},
+    "bPredecessors": {"materialized": true, "value_kind": "int_value", "value": 4},
+    "aSuccessors": {"materialized": true, "value_kind": "int_value", "value": 3},
+    "aShots": {"materialized": true, "value_kind": "int_value", "value": 2},
+    "aDone": {"materialized": true, "value_kind": "bool_value", "value": true},
+    "aStarted": {"materialized": true, "value_kind": "bool_value", "value": true}
+  }
+}

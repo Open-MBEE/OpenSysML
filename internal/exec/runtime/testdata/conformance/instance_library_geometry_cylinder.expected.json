@@ -9,9 +9,9 @@
     ]},
     "cyl.base.edges": {"type": "Instance"},
     "cyl.af.edges": {"type": "Instance"},
-    "cyl.be": {"error": "cyl.be is bound by `binding [1] bind [0..*] base.edges = [0..*] be`"},
-    "cyl.ae": {"error": "cyl.ae is bound by `binding [1] bind [0..*] cf.edges = [0..*] ae`"},
-    "cyl.edges": {"error": "StructuredSurface.edges is bound by `binding [1] bind [0..*] cf.edges = [0..*] be`"},
+    "cyl.be": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "cyl.ae": {"type": "Sequence", "elements": []},
+    "cyl.edges": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
     "cyl.vertices": {"type": "Sequence", "elements": []},
     "cyl.isSolid": {"type": "Boolean", "value": true},
     "cyl.voids": {"type": "Sequence", "elements": []}

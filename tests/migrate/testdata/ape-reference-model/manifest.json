@@ -1,0 +1,386 @@
+{
+    "schemaVersion":  1,
+    "description":  "Checksums of the local APE source and migration artifacts at relocation; not a golden-output acceptance baseline.",
+    "files":  [
+                  {
+                      "path":  "APE-ReferenceModel.mdzip",
+                      "bytes":  21196345,
+                      "sha256":  "d90b481cbb0660dde90c0e0f8365381e2bc0c5fa44e2c8b54c9c34ca2169f854"
+                  },
+                  {
+                      "path":  "generated/APE-ReferenceModel.migration-report.json",
+                      "bytes":  3959758,
+                      "sha256":  "28746042a00633b79f92ab4daaaa2be78e6d2071063629e922a4f0cf59b76346"
+                  },
+                  {
+                      "path":  "generated/APE-ReferenceModel.migration-results.json",
+                      "bytes":  4439,
+                      "sha256":  "3f040fc2d0c05c0893c0c8cf951105750c018ca064e3ad8c7278325d4959ff71"
+                  },
+                  {
+                      "path":  "generated/APE-ReferenceModel.migration-summary.md",
+                      "bytes":  3106,
+                      "sha256":  "24efebe619851a8b423b14d1f9c995bd7619cb7d26ede6f6abc907b8d3b357ef"
+                  },
+                  {
+                      "path":  "generated/APE-ReferenceModel.sysml",
+                      "bytes":  5413407,
+                      "sha256":  "71ac07e9e6c3c816210229e5c0470facf041b751bfe1ffb0394276e723322efd"
+                  },
+                  {
+                      "path":  "generated/APE-ReferenceModel.validation.json",
+                      "bytes":  1854780,
+                      "sha256":  "1966822855519348e14026e5749b1a1e6fd09054713cca4280e165f38e1353d0"
+                  },
+                  {
+                      "path":  "generated/diagnostics/ape-build.log",
+                      "bytes":  933,
+                      "sha256":  "304b64a05ea09b1d990b5c41b512b07e58835ff87c25e0921196f553ca87e9f1"
+                  },
+                  {
+                      "path":  "generated/diagnostics/APE-ReferenceModel.raw.sysml",
+                      "bytes":  5416481,
+                      "sha256":  "9d1cb42a84785173a48ed24a6f667a2afda00d1e8fb90bf2005ca22e913189dd"
+                  },
+                  {
+                      "path":  "generated/diagnostics/ape-vet.log",
+                      "bytes":  40,
+                      "sha256":  "af46b01f2dc4c5c8317026bbd1fec12e33f55ba7e892b0d1f01a4a01596be992"
+                  },
+                  {
+                      "path":  "generated/images/ape_blockdiagram.jpg",
+                      "bytes":  175515,
+                      "sha256":  "a9b49515ee444bf53d1a18826afeaf2285ea2666060a3a74c1c10e7ddb0868b4"
+                  },
+                  {
+                      "path":  "generated/images/APE_FilterWheels.jpg",
+                      "bytes":  121099,
+                      "sha256":  "51254e6246443f5c1643c689ccb17a8144a489dc6b25c64b6343c821e26ad040"
+                  },
+                  {
+                      "path":  "generated/images/APE_VF_UT3_1.jpg",
+                      "bytes":  1673752,
+                      "sha256":  "8d467a7ff9800271b4007167d55655b523b0c99adbd8921aad44f4a60d6c5fea"
+                  },
+                  {
+                      "path":  "generated/images/APEBenchMounted.jpg",
+                      "bytes":  267604,
+                      "sha256":  "e784a0192f36bc35c1913140582f48f2c389817525d4b3f825523d626ef92d01"
+                  },
+                  {
+                      "path":  "generated/images/ApeBenchTopView.jpg",
+                      "bytes":  218324,
+                      "sha256":  "079ff1899b628db4d6e8330a16d7642e70cad4c2a264a62227f8b9a35d565dbf"
+                  },
+                  {
+                      "path":  "generated/images/APEonUT3.jpg",
+                      "bytes":  269245,
+                      "sha256":  "6a066863f956d4386dd14f8a067bd660c8e46bc71034c9e396ddbda75e05aba5"
+                  },
+                  {
+                      "path":  "generated/images/ASM_LCU_Front.jpg",
+                      "bytes":  105090,
+                      "sha256":  "099fb845fbc3b1ad84bd1ce5f34aebd68b2fbb1b308cdbb86770e9f5c037a18b"
+                  },
+                  {
+                      "path":  "generated/images/ASM_test_setup.jpg",
+                      "bytes":  104310,
+                      "sha256":  "053db00078f826e4e5b5575013440a4fed8bed485508825d8308856cda20071b"
+                  },
+                  {
+                      "path":  "generated/images/ASM01.jpg",
+                      "bytes":  184387,
+                      "sha256":  "9c5c7e9ea6b06e63a0b65edb5c7d275b3a11430a55610ba43d38ac98bd83e8fa"
+                  },
+                  {
+                      "path":  "generated/images/ASM02.jpg",
+                      "bytes":  80834,
+                      "sha256":  "f5112e5a1226246678a365247820453e5368498a8483afe0e5a97822f6b1f81e"
+                  },
+                  {
+                      "path":  "generated/images/Compur_Shutter_29m.jpg",
+                      "bytes":  400566,
+                      "sha256":  "0be51150ebd4a02b9328d76d1cd32eb7863b50e7c3e4127e0c243ba4f425adb9"
+                  },
+                  {
+                      "path":  "generated/images/CoordinateSystem.jpg",
+                      "bytes":  8423,
+                      "sha256":  "f43c0bcca9a7b884b17581d917c1dca10c222f05b3f9745991b26cda73e7e137"
+                  },
+                  {
+                      "path":  "generated/images/DSC_0005_2.jpg",
+                      "bytes":  223623,
+                      "sha256":  "d9963399d2dfef70d230832ee9faa4b85432ed92ece31129dc417fc38aeccc2d"
+                  },
+                  {
+                      "path":  "generated/images/DSC_0019_2.jpg",
+                      "bytes":  304517,
+                      "sha256":  "90726e68553728b312df6d1a621676e621d56fd953668e7f0b2d64ca77c91d96"
+                  },
+                  {
+                      "path":  "generated/images/DSC03639.jpg",
+                      "bytes":  234824,
+                      "sha256":  "1cf573363b551b12f023eb46272911874f9099163cf369fe7114caf331f4c58c"
+                  },
+                  {
+                      "path":  "generated/images/DSC03688.jpg",
+                      "bytes":  212443,
+                      "sha256":  "87bc45934b4ed61c0e944b259b8f55da7d48a6a1de3c27fe39adc0efdc744da8"
+                  },
+                  {
+                      "path":  "generated/images/DSC03695.jpg",
+                      "bytes":  180606,
+                      "sha256":  "d1c466db8d4dc81c105efd959034bfd413faeaa2543240ea3b780cadd73acbbd"
+                  },
+                  {
+                      "path":  "generated/images/DSC03698.jpg",
+                      "bytes":  166284,
+                      "sha256":  "fdae0f00de84f9024dd4af328cb933cfa3b2080a02429234c72ebd246c9ad10a"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard.png",
+                      "bytes":  888404,
+                      "sha256":  "951658e003490cd9be6ea5710452cf78a34116adf8295fe1ccfbfa9a1aceb683"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-10.png",
+                      "bytes":  23763,
+                      "sha256":  "09099dfe4b580e232b2bad30c67775ef286c6bd4c9b3ab56b983d6207567dd09"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-11.png",
+                      "bytes":  39254,
+                      "sha256":  "1e05bdd739afd1cb4e3452e089268602a22fc40e6c4d2b10a0e4e22a4a605ecb"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-12.png",
+                      "bytes":  15874,
+                      "sha256":  "f2bec63c9d10e8c869c66716371fd6c177f249fe4fc89667373bd730f0efc0e1"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-13.png",
+                      "bytes":  42583,
+                      "sha256":  "ed035a537e499dd19ed0c4bcce37c89b78b02a0ddb09bc4ce959f3b9f1be2bd8"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-14.png",
+                      "bytes":  39814,
+                      "sha256":  "6191ac1970b695a9ee2034a12dd476403a14a50c6880154432feaf198d6d5284"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-15.png",
+                      "bytes":  18277,
+                      "sha256":  "42cf515d56008294c9f4b51732c8e09bcf9cccc98ce698f234f0b938e1c5c74b"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-16.png",
+                      "bytes":  25236,
+                      "sha256":  "f927dd1b8345c3b93d5d0e1b0ef16cd8baa908f19e05103d9517023b5644f7ae"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-17.png",
+                      "bytes":  17116,
+                      "sha256":  "b984d6365fa91d28dde0597c7a475b9847a2c005afabd559c3320b89ab864a9f"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-18.png",
+                      "bytes":  23274,
+                      "sha256":  "8eedf265dace8a40ef497ec02258a15916debc78c8ddd224ed56a0033c1c0aba"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-19.png",
+                      "bytes":  18860,
+                      "sha256":  "38ab34d8787b4879ee6a7928e8e49c13159e94fc27ee7df433d3f18d63f6c11c"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-2.png",
+                      "bytes":  25790,
+                      "sha256":  "49a352d0a79c41d18dd102d1193c1cf3bddcd9361c260f0c20d37f05cfb3ef7b"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-20.png",
+                      "bytes":  24463,
+                      "sha256":  "52d4d97bdec4060c2a7caacd77d1cf673df1c431a7359a541414c749970048e1"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-21.png",
+                      "bytes":  322602,
+                      "sha256":  "bb23c17a772d20a43d88714f0351be726e9464cb9ba94e1497f27d453bfbd67d"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-22.png",
+                      "bytes":  1818481,
+                      "sha256":  "ba37bf2e06f2c45330432998a035accec26ac8a0b26bdc42e4f6ad2fd5ce286c"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-23.png",
+                      "bytes":  1570378,
+                      "sha256":  "e259d1ff201359530f03c648ea44599938cd150d04b04555e1d55e3951aa5929"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-24.png",
+                      "bytes":  692422,
+                      "sha256":  "93a65a7b1d1ef7b672cbdf1b1b4d4ae1235951fc8c832c1fd99fb1e2e9657ae2"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-3.png",
+                      "bytes":  19438,
+                      "sha256":  "5dd8aa332f46f1375f4fa135c51eacaf9f8d81d775be2b60db759f4ee3fe0bf8"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-4.png",
+                      "bytes":  12890,
+                      "sha256":  "cbeec13ade1205a7deb9f3df084a9655e0ef9ed5f837bb28ee5172e0b7dafe47"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-5.png",
+                      "bytes":  19541,
+                      "sha256":  "dd0756bf221af688d478256909478365536a0064312677304980a5898bc19588"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-6.png",
+                      "bytes":  10893,
+                      "sha256":  "d41de20dcef7f3eda03a383445130b2d99c8a3a0f480495be1a934f7c09b61b3"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-7.png",
+                      "bytes":  19139,
+                      "sha256":  "07ce1ec5570b474b0f35ff43d7462a697009cfaa16ac2ff28baab12825a5e894"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-8.png",
+                      "bytes":  38759,
+                      "sha256":  "91ff06b5b32b0d9131e30b9978884b31ecaea56bbdc6b2849852950005ef3e39"
+                  },
+                  {
+                      "path":  "generated/images/From_clipboard-9.png",
+                      "bytes":  32731,
+                      "sha256":  "bd5d2c0527799c982bd64fd6c04e4bbf0c85d14c78eedf6b819b3a7c3e737ec4"
+                  },
+                  {
+                      "path":  "generated/images/FromJBtoBench.jpg",
+                      "bytes":  98325,
+                      "sha256":  "10a598d1e34fa8bcbd216967c5b58fda5796e5d743294a93c3f35b7f4724dd5c"
+                  },
+                  {
+                      "path":  "generated/images/IM_Lightsource.jpg",
+                      "bytes":  56833,
+                      "sha256":  "f3cddfc8d3f5255a09e9f3199443fcc890a28fc0c38f9505cd0c8dea7c0ac52b"
+                  },
+                  {
+                      "path":  "generated/images/IMBlockdiagram.jpg",
+                      "bytes":  91495,
+                      "sha256":  "ca2b293965e87658136207b9859b4430509b28b1c98ca46e2ea4508f85ca71b2"
+                  },
+                  {
+                      "path":  "generated/images/IMG_0024.jpg",
+                      "bytes":  279124,
+                      "sha256":  "eae98fc00f307a5f5ab24c8c887ec3302cd67ae03daeacb67673068894d044a2"
+                  },
+                  {
+                      "path":  "generated/images/IMG_0026.jpg",
+                      "bytes":  153303,
+                      "sha256":  "15d66c846418d4f6fa08622637ef76024bbb3746944dd0df02187fc913e9bb21"
+                  },
+                  {
+                      "path":  "generated/images/IMG_0116.jpg",
+                      "bytes":  93214,
+                      "sha256":  "350ded2c51afe0dfc1067317a456a55e5153e632b0298db8d9ae3975898bb5d5"
+                  },
+                  {
+                      "path":  "generated/images/IMG_0480.jpg",
+                      "bytes":  127461,
+                      "sha256":  "5c5e1a378bcc8774443da23273e0cbbd1c1c7479bd4f9c33eedc5d0a7db59e13"
+                  },
+                  {
+                      "path":  "generated/images/IMG_0566.jpg",
+                      "bytes":  102158,
+                      "sha256":  "745edb14b0cf1b4e38ed8fc16c04e0ab724302c6a760903da286bb3a91bd642c"
+                  },
+                  {
+                      "path":  "generated/images/IMG_0585.jpg",
+                      "bytes":  136991,
+                      "sha256":  "15bfbf56d2c8c4b7cfe0c216b11417e33a811bd93ec0637d2f7eba9314cb2373"
+                  },
+                  {
+                      "path":  "generated/images/IMG_8463.jpg",
+                      "bytes":  119210,
+                      "sha256":  "f7802b43fdc69e342d71f9bd01efa67ecc1e8a9a5e656446c56a668b2de0b9a2"
+                  },
+                  {
+                      "path":  "generated/images/IMMountedTop.jpg",
+                      "bytes":  212944,
+                      "sha256":  "2d9c9c1b5348a6ec18b454710d8a03c6fdbd90691fb0ae23e874791a00ef20e9"
+                  },
+                  {
+                      "path":  "generated/images/IMOptical.jpg",
+                      "bytes":  155068,
+                      "sha256":  "80174fd709f675509cc1d1a310ce847824deaadbecdaff2443ddce9a560211f2"
+                  },
+                  {
+                      "path":  "generated/images/JB2Inside.jpg",
+                      "bytes":  77548,
+                      "sha256":  "2633cbe522cba8d0a8c3833e92df0fe2168685510b3ffe1ff0c18acab6017a35"
+                  },
+                  {
+                      "path":  "generated/images/JunctionBoxLCUToBench.jpg",
+                      "bytes":  140439,
+                      "sha256":  "e59303a454b57f7f98f1e7d719a9f5ddf820c5102d5b259886adda06b5546252"
+                  },
+                  {
+                      "path":  "generated/images/JunctionBoxLCUToBench2.jpg",
+                      "bytes":  101344,
+                      "sha256":  "1d27f4049b6603a2eddca9a3c99f3eafd635be35b95c0e9693ec41646f004842"
+                  },
+                  {
+                      "path":  "generated/images/JunctionBoxLCUToBenchInside.jpg",
+                      "bytes":  130791,
+                      "sha256":  "2e3b8a4b2b998d4e77f9e2e05d3cd59daf252a490522f9eff596b2a08aa71839"
+                  },
+                  {
+                      "path":  "generated/images/LOGO_APE_blau_copy.jpg",
+                      "bytes":  91411,
+                      "sha256":  "98a1f5284c1a82d9374576f7e5e74a911d1906ea7ee2638c6f79465b3e80d55d"
+                  },
+                  {
+                      "path":  "generated/images/OMBPreparation.jpg",
+                      "bytes":  119452,
+                      "sha256":  "68b66a4d233cb3c1820d26fce9ed951f155f4d5856126c1bca29a14775b7e6a1"
+                  },
+                  {
+                      "path":  "generated/images/Parabolica.jpg",
+                      "bytes":  97952,
+                      "sha256":  "d630b1d939cfaa507d9c2385191f617fbb760756b718af6113d5200ebf0bebf7"
+                  },
+                  {
+                      "path":  "generated/images/SensorConnectionPlate.jpg",
+                      "bytes":  95976,
+                      "sha256":  "e4c2c9c116e0d56470e83ce1284dc5f642995ffd26f4d59c69fde392ba876c8a"
+                  },
+                  {
+                      "path":  "generated/images/SupervisorGui.JPG",
+                      "bytes":  63879,
+                      "sha256":  "b490adf23dcbe69997d3c0703122299fb84a6b2423af4d354c64300c0e13cc42"
+                  },
+                  {
+                      "path":  "generated/images/UTSchematic.jpg",
+                      "bytes":  118487,
+                      "sha256":  "8db28c08891c8ee8e47d7a8b71ee6fcfd59a36de27ce44c2735be2cea753ecd5"
+                  },
+                  {
+                      "path":  "generated/images/ZEUS_LCU.jpg",
+                      "bytes":  90984,
+                      "sha256":  "18d7937f0413ce21531714ee862a56444f7a63021d4d45d0e10f6180a559d431"
+                  },
+                  {
+                      "path":  "generated/images/ZeusCAD.jpg",
+                      "bytes":  90705,
+                      "sha256":  "58d33b5fb4819e122a0cbf13b0f704fbe97b1ec03526ecfd129a812ac1d55524"
+                  },
+                  {
+                      "path":  "generated/images/ZEUS-Control-gui.png",
+                      "bytes":  31635,
+                      "sha256":  "bdfaf58a62107a8011d23ba189bba3f54c5e5cf5f7a518dea7c665dd47664a43"
+                  }
+              ]
+}

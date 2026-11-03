@@ -3,13 +3,13 @@ package repl
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // VerdictStatus is what a checked condition answered.
@@ -57,6 +57,9 @@ type Verdict struct {
 	// Rows are the runs a sweep made, one per row of its table; no other kind of
 	// verdict has any.
 	Rows []VerdictRow
+	// Table is the row set a document query returned, as data; nil for every
+	// other verdict.
+	Table *VerdictTable
 	// Evaluations are the applications an analysis case made of its own calcs as
 	// function values — a trade study's evaluation of each alternative — in the
 	// order made.
@@ -65,6 +68,9 @@ type Verdict struct {
 	// order, and Exploration how it ended; only an explored run has them.
 	Outcomes    []VerdictOutcome
 	Exploration *VerdictExploration
+	// Outcome is the QVTS record behind a document query that could not be run
+	// (queryexec.Outcome); nil for every other verdict.
+	Outcome *queryexec.Outcome
 	// Plan is how the engines answered: the selection made, each engine put to
 	// the question and what it answered, and the composed result whose standing
 	// the last line reports. Nil for a verdict decided before any engine was asked.
@@ -92,6 +98,20 @@ type VerdictRow struct {
 	Evaluations []Evaluation
 	Millis      float64
 	Error       string
+}
+
+// VerdictTable is a document query's row set as data: the projected columns in
+// order, and each row's element with one cell per column.
+type VerdictTable struct {
+	Columns []string
+	Rows    []VerdictTableRow
+}
+
+// VerdictTableRow is one row of a query's table: the element the row is about,
+// and its cells by column position, each the values the cell holds as the prompt prints them.
+type VerdictTableRow struct {
+	Element string
+	Cells   [][]string
 }
 
 // Holds reports whether the checked condition is satisfied.
@@ -412,18 +432,16 @@ func (s *Session) reportedSubject(result runtime.CheckResult, inst *runtime.Inst
 		// rather than reported under the wrong one.
 		return inst, owner
 	}
-	return result.Subject, root + featurePath(result.SubjectPath)
+	return result.Subject, objectPath(root, result.SubjectPath)
 }
 
-// featurePath spells walked feature names as a label's tail, each after a `.`
-// and quoted where its spelling needs it: `engine`, `mount` → `.engine.mount`.
-func featurePath(names []string) string {
-	var out strings.Builder
-	for _, name := range names {
-		out.WriteString(".")
-		out.WriteString(source.NameText(name))
+// objectPath labels an object nested in the labelled root by the segments walked to it,
+// `fleet.cheap[2]`, the one spelling every verdict about a nested object uses.
+func objectPath(root string, path []string) string {
+	if len(path) == 0 {
+		return root
 	}
-	return out.String()
+	return root + "." + strings.Join(path, ".")
 }
 
 // instanceName is the label the session holds inst under — its name as the
@@ -513,6 +531,16 @@ func (s *Session) instantiateLines(name string) ([]string, error) {
 	return append(s.drainTrace(), lines...), nil
 }
 
+// startFailureLines report the behaviors of the object, or of one it holds, that
+// failed to start: the object stands, so the failure is a warning beside it.
+func startFailureLines(ctx *runtime.Context, inst *runtime.Instance, indent string) []string {
+	var lines []string
+	for _, n := range ctx.StartFailureNotes(inst) {
+		lines = append(lines, indent+"warning: "+n.Describe())
+	}
+	return lines
+}
+
 // behaviorsOf names what the object being unnamed is running, so a machine only
 // its id now reaches is not overlooked.
 func behaviorsOf(inst *runtime.Instance) string {
@@ -554,6 +582,7 @@ func (s *Session) instantiateNamed(name string) ([]string, error) {
 		fmt.Sprintf("✓ Created instance of %s", s.declaredName(fqn)),
 		fmt.Sprintf("  ID: %d", inst.ID),
 	}
+	out = append(out, startFailureLines(ctx, inst, "  ")...)
 	// A second instantiation is a second object, so say which one the name now
 	// denotes rather than let the earlier one look like it was reused.
 	if displaced {

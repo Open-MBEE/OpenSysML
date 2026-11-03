@@ -148,6 +148,7 @@ def test_only_service_binaries_are_pinned(monkeypatch):
         '{"assets": ['
         '{"name": "sysml-grpc-linux-amd64", "browser_download_url": "u1"},'
         '{"name": "sysml-grpc-linux-amd64.sha256", "browser_download_url": "u2"},'
+        '{"name": "sysml-grpc-linux-amd64.spdx.json", "browser_download_url": "u4"},'
         '{"name": "sysml-linux-amd64", "browser_download_url": "u3"}]}'
     )
     monkeypatch.setattr(pin.urllib.request, "urlopen", _fake_urlopen(body))
@@ -671,6 +672,15 @@ def test_both_families_in_one_directory_are_stamped_together(tmp_path):
 def test_a_manifest_listing_both_families_pins_both(tmp_path):
     """The signed manifest lists every binary, so the shared table pins the kernels too."""
     manifest, digests = _release_manifest(tmp_path, assets=RUST_SERVICE_ASSETS + KERNEL_ASSETS)
+    assert pin.manifest_service_digests(str(manifest)) == digests
+
+
+def test_a_manifests_sboms_and_sidecars_are_not_binaries(tmp_path):
+    """Each binary's `.spdx.json` and `.sha256` share its prefix; only the binary itself is pinned."""
+    manifest, digests = _release_manifest(tmp_path, assets=RUST_SERVICE_ASSETS + KERNEL_ASSETS)
+    with open(manifest, "a", encoding="utf-8") as lines:
+        for asset in RUST_SERVICE_ASSETS + KERNEL_ASSETS:
+            lines.write(f"{'d' * 64}  {asset}.spdx.json\n{'e' * 64}  {asset}.sha256\n")
     assert pin.manifest_service_digests(str(manifest)) == digests
 
 

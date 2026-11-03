@@ -50,15 +50,15 @@ func TestChainOverCollectionTraceOrder(t *testing.T) {
 
 	// Each step of the chain answers the collection of the step before it,
 	// flattened once, in the order the objects it read are declared in, and the
-	// objects a step materializes are reported where they are materialized.
+	// objects a step materializes are reported where they are materialized. The
+	// chain is one read from its first operand, so no shorter chain is evaluated on the way.
 	want := strings.Join([]string{
 		"materialize: m1 #2",
 		"materialize: m2 #3",
-		"    eval feature mids -> (instance#2, instance#3)",
+		"  eval feature mids -> (instance#2, instance#3)",
 		"materialize: l1 #4",
 		"materialize: l2 #5",
 		"materialize: l3 #6",
-		"  eval chain leaves -> (instance#4, instance#5, instance#6)",
 		"eval chain v -> (1.0, 2.0, 4.0)",
 	}, "\n")
 	if got := trace.String(); got != want {

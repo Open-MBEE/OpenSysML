@@ -7,32 +7,31 @@ package Spelled {
 
 	part def Cart;
 
-	connection def Bolt;
+	connection def Bolt { end : Link; end : Link; }
 
-	connection def Weld;
+	connection def Weld { end : Link; end : Link; }
 
-	item def Note;
+	alias Note for Transfers::MessageTransfer;
 
 	part def Rig {
 		port plug : ~Link;
 		port socket : Link;
 		part rail : 'Frame *rail*';
-		part base typed by Mount, Cart;
+		part base defined by Mount, Cart;
 		part root : $::Spelled::Mount;
-		port mirrored : ~rail.'Frame *rail*';
 		connection : Bolt, Weld connect plug to socket;
 	}
 
 	occurrence def Exchange {
 		part sender {
-			event occurrence send;
+			event occurrence emit;
 		}
 
 		part receiver {
 			event occurrence receive;
 		}
 
-		message : $::Spelled::Note from sender.send to receiver.receive;
+		message : $::Spelled::Note from sender.emit to receiver.receive;
 	}
 }
 

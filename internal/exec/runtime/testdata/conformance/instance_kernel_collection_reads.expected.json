@@ -19,10 +19,10 @@
     "bare.subobjects": {"type": "Sequence", "elements": []},
     "idle.subperformanceCount": {"type": "Integer", "value": 0},
     "idle.subperformances": {"type": "Sequence", "elements": []},
-    "p1.timeSlices": {"type": "Sequence", "elements": [{"type": "Instance"}]},
-    "p1.portions": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "p1.timeSlices": {"type": "Undetermined", "value": "[3..*]"},
+    "p1.portions": {"type": "Undetermined", "value": "[3..*]"},
     "p1.superoccurrence": {"type": "Instance"},
-    "p1.successors": {"type": "Sequence", "elements": []},
-    "p1.timeEnclosedOccurrences": {"type": "Sequence", "elements": [{"type": "Instance"}]}
+    "p1.successors": {"type": "Undetermined", "value": "[0..*]"},
+    "p1.timeEnclosedOccurrences": {"type": "Undetermined", "value": "[3..*]"}
   }
 }

@@ -407,13 +407,17 @@ func TestQueryOrderedComparisonNeedsOneOperand(t *testing.T) {
 // in fails the call, naming what is wrong.
 func TestQueryMalformedConstraintsFail(t *testing.T) {
 	cases := map[string]*pb.Constraint{
-		"no form":            {},
-		"unset primitive":    {Constraint: &pb.Constraint_Primitive{}},
-		"unset composite":    {Constraint: &pb.Constraint_Composite{}},
-		"no operator":        primitive(QueryPropName, pb.PrimitiveOperator_PRIMITIVE_OPERATOR_UNSPECIFIED, false, "vehicle"),
-		"no value":           primitive(QueryPropName, opEqual, false),
-		"empty composite":    composite(pb.CompositeOperator_COMPOSITE_OPERATOR_AND),
-		"composite operator": {Constraint: &pb.Constraint_Composite{Composite: &pb.CompositeConstraint{Constraint: []*pb.Constraint{primitive(QueryPropName, opEqual, false, "vehicle")}}}},
+		"no form":              {},
+		"unset primitive":      {Constraint: &pb.Constraint_Primitive{}},
+		"unset composite":      {Constraint: &pb.Constraint_Composite{}},
+		"no operator":          primitive(QueryPropName, pb.PrimitiveOperator_PRIMITIVE_OPERATOR_UNSPECIFIED, false, "vehicle"),
+		"no value":             primitive(QueryPropName, opEqual, false),
+		"empty composite":      composite(pb.CompositeOperator_COMPOSITE_OPERATOR_AND),
+		"one-member composite": composite(pb.CompositeOperator_COMPOSITE_OPERATOR_OR, primitive(QueryPropName, opEqual, false, "vehicle")),
+		"one-member composite nested": composite(pb.CompositeOperator_COMPOSITE_OPERATOR_AND,
+			primitive(QueryPropName, opEqual, false, "vehicle"),
+			composite(pb.CompositeOperator_COMPOSITE_OPERATOR_OR, primitive(QueryPropName, opEqual, false, "spare"))),
+		"composite operator": {Constraint: &pb.Constraint_Composite{Composite: &pb.CompositeConstraint{Constraint: []*pb.Constraint{primitive(QueryPropName, opEqual, false, "vehicle"), primitive(QueryPropName, opEqual, false, "spare")}}}},
 	}
 	for name, constraint := range cases {
 		t.Run(name, func(t *testing.T) {

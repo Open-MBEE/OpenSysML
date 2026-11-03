@@ -41,6 +41,20 @@ const (
 	// TraceTerminate is a state machine's performance ending without exiting its states:
 	// a terminate action, or the end of the occurrence performing it.
 	TraceTerminate
+	// TraceStep is an action token arriving at a node: over the succession it
+	// followed, or where its flow starts. The trace prints no line for it.
+	TraceStep
+	// TraceWait is an action token parking at an accept node until the message or
+	// trigger it awaits arrives. The trace prints no line for it.
+	TraceWait
+	// TraceAssign is a value a body statement assigned to a feature; the statement's
+	// own lines show the evaluation, so the trace prints no line for it.
+	TraceAssign
+	// TraceDecide is a decision node resolved: its branches and the one taken.
+	// The trace prints no line for it.
+	TraceDecide
+	// TraceComplete is an action's performance completing. The trace prints no line for it.
+	TraceComplete
 )
 
 // String names the kind as a query reads it.
@@ -66,6 +80,16 @@ func (k TraceKind) String() string {
 		return "guard"
 	case TraceTerminate:
 		return "terminate"
+	case TraceStep:
+		return "step"
+	case TraceWait:
+		return "wait"
+	case TraceAssign:
+		return "assign"
+	case TraceDecide:
+		return "decide"
+	case TraceComplete:
+		return "complete"
 	}
 	return fmt.Sprintf("TraceKind(%d)", int(k))
 }
@@ -104,6 +128,16 @@ type TraceRecord struct {
 	Action bool
 	// Note is a TraceChoice's or TraceGuard's note.
 	Note RunNote
+	// Token is the action token a step, wait, assign, decide or action accept record
+	// is about and Step the executor step that made it; 0 for a record of neither.
+	Token int64
+	Step  int
+	// Feature is the feature a TraceAssign wrote and Value what it holds since.
+	Feature string
+	Value   Value
+	// Alternatives are a TraceDecide's branches, as its choice line would name them;
+	// the one taken is in To and the decision node in State.
+	Alternatives []string
 	// text and depth are a TraceLine's line and nesting.
 	text  string
 	depth int
@@ -115,7 +149,7 @@ func (r TraceRecord) Line() (line string, printed bool) {
 	switch r.Kind {
 	case TraceLine:
 		return strings.Repeat(traceIndent, r.depth) + r.text, true
-	case TraceAccept, TraceSend:
+	case TraceAccept, TraceSend, TraceStep, TraceWait, TraceAssign, TraceDecide, TraceComplete:
 		return "", false
 	case TraceTransition:
 		if r.Event == "" {
@@ -147,6 +181,19 @@ func (r TraceRecord) Line() (line string, printed bool) {
 func (r TraceRecord) Text() string {
 	if line, printed := r.Line(); printed {
 		return line
+	}
+	switch r.Kind {
+	case TraceStep:
+		if r.From == "" {
+			return "step " + r.To
+		}
+		return fmt.Sprintf("step %s -> %s", r.From, r.To)
+	case TraceAssign:
+		return fmt.Sprintf("assign %s = %s", r.Feature, FormatValue(r.Value))
+	case TraceDecide:
+		return fmt.Sprintf("decide %s -> %s", r.State, r.To)
+	case TraceComplete:
+		return "complete"
 	}
 	return r.Kind.String() + " " + r.Event
 }
@@ -333,6 +380,39 @@ func (tr *TraceRecorder) RecordStateTransition(origin TraceOrigin, fromState, to
 // operation it names, with the payload it carries.
 func (tr *TraceRecorder) RecordAccept(origin TraceOrigin, serial uint64, event string, payload map[string]Value) {
 	tr.add(TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Message: serial, Payload: payload})
+}
+
+// recordActionAccept records an accept node taking a message off the queue, as
+// RecordAccept does, under the token and node that took it.
+func (tr *TraceRecorder) recordActionAccept(origin TraceOrigin, token int64, step int, node string, serial uint64, event string, payload map[string]Value) {
+	tr.add(TraceRecord{Kind: TraceAccept, Origin: origin, Token: token, Step: step, State: node, Event: event, Message: serial, Payload: payload})
+}
+
+// recordTokenStep records token arriving at node to in step: over the succession
+// from from, or where its flow starts when from is empty.
+func (tr *TraceRecorder) recordTokenStep(origin TraceOrigin, token int64, step int, from, to string) {
+	tr.add(TraceRecord{Kind: TraceStep, Origin: origin, Token: token, Step: step, From: from, To: to})
+}
+
+// recordTokenWait records token parking at accept node node for awaited: the
+// message type, or the trigger, it waits for.
+func (tr *TraceRecorder) recordTokenWait(origin TraceOrigin, token int64, step int, node, awaited string) {
+	tr.add(TraceRecord{Kind: TraceWait, Origin: origin, Token: token, Step: step, State: node, Event: awaited})
+}
+
+// recordAssign records the statement token steps at node writing value to feature.
+func (tr *TraceRecorder) recordAssign(origin TraceOrigin, token int64, step int, node, feature string, value Value) {
+	tr.add(TraceRecord{Kind: TraceAssign, Origin: origin, Token: token, Step: step, State: node, Feature: feature, Value: value})
+}
+
+// recordDecide records token resolving decision node node among alternatives, taking taken.
+func (tr *TraceRecorder) recordDecide(origin TraceOrigin, token int64, step int, node string, alternatives []string, taken string) {
+	tr.add(TraceRecord{Kind: TraceDecide, Origin: origin, Token: token, Step: step, State: node, Alternatives: alternatives, To: taken})
+}
+
+// recordActionComplete records the action's performance completing in step.
+func (tr *TraceRecorder) recordActionComplete(origin TraceOrigin, step int) {
+	tr.add(TraceRecord{Kind: TraceComplete, Origin: origin, Step: step})
 }
 
 // RecordSend records a message posted onto the bus by the object at origin, or

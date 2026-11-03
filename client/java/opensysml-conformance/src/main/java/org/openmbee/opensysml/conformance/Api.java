@@ -1216,7 +1216,9 @@ final class Api {
     RenderedDocument rendered =
         model.renderDocument(request.getDocumentId(), DocumentForm.fromWireName(request.getForm()));
     RenderDocumentResponse.Builder response = RenderDocumentResponse.newBuilder();
-    if (rendered.form() == DocumentForm.HTML) {
+    if (rendered.form() == DocumentForm.ASCIIDOC) {
+      response.setAsciidoc(rendered.content());
+    } else if (rendered.form() == DocumentForm.HTML) {
       response.setHtml(rendered.content());
     } else {
       response.setMarkdown(rendered.content());
@@ -1330,7 +1332,11 @@ final class Api {
   }
 
   private static Query query(org.openmbee.opensysml.proto.Query query) {
-    Query built = Query.all().withScope(query.getScopeList()).withSelect(query.getSelectList());
+    Query built =
+        Query.all()
+            .withScope(query.getScopeList())
+            .withSelect(query.getSelectList())
+            .orderBy(query.getOrderByList());
     return query.hasWhere() ? built.where(condition(query.getWhere())) : built;
   }
 
@@ -1346,6 +1352,14 @@ final class Api {
                   Condition.greater(primitive.getProperty(), soleValue(primitive));
               case PRIMITIVE_OPERATOR_LESS ->
                   Condition.less(primitive.getProperty(), soleValue(primitive));
+              case PRIMITIVE_OPERATOR_GREATER_EQUAL ->
+                  Condition.greaterOrEqual(primitive.getProperty(), soleValue(primitive));
+              case PRIMITIVE_OPERATOR_LESS_EQUAL ->
+                  Condition.lessOrEqual(primitive.getProperty(), soleValue(primitive));
+              case PRIMITIVE_OPERATOR_IN ->
+                  Condition.in(primitive.getProperty(), primitive.getValueList());
+              case PRIMITIVE_OPERATOR_INSTANCE_OF ->
+                  Condition.instanceOf(primitive.getValueList());
               case PRIMITIVE_OPERATOR_UNSPECIFIED, UNRECOGNIZED ->
                   throw new Unsupported(
                       "the public API cannot send a comparison with no operator");

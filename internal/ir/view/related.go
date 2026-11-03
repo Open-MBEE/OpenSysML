@@ -208,7 +208,7 @@ func (c *relatedCollector) connector(connector *symbols.Symbol) {
 	ends, edgeKind := c.r.connectorEnds(connector)
 	kind := RelatedConnections
 	switch edgeKind {
-	case EdgeFlow:
+	case EdgeFlow, EdgeSuccessionFlow:
 		kind = RelatedFlows
 	case EdgeBinding:
 		kind = RelatedBindings

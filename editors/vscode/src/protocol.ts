@@ -95,6 +95,8 @@ export interface RenderNode {
   type: string;
   detail: string;
   parent?: string;
+  /** The owner the node is drawn or listed under has the usage through typing, subclassification or subsetting rather than declares it; the label prefixes `name` with `^`. */
+  inherited?: boolean;
   /** The qualified name a model edit targets the declaration by, in whichever workspace document declares it; absent for a node with none, and for a library's. */
   fqn?: string;
   /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */
@@ -115,7 +117,7 @@ export interface RenderNode {
   /** The stated size, both or neither. */
   width?: number;
   height?: number;
-  /** The node is drawn closed, its children hidden. */
+  /** The model folds the node: the server sends only its boundary ports and pins beneath it, and the panel draws it closed with a `+` mark. */
   collapsed?: boolean;
   /** The colours the requested palette gives the node, `#RRGGBB`, the same its DOT and PlantUML forms take; each absent where the palette leaves it black and white (a sequence participant's border), both under no palette. */
   fill?: string;
@@ -130,6 +132,8 @@ export interface RenderPort {
   name: string;
   type?: string;
   direction?: string;
+  /** The node's owner has the port from its type rather than declares it; the label prefixes `name` with `^`. */
+  inherited?: boolean;
 }
 
 /** How a Style annotation draws a node or edge: `#RRGGBB` colours and the face, size in points and weight of its text, each absent when unstated. */
@@ -496,3 +500,34 @@ export type FromWebview =
   /** A node dropped on another: moved into it as a declaration, and placed where it was released. */
   | { type: "reparent"; id: string; owner: string; nodes: NodePlacement[]; edges: EdgePlacement[]; drawn: number }
   | { type: "failed"; message: string };
+
+export const IMPORT_DIAGRAM_METHOD = "opensysml/importDiagram";
+
+export interface ImportDiagramParams {
+  textDocument: { uri: string };
+  path?: string;
+  content?: string;
+  view?: string;
+  inline?: boolean;
+  dryRun?: boolean;
+}
+
+export interface ImportDiagramEdit {
+  kind: string;
+  target?: string;
+  label?: string;
+  cell: string;
+}
+
+export interface ImportDiagramResult {
+  view: string;
+  dryRun: boolean;
+  edits: ImportDiagramEdit[];
+  unmatched?: string[];
+  unknown?: string[];
+  deleted?: string[];
+  notices?: string[];
+  refused?: { operation: number; failure: string; message: string }[];
+  version: number;
+  edit?: unknown;
+}

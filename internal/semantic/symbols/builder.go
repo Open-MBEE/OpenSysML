@@ -125,6 +125,7 @@ func buildNamespaceDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia 
 		sym := newSymbol(d.Ident, definitionSymbolKind(d.Kind), d, vis, child, scope, trivia)
 		defineIdent(scope, d.Ident, sym)
 		scope.AddChild(child)
+		buildConjugatedPortDefinition(child, d)
 		buildMembers(child, d.Members)
 		return true
 	case *ast.Usage:
@@ -138,6 +139,7 @@ func buildNamespaceDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia 
 		defineIdent(scope, id, sym)
 		scope.AddChild(child)
 		buildCrossFeature(child, d)
+		buildSatisfySubjects(child, d)
 		buildMembers(child, d.Members)
 		buildConnectorEnds(child, d)
 		return true
@@ -459,6 +461,21 @@ func ConstraintBodyScope(parent *Scope, decl ast.Node) *Scope {
 // end that declares a name (`connect bead references t.bead`) is a named
 // member; one that only names what it attaches to (`connect a to b`) is an
 // anonymous one.
+// buildSatisfySubjects registers the subject parameter each `by` clause of a
+// satisfy usage declares (SysML 8.3.19): an unnamed reference usage, declared
+// by the clause's relationship, that precedes the body's members.
+func buildSatisfySubjects(scope *Scope, u *ast.Usage) {
+	if u.Kind != ast.UsageSatisfy {
+		return
+	}
+	for _, rel := range u.Relationships {
+		if rel == nil || rel.Kind != ast.RelSubject || rel.Target == nil {
+			continue
+		}
+		buildAnonymousNode(scope, rel, SymbolReferenceUsage, nil, ast.VisibilityDefault, nil)
+	}
+}
+
 func buildConnectorEnds(scope *Scope, u *ast.Usage) {
 	for _, end := range u.ConnectorEnds {
 		if end == nil {
@@ -719,6 +736,15 @@ func definitionSymbolKind(k ast.DefinitionKind) SymbolKind {
 	}
 }
 
+// UsageSymbolKind is the SymbolKind a usage of the given kind is indexed under,
+// SymbolUnknown for a kind no usage symbol carries.
+func UsageSymbolKind(kind ast.UsageKind) SymbolKind {
+	if k, ok := usageSymbolKinds[kind]; ok {
+		return k
+	}
+	return SymbolUnknown
+}
+
 // usageSymbolKinds maps each ast.UsageKind to its SymbolKind.
 var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 	ast.UsagePart:        SymbolPartUsage,
@@ -784,14 +810,6 @@ var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 	ast.UsageBool: SymbolCalcUsage,
 }
 
-// usageSymbolKind maps an ast.UsageKind to its SymbolKind.
-func usageSymbolKind(k ast.UsageKind) SymbolKind {
-	if kind, ok := usageSymbolKinds[k]; ok {
-		return kind
-	}
-	return SymbolUnknown
-}
-
 // classifyUsage determines the correct symbol kind for a usage AST node.
 // Per Phase 4: Parser treats some keywords (like 'datatype') uniformly as usage.
 // Builder classifies based on semantic context (relationships, body structure).
@@ -799,7 +817,7 @@ func usageSymbolKind(k ast.UsageKind) SymbolKind {
 // Classification rules:
 // - Attribute usage with specializes (but NO typing/subsets) → AttributeDef
 // - Attribute usage with typing or subsets/redefines → AttributeUsage
-// - All other usages → use usageSymbolKind directly
+// - All other usages → use UsageSymbolKind directly
 func classifyUsage(u *ast.Usage) SymbolKind {
 	// A `datatype` declares a KerML DataType (KerML 1.0 §8.3.2): a definition whatever
 	// it specializes, unlike the `attribute`/`feature` keywords classified below.
@@ -813,7 +831,7 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	}
 	// Only classify attribute usages (datatype, attribute, feature keywords)
 	if u.Kind != ast.UsageAttribute {
-		return usageSymbolKind(u.Kind)
+		return UsageSymbolKind(u.Kind)
 	}
 
 	// Check relationships to determine if this is def-like or usage-like

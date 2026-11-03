@@ -44,8 +44,8 @@ func TestHealthHandlerAnswersOnlyHealth(t *testing.T) {
 
 // The interceptor only logs, so a call's answer and its failure both reach the
 // client unchanged.
-func TestLoggingInterceptorPassesTheCallThrough(t *testing.T) {
-	interceptor := loggingInterceptor()
+func TestUnaryAccessInterceptorPassesTheCallThrough(t *testing.T) {
+	interceptor := unaryAccessInterceptor(access{})
 	info := &grpc.UnaryServerInfo{FullMethod: "/sysml.SysMLService/GetServerInfo"}
 
 	res, err := interceptor(context.Background(), "request", info,

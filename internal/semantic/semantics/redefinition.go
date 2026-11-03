@@ -2,7 +2,6 @@ package semantics
 
 import (
 	"slices"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -78,7 +77,8 @@ func behaviorUsageKind(kind ast.UsageKind) bool {
 		ast.UsageViewpoint, ast.UsageFramedConcern, ast.UsageCase,
 		ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase,
 		ast.UsageStep, ast.UsageBehavior, ast.UsagePredicate, ast.UsageBool,
-		ast.UsageInteraction, ast.UsageObjective:
+		ast.UsageInteraction, ast.UsageObjective, ast.UsageSatisfy:
+		// A satisfy usage is a requirement usage (SysML 8.3.19).
 		return true
 	}
 	return false
@@ -266,7 +266,7 @@ func namedParameters(p parameter, general behaviorParameters) []parameter {
 		}
 	case p.sym.Recorded():
 		for _, ref := range p.sym.Facts.Redefines {
-			if name := lastSegment(ref.FQN); name != "" {
+			if name := symbols.LastSegment(ref.FQN); name != "" {
 				names = append(names, name)
 			}
 		}
@@ -283,14 +283,6 @@ func namedParameters(p parameter, general behaviorParameters) []parameter {
 		}
 	}
 	return out
-}
-
-// lastSegment returns the simple name a fully-qualified name ends in.
-func lastSegment(fqn string) string {
-	if i := strings.LastIndex(fqn, "::"); i >= 0 {
-		return fqn[i+2:]
-	}
-	return fqn
 }
 
 // ownedParameters returns the parameters owned by sym in declaration order.

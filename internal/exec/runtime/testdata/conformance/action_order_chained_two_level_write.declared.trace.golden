@@ -1,0 +1,18 @@
+step 1: token 1@split
+step 2: token 2@a, token 3@b
+stmt assign car.engine.rpm
+  eval literal 1 -> 1
+materialize: car #1
+materialize: Engine #2
+stmt assign car.engine.rpm
+  eval literal 2 -> 2
+choice step 3: writes rpm of object #2 := 1 by token 2, rpm of object #2 := 2 by token 3 (unordered; rpm of object #2 := 2 by token 3 stood; order-dependent: rpm)
+choice step 3: tokens 2@a, 3@b (unordered; took 2@a first; order-dependent: rpm)
+step 3: token 2@sync, token 3@sync
+step 4: token 4@derive
+stmt assign z
+  eval chain rpm -> 2
+stmt assign m
+  eval chain mass -> 1200
+step 5: token 4@done
+step 6: no active tokens

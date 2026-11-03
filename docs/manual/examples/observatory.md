@@ -86,11 +86,11 @@ flowchart LR
     direction LR
     subgraph n1 ["`*«part»* **camera**`"]
       direction LR
-      n1.0["output"]
+      n1.0["^output"]
     end
     subgraph n2 ["`*«part»* **recorder**`"]
       direction LR
-      n2.0["input"]
+      n2.0["^input"]
     end
   end
   n1.0 === n2.0
@@ -131,27 +131,27 @@ flowchart LR
 **optics**`")
       n2("`*«attribute»*
 **mass**`")
-  n1 --- n2
       n3("`*«attribute»*
 **zone**`")
-  n1 --- n3
-  n0 --- n1
     n4("`*«part»*
 **segmentControl**`")
       n5("`*«attribute»*
 **mass**`")
-  n4 --- n5
       n6("`*«attribute»*
 **zone**`")
-  n4 --- n6
-  n0 --- n4
     n7("`*«part»*
 **mount**`")
       n8("`*«attribute»*
 **mass**`")
-  n7 --- n8
       n9("`*«attribute»*
 **zone**`")
-  n7 --- n9
-  n0 --- n7
+  n0 ---|"◆"| n1
+  n0 ---|"◆"| n4
+  n0 ---|"◆"| n7
+  n1 ---|"◇"| n2
+  n1 ---|"◇"| n3
+  n4 ---|"◇"| n5
+  n4 ---|"◇"| n6
+  n7 ---|"◇"| n8
+  n7 ---|"◇"| n9
 ```

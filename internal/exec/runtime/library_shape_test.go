@@ -243,7 +243,8 @@ func TestInstanceReadsInheritedLibraryFeatures(t *testing.T) {
 }
 
 // Materializing a part costs one object: the inherited library collections hold
-// nothing until the model puts something in them.
+// nothing until the model puts something in them (subitems is left out: the library
+// itself puts the box's faces in it).
 func TestInheritedLibraryFeaturesMaterializeNoObjects(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, `package test {
 		private import ShapeItems::*;
@@ -254,7 +255,7 @@ func TestInheritedLibraryFeaturesMaterializeNoObjects(t *testing.T) {
 		t.Fatalf("instantiate: %v", err)
 	}
 	box := objectAt(t, ctx, crate, "box")
-	for _, name := range []string{"voids", "shape", "subparts", "subitems", "isSolid"} {
+	for _, name := range []string{"voids", "shape", "subparts", "isSolid"} {
 		if _, err := box.GetFeatureValue(ctx, name); err != nil {
 			t.Fatalf("box.%s: %v", name, err)
 		}

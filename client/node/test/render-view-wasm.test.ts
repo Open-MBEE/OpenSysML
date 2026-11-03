@@ -60,7 +60,7 @@ test("renderView reads a module's protojson rendering through the typed connecti
   assert.deepEqual(view.nodes[0].origin, { file: "demo.sysml", startLine: 2, startCol: 5, endLine: 2, endCol: 9 });
   assert.equal(view.nodes[0].geometry, undefined);
   assert.deepEqual(view.nodes[1].geometry, { x: 10, y: 20, width: 100, height: 40, hasSize: true, collapsed: false, unplaced: false });
-  assert.deepEqual(view.nodes[1].ports, [{ id: "n1.0", name: "p", type: "", direction: "in" }]);
+  assert.deepEqual(view.nodes[1].ports, [{ id: "n1.0", name: "p", type: "", direction: "in", inherited: false }]);
   assert.equal(view.nodes[1].style?.bold, true);
   assert.deepEqual(view.edges[0], {
     from: "n1",

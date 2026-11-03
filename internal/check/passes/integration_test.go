@@ -85,3 +85,4 @@ func TestPassesGoldenLiteralInfinity(t *testing.T) { runPassesGolden(t, "literal
 // numeric library function, so the checker is silent, as the pinned validator is;
 // what the evaluator answers or refuses for it is the runtime's contract.
 func TestPassesGoldenUnboundedOperand(t *testing.T) { runPassesGolden(t, "unbounded_operand") }
+func TestPassesGoldenChainTyping(t *testing.T)      { runPassesGolden(t, "chain_typing") }

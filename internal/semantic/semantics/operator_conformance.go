@@ -45,7 +45,7 @@ func (m *Model) castTypesConformance(types []*symbols.Symbol, target *symbols.Sy
 	}
 	names := make([]string, 0, len(types))
 	for _, typ := range types {
-		names = append(names, leafName(typ.Name))
+		names = append(names, symbols.LastSegment(typ.Name))
 	}
 	return Conformance{Known: true, Found: strings.Join(names, " and ")}
 }
@@ -185,7 +185,7 @@ func (m *Model) resultConformance(scope *symbols.Scope, node ast.Node, want *sym
 			return Conformance{Known: true, Holds: true}
 		}
 		wider = wider || m.Conforms(want, result)
-		names = append(names, leafName(result.Name))
+		names = append(names, symbols.LastSegment(result.Name))
 	}
 	found := Conformance{Known: true, Found: "the result of `" + operatorText(node) + "`, typed by " + strings.Join(names, " and ")}
 	if !wider {

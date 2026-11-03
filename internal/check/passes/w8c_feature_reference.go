@@ -83,6 +83,9 @@ type refSite struct {
 	rejectStatePath          bool
 	allowStateDefinitionPath bool
 	invocationArgumentValue  bool
+	// anonBody is the body of an unnamed action (a loop or branch body, an
+	// Actions::Action) the site stands in, which features its members unnamed.
+	anonBody *symbols.Scope
 }
 
 // accessibleFrom reports whether target is reachable from the site.
@@ -255,13 +258,14 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 			c.walkMember(site, scope, branch)
 		}
 	case *ast.IfBranchNode:
-		c.walkMembers(site, childScopeOr(scope, n), n.Body)
+		body := childScopeOr(scope, n)
+		c.walkMembers(siteForActionBody(site, scope, body), body, n.Body)
 	case *ast.WhileLoopActionNode:
 		body := childScopeOr(scope, n)
 		c.walkExpr(site, scope, n.Collection)
 		c.walkExpr(site, body, n.Condition)
 		c.walkExpr(site, body, n.Until)
-		c.walkMembers(site, body, n.Body)
+		c.walkMembers(siteForActionBody(site, scope, body), body, n.Body)
 	case *ast.TransitionMember:
 		c.walkTransition(site, scope, n)
 	case *ast.StateNode:
@@ -278,14 +282,30 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		body := childScopeOr(scope, n)
 		c.walkMembers(siteForBody(site, scope, body), body, n.States)
 	case *ast.InitialNode:
+		c.checkActionEnd(site, scope, n.First)
+		c.checkActionEnd(site, scope, n.Successor)
 		c.walkMembers(site, childScopeOr(scope, n), n.Members)
+	case *ast.ControlFlowEdge:
+		if !n.SourceImplied {
+			c.checkActionEnd(site, scope, n.Source)
+		}
+		if !n.TargetImplied {
+			c.checkActionEnd(site, scope, n.Target)
+		}
 	case *ast.SuccessionEdge:
 		c.walkSuccession(site, scope, n)
 	case *ast.PrefixMetadata:
 		c.walkRunDecidedValues(site, childScopeOr(scope, n), n.Body)
 	case *ast.Usage:
-		if n.Kind == ast.UsageMetadata {
+		switch n.Kind {
+		case ast.UsageMetadata:
 			c.walkRunDecidedValues(site, childScopeOr(scope, n), n.Members)
+		case ast.UsageSuccession:
+			for _, end := range n.ConnectorEnds {
+				if end != nil {
+					c.checkActionEnd(site, scope, end.AttachedTarget())
+				}
+			}
 		}
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
 		c.walkMembers(site, childScopeOr(scope, m), ast.NodeBodyMembers(m))
@@ -325,17 +345,82 @@ func (c *featureReferenceChecker) walkTransition(site refSite, scope *symbols.Sc
 	c.walkMembers(site, body, n.Members)
 }
 
-// walkSuccession checks the stated ends of a succession in a state body.
+// walkSuccession checks the stated ends of a succession: as transition ends in
+// a state body, as connector ends elsewhere.
 func (c *featureReferenceChecker) walkSuccession(site refSite, scope *symbols.Scope, n *ast.SuccessionEdge) {
-	if site.sym != nil && (site.sym.Kind == symbols.SymbolStateDef || site.sym.Kind == symbols.SymbolStateUsage) {
+	if inStateBody(site) {
 		if !n.SourceImplied {
 			c.checkTransitionEndpoint(site, scope, n.Source)
 		}
 		if !n.TargetImplied {
 			c.checkTransitionEndpoint(site, scope, n.Target)
 		}
+	} else {
+		if !n.SourceImplied {
+			c.checkActionEnd(site, scope, n.Source)
+		}
+		if !n.TargetImplied {
+			c.checkActionEnd(site, scope, n.Target)
+		}
 	}
 	c.walkMembers(site, childScopeOr(scope, n), n.Members)
+}
+
+// inStateBody reports whether the site is the body of a state, whose
+// successions are transitions.
+func inStateBody(site refSite) bool {
+	return site.sym != nil && (site.sym.Kind == symbols.SymbolStateDef || site.sym.Kind == symbols.SymbolStateUsage)
+}
+
+// checkActionEnd checks a succession end as the connector end it is: its first
+// feature must be featured within the succession's action (KerML 8.3.4.5.3).
+func (c *featureReferenceChecker) checkActionEnd(site refSite, scope *symbols.Scope, ref ast.Node) {
+	if ref == nil || !site.inBody || inStateBody(site) || (site.sym == nil && site.anonBody == nil) {
+		return
+	}
+	for {
+		chain, ok := ref.(*ast.FeatureChainExpr)
+		if !ok {
+			break
+		}
+		ref = chain.Operand
+	}
+	name := ast.AsQualifiedName(ref)
+	if name == nil {
+		return
+	}
+	for i := 1; i < len(name.Parts); i++ {
+		if name.Parts[i].Chained {
+			name = qualifiedNamePrefix(name, i)
+			break
+		}
+	}
+	target, ok := c.cc.resolver.ResolveTarget(scope, name)
+	if !ok || target == nil || !isUsageKind(target.Kind) || target == site.sym {
+		return
+	}
+	if c.cc.resolver.IsBaseThat(target) || semantics.DeclaresVariant(target) {
+		return
+	}
+	ctxs := c.cc.featuringContexts(target)
+	if len(ctxs) == 0 {
+		return
+	}
+	for _, ctx := range ctxs {
+		if w8cOwnsVariants(ctx) {
+			return
+		}
+	}
+	if c.endFeaturedWithin(site, target) {
+		return
+	}
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
+		Span:     name.Span(),
+		Message:  msgSubsettingFeaturingTypes,
+		Code:     "feature-reference-featuring-types",
+		Source:   "constraint",
+	})
 }
 
 // walkSend checks a send's message, target (a via port by name), receiver and body.
@@ -603,6 +688,19 @@ func siteForBody(site refSite, parent, body *symbols.Scope) refSite {
 	return site
 }
 
+// siteForActionBody is siteForBody for a loop or branch body, an action of its
+// own; unnamed, it is the site's anonBody for the connector ends written in it.
+func siteForActionBody(site refSite, parent, body *symbols.Scope) refSite {
+	if body == parent {
+		return site
+	}
+	if owner := body.Owner(); owner != nil {
+		return refSite{sym: owner, inBody: true}
+	}
+	site.anonBody = body
+	return site
+}
+
 // checkReferent reports a referent that is not a feature, or a feature that the
 // naming context cannot reach.
 func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Scope, ref ast.Node, span source.Span) {
@@ -688,6 +786,23 @@ func w8cOwnedByImplicitNode(target *symbols.Symbol) bool {
 	}
 	owner := target.OwnerScope.Owner()
 	return owner != nil && owner.Name == "" && isUsageKind(owner.Kind)
+}
+
+// endFeaturedWithin reports whether a connector end's feature is featured within
+// the site's action: the named one, or an unnamed body and the Action it is.
+func (c *featureReferenceChecker) endFeaturedWithin(site refSite, target *symbols.Symbol) bool {
+	if site.anonBody == nil {
+		return c.cc.featuredWithin(target, site.sym)
+	}
+	if target.OwnerScope == site.anonBody {
+		return true
+	}
+	for _, action := range c.cc.resolver.Index().LookupQualified("Actions::Action") {
+		if c.cc.featuredWithin(target, action) {
+			return true
+		}
+	}
+	return false
 }
 
 // checkBindingEnds checks that each end of a binding names a feature, resolved

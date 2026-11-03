@@ -38,10 +38,15 @@ type Report struct {
 	Normalizations []string        `json:"normalizations"`
 	Totals         Totals          `json:"totals"`
 	Roots          []RootReport    `json:"roots"`
-	// Scorecard maps "<metaclass>.<property>" to the row's six counts in the
+	// PilotNondeterministic lists the properties the pinned pilot exports
+	// differently from one JVM to the next, with the evidence; their rows
+	// are scored in the pilot-nondeterministic column and nowhere else.
+	PilotNondeterministic []Nondeterminism `json:"pilotNondeterministic"`
+	// Scorecard maps "<metaclass>.<property>" to the row's seven counts in the
 	// order present-equal, present-different, ours-missing, pilot-missing,
-	// absent-both, indeterminate; the text report lists the same rows ranked.
-	Scorecard map[string][6]int `json:"scorecard"`
+	// absent-both, indeterminate, pilot-nondeterministic; the text report lists
+	// the same rows ranked.
+	Scorecard map[string][7]int `json:"scorecard"`
 	rows      []Row
 }
 
@@ -50,9 +55,9 @@ func scorecardKey(row Row) string { return row.Metaclass + "." + row.Property }
 
 func (r *Report) setScorecard(rows []Row) {
 	r.rows = rows
-	r.Scorecard = make(map[string][6]int, len(rows))
+	r.Scorecard = make(map[string][7]int, len(rows))
 	for _, row := range rows {
-		r.Scorecard[scorecardKey(row)] = [6]int{row.PresentEqual, row.PresentDifferent, row.OursMissing, row.PilotMissing, row.AbsentBoth, row.Indeterminate}
+		r.Scorecard[scorecardKey(row)] = [7]int{row.PresentEqual, row.PresentDifferent, row.OursMissing, row.PilotMissing, row.AbsentBoth, row.Indeterminate, row.PilotNondeterministic}
 	}
 }
 
@@ -138,9 +143,9 @@ func writeReports(out string, report *Report, examples Examples, logs map[string
 
 func headline(report *Report) string {
 	t := report.Totals
-	return fmt.Sprintf("%d files, %d elements matched (%d ours-only, %d pilot-only of which %d implied); properties: %d present-equal, %d present-different, %d ours-missing, %d pilot-missing, %d absent-both, %d indeterminate",
+	return fmt.Sprintf("%d files, %d elements matched (%d ours-only, %d pilot-only of which %d implied); properties: %d present-equal, %d present-different, %d ours-missing, %d pilot-missing, %d absent-both, %d indeterminate, %d pilot-nondeterministic",
 		t.Files, t.Elements.Matched, t.Elements.OursOnly, t.Elements.PilotOnly, t.Elements.PilotOnlyImplied,
-		t.Properties.PresentEqual, t.Properties.PresentDifferent, t.Properties.OursMissing, t.Properties.PilotMissing, t.Properties.AbsentBoth, t.Properties.Indeterminate)
+		t.Properties.PresentEqual, t.Properties.PresentDifferent, t.Properties.OursMissing, t.Properties.PilotMissing, t.Properties.AbsentBoth, t.Properties.Indeterminate, t.Properties.PilotNondeterministic)
 }
 
 // renderText is the human-readable report: totals, roots, the scorecard with
@@ -180,10 +185,10 @@ func renderText(report *Report, examples Examples, logs map[string]string) strin
 		byRow[example.Metaclass+"\x00"+example.Property] = example
 	}
 	fmt.Fprintf(&b, "\nscorecard (%d rows, most differing first):\n", len(report.rows))
-	fmt.Fprintf(&b, "  %-32s %-28s %7s %9s %12s %13s %11s %13s\n", "metaclass", "property", "equal", "different", "ours-missing", "pilot-missing", "absent-both", "indeterminate")
+	fmt.Fprintf(&b, "  %-32s %-28s %7s %9s %12s %13s %11s %13s %22s\n", "metaclass", "property", "equal", "different", "ours-missing", "pilot-missing", "absent-both", "indeterminate", "pilot-nondeterministic")
 	for _, row := range report.rows {
-		fmt.Fprintf(&b, "  %-32s %-28s %7d %9d %12d %13d %11d %13d\n", row.Metaclass, row.Property,
-			row.PresentEqual, row.PresentDifferent, row.OursMissing, row.PilotMissing, row.AbsentBoth, row.Indeterminate)
+		fmt.Fprintf(&b, "  %-32s %-28s %7d %9d %12d %13d %11d %13d %22d\n", row.Metaclass, row.Property,
+			row.PresentEqual, row.PresentDifferent, row.OursMissing, row.PilotMissing, row.AbsentBoth, row.Indeterminate, row.PilotNondeterministic)
 		if example, ok := byRow[row.Metaclass+"\x00"+row.Property]; ok {
 			fmt.Fprintf(&b, "      e.g. %s %s/%s (%s): ours %s, pilot %s\n", example.Bucket, example.Root, example.File, example.Element, example.Ours, example.Pilot)
 		}

@@ -1,11 +1,11 @@
 {
-  "pilotTag": "2026-08",
+  "pilotTag": "2026-09",
   "roots": [
     {
       "name": "stdlib",
       "dir": "internal/workspace/libs/stdlib",
       "files": 110,
-      "lines": 31227
+      "lines": 31239
     },
     {
       "name": "training",
@@ -35,25 +35,25 @@
       "name": "spec-examples",
       "dir": "examples/spec-examples",
       "files": 511,
-      "lines": 6344
+      "lines": 6242
     },
     {
       "name": "testdata",
       "dir": "tests/testdata",
-      "files": 30,
-      "lines": 497
+      "files": 40,
+      "lines": 623
     },
     {
       "name": "parser-fixtures",
       "dir": "tests/parser/testdata/parse",
-      "files": 268,
-      "lines": 6375
+      "files": 290,
+      "lines": 6751
     },
     {
       "name": "examples",
       "dir": "examples",
       "files": 52,
-      "lines": 9653
+      "lines": 9925
     }
   ],
   "totals": {

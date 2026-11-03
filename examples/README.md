@@ -40,6 +40,7 @@ Each of these is a model and a walkthrough of the commands that exercise it.
 | [solver-demo.sysml](solver-demo.sysml) | [SOLVER-DEMO.md](SOLVER-DEMO.md) | `%check`, `%explain`, `%solve`, `%configure` and `%optimize` — what conditions *can* hold, which conflict, what satisfies them, which variants are permitted, what is best (needs z3 or cvc5) |
 | [oosem-demo/oosem-demo.sysml](oosem-demo/oosem-demo.sysml) | [oosem-demo/README.md](oosem-demo/README.md) | the `OOSEM` library on a small Earth-observation mission: as-is and to-be enterprise, causal analysis, stakeholder needs derived down to component requirements with `#moe`/`#mop`, the black-box system context and its use case, the logical scenario and components, and the physical architecture distributed over nodes |
 | [mosa-demo/mosa-demo.sysml](mosa-demo/mosa-demo.sysml) | [mosa-demo/README.md](mosa-demo/README.md) | the `MOSA` library on a modular ground vehicle: the major system platform, its major system components and a modular autonomy system, the modular system interfaces between them (one written as `#keyInterface`), the consensus standards they conform to, data rights and proprietary elements, interface control, MOSA requirements with their traces, a conformance assessment, the MOSA views and a generated interface control document; `-validate` reports the openness gaps the model leaves on purpose |
+| [general-views-demo/](general-views-demo/) | [general-views-demo/README.md](general-views-demo/README.md) | `GeneralView`s drawn as graphs: a requirement graph with satisfy, verify, derive and refine edges, coloured by verification verdict with `-render-overlay verdicts`; a definition-and-usage graph; a package graph; and the use case diagrams a `filter @SysML::UseCaseUsage` view is drawn as |
 | [views-demo.sysml](views-demo.sysml) | [VIEWS-DEMO.md](VIEWS-DEMO.md) | `%view` and `%render` — the seven rendering kinds, the text/Mermaid/Markdown forms, viewpoint conformance and filtered exposure |
 | [expressions-demo.sysml](expressions-demo.sysml) | [EXPRESSIONS-DEMO.md](EXPRESSIONS-DEMO.md) | the expression forms worked through one payload: `as` casts that select rather than convert, `*` as the unbounded value, `.metadata` on an annotated part, calculations passed and invoked as function values, a `Set` with no order and no repeats, a rank-three tensor quantity indexed and scaled, and `collect`/`select`/`reduce` bodies typed by what they return |
 | [action-executor-demo.sysml](action-executor-demo.sysml) | [ACTION-EXECUTOR-DEMO.md](ACTION-EXECUTOR-DEMO.md) | executing actions, and stepping one in the REPL |
@@ -57,7 +58,10 @@ in [checking](../docs/guide/05-checking.md), and
 [rdf-interop-demo.sysml](rdf-interop-demo.sysml) — structure only, so it round-trips — in
 [saving and RDF](../docs/guide/07-saving-and-rdf.md).
 [phase-c-behavioral-bodies.sysml](phase-c-behavioral-bodies.sysml) exercises the
-calculation, constraint, requirement, action and state bodies the parser accepts, and
+calculation, constraint, requirement, action and state bodies the parser accepts,
+[gridview-relationship-matrix.sysml](gridview-relationship-matrix.sysml) is the `GridView`
+relationship matrix the [view rendering forms](../docs/project/view-rendering-forms.md) record
+describes, and
 [runtime-demo/](runtime-demo/) is a Go program (`go run ./examples/runtime-demo`) that
 drives the parser, resolver and runtime directly rather than through `sysml`.
 

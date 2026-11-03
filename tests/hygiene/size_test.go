@@ -35,7 +35,7 @@ var oversizeTestFiles = []oversize{
 	{"internal/exec/runtime/conformance_test.go", 2714, "execution-conformance driver and its per-case assertions"},
 	{"internal/exec/runtime/signal_test.go", 2491, "signal delivery scenarios on one shared harness"},
 	{"tests/migrate/behavior_more_test.go", 2465, "SysML v1 behavior migration scenarios on one shared harness"},
-	{"internal/frontend/lsp/debug_test.go", 2203, "LSP debug-protocol scenarios over one wire fixture"},
+	{"internal/frontend/lsp/debug_test.go", 2127, "LSP debug-protocol scenarios over one wire fixture"},
 	{"internal/exec/runtime/signal_injection_test.go", 2181, "signal-injection scenarios on one shared harness"},
 	{"internal/exec/runtime/adopt_test.go", 2163, "adoption scenarios on one shared harness"},
 	{"internal/doc/queryexec/execute_test.go", 2114, "query-execution scenarios on one shared harness"},

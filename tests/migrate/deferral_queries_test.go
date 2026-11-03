@@ -99,7 +99,7 @@ func TestTableQueriesNameActionsInADeferralBuffer(t *testing.T) {
 	}
 	for _, document := range []string{"Model::Tables::'Listed Calls Document'", "Model::Tables::'Report Document'"} {
 		page := html(t, s, document)
-		if strings.Contains(page, "names no single element") || !strings.Contains(page, "Acquiring::buffer::Acquire::call") {
+		if !strings.Contains(page, "Acquiring::buffer::Acquire::call") {
 			t.Errorf("%s does not render the buffered actions:\n%s", document, page)
 		}
 	}

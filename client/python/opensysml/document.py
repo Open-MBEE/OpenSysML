@@ -24,6 +24,7 @@ from typing import Optional, Sequence, Union
 from opensysml.errors import OpenSysMLError, UnsupportedValueError
 from opensysml.proto import sysml_pb2
 from opensysml.values import (
+    value_to_python,
     INFINITY,
     Quantity,
     _Infinity,
@@ -159,7 +160,9 @@ class DocumentEvent:
 
     Attributes:
         kind: ``"accept"``, ``"send"``, ``"transition"``, ``"entry"``,
-            ``"exit"``, ``"do"``, ``"choice"``, ``"guard"`` or ``"terminate"``
+            ``"exit"``, ``"do"``, ``"choice"``, ``"guard"`` or ``"terminate"``;
+            an action's run adds ``"step"``, ``"wait"``, ``"assign"``,
+            ``"decide"`` and ``"complete"``
         time: The instant the record was written at, in the runtime clock's
             unit — a :class:`~opensysml.values.Quantity` when the clock carries
             one, a plain number otherwise
@@ -174,8 +177,13 @@ class DocumentEvent:
         event: The accepted or sent event's type name
         payload: The accept's payload, one ``name = value`` text per attribute
         alternatives: What a choice drew from, in order
-        taken: The alternative the choice took
+        taken: The alternative the choice took, or the branch a decide took
         text: The record as the trace prints it
+        token: The action token a step, wait, assign, decide or accept record
+            is about, 0 for a record of none
+        step: The executor step that made the record, 0 for none
+        feature: The feature an assign record wrote
+        value: What that feature holds since, ``None`` for any other record
     """
 
     kind: str
@@ -191,6 +199,10 @@ class DocumentEvent:
     payload: tuple = ()
     alternatives: tuple = ()
     taken: str = ""
+    token: int = 0
+    step: int = 0
+    feature: str = ""
+    value: object = None
 
     def __str__(self):
         return f"{self.time}: {self.text}"
@@ -213,6 +225,9 @@ class RenderPort:
     name: str
     type: str
     direction: str
+    #: The node's owner has the port from its type rather than declares it; the
+    #: notation draws ``^`` before ``name``.
+    inherited: bool = False
 
 
 @dataclass(frozen=True)
@@ -262,6 +277,10 @@ class RenderNode:
     origin: Optional[RenderSpan]
     geometry: Optional[RenderGeometry]
     style: Optional[RenderStyle]
+    #: The owner the node is drawn or listed under has the usage through typing,
+    #: subclassification or subsetting rather than declares it; the notation
+    #: draws ``^`` before ``name``.
+    inherited: bool = False
 
 
 @dataclass(frozen=True)
@@ -367,13 +386,14 @@ def render_view_result(response):
         RenderNode(
             node.id, node.kind, node.name, node.name_synthesized, node.type, node.detail,
             node.text, node.stand_in, node.parent, node.compartment,
-            tuple(RenderPort(port.id, port.name, port.type, port.direction) for port in node.ports),
+            tuple(RenderPort(port.id, port.name, port.type, port.direction, port.inherited) for port in node.ports),
             _render_span(node.origin if node.HasField("origin") else None),
             None if not node.HasField("geometry") else RenderGeometry(
                 node.geometry.x, node.geometry.y, node.geometry.width, node.geometry.height,
                 node.geometry.has_size, node.geometry.collapsed, node.geometry.unplaced,
             ),
             _render_style(node.style if node.HasField("style") else None),
+            inherited=node.inherited,
         )
         for node in response.nodes
     )
@@ -711,4 +731,8 @@ def document_event_of(event):
         payload=tuple(event.payload),
         alternatives=tuple(event.alternatives),
         taken=event.taken,
+        token=event.token,
+        step=event.step,
+        feature=event.feature,
+        value=value_to_python(event.value) if event.HasField("value") else None,
     )

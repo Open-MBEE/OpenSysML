@@ -1556,13 +1556,7 @@ func (idx *Index) indexScope(doc string, scope *Scope, prefix string) {
 		idx.addContribution(doc, fqnEntry{fqn: fqn, sym: sym})
 
 		// Also index under short name FQN if different
-		// Try cached shortName first (for stdlib), fallback to extracting from Decl
-		shortName := sym.ShortName
-		if shortName == "" {
-			id, _ := DeclIdent(sym.Decl)
-			shortName = id.ShortName
-		}
-		if shortName != "" && shortName != sym.Name {
+		if shortName := shortNameOf(sym); shortName != "" && shortName != sym.Name {
 			shortFQN := joinFQN(prefix, shortName)
 			idx.register(shortFQN, sym)
 			idx.addContribution(doc, fqnEntry{fqn: shortFQN, sym: sym})
@@ -1790,26 +1784,70 @@ func (idx *Index) shortNamedScan(name string) bool {
 	return shortRegistered(name)
 }
 
-// LookupUnique returns the element name denotes: the one registered under it
-// as a fully-qualified name, or the only one whose fully-qualified name ends
-// in `::name`. Nil when nothing, or more than one element, answers.
-func (idx *Index) LookupUnique(name string) *Symbol {
-	if matches := idx.LookupQualified(name); len(matches) == 1 {
-		return matches[0]
+// LookupUniqueCandidates returns the distinct elements LookupUnique chooses among —
+// registered under name exactly, else under every FQN ending in it — none or several telling why it failed.
+func (idx *Index) LookupUniqueCandidates(name string) []*Symbol {
+	segments := SegmentsOf(name)
+	key := strings.Join(segments, fqnSeparator)
+	if matches := idx.readingAs(key, segments); len(matches) == 1 {
+		return matches
 	}
-	var match *Symbol
+	var out []*Symbol
 	for _, fqn := range idx.FQNs() {
-		if fqn != name && !strings.HasSuffix(fqn, "::"+name) {
+		if fqn != key && !strings.HasSuffix(fqn, fqnSeparator+key) {
 			continue
 		}
-		for _, candidate := range idx.LookupQualified(fqn) {
-			if match != nil && !SameElement(match, candidate) {
-				return nil
+		for _, candidate := range idx.readingAs(fqn, segments) {
+			if !slices.ContainsFunc(out, func(o *Symbol) bool { return SameElement(o, candidate) }) {
+				out = append(out, candidate)
 			}
-			match = candidate
 		}
 	}
-	return match
+	return out
+}
+
+// readingAs is LookupQualified(fqn) less the symbols segments do not name: once a
+// name holding `::` is involved, fqn's boundaries are checked against them name by name.
+func (idx *Index) readingAs(fqn string, segments []string) []*Symbol {
+	return slices.DeleteFunc(slices.Clone(idx.LookupQualified(fqn)), func(sym *Symbol) bool {
+		return (holdsSeparator(segments) || holdsSeparator(NameChain(sym))) && !idx.keyReadsAs(fqn, sym, segments)
+	})
+}
+
+// keyReadsAs reports whether the registered fqn, naming sym, ends in segments at
+// those boundaries: the last is a name of sym, the rest a registered namespace reading as the rest.
+func (idx *Index) keyReadsAs(fqn string, sym *Symbol, segments []string) bool {
+	if len(segments) == 0 {
+		return true
+	}
+	last := segments[len(segments)-1]
+	if sym.Name != last && sym.ShortName != last {
+		return false
+	}
+	prefix := strings.TrimSuffix(fqn, last)
+	if prefix == "" {
+		return len(segments) == 1
+	}
+	prefix, ok := strings.CutSuffix(prefix, fqnSeparator)
+	if !ok {
+		return false
+	}
+	return slices.ContainsFunc(idx.LookupQualified(prefix), func(namespace *Symbol) bool {
+		return idx.keyReadsAs(prefix, namespace, segments[:len(segments)-1])
+	})
+}
+
+func holdsSeparator(names []string) bool {
+	return slices.ContainsFunc(names, func(name string) bool { return strings.Contains(name, fqnSeparator) })
+}
+
+// LookupUnique resolves a name that is either fully qualified or unique over
+// the model by its last segments; nil when it names nothing or several elements.
+func (idx *Index) LookupUnique(name string) *Symbol {
+	if candidates := idx.LookupUniqueCandidates(name); len(candidates) == 1 {
+		return candidates[0]
+	}
+	return nil
 }
 
 // FQNsEndingIn returns up to limit registered fully-qualified names whose last
@@ -2008,6 +2046,15 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 	return byName[name]
 }
 
+// SegmentsOf reads a qualified name as the notation spells it into its names,
+// `'x::y'` one and `x::y` two, quotes dropped and escapes kept as the parser keeps them.
+func SegmentsOf(name string) []string {
+	if segments, ok := source.QualifiedNameSegments(name); ok {
+		return segments
+	}
+	return strings.Split(name, fqnSeparator)
+}
+
 // LastSegment is the simple name a "::"-qualified name ends in, or name itself.
 func LastSegment(name string) string {
 	if i := lastSeparator(name); i >= 0 {
@@ -2146,14 +2193,39 @@ func NameChain(sym *Symbol) []string {
 	return names
 }
 
-// HasFQN reports whether sym's fully-qualified name is fqn, without building
-// that name: the segments are compared against the owner chain from the end,
+// HasFQN reports whether fqn is a fully-qualified name of sym, without building
+// one: the last segment is sym's name or its short name (`SI::km` names
+// kilometre), and the rest is compared against the owner chain from the end,
 // skipping unnamed owners as FQNOf does.
 func HasFQN(sym *Symbol, fqn string) bool {
 	if sym == nil {
 		return fqn == ""
 	}
-	rest, name, scope := fqn, sym.Name, sym.OwnerScope
+	if hasFQNAs(sym, fqn, sym.Name) {
+		return true
+	}
+	short := shortNameOf(sym)
+	return short != "" && short != sym.Name && hasFQNAs(sym, fqn, short)
+}
+
+// ShortNamed reports whether fqn reaches sym by its short name rather than its
+// name: `SI::min` reaches the minute, which `SI::minute` names.
+func ShortNamed(sym *Symbol, fqn string) bool {
+	return sym != nil && !hasFQNAs(sym, fqn, sym.Name)
+}
+
+// shortNameOf is sym's short name: as recorded, else as its declaration spells it.
+func shortNameOf(sym *Symbol) string {
+	if sym.ShortName != "" {
+		return sym.ShortName
+	}
+	id, _ := DeclIdent(sym.Decl)
+	return id.ShortName
+}
+
+// hasFQNAs is HasFQN with sym's last segment taken to be name.
+func hasFQNAs(sym *Symbol, fqn, name string) bool {
+	rest, scope := fqn, sym.OwnerScope
 	for {
 		if !strings.HasSuffix(rest, name) {
 			return false

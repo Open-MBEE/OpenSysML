@@ -709,11 +709,11 @@ func (m *Model) unitTermOfName(scope *symbols.Scope, qn *ast.QualifiedName) (Uni
 	}
 	sym, ok := m.unitSymbolNamed(scope, qn)
 	if !ok {
-		return UnitTerm{}, fmt.Errorf("%w: unresolved unit %s", ErrNotAUnit, QualifiedNameText(qn))
+		return UnitTerm{}, fmt.Errorf("%w: unresolved unit %s", ErrNotAUnit, qn.Text())
 	}
 	if m.IsMeasurementScale(sym) {
 		return UnitTerm{}, fmt.Errorf("%w: %s is a measurement scale; a point on it is no magnitude in a unit to compose",
-			ErrNotAUnit, QualifiedNameText(qn))
+			ErrNotAUnit, qn.Text())
 	}
 	if !m.IsMeasurementUnit(sym) {
 		return UnitTerm{}, m.shadowedUnit(qn, sym)
@@ -775,7 +775,7 @@ func (e *ShadowedUnitError) Unwrap() error { return ErrNotAUnit }
 // including the unit that resolution hid. Only a simple name can shadow one, so
 // a qualified name is reported without that explanation.
 func (m *Model) shadowedUnit(qn *ast.QualifiedName, sym *symbols.Symbol) error {
-	err := &ShadowedUnitError{Name: QualifiedNameText(qn), Resolved: sym, Namespace: namespacePath(sym.OwnerScope)}
+	err := &ShadowedUnitError{Name: qn.Text(), Resolved: sym, Namespace: namespacePath(sym.OwnerScope)}
 	if len(qn.Parts) != 1 {
 		return err
 	}
@@ -1010,6 +1010,3 @@ func UnitNameText(qn *ast.QualifiedName) string {
 	}
 	return strings.Join(parts, "::")
 }
-
-// QualifiedNameText is (*ast.QualifiedName).Text; new callers use the method.
-func QualifiedNameText(qn *ast.QualifiedName) string { return qn.Text() }

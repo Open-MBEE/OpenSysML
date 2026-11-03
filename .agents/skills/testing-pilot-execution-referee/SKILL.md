@@ -28,7 +28,7 @@ Provisioning notes worth knowing before you test it:
 
 - There is **no already-built early exit**: every run recompiles and rewrites
   the launcher. Observed at `f3af23a2`: a second run reprints
-  `Compiling ...` / `Built ... (pilot 2026-08, 0.62.0)`, exit 0, and both
+  `Compiling ...` / `Built ... (pilot 2026-09, 0.63.0)`, exit 0, and both
   `classes/EvalSysML.class` and `eval-sysml` are **byte-identical**
   (same sha256) with only the mtime advancing. So assert idempotency by
   `sha256sum`, not by mtime or by an "already built" message.
@@ -44,7 +44,7 @@ Provisioning notes worth knowing before you test it:
   `error: pilot standard library not found at .../sysml.library`.
 - **`PILOT_TAG` is not a real pin for this script.** `PILOT_TAG=bogus
   ./scripts/download-pilot-evaluator.sh` exits **0** and builds normally,
-  printing `Built ... (pilot artifact 0.62.0)`. The artifact is located purely
+  printing `Built ... (pilot artifact 0.63.0)`. The artifact is located purely
   by `PILOT_ARTIFACT_VERSION`; `PILOT_TAG` is provisioned and checked by
   `download-pilot-validator.sh`, not used to locate it here.
 - `grep -c jupyter-sysml-kernel-<version>-all.jar build/pilot-evaluator/eval-sysml`
@@ -65,10 +65,10 @@ cases after it, so a disagreement among them buckets `differs-by-design` with th
 report. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (500 cases, all twenty-two default
+Reference values at the current implementation (514 cases, all twenty-three default
 fixtures):
-`agree 224 · kind-only 1 · order-only 0 · disagree 26 · differs-by-design 5 ·
-pilot-unevaluated 157 · pilot-silent 24 · pilot-error 5 · ours-error 10 · ours-undetermined 32 ·
+`agree 229 · kind-only 1 · order-only 0 · disagree 38 · differs-by-design 5 ·
+pilot-unevaluated 167 · pilot-silent 24 · pilot-error 7 · ours-error 10 · ours-undetermined 17 ·
 both-error 16 · nondeterministic 0`.
 The 44 of `unbounded_arithmetic.cases` add 33 `pilot-unevaluated` (every arithmetic operator,
 comparison, `max`/`min`/`abs`/`ToString` and conditional over `*`, with our error or answer
@@ -154,8 +154,8 @@ pilot answers the representation's own. See
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run -C tools ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`916 file(s), 515 fully agreeing; 1092 agreed
-  diagnostic(s), 366 only ours, 2444 only the pilot's` at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`924 file(s), 522 fully agreeing; 1102 agreed
+  diagnostic(s), 359 only ours, 2462 only the pilot's` at the `2026-09` pin — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

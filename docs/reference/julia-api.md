@@ -15,13 +15,18 @@ using OpenSysML
 
 ```julia
 conn = connect(; timeout=30, version=nothing, require_capabilities=[])
-conn = external("localhost:50051"; timeout=30)
+conn = external("localhost:50051"; timeout=30, token=nothing)
 conn = private(; binary=nothing, timeout=30)
 ```
 
 `connect` uses `$OPENSYSML_SERVICE` when set and otherwise starts a private
 child. `external` connects to a service managed elsewhere; closing it only
-disconnects. `private` resolves and starts its own child. These constructors
+disconnects. A service on an address other machines reach requires a bearer
+token, which `external` and `connect` send as `Authorization: Bearer` on every
+call: the `token` keyword, or `$OPENSYSML_GRPC_TOKEN` (`TOKEN_ENV`) when none
+is given; a call without the right one raises `ConnectError` with code
+`unauthenticated`. `private` resolves and starts its own child, without
+`$OPENSYSML_GRPC_TOKEN` in its environment: a private child needs no token. These constructors
 accept a timeout, expected service version, and required capabilities.
 `call(conn, method, request)` posts a proto3-JSON request and returns the
 decoded JSON value.
@@ -58,6 +63,7 @@ The error hierarchy includes `OpenSysMLError`, `ConnectError`,
 `SymbolNotFoundError`, `TypeMismatchError`, and `FeatureValueError`.
 `ConnectError` is abstract; concrete Connect failures include
 `InvalidRequestError`, `ModelNotFoundError`, `ModelFileNotFoundError`,
+`AuthenticationError` (the service refused the call's bearer token),
 `ServiceTimeoutError`, `UnsupportedOperationError`, and
 `ServiceUnavailableError`.
 
@@ -87,7 +93,13 @@ get(model, "Demo::Car", nothing)
 `strict=true` raises `ModelError` if parse diagnostics include an error. The
 wire-level strict conformance flag is named `strict_conformance`; it is
 separate from `strict`. `parse_sources` preserves input order and accepts
-`SourceDocument`s, file paths, or `(name, content)` pairs.
+`SourceDocument`s, file paths, or `(name, content)` pairs. Parsing the set again
+after an edit, `parse_sources(conn, documents; base_model_hash=model.hash)` relates
+the parse to the previous model and `affected(model)` names, in document order, the
+documents whose analysis, diagnostics or conversion may differ from it, so results
+computed for the others are kept; every document when the service could not
+compare the two, such as for a set it had not seen before (needs the
+`parse_sources_affected` capability).
 
 Model operations include `evaluate(model, expression; context, subject)`,
 `instantiate(model, symbol_id)`, `execute_action(model, symbol_id; inputs,
@@ -97,6 +109,9 @@ performer attributes are available separately as `performer`. `execute_state`
 returns a `StateRun` with `states_visited`, `final_context`, `final_time`,
 `trace::Vector{DocumentEvent}`, and `trace_dropped`. Requesting a trace checks
 the `state_trace` capability locally and cannot be combined with exploration.
+`execute_action(...; trace=true, events=["Go"], performer=...)` does the same for an
+action under `action_trace`, filling `ActionOutputs.trace` and `trace_dropped`; each
+event is posted to the performer once every token waits.
 A failed traced run keeps its existing `ExecutionFailure` or `WrongKindError`
 classification, with partial records on `trace` and the discarded count on
 `trace_dropped`.
@@ -147,7 +162,9 @@ explore_state(model, "Demo::machine"; events=String[], engine=nothing)
 ```
 
 Engine, question, and schedule options are checked against their respective
-service capabilities before the RPC. `execute_action` and `execute_state` take
+service capabilities before the RPC. A `Verdict` lists in `notes` what a solver's
+answer rests on, each a `VerdictNote` (`kind` `"assumed_one"` or `"uncovered"`,
+`subject`, `text`), empty from a service without `verdict_notes`. `execute_action` and `execute_state` take
 the run options of the `sysml` command: `advance` (simulated seconds to run
 for), `seed` (the model's own draws), `draws` (`"random"`, `"min"`, `"max"` or
 `"average"`) and `clock_step`; a negative or unknown one is an `ArgumentError`
@@ -167,24 +184,42 @@ stable parameter order.
 
 ## Queries, documents, and conversion
 
-`build_query(; scope, select, where)` constructs an OSLC query;
-`query(model, payload; scope, select, where)` runs it. Document APIs are
+`build_query(; scope, select, where, order_by)` constructs a standard query
+(all seven `PrimitiveConstraint` operators; `order_by` sorts the answer by each
+named property in turn, ascending); `query(model, payload; scope, select, where,
+order_by)` runs it. Document APIs are
 `build_document_bindings`, `run_document_query(model, query; bindings,
 options)`, `render_document(model, query; bindings, format)`, and
-`render_view(model, name; ports="minimal", show=String[], depth=0)`, returning
+`render_view(model, name; ports="minimal", show=String[], depth=0, compartments="")`, returning
 typed query and view data. `ports="full"` includes all declared ports;
 `depth=n` draws only `n` levels of nested elements below each exposed element
 (`0` draws every level the view allows); `show=["edge-labels"]` draws
 those [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
 besides the ones the view's rendering shows (`"all"` for every one), and the
-`RenderedView`'s `shown` lists the elements drawn.
+`RenderedView`'s `shown` lists the elements drawn. `compartments` says how a
+tree rendering folds owned members into compartment rows (`"positioned"`, the
+default, `"most"` or `"ports"`); a folded `RenderNode` names its `compartment`.
 
 Conversion is available through `convert_file(conn, path, to_format; ...)`,
 `convert_source(conn, content, to_format; from_format, ...)`,
 `convert_model(conn, model_hash, to_format; ...)`, and
-`convert_model(model, to_format; ...)`. `to_sysml`, `to_turtle`,
-`to_api_json`, and `save` are model helpers. Turtle and API-JSON formats are
-experimental and emit `@warn`. A SysML v1 model — `from_format` `xmi`, `uml`
+`convert_model(model, to_format; ...)`, each taking `id_form`
+(`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived ids of a
+graph notation and `include_library_stubs`, which restores in api-json the
+ownerless library stubs releases before 0.11.0 wrote (needs the service's
+`convert_library_stubs` capability); the `Conversion` lists the
+`library_references` (`LibraryReference`) an api-json conversion names beside
+its elements. For notation converted to api-json, `compact=true` writes the
+compact document (`api-json-compact/1`, see [the compact form](api-json-compact.md)),
+`omit_derived=true` leaves out every derived property of the metamodel and
+`keep_derived=["qualifiedName"]` names the ones still written (all three need
+`convert_compact`; the service refuses `omit_derived` or `keep_derived` without
+`compact` as `InvalidRequestError`); `include_check_diagnostics=true` (needs
+`convert_check_diagnostics`, notation sources only) reports the semantic check's
+diagnostics in the `Conversion`'s `diagnostics`, each with its `severity`, so a
+conversion of a model with errors is told apart from one of a clean model.
+`to_sysml`, `to_turtle`, `to_api_json`, and `save` are model
+helpers. Turtle and API-JSON formats are experimental and emit `@warn`. A SysML v1 model — `from_format` `xmi`, `uml`
 or `mdzip`, or a path with that extension — is refused by every `convert_*`
 with an `ArgumentError`: it is migrated, not converted.
 

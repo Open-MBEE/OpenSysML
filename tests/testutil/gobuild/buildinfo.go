@@ -11,7 +11,7 @@ import (
 // binary, as debug.ReadBuildInfo reports it from inside: `go version -m` prints
 // the same records, indented under a line naming the binary and its toolchain.
 func ReadBuildInfo(binary string) (*debug.BuildInfo, error) {
-	out, err := exec.Command("go", "version", "-m", binary).CombinedOutput()
+	out, err := exec.Command("go", "version", "-m", binary).CombinedOutput() // #nosec G204 -- the binary under test
 	if err != nil {
 		return nil, fmt.Errorf("go version -m %s: %v\n%s", binary, err, out)
 	}

@@ -8,6 +8,6 @@ n0: "«abstract part»\nvehicleFamily" {
   n1: "«abstract port»\nfuel" { class: usage }
   n2: "«abstract part»\nengine" { class: usage }
   n3: "«part»\nchassis" { class: usage }
-  n4: "«attribute»\nmass" { class: usage }
+  n4: "«attribute»\n^mass" { class: usage }
 }
 n0.n2 -- n0.n3: { class: connection }

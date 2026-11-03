@@ -29,7 +29,7 @@ func TestInitializeReadsTheDisabledLints(t *testing.T) {
 			ws := model.NewWorkspace()
 			s := NewServer(ws)
 			if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{
-				InitializationOptions: tc.options,
+				InitializationOptions: mustLSPAny(t, tc.options),
 			}); err != nil {
 				t.Fatal(err)
 			}
@@ -50,7 +50,7 @@ func TestDidChangeConfigurationRepublishesWithoutTheLint(t *testing.T) {
 	ws.Open("a.sysml", []byte(lspTypo), 1)
 
 	if err := s.DidChangeConfiguration(context.Background(), &protocol.DidChangeConfigurationParams{
-		Settings: map[string]any{"sysml": map[string]any{"strictConformance": true}},
+		Settings: mustLSPAny(t, map[string]any{"sysml": map[string]any{"strictConformance": true}}),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestDidChangeConfigurationRepublishesWithoutTheLint(t *testing.T) {
 	}
 
 	if err := s.DidChangeConfiguration(context.Background(), &protocol.DidChangeConfigurationParams{
-		Settings: map[string]any{"sysml": map[string]any{"disabledLints": []any{passes.CodeUndeclaredSignal}}},
+		Settings: mustLSPAny(t, map[string]any{"sysml": map[string]any{"disabledLints": []any{passes.CodeUndeclaredSignal}}}),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestDidChangeConfigurationEnablesAnOptInLint(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{
-		InitializationOptions: map[string]any{"sysml.enabledLints": []any{"bogus"}},
+		InitializationOptions: mustLSPAny(t, map[string]any{"sysml.enabledLints": []any{"bogus"}}),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestDidChangeConfigurationEnablesAnOptInLint(t *testing.T) {
 	s.client = fc
 	ws.Open("a.sysml", []byte("package P { private import ScalarValues::*; attribute x : Real = 0.1; }"), 1)
 	if err := s.DidChangeConfiguration(context.Background(), &protocol.DidChangeConfigurationParams{
-		Settings: map[string]any{"sysml": map[string]any{"enabledLints": []any{passes.CodeRoundedRealLiteral}}},
+		Settings: mustLSPAny(t, map[string]any{"sysml": map[string]any{"enabledLints": []any{passes.CodeRoundedRealLiteral}}}),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestDidChangeConfigurationEnablesAnOptInLint(t *testing.T) {
 		t.Fatal("enabling a lint republished nothing")
 	}
 	last := published[len(published)-1]
-	if len(last.Diagnostics) != 1 || last.Diagnostics[0].Code != passes.CodeRoundedRealLiteral {
+	if len(last.Diagnostics) != 1 || diagnosticCode(last.Diagnostics[0]) != passes.CodeRoundedRealLiteral {
 		t.Fatalf("published %v after enabling the lint", last.Diagnostics)
 	}
 }

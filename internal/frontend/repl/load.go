@@ -13,9 +13,10 @@ import (
 // LoadPaths loads model files into the session. Each path names a file, a
 // directory to walk for .sysml/.kerml files, a glob pattern, or standard input
 // as a lone "-", whose contents are reported as <stdin>. A root namespace the
-// files import but none of them or the library declares is looked for in the
-// model files beside and below them, and each file declaring it is loaded too,
-// its own imports followed the same way. Every file is
+// analysis leaves unresolved — an import's or a qualified name's — that none of
+// the files or the library declares is looked for in the model files beside and
+// below them, and each file declaring it is loaded too, its own unresolved
+// references followed the same way. Every file is
 // accepted before the buffer is analyzed, so the order files are loaded in does
 // not affect name resolution: a file may reference a declaration another file
 // loaded after it makes. Diagnostics name the file they belong to and count
@@ -55,32 +56,38 @@ func (s *Session) loadPathsReport(paths []string, opts loadOptions) (LoadReport,
 	if err != nil {
 		return LoadReport{}, err
 	}
-	read, err := s.readWithDependencies(files, opts)
+	read, err := s.readSources(files, opts)
 	if err != nil {
 		return LoadReport{}, err
 	}
 	srcs := read.files
-	loaded := append(loadedFiles(srcs), read.notes...)
-	archives := warningLines(s.discovery().ArchiveWarnings(files), s.verbosity)
+	archives := s.discoveryWarnings(files)
 	if len(srcs) == 0 {
-		return LoadReport{Loaded: loaded, Found: archives, Errors: s.hasAnalysisErrors()}, nil
+		return LoadReport{Loaded: read.notes, Found: archives, Errors: s.hasAnalysisErrors()}, nil
 	}
-	found, declared := renderSplit(s.submitFiles(srcs), s.verbosity)
+	res := s.submitFiles(srcs)
+	loaded := append(loadedFiles(srcs, res.pulled), read.notes...)
+	found, declared := renderSplit(res, s.verbosity)
 	found = append(found, conversionWarnings(srcs, s.verbosity)...)
 	found = append(found, archives...)
 	return LoadReport{Loaded: loaded, Found: found, Declared: declared, Errors: s.hasAnalysisErrors()}, nil
 }
 
-// loadedFiles lists the files a load read when it read more than one, a
-// notebook counted once however many cells it contributed.
-func loadedFiles(srcs []SourceFile) []string {
+// loadedFiles lists the files a load read when it read more than one — those
+// named and those pulled for their references — a notebook counted once
+// however many cells it contributed.
+func loadedFiles(srcs []SourceFile, pulled []string) []string {
 	var names []string
 	seen := map[string]bool{}
+	read := make([]string, 0, len(srcs)+len(pulled))
 	for _, src := range srcs {
-		name := src.Name
 		if src.Of != "" {
-			name = src.Of
+			read = append(read, src.Of)
+		} else {
+			read = append(read, src.Name)
 		}
+	}
+	for _, name := range append(read, pulled...) {
 		if !seen[name] {
 			seen[name] = true
 			names = append(names, "  "+name)
@@ -100,6 +107,25 @@ func conversionWarnings(files []SourceFile, verbosity Verbosity) []string {
 	return warningLines(warnings, verbosity)
 }
 
+// LoadWarnings reports what the projects and archives a load of paths touched fell
+// short of as warnings located at their file (code project.load), less and counting the suppressed.
+func (s *Session) LoadWarnings(paths []string) ([]Diagnostic, int) {
+	defer s.enter()()
+	return s.loadWarnings(expandHomes(paths))
+}
+
+func (s *Session) loadWarnings(paths []string) (out []Diagnostic, suppressed int) {
+	for _, w := range s.discovery().Warnings(paths) {
+		d := Diagnostic{Severity: "warning", Message: w.Message, File: w.Path, Pass: "project", Code: "project.load"}
+		if s.suppress != nil && s.suppress(d.File, d.Code, d.Message) {
+			suppressed++
+			continue
+		}
+		out = append(out, d)
+	}
+	return out, suppressed
+}
+
 // warningLines renders warnings as the lines a load reports, none when quiet.
 func warningLines(warnings []string, verbosity Verbosity) []string {
 	if verbosity <= VerbosityQuiet {
@@ -110,6 +136,17 @@ func warningLines(warnings []string, verbosity Verbosity) []string {
 		lines = append(lines, "warning: "+warning)
 	}
 	return lines
+}
+
+// discoveryWarnings renders what the projects and archives a load of paths
+// touched fell short of as the warning lines a load reports, none when quiet.
+func (s *Session) discoveryWarnings(paths []string) []string {
+	var out []string
+	diags, _ := s.loadWarnings(paths)
+	for _, d := range diags {
+		out = append(out, d.File+": "+d.Message)
+	}
+	return warningLines(out, s.verbosity)
 }
 
 // ExpandPaths turns the paths a caller was given — files, directories to walk
@@ -141,6 +178,9 @@ func (s *Session) expandPaths(paths []string) ([]string, error) {
 func (s *Session) SetLibraryRoots(roots []string) {
 	defer s.enter()()
 	s.libraryRoots = append([]string(nil), roots...)
+	// The workspace index searches the installed projects too, so it is built
+	// again over the new roots.
+	s.workspace = nil
 }
 
 // LibraryRoots reports the directories installed projects are looked for under.
@@ -164,32 +204,6 @@ func (s *Session) discovery() project.Discovery {
 type reading struct {
 	files []SourceFile
 	notes []string
-	// deps is the same text under the paths the dependency search starts
-	// from, a notebook's cells under the notebook's path.
-	deps []project.Source
-}
-
-// readWithDependencies reads paths, then the model files beside and below them
-// that declare a root namespace they import and neither they nor the library
-// declare.
-func (s *Session) readWithDependencies(paths []string, opts loadOptions) (reading, error) {
-	read, err := s.readSources(paths, opts)
-	if err != nil {
-		return reading{}, err
-	}
-	deps := s.discovery().DependenciesOf(read.deps, s.ws.IsLibraryRoot)
-	if len(deps) == 0 {
-		return read, nil
-	}
-	if err := s.guardFiles(deps, true); err != nil {
-		return reading{}, err
-	}
-	more, err := s.readSources(deps, loadOptions{})
-	if err != nil {
-		return reading{}, err
-	}
-	read.files = append(read.files, more.files...)
-	return read, nil
 }
 
 // expandHomes expands a leading ~ in every path.
@@ -217,9 +231,6 @@ func (s *Session) readSources(paths []string, opts loadOptions) (reading, error)
 			}
 			read.files = append(read.files, cells...)
 			read.notes = append(read.notes, note...)
-			for _, cell := range cells {
-				read.deps = append(read.deps, project.Source{Path: path, Content: []byte(cell.Text)})
-			}
 			continue
 		}
 		name, data, err := project.ReadFile(path)
@@ -245,7 +256,6 @@ func (s *Session) readSources(paths []string, opts loadOptions) (reading, error)
 			kind = source.KindSysML
 		}
 		read.files = append(read.files, SourceFile{Name: name, Text: string(text), Kind: kind, Warnings: warnings})
-		read.deps = append(read.deps, project.Source{Path: path, Content: text})
 	}
 	if notebooks == 0 && !opts.cells.IsZero() {
 		return reading{}, errors.New("--cells picks the cells of a notebook, and no .ipynb was named")

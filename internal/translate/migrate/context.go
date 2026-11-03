@@ -1057,7 +1057,7 @@ func (m *migration) contextParameter(b *sysmlv1.Element) {
 		usageNote = " its context classifier is written as a usage, so the parameter specializes it rather than being typed by it"
 	}
 	if c.owner {
-		m.add(b, Mapped, "", "acts on its owner "+qualifiedName(c.classifier)+", which it takes as its parameter "+c.name+", since its this is the def's own occurrence"+usageNote)
+		m.add(b, Mapped, "", "acts on its owner "+qualifiedName(c.classifier)+", which it takes as its parameter "+c.name+", since its this names no feature of the owner"+usageNote)
 		return
 	}
 	note := "acts on a " + qualifiedName(c.classifier) + " through its ports, which it takes as its parameter " + c.name

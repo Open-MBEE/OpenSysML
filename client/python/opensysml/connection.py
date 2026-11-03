@@ -16,6 +16,10 @@ from opensysml.model import Model
 from opensysml.action_run import ActionOutputs
 from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
+    CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+    CAPABILITY_CONVERT_COMPACT,
+    CAPABILITY_CONVERT_LIBRARY_STUBS,
+    CAPABILITY_OSLC_QUERY,
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
@@ -35,6 +39,7 @@ from opensysml.capabilities import (
     CAPABILITY_COMMENT_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_PARSE_SOURCES,
+    CAPABILITY_PARSE_SOURCES_AFFECTED,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_CONVERT,
@@ -55,9 +60,12 @@ from opensysml.capabilities import (
     CAPABILITY_RUNS,
     CAPABILITY_SELF_CHECK,
     CAPABILITY_STATE_TRACE,
+    CAPABILITY_ACTION_TRACE,
     CAPABILITY_QUERY,
+    CAPABILITY_QUERY_ORDER_BY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_VIEW,
     CAPABILITY_CHECK,
     CAPABILITY_EXPORT_GRAPHS,
@@ -80,6 +88,7 @@ from opensysml.capabilities import (
 from opensysml.conversion import (
     Conversion,
     EXPERIMENTAL_NOTICE,
+    LibraryReference,
     ExperimentalFeatureWarning,
     MIGRATED_NOT_CONVERTED,
     Migration,
@@ -121,7 +130,7 @@ from opensysml.errors import (
     from_rpc_error,
     translate_rpc_errors,
 )
-from opensysml.query import build_query, elements_of
+from opensysml.query import QueryError, build_query, elements_of
 from opensysml.sources import source_documents
 from opensysml.values import (
     Array,
@@ -220,6 +229,10 @@ _UNRESOLVED = object()
 #: Naming one here is the opt-in for a caller who cannot pass host and port.
 SERVICE_ENV = 'OPENSYSML_SERVICE'
 
+#: Bearer token every call carries, for a service that requires one; the same
+#: variable names the token on the service's side.
+TOKEN_ENV = 'OPENSYSML_GRPC_TOKEN'
+
 #: Options of every channel this client opens: only identity compression, so
 #: no service compresses a response, which grpcio can hand to the parser still
 #: compressed; and no bound on a message's size, since a migrated project's
@@ -261,16 +274,46 @@ _private_services: Dict[Optional[str], '_PrivateService'] = {}
 _private_services_lock = threading.RLock()
 
 
-def open_channel(address):
+class _BearerToken(grpc.UnaryUnaryClientInterceptor,
+                   grpc.UnaryStreamClientInterceptor,
+                   grpc.StreamUnaryClientInterceptor,
+                   grpc.StreamStreamClientInterceptor):
+    """Adds ``authorization: Bearer TOKEN`` to every call of a channel."""
+
+    def __init__(self, token):
+        self._metadata = ('authorization', f'Bearer {token}')
+
+    def _with_token(self, details):
+        metadata = list(details.metadata or ()) + [self._metadata]
+        return details._replace(metadata=metadata)
+
+    def intercept_unary_unary(self, continuation, details, request):
+        return continuation(self._with_token(details), request)
+
+    def intercept_unary_stream(self, continuation, details, request):
+        return continuation(self._with_token(details), request)
+
+    def intercept_stream_unary(self, continuation, details, request_iterator):
+        return continuation(self._with_token(details), request_iterator)
+
+    def intercept_stream_stream(self, continuation, details, request_iterator):
+        return continuation(self._with_token(details), request_iterator)
+
+
+def open_channel(address, token=None):
     """Open an insecure channel to ``address`` with this client's options.
 
     Args:
         address (str): The service's ``host:port``
+        token (str, optional): Bearer token every call carries
 
     Returns:
         grpc.Channel: The channel, to be closed by the caller
     """
-    return grpc.insecure_channel(address, options=CHANNEL_OPTIONS)
+    channel = grpc.insecure_channel(address, options=CHANNEL_OPTIONS)
+    if token:
+        channel = grpc.intercept_channel(channel, _BearerToken(token))
+    return channel
 
 
 def split_target(host, port=None):
@@ -540,6 +583,9 @@ class _PrivateService:
         binary_path = ensure_binary(version=version)
         if not os.path.exists(binary_path):
             raise ConnectionError(f"Binary not found after download: {binary_path}")
+        # The child serves loopback for this process alone: the token meant for a
+        # remote service must not become one the child demands.
+        environment = {name: value for name, value in os.environ.items() if name != TOKEN_ENV}
         process = subprocess.Popen(
             [binary_path, '-port', '0', '-health-port', '0',
              '-report-address', '-exit-with-parent'],
@@ -547,6 +593,7 @@ class _PrivateService:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             start_new_session=True,
+            env=environment,
         )
         service = cls(process, binary_path, key)
         try:
@@ -1131,7 +1178,7 @@ class Connection:
     """
     
     def __init__(self, host='localhost', port=None, auto_start=True,
-                 version=None, require_capabilities=None):
+                 version=None, require_capabilities=None, token=None):
         """Initialize connection to sysml-grpc service.
         
         Args:
@@ -1157,11 +1204,17 @@ class Connection:
             require_capabilities (iterable, optional): Capability names the
                 service must report, checked once at connect time rather than
                 when the first call needing one is made
+            token (str, optional): Bearer token every call carries, for a
+                service that requires one (one serving an address other
+                machines reach). Defaults to $OPENSYSML_GRPC_TOKEN; a private
+                child needs none
 
         Raises:
             ValueError: If host names a port that is unreadable or disagrees
                 with port
             ConnectionError: If a private child cannot be started
+            AuthenticationError: If the service wants a token this connection
+                does not carry, or carries wrong
             StaleServiceError: If the service reached is another release
             MissingCapabilityError: If the service lacks a required capability
         """
@@ -1173,6 +1226,7 @@ class Connection:
         self._version = version or os.environ.get('OPENSYSML_GRPC_VERSION') or None
         self._required_capabilities = frozenset(require_capabilities or ())
         self._resolved_release = _UNRESOLVED
+        self._token = token if token is not None else (os.environ.get(TOKEN_ENV) or None)
         # An externally managed service that was not listening yet is checked at
         # the first handshake, so connecting stays free of eager I/O.
         self._check_release_on_handshake = False
@@ -1188,7 +1242,7 @@ class Connection:
                 f"service at {self._address} (not started by this client)"
             )
 
-        self._channel = open_channel(self._address)
+        self._channel = open_channel(self._address, self._token)
         self._service = sysml_pb2_grpc.SysMLServiceStub(self._channel)
         try:
             if self._private is None:
@@ -1405,7 +1459,8 @@ class Connection:
             model.raise_for_errors()
         return model
 
-    def parse_sources(self, documents, strict=False, strict_conformance=False):
+    def parse_sources(self, documents, strict=False, strict_conformance=False,
+                      base_model_hash=''):
         """Parse several documents together as one model.
 
         An import from one document into another resolves, and each
@@ -1428,17 +1483,29 @@ class Connection:
             strict_conformance (bool): Ask whether the documents are conforming
                 SysML v2: notation only OpenSysML accepts is reported as an
                 error rather than a warning.
+            base_model_hash (str): The :attr:`Model.hash` of a model of the
+                same documents the caller holds results of, typically the
+                previous ``parse_sources`` answer. The service then compares
+                the two document by document and names, in
+                :attr:`Model.affected`, the documents whose analysis,
+                diagnostics or conversion may differ, so the caller keeps what
+                it computed for the others. Every document is named when the
+                service cannot compare, such as for a set it has not seen
+                before; a base it no longer holds is not an error. Needs the
+                ``parse_sources_affected`` capability.
 
         Returns:
             Model: The model of all the documents, with one root per document
-            in :attr:`Model.roots` (the first as :attr:`Model.root`) and their
-            names in :attr:`Model.documents`
+            in :attr:`Model.roots` (the first as :attr:`Model.root`), their
+            names in :attr:`Model.documents` and, given a base, the documents
+            that changed in :attr:`Model.affected`
 
         Raises:
             ValueError: If there are no documents, two share a name, or one is
                 of none of the accepted forms
             MissingCapabilityError: If the service predates ``parse_sources``,
-                or ``strict_conformance``/``inline_language`` when asked for
+                or ``strict_conformance``/``inline_language``/
+                ``parse_sources_affected`` when asked for
             ModelFileNotFoundError: If the service cannot read a file
             InvalidRequestError: If the service refuses the documents
             ModelError: If the service could not parse the documents as a
@@ -1473,9 +1540,17 @@ class Connection:
         self._require_strict_conformance(strict_conformance)
         if strict_conformance:
             capabilities.append(CAPABILITY_STRICT_CONFORMANCE)
+        if base_model_hash:
+            require(
+                info,
+                CAPABILITY_PARSE_SOURCES_AFFECTED,
+                upgrade_remedy(CAPABILITY_PARSE_SOURCES_AFFECTED),
+            )
+            capabilities.append(CAPABILITY_PARSE_SOURCES_AFFECTED)
         request = sysml_pb2.ParseSourcesRequest(
             documents=[source.to_pb() for source in sources],
             strict_conformance=strict_conformance,
+            base_model_hash=base_model_hash,
         )
         with translate_rpc_errors(
             not_found=ModelFileNotFoundError,
@@ -1497,7 +1572,9 @@ class Connection:
         return model
     
     def convert(self, to_format, file_path=None, content=None, model_hash=None,
-                from_format='', tolerate_syntax_errors=False):
+                from_format='', tolerate_syntax_errors=False, id_form='',
+                include_library_stubs=False, compact=False, omit_derived=False,
+                keep_derived=(), include_check_diagnostics=False):
         """Write a model out in another of the formats OpenSysML writes.
 
         The source is a loaded model, named by its hash, or one named the way
@@ -1521,6 +1598,29 @@ class Connection:
                 the result's diagnostics. Notation to notation only: every other
                 direction builds a graph, where unreadable declarations would go
                 missing silently.
+            id_form (str, optional): How derived element ids are spelled when a
+                graph ('ttl' or 'api-json') is written: :data:`ID_FORM_QUALIFIED`
+                (the default, from each element's qualified name) or
+                :data:`ID_FORM_UUID` (name-based uuids under each root package,
+                the library convention). Declared ids are unchanged.
+            include_library_stubs (bool): For api-json, restore the ownerless
+                library stubs written before 0.11.0; by default library
+                elements remain bare references, not roots. Needs the
+                ``convert_library_stubs`` capability.
+            compact (bool): For notation converted to api-json, write the
+                compact document (``api-json-compact/1``) in place of the
+                element array. Needs the ``convert_compact`` capability.
+            omit_derived (bool): With ``compact``, leave out every derived
+                property of the metamodel.
+            keep_derived (Sequence[str]): With ``omit_derived``, the derived
+                properties still written, named as the element array names
+                them (``qualifiedName``).
+            include_check_diagnostics (bool): Report the semantic check's
+                diagnostics in the result's ``diagnostics`` alongside the
+                output, each with its own severity, so a conversion of a
+                model with errors is told apart from one of a clean model.
+                Notation sources only. Needs the ``convert_check_diagnostics``
+                capability.
 
         A SysML v1 model — ``from_format`` of 'xmi', 'uml' or 'mdzip', or a
         file_path with that extension — is refused: it is migrated, not
@@ -1538,8 +1638,15 @@ class Connection:
             ValueError: If other than one of file_path, content and model_hash
                 is given
             InvalidRequestError: If the source is a SysML v1 model, with the
-                help that names :meth:`migrate`; also if a format is unknown
-            MissingCapabilityError: If the service cannot convert
+                help that names :meth:`migrate`; also if a format or id_form
+                is unknown, id_form is given for a notation target,
+                omit_derived or keep_derived without compact, keep_derived
+                without omit_derived or naming a property that is not
+                derived, compact for other than notation to api-json, or
+                include_check_diagnostics for a graph source
+            MissingCapabilityError: If the service cannot convert, or cannot
+                write library stubs, the compact form or the check's
+                diagnostics and they were asked for
             ConversionError: If the model could not be written in that format
             ModelFileNotFoundError: If the named file cannot be read
             ModelNotFoundError: If the model is no longer cached
@@ -1570,11 +1677,36 @@ class Connection:
             CAPABILITY_CONVERT,
             upgrade_remedy(CAPABILITY_CONVERT),
         )
+        if include_library_stubs:
+            require(
+                self.server_info(),
+                CAPABILITY_CONVERT_LIBRARY_STUBS,
+                upgrade_remedy(CAPABILITY_CONVERT_LIBRARY_STUBS),
+            )
+        keep_derived = list(keep_derived)
+        if compact or omit_derived or keep_derived:
+            require(
+                self.server_info(),
+                CAPABILITY_CONVERT_COMPACT,
+                upgrade_remedy(CAPABILITY_CONVERT_COMPACT),
+            )
+        if include_check_diagnostics:
+            require(
+                self.server_info(),
+                CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+                upgrade_remedy(CAPABILITY_CONVERT_CHECK_DIAGNOSTICS),
+            )
 
         request = sysml_pb2.ConvertRequest(
             to_format=to_format,
             from_format=from_format,
             tolerate_syntax_errors=tolerate_syntax_errors,
+            id_form=id_form,
+            include_library_stubs=include_library_stubs,
+            compact=compact,
+            omit_derived=omit_derived,
+            keep_derived=keep_derived,
+            include_check_diagnostics=include_check_diagnostics,
         )
         if file_path is not None:
             request.file_path = file_path
@@ -1613,6 +1745,10 @@ class Connection:
             diagnostics=diagnostics,
             experimental=experimental,
             experimental_notice=notice,
+            library_references=[
+                LibraryReference(id=ref.id, qualified_name=ref.qualified_name, type=ref.type)
+                for ref in response.library_references
+            ],
         )
 
     def migrate(self, to_format, file_path=None, content=None, from_format='',
@@ -1791,11 +1927,15 @@ class Connection:
             )
         return result_of(response)
 
-    def query(self, model_hash, payload=None, scope=None, select=None, where=None):
+    def query(self, model_hash, payload=None, scope=None, select=None, where=None,
+              order_by=None, oslc=None):
         """Run a SysML v2 API & Services Query over a loaded model.
 
         The query is the standard's JSON object, so a cookbook payload works
         verbatim, or the same thing as keywords. See :mod:`opensysml.query`.
+        Alternatively ``oslc`` is OSLC Query 3.0 parameter text, such as
+        ``sysml:name="vehicle"``, which the service evaluates in place of the
+        standard's object; the two are not combined.
 
         Args:
             model_hash (str): Hash of the model to query
@@ -1803,27 +1943,50 @@ class Connection:
             scope (list, optional): Elements to consider; empty is the whole model
             select (list, optional): Properties to report; empty reports every one
             where (dict, optional): Constraint to filter by
+            order_by (list, optional): Properties to sort by, in order of
+                precedence, each ascending; empty keeps declaration order
+            oslc (str, optional): OSLC Query 3.0 parameter text evaluated in
+                place of the standard's Query; not combined with the others.
+                An empty string is no OSLC at all, so the structured query
+                (empty, answering every element) is sent instead
 
         Returns:
-            list[QueryElement]: The elements selected, in declaration order
+            list[QueryElement]: The elements selected, in ``order_by`` order,
+            or declaration order without one
 
         Raises:
-            QueryError: If the query is not one the standard's model describes
-            MissingCapabilityError: If the service cannot query
-            InvalidRequestError: If a property or scope is unknown to the service
+            QueryError: If the query is not one the standard's model describes,
+                or ``oslc`` is given beside a structured query
+            MissingCapabilityError: If the service cannot query, cannot sort
+                and the query has an ``orderBy``, or cannot evaluate OSLC
+                text and ``oslc`` is given
+            InvalidRequestError: If a property or scope is unknown to the
+                service, or the OSLC text does not parse
             ModelNotFoundError: If the model is no longer cached
         """
-        require(
-            self.server_info(),
-            CAPABILITY_QUERY,
-            upgrade_remedy(CAPABILITY_QUERY),
-        )
-        request = sysml_pb2.QueryRequest(
-            model_hash=model_hash,
-            query=build_query(payload, scope=scope, select=select, where=where),
-        )
+        if oslc:
+            if any(given is not None for given in (payload, scope, select, where, order_by)):
+                raise QueryError(
+                    "Provide either oslc or the standard's Query (payload or keywords), not both"
+                )
+            needed = (CAPABILITY_QUERY, CAPABILITY_OSLC_QUERY)
+            for capability in needed:
+                require(self.server_info(), capability, upgrade_remedy(capability))
+            request = sysml_pb2.QueryRequest(model_hash=model_hash, oslc_query=oslc)
+            with translate_rpc_errors(
+                unimplemented=self._capability_refusal(needed)
+            ):
+                response = self._stub.Query(request)
+            return elements_of(response)
+        query = build_query(payload, scope=scope, select=select, where=where,
+                            order_by=order_by)
+        needed = (CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY) if query.order_by \
+            else (CAPABILITY_QUERY,)
+        for capability in needed:
+            require(self.server_info(), capability, upgrade_remedy(capability))
+        request = sysml_pb2.QueryRequest(model_hash=model_hash, query=query)
         with translate_rpc_errors(
-            unimplemented=self._capability_refusal((CAPABILITY_QUERY,))
+            unimplemented=self._capability_refusal(needed)
         ):
             response = self._stub.Query(request)
         return elements_of(response)
@@ -1897,26 +2060,30 @@ class Connection:
         Args:
             model_hash (str): Hash of the model holding the document
             document_id (str): Qualified name of the document
-            form (str): ``"markdown"`` (the default) or ``"html"``, the
+            form (str): ``"markdown"`` (the default), ``"html"``, the
                 standalone page with the default stylesheet that the CLI's
-                ``-doc-form html`` writes
+                ``-doc-form html`` writes, or ``"asciidoc"``, the document
+                ``-doc-form asciidoc`` writes
 
         Returns:
             str: The rendered document in the form asked for
 
         Raises:
-            ValueError: If ``form`` is neither ``"markdown"`` nor ``"html"``
+            ValueError: If ``form`` is none of ``"markdown"``, ``"html"`` and
+                ``"asciidoc"``
             MissingCapabilityError: If the service cannot render documents, or
-                cannot render HTML when that form is asked for
+                cannot render HTML or AsciiDoc when that form is asked for
             InvalidRequestError: If the symbol named is not a document
             SymbolNotFoundError: If the model does not declare the document
             ModelNotFoundError: If the model is no longer cached
         """
-        if form not in ("markdown", "html"):
-            raise ValueError("form must be 'markdown' or 'html'")
+        if form not in ("markdown", "html", "asciidoc"):
+            raise ValueError("form must be 'markdown', 'html' or 'asciidoc'")
         capabilities = [CAPABILITY_RENDER_DOCUMENT]
         if form == "html":
             capabilities.append(CAPABILITY_RENDER_DOCUMENT_HTML)
+        elif form == "asciidoc":
+            capabilities.append(CAPABILITY_RENDER_DOCUMENT_ASCIIDOC)
         for capability in capabilities:
             require(self.server_info(), capability, upgrade_remedy(capability))
         request = sysml_pb2.RenderDocumentRequest(
@@ -1929,7 +2096,11 @@ class Connection:
             unimplemented=self._capability_refusal(capabilities),
         ):
             response = self._stub.RenderDocument(request)
-        return response.html if form == "html" else response.markdown
+        if form == "html":
+            return response.html
+        if form == "asciidoc":
+            return response.asciidoc
+        return response.markdown
 
     def diagnostics(self, model_hash, disable_lint=(), enable_lint=()):
         """Ask the service for a model's diagnostics now, under a lint selection.
@@ -2248,13 +2419,21 @@ class Connection:
     
     def execute_action(self, action_symbol_id, model_hash, inputs=None,
                        schedule=None, performer=None, advance=None, seed=None,
-                       draws=None, clock_step=0.0):
+                       draws=None, clock_step=0.0, trace=False, events=None):
         """Execute an action definition.
         
         Args:
             action_symbol_id (str): FQN of action def
             model_hash (str): Hash from ParseFile response
             inputs (dict, optional): Input parameter name → value
+            trace (bool): Whether to return the run's typed execution trace
+                (token steps, waits, accepts, decisions, assignments, completion)
+                as :attr:`~opensysml.ActionOutputs.trace`; requires the
+                ``action_trace`` capability
+            events (list[str], optional): Signals or items to post to the
+                performer in order, each once every token of the run waits, as
+                the REPL's ``%send`` does; the accept waiting for it takes it
+                on the next step. Needs ``performer``
             advance (float, optional): Simulated seconds to run for, as
                 ``sysml -advance`` does; the action is started and its clock
                 moved by this much, and one not completed by then fails with
@@ -2286,11 +2465,13 @@ class Connection:
                 discard the rest. Its ``performer`` holds the performer's
                 attributes as the run left them under ``this.``
                 (``'this.level'``), as an explored outcome's outputs spell them;
-                empty without a performer
+                empty without a performer; its ``trace`` the run's records when
+                requested
             
         Raises:
-            ValueError: If the schedule explores
-            ExecutionError: If execution fails
+            ValueError: If the schedule explores, or events are given without a performer
+            ExecutionError: If execution fails; a traced failure carries its
+                partial ``trace`` and ``trace_dropped``
             ModelNotFoundError: If the service no longer holds the model
             MissingCapabilityError: If an input holds a ``complex`` and the
                 service predates ``complex_values``, an :class:`~opensysml.values.Array`,
@@ -2304,21 +2485,29 @@ class Connection:
                 and the service predates ``tensor_values``, a
                 :class:`~opensysml.values.Metaobject` and the service predates
                 ``metaobject_values``, a schedule is given and the service
-                predates ``schedule``, or a performer is given and the service
-                predates ``performer``; nothing is sent
+                predates ``schedule``, a performer is given and the service
+                predates ``performer``, or a trace is requested and it predates
+                ``action_trace``; nothing is sent
             InvalidRequestError: If the schedule names no policy
         """
         _refuse_exploring(schedule, "explore_action")
+        if events and not performer:
+            raise ValueError("events are posted to the object performing the action: name one with performer")
         response = self._execute_action(action_symbol_id, model_hash, inputs, schedule, performer,
-                                        advance=advance, seed=seed, draws=draws, clock_step=clock_step)
+                                        advance=advance, seed=seed, draws=draws, clock_step=clock_step,
+                                        trace=trace, events=events)
+        trace_events = tuple(document_event_of(event) for event in response.trace)
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
-            raise ExecutionError(response.error, diagnostics=wrapped_diags)
+            raise ExecutionError(response.error, diagnostics=wrapped_diags,
+                                 trace=trace_events, trace_dropped=response.trace_dropped)
         
         return ActionOutputs(
             self._values_to_python(response.outputs),
             self._values_to_python(response.performer_attributes),
             dict(response.order_dependent),
+            trace=trace_events,
+            trace_dropped=response.trace_dropped,
         )
 
     def explore_action(self, action_symbol_id, model_hash, inputs=None,
@@ -2361,10 +2550,10 @@ class Connection:
         return self._exploration_of(response)
 
     def _execute_action(self, action_symbol_id, model_hash, inputs, schedule, performer,
-                        advance=None, seed=None, draws=None, clock_step=0.0):
+                        advance=None, seed=None, draws=None, clock_step=0.0, trace=False, events=None):
         """Send an ExecuteAction request, the schedule's and performer's capabilities checked first."""
         pb_inputs = {name: self._python_to_value(val) for name, val in (inputs or {}).items()}
-        capabilities = self._run_capabilities(schedule, performer)
+        capabilities = self._run_capabilities(schedule, performer, trace, CAPABILITY_ACTION_TRACE)
         req = sysml_pb2.ExecuteActionRequest(
             model_hash=model_hash,
             action_symbol_id=action_symbol_id,
@@ -2373,6 +2562,8 @@ class Connection:
             performer_symbol_id=performer or "",
             draws=draws or "",
             clock_step=clock_step,
+            trace=trace,
+            events=events or [],
         )
         _set_run_options(req, advance, seed)
         with translate_rpc_errors(unimplemented=self._capability_refusal(capabilities)):
@@ -3556,13 +3747,13 @@ class Connection:
         for capability in self._schedule_capabilities(schedule):
             require(self.server_info(), capability, upgrade_remedy(capability))
 
-    def _run_capabilities(self, schedule, performer, trace=False):
-        """The capabilities a run's schedule and performer need, each required of the service."""
+    def _run_capabilities(self, schedule, performer, trace=False, trace_capability=CAPABILITY_STATE_TRACE):
+        """The capabilities a run's schedule, performer and trace need, each required of the service."""
         capabilities = self._schedule_capabilities(schedule)
         if performer:
             capabilities.append(CAPABILITY_PERFORMER)
         if trace:
-            capabilities.append(CAPABILITY_STATE_TRACE)
+            capabilities.append(trace_capability)
         for capability in capabilities:
             require(self.server_info(), capability, upgrade_remedy(capability))
         return capabilities
@@ -3716,7 +3907,7 @@ class Connection:
                 predates the handshake, which is itself an answer, and None when
                 the call failed, so nothing was learned
         """
-        channel = open_channel(self._address)
+        channel = open_channel(self._address, self._token)
         try:
             stub = sysml_pb2_grpc.SysMLServiceStub(channel)
             response = stub.GetServerInfo(

@@ -247,6 +247,11 @@ func (n *IfActionNode) Branches() []*IfBranchNode {
 // library (`Systems Library/States.sysml`), which a transition enters to complete.
 const DoneFeature = "done"
 
+// ResultFeature is the name of the result parameter every calculation and
+// expression inherits from the kernel library (`Performances::Evaluation`),
+// which an unnamed `return` parameter redefines and so is named by.
+const ResultFeature = "result"
+
 // StartFeature is the name of the start shot every state inherits from the standard
 // library (`Systems Library/States.sysml`), which a succession leaves to start.
 const StartFeature = "start"

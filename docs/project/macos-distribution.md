@@ -120,7 +120,7 @@ signature Gatekeeper accepts for software distributed outside the App Store.
 
 `codesign`, `notarytool`, and `stapler` are Xcode command-line tools and only run on macOS.
 The current release pipeline is CircleCI (`.circleci/config.yml`, `release` workflow on
-`v*` tags), which cross-compiles on the Linux `cimg/go:1.25` executor; GitHub Actions runs the PR
+`v*` tags), which cross-compiles on the Linux `cimg/go:1.27` executor; GitHub Actions runs the PR
 checks (`.github/workflows/pr.yml`), the Windows installer and signing workflow
 (`release-windows.yml`, see the Windows section below), the nightly snapshot and the
 documentation site, none of which mirrors the release workflow.

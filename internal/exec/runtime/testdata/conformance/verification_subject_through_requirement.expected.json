@@ -1,0 +1,9 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::indirect",
+  "verdict": "inconclusive",
+  "verdicts": {
+    "obj": "satisfied"
+  }
+}

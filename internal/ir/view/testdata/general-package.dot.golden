@@ -11,9 +11,9 @@ digraph "GeneralViews::packageView" {
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>VehicleRequirements</b>>];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>VehicleVerification</b>>];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>GeneralViews</b>>];
-  "n0" -> "n1" [dir=back, arrowtail=odot];
-  "n2" -> "n0" [label="private import ::*", arrowhead=vee, style=dashed];
-  "n3" -> "n0" [label="private import ::*", arrowhead=vee, style=dashed];
-  "n3" -> "n1" [label="private import ::*", arrowhead=vee, style=dashed];
-  "n3" -> "n2" [label="private import ::*", arrowhead=vee, style=dashed];
+  "n0" -> "n1" [dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0];
+  "n2" -> "n0" [label="«private import»*", arrowhead=vee, style=dashed];
+  "n3" -> "n0" [label="«private import»*", arrowhead=vee, style=dashed];
+  "n3" -> "n1" [label="«private import»*", arrowhead=vee, style=dashed];
+  "n3" -> "n2" [label="«private import»*", arrowhead=vee, style=dashed];
 }

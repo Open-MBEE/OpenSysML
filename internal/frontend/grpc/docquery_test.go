@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -479,6 +480,42 @@ func TestRunDocumentQueryRequiresCapability(t *testing.T) {
 	}
 }
 
+// A query that names no element fails the call with the QVTS record as a
+// QueryOutcome detail, so a client reads the frontier and not just the message.
+func TestRunDocumentQueryAttachesTheOutcomeDetail(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParse(t, srv, `package Observatory {
+	private import DocumentQueries::*;
+	part telescope;
+	calc def Misspelled :> Query { Named(qualifiedName = "Observatory::telescop") }
+}`)
+	_, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{ModelHash: hash, QueryId: "Observatory::Misspelled"})
+	var connErr *connect.Error
+	if !errors.As(err, &connErr) || connErr.Code() != connect.CodeFailedPrecondition {
+		t.Fatalf("error = %v, want FailedPrecondition", err)
+	}
+	var outcome *pb.QueryOutcome
+	for _, detail := range connErr.Details() {
+		msg, valueErr := detail.Value()
+		if valueErr != nil {
+			t.Fatal(valueErr)
+		}
+		if typed, ok := msg.(*pb.QueryOutcome); ok {
+			outcome = typed
+		}
+	}
+	if outcome == nil {
+		t.Fatalf("no QueryOutcome detail on %v", err)
+	}
+	if outcome.Kind != "pathError" || outcome.Step != "Named(Observatory::telescop)" || len(outcome.Failures) != 1 {
+		t.Fatalf("outcome = %v", outcome)
+	}
+	frontier := outcome.Failures[0].Frontier
+	if frontier.At != "Observatory" || frontier.Nearest != "telescope" || len(frontier.Members) == 0 {
+		t.Errorf("frontier = %v, want Observatory with its members and nearest telescope", frontier)
+	}
+}
+
 func TestDocumentStatusMapsBudgetExhaustion(t *testing.T) {
 	cases := []struct {
 		kind queryexec.ErrorKind
@@ -518,6 +555,40 @@ func TestRenderDocumentMatchesTheRendererGolden(t *testing.T) {
 	}
 	if resp.FileName != "Observatory-MassReport.md" {
 		t.Errorf("file name = %q, want the one a rendered set writes", resp.FileName)
+	}
+}
+
+// TestRenderDocumentAsciiDocMatchesTheRendererGolden: form "asciidoc" answers
+// the AsciiDoc backend's document in asciidoc, the other forms left empty,
+// under the .adoc file name a rendered set writes.
+func TestRenderDocumentAsciiDocMatchesTheRendererGolden(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := parseTelescope(t, srv)
+
+	resp, err := srv.RenderDocument(context.Background(), &pb.RenderDocumentRequest{
+		ModelHash: hash, DocumentId: "Observatory::MassReport", Form: "asciidoc",
+	})
+	if err != nil {
+		t.Fatalf("RenderDocument(asciidoc) failed: %v", err)
+	}
+	golden, err := os.ReadFile(strings.TrimSuffix(telescopeHTMLGolden, ".html") + ".adoc")
+	if err != nil {
+		t.Fatalf("read golden: %v", err)
+	}
+	if resp.Asciidoc != string(golden) {
+		t.Errorf("asciidoc differs from the renderer's golden:\n%s", resp.Asciidoc)
+	}
+	if resp.Markdown != "" || resp.Html != "" {
+		t.Errorf("asciidoc form also answered markdown or html:\n%s%s", resp.Markdown, resp.Html)
+	}
+	if resp.FileName != "Observatory-MassReport.adoc" {
+		t.Errorf("file name = %q, want the one a rendered set writes", resp.FileName)
+	}
+	_, err = srv.RenderDocument(context.Background(), &pb.RenderDocumentRequest{
+		ModelHash: hash, DocumentId: "Observatory::MassReport", Form: "pdf",
+	})
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("RenderDocument(pdf) error = %v, want INVALID_ARGUMENT naming the forms", err)
 	}
 }
 

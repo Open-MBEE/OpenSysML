@@ -100,7 +100,8 @@ func TestChainThroughPackageUsageReadsBoundMember(t *testing.T) {
 }
 
 // A member nothing binds stays undetermined through the chain, as does a member
-// of a usage whose instances are not exactly one: no value is invented.
+// of a usage whose instances are not exactly one: no value is invented. An optional
+// member nothing values holds none: the empty sequence, closed over the model.
 func TestChainThroughPackageUsageWithoutBoundMemberIsUndetermined(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, packageUsageChainModel)
 	ctx := NewContext(typedModel(model, resolver), 10000)
@@ -109,7 +110,6 @@ func TestChainThroughPackageUsageWithoutBoundMemberIsUndetermined(t *testing.T) 
 	for src, count := range map[string]string{
 		"costReq.unset":                    "[1]",
 		"bareReq.maximum":                  "[1]",
-		"optionalReq.maximum":              "[0..1]",
 		"product.dims.w + bareReq.maximum": "[1]",
 		"costReq.details.other":            "[1]",
 		"inherit.deep.limit":               "[1]",
@@ -120,8 +120,10 @@ func TestChainThroughPackageUsageWithoutBoundMemberIsUndetermined(t *testing.T) 
 		val, err := ctx.EvalWithScope(parseExpr(t, src), pkg.Scope)
 		wantUndetermined(t, src, val, err, count)
 	}
+	val, err := ctx.EvalWithScope(parseExpr(t, "optionalReq.maximum"), pkg.Scope)
+	wantFormatted(t, "optionalReq.maximum", val, err, "[]")
 
-	_, err := ctx.EvalWithScope(parseExpr(t, "costReq.nonexistent"), pkg.Scope)
+	_, err = ctx.EvalWithScope(parseExpr(t, "costReq.nonexistent"), pkg.Scope)
 	if !errors.Is(err, ErrUnresolvedReference) {
 		t.Errorf("costReq.nonexistent: err = %v; want ErrUnresolvedReference", err)
 	}
@@ -142,6 +144,57 @@ func TestRequireConstraintReadsPackageUsageMember(t *testing.T) {
 	} {
 		if _, err := ctx.EvaluateRequirement(oneSymbol(t, idx, fqn), nil); !errors.Is(err, want) {
 			t.Errorf("%s: error = %v, want %v", fqn, err, want)
+		}
+	}
+}
+
+// subjectChainModel binds a requirement's subject to a package-level part, so a
+// chain to the subject names an object the probe reading the requirement did not make.
+const subjectChainModel = `
+package test {
+	private import ScalarValues::*;
+	part def Vehicle { attribute fuelMass : Integer; }
+	part fullTankVehicle : Vehicle { attribute redefines fuelMass = -200; }
+	requirement massLimit {
+		subject vehicle : Vehicle = fullTankVehicle;
+		require constraint { vehicle.fuelMass <= 2000 }
+	}
+	requirement def MassLimit { subject vehicle : Vehicle; }
+	requirement typedLimit : MassLimit { subject vehicle = fullTankVehicle; }
+	requirement ownLimit { subject vehicle : Vehicle; }
+}
+`
+
+// A member holding an object standing before the probe (a requirement subject bound to
+// an instantiated part) reads that object; one the probe made stays undetermined.
+func TestChainThroughPackageUsageReadsObjectStandingBeforeProbe(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, subjectChainModel)
+	ctx := NewContext(typedModel(model, resolver), 10000)
+	pkg, _ := root.LookupLocal("test")
+	vehicle, ok := pkg.Scope.LookupLocal("fullTankVehicle")
+	if !ok {
+		t.Fatal("fullTankVehicle not declared")
+	}
+
+	val, err := ctx.EvalWithScope(parseExpr(t, "massLimit.vehicle"), pkg.Scope)
+	wantUndetermined(t, "massLimit.vehicle before instantiation", val, err, "[1]")
+
+	inst, err := ctx.Instantiate(vehicle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := FormatValue(Value{Kind: ValInstance, Instance: inst.ID})
+	for _, src := range []string{"massLimit.vehicle", "typedLimit.vehicle"} {
+		val, err := ctx.EvalWithScope(parseExpr(t, src), pkg.Scope)
+		wantFormatted(t, src, val, err, want)
+	}
+	val, err = ctx.EvalWithScope(parseExpr(t, "massLimit.vehicle.fuelMass"), pkg.Scope)
+	wantFormatted(t, "massLimit.vehicle.fuelMass", val, err, "-200")
+	val, err = ctx.EvalWithScope(parseExpr(t, "ownLimit.vehicle"), pkg.Scope)
+	wantUndetermined(t, "ownLimit.vehicle", val, err, "[1]")
+	for _, inst := range ctx.instances {
+		if usage, ok := inst.Type.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageRequirement {
+			t.Errorf("requirement %s materialized by a model-level chain read", inst.Type.Name)
 		}
 	}
 }

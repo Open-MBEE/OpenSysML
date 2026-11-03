@@ -57,7 +57,7 @@ func typeNamesOf(t *testing.T, m *Model, scope *symbols.Scope, name string) []st
 	}
 	names := make([]string, 0, len(types))
 	for _, typ := range types {
-		names = append(names, leafName(typ.Name))
+		names = append(names, symbols.LastSegment(typ.Name))
 	}
 	return names
 }
@@ -227,10 +227,10 @@ func wantBodyParameterTypes(t *testing.T, m *Model, scope *symbols.Scope, name, 
 	p := sym(t, symbols.BodyExprScope(scope, body), param)
 	var got, supers []string
 	for _, typ := range m.BodyParameterElementTypes(p) {
-		got = append(got, leafName(typ.Name))
+		got = append(got, symbols.LastSegment(typ.Name))
 	}
 	for _, typ := range m.DirectSupertypes(p) {
-		supers = append(supers, leafName(typ.Name))
+		supers = append(supers, symbols.LastSegment(typ.Name))
 	}
 	if !slices.Equal(got, want) || !slices.Equal(supers, want) {
 		t.Errorf("%s: parameter %s typed %v, supertypes %v, want %v", name, param, got, supers, want)
@@ -299,8 +299,8 @@ func TestCollectionReduceUntypedParametersTakeElementType(t *testing.T) {
 		t.Errorf("heaviest as String: %+v, want known, not holding, found C", c)
 	}
 	elements, ok := m.CollectionElements(s, valueOf(t, s, "label"))
-	if !ok || len(elements) != 2 || len(elements[0].Types) != 1 || leafName(elements[0].Types[0].Name) != "String" ||
-		len(elements[1].Types) != 1 || leafName(elements[1].Types[0].Name) != "C" {
+	if !ok || len(elements) != 2 || len(elements[0].Types) != 1 || symbols.LastSegment(elements[0].Types[0].Name) != "String" ||
+		len(elements[1].Types) != 1 || symbols.LastSegment(elements[1].Types[0].Name) != "C" {
 		t.Errorf("label: elements %v, want the reducer's String then the collection's C", elements)
 	}
 }
@@ -338,7 +338,7 @@ func TestCollectionNestedUntypedBodyParameters(t *testing.T) {
 	outer := appliedBody(t, valueOf(t, s, "nested"))
 	inner := appliedBody(t, outer.Result)
 	p := sym(t, symbols.BodyExprScope(symbols.BodyExprScope(s, outer), inner), "p")
-	if types := m.BodyParameterElementTypes(p); len(types) != 1 || leafName(types[0].Name) != "C" {
+	if types := m.BodyParameterElementTypes(p); len(types) != 1 || symbols.LastSegment(types[0].Name) != "C" {
 		t.Errorf("nested: inner parameter p typed %v, want C", types)
 	}
 }
@@ -488,7 +488,7 @@ func TestCollectionReduceMayReturnTheElement(t *testing.T) {
 	wantValueTypes(t, m, s, "same", "C")
 	elements, ok := m.CollectionElements(s, valueOf(t, s, "names"))
 	if !ok || len(elements) != 2 || len(elements[0].Types) != 1 || len(elements[1].Types) != 1 ||
-		leafName(elements[0].Types[0].Name) != "String" || leafName(elements[1].Types[0].Name) != "C" ||
+		symbols.LastSegment(elements[0].Types[0].Name) != "String" || symbols.LastSegment(elements[1].Types[0].Name) != "C" ||
 		elements[0].Node == nil || elements[1].Node == nil {
 		t.Errorf("names: elements %v, want the reducer's String then the collection's C", elements)
 	}
@@ -499,7 +499,7 @@ func TestCollectionReduceMayReturnTheElement(t *testing.T) {
 	}
 	for _, name := range []string{"names1", "names01"} {
 		elements, ok := m.CollectionElements(s, valueOf(t, s, name))
-		if !ok || len(elements) != 1 || len(elements[0].Types) != 1 || leafName(elements[0].Types[0].Name) != "C" {
+		if !ok || len(elements) != 1 || len(elements[0].Types) != 1 || symbols.LastSegment(elements[0].Types[0].Name) != "C" {
 			t.Errorf("%s: elements %v, want the collection's C alone", name, elements)
 		}
 	}
@@ -564,7 +564,7 @@ func TestCollectionReduceOfNothing(t *testing.T) {
 	}
 	wantValueTypes(t, m, s, "two", "String")
 	wantValueTypes(t, m, s, "maybe", "C")
-	if types, ok := m.CollectionHeldTypes(s, valueOf(t, s, "two")); !ok || len(types) != 1 || leafName(types[0].Name) != "String" {
+	if types, ok := m.CollectionHeldTypes(s, valueOf(t, s, "two")); !ok || len(types) != 1 || symbols.LastSegment(types[0].Name) != "String" {
 		t.Errorf("two: held types %v, want String", types)
 	}
 }
@@ -595,7 +595,7 @@ func TestCollectionSizeThroughAliasAndRedefinition(t *testing.T) {
 		}
 	}
 	wantValueTypes(t, m, s, "viaAlias2", "String")
-	if elements, ok := m.CollectionElements(s, valueOf(t, s, "viaAlias2")); !ok || len(elements) != 1 || leafName(elements[0].Types[0].Name) != "String" {
+	if elements, ok := m.CollectionElements(s, valueOf(t, s, "viaAlias2")); !ok || len(elements) != 1 || symbols.LastSegment(elements[0].Types[0].Name) != "String" {
 		t.Errorf("viaAlias2: elements %v, want the reducer's String alone", elements)
 	}
 	for _, name := range []string{"inherited", "implicit"} {
@@ -732,7 +732,7 @@ func TestCollectionSelectShorthandElements(t *testing.T) {
 	for _, name := range []string{"heavy", "heavy2"} {
 		wantValueTypes(t, m, s, name, "C")
 		elements, ok := m.CollectionElements(s, valueOf(t, s, name))
-		if !ok || len(elements) != 1 || len(elements[0].Types) != 1 || leafName(elements[0].Types[0].Name) != "C" || elements[0].Node == nil {
+		if !ok || len(elements) != 1 || len(elements[0].Types) != 1 || symbols.LastSegment(elements[0].Types[0].Name) != "C" || elements[0].Node == nil {
 			t.Errorf("%s: elements %v, want the collection's C", name, elements)
 		}
 	}
@@ -814,10 +814,10 @@ func TestCollectionNestedElements(t *testing.T) {
 	if !ok || len(elements) != 2 {
 		t.Fatalf("nested2: elements %v, want the name and the selection's C", elements)
 	}
-	if _, isRef := elements[0].Node.(*ast.FeatureChainExpr); !isRef || len(elements[0].Types) != 1 || leafName(elements[0].Types[0].Name) != "String" {
+	if _, isRef := elements[0].Node.(*ast.FeatureChainExpr); !isRef || len(elements[0].Types) != 1 || symbols.LastSegment(elements[0].Types[0].Name) != "String" {
 		t.Errorf("nested2: first element %T %v, want x.name : String", elements[0].Node, elements[0].Types)
 	}
-	if len(elements[1].Types) != 1 || leafName(elements[1].Types[0].Name) != "C" {
+	if len(elements[1].Types) != 1 || symbols.LastSegment(elements[1].Types[0].Name) != "C" {
 		t.Errorf("nested2: second element %v, want the selection's C", elements[1].Types)
 	}
 	elements, ok = m.CollectionElements(s, valueOf(t, s, "selected"))
@@ -850,7 +850,7 @@ func TestCollectionSizeThroughNamedMapperAndPastInt64(t *testing.T) {
 		attribute sum = (huge, huge)->reduce { in a : C; in b : C; a.name };
 		attribute product = hs.many->reduce { in a : C; in b : C; a.name };`)
 	wantValueTypes(t, m, s, "named", "Integer")
-	if elements, ok := m.CollectionElements(s, valueOf(t, s, "named")); !ok || len(elements) != 1 || leafName(elements[0].Types[0].Name) != "Integer" {
+	if elements, ok := m.CollectionElements(s, valueOf(t, s, "named")); !ok || len(elements) != 1 || symbols.LastSegment(elements[0].Types[0].Name) != "Integer" {
 		t.Errorf("named: elements %v, want the reducer's Integer alone", elements)
 	}
 	wantValueTypes(t, m, s, "unsure", "ScalarValue")
@@ -859,7 +859,7 @@ func TestCollectionSizeThroughNamedMapperAndPastInt64(t *testing.T) {
 	}
 	for _, name := range []string{"sum", "product"} {
 		wantValueTypes(t, m, s, name, "String")
-		if elements, ok := m.CollectionElements(s, valueOf(t, s, name)); !ok || len(elements) != 1 || leafName(elements[0].Types[0].Name) != "String" {
+		if elements, ok := m.CollectionElements(s, valueOf(t, s, name)); !ok || len(elements) != 1 || symbols.LastSegment(elements[0].Types[0].Name) != "String" {
 			t.Errorf("%s: elements %v, want the reducer's String alone", name, elements)
 		}
 		collection := valueOf(t, s, name).(*ast.InvocationExpr).Operand

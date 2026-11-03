@@ -1,0 +1,549 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- FleetViews::structure — tree rendering -->
+<!-- 8 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="FleetViews-structure" name="FleetViews::structure">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1094" pageHeight="1199" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part def»&#xA;Vehicle" fqn="Fleet::Vehicle" kind="part def" view="FleetViews::structure" link="tree-edges.sysml:23">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="50" y="50" width="390" height="427" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part»&#xA;chassis" fqn="Fleet::Vehicle::chassis" kind="part" view="FleetViews::structure" link="tree-edges.sysml:24">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="92" width="114" height="145" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«attribute»&#xA;^mass" fqn="Fleet::Chassis::mass" kind="attribute" view="FleetViews::structure" link="tree-edges.sysml:10">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="16" y="92" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«part»&#xA;wheels" fqn="Fleet::Vehicle::wheels" kind="part" view="FleetViews::structure" link="tree-edges.sysml:25">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="180" y="92" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«part»&#xA;driver" fqn="Fleet::Vehicle::driver" kind="part" view="FleetViews::structure" link="tree-edges.sysml:26">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="302" y="92" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«attribute»&#xA;total" fqn="Fleet::Vehicle::total" kind="attribute" view="FleetViews::structure" link="tree-edges.sysml:27">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="287" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="«part def»&#xA;Cabin" fqn="Fleet::Vehicle::Cabin" kind="part def" view="FleetViews::structure" link="tree-edges.sysml:28">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="148" y="287" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«part»&#xA;cabin" fqn="Fleet::Vehicle::cabin" kind="part" view="FleetViews::structure" link="tree-edges.sysml:29">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="274" y="287" width="63" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n8" label="«part»&#xA;radio" fqn="Fleet::Vehicle::radio" kind="part" view="FleetViews::structure" link="tree-edges.sysml:30">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="374" width="63" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n9" label="«part»&#xA;trailer" fqn="Fleet::Vehicle::trailer" kind="part" view="FleetViews::structure" link="tree-edges.sysml:31">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="129" y="374" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n10" label="«part def»&#xA;SportsCar" fqn="Fleet::SportsCar" kind="part def" view="FleetViews::structure" link="tree-edges.sysml:34">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="490" y="50" width="390" height="427" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n11" label="«part»&#xA;chassis" fqn="Fleet::SportsCar::chassis" kind="part" view="FleetViews::structure" link="tree-edges.sysml:35">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n10">
+            <mxGeometry x="16" y="92" width="114" height="145" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n12" label="«attribute»&#xA;^mass" fqn="Fleet::LightChassis::mass" kind="attribute" view="FleetViews::structure" link="tree-edges.sysml:14">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n11">
+            <mxGeometry x="16" y="92" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n13" label="«part»&#xA;spare" fqn="Fleet::SportsCar::spare" kind="part" view="FleetViews::structure" link="tree-edges.sysml:36">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="180" y="92" width="63" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n14" label="«part»&#xA;^wheels" fqn="Fleet::Vehicle::wheels" kind="part" view="FleetViews::structure" link="tree-edges.sysml:25">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="293" y="92" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n15" label="«part»&#xA;^driver" fqn="Fleet::Vehicle::driver" kind="part" view="FleetViews::structure" link="tree-edges.sysml:26">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="16" y="287" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n16" label="«attribute»&#xA;^total" fqn="Fleet::Vehicle::total" kind="attribute" view="FleetViews::structure" link="tree-edges.sysml:27">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="147" y="287" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n17" label="«part»&#xA;^cabin" fqn="Fleet::Vehicle::cabin" kind="part" view="FleetViews::structure" link="tree-edges.sysml:29">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="279" y="287" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n18" label="«part»&#xA;^radio" fqn="Fleet::Vehicle::radio" kind="part" view="FleetViews::structure" link="tree-edges.sysml:30">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="16" y="374" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n19" label="«part»&#xA;^trailer" fqn="Fleet::Vehicle::trailer" kind="part" view="FleetViews::structure" link="tree-edges.sysml:31">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="138" y="374" width="90" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n20" label="«part def»&#xA;Chassis" fqn="Fleet::Chassis" kind="part def" view="FleetViews::structure" link="tree-edges.sysml:9">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="930" y="50" width="114" height="145" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n21" label="«attribute»&#xA;mass" fqn="Fleet::Chassis::mass" kind="attribute" view="FleetViews::structure" link="tree-edges.sysml:10">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n20">
+            <mxGeometry x="16" y="92" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n22" label="«part def»&#xA;LightChassis" fqn="Fleet::LightChassis" kind="part def" view="FleetViews::structure" link="tree-edges.sysml:13">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="50" y="527" width="127" height="145" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n23" label="«attribute»&#xA;mass" fqn="Fleet::LightChassis::mass" kind="attribute" view="FleetViews::structure" link="tree-edges.sysml:14">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n22">
+            <mxGeometry x="16" y="92" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n24" label="«part def»&#xA;Wheel" fqn="Fleet::Wheel" kind="part def" view="FleetViews::structure" link="tree-edges.sysml:7">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="227" y="527" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n25" label="«part def»&#xA;Driver" fqn="Fleet::Driver" kind="part def" view="FleetViews::structure" link="tree-edges.sysml:17">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="353" y="527" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n26" label="«attribute def»&#xA;Mass" fqn="Fleet::Mass" kind="attribute def" view="FleetViews::structure" link="tree-edges.sysml:5">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="50" y="722" width="106" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n27" label="«part»&#xA;fleetCar" fqn="Fleet::fleetCar" kind="part" view="FleetViews::structure" link="tree-edges.sysml:39">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
+            <mxGeometry x="206" y="722" width="408" height="427" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n28" label="«part»&#xA;^chassis" fqn="Fleet::Vehicle::chassis" kind="part" view="FleetViews::structure" link="tree-edges.sysml:24">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n27">
+            <mxGeometry x="16" y="92" width="114" height="145" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n29" label="«attribute»&#xA;^mass" fqn="Fleet::Chassis::mass" kind="attribute" view="FleetViews::structure" link="tree-edges.sysml:10">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n28">
+            <mxGeometry x="16" y="92" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n30" label="«part»&#xA;^wheels" fqn="Fleet::Vehicle::wheels" kind="part" view="FleetViews::structure" link="tree-edges.sysml:25">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n27">
+            <mxGeometry x="180" y="92" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n31" label="«part»&#xA;^driver" fqn="Fleet::Vehicle::driver" kind="part" view="FleetViews::structure" link="tree-edges.sysml:26">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n27">
+            <mxGeometry x="311" y="92" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n32" label="«attribute»&#xA;^total" fqn="Fleet::Vehicle::total" kind="attribute" view="FleetViews::structure" link="tree-edges.sysml:27">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n27">
+            <mxGeometry x="16" y="287" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n33" label="«part»&#xA;^cabin" fqn="Fleet::Vehicle::cabin" kind="part" view="FleetViews::structure" link="tree-edges.sysml:29">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n27">
+            <mxGeometry x="148" y="287" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n34" label="«part»&#xA;^radio" fqn="Fleet::Vehicle::radio" kind="part" view="FleetViews::structure" link="tree-edges.sysml:30">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n27">
+            <mxGeometry x="270" y="287" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n35" label="«part»&#xA;^trailer" fqn="Fleet::Vehicle::trailer" kind="part" view="FleetViews::structure" link="tree-edges.sysml:31">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n27">
+            <mxGeometry x="16" y="374" width="90" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:24">
+          <mxCell style="edgeStyle=none;exitX=0.1872;exitY=0.0984;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:25">
+          <mxCell style="edgeStyle=none;exitX=0.5538;exitY=0.0984;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:26">
+          <mxCell style="edgeStyle=none;exitX=0.8667;exitY=0.0984;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:27">
+          <mxCell style="edgeStyle=none;exitX=0.1462;exitY=0.0984;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n5">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="107" y="121"/>
+                <mxPoint x="196" y="121"/>
+                <mxPoint x="196" y="304"/>
+                <mxPoint x="166" y="304"/>
+                <mxPoint x="166" y="346.25"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e4" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:29">
+          <mxCell style="edgeStyle=none;exitX=0.7833;exitY=0.0984;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n7">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="355.5" y="117"/>
+                <mxPoint x="336" y="117"/>
+                <mxPoint x="336" y="258"/>
+                <mxPoint x="339.75" y="258"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e5" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:30">
+          <mxCell style="edgeStyle=none;exitX=0.1218;exitY=0.0984;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n8">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="97.5" y="113"/>
+                <mxPoint x="204" y="113"/>
+                <mxPoint x="204" y="312"/>
+                <mxPoint x="174" y="312"/>
+                <mxPoint x="174" y="399"/>
+                <mxPoint x="154" y="399"/>
+                <mxPoint x="154" y="433.25"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e6" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:31">
+          <mxCell style="edgeStyle=none;exitX=0.4346;exitY=0.0984;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n9">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="219.5" y="117"/>
+                <mxPoint x="212" y="117"/>
+                <mxPoint x="212" y="320"/>
+                <mxPoint x="182" y="320"/>
+                <mxPoint x="182" y="399"/>
+                <mxPoint x="199.25" y="399"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e7" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:24">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2544;entryY=0.2897;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n20">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="123" y="117"/>
+                <mxPoint x="959" y="117"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e8" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:10">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.2897;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e9" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:25">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n3" target="n24">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="266" y="259"/>
+                <mxPoint x="290" y="259"/>
+                <mxPoint x="290" y="451"/>
+                <mxPoint x="284" y="451"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e10" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:26">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n4" target="n25">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="388" y="259"/>
+                <mxPoint x="410" y="259"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e11" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:27">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n26">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="34" y="356"/>
+                <mxPoint x="34" y="731"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e12" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:29">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=1;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n7" target="n6">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e13" label="" kind="specialization" view="FleetViews::structure" link="tree-edges.sysml:34">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.0492;exitPerimeter=0;entryX=1;entryY=0.0492;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n10" target="n0">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e14" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:35">
+          <mxCell style="edgeStyle=none;exitX=0.1872;exitY=0.0984;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n11">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e15" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:36">
+          <mxCell style="edgeStyle=none;exitX=0.5423;exitY=0.0984;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n13">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e16" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:25">
+          <mxCell style="edgeStyle=none;exitX=0.8551;exitY=0.0984;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n14">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e17" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:26">
+          <mxCell style="edgeStyle=none;exitX=0.1449;exitY=0.0984;exitPerimeter=0;entryX=0;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n15">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="546.5" y="121"/>
+                <mxPoint x="487" y="121"/>
+                <mxPoint x="487" y="346.25"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e18" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:27">
+          <mxCell style="edgeStyle=none;exitX=0.4821;exitY=0.0984;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n16">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="678" y="113"/>
+                <mxPoint x="654" y="113"/>
+                <mxPoint x="654" y="258"/>
+                <mxPoint x="657.5" y="258"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e19" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:29">
+          <mxCell style="edgeStyle=none;exitX=0.8077;exitY=0.0984;exitPerimeter=0;entryX=0;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n17">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="805" y="117"/>
+                <mxPoint x="753" y="117"/>
+                <mxPoint x="753" y="346.25"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e20" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:30">
+          <mxCell style="edgeStyle=none;exitX=0.1333;exitY=0.0984;exitPerimeter=0;entryX=0;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n18">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="542" y="113"/>
+                <mxPoint x="479" y="113"/>
+                <mxPoint x="479" y="433.25"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e21" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:31">
+          <mxCell style="edgeStyle=none;exitX=0.4692;exitY=0.0984;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n19">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="673" y="121"/>
+                <mxPoint x="749" y="121"/>
+                <mxPoint x="749" y="433.25"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e22" label="" kind="redefinition" view="FleetViews::structure" link="tree-edges.sysml:35">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.7517;exitPerimeter=0;entryX=1;entryY=0.7517;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e23" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:35">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5034;exitPerimeter=0;entryX=0.748;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n22">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="299" y="215"/>
+                <mxPoint x="299" y="490"/>
+                <mxPoint x="145" y="490"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e24" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:14">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.2897;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n11" target="n12">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e25" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:36">
+          <mxCell style="edgeStyle=none;exitX=0.5079;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n24">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="702" y="312"/>
+                <mxPoint x="447" y="312"/>
+                <mxPoint x="447" y="451"/>
+                <mxPoint x="328" y="451"/>
+                <mxPoint x="328" y="536"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e26" label="" kind="subsetting" view="FleetViews::structure" link="tree-edges.sysml:36">
+          <mxCell style="edgeStyle=none;exitX=0.5079;exitY=0;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="702" y="126"/>
+                <mxPoint x="284" y="126"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e27" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:10">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.2897;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n20" target="n21">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e28" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:10">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n21" target="n26">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="987" y="653"/>
+                <mxPoint x="181" y="653"/>
+                <mxPoint x="181" y="731"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e29" label="" kind="specialization" view="FleetViews::structure" link="tree-edges.sysml:13">
+          <mxCell style="edgeStyle=none;exitX=0.5039;exitY=0;exitPerimeter=0;entryX=0;entryY=0.2207;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n22" target="n20">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="114" y="498"/>
+                <mxPoint x="905" y="498"/>
+                <mxPoint x="905" y="82"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e30" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:14">
+          <mxCell style="edgeStyle=none;exitX=0.4488;exitY=0.2897;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n22" target="n23">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e31" label="" kind="redefinition" view="FleetViews::structure" link="tree-edges.sysml:14">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.4865;exitPerimeter=0;entryX=0.2561;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n23" target="n21">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="967" y="637"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e32" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:39">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.0749;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n27" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="410" y="645"/>
+                <mxPoint x="456" y="645"/>
+                <mxPoint x="456" y="82"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e33" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:24">
+          <mxCell style="edgeStyle=none;exitX=0.1789;exitY=0.0984;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n28">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e34" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:25">
+          <mxCell style="edgeStyle=none;exitX=0.5404;exitY=0.0984;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n30">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e35" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:26">
+          <mxCell style="edgeStyle=none;exitX=0.8615;exitY=0.0984;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n27" target="n31">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e36" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:27">
+          <mxCell style="edgeStyle=none;exitX=0.1397;exitY=0.0984;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n27" target="n32">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="263" y="793"/>
+                <mxPoint x="352" y="793"/>
+                <mxPoint x="352" y="980"/>
+                <mxPoint x="327" y="980"/>
+                <mxPoint x="327" y="1018.25"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e37" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:29">
+          <mxCell style="edgeStyle=none;exitX=0.451;exitY=0.0984;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n33">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="390" y="789"/>
+                <mxPoint x="370" y="789"/>
+                <mxPoint x="370" y="930"/>
+                <mxPoint x="372" y="930"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e38" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:30">
+          <mxCell style="edgeStyle=none;exitX=0.75;exitY=0.0984;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n34">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="512" y="789"/>
+                <mxPoint x="494" y="789"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e39" label="" kind="composition" view="FleetViews::structure" link="tree-edges.sysml:31">
+          <mxCell style="edgeStyle=none;exitX=0.1495;exitY=0.0984;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n27" target="n35">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="267" y="785"/>
+                <mxPoint x="360" y="785"/>
+                <mxPoint x="360" y="988"/>
+                <mxPoint x="335" y="988"/>
+                <mxPoint x="335" y="1105.25"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

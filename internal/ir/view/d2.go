@@ -57,6 +57,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	}
 	if r.Kind == KindAction {
 		w.used = r.usedPorts(w.ports)
+		w.labels.listedPin = r.listedPin(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] })
 	}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
@@ -119,7 +120,7 @@ func (r *Rendering) d2Notices(options Options, w *d2Writer) []string {
 		notices = append(notices, linesNotice(options.Lines, FormD2))
 	}
 	if r.Kind == KindAction {
-		if pins := r.undrawnPins(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] }); len(pins) > 0 {
+		if pins := r.undrawnPins(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] || w.labels.lists(node, port) }); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); D2 draws the pins an edge ends at",
 				len(pins), strings.Join(pins, ", ")))
 		}
@@ -211,13 +212,16 @@ var d2Classes = []struct{ name, body string }{
 	{"history", "shape: oval; width: 26; height: 26; style: { " + d2Element + fontSizeClose},
 	{"edge", styleOpen + d2Arrow + solidStrokeClose},
 	{"connection", styleOpen + d2Arrow + "; stroke-width: 3 }"},
-	{"flow", styleOpen + d2Arrow + dashedStrokeClose},
+	{"succession", styleOpen + d2Arrow + dashedStrokeClose},
 	{"specialization", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
-	{"typing", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + dashedStrokeClose},
 	{"composition", "source-arrowhead: { shape: diamond; style: { filled: true } }; style: { " + d2Arrow + solidStrokeClose},
 	{"reference", "source-arrowhead: { shape: diamond; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
-	{"containment", "source-arrowhead: { shape: circle; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
+	{"containment", "source-arrowhead: { shape: circle; label: \"+\"; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
 	{"dependency", styleOpen + d2Arrow + dashedStrokeClose},
+	{"successionflow", "target-arrowhead: { shape: triangle; style: { filled: true } }; style: { " + d2Arrow + dashedStrokeClose},
+	{"open", "target-arrowhead: { shape: arrow }; style: { " + d2Arrow + solidStrokeClose},
+	{"portion", "source-arrowhead: { shape: circle; style: { filled: true } }; style: { " + d2Arrow + solidStrokeClose},
+	{"membership", "source-arrowhead: { shape: circle; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
 }
 
 // writeClasses declares the classes the body uses, so the file stands alone.
@@ -235,7 +239,8 @@ func (w *d2Writer) writeClasses(b *strings.Builder) {
 }
 
 // writeTree writes a tree rendering: every node at the root scope, each
-// joined to its children by a containment line, then the edges.
+// joined to its children by a containment line unless an edge of the tree
+// joins the two, then the edges.
 func (w *d2Writer) writeTree(r *Rendering) {
 	if r.blank() {
 		w.writeEmpty(r)
@@ -251,10 +256,13 @@ func (w *d2Writer) writeTree(r *Rendering) {
 	for _, root := range r.Roots {
 		declare(root)
 	}
+	nesting := r.nestingEdges()
 	var contain func(node *Node)
 	contain = func(node *Node) {
 		for _, child := range node.Children {
-			w.writeArrow("", d2EdgeSpec{from: w.paths[node.ID], to: w.paths[child.ID], arrow: "--", class: "edge"})
+			if !nesting[[2]string{node.ID, child.ID}] {
+				w.writeArrow("", d2EdgeSpec{from: w.paths[node.ID], to: w.paths[child.ID], arrow: "--", class: "edge"})
+			}
 			contain(child)
 		}
 	}
@@ -347,10 +355,10 @@ func (w *d2Writer) writeNode(node *Node, scope, indent string) {
 }
 
 // pins are the ports drawn inside a node: an interconnection's under the
-// ports display, an action's the ones an edge ends at.
+// ports display, a tree's parameter pins, an action's the ones an edge ends at.
 func (w *d2Writer) pins(node *Node) []Port {
 	switch {
-	case w.ports.interconnection:
+	case w.ports.interconnection, w.ports.tree:
 		return w.ports.of(node)
 	case w.ports.action:
 		var pins []Port
@@ -366,10 +374,13 @@ func (w *d2Writer) pins(node *Node) []Port {
 
 // pinLabel is a pin's label: on an interconnection the port's stereotype over
 // `name : Type` under the full display and the name alone under the minimal,
-// on an action the pin's name.
+// on a tree the parameter's direction, name and type, on an action the pin's name.
 func (w *d2Writer) pinLabel(port Port) string {
-	if !w.ports.interconnection {
-		return port.Name
+	switch {
+	case w.ports.tree:
+		return parameterPinLine(port)
+	case !w.ports.interconnection:
+		return port.displayName()
 	}
 	label := w.ports.pinLabel(port)
 	if !w.ports.minimal {
@@ -501,10 +512,8 @@ func d2Color(color string) string {
 	return `"#` + strings.TrimPrefix(color, "#") + `"`
 }
 
-// writeEdge writes one edge as its kind's connector: a connection the
-// Pilot's heavy undirected line, a binding a plain one, a flow dashed, a
-// general graph's relationships in the class-diagram notation, every other
-// edge an arrow; in a sequence diagram every message is an arrow.
+// writeEdge writes one edge with its kind's arrow and class from the notation
+// table (docs/project/view-rendering-forms.md); a sequence message is an arrow.
 func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	arrow, class := "->", "edge"
 	switch edge.Kind {
@@ -512,15 +521,26 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 		arrow, class = "--", "connection"
 	case EdgeBinding, EdgeAssociation:
 		arrow = "--"
-	case EdgeFlow:
-		class = "flow"
-	case EdgeSpecialization, EdgeTyping:
-		class = edge.Kind.String()
+	case EdgeSuccession:
+		class = "succession"
+	case EdgeSpecialization, EdgeTyping, EdgeSubsetting, EdgeRedefinition:
+		class = "specialization"
 	case EdgeComposition, EdgeReference, EdgeContainment:
 		// D2 draws a source arrowhead only where the connection has a head there.
 		arrow, class = "<-", edge.Kind.String()
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency, EdgeExpose:
 		class = "dependency"
+	case EdgeSuccessionFlow:
+		class = "successionflow"
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+		class = "open"
+	case EdgePortion:
+		// A filled circle stands at the occurrence end: D2 has no three-quarter circle.
+		arrow, class = "<-", "portion"
+	case EdgeReferenceSubsetting:
+		class = "specialization"
+	case EdgeUnownedMembership:
+		arrow, class = "<-", "membership"
 	}
 	w.writeArrow(indent, d2EdgeSpec{from: w.end(edge.From, edge.FromPort), to: w.end(edge.To, edge.ToPort), arrow: arrow, label: edge.Label, class: class, style: edge.Style, origin: edge.Origin}, d2EndLabels(edge)...)
 }

@@ -11,14 +11,14 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
-func TestConnectLoggingInterceptorWarnsForLargeJSONOnly(t *testing.T) {
+func TestConnectAccessWarnsForLargeJSONOnly(t *testing.T) {
 	var logs bytes.Buffer
 	original := slog.Default()
 	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(original) })
 
 	large := &pb.ParseFileResponse{ModelHash: strings.Repeat("x", 256*1024)}
-	interceptor := connectLoggingInterceptor()
+	interceptor := connectAccess{}.WrapUnary
 	next := func(_ context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(large), nil
 	}

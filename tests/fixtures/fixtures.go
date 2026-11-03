@@ -41,6 +41,16 @@ func CaseName(fileName string) (string, bool) {
 	return strings.TrimSuffix(fileName, expectedSuffix), true
 }
 
+// ModelPath is the model of case name under dir: `<name>.sysml`, or `<name>.kerml`
+// for a case written in KerML.
+func ModelPath(dir, name string) string {
+	kerml := filepath.Join(dir, name+".kerml")
+	if _, err := os.Stat(kerml); err == nil {
+		return kerml
+	}
+	return filepath.Join(dir, name+".sysml")
+}
+
 // Cases lists the conformance case names under dir in name order.
 func Cases(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)

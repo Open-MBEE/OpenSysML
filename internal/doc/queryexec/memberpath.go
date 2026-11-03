@@ -31,3 +31,17 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 	member, _ := e.context.Model.LookupMember(current, segments[len(segments)-1])
 	return values, true, member, nil
 }
+
+// memberPathStop walks a member path as memberPathValues does and reports where
+// it stopped: the last member reached and the segment that names no member there.
+func (e *executor) memberPathStop(sym *symbols.Symbol, segments []string) (*symbols.Symbol, string) {
+	current := sym
+	for _, segment := range segments {
+		member, ok := e.context.Model.LookupMember(current, segment)
+		if !ok || member == nil {
+			return current, segment
+		}
+		current = member
+	}
+	return current, segments[len(segments)-1]
+}

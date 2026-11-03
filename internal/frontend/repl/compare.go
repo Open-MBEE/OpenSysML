@@ -2,7 +2,7 @@ package repl
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -79,9 +79,6 @@ func (o CompareOptions) selection(results *simresults.Results) (selected []bool,
 	return selected, refused
 }
 
-// sameName is whether name names the configuration qualified.
-func sameName(name, qualified string) bool { return simresults.SameName(name, qualified) }
-
 // compareVerdict compares one configuration: a refusal names what the runs
 // cannot be made without, else the table of both distributions — the runs'
 // alone, against a row saying so, when the tool stored no result. repeats
@@ -147,7 +144,7 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, repeats [
 	}
 	lines := append(sweepTraces(table), header)
 	lines = append(lines, comparisonTable(cfg, table, opts.Observe)...)
-	for _, f := range dedupe(failures) {
+	for _, f := range slices.Compact(slices.Sorted(slices.Values(failures))) {
 		lines = append(lines, "error: "+f)
 	}
 	for _, n := range append(notes, cfg.Notes...) {
@@ -181,18 +178,4 @@ func orNone(s string) string {
 		return "no result location"
 	}
 	return s
-}
-
-// dedupe sorts messages and drops repeats.
-func dedupe(messages []string) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, m := range messages {
-		if !seen[m] {
-			seen[m] = true
-			out = append(out, m)
-		}
-	}
-	sort.Strings(out)
-	return out
 }

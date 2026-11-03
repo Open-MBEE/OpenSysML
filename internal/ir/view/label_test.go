@@ -174,11 +174,11 @@ func TestLabelsHeadMembersUnderTheirDrawnOwnersType(t *testing.T) {
 			got = append(got, labels.head(child))
 		}
 	}
-	want = []string{"'summit Installation' : 'Summit Installation'", "computer : Control"}
+	want = []string{"'summit Installation' : 'Summit Installation'", "^computer : Control"}
 	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
 		t.Errorf("heads = %q, want %q", got, want)
 	}
-	if text := rendering.textWith(fullNotation); !strings.Contains(text, "\n  part computer : Control") {
+	if text := rendering.textWith(fullNotation); !strings.Contains(text, "\n  part ^computer : Control") {
 		t.Errorf("the text form is headed by the diagram label:\n%s", text)
 	}
 }

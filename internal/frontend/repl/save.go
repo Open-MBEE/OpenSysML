@@ -47,13 +47,13 @@ func (s *Session) savePreview(path string) ([]byte, []string, bool) {
 // saveSource is what a save of the session to path converts, with the path
 // expanded, or the lines saying why nothing would be written.
 func (s *Session) saveSource(path string) ([]byte, string, []string, bool) {
+	path = expandHome(path)
 	// The text as typed, not the analyzed buffer: work the parser could not read
 	// is masked out of that buffer and is exactly what this save exists for.
-	src := s.text()
+	src := s.savedText(path)
 	if strings.TrimSpace(src) == "" {
 		return nil, path, []string{"nothing to save: the session is empty"}, false
 	}
-	path = expandHome(path)
 	if err := s.guardFiles([]string{path}, false); err != nil {
 		return nil, path, []string{"error: " + err.Error()}, false
 	}

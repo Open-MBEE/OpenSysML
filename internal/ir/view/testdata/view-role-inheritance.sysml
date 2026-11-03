@@ -5,8 +5,8 @@ package RoleInheritance {
     part def Vehicle;
 
     use case def Base {
-        actor driver : Person;
         subject s : Vehicle;
+        actor driver : Person;
         objective {
             doc /* Arrive safely. */
         }
@@ -14,6 +14,7 @@ package RoleInheritance {
 
     use case def Trip :> Base;
     use case def Trip2 :> Base {
+        subject :>> s;
         actor :>> driver;
     }
     use case def X;

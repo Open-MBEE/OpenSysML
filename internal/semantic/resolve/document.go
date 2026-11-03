@@ -1727,7 +1727,7 @@ func (r *Resolver) chainedFrom(scope *symbols.Scope, operand *symbols.Symbol) *s
 		return featuring
 	}
 	if r.IsOccurrenceThis(operand) {
-		if object := r.ThisContext(scope); object != nil {
+		if object := r.thisChainContext(scope); object != nil {
 			return object
 		}
 	}
@@ -1761,7 +1761,9 @@ func (r *Resolver) chainMemberOf(sym *symbols.Symbol, name string, chain ast.Nod
 		return found, true
 	}
 	// A usage without the member reads it from its type or, untyped, from the
-	// feature its value names; seen stops a chain of values from looping.
+	// feature its value names; seen stops a chain of values from looping. A
+	// feature the usage's own redefinition removed from its namespace is not
+	// read from the type either (KerML 7.3.4.5).
 	usage, isUsage := sym.Decl.(*ast.Usage)
 	if !isUsage || seen[sym] || r.IsBaseThat(sym) || r.IsOccurrenceThis(sym) {
 		return nil, false
@@ -1771,7 +1773,9 @@ func (r *Resolver) chainMemberOf(sym *symbols.Symbol, name string, chain ast.Nod
 	}
 	seen[sym] = true
 	if typed := r.getUsageType(sym.OwnerScope, usage); typed != nil {
-		return r.chainMemberOf(typed, name, chain, seen)
+		if found, ok := r.chainMemberOf(typed, name, chain, seen); ok {
+			return r.inheritedAs(sym, found)
+		}
 	}
 	return nil, false
 }

@@ -94,9 +94,9 @@ func TestCrossFeatureNameTakenByBodyMemberRoundTrips(t *testing.T) {
 	if bodyMember.Value == crossFeature.Value {
 		t.Fatal("the body member and cross feature share an IRI")
 	}
-	for _, qname := range []string{"P::C::x::x1", "P::C::x::@1"} {
-		if !strings.Contains(string(turtle), `sysml:qualifiedName "`+qname+`"`) {
-			t.Errorf("Turtle lacks qualified name %q:\n%s", qname, turtle)
+	for predicate, qname := range map[string]string{"sysml:qualifiedName": "P::C::x::x1", "sysx:positionalName": "P::C::x::@1"} {
+		if !strings.Contains(string(turtle), predicate+` "`+qname+`"`) {
+			t.Errorf("Turtle lacks %s %q:\n%s", predicate, qname, turtle)
 		}
 	}
 	back := structuralRoundTrip(t, "cross-feature-name-collision.sysml", turtle)
@@ -236,13 +236,17 @@ func TestCrossFeaturePrefixComesBackFromTheGraphAlone(t *testing.T) {
 		{"Crossing::C::y", "Crossing::C::y::x2", "isDerived"},
 		{"Crossing::C::y", "Crossing::C::y::x2", "isAbstract"},
 		{"Crossing::C::y", "Crossing::C::y::x2", "isReference"},
-		{"Crossing::C::z", "Crossing::C::z::x3", "isConstant"},
 	} {
 		wantLexical(t, g, elmt(flag.cross), rdf.SysML+flag.property, "true")
 		if g.HasProperty(iri(elmt(flag.end)), rdf.SysML+flag.property) {
 			t.Errorf("the end <%s> took its cross feature's %s", flag.end, flag.property)
 		}
 	}
+	// The cross feature states its `constant` keyword; the end z is constant too, by derivation
+	// (a time-varying end, SysML v2.1 §8.2.2.6.1), so the keyword is only the cross feature's.
+	wantLexical(t, g, elmt("Crossing::C::z::x3"), rdf.SysML+"isConstant", "true")
+	wantLexical(t, g, elmt("Crossing::C::z"), rdf.SysML+"isConstant", "true")
+	wantLexical(t, g, elmt("Crossing::C::y"), rdf.SysML+"isConstant", "true")
 	if back := toNotation(t, withoutTriples(t, idTurtle(t, sysml), "sysx:sourceText")); back != sysml {
 		t.Errorf("cross feature prefixes were not rebuilt from the graph:\n--- want ---\n%s--- got ---\n%s", sysml, back)
 	}

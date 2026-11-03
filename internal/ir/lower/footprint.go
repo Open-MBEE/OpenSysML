@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -19,12 +20,16 @@ import (
 // (nil when unresolved) and the name; Local marks a pin, held per performance.
 // State marks the activity of a state, which a transition reads and writes.
 // Direct marks a name written alone, not reached through a chain or qualified.
+// Via is the feature whose value holds the one a chain names (`left` in
+// `left.raw`), nil for a name reached no such way; whether two such places hold
+// one value is the run's to decide (features may alias), so Conflicts ignores it.
 type Place struct {
 	Sym    *symbols.Symbol
 	Name   string
 	Local  bool
 	State  *ast.StateNode
 	Direct bool
+	Via    *symbols.Symbol
 	// Node is the node whose pin the place is, each performance of a node holding
 	// its own; nil for a feature or a declaration's own value.
 	Node ast.Node
@@ -105,6 +110,46 @@ type Footprint struct {
 	Dynamic    bool
 	Creates    bool
 	Routes     bool
+	// Flows are the data flows of the move's statements, one each: what the
+	// statement writes stands on what it reads. None for a move described whole.
+	Flows []Flow
+}
+
+// Flow is one statement's data flow: its writes stand on its reads.
+type Flow struct {
+	Reads  []Place
+	Writes []Place
+}
+
+// WritesReading are the places the move writes standing on a read of a place
+// among reads: the writes of the statements reading one, or every write of the
+// move when a read outside its statements (a guard's) or a move described whole does.
+func (f Footprint) WritesReading(reads func(Place) bool) []Place {
+	var out []Place
+	inFlow := false
+	for _, flow := range f.Flows {
+		if slices.ContainsFunc(flow.Reads, reads) {
+			inFlow = true
+			for _, p := range flow.Writes {
+				out = appendPlace(out, f.writeOf(p))
+			}
+		}
+	}
+	if !inFlow {
+		return f.Writes
+	}
+	return out
+}
+
+// writeOf is the move's write of the place a flow names, as the move holds it
+// (a pin stamped with its performance), else the place as named.
+func (f Footprint) writeOf(p Place) Place {
+	for _, w := range f.Writes {
+		if w.Sym == p.Sym && w.Name == p.Name {
+			return w
+		}
+	}
+	return p
 }
 
 // Dependent reports whether the two moves may not commute: a data race, both
@@ -414,8 +459,12 @@ type footprintBuilder struct {
 	declared          map[ast.Node]ast.Node
 	localDeclarations bool
 	footprint         Footprint
-	// expanding holds the calc usages whose bindings are being read, so a cyclic binding stops.
-	expanding map[*ast.Usage]bool
+	// expanding is the stack of usages whose bindings are being read, so a cyclic
+	// binding stops; its first entry sits in expandingRoot and allocates nothing.
+	expandingRoot *ast.Usage
+	expanding     []*ast.Usage
+	// sem answers what a feature redefines, explicitly or by position.
+	sem *semantics.Model
 }
 
 // ConstraintBodyFootprint projects the reads and writes of one constraint
@@ -464,17 +513,22 @@ func appendPlace(places []Place, p Place) []Place {
 
 // place resolves a written name to its place, and to the names its declaration
 // redefines, so a redefining feature and the redefined one meet under either name.
-func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each func(Place)) {
+// It returns the feature named, nil where the scope does not resolve it.
+func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each func(Place)) *symbols.Symbol {
 	if len(segments) == 0 {
-		return
+		return nil
 	}
 	name := segments[len(segments)-1]
 	sym, _ := resolve.FeatureSymbolInScope(scope, segments)
 	local := sym != nil && b.declaredByNode(sym)
 	direct := len(segments) == 1
-	each(Place{Sym: sym, Name: name, Local: local, Direct: direct})
+	var via *symbols.Symbol
+	if !direct {
+		via, _ = resolve.FeatureSymbolInScope(scope, segments[:len(segments)-1])
+	}
+	each(Place{Sym: sym, Name: name, Local: local, Direct: direct, Via: via})
 	if sym == nil {
-		return
+		return nil
 	}
 	if b.graph != nil && sym.Decl != nil && slices.Contains(b.graph.Nodes, sym.Decl) {
 		// A node named as a value is read by its outputs (`assign total := diff`).
@@ -485,11 +539,137 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
 		for _, redefined := range redefinedNames(usage) {
 			if redefined != name {
-				each(Place{Sym: sym, Name: redefined, Local: local, Direct: direct})
+				each(Place{Sym: sym, Name: redefined, Local: local, Direct: direct, Via: via})
 			}
 		}
 		b.calcUsage(sym, usage)
 	}
+	return sym
+}
+
+// readPlace adds a read of the feature segments name, and of what its value is
+// computed from where an expression values it.
+func (b *footprintBuilder) readPlace(scope *symbols.Scope, segments []string) {
+	b.boundValue(b.place(scope, segments, b.read), len(segments) == 1)
+}
+
+// boundValue adds what reading a feature valued by an expression (`attribute y = x + 1`)
+// evaluates: the places its expression reads, through features so valued in turn,
+// since the value is computed from them as it is read (KerML 1.1 §7.3.4.2, a
+// FeatureValue that is not initial binds the feature to its expression's result).
+// Only a value-holding usage is so read: a behavior usage's value is what it
+// performs, read by its outputs, a calc usage's members by calcUsage; an initial
+// or default value is written once, not computed on read, and adds nothing. A
+// parameter is so read only directly, as the running performance's own: through
+// a chain it is another performance's, whose result the performance computes.
+func (b *footprintBuilder) boundValue(sym *symbols.Symbol, direct bool) {
+	if sym == nil {
+		return
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || (!direct && (usage.Direction != ast.DirNone || usage.IsResult)) {
+		return
+	}
+	switch usage.Kind {
+	case ast.UsagePart, ast.UsageAttribute, ast.UsageItem, ast.UsageOccurrence,
+		ast.UsageIndividual, ast.UsageEnumeration:
+	default:
+		return
+	}
+	if usage.Value != nil && !valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault) {
+		return
+	}
+	if !b.enter(usage) {
+		return
+	}
+	defer b.leave()
+	if usage.Value == nil {
+		// A redefining feature valued by nothing of its own is bound as the one it
+		// redefines is (`attribute :>> y;` over `attribute y = x + 1`), explicitly or
+		// as a parameter at the same position.
+		for _, p := range b.redefinitions(sym, usage) {
+			b.boundValue(p, direct)
+		}
+		return
+	}
+	scope := sym.Scope
+	if scope == nil {
+		scope = sym.OwnerScope
+	}
+	if scope == nil {
+		scope = b.scope
+	}
+	b.reads(scope, usage.Value)
+}
+
+// semantics is the model the builder was given, else its graph's, nil without one.
+func (b *footprintBuilder) semantics() *semantics.Model {
+	if b.sem == nil && b.graph != nil {
+		b.sem = b.graph.Semantics()
+	}
+	return b.sem
+}
+
+// enter pushes usage onto the expanding stack, false when it is already there.
+func (b *footprintBuilder) enter(usage *ast.Usage) bool {
+	if usage == b.expandingRoot || slices.Contains(b.expanding, usage) {
+		return false
+	}
+	if b.expandingRoot == nil {
+		b.expandingRoot = usage
+	} else {
+		b.expanding = append(b.expanding, usage)
+	}
+	return true
+}
+
+// leave pops the usage entered last.
+func (b *footprintBuilder) leave() {
+	if n := len(b.expanding); n > 0 {
+		b.expanding = b.expanding[:n-1]
+		return
+	}
+	b.expandingRoot = nil
+}
+
+// redefinitions are the features sym redefines, explicitly or as a parameter at
+// the same position, by the semantic model when there is one.
+func (b *footprintBuilder) redefinitions(sym *symbols.Symbol, usage *ast.Usage) []*symbols.Symbol {
+	if sem := b.semantics(); sem != nil {
+		if redefined := sem.RedefinedFeatures(sym); len(redefined) > 0 {
+			return redefined
+		}
+		return sem.ImplicitParameterRedefinitions(sym)
+	}
+	var redefined []*symbols.Symbol
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind == ast.RelRedefines {
+			if p := b.redefined(sym, rel.Target); p != nil {
+				redefined = append(redefined, p)
+			}
+		}
+	}
+	return redefined
+}
+
+// redefined is the feature a redefinition of sym names by target, declared in a
+// general of sym's owner, found from the scope tree alone: nil when the
+// declarations do not reach it, and for a feature chain, which a resolver decides.
+func (b *footprintBuilder) redefined(sym *symbols.Symbol, target ast.Node) *symbols.Symbol {
+	qname := ast.AsQualifiedName(target)
+	if qname == nil || len(qname.Parts) == 0 {
+		return nil
+	}
+	segments := make([]string, len(qname.Parts))
+	for i, part := range qname.Parts {
+		segments[i] = part.Text
+	}
+	for _, general := range resolve.GeneralBodies(sym.OwnerScope) {
+		if redefined, ok := resolve.FeatureSymbolInScope(general, segments); ok && redefined != nil && redefined != sym {
+			return redefined
+		}
+	}
+	return nil
 }
 
 // calcUsage adds what reading a calc usage evaluates: the values its members
@@ -501,14 +681,10 @@ func (b *footprintBuilder) calcUsage(sym *symbols.Symbol, usage *ast.Usage) {
 		return
 	}
 	b.footprint.Dynamic = true
-	if b.expanding[usage] {
+	if !b.enter(usage) {
 		return
 	}
-	if b.expanding == nil {
-		b.expanding = make(map[*ast.Usage]bool)
-	}
-	b.expanding[usage] = true
-	defer delete(b.expanding, usage)
+	defer b.leave()
 	scope := sym.Scope
 	if scope == nil {
 		scope = b.scope
@@ -522,11 +698,12 @@ func (b *footprintBuilder) calcUsage(sym *symbols.Symbol, usage *ast.Usage) {
 
 // path adds a feature reached through a chain: each names the feature at its end,
 // and every prefix is read, since a write to one changes what the chain reaches.
-func (b *footprintBuilder) path(scope *symbols.Scope, segments []string, each func(Place)) {
+// It returns the feature at the chain's end, nil where the scope does not resolve it.
+func (b *footprintBuilder) path(scope *symbols.Scope, segments []string, each func(Place)) *symbols.Symbol {
 	for n := 1; n < len(segments); n++ {
-		b.place(scope, segments[:n], b.read)
+		b.readPlace(scope, segments[:n])
 	}
-	b.place(scope, segments, each)
+	return b.place(scope, segments, each)
 }
 
 // address adds what routing a send reads: every feature its target path leads
@@ -539,7 +716,7 @@ func (b *footprintBuilder) address(scope *symbols.Scope, target string, chained 
 	if chained {
 		separator = "."
 	}
-	b.path(scope, strings.Split(target, separator), b.read)
+	b.boundValue(b.path(scope, strings.Split(target, separator), b.read), false)
 }
 
 // declaredByNode reports whether sym is a feature some node of the graph declares.
@@ -562,7 +739,7 @@ func (b *footprintBuilder) reads(scope *symbols.Scope, expr ast.Node) {
 	case *ast.FeatureChainExpr:
 		base, segments := flattenChain(e)
 		if ref, ok := base.(*ast.FeatureReference); ok && ref.Name != nil && len(ref.Name.Parts) == 1 && len(segments) > 0 {
-			b.path(scope, append([]string{ref.Name.Parts[0].Text}, segments...), b.read)
+			b.boundValue(b.path(scope, append([]string{ref.Name.Parts[0].Text}, segments...), b.read), false)
 			return
 		}
 		b.footprint.Dynamic = true
@@ -631,9 +808,9 @@ func (b *footprintBuilder) readName(scope *symbols.Scope, qn *ast.QualifiedName)
 	}
 	if len(qn.Parts) == 1 {
 		if sym, found := resolve.FeatureSymbolInScope(scope, []string{qn.Parts[0].Text}); found || b.resolver == nil {
-			b.place(scope, []string{qn.Parts[0].Text}, b.read)
+			b.readPlace(scope, []string{qn.Parts[0].Text})
 			if found && b.fallsThrough(sym) {
-				b.place(b.graph.Scope, []string{qn.Parts[0].Text}, b.read)
+				b.readPlace(b.graph.Scope, []string{qn.Parts[0].Text})
 			}
 			return
 		}
@@ -642,6 +819,7 @@ func (b *footprintBuilder) readName(scope *symbols.Scope, qn *ast.QualifiedName)
 	if b.resolver != nil {
 		if sym, ok := b.resolver.ReadQualified(scope, qn).Symbol(); ok && sym != nil {
 			b.read(Place{Sym: sym, Name: name, Local: b.declaredByNode(sym), Direct: len(qn.Parts) == 1})
+			b.boundValue(sym, len(qn.Parts) == 1)
 			return
 		}
 	}
@@ -665,9 +843,14 @@ func (b *footprintBuilder) invokesDeclaredBehavior(scope *symbols.Scope, qn *ast
 }
 
 // statements adds what a body's statements touch, blocks and their own flows included.
+// statements adds a body's statements, each built apart so its own flow is kept.
 func (b *footprintBuilder) statements(stmts []Statement) {
 	for _, stmt := range stmts {
-		b.statement(stmt)
+		sub := &footprintBuilder{resolver: b.resolver, graph: b.graph, node: b.node, scope: b.scope,
+			declared: b.declared, localDeclarations: b.localDeclarations}
+		sub.statement(stmt)
+		b.merge(sub.footprint)
+		b.footprint.Flows = append(b.footprint.Flows, Flow{Reads: sub.footprint.Reads, Writes: sub.footprint.Writes})
 	}
 }
 
@@ -852,6 +1035,7 @@ func (b *footprintBuilder) merge(other Footprint) {
 	b.footprint.Dynamic = b.footprint.Dynamic || other.Dynamic
 	b.footprint.Creates = b.footprint.Creates || other.Creates
 	b.footprint.Routes = b.footprint.Routes || other.Routes
+	b.footprint.Flows = append(b.footprint.Flows, other.Flows...)
 }
 
 // plainType reports whether constructing the named type creates an object that
@@ -982,7 +1166,7 @@ func (b *footprintBuilder) pin(place Place, f Feature, performs bool, argument a
 	case argument != nil:
 		b.reads(b.scope, argument)
 	case f.Value == nil && !b.pinConnected(f.Name) && b.enclosingDeclares(f.Name):
-		b.place(b.graph.Scope, []string{f.Name}, b.read)
+		b.readPlace(b.graph.Scope, []string{f.Name})
 	}
 	if out && performs {
 		b.place(b.graph.Scope, []string{f.Name}, b.write)
@@ -1281,8 +1465,8 @@ func isConvergence(node ast.Node) bool {
 
 // ExpressionFootprint is what evaluating expr in scope reads: the places a guard
 // or condition depends on, dynamic where the declarations do not decide them.
-func ExpressionFootprint(scope *symbols.Scope, expr ast.Node) Footprint {
-	b := &footprintBuilder{scope: scope}
+func ExpressionFootprint(resolver *resolve.Resolver, sem *semantics.Model, scope *symbols.Scope, expr ast.Node) Footprint {
+	b := &footprintBuilder{resolver: resolver, sem: sem, scope: scope}
 	b.reads(scope, expr)
 	return b.footprint
 }

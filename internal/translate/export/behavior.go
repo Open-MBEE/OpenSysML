@@ -8,6 +8,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"sort"
 	"strings"
@@ -118,7 +119,11 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		// `done;` is a Membership of the library's Actions::Action::done.
 		head(rdf.SysMLTerm(mMembership))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("done"))
-		e.graph.Add(subject, e.sysml(pMemberElement), e.libraryReference(libraryDone))
+		done := e.libraryReference(libraryDone)
+		e.graph.Add(subject, e.sysml(pMemberElement), done)
+		if ns, ok := e.graph.Object(subject, rdf.SysML+pMembershipOwningNamespace); ok && done.IsIRI() {
+			e.membershipEnds(subject, ns, done)
+		}
 		return true, nil
 
 	case *ast.ForkNode:
@@ -256,7 +261,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 // initialSuccessionEnds emits the two connector ends of `first a then b;`: the
 // source the initial node names, the target its successor names.
 func (e *encoder) initialSuccessionEnds(subject rdf.Term, owner string, n *ast.InitialNode) error {
-	source := connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, noCollapse: true}
+	source := connectorEndSpec{owner: owner, slot: "end0", index: 0, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 0), ends: 2, noCollapse: true}
 	if decl, fqn, ok := e.linked(e.res.InitialSymbol(n)); ok {
 		source.targetTerm = e.ids.subjectForNode(decl, fqn)
 	} else {
@@ -265,7 +270,7 @@ func (e *encoder) initialSuccessionEnds(subject rdf.Term, owner string, n *ast.I
 	if err := e.connectorEnd(subject, source); err != nil {
 		return err
 	}
-	return e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, target: n.Successor, mult: n.TargetMultiplicity, noCollapse: true})
+	return e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end1", index: 1, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 1), ends: 2, target: n.Successor, mult: n.TargetMultiplicity, noCollapse: true})
 }
 
 // encodeInitialNode emits `first x;` — a Membership of the member the body
@@ -289,6 +294,9 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 			e.graph.Add(subject, e.sysml(pSourceFeature), start)
 		} else {
 			e.graph.Add(subject, e.sysml(pMemberElement), start)
+			if ns, ok := e.graph.Object(subject, rdf.SysML+pMembershipOwningNamespace); ok && start.IsIRI() {
+				e.membershipEnds(subject, ns, start)
+			}
 		}
 	}
 	if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
@@ -354,10 +362,10 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 		// multiplicity, even when the preceding member has no referenceable name;
 		// the target end carries the crossing multiplicity `then [m] b;` writes.
 		e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formThen))
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 0), ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
 			return err
 		}
-		target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
+		target := connectorEndSpec{owner: owner, slot: "end1", index: 1, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 1), ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
 		if n.Target != nil {
 			target.target = n.Target
 		} else if _, done := n.TargetMember.(*ast.FinalNode); done {
@@ -647,12 +655,12 @@ func (e *encoder) transitionSuccession(subject rdf.Term, n *ast.TransitionMember
 	e.typed(succession, mSuccession)
 	e.graph.Add(succession, e.sysml(pElementID), rdf.String(rdf.LocalName(succession.Value)))
 	e.graph.Add(subject, e.sysml("succession"), succession)
-	if err := e.connectorEnd(succession, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, noCollapse: true}); err != nil {
+	if err := e.connectorEnd(succession, connectorEndSpec{owner: owner, slot: "end0", index: 0, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 0), ends: 2, empty: true, noCollapse: true}); err != nil {
 		return rdf.Term{}, rdf.Term{}, err
 	}
 	// A chained target (`then b.c`) is the OwnedFeatureChain its end's
 	// reference subsetting owns; a name is the member it resolves to here.
-	target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
+	target := connectorEndSpec{owner: owner, slot: "end1", index: 1, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 1), ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
 	if qualifiedNameHasChain(n.Target) {
 		target.target = n.Target
 	} else {
@@ -673,9 +681,9 @@ func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMembe
 	if qualifiedText(n.Source) != "" {
 		e.transitionSourceMember(subject, n.Source)
 	}
-	e.emptyParameterMember(subject, "linkparam")
+	e.emptyParameterMember(subject, "linkparam", e.ids.declSym[n])
 	if e.triggerPayload(n) != nil {
-		e.emptyParameterMember(subject, "triggerparam")
+		e.emptyParameterMember(subject, "triggerparam", e.ids.declSym[n])
 	}
 }
 
@@ -704,13 +712,16 @@ func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.Qualified
 	e.graph.Add(membership, e.sysml(pMemberElement), e.edgeReference(source))
 	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
 	e.graph.Add(membership, e.sysml(pMembershipOwningNamespace), subject)
+	if member := e.edgeReference(source); member.IsIRI() {
+		e.membershipEnds(membership, subject, member)
+	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 }
 
 // emptyParameterMember emits an EmptyParameterMember: a ParameterMembership
 // owning an EmptyUsage, a ReferenceUsage that declares nothing.
-func (e *encoder) emptyParameterMember(subject rdf.Term, slot string) {
+func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, owner *symbols.Symbol) {
 	// Minted as an element, as the transition's succession is: an
 	// expression-part id would read back from the element form as a node.
 	feature := e.ids.minted(rdf.IRI(subject.Value+"_"+slot), subject, "_"+slot)
@@ -719,6 +730,10 @@ func (e *encoder) emptyParameterMember(subject rdf.Term, slot string) {
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
 	// A parameter with no direction of its own is an `in` parameter.
 	e.graph.Add(feature, e.sysml(pDirection), rdf.String("in"))
+	// It is a referential usage the transition owns, and a transition is an action.
+	if e.ids.model.UsageMayTimeVaryUnder(owner) {
+		e.flags(feature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
@@ -751,7 +766,7 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 		return false, err
 	}
 	e.graph.Add(accepter, rdf.IRI(rdf.RDFType), e.sysml(mAcceptAction))
-	e.graph.Add(accepter, e.sysml(pQualifiedName), rdf.String(accepterFQN))
+	e.graph.Add(accepter, addressTerm(accepterFQN), rdf.String(accepterFQN))
 	// The accept a trigger declares is placed where the trigger is written.
 	e.sourceRange(accepter, n.TriggerSpan)
 	e.graph.Add(accepter, e.sysml(pElementID), rdf.String(rdf.LocalName(accepter.Value)))
@@ -1297,8 +1312,10 @@ func (d *decoder) membershipKeyword(el *element) string {
 		return "first"
 	}
 	subject := rdf.IRI(el.iri)
-	if d.graph.HasProperty(subject, rdf.SysML+pMemberName) ||
-		d.graph.HasProperty(subject, rdf.SysML+pMemberShortName) {
+	// Only a plain Membership names its member by alias (KerML.xtext AliasMember);
+	// an end's FeatureMembership states the end's own name.
+	if el.metaclass == mMembership && (d.graph.HasProperty(subject, rdf.SysML+pMemberName) ||
+		d.graph.HasProperty(subject, rdf.SysML+pMemberShortName)) {
 		return "alias"
 	}
 	if member, ok := d.graph.Object(subject, rdf.SysML+pMemberElement); ok {

@@ -26,7 +26,7 @@ $ sysml --version
 sysml <commit>
   Commit:     <commit>
   Build time: <build time>
-  Go version: go1.25.0
+  Go version: go1.27.3
 ```
 
 All demo models live in one scratch directory:
@@ -67,7 +67,7 @@ package Rover {
     }
 
     part def Battery {
-        attribute capacityWh : Real = 450.0;
+        attribute capacityWh : Real default = 450.0;
         attribute charge : Real = 450.0;
     }
 
@@ -97,13 +97,17 @@ package Rover {
 EOF
 ```
 
-Evaluating the model's own `calc` from the command line — a model as a callable artifact:
+Evaluating the model's own `calc` from the command line — a model as a callable artifact. The
+expression is evaluated inside the last namespace the file declares, `package Rover`, where the name
+`Rover` is the part def `Rover::Rover` (KerML 8.2.3.5.1 resolves the first segment of a qualified
+name from the local namespace outwards), so the package is named with the global scope qualifier
+`$::`:
 
 ```console
-$ sysml -e "Rover::rangeKm(600, 12)" rover.sysml
+$ sysml -e "$::Rover::rangeKm(600, 12)" rover.sysml
 ✓ package Rover
-✓ Rover::rangeKm(600, 12)
-  = 50
+✓ $::Rover::rangeKm(600, 12)
+  = [50.0]
 ```
 
 ---
@@ -157,13 +161,16 @@ Instances:
 ```console
 sysml> %calc Rover::rangeKm 600 12
 ✓ Rover::rangeKm(600, 12)
-  = 50
+  = [50.0]
+  standing: value (observed: 1 run under reverse)
 
 sysml> %constraint Rover::MassBudget
 ✓ Constraint Rover::MassBudget passed
+  standing: holds (observed: 1 run under reverse)
 
 sysml> %requirement Rover::PowerMargin
 ✓ Requirement Rover::PowerMargin satisfied
+  standing: holds (observed: 1 run under reverse)
 ```
 
 A failure is not a bare `false` — it names the assertion that decided the verdict:
@@ -261,7 +268,7 @@ sysml> %eval wheelbase > clearance
   = true
 
 sysml> %eval wheelbase > driveTime
-error: evaluation failed: incommensurable units: cannot express s (SI::second) in m (SI::metre)
+error: evaluation failed: incommensurable units: cannot express s (second) in m (metre)
 ```
 
 Metres and centimetres are converted before comparison; metres against seconds is refused. The
@@ -286,15 +293,15 @@ EOF
 
 ```console
 $ sysml -e "1" typo.sysml
-6:18: error: unresolved reference: Snesor
+typo.sysml:6:18: error[unresolved]: unresolved reference: Snesor — did you mean Sensor?
         part s : Snesor;
                  ^~~~~~
-✓ 1
-  = 1
+sysml: typo.sysml did not analyse cleanly
 ```
 
-The caret span covers the whole offending name, and evaluation continues — a broken reference does
-not take the session down. `-debug` adds the pass that produced each diagnostic:
+The caret span covers the whole offending name, the diagnostic names the nearest declared name,
+and nothing is evaluated over a model that did not analyse cleanly. `-debug` adds the pass that
+produced each diagnostic:
 
 ```bash
 sed 's/reading = 0.0/reading : Real = /' typo.sysml > broken.sysml
@@ -303,16 +310,15 @@ sed 's/reading = 0.0/reading : Real = /' typo.sysml > broken.sysml
 ```console
 $ sysml -debug -e "1" broken.sysml
 [debug] submission at buffer line 1; 1 diagnostic(s) over the whole buffer
-3:36: error: expected an expression [syntax/syntax]
+3:36: error[syntax]: expected an expression [syntax]
         attribute reading : Real = ;
                                    ^
-✓ package Typo
-✓ 1
-  = 1
+sysml: broken.sysml did not analyse cleanly
 ```
 
-The `✓ package Typo` line is worth pausing on: the parser recovered and still produced the package,
-which is why the REPL keeps going after an error.
+The `[debug]` line is worth pausing on: it names the pass that produced the diagnostic (`[syntax]`)
+and counts the diagnostics over the whole buffer, so a parse error and a resolution error are told
+apart at a glance.
 
 Only the *syntax* error is reported even though `Snesor` is still misspelled: validation is tiered,
 so name resolution is not run on a file that does not parse.
@@ -430,18 +436,22 @@ sysml> %advance 5
   Current state: driving
   Last event at: 5.0
   Remaining events: 1
+  Waiting on the clock:
+    t=15.0: state machine rover, time -> charging
 
 sysml> %advance 10
 ✓ Advanced to 15.0 (1 event(s) processed)
   Current state: charging
   Last event at: 15.0
   Remaining events: 1
+  Waiting on the clock:
+    t=35.0: state machine rover, time -> idle
 
 sysml> %current
 Current state: charging
 Time: 15.0
 Last event at: 15.0
-Execution state: Running
+Execution state: Suspended
 ```
 
 No wall-clock waiting: 15 simulated seconds of a rover mission pass instantly, and the machine
@@ -467,10 +477,11 @@ sysml> %calc Rover::rangeKm 600 12
 [trace]   stmt return
 [trace]       eval feature charge -> 600
 [trace]       eval feature wattHoursPerKm -> 12
-[trace]     eval operator / -> 50
-[trace] exit calc Rover::rangeKm -> 50
+[trace]     eval operator / -> 50.0
+[trace] exit calc Rover::rangeKm -> (50.0)
 ✓ Rover::rangeKm(600, 12)
-  = 50
+  = [50.0]
+  standing: value (observed: 1 run under reverse)
 ```
 
 Argument binding, each sub-expression and the operator that produced the answer are all visible.
@@ -500,11 +511,13 @@ EOF
 ```
 
 ```console
-$ sysml -convert structure.sysml -o structure.ttl
-wrote structure.ttl (ttl, 2254 bytes)
+$ sysml structure.sysml -convert ttl -o structure.ttl
+wrote structure.ttl (ttl, 21929 bytes)
 
 $ head -14 structure.ttl
 @prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
 @prefix sysx: <urn:opensysml:sysml:> .
@@ -513,23 +526,23 @@ $ head -14 structure.ttl
 elmt:Structure
     a sysml:Package ;
     sysml:qualifiedName "Structure" ;
-    sysx:memberIndex "0"^^xsd:integer ;
-    sysml:declaredName "Structure" ;
-    sysx:hasBody "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:Structure::@0>
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
 ```
 
 And back — this direction is a real print of the parsed tree, so it is the canonical notation for the
 model that was loaded:
 
 ```console
-$ sysml -convert structure.ttl -to sysml
+$ sysml structure.ttl -convert sysml
 package Structure {
     private import ScalarValues::*;
+
     part def Wheel {
         attribute diameter : Real = 0.25;
     }
+
     part def Rover {
         part wheels : Wheel[6];
         attribute dryMass : Real = 180.0;
@@ -587,7 +600,7 @@ echoes it, `%clear` resets it, and `%verbosity quiet|normal|debug` sets how much
   namespace they came from drops them, with a note naming the submission that ended them.
 - **`clear` is not a REPL command.** At the `sysml> ` prompt it is parsed as SysML and leaves an
   unresolved session error that is then reported under later commands. `%clear` is the command.
-- **`-convert … -to ttl` covers structure and the behavior a body states.** A model with a
+- **`-convert ttl` covers structure and the behavior a body states.** A model with a
   construct the notation could not be rebuilt from — a name declared twice in one body, a
   `perform` with neither a name nor an action to refer to — is rejected (`cannot convert the … at …`) rather
   than silently exported, so use a model that converts for the RDF demo, as in §10.

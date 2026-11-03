@@ -265,6 +265,7 @@ func (ctx *Context) drawDueOrder(due []clockWaiter) (int, error) {
 		choice.Alternatives[i] = w.dueLabel()
 		fps[i] = futures.executorFuture(w)
 	}
+	choice.alike = ctx.heldAlike
 	classifyChoice(&choice, fps, func(i, j int) lower.Relation { return ctx.relation(due[i], due[j]) })
 	scheduling := ctx.scheduling()
 	pick := scheduling.choose(choice, nil)

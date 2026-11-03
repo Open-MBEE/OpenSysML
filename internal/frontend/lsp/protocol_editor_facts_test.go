@@ -21,7 +21,7 @@ func TestRunServesSignatureHelpCodeLensAndInlayHints(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- s.Run(context.Background(), server) }()
 
-	const file = "file:///tmp/protocol_editor_facts.sysml"
+	file := string(tempDocURI(t, "protocol_editor_facts.sysml"))
 	doc := map[string]any{"uri": file}
 	callPos := positionAfter(t, editorFactsModel, "fell = Fall(20.0, 9.")
 	lines := uint32(len(editorFactsModel))

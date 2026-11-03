@@ -14,7 +14,7 @@ func TestStripModelSource(t *testing.T) {
 		"doc /* an about of doc */\n" +
 		"attribute x = \"about of\";\n" +
 		"attribute 'end of it' = 1;\n"
-	stripped := stripModelSource(src)
+	stripped := StripModelSource(src)
 	if want, got := len(strings.Split(src, "\n")), len(strings.Split(stripped, "\n")); got != want {
 		t.Fatalf("line count = %d, want %d preserved", got, want)
 	}
@@ -35,7 +35,7 @@ func TestStripModelSourceUnterminated(t *testing.T) {
 		"comment": "part def A;\n/* unterminated\npart def B;\n",
 		"string":  "attribute x = \"unterminated\npart def B;\n",
 	} {
-		if got := stripModelSource(src); len(strings.Split(got, "\n")) != len(strings.Split(src, "\n")) {
+		if got := StripModelSource(src); len(strings.Split(got, "\n")) != len(strings.Split(src, "\n")) {
 			t.Errorf("%s: line structure changed: %q", name, got)
 		}
 	}

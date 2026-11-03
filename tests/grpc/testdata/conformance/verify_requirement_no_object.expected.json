@@ -1,0 +1,8 @@
+{
+  "rpc": "VerifyRequirement",
+  "symbol_id": "test::costReq",
+  "expected_status": "undecided",
+  "expected_verification_verdicts": [
+    {"case": "test::Definition::costTest", "kind": "inconclusive", "detail": "needs an object of test::Definition: none is instantiated"}
+  ]
+}

@@ -1,0 +1,11 @@
+InheritedPrefixViews::part1Tree - tree rendering (render asTreeDiagram)
+
+part part1
+  port ^aPort
+  attribute ^mass
+  part ^engine
+
+relationships:
+  part1 o-- aPort
+  part1 o-- mass
+  part1 *-- engine

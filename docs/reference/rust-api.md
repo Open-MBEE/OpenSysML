@@ -47,7 +47,14 @@ use opensysml::Connection;
 let connection = Connection::connect()?;                 // $OPENSYSML_SERVICE, else private
 let private = Connection::private()?;                    // a child of this process
 let external = Connection::external("localhost", 50051)?; // a service someone else runs
+let guarded = Connection::external_with_token("host", 50051, token)?; // one requiring a bearer token
 ```
+
+A service other machines reach requires a bearer token; `external_with_token`
+sends it as `Authorization: Bearer` on every call, and the other constructors
+send `$OPENSYSML_GRPC_TOKEN` when it is set. A wrong or missing token is
+`Error::Service` with `Status::Unauthenticated`. A private child needs no token
+and is started without `$OPENSYSML_GRPC_TOKEN` in its environment.
 
 | method | what it does |
 | --- | --- |
@@ -57,8 +64,8 @@ let external = Connection::external("localhost", 50051)?; // a service someone e
 | `model_by_hash(&hash)` | adopts a model the service already holds |
 | `server_info()`, `capabilities()` | what `GetServerInfo` reported, asked once at connect |
 | `private_service_pid()` | the child's pid, or `None` for an external service |
-| `parse_sources(&[SourceDocument], &SourcesOptions)` | parses files and named inline content as one model |
-| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids; a SysML v1 model is refused with `InvalidRequest` — it is migrated |
+| `parse_sources(&[SourceDocument], &SourcesOptions)` | parses files and named inline content as one model; `SourcesOptions::base_model_hash` relates the parse to a previous model and the `Model`'s `affected()` names the documents whose results may differ from it (needs `parse_sources_affected`) |
+| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids, `include_library_stubs` restores the pre-0.11.0 library stubs in API JSON (needs `convert_library_stubs`), `compact` writes the `api-json-compact/1` document with `omit_derived`/`keep_derived` trimming its derived properties (needs `convert_compact`), `include_check_diagnostics` reports the semantic check's diagnostics with their severities beside the output (needs `convert_check_diagnostics`), and a `Conversion` lists the `library_references` API JSON names beside its elements; a SysML v1 model is refused with `InvalidRequest` — it is migrated |
 | `migrate(to_format, &MigrateSource, &MigrateOptions)` | migrates a SysML v1 model (`.mdzip`, `.xmi`, `.uml`, as a file or inline bytes) to notation or Turtle, answering a `Migration` whose `report` gives every element's verdict and whose `write(path)` puts the image files beside the model |
 | `query(hash, &Query)`, `query_oslc(hash, text)` | selects elements, structured or as OSLC Query 3.0 text |
 | `run_document_query`, `render_document` | runs a named document query, renders a named document as Markdown or HTML |
@@ -117,15 +124,21 @@ not the ergonomic one.
 
 `Model` forwards each of those calls for its own hash, and adds `find`, `get`,
 `lookup` (an `Error::SymbolNotFound` naming near matches) and `contains`, `edit()`,
-`to_sysml`, `to_turtle`, `to_api_json`, `save(path, ..)` and `satisfied(scope)`. A
-model parsed from several documents names them in `documents()`. `Symbol` adds
+`convert(to_format, tolerate_syntax_errors)`, `to_sysml`, `to_turtle`, `to_api_json`,
+`save(path, to_format, tolerate_syntax_errors)` and `satisfied(scope)`. `convert_with(to_format,
+&ConvertOptions)` and `save_with(path, to_format, &ConvertOptions)` take the options
+`Connection::convert` takes — `id_form`, `include_library_stubs`, `documents` — and gate them as
+it does; `convert` and `save` are those forms with the defaults. A model parsed from several
+documents names them in `documents()`. `Symbol` adds
 `type_facts()`, `multiplicity()`, `specializations()`, `metadata()` and `facts()`.
 
 ## Results
 
 Each result keeps the response it was read from behind `wire()`. A false verdict is an
-answer: `Verdict` carries `holds`, its `Standing`, `Bound`s, `WitnessAssignment`s and
-the `FailureReason` when it could not be decided. `Satisfaction` holds one per
+answer: `Verdict` carries `holds`, its `Standing`, `Bound`s, `WitnessAssignment`s, the
+`VerdictNote`s a solver's answer rests on (kind `NOTE_ASSUMED_ONE` or `NOTE_UNCOVERED`, with
+the feature as `subject` and the note's `text`; empty without the `verdict_notes` capability)
+and the `FailureReason` when it could not be decided. `Satisfaction` holds one per
 satisfaction assertion; `Validation` one per assertion about an object. `CalcResult` and
 `AnalysisResult` carry their value, named outputs, verdicts and case evaluations; an
 `ActionRun` or `StateRun` its outputs, the states visited and the final clock instant; an
@@ -143,6 +156,9 @@ answer.
 `RunOptions.trace` opts a state run into typed `DocumentEvent` records in
 `StateRun.trace`, with `StateRun.trace_dropped` reporting records the service
 discarded. The option requires `state_trace` and is refused with exploration.
+On an action it fills `ActionRun.trace` under `action_trace` — token steps, waits,
+accepts, decisions and assignments (`feature`, `value`) — and `RunOptions.events`
+posts signals to the performer in order, each once every token waits.
 
 ## Editing
 

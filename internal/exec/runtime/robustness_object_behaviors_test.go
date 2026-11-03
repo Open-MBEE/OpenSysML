@@ -170,7 +170,10 @@ func testObjectPerformedActionOccurrenceHoldsANonObject(t *testing.T) {
 	fv.Value = Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 5}}
 	fv.Materialized = true
 
-	err = ctx.startClassifierBehaviors(inst, 0)
+	if err := ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("startClassifierBehaviors: %v; want the failure recorded on the behavior", err)
+	}
+	err = startFailure(ctx, inst)
 	if !errors.Is(err, errActionPerformanceOccurrence) {
 		t.Fatalf("error = %v, want errActionPerformanceOccurrence", err)
 	}

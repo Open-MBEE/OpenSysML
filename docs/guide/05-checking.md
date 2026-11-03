@@ -531,7 +531,7 @@ sysml> package Demo {
   ...>     attribute wheels : ScalarValues::Integer[*] = (1, 2, 3, 4);
   ...>     attribute wheelCount = wheels->size();
   ...> }
-3:36: error: unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size?
+3:36: error[unresolved]: unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size?
     attribute wheelCount = wheels->size();
                                    ^~~~
 
@@ -626,7 +626,7 @@ sysml> %eval Rollup::total
 sysml> package Rollup {
   ...>     attribute names : String[0..*] = (navCam, spectrometer)->collect { in i : Instrument; i.mass };
   ...> }
-1:35: error: cannot bind a value of type MassValue to a feature typed by String
+1:35: error[binding-connector-type-conformance]: cannot bind a value of type MassValue to a feature typed by String
 	attribute names : String[0..*] = (navCam, spectrometer)->collect { in i : Instrument; i.mass };
                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 note: added to the existing package Rollup (its other members are kept)
@@ -656,6 +656,14 @@ sysml> %requirement SafetyReq
 ✓ Requirement SafetyReq satisfied
   standing: holds (observed: 1 run under reverse)
 ```
+
+A requirement's assumptions are the antecedent of its claim: its result is
+`allTrue(assumptions()) implies allTrue(constraints())` (SysML v2 §7.21.2), so a subject that fails
+an `assume constraint` satisfies the requirement whatever its `require constraint`s read, and the
+verdict says why it held — `vacuous: assumption t.enabled of requirement levelOk did not hold, so
+it holds vacuously`. Denying such a requirement (`assert not requirement`, `assert not satisfy`) is
+a violation naming the assumption, since the result it denies is true. A plain constraint's
+`assume constraint` decides nothing: the constraint holds or fails on its required conditions alone.
 
 **An object as a whole:**
 
@@ -718,6 +726,82 @@ and is not shown valid either. A constraint declared without `assert` is a defin
 name, not an assertion about the object, and is not swept. The command line makes the same check with
 [`-validate=<object>`](../reference/cli.md#command-reference), and a script with the
 `ValidateInstance` RPC ([Python client example](../clients/python/verification.md#validating-an-object-as-a-whole)).
+
+**Derived values under the solver:**
+
+`%check`, `%solve`, `%explain` and `%configure` ask an external SMT solver what the conditions
+*permit* (see [installing a solver](01-install.md#installing-a-solver-optional)), so a declared
+value is not asserted there — except a *derived* one, written as an expression over other
+features of the same element, which is asserted as the defining equation of its variable: the
+model states not a value but how the value follows from the others.
+
+```sysml
+sysml> package Box {
+  ...>   private import ScalarValues::*;
+  ...>   private import ISQ::*;
+  ...>   private import SI::*;
+  ...>   part def Crate {
+  ...>     attribute height : LengthValue;
+  ...>     attribute width : LengthValue;
+  ...>     attribute length : LengthValue;
+  ...>     attribute volume : VolumeValue = height * width * length;
+  ...>     assert constraint bounds {
+  ...>       height >= 0.1 [m] and height <= 1.0 [m] and
+  ...>       width >= 1.0 [m] and width <= 1.1 [m] and
+  ...>       length >= 1.0 [m] and length <= 1.1 [m]
+  ...>     }
+  ...>     assert constraint fits { volume >= 1.0 [m**3] and volume <= 2.0 [m**3] }
+  ...>   }
+  ...>   part crateUnset : Crate;
+  ...>   part crateBad : Crate {
+  ...>     attribute :>> height = 0.1 [m];
+  ...>     attribute :>> width = 1.0 [m];
+  ...>     attribute :>> length = 1.0 [m];
+  ...>   }
+  ...> }
+✓ package Box
+
+sysml> %instantiate Box::crateUnset
+sysml> %check Box::crateUnset
+✓ Part crateUnset is satisfiable (z3, 24ms)
+  Box::Crate::height = 0.875 [metre]
+  Box::Crate::length = 1.09375 [metre]
+  Box::Crate::volume = 1.016845703125 [metre^3]
+  Box::Crate::width = 1.0625 [metre]
+  Defined by the model:
+    Box::Crate::volume = height * width * length
+  standing: satisfiable (witnessed: 1 query by solve)
+```
+
+Nothing gives `height`, `width` or `length` a value, so `volume` cannot be evaluated; the solver
+chooses the three within `bounds` and `volume` as their product, which is what makes `fits`
+answerable at all (the product ranges over 0.1–1.21 m³, so `fits` needs a height of at least
+about 0.83 m). Over an object that holds the dimensions, they are fixed as held and the equation
+says what volume they give:
+
+```sysml
+sysml> %instantiate Box::crateBad
+sysml> %solve Box::Crate::fits
+✗ Constraint fits has no values consistent with the values already fixed (z3, 12ms)
+  Already fixed:
+    Box::Crate::height = 0.1 [m]  (held by object 1)
+    Box::Crate::length = 1.0 [m]  (held by object 1)
+    Box::Crate::width = 1.0 [m]  (held by object 1)
+  Defined by the model:
+    Box::Crate::volume = height * width * length
+  In the conflict: Box::Crate::height = 0.1 [m], Box::Crate::length = 1.0 [m], Box::Crate::width = 1.0 [m]
+  Against: defining equation Box::Crate::volume == height * width * length, declared by the model of volume at box.sysml:9:38
+  Against: required condition volume >= 1.0 [m**3] and volume <= 2.0 [m**3] of fits at box.sysml:15:30
+  standing: unsatisfiable (proved over inputs: 1 query by solve)
+```
+
+A literal default (`attribute height = 0.1 [m]`) stays a fixed value, as before, so `%check`'s
+answers over one do not move; a derived value the object has already materialized is fixed as
+held; and one read through another object (`crate.volume` from a part that holds a `Crate`) is
+the value that object derives, since the equation is over the held object's features. Where
+nothing can state the equation — the expression is outside the solver's subset and a feature it
+reads holds nothing — the value is left free and listed under `Left free, since their declared
+value could not be read:` with the reason.
 
 For more examples, see
 [examples/repl-behavioral-demo.sysml](../../examples/repl-behavioral-demo.sysml), and the

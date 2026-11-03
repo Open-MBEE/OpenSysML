@@ -94,8 +94,8 @@ func TestSharedDigestTablePinsEveryRecordedRelease(t *testing.T) {
 			continue
 		}
 		t.Errorf("the changelog records %s as released, but client/release-digests.json does not pin it;\n"+
-			"merge the chore/pin-%s pull request the tag's pipeline opened against develop, or run\n"+
-			"python3 client/python/scripts/pin_release_checksums.py --version %s --write", tag, tag, tag)
+			"merge the pull request the tag's pipeline opened (chore/pin-%s against develop, hotfix/pin-%s against main), or run\n"+
+			"python3 client/python/scripts/pin_release_checksums.py --version %s --write", tag, tag, tag, tag)
 	}
 }
 

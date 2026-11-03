@@ -146,7 +146,7 @@ func TestMaterializationErrorsPassOverAnUnsetQuantity(t *testing.T) {
 // A feature bound only by partial bindings holds what the model leaves open, as an
 // unset attribute does: the check reports nothing for it, and reading it is still
 // the typed error.
-func TestMaterializationErrorsPassOverAnUndeterminedBinding(t *testing.T) {
+func TestMaterializationErrorsPassOverAPartialBinding(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
 		package test {
 			private import ScalarValues::Real;
@@ -181,8 +181,9 @@ func TestMaterializationErrorsPassOverAnUndeterminedBinding(t *testing.T) {
 	if len(errs) != 1 || !errors.Is(errs[0], ErrMultiplicityViolation) || !containsError(errs, "Rig.wrong") {
 		t.Fatalf("MaterializationErrors = %v, want only the multiplicity violation of Rig.wrong", errs)
 	}
-	if _, err := inst.GetFeatureValue(ctx, "shared"); !errors.Is(err, errBindingEnd) {
-		t.Fatalf("reading shared = %v, want errBindingEnd", err)
+	fv, err := inst.GetFeatureValue(ctx, "shared")
+	if err != nil || fv.HeldValue().Kind != ValInstance {
+		t.Fatalf("reading shared = %s, %v; want the one object its own declaration states", FormatValue(fv.HeldValue()), err)
 	}
 }
 

@@ -1,5 +1,5 @@
 {
-  "hash": "ffa7651c440765f520364271bd1b5040e0993f0cada9389a570c3d4bdf8b516f",
+  "hash": "0d29c2a195b8f741dce92ae0aa43f8d2f10da5424de438a8efced36fbb5e467d",
   "render": {
     "kind": "interconnection",
     "stated": "no view declared; rendering OpenSysMLStack::stack directly",
@@ -26,7 +26,8 @@
           {
             "id": "n1.0",
             "name": "api",
-            "type": "ModelPort"
+            "type": "ModelPort",
+            "inherited": true
           }
         ],
         "origin": {
@@ -138,20 +139,6 @@
       {
         "id": "n9",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n7",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 39,
-          "startCol": 17,
-          "endLine": 39,
-          "endCol": 55
-        }
-      },
-      {
-        "id": "n10",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n7",
@@ -161,6 +148,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n10",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n7",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 39,
+          "startCol": 17,
+          "endLine": 39,
+          "endCol": 55
         }
       },
       {
@@ -194,20 +196,6 @@
       {
         "id": "n13",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n11",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 43,
-          "startCol": 17,
-          "endLine": 43,
-          "endCol": 64
-        }
-      },
-      {
-        "id": "n14",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n11",
@@ -217,6 +205,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n14",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n11",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 43,
+          "startCol": 17,
+          "endLine": 43,
+          "endCol": 64
         }
       },
       {
@@ -250,20 +253,6 @@
       {
         "id": "n17",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n15",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 47,
-          "startCol": 17,
-          "endLine": 47,
-          "endCol": 64
-        }
-      },
-      {
-        "id": "n18",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n15",
@@ -273,6 +262,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n18",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n15",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 47,
+          "startCol": 17,
+          "endLine": 47,
+          "endCol": 64
         }
       },
       {
@@ -306,20 +310,6 @@
       {
         "id": "n21",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n19",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 51,
-          "startCol": 17,
-          "endLine": 51,
-          "endCol": 40
-        }
-      },
-      {
-        "id": "n22",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n19",
@@ -329,6 +319,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n22",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n19",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 51,
+          "startCol": 17,
+          "endLine": 51,
+          "endCol": 40
         }
       },
       {
@@ -362,20 +367,6 @@
       {
         "id": "n25",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n23",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 55,
-          "startCol": 17,
-          "endLine": 55,
-          "endCol": 56
-        }
-      },
-      {
-        "id": "n26",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n23",
@@ -385,6 +376,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n26",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n23",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 55,
+          "startCol": 17,
+          "endLine": 55,
+          "endCol": 60
         }
       },
       {
@@ -418,20 +424,6 @@
       {
         "id": "n29",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n27",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 59,
-          "startCol": 17,
-          "endLine": 59,
-          "endCol": 36
-        }
-      },
-      {
-        "id": "n30",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n27",
@@ -441,6 +433,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n30",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n27",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 59,
+          "startCol": 17,
+          "endLine": 59,
+          "endCol": 36
         }
       },
       {
@@ -474,20 +481,6 @@
       {
         "id": "n33",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n31",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 63,
-          "startCol": 17,
-          "endLine": 63,
-          "endCol": 51
-        }
-      },
-      {
-        "id": "n34",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n31",
@@ -497,6 +490,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n34",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n31",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 63,
+          "startCol": 17,
+          "endLine": 63,
+          "endCol": 51
         }
       },
       {
@@ -530,20 +538,6 @@
       {
         "id": "n37",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n35",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 67,
-          "startCol": 17,
-          "endLine": 67,
-          "endCol": 53
-        }
-      },
-      {
-        "id": "n38",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n35",
@@ -553,6 +547,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n38",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n35",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 67,
+          "startCol": 17,
+          "endLine": 67,
+          "endCol": 53
         }
       },
       {
@@ -586,20 +595,6 @@
       {
         "id": "n41",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n39",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 71,
-          "startCol": 17,
-          "endLine": 71,
-          "endCol": 57
-        }
-      },
-      {
-        "id": "n42",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n39",
@@ -609,6 +604,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n42",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n39",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 71,
+          "startCol": 17,
+          "endLine": 71,
+          "endCol": 57
         }
       },
       {
@@ -642,20 +652,6 @@
       {
         "id": "n45",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n43",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 75,
-          "startCol": 17,
-          "endLine": 75,
-          "endCol": 64
-        }
-      },
-      {
-        "id": "n46",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n43",
@@ -665,6 +661,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n46",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n43",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 75,
+          "startCol": 17,
+          "endLine": 75,
+          "endCol": 64
         }
       },
       {
@@ -698,20 +709,6 @@
       {
         "id": "n49",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n47",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 79,
-          "startCol": 17,
-          "endLine": 79,
-          "endCol": 41
-        }
-      },
-      {
-        "id": "n50",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n47",
@@ -721,6 +718,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n50",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n47",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 79,
+          "startCol": 17,
+          "endLine": 79,
+          "endCol": 41
         }
       },
       {
@@ -754,20 +766,6 @@
       {
         "id": "n53",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n51",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 83,
-          "startCol": 17,
-          "endLine": 83,
-          "endCol": 83
-        }
-      },
-      {
-        "id": "n54",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n51",
@@ -777,6 +775,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n54",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n51",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 83,
+          "startCol": 17,
+          "endLine": 83,
+          "endCol": 83
         }
       },
       {
@@ -810,20 +823,6 @@
       {
         "id": "n57",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n55",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 87,
-          "startCol": 17,
-          "endLine": 87,
-          "endCol": 50
-        }
-      },
-      {
-        "id": "n58",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n55",
@@ -833,6 +832,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n58",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n55",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 87,
+          "startCol": 17,
+          "endLine": 87,
+          "endCol": 50
         }
       },
       {
@@ -866,20 +880,6 @@
       {
         "id": "n61",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n59",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 91,
-          "startCol": 17,
-          "endLine": 91,
-          "endCol": 49
-        }
-      },
-      {
-        "id": "n62",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n59",
@@ -889,6 +889,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n62",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n59",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 91,
+          "startCol": 17,
+          "endLine": 91,
+          "endCol": 49
         }
       },
       {
@@ -922,20 +937,6 @@
       {
         "id": "n65",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n63",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 95,
-          "startCol": 17,
-          "endLine": 95,
-          "endCol": 49
-        }
-      },
-      {
-        "id": "n66",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n63",
@@ -945,6 +946,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n66",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n63",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 95,
+          "startCol": 17,
+          "endLine": 95,
+          "endCol": 49
         }
       },
       {
@@ -978,20 +994,6 @@
       {
         "id": "n69",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n67",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 99,
-          "startCol": 17,
-          "endLine": 99,
-          "endCol": 47
-        }
-      },
-      {
-        "id": "n70",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n67",
@@ -1000,6 +1002,21 @@
           "startLine": 21,
           "startCol": 9,
           "endLine": 21,
+          "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n70",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n67",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 99,
+          "startCol": 17,
+          "endLine": 99,
           "endCol": 47
         }
       },
@@ -1013,7 +1030,8 @@
           {
             "id": "n71.0",
             "name": "api",
-            "type": "ModelPort"
+            "type": "ModelPort",
+            "inherited": true
           }
         ],
         "origin": {
@@ -1125,20 +1143,6 @@
       {
         "id": "n79",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n77",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 110,
-          "startCol": 17,
-          "endLine": 110,
-          "endCol": 55
-        }
-      },
-      {
-        "id": "n80",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n77",
@@ -1148,6 +1152,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n80",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n77",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 110,
+          "startCol": 17,
+          "endLine": 110,
+          "endCol": 55
         }
       },
       {
@@ -1181,20 +1200,6 @@
       {
         "id": "n83",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n81",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 114,
-          "startCol": 17,
-          "endLine": 114,
-          "endCol": 63
-        }
-      },
-      {
-        "id": "n84",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n81",
@@ -1204,6 +1209,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n84",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n81",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 114,
+          "startCol": 17,
+          "endLine": 114,
+          "endCol": 63
         }
       },
       {
@@ -1237,20 +1257,6 @@
       {
         "id": "n87",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n85",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 118,
-          "startCol": 17,
-          "endLine": 118,
-          "endCol": 49
-        }
-      },
-      {
-        "id": "n88",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n85",
@@ -1260,6 +1266,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n88",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n85",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 118,
+          "startCol": 17,
+          "endLine": 118,
+          "endCol": 49
         }
       },
       {
@@ -1293,20 +1314,6 @@
       {
         "id": "n91",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n89",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 122,
-          "startCol": 17,
-          "endLine": 122,
-          "endCol": 56
-        }
-      },
-      {
-        "id": "n92",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n89",
@@ -1316,6 +1323,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n92",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n89",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 122,
+          "startCol": 17,
+          "endLine": 122,
+          "endCol": 56
         }
       },
       {
@@ -1349,20 +1371,6 @@
       {
         "id": "n95",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n93",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 126,
-          "startCol": 17,
-          "endLine": 126,
-          "endCol": 38
-        }
-      },
-      {
-        "id": "n96",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n93",
@@ -1372,6 +1380,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n96",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n93",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 126,
+          "startCol": 17,
+          "endLine": 126,
+          "endCol": 38
         }
       },
       {
@@ -1405,20 +1428,6 @@
       {
         "id": "n99",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n97",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 130,
-          "startCol": 17,
-          "endLine": 130,
-          "endCol": 49
-        }
-      },
-      {
-        "id": "n100",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n97",
@@ -1428,6 +1437,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n100",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n97",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 130,
+          "startCol": 17,
+          "endLine": 130,
+          "endCol": 49
         }
       },
       {
@@ -1461,20 +1485,6 @@
       {
         "id": "n103",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n101",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 134,
-          "startCol": 17,
-          "endLine": 134,
-          "endCol": 40
-        }
-      },
-      {
-        "id": "n104",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n101",
@@ -1484,6 +1494,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n104",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n101",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 134,
+          "startCol": 17,
+          "endLine": 134,
+          "endCol": 40
         }
       },
       {
@@ -1517,6 +1542,21 @@
       {
         "id": "n107",
         "kind": "attribute",
+        "name": "kind",
+        "type": "String",
+        "parent": "n105",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 21,
+          "startCol": 9,
+          "endLine": 21,
+          "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n108",
+        "kind": "attribute",
         "name": "role",
         "type": "String",
         "parent": "n105",
@@ -1529,20 +1569,6 @@
         }
       },
       {
-        "id": "n108",
-        "kind": "attribute",
-        "name": "kind",
-        "type": "String",
-        "parent": "n105",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 21,
-          "startCol": 9,
-          "endLine": 21,
-          "endCol": 47
-        }
-      },
-      {
         "id": "n109",
         "kind": "part",
         "name": "flexo",
@@ -1552,7 +1578,8 @@
           {
             "id": "n109.0",
             "name": "api",
-            "type": "ModelPort"
+            "type": "ModelPort",
+            "inherited": true
           }
         ],
         "origin": {
@@ -1664,20 +1691,6 @@
       {
         "id": "n117",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n115",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 149,
-          "startCol": 17,
-          "endLine": 149,
-          "endCol": 61
-        }
-      },
-      {
-        "id": "n118",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n115",
@@ -1687,6 +1700,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n118",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n115",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 149,
+          "startCol": 17,
+          "endLine": 149,
+          "endCol": 61
         }
       },
       {
@@ -1720,20 +1748,6 @@
       {
         "id": "n121",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n119",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 153,
-          "startCol": 17,
-          "endLine": 153,
-          "endCol": 48
-        }
-      },
-      {
-        "id": "n122",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n119",
@@ -1743,6 +1757,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n122",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n119",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 153,
+          "startCol": 17,
+          "endLine": 153,
+          "endCol": 48
         }
       },
       {
@@ -1776,20 +1805,6 @@
       {
         "id": "n125",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n123",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 157,
-          "startCol": 17,
-          "endLine": 157,
-          "endCol": 41
-        }
-      },
-      {
-        "id": "n126",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n123",
@@ -1799,6 +1814,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n126",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n123",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 157,
+          "startCol": 17,
+          "endLine": 157,
+          "endCol": 41
         }
       },
       {
@@ -1832,20 +1862,6 @@
       {
         "id": "n129",
         "kind": "attribute",
-        "name": "role",
-        "type": "String",
-        "parent": "n127",
-        "origin": {
-          "file": "opensysml-stack.sysml",
-          "startLine": 161,
-          "startCol": 17,
-          "endLine": 161,
-          "endCol": 46
-        }
-      },
-      {
-        "id": "n130",
-        "kind": "attribute",
         "name": "kind",
         "type": "String",
         "parent": "n127",
@@ -1855,6 +1871,21 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
+        },
+        "inherited": true
+      },
+      {
+        "id": "n130",
+        "kind": "attribute",
+        "name": "role",
+        "type": "String",
+        "parent": "n127",
+        "origin": {
+          "file": "opensysml-stack.sysml",
+          "startLine": 161,
+          "startCol": 17,
+          "endLine": 161,
+          "endCol": 46
         }
       }
     ],
@@ -3205,7 +3236,7 @@
         "role": {
           "featureName": "role",
           "value": {
-            "stringValue": "VS Code, Cameo MDK, SysON"
+            "stringValue": "VS Code, Magic MDK, SysON MDK"
           },
           "materialized": true
         },

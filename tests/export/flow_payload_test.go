@@ -408,7 +408,7 @@ func TestPayloadNamedLikeABodyMemberConverts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a payload named like a body member was refused: %v", err)
 	}
-	for _, want := range []string{`sysml:qualifiedName "D::Ctx::f::p"`, `sysml:qualifiedName "D::Ctx::f::@1"`} {
+	for _, want := range []string{`sysml:qualifiedName "D::Ctx::f::p"`, `sysx:positionalName "D::Ctx::f::@1"`} {
 		if !strings.Contains(string(out), want) {
 			t.Errorf("the Turtle lacks %s:\n%s", want, out)
 		}

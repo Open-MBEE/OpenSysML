@@ -60,6 +60,7 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	}
 
 	resp := &pb.ConvertResponse{FromFormat: from.String(), ToFormat: to.String()}
+	opts.LibraryReferences = s.libraryReferencesReceiver(resp)
 	// Marked on the response rather than left to the client to infer, so a caller
 	// that let a format be inferred learns the mapping it got is experimental.
 	if convert.IsExperimental(from, to) {
@@ -367,7 +368,15 @@ func convertModel(name string, data []byte, from, to convert.Format, tolerant bo
 // compact form's fields the same way: only api-json from notation, and
 // omit_derived and keep_derived only where they apply.
 func (s *Service) convertOptions(req *pb.ConvertRequest, from, to convert.Format) (convert.Options, error) {
-	opts := convert.Options{}
+	if req.IncludeLibraryStubs {
+		if err := s.requireCapability(CapabilityConvertLibraryStubs); err != nil {
+			return convert.Options{}, err
+		}
+		if to != convert.FormatAPIJSON {
+			return convert.Options{}, statusError(connect.CodeInvalidArgument, "include_library_stubs requires to_format api-json")
+		}
+	}
+	opts := convert.Options{IncludeLibraryStubs: req.IncludeLibraryStubs}
 	if req.IdForm != "" {
 		if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
 			return opts, statusError(connect.CodeInvalidArgument, "id_form applies to notation converted to ttl or api-json")
@@ -384,6 +393,17 @@ func (s *Service) convertOptions(req *pb.ConvertRequest, from, to convert.Format
 	}
 	opts.Compact = compact
 	return opts, nil
+}
+
+func (s *Service) libraryReferencesReceiver(resp *pb.ConvertResponse) func([]export.APIJSONLibraryReference) {
+	if !s.Supports(CapabilityConvertLibraryReferences) {
+		return nil
+	}
+	return func(refs []export.APIJSONLibraryReference) {
+		for _, ref := range refs {
+			resp.LibraryReferences = append(resp.LibraryReferences, &pb.LibraryReference{Id: ref.ID, QualifiedName: ref.QualifiedName, Type: ref.Type})
+		}
+	}
 }
 
 // compactOptions reads compact, omit_derived and keep_derived: nil when the
@@ -566,6 +586,7 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 			len(cached.Documents), convert.FormatTurtle, convert.FormatAPIJSON)
 	}
 	resp := &pb.ConvertResponse{FromFormat: convert.FormatSysML.String(), ToFormat: to.String()}
+	opts.LibraryReferences = s.libraryReferencesReceiver(resp)
 	if convert.IsExperimental(convert.FormatSysML, to) {
 		resp.Experimental = true
 		resp.ExperimentalNotice = convert.Notice(convert.FormatSysML, to)

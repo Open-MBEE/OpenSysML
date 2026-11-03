@@ -76,7 +76,7 @@ func (e *Encoding) Deadlock() *Property {
 // a feature the action does not carry is refused. An empty set is refused as no condition.
 func (e *Encoding) Conditions(ctx *runtime.Context, syms []*symbols.Symbol, scope *symbols.Scope) (*Property, error) {
 	if len(syms) == 0 {
-		return nil, fmt.Errorf("%w: no condition named", runtime.ErrNoConditions)
+		return nil, fmt.Errorf("%w: no constraint or requirement named", runtime.ErrNotAConstraint)
 	}
 	p := &Property{Violated: make([]*solve.Term, e.Moves+1), Undefined: make([]*solve.Term, e.Moves+1)}
 	for i := range p.Violated {
@@ -124,7 +124,7 @@ func (e *Encoding) Assume(ctx *runtime.Context, sym *symbols.Symbol, scope *symb
 // encoding's features, telling a requirement from a constraint.
 func (e *Encoding) condition(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) (PropertyKind, *solve.Expression, error) {
 	if sym == nil {
-		return 0, nil, fmt.Errorf("%w: no condition named", runtime.ErrNoConditions)
+		return 0, nil, fmt.Errorf("%w: no constraint or requirement named", runtime.ErrNotAConstraint)
 	}
 	kind := PropertyConstraint
 	if err := runtime.RequireConstraint(sym); err != nil {
@@ -259,6 +259,9 @@ type Output struct {
 	Var  *solve.Var
 	// Has is nil for an attribute that holds a value in every state.
 	Has *solve.Var
+	// Sequence reports a feature the interpreter holds as a sequence of its one
+	// value, which a result spells as such (`[2]`).
+	Sequence bool
 }
 
 // Outputs are the features the performance holds as the final state leaves
@@ -277,6 +280,9 @@ func (e *Encoding) Outputs() []Output {
 			continue
 		}
 		out := Output{Name: attr.Name, Var: final.value(base)}
+		if held, ok := e.held.Value(attr.Name); ok && held.Kind == runtime.ValSequence {
+			out.Sequence = true
+		}
 		if e.flagged[base.Name] {
 			out.Has = final.has(base)
 		}

@@ -32,8 +32,30 @@ func (m *Model) ImplicitRoleRedefinitions(sym *symbols.Symbol) []*symbols.Symbol
 	if sym == nil || sym.OwnerScope == nil {
 		return nil
 	}
+	if isViewRendering(sym.Decl) || stateActionFQN(sym.Decl) != "" {
+		return m.libraryRoleRedefinitions(sym)
+	}
+	return m.caseRoleRedefinitions(sym)
+}
+
+// libraryRoleRedefinitions is the library feature a view's `render` member or a
+// state's `entry`/`do`/`exit` action redefines by its role. Unlike a case role, it
+// does not mask the library name: `sm.entryAction` resolves beside `entry action en`.
+func (m *Model) libraryRoleRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	if isViewRendering(sym.Decl) {
-		return m.viewRenderingRedefinition(sym)
+		return m.libraryRoleRedefinition(sym, viewRenderingFQN)
+	}
+	if fqn := stateActionFQN(sym.Decl); fqn != "" {
+		return m.libraryRoleRedefinition(sym, fqn)
+	}
+	return nil
+}
+
+// caseRoleRedefinitions is the same-role features of the owner's generals that a
+// case's subject, objective, actor or stakeholder redefines by position.
+func (m *Model) caseRoleRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.OwnerScope == nil {
+		return nil
 	}
 	role := roleOf(sym)
 	if role == noCaseRole {
@@ -83,12 +105,35 @@ func (m *Model) ImplicitRoleRedefinitions(sym *symbols.Symbol) []*symbols.Symbol
 
 // viewRenderingRedefinition is the library `viewRendering` a `render` member
 // redefines, unless a clause of its own already names it.
-func (m *Model) viewRenderingRedefinition(sym *symbols.Symbol) []*symbols.Symbol {
+// stateActionFQNs maps a state's `entry`, `do` and `exit` action to the StateAction
+// feature it redefines by its role (SysML §8.3.16.3 checkActionUsageStateActionRedefinition).
+var stateActionFQNs = map[string]string{
+	"entry": "States::StateAction::entryAction",
+	"do":    "States::StateAction::doAction",
+	"exit":  "States::StateAction::exitAction",
+}
+
+func stateActionFQN(node ast.Node) string {
+	if wrapper, ok := node.(*ast.Membership); ok {
+		node = wrapper.Member
+	}
+	usage, ok := node.(*ast.Usage)
+	if !ok || !usage.IsStateAction() {
+		return ""
+	}
+	if fqn, ok := stateActionFQNs[usage.Keyword]; ok {
+		return fqn
+	}
+	return stateActionFQNs[usage.PrefixKeyword]
+}
+
+// libraryRoleRedefinition is the library feature fqn a role redefines unless a clause names it.
+func (m *Model) libraryRoleRedefinition(sym *symbols.Symbol, fqn string) []*symbols.Symbol {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return nil
 	}
 	explicit := m.explicitRedefinitions(sym)
-	for _, lib := range m.resolver.Index().LookupQualified(viewRenderingFQN) {
+	for _, lib := range m.resolver.Index().LookupQualified(fqn) {
 		if lib != nil && lib != sym && !explicit[lib] {
 			return []*symbols.Symbol{lib}
 		}
@@ -438,33 +483,46 @@ func ownedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
 	if sym == nil || sym.Scope == nil {
 		return nil
 	}
-	var out []*symbols.Symbol
 	if sym.Recorded() {
-		seen := map[*symbols.Symbol]bool{}
-		for _, member := range sym.Scope.AllMembers() {
-			if member == nil || seen[member] {
-				continue
-			}
-			seen[member] = true
-			memberRole := noCaseRole
-			if member.Facts.Node == symbols.NodeSubject {
-				memberRole = subjectRole
-			} else if member.Facts.Node == symbols.NodeUsage {
-				switch member.Facts.UsageKind {
-				case ast.UsageSubject:
-					memberRole = subjectRole
-				case ast.UsageObjective:
-					memberRole = objectiveRole
-				case ast.UsageActor, ast.UsageStakeholder:
-					memberRole = actorRole
-				}
-			}
-			if memberRole == role {
-				out = append(out, member)
-			}
-		}
-		return out
+		return recordedOwnedRoles(sym, role)
 	}
+	return declaredOwnedRoles(sym, role)
+}
+
+func recordedOwnedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	seen := map[*symbols.Symbol]bool{}
+	for _, member := range sym.Scope.AllMembers() {
+		if member == nil || seen[member] {
+			continue
+		}
+		seen[member] = true
+		if recordedMemberRole(member) == role {
+			out = append(out, member)
+		}
+	}
+	return out
+}
+
+func recordedMemberRole(member *symbols.Symbol) caseRole {
+	if member.Facts.Node == symbols.NodeSubject {
+		return subjectRole
+	}
+	if member.Facts.Node == symbols.NodeUsage {
+		switch member.Facts.UsageKind {
+		case ast.UsageSubject:
+			return subjectRole
+		case ast.UsageObjective:
+			return objectiveRole
+		case ast.UsageActor, ast.UsageStakeholder:
+			return actorRole
+		}
+	}
+	return noCaseRole
+}
+
+func declaredOwnedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
+	var out []*symbols.Symbol
 	for _, member := range declMembers(sym) {
 		if roleOfNode(member) != role {
 			continue
@@ -475,6 +533,16 @@ func ownedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
 		}
 		if found := memberSymbol(sym.Scope, node); found != nil {
 			out = append(out, found)
+		}
+	}
+	if usage, ok := sym.Decl.(*ast.Usage); ok && role == subjectRole && usage.Kind == ast.UsageSatisfy {
+		for _, rel := range usage.Relationships {
+			if rel == nil || rel.Kind != ast.RelSubject {
+				continue
+			}
+			if found := memberSymbol(sym.Scope, rel); found != nil {
+				out = append(out, found)
+			}
 		}
 	}
 	return out
@@ -530,6 +598,13 @@ func roleOf(sym *symbols.Symbol) caseRole {
 func roleOfNode(node ast.Node) caseRole {
 	if wrapper, ok := node.(*ast.Membership); ok {
 		node = wrapper.Member
+	}
+	if rel, ok := node.(*ast.Relationship); ok {
+		// A satisfy usage's `by` clause declares its subject parameter.
+		if rel.Kind == ast.RelSubject {
+			return subjectRole
+		}
+		return noCaseRole
 	}
 	switch d := node.(type) {
 	case *ast.SubjectMember:

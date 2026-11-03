@@ -170,9 +170,9 @@ func TestTableQueriesResolveEscapedNames(t *testing.T) {
 		`Model::'Frank\'s Braindump'::'Composition Example'::'Properties Document'`,
 		`Model::'Frank\'s Braindump'::'Composition Example'::'Bench Instances Document'`,
 	} {
-		page := html(t, s, document)
-		if strings.Contains(page, "names no single element") {
-			t.Errorf("%s rendered an error page:\n%s", document, page)
+		// html fails the test on a query error, so what is checked is the table.
+		if page := html(t, s, document); !strings.Contains(page, "<table") {
+			t.Errorf("%s rendered no table:\n%s", document, page)
 		}
 	}
 }

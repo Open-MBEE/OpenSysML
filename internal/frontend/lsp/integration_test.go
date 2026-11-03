@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"go.lsp.dev/protocol"
-	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
@@ -29,9 +28,8 @@ func TestLSPEndToEnd(t *testing.T) {
 	}
 
 	// Open a document.
-	name := "e2e.sysml"
 	src := "package P { namespace N; }\nimport P::N;\n"
-	docURI := uri.File(name)
+	docURI := tempDocURI(t, "e2e.sysml")
 	if err := s.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI:        docURI,
@@ -61,12 +59,12 @@ func TestLSPEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if hov == nil || !strings.Contains(hov.Contents.Value, "N") {
+	if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "N") {
 		t.Errorf("Hover = %+v, want content mentioning N", hov)
 	}
 
 	// Definition from the reference "N" in "import P::N" (second "N").
-	defs, err := s.Definition(ctx, &protocol.DefinitionParams{
+	defs, err := definitions(t, s, ctx, &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			Position:     posOf("N", 2),
@@ -95,7 +93,7 @@ func TestLSPEndToEnd(t *testing.T) {
 	}
 
 	// documentSymbol.
-	syms, err := s.DocumentSymbol(ctx, &protocol.DocumentSymbolParams{
+	syms, err := documentSymbols(t, s, ctx, &protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 	})
 	if err != nil {
@@ -106,7 +104,7 @@ func TestLSPEndToEnd(t *testing.T) {
 	}
 
 	// workspace/symbol.
-	wsyms, err := s.Symbols(ctx, &protocol.WorkspaceSymbolParams{Query: "P"})
+	wsyms, err := workspaceSymbols(t, s, ctx, &protocol.WorkspaceSymbolParams{Query: "P"})
 	if err != nil {
 		t.Fatalf("Symbols err = %v", err)
 	}
@@ -115,7 +113,7 @@ func TestLSPEndToEnd(t *testing.T) {
 	}
 
 	// completion.
-	comp, err := s.Completion(ctx, &protocol.CompletionParams{
+	comp, err := completions(t, s, ctx, &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			Position:     offsetToPosition([]byte(src), len(src)),

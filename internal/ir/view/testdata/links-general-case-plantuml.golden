@@ -59,10 +59,10 @@ n0 -- n1 : <U+00AB>subject<U+00BB> [[https://example.test/src/general-case.sysml
 n2 -- n0 : [[https://example.test/src/general-case.sysml#L15]]
 n3 -- n0 : [[https://example.test/src/general-case.sysml#L16]]
 n0 .. n4 : [[https://example.test/src/general-case.sysml#L17]]
-n0 ..> n5 : <U+00AB>include<U+00BB> [[https://example.test/src/general-case.sysml#L20]]
+n0 --> n5 : <U+00AB>include<U+00BB> [[https://example.test/src/general-case.sysml#L20]]
 n5 -- n6 : <U+00AB>subject<U+00BB> [[https://example.test/src/general-case.sysml#L21]]
 n7 -- n5 : [[https://example.test/src/general-case.sysml#L22]]
-n0 ..> n8 : <U+00AB>include<U+00BB> [[https://example.test/src/general-case.sysml#L24]]
+n0 --> n8 : <U+00AB>include<U+00BB> [[https://example.test/src/general-case.sysml#L24]]
 n8 -- n9 : <U+00AB>subject<U+00BB> [[https://example.test/src/general-case.sysml#L25]]
 n10 -- n8 : [[https://example.test/src/general-case.sysml#L26]]
 @enduml

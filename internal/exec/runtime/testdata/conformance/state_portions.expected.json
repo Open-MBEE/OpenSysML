@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "instantiate": "test::Machine",
+  "libraries": true,
+  "slots": {
+    "ran": {"type": "Integer", "value": 11},
+    "smStart": {"type": "Instance"},
+    "smDone": {"type": "Undetermined", "value": "[1]"},
+    "smShots": {"type": "Undetermined", "value": "[1]"},
+    "smSlices": {"type": "Undetermined", "value": "[1]"},
+    "smTime": {"type": "Quantity", "value": 0.0, "unit": "s"},
+    "smDuration": {"type": "Undetermined", "value": "[1]"}
+  }
+}

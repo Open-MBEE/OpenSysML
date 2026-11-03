@@ -101,7 +101,8 @@ calc def MassTable :> Query {
 	in root : Element;                 // entry parameters, bound by the caller
 	Project(                            // operations compose inside-out
 		source = PartsByMass(root = root),  // ... and queries invoke queries
-		properties = ("name", "mass", "qualifiedName")
+		properties = ("name", "mass", "qualifiedName"),
+		tolerate = true                 // an element lacking a property gets an empty cell
 	)
 }
 ```
@@ -274,16 +275,25 @@ A query parameter must be bound to a feature, so a walk rooted at a *package*
 or a *definition* has nothing to bind `root` to. `Named` resolves qualified
 names — spelled as strings, like the types `WhereType` takes — to the elements
 they name, in the order given, and any element may be named, a package or
-definition included. A name that resolves to nothing, or to more than one
-element, fails the query with the name quoted rather than returning fewer rows.
-The SysML v1 migration roots every table scope this way.
+definition included; a segment that is not a basic name is quoted, as in the
+notation and in the element's own `qualifiedName` (`Vehicle::'Spare Parts'::Pad`).
+A name never returns fewer rows than names: one that
+resolves to nothing fails the query saying where the path stopped — the
+namespace that did resolve has no member of the next segment, and the nearest
+spellings are offered (`names no element Cookbook::telescop: Cookbook has no
+member telescop — did you mean telescope?`) — and one that several elements
+carry fails it listing them (`names 2 elements Config: Other::Config,
+Vehicle::Config`), a finding about the model rather than the query. The SysML
+v1 migration roots every table scope this way.
 
 ## Type filters
 
 `WhereType` keeps elements whose *metamodel* type matches — `"PartUsage"`,
 `"ConnectionUsage"`, `"RequirementUsage"`, `"AttributeUsage"`, `"PortUsage"`,
 `"PartDefinition"` and so on — including metaclass conformance, so
-`type = "Usage"` keeps every kind of usage. A metamodel type name means the
+`type = "Usage"` keeps every kind of usage; `exact = true` keeps only the elements whose own
+metaclass is named (`type = "PartUsage", exact = true` keeps the part usages and nothing that
+merely conforms), which is what a walk per metaclass over the metamodel needs. A metamodel type name means the
 metaclass even when an element of the model bears the same name; qualify the
 element's name to mean the element. Several names keep the elements of any of
 them: `type = ("PartUsage", "PortUsage")`. A name that is neither a
@@ -545,7 +555,8 @@ calc def MassTable :> Query {
 	in root : Element;
 	Project(
 		source = PartsByMass(root = root),
-		properties = ("name", "mass", "qualifiedName")
+		properties = ("name", "mass", "qualifiedName"),
+		tolerate = true  // opticalPath and dataPath declare no mass
 	)
 }
 ```
@@ -576,8 +587,22 @@ $ sysml cookbook.sysml -run-query "Cookbook::MassTable root=Cookbook::telescope"
     qualifiedName = "Cookbook::telescope::dataPath"
 ```
 
-A cell for a property the element lacks is empty (`(none)` in the CLI's row
-listing, an empty table cell in a document). A feature whose declared value
+`opticalPath` and `dataPath` are connections: they declare no `mass`. Reading
+a feature of an element that has none so named is by default an error that
+names the element and the features it does have — a path error, telling a
+query that left the model apart from a feature that is present and empty:
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::MassTable root=Cookbook::telescope"   # without tolerate = true
+error: query Cookbook::MassTable reads feature mass of Cookbook::telescope::opticalPath, which has no such feature
+```
+
+`tolerate = true` on `Project` (and on `WhereFeature`) accepts the mixed rows
+and leaves the cell empty (`(none)` in the CLI's row listing, an empty table
+cell in a document). A property no row carries at all is an unknown property
+whichever way — that is a misspelling, not a mixed source. A metadata path
+(`Properties::key`) is always tolerated: an annotation is optional by nature.
+A feature whose declared value
 names an element of the model — an enumeration literal, a part, a unit — holds
 that element, printed by name like `general`, whether the value is written on
 the feature or bound by a redefinition (`attribute :>> beam = Beam::'650mm';`);
@@ -765,6 +790,47 @@ read — an assignment to a feature an `in` named does not rebind it for a
 later output read of the same invocation. Only the `=` value of an object's
 own feature follows what it read.
 
+### Metamodel properties
+
+Beyond that table, `Project` and `WhereFeature` read any property the SysML
+metamodel gives the row's metaclass — the attributes and references of the
+specification's abstract syntax, `isComposite`, `isPortion`, `direction`,
+`ownedRelationship`, … — as the reflective evaluator derives them for the
+element. `elementId` is the id a conversion of the model writes for the
+element (`sysml -convert`), so a projection joins the exported graph:
+
+```sysml
+calc def Composites :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root), type = "PartUsage", exact = true),
+		properties = ("name", "isComposite", "elementId")
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::Composites root=Cookbook::telescope"
+✓ Query Cookbook::Composites returned 3 rows
+  Columns: name, isComposite, elementId
+  Row 1: Cookbook::telescope::primaryMirror
+    name = "primaryMirror"
+    isComposite = true
+    elementId = "Cookbook__telescope__primaryMirror"
+  …
+```
+
+A metaclass property is read on the rows that carry it, so a projection over
+mixed metaclasses treats a property some rows lack as a missing feature, as
+above; `WhereType(…, exact = true)` first keeps the rows homogeneous. A name
+no row carries is an `unknown-property` error that offers the nearest
+property of the rows' metaclass (`isCompost` — did you mean `isComposite`?).
+A property the metamodel declares but this release's evaluator does not derive
+yet is a typed `unserved-property` path error naming the defining class
+(`Feature::crossFeature`) and, where the evaluator records one, the fact its
+derivation needs; the set it derives grows release by release and is listed by
+the metamodel evaluator's rules.
+
 ## Computed columns
 
 A projection may also derive columns: each `Column` entry supplies exactly one
@@ -780,6 +846,7 @@ calc def MassBudget :> Query {
 	Project(
 		source = PartsByMass(root = root),
 		properties = ("name", "mass"),
+		tolerate = true,
 		columns = (
 			Column(name = "massLbs", cell = { in row : Subsystem; (row.mass ?? 0.0) * 2.2 }),
 			Column(name = "label", expression = "part: " + Element::name)
@@ -1327,6 +1394,40 @@ $ sysml cookbook.sysml -run-query "Cookbook::VerifiedButUnsatisfied root=Cookboo
 `Except` keeps the source's projected columns; `Union` requires both inputs
 to be unprojected or to project the same columns, and is a typed error
 otherwise, since its rows share one table.
+
+### Keyed comparison: `Differ`
+
+`Except` and `Union` identify rows, so a value that changed on an element present on
+both sides is invisible to them. `Differ(left, right, key, column)` compares two projected
+tables by a key column: one row per key value present on both sides whose `column` cells
+differ, with the columns `key`, `left` and `right` — the key, then the cell of each side.
+Cells compare as sequences under KerML `==` (elements by identity, numbers by value), so a
+many-valued cell differs when its values or their order do; keys match under the same
+equality, so an integer `1` and a real `1.0` are one key. Keys on one side only are not
+rows here; `Except` reports those. A `Tree`-arranged left side keeps its depths.
+
+```sysml
+calc def PartMasses :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = OwnedElements(source = root), type = "PartUsage"),
+		properties = ("name", "mass")
+	)
+}
+
+calc def ChangedMasses :> Query {
+	in before : Element;
+	in after : Element;
+	Differ(left = PartMasses(root = before), right = PartMasses(root = after), key = "name", column = "mass")
+}
+```
+
+Both sides must project `key` and `column`; a side that does not is the typed error
+`unknown-column`, a path error at `Differ(key, column)`. A key named `left` or `right`
+would collide with the result's side columns and is an `invalid-argument`. A key value carried by two rows
+of one side, or a key cell that is not single-valued, is the model error `duplicate-key`
+(`duplicateKey` / `multiplicity` findings, one per offending row, every row kept) rather
+than a silent choice between them.
 
 ## Requirement hierarchy
 

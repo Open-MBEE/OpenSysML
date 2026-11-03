@@ -22,9 +22,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// engineGzipBudget bounds growth of the gzipped js build of sysml-engine;
-// TestEngineDependencies, not this budget, catches a forbidden dependency.
-const engineGzipBudget = 9000000
+// engineGzipBudget bounds growth of the gzipped js build of sysml-engine (9,105,348 bytes under go1.27.3
+// on 2026-10-27); TestEngineDependencies, not this budget, catches a forbidden dependency.
+const engineGzipBudget = 9400000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
@@ -386,6 +386,16 @@ func TestEngineWireParity(t *testing.T) {
 		t.Fatalf("grpc ExecuteAction: %v", err)
 	}
 	equal("ExecuteAction", actionParams, mustMarshal(t, actionRes))
+
+	tracedParams := fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"intValue":"6"}},"trace":true}`, hash)
+	tracedRes, err := svc.ExecuteAction(ctx, mustUnmarshal[pb.ExecuteActionRequest](t, tracedParams))
+	if err != nil {
+		t.Fatalf("grpc ExecuteAction with trace: %v", err)
+	}
+	if len(tracedRes.GetTrace()) == 0 {
+		t.Fatalf("a traced ExecuteAction reported no records: %v", tracedRes)
+	}
+	equal("ExecuteAction", tracedParams, mustMarshal(t, tracedRes))
 
 	// An Integer beyond int64 crosses as bigIntValue both ways, as it does
 	// through the service.

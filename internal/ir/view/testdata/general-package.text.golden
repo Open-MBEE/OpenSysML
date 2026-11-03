@@ -8,7 +8,7 @@ package GeneralViews
 
 relationships:
   VehicleStructure +-- Powertrain
-  VehicleRequirements ..> VehicleStructure: private import ::*
-  VehicleVerification ..> VehicleStructure: private import ::*
-  VehicleVerification ..> Powertrain: private import ::*
-  VehicleVerification ..> VehicleRequirements: private import ::*
+  VehicleRequirements ..> VehicleStructure: «private import»*
+  VehicleVerification ..> VehicleStructure: «private import»*
+  VehicleVerification ..> Powertrain: «private import»*
+  VehicleVerification ..> VehicleRequirements: «private import»*

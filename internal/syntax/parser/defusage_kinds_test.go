@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -209,4 +210,25 @@ func TestParseMalformedConnectorEndRecovers(t *testing.T) {
 	if len(diags) == 0 {
 		t.Fatalf("expected a parse diagnostic for the missing end")
 	}
+}
+
+func TestParseConjugatedFeatureChainTypingIsRejected(t *testing.T) {
+	node, diags := parseOneMemberWithDiags(t, "port p : ~hub.socket;")
+	u, ok := node.(*ast.Usage)
+	if !ok {
+		t.Fatalf("expected *ast.Usage, got %T", node)
+	}
+	if len(u.Relationships) != 1 || !u.Relationships[0].Conjugated {
+		t.Fatalf("expected one conjugated typing relationship, got %+v", u.Relationships)
+	}
+	if _, isChain := u.Relationships[0].Target.(*ast.FeatureChainExpr); !isChain {
+		t.Fatalf("expected the chain kept as the target, got %T", u.Relationships[0].Target)
+	}
+	want := "a feature chain cannot be conjugated"
+	for _, d := range diags {
+		if strings.Contains(d.Message, want) {
+			return
+		}
+	}
+	t.Fatalf("expected a diagnostic containing %q, got %v", want, diags)
 }

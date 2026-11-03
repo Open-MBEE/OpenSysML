@@ -31,7 +31,8 @@ func TestRootFrameHeldIndexIsSizedUpFront(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := exec.newRootFrame()
+	root := exec.newRootFrame(exec.performanceShape())
+	root.ownShape()
 	held := len(root.declared)
 	if held < 5 {
 		t.Fatalf("root frame holds %d features, want the action's five and its inherited ones", held)
@@ -39,11 +40,11 @@ func TestRootFrameHeldIndexIsSizedUpFront(t *testing.T) {
 
 	presized := testing.AllocsPerRun(50, func() {
 		root.declared = make(map[*symbols.Symbol]string, held)
-		exec.declareRootFeatures(root)
+		exec.declareRootFeatures(root, exec.features)
 	})
 	empty := testing.AllocsPerRun(50, func() {
 		root.declared = nil
-		exec.declareRootFeatures(root)
+		exec.declareRootFeatures(root, exec.features)
 	})
 	if len(root.declared) != held {
 		t.Fatalf("re-declaring holds %d features, want %d", len(root.declared), held)

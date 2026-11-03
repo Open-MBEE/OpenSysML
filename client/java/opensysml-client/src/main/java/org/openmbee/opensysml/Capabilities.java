@@ -30,6 +30,9 @@ public final class Capabilities {
   /** The verification RPCs answer {@code holds} and {@code satisfiable} questions, reporting a verdict's status and witness. */
   public static final String VERIFICATION_QUESTIONS = "verification_questions";
 
+  /** Every {@code Verdict} carries {@code notes}: what a solver's answer assumes and what it leaves uncovered. A service without it answers with none. */
+  public static final String VERDICT_NOTES = "verdict_notes";
+
   /** {@code VerifyConstraint} and {@code VerifyRequirement} bind {@code arguments} and {@code named_arguments} to the element's {@code in} parameters. */
   public static final String VERIFICATION_ARGUMENTS = "verification_arguments";
 
@@ -38,6 +41,9 @@ public final class Capabilities {
 
   /** The {@code Query} RPC evaluates a SysML v2 API and Services Query. */
   public static final String QUERY = "query";
+
+  /** {@code Query.orderBy} sorts the matched elements; a service without it would ignore it. */
+  public static final String QUERY_ORDER_BY = "query_order_by";
 
   /** The {@code Query} RPC evaluates OSLC Query text. */
   public static final String OSLC_QUERY = "oslc_query";
@@ -68,6 +74,12 @@ public final class Capabilities {
 
   /** api-json converts as the compact document, optionally without derived properties. */
   public static final String CONVERT_COMPACT = "convert_compact";
+
+  /** api-json names its standard-library references outside the element array. */
+  public static final String CONVERT_LIBRARY_REFERENCES = "convert_library_references";
+
+  /** api-json restores the ownerless library stubs of releases before 0.11.0 when asked. */
+  public static final String CONVERT_LIBRARY_STUBS = "convert_library_stubs";
 
   /** Convert reports the semantic check's diagnostics, with their severities, alongside the output. */
   public static final String CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
@@ -181,6 +193,9 @@ public final class Capabilities {
   /** The {@code RenderDocument} RPC also renders a named document to HTML. */
   public static final String RENDER_DOCUMENT_HTML = "render_document_html";
 
+  /** The {@code RenderDocument} RPC also renders a named document to AsciiDoc. */
+  public static final String RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc";
+
   /** The service renders named and targeted pseudo-views as diagram data. */
   public static final String RENDER_VIEW = "render_view";
 
@@ -222,6 +237,9 @@ public final class Capabilities {
 
   /** The {@code trace} field on {@code ExecuteStateRequest}. */
   public static final String STATE_TRACE = "state_trace";
+
+  /** The {@code trace} field on {@code ExecuteActionRequest}: the run's token steps, waits, accepts, decisions and assignments. */
+  public static final String ACTION_TRACE = "action_trace";
 
   /** The execution responses report {@code final_time}, the run's simulation clock when it ended, in seconds. */
   public static final String FINAL_TIME = "final_time";

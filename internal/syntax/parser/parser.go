@@ -43,6 +43,8 @@ type Parser struct {
 	// undefinedOps are the `~` operator expressions the parse built, in source
 	// order; ParseFile hands them to the root.
 	undefinedOps []*ast.OperatorExpr
+	// typedByCount counts the typings spelled `typed by`, for RootNamespace.TypedBy.
+	typedByCount int
 
 	// calcBodyDepth counts the calculation bodies being parsed, so a `return`
 	// reached in a statement position inside one is read as the result
@@ -172,6 +174,7 @@ type parseCheckpoint struct {
 	diagnosticLen  int
 	warningLen     int
 	undefinedOpLen int
+	typedByCount   int
 	memberStartLen int
 	commentBodyLen int
 	attachedLen    int
@@ -599,6 +602,7 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 	}
 	root.NodeSpan = p.spanFrom(start)
 	root.UndefinedOperators = p.undefinedOps
+	root.TypedBy = p.typedByCount
 	p.reportMisplacedComments()
 	return root
 }
@@ -661,6 +665,7 @@ func (p *Parser) checkpoint() parseCheckpoint {
 		diagnosticLen:  len(p.Diagnostics),
 		warningLen:     len(p.Warnings),
 		undefinedOpLen: len(p.undefinedOps),
+		typedByCount:   p.typedByCount,
 		memberStartLen: len(p.memberStarts),
 		commentBodyLen: len(p.commentBodies),
 		attachedLen:    len(p.attachedStarts),
@@ -682,6 +687,7 @@ func (p *Parser) restore(cp parseCheckpoint) {
 	p.Diagnostics = p.Diagnostics[:cp.diagnosticLen]
 	p.Warnings = p.Warnings[:cp.warningLen]
 	p.undefinedOps = p.undefinedOps[:cp.undefinedOpLen]
+	p.typedByCount = cp.typedByCount
 	p.memberStarts = p.memberStarts[:cp.memberStartLen]
 	p.commentBodies = p.commentBodies[:cp.commentBodyLen]
 	p.attachedStarts = p.attachedStarts[:cp.attachedLen]

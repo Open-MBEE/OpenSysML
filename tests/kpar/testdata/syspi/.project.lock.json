@@ -1,0 +1,17 @@
+{
+  "lockVersion": 1,
+  "packages": [
+    {
+      "resource": "pkg:generic/sysmod-sysmlv2?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2FMBSE4U%2Fsysmod-sysmlv2",
+      "kind": "vcs",
+      "publisher": "mbse4u",
+      "name": "sysmod",
+      "version": "5.1.6",
+      "vcs": "git",
+      "source": "https://github.com/MBSE4U/sysmod-sysmlv2",
+      "tag": "5.1.6",
+      "revision": "fe07bc1f4b1ae6b3ae8075066c33381ef13cad25",
+      "sha256": "2838b5cc75f38ccedd2ddb43b4cb9c567cbc7d1f3eb310a072d751bd8b283eb8"
+    }
+  ]
+}

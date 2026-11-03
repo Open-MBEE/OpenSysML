@@ -1,0 +1,13 @@
+// view: ParameterCalcViews::definitions
+// kind: tree
+// stated: render asTreeDiagram
+// layout: dot
+digraph "ParameterCalcViews::definitions" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n0.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">x</font></td><td port="n0.1" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">y</font></td></tr><tr><td colspan="4"><font point-size="10"><i>«calc def»</i></font><br/><b>Add</b></td></tr><tr><td port="n0.2" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">result</font></td></tr></table>>];
+  "n1" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">x</font></td><td port="n1.1" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">factor</font></td><td port="n1.2" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">count</font></td></tr><tr><td colspan="6"><font point-size="10"><i>«calc def»</i></font><br/><b>Scale</b></td></tr><tr><td port="n1.3" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">doubled</font></td><td port="n1.4" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">r</font></td></tr></table>>];
+  "n2" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">bread</font></td></tr><tr><td colspan="2"><font point-size="10"><i>«action def»</i></font><br/><b>Heat</b></td></tr><tr><td port="n2.1" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">toast</font></td></tr></table>>];
+  "n3" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n3.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">low</font></td><td port="n3.1" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">value</font></td></tr><tr><td colspan="4"><font point-size="10"><i>«constraint def»</i></font><br/><b>Between</b></td></tr></table>>];
+}

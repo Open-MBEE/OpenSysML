@@ -898,8 +898,8 @@ actually produces and for what:
 | `resource_exhausted` | 429 | A document query (`RunDocumentQuery`, or one a `RenderDocument` runs) exhausted its visit, invocation or invocation-depth budget | `ServiceError` — the query, not the request, is at fault |
 | `already_exists` | 409 | Not currently produced | `ServiceError` |
 | `aborted` | 409 | Not currently produced | `ServiceError` |
-| `permission_denied` | 403 | Not currently produced (the service has no authentication) | `ServiceError` |
-| `unauthenticated` | 401 | Not currently produced | `ServiceError` |
+| `permission_denied` | 403 | Not produced by the service itself, which has one token and no roles; a proxy in front of it answers it | `ServiceError` |
+| `unauthenticated` | 401 | A service started with a token refused the call: no `Authorization` header (or `authorization` metadata), one that is not `Bearer`, or the wrong token (see [Service transports](service-transports.md#authentication)). The HTTP answer carries `WWW-Authenticate: Bearer realm="sysml-grpc"` (with `error="invalid_token"` for a wrong one); a grpc-go answer carries the same in its `www-authenticate` trailer. A malformed header is 400 `invalid_request`, which gRPC reports as `invalid_argument` | `AuthenticationError` (a `ConnectionError`) — supply the service's token |
 | `internal` | 500 | A bug in the service: something that should not have failed did (an edit that could not be applied, a document-query library that could not be loaded, a document whose evaluation failed for a reason other than one of its queries) | `ServiceError` — report it |
 | `unknown` | 500 | An error the service could not classify | `ServiceError` |
 | `data_loss` | 500 | Not currently produced | `ServiceError` |
@@ -1364,8 +1364,14 @@ trace prints. This transition record was captured from a traced `ExecuteState` c
 {"kind":"transition", "time":{"quantity":{"realMagnitude":0, "unit":"s", "unitTerm":{"scaleNum":1, "scaleDen":1, "factors":[{"unitId":"SI::second", "exponent":1}]}}}, "machine":"Machine", "from":"init", "to":"Running", "text":"transition: init -> Running"}
 ```
 
-The `state_trace` capability is checked before sending the option; a service that withholds it
-refuses the request with `UNIMPLEMENTED`. Tracing an explore schedule is `INVALID_ARGUMENT`,
+`ExecuteActionRequest.trace` (capability `action_trace`) answers the same `DocumentEvent`
+records for an action: `step` (a token entering a node, `token` and `step` numbering it), `wait`
+(an accept parked on `event`), `accept`, `send`, `decide` (`alternatives` and `taken`), `assign`
+(`feature` and `value` as the engine wrote them) and `complete`. `ExecuteActionRequest.events`
+posts signals or items to the performer in order, each once every token waits, so the accept
+takes it on the next step; it needs `performer_symbol_id`, and a run whose tokens wait with no
+event left fails with its partial trace. The `state_trace` capability is checked before sending
+the option; a service that withholds it refuses the request with `UNIMPLEMENTED`. Tracing an explore schedule is `INVALID_ARGUMENT`,
 because one trace describes one run, not the outcomes of several runs. A failed run still returns
 the records made before failure. The response retains the newest records up to the service's
 held-event limit and reports discarded older records as `traceDropped`; without the option,
@@ -1745,6 +1751,26 @@ never both.
 one per assertion. All three return the `instances` they built, in the same shape as
 `Instantiate`.
 
+With no `subjectSymbolId`, the three — and `RunAnalysis` — evaluate over the objects
+`Instantiate` holds for the model, as the REPL's `%constraint`, `%requirement`, `%satisfy` and
+`%analysis` are about the objects a session holds: a constraint or requirement a definition owns
+is checked on the one held object carrying it (ambiguous over several, as the REPL answers —
+objects of distinct declarations and the two objects one declaration instantiated twice leaves
+alike, the one the name no longer denotes named `Bolt #1 (displaced from b)`), a verification
+case a definition owns runs once per held object of that definition — every live one, the object
+a second `Instantiate` of its name displaced included — and reports a `verificationVerdicts`
+entry about each, naming the object by `instanceId`, and a `satisfy`
+a definition states is decided per held object with `instancePath` spelling the object's path
+from the root it was instantiated under (`cheap[2]`; `small` or `smalls[2]` for an object a
+subsetting usage declares), as `ValidateInstance` spells it. The
+`instances` carry every object a verdict is about. With nothing held, the answer is about
+declared defaults, and a definition-owned case is `inconclusive` asking for an object. A
+sweep that would make one more object than `OPENSYSML_GRPC_MAX_HELD_OBJECTS` allows is
+`RESOURCE_EXHAUSTED`, as `Instantiate` is, and leaves the population as it was. A `RunAnalysis`
+tool dry run over the held population leaves it as it was too: the preview's writes are undone
+and the runner it previewed with is taken off. An `explore` schedule is the exception: its runs
+are made on runtimes of their own, one per linearization, holding nothing, as the REPL's are.
+
 A constraint or requirement whose condition reads `in` parameters takes their values on the
 request: `arguments` is a positional list bound in declaration order, `namedArguments` binds by
 parameter name, and the two may be mixed, as `RunAnalysis` binds a case's inputs; the values are
@@ -1888,8 +1914,9 @@ Reading the response:
 - Each of `verdicts` is a `Verdict` as above — `kind` is `"constraint"`, `"requirement"` or
   `"satisfy"`, and `holds`, `condition`, `error`, `requirementId` mean what they mean there — with
   one field more: `instancePath`, where the object the verdict is about sits under the root
-  (`engine.injector`, `wheels[2]`, one-based for a collection element), omitted for the root
-  itself. `instanceId` keys the object in `instances` as before.
+  (`engine.injector`, `wheels[2]`, one-based for a collection element; `small` or `smalls[2]`
+  for an object a subsetting usage declares, never its position in the collection it subsets),
+  omitted for the root itself. `instanceId` keys the object in `instances` as before.
 - `summary.holds` is `true` only when every verdict holds **and** the walk was complete. The
   example's summary has no `holds` and no `error`, so the object is a real *not valid*: three
   of its four assertions are false. A summary with `error` is undecided — an assertion that could
@@ -2020,6 +2047,27 @@ the model does not hold, or `documents` for a `filePath` or `content`, is `inval
 object in place of the element array; `omit_derived` and `keep_derived` leave out the metamodel's
 derived properties. Expanded, it is the element array. The format is defined in
 [Compact API JSON](api-json-compact.md).
+
+`libraryReferences` on a successful API JSON response, including a compact conversion,
+names every standard-library element the output references: each entry has `id` (the
+literal normative ID), `qualifiedName` and `type` (the API JSON metaclass). Entries are
+sorted by ID and do not declare elements or roots. It needs no request option and is
+advertised as `convert_library_references`; an empty table means no library references.
+`qualifiedName` is empty for an unnamed library relationship, such as an owning membership.
+The compact document also carries the table outside `elements`, using the API JSON keys
+`@id`, `qualifiedName` and `@type`. For graph input, only library metadata present in the
+graph can be reported. Other target formats and failed conversions return no table.
+
+`includeLibraryStubs`, advertised as `convert_library_stubs`, restores the ownerless
+library stubs written before 0.11.0 inside the API JSON element array (or compact
+`elements`). It is default-off and is `invalid_argument` for any other target. The
+stubs carry `@id`, `@type`, `declaredName`, `elementId`, `isLibraryElement: true` and
+`qualifiedName`; an OMG API reader treats them as roots. Prefer the separate table
+for new clients. It composes with `documents`, `idForm` and `compact`.
+
+The Node client exposes `Conversion.libraryReferences` and the
+`includeLibraryStubs` option on `Connection.convert` and `Model.convert`.
+The MCP `convert` tool accepts the same flag and returns the table as `libraryReferences`.
 
 `includeCheckDiagnostics`, under the `convert_check_diagnostics` capability, adds the semantic
 check's diagnostics to `diagnostics` alongside the output, each with its own `severity` (`error`,
@@ -2607,9 +2655,10 @@ HTTP/1.1 400 Bad Request
 A query over `DocumentQueries::Verdicts` answers **verdict rows**: the row's `element` is the
 ninth arm, **`verdict`**, a `DocumentVerdict` with `assertion` (the assertion checked, as an
 `elementId` `DocumentValue` — an anonymous `satisfy` keeps its `elementType` and has an empty
-`elementId`), `kind` (`constraint`, `requirement`, `satisfaction`, `verification`), `text`
+`elementId`), `kind` (`constraint`, `requirement`, `satisfaction`, `binding`, `verification`), `text`
 (the assertion as written), `path` (the object checked, from the bound element down —
-`Garage::car.wheels[2]`), `verdict` (`holds`, `violated`, `undecided`), and, where they apply,
+`Garage::car.wheels[2]`, an object a subsetting usage declares by that usage, `Garage::assembly.small`),
+`verdict` (`holds`, `violated`, `undecided`), and, where they apply,
 `condition` (the expression found false), `reason` (why a row is violated or undecided — an
 undecided row always carries one) and `verification` (the verdict kinds — `pass`, `fail`,
 `inconclusive`, `error` — of the verification cases verifying the requirement). An element

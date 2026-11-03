@@ -51,6 +51,10 @@ type NodeData struct {
 	// StandIn marks a node a migration made up that stands for no element of its
 	// source, which a positioned drawing may elide.
 	StandIn bool
+	// Inherited marks a usage the owner it is drawn or listed under has through
+	// typing, subclassification or subsetting rather than declares; the notation
+	// prefixes its name with `^`. Name stays the bare name.
+	Inherited bool `json:",omitempty"`
 	// Ports are the pins drawn on the node's border, which an edge may end at.
 	Ports []Port
 	// Parent is the ID of the node this one is nested in, "" for a root.
@@ -103,13 +107,11 @@ func (r *Rendering) Data() Data {
 }
 
 // DataWith is the rendering in machine-consumable form with each node's ports
-// filtered for the display options ask, and the optional notation elements
-// they add shown.
+// filtered for the display options ask, the optional notation elements they
+// add shown, and the compartments folded as they ask — a positioned tree's
+// unplaced members into rows of the placed node above them.
 func (r *Rendering) DataWith(options Options) Data {
-	r = r.showing(options.Show)
-	if options.Compartments.automatic() {
-		r = foldCompartments(r, options.Compartments)
-	}
+	r = foldCompartments(r.showing(options.Show), options.Compartments)
 	ports := r.portView(options.Ports)
 	return r.data(&ports)
 }
@@ -164,14 +166,14 @@ func appendNodeData(out []NodeData, node *Node, parent string, ports *portView) 
 	}
 	out = append(out, NodeData{
 		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
-		Text: node.Text, StandIn: node.StandIn, Ports: nodePorts, Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
-		Verdict: node.Verdict,
+		Text: node.Text, StandIn: node.StandIn, Inherited: node.Inherited, Ports: nodePorts, Parent: parent, Origin: node.Origin,
+		Geometry: node.Geometry, Style: node.Style, Verdict: node.Verdict,
 	})
 	for _, compartment := range node.Compartments {
 		for _, row := range compartment.Rows {
 			out = append(out, NodeData{
 				ID: row.ID, Kind: row.Kind, Name: row.Name, NameSynthesized: row.NameSynthesized, Type: row.Type, Detail: row.Detail,
-				Text: row.Text, Parent: node.ID, Compartment: compartment.Name, Origin: row.Origin, Verdict: row.Verdict,
+				Text: row.Text, Inherited: row.Inherited, Parent: node.ID, Compartment: compartment.Name, Origin: row.Origin, Verdict: row.Verdict,
 			})
 		}
 	}

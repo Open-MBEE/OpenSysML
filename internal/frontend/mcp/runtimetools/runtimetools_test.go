@@ -18,6 +18,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
@@ -43,6 +44,11 @@ const demoModel = `package Demo {
 	}
 	requirement massLimit : MassLimit { attribute :>> maxMass = 2000.0; }
 	requirement massTiny : MassLimit { attribute :>> maxMass = 10.0; }
+	requirement def MassGroup {
+		subject vehicle : Vehicle;
+		requirement tiny : MassLimit { attribute :>> maxMass = 10.0; }
+	}
+	requirement massGroup : MassGroup;
 
 	part sedan : Vehicle { attribute :>> mass = 1200.0; }
 
@@ -418,6 +424,28 @@ func TestInstantiateReportsTheObject(t *testing.T) {
 	}
 }
 
+func TestExecuteActionTraceReportsTheRunsRecords(t *testing.T) {
+	h := attach(t, newService(t))
+	hash := h.parse()
+	var resp pb.ExecuteActionResponse
+	_, out := h.ok("execute_action", map[string]any{
+		"modelHash": hash, "actionSymbolId": "Demo::Count", "inputs": map[string]any{"lo": value("intValue", "41")}, "trace": true,
+	}, &resp)
+	kinds := make([]string, 0, len(resp.GetTrace()))
+	for _, ev := range resp.GetTrace() {
+		kinds = append(kinds, ev.GetKind())
+	}
+	if resp.GetError() != "" || !slices.Contains(kinds, "step") || !slices.Contains(kinds, "complete") {
+		t.Errorf("traced Count(41): kinds %v, error %q\n%s", kinds, resp.GetError(), out)
+	}
+	if !strings.Contains(out, "trace:\n") {
+		t.Errorf("text lacks the trace:\n%s", out)
+	}
+	if msg := h.fails("execute_action", map[string]any{"modelHash": hash, "actionSymbolId": "Demo::Count", "events": []string{"Go"}}); !strings.Contains(msg, "INVALID_ARGUMENT") {
+		t.Errorf("events without a performer: %s", msg)
+	}
+}
+
 func TestExecuteActionBindsInputsAndReportsOutputs(t *testing.T) {
 	h := attach(t, newService(t))
 	hash := h.parse()
@@ -496,6 +524,13 @@ func TestVerificationToolsAnswerVerdicts(t *testing.T) {
 	_, out = h.ok("verify_requirement", map[string]any{"modelHash": hash, "symbolId": "Demo::massLimit", "subjectSymbolId": "Demo::sedan"}, &requirement)
 	if !requirement.GetVerdict().GetHolds() || !strings.Contains(out, "holds") {
 		t.Errorf("massLimit by sedan: %v\n%s", requirement.GetVerdict(), out)
+	}
+
+	// A subrequirement taking the container's subject fails for sedan, so the group fails.
+	var group pb.VerifyRequirementResponse
+	_, out = h.ok("verify_requirement", map[string]any{"modelHash": hash, "symbolId": "Demo::massGroup", "subjectSymbolId": "Demo::sedan"}, &group)
+	if group.GetVerdict().GetHolds() || !strings.Contains(out, "vehicle.mass <= maxMass") {
+		t.Errorf("massGroup by sedan: %v\n%s", group.GetVerdict(), out)
 	}
 
 	var satisfaction pb.VerifySatisfactionResponse
@@ -600,6 +635,10 @@ func TestQueriesAndRenderings(t *testing.T) {
 	h.ok("render_model_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0], "form": "html"}, &doc)
 	if doc.GetHtml() == "" || doc.GetMarkdown() != "" {
 		t.Errorf("html form: markdown %d bytes, html %d bytes", len(doc.GetMarkdown()), len(doc.GetHtml()))
+	}
+	_, out = h.ok("render_model_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0], "form": "asciidoc"}, &doc)
+	if doc.GetAsciidoc() == "" || doc.GetMarkdown() != "" || doc.GetHtml() != "" || !strings.Contains(out, strings.TrimRight(doc.GetAsciidoc(), "\n")) {
+		t.Errorf("asciidoc form: markdown %d bytes, html %d bytes, asciidoc %d bytes:\n%s", len(doc.GetMarkdown()), len(doc.GetHtml()), len(doc.GetAsciidoc()), out)
 	}
 	if msg := h.fails("render_model_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0], "form": "pdf"}); !strings.Contains(msg, "INVALID_ARGUMENT") {
 		t.Errorf("pdf form: %s", msg)
@@ -1068,5 +1107,34 @@ func TestADanglingLinkIsJudgedByWhereItPoints(t *testing.T) {
 	}
 	if msg := h.fails("parse", map[string]any{"paths": []string{"soon.sysml"}}); strings.Contains(msg, "outside") {
 		t.Errorf("a dangling link staying inside the root is a file not yet written, not outside: %s", msg)
+	}
+}
+
+// The verify tools print what a solver's answer rests on, as the REPL does.
+func TestVerificationToolsPrintTheVerdictNotes(t *testing.T) {
+	if _, err := solve.Discover(); err != nil {
+		t.Skipf("no SMT solver installed: %v", err)
+	}
+	h := attach(t, newService(t))
+	if err := os.WriteFile(filepath.Join(h.root, "tanks.kerml"), []byte(`package Tanks {
+	private import ScalarValues::Real;
+	class Tank {
+		feature level : Real;
+		inv nonNegative { level >= 0.0 }
+	}
+}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var parsed pb.ParseSourcesResponse
+	h.ok("parse", map[string]any{"paths": []string{"tanks.kerml"}}, &parsed)
+
+	var constraint pb.VerifyConstraintResponse
+	_, out := h.ok("verify_constraint", map[string]any{"modelHash": parsed.GetModelHash(), "symbolId": "Tanks::Tank::nonNegative", "question": "holds"}, &constraint)
+	want := "Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the default [0..*] governs it"
+	if notes := constraint.GetVerdict().GetNotes(); len(notes) != 1 || notes[0].GetText() != want {
+		t.Errorf("notes = %v, want %q", notes, want)
+	}
+	if !strings.Contains(out, "\n  "+want) {
+		t.Errorf("text lacks the note:\n%s", out)
 	}
 }

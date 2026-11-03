@@ -9,9 +9,9 @@ import (
 
 // Drift gate: every sysml flag that is an operation or one of its arguments
 // is classified exactly once in the sysml-mcp tool catalog, as the tool that
-// performs it, as unserved by the service, or as CLI-only. The General and
-// Deprecated option groups are the process's own and are not operations;
-// an alias is classified under its long spelling.
+// performs it, as unserved by the service, or as CLI-only. The General option
+// group is the process's own and is not an operation; an alias is classified
+// under its long spelling.
 func TestEverySysmlFlagIsClassifiedForMCP(t *testing.T) {
 	process := map[string]bool{}
 	for _, group := range doc().Options {
@@ -20,13 +20,13 @@ func TestEverySysmlFlagIsClassifiedForMCP(t *testing.T) {
 			for _, alias := range opt.Aliases {
 				process[alias] = true
 			}
-			if group.Title == "General" || group.Title == "Deprecated" {
+			if group.Title == "General" {
 				process[opt.Name] = true
 			}
 		}
 	}
 	if len(process) == 0 {
-		t.Fatal("the General and Deprecated option groups were not found")
+		t.Fatal("the General option group was not found")
 	}
 	var classified int
 	docFlags().VisitAll(func(f *flag.Flag) {

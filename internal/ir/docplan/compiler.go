@@ -50,6 +50,19 @@ type compiler struct {
 	bases    bases
 	stack    []string
 	targets  map[*symbols.Symbol]refTarget
+	parsed   map[*symbols.Symbol]*parsedBody
+	outlines map[*symbols.Symbol]*markupOutline
+	// lenient leaves a body whose converter is missing unchecked, warning once per
+	// language and scanned document (entry, or another whose outline is read).
+	lenient     bool
+	scanned     *symbols.Symbol
+	unchecked   []*Error
+	uncheckedBy map[uncheckedKey]*Error
+}
+
+type uncheckedKey struct {
+	document *symbols.Symbol
+	language string
 }
 
 type bases struct {
@@ -89,6 +102,28 @@ func IsDocumentDefinition(index *symbols.Index, model *semantics.Model, sym *sym
 		sym.Kind == symbols.SymbolPartDef && model != nil && model.Conforms(sym, base)
 }
 
+// ReadsBody reports whether a document plan reads the body of the textual
+// representation rep: one owned, at any depth, by a document, section or paragraph.
+func ReadsBody(index *symbols.Index, model *semantics.Model, rep *symbols.Symbol) bool {
+	if rep == nil || rep.Kind != symbols.SymbolTextualRepresentation || model == nil {
+		return false
+	}
+	var bases []*symbols.Symbol
+	for _, fqn := range []string{documentBaseFQN, sectionBaseFQN, paragraphBaseFQN} {
+		if base := libraryBase(index, fqn); base != nil {
+			bases = append(bases, base)
+		}
+	}
+	for owner := rep.Owner(); owner != nil; owner = owner.Owner() {
+		for _, base := range bases {
+			if owner != base && model.Conforms(owner, base) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // QueryTarget resolves the query definition a calc usage is typed by, following
 // redefinition lineage; nil when it is not typed by a query definition.
 func QueryTarget(index *symbols.Index, model *semantics.Model, resolver *resolve.Resolver, usage *symbols.Symbol) *symbols.Symbol {
@@ -105,8 +140,22 @@ func QueryTarget(index *symbols.Index, model *semantics.Model, resolver *resolve
 
 // Compile compiles a document definition into an immutable document plan.
 func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Resolver, entry *symbols.Symbol) (*Plan, error) {
+	plan, _, err := compile(index, model, resolver, entry, false)
+	return plan, err
+}
+
+// Validate plans entry as Compile does, except that a markup body whose
+// converter is missing is left unchecked and reported as a warning, one per
+// language, so the rest of the document is still checked. A rendering needs
+// every body parsed and uses Compile, which stops at such a body.
+func Validate(index *symbols.Index, model *semantics.Model, resolver *resolve.Resolver, entry *symbols.Symbol) (warnings []*Error, err error) {
+	_, warnings, err = compile(index, model, resolver, entry, true)
+	return warnings, err
+}
+
+func compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Resolver, entry *symbols.Symbol, lenient bool) (*Plan, []*Error, error) {
 	if index == nil || model == nil || resolver == nil {
-		return nil, &Error{Kind: ErrorInvalidContext}
+		return nil, nil, &Error{Kind: ErrorInvalidContext}
 	}
 	all := bases{
 		document:    libraryBase(index, documentBaseFQN),
@@ -131,11 +180,11 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		all.table == nil || all.list == nil || all.definitions == nil || all.formula == nil || all.diagram == nil || all.image == nil ||
 		all.run == nil || all.span == nil || all.link == nil || all.ref == nil ||
 		all.columnRun == nil || all.spanColumn == nil || all.linkColumn == nil {
-		return nil, &Error{Kind: ErrorLibraryUnavailable}
+		return nil, nil, &Error{Kind: ErrorLibraryUnavailable}
 	}
 	name := symbols.FQNOf(entry)
 	if entry == nil || entry == all.document || entry.Kind != symbols.SymbolPartDef || !model.Conforms(entry, all.document) {
-		return nil, &Error{Kind: ErrorNotDocumentDefinition, Document: name, Origin: entry.Origin()}
+		return nil, nil, &Error{Kind: ErrorNotDocumentDefinition, Document: name, Origin: entry.Origin()}
 	}
 	c := &compiler{
 		index:    index,
@@ -145,17 +194,23 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		entry:    entry,
 		bases:    all,
 		targets:  make(map[*symbols.Symbol]refTarget),
+		parsed:   make(map[*symbols.Symbol]*parsedBody),
+		outlines: make(map[*symbols.Symbol]*markupOutline),
+
+		lenient:     lenient,
+		scanned:     entry,
+		uncheckedBy: make(map[uncheckedKey]*Error),
 	}
 	title, err := c.requiredText(entry, "title", ErrorMissingTitle)
 	if err != nil {
-		return nil, err
+		return nil, c.unchecked, err
 	}
 	content, err := c.compileMembers(entry)
 	if err != nil {
-		return nil, err
+		return nil, c.unchecked, err
 	}
 	if err := c.resolveRefs(content); err != nil {
-		return nil, err
+		return nil, c.unchecked, err
 	}
 	return &Plan{
 		compiled: true,
@@ -163,7 +218,7 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		title:    title,
 		content:  content,
 		origin:   entry.Origin(),
-	}, nil
+	}, c.unchecked, nil
 }
 
 func libraryBase(index *symbols.Index, fqn string) *symbols.Symbol {
@@ -195,6 +250,14 @@ func (c *compiler) compileMembers(owner *symbols.Symbol) ([]Content, error) {
 			})
 			c.stack = c.stack[:len(c.stack)-1]
 			content = append(content, node)
+			continue
+		}
+		if member.Kind == symbols.SymbolTextualRepresentation && !c.index.Library(member) {
+			blocks, err := c.compileMarkupBlocks(owner, member)
+			if err != nil {
+				return nil, err
+			}
+			content = append(content, blocks...)
 			continue
 		}
 		if !c.index.Library(member) {
@@ -319,6 +382,7 @@ func (c *compiler) compileParagraph(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	bodies := c.markupBodies(member)
 	if len(columnRuns) > 0 && query == nil {
 		return Content{}, &Error{
 			Kind:     ErrorColumnRunWithoutQuery,
@@ -327,12 +391,20 @@ func (c *compiler) compileParagraph(member *symbols.Symbol) (Content, error) {
 			Origin:   member.Origin(),
 		}
 	}
-	if len(columnRuns) > 0 && (stated || len(runs) > 0) {
+	if len(columnRuns) > 0 && (stated || len(runs) > 0 || len(bodies) > 0) {
 		return Content{}, &Error{
 			Kind:     ErrorConflictingColumnRuns,
 			Document: c.document,
 			Content:  symbols.FQNOf(member),
 			Origin:   member.Origin(),
+		}
+	}
+	if len(bodies) > 0 && (stated || query != nil || len(runs) > 0) {
+		return Content{}, &Error{
+			Kind:     ErrorConflictingRuns,
+			Document: c.document,
+			Content:  symbols.FQNOf(member),
+			Origin:   bodies[0].Origin(),
 		}
 	}
 	if len(runs) > 0 && (stated || query != nil) {
@@ -351,7 +423,14 @@ func (c *compiler) compileParagraph(member *symbols.Symbol) (Content, error) {
 			Origin:   member.Origin(),
 		}
 	}
-	if !stated && query == nil && len(runs) == 0 {
+	var unchecked bool
+	if len(bodies) > 0 {
+		runs, unchecked, err = c.compileParagraphBody(member, bodies)
+		if err != nil {
+			return Content{}, err
+		}
+	}
+	if !stated && query == nil && len(runs) == 0 && !unchecked {
 		return Content{}, &Error{
 			Kind:     ErrorMissingText,
 			Document: c.document,
@@ -505,7 +584,7 @@ func (c *compiler) validateRunColumns(member *symbols.Symbol, query *QueryRef, r
 		return nil
 	}
 	for _, name := range []string{run.column, run.styleColumn, run.targetColumn} {
-		if name != "" && !containsColumn(columns, name) {
+		if name != "" && !slices.Contains(columns, name) {
 			return &Error{
 				Kind:     ErrorUnknownRunColumn,
 				Document: c.document,
@@ -758,40 +837,56 @@ func contentLabel(node Content) string {
 // filling its named path and fallback label.
 func (c *compiler) resolveRefs(content []Content) error {
 	for i := range content {
-		for r := range content[i].runs {
-			run := &content[i].runs[r]
-			if run.kind != RunRef {
-				continue
-			}
-			target, ok := c.targets[run.refSym]
-			if !ok {
-				cross, err := c.crossDocumentTarget(run)
-				if err != nil {
-					return err
-				}
-				target = cross
-			}
-			for _, segment := range target.path {
-				if segment == "" {
-					return &Error{
-						Kind:     ErrorInvalidRefTarget,
-						Document: c.document,
-						Content:  symbols.FQNOf(run.refSym),
-						Actual:   "an anonymous content block",
-						Origin:   run.origin,
-					}
-				}
-			}
-			run.ref = append([]string(nil), target.path...)
-			run.refDocument = target.document
-			run.refElement = target.element
-			if run.text == "" {
-				run.text = target.label
-				run.defaultText = true
+		if err := c.resolveRunRefs(content[i].runs); err != nil {
+			return err
+		}
+		for _, item := range content[i].items {
+			if err := c.resolveRunRefs(item.runs); err != nil {
+				return err
 			}
 		}
 		if err := c.resolveRefs(content[i].children); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// resolveRunRefs stamps the reference runs among runs in place.
+func (c *compiler) resolveRunRefs(runs []Run) error {
+	for r := range runs {
+		run := &runs[r]
+		if run.kind != RunRef {
+			continue
+		}
+		target, ok := c.targets[run.refSym]
+		if run.refName != "" {
+			target, ok = c.markupSectionTarget(run)
+		}
+		if !ok {
+			cross, err := c.crossDocumentTarget(run)
+			if err != nil {
+				return err
+			}
+			target = cross
+		}
+		for _, segment := range target.path {
+			if segment == "" {
+				return &Error{
+					Kind:     ErrorInvalidRefTarget,
+					Document: c.document,
+					Content:  symbols.FQNOf(run.refSym),
+					Actual:   "an anonymous content block",
+					Origin:   run.origin,
+				}
+			}
+		}
+		run.ref = append([]string(nil), target.path...)
+		run.refDocument = target.document
+		run.refElement = target.element
+		if run.text == "" {
+			run.text = target.label
+			run.defaultText = true
 		}
 	}
 	return nil
@@ -883,17 +978,7 @@ func (c *compiler) documentRootTarget(sym *symbols.Symbol, run *Run) (*symbols.S
 		}
 		return defs[0], nil
 	default:
-		names := make([]string, len(defs))
-		for i, def := range defs {
-			names[i] = symbols.FQNOf(def)
-		}
-		return nil, &Error{
-			Kind:     ErrorAmbiguousRefTarget,
-			Document: c.document,
-			Content:  symbols.FQNOf(sym),
-			Actual:   strings.Join(names, " and "),
-			Origin:   run.origin,
-		}
+		return nil, c.ambiguousDocument(sym, defs, run.origin)
 	}
 }
 
@@ -918,17 +1003,23 @@ func (c *compiler) chainRootDocument(run *Run) (*symbols.Symbol, error) {
 	case 1:
 		return defs[0], nil
 	default:
-		names := make([]string, len(defs))
-		for i, def := range defs {
-			names[i] = symbols.FQNOf(def)
-		}
-		return nil, &Error{
-			Kind:     ErrorAmbiguousRefTarget,
-			Document: c.document,
-			Content:  symbols.FQNOf(root),
-			Actual:   strings.Join(names, " and "),
-			Origin:   run.origin,
-		}
+		return nil, c.ambiguousDocument(root, defs, run.origin)
+	}
+}
+
+// ambiguousDocument is the error for a usage typed by more than one document
+// definition where a reference needs exactly one.
+func (c *compiler) ambiguousDocument(usage *symbols.Symbol, defs []*symbols.Symbol, origin symbols.Origin) *Error {
+	names := make([]string, len(defs))
+	for i, def := range defs {
+		names[i] = symbols.FQNOf(def)
+	}
+	return &Error{
+		Kind:     ErrorAmbiguousRefTarget,
+		Document: c.document,
+		Content:  symbols.FQNOf(usage),
+		Actual:   strings.Join(names, " and "),
+		Origin:   origin,
 	}
 }
 
@@ -1043,7 +1134,7 @@ func (c *compiler) compileTable(member *symbols.Symbol) (Content, error) {
 	}
 	if groupStated {
 		if columns, known := staticColumns(query.program, query.entry); groupBy == "" ||
-			(known && !containsColumn(columns, groupBy)) {
+			(known && !slices.Contains(columns, groupBy)) {
 			return Content{}, &Error{
 				Kind:     ErrorUnknownGroupColumn,
 				Document: c.document,
@@ -1271,15 +1362,6 @@ func columnNames(value queryplan.Expression) []string {
 	return nil
 }
 
-func containsColumn(columns []string, name string) bool {
-	for _, column := range columns {
-		if column == name {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *compiler) compileList(member *symbols.Symbol) (Content, error) {
 	style, stated, err := c.optionalText(member, "style")
 	if err != nil {
@@ -1336,7 +1418,7 @@ func (c *compiler) compileDefinitions(member *symbols.Symbol) (Content, error) {
 	}
 	if columns, known := staticColumns(query.program, query.entry); known {
 		for _, column := range []struct{ attribute, name string }{{"term", term}, {"description", description}} {
-			if !containsColumn(columns, column.name) {
+			if !slices.Contains(columns, column.name) {
 				return Content{}, &Error{
 					Kind:      ErrorUnknownDefinitionColumn,
 					Document:  c.document,
@@ -1707,51 +1789,9 @@ func (c *compiler) namedTarget(
 	}
 	seen[candidate] = true
 	if declaration, ok := candidate.Decl.(*ast.Usage); ok && declaration.Value != nil {
-		target := declaration.Value
-		if reference, ok := target.(*ast.FeatureReference); ok {
-			target = reference.Name
-		}
-		// `E.metadata` names the element E itself, a definition or package a
-		// feature reference cannot name.
-		if access, ok := target.(*ast.MetadataAccessExpr); ok && access.Ref != nil {
-			target = access.Ref
-		}
-		if chain, ok := target.(*ast.FeatureChainExpr); ok {
-			resolved, ok := c.resolver.ResolveTarget(candidate.OwnerScope, chain)
-			if !ok || resolved == nil {
-				return nil, nil, false, &Error{
-					Kind:     unknown,
-					Document: c.document,
-					Content:  symbols.FQNOf(member),
-					Actual:   chainText(chain),
-					Origin:   symbols.NodeOrigin(candidate.DocName, declaration.Value),
-				}
-			}
-			return resolved, c.chainRoot(candidate.OwnerScope, chain), true, nil
-		}
-		name, ok := target.(*ast.QualifiedName)
-		if !ok {
-			return nil, nil, false, &Error{
-				Kind:     invalid,
-				Document: c.document,
-				Content:  symbols.FQNOf(member),
-				Origin:   symbols.NodeOrigin(candidate.DocName, declaration.Value),
-			}
-		}
-		resolved, ok := c.resolver.ResolveQualified(candidate.OwnerScope, name)
-		if !ok || resolved == nil {
-			return nil, nil, false, &Error{
-				Kind:     unknown,
-				Document: c.document,
-				Content:  symbols.FQNOf(member),
-				Actual:   name.Text(),
-				Origin:   symbols.NodeOrigin(candidate.DocName, declaration.Value),
-			}
-		}
-		if canonical, ok := c.resolver.ResolveAliasTarget(resolved); ok {
-			resolved = canonical
-		}
-		return resolved, c.qualifiedRoot(name), true, nil
+		origin := symbols.NodeOrigin(candidate.DocName, declaration.Value)
+		resolved, root, err := c.resolveTargetValue(member, candidate.OwnerScope, declaration.Value, invalid, unknown, origin)
+		return resolved, root, true, err
 	}
 	for _, target := range c.model.RedefinedFeatures(candidate) {
 		resolved, root, stated, err := c.namedTarget(member, target, invalid, unknown, seen)
@@ -1760,6 +1800,63 @@ func (c *compiler) namedTarget(
 		}
 	}
 	return nil, nil, false, nil
+}
+
+// resolveTargetValue resolves the element a target expression names, in scope:
+// a qualified name, a feature chain, or `E.metadata` for the element E itself
+// (a definition or package a feature reference cannot name). The root is the
+// usage the expression's innermost name resolves to.
+func (c *compiler) resolveTargetValue(
+	member *symbols.Symbol,
+	scope *symbols.Scope,
+	value ast.Node,
+	invalid ErrorKind,
+	unknown ErrorKind,
+	origin symbols.Origin,
+) (*symbols.Symbol, *symbols.Symbol, error) {
+	target := value
+	if reference, ok := target.(*ast.FeatureReference); ok {
+		target = reference.Name
+	}
+	if access, ok := target.(*ast.MetadataAccessExpr); ok && access.Ref != nil {
+		target = access.Ref
+	}
+	if chain, ok := target.(*ast.FeatureChainExpr); ok {
+		resolved, ok := c.resolver.ResolveTarget(scope, chain)
+		if !ok || resolved == nil {
+			return nil, nil, &Error{
+				Kind:     unknown,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Actual:   chainText(chain),
+				Origin:   origin,
+			}
+		}
+		return resolved, c.chainRoot(scope, chain), nil
+	}
+	name, ok := target.(*ast.QualifiedName)
+	if !ok {
+		return nil, nil, &Error{
+			Kind:     invalid,
+			Document: c.document,
+			Content:  symbols.FQNOf(member),
+			Origin:   origin,
+		}
+	}
+	resolved, ok := c.resolver.ResolveQualified(scope, name)
+	if !ok || resolved == nil {
+		return nil, nil, &Error{
+			Kind:     unknown,
+			Document: c.document,
+			Content:  symbols.FQNOf(member),
+			Actual:   name.Text(),
+			Origin:   origin,
+		}
+	}
+	if canonical, ok := c.resolver.ResolveAliasTarget(resolved); ok {
+		resolved = canonical
+	}
+	return resolved, c.qualifiedRoot(name), nil
 }
 
 // chainText renders a feature chain the way it was written, for diagnostics.
@@ -1788,6 +1885,15 @@ func (c *compiler) rejectNestedContent(owner *symbols.Symbol) error {
 	allowRuns := c.model.Conforms(owner, c.bases.paragraph)
 	allowColumnRuns := allowRuns || c.model.Conforms(owner, c.bases.list)
 	for _, member := range c.effectiveMembers(owner) {
+		if member.Kind == symbols.SymbolTextualRepresentation && !allowRuns && !c.index.Library(member) {
+			return &Error{
+				Kind:      ErrorMisplacedMarkupBody,
+				Document:  c.document,
+				Content:   symbols.FQNOf(owner),
+				Parameter: markupLanguage(member),
+				Origin:    member.Origin(),
+			}
+		}
 		if member.Kind != symbols.SymbolPartUsage {
 			continue
 		}

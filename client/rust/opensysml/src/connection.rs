@@ -60,6 +60,16 @@ pub(crate) struct ConnectionInner {
     base_url: String,
     info: ServerInfo,
     private: Option<Arc<PrivateService>>,
+    token: Option<String>,
+}
+
+/// Names the bearer token every call carries when none is given to the connection.
+pub const TOKEN_ENV: &str = "OPENSYSML_GRPC_TOKEN";
+
+fn env_token() -> Option<String> {
+    env::var(TOKEN_ENV)
+        .ok()
+        .filter(|token| !token.trim().is_empty())
 }
 
 impl Connection {
@@ -67,13 +77,17 @@ impl Connection {
     /// that exits as it is joined, is replaced.
     pub fn private() -> Result<Self, Error> {
         let (service, joined) = Self::private_service(None)?;
-        match Self::from_target(service.address.clone(), Some(Arc::clone(&service))) {
+        match Self::from_target(
+            service.address.clone(),
+            Some(Arc::clone(&service)),
+            env_token(),
+        ) {
             Err(Error::Transport(reason)) if joined => {
                 if !service.exits_within(EXIT_REPORT_GRACE) {
                     return Err(Error::Transport(reason));
                 }
                 let (replacement, _) = Self::private_service(Some(&service))?;
-                Self::from_target(replacement.address.clone(), Some(replacement))
+                Self::from_target(replacement.address.clone(), Some(replacement), env_token())
             }
             connection => connection,
         }
@@ -99,10 +113,22 @@ impl Connection {
         Ok((started, false))
     }
 
-    /// Connect to an explicitly managed external service.
+    /// Connect to an explicitly managed external service, carrying the bearer token
+    /// `$OPENSYSML_GRPC_TOKEN` names if it names one.
     pub fn external(host: impl Into<String>, port: u16) -> Result<Self, Error> {
         let host = host.into();
-        Self::from_target(format_target(&host, port), None)
+        Self::from_target(format_target(&host, port), None, env_token())
+    }
+
+    /// Connect to an external service that requires a bearer token (one serving an
+    /// address other machines reach); every call carries it as `Authorization: Bearer`.
+    pub fn external_with_token(
+        host: impl Into<String>,
+        port: u16,
+        token: impl Into<String>,
+    ) -> Result<Self, Error> {
+        let host = host.into();
+        Self::from_target(format_target(&host, port), None, Some(token.into()))
     }
 
     /// Follow the connection precedence: explicit environment, then private child.
@@ -119,14 +145,24 @@ impl Connection {
         }
     }
 
-    fn from_target(address: String, private: Option<Arc<PrivateService>>) -> Result<Self, Error> {
-        let info_wire = Self::rpc_raw_at(&address, "GetServerInfo", wire::ServerInfoRequest {})?;
+    fn from_target(
+        address: String,
+        private: Option<Arc<PrivateService>>,
+        token: Option<String>,
+    ) -> Result<Self, Error> {
+        let info_wire = Self::rpc_raw_at(
+            &address,
+            token.as_deref(),
+            "GetServerInfo",
+            wire::ServerInfoRequest {},
+        )?;
         let info = ServerInfo::from_wire(info_wire);
         Ok(Self {
             inner: Arc::new(ConnectionInner {
                 base_url: address,
                 info,
                 private,
+                token,
             }),
         })
     }
@@ -385,20 +421,34 @@ impl Connection {
         T: Message,
         R: Message + Default,
     {
-        Self::rpc_raw_at(&self.inner.base_url, method, request)
+        Self::rpc_raw_at(
+            &self.inner.base_url,
+            self.inner.token.as_deref(),
+            method,
+            request,
+        )
     }
 
-    fn rpc_raw_at<T, R>(address: &str, method: &str, request: T) -> Result<R, Error>
+    fn rpc_raw_at<T, R>(
+        address: &str,
+        token: Option<&str>,
+        method: &str,
+        request: T,
+    ) -> Result<R, Error>
     where
         T: Message,
         R: Message + Default,
     {
         let body = request.encode_to_vec();
         let url = format!("http://{address}/sysml.SysMLService/{method}");
-        let response = http_agent()
+        let mut post = http_agent()
             .post(&url)
             .header("Content-Type", "application/proto")
-            .header("Connect-Protocol-Version", "1")
+            .header("Connect-Protocol-Version", "1");
+        if let Some(token) = token {
+            post = post.header("Authorization", &format!("Bearer {token}"));
+        }
+        let response = post
             .send(body)
             .map_err(|error| Error::Transport(error.to_string()))?;
         let status = response.status();
@@ -531,6 +581,9 @@ impl PrivateService {
             "-report-address",
             "-exit-with-parent",
         ]);
+        // The child serves loopback for this process alone: the token meant for a
+        // remote service must not become one the child demands.
+        command.env_remove(TOKEN_ENV);
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

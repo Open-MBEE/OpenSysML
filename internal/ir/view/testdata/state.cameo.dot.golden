@@ -38,10 +38,10 @@ digraph "MachineViews::vehicleStates" {
       }
     }
   }
-  "n5" -> "n1";
-  "n6" -> "n3";
-  "n1" -> "n2" [lhead="cluster_n2"];
-  "n2" -> "n1" [ltail="cluster_n2"];
-  "n3" -> "n4" [label="Signal [temperature > 0]"];
-  "n4" -> "n3";
+  "n5" -> "n1" [arrowhead=vee];
+  "n6" -> "n3" [arrowhead=vee];
+  "n1" -> "n2" [arrowhead=vee, lhead="cluster_n2"];
+  "n2" -> "n1" [arrowhead=vee, ltail="cluster_n2"];
+  "n3" -> "n4" [label="Signal [temperature > 0]", arrowhead=vee];
+  "n4" -> "n3" [arrowhead=vee];
 }

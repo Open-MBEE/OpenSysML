@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -175,7 +176,7 @@ func (ctx *Context) ownerDeliveries(
 				continue
 			}
 			for _, end := range conn.Ends {
-				if joins(sendingPaths, end) {
+				if slices.Contains(sendingPaths, end) {
 					continue
 				}
 				accepts := true
@@ -255,7 +256,7 @@ func (ctx *Context) boundPortPaths(owner *Instance, paths []string, targets []*s
 				continue
 			}
 			other := binding.Ends[1-end].Path
-			if other == "" || joins(paths, other) {
+			if other == "" || slices.Contains(paths, other) {
 				continue
 			}
 			sym, ok := ctx.pathSymbol(binding.Scope, strings.Split(other, "."))
@@ -697,23 +698,13 @@ func (ctx *Context) pathSymbol(scope *symbols.Scope, segments []string) (*symbol
 	return sym, true
 }
 
-// joins reports whether a connection has an end naming want.
-func joins(ends []string, want string) bool {
-	for _, end := range ends {
-		if end == want {
-			return true
-		}
-	}
-	return false
-}
-
 // joinsTarget reports whether a connection has an end naming the sending
 // feature: an end written as want that also resolves to the feature the send
 // target denotes, so a local port shadowing a connected port's name diverts
 // the route away from the connector. An end or a target this run does not
 // resolve is matched by its written path alone.
 func (ctx *Context) joinsTarget(conn lower.Connection, want string, target *symbols.Symbol) bool {
-	if !joins(conn.Ends, want) {
+	if !slices.Contains(conn.Ends, want) {
 		return false
 	}
 	if target == nil {

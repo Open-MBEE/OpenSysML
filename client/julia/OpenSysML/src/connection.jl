@@ -9,11 +9,22 @@ mutable struct Connection
     origin::String
     expected_version::Union{String,Nothing}
     required_capabilities::Set{String}
+    token::Union{String,Nothing}
     Connection(base, private, process, stdin, timeout; origin="service at $(base)", version=nothing,
-               require_capabilities=()) =
+               require_capabilities=(), token=nothing) =
         new(String(base), Bool(private), false, process, stdin, Float64(timeout), nothing,
             String(origin), version === nothing ? nothing : String(version),
-            Set(String(c) for c in require_capabilities))
+            Set(String(c) for c in require_capabilities),
+            token === nothing || isempty(String(token)) ? nothing : String(token))
+end
+
+"""The environment variable `external` reads a bearer token from when none is given."""
+const TOKEN_ENV = "OPENSYSML_GRPC_TOKEN"
+
+function _token_request(token)
+    requested = token === nothing || isempty(String(token)) ? get(ENV, TOKEN_ENV, nothing) : String(token)
+    (requested === nothing || isempty(requested)) && return nothing
+    return requested
 end
 
 function _base_url(address::AbstractString)
@@ -37,12 +48,18 @@ function _version_request(version)
     end
 end
 
-"""Connect to a running sysml-grpc service."""
-function external(address::AbstractString; timeout::Real=30, version=nothing, require_capabilities=())
+"""
+Connect to a running sysml-grpc service. A service on an address other machines
+reach requires a bearer token, sent as `Authorization: Bearer` on every call:
+`token`, or `\$OPENSYSML_GRPC_TOKEN` when none is given.
+"""
+function external(address::AbstractString; timeout::Real=30, version=nothing, require_capabilities=(),
+                  token=nothing)
     expected = _version_request(version)
     conn = Connection(_base_url(address), false, nothing, nothing, Float64(timeout);
                       origin="service at $(_base_url(address)) (not started by this client)",
-                      version=expected, require_capabilities=require_capabilities)
+                      version=expected, require_capabilities=require_capabilities,
+                      token=_token_request(token))
     if expected !== nothing || !isempty(conn.required_capabilities)
         try
             _validate_connection(conn)
@@ -59,7 +76,11 @@ function private(; binary::Union{AbstractString,Nothing}=nothing, timeout::Real=
                  version=nothing, require_capabilities=())
     bin = binary === nothing ? resolve_binary(; version=version) : String(binary)
     _is_executable_file(bin) || throw(TransportError("sysml-grpc binary is not an executable file: $(bin)"))
-    cmd = `$bin -port 0 -health-port 0 -report-address -exit-with-parent`
+    # The child serves loopback for this process alone: the token meant for a
+    # remote service must not become one the child demands (Windows names it in any case).
+    istoken(name) = Sys.iswindows() ? uppercase(name) == TOKEN_ENV : name == TOKEN_ENV
+    env = [name * "=" * value for (name, value) in ENV if !istoken(name)]
+    cmd = setenv(`$bin -port 0 -health-port 0 -report-address -exit-with-parent`, env)
     proc = try
         open(cmd, "r+")
     catch e
@@ -115,10 +136,10 @@ function _abort_child(proc)
 end
 
 """Connect to the configured service or start a private service."""
-function connect(; timeout::Real=30, version=nothing, require_capabilities=())
+function connect(; timeout::Real=30, version=nothing, require_capabilities=(), token=nothing)
     if haskey(ENV, "OPENSYSML_SERVICE") && !isempty(ENV["OPENSYSML_SERVICE"])
         return external(ENV["OPENSYSML_SERVICE"]; timeout=timeout, version=version,
-                        require_capabilities=require_capabilities)
+                        require_capabilities=require_capabilities, token=token)
     end
     return private(; timeout=timeout, version=version, require_capabilities=require_capabilities)
 end
@@ -160,9 +181,10 @@ Base.isopen(conn::Connection) = !conn.closed
 function call(conn::Connection, method::AbstractString, request)
     conn.closed && throw(TransportError("the connection is closed; open a new one"))
     body = JSON.json(request)
+    headers = ["Content-Type" => "application/json"]
+    conn.token === nothing || push!(headers, "Authorization" => "Bearer $(conn.token)")
     response = try
-        HTTP.post("$(conn.base)/sysml.SysMLService/$(method)",
-                  ["Content-Type" => "application/json"], body;
+        HTTP.post("$(conn.base)/sysml.SysMLService/$(method)", headers, body;
                   status_exception=false, readtimeout=max(1, round(Int, conn.timeout)))
     catch e
         root = _transport_root_cause(e)

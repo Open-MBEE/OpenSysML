@@ -10,7 +10,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 )
 
@@ -215,7 +214,7 @@ func registerNavigationTools(s *mcp.Server, h *Host) {
 		if hover == nil {
 			return text("nothing at " + at(h.display(ref.uri()), in.Position)), HoverResult{}, nil
 		}
-		res := HoverResult{Markdown: hover.Contents.Value}
+		res := HoverResult{Markdown: stringArm(hover.Contents)}
 		if hover.Range != nil {
 			r := rangeFromProtocol(content, *hover.Range)
 			res.Range = &r
@@ -231,10 +230,11 @@ func registerNavigationTools(s *mcp.Server, h *Host) {
 		if err != nil {
 			return nil, LocationsResult{}, err
 		}
-		locs, err := h.Server.Definition(ctx, &protocol.DefinitionParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()}, Position: pos}})
+		res, err := h.Server.Definition(ctx, &protocol.DefinitionParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()}, Position: pos}})
 		if err != nil {
 			return nil, LocationsResult{}, err
 		}
+		locs, _ := res.(protocol.LocationSlice)
 		return h.locations(locs)
 	}))
 	mcp.AddTool(s, &mcp.Tool{
@@ -278,13 +278,9 @@ func registerSymbolTools(s *mcp.Server, h *Host) {
 			return nil, DocumentSymbolsResult{}, err
 		}
 		res := DocumentSymbolsResult{Symbols: []Symbol{}}
-		for _, item := range raw {
-			switch sym := item.(type) {
-			case protocol.DocumentSymbol:
-				res.Symbols = append(res.Symbols, convertSymbol(content, sym))
-			case *protocol.DocumentSymbol:
-				res.Symbols = append(res.Symbols, convertSymbol(content, *sym))
-			}
+		tree, _ := raw.(protocol.DocumentSymbolSlice)
+		for _, sym := range tree {
+			res.Symbols = append(res.Symbols, convertSymbol(content, sym))
 		}
 		var b strings.Builder
 		writeOutline(&b, res.Symbols, 0)
@@ -304,15 +300,16 @@ func registerSymbolTools(s *mcp.Server, h *Host) {
 		if limit <= 0 {
 			limit = 200
 		}
-		res := WorkspaceSymbolsResult{Symbols: []WorkspaceSymbol{}, Total: len(syms)}
+		flat, _ := syms.(protocol.SymbolInformationSlice)
+		res := WorkspaceSymbolsResult{Symbols: []WorkspaceSymbol{}, Total: len(flat)}
 		var b strings.Builder
-		for _, sym := range syms {
+		for _, sym := range flat {
 			if len(res.Symbols) == limit {
 				break
 			}
 			loc := Location{Path: h.display(sym.Location.URI), Range: rangeFromProtocol(h.contentOf(sym.Location.URI), sym.Location.Range)}
-			res.Symbols = append(res.Symbols, WorkspaceSymbol{Name: sym.Name, Kind: sym.Kind.String(), Container: sym.ContainerName, Location: loc})
-			fmt.Fprintf(&b, "%s %s (%s) at %s\n", sym.Kind.String(), sym.Name, sym.ContainerName, at(loc.Path, loc.Range.Start))
+			res.Symbols = append(res.Symbols, WorkspaceSymbol{Name: sym.Name, Kind: symbolKindName(sym.Kind), Container: ptrString(sym.ContainerName), Location: loc})
+			fmt.Fprintf(&b, "%s %s (%s) at %s\n", symbolKindName(sym.Kind), sym.Name, ptrString(sym.ContainerName), at(loc.Path, loc.Range.Start))
 		}
 		if res.Total > len(res.Symbols) {
 			fmt.Fprintf(&b, "%d of %d matches shown", len(res.Symbols), res.Total)
@@ -333,13 +330,13 @@ func registerEditingTools(s *mcp.Server, h *Host) {
 		if err != nil {
 			return nil, CompletionResult{}, err
 		}
-		list, err := h.Server.Completion(ctx, &protocol.CompletionParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()}, Position: pos}})
+		completed, err := h.Server.Completion(ctx, &protocol.CompletionParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()}, Position: pos}})
 		if err != nil {
 			return nil, CompletionResult{}, err
 		}
 		res := CompletionResult{Items: []CompletionItem{}}
 		var b strings.Builder
-		if list != nil {
+		if list, ok := completed.(*protocol.CompletionList); ok && list != nil {
 			res.IsIncomplete = list.IsIncomplete
 			for _, item := range list.Items {
 				res.Items = append(res.Items, completionItem(item))
@@ -365,12 +362,17 @@ func registerEditingTools(s *mcp.Server, h *Host) {
 		if help == nil {
 			return text("no invocation at " + at(h.display(ref.uri()), in.Position)), res, nil
 		}
-		res.ActiveSignature, res.ActiveParameter = int(help.ActiveSignature), int(help.ActiveParameter)
+		if help.ActiveSignature != nil {
+			res.ActiveSignature = int(*help.ActiveSignature)
+		}
+		if active, ok := help.ActiveParameter.Get(); ok {
+			res.ActiveParameter = int(active)
+		}
 		var b strings.Builder
 		for _, sig := range help.Signatures {
-			s := Signature{Label: sig.Label, Documentation: docString(sig.Documentation), Parameters: []string{}}
+			s := Signature{Label: sig.Label, Documentation: stringArm(sig.Documentation), Parameters: []string{}}
 			for _, p := range sig.Parameters {
-				s.Parameters = append(s.Parameters, docString(p.Label))
+				s.Parameters = append(s.Parameters, stringArm(p.Label))
 			}
 			res.Signatures = append(res.Signatures, s)
 			b.WriteString(sig.Label + "\n")
@@ -391,14 +393,14 @@ func registerAnnotationTools(s *mcp.Server, h *Host) {
 		if err != nil {
 			return nil, InlayHintsResult{}, err
 		}
-		hints, err := h.Server.InlayHint(&lsp.InlayHintParams{TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()}, Range: r})
+		hints, err := h.Server.InlayHint(ctx, &protocol.InlayHintParams{TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()}, Range: r})
 		if err != nil {
 			return nil, InlayHintsResult{}, err
 		}
 		res := InlayHintsResult{Hints: []InlayHint{}}
 		var b strings.Builder
 		for _, hint := range hints {
-			ih := InlayHint{Position: fromProtocol(content, hint.Position), Label: hint.Label, Tooltip: hint.Tooltip}
+			ih := InlayHint{Position: fromProtocol(content, hint.Position), Label: stringArm(hint.Label), Tooltip: stringArm(hint.Tooltip)}
 			switch hint.Kind {
 			case 1:
 				ih.Kind = "type"
@@ -429,10 +431,20 @@ func registerAnnotationTools(s *mcp.Server, h *Host) {
 		}
 		res := CodeActionsResult{Actions: []CodeAction{}}
 		var b strings.Builder
-		for _, a := range actions {
-			ca := CodeAction{Title: a.Title, Kind: string(a.Kind), IsPreferred: a.IsPreferred, Changes: []FileEdits{}}
+		for _, item := range actions {
+			a, ok := item.(*protocol.CodeAction)
+			if !ok {
+				continue
+			}
+			ca := CodeAction{Title: a.Title, Changes: []FileEdits{}}
+			if a.Kind != nil {
+				ca.Kind = string(*a.Kind)
+			}
+			if a.IsPreferred != nil {
+				ca.IsPreferred = *a.IsPreferred
+			}
 			for _, d := range a.Diagnostics {
-				ca.Diagnostics = append(ca.Diagnostics, d.Message)
+				ca.Diagnostics = append(ca.Diagnostics, stringArm(d.Message))
 			}
 			if a.Edit != nil {
 				_, edited, err := h.workspaceEdit(ctx, a.Edit, false, "code action")
@@ -442,7 +454,7 @@ func registerAnnotationTools(s *mcp.Server, h *Host) {
 				ca.Changes = edited.Changes
 			}
 			res.Actions = append(res.Actions, ca)
-			fmt.Fprintf(&b, "%s (%s)\n", a.Title, a.Kind)
+			fmt.Fprintf(&b, "%s (%s)\n", a.Title, ca.Kind)
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
 	}))
@@ -489,22 +501,37 @@ func countSeverities(diags []Diagnostic) (errors, warnings int) {
 // completionItem converts a protocol completion item, keeping an insert text
 // only when it differs from the label.
 func completionItem(item protocol.CompletionItem) CompletionItem {
-	ci := CompletionItem{Label: item.Label, Detail: item.Detail, Documentation: docString(item.Documentation)}
+	ci := CompletionItem{Label: item.Label, Detail: optString(item.Detail), Documentation: stringArm(item.Documentation)}
 	if item.Kind != 0 {
-		ci.Kind = item.Kind.String()
+		ci.Kind = completionKindName(item.Kind)
 	}
-	if item.InsertText != "" && item.InsertText != item.Label {
-		ci.InsertText = item.InsertText
-	} else if item.TextEdit != nil && item.TextEdit.NewText != item.Label {
-		ci.InsertText = item.TextEdit.NewText
+	if insert := optString(item.InsertText); insert != "" && insert != item.Label {
+		ci.InsertText = insert
+	} else if edited := completionEditText(item.TextEdit); edited != "" && edited != item.Label {
+		ci.InsertText = edited
 	}
 	return ci
 }
 
+// completionEditText is the text a completion's edit inserts, empty without one.
+func completionEditText(edit protocol.CompletionItemTextEdit) string {
+	switch e := edit.(type) {
+	case *protocol.TextEdit:
+		if e != nil {
+			return e.NewText
+		}
+	case *protocol.InsertReplaceEdit:
+		if e != nil {
+			return e.NewText
+		}
+	}
+	return ""
+}
+
 // completionLine is the text line of a completion item: its label and detail.
 func completionLine(item protocol.CompletionItem) string {
-	if item.Detail != "" {
-		return item.Label + "  " + item.Detail + "\n"
+	if detail := optString(item.Detail); detail != "" {
+		return item.Label + "  " + detail + "\n"
 	}
 	return item.Label + "\n"
 }
@@ -520,7 +547,14 @@ func (h *Host) diagnosticsWithin(ref docRef, content []byte, r protocol.Range) [
 		if pr.End.Line < r.Start.Line || pr.Start.Line > r.End.Line {
 			continue
 		}
-		diags = append(diags, protocol.Diagnostic{Range: pr, Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1), Code: d.Code, Source: d.Source, Message: d.Message}) // #nosec G115 -- four severities
+		pd := protocol.Diagnostic{Range: pr, Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1), Message: protocol.String(d.Message)} // #nosec G115 -- four severities
+		if d.Code != "" {
+			pd.Code = protocol.String(d.Code)
+		}
+		if d.Source != "" {
+			pd.Source = protocol.NewOptional(d.Source)
+		}
+		diags = append(diags, pd)
 	}
 	return diags
 }
@@ -625,7 +659,7 @@ func at(path string, p toolkit.Position) string {
 }
 
 func convertSymbol(content []byte, sym protocol.DocumentSymbol) Symbol {
-	out := Symbol{Name: sym.Name, Kind: sym.Kind.String(), Detail: sym.Detail, Range: rangeFromProtocol(content, sym.Range), SelectionRange: rangeFromProtocol(content, sym.SelectionRange)}
+	out := Symbol{Name: sym.Name, Kind: symbolKindName(sym.Kind), Detail: ptrString(sym.Detail), Range: rangeFromProtocol(content, sym.Range), SelectionRange: rangeFromProtocol(content, sym.SelectionRange)}
 	for _, child := range sym.Children {
 		out.Children = append(out.Children, convertSymbol(content, child))
 	}
@@ -639,21 +673,10 @@ func writeOutline(b *strings.Builder, syms []Symbol, depth int) {
 	}
 }
 
-// docString flattens the protocol's string-or-MarkupContent documentation.
-func docString(v any) string {
-	switch d := v.(type) {
-	case string:
-		return d
-	case protocol.MarkupContent:
-		return d.Value
-	case *protocol.MarkupContent:
-		if d != nil {
-			return d.Value
-		}
-	case map[string]any:
-		if s, ok := d["value"].(string); ok {
-			return s
-		}
+// ptrString is the string a pointer holds, empty for nil.
+func ptrString(s *string) string {
+	if s == nil {
+		return ""
 	}
-	return ""
+	return *s
 }

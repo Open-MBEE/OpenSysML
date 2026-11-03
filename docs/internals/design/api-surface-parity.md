@@ -63,7 +63,7 @@ surface reimplements the assembly around the core call.
 | Engine listing and selection | `%engines`, `%engine`, `-engines`, `-engine` | — | `ListEngines`, the `engine` field | `ListEngines`, the option | yes — `engines.Default` |
 | Model query | `%query`, `-query` (OSLC); `%run-query`, `-run-query` (document query) | — | `Query`, `RunDocumentQuery` | `Query`, `QueryOSLC`, `RunDocumentQuery` | yes — `query`, `queryplan`, `queryexec` |
 | Document rendering | `%render-document`, `-render-document(s)`, `-doc-form` | `opensysml/renderDocument` | `RenderDocument` | `RenderDocument` | yes — `docir`, `docplan`, `docrender` |
-| Convert (notation, RDF, element JSON) | `%save` (`.ttl`), `-convert`, `-from`, `-to` | — | `Convert` | `Convert`, `ConvertFile`, `ConvertSource` | yes — `export` |
+| Convert (notation, RDF, element JSON) | `%save` (`.ttl`), `-convert`, `-from` | — | `Convert` | `Convert`, `ConvertFile`, `ConvertSource` | yes — `export` |
 | Model edits | — | `opensysml/applyModelEdit`, rename, code actions | `ApplyEdits` | `ApplyEdits` | yes — `edit`; the editor's rename and quick fixes are their own assembly over it |
 | Strict conformance | `%strict`, `-strict` | editor setting | `strict_conformance` request field | option | yes — `conformance` |
 | Server / build identity | `-version` | `initialize` result | `GetServerInfo` | `ServerInfo` | yes |

@@ -9,5 +9,14 @@ part vehicle
     part piston (nested deeper than 2 levels; not shown)
     port fuelIn
 
+relationships:
+  vehicle o-- mass
+  vehicle *-- wheel
+  vehicle *-- engine
+  wheel o-- pressure
+  wheel *-- hub
+  engine *-- piston
+  engine o-- fuelIn
+
 not represented:
   - 2 elements nested deeper than 2 levels not shown

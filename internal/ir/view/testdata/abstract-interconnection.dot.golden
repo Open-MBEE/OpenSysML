@@ -14,7 +14,7 @@ digraph "AbstractViews::familyLinks" {
     "n1" [style="rounded,filled", label=<<font point-size="10"><i>«abstract port»</i></font><br/><b>fuel</b>>];
     "n2" [style="rounded,filled", label=<<font point-size="10"><i>«abstract part»</i></font><br/><b>engine</b>>];
     "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>chassis</b>>];
-    "n4" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+    "n4" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>^mass</b>>];
   }
   "n2" -> "n3" [arrowhead=none, penwidth=3];
 }

@@ -36,7 +36,7 @@
   "_meta": {
     "io.modelcontextprotocol.registry/publisher-provided": {
       "toolGroups": ["lsp", "runtime", "session"],
-      "tools": 82
+      "tools": 83
     }
   }
 }

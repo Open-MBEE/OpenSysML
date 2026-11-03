@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 
@@ -47,9 +46,13 @@ type ObjectBehavior struct {
 	State *StateExecutor
 	// Action is the action the object performs, nil for an exhibited machine.
 	Action *ActionExecutor
-	// Err is the error a performed action bound by the object's type failed with,
-	// recorded rather than failing the object's creation.
+	// Err is the error a behavior bound by the object's type failed with, at its
+	// start or while the creation ran it, recorded rather than failing the creation.
 	Err error
+	// footprint is what the body of a failed behavior may touch, computed once
+	// (failedFootprint) to withhold the verdicts it leaves undecided.
+	footprint      lower.Footprint
+	footprintKnown bool
 	// typeBound marks the behavior bound by the object's type at materialization
 	// or restart, rather than started by an explicit `perform obj.beh.start`.
 	typeBound bool
@@ -169,14 +172,23 @@ func (ctx *Context) behaviorAttached(inst *Instance, member *symbols.Symbol) {
 }
 
 // ExhibitedState returns the machine the object exhibits, and false when it
-// exhibits none. With several, it returns the first declared.
+// exhibits none. With several, it returns the first declared that started; when
+// none did, the first declared, its failure recorded on it: a record, not a
+// machine to run.
 func (inst *Instance) ExhibitedState() (*ObjectBehavior, bool) {
+	var failed *ObjectBehavior
 	for _, b := range inst.behaviors {
-		if b.Kind == lower.ExhibitedState {
+		if b.Kind != lower.ExhibitedState {
+			continue
+		}
+		if b.Err == nil {
 			return b, true
 		}
+		if failed == nil {
+			failed = b
+		}
 	}
-	return nil, false
+	return failed, failed != nil
 }
 
 // ExhibitedStates returns every machine the object exhibits, in declaration order.
@@ -439,6 +451,7 @@ func (ctx *Context) forgetAbandoned(abandoned map[int64]bool, gone []*Instance) 
 	ctx.forgetEdgesOf(gone)
 	ctx.forgetValuesNaming(abandoned)
 	ctx.forgetMessagesTo(abandoned)
+	ctx.forgetRecordsNaming(abandoned)
 }
 
 // forgetVariantsNaming unselects every variant whose object or selecting object
@@ -793,18 +806,22 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 				ctx.behaviorAttached(inst, decl.member)
 			}
 			if err != nil {
+				// A behavior that cannot start ends there, the object standing: the
+				// failure is recorded on the behavior, one made for the record when
+				// the binding gave it no execution.
 				var failed *ObjectBehavior
 				if len(behaviors) > 0 {
 					failed = behaviors[len(behaviors)-1]
 					behaviors = behaviors[:len(behaviors)-1]
+				} else {
+					failed = ctx.unstartedBehavior(inst, decl)
 				}
-				if failed == nil || !errors.Is(err, errUnboundParameter) {
-					if failed != nil {
-						failed.leaveClock()
-					}
+				failed.typeBound = true
+				if !recordsFailure(failed, err) {
+					failed.leaveClock()
 					return err
 				}
-				ctx.endFailedPerformance(failed, fmt.Errorf("%s: %w", failed.Describe(), err))
+				ctx.endFailedPerformance(failed, err)
 				behaviors = append(behaviors, failed)
 			}
 			for _, behavior := range behaviors {
@@ -1017,13 +1034,6 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 	ctx.workChanged()
 }
 
-// recordsFailure reports whether an error of a behavior is recorded on the
-// performance rather than failing what ran it: an unbound input of a performed
-// action the object's type bound.
-func recordsFailure(b *ObjectBehavior, err error) bool {
-	return b != nil && b.typeBound && b.Kind == lower.PerformedAction && errors.Is(err, errUnboundParameter)
-}
-
 // failBehavior records a failure that ends the behavior for good, through the
 // journal, so a snapshot restore or a rolled-back creation undoes the record.
 func (ctx *Context) failBehavior(b *ObjectBehavior, err error) {
@@ -1037,9 +1047,16 @@ func (ctx *Context) failBehavior(b *ObjectBehavior, err error) {
 // the work it left paused, all through the journal so a restore undoes them.
 func (ctx *Context) endFailedPerformance(b *ObjectBehavior, err error) {
 	ctx.failBehavior(b, err)
-	if b.Action != nil && b.Action.occurrence != nil {
-		if life := ctx.lives[b.Action.occurrence.ID]; life.began != 0 {
-			ctx.endPerformanceLife(b.Action.occurrence)
+	var occurrence *Instance
+	switch {
+	case b.Action != nil:
+		occurrence = b.Action.occurrence
+	case b.State != nil:
+		occurrence = b.State.occurrence
+	}
+	if occurrence != nil {
+		if life := ctx.lives[occurrence.ID]; life.began != 0 {
+			ctx.endPerformanceLife(occurrence)
 		}
 	}
 	b.leaveClock()
@@ -1310,8 +1327,11 @@ func (ctx *Context) attachClassifierBehaviorWith(inst, self *Instance, decl clas
 			exec.ctx.writeBodyValue(exec.stateCells, exec.stateData, name, value)
 		}
 		if err := exec.initialize(); err != nil {
+			// A machine that fails to start is returned with the error for a
+			// type-bound start to record, its graph telling what it may write.
 			exec.Release()
-			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
+			behavior.State = exec
+			return behavior, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
 		behavior.State = exec
 	case lower.PerformedAction:
@@ -1605,11 +1625,10 @@ func (ctx *Context) actionBodyGraph(action *symbols.Symbol) (*symbols.Symbol, *l
 	sym := action
 	var fallback *lower.ActionGraph
 	for depth := 0; depth < maxBehaviorBindingDepth; depth++ {
-		graph, err := lower.ToActionGraphWith(sym.Decl, DeclScope(sym), ctx.Resolver())
+		graph, err := ctx.model.actionGraph(sym)
 		if err != nil {
 			return nil, nil, fmt.Errorf("lower action graph: %w", err)
 		}
-		lower.StartFlow(graph)
 		if depth == 0 {
 			fallback = graph
 		}

@@ -185,34 +185,39 @@ config:
   …
   flowchart:
     subGraphTitleMargin:
-      bottom: 48
+      bottom: 72
 ---
 %% LanderViews::descentFlow — action rendering (view def ActionFlowView)
 %% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
-%% not represented: 2 pin(s) not drawn (Lander::Descend.fuel, burn.propellant); a flowchart draws the pins an edge ends at
 flowchart TD
-  subgraph n0 ["`*«action def»*
-**Descend**`"]
+  subgraph n0 ["`*«action def»* **Descend**
+parameters
+in fuel`"]
     direction TD
     n1@{ shape: f-circ, label: "" }
     n2("`*«action»*
 **deployParachute**`")
-    subgraph n3 ["`*«action»*
-**burn**
-own flow`"]
+    subgraph n3 ["`*«action»* **burn**
+own flow
+parameters
+in propellant`"]
       direction TD
+      n3_anchor[" "]
       …
   end
-  n4 --> n5
+  n4 -.-> n5
   …
-  n9 -->|"[altitude #gt; 0.0]"| n8
+  n9 -.->|"[altitude #gt; 0.0]"| n8
   …
 ```
 
-The leading frontmatter carries the theme and reserves the height of a cluster
-title's second and third lines, which Mermaid would otherwise draw under the
-first child. The `%% not represented` lines name what the text form shows and
-the diagram cannot: the names of fork and join bars, and pins no edge ends at.
+The leading frontmatter carries the theme and, because `burn`'s title spans
+four lines (its `own flow` note and its `parameters` compartment), reserves
+the height of a cluster title's further lines, which Mermaid would otherwise
+draw under the first child. Successions are dashed, the notation's control-flow
+line. The
+`%% not represented` line names what the text form shows and the diagram
+cannot: the names of fork and join bars.
 
 ```
 %render LanderViews::partsTable markdown
@@ -243,11 +248,8 @@ reaches only what carries the `Safety` metadata:
 ```
 LanderViews::safetyView - tree rendering (the view states no rendering; a tree is the default)
 
-part def Lander::Thruster
-  attribute thrust : Real
-  item fuelIn : Fuel
-  port supply : FuelPort
-part def Lander::Parachute
+part def Thruster
+part def Parachute
 ```
 
 ## Rendering without the REPL

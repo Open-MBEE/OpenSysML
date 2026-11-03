@@ -1,0 +1,14 @@
+model: tools/referee/exec/testdata/models/empty_second_operand.sysml
+
+# Binary `+`/`-` with an empty second operand, operator and function form side
+# by side (KerML 1.1 §8.4.4.9.6); the pilot leaves the operator form unevaluated.
+op-plus-null ::  :: EmptyOperand::OpPlusNull()
+fn-plus-null ::  :: EmptyOperand::FnPlusNull()
+op-minus-null ::  :: EmptyOperand::OpMinusNull()
+fn-minus-null ::  :: EmptyOperand::FnMinusNull()
+op-minus-empty ::  :: EmptyOperand::OpMinusEmpty()
+op-real-minus-null ::  :: EmptyOperand::OpRealMinusNull()
+op-null-plus ::  :: EmptyOperand::OpNullPlus()
+fn-null-plus ::  :: EmptyOperand::FnNullPlus()
+op-times-null ::  :: EmptyOperand::OpTimesNull()
+op-less-null ::  :: EmptyOperand::OpLessNull()

@@ -1,0 +1,18 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::reader",
+  "slots": {
+    "busDry": {"type": "Real", "value": 7.0},
+    "busOwn": {"error": "unresolved reference: bus has no member own: test::bus::dry redefines it"},
+    "busMass": {"error": "unresolved reference: bus has no member mass: test::bus::dry redefines it"},
+    "survivingNamesake": {"type": "Boolean", "value": true},
+    "subjectName": {"type": "Integer", "value": 3},
+    "subjectRole": {"error": "unresolved reference: u has no member subj: test::U::s redefines it"},
+    "subjectCount": {"type": "Integer", "value": 1},
+    "objectiveRole": {"type": "Boolean", "value": true},
+    "namedSubjectRole": {"error": "unresolved reference: named has no member subj: test::Named::s redefines it"},
+    "namedObjectiveRole": {"error": "unresolved reference: named has no member obj: test::Named::o redefines it"},
+    "namedObjective": {"type": "Boolean", "value": true}
+  }
+}

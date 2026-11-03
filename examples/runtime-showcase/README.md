@@ -125,7 +125,7 @@ number; the tool checks and carries this at every step:
 
 ```
 ✓ DeltaVBudget::RocketEquation(421 [SI::s], 9.80665 [SI::'m/s²'], 133000 [SI::kg], 28000 [SI::kg])
-  = 6432.955324716369 [SI::'m/s']
+  = [6432.955324716369 [SI::'m/s']]
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -140,9 +140,9 @@ requirement. `saturnIBAscent` binds the subject, so it runs by name:
 
 ```
 ✓ DeltaVBudget::saturnIBAscent
-  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
-  stage2DeltaV = 6432.955324716369 [SI::'m/s']
-  margin = 70.65198768706614 [SI::'m/s']
+  stage1DeltaV = [3037.6966629706967 [SI::'m/s']]
+  stage2DeltaV = [6432.955324716369 [SI::'m/s']]
+  margin = [70.65198768706614 [SI::'m/s']]
   objective reachesOrbit: satisfied
   standing: value (observed: 1 run under reverse)
 ```
@@ -158,9 +158,9 @@ and the exit status becomes `1`:
 
 ```
 ✗ DeltaVBudget::saturnIBAscent(required = 9800 ['m/s'])
-  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
-  stage2DeltaV = 6432.955324716369 [SI::'m/s']
-  margin = -329.34801231293386 [SI::'m/s']
+  stage1DeltaV = [3037.6966629706967 [SI::'m/s']]
+  stage2DeltaV = [6432.955324716369 [SI::'m/s']]
+  margin = [-329.34801231293386 [SI::'m/s']]
   objective reachesOrbit: not satisfied: margin > 0 ['m/s']
   standing: value (observed: 1 run under reverse)
 ```
@@ -399,7 +399,7 @@ three with the action and completes it once all three have:
   Tokens: 3
 ✓ Action completed
   Final state: Completed
-  1 choice point; %trace on to see them
+  1 choice point (1 independent); %trace on to see them
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -452,7 +452,7 @@ the spacecraft's, and `-advance` runs the one clock both parts share:
   Current state: transmitted | notRecharging
   Last event at: 241.0
   Remaining events: 0
-  592 choice points; %trace on to see them
+  592 choice points (591 independent); %trace on to see them
   Do behavior actions run: 808
   standing: value (observed: 1 run under reverse)
 ```
@@ -561,7 +561,7 @@ policies' ([a do behavior under `explore` and
 ```
 
 ```
-✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (14664 states, 35546 moves, depth 757)
+✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (14748 states, 35626 moves, depth 757)
   divergent: this.battery ends as 39 or 41
   divergent: this.data ends as 51200 or 52224 or 53248
   (…)
@@ -641,7 +641,7 @@ The model's mass-budget step runs as written:
 
 ```
 ✓ CalculationsPackage::calculateMassBudgetStep(2900000 [SI::kg], 2000000 [SI::kg], 130000 [SI::kg])
-  = 770000 [SI::kg]
+  = [770000 [SI::kg]]
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -672,7 +672,7 @@ about, met at the point of use:
 ```
 
 ```
-sysml: calc invocation failed: calc CalculationsPackage::calculateDeltaV: evaluating the returned expression: no result expression: calc CoSMAQuantitiesAndUnitsPackage::naturalLogarithm has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : DataValue = <expr>;`
+sysml: calc invocation failed: calc CalculationsPackage::calculateDeltaV: evaluating the returned expression: no value: calc CoSMAQuantitiesAndUnitsPackage::naturalLogarithm has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : DataValue = <expr>;`
   standing: not covered (…)
 ```
 
@@ -696,7 +696,8 @@ which lists `outbound`, `lunarOps` and `returnJourney` with no succession
 between them — `LunarMissionUnordered`, at full scale. Instantiating the
 individual starts that performance, its phases unordered, and then the state
 machine the mission exhibits, which cannot start: `apollo11Phases` declares a
-state named `initial` but no `entry; then …;` naming where the machine begins:
+state named `initial` but no `entry; then …;` naming where the machine begins.
+The object stands, with a warning that the machine runs no further:
 
 ```bash
 ./bin/sysml -quiet \
@@ -705,7 +706,11 @@ state named `initial` but no `entry; then …;` naming where the machine begins:
 ```
 
 ```
-sysml: instantiation failed: exhibited state machine apollo11Phases of apollo11MissionIndividual: no initial state found in state machine apollo11Phases
+✓ Created instance of Apollo11MissionExecutionPackage::apollo11MissionIndividual
+  ID: 1
+  warning: exhibited state machine apollo11Phases of object #1 failed to start and runs no further: exhibited state machine apollo11Phases of apollo11MissionIndividual: no initial state found in state machine apollo11Phases
+  Use %features Apollo11MissionExecutionPackage::apollo11MissionIndividual to inspect
+warning: Apollo11MissionExecutionPackage::apollo11MissionIndividual: materialization is bounded; not every feature value was checked
 ```
 
 None of these is a validation error, and none should be: each construct is

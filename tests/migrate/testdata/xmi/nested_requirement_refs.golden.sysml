@@ -19,4 +19,14 @@ package Model {
         }
         metadata MigrationMetadata::SynthesizedName about 'Outer Requirement.Nested Requirement.Innermost Requirement refines block';
     }
+    package Cases {
+        use case Operate;
+        view 'Operating Cases' {
+            expose Operate;
+            expose Requirements::'Outer Requirement'::'Nested Requirement'::'Innermost Requirement';
+            expose 'Operate refines Innermost Requirement';
+            render Views::asInterconnectionDiagram;
+        }
+    }
+    connection 'Operate refines Innermost Requirement' connect Cases::Operate to Requirements::'Outer Requirement'.'Nested Requirement'.'Innermost Requirement';
 }

@@ -9,6 +9,7 @@ service error came from an RPC, the original `grpc.RpcError` is available as
 | Error | Use it for |
 | --- | --- |
 | `ConnectionError` | service unavailable, startup failure or binary resolution |
+| `AuthenticationError` | the service requires a bearer token the call did not present, or refused the one it did (a `ConnectionError`) |
 | `ChecksumMismatchError` | downloaded bytes contradict a pinned digest |
 | `ManifestSignatureError` | the release checksum manifest's signature is invalid |
 | `UnpinnedReleaseError` | no digest is pinned for the requested release |
@@ -41,15 +42,15 @@ or a condition that could not be evaluated is represented separately; see
 
 ## Names that shadowed builtins
 
-Neither historical builtin-like name is part of the public API any more:
-the module-level evaluation function is `opensysml.evaluate`, and the
-execution exception is `opensysml.ExecutionError`. Deprecated aliases remain
-available and warn when accessed, but they are excluded from `__all__`.
+Neither historical builtin-like name is part of the public API: the
+module-level evaluation function is `opensysml.evaluate`, and the execution
+exception is `opensysml.ExecutionError`. The deprecated aliases that warned
+and answered the new object were removed in 0.12.0.
 
-| Deprecated name | Use instead |
+| Removed name | Use instead |
 | --- | --- |
 | `opensysml.eval` | `opensysml.evaluate` |
-| `opensysml.errors.RuntimeError` | `opensysml.ExecutionError` |
+| `opensysml.RuntimeError`, `opensysml.errors.RuntimeError` | `opensysml.ExecutionError` |
 
 Import the package rather than star-importing names that might shadow builtins.
 The `Model.eval` and `Connection.eval` methods keep their name; object

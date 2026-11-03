@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"fmt"
+	"iter"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -313,6 +315,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	// A calc computes nothing unless it returns or binds an output; a case also
 	// computes through its steps, or answers with its verdicts alone, and a
 	// library function the runtime implements natively computes through that.
+	// One that computes nothing leaves its result parameter without a value.
 	performs := shape.isCase() && (len(shape.Nodes) > 0 || ctx.analysisChecks(sym))
 	_, native := ctx.libraryFunctionFor(sym)
 	computes := lower.Returns(shape.Body) || len(shape.BodyOutputs) > 0 || shape.ResultExpr != nil || shape.hasInitialOutput() || performs || native
@@ -320,9 +323,9 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	case computes || shape.Tool != nil:
 	case len(shape.Outputs) > 0 && shape.resultOutput() == nil:
 		shape.Uncomputed = fmt.Errorf("%w: %s binds none of its outputs (%s)",
-			errNoResultExpression, label, shape.outputNames())
+			ErrNoValue, label, shape.outputNames())
 	default:
-		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", errNoResultExpression, label, unboundResultHint(chain))
+		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", ErrNoValue, label, unboundResultHint(chain))
 	}
 
 	ctx.model.calcShapes[sym] = shape
@@ -833,7 +836,7 @@ func (ctx *Context) invokeCalcShapeDirect(shape *calcShape, args calcArgs, calle
 		ec.trace.recordCalculationEnter(shape.Kind, shape.Name)
 	}
 
-	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil, occurrence); err != nil {
+	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, calcBindingSite{occurrence: occurrence}); err != nil {
 		if ec.trace != nil {
 			ec.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}
@@ -921,21 +924,27 @@ func (ctx *Context) leaveCalc() {
 	ctx.calcDepth--
 }
 
+// calcBindingSite is where a usage's bindings land beyond the call: the nested
+// reader they evaluate in, the performance written to, and the open parameters.
+type calcBindingSite struct {
+	nested     *EvalContext
+	occurrence *calcOccurrence
+	open       map[string]bool
+}
+
 // bindCalcParameters binds the calc's input parameters into bindings: each
 // parameter's argument, or, for a parameter no argument supplies, the default
 // declared closest to the invoked calc, evaluated in the scope of the calc
-// declaring it. ec supplies the environment defaults are evaluated in; nested,
-// when non-null, is the environment reading a nested usage, which the bindings
-// the usage itself declares are written in and evaluate against.
+// declaring it. ec supplies the environment defaults are evaluated in.
 func (ctx *Context) bindCalcParameters(
 	shape *calcShape,
 	ec *EvalContext,
 	args calcArgs,
 	callerScope *symbols.Scope,
 	bindings frame,
-	nested *EvalContext,
-	occurrence *calcOccurrence,
+	site calcBindingSite,
 ) error {
+	nested, occurrence, open := site.nested, site.occurrence, site.open
 	positional := 0
 	for i := range shape.Params {
 		param := &shape.Params[i]
@@ -957,28 +966,41 @@ func (ctx *Context) bindCalcParameters(
 		if nested != nil && param.Owner == shape.Sym {
 			binder = nested
 		}
-		value, source, err := binder.evalIn(defaultScope).bindCalcParameter(shape, param, args, position, nested)
-		if err != nil {
-			return err
-		}
-		// The parameter holds the value bound to it, so that value answers to the
-		// parameter's effective multiplicity as a written one does to its declared one.
-		what := func() string {
-			return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
-		}
-		decl := param.Decl
-		// An actor states no direction, so the parameter chain does not reach what it
-		// redefines; its range is the one the shape folded along the redeclarations.
-		if decl.Target != nil && param.Sym != nil && !param.IsActor {
-			target := *decl.Target
-			target.mult = ctx.model.semantics.EffectiveParameterRange(param.Sym)
-			decl.Target = &target
-		}
-		if err := decl.check(ctx, &value, what); err != nil {
-			return err
-		}
-		if err := param.checkFunction(&value, what); err != nil {
-			return err
+		var value Value
+		var source string
+		if open[param.Name] && shape.opensRun(param, ctx.model.semantics) {
+			// A feature read passes no arguments: an input whose absence stops the run binds
+			// undetermined (a default reading it is open with it); an optional one binds empty.
+			var count semantics.Range
+			if param.Sym != nil {
+				count = ctx.effectiveFeature(param.Name, param.Sym, shape.Sym).Multiplicity
+			}
+			value, source = undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", shape.Label, param.Name), count, param.Sym), "unsupplied"
+		} else {
+			var err error
+			value, source, err = binder.evalIn(defaultScope).bindCalcParameter(shape, param, args, position, nested)
+			if err != nil {
+				return err
+			}
+			// The parameter holds the value bound to it, so that value answers to the
+			// parameter's effective multiplicity as a written one does to its declared one.
+			what := func() string {
+				return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
+			}
+			decl := param.Decl
+			// An actor states no direction, so the parameter chain does not reach what it
+			// redefines; its range is the one the shape folded along the redeclarations.
+			if decl.Target != nil && param.Sym != nil && !param.IsActor {
+				target := *decl.Target
+				target.mult = ctx.model.semantics.EffectiveParameterRange(param.Sym)
+				decl.Target = &target
+			}
+			if err := decl.check(ctx, &value, what); err != nil {
+				return err
+			}
+			if err := param.checkFunction(&value, what); err != nil {
+				return err
+			}
 		}
 		bindings.bindParam(i, param.Name, value)
 		if occurrence != nil && occurrence.inst != nil {
@@ -1090,7 +1112,7 @@ func (shape *calcShape) designatedToolOutput(outputs map[string]Value) (calcOutp
 
 	switch len(valued) {
 	case 0:
-		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", errCalcNoReturn, shape.Label)
+		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", ErrNoValue, shape.Label)
 	case 1:
 		return valued[0], nil
 	default:
@@ -1255,16 +1277,19 @@ func (ec *EvalContext) bindCalcParameter(
 		if param.optional(ec.ctx.model.semantics) {
 			return nullValue(), "omitted", nil
 		}
-		return Value{}, "", fmt.Errorf(
-			"%w: %s parameter %q has no argument and no default",
-			errUnboundParameter, shape.Label, param.Name,
-		)
+		return Value{}, "", shape.unboundParameter(param.Name)
 	}
 	value, err := ec.Eval(param.Default)
 	if err != nil {
 		return Value{}, "", calcDefaultError(shape.Kind, shape.Name, param.Name, err)
 	}
 	return value, "default", nil
+}
+
+// unboundParameter is the error of a parameter an invocation or a run neither
+// binds nor defaults: the request cannot proceed without it.
+func (shape *calcShape) unboundParameter(name string) error {
+	return fmt.Errorf("%w: %s parameter %q has no argument and no default", errUnboundParameter, shape.Label, name)
 }
 
 // calcScope returns the scope an inherited or own calc body member is written
@@ -1360,7 +1385,7 @@ func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols
 	for _, link := range ctx.model.semantics.ParameterRedefinitionChain(sym) {
 		owner := link.OwnerScope.Owner()
 		param.Decl = param.Decl.redeclaring(ctx.calcMemberDeclFor(owner, link, param.Name))
-		if at := indexOfSymbol(libInputs, link); at >= 0 {
+		if at := slices.Index(libInputs, link); at >= 0 {
 			return param, at
 		}
 		if ctx.libraryDeclared(link) {
@@ -1417,15 +1442,6 @@ func (ctx *Context) ownedInputSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 	return inputs
 }
 
-func indexOfSymbol(syms []*symbols.Symbol, want *symbols.Symbol) int {
-	for i, sym := range syms {
-		if sym == want {
-			return i
-		}
-	}
-	return -1
-}
-
 // invokeLibraryPerformance binds args to the effective signature of a calc performing
 // a library function as any calc binds its parameters — each default evaluated where
 // it is declared with the earlier parameters bound, each value checked against its
@@ -1471,7 +1487,7 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 		trace:      ctx.trace,
 		activation: activation,
 	}
-	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil, nil); err != nil {
+	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, calcBindingSite{}); err != nil {
 		return Value{}, err
 	}
 
@@ -1592,14 +1608,8 @@ func isStateSymbol(sym *symbols.Symbol) bool {
 // unwrappedDeclMembers is ast.DeclMembers extended to named owned constraints,
 // with the Membership wrappers the parser produces unwrapped.
 func unwrappedDeclMembers(decl ast.Node) []ast.Node {
-	if oc, ok := ast.OwnedConstraintOf(decl); ok {
-		return oc.Body
-	}
-	switch m := decl.(type) {
-	case *ast.AssumeMember:
-		return m.Body
-	case *ast.RequireMember:
-		return m.Body
+	if body, ok := constraintMemberBody(decl); ok {
+		return body
 	}
 	members := ast.DeclMembers(decl)
 	if members == nil {
@@ -1607,13 +1617,45 @@ func unwrappedDeclMembers(decl ast.Node) []ast.Node {
 	}
 
 	out := make([]ast.Node, 0, len(members))
-	for _, member := range members {
-		if membership, ok := member.(*ast.Membership); ok {
-			member = membership.Member
-		}
+	for member := range eachUnwrappedDeclMember(decl) {
 		out = append(out, member)
 	}
 	return out
+}
+
+// constraintMemberBody returns the nested members of an assume or require member
+// in either of its forms, and false for every other declaration.
+func constraintMemberBody(decl ast.Node) ([]ast.Node, bool) {
+	switch m := decl.(type) {
+	case *ast.AssumeMember:
+		return m.Body, true
+	case *ast.RequireMember:
+		return m.Body, true
+	}
+	return nil, false
+}
+
+// eachUnwrappedDeclMember yields what unwrappedDeclMembers lists without building the list,
+// for the readers that stop at the first member of interest.
+func eachUnwrappedDeclMember(decl ast.Node) iter.Seq[ast.Node] {
+	return func(yield func(ast.Node) bool) {
+		if body, ok := constraintMemberBody(decl); ok {
+			for _, member := range body {
+				if !yield(member) {
+					return
+				}
+			}
+			return
+		}
+		for _, member := range ast.DeclMembers(decl) {
+			if membership, ok := member.(*ast.Membership); ok {
+				member = membership.Member
+			}
+			if !yield(member) {
+				return
+			}
+		}
+	}
 }
 
 // QualifiedName renders a symbol's qualified name, falling back to its

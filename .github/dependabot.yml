@@ -1,0 +1,133 @@
+# Weekly dependency updates, at most one grouped minor/patch pull request per ecosystem,
+# against develop. The pull requests run the same CI as any other and a maintainer merges
+# them (CONTRIBUTING.md § Dependabot pull requests). Major versions are never offered: the
+# workflows pin actions to commit SHAs and the TypeScript/Node majors break the builds, so a
+# maintainer takes each major by hand. Dependabot alerts and security updates are repository
+# settings, not configured here.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directories:
+      - /
+      - /tools
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      go-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directories:
+      - /client/node
+      - /packaging/npm/sysml-mcp
+      - /editors/vscode
+      - /editors/jupyterlab
+      - /editors/syson/frontend
+      - /scripts/asciidoc
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      npm-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # editors/vscode's typing must not exceed its engines.vscode floor (vsce refuses it); bump both together when the floor moves.
+      - dependency-name: "@types/vscode"
+      # editors/syson/frontend pins React 18; @testing-library/react 12.1.5 narrowed its peer range to react <18, so npm ci fails until the React-18 major is taken by hand.
+      - dependency-name: "@testing-library/react"
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: pip
+    directories:
+      - /client/python
+      - /client/jupyter-kernel
+      - /packaging/pypi-pysysml
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      pip-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: cargo
+    directory: /client/rust
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      cargo-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: maven
+    directories:
+      - /client/java
+      - /editors/syson
+      - /editors/mdk
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      maven-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

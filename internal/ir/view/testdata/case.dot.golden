@@ -12,8 +12,8 @@ digraph "CaseExamples::caseDiagram" {
   "n2" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>driver</b>>];
   "n3" [shape=note, label=<<b>objective</b><br/>Transport the vehicle and its passengers safely.>];
   "n4" [shape=ellipse, label=<<font point-size="10"><i>«use case»</i></font><br/><b>addFuel</b>>];
-  "n5" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>fueler</b>>];
-  "n6" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle</b>>];
+  "n5" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>^fueler</b>>];
+  "n6" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>^vehicle</b>>];
   "n7" [shape=ellipse, label=<<font point-size="10"><i>«include use case»</i></font><br/><b>&#39;enter vehicle&#39;</b>>];
   "n8" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle</b>>];
   "n9" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>driver</b>>];
@@ -31,8 +31,8 @@ digraph "CaseExamples::caseDiagram" {
   "n0" -> "n3" [dir=none, style=dashed];
   "n5" -> "n4" [dir=none];
   "n4" -> "n6" [label="«subject»", dir=none];
-  "n0" -> "n4" [label="«include»", style=dashed];
-  "n0" -> "n7" [label="«include»", style=dashed];
+  "n0" -> "n4" [label="«include»", arrowhead=vee];
+  "n0" -> "n7" [label="«include»", arrowhead=vee];
   "n7" -> "n8" [label="«subject»", dir=none];
   "n9" -> "n7" [dir=none];
   "n0" -> "n10" [arrowtail=diamond, dir=back];

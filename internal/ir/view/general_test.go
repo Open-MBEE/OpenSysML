@@ -126,7 +126,7 @@ func TestGeneralViewUnresolvedRelationshipEnds(t *testing.T) {
 		t.Fatalf("kind = %q, want %q", rendering.Kind, KindRequirement)
 	}
 	text := rendering.textWith(fullNotation)
-	for _, want := range []string{"requirement def Model::Limit", "requirement Model::limit : Limit", "Model::limit ..|> Model::Limit"} {
+	for _, want := range []string{"requirement def Model::Limit", "requirement Model::limit : Limit", "Model::limit --:|> Model::Limit"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendering lacks %q:\n%s", want, text)
 		}
@@ -242,7 +242,7 @@ func TestGeneralViewInheritedObjectiveVerifies(t *testing.T) {
 		expose Model::*;
 	}
 }`))
-	for _, want := range []string{"Model::Check ..> Model::r: verify", "Model::check ..> Model::r: verify", "Model::recheck ..> Model::s: verify"} {
+	for _, want := range []string{"Model::Check -> Model::r: «verify»", "Model::check -> Model::r: «verify»", "Model::recheck -> Model::s: «verify»"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendering lacks %q:\n%s", want, text)
 		}
@@ -268,7 +268,7 @@ func TestGeneralViewInheritedSubsetting(t *testing.T) {
 		expose Model::**;
 	}
 }`))
-	if want := "Model::Derived::p --|> Model::Base::p: subsets"; !strings.Contains(text, want) {
+	if want := "Model::Derived::p --|> Model::Base::p\n"; !strings.Contains(text, want) {
 		t.Errorf("rendering lacks %q:\n%s", want, text)
 	}
 }
@@ -292,7 +292,7 @@ func TestGeneralViewMemberImportsStayDistinct(t *testing.T) {
 	}
 }`)
 	text := textWithQualifiers(t, rendering)
-	for _, want := range []string{"Model::P ..> Model::Q: import ::A", "Model::P ..> Model::Q: import ::B"} {
+	for _, want := range []string{"Model::P ..> Model::Q: «import» ::A", "Model::P ..> Model::Q: «import» ::B"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendering lacks %q:\n%s", want, text)
 		}
@@ -324,5 +324,20 @@ func TestVerdictOverlayRecoloursStyledRequirement(t *testing.T) {
 	}
 	if declared.Fill != "#0000FF" || declared.Line != "#0000FF" {
 		t.Errorf("the declared Style changed: %+v", *declared)
+	}
+}
+
+// A requirement graph's allocation is labelled by its keyword, which hiding
+// the edge labels — the optional names of connectors — does not remove.
+func TestRequirementGraphKeepsTheAllocateKeywordWithoutEdgeLabels(t *testing.T) {
+	rendering := render(t, "general.sysml", "GeneralViews::requirementView")
+	for _, form := range []Form{FormText, FormDot, FormMermaid, FormPlantUML, FormD2} {
+		out, err := rendering.WriteWith(form, Options{})
+		if err != nil {
+			t.Fatalf("%s: %v", form, err)
+		}
+		if !strings.Contains(out, "«allocate»") && !strings.Contains(out, "<U+00AB>allocate<U+00BB>") {
+			t.Errorf("%s without edge labels loses the «allocate» keyword:\n%s", form, out)
+		}
 	}
 }

@@ -150,7 +150,7 @@ func TestConfigureRefusesAMultiValuedNestedPartByName(t *testing.T) {
 	s := checkSession(t, nestedModel)
 	wants(t, run(t, s, "%configure Nested::many all"),
 		"✓ Part many permits 1 selection of variants, which are all of them",
-		"Not in the query: what gear asserts about its own objects, as it may hold more than one object; %instantiate and %validate an object to check it")
+		"Not in the query: what gear asserts about its own objects, as it may hold more than one object; instantiate and validate an object to check it")
 }
 
 func TestConfigureSelectsAVariantsOwnVariationOnlyUnderIt(t *testing.T) {
@@ -191,7 +191,7 @@ func TestConfigureCutsARecursivePartAndNamesIt(t *testing.T) {
 	s := checkSession(t, nestedModel)
 	wants(t, run(t, s, "%configure Nested::chain all"),
 		"✓ Part chain permits 1 selection of variants, which are all of them",
-		"Not in the query: what head.next asserts about its own objects, as its type Node holds an object of its own type, which validation does not follow; %instantiate and %validate an object to check it")
+		"Not in the query: what head.next asserts about its own objects, as its type Node holds an object of its own type, which validation does not follow; instantiate and validate an object to check it")
 }
 
 func TestConfigureRefusesAnOptionalNestedPartByName(t *testing.T) {
@@ -199,7 +199,7 @@ func TestConfigureRefusesAnOptionalNestedPartByName(t *testing.T) {
 	s := checkSession(t, nestedModel)
 	wants(t, run(t, s, "%configure Nested::sparse all"),
 		"✓ Part sparse permits 1 selection of variants, which are all of them",
-		"Not in the query: what spare asserts about its own objects, as it may hold no object; %instantiate and %validate an object to check it")
+		"Not in the query: what spare asserts about its own objects, as it may hold no object; instantiate and validate an object to check it")
 }
 
 func TestConfigureKeepsANestedVariationUnderItsVariantAlone(t *testing.T) {
@@ -224,6 +224,6 @@ func TestConfigureNamesARecursivePartWhoseDescendantsAssert(t *testing.T) {
 	s := checkSession(t, nestedModel)
 	out := run(t, s, "%configure Nested::links all")
 	wants(t, out, "✓ Part links permits 1 selection of variants, which are all of them",
-		"Not in the query: what head.next asserts about its own objects, as its type Link holds an object of its own type, which validation does not follow; %instantiate and %validate an object to check it")
+		"Not in the query: what head.next asserts about its own objects, as its type Link holds an object of its own type, which validation does not follow; instantiate and validate an object to check it")
 	rejects(t, out, "what head.gear asserts")
 }

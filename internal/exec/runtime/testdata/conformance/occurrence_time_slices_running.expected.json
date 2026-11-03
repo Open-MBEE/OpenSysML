@@ -1,0 +1,26 @@
+{
+  "type": "instance",
+  "instantiate": "test::Runner",
+  "libraries": true,
+  "slots": {
+    "ran": {"type": "Integer", "value": 1},
+    "actStart": {"type": "Instance"},
+    "actDone": {"type": "Instance"},
+    "actShots": {"type": "Integer", "value": 2},
+    "actSlices": {"type": "Integer", "value": 3},
+    "actPortions": {"type": "Integer", "value": 3},
+    "ownShots": {"type": "Undetermined", "value": "[1]"},
+    "ownStart": {"type": "Instance"},
+    "ownDone": {"type": "Undetermined", "value": "[1]"},
+    "actDuration": {"type": "Quantity", "value": 0.0, "unit": "s"},
+    "actTime": {"type": "Quantity", "value": 0.0, "unit": "s"},
+    "actClockTime": {"type": "Real", "value": 0.0},
+    "startShotOfStart": {"type": "Boolean", "value": true},
+    "endShotOfStart": {"type": "Boolean", "value": true},
+    "startShots": {"type": "Integer", "value": 1},
+    "startSnapshotOf": {"type": "Boolean", "value": true},
+    "startTimeSliceOf": {"type": "Integer", "value": 2},
+    "shotIsP1": {"type": "Boolean", "value": true},
+    "shotParts": {"type": "Integer", "value": 2}
+  }
+}

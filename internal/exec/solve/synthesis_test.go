@@ -108,10 +108,7 @@ func TestSynthesisRespectsAssumedConditions(t *testing.T) {
 	solver := requireSolver(t)
 	ctx, idx := fixtureFile(t, "rig_pins.sysml")
 	landing := symbolNamed(t, idx, "test::Landing")
-	pins, unfixed := Fixed(ctx, landing, nil)
-	if len(unfixed) != 0 {
-		t.Fatalf("declared values could not be read: %+v", unfixed)
-	}
+	pins := declaredPins(t, ctx, idx, "test::Landing")
 	q, err := RequirementWith(ctx, landing, landing.OwnerScope, pins)
 	if err != nil {
 		t.Fatalf("translate with fixed values: %v", err)
@@ -138,11 +135,7 @@ func TestSynthesisRespectsAssumedConditions(t *testing.T) {
 func TestSynthesisUnderANaturalDomainAndADivisorGuard(t *testing.T) {
 	solver := requireSolver(t)
 	ctx, idx := fixtureFile(t, "rig_pins.sysml")
-	rig := symbolNamed(t, idx, "test::Rig")
-	pins, unfixed := Fixed(ctx, rig, nil)
-	if len(unfixed) != 0 {
-		t.Fatalf("declared values could not be read: %+v", unfixed)
-	}
+	pins := declaredPins(t, ctx, idx, "test::Rig")
 	sym := symbolNamed(t, idx, "test::Rig::sharing")
 	q, err := ConstraintWith(ctx, sym, sym.OwnerScope, pins)
 	if err != nil {

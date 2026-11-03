@@ -1,0 +1,18 @@
+{
+  "type": "instance",
+  "instantiate": "test::Chain",
+  "libraries": true,
+  "slots": {
+    "ran": {"type": "Integer", "value": 111},
+    "aAfterOwnStart": {"type": "Boolean", "value": true},
+    "ownStartBeforeA": {"type": "Boolean", "value": true},
+    "aPredecessors": {"type": "Integer", "value": 1},
+    "bPredecessors": {"type": "Integer", "value": 4},
+    "cPredecessors": {"type": "Integer", "value": 7},
+    "cImmediate": {"type": "Integer", "value": 1},
+    "aSuccessors": {"type": "Integer", "value": 6},
+    "aImmediate": {"type": "Integer", "value": 1},
+    "bAfterA": {"type": "Boolean", "value": true},
+    "cAfterA": {"type": "Boolean", "value": true}
+  }
+}

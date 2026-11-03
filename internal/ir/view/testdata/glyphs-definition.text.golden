@@ -1,0 +1,28 @@
+NotationGlyphs::Diagrams::definitionGlyphs - definition rendering (view def GeneralView, filter @Definition or @Usage)
+
+part def Plant
+part tank
+part spare
+timeslice filling
+snapshot full
+occurrence startup
+requirement def LevelReq
+require constraint keepLevel
+assume constraint lowLevel
+constraint bounded
+constraint tight
+requirement capacity
+assert constraint asserted
+
+relationships:
+  Plant *-- tank
+  spare --|> tank: references
+  Plant o-- spare
+  Plant @-- filling
+  Plant @-- full
+  Plant -> startup: event
+  LevelReq -> bounded: require
+  LevelReq -> tight: assume
+  LevelReq -> keepLevel: require
+  LevelReq -> lowLevel: assume
+  capacity -> asserted: assert

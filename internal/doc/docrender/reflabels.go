@@ -64,11 +64,13 @@ func refText(run docir.TextRun, labels map[string]string) string {
 // joinRuns joins rendered runs by single spaces, except where the text binds
 // them: no space goes before a run opening with closing punctuation, nor
 // after a run closing with an opening bracket or quote, so a reference reads
-// as "(see Section 2)." rather than "( see Section 2 ) .".
+// as "(see Section 2)." rather than "( see Section 2 ) .". Runs cut from a
+// markup body carry their own spacing (Bound) and join as written.
 func joinRuns(runs []docir.TextRun, rendered []string) string {
 	var b strings.Builder
 	for i, part := range rendered {
-		if i > 0 && !docplan.BindsLeft(runs[i].Text()) && !docplan.BindsRight(runs[i-1].Text()) {
+		if i > 0 && !(runs[i].Bound() && runs[i-1].Bound()) &&
+			!docplan.BindsLeft(runs[i].Text()) && !docplan.BindsRight(runs[i-1].Text()) {
 			b.WriteByte(' ')
 		}
 		b.WriteString(part)

@@ -616,7 +616,7 @@ func TestTriggerBodyMembersAreTyped(t *testing.T) {
 func TestTriggerInBodyValuedExpression(t *testing.T) {
 	const after = "an 'after' trigger's delay must be a DurationValue, found Natural"
 	for _, tc := range []struct{ body, code, want string }{
-		{"attribute v = { action inner { accept after 5; } d };", "trigger-after-duration", after},
+		{"calc v = { action inner { accept after 5; } d };", "trigger-after-duration", after},
 		{"attribute v = Timed({ action inner { accept after 5; } d });", "trigger-after-duration", after},
 		{"attribute v = Timed(e = { action inner { accept at 5; } d });", "trigger-at-time-instant", "an 'at' trigger's time must be a TimeInstantValue, found Natural"},
 		{"entry { assign d := Timed({ action inner { accept when x; } d }); }", "trigger-when-boolean", "a 'when' trigger's condition must be Boolean, found Integer"},
@@ -624,12 +624,12 @@ func TestTriggerInBodyValuedExpression(t *testing.T) {
 		{"do action run { assign untyped := { action inner { accept after 5; } d }; }", "trigger-after-duration", after},
 		{"attribute v = (true, { action inner { accept after 5; } d });", "trigger-after-duration", after},
 		{"attribute v = { action inner { accept after 5; } d }#(1);", "trigger-after-duration", after},
-		{"attribute v = { in p; action inner { accept after 5; } p };", "trigger-after-duration", after},
+		{"calc v = { in p; action inner { accept after 5; } p };", "trigger-after-duration", after},
 		{"attribute v = flags->ControlFunctions::forAll { in f; action inner { accept after 5; } f };", "trigger-after-duration", after},
 		// A body-local declaration is what the trigger inside the body names.
-		{"attribute v = { attribute inner : Integer = 5; action i2 { accept after inner; } d };", "trigger-after-duration", "an 'after' trigger's delay must be a DurationValue, found Integer"},
+		{"calc v = { attribute inner : Integer = 5; action i2 { accept after inner; } d };", "trigger-after-duration", "an 'after' trigger's delay must be a DurationValue, found Integer"},
 		// An unrelated unresolved name elsewhere does not hide the trigger.
-		{"part broken : Missing; attribute v = { action inner { accept after 5; } d };", "trigger-after-duration", after},
+		{"part broken : Missing; calc v = { action inner { accept after 5; } d };", "trigger-after-duration", after},
 	} {
 		wantTriggerDiag(t, tc.body, tc.code, tc.want)
 	}
@@ -637,9 +637,9 @@ func TestTriggerInBodyValuedExpression(t *testing.T) {
 	if len(diags) != 2 || !strings.Contains(diags[0].Message, "transition guard must be Boolean") || !strings.Contains(diags[1].Message, after) {
 		t.Errorf("body guard with a bad trigger: want the guard and the trigger diagnostics, got %v", diags)
 	}
-	wantTriggerSilent(t, "attribute v = { action inner { accept after 5 [s]; } d };")
-	wantTriggerSilent(t, "attribute v = { attribute inner : DurationValue = 5 [s]; action i2 { accept after inner; } d };")
-	wantTriggerSilent(t, "attribute v = { action inner { accept after missing; } d };")
+	wantTriggerSilent(t, "calc v = { action inner { accept after 5 [s]; } d };")
+	wantTriggerSilent(t, "calc v = { attribute inner : DurationValue = 5 [s]; action i2 { accept after inner; } d };")
+	wantTriggerSilent(t, "calc v = { action inner { accept after missing; } d };")
 }
 
 // Arithmetic over an operand that is no quantity, number or String selects no

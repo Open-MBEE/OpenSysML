@@ -23,6 +23,7 @@ interface MenuItem {
 
 const OPEN = "opensysml.openDiagram";
 const EXPORT = "opensysml.exportDiagram";
+const IMPORT = "opensysml.importDiagram";
 const POP_OUT = "opensysml.diagram.popOut";
 
 const { commands, keybindings, menus } = manifest.contributes as {
@@ -53,7 +54,7 @@ test("keybindings and menus name declared commands only", () => {
 });
 
 test("the diagram commands are palette entries under the SysML category, not gated by a context key", () => {
-  for (const id of [OPEN, EXPORT, POP_OUT]) {
+  for (const id of [OPEN, EXPORT, IMPORT, POP_OUT]) {
     const command = commands.find((entry) => entry.command === id);
     assert.ok(command, `${id} is declared`);
     assert.equal(command.category, "SysML");
@@ -197,4 +198,16 @@ test("the style setting offers every look the panel does, each described, and fo
   assert.deepEqual(setting.enum, [...STYLES]);
   assert.equal(setting.enumDescriptions?.length, STYLES.length);
   assert.ok(setting.markdownDescription, "the setting is described");
+});
+
+test("Import layout from draw.io sits beside Export Diagram in the editor title and context menus", () => {
+  for (const menu of ["editor/title", "editor/context"]) {
+    const items = menus[menu].filter((item) => item.command === IMPORT);
+    assert.equal(items.length, 1, `${menu} lists the import once`);
+    const exported = menus[menu].find((item) => item.command === EXPORT);
+    assert.ok(exported, `${menu} lists the export`);
+    assert.equal(items[0].when, exported.when, `${menu}: the import is scoped as the export is`);
+    scopedToModels(items[0].when, menu === "editor/title" ? "resourceLangId" : "editorLangId");
+  }
+  assert.equal(commands.find((entry) => entry.command === IMPORT)?.title, "Import layout from draw.io…");
 });

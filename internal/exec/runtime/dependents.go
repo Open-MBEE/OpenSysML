@@ -147,6 +147,9 @@ func (ctx *Context) noteRead(inst *Instance, fv *FeatureValue) {
 			ctx.readRecorders[len(ctx.readRecorders)-1] = append(reads, fv)
 		}
 	}
+	if len(ctx.verdictReads) != 0 {
+		ctx.noteVerdictRead(fv)
+	}
 	if len(ctx.tracing) != 0 {
 		ctx.observeRead(inst, fv)
 	}
@@ -346,9 +349,12 @@ func (ctx *Context) invalidate(dependents []*FeatureValue) (deriving []*FeatureV
 		default:
 			ctx.noteProbeWrite(dep)
 			ctx.noteFeatureWrite(dep)
+			held := dep.HeldValue()
 			dep.Value, dep.Values, dep.Materialized, dep.intrinsic = Value{}, Value{}, false, false
-			if dep.body != nil && dep.body.owner != nil {
-				delete(dep.body.owner.vars, dep.body.name)
+			ctx.releaseStandIns(held)
+			// A body cell holding a derivation re-derives; one the body assigned keeps it.
+			if cell := dep.body; cell != nil && cell.owner != nil && cell.binding != nil && !cell.fv.Written {
+				delete(cell.owner.vars, cell.name)
 			}
 			ctx.invalidateDependents(dep)
 		}

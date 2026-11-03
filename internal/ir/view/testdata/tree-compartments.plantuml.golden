@@ -51,11 +51,11 @@ hide circle
 hide empty members
 class "<size:10>//«part def»//</size>\n**Stage**\nattributes\ngain = 15.0\nnoiseFigure = RealFunctions::sqrt(4.0)\nparts\nheatsink\nports\ninput\noutput\nactions\ncalibrate\nconstraints\nbound\nitem defs\nSlot" as n0 <<part def>>
 class "<size:10>//«part»//</size>\n**housing**" as n5 <<part>> <<usage>>
-n0 -- n5
 class "<size:10>//«part»//</size>\n**shield**" as n6 <<part>> <<usage>>
-n0 -- n6
 class "<size:10>//«part def»//</size>\n**Housing**" as n12 <<part def>>
 class "<size:10>//«enum def»//</size>\n**Band**\nenumerations\nlow\nhigh" as n13 <<enum def>>
-n0 *-- "housing" n12
-n0 *-- "shield" n12
+n0 *-- n5
+n0 *-- n6
+n5 --:|> n12
+n6 --:|> n12
 @enduml

@@ -168,6 +168,35 @@ class WitnessAssignment:
         )
 
 
+class VerdictNote:
+    """One assumption or omission behind a verdict, worded as every surface
+    reports it.
+
+    Attributes:
+        kind (str): ``NOTE_ASSUMED_ONE`` for a feature read as holding one
+            value or object while only the default ``0..*`` multiplicity
+            governs it; ``NOTE_UNCOVERED`` for an object-holding feature whose
+            own assertions the question does not state
+        subject (str): The feature the note is about, as the report names it
+        text (str): The note as a sentence
+    """
+
+    def __init__(self, pb_note):
+        self.kind = pb_note.kind
+        self.subject = pb_note.subject
+        self.text = pb_note.text
+
+    def __repr__(self):
+        return f"VerdictNote(kind={self.kind!r}, subject={self.subject!r}, text={self.text!r})"
+
+
+#: A feature read as holding one value or object while only the default
+#: ``0..*`` multiplicity governs it.
+NOTE_ASSUMED_ONE = "assumed_one"
+#: An object-holding feature whose own assertions the question does not state.
+NOTE_UNCOVERED = "uncovered"
+
+
 class Verdict:
     """One verification's answer.
 
@@ -302,6 +331,14 @@ class Verdict:
     def witness(self):
         """The assignment witnessing the answer, when the status carries one."""
         return [WitnessAssignment(a) for a in getattr(self._pb, "witness", ())]
+
+    @property
+    def notes(self):
+        """What the answer rests on, in report order: the features read as one
+        value or object while only the default multiplicity governs them, and
+        the object-holding features whose own assertions the question does not
+        state. Empty from a service without ``verdict_notes``."""
+        return [VerdictNote(n) for n in getattr(self._pb, "notes", ())]
 
     @property
     def error(self):

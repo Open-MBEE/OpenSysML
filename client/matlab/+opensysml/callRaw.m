@@ -10,5 +10,5 @@ function [status, contentType, bodyText] = callRaw(conn, method, requestJsonText
             struct('service', origin));
     end
     url = sprintf('%s/sysml.SysMLService/%s', conn.base, method);
-    [status, contentType, bodyText] = opensysml.internal.httpPost(url, requestJsonText, conn.timeout);
+    [status, contentType, bodyText] = opensysml.internal.httpPost(url, requestJsonText, conn.timeout, conn.token);
 end

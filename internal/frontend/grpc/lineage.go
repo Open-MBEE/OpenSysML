@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -221,7 +222,7 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	}
 	l.shareConvertedDiagnostics(documents, stamps)
 	return &CachedModel{
-		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode,
+		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode, Findings: l.ws.WorkspaceFindings(),
 		analysis: &analysisSnapshot{workspace: l.ws, stamps: stamps, scoped: declaresIdentityScope(inputs)},
 	}, true
 }
@@ -264,21 +265,13 @@ type analysisSnapshot struct {
 // scope: one does so only through the ProjectRef metadata, which a document
 // can apply, or alias, only by writing its name.
 func declaresIdentityScope(inputs []sourceInput) bool {
-	_, name := splitLastSegment(identity.ProjectRefFQN)
+	name := symbols.LastSegment(identity.ProjectRefFQN)
 	for _, input := range inputs {
 		if strings.Contains(input.content, name) {
 			return true
 		}
 	}
 	return false
-}
-
-// splitLastSegment splits a qualified name at its last `::`.
-func splitLastSegment(fqn string) (string, string) {
-	if i := strings.LastIndex(fqn, "::"); i >= 0 {
-		return fqn[:i], fqn[i+2:]
-	}
-	return "", fqn
 }
 
 // affectedDocuments names, in model's document order, the documents whose

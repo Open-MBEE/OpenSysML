@@ -135,3 +135,50 @@ func ParseDepth(value string) (int, error) {
 	}
 	return depth, nil
 }
+
+// foldCollapsed folds the collapsed behaviour nodes registered in out.folds once every edge is
+// drawn: what they nest is not drawn, and an edge or Note at a node no longer drawn goes with it.
+func foldCollapsed(out *Rendering) {
+	pruned := map[string]bool{}
+	var prune func(*Node)
+	prune = func(node *Node) {
+		pruned[node.ID] = true
+		for _, child := range node.Children {
+			prune(child)
+		}
+	}
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if collapsed(node) {
+			for _, child := range node.Children {
+				prune(child)
+			}
+			node.Children = nil
+			return
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range out.folds {
+		walk(root)
+	}
+	out.folds = nil
+	if len(pruned) == 0 {
+		return
+	}
+	edges := out.Edges[:0]
+	for _, edge := range out.Edges {
+		if !pruned[edge.From] && !pruned[edge.To] {
+			edges = append(edges, edge)
+		}
+	}
+	out.Edges = edges
+	notes := out.Notes[:0]
+	for _, note := range out.Notes {
+		if !pruned[note.Anchor] && !pruned[note.EdgeFrom] && !pruned[note.EdgeTo] {
+			notes = append(notes, note)
+		}
+	}
+	out.Notes = notes
+}

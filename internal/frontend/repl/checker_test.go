@@ -374,8 +374,8 @@ func TestWitnessLineSpellsTheDraws(t *testing.T) {
 			"draw uniformInteger(0, 1) = 1; step 3: 2@left first of 2@left, 3@right"},
 		{"written", analysis.Witness{Draws: []runtime.DrawTaken{draw}, Written: "/w/one.witness"}, "/w/one.witness"},
 	} {
-		if got := witnessLine(&tc.w); got != tc.want {
-			t.Errorf("%s: witnessLine = %q, want %q", tc.name, got, tc.want)
+		if got := analysis.WitnessLine(&tc.w); got != tc.want {
+			t.Errorf("%s: WitnessLine = %q, want %q", tc.name, got, tc.want)
 		}
 	}
 }

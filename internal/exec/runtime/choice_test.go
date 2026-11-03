@@ -991,7 +991,9 @@ func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
 	}
 	want := []string{
 		"choice entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first; independent)",
-		"choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first; order-dependent: level)",
+		// The one write of `level` stands whichever region fires first; b's guards
+		// read it and write no feature, so the dependent order touches no value.
+		"choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first; order-dependent)",
 	}
 	if got := noteStrings(ctx.Notes()); !slices.Equal(got, want) {
 		t.Fatalf("notes %v, want the entry and region-order choices alone: %v", got, want)

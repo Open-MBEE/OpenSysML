@@ -38,7 +38,7 @@ func TestDidSaveWritesRecordAndCloseDemotes(t *testing.T) {
 	s.client = fc
 	ctx := context.Background()
 	if _, err := s.Initialize(ctx, &protocol.InitializeParams{
-		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(dir)), Name: "records"}},
+		WorkspaceFoldersInitializeParams: workspaceFolders(protocol.WorkspaceFolder{URI: uri.File(dir), Name: "records"}),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestHoverIntoARecordedDocumentShowsItsDocumentation(t *testing.T) {
 	s.client = &fakeClient{}
 	ctx := context.Background()
 	if _, err := s.Initialize(ctx, &protocol.InitializeParams{
-		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(dir)), Name: "records"}},
+		WorkspaceFoldersInitializeParams: workspaceFolders(protocol.WorkspaceFolder{URI: uri.File(dir), Name: "records"}),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -155,8 +155,8 @@ func TestHoverIntoARecordedDocumentShowsItsDocumentation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res == nil || !strings.Contains(res.Contents.Value, "part def Bus") ||
-		!strings.Contains(res.Contents.Value, "The bus every satellite rides on.") {
+	if res == nil || !strings.Contains(hoverMarkup(t, res).Value, "part def Bus") ||
+		!strings.Contains(hoverMarkup(t, res).Value, "The bus every satellite rides on.") {
 		t.Fatalf("hover over Bus = %+v, want its declaration with its documentation", res)
 	}
 	if ws.Recorded(lib) {

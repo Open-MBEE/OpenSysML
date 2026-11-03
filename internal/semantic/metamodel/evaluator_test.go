@@ -1,6 +1,7 @@
 package metamodel
 
 import (
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -745,7 +746,7 @@ func resolveMembershipMembers(t *testing.T, evaluator *Evaluator, memberships []
 			}
 			member = resolved
 		}
-		if !containsSymbol(out, member) {
+		if !slices.Contains(out, member) {
 			out = append(out, member)
 		}
 	}

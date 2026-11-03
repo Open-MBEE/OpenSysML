@@ -303,15 +303,42 @@ func TestRunQueryBindsAMeasurementReference(t *testing.T) {
 }
 
 // A measurement scale binds as the declaration it is, so a query traverses from
-// it; its placement binds as the transformation the library declares.
+// it; its placement binds under the name the scale declares it by, which
+// redefines the library's `transformation` and so removes that name (KerML 7.3.4.5).
 func TestRunQueryBindsACoordinateFrame(t *testing.T) {
 	s := docQuerySession(t)
 	wants(t, run(t, s, `%run-query NamedSubsystems root=SI::'°C_abs' pattern="unit"`),
 		"✓ Query Observatory::NamedSubsystems returned 1 row",
 		"Row 1: SI::'degree celsius (absolute temperature scale)'::unit")
-	wants(t, run(t, s, `%run-query NamedSubsystems root=SI::'°C_abs'.transformation pattern="origin"`),
+	wants(t, run(t, s, `%run-query NamedSubsystems root=SI::'°C_abs'.zeroDegreeCelsiusToKelvinShift pattern="origin"`),
 		"✓ Query Observatory::NamedSubsystems returned 1 row",
 		"Row 1: SI::'degree celsius (absolute temperature scale)'::zeroDegreeCelsiusToKelvinShift::origin")
+	wants(t, run(t, s, `%run-query NamedSubsystems root=SI::'°C_abs'.transformation pattern="origin"`),
+		"error:", "has no member transformation: SI::degree celsius (absolute temperature scale)::zeroDegreeCelsiusToKelvinShift redefines it")
+}
+
+// A query that could not be run prints the QVTS record under its error line:
+// the step, what it expected, and the frontier the model offers there.
+func TestRunQueryPrintsTheOutcomeRecord(t *testing.T) {
+	s := NewSession()
+	if res := s.Submit(`package Observatory {
+	private import DocumentQueries::*;
+	part telescope;
+	calc def Misspelled :> Query { Named(qualifiedName = "Observatory::telescop") }
+}`); len(errorDiagnostics(res.Diagnostics)) > 0 {
+		t.Fatalf("model did not analyse cleanly: %v", res.Diagnostics)
+	}
+	wants(t, run(t, s, "%run-query Misspelled"),
+		"error: query Observatory::Misspelled names no element Observatory::telescop",
+		"  path error at Named(Observatory::telescop): expected exactly one element with that qualified name",
+		"    at Observatory; members: [", "nearest: telescope")
+	verdict := s.RunDocumentQuery("Misspelled")
+	if verdict.Outcome == nil || verdict.Outcome.Kind() != "pathError" || verdict.Outcome.Step().Label() != "Named(Observatory::telescop)" {
+		t.Fatalf("verdict outcome = %+v, want the path error at Named", verdict.Outcome)
+	}
+	if len(verdict.Lines) < 3 || !strings.HasPrefix(verdict.Lines[1], "  path error at Named(") {
+		t.Fatalf("verdict lines = %q, want the record under the error line", verdict.Lines)
+	}
 }
 
 // objectQueryModel declares queries over a car whose wheels the session can

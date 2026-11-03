@@ -524,3 +524,23 @@ func TestARejectedCellDoesNotHoldBackTheNextOne(t *testing.T) {
 	}
 	answer("add(10 [m], 20 [mm])")
 }
+
+// %viz of a calculation shows its parameters in the Mermaid diagram the kernel
+// bundles first: pins no edge reaches are listed in a parameters compartment.
+func TestVizListsACalculationsParameters(t *testing.T) {
+	e := newEngine(t)
+	mustRun(t, e, "package A {\n  private import ScalarValues::*;\n  calc add {\n    in x : Integer;\n    in y : Integer;\n    return : Integer;\n    x + y\n  }\n}\n")
+	out := mustRun(t, e, "%viz A::add")
+	if len(out.displays) != 1 {
+		t.Fatalf("%%viz displayed %d bundles, want 1", len(out.displays))
+	}
+	mermaid, _ := out.displays[0][mimeMermaid].(string)
+	for _, want := range []string{"flowchart", "parameters\nin x\nin y\nout result"} {
+		if !strings.Contains(mermaid, want) {
+			t.Errorf("%%viz A::add Mermaid lacks %q:\n%s", want, mermaid)
+		}
+	}
+	if strings.Contains(mermaid, "pin(s) not drawn") {
+		t.Errorf("%%viz A::add Mermaid notices pins it lists:\n%s", mermaid)
+	}
+}

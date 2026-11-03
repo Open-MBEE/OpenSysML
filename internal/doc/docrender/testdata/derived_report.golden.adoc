@@ -1,0 +1,14 @@
+= Derived Stage Masses
+
+.Every stage, heaviest first
+[options="header"]
+|===
+| name | dryMass | mass | engines | class | perEngine
+| s1 | 130000 &#91;kg&#93; | 2290000 &#91;kg&#93; | 5 | heavy | 458000 &#91;kg&#93;
+| s2 | 120000 &#91;kg&#93; | 2280000 &#91;kg&#93; | 3 | heavy | 760000 &#91;kg&#93;
+| s3 | 15000 &#91;kg&#93; | 119000 &#91;kg&#93; | 1 | light | 119000 &#91;kg&#93;
+|===
+
+* s1 2290000 &#91;kg&#93;
+
+rocket:: 4689000 &#91;kg&#93;

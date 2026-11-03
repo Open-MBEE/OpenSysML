@@ -106,7 +106,7 @@ by no example.
 
 The pinned pilot expression evaluator (`build/pilot-evaluator/eval-sysml`, built by
 `scripts/download-pilot-evaluator.sh` from the `0.62.0` artifact) was run through the execution
-referee (`cmd/pilot-exec-diff`) over a probe model whose attributes are typed by fully qualified
+referee (`tools/cmd/pilot-exec-diff`) over a probe model whose attributes are typed by fully qualified
 scalar types, which both sides load without a diagnostic:
 
 ```sysml

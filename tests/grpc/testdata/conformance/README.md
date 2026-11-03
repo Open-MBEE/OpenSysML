@@ -12,9 +12,12 @@ in this directory, so adding a case is a data-only change.
 
 ## Expectation schema
 
+`Convert` cases declare `library_references` entries with `id`, `qualified_name` and
+`type`. They verify both array and compact output, with and without legacy stubs.
+
 | Field | Applies to | Meaning |
 |---|---|---|
-| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck`, `RecordRun` or `RenderView` |
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck`, `RecordRun`, `RenderView` or `Query` |
 | `view`, `compartments` | RenderView | the view or `#<kind>:<name>` pseudo-view to render and the compartment folding (`positioned`, `most` or `ports`; empty is `positioned`) |
 | `expected_node_names`, `expected_compartments`, `expected_edge_labels` | RenderView | the nodes drawn in order, the compartment each row is drawn in by the row's name, and the edge labels in order; `expected_error` a refusal instead |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `ImportData` or `CompareResults` |
@@ -22,7 +25,7 @@ in this directory, so adding a case is a data-only change.
 | `expected_assignments` | ImportData | the assignments' descriptions over every import, in order; `expected_content` is the edited model, `expected_error` a refusal that leaves it unchanged |
 | `results`, `actions`, `runs`, `seed`, `observe` | CompareResults | the results index as JSON, the configurations selected, the runs per configuration, the seed and stored-name → feature pairs |
 | `expected_configurations` | CompareResults | per configuration in index order: `name`, `status`, `runs`, `completed`, `stored_runs`, `observables` (stored name → compared), `unresolved` and `lines_contain` |
-| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc` or `CheckBehavior` |
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `CheckBehavior`, `VerifyConstraint` or `VerifyRequirement` |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `GetDiagnostics`, `ApplyEdits`, `RunDocumentQuery` or `EvaluateCalc` |
 
 `ApplyEdits` sequence operations may carry the recursive action-body fields
@@ -46,7 +49,8 @@ empty else blocks are not authorable.
 | `advance`, `seed`, `draws`, `clock_step` | ExecuteAction | the run options of `sysml -advance`, `-seed`, `-draws` and `-clock-step`; absent sends none |
 | `disable_lint`, `enable_lint` | GetDiagnostics | lint codes left out of, and opt-in lint codes kept in, the diagnostics, as `sysml -disable-lint`/`-enable-lint` select them |
 | `expected_codes`, `absent_codes` | GetDiagnostics | diagnostic codes the answer must carry, and must not |
-| `events` | ExecuteState | event names injected, in order |
+| `events` | ExecuteState, ExecuteAction | event names injected, in order; an action's are posted to its performer once every token waits, each taken by the accept waiting for it |
+| `trace`, `expected_trace` | ExecuteAction | ask for the run's trace, and the text of every record of it in order (`step a -> b`, `wait Go`, `accept Go`, `decide route -> 1->b`, `assign x = 3`, `complete`), checked on a failed run too |
 | `trace`, `expected_trace_objects` | ExecuteState | ask for the run's trace, and the usages the objects taking its transitions are held under, in first-appearance order, one per object (a machine run on the exhibited usage's own path traces its owner's one run) |
 | `advance`, `expected_final_time` | ExecuteState | the simulated time to run for after the events, and the clock the run ended at |
 | `performer_symbol_id` | CheckBehavior, ExecuteAction, ExecuteState | FQN of the part/usage whose object performs the behavior, or a path from one into what it holds; an ExecuteAction on it joins the performance that object already holds or runs, so `inputs` must be the bindings its declaration states (an `instance_id` input names an object of the instantiated performer) |
@@ -55,7 +59,13 @@ empty else blocks are not authorable.
 | `expected_verdict` | CheckBehavior | `holds`, `fails` or `undecided` |
 | `expected_violations` | CheckBehavior | the violations witnessed, in order: `kind`, `property`, `depth` |
 | `expected_divergences` | CheckBehavior | feature → the final values it ends as, in order |
-| `instantiate` | RunDocumentQuery | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them |
+| `question` | VerifyConstraint | `evaluate`, `holds` or `satisfiable`; a solver question skips when no SMT solver is installed unless `OPENSYSML_REQUIRE_SMT` is set |
+| `expected_status`, `expected_notes` | VerifyConstraint | the verdict's `status`, and the notes its answer rests on, in order: `kind` (`assumed_one` or `uncovered`), `subject`, `text` |
+| `query` | Query | the standard's `Query` as protojson writes it (`scope`, `select`, `where`, `orderBy`) |
+| `expected_element_ids`, `expected_query_error` | Query | the ids the answer reports, in order; or text the refusal's status message must contain |
+| `instantiate` | RunDocumentQuery, VerifyRequirement | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them, or the verification is about the objects the model holds |
+| `subject_symbol_id` | VerifyRequirement | optional FQN of the part/usage instantiated as the requirement's subject; absent, the requirement is checked over the objects the model holds, as the REPL's `%requirement` is over a session's |
+| `expected_status`, `expected_verification_verdicts` | VerifyRequirement | the requirement verdict's `status`, and the body verdicts of the cases verifying it, in order: `case`, `kind`, `detail` (empty for a decided verdict) and `instance_type`, the type of the object the case ran on (empty for a run on none) |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
 | `bindings` | RunDocumentQuery | list of `{parameter, values}`, each value a document value bound to the parameter |
 | `expected_columns` | RunDocumentQuery | full ordered projected-column name list |

@@ -8,7 +8,7 @@ Pseudostate	Station::Cycle::main::Work::Through	_through	((_tThrough) leads from
 Transition	Station::Cycle::main::Work::steps::<Transition>	_tThrough	(the source 'Through' has no v2 form: (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior)
 
 ## approximated (25)
-StateMachine	Station::Cycle	_cycle	-> Model::Station::Cycle	(acts on its owner Station, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Station as its usage cycle)
+StateMachine	Station::Cycle	_cycle	-> Model::Station::Cycle	(acts on its owner Station, which it takes as its parameter context, since its this names no feature of the owner; the classifier behavior is run by every object of Station as its usage cycle)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_goEff	-> Model::Station::Cycle::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_diveEff	-> Model::Station::Cycle::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_leaveEff	-> Model::Station::Cycle::unnamed3::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)

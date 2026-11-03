@@ -585,7 +585,7 @@ func bindArgumentList(ec *EvalContext, inv actionInvocation, callee *symbols.Sym
 		if err := unbound[i]; err != nil {
 			return err
 		}
-		if !contains(in, name) {
+		if !slices.Contains(in, name) {
 			return fmt.Errorf(
 				"%w: action %s has no input parameter %q",
 				errUnknownParameter, inv.name(), name,
@@ -748,13 +748,4 @@ func parameterNames(params []actionParameter) (in, out []string) {
 		}
 	}
 	return in, out
-}
-
-func contains(names []string, name string) bool {
-	for _, candidate := range names {
-		if candidate == name {
-			return true
-		}
-	}
-	return false
 }

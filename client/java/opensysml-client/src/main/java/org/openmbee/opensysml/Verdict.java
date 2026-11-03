@@ -34,6 +34,10 @@ import java.util.Optional;
  *     {@code satisfiable} | {@code unsatisfiable}, as the service spells it
  * @param witness the assignment witnessing the answer: the free features' values for a violated
  *     {@code holds} question or a satisfiable {@code satisfiable} question
+ * @param notes what the answer rests on, in report order: the features read as one value or
+ *     object while only the default multiplicity governs them, and the object-holding features
+ *     whose own assertions the question does not state; empty from a service without {@code
+ *     verdict_notes}
  * @param standing how strongly the verdict stands
  */
 public record Verdict(
@@ -51,6 +55,7 @@ public record Verdict(
     Optional<String> question,
     Optional<String> status,
     List<WitnessAssignment> witness,
+    List<VerdictNote> notes,
     Standing standing) {
 
   /** A constraint verified against declared or an object's values. */
@@ -97,6 +102,7 @@ public record Verdict(
    * @param question the question answered, when reported
    * @param status the answer's status, when reported
    * @param witness the assignment witnessing the answer, never {@code null}
+   * @param notes the notes behind the answer, never {@code null}
    * @param standing the standing, never {@code null}
    */
   public Verdict {
@@ -113,6 +119,7 @@ public record Verdict(
     Objects.requireNonNull(question, "question");
     Objects.requireNonNull(status, "status");
     witness = List.copyOf(Objects.requireNonNull(witness, "witness"));
+    notes = List.copyOf(Objects.requireNonNull(notes, "notes"));
     Objects.requireNonNull(standing, "standing");
   }
 

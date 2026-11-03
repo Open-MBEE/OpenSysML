@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -36,6 +37,7 @@ public final class ConnectTransport implements AutoCloseable {
   private final String baseUrl;
   private final Encoding encoding;
   private final Duration requestTimeout;
+  private final Optional<String> token;
   private final ExecutorService executor;
   private final HttpClient http;
 
@@ -45,11 +47,14 @@ public final class ConnectTransport implements AutoCloseable {
    * @param address the service's {@code host:port}
    * @param encoding body encoding to send and accept
    * @param requestTimeout how long one call may take
+   * @param token the bearer token every call carries, if the service requires one
    */
-  public ConnectTransport(String address, Encoding encoding, Duration requestTimeout) {
+  public ConnectTransport(
+      String address, Encoding encoding, Duration requestTimeout, Optional<String> token) {
     this.baseUrl = "http://" + Objects.requireNonNull(address, "address");
     this.encoding = Objects.requireNonNull(encoding, "encoding");
     this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
+    this.token = Objects.requireNonNull(token, "token");
     if (encoding == Encoding.JSON) {
       JsonBodies.requireOnClasspath();
     }
@@ -91,8 +96,11 @@ public final class ConnectTransport implements AutoCloseable {
         encoding == Encoding.JSON
             ? JsonBodies.serialize(request).getBytes(StandardCharsets.UTF_8)
             : request.toByteArray();
+    HttpRequest.Builder builder =
+        HttpRequest.newBuilder(URI.create(baseUrl + "/" + SERVICE + "/" + method));
+    token.ifPresent(value -> builder.header("Authorization", "Bearer " + value));
     HttpRequest httpRequest =
-        HttpRequest.newBuilder(URI.create(baseUrl + "/" + SERVICE + "/" + method))
+        builder
             .timeout(requestTimeout)
             .header("Content-Type", encoding.contentType())
             .header("Connect-Protocol-Version", "1")

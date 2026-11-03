@@ -91,7 +91,12 @@ func apiJSONImpliedBoolean(typ rdf.Term, member apiJSONMember, members apiJSONOb
 	if !ok {
 		return false
 	}
-	for _, planned := range apiJSONOwnedAbsencePlanFor(apiJSONOwnedAbsenceMetaclassInGraph(nil, typ.Value)) {
+	metaclass := apiJSONOwnedAbsenceMetaclassInGraph(nil, typ.Value)
+	if apiJSONDerivedVariablePair(metaclass, member.key) {
+		// The graph states a usage's isVariable/mayTimeVary only when true.
+		return !value
+	}
+	for _, planned := range apiJSONOwnedAbsencePlanFor(metaclass) {
 		if planned.property.Name != member.key {
 			continue
 		}

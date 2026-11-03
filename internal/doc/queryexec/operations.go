@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -234,6 +236,12 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 	if len(typeNames) == 0 {
 		return sequence{}, e.invalidArgument(expression, "type", "0")
 	}
+	exact := false
+	if hasArgument(expression, "exact") {
+		if exact, err = e.booleanArgument(expression, "exact"); err != nil {
+			return sequence{}, err
+		}
+	}
 	tests := make([]typeTest, len(typeNames))
 	matched := make([]bool, len(typeNames))
 	for i, typeName := range typeNames {
@@ -245,7 +253,7 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 	result := filtered(source)
 	for i, value := range source.values {
 		for j, test := range tests {
-			if e.valueIsA(value, test) {
+			if (exact && e.valueIsExactly(value, test)) || (!exact && e.valueIsA(value, test)) {
 				matched[j] = true
 				appendSelected(&result, source, i)
 				break
@@ -267,6 +275,37 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 }
 
 // valueIsA reports whether a row is an object or declaration of the type.
+// valueIsExactly is WhereType's exact = true: the row's own metaclass (Model.MetaclassOf, so
+// a transition is a TransitionUsage) is the named one, by identity; a type of the model never is.
+func (e *executor) valueIsExactly(value Value, test typeTest) bool {
+	meta := e.exactMetaclass(test)
+	if meta == nil {
+		return false
+	}
+	if inst, _, isObject := value.Object(); isObject {
+		for _, typ := range objectTypes(inst) {
+			if symbols.SameElement(e.context.Model.MetaclassOf(typ), meta) {
+				return true
+			}
+		}
+		return false
+	}
+	sym := value.Declaration()
+	return sym != nil && symbols.SameElement(e.context.Model.MetaclassOf(sym), meta)
+}
+
+// exactMetaclass is the metaclass a WhereType name denotes — simple or qualified — and nil
+// for a type of the model, which an exact test never keeps.
+func (e *executor) exactMetaclass(test typeTest) *symbols.Symbol {
+	if test.target == nil {
+		return nil
+	}
+	if meta := e.context.Model.Metaclass(test.target.Name); meta != nil && symbols.SameElement(meta, test.target) {
+		return meta
+	}
+	return nil
+}
+
 func (e *executor) valueIsA(value Value, test typeTest) bool {
 	if _, _, isObject := value.Object(); isObject {
 		return e.objectIsA(value, test.name, test.target)
@@ -396,16 +435,28 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		}
 		return sequence{}, e.operatorError(expression, operator)
 	}
+	tolerate, err := e.tolerateArgument(expression)
+	if err != nil {
+		return sequence{}, err
+	}
 	if len(source.values) == 0 {
 		return source, nil
 	}
 	result := filtered(source)
 	known := false
+	var missing []*Error
+	metaclasses := map[*symbols.Symbol]bool{}
 	columnIndex := projectedColumn(source, property)
 	for i := range source.values {
+		e.noteMetaclass(metaclasses, source.values[i])
 		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
 			return sequence{}, valueErr
+		}
+		if !present && !tolerate {
+			if m := e.missingFeature(expression, property, source.values[i]); m != nil {
+				missing = append(missing, m)
+			}
 		}
 		known = known || present
 		for _, actual := range values {
@@ -423,7 +474,10 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		}
 	}
 	if !known {
-		return sequence{}, e.unknownProperty(expression, property)
+		return sequence{}, e.unknownPropertyAmong(expression, property, e.metaclassPropertyNames(metaclasses))
+	}
+	if err := joinMissing(missing); err != nil {
+		return sequence{}, err
 	}
 	return result, nil
 }
@@ -591,83 +645,136 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 	if err != nil {
 		return sequence{}, err
 	}
-	var properties []string
-	if hasArgument(expression, "properties") {
-		properties, err = e.stringsArgument(expression, "properties")
-		if err != nil {
-			return sequence{}, err
-		}
+	p, err := e.newProjection(expression)
+	if err != nil {
+		return sequence{}, err
 	}
-	var computed []computedColumn
-	if columnsValue, ok := argumentValue(expression, "columns"); ok {
-		computed, err = e.computedColumns(expression, columnsValue)
-		if err != nil {
-			return sequence{}, err
-		}
-	}
-	total := len(properties) + len(computed)
-	if total == 0 {
-		return sequence{}, e.invalidArgument(expression, "properties", "empty")
-	}
-	seen := make(map[string]bool, total)
-	for _, property := range properties {
-		seen[property] = true
-	}
-	for _, column := range computed {
-		if seen[column.name] {
-			return sequence{}, e.invalidArgument(expression, "columns", column.name)
-		}
-		seen[column.name] = true
-	}
+	total := len(p.properties) + len(p.computed)
 	result := sequence{
 		values:  append([]Value(nil), source.values...),
 		columns: make([]Column, total),
 		cells:   make([][]Cell, len(source.values)),
 		depths:  append([]int64(nil), source.depths...),
 	}
-	known := make([]bool, len(properties))
-	for i, property := range properties {
+	for i, property := range p.properties {
 		result.columns[i] = Column{name: property, origin: expression.Origin()}
 	}
-	for i, column := range computed {
-		result.columns[len(properties)+i] = Column{name: column.name, origin: column.origin.Origin()}
+	for i, column := range p.computed {
+		result.columns[len(p.properties)+i] = Column{name: column.name, origin: column.origin.Origin()}
 	}
-	tracker := newPropertyTracker()
 	for row, value := range source.values {
-		result.cells[row] = make([]Cell, total)
-		for column, property := range properties {
-			values, present, valueErr := e.propertyValues(value, property)
-			if valueErr != nil {
-				return sequence{}, e.unevaluable(expression, property, value, valueErr)
-			}
-			known[column] = known[column] || present
-			result.cells[row][column] = Cell{
-				values: values,
-				origin: value.Origin(),
-			}
-		}
-		for i, column := range computed {
-			values, cellErr := e.evaluateColumnCell(column, value, tracker)
-			if cellErr != nil {
-				return sequence{}, cellErr
-			}
-			result.cells[row][len(properties)+i] = Cell{
-				values: values,
-				origin: value.Origin(),
-			}
+		if result.cells[row], err = p.cells(value); err != nil {
+			return sequence{}, err
 		}
 	}
 	if len(source.values) > 0 {
-		for i, property := range properties {
-			if !known[i] {
-				return sequence{}, e.unknownProperty(expression, property)
-			}
-		}
-		if property, missing := tracker.missing(); missing {
-			return sequence{}, e.unknownProperty(expression, property)
+		if err := p.checkProperties(); err != nil {
+			return sequence{}, err
 		}
 	}
 	return result, nil
+}
+
+// projection is one project operation's columns and what reading its rows
+// learnt of them: which properties any row carried and which rows lacked one.
+type projection struct {
+	e          *executor
+	expression queryplan.Expression
+	properties []string
+	computed   []computedColumn
+	tolerate   bool
+	tracker    *propertyTracker
+	known      []bool
+	missing    [][]*Error
+	// metaclasses are those of the element rows read, for an unknown
+	// property's candidates.
+	metaclasses map[*symbols.Symbol]bool
+}
+
+// newProjection reads the operation's properties and computed columns, at
+// least one in all and each named once.
+func (e *executor) newProjection(expression queryplan.Expression) (*projection, error) {
+	p := &projection{e: e, expression: expression, metaclasses: map[*symbols.Symbol]bool{}}
+	var err error
+	if hasArgument(expression, "properties") {
+		if p.properties, err = e.stringsArgument(expression, "properties"); err != nil {
+			return nil, err
+		}
+	}
+	if columnsValue, ok := argumentValue(expression, "columns"); ok {
+		if p.computed, err = e.computedColumns(expression, columnsValue); err != nil {
+			return nil, err
+		}
+	}
+	total := len(p.properties) + len(p.computed)
+	if total == 0 {
+		return nil, e.invalidArgument(expression, "properties", "empty")
+	}
+	if p.tolerate, err = e.tolerateArgument(expression); err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool, total)
+	for _, property := range p.properties {
+		seen[property] = true
+	}
+	for _, column := range p.computed {
+		if seen[column.name] {
+			return nil, e.invalidArgument(expression, "columns", column.name)
+		}
+		seen[column.name] = true
+	}
+	p.tracker = newPropertyTracker()
+	p.known = make([]bool, len(p.properties))
+	p.missing = make([][]*Error, len(p.properties))
+	return p, nil
+}
+
+// cells reads one row's columns, noting the properties it carries and lacks.
+func (p *projection) cells(value Value) ([]Cell, error) {
+	p.e.noteMetaclass(p.metaclasses, value)
+	cells := make([]Cell, len(p.properties)+len(p.computed))
+	for column, property := range p.properties {
+		values, present, err := p.e.propertyValues(value, property)
+		if err != nil {
+			return nil, p.e.unevaluable(p.expression, property, value, err)
+		}
+		if !present && !p.tolerate {
+			if m := p.e.missingFeature(p.expression, property, value); m != nil {
+				p.missing[column] = append(p.missing[column], m)
+			}
+		}
+		p.known[column] = p.known[column] || present
+		cells[column] = Cell{values: values, origin: value.Origin()}
+	}
+	for i, column := range p.computed {
+		values, err := p.e.evaluateColumnCell(column, value, p.tracker)
+		if err != nil {
+			return nil, err
+		}
+		cells[len(p.properties)+i] = Cell{values: values, origin: value.Origin()}
+	}
+	return cells, nil
+}
+
+// checkProperties reports, once every row is read, a property no row carried
+// as unknown, then the rows that lacked one others carry.
+func (p *projection) checkProperties() error {
+	for i, property := range p.properties {
+		if !p.known[i] {
+			return p.e.unknownPropertyAmong(p.expression, property, p.e.metaclassPropertyNames(p.metaclasses))
+		}
+	}
+	// A property some rows carry and an element row lacks is a path error
+	// about that element, unless tolerated; one no row carries is unknown.
+	for _, column := range p.missing {
+		if err := joinMissing(column); err != nil {
+			return err
+		}
+	}
+	if property, missing := p.tracker.missing(); missing {
+		return p.e.unknownProperty(p.expression, property)
+	}
+	return nil
 }
 
 // propertyValues reads a property of a row: of the session for an object row,
@@ -689,6 +796,19 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 	}
 	values, present, _, err = e.memberPathValues(sym, segments)
 	return values, present, err
+}
+
+// reflectiveQueryableValues answers a queryable property of a row the reader does not describe — a
+// relationship, implicit or keyword-first, or an expression — from its metaclass; a feature or type keeps the reader's answer.
+func (e *executor) reflectiveQueryableValues(sym *symbols.Symbol, property string) ([]Value, error) {
+	if sym == nil {
+		return nil, nil
+	}
+	if _, declared := sym.RelationshipDecl(); sym.Implicit == nil && sym.Expr == nil && !declared {
+		return nil, nil
+	}
+	values, _, err := e.reflectiveValues(queryplan.Expression{}, sym, property)
+	return values, err
 }
 
 func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([]Value, bool, error) {
@@ -713,8 +833,12 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 	sym, _ := row.Element()
 	if isQueryableProperty(property) {
 		values, present := e.reader.Values(sym, property)
+		if property == query.PropertyElementID && e.elementIDErr != nil {
+			return nil, true, e.unevaluable(queryplan.Expression{}, property, row, e.elementIDErr)
+		}
 		if !present {
-			return nil, true, nil
+			values, err := e.reflectiveQueryableValues(sym, property)
+			return values, true, err
 		}
 		result := make([]Value, 0, len(values))
 		for _, value := range values {
@@ -732,7 +856,7 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 	if values, present, err := e.metadataPathValues(sym, property); present || err != nil {
 		return values, present, err
 	}
-	return nil, false, nil
+	return e.metaclassPropertyValues(sym, property)
 }
 
 // declaredFeatureValues reads a declared (non-metadata) feature of a row.
@@ -778,7 +902,8 @@ func isQueryableProperty(property string) bool {
 		query.PropertyIsAbstract,
 		query.PropertyIsIndividual,
 		query.PropertyMultiplicityLower,
-		query.PropertyMultiplicityUpper:
+		query.PropertyMultiplicityUpper,
+		query.PropertyElementID:
 		return true
 	default:
 		return false
@@ -1169,14 +1294,118 @@ func (e *executor) operatorError(expression queryplan.Expression, operator strin
 	}
 }
 
-func (e *executor) unknownProperty(expression queryplan.Expression, property string) error {
-	return &Error{
-		Kind:      ErrorUnknownProperty,
-		Query:     e.definition.Name(),
-		Operation: expression.Operation(),
-		Property:  property,
-		Origin:    expression.Origin(),
+// tolerateArgument reads Project's and WhereFeature's tolerate: by default an
+// element lacking the feature is a path error; true keeps the cell empty.
+func (e *executor) tolerateArgument(expression queryplan.Expression) (bool, error) {
+	if !hasArgument(expression, "tolerate") {
+		return false, nil
 	}
+	return e.booleanArgument(expression, "tolerate")
+}
+
+// missingFeature reports a feature the element row lacks, its own features as
+// the frontier; nil for a non-element row or a metamodel property every element answers.
+func (e *executor) missingFeature(expression queryplan.Expression, property string, row Value) *Error {
+	sym, isElement := row.Element()
+	if !isElement || sym == nil || isQueryableProperty(property) || strings.Contains(property, "::") {
+		// A metadata path names an annotation the element may simply not carry.
+		return nil
+	}
+	reached, segment, nested := sym, property, ""
+	if segments, ok := parseMemberPath(property); ok {
+		reached, segment = e.memberPathStop(sym, segments)
+		if reached != sym {
+			nested = symbols.FQNOf(reached)
+		}
+	}
+	features := e.features(reached)
+	names := make([]string, 0, len(features))
+	for _, f := range features {
+		names = append(names, f.Name)
+	}
+	return &Error{
+		Kind:       ErrorMissingFeature,
+		Query:      e.definition.Name(),
+		Operation:  expression.Operation(),
+		Property:   property,
+		Target:     symbols.FQNOf(sym),
+		Actual:     nested,
+		Candidates: names,
+		Origin:     expression.Origin(),
+		Outcome: &Outcome{Path: &PathError{Failures: []Failure{{
+			Step:     Step{Kind: StepFeature, Argument: segment},
+			Expected: "a feature named " + segment + " on the element",
+			Frontier: Frontier{At: symbols.FQNOf(reached), Features: features, Nearest: first(suggest.Nearest(segment, names))},
+		}}}},
+	}
+}
+
+// joinMissing is the fan-out of a missing feature: one error whose record carries
+// every element's failure, the message naming the first element and counting the rest.
+func joinMissing(errs []*Error) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	head := *errs[0]
+	failures := append([]Failure{}, head.Outcome.Path.Failures...)
+	for _, other := range errs[1:] {
+		failures = append(failures, other.Outcome.Path.Failures...)
+		head.Also = append(head.Also, other.Target)
+	}
+	head.Outcome = &Outcome{Path: &PathError{Failures: failures}}
+	return &head
+}
+
+// features lists, in name order, the features an element has from the model's own
+// declarations (inherited ones included; library ones are noise) with their declared type.
+func (e *executor) features(sym *symbols.Symbol) []FeatureRef {
+	out := []FeatureRef{}
+	for _, member := range e.context.Model.MembersOf(sym) {
+		if member == nil || !member.IsFeature() || e.context.Index.IsLibraryDocument(member.DocName) {
+			continue
+		}
+		name := symbols.LastSegment(member.Name)
+		if name == "" {
+			continue
+		}
+		ref := FeatureRef{Name: name}
+		if types, ok := e.reader.Values(member, query.PropertyType); ok && len(types) > 0 {
+			ref.Type = types[0]
+		}
+		out = append(out, ref)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return slices.CompactFunc(out, func(a, b FeatureRef) bool { return a.Name == b.Name })
+}
+
+func (e *executor) unknownProperty(expression queryplan.Expression, property string) error {
+	return e.unknownPropertyAmong(expression, property, nil)
+}
+
+// unknownPropertyAmong is unknownProperty naming what the rows' metaclasses
+// do carry, so the message can offer the nearest.
+func (e *executor) unknownPropertyAmong(expression queryplan.Expression, property string, candidates []string) error {
+	return &Error{
+		Kind:       ErrorUnknownProperty,
+		Query:      e.definition.Name(),
+		Operation:  expression.Operation(),
+		Property:   property,
+		Origin:     expression.Origin(),
+		Candidates: candidates,
+	}
+}
+
+// elementID is the reader's elementId of sym, through the context; a model
+// that has none keeps the reason for the read that asked.
+func (e *executor) elementID(sym *symbols.Symbol) string {
+	if e.context.ElementID == nil {
+		return ""
+	}
+	id, err := e.context.ElementID(sym)
+	if err != nil && e.elementIDErr == nil {
+		e.elementIDErr = err
+	}
+	return id
 }
 
 // invalidOrder reports sort keys that cannot be ordered; two quantity keys name
@@ -1205,6 +1434,12 @@ func (e *executor) featureError(expression queryplan.Expression, property string
 // unevaluable is featureError carrying the evaluator's reason, when one is known.
 func (e *executor) unevaluable(expression queryplan.Expression, property string, row Value, cause error) error {
 	var inner *Error
+	if errors.As(cause, &inner) && inner.Kind == ErrorUnservedProperty {
+		// The gap is the evaluator's, already named; the operation is added.
+		inner.Operation = expression.Operation()
+		inner.Origin = expression.Origin()
+		return inner
+	}
 	if errors.As(cause, &inner) && inner.Kind == ErrorUnevaluableFeature {
 		cause = inner.Cause
 	}

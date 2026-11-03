@@ -86,7 +86,11 @@ inherits or one import brings still selects by signature.
 An imported name hidden by an owned member of the same name, one membership reached through two
 imports (`import P::*` beside `import Q::*` where `Q` publicly re-imports `P`), an alias or a
 membership import of an element beside the membership that owns it, and the standard library's
-own members are not reported, and none of these is hidden. An alias under another name (`alias Spare for P::x`) binds only
+own members are not reported, and none of these is hidden. Nor is a collision among a view's
+`expose`s alone (`view v { expose a::**; expose b::**; }` with a `p` in each): the names are
+still hidden inside the view, but a view exposes each expose's own memberships (SysML
+`ViewUsage::exposedElement`), so both `p` are exposed and rendered; a plain `import` or an
+inherited member taking part in the collision is reported as ever. An alias under another name (`alias Spare for P::x`) binds only
 that name and does not stand in for `P::x`.
 
 The standard library has eight such pairs of its own, which `import ISQ::*` brings in without a
@@ -342,7 +346,7 @@ Specification: SysML v2 §8.2.2.4 ImportPrefix
 
 **warning** · Syntax · KerML notation in a SysML file
 
-A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.
+A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling (`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.
 
 Specification: the pinned SysML v2 Xtext grammar
 
@@ -699,7 +703,7 @@ Specification: SysML v2.1 Beta 2 §8.3.16.2 (flowEnd : Usage redefines associati
 
 **error** · Typing · a flow definition with more than two ends
 
-A flow connection definition relates a source and a target: it can have at most two ends. Drop the extra ends, or declare a connection definition for an n-ary relationship.
+A flow definition relates a source and a target: it can have at most two ends. Drop the extra ends, or declare a connection definition for an n-ary relationship.
 
 Specification: SysML v2 validateFlowDefinitionConnectionEnds
 
@@ -1034,7 +1038,6 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`only-one-subject`](#only-one-subject) | error | a requirement or case with more than one subject |
 | [`only-one-view-rendering`](#only-one-view-rendering) | error | a view with more than one rendering |
 | [`parallel-state-transition`](#parallel-state-transition) | error | a transition or succession between the direct substates of a parallel state |
-| [`part-usage-part-definition`](#part-usage-part-definition) | error | a part usage typed by no part definition |
 | [`port-conjugation`](#port-conjugation) | warning | an interface joining two ports whose directed features are not conjugate |
 | [`portion-owner`](#portion-owner) | error | a portion (snapshot or timeslice) owned by a non-occurrence |
 | [`redefinition-direction-conformance`](#redefinition-direction-conformance) | error | a redefining feature whose direction does not fit the redefined one |
@@ -1662,14 +1665,6 @@ The direct substates of a `parallel` state run concurrently, so no transition or
 
 Specification: SysML v2 validateStateDefinitionParallelSubactions and validateStateUsageParallelSubactions
 
-#### `part-usage-part-definition`
-
-**error** · Constraints · a part usage typed by no part definition
-
-A part is typed by at least one part definition, directly or through what it subsets; an item definition alone does not make a part. Type the part by a part definition.
-
-Specification: SysML v2 validatePartUsagePartDefinition
-
 #### `port-conjugation`
 
 **warning** · Constraints · an interface joining two ports whose directed features are not conjugate
@@ -2154,7 +2149,7 @@ Specification: Model-defined rule; the predicate is a KerML constraint evaluated
 
 A document definition (one typed by `DocumentDefinitions::Document` or a specialization of it) is compiled into a document plan before it is rendered; the member code names the rule that failed — a content with no title, an attribute that is not one string literal, a nested document, a query the document does not declare, a diagram kind no rendering supports — and the message states where. Correct the member the message names; the plain `document-plan` code reports a failure no rule classifies, with the planner's own message.
 
-Emitted as `document-plan-<rule>`, one code per rule: `document-plan-invalid-context`, `document-plan-library-unavailable`, `document-plan-not-document-definition`, `document-plan-missing-title`, `document-plan-invalid-attribute`, `document-plan-invalid-content`, `document-plan-nested-document`, `document-plan-missing-text`, `document-plan-conflicting-text`, `document-plan-missing-query`, `document-plan-conflicting-query`, `document-plan-unknown-query`, `document-plan-query-planning`, `document-plan-invalid-style`, `document-plan-unknown-parameter`, `document-plan-duplicate-binding`, `document-plan-missing-binding`, `document-plan-unsupported-binding`, `document-plan-binding-type`, `document-plan-binding-multiplicity`, `document-plan-missing-view-source`, `document-plan-invalid-view-source`, `document-plan-unknown-view-source`, `document-plan-missing-diagram-kind`, `document-plan-conflicting-diagram-kind`, `document-plan-unsupported-diagram-kind`, `document-plan-invalid-direction`, `document-plan-unsupported-direction`, `document-plan-invalid-palette`, `document-plan-unsupported-palette`, `document-plan-invalid-ports`, `document-plan-unsupported-ports`, `document-plan-invalid-show`, `document-plan-invalid-overlay`, `document-plan-unsupported-overlay`, `document-plan-conflicting-runs`, `document-plan-ambiguous-run`, `document-plan-missing-run-text`, `document-plan-invalid-run-style`, `document-plan-missing-link-target`, `document-plan-missing-ref-target`, `document-plan-unknown-ref-target`, `document-plan-invalid-ref-target`, `document-plan-ambiguous-ref-target`, `document-plan-unknown-group-column`, `document-plan-invalid-column-widths`, `document-plan-invalid-column-labels`, `document-plan-column-run-without-query`, `document-plan-conflicting-column-runs`, `document-plan-missing-run-column`, `document-plan-conflicting-run-style`, `document-plan-unknown-run-column`, `document-plan-missing-definition-column`, `document-plan-unknown-definition-column`, `document-plan-missing-formula-source`, `document-plan-missing-image-location`.
+Emitted as `document-plan-<rule>`, one code per rule: `document-plan-invalid-context`, `document-plan-library-unavailable`, `document-plan-not-document-definition`, `document-plan-missing-title`, `document-plan-invalid-attribute`, `document-plan-invalid-content`, `document-plan-nested-document`, `document-plan-missing-text`, `document-plan-conflicting-text`, `document-plan-missing-query`, `document-plan-conflicting-query`, `document-plan-unknown-query`, `document-plan-query-planning`, `document-plan-invalid-style`, `document-plan-unknown-parameter`, `document-plan-duplicate-binding`, `document-plan-missing-binding`, `document-plan-unsupported-binding`, `document-plan-binding-type`, `document-plan-binding-multiplicity`, `document-plan-missing-view-source`, `document-plan-invalid-view-source`, `document-plan-unknown-view-source`, `document-plan-missing-diagram-kind`, `document-plan-conflicting-diagram-kind`, `document-plan-unsupported-diagram-kind`, `document-plan-invalid-direction`, `document-plan-unsupported-direction`, `document-plan-invalid-palette`, `document-plan-unsupported-palette`, `document-plan-invalid-ports`, `document-plan-unsupported-ports`, `document-plan-invalid-show`, `document-plan-invalid-overlay`, `document-plan-unsupported-overlay`, `document-plan-conflicting-runs`, `document-plan-ambiguous-run`, `document-plan-missing-run-text`, `document-plan-invalid-run-style`, `document-plan-missing-link-target`, `document-plan-missing-ref-target`, `document-plan-unknown-ref-target`, `document-plan-invalid-ref-target`, `document-plan-ambiguous-ref-target`, `document-plan-unknown-value-target`, `document-plan-invalid-value-target`, `document-plan-unknown-group-column`, `document-plan-invalid-column-widths`, `document-plan-invalid-column-labels`, `document-plan-column-run-without-query`, `document-plan-conflicting-column-runs`, `document-plan-missing-run-column`, `document-plan-conflicting-run-style`, `document-plan-unknown-run-column`, `document-plan-missing-definition-column`, `document-plan-unknown-definition-column`, `document-plan-missing-formula-source`, `document-plan-missing-image-location`, `document-plan-unsupported-markup-language`, `document-plan-unsupported-markup-construct`, `document-plan-misplaced-markup-body`, `document-plan-markup-body-not-paragraph`, `document-plan-markup-tool-missing` (a warning), `document-plan-markup-tool-failed`, `document-plan-markup-heading-level`.
 
 Specification: OpenSysML DocumentDefinitions library
 
@@ -2167,6 +2162,18 @@ A query definition (one typed by `DocumentQueries::Query` or a specialization of
 Emitted as `document-query-<rule>`, one code per rule: `document-query-invalid-context`, `document-query-library-unavailable`, `document-query-not-query-definition`, `document-query-missing-result-parameter`, `document-query-invalid-parameter`, `document-query-missing-result`, `document-query-conflicting-result`, `document-query-unsupported-result`, `document-query-unknown-invocation`, `document-query-ambiguous-invocation`, `document-query-positional-query-arguments`, `document-query-duplicate-argument`, `document-query-unknown-argument`, `document-query-missing-argument`, `document-query-argument-count`, `document-query-argument-type`, `document-query-argument-multiplicity`, `document-query-composition-cycle`, `document-query-unknown-parameter`, `document-query-unsupported-expression`, `document-query-unsupported-default`, `document-query-default-type`, `document-query-default-multiplicity`, `document-query-invalid-column`, `document-query-column-source`, `document-query-column-name`, `document-query-unknown-column-property`, `document-query-column-operator`, `document-query-column-type`, `document-query-duplicate-column`, `document-query-empty-projection`, `document-query-column-aggregate`, `document-query-collection-function`.
 
 Specification: OpenSysML DocumentQueries library
+
+### Workspace
+
+| Code | Severity | Summary |
+|------|----------|---------|
+| [`library-declared-twice`](#library-declared-twice) | warning | a library package declared by more than one document of the workspace |
+
+#### `library-declared-twice`
+
+**warning** · Workspace · a library package declared by more than one document of the workspace
+
+Two documents the workspace loads declare the same `library package`: two copies of the standard library under the workspace folder or the library path, a copy of a standard library file beside the bundled one, or a user library vendored twice. Every reference to the package resolves to one copy — the first the index registered, which the message names — and the other is unused, so edits to it change nothing; a filtered view or a metaclass lookup reading the duplicated declarations sees both. Reported once per pair of trees the copies lie in, on the first file of the unused copy; for copies on the library path, the locations are relative to `OPENSYSML_LIBRARY_PATH`, which the message names. Remove the unused copy, or point `OPENSYSML_LIBRARY_PATH` at one tree.
 
 ### Runtime
 

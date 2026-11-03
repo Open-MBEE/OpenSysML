@@ -1,0 +1,6 @@
+{
+  "type": "requirement",
+  "evaluate": "Repro::nrOff",
+  "libraries": true,
+  "satisfied": false
+}

@@ -38,6 +38,13 @@ export function interceptors(options: TransportOptions): Interceptor[] {
       return next(request);
     });
   }
+  const token = options.token;
+  if (token !== undefined && token !== "") {
+    built.push((next) => (request) => {
+      request.header.set("Authorization", `Bearer ${token}`);
+      return next(request);
+    });
+  }
   const tap = options.onResponse;
   if (tap !== undefined) {
     built.push(responseTap(tap));

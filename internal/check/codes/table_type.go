@@ -312,7 +312,7 @@ var typeCodes = []Entry{
 	{
 		Code: "flow-def-too-many-ends", Tier: TierType, Severity: "error",
 		Summary: "a flow definition with more than two ends",
-		Meaning: "A flow connection definition relates a source and a target: it can have at most two ends. " +
+		Meaning: "A flow definition relates a source and a target: it can have at most two ends. " +
 			"Drop the extra ends, or declare a connection definition for an n-ary relationship.",
 		Spec: "SysML v2 validateFlowDefinitionConnectionEnds",
 	},

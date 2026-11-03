@@ -36,9 +36,9 @@ type Instance struct {
 	// the declaration each was of, until the one materialized again here takes it back.
 	keptAnonymous []keptAnonymous
 
-	// keptConnectors holds, per feature value of a named connector, the identity the object
-	// of it had before a carry-over, which the one materialized again takes back.
-	keptConnectors map[*FeatureValue]int64
+	// keptConnectors holds, per feature value of a named connector, the identities the objects
+	// of it had before a carry-over, in order, which the ones materialized again take back.
+	keptConnectors map[*FeatureValue][]int64
 
 	// behaviors are the executions of the behaviors the object's type exhibits or
 	// performs, in declaration order, each bound to this object's identity.
@@ -69,13 +69,13 @@ func (inst *Instance) Owner() (*Instance, string) {
 	return inst.owner, inst.ownerFeature
 }
 
-// keepConnector remembers the identity the object of a named connector feature value had,
-// so the one materialized again against the new declarations keeps it.
+// keepConnector remembers the identity an object of a named connector feature value had, after
+// those of the objects before it, so the one materialized again against the new declarations keeps it.
 func (inst *Instance) keepConnector(fv *FeatureValue, id int64) {
 	if inst.keptConnectors == nil {
-		inst.keptConnectors = make(map[*FeatureValue]int64)
+		inst.keptConnectors = make(map[*FeatureValue][]int64)
 	}
-	inst.keptConnectors[fv] = id
+	inst.keptConnectors[fv] = append(inst.keptConnectors[fv], id)
 }
 
 // Feature value holds the runtime value(s) for one feature.
@@ -407,6 +407,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	if err := ctx.aliasRedefinedFeatureValuesOf(inst, inst.types(), nil, features); err != nil {
 		return nil, err
 	}
+	ctx.bindImplicitSatisfactionSubject(inst, owner)
 
 	// Register instance
 	ctx.registerInstance(inst)
@@ -422,6 +423,19 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 // occurrenceOf returns the object a usage denotes, materializing it once: a part
 // declared in a package names one occurrence, so reading its features twice
 // reads the same object.
+// beganWithRun dates the object a package-level usage denotes from the run's
+// first activation: it exists throughout the run, not from its first read.
+func (ctx *Context) beganWithRun(inst *Instance) {
+	l := ctx.lives[inst.ID]
+	if l.began <= 1 {
+		return
+	}
+	// reached stays where the read materialized it, so `create` can still start it there.
+	l.began, l.beganAt = 1, 0
+	ctx.lives[inst.ID] = l
+	ctx.livesChanged()
+}
+
 func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	if objs, bound, err := ctx.namespaceBoundObjects(sym); err != nil {
 		return nil, err
@@ -440,13 +454,23 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
 	mark := len(ctx.created)
-	inst, err := ctx.materialize(sym, 0, nil, "")
+	commit, rollback, drain := ctx.connectorJournal(sym)
+	inst, err := ctx.materializeMember(sym, 0, nil, "")
 	if err != nil {
+		rollback()
 		ctx.abandonInstancesSince(mark)
 		return nil, err
 	}
 	ctx.occurrences[sym] = []int64{inst.ID}
+	if owner := sym.Owner(); owner == nil || owner.Kind == symbols.SymbolPackage {
+		ctx.beganWithRun(inst)
+	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+		rollback()
+		return nil, err
+	}
+	commit()
+	if err := drain(); err != nil {
 		return nil, err
 	}
 	return inst, nil
@@ -481,8 +505,10 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 		return nil, err
 	}
 	mark := len(ctx.created)
+	commit, rollback, drain := ctx.connectorJournal(sym)
 	members, err := ctx.materializeMembers(sym, int(made), nil, "")
 	if err != nil {
+		rollback()
 		ctx.abandonInstancesSince(mark)
 		release()
 		return nil, err
@@ -494,6 +520,7 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	if lazy {
 		seq, err := ctx.withRequired(nil, sym, nil, "", count-made)
 		if err != nil {
+			rollback()
 			ctx.abandonInstancesSince(mark)
 			release()
 			return nil, err
@@ -502,7 +529,12 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	}
 	ctx.occurrences[sym] = ids
 	if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
+		rollback()
 		release()
+		return nil, err
+	}
+	commit()
+	if err := drain(); err != nil {
 		return nil, err
 	}
 	return members, nil
@@ -567,6 +599,14 @@ func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
 		}
 		return []*Instance{inst}, nil
 	case ctx.namesObjects(sym):
+		// The run denotes the lower bound of a count it can materialize; a bound the
+		// model does not evaluate leaves nothing to denote beyond what binds the usage.
+		if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); !mult.Upper.Known && !ctx.namespaceValued(sym) {
+			if !ctx.optionalValueless(sym) {
+				return nil, ctx.undenotedUsage(sym)
+			}
+			return nil, nil
+		}
 		members, err := ctx.everyOccurrence(sym)
 		if err != nil {
 			return nil, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
@@ -586,7 +626,7 @@ func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
 }
 
 // denotedValue is what a usage carrying no value reads as: its object, the collection of its
-// objects, or undetermined of its count where that admits more than the lower bound it holds.
+// objects, or undetermined of its count where the model leaves its lower bound unmet.
 func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	// A reader of another document's scope tree holds its own symbol for the
 	// usage; its occurrences are recorded under the declaring tree's.
@@ -598,6 +638,12 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 		}
 		return ctx.objectValue(inst)
 	}
+	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
+	if val, decided, err := ctx.openDenotedValue(sym, mult); err != nil {
+		return Value{}, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
+	} else if decided {
+		return val, nil
+	}
 	members, err := ctx.occurrencesOf(sym)
 	if err != nil {
 		return Value{}, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
@@ -607,7 +653,7 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	if tail != nil {
 		held += tail.count
 	}
-	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); held < fewestOf(mult) || (!ctx.libraryDeclared(sym) && mult.AdmitsMore(held) && !symbols.IsAbstract(sym)) {
+	if held < fewestOf(mult) {
 		spelled := ctx.QualifiedName(sym)
 		return undeterminedFeatureValue(openCountReason(spelled, mult), mult, sym), nil
 	}
@@ -622,7 +668,7 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	if tail != nil {
 		return NewSequenceValue(&Sequence{elements: elements, required: tail}), nil
 	}
-	return ctx.declaredCollection(sym, sequenceOf(elements)), nil
+	return ctx.declaredCollection(sym, sequenceOf(elements))
 }
 
 // liveOccurrences is the objects recorded as what sym denotes, while every one of them lives.
@@ -660,8 +706,8 @@ func (ctx *Context) OccurrenceUsage(inst *Instance) string {
 }
 
 // isOccurrenceUsage reports whether sym declares a usage that is an occurrence:
-// a part, item or individual, which is a thing with features rather than a
-// value, so a chain through it reads the features of that thing.
+// a part, item, individual or a performance, which is a thing with features rather
+// than a value, so a chain through it reads the features of that thing.
 func isOccurrenceUsage(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
@@ -670,7 +716,20 @@ func isOccurrenceUsage(sym *symbols.Symbol) bool {
 	if !ok || usage.Value != nil {
 		return false
 	}
-	return objectUsageKind(usage.Kind)
+	return objectUsageKind(usage.Kind) || performanceUsageKind(usage.Kind) && sym.OwnerScope != nil && namespaceScope(sym.OwnerScope)
+}
+
+// isPerformanceUsage reports whether sym declares an action or state usage.
+func isPerformanceUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && performanceUsageKind(usage.Kind)
+}
+
+// performanceUsageKind reports a usage kind whose values are performances: an action or
+// state usage (SysML v2 §7.17, §7.18) denotes one performance per occurrence, which a read
+// materializes as an object, starting what its type exhibits or performs but not its body.
+func performanceUsageKind(kind ast.UsageKind) bool {
+	return kind == ast.UsageAction || kind == ast.UsageState
 }
 
 // objectUsageKind reports a usage kind whose values are objects: the occurrence usages
@@ -680,7 +739,8 @@ func objectUsageKind(kind ast.UsageKind) bool {
 	case ast.UsagePart, ast.UsageItem, ast.UsageOccurrence, ast.UsageIndividual,
 		ast.UsageCase, ast.UsageUseCase, ast.UsageSatisfy,
 		ast.UsageView, ast.UsageViewpoint, ast.UsageConcern, ast.UsageFramedConcern,
-		ast.UsageRendering, ast.UsageViewRendering:
+		ast.UsageRendering, ast.UsageViewRendering,
+		ast.UsageConnection, ast.UsageInterface, ast.UsageAllocation:
 		return true
 	}
 	return false
@@ -702,16 +762,16 @@ func (ctx *Context) namesOneObject(sym *symbols.Symbol) bool {
 }
 
 // namesObjects reports whether a usage denotes several objects of its own: an occurrence
-// usage a namespace declares of a collection multiplicity whose bounds the model fixes.
+// usage a namespace declares of a collection multiplicity whose lower bound the model fixes.
 func (ctx *Context) namesObjects(sym *symbols.Symbol) bool {
 	if sym == nil || sym.OwnerScope == nil || !namespaceScope(sym.OwnerScope) || !isOccurrenceUsage(sym) {
 		return false
 	}
-	if ctx.occursOnce(sym) || ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) {
+	if ctx.occursOnce(sym) || ctx.model.semantics.IsVariationFeature(sym) {
 		return false
 	}
 	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
-	return mult.Lower.Known && mult.Upper.Known
+	return mult.Lower.Known && !mult.Lower.Infinite
 }
 
 // registersOccurrence reports whether an object materialized for a usage is the one a
@@ -773,10 +833,10 @@ func (ctx *Context) checkDefault(inst *Instance, fv *FeatureValue, name string, 
 	return ctx.checkAdmits(fv.Feature, what, val, how)
 }
 
-// checkAdmits reports a value the feature does not admit, by count, by type
-// or by uniqueness, naming the value as what spells it.
+// checkAdmits reports a value the feature does not admit, by count where a
+// multiplicity is stated for it, by type or by uniqueness, naming the value as what spells it.
 func (ctx *Context) checkAdmits(feat *EffectiveFeature, what func() string, val *Value, how admission) error {
-	if msg := feat.Multiplicity.HeldViolation(heldCountOf(val)); msg != "" {
+	if msg := feat.Multiplicity.HeldViolation(heldCountOf(val)); msg != "" && !feat.MultiplicityDefaulted {
 		return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
 	}
 	if err := ctx.checkWriteType(feat.DeclScope(), what, feat.Type, val, how); err != nil {
@@ -797,24 +857,34 @@ func (feat *EffectiveFeature) heldBy() *symbols.Symbol {
 	return feat.Type
 }
 
-// admitted is the value an admitted val is stored as: a collection for a multi-valued
-// feature, its elements charged, the objects a declared value holds classified by the feature.
-func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (Value, error) {
+// heldShape is val in the shape feat holds it (KerML 1.0 §7.3.4.1, §7.4.12): a multi-valued
+// feature holds a charged collection, one value its one element; an at-most-one feature holds it bare.
+func (ctx *Context) heldShape(feat *EffectiveFeature, val Value) (Value, error) {
 	if val.Kind == ValUndetermined {
 		// A value the model leaves open is held as it is: it is of no fixed count to collect.
 		return val, nil
 	}
-	if !feat.Scalar() && (val.Kind != ValSequence && val.Kind != ValSet || feat.HoldsSet != (val.Kind == ValSet)) {
-		// A multi-valued feature holds a collection however it was written, so a
-		// single value written to one is that collection's one element.
+	if feat.Scalar() {
+		return soleElement(val), nil
+	}
+	if val.Kind != ValSequence && val.Kind != ValSet || feat.HoldsSet != (val.Kind == ValSet) {
 		elements := elementsOf(val)
 		if err := ctx.chargeElements(int64(len(elements))); err != nil {
 			return Value{}, err
 		}
-		val = ctx.collectionOf(feat, elements)
-	} else if feat.Scalar() {
-		val = soleElement(val)
-	} else if err := ctx.chargeShaped(val); err != nil {
+		return ctx.collectionOf(feat, elements), nil
+	}
+	if err := ctx.chargeShaped(val); err != nil {
+		return Value{}, err
+	}
+	return val, nil
+}
+
+// admitted is the value an admitted val is stored as: a collection for a multi-valued
+// feature, its elements charged, the objects a declared value holds classified by the feature.
+func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (Value, error) {
+	val, err := ctx.heldShape(feat, val)
+	if err != nil {
 		return Value{}, err
 	}
 	if how == admitDeclared {
@@ -862,6 +932,9 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 		}
 		// Naming no feature value of the object is no materialization of one.
 		return nil, fmt.Errorf("%w: feature %q not found in instance %d (type %s)", ErrNoSuchFeature, name, inst.ID, inst.Type.Name)
+	}
+	if fv, err := inst.shotFeatureValue(ctx, name); fv != nil || err != nil {
+		return fv, err
 	}
 	fv, err := inst.materializeFeatureValue(ctx, name, open)
 	if err != nil {
@@ -939,6 +1012,7 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		}
 		ctx.noteProbeWrite(fv)
 		before := ctx.beforeWrite(fv)
+		held := fv.HeldValue()
 		if fv.Feature.Scalar() {
 			fv.Value = value
 			fv.Values = Value{}
@@ -950,8 +1024,119 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		fv.BindingDerived, fv.Assumed, fv.intrinsic = false, false, false
 		ctx.unshareTraces()
 		ctx.afterWrite(fv, before)
+		ctx.adoptOccurrenceWrite(inst, fv)
+		ctx.adoptBodyCellValue(fv)
+		ctx.releaseStandIns(held)
 		return nil
 	})
+}
+
+// releaseStandIns drops the objects a value-typed feature materialized to stand for its
+// unspecified values once a write gives it some: a data value has no identity of its own.
+func (ctx *Context) releaseStandIns(held Value) {
+	switch held.Kind {
+	case ValInstance:
+		ctx.releaseStandIn(held)
+	case ValSequence, ValSet, ValArray:
+		for _, elem := range listedElements(held) {
+			ctx.releaseStandIn(elem)
+		}
+	}
+}
+
+// releaseStandIn drops elem when it is a stand-in a write just replaced that nothing names any more.
+func (ctx *Context) releaseStandIn(elem Value) {
+	if elem.Kind != ValInstance || !ctx.HoldsNoValue(elem) {
+		return
+	}
+	standIn := ctx.instances[elem.Instance]
+	if len(standIn.behaviors) != 0 {
+		return
+	}
+	named := map[int64]bool{standIn.ID: true}
+	if ctx.featureValuesName(named) || ctx.runDataNames(named) {
+		return
+	}
+	ctx.dropStandIn(standIn)
+}
+
+// featureValuesName reports whether any materialized feature value still names one of the objects.
+func (ctx *Context) featureValuesName(named map[int64]bool) bool {
+	for _, inst := range ctx.instances {
+		for _, fv := range inst.FeatureValues {
+			if fv.Materialized && namesAbandoned(fv, named) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// dropStandIn unregisters a stand-in, lifetime included; a journal rolled back puts it back.
+func (ctx *Context) dropStandIn(standIn *Instance) {
+	id := standIn.ID
+	at := slices.Index(ctx.created, id)
+	if at < 0 {
+		return
+	}
+	l, lived := ctx.lives[id]
+	ctx.forgetAbandoned(ctx.dropInstances(at, at+1, func(*Instance) bool { return true }))
+	ctx.noteProbeUndo(func() {
+		ctx.instances[id] = standIn
+		ctx.created = slices.Insert(ctx.created, min(at, len(ctx.created)), id)
+		if lived {
+			ctx.lives[id] = l
+		}
+	})
+}
+
+// adoptOccurrenceWrite has every run over inst whose data mirrors fv hold what the
+// write landed on it, before anything the write replaced is released.
+func (ctx *Context) adoptOccurrenceWrite(inst *Instance, fv *FeatureValue) {
+	if ctx.mirroringBodyCell != 0 || ctx.probes > 0 {
+		return
+	}
+	mirrored := false
+	for _, exec := range ctx.stateExecutors {
+		if exec.occurrence == inst && exec.mirrorOccurrenceWrite(fv) {
+			mirrored = true
+		}
+	}
+	for _, exec := range ctx.actionExecutors {
+		if exec.occurrence == inst {
+			exec.mirrorOccurrenceWrite(fv)
+		}
+	}
+	if mirrored {
+		ctx.noteStateDataWrite()
+	}
+}
+
+// runDataNames reports whether the data of a live run still names one of the objects.
+func (ctx *Context) runDataNames(named map[int64]bool) bool {
+	for _, exec := range ctx.stateExecutors {
+		if valuesName(exec.stateData, named) {
+			return true
+		}
+	}
+	for _, exec := range ctx.actionExecutors {
+		for _, perf := range exec.reachableFrames() {
+			if valuesName(perf.data, named) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// valuesName reports whether any of vars names one of the objects.
+func valuesName(vars map[string]Value, objects map[int64]bool) bool {
+	for _, val := range vars {
+		if namesAbandonedValue(val, objects) {
+			return true
+		}
+	}
+	return false
 }
 
 // materializeFeatureValue is GetFeatureValue's materialization: the feature value's value, evaluated and
@@ -1093,6 +1278,12 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// optional one demands none: each, a connector included, holds only contributions —
 	// unless the declaration's body binds a feature of the one object it then holds.
 	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (symbols.IsAbstract(fv.Feature.Symbol) || ctx.model.semantics.IsConnectorObjectUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
+		// A binding stating a link makes an optional subsetter hold a value its other end holds.
+		if composite := ctx.CompositeTypeOf(fv.Feature); composite != nil {
+			if held, err := inst.materializeFromSubsetted(ctx, fv, name, composite); err != nil || held {
+				return fv, err
+			}
+		}
 		return inst.holdContributions(ctx, fv, name)
 	}
 
@@ -1137,7 +1328,13 @@ func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name st
 	if ctx.takeShared(inst, fv) {
 		return fv, nil
 	}
-	return inst.holdDerived(ctx, fv, name, func() (Value, error) { return ctx.evalFeatureValueDefault(inst, fv, name) })
+	held, err := inst.holdDerived(ctx, fv, name, func() (Value, error) { return ctx.evalFeatureValueDefault(inst, fv, name) })
+	if err == nil && fv.body == nil {
+		place := bindingPlace(fv.Feature.Symbol, name)
+		place.Via = inst.heldBy()
+		ctx.deriveMarks(place, ctx.defaultScope(inst, fv), fv.Feature.DefaultValue)
+	}
+	return held, err
 }
 
 // holdDerived holds what derive states for the feature, recording what it reads, once
@@ -1179,7 +1376,7 @@ func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name 
 			return nil, err
 		}
 		held := int64(len(contributed))
-		if max(atLeast, fewestOf(mult)) > held || (!ctx.libraryDeclared(fv.Feature.Symbol) && mult.MayAdmitMore(held)) {
+		if !mult.Lower.Known || !mult.Upper.Known || max(atLeast, fewestOf(mult)) > held || semantics.IsBehaviorParameter(fv.Feature.Symbol) {
 			open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
 			return fv, nil
 		}
@@ -1187,6 +1384,11 @@ func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name 
 
 	if !mult.Upper.Known || !mult.Lower.Known {
 		return nil, fmt.Errorf("cannot materialize feature %q with unknown multiplicity", name)
+	}
+
+	// A required feature subsetting another holds that one's values (KerML 1.0 §7.3.4.4).
+	if held, err := inst.materializeFromSubsetted(ctx, fv, name, composite); err != nil || held {
+		return fv, err
 	}
 
 	if !mult.Upper.Infinite && mult.Upper.Value == 1 {
@@ -1273,7 +1475,7 @@ func (inst *Instance) materializeCompositeCollection(ctx *Context, fv *FeatureVa
 		fv.Values = ctx.collectionOf(fv.Feature, elements)
 	}
 	fv.Materialized = true
-	fv.Assumed = mult.AdmitsMore(int64(len(contributed)) + count)
+	fv.Assumed = semantics.IsBehaviorParameter(fv.Feature.Symbol) || count > 0 && mult.AdmitsMore(int64(len(contributed))+count)
 	fv.intrinsic = ctx.subsettersDeclared(inst, name)
 	if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
 		return fail(err)
@@ -1309,13 +1511,25 @@ func (ctx *Context) lowerBoundCount(mult semantics.Range, held int, what string)
 func (ctx *Context) materializeMembers(sym *symbols.Symbol, count int, owner *Instance, feature string) ([]*Instance, error) {
 	members := make([]*Instance, 0, count)
 	for i := 0; i < count; i++ {
-		inst, err := ctx.materialize(sym, 0, owner, feature)
+		inst, err := ctx.materializeMember(sym, 0, owner, feature)
 		if err != nil {
 			return nil, err
 		}
 		members = append(members, inst)
 	}
 	return members, nil
+}
+
+// materializeMember makes one object of sym under identity id (0 for the next), held by owner in
+// feature, its behaviors left for the caller to start once it is recorded; a namespace-level
+// connector usage's object is made with its ends attached.
+func (ctx *Context) materializeMember(sym *symbols.Symbol, id int64, owner *Instance, feature string) (*Instance, error) {
+	if owner == nil && ctx.model.semantics.IsConnectorObjectUsage(sym) {
+		var inst *Instance
+		err := ctx.materializeConnectorStarting(nil, sym, sym, id, false, func(conn *Instance) { inst = conn })
+		return inst, err
+	}
+	return ctx.materialize(sym, id, owner, feature)
 }
 
 // HoldsOnlyContributions reports whether a feature of known multiplicity
@@ -1358,7 +1572,7 @@ func (inst *Instance) holdContributed(ctx *Context, fv *FeatureValue, name strin
 		fv.Values = val
 	}
 	fv.Materialized, fv.intrinsic = true, ctx.subsettersDeclared(inst, name)
-	fv.Assumed = !symbols.IsAbstract(fv.Feature.Symbol) && fv.Feature.Multiplicity.AdmitsMore(int64(len(contributed)))
+	fv.Assumed = semantics.IsBehaviorParameter(fv.Feature.Symbol)
 	return fv, nil
 }
 
@@ -1387,7 +1601,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	if semantics.IsBehaviorParameter(feat.Symbol) && !ctx.model.semantics.IsDataType(feat.Type) {
 		return nil
 	}
-	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat) || satisfiedBy(feat.Symbol) != nil) {
+	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat) || satisfyAssertionUsage(feat.Symbol)) {
 		return feat.Symbol
 	}
 	return feat.Type
@@ -1395,7 +1609,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 
 // declaresFeatures reports whether a usage's body, or that of a feature it redefines or
 // directly subsets, declares features: a specializing feature inherits them (KerML 1.0 §7.3.4.5).
-// A satisfy usage's `by` binds its subject as a body member would, so it declares one too.
+// A satisfy usage binds its subject (`by`, or the owner without one) as a body member would.
 func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	if declaresFeatures(feat.Symbol) {
 		return true
@@ -1416,25 +1630,36 @@ func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 // untypedOccurrenceUsage reports an occurrence, port, action or state usage declaring no
 // type, which its kind's implicit base still classifies (SysML v2 §7.9.2: an untyped `item`
 // is an Items::Item, an untyped `port` a Ports::Port; §7.16.2, §7.17.2: an untyped `action`
-// an Actions::Action, an untyped `state` a States::StateAction).
+// an Actions::Action, an untyped `state` a States::StateAction), held as a typed one is
+// (Parts.sysml `ownedActions`, `ownedStates`; Actions.sysml `subactions`).
 func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
 	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol) || untypedPerformanceUsage(feat.Symbol)) {
 		return false
 	}
-	usage := feat.Symbol.Decl.(*ast.Usage)
-	return !usage.IsReference
+	usage, ok := feat.Symbol.Decl.(*ast.Usage)
+	return !ok || !usage.IsReference
 }
 
-// untypedPerformanceUsage reports an action or state usage declaring no type and no value,
-// a performance its owner holds as it holds a typed one (Parts.sysml `ownedActions`,
-// `ownedStates`; Actions.sysml `subactions`): one object for a usage declaring no
-// multiplicity, as many as a fixed bound states, none made up for an open bound.
+// untypedPerformanceUsage reports an action or state usage, or a requirement's `assume`/`require`
+// constraint, declaring no type and no value, a performance its owner holds as it holds a typed
+// one: one object for a usage declaring no multiplicity, as many as a fixed bound states, none
+// made up for an open bound.
 func untypedPerformanceUsage(sym *symbols.Symbol) bool {
-	if sym == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
+	if sym == nil {
 		return false
 	}
+	// A requirement's `assume`/`require` constraint is composite by its grammar (no `ref`),
+	// an object of the collection it subsets (SysML v2 §8.3.20.4, Requirements.sysml).
+	if owned, ok := ast.OwnedConstraintOf(sym.Decl); ok {
+		return owned.Value == nil
+	}
+	switch sym.Decl.(type) {
+	case *ast.AssumeMember, *ast.RequireMember:
+		// The reference form (`assume c;`) checks the named constraint on this object.
+		return true
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && usage.Value == nil
+	return ok && usage.Value == nil && (performanceUsageKind(usage.Kind) || usage.IsRequirementConstraint())
 }
 
 // untypedPortUsage reports a port usage, whose object a binding connector can join to another's.
@@ -1460,19 +1685,51 @@ func isReferenceUsage(sym *symbols.Symbol) bool {
 // declaresFeatures reports whether a usage's own body restates or adds features,
 // which the object it materializes has to carry.
 func declaresFeatures(sym *symbols.Symbol) bool {
-	for _, member := range unwrappedDeclMembers(sym.Decl) {
+	for member := range eachUnwrappedDeclMember(sym.Decl) {
+		if memberDeclaresFeature(member) {
+			return true
+		}
+	}
+	return false
+}
+
+// declaresAFeature reports whether one of a body's members declares a feature: a
+// named or specializing usage, or a state body's named substate or entry, do or
+// exit action, each a feature of the state declaring it (SysML v2 §7.18.2).
+func declaresAFeature(members []ast.Node) bool {
+	return slices.ContainsFunc(members, memberDeclaresFeature)
+}
+
+// memberDeclaresFeature reports whether one body member declares a feature (see declaresAFeature).
+func memberDeclaresFeature(member ast.Node) bool {
+	switch m := member.(type) {
+	case *ast.Usage:
+		if m.Ident.Name != "" || m.Ident.ShortName != "" || len(m.Relationships) > 0 {
+			return true
+		}
+	case *ast.SubjectMember:
 		// A subject the body values or defaults (`subject = x;`) restates the inherited parameter.
-		if subject, ok := member.(*ast.SubjectMember); ok {
-			if subject.BindingExpr != nil {
-				return true
-			}
-			continue
+		if m.BindingExpr != nil {
+			return true
 		}
-		usage, ok := member.(*ast.Usage)
-		if !ok {
-			continue
+	case *ast.SubstateMember:
+		if m.Name != "" {
+			return true
 		}
-		if usage.Ident.Name != "" || usage.Ident.ShortName != "" || len(usage.Relationships) > 0 {
+	case *ast.StateNode:
+		if m.Name != "" {
+			return true
+		}
+	case *ast.EntryMember:
+		if declaresAFeature(m.Actions) {
+			return true
+		}
+	case *ast.DoMember:
+		if declaresAFeature(m.Actions) {
+			return true
+		}
+	case *ast.ExitMember:
+		if declaresAFeature(m.Actions) {
 			return true
 		}
 	}
@@ -1661,14 +1918,15 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 		return value, nil
 	}
 
-	scope := fv.Feature.DefaultScope()
-	if scope == nil {
-		scope = inst.Type.OwnerScope
+	// A declared redefinition of `this` holds the context occurrence the member read answers.
+	if r := ctx.model.resolver; r != nil && r.IsOccurrenceThis(fv.Feature.Symbol) {
+		return ctx.objectValue(ctx.contextOccurrence(inst))
 	}
+	scope := ctx.defaultScope(inst, fv)
 	ec := NewEvalContextIn(ctx, scope, ctx.bindingContext(inst, fv.Feature))
-	if object := ctx.model.resolver.ThisContext(scope); object != nil && isBehaviorDefKind(object.Kind) {
-		// A feature default written in a behavior def sees `this` as the
-		// def's own occurrence, which the instance being evaluated is.
+	if isBehaviorDefKind(inst.Type.Kind) {
+		// A feature default of a behavior def is evaluated on the def's
+		// occurrence, which the instance being evaluated is.
 		ec.occurrence = inst
 	}
 	defer ec.beginStep()()
@@ -1683,6 +1941,15 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 		return Value{}, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
 	}
 	return val, nil
+}
+
+// defaultScope is the scope a feature's value expression is read in: the one it
+// was declared in, else the one the object's type is.
+func (ctx *Context) defaultScope(inst *Instance, fv *FeatureValue) *symbols.Scope {
+	if scope := fv.Feature.DefaultScope(); scope != nil {
+		return scope
+	}
+	return inst.Type.OwnerScope
 }
 
 // subjectMemberValue reads a subject's value expression that is a qualified feature name of
@@ -1709,4 +1976,23 @@ func (ctx *Context) qualifiedMemberOf(self *Instance, scope *symbols.Scope, expr
 		return Value{}, true, err
 	}
 	return fv.HeldValue(), true, nil
+}
+
+// heldBy is the one part or item usage the object is held as the value of, nil
+// where none or more than one classifies it so.
+func (inst *Instance) heldBy() *symbols.Symbol {
+	if inst.Type != nil && (inst.Type.Kind == symbols.SymbolPartUsage || inst.Type.Kind == symbols.SymbolItemUsage) {
+		return inst.Type
+	}
+	var held *symbols.Symbol
+	for _, sym := range inst.classifiers {
+		if sym.Kind != symbols.SymbolPartUsage && sym.Kind != symbols.SymbolItemUsage {
+			continue
+		}
+		if held != nil && held != sym {
+			return nil
+		}
+		held = sym
+	}
+	return held
 }

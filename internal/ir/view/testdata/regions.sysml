@@ -1,3 +1,4 @@
+// Deliberately invalid in one place: `pick` is a choice in the body of a parallel machine, which no transition may leave, so it routes nowhere — the error is kept, as the fixture pins where such an inherited body pseudostate is located, not how it routes.
 package Regions {
 	// A parallel machine whose regions are synthesized from its substates, one of
 	// which holds a parallel composite state with regions of its own.
@@ -35,7 +36,11 @@ package Regions {
 			entry; then ready;
 			state ready;
 			junction settle;
+			transition first ready then settle;
+			transition first settle then ready;
 		}
 		choice retry;
+		transition first go then retry;
+		transition first retry then go;
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -31,7 +32,10 @@ type Workspace struct {
 	changes map[string]uint64
 	onDisk  map[string][]byte // last-known on-disk bytes, used when a doc is not open
 	open    map[string]bool   // names with an authoritative open buffer
-	index   *symbols.Index
+	// kinds is the language of each open buffer whose name does not tell it,
+	// a notebook's cells opened as one SysML document.
+	kinds map[string]source.Kind
+	index *symbols.Index
 	// library is every library file the index held at construction, so a displaced
 	// one can come back; libraryRoots names their top-level packages.
 	library      map[string]libraryFile
@@ -82,6 +86,10 @@ type Workspace struct {
 	// displaced, by standing in for it or by taking its name, for when it comes back.
 	standIns  map[string]string
 	displaced map[string]symbols.LibraryDocument
+	// findings caches WorkspaceFindings for the generation it was computed at.
+	findings      []checkws.Finding
+	findingsGen   uint64
+	findingsKnown bool
 
 	// workers is how many documents OpenAll and DiagnosticsAll work on at once.
 	workers int
@@ -168,6 +176,7 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 		changes:      map[string]uint64{},
 		onDisk:       map[string][]byte{},
 		open:         map[string]bool{},
+		kinds:        map[string]source.Kind{},
 		index:        idx,
 		library:      map[string]libraryFile{},
 		libraryRoots: map[string]bool{},
@@ -368,13 +377,25 @@ func (w *Workspace) Open(name string, content []byte, version int) {
 	w.setOpenBuffer(name, content, version)
 }
 
+// OpenWithKind is Open for a buffer whose language its name does not tell: the
+// buffer is parsed as kind for as long as it is open.
+func (w *Workspace) OpenWithKind(name string, content []byte, version int, kind source.Kind) {
+	w.mu.Lock()
+	w.kinds[name] = kind
+	w.mu.Unlock()
+	w.setOpenBuffer(name, content, version)
+}
+
 // setOpenBuffer records a copy of an open buffer and reindexes it, unless the
-// loaded document already holds that text, when only the version moves.
+// loaded document already holds that text in that language, when only the
+// version moves.
 func (w *Workspace) setOpenBuffer(name string, content []byte, version int) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.open[name] = true
-	if held := w.docs[name]; held != nil && !held.Recorded() && bytes.Equal(held.Content, content) {
+	held := w.docs[name]
+	sameKind := held != nil && (w.kinds[name] == source.KindUnknown || w.kinds[name] == held.Kind())
+	if held != nil && sameKind && !held.Recorded() && bytes.Equal(held.Content, content) {
 		if held.Version != version {
 			versioned := *held
 			versioned.Version = version
@@ -449,6 +470,7 @@ func (w *Workspace) Close(name string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	delete(w.open, name)
+	delete(w.kinds, name)
 	disk, ok := w.onDisk[name]
 	if !ok {
 		w.removeLocked(name)
@@ -465,6 +487,7 @@ func (w *Workspace) Remove(name string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	delete(w.open, name)
+	delete(w.kinds, name)
 	delete(w.onDisk, name)
 	w.removeLocked(name)
 }
@@ -472,8 +495,8 @@ func (w *Workspace) Remove(name string) {
 // reindexLocked reparses name and incrementally updates the global index.
 // Caller must hold the write lock.
 func (w *Workspace) reindexLocked(name string, content []byte, version int) {
-	kind := source.KindUnknown
-	if held := w.docs[name]; held != nil {
+	kind := w.kinds[name]
+	if held := w.docs[name]; held != nil && kind == source.KindUnknown {
 		kind = held.Kind()
 	}
 	doc := newDocument(name, content, version, kind)

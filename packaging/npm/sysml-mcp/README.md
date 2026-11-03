@@ -97,6 +97,10 @@ The package version is the OpenSysML release it runs: `@openmbee/sysml-mcp@X.Y.Z
 `@openmbee/sysml-mcp-<os>-<cpu>@X.Y.Z`, built from the `vX.Y.Z` release binaries, and
 `npx -y @openmbee/sysml-mcp@X.Y.Z` runs that release. Pre-releases are published under
 the `next` dist-tag and nightly snapshots under `nightly`; `latest` is always a release.
+`@openmbee/opensysml-mcp` is the same runner under the name the other OpenSysML npm packages
+share (`@openmbee/opensysml`, `@openmbee/opensysml-wasm`): generated from this package at
+publish time, it pins the same platform packages at the same version and adds `opensysml-mcp`
+as a second name for the command.
 
 ## License
 

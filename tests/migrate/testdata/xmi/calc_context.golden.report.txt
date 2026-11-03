@@ -9,7 +9,7 @@ Parameter	Tank::Rate::result	_rateResult	-> Model::Tank::Rate::result	(the retur
 ## mapped (18)
 Model	Model	_m	-> Model	(written as package Model)
 «Block» Class	Plant	_plant	-> Model::Plant
-Activity	Plant::Run	_run	-> Model::Plant::Run	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Plant::Run	_run	-> Model::Plant::Run	(acts on its owner Plant, which it takes as its parameter context, since its this names no feature of the owner)
 ActivityFinalNode	Plant::Run::<ActivityFinalNode>	_rDone	-> final
 ControlFlow	Plant::Run::<ControlFlow>	_rf3
 InitialNode	Plant::Run::<InitialNode>	_rInit	-> start
@@ -22,6 +22,6 @@ ValueSpecificationAction	Plant::Run::two	_rTwo	-> two	(no edge leads to the node
 OutputPin	Plant::Run::two::result	_rTwoOut	-> Model::Plant::Run::two.result
 Property	Plant::tank	_pTank	-> Model::Plant::tank
 «Block» Class	Tank	_tank	-> Model::Tank
-OpaqueBehavior	Tank::Rate	_rate	-> Model::Tank::Rate	(the English body is translated to v2; acts on its owner Tank, which it takes as its parameter context, since its this is the def's own occurrence)
+OpaqueBehavior	Tank::Rate	_rate	-> Model::Tank::Rate	(the English body is translated to v2; acts on its owner Tank, which it takes as its parameter context, since its this names no feature of the owner)
 Parameter	Tank::Rate::factor	_rateFactor	-> Model::Tank::Rate::factor
 Property	Tank::level	_level	-> Model::Tank::level

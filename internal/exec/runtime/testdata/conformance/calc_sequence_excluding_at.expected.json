@@ -1,0 +1,14 @@
+{
+  "libraries": true,
+  "type": "calc",
+  "inputs": [
+    {"type": "Integer", "value": 2}
+  ],
+  "result": {"type": "Sequence", "elements": [
+    {"type": "Integer", "value": 1},
+    {"type": "Integer", "value": 3},
+    {"type": "Integer", "value": 4},
+    {"type": "Integer", "value": 1},
+    {"type": "Integer", "value": 4}
+  ]}
+}

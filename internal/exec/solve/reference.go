@@ -1,6 +1,8 @@
 package solve
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -231,12 +233,13 @@ func (t *translator) variableOf(
 	}
 	// Every step a chain reads through must hold one value, since a variable
 	// stands for one: `a.pressure` reads a pressure per `a` when `a` holds many.
+	// A variation point stands for its one selection whatever it redefines.
 	for _, step := range chain {
-		if !featureDecl(step) {
+		if !featureDecl(step) || t.model.IsVariationFeature(step) {
 			continue
 		}
-		if !singleValued(t.model.EffectiveMultiplicityOf(step)) {
-			return nil, t.refuse(node, written, "it may hold more than one value")
+		if err := t.holdsOne(node, step, written, "value", step != target); err != nil {
+			return nil, err
 		}
 	}
 	sort, dimension, err := t.sortOf(node, scope, target, written)
@@ -259,6 +262,29 @@ func (t *translator) variableOf(
 		}
 	}
 	return VarTerm(v), nil
+}
+
+// holdsOne refuses a read of a feature whose stated or implicit multiplicity admits
+// several (what names what is read), and records one the default 0..* alone governs as assumed one.
+func (t *translator) holdsOne(node ast.Node, step *symbols.Symbol, written, what string, object bool) error {
+	r := t.model.GoverningMultiplicityOf(step)
+	if singleValued(r) {
+		return nil
+	}
+	if _, stated := t.model.StatedMultiplicityOf(step); stated {
+		return t.refuse(node, written, "it may hold more than one "+what)
+	}
+	t.assumeOne(AssumedOne{Feature: step, Name: t.fqn(step), Multiplicity: r, Object: object})
+	return nil
+}
+
+// assumeOne records a feature read under the assumption that it holds one, once
+// per feature however often and through whatever chain it is read.
+func (t *translator) assumeOne(a AssumedOne) {
+	if slices.ContainsFunc(t.assumedOne, func(h AssumedOne) bool { return h.Feature == a.Feature }) {
+		return
+	}
+	t.assumedOne = append(t.assumedOne, a)
 }
 
 // singleValued reports whether a multiplicity admits exactly one value, which is
@@ -382,6 +408,13 @@ func variableName(t *translator, chain []*symbols.Symbol) string {
 		}
 	}
 	name := t.fqn(chain[first])
+	if chain[first].Name == "" {
+		// A satisfy's `by` subject shares the value of the requirement's subject
+		// it redefines, so the variable is the one that subject names.
+		if redefined := t.model.ImplicitRoleRedefinitions(chain[first]); len(redefined) > 0 {
+			name = t.fqn(redefined[0])
+		}
+	}
 	for _, sym := range chain[first+1:] {
 		name += "." + sym.Name
 	}
@@ -391,9 +424,20 @@ func variableName(t *translator, chain []*symbols.Symbol) string {
 // featureDecl reports whether sym declares a feature holding a value: a usage, or
 // the subject a requirement declares. A definition or a package holds none.
 func featureDecl(sym *symbols.Symbol) bool {
-	switch sym.Decl.(type) {
-	case *ast.Usage, *ast.SubjectMember:
+	if _, ok := sym.Decl.(*ast.Usage); ok {
 		return true
+	}
+	return subjectDecl(sym)
+}
+
+// subjectDecl reports whether sym declares a subject: a requirement's or case's
+// `subject` member, or the subject a satisfy usage's `by` clause declares.
+func subjectDecl(sym *symbols.Symbol) bool {
+	switch d := sym.Decl.(type) {
+	case *ast.SubjectMember:
+		return true
+	case *ast.Relationship:
+		return d.Kind == ast.RelSubject
 	}
 	return false
 }

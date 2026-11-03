@@ -12,12 +12,11 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"go.lsp.dev/uri"
 )
 
 // These tests drive textDocument/didChange with the framed JSON an editor sends,
 // where an omitted range (full replace) and a {0,0}-{0,0} range (insert) differ.
-
-const wireURI = "file:///tmp/wire.sysml"
 
 const wireSource = "package Vehicles {\n    part def Wheel;\n    part w : Wheel;\n}\n"
 
@@ -26,6 +25,7 @@ const wireSource = "package Vehicles {\n    part def Wheel;\n    part w : Wheel;
 type wireSession struct {
 	t       *testing.T
 	s       *Server
+	uri     string
 	client  net.Conn
 	msgs    chan map[string]any
 	readErr chan error
@@ -55,6 +55,7 @@ func newWireSession(t *testing.T) *wireSession {
 	w := &wireSession{
 		t:       t,
 		s:       s,
+		uri:     string(tempDocURI(t, "wire.sysml")),
 		client:  client,
 		msgs:    make(chan map[string]any, 256),
 		readErr: make(chan error, 1),
@@ -155,42 +156,42 @@ func (w *wireSession) next(what string, want func(map[string]any) bool) map[stri
 	}
 }
 
-// open initializes the session and opens wireURI with text, consuming its diagnostics.
+// open initializes the session and opens w.uri with text, consuming its diagnostics.
 func (w *wireSession) open(text string) {
 	w.t.Helper()
 	w.call("initialize", `{"capabilities":{}}`)
 	w.notify("initialized", `{}`)
 	w.notify("textDocument/didOpen", fmt.Sprintf(
-		`{"textDocument":{"uri":%q,"languageId":"sysml","version":1,"text":%s}}`, wireURI, jsonString(text)))
-	if diags := w.awaitDiagnostics(wireURI); len(diags) != 0 {
+		`{"textDocument":{"uri":%q,"languageId":"sysml","version":1,"text":%s}}`, w.uri, jsonString(text)))
+	if diags := w.awaitDiagnostics(w.uri); len(diags) != 0 {
 		w.t.Fatalf("didOpen published %v, want a clean document to start from", diags)
 	}
 }
 
-// didChange sends the given JSON change objects verbatim for wireURI and
+// didChange sends the given JSON change objects verbatim for w.uri and
 // returns the diagnostics published for the result.
 func (w *wireSession) didChange(version int, changes ...string) []any {
 	w.t.Helper()
 	w.notify("textDocument/didChange", fmt.Sprintf(
 		`{"textDocument":{"uri":%q,"version":%d},"contentChanges":[%s]}`,
-		wireURI, version, strings.Join(changes, ",")))
-	return w.awaitDiagnostics(wireURI)
+		w.uri, version, strings.Join(changes, ",")))
+	return w.awaitDiagnostics(w.uri)
 }
 
-// content is the text the workspace holds for wireURI.
+// content is the text the workspace holds for w.uri.
 func (w *wireSession) content() string {
 	w.t.Helper()
-	doc := w.s.ws.Document(uriToName(wireURI))
+	doc := w.s.ws.Document(uriToName(uri.URI(w.uri)))
 	if doc == nil {
-		w.t.Fatalf("%s is not in the workspace", wireURI)
+		w.t.Fatalf("%s is not in the workspace", w.uri)
 	}
 	return string(doc.Content)
 }
 
-// symbolNames returns the top-level documentSymbol names of wireURI.
+// symbolNames returns the top-level documentSymbol names of w.uri.
 func (w *wireSession) symbolNames() []string {
 	w.t.Helper()
-	result := w.call("textDocument/documentSymbol", fmt.Sprintf(`{"textDocument":{"uri":%q}}`, wireURI))
+	result := w.call("textDocument/documentSymbol", fmt.Sprintf(`{"textDocument":{"uri":%q}}`, w.uri))
 	symbols, ok := result.([]any)
 	if !ok {
 		w.t.Fatalf("documentSymbol result = %v, want an array", result)
@@ -208,7 +209,7 @@ func (w *wireSession) symbolNames() []string {
 func (w *wireSession) hoverText(line, character int) string {
 	w.t.Helper()
 	result := w.call("textDocument/hover", fmt.Sprintf(
-		`{"textDocument":{"uri":%q},"position":{"line":%d,"character":%d}}`, wireURI, line, character))
+		`{"textDocument":{"uri":%q},"position":{"line":%d,"character":%d}}`, w.uri, line, character))
 	if result == nil {
 		return ""
 	}
@@ -319,7 +320,7 @@ func TestWireDidChangeMixedBatchAppliesInOrder(t *testing.T) {
 	if got := w.content(); got != want {
 		t.Errorf("content = %q, want %q", got, want)
 	}
-	result := w.call("textDocument/documentSymbol", fmt.Sprintf(`{"textDocument":{"uri":%q}}`, wireURI))
+	result := w.call("textDocument/documentSymbol", fmt.Sprintf(`{"textDocument":{"uri":%q}}`, w.uri))
 	symbols, _ := result.([]any)
 	if len(symbols) != 1 {
 		t.Fatalf("documentSymbol = %v, want the one package Final", result)
@@ -384,7 +385,7 @@ func TestWireRangeFormattingAnswersEditsOnSelectedLines(t *testing.T) {
 	request := func(startLine, endLine int) []any {
 		result := w.call("textDocument/rangeFormatting", fmt.Sprintf(
 			`{"textDocument":{"uri":%q},"range":{"start":{"line":%d,"character":0},"end":{"line":%d,"character":0}},"options":{"tabSize":4,"insertSpaces":true}}`,
-			wireURI, startLine, endLine))
+			w.uri, startLine, endLine))
 		if result == nil {
 			return nil
 		}
@@ -412,5 +413,50 @@ func TestWireRangeFormattingAnswersEditsOnSelectedLines(t *testing.T) {
 	}
 	if edits := request(0, 4); len(edits) != 2 {
 		t.Errorf("edits for the whole file = %v, want both indentation fixes", edits)
+	}
+}
+
+// A request sent right behind a didChange, without waiting for its
+// diagnostics, is answered from the changed document.
+func TestWireRequestAfterDidChangeSeesTheChange(t *testing.T) {
+	w := newWireSession(t)
+	w.open(wireSource)
+	for i := 2; i < 22; i++ {
+		name := fmt.Sprintf("Renamed%d", i)
+		w.notify("textDocument/didChange", fmt.Sprintf(
+			`{"textDocument":{"uri":%q,"version":%d},"contentChanges":[{"text":"package %s {\n}\n"}]}`, w.uri, i, name))
+		if got := w.symbolNames(); !slices.Equal(got, []string{name}) {
+			t.Fatalf("symbols after change %d = %v, want [%s]", i, got, name)
+		}
+	}
+}
+
+// Requests written straight behind a didOpen, before its diagnostics arrive,
+// are answered from the opened document rather than from an empty workspace.
+func TestWireRequestsBehindDidOpenSeeTheDocument(t *testing.T) {
+	w := newWireSession(t)
+	callPos := positionAfter(t, editorFactsModel, "fell = Fall(20.0, 9.")
+	doc := fmt.Sprintf(`{"uri":%q}`, w.uri)
+	wholeRange := fmt.Sprintf(`{"start":{"line":0,"character":0},"end":{"line":%d,"character":0}}`, strings.Count(editorFactsModel, "\n"))
+	w.notify("textDocument/didOpen", fmt.Sprintf(
+		`{"textDocument":{"uri":%q,"languageId":"sysml","version":1,"text":%s}}`, w.uri, jsonString(editorFactsModel)))
+
+	help, _ := w.call("textDocument/signatureHelp", fmt.Sprintf(
+		`{"textDocument":%s,"position":{"line":%d,"character":%d}}`, doc, callPos.Line, callPos.Character)).(map[string]any)
+	if sigs, _ := help["signatures"].([]any); len(sigs) != 1 {
+		t.Errorf("signatureHelp behind didOpen = %v, want one signature", help)
+	}
+	if lenses, _ := w.call("textDocument/codeLens", fmt.Sprintf(`{"textDocument":%s}`, doc)).([]any); len(lenses) == 0 {
+		t.Errorf("codeLens behind didOpen = %v, want lenses", lenses)
+	}
+	if hints, _ := w.call("textDocument/inlayHint", fmt.Sprintf(`{"textDocument":%s,"range":%s}`, doc, wholeRange)).([]any); len(hints) == 0 {
+		t.Errorf("inlayHint behind didOpen = %v, want hints", hints)
+	}
+	tokens, _ := w.call("textDocument/semanticTokens/full", fmt.Sprintf(`{"textDocument":%s}`, doc)).(map[string]any)
+	if data, _ := tokens["data"].([]any); len(data) == 0 {
+		t.Errorf("semanticTokens behind didOpen = %v, want tokens", tokens)
+	}
+	if got := w.symbolNames(); !slices.Equal(got, []string{"Demo"}) {
+		t.Errorf("documentSymbol behind didOpen = %v, want [Demo]", got)
 	}
 }

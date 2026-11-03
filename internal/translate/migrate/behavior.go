@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -952,7 +953,7 @@ func (m *migration) calcExpr(e *sysmlv1.Element) (expr string, ok bool, note str
 
 // calcExprHow is calcExpr also reporting whether the translator wrote the expression.
 func (m *migration) calcExprHow(e *sysmlv1.Element) (expr string, ok bool, note string, translated bool) {
-	bodies := e.Owned("body")
+	bodies := e.Values("body")
 	if len(bodies) > 1 {
 		return "", false, "the behavior has " + strconv.Itoa(len(bodies)) + " bodies; only one can be the result expression", false
 	}
@@ -1050,7 +1051,7 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 func (m *migration) textualReps(e *sysmlv1.Element) {
 	for _, pair := range opaqueBodyPairs(e) {
 		if strings.TrimSpace(pair.body) != "" && pair.language != "" {
-			m.w.lines(prefixFirst("rep language "+stringLiteral(pair.language)+" ", opaqueRepresentationCommentLines(pair.body)))
+			m.w.lines(prefixFirst("rep language "+source.StringText(pair.language)+" ", opaqueRepresentationCommentLines(pair.body)))
 		}
 	}
 }

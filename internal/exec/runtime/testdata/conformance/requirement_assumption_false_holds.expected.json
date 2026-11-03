@@ -1,0 +1,6 @@
+{
+  "type": "requirement",
+  "evaluate": "Repro::offReq",
+  "libraries": true,
+  "satisfied": true
+}

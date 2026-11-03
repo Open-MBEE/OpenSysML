@@ -64,7 +64,12 @@ elmt:AnonymousFeatures__Part_om
     sysml:ownedMemberElement elmt:AnonymousFeatures__Part ;
     sysml:ownedRelatedElement elmt:AnonymousFeatures__Part ;
     sysml:owningRelatedElement elmt:AnonymousFeatures ;
-    sysml:membershipOwningNamespace elmt:AnonymousFeatures .
+    sysml:membershipOwningNamespace elmt:AnonymousFeatures ;
+    sysml:source elmt:AnonymousFeatures ;
+    sysml:target elmt:AnonymousFeatures__Part ;
+    sysml:relatedElement elmt:AnonymousFeatures, elmt:AnonymousFeatures__Part ;
+    sysml:memberName "Part" ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures\"},{\"@id\":\"AnonymousFeatures__Part\"}]" .
 
 elmt:AnonymousFeatures__Part__m
     a sysml:AttributeUsage ;
@@ -94,8 +99,13 @@ elmt:AnonymousFeatures__Part__m_om
     sysml:ownedRelatedElement elmt:AnonymousFeatures__Part__m ;
     sysml:owningRelatedElement elmt:AnonymousFeatures__Part ;
     sysml:membershipOwningNamespace elmt:AnonymousFeatures__Part ;
+    sysml:source elmt:AnonymousFeatures__Part ;
+    sysml:target elmt:AnonymousFeatures__Part__m ;
+    sysml:relatedElement elmt:AnonymousFeatures__Part, elmt:AnonymousFeatures__Part__m ;
+    sysml:memberName "m" ;
     sysml:ownedMemberFeature elmt:AnonymousFeatures__Part__m ;
-    sysml:owningType elmt:AnonymousFeatures__Part .
+    sysml:owningType elmt:AnonymousFeatures__Part ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__Part\"},{\"@id\":\"AnonymousFeatures__Part__m\"}]" .
 
 elmt:AnonymousFeatures__Part__accessedFeature
     a sysml:AttributeUsage ;
@@ -125,8 +135,13 @@ elmt:AnonymousFeatures__Part__accessedFeature_om
     sysml:ownedRelatedElement elmt:AnonymousFeatures__Part__accessedFeature ;
     sysml:owningRelatedElement elmt:AnonymousFeatures__Part ;
     sysml:membershipOwningNamespace elmt:AnonymousFeatures__Part ;
+    sysml:source elmt:AnonymousFeatures__Part ;
+    sysml:target elmt:AnonymousFeatures__Part__accessedFeature ;
+    sysml:relatedElement elmt:AnonymousFeatures__Part, elmt:AnonymousFeatures__Part__accessedFeature ;
+    sysml:memberName "accessedFeature" ;
     sysml:ownedMemberFeature elmt:AnonymousFeatures__Part__accessedFeature ;
-    sysml:owningType elmt:AnonymousFeatures__Part .
+    sysml:owningType elmt:AnonymousFeatures__Part ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__Part\"},{\"@id\":\"AnonymousFeatures__Part__accessedFeature\"}]" .
 
 elmt:AnonymousFeatures__Part__engine
     a sysml:AttributeUsage ;
@@ -156,8 +171,13 @@ elmt:AnonymousFeatures__Part__engine_om
     sysml:ownedRelatedElement elmt:AnonymousFeatures__Part__engine ;
     sysml:owningRelatedElement elmt:AnonymousFeatures__Part ;
     sysml:membershipOwningNamespace elmt:AnonymousFeatures__Part ;
+    sysml:source elmt:AnonymousFeatures__Part ;
+    sysml:target elmt:AnonymousFeatures__Part__engine ;
+    sysml:relatedElement elmt:AnonymousFeatures__Part, elmt:AnonymousFeatures__Part__engine ;
+    sysml:memberName "engine" ;
     sysml:ownedMemberFeature elmt:AnonymousFeatures__Part__engine ;
-    sysml:owningType elmt:AnonymousFeatures__Part .
+    sysml:owningType elmt:AnonymousFeatures__Part ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__Part\"},{\"@id\":\"AnonymousFeatures__Part__engine\"}]" .
 
 elmt:AnonymousFeatures__Part__carParts
     a sysml:AttributeUsage ;
@@ -187,8 +207,13 @@ elmt:AnonymousFeatures__Part__carParts_om
     sysml:ownedRelatedElement elmt:AnonymousFeatures__Part__carParts ;
     sysml:owningRelatedElement elmt:AnonymousFeatures__Part ;
     sysml:membershipOwningNamespace elmt:AnonymousFeatures__Part ;
+    sysml:source elmt:AnonymousFeatures__Part ;
+    sysml:target elmt:AnonymousFeatures__Part__carParts ;
+    sysml:relatedElement elmt:AnonymousFeatures__Part, elmt:AnonymousFeatures__Part__carParts ;
+    sysml:memberName "carParts" ;
     sysml:ownedMemberFeature elmt:AnonymousFeatures__Part__carParts ;
-    sysml:owningType elmt:AnonymousFeatures__Part .
+    sysml:owningType elmt:AnonymousFeatures__Part ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__Part\"},{\"@id\":\"AnonymousFeatures__Part__carParts\"}]" .
 
 elmt:AnonymousFeatures__v
     a sysml:AttributeUsage ;
@@ -231,7 +256,12 @@ elmt:AnonymousFeatures__v_om
     sysml:ownedMemberElement elmt:AnonymousFeatures__v ;
     sysml:ownedRelatedElement elmt:AnonymousFeatures__v ;
     sysml:owningRelatedElement elmt:AnonymousFeatures ;
-    sysml:membershipOwningNamespace elmt:AnonymousFeatures .
+    sysml:membershipOwningNamespace elmt:AnonymousFeatures ;
+    sysml:source elmt:AnonymousFeatures ;
+    sysml:target elmt:AnonymousFeatures__v ;
+    sysml:relatedElement elmt:AnonymousFeatures, elmt:AnonymousFeatures__v ;
+    sysml:memberName "v" ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures\"},{\"@id\":\"AnonymousFeatures__v\"}]" .
 
 elmt:AnonymousFeatures__v__m
     a sysml:AttributeUsage ;
@@ -272,8 +302,13 @@ elmt:AnonymousFeatures__v__m_om
     sysml:ownedRelatedElement elmt:AnonymousFeatures__v__m ;
     sysml:owningRelatedElement elmt:AnonymousFeatures__v ;
     sysml:membershipOwningNamespace elmt:AnonymousFeatures__v ;
+    sysml:source elmt:AnonymousFeatures__v ;
+    sysml:target elmt:AnonymousFeatures__v__m ;
+    sysml:relatedElement elmt:AnonymousFeatures__v, elmt:AnonymousFeatures__v__m ;
+    sysml:memberName "m" ;
     sysml:ownedMemberFeature elmt:AnonymousFeatures__v__m ;
-    sysml:owningType elmt:AnonymousFeatures__v .
+    sysml:owningType elmt:AnonymousFeatures__v ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__v\"},{\"@id\":\"AnonymousFeatures__v__m\"}]" .
 
 elmt:AnonymousFeatures__v__m__g
     a sysml:AttributeUsage ;
@@ -303,8 +338,13 @@ elmt:AnonymousFeatures__v__m__g_om
     sysml:ownedRelatedElement elmt:AnonymousFeatures__v__m__g ;
     sysml:owningRelatedElement elmt:AnonymousFeatures__v__m ;
     sysml:membershipOwningNamespace elmt:AnonymousFeatures__v__m ;
+    sysml:source elmt:AnonymousFeatures__v__m ;
+    sysml:target elmt:AnonymousFeatures__v__m__g ;
+    sysml:relatedElement elmt:AnonymousFeatures__v__m, elmt:AnonymousFeatures__v__m__g ;
+    sysml:memberName "g" ;
     sysml:ownedMemberFeature elmt:AnonymousFeatures__v__m__g ;
-    sysml:owningType elmt:AnonymousFeatures__v__m .
+    sysml:owningType elmt:AnonymousFeatures__v__m ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__v__m\"},{\"@id\":\"AnonymousFeatures__v__m__g\"}]" .
 
 elmt:AnonymousFeatures__v__accessedFeature
     a sysml:AttributeUsage ;
@@ -339,8 +379,13 @@ elmt:AnonymousFeatures__v__accessedFeature_om
     sysml:ownedRelatedElement elmt:AnonymousFeatures__v__accessedFeature ;
     sysml:owningRelatedElement elmt:AnonymousFeatures__v ;
     sysml:membershipOwningNamespace elmt:AnonymousFeatures__v ;
+    sysml:source elmt:AnonymousFeatures__v ;
+    sysml:target elmt:AnonymousFeatures__v__accessedFeature ;
+    sysml:relatedElement elmt:AnonymousFeatures__v, elmt:AnonymousFeatures__v__accessedFeature ;
+    sysml:memberName "accessedFeature" ;
     sysml:ownedMemberFeature elmt:AnonymousFeatures__v__accessedFeature ;
-    sysml:owningType elmt:AnonymousFeatures__v .
+    sysml:owningType elmt:AnonymousFeatures__v ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__v\"},{\"@id\":\"AnonymousFeatures__v__accessedFeature\"}]" .
 
 elmt:AnonymousFeatures__v__engine
     a sysml:ReferenceUsage ;
@@ -378,8 +423,13 @@ elmt:AnonymousFeatures__v__engine_om
     sysml:ownedRelatedElement elmt:AnonymousFeatures__v__engine ;
     sysml:owningRelatedElement elmt:AnonymousFeatures__v ;
     sysml:membershipOwningNamespace elmt:AnonymousFeatures__v ;
+    sysml:source elmt:AnonymousFeatures__v ;
+    sysml:target elmt:AnonymousFeatures__v__engine ;
+    sysml:relatedElement elmt:AnonymousFeatures__v, elmt:AnonymousFeatures__v__engine ;
+    sysml:memberName "engine" ;
     sysml:ownedMemberFeature elmt:AnonymousFeatures__v__engine ;
-    sysml:owningType elmt:AnonymousFeatures__v .
+    sysml:owningType elmt:AnonymousFeatures__v ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__v\"},{\"@id\":\"AnonymousFeatures__v__engine\"}]" .
 
 expr:AnonymousFeatures__v__engine_pvalue
     a sysml:FeatureReferenceExpression ;
@@ -404,7 +454,11 @@ expr:AnonymousFeatures__v__engine_pvalue_preferent
     sysml:elementId "AnonymousFeatures__v__engine_pvalue_preferent" ;
     sysml:memberElement elmt:AnonymousFeatures__e ;
     sysml:owner expr:AnonymousFeatures__v__engine_pvalue ;
-    sysml:owningRelatedElement expr:AnonymousFeatures__v__engine_pvalue .
+    sysml:owningRelatedElement expr:AnonymousFeatures__v__engine_pvalue ;
+    sysml:source expr:AnonymousFeatures__v__engine_pvalue ;
+    sysml:target elmt:AnonymousFeatures__e ;
+    sysml:relatedElement expr:AnonymousFeatures__v__engine_pvalue, elmt:AnonymousFeatures__e ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__v__engine_pvalue\"},{\"@id\":\"AnonymousFeatures__e\"}]" .
 
 expr:AnonymousFeatures__v__engine_pvalue_pout
     a sysml:Feature ;
@@ -424,8 +478,12 @@ expr:AnonymousFeatures__v__engine_pvalue_pout_om
     sysml:ownedRelatedElement expr:AnonymousFeatures__v__engine_pvalue_pout ;
     sysml:owningRelatedElement expr:AnonymousFeatures__v__engine_pvalue ;
     sysml:membershipOwningNamespace expr:AnonymousFeatures__v__engine_pvalue ;
+    sysml:source expr:AnonymousFeatures__v__engine_pvalue ;
+    sysml:target expr:AnonymousFeatures__v__engine_pvalue_pout ;
+    sysml:relatedElement expr:AnonymousFeatures__v__engine_pvalue, expr:AnonymousFeatures__v__engine_pvalue_pout ;
     sysml:ownedMemberFeature expr:AnonymousFeatures__v__engine_pvalue_pout ;
-    sysml:ownedMemberParameter expr:AnonymousFeatures__v__engine_pvalue_pout .
+    sysml:ownedMemberParameter expr:AnonymousFeatures__v__engine_pvalue_pout ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__v__engine_pvalue\"},{\"@id\":\"AnonymousFeatures__v__engine_pvalue_pout\"}]" .
 
 expr:AnonymousFeatures__v__engine_pvalue_om
     a sysml:FeatureValue ;
@@ -436,13 +494,17 @@ expr:AnonymousFeatures__v__engine_pvalue_om
     sysml:ownedRelatedElement expr:AnonymousFeatures__v__engine_pvalue ;
     sysml:owningRelatedElement elmt:AnonymousFeatures__v__engine ;
     sysml:membershipOwningNamespace elmt:AnonymousFeatures__v__engine ;
+    sysml:source elmt:AnonymousFeatures__v__engine ;
+    sysml:target expr:AnonymousFeatures__v__engine_pvalue ;
+    sysml:relatedElement elmt:AnonymousFeatures__v__engine, expr:AnonymousFeatures__v__engine_pvalue ;
     sysml:featureWithValue elmt:AnonymousFeatures__v__engine ;
-    sysml:value expr:AnonymousFeatures__v__engine_pvalue .
+    sysml:value expr:AnonymousFeatures__v__engine_pvalue ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__v__engine\"},{\"@id\":\"AnonymousFeatures__v__engine_pvalue\"}]" .
 
 elmt:AnonymousFeatures__v___403
     a sysml:AttributeUsage ;
     sysml:name "accessedFeature" ;
-    sysml:qualifiedName "AnonymousFeatures::v::@3" ;
+    sysx:positionalName "AnonymousFeatures::v::@3" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "14"^^xsd:integer ;
@@ -478,8 +540,13 @@ elmt:AnonymousFeatures__v___403_om
     sysml:ownedRelatedElement elmt:AnonymousFeatures__v___403 ;
     sysml:owningRelatedElement elmt:AnonymousFeatures__v ;
     sysml:membershipOwningNamespace elmt:AnonymousFeatures__v ;
+    sysml:source elmt:AnonymousFeatures__v ;
+    sysml:target elmt:AnonymousFeatures__v___403 ;
+    sysml:relatedElement elmt:AnonymousFeatures__v, elmt:AnonymousFeatures__v___403 ;
+    sysml:memberName "accessedFeature" ;
     sysml:ownedMemberFeature elmt:AnonymousFeatures__v___403 ;
-    sysml:owningType elmt:AnonymousFeatures__v .
+    sysml:owningType elmt:AnonymousFeatures__v ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures__v\"},{\"@id\":\"AnonymousFeatures__v___403\"}]" .
 
 elmt:AnonymousFeatures__e
     a sysml:AttributeUsage ;
@@ -512,7 +579,12 @@ elmt:AnonymousFeatures__e_om
     sysml:ownedMemberElement elmt:AnonymousFeatures__e ;
     sysml:ownedRelatedElement elmt:AnonymousFeatures__e ;
     sysml:owningRelatedElement elmt:AnonymousFeatures ;
-    sysml:membershipOwningNamespace elmt:AnonymousFeatures .
+    sysml:membershipOwningNamespace elmt:AnonymousFeatures ;
+    sysml:source elmt:AnonymousFeatures ;
+    sysml:target elmt:AnonymousFeatures__e ;
+    sysml:relatedElement elmt:AnonymousFeatures, elmt:AnonymousFeatures__e ;
+    sysml:memberName "e" ;
+    json:relatedElement "[{\"@id\":\"AnonymousFeatures\"},{\"@id\":\"AnonymousFeatures__e\"}]" .
 
 elmt:AnonymousFeatures__v_ft0
     a sysml:FeatureTyping ;

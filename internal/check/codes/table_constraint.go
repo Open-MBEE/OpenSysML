@@ -458,13 +458,6 @@ var constraintCodes = []Entry{
 		Spec: "KerML 1.0 validateMetadataFeatureBody and §8.3.4.8.7 (model-level evaluability)",
 	},
 	{
-		Code: "part-usage-part-definition", Tier: TierConstraint, Severity: "error",
-		Summary: "a part usage typed by no part definition",
-		Meaning: "A part is typed by at least one part definition, directly or through what it subsets; an item definition alone does not make a part. " +
-			"Type the part by a part definition.",
-		Spec: "SysML v2 validatePartUsagePartDefinition",
-	},
-	{
 		Code: "portion-owner", Tier: TierConstraint, Severity: "error",
 		Summary: "a portion (snapshot or timeslice) owned by a non-occurrence",
 		Meaning: "A `snapshot` or `timeslice` is a portion of the occurrence that owns it. " +

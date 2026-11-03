@@ -13,9 +13,11 @@ type ElementKey struct {
 	doc     string
 	span    source.Span
 	sym     *Symbol
-	ordinal int  // which relationship of the owner, 0 for the element itself
-	form    int  // the ImplicitForm of that relationship
-	chain   bool // the feature that relationship's chain target denotes
+	ordinal int    // which relationship of the owner, 0 for the element itself
+	form    int    // the ImplicitForm of that relationship
+	chain   bool   // the feature that relationship's chain target denotes
+	implied int    // the ImpliedForm of an implied element plus one, 0 for a written one
+	part    string // the expression part of its owner, by role, position and slot; "" for a declaration
 }
 
 // KeyOf is the identity of the element sym declares. A relationship written
@@ -34,10 +36,27 @@ func KeyOf(sym *Symbol) ElementKey {
 		key := KeyOf(sym.Chain.Relationship)
 		key.chain = true
 		return key
+	case sym.Expr != nil && sym.Expr.Owner != nil:
+		// An expression part shares its owner's span (a `by` value, a result), so its part tells them apart.
+		key := KeyOf(sym.Expr.Owner)
+		key.part = fmt.Sprintf("%s/%d:%d:%s", key.part, sym.Expr.Role, sym.Expr.Index, sym.Expr.Slot)
+		return key
 	case sym.DocName == "":
 		return ElementKey{sym: sym}
 	}
-	return ElementKey{doc: sym.DocName, span: sym.DeclSpan}
+	// An implied element shares the span of the declaration it is implied
+	// for (parsed or recorded), so its form tells the two apart.
+	return ElementKey{doc: sym.DocName, span: sym.DeclSpan, implied: impliedFormKey(sym)}
+}
+
+func impliedFormKey(sym *Symbol) int {
+	if decl, ok := ImpliedDeclOf(sym); ok {
+		return int(decl.Form) + 1
+	}
+	if sym.Recorded() && sym.Facts.Node == NodeConjugatedPortDef {
+		return int(ImpliedConjugatedPortDefinition) + 1
+	}
+	return 0
 }
 
 // String spells the key, distinct for distinct elements, for use in a name.
@@ -54,8 +73,14 @@ func (k ElementKey) String() string {
 			base = fmt.Sprintf("%s\x00f%d", base, k.form)
 		}
 	}
+	if k.implied != 0 {
+		base = fmt.Sprintf("%s\x00i%d", base, k.implied)
+	}
 	if k.chain {
-		return base + "\x00chain"
+		base += "\x00chain"
+	}
+	if k.part != "" {
+		base += "\x00p" + k.part
 	}
 	return base
 }

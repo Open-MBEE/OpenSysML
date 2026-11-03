@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::A",
+	"outputs": {
+		"subset": {"type": "Sequence", "elements": [{"type": "Real", "value": 3.0}, {"type": "Real", "value": 4.0}]},
+		"open": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.0}, {"type": "Real", "value": 2.0}, {"type": "Real", "value": 3.0}]},
+		"pair": {"type": "Sequence", "elements": [{"type": "Real", "value": 5.0}, {"type": "Real", "value": 6.0}]}
+	}
+}

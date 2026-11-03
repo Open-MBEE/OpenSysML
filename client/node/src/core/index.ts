@@ -17,6 +17,7 @@ export type {
   FeatureValue,
   Multiplicity,
   ParseOptions,
+  ParseSourcesOptions,
   SpecializationFacts,
   TypeFacts,
 } from "./model.js";
@@ -38,7 +39,7 @@ export {
   migrationReportOf,
   pathIsV1,
 } from "./conversion.js";
-export type { MigrateOptions, MigrationEntry } from "./conversion.js";
+export type { ConvertOptions, IdForm, LibraryReference, MigrateOptions, MigrationEntry } from "./conversion.js";
 export {
   QueryElement,
   TYPE_COMPOSITE_CONSTRAINT,
@@ -179,6 +180,8 @@ export {
   CAPABILITY_CONVERT,
   CAPABILITY_CONVERT_DOCUMENTS,
   CAPABILITY_CONVERT_COMPACT,
+  CAPABILITY_CONVERT_LIBRARY_REFERENCES,
+  CAPABILITY_CONVERT_LIBRARY_STUBS,
   CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
   CAPABILITY_PARSE_SOURCES_AFFECTED,
   CAPABILITY_RENDER_DOCUMENT_FILE_NAME,
@@ -201,7 +204,10 @@ export {
   CAPABILITY_SELF_CHECK,
   CAPABILITY_RECORD_RUN,
   CAPABILITY_STATE_TRACE,
+  CAPABILITY_ACTION_TRACE,
   CAPABILITY_QUERY,
+  CAPABILITY_QUERY_ORDER_BY,
+  CAPABILITY_OSLC_QUERY,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_SEQUENCE_AUTHORING,
@@ -229,6 +235,7 @@ export {
   CAPABILITY_PARSE_SOURCES,
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
+  CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
   CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
   CAPABILITY_SATISFY_AUTHORING,
   CAPABILITY_STATE_ACTION_AUTHORING,
@@ -236,6 +243,7 @@ export {
   CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
   CAPABILITY_VERIFICATION_QUESTIONS,
   CAPABILITY_VERIFICATION_ARGUMENTS,
+  CAPABILITY_VERDICT_NOTES,
   MissingCapabilityError,
   ServerInfo,
   capabilityRefusal,
@@ -263,6 +271,7 @@ export {
   InstanceTypeError,
   InvalidEditError,
   InvalidRequestError,
+  AuthenticationError,
   MemberNameTakenError,
   MigrationError,
   MoveReferencedError,
@@ -352,6 +361,7 @@ export type {
   VerdictStanding,
   VerificationVerdict,
   WitnessAssignment,
+  VerdictNote,
   TensorQuantityValue,
   UndeterminedValue,
   UnitFactor,

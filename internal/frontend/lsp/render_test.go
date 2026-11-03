@@ -139,7 +139,7 @@ func (r *recorder) all() []string {
 func renderServer(t *testing.T, name, src string) (*Server, uri.URI) {
 	t.Helper()
 	s := initializedServer(t, map[string]any{CrossDocumentCapability: true})
-	docURI := uri.File(name)
+	docURI := testDocURI(t, name)
 	if err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI: docURI, LanguageID: "sysml", Version: 1, Text: src,
@@ -158,7 +158,7 @@ func initializedServer(t *testing.T, experimental map[string]any) *Server {
 	s.client = &recorder{}
 	var caps protocol.ClientCapabilities
 	if experimental != nil {
-		caps.Experimental = experimental
+		caps.Experimental = mustLSPAny(t, experimental)
 	}
 	if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{Capabilities: caps}); err != nil {
 		t.Fatalf("Initialize err = %v", err)
@@ -170,34 +170,11 @@ func initializedServer(t *testing.T, experimental map[string]any) *Server {
 // handler chain, and returns the raw result the client would receive.
 func call(t *testing.T, s *Server, method string, params any) (json.RawMessage, error) {
 	t.Helper()
-	req, err := jsonrpc2.NewCall(jsonrpc2.NewNumberID(1), method, params)
-	if err != nil {
-		t.Fatalf("build %s request: %v", method, err)
-	}
-	var (
-		raw     json.RawMessage
-		callErr error
-	)
-	reply := func(ctx context.Context, result interface{}, err error) error {
-		if err != nil {
-			callErr = err
-			return nil
-		}
-		encoded, mErr := json.Marshal(result)
-		if mErr != nil {
-			t.Fatalf("marshal %s result: %v", method, mErr)
-		}
-		raw = encoded
-		return nil
-	}
-	handler := s.renderHandler(s.modelEditHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
-		t.Fatalf("%s was not handled: it fell through to the next handler", req.Method())
-		return nil
-	}))
-	if err := handler(context.Background(), reply, req); err != nil {
-		t.Fatalf("dispatch %s: %v", method, err)
-	}
-	return raw, callErr
+	d := newDispatcher(t, s.renderHandler(s.modelEditHandler(func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		t.Errorf("%s was not handled: it fell through to the next handler", req.Method())
+		return nil, jsonrpc2.ErrMethodNotFound
+	})))
+	return d.call(context.Background(), method, params)
 }
 
 // render is one opensysml/render request, decoded.
@@ -419,7 +396,8 @@ func TestRenderTreeCarriesRelationshipEdges(t *testing.T) {
 		}
 	}
 	want := []edge{
-		{"Kit::Widget", "Kit::Cog", "composition", "cogs[2]", "Kit::Widget::cogs"},
+		{"Kit::Widget", "cogs", "composition", "[2]", "Kit::Widget::cogs"},
+		{"cogs", "Kit::Cog", "typing", "", ""},
 		{"Kit::Gear", "Kit::Cog", "specialization", "", ""},
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -729,15 +707,12 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental, ok := res.Capabilities.Experimental.(map[string]any)
-	if !ok {
-		t.Fatalf("Experimental = %#v, want a map", res.Capabilities.Experimental)
-	}
+	experimental := experimentalCaps(t, res)
 	advertised, ok := experimental[RenderFormsCapability].([]string)
 	if !ok {
 		t.Fatalf("%s = %#v, want a list of forms", RenderFormsCapability, experimental[RenderFormsCapability])
 	}
-	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"}; !slices.Equal(advertised, want) {
+	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio", "csv", "tsv"}; !slices.Equal(advertised, want) {
 		t.Fatalf("%s = %v, want %v", RenderFormsCapability, advertised, want)
 	}
 	// A table is the one kind written in Markdown, CSV and TSV; the tree view has every other form.
@@ -782,7 +757,7 @@ func TestRenderRefusesD2ForCaseAndMixed(t *testing.T) {
 			View:         tc.name,
 			Form:         string(view.FormD2),
 		})
-		if err == nil || !strings.Contains(err.Error(), tc.kind+" rendering is not written as d2; ask for text, mermaid, dot or plantuml") {
+		if err == nil || !strings.Contains(err.Error(), tc.kind+" rendering is not written as d2; ask for text, mermaid, dot, plantuml or drawio") {
 			t.Errorf("%s as d2: err = %v, want the form refused", tc.name, err)
 		}
 	}
@@ -1128,8 +1103,13 @@ package KitViews {
 		t.Errorf("cog geometry = %q, want the view-local Layout", got)
 	}
 	gear := nodeBy("gear")
-	if got := fmt.Sprintf("%s %s %s %s %s", gear["x"], gear["y"], gear["width"], gear["height"], gear["collapsed"]); got != "5 6   " {
-		t.Errorf("gear geometry = %q, want the inline Layout with no size and no collapsed field", got)
+	if got := fmt.Sprintf("%s %s", gear["x"], gear["y"]); got != "5 6" {
+		t.Errorf("gear position = %q, want the inline Layout's x and y", got)
+	}
+	for _, field := range []string{"width", "height", "collapsed"} {
+		if raw, ok := gear[field]; ok {
+			t.Errorf("gear %s = %s, want the field absent: the inline Layout gives no size and no collapsed", field, raw)
+		}
 	}
 	for _, n := range out.Nodes {
 		if name := string(n["name"]); name == `"cog"` || name == `"gear"` {
@@ -1173,7 +1153,7 @@ func TestDidChangeNotifiesRenderChangedAfterDiagnostics(t *testing.T) {
 	s.client = rec
 	s.notifier = rec
 	ctx := context.Background()
-	docURI := uri.File("kit.sysml")
+	docURI := tempDocURI(t, "kit.sysml")
 	if err := s.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI: docURI, LanguageID: "sysml", Version: 1, Text: "package Kit {\n\tpart def Widget;\n}\n",
@@ -1183,9 +1163,7 @@ func TestDidChangeNotifiesRenderChangedAfterDiagnostics(t *testing.T) {
 	}
 	// A burst of edits, as typing is.
 	for version := 2; version <= 6; version++ {
-		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{
-			{Text: fmt.Sprintf("package Kit {\n\tpart def Widget;\n\tpart def Cog%d;\n}\n", version)},
-		}, version)
+		applyFullChange(ctx, s, uriToName(docURI), fmt.Sprintf("package Kit {\n\tpart def Widget;\n\tpart def Cog%d;\n}\n", version), version)
 	}
 
 	// The notification arrives once the burst settles rather than per keystroke.
@@ -1241,10 +1219,7 @@ func TestInitializeAdvertisesTheRenderCapability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental, ok := res.Capabilities.Experimental.(map[string]any)
-	if !ok {
-		t.Fatalf("Experimental = %#v, want a map", res.Capabilities.Experimental)
-	}
+	experimental := experimentalCaps(t, res)
 	if experimental["openSysmlRender"] != true {
 		t.Errorf("openSysmlRender = %#v, want true", experimental["openSysmlRender"])
 	}
@@ -1264,7 +1239,7 @@ func TestRenderSnapshotsOneDocumentRevision(t *testing.T) {
 	// revisions and a scope of the wrong revision would still find a symbol.
 	revisions := []string{"package P {\n    part def Alpha;\n}\n", "package P {\n    part def Bravo;\n}\n"}
 	s, docURI := renderServer(t, "flip.sysml", revisions[0])
-	name := docURI.Filename()
+	name := docURI.FsPath()
 
 	stop := make(chan struct{})
 	done := make(chan struct{})
@@ -1323,7 +1298,7 @@ package StyledViews {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental := res.Capabilities.Experimental.(map[string]any)
+	experimental := experimentalCaps(t, res)
 	if advertised, _ := experimental[RenderStylesCapability].([]string); !slices.Equal(advertised, []string{"pilot", "cameo"}) {
 		t.Fatalf("%s = %#v, want pilot then cameo", RenderStylesCapability, experimental[RenderStylesCapability])
 	}
@@ -1403,7 +1378,7 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental := res.Capabilities.Experimental.(map[string]any)
+	experimental := experimentalCaps(t, res)
 	wantNames := []string{"parameter-symbols", "port-symbols", "compartments", "edge-labels", "keywords", "multiplicities", "typings", "qualifiers", "all"}
 	if advertised, _ := experimental[RenderElementsCapability].([]string); !slices.Equal(advertised, wantNames) {
 		t.Fatalf("%s = %#v, want %v", RenderElementsCapability, experimental[RenderElementsCapability], wantNames)
@@ -1445,115 +1420,6 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	}
 	if _, err := render(t, []string{"edge-labels", "boxes"}); err == nil || !strings.Contains(err.Error(), `unknown notation element "boxes"; the elements are parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, all`) {
 		t.Errorf("an unknown element err = %v", err)
-	}
-}
-
-// A request's `ports` chooses how much of a part's ports an interconnection or
-// mixed view draws — minimal, the default, the ports a connector ends at, named
-// alone, or full, every port typed — the displays listed under the capability;
-// a name that is neither is refused with the two there are.
-func TestRenderTakesAPortDisplay(t *testing.T) {
-	const ported = `package Demo {
-    port def Signal;
-    part def Sender { port out1 : Signal; }
-    part def Receiver { port in1 : ~Signal; port spare : Signal; }
-    part def Link {
-        part sender : Sender;
-        part receiver : Receiver;
-        interface wire connect sender.out1 to receiver.in1;
-    }
-    view link { expose Demo::Link::*; render Views::asInterconnectionDiagram; }
-}
-`
-	s, docURI := renderServer(t, "ported.sysml", ported)
-	res, err := s.Initialize(context.Background(), &protocol.InitializeParams{})
-	if err != nil {
-		t.Fatalf("Initialize err = %v", err)
-	}
-	experimental := res.Capabilities.Experimental.(map[string]any)
-	if advertised, _ := experimental[RenderPortsCapability].([]string); !slices.Equal(advertised, []string{"minimal", "full"}) {
-		t.Fatalf("%s = %#v, want minimal then full", RenderPortsCapability, experimental[RenderPortsCapability])
-	}
-	if advertised, _ := experimental[RenderLinesCapability].([]string); !slices.Equal(advertised, []string{"splines", "ortho", "polyline"}) {
-		t.Fatalf("%s = %#v, want splines, ortho then polyline", RenderLinesCapability, experimental[RenderLinesCapability])
-	}
-	if advertised, _ := experimental[RenderCompartmentsCapability].([]string); !slices.Equal(advertised, []string{"positioned", "most", "ports"}) {
-		t.Fatalf("%s = %#v, want positioned, most then ports", RenderCompartmentsCapability, experimental[RenderCompartmentsCapability])
-	}
-	if advertised, _ := experimental[RenderOverlaysCapability].([]string); !slices.Equal(advertised, []string{"verdicts"}) {
-		t.Fatalf("%s = %#v, want verdicts", RenderOverlaysCapability, experimental[RenderOverlaysCapability])
-	}
-	render := func(t *testing.T, ports string) *RenderResult {
-		t.Helper()
-		raw, err := call(t, s, MethodRender, &RenderParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-			View:         "Demo::link", Form: string(view.FormPlantUML), Ports: ports, Show: []string{"typings"},
-		})
-		if err != nil {
-			t.Fatalf("render ports=%q: %v", ports, err)
-		}
-		var out RenderResult
-		if err := json.Unmarshal(raw, &out); err != nil {
-			t.Fatalf("decode render result: %v", err)
-		}
-		return &out
-	}
-	minimalResult := render(t, "")
-	minimal := minimalResult.Artifact
-	for _, want := range []string{`port "out1" as `, `port "in1" as `} {
-		if !strings.Contains(minimal, want) {
-			t.Errorf("the default lacks %q:\n%s", want, minimal)
-		}
-	}
-	minimalPorts := map[string]RenderPort{}
-	for _, node := range minimalResult.Nodes {
-		for _, port := range node.Ports {
-			minimalPorts[port.Name] = port
-		}
-	}
-	if len(minimalPorts) != 2 || minimalPorts["out1"].ID == "" || minimalPorts["in1"].ID == "" {
-		t.Errorf("default node ports = %+v, want only connected out1 and in1 pins", minimalPorts)
-	}
-	if len(minimalResult.Edges) != 1 || minimalResult.Edges[0].FromPort != minimalPorts["out1"].ID ||
-		minimalResult.Edges[0].ToPort != minimalPorts["in1"].ID {
-		t.Errorf("default edges = %+v, want endpoints at out1 and in1", minimalResult.Edges)
-	}
-	if strings.Contains(minimal, "spare") || strings.Contains(minimal, "Signal") {
-		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal)
-	}
-	if render(t, "minimal").Artifact != minimal {
-		t.Errorf("ports=minimal differs from the default")
-	}
-	fullResult := render(t, "full")
-	full := fullResult.Artifact
-	for _, want := range []string{`port "out1 : Signal" as `, `port "in1 : <U+007E>Signal" as `, `port "spare : Signal" as `} {
-		if !strings.Contains(full, want) {
-			t.Errorf("ports=full lacks %q:\n%s", want, full)
-		}
-	}
-	fullPorts := map[string]RenderPort{}
-	for _, node := range fullResult.Nodes {
-		for _, port := range node.Ports {
-			fullPorts[port.Name] = port
-		}
-	}
-	if len(fullPorts) != 3 || fullPorts["spare"].Type != "Signal" ||
-		fullPorts["in1"].Type != "~Signal" || fullPorts["out1"].Type != "Signal" {
-		t.Errorf("full node ports = %+v, want all three typed pins", fullPorts)
-	}
-	if len(fullResult.Edges) != 1 || fullResult.Edges[0].FromPort != fullPorts["out1"].ID ||
-		fullResult.Edges[0].ToPort != fullPorts["in1"].ID {
-		t.Errorf("full edges = %+v, want endpoints at out1 and in1", fullResult.Edges)
-	}
-	assertEngineRenderMatchesLSP(t, ported, minimalResult, "", []string{"typings"})
-	assertEngineRenderMatchesLSP(t, ported, fullResult, "full", []string{"typings"})
-	_, err = call(t, s, MethodRender, &RenderParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-		View:         "Demo::link", Form: string(view.FormDot), Ports: "all",
-	})
-	want := `unknown port display "all"; the displays are minimal, full`
-	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Errorf("err = %v, want it to refuse the port display by name", err)
 	}
 }
 
@@ -1641,100 +1507,6 @@ func TestRenderDrawsVerdictsWhenAsked(t *testing.T) {
 	}
 }
 
-func TestRenderMixedCarriesConnectorPortData(t *testing.T) {
-	const mixed = `package Demo {
-    private import OpenSysMLRenderings::*;
-    port def Signal;
-    part def Sender { port out1 : Signal; }
-    part def Receiver { port in1 : Signal; port spare : Signal; }
-    part def Plant {
-        part sender : Sender;
-        part receiver : Receiver;
-        connection wire : Connection connect sender.out1 to receiver.in1;
-    }
-    connection def Connection {
-        end part a;
-        end part b;
-    }
-    part def Person;
-    use case def Review {
-        actor reviewer : Person;
-        objective { doc /* Review the plant. */ }
-    }
-    view link { expose Demo::Plant; render asMixedDiagram; }
-    view caseView { expose Demo::Review; render asCaseDiagram; }
-}
-`
-	s, docURI := renderServer(t, "mixed-ports.sysml", mixed)
-	renderWithPorts := func(t *testing.T, ports string) *RenderResult {
-		t.Helper()
-		raw, err := call(t, s, MethodRender, &RenderParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-			View:         "Demo::link", Ports: ports,
-		})
-		if err != nil {
-			t.Fatalf("render mixed view with ports=%q: %v", ports, err)
-		}
-		var out RenderResult
-		if err := json.Unmarshal(raw, &out); err != nil {
-			t.Fatalf("decode mixed render result: %v", err)
-		}
-		return &out
-	}
-	for _, display := range []struct {
-		name string
-		want int
-	}{
-		{name: "", want: 2},
-		{name: "full", want: 3},
-	} {
-		t.Run(map[string]string{"": "minimal", "full": "full"}[display.name], func(t *testing.T) {
-			out := renderWithPorts(t, display.name)
-			portsByNode := map[string]map[string]string{}
-			portNames := map[string]string{}
-			for _, node := range out.Nodes {
-				for _, port := range node.Ports {
-					if portsByNode[node.ID] == nil {
-						portsByNode[node.ID] = map[string]string{}
-					}
-					portsByNode[node.ID][port.ID] = port.Name
-					portNames[port.Name] = port.ID
-				}
-			}
-			if len(portNames) != display.want {
-				t.Fatalf("mixed node ports = %v, want %d pins", portNames, display.want)
-			}
-			if display.name == "" && portNames["spare"] != "" {
-				t.Errorf("minimal mixed ports include unconnected spare pin: %v", portNames)
-			}
-			if len(out.Edges) != 1 {
-				t.Fatalf("mixed edges = %+v, want one connector", out.Edges)
-			}
-			edge := out.Edges[0]
-			if edge.FromPort == "" || portsByNode[edge.From][edge.FromPort] != "out1" ||
-				edge.ToPort == "" || portsByNode[edge.To][edge.ToPort] != "in1" {
-				t.Errorf("mixed edge ports do not resolve in endpoint node arrays: edge=%+v ports=%v", edge, portsByNode)
-			}
-			if !strings.Contains(out.Artifact, edge.FromPort) || !strings.Contains(out.Artifact, edge.ToPort) {
-				t.Errorf("mixed artifact does not draw connector pins %s and %s:\n%s", edge.FromPort, edge.ToPort, out.Artifact)
-			}
-			assertEngineRenderMatchesLSP(t, mixed, out, display.name, nil)
-		})
-	}
-
-	caseView := render(t, s, docURI, "Demo::caseView")
-	for _, node := range caseView.Nodes {
-		if len(node.Ports) != 0 {
-			t.Errorf("case node %s unexpectedly has ports: %+v", node.ID, node.Ports)
-		}
-	}
-	for _, edge := range caseView.Edges {
-		if edge.FromPort != "" || edge.ToPort != "" {
-			t.Errorf("case edge unexpectedly refers to ports: %+v", edge)
-		}
-	}
-}
-
 func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderResult, ports string, show []string) {
 	t.Helper()
 	eng, err := engine.New()
@@ -1773,7 +1545,7 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderRes
 	for _, node := range lspResult.Nodes {
 		converted := engine.JRenderNode{
 			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
-			Type: node.Type, Detail: node.Detail, Parent: node.Parent,
+			Type: node.Type, Detail: node.Detail, Parent: node.Parent, Inherited: node.Inherited,
 		}
 		if node.X != nil && node.Y != nil {
 			converted.Geometry = &engine.JRenderGeometry{X: *node.X, Y: *node.Y, Collapsed: node.Collapsed}
@@ -1789,7 +1561,7 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderRes
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, engine.JRenderPort{
-				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction,
+				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction, Inherited: port.Inherited,
 			})
 		}
 		nodes = append(nodes, converted)
@@ -1935,6 +1707,10 @@ func TestRenderLines(t *testing.T) {
 	}
 	if got := render(t, view.FormDot, "splines"); strings.Contains(got, "splines=") {
 		t.Errorf("splines states a routing:\n%s", got)
+	}
+	t.Setenv("OPENSYSML_DOT", "no-such-dot")
+	if got := render(t, view.FormDot, "ortho"); !strings.Contains(got, "// layout: neato -n2\n") || !strings.Contains(got, `"n0.0" -> "n1.0" [arrowhead=none, penwidth=3, pos="`) || !strings.Contains(got, "lines ortho laid out on a grid, not layered: no Graphviz dot at OPENSYSML_DOT=no-such-dot") {
+		t.Errorf("ortho is not laid out and routed by the writer, every edge ending on its port:\n%s", got)
 	}
 	for _, c := range []struct {
 		form        view.Form

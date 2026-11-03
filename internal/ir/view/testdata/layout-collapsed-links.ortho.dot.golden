@@ -1,0 +1,42 @@
+// view: FoldedViews::foldOnlyLinks
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// layout: neato -n2
+digraph "FoldedViews::foldOnlyLinks" {
+  graph [fontname="Helvetica", splines=ortho, layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«part»</i></font><br/><b>vehicle</b>>;
+    color=black;
+    penwidth=0.5;
+    bb="8,-336,288,-8";
+    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="148,-172!", pin=true];
+    subgraph "cluster_n1" {
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>wheel</b>>;
+      color=black;
+      penwidth=0.5;
+      bb="24,-193,140,-74";
+      "n1" [shape=point, style=invis, width=0, height=0, label="", pos="82,-133.5!", pin=true];
+      "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>hub</b>>, margin=0, pos="81,-158.5!", pin=true, width=0.75, height=0.5138888888888888, fixedsize=true];
+    }
+    subgraph "cluster_n3" {
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>engine</b>>;
+      color=black;
+      penwidth=0.5;
+      bb="151,-320,267,-201";
+      comment="collapsed";
+      "n3" [shape=point, style=invis, width=0, height=0, label="", pos="209,-260.5!", pin=true];
+      "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>fuelIn</b>>, pos="209,-285.5!", pin=true, width=1, height=0.5138888888888888];
+    }
+    subgraph "cluster_n5" {
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>tank</b>>;
+      color=black;
+      penwidth=0.5;
+      bb="156,-193,272,-74";
+      "n5" [shape=point, style=invis, width=0, height=0, label="", pos="214,-133.5!", pin=true];
+      "n6" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>&#39;out&#39;</b>>, pos="209.5,-158.5!", pin=true, width=0.875, height=0.5138888888888888];
+    }
+  }
+  "n6" -> "n4" [label="connect", arrowhead=none, penwidth=3, pos="241,-159 241,-159 283,-159 283,-159 283,-159 283,-276 283,-276 283,-276 245,-276 245,-276", lp="314.5,-217.5"];
+}

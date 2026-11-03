@@ -1,0 +1,10 @@
+[[overview]]
+== Appendix
+
+See <<overview>>, sysml:ref['power-budget'] and <<power-budget>>.
+
+[[power-budget]]
+== Power budget
+
+[[power-budget]]
+== Reserve power

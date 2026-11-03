@@ -5,19 +5,28 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
 
 - **[The action executor](action-executor.md)** — how a token moves through a lowered
   `ActionGraph`
+- **[Query outcomes](query-outcomes.md)** — how a document query's failures are told apart:
+  a value (possibly empty), a path error that says where the path stopped resolving and what the
+  model offers there, or a model error about the element; where the engine stands step by step
 - **[The analysis framework](analysis-framework.md)** — one engine contract that the
   interpreter, `explore`, the sweep, the SMT solver, the model checkers and external tools
   register against, one scale for the strength of an answer (proved, bounded, witnessed,
   observed, not covered), dispatch by question with fallback, and runs isolated so they can be
   parallel; the contract, the registry and the four engines over existing code are
   implemented (`internal/exec/analysis`), the rest is a proposal
-- **[OpenSysML MDK for Cameo, a Cameo Systems Modeler plugin](mdk-plugin.md)** — a plugin for Cameo
+- **[Magic MDK, a Cameo Systems Modeler plugin](mdk-plugin.md)** — a plugin for Cameo
   2026x Refresh1, positioned as the successor to OpenMBEE's MDK, that exports the selection, runs `Convert(xmi→sysml)` and `ParseSources` over
   the Java client, executes and verifies on `sysml-grpc`, and lands each verdict on the Cameo
   element it came from through the migration report's `xmi:id → target` accounting; the vendor
   plugin mechanics, UI contribution points, export routes, Simulation Toolkit positioning and
   SysML v2 status answered from public documentation with every unverified claim marked, a
   migration benchmark over twenty public v1 models, a phased plan and the risks
+- **[MTIP and diagram geometry in the Magic MDK](mdk-mtip.md)** — where OpenMBEE's
+  MTIP plugin (HUDS XML export and import) fits the plugin's parity plan with OpenMBEE MDK: what the
+  migrator already reads from a HUDS export (the diagram layer, as a layout augment), what the
+  *Export as SysML v2* action writes for v1 and v2 projects, and the open decisions — port MTIP,
+  bridge to an installed copy or write HUDS ourselves; HUDS as augment or as model input; how a
+  v2 project's diagram geometry is read at all
 - **[Bring your own engine](bring-your-own-engines.md)** — a proposal: a manifest and a
   protocol under which a user's own engine, scheduling policy, sampler or tool registers with
   the analysis framework as a process, a WebAssembly module or Go over the public package; every
@@ -34,6 +43,21 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   scheduling choice and every unbounded resource, the artifacts and traceability a tool
   qualification argument consumes, and a fixed-step host interface proved under Zephyr on QEMU
   and as an F´ component
+- **[Reading installed packages](package-management.md)** — what OpenSysML reads and why it is
+  only a reader: a project any package manager installs (`.project.json` at a git tag, usage IRIs
+  such as the ECMA-427 `pkg:generic/<name>?vcs_url=…`, its `pkg:git/<host>/<path>@<version>` alias
+  or `pkg:sysand/...`) is found under the
+  well-known install directories (`.sysand/lib`, a plain `lib/`, further tools' as they appear) with
+  `@<version>` honoured as an exact constraint; fetching, lock files and package indexes belong to
+  the package manager and never to this repository; what exists today, what sysand does, and how a
+  further package manager is added read-only
+- **[Sealed packages](sealed-packages.md)** — a proposal: a `.skpar` container holding a
+  conformant `.kpar` encrypted with age to per-recipient keys and signed, with `.project.json`
+  in the clear so resolution, locking and installation stay keyless; why the interchange format
+  and ZIP give no encryption, what a loaded model necessarily reveals, a sealed bit our own
+  re-emitting surfaces honour, and — where the content itself is the secret — an interface stub
+  over a compiled library (`-compile -lib`, native or WebAssembly) or a served one over the
+  engine protocol
 - **[Scheduling policies, choice points and exploration](scheduling.md)** — how a run
   resolves what the library leaves unordered, reports each such choice without changing the
   run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one

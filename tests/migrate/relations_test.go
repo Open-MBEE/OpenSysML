@@ -1771,8 +1771,11 @@ func TestRefineWithSeveralEndsIsAConnectionPerPair(t *testing.T) {
 func TestNestedRequirementReferencesUseQualifiedNames(t *testing.T) {
 	r := migrateFixtureFile(t, "nested_requirement_refs")
 	target := "'Outer Requirement'::'Nested Requirement'::'Innermost Requirement'"
-	var dependency, comment bool
+	var dependency, comment, expose bool
 	for _, line := range strings.Split(string(r.Notation), "\n") {
+		if strings.TrimSpace(line) == "expose Requirements::"+target+";" {
+			expose = true
+		}
 		if strings.Contains(line, "dependency ") && strings.Contains(line, target) && strings.Contains(line, " to ") {
 			dependency = true
 			ends := strings.SplitN(line, " to ", 2)
@@ -1789,6 +1792,9 @@ func TestNestedRequirementReferencesUseQualifiedNames(t *testing.T) {
 	}
 	if !comment {
 		t.Errorf("notation has no comment about the qualified nested requirement:\n%s", r.Notation)
+	}
+	if !expose {
+		t.Errorf("the use case view does not expose the nested requirement by qualified name:\n%s", r.Notation)
 	}
 	for _, d := range errors(t, "nested_requirement_refs.sysml", r.Notation) {
 		t.Errorf("%v", d)

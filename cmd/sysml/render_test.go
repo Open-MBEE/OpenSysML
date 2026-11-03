@@ -244,7 +244,7 @@ func TestRenderDotForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>`, `"n0" -> "n1" [arrowhead=none];`} {
+	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>`, `"n0" -> "n1" [dir=back, arrowtail=diamond];`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -294,7 +294,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 -- n1\n@enduml\n"} {
+	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 *-- n1\n@enduml\n"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -356,7 +356,7 @@ func TestRenderD2Form(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"# Demo::overview — tree rendering\nclasses: {\n", `n0: "«part def»\nVehicle" { class: definition }`, "{ class: usage }\n", "\nn0 -- n1: { class: edge }\n"} {
+	for _, want := range []string{"# Demo::overview — tree rendering\nclasses: {\n", `n0: "«part def»\nVehicle" { class: definition }`, "{ class: usage }\n", "\nn0 <- n1: { class: composition }\n"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -404,8 +404,8 @@ func TestRenderD2Form(t *testing.T) {
 	for _, tc := range []struct {
 		name, message string
 	}{
-		{"Demo::cases", "case rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
-		{"Demo::mixed", "mixed rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
+		{"Demo::cases", "case rendering is not written as d2; ask for text, mermaid, dot, plantuml or drawio"},
+		{"Demo::mixed", "mixed rendering is not written as d2; ask for text, mermaid, dot, plantuml or drawio"},
 	} {
 		got := runStreams(t, binary, renderModel, "-render", tc.name, "-render-form", "d2")
 		if got.status != exitUnevaluable || got.stdout != "" || !strings.Contains(got.stderr, tc.message) {
@@ -472,7 +472,7 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	alone := runStreams(t, binary, renderModel, "-render-palette", "okabe-ito")
-	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML or D2 with") {
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML, D2 or drawio with") {
 		t.Errorf("a palette without a view = %d\n%s", alone.status, alone.output())
 	}
 
@@ -628,7 +628,7 @@ func TestRenderReportsWhatItCouldNotDo(t *testing.T) {
 		name:   "the run-only svg form is refused for a model view with its own forms",
 		args:   []string{"-render", "Demo::overview", "-render-form", "svg"},
 		status: exitUnevaluable,
-		stderr: []string{"a tree rendering is not written as svg", "text, mermaid, dot, plantuml or d2"},
+		stderr: []string{"a tree rendering is not written as svg", "text, mermaid, dot, plantuml, d2 or drawio"},
 	}, {
 		name:   "a form without a view to render is reported",
 		args:   []string{"-render-form", "text"},
@@ -1193,7 +1193,7 @@ func TestRenderPorts(t *testing.T) {
 	if minimal.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", minimal.status, exitHolds, minimal.output())
 	}
-	for _, want := range []string{`<font point-size="8">out1</font>`, `<font point-size="8">in1</font>`, `[label="wire", arrowhead=none, penwidth=3];`} {
+	for _, want := range []string{`<font point-size="8">^out1</font>`, `<font point-size="8">^in1</font>`, `[label="wire", arrowhead=none, penwidth=3];`} {
 		if !strings.Contains(minimal.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, minimal.stdout)
 		}
@@ -1206,7 +1206,7 @@ func TestRenderPorts(t *testing.T) {
 	if full.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", full.status, exitHolds, full.output())
 	}
-	for _, want := range []string{`port "out1 : Signal" as `, `port "in1 : <U+007E>Signal" as `, `port "spare : Signal" as `} {
+	for _, want := range []string{`port "^out1 : Signal" as `, `port "^in1 : <U+007E>Signal" as `, `port "^spare : Signal" as `} {
 		if !strings.Contains(full.stdout, want) {
 			t.Errorf("-render-ports full is missing %q:\n%s", want, full.stdout)
 		}
@@ -1234,7 +1234,7 @@ func TestRenderShow(t *testing.T) {
 	if plain.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", plain.status, exitHolds, plain.output())
 	}
-	if strings.Contains(plain.stdout, `label="wire"`) || !strings.Contains(plain.stdout, `<font point-size="8">out1</font>`) {
+	if strings.Contains(plain.stdout, `label="wire"`) || !strings.Contains(plain.stdout, `<font point-size="8">^out1</font>`) {
 		t.Errorf("the default drew an edge label or no port symbol:\n%s", plain.stdout)
 	}
 
@@ -1242,7 +1242,7 @@ func TestRenderShow(t *testing.T) {
 	if shown.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", shown.status, exitHolds, shown.output())
 	}
-	for _, want := range []string{`label="wire"`, `<font point-size="8">out1</font>`, "Sender"} {
+	for _, want := range []string{`label="wire"`, `<font point-size="8">^out1</font>`, "Sender"} {
 		if !strings.Contains(shown.stdout, want) {
 			t.Errorf("-render-show edge-labels,typings is missing %q:\n%s", want, shown.stdout)
 		}

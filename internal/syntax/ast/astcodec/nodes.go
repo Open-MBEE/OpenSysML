@@ -952,6 +952,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.nodes(n.Body)
 		e.w.Bool(n.HasBody)
 		e.qnames(n.About)
+		e.span(n.TypedBy)
 	case *ast.PseudostateNode:
 		e.base(&n.NodeBase)
 		e.w.Int(int64(n.Kind))
@@ -967,6 +968,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.node(n.Target)
 		e.w.Bool(n.Conjugated)
 		e.node(n.Multiplicity)
+		e.span(n.TypedBy)
 	case *ast.RelationshipMember:
 		e.base(&n.NodeBase)
 		e.ident(n.Ident)
@@ -998,6 +1000,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.base(&n.NodeBase)
 		e.nodes(n.Members)
 		e.operatorExprs(n.UndefinedOperators)
+		e.w.Int(int64(n.TypedBy))
 	case *ast.SelectExpr:
 		e.base(&n.NodeBase)
 		e.node(n.Operand)
@@ -1464,6 +1467,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.Body = d.nodes()
 		n.HasBody = d.r.Bool()
 		n.About = d.qnames()
+		n.TypedBy = d.span()
 	case *ast.PseudostateNode:
 		d.base(&n.NodeBase)
 		n.Kind = ast.PseudostateKind(d.r.Int())
@@ -1479,6 +1483,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.Target = d.node()
 		n.Conjugated = d.r.Bool()
 		n.Multiplicity = typed[*ast.Multiplicity](d)
+		n.TypedBy = d.span()
 	case *ast.RelationshipMember:
 		d.base(&n.NodeBase)
 		n.Ident = d.ident()
@@ -1510,6 +1515,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		d.base(&n.NodeBase)
 		n.Members = d.nodes()
 		n.UndefinedOperators = d.operatorExprs()
+		n.TypedBy = int(d.r.Int())
 	case *ast.SelectExpr:
 		d.base(&n.NodeBase)
 		n.Operand = d.node()

@@ -27,10 +27,10 @@ digraph "MachineViews::vehicleStates" {
       "n4" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>moving</b>>, URL="https://example.test/src/state.sysml#L18", tooltip="Machines::VehicleStates::operating::moving"];
     }
   }
-  "n5" -> "n1" [URL="https://example.test/src/state.sysml#L11", tooltip="state.sysml:11:10"];
-  "n6" -> "n3" [URL="https://example.test/src/state.sysml#L15", tooltip="state.sysml:15:11"];
-  "n1" -> "n2" [URL="https://example.test/src/state.sysml#L29", tooltip="state.sysml:29:3", lhead="cluster_n2"];
-  "n2" -> "n1" [URL="https://example.test/src/state.sysml#L30", tooltip="state.sysml:30:3", ltail="cluster_n2"];
-  "n3" -> "n4" [label="accept Signal [temperature > 0]", URL="https://example.test/src/state.sysml#L20", tooltip="Machines::VehicleStates::operating::idle_to_moving"];
-  "n4" -> "n3" [URL="https://example.test/src/state.sysml#L26", tooltip="state.sysml:26:4"];
+  "n5" -> "n1" [arrowhead=vee, URL="https://example.test/src/state.sysml#L11", tooltip="state.sysml:11:10"];
+  "n6" -> "n3" [arrowhead=vee, URL="https://example.test/src/state.sysml#L15", tooltip="state.sysml:15:11"];
+  "n1" -> "n2" [arrowhead=vee, URL="https://example.test/src/state.sysml#L29", tooltip="state.sysml:29:3", lhead="cluster_n2"];
+  "n2" -> "n1" [arrowhead=vee, URL="https://example.test/src/state.sysml#L30", tooltip="state.sysml:30:3", ltail="cluster_n2"];
+  "n3" -> "n4" [label="accept Signal [temperature > 0]", arrowhead=vee, URL="https://example.test/src/state.sysml#L20", tooltip="Machines::VehicleStates::operating::idle_to_moving"];
+  "n4" -> "n3" [arrowhead=vee, URL="https://example.test/src/state.sysml#L26", tooltip="state.sysml:26:4"];
 }

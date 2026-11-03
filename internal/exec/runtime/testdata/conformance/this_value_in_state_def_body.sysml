@@ -1,6 +1,7 @@
 // `this` in the entry action of a state definition nested in a part
-// definition is the definition's own occurrence: the comparison runs, and the
-// write it makes through the context parameter lands on the exhibiting object.
+// definition is the part exhibiting it, the owner of the performance: the
+// comparison runs, and the write it makes through the context parameter lands
+// on the exhibiting object.
 package test {
 	private import ScalarValues::*;
 

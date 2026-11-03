@@ -14,8 +14,8 @@ lower-bound-unbounded ::  :: W6D::unboundedLower
 star-only ::  :: W6D::starOnly
 valueless-value-type ::  :: W6D::valueless
 
-# Reached through a part, where the assumed 1..1 governs an undeclared
-# multiplicity. A valueless `[3]` has a fixed count and no value, so at model
+# Reached through a part, where the implicit [1..1] of SysML v2 §7.6.3 governs an
+# undeclared multiplicity. A valueless `[3]` has a fixed count and no value, so at model
 # level it reads undetermined rather than as three unset holders.
 held-undeclared-multi ::  :: W6D::holder.xs
 held-declared-two ::  :: W6D::holder.ys
@@ -43,6 +43,10 @@ including-at-appends ::  :: W6D::IncAtAppends()
 including-at-out-of-range ::  :: W6D::IncAtOutOfRange()
 excluding-at ::  :: W6D::ExclAt()
 excluding-at-out-of-range ::  :: W6D::ExclAtOutOfRange()
+excluding-at-beyond-the-end ::  :: W6D::ExclAtBeyondTheEnd()
+excluding-at-straddling ::  :: W6D::ExclAtStraddling()
+excluding-at-inverted ::  :: W6D::ExclAtInverted()
+excluding-at-inverted-overlap ::  :: W6D::ExclAtInvertedOverlap()
 subsequence ::  :: W6D::Subseq()
 subsequence-out-of-range ::  :: W6D::SubseqOutOfRange()
 subsequence-empty-range ::  :: W6D::SubseqEmptyRange()

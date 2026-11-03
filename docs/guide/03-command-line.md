@@ -362,12 +362,58 @@ the usual search for the root namespaces it imports, which now also looks in the
 project and in the projects that uses. An installed project is matched to a usage by its
 own `.project.json`, never by its directory name: the resource IRI's last two path segments
 are its publisher and name (compared as lower-case slugs, so `Requirements Management`
-answers to `…/ode4hera/requirements-management`), and of several installed versions the one
-a `versionConstraint` names exactly is taken, else the latest. The standard library's
+answers to `…/ode4hera/requirements-management`), and of several installed versions the
+highest one its `versionConstraint` admits is taken — or, when the usage carries none, the one a
+version written after `@` in its IRI names (`pkg:registry/acme/gears@1.0.0`) — else the
+latest. KerML §10.3 defines no syntax for `versionConstraint`; OpenSysML reads it as an
+npm-style semver range (`1.2.3`, `^1.2`, `~1.2.3`, `>=1.0.0 <2.0.0`, `1.x`, `1.0.0 - 2.0.0`,
+`a || b`). A constraint no installed version satisfies, or one outside that grammar, is a
+`project.load` warning at the project file and the usage selects nothing. A usage whose IRI spells where the project is kept rather than the project — a
+version-control location or a plain URL, such as `pkg:git/github.com/MBSE4U/sysmod-sysmlv2`
+for the project `mbse4u/sysmod` — is linked by
+elimination once every usage has had its say: of the installed projects no usage
+claims (another version of a claimed project counts as claimed), those satisfying its
+constraint, when they are all one project, at the highest such version. The link is a
+warning on the consumer's `.project.json` — one `-warnings-as-errors` judges as any other —
+naming the project taken and the publisher/name the resource should end with to name it. When
+several projects are left it, the usage selects nothing and the warning names each candidate
+instead; a later usage of the same repository takes the project so learnt, at its own version.
+A usage that names a project (`pkg:registry/acme/gears`, `pkg:sysand/acme/gears`) is matched by
+name alone and stays unresolved when that project is not installed; the standard library's
+usages are never linked to anything installed. OpenSysML reads what any package manager that follows KerML 10.3 project interchange
+installs (sysand today) under `lib/` or `.sysand/lib` beside `.project.json`; it does not fetch. Those library directories
+hold the installed projects, not the project's own files: a walk of the project directory
+(`sysml <dir>`, `-bundle`, the editor's workspace scan) passes over them and loads what lies
+there only through the usages that select it. The standard library's
 `https://www.omg.org/spec/KerML/…/*.kpar` usages are answered by the bundled library.
 Hidden directories other than the library directories stay out of the search, and the
 diagnostics of the files loaded this way are reported like those of any other file the
 search finds.
+
+A repository is written in any of three spellings, read alike: the ECMA-427 package URL a
+package manager writes, `pkg:generic/<name>?vcs_url=<vcs>+<transport>://<host>/<path>[@<version>][#<subpath>]`
+with the qualifier value percent-encoded
+(`pkg:generic/sysmod-sysmlv2?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2FMBSE4U%2Fsysmod-sysmlv2%405.1.6`),
+the `pkg:git/<host>/<path>[@<version>][#<subpath>]` alias (also `pkg:svn/`, `pkg:hg/`), or the
+bare `<vcs>+<transport>://<host>/<path>[@<version>][#<subpath>]` URL. The host and path, the
+`@<version>` and the `#<subpath>` are read from the decoded `vcs_url` value exactly as from the
+`pkg:git/` spelling, so the same installed project is linked with the same warning whichever is
+written, and a repository path's `.git` suffix is not part of the name. A `vcs_url` that does not
+decode to a `<vcs>+<transport>://<host>/<path>` URL with `<vcs>` one of `git`, `svn` or `hg` is a
+`project.load` warning at the project file and the usage selects nothing; the subpath may also be
+written after the whole query (`pkg:generic/<name>?vcs_url=…&checksum=…#packages/gears`). A package manager's
+lock file beside `.project.json` is not read: which version lands under `lib/` is its decision,
+and OpenSysML matches the usage against whatever is installed.
+
+A fragment on a repository IRI names a project directory within the tagged tree
+(`pkg:git/git.example.org/acme/widgets#packages/gears`, or `%23packages%2Fgears` at the end of
+a `vcs_url`): that usage is answered by the
+sub-package's own installation — `gears` under `acme` — not by the repository's project. Such a
+sub-package also lies inside its parent's installed tree, and a directory below an installed
+project that holds a `.project.json` of its own is a project of its own: the parent's files stop
+at it — when the project is named, when a file in it is named, in the editor's workspace and in
+`-bundle`, which leaves the nested tree out of the parent's archive — so the two installations load
+`Gears.sysml` once.
 
 Another provider that installs projects elsewhere needs only its directory named. Each of
 the following adds a directory to look for installed projects under, besides the well-known
@@ -406,7 +452,10 @@ project is reported as such), `name` and `version` must be present, every usage 
 `resource`, the index and the checksums must name members, and every checksum whose
 algorithm this build computes is verified. A malformed archive named on the command line is
 refused with the reason; one found under a library root is a warning on its path and the
-load goes on without it.
+load goes on without it. Two shortfalls are read through and warned about on the archive's
+path rather than refused: an archive holding the project's folder with the manifests inside
+it, as the OMG library releases are laid out, is read as the project in that folder; and an
+index entry naming no member is passed over for what the members themselves declare.
 
 `-bundle` writes a project directory as an archive and `-unbundle` writes one back:
 
@@ -419,11 +468,21 @@ wrote widgets (Widgets 1.0.0, 4 files)
 
 Without `-o` the archive is named `<name>-<version>.kpar` after the project, and the
 directory `<name>-<version>`. The archive's members are sorted and carry a fixed timestamp,
-so bundling the same directory twice gives the same bytes; a `.meta.json` the directory has
-is kept (and its checksums verified), and one it lacks is generated with the index, a SHA256
-checksum per file and a creation time of `SOURCE_DATE_EPOCH` when that is set. Hidden
-directories such as `.git` and `.sysand` stay out of the archive. `-unbundle` writes into a
-new or empty directory only, so an archive never overwrites a file.
+so bundling the same directory twice gives the same bytes. Which files are members is the
+project's `.meta.json`'s to say: a directory that has one is archived as the two manifests
+plus exactly the files the metadata records — every `checksum` key and every `index` target,
+at their recorded paths — so a repository's README, scripts, caches and version-control
+metadata stay out unless recorded, and a recorded file missing from the tree is an error
+naming it (`.meta.json records LICENSE, which is not in the directory`). The kept `.meta.json`
+is verified on the way: a recorded checksum that no longer matches refuses the bundle. A
+directory without a `.meta.json` is archived as KerML 10.3 describes a project archive — its
+`.project.json` and its model files (`.sysml`, `.kerml`), outside hidden entries, library
+directories (`lib/`, `.sysand/lib`) and nested projects — and the `.meta.json` is generated
+with the index, a SHA256 checksum per member and a creation time of `SOURCE_DATE_EPOCH` when
+that is set; to carry a license or any other file, record it in a `.meta.json` of your own.
+An archive another tool wrote re-bundles from its unbundled directory to the files its
+`.meta.json` records. `-unbundle` writes into a new or empty directory only, so an archive
+never overwrites a file.
 
 ## Running behavior
 
@@ -436,7 +495,7 @@ action, so `-action` runs its body too (`-analysis` does not take one):
 $ sysml -calc "MyModel::Margin(20.0, 100.0)" checks.sysml
 ✓ package MyModel
 ✓ MyModel::Margin(20.0, 100.0)
-  = 80.0
+  = [80.0]
   standing: value (observed: 1 run under reverse)
 
 $ sysml -action MyModel::calibrate checks.sysml
@@ -462,6 +521,14 @@ $ sysml -state MyModel::Monitor -advance 15 checks.sysml
   Remaining events: 0
   standing: value (observed: 1 run under reverse)
 ```
+
+A calculation's result and an action's parameters print in brackets because a feature holds a
+number of values bounded by its multiplicity (KerML 8.4.4.12.1), which these surfaces report as a
+sequence: `[80.0]` is the one-element sequence a result that states no multiplicity holds, and a
+result of multiplicity `0..*` prints every element the same way. `-e` on a plain attribute still
+prints the scalar it holds. Up to 0.10.x these surfaces unwrapped a one-element result to its
+scalar. Why a bare `return` holds a sequence, and the `return : Real[1]` spelling that prints one
+value bare, are explained in [What a result line shows](04-repl.md#what-a-result-line-shows).
 
 An analysis case is a calculation performed as an action, so `-analysis` runs it the way
 `-calc` invokes a calc and `-requirement` checks a requirement: it names the case, optionally
@@ -555,11 +622,11 @@ $ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
   ID: 1
   Use %features An::barge to inspect
 sweep An::CostAnalysis — 3 run(s)
-limit | total | verdict                   | time
-------+-------+---------------------------+--------
-30.0  | 37.0  | affordable: not satisfied | 0.416ms
-35.0  | 37.0  | affordable: not satisfied | 0.019ms
-40.0  | 37.0  | affordable: satisfied     | 0.012ms
+limit | total  | verdict                   | time
+------+--------+---------------------------+--------
+30.0  | [37.0] | affordable: not satisfied | 0.416ms
+35.0  | [37.0] | affordable: not satisfied | 0.019ms
+40.0  | [37.0] | affordable: satisfied     | 0.012ms
   standing: table (observed: 3 rows)
 exit=1
 ```
@@ -573,11 +640,11 @@ wall time each run took, so it is the one column two runs of the same table do n
 $ sysml -calc "An::Sum(2.0)" -sweep "b=0.0..10.0" -samples 3 -seed 42 analysis.sysml
 ✓ package An
 samples An::Sum — 3 run(s), seed 42
-b                  | result             | time
--------------------+--------------------+--------
-8.254725069980449  | 10.254725069980449 | 0.035ms
-0.4281995136143024 | 2.4281995136143024 | 0.001ms
-7.76073049711954   | 9.760730497119539  | 0.000ms
+b                  | result               | time
+-------------------+----------------------+--------
+8.254725069980449  | [10.254725069980449] | 0.035ms
+0.4281995136143024 | [2.4281995136143024] | 0.001ms
+7.76073049711954   | [9.760730497119539]  | 0.000ms
   standing: table (observed: 3 rows)
 ```
 
@@ -798,7 +865,7 @@ jobs:
       security-events: write   # upload-sarif
     steps:
       - uses: actions/checkout@v4
-      - uses: Open-MBEE/OpenSysML@v0.11.0   # the release tag is the sysml installed
+      - uses: Open-MBEE/OpenSysML@v0.12.0   # the release tag is the sysml installed
         with:
           path: models
           format: sarif

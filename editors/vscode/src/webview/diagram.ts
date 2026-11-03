@@ -415,7 +415,7 @@ function draw(result: RenderResult): boolean {
       });
     }
     remember();
-    showNotices(result);
+    showNotices(result, layout);
     // An open menu names nodes of the drawing just replaced.
     hideMenu();
     showRelations(layout);
@@ -432,6 +432,7 @@ function draw(result: RenderResult): boolean {
 // show puts a layout on screen in place of what was there, the cursor's node marked.
 function show(shown: CanvasLayout): void {
   diagram.replaceChildren(drawCanvas(shown));
+  showNotices(last, shown);
   applyViewport();
   highlight(selectedNode);
   applySelection();
@@ -1021,8 +1022,9 @@ function describe(result: RenderResult): string {
   return result.stated ? `${name} — ${result.kind} (${result.stated})` : `${name} — ${result.kind}`;
 }
 
-function showNotices(result: RenderResult): void {
-  const list = result.notices ?? [];
+// showNotices lists the rendering's notices and the layout's, what each left undrawn.
+function showNotices(result: RenderResult | undefined, shown: CanvasLayout | undefined): void {
+  const list = [...(result?.notices ?? []), ...(shown?.notices ?? [])];
   noticeList.replaceChildren();
   notices.hidden = list.length === 0;
   if (list.length === 0) {

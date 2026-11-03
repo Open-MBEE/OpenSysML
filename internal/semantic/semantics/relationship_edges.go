@@ -278,9 +278,12 @@ func (m *Model) derivationRoleOf(feature *symbols.Symbol) derivationRole {
 	return roleUnstated
 }
 
+// isDerivationRoleFeature reports the library's own role features (as declared or as
+// `Derivation` redefines them); a model requirement tagged `@original` is a participant.
 func (m *Model) isDerivationRoleFeature(target *symbols.Symbol) bool {
-	return m.conformsToLibrary(target, "DerivationConnections::originalRequirements") ||
-		m.conformsToLibrary(target, "DerivationConnections::derivedRequirements")
+	return m.libraryDeclared(target) &&
+		(m.conformsToLibrary(target, "DerivationConnections::originalRequirements") ||
+			m.conformsToLibrary(target, "DerivationConnections::derivedRequirements"))
 }
 
 func splitDerivationEnds(ends []derivationEnd) (originals, derived []*symbols.Symbol) {

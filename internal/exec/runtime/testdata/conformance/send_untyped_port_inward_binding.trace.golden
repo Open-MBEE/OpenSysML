@@ -13,6 +13,8 @@ step 1: token 1@go
 stmt send
 materialize: Go #7
 materialize: cmd #8
+materialize: tx #9
+materialize: Transfer #10
 step 2: token 1@done
 step 3: no active tokens
 run: exhibited state machine life of #5

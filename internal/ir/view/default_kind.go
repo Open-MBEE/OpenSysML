@@ -5,7 +5,9 @@ import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 // DefaultKind chooses the rendering kind a set of elements is drawn in when
 // none is asked for: the kind each element calls for, and KindMixed when they
 // disagree. An element asks for a state rendering when it is a state def or
-// usage, an action rendering when it is an action def or usage, a case
+// usage, an action rendering when it is an action or calculation def or usage
+// — a calc is an action declared with the keyword `calc`, so it is drawn with
+// the action-flow view and parameter pins whatever its body holds —, a case
 // rendering when it is a case def or usage of any kind, an interconnection
 // rendering when it is a structural usage holding a connector, binding or flow,
 // and a tree rendering otherwise — a definition, a package or a usage with no
@@ -35,7 +37,7 @@ func (r *Renderer) ElementKind(sym *symbols.Symbol) Kind {
 	switch sym.Kind {
 	case symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return KindState
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage:
+	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
 		return KindAction
 	case symbols.SymbolCaseDef, symbols.SymbolCaseUsage,
 		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,

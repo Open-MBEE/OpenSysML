@@ -139,7 +139,7 @@ package Traceability {
 		attribute redefines title = "Spacecraft Requirement Traceability";
 
 		part intro : Paragraph {
-			attribute redefines text = "Every requirement, what satisfies and verifies it, and whether the spacecraft meets it.";
+			:>> text = "Every requirement, what satisfies and verifies it, and whether the spacecraft meets it.";
 		}
 
 		part requirements : Section {

@@ -259,13 +259,13 @@ func TestQualifiedNameThroughImportKeepsTypedErrors(t *testing.T) {
 // TestLibraryQuantityThroughFacadeResolves reaches a library quantity through
 // the ISQ and SI façades, which re-export the ISQ part packages: the name
 // resolves to the declaration its home package answers with, so the evaluator
-// answers with that declaration — a valueless `[*]` quantity, undetermined at
-// model level — rather than a missing member.
+// answers with that declaration — a valueless `[*]` quantity, empty at model
+// level — rather than a missing member.
 func TestLibraryQuantityThroughFacadeResolves(t *testing.T) {
 	ctx, root, _ := qualifiedImportRuntime(t)
 	for _, src := range []string{"ISQSpaceTime::speed", "ISQ::speed", "SI::speed"} {
 		val, err := evalIn(t, ctx, root, src)
-		wantUndetermined(t, src, val, err, "[0..*]")
+		wantFormatted(t, src, val, err, "[]")
 	}
 	val, err := evalIn(t, ctx, root, "TrigFunctions::pi")
 	if err != nil || !strings.HasPrefix(FormatValue(val), "3.14159") {

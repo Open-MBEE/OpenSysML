@@ -203,6 +203,13 @@ type Options struct {
 	// Compact, when set, writes the API's JSON element form as the compact
 	// document (export.WriteAPIJSONCompact) rather than the standard array.
 	Compact *export.CompactAPIJSONOptions
+	// IncludeLibraryStubs restores ownerless standard-library stubs for legacy readers.
+	IncludeLibraryStubs bool
+	// LibraryReferences receives the API JSON output's standard-library name table.
+	LibraryReferences func([]export.APIJSONLibraryReference)
+	// KeepLineBreaks keeps the input's line breaks on notation → notation (a
+	// save or echo); otherwise each statement of a body gets its own line.
+	KeepLineBreaks bool
 }
 
 // Convert reads data in the from format and writes it in the to format. name is
@@ -297,7 +304,7 @@ func SysMLElement(file *source.SourceFile, span source.Span) ([]byte, *SyntaxErr
 	if text == "" {
 		return nil, nil, ErrNoNotation
 	}
-	return convert(file.Name(), []byte(text), FormatSysML, FormatSysML, true, Options{})
+	return convert(file.Name(), []byte(text), FormatSysML, FormatSysML, true, Options{KeepLineBreaks: true})
 }
 
 // trimTrailingTrivia cuts source at its last token that is neither whitespace
@@ -324,12 +331,17 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		return out, nil, err
 
 	case from == FormatSysML && to == FormatSysML:
-		// A save of textual notation: keep every lexeme, fix the indentation.
+		// Notation to notation: keep every lexeme, fix the indentation and,
+		// unless the caller keeps the input's line breaks, lay the statements out.
 		syntax := checkSyntax(name, data)
 		if syntax != nil && !tolerateSyntaxErrors {
 			return nil, nil, syntax
 		}
-		out, err := format.Source(name, data, format.DefaultOptions)
+		layout := format.ConvertOptions
+		if opts.KeepLineBreaks {
+			layout = format.DefaultOptions
+		}
+		out, err := format.Source(name, data, layout)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -405,9 +417,22 @@ func FromGraphWith(graph *rdf.Graph, to Format, opts Options) ([]byte, error) {
 		return rdf.WriteTurtle(graph), nil
 	case to == FormatAPIJSON:
 		if opts.Compact != nil {
-			return export.WriteAPIJSONCompact(graph, *opts.Compact)
+			compact := *opts.Compact
+			compact.IncludeLibraryStubs = compact.IncludeLibraryStubs || opts.IncludeLibraryStubs
+			if opts.LibraryReferences != nil {
+				inner := compact.LibraryReferences
+				compact.LibraryReferences = func(refs []export.APIJSONLibraryReference) {
+					if inner != nil {
+						inner(refs)
+					}
+					opts.LibraryReferences(refs)
+				}
+			}
+			return export.WriteAPIJSONCompact(graph, compact)
 		}
-		return export.WriteAPIJSON(graph)
+		return export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{
+			IncludeLibraryStubs: opts.IncludeLibraryStubs, LibraryReferences: opts.LibraryReferences,
+		})
 	default:
 		return nil, &NotWritableError{Format: to}
 	}

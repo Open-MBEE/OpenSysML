@@ -32,7 +32,7 @@ flowchart LR
     n3("`*«part»*
 **chassis**`")
     n4("`*«attribute»*
-**mass**`")
+**^mass**`")
   end
   n2 === n3
   linkStyle 0 stroke-width:3px

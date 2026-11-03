@@ -109,6 +109,7 @@ func (r *invocationRun) drawOwner(execs []checkedExecutor) (int, error) {
 	for i, exec := range execs {
 		fps[i] = futures.executorFuture(exec)
 	}
+	choice.alike = r.ctx.heldAlike
 	classifyChoice(&choice, fps, func(i, j int) lower.Relation { return r.ctx.relation(execs[i], execs[j]) })
 	scheduling := r.ctx.scheduling()
 	pick := scheduling.choose(choice, nil)

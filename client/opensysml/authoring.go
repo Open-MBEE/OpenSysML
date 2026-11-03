@@ -63,8 +63,42 @@ func pathIsV1(path string) bool {
 type ConvertOption func(*convertOptions)
 
 type convertOptions struct {
-	from      Format
-	tolerated bool
+	from         Format
+	tolerated    bool
+	idForm       IDForm
+	libraryStubs bool
+}
+
+// IDForm is how a graph notation (Turtle, API JSON) spells the ids of elements
+// that declared none.
+type IDForm string
+
+const (
+	// IDFormQualified derives each id from the element's qualified name; the default.
+	IDFormQualified IDForm = "qualified"
+	// IDFormUUID writes name-based uuids under each root package, the library convention.
+	IDFormUUID IDForm = "uuid"
+)
+
+// WithIDForm spells derived element ids as form when a graph notation is
+// written; declared ids are unchanged. Refused for a notation target.
+func WithIDForm(form IDForm) ConvertOption {
+	return func(o *convertOptions) { o.idForm = form }
+}
+
+// WithLibraryStubs restores the pre-0.11.0 ownerless library stubs in API JSON instead of
+// the bare references listed in Conversion.LibraryReferences; requires convert_library_stubs.
+func WithLibraryStubs() ConvertOption {
+	return func(o *convertOptions) { o.libraryStubs = true }
+}
+
+// LibraryReference is a standard-library element an API JSON conversion
+// references outside its element array, in place of a library stub.
+type LibraryReference struct {
+	ID            string
+	QualifiedName string
+	// Type is the element's metaclass, as API JSON's @type spells it.
+	Type string
 }
 
 // WithFromFormat names the notation to read, for a file whose extension does
@@ -98,6 +132,9 @@ type Conversion struct {
 	ExperimentalNotice string
 	// Diagnostics are the syntax errors tolerated, when any were.
 	Diagnostics []Diagnostic
+	// LibraryReferences are the standard-library elements an API JSON conversion
+	// references outside its element array; empty for any other format.
+	LibraryReferences []LibraryReference
 }
 
 func (c *client) Convert(ctx context.Context, model *Model, to Format, opts ...ConvertOption) (*Conversion, error) {
@@ -161,10 +198,17 @@ func convertRequest(to Format, opts []ConvertOption) *pb.ConvertRequest {
 		FromFormat:           string(options.from),
 		ToFormat:             string(to),
 		TolerateSyntaxErrors: options.tolerated,
+		IdForm:               string(options.idForm),
+		IncludeLibraryStubs:  options.libraryStubs,
 	}
 }
 
 func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversion, error) {
+	if req.IncludeLibraryStubs {
+		if err := c.requireCapabilities(ctx, CapabilityConvertLibraryStubs); err != nil {
+			return nil, err
+		}
+	}
 	resp, err := c.caller.convert(ctx, req)
 	if err != nil {
 		return nil, err
@@ -180,7 +224,19 @@ func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversi
 		Experimental:       resp.Experimental,
 		ExperimentalNotice: resp.ExperimentalNotice,
 		Diagnostics:        diagnostics,
+		LibraryReferences:  libraryReferencesFromProto(resp.LibraryReferences),
 	}, nil
+}
+
+func libraryReferencesFromProto(refs []*pb.LibraryReference) []LibraryReference {
+	if len(refs) == 0 {
+		return nil
+	}
+	out := make([]LibraryReference, 0, len(refs))
+	for _, ref := range refs {
+		out = append(out, LibraryReference{ID: ref.Id, QualifiedName: ref.QualifiedName, Type: ref.Type})
+	}
+	return out
 }
 
 // MigrateOption configures MigrateFile and MigrateSource.
@@ -730,19 +786,10 @@ func (f EditFailure) String() string {
 
 // EditResult is a model's source with every edit applied.
 type EditResult struct {
-	// Content is the edited notation of a single-document model, byte-identical
-	// to the source outside the edited spans. Empty for a model of several
-	// documents, whose notation is in Documents alone.
-	//
-	// Deprecated: read Documents, which carries the same notation for a model of
-	// one document and every rewritten document of a model of several, from a
-	// service advertising the edit_documents capability.
-	Content string
 	// Documents is the edited notation of every document the edits rewrote: the
 	// edited document first when it is among them, then the others in name order.
 	// A single-document model's one document is always listed; a document of
-	// several the edits left as parsed is not. Empty, with Content filled, from a
-	// service without the edit_documents capability, which edits one document alone.
+	// several the edits left as parsed is not.
 	Documents []EditedDocument
 	// Applied says what each edit changed, grouped by document in the order
 	// Documents lists them and in request order within a document.
@@ -790,25 +837,6 @@ func (c *client) ApplyEdits(ctx context.Context, model *Model, edits ...Edit) (*
 	return c.ApplyDocumentEdits(ctx, model, "", edits...)
 }
 
-// requireEditDocuments refuses to send a document name to a service without
-// the edit_documents capability, which would ignore it and edit its sole document.
-func (c *client) requireEditDocuments(ctx context.Context, document string) error {
-	if document == "" {
-		return nil
-	}
-	info, err := c.serverInfo(ctx)
-	if err != nil {
-		return err
-	}
-	if !info.Has(CapabilityEditDocuments) {
-		return &StatusError{
-			Code:    CodeUnimplemented,
-			Message: fmt.Sprintf("capability %q is unavailable", CapabilityEditDocuments),
-		}
-	}
-	return nil
-}
-
 func (c *client) requireCapabilities(ctx context.Context, capabilities ...string) error {
 	info, err := c.serverInfo(ctx)
 	if err != nil {
@@ -830,15 +858,11 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 	if err != nil {
 		return nil, err
 	}
-	if err := c.requireEditDocuments(ctx, document); err != nil {
+	// The notation is read from Documents, which only a service with the
+	// edit_documents capability answers (one without it ignores a document name).
+	if err := c.requireCapabilities(ctx, append(requiredCapabilities(edits), CapabilityEditDocuments)...); err != nil {
 		return nil, err
 	}
-	if names := requiredCapabilities(edits); len(names) > 0 {
-		if err := c.requireCapabilities(ctx, names...); err != nil {
-			return nil, err
-		}
-	}
-	// This client reads Documents, so a model of several documents may be edited.
 	req := &pb.ApplyEditsRequest{ModelHash: hash, Document: document, AcceptDocuments: true}
 	for _, edit := range edits {
 		operation, err := editToProto(edit)
@@ -860,7 +884,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			Referrers:    referrersFromProto(resp.Referrers),
 		}
 	}
-	result := &EditResult{Content: resp.Content, Diagnostics: diagnostics}
+	result := &EditResult{Diagnostics: diagnostics}
 	for _, doc := range resp.Documents {
 		result.Documents = append(result.Documents, EditedDocument{Name: doc.Name, Content: doc.Content})
 	}

@@ -507,15 +507,20 @@ sysml> %state Guard::Sentry
   Time: 0.0
   Events: 0
 
+Use %events to see queue, %current for state, %advance <time> to step
+
 sysml> %send Abort
 ✓ Sent Abort to state machine "Guard::Sentry"
   Accepted by state machine "Sentry" in state watching: transition watching -> stop fires on it
+
+Use %step or %advance <time> to dispatch it
 
 sysml> %advance 1
 ✓ Advanced to 1.0 (1 event(s) processed)
   Current state: <none>
   Last event at: 0.0
   Remaining events: 0
+  1 choice point; %trace on to see them
   Do behavior actions run: 1
 
 ✓ State machine terminated (a `terminate` ended its performance short of a final state; no state is active)
@@ -527,7 +532,7 @@ Last event at: 0.0
 Execution state: Terminated
 
 State data:
-  log = "watch;watching(exit);abort;"
+  log = "watch;watching(exit);abort;" (order-dependent; 1 choice point — explore shows the set)
 ```
 
 The do behavior's `watched;` never ran: its wait was abandoned with the machine. From the
@@ -1297,7 +1302,7 @@ $ sysml -trace -action MC::route -seed 7 mc.sysml
 …
 [trace] draw uniform(0.0, 10.0) = 7.74817894359002
 …
-[trace] choice step 2: decision select branches 1->fast p=0.7, 2->slow p=0.3 hold (weighted; drew 0.33557143536732337, took 1->fast)
+[trace] choice step 2: decision select branches 1->fast p=0.7, 2->slow p=0.3 hold (weighted; drew 0.33557143536732337, took 1->fast; order-dependent: taken)
 …
 [trace] draw uniform(1, 80) = 47.88520359371734
 ```
@@ -2134,9 +2139,9 @@ The action's outputs are the final values:
 ```bash
 $ sysml -action Decay::decay -trace decay.sysml
 ✓ package Decay
-[trace] state: decay t=0.0 x=⟨1.0⟩ [m] y=⟨2.0⟩ [m]
-[trace] state: decay t=0.1 x=⟨0.9512294270833334⟩ [m] y=⟨1.9024588541666667⟩ [m]
-[trace] state: decay t=0.2 x=⟨0.9048374229492866⟩ [m] y=⟨1.8096748458985732⟩ [m]
+[trace] state: decay t=0.0 x=⟨1.0⟩ [m] y=[⟨2.0⟩ [m]]
+[trace] state: decay t=0.1 x=⟨0.9512294270833334⟩ [m] y=[⟨1.9024588541666667⟩ [m]]
+[trace] state: decay t=0.2 x=⟨0.9048374229492866⟩ [m] y=[⟨1.8096748458985732⟩ [m]]
 ...
     output = ⟨0.7357589222950793⟩ [m]
     stateSpace = ⟨0.36787946114753967⟩ [m]
@@ -2293,7 +2298,7 @@ when it completes.
 $ sysml -action ActionExecutorDemo::forkJoin examples/action-executor-demo.sysml
 ✓ Action completed
   Final state: Completed
-  1 choice point; %trace on to see them
+  1 choice point (1 independent); %trace on to see them
   Results:
     task1 = 10
     task2 = 20

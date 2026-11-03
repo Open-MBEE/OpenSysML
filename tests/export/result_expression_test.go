@@ -44,7 +44,7 @@ func TestResultExpressionIsAResultExpressionMembership(t *testing.T) {
 		"elmt:Results__AfterMembers___403_om\n    a sysml:ResultExpressionMembership ;",
 		"sysml:ownedMemberElement elmt:Results__AfterMembers___403 ;",
 		"sysml:ownedMemberFeature elmt:Results__AfterMembers___403 ;",
-		"sysml:ownedResultExpression elmt:Results__AfterMembers___403 .",
+		"sysml:ownedResultExpression elmt:Results__AfterMembers___403 ;",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph lacks\n%s\n--- graph ---\n%s", want, turtle)
@@ -138,7 +138,7 @@ func withoutResultMembers(t *testing.T, turtle []byte) []byte {
 func TestResultExpressionComesBackFromItsMembershipAlone(t *testing.T) {
 	turtle := convertFixture(t, "result_expressions")
 	stripped := withoutResultMembers(t, withoutSourceText(t, turtle))
-	if !strings.Contains(string(stripped), "sysml:owningType elmt:Results__AfterMembers ;\n    sysml:ownedResultExpression elmt:Results__AfterMembers___403 .") {
+	if !strings.Contains(string(stripped), "sysml:owningType elmt:Results__AfterMembers ;\n    sysml:ownedResultExpression elmt:Results__AfterMembers___403 ;") {
 		t.Fatalf("expected the result membership to keep only its ownedResultExpression:\n%s", stripped)
 	}
 	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
@@ -166,8 +166,8 @@ func TestMalformedMembershipEndsAreRefused(t *testing.T) {
 	turtle := string(withoutTriples(t, convertFixture(t, "result_expressions"), "sysx:sourceText"))
 	for _, tc := range []struct{ from, to, extra, want string }{
 		{
-			"    sysml:ownedResultExpression elmt:Results__AfterMembers___403 .",
-			"    sysml:ownedResultExpression elmt:Results__Only___400 .",
+			"    sysml:ownedResultExpression elmt:Results__AfterMembers___403 ;",
+			"    sysml:ownedResultExpression elmt:Results__Only___400 ;",
 			"",
 			"the membership <urn:sysmlv2:element:Results__AfterMembers___403_om>: it states both <urn:sysmlv2:element:Results__AfterMembers___403> and <urn:sysmlv2:element:Results__Only___400> as its member",
 		},
@@ -184,8 +184,8 @@ func TestMalformedMembershipEndsAreRefused(t *testing.T) {
 			"the membership <urn:sysmlv2:element:Results__Only___400_om>: it states both <urn:sysmlv2:element:Results__Only> and <urn:sysmlv2:element:Results> as its owning namespace",
 		},
 		{
-			"    sysml:ownedResultExpression elmt:Results__AfterMembers___403 .",
-			`    sysml:ownedResultExpression "Results__AfterMembers___403" .`,
+			"    sysml:ownedResultExpression elmt:Results__AfterMembers___403 ;",
+			`    sysml:ownedResultExpression "Results__AfterMembers___403" ;`,
 			"",
 			`the membership <urn:sysmlv2:element:Results__AfterMembers___403_om>: its sysml:ownedResultExpression is the literal "Results__AfterMembers___403"`,
 		},
@@ -196,8 +196,8 @@ func TestMalformedMembershipEndsAreRefused(t *testing.T) {
 			`the membership <urn:sysmlv2:element:Results__Only___400_om>: its sysml:membershipOwningNamespace is the literal "Results::Only"`,
 		},
 		{
-			"    sysml:ownedResultExpression elmt:Results__Only___400 .",
-			"    sysml:ownedResultExpression elmt:Results__Only___400 .",
+			"    sysml:ownedResultExpression elmt:Results__Only___400 ;",
+			"    sysml:ownedResultExpression elmt:Results__Only___400 ;",
 			"elmt:Results__Only___400_om2 a sysml:ResultExpressionMembership ;\n    sysml:membershipOwningNamespace elmt:Results__Double ;\n    sysml:memberElement elmt:Results__Only___400 .",
 			"both own <urn:sysmlv2:element:Results__Only___400>",
 		},
@@ -856,6 +856,12 @@ func TestExpressionBodyParameterOfAnotherShapeIsRefused(t *testing.T) {
 			if rewritten == block {
 				t.Fatalf("the parameter node was not rewritten:\n%s", block)
 			}
+			if tc.name == "non-feature" {
+				// A Package states no Usage::mayTimeVary; the pair goes with the metaclass.
+				for _, flag := range []string{"isVariable", "mayTimeVary"} {
+					rewritten = strings.Replace(rewritten, "\n    sysml:"+flag+" \"true\"^^xsd:boolean ;", "", 1)
+				}
+			}
 			graph := turtle[:start] + rewritten + turtle[end:]
 			back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 			if tc.want == "" {
@@ -1038,9 +1044,9 @@ func TestExpressionBodyParameterIsDeclaredOutsideTheBody(t *testing.T) {
 	}
 	for _, want := range []string{
 		"expr:Params__one_pvalue_pa0_pin0\n    a sysml:ReferenceUsage ;",
-		"sysml:declaredName \"Gauge\" ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__one_pvalue_pa0_pbody ;",
+		"sysml:declaredName \"Gauge\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__one_pvalue_pa0_pbody ;",
 		"expr:Params__two_pvalue_pa0_pin0\n    a sysml:ReferenceUsage ;",
-		"sysml:declaredName \"limit\" ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__two_pvalue_pa0_pbody ;\n    sysml:owningRelationship expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:owningMembership expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:multiplicity expr:Params__two_pvalue_pa0_pin0_pmultiplicity ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_ft0, expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:lowerBound expr:Params__two_pvalue_pa0_pin0_plowerBound ;\n    sysml:upperBound expr:Params__two_pvalue_pa0_pin0_pupperBound ;\n    sysml:value expr:Params__two_pvalue_pa0_pin0_pvalue ;\n    sysml:ownedTyping expr:Params__two_pvalue_pa0_pin0_ft0 ;",
+		"sysml:declaredName \"limit\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__two_pvalue_pa0_pbody ;\n    sysml:owningRelationship expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:owningMembership expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:multiplicity expr:Params__two_pvalue_pa0_pin0_pmultiplicity ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_ft0, expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:lowerBound expr:Params__two_pvalue_pa0_pin0_plowerBound ;\n    sysml:upperBound expr:Params__two_pvalue_pa0_pin0_pupperBound ;\n    sysml:value expr:Params__two_pvalue_pa0_pin0_pvalue ;\n    sysml:ownedTyping expr:Params__two_pvalue_pa0_pin0_ft0 ;",
 		"expr:Params__two_pvalue_pa0_pin0_ft0\n    a sysml:FeatureTyping ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_ft0\" ;\n    sysml:typedFeature expr:Params__two_pvalue_pa0_pin0 ;",
 		"expr:Params__two_pvalue_pa0_pin0_pupperBound\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"upper\" ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_pupperBound\" ;\n    sysml:isComposite \"false\"^^xsd:boolean ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_pupperBound_preferent, expr:Params__two_pvalue_pa0_pin0_pupperBound_pout_om ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pupperBound_preferent, expr:Params__two_pvalue_pa0_pin0_pupperBound_pout_om ;\n    sysml:referent elmt:Params__upper ;",
 		"expr:Params__two_pvalue_pa0_pin0_pvalue\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"limit\" ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_pvalue\" ;\n    sysml:isComposite \"false\"^^xsd:boolean ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_pvalue_preferent, expr:Params__two_pvalue_pa0_pin0_pvalue_pout_om ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pvalue_preferent, expr:Params__two_pvalue_pa0_pin0_pvalue_pout_om ;\n    sysml:referent elmt:Params__limit ;",

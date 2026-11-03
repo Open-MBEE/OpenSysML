@@ -448,7 +448,8 @@ package Reporting {
     calc def Provenance :> Query {
         Project(
             source = WhereMetadata(source = Descendants(source = Named(qualifiedName = "Records"), maxDepth = 1), 'metadata' = "AnalysisRecords::RecordedRun"),
-            properties = ("name", "kind", "caseName", "command"))
+            properties = ("name", "kind", "caseName", "command"),
+            tolerate = true)  // a run -record-run writes carries command in its metadata only
     }
 
     // The trade-study record.

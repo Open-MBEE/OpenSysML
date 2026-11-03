@@ -14,6 +14,7 @@ choice step 5: tokens 2@m, 3@gate3 (unordered; took 3@gate3 first; order-depende
 step 5: token 2@m, token 3@sender
 stmt send
   eval literal 7 -> 7
+materialize: Reader #1
 step 3: token 1@keep
 stmt assign got
   eval chain n -> (7)

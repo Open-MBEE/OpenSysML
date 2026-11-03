@@ -3,7 +3,6 @@ package passes
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -70,7 +69,7 @@ func (c *signalLint) check(scope *symbols.Scope, keyword string, qn *ast.Qualifi
 	if c.sent(name) {
 		return
 	}
-	written := qnText(qn)
+	written := qn.Text()
 	msg := fmt.Sprintf(
 		"`%s %s` names no declaration visible here and no signal the model sends, so only a signal injected by that name triggers it",
 		keyword, written)
@@ -102,15 +101,6 @@ func (c *signalLint) sentNames() []string {
 	}
 	slices.Sort(names)
 	return names
-}
-
-// qnText spells a qualified name as written.
-func qnText(qn *ast.QualifiedName) string {
-	parts := make([]string, len(qn.Parts))
-	for i, part := range qn.Parts {
-		parts[i] = part.Text
-	}
-	return strings.Join(parts, "::")
 }
 
 // gatherSentSignals records in sent the names of the signals every send of the

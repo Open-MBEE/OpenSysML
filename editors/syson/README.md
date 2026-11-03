@@ -1,4 +1,4 @@
-# OpenSysML SysON integration
+# SysON MDK
 
 This integration lets Eclipse SysON run, explore, instantiate, verify and analyze selected
 models with OpenSysML, and render their document definitions and document queries. The backend
@@ -9,7 +9,7 @@ operation dialog and mapped run results.
 
 - `backend/` — the Spring Boot auto-configuration, exporter, GraphQL mutation, run service,
   result mapping and Validation view service.
-- `frontend/` — the `@openmbee/opensysml-syson` npm package with the explorer menu and palette
+- `frontend/` — the `@openmbee/syson-mdk` npm package with the explorer menu and palette
   contributions, dialog, results panel and extension registry contribution.
 - `syson-api-stubs/` — compile-only Sirius Web and SysON API classes for the offline Maven build.
 

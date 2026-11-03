@@ -12,7 +12,7 @@ import (
 
 // BenchmarkNewRootFrame is the frame an action execution starts from: its held
 // index takes every feature of the action, inherited ones included (61 for a
-// plain action def), and is sized for them up front.
+// plain action def), read from the Model's memoized shape after the first run.
 func BenchmarkNewRootFrame(b *testing.B) {
 	idx := libs.NewModelIndex()
 	idx.AddDocument("<bench>", parser.New(source.New("<bench>", []byte(`package bench {
@@ -33,7 +33,7 @@ func BenchmarkNewRootFrame(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if root := exec.newRootFrame(); len(root.declared) == 0 {
+		if root := exec.newRootFrame(exec.performanceShape()); len(root.declared) == 0 {
 			b.Fatal("root frame holds no features")
 		}
 	}

@@ -42,7 +42,6 @@ func DefaultRegistry() *Registry {
 	reg.Register(TypeRelationshipsPass{})
 	reg.Register(W11EConjugatedSpecializationPass{})
 	reg.Register(ImplicitBasePass{})
-	reg.Register(PartUsageDefinitionPass{})
 	reg.Register(MultiplicityBoundsPass{})
 	reg.Register(ReferenceSubsettingPass{})
 	reg.Register(TopLevelImportPass{})

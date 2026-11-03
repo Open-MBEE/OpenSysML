@@ -202,10 +202,20 @@ func (m *migration) endRef(u *defUsage, feature string, scope *sysmlv1.Element) 
 	return ref
 }
 
-// usageRef writes a reference to usage u from inside scope's body.
+// usageRef writes a reference to usage u from inside scope's body, as a
+// connection end names it: a usage nested in a usage is reached by a chain.
 func (m *migration) usageRef(u *defUsage, scope *sysmlv1.Element) string {
 	if u.self {
 		return m.ref(u.def, scope)
+	}
+	return m.hostedRef(u.host, u.name, scope)
+}
+
+// usageMemberRef writes a reference to usage u from inside scope's body as an
+// expose or an annotation names its member: by qualified name alone, never a chain.
+func (m *migration) usageMemberRef(u *defUsage, scope *sysmlv1.Element) string {
+	if u.self {
+		return m.memberRef(u.def, scope)
 	}
 	return m.hostedRef(u.host, u.name, scope)
 }
@@ -316,7 +326,7 @@ func (m *migration) usageConnection(d *sysmlv1.Element, name string, client, sup
 func (m *migration) connRefs(e, scope *sysmlv1.Element) []string {
 	var refs []string
 	for _, c := range m.connsOf(e) {
-		refs = append(refs, m.hostedRef(c.host, c.name, scope), m.usageRef(c.from, scope), m.usageRef(c.to, scope))
+		refs = append(refs, m.hostedRef(c.host, c.name, scope), m.usageMemberRef(c.from, scope), m.usageMemberRef(c.to, scope))
 	}
 	return refs
 }

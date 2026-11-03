@@ -1,0 +1,55 @@
+// view: MixedMemberships::memberships
+// kind: mixed
+// stated: render asMixedDiagram
+// layout: dot
+digraph "MixedMemberships::memberships" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«package»</i></font><br/><b>MixedMemberships</b>>;
+    color=black;
+    penwidth=1.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    subgraph "cluster_n1" {
+      label=<<font point-size="10"><i>«package»</i></font><br/><b>Library</b>>;
+      color=black;
+      penwidth=1.5;
+      "n1" [shape=point, style=invis, width=0, height=0, label=""];
+      "n2" [label=<<font point-size="10"><i>«attribute def»</i></font><br/><b>Pressure</b>>];
+      "n8" [label=<<font point-size="10"><i>«port def»</i></font><br/><b>FluidPort</b>>];
+    }
+    "n9" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Impeller</b>>];
+    subgraph "cluster_n10" {
+      label=<<font point-size="10"><i>«part def»</i></font><br/><b>Pump</b>>;
+      color=black;
+      penwidth=0.5;
+      "n10" [shape=point, style=invis, width=0, height=0, label=""];
+      "n18" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>pressure</b>>];
+      "n11" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>outlet</b>>];
+      "n12" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>impeller</b>>];
+      "n13" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>spare</b>>];
+      "n19" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>prime</b><br/>declares no nodes>];
+      "n20" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>armed</b><br/>declares no states>];
+      "n14" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Seal</b>>];
+    }
+    "n3" [label=<<font point-size="10"><i>«concern def»</i></font><br/><b>Containment</b>>];
+    subgraph "cluster_n4" {
+      label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>Safety</b>>;
+      color=black;
+      penwidth=0.5;
+      "n4" [shape=point, style=invis, width=0, height=0, label=""];
+      "n15" [style="rounded,filled", label=<<font point-size="10"><i>«require constraint»</i></font><br/><b>minPressure</b>>];
+      "n16" [style="rounded,filled", label=<<font point-size="10"><i>«assume constraint»</i></font><br/><b>primedPump</b>>];
+      "n17" [style="rounded,filled", label=<<font point-size="10"><i>«assert constraint»</i></font><br/><b>sealed</b>>];
+      "n5" [style="rounded,filled", label=<<font point-size="10"><i>«frame»</i></font><br/><b>contained</b>>];
+    }
+    "n6" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>memberships</b>>];
+    "n7" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>membershipsLayout</b>>];
+  }
+  "n5" -> "n3" [arrowhead=onormaldotdot];
+  "n11" -> "n8" [arrowhead=onormaldotdot];
+  "n12" -> "n9" [arrowhead=onormaldotdot];
+  "n13" -> "n9" [arrowhead=onormaldotdot];
+  "n18" -> "n2" [arrowhead=onormaldotdot];
+}

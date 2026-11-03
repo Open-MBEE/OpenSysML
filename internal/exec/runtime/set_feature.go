@@ -45,20 +45,10 @@ func (ctx *Context) collectionOf(feat *EffectiveFeature, elements []Value) Value
 	return sequenceOf(elements)
 }
 
-// declaredCollection is a collection read through a declaration, in the shape that
-// declaration holds: one value held by an at-most-one multiplicity is held bare; a set
-// flowing into a sequence is its canonical sequence, a sequence flowing into a set its
-// distinct elements.
-func (ctx *Context) declaredCollection(sym *symbols.Symbol, val Value) Value {
-	if val.Kind != ValSet && val.Kind != ValSequence {
-		return val
-	}
+// declaredCollection is a value read through a declaration, in the shape that declaration
+// holds it (heldShape), so a `[0..*]` feature valued `4` reads `[4]` at namespace level too.
+func (ctx *Context) declaredCollection(sym *symbols.Symbol, val Value) (Value, error) {
 	mult := ctx.featureMultiplicity(sym, nil)
-	if !mult.Upper.Infinite && mult.Upper.Value <= 1 {
-		return soleElement(val)
-	}
-	if holds := ctx.holdsSet(sym, ctx.findOwnerType(sym), mult); holds != (val.Kind == ValSet) {
-		return ctx.collectionOf(&EffectiveFeature{HoldsSet: holds}, elementsOf(val))
-	}
-	return val
+	feat := &EffectiveFeature{Symbol: sym, Multiplicity: mult, HoldsSet: ctx.holdsSet(sym, ctx.findOwnerType(sym), mult)}
+	return ctx.heldShape(feat, val)
 }

@@ -127,7 +127,17 @@ Qualified-name segments keep their bare spelling unless a name would read back
 as a position — `@` followed by a canonical non-negative integer — or contains
 `::` or begins with a literal `'`. Those names use unrestricted-name quotes,
 so the named member `P::'@2'` remains distinct from the positional identity
-`P::@2`. Names that need no quotes keep their existing IRI spelling. For example,
+`P::@2`. Names that need no quotes keep their existing IRI spelling.
+
+An element's address is stated by one of two predicates. A named element whose
+owners are all named states its qualified name as `sysml:qualifiedName`, the
+property the metamodel derives (KerML §8.3.2.1). An unnamed element, or any
+element owned under one, has no qualified name in the metamodel — the
+derivation needs a name and an owning namespace that has a qualified name —
+so its address, with a positional segment (`P::@2`, `P::@2::x`), is stated as
+`sysx:positionalName` instead, and `sysml:qualifiedName` is absent, as the
+pilot implementation's API leaves it null. The IRI encodes the address either
+way, and a reader of this mapping takes either predicate for the address. For example,
 `P::'@2'` encodes as `P___27_402_27`. Inside the quotes, `\` and `'` are
 backslash-escaped.
 
@@ -288,6 +298,29 @@ a root of the model (the OMG API JSON shape, whose writer never emits library
 elements), so a conformant reader would declare `datatype Real;` anew. A
 library element the element form references is a bare `{"@id": …}` of its
 normative id, which the reader resolves against the bundled library.
+
+For clients that need to display those names without bundling the library,
+`ConvertResponse.library_references` carries a separate table of `id`, `qualified_name`
+and `type` (metaclass), advertised as `convert_library_references`. The
+[compact API JSON document](api-json-compact.md) carries the same information in the
+optional top-level `libraryReferences` table, with literal `@id`, `qualifiedName` and
+`@type` keys. Only library elements referenced by the written output are included,
+sorted by ID; no library declarations are added to the default element array.
+
+The CLI writes that table as a JSON side file, without changing the model output:
+
+```sh
+sysml model.sysml -convert api-json -o model.json -library-references library-names.json
+```
+
+`-include-library-stubs` (or `ConvertRequest.include_library_stubs`, advertised as
+`convert_library_stubs`) is a default-off compatibility option for legacy clients.
+It restores the ownerless library stubs written before 0.11.0, with `@id`, `@type`,
+`declaredName`, `elementId`, `isLibraryElement: true` and `qualifiedName`.
+An OMG API reader treats these as roots, so prefer the separate table for new clients.
+Both CLI options require `-convert api-json` (or its `json` alias); the side file must
+not name an input or the output, including through a symlink or hard link.
+For a graph source, the table can name only references whose library metadata the graph carries.
 
 Reading a graph back, such an element is a reference into the bundled library,
 not a declaration, and it is not written. A qualified name other than the one
@@ -482,7 +515,23 @@ triples come); a set of classes with no such member is refused, naming the subje
   alias's owning membership. The same rule links a succession's `sourceFeature` (an implied `first
   start then a` names the `start` the owner inherits from `Actions::Action`),
   a feature chain's `targetFeature`, a feature reference's `referent` and an
-  invocation's `function`. A literal carries the name itself,
+  invocation's `function`. A dotted name reaches these from the notation in one
+  form only: the parser spells `q.p.f(1)` as an invocation whose receiver is the
+  chain `q.p`, and the conversion writes it as KerML 8.2.5.8.3 does
+  (`InstantiatedTypeMember` → `OwnedFeatureChainMember`) — an `OwningMembership`
+  at the `function` slot owning a chain `Feature` with one `FeatureChaining` per
+  link (`q`, `p`, `f`), the instantiated type; `sysml:function` is the
+  `Function` typing the final link (`Expression::function`, KerML 8.3.4.7.3) —
+  `f`'s calc def, or the library `Calculations::Calculation` an untyped calc
+  usage implies — omitted only when that link does not resolve; the arguments
+  alone as `in` parameters, no `operand` — and the reflective read owns the same
+  Feature,
+  chainings and ids. `p.a.b` stays nested chain expressions with one-segment
+  members, one `FeatureChainExpression` per link, so no `targetFeature` chain
+  Feature arises from the notation
+  (`TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee`). A
+  receiver that is not a pure chain of names (`(a + b).f(1)`, `x[1].f()`) keeps
+  its `operand` form. A literal carries the name itself,
   without the quotes an unrestricted name is written with; a target that is an
   expression rather than a name (a feature chain, say) is carried as the text it
   was written as, typed `sysx:Expression` to tell the two apart. These
@@ -596,6 +645,7 @@ The `sysx:` properties:
 
 | Property | Why it exists |
 |----------|---------------|
+| `sysx:positionalName` | The address of an element the metamodel derives no `qualifiedName` for: an unnamed element, or one owned under an unnamed element, is named by its position among its owner's members (`P::@2`, `P::@2::x`), and that address is what its IRI encodes. Stating it under `sysml:qualifiedName` would assert a qualified name the metamodel leaves null. |
 | `sysx:memberIndex` | Declaration order. The notation is sensitive to the order of members; an RDF graph is an unordered set, so the index is what lets a conversion back to notation reproduce the original sequence. |
 | `sysx:hasBody` | Distinguishes `part def A;` from `part def A { }`, which are different source and would otherwise convert back identically. Also marks an expression body node, so `{}` rebuilds from structure. |
 | `sysx:sourceText`, `sysx:sourceTail` | The element's lines as written, comments and blank lines included, which a conversion back to notation prefers while they still state what the graph states. An element with members carries the lines ahead of them as its text and those after them as its tail. See [Source text](#source-text). |
@@ -760,7 +810,7 @@ sees the same relationships SysML.xtext produces.
 | `:>> mass`, `redefines mass` | a `sysml:Redefinition` (`<S>_rd<i>`) with `redefiningFeature`/`redefinedFeature` |
 | `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
 | `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
-| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`, so `port p`'s `FeatureTyping` reads `type: ~P` |
+| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; a named `P` gives its conjugate `declaredName "~P"` (never `declaredShortName`), while an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
 | `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
 | `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword |
 | `objective { verify r; }` | a `sysml:RequirementVerificationMembership` owning a `sysml:RequirementUsage` that references `r` (its `sysml:ReferenceSubsetting`), with `sysml:kind "requirement"` |
@@ -901,7 +951,11 @@ elmt:Demo__Vehicle_om
     sysml:ownedMemberElement elmt:Demo__Vehicle ;
     sysml:ownedRelatedElement elmt:Demo__Vehicle ;
     sysml:owningRelatedElement elmt:Demo ;
-    sysml:membershipOwningNamespace elmt:Demo .
+    sysml:membershipOwningNamespace elmt:Demo ;
+    sysml:source elmt:Demo ;
+    sysml:target elmt:Demo__Vehicle ;
+    sysml:relatedElement elmt:Demo, elmt:Demo__Vehicle ;
+    sysml:memberName "Vehicle" .
 
 elmt:Demo__Vehicle
     a sysml:PartDefinition ;
@@ -910,6 +964,13 @@ elmt:Demo__Vehicle
     sysml:owningRelationship elmt:Demo__Vehicle_om ;
     sysml:owningMembership elmt:Demo__Vehicle_om .
 ```
+
+A membership also states the Relationship ends KerML derives for it — `sysml:source` is
+the owning namespace, `sysml:target` the member, `sysml:relatedElement` both in that order —
+and the member's effective names as `sysml:memberName` / `sysml:memberShortName` (KerML
+8.3.2.3.5; an unnamed feature is named by the one it redefines, KerML 8.2.4). Every membership shape carries them (`FeatureMembership`, `FeatureValue`,
+`ParameterMembership`, `SubjectMembership`, …). Reading a graph back, they restate the
+ownership edges above and are checked through them, not as references of their own.
 
 - A membership's id is the member's id with `_om` appended, which no element id
   can be: an `_` in an element id starts either `__` for `::` or a hex escape.
@@ -1237,7 +1298,10 @@ The rules the tree follows:
 - **An expression body is structure too.** `{ in y : Real; y + x }` is a
   `sysml:Expression` node whose `sysx:bodyParameter`s are nodes of their own —
   each typed `sysml:ReferenceUsage` with `sysml:direction "in"`, its name, `ref`
-  flag, `sysml:type`, bounds, `sysml:value` and any body of its own — and whose
+  flag, `sysml:type`, bounds, `sysml:value` and any body of its own, owned
+  through a `sysml:FeatureMembership` (the type body both notations give an
+  expression body: KerML.xtext `FunctionBodyPart`, SysML.xtext `CalculationBody`;
+  KerMLExpressions' `BodyParameterMember` is overridden) — and whose
   `sysx:resultExpression` is the tree of the expression after them, so a nested
   body (`{ in y : Real; f(x = { in z : Real; z + y }) }`) and an `in expr`
   parameter's body (`in expr keep : Boolean { in v : Real; v > x }`) rebuild from
@@ -1318,7 +1382,7 @@ that states it as both `sysml:memberElement` and `sysml:ownedResultExpression`:
 ```turtle
 elmt:P__Double___401
     a sysml:OperatorExpression ;
-    sysml:qualifiedName "P::Double::@1" ;
+    sysx:positionalName "P::Double::@1" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningMembership elmt:P__Double___401_om ;
     sysml:operator "*" ;
@@ -1974,7 +2038,8 @@ prefix carrying a name, an `about` clause or a body (the grammar's
 first member with the name keeps the qualified name, as the language's own
 naming rule fixes it, and each later one is identified by its position among
 the owner's members — `Demo::Dup` then `Demo::@2` for two `part def Dup` at
-positions 0 and 2 — the same name a member declared unnamed takes. A member
+positions 0 and 2 — the same address a member declared unnamed takes, stated
+as `sysx:positionalName`. A member
 declared unnamed but named by its naming feature (`part :>> engine;`,
 `perform a;`) is `Demo::car::engine`, not `Demo::car::@0`, and a later member
 deriving a name already taken is positioned like a later duplicate. Both
@@ -2239,11 +2304,15 @@ The mapping materializes the same relationship elements the toolkit emits
 the `Membership` an expression referent is carried by — the table above) and
 writes the same unnamed root `Namespace` with its `OwningMembership` (see
 [The root namespace](#the-root-namespace)), so the toolkit's lifter reads this
-form's output back to the notation it came from. The per-`@type` element
+form's output back to the notation it came from. A conjugate has
+`declaredName "~P"` only when its original declares a name and never has a
+`declaredShortName`; otherwise it is addressed as `<owner>::@conjugated`. The
+per-`@type` element
 counts of the two still differ where the toolkit's own JSON is sparser than
 the metamodel: it writes no `ReturnParameterMembership` for an expression
-whose result is unused, spells a chained callee as `FeatureChaining`s on one
-feature where this mapping owns a `FeatureChainExpression` per link, and
+whose result is unused, spells a chained target (`p.a.b`) as `FeatureChaining`s
+on one feature where this mapping owns a `FeatureChainExpression` per link (a
+chained callee, `q.p.f(1)`, both spell as one chain feature), and
 writes a `sysml:CaseDefinition` where an `analysis def` is an
 `AnalysisCaseDefinition`. What the toolkit does not
 read are the `sysx:` extension metaclasses listed above, and one place where
@@ -2329,6 +2398,7 @@ as an RDF vocabulary graph a store loads beside its models:
 ```bash
 sysml -metaclass-graph                          # Turtle to stdout; no model is read
 sysml -metaclass-graph -o sysml-metaclasses.ttl
+sysml -metamodel-table -o metamodel.json         # the whole table as JSON: classes, properties, enumerations
 ```
 
 The graph is written from the metamodel table of
@@ -2348,7 +2418,7 @@ sysml:ControlNode
     a rdfs:Class ;
     rdfs:label "ControlNode" ;
     rdfs:subClassOf sysml:ActionUsage ;
-    sysx:abstract true .
+    sysx:abstract "true"^^xsd:boolean .
 ```
 
 - The subject is the metaclass IRI `rdf:type` names on a converted element, so
@@ -2381,7 +2451,7 @@ exactly, which a converted model never contains.
 | `internal/translate/convert` | The `Convert` entry point: format names, notation parsing, the SysML v1 migration |
 | `tests/corpus/roundtrip_test.go` | The per-file round-trip ratchets over every model under `examples/`, with their baselines in `testdata/corpus_roundtrip_expected.txt` (Turtle) and `testdata/api_json_roundtrip_expected.txt` (the API element form) ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
 | `internal/frontend/repl` | `%save` |
-| `cmd/sysml` | `-convert`, `-from`, `-o`, `-metaclass-graph` |
+| `cmd/sysml` | `-convert`, `-from`, `-o`, `-metaclass-graph`, `-metamodel-table` |
 
 The RDF layer is hand-written against the Turtle grammar rather than pulled in
 as a dependency: the subset needed here is small, and the parser rejects what it

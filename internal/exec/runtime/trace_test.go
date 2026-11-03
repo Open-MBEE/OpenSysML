@@ -266,7 +266,7 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 // loads it, and returns a fresh context over it under policy (or the one the case pins).
 func loadTraceCase(t *testing.T, conformanceDir, testName string, expected ExpectedOutcome, policy SchedulePolicy) (*Context, *symbols.Index, *symbols.Scope) {
 	t.Helper()
-	sysmlPath := filepath.Join(conformanceDir, testName+".sysml")
+	sysmlPath := fixtures.ModelPath(conformanceDir, testName)
 	sysmlData, err := os.ReadFile(sysmlPath)
 	if err != nil {
 		t.Fatalf("load source: %v", err)

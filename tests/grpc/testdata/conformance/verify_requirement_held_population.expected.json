@@ -1,0 +1,10 @@
+{
+  "rpc": "VerifyRequirement",
+  "instantiate": ["test::fleet"],
+  "symbol_id": "test::costReq",
+  "expected_status": "undecided",
+  "expected_verification_verdicts": [
+    {"case": "test::Definition::costTest", "kind": "pass", "instance_type": "test::Fleet::cheap"},
+    {"case": "test::Definition::costTest", "kind": "pass", "instance_type": "test::Fleet::cheap"}
+  ]
+}

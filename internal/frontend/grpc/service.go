@@ -12,6 +12,7 @@ import (
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
@@ -66,6 +67,10 @@ const CapabilityRecordRun = "record_run"
 // and the `question`, `status` and `witness` fields of every Verdict.
 const CapabilityVerificationQuestions = "verification_questions"
 
+// CapabilityVerdictNotes names the `notes` field of every Verdict: the
+// assumptions and omissions behind a solver's answer, as the REPL prints them.
+const CapabilityVerdictNotes = "verdict_notes"
+
 // CapabilityVerificationArguments names the `arguments` and `named_arguments`
 // fields of VerifyConstraintRequest and VerifyRequirementRequest, which bind the
 // checked element's `in` parameters as RunAnalysisRequest binds a case's.
@@ -74,6 +79,10 @@ const CapabilityVerificationArguments = "verification_arguments"
 // CapabilityQuery names the capability of the Query RPC, which evaluates a
 // SysML v2 API & Services Query over a parsed model.
 const CapabilityQuery = "query"
+
+// CapabilityQueryOrderBy names the capability of Query's order_by field, which
+// sorts the matched elements; a service without it would ignore the field.
+const CapabilityQueryOrderBy = "query_order_by"
 
 // CapabilityDocumentQuery names the capability of the RunDocumentQuery RPC,
 // which runs a named document query and answers with typed rows.
@@ -86,6 +95,10 @@ const CapabilityRenderDocument = "render_document"
 // CapabilityRenderDocumentHTML names the capability of RenderDocumentRequest's
 // form field, which asks RenderDocument for HTML instead of Markdown.
 const CapabilityRenderDocumentHTML = "render_document_html"
+
+// CapabilityRenderDocumentAsciiDoc names the capability of RenderDocumentRequest's
+// form field taking "asciidoc", answered in RenderDocumentResponse.asciidoc.
+const CapabilityRenderDocumentAsciiDoc = "render_document_asciidoc"
 
 // CapabilityRenderView names the capability of the RenderView RPC, which
 // renders a declared or targeted pseudo-view as machine-readable diagram data.
@@ -217,6 +230,12 @@ const CapabilityConvertDocuments = "convert_documents"
 // handles, and optionally without the metamodel's derived properties.
 const CapabilityConvertCompact = "convert_compact"
 
+// CapabilityConvertLibraryReferences names ConvertResponse.library_references.
+const CapabilityConvertLibraryReferences = "convert_library_references"
+
+// CapabilityConvertLibraryStubs names ConvertRequest.include_library_stubs.
+const CapabilityConvertLibraryStubs = "convert_library_stubs"
+
 // CapabilityConvertCheckDiagnostics names ConvertRequest.include_check_diagnostics:
 // the semantic check's diagnostics, with their severities, reported alongside
 // the converted output.
@@ -319,6 +338,9 @@ const CapabilityPerformer = "performer"
 // CapabilityStateTrace names the ExecuteState trace request field.
 const CapabilityStateTrace = "state_trace"
 
+// CapabilityActionTrace names the ExecuteAction trace request field.
+const CapabilityActionTrace = "action_trace"
+
 // CapabilityMetaobjectValues names the capability of carrying an element
 // reflected on as an instance of its metaclass (`x meta T`, the last element of
 // `x.metadata`) as Value.metaobject, rather than as an unsupported null.
@@ -347,6 +369,7 @@ var capabilities = []string{
 	CapabilityEditDocuments,
 	CapabilityPerformer,
 	CapabilityRenderDocumentHTML,
+	CapabilityRenderDocumentAsciiDoc,
 	CapabilityConnectionAuthoring,
 	CapabilitySatisfyAuthoring,
 	CapabilityRequirementConstraintAuthoring,
@@ -354,6 +377,7 @@ var capabilities = []string{
 	CapabilityTransitionAuthoring,
 	CapabilityVerificationQuestions,
 	CapabilityVerificationArguments,
+	CapabilityQueryOrderBy,
 	CapabilityVerificationObjectiveAuthoring,
 	CapabilityRuns,
 	CapabilitySelfCheck,
@@ -372,6 +396,7 @@ var capabilities = []string{
 	CapabilityBigIntValues,
 	CapabilityRationalValues,
 	CapabilityStateTrace,
+	CapabilityActionTrace,
 	CapabilityRenderView,
 	CapabilityExportGraphs,
 	CapabilityImportData,
@@ -379,10 +404,13 @@ var capabilities = []string{
 	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
+	CapabilityConvertLibraryReferences,
+	CapabilityConvertLibraryStubs,
 	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
+	CapabilityVerdictNotes,
 }
 
 type capabilityAvailability struct {
@@ -991,7 +1019,7 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 
 	// A parse racing another of the same model keeps the entry already cached,
 	// so the objects held on it stay reachable under the hash.
-	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode}
+	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode, Findings: checkws.DuplicateLibraries(idx)}
 	return modelHash, store(modelHash, model)
 }
 
@@ -1042,6 +1070,8 @@ func (s *Service) GetDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest
 	for _, doc := range cached.Documents {
 		pbDiags = append(pbDiags, s.diagnosticsToProto(doc, doc.lintSelected(disabled, enabled))...)
 	}
+	// The workspace findings are no lints, so the selection leaves them as they are.
+	pbDiags = append(pbDiags, s.findingDiagnostics(cached)...)
 	return &pb.DiagnosticsResponse{Diagnostics: pbDiags}, nil
 }
 
@@ -1068,7 +1098,34 @@ func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 	for _, doc := range model.Documents {
 		pbDiags = append(pbDiags, doc.protoDiagnostics(s.documentDiagnostics)...)
 	}
-	return pbDiags
+	return append(pbDiags, s.findingDiagnostics(model)...)
+}
+
+// findingDiagnostics converts the model's workspace findings, each located in
+// the document it is on: with its span's position when that is one of the
+// model's documents, by file name alone when it is a library document.
+func (s *Service) findingDiagnostics(model *CachedModel) []*pb.Diagnostic {
+	if len(model.Findings) == 0 {
+		return nil
+	}
+	sources := make(map[string]*source.SourceFile, len(model.Documents))
+	for _, doc := range model.Documents {
+		sources[doc.Source.Name()] = doc.Source
+	}
+	pbDiags := make([]*pb.Diagnostic, 0, len(model.Findings))
+	for _, f := range model.Findings {
+		if sf := sources[f.Document]; sf != nil {
+			pbDiags = append(pbDiags, DiagnosticToProto(f.Diagnostic, sf))
+			continue
+		}
+		pbDiags = append(pbDiags, &pb.Diagnostic{
+			Severity: f.Diagnostic.Severity.String(),
+			Message:  f.Diagnostic.Message,
+			Code:     f.Diagnostic.Code,
+			Span:     &pb.Span{File: f.Document},
+		})
+	}
+	return s.filterDiagnosticCapabilities(pbDiags)
 }
 
 // documentDiagnostics converts one document's diagnostics, then its warnings, to
@@ -1261,8 +1318,9 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	held.hold(sym, inst)
 
 	return &pb.InstantiateResponse{
-		Instance:  graph.Root,
-		Instances: graph.All,
+		Instance:    graph.Root,
+		Instances:   graph.All,
+		Diagnostics: RunNoteDiagnosticsToProto(runtimeCtx.StartFailureNotes(inst), cached),
 	}, nil
 }
 
@@ -1271,6 +1329,21 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	schedule, err := s.schedulePolicy(req.Schedule)
 	if err != nil {
 		return nil, err
+	}
+	_, explores := schedule.Exploration()
+	if req.Trace && explores {
+		return nil, statusError(connect.CodeInvalidArgument, "action traces are unavailable under an explore schedule")
+	}
+	if req.Trace {
+		if err := s.requireCapability(CapabilityActionTrace); err != nil {
+			return nil, err
+		}
+	}
+	if len(req.Events) > 0 && explores {
+		return nil, statusError(connect.CodeInvalidArgument, "events cannot be posted under an explore schedule")
+	}
+	if len(req.Events) > 0 && req.PerformerSymbolId == "" {
+		return nil, statusError(connect.CodeInvalidArgument, "events are posted to the object performing the action: name one in performer_symbol_id")
 	}
 	if req.PerformerSymbolId != "" {
 		if err := s.requireCapability(CapabilityPerformer); err != nil {
@@ -1300,6 +1373,11 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	runtimeCtx, release := s.newRuntime(ctx, cached)
 	defer release()
 	opts.apply(runtimeCtx)
+	var traceRecorder *runtime.TraceRecorder
+	if req.Trace {
+		traceRecorder = runtime.NewEventRecorder(s.maxHeldEvents)
+		runtimeCtx.SetTrace(traceRecorder)
+	}
 
 	// Converted against the model's index, so a quantity input keeps the base
 	// units it is commensurable with instead of binding an unusable value.
@@ -1327,7 +1405,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		return resp, err
 	}
 
-	if _, explores := schedule.Exploration(); explores {
+	if explores {
 		// Inputs are read and the performer made again on each run's own context,
 		// so an object among them belongs to the run that binds it.
 		x, err := s.exploreWith(ctx, req.ActionSymbolId, schedule, analysis.Auto(), cached, opts, func(rt *runtime.Context) (runtime.Outcome, error) {
@@ -1342,7 +1420,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err != nil {
 				return runtime.Outcome{}, err
 			}
-			outcome, err := opts.actionOutcome(rt, req.ActionSymbolId, action, self, inputs)
+			outcome, err := opts.actionOutcome(rt, action, self, inputs)
 			if err != nil {
 				return runtime.Outcome{}, fmt.Errorf("action execution failed: %w", err)
 			}
@@ -1361,12 +1439,18 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		return &pb.ExecuteActionResponse{Error: err.Error()}, nil
+		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		return &pb.ExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
+	}
+	events, err := eventMessages(cached, runtimeCtx, action, req.Events, self)
+	if err != nil {
+		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		return &pb.ExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
 	// Execute action with the supplied inputs
 	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (actionRun, error) {
-		return opts.runAction(rt, req.ActionSymbolId, action, self, inputs)
+		return opts.runAction(rt, action, self, inputs, events)
 	}, func(ran actionRun, err error) analysis.Answer { return heldAnswer(ran.outputs, err) })
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
@@ -1374,11 +1458,14 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
+	trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteActionResponse{
-			Error:       fmt.Sprintf("action execution failed: %v", err),
-			Diagnostics: diags,
-			FinalTime:   s.finalTime(runtimeCtx),
+			Error:        fmt.Sprintf("action execution failed: %v", err),
+			Diagnostics:  diags,
+			FinalTime:    s.finalTime(runtimeCtx),
+			Trace:        trace,
+			TraceDropped: dropped,
 		}, nil
 	}
 
@@ -1388,7 +1475,30 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		FinalTime:           s.finalTime(runtimeCtx),
 		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached.Index),
 		OrderDependent:      s.orderDependent(runtimeCtx, ran.outputs),
+		Trace:               trace,
+		TraceDropped:        dropped,
 	}, nil
+}
+
+// eventMessages builds the messages ExecuteAction's events post to self, in
+// order: a signal definition's message where the name resolves to one, qualified
+// or from action's namespaces, else one matched by name alone, as the REPL's
+// %send sends an undeclared signal.
+func eventMessages(cached *CachedModel, rt *runtime.Context, action *symbols.Symbol, events []string, self *runtime.Instance) ([]runtime.Message, error) {
+	messages := make([]runtime.Message, 0, len(events))
+	for _, event := range events {
+		sym := resolveEvent(cached.LookupNamedMember, action, event)
+		if sym == nil {
+			messages = append(messages, runtime.NamedSignalMessage(event, self))
+			continue
+		}
+		msg, err := rt.SignalMessage(sym, nil, self)
+		if err != nil {
+			return nil, fmt.Errorf("event %s: %w", event, err)
+		}
+		messages = append(messages, msg)
+	}
+	return messages, nil
 }
 
 // orderDependent is, for each value an unresolved choice point of the run
@@ -1496,7 +1606,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := stateTraceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
 		return &pb.ExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
@@ -1511,7 +1621,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	finalContext, statesVisited := ran.final, ran.visited
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
-	trace, dropped := stateTraceToProto(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteStateResponse{
 			Error:        fmt.Sprintf("state machine execution failed: %v", err),
@@ -1539,7 +1649,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}, nil
 }
 
-func stateTraceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
+func (s *Service) traceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
 	if recorder == nil {
 		return nil, 0
 	}
@@ -1547,6 +1657,9 @@ func stateTraceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtim
 	trace := make([]*pb.DocumentEvent, len(events))
 	for i, event := range events {
 		trace[i] = documentEvent(idx, event)
+		if _, value, ok := event.Assigned(); ok {
+			trace[i].Value = s.valueToProto(rt, value, idx)
+		}
 	}
 	dropped, _ := recorder.Dropped()
 	return trace, traceDroppedCountToInt32(int64(dropped))
@@ -1586,4 +1699,18 @@ func (s *Service) rootSymbol(model *CachedModel, doc *CachedDocument) *pb.Symbol
 func computeHash(content string) string {
 	hash := sha256.Sum256([]byte(content))
 	return fmt.Sprintf("%x", hash)
+}
+
+// resolveEvent finds the definition an event name denotes: as written, else as
+// each namespace enclosing action sees it, innermost first; nil for none.
+func resolveEvent(lookup func(string) []*symbols.Symbol, action *symbols.Symbol, event string) *symbols.Symbol {
+	if syms := lookup(event); len(syms) > 0 {
+		return syms[0]
+	}
+	for owner := action.Owner(); owner != nil; owner = owner.Owner() {
+		if syms := lookup(symbols.FQNOf(owner) + "::" + event); len(syms) > 0 {
+			return syms[0]
+		}
+	}
+	return nil
 }

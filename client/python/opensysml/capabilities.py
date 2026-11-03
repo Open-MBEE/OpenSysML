@@ -47,9 +47,22 @@ CAPABILITY_VERIFICATION = "verification"
 CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions"
 CAPABILITY_VERIFICATION_ARGUMENTS = "verification_arguments"
 
+#: Every ``Verdict`` carries ``notes``: what a solver's answer assumes and what
+#: it leaves uncovered. A service without it answers with none.
+CAPABILITY_VERDICT_NOTES = "verdict_notes"
+
 #: The ``Query`` RPC, which evaluates a SysML v2 API & Services ``Query`` over a
 #: loaded model. Without it the service refuses queries with ``UNIMPLEMENTED``.
 CAPABILITY_QUERY = "query"
+
+#: ``Query.orderBy`` sorts the matched elements. Without it the service would
+#: ignore the field and answer in declaration order, so the client refuses to
+#: send a sorted query.
+CAPABILITY_QUERY_ORDER_BY = "query_order_by"
+
+#: ``QueryRequest.oslc_query``: a query written as OSLC Query 3.0 parameter text, in place of the
+#: standard's Query object.
+CAPABILITY_OSLC_QUERY = "oslc_query"
 
 #: The ``RunDocumentQuery`` RPC, which runs a named document query and answers
 #: typed rows. Without it the service refuses with ``UNIMPLEMENTED``.
@@ -76,6 +89,8 @@ CAPABILITY_CHECK = "check"
 #: HTML page instead of Markdown. Without it the service would render Markdown
 #: whatever form was asked, so the client refuses to ask for HTML.
 CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html"
+#: ``RenderDocumentRequest.form`` takes ``"asciidoc"``, answered in ``asciidoc``.
+CAPABILITY_RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc"
 
 #: An enumeration literal as ``Value.enum_literal``. Without it a literal is
 #: reported as an unsupported null, which is indistinguishable from a value the
@@ -243,6 +258,7 @@ CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore"
 #: behavior outside any object, so the client refuses to send a performer.
 CAPABILITY_PERFORMER = "performer"
 CAPABILITY_STATE_TRACE = "state_trace"
+CAPABILITY_ACTION_TRACE = "action_trace"
 
 #: ``final_time`` populated on an action or state run's response: the run's
 #: simulation clock when it ended, in seconds, read as the ``final_time`` of
@@ -287,6 +303,14 @@ CAPABILITY_CONVERT_COMPACT = "convert_compact"
 #: ``ConvertRequest.include_check_diagnostics``: the semantic check's diagnostics, each with its
 #: own severity, reported alongside the converted output.
 CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics"
+
+#: ``ConvertResponse.library_references``: api-json written with library elements as bare
+#: references, and ``ConvertRequest.id_form`` to spell derived ids as uuids.
+CAPABILITY_CONVERT_LIBRARY_REFERENCES = "convert_library_references"
+
+#: ``ConvertRequest.include_library_stubs``: api-json written with the ownerless library stubs
+#: of releases before 0.11.0 restored.
+CAPABILITY_CONVERT_LIBRARY_STUBS = "convert_library_stubs"
 
 #: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
 #: whose results may differ from the base model's, so a client re-reads only those after an edit.

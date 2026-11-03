@@ -63,6 +63,15 @@ public record RenderedDocument(DocumentForm form, String content, String fileNam
     return form == DocumentForm.HTML ? content : "";
   }
 
+  /**
+   * The AsciiDoc rendering.
+   *
+   * @return the content when rendered to AsciiDoc, otherwise empty
+   */
+  public String asciidoc() {
+    return form == DocumentForm.ASCIIDOC ? content : "";
+  }
+
   @Override
   public String toString() {
     return content;

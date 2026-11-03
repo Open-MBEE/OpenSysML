@@ -116,8 +116,9 @@ func (m *Model) EvalElementFilter(f symbols.ElementFilter, cand *symbols.Symbol)
 	// Only a decided verdict is remembered. A condition can be unevaluable
 	// because the element it names is not indexed yet — an import is expanded
 	// while the index is still filling — and re-deciding it later is what keeps
-	// the answer from depending on when it was first asked.
-	if err == nil {
+	// the answer from depending on when it was first asked; nor is one decided
+	// over the partial `about` index while it is being built.
+	if err == nil && !m.aboutBuilding {
 		journal(m, m.filterVerdicts, key, cand.Decl)
 		m.filterVerdicts[key] = verdict
 	}
@@ -166,7 +167,7 @@ func (m *Model) compileCondition(scope *symbols.Scope, n ast.Node) *symbols.Filt
 	case *ast.LiteralString:
 		return &symbols.FilterPredicate{
 			Op:    symbols.FilterConst,
-			Value: symbols.FilterValue{Kind: symbols.FilterValueString, Str: unquote(e.Value)},
+			Value: symbols.FilterValue{Kind: symbols.FilterValueString, Str: source.StringValue(e.Value)},
 			Span:  spanOf(e),
 		}
 	case *ast.NullExpr:
@@ -187,7 +188,7 @@ func (m *Model) compileConstructor(scope *symbols.Scope, e *ast.ConstructorExpr)
 	}
 	_, typeFQN, ok := m.resolveType(scope, e.Type)
 	if !ok {
-		return unsupported(span, fmt.Sprintf("the constructed type %s does not resolve", qnText(e.Type)))
+		return unsupported(span, fmt.Sprintf("the constructed type %s does not resolve", e.Type.Text()))
 	}
 	for _, arg := range constructorArgs(e) {
 		if p := m.compileCondition(scope, arg); p.Op == symbols.FilterUnsupported {
@@ -267,7 +268,7 @@ func (m *Model) classificationPredicate(scope *symbols.Scope, e *ast.OperatorExp
 	}
 	typ, typeFQN, ok := m.resolveType(scope, e.TypeRef)
 	if !ok {
-		return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", qnText(e.TypeRef)))
+		return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", e.TypeRef.Text()))
 	}
 	return &symbols.FilterPredicate{Op: op, TypeFQN: typeFQN, Type: typ, Span: span}
 }
@@ -336,7 +337,7 @@ func (m *Model) compileFeatureChain(scope *symbols.Scope, e *ast.FeatureChainExp
 		}
 		typ, typeFQN, ok := m.resolveType(scope, operand.TargetType)
 		if !ok {
-			return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", qnText(operand.TargetType)))
+			return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", operand.TargetType.Text()))
 		}
 		return &symbols.FilterPredicate{
 			Op:         symbols.FilterFeature,
@@ -352,7 +353,7 @@ func (m *Model) compileFeatureChain(scope *symbols.Scope, e *ast.FeatureChainExp
 		if operand.Operator == ast.OpAs && operand.TypeRef != nil {
 			typ, typeFQN, ok := m.resolveType(scope, operand.TypeRef)
 			if !ok {
-				return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", qnText(operand.TypeRef)))
+				return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", operand.TypeRef.Text()))
 			}
 			return &symbols.FilterPredicate{
 				Op:         symbols.FilterFeature,
@@ -397,7 +398,7 @@ func (m *Model) compileChainRead(scope *symbols.Scope, e *ast.FeatureChainExpr, 
 	}
 	rootSym, ok := m.resolver.ResolveQualified(scope, root.Name)
 	if !ok || rootSym == nil {
-		return unresolvedReference(span, fmt.Sprintf("%s does not resolve", qnText(root.Name)))
+		return unresolvedReference(span, fmt.Sprintf("%s does not resolve", root.Name.Text()))
 	}
 	if reason, notEvaluable := m.referenceNotEvaluable(rootSym); notEvaluable {
 		return unsupported(span, reason)
@@ -411,7 +412,7 @@ func (m *Model) compileChainRead(scope *symbols.Scope, e *ast.FeatureChainExpr, 
 	}
 	hops := chainHops(e)
 	cur := rootSym
-	soFar := qnText(root.Name)
+	soFar := root.Name.Text()
 	for i, hop := range hops {
 		next, ok := m.LookupMember(cur, hop)
 		if !ok || next == nil {
@@ -451,18 +452,18 @@ func (m *Model) compileReference(scope *symbols.Scope, qn *ast.QualifiedName, sp
 	}
 	sym, ok := m.resolver.ResolveQualified(scope, qn)
 	if !ok || sym == nil {
-		return unresolvedReference(span, fmt.Sprintf("%s does not resolve", qnText(qn)))
+		return unresolvedReference(span, fmt.Sprintf("%s does not resolve", qn.Text()))
 	}
 	if owner := m.ownerOf(sym); owner != nil && IsMetadataType(owner) {
 		ownerFQN := m.fqnOf(owner)
 		if ownerFQN == "" {
-			return unsupported(span, fmt.Sprintf("the metadata type of %s has no qualified name", qnText(qn)))
+			return unsupported(span, fmt.Sprintf("the metadata type of %s has no qualified name", qn.Text()))
 		}
 		return &symbols.FilterPredicate{
 			Op:         symbols.FilterFeature,
 			TypeFQN:    ownerFQN,
 			Type:       owner,
-			Feature:    simpleSymbolName(sym),
+			Feature:    SimpleSymbolName(sym),
 			ResultType: sym,
 			Span:       span,
 		}
@@ -472,7 +473,7 @@ func (m *Model) compileReference(scope *symbols.Scope, qn *ast.QualifiedName, sp
 	}
 	fqn := m.fqnOf(sym)
 	if fqn == "" {
-		return unsupported(span, fmt.Sprintf("%s has no qualified name to compare", qnText(qn)))
+		return unsupported(span, fmt.Sprintf("%s has no qualified name to compare", qn.Text()))
 	}
 	return &symbols.FilterPredicate{
 		Op:         symbols.FilterConst,
@@ -560,7 +561,7 @@ func describeResultType(sym *symbols.Symbol) string {
 	if sym == nil {
 		return "an unsupported expression"
 	}
-	if name := simpleSymbolName(sym); name != "" {
+	if name := SimpleSymbolName(sym); name != "" {
 		return "a " + name + " result"
 	}
 	return "a non-Boolean result"
@@ -872,7 +873,7 @@ func isReflectiveMetaclassFQN(fqn string) bool {
 
 // candidateName names a candidate for a diagnostic message.
 func candidateName(cand *symbols.Symbol) string {
-	if name := simpleSymbolName(cand); name != "" {
+	if name := SimpleSymbolName(cand); name != "" {
 		return name
 	}
 	return "the candidate element"
@@ -944,12 +945,21 @@ func (m *Model) metaclassConformsTo(cand, typ *symbols.Symbol, typeFQN string) b
 	}
 	// The metaclass library is not loaded, so conformance can only be judged on
 	// the name the candidate's metaclass has.
-	return simpleName(typeFQN) == simpleSymbolName(meta)
+	return symbols.LastSegment(typeFQN) == SimpleSymbolName(meta)
 }
 
 // MetaclassConforms reports whether a candidate's metaclass conforms to a type.
 func (m *Model) MetaclassConforms(cand *symbols.Symbol, typeFQN string) bool {
 	return m.metaclassConforms(cand, typeFQN)
+}
+
+// InstanceOf reports whether a candidate's metaclass conforms to a metaclass
+// Metaclass answered, so a PartUsage is an instance of Usage, Feature and Element.
+func (m *Model) InstanceOf(cand, metaclass *symbols.Symbol) bool {
+	if m == nil || metaclass == nil {
+		return false
+	}
+	return m.metaclassConformsTo(cand, metaclass, metaclass.Name)
 }
 
 // annotationConforms reports whether an annotation's metadata type conforms to
@@ -1513,44 +1523,26 @@ func spanOf(n ast.Node) source.Span {
 	return n.Span()
 }
 
-// qnText renders a qualified name as written.
-func qnText(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	parts := make([]string, 0, len(qn.Parts))
-	for _, seg := range qn.Parts {
-		parts = append(parts, seg.Text)
-	}
-	return strings.Join(parts, "::")
-}
-
-// simpleName is the last segment of a qualified name.
-func simpleName(fqn string) string {
-	if i := strings.LastIndex(fqn, "::"); i >= 0 {
-		return fqn[i+2:]
-	}
-	return fqn
-}
-
-// simpleSymbolName is a symbol's own name, without the qualification an indexed
-// symbol's name may carry.
-func simpleSymbolName(sym *symbols.Symbol) string {
-	if sym == nil {
-		return ""
-	}
-	return simpleName(sym.Name)
-}
-
 // SimpleSymbolName is a symbol's own name, without the qualification an indexed
 // symbol's name may carry.
 func SimpleSymbolName(sym *symbols.Symbol) string {
-	return simpleSymbolName(sym)
+	if sym == nil {
+		return ""
+	}
+	return symbols.LastSegment(sym.Name)
 }
 
 // ownerSymbol returns the element a symbol is a member of.
 func ownerSymbol(sym *symbols.Symbol) *symbols.Symbol {
-	if sym == nil || sym.OwnerScope == nil {
+	if sym == nil {
+		return nil
+	}
+	if sym.Expr != nil {
+		// An expression element is owned by the feature or expression it is
+		// the value, operand or parameter of.
+		return sym.Expr.Owner
+	}
+	if sym.OwnerScope == nil {
 		return nil
 	}
 	return sym.OwnerScope.Owner()
@@ -1562,6 +1554,9 @@ func ownerSymbol(sym *symbols.Symbol) *symbols.Symbol {
 func (m *Model) ownerOf(sym *symbols.Symbol) *symbols.Symbol {
 	if owner := ownerSymbol(sym); owner != nil {
 		return owner
+	}
+	if body := m.bodyDeclaredBy(sym); body != nil {
+		return body
 	}
 	if sym == nil || m.resolver == nil || m.resolver.Index() == nil {
 		return nil
@@ -1584,10 +1579,4 @@ func IsMetadataType(sym *symbols.Symbol) bool {
 		return false
 	}
 	return sym.Kind == symbols.SymbolMetadataDef || sym.Kind == symbols.SymbolMetaclass
-}
-
-// unquote reads the text a string literal spells, so a filter constant matches
-// the same string the runtime evaluates the literal to.
-func unquote(s string) string {
-	return source.StringValue(s)
 }

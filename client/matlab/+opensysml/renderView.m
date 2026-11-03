@@ -10,6 +10,7 @@ function result = renderView(model, viewName, varargin)
     ports = 'minimal';
     show = {};
     depth = 0;
+    compartments = '';
     for i = 1:2:numel(varargin)
         if i == numel(varargin)
             opensysml.internal.raise('opensysml:argument', ...
@@ -18,6 +19,7 @@ function result = renderView(model, viewName, varargin)
         if strcmp(varargin{i}, 'ports'), ports = char(varargin{i+1});
         elseif strcmp(varargin{i}, 'show'), show = cellstr(varargin{i+1});
         elseif strcmp(varargin{i}, 'depth'), depth = varargin{i+1};
+        elseif strcmp(varargin{i}, 'compartments'), compartments = char(varargin{i+1});
         else
             opensysml.internal.raise('opensysml:argument', ...
                 sprintf('renderView has no option ''%s''', varargin{i}));
@@ -37,6 +39,7 @@ function result = renderView(model, viewName, varargin)
     if strcmp(ports, 'full'), request.ports = 'full'; end
     if ~isempty(show), request.show = reshape(show, 1, []); end
     if depth > 0, request.depth = double(depth); end
+    if ~isempty(compartments), request.compartments = compartments; end
     answer = opensysml.call(model.connection, 'RenderView', request, capability);
     result = opensysml.RenderedView(answer);
 end

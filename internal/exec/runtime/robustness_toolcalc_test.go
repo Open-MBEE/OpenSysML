@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -33,14 +34,19 @@ func TestRuntimeRobustnessToolCalc(t *testing.T) {
 		}
 	})
 	t.Run("unbound_input", func(t *testing.T) {
-		// A required input no argument and no usage binding supplies is
-		// errUnboundParameter, as a body-run calc reports it, and no tool runs.
+		// A required input no argument and no usage binding supplies leaves the
+		// usage computing nothing: its outputs read undetermined, as a body-run
+		// calc's do, and no tool runs.
 		ctx, scope := analysisFixture(t, toolCalcRobustnessModel)
 		runner := &recordingRunner{answer: map[string]ToolValue{}}
 		ctx.SetToolRunner(runner)
-		_, err := ctx.CalcUsageOutputs(calcNamed(t, scope, "tbare"), scope, nil)
-		if !errors.Is(err, errUnboundParameter) {
-			t.Fatalf("CalcUsageOutputs = %v, want errUnboundParameter", err)
+		sym := calcNamed(t, scope, "tbare")
+		if _, err := ctx.CalcUsageOutputs(sym, scope, nil); err != nil {
+			t.Fatalf("CalcUsageOutputs = %v, want no error for an input nothing supplies", err)
+		}
+		result, err := ctx.calcUsageOutput(sym, resultOutputName, scope, nil)
+		if err != nil || result.Kind != ValUndetermined || !strings.Contains(result.Undetermined().reason, `parameter "m"`) {
+			t.Fatalf("result of tbare = %s, %v; want undetermined naming the input nothing supplies", FormatValue(result), err)
 		}
 		if len(runner.calls) != 0 {
 			t.Fatalf("tool ran %d times for an unbound input", len(runner.calls))

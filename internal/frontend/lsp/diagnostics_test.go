@@ -14,47 +14,10 @@ import (
 )
 
 // baseClient stubs all 12 protocol.Client methods; only PublishDiagnostics is overridden by fakeClient.
-type baseClient struct{}
+// baseClient answers every client request as unimplemented; fakes embed it and
+// record what they need.
+type baseClient struct{ protocol.UnimplementedClient }
 
-func (baseClient) Progress(ctx context.Context, params *protocol.ProgressParams) error {
-	return nil
-}
-func (baseClient) WorkDoneProgressCreate(ctx context.Context, params *protocol.WorkDoneProgressCreateParams) error {
-	return nil
-}
-func (baseClient) LogMessage(ctx context.Context, params *protocol.LogMessageParams) error {
-	return nil
-}
-func (baseClient) PublishDiagnostics(ctx context.Context, params *protocol.PublishDiagnosticsParams) error {
-	return nil
-}
-func (baseClient) ShowMessage(ctx context.Context, params *protocol.ShowMessageParams) error {
-	return nil
-}
-func (baseClient) ShowMessageRequest(ctx context.Context, params *protocol.ShowMessageRequestParams) (*protocol.MessageActionItem, error) {
-	return nil, nil
-}
-func (baseClient) Telemetry(ctx context.Context, params interface{}) error {
-	return nil
-}
-func (baseClient) RegisterCapability(ctx context.Context, params *protocol.RegistrationParams) error {
-	return nil
-}
-func (baseClient) UnregisterCapability(ctx context.Context, params *protocol.UnregistrationParams) error {
-	return nil
-}
-func (baseClient) ApplyEdit(ctx context.Context, params *protocol.ApplyWorkspaceEditParams) (bool, error) {
-	return false, nil
-}
-func (baseClient) Configuration(ctx context.Context, params *protocol.ConfigurationParams) ([]interface{}, error) {
-	return nil, nil
-}
-func (baseClient) WorkspaceFolders(ctx context.Context) ([]protocol.WorkspaceFolder, error) {
-	return nil, nil
-}
-
-// fakeClient is locked because the debounced cross-document refresh publishes
-// from a timer goroutine.
 type fakeClient struct {
 	baseClient
 	mu        sync.Mutex
@@ -101,14 +64,14 @@ func TestPublishDiagnosticsReportsSyntaxError(t *testing.T) {
 		t.Errorf("severity = %v, want %v", got.Diagnostics[0].Severity, protocol.DiagnosticSeverityError)
 	}
 	// Source/Code are copied verbatim from the syntax pass.
-	if got.Diagnostics[0].Source != "syntax" {
-		t.Errorf("source = %q, want %q", got.Diagnostics[0].Source, "syntax")
+	if optString(got.Diagnostics[0].Source) != "syntax" {
+		t.Errorf("source = %q, want %q", optString(got.Diagnostics[0].Source), "syntax")
 	}
-	if got.Diagnostics[0].Code != "syntax" {
-		t.Errorf("code = %v, want %q", got.Diagnostics[0].Code, "syntax")
+	if diagnosticCode(got.Diagnostics[0]) != "syntax" {
+		t.Errorf("code = %v, want %q", diagnosticCode(got.Diagnostics[0]), "syntax")
 	}
 	// The code description opens the catalogue at the code's section.
-	if cd := got.Diagnostics[0].CodeDescription; cd == nil || string(cd.Href) != "https://runtime.opensysml.org/reference/diagnostics/#syntax" {
+	if cd := got.Diagnostics[0].CodeDescription; cd.Href == "" || string(cd.Href) != "https://runtime.opensysml.org/reference/diagnostics/#syntax" {
 		t.Errorf("codeDescription = %v, want the catalogue section of syntax", cd)
 	}
 }
@@ -133,10 +96,10 @@ func TestPublishDiagnosticsReportsBareImportAsError(t *testing.T) {
 	if d.Severity != protocol.DiagnosticSeverityError {
 		t.Errorf("severity = %v, want %v", d.Severity, protocol.DiagnosticSeverityError)
 	}
-	if d.Code != "import-visibility" {
-		t.Errorf("code = %v, want %q", d.Code, "import-visibility")
+	if diagnosticCode(d) != "import-visibility" {
+		t.Errorf("code = %v, want %q", diagnosticCode(d), "import-visibility")
 	}
-	if d.CodeDescription == nil || !strings.HasSuffix(string(d.CodeDescription.Href), "/reference/diagnostics/#import-visibility") {
+	if d.CodeDescription.Href == "" || !strings.HasSuffix(string(d.CodeDescription.Href), "/reference/diagnostics/#import-visibility") {
 		t.Errorf("codeDescription = %v, want the catalogue section of import-visibility", d.CodeDescription)
 	}
 	want := protocol.Range{
@@ -170,15 +133,15 @@ func TestPublishDiagnosticsReportsRemovedDeferNotation(t *testing.T) {
 		if d.Severity != protocol.DiagnosticSeverityError {
 			t.Errorf("%v: severity = %v, want %v", mode, d.Severity, protocol.DiagnosticSeverityError)
 		}
-		if d.Code != "defer-notation-removed" {
-			t.Errorf("%v: code = %v, want %q", mode, d.Code, "defer-notation-removed")
+		if diagnosticCode(d) != "defer-notation-removed" {
+			t.Errorf("%v: code = %v, want %q", mode, diagnosticCode(d), "defer-notation-removed")
 		}
 		if d.Range.Start != (protocol.Position{Line: 4, Character: 12}) {
 			t.Errorf("%v: range = %v, want the `defer` keyword at 4:12", mode, d.Range)
 		}
 		for _, want := range []string{"extension was removed", "ordered", "exit action", "sysml-v1-migration.md"} {
-			if !strings.Contains(d.Message, want) {
-				t.Errorf("%v: message %q lacks %q", mode, d.Message, want)
+			if !strings.Contains(diagnosticMessage(t, d), want) {
+				t.Errorf("%v: message %q lacks %q", mode, diagnosticMessage(t, d), want)
 			}
 		}
 	}
@@ -248,12 +211,12 @@ func TestPublishDiagnosticsKeepsQueryDependencyErrorsInTheirDocument(t *testing.
 		t.Fatalf("published = %d document(s), want caller and dependency", len(published))
 	}
 	for _, diagnostic := range published[0].Diagnostics {
-		if diagnostic.Source == "document-query" {
+		if optString(diagnostic.Source) == "document-query" {
 			t.Fatalf("caller received dependency diagnostic: %v", published[0].Diagnostics)
 		}
 	}
 	for _, diagnostic := range published[1].Diagnostics {
-		if diagnostic.Code != "document-query-positional-query-arguments" {
+		if diagnosticCode(diagnostic) != "document-query-positional-query-arguments" {
 			continue
 		}
 		want := offsetToPosition([]byte(dependency), strings.Index(dependency, "Leaf(source)"))

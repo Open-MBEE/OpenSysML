@@ -23,8 +23,11 @@ conn = opensysml.connect('version', 'v0.0.0', ...
 ```
 
 `connect` selects `external` when `OPENSYSML_SERVICE` is set and `private` otherwise. `private`
-accepts `binary`, `timeout`, `version`, and `capabilities`; `external` accepts `version` and
-`capabilities`. When no binary is given, `private` checks `$OPENSYSML_GRPC_BINARY`,
+accepts `binary`, `timeout`, `version`, and `capabilities`; `external` accepts `version`,
+`capabilities` and `token` — the bearer token a service on an address other machines reach
+requires, sent as `Authorization: Bearer` on every call and read from `OPENSYSML_GRPC_TOKEN`
+when the option is absent; `private` starts its child without that variable in its
+environment, as a private child needs no token. When no binary is given, `private` checks `$OPENSYSML_GRPC_BINARY`,
 `~/.opensysml/bin/sysml-grpc`, and `PATH`. It starts the process with
 `-port 0 -health-port 0 -report-address -exit-with-parent` through Java's `ProcessBuilder`.
 Octave built without Java cannot spawn a private service. `conn.close()` stops a private child
@@ -56,7 +59,12 @@ model. `parseFile`, `parseSource`, and `parseSources` accept `language`, `strict
 `strictConformance`, and `raiseForErrors` name-value options as applicable. `strict` is an alias
 for `strictConformance`; specifying both requires the same logical value. The strict-conformance
 option requires the `strict_conformance` capability. `raiseForErrors` returns a usable model or
-raises a typed model diagnostic.
+raises a typed model diagnostic. `parseSources(conn, docs, 'baseModelHash', model.hash)` relates
+the parse to a previous model of the same documents and the new model's `affected` property
+names, in document order, the documents whose analysis, diagnostics or conversion may differ from
+it, so results computed for the others are kept; every document when the service could not
+compare the two, such as for a set it had not seen before (needs the `parse_sources_affected`
+capability; empty for a parse without a base).
 
 A `Model` carries `connection`, `hash`, `diagnostics`, `roots`, `root`, `documents`, and
 `sourcePath`. Its `errors()` method returns error-severity diagnostics, `ok()` indicates whether
@@ -136,6 +144,9 @@ points are `opensysml.exploreAction`, `opensysml.exploreState`, and
 `executeState(..., 'trace', true)` returns typed `DocumentEvent` entries in
 `trace` and the discarded-record count in `traceDropped`; it checks the
 `state_trace` capability before sending the request.
+`executeAction(..., 'trace', true, 'events', {'Go'}, 'performer', ...)` does the same
+for an action under `action_trace`; each event is posted to the performer once
+every token waits.
 A failed traced run keeps its existing error identifier; `lastError().details`
 includes its partial `trace` and `traceDropped`.
 
@@ -155,7 +166,7 @@ bounds associated with an answer.
 
 | Result class | Contents and helpers |
 | --- | --- |
-| `Verdict` | Outcome fields including `holds`, condition, witness, error, engine and diagnostics; `explain()`, `raiseForError()`, and logical conversion. |
+| `Verdict` | Outcome fields including `holds`, condition, witness, `notes` (what a solver's answer rests on: `kind` `assumed_one` or `uncovered`, `subject`, `text`), error, engine and diagnostics; `explain()`, `raiseForError()`, and logical conversion. |
 | `Validation` | Verdicts, summary, ordered instance cells in service order, diagnostics and verifications; `valid()`, `violated()`, `undecided()`, `raiseForError()`, and `explain()`. |
 | `CalcResult` | `value`, `outputs`, diagnostics and `Standing`; character conversion formats the computed result. |
 | `AnalysisResult` | Outputs, verdicts, instances, verifications, evaluations, standing and the `toolDryRun` preview (`[]` when the case ran for real); `selected()`, `satisfied()`, and `explain()`. |
@@ -179,12 +190,25 @@ saved = model.save('model.ttl');
 ```
 
 `opensysml.convert(conn, toFormat, ...)` requires exactly one source:
-`filePath`, `content`, or `modelHash`. Optional fields are `fromFormat` and
-`tolerateSyntaxErrors`. `Model.convert(format, 'tolerateSyntaxErrors', true)` uses the parsed
+`filePath`, `content`, or `modelHash`. Optional fields are `fromFormat`,
+`tolerateSyntaxErrors`, `idForm` (`'qualified'`, the default, or `'uuid'`, how a graph spells
+its derived ids) and `includeLibraryStubs` (restore the pre-0.11.0 library stubs in API JSON;
+needs the `convert_library_stubs` capability). For notation converted to API JSON, `compact`
+writes the compact document (`api-json-compact/1`, see [the compact form](api-json-compact.md)),
+`omitDerived` leaves out every derived property of the metamodel and `keepDerived` (a cell
+array of names) names the ones still written — all three need the `convert_compact`
+capability, and the service refuses `omitDerived` or `keepDerived` without `compact` with
+`opensysml:connect:invalidRequest`; `includeCheckDiagnostics` (needs
+`convert_check_diagnostics`, notation sources only) reports the semantic check's diagnostics
+in the `Conversion`'s `diagnostics`, each with its `severity`, so a conversion of a model with
+errors is told apart from one of a clean model. `Model.convert` and `Model.save` forward
+these options. `Model.convert(format, 'tolerateSyntaxErrors', true)` uses the parsed
 model; `toSysml`, `toTurtle`, and `toApiJson` select common output formats. `Model.save(path,
 ...)` infers format from the path unless `format` is supplied and writes the returned content.
 `Conversion` has `content`, `fromFormat`, `toFormat`, `diagnostics`, `experimental`,
-`experimentalNotice`, `char`, `length`, and `write(path)`. Experimental RDF conversions can
+`experimentalNotice`, `libraryReferences` (the standard-library elements API JSON names
+beside its elements, each with `id`, `qualifiedName` and `type`), `char`, `length`, and
+`write(path)`. Experimental RDF conversions can
 issue the `opensysml:experimental` warning. A SysML v1 model — `fromFormat` `xmi`, `uml` or
 `mdzip`, or a `filePath` with that extension — is refused with `opensysml:argument`: it is
 migrated, not converted.
@@ -214,7 +238,7 @@ raises `opensysml:diagnostics:migration`.
 ## Query and document APIs
 
 `model.query('oslc.where=...')` preserves the OSLC text-query interface. The structured SysML v2
-API query is built from `scope`, `select`, and `where`:
+API query is built from `scope`, `select`, `where` and `orderBy`:
 
 ```matlab
 q = opensysml.buildQuery([], ...
@@ -225,10 +249,12 @@ q = opensysml.buildQuery([], ...
 elements = model.query(q);
 ```
 
-`scope` accepts qualified names or id-reference records. `select` contains property names.
-Constraints may be `PrimitiveConstraint` (`=`, `>`, `<`) or a non-empty
-`CompositeConstraint` (`and`, `or`) containing constraints. `buildQuery` validates unknown
-fields and malformed operators before sending. Query results are cells of element records with
+`scope` accepts qualified names or id-reference records. `select` and `orderBy` contain
+property names; `orderBy` sorts the answer by each in turn, ascending. Constraints may be
+`PrimitiveConstraint` (`=`, `<`, `<=`, `>`, `>=`, `in` with a list value, `instanceOf` on
+`@type` with metaclass names) or a `CompositeConstraint` (`and`, `or`) containing at least two
+constraints. `buildQuery` validates unknown fields, malformed operators and operand shapes
+before sending. Query results are cells of element records with
 `id`, `type`, and a `containers.Map` of properties.
 
 `model.runDocumentQuery(queryId, 'bindings', bindings)` sends named parameter bindings and
@@ -236,7 +262,8 @@ returns a `DocumentQueryResult` with `columns` and `rows`; both are cell collect
 `bindings` may be a scalar struct or `containers.Map`. Primitive values, `quantity` structs,
 `elementRef(id)`, and `objectRef(id, path)` are supported. `model.renderDocument(documentId,
 'form', 'markdown')` returns Markdown; `'html'` requests HTML and requires both
-`render_document` and `render_document_html`.
+`render_document` and `render_document_html`. `model.query(...)` requires `query`, and
+`query_order_by` too when the query has an `orderBy`.
 `model.renderView(viewName, 'ports', 'minimal')` returns a typed
 `opensysml.RenderedView` with ordered nodes, edges, ports, rows, notes and
 origins; geometry, style and canvas are empty when absent. Use `'full'` to
@@ -245,7 +272,8 @@ those [optional notation elements](../project/view-rendering-forms.md#optional-n
 besides the ones the view's rendering shows (`'all'` for every one; `shown`
 lists the elements drawn), and `'depth', n` to draw only `n` levels of nested
 elements below each exposed element (`0`, the default, draws every level the
-view allows). The call requires `render_view`.
+view allows). The call requires `render_view`. `'compartments', 'most'` (or `'positioned'`, the default, or `'ports'`) says how a tree
+rendering folds owned members into compartment rows; a folded node names its `compartment`.
 
 ## Edit builder
 
@@ -292,7 +320,7 @@ errors with the same identifiers. `opensysml.lastError()` returns a struct with 
 | `opensysml:argument` | Invalid arguments or unsupported name-value options. |
 | `opensysml:transport` | Connection errors, timeouts, or non-JSON responses where JSON was required. |
 | `opensysml:connect:modelNotFound`, `symbolNotFound`, `modelFileNotFound` | Missing model, symbol, or source file from a Connect status. |
-| `opensysml:connect:invalidRequest`, `unavailable`, `serviceTimeout`, `unsupportedOperation`, `service` | Other typed Connect status failures. |
+| `opensysml:connect:invalidRequest`, `unauthenticated`, `unavailable`, `serviceTimeout`, `unsupportedOperation`, `service` | Other typed Connect status failures. |
 | `opensysml:missingCapability` | The service does not advertise a required capability; details include `capability` and `service`. |
 | `opensysml:staleService` | Requested `version` or required capability set does not match the service. |
 | `opensysml:diagnostics:model`, `conversion`, `wrongKind`, `execution` | Model, conversion, kind, execution, or verification errors reported by a successful RPC. |

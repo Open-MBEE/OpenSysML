@@ -83,7 +83,7 @@ func errorLines(lines []string, _ []NamedValue, err error) ([]string, bool, erro
 }
 
 // LoadFile submits path and the files beside and below it that declare a root
-// namespace it imports as one submission, returning the lines `%load` prints.
+// namespace it references as one submission, returning the lines `%load` prints.
 // A lone "-" reads standard input; the error is a file it could not read or
 // one named as the transcript is.
 func (s *Session) LoadFile(path string) ([]string, error) {
@@ -92,7 +92,7 @@ func (s *Session) LoadFile(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	read, err := s.readWithDependencies(files, loadOptions{})
+	read, err := s.readSources(files, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -114,21 +114,21 @@ func (s *Session) LoadFileSummary(path string) ([]string, error) {
 // LoadFilesSummary is LoadFileSummary over every path as one submission, each
 // file a document of its own, indexed together and each summarized on its own;
 // a read failure is a *ReadError and a file named as the transcript is a
-// *ReservedNameError. Files beside and below the paths that declare an imported
-// root namespace load too.
+// *ReservedNameError. Files beside and below the paths that declare a root
+// namespace they reference load too.
 func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	defer s.enter()()
 	paths, err := s.expandArchives(expandHomes(paths))
 	if err != nil {
 		return nil, err
 	}
-	read, err := s.readWithDependencies(paths, loadOptions{})
+	read, err := s.readSources(paths, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
 	files := read.files
 	lines := read.notes
-	archives := warningLines(s.discovery().ArchiveWarnings(paths), s.verbosity)
+	archives := s.discoveryWarnings(paths)
 	if len(files) == 0 {
 		return append(lines, archives...), nil
 	}
@@ -145,6 +145,13 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 		}
 		lines = append(lines, renderSummary(own.ownMembers())...)
 	}
+	// The files loaded for the roots the named ones left unresolved are
+	// summarized as the named ones are.
+	for _, path := range res.pulled {
+		own := res.within(s.fileSpan(fileKeyOf(path)))
+		lines = append(lines, renderSyntax(own, s.verbosity)...)
+		lines = append(lines, renderSummary(own.ownMembers())...)
+	}
 	return append(lines, archives...), nil
 }
 
@@ -159,7 +166,7 @@ func (s *Session) DiagnosticLines() []string {
 func (s *Session) diagnosticLines() []string {
 	diags := s.diagnostics()
 	if len(diags) == 0 {
-		return nil
+		return s.libraryFindingLines()
 	}
 	var out []string
 	start := 0
@@ -178,6 +185,27 @@ func (s *Session) diagnosticLines() []string {
 		}
 		out = append(out, renderDiagnostics(own, sn.src, inFile(sn.origin), s.verbosity >= VerbosityDebug)...)
 		start = end + 1 // the newline joined() writes between snippets
+	}
+	return append(out, s.libraryFindingLines()...)
+}
+
+// libraryFindingLines renders the workspace findings on library documents — a
+// library tree the library path holds two copies of — which no submission's
+// text locates, under the library file each is reported in.
+func (s *Session) libraryFindingLines() []string {
+	if s.verbosity <= VerbosityQuiet {
+		return nil
+	}
+	var out []string
+	for _, f := range s.ws.WorkspaceFindings() {
+		if !f.Library {
+			continue
+		}
+		src := ""
+		if doc := s.ws.LibraryDocument(f.Document); doc != nil {
+			src = string(doc.Content)
+		}
+		out = append(out, renderDiagnostics([]diag.Diagnostic{f.Diagnostic}, src, inFile(f.Document), s.verbosity >= VerbosityDebug)...)
 	}
 	return out
 }
@@ -281,7 +309,34 @@ type Edit struct {
 // the line and column that file has it on.
 func (s *Session) LocatedDiagnostics() []Diagnostic {
 	defer s.enter()()
-	return locate(s.bufferParts(), s.diagnostics())
+	return append(locate(s.bufferParts(), s.diagnostics()), s.libraryFindings()...)
+}
+
+// libraryFindings places the workspace findings on library documents — which
+// no submission's text holds — in the library file each is reported in.
+func (s *Session) libraryFindings() []Diagnostic {
+	var out []Diagnostic
+	for _, f := range s.ws.WorkspaceFindings() {
+		if !f.Library {
+			continue
+		}
+		var content []byte
+		if doc := s.ws.LibraryDocument(f.Document); doc != nil {
+			content = doc.Content
+		}
+		p := source.New(docName, content).Lines().PosAt(f.Diagnostic.Span.Offset)
+		out = append(out, Diagnostic{
+			Severity:    f.Diagnostic.Severity.String(),
+			Message:     f.Diagnostic.Message,
+			File:        f.Document,
+			Line:        p.Line,
+			Column:      p.Col,
+			UTF16Column: utf16Column(content, f.Diagnostic.Span.Offset, p.Col),
+			Pass:        f.Diagnostic.Source,
+			Code:        f.Diagnostic.Code,
+		})
+	}
+	return out
 }
 
 // Locate places diags, a Result's diagnostics, in the submissions they are about

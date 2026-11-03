@@ -18,5 +18,15 @@ enum def Band at (500, 10) size 100×100
   enum high
 
 relationships:
-  Stage *-- Housing: housing
-  Stage *-- Housing: shield
+  Stage o-- gain
+  Stage o-- noiseFigure
+  Stage o-- heatsink
+  Stage *-- housing
+  Stage *-- shield
+  Stage o-- input
+  Stage o-- output
+  heatsink o-- fins
+  housing --:|> Housing
+  shield --:|> Housing
+  Band o-- low
+  Band o-- high

@@ -54,7 +54,7 @@ type imagedAction struct {
 	traversals        []Traversal
 	traversalBase     int
 	keepTraversals    bool
-	run               int
+	run, under        int
 	dynamics          *stateSpaceRun
 	frames            []imagedFrame
 }
@@ -82,6 +82,7 @@ type imagedBodyCell struct {
 	name        string
 	value       ast.Node
 	scope       *symbols.Scope
+	place       lower.Place
 	masked      string
 	written     bool
 	frozen      bool
@@ -139,7 +140,7 @@ type imagedState struct {
 	lastEventAt        float64
 	doActions          []doActionCapture
 	machineExited      bool
-	run                int
+	run, under         int
 	inRun, moved       bool
 	timerScheduled     map[*lower.Transition]bool
 	timeTriggerVerdict map[*lower.Transition]error
@@ -170,6 +171,11 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 	}
 	img.index = b.performance
 	if b.deferred != nil {
+		t.img.behaviors = append(t.img.behaviors, img)
+		return nil
+	}
+	if b.Err != nil && b.State == nil && b.Action == nil {
+		// A behavior whose binding failed got no execution: its record is the whole image.
 		t.img.behaviors = append(t.img.behaviors, img)
 		return nil
 	}
@@ -213,6 +219,9 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 	}
 	var err error
 	if img.run, err = t.run(e.driven.state); err != nil {
+		return nil, err
+	}
+	if img.under, err = t.run(e.driven.under); err != nil {
 		return nil, err
 	}
 	if err := t.values(e.inputs); err != nil {
@@ -454,6 +463,9 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	if img.run, err = t.run(e.driven.state); err != nil {
 		return nil, err
 	}
+	if img.under, err = t.run(e.driven.under); err != nil {
+		return nil, err
+	}
 	img.stateCells = imageBodyCells(e.stateCells, img.stateData)
 	if err := t.values(img.stateData); err != nil {
 		return nil, err
@@ -558,7 +570,11 @@ func (m *materializing) behavior(b imagedBehavior) error {
 	}
 	behavior, occurrence, err := dst.bindClassifierBehavior(inst, decl, b.index)
 	if err != nil {
-		return err
+		if b.err == nil {
+			return err
+		}
+		// A behavior whose binding failed is imaged as its record alone.
+		behavior = dst.unstartedBehavior(inst, decl)
 	}
 	behavior.binding = b.binding
 	behavior.Err = b.err
@@ -668,7 +684,7 @@ func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) err
 	if e.inputs, err = m.values(img.inputs); err != nil {
 		return fmt.Errorf("inputs: %w", err)
 	}
-	e.driven.state = m.runOf(img.run)
+	e.driven.state, e.driven.under = m.runOf(img.run), m.runOf(img.under)
 	if img.dynamics != nil {
 		e.dynamics = img.dynamics.clone()
 		if e.dynamics.stepValue, err = m.value(img.dynamics.stepValue); err != nil {
@@ -780,7 +796,7 @@ func imageBodyCells(cells *bodyCells, values map[string]Value) []imagedBodyCell 
 		}
 		image = append(image, imagedBodyCell{
 			name: name, value: cell.binding.value, scope: cell.binding.scope,
-			masked:  cell.binding.masked,
+			place: cell.binding.place, masked: cell.binding.masked,
 			written: cell.fv.Written, frozen: cell.binding.frozen,
 			visible: cloneBodyBindingVisibility(cell.binding.visible), limitFrames: cell.binding.limitFrames,
 		})
@@ -821,6 +837,7 @@ func restoreStateBodyCells(
 			return ctx.checkBodyDeclaration(scope, owner, state.name, value)
 		}
 		cell := ctx.registerBodyBinding(cells, state.name, attr.Value, scope, check, nil)
+		cell.binding.place = state.place
 		cell.binding.visible = cloneBodyBindingVisibility(state.visible)
 		cell.binding.limitFrames = state.limitFrames
 		restoreBodyCellValue(cells, state, cell)
@@ -889,6 +906,7 @@ func (m *materializing) frameCells(
 			return defaultContext(scope)
 		}
 		cell := m.dst.registerBodyBindingInContext(cells, state.name, state.value, state.scope, check, context, onDerived)
+		cell.binding.place = state.place
 		cell.binding.visible = cloneBodyBindingVisibility(state.visible)
 		cell.binding.masked = state.masked
 		cell.binding.limitFrames = state.limitFrames
@@ -1047,7 +1065,7 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 		e.doActions = append(e.doActions, &doAction{state: act.act.state, pending: slices.Clone(act.pending), firing: carried})
 	}
 	e.machineExited, e.inRun, e.moved = img.machineExited, img.inRun, img.moved
-	e.driven.state = m.runOf(img.run)
+	e.driven.state, e.driven.under = m.runOf(img.run), m.runOf(img.under)
 	e.timerScheduled = maps.Clone(img.timerScheduled)
 	e.timeTriggerVerdict = maps.Clone(img.timeTriggerVerdict)
 	e.changeFired = maps.Clone(img.changeFired)

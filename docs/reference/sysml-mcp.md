@@ -26,7 +26,11 @@ has no dependencies; its `sysml-mcp` command picks the platform package
 exactly its own version, and runs the release binary that package carries — the same bytes as
 the release archive, verified against the release's `.sha256` sidecars when the package was
 built — with the arguments and stdio it was given. Its version is the OpenSysML release:
-`npx -y @openmbee/sysml-mcp@0.10.1` runs the `v0.10.1` server.
+`npx -y @openmbee/sysml-mcp@0.10.1` runs the `v0.10.1` server. The same package is also
+published as [`@openmbee/opensysml-mcp`](https://www.npmjs.com/package/@openmbee/opensysml-mcp),
+the name the other OpenSysML npm packages share (`@openmbee/opensysml`, `@openmbee/opensysml-wasm`):
+`npx -y @openmbee/opensysml-mcp` runs the same release binary from the same platform packages,
+and its `opensysml-mcp` command is a second name for `sysml-mcp`.
 
 ```bash
 claude mcp add --transport stdio sysml -- npx -y @openmbee/sysml-mcp -root .
@@ -59,13 +63,17 @@ the build.
 ## Finding it in your host
 
 Each release is also listed in the official [MCP Registry](https://registry.modelcontextprotocol.io)
-as `org.opensysml/sysml-mcp`, pointing at the npm package `@openmbee/sysml-mcp`, so a host that
-browses the registry offers it without any of the above: the GitHub MCP Registry lists it, VS
-Code finds it under *MCP: Browse MCP Servers* (or the Extensions view's MCP Servers section),
-and third-party directories that mirror the registry carry the same entry. Installing from there
+as `org.opensysml/sysml-mcp`, pointing at the npm package `@openmbee/sysml-mcp`, so a host or
+directory that reads the registry offers it without any of the above. Installing from there
 configures `npx -y @openmbee/sysml-mcp`, which downloads the release binary for the platform
 and runs it; the `-root` argument the listing declares is the workspace folder, the current
 directory by default.
+
+The [GitHub MCP Registry](https://github.com/mcp), which VS Code's *MCP: Browse MCP Servers*
+(the Extensions view's MCP Servers section) and Copilot read, is a curated selection of the
+official registry, not a mirror: GitHub adds a server by hand on request and syncs its later
+versions from the official registry on its own. Until `org.opensysml/sysml-mcp` is onboarded
+there, VS Code is configured as below.
 
 ## Configuring a host
 
@@ -243,7 +251,7 @@ without this page.
 
 | Tool | Does | Writes |
 |---|---|---|
-| `apply_model_edit` | Edit a model by operations on its elements rather than by text: setValue, rename, addMember, addConnection, addSequence (action-body items), delete, move, and the diagram-layout annotations setLayout, setRoute, setCanvas, setStyle. | yes |
+| `apply_model_edit` | Edit a model by operations on its elements rather than by text: setValue, rename, addMember, addConnection, addSequence (action-body items), delete, move, and the diagram-layout annotations setLayout, setRoute, setCanvas, setStyle, setNote, setPicture. | yes |
 | `close_document` | Release a document held open by open_document: the server goes back to the file on disk (or forgets the document when there is no file). | yes |
 | `code_actions` | List the quick fixes and refactorings available for a range of a document, each with the edits it would make. | no |
 | `completion` | Propose completions at a position: keywords, names in scope and members of the type being accessed. | no |
@@ -252,6 +260,7 @@ without this page.
 | `documents` | List the document definitions (doc def) declared across the workspace, which render_document renders to Markdown. | no |
 | `format` | Format a SysML v2 / KerML document, or only the lines of a range, in the canonical style. | yes |
 | `hover` | Explain the element at a position: its kind, qualified name, type, value and documentation, as Markdown. | no |
+| `import_diagram` | Import a draw.io file render_view wrote with form drawio and a user edited: moves, routes, styles, the page, note text and picture sources as DiagramLayout annotations in the view's body, a retyped name as a rename; the rest is reported; a dry run until apply. | yes |
 | `inlay_hints` | List the inferred types and values the editor would show inline for the features of a document or range. | no |
 | `open_document` | Hold a document open with the given text, as an editor buffer the server analyzes instead of the file on disk, so text can be checked (diagnostics, hover, render) before it is written. | yes |
 | `references` | Find every place in the workspace that refers to the element at a position. | no |
@@ -327,7 +336,7 @@ without this page.
 | `session_eval` | Evaluate an expression in a session, as %eval does: a literal, a declared feature or qualified name, an enumeration literal, a unit, or a compound expression over the session's declarations. | no |
 | `session_list` | List the open REPL sessions. | no |
 | `session_load` | Load model files into a session, as %load does: files, directories or globs, resolved against the workspace root and refused outside it. | yes |
-| `session_open` | Open a named REPL session: an empty model that declarations, instances and runs accumulate into across calls. | yes |
+| `session_open` | Open a named REPL session: an empty model that declarations, instances and runs accumulate into across calls. With `root`, a directory under the workspace root, the session loads a model file under it on demand when a submission imports or qualifies a root namespace that neither the session nor the library declares, as `%load` would load it. | yes |
 | `session_print` | Print a session's model as SysML notation, or one named element with its body, as %print does. | no |
 | `session_run` | Run a behavior in a session to completion and report what it produced: an action (%action then %continue), a state machine (%state, then %advance when a duration is given), a calc (%calc) or an analysis case (%analysis). Its `arguments` are expressions evaluated together in one run, as the REPL evaluates an argument list, so a seeded draw in one continues the stream of the draw before it. | yes |
 | `session_save` | Write a session's model to a file under the workspace root, as %save does: .sysml notation with comments preserved, or .ttl/.json RDF (experimental). | yes |
@@ -345,6 +354,18 @@ without this page.
   through a symlink, is refused, and writes are performed through the resolved root itself, so
   a link repointed after the check cannot carry one outside it. The `lsp` tools can also work on
   text held open with `open_document` instead of a file on disk.
+- **Round-tripping a diagram** is `render_view` with `form: "drawio"`, an edit in draw.io, then
+  `import_diagram` with the edited file (`file` on the host or `content` as text): the tool
+  renders the view again, diffs the file against that export and answers the `DiagramLayout`
+  annotations the differences amount to — `Layout`, `Route`, `Style`, `Canvas`, `Note` (a moved
+  or retyped note), `Picture` (a moved picture or one pointed at another image file) — and, for a
+  cell whose text was retyped with only its name changed, the `rename` of that element and every
+  reference to it, as the text edits `apply_model_edit` would make, per document. Call it first
+  without `apply` to read the plan and what it reports rather than imports (cells naming no
+  element, elements the rendering lacks, deleted cells, a label edited beyond its name, a name
+  that is not one or that an existing member holds, an emptied note, a picture given embedded
+  data, a URL or a file outside the view's directory, and changes no annotation carries yet, such as a re-routed typing edge), then
+  with `"apply": true` to write the files.
 - **Writing** happens only on request: a tool marked as writing (`format`, `rename`,
   `apply_model_edit`, `session_save`, ...) returns the edit or the file it would write and
   touches the disk only with `"apply": true`. The session tools that write change the session's

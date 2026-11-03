@@ -97,6 +97,11 @@ Node's WASI host cannot block waiting for a pipe: a read from one with nothing r
 `-validate`, `-eval`, `-engines` and the prompt itself all work that way — and use a runtime that
 reads pipes properly for anything that speaks a protocol over its standard input.
 
+The interface-record cache lives under `$XDG_CACHE_HOME`, else `$HOME/.cache`. A host that
+preopens only the model's directory leaves that root unreachable, and the command then holds every
+file loaded for the run, silently — the same as `-no-record-cache`. To keep records across runs,
+preopen a directory for them and point `XDG_CACHE_HOME` at it.
+
 ## Running a `js` build
 
 `js` binaries run through the toolchain's `wasm_exec`, under Node or in a browser:
@@ -207,9 +212,10 @@ it even smaller than the engine. Like the engine, the `js` build installs a host
 - `Parse` takes `{content, language}` and answers `{"diagnostics":[…]}`: the parser's syntax
   errors, then its warnings, each as the Diagnostic message a `ParseFile` answer carries;
   a clean document answers `{}`.
-- `Format` takes `{content, language, tolerateSyntaxErrors}` and answers
-  `{content, diagnostics, error}` as a `sysml`→`sysml` `Convert` does: the re-indented
-  source, or — when the input has syntax errors and the request did not tolerate them —
+- `Format` takes `{content, language, tolerateSyntaxErrors, keepLineBreaks}` and answers
+  `{content, diagnostics, error}` as a `sysml`→`sysml` `Convert` does: the source laid out
+  one statement per line and re-indented (re-indented only, the author's line breaks kept,
+  when `keepLineBreaks` is true), or — when the input has syntax errors and the request did not tolerate them —
   `error` with the converter's message and `diagnostics` listing them. It refuses invalid
   input unless `tolerateSyntaxErrors` is set.
 - `Tokens` takes `{content, language}` and answers `{"legend":{…},"data":[…]}`: the full
@@ -257,7 +263,7 @@ The Node and browser client adapter is documented in
 [WebAssembly, without a service](../../client/node/README.md#webassembly-without-a-service).
 Stable and nightly releases include the module and matching runtime; the npm
 package is `@openmbee/opensysml-wasm`. The same assets and package carry
-`sysml-prod.wasm.gz`, the gzip-compressed [`sysml_prod`](#building) browser build of the
+`sysml-prod.wasm.gz`, the gzip-compressed [`sysml_re`](#building) browser build of the
 `sysml` REPL (about 13 MB; 54 MB inflated). It is not a JSON-RPC module: a page inflates
 it with `DecompressionStream` and runs it under `wasm_exec.js` with an emulated file
 system and stdin, as the site's REPL page does.
@@ -282,7 +288,8 @@ The module retains the 16 most recently used models; an evicted hash is evicted 
 `feature_values`, `inline_language`, `strict_conformance`, `parse_sources`, `complex_values`,
 `structured_values`, `measurement_refs`, `function_values`, `set_values`, `tensor_values`,
 `infinity_value`, `diagnostic_codes`, `schedule`, `final_time`, `metaobject_values`,
-`undetermined_value`, `performer`, `big_int_values`, `render_view`, `state_trace`.
+`undetermined_value`, `performer`, `big_int_values`, `render_view`, `state_trace`,
+`action_trace`.
 
 The `js` build installs one synchronous host surface, `globalThis.sysmlWasm`, with
 `version` and `call(method, paramsJSON)`. The call returns a JSON-RPC envelope string.

@@ -122,7 +122,7 @@ func TestDOTLeadsHalfRoutedJoinsOutOfTheDrawnBox(t *testing.T) {
 		},
 	}
 	out := withoutStandIns(r)
-	w := newDOTWriter(out, Options{Style: StyleCameo})
+	w := newDOTWriter(out, Options{Style: StyleCameo}, false)
 	box := w.boxes["a"]
 	if c := box.centre(); c != (Point{X: 50, Y: 50}) || box.low.X <= 0 || box.high.X >= 100 {
 		t.Fatalf("a is not boxed between the ends of its own routes: %+v", box)
@@ -171,7 +171,7 @@ func TestHalfRoutedJoinPlacesAnEndNothingElseDoes(t *testing.T) {
 	if len(out.Edges) != 1 || !out.Edges[0].openFrom || out.Edges[0].openTo {
 		t.Fatalf("joined edges = %+v, want a->c open at a", out.Edges)
 	}
-	w := newDOTWriter(out, Options{Style: StyleCameo})
+	w := newDOTWriter(out, Options{Style: StyleCameo}, false)
 	box, ok := w.boxes["a"]
 	if !ok || math.Abs(box.high.Y-100) > 1e-9 || box.low.X >= 20 || box.high.X <= 20 || box.low.Y >= box.high.Y-1 {
 		t.Fatalf("a's box = %+v, %v; want one with its bottom border through (20, 100)", box, ok)
@@ -183,7 +183,7 @@ func TestHalfRoutedJoinPlacesAnEndNothingElseDoes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOTWith: %v", err)
 	}
-	if !strings.Contains(source, `"a" -> "c" [pos="e,20,-200 20,-100 20,-100 20,-190 20,-190"]`) {
+	if !strings.Contains(source, `"a" -> "c" [style=dashed, arrowhead=vee, pos="e,20,-200 20,-100 20,-100 20,-190 20,-190"]`) {
 		t.Errorf("a->c not drawn along its route:\n%s", source)
 	}
 }
@@ -234,7 +234,7 @@ func TestDOTKeepsUnnamedControlNodesOfTheSource(t *testing.T) {
 			t.Errorf("fork bar lacks %s: %q\n%s", attr, line, source)
 		}
 	}
-	for _, edge := range []string{`"n1" -> "n4" [`, `"n4" -> "n2" [`, `"n4" -> "n3";`} {
+	for _, edge := range []string{`"n1" -> "n4" [`, `"n4" -> "n2" [`, `"n4" -> "n3" [style=dashed, arrowhead=vee];`} {
 		if !strings.Contains(source, "\n  "+edge) {
 			t.Errorf("no edge %s through the fork:\n%s", edge, source)
 		}
@@ -277,7 +277,7 @@ func TestDOTPinnedFlowLabelsAreTheirOwnNames(t *testing.T) {
 			t.Errorf("%s lacks %s: %q", edge, label, line)
 		}
 	}
-	w := newDOTWriter(rendering, Options{Show: AllShown(), Style: StyleCameo})
+	w := newDOTWriter(rendering, Options{Show: AllShown(), Style: StyleCameo}, false)
 	for _, edge := range []Edge{
 		{Label: "value to value", Name: "feed", FromPort: "n1.0", Kind: EdgeFlow},
 		{Label: "value to value", Name: "feed", ToPort: "n2.0", Kind: EdgeFlow},
@@ -334,7 +334,7 @@ func TestDOTStripPlacesPinsOfUnplacedActions(t *testing.T) {
 	if !strings.Contains(action, `label=<<b>loose : Take</b>>`) || !strings.Contains(action, `pos="51.5,-42!"`) {
 		t.Fatalf("loose is not drawn in the strip: %q\n%s", action, source)
 	}
-	if !strings.Contains(pin, `xlabel="value"`) || !strings.Contains(pin, `pos="51.5,-18!"`) {
+	if !strings.Contains(pin, `xlabel="^value"`) || !strings.Contains(pin, `pos="51.5,-18!"`) {
 		t.Errorf("loose's pin is not on its strip box's top border: %q\n%s", pin, source)
 	}
 	if dotLine(source, `"n1.0" -> "n4.0"`) == "" {

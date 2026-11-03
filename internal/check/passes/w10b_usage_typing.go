@@ -19,7 +19,7 @@ var pilotTypingMessages = map[ast.UsageKind]string{
 	ast.UsageConnection: "A connection must be typed by connection definitions.",
 	ast.UsageInterface:  "An interface must be typed by interface definitions.",
 	ast.UsageAllocation: "An allocation must be typed by allocation definitions.",
-	ast.UsageFlow:       "A flow connection must be typed by flow connection definitions.",
+	ast.UsageFlow:       "A flow usage must be typed by flow definitions.",
 }
 
 // msgUsageTyping is the reference's message for a usage of no stated kind — a

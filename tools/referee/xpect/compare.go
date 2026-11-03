@@ -444,9 +444,7 @@ func (s squeezed) locateAll(from int, text string) []match {
 		}
 		return []match{{s.Offsets[start], s.Offsets[start] + 1, true}}
 	}
-	want := strings.Join(strings.FieldsFunc(text, func(r rune) bool {
-		return r == ' ' || r == '\t' || r == '\n' || r == '\r'
-	}), "")
+	want := squeeze([]byte(text)).Text
 	if want == "" {
 		return nil
 	}
@@ -509,14 +507,4 @@ func dotted(fqn string) string {
 
 func severityName(s corediag.Severity) string {
 	return strings.ToLower(s.String())
-}
-
-func dedupe(in []string) []string {
-	var out []string
-	for i, s := range in {
-		if i == 0 || in[i-1] != s {
-			out = append(out, s)
-		}
-	}
-	return out
 }

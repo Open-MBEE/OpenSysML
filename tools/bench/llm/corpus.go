@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -77,7 +78,7 @@ func (m *Manifest) Check() error {
 			return fmt.Errorf("task %q: duplicate id", t.ID)
 		case m.Families[t.Family] == "":
 			return fmt.Errorf("task %q: unknown family %q", t.ID, t.Family)
-		case !contains(Difficulties, t.Difficulty):
+		case !slices.Contains(Difficulties, t.Difficulty):
 			return fmt.Errorf("task %q: unknown difficulty %q", t.ID, t.Difficulty)
 		case !golds[t.Gold]:
 			return fmt.Errorf("task %q: gold %q is not in the corpus", t.ID, t.Gold)
@@ -123,13 +124,4 @@ func (m *Manifest) Select(ids []string) ([]Task, error) {
 		out = append(out, t)
 	}
 	return out, nil
-}
-
-func contains(xs []string, x string) bool {
-	for _, y := range xs {
-		if y == x {
-			return true
-		}
-	}
-	return false
 }

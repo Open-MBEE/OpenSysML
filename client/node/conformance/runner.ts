@@ -513,7 +513,7 @@ export class Runner {
   private async parseFile(request: Record<string, unknown>): Promise<void> {
     const options = {
       ...stringOption(request, "language", "language"),
-      ...flagOption(request, "strict_conformance", "strict"),
+      ...flagOption(request, "strict_conformance", "strictConformance"),
     };
     const content = request["content"];
     if (typeof content === "string") {
@@ -577,7 +577,7 @@ export class Runner {
       model.fixtures === undefined
         ? await this.connection.loads(this.fixture(model.fixture ?? ""), {
             ...(model.language === undefined ? {} : { language: model.language }),
-            ...(model.strict_conformance === undefined ? {} : { strict: model.strict_conformance }),
+            ...(model.strict_conformance === undefined ? {} : { strictConformance: model.strict_conformance }),
           })
         : await this.connection.parseSources(
             model.fixtures.map((name) => SourceDocument.inline(name, this.fixture(name))),

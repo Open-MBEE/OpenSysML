@@ -44,7 +44,7 @@ rectangle "<size:10>//«abstract part»//</size>\n**vehicleFamily**" as n0 <<abs
   rectangle "<size:10>//«abstract port»//</size>\n**fuel**" as n1 <<abstract port>> <<usage>>
   rectangle "<size:10>//«abstract part»//</size>\n**engine**" as n2 <<abstract part>> <<usage>>
   rectangle "<size:10>//«part»//</size>\n**chassis**" as n3 <<part>> <<usage>>
-  rectangle "<size:10>//«attribute»//</size>\n**mass**" as n4 <<attribute>> <<usage>>
+  rectangle "<size:10>//«attribute»//</size>\n**^mass**" as n4 <<attribute>> <<usage>>
 }
 n2 -[thickness=3]- n3
 @enduml

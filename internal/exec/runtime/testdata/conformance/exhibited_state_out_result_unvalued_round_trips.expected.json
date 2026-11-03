@@ -1,0 +1,6 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::checker",
+  "materialization": {}
+}

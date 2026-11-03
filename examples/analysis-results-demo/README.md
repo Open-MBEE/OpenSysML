@@ -76,7 +76,9 @@ part scoutRun : FuelBudgetRun {
 Two limitations shape the record. The annotation's attribute values are
 not projectable — `Project(properties = ("runAt"))` reports
 `unknown property` — so `command` is also carried as a plain attribute on
-`DemoRun` for the provenance table to show; the `@AnalysisRecords::RecordedRun`
+`DemoRun` for the provenance table to show (a run `-record-run` writes has no
+such attribute, so the table's `Project` says `tolerate = true` to leave its
+cell empty rather than fail); the `@AnalysisRecords::RecordedRun`
 metadata still answers `WhereMetadata` filters and keeps the provenance
 machine-readable. And the library's untyped `'subject'` ref cannot drive the
 `liveFuelLeft` formula, so `FuelBudgetRun` keeps a typed `lander` ref and each
@@ -99,9 +101,9 @@ Each is labelled; the scout and hauler runs print the same numbers now.
 
 ```
 ✓ Descent::scoutBudget
-  fuelUsed = 120.0
-  wetMass = 730.0
-  fuelLeft = 130.0
+  fuelUsed = [120.0]
+  wetMass = [730.0]
+  fuelLeft = [130.0]
   objective reserveHeld: satisfied
 ```
 
@@ -110,9 +112,9 @@ Each is labelled; the scout and hauler runs print the same numbers now.
 ```
 
 ```
-  fuelUsed = 320.0
-  wetMass = 1980.0
-  fuelLeft = 580.0
+  fuelUsed = [320.0]
+  wetMass = [1980.0]
+  fuelLeft = [580.0]
 ```
 
 The relay run, **as recorded** (when `relay.fuel` was `180.0`):
@@ -131,9 +133,9 @@ The same command **now prints** — the difference the `relayRun` record
 detects:
 
 ```
-  fuelUsed = 100.0
-  wetMass = 560.0
-  fuelLeft = 110.0
+  fuelUsed = [100.0]
+  wetMass = [560.0]
+  fuelLeft = [110.0]
 ```
 
 A sweep of `scoutBudget`, one record per row (this README's tables omit the
@@ -147,9 +149,9 @@ A sweep of `scoutBudget`, one record per row (this README's tables omit the
 ```
 burnTime | fuelUsed | wetMass | fuelLeft | verdict
 ---------+----------+---------+----------+----------------------------
-40.0     | 120.0    | 730.0   | 130.0    | reserveHeld: satisfied
-60.0     | 180.0    | 670.0   | 70.0     | reserveHeld: satisfied
-80.0     | 240.0    | 610.0   | 10.0     | reserveHeld: not satisfied
+40.0     | [120.0]  | [730.0] | [130.0]  | reserveHeld: satisfied
+60.0     | [180.0]  | [670.0] | [70.0]   | reserveHeld: satisfied
+80.0     | [240.0]  | [610.0] | [10.0]   | reserveHeld: not satisfied
 ```
 
 The 80 s row leaves the objective unsatisfied, so the sweep exits `1`; the
@@ -252,9 +254,9 @@ model — records included — back out:
 
 ```
 ✓ Descent::scoutBudget
-  fuelUsed = 120.0
-  wetMass = 730.0
-  fuelLeft = 130.0
+  fuelUsed = [120.0]
+  wetMass = [730.0]
+  fuelLeft = [130.0]
   objective reserveHeld: satisfied
   standing: value (observed: 1 run under reverse)
   recorded Records::scoutBudget_run1 (Records::ScoutBudgetRun)

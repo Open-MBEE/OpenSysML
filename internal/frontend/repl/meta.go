@@ -38,14 +38,9 @@ const (
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
 const (
-	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [compartments=<folding>] [show=<elements>] [depth=<levels>] [link=<template>]"
+	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|drawio|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [compartments=<folding>] [show=<elements>] [depth=<levels>] [link=<template>]"
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>]"
 )
-
-// isMeta reports whether a trimmed input line is a meta command.
-func isMeta(line string) bool {
-	return strings.HasPrefix(strings.TrimSpace(line), "%")
-}
 
 // parseArgs splits a command line into arguments, handling quoted strings.
 // A double-quoted string is one argument with its quotes removed, which is how a
@@ -196,6 +191,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%documents", group: groupSession, desc: "list the model's documents by the names %render-document reads"},
 	{name: "%views", group: groupSession, args: "[diagrams] [<kind>...]", desc: "list the model's views and their kinds by the names %render reads; diagrams keeps the graph-shaped ones"},
 	{name: "%clear", group: groupSession, desc: "reset the session"},
+	{name: "%workspace", group: groupSession, desc: "show the directory a root namespace a submission leaves unresolved is looked for under: the model file there declaring it loads as %load would"},
 	{name: "%load", group: groupSession, args: "[--cells <sel>] <path>... | [--id=<project id>] [--name=<name>] [--branch=<branch>] [<name>]", desc: "submit the contents of files, directories or globs (a .ipynb notebook's code cells declare, --cells 1,3-5 or tag:<tag> picking cells), or load a repository project's model: named, by --id or by --name, at a branch or its default; a name that is a path on disk loads the files",
 		part: repositoryLinked, partArgs: "[--cells <sel>] <path>...", partDesc: "submit the contents of files, directories or globs; a .ipynb notebook's code cells declare, its % commands and expressions skipped, --cells 1,3-5 or tag:<tag> picking cells"},
 	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element", linked: notationLinked},
@@ -401,6 +397,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(decls, false, nil), true
 	case "%clear":
 		return metaOut(append([]string{"session cleared"}, s.clear()...), false, nil), true
+	case "%workspace":
+		return metaOut(s.doWorkspace(), false, nil), true
 	case "%documents":
 		return metaOut(s.doDocuments()), true
 	case "%views":
@@ -704,7 +702,7 @@ func (r *renderArgs) readLink(template string) string {
 // diagram forms take.
 func (r *renderArgs) readPalette(word string) string {
 	if !r.form.TakesPalette() {
-		return fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", r.form, renderUsage)
+		return fmt.Sprintf("a palette fills the mermaid, dot, plantuml, d2 and drawio forms only, not %s; %s", r.form, renderUsage)
 	}
 	palette, ok := view.ParsePalette(word)
 	if !ok {
@@ -1084,8 +1082,33 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 }
 
 // evalValue evaluates an expression as evalExpr does, keeping the value beside
-// the lines the prompt prints for it.
+// the lines the prompt prints for it. An expression that fails naming a root
+// namespace a workspace file declares is evaluated again once that file loads.
 func (s *Session) evalValue(expr string) (evaluated, error) {
+	ev, err := s.evalValueOnce(expr)
+	if err == nil {
+		return ev, nil
+	}
+	notices, loaded := s.loadWorkspaceForText(expr)
+	if !loaded {
+		return ev, withNotices(err, notices)
+	}
+	ev, err = s.evalValueOnce(expr)
+	ev.lines = append(notices, ev.lines...)
+	return ev, withNotices(err, notices)
+}
+
+// withNotices carries what resolving against the workspace reported under the
+// error it did not avert, so the user reads why before what failed.
+func withNotices(err error, notices []string) error {
+	if err == nil || len(notices) == 0 {
+		return err
+	}
+	return fmt.Errorf("%w\n%s", err, strings.Join(notices, "\n"))
+}
+
+// evalValueOnce evaluates an expression against the session as it stands.
+func (s *Session) evalValueOnce(expr string) (evaluated, error) {
 	// Try literal evaluation first (works even with empty session)
 	literalResult, isLiteral, litErr := s.tryEvalLiteral(expr)
 	if isLiteral {
@@ -1345,12 +1368,14 @@ func (s *Session) evalWithoutDeclarations(ctx *runtime.Context, expr string) (ev
 const noDeclarationsLoaded = "no declarations loaded (literals work, but feature references need declarations)"
 
 // declarationsWouldAnswer reports whether err is a failure declarations would
-// answer — a name, a unit or a value nothing declares — rather than the answer
-// of the expression itself.
+// answer — a name, a unit or a feature's value nothing declares — rather than
+// the answer of the expression itself. A result the expression's own body never
+// binds is also no value, but one no declaration would supply.
 func declarationsWouldAnswer(err error) bool {
+	var noValue *runtime.NoValueError
 	return errors.Is(err, runtime.ErrUnresolvedReference) ||
 		errors.Is(err, semantics.ErrNotAUnit) ||
-		errors.Is(err, runtime.ErrNoValue)
+		errors.As(err, &noValue)
 }
 
 // evalError reports an evaluation failure, giving one that carries the span of
@@ -2107,17 +2132,26 @@ func (s *Session) calcVerdict(calcName, argText string) Verdict {
 // the command line — can tell an evaluated calculation from one that could not be run.
 func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, *analysis.Plan, error) {
 	sym, err := s.calcSymbol(calcName)
+	var notices []string
 	if err != nil {
-		return nil, nil, nil, err
+		// The calc may be declared by a workspace file not yet loaded.
+		var loaded bool
+		if notices, loaded = s.loadWorkspaceForText(calcName); !loaded {
+			return nil, nil, nil, withNotices(err, notices)
+		}
+		if sym, err = s.calcSymbol(calcName); err != nil {
+			return nil, nil, nil, withNotices(err, notices)
+		}
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, withNotices(err, notices)
 	}
 	lines, outputs, plan, err := s.evalCalcIn(s.dispatched(), ctx, sym, calcName, argText)
 	if err != nil {
-		return nil, nil, plan, err
+		return nil, nil, plan, withNotices(err, notices)
 	}
+	lines = append(notices, lines...)
 	values := make([]NamedValue, 0, len(outputs))
 	for _, out := range outputs {
 		values = append(values, NamedValue{Name: out.Name, Value: formatValue(ctx, out.Value)})
@@ -2574,7 +2608,7 @@ func (s *Session) satisfyVerdictsOf(ctx *runtime.Context, a *runtime.SatisfyAsse
 func (s *Session) subjectLabel(subject runtime.SatisfactionSubject) string {
 	if subject.Root != nil && subject.Root != subject.Object {
 		if root := s.instanceName(subject.Root); root != "" {
-			return root + featurePath(subject.Path)
+			return objectPath(root, subject.Path)
 		}
 	}
 	return s.objectLabel(subject.Object)
@@ -2660,7 +2694,9 @@ func (s *Session) satisfyVerdictOn(ctx *runtime.Context, a *runtime.SatisfyAsser
 	// A `satisfy requirement r by p` declares its requirement rather than
 	// referencing one, so the assertion names it.
 	req := a.AssertedRequirement()
-	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req, subject)
+	verdict := satisfactionVerdict(a, result, err, subject, owner)
+	verdict.Lines = append(verdict.Lines, startFailureLines(ctx, subject, "  ")...)
+	verdict = s.withVerifications(verdict, ctx, req, subject)
 	return standing(verdict, plan)
 }
 
@@ -3357,6 +3393,9 @@ func (s *Session) debugExhibitedMachine(
 	behavior, ok := inst.ExhibitedState()
 	if !ok {
 		return nil, fmt.Errorf("object %q exhibits no state machine", label)
+	}
+	if behavior.Err != nil {
+		return nil, fmt.Errorf("object %q runs no state machine to debug: %w", label, behavior.Err)
 	}
 	return s.attachExhibitedMachine(ctx, name, label, inst, behavior), nil
 }

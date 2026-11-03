@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -301,9 +302,65 @@ func TestMultiplicityOfANonUsage(t *testing.T) {
 		if _, ok := m.MultiplicityOf(s); ok {
 			t.Errorf("%s: MultiplicityOf reported a multiplicity", name)
 		}
-		if r := m.EffectiveMultiplicityOf(s); r != AssumedRange() {
-			t.Errorf("%s: EffectiveMultiplicityOf = %+v, want the assumed range", name, r)
+		// Neither is a usage the implicit [1..1] is declared for, so the usual default governs.
+		if r := m.EffectiveMultiplicityOf(s); r != UnboundedRange() {
+			t.Errorf("%s: EffectiveMultiplicityOf = %+v, want the unbounded range", name, r)
 		}
+	}
+}
+
+// A feature that declares and inherits no multiplicity has the usual default 0..*
+// (KerML 1.1 §7.4.12, §7.4.5.2; SysML v2 §7.6.3); the implicit [1..1] is declared
+// only for an eligible SysML usage owned by a type, and for an end feature — in
+// KerML, one of a binary association, whose ends redefine BinaryLink's.
+func TestDefaultMultiplicityFollowsTheClause(t *testing.T) {
+	for _, tc := range []struct {
+		name, doc, src, owner, feature string
+		want                           Range
+	}{
+		{"kerml class feature", "t.kerml", "class C { feature x; }", "C", "x", UnboundedRange()},
+		{"kerml valued class feature", "t.kerml", "class C { feature x = (1, 2); }", "C", "x", UnboundedRange()},
+		{"kerml package feature", "t.kerml", "package P { feature c; }", "P", "c", UnboundedRange()},
+		{"kerml binary association end", "t.kerml", "assoc A { end feature a; end feature b; }", "A", "a", AssumedRange()},
+		{"kerml ternary association end", "t.kerml", "assoc A { end feature a; end feature b; end feature c; }", "A", "a", UnboundedRange()},
+		{"kerml class with two ends", "t.kerml", "class C { end feature a; end feature b; }", "C", "a", UnboundedRange()},
+		{"kerml binary connector end", "t.kerml", "class X; class Y; struct S { feature x : X; feature y : Y; connector c { end feature a :> x; end feature b :> y; } }", "S::c", "a", AssumedRange()},
+		{"sysml attribute of a part def", "t.sysml", "part def C { attribute x; }", "C", "x", AssumedRange()},
+		{"sysml part of a part def", "t.sysml", "part def C { part x; }", "C", "x", AssumedRange()},
+		{"sysml package attribute", "t.sysml", "package P { attribute x; }", "P", "x", UnboundedRange()},
+		{"sysml action of a part def", "t.sysml", "part def C { action x; }", "C", "x", UnboundedRange()},
+		{"sysml connection of a part def", "t.sysml", "part def C { connection x; }", "C", "x", UnboundedRange()},
+		{"sysml subsetting attribute of a part def", "t.sysml", "part def C { attribute many [0..*]; attribute x :> many; }", "C", "x", UnboundedRange()},
+		{"sysml end of a connection def", "t.sysml", "connection def C { end x; end y; }", "C", "x", AssumedRange()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, root := buildModelNamed(t, tc.doc, tc.src)
+			segments := strings.Split(tc.owner, "::")
+			owner := sym(t, root, segments[0])
+			for _, segment := range segments[1:] {
+				nested, ok := owner.Scope.LookupLocal(segment)
+				if !ok {
+					t.Fatalf("%s not found in %s", segment, tc.owner)
+				}
+				owner = nested
+			}
+			feature, ok := owner.Scope.LookupLocal(tc.feature)
+			if !ok {
+				t.Fatalf("%s::%s not found", tc.owner, tc.feature)
+			}
+			if _, declared := m.MultiplicityOf(feature); declared {
+				t.Fatalf("%s declares a multiplicity", tc.feature)
+			}
+			if got := m.DefaultMultiplicityOf(feature); got != tc.want {
+				t.Errorf("DefaultMultiplicityOf = %s, want %s", got.Text(), tc.want.Text())
+			}
+			if got := m.EffectiveMultiplicityOf(feature); got != tc.want {
+				t.Errorf("EffectiveMultiplicityOf = %s, want %s", got.Text(), tc.want.Text())
+			}
+			if got := m.GoverningMultiplicityOf(feature); got != tc.want {
+				t.Errorf("GoverningMultiplicityOf = %s, want %s", got.Text(), tc.want.Text())
+			}
+		})
 	}
 }
 

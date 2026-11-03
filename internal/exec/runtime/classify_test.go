@@ -1024,9 +1024,9 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 	}
 
 	// The union's own value determines none of the members' parts: a member keeps what it
-	// holds on its own, and is undetermined without a value of its own, in either order.
+	// holds on its own, nothing without a value of its own, in either order.
 	for _, order := range []string{"union_first", "member_first"} {
-		t.Run("members_undetermined_by_the_union_"+order, func(t *testing.T) {
+		t.Run("members_not_determined_by_the_union_"+order, func(t *testing.T) {
 			ctx, idx := libraryShapeContext(t, model(bound))
 			shelf := instantiateQualified(t, ctx, idx, "test::shelf")
 			groups := groupsOf(t, ctx, shelf)
@@ -1035,14 +1035,10 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 					t.Fatalf("allShares = %s, want its own value", got)
 				}
 			}
-			_, err := groups[0].GetFeatureValue(ctx, "shares")
-			var undetermined *undeterminedBindingError
-			if !errors.As(err, &undetermined) {
-				t.Fatalf("groups.1.shares = %v, want undeterminedBindingError", err)
-			}
-			if want := "binding end cannot be resolved: Group.shares is bound by `bind [0..*] groups.shares = [0..*] allShares` " +
-				"through every object groups holds; the model does not determine which of the bound values Group.shares holds"; err.Error() != want {
-				t.Fatalf("error = %q\nwant    %q", err.Error(), want)
+			fv, err := groups[0].GetFeatureValue(ctx, "shares")
+			if err != nil || len(elementsOf(fv.HeldValue())) != 2 || fv.BindingDerived {
+				t.Fatalf("groups.1.shares = %s, %v (binding-derived %v); want the two values its own `[2]` states, none of the union's",
+					FormatValue(fv.HeldValue()), err, fv.BindingDerived)
 			}
 			if got := values(t, ctx, shelf, "allShares"); got != "[0.1, 0.2, 0.3, 0.4]" {
 				t.Fatalf("allShares = %s, want its own value", got)
@@ -1399,7 +1395,7 @@ func TestRefusedClassificationUndoesWhatItsBehaviorsDid(t *testing.T) {
 			}
 			exhibit state break {
 				entry; then on;
-				state on { entry action fail { assign hits := 1 / 0; } }
+				state on { entry action fail { while true { assign hits := hits + 1; } } }
 			}
 		}
 		item def Rack { item raw : Counter [1]; }
@@ -1413,8 +1409,8 @@ func TestRefusedClassificationUndoesWhatItsBehaviorsDid(t *testing.T) {
 	}
 	before := FormatValue(hits.HeldValue())
 
-	if err := ctx.classify(raw, idx.LookupQualified("test::Tallied")[0]); !errors.Is(err, ErrDivisionByZero) {
-		t.Fatalf("classify(raw, Tallied) = %v, want ErrDivisionByZero", err)
+	if err := ctx.classify(raw, idx.LookupQualified("test::Tallied")[0]); !exhaustsBudget(err) {
+		t.Fatalf("classify(raw, Tallied) = %v, want the runtime's bound reached", err)
 	}
 	if len(raw.classifiers) != 0 || len(raw.behaviors) != 0 || len(ctx.objectBehaviors) != 0 {
 		t.Fatalf("a refused classification left raw classified by %v running %d behaviors (context: %d)",
@@ -1444,7 +1440,7 @@ func TestRefusedClassificationUndoesTheVariantsItSelected(t *testing.T) {
 			item car : Car [1] { attribute :>> power = power::strong; }
 			exhibit state tally {
 				entry; then on;
-				state on { entry action bump { assign hits := car.power / hits; } }
+				state on { entry action bump { while hits == 0 { assign hits := hits + 0; } assign hits := car.power / hits; } }
 			}
 		}
 		item def Rack { item raw : Counter [1]; item own : Car [1] { attribute :>> power = power::weak; } }
@@ -1461,8 +1457,8 @@ func TestRefusedClassificationUndoesTheVariantsItSelected(t *testing.T) {
 		t.Fatalf("own selected %q before classifying, want weak", got)
 	}
 
-	if err := ctx.classify(raw, idx.LookupQualified("test::Tallied")[0]); !errors.Is(err, ErrDivisionByZero) {
-		t.Fatalf("classify(raw, Tallied) = %v, want ErrDivisionByZero", err)
+	if err := ctx.classify(raw, idx.LookupQualified("test::Tallied")[0]); !exhaustsBudget(err) {
+		t.Fatalf("classify(raw, Tallied) = %v, want the runtime's bound reached", err)
 	}
 	if !maps.Equal(ctx.selectedVariants, before) {
 		t.Fatalf("a refused classification changed the variants selected from %v to %v", before, ctx.selectedVariants)
@@ -1478,7 +1474,7 @@ func TestRefusedCollectionClassificationUndoesTheEarlierObjects(t *testing.T) {
 		item def Tallied :> Counter {
 			exhibit state tally {
 				entry; then on;
-				state on { entry action bump { assign hits := 10 / hits; } }
+				state on { entry action bump { while hits == 0 { assign hits := hits + 0; } assign hits := 10 / hits; } }
 			}
 		}
 		item def Rack {
@@ -1491,8 +1487,8 @@ func TestRefusedCollectionClassificationUndoesTheEarlierObjects(t *testing.T) {
 	rack := instantiateQualified(t, ctx, idx, "test::rack")
 
 	// lead is classified before trail's behavior fails; the read materializes it all the same.
-	if _, err := rack.GetFeatureValue(ctx, "tallied"); !errors.Is(err, ErrDivisionByZero) {
-		t.Fatalf("rack.tallied = %v, want ErrDivisionByZero", err)
+	if _, err := rack.GetFeatureValue(ctx, "tallied"); !exhaustsBudget(err) {
+		t.Fatalf("rack.tallied = %v, want the runtime's bound reached", err)
 	}
 	held := rack.FeatureValues["lead"].HeldValue()
 	lead, ok := ctx.getInstance(held.Instance)
@@ -1522,7 +1518,7 @@ func TestRefusedCollectionClassificationAbandonsWhatItsBehaviorsMade(t *testing.
 			item gauge : Gauge [1];
 			exhibit state tally {
 				entry; then on;
-				state on { entry action bump { assign hits := gauge.reading / hits; } }
+				state on { entry action bump { while hits == 0 { assign hits := hits + 0; } assign hits := gauge.reading / hits; } }
 			}
 		}
 		item def Rack {
@@ -1539,8 +1535,8 @@ func TestRefusedCollectionClassificationAbandonsWhatItsBehaviorsMade(t *testing.
 	var held []int64
 	var occurrences map[*symbols.Symbol][]int64
 	for attempt := 1; attempt <= 3; attempt++ {
-		if _, err := rack.GetFeatureValue(ctx, "tallied"); !errors.Is(err, ErrDivisionByZero) {
-			t.Fatalf("attempt %d: rack.tallied = %v, want ErrDivisionByZero", attempt, err)
+		if _, err := rack.GetFeatureValue(ctx, "tallied"); !exhaustsBudget(err) {
+			t.Fatalf("attempt %d: rack.tallied = %v, want the runtime's bound reached", attempt, err)
 		}
 		if attempt == 1 {
 			held, occurrences = ctx.InstanceIDs(), maps.Clone(ctx.occurrences)

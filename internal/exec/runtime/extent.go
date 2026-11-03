@@ -335,7 +335,8 @@ type usageCensus struct {
 }
 
 // modelUsages is the model's usage census, taken once per Model, each usage as the symbol a
-// registered scope tree declares for it; variations and optional valueless usages are not listed.
+// registered scope tree declares for it: the object features and the performances a namespace
+// declares one or a fixed number of; variations and optional valueless usages are not listed.
 func (ctx *Context) modelUsages() *usageCensus {
 	if ctx.model.census != nil {
 		return ctx.model.census
@@ -352,7 +353,7 @@ func (ctx *Context) modelUsages() *usageCensus {
 			if ctx.model.semantics.IsVariationFeature(sym) || ctx.optionalValueless(sym) {
 				return true
 			}
-			if objectFeature(sym) || ctx.namesOneObject(sym) {
+			if objectFeature(sym) || ctx.namesOneObject(sym) || ctx.namesObjects(sym) {
 				census.usages = append(census.usages, sym)
 			}
 			return true
@@ -526,15 +527,7 @@ func extentHeldFeature(sym *symbols.Symbol) bool {
 		return true
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok {
-		return false
-	}
-	switch usage.Kind {
-	case ast.UsageAction, ast.UsageState, ast.UsageConnection, ast.UsageInterface,
-		ast.UsageAllocation, ast.UsageFlow:
-		return true
-	}
-	return false
+	return ok && (performanceUsageKind(usage.Kind) || usage.Kind == ast.UsageFlow)
 }
 
 // extentHoldsObjects is holdsObjects for the extent walk: the features whose

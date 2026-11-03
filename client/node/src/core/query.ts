@@ -30,7 +30,14 @@ const PRIMITIVE_OPERATORS = new Map<string, PrimitiveOperator>([
   ["=", PrimitiveOperator.EQUAL],
   [">", PrimitiveOperator.GREATER],
   ["<", PrimitiveOperator.LESS],
+  [">=", PrimitiveOperator.GREATER_EQUAL],
+  ["<=", PrimitiveOperator.LESS_EQUAL],
+  ["in", PrimitiveOperator.IN],
+  ["instanceOf", PrimitiveOperator.INSTANCE_OF],
 ]);
+
+/** The operators that compare against exactly one value. */
+const ORDERED_OPERATORS = new Set([">", "<", ">=", "<="]);
 
 const COMPOSITE_OPERATORS = new Map<string, CompositeOperator>([
   ["and", CompositeOperator.AND],
@@ -81,6 +88,8 @@ export interface QueryForm {
   scope?: readonly ScopeEntry[];
   select?: readonly string[];
   where?: ConstraintPayload;
+  /** Properties to sort by, in order of precedence, each ascending; the standard's `orderBy`. */
+  orderBy?: readonly string[];
   /** An OSLC query text, evaluated instead of the structured query. */
   oslc?: string;
   /** A query already decoded for the wire; passes through as written. */
@@ -94,10 +103,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** Translate a query, given as the standard's JSON or as keywords, to protobuf. */
 export function buildQuery(options: { payload?: QueryPayload } & QueryForm = {}): Query {
   const { payload } = options;
-  let { scope, select, where } = options;
+  let { scope, select, where, orderBy } = options;
   if (payload !== undefined) {
-    if (scope !== undefined || select !== undefined || where !== undefined) {
-      throw new QueryError("pass a query payload or scope/select/where keywords, not both");
+    if (scope !== undefined || select !== undefined || where !== undefined || orderBy !== undefined) {
+      throw new QueryError("pass a query payload or scope/select/where/orderBy keywords, not both");
     }
     if (!isRecord(payload)) {
       throw new QueryError("a query is an object, not a " + typeof payload);
@@ -107,22 +116,24 @@ export function buildQuery(options: { payload?: QueryPayload } & QueryForm = {})
       throw new QueryError(`expected a ${JSON.stringify(TYPE_QUERY)} payload, got ${JSON.stringify(declared)}`);
     }
     const unknown = Object.keys(payload).filter(
-      (key) => ![TYPE_KEY, "@id", "owningProject", "scope", "select", "where"].includes(key),
+      (key) => ![TYPE_KEY, "@id", "owningProject", "scope", "select", "where", "orderBy"].includes(key),
     );
     if (unknown.length > 0) {
       unknown.sort(byCodeUnit);
       throw new QueryError(
-        `a query has no ${unknown.join(", ")}; the standard's query is scope, select and where`,
+        `a query has no ${unknown.join(", ")}; the standard's query is scope, select, where and orderBy`,
       );
     }
     scope = payload.scope as QueryForm["scope"];
     select = payload.select as QueryForm["select"];
     where = payload.where as QueryForm["where"];
+    orderBy = payload.orderBy as QueryForm["orderBy"];
   }
 
   const query = create(QuerySchema, {
     scope: sequence("scope", scope).map(scopeId),
     select: sequence("select", select).map(propertyName),
+    orderBy: sequence("orderBy", orderBy).map(propertyName),
   });
   if (where !== undefined) {
     query.where = constraint(where);
@@ -198,7 +209,7 @@ function primitive(payload: Record<string, unknown>) {
   rejectUnknown(payload, [TYPE_KEY, "@id", "inverse", "property", "operator", "value"], TYPE_PRIMITIVE_CONSTRAINT);
   const operator = payload.operator;
   const mapped = typeof operator === "string" ? PRIMITIVE_OPERATORS.get(operator) : undefined;
-  if (mapped === undefined) {
+  if (typeof operator !== "string" || mapped === undefined) {
     throw new QueryError(
       `unknown primitive operator ${JSON.stringify(operator)}; expected one of ` +
         [...PRIMITIVE_OPERATORS.keys()].sort(byCodeUnit).join(", "),
@@ -212,8 +223,46 @@ function primitive(payload: Record<string, unknown>) {
     inverse: payload.inverse === true,
     property: name,
     operator: mapped,
-    value: values(payload.value),
+    value: operand(operator, name, payload.value),
   };
+}
+
+/**
+ * The compared values, in the shape the operator compares against: the ordered
+ * comparisons take one value, `in` a list of them and `instanceOf` metaclass
+ * names, so another shape is refused here rather than sent to be refused.
+ */
+function operand(operator: string, name: string, value: unknown): string[] {
+  if (ORDERED_OPERATORS.has(operator)) {
+    if (Array.isArray(value) && value.length !== 1) {
+      throw new QueryError(`${operator} on ${JSON.stringify(name)} compares against one value, not a list of ${value.length}`);
+    }
+    if (value === undefined || value === null) {
+      throw new QueryError(`${operator} on ${JSON.stringify(name)} has no value to compare against`);
+    }
+    return values(value);
+  }
+  if (operator === "in") {
+    if (!Array.isArray(value)) {
+      throw new QueryError(`in on ${JSON.stringify(name)} compares against a list of values, not ${JSON.stringify(value)}`);
+    }
+    if (value.length === 0) {
+      throw new QueryError(`in on ${JSON.stringify(name)} has no values to be a member of`);
+    }
+    return value.map(compared);
+  }
+  if (operator === "instanceOf") {
+    const names = Array.isArray(value) ? value : [value];
+    for (const metaclass of names) {
+      if (typeof metaclass !== "string" || metaclass === "") {
+        throw new QueryError(
+          `instanceOf on ${JSON.stringify(name)} compares against a metaclass name, not ${JSON.stringify(metaclass)}`,
+        );
+      }
+    }
+    return names as string[];
+  }
+  return values(value);
 }
 
 function composite(payload: Record<string, unknown>) {
@@ -231,6 +280,9 @@ function composite(payload: Record<string, unknown>) {
     throw new QueryError(
       `a composite constraint combines a non-empty list of constraints, not ${JSON.stringify(nested)}`,
     );
+  }
+  if (nested.length === 1) {
+    throw new QueryError("a composite constraint combines at least two constraints, got one; write the constraint on its own");
   }
   return {
     operator: mapped,

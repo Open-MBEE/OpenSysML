@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -85,8 +86,9 @@ func initializeFolders(params *protocol.InitializeParams) []string {
 		seen[path] = true
 		out = append(out, path)
 	}
-	for _, folder := range params.WorkspaceFolders {
-		add(uriToName(protocol.DocumentURI(folder.URI)))
+	folders, _ := params.WorkspaceFolders.Get()
+	for _, folder := range folders {
+		add(uriToName(folder.URI))
 	}
 	if len(out) == 0 {
 		add(legacyRoot(params))
@@ -97,10 +99,11 @@ func initializeFolders(params *protocol.InitializeParams) []string {
 // legacyRoot returns the root a client that predates workspaceFolders sends;
 // these deprecated fields are the only ones such a client populates.
 func legacyRoot(params *protocol.InitializeParams) string {
-	if params.RootURI != "" {
-		return uriToName(params.RootURI)
+	if params.RootURI != nil && *params.RootURI != "" {
+		return uriToName(*params.RootURI)
 	}
-	return params.RootPath
+	root, _ := params.RootPath.Get()
+	return root
 }
 
 // loadFolders indexes every model source under the session's folders, so a name
@@ -137,7 +140,7 @@ func (s *Server) scanFolder(folder string, budget int) {
 // installed projects that the project at or above folder uses, each once; the
 // dependency sources are recorded against folder so they can be dropped with it.
 func (s *Server) walkWorkspace(folder string, budget int) (paths, unlisted []string) {
-	paths, unlisted = walkFolder(folder, budget)
+	paths, unlisted = walkFolder(folder, budget, nil)
 	seen := make(map[string]bool, len(paths))
 	for _, path := range paths {
 		seen[path] = true
@@ -148,7 +151,9 @@ func (s *Server) walkWorkspace(folder string, budget int) (paths, unlisted []str
 		if used.IsArchived() {
 			more = used.Files()
 		} else {
-			more, failed = walkFolder(used.Dir, -1)
+			// A project nested in an installed one is a project of its own,
+			// read through its own installation.
+			more, failed = walkFolder(used.Dir, -1, project.IsProjectDir)
 		}
 		unlisted = append(unlisted, failed...)
 		for _, path := range more {
@@ -288,7 +293,8 @@ func projectOrDir(name string) string {
 // directories (every directory when budget is negative) and skipping hidden and
 // vendored directories, unreadable entries and files too large to serve. It also
 // lists the directories it could not enumerate, whose sources it cannot vouch for.
-func walkFolder(folder string, budget int) (paths, unlisted []string) {
+// A directory below folder that stop admits, when stop is given, is not entered.
+func walkFolder(folder string, budget int, stop func(dir string) bool) (paths, unlisted []string) {
 	if folder == "" {
 		return nil, nil
 	}
@@ -301,7 +307,7 @@ func walkFolder(folder string, budget int) (paths, unlisted []string) {
 			return nil
 		}
 		if d.IsDir() {
-			if path != folder && skipDir(d.Name()) {
+			if path != folder && (skipDir(d.Name()) || project.IsLibraryDir(filepath.Dir(path), d.Name()) || (stop != nil && stop(path))) {
 				return fs.SkipDir
 			}
 			if budget == 0 {
@@ -463,7 +469,7 @@ func (s *Server) readFromDisk(path string) ([]byte, bool) {
 // interchange file changed — a usage added, a project installed or removed —
 // has the projects the folders use found again.
 func (s *Server) DidChangeWatchedFiles(ctx context.Context, params *protocol.DidChangeWatchedFilesParams) error {
-	var sources []*protocol.FileEvent
+	var sources []protocol.FileEvent
 	projects := false
 	for _, event := range params.Changes {
 		name := uriToName(event.URI)
@@ -504,10 +510,10 @@ func (s *Server) DidChangeWatchedFiles(ctx context.Context, params *protocol.Did
 func (s *Server) DidChangeWorkspaceFolders(ctx context.Context, params *protocol.DidChangeWorkspaceFoldersParams) error {
 	s.debugEdit(ctx, "", func() {
 		for _, folder := range params.Event.Removed {
-			s.dropFolder(uriToName(protocol.DocumentURI(folder.URI)))
+			s.dropFolder(uriToName(folder.URI))
 		}
 		for _, folder := range params.Event.Added {
-			s.addFolder(uriToName(protocol.DocumentURI(folder.URI)))
+			s.addFolder(uriToName(folder.URI))
 		}
 		// A document whose folder was just removed is now a lone file.
 		for _, name := range s.ws.OpenNames() {
@@ -654,6 +660,7 @@ func (s *Server) refreshOpenDiagnostics(ctx context.Context, except string) {
 			s.publishOpenDiagnostics(ctx, name)
 		}
 	}
+	s.publishFindings(ctx)
 }
 
 // queueOpenDiagnostics is refreshOpenDiagnostics once an editor burst settles;
@@ -664,7 +671,7 @@ func (s *Server) queueOpenDiagnostics(ctx context.Context, except string) {
 		s.refreshOpenDiagnostics(ctx, except)
 		return
 	}
-	// The sweep outlives the notification, whose context is cancelled on return.
-	ctx = context.WithoutCancel(ctx)
+	// The sweep outlives the notification, whose context is recycled on return.
+	ctx = jsonrpc2.DetachContext(ctx)
 	s.crossDoc.Trigger(except, func() { s.refreshOpenDiagnostics(ctx, except) })
 }

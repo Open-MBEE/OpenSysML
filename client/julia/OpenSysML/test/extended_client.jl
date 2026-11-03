@@ -129,6 +129,7 @@ end
     @test ConnectError("deadline_exceeded", "timed out", 504) isa ServiceTimeoutError
     @test ConnectError("unimplemented", "unknown method", 501) isa UnsupportedOperationError
     @test ConnectError("unavailable", "offline", 503) isa ServiceUnavailableError
+    @test ConnectError("unauthenticated", "no token", 401) isa AuthenticationError
     @test SymbolNotFoundError("Demo::Car", ["Demo::car"]).name == "Demo::Car"
 
     info = ServerInfo("1.2.3", ["query", "verification"], true, "test service")
@@ -166,6 +167,146 @@ end
         @test occursin(MIGRATED_NOT_CONVERTED, err.msg)
         @test occursin("migrate_file", err.msg)
         @test isempty(requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "convert sends the id form and library stubs asked for" begin
+    answer = Dict{String,Any}("content" => "[]", "fromFormat" => "sysml", "toFormat" => "api-json",
+        "libraryReferences" => [Dict("id" => "0c53", "qualifiedName" => "SI::second",
+                                     "type" => "AttributeUsage")])
+    server, requests, address = recording_service(["convert", "convert_library_stubs"];
+                                                  handler=(method, body) -> answer)
+    conn = external(address)
+    try
+        asked = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+            from_format="sysml", id_form=ID_FORM_UUID, include_library_stubs=true)
+        @test requests[end].method == "Convert"
+        @test requests[end].body["idForm"] == "uuid"
+        @test requests[end].body["includeLibraryStubs"] === true
+        @test asked.library_references == [LibraryReference("0c53", "SI::second", "AttributeUsage")]
+        @test hash(asked.library_references[1]) == hash(LibraryReference("0c53", "SI::second", "AttributeUsage"))
+        @test LibraryReference("0c53", "SI::second", "AttributeUsage") != LibraryReference("0c53", "SI::s", "AttributeUsage")
+        @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+                                                               from_format="sysml")
+        @test !haskey(requests[end].body, "idForm")
+        @test !haskey(requests[end].body, "includeLibraryStubs")
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["convert"])
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError convert_source(conn, "package P;", "api-json";
+            from_format="sysml", include_library_stubs=true)
+        @test all(request -> request.method != "Convert", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "convert sends the compact and check-diagnostics options asked for" begin
+    answer = Dict{String,Any}("content" => "{}", "fromFormat" => "sysml", "toFormat" => "api-json",
+        "diagnostics" => [Dict("severity" => "warning", "message" => "unused import"),
+                          Dict("severity" => "error", "message" => "unresolved name")])
+    server, requests, address = recording_service(
+        ["convert", "convert_compact", "convert_check_diagnostics"]; handler=(method, body) -> answer)
+    conn = external(address)
+    try
+        asked = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+            from_format="sysml", compact=true, omit_derived=true, keep_derived=["qualifiedName", "owner"],
+            include_check_diagnostics=true)
+        @test requests[end].method == "Convert"
+        @test requests[end].body["compact"] === true
+        @test requests[end].body["omitDerived"] === true
+        @test requests[end].body["keepDerived"] == ["qualifiedName", "owner"]
+        @test requests[end].body["includeCheckDiagnostics"] === true
+        @test [d.severity for d in asked.diagnostics] == ["warning", "error"]
+        @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+                                                               from_format="sysml")
+        for key in ("compact", "omitDerived", "keepDerived", "includeCheckDiagnostics")
+            @test !haskey(requests[end].body, key)
+        end
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["convert", "convert_check_diagnostics"])
+    conn = external(address)
+    try
+        for kwargs in ((; compact=true), (; omit_derived=true), (; keep_derived=["owner"]))
+            @test_throws MissingCapabilityError convert_source(conn, "package P;", "api-json";
+                from_format="sysml", kwargs...)
+        end
+        @test all(request -> request.method != "Convert", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["convert", "convert_compact"])
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError convert_source(conn, "package P;", "api-json";
+            from_format="sysml", include_check_diagnostics=true)
+        @test all(request -> request.method != "Convert", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "parse_sources sends the base model hash and reads the affected documents" begin
+    handler = (method, body) -> Dict{String,Any}("modelHash" => "fake",
+        "roots" => [Dict("id" => doc["name"], "name" => "", "kind" => "Namespace") for doc in body["documents"]],
+        "affected" => haskey(body, "baseModelHash") ? ["top.sysml"] : Any[])
+    server, requests, address = recording_service(["parse_sources", "parse_sources_affected"]; handler=handler)
+    conn = external(address)
+    try
+        related = parse_sources(conn, [("lib.sysml", "package Lib;"), ("top.sysml", "package Top;")];
+                                base_model_hash="base-hash")
+        fresh = parse_sources(conn, [("lib.sysml", "package Lib;"), ("top.sysml", "package Top;")])
+        parses = [request for request in requests if request.method == "ParseSources"]
+        @test [get(request.body, "baseModelHash", nothing) for request in parses] == ["base-hash", nothing]
+        @test affected(related) == ["top.sysml"]
+        @test affected(fresh) == String[]
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["parse_sources"]; handler=handler)
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError parse_sources(conn, [("a.sysml", "package A;")];
+                                                          base_model_hash="base-hash")
+        @test all(request -> request.method != "ParseSources", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "render_view and import_data send their folding and row forms" begin
+    server, requests, address = recording_service(["render_view", "import_data"];
+        handler=(method, body) -> method == "RenderView" ?
+            Dict{String,Any}("view" => "V", "kind" => "tree", "stated" => "rendered",
+                "nodes" => [Dict("id" => "n0", "name" => "sender", "compartment" => "parts")]) :
+            Dict{String,Any}("files" => Any[]))
+    conn = external(address)
+    model = Model(conn, "hash", Diagnostic[])
+    try
+        folded = render_view(model, "V"; compartments="most")
+        @test requests[end].body["compartments"] == "most"
+        @test folded.nodes[1].compartment == "parts"
+        render_view(model, "V")
+        @test requests[end].body["compartments"] == ""
+        import_data(model, ["fleet.csv" => "element,count\n"]; import_as="values", dry_run=true)
+        @test requests[end].body["importAs"] == "values"
+        import_data(model, ["fleet.csv" => "element,count\n"])
+        @test requests[end].body["importAs"] == "values"
     finally
         close(conn)
         close(server)
@@ -495,15 +636,32 @@ end
     @test query["where"]["primitive"]["operator"] == "PRIMITIVE_OPERATOR_EQUAL"
     @test_throws QueryError build_query(scope=["Demo::Vehicle"], select=["name"],
         var"where"=Dict("property" => "name", "operator" => "!=", "value" => "car"))
+    for (operator, value, wire, values) in [
+            ("<=", 2, "PRIMITIVE_OPERATOR_LESS_EQUAL", ["2"]),
+            (">=", 4, "PRIMITIVE_OPERATOR_GREATER_EQUAL", ["4"]),
+            ("<", "*", "PRIMITIVE_OPERATOR_LESS", ["*"]),
+            ("<", ["3"], "PRIMITIVE_OPERATOR_LESS", ["3"]),
+            (">", 1.5, "PRIMITIVE_OPERATOR_GREATER", ["1.5"]),
+            ("in", ["PartUsage", "AttributeUsage"], "PRIMITIVE_OPERATOR_IN", ["PartUsage", "AttributeUsage"]),
+            ("instanceOf", "Usage", "PRIMITIVE_OPERATOR_INSTANCE_OF", ["Usage"]),
+            ("instanceOf", ["Usage", "Definition"], "PRIMITIVE_OPERATOR_INSTANCE_OF", ["Usage", "Definition"])]
+        property = operator in ("in", "instanceOf") ? "@type" : "multiplicityLower"
+        primitive = build_query(var"where"=Dict("operator" => operator, "property" => property, "value" => value))["where"]["primitive"]
+        @test primitive["operator"] == wire
+        @test primitive["value"] == values
+    end
+    @test build_query(Dict("@type" => "Query", "orderBy" => ["@type", "name"]))["orderBy"] == ["@type", "name"]
+    @test build_query(order_by=["@type", "name"])["orderBy"] == ["@type", "name"]
+    @test build_query(scope=["Demo"])["orderBy"] == String[]
 
     cases = [
         (() -> build_query(; payload=Dict("@type" => "Query"), scope=["Demo::Vehicle"]),
-         "pass a query payload or scope/select/where keywords, not both"),
+         "pass a query payload or scope/select/where/order_by keywords, not both"),
         (() -> build_query(["not a mapping"]), "a query is an object, not Vector{String}"),
         (() -> build_query(Dict("@type" => "Other")),
          "expected a 'Query' payload, got \"Other\""),
         (() -> build_query(Dict("@type" => "Query", "unexpected" => true)),
-         "a query has no unexpected; the standard's query is scope, select and where"),
+         "a query has no unexpected; the standard's query is scope, select, where and orderBy"),
         (() -> build_query(scope=1), "scope is a list, not Int64"),
         (() -> build_query(scope=[1]),
          "a scope entry is an element's qualified name or a {'@id': ...} reference, not 1"),
@@ -514,7 +672,21 @@ end
         (() -> build_query(var"where"=Dict("@type" => "PrimitiveConstraint", "extra" => true)),
          "a PrimitiveConstraint has no extra"),
         (() -> build_query(var"where"=Dict("operator" => "!=", "property" => "x")),
-         "unknown primitive operator \"!=\"; expected one of <, =, >"),
+         "unknown primitive operator \"!=\"; expected one of <, <=, =, >, >=, in, instanceOf"),
+        (() -> build_query(var"where"=Dict("operator" => "<=", "property" => "multiplicityLower", "value" => [1, 2])),
+         "<= on \"multiplicityLower\" compares against one value, not a list of 2"),
+        (() -> build_query(var"where"=Dict("operator" => ">=", "property" => "multiplicityLower")),
+         ">= on \"multiplicityLower\" has no value to compare against"),
+        (() -> build_query(var"where"=Dict("operator" => "in", "property" => "@type", "value" => "PartUsage")),
+         "in on \"@type\" compares against a list of values, not \"PartUsage\""),
+        (() -> build_query(var"where"=Dict("operator" => "in", "property" => "@type", "value" => [])),
+         "in on \"@type\" has no values to be a member of"),
+        (() -> build_query(var"where"=Dict("operator" => "instanceOf", "property" => "@type", "value" => 7)),
+         "instanceOf on \"@type\" compares against a metaclass name, not 7"),
+        (() -> build_query(var"where"=Dict("operator" => "and", "constraint" => [Dict("operator" => "=", "property" => "name", "value" => "x")])),
+         "a composite constraint combines at least two constraints, got one; write the constraint on its own"),
+        (() -> build_query(order_by=7), "orderBy is a list, not Int64"),
+        (() -> build_query(order_by=[42]), "a selected property is a name, not 42"),
         (() -> build_query(var"where"=Dict("operator" => "=", "property" => "")),
          "a primitive constraint names one property, not \"\""),
         (() -> build_query(var"where"=Dict("operator" => "=", "property" => "x", "value" => Dict("x" => 1))),
@@ -740,6 +912,7 @@ end
                 @test length(rows) == 4
                 @test !isempty(render_document(document_model, "Observatory::MassReport"))
                 @test !isempty(render_document(document_model, "Observatory::MassReport"; form="html"))
+                @test startswith(render_document(document_model, "Observatory::MassReport"; form="asciidoc"), "= ")
                 views_model = parse_file(conn, joinpath(FIXTURES, "views.sysml"))
                 rendered_view = render_view(views_model, "RenderViewDemo::connections")
                 @test rendered_view.kind == "interconnection"
@@ -752,6 +925,13 @@ end
                 @test "edge-labels" in shown_view.shown
                 full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
                 @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
+                boxes = render_view(views_model, "#tree:RenderViewDemo::Assembly")
+                @test all(node -> isempty(node.compartment), boxes.nodes)
+                folded = render_view(views_model, "#tree:RenderViewDemo::Assembly"; compartments="most")
+                @test only(filter(node -> node.name == "sender", folded.nodes)).compartment == "parts"
+                @test length(folded.nodes) < length(boxes.nodes)
+                @test_throws InvalidRequestError render_view(views_model, "#tree:RenderViewDemo::Assembly";
+                                                             compartments="rows")
                 deep_model = parse_source(conn, """
                     package Deep {
                         private import Views::*;
@@ -846,6 +1026,11 @@ end
                 dry = import_data(import_model, ["fleet.tsv" => "element\tcount\nV::vehicle\t7\n"]; dry_run=true)
                 @test !applied(dry) && isempty(dry.content) && isempty(dry.documents)
                 @test length(dry.files[1].assignments) == 1
+                as_values = import_data(import_model, ["fleet.tsv" => "element\tcount\nV::vehicle\t7\n"];
+                                        import_as="values", dry_run=true)
+                @test length(as_values.files[1].assignments) == 1
+                @test_throws InvalidRequestError import_data(import_model,
+                    ["fleet.tsv" => "element\tcount\nV::vehicle\t7\n"]; import_as="rows", dry_run=true)
                 unchanged = import_data(import_model, ["fleet.csv" => "element,count\n"])
                 @test !applied(unchanged) && unchanged.model_hash == import_model.hash
                 @test isempty(unchanged.documents) && unchanged.files[1].values == 0
@@ -932,6 +1117,28 @@ end
                 @test !isempty(convert_model(document_model, "sysml").content)
                 @test !isempty(to_turtle(document_model).content)
                 @test !isempty(to_api_json(document_model).content)
+                library_source = "package P { private import SI::*; attribute time = 20 [s]; }"
+                plain = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, library_source,
+                    "api-json"; from_format="sysml")
+                second = only(filter(ref -> ref.qualified_name == "SI::second", plain.library_references))
+                @test second == LibraryReference("0c539f7c-20a1-520d-bae0-f3f855517aea", "SI::second",
+                                                 "AttributeUsage")
+                @test !any(element -> get(element, "isLibraryElement", false) === true,
+                           JSON.parse(plain.content))
+                legacy = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, library_source,
+                    "api-json"; from_format="sysml", include_library_stubs=true)
+                stub = only(filter(element -> element["@id"] == second.id, JSON.parse(legacy.content)))
+                @test stub["qualifiedName"] == "SI::second" && stub["isLibraryElement"] === true
+                @test legacy.library_references == plain.library_references
+                @test isempty(convert_source(conn, library_source, "sysml"; from_format="sysml").library_references)
+                qualified_ids = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn,
+                    "package P { part def A; part a : A; }", "api-json"; from_format="sysml")
+                uuid_ids = @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn,
+                    "package P { part def A; part a : A; }", "api-json"; from_format="sysml",
+                    id_form=ID_FORM_UUID)
+                @test occursin("\"P__a\"", qualified_ids.content) && !occursin("\"P__a\"", uuid_ids.content)
+                @test_throws InvalidRequestError convert_source(conn, "package P;", "api-json";
+                    from_format="sysml", id_form="short")
                 @test !isempty(convert_file(conn, joinpath(FIXTURES, "simple_part.sysml"), "sysml").content)
                 @test !isempty(convert_source(conn, "package Inline {}", "sysml";
                     from_format="sysml").content)
@@ -1049,4 +1256,34 @@ end
     end
     @test error isa ArgumentError
     @test occursin("vector of pairs", sprint(showerror, error))
+end
+
+@testset "verdict notes" begin
+    assumed = Dict("kind" => "assumed_one", "subject" => "Tanks::Tank::level",
+        "text" => "Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the default [0..*] governs it")
+    uncovered = Dict("kind" => "uncovered", "subject" => "gear",
+        "text" => "Not in the query: what gear asserts about its own objects, as it may hold more than one object; instantiate and validate an object to check it")
+    notes = Ref(Any[])
+    server, requests, address = recording_service(
+        ["verification", "verification_questions", "verdict_notes"];
+        handler=(method, body) -> Dict("verdict" => Dict("kind" => "constraint",
+            "elementId" => "Tanks::nonNegative", "question" => "holds",
+            "status" => "violated", "notes" => notes[])))
+    conn = external(address)
+    try
+        model = Model(conn, "hash", Diagnostic[])
+        notes[] = Any[assumed]
+        verdict = verify_constraint(model, "Tanks::nonNegative"; question="holds")
+        @test verdict.notes == [VerdictNote("assumed_one", "Tanks::Tank::level", assumed["text"])]
+        @test requests[end].body["question"] == "holds"
+        notes[] = Any[uncovered]
+        verdict = verify_constraint(model, "Tanks::nonNegative"; question="holds")
+        @test length(verdict.notes) == 1
+        @test verdict.notes[1].kind == "uncovered" && verdict.notes[1].subject == "gear"
+        notes[] = Any[]
+        @test isempty(verify_constraint(model, "Tanks::nonNegative"; question="holds").notes)
+    finally
+        close(conn)
+        close(server)
+    end
 end

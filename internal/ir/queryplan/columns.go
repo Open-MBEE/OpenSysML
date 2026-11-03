@@ -2,7 +2,6 @@ package queryplan
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -172,7 +171,7 @@ func (c *compiler) validColumnPath(path string) bool {
 	}
 	// The def is named as WhereMetadata names it and the executor reads it:
 	// by qualified name, or by a name unique over the model.
-	metadata := c.index.LookupUnique(strings.Join(metadataSegments, "::"))
+	metadata := c.index.LookupUnique(source.QualifiedNameOf(metadataSegments))
 	if metadata == nil || metadata.Kind != symbols.SymbolMetadataDef {
 		return false
 	}

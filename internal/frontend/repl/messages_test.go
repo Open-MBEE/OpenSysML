@@ -28,6 +28,12 @@ func TestMessageQuality(t *testing.T) {
 		line:  "%eval 1/0",
 		want:  []string{"error: evaluation failed: division by zero"},
 	}, {
+		// A body that binds no result has no value no declaration would supply,
+		// so that is the answer too.
+		name: "body_without_result_without_declarations",
+		line: "%eval (1, 2)->ControlFunctions::collect {in x;}",
+		want: []string{"error: evaluation failed: no value: body expression states no result"},
+	}, {
 		name: "unresolved_name_without_declarations",
 		line: "%eval missing",
 		want: []string{"error: no declarations loaded (literals work, but feature references need declarations)"},

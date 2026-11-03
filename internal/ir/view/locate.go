@@ -29,7 +29,7 @@ type anchors []Origin
 
 // renderedAnchors are the anchors of a drawn root: itself and what it inherits.
 func renderedAnchors(root *Node) anchors {
-	return append(anchors{root.Origin}, root.Inherited...)
+	return append(anchors{root.Origin}, root.InheritedFrom...)
 }
 
 // graphAnchors are the anchors of a graph lowered from sym's declaration.

@@ -381,8 +381,8 @@ func TestLibraryFunctionNeverAnswersAModelDeclaration(t *testing.T) {
 		if _, ok := ctx.libraryFunctionFor(sym); ok {
 			t.Errorf("%s: the model's RealFunctions::sqrt dispatched to the built-in", name)
 		}
-		if _, err := ctx.InvokeCalc(sym, []Value{constReal(25)}, nil); !errors.Is(err, errNoResultExpression) {
-			t.Errorf("%s: InvokeCalc(model sqrt, 25.0) = %v, want %v", name, err, errNoResultExpression)
+		if _, err := ctx.InvokeCalc(sym, []Value{constReal(25)}, nil); !errors.Is(err, ErrNoValue) {
+			t.Errorf("%s: InvokeCalc(model sqrt, 25.0) = %v, want %v", name, err, ErrNoValue)
 		}
 	}
 }

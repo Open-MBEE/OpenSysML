@@ -48,9 +48,9 @@ flowchart LR
   n2 --- n0
   n3 --- n0
   n0 -.- n4
-  n0 -.->|"«include»"| n5
+  n0 -->|"«include»"| n5
   n5 ---|"«subject»"| n6
   n7 --- n5
-  n0 -.->|"«include»"| n8
+  n0 -->|"«include»"| n8
   n8 ---|"«subject»"| n9
   n10 --- n8

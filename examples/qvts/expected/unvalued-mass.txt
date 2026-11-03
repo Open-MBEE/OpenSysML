@@ -1,0 +1,7 @@
+✓ package Lander
+✓ package QVTSDemo
+✓ Query QVTSDemo::UnvaluedMass returned 1 row
+  Columns: qualifiedName, mass
+  Row 1: Lander::lander::scienceBay
+    qualifiedName = "Lander::lander::scienceBay"
+    mass = (none)

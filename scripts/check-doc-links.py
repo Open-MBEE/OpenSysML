@@ -23,8 +23,9 @@ FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 LINK = re.compile(r"\[[^\]]*\]\((<(?:\\.|[^<>\\])*>|[^)\s]+)(?:\s+\"[^\"]*\")?\)")
 HEADING = re.compile(r"^#{1,6}\s(.*)$", re.MULTILINE)
 ANCHOR = re.compile(r"<a\s+(?:id|name)=[\"']([^\"']+)[\"']", re.IGNORECASE)
-# A link naming any scheme points outside the tree, so this checker leaves it alone.
-SKIP_PREFIX = tuple(f"{scheme}://" for scheme in ("http", "https", "ftp")) + ("mailto:", "tel:")
+# A link naming any scheme (https:, mailto:, sysml:) points outside the tree, so
+# this checker leaves it alone.
+SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 # A page named in prose as `docs/…md` rather than linked, which a move breaks just as silently.
 CITED = re.compile(r"`(docs/[A-Za-z0-9_./-]+\.md)`")
 # Records of what a plan created at the time; their paths are history, not pointers.
@@ -123,7 +124,7 @@ def page_failures(md: Path, root: Path, anchors: dict[Path, set[str]]) -> list[s
         if link.startswith("<") and link.endswith(">"):
             # A backslash escapes only ASCII punctuation; elsewhere it is literal.
             link = re.sub(r"\\([!-/:-@\[-`{-~])", r"\1", link[1:-1])
-        if not link or link.startswith(SKIP_PREFIX):
+        if not link or SCHEME.match(link):
             continue
         failure = link_failure(md, link, root, anchors)
         if failure:

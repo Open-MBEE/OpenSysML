@@ -1,0 +1,1 @@
+Mirror mass sysml:value[Optics::mirror.mass] and sysml:value[Optics::mount.mass, mount mass:] end.

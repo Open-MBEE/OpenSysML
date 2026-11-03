@@ -1,0 +1,13 @@
+FoldedBehaviors::states - state rendering (view def StateTransitionView)
+
+state def Machine
+  start
+  state idle (initial)
+  state running collapsed
+
+transitions:
+  start of Machine -> idle
+  idle -> running
+
+notes:
+  "runs until hot" on running at (40, 120)

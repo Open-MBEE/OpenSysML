@@ -735,7 +735,8 @@ func (p *Parser) parseImportTail(imp *ast.Import) {
 
 func (p *Parser) parseAlias(start int, vis ast.Visibility) *ast.Alias {
 	p.advance() // 'alias'
-	id := p.parseIdentification()
+	// AliasMember's memberName is optional: `alias for Base::exactlyOne;`.
+	id := p.parseIdentificationStopping("for")
 	al := &ast.Alias{Visibility: vis, Ident: id}
 	switch {
 	case p.acceptKeyword("for"):

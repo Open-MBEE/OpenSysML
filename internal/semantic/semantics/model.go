@@ -111,6 +111,8 @@ type Model struct {
 	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
+	// aboutBuilding is set while buildAbout runs, when the index is partial.
+	aboutBuilding bool
 	// aboutShared is the about index shared with other models, nil when m builds its own.
 	aboutShared *AboutIndex
 	// docGathers holds what the workspace-wide indexes are built from, per
@@ -153,7 +155,10 @@ type Model struct {
 	// bodyApplications is the operation each body expression is passed to, indexed per
 	// document root on first query (see bodyparam.go).
 	bodyApplications map[*ast.BodyExpr]bodyApplication
-	bodyIndexed      map[*symbols.Scope]bool
+	// bodySymbols is the body Expression reflected for each `{ … }`, so a
+	// parameter or member the body declares finds its owner.
+	bodySymbols map[*ast.BodyExpr]*symbols.Symbol
+	bodyIndexed map[*symbols.Scope]bool
 	// assumedSupers holds the supertypes a reducer's first parameter is judged under
 	// while its reducer's result is typed (see bodyparam.go).
 	assumedSupers map[*symbols.Symbol]assumedSupertypes
@@ -164,6 +169,8 @@ type Model struct {
 	// the Membership, Annotation and Import objects each element implies
 	// (see reflective_memberships.go, reflective_annotations.go).
 	memberships      map[*symbols.Symbol][]*symbols.Symbol
+	valueExpressions map[*symbols.Symbol]*symbols.Symbol
+	expressionParts  map[*symbols.Symbol]*expressionParts
 	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports     map[*symbols.Symbol][]*symbols.Symbol
@@ -975,6 +982,63 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		return []*symbols.Symbol{base}
 	}
 	return nil
+}
+
+// FeatureTypeSetWithImplied is FeatureTypeSet plus the types the implied specializations of
+// sym's kind contribute (KerML §8.3.3.3.4 deriveFeatureType unions every subsetted feature's types).
+func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol {
+	if isVariantReferenceSymbol(sym) {
+		return m.FeatureTypeSet(sym)
+	}
+	types := append([]*symbols.Symbol(nil), m.FeatureTypeSet(sym)...)
+	add := func(typ *symbols.Symbol) {
+		if typ != nil && !containsElement(types, typ) {
+			types = append(types, typ)
+		}
+	}
+	bases := m.withUsageBases(sym, m.ImplicitGenerals(sym))
+	for _, general := range bases {
+		if general == nil {
+			continue
+		}
+		if !general.IsFeature() {
+			add(general)
+			continue
+		}
+		for _, typ := range m.baseFeatureTypes(general, nil) {
+			add(typ)
+		}
+	}
+	if len(types) == 0 {
+		return nil
+	}
+	return m.mostSpecificTypes(types)
+}
+
+// withUsageBases adds a usage kind's base features to its implied generals, where a
+// membership's own base (a case's subject) may stand in for the kind's (a part usage).
+func (m *Model) withUsageBases(sym *symbols.Symbol, bases []*symbols.Symbol) []*symbols.Symbol {
+	_, isUsage := sym.Decl.(*ast.Usage)
+	if !(isUsage || sym.Kind == symbols.SymbolPartUsage) || m.isKerMLDoc(sym) || m.resolver == nil || m.resolver.Index() == nil {
+		return bases
+	}
+	fqns := []string{}
+	if fqn, ok := m.FeatureBaseFQN(sym); ok {
+		fqns = append(fqns, fqn)
+	}
+	for kind, fqn := range implicitUsageBases {
+		if fqn != lifeFQN && symbols.UsageSymbolKind(kind) == sym.Kind {
+			fqns = append(fqns, fqn)
+		}
+	}
+	for _, fqn := range fqns {
+		for _, base := range m.resolver.Index().LookupQualified(fqn) {
+			if base != nil && base != sym && !containsElement(bases, base) {
+				bases = append(bases, base)
+			}
+		}
+	}
+	return bases
 }
 
 // mostSpecificTypes drops every type another one in the list specializes.

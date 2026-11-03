@@ -114,6 +114,15 @@ their escapes, numbers, `'unrestricted names'`, the `A::B` of qualified names, o
 punctuation, and a cell's first token when it is a kernel command (`%help`, `%render`, …). The
 keyword tables are generated from the lexer's keyword list by the same tool that generates the
 VS Code grammars (`make vscode-grammar`), and a test holds the committed table to the lexer.
+The same extension folds `{ … }` blocks in both languages, reading past the braces inside
+strings, `'quoted names'` and comments.
+
+In VS Code the Jupyter extension gives a cell the kernel's `language_info.name` as its
+language, so the OpenSysML extension's grammar colors it and `sysml-lsp` serves it: the
+notebook is synchronized as one document of its code cells, with the limitations of reading
+source order rather than the session's execution order described in the
+[guide](../guide/12-jupyter.md#editing-a-notebook-in-vs-code) and the protocol in
+[LSP extensions](lsp.md#notebook-documents).
 
 ## Cells and the protocol
 
@@ -168,7 +177,7 @@ Output with a richer form than plain text is a `display_data` carrying that form
 | `%render <view> markdown` | `text/markdown` |
 | `%render <view> csv` | `text/csv` |
 | `%render <view> tsv` | `text/tab-separated-values` |
-| `%render <view> plantuml`, `d2` | `text/plain` — the diagram source |
+| `%render <view> plantuml`, `d2`, `drawio` | `text/plain` — the diagram source |
 | `%render-document <doc> [form [style]]` | `text/markdown` |
 | `%render-document <doc> [form [style]] html` | `text/html`, the HTML backend's fragment for the host page |
 | `%features <instance> json` | `application/json` |

@@ -1,4 +1,4 @@
-// Invalid: A flow connection must be typed by flow connection definitions (SysML 7.13 Connections; pilot validateFlowUsageType).
+// Invalid: A flow usage must be typed by flow definitions (SysML 7.13 Connections; pilot validateFlowUsageType).
 package S19FlowTypedByConnectionDef {
     item def I;
     part def P {

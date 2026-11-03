@@ -15,7 +15,7 @@ import (
 
 func TestDidOpenRegistersDocument(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI:     u,
@@ -26,7 +26,7 @@ func TestDidOpenRegistersDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DidOpen error: %v", err)
 	}
-	doc := s.ws.Document(u.Filename())
+	doc := s.ws.Document(u.FsPath())
 	if doc == nil {
 		t.Fatal("document not registered")
 	}
@@ -35,31 +35,24 @@ func TestDidOpenRegistersDocument(t *testing.T) {
 	}
 }
 
-// sendDidChange drives the raw changeHandler exactly as the transport would:
-// it builds a textDocument/didChange notification whose JSON matches what a
-// client sends, so an omitted "range" stays omitted (full replace) and a
-// present "range" is decoded as a pointer (incremental).
+// sendDidChange drives textDocument/didChange exactly as the transport would:
+// it builds a notification whose JSON matches what a client sends, so an
+// omitted "range" is a full replace and a present one an incremental edit.
 func sendDidChange(t *testing.T, s *Server, u uri.URI, version int32, rawChanges []json.RawMessage) {
 	t.Helper()
 	params := map[string]any{
-		"textDocument": map[string]any{"uri": u, "version": version},
-		"contentChanges": func() []json.RawMessage {
-			return rawChanges
-		}(),
+		"textDocument":   map[string]any{"uri": u, "version": version},
+		"contentChanges": rawChanges,
 	}
-	req, err := jsonrpc2.NewNotification(protocol.MethodTextDocumentDidChange, params)
-	if err != nil {
-		t.Fatalf("NewNotification: %v", err)
-	}
-	handler := s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler))
-	reply := func(ctx context.Context, result any, err error) error { return err }
-	if err := handler(context.Background(), reply, req); err != nil {
-		t.Fatalf("changeHandler: %v", err)
+	d := newDispatcher(t, protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler))
+	if h := d.notify(t, context.Background(), protocol.MethodTextDocumentDidChange, params); h.err != nil {
+		t.Fatalf("didChange: %v", h.err)
 	}
 }
 
 func openDoc(t *testing.T, s *Server, u uri.URI, text string) {
 	t.Helper()
+	requireTestOwnedDir(t, u)
 	if err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{URI: u, Version: 1, Text: text},
 	}); err != nil {
@@ -69,26 +62,26 @@ func openDoc(t *testing.T, s *Server, u uri.URI, text string) {
 
 func TestDidChangeFullReplace(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	openDoc(t, s, u, "package P;\n")
 	// A full-document replace omits "range" entirely.
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"text":"package Q;\n"}`),
 	})
-	if got := string(s.ws.Document(u.Filename()).Content); got != "package Q;\n" {
+	if got := string(s.ws.Document(u.FsPath()).Content); got != "package Q;\n" {
 		t.Errorf("content = %q, want %q", got, "package Q;\n")
 	}
 }
 
 func TestDidChangeIncremental(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	openDoc(t, s, u, "package P;\n")
 	// Replace the single character 'P' (line 0, chars 8..9) with "Hello".
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"range":{"start":{"line":0,"character":8},"end":{"line":0,"character":9}},"text":"Hello"}`),
 	})
-	if got := string(s.ws.Document(u.Filename()).Content); got != "package Hello;\n" {
+	if got := string(s.ws.Document(u.FsPath()).Content); got != "package Hello;\n" {
 		t.Errorf("content = %q, want %q", got, "package Hello;\n")
 	}
 }
@@ -98,12 +91,12 @@ func TestDidChangeIncremental(t *testing.T) {
 // front instead of wiping the buffer.
 func TestDidChangeIncrementalInsertAtStart(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	openDoc(t, s, u, "package P;\n")
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"text":"X"}`),
 	})
-	if got := string(s.ws.Document(u.Filename()).Content); got != "Xpackage P;\n" {
+	if got := string(s.ws.Document(u.FsPath()).Content); got != "Xpackage P;\n" {
 		t.Errorf("content = %q, want %q", got, "Xpackage P;\n")
 	}
 }
@@ -112,13 +105,13 @@ func TestDidChangeIncrementalInsertAtStart(t *testing.T) {
 // start must apply all edits sequentially against the accumulating buffer.
 func TestDidChangeMultiChangeStartingAtOffsetZero(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	openDoc(t, s, u, "abc\n")
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"text":"X"}`),
 		json.RawMessage(`{"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":4}},"text":"Y"}`),
 	})
-	if got := string(s.ws.Document(u.Filename()).Content); got != "XabcY\n" {
+	if got := string(s.ws.Document(u.FsPath()).Content); got != "XabcY\n" {
 		t.Errorf("content = %q, want %q", got, "XabcY\n")
 	}
 }
@@ -127,13 +120,13 @@ func TestDidChangeMultiChangeStartingAtOffsetZero(t *testing.T) {
 // UTF-16 columns; the byte offset must skip the 4-byte emoji correctly.
 func TestDidChangeIncrementalAstral(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	openDoc(t, s, u, "😀ab\n") // emoji = 2 UTF-16 units; 'a' at char 2, 'b' at char 3
 	// Replace 'a' (chars 2..3) with "Z".
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"range":{"start":{"line":0,"character":2},"end":{"line":0,"character":3}},"text":"Z"}`),
 	})
-	if got := string(s.ws.Document(u.Filename()).Content); got != "😀Zb\n" {
+	if got := string(s.ws.Document(u.FsPath()).Content); got != "😀Zb\n" {
 		t.Errorf("content = %q, want %q", got, "😀Zb\n")
 	}
 }
@@ -148,7 +141,7 @@ func TestDidCloseRemovesOpenState(t *testing.T) {
 		t.Fatalf("DidClose error: %v", err)
 	}
 	// With no on-disk backing, closing removes the document entirely.
-	if doc := s.ws.Document(u.Filename()); doc != nil {
+	if doc := s.ws.Document(u.FsPath()); doc != nil {
 		t.Errorf("document still present after close: %q", doc.Content)
 	}
 }

@@ -1,3 +1,4 @@
+// Deliberately invalid: `remoteView` locates its Picture at a URL no drawing tool reads — the error is the point, as the rendering reports why the picture is not drawn.
 package Site {
 	private import Views::*;
 	private import StandardViewDefinitions::*;

@@ -23,7 +23,7 @@ package Camera {
         port data : DataPort;
         constraint focus : Focus;
         action capture;
-        item frame : Frame;
+        item 'frame' : Frame;
     }
 }
 

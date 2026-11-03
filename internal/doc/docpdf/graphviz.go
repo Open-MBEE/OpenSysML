@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
 // graphvizRasterizer draws DOT blocks to SVG with Graphviz's dot executable,
@@ -43,43 +45,24 @@ func (g *graphvizRasterizer) draw(dir, source, output string) error {
 	return embedImages(filepath.Join(dir, output), cwd)
 }
 
-// graphvizEngines are the layout engines a `// layout:` header may name.
-var graphvizEngines = map[string]bool{
-	"dot": true, "neato": true, "fdp": true, "sfdp": true, "circo": true, "twopi": true, "osage": true, "patchwork": true,
-}
-
 // layoutArgs selects the layout engine from the `// layout:` header the DOT
 // writer opens a block with: `neato -n` and `neato -n2` keep the positions
 // the block states, as -K and -n ask Graphviz to. A block without a header it
 // understands is laid out by dot.
 func layoutArgs(source string) []string {
 	fallback := []string{"-Kdot"}
-	for _, line := range strings.Split(source, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if !strings.HasPrefix(line, "//") {
-			break
-		}
-		spec, ok := strings.CutPrefix(line, "// layout:")
-		if !ok {
-			continue
-		}
-		fields := strings.Fields(spec)
-		if len(fields) == 0 || !graphvizEngines[fields[0]] {
+	engine, flags := view.DOTLayout(source)
+	if engine == "" {
+		return fallback
+	}
+	args := []string{"-K" + engine}
+	for _, flag := range flags {
+		switch flag {
+		case "-n", "-n1", "-n2":
+			args = append(args, flag)
+		default:
 			return fallback
 		}
-		args := []string{"-K" + fields[0]}
-		for _, flag := range fields[1:] {
-			switch flag {
-			case "-n", "-n1", "-n2":
-				args = append(args, flag)
-			default:
-				return fallback
-			}
-		}
-		return args
 	}
-	return fallback
+	return args
 }

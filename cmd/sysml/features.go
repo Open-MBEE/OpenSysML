@@ -74,8 +74,7 @@ var (
 		name: "docpdf",
 		flags: append(flags("pdf-engine", "html-theme", "html-css", "html-mermaid", "html-math"),
 			boolFlags("doc-title-page", "doc-toc", "doc-number-sections",
-				"html-no-default-css", "html-fragment", "html-default-css",
-				"pdf-title-page", "pdf-toc", "pdf-number-sections")...),
+				"html-no-default-css", "html-fragment", "html-default-css")...),
 		values:  map[string][]string{"doc-form": {"html", "pdf"}},
 		markers: []string{"-doc-form html", "-doc-form pdf"},
 	}
@@ -339,15 +338,15 @@ func outputUsage() string {
 // docFormUsage is -doc-form's usage, naming the forms this build writes.
 func docFormUsage() string {
 	if docpdfFeature.linked {
-		return "Form the documents are written in: markdown (default), html or pdf, which drives an external converter"
+		return "Form the documents are written in: markdown (default), asciidoc, html or pdf, which drives an external converter"
 	}
-	return "Form the documents are written in: markdown, the only form this build writes"
+	return "Form the documents are written in: markdown (default) or asciidoc, the forms this build writes"
 }
 
 // docNumberFiguresUsage is -doc-number-figures' usage in this build.
 func docNumberFiguresUsage() string {
 	if docpdfFeature.linked {
-		return "Number the figures and tables in their captions, Figure 1. and Table 1. in document order (markdown, html or pdf)"
+		return "Number the figures and tables in their captions, Figure 1. and Table 1. in document order (markdown, asciidoc, html or pdf)"
 	}
 	return "Number the figures and tables in their captions, Figure 1. and Table 1. in document order"
 }

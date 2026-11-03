@@ -94,8 +94,9 @@ func solveQueryReport(name string, q *solve.Query, solved analysis.Evaluation) S
 	switch result.Status {
 	case solve.StatusSat:
 		lines := []string{fmt.Sprintf("✓ %s is satisfiable (%s)", subject, solveDetail(result))}
+		lines = append(lines, assignmentLines(result.Model)...)
 		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver,
-			Lines: append(lines, assignmentLines(result.Model)...)}
+			Lines: append(lines, derivedLines(q)...)}
 	case solve.StatusUnsat:
 		if report, rounded := roundedUnsatReport(name, subject, result, q); rounded {
 			return report

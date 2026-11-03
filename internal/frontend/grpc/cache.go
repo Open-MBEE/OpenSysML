@@ -3,6 +3,7 @@ package grpc
 import (
 	"container/list"
 	"fmt"
+	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
 	goruntime "runtime"
 	"sync"
 
@@ -91,6 +92,10 @@ type CachedModel struct {
 	// Mode is the conformance strictness the parse request asked for; an edit's
 	// notation is judged at the same strictness.
 	Mode diag.ConformanceMode
+	// Findings are what is wrong with the model's documents taken together, a
+	// library package two of them declare; each names the document it is on,
+	// which may be a library document rather than one of Documents.
+	Findings []checkws.Finding
 	// analysis is what a model answered from a lineage records of its
 	// documents' analyses, for ParseSourcesResponse.affected; nil for a model
 	// parsed fresh (lineage.go).
@@ -101,11 +106,10 @@ type CachedModel struct {
 	positionalOnce sync.Once
 	positional     map[*symbols.Symbol]string
 	byPositional   map[string]*symbols.Symbol
-	// elementIDs is what a conversion of the model writes as each element's
+	// elementIDs reads what a conversion of the model writes as each element's
 	// elementId, which a query reports (queryEval.elementID).
 	elementIDsOnce sync.Once
-	elementIDs     *export.ElementIDs
-	elementIDsErr  error
+	elementIDs     *export.ElementIDReader
 
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex

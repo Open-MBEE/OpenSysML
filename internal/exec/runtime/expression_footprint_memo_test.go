@@ -33,7 +33,7 @@ func TestExpressionFootprintIsMemoizedPerModel(t *testing.T) {
 	scope := idx.LookupQualified("test::P")[0].Scope
 	expr := sum.Decl.(*ast.Usage).Value
 
-	want := lower.ExpressionFootprint(scope, expr)
+	want := lower.ExpressionFootprint(model.resolver, model.semantics, scope, expr)
 	if len(want.Reads) != 2 {
 		t.Fatalf("the footprint of a + b reads %d places, want 2", len(want.Reads))
 	}

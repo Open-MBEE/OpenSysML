@@ -8,9 +8,8 @@ package Landing {
     part slowLander : Lander;
 
     assert satisfy requirement grounded by slowLander {
-        subject lander : Lander;
         require constraint {
-            lander.verticalSpeed <= 1.5
+            slowLander.verticalSpeed <= 1.5
         }
     }
 

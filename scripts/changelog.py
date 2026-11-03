@@ -20,6 +20,8 @@ Run from the repository root:
     python3 scripts/changelog.py summary            # one line per unreleased entry, for a snapshot's notes
     python3 scripts/changelog.py release 0.5.0      # render, then date the section as a release
     python3 scripts/changelog.py release 0.5.0 --date 2026-09-10
+    python3 scripts/changelog.py release-notes 0.5.0  # a GitHub release body: that section, then the support statement
+    python3 scripts/changelog.py release-notes        # the support statement and verification link alone (nightly notes)
 """
 
 from __future__ import annotations
@@ -33,6 +35,15 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CHANGELOG = ROOT / "CHANGELOG.md"
 FRAGMENTS = ROOT / "changes" / "unreleased"
+SECURITY = ROOT / "SECURITY.md"
+MKDOCS = ROOT / "mkdocs.yml"
+SUPPORT_BEGIN = "<!-- support-statement:begin -->"
+SUPPORT_END = "<!-- support-statement:end -->"
+# The section of docs/guide/security.md the release notes send a reader to.
+VERIFY_PAGE = "guide/security/#verifying-a-release"
+# GitHub refuses a release body over 125,000 characters; the changelog part stays under this so
+# the footer and whatever GitHub appends fit.
+SECTION_BUDGET = 100_000
 
 SECTIONS = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security", "Performance"]
 SECTION_BY_KEY = {s.lower(): s for s in SECTIONS}
@@ -231,19 +242,24 @@ def _lead(item: str) -> str:
     return m.group(0).rstrip() if m else text
 
 
-def summary() -> None:
-    """Print each unreleased entry as one line under its section, fragments included."""
-    new = _folded(fragments())
-    start, end = _unreleased_bounds(new)
+def _outline(body: str) -> str:
+    """Each entry of a version body as one line under its section heading."""
     out = []
-    for name, content in _split_sections(new[start:end])[1]:
+    for name, content in _split_sections(body)[1]:
         items = [i.strip() for i in LIST_ITEM.split(content.strip("\n")) if i.strip()]
         if not items:
             continue
         out.append(f"### {name}\n")
         out.extend(f"- {_lead(item)}" for item in items)
         out.append("")
-    sys.stdout.write("\n".join(out))
+    return "\n".join(out)
+
+
+def summary() -> None:
+    """Print each unreleased entry as one line under its section, fragments included."""
+    new = _folded(fragments())
+    start, end = _unreleased_bounds(new)
+    sys.stdout.write(_outline(new[start:end]))
 
 
 def release(version: str, date: str | None) -> int:
@@ -269,6 +285,71 @@ def release(version: str, date: str | None) -> int:
     return 0
 
 
+def support_statement() -> str:
+    """The support period as SECURITY.md states it, between its support-statement markers."""
+    text = SECURITY.read_text(encoding="utf-8")
+    begin, end = text.find(SUPPORT_BEGIN), text.find(SUPPORT_END)
+    if begin < 0 or end < begin:
+        raise SystemExit(f"{_rel(SECURITY)} has no {SUPPORT_BEGIN} … {SUPPORT_END} block")
+    return " ".join(text[begin + len(SUPPORT_BEGIN) : end].split())
+
+
+def _mkdocs_url(key: str) -> str:
+    m = re.search(rf"^{key}:[ \t]*(\S+)", MKDOCS.read_text(encoding="utf-8"), re.MULTILINE)
+    if not m:
+        raise SystemExit(f"{_rel(MKDOCS)} sets no {key}")
+    return m.group(1).rstrip("/")
+
+
+def version_section(version: str) -> str:
+    """The body of CHANGELOG.md's section for `version`, heading excluded."""
+    text = CHANGELOG.read_text(encoding="utf-8")
+    m = re.search(rf"^## {re.escape(version)}(?: — .*)?\n", text, re.MULTILINE)
+    if not m:
+        raise SystemExit(f"CHANGELOG.md has no section for {version}")
+    nxt = re.compile(r"^## ", re.MULTILINE).search(text, m.end())
+    return text[m.end() : nxt.start() if nxt else len(text)].strip("\n")
+
+
+def _entries(text: str) -> int:
+    return sum(1 for line in text.splitlines() if line.startswith("- "))
+
+
+def within_budget(section: str, version: str, repo: str) -> str:
+    """The section as written when a release body holds it; else one line per entry, cut at an
+    entry when even that is too long, with the full text pointed at in CHANGELOG.md at the tag."""
+    if len(section) <= SECTION_BUDGET:
+        return section
+    full = f"[`CHANGELOG.md`]({repo}/blob/v{version}/CHANGELOG.md) at this tag"
+    outline = _outline(section)
+    body = f"One line per entry, the section being longer than a release body holds; the full text is in {full}.\n\n{outline}"
+    if len(body) > SECTION_BUDGET:
+        kept = body[: body.rfind("\n- ", 0, SECTION_BUDGET - 200)]
+        body = f"{kept}\n\n… and {_entries(outline) - _entries(kept)} more entries, in {full}.\n"
+    return body.rstrip("\n")
+
+
+def release_notes(version: str | None) -> str:
+    """A GitHub release body: the version's changelog section when one is named, then the
+    support period from SECURITY.md and where the site explains verifying a download."""
+    repo, site = _mkdocs_url("repo_url"), _mkdocs_url("site_url")
+    parts = []
+    if version is not None:
+        version = version.lstrip("v")
+        if not VERSION.match(version):
+            raise SystemExit(f"version {version!r} is not a semantic version")
+        parts.append(within_budget(version_section(version), version, repo))
+    parts.append(
+        f"**Supported versions.** {support_statement()} How to report a vulnerability, and what to"
+        f" expect, is in [SECURITY.md]({repo}/security/policy)."
+    )
+    parts.append(
+        f"**Verify your download.** Check `SHA256SUMS.txt` and its cosign signature before running"
+        f" anything: [{site}/{VERIFY_PAGE}]({site}/{VERIFY_PAGE})."
+    )
+    return "\n\n".join(parts) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -279,6 +360,8 @@ def main(argv: list[str] | None = None) -> int:
     rel = sub.add_parser("release", help="render, then turn Unreleased into a dated version section")
     rel.add_argument("version")
     rel.add_argument("--date", help="YYYY-MM-DD (default: today)")
+    notes = sub.add_parser("release-notes", help="print a GitHub release body; without a version, only its support footer")
+    notes.add_argument("version", nargs="?")
     a = ap.parse_args(argv)
     if a.cmd == "check":
         return check()
@@ -287,6 +370,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if a.cmd == "summary":
         summary()
+        return 0
+    if a.cmd == "release-notes":
+        sys.stdout.write(release_notes(a.version))
         return 0
     return release(a.version, a.date)
 

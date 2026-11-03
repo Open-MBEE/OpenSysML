@@ -216,16 +216,15 @@ const (
 	EdgeFlow
 	// EdgeBinding is a binding equating two features.
 	EdgeBinding
-	// EdgeSpecialization is a specialization, subsetting or redefinition, from
-	// the specific element to the general one.
+	// EdgeSpecialization is a specialization (or subclassification), from the
+	// specific element to the general one.
 	EdgeSpecialization
 	// EdgeTyping is a feature typing, from a usage to its definition.
 	EdgeTyping
 	// EdgeComposition is a composite usage, from its owner to it; in a case
 	// diagram, a case contained in another.
 	EdgeComposition
-	// EdgeReference is a referential usage, from its owner to it; in a case or
-	// mixed diagram, a performing or exhibiting usage to its target.
+	// EdgeReference is a referential usage, from its owner to it.
 	EdgeReference
 	// EdgeContainment is a package owning another, from the owner.
 	EdgeContainment
@@ -248,49 +247,87 @@ const (
 	EdgeInclude
 	// EdgeAnchor attaches an objective to a case.
 	EdgeAnchor
+	// EdgeDependency is a dependency of no particular kind, from the client.
+	EdgeDependency
+	// EdgeSubsetting is a subsetting, from the subsetting feature to the subsetted one.
+	EdgeSubsetting
+	// EdgeRedefinition is a redefinition, from the redefining feature to the redefined one.
+	EdgeRedefinition
+	// EdgePerform is a performing usage to the action it performs, in a case or mixed diagram.
+	EdgePerform
+	// EdgeExhibit is an exhibiting usage to the state it exhibits, in a case or mixed diagram.
+	EdgeExhibit
+	// EdgeSuccessionFlow is a succession flow: a flow whose target also follows
+	// its source, drawn dashed with a filled head and the text «succession flow».
+	EdgeSuccessionFlow
+	// EdgeRequire is a requirement constraint membership, from the requirer to
+	// the required constraint or requirement.
+	EdgeRequire
+	// EdgeAssume is an assumed constraint membership, from the assumer to the
+	// assumed constraint.
+	EdgeAssume
+	// EdgeAssert is an asserted constraint, from the assertor to the constraint.
+	EdgeAssert
+	// EdgeFrame is a framed concern, from the framer to the concern.
+	EdgeFrame
+	// EdgeEvent is an event occurrence, from the eventer to the occurrence.
+	EdgeEvent
+	// EdgePortion is a timeslice or snapshot, from the occurrence to its portion.
+	EdgePortion
+	// EdgeReferenceSubsetting is a reference subsetting (`::>`), from the
+	// referencing usage to the referenced one.
+	EdgeReferenceSubsetting
+	// EdgeUnownedMembership is a namespace's membership of an element it does
+	// not own — an alias — from the namespace.
+	EdgeUnownedMembership
+	// EdgeExpose is a view's exposure of an element, from the view.
+	EdgeExpose
+	// edgeKindCount is one past the last edge kind, sizing edgeKindNames.
+	edgeKindCount
 )
+
+// edgeKindNames names each edge kind the way the notation speaks of it.
+var edgeKindNames = [edgeKindCount]string{
+	EdgeConnection:          "connection",
+	EdgeTransition:          "transition",
+	EdgeSuccession:          "succession",
+	EdgeFlow:                "flow",
+	EdgeBinding:             "binding",
+	EdgeSpecialization:      "specialization",
+	EdgeTyping:              "typing",
+	EdgeComposition:         "composition",
+	EdgeReference:           "reference",
+	EdgeContainment:         "containment",
+	EdgeImport:              "import",
+	EdgeSatisfy:             "satisfy",
+	EdgeVerify:              "verify",
+	EdgeDerive:              "derive",
+	EdgeRefine:              "refine",
+	EdgeAllocate:            "allocate",
+	EdgeAssociation:         "association",
+	EdgeInclude:             "include",
+	EdgeAnchor:              "anchor",
+	EdgeDependency:          "dependency",
+	EdgeSubsetting:          "subsetting",
+	EdgeRedefinition:        "redefinition",
+	EdgePerform:             "perform",
+	EdgeExhibit:             "exhibit",
+	EdgeSuccessionFlow:      "succession flow",
+	EdgeRequire:             "require",
+	EdgeAssume:              "assume",
+	EdgeAssert:              "assert",
+	EdgeFrame:               "frame",
+	EdgeEvent:               "event",
+	EdgePortion:             "portion",
+	EdgeReferenceSubsetting: "reference subsetting",
+	EdgeUnownedMembership:   "unowned membership",
+	EdgeExpose:              "expose",
+}
 
 // String names an edge kind the way the notation speaks of it.
 func (k EdgeKind) String() string {
-	switch k {
-	case EdgeConnection:
-		return "connection"
-	case EdgeTransition:
-		return "transition"
-	case EdgeSuccession:
-		return "succession"
-	case EdgeFlow:
-		return "flow"
-	case EdgeBinding:
-		return "binding"
-	case EdgeSpecialization:
-		return "specialization"
-	case EdgeTyping:
-		return "typing"
-	case EdgeComposition:
-		return "composition"
-	case EdgeReference:
-		return "reference"
-	case EdgeContainment:
-		return "containment"
-	case EdgeImport:
-		return "import"
-	case EdgeSatisfy:
-		return "satisfy"
-	case EdgeVerify:
-		return "verify"
-	case EdgeDerive:
-		return "derive"
-	case EdgeRefine:
-		return "refine"
-	case EdgeAllocate:
-		return "allocate"
-	case EdgeAssociation:
-		return "association"
-	case EdgeInclude:
-		return "include"
-	case EdgeAnchor:
-		return "anchor"
+	if k >= 0 && k < edgeKindCount && edgeKindNames[k] != "" {
+		return edgeKindNames[k]
 	}
 	return "edge"
 }
@@ -311,6 +348,9 @@ type Node struct {
 	// NameSynthesized marks a name the model did not give: a migration made it up, or
 	// it is the language's `start`/`done`. A name to key by, not one a picture shows.
 	NameSynthesized bool
+	// Member is the name the owner's body knows an unnamed node by — the
+	// language's `start` or `done` —, which a Layout about Owner::Member places.
+	Member string
 	// Referential marks a structural usage that refers to its value rather
 	// than owning it (`ref part`): a row of a tool's references compartment.
 	Referential bool
@@ -323,6 +363,11 @@ type Node struct {
 	// Typings are the qualified names of the elements Type resolves to, in its
 	// order; a member of one is drawn as the type's own. Empty when none resolves.
 	Typings []string
+	// Inherited marks a usage the node's owner does not declare — one it has through
+	// typing, subclassification or subsetting — drawn under the owner as the type's own:
+	// the notation prefixes its name with `^`, and a folding that hides it hides nothing
+	// of the owner's. A redefining usage the owner declares is its own, not inherited.
+	Inherited bool
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
@@ -346,9 +391,9 @@ type Node struct {
 	// Origin is where the element was declared, the zero Origin for one with no
 	// locatable declaration.
 	Origin Origin
-	// Inherited is where the declarations a drawn behavior took content from besides
+	// InheritedFrom is where the declarations a drawn behavior took content from besides
 	// its own were written (what it specializes or is typed by); only a root has them.
-	Inherited []Origin
+	InheritedFrom []Origin
 	// Geometry is where the element is drawn, from the Layout annotation that
 	// positions it in this view; nil leaves the placement to the writer.
 	Geometry *Geometry
@@ -392,6 +437,9 @@ type Port struct {
 	// Exposed marks a pin the view exposes in its own right, drawn whatever
 	// the display shows of the other pins.
 	Exposed bool `json:",omitempty"`
+	// Inherited marks a port the node's owner has from its type rather than declares:
+	// the notation prefixes its name with `^`.
+	Inherited bool `json:",omitempty"`
 }
 
 // PortDirection is which way a port's values flow.
@@ -421,9 +469,15 @@ func (d PortDirection) String() string {
 	return "in"
 }
 
+// displayName is the name a port is drawn by: its Name after the notation's `^`
+// when the node's owner has the port from its type rather than declares it.
+func (p Port) displayName() string {
+	return usagePrefix(p.Inherited && p.Name != "") + p.Name
+}
+
 // label is the text a port is drawn with: its name, and its type where it has one.
 func (p Port) label() string {
-	name := p.Name
+	name := p.displayName()
 	if p.NameSynthesized {
 		name = ""
 	}
@@ -525,6 +579,8 @@ type Rendering struct {
 	emptyReason string
 	// drawn collects the elements drawn while rendering, nil when no one asked.
 	drawn *Drawn
+	// folds are the behaviour roots whose collapsed nodes foldCollapsed folds once every edge is drawn.
+	folds []*Node
 	// narrowed marks a rendering showing() already narrowed to its Shown.
 	narrowed bool
 	// sites records, while a tree renders, what each of its nodes draws; nil
@@ -585,8 +641,11 @@ func (r *Rendering) Positioned() bool {
 // recognized kind this package does not produce is an *UnsupportedKindError —
 // never another kind's rendering.
 func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
-	return r.render(view, nil)
+	return r.render(view, newDrawn())
 }
+
+// Drawn is what the rendering draws, for the edits that apply to it.
+func (r *Rendering) Drawn() *Drawn { return r.drawn }
 
 // render is Render, collecting what is drawn into drawn when it is not nil.
 func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error) {
@@ -630,6 +689,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
+	foldCollapsed(out)
 	r.noteDepthCuts(view, out)
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = r.exposureReason(view, exposed, out)
@@ -678,6 +738,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	default:
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
 	}
+	foldCollapsed(out)
 	r.noteDepthCuts(nil, out)
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = exposedReason(exposed, out)
@@ -1065,15 +1126,6 @@ func referenceText(node ast.Node) string {
 		sb.WriteString(source.NameText(part.Text))
 	}
 	return sb.String()
-}
-
-// simpleName is the last segment of a qualified name, which is what a nested
-// node is labeled with.
-func simpleName(fqn string) string {
-	if i := strings.LastIndex(fqn, "::"); i >= 0 {
-		return fqn[i+2:]
-	}
-	return fqn
 }
 
 // notationName writes a reference read as joined qualified text (a `render`

@@ -1,0 +1,186 @@
+# Reading installed packages
+
+Status: §1 is shipped; §3 (a plain `lib/` beside `.project.json`, `@<version>` in a usage IRI) is
+in progress. Nothing in this document is a package manager: OpenSysML has none and will not grow one.
+
+**Division of labour.** OpenSysML (`sysml`, `sysml-lsp`, the REPL, the kernel, the MCP server) is
+an analyser: it *reads* what a package manager installs and never fetches. Whichever package
+manager a modeler uses — sysand today, any other tool that installs KerML §10.3 project-interchange
+packages tomorrow — fetches, verifies, installs and locks. Supporting a package manager in
+OpenSysML means one well-known install directory in `wellKnownLibraryDirs` plus whatever IRI scheme
+its usages carry, read-only; nothing in the loader, LSP or validator reaches the network.
+
+## 0. Goals and non-goals
+
+Goals
+
+- A modeler installs a dependency with their package manager, and the project it names is
+  resolvable by `sysml`, `sysml-lsp`, the REPL, the kernel and the MCP server — which need no flag
+  and no network to find it.
+- Everything is the OMG format first: KerML §10.3 `.project.json`, `.meta.json`, `.kpar`. No
+  tool-specific file is required to consume a package, and OpenSysML requires none to read one.
+- Portable: any tool that reads the OMG format can consume the same installed tree with nothing
+  OpenSysML-specific — no extension library, no registration, no bespoke metadata file.
+- Tool-agnostic: any `.project.json` usage IRI that a package manager (sysand, a future OMG
+  registry, a plain git remote or URL) answers must keep working once the project is on disk.
+- OpenSysML stays a reader, so the analyser carries no opinion about where packages come from; it
+  reads every package manager's installs alike.
+
+Non-goals
+
+- A client inside OpenSysML: no `sysml -add/-install/-lock`, no auto-download from `-validate` or the
+  LSP, no lock file or package index code in this repository, ever.
+- A lax mode: a directory or archive without `.project.json` is not a project and is an error,
+  never a synthesized project.
+- Replacing sysand for its users, or recommending one package manager over another.
+- Binary/engine packaging (that is `bring-your-own-engines.md`).
+
+## 1. What exists today (read side, shipped)
+
+`internal/workspace/project/` — about 2300 lines of non-test Go, all spec-driven, no sysand code:
+
+| Capability | Where | Notes |
+|---|---|---|
+| Parse `.project.json` (Table 12) | `interchange.go` `parseInterchange` | `name`/`version` mandatory; `publisher` read (sysand extension, optional); unknown keys kept |
+| Parse/verify `.meta.json`, read `.kpar` in memory | `archive.go` `ParseArchive`, `ParseMeta`, `verify` | every checksum of a known algorithm verified before any member is read; path traversal, symlink escape and size bounds enforced |
+| Write/unpack archives deterministically | `bundle.go`, CLI `-bundle`/`-unbundle` | byte-identical output; `SOURCE_DATE_EPOCH` honoured |
+| Find installed projects | `discovery.go` `Discovery.Around` | nearest enclosing project + usage closure under well-known dirs (`.sysand/lib`) and `-library-root`/`OPENSYSML_LIBRARY_ROOTS`/LSP `libraryRoots` |
+| Match usage → installed project | `interchange.go` `Uses`, `resourceSegments`, `slug` | last two IRI path segments = publisher/name, lower-case slugs; `versionConstraint` an npm-style semver range (exact, `^`, `~`, comparators, `x`, hyphen, `\|\|`), highest satisfying installed version, else a warning; none → latest (semver order) |
+| OMG std-lib usages | `discovery.go` | `https://www.omg.org/spec/{KerML,SysML}/20250201/*.kpar` answered by the bundled library |
+| Import-driven dependency search | `deps.go` | unresolved root namespace → project files → installed projects |
+| Fixtures | `tests/kpar/testdata/{omg,sysand}` | the 10 OMG release archives; one sysand-laid-out project with a dir and a `.kpar` dependency |
+
+What does not exist here, by design: anything that touches the network, writes `.project.json`,
+resolves a version range, records a lock, publishes, or lists what is available — that is the
+package manager's job, whichever one the modeler uses.
+
+## 2. What sysand does (for interop, measured from its docs 2026-10)
+
+- IRIs: `pkg:sysand/<publisher>/<name>[@version]`; `publisher` is a sysand extension field in `.project.json`.
+- Install layout: `<project>/.sysand/lib/<publisher>-<name>_<version>/` or `.kpar`; std libs are never installed.
+- Lock: `sysand-lock.toml` (identifiers list + sources list per project, checksums). OpenSysML
+  never reads it; the installed tree is the interface.
+- Config: `sysand.toml` (`[[index]] url`, `[[project]] identifiers/sources` overrides: `src_path`, `editable`, `kpar_path`, `remote_kpar`, `remote_src`).
+- Index: static files, `<index>/<publisher>/<name>/versions.json` (+ per-version data); `sysand index init|add|yank|remove` builds one from `.kpar`s; sysand.com is the default index.
+- Licence: `MIT OR Apache-2.0`, Rust. We import none of it and need not.
+
+Interop contract we honour: resolve `pkg:sysand/...` IRIs (matched by slug) and keep reading
+`.sysand/lib`.
+
+## 3. What OpenSysML reads (the whole contract)
+
+A package manager and OpenSysML meet only on disk, at the consuming project's `.project.json`:
+
+- **Well-known install directories.** `lib/` beside `.project.json` joins `.sysand/lib` in
+  `wellKnownLibraryDirs`; each holds installed projects as `<publisher>-<name>_<version>/`
+  directories or `.kpar` files, found by their own `.project.json`, never by directory name. A project
+  walking its own files skips its library directories, so `-validate proj/` does not load every
+  installed version. `-library-root`/`OPENSYSML_LIBRARY_ROOTS` and `.kpar` files on the command line
+  remain the explicit alternatives.
+- **Usage IRIs.** `resource` is an IRI (Table 12); OpenSysML matches it to an installed project by
+  the last two path segments (publisher/name slugs). This covers `pkg:sysand/<publisher>/<name>`,
+  a version-control repository in its ECMA-427 form and a plain URL alike, with
+  `https://www.omg.org/spec/...kpar` answered by the bundled standard library. A repository is
+  written as ECMA-427 (purl) Clause 5 and Annex B.3.5 have it — a package URL of type `generic`
+  whose `vcs_url` qualifier carries `<vcs>+<transport>://<host>/<path>[@<version>][#<subpath>]`,
+  percent-encoded: `pkg:generic/sysmod-sysmlv2?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2FMBSE4U%2Fsysmod-sysmlv2%405.1.6`
+  is what a package manager writes into `.project.json`, with no provider vocabulary — and
+  OpenSysML reads the decoded qualifier as the location (`Usage.location` in
+  `internal/workspace/project/interchange.go`), so the host/path segments, the `@<version>` and the
+  `#<subpath>` are the ones inside it. The alias `pkg:git/<host>/<path>[@<version>][#<subpath>]`
+  (`pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library@1.0.0`; `pkg:svn/`, `pkg:hg/` too)
+  and the bare `<vcs>+<transport>://…` URL are read the same way, so the three spellings of one
+  repository link the same installed project with the same warning, and a repository path's `.git`
+  suffix is not part of the name (a named resource's last segment, `pkg:<registry>/acme/widget.git`,
+  is kept whole). A `vcs_url` that does not decode to a `<vcs>+<transport>://<host>/<path>` URL
+  with `<vcs>` one of `git`, `svn` or `hg` is a `project.load` warning at the consumer's
+  `.project.json` and the usage links nothing — a plain `https://` URL in the qualifier is not a
+  repository and is never linked by elimination. A purl `#<subpath>` fragment names a project
+  directory within the repository the path names (`pkg:git/host/acme/widgets#packages/gears`): the
+  installed project matched is the fragment's last segment under the repository's owner
+  (`acme`/`gears`), read through its own installation alone.
+  A repository path need not spell the project's publisher/name (`MBSE4U/sysmod-sysmlv2` installs
+  publisher `mbse4u`, name `sysmod`), so a usage whose resource spells a *location* — a
+  version-control repository in any of those spellings, or a plain scheme URL — and slug-matches
+  nothing is linked by elimination: among the installed projects under the consumer's library roots
+  that no other usage claims (a claimed project's other versions count as claimed), those whose
+  version satisfies the usage's constraint are its candidates; one publisher/name among them → that
+  project, highest satisfying version, with a warning naming the project taken and the
+  publisher/name the resource should end with; several → the usage stays unresolved with a warning
+  naming each candidate. Both warnings are judged by the exit policy (`-warnings-as-errors`, `-json`,
+  the baseline) and both are resolved by spelling the project's publisher/name in the usage. A
+  resource that *names* a project (`pkg:sysand/<publisher>/<name>`, any other
+  `pkg:<type>/<publisher>/<name>`) is matched by name alone and stays unresolved when that project
+  is not installed — it never falls back to an unrelated install. Installed projects no usage
+  claims are not loaded.
+- **Versions.** KerML 1.1 §10.3 (Table 12) makes `versionConstraint` a string and defines no
+  syntax for it, so OpenSysML accepts the de-facto one package managers share, the npm-style semver
+  range: an exact version (`1.2.3`, `=1.2.3`, `v1.2.3`), comparators (`<`, `<=`, `>`, `>=`), caret
+  (`^1.2`), tilde (`~1.2.3`), `x`/`*` wildcards (`1.x`), hyphen ranges (`1.0.0 - 2.0.0`), space or
+  comma as AND and `||` as OR, pre-releases ordered as semver 2.0.0 orders them and admitted only
+  where the range names their release (`>=1.0.0-rc.1`, as npm ranges do). The highest
+  installed version in the range is taken; no version in it, or a constraint outside the grammar,
+  is a `project.load` warning at the consumer's `.project.json` and the usage links nothing (never
+  silently "any"). No constraint → the latest installed. `@<version>` in the IRI is an exact
+  constraint when the usage carries no `versionConstraint`. Which version lands under `lib/` is the
+  package manager's decision at install time, made from its own lock; OpenSysML never reads a lock
+  file and matches the usage against whatever is installed.
+- **Verification.** An archive's `.meta.json` checksums, path traversal, symlink escape and size
+  bounds are checked on the read side regardless of who wrote it; a checksum that fails refuses the
+  archive (a warning under a library root). An installed directory's `.meta.json` is not verified:
+  the tagged tree is the project, and its files are read as they stand. An archive holding the
+  project's folder rather than its contents (the OMG library releases) is read as the project in
+  that folder, and an index entry naming no member is passed over for the members' declarations;
+  each is a warning on the archive, since name resolution never trusts the index.
+- **Nothing else.** No fetch, no lock reading, no index, no `add`/`install` command, no network from
+  `-validate`, the LSP, the REPL or the kernel. Editor affordances stay read-only: an unresolved root
+  namespace is a diagnostic that names the project files and well-known directories searched.
+
+Adding support for a further package manager is the same two items — its install directory in
+`wellKnownLibraryDirs` and, if it has one, its IRI scheme in `resourceSegments` — plus a
+`tests/kpar/testdata` fixture laid out the way that tool installs.
+
+## 4. What publishing a package takes (for our own libraries)
+
+The Extensions Library (`Open-MBEE/OpenSysML-Extensions-Library`) is published as a project any
+package manager can install: a root `.project.json` (`name` "OpenSysML Extensions Library",
+`publisher` Open-MBEE, `version` equal to the release tag, the OMG standard-library archives as
+its `usage`) and `.meta.json` (index of root namespace → `libraries/<Unit>`, SHA-256 per unit and
+for `LICENSE`), `scripts/build-kpar.py` deriving `opensysml-extensions-library-<version>.kpar`
+from them — the two manifests plus exactly the files `.meta.json` records, at their repository
+paths — and a release job asserting tag == version. The tagged tree is the project; the archive
+is derived from it. Nothing OpenSysML-specific is required to consume it, and `sysml -validate`
+resolves it from `lib/` or `.sysand/lib` with no flag once installed.
+
+**The name-slug contract.** A usage is matched to an installed project by the slugs of the
+resource's last two path segments against the slugs of the project's `publisher` and `name`
+(`slug` lower-cases and turns runs of non-alphanumerics into one hyphen). A project meant to be
+used as `pkg:git/<host>/<owner>/<repository>` must therefore give its `name` a slug equal to the
+repository's final path segment and its `publisher` one equal to the owner's — "OpenSysML
+Extensions Library" slugs to `opensysml-extensions-library`, the repository's. A project whose
+name does not (say "OpenSysML Extension Libraries") is still installable: the usage is linked to
+it by elimination when it is the one unclaimed candidate, with the warning §3 describes, and
+stays unresolved with the ambiguity warning when it is not. OpenSysML vendors the published
+manifests beside its bundled copy of the units and holds the two to each other
+(`internal/workspace/libs/extensions_project_test.go`); see
+[extension-libraries.md](../../project/extension-libraries.md).
+
+## 5. Decisions
+
+Settled: OpenSysML is not a package manager and never fetches; it reads what package managers
+install and adds support for further ones as they appear (install directory + IRI scheme,
+read-only), never a downloader, lock or index of its own.
+
+Settled: `lib/` beside `.project.json` is read as a well-known install directory next to
+`.sysand/lib`; `@<version>` in a usage IRI is an exact constraint; no lax mode.
+
+Settled: usage IRIs are read as IRIs — `pkg:sysand/...`, a repository in its ECMA-427 form
+(`pkg:generic/<name>?vcs_url=…`, the `pkg:git/...` alias, a bare `<vcs>+<transport>://` URL) and
+plain URLs are matched the same way; OpenSysML defines no IRI scheme of its own and parses the one
+purl shape it needs by hand, with no purl library.
+
+Settled: a package manager's lock file (`.project.lock.json` beside `.project.json`) is not read,
+although it would name the installed project's publisher and name for a repository path that does
+not spell them; the reader stays on `.project.json`, `.meta.json` and `.kpar` — the KerML §10.3
+artefacts — plus elimination among the installed projects, and the elimination warning tells the
+author how to name the project in the usage itself.

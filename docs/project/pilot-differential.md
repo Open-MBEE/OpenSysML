@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Reference:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation), release `2026-08` (`jupyter-sysml-kernel` 0.62.0) — the same release the training corpus is pinned to
+**Reference:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation), release `2026-09` (`jupyter-sysml-kernel` 0.63.0) — the same release the training corpus is pinned to
 **Bridges:** two pinned plain-Java programs over the pilot's own validators — `scripts/pilot-sysml-validator/ValidateSysML.java` and `scripts/pilot-kerml-validator/ValidateKerML.java` — built against the shaded jar the [DeciSym/sysmlv2-validator](https://github.com/DeciSym/sysmlv2-validator) build (commit `63abbd9fbc7851dc437d01b2dc07836b919770b8`) provisions
 **Provision:** `./scripts/download-pilot-sysml-validator.sh` and `./scripts/download-pilot-kerml-validator.sh` (each needs Java 21+, and calls `download-pilot-validator.sh` for the pinned jar when it is absent; they write `build/pilot-sysml-validator/` and `build/pilot-kerml-validator/`)
 **Run:** `go run -C tools ./cmd/pilot-diff` (writes `build/pilot-diff/pilot-diff.txt` and `build/pilot-diff/pilot-diff.json`, plus two CI-consumable renderings of the same run: `pilot-diff.xml`, JUnit XML with one suite per corpus root and one case per file that drew a diagnostic, and `pilot-diff.sarif`, SARIF 2.1.0 with one result per disagreeing diagnostic group located on the compared model file)
@@ -147,8 +147,8 @@ corpus.
 The OMG corpora are not vendored, for the same licensing reason as the training corpus, and the
 pilot release they are fetched at is pinned once in `scripts/pilot-pin.sh` — the same pin the
 validator build reads, so corpus and reference can never come from different releases. The pin
-is a release tag *and* the commit it names (`PILOT_TAG=2026-08`,
-`PILOT_COMMIT=692170b71867353b8f90341e61556f49a5beb0e5`): the tag is the human-readable release
+is a release tag *and* the commit it names (`PILOT_TAG=2026-09`,
+`PILOT_COMMIT=38665073bbf02849bd309b106eba79cbb3a1ee1d`): the tag is the human-readable release
 and what the clone asks for, the commit is what makes the pin immutable, and every fetch fails
 if the tag no longer resolves to that commit. A tag alone is a mutable name, so the baselines
 below record `pilotCommit` alongside `pilotTag`: a baseline then identifies the bytes it
@@ -245,19 +245,19 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 916 files)
+## Results (pilot `2026-09`, 924 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 99 | 1 | 0 | 0 | 0 | 1 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 88 | 261 | 0 | 0 | 0 | 261 | 0 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 88 | 257 | 10 | 0 | 0 | 257 | 10 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
-| `examples/spec-examples` | 511 | 150 | 1094 | 3395 | 1038 | 6 | 50 | 2351 |
-| `tests/testdata` | 36 | 23 | 72 | 91 | 54 | 5 | 13 | 32 |
-| `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
+| `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1038 | 6 | 47 | 2351 |
+| `tests/testdata` | 40 | 25 | 78 | 101 | 60 | 5 | 13 | 36 |
+| `examples` | 56 | 49 | 12 | 69 | 4 | 0 | 8 | 65 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **916** | **515** | **1469** | **3547** | **1092** | **11** | **366** | **2444** |
+| **Total** | **924** | **522** | **1472** | **3575** | **1102** | **11** | **359** | **2462** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -302,12 +302,12 @@ the pilot flags as non-conforming bound features and we as `binding-connector-ty
 errors — the pair sits in severity-only rather than either side changing what it detects.
 
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 227
-`unmapped`, 26 `unresolved-reference`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
+`unmapped`, 26 `unresolved-reference`, 2 `units`, 1 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
 3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
-1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
-`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
-38 `unresolved-reference`, 3 `kind-mismatch`, 2 `unmapped`. Only-pilot: `testdata` 13 `kind-mismatch`, 14 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
+1 `unresolved-reference`, 2 `multiplicity`; `examples` 4
+`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`, 1 `unresolved-reference`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
+38 `unresolved-reference`, 2 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `pilot-examples` 10 `kind-mismatch`; `examples` 24 `unmapped`, 41 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
 586 `kind-mismatch`, 196 `syntax`, 156 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
 
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
@@ -610,7 +610,7 @@ Every argument of an operator or invocation expression is bound to the parameter
 written `bind` — its `checkImplicitBindingConnectors` runs `validateBindingConnectorTypeConformance`
 over the connectors it synthesizes from argument to parameter, and its separate
 `validateBindingConnectorArgumentTypeConformance` is commented out. The type checker now judges the
-same bindings (`internal/core/passes/w9c_argument_bindings.go`): the argument's static result types
+same bindings (`internal/check/passes/w9c_argument_bindings.go`): the argument's static result types
 against the selected function's corresponding input parameter, under the reference's symmetric
 conformance test, silent whenever either side is unknown — an unresolved or ambiguous callee, an
 untyped argument, a collection-valued argument, a parameter typed by a `Collection` or by
@@ -679,6 +679,43 @@ initialized by an operator expression over a `sum`, the same family as the
 | pilot diagnostics | 1142 | **1150** |
 | severity-only | 3 | **3** |
 | `examples`: only pilot | 1085 | **1093** |
+
+### Release `2026-09` round
+
+The pin moved from `2026-08` (`0.62.0`) to `2026-09` (`0.63.0`). The corpora are the same 920
+files and our diagnostics do not move at all: 1468 in total, 359 only ours, 1098 agreed, 11
+severity-only, every row where it was. The library moved: the `2026-09` `Flows.sysml` publishes the
+repair the errata overlay carried as `Flows-46`, `Flows-99` and `Flows-103` (`Message` and
+`messages` own `end occurrence source/target` usages, `messages` is an action), so those three
+entries are retired (16 → **13** entries, 9 → **6** corrections) and the overlay-corrected run
+equals the published one on that file.
+
+Both movements are the reference's. The `0.63.0` pilot evaluates enumeration-valued metadata
+properties (its expression-result processing round), and now warns `Bound features should have
+conforming types` on every `attribute = <enumeration literal>` binding inside a metadata usage of
+its own examples — `Metadata Examples/RequirementMetadataExample.sysml`:19–22 and
+`RiskMetadataExample.sysml`:7–9 (`totalRisk = high;` … `costRisk = medium;`, `RiskLevelEnum`
+literals bound to `RiskMetadata` attributes typed `RiskLevel`, which `RiskLevelEnum` specializes)
+and `VerificationMetadataExample.sysml`:7, 11 (`kind = (test,demo);`, `kind = analyze;`,
+`VerificationMethodKind` literals bound to `kind : VerificationMethodKind`) — ten `kind-mismatch`
+warnings. In every one the literal's enumeration is the attribute's type or a specialization of
+it, so the binding conforms and we are right to be silent; the rows are the reference's (where we
+do report at those lines it is the unresolved `high`/`medium`, the import-of-an-import resolver
+gap already adjudicated as only-ours below, which the pilot resolves): `sysml-examples` fully agreeing 91 → **88**, only pilot 0 →
+**10**. And on `examples/self-model/document.sysml`:403 the pilot adds one more `Duplicate of
+inherited member name 'result'` row to the seventeen it already drew there (the reference's
+inherited-`result` cascade, `unmapped`): `examples` only pilot 63 → **64**. Overall fully
+agreeing 521 → **518**, only pilot 2450 → **2461**, pilot diagnostics 3559 → **3570**.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 521 | **518** |
+| only pilot | 2450 | **2461** |
+| pilot diagnostics | 3559 | **3570** |
+| `sysml-examples`: fully agreeing | 91 | **88** |
+| `sysml-examples`: only pilot | 0 | **10** |
+| `examples`: only pilot | 63 | **64** |
+| errata entries / corrections | 16 / 9 | **13 / 6** |
 
 ### Release `2026-08` round
 
@@ -858,7 +895,7 @@ so the expression has no value. It is **ours, one-sided by design**: the operand
 unchanged, and the round only lets it see a parameter it could not type before. Recorded in the
 pilot-corpora ratchet (`Expressions.kerml` 0 → 2) and here; the Xpect harness moves one row, the
 file's `noErrors` (1268 agree / 57 disagree → 1267 / 58), recorded in
-[pilot-xpect.md](pilot-xpect.md#noerrors--262-of-276-agree).
+[pilot-xpect.md](pilot-xpect.md#noerrors--266-of-277-agree).
 
 | Count | Before | Now |
 |---|---:|---:|
@@ -915,7 +952,7 @@ What remains is adjudicated as extension notation this project supports delibera
   says so; its 1 only-ours warning, 1 severity-only pair and 5 pilot rows are that file alone.
 - **a second objective** (`solver-demo.sysml`, `robot.sysml`) — the reference admits one
   objective per analysis case where we improve several lexicographically
-  (`internal/core/solve/doc.go`): 1 + 1 `unmapped` rows that stay the reference's. The objective's
+  (`internal/exec/solve/doc.go`): 1 + 1 `unmapped` rows that stay the reference's. The objective's
   value itself draws no row since the objective-evaluation round below: it is stated as the
   library's `eval` calculation, which both sides accept.
   The exemption is the analysis case alone; a `case`, `verification` or `use case` declaration
@@ -977,8 +1014,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2444** |
-| pilot diagnostics | 123 | **3547** |
+| only pilot | 82 | **2462** |
+| pilot diagnostics | 123 | **3575** |
 | severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1202,14 +1239,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **515 / 366 / 1469** |
-| only pilot | **2444** |
-| pilot diagnostics | **3547** |
+| overall: fully agreeing / only ours / our diagnostics | **522 / 359 / 1472** |
+| only pilot | **2462** |
+| pilot diagnostics | **3575** |
 | severity-only | **11** |
-| unmapped, our side | **287** |
+| unmapped, our side | **291** |
 | kerml-examples: only ours | **16** |
-| pilot-examples: only ours | **261** |
-| examples: only pilot | **61** |
+| pilot-examples: only ours | **257** |
+| examples: only pilot | **65** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
@@ -1267,7 +1304,7 @@ Two movements, both in `examples/`:
   (1) restates `TradeStudies::MinimizeObjective::best` / `MaximizeObjective::best`, which the
   library binds, and both implementations now say so. The solver's objective contract still reads
   that notation and `%optimize` still answers, so the demos and their tests carry the diagnostic
-  as a known gap (`internal/core/model/examples_test.go`) until the contract is restated as the
+  as a known gap (`internal/workspace/model/examples_test.go`) until the contract is restated as the
   library intends; that is a separate change, not a rule to weaken.
 - **Twenty only-pilot rows retire.** The demos that overrode an inherited attribute's *default*
   wrote the base value with `=` — `relay-probe-demo/mission.sysml` (2), `self-model/pipeline.sysml`
@@ -1671,7 +1708,7 @@ Eight files, one diagnostic each, and the only class where the verdict splits.
 
 | Corpus | Ours | Pilot | Verdict |
 |---|---|---|---|
-| `Simple Tests/ItemTest.sysml:11`, `IndividualTest.sysml:12` | `part cannot be typed by itemDef (kind mismatch)` | clean; its own counterpart message is `An occurrence, item or part must be typed by occurrence definitions` | **Ours**: the reference admits any occurrence definition for a part usage, we demand a part definition. Reproduced by `i1` |
+| `Simple Tests/ItemTest.sysml:11`, `IndividualTest.sysml:12` | `part cannot be typed by itemDef (kind mismatch)`, later `A part must be typed by at least one part definition.` | clean; its own counterpart message is `An occurrence, item or part must be typed by occurrence definitions` | **Closed, specification over both readings**: the kind-table report was ours (the reference admits any occurrence definition for a part usage), and the `validatePartUsagePartDefinition` report that replaced it was stricter than the specification — `partDefinition` is derived over KerML `Feature::type`, which takes in the implied `Parts::parts` subsetting of `checkPartUsageSpecialization`, so every part usage is typed by `Parts::Part` (SysML v2 §7.10, §8.3.1, §8.3.11.3; KerML §8.3.3.3.4). Both files are clean on both sides, as are `Geometry Examples/SimpleQuadcopter.sysml:14,114` (`part motorShape : SpatialItem`) and the specification's own example `sysml/7.6.5/1.sysml` (`part cylinders : Cylinder`), which the withdrawn rule also drew. Reproduced by `i1` |
 | `Simple Tests/UseCaseTest.sysml:35` | `case cannot be typed by useCaseDef (kind mismatch)` | clean | **Ours**: a use case definition is a case definition. Reproduced by `i2` |
 | `03-Function-based Behavior/3e-Function-based Behavior-item.sysml:43` | `cannot bind a value of type VehicleAssembly to a feature typed by AssembledVehicle` | clean | **Ours**: reproduced by `i5`; the value's type specializes the feature's through the corpus's definitions |
 | `03-Function-based Behavior/3c-…-structure mod-1.sysml:42` | `type must be a definition, found calcUsage` on `OccurrenceFunctions::destroy` | *not* clean on the reproducer (`An action must be typed by action definitions`) | **Ours, unreproduced**: in the corpus the reference accepts the library `destroy`; our resolution of it yields a calc usage. Needs a library-faithful fixture |
@@ -2660,7 +2697,7 @@ parse of `examples/phase-c-behavioral-bodies.sysml` reaches line 147 — `then s
 F105 — instead of stopping at line 60. That file keeps 16 rows, all of them the `transition … to …`
 of F3. The warning and its strict-mode test are unchanged: what was removed is our own non-conformant
 notation, not the rule, and the extension itself stays supported and tested
-(`internal/core/model/constraint_params_test.go`). Every documented demo outcome of the REPL file —
+(`internal/workspace/model/constraint_params_test.go`). Every documented demo outcome of the REPL file —
 five `%calc` results, five `%constraint` verdicts, four `%requirement` verdicts, including the two
 that must fail — is unchanged.
 
@@ -2915,9 +2952,9 @@ one.
 | ~~F64~~ | **Done** (#375). A `return` is a usage when its declaration specializes, and a body expression is a calculation body that may declare features. A body-expression declaration parses but its name is not yet in scope for the result expression — F99. S5, 19 diagnostics over 6 files. `ReturnParameterMember` is `'return' UsageElement` (`:1961`), so `return selectedEngine :> engine;` and `return attribute accelerationProfile :> ISQ::acceleration[*] := ();` are usages, not expressions; a `private attribute` declaration inside an expression body is legal; and `assert not c { … }` is an `OperatorExpression`, so `not` must not be forced to name a constraint. |
 | ~~F65~~ | **Done** (#383). All three forms discriminated against the reference once corpus-faithful fixtures were built — ours errors, the pilot is silent — so this was a real gap rather than a fixture artifact. `pilot-validation` syntax 20 → 8 (`17a`/`17b-Sequence-Modeling` 6 → 0 each) and `pilot-examples` syntax 75 → 65. Note the one increase in that round: `Arrowhead Framework Example/AHFSequences.sysml` goes 6 → 15, because recovery was previously swallowing whole connection bodies and nine `unresolved reference` findings were masked behind the unparsed member. S6, 22 diagnostics over 5 files. `binding ab1 : AB bind a = b;` (`BindingConnectorAsUsage` allows a `UsageDeclaration` before `bind`), `message m of Publish[1] …` (the `Payload` after `of` is `OwnedFeatureTyping ( OwnedMultiplicity )?`), `event e = m.start;` (`EventOccurrenceUsage` ends in `ValuePart? UsageBody`). The `binding` and `event` reproducers draw a *different* pilot diagnostic, so both need a corpus-faithful fixture before a fix is validated against the reference rather than the grammar alone. |
 | ~~F66~~ | **Done** (#375). `assume`/`require constraint` owns a declaration, not only a body. S7, 25 diagnostics over 5 files. `assume constraint c1 : C;` and `assume constraint c { … }` (`RequirementConstraintMember`, `:2057`, whose body is optional), `verify r :>> massRequirement;` (`RequirementVerificationUsage`), `variant use case uc11;` (`UseCaseUsage` is reachable from `VariantUsageElement`), and multiplicity after a redefinition (`ref redefines cylinderBR[4];` — six identical lines × 2 diagnostics = that file's 12). |
-| ~~F67~~ | **Done before this round, and re-verified rather than re-fixed.** Measured on `main` with a fresh `tools/referee/diff` run over the pinned `2026-05` validators: all 12 files are fully agreeing, `pilot-examples` only-ours stands at 8 with no `unresolved-reference` among them, and the per-file corpus ratchet records no row for any of them. Each shape carries a committed regression test rather than only the corpus: the import-of-an-imported-name and feature-chain-subsetting shapes, plus the `include` actor redefinition and the bare `variant` reference, in `tests/resolve/f67_import_reexport_test.go`; the `item :>> shape : Box [1] { … }` shape against the real `SpatialItems`/`ShapeItems` library context — the corpus-faithful fixture this row asked for — in `internal/core/model/f67_inherited_shape_test.go`. As adjudicated: S8, 43 `unresolved-reference` over 12 files, all resolved by the reference. Two shapes reproduce and are ours: a name introduced into a namespace *by an import* and then wildcard-imported onward (`private import RiskLevelEnum::*;`), and subsetting a feature reachable by feature chain (`part aa subsets a;`). The largest shape, `item :>> shape : Box [1] { … }` (12 diagnostics), is the inherited-member lookup #331 fixed for `length`/`width`/`height`, still failing when the redefinition itself introduces the type — it needs a fixture built from the corpus's library context, since the minimal form agrees. |
+| ~~F67~~ | **Done before this round, and re-verified rather than re-fixed.** Measured on `main` with a fresh `tools/referee/diff` run over the pinned `2026-05` validators: all 12 files are fully agreeing, `pilot-examples` only-ours stands at 8 with no `unresolved-reference` among them, and the per-file corpus ratchet records no row for any of them. Each shape carries a committed regression test rather than only the corpus: the import-of-an-imported-name and feature-chain-subsetting shapes, plus the `include` actor redefinition and the bare `variant` reference, in `tests/resolve/f67_import_reexport_test.go`; the `item :>> shape : Box [1] { … }` shape against the real `SpatialItems`/`ShapeItems` library context — the corpus-faithful fixture this row asked for — in `internal/workspace/model/f67_inherited_shape_test.go`. As adjudicated: S8, 43 `unresolved-reference` over 12 files, all resolved by the reference. Two shapes reproduce and are ours: a name introduced into a namespace *by an import* and then wildcard-imported onward (`private import RiskLevelEnum::*;`), and subsetting a feature reachable by feature chain (`part aa subsets a;`). The largest shape, `item :>> shape : Box [1] { … }` (12 diagnostics), is the inherited-member lookup #331 fixed for `length`/`width`/`height`, still failing when the redefinition itself introduces the type — it needs a fixture built from the corpus's library context, since the minimal form agrees. |
 | ~~F68~~ | **Done** (#391). Two rules, both from the corpus files rather than minimal forms: a transition's trigger fills a parameter slot of the transition itself, so a sibling names the payload through the transition; and a feature that takes its name from what it *redefines* is a reference-subsetting target, unlike a name borrowed from a reference. `pilot-examples` `unresolved-reference` 56 → 37. S9, 39 `unresolved member`/`unresolved reference` over 6 files, all in files the reference validates cleanly, all reaching through a behavioral usage into what it implicitly parameterizes (`subscribing.sub`, `producer.publish_request`, `succession flow x.p to a1.aa.receiver`). The minimal forms agree, so the corpus files are the evidence and a faithful fixture has to come from them. 3 of the 39 are `rep inOCL language "ocl"` — the same textual-representation gap as F70, on the SysML side, and they went with it: `Simple Tests/TextualRepresentationTest.sysml` validates clean. |
-| ~~F69~~ | **Done** (ours half). #362 widened the usage-typing kind table to the reference's occurrence/case/behavior taxonomy and made bind conformance accept a value type conforming in either direction, and #467 recast the rules in the reference's wording — re-verified on `main`: all five ours files are clean and draw no only-ours row in `tools/referee/diff`. The 3 one-sided checks stay as adjudicated. Was handed to the owner of `internal/core/passes`: all 5 ours rows are that package's (`typecheck.go` `compatMessage`/kind table, `typecheck_value.go`). S10, 8 diagnostics over 8 files, one each — **5 ours, 3 one-sided.** Ours: `part x : ItemDef` and `use case uc : UseCaseDef` (the kind table is narrower than the reference's `An occurrence, item or part must be typed by occurrence definitions`; see F53 and F32 for the rest of that class), a bind whose value type specializes the feature's, and `action d : OccurrenceFunctions::destroy` resolving to a calc usage. One-sided (kept, on the F4 precedent): the inherited-name conflict on a metadata body's `text`, the interface-conjugation warning, and the units check — probed directly, the reference has no dimensional analysis at all. |
+| ~~F69~~ | **Done** (ours half). #362 widened the usage-typing kind table to the reference's occurrence/case/behavior taxonomy and made bind conformance accept a value type conforming in either direction, and #467 recast the rules in the reference's wording — re-verified on `main`: all five ours files are clean and draw no only-ours row in `tools/referee/diff`. The 3 one-sided checks stay as adjudicated. Was handed to the owner of `internal/check/passes`: all 5 ours rows are that package's (`typecheck.go` `compatMessage`/kind table, `typecheck_value.go`). S10, 8 diagnostics over 8 files, one each — **5 ours, 3 one-sided.** Ours: `part x : ItemDef` and `use case uc : UseCaseDef` (the kind table is narrower than the reference's `An occurrence, item or part must be typed by occurrence definitions`; see F53 and F32 for the rest of that class), a bind whose value type specializes the feature's, and `action d : OccurrenceFunctions::destroy` resolving to a calc usage. One-sided (kept, on the F4 precedent): the inherited-name conflict on a metadata body's `text`, the interface-conjugation warning, and the units check — probed directly, the reference has no dimensional analysis at all. |
 | ~~F31~~ | **Done.** All three shapes were ours, and none was cascade: measured on merged `origin/main` the class is 123 of the root's 269 only-ours, and 116 of the 123 are four genuine resolution defects — implicit generalization missing from inherited-member traversal (58), import visibility (15), a declaration's header not seeing its own body (39), and the implicit base suppressed by any declared generalization rather than only by one that already reaches it (4). The root falls **269 → 150** and the class **123 → 7**, with the four `.sysml` roots byte-identical per file and the committed baseline untouched. The 7 remaining are F70–F72. |
 | ~~F70~~ | **Done** (#374). The identifier and the language string are preserved on `ast.TextualRepresentation`. `rep inOCL language "ocl"` (`Simple Tests/TextualRepresentation.kerml:7`, 3 diagnostics): a textual-representation member is not parsed, so `rep`, `inOCL` and `language` are read as names to resolve. Parser-owned, alongside F50. Re-verified on current `main`: both corpus files (`Simple Tests/TextualRepresentation.kerml` and `TextualRepresentationTest.sysml`, the SysML residue of the behavioral-member row) validate clean, the anonymous `language "alf" /* … */` spelling parses in both file kinds, and the member is adopted by the namespace it represents, so a sibling and a qualified name reach it. One residue closed with the re-verification: the identification may be a short name (`rep <ocl> inOCL language "ocl"`, `Identification` is `'<' Name '>' Name?`), which was still rejected. Represented text is carried, never interpreted — recorded as the boundary in `spec-compliance.md`. |
 | ~~F71~~ | **Done** (#375). The cause was narrower than stated: `snapshot`/`timeslice` are SysML-only literals (`SysML.xtext:864`), so in a `.kerml` file they are names. A parameter's name is lost for `in timeslice : Timeslice;` inside `expr while { … }` (`Variable Feature Examples/Enhancements/ExtendedOccurrences.kerml:27`): the AST carries `Usage{Keyword: "timeslice", Ident: ""}`, so no symbol is built and `at(timeslice.interval)` cannot resolve. The name never reaches symbols, so this is a parser representation gap, not resolution — the shape it belongs to is F30's `at`/`while` work. |
@@ -2937,7 +2974,7 @@ one.
 | ~~F90~~ | **Done**: parser #403, downstream #409, which scoped the conjugated-port-typing rule to SysML typings — a KerML conjugation relates any two Types and demands no port — retiring all seven diagnostics; re-verified on `main`, the three `.kerml` files are clean and draw no only-ours row in `tools/referee/diff`. The declarations parse, and the seven diagnostics they reached were `passes/typecheck.go`'s conjugation check firing where the reference is silent: `'~' names the conjugated port definition of a port definition, found kermlType` on `Simple Tests/Conjugation.kerml:6` and `Types.kerml:25,26,28,29` (5 `kind-mismatch`) and `… found attributeUsage` on `Conjugation.kerml:8` and `Features.kerml:36` (2 `unmapped`). In KerML a conjugation relates any two Types, so the check must not require a port definition on a `.kerml` document — that is `passes/` work #403 did not own. K13, 6 diagnostics (`Simple Tests/Conjugation.kerml:6,8`, `Features.kerml:36`). Conjugation in a declaration: `ClassifierConjugationPart` in `ClassifierDeclaration` (`KerML.xtext:468`) and `FeatureConjugationPart` = `( '~' \| 'conjugates' ) …` (`:730`). |
 | ~~F91~~ | **Done** (#403). K14, 2 diagnostics (`Simple Tests/Associations.kerml:16,17`). `EndFeaturePrefix` is `( isConstant ?= 'const' )? isEnd ?= 'end'` (`KerML.xtext:511`); `end feature b;` parses, `const end feature b;` does not. |
 | ~~F92~~ | **Done** (#403). K15, 2 diagnostics (`Simple Tests/Comments.kerml:25,43`). Two annotating-element gaps: `Comment`'s whole head is optional so `locale "en_US" /* … */` is an anonymous comment (`KerML.xtext:94`), and `Documentation` takes an `Identification` so `doc <a> /* … */` is legal (`:103`). |
-| ~~F93~~ | **Done at every tier** (parser #403, downstream #424), and re-verified rather than re-fixed: on a fresh `tools/referee/diff` run `Simple Tests/Filtering.kerml` is fully agreeing, `kerml-examples` only-ours is 3 and all of it the one-sided specialization-cycle check, and the two `testdata/passes/f93_element_filter.{kerml,sysml}` fixtures analyse clean under `internal/core/passes/f93_element_filter_scope_test.go`. The repeated brackets conjoin into one `and` in `parser/namespace.go`, so both conditions reach the filter judge (`parser/f84_f95_kerml_declarations_test.go`, case `f93_two_filters`). K16, 2 diagnostics (`Simple Tests/Filtering.kerml:35`). `FilterPackage` is `FilterPackageImport ( FilterPackageMember )+` (`KerML.xtext:200`); we accept exactly one filter bracket where the grammar says one or more. |
+| ~~F93~~ | **Done at every tier** (parser #403, downstream #424), and re-verified rather than re-fixed: on a fresh `tools/referee/diff` run `Simple Tests/Filtering.kerml` is fully agreeing, `kerml-examples` only-ours is 3 and all of it the one-sided specialization-cycle check, and the two `testdata/passes/f93_element_filter.{kerml,sysml}` fixtures analyse clean under `internal/check/passes/f93_element_filter_scope_test.go`. The repeated brackets conjoin into one `and` in `parser/namespace.go`, so both conditions reach the filter judge (`parser/f84_f95_kerml_declarations_test.go`, case `f93_two_filters`). K16, 2 diagnostics (`Simple Tests/Filtering.kerml:35`). `FilterPackage` is `FilterPackageImport ( FilterPackageMember )+` (`KerML.xtext:200`); we accept exactly one filter bracket where the grammar says one or more. |
 | ~~F94~~ | **Done** (#403). K17, 1 diagnostic (`Simple Tests/MetadataTest.kerml:33`). `Feature` is `FeaturePrefix ( 'feature' \| ownedRelationship += PrefixMetadataMember ) FeatureDeclaration?` (`KerML.xtext:538`) — the annotation replaces the keyword, so `abstract #Classified z2;` is a feature. The KerML twin of S1/F60. |
 | ~~F95~~ | **Done** (#403). K18, 1 diagnostic (`Simple Tests/Expressions.kerml:23`). A *named* `expr` whose body is a brace-enclosed expression (`in expr whileTest {v > 3}`); F30 unreserved `expr at`/`expr while` but the named form with an expression body is still unparsed. |
 | ~~F34~~ | **Done** (#358). Compares our own 11 `.kerml` fixtures (`testdata/lex/basic.kerml`, `examples/parser_features_demo_*.kerml`) too: a root carries one language today, so they are collected as SysML and excluded (see the known limitation above). Needs per-file language dispatch within a root, and a second pilot invocation per root. |
@@ -2976,7 +3013,7 @@ about parsing and static checking on these corpora, not about behavioral conform
 ## Re-running and diffing
 
 ```sh
-./scripts/download-training-examples.sh   # the OMG training corpus (pinned 2026-08)
+./scripts/download-training-examples.sh   # the OMG training corpus (pinned 2026-09)
 ./scripts/download-pilot-corpora.sh       # the other OMG corpora, same pin
 ./scripts/download-pilot-validator.sh     # the pilot validator (pinned wrapper, built at the same pin)
 ./scripts/download-pilot-kerml-validator.sh  # the KerML oracle, same pin
@@ -3021,7 +3058,11 @@ describe this repository:
   Java, provisions the pinned validators and corpora and runs all three oracles with `-check`
   daily and on demand. Its failure distinguishes a moved provenance — the pinned reference or an
   input changed underneath the baseline, so investigate the provisioning — from moved counts with
-  matching provenance, which is an implementation movement to adjudicate and then re-record.
+  matching provenance, which is an implementation movement to adjudicate and then re-record —
+  unless two exports of the pinned reference itself disagree on the moved row, as the pilot's
+  api-json export does across JVMs for `FeatureChainExpression.featuringType`: such a row is
+  declared pilot-nondeterministic in `pilot-apijson-diff` and scored in its own column (see
+  `api-json-differential.md`), never chased by re-recording.
 
 The Java-free guard cannot see a movement in the reference's own behaviour, and the scheduled run
 is not a required check, because both the corpora and the validator are unvendored network
@@ -3230,6 +3271,23 @@ counts ([pilot-corpora.md](pilot-corpora.md), "Imported memberships the specific
 | `kerml-examples`: fully agreeing / only ours | 55 / 13 | **55 / 16** |
 | `testdata`: files / only ours | 22 / 11 | **22 / 12** |
 
+### Expose-only collisions round
+
+A collision among the memberships a view's `expose`s bring is no longer warned: SysML
+`ViewUsage::exposedElement` reads each Expose's own `importedMemberships`, so such a collision never
+changes what the view exposes, and KerML 8.3.2.4.5 already leaves the colliding memberships out of
+`membership`, the set `validateNamespaceDistinguishibility` ranges over. The memberships stay hidden
+from names written in the view; a collision a plain `import` or an inherited member takes part in is
+still warned. One row retires: `general-views-demo/vehicle.sysml:102`, where the single recursive
+`expose VehicleStructure::**[…]` of `definitionView` reaches `Vehicle::mass`, `vehicle::mass` and
+`heavyVehicle::mass`. The Annex A rows above come through recursive `import`s and stay. Nothing
+else moves.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing / only ours / our diagnostics | 518 / 360 / 1469 | **519 / 359 / 1468** |
+| `examples`: fully agreeing / only ours | 45 / 9 | **46 / 8** |
+
 ## Current branch movement and adjudications
 
 The settled control is a clean run of `466de743cbd46eaa6983fd8cf0cffc4097a2137f`,
@@ -3400,7 +3458,7 @@ its message, and the pilot remains silent on the whole family.
 
 SysML v2 §8.3.17 places nine validation constraints on the successions of a control node
 (`ControlNode`, `DecisionNode`, `ForkNode`, `JoinNode`, `MergeNode`), and
-`internal/core/passes/control_node.go` enforces all nine. The pinned pilot implements only
+`internal/check/passes/behavior/control_node.go` enforces all nine. The pinned pilot implements only
 `validateControlNodeOwningType`; the other eight are `// TODO: Check validate… (?)` comments in the
 `@Check` methods of `SysMLValidator.xtend` (`:857–888` at `c7fc737`), so a model the specification
 rejects on any of them validates clean there. These rules are refereed against the specification's

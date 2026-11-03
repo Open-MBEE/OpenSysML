@@ -1,3 +1,4 @@
+// Deliberately invalid: `plainView` is sized by a Canvas stated outside its body and `badStyleView` paints with the non-colour `"yellow"` — both errors are the point, as the rendering reports what each layout value fails to do.
 package Plant {
 	private import DiagramLayout::*;
 

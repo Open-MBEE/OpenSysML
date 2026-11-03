@@ -1,0 +1,25 @@
+ParameterCalcViews::calculations - tree rendering (render asTreeDiagram)
+
+calc add
+  in x
+  in y
+  out result
+part def Sensor
+  attribute a
+  attribute b
+  attribute gain
+  calc sum
+    in x
+    in ^y
+    out ^result
+  calc scaled
+    in factor
+    in ^x
+    inout ^count
+    out ^doubled
+    out ^r
+
+relationships:
+  Sensor o-- a
+  Sensor o-- b
+  Sensor o-- gain

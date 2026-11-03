@@ -25,6 +25,7 @@ import {
 import type { Transport } from "@connectrpc/connect";
 import { Connection } from "../core/connection.js";
 import { Conversion, Migration, formatOfPath } from "../core/conversion.js";
+import type { ConvertOptions } from "../core/conversion.js";
 import type {
   ConnectionBackend,
   TransportOptions,
@@ -39,7 +40,7 @@ import {
   timeoutOf,
 } from "../core/transport.js";
 import { resolveLatestVersion, VERSION_ENV } from "./binary.js";
-import { acquirePrivateService } from "./service.js";
+import { acquirePrivateService, TOKEN_ENV } from "./service.js";
 
 export * from "../core/index.js";
 export {
@@ -95,6 +96,8 @@ export type { WasmConnectOptions } from "./wasm.js";
 /** Names a service to connect to instead of starting one. */
 export const SERVICE_ENV = "OPENSYSML_SERVICE";
 
+export { TOKEN_ENV } from "./service.js";
+
 /** How this process connects. Without an address it starts a private child. */
 export interface ConnectOptions extends TransportOptions {
   /** HTTP version used to reach the service. HTTP/2 (h2c over plain http) by default. */
@@ -119,14 +122,28 @@ export interface ConnectOptions extends TransportOptions {
  * closing the connection leaves that service running.
  */
 export async function connect(
-  options: ConnectOptions = {},
+  given: ConnectOptions = {},
 ): Promise<Connection> {
+  const envToken = process.env[TOKEN_ENV];
+  const options: ConnectOptions =
+    given.token === undefined && envToken !== undefined && envToken !== ""
+      ? { ...given, token: envToken }
+      : given;
   const address = options.address ?? process.env[SERVICE_ENV];
   if (address !== undefined && address !== "") {
     return connectExternal(address, options);
   }
   return connectPrivate(options);
 }
+
+/**
+ * What `save` is told when it converts a model: the format to write, else the
+ * path's extension names it, and the options `Model.convert` takes for one.
+ */
+export type SaveOptions = { toFormat?: string } & Pick<
+  ConvertOptions,
+  "tolerateSyntaxErrors" | "idForm" | "includeLibraryStubs"
+>;
 
 /**
  * Writes `target` to `path`: a model converted in the format its extension
@@ -145,12 +162,12 @@ export async function save(target: Migration, path: string): Promise<Migration>;
 export async function save(
   target: Model | Conversion,
   path: string,
-  options?: { toFormat?: string; tolerateSyntaxErrors?: boolean },
+  options?: SaveOptions,
 ): Promise<Conversion>;
 export async function save(
   target: Model | Conversion | Migration,
   path: string,
-  options: { toFormat?: string; tolerateSyntaxErrors?: boolean } = {},
+  options: SaveOptions = {},
 ): Promise<Conversion | Migration> {
   if (target instanceof Migration) {
     const files = await migrationFiles(target, path);
@@ -161,14 +178,11 @@ export async function save(
     );
     return target;
   }
+  const { toFormat, ...convertOptions } = options;
   const conversion =
     target instanceof Conversion
       ? target
-      : await target.convert(options.toFormat ?? formatOfPath(path), {
-          ...(options.tolerateSyntaxErrors === undefined
-            ? {}
-            : { tolerateSyntaxErrors: options.tolerateSyntaxErrors }),
-        });
+      : await target.convert(toFormat ?? formatOfPath(path), convertOptions);
   await writeFile(path, conversion.content, "utf8");
   return conversion;
 }

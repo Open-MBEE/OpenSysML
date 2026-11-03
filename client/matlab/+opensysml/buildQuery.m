@@ -1,10 +1,10 @@
 function query = buildQuery(payload, varargin)
 %BUILDQUERY Build the standard SysML v2 API query representation.
 
-    options = struct('scope', [], 'select', [], 'where', []);
+    options = struct('scope', [], 'select', [], 'where', [], 'orderBy', []);
     if nargin >= 1 && ~isempty(payload)
         if ~isempty(varargin)
-            queryError('pass a query payload or scope/select/where keywords, not both');
+            queryError('pass a query payload or scope/select/where/orderBy keywords, not both');
         end
         if ~isstruct(payload) && ~isa(payload, 'containers.Map')
             queryError(sprintf('a query is an object, not %s', class(payload)));
@@ -14,15 +14,16 @@ function query = buildQuery(payload, varargin)
             queryError(sprintf('expected a ''Query'' payload, got %s', valueText(declared)));
         end
         keys = payloadKeys(payload);
-        known = {'@type','type','@id','id','owningProject','scope','select','where'};
+        known = {'@type','type','@id','id','owningProject','scope','select','where','orderBy'};
         unknown = setdiff(keys, known);
         if ~isempty(unknown)
             queryError(sprintf(['a query has no %s; the standard''s query is ' ...
-                'scope, select and where'], strjoin(sort(unknown), ', ')));
+                'scope, select, where and orderBy'], strjoin(sort(unknown), ', ')));
         end
         options.scope = payloadGet(payload, 'scope', []);
         options.select = payloadGet(payload, 'select', []);
         options.where = payloadGet(payload, 'where', []);
+        options.orderBy = payloadGet(payload, 'orderBy', []);
     else
         if mod(numel(varargin), 2) ~= 0
             queryError('query options must be name-value pairs');
@@ -41,6 +42,7 @@ function query = buildQuery(payload, varargin)
     if ~isempty(options.where)
         query.where = constraint(options.where);
     end
+    query.orderBy = cellfun(@propertyName, sequence('orderBy', options.orderBy), 'UniformOutput', false);
 end
 
 function id = scopeId(entry)
@@ -98,24 +100,56 @@ function out = primitive(payload)
     rejectUnknown(payload, {'@type','type','@id','id','inverse','property','operator','value'}, ...
         'PrimitiveConstraint');
     operator = payloadGet(payload, 'operator', '');
+    if ~ischar(operator) && ~isStringValue(operator), operator = ''; end
+    operator = char(operator);
     switch operator
         case '=', wireOperator = 'PRIMITIVE_OPERATOR_EQUAL';
         case '>', wireOperator = 'PRIMITIVE_OPERATOR_GREATER';
         case '<', wireOperator = 'PRIMITIVE_OPERATOR_LESS';
+        case '>=', wireOperator = 'PRIMITIVE_OPERATOR_GREATER_EQUAL';
+        case '<=', wireOperator = 'PRIMITIVE_OPERATOR_LESS_EQUAL';
+        case 'in', wireOperator = 'PRIMITIVE_OPERATOR_IN';
+        case 'instanceOf', wireOperator = 'PRIMITIVE_OPERATOR_INSTANCE_OF';
         otherwise
-            queryError(sprintf(['unknown primitive operator %s; expected one of =, >, <'], ...
-                valueText(operator)));
+            queryError(sprintf(['unknown primitive operator %s; expected one of ' ...
+                '<, <=, =, >, >=, in, instanceOf'], valueText(operator)));
     end
     name = payloadGet(payload, 'property', '');
     if ~ischar(name) || isempty(name)
         queryError(sprintf('a primitive constraint names one property, not %s', valueText(name)));
     end
-    values = payloadGet(payload, 'value', []);
+    raw = payloadGet(payload, 'value', []);
+    isList = iscell(raw) || ((isnumeric(raw) || islogical(raw)) && ~isscalar(raw) && ~isempty(raw));
+    values = raw;
     if iscell(values), values = values(:)';
     elseif isempty(values), values = {};
     elseif (isnumeric(values) || islogical(values)) && ~isscalar(values)
         values = num2cell(values(:)');
     else, values = {values};
+    end
+    % The ordered comparisons take one value, in a list of them and instanceOf
+    % metaclass names: another shape is refused here, not sent to be refused.
+    if any(strcmp(operator, {'<', '<=', '>', '>='}))
+        if isList && numel(values) ~= 1
+            queryError(sprintf('%s on ''%s'' compares against one value, not a list of %d', ...
+                operator, name, numel(values)));
+        elseif isempty(values)
+            queryError(sprintf('%s on ''%s'' has no value to compare against', operator, name));
+        end
+    elseif strcmp(operator, 'in')
+        if ~isList
+            queryError(sprintf('in on ''%s'' compares against a list of values, not %s', ...
+                name, valueText(raw)));
+        elseif isempty(values)
+            queryError(sprintf('in on ''%s'' has no values to be a member of', name));
+        end
+    elseif strcmp(operator, 'instanceOf')
+        for i = 1:numel(values)
+            if ~ischar(values{i}) && ~(isStringValue(values{i}) && isscalar(values{i})) || isempty(char(values{i}))
+                queryError(sprintf('instanceOf on ''%s'' compares against a metaclass name, not %s', ...
+                    name, valueText(values{i})));
+            end
+        end
     end
     out = struct('inverse', logical(payloadGet(payload, 'inverse', false)), ...
         'property', name, 'operator', wireOperator, ...
@@ -138,6 +172,10 @@ function out = composite(payload)
     if ~iscell(nested) || isempty(nested)
         queryError(sprintf(['a composite constraint combines a non-empty list of constraints, ' ...
             'not %s'], valueText(nested)));
+    end
+    if numel(nested) == 1
+        queryError(['a composite constraint combines at least two constraints, got one; ' ...
+            'write the constraint on its own']);
     end
     constraints = cellfun(@constraint, nested(:)', 'UniformOutput', false);
     out = struct('operator', wireOperator, 'constraint', {constraints});

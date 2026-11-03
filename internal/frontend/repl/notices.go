@@ -74,7 +74,7 @@ func replacedReport(sn snippet, redeclared map[string]bool, newTop map[string]as
 		return rep
 	}
 	for _, m := range root.Members {
-		name := memberName(m)
+		name := nsmerge.MemberName(m)
 		if name == "" {
 			continue
 		}
@@ -114,7 +114,7 @@ func lostMembers(om, nm ast.Node) []string {
 	newMembers, _ := nsmerge.BodyMembers(nm)
 	var lost []string
 	for _, m := range oldMembers {
-		name := memberName(m)
+		name := nsmerge.MemberName(m)
 		if name == "" {
 			continue
 		}
