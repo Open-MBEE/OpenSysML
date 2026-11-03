@@ -3945,8 +3945,7 @@ jobs:
             # The image serves -host 0.0.0.0, which needs a bearer token; the check
             # runs it as a deployment does, the token in the environment, no TLS.
             token=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
-            export OPENSYSML_GRPC_TOKEN="$token"
-            docker run -d --name opensysml-check -e OPENSYSML_GRPC_TOKEN \
+            OPENSYSML_GRPC_TOKEN="$token" docker run -d --name opensysml-check -e OPENSYSML_GRPC_TOKEN \
               openmbee/opensysml:check \
               -host 0.0.0.0 -port 50051 -health-port 8081 -allow-insecure-token-transport
             fail() {
