@@ -276,6 +276,7 @@ elmt:Documented__Hub_conjugated_om
     sysml:source elmt:Documented__Hub ;
     sysml:target elmt:Documented__Hub_conjugated ;
     sysml:relatedElement elmt:Documented__Hub, elmt:Documented__Hub_conjugated ;
+    sysml:memberName "~Hub" ;
     json:relatedElement "[{\"@id\":\"Documented__Hub\"},{\"@id\":\"Documented__Hub_conjugated\"}]" .
 
 elmt:Documented__Hub_conjugated_pc

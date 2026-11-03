@@ -86,6 +86,7 @@ elmt:Chains__IP_conjugated_om
     sysml:source elmt:Chains__IP ;
     sysml:target elmt:Chains__IP_conjugated ;
     sysml:relatedElement elmt:Chains__IP, elmt:Chains__IP_conjugated ;
+    sysml:memberName "~IP" ;
     json:relatedElement "[{\"@id\":\"Chains__IP\"},{\"@id\":\"Chains__IP_conjugated\"}]" .
 
 elmt:Chains__IP_conjugated_pc
@@ -386,6 +387,7 @@ expr:Chains__ctx___402_pend0_om
     sysml:source elmt:Chains__ctx___402 ;
     sysml:target expr:Chains__ctx___402_pend0 ;
     sysml:relatedElement elmt:Chains__ctx___402, expr:Chains__ctx___402_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"Chains__ctx___402\"},{\"@id\":\"Chains__ctx___402_pend0\"}]" .
 
 expr:Chains__ctx___402_pend0_pchain
@@ -485,6 +487,7 @@ expr:Chains__ctx___402_pend1_om
     sysml:source elmt:Chains__ctx___402 ;
     sysml:target expr:Chains__ctx___402_pend1 ;
     sysml:relatedElement elmt:Chains__ctx___402, expr:Chains__ctx___402_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"Chains__ctx___402\"},{\"@id\":\"Chains__ctx___402_pend1\"}]" .
 
 expr:Chains__ctx___402_pend1_pchain

@@ -445,6 +445,7 @@ expr:Payloads__Ctx___402_pend0_om
     sysml:source elmt:Payloads__Ctx___402 ;
     sysml:target expr:Payloads__Ctx___402_pend0 ;
     sysml:relatedElement elmt:Payloads__Ctx___402, expr:Payloads__Ctx___402_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx___402\"},{\"@id\":\"Payloads__Ctx___402_pend0\"}]" .
 
 expr:Payloads__Ctx___402_pend0_prs
@@ -524,6 +525,7 @@ expr:Payloads__Ctx___402_pend1_om
     sysml:source elmt:Payloads__Ctx___402 ;
     sysml:target expr:Payloads__Ctx___402_pend1 ;
     sysml:relatedElement elmt:Payloads__Ctx___402, expr:Payloads__Ctx___402_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx___402\"},{\"@id\":\"Payloads__Ctx___402_pend1\"}]" .
 
 expr:Payloads__Ctx___402_pend1_prs

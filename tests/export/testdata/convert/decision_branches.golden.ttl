@@ -28,6 +28,7 @@ elmt:Branches
 
 elmt:Branches___400
     a sysml:MembershipImport ;
+    sysml:source elmt:Branches ;
     sysx:positionalName "Branches::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -42,6 +43,7 @@ elmt:Branches___400
     sysml:visibility "private" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:importedMembership <urn:sysmlv2:element:5fe9f6f1-ce05-5285-b333-41374fe9f447> ;
+    sysml:target <urn:sysmlv2:element:5fe9f6f1-ce05-5285-b333-41374fe9f447> ;
     sysx:sourceText "    private import ScalarValues::Integer;\n" .
 
 elmt:Branches__Charge
@@ -265,6 +267,7 @@ expr:Branches__Charge___403_pend0_om
     sysml:source elmt:Branches__Charge___403 ;
     sysml:target expr:Branches__Charge___403_pend0 ;
     sysml:relatedElement elmt:Branches__Charge___403, expr:Branches__Charge___403_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___403\"},{\"@id\":\"Branches__Charge___403_pend0\"}]" .
 
 expr:Branches__Charge___403_pend1
@@ -292,6 +295,7 @@ expr:Branches__Charge___403_pend1_om
     sysml:source elmt:Branches__Charge___403 ;
     sysml:target expr:Branches__Charge___403_pend1 ;
     sysml:relatedElement elmt:Branches__Charge___403, expr:Branches__Charge___403_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___403\"},{\"@id\":\"Branches__Charge___403_pend1\"}]" .
 
 expr:Branches__Charge___403_pend1_prs
@@ -617,6 +621,7 @@ expr:Branches__Charge___404_succession_pend0_om
     sysml:source elmt:Branches__Charge___404_succession ;
     sysml:target expr:Branches__Charge___404_succession_pend0 ;
     sysml:relatedElement elmt:Branches__Charge___404_succession, expr:Branches__Charge___404_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___404_succession\"},{\"@id\":\"Branches__Charge___404_succession_pend0\"}]" .
 
 expr:Branches__Charge___404_succession_pend1
@@ -644,6 +649,7 @@ expr:Branches__Charge___404_succession_pend1_om
     sysml:source elmt:Branches__Charge___404_succession ;
     sysml:target expr:Branches__Charge___404_succession_pend1 ;
     sysml:relatedElement elmt:Branches__Charge___404_succession, expr:Branches__Charge___404_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___404_succession\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" .
 
 expr:Branches__Charge___404_succession_pend1_prs
@@ -983,6 +989,7 @@ expr:Branches__Charge___405_succession_pend0_om
     sysml:source elmt:Branches__Charge___405_succession ;
     sysml:target expr:Branches__Charge___405_succession_pend0 ;
     sysml:relatedElement elmt:Branches__Charge___405_succession, expr:Branches__Charge___405_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___405_succession\"},{\"@id\":\"Branches__Charge___405_succession_pend0\"}]" .
 
 expr:Branches__Charge___405_succession_pend1
@@ -1010,6 +1017,7 @@ expr:Branches__Charge___405_succession_pend1_om
     sysml:source elmt:Branches__Charge___405_succession ;
     sysml:target expr:Branches__Charge___405_succession_pend1 ;
     sysml:relatedElement elmt:Branches__Charge___405_succession, expr:Branches__Charge___405_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___405_succession\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" .
 
 expr:Branches__Charge___405_succession_pend1_prs
@@ -1453,6 +1461,7 @@ expr:Branches__Charge___409_succession_pend0_om
     sysml:source elmt:Branches__Charge___409_succession ;
     sysml:target expr:Branches__Charge___409_succession_pend0 ;
     sysml:relatedElement elmt:Branches__Charge___409_succession, expr:Branches__Charge___409_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___409_succession\"},{\"@id\":\"Branches__Charge___409_succession_pend0\"}]" .
 
 expr:Branches__Charge___409_succession_pend1
@@ -1480,6 +1489,7 @@ expr:Branches__Charge___409_succession_pend1_om
     sysml:source elmt:Branches__Charge___409_succession ;
     sysml:target expr:Branches__Charge___409_succession_pend1 ;
     sysml:relatedElement elmt:Branches__Charge___409_succession, expr:Branches__Charge___409_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___409_succession\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" .
 
 expr:Branches__Charge___409_succession_pend1_prs
@@ -1596,6 +1606,7 @@ expr:Branches__Charge___4010_succession_pend0_om
     sysml:source elmt:Branches__Charge___4010_succession ;
     sysml:target expr:Branches__Charge___4010_succession_pend0 ;
     sysml:relatedElement elmt:Branches__Charge___4010_succession, expr:Branches__Charge___4010_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___4010_succession\"},{\"@id\":\"Branches__Charge___4010_succession_pend0\"}]" .
 
 expr:Branches__Charge___4010_succession_pend1
@@ -1623,6 +1634,7 @@ expr:Branches__Charge___4010_succession_pend1_om
     sysml:source elmt:Branches__Charge___4010_succession ;
     sysml:target expr:Branches__Charge___4010_succession_pend1 ;
     sysml:relatedElement elmt:Branches__Charge___4010_succession, expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___4010_succession\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" .
 
 expr:Branches__Charge___4010_succession_pend1_prs

@@ -28,6 +28,7 @@ elmt:Importer
 
 elmt:Importer___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:Importer ;
     sysx:positionalName "Importer::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -41,11 +42,13 @@ elmt:Importer___400
     sysml:importOwningNamespace elmt:Importer ;
     sysml:visibility "private" ;
     sysml:importedNamespace <urn:sysmlv2:element:3fcc2ef4-a31c-522b-b69d-717d74bccfa6> ;
+    sysml:target <urn:sysmlv2:element:3fcc2ef4-a31c-522b-b69d-717d74bccfa6> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ISQ::*;\n" .
 
 elmt:Importer___401
     a sysml:MembershipImport ;
+    sysml:source elmt:Importer ;
     sysx:positionalName "Importer::@1" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -60,10 +63,12 @@ elmt:Importer___401
     sysml:visibility "private" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:importedMembership elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d ;
+    sysml:target elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d ;
     sysx:sourceText "    private import ScalarValues::Real;\n" .
 
 elmt:Importer___402
     a sysml:MembershipImport ;
+    sysml:source elmt:Importer ;
     sysx:positionalName "Importer::@2" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -79,6 +84,7 @@ elmt:Importer___402
     sysml:isRecursive "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:importedMembership elmt:Importer__Deep_om ;
+    sysml:target elmt:Importer__Deep_om ;
     sysx:sourceText "    private import Deep::**;\n" .
 
 elmt:Importer__Deep

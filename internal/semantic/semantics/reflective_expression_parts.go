@@ -557,14 +557,12 @@ func referenceMembershipElements(sym *symbols.Symbol, feature string) ([]*symbol
 }
 
 // referenceMembershipValue is reflectiveFeatureValue for a plain Membership an
-// expression owns: its member's names, and the public visibility the
-// conversion leaves unstated (KerML 8.3.2.5 Membership::visibility default).
+// expression owns: no member names — only an alias specifies a plain Membership's (KerML 8.3.2.3.5,
+// 8.2.5.8.3 FeatureReferenceMember) — and the public visibility the conversion leaves unstated.
 func (m *Model) referenceMembershipValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {
 	switch feature {
-	case "memberName":
-		return stringOrEmpty(SimpleSymbolName(sym.Implicit.Member)), true
-	case "memberShortName":
-		return stringOrEmpty(m.EffectiveShortNameOf(sym.Implicit.Member)), true
+	case "memberName", "memberShortName":
+		return emptyValue(), true
 	case "visibility":
 		return m.visibilityValue(ast.VisibilityPublic), true
 	}

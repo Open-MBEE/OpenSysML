@@ -647,6 +647,7 @@ elmt:Consumer
 
 elmt:Consumer___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:Consumer ;
     sysx:positionalName "Consumer::@0" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -660,6 +661,7 @@ elmt:Consumer___400
     sysml:importOwningNamespace elmt:Consumer ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:Quoted_20Names ;
+    sysml:target elmt:Quoted_20Names ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import 'Quoted Names'::*;\n" .
 
