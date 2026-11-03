@@ -12,6 +12,16 @@ import (
 // declaredChainValue reads `usage.member` from a package-level usage no object stands for
 // through the object it would materialize, made and taken back under a probe; ok if read so.
 func (ec *EvalContext) declaredChainValue(base ast.Node, parts []ast.NameSegment) (Value, bool, error) {
+	return ec.underDeclaredObject(base, parts, func(obj Value, owner *symbols.Symbol) (Value, error) {
+		return ec.chainMemberValue(obj, parts, owner.Name)
+	})
+}
+
+// underDeclaredObject answers answer over the object a package-level usage no object stands
+// for would materialize, made and taken back under a probe: a chain read or an invocation
+// through the usage. ok is false when the usage is not read so or the answer is undetermined,
+// a function, or an object the probe itself made, which its rollback takes back.
+func (ec *EvalContext) underDeclaredObject(base ast.Node, parts []ast.NameSegment, answer func(obj Value, owner *symbols.Symbol) (Value, error)) (Value, bool, error) {
 	owner, ok := ec.chainBaseSymbol(base)
 	if !ok || len(parts) == 0 || !ec.readsDeclaredMembers(owner) {
 		return Value{}, false, nil
@@ -40,7 +50,7 @@ func (ec *EvalContext) declaredChainValue(base ast.Node, parts []ast.NameSegment
 		}
 	})
 	ec.ctx.occurrences[owner] = []int64{inst.ID}
-	val, err := ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, owner.Name)
+	val, err := answer(Value{Kind: ValInstance, Instance: inst.ID}, owner)
 	if errors.Is(err, errUninitializedFeatureValue) || errors.Is(err, ErrNoSuchFeature) {
 		return Value{}, false, nil
 	}
