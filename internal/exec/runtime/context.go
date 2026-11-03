@@ -861,6 +861,9 @@ func (ctx *Context) nestRun() func() {
 type executorRun struct {
 	state *runState
 	owned bool
+	// under is the run the latest call moved the executor in: state, or the
+	// run installed over it when the call was nested, as under the clock's advance.
+	under *runState
 	// exec is the executor the run drives, nil for the clock's; caller is the run
 	// a callee's executor was begun under, whose performance encloses it.
 	exec   endable
@@ -901,6 +904,7 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 	run.stir(1)
 	ctx.onStack = append(ctx.onStack, run)
 	leave := ctx.enterRun(run.state)
+	run.under = ctx.run
 	ctx.workChanged()
 	// A call into an executor whose performer ended in between finds its performance over.
 	if run.exec != nil && run.exec.performerEnded() {
