@@ -848,6 +848,9 @@ func (d *decoder) build() ([]*element, error) {
 	if err := d.checkStatedMembershipEnds(); err != nil {
 		return nil, err
 	}
+	if err := d.checkStatedImportEnds(); err != nil {
+		return nil, err
+	}
 	if err := d.checkReferences(); err != nil {
 		return nil, err
 	}
@@ -1067,6 +1070,46 @@ func (d *decoder) checkStatedMembershipEnds() error {
 
 // membershipEndsAgree refuses a membership whose stated source, target or relatedElement
 // is not the owner, the member, or both in that order (KerML 8.3.2.3.5, 8.3.2.5.2).
+// checkStatedImportEnds refuses an Import whose stated source or target disagrees with the owner
+// and the one imported element its own properties state (KerML 8.3.2.3.3), on the first pass only.
+func (d *decoder) checkStatedImportEnds() error {
+	if d.names != nil {
+		return nil
+	}
+	for _, subject := range d.graph.SubjectsView() {
+		if !ontology.IsAncestorOrSelf(d.metaclass(subject), mImport) {
+			continue
+		}
+		owner, hasOwner := d.graph.Object(subject, rdf.SysML+pImportOwningNamespace)
+		if !hasOwner {
+			owner, hasOwner = d.graph.Object(subject, rdf.SysML+pOwningRelatedElement)
+		}
+		imported := append(d.graph.Objects(subject, rdf.SysML+pImportedNamespace),
+			d.graph.Objects(subject, rdf.SysML+pImportedMembership)...)
+		// A name the graph has not resolved, or two imported elements, is for the import's own reading.
+		want := map[string]rdf.Term{}
+		if hasOwner && owner.IsIRI() {
+			want[pSource] = owner
+		}
+		if len(imported) == 1 && imported[0].IsIRI() {
+			want[pTarget] = imported[0]
+		}
+		roles := map[string]string{pSource: "importOwningNamespace", pTarget: "imported namespace or membership"}
+		for _, property := range []string{pSource, pTarget} {
+			stated := d.graph.Objects(subject, rdf.SysML+property)
+			end, ok := want[property]
+			if len(stated) == 0 || !ok || slices.Equal(stated, []rdf.Term{end}) {
+				continue
+			}
+			return &UnsupportedError{
+				What: fmt.Sprintf("the import <%s>", subject.Value),
+				Note: fmt.Sprintf("its sysml:%s is %s, but its %s is <%s>, which an import's ends restate", property, termsText(stated), roles[property], end.Value),
+			}
+		}
+	}
+	return nil
+}
+
 func (d *decoder) membershipEndsAgree(subject rdf.Term, what string, owner, member rdf.Term) error {
 	// A namespace aliasing itself has one related element: the triples are a set.
 	related := []rdf.Term{owner, member}

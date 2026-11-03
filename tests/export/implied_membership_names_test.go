@@ -79,3 +79,22 @@ func TestImpliedMembershipsStateTheirMemberNames(t *testing.T) {
 		}
 	}
 }
+
+// TestImportEndsMustAgreeWithWhatTheImportStates: an import whose stated source or target disagrees
+// with its importOwningNamespace or the namespace or membership it imports is refused.
+func TestImportEndsMustAgreeWithWhatTheImportStates(t *testing.T) {
+	graph := roundTripsExactly(t, `package P {
+	import Q::X;
+	package Q {
+		part def X;
+	}
+}
+`)
+	structural := withoutTriples(t, graph, "sysx:sourceText")
+	relinked := relinkedProperty(t, structural, "elmt:P___400", "target", "elmt:P__Q__X_om", "elmt:P__Q")
+	refusedAsUnsupported(t, "import-target", relinked,
+		"its sysml:target is <urn:sysmlv2:element:P__Q>, but its imported namespace or membership is <urn:sysmlv2:element:P__Q__X_om>")
+	moved := relinkedProperty(t, structural, "elmt:P___400", "source", "elmt:P", "elmt:P__Q")
+	refusedAsUnsupported(t, "import-source", moved,
+		"its sysml:source is <urn:sysmlv2:element:P__Q>, but its importOwningNamespace is <urn:sysmlv2:element:P>")
+}
