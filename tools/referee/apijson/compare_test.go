@@ -315,49 +315,51 @@ func TestCollidingDocumentsAreConvertedAlone(t *testing.T) {
 }
 
 func TestDeclaredNondeterminismScoresTheWholeRow(t *testing.T) {
-	expression := func(featuringType any) *element {
+	expression := func(metaclass string, featuringType any) *element {
 		props := map[string]any{"operator": ".", "isAbstract": false}
 		if featuringType != nil {
 			props["featuringType"] = featuringType
 		}
-		return &element{Key: "P::a/FeatureChainExpression[0]", Type: "FeatureChainExpression", File: "p.sysml", Props: props}
+		return &element{Key: "P::a/" + metaclass + "[0]", Type: metaclass, File: "p.sysml", Props: props}
 	}
-	for _, tc := range []struct {
-		name  string
-		ours  *element
-		pilot *element
-	}{
-		{"pilot states a featuringType ours lacks", expression(nil), expression([]any{ref{unkeyed}})},
-		{"both state none", expression(nil), expression([]any{})},
-		{"the two state different ones", expression([]any{ref{"P::a"}}), expression([]any{ref{"P::b"}})},
-	} {
-		c := newComparison()
-		c.compareRoot("probe", []*element{tc.ours}, []*element{tc.pilot})
-		row, ok := rowFor(c.scorecard(), "FeatureChainExpression", "featuringType")
-		if !ok {
-			t.Fatalf("%s: no (FeatureChainExpression, featuringType) row", tc.name)
-		}
-		if row.PilotNondeterministic != 1 || row.Buckets.Differing() != 0 || row.AbsentBoth != 0 || row.PresentEqual != 0 || row.Indeterminate != 0 {
-			t.Errorf("%s: want the one comparison scored pilot-nondeterministic only, got %+v", tc.name, row.Buckets)
-		}
-		if len(c.exampleList(c.scorecard())) != 0 {
-			t.Errorf("%s: a pilot-nondeterministic comparison is not an example of a difference", tc.name)
-		}
-		if c.unkeyedReferences != 0 {
-			t.Errorf("%s: a declared row's references are not compared, so none is counted unkeyed; got %d", tc.name, c.unkeyedReferences)
-		}
-		if other, _ := rowFor(c.scorecard(), "FeatureChainExpression", "operator"); other.PresentEqual != 1 || other.PilotNondeterministic != 0 {
-			t.Errorf("%s: an undeclared property of the same metaclass is still scored, got %+v", tc.name, other.Buckets)
-		}
+	for _, metaclass := range []string{"FeatureChainExpression", "InvocationExpression", "OperatorExpression"} {
+		t.Run(metaclass, func(t *testing.T) {
+			for _, tc := range []struct {
+				name  string
+				ours  *element
+				pilot *element
+			}{
+				{"pilot states a featuringType ours lacks", expression(metaclass, nil), expression(metaclass, []any{ref{unkeyed}})},
+				{"both state none", expression(metaclass, nil), expression(metaclass, []any{})},
+				{"the two state different ones", expression(metaclass, []any{ref{"P::a"}}), expression(metaclass, []any{ref{"P::b"}})},
+			} {
+				c := newComparison()
+				c.compareRoot("probe", []*element{tc.ours}, []*element{tc.pilot})
+				row, ok := rowFor(c.scorecard(), metaclass, "featuringType")
+				if !ok {
+					t.Fatalf("%s: no (%s, featuringType) row", tc.name, metaclass)
+				}
+				if row.PilotNondeterministic != 1 || row.Buckets.Differing() != 0 || row.AbsentBoth != 0 || row.PresentEqual != 0 || row.Indeterminate != 0 {
+					t.Errorf("%s: want the one comparison scored pilot-nondeterministic only, got %+v", tc.name, row.Buckets)
+				}
+				if len(c.exampleList(c.scorecard())) != 0 {
+					t.Errorf("%s: a pilot-nondeterministic comparison is not an example of a difference", tc.name)
+				}
+				if c.unkeyedReferences != 0 {
+					t.Errorf("%s: a declared row's references are not compared, so none is counted unkeyed; got %d", tc.name, c.unkeyedReferences)
+				}
+				if other, _ := rowFor(c.scorecard(), metaclass, "operator"); other.PresentEqual != 1 || other.PilotNondeterministic != 0 {
+					t.Errorf("%s: an undeclared property of the same metaclass is still scored, got %+v", tc.name, other.Buckets)
+				}
+			}
+		})
 	}
 	c := newComparison()
-	pilot := expression([]any{ref{unkeyed}})
-	pilot.Type = "FeatureReferenceExpression"
-	ours := expression(nil)
-	ours.Type = pilot.Type
+	pilot := expression("FeatureReferenceExpression", []any{ref{unkeyed}})
+	ours := expression(pilot.Type, nil)
 	c.compareRoot("probe", []*element{ours}, []*element{pilot})
 	if row, _ := rowFor(c.scorecard(), pilot.Type, "featuringType"); row.OursMissing != 1 || row.PilotNondeterministic != 0 {
-		t.Errorf("the declaration names one metaclass; %s.featuringType is still scored, got %+v", pilot.Type, row.Buckets)
+		t.Errorf("the declarations name specific metaclasses; %s.featuringType is still scored, got %+v", pilot.Type, row.Buckets)
 	}
 }
 
