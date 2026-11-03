@@ -642,6 +642,8 @@ type encoder struct {
 	// the language reaches from where it is written, not to one of the same name.
 	res      *resolve.Resolver
 	declared map[string]bool
+	// holders answers blame's reverse lookups over graph, which is final once encoded.
+	holders holderIndex
 	// metadataBodies holds the qualified names of the metadata usages and the nested
 	// members of their bodies: a keywordless member there is a ReferenceUsage.
 	metadataBodies map[string]bool

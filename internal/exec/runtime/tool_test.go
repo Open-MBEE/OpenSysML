@@ -885,7 +885,7 @@ func TestToolExecutionOfAPerformedAction(t *testing.T) {
 			}
 
 			bare, bareScope := analysisFixture(t, annotatedUsageModel)
-			if _, err := bare.Instantiate(calcNamed(t, bareScope, rig)); !errors.Is(err, errToolNotRegistered) {
+			if _, err := instantiateReporting(bare, calcNamed(t, bareScope, rig)); !errors.Is(err, errToolNotRegistered) {
 				t.Fatalf("Instantiate without a runner = %v, want errToolNotRegistered", err)
 			}
 		})

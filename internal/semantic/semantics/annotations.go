@@ -1532,7 +1532,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return ends, true
 	case "ownedFeatureChaining":
-		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+		if (sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature) || sym.Chain != nil {
 			return m.OwnedRelationships(sym), true
 		}
 	case "chainingFeature":
@@ -2202,18 +2202,18 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		if direction == ast.DirNone {
 			return emptyValue(), true
 		}
-		return stringOrEmpty(direction.String()), true
+		return m.enumLiteralOrEmpty(m.kermlMetaclass("FeatureDirectionKind"), direction.String()), true
 	case "portionKind":
 		if !m.reflectiveMetaclassConforms(sym, "OccurrenceUsage") {
 			return symbols.FilterValue{}, false
 		}
+		portion := ""
 		if sym.Recorded() {
-			return stringOrEmpty(sym.Facts.Portion.Keyword()), true
+			portion = sym.Facts.Portion.Keyword()
+		} else if usage, ok := sym.Decl.(*ast.Usage); ok {
+			portion = usage.Portion.Keyword()
 		}
-		if usage, ok := sym.Decl.(*ast.Usage); ok {
-			return stringOrEmpty(usage.Portion.Keyword()), true
-		}
-		return emptyValue(), true
+		return m.enumLiteralOrEmpty(m.sysmlMetaclass("PortionKind"), portion), true
 	}
 	if feature == "isAbstract" && sym.Recorded() && sym.Kind.IsDefinition() {
 		return boolValue(sym.Facts.Abstract || IsVariation(sym)), true

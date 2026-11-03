@@ -531,6 +531,16 @@ func (s *Session) instantiateLines(name string) ([]string, error) {
 	return append(s.drainTrace(), lines...), nil
 }
 
+// startFailureLines report the behaviors of the object, or of one it holds, that
+// failed to start: the object stands, so the failure is a warning beside it.
+func startFailureLines(ctx *runtime.Context, inst *runtime.Instance, indent string) []string {
+	var lines []string
+	for _, n := range ctx.StartFailureNotes(inst) {
+		lines = append(lines, indent+"warning: "+n.Describe())
+	}
+	return lines
+}
+
 // behaviorsOf names what the object being unnamed is running, so a machine only
 // its id now reaches is not overlooked.
 func behaviorsOf(inst *runtime.Instance) string {
@@ -572,6 +582,7 @@ func (s *Session) instantiateNamed(name string) ([]string, error) {
 		fmt.Sprintf("✓ Created instance of %s", s.declaredName(fqn)),
 		fmt.Sprintf("  ID: %d", inst.ID),
 	}
+	out = append(out, startFailureLines(ctx, inst, "  ")...)
 	// A second instantiation is a second object, so say which one the name now
 	// denotes rather than let the earlier one look like it was reused.
 	if displaced {

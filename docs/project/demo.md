@@ -97,13 +97,17 @@ package Rover {
 EOF
 ```
 
-Evaluating the model's own `calc` from the command line — a model as a callable artifact:
+Evaluating the model's own `calc` from the command line — a model as a callable artifact. The
+expression is evaluated inside the last namespace the file declares, `package Rover`, where the name
+`Rover` is the part def `Rover::Rover` (KerML 8.2.3.5.1 resolves the first segment of a qualified
+name from the local namespace outwards), so the package is named with the global scope qualifier
+`$::`:
 
 ```console
-$ sysml -e "Rover::rangeKm(600, 12)" rover.sysml
+$ sysml -e "$::Rover::rangeKm(600, 12)" rover.sysml
 ✓ package Rover
-✓ Rover::rangeKm(600, 12)
-  = 50
+✓ $::Rover::rangeKm(600, 12)
+  = [50.0]
 ```
 
 ---

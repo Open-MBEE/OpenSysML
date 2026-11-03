@@ -3,6 +3,8 @@ package runtime
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // TestRuntimeRobustnessThisContext covers `this` where no object gives it a
@@ -59,7 +61,7 @@ func testPerformerNotConformingToTypedThisIsRefused(t *testing.T) {
 	}`
 	ctx, idx := libraryShapeContext(t, src)
 	root := idx.DocumentRoot("<test>")
-	_, err := evalIn(t, ctx, root, "Cross::q")
+	err := startFailureOfEval(t, ctx, root, "Cross::q")
 	if err == nil || !strings.Contains(err.Error(), "typed by H") {
 		t.Fatalf("Cross::q: got %v, want a refusal of the performer as the value of this typed by H", err)
 	}
@@ -83,8 +85,23 @@ func testExhibitedMachineBindingThisToItsDefinitionIsRefused(t *testing.T) {
 	}`
 	ctx, idx := libraryShapeContext(t, src)
 	root := idx.DocumentRoot("<test>")
-	_, err := evalIn(t, ctx, root, "T::host")
+	err := startFailureOfEval(t, ctx, root, "T::host")
 	if err == nil || !strings.Contains(err.Error(), "typed by Life") {
 		t.Fatalf("T::host: got %v, want the binding of this (the Host) to a feature typed by Life refused", err)
 	}
+}
+
+// startFailureOfEval evaluates path to an object and answers the failure recorded
+// on a behavior of that object that could not start.
+func startFailureOfEval(t *testing.T, ctx *Context, scope *symbols.Scope, path string) error {
+	t.Helper()
+	val, err := evalIn(t, ctx, scope, path)
+	if err != nil {
+		t.Fatalf("%s: %v; want the object created, its behavior's failure recorded", path, err)
+	}
+	inst, ok := ctx.getInstance(val.Instance)
+	if val.Kind != ValInstance || !ok {
+		t.Fatalf("%s = %s, want an object", path, FormatValue(val))
+	}
+	return startFailure(ctx, inst)
 }

@@ -1319,6 +1319,19 @@ func TestExploreAdvanceRunsBehaviorsOnOneClock(t *testing.T) {
 		`Timed::listener finalState = "pinged"; Timed::listener visits = "idle, pinged"; Timed::pinger.count = 1 | 1              | possible    | no choice points`)
 }
 
+// TestAdvanceMarksOrderDependentResults checks that a result standing on the
+// due-order choice point of an -advance run carries the order-dependence marker
+// the default run prints: the advance drives the behaviors under the clock's run,
+// whose marks answering the results has to read under.
+func TestAdvanceMarksOrderDependentResults(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, dueTogetherModel, "-instantiate", "Due::beacon",
+		"-action", "Due::watcher", "-state", "Due::Beacon::blinking Due::beacon", "-advance", "5")
+	wantReport(t, got, 0, "✓ Advanced to 5.0 (1 event(s) processed)", "1 choice point; %trace on to see them",
+		"sawLit = false (order-dependent; 1 choice point — explore shows the set)")
+}
+
 // TestJSONWithoutCheck checks that -json alone is a misuse reported as such,
 // rather than starting a prompt a build step cannot answer.
 func TestJSONWithoutCheck(t *testing.T) {

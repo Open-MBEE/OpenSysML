@@ -119,15 +119,15 @@ func testSendViaBoundBoundaryPortJoinedToNothing(t *testing.T) {
 			part env : Env;
 		}
 	}`))
-	_, err := ctx.Instantiate(oneSymbol(t, idx, "P::ctx"))
+	_, err := instantiateReporting(ctx, oneSymbol(t, idx, "P::ctx"))
 	if !errors.Is(err, errUnroutableSend) {
 		t.Fatalf("instantiate ctx: err = %v, want %v", err, errUnroutableSend)
 	}
 	if pending := ctx.PendingMessages(); len(pending) != 0 {
 		t.Errorf("pending messages = %+v, want none", pending)
 	}
-	if got := len(ctx.instances); got != 0 {
-		t.Errorf("%d object(s) survive the failed creation, want none", got)
+	if got := len(ctx.StartFailures(ctx.instances[1])); got != 1 {
+		t.Errorf("%d behavior(s) failed to start, want the unroutable send's alone, the objects standing", got)
 	}
 }
 

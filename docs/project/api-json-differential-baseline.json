@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:9c47324999ac3568d72fdd94990351676a2f93eb01c8d0b763be7222962dc940"
+        "sourceDigest": "sha256:db7f97e77690188991d97a1e3ec303e1739782532718ee65d4ce36e960a733fc"
       }
     ],
     "inputs": [
@@ -89,7 +89,7 @@
         "digest": "sha256:4f350c5a695cda953e0fb8f1b9b273c998f57480b9770bf063b6ca51a96cdf13"
       }
     ],
-    "recorded": "2026-11-02"
+    "recorded": "2026-11-03"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -120,8 +120,8 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1291382,
-      "presentDifferent": 32953,
+      "presentEqual": 1291410,
+      "presentDifferent": 32925,
       "oursMissing": 923659,
       "pilotMissing": 70249,
       "absentBoth": 1987230,
@@ -197,8 +197,8 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 372875,
-        "presentDifferent": 8932,
+        "presentEqual": 372883,
+        "presentDifferent": 8924,
         "oursMissing": 265955,
         "pilotMissing": 19377,
         "absentBoth": 576463,
@@ -306,8 +306,8 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 88109,
-        "presentDifferent": 1789,
+        "presentEqual": 88113,
+        "presentDifferent": 1785,
         "oursMissing": 62467,
         "pilotMissing": 5602,
         "absentBoth": 135062,
@@ -380,8 +380,8 @@
         "typeMismatch": 186
       },
       "properties": {
-        "presentEqual": 393260,
-        "presentDifferent": 10192,
+        "presentEqual": 393276,
+        "presentDifferent": 10176,
         "oursMissing": 284757,
         "pilotMissing": 20805,
         "absentBoth": 616404,
@@ -13875,8 +13875,8 @@
       0
     ],
     "BindingConnectorAsUsage.isVariable": [
-      0,
       3,
+      0,
       0,
       0,
       0,
@@ -13893,8 +13893,8 @@
       0
     ],
     "BindingConnectorAsUsage.mayTimeVary": [
-      0,
       3,
+      0,
       0,
       0,
       0,
@@ -89646,8 +89646,8 @@
       0
     ],
     "SuccessionAsUsage.isVariable": [
-      1,
-      11,
+      12,
+      0,
       0,
       0,
       0,
@@ -89664,8 +89664,8 @@
       0
     ],
     "SuccessionAsUsage.mayTimeVary": [
-      1,
-      11,
+      12,
+      0,
       0,
       0,
       0,
