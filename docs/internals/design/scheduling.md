@@ -210,9 +210,12 @@ tracker and never by re-reading declarations in the runtime:
   (`Instance.materializeDerived`: `sensor.scaled = raw * 10` stands where `raw` does) alike
   (`Context.deriveMarks` over `lower.ExpressionFootprint`). Reporting reads under the run that
   produced the values: `ActionExecutor.ResultsWithError` derives what a part's object holds under
-  the executor's own run state (`enterRun`), since a derivation begun as a run of its own would
-  install a fresh state and the marks of the run just ended would be gone before the surface read
-  them — which is how a value reached through a part was once reported bare.
+  the run the action last moved in (`executorRun.under`, recorded by `beginExecutorRun`: the
+  action's own run state, or the clock's when an `-advance` drove it, `enterRun`), since a
+  derivation begun as a run of its own would install a fresh state and the marks of the run just
+  ended would be gone before the surface read them — which is how a value reached through a part
+  was once reported bare, and how a result of an `-advance` lost its marker to the action's idle
+  run when the results were read under that instead of the clock's.
 - **Clear.** Since the write *replaces* the marks of `w`, a write that reads nothing
   order-dependent, under no control, clears `w` from that point on: the mark describes the value.
   It replaces the marks of the one declaration it writes (`samePlace`): a same-named feature of

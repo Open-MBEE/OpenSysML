@@ -89,6 +89,16 @@ func TestPortDefinitionOwnsItsConjugate(t *testing.T) {
 	if got := m.OwnedMemberships(conjugate); len(got) != 0 {
 		t.Errorf("the conjugate owns %d memberships, want none", len(got))
 	}
+	// Definition::ownedUsage and its per-kind subsets are derived for the conjugate as for
+	// any definition: it owns no feature (x is inherited through the conjugation), so empty.
+	for _, feature := range []string{"ownedUsage", "ownedPort", "ownedAttribute"} {
+		if got, ok := m.ReflectiveElements(conjugate, feature); !ok || len(got) != 0 {
+			t.Errorf("%s of ~Q = %v (derived %v), want derived and empty", feature, got, ok)
+		}
+	}
+	if got, ok := m.ReflectiveElements(q, "ownedUsage"); !ok || len(got) != 1 || got[0].Name != "x" {
+		t.Errorf("ownedUsage of Q = %v (derived %v), want [x]", got, ok)
+	}
 	short, ok := pkg.Scope.LookupLocal("s")
 	if !ok {
 		t.Fatal("port def <s> not found")

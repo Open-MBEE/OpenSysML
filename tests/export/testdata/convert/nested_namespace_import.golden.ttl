@@ -208,6 +208,7 @@ elmt:NestedNamespaceImport__Pkg2_om
 
 elmt:NestedNamespaceImport__Pkg2___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:NestedNamespaceImport__Pkg2 ;
     sysx:positionalName "NestedNamespaceImport::Pkg2::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -221,11 +222,13 @@ elmt:NestedNamespaceImport__Pkg2___400
     sysml:importOwningNamespace elmt:NestedNamespaceImport__Pkg2 ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:NestedNamespaceImport__Pkg1 ;
+    sysml:target elmt:NestedNamespaceImport__Pkg1 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        private import Pkg1::*;\n" .
 
 elmt:NestedNamespaceImport__Pkg2___401
     a sysml:MembershipImport ;
+    sysml:source elmt:NestedNamespaceImport__Pkg2 ;
     sysx:positionalName "NestedNamespaceImport::Pkg2::@1" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -241,10 +244,12 @@ elmt:NestedNamespaceImport__Pkg2___401
     sysml:isRecursive "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:importedMembership elmt:NestedNamespaceImport__Pkg1_om ;
+    sysml:target elmt:NestedNamespaceImport__Pkg1_om ;
     sysx:sourceText "        public import Pkg1::**;\n" .
 
 elmt:NestedNamespaceImport__Pkg2___402
     a sysml:NamespaceImport ;
+    sysml:source elmt:NestedNamespaceImport__Pkg2 ;
     sysx:positionalName "NestedNamespaceImport::Pkg2::@2" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -258,6 +263,7 @@ elmt:NestedNamespaceImport__Pkg2___402
     sysml:importOwningNamespace elmt:NestedNamespaceImport__Pkg2 ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:NestedNamespaceImport__Pkg1 ;
+    sysml:target elmt:NestedNamespaceImport__Pkg1 ;
     sysml:isRecursive "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        private import Pkg1::*::**;\n" .

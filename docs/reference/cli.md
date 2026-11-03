@@ -57,6 +57,14 @@ sysml -e "someAttribute" model.sysml
 **Note:** flags may be written before or after the files — `sysml model.sysml -e "x"`
 and `sysml -e "x" model.sysml` do the same thing.
 
+An `-e` expression is evaluated in the last namespace the loaded files declare, as
+`%eval` at the prompt is, and a qualified name in it is resolved from there as KerML
+8.2.3.5.1 resolves one in a model: when `package Rover` declares a `part def Rover`,
+`-e "Rover::rangeKm(600, 12)"` looks inside the part def and reports `unresolved
+reference: Rover::rangeKm`, while the global scope qualifier `$::` names the package,
+`-e "$::Rover::rangeKm(600, 12)"`. See
+[Where an expression is evaluated](../guide/04-repl.md#where-an-expression-is-evaluated).
+
 An `-e` expression is evaluated at model level: over what the declarations state,
 not over an object. A feature the model leaves open — an attribute with no value,
 or a `[1..*]` or `[0..2]` feature whose count the model does not fix — reads as the

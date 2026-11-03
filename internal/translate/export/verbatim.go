@@ -284,8 +284,8 @@ func derivedVariabilityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 		!graph.HasProperty(t.Subject, t.Predicate.Value)
 }
 
-// derivedMembershipOmitted reports a Membership end or name (sysml: statement or its
-// collection annotation) the candidate derives (KerML 8.3.2.3.5) and the graph omits.
+// derivedMembershipOmitted reports a Membership end or name, or an Import's end (sysml: statement or
+// its collection annotation), the candidate derives (KerML 8.3.2.3.5, 8.3.2.3.3) and the graph omits.
 func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 	var key string
 	switch {
@@ -301,7 +301,10 @@ func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 	default:
 		return false
 	}
-	return ontology.IsAncestorOrSelf(rdf.LocalName(check.Type(t.Subject)), mMembership) &&
+	metaclass := rdf.LocalName(check.Type(t.Subject))
+	derives := ontology.IsAncestorOrSelf(metaclass, mMembership) ||
+		(ontology.IsAncestorOrSelf(metaclass, mImport) && (key == pSource || key == pTarget))
+	return derives &&
 		!graph.HasProperty(t.Subject, rdf.SysML+key) && !graph.HasProperty(t.Subject, rdf.AnnotationJSON+key)
 }
 

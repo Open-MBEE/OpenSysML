@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"testing"
 
@@ -118,7 +119,9 @@ calc def Q :> Query {
 	if got := cellStrings(t, result, "Type"); !slices.EqualFunc(got, [][]string{{"USB"}, {"Serial"}}, slices.Equal) {
 		t.Fatalf("Type cells = %q", got)
 	}
-	if got := cellStrings(t, result, "Direction"); !slices.EqualFunc(got, [][]string{{"inout"}, {"in", "out"}}, slices.Equal) {
+	// A direction is the FeatureDirectionKind literal, an element, as a visibility is.
+	want := [][]string{{"KerML::Core::FeatureDirectionKind::inout"}, {"KerML::Core::FeatureDirectionKind::in", "KerML::Core::FeatureDirectionKind::out"}}
+	if got := cellElementNames(t, result, "Direction"); !slices.EqualFunc(got, want, slices.Equal) {
 		t.Fatalf("Direction cells = %q", got)
 	}
 }
@@ -315,4 +318,31 @@ func TestValuesEqualComparesWideIntegersByMagnitude(t *testing.T) {
 	if len(kept) != 2 {
 		t.Fatalf("distinctValues kept %d wide Integers, want 2", len(kept))
 	}
+}
+
+// cellElementNames is the qualified name of every element value of the column, row by row.
+func cellElementNames(t *testing.T, result *RowSet, column string) [][]string {
+	t.Helper()
+	position := -1
+	for i, c := range result.Columns() {
+		if c.Name() == column {
+			position = i
+		}
+	}
+	if position < 0 {
+		t.Fatalf("no column %s in %v", column, result.Columns())
+	}
+	var out [][]string
+	for _, row := range result.Rows() {
+		var names []string
+		for _, value := range row.Cells()[position].Values() {
+			sym, ok := value.Element()
+			if !ok {
+				t.Fatalf("%s cell holds a non-element value %v", column, value)
+			}
+			names = append(names, symbols.FQNOf(sym))
+		}
+		out = append(out, names)
+	}
+	return out
 }

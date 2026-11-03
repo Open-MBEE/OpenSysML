@@ -91,6 +91,7 @@ elmt:Conjugation__CommunicationPort_conjugated_om
     sysml:source elmt:Conjugation__CommunicationPort ;
     sysml:target elmt:Conjugation__CommunicationPort_conjugated ;
     sysml:relatedElement elmt:Conjugation__CommunicationPort, elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:memberName "~CommunicationPort" ;
     json:relatedElement "[{\"@id\":\"Conjugation__CommunicationPort\"},{\"@id\":\"Conjugation__CommunicationPort_conjugated\"}]" .
 
 elmt:Conjugation__CommunicationPort_conjugated_pc

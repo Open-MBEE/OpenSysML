@@ -349,6 +349,7 @@ expr:Synonyms___407_pend0_om
     sysml:source elmt:Synonyms___407 ;
     sysml:target expr:Synonyms___407_pend0 ;
     sysml:relatedElement elmt:Synonyms___407, expr:Synonyms___407_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"Synonyms___407\"},{\"@id\":\"Synonyms___407_pend0\"}]" .
 
 expr:Synonyms___407_pend0_prs
@@ -398,6 +399,7 @@ expr:Synonyms___407_pend1_om
     sysml:source elmt:Synonyms___407 ;
     sysml:target expr:Synonyms___407_pend1 ;
     sysml:relatedElement elmt:Synonyms___407, expr:Synonyms___407_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"Synonyms___407\"},{\"@id\":\"Synonyms___407_pend1\"}]" .
 
 expr:Synonyms___407_pend1_prs

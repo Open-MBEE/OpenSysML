@@ -779,6 +779,7 @@ expr:Shadows__Governor___404_succession_pend0_om
     sysml:source elmt:Shadows__Governor___404_succession ;
     sysml:target expr:Shadows__Governor___404_succession_pend0 ;
     sysml:relatedElement elmt:Shadows__Governor___404_succession, expr:Shadows__Governor___404_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor___404_succession\"},{\"@id\":\"Shadows__Governor___404_succession_pend0\"}]" .
 
 expr:Shadows__Governor___404_succession_pend1
@@ -806,6 +807,7 @@ expr:Shadows__Governor___404_succession_pend1_om
     sysml:source elmt:Shadows__Governor___404_succession ;
     sysml:target expr:Shadows__Governor___404_succession_pend1 ;
     sysml:relatedElement elmt:Shadows__Governor___404_succession, expr:Shadows__Governor___404_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor___404_succession\"},{\"@id\":\"Shadows__Governor___404_succession_pend1\"}]" .
 
 expr:Shadows__Governor___404_succession_pend1_prs
@@ -1211,6 +1213,7 @@ expr:Shadows__Governor___405_succession_pend0_om
     sysml:source elmt:Shadows__Governor___405_succession ;
     sysml:target expr:Shadows__Governor___405_succession_pend0 ;
     sysml:relatedElement elmt:Shadows__Governor___405_succession, expr:Shadows__Governor___405_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor___405_succession\"},{\"@id\":\"Shadows__Governor___405_succession_pend0\"}]" .
 
 expr:Shadows__Governor___405_succession_pend1
@@ -1238,6 +1241,7 @@ expr:Shadows__Governor___405_succession_pend1_om
     sysml:source elmt:Shadows__Governor___405_succession ;
     sysml:target expr:Shadows__Governor___405_succession_pend1 ;
     sysml:relatedElement elmt:Shadows__Governor___405_succession, expr:Shadows__Governor___405_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor___405_succession\"},{\"@id\":\"Shadows__Governor___405_succession_pend1\"}]" .
 
 expr:Shadows__Governor___405_succession_pend1_prs

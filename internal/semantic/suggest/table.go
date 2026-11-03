@@ -137,8 +137,9 @@ func (t *Table) Declared(name string) []string {
 	return t.qualified(name, func(string) bool { return true })
 }
 
-// Qualified returns the qualified names, shortest first, under which the index
-// declares the simple name name: `Integer` is declared as `ScalarValues::Integer`.
+// Qualified returns the qualified names under which the index declares the
+// simple name name, the most plausible first (see nearest): `Integer` is
+// declared as `ScalarValues::Integer`.
 func (t *Table) Qualified(name string) []string {
 	return t.qualified(name, typable)
 }
@@ -155,19 +156,19 @@ func (t *Table) qualified(name string, admit func(fqn string) bool) []string {
 		}
 		return cands[i] < cands[j]
 	})
-	var out []string
+	var out []qualifiedName
 	for i, fqn := range cands {
 		if i == scanLimit {
 			break
 		}
-		if admit(fqn) && t.idx.Declaring(fqn) != nil {
-			out = append(out, fqn)
-			if len(out) == Limit {
-				break
-			}
+		if !admit(fqn) {
+			continue
+		}
+		if decl := t.idx.Declaring(fqn); decl != nil {
+			out = append(out, qualifiedName{fqn: fqn, short: symbols.ShortNamed(decl, fqn)})
 		}
 	}
-	return out
+	return nearest(out)
 }
 
 // Neighbours returns the registered simple names within word's edit-distance

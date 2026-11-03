@@ -388,6 +388,7 @@ elmt:R90
 
 elmt:R90___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:R90 ;
     sysx:positionalName "R90::@0" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -401,6 +402,7 @@ elmt:R90___400
     sysml:importOwningNamespace elmt:R90 ;
     sysml:visibility "public" ;
     sysml:importedNamespace elmt:OtherPkg ;
+    sysml:target elmt:OtherPkg ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    public import OtherPkg::*;\n" .
 
@@ -1659,6 +1661,7 @@ expr:R90__Run___403_succession_pend0_om
     sysml:source elmt:R90__Run___403_succession ;
     sysml:target expr:R90__Run___403_succession_pend0 ;
     sysml:relatedElement elmt:R90__Run___403_succession, expr:R90__Run___403_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"R90__Run___403_succession\"},{\"@id\":\"R90__Run___403_succession_pend0\"}]" .
 
 expr:R90__Run___403_succession_pend1
@@ -1686,6 +1689,7 @@ expr:R90__Run___403_succession_pend1_om
     sysml:source elmt:R90__Run___403_succession ;
     sysml:target expr:R90__Run___403_succession_pend1 ;
     sysml:relatedElement elmt:R90__Run___403_succession, expr:R90__Run___403_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"R90__Run___403_succession\"},{\"@id\":\"R90__Run___403_succession_pend1\"}]" .
 
 expr:R90__Run___403_succession_pend1_prs
@@ -1984,6 +1988,8 @@ elmt:Filtered___400
     sysml:importOwningNamespace elmt:Filtered ;
     sysml:visibility "public" ;
     sysml:importedNamespace elmt:Filtered___400_fp ;
+    sysml:source elmt:Filtered ;
+    sysml:target elmt:Filtered___400_fp ;
     sysml:ownedRelatedElement elmt:Filtered___400_fp ;
     sysx:filter expr:Filtered___400_pfilter ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -2001,7 +2007,9 @@ elmt:Filtered___400_fp
 
 elmt:Filtered___400_fp_im
     a sysml:NamespaceImport ;
+    sysml:source elmt:Filtered___400_fp ;
     sysml:importedNamespace elmt:Meta ;
+    sysml:target elmt:Meta ;
     sysml:elementId "Filtered___400_fp_im" ;
     sysml:importOwningNamespace elmt:Filtered___400_fp ;
     sysml:owner elmt:Filtered___400_fp ;
