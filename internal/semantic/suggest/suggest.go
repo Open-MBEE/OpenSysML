@@ -444,23 +444,34 @@ func With(msg, word string, candidates []string) string {
 func Hint(msg, word string, candidates, unquoted []string) string {
 	seen := map[string]bool{word: true}
 	var offer []string
-	add := func(spelling string) {
-		if !seen[spelling] && len(offer) < Limit {
-			seen[spelling] = true
-			offer = append(offer, spelling)
+	add := func(spelling string, limit int) bool {
+		if seen[spelling] || len(offer) >= limit {
+			return false
+		}
+		seen[spelling] = true
+		offer = append(offer, spelling)
+		return true
+	}
+	// The quoted choices leave room for one candidate: the import a candidate
+	// earns the message is explained by a candidate it shows.
+	room := Limit
+	if len(candidates) > 0 {
+		room--
+	}
+	var quoted []string
+	for _, name := range unquoted {
+		if add(Notation(name), room) {
+			quoted = append(quoted, name)
 		}
 	}
-	for _, name := range unquoted {
-		add(Notation(name))
-	}
 	for _, c := range candidates {
-		add(c)
+		add(c, Limit)
 	}
 	if len(offer) == 0 {
 		return msg
 	}
 	msg += " — did you mean " + OrList(offer) + "?"
-	if rule := QuotingRule(unquoted); rule != "" {
+	if rule := QuotingRule(quoted); rule != "" {
 		msg += " " + rule
 	}
 	return msg

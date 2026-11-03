@@ -148,3 +148,19 @@ func TestQuotedDeclarationInScopeSurvivesAnExportedNamesake(t *testing.T) {
 		}
 	}
 }
+
+// Quoted names in scope leave the hint room for the exported namesake: the
+// import the message then names is explained by a candidate it shows.
+func TestExportedNamesakeKeepsItsSlotBesideQuotedNames(t *testing.T) {
+	r := resolveDoc(t, "d.sysml", `package P { part def SA; }
+	package T {
+		part def 'SA-1';
+		part def 'SA-2';
+		part def 'SA-3';
+		part d : SA;
+	}`)
+	want := "unresolved reference: SA — did you mean 'SA-1', 'SA-2' or P::SA? Names containing '-' must be quoted. To use the bare name, import its package: private import P::*;"
+	if got := diagnosticContaining(r, "unresolved reference: SA"); got != want {
+		t.Errorf("diagnostic = %q, want %q", got, want)
+	}
+}
