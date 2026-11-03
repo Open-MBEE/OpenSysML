@@ -1,11 +1,19 @@
 // Converting a model to notation, Turtle and API JSON, and writing it out.
 
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { before, test } from "node:test";
-import { InvalidRequestError, connect, save } from "../src/node/index.js";
+import {
+  type Conversion,
+  InvalidRequestError,
+  MissingCapabilityError,
+  Model,
+  connect,
+  save,
+} from "../src/node/index.js";
+import { fakeConnection } from "./support/fake.js";
 import { SAMPLE, useServiceBinary } from "./support/service.js";
 
 before(() => {
@@ -29,6 +37,26 @@ test("API JSON names library references separately and opts into legacy stubs", 
   assert.equal(stub.qualifiedName, "SI::second");
   assert.equal(stub.isLibraryElement, true);
   assert.deepEqual(legacy.libraryReferences, plain.libraryReferences);
+});
+
+test("API JSON spells derived ids as uuids when asked, over the same elements", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(SAMPLE);
+  const qualified = await model.convert("api-json");
+  const explicit = await model.convert("api-json", { idForm: "qualified" });
+  const uuid = await model.convert("api-json", { idForm: "uuid" });
+  assert.equal(explicit.content, qualified.content);
+  const names = (conversion: Conversion) =>
+    (JSON.parse(conversion.content) as Record<string, unknown>[]).map((element) => element.qualifiedName);
+  assert.deepEqual(names(uuid), names(qualified));
+  const ids = (JSON.parse(uuid.content) as Record<string, string>[]).map((element) => element["@id"]);
+  const uuidForm = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  assert.ok(ids.length > 0 && ids.every((id) => uuidForm.test(id)));
+  assert.notEqual(uuid.content, qualified.content);
+  await assert.rejects(
+    () => model.convert("api-json", { idForm: "camel" as "uuid" }),
+    (error: unknown) => error instanceof InvalidRequestError && /idForm|id_form/.test((error as Error).message),
+  );
 });
 
 test("a model writes itself out in notation", async () => {
@@ -100,4 +128,69 @@ test("save writes a conversion's content verbatim", async () => {
   const path = join(dir, "out.sysml");
   await save(conversion, path);
   assert.equal(readFileSync(path, "utf8"), conversion.content);
+});
+
+test("save converts with the id form and library stubs convert takes", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "opensysml-save-"));
+  await using connection = await connect();
+  const model = await connection.loads("package P { private import SI::*; attribute time = 20 [s]; }");
+  const uuidPath = join(dir, "uuid.json");
+  const uuid = await save(model, uuidPath, { idForm: "uuid" });
+  assert.equal(readFileSync(uuidPath, "utf8"), uuid.content);
+  assert.equal(uuid.content, (await model.convert("api-json", { idForm: "uuid" })).content);
+  assert.notEqual(uuid.content, (await model.convert("api-json")).content);
+  const stubsPath = join(dir, "stubs.json");
+  const stubs = await save(model, stubsPath, { includeLibraryStubs: true });
+  assert.equal(readFileSync(stubsPath, "utf8"), stubs.content);
+  assert.equal(stubs.content, (await model.convert("api-json", { includeLibraryStubs: true })).content);
+  const elements = JSON.parse(stubs.content) as Record<string, unknown>[];
+  assert.ok(elements.some((element) => element.isLibraryElement === true));
+});
+
+test("save refuses an id form for a notation target before writing", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "opensysml-save-"));
+  await using connection = await connect();
+  const model = await connection.loads(SAMPLE);
+  const path = join(dir, "out.sysml");
+  await assert.rejects(
+    () => save(model, path, { idForm: "uuid" }),
+    (error: unknown) => error instanceof InvalidRequestError && /id_form|idForm/.test((error as Error).message),
+  );
+  assert.equal(existsSync(path), false);
+});
+
+test("save gates library stubs on the service's capability, as convert does", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "opensysml-save-"));
+  const path = join(dir, "out.json");
+  const unable = await fakeConnection(["convert"]);
+  await assert.rejects(
+    () => save(Model.adopt(unable, "hash"), path, { includeLibraryStubs: true }),
+    (error: unknown) =>
+      error instanceof MissingCapabilityError && error.capability === "convert_library_stubs",
+  );
+  assert.equal(existsSync(path), false);
+  await unable.close();
+
+  let seen: { toFormat?: string; idForm?: string; includeLibraryStubs?: boolean } | undefined;
+  const able = await fakeConnection(["convert", "convert_library_stubs"], (method, input) => {
+    assert.equal(method, "Convert");
+    seen = input as typeof seen;
+    return {
+      content: "[]",
+      fromFormat: "sysml",
+      toFormat: "api-json",
+      diagnostics: [],
+      error: "",
+      experimental: false,
+      experimentalNotice: "",
+      libraryReferences: [],
+    };
+  });
+  await save(Model.adopt(able, "hash"), path, { idForm: "uuid", includeLibraryStubs: true });
+  assert.ok(seen !== undefined);
+  assert.equal(seen.toFormat, "api-json");
+  assert.equal(seen.idForm, "uuid");
+  assert.equal(seen.includeLibraryStubs, true);
+  assert.equal(readFileSync(path, "utf8"), "[]");
+  await able.close();
 });

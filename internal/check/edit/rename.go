@@ -1,12 +1,14 @@
 package edit
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // renameSplices are the byte ranges a rename rewrites: the declaration's name
@@ -44,7 +46,11 @@ func (m Model) renameSplices(i int, op Operation, sym *symbols.Symbol) ([]splice
 		return nil, e
 	}
 	out := make([]splice, 0, len(occurrences)+1)
-	out = append(out, splice{span: ident.NameSpan, text: op.NewName, opIndex: i, target: op.Target})
+	declaration := splice{span: ident.NameSpan, text: op.NewName, opIndex: i, target: op.Target}
+	if sym.DocName != m.Source.Name() {
+		declaration.doc = sym.DocName
+	}
+	out = append(out, declaration)
 	for _, occ := range occurrences {
 		sp := splice{span: occ.Span(), text: op.NewName, opIndex: i, target: op.Target}
 		if occ.doc != m.Source.Name() {
@@ -112,4 +118,53 @@ func (m Model) renameOccurrences(r *resolve.Resolver, sym *symbols.Symbol, ident
 	}
 	sortReferrers(elsewhere)
 	return out, elsewhere
+}
+
+// renameable is the declaration an operation renames: in this model's document,
+// or in the one a rename is stated DeclaredIn (a view renames what it draws from any document).
+func (m Model) renameable(i int, op Operation) (*symbols.Symbol, error) {
+	var sym *symbols.Symbol
+	var err error
+	if op.Kind == OpRename && op.DeclarationDoc != "" {
+		sym, err = m.element(i, op)
+	} else {
+		sym, err = m.target(i, op)
+	}
+	if err != nil && op.Kind == OpRename {
+		sym, err = m.renameTarget(i, op, err)
+	}
+	return sym, err
+}
+
+// renameTarget is the declaration a rename names when no declaration answers
+// to its target: a qualified path reaching an inherited member through the
+// owner a rendering draws it under, as a Layout about that member states it,
+// renames the declaration the member resolves to. The path's own failure
+// stands when it leads nowhere.
+func (m Model) renameTarget(i int, op Operation, err error) (*symbols.Symbol, error) {
+	var refusal *Error
+	if !errors.As(err, &refusal) || refusal.Failure != FailureUnknownTarget || op.Target == "" {
+		return nil, err
+	}
+	names, ok := source.QualifiedNameSegments(op.Target)
+	if !ok || len(names) < 2 {
+		return nil, err
+	}
+	owner, ownerErr := m.declaredOnceIn(i, source.QualifiedNameOf(names[:len(names)-1]), "")
+	if ownerErr != nil {
+		return nil, err
+	}
+	_, sem := m.resolver()
+	member, ok := sem.LookupMember(owner, names[len(names)-1])
+	if !ok {
+		return nil, err
+	}
+	if member.DocName != m.Source.Name() && member.DocName != op.DeclarationDoc {
+		return nil, &Error{
+			Failure:        FailureUnknownTarget,
+			OperationIndex: i,
+			Message:        fmt.Sprintf("%q is declared in %s, not in this model's source", op.Target, docLabel(member.DocName)),
+		}
+	}
+	return member, nil
 }

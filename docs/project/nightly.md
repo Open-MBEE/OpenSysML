@@ -288,8 +288,11 @@ registered once by a maintainer:
 - **PyPI** — in the [`opensysml` project's publishing
   settings](https://pypi.org/manage/project/opensysml/settings/publishing/), add a GitHub
   Actions publisher with owner `Open-MBEE`, repository `OpenSysML`, workflow
-  `nightly.yml` and environment `nightly`. The stable release keeps publishing from
-  CircleCI with its token; the two coexist.
+  `nightly.yml` and environment `nightly`, on both `opensysml` and
+  [`jupyter-opensysml-kernel`](https://pypi.org/manage/project/jupyter-opensysml-kernel/settings/publishing/).
+  The stable release publishes through a second entry of the same shape
+  (`release-pypi.yml`, environment `pypi`; see
+  [Releasing](releasing.md#what-the-publication-needs)); the two coexist.
 - **npm** — for each of `@openmbee/opensysml`, the five `@openmbee/opensysml-sysml-grpc-*`
   packages and `@openmbee/opensysml-wasm`, open the package's settings on npmjs.com,
   choose GitHub Actions under *Trusted Publisher*, and enter organization `Open-MBEE`,

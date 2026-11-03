@@ -268,9 +268,7 @@ func TestGRPCRobustnessAuthStartup(t *testing.T) {
 	t.Run("health binds the same host", func(t *testing.T) {
 		s := startService(t, "-port", "0", "-health-port", freePort(t))
 		s.address(30 * time.Second)
-		if logs := s.logs.String(); !strings.Contains(logs, "Health check server listening\" addr=localhost:") {
-			t.Errorf("the health listener did not bind loopback:\n%s", logs)
-		}
+		s.waitLog("Health check server listening\" addr=localhost:", 30*time.Second)
 	})
 	t.Run("non-loopback without a token is refused", func(t *testing.T) {
 		s := startService(t, "-host", "0.0.0.0", "-port", "0", "-health-port", "0")

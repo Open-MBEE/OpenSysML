@@ -265,7 +265,6 @@ func TestConvertErrors(t *testing.T) {
 		"file as format":      {[]string{"-convert", model}, "-convert names the format"},
 		"several to notation": {[]string{model, model, "-convert", "sysml"}, "converts to ttl or api-json"},
 		"several to a branch": {[]string{model, model, "-convert", "ttl", "-o", "flexo://p/main"}, "is written to a file"},
-		"replaced -to flag":   {[]string{model, "-convert", "ttl", "-to", "sysml"}, "-to has been replaced by -convert"},
 		"forgotten value":     {[]string{model, "-convert", "ttl", "-o"}, "flag needs an argument: -o"},
 		"syntax error":        {[]string{broken, "-convert", "ttl"}, "syntax error"},
 		"unsupported rdf":     {[]string{badTurtle, "-convert", "sysml"}, "blank node"},
@@ -632,12 +631,14 @@ func TestConvertLayoutAugment(t *testing.T) {
 	if out.status != 0 {
 		t.Fatalf("migrating with -layout failed: %s%s", out.stdout, out.stderr)
 	}
+	// The notation is laid out one statement per line; compare its words.
+	words := strings.Join(strings.Fields(out.stdout), " ")
 	for _, want := range []string{
 		"metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; :>> DiagramLayout::Layout::height = 40; }",
 		"metadata DiagramLayout::Route about drive { points = (120, 30, 200, 30); }",
 		`@DiagramLayout::Canvas { unit = "px";`,
 	} {
-		if !strings.Contains(out.stdout, want) {
+		if !strings.Contains(words, want) {
 			t.Errorf("migrated notation lacks %q:\n%s", want, out.stdout)
 		}
 	}

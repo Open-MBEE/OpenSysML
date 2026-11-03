@@ -16,18 +16,27 @@ import (
 // before it, a bare name in the scope the expression was written in — and the
 // object answers with the slot holding that feature's value.
 
-// chainStatic is the declaration each segment of the chain being evaluated
-// names; decls[i] is for parts[i], nil past the first segment left unresolved.
+// chainStatic is the chain being evaluated: its flattened segments, by their
+// last one and their count, and the declarations they name.
 type chainStatic struct {
-	parts []ast.NameSegment
-	decls []*symbols.Symbol
+	last  *ast.NameSegment
+	n     int
+	decls *chainDecls
+}
+
+// chainDecls is the memo entry of the declarations a chain's segments name.
+type chainDecls struct {
+	syms []*symbols.Symbol
 }
 
 // noteChainMembers records the declarations a chain's segments name for the
 // reads of its parts, and returns what was recorded before for restoreChain.
 func (ec *EvalContext) noteChainMembers(chain *ast.FeatureChainExpr, base ast.Node, parts []ast.NameSegment) chainStatic {
 	previous := ec.chain
-	ec.chain = chainStatic{parts: parts, decls: ec.chainDeclarations(chain, base, parts)}
+	ec.chain = chainStatic{n: len(parts), decls: ec.chainDeclarations(chain, base, parts)}
+	if len(parts) > 0 {
+		ec.chain.last = &parts[len(parts)-1]
+	}
 	return previous
 }
 
@@ -46,7 +55,7 @@ type chainDeclarationsKey struct {
 // chainDeclarations resolves each segment in the namespace of the one before
 // it, from the feature or cast type the base names; nil when the base names none.
 // The resolution is memoized per model, so a chain a loop re-evaluates reads it.
-func (ec *EvalContext) chainDeclarations(chain *ast.FeatureChainExpr, base ast.Node, parts []ast.NameSegment) []*symbols.Symbol {
+func (ec *EvalContext) chainDeclarations(chain *ast.FeatureChainExpr, base ast.Node, parts []ast.NameSegment) *chainDecls {
 	cur, ok := ec.chainBaseSymbol(base)
 	if !ok || len(parts) == 0 {
 		return nil
@@ -55,7 +64,7 @@ func (ec *EvalContext) chainDeclarations(chain *ast.FeatureChainExpr, base ast.N
 	if decls, ok := ec.ctx.model.chainDeclarations[key]; ok {
 		return decls
 	}
-	decls := ec.resolveChainDeclarations(cur, parts)
+	decls := &chainDecls{syms: ec.resolveChainDeclarations(cur, parts)}
 	ec.ctx.model.chainDeclarations[key] = decls
 	return decls
 }
@@ -76,14 +85,14 @@ func (ec *EvalContext) resolveChainDeclarations(cur *symbols.Symbol, parts []ast
 // chainMember is the declaration the first of parts names, when parts is a tail
 // of the chain being evaluated; nil otherwise.
 func (ec *EvalContext) chainMember(parts []ast.NameSegment) *symbols.Symbol {
-	whole := ec.chain.parts
-	if len(parts) == 0 || len(parts) > len(whole) || len(ec.chain.decls) != len(whole) {
+	whole := ec.chain
+	if len(parts) == 0 || len(parts) > whole.n || whole.decls == nil || len(whole.decls.syms) != whole.n {
 		return nil
 	}
-	if &parts[len(parts)-1] != &whole[len(whole)-1] {
+	if &parts[len(parts)-1] != whole.last {
 		return nil
 	}
-	return ec.chain.decls[len(whole)-len(parts)]
+	return whole.decls.syms[whole.n-len(parts)]
 }
 
 // chainTargetMember is the declaration an assignment target's feature names, in

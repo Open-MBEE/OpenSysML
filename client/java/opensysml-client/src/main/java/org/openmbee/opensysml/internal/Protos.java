@@ -10,6 +10,7 @@ import org.openmbee.opensysml.Condition;
 import org.openmbee.opensysml.Conversion;
 import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Diagnostic;
+import org.openmbee.opensysml.LibraryReference;
 import org.openmbee.opensysml.DocumentQueryResult;
 import org.openmbee.opensysml.DocumentRow;
 import org.openmbee.opensysml.DocumentValue;
@@ -1328,7 +1329,9 @@ public final class Protos {
         values(response.getOutputsMap()),
         finalTimeReported ? OptionalDouble.of(response.getFinalTime()) : OptionalDouble.empty(),
         diagnostics(response.getDiagnosticsList()),
-        values(response.getPerformerAttributesMap()));
+        values(response.getPerformerAttributesMap()),
+        documentEvents(response.getTraceList()),
+        response.getTraceDropped());
   }
 
   /**
@@ -1633,7 +1636,10 @@ public final class Protos {
         response.getToFormat(),
         diagnostics(response.getDiagnosticsList()),
         response.getExperimental(),
-        response.getExperimentalNotice());
+        response.getExperimentalNotice(),
+        response.getLibraryReferencesList().stream()
+            .map(ref -> new LibraryReference(ref.getId(), ref.getQualifiedName(), ref.getType()))
+            .toList());
   }
 
   /**
@@ -2182,7 +2188,11 @@ public final class Protos {
         event.getEvent(),
         event.getPayloadList(),
         event.getAlternativesList(),
-        event.getTaken());
+        event.getTaken(),
+        event.getToken(),
+        event.getStep(),
+        event.getFeature(),
+        event.hasValue() ? Optional.of(readable(event.getValue())) : Optional.empty());
   }
 
   /**

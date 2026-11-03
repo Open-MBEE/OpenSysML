@@ -109,12 +109,14 @@ type conformanceCase struct {
 	ExpectedCodes []string `json:"expected_codes,omitempty"`
 	AbsentCodes   []string `json:"absent_codes,omitempty"`
 
-	// ExecuteState: the events injected in order, whether to ask for the run's
-	// trace, and the usages the traced transitions' objects are held under, in
-	// first-appearance order (one entry per object that took a transition).
+	// ExecuteState and ExecuteAction: the events injected in order, whether to ask
+	// for the run's trace, the usages the traced transitions' objects are held under,
+	// in first-appearance order (one entry per object that took a transition), and
+	// the text of every record of an action's trace, in order.
 	Events               []string `json:"events,omitempty"`
 	Trace                bool     `json:"trace,omitempty"`
 	ExpectedTraceObjects []string `json:"expected_trace_objects,omitempty"`
+	ExpectedTrace        []string `json:"expected_trace,omitempty"`
 
 	// RunRuns, RecordRun
 	Runs             int64    `json:"runs,omitempty"`
@@ -955,12 +957,23 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 		Seed:              tc.Seed,
 		Draws:             tc.Draws,
 		ClockStep:         tc.ClockStep,
+		Trace:             tc.Trace,
+		Events:            tc.Events,
 	})
 	if err != nil {
 		t.Fatalf("ExecuteAction: %v", err)
 	}
 	if tc.ExpectedFinalTime != nil && resp.FinalTime != *tc.ExpectedFinalTime {
 		t.Errorf("final_time = %g, want %g", resp.FinalTime, *tc.ExpectedFinalTime)
+	}
+	if tc.ExpectedTrace != nil {
+		texts := make([]string, len(resp.Trace))
+		for i, event := range resp.Trace {
+			texts[i] = event.Text
+		}
+		if !slices.Equal(texts, tc.ExpectedTrace) {
+			t.Errorf("trace = %q, want %q", texts, tc.ExpectedTrace)
+		}
 	}
 	if checkExpectedError(t, tc, resp.Error) {
 		return

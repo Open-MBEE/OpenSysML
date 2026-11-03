@@ -1,0 +1,1 @@
+- Python client: the module-level `opensysml.convert` takes the `id_form` (`ID_FORM_QUALIFIED` or `ID_FORM_UUID`) and `include_library_stubs` options `Connection.convert` and `Model.convert` take, gated the same way on the service's `convert_library_stubs` capability.

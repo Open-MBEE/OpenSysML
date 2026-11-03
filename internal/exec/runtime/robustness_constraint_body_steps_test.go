@@ -204,7 +204,7 @@ func TestRuntimeRobustnessConstraintBodySteps(t *testing.T) {
 		}
 	})
 
-	t.Run("an assumption failing among steps denies nothing", func(t *testing.T) {
+	t.Run("an assumption failing among steps makes the requirement hold", func(t *testing.T) {
 		src := `package test {
 			private import ScalarValues::*;
 			requirement pessimistic {
@@ -212,15 +212,25 @@ func TestRuntimeRobustnessConstraintBodySteps(t *testing.T) {
 				assume constraint { attribute b : Real = 1; assign b := b + 5; b <= 3 }
 				require constraint { a > 0 }
 			}
+			requirement moot {
+				attribute a : Real = 2.0;
+				assume constraint { attribute b : Real = 1; assign b := b + 5; b <= 3 }
+				require constraint { a < 0 }
+			}
 		}`
 		ctx, idx := contextForSource(t, src)
-		pessimistic := lookupOne(t, idx, "test::pessimistic")
-		satisfied, err := ctx.EvaluateRequirement(pessimistic, pessimistic.OwnerScope)
-		if err != nil {
-			t.Fatalf("err = %v", err)
-		}
-		if !satisfied {
-			t.Error("a false assumption is trusted, not a violation — the requirement should hold")
+		for _, name := range []string{"test::pessimistic", "test::moot"} {
+			req := lookupOne(t, idx, name)
+			result, err := ctx.CheckRequirementOn(req, req.OwnerScope, nil)
+			if err != nil {
+				t.Fatalf("%s: err = %v", name, err)
+			}
+			if !result.Holds {
+				t.Errorf("%s: a false assumption makes `assumptions implies constraints` true — the requirement should hold", name)
+			}
+			if !strings.Contains(result.Vacuous, "vacuous: assumption") {
+				t.Errorf("%s: vacuity %q, want the failed assumption named", name, result.Vacuous)
+			}
 		}
 	})
 

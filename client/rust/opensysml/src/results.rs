@@ -1178,6 +1178,10 @@ pub struct ActionRun {
     pub final_time: f64,
     /// Diagnostics the service reported.
     pub diagnostics: Vec<Diagnostic>,
+    /// The run's records when `trace` was asked for, in order.
+    pub trace: Vec<crate::document::DocumentEvent>,
+    /// Oldest trace records the service discarded.
+    pub trace_dropped: i32,
     pub(crate) wire: wire::ExecuteActionResponse,
 }
 

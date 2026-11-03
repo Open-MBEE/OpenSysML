@@ -8,21 +8,24 @@ classdef Conversion
         diagnostics = {}
         experimental = false
         experimentalNotice = ''
+        libraryReferences = {}
     end
 
     methods
-        function obj = Conversion(content, fromFormat, toFormat, diagnostics, experimentalNotice)
+        function obj = Conversion(content, fromFormat, toFormat, diagnostics, experimentalNotice, libraryReferences)
             if nargin < 1, content = ''; end
             if nargin < 2, fromFormat = ''; end
             if nargin < 3, toFormat = ''; end
             if nargin < 4, diagnostics = {}; end
             if nargin < 5, experimentalNotice = ''; end
+            if nargin < 6, libraryReferences = {}; end
             obj.content = content;
             obj.fromFormat = fromFormat;
             obj.toFormat = toFormat;
             obj.diagnostics = diagnostics;
             obj.experimental = opensysml.isExperimental(fromFormat, toFormat);
             obj.experimentalNotice = experimentalNotice;
+            obj.libraryReferences = libraryReferences;
             if obj.experimental
                 if isempty(obj.experimentalNotice)
                     dash = opensysml.internal.unicodeChar(8212);

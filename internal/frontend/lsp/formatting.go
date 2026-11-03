@@ -10,15 +10,17 @@ import (
 	"unicode/utf8"
 
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/format"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // formatSource is the formatter behind both formatting requests; tests swap it
 // to exercise the error paths the real one only takes on a formatter bug.
 var formatSource = format.Source
 
-// Formatting re-indents the whole document as one edit per changed region, so
+// Formatting lays the whole document out as one edit per changed region, so
 // the editor keeps its undo history, cursor and folds.
 func (s *Server) Formatting(ctx context.Context, params *protocol.DocumentFormattingParams) ([]protocol.TextEdit, error) {
 	return s.formattingEdits(params.TextDocument.URI, params.Options, allLines)
@@ -42,13 +44,16 @@ func (w lineWindow) has(line int) bool { return w.from <= line && line < w.to }
 // its formatted form, or none when there is nothing to do. A document that does
 // not parse is left alone: its brace structure is unreliable, and reformatting a
 // file the author is midway through editing is worse than doing nothing.
-func (s *Server) formattingEdits(uri protocol.DocumentURI, opts protocol.FormattingOptions, w lineWindow) ([]protocol.TextEdit, error) {
-	name := uriToName(uri)
+func (s *Server) formattingEdits(docURI uri.URI, opts protocol.FormattingOptions, w lineWindow) ([]protocol.TextEdit, error) {
+	name := uriToName(docURI)
 	doc := s.ws.Document(name)
 	if doc == nil || len(doc.ParseDiagnostics) > 0 {
 		return nil, nil
 	}
-	out, err := formatSource(name, doc.Content, formatOptions(opts))
+	s.mu.Lock()
+	keep := s.keepLineBreaks
+	s.mu.Unlock()
+	out, err := formatSource(name, doc.Content, formatOptions(opts, keep))
 	if errors.Is(err, format.ErrNotIdempotent) {
 		// The formatter declined to rewrite the file. That is its bug, not the
 		// author's, so leave the document alone rather than raise it in the editor.
@@ -76,9 +81,10 @@ func lineSpan(r protocol.Range) (first, last uint32) {
 	return first, last
 }
 
-// formatOptions maps the client's editor settings onto the formatter's.
-func formatOptions(opts protocol.FormattingOptions) format.Options {
-	out := format.Options{IndentWidth: int(opts.TabSize), UseTabs: !opts.InsertSpaces}
+// formatOptions maps the client's editor settings onto the formatter's: statements
+// laid out one per line as `-convert sysml` writes them, unless keepLineBreaks.
+func formatOptions(opts protocol.FormattingOptions, keepLineBreaks bool) format.Options {
+	out := format.Options{IndentWidth: int(opts.TabSize), UseTabs: !opts.InsertSpaces, BreakStatements: !keepLineBreaks}
 	if out.IndentWidth <= 0 {
 		out.IndentWidth = format.DefaultOptions.IndentWidth
 	}
@@ -88,10 +94,12 @@ func formatOptions(opts protocol.FormattingOptions) format.Options {
 // formatEdits returns the ordered, non-overlapping edits on the lines of w that
 // turn content into formatted. Lines are matched on their non-whitespace text,
 // since that is all the formatter preserves; each changed line becomes one edit
-// and each run of dropped lines one deletion.
+// — the lines a statement layout splits it into included — and each run of
+// dropped lines one deletion.
 func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 	oldLines, oldOffsets := cutLines(content)
 	newLines, _ := cutLines(formatted)
+	newLines = regroupLines(oldLines, newLines)
 	table := newLineTable(content, oldOffsets)
 	w.from, w.to = max(w.from, 0), min(w.to, len(oldLines))
 
@@ -119,38 +127,38 @@ func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 	oldNext, newNext := 0, 0
 	keys := lineKeys{ids: make(map[string]int, len(oldLines))}
 	oldIDs, newIDs := keys.of(oldLines, len(content)), keys.of(newLines, len(formatted))
-	hunks := append(diffLines(oldIDs, newIDs), hunk{len(oldLines), len(oldLines), len(newLines), len(newLines)})
+	hunks := append(model.DiffLines(oldIDs, newIDs), model.Hunk{OldStart: len(oldLines), OldEnd: len(oldLines), NewStart: len(newLines), NewEnd: len(newLines)})
 	for k, h := range hunks {
-		surplus := (h.oldEnd - h.oldStart) - (h.newEnd - h.newStart)
-		if surplus > 0 && uniform(oldIDs[h.oldStart:h.oldEnd], oldIDs[h.oldStart]) && uniform(newIDs[h.newStart:h.newEnd], oldIDs[h.oldStart]) {
+		surplus := (h.OldEnd - h.OldStart) - (h.NewEnd - h.NewStart)
+		if surplus > 0 && uniform(oldIDs[h.OldStart:h.OldEnd], oldIDs[h.OldStart]) && uniform(newIDs[h.NewStart:h.NewEnd], oldIDs[h.OldStart]) {
 			// Dropping from a run of like lines (blanks) has no natural place; widen
 			// the hunk over the run so any selected line of it may be the one to go.
-			id := oldIDs[h.oldStart]
-			for h.oldStart > oldNext && oldIDs[h.oldStart-1] == id {
-				h.oldStart, h.newStart = h.oldStart-1, h.newStart-1
+			id := oldIDs[h.OldStart]
+			for h.OldStart > oldNext && oldIDs[h.OldStart-1] == id {
+				h.OldStart, h.NewStart = h.OldStart-1, h.NewStart-1
 			}
-			for h.oldEnd < hunks[k+1].oldStart && oldIDs[h.oldEnd] == id {
-				h.oldEnd, h.newEnd = h.oldEnd+1, h.newEnd+1
+			for h.OldEnd < hunks[k+1].OldStart && oldIDs[h.OldEnd] == id {
+				h.OldEnd, h.NewEnd = h.OldEnd+1, h.NewEnd+1
 			}
 		}
-		pairLines(oldNext, h.oldStart, newNext)
-		oldNext, newNext = h.oldEnd, h.newEnd
+		pairLines(oldNext, h.OldStart, newNext)
+		oldNext, newNext = h.OldEnd, h.NewEnd
 		if surplus == 0 {
-			pairLines(h.oldStart, h.oldEnd, h.newStart)
+			pairLines(h.OldStart, h.OldEnd, h.NewStart)
 			continue
 		}
 		if surplus < 0 {
 			// More new lines than old: pair in order, insert the rest after the hunk.
-			pairLines(h.oldStart, h.oldEnd, h.newStart)
-			if w.has(max(h.oldEnd-1, 0)) {
-				replace(oldOffsets[h.oldEnd], oldOffsets[h.oldEnd], strings.Join(newLines[h.newStart+h.oldEnd-h.oldStart:h.newEnd], ""))
+			pairLines(h.OldStart, h.OldEnd, h.NewStart)
+			if w.has(max(h.OldEnd-1, 0)) {
+				replace(oldOffsets[h.OldEnd], oldOffsets[h.OldEnd], strings.Join(newLines[h.NewStart+h.OldEnd-h.OldStart:h.NewEnd], ""))
 			}
 			continue
 		}
 		// The hunk drops lines (the formatter only ever removes blank ones). Take
 		// them from the end of the window's part first, so a selection never has
 		// to change a line outside it, and pair the survivors with the new lines.
-		from, to := max(h.oldStart, w.from), min(h.oldEnd, w.to)
+		from, to := max(h.OldStart, w.from), min(h.OldEnd, w.to)
 		if from >= to {
 			continue
 		}
@@ -159,15 +167,15 @@ func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 		dropped := func(i int) bool {
 			switch {
 			case i >= to:
-				return h.oldEnd-i <= outside
+				return h.OldEnd-i <= outside
 			case i < from:
-				return i-h.oldStart < outside-(h.oldEnd-to)
+				return i-h.OldStart < outside-(h.OldEnd-to)
 			default:
 				return i >= dropFrom
 			}
 		}
-		j := h.newStart
-		for i := h.oldStart; i < h.oldEnd; i++ {
+		j := h.NewStart
+		for i := h.OldStart; i < h.OldEnd; i++ {
 			if dropped(i) {
 				continue
 			}
@@ -177,6 +185,80 @@ func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 		replace(oldOffsets[dropFrom], oldOffsets[to], "")
 	}
 	return edits
+}
+
+// regroupLines joins the formatted lines that came from one original line, so
+// a split line is one edit within it; lines it cannot match are left as they are.
+func regroupLines(oldLines, newLines []string) []string {
+	out := make([]string, 0, len(oldLines))
+	j := 0
+	for _, old := range oldLines {
+		i := skipSpace(old, 0)
+		if i == len(old) {
+			continue
+		}
+		for j < len(newLines) && blank(newLines[j]) {
+			out = append(out, newLines[j])
+			j++
+		}
+		from := j
+		for i < len(old) {
+			if j == len(newLines) {
+				return newLines
+			}
+			if i = consumeText(old, i, newLines[j]); i < 0 {
+				return newLines
+			}
+			j++
+		}
+		if j-from == 1 {
+			out = append(out, newLines[from])
+		} else {
+			out = append(out, strings.Join(newLines[from:j], ""))
+		}
+	}
+	for ; j < len(newLines); j++ {
+		if !blank(newLines[j]) {
+			return newLines
+		}
+		out = append(out, newLines[j])
+	}
+	return out
+}
+
+// consumeText matches line's non-whitespace bytes against old from i on,
+// answering the index past them and any whitespace after, or -1 on a mismatch.
+func consumeText(old string, i int, line string) int {
+	for k := 0; k < len(line); k++ {
+		if isSpace(line[k]) {
+			continue
+		}
+		if i == len(old) || old[i] != line[k] {
+			return -1
+		}
+		i = skipSpace(old, i+1)
+	}
+	return i
+}
+
+// skipSpace is the index of the first non-whitespace byte of s at or after i.
+func skipSpace(s string, i int) int {
+	for i < len(s) && isSpace(s[i]) {
+		i++
+	}
+	return i
+}
+
+func blank(line string) bool {
+	return skipSpace(line, 0) == len(line)
+}
+
+func isSpace(c byte) bool {
+	switch c {
+	case ' ', '\t', '\r', '\n', '\f', '\v':
+		return true
+	}
+	return false
 }
 
 // uniform reports whether every id is the given one.
@@ -222,10 +304,8 @@ func (k *lineKeys) of(lines []string, size int) []int {
 	ends := make([]int, len(lines))
 	for i, line := range lines {
 		for j := 0; j < len(line); j++ {
-			switch c := line[j]; c {
-			case ' ', '\t', '\r', '\n', '\f', '\v':
-			default:
-				stripped.WriteByte(c)
+			if !isSpace(line[j]) {
+				stripped.WriteByte(line[j])
 			}
 		}
 		ends[i] = stripped.Len()

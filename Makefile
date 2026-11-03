@@ -1,4 +1,4 @@
-.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-preflight dotnet-build dotnet-test dotnet-coverage dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
+.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-preflight dotnet-build dotnet-test dotnet-coverage dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -498,6 +498,14 @@ extension-libraries-check: ## Check the vendored extension libraries match their
 extension-libraries-sync: ## Re-vendor the extension libraries from the pinned upstream commit
 	./scripts/sync-extension-libraries.sh
 
+extension-libraries-pin-check: ## After moving the extension-library pin: every Java-free gate the full tier runs over the vendored libraries
+	./scripts/sync-extension-libraries.sh --check
+	go run -C $(TOOLS_DIR) ./gen/snapshot -check
+	go test -count=1 ./tests/hygiene -run 'TestEngineContract'
+	go test -C $(TOOLS_DIR) -count=1 ./referee/diff ./referee/apijson -run 'TestCommittedBaselineStatesThisRepositorysProvenance|TestProvenance'
+	go test -count=1 ./internal/frontend/repl ./internal/workspace/libs ./internal/ir/queryplan ./internal/doc/queryexec
+	@echo "✓ the vendored extension libraries pass every pin gate"
+
 stdlib-snapshot: ## Regenerate the embedded snapshot of the bundled library after editing $(LIBS_DIR)/stdlib
 	go generate ./$(LIBS_DIR)
 
@@ -669,6 +677,7 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
 	$(SCRIPTS_COVERAGE) scripts/release-announce-test.py
+	$(SCRIPTS_COVERAGE) scripts/release-downloads-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_install_scripts-test.py

@@ -243,17 +243,20 @@ func (ctx *Context) releaseControl(n int) { ctx.controls = ctx.controls[:n] }
 // runs under and the marks of every place it reads, every mark where the
 // declarations do not decide the places and dynamicAll holds.
 func (ctx *Context) standingOf(fp lower.Footprint, dynamicAll bool) []int64 {
-	return ctx.readStanding(slices.Clone(ctx.controls), fp, dynamicAll)
+	return ctx.readStanding(slices.Clone(ctx.controls), fp, dynamicAll, nil)
 }
 
 // readStanding unions onto deps the marks of every place the footprint reads,
 // every mark where the declarations do not decide the places and dynamicAll holds.
-func (ctx *Context) readStanding(deps []int64, fp lower.Footprint, dynamicAll bool) []int64 {
+func (ctx *Context) readStanding(deps []int64, fp lower.Footprint, dynamicAll bool, via *symbols.Symbol) []int64 {
 	marks := &ctx.run.marks
 	if fp.Dynamic && dynamicAll {
 		return unionSerials(deps, marks.all())
 	}
 	for _, r := range fp.Reads {
+		if via != nil && r.Via == nil && r.Node == nil && !r.Local {
+			r.Via = via
+		}
 		deps = unionSerials(deps, marks.of(ctx.placeOf(r), ctx.heldAlike))
 	}
 	return deps
@@ -271,15 +274,7 @@ func (ctx *Context) deriveMarks(place lower.Place, scope *symbols.Scope, value a
 		return
 	}
 	fp := ctx.model.expressionFootprint(scope, value)
-	if place.Via != nil {
-		fp.Reads = slices.Clone(fp.Reads)
-		for i := range fp.Reads {
-			if fp.Reads[i].Via == nil && fp.Reads[i].Node == nil && !fp.Reads[i].Local {
-				fp.Reads[i].Via = place.Via
-			}
-		}
-	}
-	ctx.writeMarks([]lower.Place{place}, ctx.readStanding(nil, fp, true))
+	ctx.writeMarks([]lower.Place{place}, ctx.readStanding(nil, fp, true, place.Via))
 }
 
 // placeOf is the place as the run holds it: a parameter of the action performed,

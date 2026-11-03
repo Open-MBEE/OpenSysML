@@ -436,7 +436,7 @@ test("drawCanvas ends every edge kind in the marker the notation table states", 
   const want: Record<string, [string | null, string | null]> = {};
   for (const row of rows) {
     const cells = row.replace(/\\\|/g, "\u0000").split("|").map((cell) => cell.trim().replace(/\u0000/g, "|"));
-    const canvas = cells[7].replace(/`/g, "");
+    const canvas = cells[8].replace(/`/g, "");
     for (const kind of [...cells[2].matchAll(/`([^`]*)`/g)].map((m) => m[1])) {
       kinds.push(kind);
       if (canvas === "none") {

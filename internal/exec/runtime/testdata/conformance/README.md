@@ -482,6 +482,12 @@ JSON number past 2^53 is read through a float64 that may round its digits.
 - `error`: text the evaluation must fail with, for a case whose contract is a
   diagnostic — satisfying a requirement that states no condition. Set it
   instead of a verdict.
+- `instantiate`: qualified name of the satisfying feature to materialize before
+  the check, which is then judged on that object (`CheckSatisfactionOn`) rather
+  than on one the assertion instantiates itself, for a case whose contract is
+  what the check does to an object that already exists — the REPL's
+  `%instantiate` followed by `%satisfy`. Omit to let the assertion pick its
+  subject.
 
 ### For Verification Cases (`RunVerification`)
 
@@ -543,6 +549,11 @@ JSON number past 2^53 is read through a float64 that may round its digits.
   object. `errors` lists the text of each error in order (matched as a
   substring) and `bounded` whether the walk left nesting unchecked; `{}` states
   a clean, complete read. Omit it for a case whose contract is its slots alone.
+- `startFailures`: the behaviors of the instance, or of objects it holds, that
+  failed to start — at attachment, at initialization or while the creation ran
+  them to quiescence — by the text of each failure (matched as a substring) in
+  attachment order. The instance stands with the failures recorded on those
+  behaviors. Omit it for a case whose every behavior must start.
 - `validation`: what validating the object as a whole reports — the check
   `-validate=<object>` and `%validate` make. `verdicts` lists every verdict in
   report order, root first then each held object as the walk reaches it:

@@ -6,6 +6,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	_ "github.com/Open-MBEE/OpenSysML/internal/doc/queryexec/elementids" // queries report the elementId the conversion writes
 	"os"
 	"os/signal"
 	"syscall"

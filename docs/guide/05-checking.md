@@ -657,6 +657,14 @@ sysml> %requirement SafetyReq
   standing: holds (observed: 1 run under reverse)
 ```
 
+A requirement's assumptions are the antecedent of its claim: its result is
+`allTrue(assumptions()) implies allTrue(constraints())` (SysML v2 §7.21.2), so a subject that fails
+an `assume constraint` satisfies the requirement whatever its `require constraint`s read, and the
+verdict says why it held — `vacuous: assumption t.enabled of requirement levelOk did not hold, so
+it holds vacuously`. Denying such a requirement (`assert not requirement`, `assert not satisfy`) is
+a violation naming the assumption, since the result it denies is true. A plain constraint's
+`assume constraint` decides nothing: the constraint holds or fails on its required conditions alone.
+
 **An object as a whole:**
 
 `%constraint` and `%requirement` answer one named condition. `%validate <object>` answers every

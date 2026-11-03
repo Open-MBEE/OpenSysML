@@ -25,8 +25,25 @@ type Event struct {
 }
 
 // Kind names the record's kind as its `kind` property does: `accept`, `send`,
-// `transition`, `entry`, `exit`, `do`, `choice`, `guard`, `terminate`.
+// `transition`, `entry`, `exit`, `do`, `choice`, `guard`, `terminate`, and for
+// an action's run `step`, `wait`, `assign`, `decide`, `complete`.
 func (ev Event) Kind() string { return ev.record.Kind.String() }
+
+// Token is the action token a step, wait, assign, decide or action accept record
+// is about, and Step the executor step that made it; both 0 for any other record.
+func (ev Event) Token() int64 { return ev.record.Token }
+
+// Step is the executor step the record was made in, 0 for a record of none.
+func (ev Event) Step() int { return ev.record.Step }
+
+// Assigned is the feature an assign record wrote and the value it holds since;
+// ok is false for any other record.
+func (ev Event) Assigned() (feature string, value runtime.Value, ok bool) {
+	if ev.record.Kind != runtime.TraceAssign {
+		return "", runtime.Value{}, false
+	}
+	return ev.record.Feature, ev.record.Value, true
+}
 
 // At is the clock instant the record was made at, in clock units.
 func (ev Event) At() float64 { return ev.at }
@@ -52,16 +69,23 @@ func (ev Event) Machine() string { return ev.machine }
 // name order, in the runtime's notation.
 func (ev Event) Payload() []string { return ev.record.PayloadTexts() }
 
-// Alternatives are a choice's alternatives as offered, nil for any other record.
+// Alternatives are a choice's alternatives as offered, or a decide's branches,
+// nil for any other record.
 func (ev Event) Alternatives() []string {
+	if ev.record.Kind == runtime.TraceDecide {
+		return append([]string(nil), ev.record.Alternatives...)
+	}
 	if choice, ok := ev.record.Note.(runtime.ChoicePoint); ok {
 		return append([]string(nil), choice.Alternatives...)
 	}
 	return nil
 }
 
-// Taken is the alternative a choice took, "" for any other record.
+// Taken is the alternative a choice took or the branch a decide took, "" for any other record.
 func (ev Event) Taken() string {
+	if ev.record.Kind == runtime.TraceDecide {
+		return ev.record.To
+	}
 	choice, ok := ev.record.Note.(runtime.ChoicePoint)
 	if !ok || choice.Taken < 0 || choice.Taken >= len(choice.Alternatives) {
 		return ""

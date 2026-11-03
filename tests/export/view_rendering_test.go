@@ -111,7 +111,7 @@ func TestOlderGraphKeyingALaterDeclarationByItsNameReadsBack(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	graph := string(withoutSourceText(t, turtle))
-	for _, want := range []string{`sysml:qualifiedName "P::A::a"`, `sysml:qualifiedName "P::A::@1"`, `sysml:qualifiedName "P::A::@1::b"`} {
+	for _, want := range []string{`sysml:qualifiedName "P::A::a"`, `sysx:positionalName "P::A::@1"`, `sysx:positionalName "P::A::@1::b"`} {
 		if !strings.Contains(graph, want) {
 			t.Fatalf("the graph should state %s:\n%s", want, graph)
 		}

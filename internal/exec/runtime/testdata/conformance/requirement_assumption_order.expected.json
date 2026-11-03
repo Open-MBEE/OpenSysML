@@ -1,0 +1,10 @@
+{
+  "type": "satisfy",
+  "libraries": true,
+  "assertions": {
+    "satisfy levelOk by off": true,
+    "satisfy levelOk by on": false,
+    "not satisfy levelOk by off": false,
+    "not satisfy levelOk by on": true
+  }
+}

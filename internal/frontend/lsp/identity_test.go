@@ -36,7 +36,7 @@ func identityActionsFor(t *testing.T, file, src string, rng protocol.Range) []pr
 	t.Helper()
 	var out []protocol.CodeAction
 	for _, act := range actionsFor(t, file, src, rng) {
-		if act.Kind == identityActionKind {
+		if actionKind(act) == identityActionKind {
 			out = append(out, act)
 		}
 	}
@@ -112,7 +112,7 @@ func mintedID(t *testing.T, act protocol.CodeAction, file string) string {
 func identityAfter(t *testing.T, file, src, fqn string) *identity.Info {
 	t.Helper()
 	ws := model.NewWorkspace()
-	name := uri.File(file).Filename()
+	name := uri.File(file).FsPath()
 	ws.Open(name, []byte(src), 1)
 	for _, d := range ws.Diagnostics(name) {
 		if d.Severity == diag.SeverityError {
@@ -422,18 +422,18 @@ func TestIdentityActionHonorsKindFilter(t *testing.T) {
 	const file = "/tmp/identity_only.sysml"
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File(file).Filename()
+	name := uri.File(file).FsPath()
 	ws.Open(name, []byte(scopedSrc), 1)
 	for _, tc := range []struct {
 		only []protocol.CodeActionKind
 		want int
 	}{
-		{[]protocol.CodeActionKind{protocol.QuickFix}, 0},
-		{[]protocol.CodeActionKind{protocol.Refactor}, 1},
-		{[]protocol.CodeActionKind{protocol.RefactorRewrite}, 1},
+		{[]protocol.CodeActionKind{protocol.CodeActionKindQuickFix}, 0},
+		{[]protocol.CodeActionKind{protocol.CodeActionKindRefactor}, 1},
+		{[]protocol.CodeActionKind{protocol.CodeActionKindRefactorRewrite}, 1},
 		{nil, 1},
 	} {
-		acts, err := s.CodeAction(context.Background(), &protocol.CodeActionParams{
+		acts, err := codeActions(t, s, context.Background(), &protocol.CodeActionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Range:        cursorAt(t, scopedSrc, "Chassis"),
 			Context:      protocol.CodeActionContext{Only: tc.only},
@@ -479,7 +479,7 @@ func TestWorkspaceCopyOfLibraryFileIsTheLibrary(t *testing.T) {
 		t.Fatal("ScalarValues.kerml not bundled")
 	}
 	src := string(lib.Content)
-	name := uri.File(file).Filename()
+	name := uri.File(file).FsPath()
 	// The copy's Real, not the library's: both may resolve under the qualified name.
 	copyIdentity := func(text string) *identity.Info {
 		t.Helper()

@@ -28,6 +28,8 @@ function connectError(code, message, status, method, conn, capabilities, request
             identifier = 'opensysml:connect:invalidRequest';
         case 'unavailable'
             identifier = 'opensysml:connect:unavailable';
+        case 'unauthenticated'
+            identifier = 'opensysml:connect:unauthenticated';
         case {'deadline_exceeded', 'canceled'}
             identifier = 'opensysml:connect:serviceTimeout';
         case 'unimplemented'

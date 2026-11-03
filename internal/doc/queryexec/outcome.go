@@ -20,6 +20,7 @@ const (
 	StepRelated      StepKind = "Related"
 	StepWhereFeature StepKind = "WhereFeature"
 	StepProject      StepKind = "Project"
+	StepDiffer       StepKind = "Differ"
 )
 
 // Step is one operation of the query with its argument: the name Named looked
@@ -115,6 +116,7 @@ const (
 	ConstraintMultiplicity  Constraint = "multiplicity"
 	ConstraintTyping        Constraint = "typing"
 	ConstraintUnit          Constraint = "unit"
+	ConstraintDuplicateKey  Constraint = "duplicateKey"
 )
 
 // Finding is one finding about Element at Step: a constraint the model violates.

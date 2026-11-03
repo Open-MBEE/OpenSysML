@@ -29,5 +29,13 @@ struct DocumentEvent
     payload::Vector{String}
     alternatives::Vector{String}
     taken::String
+    token::Int64
+    step::Int
+    feature::String
+    value::Any
 end
+DocumentEvent(kind, time, text, object, machine, state, from_state, to_state, target, event,
+              payload, alternatives, taken) =
+    DocumentEvent(kind, time, text, object, machine, state, from_state, to_state, target, event,
+                  payload, alternatives, taken, 0, 0, "", nothing)
 Base.show(io::IO, event::DocumentEvent) = print(io, "$(event.time): $(event.text)")

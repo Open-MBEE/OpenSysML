@@ -1,0 +1,49 @@
+// view: FlowViews::driveView
+// kind: action
+// stated: render asInterconnectionDiagram, view def ActionFlowView
+// layout: neato -n2
+digraph "FlowViews::driveView" {
+  graph [fontname="Helvetica", compound=true, splines=ortho, layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«action def»</i></font><br/><b>Drive</b>>;
+    color=black;
+    penwidth=0.5;
+    bb="8,-721,298,-8";
+    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="153,-364.5!", pin=true];
+    "n1" [shape=circle, fillcolor=black, label="", pos="162,-85!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+    "n2" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>provide</b>>, margin=0, pos="162.5,-223.5!", pin=true, width=1.125, height=0.5138888888888888, fixedsize=true];
+    "n2.0" [shape=box, label="", xlabel="^fuel", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="162.5,-199!", pin=true];
+    "n2.1" [shape=box, label="", xlabel="^torque", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="162.5,-248!", pin=true];
+    subgraph "cluster_n3" {
+      label=<<font point-size="10"><i>«action»</i></font><br/><b>monitor</b><br/>own flow>;
+      color=black;
+      penwidth=0.5;
+      bb="24,-464,140,-249";
+      "n3" [shape=point, style=invis, width=0, height=0, label="", pos="82,-356.5!", pin=true];
+      "n3.0" [shape=box, label="", xlabel="reading", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="82,-243!", pin=true];
+      "n4" [shape=circle, fillcolor=black, label="", pos="56,-343!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+      "n5" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>record</b>>, margin=0, pos="76,-429.5!", pin=true, width=1, height=0.5138888888888888, fixedsize=true];
+    }
+    "n6" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>tally</b>>, margin=0, pos="250,-342.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888, fixedsize=true];
+    "n7" [fillcolor=black, label="", xlabel="split", pos="162,-150!", pin=true, width=1.6666666666666667, height=0.1388888888888889, fixedsize=true];
+    "n8" [fillcolor=black, label="", xlabel="sync", pos="222,-430!", pin=true, width=1.6666666666666667, height=0.1388888888888889, fixedsize=true];
+    "n9" [shape=doublecircle, fillcolor=black, label="", pos="194,-690!", pin=true, width=0.4166666666666667, height=0.4166666666666667, fixedsize=true];
+    "n10" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>park</b>>, margin=0, pos="236,-606.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888, fixedsize=true];
+    "n11" [shape=diamond, label="", xlabel="check", pos="222,-518!", pin=true, width=0.5555555555555556, height=0.5555555555555556, fixedsize=true];
+  }
+  "n4" -> "n5" [style=dashed, arrowhead=vee, pos="e,94,-411 66,-343 66,-343 94,-343 94,-343 94,-343 94,-401 94,-401"];
+  "n1" -> "n7" [style=dashed, arrowhead=vee, pos="e,162,-145 162,-95 162,-95 162,-135 162,-135"];
+  "n2" -> "n8" [style=dashed, arrowhead=vee, pos="e,222,-425 163,-242 163,-242 163,-393 163,-393 163,-393 222,-393 222,-393 222,-393 222,-415 222,-415"];
+  "n2.1" -> "n3.0" [pos="e,82,-244 162.5,-247 162.5,-247 162.5,-317 162.5,-317 162.5,-317 94,-317 94,-317 94,-317 94,-232.75 94,-232.75 94,-232.75 82,-232.75 82,-232.75 82,-232.75 82,-238.5 82,-238.5"];
+  "n3" -> "n8" [style=dashed, arrowhead=vee, pos="e,192,-425 140,-357 140,-357 192,-357 192,-357 192,-357 192,-415 192,-415", ltail="cluster_n3"];
+  "n6" -> "n8" [style=dashed, arrowhead=vee, pos="e,252,-425 250,-361 250,-361 250,-393 250,-393 250,-393 252,-393 252,-393 252,-393 252,-415 252,-415"];
+  "n7" -> "n2" [style=dashed, arrowhead=vee, pos="e,163,-205 162,-155 162,-155 162,-178 162,-178 162,-178 163,-178 163,-178 163,-178 163,-195 163,-195"];
+  "n7" -> "n3" [style=dashed, arrowhead=vee, pos="e,82,-249 102,-150 102,-150 82,-150 82,-150 82,-150 82,-239 82,-239", lhead="cluster_n3"];
+  "n7" -> "n6" [style=dashed, arrowhead=vee, pos="e,250,-324 222,-150 222,-150 250,-150 250,-150 250,-150 250,-314 250,-314"];
+  "n8" -> "n11" [style=dashed, arrowhead=vee, pos="e,222,-498 222,-435 222,-435 222,-488 222,-488"];
+  "n10" -> "n9" [style=dashed, arrowhead=vee, pos="e,209,-683 236,-625 236,-625 236,-683 236,-683 236,-683 219,-683 219,-683"];
+  "n11" -> "n9" [label="[speed > 0]", style=dashed, arrowhead=vee, pos="e,179,-683 202,-518 202,-518 163,-518 163,-518 163,-518 163,-683 163,-683 163,-683 171,-683 171,-683", lp="116,-600.5"];
+  "n11" -> "n10" [style=dashed, arrowhead=vee, pos="e,220,-588 222,-538 222,-538 222,-563 222,-563 222,-563 220,-563 220,-563 220,-563 220,-578 220,-578"];
+}

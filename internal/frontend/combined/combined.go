@@ -44,6 +44,7 @@ var capabilities = []string{
 	"big_int_values",
 	"render_view",
 	"state_trace",
+	"action_trace",
 }
 
 // Server combines the parsing/validation and execution JSON surfaces.

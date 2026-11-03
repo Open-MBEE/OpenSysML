@@ -1,0 +1,1 @@
+- A variant usage no longer derives `Usage::mayTimeVary` (and so `isVariable`) true: its `VariantMembership` is an `OwningMembership`, not a `FeatureMembership`, so it has no owning type (SysML v2.1 §8.3.6.4 `deriveUsageMayTimeVary`); the RDF and API-JSON exports state the pair false for it, as the pilot does.

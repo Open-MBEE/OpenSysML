@@ -2,5 +2,5 @@
 	"type": "instance",
 	"libraries": true,
 	"instantiate": "test::Rig",
-	"error": "state behavior set: assignment to samples: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2"
+	"startFailures": ["state behavior set: assignment to samples: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2"]
 }

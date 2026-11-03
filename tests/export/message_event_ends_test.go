@@ -42,7 +42,7 @@ func TestMessageEndsAreEventOccurrenceUsages(t *testing.T) {
 		"expr:M__Talk__m_pend0_om\n    a sysml:ParameterMembership ;",
 		"expr:M__Talk__m_pend1_om\n    a sysml:ParameterMembership ;",
 		"expr:M__Talk__m_pend0_prs\n    a sysml:ReferenceSubsetting ;",
-		"sysml:ownedMemberParameter expr:M__Talk__m_pend0 .",
+		"sysml:ownedMemberParameter expr:M__Talk__m_pend0 ;",
 		"sysml:parameter expr:M__Talk__m_pend0, expr:M__Talk__m_pend1 ;",
 		// A chained end is an event usage the same way, through the same membership.
 		"expr:M__Talk___401_pend0\n    a sysml:EventOccurrenceUsage ;",

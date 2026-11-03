@@ -2,5 +2,5 @@
 	"type": "instance",
 	"libraries": true,
 	"instantiate": "test::Rig",
-	"error": "write samples of object #1: feature value Rig.samples: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2"
+	"startFailures": ["write samples of object #1: feature value Rig.samples: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2"]
 }

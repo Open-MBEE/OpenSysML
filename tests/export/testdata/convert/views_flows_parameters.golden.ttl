@@ -62,7 +62,12 @@ elmt:FlowsAndViews__FuelPort_om
     sysml:ownedMemberElement elmt:FlowsAndViews__FuelPort ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__FuelPort ;
     sysml:owningRelatedElement elmt:FlowsAndViews ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews ;
+    sysml:source elmt:FlowsAndViews ;
+    sysml:target elmt:FlowsAndViews__FuelPort ;
+    sysml:relatedElement elmt:FlowsAndViews, elmt:FlowsAndViews__FuelPort ;
+    sysml:memberName "FuelPort" ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews\"},{\"@id\":\"FlowsAndViews__FuelPort\"}]" .
 
 elmt:FlowsAndViews__FuelPort_conjugated
     a sysml:ConjugatedPortDefinition ;
@@ -83,7 +88,11 @@ elmt:FlowsAndViews__FuelPort_conjugated_om
     sysml:ownedMemberElement elmt:FlowsAndViews__FuelPort_conjugated ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__FuelPort_conjugated ;
     sysml:owningRelatedElement elmt:FlowsAndViews__FuelPort ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelPort .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelPort ;
+    sysml:source elmt:FlowsAndViews__FuelPort ;
+    sysml:target elmt:FlowsAndViews__FuelPort_conjugated ;
+    sysml:relatedElement elmt:FlowsAndViews__FuelPort, elmt:FlowsAndViews__FuelPort_conjugated ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelPort\"},{\"@id\":\"FlowsAndViews__FuelPort_conjugated\"}]" .
 
 elmt:FlowsAndViews__FuelPort_conjugated_pc
     a sysml:PortConjugation ;
@@ -113,6 +122,8 @@ elmt:FlowsAndViews__FuelPort__fuelSupply
     sysml:owningMembership elmt:FlowsAndViews__FuelPort__fuelSupply_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "fuelSupply" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        out item fuelSupply;\n" .
@@ -126,8 +137,13 @@ elmt:FlowsAndViews__FuelPort__fuelSupply_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__FuelPort__fuelSupply ;
     sysml:owningRelatedElement elmt:FlowsAndViews__FuelPort ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelPort ;
+    sysml:source elmt:FlowsAndViews__FuelPort ;
+    sysml:target elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:relatedElement elmt:FlowsAndViews__FuelPort, elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:memberName "fuelSupply" ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__FuelPort__fuelSupply ;
-    sysml:owningType elmt:FlowsAndViews__FuelPort .
+    sysml:owningType elmt:FlowsAndViews__FuelPort ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelPort\"},{\"@id\":\"FlowsAndViews__FuelPort__fuelSupply\"}]" .
 
 elmt:FlowsAndViews__Tank
     a sysml:PartDefinition ;
@@ -154,7 +170,12 @@ elmt:FlowsAndViews__Tank_om
     sysml:ownedMemberElement elmt:FlowsAndViews__Tank ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__Tank ;
     sysml:owningRelatedElement elmt:FlowsAndViews ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews ;
+    sysml:source elmt:FlowsAndViews ;
+    sysml:target elmt:FlowsAndViews__Tank ;
+    sysml:relatedElement elmt:FlowsAndViews, elmt:FlowsAndViews__Tank ;
+    sysml:memberName "Tank" ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews\"},{\"@id\":\"FlowsAndViews__Tank\"}]" .
 
 elmt:FlowsAndViews__Engine
     a sysml:PartDefinition ;
@@ -181,7 +202,12 @@ elmt:FlowsAndViews__Engine_om
     sysml:ownedMemberElement elmt:FlowsAndViews__Engine ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__Engine ;
     sysml:owningRelatedElement elmt:FlowsAndViews ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews ;
+    sysml:source elmt:FlowsAndViews ;
+    sysml:target elmt:FlowsAndViews__Engine ;
+    sysml:relatedElement elmt:FlowsAndViews, elmt:FlowsAndViews__Engine ;
+    sysml:memberName "Engine" ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews\"},{\"@id\":\"FlowsAndViews__Engine\"}]" .
 
 elmt:FlowsAndViews__FuelInterface
     a sysml:InterfaceDefinition ;
@@ -219,7 +245,12 @@ elmt:FlowsAndViews__FuelInterface_om
     sysml:ownedMemberElement elmt:FlowsAndViews__FuelInterface ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__FuelInterface ;
     sysml:owningRelatedElement elmt:FlowsAndViews ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews ;
+    sysml:source elmt:FlowsAndViews ;
+    sysml:target elmt:FlowsAndViews__FuelInterface ;
+    sysml:relatedElement elmt:FlowsAndViews, elmt:FlowsAndViews__FuelInterface ;
+    sysml:memberName "FuelInterface" ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews\"},{\"@id\":\"FlowsAndViews__FuelInterface\"}]" .
 
 elmt:FlowsAndViews__FuelInterface__supplierPort
     a sysml:PortUsage ;
@@ -237,6 +268,9 @@ elmt:FlowsAndViews__FuelInterface__supplierPort
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "supplierPort" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__FuelPort ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__FuelInterface__supplierPort_ft0 ;
@@ -253,8 +287,13 @@ elmt:FlowsAndViews__FuelInterface__supplierPort_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__FuelInterface__supplierPort ;
     sysml:owningRelatedElement elmt:FlowsAndViews__FuelInterface ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface ;
+    sysml:source elmt:FlowsAndViews__FuelInterface ;
+    sysml:target elmt:FlowsAndViews__FuelInterface__supplierPort ;
+    sysml:relatedElement elmt:FlowsAndViews__FuelInterface, elmt:FlowsAndViews__FuelInterface__supplierPort ;
+    sysml:memberName "supplierPort" ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__FuelInterface__supplierPort ;
-    sysml:owningType elmt:FlowsAndViews__FuelInterface .
+    sysml:owningType elmt:FlowsAndViews__FuelInterface ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface\"},{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort\"}]" .
 
 elmt:FlowsAndViews__FuelInterface__consumerPort
     a sysml:PortUsage ;
@@ -272,6 +311,9 @@ elmt:FlowsAndViews__FuelInterface__consumerPort
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "consumerPort" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__FuelPort ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__FuelInterface__consumerPort_ft0 ;
@@ -288,12 +330,17 @@ elmt:FlowsAndViews__FuelInterface__consumerPort_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__FuelInterface__consumerPort ;
     sysml:owningRelatedElement elmt:FlowsAndViews__FuelInterface ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface ;
+    sysml:source elmt:FlowsAndViews__FuelInterface ;
+    sysml:target elmt:FlowsAndViews__FuelInterface__consumerPort ;
+    sysml:relatedElement elmt:FlowsAndViews__FuelInterface, elmt:FlowsAndViews__FuelInterface__consumerPort ;
+    sysml:memberName "consumerPort" ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__FuelInterface__consumerPort ;
-    sysml:owningType elmt:FlowsAndViews__FuelInterface .
+    sysml:owningType elmt:FlowsAndViews__FuelInterface ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface\"},{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort\"}]" .
 
 elmt:FlowsAndViews__FuelInterface___402
     a sysml:FlowUsage ;
-    sysml:qualifiedName "FlowsAndViews::FuelInterface::@2" ;
+    sysx:positionalName "FlowsAndViews::FuelInterface::@2" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -332,8 +379,12 @@ elmt:FlowsAndViews__FuelInterface___402_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__FuelInterface___402 ;
     sysml:owningRelatedElement elmt:FlowsAndViews__FuelInterface ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface ;
+    sysml:source elmt:FlowsAndViews__FuelInterface ;
+    sysml:target elmt:FlowsAndViews__FuelInterface___402 ;
+    sysml:relatedElement elmt:FlowsAndViews__FuelInterface, elmt:FlowsAndViews__FuelInterface___402 ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__FuelInterface___402 ;
-    sysml:owningType elmt:FlowsAndViews__FuelInterface .
+    sysml:owningType elmt:FlowsAndViews__FuelInterface ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface\"},{\"@id\":\"FlowsAndViews__FuelInterface___402\"}]" .
 
 expr:FlowsAndViews__FuelInterface___402_pend0
     a sysml:FlowEnd ;
@@ -361,7 +412,11 @@ expr:FlowsAndViews__FuelInterface___402_pend0_om
     sysml:ownedMemberElement expr:FlowsAndViews__FuelInterface___402_pend0 ;
     sysml:ownedRelatedElement expr:FlowsAndViews__FuelInterface___402_pend0 ;
     sysml:owningRelatedElement elmt:FlowsAndViews__FuelInterface___402 ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface___402 .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface___402 ;
+    sysml:source elmt:FlowsAndViews__FuelInterface___402 ;
+    sysml:target expr:FlowsAndViews__FuelInterface___402_pend0 ;
+    sysml:relatedElement elmt:FlowsAndViews__FuelInterface___402, expr:FlowsAndViews__FuelInterface___402_pend0 ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0\"}]" .
 
 expr:FlowsAndViews__FuelInterface___402_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -388,6 +443,8 @@ expr:FlowsAndViews__FuelInterface___402_pend0_pff
     sysml:owner expr:FlowsAndViews__FuelInterface___402_pend0 ;
     sysml:owningRelationship expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
     sysml:owningMembership expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:FlowsAndViews__FuelPort__fuelSupply ;
     sysml:ownedRedefinition expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0 ;
     sysml:ownedSubsetting expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0 ;
@@ -402,7 +459,11 @@ expr:FlowsAndViews__FuelInterface___402_pend0_pff_om
     sysml:ownedMemberElement expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
     sysml:ownedRelatedElement expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
     sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend0 ;
-    sysml:membershipOwningNamespace expr:FlowsAndViews__FuelInterface___402_pend0 .
+    sysml:membershipOwningNamespace expr:FlowsAndViews__FuelInterface___402_pend0 ;
+    sysml:source expr:FlowsAndViews__FuelInterface___402_pend0 ;
+    sysml:target expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend0, expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_pff\"}]" .
 
 expr:FlowsAndViews__FuelInterface___402_pend1
     a sysml:FlowEnd ;
@@ -430,7 +491,11 @@ expr:FlowsAndViews__FuelInterface___402_pend1_om
     sysml:ownedMemberElement expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:ownedRelatedElement expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:owningRelatedElement elmt:FlowsAndViews__FuelInterface___402 ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface___402 .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface___402 ;
+    sysml:source elmt:FlowsAndViews__FuelInterface___402 ;
+    sysml:target expr:FlowsAndViews__FuelInterface___402_pend1 ;
+    sysml:relatedElement elmt:FlowsAndViews__FuelInterface___402, expr:FlowsAndViews__FuelInterface___402_pend1 ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1\"}]" .
 
 expr:FlowsAndViews__FuelInterface___402_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -457,6 +522,8 @@ expr:FlowsAndViews__FuelInterface___402_pend1_pff
     sysml:owner expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:owningRelationship expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
     sysml:owningMembership expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:FlowsAndViews__FuelPort__fuelSupply ;
     sysml:ownedRedefinition expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0 ;
     sysml:ownedSubsetting expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0 ;
@@ -471,7 +538,11 @@ expr:FlowsAndViews__FuelInterface___402_pend1_pff_om
     sysml:ownedMemberElement expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
     sysml:ownedRelatedElement expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
     sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend1 ;
-    sysml:membershipOwningNamespace expr:FlowsAndViews__FuelInterface___402_pend1 .
+    sysml:membershipOwningNamespace expr:FlowsAndViews__FuelInterface___402_pend1 ;
+    sysml:source expr:FlowsAndViews__FuelInterface___402_pend1 ;
+    sysml:target expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend1, expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_pff\"}]" .
 
 elmt:FlowsAndViews__tanks
     a sysml:PartUsage ;
@@ -508,7 +579,12 @@ elmt:FlowsAndViews__tanks_om
     sysml:ownedMemberElement elmt:FlowsAndViews__tanks ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__tanks ;
     sysml:owningRelatedElement elmt:FlowsAndViews ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews ;
+    sysml:source elmt:FlowsAndViews ;
+    sysml:target elmt:FlowsAndViews__tanks ;
+    sysml:relatedElement elmt:FlowsAndViews, elmt:FlowsAndViews__tanks ;
+    sysml:memberName "tanks" ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews\"},{\"@id\":\"FlowsAndViews__tanks\"}]" .
 
 expr:FlowsAndViews__tanks_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -529,7 +605,11 @@ expr:FlowsAndViews__tanks_pmultiplicity_om
     sysml:ownedMemberElement expr:FlowsAndViews__tanks_pmultiplicity ;
     sysml:ownedRelatedElement expr:FlowsAndViews__tanks_pmultiplicity ;
     sysml:owningRelatedElement elmt:FlowsAndViews__tanks ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews__tanks .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews__tanks ;
+    sysml:source elmt:FlowsAndViews__tanks ;
+    sysml:target expr:FlowsAndViews__tanks_pmultiplicity ;
+    sysml:relatedElement elmt:FlowsAndViews__tanks, expr:FlowsAndViews__tanks_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__tanks\"},{\"@id\":\"FlowsAndViews__tanks_pmultiplicity\"}]" .
 
 expr:FlowsAndViews__tanks_pupperBound
     a sysml:LiteralInfinity ;
@@ -548,7 +628,11 @@ expr:FlowsAndViews__tanks_pupperBound_om
     sysml:ownedMemberElement expr:FlowsAndViews__tanks_pupperBound ;
     sysml:ownedRelatedElement expr:FlowsAndViews__tanks_pupperBound ;
     sysml:owningRelatedElement expr:FlowsAndViews__tanks_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:FlowsAndViews__tanks_pmultiplicity .
+    sysml:membershipOwningNamespace expr:FlowsAndViews__tanks_pmultiplicity ;
+    sysml:source expr:FlowsAndViews__tanks_pmultiplicity ;
+    sysml:target expr:FlowsAndViews__tanks_pupperBound ;
+    sysml:relatedElement expr:FlowsAndViews__tanks_pmultiplicity, expr:FlowsAndViews__tanks_pupperBound ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__tanks_pmultiplicity\"},{\"@id\":\"FlowsAndViews__tanks_pupperBound\"}]" .
 
 elmt:FlowsAndViews__vehicle
     a sysml:PartUsage ;
@@ -587,7 +671,12 @@ elmt:FlowsAndViews__vehicle_om
     sysml:ownedMemberElement elmt:FlowsAndViews__vehicle ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__vehicle ;
     sysml:owningRelatedElement elmt:FlowsAndViews ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews ;
+    sysml:source elmt:FlowsAndViews ;
+    sysml:target elmt:FlowsAndViews__vehicle ;
+    sysml:relatedElement elmt:FlowsAndViews, elmt:FlowsAndViews__vehicle ;
+    sysml:memberName "vehicle" ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews\"},{\"@id\":\"FlowsAndViews__vehicle\"}]" .
 
 elmt:FlowsAndViews__vehicle__tank
     a sysml:PartUsage ;
@@ -604,6 +693,8 @@ elmt:FlowsAndViews__vehicle__tank
     sysml:owningMembership elmt:FlowsAndViews__vehicle__tank_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "tank" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__vehicle__tank_ft0 ;
@@ -620,8 +711,13 @@ elmt:FlowsAndViews__vehicle__tank_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__vehicle__tank ;
     sysml:owningRelatedElement elmt:FlowsAndViews__vehicle ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle ;
+    sysml:source elmt:FlowsAndViews__vehicle ;
+    sysml:target elmt:FlowsAndViews__vehicle__tank ;
+    sysml:relatedElement elmt:FlowsAndViews__vehicle, elmt:FlowsAndViews__vehicle__tank ;
+    sysml:memberName "tank" ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__vehicle__tank ;
-    sysml:owningType elmt:FlowsAndViews__vehicle .
+    sysml:owningType elmt:FlowsAndViews__vehicle ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle\"},{\"@id\":\"FlowsAndViews__vehicle__tank\"}]" .
 
 elmt:FlowsAndViews__vehicle__spares
     a sysml:PartUsage ;
@@ -638,6 +734,8 @@ elmt:FlowsAndViews__vehicle__spares
     sysml:owningMembership elmt:FlowsAndViews__vehicle__spares_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "spares" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
     sysml:subsets elmt:FlowsAndViews__tanks ;
@@ -663,8 +761,13 @@ elmt:FlowsAndViews__vehicle__spares_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__vehicle__spares ;
     sysml:owningRelatedElement elmt:FlowsAndViews__vehicle ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle ;
+    sysml:source elmt:FlowsAndViews__vehicle ;
+    sysml:target elmt:FlowsAndViews__vehicle__spares ;
+    sysml:relatedElement elmt:FlowsAndViews__vehicle, elmt:FlowsAndViews__vehicle__spares ;
+    sysml:memberName "spares" ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__vehicle__spares ;
-    sysml:owningType elmt:FlowsAndViews__vehicle .
+    sysml:owningType elmt:FlowsAndViews__vehicle ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle\"},{\"@id\":\"FlowsAndViews__vehicle__spares\"}]" .
 
 expr:FlowsAndViews__vehicle__spares_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -688,7 +791,11 @@ expr:FlowsAndViews__vehicle__spares_pmultiplicity_om
     sysml:ownedMemberElement expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
     sysml:ownedRelatedElement expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
     sysml:owningRelatedElement elmt:FlowsAndViews__vehicle__spares ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle__spares .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle__spares ;
+    sysml:source elmt:FlowsAndViews__vehicle__spares ;
+    sysml:target expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
+    sysml:relatedElement elmt:FlowsAndViews__vehicle__spares, expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle__spares\"},{\"@id\":\"FlowsAndViews__vehicle__spares_pmultiplicity\"}]" .
 
 expr:FlowsAndViews__vehicle__spares_plowerBound
     a sysml:LiteralInteger ;
@@ -708,7 +815,11 @@ expr:FlowsAndViews__vehicle__spares_plowerBound_om
     sysml:ownedMemberElement expr:FlowsAndViews__vehicle__spares_plowerBound ;
     sysml:ownedRelatedElement expr:FlowsAndViews__vehicle__spares_plowerBound ;
     sysml:owningRelatedElement expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:FlowsAndViews__vehicle__spares_pmultiplicity .
+    sysml:membershipOwningNamespace expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
+    sysml:source expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
+    sysml:target expr:FlowsAndViews__vehicle__spares_plowerBound ;
+    sysml:relatedElement expr:FlowsAndViews__vehicle__spares_pmultiplicity, expr:FlowsAndViews__vehicle__spares_plowerBound ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle__spares_pmultiplicity\"},{\"@id\":\"FlowsAndViews__vehicle__spares_plowerBound\"}]" .
 
 expr:FlowsAndViews__vehicle__spares_pupperBound
     a sysml:LiteralInteger ;
@@ -728,7 +839,11 @@ expr:FlowsAndViews__vehicle__spares_pupperBound_om
     sysml:ownedMemberElement expr:FlowsAndViews__vehicle__spares_pupperBound ;
     sysml:ownedRelatedElement expr:FlowsAndViews__vehicle__spares_pupperBound ;
     sysml:owningRelatedElement expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:FlowsAndViews__vehicle__spares_pmultiplicity .
+    sysml:membershipOwningNamespace expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
+    sysml:source expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
+    sysml:target expr:FlowsAndViews__vehicle__spares_pupperBound ;
+    sysml:relatedElement expr:FlowsAndViews__vehicle__spares_pmultiplicity, expr:FlowsAndViews__vehicle__spares_pupperBound ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle__spares_pmultiplicity\"},{\"@id\":\"FlowsAndViews__vehicle__spares_pupperBound\"}]" .
 
 elmt:FlowsAndViews__vehicle__firstSpare
     a sysml:PartUsage ;
@@ -745,6 +860,8 @@ elmt:FlowsAndViews__vehicle__firstSpare
     sysml:owningMembership elmt:FlowsAndViews__vehicle__firstSpare_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "firstSpare" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "spares.self"^^sysx:Expression ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__vehicle__firstSpare_ft0 ;
@@ -761,8 +878,13 @@ elmt:FlowsAndViews__vehicle__firstSpare_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__vehicle__firstSpare ;
     sysml:owningRelatedElement elmt:FlowsAndViews__vehicle ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle ;
+    sysml:source elmt:FlowsAndViews__vehicle ;
+    sysml:target elmt:FlowsAndViews__vehicle__firstSpare ;
+    sysml:relatedElement elmt:FlowsAndViews__vehicle, elmt:FlowsAndViews__vehicle__firstSpare ;
+    sysml:memberName "firstSpare" ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__vehicle__firstSpare ;
-    sysml:owningType elmt:FlowsAndViews__vehicle .
+    sysml:owningType elmt:FlowsAndViews__vehicle ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle\"},{\"@id\":\"FlowsAndViews__vehicle__firstSpare\"}]" .
 
 elmt:FlowsAndViews__vehicle__engine
     a sysml:PartUsage ;
@@ -779,6 +901,8 @@ elmt:FlowsAndViews__vehicle__engine
     sysml:owningMembership elmt:FlowsAndViews__vehicle__engine_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "engine" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Engine ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__vehicle__engine_ft0 ;
@@ -795,12 +919,17 @@ elmt:FlowsAndViews__vehicle__engine_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__vehicle__engine ;
     sysml:owningRelatedElement elmt:FlowsAndViews__vehicle ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle ;
+    sysml:source elmt:FlowsAndViews__vehicle ;
+    sysml:target elmt:FlowsAndViews__vehicle__engine ;
+    sysml:relatedElement elmt:FlowsAndViews__vehicle, elmt:FlowsAndViews__vehicle__engine ;
+    sysml:memberName "engine" ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__vehicle__engine ;
-    sysml:owningType elmt:FlowsAndViews__vehicle .
+    sysml:owningType elmt:FlowsAndViews__vehicle ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle\"},{\"@id\":\"FlowsAndViews__vehicle__engine\"}]" .
 
 elmt:FlowsAndViews__vehicle___404
     a sysml:AllocationUsage ;
-    sysml:qualifiedName "FlowsAndViews::vehicle::@4" ;
+    sysx:positionalName "FlowsAndViews::vehicle::@4" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -812,6 +941,8 @@ elmt:FlowsAndViews__vehicle___404
     sysml:owningRelationship elmt:FlowsAndViews__vehicle___404_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicle___404_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:connectorEnd expr:FlowsAndViews__vehicle___404_pend0, expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:ownedRelationship expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
     sysml:ownedMembership expr:FlowsAndViews__vehicle___404_pend0_om, expr:FlowsAndViews__vehicle___404_pend1_om ;
@@ -844,14 +975,21 @@ elmt:FlowsAndViews__vehicle___404_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__vehicle___404 ;
     sysml:owningRelatedElement elmt:FlowsAndViews__vehicle ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle ;
+    sysml:source elmt:FlowsAndViews__vehicle ;
+    sysml:target elmt:FlowsAndViews__vehicle___404 ;
+    sysml:relatedElement elmt:FlowsAndViews__vehicle, elmt:FlowsAndViews__vehicle___404 ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__vehicle___404 ;
-    sysml:owningType elmt:FlowsAndViews__vehicle .
+    sysml:owningType elmt:FlowsAndViews__vehicle ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle\"},{\"@id\":\"FlowsAndViews__vehicle___404\"}]" .
 
 expr:FlowsAndViews__vehicle___404_pend0
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "FlowsAndViews__vehicle___404_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:owner elmt:FlowsAndViews__vehicle___404 ;
     sysml:owningRelationship expr:FlowsAndViews__vehicle___404_pend0_om ;
     sysml:owningMembership expr:FlowsAndViews__vehicle___404_pend0_om ;
@@ -869,7 +1007,11 @@ expr:FlowsAndViews__vehicle___404_pend0_om
     sysml:ownedMemberElement expr:FlowsAndViews__vehicle___404_pend0 ;
     sysml:ownedRelatedElement expr:FlowsAndViews__vehicle___404_pend0 ;
     sysml:owningRelatedElement elmt:FlowsAndViews__vehicle___404 ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle___404 .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle___404 ;
+    sysml:source elmt:FlowsAndViews__vehicle___404 ;
+    sysml:target expr:FlowsAndViews__vehicle___404_pend0 ;
+    sysml:relatedElement elmt:FlowsAndViews__vehicle___404, expr:FlowsAndViews__vehicle___404_pend0 ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle___404\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend0\"}]" .
 
 expr:FlowsAndViews__vehicle___404_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -894,6 +1036,9 @@ expr:FlowsAndViews__vehicle___404_pend1
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "FlowsAndViews__vehicle___404_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
     sysml:owner elmt:FlowsAndViews__vehicle___404 ;
     sysml:owningRelationship expr:FlowsAndViews__vehicle___404_pend1_om ;
     sysml:owningMembership expr:FlowsAndViews__vehicle___404_pend1_om ;
@@ -911,7 +1056,11 @@ expr:FlowsAndViews__vehicle___404_pend1_om
     sysml:ownedMemberElement expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:ownedRelatedElement expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:owningRelatedElement elmt:FlowsAndViews__vehicle___404 ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle___404 .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews__vehicle___404 ;
+    sysml:source elmt:FlowsAndViews__vehicle___404 ;
+    sysml:target expr:FlowsAndViews__vehicle___404_pend1 ;
+    sysml:relatedElement elmt:FlowsAndViews__vehicle___404, expr:FlowsAndViews__vehicle___404_pend1 ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle___404\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1\"}]" .
 
 expr:FlowsAndViews__vehicle___404_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -967,7 +1116,12 @@ elmt:FlowsAndViews__Measure_om
     sysml:ownedMemberElement elmt:FlowsAndViews__Measure ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__Measure ;
     sysml:owningRelatedElement elmt:FlowsAndViews ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews ;
+    sysml:source elmt:FlowsAndViews ;
+    sysml:target elmt:FlowsAndViews__Measure ;
+    sysml:relatedElement elmt:FlowsAndViews, elmt:FlowsAndViews__Measure ;
+    sysml:memberName "Measure" ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews\"},{\"@id\":\"FlowsAndViews__Measure\"}]" .
 
 elmt:FlowsAndViews__Measure__measured
     a sysml:PartUsage ;
@@ -984,6 +1138,8 @@ elmt:FlowsAndViews__Measure__measured
     sysml:owningMembership elmt:FlowsAndViews__Measure__measured_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "measured" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:subsets elmt:FlowsAndViews__Tank ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1001,8 +1157,13 @@ elmt:FlowsAndViews__Measure__measured_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__Measure__measured ;
     sysml:owningRelatedElement elmt:FlowsAndViews__Measure ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__Measure ;
+    sysml:source elmt:FlowsAndViews__Measure ;
+    sysml:target elmt:FlowsAndViews__Measure__measured ;
+    sysml:relatedElement elmt:FlowsAndViews__Measure, elmt:FlowsAndViews__Measure__measured ;
+    sysml:memberName "measured" ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__Measure__measured ;
-    sysml:owningType elmt:FlowsAndViews__Measure .
+    sysml:owningType elmt:FlowsAndViews__Measure ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__Measure\"},{\"@id\":\"FlowsAndViews__Measure__measured\"}]" .
 
 elmt:FlowsAndViews__Measure__mass
     a sysml:ReferenceUsage ;
@@ -1020,6 +1181,8 @@ elmt:FlowsAndViews__Measure__mass
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "mass" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1037,8 +1200,13 @@ elmt:FlowsAndViews__Measure__mass_om
     sysml:ownedRelatedElement elmt:FlowsAndViews__Measure__mass ;
     sysml:owningRelatedElement elmt:FlowsAndViews__Measure ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__Measure ;
+    sysml:source elmt:FlowsAndViews__Measure ;
+    sysml:target elmt:FlowsAndViews__Measure__mass ;
+    sysml:relatedElement elmt:FlowsAndViews__Measure, elmt:FlowsAndViews__Measure__mass ;
+    sysml:memberName "mass" ;
     sysml:ownedMemberFeature elmt:FlowsAndViews__Measure__mass ;
-    sysml:owningType elmt:FlowsAndViews__Measure .
+    sysml:owningType elmt:FlowsAndViews__Measure ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__Measure\"},{\"@id\":\"FlowsAndViews__Measure__mass\"}]" .
 
 elmt:FlowsAndViews__StructureView
     a sysml:ViewDefinition ;
@@ -1068,11 +1236,16 @@ elmt:FlowsAndViews__StructureView_om
     sysml:ownedMemberElement elmt:FlowsAndViews__StructureView ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__StructureView ;
     sysml:owningRelatedElement elmt:FlowsAndViews ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews ;
+    sysml:source elmt:FlowsAndViews ;
+    sysml:target elmt:FlowsAndViews__StructureView ;
+    sysml:relatedElement elmt:FlowsAndViews, elmt:FlowsAndViews__StructureView ;
+    sysml:memberName "StructureView" ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews\"},{\"@id\":\"FlowsAndViews__StructureView\"}]" .
 
 elmt:FlowsAndViews__StructureView___400
     a sysml:ElementFilterMembership ;
-    sysml:qualifiedName "FlowsAndViews::StructureView::@0" ;
+    sysx:positionalName "FlowsAndViews::StructureView::@0" ;
     sysx:sourceLine "25"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "25"^^xsd:integer ;
@@ -1087,7 +1260,11 @@ elmt:FlowsAndViews__StructureView___400
     sysml:ownedRelatedElement expr:FlowsAndViews__StructureView___400_pfilter ;
     sysml:memberElement expr:FlowsAndViews__StructureView___400_pfilter ;
     sysml:ownedMemberElement expr:FlowsAndViews__StructureView___400_pfilter ;
-    sysx:sourceText "        filter @SysML::PartUsage;\n" .
+    sysml:source elmt:FlowsAndViews__StructureView ;
+    sysml:target expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:relatedElement elmt:FlowsAndViews__StructureView, expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysx:sourceText "        filter @SysML::PartUsage;\n" ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__StructureView\"},{\"@id\":\"FlowsAndViews__StructureView___400_pfilter\"}]" .
 
 expr:FlowsAndViews__StructureView___400_pfilter
     a sysml:OperatorExpression ;
@@ -1133,8 +1310,12 @@ expr:FlowsAndViews__StructureView___400_pfilter_pin0_om
     sysml:ownedRelatedElement expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
     sysml:owningRelatedElement expr:FlowsAndViews__StructureView___400_pfilter ;
     sysml:membershipOwningNamespace expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:source expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:target expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:relatedElement expr:FlowsAndViews__StructureView___400_pfilter, expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
     sysml:ownedMemberFeature expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
-    sysml:ownedMemberParameter expr:FlowsAndViews__StructureView___400_pfilter_pin0 .
+    sysml:ownedMemberParameter expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__StructureView___400_pfilter\"},{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pin0\"}]" .
 
 expr:FlowsAndViews__StructureView___400_pfilter_pin0_ft0
     a sysml:FeatureTyping ;
@@ -1169,8 +1350,12 @@ expr:FlowsAndViews__StructureView___400_pfilter_pout_om
     sysml:ownedRelatedElement expr:FlowsAndViews__StructureView___400_pfilter_pout ;
     sysml:owningRelatedElement expr:FlowsAndViews__StructureView___400_pfilter ;
     sysml:membershipOwningNamespace expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:source expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:target expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    sysml:relatedElement expr:FlowsAndViews__StructureView___400_pfilter, expr:FlowsAndViews__StructureView___400_pfilter_pout ;
     sysml:ownedMemberFeature expr:FlowsAndViews__StructureView___400_pfilter_pout ;
-    sysml:ownedMemberParameter expr:FlowsAndViews__StructureView___400_pfilter_pout .
+    sysml:ownedMemberParameter expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__StructureView___400_pfilter\"},{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pout\"}]" .
 
 elmt:FlowsAndViews__vehicleView
     a sysml:ViewUsage ;
@@ -1204,11 +1389,16 @@ elmt:FlowsAndViews__vehicleView_om
     sysml:ownedMemberElement elmt:FlowsAndViews__vehicleView ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__vehicleView ;
     sysml:owningRelatedElement elmt:FlowsAndViews ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews ;
+    sysml:source elmt:FlowsAndViews ;
+    sysml:target elmt:FlowsAndViews__vehicleView ;
+    sysml:relatedElement elmt:FlowsAndViews, elmt:FlowsAndViews__vehicleView ;
+    sysml:memberName "vehicleView" ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews\"},{\"@id\":\"FlowsAndViews__vehicleView\"}]" .
 
 elmt:FlowsAndViews__vehicleView___400
     a sysml:MembershipExpose ;
-    sysml:qualifiedName "FlowsAndViews::vehicleView::@0" ;
+    sysx:positionalName "FlowsAndViews::vehicleView::@0" ;
     sysx:sourceLine "28"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "28"^^xsd:integer ;

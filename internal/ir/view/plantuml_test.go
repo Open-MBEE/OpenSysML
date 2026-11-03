@@ -327,7 +327,7 @@ func TestPlantUMLFormSupport(t *testing.T) {
 			t.Errorf("%s has PlantUML as its machine form", kind)
 		}
 	}
-	if got := fmt.Sprint(Forms()); got != "[text mermaid markdown dot plantuml d2 csv tsv svg svg-animated]" {
+	if got := fmt.Sprint(Forms()); got != "[text mermaid markdown dot plantuml d2 drawio csv tsv svg svg-animated]" {
 		t.Errorf("Forms() = %s", got)
 	}
 	if got := fmt.Sprint(DiagramForms()); got != "[mermaid dot plantuml d2]" {

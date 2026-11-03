@@ -28,7 +28,7 @@ func (cc *constraintChecker) checkAtMostOneMember(sym *symbols.Symbol) {
 	if sym == nil {
 		return
 	}
-	members := typeMembers(sym.Decl)
+	members := ownedFeatureMembers(sym.Decl)
 	cc.checkAtMostOneMultiplicity(sym.Decl, members)
 	if subjectOwnerDecl(sym.Decl) {
 		var subjects []ast.Node
@@ -207,12 +207,30 @@ func typeMembers(decl ast.Node) []ast.Node {
 	return nil
 }
 
+// ownedFeatureMembers returns feature memberships in featureMembership order.
+func ownedFeatureMembers(decl ast.Node) []ast.Node {
+	var members []ast.Node
+	if usage, ok := decl.(*ast.Usage); ok && usage != nil && usage.Kind == ast.UsageSatisfy {
+		for _, relationship := range usage.Relationships {
+			if relationship != nil && relationship.Kind == ast.RelSubject {
+				members = append(members, relationship)
+			}
+		}
+	}
+	if len(members) == 0 {
+		return typeMembers(decl)
+	}
+	return append(members, typeMembers(decl)...)
+}
+
 func isSubjectDecl(decl ast.Node) bool {
 	switch d := decl.(type) {
 	case *ast.SubjectMember:
 		return true
 	case *ast.Usage:
 		return d.Kind == ast.UsageSubject
+	case *ast.Relationship:
+		return d != nil && d.Kind == ast.RelSubject
 	}
 	return false
 }
@@ -265,6 +283,9 @@ func isSubjectMemberNode(n ast.Node) bool {
 	if _, ok := n.(*ast.SubjectMember); ok {
 		return true
 	}
+	if relationship, ok := n.(*ast.Relationship); ok {
+		return relationship != nil && relationship.Kind == ast.RelSubject
+	}
 	u, ok := unwrapUsageMember(n)
 	return ok && u.Kind == ast.UsageSubject
 }
@@ -306,7 +327,7 @@ func requirementLikeDefKind(k ast.DefinitionKind) bool {
 
 func requirementLikeUsageKind(k ast.UsageKind) bool {
 	switch k {
-	case ast.UsageRequirement, ast.UsageConcern, ast.UsageFramedConcern, ast.UsageViewpoint:
+	case ast.UsageRequirement, ast.UsageSatisfy, ast.UsageConcern, ast.UsageFramedConcern, ast.UsageViewpoint:
 		return true
 	}
 	return false

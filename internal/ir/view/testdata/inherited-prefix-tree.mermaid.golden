@@ -53,10 +53,10 @@ flowchart TD
 **^engine**`")
     n14("`*«part»*
 **d**`")
-      n15("`*«attribute»*
-**mass**`")
-      n16("`*«port»*
+      n15("`*«port»*
 **^aPort**`")
+      n16("`*«attribute»*
+**mass**`")
       n17("`*«part»*
 **^engine**`")
     n18("`**connect**`")

@@ -483,33 +483,46 @@ func ownedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
 	if sym == nil || sym.Scope == nil {
 		return nil
 	}
-	var out []*symbols.Symbol
 	if sym.Recorded() {
-		seen := map[*symbols.Symbol]bool{}
-		for _, member := range sym.Scope.AllMembers() {
-			if member == nil || seen[member] {
-				continue
-			}
-			seen[member] = true
-			memberRole := noCaseRole
-			if member.Facts.Node == symbols.NodeSubject {
-				memberRole = subjectRole
-			} else if member.Facts.Node == symbols.NodeUsage {
-				switch member.Facts.UsageKind {
-				case ast.UsageSubject:
-					memberRole = subjectRole
-				case ast.UsageObjective:
-					memberRole = objectiveRole
-				case ast.UsageActor, ast.UsageStakeholder:
-					memberRole = actorRole
-				}
-			}
-			if memberRole == role {
-				out = append(out, member)
-			}
-		}
-		return out
+		return recordedOwnedRoles(sym, role)
 	}
+	return declaredOwnedRoles(sym, role)
+}
+
+func recordedOwnedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	seen := map[*symbols.Symbol]bool{}
+	for _, member := range sym.Scope.AllMembers() {
+		if member == nil || seen[member] {
+			continue
+		}
+		seen[member] = true
+		if recordedMemberRole(member) == role {
+			out = append(out, member)
+		}
+	}
+	return out
+}
+
+func recordedMemberRole(member *symbols.Symbol) caseRole {
+	if member.Facts.Node == symbols.NodeSubject {
+		return subjectRole
+	}
+	if member.Facts.Node == symbols.NodeUsage {
+		switch member.Facts.UsageKind {
+		case ast.UsageSubject:
+			return subjectRole
+		case ast.UsageObjective:
+			return objectiveRole
+		case ast.UsageActor, ast.UsageStakeholder:
+			return actorRole
+		}
+	}
+	return noCaseRole
+}
+
+func declaredOwnedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
+	var out []*symbols.Symbol
 	for _, member := range declMembers(sym) {
 		if roleOfNode(member) != role {
 			continue
@@ -520,6 +533,16 @@ func ownedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
 		}
 		if found := memberSymbol(sym.Scope, node); found != nil {
 			out = append(out, found)
+		}
+	}
+	if usage, ok := sym.Decl.(*ast.Usage); ok && role == subjectRole && usage.Kind == ast.UsageSatisfy {
+		for _, rel := range usage.Relationships {
+			if rel == nil || rel.Kind != ast.RelSubject {
+				continue
+			}
+			if found := memberSymbol(sym.Scope, rel); found != nil {
+				out = append(out, found)
+			}
 		}
 	}
 	return out
@@ -575,6 +598,13 @@ func roleOf(sym *symbols.Symbol) caseRole {
 func roleOfNode(node ast.Node) caseRole {
 	if wrapper, ok := node.(*ast.Membership); ok {
 		node = wrapper.Member
+	}
+	if rel, ok := node.(*ast.Relationship); ok {
+		// A satisfy usage's `by` clause declares its subject parameter.
+		if rel.Kind == ast.RelSubject {
+			return subjectRole
+		}
+		return noCaseRole
 	}
 	switch d := node.(type) {
 	case *ast.SubjectMember:

@@ -3507,7 +3507,7 @@
         "clause": "8.3.21.9",
         "name": "validateRequirementUsageOnlyOneSubject"
       },
-      "checks": "A requirement usage has at most one subject",
+      "checks": "A requirement usage has at most one subject; a satisfy usage's `by` clause counts as its subject",
       "implementation": "internal/check/passes/at_most_one_member.go:checkAtMostOneMember",
       "message": "—",
       "negativeCase": "`semantic/s29-requirement-two-subjects.sysml`, `semantic/s92-requirement-references-second-subject.sysml`",
@@ -5666,13 +5666,12 @@
       },
       "checks": "A composite ConstraintUsage whose owningFeatureMembership is a RequirementConstraintMembership must directly or indirectly specialize on the ConstraintUsages assumptions or constraints from the ConstraintDefinition Requirements::RequirementCheck in the Systems Model Library, depending on whether the kind of the RequirementConstraintMembership is assumption or requirement, respectively.",
       "ocl": "isComposite and\nowningFeatureMembership <> null and\nowningFeatureMembership.oclIsKindOf(RequirementConstraintMembership) implies\n    if owningFeatureMembership.oclAsType(RequirementConstraintMembership).kind =\n         RequirementConstraintKind::assumption then\n         specializesFromLibrary('Requirements::RequirementCheck::assumptions')\n    else\n         specializesFromLibrary('Requirements::RequirementCheck::constraints')\n    endif",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN, requirementConstraintFQN",
+      "message": "derived at model level: the composite constraint an `assume` or `require` member owns, written with `constraint` or in the reference form, implicitly subsets `Requirements::RequirementCheck::assumptions` or `constraints` by the membership kind, as the pilot's `ConstraintUsageAdapter.addRequirementConstraintSubsetting` derives it; a `ref` constraint and one no requirement owns derive nothing (internal/semantic/semantics/nested_test.go:TestImplicitSubsettingsRequirementConstraints, internal/exec/runtime/requirement_constraint_subsetting_test.go)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "status": "faithful"
     },
     {
       "name": "checkConstraintUsageSpecialization",

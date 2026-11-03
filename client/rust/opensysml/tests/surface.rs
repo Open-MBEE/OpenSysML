@@ -9,7 +9,7 @@ use opensysml::{
     AnalysisOptions, Connection, Constraint, ConvertOptions, ConvertSource, DocumentForm,
     DocumentValue, ElementRef, Error, FailureReason, IdForm, MemberOptions, MigrateOptions,
     MigrateSource, Model, Query, RenderViewCompartments, RenderViewPorts, RunOptions,
-    SourceDocument, SourcesOptions, SweepOptions, SweepRange, Value, VerifyOptions,
+    SourceDocument, SourcesOptions, Status, SweepOptions, SweepRange, Value, VerifyOptions,
 };
 
 const DEMO: &str = r#"
@@ -216,6 +216,133 @@ fn a_model_converts_to_notation_and_turtle() {
         .unwrap();
     assert_eq!(turtle.to_format, "ttl");
     assert!(!turtle.content.is_empty());
+}
+
+#[test]
+fn api_json_names_library_references_separately_and_opts_into_legacy_stubs() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let source = ConvertSource::Content(
+        "package P { private import SI::*; attribute time = 20 [s]; }".to_owned(),
+    );
+    let options = ConvertOptions {
+        from_format: "sysml".to_owned(),
+        ..Default::default()
+    };
+    let plain = connection.convert("api-json", &source, &options).unwrap();
+    let second = plain
+        .library_references
+        .iter()
+        .find(|reference| reference.qualified_name == "SI::second")
+        .expect("SI::second is referenced");
+    assert_eq!(second.id, "0c539f7c-20a1-520d-bae0-f3f855517aea");
+    assert_eq!(second.r#type, "AttributeUsage");
+    let plain_elements: Vec<serde_json::Value> = serde_json::from_str(&plain.content).unwrap();
+    assert!(plain_elements
+        .iter()
+        .all(|element| element["isLibraryElement"] != serde_json::Value::Bool(true)));
+    let legacy = connection
+        .convert(
+            "api-json",
+            &source,
+            &ConvertOptions {
+                include_library_stubs: true,
+                ..options.clone()
+            },
+        )
+        .unwrap();
+    let legacy_elements: Vec<serde_json::Value> = serde_json::from_str(&legacy.content).unwrap();
+    let stub = legacy_elements
+        .iter()
+        .find(|element| element["@id"] == second.id.as_str())
+        .expect("the stub is written");
+    assert_eq!(stub["qualifiedName"], "SI::second");
+    assert_eq!(stub["isLibraryElement"], true);
+    assert_eq!(legacy.library_references, plain.library_references);
+    let notation = connection.convert("sysml", &source, &options).unwrap();
+    assert!(notation.library_references.is_empty());
+}
+
+#[test]
+fn a_held_model_converts_and_saves_with_explicit_options() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(
+        &connection,
+        "package P { private import SI::*; attribute time = 20 [s]; }",
+    );
+    let options = ConvertOptions {
+        id_form: Some(IdForm::Uuid),
+        include_library_stubs: true,
+        ..Default::default()
+    };
+    let legacy = model.convert_with("api-json", &options).unwrap();
+    assert_eq!(legacy.to_format, "api-json");
+    let second = legacy
+        .library_references
+        .iter()
+        .find(|reference| reference.qualified_name == "SI::second")
+        .expect("SI::second is referenced");
+    let elements: Vec<serde_json::Value> = serde_json::from_str(&legacy.content).unwrap();
+    let stub = elements
+        .iter()
+        .find(|element| element["@id"] == second.id.as_str())
+        .expect("the stub is written");
+    assert_eq!(stub["isLibraryElement"], true);
+    let ids: Vec<&str> = elements
+        .iter()
+        .filter_map(|element| element["@id"].as_str())
+        .collect();
+    assert!(
+        !ids.contains(&"P__time"),
+        "ids are uuids, not qualified: {ids:?}"
+    );
+    let direct = connection
+        .convert(
+            "api-json",
+            &ConvertSource::Model(model.hash().to_owned()),
+            &options,
+        )
+        .unwrap();
+    assert_eq!(legacy.content, direct.content);
+    let plain = model.to_api_json().unwrap();
+    let plain_elements: Vec<serde_json::Value> = serde_json::from_str(&plain.content).unwrap();
+    let plain_ids: Vec<&str> = plain_elements
+        .iter()
+        .filter_map(|element| element["@id"].as_str())
+        .collect();
+    assert!(plain_ids.contains(&"P__time"), "{plain_ids:?}");
+    assert!(plain_elements
+        .iter()
+        .all(|element| element["isLibraryElement"] != serde_json::Value::Bool(true)));
+    let dir = env::temp_dir().join(format!("opensysml-rust-save-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("p.json");
+    let saved = model.save_with(&path, None, &options).unwrap();
+    assert_eq!(saved.to_format, "api-json");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), legacy.content);
+    let refused = model.save_with(dir.join("p.txt"), Some("sysml"), &options);
+    assert!(
+        matches!(&refused, Err(Error::Service { message, .. }) if message.contains("include_library_stubs requires to_format api-json")),
+        "{refused:?}"
+    );
+    assert!(
+        !dir.join("p.txt").exists(),
+        "a refused conversion writes nothing"
+    );
+    let notation = model
+        .save_with(dir.join("p.txt"), Some("sysml"), &ConvertOptions::default())
+        .unwrap();
+    assert_eq!(notation.to_format, "sysml");
+    assert!(notation.library_references.is_empty());
+    assert!(notation.content.contains("attribute time"));
+    assert!(matches!(
+        model.save_with(dir.join("p.txt"), None, &options),
+        Err(Error::InvalidRequest(_))
+    ));
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]
@@ -560,13 +687,33 @@ fn an_action_runs_explores_and_a_state_machine_steps() {
         trace: true,
         ..Default::default()
     };
-    assert!(matches!(
-        model.execute_action("Demo::addFive", &BTreeMap::new(), &trace_for_action),
-        Err(Error::InvalidRequest(message)) if message.contains("state run")
-    ));
+    let traced = model
+        .execute_action("Demo::addFive", &BTreeMap::new(), &trace_for_action)
+        .expect("traced action run");
+    let kinds: Vec<&str> = traced.trace.iter().map(|e| e.kind.as_str()).collect();
+    assert!(
+        kinds.contains(&"step") && kinds.contains(&"complete"),
+        "{kinds:?}"
+    );
+    let assign = traced
+        .trace
+        .iter()
+        .find(|e| e.kind == "assign")
+        .expect("assign record");
+    assert_eq!(assign.feature, "result");
+    assert_eq!(assign.value.as_deref(), Some(&Value::Integer(5.into())));
+    assert_eq!(traced.trace_dropped, 0);
     assert!(matches!(
         model.explore_action("Demo::race", &BTreeMap::new(), &trace_for_action),
-        Err(Error::InvalidRequest(message)) if message.contains("state run")
+        Err(Error::InvalidRequest(message)) if message.contains("one run")
+    ));
+    let events_without_performer = RunOptions {
+        events: vec!["Go".to_owned()],
+        ..Default::default()
+    };
+    assert!(matches!(
+        model.execute_action("Demo::addFive", &BTreeMap::new(), &events_without_performer),
+        Err(Error::InvalidRequest(message)) if message.contains("performer")
     ));
     assert!(matches!(
         model.explore_state::<&str>("Demo::Machine", &[], &trace_for_action),
@@ -922,6 +1069,42 @@ fn import_data_sets_the_values_and_answers_the_edited_model() {
     assert_eq!(dry.files[0].assignments.len(), 1);
     assert!(dry.model_hash.is_empty() && dry.content.is_empty() && dry.documents.is_empty());
 
+    let values = model
+        .import_data(
+            &[opensysml::DataImport {
+                name: "fleet.tsv".to_owned(),
+                content: "element\tcount\nV::vehicle\t7\n".to_owned(),
+                format: None,
+                map: None,
+            }],
+            &opensysml::DataImportOptions {
+                import_as: Some("values".to_owned()),
+                dry_run: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(values.files[0].assignments.len(), 1);
+    let unknown_form = model.import_data(
+        &[opensysml::DataImport {
+            name: "fleet.tsv".to_owned(),
+            content: "element\tcount\nV::vehicle\t7\n".to_owned(),
+            format: None,
+            map: None,
+        }],
+        &opensysml::DataImportOptions {
+            import_as: Some("rows".to_owned()),
+            dry_run: true,
+            ..Default::default()
+        },
+    );
+    assert!(
+        matches!(
+            &unknown_form,
+            Err(Error::Service { status: Status::InvalidArgument, message, .. }) if message.contains("rows")
+        ),
+        "{unknown_form:?}"
+    );
     let refused = model.import_data(
         &[opensysml::DataImport {
             name: "fleet.csv".to_owned(),

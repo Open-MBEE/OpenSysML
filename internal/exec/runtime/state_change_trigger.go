@@ -235,7 +235,7 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 				if _, seen := poll.condition[trans]; seen {
 					continue
 				}
-				holds, err := e.changeConditionHolds(changeEvent, trans)
+				holds, unvalued, err := e.changeConditionHolds(changeEvent, trans)
 				if err != nil {
 					return fmt.Errorf("state %s: %w", source.Name, err)
 				}
@@ -248,7 +248,11 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 					delete(e.changeFired, trans)
 				}
 				if !poll.condition[trans] {
-					poll.wait(trans, source.Name, "condition is false")
+					if unvalued != nil {
+						poll.wait(trans, source.Name, "condition has no result yet: "+unvalued.Error())
+					} else {
+						poll.wait(trans, source.Name, "condition is false")
+					}
 					continue
 				}
 				if e.changeFired[trans] {
@@ -300,16 +304,16 @@ func (e *StateExecutor) probeChangeGuard(poll *changePoll, state *ast.StateNode,
 	return pass, nil, nil
 }
 
-// changeConditionHolds evaluates one change condition in the scope the
-// transition was written in, the machine's data shadowing it.
-func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans *lower.Transition) (bool, error) {
+// changeConditionHolds evaluates one change condition in the scope the transition was
+// written in; a read of an unvalued feature gives it no result, so it has not become true.
+func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans *lower.Transition) (holds bool, unvalued, err error) {
 	if e.changeEvaluating {
-		return false, fmt.Errorf("change condition evaluation is reentrant")
+		return false, nil, fmt.Errorf("change condition evaluation is reentrant")
 	}
 	e.changeEvaluating = true
 	defer func() { e.changeEvaluating = false }()
 	endRead := e.ctx.beginChangeRead()
-	holds, err := e.ctx.guardUnderStatementOrders(changeEvent.Condition, e.ctx.enclosingExecutorStep(), trans.Scope, func() (bool, error) {
+	holds, err = e.ctx.guardUnderStatementOrders(changeEvent.Condition, e.ctx.enclosingExecutorStep(), trans.Scope, func() (bool, error) {
 		condVal, err := e.evalStepOf(trans.Source, changeEvent.Condition, trans.Scope)
 		if err != nil {
 			return false, fmt.Errorf("eval change condition: %w", err)
@@ -320,11 +324,23 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 		return condVal.Const.Bool, nil
 	})
 	reads := endRead()
-	if err != nil {
-		return false, err
+	if readsNoValue(err) {
+		holds, unvalued, err = false, err, nil
 	}
+	if err != nil {
+		return false, nil, err
+	}
+	// The reads are kept for a condition with no result too: the write that
+	// gives the feature its value is the one that must re-poll it.
 	e.changeReads[trans] = reads
-	return holds, nil
+	return holds, unvalued, nil
+}
+
+// readsNoValue reports whether err is a read of a feature that carries no value,
+// whichever way the read found it empty.
+func readsNoValue(err error) bool {
+	var noValue *NoValueError
+	return errors.As(err, &noValue) || IsUninitializedFeatureValue(err)
 }
 
 func (e *StateExecutor) observeFeatureWrite(fv *FeatureValue) {
@@ -369,7 +385,7 @@ func (e *StateExecutor) observeChangedValue(relevant func([]*FeatureValue) bool)
 			}
 			var holds bool
 			var err error
-			e.preview(func() { holds, err = e.changeConditionHolds(changeEvent, trans) })
+			e.preview(func() { holds, _, err = e.changeConditionHolds(changeEvent, trans) })
 			if err != nil {
 				continue
 			}

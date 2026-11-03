@@ -17,6 +17,9 @@ func isXMI(a xml.Attr) bool {
 	return IsXMINamespace(a.Name.Space)
 }
 
+// xmlNamespace is the namespace of XML's own attributes, xml:space and xml:lang.
+const xmlNamespace = "http://www.w3.org/XML/1998/namespace"
+
 // IsXMINamespace reports whether ns is an XMI namespace.
 func IsXMINamespace(ns string) bool {
 	return isNamedNamespace(ns, "XMI")
@@ -63,6 +66,9 @@ type Element struct {
 	ID       string
 	Attrs    map[string]string
 	XMIAttrs map[string]string
+	// XMLAttrs are the attributes of the XML namespace itself (xml:space,
+	// xml:lang), metadata about the text rather than properties of the element.
+	XMLAttrs map[string]string
 	// Namespaces are the xmlns declarations on this element, prefix to URI;
 	// the default namespace is under "".
 	Namespaces map[string]string
@@ -70,6 +76,9 @@ type Element struct {
 	Children   []*Element
 	Parent     *Element
 	Line       int
+	// scalars are the values of the properties serialized as child elements
+	// (IsScalar), by tag, in document order.
+	scalars map[string][]string
 }
 
 // Namespace resolves a prefix to the URI declared for it on this element or
@@ -83,7 +92,9 @@ func (e *Element) Namespace(prefix string) string {
 	return ""
 }
 
-// Attr returns the attribute named by its local name, or "" when absent.
+// Attr returns the property named by its local name, or "" when absent: the
+// XML attribute, else the text of the first child element serializing it
+// (`<name>Vehicle</name>`, XMI 2.5.1 § 9.4.4), the attribute taking precedence.
 func (e *Element) Attr(name string) string {
 	if e == nil {
 		return ""
@@ -91,7 +102,34 @@ func (e *Element) Attr(name string) string {
 	if value, ok := e.Attrs[name]; ok {
 		return value
 	}
-	return e.XMIAttrs[name]
+	if value, ok := e.XMIAttrs[name]; ok {
+		return value
+	}
+	if values := e.scalars[name]; len(values) > 0 {
+		return values[0]
+	}
+	return ""
+}
+
+// Values returns every value of a multi-valued property: the attribute's value
+// first, whole, then the text of each child element serializing it.
+func (e *Element) Values(name string) []string {
+	if e == nil {
+		return nil
+	}
+	var out []string
+	if value, ok := e.Attrs[name]; ok {
+		out = append(out, value)
+	}
+	return append(out, e.scalars[name]...)
+}
+
+// IsScalar reports whether the element serializes a property value of its
+// parent rather than an owned element: no xmi:type or xmi:id, no attribute
+// other than XML's own (so no idref or href) and no child elements, only text.
+func (e *Element) IsScalar() bool {
+	return e != nil && e.Parent != nil && e.Type == "" && e.ID == "" &&
+		len(e.Attrs) == 0 && len(e.XMIAttrs) == 0 && len(e.Children) == 0
 }
 
 // Name is the element's name attribute.
@@ -244,7 +282,11 @@ func Parse(r io.Reader) (*Document, error) {
 			if len(stack) == 0 {
 				return nil, fmt.Errorf("xmi: unbalanced end element %s", t.Name.Local)
 			}
+			closed := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
+			if closed.IsScalar() {
+				closed.Parent.addScalar(closed.Tag, closed.Text)
+			}
 		}
 	}
 	if len(stack) != 0 {
@@ -277,11 +319,23 @@ func newElement(t xml.StartElement) *Element {
 			e.declare(a.Name.Local, a.Value)
 		case a.Name.Local == "xmlns":
 			e.declare("", a.Value)
+		case a.Name.Space == xmlNamespace:
+			if e.XMLAttrs == nil {
+				e.XMLAttrs = map[string]string{}
+			}
+			e.XMLAttrs[a.Name.Local] = a.Value
 		default:
 			e.Attrs[a.Name.Local] = a.Value
 		}
 	}
 	return e
+}
+
+func (e *Element) addScalar(name, value string) {
+	if e.scalars == nil {
+		e.scalars = map[string][]string{}
+	}
+	e.scalars[name] = append(e.scalars[name], value)
 }
 
 func (e *Element) declare(prefix, uri string) {

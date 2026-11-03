@@ -1,0 +1,1 @@
+- The Go client's `EditResult.Content`, deprecated in 0.9.0 in favour of `EditResult.Documents`, which carries the edited notation of a model of one document as well as of several. `ApplyEdits` and `ApplyDocumentEdits` now require the `edit_documents` capability every service since 0.9.0 advertises, and are refused with `CodeUnimplemented` by one without it.

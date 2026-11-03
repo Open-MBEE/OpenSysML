@@ -87,6 +87,16 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 			add(membership, sysml(pOwnedRelatedElement), root)
 			add(membership, sysml(pOwningRelatedElement), w.namespace)
 			add(membership, sysml(pMembershipOwningNamespace), w.namespace)
+			add(membership, sysml(pSource), w.namespace)
+			add(membership, sysml(pTarget), root)
+			add(membership, sysml(pRelatedElement), w.namespace)
+			add(membership, sysml(pRelatedElement), root)
+			if name, ok := graph.Lexical(root, rdf.SysML+pDeclaredName); ok {
+				add(membership, sysml(pMemberName), rdf.String(name))
+			}
+			if short, ok := graph.Lexical(root, rdf.SysML+pDeclaredShortName); ok {
+				add(membership, sysml(pMemberShortName), rdf.String(short))
+			}
 		}
 	}
 	for _, triple := range graph.Triples() {
@@ -286,7 +296,7 @@ func transparentRootSubject(graph *rdf.Graph, subject rdf.Term) bool {
 		!graph.HasProperty(subject, rdf.SysML+pOwningRelationship) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredShortName) &&
-		!graph.HasProperty(subject, rdf.SysML+pQualifiedName) &&
+		!hasAddress(graph, subject) &&
 		!graph.HasProperty(subject, rdf.OpenSysML+xHasBody)
 }
 
@@ -392,7 +402,7 @@ func uuidForm(graph *rdf.Graph, root rdf.Term) bool {
 // rootLocalID is the qualified-name-derived id a root carries in the
 // qualified form, the name the uuid form hashes.
 func rootLocalID(graph *rdf.Graph, root rdf.Term) string {
-	if name, ok := graph.Lexical(root, rdf.SysML+pQualifiedName); ok {
+	if name, ok := addressOf(graph, root); ok {
 		return rdf.EncodeElementID(name)
 	}
 	if name, ok := graph.Lexical(root, rdf.SysML+pDeclaredName); ok {

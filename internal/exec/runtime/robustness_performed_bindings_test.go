@@ -79,7 +79,7 @@ const performedBindingFixture = `package test {
 func TestRuntimeRobustnessPerformedBindings(t *testing.T) {
 	t.Run("bound_pin_holds_the_performers_value", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedBindingFixture))
-		self, err := ctx.Instantiate(oneSymbol(t, idx, "test::context"))
+		self, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::context"))
 		if err != nil {
 			t.Fatalf("Instantiate context: %v", err)
 		}
@@ -90,7 +90,7 @@ func TestRuntimeRobustnessPerformedBindings(t *testing.T) {
 
 	t.Run("unvalued_other_end_leaves_the_pin_empty", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedBindingFixture))
-		_, err := ctx.Instantiate(oneSymbol(t, idx, "test::unvalued"))
+		_, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::unvalued"))
 		if err == nil {
 			t.Fatal("Instantiate unvalued: err = nil, want the output default failing over an unbound report")
 		}
@@ -101,7 +101,7 @@ func TestRuntimeRobustnessPerformedBindings(t *testing.T) {
 
 	t.Run("zero_link_binding_supplies_nothing", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedBindingFixture))
-		_, err := ctx.Instantiate(oneSymbol(t, idx, "test::zeroLinked"))
+		_, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::zeroLinked"))
 		if err == nil {
 			t.Fatal("Instantiate zeroLinked: err = nil, want the output default failing over an unbound report")
 		}
@@ -112,7 +112,7 @@ func TestRuntimeRobustnessPerformedBindings(t *testing.T) {
 
 	t.Run("binding_between_two_performed_nodes", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedBindingFixture))
-		self, err := ctx.Instantiate(oneSymbol(t, idx, "test::pair"))
+		self, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::pair"))
 		if err != nil {
 			t.Fatalf("Instantiate pair: %v", err)
 		}
@@ -123,7 +123,7 @@ func TestRuntimeRobustnessPerformedBindings(t *testing.T) {
 
 	t.Run("owners_chained_other_end_reads_on_the_owner", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedBindingFixture))
-		self, err := ctx.Instantiate(oneSymbol(t, idx, "test::site"))
+		self, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::site"))
 		if err != nil {
 			t.Fatalf("Instantiate site: %v", err)
 		}
@@ -134,7 +134,7 @@ func TestRuntimeRobustnessPerformedBindings(t *testing.T) {
 
 	t.Run("owners_chained_other_end_is_written_on_the_owner", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedBindingFixture))
-		self, err := ctx.Instantiate(oneSymbol(t, idx, "test::flagged"))
+		self, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::flagged"))
 		if err != nil {
 			t.Fatalf("Instantiate flagged: %v", err)
 		}
@@ -150,7 +150,7 @@ func TestRuntimeRobustnessPerformedBindings(t *testing.T) {
 
 	t.Run("mistyped_other_end_is_refused_at_the_pin", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedBindingFixture))
-		_, err := ctx.Instantiate(oneSymbol(t, idx, "test::mistyped"))
+		_, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::mistyped"))
 		if !errors.Is(err, ErrTypeMismatch) || !strings.Contains(err.Error(), "report") {
 			t.Errorf("Instantiate mistyped: err = %v, want ErrTypeMismatch naming report", err)
 		}

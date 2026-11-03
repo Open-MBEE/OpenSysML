@@ -443,29 +443,6 @@ func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 		t.Error("build-release does not verify the provenance names the kernel wheels")
 	}
 
-	publish, ok := config.Jobs["publish-pypi-jupyter-kernel"]
-	if !ok {
-		t.Fatal("no publish-pypi-jupyter-kernel job")
-	}
-	publishSteps := runSteps(t, publish.Steps)
-	index := stepIndex(publishSteps, "/pypi/jupyter-opensysml-kernel/", "already on")
-	upload := stepIndex(publishSteps, "twine upload client/jupyter-kernel/dist/*")
-	switch {
-	case index < 0:
-		t.Error("publish-pypi-jupyter-kernel does not refuse a version the index already has")
-	case upload < 0:
-		t.Error("publish-pypi-jupyter-kernel does not upload the kernel distribution")
-	case upload < index:
-		t.Errorf("twine upload (step %d) runs before the index check (step %d)", upload, index)
-	}
-	if upload >= 0 {
-		for _, line := range strings.Split(publishSteps[upload].Command, "\n") {
-			if trimmed := strings.TrimSpace(line); !strings.HasPrefix(trimmed, "#") && strings.Contains(trimmed, "--skip-existing") {
-				t.Error("publish-pypi-jupyter-kernel uploads with --skip-existing, so a version that appeared since the check would pass silently")
-			}
-		}
-	}
-
 	github, ok := config.Jobs["publish-github-release"]
 	if !ok {
 		t.Fatal("no publish-github-release job")
@@ -477,7 +454,6 @@ func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 	release := config.workflow(t, "release")
 	requireAll(t, "Build Jupyter kernel distribution", requiresOf(t, release, "Build Jupyter kernel distribution"), "Build release binaries")
 	requireAll(t, "Build release artifacts", requiresOf(t, release, "Build release artifacts"), "Build Jupyter kernel distribution")
-	requireAll(t, "Publish jupyter-opensysml-kernel to PyPI", requiresOf(t, release, "Publish jupyter-opensysml-kernel to PyPI"), "Publish GitHub release", "Python client tests")
 }
 
 // TestRustCrateIsStampedWithItsReleaseDigests holds publish-crates to the same

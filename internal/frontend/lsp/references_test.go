@@ -14,8 +14,8 @@ import (
 func TestReferencesFindsUses(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	// Use an absolute name so uri.File(name).Filename() round-trips to the same key.
-	name := uri.File("/tmp/ref.sysml").Filename()
+	// Use an absolute name so uri.File(name).FsPath() round-trips to the same key.
+	name := uri.File("/tmp/ref.sysml").FsPath()
 	// "N" is declared once (namespace N) and referenced twice (P::N in two imports).
 	src := "package P { namespace N; }\nimport P::N;\nimport P::N;"
 	ws.Open(name, []byte(src), 1)
@@ -61,7 +61,7 @@ func TestReferencesFindsUses(t *testing.T) {
 func TestReferencesFromUseSiteIncludingDeclaration(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/ref2.sysml").Filename()
+	name := uri.File("/tmp/ref2.sysml").FsPath()
 	src := "package P { namespace N; }\nimport P::N;\nimport P::N;"
 	ws.Open(name, []byte(src), 1)
 
@@ -143,7 +143,7 @@ func TestReferencesFromUseSiteSpanDocuments(t *testing.T) {
 func TestReferencesCursorOnNothing(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/ref3.sysml").Filename()
+	name := uri.File("/tmp/ref3.sysml").FsPath()
 	src := "package P { namespace N; }\nimport P::N;"
 	ws.Open(name, []byte(src), 1)
 

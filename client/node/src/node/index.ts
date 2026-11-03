@@ -25,6 +25,7 @@ import {
 import type { Transport } from "@connectrpc/connect";
 import { Connection } from "../core/connection.js";
 import { Conversion, Migration, formatOfPath } from "../core/conversion.js";
+import type { ConvertOptions } from "../core/conversion.js";
 import type {
   ConnectionBackend,
   TransportOptions,
@@ -136,6 +137,15 @@ export async function connect(
 }
 
 /**
+ * What `save` is told when it converts a model: the format to write, else the
+ * path's extension names it, and the options `Model.convert` takes for one.
+ */
+export type SaveOptions = { toFormat?: string } & Pick<
+  ConvertOptions,
+  "tolerateSyntaxErrors" | "idForm" | "includeLibraryStubs"
+>;
+
+/**
  * Writes `target` to `path`: a model converted in the format its extension
  * names, a conversion's content written as the service returned it, or a
  * migration's content with its image files beside it, at the relative paths
@@ -152,12 +162,12 @@ export async function save(target: Migration, path: string): Promise<Migration>;
 export async function save(
   target: Model | Conversion,
   path: string,
-  options?: { toFormat?: string; tolerateSyntaxErrors?: boolean },
+  options?: SaveOptions,
 ): Promise<Conversion>;
 export async function save(
   target: Model | Conversion | Migration,
   path: string,
-  options: { toFormat?: string; tolerateSyntaxErrors?: boolean } = {},
+  options: SaveOptions = {},
 ): Promise<Conversion | Migration> {
   if (target instanceof Migration) {
     const files = await migrationFiles(target, path);
@@ -168,14 +178,11 @@ export async function save(
     );
     return target;
   }
+  const { toFormat, ...convertOptions } = options;
   const conversion =
     target instanceof Conversion
       ? target
-      : await target.convert(options.toFormat ?? formatOfPath(path), {
-          ...(options.tolerateSyntaxErrors === undefined
-            ? {}
-            : { tolerateSyntaxErrors: options.tolerateSyntaxErrors }),
-        });
+      : await target.convert(toFormat ?? formatOfPath(path), convertOptions);
   await writeFile(path, conversion.content, "utf8");
   return conversion;
 }

@@ -57,6 +57,9 @@ case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
 case_ java-module java,mdk client/java/opensysml-client/pom.xml
 case_ java-manifest java,mdk,python client/java/pom.xml
+case_ java-readme docs,java,mdk,python client/java/README.md
+case_ java-reference docs,python docs/reference/java-api.md
+case_ java-skill docs,python packaging/agent-skills/skills/opensysml-java/SKILL.md
 case_ node-only node client/node/src/node/binary.ts
 case_ node-manifest node,python client/node/package.json
 case_ python-only python client/python/opensysml/connection.py
@@ -98,7 +101,7 @@ case_ vscode-syntaxes docs,dotnet,go,java,julia,jupyterlab,matlab,mdk,node,pytho
 case_ jupyterlab-syntax docs,dotnet,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/jupyterlab/src/syntax.json
 # Any markdown counts as documentation: the site links out to repository files.
 case_ man-page docs packaging/man/man1/sysml.1
-case_ two-client-readmes docs,java,mdk,node client/java/README.md client/node/README.md
+case_ two-client-readmes docs,java,mdk,node,python client/java/README.md client/node/README.md
 case_ two-clients java,mdk,node,python client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,dotnet,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
 case_ go-client docs,dotnet,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/opensysml/client.go
@@ -119,6 +122,10 @@ case_ pysysml python packaging/pypi-pysysml/pyproject.toml
 # The Go hygiene suite caps every tracked fixture and test file, so these run it too.
 case_ client-fixture go,python client/python/tests/testdata/large.json
 case_ client-golden go,node client/node/test/render.golden.json
+# The committed baselines and figure pages under docs/project are Go test inputs.
+case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
+case_ project-figures docs,go docs/project/api-json-differential.md
+case_ project-archive docs,go docs/project/archive/CHANGELOG-0.0-0.8.md
 case_ unclaimed docs,dotnet,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
 
 # The quick tier runs the Go suite for a service change but not every client; a
@@ -130,6 +137,7 @@ quick_case_ unclaimed go some-new-top-level/thing.txt
 quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src/node/binary.ts
 quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
 quick_case_ docs-only docs docs/guide/index.md
+quick_case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
 quick_case_ java-manifest java,mdk,python client/java/pom.xml
 quick_case_ node-only node client/node/src/node/binary.ts
 quick_case_ dotnet-props dotnet,python client/dotnet/Directory.Build.props

@@ -340,17 +340,7 @@ func decimal(text string) bool {
 
 // opaqueBody returns the first body of an opaque expression and its language.
 func opaqueBody(v *sysmlv1.Element) (body, lang string) {
-	if b := v.Owned("body"); len(b) > 0 {
-		body = strings.TrimSpace(b[0].Text)
-	} else {
-		body = strings.TrimSpace(v.Attrs["body"])
-	}
-	if l := v.Owned("language"); len(l) > 0 {
-		lang = strings.TrimSpace(l[0].Text)
-	} else {
-		lang = strings.TrimSpace(v.Attrs["language"])
-	}
-	return body, lang
+	return strings.TrimSpace(v.Attrs["body"]), strings.TrimSpace(v.Attrs["language"])
 }
 
 type opaqueBodyPair struct {
@@ -374,26 +364,19 @@ func opaqueBodyPairs(v *sysmlv1.Element) []opaqueBodyPair {
 	return pairs
 }
 
+// opaqueTexts lists the values of a body or language property: each as written,
+// a language trimmed; a single empty value, as an attribute states one, is none.
 func opaqueTexts(v *sysmlv1.Element, role string) []string {
-	owned := v.Owned(role)
-	if len(owned) > 0 {
-		texts := make([]string, len(owned))
-		for i, e := range owned {
-			texts[i] = e.Text
-			if role == "language" {
-				texts[i] = strings.TrimSpace(texts[i])
-			}
-		}
-		return texts
-	}
-	text := v.Attrs[role]
+	texts := v.Values(role)
 	if role == "language" {
-		text = strings.TrimSpace(text)
+		for i, t := range texts {
+			texts[i] = strings.TrimSpace(t)
+		}
 	}
-	if text != "" {
-		return []string{text}
+	if len(texts) == 1 && texts[0] == "" {
+		return nil
 	}
-	return nil
+	return texts
 }
 
 func opaqueBodiesEmpty(v *sysmlv1.Element) bool {

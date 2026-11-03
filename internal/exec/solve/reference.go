@@ -408,6 +408,13 @@ func variableName(t *translator, chain []*symbols.Symbol) string {
 		}
 	}
 	name := t.fqn(chain[first])
+	if chain[first].Name == "" {
+		// A satisfy's `by` subject shares the value of the requirement's subject
+		// it redefines, so the variable is the one that subject names.
+		if redefined := t.model.ImplicitRoleRedefinitions(chain[first]); len(redefined) > 0 {
+			name = t.fqn(redefined[0])
+		}
+	}
 	for _, sym := range chain[first+1:] {
 		name += "." + sym.Name
 	}
@@ -417,9 +424,20 @@ func variableName(t *translator, chain []*symbols.Symbol) string {
 // featureDecl reports whether sym declares a feature holding a value: a usage, or
 // the subject a requirement declares. A definition or a package holds none.
 func featureDecl(sym *symbols.Symbol) bool {
-	switch sym.Decl.(type) {
-	case *ast.Usage, *ast.SubjectMember:
+	if _, ok := sym.Decl.(*ast.Usage); ok {
 		return true
+	}
+	return subjectDecl(sym)
+}
+
+// subjectDecl reports whether sym declares a subject: a requirement's or case's
+// `subject` member, or the subject a satisfy usage's `by` clause declares.
+func subjectDecl(sym *symbols.Symbol) bool {
+	switch d := sym.Decl.(type) {
+	case *ast.SubjectMember:
+		return true
+	case *ast.Relationship:
+		return d.Kind == ast.RelSubject
 	}
 	return false
 }

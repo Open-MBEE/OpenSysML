@@ -414,6 +414,9 @@ func TestReflectiveFeatureFlagsOnRecordedUsagesAndControlNodes(t *testing.T) {
 				facts.Modifiers |= symbols.ModNonunique
 			}
 		}
+		if srcModel.IsFlowPayload(sym) {
+			facts.Modifiers |= symbols.ModPayloadFeature
+		}
 		if srcModel.UsageMayTimeVary(sym) {
 			facts.Modifiers |= symbols.ModMayTimeVary
 		}
@@ -905,8 +908,9 @@ func TestReflectiveTypeCompositionEndsAndPortionKind(t *testing.T) {
 			"P::Timeline::interval": "timeslice",
 		} {
 			sym := nestedSym(t, fixture.root, path)
+			// An enumeration-valued property reads the literal, as visibility does.
 			value, ok := fixture.model.ReflectiveFeatureValue(sym, "portionKind")
-			if !ok || value.Kind != symbols.FilterValueString || value.Str != want {
+			if want = "SysML::Systems::PortionKind::" + want; !ok || value.Kind != symbols.FilterValueRef || value.RefFQN != want {
 				t.Errorf("%s.portionKind = %v (present %t), want %q", path, value, ok, want)
 			}
 		}
@@ -979,6 +983,12 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 		Supers:   []symbols.ElementRef{},
 	}
 	facts.Annotations = model.DeclaredAnnotationFactsOf(sym)
+	if model.IsFlowPayload(sym) {
+		facts.Modifiers |= symbols.ModPayloadFeature
+	}
+	if model.UsageMayTimeVary(sym) {
+		facts.Modifiers |= symbols.ModMayTimeVary
+	}
 	if sym.Kind == symbols.SymbolAlias {
 		if target, ok := model.resolver.ResolveAliasTarget(sym); ok {
 			if ref, found := idx.RefTo(target); found {
@@ -1071,6 +1081,8 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			{d.IsOrdered, symbols.ModOrdered},
 			{d.IsNonunique, symbols.ModNonunique},
 			{d.IsResult, symbols.ModResult},
+			{d.IsNegated, symbols.ModNegated},
+			{d.Keyword == "assert" || d.PrefixKeyword == "assert", symbols.ModAssert},
 		}
 		for _, modifier := range mods {
 			if modifier.on {

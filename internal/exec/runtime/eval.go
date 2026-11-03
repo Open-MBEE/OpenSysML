@@ -37,9 +37,6 @@ type EvalContext struct {
 	// resolving holds the features whose own value is being evaluated, so a value
 	// written in terms of a same-named outer one does not resolve to itself.
 	resolving map[string]bool
-	// openInputs marks a member read of a condition, where a declared `in` nothing binds
-	// reads undetermined rather than falling back to the object's same-named feature.
-	openInputs bool
 
 	// calcRun is the calc evaluation whose output feature is being computed, so an
 	// output binding written in terms of the calc's other outputs reads them from
@@ -49,6 +46,9 @@ type EvalContext struct {
 	// inBehaviorBody marks a statement of a behavior body, which reaches the
 	// object performing it only through names that resolve to its features.
 	inBehaviorBody bool
+	// openInputs marks a member read of a condition, where a declared `in` nothing binds
+	// reads undetermined rather than falling back to the object's same-named feature.
+	openInputs bool
 
 	// valuing is the pin whose value the expression states, so `inout log = log`
 	// written at that pin reads the log around it rather than the pin itself.
@@ -956,6 +956,10 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 			return val, nil
 		}
 	}
+	// A satisfy usage's `by` subject awaits its satisfaction's binding, as a subject does.
+	if rel, ok := currentSym.Decl.(*ast.Relationship); ok && rel.Kind == ast.RelSubject {
+		return ec.resolvedWithoutValue(currentSym, qn)
+	}
 	// A library feature reads through the feature seam, whatever the library
 	// declares for it and whether or not the cache kept its declaration.
 	if val, ok, err := ec.ctx.libraryFeatureValue(currentSym); ok {
@@ -1544,6 +1548,12 @@ func (ec *EvalContext) featureValueOn(inst *Instance, name string) (Value, bool,
 	// A clock's currentTime, under any of its names, is the run's shared clock.
 	if now, isClock, err := ec.ctx.clockMember(inst, name); isClock {
 		return now, true, err
+	}
+	// A constraint usage the object enacts is the predicate evaluated on it, as a
+	// chain through the object reads it (chainFeatureValue).
+	if sym, ok := ec.enactedConstraint(inst, name); ok {
+		val, err := ec.constraintUsageRead(inst, sym)
+		return val, true, err
 	}
 	if _, ok := inst.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(inst, name) {
 		// A member the shape leaves out, which the default the holder governs over states.
@@ -3702,10 +3712,69 @@ func (ec *EvalContext) enclosingRun(shape *calcShape) []frame {
 // arguments written after it (KerMLExpressions InstantiatedTypeMember → OwnedFeatureChain).
 func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.FeatureChainExpr) (Value, error) {
 	callee := chainText(chain)
-	fn, err := ec.chainCallee(chain)
+	if chain.Member == nil || len(chain.Member.Parts) != 1 {
+		fn, err := ec.Eval(chain)
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.invokeChainCallee(n, callee, fn)
+	}
+	name := chain.Member.Parts[0].Text
+	receiver, err := ec.Eval(chain.Operand)
+	// A usage no object stands for is called through the object it would materialize,
+	// under the probe a chain read makes: the receiver is reached and called within it.
+	if err != nil || receiver.Kind == ValUndetermined {
+		base, parts := ast.FeatureChainBase(chain)
+		val, ok, derr := ec.underDeclaredObject(base, parts, func(obj Value, owner *symbols.Symbol) (Value, error) {
+			if len(parts) > 1 {
+				if obj, err = ec.chainMemberValue(obj, parts[:len(parts)-1], owner.Name); err != nil {
+					return Value{}, err
+				}
+			}
+			return ec.invokeChainOn(n, name, callee, obj)
+		})
+		if ok {
+			return val, derr
+		}
+		if derr != nil {
+			return Value{}, derr
+		}
+	}
 	if err != nil {
 		return Value{}, err
 	}
+	return ec.invokeChainOn(n, name, callee, receiver)
+}
+
+// invokeChainOn calls the member name of the receiver's value: a calc of the receiver's
+// object is the function applied over it even where a bare read would compute its result.
+func (ec *EvalContext) invokeChainOn(n *ast.InvocationExpr, name, callee string, receiver Value) (Value, error) {
+	if id, isObject := receiver.Object(); isObject {
+		if inst, ok := ec.ctx.instances[id]; ok {
+			sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name)
+			if _, held := inst.FeatureValues[name]; !held && found && isCalcUsageSymbol(sym) {
+				fn, err := NewEvalContextIn(ec.ctx, sym.OwnerScope, inst).functionValueOf(sym)
+				if err != nil {
+					return Value{}, err
+				}
+				return ec.invokeChainCallee(n, callee, fn)
+			}
+			// A constraint or requirement member is a predicate about the object, invoked on it
+			// (`req.assumptions()`, `sys.req()`), as its own evaluation invokes the bare name.
+			if found && isPredicateDecl(sym.Decl) {
+				return ec.invokeChainPredicate(n, callee, &chainPredicate{self: inst, sym: sym})
+			}
+		}
+	}
+	fn, err := ec.chainMemberValue(receiver, []ast.NameSegment{{Text: name}}, "")
+	if err != nil {
+		return Value{}, err
+	}
+	return ec.invokeChainCallee(n, callee, fn)
+}
+
+// invokeChainCallee applies the function value a feature chain denotes to the call's arguments.
+func (ec *EvalContext) invokeChainCallee(n *ast.InvocationExpr, callee string, fn Value) (Value, error) {
 	fn = soleElement(fn)
 	if fn.Kind != ValFunction {
 		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, DescribeValue(fn))
@@ -3721,27 +3790,27 @@ func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.Fea
 	return ec.invokeFunction(callee, fn, callArgs)
 }
 
-// chainCallee is what a feature chain denotes in call position: a calc of the receiver's
-// object is the function applied over it even where a bare read would compute its result.
-func (ec *EvalContext) chainCallee(chain *ast.FeatureChainExpr) (Value, error) {
-	if chain.Member == nil || len(chain.Member.Parts) != 1 {
-		return ec.Eval(chain)
+// chainPredicate is the callee of a chain invocation naming a constraint or requirement
+// member of an object: the predicate sym, applied on self.
+type chainPredicate struct {
+	self *Instance
+	sym  *symbols.Symbol
+}
+
+// invokeChainPredicate applies a chain's predicate callee to the arguments, evaluated
+// here, on the object the chain reached, as that object's own evaluation would.
+func (ec *EvalContext) invokeChainPredicate(n *ast.InvocationExpr, callee string, predicate *chainPredicate) (Value, error) {
+	target := &invocationTarget{qualName: callee, calc: predicate.sym, predicate: true}
+	if len(n.NamedArgs) > 0 {
+		target.names, target.unbound = ec.ctx.boundParameterNames(ec.scope, predicate.sym, n.NamedArgs)
 	}
-	receiver, err := ec.Eval(chain.Operand)
+	callArgs, err := ec.evalInvocationArgs(callee, n.Args, n.NamedArgs, target)
 	if err != nil {
 		return Value{}, err
 	}
-	name := chain.Member.Parts[0].Text
-	if id, isObject := receiver.Object(); isObject {
-		if inst, ok := ec.ctx.instances[id]; ok {
-			if _, held := inst.FeatureValues[name]; !held {
-				if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
-					return NewEvalContextIn(ec.ctx, sym.OwnerScope, inst).functionValueOf(sym)
-				}
-			}
-		}
-	}
-	return ec.chainMemberValue(receiver, chain.Member.Parts, "")
+	on := NewEvalContextIn(ec.ctx, predicate.sym.OwnerScope, predicate.self)
+	on.trace, on.activation = ec.trace, ec.activation
+	return on.invokePredicate(predicate.sym, callArgs)
 }
 
 // chainText spells a feature chain as written, `holder.scale`.

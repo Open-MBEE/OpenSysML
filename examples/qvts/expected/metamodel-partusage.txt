@@ -1,0 +1,7 @@
+    {
+      "name": "PartUsage",
+      "abstract": false,
+      "parents": [
+        "ItemUsage"
+      ]
+    }

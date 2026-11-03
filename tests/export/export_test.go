@@ -442,28 +442,6 @@ func relinked(t *testing.T, graph []byte, link, to string) []byte {
 	return []byte(strings.Replace(string(graph), link, to, 1))
 }
 
-func relinkedProperty(t *testing.T, graph []byte, subject, property, from, to string) []byte {
-	t.Helper()
-	blocks := strings.Split(string(graph), "\n\n")
-	needle := "sysml:" + property + " " + from
-	replacement := "sysml:" + property + " " + to
-	found := 0
-	for i, block := range blocks {
-		if !strings.Contains(block, subject+"\n") {
-			continue
-		}
-		if strings.Count(block, needle) != 1 {
-			continue
-		}
-		blocks[i] = strings.Replace(block, needle, replacement, 1)
-		found++
-	}
-	if found != 1 {
-		t.Fatalf("subject %q has property %q %d times, want once\n%s", subject, property, found, graph)
-	}
-	return []byte(strings.Join(blocks, "\n\n"))
-}
-
 // refusedAsUnsupported requires a graph to be refused rather than written as
 // notation that would read back as a different graph.
 func refusedAsUnsupported(t *testing.T, name string, graph []byte, why string) {
@@ -571,7 +549,7 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 	// connector's first end, whether or not the notation is kept with the graph.
 	relinkedValue := relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
 	// The membership the edge materializes carries the same member.
-	relinkedValue = relinkedProperty(t, relinkedValue, "expr:P__v_pvalue_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
+	relinkedValue = relinkedMember(t, relinkedValue, "expr:P__v_pvalue_ptargetFeature", "expr:P__v_pvalue", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(relinkedValue)); !strings.Contains(back, "attribute v = a.B::x;") {
 		t.Errorf("the relinked value should be written qualified\n%s", back)
 	}
@@ -598,19 +576,19 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 	}
 	// A target no chain from a can name — the package itself — is refused.
 	packageTarget := relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P")
-	packageTarget = relinkedProperty(t, packageTarget, "expr:P__v_pvalue_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P")
+	packageTarget = relinkedMember(t, packageTarget, "expr:P__v_pvalue_ptargetFeature", "expr:P__v_pvalue", "elmt:P__A__x", "elmt:P")
 	refusedAsUnsupported(t, "chain-package", packageTarget,
 		"no spelling of the segment reads as the element the graph names from the operand")
 	// The sum repeats `a.x`: the occurrence still reaching A::x must not vouch
 	// for the one relinked to B::x, which is spelled to reach its own element.
 	repeated := relinkedProperty(t, structural, "expr:P__w_pvalue_pa1", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
-	repeated = relinkedProperty(t, repeated, "expr:P__w_pvalue_pa1_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
+	repeated = relinkedMember(t, repeated, "expr:P__w_pvalue_pa1_ptargetFeature", "expr:P__w_pvalue_pa1", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(repeated)); !strings.Contains(back, "attribute w = a.x + a.B::x;") {
 		t.Errorf("each repeated chain should be spelled for its own element\n%s", back)
 	}
 	// Both relinked, neither occurrence reads as A::x any more.
 	both := relinkedProperty(t, repeated, "expr:P__w_pvalue_pa0", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
-	both = relinkedProperty(t, both, "expr:P__w_pvalue_pa0_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
+	both = relinkedMember(t, both, "expr:P__w_pvalue_pa0_ptargetFeature", "expr:P__w_pvalue_pa0", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(both)); !strings.Contains(back, "attribute w = a.B::x + a.B::x;") {
 		t.Errorf("both relinked chains should be spelled qualified\n%s", back)
 	}
@@ -637,7 +615,7 @@ func TestSharedChainIsCheckedInEveryDeclaration(t *testing.T) {
 	structural := withoutTriples(t, graph, "sysx:sourceText")
 	// w's value is v's chain: its root, linked to P::a, is spelled to reach it
 	// from both declarations, so both state A::x.
-	shared := relinked(t, structural, "sysml:value expr:P__H__w_pvalue ;", "sysml:value expr:P__v_pvalue ;")
+	shared := relinkedProperty(t, structural, "elmt:P__H__w", "value", "expr:P__H__w_pvalue", "expr:P__v_pvalue")
 	shared = relinkedProperty(t, shared, "expr:P__H__w_pvalue_om", "value", "expr:P__H__w_pvalue", "expr:P__v_pvalue")
 	back, err := convert.Convert("shared.ttl", shared, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
@@ -656,7 +634,7 @@ func TestSharedChainIsCheckedInEveryDeclaration(t *testing.T) {
 		t.Errorf("w should reach A::x through a qualified segment\n%s", back)
 	}
 	// The same with w's chain shared into v, so the qualifying owner is the other one.
-	shared = relinked(t, structural, "sysml:value expr:P__v_pvalue ;", "sysml:value expr:P__H__w_pvalue ;")
+	shared = relinkedProperty(t, structural, "elmt:P__v", "value", "expr:P__v_pvalue", "expr:P__H__w_pvalue")
 	shared = relinkedProperty(t, shared, "expr:P__v_pvalue_om", "value", "expr:P__v_pvalue", "expr:P__H__w_pvalue")
 	byName = relinked(t, shared, "sysml:referent elmt:P__H__a ;", `sysml:referent "a" ;`)
 	if back := toNotation(t, byName); !strings.Contains(back, "attribute v = a.B::x;") {
@@ -683,8 +661,9 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 	}
 	structuralRoundTrip(t, "initial", graph)
 	structural := withoutTriples(t, graph, "sysx:sourceText")
-	const link = "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__inner__s2"
-	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__s1"),
+	// The member and the ends that restate it move together.
+	const membership, body = "elmt:P__Outer__inner___401", "elmt:P__Outer__inner"
+	refusedAsUnsupported(t, "initial", relinkedMember(t, structural, membership, body, "elmt:P__Outer__inner__s2", "elmt:P__Outer__s1"),
 		"`first s1` does not name P::Outer::s1 in the body it is written in")
 	// A same-named sibling of the body would read as the start instead.
 	shadowed := strings.Replace(src, "action s1;", "action s2;", 1)
@@ -693,7 +672,7 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	structural = withoutTriples(t, graph, "sysx:sourceText")
-	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__s2"),
+	refusedAsUnsupported(t, "initial", relinkedMember(t, structural, membership, body, "elmt:P__Outer__inner__s2", "elmt:P__Outer__s2"),
 		"`first s2` does not name P::Outer::s2 in the body it is written in")
 }
 
@@ -1360,7 +1339,7 @@ func TestPrefixAndPositionNamedMemberConvertDistinctly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	for _, want := range []string{`sysml:qualifiedName "P::Car::'@1'"`, `sysml:qualifiedName "P::Car::@1"`} {
+	for _, want := range []string{`sysml:qualifiedName "P::Car::'@1'"`, `sysx:positionalName "P::Car::@1"`} {
 		if !strings.Contains(string(turtle), want) {
 			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
 		}
@@ -2297,7 +2276,7 @@ elmt:P::a
 
 <urn:sysmlv2:element:P::@1>
     a sysml:SuccessionAsUsage ;
-    sysml:qualifiedName "P::@1" ;
+    sysx:positionalName "P::@1" ;
     sysml:owningNamespace elmt:P ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:sourceFeature elmt:P::a .
@@ -2335,7 +2314,7 @@ func TestDuplicateNameConverts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a duplicate name was refused: %v", err)
 	}
-	for _, want := range []string{`sysml:qualifiedName "P::A"`, `sysml:qualifiedName "P::@1"`} {
+	for _, want := range []string{`sysml:qualifiedName "P::A"`, `sysx:positionalName "P::@1"`} {
 		if !strings.Contains(string(out), want) {
 			t.Errorf("the Turtle lacks %s:\n%s", want, out)
 		}
@@ -2350,7 +2329,7 @@ func TestPositionalNameCollisionConverts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	for _, want := range []string{`sysml:qualifiedName "P::'@2'"`, `sysml:qualifiedName "P::@2"`} {
+	for _, want := range []string{`sysml:qualifiedName "P::'@2'"`, `sysx:positionalName "P::@2"`} {
 		if !strings.Contains(string(turtle), want) {
 			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
 		}
@@ -3393,7 +3372,10 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 			}
 			qname, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
 			if !ok {
-				t.Errorf("%s: subject %s has no qualified name", path, subject.Value)
+				qname, ok = graph.Lexical(subject, rdf.OpenSysML+"positionalName")
+			}
+			if !ok {
+				t.Errorf("%s: subject %s has no qualified name or positional name", path, subject.Value)
 				continue
 			}
 			if want := rdf.Element + rdf.EncodeElementID(qname); subject.Value != want {

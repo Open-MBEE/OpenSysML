@@ -9,11 +9,13 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -308,7 +310,7 @@ func (e *encoder) bodyExpression(subject rdf.Term, owner string, n *ast.BodyExpr
 	e.graph.Add(body, e.sysx(xHasBody), rdf.Bool(true))
 	// The parts keep the ids they had off the reference node, so an id form
 	// does not move with the body node between them.
-	if err := e.bodyDeclarations(body, subject, owner, n.Params, n.Members); err != nil {
+	if err := e.bodyDeclarations(body, subject, owner, n, n.Params, n.Members); err != nil {
 		return err
 	}
 	if n.Result != nil {
@@ -330,7 +332,7 @@ func (e *encoder) bodyMembership(owner, member rdf.Term, metaclass string) rdf.T
 	e.emitMembershipCore(membership, member, owner, metaclass, true)
 	e.graph.Add(owner, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(owner, e.sysml(pOwnedMembership), membership)
-	if metaclass == mFeatureMembership {
+	if ontology.IsAncestorOrSelf(metaclass, mFeatureMembership) {
 		e.graph.Add(owner, e.sysml(pOwnedFeatureMembership), membership)
 		e.graph.Add(owner, e.sysml(pOwnedFeature), member)
 		e.graph.Add(membership, e.sysml(pOwnedMemberFeature), member)
@@ -457,28 +459,13 @@ func expressionMetaclass(node ast.Node) string {
 // bodyDeclarations emits what an expression body declares ahead of its result,
 // parameters and members alike, indexed in the one order they were written.
 // The body owns them; their ids are minted off base.
-func (e *encoder) bodyDeclarations(subject, base rdf.Term, owner string, params []ast.BodyParam, members []ast.Node) error {
-	type declaration struct {
-		offset int
-		param  *ast.BodyParam
-		member ast.Node
-	}
-	declarations := make([]declaration, 0, len(params)+len(members))
-	for i := range params {
-		declarations = append(declarations, declaration{offset: params[i].Span.Offset, param: &params[i]})
-	}
-	for _, member := range members {
-		declarations = append(declarations, declaration{offset: member.Span().Offset, member: member})
-	}
-	sort.SliceStable(declarations, func(i, j int) bool {
-		return declarations[i].offset < declarations[j].offset
-	})
-	for i, decl := range declarations {
+func (e *encoder) bodyDeclarations(subject, base rdf.Term, owner string, body *ast.BodyExpr, params []ast.BodyParam, members []ast.Node) error {
+	for _, decl := range ast.BodyDeclarations(params, members) {
 		var err error
-		if decl.param != nil {
-			err = e.bodyParameter(subject, base, owner, i, *decl.param)
+		if decl.Param != nil {
+			err = e.bodyParameter(subject, base, owner, body, decl.Index, *decl.Param)
 		} else {
-			err = e.bodyMember(subject, base, owner, i, decl.member)
+			err = e.bodyMember(subject, base, owner, decl.Index, decl.Member)
 		}
 		if err != nil {
 			return err
@@ -489,7 +476,7 @@ func (e *encoder) bodyDeclarations(subject, base rdf.Term, owner string, params 
 
 // bodyParameter emits one parameter of an expression body as a node of its
 // own, so its type, value and bounds are structure, not text.
-func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, index int, param ast.BodyParam) error {
+func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.BodyExpr, index int, param ast.BodyParam) error {
 	node := e.ids.mintedNode(rdf.ExpressionIRI(base, fmt.Sprintf("in%d", index)), base, fmt.Sprintf("in%d", index))
 	e.graph.Add(subject, e.sysx(xBodyParameter), node)
 	e.graph.Add(node, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(keywordMetaclass["ref"]))
@@ -497,11 +484,20 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, index int,
 	e.graph.Add(node, e.sysx(xMemberIndex), rdf.Int(index))
 	e.graph.Add(node, e.sysml(pDirection), rdf.String(directionKeyword(ast.DirIn)))
 	e.name(node, param.Name)
-	e.flags(node, []boolProperty{{"isReference", param.IsReference}})
+	// The parameter's symbol derives its variability; a body it declares as its
+	// node is looked up by the parameter's name (deriveUsageMayTimeVary).
+	var variable, timeVarying bool
+	if sym := e.ids.bodyParamSym[body][param.Name]; sym != nil {
+		variable, timeVarying = e.ids.model.FeatureIsVariable(sym), e.ids.model.UsageMayTimeVary(sym)
+	}
+	e.flags(node, []boolProperty{{"isReference", param.IsReference}, {"isVariable", variable}, {"mayTimeVary", timeVarying}})
 	if param.Type != nil {
 		e.headRelationship(node, ast.RelTyping, e.reference(param.Type), param.Type)
 	}
 	e.relationships(node, owner, param.Relationships)
+	// Both notations override KerMLExpressions' ExpressionBody with a type
+	// body (KerML.xtext FunctionBodyPart, SysML.xtext CalculationBody), whose
+	// `in` feature is a FeatureMember: a FeatureMembership, as the pilot writes.
 	e.bodyMembership(subject, node, mFeatureMembership)
 	if err := e.multiplicity(node, owner, param.Multiplicity); err != nil {
 		return err
@@ -509,7 +505,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, index int,
 	if err := e.expression(node, e.sysml(pValue), pValue, owner, param.Value); err != nil {
 		return err
 	}
-	return e.bodyDeclarations(node, node, owner, nil, param.Members)
+	return e.bodyDeclarations(node, node, owner, nil, nil, param.Members)
 }
 
 // bodyMember emits one declaration of an expression body as the member it is:
@@ -600,6 +596,11 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 	if function != nil {
 		e.graph.Add(subject, e.sysml(pFunction), e.calleeReference(function))
 		e.calleeMembership(subject, function)
+	} else if links := ast.ReceiverChain(operand); links != nil {
+		// `q.p.f(1)` instantiates the chain its receiver spells (KerML 8.2.5.8.3
+		// InstantiatedTypeMember → OwnedFeatureChainMember, 8.3.4.8.8).
+		e.receiverChainCallee(subject, links)
+		operand = nil
 	}
 	first := 0
 	if operand != nil {
@@ -666,6 +667,52 @@ func chainedText(name *ast.QualifiedName) string {
 	return out.String()
 }
 
+// receiverChainCallee owns the chain Feature a receiver-reached call instantiates (KerML 8.3.3.3.5)
+// and states the Functions typing its final link as `function` (KerML 8.3.4.7.3, 8.3.4.8.8).
+func (e *encoder) receiverChainCallee(subject rdf.Term, links []*ast.QualifiedName) {
+	chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
+	e.typed(chain, mFeature)
+	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+	terms := make([]rdf.Term, len(links))
+	var final *symbols.Symbol
+	for i, link := range links {
+		sym, ok := e.res.PartSymbol(link, len(link.Parts)-1)
+		terms[i] = e.linkOrText(link, sym, ok)
+		if ok && i == len(links)-1 {
+			final = sym
+		}
+	}
+	e.featureChainings(chain, terms)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
+	e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	for _, function := range e.typingFunctions(final, terms[len(terms)-1]) {
+		e.graph.Add(subject, e.sysml(pFunction), function)
+	}
+}
+
+// typingFunctions: the Functions among a feature's effective types (Model.FunctionTypes), as the
+// reflective `function` answers them; a Function itself types the expression directly.
+func (e *encoder) typingFunctions(sym *symbols.Symbol, term rdf.Term) []rdf.Term {
+	if sym == nil {
+		return nil
+	}
+	if ontology.IsAncestorOrSelf(declaredMetaclass(sym.Decl), "Function") {
+		return []rdf.Term{term}
+	}
+	if e.ids.model == nil {
+		return nil
+	}
+	var out []rdf.Term
+	for _, typ := range e.ids.model.FunctionTypes(sym) {
+		if decl, fqn, ok := e.linked(typ, true); ok {
+			out = append(out, e.ids.subjectForNode(decl, fqn))
+		}
+	}
+	return out
+}
+
 // calleeMembership emits the relationship an invocation owns to what it
 // invokes (KerML 1.0 § 8.3.4.8.7 InstantiationExpression): a Membership whose member is
 // the named function (its name, where it resolves to nothing), or an
@@ -728,6 +775,9 @@ func (e *encoder) referenceMembershipAt(subject, target, membership rdf.Term) {
 	e.graph.Add(membership, e.sysml(pMemberElement), target)
 	e.graph.Add(membership, e.sysml(pOwner), subject)
 	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
+	if target.IsIRI() {
+		e.membershipEnds(membership, subject, target)
+	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 }
@@ -845,7 +895,7 @@ func (d *decoder) isExpressionNode(subject rdf.Term) bool {
 	}
 	known := strings.HasPrefix(subject.Value, rdf.Expression) ||
 		d.nodeMemberships[subject.Value].member == subject.Value ||
-		expressionMetaclasses[d.metaclass(subject)] && !d.graph.HasProperty(subject, rdf.SysML+pQualifiedName) &&
+		expressionMetaclasses[d.metaclass(subject)] && !hasAddress(d.graph, subject) &&
 			!d.declaredMembership(subject) ||
 		d.nodeRelationship(subject)
 	d.expressionNodes[subject.Value] = known
@@ -1964,6 +2014,29 @@ func (d *decoder) metadataAccessReference(node rdf.Term, in *element) (string, e
 		"a metadata access owns a Membership of the element it reads the metadata of")
 }
 
+// chainLinkName renders one link of a chain feature written in `in` after the
+// element operand names: a segment, spelled as chooseNames chose, never a plain
+// reference (noteSegment records it as a segment). It returns the element reached.
+func (d *decoder) chainLinkName(term rdf.Term, operand string, in *element) (string, string, error) {
+	if term.IsLiteral() {
+		if term.Datatype == rdf.OpenSysML+dtExpression {
+			return term.Value, "", nil
+		}
+		return qualifiedNameText(term.Value), "", nil
+	}
+	target, name, err := d.namedMember(term)
+	if err != nil {
+		return "", "", err
+	}
+	if d.names != nil {
+		key := segmentKey{member: d.writtenQName(in), operand: operand, name: name, target: target.qname}
+		if spelling, ok := d.names.segments[key]; ok {
+			return qualifiedNameText(spelling), target.qname, nil
+		}
+	}
+	return nameText(name), target.qname, nil
+}
+
 // calleeRelationships is the function a Membership the invocation owns names,
 // and the chain feature an OwningMembership it owns holds.
 func (d *decoder) calleeRelationships(node rdf.Term) (member, chain rdf.Term, err error) {
@@ -1996,12 +2069,14 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 		return "", err
 	}
 	var parts, spelled []string
+	operand := ""
 	for _, segment := range segments {
-		name, err := d.referenceName(segment, in)
+		name, target, err := d.chainLinkName(segment, operand, in)
 		if err != nil {
 			return "", err
 		}
 		parts = append(parts, name)
+		operand = target
 		if segment.IsLiteral() {
 			name = segment.Value
 		}
@@ -2011,25 +2086,100 @@ func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed 
 	if !hasCollapsed {
 		return text, nil
 	}
-	name, err := d.referenceName(collapsed, in)
-	if err != nil {
-		return "", err
-	}
-	// The function is the chain's last feature when it resolves, else
-	// the whole chain's spelling; anything else names a second callee.
+	// The function is the chain's last feature, or a Function typing it
+	// (Expression::function, KerML 8.3.4.7.3) — declared, or the library type
+	// implied when it declares none; else the whole chain's spelling. Anything
+	// else names a second callee.
 	var agree bool
 	if collapsed.IsIRI() {
-		agree = len(segments) > 0 && segments[len(segments)-1] == collapsed
+		agree = len(segments) > 0 && d.typesChainEnd(segments[len(segments)-1], collapsed, in)
 	} else {
 		agree = collapsed.Value == strings.Join(spelled, ".")
 	}
 	if !agree {
+		name, err := d.referenceName(collapsed, in)
+		if err != nil {
+			return "", err
+		}
 		return "", &UnsupportedError{
 			What: fmt.Sprintf("the expression <%s>", node.Value),
 			Note: fmt.Sprintf("its function is %s, but the chain feature it owns reaches %s, and the two statements cannot both hold", name, text),
 		}
 	}
 	return text, nil
+}
+
+// typesChainEnd: function is the chain's final feature, a type it states or inherits, or the
+// library Function its kind implies — the set Model.FunctionTypes derives on the writer's side.
+func (d *decoder) typesChainEnd(end, function rdf.Term, in *element) bool {
+	if end == function || slices.Contains(d.statedTypes(end, map[rdf.Term]bool{}), function) {
+		return true
+	}
+	implied, ok := impliedFunctionType[d.metaclass(end)]
+	if d.kerml(in) && d.metaclass(end) == "ConstraintUsage" {
+		// KerML's `inv` is written as a ConstraintUsage; it implies BooleanEvaluation (KerML 8.4.2).
+		implied, ok = "Performances::BooleanEvaluation", true
+	}
+	if !ok {
+		return false
+	}
+	target, err := d.referencedElement(function.Value)
+	return err == nil && target.library && target.qname == implied
+}
+
+// impliedFunctionType: the library Function a usage of each kind is typed by (SysML v2 8.3.11,
+// KerML 8.4.2); TestImpliedFunctionTypeIsTheModelsImpliedTyping holds it to the semantic model.
+var impliedFunctionType = map[string]string{
+	"CalculationUsage":      "Calculations::Calculation",
+	"ConstraintUsage":       "Constraints::ConstraintCheck",
+	"RequirementUsage":      "Requirements::RequirementCheck",
+	"ConcernUsage":          "Requirements::ConcernCheck",
+	"ViewpointUsage":        "Views::ViewpointCheck",
+	"CaseUsage":             "Cases::Case",
+	"AnalysisCaseUsage":     "AnalysisCases::AnalysisCase",
+	"VerificationCaseUsage": "VerificationCases::VerificationCase",
+	"UseCaseUsage":          "UseCases::UseCase",
+	"Expression":            "Performances::Evaluation",
+	"BooleanUsage":          "Performances::BooleanEvaluation",
+}
+
+// statedTypes: a feature's collapsed `type` and FeatureTyping targets, else those of the features
+// it subsets, redefines or references (KerML 8.3.3.3 Feature::type through specialization).
+func (d *decoder) statedTypes(feature rdf.Term, seen map[rdf.Term]bool) []rdf.Term {
+	if seen[feature] {
+		return nil
+	}
+	seen[feature] = true
+	types := d.graph.Objects(feature, rdf.SysML+relationshipProperty[ast.RelTyping])
+	var generals []rdf.Term
+	for _, kind := range []ast.RelationshipKind{ast.RelSubsets, ast.RelRedefines, ast.RelReferences} {
+		generals = append(generals, d.graph.Objects(feature, rdf.SysML+relationshipProperty[kind])...)
+	}
+	for _, owned := range d.graph.Objects(feature, rdf.SysML+pOwnedRelationship) {
+		metaclass := d.metaclass(owned)
+		var into *[]rdf.Term
+		switch metaclass {
+		case mFeatureTyping:
+			into = &types
+		case mSubsetting, mRedefinition, mReferenceSubsetting:
+			into = &generals
+		default:
+			continue
+		}
+		for _, property := range headClauseTargets[metaclass] {
+			if target, ok := d.graph.Object(owned, rdf.SysML+property); ok {
+				*into = append(*into, target)
+				break
+			}
+		}
+	}
+	if len(types) > 0 {
+		return types
+	}
+	for _, general := range generals {
+		types = append(types, d.statedTypes(general, seen)...)
+	}
+	return types
 }
 
 // expressionOperands rebuilds operands from parameter memberships, with legacy

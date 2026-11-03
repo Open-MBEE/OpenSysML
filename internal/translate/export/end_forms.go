@@ -91,21 +91,8 @@ var endVerbs = map[string][]string{
 // form is only claimed when rebuilding it reproduces the head as written: a
 // head this mapping cannot rebuild exactly stays readable as text alone.
 func (e *encoder) endForm(subject rdf.Term, n *ast.Usage) {
-	if n.Kind == ast.UsageSatisfy {
-		e.satisfyForm(subject, n)
-		return
-	}
-	form, ends, payload := e.endShape(n)
+	form, keyword := e.endFormOf(n)
 	if form == "" {
-		return
-	}
-	keyword, from := e.endVerb(n, form)
-	written, ok := e.headTail(n, from)
-	if !ok {
-		return
-	}
-	rebuilt, err := (endNotation{form: form, keyword: keyword, ends: ends, payload: payload}).text()
-	if err != nil || !sameSpelling(rebuilt, written) {
 		return
 	}
 	e.graph.Add(subject, e.sysx(xEndForm), rdf.String(form))
@@ -117,28 +104,47 @@ func (e *encoder) endForm(subject rdf.Term, n *ast.Usage) {
 	}
 }
 
-// satisfyForm states that a satisfy head writes the requirement it subsets
+// endFormOf is the form an end-binding head n writes its ends in and the verb written
+// ahead of them, or "" when this mapping claims none for it.
+func (e *encoder) endFormOf(n *ast.Usage) (form, keyword string) {
+	if n.Kind == ast.UsageSatisfy {
+		if e.satisfyFormOf(n) {
+			return formSatisfy, ""
+		}
+		return "", ""
+	}
+	form, ends, payload := e.endShape(n)
+	if form == "" {
+		return "", ""
+	}
+	keyword, from := e.endVerb(n, form)
+	written, ok := e.headTail(n, from)
+	if !ok {
+		return "", ""
+	}
+	rebuilt, err := (endNotation{form: form, keyword: keyword, ends: ends, payload: payload}).text()
+	if err != nil || !sameSpelling(rebuilt, written) {
+		return "", ""
+	}
+	return form, keyword
+}
+
+// satisfyFormOf reports whether a satisfy head writes the requirement it subsets
 // bare, right after its keyword (`satisfy R by v`), which is what tells that
 // clause from a `subsets` one written out. The keyword goes with it, since
 // `verify` is the same kind spelled differently.
-func (e *encoder) satisfyForm(subject rdf.Term, n *ast.Usage) {
+func (e *encoder) satisfyFormOf(n *ast.Usage) bool {
 	requirement := relationshipTarget(n, ast.RelSubsets)
 	if requirement == nil || n.Ident.Name != "" || n.Value != nil {
-		return
+		return false
 	}
 	for _, rel := range n.Relationships {
 		if rel != nil && rel.Kind != ast.RelSubsets && rel.Kind != ast.RelSubject {
-			return
+			return false
 		}
 	}
 	head, ok := e.headTail(n, n.Span().Offset)
-	if !ok || !sameSpelling(head, n.Keyword+" "+e.text(requirement)+" "+e.subjectClause(n)) {
-		return
-	}
-	e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formSatisfy))
-	if n.Keyword != "" && n.Keyword != usageKeyword(n.Kind) {
-		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(n.Keyword))
-	}
+	return ok && sameSpelling(head, n.Keyword+" "+e.text(requirement)+" "+e.subjectClause(n))
 }
 
 // subjectClause is the `by` clause of a satisfy head, or "" where it names no

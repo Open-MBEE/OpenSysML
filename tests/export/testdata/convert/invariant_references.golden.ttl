@@ -28,7 +28,7 @@ elmt:InvariantReferences
 
 elmt:InvariantReferences___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "InvariantReferences::@0" ;
+    sysx:positionalName "InvariantReferences::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -80,7 +80,12 @@ elmt:InvariantReferences__Tank_om
     sysml:ownedMemberElement elmt:InvariantReferences__Tank ;
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank ;
     sysml:owningRelatedElement elmt:InvariantReferences ;
-    sysml:membershipOwningNamespace elmt:InvariantReferences .
+    sysml:membershipOwningNamespace elmt:InvariantReferences ;
+    sysml:source elmt:InvariantReferences ;
+    sysml:target elmt:InvariantReferences__Tank ;
+    sysml:relatedElement elmt:InvariantReferences, elmt:InvariantReferences__Tank ;
+    sysml:memberName "Tank" ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences\"},{\"@id\":\"InvariantReferences__Tank\"}]" .
 
 elmt:InvariantReferences__Tank__ready
     a sysml:AttributeUsage ;
@@ -114,8 +119,13 @@ elmt:InvariantReferences__Tank__ready_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank__ready ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank ;
+    sysml:source elmt:InvariantReferences__Tank ;
+    sysml:target elmt:InvariantReferences__Tank__ready ;
+    sysml:relatedElement elmt:InvariantReferences__Tank, elmt:InvariantReferences__Tank__ready ;
+    sysml:memberName "ready" ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank__ready ;
-    sysml:owningType elmt:InvariantReferences__Tank .
+    sysml:owningType elmt:InvariantReferences__Tank ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank\"},{\"@id\":\"InvariantReferences__Tank__ready\"}]" .
 
 elmt:InvariantReferences__Tank__sealed
     a sysml:AttributeUsage ;
@@ -149,8 +159,13 @@ elmt:InvariantReferences__Tank__sealed_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank__sealed ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank ;
+    sysml:source elmt:InvariantReferences__Tank ;
+    sysml:target elmt:InvariantReferences__Tank__sealed ;
+    sysml:relatedElement elmt:InvariantReferences__Tank, elmt:InvariantReferences__Tank__sealed ;
+    sysml:memberName "sealed" ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank__sealed ;
-    sysml:owningType elmt:InvariantReferences__Tank .
+    sysml:owningType elmt:InvariantReferences__Tank ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank\"},{\"@id\":\"InvariantReferences__Tank__sealed\"}]" .
 
 elmt:InvariantReferences__Tank__level
     a sysml:AttributeUsage ;
@@ -184,12 +199,17 @@ elmt:InvariantReferences__Tank__level_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank__level ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank ;
+    sysml:source elmt:InvariantReferences__Tank ;
+    sysml:target elmt:InvariantReferences__Tank__level ;
+    sysml:relatedElement elmt:InvariantReferences__Tank, elmt:InvariantReferences__Tank__level ;
+    sysml:memberName "level" ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank__level ;
-    sysml:owningType elmt:InvariantReferences__Tank .
+    sysml:owningType elmt:InvariantReferences__Tank ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank\"},{\"@id\":\"InvariantReferences__Tank__level\"}]" .
 
 elmt:InvariantReferences__Tank___403
     a sysml:ConstraintUsage ;
-    sysml:qualifiedName "InvariantReferences::Tank::@3" ;
+    sysx:positionalName "InvariantReferences::Tank::@3" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -219,13 +239,17 @@ elmt:InvariantReferences__Tank___403_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank___403 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank ;
+    sysml:source elmt:InvariantReferences__Tank ;
+    sysml:target elmt:InvariantReferences__Tank___403 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank, elmt:InvariantReferences__Tank___403 ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank___403 ;
-    sysml:owningType elmt:InvariantReferences__Tank .
+    sysml:owningType elmt:InvariantReferences__Tank ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank\"},{\"@id\":\"InvariantReferences__Tank___403\"}]" .
 
 elmt:InvariantReferences__Tank___403___400
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "InvariantReferences::Tank::@3::@0" ;
+    sysx:positionalName "InvariantReferences::Tank::@3::@0" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "15"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -255,16 +279,24 @@ elmt:InvariantReferences__Tank___403___400_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank___403___400 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank___403 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank___403 ;
+    sysml:source elmt:InvariantReferences__Tank___403 ;
+    sysml:target elmt:InvariantReferences__Tank___403___400 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank___403, elmt:InvariantReferences__Tank___403___400 ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank___403___400 ;
     sysml:owningType elmt:InvariantReferences__Tank___403 ;
-    sysml:ownedResultExpression elmt:InvariantReferences__Tank___403___400 .
+    sysml:ownedResultExpression elmt:InvariantReferences__Tank___403___400 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___403\"},{\"@id\":\"InvariantReferences__Tank___403___400\"}]" .
 
 elmt:InvariantReferences__Tank___403___400_referent
     a sysml:Membership ;
     sysml:elementId "InvariantReferences__Tank___403___400_referent" ;
     sysml:memberElement elmt:InvariantReferences__Tank__ready ;
     sysml:owner elmt:InvariantReferences__Tank___403___400 ;
-    sysml:owningRelatedElement elmt:InvariantReferences__Tank___403___400 .
+    sysml:owningRelatedElement elmt:InvariantReferences__Tank___403___400 ;
+    sysml:source elmt:InvariantReferences__Tank___403___400 ;
+    sysml:target elmt:InvariantReferences__Tank__ready ;
+    sysml:relatedElement elmt:InvariantReferences__Tank___403___400, elmt:InvariantReferences__Tank__ready ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___403___400\"},{\"@id\":\"InvariantReferences__Tank__ready\"}]" .
 
 expr:InvariantReferences__Tank___403___400_pout
     a sysml:Feature ;
@@ -284,8 +316,12 @@ expr:InvariantReferences__Tank___403___400_pout_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank___403___400_pout ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank___403___400 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank___403___400 ;
+    sysml:source elmt:InvariantReferences__Tank___403___400 ;
+    sysml:target expr:InvariantReferences__Tank___403___400_pout ;
+    sysml:relatedElement elmt:InvariantReferences__Tank___403___400, expr:InvariantReferences__Tank___403___400_pout ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank___403___400_pout ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank___403___400_pout .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank___403___400_pout ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___403___400\"},{\"@id\":\"InvariantReferences__Tank___403___400_pout\"}]" .
 
 elmt:InvariantReferences__Tank__holds
     a sysml:ConstraintUsage ;
@@ -320,13 +356,18 @@ elmt:InvariantReferences__Tank__holds_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank__holds ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank ;
+    sysml:source elmt:InvariantReferences__Tank ;
+    sysml:target elmt:InvariantReferences__Tank__holds ;
+    sysml:relatedElement elmt:InvariantReferences__Tank, elmt:InvariantReferences__Tank__holds ;
+    sysml:memberName "holds" ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank__holds ;
-    sysml:owningType elmt:InvariantReferences__Tank .
+    sysml:owningType elmt:InvariantReferences__Tank ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank\"},{\"@id\":\"InvariantReferences__Tank__holds\"}]" .
 
 elmt:InvariantReferences__Tank__holds___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "InvariantReferences::Tank::holds::@0" ;
+    sysx:positionalName "InvariantReferences::Tank::holds::@0" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "21"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -361,9 +402,13 @@ elmt:InvariantReferences__Tank__holds___400_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank__holds___400 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank__holds ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank__holds ;
+    sysml:source elmt:InvariantReferences__Tank__holds ;
+    sysml:target elmt:InvariantReferences__Tank__holds___400 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank__holds, elmt:InvariantReferences__Tank__holds___400 ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank__holds___400 ;
     sysml:owningType elmt:InvariantReferences__Tank__holds ;
-    sysml:ownedResultExpression elmt:InvariantReferences__Tank__holds___400 .
+    sysml:ownedResultExpression elmt:InvariantReferences__Tank__holds___400 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__holds\"},{\"@id\":\"InvariantReferences__Tank__holds___400\"}]" .
 
 expr:InvariantReferences__Tank__holds___400_pa0
     a sysml:FeatureReferenceExpression ;
@@ -388,7 +433,11 @@ expr:InvariantReferences__Tank__holds___400_pa0_preferent
     sysml:elementId "InvariantReferences__Tank__holds___400_pa0_preferent" ;
     sysml:memberElement elmt:InvariantReferences__Tank__sealed ;
     sysml:owner expr:InvariantReferences__Tank__holds___400_pa0 ;
-    sysml:owningRelatedElement expr:InvariantReferences__Tank__holds___400_pa0 .
+    sysml:owningRelatedElement expr:InvariantReferences__Tank__holds___400_pa0 ;
+    sysml:source expr:InvariantReferences__Tank__holds___400_pa0 ;
+    sysml:target elmt:InvariantReferences__Tank__sealed ;
+    sysml:relatedElement expr:InvariantReferences__Tank__holds___400_pa0, elmt:InvariantReferences__Tank__sealed ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__holds___400_pa0\"},{\"@id\":\"InvariantReferences__Tank__sealed\"}]" .
 
 expr:InvariantReferences__Tank__holds___400_pa0_pout
     a sysml:Feature ;
@@ -408,8 +457,12 @@ expr:InvariantReferences__Tank__holds___400_pa0_pout_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__holds___400_pa0_pout ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank__holds___400_pa0 ;
     sysml:membershipOwningNamespace expr:InvariantReferences__Tank__holds___400_pa0 ;
+    sysml:source expr:InvariantReferences__Tank__holds___400_pa0 ;
+    sysml:target expr:InvariantReferences__Tank__holds___400_pa0_pout ;
+    sysml:relatedElement expr:InvariantReferences__Tank__holds___400_pa0, expr:InvariantReferences__Tank__holds___400_pa0_pout ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__holds___400_pa0_pout ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank__holds___400_pa0_pout .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank__holds___400_pa0_pout ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__holds___400_pa0\"},{\"@id\":\"InvariantReferences__Tank__holds___400_pa0_pout\"}]" .
 
 expr:InvariantReferences__Tank__holds___400_pin0
     a sysml:Feature ;
@@ -431,8 +484,12 @@ expr:InvariantReferences__Tank__holds___400_pin0_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__holds___400_pin0 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank__holds___400 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank__holds___400 ;
+    sysml:source elmt:InvariantReferences__Tank__holds___400 ;
+    sysml:target expr:InvariantReferences__Tank__holds___400_pin0 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank__holds___400, expr:InvariantReferences__Tank__holds___400_pin0 ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__holds___400_pin0 ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank__holds___400_pin0 .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank__holds___400_pin0 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__holds___400\"},{\"@id\":\"InvariantReferences__Tank__holds___400_pin0\"}]" .
 
 expr:InvariantReferences__Tank__holds___400_pa0_om
     a sysml:FeatureValue ;
@@ -443,8 +500,12 @@ expr:InvariantReferences__Tank__holds___400_pa0_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__holds___400_pa0 ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank__holds___400_pin0 ;
     sysml:membershipOwningNamespace expr:InvariantReferences__Tank__holds___400_pin0 ;
+    sysml:source expr:InvariantReferences__Tank__holds___400_pin0 ;
+    sysml:target expr:InvariantReferences__Tank__holds___400_pa0 ;
+    sysml:relatedElement expr:InvariantReferences__Tank__holds___400_pin0, expr:InvariantReferences__Tank__holds___400_pa0 ;
     sysml:featureWithValue expr:InvariantReferences__Tank__holds___400_pin0 ;
-    sysml:value expr:InvariantReferences__Tank__holds___400_pa0 .
+    sysml:value expr:InvariantReferences__Tank__holds___400_pa0 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__holds___400_pin0\"},{\"@id\":\"InvariantReferences__Tank__holds___400_pa0\"}]" .
 
 expr:InvariantReferences__Tank__holds___400_pout
     a sysml:Feature ;
@@ -464,12 +525,16 @@ expr:InvariantReferences__Tank__holds___400_pout_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__holds___400_pout ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank__holds___400 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank__holds___400 ;
+    sysml:source elmt:InvariantReferences__Tank__holds___400 ;
+    sysml:target expr:InvariantReferences__Tank__holds___400_pout ;
+    sysml:relatedElement elmt:InvariantReferences__Tank__holds___400, expr:InvariantReferences__Tank__holds___400_pout ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__holds___400_pout ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank__holds___400_pout .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank__holds___400_pout ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__holds___400\"},{\"@id\":\"InvariantReferences__Tank__holds___400_pout\"}]" .
 
 elmt:InvariantReferences__Tank___405
     a sysml:ConstraintUsage ;
-    sysml:qualifiedName "InvariantReferences::Tank::@5" ;
+    sysx:positionalName "InvariantReferences::Tank::@5" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -499,13 +564,17 @@ elmt:InvariantReferences__Tank___405_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank___405 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank ;
+    sysml:source elmt:InvariantReferences__Tank ;
+    sysml:target elmt:InvariantReferences__Tank___405 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank, elmt:InvariantReferences__Tank___405 ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank___405 ;
-    sysml:owningType elmt:InvariantReferences__Tank .
+    sysml:owningType elmt:InvariantReferences__Tank ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank\"},{\"@id\":\"InvariantReferences__Tank___405\"}]" .
 
 elmt:InvariantReferences__Tank___405___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "InvariantReferences::Tank::@5::@0" ;
+    sysx:positionalName "InvariantReferences::Tank::@5::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "15"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -542,9 +611,13 @@ elmt:InvariantReferences__Tank___405___400_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank___405___400 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank___405 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank___405 ;
+    sysml:source elmt:InvariantReferences__Tank___405 ;
+    sysml:target elmt:InvariantReferences__Tank___405___400 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank___405, elmt:InvariantReferences__Tank___405___400 ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank___405___400 ;
     sysml:owningType elmt:InvariantReferences__Tank___405 ;
-    sysml:ownedResultExpression elmt:InvariantReferences__Tank___405___400 .
+    sysml:ownedResultExpression elmt:InvariantReferences__Tank___405___400 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405\"},{\"@id\":\"InvariantReferences__Tank___405___400\"}]" .
 
 expr:InvariantReferences__Tank___405___400_pa0
     a sysml:FeatureReferenceExpression ;
@@ -569,7 +642,11 @@ expr:InvariantReferences__Tank___405___400_pa0_preferent
     sysml:elementId "InvariantReferences__Tank___405___400_pa0_preferent" ;
     sysml:memberElement elmt:InvariantReferences__Tank__sealed ;
     sysml:owner expr:InvariantReferences__Tank___405___400_pa0 ;
-    sysml:owningRelatedElement expr:InvariantReferences__Tank___405___400_pa0 .
+    sysml:owningRelatedElement expr:InvariantReferences__Tank___405___400_pa0 ;
+    sysml:source expr:InvariantReferences__Tank___405___400_pa0 ;
+    sysml:target elmt:InvariantReferences__Tank__sealed ;
+    sysml:relatedElement expr:InvariantReferences__Tank___405___400_pa0, elmt:InvariantReferences__Tank__sealed ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400_pa0\"},{\"@id\":\"InvariantReferences__Tank__sealed\"}]" .
 
 expr:InvariantReferences__Tank___405___400_pa0_pout
     a sysml:Feature ;
@@ -589,8 +666,12 @@ expr:InvariantReferences__Tank___405___400_pa0_pout_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank___405___400_pa0_pout ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank___405___400_pa0 ;
     sysml:membershipOwningNamespace expr:InvariantReferences__Tank___405___400_pa0 ;
+    sysml:source expr:InvariantReferences__Tank___405___400_pa0 ;
+    sysml:target expr:InvariantReferences__Tank___405___400_pa0_pout ;
+    sysml:relatedElement expr:InvariantReferences__Tank___405___400_pa0, expr:InvariantReferences__Tank___405___400_pa0_pout ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank___405___400_pa0_pout ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pa0_pout .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pa0_pout ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400_pa0\"},{\"@id\":\"InvariantReferences__Tank___405___400_pa0_pout\"}]" .
 
 expr:InvariantReferences__Tank___405___400_pin0
     a sysml:Feature ;
@@ -612,8 +693,12 @@ expr:InvariantReferences__Tank___405___400_pin0_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank___405___400_pin0 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank___405___400 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank___405___400 ;
+    sysml:source elmt:InvariantReferences__Tank___405___400 ;
+    sysml:target expr:InvariantReferences__Tank___405___400_pin0 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank___405___400, expr:InvariantReferences__Tank___405___400_pin0 ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank___405___400_pin0 ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pin0 .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pin0 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400\"},{\"@id\":\"InvariantReferences__Tank___405___400_pin0\"}]" .
 
 expr:InvariantReferences__Tank___405___400_pa0_om
     a sysml:FeatureValue ;
@@ -624,8 +709,12 @@ expr:InvariantReferences__Tank___405___400_pa0_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank___405___400_pa0 ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank___405___400_pin0 ;
     sysml:membershipOwningNamespace expr:InvariantReferences__Tank___405___400_pin0 ;
+    sysml:source expr:InvariantReferences__Tank___405___400_pin0 ;
+    sysml:target expr:InvariantReferences__Tank___405___400_pa0 ;
+    sysml:relatedElement expr:InvariantReferences__Tank___405___400_pin0, expr:InvariantReferences__Tank___405___400_pa0 ;
     sysml:featureWithValue expr:InvariantReferences__Tank___405___400_pin0 ;
-    sysml:value expr:InvariantReferences__Tank___405___400_pa0 .
+    sysml:value expr:InvariantReferences__Tank___405___400_pa0 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400_pin0\"},{\"@id\":\"InvariantReferences__Tank___405___400_pa0\"}]" .
 
 expr:InvariantReferences__Tank___405___400_pa1
     a sysml:FeatureReferenceExpression ;
@@ -650,7 +739,11 @@ expr:InvariantReferences__Tank___405___400_pa1_preferent
     sysml:elementId "InvariantReferences__Tank___405___400_pa1_preferent" ;
     sysml:memberElement elmt:InvariantReferences__Tank__ready ;
     sysml:owner expr:InvariantReferences__Tank___405___400_pa1 ;
-    sysml:owningRelatedElement expr:InvariantReferences__Tank___405___400_pa1 .
+    sysml:owningRelatedElement expr:InvariantReferences__Tank___405___400_pa1 ;
+    sysml:source expr:InvariantReferences__Tank___405___400_pa1 ;
+    sysml:target elmt:InvariantReferences__Tank__ready ;
+    sysml:relatedElement expr:InvariantReferences__Tank___405___400_pa1, elmt:InvariantReferences__Tank__ready ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400_pa1\"},{\"@id\":\"InvariantReferences__Tank__ready\"}]" .
 
 expr:InvariantReferences__Tank___405___400_pa1_pout
     a sysml:Feature ;
@@ -670,8 +763,12 @@ expr:InvariantReferences__Tank___405___400_pa1_pout_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank___405___400_pa1_pout ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank___405___400_pa1 ;
     sysml:membershipOwningNamespace expr:InvariantReferences__Tank___405___400_pa1 ;
+    sysml:source expr:InvariantReferences__Tank___405___400_pa1 ;
+    sysml:target expr:InvariantReferences__Tank___405___400_pa1_pout ;
+    sysml:relatedElement expr:InvariantReferences__Tank___405___400_pa1, expr:InvariantReferences__Tank___405___400_pa1_pout ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank___405___400_pa1_pout ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pa1_pout .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pa1_pout ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400_pa1\"},{\"@id\":\"InvariantReferences__Tank___405___400_pa1_pout\"}]" .
 
 expr:InvariantReferences__Tank___405___400_pin1
     a sysml:Feature ;
@@ -693,8 +790,12 @@ expr:InvariantReferences__Tank___405___400_pin1_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank___405___400_pin1 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank___405___400 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank___405___400 ;
+    sysml:source elmt:InvariantReferences__Tank___405___400 ;
+    sysml:target expr:InvariantReferences__Tank___405___400_pin1 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank___405___400, expr:InvariantReferences__Tank___405___400_pin1 ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank___405___400_pin1 ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pin1 .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pin1 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400\"},{\"@id\":\"InvariantReferences__Tank___405___400_pin1\"}]" .
 
 expr:InvariantReferences__Tank___405___400_pa1_om
     a sysml:FeatureValue ;
@@ -705,8 +806,12 @@ expr:InvariantReferences__Tank___405___400_pa1_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank___405___400_pa1 ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank___405___400_pin1 ;
     sysml:membershipOwningNamespace expr:InvariantReferences__Tank___405___400_pin1 ;
+    sysml:source expr:InvariantReferences__Tank___405___400_pin1 ;
+    sysml:target expr:InvariantReferences__Tank___405___400_pa1 ;
+    sysml:relatedElement expr:InvariantReferences__Tank___405___400_pin1, expr:InvariantReferences__Tank___405___400_pa1 ;
     sysml:featureWithValue expr:InvariantReferences__Tank___405___400_pin1 ;
-    sysml:value expr:InvariantReferences__Tank___405___400_pa1 .
+    sysml:value expr:InvariantReferences__Tank___405___400_pa1 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400_pin1\"},{\"@id\":\"InvariantReferences__Tank___405___400_pa1\"}]" .
 
 expr:InvariantReferences__Tank___405___400_pout
     a sysml:Feature ;
@@ -726,8 +831,12 @@ expr:InvariantReferences__Tank___405___400_pout_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank___405___400_pout ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank___405___400 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank___405___400 ;
+    sysml:source elmt:InvariantReferences__Tank___405___400 ;
+    sysml:target expr:InvariantReferences__Tank___405___400_pout ;
+    sysml:relatedElement elmt:InvariantReferences__Tank___405___400, expr:InvariantReferences__Tank___405___400_pout ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank___405___400_pout ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pout .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pout ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400\"},{\"@id\":\"InvariantReferences__Tank___405___400_pout\"}]" .
 
 elmt:InvariantReferences__Tank__bounded
     a sysml:ConstraintUsage ;
@@ -768,13 +877,18 @@ elmt:InvariantReferences__Tank__bounded_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank__bounded ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank ;
+    sysml:source elmt:InvariantReferences__Tank ;
+    sysml:target elmt:InvariantReferences__Tank__bounded ;
+    sysml:relatedElement elmt:InvariantReferences__Tank, elmt:InvariantReferences__Tank__bounded ;
+    sysml:memberName "bounded" ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank__bounded ;
-    sysml:owningType elmt:InvariantReferences__Tank .
+    sysml:owningType elmt:InvariantReferences__Tank ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank\"},{\"@id\":\"InvariantReferences__Tank__bounded\"}]" .
 
 elmt:InvariantReferences__Tank__bounded___400
     a sysml:OperatorExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "InvariantReferences::Tank::bounded::@0" ;
+    sysx:positionalName "InvariantReferences::Tank::bounded::@0" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;
@@ -812,8 +926,12 @@ elmt:InvariantReferences__Tank__bounded___400_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank__bounded___400 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank__bounded ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank__bounded ;
+    sysml:source elmt:InvariantReferences__Tank__bounded ;
+    sysml:target elmt:InvariantReferences__Tank__bounded___400 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank__bounded, elmt:InvariantReferences__Tank__bounded___400 ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank__bounded___400 ;
-    sysml:owningType elmt:InvariantReferences__Tank__bounded .
+    sysml:owningType elmt:InvariantReferences__Tank__bounded ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded\"},{\"@id\":\"InvariantReferences__Tank__bounded___400\"}]" .
 
 expr:InvariantReferences__Tank__bounded___400_pa0
     a sysml:FeatureReferenceExpression ;
@@ -838,7 +956,11 @@ expr:InvariantReferences__Tank__bounded___400_pa0_preferent
     sysml:elementId "InvariantReferences__Tank__bounded___400_pa0_preferent" ;
     sysml:memberElement elmt:InvariantReferences__Tank__level ;
     sysml:owner expr:InvariantReferences__Tank__bounded___400_pa0 ;
-    sysml:owningRelatedElement expr:InvariantReferences__Tank__bounded___400_pa0 .
+    sysml:owningRelatedElement expr:InvariantReferences__Tank__bounded___400_pa0 ;
+    sysml:source expr:InvariantReferences__Tank__bounded___400_pa0 ;
+    sysml:target elmt:InvariantReferences__Tank__level ;
+    sysml:relatedElement expr:InvariantReferences__Tank__bounded___400_pa0, elmt:InvariantReferences__Tank__level ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___400_pa0\"},{\"@id\":\"InvariantReferences__Tank__level\"}]" .
 
 expr:InvariantReferences__Tank__bounded___400_pa0_pout
     a sysml:Feature ;
@@ -858,8 +980,12 @@ expr:InvariantReferences__Tank__bounded___400_pa0_pout_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__bounded___400_pa0_pout ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank__bounded___400_pa0 ;
     sysml:membershipOwningNamespace expr:InvariantReferences__Tank__bounded___400_pa0 ;
+    sysml:source expr:InvariantReferences__Tank__bounded___400_pa0 ;
+    sysml:target expr:InvariantReferences__Tank__bounded___400_pa0_pout ;
+    sysml:relatedElement expr:InvariantReferences__Tank__bounded___400_pa0, expr:InvariantReferences__Tank__bounded___400_pa0_pout ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__bounded___400_pa0_pout ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___400_pa0_pout .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___400_pa0_pout ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___400_pa0\"},{\"@id\":\"InvariantReferences__Tank__bounded___400_pa0_pout\"}]" .
 
 expr:InvariantReferences__Tank__bounded___400_pin0
     a sysml:Feature ;
@@ -881,8 +1007,12 @@ expr:InvariantReferences__Tank__bounded___400_pin0_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__bounded___400_pin0 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank__bounded___400 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank__bounded___400 ;
+    sysml:source elmt:InvariantReferences__Tank__bounded___400 ;
+    sysml:target expr:InvariantReferences__Tank__bounded___400_pin0 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank__bounded___400, expr:InvariantReferences__Tank__bounded___400_pin0 ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__bounded___400_pin0 ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___400_pin0 .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___400_pin0 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___400\"},{\"@id\":\"InvariantReferences__Tank__bounded___400_pin0\"}]" .
 
 expr:InvariantReferences__Tank__bounded___400_pa0_om
     a sysml:FeatureValue ;
@@ -893,8 +1023,12 @@ expr:InvariantReferences__Tank__bounded___400_pa0_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__bounded___400_pa0 ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank__bounded___400_pin0 ;
     sysml:membershipOwningNamespace expr:InvariantReferences__Tank__bounded___400_pin0 ;
+    sysml:source expr:InvariantReferences__Tank__bounded___400_pin0 ;
+    sysml:target expr:InvariantReferences__Tank__bounded___400_pa0 ;
+    sysml:relatedElement expr:InvariantReferences__Tank__bounded___400_pin0, expr:InvariantReferences__Tank__bounded___400_pa0 ;
     sysml:featureWithValue expr:InvariantReferences__Tank__bounded___400_pin0 ;
-    sysml:value expr:InvariantReferences__Tank__bounded___400_pa0 .
+    sysml:value expr:InvariantReferences__Tank__bounded___400_pa0 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___400_pin0\"},{\"@id\":\"InvariantReferences__Tank__bounded___400_pa0\"}]" .
 
 expr:InvariantReferences__Tank__bounded___400_pa1
     a sysml:LiteralInteger ;
@@ -926,8 +1060,12 @@ expr:InvariantReferences__Tank__bounded___400_pin1_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__bounded___400_pin1 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank__bounded___400 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank__bounded___400 ;
+    sysml:source elmt:InvariantReferences__Tank__bounded___400 ;
+    sysml:target expr:InvariantReferences__Tank__bounded___400_pin1 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank__bounded___400, expr:InvariantReferences__Tank__bounded___400_pin1 ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__bounded___400_pin1 ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___400_pin1 .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___400_pin1 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___400\"},{\"@id\":\"InvariantReferences__Tank__bounded___400_pin1\"}]" .
 
 expr:InvariantReferences__Tank__bounded___400_pa1_om
     a sysml:FeatureValue ;
@@ -938,8 +1076,12 @@ expr:InvariantReferences__Tank__bounded___400_pa1_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__bounded___400_pa1 ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank__bounded___400_pin1 ;
     sysml:membershipOwningNamespace expr:InvariantReferences__Tank__bounded___400_pin1 ;
+    sysml:source expr:InvariantReferences__Tank__bounded___400_pin1 ;
+    sysml:target expr:InvariantReferences__Tank__bounded___400_pa1 ;
+    sysml:relatedElement expr:InvariantReferences__Tank__bounded___400_pin1, expr:InvariantReferences__Tank__bounded___400_pa1 ;
     sysml:featureWithValue expr:InvariantReferences__Tank__bounded___400_pin1 ;
-    sysml:value expr:InvariantReferences__Tank__bounded___400_pa1 .
+    sysml:value expr:InvariantReferences__Tank__bounded___400_pa1 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___400_pin1\"},{\"@id\":\"InvariantReferences__Tank__bounded___400_pa1\"}]" .
 
 expr:InvariantReferences__Tank__bounded___400_pout
     a sysml:Feature ;
@@ -959,13 +1101,17 @@ expr:InvariantReferences__Tank__bounded___400_pout_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__bounded___400_pout ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank__bounded___400 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank__bounded___400 ;
+    sysml:source elmt:InvariantReferences__Tank__bounded___400 ;
+    sysml:target expr:InvariantReferences__Tank__bounded___400_pout ;
+    sysml:relatedElement elmt:InvariantReferences__Tank__bounded___400, expr:InvariantReferences__Tank__bounded___400_pout ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__bounded___400_pout ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___400_pout .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___400_pout ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___400\"},{\"@id\":\"InvariantReferences__Tank__bounded___400_pout\"}]" .
 
 elmt:InvariantReferences__Tank__bounded___401
     a sysml:FeatureReferenceExpression ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "InvariantReferences::Tank::bounded::@1" ;
+    sysx:positionalName "InvariantReferences::Tank::bounded::@1" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;
@@ -996,16 +1142,24 @@ elmt:InvariantReferences__Tank__bounded___401_om
     sysml:ownedRelatedElement elmt:InvariantReferences__Tank__bounded___401 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank__bounded ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank__bounded ;
+    sysml:source elmt:InvariantReferences__Tank__bounded ;
+    sysml:target elmt:InvariantReferences__Tank__bounded___401 ;
+    sysml:relatedElement elmt:InvariantReferences__Tank__bounded, elmt:InvariantReferences__Tank__bounded___401 ;
     sysml:ownedMemberFeature elmt:InvariantReferences__Tank__bounded___401 ;
     sysml:owningType elmt:InvariantReferences__Tank__bounded ;
-    sysml:ownedResultExpression elmt:InvariantReferences__Tank__bounded___401 .
+    sysml:ownedResultExpression elmt:InvariantReferences__Tank__bounded___401 ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded\"},{\"@id\":\"InvariantReferences__Tank__bounded___401\"}]" .
 
 elmt:InvariantReferences__Tank__bounded___401_referent
     a sysml:Membership ;
     sysml:elementId "InvariantReferences__Tank__bounded___401_referent" ;
     sysml:memberElement elmt:InvariantReferences__Tank__ready ;
     sysml:owner elmt:InvariantReferences__Tank__bounded___401 ;
-    sysml:owningRelatedElement elmt:InvariantReferences__Tank__bounded___401 .
+    sysml:owningRelatedElement elmt:InvariantReferences__Tank__bounded___401 ;
+    sysml:source elmt:InvariantReferences__Tank__bounded___401 ;
+    sysml:target elmt:InvariantReferences__Tank__ready ;
+    sysml:relatedElement elmt:InvariantReferences__Tank__bounded___401, elmt:InvariantReferences__Tank__ready ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___401\"},{\"@id\":\"InvariantReferences__Tank__ready\"}]" .
 
 expr:InvariantReferences__Tank__bounded___401_pout
     a sysml:Feature ;
@@ -1025,8 +1179,12 @@ expr:InvariantReferences__Tank__bounded___401_pout_om
     sysml:ownedRelatedElement expr:InvariantReferences__Tank__bounded___401_pout ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank__bounded___401 ;
     sysml:membershipOwningNamespace elmt:InvariantReferences__Tank__bounded___401 ;
+    sysml:source elmt:InvariantReferences__Tank__bounded___401 ;
+    sysml:target expr:InvariantReferences__Tank__bounded___401_pout ;
+    sysml:relatedElement elmt:InvariantReferences__Tank__bounded___401, expr:InvariantReferences__Tank__bounded___401_pout ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__bounded___401_pout ;
-    sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___401_pout .
+    sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___401_pout ;
+    json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___401\"},{\"@id\":\"InvariantReferences__Tank__bounded___401_pout\"}]" .
 
 elmt:InvariantReferences__Tank__ready_ft0
     a sysml:FeatureTyping ;

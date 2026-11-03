@@ -15,15 +15,15 @@ import (
 func TestCompletionIncludesMembersAndKeywords(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	// Use an absolute name so uri.File(name).Filename() round-trips to the
+	// Use an absolute name so uri.File(name).FsPath() round-trips to the
 	// same key the document was opened under.
-	name := uri.File("/tmp/c.sysml").Filename()
+	name := uri.File("/tmp/c.sysml").FsPath()
 	src := "package Alpha { namespace Nested; }\n"
 	ws.Open(name, []byte(src), 1)
 
 	// Cursor at end of file (top-level scope).
 	pos := offsetToPosition([]byte(src), len(src))
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     pos,
@@ -54,7 +54,7 @@ func TestCompletionIncludesMembersAndKeywords(t *testing.T) {
 func TestCompletionUnknownDocStillReturnsKeywords(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File("missing.sysml")},
 		},
@@ -112,10 +112,10 @@ func completionAtFor(t *testing.T, src, marker string, markdown bool) map[string
 	if markdown {
 		initMarkdownCompletion(t, s)
 	}
-	name := uri.File("/tmp/completion.sysml").Filename()
+	name := uri.File("/tmp/completion.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), cut+len(marker)),
@@ -144,10 +144,10 @@ func TestCompletionCarriesKindDetailAndDocumentation(t *testing.T) {
 	if def.Kind != protocol.CompletionItemKindClass {
 		t.Errorf("'Vehicle' kind = %v, want Class", def.Kind)
 	}
-	if def.Detail != "part def" {
-		t.Errorf("'Vehicle' detail = %q, want %q", def.Detail, "part def")
+	if optString(def.Detail) != "part def" {
+		t.Errorf("'Vehicle' detail = %q, want %q", optString(def.Detail), "part def")
 	}
-	if doc, _ := def.Documentation.(protocol.MarkupContent); !strings.Contains(doc.Value, "A vehicle under test.") {
+	if doc, _ := def.Documentation.(*protocol.MarkupContent); !strings.Contains(doc.Value, "A vehicle under test.") {
 		t.Errorf("'Vehicle' documentation = %#v, want the declaration's comment", def.Documentation)
 	}
 
@@ -158,8 +158,8 @@ func TestCompletionCarriesKindDetailAndDocumentation(t *testing.T) {
 	if usage.Kind != protocol.CompletionItemKindField {
 		t.Errorf("'v' kind = %v, want Field", usage.Kind)
 	}
-	if usage.Detail != "part : Vehicle" {
-		t.Errorf("'v' detail = %q, want %q", usage.Detail, "part : Vehicle")
+	if optString(usage.Detail) != "part : Vehicle" {
+		t.Errorf("'v' detail = %q, want %q", optString(usage.Detail), "part : Vehicle")
 	}
 }
 
@@ -170,8 +170,8 @@ func TestCompletionOnDotOffersMembersOfType(t *testing.T) {
 	if !ok {
 		t.Fatalf("completion after 'v.' missing 'wheel'; got %v", labelsOf(items))
 	}
-	if wheel.Detail != "part : Wheel" {
-		t.Errorf("'wheel' detail = %q, want %q", wheel.Detail, "part : Wheel")
+	if optString(wheel.Detail) != "part : Wheel" {
+		t.Errorf("'wheel' detail = %q, want %q", optString(wheel.Detail), "part : Wheel")
 	}
 	if drive, ok := items["drive"]; !ok {
 		t.Error("completion after 'v.' missing 'drive'")
@@ -233,14 +233,14 @@ func TestCompletionUnresolvedPathOffersNothing(t *testing.T) {
 func TestCompletionHidesAnotherDocumentsPrivateImport(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	importer := uri.File("/tmp/importer.sysml").Filename()
+	importer := uri.File("/tmp/importer.sysml").FsPath()
 	ws.Open(importer, []byte("private import ScalarValues::*;\npackage Importer;\n"), 1)
 
-	other := uri.File("/tmp/other.sysml").Filename()
+	other := uri.File("/tmp/other.sysml").FsPath()
 	src := "package Other {\n\t\n}\n"
 	ws.Open(other, []byte(src), 1)
 
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(other)},
 			Position:     offsetToPosition([]byte(src), strings.Index(src, "\t")+1),
@@ -261,11 +261,11 @@ func TestCompletionHidesAnotherDocumentsPrivateImport(t *testing.T) {
 func TestCompletionOffersTheDocumentsOwnPrivateImport(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/importer.sysml").Filename()
+	name := uri.File("/tmp/importer.sysml").FsPath()
 	src := "private import ScalarValues::*;\npackage Importer {\n\t\n}\n"
 	ws.Open(name, []byte(src), 1)
 
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), strings.Index(src, "\t")+1),
@@ -361,8 +361,8 @@ func TestCompletionOffersShortNames(t *testing.T) {
 	if !ok {
 		t.Fatalf("completion missing short name 'veh'; got %v", labelsOf(items))
 	}
-	if short.Kind != protocol.CompletionItemKindClass || short.Detail != "part def" {
-		t.Errorf("'veh' = kind %v detail %q, want the same as 'Vehicle'", short.Kind, short.Detail)
+	if short.Kind != protocol.CompletionItemKindClass || optString(short.Detail) != "part def" {
+		t.Errorf("'veh' = kind %v detail %q, want the same as 'Vehicle'", short.Kind, optString(short.Detail))
 	}
 
 	members := completionAt(t, src, "v.")
@@ -387,9 +387,9 @@ func initMarkdownCompletion(t *testing.T, s *Server) {
 	_, err := s.Initialize(context.Background(), &protocol.InitializeParams{
 		Capabilities: protocol.ClientCapabilities{
 			TextDocument: &protocol.TextDocumentClientCapabilities{
-				Completion: &protocol.CompletionTextDocumentClientCapabilities{
-					CompletionItem: &protocol.CompletionTextDocumentClientCapabilitiesItem{
-						DocumentationFormat: []protocol.MarkupKind{protocol.Markdown, protocol.PlainText},
+				Completion: &protocol.CompletionClientCapabilities{
+					CompletionItem: &protocol.ClientCompletionItemOptions{
+						DocumentationFormat: []protocol.MarkupKind{protocol.MarkupKindMarkdown, protocol.MarkupKindPlainText},
 					},
 				},
 			},
@@ -420,12 +420,12 @@ func TestCompletionDocumentationIsProseWhenTheClientRendersMarkdown(t *testing.T
 	if !ok {
 		t.Fatal("completion missing 'Wheel'")
 	}
-	doc, ok := wheel.Documentation.(protocol.MarkupContent)
+	doc, ok := wheel.Documentation.(*protocol.MarkupContent)
 	if !ok {
 		t.Fatalf("'Wheel' documentation = %#v, want MarkupContent", wheel.Documentation)
 	}
-	if doc.Kind != protocol.Markdown {
-		t.Errorf("'Wheel' documentation kind = %q, want %q", doc.Kind, protocol.Markdown)
+	if doc.Kind != protocol.MarkupKindMarkdown {
+		t.Errorf("'Wheel' documentation kind = %q, want %q", doc.Kind, protocol.MarkupKindMarkdown)
 	}
 	if doc.Value != "A wheel.\n\nLoad-bearing." {
 		t.Errorf("'Wheel' documentation = %q, want two undelimited paragraphs", doc.Value)
@@ -435,7 +435,7 @@ func TestCompletionDocumentationIsProseWhenTheClientRendersMarkdown(t *testing.T
 	if !ok {
 		t.Fatal("completion missing 'Vehicle'")
 	}
-	vdoc, _ := vehicle.Documentation.(protocol.MarkupContent)
+	vdoc, _ := vehicle.Documentation.(*protocol.MarkupContent)
 	if vdoc.Value != "Carries the wheels.  \nTwo axles." {
 		t.Errorf("'Vehicle' documentation = %q, want a block note with its line break kept", vdoc.Value)
 	}
@@ -444,9 +444,9 @@ func TestCompletionDocumentationIsProseWhenTheClientRendersMarkdown(t *testing.T
 // A client that never advertised Markdown keeps the plain text it can render.
 func TestCompletionDocumentationStaysPlainTextWithoutMarkdown(t *testing.T) {
 	items := completionAtFor(t, documentedSrc, "part v : Vehicle;", false)
-	doc, _ := items["Wheel"].Documentation.(protocol.MarkupContent)
-	if doc.Kind != protocol.PlainText {
-		t.Errorf("documentation kind = %q, want %q", doc.Kind, protocol.PlainText)
+	doc, _ := items["Wheel"].Documentation.(*protocol.MarkupContent)
+	if doc.Kind != protocol.MarkupKindPlainText {
+		t.Errorf("documentation kind = %q, want %q", doc.Kind, protocol.MarkupKindPlainText)
 	}
 	if !strings.Contains(doc.Value, "A wheel.") {
 		t.Errorf("documentation = %q, want the declaration's comment", doc.Value)
@@ -458,12 +458,12 @@ func TestCompletionDocumentationStaysPlainTextWithoutMarkdown(t *testing.T) {
 func TestCompletionOmitsHiddenRootImports(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/hidden.sysml").Filename()
+	name := uri.File("/tmp/hidden.sysml").FsPath()
 	src := "package Left { part def Engine; }\npackage Right { part def Engine; }\nprivate import Left::*;\nprivate import Right::*;\npart e : Eng"
 	ws.Open(name, []byte(src), 1)
 
 	pos := offsetToPosition([]byte(src), len(src))
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     pos,
@@ -562,8 +562,8 @@ func TestCompletionDetailWritesTheAbstractKeyword(t *testing.T) {
 			t.Errorf("completion missing %q", label)
 			continue
 		}
-		if it.Detail != want {
-			t.Errorf("%q detail = %q, want %q", label, it.Detail, want)
+		if optString(it.Detail) != want {
+			t.Errorf("%q detail = %q, want %q", label, optString(it.Detail), want)
 		}
 	}
 }

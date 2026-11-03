@@ -1,0 +1,7 @@
+✓ package Lander
+✓ package QVTSDemo
+✓ Query QVTSDemo::CabinMass returned 1 row
+  Columns: qualifiedName, mass
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+    mass = 320.0

@@ -24,6 +24,7 @@ from typing import Optional, Sequence, Union
 from opensysml.errors import OpenSysMLError, UnsupportedValueError
 from opensysml.proto import sysml_pb2
 from opensysml.values import (
+    value_to_python,
     INFINITY,
     Quantity,
     _Infinity,
@@ -159,7 +160,9 @@ class DocumentEvent:
 
     Attributes:
         kind: ``"accept"``, ``"send"``, ``"transition"``, ``"entry"``,
-            ``"exit"``, ``"do"``, ``"choice"``, ``"guard"`` or ``"terminate"``
+            ``"exit"``, ``"do"``, ``"choice"``, ``"guard"`` or ``"terminate"``;
+            an action's run adds ``"step"``, ``"wait"``, ``"assign"``,
+            ``"decide"`` and ``"complete"``
         time: The instant the record was written at, in the runtime clock's
             unit — a :class:`~opensysml.values.Quantity` when the clock carries
             one, a plain number otherwise
@@ -174,8 +177,13 @@ class DocumentEvent:
         event: The accepted or sent event's type name
         payload: The accept's payload, one ``name = value`` text per attribute
         alternatives: What a choice drew from, in order
-        taken: The alternative the choice took
+        taken: The alternative the choice took, or the branch a decide took
         text: The record as the trace prints it
+        token: The action token a step, wait, assign, decide or accept record
+            is about, 0 for a record of none
+        step: The executor step that made the record, 0 for none
+        feature: The feature an assign record wrote
+        value: What that feature holds since, ``None`` for any other record
     """
 
     kind: str
@@ -191,6 +199,10 @@ class DocumentEvent:
     payload: tuple = ()
     alternatives: tuple = ()
     taken: str = ""
+    token: int = 0
+    step: int = 0
+    feature: str = ""
+    value: object = None
 
     def __str__(self):
         return f"{self.time}: {self.text}"
@@ -719,4 +731,8 @@ def document_event_of(event):
         payload=tuple(event.payload),
         alternatives=tuple(event.alternatives),
         taken=event.taken,
+        token=event.token,
+        step=event.step,
+        feature=event.feature,
+        value=value_to_python(event.value) if event.HasField("value") else None,
     )

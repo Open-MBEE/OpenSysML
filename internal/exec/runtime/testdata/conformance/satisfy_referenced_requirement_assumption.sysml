@@ -1,7 +1,7 @@
 // An assumption of a referenced requirement stays an assumption when the
-// reference is required: trusted rather than checked, so an empty wagon
-// failing `w.cargo > 0 [kg]` does not fail the satisfaction, whose required
-// condition `actual <= cap` holds.
+// reference is required: an empty wagon failing `w.cargo > 0 [kg]` makes
+// the satisfaction hold (`allTrue(assumptions()) implies allTrue(constraints())`)
+// rather than fail it, whatever `actual <= cap` reads.
 package Freight {
     private import ISQ::*;
     private import SI::*;

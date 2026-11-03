@@ -63,21 +63,27 @@ struct Model
     documents::Vector{String}
     roots::Vector{Any}
     source_path::Union{Nothing,String}
+    affected::Vector{String}
 end
 Model(conn::Connection, hash::AbstractString, diags::Vector{Diagnostic}) =
-    Model(conn, String(hash), diags, String[], Any[], nothing)
-Model(conn::Connection, hash, diagnostics, documents, roots, source_path=nothing) =
+    Model(conn, String(hash), diags, String[], Any[], nothing, String[])
+Model(conn::Connection, hash, diagnostics, documents, roots, source_path=nothing, affected=String[]) =
     Model(conn, String(hash), Diagnostic[d for d in diagnostics], String[String(d) for d in documents],
-          Any[r for r in roots], source_path === nothing ? nothing : String(source_path))
+          Any[r for r in roots], source_path === nothing ? nothing : String(source_path),
+          String[String(name) for name in affected])
 
 """Output parameters from an action run, with performer attributes kept separately."""
 struct ActionOutputs <: AbstractDict{String,Any}
     outputs::Dict{String,Any}
     performer::Dict{String,Any}
+    trace::Vector{DocumentEvent}
+    trace_dropped::Int
 end
-ActionOutputs(outputs::AbstractDict, performer::AbstractDict=Dict{String,Any}()) =
+ActionOutputs(outputs::AbstractDict, performer::AbstractDict=Dict{String,Any}(),
+              trace::Vector{DocumentEvent}=DocumentEvent[], trace_dropped::Integer=0) =
     ActionOutputs(Dict{String,Any}(String(k) => v for (k, v) in outputs),
-                  Dict{String,Any}(String(k) => v for (k, v) in performer))
+                  Dict{String,Any}(String(k) => v for (k, v) in performer), trace,
+                  Int(trace_dropped))
 Base.length(outputs::ActionOutputs) = length(outputs.outputs)
 Base.iterate(outputs::ActionOutputs, state...) = iterate(outputs.outputs, state...)
 Base.getindex(outputs::ActionOutputs, key::String) = outputs.outputs[key]
@@ -153,7 +159,7 @@ function _model_from_answer(conn, answer; documents=String[], source_path=nothin
     roots = raw_roots === nothing ? (haskey(answer, "root") ? Any[answer["root"]] : Any[]) : Any[r for r in raw_roots]
     model = Model(conn, answer["modelHash"],
                   Diagnostic[Diagnostic(d) for d in get(answer, "diagnostics", Any[])],
-                  documents, roots, source_path)
+                  documents, roots, source_path, get(answer, "affected", Any[]))
     strict && raise_for_errors(model)
     return model
 end
@@ -208,8 +214,10 @@ function parse_source(conn::Connection, content::AbstractString; name::AbstractS
 end
 
 function _parse_sources(conn::Connection, docs::Vector{SourceDocument};
-                        strict::Bool=false, strict_conformance::Bool=false)
+                        strict::Bool=false, strict_conformance::Bool=false,
+                        base_model_hash::AbstractString="")
     require_capability(conn, CAPABILITY_PARSE_SOURCES)
+    isempty(base_model_hash) || require_capability(conn, CAPABILITY_PARSE_SOURCES_AFFECTED)
     any(doc -> doc.language !== nothing, docs) &&
         require_capability(conn, CAPABILITY_INLINE_LANGUAGE)
     if strict_conformance
@@ -229,10 +237,12 @@ function _parse_sources(conn::Connection, docs::Vector{SourceDocument};
     end
     request = Dict{String,Any}("documents" => request_docs)
     strict_conformance && (request["strictConformance"] = true)
+    isempty(base_model_hash) || (request["baseModelHash"] = String(base_model_hash))
     needed = any(doc -> doc.language !== nothing, docs) ?
              (CAPABILITY_PARSE_SOURCES, CAPABILITY_INLINE_LANGUAGE) :
              (CAPABILITY_PARSE_SOURCES,)
     strict_conformance && (needed = (needed..., CAPABILITY_STRICT_CONFORMANCE))
+    isempty(base_model_hash) || (needed = (needed..., CAPABILITY_PARSE_SOURCES_AFFECTED))
     answer = _translate(; not_found=ModelFileNotFoundError, capabilities=needed,
                         connection=conn) do
         call(conn, "ParseSources", request)
@@ -241,16 +251,23 @@ function _parse_sources(conn::Connection, docs::Vector{SourceDocument};
     return _model_from_answer(conn, answer; documents=document_name.(docs), strict=strict)
 end
 
-"""Parse multiple file-backed or inline source documents together."""
+"""
+Parse multiple file-backed or inline source documents together. Given `base_model_hash`, the
+hash of a model of the same documents the caller holds results of, the new model's
+`affected(model)` names the documents whose results may differ from it (needs the
+`parse_sources_affected` capability).
+"""
 function parse_sources(conn::Connection, documents; language::AbstractString="",
-                       strict::Bool=false, strict_conformance::Bool=false)
+                       strict::Bool=false, strict_conformance::Bool=false,
+                       base_model_hash::AbstractString="")
     docs = source_documents(documents)
     if !isempty(language)
         docs = SourceDocument[doc.path === nothing && doc.language === nothing ?
                               SourceDocument(doc.name, doc.content; language=language) : doc
                               for doc in docs]
     end
-    return _parse_sources(conn, docs; strict=strict, strict_conformance=strict_conformance)
+    return _parse_sources(conn, docs; strict=strict, strict_conformance=strict_conformance,
+                          base_model_hash=base_model_hash)
 end
 
 """Return the diagnostics reported while parsing `model`."""
@@ -265,6 +282,13 @@ root(model::Model) = getproperty(model, :root)
 roots(model::Model) = getproperty(model, :roots)
 """Return the source document names associated with `model`."""
 documents(model::Model) = model.documents
+"""
+Return the names of the documents whose analysis, diagnostics or conversion may differ from the
+base model's, in document order, when `parse_sources` was given a `base_model_hash`: a caller
+keeps what it computed for the others. Every document when the service could not compare the
+two, such as for a set it had not seen before; empty for a parse without a base.
+"""
+affected(model::Model) = model.affected
 
 """Raise `ModelError` if the model has error diagnostics; otherwise return it."""
 function raise_for_errors(model::Model)
@@ -420,15 +444,25 @@ function refresh_diagnostics(model::Model; disable_lint=(), enable_lint=())
     Diagnostic[Diagnostic(d) for d in get(answer, "diagnostics", Any[])]
 end
 
+"""
+Execute an action once. `trace` answers its token steps, waits, accepts, decisions and
+assignments; `events` are signals posted to `performer` in order, each once every token waits.
+"""
 function execute_action(model::Model, action_id::AbstractString; inputs=Dict(),
                         schedule::AbstractString="", performer=nothing, advance=nothing,
-                        seed=nothing, draws=nothing, clock_step::Real=0.0)
+                        seed=nothing, draws=nothing, clock_step::Real=0.0, trace::Bool=false,
+                        events=())
     _check_schedule(schedule)
+    events = String[string(e) for e in events]
+    isempty(events) || performer !== nothing ||
+        throw(ArgumentError("events are posted to the object performing the action: name a performer"))
     encoded = _encoded_inputs(model, inputs)
     _schedule_preflight(model.connection, schedule)
     performer !== nothing && require_capability(model.connection, CAPABILITY_PERFORMER)
+    trace && require_capability(model.connection, CAPABILITY_ACTION_TRACE)
     needed = String[_schedule_capabilities(schedule)...]
     performer !== nothing && push!(needed, CAPABILITY_PERFORMER)
+    trace && push!(needed, CAPABILITY_ACTION_TRACE)
     request = Dict{String,Any}("modelHash" => model.hash, "actionSymbolId" => String(action_id),
                                "inputs" => encoded)
     _run_options!(request; advance=advance, seed=seed, draws=draws, clock_step=clock_step)
@@ -438,13 +472,21 @@ function execute_action(model::Model, action_id::AbstractString; inputs=Dict(),
     if performer !== nothing
         request["performerSymbolId"] = String(performer)
     end
+    trace && (request["trace"] = true)
+    isempty(events) || (request["events"] = events)
     answer = _translate(; capabilities=Tuple(unique(needed)), connection=model.connection) do
         call(model.connection, "ExecuteAction", request)
     end
-    _check_error(answer, "ExecuteAction")
+    trace_events = DocumentEvent[
+        _document_value(Dict{String,Any}("event" => event))
+        for event in get(answer, "trace", Any[])
+    ]
+    trace_dropped = Int(get(answer, "traceDropped", 0))
+    _check_error(answer, "ExecuteAction"; trace=trace_events, trace_dropped=trace_dropped)
     decoded = decode_values(answer)
     return ActionOutputs(get(decoded, "outputs", Dict{String,Any}()),
-                         get(decoded, "performerAttributes", Dict{String,Any}()))
+                         get(decoded, "performerAttributes", Dict{String,Any}()),
+                         trace_events, trace_dropped)
 end
 
 """Execute a state machine with optional events, scheduling, performer, or trace."""

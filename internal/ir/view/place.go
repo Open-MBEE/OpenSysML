@@ -11,6 +11,9 @@ import (
 // an owner's — the start or done a body inherits — by the owner as well.
 type Drawn struct {
 	nodes, edges map[ast.Node]bool
+	steered      map[Origin]bool                // origins of the edges a plain Route steers
+	generalEdged map[Origin]bool                // origins of the elements whose edge to a general a Route naming it steers
+	inherited    map[Origin]map[string]bool     // owner origin -> local names of the members drawn as its own
 	members      map[ast.Node]map[ast.Node]bool // member decl -> owner decls it is drawn as a member of
 	generals     map[ast.Node]map[ast.Node]bool // element decl -> decls of the generals it is drawn with an edge to
 }
@@ -34,6 +37,56 @@ func (d *Drawn) MemberNode(owner, sym *symbols.Symbol) bool {
 		return d.Node(sym)
 	}
 	return owner != nil && owners[owner.Decl]
+}
+
+func newDrawn() *Drawn {
+	return &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, steered: map[Origin]bool{}, generalEdged: map[Origin]bool{},
+		inherited: map[Origin]map[string]bool{}, members: map[ast.Node]map[ast.Node]bool{}, generals: map[ast.Node]map[ast.Node]bool{}}
+}
+
+// Steers reports whether a plain Route about the element declared at origin
+// steers the edge of kind drawn for it: its membership edge, or its own edge
+// to a general when no membership edge took the Route (relationshipRoute); the
+// edge to a general drawn beside a membership edge has none an edit writes yet.
+func (d *Drawn) Steers(origin Origin, kind EdgeKind) bool {
+	if d == nil || !d.steered[origin] {
+		return false
+	}
+	return !(kind == EdgeTyping || kind == EdgeSpecialization) || !d.generalEdged[origin]
+}
+
+// Inherits reports whether the rendering drew the member named name as the
+// element at owner's own, placed by a Layout about owner's name and its.
+func (d *Drawn) Inherits(owner Origin, name string) bool {
+	return d != nil && d.inherited[owner][name]
+}
+
+// noteSteered records that a plain Route about elem steers an edge drawn for it.
+func (d *Drawn) noteSteered(elem *symbols.Symbol) {
+	if d != nil && elem != nil && elem.Decl != nil {
+		d.steered[elem.Origin()] = true
+	}
+}
+
+// noteGeneralEdged records that elem's edge to a general follows a Route
+// naming that general, not a plain Route about elem.
+func (d *Drawn) noteGeneralEdged(elem *symbols.Symbol) {
+	if d != nil && elem != nil && elem.Decl != nil {
+		d.generalEdged[elem.Origin()] = true
+	}
+}
+
+// noteInherited records that the member named name is drawn as owner's own.
+func (d *Drawn) noteInherited(owner *symbols.Symbol, name string) {
+	if d == nil || owner == nil || owner.Decl == nil {
+		return
+	}
+	names, ok := d.inherited[owner.Origin()]
+	if !ok {
+		names = map[string]bool{}
+		d.inherited[owner.Origin()] = names
+	}
+	names[name] = true
 }
 
 // Edge reports whether the rendering draws sym as an edge a Route steers.
@@ -91,7 +144,7 @@ func (d *Drawn) noteMember(owner, member *symbols.Symbol) {
 // Layout or Route stated in the view's body can apply to. A view that does
 // not render is the error Render gives.
 func (r *Renderer) DrawnIn(view *symbols.Symbol) (*Drawn, error) {
-	drawn := &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, members: map[ast.Node]map[ast.Node]bool{}, generals: map[ast.Node]map[ast.Node]bool{}}
+	drawn := newDrawn()
 	if _, err := r.render(view, drawn); err != nil {
 		return nil, err
 	}

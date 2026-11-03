@@ -953,7 +953,7 @@ func (m *migration) calcExpr(e *sysmlv1.Element) (expr string, ok bool, note str
 
 // calcExprHow is calcExpr also reporting whether the translator wrote the expression.
 func (m *migration) calcExprHow(e *sysmlv1.Element) (expr string, ok bool, note string, translated bool) {
-	bodies := e.Owned("body")
+	bodies := e.Values("body")
 	if len(bodies) > 1 {
 		return "", false, "the behavior has " + strconv.Itoa(len(bodies)) + " bodies; only one can be the result expression", false
 	}

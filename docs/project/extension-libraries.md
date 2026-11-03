@@ -61,9 +61,11 @@ repository paths (`libraries/…`, `LICENSE`), and a release attaches it to the
 `v<version>` tag.
 
 A consumer declares the library in its own `.project.json` by the repository's
-IRI with the version after `@`:
+IRI with the version after `@` — the ECMA-427 package URL a package manager
+writes, or its `pkg:git/` alias, read alike:
 
 ```json
+{"usage": [{"resource": "pkg:generic/OpenSysML-Extensions-Library?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2FOpen-MBEE%2FOpenSysML-Extensions-Library%401.0.0"}]}
 {"usage": [{"resource": "pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library@1.0.0"}]}
 ```
 

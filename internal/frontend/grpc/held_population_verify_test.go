@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"fmt"
+	"maps"
 	"strings"
 	"testing"
 
@@ -156,4 +158,97 @@ func TestRunAnalysisWithoutASubjectRunsOnTheHeldObject(t *testing.T) {
 	// Naming the object keeps today's answer about it.
 	resp = runAnalysis(t, srv, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: kase, SubjectSymbolId: "Cost::cheap"})
 	wantVerdicts(t, "RunAnalysis on cheap", resp.VerificationVerdicts, kase+"=pass")
+}
+
+// displacedObjectModel owns a verification case and a constraint in a definition
+// one usage is declared of, so instantiating the usage twice leaves two held objects
+// of the definition: the one the name denotes and the one it displaced.
+const displacedObjectModel = `package test {
+	private import ScalarValues::Real;
+	requirement def Tightness { subject b : Bolt; require constraint { b.torque < 10.0 } }
+	requirement tight : Tightness;
+	part def Bolt {
+		attribute torque : Real default = 99.0;
+		constraint tightEnough { torque < 10.0 }
+		verification torqueTest {
+			objective { verify tight; }
+			return verdict = VerificationCases::PassIf(tight(this));
+		}
+		satisfy tight;
+	}
+	part b : Bolt;
+}`
+
+// TestVerifyRequirementWithoutASubjectSweepsADisplacedObject verifies that a subjectless
+// VerifyRequirement runs the definition-owned case on both objects a name instantiated twice
+// holds, as VerifySatisfaction does, while a subjectless VerifyConstraint and RunAnalysis over
+// the two are an ambiguous subject naming both rather than silently about the latest.
+func TestVerifyRequirementWithoutASubjectSweepsADisplacedObject(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, displacedObjectModel, "held-displaced-object")
+	ctx := context.Background()
+	var ids []int64
+	for range 2 {
+		made, err := srv.Instantiate(ctx, &pb.InstantiateRequest{ModelHash: hash, SymbolId: "test::b"})
+		if err != nil || made.Error != "" {
+			t.Fatalf("Instantiate(test::b): %v %q", err, made.GetError())
+		}
+		ids = append(ids, made.Instance.Id)
+	}
+	if ids[0] == ids[1] {
+		t.Fatalf("a second Instantiate reused object #%d", ids[0])
+	}
+	objectsOf := func(verdicts []*pb.VerificationVerdict) map[int64]bool {
+		out := map[int64]bool{}
+		for _, v := range verdicts {
+			out[v.InstanceId] = true
+		}
+		return out
+	}
+	both := map[int64]bool{ids[0]: true, ids[1]: true}
+
+	required, err := srv.VerifyRequirement(ctx, &pb.VerifyRequirementRequest{ModelHash: hash, SymbolId: "test::tight"})
+	if err != nil {
+		t.Fatalf("VerifyRequirement: %v", err)
+	}
+	if required.Error != "" {
+		t.Fatalf("VerifyRequirement reported %q", required.Error)
+	}
+	wantVerdicts(t, "VerifyRequirement", required.VerificationVerdicts, "test::Bolt::torqueTest=fail", "test::Bolt::torqueTest=fail")
+	if got := objectsOf(required.VerificationVerdicts); !maps.Equal(got, both) {
+		t.Errorf("VerifyRequirement verdicts are about objects %v, want both of %v", got, both)
+	}
+	satisfied, err := srv.VerifySatisfaction(ctx, &pb.VerifySatisfactionRequest{ModelHash: hash})
+	if err != nil {
+		t.Fatalf("VerifySatisfaction: %v", err)
+	}
+	if got := objectsOf(satisfied.VerificationVerdicts); !maps.Equal(got, both) {
+		t.Errorf("VerifySatisfaction verdicts are about objects %v, want both of %v", got, both)
+	}
+
+	constraint, err := srv.VerifyConstraint(ctx, &pb.VerifyConstraintRequest{ModelHash: hash, SymbolId: "test::Bolt::tightEnough"})
+	if err != nil {
+		t.Fatalf("VerifyConstraint: %v", err)
+	}
+	if v := constraint.Verdict; v.Status != statusUndecided || v.FailureReason != pb.FailureReason_FAILURE_REASON_AMBIGUOUS_SUBJECT {
+		t.Errorf("VerifyConstraint over two objects of one name = %v, want undecided with an ambiguous subject", v)
+	}
+	for _, want := range []string{fmt.Sprintf("Bolt #%d (displaced from b)", ids[0]), fmt.Sprintf("Bolt #%d (b)", ids[1])} {
+		if !strings.Contains(constraint.Verdict.Error, want) {
+			t.Errorf("VerifyConstraint error %q does not name %q", constraint.Verdict.Error, want)
+		}
+	}
+	analysis := runAnalysis(t, srv, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: "test::Bolt::torqueTest"})
+	wantVerdicts(t, "RunAnalysis over two objects of one name", analysis.VerificationVerdicts, "test::Bolt::torqueTest=error")
+	if detail := analysis.VerificationVerdicts[0].Detail; !strings.Contains(detail, "ambiguous subject") || !strings.Contains(detail, fmt.Sprintf("Bolt #%d (displaced from b)", ids[0])) {
+		t.Errorf("RunAnalysis over two objects of one name = %q, want the ambiguity naming the displaced object", detail)
+	}
+	// A named subject keeps a worker of its own, whatever the model holds.
+	named, err := srv.VerifyConstraint(ctx, &pb.VerifyConstraintRequest{ModelHash: hash, SymbolId: "test::Bolt::tightEnough", SubjectSymbolId: "test::b"})
+	if err != nil {
+		t.Fatalf("VerifyConstraint on test::b: %v", err)
+	}
+	if v := named.Verdict; v.Status != statusViolated || v.InstanceTypeId != "test::b" {
+		t.Errorf("VerifyConstraint on test::b = %v, want violated on an object of test::b", v)
+	}
 }

@@ -87,6 +87,7 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 		return e.leaveSubflow(tokenIdx)
 	}
 	token.Location = starts[0]
+	e.recordTokenAt(token, nil)
 	e.seedTokens(perf, starts[1:], e.sweep)
 	return nil
 }
@@ -97,6 +98,7 @@ func (e *ActionExecutor) seedTokens(frame *actionFrame, starts []ast.Node, moved
 	for _, start := range starts {
 		e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: start, frame: frame, moved: moved})
 		e.nextTokenID++
+		e.recordTokenAt(&e.tokens[len(e.tokens)-1], nil)
 	}
 }
 

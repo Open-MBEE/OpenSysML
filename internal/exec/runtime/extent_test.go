@@ -562,7 +562,7 @@ func TestNamespaceConnectorWhoseStartFailsLeavesNoTrace(t *testing.T) {
 					transition first poke then ping;
 					state ping { entry send Ping() to good; }
 					transition first ping then fail;
-					state fail { entry action bad { assign good.nosuch := 1; } }
+					state fail { entry action bad { while true { assign good.heard := good.heard + 1; } } }
 				}
 			}
 			connection def Fine {
@@ -585,8 +585,8 @@ func TestNamespaceConnectorWhoseStartFailsLeavesNoTrace(t *testing.T) {
 		t.Fatalf("occurrenceOf good: %v", err)
 	}
 	for _, name := range []string{"faulty", "pair"} {
-		if _, err := evalIn(t, ctx, pkg.Scope, name); !errors.Is(err, ErrNoSuchFeature) {
-			t.Fatalf("%s: got %v, want ErrNoSuchFeature from the connector's behavior", name, err)
+		if _, err := evalIn(t, ctx, pkg.Scope, name); !exhaustsBudget(err) {
+			t.Fatalf("%s: got %v, want the runtime's bound reached by the connector's behavior", name, err)
 		}
 		if n := countInstancesOfType(ctx, "Faulty"); n != 0 {
 			t.Errorf("%d Faulty left behind after %s's start failed, want none", n, name)
@@ -646,8 +646,11 @@ func TestNamespaceConnectorAnsweredByAFailingBehaviorIsKept(t *testing.T) {
 		t.Fatalf("occurrenceOf good: %v", err)
 	}
 	sym := resolveSymbol(t, pkg.Scope, "fine")
-	if _, err := evalIn(t, ctx, pkg.Scope, "fine"); !errors.Is(err, ErrUnresolvedReference) {
-		t.Fatalf("expected the listener's behavior to fail on its unresolved reference, got: %v", err)
+	if _, err := evalIn(t, ctx, pkg.Scope, "fine"); err != nil {
+		t.Fatalf("reading the connector the listener failed answering: %v", err)
+	}
+	if err := startFailure(ctx, good); !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("expected the listener's behavior to record its unresolved reference, got: %v", err)
 	}
 	ids := ctx.occurrences[sym]
 	if len(ids) != 1 {

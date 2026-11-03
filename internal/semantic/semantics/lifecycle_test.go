@@ -5,9 +5,56 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
+
+func TestExpressionMemosAreLazy(t *testing.T) {
+	m, _, replace := trackedModel(t, symbols.NewIndex(), "values.sysml")
+	if m.valueExpressions != nil || m.expressionParts != nil || m.bodySymbols != nil {
+		t.Fatal("constructing a model allocated unused expression memos")
+	}
+	src := "package P { attribute plain; attribute x = 1 + 2; attribute y = { in v; v }; }"
+	scope := replace(src)
+	p := sym(t, scope, "P")
+	if m.ValueExpression(sym(t, p.Scope, "plain")) != nil {
+		t.Fatal("a feature without a value has a value expression")
+	}
+	if m.valueExpressions != nil || m.expressionParts != nil || m.bodySymbols != nil {
+		t.Fatal("reading a feature without a value allocated expression memos")
+	}
+	x := sym(t, p.Scope, "x")
+	expr := m.ValueExpression(x)
+	if expr == nil || m.valueExpressions == nil || m.expressionParts != nil || m.bodySymbols != nil {
+		t.Fatal("reading a value did not initialize only its value-expression memo")
+	}
+	parts := m.expressionPartsOf(expr)
+	if parts == nil || m.expressionParts == nil || m.bodySymbols != nil {
+		t.Fatal("reading expression parts did not initialize their memo")
+	}
+	if m.ValueExpression(x) != expr || m.expressionPartsOf(expr) != parts {
+		t.Fatal("repeated reflection changed the expression's identities")
+	}
+	y := sym(t, p.Scope, "y")
+	bodyParts := m.expressionPartsOf(m.ValueExpression(y))
+	if bodyParts == nil || bodyParts.body == nil || m.bodySymbols == nil {
+		t.Fatal("reflecting a body did not initialize its body-symbol memo")
+	}
+	body, ok := bodyParts.body.Decl.(*ast.BodyExpr)
+	if !ok || m.bodySymbols[body] != bodyParts.body {
+		t.Fatal("the body-symbol memo did not retain the reflected body's identity")
+	}
+	scope = replace(src)
+	if _, stale := m.bodySymbols[body]; stale {
+		t.Fatal("the previous document's body-symbol entry survived the edit")
+	}
+	freshY := sym(t, sym(t, scope, "P").Scope, "y")
+	fresh := m.expressionPartsOf(m.ValueExpression(freshY))
+	if fresh == nil || fresh.body == nil || fresh.body == bodyParts.body {
+		t.Fatal("the new document did not get its own body expression")
+	}
+}
 
 // trackedModel holds idx in a tracking resolver, the way a workspace holds its
 // persistent model, and returns a function replacing the document called name.
@@ -165,5 +212,42 @@ func TestImplicitRelationshipsFollowTheDeclaringDocument(t *testing.T) {
 	}
 	if fresh[0] == old[0] {
 		t.Fatal("the new document's relationship object is the previous one's")
+	}
+}
+
+// Replacing a document drops the expression parts and the synthesized
+// memberships built from its previous tree, so neither its old expressions nor
+// their parameters stay referenced.
+func TestExpressionPartsFollowTheDeclaringDocument(t *testing.T) {
+	m, _, replace := trackedModel(t, stdlibIndex(t), "parts.sysml")
+	src := `package P { part def D { attribute x = 1 + 2; } }`
+	scope := replace(src)
+	oldX := nestedSym(t, scope, "P::D::x")
+	oldExpr := m.ValueExpression(oldX)
+	if oldExpr == nil {
+		t.Fatal("x: no value expression")
+	}
+	oldParams := m.ExpressionParameters(oldExpr)
+	if len(oldParams) != 2 || len(m.OwnedMemberships(oldExpr)) != 3 || len(m.OwnedMemberships(oldParams[0])) != 1 {
+		t.Fatalf("x's expression owns %d parameters, %d memberships", len(oldParams), len(m.OwnedMemberships(oldExpr)))
+	}
+	scope = replace(src)
+	if _, stale := m.valueExpressions[oldX]; stale {
+		t.Error("the previous document's value expression survived the edit")
+	}
+	if _, stale := m.expressionParts[oldExpr]; stale {
+		t.Error("the previous document's expression parts survived the edit")
+	}
+	for _, sym := range []*symbols.Symbol{oldExpr, oldParams[0], oldParams[1]} {
+		if _, stale := m.memberships[sym]; stale {
+			t.Error("the previous document's synthesized memberships survived the edit")
+		}
+	}
+	newExpr := m.ValueExpression(nestedSym(t, scope, "P::D::x"))
+	if newExpr == nil || newExpr == oldExpr {
+		t.Fatal("the new document's value expression is the previous one's")
+	}
+	if fresh := m.ExpressionParameters(newExpr); len(fresh) != 2 || fresh[0] == oldParams[0] {
+		t.Fatal("the new document's parameters are the previous ones'")
 	}
 }

@@ -72,7 +72,7 @@ func RenderDocumentMarkdown(ws *model.Workspace, fqn string, opts docrender.Mark
 				model.SiblingDocumentPlans(idx, sem, resolver, sym),
 				queryexec.Context{Index: idx, Resolver: resolver, Model: sem, LineIndex: func(doc string) *source.LineIndex {
 					return lineIndexes[doc]
-				}},
+				}, ElementID: elementIDs(idx, r)},
 				queryexec.Options{}, r.SourceText())
 			if err != nil {
 				return
@@ -82,4 +82,21 @@ func RenderDocumentMarkdown(ws *model.Workspace, fqn string, opts docrender.Mark
 		return err
 	})
 	return out, err
+}
+
+// elementIDs reads the elementId each element of the workspace is written
+// with, through the registered converter; nil when the binary links none.
+func elementIDs(idx *symbols.Index, r *model.Reading) func(*symbols.Symbol) (string, error) {
+	docs := r.Documents()
+	documents := make([]queryexec.ElementIDDocument, 0, len(docs))
+	for _, doc := range docs {
+		documents = append(documents, queryexec.ElementIDDocument{File: doc.SourceFile(), Root: doc.AST, ParseDiags: doc.ParseDiagnostics})
+	}
+	read := queryexec.OpenElementIDs(documents)
+	if read == nil {
+		return nil
+	}
+	return func(sym *symbols.Symbol) (string, error) {
+		return queryexec.ElementIDOf(read, idx, sym)
+	}
 }

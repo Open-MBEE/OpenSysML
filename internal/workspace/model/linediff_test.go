@@ -1,0 +1,197 @@
+package model
+
+import (
+	"math/rand"
+	"strings"
+	"testing"
+)
+
+// applyHunks rebuilds the new side from a and the hunks, the way an editor
+// applying the edits would; any Hunk out of order or overlapping fails.
+func applyHunks(t *testing.T, a, b []string, hunks []Hunk) []string {
+	t.Helper()
+	var out []string
+	oldPos, newPos := 0, 0
+	for i, h := range hunks {
+		if h.OldStart < oldPos || h.OldEnd < h.OldStart || h.NewStart < newPos || h.NewEnd < h.NewStart {
+			t.Fatalf("Hunk %d %+v is out of order or inverted (old at %d, new at %d)", i, h, oldPos, newPos)
+		}
+		if i > 0 && h.OldStart == oldPos && h.NewStart == newPos {
+			t.Fatalf("Hunk %d %+v abuts the one before it; they should have merged", i, h)
+		}
+		if h.OldStart-oldPos != h.NewStart-newPos {
+			t.Fatalf("Hunk %d %+v: %d shared old lines before it but %d new", i, h, h.OldStart-oldPos, h.NewStart-newPos)
+		}
+		for k := 0; k < h.OldStart-oldPos; k++ {
+			if a[oldPos+k] != b[newPos+k] {
+				t.Fatalf("Hunk %d %+v: line %d before it is not shared (%q vs %q)", i, h, oldPos+k, a[oldPos+k], b[newPos+k])
+			}
+		}
+		out = append(out, a[oldPos:h.OldStart]...)
+		out = append(out, b[h.NewStart:h.NewEnd]...)
+		oldPos, newPos = h.OldEnd, h.NewEnd
+	}
+	if len(a)-oldPos != len(b)-newPos {
+		t.Fatalf("after the hunks, %d old lines remain but %d new", len(a)-oldPos, len(b)-newPos)
+	}
+	out = append(out, a[oldPos:]...)
+	return out
+}
+
+// lcsLength is the textbook quadratic longest-common-subsequence length, the
+// reference for the diff's minimality.
+func lcsLength(a, b []string) int {
+	prev := make([]int, len(b)+1)
+	cur := make([]int, len(b)+1)
+	for i := 1; i <= len(a); i++ {
+		for j := 1; j <= len(b); j++ {
+			if a[i-1] == b[j-1] {
+				cur[j] = prev[j-1] + 1
+			} else {
+				cur[j] = max(prev[j], cur[j-1])
+			}
+		}
+		prev, cur = cur, prev
+	}
+	return prev[len(b)]
+}
+
+// diffStrings diffs two line lists, each distinct line interned to one id.
+func diffStrings(a, b []string) []Hunk {
+	ids := map[string]int{}
+	intern := func(lines []string) []int {
+		out := make([]int, len(lines))
+		for i, line := range lines {
+			id, ok := ids[line]
+			if !ok {
+				id = len(ids)
+				ids[line] = id
+			}
+			out[i] = id
+		}
+		return out
+	}
+	return DiffLines(intern(a), intern(b))
+}
+
+func checkDiff(t *testing.T, a, b []string) []Hunk {
+	t.Helper()
+	hunks := diffStrings(a, b)
+	if got := applyHunks(t, a, b, hunks); strings.Join(got, "|") != strings.Join(b, "|") {
+		t.Fatalf("DiffLines(%q, %q) = %+v\napplied: %q", a, b, hunks, got)
+	}
+	edits := 0
+	for _, h := range hunks {
+		edits += (h.OldEnd - h.OldStart) + (h.NewEnd - h.NewStart)
+	}
+	if want := len(a) + len(b) - 2*lcsLength(a, b); edits != want {
+		t.Fatalf("DiffLines(%q, %q) = %+v: %d line edits, a shortest script has %d", a, b, hunks, edits, want)
+	}
+	return hunks
+}
+
+func TestDiffLinesHandCases(t *testing.T) {
+	cases := []struct {
+		name string
+		a, b []string
+		want []Hunk
+	}{
+		{"both empty", nil, nil, nil},
+		{"identical", []string{"a", "b"}, []string{"a", "b"}, nil},
+		{"all inserted", nil, []string{"a", "b"}, []Hunk{{0, 0, 0, 2}}},
+		{"all deleted", []string{"a", "b"}, nil, []Hunk{{0, 2, 0, 0}}},
+		{"replace middle", []string{"a", "b", "c"}, []string{"a", "x", "c"}, []Hunk{{1, 2, 1, 2}}},
+		{"insert at end", []string{"a"}, []string{"a", "b"}, []Hunk{{1, 1, 1, 2}}},
+		{"insert at start", []string{"a"}, []string{"b", "a"}, []Hunk{{0, 0, 0, 1}}},
+		{"delete a blank of two", []string{"x", "", "", "y"}, []string{"x", "", "y"}, []Hunk{{2, 3, 2, 2}}},
+		{"two separate hunks", []string{"a", "b", "c", "d", "e"}, []string{"a", "B", "c", "d", "E"}, []Hunk{{1, 2, 1, 2}, {4, 5, 4, 5}}},
+		{"unequal replacement", []string{"a", "b", "c", "d"}, []string{"a", "x", "d"}, []Hunk{{1, 3, 1, 2}}},
+		{"nothing shared", []string{"a", "b"}, []string{"c", "d", "e"}, []Hunk{{0, 2, 0, 3}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := checkDiff(t, tc.a, tc.b)
+			if len(got) != len(tc.want) {
+				t.Fatalf("hunks = %+v, want %+v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("hunks = %+v, want %+v", got, tc.want)
+				}
+			}
+		})
+	}
+}
+
+// Every shortest script over small random inputs applies cleanly; the
+// deliberately tiny alphabet makes shared and repeated lines common.
+func TestDiffLinesRandomIsMinimalAndApplies(t *testing.T) {
+	rng := rand.New(rand.NewSource(1))
+	alphabet := []string{"a", "b", "c", ""}
+	for iter := 0; iter < 5000; iter++ {
+		a := make([]string, rng.Intn(9))
+		for i := range a {
+			a[i] = alphabet[rng.Intn(len(alphabet))]
+		}
+		// b is a mutated a about half the time, random otherwise, so both
+		// mostly-shared and mostly-different pairs are covered.
+		var b []string
+		if rng.Intn(2) == 0 {
+			b = append(b, a...)
+			for n := rng.Intn(4); n > 0 && len(b) > 0; n-- {
+				at := rng.Intn(len(b))
+				switch rng.Intn(3) {
+				case 0:
+					b = append(b[:at], b[at+1:]...)
+				case 1:
+					b = append(b[:at+1], b[at:]...)
+					b[at] = alphabet[rng.Intn(len(alphabet))]
+				default:
+					b[at] = alphabet[rng.Intn(len(alphabet))]
+				}
+			}
+		} else {
+			b = make([]string, rng.Intn(9))
+			for i := range b {
+				b[i] = alphabet[rng.Intn(len(alphabet))]
+			}
+		}
+		checkDiff(t, a, b)
+	}
+}
+
+// A long document with a few scattered changes diffs into exactly those hunks.
+func TestDiffLinesLongDocumentSparseChanges(t *testing.T) {
+	a := make([]string, 6000)
+	for i := range a {
+		a[i] = strings.Repeat("x", i%7)
+	}
+	b := append([]string(nil), a...)
+	b[10] = "changed"
+	b = append(b[:2000], b[2001:]...) // delete one line
+	b = append(b[:4000], append([]string{"inserted"}, b[4000:]...)...)
+	hunks := checkDiff(t, a, b)
+	if len(hunks) != 3 {
+		t.Fatalf("hunks = %+v, want three", hunks)
+	}
+}
+
+// A unified diff of an insertion names the line before it with a zero count,
+// at the start, in the middle and at the end, as patch reads it.
+func TestUnifiedDiffInsertionRanges(t *testing.T) {
+	cases := []struct{ name, old, updated, header string }{
+		{"start", "b\nc\n", "a\nb\nc\n", "@@ -1,2 +1,3 @@"},
+		{"middle", "a\nb\nc\nd\ne\nf\ng\nh\n", "a\nb\nc\nd\nX\ne\nf\ng\nh\n", "@@ -2,6 +2,7 @@"},
+		{"end", "a\nb\n", "a\nb\nc\n", "@@ -1,2 +1,3 @@"},
+		{"empty", "", "a\n", "@@ -0,0 +1 @@"},
+	}
+	for _, c := range cases {
+		got := UnifiedDiff("m.sysml", []byte(c.old), []byte(c.updated))
+		if !strings.Contains(got, c.header+"\n") {
+			t.Errorf("%s: diff lacks %q:\n%s", c.name, c.header, got)
+		}
+	}
+	if got := UnifiedDiff("m.sysml", []byte("a\n"), []byte("a\n")); got != "" {
+		t.Errorf("unchanged text diffs as %q", got)
+	}
+}

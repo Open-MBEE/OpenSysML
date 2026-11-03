@@ -1,0 +1,1 @@
+- MATLAB client: `convert` takes `idForm` (`'qualified'` or `'uuid'`) and `includeLibraryStubs` (gated on the `convert_library_stubs` capability) and a `Conversion` carries its `libraryReferences`; `renderView` takes `compartments`, each node naming its `compartment`; `importData` takes `importAs`; and an `UNAUTHENTICATED` status raises `opensysml:connect:unauthenticated`.

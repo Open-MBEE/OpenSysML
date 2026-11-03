@@ -64,7 +64,7 @@ func openDocumentModel(t *testing.T) (*model.Workspace, *Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/document.sysml").Filename()
+	name := uri.File("/tmp/document.sysml").FsPath()
 	ws.Open(name, []byte(documentModel), 1)
 	return ws, s, name
 }
@@ -83,7 +83,7 @@ func documentPosParams(name string, src, anchor string, t *testing.T) protocol.T
 
 func TestDefinitionQueryInvocationToCalcDef(t *testing.T) {
 	_, s, name := openDocumentModel(t)
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: documentPosParams(name, documentModel, "SubsystemTable {", t),
 	})
 	if err != nil {
@@ -100,7 +100,7 @@ func TestDefinitionQueryInvocationToCalcDef(t *testing.T) {
 
 func TestDefinitionBindingNameToQueryParameter(t *testing.T) {
 	_, s, name := openDocumentModel(t)
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: documentPosParams(name, documentModel, "root = telescope", t),
 	})
 	if err != nil {
@@ -119,7 +119,7 @@ func TestDefinitionBindingNameToQueryParameter(t *testing.T) {
 
 func TestDefinitionBindingValueToModelElement(t *testing.T) {
 	_, s, name := openDocumentModel(t)
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: documentPosParams(name, documentModel, "telescope;", t),
 	})
 	if err != nil {
@@ -142,7 +142,7 @@ func TestHoverQueryInvocationShowsQueryDef(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if hov == nil || !strings.Contains(hov.Contents.Value, "calc def SubsystemTable") {
+	if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "calc def SubsystemTable") {
 		t.Fatalf("hover = %+v, want the query's calc def signature", hov)
 	}
 }
@@ -155,7 +155,7 @@ func TestHoverQueryReferenceShowsDocComment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if hov == nil || !strings.Contains(hov.Contents.Value, "finds every part usage") {
+	if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "finds every part usage") {
 		t.Fatalf("hover = %+v, want the referenced query's doc comment", hov)
 	}
 }
@@ -168,15 +168,15 @@ func TestHoverDocumentLibraryType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if hov == nil || !strings.Contains(hov.Contents.Value, "part def") ||
-		!strings.Contains(hov.Contents.Value, "Document") {
+	if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "part def") ||
+		!strings.Contains(hoverMarkup(t, hov).Value, "Document") {
 		t.Fatalf("hover = %+v, want the library Document part def", hov)
 	}
 }
 
 func completionLabels(t *testing.T, s *Server, name, anchor string) []string {
 	t.Helper()
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: documentPosParams(name, documentModel, anchor, t),
 	})
 	if err != nil {
@@ -267,8 +267,8 @@ func openReportModel(t *testing.T) (*Server, string) {
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	ws.Open(uri.File("/tmp/lib.sysml").Filename(), []byte(queryLibModel), 1)
-	name := uri.File("/tmp/report.sysml").Filename()
+	ws.Open(uri.File("/tmp/lib.sysml").FsPath(), []byte(queryLibModel), 1)
+	name := uri.File("/tmp/report.sysml").FsPath()
 	ws.Open(name, []byte(reportModel), 1)
 	return s, name
 }
@@ -279,7 +279,7 @@ func completionLabelsIn(t *testing.T, s *Server, name, src, anchor string, delta
 	if off < 0 {
 		t.Fatalf("anchor %q not in fixture", anchor)
 	}
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), off+delta),
@@ -357,15 +357,15 @@ func TestHoverQualifiedReferenceSegments(t *testing.T) {
 	s, name := openReportModel(t)
 	anchor := "QueryLib::NoInputs {"
 	if hov := reportHover(t, s, name, anchor, 0); hov == nil ||
-		!strings.Contains(hov.Contents.Value, "package QueryLib") {
+		!strings.Contains(hoverMarkup(t, hov).Value, "package QueryLib") {
 		t.Fatalf("qualifier hover = %+v, want package QueryLib", hov)
 	}
 	if hov := reportHover(t, s, name, anchor, len("QueryLib::")); hov == nil ||
-		!strings.Contains(hov.Contents.Value, "calc def NoInputs") {
+		!strings.Contains(hoverMarkup(t, hov).Value, "calc def NoInputs") {
 		t.Fatalf("member hover = %+v, want calc def NoInputs", hov)
 	}
 	if hov := reportHover(t, s, name, anchor, len("QueryLib:")); hov != nil &&
-		strings.Contains(hov.Contents.Value, "NoInputs") {
+		strings.Contains(hoverMarkup(t, hov).Value, "NoInputs") {
 		t.Fatalf("separator hover = %+v, want not the reference target", hov)
 	}
 }
@@ -408,14 +408,14 @@ func TestPublishDiagnosticsDocumentPlanLive(t *testing.T) {
 	}
 	var found *protocol.Diagnostic
 	for i, d := range published[0].Diagnostics {
-		if d.Code == "document-plan-missing-title" {
+		if diagnosticCode(d) == "document-plan-missing-title" {
 			found = &published[0].Diagnostics[i]
 		}
 	}
 	if found == nil {
 		t.Fatalf("diagnostics = %v, want document-plan-missing-title", published[0].Diagnostics)
 	}
-	if found.Source != "document-plan" || found.Severity != protocol.DiagnosticSeverityError {
+	if optString(found.Source) != "document-plan" || found.Severity != protocol.DiagnosticSeverityError {
 		t.Errorf("diagnostic = %+v, want source document-plan at error severity", found)
 	}
 	want := offsetToPosition([]byte(broken), strings.Index(broken, "part def MassReport"))
@@ -429,7 +429,7 @@ func TestPublishDiagnosticsDocumentPlanLive(t *testing.T) {
 	published = fc.all()
 	last := published[len(published)-1]
 	for _, d := range last.Diagnostics {
-		if d.Source == "document-plan" || d.Source == "document-query" {
+		if optString(d.Source) == "document-plan" || optString(d.Source) == "document-query" {
 			t.Fatalf("edit left stale diagnostic: %+v", d)
 		}
 	}
@@ -504,7 +504,7 @@ const diagramDocumentModel = `package Imaging {
 // Mermaid block carries its theme and the cluster-title margin it needs.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
-	ws.Open(uri.File("/tmp/imaging.sysml").Filename(), []byte(diagramDocumentModel), 1)
+	ws.Open(uri.File("/tmp/imaging.sysml").FsPath(), []byte(diagramDocumentModel), 1)
 	mermaidHeader := "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n"
 	cases := map[string]struct{ fence, header string }{
 		"":         {"```mermaid\n", mermaidHeader},
@@ -551,7 +551,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 
 func TestRenderDocumentDiagramSourceLinks(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
-	name := uri.File("/tmp/imaging.sysml").Filename()
+	name := uri.File("/tmp/imaging.sysml").FsPath()
 	ws.Open(name, []byte(diagramDocumentModel), 1)
 	template := "https://example.test/src/{file}#L{line}:{col}"
 	raw, err := call(t, s, MethodRenderDocument, &RenderDocumentParams{

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"iter"
 	"slices"
 	"sort"
 	"strings"
@@ -1607,14 +1608,8 @@ func isStateSymbol(sym *symbols.Symbol) bool {
 // unwrappedDeclMembers is ast.DeclMembers extended to named owned constraints,
 // with the Membership wrappers the parser produces unwrapped.
 func unwrappedDeclMembers(decl ast.Node) []ast.Node {
-	if oc, ok := ast.OwnedConstraintOf(decl); ok {
-		return oc.Body
-	}
-	switch m := decl.(type) {
-	case *ast.AssumeMember:
-		return m.Body
-	case *ast.RequireMember:
-		return m.Body
+	if body, ok := constraintMemberBody(decl); ok {
+		return body
 	}
 	members := ast.DeclMembers(decl)
 	if members == nil {
@@ -1622,13 +1617,45 @@ func unwrappedDeclMembers(decl ast.Node) []ast.Node {
 	}
 
 	out := make([]ast.Node, 0, len(members))
-	for _, member := range members {
-		if membership, ok := member.(*ast.Membership); ok {
-			member = membership.Member
-		}
+	for member := range eachUnwrappedDeclMember(decl) {
 		out = append(out, member)
 	}
 	return out
+}
+
+// constraintMemberBody returns the nested members of an assume or require member
+// in either of its forms, and false for every other declaration.
+func constraintMemberBody(decl ast.Node) ([]ast.Node, bool) {
+	switch m := decl.(type) {
+	case *ast.AssumeMember:
+		return m.Body, true
+	case *ast.RequireMember:
+		return m.Body, true
+	}
+	return nil, false
+}
+
+// eachUnwrappedDeclMember yields what unwrappedDeclMembers lists without building the list,
+// for the readers that stop at the first member of interest.
+func eachUnwrappedDeclMember(decl ast.Node) iter.Seq[ast.Node] {
+	return func(yield func(ast.Node) bool) {
+		if body, ok := constraintMemberBody(decl); ok {
+			for _, member := range body {
+				if !yield(member) {
+					return
+				}
+			}
+			return
+		}
+		for _, member := range ast.DeclMembers(decl) {
+			if membership, ok := member.(*ast.Membership); ok {
+				member = membership.Member
+			}
+			if !yield(member) {
+				return
+			}
+		}
+	}
 }
 
 // QualifiedName renders a symbol's qualified name, falling back to its

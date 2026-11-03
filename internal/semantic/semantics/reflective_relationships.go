@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -31,6 +32,15 @@ func (m *Model) ImplicitRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 // facts at the matching ordinals for a record.
 func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
+	if owner.Chain != nil {
+		return m.chainTargetChainings(owner)
+	}
+	if owner.IsConjugatedPortDefinition() {
+		if original := owner.OwnerScope.Owner(); original != nil {
+			out = append(out, portConjugationSymbol(owner, original))
+		}
+		return out
+	}
 	if owner.Recorded() {
 		for ordinal, rel := range owner.Facts.Relationships {
 			if implicitRelationshipKind(rel.Kind) && !rel.Echo {
@@ -83,6 +93,38 @@ func implicitRelationshipSymbol(owner *symbols.Symbol, ordinal int, kind ast.Rel
 	}
 }
 
+// portConjugationSymbol is the PortConjugation a conjugated port definition
+// owns: its conjugatedType is the conjugate, its originalPortDefinition the
+// port definition the conjugate is implied for.
+func portConjugationSymbol(conjugate, original *symbols.Symbol) *symbols.Symbol {
+	return &symbols.Symbol{
+		Kind:     symbols.SymbolRelationship,
+		DocName:  conjugate.DocName,
+		DeclSpan: conjugate.DeclSpan,
+		Implicit: &symbols.ImplicitRelationship{
+			Owner: conjugate, Kind: ast.RelSpecializes, Conjugated: true,
+			Form: symbols.ImplicitPortConjugation, Member: original,
+		},
+	}
+}
+
+// portConjugationElements answers a PortConjugation's element-valued features.
+func portConjugationElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	rel := sym.Implicit
+	switch feature {
+	case "source", "conjugatedType", "owningRelatedElement", "owner", "owningType":
+		return []*symbols.Symbol{rel.Owner}, true
+	case "target", "originalType", "originalPortDefinition":
+		return []*symbols.Symbol{rel.Member}, true
+	case "relatedElement":
+		return []*symbols.Symbol{rel.Owner, rel.Member}, true
+	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
+		"owningMembership", "owningNamespace", "documentation", "textualRepresentation":
+		return []*symbols.Symbol{}, true
+	}
+	return nil, false
+}
+
 // IncludeUseCaseEcho reports whether rels[i] is the `includes` the parser
 // echoes for `include use case uc : UC`: a RelIncludes immediately followed by
 // the RelTyping whose target it repeats node-for-node. The full form carries
@@ -125,6 +167,12 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "Annotation"
 	case symbols.ImplicitImport:
 		return m.importMetaclassName(sym)
+	case symbols.ImplicitPortConjugation:
+		return "PortConjugation"
+	case symbols.ImplicitReferenceMembership:
+		return "Membership"
+	case symbols.ImplicitFeatureChaining:
+		return "FeatureChaining"
 	}
 	switch rel.Kind {
 	case ast.RelSpecializes:
@@ -144,6 +192,9 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		}
 		return "FeatureTyping"
 	case ast.RelSubsets:
+		if isReferenceSubsetting(rel) {
+			return "ReferenceSubsetting"
+		}
 		return "Subsetting"
 	case ast.RelRedefines:
 		return "Redefinition"
@@ -342,6 +393,12 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 		return m.annotationElements(sym, feature)
 	case symbols.ImplicitImport:
 		return m.importElements(sym, feature)
+	case symbols.ImplicitPortConjugation:
+		return portConjugationElements(sym, feature)
+	case symbols.ImplicitReferenceMembership:
+		return referenceMembershipElements(sym, feature)
+	case symbols.ImplicitFeatureChaining:
+		return featureChainingElements(sym, feature)
 	}
 	meta := m.implicitMetaclassName(sym)
 	src, tgt, tgtOK := m.implicitRelationshipEnds(sym)
@@ -481,11 +538,15 @@ func (m *Model) implicitRelationshipValue(sym *symbols.Symbol, feature string) (
 		if value, ok := m.importValue(sym, feature); ok {
 			return value, true
 		}
+	case symbols.ImplicitReferenceMembership:
+		if value, ok := m.referenceMembershipValue(sym, feature); ok {
+			return value, true
+		}
 	}
 	switch feature {
-	case "name", "declaredName", "shortName", "declaredShortName", "qualifiedName":
+	case "name", "declaredName", "shortName", "declaredShortName", "qualifiedName", "aliasIds":
 		return emptyValue(), true
-	case "isImplied":
+	case "isImplied", "isImpliedIncluded":
 		return boolValue(false), true
 	case "isLibraryElement":
 		return m.reflectiveFeatureValue(sym.Implicit.Owner, feature)
@@ -535,7 +596,7 @@ func (m *Model) ownedImplicitRelationships(sym *symbols.Symbol, kinds map[string
 }
 
 var (
-	conjugationMetaclass   = map[string]bool{"Conjugation": true}
+	conjugationMetaclass   = map[string]bool{"Conjugation": true, "PortConjugation": true}
 	redefinitionMetaclass  = map[string]bool{"Redefinition": true}
 	referenceSubsetting    = map[string]bool{"ReferenceSubsetting": true}
 	crossSubsetting        = map[string]bool{"CrossSubsetting": true}
@@ -588,4 +649,50 @@ func (m *Model) implicitOwnerElements(sym *symbols.Symbol, feature string) ([]*s
 		return m.ownedImplicitRelationships(sym, crossSubsetting), true
 	}
 	return nil, false
+}
+
+// chainTargetChainings are the FeatureChainings the feature a relationship's chain target
+// denotes owns, one per feature the chain is written as (KerML 8.3.3.3.9), as the conversion writes them.
+func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
+	out := []*symbols.Symbol{}
+	for _, target := range m.chainingFeaturesOf(chain) {
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    chain.DocName,
+			DeclSpan:   chain.DeclSpan,
+			Visibility: chain.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: chain, Ordinal: len(out), Form: symbols.ImplicitFeatureChaining,
+				Member: target, Slot: fmt.Sprintf("fc%d", len(out)),
+			},
+		})
+	}
+	return out
+}
+
+// isReferenceSubsetting reports whether rel is its owner's OwnedReferenceSubsetting — the
+// `satisfy r;` / `verify r;` form (SysML.xtext) — by the written clause or, for a record, its facts.
+func isReferenceSubsetting(rel *symbols.ImplicitRelationship) bool {
+	if rel.Owner == nil {
+		return false
+	}
+	if !rel.Owner.Recorded() {
+		return ast.IsReferenceSubsetting(rel.Owner.Decl, rel.Node)
+	}
+	facts := rel.Owner.Facts
+	if rel.Ordinal < 0 || rel.Ordinal >= len(facts.Relationships) {
+		return false
+	}
+	if facts.Relationships[rel.Ordinal].Kind.ReferenceSubsets() {
+		return true
+	}
+	// As ast.Usage.ReferenceSubsetting: a satisfy's first subsetting, unless it declares its requirement.
+	kind, isUsage := rel.Owner.UsageKind()
+	satisfies := isUsage && kind == ast.UsageSatisfy && facts.Modifiers&symbols.ModDeclaresRequirement == 0
+	for ordinal, rf := range facts.Relationships {
+		if rf.Kind.ReferenceSubsets() || (rf.Kind == ast.RelSubsets && satisfies) {
+			return ordinal == rel.Ordinal
+		}
+	}
+	return false
 }

@@ -1,0 +1,1 @@
+- The homepage hero's "Mission phases on the clock" and "Apollo 11 mission" scenes fill their boxes from the same palette as the stack scene: a state or step in the primary tone, the state the machine enters first and the decide that picks the landing branch in the accent, the start, initial and final symbols plain. Download PNG carries the fills along.

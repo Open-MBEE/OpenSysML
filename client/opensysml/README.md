@@ -316,10 +316,8 @@ a new or an existing declaration and require `authoring` and
 `authoring` and `comment_authoring`.
 
 The edited source is `result.Documents`, one `EditedDocument` per document the
-batch reached, under the name the model was parsed with; `result.Content` is the
-same notation for a model of one document and empty for a model of several, kept
-for callers of the sole-document contract. Each `AppliedEdit` names the
-`Document` its bytes belong to.
+batch reached, under the name the model was parsed with — for a model of one
+document, that one. Each `AppliedEdit` names the `Document` its bytes belong to.
 
 ## What a model is here
 
@@ -353,22 +351,49 @@ is refused with `CodeFailedPrecondition` for a model of several rather than
 applied to one of them; convert a single document of such a set with
 `ConvertFile` or `ConvertSource`.
 
+A graph notation — `FormatTTL` or `FormatAPIJSON` — spells the ids of elements
+that declared none from their qualified names; `WithIDForm(IDFormUUID)` spells
+them as name-based uuids under each root package instead, the library
+convention, and a notation target refuses the option as `CodeInvalidArgument`.
+API JSON names the standard-library elements a model uses in the `Conversion`'s
+`LibraryReferences` (each an `ID`, `QualifiedName` and metaclass `Type`) rather
+than writing them as elements; `WithLibraryStubs()` restores the ownerless
+library stubs releases before 0.11.0 wrote, and needs the service's
+`CapabilityConvertLibraryStubs`.
+
+`ParseDocuments` can relate the model it parses to one the program already
+holds results of: `WithBaseModel(previous)` has the service compare the two
+document by document and fill the new model's `Affected` with the names of the
+documents whose analysis, diagnostics or conversion may differ from the base's,
+so a program keeps what it computed for the others. The service answers every
+document when it cannot compare, such as for a set it has not seen before, and
+a base it no longer holds is not an error. The option needs
+`CapabilityParseSourcesAffected`, applies to `ParseDocuments` alone — `ParseFile`
+and `ParseSource` refuse it as `CodeInvalidArgument` — and a nil base is no base.
+
+`ImportData` sets the feature values tabular or JSON data assigns; `ImportAs`
+names what each row is made into, `ImportAsValues` being the default and so far
+the only form, `ImportDryRun()` reports the assignments without changing the
+model, and `ImportAcceptDocuments()` accepts a model of several documents' edited
+documents as `ApplyEdits` does.
+
 `ApplyEdits` edits the set as one model. Its operations name elements declared in
 the first document; `ApplyDocumentEdits(ctx, model, "top.sysml", edits...)` names
 another, and a name that is not one of the model's is `CodeInvalidArgument`. A
 rename or a cascade delete follows its references into the other documents, every
 document touched is re-parsed and re-analysed together, and `result.Documents`
 lists exactly the documents rewritten — so a batch that reaches one document of
-three answers one `EditedDocument`, and `result.Content` is empty. The client marks
-every request as accepting documents; the service refuses a request that does not on a
-model of several, as it did before, so a program reading `Content` alone through an
-earlier client is never handed an empty one. A reference from
-a document the edit cannot rewrite, such as a bundled library file, refuses the
-edit as `EditFailureReferencedElsewhere`, naming it in `Referrers`. All of this is the
-`CapabilityEditDocuments` capability: a service without it edits a model of one
-document alone, answering `Content` with `Documents` empty, refuses a model of several
-with `CodeFailedPrecondition`, and refuses `ApplyDocumentEdits` with `CodeUnimplemented`
-— so a program reading `Documents` checks `ServerInfo` for the capability first.
+three answers one `EditedDocument`. The client marks every request as accepting
+documents; the service refuses a request that does not on a model of several, as
+it did before, so a program reading the sole-document `content` through an earlier
+client is never handed an empty one. A reference from a document the edit cannot
+rewrite, such as a bundled library file, refuses the edit as
+`EditFailureReferencedElsewhere`, naming it in `Referrers`. All of this is the
+`CapabilityEditDocuments` capability, which every service since 0.9.0 advertises:
+`ApplyEdits` and `ApplyDocumentEdits` require it and are refused with
+`CodeUnimplemented` by a service without it, whose answer carried the notation in
+the sole-document `content` alone — the `EditResult.Content` field that read it,
+deprecated in 0.9.0, was removed in 0.12.0.
 
 ## Concurrency, contexts and lifetime
 
@@ -466,7 +491,9 @@ same way: `WithSchedule`/`Schedule` need `schedule`, and the `Explore*` calls
 `schedule_explore` besides, since a service without them would run under the
 default, or run once, rather than refuse. So is an engine: `WithEngine`,
 `Engine` and `CalcEngine` naming anything but `EngineAuto` need `engines`, since a service without it
-would answer with whichever engine it chose.
+would answer with whichever engine it chose. `WithLibraryStubs` needs `convert_library_stubs`
+and `WithBaseModel` needs `parse_sources_affected`, since a service without them would write
+bare library references, or parse without relating the models, instead of refusing.
 
 A `Set` arrives with its elements in the service's canonical order — Booleans,
 then numbers, strings, quantities, enumeration literals and objects, each class

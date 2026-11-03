@@ -146,35 +146,13 @@ func debugServer(t *testing.T, name, src string) (*Server, uri.URI, *debugRecord
 // session does, and decodes the snapshot the client would receive.
 func debugCall(t *testing.T, s *Server, method string, params any) (*debugSnapshot, error) {
 	t.Helper()
-	req, err := jsonrpc2.NewCall(jsonrpc2.NewNumberID(1), method, params)
+	d := newDispatcher(t, s.debugHandler(func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		t.Errorf("%s was not handled: it fell through to the next handler", req.Method())
+		return nil, jsonrpc2.ErrMethodNotFound
+	}))
+	raw, err := d.call(context.Background(), method, params)
 	if err != nil {
-		t.Fatalf("build %s request: %v", method, err)
-	}
-	var (
-		raw     json.RawMessage
-		callErr error
-	)
-	reply := func(ctx context.Context, result interface{}, err error) error {
-		if err != nil {
-			callErr = err
-			return nil
-		}
-		encoded, mErr := json.Marshal(result)
-		if mErr != nil {
-			t.Fatalf("marshal %s result: %v", method, mErr)
-		}
-		raw = encoded
-		return nil
-	}
-	handler := s.debugHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
-		t.Fatalf("%s was not handled: it fell through to the next handler", req.Method())
-		return nil
-	})
-	if err := handler(context.Background(), reply, req); err != nil {
-		t.Fatalf("dispatch %s: %v", method, err)
-	}
-	if callErr != nil {
-		return nil, callErr
+		return nil, err
 	}
 	var snap debugSnapshot
 	if err := json.Unmarshal(raw, &snap); err != nil {
@@ -1389,7 +1367,7 @@ func TestDebugSessionFollowsEdits(t *testing.T) {
 
 	// Text added above the machine shifts every declaration after it.
 	shifted := "package Extra {\n\tpart def Spare;\n\tpart def Wheel;\n}\n" + debugMachine
-	s.applyDidChange(ctx, name, []rawContentChange{{Text: shifted}}, 2)
+	applyFullChange(ctx, s, name, shifted, 2)
 	changed := rec.debugChanged()
 	if len(changed) != 1 || changed[0].Session != session {
 		t.Fatalf("debugChanged after an unrelated edit = %v, want one for %s", changed, session)
@@ -1414,7 +1392,7 @@ func TestDebugSessionFollowsEdits(t *testing.T) {
 	wantStrings(t, "active after continuing", snap.ActiveStates, []string{fresh["motion"], fresh["busy"], fresh["working"], fresh["clock"], fresh["elapsed"]})
 
 	// An edit inside another declaration of the same document is unrelated too.
-	s.applyDidChange(ctx, name, []rawContentChange{{Text: strings.Replace(shifted, "part def Wheel;", "part def Wheel { attribute r : Real; }", 1)}}, 3)
+	applyFullChange(ctx, s, name, strings.Replace(shifted, "part def Wheel;", "part def Wheel { attribute r : Real; }", 1), 3)
 	if changed = rec.debugChanged(); len(changed) != 2 || changed[1].State == debugEnded {
 		t.Fatalf("debugChanged after a second unrelated edit = %v", changed)
 	}
@@ -1422,7 +1400,7 @@ func TestDebugSessionFollowsEdits(t *testing.T) {
 	// Rewriting the machine ends the session: its execution no longer stands
 	// for what the document declares.
 	edited := strings.Replace(shifted, "state finishing;", "state finishing;\n\t\t\t\tstate cooling;", 1)
-	s.applyDidChange(ctx, name, []rawContentChange{{Text: edited}}, 4)
+	applyFullChange(ctx, s, name, edited, 4)
 	changed = rec.debugChanged()
 	if len(changed) != 3 {
 		t.Fatalf("debugChanged after editing the machine = %d notifications, want 3", len(changed))
@@ -1453,7 +1431,7 @@ func TestDebugEditWaitsForTheRequestInFlight(t *testing.T) {
 	applied := make(chan struct{})
 	go func() {
 		defer close(applied)
-		s.applyDidChange(context.Background(), name, []rawContentChange{{Text: "package Extra {\n\tpart def Spare;\n}\n" + debugMachine}}, 2)
+		applyFullChange(context.Background(), s, name, "package Extra {\n\tpart def Spare;\n}\n"+debugMachine, 2)
 	}()
 	time.Sleep(50 * time.Millisecond)
 	if v := s.ws.Document(name).Version; v != 1 {
@@ -1497,7 +1475,7 @@ func TestDebugSnapshotsAreNumbered(t *testing.T) {
 	next("step", mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session}))
 	next("breakpoints", mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session}))
 
-	s.applyDidChange(context.Background(), uriToName(docURI), []rawContentChange{{Text: "package Extra {\n\tpart def Spare;\n}\n" + debugMachine}}, 2)
+	applyFullChange(context.Background(), s, uriToName(docURI), "package Extra {\n\tpart def Spare;\n}\n"+debugMachine, 2)
 	changed := rec.debugChanged()
 	if len(changed) != 1 {
 		t.Fatalf("debugChanged = %v, want one moved snapshot", changed)
@@ -1536,7 +1514,7 @@ func TestDebugPauseFollowsEdits(t *testing.T) {
 		}
 
 		// A machine declared above Ops is drawn before it, moving every ID.
-		s.applyDidChange(context.Background(), uriToName(docURI), []rawContentChange{{Text: "package Extra {\n\tstate def Spare { state one; }\n}\n" + debugMachine}}, 2)
+		applyFullChange(context.Background(), s, uriToName(docURI), "package Extra {\n\tstate def Spare { state one; }\n}\n"+debugMachine, 2)
 		fresh := ids(t, render(t, s, docURI, "#state"))
 		if fresh["busy"] == id["busy"] {
 			t.Fatalf("the edit left busy at %s; the fixture must move it", id["busy"])
@@ -1572,7 +1550,7 @@ func TestDebugPauseFollowsEdits(t *testing.T) {
 			t.Fatalf("pausedAt = %q, want the breakpoint on warm", snap.PausedAt)
 		}
 
-		s.applyDidChange(context.Background(), uriToName(docURI), []rawContentChange{{Text: "package Extra {\n\taction def Spare { action one; }\n}\n" + debugFlow}}, 2)
+		applyFullChange(context.Background(), s, uriToName(docURI), "package Extra {\n\taction def Spare { action one; }\n}\n"+debugFlow, 2)
 		fresh := ids(t, render(t, s, docURI, "#action"))
 		if fresh["warm"] == id["warm"] {
 			t.Fatalf("the edit left warm at %s; the fixture must move it", id["warm"])
@@ -1615,7 +1593,7 @@ func TestDebugStartSeesAnEditSinceItsReading(t *testing.T) {
 		t.Fatalf("prepare: %v", err)
 	}
 	shifted := "package Extra {\n\tpart def Spare;\n}\n" + debugMachine
-	s.applyDidChange(ctx, name, []rawContentChange{{Text: shifted}}, 2)
+	applyFullChange(ctx, s, name, shifted, 2)
 	if changed := rec.debugChanged(); len(changed) != 0 {
 		t.Fatalf("debugChanged for a session not yet registered: %v", changed)
 	}
@@ -1651,7 +1629,7 @@ func TestDebugStartSeesAnEditSinceItsReading(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepare: %v", err)
 	}
-	s.applyDidChange(ctx, name, []rawContentChange{{Text: strings.Replace(shifted, "state idle;", "state lazy;", 1)}}, 3)
+	applyFullChange(ctx, s, name, strings.Replace(shifted, "state idle;", "state lazy;", 1), 3)
 	if changed := rec.debugChanged(); len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State != debugEnded {
 		t.Fatalf("debugChanged after editing the machine = %v, want the end of %s", changed, snap.Session)
 	}
@@ -1694,7 +1672,7 @@ func TestDebugSessionEnds(t *testing.T) {
 	t.Run("performer edited", func(t *testing.T) {
 		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		session := start(t, s, docURI)
-		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "exhibit state ops : Ops;", "exhibit state ops : Ops;\n\t\tattribute id : Integer;", 1)}}, 2)
+		applyFullChange(ctx, s, uriToName(docURI), strings.Replace(debugMachine, "exhibit state ops : Ops;", "exhibit state ops : Ops;\n\t\tattribute id : Integer;", 1), 2)
 		if reason := lastEnd(t, rec, session).Reason; !strings.Contains(reason, "Machines::Robot was edited") {
 			t.Errorf("reason = %q", reason)
 		}
@@ -1702,7 +1680,7 @@ func TestDebugSessionEnds(t *testing.T) {
 	t.Run("view removed", func(t *testing.T) {
 		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		session := start(t, s, docURI)
-		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "view opsView : StateTransitionView { expose Machines::Ops; }", "", 1)}}, 2)
+		applyFullChange(ctx, s, uriToName(docURI), strings.Replace(debugMachine, "view opsView : StateTransitionView { expose Machines::Ops; }", "", 1), 2)
 		if reason := lastEnd(t, rec, session).Reason; !strings.Contains(reason, "MachineViews::opsView") {
 			t.Errorf("reason = %q", reason)
 		}
@@ -1710,7 +1688,7 @@ func TestDebugSessionEnds(t *testing.T) {
 	t.Run("view rewritten but still drawing the target", func(t *testing.T) {
 		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		session := start(t, s, docURI)
-		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "{ expose Machines::Ops; }", "{ expose Machines::Ops; expose Machines::Robot; }", 1)}}, 2)
+		applyFullChange(ctx, s, uriToName(docURI), strings.Replace(debugMachine, "{ expose Machines::Ops; }", "{ expose Machines::Ops; expose Machines::Robot; }", 1), 2)
 		if reason := lastEnd(t, rec, session).Reason; !strings.Contains(reason, "MachineViews::opsView was edited") {
 			t.Errorf("reason = %q", reason)
 		}
@@ -1720,12 +1698,12 @@ func TestDebugSessionEnds(t *testing.T) {
 		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "#state:Machines::Ops", Target: "Machines::Ops",
 		})
-		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "attribute def Halt;", "attribute def Halt;\n\tattribute def Resume;", 1)}}, 2)
+		applyFullChange(ctx, s, uriToName(docURI), strings.Replace(debugMachine, "attribute def Halt;", "attribute def Halt;\n\tattribute def Resume;", 1), 2)
 		changed := rec.debugChanged()
 		if len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State == debugEnded || changed[0].Version != 2 {
 			t.Fatalf("debugChanged after an edit around a pseudo-view's target = %v", changed)
 		}
-		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "state elapsed;", "state elapsed;\n\t\t\tstate late;", 1)}}, 3)
+		applyFullChange(ctx, s, uriToName(docURI), strings.Replace(debugMachine, "state elapsed;", "state elapsed;\n\t\t\tstate late;", 1), 3)
 		if reason := lastEnd(t, rec, snap.Session).Reason; !strings.Contains(reason, "Machines::Ops was edited") {
 			t.Errorf("reason = %q", reason)
 		}
@@ -1857,7 +1835,7 @@ func TestDebugSessionEndsWhenInheritedContentChanges(t *testing.T) {
 			if strings.Count(debugDerived, tc.old) != 1 {
 				t.Fatalf("fixture writes %q %d times", tc.old, strings.Count(debugDerived, tc.old))
 			}
-			s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugDerived, tc.old, tc.new, 1)}}, 2)
+			applyFullChange(ctx, s, uriToName(docURI), strings.Replace(debugDerived, tc.old, tc.new, 1), 2)
 			if reason := lastEnd(t, rec, snap.Session).Reason; !strings.Contains(reason, tc.reason) {
 				t.Errorf("reason = %q, want it to name %q", reason, tc.reason)
 			}
@@ -1869,7 +1847,7 @@ func TestDebugSessionEndsWhenInheritedContentChanges(t *testing.T) {
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "InheritedViews::derivedView", Target: "Inherited::Sub::Derived",
 	})
-	s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugDerived, "attribute def Go;", "attribute def Go;\n\tattribute def Stop;", 1)}}, 2)
+	applyFullChange(ctx, s, uriToName(docURI), strings.Replace(debugDerived, "attribute def Go;", "attribute def Go;\n\tattribute def Stop;", 1), 2)
 	changed := rec.debugChanged()
 	if len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State == debugEnded {
 		t.Fatalf("debugChanged after an unrelated edit = %v", changed)
@@ -2013,7 +1991,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 			if strings.Count(debugReads, tc.old) != 1 {
 				t.Fatalf("fixture writes %q %d times", tc.old, strings.Count(debugReads, tc.old))
 			}
-			s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugReads, tc.old, tc.new, 1)}}, 2)
+			applyFullChange(ctx, s, uriToName(docURI), strings.Replace(debugReads, tc.old, tc.new, 1), 2)
 			if reason := lastEnd(t, rec, snap.Session).Reason; !strings.Contains(reason, tc.reason) {
 				t.Errorf("reason = %q, want it to name %q", reason, tc.reason)
 			}
@@ -2026,7 +2004,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "MachineViews::opsView", Target: "Machines::Ops",
 		})
 		edited := strings.Replace(debugMachine, "attribute def Halt;", "attribute def Halt { attribute why : Integer; }", 1)
-		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: edited}}, 2)
+		applyFullChange(ctx, s, uriToName(docURI), edited, 2)
 		if reason := lastEnd(t, rec, snap.Session).Reason; !strings.Contains(reason, "Machines::Halt was edited") {
 			t.Errorf("reason = %q, want it to name Machines::Halt", reason)
 		}
@@ -2038,7 +2016,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "DepViews::opsView", Target: "Deps::Ops",
 		})
 		edited := strings.Replace(debugReads, "boost : Integer = 7", "boost : Integer = 8", 1)
-		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: edited}}, 2)
+		applyFullChange(ctx, s, uriToName(docURI), edited, 2)
 		if changed := rec.debugChanged(); len(changed) != 1 || changed[0].State == debugEnded {
 			t.Fatalf("debugChanged after editing a value the run has not read = %v", changed)
 		}
@@ -2062,7 +2040,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 		if sent.State == debugEnded {
 			t.Fatalf("send naming an unchanged value = %s", describe(sent))
 		}
-		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: edited}}, 2)
+		applyFullChange(ctx, s, uriToName(docURI), edited, 2)
 		if reason := lastEnd(t, rec, snap.Session).Reason; !strings.Contains(reason, "Consts::boost was edited") {
 			t.Errorf("reason = %q, want it to name Consts::boost", reason)
 		}
@@ -2083,7 +2061,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 			snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "DepViews::opsView", Target: "Deps::Ops", Object: "Deps::Bots::Robot",
 			})
-			s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugReads, tc.old, tc.new, 1)}}, 2)
+			applyFullChange(ctx, s, uriToName(docURI), strings.Replace(debugReads, tc.old, tc.new, 1), 2)
 			changed := rec.debugChanged()
 			if len(changed) != 1 || changed[0].Session != snap.Session || changed[0].State == debugEnded {
 				t.Fatalf("debugChanged after the edit = %v", changed)

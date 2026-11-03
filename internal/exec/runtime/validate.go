@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -310,7 +312,7 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 			w.unread = append(w.unread, fmt.Errorf("%s: %w", strings.Join(append(obj.path, of.Name), "."), err))
 			continue
 		}
-		for _, child := range w.heldChildren(fv, source.NameText(of.Name)) {
+		for _, child := range w.heldChildren(inst, of.Name, fv) {
 			held := holding{parent: obj, name: of.Name, through: feat.Symbol, owner: feat.OwnerType}
 			if reached, ok := w.visited[child.inst.ID]; ok {
 				reached.holdings = append(reached.holdings, held)
@@ -373,21 +375,24 @@ type heldChild struct {
 }
 
 // heldChildren lists the objects a feature value holds, each under its segment.
-func (w *validationWalk) heldChildren(fv *FeatureValue, segment string) []heldChild {
+func (w *validationWalk) heldChildren(holder *Instance, feature string, fv *FeatureValue) []heldChild {
 	var out []heldChild
-	reach := func(val Value, segment string) {
+	named := w.ctx.segmenter(holder)
+	reach := func(val Value, i int) {
 		id, ok := val.Object()
 		if !ok || w.ctx.HoldsNoValue(val) {
 			return
 		}
 		if child, ok := w.ctx.Instance(id); ok {
+			segment, _ := named.segment(feature, id, i)
 			out = append(out, heldChild{&validatedObject{inst: child}, segment})
 		}
 	}
 	if fv.Values.Kind == ValInvalid {
-		reach(fv.Value, segment)
+		reach(fv.Value, -1)
 		return out
 	}
+	segment := source.NameText(feature)
 	var elements []Value
 	switch fv.Values.Kind {
 	case ValSequence:
@@ -405,7 +410,7 @@ func (w *validationWalk) heldChildren(fv *FeatureValue, segment string) []heldCh
 		}
 	}
 	for i, val := range elements {
-		reach(val, indexedSegment(segment, i))
+		reach(val, i)
 	}
 	return out
 }
@@ -421,20 +426,41 @@ func (ctx *Context) carriedVerdicts(obj *validatedObject) ([]ObjectVerdict, []*S
 		verdicts = append(verdicts, typeVerdicts...)
 		stated = append(stated, typeStated...)
 	}
-	verdicts = append(verdicts, ctx.bindingVerdicts(obj, seen)...)
+	verdicts = append(verdicts, ctx.bindingVerdicts(obj)...)
 	return verdicts, stated
+}
+
+// boundEnds identifies a binding by its declaration and the features it binds: one
+// declaration a connector definition owns binds different features through each
+// connector usage of the definition, and each is checked.
+type boundEnds struct {
+	decl *ast.Usage
+	ends string
+}
+
+func boundEndsOf(binding lower.Binding) boundEnds {
+	paths := make([]string, len(binding.Ends))
+	for i, end := range binding.Ends {
+		paths[i] = end.Path
+	}
+	return boundEnds{decl: binding.Decl, ends: strings.Join(paths, "\x00")}
 }
 
 // bindingVerdicts checks every constraining binding the object's types carry: one the
 // runtime applies as an identity of its ends needs no verdict, one it cannot is checked.
-func (ctx *Context) bindingVerdicts(obj *validatedObject, seen map[*ast.Usage]bool) []ObjectVerdict {
+func (ctx *Context) bindingVerdicts(obj *validatedObject) []ObjectVerdict {
 	var verdicts []ObjectVerdict
+	seen := map[boundEnds]bool{}
 	for _, typ := range obj.inst.types() {
 		for _, binding := range ctx.objectBindings(typ) {
-			if binding.Decl == nil || seen[binding.Decl] || ctx.bindingLinksNothing(binding) {
+			if binding.Decl == nil || ctx.bindingLinksNothing(binding) {
 				continue
 			}
-			seen[binding.Decl] = true
+			key := boundEndsOf(binding)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
 			sym := memberSymbol(binding.Scope, binding.Decl)
 			constrains, err := ctx.constrainingBinding(obj.inst, binding)
 			if err == nil && !constrains {

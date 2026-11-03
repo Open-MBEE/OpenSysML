@@ -1,0 +1,1 @@
+- Node client: `save(model, path, options)` takes the `idForm` and `includeLibraryStubs` options `convert` takes, as its `SaveOptions`, and hands them to `Model.convert` unchanged, with the same refusals and capability gates.

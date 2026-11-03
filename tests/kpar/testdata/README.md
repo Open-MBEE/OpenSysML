@@ -43,3 +43,18 @@ sysand build .sysand/lib/mbse4u-sysmod_5.1.4   # writes sysmod-5.1.4.kpar
   path, as the normative `Meta` schema has it, and `"algorithm": "NONE"` with an
   empty value for every model file, recording no digest. The tests read it as
   metadata and as the `.meta.json` of an archive whose members it names.
+
+## `syspi/`
+
+A project as the [SysPI](https://github.com/Open-MBEE/SysPI) package manager
+lays one out after `syspi init -name app && syspi add
+pkg:git/github.com/MBSE4U/sysmod-sysmlv2@5.1.6`: the project's own
+`.project.json`, whose usage is the ECMA-427 package URL the tool writes
+(`pkg:generic/sysmod-sysmlv2?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2FMBSE4U%2Fsysmod-sysmlv2%405.1.6`),
+its `.project.lock.json` (not read by OpenSysML, kept as the tool leaves it) and
+the installed project under `lib/mbse4u-sysmod_5.1.6/` with the `.project.json`
+of [MBSE4U/sysmod-sysmlv2](https://github.com/MBSE4U/sysmod-sysmlv2) at tag
+`5.1.6` (Apache-2.0), unchanged. The repository's model files are replaced by a
+one-declaration `SYSMOD.sysml`, and `App.sysml` imports it: the repository path
+spells `MBSE4U/sysmod-sysmlv2` while the installed project is publisher
+`mbse4u`, name `sysmod`, so the usage is linked by elimination.

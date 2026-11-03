@@ -25,35 +25,35 @@ func TestInitializeAdvertisesCapabilities(t *testing.T) {
 	if !ok {
 		t.Fatalf("TextDocumentSync = %T, want *protocol.TextDocumentSyncOptions", res.Capabilities.TextDocumentSync)
 	}
-	if !sync.OpenClose {
+	if !padded(sync.OpenClose) {
 		t.Error("OpenClose = false, want true")
 	}
-	if sync.Change != protocol.TextDocumentSyncKindIncremental {
+	if sync.Change == nil || *sync.Change != protocol.TextDocumentSyncKindIncremental {
 		t.Errorf("Change = %v, want Incremental", sync.Change)
 	}
 	// A client only sends didSave when the server asks for it.
 	if sync.Save == nil {
 		t.Error("Save not advertised, so didSave never arrives")
 	}
-	if res.Capabilities.HoverProvider != true {
+	if res.Capabilities.HoverProvider != protocol.Boolean(true) {
 		t.Error("HoverProvider not advertised")
 	}
-	if res.Capabilities.DefinitionProvider != true {
+	if res.Capabilities.DefinitionProvider != protocol.Boolean(true) {
 		t.Error("DefinitionProvider not advertised")
 	}
-	if res.Capabilities.ReferencesProvider != true {
+	if res.Capabilities.ReferencesProvider != protocol.Boolean(true) {
 		t.Error("ReferencesProvider not advertised")
 	}
-	if res.Capabilities.DocumentSymbolProvider != true {
+	if res.Capabilities.DocumentSymbolProvider != protocol.Boolean(true) {
 		t.Error("DocumentSymbolProvider not advertised")
 	}
-	if res.Capabilities.WorkspaceSymbolProvider != true {
+	if res.Capabilities.WorkspaceSymbolProvider != protocol.Boolean(true) {
 		t.Error("WorkspaceSymbolProvider not advertised")
 	}
-	if res.Capabilities.DocumentFormattingProvider != true {
+	if res.Capabilities.DocumentFormattingProvider != protocol.Boolean(true) {
 		t.Error("DocumentFormattingProvider not advertised")
 	}
-	if res.Capabilities.DocumentRangeFormattingProvider != true {
+	if res.Capabilities.DocumentRangeFormattingProvider != protocol.Boolean(true) {
 		t.Error("DocumentRangeFormattingProvider not advertised")
 	}
 	if cp := res.Capabilities.CompletionProvider; cp == nil {
@@ -129,35 +129,28 @@ func TestExitEndsTheSessionWithTheStatusLSPRequires(t *testing.T) {
 // A notification after shutdown carries no id to refuse, so it never reaches the
 // handlers at all — before shutdown the same notification does.
 func TestNotificationAfterShutdownIsDropped(t *testing.T) {
-	didOpen, err := jsonrpc2.NewNotification(protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+	didOpen := protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI: "file:///tmp/dropped.sysml", LanguageID: "sysml", Version: 1, Text: "package P;\n",
 		},
-	})
-	if err != nil {
-		t.Fatalf("NewNotification: %v", err)
 	}
-	shutdown, err := jsonrpc2.NewCall(jsonrpc2.NewNumberID(1), protocol.MethodShutdown, nil)
-	if err != nil {
-		t.Fatalf("NewCall: %v", err)
-	}
-	reply := func(ctx context.Context, result any, err error) error { return nil }
 
 	for _, shutDown := range []bool{false, true} {
 		served := false
 		s := NewServer(model.NewWorkspace())
-		handler := s.lifecycleHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
+		handler := s.lifecycleHandler(func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
 			served = true
-			return reply(ctx, nil, nil)
+			return nil, nil
 		})
+		d := newDispatcher(t, handler)
 		if shutDown {
-			if err := handler(context.Background(), reply, shutdown); err != nil {
+			if _, err := d.call(context.Background(), protocol.MethodShutdown, nil); err != nil {
 				t.Fatalf("shutdown: %v", err)
 			}
 			served = false
 		}
-		if err := handler(context.Background(), reply, didOpen); err != nil {
-			t.Fatalf("didOpen: %v", err)
+		if h := d.notify(t, context.Background(), protocol.MethodTextDocumentDidOpen, didOpen); h.err != nil {
+			t.Fatalf("didOpen: %v", h.err)
 		}
 		if served == shutDown {
 			t.Errorf("didOpen reached the handlers = %v with shutdown = %v", served, shutDown)
@@ -252,14 +245,11 @@ func TestInitializeReportsTheServerVersion(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Initialize error: %v", err)
 			}
-			if res.ServerInfo == nil {
-				t.Fatal("ServerInfo = nil")
-			}
 			if res.ServerInfo.Name != "sysml-lsp" {
 				t.Errorf("ServerInfo.Name = %q, want %q", res.ServerInfo.Name, "sysml-lsp")
 			}
-			if res.ServerInfo.Version != tc.want {
-				t.Errorf("ServerInfo.Version = %q, want %q", res.ServerInfo.Version, tc.want)
+			if optString(res.ServerInfo.Version) != tc.want {
+				t.Errorf("ServerInfo.Version = %q, want %q", optString(res.ServerInfo.Version), tc.want)
 			}
 		})
 	}

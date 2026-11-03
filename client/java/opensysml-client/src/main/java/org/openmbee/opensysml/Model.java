@@ -4,7 +4,6 @@ import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.proto.ApplyEditsRequest;
 import org.openmbee.opensysml.proto.ApplyEditsResponse;
 import org.openmbee.opensysml.proto.ConvertRequest;
-import org.openmbee.opensysml.proto.ConvertResponse;
 import org.openmbee.opensysml.proto.DiagnosticsRequest;
 import org.openmbee.opensysml.proto.DiagnosticsResponse;
 import org.openmbee.opensysml.proto.EvaluateCalcRequest;
@@ -101,6 +100,9 @@ import java.util.TreeSet;
  * what the call needs.
  */
 public final class Model {
+  /** {@code importAs} of {@link #importData(List, String, boolean, boolean)}: each row sets the features of the element it names. */
+  public static final String IMPORT_AS_VALUES = "values";
+
   private static final String EXPLORE = "explore";
   private static final String NAME_SUBJECT_SYMBOL_ID = "subjectSymbolId";
   private static final String NAME_SYMBOL_ID = "symbolId";
@@ -114,10 +116,11 @@ public final class Model {
   private final List<Symbol> roots;
   private final List<Diagnostic> parseDiagnostics;
   private final List<String> documents;
+  private final List<String> affected;
   private final Optional<String> engine;
 
   Model(Connection connection, String hash, List<Symbol> roots, List<Diagnostic> parseDiagnostics) {
-    this(connection, hash, roots, parseDiagnostics, List.of(), Optional.empty());
+    this(connection, hash, roots, parseDiagnostics, List.of(), List.of(), Optional.empty());
   }
 
   Model(
@@ -126,7 +129,17 @@ public final class Model {
       List<Symbol> roots,
       List<Diagnostic> parseDiagnostics,
       List<String> documents) {
-    this(connection, hash, roots, parseDiagnostics, documents, Optional.empty());
+    this(connection, hash, roots, parseDiagnostics, documents, List.of(), Optional.empty());
+  }
+
+  Model(
+      Connection connection,
+      String hash,
+      List<Symbol> roots,
+      List<Diagnostic> parseDiagnostics,
+      List<String> documents,
+      List<String> affected) {
+    this(connection, hash, roots, parseDiagnostics, documents, affected, Optional.empty());
   }
 
   private Model(
@@ -135,12 +148,14 @@ public final class Model {
       List<Symbol> roots,
       List<Diagnostic> parseDiagnostics,
       List<String> documents,
+      List<String> affected,
       Optional<String> engine) {
     this.connection = connection;
     this.hash = hash;
     this.roots = List.copyOf(roots);
     this.parseDiagnostics = List.copyOf(parseDiagnostics);
     this.documents = List.copyOf(documents);
+    this.affected = List.copyOf(affected);
     this.engine = engine;
   }
 
@@ -202,6 +217,19 @@ public final class Model {
    */
   public List<String> documents() {
     return documents;
+  }
+
+  /**
+   * The documents whose analysis, diagnostics or conversion may differ from the base model's, in
+   * document order and named as {@link #documents()} names them, when {@link
+   * Connection#parseSources(List, ParseOptions)} was given a {@link ParseOptions#baseModelHash()}:
+   * a caller keeps what it computed for the others. Every document when the service could not
+   * compare the two, such as for a set it had not seen before; empty for a parse without a base.
+   *
+   * @return the affected document names
+   */
+  public List<String> affected() {
+    return affected;
   }
 
   /**
@@ -277,7 +305,8 @@ public final class Model {
     if (engine.equals(EXPLORE)) {
       connection.capabilities().require(Capabilities.SCHEDULE_EXPLORE);
     }
-    return new Model(connection, hash, roots, parseDiagnostics, documents, Optional.of(engine));
+    return new Model(
+        connection, hash, roots, parseDiagnostics, documents, affected, Optional.of(engine));
   }
 
   /**
@@ -638,13 +667,16 @@ public final class Model {
    * @param inputs values for its input parameters, by name
    * @param options the schedule the run resolves its choice points under and the object performing
    *     it; an exploring schedule belongs to {@link #exploreAction}
-   * @return the outputs it produced
-   * @throws IllegalArgumentException if the schedule explores or a state trace is requested
-   * @throws ModelException if the action could not be executed
+   * @return the outputs it produced, with its trace when one was asked for
+   * @throws IllegalArgumentException if the schedule explores, or events are given without a
+   *     performer
+   * @throws ModelException if the action could not be executed; a traced failure carries its
+   *     partial trace
    * @throws ServiceException if the service does not hold this model, or the schedule names no
    *     policy
    * @throws CapabilityException if a schedule is named and the service does not advertise {@code
-   *     schedule}, or a performer and it does not advertise {@code performer}
+   *     schedule}, a performer and it does not advertise {@code performer}, or a trace and it does
+   *     not advertise {@code action_trace}
    */
   public ActionRun executeAction(
       String actionSymbolId, Map<String, Value> inputs, ExecutionOptions options) {
@@ -694,15 +726,24 @@ public final class Model {
     Objects.requireNonNull(actionSymbolId, "actionSymbolId");
     Objects.requireNonNull(inputs, "inputs");
     Objects.requireNonNull(options, NAME_OPTIONS);
+    if (explore && (options.trace() || !options.events().isEmpty())) {
+      throw new IllegalArgumentException("a trace or events describe one run, not an exploration");
+    }
+    if (!options.events().isEmpty() && options.performer().isEmpty()) {
+      throw new IllegalArgumentException(
+          "events are posted to the object performing the action: name one with withPerformer");
+    }
     if (options.trace()) {
-      throw new IllegalArgumentException("a state trace is only valid for a state run");
+      connection.capabilities().require(Capabilities.ACTION_TRACE);
     }
     ExecuteActionRequest.Builder request =
         ExecuteActionRequest.newBuilder()
             .setModelHash(hash)
             .setActionSymbolId(actionSymbolId)
             .putAllInputs(Protos.protos(inputs, connection.capabilities()))
-            .setSchedule(schedule(options, explore));
+            .setSchedule(schedule(options, explore))
+            .setTrace(options.trace())
+            .addAllEvents(options.events());
     options.performer().ifPresent(request::setPerformerSymbolId);
     options.advance().ifPresent(request::setAdvance);
     options.seed().ifPresent(request::setSeed);
@@ -715,8 +756,8 @@ public final class Model {
           response.getError(),
           FailureReason.UNSPECIFIED,
           Protos.diagnostics(response.getDiagnosticsList()),
-          List.of(),
-          0,
+          Protos.documentEvents(response.getTraceList()),
+          response.getTraceDropped(),
           response.getFinalTime());
     }
     return response;
@@ -798,6 +839,10 @@ public final class Model {
     Objects.requireNonNull(stateMachineSymbolId, "stateMachineSymbolId");
     Objects.requireNonNull(events, "events");
     Objects.requireNonNull(options, NAME_OPTIONS);
+    if (!options.events().isEmpty()) {
+      throw new IllegalArgumentException(
+          "a state run takes its events as an argument, not as ExecutionOptions.withEvents");
+    }
     if (options.trace() && explore) {
       throw new IllegalArgumentException("a trace describes one run, not an exploration");
     }
@@ -1295,23 +1340,7 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
   public Conversion convert(String toFormat, ConversionOptions options) {
-    Objects.requireNonNull(toFormat, "toFormat");
-    Objects.requireNonNull(options, NAME_OPTIONS);
-    connection.capabilities().require(Capabilities.CONVERT);
-    ConvertRequest.Builder request =
-        ConvertRequest.newBuilder()
-            .setModelHash(hash)
-            .setToFormat(toFormat)
-            .setTolerateSyntaxErrors(options.tolerateSyntaxErrors());
-    options.fromFormat().ifPresent(request::setFromFormat);
-    options.idForm().ifPresent(request::setIdForm);
-    ConvertResponse response =
-        connection.call("Convert", request.build(), ConvertResponse.getDefaultInstance());
-    if (!response.getError().isEmpty()) {
-      throw new ConversionException(
-          response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
-    }
-    return Protos.conversion(response);
+    return connection.converted(ConvertRequest.newBuilder().setModelHash(hash), toFormat, options);
   }
 
   /**
@@ -1855,7 +1884,22 @@ public final class Model {
    */
   public RenderedView renderView(
       String viewName, RenderViewPorts ports, List<String> show, int depth) {
+    return renderView(viewName, ports, show, depth, "");
+  }
+
+  /**
+   * Renders a view as {@link #renderView(String, RenderViewPorts, List, int)} does, folding a
+   * tree rendering's owned members into compartment rows as {@code compartments} says: {@code ""}
+   * or {@code "positioned"} (the default: only the layout-less members of a tree some Layout
+   * positions), {@code "most"} (every owned usage no Layout, nested definition or package keeps a
+   * node) or {@code "ports"} (the port usages, with the ports nested under them).
+   *
+   * @throws ServiceException if {@code compartments} is none the service knows
+   */
+  public RenderedView renderView(
+      String viewName, RenderViewPorts ports, List<String> show, int depth, String compartments) {
     Objects.requireNonNull(viewName, "viewName");
+    Objects.requireNonNull(compartments, "compartments");
     Objects.requireNonNull(ports, "ports");
     Objects.requireNonNull(show, "show");
     if (depth < 0) {
@@ -1871,6 +1915,7 @@ public final class Model {
                 .setPorts(ports.wireName())
                 .addAllShow(show)
                 .setDepth(depth)
+                .setCompartments(compartments)
                 .build(),
             RenderViewResponse.getDefaultInstance());
     return RenderedView.from(response);
@@ -1974,11 +2019,25 @@ public final class Model {
    */
   public ImportResult importData(
       List<DataImport> imports, boolean dryRun, boolean acceptDocuments) {
+    return importData(imports, IMPORT_AS_VALUES, dryRun, acceptDocuments);
+  }
+
+  /**
+   * Imports data as {@link #importData(List, boolean, boolean)} does, with {@code importAs} naming
+   * what each row is made into, as {@code -import-as} does: {@link #IMPORT_AS_VALUES} sets the
+   * features of the element the row names, and is the only form the service supports.
+   *
+   * @throws ServiceException if {@code importAs} is none the service knows
+   */
+  public ImportResult importData(
+      List<DataImport> imports, String importAs, boolean dryRun, boolean acceptDocuments) {
     Objects.requireNonNull(imports, "imports");
+    Objects.requireNonNull(importAs, "importAs");
     connection.capabilities().require(Capabilities.IMPORT_DATA);
     ImportDataRequest.Builder request =
         ImportDataRequest.newBuilder()
             .setModelHash(hash)
+            .setImportAs(importAs)
             .setImportDryRun(dryRun)
             .setAcceptDocuments(acceptDocuments);
     for (DataImport dataImport : imports) {

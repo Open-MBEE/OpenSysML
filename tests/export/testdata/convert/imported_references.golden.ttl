@@ -52,7 +52,12 @@ elmt:OtherPkg__BudgetLedger_om
     sysml:ownedMemberElement elmt:OtherPkg__BudgetLedger ;
     sysml:ownedRelatedElement elmt:OtherPkg__BudgetLedger ;
     sysml:owningRelatedElement elmt:OtherPkg ;
-    sysml:membershipOwningNamespace elmt:OtherPkg .
+    sysml:membershipOwningNamespace elmt:OtherPkg ;
+    sysml:source elmt:OtherPkg ;
+    sysml:target elmt:OtherPkg__BudgetLedger ;
+    sysml:relatedElement elmt:OtherPkg, elmt:OtherPkg__BudgetLedger ;
+    sysml:memberName "BudgetLedger" ;
+    json:relatedElement "[{\"@id\":\"OtherPkg\"},{\"@id\":\"OtherPkg__BudgetLedger\"}]" .
 
 elmt:OtherPkg__Tempo
     a sysml:EnumerationDefinition ;
@@ -92,7 +97,12 @@ elmt:OtherPkg__Tempo_om
     sysml:ownedMemberElement elmt:OtherPkg__Tempo ;
     sysml:ownedRelatedElement elmt:OtherPkg__Tempo ;
     sysml:owningRelatedElement elmt:OtherPkg ;
-    sysml:membershipOwningNamespace elmt:OtherPkg .
+    sysml:membershipOwningNamespace elmt:OtherPkg ;
+    sysml:source elmt:OtherPkg ;
+    sysml:target elmt:OtherPkg__Tempo ;
+    sysml:relatedElement elmt:OtherPkg, elmt:OtherPkg__Tempo ;
+    sysml:memberName "Tempo" ;
+    json:relatedElement "[{\"@id\":\"OtherPkg\"},{\"@id\":\"OtherPkg__Tempo\"}]" .
 
 elmt:OtherPkg__Tempo__operative
     a sysml:EnumerationUsage ;
@@ -123,7 +133,12 @@ elmt:OtherPkg__Tempo__operative_om
     sysml:ownedRelatedElement elmt:OtherPkg__Tempo__operative ;
     sysml:owningRelatedElement elmt:OtherPkg__Tempo ;
     sysml:membershipOwningNamespace elmt:OtherPkg__Tempo ;
-    sysml:ownedVariantUsage elmt:OtherPkg__Tempo__operative .
+    sysml:source elmt:OtherPkg__Tempo ;
+    sysml:target elmt:OtherPkg__Tempo__operative ;
+    sysml:relatedElement elmt:OtherPkg__Tempo, elmt:OtherPkg__Tempo__operative ;
+    sysml:memberName "operative" ;
+    sysml:ownedVariantUsage elmt:OtherPkg__Tempo__operative ;
+    json:relatedElement "[{\"@id\":\"OtherPkg__Tempo\"},{\"@id\":\"OtherPkg__Tempo__operative\"}]" .
 
 elmt:OtherPkg__Tempo__planning
     a sysml:EnumerationUsage ;
@@ -154,7 +169,12 @@ elmt:OtherPkg__Tempo__planning_om
     sysml:ownedRelatedElement elmt:OtherPkg__Tempo__planning ;
     sysml:owningRelatedElement elmt:OtherPkg__Tempo ;
     sysml:membershipOwningNamespace elmt:OtherPkg__Tempo ;
-    sysml:ownedVariantUsage elmt:OtherPkg__Tempo__planning .
+    sysml:source elmt:OtherPkg__Tempo ;
+    sysml:target elmt:OtherPkg__Tempo__planning ;
+    sysml:relatedElement elmt:OtherPkg__Tempo, elmt:OtherPkg__Tempo__planning ;
+    sysml:memberName "planning" ;
+    sysml:ownedVariantUsage elmt:OtherPkg__Tempo__planning ;
+    json:relatedElement "[{\"@id\":\"OtherPkg__Tempo\"},{\"@id\":\"OtherPkg__Tempo__planning\"}]" .
 
 elmt:OtherPkg__Inner
     a sysml:Package ;
@@ -188,7 +208,12 @@ elmt:OtherPkg__Inner_om
     sysml:ownedMemberElement elmt:OtherPkg__Inner ;
     sysml:ownedRelatedElement elmt:OtherPkg__Inner ;
     sysml:owningRelatedElement elmt:OtherPkg ;
-    sysml:membershipOwningNamespace elmt:OtherPkg .
+    sysml:membershipOwningNamespace elmt:OtherPkg ;
+    sysml:source elmt:OtherPkg ;
+    sysml:target elmt:OtherPkg__Inner ;
+    sysml:relatedElement elmt:OtherPkg, elmt:OtherPkg__Inner ;
+    sysml:memberName "Inner" ;
+    json:relatedElement "[{\"@id\":\"OtherPkg\"},{\"@id\":\"OtherPkg__Inner\"}]" .
 
 elmt:OtherPkg__Inner__Wheel
     a sysml:PartDefinition ;
@@ -221,7 +246,12 @@ elmt:OtherPkg__Inner__Wheel_om
     sysml:ownedMemberElement elmt:OtherPkg__Inner__Wheel ;
     sysml:ownedRelatedElement elmt:OtherPkg__Inner__Wheel ;
     sysml:owningRelatedElement elmt:OtherPkg__Inner ;
-    sysml:membershipOwningNamespace elmt:OtherPkg__Inner .
+    sysml:membershipOwningNamespace elmt:OtherPkg__Inner ;
+    sysml:source elmt:OtherPkg__Inner ;
+    sysml:target elmt:OtherPkg__Inner__Wheel ;
+    sysml:relatedElement elmt:OtherPkg__Inner, elmt:OtherPkg__Inner__Wheel ;
+    sysml:memberName "Wheel" ;
+    json:relatedElement "[{\"@id\":\"OtherPkg__Inner\"},{\"@id\":\"OtherPkg__Inner__Wheel\"}]" .
 
 elmt:OtherPkg__Inner__Wheel__size
     a sysml:AttributeUsage ;
@@ -238,6 +268,8 @@ elmt:OtherPkg__Inner__Wheel__size
     sysml:owningMembership elmt:OtherPkg__Inner__Wheel__size_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "size" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            attribute size;\n" .
 
@@ -250,8 +282,13 @@ elmt:OtherPkg__Inner__Wheel__size_om
     sysml:ownedRelatedElement elmt:OtherPkg__Inner__Wheel__size ;
     sysml:owningRelatedElement elmt:OtherPkg__Inner__Wheel ;
     sysml:membershipOwningNamespace elmt:OtherPkg__Inner__Wheel ;
+    sysml:source elmt:OtherPkg__Inner__Wheel ;
+    sysml:target elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:relatedElement elmt:OtherPkg__Inner__Wheel, elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:memberName "size" ;
     sysml:ownedMemberFeature elmt:OtherPkg__Inner__Wheel__size ;
-    sysml:owningType elmt:OtherPkg__Inner__Wheel .
+    sysml:owningType elmt:OtherPkg__Inner__Wheel ;
+    json:relatedElement "[{\"@id\":\"OtherPkg__Inner__Wheel\"},{\"@id\":\"OtherPkg__Inner__Wheel__size\"}]" .
 
 elmt:OtherPkg__Inner__wheels
     a sysml:PartUsage ;
@@ -283,7 +320,12 @@ elmt:OtherPkg__Inner__wheels_om
     sysml:ownedMemberElement elmt:OtherPkg__Inner__wheels ;
     sysml:ownedRelatedElement elmt:OtherPkg__Inner__wheels ;
     sysml:owningRelatedElement elmt:OtherPkg__Inner ;
-    sysml:membershipOwningNamespace elmt:OtherPkg__Inner .
+    sysml:membershipOwningNamespace elmt:OtherPkg__Inner ;
+    sysml:source elmt:OtherPkg__Inner ;
+    sysml:target elmt:OtherPkg__Inner__wheels ;
+    sysml:relatedElement elmt:OtherPkg__Inner, elmt:OtherPkg__Inner__wheels ;
+    sysml:memberName "wheels" ;
+    json:relatedElement "[{\"@id\":\"OtherPkg__Inner\"},{\"@id\":\"OtherPkg__Inner__wheels\"}]" .
 
 elmt:OtherPkg__spare
     a sysml:PartUsage ;
@@ -315,7 +357,12 @@ elmt:OtherPkg__spare_om
     sysml:ownedMemberElement elmt:OtherPkg__spare ;
     sysml:ownedRelatedElement elmt:OtherPkg__spare ;
     sysml:owningRelatedElement elmt:OtherPkg ;
-    sysml:membershipOwningNamespace elmt:OtherPkg .
+    sysml:membershipOwningNamespace elmt:OtherPkg ;
+    sysml:source elmt:OtherPkg ;
+    sysml:target elmt:OtherPkg__spare ;
+    sysml:relatedElement elmt:OtherPkg, elmt:OtherPkg__spare ;
+    sysml:memberName "spare" ;
+    json:relatedElement "[{\"@id\":\"OtherPkg\"},{\"@id\":\"OtherPkg__spare\"}]" .
 
 elmt:R90
     a sysml:Package ;
@@ -341,7 +388,7 @@ elmt:R90
 
 elmt:R90___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "R90::@0" ;
+    sysx:positionalName "R90::@0" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -373,8 +420,12 @@ elmt:R90__Ledger
     sysx:declaredKeyword "alias" ;
     sysml:memberName "Ledger" ;
     sysml:memberElement elmt:OtherPkg__BudgetLedger ;
+    sysml:source elmt:R90 ;
+    sysml:target elmt:OtherPkg__BudgetLedger ;
+    sysml:relatedElement elmt:R90, elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "    alias Ledger for OtherPkg::BudgetLedger;\n" .
+    sysx:sourceText "    alias Ledger for OtherPkg::BudgetLedger;\n" ;
+    json:relatedElement "[{\"@id\":\"R90\"},{\"@id\":\"OtherPkg__BudgetLedger\"}]" .
 
 elmt:R90__A
     a sysml:PartDefinition ;
@@ -412,7 +463,12 @@ elmt:R90__A_om
     sysml:ownedMemberElement elmt:R90__A ;
     sysml:ownedRelatedElement elmt:R90__A ;
     sysml:owningRelatedElement elmt:R90 ;
-    sysml:membershipOwningNamespace elmt:R90 .
+    sysml:membershipOwningNamespace elmt:R90 ;
+    sysml:source elmt:R90 ;
+    sysml:target elmt:R90__A ;
+    sysml:relatedElement elmt:R90, elmt:R90__A ;
+    sysml:memberName "A" ;
+    json:relatedElement "[{\"@id\":\"R90\"},{\"@id\":\"R90__A\"}]" .
 
 elmt:R90__A__custodyBudget
     a sysml:ItemUsage ;
@@ -429,6 +485,8 @@ elmt:R90__A__custodyBudget
     sysml:owningMembership elmt:R90__A__custodyBudget_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "custodyBudget" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:R90__A__custodyBudget_ft0 ;
@@ -445,8 +503,13 @@ elmt:R90__A__custodyBudget_om
     sysml:ownedRelatedElement elmt:R90__A__custodyBudget ;
     sysml:owningRelatedElement elmt:R90__A ;
     sysml:membershipOwningNamespace elmt:R90__A ;
+    sysml:source elmt:R90__A ;
+    sysml:target elmt:R90__A__custodyBudget ;
+    sysml:relatedElement elmt:R90__A, elmt:R90__A__custodyBudget ;
+    sysml:memberName "custodyBudget" ;
     sysml:ownedMemberFeature elmt:R90__A__custodyBudget ;
-    sysml:owningType elmt:R90__A .
+    sysml:owningType elmt:R90__A ;
+    json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__custodyBudget\"}]" .
 
 elmt:R90__A__t
     a sysml:AttributeUsage ;
@@ -463,6 +526,8 @@ elmt:R90__A__t
     sysml:owningMembership elmt:R90__A__t_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "t" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__Tempo ;
     sysml:value expr:R90__A__t_pvalue ;
     sysml:ownedRelationship elmt:R90__A__t_ft0, expr:R90__A__t_pvalue_om ;
@@ -482,8 +547,13 @@ elmt:R90__A__t_om
     sysml:ownedRelatedElement elmt:R90__A__t ;
     sysml:owningRelatedElement elmt:R90__A ;
     sysml:membershipOwningNamespace elmt:R90__A ;
+    sysml:source elmt:R90__A ;
+    sysml:target elmt:R90__A__t ;
+    sysml:relatedElement elmt:R90__A, elmt:R90__A__t ;
+    sysml:memberName "t" ;
     sysml:ownedMemberFeature elmt:R90__A__t ;
-    sysml:owningType elmt:R90__A .
+    sysml:owningType elmt:R90__A ;
+    json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__t\"}]" .
 
 expr:R90__A__t_pvalue
     a sysml:FeatureReferenceExpression ;
@@ -508,7 +578,11 @@ expr:R90__A__t_pvalue_preferent
     sysml:elementId "R90__A__t_pvalue_preferent" ;
     sysml:memberElement elmt:OtherPkg__Tempo__operative ;
     sysml:owner expr:R90__A__t_pvalue ;
-    sysml:owningRelatedElement expr:R90__A__t_pvalue .
+    sysml:owningRelatedElement expr:R90__A__t_pvalue ;
+    sysml:source expr:R90__A__t_pvalue ;
+    sysml:target elmt:OtherPkg__Tempo__operative ;
+    sysml:relatedElement expr:R90__A__t_pvalue, elmt:OtherPkg__Tempo__operative ;
+    json:relatedElement "[{\"@id\":\"R90__A__t_pvalue\"},{\"@id\":\"OtherPkg__Tempo__operative\"}]" .
 
 expr:R90__A__t_pvalue_pout
     a sysml:Feature ;
@@ -528,8 +602,12 @@ expr:R90__A__t_pvalue_pout_om
     sysml:ownedRelatedElement expr:R90__A__t_pvalue_pout ;
     sysml:owningRelatedElement expr:R90__A__t_pvalue ;
     sysml:membershipOwningNamespace expr:R90__A__t_pvalue ;
+    sysml:source expr:R90__A__t_pvalue ;
+    sysml:target expr:R90__A__t_pvalue_pout ;
+    sysml:relatedElement expr:R90__A__t_pvalue, expr:R90__A__t_pvalue_pout ;
     sysml:ownedMemberFeature expr:R90__A__t_pvalue_pout ;
-    sysml:ownedMemberParameter expr:R90__A__t_pvalue_pout .
+    sysml:ownedMemberParameter expr:R90__A__t_pvalue_pout ;
+    json:relatedElement "[{\"@id\":\"R90__A__t_pvalue\"},{\"@id\":\"R90__A__t_pvalue_pout\"}]" .
 
 expr:R90__A__t_pvalue_om
     a sysml:FeatureValue ;
@@ -540,8 +618,12 @@ expr:R90__A__t_pvalue_om
     sysml:ownedRelatedElement expr:R90__A__t_pvalue ;
     sysml:owningRelatedElement elmt:R90__A__t ;
     sysml:membershipOwningNamespace elmt:R90__A__t ;
+    sysml:source elmt:R90__A__t ;
+    sysml:target expr:R90__A__t_pvalue ;
+    sysml:relatedElement elmt:R90__A__t, expr:R90__A__t_pvalue ;
     sysml:featureWithValue elmt:R90__A__t ;
-    sysml:value expr:R90__A__t_pvalue .
+    sysml:value expr:R90__A__t_pvalue ;
+    json:relatedElement "[{\"@id\":\"R90__A__t\"},{\"@id\":\"R90__A__t_pvalue\"}]" .
 
 elmt:R90__A__b2
     a sysml:ItemUsage ;
@@ -558,6 +640,8 @@ elmt:R90__A__b2
     sysml:owningMembership elmt:R90__A__b2_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "b2" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:R90__A__b2_ft0 ;
@@ -574,8 +658,13 @@ elmt:R90__A__b2_om
     sysml:ownedRelatedElement elmt:R90__A__b2 ;
     sysml:owningRelatedElement elmt:R90__A ;
     sysml:membershipOwningNamespace elmt:R90__A ;
+    sysml:source elmt:R90__A ;
+    sysml:target elmt:R90__A__b2 ;
+    sysml:relatedElement elmt:R90__A, elmt:R90__A__b2 ;
+    sysml:memberName "b2" ;
     sysml:ownedMemberFeature elmt:R90__A__b2 ;
-    sysml:owningType elmt:R90__A .
+    sysml:owningType elmt:R90__A ;
+    json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__b2\"}]" .
 
 elmt:R90__A__b3
     a sysml:ItemUsage ;
@@ -592,6 +681,8 @@ elmt:R90__A__b3
     sysml:owningMembership elmt:R90__A__b3_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "b3" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:R90__A__b3_ft0 ;
@@ -608,8 +699,13 @@ elmt:R90__A__b3_om
     sysml:ownedRelatedElement elmt:R90__A__b3 ;
     sysml:owningRelatedElement elmt:R90__A ;
     sysml:membershipOwningNamespace elmt:R90__A ;
+    sysml:source elmt:R90__A ;
+    sysml:target elmt:R90__A__b3 ;
+    sysml:relatedElement elmt:R90__A, elmt:R90__A__b3 ;
+    sysml:memberName "b3" ;
     sysml:ownedMemberFeature elmt:R90__A__b3 ;
-    sysml:owningType elmt:R90__A .
+    sysml:owningType elmt:R90__A ;
+    json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__b3\"}]" .
 
 elmt:R90__A__w
     a sysml:PartUsage ;
@@ -626,6 +722,8 @@ elmt:R90__A__w
     sysml:owningMembership elmt:R90__A__w_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "w" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__Inner__Wheel ;
     sysml:subsets elmt:OtherPkg__Inner__wheels ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -646,8 +744,13 @@ elmt:R90__A__w_om
     sysml:ownedRelatedElement elmt:R90__A__w ;
     sysml:owningRelatedElement elmt:R90__A ;
     sysml:membershipOwningNamespace elmt:R90__A ;
+    sysml:source elmt:R90__A ;
+    sysml:target elmt:R90__A__w ;
+    sysml:relatedElement elmt:R90__A, elmt:R90__A__w ;
+    sysml:memberName "w" ;
     sysml:ownedMemberFeature elmt:R90__A__w ;
-    sysml:owningType elmt:R90__A .
+    sysml:owningType elmt:R90__A ;
+    json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__w\"}]" .
 
 elmt:R90__A__spare
     a sysml:ReferenceUsage ;
@@ -666,6 +769,8 @@ elmt:R90__A__spare
     sysml:declaredName "spare" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:OtherPkg__spare ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:R90__A__spare_rs ;
@@ -683,8 +788,13 @@ elmt:R90__A__spare_om
     sysml:ownedRelatedElement elmt:R90__A__spare ;
     sysml:owningRelatedElement elmt:R90__A ;
     sysml:membershipOwningNamespace elmt:R90__A ;
+    sysml:source elmt:R90__A ;
+    sysml:target elmt:R90__A__spare ;
+    sysml:relatedElement elmt:R90__A, elmt:R90__A__spare ;
+    sysml:memberName "spare" ;
     sysml:ownedMemberFeature elmt:R90__A__spare ;
-    sysml:owningType elmt:R90__A .
+    sysml:owningType elmt:R90__A ;
+    json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__spare\"}]" .
 
 elmt:R90__A__size
     a sysml:AttributeUsage ;
@@ -701,6 +811,8 @@ elmt:R90__A__size
     sysml:owningMembership elmt:R90__A__size_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "size" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute size;\n" .
 
@@ -713,8 +825,13 @@ elmt:R90__A__size_om
     sysml:ownedRelatedElement elmt:R90__A__size ;
     sysml:owningRelatedElement elmt:R90__A ;
     sysml:membershipOwningNamespace elmt:R90__A ;
+    sysml:source elmt:R90__A ;
+    sysml:target elmt:R90__A__size ;
+    sysml:relatedElement elmt:R90__A, elmt:R90__A__size ;
+    sysml:memberName "size" ;
     sysml:ownedMemberFeature elmt:R90__A__size ;
-    sysml:owningType elmt:R90__A .
+    sysml:owningType elmt:R90__A ;
+    json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__size\"}]" .
 
 elmt:R90__A__s
     a sysml:AttributeUsage ;
@@ -731,6 +848,8 @@ elmt:R90__A__s
     sysml:owningMembership elmt:R90__A__s_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "s" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:R90__A__s_pvalue ;
     sysml:ownedRelationship expr:R90__A__s_pvalue_om ;
     sysml:ownedMembership expr:R90__A__s_pvalue_om ;
@@ -746,8 +865,13 @@ elmt:R90__A__s_om
     sysml:ownedRelatedElement elmt:R90__A__s ;
     sysml:owningRelatedElement elmt:R90__A ;
     sysml:membershipOwningNamespace elmt:R90__A ;
+    sysml:source elmt:R90__A ;
+    sysml:target elmt:R90__A__s ;
+    sysml:relatedElement elmt:R90__A, elmt:R90__A__s ;
+    sysml:memberName "s" ;
     sysml:ownedMemberFeature elmt:R90__A__s ;
-    sysml:owningType elmt:R90__A .
+    sysml:owningType elmt:R90__A ;
+    json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__s\"}]" .
 
 expr:R90__A__s_pvalue
     a sysml:FeatureChainExpression ;
@@ -795,7 +919,11 @@ expr:R90__A__s_pvalue_pa0_preferent
     sysml:elementId "R90__A__s_pvalue_pa0_preferent" ;
     sysml:memberElement elmt:R90__A__w ;
     sysml:owner expr:R90__A__s_pvalue_pa0 ;
-    sysml:owningRelatedElement expr:R90__A__s_pvalue_pa0 .
+    sysml:owningRelatedElement expr:R90__A__s_pvalue_pa0 ;
+    sysml:source expr:R90__A__s_pvalue_pa0 ;
+    sysml:target elmt:R90__A__w ;
+    sysml:relatedElement expr:R90__A__s_pvalue_pa0, elmt:R90__A__w ;
+    json:relatedElement "[{\"@id\":\"R90__A__s_pvalue_pa0\"},{\"@id\":\"R90__A__w\"}]" .
 
 expr:R90__A__s_pvalue_pa0_pout
     a sysml:Feature ;
@@ -815,8 +943,12 @@ expr:R90__A__s_pvalue_pa0_pout_om
     sysml:ownedRelatedElement expr:R90__A__s_pvalue_pa0_pout ;
     sysml:owningRelatedElement expr:R90__A__s_pvalue_pa0 ;
     sysml:membershipOwningNamespace expr:R90__A__s_pvalue_pa0 ;
+    sysml:source expr:R90__A__s_pvalue_pa0 ;
+    sysml:target expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:relatedElement expr:R90__A__s_pvalue_pa0, expr:R90__A__s_pvalue_pa0_pout ;
     sysml:ownedMemberFeature expr:R90__A__s_pvalue_pa0_pout ;
-    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pa0_pout .
+    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pa0_pout ;
+    json:relatedElement "[{\"@id\":\"R90__A__s_pvalue_pa0\"},{\"@id\":\"R90__A__s_pvalue_pa0_pout\"}]" .
 
 expr:R90__A__s_pvalue_pin0
     a sysml:Feature ;
@@ -838,8 +970,12 @@ expr:R90__A__s_pvalue_pin0_om
     sysml:ownedRelatedElement expr:R90__A__s_pvalue_pin0 ;
     sysml:owningRelatedElement expr:R90__A__s_pvalue ;
     sysml:membershipOwningNamespace expr:R90__A__s_pvalue ;
+    sysml:source expr:R90__A__s_pvalue ;
+    sysml:target expr:R90__A__s_pvalue_pin0 ;
+    sysml:relatedElement expr:R90__A__s_pvalue, expr:R90__A__s_pvalue_pin0 ;
     sysml:ownedMemberFeature expr:R90__A__s_pvalue_pin0 ;
-    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pin0 .
+    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pin0 ;
+    json:relatedElement "[{\"@id\":\"R90__A__s_pvalue\"},{\"@id\":\"R90__A__s_pvalue_pin0\"}]" .
 
 expr:R90__A__s_pvalue_pa0_om
     a sysml:FeatureValue ;
@@ -850,15 +986,23 @@ expr:R90__A__s_pvalue_pa0_om
     sysml:ownedRelatedElement expr:R90__A__s_pvalue_pa0 ;
     sysml:owningRelatedElement expr:R90__A__s_pvalue_pin0 ;
     sysml:membershipOwningNamespace expr:R90__A__s_pvalue_pin0 ;
+    sysml:source expr:R90__A__s_pvalue_pin0 ;
+    sysml:target expr:R90__A__s_pvalue_pa0 ;
+    sysml:relatedElement expr:R90__A__s_pvalue_pin0, expr:R90__A__s_pvalue_pa0 ;
     sysml:featureWithValue expr:R90__A__s_pvalue_pin0 ;
-    sysml:value expr:R90__A__s_pvalue_pa0 .
+    sysml:value expr:R90__A__s_pvalue_pa0 ;
+    json:relatedElement "[{\"@id\":\"R90__A__s_pvalue_pin0\"},{\"@id\":\"R90__A__s_pvalue_pa0\"}]" .
 
 expr:R90__A__s_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "R90__A__s_pvalue_ptargetFeature" ;
     sysml:memberElement elmt:OtherPkg__Inner__Wheel__size ;
     sysml:owner expr:R90__A__s_pvalue ;
-    sysml:owningRelatedElement expr:R90__A__s_pvalue .
+    sysml:owningRelatedElement expr:R90__A__s_pvalue ;
+    sysml:source expr:R90__A__s_pvalue ;
+    sysml:target elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:relatedElement expr:R90__A__s_pvalue, elmt:OtherPkg__Inner__Wheel__size ;
+    json:relatedElement "[{\"@id\":\"R90__A__s_pvalue\"},{\"@id\":\"OtherPkg__Inner__Wheel__size\"}]" .
 
 expr:R90__A__s_pvalue_pout
     a sysml:Feature ;
@@ -878,8 +1022,12 @@ expr:R90__A__s_pvalue_pout_om
     sysml:ownedRelatedElement expr:R90__A__s_pvalue_pout ;
     sysml:owningRelatedElement expr:R90__A__s_pvalue ;
     sysml:membershipOwningNamespace expr:R90__A__s_pvalue ;
+    sysml:source expr:R90__A__s_pvalue ;
+    sysml:target expr:R90__A__s_pvalue_pout ;
+    sysml:relatedElement expr:R90__A__s_pvalue, expr:R90__A__s_pvalue_pout ;
     sysml:ownedMemberFeature expr:R90__A__s_pvalue_pout ;
-    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pout .
+    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pout ;
+    json:relatedElement "[{\"@id\":\"R90__A__s_pvalue\"},{\"@id\":\"R90__A__s_pvalue_pout\"}]" .
 
 expr:R90__A__s_pvalue_om
     a sysml:FeatureValue ;
@@ -890,8 +1038,12 @@ expr:R90__A__s_pvalue_om
     sysml:ownedRelatedElement expr:R90__A__s_pvalue ;
     sysml:owningRelatedElement elmt:R90__A__s ;
     sysml:membershipOwningNamespace elmt:R90__A__s ;
+    sysml:source elmt:R90__A__s ;
+    sysml:target expr:R90__A__s_pvalue ;
+    sysml:relatedElement elmt:R90__A__s, expr:R90__A__s_pvalue ;
     sysml:featureWithValue elmt:R90__A__s ;
-    sysml:value expr:R90__A__s_pvalue .
+    sysml:value expr:R90__A__s_pvalue ;
+    json:relatedElement "[{\"@id\":\"R90__A__s\"},{\"@id\":\"R90__A__s_pvalue\"}]" .
 
 elmt:R90__A__unresolved
     a sysml:PartUsage ;
@@ -908,6 +1060,8 @@ elmt:R90__A__unresolved
     sysml:owningMembership elmt:R90__A__unresolved_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "unresolved" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Elsewhere::Missing" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:R90__A__unresolved_ft0 ;
@@ -924,8 +1078,13 @@ elmt:R90__A__unresolved_om
     sysml:ownedRelatedElement elmt:R90__A__unresolved ;
     sysml:owningRelatedElement elmt:R90__A ;
     sysml:membershipOwningNamespace elmt:R90__A ;
+    sysml:source elmt:R90__A ;
+    sysml:target elmt:R90__A__unresolved ;
+    sysml:relatedElement elmt:R90__A, elmt:R90__A__unresolved ;
+    sysml:memberName "unresolved" ;
     sysml:ownedMemberFeature elmt:R90__A__unresolved ;
-    sysml:owningType elmt:R90__A .
+    sysml:owningType elmt:R90__A ;
+    json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__unresolved\"}]" .
 
 elmt:R90__B
     a sysml:PartDefinition ;
@@ -962,7 +1121,12 @@ elmt:R90__B_om
     sysml:ownedMemberElement elmt:R90__B ;
     sysml:ownedRelatedElement elmt:R90__B ;
     sysml:owningRelatedElement elmt:R90 ;
-    sysml:membershipOwningNamespace elmt:R90 .
+    sysml:membershipOwningNamespace elmt:R90 ;
+    sysml:source elmt:R90 ;
+    sysml:target elmt:R90__B ;
+    sysml:relatedElement elmt:R90, elmt:R90__B ;
+    sysml:memberName "B" ;
+    json:relatedElement "[{\"@id\":\"R90\"},{\"@id\":\"R90__B\"}]" .
 
 elmt:R90__B__w
     a sysml:PartUsage ;
@@ -979,6 +1143,8 @@ elmt:R90__B__w
     sysml:owningRelationship elmt:R90__B__w_om ;
     sysml:owningMembership elmt:R90__B__w_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__Inner__Wheel ;
     sysml:redefines elmt:R90__A__w ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1000,8 +1166,13 @@ elmt:R90__B__w_om
     sysml:ownedRelatedElement elmt:R90__B__w ;
     sysml:owningRelatedElement elmt:R90__B ;
     sysml:membershipOwningNamespace elmt:R90__B ;
+    sysml:source elmt:R90__B ;
+    sysml:target elmt:R90__B__w ;
+    sysml:relatedElement elmt:R90__B, elmt:R90__B__w ;
+    sysml:memberName "w" ;
     sysml:ownedMemberFeature elmt:R90__B__w ;
-    sysml:owningType elmt:R90__B .
+    sysml:owningType elmt:R90__B ;
+    json:relatedElement "[{\"@id\":\"R90__B\"},{\"@id\":\"R90__B__w\"}]" .
 
 elmt:R90__G1
     a sysml:PartDefinition ;
@@ -1034,7 +1205,12 @@ elmt:R90__G1_om
     sysml:ownedMemberElement elmt:R90__G1 ;
     sysml:ownedRelatedElement elmt:R90__G1 ;
     sysml:owningRelatedElement elmt:R90 ;
-    sysml:membershipOwningNamespace elmt:R90 .
+    sysml:membershipOwningNamespace elmt:R90 ;
+    sysml:source elmt:R90 ;
+    sysml:target elmt:R90__G1 ;
+    sysml:relatedElement elmt:R90, elmt:R90__G1 ;
+    sysml:memberName "G1" ;
+    json:relatedElement "[{\"@id\":\"R90\"},{\"@id\":\"R90__G1\"}]" .
 
 elmt:R90__G1__x
     a sysml:PartUsage ;
@@ -1051,6 +1227,8 @@ elmt:R90__G1__x
     sysml:owningMembership elmt:R90__G1__x_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "x" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        part x;\n" .
 
@@ -1063,8 +1241,13 @@ elmt:R90__G1__x_om
     sysml:ownedRelatedElement elmt:R90__G1__x ;
     sysml:owningRelatedElement elmt:R90__G1 ;
     sysml:membershipOwningNamespace elmt:R90__G1 ;
+    sysml:source elmt:R90__G1 ;
+    sysml:target elmt:R90__G1__x ;
+    sysml:relatedElement elmt:R90__G1, elmt:R90__G1__x ;
+    sysml:memberName "x" ;
     sysml:ownedMemberFeature elmt:R90__G1__x ;
-    sysml:owningType elmt:R90__G1 .
+    sysml:owningType elmt:R90__G1 ;
+    json:relatedElement "[{\"@id\":\"R90__G1\"},{\"@id\":\"R90__G1__x\"}]" .
 
 elmt:R90__G2
     a sysml:PartDefinition ;
@@ -1097,7 +1280,12 @@ elmt:R90__G2_om
     sysml:ownedMemberElement elmt:R90__G2 ;
     sysml:ownedRelatedElement elmt:R90__G2 ;
     sysml:owningRelatedElement elmt:R90 ;
-    sysml:membershipOwningNamespace elmt:R90 .
+    sysml:membershipOwningNamespace elmt:R90 ;
+    sysml:source elmt:R90 ;
+    sysml:target elmt:R90__G2 ;
+    sysml:relatedElement elmt:R90, elmt:R90__G2 ;
+    sysml:memberName "G2" ;
+    json:relatedElement "[{\"@id\":\"R90\"},{\"@id\":\"R90__G2\"}]" .
 
 elmt:R90__G2__x
     a sysml:PartUsage ;
@@ -1114,6 +1302,8 @@ elmt:R90__G2__x
     sysml:owningMembership elmt:R90__G2__x_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "x" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        part x;\n" .
 
@@ -1126,8 +1316,13 @@ elmt:R90__G2__x_om
     sysml:ownedRelatedElement elmt:R90__G2__x ;
     sysml:owningRelatedElement elmt:R90__G2 ;
     sysml:membershipOwningNamespace elmt:R90__G2 ;
+    sysml:source elmt:R90__G2 ;
+    sysml:target elmt:R90__G2__x ;
+    sysml:relatedElement elmt:R90__G2, elmt:R90__G2__x ;
+    sysml:memberName "x" ;
     sysml:ownedMemberFeature elmt:R90__G2__x ;
-    sysml:owningType elmt:R90__G2 .
+    sysml:owningType elmt:R90__G2 ;
+    json:relatedElement "[{\"@id\":\"R90__G2\"},{\"@id\":\"R90__G2__x\"}]" .
 
 elmt:R90__H
     a sysml:PartDefinition ;
@@ -1167,7 +1362,12 @@ elmt:R90__H_om
     sysml:ownedMemberElement elmt:R90__H ;
     sysml:ownedRelatedElement elmt:R90__H ;
     sysml:owningRelatedElement elmt:R90 ;
-    sysml:membershipOwningNamespace elmt:R90 .
+    sysml:membershipOwningNamespace elmt:R90 ;
+    sysml:source elmt:R90 ;
+    sysml:target elmt:R90__H ;
+    sysml:relatedElement elmt:R90, elmt:R90__H ;
+    sysml:memberName "H" ;
+    json:relatedElement "[{\"@id\":\"R90\"},{\"@id\":\"R90__H\"}]" .
 
 elmt:R90__H__x
     a sysml:PartUsage ;
@@ -1184,6 +1384,8 @@ elmt:R90__H__x
     sysml:owningRelationship elmt:R90__H__x_om ;
     sysml:owningMembership elmt:R90__H__x_om ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:R90__G2__x ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:R90__H__x_rd0 ;
@@ -1201,8 +1403,13 @@ elmt:R90__H__x_om
     sysml:ownedRelatedElement elmt:R90__H__x ;
     sysml:owningRelatedElement elmt:R90__H ;
     sysml:membershipOwningNamespace elmt:R90__H ;
+    sysml:source elmt:R90__H ;
+    sysml:target elmt:R90__H__x ;
+    sysml:relatedElement elmt:R90__H, elmt:R90__H__x ;
+    sysml:memberName "x" ;
     sysml:ownedMemberFeature elmt:R90__H__x ;
-    sysml:owningType elmt:R90__H .
+    sysml:owningType elmt:R90__H ;
+    json:relatedElement "[{\"@id\":\"R90__H\"},{\"@id\":\"R90__H__x\"}]" .
 
 elmt:R90__Run
     a sysml:StateDefinition ;
@@ -1239,11 +1446,16 @@ elmt:R90__Run_om
     sysml:ownedMemberElement elmt:R90__Run ;
     sysml:ownedRelatedElement elmt:R90__Run ;
     sysml:owningRelatedElement elmt:R90 ;
-    sysml:membershipOwningNamespace elmt:R90 .
+    sysml:membershipOwningNamespace elmt:R90 ;
+    sysml:source elmt:R90 ;
+    sysml:target elmt:R90__Run ;
+    sysml:relatedElement elmt:R90, elmt:R90__Run ;
+    sysml:memberName "Run" ;
+    json:relatedElement "[{\"@id\":\"R90\"},{\"@id\":\"R90__Run\"}]" .
 
 elmt:R90__Run___400
     a sysml:StateSubactionMembership ;
-    sysml:qualifiedName "R90::Run::@0" ;
+    sysx:positionalName "R90::Run::@0" ;
     sysx:sourceLine "42"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "42"^^xsd:integer ;
@@ -1260,7 +1472,7 @@ elmt:R90__Run___400
 elmt:R90__Run___401
     a sysml:SuccessionAsUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "R90::Run::@1" ;
+    sysx:positionalName "R90::Run::@1" ;
     sysx:sourceLine "42"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
     sysx:sourceEndLine "42"^^xsd:integer ;
@@ -1283,8 +1495,12 @@ elmt:R90__Run___401_om
     sysml:ownedRelatedElement elmt:R90__Run___401 ;
     sysml:owningRelatedElement elmt:R90__Run ;
     sysml:membershipOwningNamespace elmt:R90__Run ;
+    sysml:source elmt:R90__Run ;
+    sysml:target elmt:R90__Run___401 ;
+    sysml:relatedElement elmt:R90__Run, elmt:R90__Run___401 ;
     sysml:ownedMemberFeature elmt:R90__Run___401 ;
-    sysml:owningType elmt:R90__Run .
+    sysml:owningType elmt:R90__Run ;
+    json:relatedElement "[{\"@id\":\"R90__Run\"},{\"@id\":\"R90__Run___401\"}]" .
 
 elmt:R90__Run__idle
     a sysml:StateUsage ;
@@ -1312,13 +1528,18 @@ elmt:R90__Run__idle_om
     sysml:ownedRelatedElement elmt:R90__Run__idle ;
     sysml:owningRelatedElement elmt:R90__Run ;
     sysml:membershipOwningNamespace elmt:R90__Run ;
+    sysml:source elmt:R90__Run ;
+    sysml:target elmt:R90__Run__idle ;
+    sysml:relatedElement elmt:R90__Run, elmt:R90__Run__idle ;
+    sysml:memberName "idle" ;
     sysml:ownedMemberFeature elmt:R90__Run__idle ;
-    sysml:owningType elmt:R90__Run .
+    sysml:owningType elmt:R90__Run ;
+    json:relatedElement "[{\"@id\":\"R90__Run\"},{\"@id\":\"R90__Run__idle\"}]" .
 
 elmt:R90__Run___403
     a sysml:TransitionUsage ;
     sysml:isComposite "true"^^xsd:boolean ;
-    sysml:qualifiedName "R90::Run::@3" ;
+    sysx:positionalName "R90::Run::@3" ;
     sysx:sourceLine "44"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "44"^^xsd:integer ;
@@ -1349,8 +1570,12 @@ elmt:R90__Run___403_om
     sysml:ownedRelatedElement elmt:R90__Run___403 ;
     sysml:owningRelatedElement elmt:R90__Run ;
     sysml:membershipOwningNamespace elmt:R90__Run ;
+    sysml:source elmt:R90__Run ;
+    sysml:target elmt:R90__Run___403 ;
+    sysml:relatedElement elmt:R90__Run, elmt:R90__Run___403 ;
     sysml:ownedMemberFeature elmt:R90__Run___403 ;
-    sysml:owningType elmt:R90__Run .
+    sysml:owningType elmt:R90__Run ;
+    json:relatedElement "[{\"@id\":\"R90__Run\"},{\"@id\":\"R90__Run___403\"}]" .
 
 expr:R90__Run___403_psourcemember
     a sysml:Membership ;
@@ -1358,13 +1583,19 @@ expr:R90__Run___403_psourcemember
     sysml:owner elmt:R90__Run___403 ;
     sysml:memberElement elmt:R90__Run__idle ;
     sysml:owningRelatedElement elmt:R90__Run___403 ;
-    sysml:membershipOwningNamespace elmt:R90__Run___403 .
+    sysml:membershipOwningNamespace elmt:R90__Run___403 ;
+    sysml:source elmt:R90__Run___403 ;
+    sysml:target elmt:R90__Run__idle ;
+    sysml:relatedElement elmt:R90__Run___403, elmt:R90__Run__idle ;
+    json:relatedElement "[{\"@id\":\"R90__Run___403\"},{\"@id\":\"R90__Run__idle\"}]" .
 
 elmt:R90__Run___403_linkparam
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__Run___403_linkparam" ;
     sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner elmt:R90__Run___403 ;
     sysml:owningRelationship elmt:R90__Run___403_linkparam_om ;
     sysml:owningMembership elmt:R90__Run___403_linkparam_om .
@@ -1378,8 +1609,12 @@ elmt:R90__Run___403_linkparam_om
     sysml:ownedRelatedElement elmt:R90__Run___403_linkparam ;
     sysml:owningRelatedElement elmt:R90__Run___403 ;
     sysml:membershipOwningNamespace elmt:R90__Run___403 ;
+    sysml:source elmt:R90__Run___403 ;
+    sysml:target elmt:R90__Run___403_linkparam ;
+    sysml:relatedElement elmt:R90__Run___403, elmt:R90__Run___403_linkparam ;
     sysml:ownedMemberFeature elmt:R90__Run___403_linkparam ;
-    sysml:ownedMemberParameter elmt:R90__Run___403_linkparam .
+    sysml:ownedMemberParameter elmt:R90__Run___403_linkparam ;
+    json:relatedElement "[{\"@id\":\"R90__Run___403\"},{\"@id\":\"R90__Run___403_linkparam\"}]" .
 
 elmt:R90__Run___403_succession
     a sysml:SuccessionAsUsage ;
@@ -1420,7 +1655,11 @@ expr:R90__Run___403_succession_pend0_om
     sysml:ownedMemberElement expr:R90__Run___403_succession_pend0 ;
     sysml:ownedRelatedElement expr:R90__Run___403_succession_pend0 ;
     sysml:owningRelatedElement elmt:R90__Run___403_succession ;
-    sysml:membershipOwningNamespace elmt:R90__Run___403_succession .
+    sysml:membershipOwningNamespace elmt:R90__Run___403_succession ;
+    sysml:source elmt:R90__Run___403_succession ;
+    sysml:target expr:R90__Run___403_succession_pend0 ;
+    sysml:relatedElement elmt:R90__Run___403_succession, expr:R90__Run___403_succession_pend0 ;
+    json:relatedElement "[{\"@id\":\"R90__Run___403_succession\"},{\"@id\":\"R90__Run___403_succession_pend0\"}]" .
 
 expr:R90__Run___403_succession_pend1
     a sysml:ReferenceUsage ;
@@ -1443,7 +1682,11 @@ expr:R90__Run___403_succession_pend1_om
     sysml:ownedMemberElement expr:R90__Run___403_succession_pend1 ;
     sysml:ownedRelatedElement expr:R90__Run___403_succession_pend1 ;
     sysml:owningRelatedElement elmt:R90__Run___403_succession ;
-    sysml:membershipOwningNamespace elmt:R90__Run___403_succession .
+    sysml:membershipOwningNamespace elmt:R90__Run___403_succession ;
+    sysml:source elmt:R90__Run___403_succession ;
+    sysml:target expr:R90__Run___403_succession_pend1 ;
+    sysml:relatedElement elmt:R90__Run___403_succession, expr:R90__Run___403_succession_pend1 ;
+    json:relatedElement "[{\"@id\":\"R90__Run___403_succession\"},{\"@id\":\"R90__Run___403_succession_pend1\"}]" .
 
 expr:R90__Run___403_succession_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -1471,7 +1714,11 @@ elmt:R90__Run___403_succession_om
     sysml:ownedMemberElement elmt:R90__Run___403_succession ;
     sysml:ownedRelatedElement elmt:R90__Run___403_succession ;
     sysml:owningRelatedElement elmt:R90__Run___403 ;
-    sysml:membershipOwningNamespace elmt:R90__Run___403 .
+    sysml:membershipOwningNamespace elmt:R90__Run___403 ;
+    sysml:source elmt:R90__Run___403 ;
+    sysml:target elmt:R90__Run___403_succession ;
+    sysml:relatedElement elmt:R90__Run___403, elmt:R90__Run___403_succession ;
+    json:relatedElement "[{\"@id\":\"R90__Run___403\"},{\"@id\":\"R90__Run___403_succession\"}]" .
 
 elmt:R90__Done
     a sysml:StateDefinition ;
@@ -1504,7 +1751,12 @@ elmt:R90__Done_om
     sysml:ownedMemberElement elmt:R90__Done ;
     sysml:ownedRelatedElement elmt:R90__Done ;
     sysml:owningRelatedElement elmt:R90 ;
-    sysml:membershipOwningNamespace elmt:R90 .
+    sysml:membershipOwningNamespace elmt:R90 ;
+    sysml:source elmt:R90 ;
+    sysml:target elmt:R90__Done ;
+    sysml:relatedElement elmt:R90, elmt:R90__Done ;
+    sysml:memberName "Done" ;
+    json:relatedElement "[{\"@id\":\"R90\"},{\"@id\":\"R90__Done\"}]" .
 
 elmt:R90__Done__done
     a sysml:StateUsage ;
@@ -1533,8 +1785,13 @@ elmt:R90__Done__done_om
     sysml:ownedRelatedElement elmt:R90__Done__done ;
     sysml:owningRelatedElement elmt:R90__Done ;
     sysml:membershipOwningNamespace elmt:R90__Done ;
+    sysml:source elmt:R90__Done ;
+    sysml:target elmt:R90__Done__done ;
+    sysml:relatedElement elmt:R90__Done, elmt:R90__Done__done ;
+    sysml:memberName "done" ;
     sysml:ownedMemberFeature elmt:R90__Done__done ;
-    sysml:owningType elmt:R90__Done .
+    sysml:owningType elmt:R90__Done ;
+    json:relatedElement "[{\"@id\":\"R90__Done\"},{\"@id\":\"R90__Done__done\"}]" .
 
 elmt:Meta
     a sysml:Package ;
@@ -1582,7 +1839,12 @@ elmt:Meta__Safety_om
     sysml:ownedMemberElement elmt:Meta__Safety ;
     sysml:ownedRelatedElement elmt:Meta__Safety ;
     sysml:owningRelatedElement elmt:Meta ;
-    sysml:membershipOwningNamespace elmt:Meta .
+    sysml:membershipOwningNamespace elmt:Meta ;
+    sysml:source elmt:Meta ;
+    sysml:target elmt:Meta__Safety ;
+    sysml:relatedElement elmt:Meta, elmt:Meta__Safety ;
+    sysml:memberName "Safety" ;
+    json:relatedElement "[{\"@id\":\"Meta\"},{\"@id\":\"Meta__Safety\"}]" .
 
 elmt:Meta__Tagged
     a sysml:PartDefinition ;
@@ -1612,12 +1874,17 @@ elmt:Meta__Tagged_om
     sysml:ownedMemberElement elmt:Meta__Tagged ;
     sysml:ownedRelatedElement elmt:Meta__Tagged ;
     sysml:owningRelatedElement elmt:Meta ;
-    sysml:membershipOwningNamespace elmt:Meta .
+    sysml:membershipOwningNamespace elmt:Meta ;
+    sysml:source elmt:Meta ;
+    sysml:target elmt:Meta__Tagged ;
+    sysml:relatedElement elmt:Meta, elmt:Meta__Tagged ;
+    sysml:memberName "Tagged" ;
+    json:relatedElement "[{\"@id\":\"Meta\"},{\"@id\":\"Meta__Tagged\"}]" .
 
 elmt:Meta__Tagged___400
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "Meta::Tagged::@0" ;
+    sysx:positionalName "Meta::Tagged::@0" ;
     sysx:sourceLine "52"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "52"^^xsd:integer ;
@@ -1643,7 +1910,11 @@ elmt:Meta__Tagged___400_om
     sysml:ownedMemberElement elmt:Meta__Tagged___400 ;
     sysml:ownedRelatedElement elmt:Meta__Tagged___400 ;
     sysml:owningRelatedElement elmt:Meta__Tagged ;
-    sysml:membershipOwningNamespace elmt:Meta__Tagged .
+    sysml:membershipOwningNamespace elmt:Meta__Tagged ;
+    sysml:source elmt:Meta__Tagged ;
+    sysml:target elmt:Meta__Tagged___400 ;
+    sysml:relatedElement elmt:Meta__Tagged, elmt:Meta__Tagged___400 ;
+    json:relatedElement "[{\"@id\":\"Meta__Tagged\"},{\"@id\":\"Meta__Tagged___400\"}]" .
 
 elmt:Meta__Plain
     a sysml:PartDefinition ;
@@ -1670,7 +1941,12 @@ elmt:Meta__Plain_om
     sysml:ownedMemberElement elmt:Meta__Plain ;
     sysml:ownedRelatedElement elmt:Meta__Plain ;
     sysml:owningRelatedElement elmt:Meta ;
-    sysml:membershipOwningNamespace elmt:Meta .
+    sysml:membershipOwningNamespace elmt:Meta ;
+    sysml:source elmt:Meta ;
+    sysml:target elmt:Meta__Plain ;
+    sysml:relatedElement elmt:Meta, elmt:Meta__Plain ;
+    sysml:memberName "Plain" ;
+    json:relatedElement "[{\"@id\":\"Meta\"},{\"@id\":\"Meta__Plain\"}]" .
 
 elmt:Filtered
     a sysml:Package ;
@@ -1695,7 +1971,7 @@ elmt:Filtered
 
 elmt:Filtered___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "Filtered::@0" ;
+    sysx:positionalName "Filtered::@0" ;
     sysx:sourceLine "56"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "56"^^xsd:integer ;
@@ -1775,8 +2051,12 @@ expr:Filtered___400_pfilter_pin0_om
     sysml:ownedRelatedElement expr:Filtered___400_pfilter_pin0 ;
     sysml:owningRelatedElement expr:Filtered___400_pfilter ;
     sysml:membershipOwningNamespace expr:Filtered___400_pfilter ;
+    sysml:source expr:Filtered___400_pfilter ;
+    sysml:target expr:Filtered___400_pfilter_pin0 ;
+    sysml:relatedElement expr:Filtered___400_pfilter, expr:Filtered___400_pfilter_pin0 ;
     sysml:ownedMemberFeature expr:Filtered___400_pfilter_pin0 ;
-    sysml:ownedMemberParameter expr:Filtered___400_pfilter_pin0 .
+    sysml:ownedMemberParameter expr:Filtered___400_pfilter_pin0 ;
+    json:relatedElement "[{\"@id\":\"Filtered___400_pfilter\"},{\"@id\":\"Filtered___400_pfilter_pin0\"}]" .
 
 expr:Filtered___400_pfilter_pin0_ft0
     a sysml:FeatureTyping ;
@@ -1811,8 +2091,12 @@ expr:Filtered___400_pfilter_pout_om
     sysml:ownedRelatedElement expr:Filtered___400_pfilter_pout ;
     sysml:owningRelatedElement expr:Filtered___400_pfilter ;
     sysml:membershipOwningNamespace expr:Filtered___400_pfilter ;
+    sysml:source expr:Filtered___400_pfilter ;
+    sysml:target expr:Filtered___400_pfilter_pout ;
+    sysml:relatedElement expr:Filtered___400_pfilter, expr:Filtered___400_pfilter_pout ;
     sysml:ownedMemberFeature expr:Filtered___400_pfilter_pout ;
-    sysml:ownedMemberParameter expr:Filtered___400_pfilter_pout .
+    sysml:ownedMemberParameter expr:Filtered___400_pfilter_pout ;
+    json:relatedElement "[{\"@id\":\"Filtered___400_pfilter\"},{\"@id\":\"Filtered___400_pfilter_pout\"}]" .
 
 elmt:Filtered___400_fp_efm
     a sysml:ElementFilterMembership ;
@@ -1823,8 +2107,12 @@ elmt:Filtered___400_fp_efm
     sysml:ownedRelatedElement expr:Filtered___400_pfilter ;
     sysml:owningRelatedElement elmt:Filtered___400_fp ;
     sysml:membershipOwningNamespace elmt:Filtered___400_fp ;
+    sysml:source elmt:Filtered___400_fp ;
+    sysml:target expr:Filtered___400_pfilter ;
+    sysml:relatedElement elmt:Filtered___400_fp, expr:Filtered___400_pfilter ;
     sysml:visibility "private" ;
-    sysml:condition expr:Filtered___400_pfilter .
+    sysml:condition expr:Filtered___400_pfilter ;
+    json:relatedElement "[{\"@id\":\"Filtered___400_fp\"},{\"@id\":\"Filtered___400_pfilter\"}]" .
 
 elmt:Filtered__C
     a sysml:PartDefinition ;
@@ -1857,7 +2145,12 @@ elmt:Filtered__C_om
     sysml:ownedMemberElement elmt:Filtered__C ;
     sysml:ownedRelatedElement elmt:Filtered__C ;
     sysml:owningRelatedElement elmt:Filtered ;
-    sysml:membershipOwningNamespace elmt:Filtered .
+    sysml:membershipOwningNamespace elmt:Filtered ;
+    sysml:source elmt:Filtered ;
+    sysml:target elmt:Filtered__C ;
+    sysml:relatedElement elmt:Filtered, elmt:Filtered__C ;
+    sysml:memberName "C" ;
+    json:relatedElement "[{\"@id\":\"Filtered\"},{\"@id\":\"Filtered__C\"}]" .
 
 elmt:Filtered__C__other
     a sysml:AttributeUsage ;
@@ -1874,6 +2167,8 @@ elmt:Filtered__C__other
     sysml:owningMembership elmt:Filtered__C__other_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "other" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Meta__Tagged ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Filtered__C__other_ft0 ;
@@ -1890,12 +2185,17 @@ elmt:Filtered__C__other_om
     sysml:ownedRelatedElement elmt:Filtered__C__other ;
     sysml:owningRelatedElement elmt:Filtered__C ;
     sysml:membershipOwningNamespace elmt:Filtered__C ;
+    sysml:source elmt:Filtered__C ;
+    sysml:target elmt:Filtered__C__other ;
+    sysml:relatedElement elmt:Filtered__C, elmt:Filtered__C__other ;
+    sysml:memberName "other" ;
     sysml:ownedMemberFeature elmt:Filtered__C__other ;
-    sysml:owningType elmt:Filtered__C .
+    sysml:owningType elmt:Filtered__C ;
+    json:relatedElement "[{\"@id\":\"Filtered__C\"},{\"@id\":\"Filtered__C__other\"}]" .
 
 elmt:Filtered___402
     a sysml:ElementFilterMembership ;
-    sysml:qualifiedName "Filtered::@2" ;
+    sysx:positionalName "Filtered::@2" ;
     sysx:sourceLine "60"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "60"^^xsd:integer ;
@@ -1910,7 +2210,11 @@ elmt:Filtered___402
     sysml:ownedRelatedElement expr:Filtered___402_pfilter ;
     sysml:memberElement expr:Filtered___402_pfilter ;
     sysml:ownedMemberElement expr:Filtered___402_pfilter ;
-    sysx:sourceText "    filter @Safety;\n" .
+    sysml:source elmt:Filtered ;
+    sysml:target expr:Filtered___402_pfilter ;
+    sysml:relatedElement elmt:Filtered, expr:Filtered___402_pfilter ;
+    sysx:sourceText "    filter @Safety;\n" ;
+    json:relatedElement "[{\"@id\":\"Filtered\"},{\"@id\":\"Filtered___402_pfilter\"}]" .
 
 expr:Filtered___402_pfilter
     a sysml:OperatorExpression ;
@@ -1956,8 +2260,12 @@ expr:Filtered___402_pfilter_pin0_om
     sysml:ownedRelatedElement expr:Filtered___402_pfilter_pin0 ;
     sysml:owningRelatedElement expr:Filtered___402_pfilter ;
     sysml:membershipOwningNamespace expr:Filtered___402_pfilter ;
+    sysml:source expr:Filtered___402_pfilter ;
+    sysml:target expr:Filtered___402_pfilter_pin0 ;
+    sysml:relatedElement expr:Filtered___402_pfilter, expr:Filtered___402_pfilter_pin0 ;
     sysml:ownedMemberFeature expr:Filtered___402_pfilter_pin0 ;
-    sysml:ownedMemberParameter expr:Filtered___402_pfilter_pin0 .
+    sysml:ownedMemberParameter expr:Filtered___402_pfilter_pin0 ;
+    json:relatedElement "[{\"@id\":\"Filtered___402_pfilter\"},{\"@id\":\"Filtered___402_pfilter_pin0\"}]" .
 
 expr:Filtered___402_pfilter_pin0_ft0
     a sysml:FeatureTyping ;
@@ -1992,8 +2300,12 @@ expr:Filtered___402_pfilter_pout_om
     sysml:ownedRelatedElement expr:Filtered___402_pfilter_pout ;
     sysml:owningRelatedElement expr:Filtered___402_pfilter ;
     sysml:membershipOwningNamespace expr:Filtered___402_pfilter ;
+    sysml:source expr:Filtered___402_pfilter ;
+    sysml:target expr:Filtered___402_pfilter_pout ;
+    sysml:relatedElement expr:Filtered___402_pfilter, expr:Filtered___402_pfilter_pout ;
     sysml:ownedMemberFeature expr:Filtered___402_pfilter_pout ;
-    sysml:ownedMemberParameter expr:Filtered___402_pfilter_pout .
+    sysml:ownedMemberParameter expr:Filtered___402_pfilter_pout ;
+    json:relatedElement "[{\"@id\":\"Filtered___402_pfilter\"},{\"@id\":\"Filtered___402_pfilter_pout\"}]" .
 
 elmt:OtherPkg__Inner__wheels_ft0
     a sysml:FeatureTyping ;

@@ -5,7 +5,7 @@ say about where the remaining cost is. Figures below were taken on an
 `Intel Xeon Platinum 8559C`, Go 1.25, `GOMAXPROCS=8`; treat them as
 ratios rather than absolutes. Each release is measured against the one before it
 in a record under `docs/project/`; the latest is
-[release 0.11.0 against release 0.10.1](../project/performance-release-0.11.0-vs-0.10.1.md); the [0.10.1 against 0.10.0](../project/performance-release-0.10.1-vs-0.10.0.md) record precedes it and the earlier records are in the [archive](../project/archive/README.md).
+[release 0.12.0 against release 0.11.0](../project/performance-release-0.12.0-vs-0.11.0.md); the [0.11.0 against 0.10.1](../project/performance-release-0.11.0-vs-0.10.1.md) and [0.10.1 against 0.10.0](../project/performance-release-0.10.1-vs-0.10.0.md) records precede it and the earlier records are in the [archive](../project/archive/README.md).
 How far one realistic model scales — a satellite constellation with every
 spacecraft modeled to its components, from 2 to 12 800 satellites — and where
 validation, satisfaction checking and editing each stop being practical is in

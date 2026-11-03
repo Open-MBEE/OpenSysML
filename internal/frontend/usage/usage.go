@@ -35,7 +35,7 @@ type Doc struct {
 
 // OptionGroup is one titled block of the option list.
 type OptionGroup struct {
-	// Title heads the block: "Checking a model", "Deprecated".
+	// Title heads the block: "Checking a model", "General".
 	Title   string
 	Options []Option
 }

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { before, test } from "node:test";
 import {
+  AuthenticationError,
   ModelFileNotFoundError,
   SourceDocument,
   ModelNotFoundError,
@@ -90,6 +91,10 @@ test("a handshake nothing answers names the service and the status it failed wit
 });
 
 test("an RPC failure becomes the error its status names, and this client's errors pass through", () => {
+  assert.equal(statusName(Code.Unauthenticated), "UNAUTHENTICATED");
+  const unauthenticated = fromRpcError(new ConnectError("no token", Code.Unauthenticated));
+  assert.ok(unauthenticated instanceof AuthenticationError);
+  assert.equal(unauthenticated.code, "UNAUTHENTICATED");
   assert.equal(statusName(Code.Unavailable), "UNAVAILABLE");
   const unavailable = fromRpcError(new ConnectError("nothing there", Code.Unavailable));
   assert.ok(unavailable instanceof ServiceUnavailableError);

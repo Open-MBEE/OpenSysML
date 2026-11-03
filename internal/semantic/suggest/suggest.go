@@ -35,6 +35,7 @@ type Candidate struct {
 	Distance int    // edit distance from the typed name
 	InScope  bool   // the spelling resolves from the reference's scope as written
 	Library  bool   // declared by bundled library content, not by the workspace
+	Short    bool   // the spelling reaches its declaration by the short name, not the name
 }
 
 // reach ranks how the user would have to reach a candidate: a spelling that
@@ -62,9 +63,8 @@ func (c Candidate) dominates(other Candidate) bool {
 	return c.Distance < other.Distance || c.reach() < other.reach()
 }
 
-// Rank offers the candidates no other candidate rules out, closest and most
-// reachable first, at most Limit of them. Ordering is total, so the same
-// candidate set always reads the same way.
+// Rank offers the candidates no other candidate rules out, closest and most reachable
+// first, a name before a short name, at most Limit of them; the ordering is total.
 func Rank(cands []Candidate) []string {
 	offerable := make([]Candidate, 0, len(cands))
 	best := -1
@@ -91,6 +91,8 @@ func Rank(cands []Candidate) []string {
 			return a.Distance < b.Distance
 		case a.reach() != b.reach():
 			return a.reach() < b.reach()
+		case a.Short != b.Short:
+			return !a.Short
 		case len(a.Spelling) != len(b.Spelling):
 			return len(a.Spelling) < len(b.Spelling)
 		}
@@ -121,30 +123,55 @@ func dominated(c Candidate, cands []Candidate) bool {
 	return false
 }
 
-// Qualified returns the qualified names, shortest first, under which the index
-// declares the simple name name: `Integer` is declared as `ScalarValues::Integer`.
+// Qualified returns the qualified names under which the index declares the
+// simple name name, the most plausible first (see nearest): `Integer` is
+// declared as `ScalarValues::Integer`.
 func Qualified(idx *symbols.Index, name string) []string {
 	if idx == nil || name == "" {
 		return nil
 	}
-	var out []string
+	var out []qualifiedName
 	// A top-level name qualifies nothing, so it is not a suffix of itself.
-	if idx.Declaring(name) != nil {
-		out = append(out, name)
+	if decl := idx.Declaring(name); decl != nil {
+		out = append(out, qualifiedName{fqn: name, short: symbols.ShortNamed(decl, name)})
 	}
 	for _, fqn := range idx.FQNsEndingIn(name, scanLimit) {
-		if typable(fqn) && idx.Declaring(fqn) != nil {
-			out = append(out, fqn)
+		if !typable(fqn) {
+			continue
+		}
+		if decl := idx.Declaring(fqn); decl != nil {
+			out = append(out, qualifiedName{fqn: fqn, short: symbols.ShortNamed(decl, fqn)})
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		if len(out[i]) != len(out[j]) {
-			return len(out[i]) < len(out[j])
+	return nearest(out)
+}
+
+// qualifiedName is a qualified spelling of a simple name, beside whether it
+// reaches its declaration by the short name rather than the name.
+type qualifiedName struct {
+	fqn   string
+	short bool
+}
+
+// nearest keeps the Limit spellings most plausibly meant, in a total order: a name
+// before a short name (`min` is sooner a function than the minute), then the shortest.
+func nearest(names []qualifiedName) []string {
+	sort.SliceStable(names, func(i, j int) bool {
+		a, b := names[i], names[j]
+		switch {
+		case a.short != b.short:
+			return !a.short
+		case len(a.fqn) != len(b.fqn):
+			return len(a.fqn) < len(b.fqn)
 		}
-		return out[i] < out[j]
+		return a.fqn < b.fqn
 	})
-	if len(out) > Limit {
-		out = out[:Limit]
+	if len(names) > Limit {
+		names = names[:Limit]
+	}
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = n.fqn
 	}
 	return out
 }
@@ -417,23 +444,34 @@ func With(msg, word string, candidates []string) string {
 func Hint(msg, word string, candidates, unquoted []string) string {
 	seen := map[string]bool{word: true}
 	var offer []string
-	add := func(spelling string) {
-		if !seen[spelling] && len(offer) < Limit {
-			seen[spelling] = true
-			offer = append(offer, spelling)
+	add := func(spelling string, limit int) bool {
+		if seen[spelling] || len(offer) >= limit {
+			return false
+		}
+		seen[spelling] = true
+		offer = append(offer, spelling)
+		return true
+	}
+	// The quoted choices leave room for one candidate: the import a candidate
+	// earns the message is explained by a candidate it shows.
+	room := Limit
+	if len(candidates) > 0 {
+		room--
+	}
+	var quoted []string
+	for _, name := range unquoted {
+		if add(Notation(name), room) {
+			quoted = append(quoted, name)
 		}
 	}
-	for _, name := range unquoted {
-		add(Notation(name))
-	}
 	for _, c := range candidates {
-		add(c)
+		add(c, Limit)
 	}
 	if len(offer) == 0 {
 		return msg
 	}
 	msg += " — did you mean " + OrList(offer) + "?"
-	if rule := QuotingRule(unquoted); rule != "" {
+	if rule := QuotingRule(quoted); rule != "" {
 		msg += " " + rule
 	}
 	return msg

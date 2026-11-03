@@ -350,9 +350,12 @@ func TestTransitionTriggerLinksAgree(t *testing.T) {
 	moved := 0
 	for _, block := range strings.Split(stripped, "\n\n") {
 		if strings.HasPrefix(block, "elmt:T__S__t6___40trigger___401") {
+			// Its owning namespace, with the membership's ends that restate it.
 			block = strings.NewReplacer(
 				"elmt:T__S__t6___40trigger ;", "elmt:T__S__t2___40trigger ;",
 				"elmt:T__S__t6___40trigger .", "elmt:T__S__t2___40trigger .",
+				"elmt:T__S__t6___40trigger,", "elmt:T__S__t2___40trigger,",
+				`{\"@id\":\"T__S__t6___40trigger\"},`, `{\"@id\":\"T__S__t2___40trigger\"},`,
 			).Replace(block)
 			moved++
 		}

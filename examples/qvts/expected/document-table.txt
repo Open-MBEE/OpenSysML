@@ -1,0 +1,14 @@
+loaded 2 files:
+  examples/qvts/lander.sysml
+  examples/qvts/queries.sysml
+✓ package Lander
+✓ package QVTSDemo
+# Lander Mass Report
+
+*Mass values in the lander*
+
+| qualifiedName | mass |
+| --- | --- |
+| Lander::lander::cabin | 320 |
+| Lander::lander::engine | 145 |
+| Lander::lander::scienceBay |  |

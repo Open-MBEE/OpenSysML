@@ -30,7 +30,7 @@ elmt:HeadOrder
 
 elmt:HeadOrder___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "HeadOrder::@0" ;
+    sysx:positionalName "HeadOrder::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -71,7 +71,12 @@ elmt:HeadOrder__Tag_om
     sysml:ownedMemberElement elmt:HeadOrder__Tag ;
     sysml:ownedRelatedElement elmt:HeadOrder__Tag ;
     sysml:owningRelatedElement elmt:HeadOrder ;
-    sysml:membershipOwningNamespace elmt:HeadOrder .
+    sysml:membershipOwningNamespace elmt:HeadOrder ;
+    sysml:source elmt:HeadOrder ;
+    sysml:target elmt:HeadOrder__Tag ;
+    sysml:relatedElement elmt:HeadOrder, elmt:HeadOrder__Tag ;
+    sysml:memberName "Tag" ;
+    json:relatedElement "[{\"@id\":\"HeadOrder\"},{\"@id\":\"HeadOrder__Tag\"}]" .
 
 elmt:HeadOrder__Mass
     a sysml:AttributeDefinition ;
@@ -98,7 +103,12 @@ elmt:HeadOrder__Mass_om
     sysml:ownedMemberElement elmt:HeadOrder__Mass ;
     sysml:ownedRelatedElement elmt:HeadOrder__Mass ;
     sysml:owningRelatedElement elmt:HeadOrder ;
-    sysml:membershipOwningNamespace elmt:HeadOrder .
+    sysml:membershipOwningNamespace elmt:HeadOrder ;
+    sysml:source elmt:HeadOrder ;
+    sysml:target elmt:HeadOrder__Mass ;
+    sysml:relatedElement elmt:HeadOrder, elmt:HeadOrder__Mass ;
+    sysml:memberName "Mass" ;
+    json:relatedElement "[{\"@id\":\"HeadOrder\"},{\"@id\":\"HeadOrder__Mass\"}]" .
 
 elmt:HeadOrder__Base
     a sysml:PartDefinition ;
@@ -136,7 +146,12 @@ elmt:HeadOrder__Base_om
     sysml:ownedMemberElement elmt:HeadOrder__Base ;
     sysml:ownedRelatedElement elmt:HeadOrder__Base ;
     sysml:owningRelatedElement elmt:HeadOrder ;
-    sysml:membershipOwningNamespace elmt:HeadOrder .
+    sysml:membershipOwningNamespace elmt:HeadOrder ;
+    sysml:source elmt:HeadOrder ;
+    sysml:target elmt:HeadOrder__Base ;
+    sysml:relatedElement elmt:HeadOrder, elmt:HeadOrder__Base ;
+    sysml:memberName "Base" ;
+    json:relatedElement "[{\"@id\":\"HeadOrder\"},{\"@id\":\"HeadOrder__Base\"}]" .
 
 elmt:HeadOrder__Base__m
     a sysml:AttributeUsage ;
@@ -153,6 +168,8 @@ elmt:HeadOrder__Base__m
     sysml:owningMembership elmt:HeadOrder__Base__m_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "m" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:HeadOrder__Mass ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:HeadOrder__Base__m_ft0 ;
@@ -169,8 +186,13 @@ elmt:HeadOrder__Base__m_om
     sysml:ownedRelatedElement elmt:HeadOrder__Base__m ;
     sysml:owningRelatedElement elmt:HeadOrder__Base ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Base ;
+    sysml:source elmt:HeadOrder__Base ;
+    sysml:target elmt:HeadOrder__Base__m ;
+    sysml:relatedElement elmt:HeadOrder__Base, elmt:HeadOrder__Base__m ;
+    sysml:memberName "m" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Base__m ;
-    sysml:owningType elmt:HeadOrder__Base .
+    sysml:owningType elmt:HeadOrder__Base ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Base\"},{\"@id\":\"HeadOrder__Base__m\"}]" .
 
 elmt:HeadOrder__Base__n
     a sysml:AttributeUsage ;
@@ -187,6 +209,8 @@ elmt:HeadOrder__Base__n
     sysml:owningMembership elmt:HeadOrder__Base__n_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "n" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:HeadOrder__Base__n_ft0 ;
@@ -203,8 +227,13 @@ elmt:HeadOrder__Base__n_om
     sysml:ownedRelatedElement elmt:HeadOrder__Base__n ;
     sysml:owningRelatedElement elmt:HeadOrder__Base ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Base ;
+    sysml:source elmt:HeadOrder__Base ;
+    sysml:target elmt:HeadOrder__Base__n ;
+    sysml:relatedElement elmt:HeadOrder__Base, elmt:HeadOrder__Base__n ;
+    sysml:memberName "n" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Base__n ;
-    sysml:owningType elmt:HeadOrder__Base .
+    sysml:owningType elmt:HeadOrder__Base ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Base\"},{\"@id\":\"HeadOrder__Base__n\"}]" .
 
 elmt:HeadOrder__Base__p
     a sysml:AttributeUsage ;
@@ -221,6 +250,8 @@ elmt:HeadOrder__Base__p
     sysml:owningMembership elmt:HeadOrder__Base__p_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "p" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:HeadOrder__Base__p_ft0 ;
@@ -237,8 +268,13 @@ elmt:HeadOrder__Base__p_om
     sysml:ownedRelatedElement elmt:HeadOrder__Base__p ;
     sysml:owningRelatedElement elmt:HeadOrder__Base ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Base ;
+    sysml:source elmt:HeadOrder__Base ;
+    sysml:target elmt:HeadOrder__Base__p ;
+    sysml:relatedElement elmt:HeadOrder__Base, elmt:HeadOrder__Base__p ;
+    sysml:memberName "p" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Base__p ;
-    sysml:owningType elmt:HeadOrder__Base .
+    sysml:owningType elmt:HeadOrder__Base ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Base\"},{\"@id\":\"HeadOrder__Base__p\"}]" .
 
 elmt:HeadOrder__Derived
     a sysml:PartDefinition ;
@@ -279,7 +315,12 @@ elmt:HeadOrder__Derived_om
     sysml:ownedMemberElement elmt:HeadOrder__Derived ;
     sysml:ownedRelatedElement elmt:HeadOrder__Derived ;
     sysml:owningRelatedElement elmt:HeadOrder ;
-    sysml:membershipOwningNamespace elmt:HeadOrder .
+    sysml:membershipOwningNamespace elmt:HeadOrder ;
+    sysml:source elmt:HeadOrder ;
+    sysml:target elmt:HeadOrder__Derived ;
+    sysml:relatedElement elmt:HeadOrder, elmt:HeadOrder__Derived ;
+    sysml:memberName "Derived" ;
+    json:relatedElement "[{\"@id\":\"HeadOrder\"},{\"@id\":\"HeadOrder__Derived\"}]" .
 
 elmt:HeadOrder__Derived__m
     a sysml:AttributeUsage ;
@@ -296,6 +337,8 @@ elmt:HeadOrder__Derived__m
     sysml:owningRelationship elmt:HeadOrder__Derived__m_om ;
     sysml:owningMembership elmt:HeadOrder__Derived__m_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:HeadOrder__Base__m ;
     sysml:value expr:HeadOrder__Derived__m_pvalue ;
     sysml:ownedRelationship elmt:HeadOrder__Derived__m_rd0, expr:HeadOrder__Derived__m_pvalue_om ;
@@ -316,8 +359,13 @@ elmt:HeadOrder__Derived__m_om
     sysml:ownedRelatedElement elmt:HeadOrder__Derived__m ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:source elmt:HeadOrder__Derived ;
+    sysml:target elmt:HeadOrder__Derived__m ;
+    sysml:relatedElement elmt:HeadOrder__Derived, elmt:HeadOrder__Derived__m ;
+    sysml:memberName "m" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Derived__m ;
-    sysml:owningType elmt:HeadOrder__Derived .
+    sysml:owningType elmt:HeadOrder__Derived ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived\"},{\"@id\":\"HeadOrder__Derived__m\"}]" .
 
 expr:HeadOrder__Derived__m_pvalue
     a sysml:LiteralInteger ;
@@ -338,8 +386,12 @@ expr:HeadOrder__Derived__m_pvalue_om
     sysml:ownedRelatedElement expr:HeadOrder__Derived__m_pvalue ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived__m ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived__m ;
+    sysml:source elmt:HeadOrder__Derived__m ;
+    sysml:target expr:HeadOrder__Derived__m_pvalue ;
+    sysml:relatedElement elmt:HeadOrder__Derived__m, expr:HeadOrder__Derived__m_pvalue ;
     sysml:featureWithValue elmt:HeadOrder__Derived__m ;
-    sysml:value expr:HeadOrder__Derived__m_pvalue .
+    sysml:value expr:HeadOrder__Derived__m_pvalue ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__m\"},{\"@id\":\"HeadOrder__Derived__m_pvalue\"}]" .
 
 elmt:HeadOrder__Derived__n
     a sysml:AttributeUsage ;
@@ -356,6 +408,8 @@ elmt:HeadOrder__Derived__n
     sysml:owningRelationship elmt:HeadOrder__Derived__n_om ;
     sysml:owningMembership elmt:HeadOrder__Derived__n_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:redefines elmt:HeadOrder__Base__n ;
     sysml:value expr:HeadOrder__Derived__n_pvalue ;
@@ -379,8 +433,13 @@ elmt:HeadOrder__Derived__n_om
     sysml:ownedRelatedElement elmt:HeadOrder__Derived__n ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:source elmt:HeadOrder__Derived ;
+    sysml:target elmt:HeadOrder__Derived__n ;
+    sysml:relatedElement elmt:HeadOrder__Derived, elmt:HeadOrder__Derived__n ;
+    sysml:memberName "n" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Derived__n ;
-    sysml:owningType elmt:HeadOrder__Derived .
+    sysml:owningType elmt:HeadOrder__Derived ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived\"},{\"@id\":\"HeadOrder__Derived__n\"}]" .
 
 expr:HeadOrder__Derived__n_pvalue
     a sysml:LiteralInteger ;
@@ -401,8 +460,12 @@ expr:HeadOrder__Derived__n_pvalue_om
     sysml:ownedRelatedElement expr:HeadOrder__Derived__n_pvalue ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived__n ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived__n ;
+    sysml:source elmt:HeadOrder__Derived__n ;
+    sysml:target expr:HeadOrder__Derived__n_pvalue ;
+    sysml:relatedElement elmt:HeadOrder__Derived__n, expr:HeadOrder__Derived__n_pvalue ;
     sysml:featureWithValue elmt:HeadOrder__Derived__n ;
-    sysml:value expr:HeadOrder__Derived__n_pvalue .
+    sysml:value expr:HeadOrder__Derived__n_pvalue ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__n\"},{\"@id\":\"HeadOrder__Derived__n_pvalue\"}]" .
 
 elmt:HeadOrder__Derived__q
     a sysml:AttributeUsage ;
@@ -419,6 +482,8 @@ elmt:HeadOrder__Derived__q
     sysml:owningMembership elmt:HeadOrder__Derived__q_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "q" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:subsets elmt:HeadOrder__Derived__p ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -439,8 +504,13 @@ elmt:HeadOrder__Derived__q_om
     sysml:ownedRelatedElement elmt:HeadOrder__Derived__q ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:source elmt:HeadOrder__Derived ;
+    sysml:target elmt:HeadOrder__Derived__q ;
+    sysml:relatedElement elmt:HeadOrder__Derived, elmt:HeadOrder__Derived__q ;
+    sysml:memberName "q" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Derived__q ;
-    sysml:owningType elmt:HeadOrder__Derived .
+    sysml:owningType elmt:HeadOrder__Derived ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived\"},{\"@id\":\"HeadOrder__Derived__q\"}]" .
 
 elmt:HeadOrder__Derived__r
     a sysml:AttributeUsage ;
@@ -457,6 +527,8 @@ elmt:HeadOrder__Derived__r
     sysml:owningMembership elmt:HeadOrder__Derived__r_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "r" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:value expr:HeadOrder__Derived__r_pvalue ;
     sysml:ownedRelationship elmt:HeadOrder__Derived__r_ft0, expr:HeadOrder__Derived__r_pvalue_om ;
@@ -476,8 +548,13 @@ elmt:HeadOrder__Derived__r_om
     sysml:ownedRelatedElement elmt:HeadOrder__Derived__r ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:source elmt:HeadOrder__Derived ;
+    sysml:target elmt:HeadOrder__Derived__r ;
+    sysml:relatedElement elmt:HeadOrder__Derived, elmt:HeadOrder__Derived__r ;
+    sysml:memberName "r" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Derived__r ;
-    sysml:owningType elmt:HeadOrder__Derived .
+    sysml:owningType elmt:HeadOrder__Derived ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived\"},{\"@id\":\"HeadOrder__Derived__r\"}]" .
 
 expr:HeadOrder__Derived__r_pvalue
     a sysml:LiteralInteger ;
@@ -498,8 +575,12 @@ expr:HeadOrder__Derived__r_pvalue_om
     sysml:ownedRelatedElement expr:HeadOrder__Derived__r_pvalue ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived__r ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived__r ;
+    sysml:source elmt:HeadOrder__Derived__r ;
+    sysml:target expr:HeadOrder__Derived__r_pvalue ;
+    sysml:relatedElement elmt:HeadOrder__Derived__r, expr:HeadOrder__Derived__r_pvalue ;
     sysml:featureWithValue elmt:HeadOrder__Derived__r ;
-    sysml:value expr:HeadOrder__Derived__r_pvalue .
+    sysml:value expr:HeadOrder__Derived__r_pvalue ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__r\"},{\"@id\":\"HeadOrder__Derived__r_pvalue\"}]" .
 
 elmt:HeadOrder__Derived__p
     a sysml:AttributeUsage ;
@@ -516,6 +597,8 @@ elmt:HeadOrder__Derived__p
     sysml:owningRelationship elmt:HeadOrder__Derived__p_om ;
     sysml:owningMembership elmt:HeadOrder__Derived__p_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:HeadOrder__Base__p ;
     sysml:isDefault "true"^^xsd:boolean ;
     sysml:value expr:HeadOrder__Derived__p_pvalue ;
@@ -537,8 +620,13 @@ elmt:HeadOrder__Derived__p_om
     sysml:ownedRelatedElement elmt:HeadOrder__Derived__p ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:source elmt:HeadOrder__Derived ;
+    sysml:target elmt:HeadOrder__Derived__p ;
+    sysml:relatedElement elmt:HeadOrder__Derived, elmt:HeadOrder__Derived__p ;
+    sysml:memberName "p" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Derived__p ;
-    sysml:owningType elmt:HeadOrder__Derived .
+    sysml:owningType elmt:HeadOrder__Derived ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived\"},{\"@id\":\"HeadOrder__Derived__p\"}]" .
 
 expr:HeadOrder__Derived__p_pvalue
     a sysml:LiteralInteger ;
@@ -559,9 +647,13 @@ expr:HeadOrder__Derived__p_pvalue_om
     sysml:ownedRelatedElement expr:HeadOrder__Derived__p_pvalue ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived__p ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived__p ;
+    sysml:source elmt:HeadOrder__Derived__p ;
+    sysml:target expr:HeadOrder__Derived__p_pvalue ;
+    sysml:relatedElement elmt:HeadOrder__Derived__p, expr:HeadOrder__Derived__p_pvalue ;
     sysml:featureWithValue elmt:HeadOrder__Derived__p ;
     sysml:value expr:HeadOrder__Derived__p_pvalue ;
-    sysml:isDefault "true"^^xsd:boolean .
+    sysml:isDefault "true"^^xsd:boolean ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__p\"},{\"@id\":\"HeadOrder__Derived__p_pvalue\"}]" .
 
 elmt:HeadOrder__Derived__s
     a sysml:AttributeUsage ;
@@ -578,6 +670,8 @@ elmt:HeadOrder__Derived__s
     sysml:owningMembership elmt:HeadOrder__Derived__s_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "s" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:subsets elmt:HeadOrder__Derived__p ;
     sysml:multiplicity expr:HeadOrder__Derived__s_pmultiplicity ;
@@ -601,8 +695,13 @@ elmt:HeadOrder__Derived__s_om
     sysml:ownedRelatedElement elmt:HeadOrder__Derived__s ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:source elmt:HeadOrder__Derived ;
+    sysml:target elmt:HeadOrder__Derived__s ;
+    sysml:relatedElement elmt:HeadOrder__Derived, elmt:HeadOrder__Derived__s ;
+    sysml:memberName "s" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Derived__s ;
-    sysml:owningType elmt:HeadOrder__Derived .
+    sysml:owningType elmt:HeadOrder__Derived ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived\"},{\"@id\":\"HeadOrder__Derived__s\"}]" .
 
 expr:HeadOrder__Derived__s_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -623,7 +722,11 @@ expr:HeadOrder__Derived__s_pmultiplicity_om
     sysml:ownedMemberElement expr:HeadOrder__Derived__s_pmultiplicity ;
     sysml:ownedRelatedElement expr:HeadOrder__Derived__s_pmultiplicity ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived__s ;
-    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__s .
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__s ;
+    sysml:source elmt:HeadOrder__Derived__s ;
+    sysml:target expr:HeadOrder__Derived__s_pmultiplicity ;
+    sysml:relatedElement elmt:HeadOrder__Derived__s, expr:HeadOrder__Derived__s_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__s\"},{\"@id\":\"HeadOrder__Derived__s_pmultiplicity\"}]" .
 
 expr:HeadOrder__Derived__s_pupperBound
     a sysml:LiteralInteger ;
@@ -643,7 +746,11 @@ expr:HeadOrder__Derived__s_pupperBound_om
     sysml:ownedMemberElement expr:HeadOrder__Derived__s_pupperBound ;
     sysml:ownedRelatedElement expr:HeadOrder__Derived__s_pupperBound ;
     sysml:owningRelatedElement expr:HeadOrder__Derived__s_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:HeadOrder__Derived__s_pmultiplicity .
+    sysml:membershipOwningNamespace expr:HeadOrder__Derived__s_pmultiplicity ;
+    sysml:source expr:HeadOrder__Derived__s_pmultiplicity ;
+    sysml:target expr:HeadOrder__Derived__s_pupperBound ;
+    sysml:relatedElement expr:HeadOrder__Derived__s_pmultiplicity, expr:HeadOrder__Derived__s_pupperBound ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__s_pmultiplicity\"},{\"@id\":\"HeadOrder__Derived__s_pupperBound\"}]" .
 
 elmt:HeadOrder__Derived__t
     a sysml:AttributeUsage ;
@@ -660,6 +767,8 @@ elmt:HeadOrder__Derived__t
     sysml:owningMembership elmt:HeadOrder__Derived__t_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "t" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:subsets elmt:HeadOrder__Derived__p ;
     sysml:multiplicity expr:HeadOrder__Derived__t_pmultiplicity ;
@@ -684,8 +793,13 @@ elmt:HeadOrder__Derived__t_om
     sysml:ownedRelatedElement elmt:HeadOrder__Derived__t ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:source elmt:HeadOrder__Derived ;
+    sysml:target elmt:HeadOrder__Derived__t ;
+    sysml:relatedElement elmt:HeadOrder__Derived, elmt:HeadOrder__Derived__t ;
+    sysml:memberName "t" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Derived__t ;
-    sysml:owningType elmt:HeadOrder__Derived .
+    sysml:owningType elmt:HeadOrder__Derived ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived\"},{\"@id\":\"HeadOrder__Derived__t\"}]" .
 
 expr:HeadOrder__Derived__t_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -709,7 +823,11 @@ expr:HeadOrder__Derived__t_pmultiplicity_om
     sysml:ownedMemberElement expr:HeadOrder__Derived__t_pmultiplicity ;
     sysml:ownedRelatedElement expr:HeadOrder__Derived__t_pmultiplicity ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived__t ;
-    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__t .
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__t ;
+    sysml:source elmt:HeadOrder__Derived__t ;
+    sysml:target expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:relatedElement elmt:HeadOrder__Derived__t, expr:HeadOrder__Derived__t_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__t\"},{\"@id\":\"HeadOrder__Derived__t_pmultiplicity\"}]" .
 
 expr:HeadOrder__Derived__t_plowerBound
     a sysml:LiteralInteger ;
@@ -729,7 +847,11 @@ expr:HeadOrder__Derived__t_plowerBound_om
     sysml:ownedMemberElement expr:HeadOrder__Derived__t_plowerBound ;
     sysml:ownedRelatedElement expr:HeadOrder__Derived__t_plowerBound ;
     sysml:owningRelatedElement expr:HeadOrder__Derived__t_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:HeadOrder__Derived__t_pmultiplicity .
+    sysml:membershipOwningNamespace expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:source expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:target expr:HeadOrder__Derived__t_plowerBound ;
+    sysml:relatedElement expr:HeadOrder__Derived__t_pmultiplicity, expr:HeadOrder__Derived__t_plowerBound ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__t_pmultiplicity\"},{\"@id\":\"HeadOrder__Derived__t_plowerBound\"}]" .
 
 expr:HeadOrder__Derived__t_pupperBound
     a sysml:LiteralInteger ;
@@ -749,7 +871,11 @@ expr:HeadOrder__Derived__t_pupperBound_om
     sysml:ownedMemberElement expr:HeadOrder__Derived__t_pupperBound ;
     sysml:ownedRelatedElement expr:HeadOrder__Derived__t_pupperBound ;
     sysml:owningRelatedElement expr:HeadOrder__Derived__t_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:HeadOrder__Derived__t_pmultiplicity .
+    sysml:membershipOwningNamespace expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:source expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:target expr:HeadOrder__Derived__t_pupperBound ;
+    sysml:relatedElement expr:HeadOrder__Derived__t_pmultiplicity, expr:HeadOrder__Derived__t_pupperBound ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__t_pmultiplicity\"},{\"@id\":\"HeadOrder__Derived__t_pupperBound\"}]" .
 
 elmt:HeadOrder__Derived__u
     a sysml:AttributeUsage ;
@@ -766,6 +892,8 @@ elmt:HeadOrder__Derived__u
     sysml:owningMembership elmt:HeadOrder__Derived__u_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "u" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:HeadOrder__Derived__u___401, elmt:HeadOrder__Derived__u___400 ;
     sysml:ownedMembership elmt:HeadOrder__Derived__u___401_om, expr:HeadOrder__Derived__u_pmultiplicity_om, expr:HeadOrder__Derived__u_pvalue_om, elmt:HeadOrder__Derived__u___400_om ;
     sysml:ownedRelationship elmt:HeadOrder__Derived__u___401_om, elmt:HeadOrder__Derived__u_ft0, expr:HeadOrder__Derived__u_pmultiplicity_om, expr:HeadOrder__Derived__u_pvalue_om, elmt:HeadOrder__Derived__u___400_om ;
@@ -791,13 +919,18 @@ elmt:HeadOrder__Derived__u_om
     sysml:ownedRelatedElement elmt:HeadOrder__Derived__u ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:source elmt:HeadOrder__Derived ;
+    sysml:target elmt:HeadOrder__Derived__u ;
+    sysml:relatedElement elmt:HeadOrder__Derived, elmt:HeadOrder__Derived__u ;
+    sysml:memberName "u" ;
     sysml:ownedMemberFeature elmt:HeadOrder__Derived__u ;
-    sysml:owningType elmt:HeadOrder__Derived .
+    sysml:owningType elmt:HeadOrder__Derived ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived\"},{\"@id\":\"HeadOrder__Derived__u\"}]" .
 
 elmt:HeadOrder__Derived__u___401
     a sysml:MetadataUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
-    sysml:qualifiedName "HeadOrder::Derived::u::@1" ;
+    sysx:positionalName "HeadOrder::Derived::u::@1" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -823,7 +956,11 @@ elmt:HeadOrder__Derived__u___401_om
     sysml:ownedMemberElement elmt:HeadOrder__Derived__u___401 ;
     sysml:ownedRelatedElement elmt:HeadOrder__Derived__u___401 ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived__u ;
-    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u .
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u ;
+    sysml:source elmt:HeadOrder__Derived__u ;
+    sysml:target elmt:HeadOrder__Derived__u___401 ;
+    sysml:relatedElement elmt:HeadOrder__Derived__u, elmt:HeadOrder__Derived__u___401 ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__u\"},{\"@id\":\"HeadOrder__Derived__u___401\"}]" .
 
 expr:HeadOrder__Derived__u_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -844,7 +981,11 @@ expr:HeadOrder__Derived__u_pmultiplicity_om
     sysml:ownedMemberElement expr:HeadOrder__Derived__u_pmultiplicity ;
     sysml:ownedRelatedElement expr:HeadOrder__Derived__u_pmultiplicity ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived__u ;
-    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u .
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u ;
+    sysml:source elmt:HeadOrder__Derived__u ;
+    sysml:target expr:HeadOrder__Derived__u_pmultiplicity ;
+    sysml:relatedElement elmt:HeadOrder__Derived__u, expr:HeadOrder__Derived__u_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__u\"},{\"@id\":\"HeadOrder__Derived__u_pmultiplicity\"}]" .
 
 expr:HeadOrder__Derived__u_pupperBound
     a sysml:LiteralInteger ;
@@ -864,7 +1005,11 @@ expr:HeadOrder__Derived__u_pupperBound_om
     sysml:ownedMemberElement expr:HeadOrder__Derived__u_pupperBound ;
     sysml:ownedRelatedElement expr:HeadOrder__Derived__u_pupperBound ;
     sysml:owningRelatedElement expr:HeadOrder__Derived__u_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:HeadOrder__Derived__u_pmultiplicity .
+    sysml:membershipOwningNamespace expr:HeadOrder__Derived__u_pmultiplicity ;
+    sysml:source expr:HeadOrder__Derived__u_pmultiplicity ;
+    sysml:target expr:HeadOrder__Derived__u_pupperBound ;
+    sysml:relatedElement expr:HeadOrder__Derived__u_pmultiplicity, expr:HeadOrder__Derived__u_pupperBound ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__u_pmultiplicity\"},{\"@id\":\"HeadOrder__Derived__u_pupperBound\"}]" .
 
 expr:HeadOrder__Derived__u_pvalue
     a sysml:LiteralInteger ;
@@ -885,12 +1030,16 @@ expr:HeadOrder__Derived__u_pvalue_om
     sysml:ownedRelatedElement expr:HeadOrder__Derived__u_pvalue ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived__u ;
     sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u ;
+    sysml:source elmt:HeadOrder__Derived__u ;
+    sysml:target expr:HeadOrder__Derived__u_pvalue ;
+    sysml:relatedElement elmt:HeadOrder__Derived__u, expr:HeadOrder__Derived__u_pvalue ;
     sysml:featureWithValue elmt:HeadOrder__Derived__u ;
-    sysml:value expr:HeadOrder__Derived__u_pvalue .
+    sysml:value expr:HeadOrder__Derived__u_pvalue ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__u\"},{\"@id\":\"HeadOrder__Derived__u_pvalue\"}]" .
 
 elmt:HeadOrder__Derived__u___400
     a sysml:Documentation ;
-    sysml:qualifiedName "HeadOrder::Derived::u::@0" ;
+    sysx:positionalName "HeadOrder::Derived::u::@0" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "19"^^xsd:integer ;
@@ -912,7 +1061,11 @@ elmt:HeadOrder__Derived__u___400_om
     sysml:ownedMemberElement elmt:HeadOrder__Derived__u___400 ;
     sysml:ownedRelatedElement elmt:HeadOrder__Derived__u___400 ;
     sysml:owningRelatedElement elmt:HeadOrder__Derived__u ;
-    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u .
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u ;
+    sysml:source elmt:HeadOrder__Derived__u ;
+    sysml:target elmt:HeadOrder__Derived__u___400 ;
+    sysml:relatedElement elmt:HeadOrder__Derived__u, elmt:HeadOrder__Derived__u___400 ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__u\"},{\"@id\":\"HeadOrder__Derived__u___400\"}]" .
 
 elmt:HeadOrder__Base__m_ft0
     a sysml:FeatureTyping ;

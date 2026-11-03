@@ -53,7 +53,7 @@ func TestSelfCheckAppliesValidationLibraryToWorkspaceElements(t *testing.T) {
 		"validateControlNodeIsComposite":                6,
 		"validateEventOccurrenceUsageIsReference":       2,
 		"validateEnumerationDefinitionIsVariation":      1,
-		"validatePortDefinitionOwnedUsagesNotComposite": 2,
+		"validatePortDefinitionOwnedUsagesNotComposite": 4, // two port definitions and the conjugates they imply
 		"validateAttributeUsageIsReference":             7,
 	} {
 		got := 0
@@ -85,7 +85,7 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 			}
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.aliasIds->isEmpty();
+				element.multiplicity->isEmpty();
 			}
 			part def P { part c; }
 		}
@@ -139,7 +139,7 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 			private import SequenceFunctions::*;
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.aliasIds->isEmpty();
+				element.multiplicity->isEmpty();
 			}
 			part def P;
 		}
@@ -1327,5 +1327,39 @@ func TestSelfCheckVariationSpecializesNonVariation(t *testing.T) {
 	}
 	if stats.Violations != 0 {
 		t.Errorf("clean fixture produced %d violations: %+v", stats.Violations, verdicts)
+	}
+}
+
+func TestSelfCheckEvaluatesPortDefinitionRulesOnTheImpliedConjugate(t *testing.T) {
+	const src = `
+		package P {
+			port def Bus { in attribute x : ScalarValues::Real; }
+		}
+	`
+	s := NewSession()
+	result := s.SubmitFiles([]SourceFile{{Name: "conjugate_self_check.sysml", Text: src}})
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("model did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("model has errors")
+	}
+
+	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", false)
+	if stats.Unevaluated != 0 || stats.EvaluationErrors != 0 || stats.Violations != 0 {
+		t.Fatalf("self-check counts = %+v, want every check evaluated and holding", stats)
+	}
+	const rule = "SysMLValidation::validatePortDefinitionOwnedUsagesNotComposite"
+	if got := stats.Applications[rule]; got != 2 {
+		t.Errorf("%s applications = %d, want Bus and the ~Bus it implies", rule, got)
+	}
+	for _, verdict := range verdicts[:len(verdicts)-1] {
+		if strings.Contains(verdict.Subject, "~Bus") || strings.Contains(strings.Join(verdict.Lines, "\n"), "~Bus") {
+			t.Errorf("the implied conjugate drew a finding: %+v", verdict)
+		}
+	}
+	summary := verdicts[len(verdicts)-1]
+	if summary.Status != VerdictHolds || !strings.Contains(strings.Join(summary.Lines, "\n"), ", 0 unevaluated") {
+		t.Fatalf("summary = %+v, want a passing summary with no unevaluated check", summary)
 	}
 }

@@ -1,0 +1,1 @@
+- The RDF and API JSON exports state an expression body parameter's `isVariable`/`mayTimeVary` as the metamodel derives them (its owning type is the Expression, an Occurrence); the parameter's symbol is looked up by name on the body it declares, so the pair was never stated.

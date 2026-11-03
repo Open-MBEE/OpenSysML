@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ToasterViews::toasterView — interconnection rendering (render asInterconnectionDiagram) -->
+<!-- 1 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="ToasterViews-toasterView" name="ToasterViews::toasterView">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part def»&#xA;Toaster" fqn="ToasterDemo::Toaster" kind="part def" view="ToasterViews::toasterView" link="interconnection-ports.sysml:19">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="50" y="50" width="244" height="232" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part»&#xA;heating" fqn="ToasterDemo::Toaster::heating" kind="part" view="ToasterViews::toasterView" link="interconnection-ports.sysml:20">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="92" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1:n1.0" label="^durationIn" fqn="ToasterDemo::HeatingSystem::durationIn" kind="port" view="ToasterViews::toasterView" link="interconnection-ports.sysml:9">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n1">
+            <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n2" label="«part»&#xA;control" fqn="ToasterDemo::Toaster::control" kind="part" view="ToasterViews::toasterView" link="interconnection-ports.sysml:21">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="147" y="92" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2:n2.0" label="^durationOut" fqn="ToasterDemo::ControlSystem::durationOut" kind="port" view="ToasterViews::toasterView" link="interconnection-ports.sysml:13">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n2">
+            <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n3" label="«part»&#xA;chassis" fqn="ToasterDemo::Toaster::chassis" kind="part" view="ToasterViews::toasterView" link="interconnection-ports.sysml:22">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="179" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" fqn="ToasterDemo::Toaster::durationInterface" kind="connection" view="ToasterViews::toasterView" link="interconnection-ports.sysml:23">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.0833;exitPerimeter=0;entryX=0.5;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n2:n2.0" target="n1:n1.0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="237.5" y="121"/>
+                <mxPoint x="106.5" y="121"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="flow" view="ToasterViews::toasterView" link="interconnection-ports.sysml:24">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.0833;exitPerimeter=0;entryX=0.5;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n2:n2.0" target="n1:n1.0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="237.5" y="113"/>
+                <mxPoint x="106.5" y="113"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -83,6 +83,9 @@ func TestQueryElementIDIsTheIDConvertWrites(t *testing.T) {
 			for _, subject := range mappingGraph.Subjects() {
 				name, ok := mappingGraph.Lexical(subject, rdf.SysML+"qualifiedName")
 				if !ok {
+					name, ok = mappingGraph.Lexical(subject, rdf.OpenSysML+"positionalName")
+				}
+				if !ok {
 					continue
 				}
 				id, ok := rdf.SubjectID(subject)

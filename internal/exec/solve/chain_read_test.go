@@ -94,7 +94,7 @@ func TestChainPinsReportAFailedDeclaredValue(t *testing.T) {
 		!strings.HasSuffix(err.Error(), "no value for feature input") {
 		t.Errorf("UnfixedRead direct = %v, want the read on every path refused", err)
 	}
-	if _, err := ctx.CheckConstraintOn(direct.sym, direct.sym.OwnerScope, nil); !errors.Is(err, runtime.ErrNoValue) {
+	if _, err := ctx.CheckConstraintOn(direct.sym, direct.sym.OwnerScope, direct.object); !errors.Is(err, runtime.ErrNoValue) {
 		t.Errorf("evaluate direct = %v, want the evaluator failing on the same read", err)
 	}
 
@@ -179,7 +179,7 @@ func TestGuardedChainReadsDecideWhereTheEvaluatorDoes(t *testing.T) {
 	solved(t, solver, never.violation, StatusUnsat)
 	solved(t, solver, never.question.Reached(), StatusUnsat)
 	solved(t, solver, never.violation.Reached(), StatusUnsat)
-	if result, err := ctx.CheckConstraintOn(never.sym, never.sym.OwnerScope, nil); err != nil || !result.Holds {
+	if result, err := ctx.CheckConstraintOn(never.sym, never.sym.OwnerScope, never.object); err != nil || !result.Holds {
 		t.Errorf("evaluate never = %+v, %v, want holds", result, err)
 	}
 
@@ -201,7 +201,7 @@ func TestGuardedChainReadsDecideWhereTheEvaluatorDoes(t *testing.T) {
 	solved(t, solver, always.question, StatusUnsat)
 	solved(t, solver, always.violation, StatusUnsat)
 	solved(t, solver, always.question.Reached(), StatusSat)
-	if _, err := ctx.CheckConstraintOn(always.sym, always.sym.OwnerScope, nil); !errors.Is(err, runtime.ErrNoValue) {
+	if _, err := ctx.CheckConstraintOn(always.sym, always.sym.OwnerScope, always.object); !errors.Is(err, runtime.ErrNoValue) {
 		t.Errorf("evaluate always = %v, want the evaluator failing on the read", err)
 	}
 }

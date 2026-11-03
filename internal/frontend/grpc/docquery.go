@@ -470,6 +470,11 @@ func documentEvent(idx *symbols.Index, event queryexec.Event) *pb.DocumentEvent 
 		Event:   record.Event,
 		Payload: event.Payload(),
 		Text:    event.Text(),
+		Token:   event.Token(),
+		Step:    traceDroppedCountToInt32(int64(event.Step())),
+	}
+	if feature, _, ok := event.Assigned(); ok {
+		out.Feature = feature
 	}
 	if inst, label := event.Object(); inst != nil {
 		out.Object = documentObject(idx, queryexec.ObjectValue(inst, label))

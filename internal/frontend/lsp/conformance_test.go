@@ -31,7 +31,7 @@ func TestInitializeReadsTheStrictConformanceOption(t *testing.T) {
 			ws := model.NewWorkspace()
 			s := NewServer(ws)
 			if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{
-				InitializationOptions: tc.options,
+				InitializationOptions: mustLSPAny(t, tc.options),
 			}); err != nil {
 				t.Fatal(err)
 			}
@@ -48,7 +48,7 @@ func TestStrictConformanceIgnoresANonBooleanSetting(t *testing.T) {
 	ws := model.NewWorkspace(model.WithConformanceMode(diag.ConformanceStrict))
 	s := NewServer(ws)
 	if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{
-		InitializationOptions: map[string]any{"strictConformance": "yes"},
+		InitializationOptions: mustLSPAny(t, map[string]any{"strictConformance": "yes"}),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestDidChangeConfigurationRepublishesUnderTheNewMode(t *testing.T) {
 	}
 
 	if err := s.DidChangeConfiguration(context.Background(), &protocol.DidChangeConfigurationParams{
-		Settings: map[string]any{"sysml": map[string]any{"strictConformance": true}},
+		Settings: mustLSPAny(t, map[string]any{"sysml": map[string]any{"strictConformance": true}}),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestStrictConformanceSettingEscalatesIndistinguishableMemberships(t *testin
 	}
 
 	if err := s.DidChangeConfiguration(context.Background(), &protocol.DidChangeConfigurationParams{
-		Settings: map[string]any{"strictConformance": true},
+		Settings: mustLSPAny(t, map[string]any{"strictConformance": true}),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestStrictConformanceSettingEscalatesIndistinguishableMemberships(t *testin
 		t.Fatalf("strict publish = %+v, want the two duplicate-name findings", last.Diagnostics)
 	}
 	for _, d := range last.Diagnostics {
-		if d.Severity != protocol.DiagnosticSeverityError || d.Message != "Duplicate of other owned member name" {
+		if d.Severity != protocol.DiagnosticSeverityError || diagnosticMessage(t, d) != "Duplicate of other owned member name" {
 			t.Fatalf("strict publish = %+v, want two errors `Duplicate of other owned member name`", last.Diagnostics)
 		}
 	}
@@ -126,7 +126,7 @@ func TestDidChangeConfigurationIgnoresUnrelatedSettings(t *testing.T) {
 	ws.Open("a.sysml", []byte(lspExtension), 1)
 
 	if err := s.DidChangeConfiguration(context.Background(), &protocol.DidChangeConfigurationParams{
-		Settings: map[string]any{"editor": map[string]any{"tabSize": 4}},
+		Settings: mustLSPAny(t, map[string]any{"editor": map[string]any{"tabSize": 4}}),
 	}); err != nil {
 		t.Fatal(err)
 	}

@@ -726,7 +726,7 @@ func (r *Renderer) modelElements() []*symbols.Symbol {
 		members := append(slices.Clone(scope.Members()), scope.AnonymousMembers()...)
 		sort.SliceStable(members, func(i, j int) bool { return members[i].DeclSpan.Offset < members[j].DeclSpan.Offset })
 		for _, member := range members {
-			if seen[member] || member.OwnerScope != scope {
+			if seen[member] || member.OwnerScope != scope || member.Implied() {
 				continue
 			}
 			seen[member] = true

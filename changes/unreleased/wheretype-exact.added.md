@@ -1,0 +1,1 @@
+- `WhereType` takes `exact = true` to keep only the elements whose own metaclass is named — neither its subclasses nor the model's own types — as a reflective walk over the metamodel needs (`DocumentQueries` from the Extensions Library pin that declares it).

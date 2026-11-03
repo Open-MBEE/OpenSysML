@@ -71,6 +71,7 @@ type heldObjects struct {
 	mu    sync.Mutex
 	rt    *runtime.Context
 	idx   *symbols.Index
+	model *CachedModel
 	named map[string]*runtime.Instance // fqn -> the object the name denotes now
 	// displaced are objects a later Instantiate of their name displaced, still
 	// roots of their own reached by id.
@@ -108,6 +109,7 @@ func (s *Service) objects(cached *CachedModel) *heldObjects {
 		cached.objects = &heldObjects{
 			rt:    rt,
 			idx:   cached.Index,
+			model: cached,
 			named: make(map[string]*runtime.Instance),
 			runner: func(ctx context.Context) runtime.ToolRunner {
 				return s.engines.ToolRunner(ctx, rt, analysis.BudgetOf(s.budgets, schedule, analysis.Compute, s.jobs), analysis.Auto())
@@ -207,6 +209,9 @@ func (h *heldObjects) queryContext() queryexec.Context {
 		Model:    h.rt.Semantics(),
 		Runtime:  h.rt,
 		Roots:    h.roots(),
+		ElementID: func(sym *symbols.Symbol) (string, error) {
+			return queryexec.ElementIDOf(h.model.elementIDReader(), h.idx, sym)
+		},
 	}
 }
 

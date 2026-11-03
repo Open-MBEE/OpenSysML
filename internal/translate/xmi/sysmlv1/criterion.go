@@ -56,9 +56,7 @@ func (m *Model) criterion(raw string) Criterion {
 		}
 	case "makeInlineExpressionSpecification":
 		c.Kind = CriterionScript
-		if body := expr.First("body"); body != nil {
-			c.Detail = strings.TrimSpace(body.Text)
-		}
+		c.Detail = strings.TrimSpace(expr.Attr("body"))
 		if lang := expr.Attr("language"); lang != "" {
 			c.Detail = lang + ": " + c.Detail
 		}

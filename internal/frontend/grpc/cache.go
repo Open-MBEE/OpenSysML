@@ -106,11 +106,10 @@ type CachedModel struct {
 	positionalOnce sync.Once
 	positional     map[*symbols.Symbol]string
 	byPositional   map[string]*symbols.Symbol
-	// elementIDs is what a conversion of the model writes as each element's
+	// elementIDs reads what a conversion of the model writes as each element's
 	// elementId, which a query reports (queryEval.elementID).
 	elementIDsOnce sync.Once
-	elementIDs     *export.ElementIDs
-	elementIDsErr  error
+	elementIDs     *export.ElementIDReader
 
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex

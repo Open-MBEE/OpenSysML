@@ -1,0 +1,1 @@
+- `elementId` is now read for the end features a head binds (`connect a to b`, `bind`, `flow`, `succession`), which the conversion writes as end features of their own; queries and document tables over such ends no longer find the cell empty.

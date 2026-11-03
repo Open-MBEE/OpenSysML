@@ -45,7 +45,8 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   and as an F´ component
 - **[Reading installed packages](package-management.md)** — what OpenSysML reads and why it is
   only a reader: a project any package manager installs (`.project.json` at a git tag, usage IRIs
-  such as the ECMA-427 `pkg:git/<host>/<path>@<version>` or `pkg:sysand/...`) is found under the
+  such as the ECMA-427 `pkg:generic/<name>?vcs_url=…`, its `pkg:git/<host>/<path>@<version>` alias
+  or `pkg:sysand/...`) is found under the
   well-known install directories (`.sysand/lib`, a plain `lib/`, further tools' as they appear) with
   `@<version>` honoured as an exact constraint; fetching, lock files and package indexes belong to
   the package manager and never to this repository; what exists today, what sysand does, and how a

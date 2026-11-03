@@ -259,6 +259,13 @@ file with apply.
 lsp: Explain the element at a position: kind, qualified name, type, value and
 documentation.
 .TP
+.B import_diagram
+lsp: Import a draw.io file render_view wrote with form drawio and a user
+edited: moves, routes, styles, the page, note text and picture sources as
+DiagramLayout annotations in the view's body, a retyped name as a rename; the
+rest is reported; a dry run until apply (sysml \-import\-diagram, sysml
+\-view, sysml \-dry\-run).
+.TP
 .B inlay_hints
 lsp: List the inferred types and values an editor would show inline for a
 document or range.
@@ -281,7 +288,7 @@ evaluated and its diagrams embedded.
 .TP
 .B render_view
 lsp: Render a declared view or pseudo\-view of a workspace document as
-Mermaid, dot, PlantUML, D2, text or a table.
+Mermaid, dot, PlantUML, D2, draw.io, text or a table.
 .TP
 .B signature_help
 lsp: Describe the invocation enclosing a position: its parameters and the

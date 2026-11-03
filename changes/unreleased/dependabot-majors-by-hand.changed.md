@@ -1,0 +1,1 @@
+- Dependabot opens at most one grouped minor/patch pull request per ecosystem a week and no longer offers major versions; a maintainer takes each major by hand.

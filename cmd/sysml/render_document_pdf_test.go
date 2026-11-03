@@ -44,7 +44,7 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 	out := filepath.Join(dir, "report.pdf")
 
 	cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
-		"-doc-form", "pdf", "-pdf-title-page", "-pdf-toc", "-pdf-number-sections", "-o", out)
+		"-doc-form", "pdf", "-doc-title-page", "-doc-toc", "-doc-number-sections", "-o", out)
 	cmd.Env = append(os.Environ(), docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.MermaidEnv+"="+mmdc)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("render: %v\n%s", err, output)
@@ -393,7 +393,7 @@ func TestRenderDocumentPDFFlagConflicts(t *testing.T) {
 		2, "name the file to write with -o")
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-doc-form", "latex"),
 		2, "unknown document form", "markdown, asciidoc, html or pdf")
-	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-pdf-toc"),
+	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-doc-toc"),
 		2, "-doc-form pdf")
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-doc-form", "pdf", "-o", "x.pdf", "-pdf-engine", "latex"),
 		2, "unknown PDF engine", "weasyprint, pandoc, prince")

@@ -5,7 +5,7 @@ side table that resolves a position per view, the geometry the rendering tree ca
 what the Mermaid, text and Graphviz DOT writers make of it, the LSP fields, the
 validation pass, and the write-back: `internal/check/edit` sets, updates and clears the
 annotations source-preservingly, `opensysml/applyModelEdit` exposes that as `setLayout`,
-`setRoute` and `setCanvas`, and the VS Code diagram panel writes a `Layout` when a node
+`setRoute`, `setCanvas`, `setStyle`, `setNote` and `setPicture`, and the VS Code diagram panel writes a `Layout` when a node
 is dragged and a `Route` when an edge is. Open: the OMG proposal. This note records the
 design agreed for carrying diagram geometry in textual notation and how that geometry
 reaches every rendering OpenSysML produces.
@@ -373,10 +373,19 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
 
 ## Interop
 
+- **draw.io.** The `drawio` rendering form round-trips: a file it wrote and a user edited in
+  draw.io is read back by `sysml -import-diagram`, `opensysml/importDiagram`, the MCP
+  `import_diagram` tool or the VS Code *Import layout from draw.io…* command, which diff it
+  against a fresh export of the same view and write what moved as `setLayout`, `setRoute`,
+  `setStyle`, `setCanvas`, `setNote` and `setPicture` operations — the same edits the panel
+  writes, view-local by default — a retyped note or a re-pointed picture as a `setNote` or
+  `setPicture` with the new text or location, and a cell retyped with only its name changed as
+  a `rename` of the element the cell's qualified path resolves to, so a member drawn under an
+  inheritor renames its declaration ([the round trip](view-rendering-forms.md#round-trip)).
 - **Editors.** The LSP fields are what a graphical client (the VS Code diagram panel, a
   SysON-style editor) reads to place nodes where the model says. Writing positions back
-  is `opensysml/applyModelEdit` with `setLayout`, `setRoute`, `setCanvas` and `setStyle`
-  ([the LSP reference](../reference/lsp.md)): `metadata Layout about … { x = …; y = …;
+  is `opensysml/applyModelEdit` with `setLayout`, `setRoute`, `setCanvas`, `setStyle`,
+  `setNote` and `setPicture` ([the LSP reference](../reference/lsp.md)): `metadata Layout about … { x = …; y = …;
   }` into the view body when the operation names a view, inline into the element's own
   body when it does not (`{ collapsed = true; }` alone for a layout given no `x` and `y`), updated in place when one is already stated and removed with
   its line when cleared. Each annotation goes into the workspace document that declares

@@ -4,8 +4,59 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
+
+func TestOwnedFeatureMembersBorrowsAnUnaugmentedBody(t *testing.T) {
+	body := []ast.Node{&ast.Usage{}, &ast.Usage{}}
+	for _, tc := range []struct {
+		name string
+		decl ast.Node
+	}{
+		{"definition", &ast.Definition{Members: body}},
+		{"usage", &ast.Usage{Members: body}},
+		{"namespace", &ast.Namespace{Members: body}},
+		{"satisfy without subject", &ast.Usage{Kind: ast.UsageSatisfy, Members: body}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var got []ast.Node
+			allocs := testing.AllocsPerRun(100, func() {
+				got = ownedFeatureMembers(tc.decl)
+			})
+			if allocs != 0 {
+				t.Errorf("unaugmented body allocated %g times, want none", allocs)
+			}
+			if len(got) != len(body) || got[0] != body[0] || got[1] != body[1] {
+				t.Fatalf("members = %v, want the declared body %v", got, body)
+			}
+		})
+	}
+}
+
+func TestOwnedFeatureMembersPrependsOnlySatisfySubjects(t *testing.T) {
+	body := []ast.Node{&ast.Usage{}, &ast.Usage{}}
+	first := &ast.Relationship{Kind: ast.RelSubject}
+	second := &ast.Relationship{Kind: ast.RelSubject}
+	usage := &ast.Usage{
+		Kind:          ast.UsageSatisfy,
+		Members:       body,
+		Relationships: []*ast.Relationship{nil, first, {Kind: ast.RelTyping}, second},
+	}
+	got := ownedFeatureMembers(usage)
+	want := []ast.Node{first, second, body[0], body[1]}
+	if len(got) != len(want) {
+		t.Fatalf("members = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("member %d = %v, want %v", i, got[i], want[i])
+		}
+	}
+	if len(usage.Members) != len(body) || usage.Members[0] != body[0] || usage.Members[1] != body[1] {
+		t.Fatal("collecting the satisfy subjects changed the declared body")
+	}
+}
 
 func TestW7GStateReportsOnlyTheExtraSubactions(t *testing.T) {
 	const src = `package S {

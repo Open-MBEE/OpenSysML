@@ -57,8 +57,10 @@ class Model:
         self._hash = pb_response.model_hash
         if isinstance(pb_response, sysml_pb2.ParseSourcesResponse):
             pb_roots = list(pb_response.roots)
+            self._affected = tuple(pb_response.affected)
         else:
             pb_roots = [pb_response.root]
+            self._affected = ()
         if not pb_roots:
             raise ServiceError("the service answered the parse with no root symbol")
         self._roots = tuple(Symbol(pb_root, client, self._hash) for pb_root in pb_roots)
@@ -108,6 +110,19 @@ class Model:
         inline content has no name and this is empty.
         """
         return self._documents
+
+    @property
+    def affected(self):
+        """Names of the documents whose results may differ from the base model's.
+
+        Filled when :meth:`Connection.parse_sources` was given a
+        ``base_model_hash``: the documents, in document order and named as in
+        :attr:`documents`, whose analysis, diagnostics or conversion may differ
+        from that model's, so a caller keeps what it computed for the others.
+        Every document when the service could not compare the two; empty for a
+        parse without a base.
+        """
+        return self._affected
     
     @property
     def diagnostics(self):
@@ -191,7 +206,9 @@ class Model:
         """Path this model was loaded from, or None if it was loaded inline."""
         return self._source_path
 
-    def convert(self, to_format, tolerate_syntax_errors=False):
+    def convert(self, to_format, tolerate_syntax_errors=False, id_form='',
+                include_library_stubs=False, compact=False, omit_derived=False,
+                keep_derived=(), include_check_diagnostics=False):
         """Write this model out in one of the formats OpenSysML writes.
 
         Converts the source this model was parsed from, not the file as it
@@ -208,6 +225,23 @@ class Model:
                 'api-json' or 'json'
             tolerate_syntax_errors (bool): Write notation back out even when the
                 parser could not read all of it
+            id_form (str, optional): How derived ids are spelled in a graph,
+                :data:`~opensysml.conversion.ID_FORM_QUALIFIED` (the default)
+                or :data:`~opensysml.conversion.ID_FORM_UUID`
+            include_library_stubs (bool): For api-json, restore the ownerless
+                library stubs written before 0.11.0
+            compact (bool): For api-json, write the compact document
+                (``api-json-compact/1``) in place of the element array. Needs
+                the ``convert_compact`` capability.
+            omit_derived (bool): With ``compact``, leave out every derived
+                property of the metamodel.
+            keep_derived (Sequence[str]): With ``omit_derived``, the derived
+                properties still written, named as the element array names
+                them (``qualifiedName``).
+            include_check_diagnostics (bool): Report the semantic check's
+                diagnostics in the result's ``diagnostics`` alongside the
+                output, each with its own severity. Needs the
+                ``convert_check_diagnostics`` capability.
 
         Returns:
             Conversion: The converted model; ``str()`` of it is the text
@@ -218,8 +252,15 @@ class Model:
 
         Raises:
             ConversionError: If the model could not be written in that format
-            MissingCapabilityError: If the service cannot convert
-            grpc.RpcError: If the service no longer holds this model
+            InvalidRequestError: If a format or id_form is unknown, id_form is
+                given for a notation target, omit_derived or keep_derived
+                without compact, keep_derived without omit_derived or naming
+                a property that is not derived, or compact for other than
+                api-json
+            MissingCapabilityError: If the service cannot convert, or cannot
+                write library stubs, the compact form or the check's
+                diagnostics and they were asked for
+            ModelNotFoundError: If the service no longer holds this model
         """
         return self.connection.convert(
             to_format,
@@ -227,6 +268,12 @@ class Model:
             # A model came from ParseFile, which reads notation and nothing else.
             from_format=FORMAT_SYSML,
             tolerate_syntax_errors=tolerate_syntax_errors,
+            id_form=id_form,
+            include_library_stubs=include_library_stubs,
+            compact=compact,
+            omit_derived=omit_derived,
+            keep_derived=keep_derived,
+            include_check_diagnostics=include_check_diagnostics,
         )
 
     def to_sysml(self, tolerate_syntax_errors=False):
@@ -249,18 +296,45 @@ class Model:
         """
         return self.convert(FORMAT_TURTLE)
 
-    def to_api_json(self):
+    def to_api_json(self, compact=False, omit_derived=False, keep_derived=(),
+                    include_check_diagnostics=False):
         """Write this model out in the OMG API's JSON element form.
 
         It is the same experimental RDF mapping as Turtle, spelled as the
         element objects the SysML v2 API serves.
 
+        Args:
+            compact (bool): Write the compact document (``api-json-compact/1``)
+                in place of the element array. Needs the ``convert_compact``
+                capability.
+            omit_derived (bool): With ``compact``, leave out every derived
+                property of the metamodel.
+            keep_derived (Sequence[str]): With ``omit_derived``, the derived
+                properties still written.
+            include_check_diagnostics (bool): Report the semantic check's
+                diagnostics in the result's ``diagnostics``. Needs the
+                ``convert_check_diagnostics`` capability.
+
         Returns:
             Conversion: The JSON; ``str()`` of it is the text
-        """
-        return self.convert(FORMAT_API_JSON)
 
-    def save(self, path, to_format=None, tolerate_syntax_errors=False):
+        Raises:
+            InvalidRequestError: If omit_derived or keep_derived is given
+                without compact, or keep_derived without omit_derived
+            MissingCapabilityError: If the service cannot write the compact
+                form or the check's diagnostics and they were asked for
+        """
+        return self.convert(
+            FORMAT_API_JSON,
+            compact=compact,
+            omit_derived=omit_derived,
+            keep_derived=keep_derived,
+            include_check_diagnostics=include_check_diagnostics,
+        )
+
+    def save(self, path, to_format=None, tolerate_syntax_errors=False,
+             compact=False, omit_derived=False, keep_derived=(),
+             include_check_diagnostics=False):
         """Write this model to ``path``, in the format its extension names.
 
         Args:
@@ -268,6 +342,16 @@ class Model:
             to_format (str, optional): Format to write, overriding the extension
             tolerate_syntax_errors (bool): Write notation back out even when the
                 parser could not read all of it
+            compact (bool): For api-json, write the compact document
+                (``api-json-compact/1``) in place of the element array. Needs
+                the ``convert_compact`` capability.
+            omit_derived (bool): With ``compact``, leave out every derived
+                property of the metamodel.
+            keep_derived (Sequence[str]): With ``omit_derived``, the derived
+                properties still written.
+            include_check_diagnostics (bool): Report the semantic check's
+                diagnostics in the result's ``diagnostics``. Needs the
+                ``convert_check_diagnostics`` capability.
 
         Returns:
             Conversion: What was written
@@ -275,10 +359,19 @@ class Model:
         Raises:
             ValueError: If no to_format was given and the extension names none
             ConversionError: If the model could not be written in that format
+            InvalidRequestError: If omit_derived or keep_derived is given
+                without compact, keep_derived without omit_derived, or
+                compact for other than api-json
+            MissingCapabilityError: If the service cannot write the compact
+                form or the check's diagnostics and they were asked for
         """
         conversion = self.convert(
             to_format or format_of_path(path),
             tolerate_syntax_errors=tolerate_syntax_errors,
+            compact=compact,
+            omit_derived=omit_derived,
+            keep_derived=keep_derived,
+            include_check_diagnostics=include_check_diagnostics,
         )
         conversion.write(path)
         return conversion
@@ -305,7 +398,8 @@ class Model:
         """
         return Editor(self._hash, self.connection)
 
-    def query(self, payload=None, scope=None, select=None, where=None, order_by=None):
+    def query(self, payload=None, scope=None, select=None, where=None, order_by=None,
+              oslc=None):
         """Run a SysML v2 API & Services Query over this model.
 
         Takes the standard's ``Query`` JSON, so a payload written for the
@@ -321,14 +415,20 @@ class Model:
             where (dict, optional): Constraint to filter by
             order_by (list, optional): Properties to sort by, in order of
                 precedence, each ascending; empty keeps declaration order
+            oslc (str, optional): OSLC Query 3.0 parameter text, such as
+                ``sysml:name="vehicle"``, evaluated in place of the standard's
+                Query; not combined with the others. An empty string is no
+                OSLC at all, so the structured query is sent instead
 
         Returns:
             list[QueryElement]: The elements selected, in ``order_by`` order,
             or declaration order without one
 
         Raises:
-            QueryError: If the query is not one the standard's model describes
-            MissingCapabilityError: If the service cannot query
+            QueryError: If the query is not one the standard's model describes,
+                or ``oslc`` is given beside a structured query
+            MissingCapabilityError: If the service cannot query, or cannot
+                evaluate OSLC text and ``oslc`` is given
             InvalidRequestError: If a property or scope is unknown to the service
             ModelNotFoundError: If the service no longer holds this model
 
@@ -340,6 +440,7 @@ class Model:
         """
         return self.connection.query(
             self._hash, payload, scope=scope, select=select, where=where, order_by=order_by,
+            oslc=oslc,
         )
 
     def run_document_query(self, query_id, bindings=None):
@@ -745,12 +846,16 @@ class Model:
         return self._client.instantiate(symbol_id, self._hash)
 
     def execute_action(self, action_symbol_id, inputs=None, schedule=None, performer=None,
-                       advance=None, seed=None, draws=None, clock_step=0.0):
+                       advance=None, seed=None, draws=None, clock_step=0.0, trace=False, events=None):
         """Execute one of this model's actions.
 
         Args:
             action_symbol_id (str): FQN of the action definition or usage
             inputs (dict, optional): Input parameter name → Python value
+            trace (bool): Whether to return the run's typed execution trace as
+                ``.trace`` of the result; requires the ``action_trace`` capability
+            events (list[str], optional): Signals to post to the performer in
+                order, each once every token of the run waits; needs ``performer``
             schedule (str, optional): Scheduling policy the run resolves its
                 choice points under — ``"declared"``, ``"reverse"`` (the
                 default) or ``"seed:<n>"``; ``"explore"`` belongs to
@@ -784,7 +889,7 @@ class Model:
         """
         return self._client.execute_action(
             action_symbol_id, self._hash, inputs=inputs, schedule=schedule, performer=performer,
-            advance=advance, seed=seed, draws=draws, clock_step=clock_step,
+            advance=advance, seed=seed, draws=draws, clock_step=clock_step, trace=trace, events=events,
         )
 
     def explore_action(self, action_symbol_id, inputs=None, schedule="explore", performer=None):

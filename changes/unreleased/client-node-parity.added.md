@@ -1,0 +1,1 @@
+- Node client: `convert` takes `idForm` (`"qualified"` or `"uuid"`, the spelling of derived ids in a graph), an OSLC `query` is preflighted on the service's `oslc_query` capability (exported as `CAPABILITY_OSLC_QUERY`), and an `UNAUTHENTICATED` status arrives as the new `AuthenticationError`.

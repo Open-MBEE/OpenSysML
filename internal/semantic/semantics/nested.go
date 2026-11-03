@@ -57,46 +57,53 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 	default:
 		return ""
 	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	portion := ast.PortionNone
-	composite := true
-	if ok {
-		if usage.IsVariant {
+	u := NestedUsage{Composite: true}
+	var usage *ast.Usage
+	switch d := sym.Decl.(type) {
+	case *ast.Usage:
+		if d.IsVariant {
 			return ""
 		}
-		portion = usage.Portion
+		usage = d
+		u.Portion = d.Portion
 		// A SysML usage is composite by its kind; a KerML feature only when declared so.
-		composite = usageIsComposite(usage)
+		u.Composite = usageIsComposite(d)
 		if !m.isSysMLUsage(sym) {
-			composite = usage.IsComposite
+			u.Composite = d.IsComposite
 		}
-	} else if _, isSubstate := sym.Decl.(*ast.SubstateMember); !isSubstate {
-		// Only usages carry these rules, plus the `state s;` of a state body,
-		// which is a composite StateUsage the parser records as a SubstateMember.
+		u.Performed = d.IsPerformedAction()
+		u.Exhibited = d.IsExhibitedState()
+		u.Included = d.IsIncludedUseCase()
+		u.RequirementConstraint = d.IsRequirementConstraint()
+		u.Assumed = d.IsAssumedConstraint()
+	case *ast.SubstateMember:
+		// The `state s;` of a state body is a composite StateUsage the parser
+		// records as a SubstateMember.
+	case *ast.AssumeMember, *ast.RequireMember:
+		// The constraint an `assume`/`require` member owns is composite: its
+		// grammar has no `ref` (SysML.xtext RequirementConstraintUsage).
+		u.RequirementConstraint = true
+		_, u.Assumed = d.(*ast.AssumeMember)
+	default:
+		// Only usages and the member forms standing in for one carry these rules.
 		return ""
 	}
-	return m.implicitSubsettingFQN(sym, usage, owner, composite, portion)
+	return m.implicitSubsettingFQN(sym, usage, owner, u)
 }
 
 // implicitSubsettingFQN selects the qualified name of the owner feature usage
-// implicitly subsets; composite is whether usage is composite, which every rule
-// but the performed, exhibited and included ones requires.
-func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, owner *symbols.Symbol, composite bool, portion ast.PortionKind) string {
+// implicitly subsets; u is what sym's declaration says of it, usage that
+// declaration when it is an ast.Usage.
+func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, owner *symbols.Symbol, u NestedUsage) string {
 	kind, ok := ownerUsageKind(sym)
 	if !ok {
 		return ""
 	}
-	u := NestedUsage{Kind: kind, Composite: composite, Portion: portion}
+	u.Kind = kind
 	if usage != nil {
 		if fqn := stateActionFQN(usage); fqn != "" && fqn != stateActionFQNs["do"] {
 			u.EntryExitAction = true
 		}
-	}
-	if usage != nil {
-		u.Performed = usage.IsPerformedAction()
-		u.Exhibited = usage.IsExhibitedState()
-		u.Included = usage.IsIncludedUseCase()
-		u.RequirementConstraint = usage.IsRequirementConstraint()
 	}
 	o, ok := nestedOwnerOf(owner)
 	if !ok {
@@ -104,7 +111,7 @@ func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, own
 	}
 	fqn, step := nestedRuleFQN(u, o)
 	if step {
-		return m.stepNestedFQN(owner, composite)
+		return m.stepNestedFQN(owner, u.Composite)
 	}
 	return fqn
 }
@@ -117,8 +124,8 @@ type NestedUsage struct {
 	Portion   ast.PortionKind
 	// Performed, Exhibited and Included are the `perform action`, `exhibit
 	// state` and `include use case` forms; RequirementConstraint is a
-	// `require` or `assume` constraint, which subsets nothing implicitly.
-	Performed, Exhibited, Included, RequirementConstraint bool
+	// `require` or `assume` constraint, Assumed the `assume` one.
+	Performed, Exhibited, Included, RequirementConstraint, Assumed bool
 	// EntryExitAction is a state's `entry` or `exit` action: a subperformance of
 	// the state but no subaction, since `StateAction::subactions :> middle`.
 	EntryExitAction bool
@@ -202,7 +209,7 @@ func nestedRuleFQN(u NestedUsage, owner NestedOwner) (fqn string, step bool) {
 		return caseNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageConstraint:
 		if u.RequirementConstraint {
-			return "", false
+			return requirementConstraintFQN(u, owner), false
 		}
 		return constraintNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageRequirement, ast.UsageSatisfy, ast.UsageConcern, ast.UsageViewpoint:
@@ -324,6 +331,18 @@ func caseNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (
 	return calcNestedFQN(owner, composite, portion)
 }
 
+// requirementConstraintFQN is the RequirementCheck collection a requirement's composite
+// `assume`/`require` constraint subsets (SysML v2 8.3.20.4), "" for a `ref` or non-requirement one.
+func requirementConstraintFQN(u NestedUsage, owner NestedOwner) string {
+	if !u.Composite || !ownerInRequirementFamily(owner) {
+		return ""
+	}
+	if u.Assumed {
+		return "Requirements::RequirementCheck::assumptions"
+	}
+	return "Requirements::RequirementCheck::constraints"
+}
+
 // constraintNestedFQN is the rule chain of a nested constraint check.
 func constraintNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInItemFamily(owner) {
@@ -384,7 +403,7 @@ func (m *Model) stepNestedFQN(owner *symbols.Symbol, composite bool) string {
 			return stepFallbackFQNs[1]
 		}
 		return ""
-	case m.conformsByName(owner, "Occurrences::Occurrence"):
+	case m.conformsByName(owner, occurrenceFQN):
 		return stepFallbackFQNs[2]
 	}
 	return ""

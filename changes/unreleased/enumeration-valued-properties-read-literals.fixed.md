@@ -1,0 +1,1 @@
+- The reflective read of an enumeration-valued property (`Feature::direction`, `OccurrenceUsage::portionKind`) is the library's literal — `KerML::Core::FeatureDirectionKind::in`, `SysML::Systems::PortionKind::snapshot` — as `visibility` already read `VisibilityKind`'s, not the literal's bare name; a query over such a property yields the literal element.

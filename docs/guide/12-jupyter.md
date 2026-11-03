@@ -166,7 +166,7 @@ diagram as not drawn, so a pilot notebook runs and nothing is dropped silently; 
 the PlantUML source, as it does in the pilot. An unknown view or style is refused with the list.
 
 With no form named, a cell shows the diagram — as Mermaid, and as an SVG drawn from DOT when
-Graphviz is installed. A form (`text`, `mermaid`, `dot`, `plantuml`, `d2`) shows that form, as
+Graphviz is installed. A form (`text`, `mermaid`, `dot`, `plantuml`, `d2`, `drawio`) shows that form, as
 `%render` does. `%viz` is the pilot's spelling of a pseudo-view: `%viz --view STATE P::Lamp` draws
 what `%render #state:P::Lamp mermaid` writes, and `%viz P::Car P::Lamp` what a view exposing both
 would render. At the `sysml` prompt the same command prints the text rendering.
@@ -225,6 +225,46 @@ Notebooks load wherever model files do: `%load notebooks/` and `%load '*.ipynb'`
 beside `.sysml` files, `sysml wheels.ipynb` loads one on the command line, and a notebook's
 imports are followed to the files beside it as a loaded file's are.
 
+## Editing a notebook in VS Code
+
+With the [VS Code extension](08-editors.md) installed, a notebook on the `sysml` kernel is also a
+language-server client: the cells have the diagnostics, hover, completion, go to definition,
+references, reference-count code lenses, inlay hints, semantic highlighting and formatting a
+`.sysml` file has. A cell has no *Run* or *Evaluate* lens: those run a model file on disk with
+`sysml`, and a cell is run by the kernel.
+The server reads the notebook as **one model**, the code cells in notebook order, the way
+`%load wheels.ipynb` reads a notebook into a session: a later cell sees what an earlier cell
+declares, each cell's `%` command lines and bare expressions are left out rather than parsed
+as SysML, and a problem is reported in the cell and on the line it stands on. Markdown cells
+and cells in another language are not part of the model; a notebook is SysML or KerML as its
+first code cell is, and a cell in the other language is told it is left out.
+
+The editor and the kernel read the same cells differently, and the difference shows:
+
+- **Source order, not execution order.** The editor sees the cells top to bottom as they stand.
+  The kernel's session holds what has been *run*, in the order it was run: a cell run before
+  the cell above it was edited still holds the old declaration; a cell edited but not re-run
+  holds nothing new; a declaration the notebook no longer contains stays declared until the
+  kernel restarts. The editor cannot show any of this; a cell that runs clean may have a mark,
+  and a cell marked clean may fail to run.
+- **A reference to a later cell is a warning.** The model resolves it, as a file resolves a
+  forward reference, but the kernel would not have run that cell yet, so the first segment of
+  the name carries the warning `P is declared in a later cell; the kernel runs cells in order`.
+  Move the declaring cell up, or accept that the cell must be run after it.
+- **Re-running redeclares.** Running a cell twice in the kernel replaces what it declared the
+  first time; the editor sees each declaration once, so a duplicate the kernel accepts is not
+  one the editor reports, and vice versa.
+- **What `%load` brings in is not visible.** A cell's `%load other.ipynb` or `%load lib.sysml`
+  gives the session those declarations when it runs; the editor leaves the command line out
+  and does not read the file, so names it declares are unresolved in the editor until a cell
+  imports them from a file beside the notebook, which the editor does follow (see
+  [Imports from files beside the notebook](#imports-from-files-beside-the-notebook)).
+- **A command's effect is not modelled.** `%instantiate`, `%run`, `%sweep` and the rest change
+  the session's runtime, not its model; the editor neither runs nor marks them.
+
+A notebook that runs clean top to bottom from a fresh kernel is one the editor and the kernel
+agree on, so **Restart Kernel and Run All** is the check that settles a disagreement.
+
 ## Imports from files beside the notebook
 
 A model kept in files beside the notebook needs no `%load` to be imported. Jupyter starts a
@@ -279,7 +319,7 @@ front end shows the richest it can:
 | `%render-document <doc> html` | The document as HTML, with the table and figure styling of the HTML backend |
 | `%features <instance> json` | JSON, shown in the front end's tree view |
 
-`%render <view> plantuml` and `d2` print their source, for a tool that draws them. See
+`%render <view> plantuml`, `d2` and `drawio` print their source, for a tool that draws them. See
 [views and rendering](../manual/outputs.md) for the forms, and the
 [REPL commands reference](../reference/repl-commands.md) for every command.
 

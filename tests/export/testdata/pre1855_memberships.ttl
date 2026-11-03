@@ -1,0 +1,868 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Vehicle
+    a sysml:Package ;
+    sysml:qualifiedName "Vehicle" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "36"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Vehicle" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Vehicle" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:Vehicle___400, elmt:Vehicle__Chassis_om, elmt:Vehicle__Wheel_om, elmt:Vehicle__Frame, elmt:Vehicle__car_om, elmt:Vehicle__Plug_om, elmt:Vehicle__charger_om, elmt:Vehicle__battery_om, elmt:Vehicle___408_om ;
+    sysml:ownedImport elmt:Vehicle___400 ;
+    sysml:ownedMember elmt:Vehicle__Chassis, elmt:Vehicle__Wheel, elmt:Vehicle__car, elmt:Vehicle__Plug, elmt:Vehicle__charger, elmt:Vehicle__battery, elmt:Vehicle___408 ;
+    sysml:ownedMembership elmt:Vehicle__Chassis_om, elmt:Vehicle__Wheel_om, elmt:Vehicle__Frame, elmt:Vehicle__car_om, elmt:Vehicle__Plug_om, elmt:Vehicle__charger_om, elmt:Vehicle__battery_om, elmt:Vehicle___408_om ;
+    sysx:sourceText "// A small model whose Turtle predates the membership end statements.\n\npackage Vehicle {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"Vehicle___400\"},{\"@id\":\"Vehicle__Chassis_om\"},{\"@id\":\"Vehicle__Wheel_om\"},{\"@id\":\"Vehicle__Frame\"},{\"@id\":\"Vehicle__car_om\"},{\"@id\":\"Vehicle__Plug_om\"},{\"@id\":\"Vehicle__charger_om\"},{\"@id\":\"Vehicle__battery_om\"},{\"@id\":\"Vehicle___408_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Vehicle__Chassis\"},{\"@id\":\"Vehicle__Wheel\"},{\"@id\":\"Vehicle__car\"},{\"@id\":\"Vehicle__Plug\"},{\"@id\":\"Vehicle__charger\"},{\"@id\":\"Vehicle__battery\"},{\"@id\":\"Vehicle___408\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Vehicle__Chassis_om\"},{\"@id\":\"Vehicle__Wheel_om\"},{\"@id\":\"Vehicle__Frame\"},{\"@id\":\"Vehicle__car_om\"},{\"@id\":\"Vehicle__Plug_om\"},{\"@id\":\"Vehicle__charger_om\"},{\"@id\":\"Vehicle__battery_om\"},{\"@id\":\"Vehicle___408_om\"}]" .
+
+elmt:Vehicle___400
+    a sysml:NamespaceImport ;
+    sysx:positionalName "Vehicle::@0" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
+    sysml:elementId "Vehicle___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle ;
+    sysml:owner elmt:Vehicle ;
+    sysml:owningRelatedElement elmt:Vehicle ;
+    sysml:importOwningNamespace elmt:Vehicle ;
+    sysml:visibility "private" ;
+    sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    // Imports come first.\n    private import ScalarValues::*;\n" .
+
+elmt:Vehicle__Chassis
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "Vehicle::Chassis" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "Vehicle__Chassis" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle ;
+    sysml:owner elmt:Vehicle ;
+    sysml:owningRelationship elmt:Vehicle__Chassis_om ;
+    sysml:owningMembership elmt:Vehicle__Chassis_om ;
+    sysml:declaredName "Chassis" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Vehicle__Chassis__mass, elmt:Vehicle__Chassis__wheel ;
+    sysml:ownedMembership elmt:Vehicle__Chassis__mass_om, elmt:Vehicle__Chassis__wheel_om ;
+    sysml:ownedRelationship elmt:Vehicle__Chassis__mass_om, elmt:Vehicle__Chassis__wheel_om ;
+    sysml:ownedFeature elmt:Vehicle__Chassis__mass, elmt:Vehicle__Chassis__wheel ;
+    sysml:ownedFeatureMembership elmt:Vehicle__Chassis__mass_om, elmt:Vehicle__Chassis__wheel_om ;
+    sysx:sourceText "\n    /* The chassis carries everything else. */\n    part def Chassis {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"Vehicle__Chassis__mass\"},{\"@id\":\"Vehicle__Chassis__wheel\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Vehicle__Chassis__mass_om\"},{\"@id\":\"Vehicle__Chassis__wheel_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Vehicle__Chassis__mass_om\"},{\"@id\":\"Vehicle__Chassis__wheel_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Vehicle__Chassis__mass\"},{\"@id\":\"Vehicle__Chassis__wheel\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Vehicle__Chassis__mass_om\"},{\"@id\":\"Vehicle__Chassis__wheel_om\"}]" .
+
+elmt:Vehicle__Chassis_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicle__Chassis_om" ;
+    sysml:owner elmt:Vehicle ;
+    sysml:memberElement elmt:Vehicle__Chassis ;
+    sysml:ownedMemberElement elmt:Vehicle__Chassis ;
+    sysml:ownedRelatedElement elmt:Vehicle__Chassis ;
+    sysml:owningRelatedElement elmt:Vehicle ;
+    sysml:membershipOwningNamespace elmt:Vehicle .
+
+elmt:Vehicle__Chassis__mass
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "Vehicle::Chassis::mass" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
+    sysml:elementId "Vehicle__Chassis__mass" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle__Chassis ;
+    sysml:owner elmt:Vehicle__Chassis ;
+    sysml:owningRelationship elmt:Vehicle__Chassis__mass_om ;
+    sysml:owningMembership elmt:Vehicle__Chassis__mass_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "mass" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Vehicle__Chassis__mass_ft0 ;
+    sysml:ownedSpecialization elmt:Vehicle__Chassis__mass_ft0 ;
+    sysml:ownedRelationship elmt:Vehicle__Chassis__mass_ft0 ;
+    sysx:sourceText "        attribute mass : Real;\n" .
+
+elmt:Vehicle__Chassis__mass_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Vehicle__Chassis__mass_om" ;
+    sysml:owner elmt:Vehicle__Chassis ;
+    sysml:memberElement elmt:Vehicle__Chassis__mass ;
+    sysml:ownedMemberElement elmt:Vehicle__Chassis__mass ;
+    sysml:ownedRelatedElement elmt:Vehicle__Chassis__mass ;
+    sysml:owningRelatedElement elmt:Vehicle__Chassis ;
+    sysml:membershipOwningNamespace elmt:Vehicle__Chassis ;
+    sysml:ownedMemberFeature elmt:Vehicle__Chassis__mass ;
+    sysml:owningType elmt:Vehicle__Chassis .
+
+elmt:Vehicle__Chassis__wheel
+    a sysml:PartUsage ;
+    sysml:qualifiedName "Vehicle::Chassis::wheel" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
+    sysml:elementId "Vehicle__Chassis__wheel" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle__Chassis ;
+    sysml:owner elmt:Vehicle__Chassis ;
+    sysml:owningRelationship elmt:Vehicle__Chassis__wheel_om ;
+    sysml:owningMembership elmt:Vehicle__Chassis__wheel_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
+    sysml:declaredName "wheel" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:type elmt:Vehicle__Wheel ;
+    sysml:multiplicity expr:Vehicle__Chassis__wheel_pmultiplicity ;
+    sysml:ownedRelationship elmt:Vehicle__Chassis__wheel_ft0, expr:Vehicle__Chassis__wheel_pmultiplicity_om ;
+    sysml:ownedMembership expr:Vehicle__Chassis__wheel_pmultiplicity_om ;
+    sysml:upperBound expr:Vehicle__Chassis__wheel_pupperBound ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Vehicle__Chassis__wheel_ft0 ;
+    sysml:ownedSpecialization elmt:Vehicle__Chassis__wheel_ft0 ;
+    sysx:sourceText "\n        // Wheels hang off the chassis.\n        part wheel : Wheel[4];\n" ;
+    json:ownedRelationship "[{\"@id\":\"Vehicle__Chassis__wheel_ft0\"},{\"@id\":\"Vehicle__Chassis__wheel_pmultiplicity_om\"}]" .
+
+elmt:Vehicle__Chassis__wheel_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Vehicle__Chassis__wheel_om" ;
+    sysml:owner elmt:Vehicle__Chassis ;
+    sysml:memberElement elmt:Vehicle__Chassis__wheel ;
+    sysml:ownedMemberElement elmt:Vehicle__Chassis__wheel ;
+    sysml:ownedRelatedElement elmt:Vehicle__Chassis__wheel ;
+    sysml:owningRelatedElement elmt:Vehicle__Chassis ;
+    sysml:membershipOwningNamespace elmt:Vehicle__Chassis ;
+    sysml:ownedMemberFeature elmt:Vehicle__Chassis__wheel ;
+    sysml:owningType elmt:Vehicle__Chassis .
+
+expr:Vehicle__Chassis__wheel_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Vehicle__Chassis__wheel_pmultiplicity" ;
+    sysml:owner elmt:Vehicle__Chassis__wheel ;
+    sysml:owningRelationship expr:Vehicle__Chassis__wheel_pmultiplicity_om ;
+    sysml:owningMembership expr:Vehicle__Chassis__wheel_pmultiplicity_om ;
+    sysml:upperBound expr:Vehicle__Chassis__wheel_pupperBound ;
+    sysml:ownedRelationship expr:Vehicle__Chassis__wheel_pupperBound_om ;
+    sysml:ownedMembership expr:Vehicle__Chassis__wheel_pupperBound_om .
+
+expr:Vehicle__Chassis__wheel_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicle__Chassis__wheel_pmultiplicity_om" ;
+    sysml:owner elmt:Vehicle__Chassis__wheel ;
+    sysml:memberElement expr:Vehicle__Chassis__wheel_pmultiplicity ;
+    sysml:ownedMemberElement expr:Vehicle__Chassis__wheel_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Vehicle__Chassis__wheel_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Vehicle__Chassis__wheel ;
+    sysml:membershipOwningNamespace elmt:Vehicle__Chassis__wheel .
+
+expr:Vehicle__Chassis__wheel_pupperBound
+    a sysml:LiteralInteger ;
+    sysx:sourceText "4" ;
+    sysml:elementId "Vehicle__Chassis__wheel_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "4"^^xsd:integer ;
+    sysml:owner expr:Vehicle__Chassis__wheel_pmultiplicity ;
+    sysml:owningRelationship expr:Vehicle__Chassis__wheel_pupperBound_om ;
+    sysml:owningMembership expr:Vehicle__Chassis__wheel_pupperBound_om .
+
+expr:Vehicle__Chassis__wheel_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicle__Chassis__wheel_pupperBound_om" ;
+    sysml:owner expr:Vehicle__Chassis__wheel_pmultiplicity ;
+    sysml:memberElement expr:Vehicle__Chassis__wheel_pupperBound ;
+    sysml:ownedMemberElement expr:Vehicle__Chassis__wheel_pupperBound ;
+    sysml:ownedRelatedElement expr:Vehicle__Chassis__wheel_pupperBound ;
+    sysml:owningRelatedElement expr:Vehicle__Chassis__wheel_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:Vehicle__Chassis__wheel_pmultiplicity .
+
+elmt:Vehicle__Wheel
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "Vehicle::Wheel" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
+    sysml:elementId "Vehicle__Wheel" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle ;
+    sysml:owner elmt:Vehicle ;
+    sysml:owningRelationship elmt:Vehicle__Wheel_om ;
+    sysml:owningMembership elmt:Vehicle__Wheel_om ;
+    sysml:declaredName "Wheel" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\n    part def Wheel;\n" .
+
+elmt:Vehicle__Wheel_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicle__Wheel_om" ;
+    sysml:owner elmt:Vehicle ;
+    sysml:memberElement elmt:Vehicle__Wheel ;
+    sysml:ownedMemberElement elmt:Vehicle__Wheel ;
+    sysml:ownedRelatedElement elmt:Vehicle__Wheel ;
+    sysml:owningRelatedElement elmt:Vehicle ;
+    sysml:membershipOwningNamespace elmt:Vehicle .
+
+elmt:Vehicle__Frame
+    a sysml:Membership ;
+    sysml:qualifiedName "Vehicle::Frame" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
+    sysml:elementId "Vehicle__Frame" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle ;
+    sysml:owner elmt:Vehicle ;
+    sysml:owningRelatedElement elmt:Vehicle ;
+    sysml:membershipOwningNamespace elmt:Vehicle ;
+    sysx:declaredKeyword "alias" ;
+    sysml:memberName "Frame" ;
+    sysml:memberElement elmt:Vehicle__Chassis ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\n    alias Frame for Chassis;\n" .
+
+elmt:Vehicle__car
+    a sysml:PartUsage ;
+    sysml:qualifiedName "Vehicle::car" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "Vehicle__car" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle ;
+    sysml:owner elmt:Vehicle ;
+    sysml:owningRelationship elmt:Vehicle__car_om ;
+    sysml:owningMembership elmt:Vehicle__car_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "car" ;
+    sysml:type elmt:Vehicle__Chassis ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Vehicle__car__mass ;
+    sysml:ownedMembership elmt:Vehicle__car__mass_om ;
+    sysml:ownedRelationship elmt:Vehicle__car_ft0, elmt:Vehicle__car__mass_om ;
+    sysml:ownedFeature elmt:Vehicle__car__mass ;
+    sysml:ownedFeatureMembership elmt:Vehicle__car__mass_om ;
+    sysml:ownedTyping elmt:Vehicle__car_ft0 ;
+    sysml:ownedSpecialization elmt:Vehicle__car_ft0 ;
+    sysx:sourceText "\n    part car : Chassis {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Vehicle__car_ft0\"},{\"@id\":\"Vehicle__car__mass_om\"}]" .
+
+elmt:Vehicle__car_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicle__car_om" ;
+    sysml:owner elmt:Vehicle ;
+    sysml:memberElement elmt:Vehicle__car ;
+    sysml:ownedMemberElement elmt:Vehicle__car ;
+    sysml:ownedRelatedElement elmt:Vehicle__car ;
+    sysml:owningRelatedElement elmt:Vehicle ;
+    sysml:membershipOwningNamespace elmt:Vehicle .
+
+elmt:Vehicle__car__mass
+    a sysml:AttributeUsage ;
+    sysml:name "mass" ;
+    sysml:qualifiedName "Vehicle::car::mass" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "37"^^xsd:integer ;
+    sysml:elementId "Vehicle__car__mass" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle__car ;
+    sysml:owner elmt:Vehicle__car ;
+    sysml:owningRelationship elmt:Vehicle__car__mass_om ;
+    sysml:owningMembership elmt:Vehicle__car__mass_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:redefines elmt:Vehicle__Chassis__mass ;
+    sysml:value expr:Vehicle__car__mass_pvalue ;
+    sysml:ownedRelationship elmt:Vehicle__car__mass_rd0, expr:Vehicle__car__mass_pvalue_om ;
+    sysml:ownedMembership expr:Vehicle__car__mass_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedRedefinition elmt:Vehicle__car__mass_rd0 ;
+    sysml:ownedSubsetting elmt:Vehicle__car__mass_rd0 ;
+    sysml:ownedSpecialization elmt:Vehicle__car__mass_rd0 ;
+    sysx:sourceText "        // Two tonnes.\n        attribute :>> mass = 2000.0;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Vehicle__car__mass_rd0\"},{\"@id\":\"Vehicle__car__mass_pvalue_om\"}]" .
+
+elmt:Vehicle__car__mass_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Vehicle__car__mass_om" ;
+    sysml:owner elmt:Vehicle__car ;
+    sysml:memberElement elmt:Vehicle__car__mass ;
+    sysml:ownedMemberElement elmt:Vehicle__car__mass ;
+    sysml:ownedRelatedElement elmt:Vehicle__car__mass ;
+    sysml:owningRelatedElement elmt:Vehicle__car ;
+    sysml:membershipOwningNamespace elmt:Vehicle__car ;
+    sysml:ownedMemberFeature elmt:Vehicle__car__mass ;
+    sysml:owningType elmt:Vehicle__car .
+
+expr:Vehicle__car__mass_pvalue
+    a sysml:LiteralRational ;
+    sysx:sourceText "2000.0" ;
+    sysml:elementId "Vehicle__car__mass_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "2000.0"^^xsd:decimal ;
+    sysml:owner elmt:Vehicle__car__mass ;
+    sysml:owningRelationship expr:Vehicle__car__mass_pvalue_om ;
+    sysml:owningMembership expr:Vehicle__car__mass_pvalue_om .
+
+expr:Vehicle__car__mass_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Vehicle__car__mass_pvalue_om" ;
+    sysml:owner elmt:Vehicle__car__mass ;
+    sysml:memberElement expr:Vehicle__car__mass_pvalue ;
+    sysml:ownedMemberElement expr:Vehicle__car__mass_pvalue ;
+    sysml:ownedRelatedElement expr:Vehicle__car__mass_pvalue ;
+    sysml:owningRelatedElement elmt:Vehicle__car__mass ;
+    sysml:membershipOwningNamespace elmt:Vehicle__car__mass ;
+    sysml:featureWithValue elmt:Vehicle__car__mass ;
+    sysml:value expr:Vehicle__car__mass_pvalue .
+
+elmt:Vehicle__Plug
+    a sysml:PortDefinition ;
+    sysml:qualifiedName "Vehicle::Plug" ;
+    sysx:sourceLine "24"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
+    sysml:elementId "Vehicle__Plug" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle ;
+    sysml:owner elmt:Vehicle ;
+    sysml:owningRelationship elmt:Vehicle__Plug_om ;
+    sysml:owningMembership elmt:Vehicle__Plug_om ;
+    sysml:declaredName "Plug" ;
+    sysml:ownedRelationship elmt:Vehicle__Plug_conjugated_om ;
+    sysml:ownedMember elmt:Vehicle__Plug_conjugated ;
+    sysml:ownedMembership elmt:Vehicle__Plug_conjugated_om ;
+    sysml:conjugatedPortDefinition elmt:Vehicle__Plug_conjugated ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\n    port def Plug;\n" .
+
+elmt:Vehicle__Plug_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicle__Plug_om" ;
+    sysml:owner elmt:Vehicle ;
+    sysml:memberElement elmt:Vehicle__Plug ;
+    sysml:ownedMemberElement elmt:Vehicle__Plug ;
+    sysml:ownedRelatedElement elmt:Vehicle__Plug ;
+    sysml:owningRelatedElement elmt:Vehicle ;
+    sysml:membershipOwningNamespace elmt:Vehicle .
+
+elmt:Vehicle__Plug_conjugated
+    a sysml:ConjugatedPortDefinition ;
+    sysml:elementId "Vehicle__Plug_conjugated" ;
+    sysml:qualifiedName "Vehicle::Plug::'~Plug'" ;
+    sysml:declaredName "~Plug" ;
+    sysml:owner elmt:Vehicle__Plug ;
+    sysml:owningRelationship elmt:Vehicle__Plug_conjugated_om ;
+    sysml:owningMembership elmt:Vehicle__Plug_conjugated_om ;
+    sysml:ownedRelationship elmt:Vehicle__Plug_conjugated_pc ;
+    sysml:ownedPortConjugator elmt:Vehicle__Plug_conjugated_pc .
+
+elmt:Vehicle__Plug_conjugated_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicle__Plug_conjugated_om" ;
+    sysml:owner elmt:Vehicle__Plug ;
+    sysml:memberElement elmt:Vehicle__Plug_conjugated ;
+    sysml:ownedMemberElement elmt:Vehicle__Plug_conjugated ;
+    sysml:ownedRelatedElement elmt:Vehicle__Plug_conjugated ;
+    sysml:owningRelatedElement elmt:Vehicle__Plug ;
+    sysml:membershipOwningNamespace elmt:Vehicle__Plug .
+
+elmt:Vehicle__Plug_conjugated_pc
+    a sysml:PortConjugation ;
+    sysml:elementId "Vehicle__Plug_conjugated_pc" ;
+    sysml:conjugatedType elmt:Vehicle__Plug_conjugated ;
+    sysml:originalType elmt:Vehicle__Plug ;
+    sysml:originalPortDefinition elmt:Vehicle__Plug ;
+    sysml:owner elmt:Vehicle__Plug_conjugated ;
+    sysml:owningRelatedElement elmt:Vehicle__Plug_conjugated ;
+    sysml:relatedElement elmt:Vehicle__Plug_conjugated, elmt:Vehicle__Plug ;
+    sysml:source elmt:Vehicle__Plug_conjugated ;
+    sysml:target elmt:Vehicle__Plug ;
+    json:relatedElement "[{\"@id\":\"Vehicle__Plug_conjugated\"},{\"@id\":\"Vehicle__Plug\"}]" .
+
+elmt:Vehicle__charger
+    a sysml:PartUsage ;
+    sysml:qualifiedName "Vehicle::charger" ;
+    sysx:sourceLine "26"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "28"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "Vehicle__charger" ;
+    sysx:memberIndex "6"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle ;
+    sysml:owner elmt:Vehicle ;
+    sysml:owningRelationship elmt:Vehicle__charger_om ;
+    sysml:owningMembership elmt:Vehicle__charger_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "charger" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Vehicle__charger__plug ;
+    sysml:ownedMembership elmt:Vehicle__charger__plug_om ;
+    sysml:ownedRelationship elmt:Vehicle__charger__plug_om ;
+    sysml:ownedFeature elmt:Vehicle__charger__plug ;
+    sysml:ownedFeatureMembership elmt:Vehicle__charger__plug_om ;
+    sysx:sourceText "\n    part charger {\n" ;
+    sysx:sourceTail "    }\n" .
+
+elmt:Vehicle__charger_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicle__charger_om" ;
+    sysml:owner elmt:Vehicle ;
+    sysml:memberElement elmt:Vehicle__charger ;
+    sysml:ownedMemberElement elmt:Vehicle__charger ;
+    sysml:ownedRelatedElement elmt:Vehicle__charger ;
+    sysml:owningRelatedElement elmt:Vehicle ;
+    sysml:membershipOwningNamespace elmt:Vehicle .
+
+elmt:Vehicle__charger__plug
+    a sysml:PortUsage ;
+    sysml:qualifiedName "Vehicle::charger::plug" ;
+    sysx:sourceLine "27"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "27"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
+    sysml:elementId "Vehicle__charger__plug" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle__charger ;
+    sysml:owner elmt:Vehicle__charger ;
+    sysml:owningRelationship elmt:Vehicle__charger__plug_om ;
+    sysml:owningMembership elmt:Vehicle__charger__plug_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "plug" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:type elmt:Vehicle__Plug ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Vehicle__charger__plug_ft0 ;
+    sysml:ownedSpecialization elmt:Vehicle__charger__plug_ft0 ;
+    sysml:ownedRelationship elmt:Vehicle__charger__plug_ft0 ;
+    sysx:sourceText "        port plug : Plug;\n" .
+
+elmt:Vehicle__charger__plug_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Vehicle__charger__plug_om" ;
+    sysml:owner elmt:Vehicle__charger ;
+    sysml:memberElement elmt:Vehicle__charger__plug ;
+    sysml:ownedMemberElement elmt:Vehicle__charger__plug ;
+    sysml:ownedRelatedElement elmt:Vehicle__charger__plug ;
+    sysml:owningRelatedElement elmt:Vehicle__charger ;
+    sysml:membershipOwningNamespace elmt:Vehicle__charger ;
+    sysml:ownedMemberFeature elmt:Vehicle__charger__plug ;
+    sysml:owningType elmt:Vehicle__charger .
+
+elmt:Vehicle__battery
+    a sysml:PartUsage ;
+    sysml:qualifiedName "Vehicle::battery" ;
+    sysx:sourceLine "30"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "32"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "Vehicle__battery" ;
+    sysx:memberIndex "7"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle ;
+    sysml:owner elmt:Vehicle ;
+    sysml:owningRelationship elmt:Vehicle__battery_om ;
+    sysml:owningMembership elmt:Vehicle__battery_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "battery" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Vehicle__battery__plug ;
+    sysml:ownedMembership elmt:Vehicle__battery__plug_om ;
+    sysml:ownedRelationship elmt:Vehicle__battery__plug_om ;
+    sysml:ownedFeature elmt:Vehicle__battery__plug ;
+    sysml:ownedFeatureMembership elmt:Vehicle__battery__plug_om ;
+    sysx:sourceText "\n    part battery {\n" ;
+    sysx:sourceTail "    }\n" .
+
+elmt:Vehicle__battery_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicle__battery_om" ;
+    sysml:owner elmt:Vehicle ;
+    sysml:memberElement elmt:Vehicle__battery ;
+    sysml:ownedMemberElement elmt:Vehicle__battery ;
+    sysml:ownedRelatedElement elmt:Vehicle__battery ;
+    sysml:owningRelatedElement elmt:Vehicle ;
+    sysml:membershipOwningNamespace elmt:Vehicle .
+
+elmt:Vehicle__battery__plug
+    a sysml:PortUsage ;
+    sysml:qualifiedName "Vehicle::battery::plug" ;
+    sysx:sourceLine "31"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "31"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
+    sysml:elementId "Vehicle__battery__plug" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle__battery ;
+    sysml:owner elmt:Vehicle__battery ;
+    sysml:owningRelationship elmt:Vehicle__battery__plug_om ;
+    sysml:owningMembership elmt:Vehicle__battery__plug_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "plug" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:type elmt:Vehicle__Plug ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Vehicle__battery__plug_ft0 ;
+    sysml:ownedSpecialization elmt:Vehicle__battery__plug_ft0 ;
+    sysml:ownedRelationship elmt:Vehicle__battery__plug_ft0 ;
+    sysx:sourceText "        port plug : Plug;\n" .
+
+elmt:Vehicle__battery__plug_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Vehicle__battery__plug_om" ;
+    sysml:owner elmt:Vehicle__battery ;
+    sysml:memberElement elmt:Vehicle__battery__plug ;
+    sysml:ownedMemberElement elmt:Vehicle__battery__plug ;
+    sysml:ownedRelatedElement elmt:Vehicle__battery__plug ;
+    sysml:owningRelatedElement elmt:Vehicle__battery ;
+    sysml:membershipOwningNamespace elmt:Vehicle__battery ;
+    sysml:ownedMemberFeature elmt:Vehicle__battery__plug ;
+    sysml:owningType elmt:Vehicle__battery .
+
+elmt:Vehicle___408
+    a sysml:ConnectionUsage ;
+    sysx:positionalName "Vehicle::@8" ;
+    sysx:sourceLine "35"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "35"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
+    sysml:elementId "Vehicle___408" ;
+    sysx:memberIndex "8"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicle ;
+    sysml:owner elmt:Vehicle ;
+    sysml:owningRelationship elmt:Vehicle___408_om ;
+    sysml:owningMembership elmt:Vehicle___408_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:connectorEnd expr:Vehicle___408_pend0, expr:Vehicle___408_pend1 ;
+    sysml:ownedRelationship expr:Vehicle___408_pend0_om, expr:Vehicle___408_pend1_om ;
+    sysml:ownedMembership expr:Vehicle___408_pend0_om, expr:Vehicle___408_pend1_om ;
+    sysml:ownedMember expr:Vehicle___408_pend0, expr:Vehicle___408_pend1 ;
+    sysml:ownedFeatureMembership expr:Vehicle___408_pend0_om, expr:Vehicle___408_pend1_om ;
+    sysml:ownedFeature expr:Vehicle___408_pend0, expr:Vehicle___408_pend1 ;
+    sysml:ownedEndFeature expr:Vehicle___408_pend0, expr:Vehicle___408_pend1 ;
+    sysx:endForm "to" ;
+    sysx:declaredKeyword "connect" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\n    // Chargers meet batteries here.\n    connect charger.plug to battery.plug;\n" ;
+    json:connectorEnd "[{\"@id\":\"Vehicle___408_pend0\"},{\"@id\":\"Vehicle___408_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Vehicle___408_pend0_om\"},{\"@id\":\"Vehicle___408_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Vehicle___408_pend0_om\"},{\"@id\":\"Vehicle___408_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Vehicle___408_pend0\"},{\"@id\":\"Vehicle___408_pend1\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Vehicle___408_pend0_om\"},{\"@id\":\"Vehicle___408_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Vehicle___408_pend0\"},{\"@id\":\"Vehicle___408_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"Vehicle___408_pend0\"},{\"@id\":\"Vehicle___408_pend1\"}]" .
+
+elmt:Vehicle___408_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicle___408_om" ;
+    sysml:owner elmt:Vehicle ;
+    sysml:memberElement elmt:Vehicle___408 ;
+    sysml:ownedMemberElement elmt:Vehicle___408 ;
+    sysml:ownedRelatedElement elmt:Vehicle___408 ;
+    sysml:owningRelatedElement elmt:Vehicle ;
+    sysml:membershipOwningNamespace elmt:Vehicle .
+
+expr:Vehicle___408_pend0
+    a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Vehicle___408_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:owner elmt:Vehicle___408 ;
+    sysml:owningRelationship expr:Vehicle___408_pend0_om ;
+    sysml:owningMembership expr:Vehicle___408_pend0_om ;
+    sysx:sourceText "charger.plug" ;
+    sysml:ownedReferenceSubsetting expr:Vehicle___408_pend0_prs ;
+    sysml:ownedSubsetting expr:Vehicle___408_pend0_prs ;
+    sysml:ownedSpecialization expr:Vehicle___408_pend0_prs ;
+    sysml:ownedRelationship expr:Vehicle___408_pend0_prs .
+
+expr:Vehicle___408_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Vehicle___408_pend0_om" ;
+    sysml:owner elmt:Vehicle___408 ;
+    sysml:memberElement expr:Vehicle___408_pend0 ;
+    sysml:ownedMemberElement expr:Vehicle___408_pend0 ;
+    sysml:ownedRelatedElement expr:Vehicle___408_pend0 ;
+    sysml:owningRelatedElement elmt:Vehicle___408 ;
+    sysml:membershipOwningNamespace elmt:Vehicle___408 .
+
+expr:Vehicle___408_pend0_pchain
+    a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Vehicle___408_pend0_pchain" ;
+    sysml:ownedFeatureChaining expr:Vehicle___408_pend0_pchain_pfc0, expr:Vehicle___408_pend0_pchain_pfc1 ;
+    sysml:ownedRelationship expr:Vehicle___408_pend0_pchain_pfc0, expr:Vehicle___408_pend0_pchain_pfc1 ;
+    sysml:chainingFeature elmt:Vehicle__charger, elmt:Vehicle__charger__plug ;
+    sysml:owningRelationship expr:Vehicle___408_pend0_prs ;
+    sysml:owner expr:Vehicle___408_pend0 ;
+    json:ownedFeatureChaining "[{\"@id\":\"Vehicle___408_pend0_pchain_pfc0\"},{\"@id\":\"Vehicle___408_pend0_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Vehicle___408_pend0_pchain_pfc0\"},{\"@id\":\"Vehicle___408_pend0_pchain_pfc1\"}]" ;
+    json:chainingFeature "[{\"@id\":\"Vehicle__charger\"},{\"@id\":\"Vehicle__charger__plug\"}]" .
+
+expr:Vehicle___408_pend0_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "Vehicle___408_pend0_pchain_pfc0" ;
+    sysml:featureChained expr:Vehicle___408_pend0_pchain ;
+    sysml:source expr:Vehicle___408_pend0_pchain ;
+    sysml:owningRelatedElement expr:Vehicle___408_pend0_pchain ;
+    sysml:chainingFeature elmt:Vehicle__charger ;
+    sysml:target elmt:Vehicle__charger ;
+    sysml:owner expr:Vehicle___408_pend0_pchain ;
+    sysml:relatedElement expr:Vehicle___408_pend0_pchain, elmt:Vehicle__charger ;
+    json:relatedElement "[{\"@id\":\"Vehicle___408_pend0_pchain\"},{\"@id\":\"Vehicle__charger\"}]" .
+
+expr:Vehicle___408_pend0_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "Vehicle___408_pend0_pchain_pfc1" ;
+    sysml:featureChained expr:Vehicle___408_pend0_pchain ;
+    sysml:source expr:Vehicle___408_pend0_pchain ;
+    sysml:owningRelatedElement expr:Vehicle___408_pend0_pchain ;
+    sysml:chainingFeature elmt:Vehicle__charger__plug ;
+    sysml:target elmt:Vehicle__charger__plug ;
+    sysml:owner expr:Vehicle___408_pend0_pchain ;
+    sysml:relatedElement expr:Vehicle___408_pend0_pchain, elmt:Vehicle__charger__plug ;
+    json:relatedElement "[{\"@id\":\"Vehicle___408_pend0_pchain\"},{\"@id\":\"Vehicle__charger__plug\"}]" .
+
+expr:Vehicle___408_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Vehicle___408_pend0_prs" ;
+    sysml:referencingFeature expr:Vehicle___408_pend0 ;
+    sysml:subsettingFeature expr:Vehicle___408_pend0 ;
+    sysml:specific expr:Vehicle___408_pend0 ;
+    sysml:source expr:Vehicle___408_pend0 ;
+    sysml:owningFeature expr:Vehicle___408_pend0 ;
+    sysml:owningType expr:Vehicle___408_pend0 ;
+    sysml:referencedFeature expr:Vehicle___408_pend0_pchain ;
+    sysml:subsettedFeature expr:Vehicle___408_pend0_pchain ;
+    sysml:general expr:Vehicle___408_pend0_pchain ;
+    sysml:target expr:Vehicle___408_pend0_pchain ;
+    sysml:relatedElement expr:Vehicle___408_pend0, expr:Vehicle___408_pend0_pchain ;
+    sysml:owner expr:Vehicle___408_pend0 ;
+    sysml:owningRelatedElement expr:Vehicle___408_pend0 ;
+    sysml:ownedRelatedElement expr:Vehicle___408_pend0_pchain ;
+    json:relatedElement "[{\"@id\":\"Vehicle___408_pend0\"},{\"@id\":\"Vehicle___408_pend0_pchain\"}]" .
+
+expr:Vehicle___408_pend1
+    a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Vehicle___408_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:isConstant "true"^^xsd:boolean ;
+    sysml:owner elmt:Vehicle___408 ;
+    sysml:owningRelationship expr:Vehicle___408_pend1_om ;
+    sysml:owningMembership expr:Vehicle___408_pend1_om ;
+    sysx:sourceText "battery.plug" ;
+    sysml:ownedReferenceSubsetting expr:Vehicle___408_pend1_prs ;
+    sysml:ownedSubsetting expr:Vehicle___408_pend1_prs ;
+    sysml:ownedSpecialization expr:Vehicle___408_pend1_prs ;
+    sysml:ownedRelationship expr:Vehicle___408_pend1_prs .
+
+expr:Vehicle___408_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Vehicle___408_pend1_om" ;
+    sysml:owner elmt:Vehicle___408 ;
+    sysml:memberElement expr:Vehicle___408_pend1 ;
+    sysml:ownedMemberElement expr:Vehicle___408_pend1 ;
+    sysml:ownedRelatedElement expr:Vehicle___408_pend1 ;
+    sysml:owningRelatedElement elmt:Vehicle___408 ;
+    sysml:membershipOwningNamespace elmt:Vehicle___408 .
+
+expr:Vehicle___408_pend1_pchain
+    a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Vehicle___408_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:Vehicle___408_pend1_pchain_pfc0, expr:Vehicle___408_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:Vehicle___408_pend1_pchain_pfc0, expr:Vehicle___408_pend1_pchain_pfc1 ;
+    sysml:chainingFeature elmt:Vehicle__battery, elmt:Vehicle__battery__plug ;
+    sysml:owningRelationship expr:Vehicle___408_pend1_prs ;
+    sysml:owner expr:Vehicle___408_pend1 ;
+    json:ownedFeatureChaining "[{\"@id\":\"Vehicle___408_pend1_pchain_pfc0\"},{\"@id\":\"Vehicle___408_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Vehicle___408_pend1_pchain_pfc0\"},{\"@id\":\"Vehicle___408_pend1_pchain_pfc1\"}]" ;
+    json:chainingFeature "[{\"@id\":\"Vehicle__battery\"},{\"@id\":\"Vehicle__battery__plug\"}]" .
+
+expr:Vehicle___408_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "Vehicle___408_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:Vehicle___408_pend1_pchain ;
+    sysml:source expr:Vehicle___408_pend1_pchain ;
+    sysml:owningRelatedElement expr:Vehicle___408_pend1_pchain ;
+    sysml:chainingFeature elmt:Vehicle__battery ;
+    sysml:target elmt:Vehicle__battery ;
+    sysml:owner expr:Vehicle___408_pend1_pchain ;
+    sysml:relatedElement expr:Vehicle___408_pend1_pchain, elmt:Vehicle__battery ;
+    json:relatedElement "[{\"@id\":\"Vehicle___408_pend1_pchain\"},{\"@id\":\"Vehicle__battery\"}]" .
+
+expr:Vehicle___408_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "Vehicle___408_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:Vehicle___408_pend1_pchain ;
+    sysml:source expr:Vehicle___408_pend1_pchain ;
+    sysml:owningRelatedElement expr:Vehicle___408_pend1_pchain ;
+    sysml:chainingFeature elmt:Vehicle__battery__plug ;
+    sysml:target elmt:Vehicle__battery__plug ;
+    sysml:owner expr:Vehicle___408_pend1_pchain ;
+    sysml:relatedElement expr:Vehicle___408_pend1_pchain, elmt:Vehicle__battery__plug ;
+    json:relatedElement "[{\"@id\":\"Vehicle___408_pend1_pchain\"},{\"@id\":\"Vehicle__battery__plug\"}]" .
+
+expr:Vehicle___408_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Vehicle___408_pend1_prs" ;
+    sysml:referencingFeature expr:Vehicle___408_pend1 ;
+    sysml:subsettingFeature expr:Vehicle___408_pend1 ;
+    sysml:specific expr:Vehicle___408_pend1 ;
+    sysml:source expr:Vehicle___408_pend1 ;
+    sysml:owningFeature expr:Vehicle___408_pend1 ;
+    sysml:owningType expr:Vehicle___408_pend1 ;
+    sysml:referencedFeature expr:Vehicle___408_pend1_pchain ;
+    sysml:subsettedFeature expr:Vehicle___408_pend1_pchain ;
+    sysml:general expr:Vehicle___408_pend1_pchain ;
+    sysml:target expr:Vehicle___408_pend1_pchain ;
+    sysml:relatedElement expr:Vehicle___408_pend1, expr:Vehicle___408_pend1_pchain ;
+    sysml:owner expr:Vehicle___408_pend1 ;
+    sysml:owningRelatedElement expr:Vehicle___408_pend1 ;
+    sysml:ownedRelatedElement expr:Vehicle___408_pend1_pchain ;
+    json:relatedElement "[{\"@id\":\"Vehicle___408_pend1\"},{\"@id\":\"Vehicle___408_pend1_pchain\"}]" .
+
+elmt:Vehicle__Chassis__mass_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Vehicle__Chassis__mass_ft0" ;
+    sysml:typedFeature elmt:Vehicle__Chassis__mass ;
+    sysml:owningFeature elmt:Vehicle__Chassis__mass ;
+    sysml:specific elmt:Vehicle__Chassis__mass ;
+    sysml:source elmt:Vehicle__Chassis__mass ;
+    sysml:owningRelatedElement elmt:Vehicle__Chassis__mass ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:Vehicle__Chassis__mass ;
+    sysml:relatedElement elmt:Vehicle__Chassis__mass, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"Vehicle__Chassis__mass\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:Vehicle__Chassis__wheel_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Vehicle__Chassis__wheel_ft0" ;
+    sysml:typedFeature elmt:Vehicle__Chassis__wheel ;
+    sysml:owningFeature elmt:Vehicle__Chassis__wheel ;
+    sysml:specific elmt:Vehicle__Chassis__wheel ;
+    sysml:source elmt:Vehicle__Chassis__wheel ;
+    sysml:owningRelatedElement elmt:Vehicle__Chassis__wheel ;
+    sysml:type elmt:Vehicle__Wheel ;
+    sysml:general elmt:Vehicle__Wheel ;
+    sysml:target elmt:Vehicle__Wheel ;
+    sysml:owner elmt:Vehicle__Chassis__wheel ;
+    sysml:relatedElement elmt:Vehicle__Chassis__wheel, elmt:Vehicle__Wheel ;
+    json:relatedElement "[{\"@id\":\"Vehicle__Chassis__wheel\"},{\"@id\":\"Vehicle__Wheel\"}]" .
+
+elmt:Vehicle__car_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Vehicle__car_ft0" ;
+    sysml:typedFeature elmt:Vehicle__car ;
+    sysml:owningFeature elmt:Vehicle__car ;
+    sysml:specific elmt:Vehicle__car ;
+    sysml:source elmt:Vehicle__car ;
+    sysml:owningRelatedElement elmt:Vehicle__car ;
+    sysml:type elmt:Vehicle__Chassis ;
+    sysml:general elmt:Vehicle__Chassis ;
+    sysml:target elmt:Vehicle__Chassis ;
+    sysml:owner elmt:Vehicle__car ;
+    sysml:relatedElement elmt:Vehicle__car, elmt:Vehicle__Chassis ;
+    json:relatedElement "[{\"@id\":\"Vehicle__car\"},{\"@id\":\"Vehicle__Chassis\"}]" .
+
+elmt:Vehicle__car__mass_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "Vehicle__car__mass_rd0" ;
+    sysml:redefiningFeature elmt:Vehicle__car__mass ;
+    sysml:subsettingFeature elmt:Vehicle__car__mass ;
+    sysml:owningFeature elmt:Vehicle__car__mass ;
+    sysml:specific elmt:Vehicle__car__mass ;
+    sysml:source elmt:Vehicle__car__mass ;
+    sysml:owningRelatedElement elmt:Vehicle__car__mass ;
+    sysml:redefinedFeature elmt:Vehicle__Chassis__mass ;
+    sysml:subsettedFeature elmt:Vehicle__Chassis__mass ;
+    sysml:general elmt:Vehicle__Chassis__mass ;
+    sysml:target elmt:Vehicle__Chassis__mass ;
+    sysml:owner elmt:Vehicle__car__mass ;
+    sysml:relatedElement elmt:Vehicle__car__mass, elmt:Vehicle__Chassis__mass ;
+    json:relatedElement "[{\"@id\":\"Vehicle__car__mass\"},{\"@id\":\"Vehicle__Chassis__mass\"}]" .
+
+elmt:Vehicle__charger__plug_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Vehicle__charger__plug_ft0" ;
+    sysml:typedFeature elmt:Vehicle__charger__plug ;
+    sysml:owningFeature elmt:Vehicle__charger__plug ;
+    sysml:specific elmt:Vehicle__charger__plug ;
+    sysml:source elmt:Vehicle__charger__plug ;
+    sysml:owningRelatedElement elmt:Vehicle__charger__plug ;
+    sysml:type elmt:Vehicle__Plug ;
+    sysml:general elmt:Vehicle__Plug ;
+    sysml:target elmt:Vehicle__Plug ;
+    sysml:owner elmt:Vehicle__charger__plug ;
+    sysml:relatedElement elmt:Vehicle__charger__plug, elmt:Vehicle__Plug ;
+    json:relatedElement "[{\"@id\":\"Vehicle__charger__plug\"},{\"@id\":\"Vehicle__Plug\"}]" .
+
+elmt:Vehicle__battery__plug_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Vehicle__battery__plug_ft0" ;
+    sysml:typedFeature elmt:Vehicle__battery__plug ;
+    sysml:owningFeature elmt:Vehicle__battery__plug ;
+    sysml:specific elmt:Vehicle__battery__plug ;
+    sysml:source elmt:Vehicle__battery__plug ;
+    sysml:owningRelatedElement elmt:Vehicle__battery__plug ;
+    sysml:type elmt:Vehicle__Plug ;
+    sysml:general elmt:Vehicle__Plug ;
+    sysml:target elmt:Vehicle__Plug ;
+    sysml:owner elmt:Vehicle__battery__plug ;
+    sysml:relatedElement elmt:Vehicle__battery__plug, elmt:Vehicle__Plug ;
+    json:relatedElement "[{\"@id\":\"Vehicle__battery__plug\"},{\"@id\":\"Vehicle__Plug\"}]" .
+
+<urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31>
+    a sysml:DataType ;
+    sysml:elementId "14c0aa22-5489-59b5-b438-ded26e83ba31" ;
+    sysml:qualifiedName "ScalarValues::Real" ;
+    sysml:declaredName "Real" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d>
+    a sysml:LibraryPackage ;
+    sysml:elementId "40bb440c-5036-58e1-8675-5afccb8b8f1d" ;
+    sysml:qualifiedName "ScalarValues" ;
+    sysml:declaredName "ScalarValues" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

@@ -1,0 +1,1 @@
+- The RDF export states a usage's `isVariable` and `mayTimeVary` as the metamodel derives them (`Usage::mayTimeVary` redefines `Feature::isVariable`; `deriveUsageMayTimeVary`), the value the reflective read already answered; it wrote neither, so an RDF consumer read `false` for every usage. Reading the graph back derives them rather than writing a `var` keyword.

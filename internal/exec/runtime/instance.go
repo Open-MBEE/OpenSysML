@@ -1636,19 +1636,30 @@ func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
 	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol) || untypedPerformanceUsage(feat.Symbol)) {
 		return false
 	}
-	usage := feat.Symbol.Decl.(*ast.Usage)
-	return !usage.IsReference
+	usage, ok := feat.Symbol.Decl.(*ast.Usage)
+	return !ok || !usage.IsReference
 }
 
-// untypedPerformanceUsage reports an action or state usage declaring no type and no value,
-// a performance its owner holds as it holds a typed one: one object for a usage declaring no
-// multiplicity, as many as a fixed bound states, none made up for an open bound.
+// untypedPerformanceUsage reports an action or state usage, or a requirement's `assume`/`require`
+// constraint, declaring no type and no value, a performance its owner holds as it holds a typed
+// one: one object for a usage declaring no multiplicity, as many as a fixed bound states, none
+// made up for an open bound.
 func untypedPerformanceUsage(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	// A requirement's `assume`/`require` constraint is composite by its grammar (no `ref`),
+	// an object of the collection it subsets (SysML v2 §8.3.20.4, Requirements.sysml).
+	if owned, ok := ast.OwnedConstraintOf(sym.Decl); ok {
+		return owned.Value == nil
+	}
+	switch sym.Decl.(type) {
+	case *ast.AssumeMember, *ast.RequireMember:
+		// The reference form (`assume c;`) checks the named constraint on this object.
+		return true
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && usage.Value == nil && performanceUsageKind(usage.Kind)
+	return ok && usage.Value == nil && (performanceUsageKind(usage.Kind) || usage.IsRequirementConstraint())
 }
 
 // untypedPortUsage reports a port usage, whose object a binding connector can join to another's.
@@ -1674,44 +1685,52 @@ func isReferenceUsage(sym *symbols.Symbol) bool {
 // declaresFeatures reports whether a usage's own body restates or adds features,
 // which the object it materializes has to carry.
 func declaresFeatures(sym *symbols.Symbol) bool {
-	return declaresAFeature(unwrappedDeclMembers(sym.Decl))
+	for member := range eachUnwrappedDeclMember(sym.Decl) {
+		if memberDeclaresFeature(member) {
+			return true
+		}
+	}
+	return false
 }
 
 // declaresAFeature reports whether one of a body's members declares a feature: a
 // named or specializing usage, or a state body's named substate or entry, do or
 // exit action, each a feature of the state declaring it (SysML v2 §7.18.2).
 func declaresAFeature(members []ast.Node) bool {
-	for _, member := range members {
-		switch m := member.(type) {
-		case *ast.Usage:
-			if m.Ident.Name != "" || m.Ident.ShortName != "" || len(m.Relationships) > 0 {
-				return true
-			}
-		case *ast.SubjectMember:
-			// A subject the body values or defaults (`subject = x;`) restates the inherited parameter.
-			if m.BindingExpr != nil {
-				return true
-			}
-		case *ast.SubstateMember:
-			if m.Name != "" {
-				return true
-			}
-		case *ast.StateNode:
-			if m.Name != "" {
-				return true
-			}
-		case *ast.EntryMember:
-			if declaresAFeature(m.Actions) {
-				return true
-			}
-		case *ast.DoMember:
-			if declaresAFeature(m.Actions) {
-				return true
-			}
-		case *ast.ExitMember:
-			if declaresAFeature(m.Actions) {
-				return true
-			}
+	return slices.ContainsFunc(members, memberDeclaresFeature)
+}
+
+// memberDeclaresFeature reports whether one body member declares a feature (see declaresAFeature).
+func memberDeclaresFeature(member ast.Node) bool {
+	switch m := member.(type) {
+	case *ast.Usage:
+		if m.Ident.Name != "" || m.Ident.ShortName != "" || len(m.Relationships) > 0 {
+			return true
+		}
+	case *ast.SubjectMember:
+		// A subject the body values or defaults (`subject = x;`) restates the inherited parameter.
+		if m.BindingExpr != nil {
+			return true
+		}
+	case *ast.SubstateMember:
+		if m.Name != "" {
+			return true
+		}
+	case *ast.StateNode:
+		if m.Name != "" {
+			return true
+		}
+	case *ast.EntryMember:
+		if declaresAFeature(m.Actions) {
+			return true
+		}
+	case *ast.DoMember:
+		if declaresAFeature(m.Actions) {
+			return true
+		}
+	case *ast.ExitMember:
+		if declaresAFeature(m.Actions) {
+			return true
 		}
 	}
 	return false

@@ -1,0 +1,1 @@
+- The pull-request workflow's protobuf breaking-change check compares the schema against the pull request's merge base with its base branch (a merge group's `base_sha`), not the base branch's tip, so a field another pull request adds to `api/proto/sysml.proto` after a branch was cut no longer fails that branch as a deleted field until it merges the base branch.

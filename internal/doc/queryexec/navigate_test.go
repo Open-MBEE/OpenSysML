@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"testing"
 
@@ -118,7 +119,9 @@ calc def Q :> Query {
 	if got := cellStrings(t, result, "Type"); !slices.EqualFunc(got, [][]string{{"USB"}, {"Serial"}}, slices.Equal) {
 		t.Fatalf("Type cells = %q", got)
 	}
-	if got := cellStrings(t, result, "Direction"); !slices.EqualFunc(got, [][]string{{"inout"}, {"in", "out"}}, slices.Equal) {
+	// A direction is the FeatureDirectionKind literal, an element, as a visibility is.
+	want := [][]string{{"KerML::Core::FeatureDirectionKind::inout"}, {"KerML::Core::FeatureDirectionKind::in", "KerML::Core::FeatureDirectionKind::out"}}
+	if got := cellElementNames(t, result, "Direction"); !slices.EqualFunc(got, want, slices.Equal) {
 		t.Fatalf("Direction cells = %q", got)
 	}
 }
@@ -269,7 +272,8 @@ calc def Q :> Query {
 }
 
 // `ownedElement` lists every element a type's body declares: the named
-// members and the ones declared without a name, each once.
+// members and the ones declared without a name, each once — and, for a port
+// definition, the conjugated port definition it implies (SysML 8.3.11.3).
 func TestExecuteCellOwnedElementIncludesAnonymousMembers(t *testing.T) {
 	result := navigationRows(t, `
 calc def Q :> Query {
@@ -281,10 +285,10 @@ calc def Q :> Query {
 			Column(name = "Owned", cell = { in row : KerML::Root::Element; row.ownedElement->SequenceFunctions::size() }),
 			Column(name = "Named", cell = { in row : KerML::Root::Element; row.ownedElement.name })))
 }`, "Interfaces")
-	if got := cellNumbers(t, result, "Owned"); !slices.EqualFunc(got, [][]float64{{2}, {0}, {2}, {0}}, slices.Equal) {
-		t.Fatalf("Owned cells = %v, want Digital's attribute def and anonymous attribute, Serial's rx and tx", got)
+	if got := cellNumbers(t, result, "Owned"); !slices.EqualFunc(got, [][]float64{{3}, {1}, {3}, {1}}, slices.Equal) {
+		t.Fatalf("Owned cells = %v, want each port definition's conjugate, plus Digital's attribute def and anonymous attribute, Serial's rx and tx", got)
 	}
-	if got := cellStrings(t, result, "Named"); !slices.EqualFunc(got, [][]string{{"Frame"}, nil, {"rx", "tx"}, nil}, slices.Equal) {
+	if got := cellStrings(t, result, "Named"); !slices.EqualFunc(got, [][]string{{"~Digital", "Frame"}, {"~USB"}, {"~Serial", "rx", "tx"}, {"~Spare"}}, slices.Equal) {
 		t.Fatalf("Named cells = %v", got)
 	}
 }
@@ -314,4 +318,31 @@ func TestValuesEqualComparesWideIntegersByMagnitude(t *testing.T) {
 	if len(kept) != 2 {
 		t.Fatalf("distinctValues kept %d wide Integers, want 2", len(kept))
 	}
+}
+
+// cellElementNames is the qualified name of every element value of the column, row by row.
+func cellElementNames(t *testing.T, result *RowSet, column string) [][]string {
+	t.Helper()
+	position := -1
+	for i, c := range result.Columns() {
+		if c.Name() == column {
+			position = i
+		}
+	}
+	if position < 0 {
+		t.Fatalf("no column %s in %v", column, result.Columns())
+	}
+	var out [][]string
+	for _, row := range result.Rows() {
+		var names []string
+		for _, value := range row.Cells()[position].Values() {
+			sym, ok := value.Element()
+			if !ok {
+				t.Fatalf("%s cell holds a non-element value %v", column, value)
+			}
+			names = append(names, symbols.FQNOf(sym))
+		}
+		out = append(out, names)
+	}
+	return out
 }

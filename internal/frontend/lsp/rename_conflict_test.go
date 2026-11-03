@@ -327,7 +327,7 @@ func TestPrepareRenameOffersNameWhoseRenameMayCollide(t *testing.T) {
 	s := NewServer(ws)
 	doc := ws.Document(name)
 	off := strings.Index(string(doc.Content), "A;")
-	rng, err := s.PrepareRename(context.Background(), &protocol.PrepareRenameParams{
+	rng, err := prepareRename(t, s, context.Background(), &protocol.PrepareRenameParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition(doc.Content, off),

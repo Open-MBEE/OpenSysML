@@ -3999,11 +3999,11 @@ func (p *Parser) parseSatisfactionSubject(u *ast.Usage) {
 		p.skipSatisfactionOperand()
 		return
 	}
+	start := p.peek().Span.Offset
 	if subjTarget := p.parseRelationshipTarget(); subjTarget != nil {
-		u.Relationships = append(u.Relationships, &ast.Relationship{
-			Kind:   ast.RelSubject,
-			Target: subjTarget,
-		})
+		rel := &ast.Relationship{Kind: ast.RelSubject, Target: subjTarget}
+		rel.NodeSpan = p.spanFrom(start)
+		u.Relationships = append(u.Relationships, rel)
 	}
 	if p.at(lexer.Semicolon) || p.at(lexer.LBrace) || p.at(lexer.RBrace) || p.atEOF() {
 		return
@@ -4260,6 +4260,7 @@ func (p *Parser) typedBySpan(clauseTok lexer.Token) source.Span {
 	if clauseTok.Kind != lexer.Keyword || clauseTok.KeywordID != "typed" {
 		return source.Span{}
 	}
+	p.typedByCount++
 	return p.spanFrom(clauseTok.Span.Offset)
 }
 

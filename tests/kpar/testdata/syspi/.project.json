@@ -1,0 +1,9 @@
+{
+  "name": "app",
+  "version": "0.1.0",
+  "usage": [
+    {
+      "resource": "pkg:generic/sysmod-sysmlv2?vcs_url=git%2Bhttps:%2F%2Fgithub.com%2FMBSE4U%2Fsysmod-sysmlv2%405.1.6"
+    }
+  ]
+}

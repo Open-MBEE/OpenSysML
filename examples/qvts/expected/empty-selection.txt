@@ -1,0 +1,4 @@
+✓ package Lander
+✓ package QVTSDemo
+✓ Query QVTSDemo::EmptySelection returned 0 rows
+  Columns: qualifiedName, mass

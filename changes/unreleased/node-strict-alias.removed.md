@@ -1,0 +1,1 @@
+- The Node client's deprecated `strict` parse option, an alias of `strictConformance` since 0.10.0; pass `strictConformance`.

@@ -1369,8 +1369,14 @@ trace prints. This transition record was captured from a traced `ExecuteState` c
 {"kind":"transition", "time":{"quantity":{"realMagnitude":0, "unit":"s", "unitTerm":{"scaleNum":1, "scaleDen":1, "factors":[{"unitId":"SI::second", "exponent":1}]}}}, "machine":"Machine", "from":"init", "to":"Running", "text":"transition: init -> Running"}
 ```
 
-The `state_trace` capability is checked before sending the option; a service that withholds it
-refuses the request with `UNIMPLEMENTED`. Tracing an explore schedule is `INVALID_ARGUMENT`,
+`ExecuteActionRequest.trace` (capability `action_trace`) answers the same `DocumentEvent`
+records for an action: `step` (a token entering a node, `token` and `step` numbering it), `wait`
+(an accept parked on `event`), `accept`, `send`, `decide` (`alternatives` and `taken`), `assign`
+(`feature` and `value` as the engine wrote them) and `complete`. `ExecuteActionRequest.events`
+posts signals or items to the performer in order, each once every token waits, so the accept
+takes it on the next step; it needs `performer_symbol_id`, and a run whose tokens wait with no
+event left fails with its partial trace. The `state_trace` capability is checked before sending
+the option; a service that withholds it refuses the request with `UNIMPLEMENTED`. Tracing an explore schedule is `INVALID_ARGUMENT`,
 because one trace describes one run, not the outcomes of several runs. A failed run still returns
 the records made before failure. The response retains the newest records up to the service's
 held-event limit and reports discarded older records as `traceDropped`; without the option,
@@ -1753,12 +1759,15 @@ one per assertion. All three return the `instances` they built, in the same shap
 With no `subjectSymbolId`, the three — and `RunAnalysis` — evaluate over the objects
 `Instantiate` holds for the model, as the REPL's `%constraint`, `%requirement`, `%satisfy` and
 `%analysis` are about the objects a session holds: a constraint or requirement a definition owns
-is checked on the one held object carrying it (ambiguous over several of distinct declarations, as
-the REPL answers; one declaration instantiated twice is checked on its newest object), a
-verification case a definition owns runs once per held object of that definition and reports a
-`verificationVerdicts` entry about each, naming the object by `instanceId`, and a `satisfy`
+is checked on the one held object carrying it (ambiguous over several, as the REPL answers —
+objects of distinct declarations and the two objects one declaration instantiated twice leaves
+alike, the one the name no longer denotes named `Bolt #1 (displaced from b)`), a verification
+case a definition owns runs once per held object of that definition — every live one, the object
+a second `Instantiate` of its name displaced included — and reports a `verificationVerdicts`
+entry about each, naming the object by `instanceId`, and a `satisfy`
 a definition states is decided per held object with `instancePath` spelling the object's path
-from the root it was instantiated under (`cheap[2]`), as `ValidateInstance` spells it. The
+from the root it was instantiated under (`cheap[2]`; `small` or `smalls[2]` for an object a
+subsetting usage declares), as `ValidateInstance` spells it. The
 `instances` carry every object a verdict is about. With nothing held, the answer is about
 declared defaults, and a definition-owned case is `inconclusive` asking for an object. A
 sweep that would make one more object than `OPENSYSML_GRPC_MAX_HELD_OBJECTS` allows is
@@ -1910,8 +1919,9 @@ Reading the response:
 - Each of `verdicts` is a `Verdict` as above — `kind` is `"constraint"`, `"requirement"` or
   `"satisfy"`, and `holds`, `condition`, `error`, `requirementId` mean what they mean there — with
   one field more: `instancePath`, where the object the verdict is about sits under the root
-  (`engine.injector`, `wheels[2]`, one-based for a collection element), omitted for the root
-  itself. `instanceId` keys the object in `instances` as before.
+  (`engine.injector`, `wheels[2]`, one-based for a collection element; `small` or `smalls[2]`
+  for an object a subsetting usage declares, never its position in the collection it subsets),
+  omitted for the root itself. `instanceId` keys the object in `instances` as before.
 - `summary.holds` is `true` only when every verdict holds **and** the walk was complete. The
   example's summary has no `holds` and no `error`, so the object is a real *not valid*: three
   of its four assertions are false. A summary with `error` is undecided — an assertion that could
@@ -2652,7 +2662,8 @@ ninth arm, **`verdict`**, a `DocumentVerdict` with `assertion` (the assertion ch
 `elementId` `DocumentValue` — an anonymous `satisfy` keeps its `elementType` and has an empty
 `elementId`), `kind` (`constraint`, `requirement`, `satisfaction`, `binding`, `verification`), `text`
 (the assertion as written), `path` (the object checked, from the bound element down —
-`Garage::car.wheels[2]`), `verdict` (`holds`, `violated`, `undecided`), and, where they apply,
+`Garage::car.wheels[2]`, an object a subsetting usage declares by that usage, `Garage::assembly.small`),
+`verdict` (`holds`, `violated`, `undecided`), and, where they apply,
 `condition` (the expression found false), `reason` (why a row is violated or undecided — an
 undecided row always carries one) and `verification` (the verdict kinds — `pass`, `fail`,
 `inconclusive`, `error` — of the verification cases verifying the requirement). An element

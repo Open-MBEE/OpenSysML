@@ -116,8 +116,9 @@ func (m *Model) EvalElementFilter(f symbols.ElementFilter, cand *symbols.Symbol)
 	// Only a decided verdict is remembered. A condition can be unevaluable
 	// because the element it names is not indexed yet — an import is expanded
 	// while the index is still filling — and re-deciding it later is what keeps
-	// the answer from depending on when it was first asked.
-	if err == nil {
+	// the answer from depending on when it was first asked; nor is one decided
+	// over the partial `about` index while it is being built.
+	if err == nil && !m.aboutBuilding {
 		journal(m, m.filterVerdicts, key, cand.Decl)
 		m.filterVerdicts[key] = verdict
 	}
@@ -1533,7 +1534,15 @@ func SimpleSymbolName(sym *symbols.Symbol) string {
 
 // ownerSymbol returns the element a symbol is a member of.
 func ownerSymbol(sym *symbols.Symbol) *symbols.Symbol {
-	if sym == nil || sym.OwnerScope == nil {
+	if sym == nil {
+		return nil
+	}
+	if sym.Expr != nil {
+		// An expression element is owned by the feature or expression it is
+		// the value, operand or parameter of.
+		return sym.Expr.Owner
+	}
+	if sym.OwnerScope == nil {
 		return nil
 	}
 	return sym.OwnerScope.Owner()
@@ -1545,6 +1554,9 @@ func ownerSymbol(sym *symbols.Symbol) *symbols.Symbol {
 func (m *Model) ownerOf(sym *symbols.Symbol) *symbols.Symbol {
 	if owner := ownerSymbol(sym); owner != nil {
 		return owner
+	}
+	if body := m.bodyDeclaredBy(sym); body != nil {
+		return body
 	}
 	if sym == nil || m.resolver == nil || m.resolver.Index() == nil {
 		return nil

@@ -33,7 +33,7 @@ func testExhibitReferenceNamesNoState(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, src)
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
-	_, err := ctx.Instantiate(resolveSymbol(t, root, "P"))
+	_, err := instantiateReporting(ctx, resolveSymbol(t, root, "P"))
 	if !errors.Is(err, errUnresolvedClassifierBehavior) {
 		t.Fatalf("error = %v, want errUnresolvedClassifierBehavior", err)
 	}
@@ -55,7 +55,7 @@ func testExhibitSubsettingNamesNothing(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, src)
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
-	_, err := ctx.Instantiate(resolveSymbol(t, root, "P"))
+	_, err := instantiateReporting(ctx, resolveSymbol(t, root, "P"))
 	if !errors.Is(err, errUnresolvedClassifierBehavior) {
 		t.Fatalf("error = %v, want errUnresolvedClassifierBehavior", err)
 	}
@@ -73,7 +73,7 @@ func testExhibitTypingNamesNothing(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, src)
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
-	_, err := ctx.Instantiate(resolveSymbol(t, root, "P"))
+	_, err := instantiateReporting(ctx, resolveSymbol(t, root, "P"))
 	if !errors.Is(err, errUnresolvedClassifierBehavior) {
 		t.Fatalf("error = %v, want errUnresolvedClassifierBehavior", err)
 	}

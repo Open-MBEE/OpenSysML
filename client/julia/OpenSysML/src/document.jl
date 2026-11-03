@@ -101,6 +101,7 @@ struct RenderNode
     text::String
     stand_in::Bool
     parent::String
+    compartment::String
     ports::Vector{RenderPort}
     origin::Union{Nothing,RenderSpan}
     geometry::Union{Nothing,RenderGeometry}
@@ -211,7 +212,10 @@ function _document_value(raw)
             String(get(v, "from", "")), String(get(v, "to", "")),
             target_raw isa AbstractDict ? _document_object(target_raw) : nothing,
             String(get(v, "event", "")), String[String(x) for x in get(v, "payload", Any[])],
-            String[String(x) for x in get(v, "alternatives", Any[])], String(get(v, "taken", "")))
+            String[String(x) for x in get(v, "alternatives", Any[])], String(get(v, "taken", "")),
+            parse(Int64, string(get(v, "token", 0))), Int(get(v, "step", 0)),
+            String(get(v, "feature", "")),
+            haskey(v, "value") ? decode_value(v["value"]) : nothing)
     end
     throw(UnsupportedValueError("unknown document value arm"))
 end
@@ -369,7 +373,8 @@ function rendered_view_result(raw)
             _render_string(node, "name"), _render_bool(node, "nameSynthesized"),
             _render_string(node, "type"), _render_string(node, "detail"),
             _render_string(node, "text"), _render_bool(node, "standIn"),
-            _render_string(node, "parent"), ports, _render_span(get(node, "origin", nothing)),
+            _render_string(node, "parent"), _render_string(node, "compartment"), ports,
+            _render_span(get(node, "origin", nothing)),
             _render_geometry(get(node, "geometry", nothing)),
             _render_style(get(node, "style", nothing))))
     end
@@ -402,9 +407,12 @@ end
 Render a named view with minimal or full ports. `show` names the optional
 notation elements to draw besides those the view's rendering shows
 (`"edge-labels"`, `"all"`, ...); the service refuses a name it does not know.
+`compartments` says how a tree rendering folds owned members into compartment
+rows: `"positioned"` (the default: only the layout-less members of a tree some
+Layout positions), `"most"` or `"ports"`; a folded node names its `compartment`.
 """
 function render_view(model::Model, view_name::AbstractString; ports="minimal", show=String[],
-                     depth::Integer=0)
+                     depth::Integer=0, compartments::AbstractString="")
     ports in ("minimal", "full") || throw(ArgumentError("ports must be 'minimal' or 'full'"))
     depth >= 0 || throw(ArgumentError("depth must be a non-negative integer"))
     conn = model.connection
@@ -414,7 +422,8 @@ function render_view(model::Model, view_name::AbstractString; ports="minimal", s
         capabilities=(CAPABILITY_RENDER_VIEW,), connection=conn) do
         call(conn, "RenderView", Dict{String,Any}("modelHash" => model.hash,
             "view" => String(view_name), "ports" => ports == "minimal" ? "" : ports,
-            "show" => String[String(s) for s in show], "depth" => Int(depth)))
+            "show" => String[String(s) for s in show], "depth" => Int(depth),
+            "compartments" => String(compartments)))
     end
     rendered_view_result(answer)
 end

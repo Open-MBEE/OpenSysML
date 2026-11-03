@@ -650,7 +650,7 @@ func (t *translator) pinnedVar(p Pin) *Var {
 		if !matched {
 			continue
 		}
-		_, subject := v.Root.Decl.(*ast.SubjectMember)
+		subject := subjectDecl(v.Root)
 		owned := p.Feature.OwnerScope != nil && p.Feature.OwnerScope.Owner() == v.Root
 		if !subject && !owned {
 			continue
@@ -970,7 +970,7 @@ func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instan
 			unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: err.Error(), Err: err})
 			continue
 		}
-		if unset := unsetOutside(value.Undetermined(), v.Steps); unset != nil {
+		if unset := unsetOutside(value.Undetermined(), sharedSteps(ctx, v.Steps)); unset != nil {
 			// A declared value open for a feature nothing gives a value to does not evaluate,
 			// as a failed read does; a chain whose own step holds nothing stays free.
 			spelled := symbols.LastSegment(v.Name)
@@ -1172,6 +1172,19 @@ func unsetRead(spelled string, unset *symbols.Symbol) error {
 
 // unsetOutside is the first feature with no value u is open for that is none of the
 // chain's own steps, nil when u is determined or open only for its own steps or a count.
+// sharedSteps is steps plus the features each step redefines: a redefinition
+// shares its target's value, so a chain through a satisfy's `by` subject holds
+// what the requirement's subject it redefines holds.
+func sharedSteps(ctx *runtime.Context, steps []*symbols.Symbol) []*symbols.Symbol {
+	model := ctx.Semantics()
+	out := append([]*symbols.Symbol(nil), steps...)
+	for _, step := range steps {
+		out = append(out, model.RedefinedFeatures(step)...)
+		out = append(out, model.ImplicitRoleRedefinitions(step)...)
+	}
+	return out
+}
+
 func unsetOutside(u *runtime.Undetermined, steps []*symbols.Symbol) *symbols.Symbol {
 	for _, unset := range u.Unsets() {
 		if !slices.Contains(steps, unset) {

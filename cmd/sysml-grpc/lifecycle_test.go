@@ -181,6 +181,19 @@ func (s *service) address(timeout time.Duration) string {
 	}
 }
 
+// waitLog waits until the service has logged a line containing want: the health
+// listener announces itself from its own goroutine, after the main address.
+func (s *service) waitLog(want string, timeout time.Duration) {
+	s.t.Helper()
+	deadline := time.Now().Add(timeout)
+	for !strings.Contains(s.logs.String(), want) {
+		if time.Now().After(deadline) {
+			s.t.Fatalf("the service did not log %q within %s\nlogs: %s", want, timeout, s.logs.String())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 // waitStatus waits for the process to end and returns its exit status. A
 // process still running when the timeout expires is a leak, and a failure.
 func (s *service) waitStatus(timeout time.Duration) int {

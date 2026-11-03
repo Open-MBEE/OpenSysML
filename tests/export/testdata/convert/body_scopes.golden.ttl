@@ -52,7 +52,12 @@ elmt:Lib__Gauge_om
     sysml:ownedMemberElement elmt:Lib__Gauge ;
     sysml:ownedRelatedElement elmt:Lib__Gauge ;
     sysml:owningRelatedElement elmt:Lib ;
-    sysml:membershipOwningNamespace elmt:Lib .
+    sysml:membershipOwningNamespace elmt:Lib ;
+    sysml:source elmt:Lib ;
+    sysml:target elmt:Lib__Gauge ;
+    sysml:relatedElement elmt:Lib, elmt:Lib__Gauge ;
+    sysml:memberName "Gauge" ;
+    json:relatedElement "[{\"@id\":\"Lib\"},{\"@id\":\"Lib__Gauge\"}]" .
 
 elmt:Lib__limit
     a sysml:AttributeUsage ;
@@ -84,7 +89,12 @@ elmt:Lib__limit_om
     sysml:ownedMemberElement elmt:Lib__limit ;
     sysml:ownedRelatedElement elmt:Lib__limit ;
     sysml:owningRelatedElement elmt:Lib ;
-    sysml:membershipOwningNamespace elmt:Lib .
+    sysml:membershipOwningNamespace elmt:Lib ;
+    sysml:source elmt:Lib ;
+    sysml:target elmt:Lib__limit ;
+    sysml:relatedElement elmt:Lib, elmt:Lib__limit ;
+    sysml:memberName "limit" ;
+    json:relatedElement "[{\"@id\":\"Lib\"},{\"@id\":\"Lib__limit\"}]" .
 
 elmt:Scopes
     a sysml:Package ;
@@ -108,7 +118,7 @@ elmt:Scopes
 
 elmt:Scopes___400
     a sysml:NamespaceImport ;
-    sysml:qualifiedName "Scopes::@0" ;
+    sysx:positionalName "Scopes::@0" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -160,7 +170,12 @@ elmt:Scopes__D_om
     sysml:ownedMemberElement elmt:Scopes__D ;
     sysml:ownedRelatedElement elmt:Scopes__D ;
     sysml:owningRelatedElement elmt:Scopes ;
-    sysml:membershipOwningNamespace elmt:Scopes .
+    sysml:membershipOwningNamespace elmt:Scopes ;
+    sysml:source elmt:Scopes ;
+    sysml:target elmt:Scopes__D ;
+    sysml:relatedElement elmt:Scopes, elmt:Scopes__D ;
+    sysml:memberName "D" ;
+    json:relatedElement "[{\"@id\":\"Scopes\"},{\"@id\":\"Scopes__D\"}]" .
 
 elmt:Scopes__D__xs
     a sysml:AttributeUsage ;
@@ -177,6 +192,8 @@ elmt:Scopes__D__xs
     sysml:owningMembership elmt:Scopes__D__xs_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "xs" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute xs;\n" .
 
@@ -189,8 +206,13 @@ elmt:Scopes__D__xs_om
     sysml:ownedRelatedElement elmt:Scopes__D__xs ;
     sysml:owningRelatedElement elmt:Scopes__D ;
     sysml:membershipOwningNamespace elmt:Scopes__D ;
+    sysml:source elmt:Scopes__D ;
+    sysml:target elmt:Scopes__D__xs ;
+    sysml:relatedElement elmt:Scopes__D, elmt:Scopes__D__xs ;
+    sysml:memberName "xs" ;
     sysml:ownedMemberFeature elmt:Scopes__D__xs ;
-    sysml:owningType elmt:Scopes__D .
+    sysml:owningType elmt:Scopes__D ;
+    json:relatedElement "[{\"@id\":\"Scopes__D\"},{\"@id\":\"Scopes__D__xs\"}]" .
 
 elmt:Scopes__D__one
     a sysml:AttributeUsage ;
@@ -207,6 +229,8 @@ elmt:Scopes__D__one
     sysml:owningMembership elmt:Scopes__D__one_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "one" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Scopes__D__one_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__one_pvalue_om ;
     sysml:ownedMembership expr:Scopes__D__one_pvalue_om ;
@@ -222,8 +246,13 @@ elmt:Scopes__D__one_om
     sysml:ownedRelatedElement elmt:Scopes__D__one ;
     sysml:owningRelatedElement elmt:Scopes__D ;
     sysml:membershipOwningNamespace elmt:Scopes__D ;
+    sysml:source elmt:Scopes__D ;
+    sysml:target elmt:Scopes__D__one ;
+    sysml:relatedElement elmt:Scopes__D, elmt:Scopes__D__one ;
+    sysml:memberName "one" ;
     sysml:ownedMemberFeature elmt:Scopes__D__one ;
-    sysml:owningType elmt:Scopes__D .
+    sysml:owningType elmt:Scopes__D ;
+    json:relatedElement "[{\"@id\":\"Scopes__D\"},{\"@id\":\"Scopes__D__one\"}]" .
 
 expr:Scopes__D__one_pvalue
     a sysml:InvocationExpression ;
@@ -281,7 +310,11 @@ expr:Scopes__D__one_pvalue_poperand_preferent
     sysml:elementId "Scopes__D__one_pvalue_poperand_preferent" ;
     sysml:memberElement elmt:Scopes__D__xs ;
     sysml:owner expr:Scopes__D__one_pvalue_poperand ;
-    sysml:owningRelatedElement expr:Scopes__D__one_pvalue_poperand .
+    sysml:owningRelatedElement expr:Scopes__D__one_pvalue_poperand ;
+    sysml:source expr:Scopes__D__one_pvalue_poperand ;
+    sysml:target elmt:Scopes__D__xs ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue_poperand, elmt:Scopes__D__xs ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue_poperand\"},{\"@id\":\"Scopes__D__xs\"}]" .
 
 expr:Scopes__D__one_pvalue_poperand_pout
     a sysml:Feature ;
@@ -301,8 +334,12 @@ expr:Scopes__D__one_pvalue_poperand_pout_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_poperand_pout ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_poperand ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue_poperand ;
+    sysml:source expr:Scopes__D__one_pvalue_poperand ;
+    sysml:target expr:Scopes__D__one_pvalue_poperand_pout ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue_poperand, expr:Scopes__D__one_pvalue_poperand_pout ;
     sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_poperand_pout ;
-    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_poperand_pout .
+    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_poperand_pout ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue_poperand\"},{\"@id\":\"Scopes__D__one_pvalue_poperand_pout\"}]" .
 
 expr:Scopes__D__one_pvalue_pin0
     a sysml:Feature ;
@@ -324,8 +361,12 @@ expr:Scopes__D__one_pvalue_pin0_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pin0 ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue ;
+    sysml:source expr:Scopes__D__one_pvalue ;
+    sysml:target expr:Scopes__D__one_pvalue_pin0 ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue, expr:Scopes__D__one_pvalue_pin0 ;
     sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pin0 ;
-    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pin0 .
+    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pin0 ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue\"},{\"@id\":\"Scopes__D__one_pvalue_pin0\"}]" .
 
 expr:Scopes__D__one_pvalue_poperand_om
     a sysml:FeatureValue ;
@@ -336,8 +377,12 @@ expr:Scopes__D__one_pvalue_poperand_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_poperand ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pin0 ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue_pin0 ;
+    sysml:source expr:Scopes__D__one_pvalue_pin0 ;
+    sysml:target expr:Scopes__D__one_pvalue_poperand ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue_pin0, expr:Scopes__D__one_pvalue_poperand ;
     sysml:featureWithValue expr:Scopes__D__one_pvalue_pin0 ;
-    sysml:value expr:Scopes__D__one_pvalue_poperand .
+    sysml:value expr:Scopes__D__one_pvalue_poperand ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue_pin0\"},{\"@id\":\"Scopes__D__one_pvalue_poperand\"}]" .
 
 expr:Scopes__D__one_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
@@ -370,11 +415,13 @@ expr:Scopes__D__one_pvalue_pa0_pbody
     sysx:bodyParameter expr:Scopes__D__one_pvalue_pa0_pin0 ;
     sysml:ownedRelationship expr:Scopes__D__one_pvalue_pa0_pin0_om, expr:Scopes__D__one_pvalue_pa0_presult_om ;
     sysml:ownedMembership expr:Scopes__D__one_pvalue_pa0_pin0_om, expr:Scopes__D__one_pvalue_pa0_presult_om ;
-    sysml:ownedFeatureMembership expr:Scopes__D__one_pvalue_pa0_pin0_om ;
-    sysml:ownedFeature expr:Scopes__D__one_pvalue_pa0_pin0 ;
+    sysml:ownedFeatureMembership expr:Scopes__D__one_pvalue_pa0_pin0_om, expr:Scopes__D__one_pvalue_pa0_presult_om ;
+    sysml:ownedFeature expr:Scopes__D__one_pvalue_pa0_pin0, expr:Scopes__D__one_pvalue_pa0_presult ;
     sysx:resultExpression expr:Scopes__D__one_pvalue_pa0_presult ;
     json:ownedRelationship "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult\"}]" .
 
 expr:Scopes__D__one_pvalue_pa0_pbody_om
     a sysml:FeatureMembership ;
@@ -385,7 +432,11 @@ expr:Scopes__D__one_pvalue_pa0_pbody_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pa0_pbody ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pa0 ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue_pa0 ;
-    sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pa0_pbody .
+    sysml:source expr:Scopes__D__one_pvalue_pa0 ;
+    sysml:target expr:Scopes__D__one_pvalue_pa0_pbody ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue_pa0, expr:Scopes__D__one_pvalue_pa0_pbody ;
+    sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pa0_pbody ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue_pa0\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_pbody\"}]" .
 
 expr:Scopes__D__one_pvalue_pa0_pin0
     a sysml:ReferenceUsage ;
@@ -394,6 +445,8 @@ expr:Scopes__D__one_pvalue_pa0_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "limit" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner expr:Scopes__D__one_pvalue_pa0_pbody ;
     sysml:owningRelationship expr:Scopes__D__one_pvalue_pa0_pin0_om ;
     sysml:owningMembership expr:Scopes__D__one_pvalue_pa0_pin0_om .
@@ -407,7 +460,11 @@ expr:Scopes__D__one_pvalue_pa0_pin0_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pa0_pin0 ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pa0_pbody ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue_pa0_pbody ;
-    sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pa0_pin0 .
+    sysml:source expr:Scopes__D__one_pvalue_pa0_pbody ;
+    sysml:target expr:Scopes__D__one_pvalue_pa0_pin0 ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue_pa0_pbody, expr:Scopes__D__one_pvalue_pa0_pin0 ;
+    sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pa0_pin0 ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pbody\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_pin0\"}]" .
 
 expr:Scopes__D__one_pvalue_pa0_presult
     a sysml:FeatureReferenceExpression ;
@@ -452,8 +509,12 @@ expr:Scopes__D__one_pvalue_pa0_presult_pout_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pa0_presult_pout ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pa0_presult ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue_pa0_presult ;
+    sysml:source expr:Scopes__D__one_pvalue_pa0_presult ;
+    sysml:target expr:Scopes__D__one_pvalue_pa0_presult_pout ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue_pa0_presult, expr:Scopes__D__one_pvalue_pa0_presult_pout ;
     sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pa0_presult_pout ;
-    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pa0_presult_pout .
+    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pa0_presult_pout ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue_pa0_presult\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult_pout\"}]" .
 
 expr:Scopes__D__one_pvalue_pa0_presult_om
     a sysml:ResultExpressionMembership ;
@@ -464,7 +525,12 @@ expr:Scopes__D__one_pvalue_pa0_presult_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pa0_presult ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pa0_pbody ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue_pa0_pbody ;
-    sysml:ownedResultExpression expr:Scopes__D__one_pvalue_pa0_presult .
+    sysml:source expr:Scopes__D__one_pvalue_pa0_pbody ;
+    sysml:target expr:Scopes__D__one_pvalue_pa0_presult ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue_pa0_pbody, expr:Scopes__D__one_pvalue_pa0_presult ;
+    sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pa0_presult ;
+    sysml:ownedResultExpression expr:Scopes__D__one_pvalue_pa0_presult ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pbody\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_presult\"}]" .
 
 expr:Scopes__D__one_pvalue_pa0_pout
     a sysml:Feature ;
@@ -484,8 +550,12 @@ expr:Scopes__D__one_pvalue_pa0_pout_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pa0_pout ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pa0 ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue_pa0 ;
+    sysml:source expr:Scopes__D__one_pvalue_pa0 ;
+    sysml:target expr:Scopes__D__one_pvalue_pa0_pout ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue_pa0, expr:Scopes__D__one_pvalue_pa0_pout ;
     sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pa0_pout ;
-    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pa0_pout .
+    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pa0_pout ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue_pa0\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_pout\"}]" .
 
 expr:Scopes__D__one_pvalue_pin1
     a sysml:Feature ;
@@ -507,8 +577,12 @@ expr:Scopes__D__one_pvalue_pin1_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pin1 ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue ;
+    sysml:source expr:Scopes__D__one_pvalue ;
+    sysml:target expr:Scopes__D__one_pvalue_pin1 ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue, expr:Scopes__D__one_pvalue_pin1 ;
     sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pin1 ;
-    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pin1 .
+    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pin1 ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue\"},{\"@id\":\"Scopes__D__one_pvalue_pin1\"}]" .
 
 expr:Scopes__D__one_pvalue_pa0_om
     a sysml:FeatureValue ;
@@ -519,8 +593,12 @@ expr:Scopes__D__one_pvalue_pa0_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pin1 ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue_pin1 ;
+    sysml:source expr:Scopes__D__one_pvalue_pin1 ;
+    sysml:target expr:Scopes__D__one_pvalue_pa0 ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue_pin1, expr:Scopes__D__one_pvalue_pa0 ;
     sysml:featureWithValue expr:Scopes__D__one_pvalue_pin1 ;
-    sysml:value expr:Scopes__D__one_pvalue_pa0 .
+    sysml:value expr:Scopes__D__one_pvalue_pa0 ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue_pin1\"},{\"@id\":\"Scopes__D__one_pvalue_pa0\"}]" .
 
 expr:Scopes__D__one_pvalue_pout
     a sysml:Feature ;
@@ -540,8 +618,12 @@ expr:Scopes__D__one_pvalue_pout_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue_pout ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue ;
     sysml:membershipOwningNamespace expr:Scopes__D__one_pvalue ;
+    sysml:source expr:Scopes__D__one_pvalue ;
+    sysml:target expr:Scopes__D__one_pvalue_pout ;
+    sysml:relatedElement expr:Scopes__D__one_pvalue, expr:Scopes__D__one_pvalue_pout ;
     sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pout ;
-    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pout .
+    sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pout ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue\"},{\"@id\":\"Scopes__D__one_pvalue_pout\"}]" .
 
 expr:Scopes__D__one_pvalue_om
     a sysml:FeatureValue ;
@@ -552,8 +634,12 @@ expr:Scopes__D__one_pvalue_om
     sysml:ownedRelatedElement expr:Scopes__D__one_pvalue ;
     sysml:owningRelatedElement elmt:Scopes__D__one ;
     sysml:membershipOwningNamespace elmt:Scopes__D__one ;
+    sysml:source elmt:Scopes__D__one ;
+    sysml:target expr:Scopes__D__one_pvalue ;
+    sysml:relatedElement elmt:Scopes__D__one, expr:Scopes__D__one_pvalue ;
     sysml:featureWithValue elmt:Scopes__D__one ;
-    sysml:value expr:Scopes__D__one_pvalue .
+    sysml:value expr:Scopes__D__one_pvalue ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__one\"},{\"@id\":\"Scopes__D__one_pvalue\"}]" .
 
 elmt:Scopes__D__two
     a sysml:AttributeUsage ;
@@ -570,6 +656,8 @@ elmt:Scopes__D__two
     sysml:owningMembership elmt:Scopes__D__two_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "two" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Scopes__D__two_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__two_pvalue_om ;
     sysml:ownedMembership expr:Scopes__D__two_pvalue_om ;
@@ -585,8 +673,13 @@ elmt:Scopes__D__two_om
     sysml:ownedRelatedElement elmt:Scopes__D__two ;
     sysml:owningRelatedElement elmt:Scopes__D ;
     sysml:membershipOwningNamespace elmt:Scopes__D ;
+    sysml:source elmt:Scopes__D ;
+    sysml:target elmt:Scopes__D__two ;
+    sysml:relatedElement elmt:Scopes__D, elmt:Scopes__D__two ;
+    sysml:memberName "two" ;
     sysml:ownedMemberFeature elmt:Scopes__D__two ;
-    sysml:owningType elmt:Scopes__D .
+    sysml:owningType elmt:Scopes__D ;
+    json:relatedElement "[{\"@id\":\"Scopes__D\"},{\"@id\":\"Scopes__D__two\"}]" .
 
 expr:Scopes__D__two_pvalue
     a sysml:InvocationExpression ;
@@ -644,7 +737,11 @@ expr:Scopes__D__two_pvalue_poperand_preferent
     sysml:elementId "Scopes__D__two_pvalue_poperand_preferent" ;
     sysml:memberElement elmt:Scopes__D__xs ;
     sysml:owner expr:Scopes__D__two_pvalue_poperand ;
-    sysml:owningRelatedElement expr:Scopes__D__two_pvalue_poperand .
+    sysml:owningRelatedElement expr:Scopes__D__two_pvalue_poperand ;
+    sysml:source expr:Scopes__D__two_pvalue_poperand ;
+    sysml:target elmt:Scopes__D__xs ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue_poperand, elmt:Scopes__D__xs ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue_poperand\"},{\"@id\":\"Scopes__D__xs\"}]" .
 
 expr:Scopes__D__two_pvalue_poperand_pout
     a sysml:Feature ;
@@ -664,8 +761,12 @@ expr:Scopes__D__two_pvalue_poperand_pout_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_poperand_pout ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_poperand ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue_poperand ;
+    sysml:source expr:Scopes__D__two_pvalue_poperand ;
+    sysml:target expr:Scopes__D__two_pvalue_poperand_pout ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue_poperand, expr:Scopes__D__two_pvalue_poperand_pout ;
     sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_poperand_pout ;
-    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_poperand_pout .
+    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_poperand_pout ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue_poperand\"},{\"@id\":\"Scopes__D__two_pvalue_poperand_pout\"}]" .
 
 expr:Scopes__D__two_pvalue_pin0
     a sysml:Feature ;
@@ -687,8 +788,12 @@ expr:Scopes__D__two_pvalue_pin0_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pin0 ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue ;
+    sysml:source expr:Scopes__D__two_pvalue ;
+    sysml:target expr:Scopes__D__two_pvalue_pin0 ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue, expr:Scopes__D__two_pvalue_pin0 ;
     sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pin0 ;
-    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pin0 .
+    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pin0 ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue\"},{\"@id\":\"Scopes__D__two_pvalue_pin0\"}]" .
 
 expr:Scopes__D__two_pvalue_poperand_om
     a sysml:FeatureValue ;
@@ -699,8 +804,12 @@ expr:Scopes__D__two_pvalue_poperand_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_poperand ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pin0 ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue_pin0 ;
+    sysml:source expr:Scopes__D__two_pvalue_pin0 ;
+    sysml:target expr:Scopes__D__two_pvalue_poperand ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue_pin0, expr:Scopes__D__two_pvalue_poperand ;
     sysml:featureWithValue expr:Scopes__D__two_pvalue_pin0 ;
-    sysml:value expr:Scopes__D__two_pvalue_poperand .
+    sysml:value expr:Scopes__D__two_pvalue_poperand ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue_pin0\"},{\"@id\":\"Scopes__D__two_pvalue_poperand\"}]" .
 
 expr:Scopes__D__two_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
@@ -733,11 +842,13 @@ expr:Scopes__D__two_pvalue_pa0_pbody
     sysx:bodyParameter expr:Scopes__D__two_pvalue_pa0_pin0 ;
     sysml:ownedRelationship expr:Scopes__D__two_pvalue_pa0_pin0_om, expr:Scopes__D__two_pvalue_pa0_presult_om ;
     sysml:ownedMembership expr:Scopes__D__two_pvalue_pa0_pin0_om, expr:Scopes__D__two_pvalue_pa0_presult_om ;
-    sysml:ownedFeatureMembership expr:Scopes__D__two_pvalue_pa0_pin0_om ;
-    sysml:ownedFeature expr:Scopes__D__two_pvalue_pa0_pin0 ;
+    sysml:ownedFeatureMembership expr:Scopes__D__two_pvalue_pa0_pin0_om, expr:Scopes__D__two_pvalue_pa0_presult_om ;
+    sysml:ownedFeature expr:Scopes__D__two_pvalue_pa0_pin0, expr:Scopes__D__two_pvalue_pa0_presult ;
     sysx:resultExpression expr:Scopes__D__two_pvalue_pa0_presult ;
     json:ownedRelationship "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult\"}]" .
 
 expr:Scopes__D__two_pvalue_pa0_pbody_om
     a sysml:FeatureMembership ;
@@ -748,7 +859,11 @@ expr:Scopes__D__two_pvalue_pa0_pbody_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pa0_pbody ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pa0 ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue_pa0 ;
-    sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pa0_pbody .
+    sysml:source expr:Scopes__D__two_pvalue_pa0 ;
+    sysml:target expr:Scopes__D__two_pvalue_pa0_pbody ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue_pa0, expr:Scopes__D__two_pvalue_pa0_pbody ;
+    sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pa0_pbody ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue_pa0\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_pbody\"}]" .
 
 expr:Scopes__D__two_pvalue_pa0_pin0
     a sysml:ReferenceUsage ;
@@ -757,6 +872,8 @@ expr:Scopes__D__two_pvalue_pa0_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "Gauge" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:owner expr:Scopes__D__two_pvalue_pa0_pbody ;
     sysml:owningRelationship expr:Scopes__D__two_pvalue_pa0_pin0_om ;
     sysml:owningMembership expr:Scopes__D__two_pvalue_pa0_pin0_om .
@@ -770,7 +887,11 @@ expr:Scopes__D__two_pvalue_pa0_pin0_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pa0_pin0 ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pa0_pbody ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue_pa0_pbody ;
-    sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pa0_pin0 .
+    sysml:source expr:Scopes__D__two_pvalue_pa0_pbody ;
+    sysml:target expr:Scopes__D__two_pvalue_pa0_pin0 ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue_pa0_pbody, expr:Scopes__D__two_pvalue_pa0_pin0 ;
+    sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pa0_pin0 ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pbody\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_pin0\"}]" .
 
 expr:Scopes__D__two_pvalue_pa0_presult
     a sysml:FeatureReferenceExpression ;
@@ -815,8 +936,12 @@ expr:Scopes__D__two_pvalue_pa0_presult_pout_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pa0_presult_pout ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pa0_presult ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue_pa0_presult ;
+    sysml:source expr:Scopes__D__two_pvalue_pa0_presult ;
+    sysml:target expr:Scopes__D__two_pvalue_pa0_presult_pout ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue_pa0_presult, expr:Scopes__D__two_pvalue_pa0_presult_pout ;
     sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pa0_presult_pout ;
-    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pa0_presult_pout .
+    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pa0_presult_pout ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue_pa0_presult\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult_pout\"}]" .
 
 expr:Scopes__D__two_pvalue_pa0_presult_om
     a sysml:ResultExpressionMembership ;
@@ -827,7 +952,12 @@ expr:Scopes__D__two_pvalue_pa0_presult_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pa0_presult ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pa0_pbody ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue_pa0_pbody ;
-    sysml:ownedResultExpression expr:Scopes__D__two_pvalue_pa0_presult .
+    sysml:source expr:Scopes__D__two_pvalue_pa0_pbody ;
+    sysml:target expr:Scopes__D__two_pvalue_pa0_presult ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue_pa0_pbody, expr:Scopes__D__two_pvalue_pa0_presult ;
+    sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pa0_presult ;
+    sysml:ownedResultExpression expr:Scopes__D__two_pvalue_pa0_presult ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pbody\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_presult\"}]" .
 
 expr:Scopes__D__two_pvalue_pa0_pout
     a sysml:Feature ;
@@ -847,8 +977,12 @@ expr:Scopes__D__two_pvalue_pa0_pout_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pa0_pout ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pa0 ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue_pa0 ;
+    sysml:source expr:Scopes__D__two_pvalue_pa0 ;
+    sysml:target expr:Scopes__D__two_pvalue_pa0_pout ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue_pa0, expr:Scopes__D__two_pvalue_pa0_pout ;
     sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pa0_pout ;
-    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pa0_pout .
+    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pa0_pout ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue_pa0\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_pout\"}]" .
 
 expr:Scopes__D__two_pvalue_pin1
     a sysml:Feature ;
@@ -870,8 +1004,12 @@ expr:Scopes__D__two_pvalue_pin1_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pin1 ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue ;
+    sysml:source expr:Scopes__D__two_pvalue ;
+    sysml:target expr:Scopes__D__two_pvalue_pin1 ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue, expr:Scopes__D__two_pvalue_pin1 ;
     sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pin1 ;
-    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pin1 .
+    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pin1 ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue\"},{\"@id\":\"Scopes__D__two_pvalue_pin1\"}]" .
 
 expr:Scopes__D__two_pvalue_pa0_om
     a sysml:FeatureValue ;
@@ -882,8 +1020,12 @@ expr:Scopes__D__two_pvalue_pa0_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pin1 ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue_pin1 ;
+    sysml:source expr:Scopes__D__two_pvalue_pin1 ;
+    sysml:target expr:Scopes__D__two_pvalue_pa0 ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue_pin1, expr:Scopes__D__two_pvalue_pa0 ;
     sysml:featureWithValue expr:Scopes__D__two_pvalue_pin1 ;
-    sysml:value expr:Scopes__D__two_pvalue_pa0 .
+    sysml:value expr:Scopes__D__two_pvalue_pa0 ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue_pin1\"},{\"@id\":\"Scopes__D__two_pvalue_pa0\"}]" .
 
 expr:Scopes__D__two_pvalue_pout
     a sysml:Feature ;
@@ -903,8 +1045,12 @@ expr:Scopes__D__two_pvalue_pout_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue_pout ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue ;
     sysml:membershipOwningNamespace expr:Scopes__D__two_pvalue ;
+    sysml:source expr:Scopes__D__two_pvalue ;
+    sysml:target expr:Scopes__D__two_pvalue_pout ;
+    sysml:relatedElement expr:Scopes__D__two_pvalue, expr:Scopes__D__two_pvalue_pout ;
     sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pout ;
-    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pout .
+    sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pout ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue\"},{\"@id\":\"Scopes__D__two_pvalue_pout\"}]" .
 
 expr:Scopes__D__two_pvalue_om
     a sysml:FeatureValue ;
@@ -915,8 +1061,12 @@ expr:Scopes__D__two_pvalue_om
     sysml:ownedRelatedElement expr:Scopes__D__two_pvalue ;
     sysml:owningRelatedElement elmt:Scopes__D__two ;
     sysml:membershipOwningNamespace elmt:Scopes__D__two ;
+    sysml:source elmt:Scopes__D__two ;
+    sysml:target expr:Scopes__D__two_pvalue ;
+    sysml:relatedElement elmt:Scopes__D__two, expr:Scopes__D__two_pvalue ;
     sysml:featureWithValue elmt:Scopes__D__two ;
-    sysml:value expr:Scopes__D__two_pvalue .
+    sysml:value expr:Scopes__D__two_pvalue ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__two\"},{\"@id\":\"Scopes__D__two_pvalue\"}]" .
 
 elmt:Scopes__D__outside
     a sysml:AttributeUsage ;
@@ -933,6 +1083,8 @@ elmt:Scopes__D__outside
     sysml:owningMembership elmt:Scopes__D__outside_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "outside" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Scopes__D__outside_pvalue ;
     sysml:ownedRelationship expr:Scopes__D__outside_pvalue_om ;
     sysml:ownedMembership expr:Scopes__D__outside_pvalue_om ;
@@ -948,8 +1100,13 @@ elmt:Scopes__D__outside_om
     sysml:ownedRelatedElement elmt:Scopes__D__outside ;
     sysml:owningRelatedElement elmt:Scopes__D ;
     sysml:membershipOwningNamespace elmt:Scopes__D ;
+    sysml:source elmt:Scopes__D ;
+    sysml:target elmt:Scopes__D__outside ;
+    sysml:relatedElement elmt:Scopes__D, elmt:Scopes__D__outside ;
+    sysml:memberName "outside" ;
     sysml:ownedMemberFeature elmt:Scopes__D__outside ;
-    sysml:owningType elmt:Scopes__D .
+    sysml:owningType elmt:Scopes__D ;
+    json:relatedElement "[{\"@id\":\"Scopes__D\"},{\"@id\":\"Scopes__D__outside\"}]" .
 
 expr:Scopes__D__outside_pvalue
     a sysml:FeatureReferenceExpression ;
@@ -974,7 +1131,11 @@ expr:Scopes__D__outside_pvalue_preferent
     sysml:elementId "Scopes__D__outside_pvalue_preferent" ;
     sysml:memberElement elmt:Lib__limit ;
     sysml:owner expr:Scopes__D__outside_pvalue ;
-    sysml:owningRelatedElement expr:Scopes__D__outside_pvalue .
+    sysml:owningRelatedElement expr:Scopes__D__outside_pvalue ;
+    sysml:source expr:Scopes__D__outside_pvalue ;
+    sysml:target elmt:Lib__limit ;
+    sysml:relatedElement expr:Scopes__D__outside_pvalue, elmt:Lib__limit ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__outside_pvalue\"},{\"@id\":\"Lib__limit\"}]" .
 
 expr:Scopes__D__outside_pvalue_pout
     a sysml:Feature ;
@@ -994,8 +1155,12 @@ expr:Scopes__D__outside_pvalue_pout_om
     sysml:ownedRelatedElement expr:Scopes__D__outside_pvalue_pout ;
     sysml:owningRelatedElement expr:Scopes__D__outside_pvalue ;
     sysml:membershipOwningNamespace expr:Scopes__D__outside_pvalue ;
+    sysml:source expr:Scopes__D__outside_pvalue ;
+    sysml:target expr:Scopes__D__outside_pvalue_pout ;
+    sysml:relatedElement expr:Scopes__D__outside_pvalue, expr:Scopes__D__outside_pvalue_pout ;
     sysml:ownedMemberFeature expr:Scopes__D__outside_pvalue_pout ;
-    sysml:ownedMemberParameter expr:Scopes__D__outside_pvalue_pout .
+    sysml:ownedMemberParameter expr:Scopes__D__outside_pvalue_pout ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__outside_pvalue\"},{\"@id\":\"Scopes__D__outside_pvalue_pout\"}]" .
 
 expr:Scopes__D__outside_pvalue_om
     a sysml:FeatureValue ;
@@ -1006,8 +1171,12 @@ expr:Scopes__D__outside_pvalue_om
     sysml:ownedRelatedElement expr:Scopes__D__outside_pvalue ;
     sysml:owningRelatedElement elmt:Scopes__D__outside ;
     sysml:membershipOwningNamespace elmt:Scopes__D__outside ;
+    sysml:source elmt:Scopes__D__outside ;
+    sysml:target expr:Scopes__D__outside_pvalue ;
+    sysml:relatedElement elmt:Scopes__D__outside, expr:Scopes__D__outside_pvalue ;
     sysml:featureWithValue elmt:Scopes__D__outside ;
-    sysml:value expr:Scopes__D__outside_pvalue .
+    sysml:value expr:Scopes__D__outside_pvalue ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__outside\"},{\"@id\":\"Scopes__D__outside_pvalue\"}]" .
 
 elmt:Scopes__D__g
     a sysml:AttributeUsage ;
@@ -1024,6 +1193,8 @@ elmt:Scopes__D__g
     sysml:owningMembership elmt:Scopes__D__g_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "g" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Lib__Gauge ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Scopes__D__g_ft0 ;
@@ -1040,8 +1211,13 @@ elmt:Scopes__D__g_om
     sysml:ownedRelatedElement elmt:Scopes__D__g ;
     sysml:owningRelatedElement elmt:Scopes__D ;
     sysml:membershipOwningNamespace elmt:Scopes__D ;
+    sysml:source elmt:Scopes__D ;
+    sysml:target elmt:Scopes__D__g ;
+    sysml:relatedElement elmt:Scopes__D, elmt:Scopes__D__g ;
+    sysml:memberName "g" ;
     sysml:ownedMemberFeature elmt:Scopes__D__g ;
-    sysml:owningType elmt:Scopes__D .
+    sysml:owningType elmt:Scopes__D ;
+    json:relatedElement "[{\"@id\":\"Scopes__D\"},{\"@id\":\"Scopes__D__g\"}]" .
 
 elmt:Lib__limit_ft0
     a sysml:FeatureTyping ;

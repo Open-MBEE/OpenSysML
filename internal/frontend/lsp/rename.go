@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -22,7 +23,7 @@ type renameTarget struct {
 
 // PrepareRename reports the range the client should offer for editing, and
 // rejects positions that name nothing renameable before the user types.
-func (s *Server) PrepareRename(ctx context.Context, params *protocol.PrepareRenameParams) (*protocol.Range, error) {
+func (s *Server) PrepareRename(ctx context.Context, params *protocol.PrepareRenameParams) (protocol.PrepareRenameResult, error) {
 	name := uriToName(params.TextDocument.URI)
 	_, span, err := s.renameTargetAt(name, params.Position)
 	if err != nil {
@@ -54,11 +55,11 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 		return nil, conflict
 	}
 
-	changes := map[protocol.DocumentURI][]protocol.TextEdit{}
+	changes := map[uri.URI][]protocol.TextEdit{}
 	// One name occurrence is edited once however many times it is collected: a
 	// shorthand redefinition (`part redefines x;`) is both the declaration and a
 	// reference at the same span, and clients reject overlapping edits.
-	edited := map[protocol.DocumentURI]map[source.Span]bool{}
+	edited := map[uri.URI]map[source.Span]bool{}
 	posOf := map[string]positions{}
 	addEdit := func(docName string, content []byte, span source.Span) {
 		uri := nameToURI(docName)

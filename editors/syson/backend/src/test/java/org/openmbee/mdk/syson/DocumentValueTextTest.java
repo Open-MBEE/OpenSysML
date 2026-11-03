@@ -42,7 +42,8 @@ class DocumentValueTextTest {
                 Optional.empty());
         DocumentRow event = new DocumentRow(type, List.of(), Optional.empty(), Optional.of(car), Optional.empty(),
                 Optional.of(new DocumentValue.DocumentEvent("transition", new DocumentValue.RealValue(2), "car: off -> on",
-                        Optional.of(car), "machine", "", "off", "on", Optional.empty(), "", List.of(), List.of(), "")));
+                        Optional.of(car), "machine", "", "off", "on", Optional.empty(), "", List.of(), List.of(), "",
+                        0L, 0, "", Optional.empty())));
         assertThat(DocumentValueText.rowLabel(plain)).isEqualTo("Vehicles::Car");
         assertThat(DocumentValueText.rowLabel(object)).isEqualTo("car (#7)");
         assertThat(DocumentValueText.rowLabel(state)).isEqualTo("car (#7) in on.run");

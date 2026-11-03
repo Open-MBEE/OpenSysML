@@ -42,13 +42,12 @@ func TestImplicitBaseResolvesThroughIndex(t *testing.T) {
 }
 
 // TestUsageKindsWithoutImplicitBase pins the kinds deliberately left out of the
-// mapping: connector, succession, binding, satisfy, subject and objective
-// take their type from the element they relate to, and the KerML structural
-// kinds are definitions in usage position.
+// mapping: connector, satisfy, subject and objective take their type from the
+// element they relate to, and the KerML structural kinds are definitions in
+// usage position.
 func TestUsageKindsWithoutImplicitBase(t *testing.T) {
 	for _, k := range []ast.UsageKind{
-		ast.UsageConnector, ast.UsageSuccession, ast.UsageBinding,
-		ast.UsageSatisfy, ast.UsageSubject, ast.UsageObjective, ast.UsageInteraction,
+		ast.UsageConnector, ast.UsageSatisfy, ast.UsageSubject, ast.UsageObjective, ast.UsageInteraction,
 		ast.UsageBehavior, ast.UsageAssoc, ast.UsageStruct, ast.UsageClass,
 		ast.UsagePredicate, ast.UsageBool,
 	} {
@@ -102,6 +101,8 @@ func TestBaseFeatureTypesForUsageBases(t *testing.T) {
 		"Views::renderings":                    {"Views::Rendering"},
 		"Requirements::concernChecks":          {"Requirements::ConcernCheck"},
 		"Connections::connections":             {"Connections::Connection"},
+		"Links::selfLinks":                     {"Links::SelfLink"},
+		"Occurrences::happensBeforeLinks":      {"Occurrences::HappensBefore"},
 		"Ports::ports":                         {"Ports::Port"},
 		"Interfaces::interfaces":               {"Interfaces::Interface"},
 		"Allocations::allocations":             {"Allocations::Allocation"},

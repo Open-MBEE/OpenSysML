@@ -112,6 +112,9 @@ func (d *Document) Digest() string {
 }
 
 // Lines returns the document's line index, built once and cached.
+// SourceFile is the document's text as the parser read it.
+func (d *Document) SourceFile() *source.SourceFile { return d.sf }
+
 func (d *Document) Lines() *source.LineIndex {
 	return d.sf.Lines()
 }

@@ -29,6 +29,13 @@ FORMAT_TURTLE = "ttl"
 #: ``json`` names it too.
 FORMAT_API_JSON = "api-json"
 
+#: ``id_form`` of :meth:`Connection.convert`: derived ids spelled from each element's qualified
+#: name, the default.
+ID_FORM_QUALIFIED = "qualified"
+#: ``id_form`` of :meth:`Connection.convert`: name-based uuids under each root package, the
+#: library convention.
+ID_FORM_UUID = "uuid"
+
 #: Names the service canonicalizes each format to, so a reported format can be
 #: told apart without repeating the alias table.
 _TURTLE_NAMES = frozenset({"ttl", "turtle", "rdf"})
@@ -134,6 +141,21 @@ def format_of_path(path):
 
 
 @dataclass(frozen=True)
+class LibraryReference:
+    """A standard-library element an api-json conversion references.
+
+    Attributes:
+        id: The element's id, as the conversion's references spell it.
+        qualified_name: The element's qualified name, such as ``SI::second``.
+        type: The element's metaclass, as API JSON's ``@type`` spells it.
+    """
+
+    id: str
+    qualified_name: str
+    type: str
+
+
+@dataclass(frozen=True)
 class Conversion:
     """A model written out in one of the formats OpenSysML writes.
 
@@ -150,6 +172,10 @@ class Conversion:
             which is experimental. A notation conversion is stable.
         experimental_notice: What is experimental about it, in the service's own
             wording. Empty when ``experimental`` is False.
+        library_references: The standard-library elements an api-json
+            conversion references outside its element array, in place of the
+            library stubs releases before 0.11.0 wrote. Empty for any other
+            format.
     """
 
     content: str
@@ -158,6 +184,7 @@ class Conversion:
     diagnostics: List[object] = field(default_factory=list)
     experimental: bool = False
     experimental_notice: str = ""
+    library_references: List["LibraryReference"] = field(default_factory=list)
 
     def __str__(self):
         return self.content

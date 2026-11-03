@@ -52,7 +52,12 @@ elmt:Payloads__Prio_om
     sysml:ownedMemberElement elmt:Payloads__Prio ;
     sysml:ownedRelatedElement elmt:Payloads__Prio ;
     sysml:owningRelatedElement elmt:Payloads ;
-    sysml:membershipOwningNamespace elmt:Payloads .
+    sysml:membershipOwningNamespace elmt:Payloads ;
+    sysml:source elmt:Payloads ;
+    sysml:target elmt:Payloads__Prio ;
+    sysml:relatedElement elmt:Payloads, elmt:Payloads__Prio ;
+    sysml:memberName "Prio" ;
+    json:relatedElement "[{\"@id\":\"Payloads\"},{\"@id\":\"Payloads__Prio\"}]" .
 
 elmt:Payloads__Fuel
     a sysml:ItemDefinition ;
@@ -79,7 +84,12 @@ elmt:Payloads__Fuel_om
     sysml:ownedMemberElement elmt:Payloads__Fuel ;
     sysml:ownedRelatedElement elmt:Payloads__Fuel ;
     sysml:owningRelatedElement elmt:Payloads ;
-    sysml:membershipOwningNamespace elmt:Payloads .
+    sysml:membershipOwningNamespace elmt:Payloads ;
+    sysml:source elmt:Payloads ;
+    sysml:target elmt:Payloads__Fuel ;
+    sysml:relatedElement elmt:Payloads, elmt:Payloads__Fuel ;
+    sysml:memberName "Fuel" ;
+    json:relatedElement "[{\"@id\":\"Payloads\"},{\"@id\":\"Payloads__Fuel\"}]" .
 
 elmt:Payloads__A
     a sysml:PartDefinition ;
@@ -111,7 +121,12 @@ elmt:Payloads__A_om
     sysml:ownedMemberElement elmt:Payloads__A ;
     sysml:ownedRelatedElement elmt:Payloads__A ;
     sysml:owningRelatedElement elmt:Payloads ;
-    sysml:membershipOwningNamespace elmt:Payloads .
+    sysml:membershipOwningNamespace elmt:Payloads ;
+    sysml:source elmt:Payloads ;
+    sysml:target elmt:Payloads__A ;
+    sysml:relatedElement elmt:Payloads, elmt:Payloads__A ;
+    sysml:memberName "A" ;
+    json:relatedElement "[{\"@id\":\"Payloads\"},{\"@id\":\"Payloads__A\"}]" .
 
 elmt:Payloads__A__i
     a sysml:ItemUsage ;
@@ -128,6 +143,8 @@ elmt:Payloads__A__i
     sysml:owningMembership elmt:Payloads__A__i_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "i" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:type elmt:Payloads__Fuel ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -144,8 +161,13 @@ elmt:Payloads__A__i_om
     sysml:ownedRelatedElement elmt:Payloads__A__i ;
     sysml:owningRelatedElement elmt:Payloads__A ;
     sysml:membershipOwningNamespace elmt:Payloads__A ;
+    sysml:source elmt:Payloads__A ;
+    sysml:target elmt:Payloads__A__i ;
+    sysml:relatedElement elmt:Payloads__A, elmt:Payloads__A__i ;
+    sysml:memberName "i" ;
     sysml:ownedMemberFeature elmt:Payloads__A__i ;
-    sysml:owningType elmt:Payloads__A .
+    sysml:owningType elmt:Payloads__A ;
+    json:relatedElement "[{\"@id\":\"Payloads__A\"},{\"@id\":\"Payloads__A__i\"}]" .
 
 elmt:Payloads__B
     a sysml:PartDefinition ;
@@ -177,7 +199,12 @@ elmt:Payloads__B_om
     sysml:ownedMemberElement elmt:Payloads__B ;
     sysml:ownedRelatedElement elmt:Payloads__B ;
     sysml:owningRelatedElement elmt:Payloads ;
-    sysml:membershipOwningNamespace elmt:Payloads .
+    sysml:membershipOwningNamespace elmt:Payloads ;
+    sysml:source elmt:Payloads ;
+    sysml:target elmt:Payloads__B ;
+    sysml:relatedElement elmt:Payloads, elmt:Payloads__B ;
+    sysml:memberName "B" ;
+    json:relatedElement "[{\"@id\":\"Payloads\"},{\"@id\":\"Payloads__B\"}]" .
 
 elmt:Payloads__B__j
     a sysml:ItemUsage ;
@@ -194,6 +221,8 @@ elmt:Payloads__B__j
     sysml:owningMembership elmt:Payloads__B__j_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "j" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Payloads__Fuel ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -210,8 +239,13 @@ elmt:Payloads__B__j_om
     sysml:ownedRelatedElement elmt:Payloads__B__j ;
     sysml:owningRelatedElement elmt:Payloads__B ;
     sysml:membershipOwningNamespace elmt:Payloads__B ;
+    sysml:source elmt:Payloads__B ;
+    sysml:target elmt:Payloads__B__j ;
+    sysml:relatedElement elmt:Payloads__B, elmt:Payloads__B__j ;
+    sysml:memberName "j" ;
     sysml:ownedMemberFeature elmt:Payloads__B__j ;
-    sysml:owningType elmt:Payloads__B .
+    sysml:owningType elmt:Payloads__B ;
+    json:relatedElement "[{\"@id\":\"Payloads__B\"},{\"@id\":\"Payloads__B__j\"}]" .
 
 elmt:Payloads__Ctx
     a sysml:PartDefinition ;
@@ -248,7 +282,12 @@ elmt:Payloads__Ctx_om
     sysml:ownedMemberElement elmt:Payloads__Ctx ;
     sysml:ownedRelatedElement elmt:Payloads__Ctx ;
     sysml:owningRelatedElement elmt:Payloads ;
-    sysml:membershipOwningNamespace elmt:Payloads .
+    sysml:membershipOwningNamespace elmt:Payloads ;
+    sysml:source elmt:Payloads ;
+    sysml:target elmt:Payloads__Ctx ;
+    sysml:relatedElement elmt:Payloads, elmt:Payloads__Ctx ;
+    sysml:memberName "Ctx" ;
+    json:relatedElement "[{\"@id\":\"Payloads\"},{\"@id\":\"Payloads__Ctx\"}]" .
 
 elmt:Payloads__Ctx__x
     a sysml:PartUsage ;
@@ -265,6 +304,8 @@ elmt:Payloads__Ctx__x
     sysml:owningMembership elmt:Payloads__Ctx__x_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "x" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__A ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx__x_ft0 ;
@@ -280,8 +321,13 @@ elmt:Payloads__Ctx__x_om
     sysml:ownedRelatedElement elmt:Payloads__Ctx__x ;
     sysml:owningRelatedElement elmt:Payloads__Ctx ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx ;
+    sysml:source elmt:Payloads__Ctx ;
+    sysml:target elmt:Payloads__Ctx__x ;
+    sysml:relatedElement elmt:Payloads__Ctx, elmt:Payloads__Ctx__x ;
+    sysml:memberName "x" ;
     sysml:ownedMemberFeature elmt:Payloads__Ctx__x ;
-    sysml:owningType elmt:Payloads__Ctx .
+    sysml:owningType elmt:Payloads__Ctx ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx\"},{\"@id\":\"Payloads__Ctx__x\"}]" .
 
 elmt:Payloads__Ctx__y
     a sysml:PartUsage ;
@@ -298,6 +344,8 @@ elmt:Payloads__Ctx__y
     sysml:owningMembership elmt:Payloads__Ctx__y_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "y" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__B ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx__y_ft0 ;
@@ -313,12 +361,17 @@ elmt:Payloads__Ctx__y_om
     sysml:ownedRelatedElement elmt:Payloads__Ctx__y ;
     sysml:owningRelatedElement elmt:Payloads__Ctx ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx ;
+    sysml:source elmt:Payloads__Ctx ;
+    sysml:target elmt:Payloads__Ctx__y ;
+    sysml:relatedElement elmt:Payloads__Ctx, elmt:Payloads__Ctx__y ;
+    sysml:memberName "y" ;
     sysml:ownedMemberFeature elmt:Payloads__Ctx__y ;
-    sysml:owningType elmt:Payloads__Ctx .
+    sysml:owningType elmt:Payloads__Ctx ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx\"},{\"@id\":\"Payloads__Ctx__y\"}]" .
 
 elmt:Payloads__Ctx___402
     a sysml:FlowUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@2" ;
+    sysx:positionalName "Payloads::Ctx::@2" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -355,8 +408,12 @@ elmt:Payloads__Ctx___402_om
     sysml:ownedRelatedElement elmt:Payloads__Ctx___402 ;
     sysml:owningRelatedElement elmt:Payloads__Ctx ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx ;
+    sysml:source elmt:Payloads__Ctx ;
+    sysml:target elmt:Payloads__Ctx___402 ;
+    sysml:relatedElement elmt:Payloads__Ctx, elmt:Payloads__Ctx___402 ;
     sysml:ownedMemberFeature elmt:Payloads__Ctx___402 ;
-    sysml:owningType elmt:Payloads__Ctx .
+    sysml:owningType elmt:Payloads__Ctx ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx\"},{\"@id\":\"Payloads__Ctx___402\"}]" .
 
 expr:Payloads__Ctx___402_pend0
     a sysml:FlowEnd ;
@@ -384,7 +441,11 @@ expr:Payloads__Ctx___402_pend0_om
     sysml:ownedMemberElement expr:Payloads__Ctx___402_pend0 ;
     sysml:ownedRelatedElement expr:Payloads__Ctx___402_pend0 ;
     sysml:owningRelatedElement elmt:Payloads__Ctx___402 ;
-    sysml:membershipOwningNamespace elmt:Payloads__Ctx___402 .
+    sysml:membershipOwningNamespace elmt:Payloads__Ctx___402 ;
+    sysml:source elmt:Payloads__Ctx___402 ;
+    sysml:target expr:Payloads__Ctx___402_pend0 ;
+    sysml:relatedElement elmt:Payloads__Ctx___402, expr:Payloads__Ctx___402_pend0 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___402\"},{\"@id\":\"Payloads__Ctx___402_pend0\"}]" .
 
 expr:Payloads__Ctx___402_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -411,6 +472,8 @@ expr:Payloads__Ctx___402_pend0_pff
     sysml:owner expr:Payloads__Ctx___402_pend0 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_pend0_pff_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend0_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Payloads__A__i ;
     sysml:ownedRedefinition expr:Payloads__Ctx___402_pend0_pff_rd0 ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend0_pff_rd0 ;
@@ -425,7 +488,11 @@ expr:Payloads__Ctx___402_pend0_pff_om
     sysml:ownedMemberElement expr:Payloads__Ctx___402_pend0_pff ;
     sysml:ownedRelatedElement expr:Payloads__Ctx___402_pend0_pff ;
     sysml:owningRelatedElement expr:Payloads__Ctx___402_pend0 ;
-    sysml:membershipOwningNamespace expr:Payloads__Ctx___402_pend0 .
+    sysml:membershipOwningNamespace expr:Payloads__Ctx___402_pend0 ;
+    sysml:source expr:Payloads__Ctx___402_pend0 ;
+    sysml:target expr:Payloads__Ctx___402_pend0_pff ;
+    sysml:relatedElement expr:Payloads__Ctx___402_pend0, expr:Payloads__Ctx___402_pend0_pff ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___402_pend0\"},{\"@id\":\"Payloads__Ctx___402_pend0_pff\"}]" .
 
 expr:Payloads__Ctx___402_pend1
     a sysml:FlowEnd ;
@@ -453,7 +520,11 @@ expr:Payloads__Ctx___402_pend1_om
     sysml:ownedMemberElement expr:Payloads__Ctx___402_pend1 ;
     sysml:ownedRelatedElement expr:Payloads__Ctx___402_pend1 ;
     sysml:owningRelatedElement elmt:Payloads__Ctx___402 ;
-    sysml:membershipOwningNamespace elmt:Payloads__Ctx___402 .
+    sysml:membershipOwningNamespace elmt:Payloads__Ctx___402 ;
+    sysml:source elmt:Payloads__Ctx___402 ;
+    sysml:target expr:Payloads__Ctx___402_pend1 ;
+    sysml:relatedElement elmt:Payloads__Ctx___402, expr:Payloads__Ctx___402_pend1 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___402\"},{\"@id\":\"Payloads__Ctx___402_pend1\"}]" .
 
 expr:Payloads__Ctx___402_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -480,6 +551,8 @@ expr:Payloads__Ctx___402_pend1_pff
     sysml:owner expr:Payloads__Ctx___402_pend1 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_pend1_pff_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend1_pff_om ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Payloads__B__j ;
     sysml:ownedRedefinition expr:Payloads__Ctx___402_pend1_pff_rd0 ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend1_pff_rd0 ;
@@ -494,11 +567,15 @@ expr:Payloads__Ctx___402_pend1_pff_om
     sysml:ownedMemberElement expr:Payloads__Ctx___402_pend1_pff ;
     sysml:ownedRelatedElement expr:Payloads__Ctx___402_pend1_pff ;
     sysml:owningRelatedElement expr:Payloads__Ctx___402_pend1 ;
-    sysml:membershipOwningNamespace expr:Payloads__Ctx___402_pend1 .
+    sysml:membershipOwningNamespace expr:Payloads__Ctx___402_pend1 ;
+    sysml:source expr:Payloads__Ctx___402_pend1 ;
+    sysml:target expr:Payloads__Ctx___402_pend1_pff ;
+    sysml:relatedElement expr:Payloads__Ctx___402_pend1, expr:Payloads__Ctx___402_pend1_pff ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___402_pend1\"},{\"@id\":\"Payloads__Ctx___402_pend1_pff\"}]" .
 
 elmt:Payloads__Ctx___402__fuel
     a sysml:PayloadFeature ;
-    sysml:qualifiedName "Payloads::Ctx::@2::fuel" ;
+    sysx:positionalName "Payloads::Ctx::@2::fuel" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -526,12 +603,17 @@ elmt:Payloads__Ctx___402__fuel_om
     sysml:ownedRelatedElement elmt:Payloads__Ctx___402__fuel ;
     sysml:owningRelatedElement elmt:Payloads__Ctx___402 ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx___402 ;
+    sysml:source elmt:Payloads__Ctx___402 ;
+    sysml:target elmt:Payloads__Ctx___402__fuel ;
+    sysml:relatedElement elmt:Payloads__Ctx___402, elmt:Payloads__Ctx___402__fuel ;
+    sysml:memberName "fuel" ;
     sysml:ownedMemberFeature elmt:Payloads__Ctx___402__fuel ;
-    sysml:owningType elmt:Payloads__Ctx___402 .
+    sysml:owningType elmt:Payloads__Ctx___402 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___402\"},{\"@id\":\"Payloads__Ctx___402__fuel\"}]" .
 
 elmt:Payloads__Ctx___402__w
     a sysml:AttributeUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@2::w" ;
+    sysx:positionalName "Payloads::Ctx::@2::w" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "47"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -544,6 +626,8 @@ elmt:Payloads__Ctx___402__w
     sysml:owningMembership elmt:Payloads__Ctx___402__w_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "w" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__Prio ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx___402__w_ft0 ;
@@ -559,8 +643,13 @@ elmt:Payloads__Ctx___402__w_om
     sysml:ownedRelatedElement elmt:Payloads__Ctx___402__w ;
     sysml:owningRelatedElement elmt:Payloads__Ctx___402 ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx___402 ;
+    sysml:source elmt:Payloads__Ctx___402 ;
+    sysml:target elmt:Payloads__Ctx___402__w ;
+    sysml:relatedElement elmt:Payloads__Ctx___402, elmt:Payloads__Ctx___402__w ;
+    sysml:memberName "w" ;
     sysml:ownedMemberFeature elmt:Payloads__Ctx___402__w ;
-    sysml:owningType elmt:Payloads__Ctx___402 .
+    sysml:owningType elmt:Payloads__Ctx___402 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___402\"},{\"@id\":\"Payloads__Ctx___402__w\"}]" .
 
 elmt:Payloads__Ctx__m
     a sysml:FlowUsage ;
@@ -599,8 +688,13 @@ elmt:Payloads__Ctx__m_om
     sysml:ownedRelatedElement elmt:Payloads__Ctx__m ;
     sysml:owningRelatedElement elmt:Payloads__Ctx ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx ;
+    sysml:source elmt:Payloads__Ctx ;
+    sysml:target elmt:Payloads__Ctx__m ;
+    sysml:relatedElement elmt:Payloads__Ctx, elmt:Payloads__Ctx__m ;
+    sysml:memberName "m" ;
     sysml:ownedMemberFeature elmt:Payloads__Ctx__m ;
-    sysml:owningType elmt:Payloads__Ctx .
+    sysml:owningType elmt:Payloads__Ctx ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx\"},{\"@id\":\"Payloads__Ctx__m\"}]" .
 
 expr:Payloads__Ctx__m_pend0
     a sysml:EventOccurrenceUsage ;
@@ -624,8 +718,12 @@ expr:Payloads__Ctx__m_pend0_om
     sysml:ownedRelatedElement expr:Payloads__Ctx__m_pend0 ;
     sysml:owningRelatedElement elmt:Payloads__Ctx__m ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx__m ;
+    sysml:source elmt:Payloads__Ctx__m ;
+    sysml:target expr:Payloads__Ctx__m_pend0 ;
+    sysml:relatedElement elmt:Payloads__Ctx__m, expr:Payloads__Ctx__m_pend0 ;
     sysml:ownedMemberFeature expr:Payloads__Ctx__m_pend0 ;
-    sysml:ownedMemberParameter expr:Payloads__Ctx__m_pend0 .
+    sysml:ownedMemberParameter expr:Payloads__Ctx__m_pend0 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx__m\"},{\"@id\":\"Payloads__Ctx__m_pend0\"}]" .
 
 expr:Payloads__Ctx__m_pend0_pchain
     a sysml:Feature ;
@@ -705,8 +803,12 @@ expr:Payloads__Ctx__m_pend1_om
     sysml:ownedRelatedElement expr:Payloads__Ctx__m_pend1 ;
     sysml:owningRelatedElement elmt:Payloads__Ctx__m ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx__m ;
+    sysml:source elmt:Payloads__Ctx__m ;
+    sysml:target expr:Payloads__Ctx__m_pend1 ;
+    sysml:relatedElement elmt:Payloads__Ctx__m, expr:Payloads__Ctx__m_pend1 ;
     sysml:ownedMemberFeature expr:Payloads__Ctx__m_pend1 ;
-    sysml:ownedMemberParameter expr:Payloads__Ctx__m_pend1 .
+    sysml:ownedMemberParameter expr:Payloads__Ctx__m_pend1 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx__m\"},{\"@id\":\"Payloads__Ctx__m_pend1\"}]" .
 
 expr:Payloads__Ctx__m_pend1_pchain
     a sysml:Feature ;
@@ -794,12 +896,17 @@ elmt:Payloads__Ctx__m__cmd_om
     sysml:ownedRelatedElement elmt:Payloads__Ctx__m__cmd ;
     sysml:owningRelatedElement elmt:Payloads__Ctx__m ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx__m ;
+    sysml:source elmt:Payloads__Ctx__m ;
+    sysml:target elmt:Payloads__Ctx__m__cmd ;
+    sysml:relatedElement elmt:Payloads__Ctx__m, elmt:Payloads__Ctx__m__cmd ;
+    sysml:memberName "cmd" ;
     sysml:ownedMemberFeature elmt:Payloads__Ctx__m__cmd ;
-    sysml:owningType elmt:Payloads__Ctx__m .
+    sysml:owningType elmt:Payloads__Ctx__m ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx__m\"},{\"@id\":\"Payloads__Ctx__m__cmd\"}]" .
 
 elmt:Payloads__Ctx___404
     a sysml:FlowUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@4" ;
+    sysx:positionalName "Payloads::Ctx::@4" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -834,8 +941,12 @@ elmt:Payloads__Ctx___404_om
     sysml:ownedRelatedElement elmt:Payloads__Ctx___404 ;
     sysml:owningRelatedElement elmt:Payloads__Ctx ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx ;
+    sysml:source elmt:Payloads__Ctx ;
+    sysml:target elmt:Payloads__Ctx___404 ;
+    sysml:relatedElement elmt:Payloads__Ctx, elmt:Payloads__Ctx___404 ;
     sysml:ownedMemberFeature elmt:Payloads__Ctx___404 ;
-    sysml:owningType elmt:Payloads__Ctx .
+    sysml:owningType elmt:Payloads__Ctx ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx\"},{\"@id\":\"Payloads__Ctx___404\"}]" .
 
 expr:Payloads__Ctx___404_pend0
     a sysml:EventOccurrenceUsage ;
@@ -859,8 +970,12 @@ expr:Payloads__Ctx___404_pend0_om
     sysml:ownedRelatedElement expr:Payloads__Ctx___404_pend0 ;
     sysml:owningRelatedElement elmt:Payloads__Ctx___404 ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx___404 ;
+    sysml:source elmt:Payloads__Ctx___404 ;
+    sysml:target expr:Payloads__Ctx___404_pend0 ;
+    sysml:relatedElement elmt:Payloads__Ctx___404, expr:Payloads__Ctx___404_pend0 ;
     sysml:ownedMemberFeature expr:Payloads__Ctx___404_pend0 ;
-    sysml:ownedMemberParameter expr:Payloads__Ctx___404_pend0 .
+    sysml:ownedMemberParameter expr:Payloads__Ctx___404_pend0 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404\"},{\"@id\":\"Payloads__Ctx___404_pend0\"}]" .
 
 expr:Payloads__Ctx___404_pend0_pchain
     a sysml:Feature ;
@@ -940,8 +1055,12 @@ expr:Payloads__Ctx___404_pend1_om
     sysml:ownedRelatedElement expr:Payloads__Ctx___404_pend1 ;
     sysml:owningRelatedElement elmt:Payloads__Ctx___404 ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx___404 ;
+    sysml:source elmt:Payloads__Ctx___404 ;
+    sysml:target expr:Payloads__Ctx___404_pend1 ;
+    sysml:relatedElement elmt:Payloads__Ctx___404, expr:Payloads__Ctx___404_pend1 ;
     sysml:ownedMemberFeature expr:Payloads__Ctx___404_pend1 ;
-    sysml:ownedMemberParameter expr:Payloads__Ctx___404_pend1 .
+    sysml:ownedMemberParameter expr:Payloads__Ctx___404_pend1 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404\"},{\"@id\":\"Payloads__Ctx___404_pend1\"}]" .
 
 expr:Payloads__Ctx___404_pend1_pchain
     a sysml:Feature ;
@@ -1001,7 +1120,7 @@ expr:Payloads__Ctx___404_pend1_prs
 
 elmt:Payloads__Ctx___404__cmd
     a sysml:PayloadFeature ;
-    sysml:qualifiedName "Payloads::Ctx::@4::cmd" ;
+    sysx:positionalName "Payloads::Ctx::@4::cmd" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "20"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -1032,8 +1151,13 @@ elmt:Payloads__Ctx___404__cmd_om
     sysml:ownedRelatedElement elmt:Payloads__Ctx___404__cmd ;
     sysml:owningRelatedElement elmt:Payloads__Ctx___404 ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx___404 ;
+    sysml:source elmt:Payloads__Ctx___404 ;
+    sysml:target elmt:Payloads__Ctx___404__cmd ;
+    sysml:relatedElement elmt:Payloads__Ctx___404, elmt:Payloads__Ctx___404__cmd ;
+    sysml:memberName "cmd" ;
     sysml:ownedMemberFeature elmt:Payloads__Ctx___404__cmd ;
-    sysml:owningType elmt:Payloads__Ctx___404 .
+    sysml:owningType elmt:Payloads__Ctx___404 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404\"},{\"@id\":\"Payloads__Ctx___404__cmd\"}]" .
 
 expr:Payloads__Ctx___404__cmd_pvalue
     a sysml:FeatureChainExpression ;
@@ -1081,7 +1205,11 @@ expr:Payloads__Ctx___404__cmd_pvalue_pa0_preferent
     sysml:elementId "Payloads__Ctx___404__cmd_pvalue_pa0_preferent" ;
     sysml:memberElement elmt:Payloads__Ctx__m ;
     sysml:owner expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
-    sysml:owningRelatedElement expr:Payloads__Ctx___404__cmd_pvalue_pa0 .
+    sysml:owningRelatedElement expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
+    sysml:source expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
+    sysml:target elmt:Payloads__Ctx__m ;
+    sysml:relatedElement expr:Payloads__Ctx___404__cmd_pvalue_pa0, elmt:Payloads__Ctx__m ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pa0\"},{\"@id\":\"Payloads__Ctx__m\"}]" .
 
 expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout
     a sysml:Feature ;
@@ -1101,8 +1229,12 @@ expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout_om
     sysml:ownedRelatedElement expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout ;
     sysml:owningRelatedElement expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
     sysml:membershipOwningNamespace expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
+    sysml:source expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
+    sysml:target expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout ;
+    sysml:relatedElement expr:Payloads__Ctx___404__cmd_pvalue_pa0, expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout ;
     sysml:ownedMemberFeature expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout ;
-    sysml:ownedMemberParameter expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout .
+    sysml:ownedMemberParameter expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pa0\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pa0_pout\"}]" .
 
 expr:Payloads__Ctx___404__cmd_pvalue_pin0
     a sysml:Feature ;
@@ -1124,8 +1256,12 @@ expr:Payloads__Ctx___404__cmd_pvalue_pin0_om
     sysml:ownedRelatedElement expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
     sysml:owningRelatedElement expr:Payloads__Ctx___404__cmd_pvalue ;
     sysml:membershipOwningNamespace expr:Payloads__Ctx___404__cmd_pvalue ;
+    sysml:source expr:Payloads__Ctx___404__cmd_pvalue ;
+    sysml:target expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
+    sysml:relatedElement expr:Payloads__Ctx___404__cmd_pvalue, expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
     sysml:ownedMemberFeature expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
-    sysml:ownedMemberParameter expr:Payloads__Ctx___404__cmd_pvalue_pin0 .
+    sysml:ownedMemberParameter expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pin0\"}]" .
 
 expr:Payloads__Ctx___404__cmd_pvalue_pa0_om
     a sysml:FeatureValue ;
@@ -1136,15 +1272,23 @@ expr:Payloads__Ctx___404__cmd_pvalue_pa0_om
     sysml:ownedRelatedElement expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
     sysml:membershipOwningNamespace expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
+    sysml:source expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
+    sysml:target expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
+    sysml:relatedElement expr:Payloads__Ctx___404__cmd_pvalue_pin0, expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
     sysml:featureWithValue expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
-    sysml:value expr:Payloads__Ctx___404__cmd_pvalue_pa0 .
+    sysml:value expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pin0\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pa0\"}]" .
 
 expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Payloads__Ctx___404__cmd_pvalue_ptargetFeature" ;
     sysml:memberElement elmt:Payloads__Ctx__m__cmd ;
     sysml:owner expr:Payloads__Ctx___404__cmd_pvalue ;
-    sysml:owningRelatedElement expr:Payloads__Ctx___404__cmd_pvalue .
+    sysml:owningRelatedElement expr:Payloads__Ctx___404__cmd_pvalue ;
+    sysml:source expr:Payloads__Ctx___404__cmd_pvalue ;
+    sysml:target elmt:Payloads__Ctx__m__cmd ;
+    sysml:relatedElement expr:Payloads__Ctx___404__cmd_pvalue, elmt:Payloads__Ctx__m__cmd ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue\"},{\"@id\":\"Payloads__Ctx__m__cmd\"}]" .
 
 expr:Payloads__Ctx___404__cmd_pvalue_pout
     a sysml:Feature ;
@@ -1164,8 +1308,12 @@ expr:Payloads__Ctx___404__cmd_pvalue_pout_om
     sysml:ownedRelatedElement expr:Payloads__Ctx___404__cmd_pvalue_pout ;
     sysml:owningRelatedElement expr:Payloads__Ctx___404__cmd_pvalue ;
     sysml:membershipOwningNamespace expr:Payloads__Ctx___404__cmd_pvalue ;
+    sysml:source expr:Payloads__Ctx___404__cmd_pvalue ;
+    sysml:target expr:Payloads__Ctx___404__cmd_pvalue_pout ;
+    sysml:relatedElement expr:Payloads__Ctx___404__cmd_pvalue, expr:Payloads__Ctx___404__cmd_pvalue_pout ;
     sysml:ownedMemberFeature expr:Payloads__Ctx___404__cmd_pvalue_pout ;
-    sysml:ownedMemberParameter expr:Payloads__Ctx___404__cmd_pvalue_pout .
+    sysml:ownedMemberParameter expr:Payloads__Ctx___404__cmd_pvalue_pout ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pout\"}]" .
 
 expr:Payloads__Ctx___404__cmd_pvalue_om
     a sysml:FeatureValue ;
@@ -1176,12 +1324,16 @@ expr:Payloads__Ctx___404__cmd_pvalue_om
     sysml:ownedRelatedElement expr:Payloads__Ctx___404__cmd_pvalue ;
     sysml:owningRelatedElement elmt:Payloads__Ctx___404__cmd ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx___404__cmd ;
+    sysml:source elmt:Payloads__Ctx___404__cmd ;
+    sysml:target expr:Payloads__Ctx___404__cmd_pvalue ;
+    sysml:relatedElement elmt:Payloads__Ctx___404__cmd, expr:Payloads__Ctx___404__cmd_pvalue ;
     sysml:featureWithValue elmt:Payloads__Ctx___404__cmd ;
-    sysml:value expr:Payloads__Ctx___404__cmd_pvalue .
+    sysml:value expr:Payloads__Ctx___404__cmd_pvalue ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404__cmd\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue\"}]" .
 
 elmt:Payloads__Ctx___404__w
     a sysml:AttributeUsage ;
-    sysml:qualifiedName "Payloads::Ctx::@4::w" ;
+    sysx:positionalName "Payloads::Ctx::@4::w" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "57"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -1194,6 +1346,8 @@ elmt:Payloads__Ctx___404__w
     sysml:owningMembership elmt:Payloads__Ctx___404__w_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "w" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Payloads__Prio ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx___404__w_ft0 ;
@@ -1209,8 +1363,13 @@ elmt:Payloads__Ctx___404__w_om
     sysml:ownedRelatedElement elmt:Payloads__Ctx___404__w ;
     sysml:owningRelatedElement elmt:Payloads__Ctx___404 ;
     sysml:membershipOwningNamespace elmt:Payloads__Ctx___404 ;
+    sysml:source elmt:Payloads__Ctx___404 ;
+    sysml:target elmt:Payloads__Ctx___404__w ;
+    sysml:relatedElement elmt:Payloads__Ctx___404, elmt:Payloads__Ctx___404__w ;
+    sysml:memberName "w" ;
     sysml:ownedMemberFeature elmt:Payloads__Ctx___404__w ;
-    sysml:owningType elmt:Payloads__Ctx___404 .
+    sysml:owningType elmt:Payloads__Ctx___404 ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404\"},{\"@id\":\"Payloads__Ctx___404__w\"}]" .
 
 elmt:Payloads__A__i_ft0
     a sysml:FeatureTyping ;

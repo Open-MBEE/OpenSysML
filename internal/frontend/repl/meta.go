@@ -38,14 +38,9 @@ const (
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
 const (
-	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [compartments=<folding>] [show=<elements>] [depth=<levels>] [link=<template>]"
+	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|drawio|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [compartments=<folding>] [show=<elements>] [depth=<levels>] [link=<template>]"
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>]"
 )
-
-// isMeta reports whether a trimmed input line is a meta command.
-func isMeta(line string) bool {
-	return strings.HasPrefix(strings.TrimSpace(line), "%")
-}
 
 // parseArgs splits a command line into arguments, handling quoted strings.
 // A double-quoted string is one argument with its quotes removed, which is how a
@@ -707,7 +702,7 @@ func (r *renderArgs) readLink(template string) string {
 // diagram forms take.
 func (r *renderArgs) readPalette(word string) string {
 	if !r.form.TakesPalette() {
-		return fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", r.form, renderUsage)
+		return fmt.Sprintf("a palette fills the mermaid, dot, plantuml, d2 and drawio forms only, not %s; %s", r.form, renderUsage)
 	}
 	palette, ok := view.ParsePalette(word)
 	if !ok {
@@ -2699,7 +2694,9 @@ func (s *Session) satisfyVerdictOn(ctx *runtime.Context, a *runtime.SatisfyAsser
 	// A `satisfy requirement r by p` declares its requirement rather than
 	// referencing one, so the assertion names it.
 	req := a.AssertedRequirement()
-	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req, subject)
+	verdict := satisfactionVerdict(a, result, err, subject, owner)
+	verdict.Lines = append(verdict.Lines, startFailureLines(ctx, subject, "  ")...)
+	verdict = s.withVerifications(verdict, ctx, req, subject)
 	return standing(verdict, plan)
 }
 
@@ -3396,6 +3393,9 @@ func (s *Session) debugExhibitedMachine(
 	behavior, ok := inst.ExhibitedState()
 	if !ok {
 		return nil, fmt.Errorf("object %q exhibits no state machine", label)
+	}
+	if behavior.Err != nil {
+		return nil, fmt.Errorf("object %q runs no state machine to debug: %w", label, behavior.Err)
 	}
 	return s.attachExhibitedMachine(ctx, name, label, inst, behavior), nil
 }

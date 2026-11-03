@@ -197,3 +197,11 @@ mkdir -p "$vendored_project"
 for name in "${removed[@]}"; do rm -f "$name"; done
 for name in "${added[@]}" "${changed[@]}"; do cp "$(source_of "$name")" "$name"; done
 echo "Synced extension libraries to $resolved"
+cat <<'EOT'
+The vendored libraries changed. Before opening the pull request, in this order:
+  go generate ./internal/workspace/libs      # stdlib.snapshot (static job: stdlib-snapshot-check)
+  make extension-libraries-pin-check         # engine contract, baseline provenance, stdlib and query tests
+A failing provenance guard means the pilot-differential baselines record the old library digest:
+adjudicate with `go run -C tools ./cmd/pilot-diff` / `./cmd/pilot-apijson-diff` and re-record with -update
+(see AGENTS.md, "Bumping the extension-library pin").
+EOT

@@ -52,7 +52,12 @@ elmt:Bounds__Vehicle_om
     sysml:ownedMemberElement elmt:Bounds__Vehicle ;
     sysml:ownedRelatedElement elmt:Bounds__Vehicle ;
     sysml:owningRelatedElement elmt:Bounds ;
-    sysml:membershipOwningNamespace elmt:Bounds .
+    sysml:membershipOwningNamespace elmt:Bounds ;
+    sysml:source elmt:Bounds ;
+    sysml:target elmt:Bounds__Vehicle ;
+    sysml:relatedElement elmt:Bounds, elmt:Bounds__Vehicle ;
+    sysml:memberName "Vehicle" ;
+    json:relatedElement "[{\"@id\":\"Bounds\"},{\"@id\":\"Bounds__Vehicle\"}]" .
 
 elmt:Bounds__Fleet
     a sysml:PartDefinition ;
@@ -90,7 +95,12 @@ elmt:Bounds__Fleet_om
     sysml:ownedMemberElement elmt:Bounds__Fleet ;
     sysml:ownedRelatedElement elmt:Bounds__Fleet ;
     sysml:owningRelatedElement elmt:Bounds ;
-    sysml:membershipOwningNamespace elmt:Bounds .
+    sysml:membershipOwningNamespace elmt:Bounds ;
+    sysml:source elmt:Bounds ;
+    sysml:target elmt:Bounds__Fleet ;
+    sysml:relatedElement elmt:Bounds, elmt:Bounds__Fleet ;
+    sysml:memberName "Fleet" ;
+    json:relatedElement "[{\"@id\":\"Bounds\"},{\"@id\":\"Bounds__Fleet\"}]" .
 
 elmt:Bounds__Fleet__exact
     a sysml:PartUsage ;
@@ -107,6 +117,8 @@ elmt:Bounds__Fleet__exact
     sysml:owningMembership elmt:Bounds__Fleet__exact_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "exact" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__exact_pmultiplicity ;
     sysml:ownedRelationship elmt:Bounds__Fleet__exact_ft0, expr:Bounds__Fleet__exact_pmultiplicity_om ;
@@ -127,8 +139,13 @@ elmt:Bounds__Fleet__exact_om
     sysml:ownedRelatedElement elmt:Bounds__Fleet__exact ;
     sysml:owningRelatedElement elmt:Bounds__Fleet ;
     sysml:membershipOwningNamespace elmt:Bounds__Fleet ;
+    sysml:source elmt:Bounds__Fleet ;
+    sysml:target elmt:Bounds__Fleet__exact ;
+    sysml:relatedElement elmt:Bounds__Fleet, elmt:Bounds__Fleet__exact ;
+    sysml:memberName "exact" ;
     sysml:ownedMemberFeature elmt:Bounds__Fleet__exact ;
-    sysml:owningType elmt:Bounds__Fleet .
+    sysml:owningType elmt:Bounds__Fleet ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet\"},{\"@id\":\"Bounds__Fleet__exact\"}]" .
 
 expr:Bounds__Fleet__exact_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -149,7 +166,11 @@ expr:Bounds__Fleet__exact_pmultiplicity_om
     sysml:ownedMemberElement expr:Bounds__Fleet__exact_pmultiplicity ;
     sysml:ownedRelatedElement expr:Bounds__Fleet__exact_pmultiplicity ;
     sysml:owningRelatedElement elmt:Bounds__Fleet__exact ;
-    sysml:membershipOwningNamespace elmt:Bounds__Fleet__exact .
+    sysml:membershipOwningNamespace elmt:Bounds__Fleet__exact ;
+    sysml:source elmt:Bounds__Fleet__exact ;
+    sysml:target expr:Bounds__Fleet__exact_pmultiplicity ;
+    sysml:relatedElement elmt:Bounds__Fleet__exact, expr:Bounds__Fleet__exact_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet__exact\"},{\"@id\":\"Bounds__Fleet__exact_pmultiplicity\"}]" .
 
 expr:Bounds__Fleet__exact_pupperBound
     a sysml:LiteralInteger ;
@@ -169,7 +190,11 @@ expr:Bounds__Fleet__exact_pupperBound_om
     sysml:ownedMemberElement expr:Bounds__Fleet__exact_pupperBound ;
     sysml:ownedRelatedElement expr:Bounds__Fleet__exact_pupperBound ;
     sysml:owningRelatedElement expr:Bounds__Fleet__exact_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Bounds__Fleet__exact_pmultiplicity .
+    sysml:membershipOwningNamespace expr:Bounds__Fleet__exact_pmultiplicity ;
+    sysml:source expr:Bounds__Fleet__exact_pmultiplicity ;
+    sysml:target expr:Bounds__Fleet__exact_pupperBound ;
+    sysml:relatedElement expr:Bounds__Fleet__exact_pmultiplicity, expr:Bounds__Fleet__exact_pupperBound ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet__exact_pmultiplicity\"},{\"@id\":\"Bounds__Fleet__exact_pupperBound\"}]" .
 
 elmt:Bounds__Fleet__range
     a sysml:PartUsage ;
@@ -186,6 +211,8 @@ elmt:Bounds__Fleet__range
     sysml:owningMembership elmt:Bounds__Fleet__range_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "range" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__range_pmultiplicity ;
     sysml:ownedRelationship elmt:Bounds__Fleet__range_ft0, expr:Bounds__Fleet__range_pmultiplicity_om ;
@@ -207,8 +234,13 @@ elmt:Bounds__Fleet__range_om
     sysml:ownedRelatedElement elmt:Bounds__Fleet__range ;
     sysml:owningRelatedElement elmt:Bounds__Fleet ;
     sysml:membershipOwningNamespace elmt:Bounds__Fleet ;
+    sysml:source elmt:Bounds__Fleet ;
+    sysml:target elmt:Bounds__Fleet__range ;
+    sysml:relatedElement elmt:Bounds__Fleet, elmt:Bounds__Fleet__range ;
+    sysml:memberName "range" ;
     sysml:ownedMemberFeature elmt:Bounds__Fleet__range ;
-    sysml:owningType elmt:Bounds__Fleet .
+    sysml:owningType elmt:Bounds__Fleet ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet\"},{\"@id\":\"Bounds__Fleet__range\"}]" .
 
 expr:Bounds__Fleet__range_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -232,7 +264,11 @@ expr:Bounds__Fleet__range_pmultiplicity_om
     sysml:ownedMemberElement expr:Bounds__Fleet__range_pmultiplicity ;
     sysml:ownedRelatedElement expr:Bounds__Fleet__range_pmultiplicity ;
     sysml:owningRelatedElement elmt:Bounds__Fleet__range ;
-    sysml:membershipOwningNamespace elmt:Bounds__Fleet__range .
+    sysml:membershipOwningNamespace elmt:Bounds__Fleet__range ;
+    sysml:source elmt:Bounds__Fleet__range ;
+    sysml:target expr:Bounds__Fleet__range_pmultiplicity ;
+    sysml:relatedElement elmt:Bounds__Fleet__range, expr:Bounds__Fleet__range_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet__range\"},{\"@id\":\"Bounds__Fleet__range_pmultiplicity\"}]" .
 
 expr:Bounds__Fleet__range_plowerBound
     a sysml:LiteralInteger ;
@@ -252,7 +288,11 @@ expr:Bounds__Fleet__range_plowerBound_om
     sysml:ownedMemberElement expr:Bounds__Fleet__range_plowerBound ;
     sysml:ownedRelatedElement expr:Bounds__Fleet__range_plowerBound ;
     sysml:owningRelatedElement expr:Bounds__Fleet__range_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Bounds__Fleet__range_pmultiplicity .
+    sysml:membershipOwningNamespace expr:Bounds__Fleet__range_pmultiplicity ;
+    sysml:source expr:Bounds__Fleet__range_pmultiplicity ;
+    sysml:target expr:Bounds__Fleet__range_plowerBound ;
+    sysml:relatedElement expr:Bounds__Fleet__range_pmultiplicity, expr:Bounds__Fleet__range_plowerBound ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet__range_pmultiplicity\"},{\"@id\":\"Bounds__Fleet__range_plowerBound\"}]" .
 
 expr:Bounds__Fleet__range_pupperBound
     a sysml:LiteralInteger ;
@@ -272,7 +312,11 @@ expr:Bounds__Fleet__range_pupperBound_om
     sysml:ownedMemberElement expr:Bounds__Fleet__range_pupperBound ;
     sysml:ownedRelatedElement expr:Bounds__Fleet__range_pupperBound ;
     sysml:owningRelatedElement expr:Bounds__Fleet__range_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Bounds__Fleet__range_pmultiplicity .
+    sysml:membershipOwningNamespace expr:Bounds__Fleet__range_pmultiplicity ;
+    sysml:source expr:Bounds__Fleet__range_pmultiplicity ;
+    sysml:target expr:Bounds__Fleet__range_pupperBound ;
+    sysml:relatedElement expr:Bounds__Fleet__range_pmultiplicity, expr:Bounds__Fleet__range_pupperBound ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet__range_pmultiplicity\"},{\"@id\":\"Bounds__Fleet__range_pupperBound\"}]" .
 
 elmt:Bounds__Fleet__many
     a sysml:PartUsage ;
@@ -289,6 +333,8 @@ elmt:Bounds__Fleet__many
     sysml:owningMembership elmt:Bounds__Fleet__many_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "many" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__many_pmultiplicity ;
     sysml:ownedRelationship elmt:Bounds__Fleet__many_ft0, expr:Bounds__Fleet__many_pmultiplicity_om ;
@@ -310,8 +356,13 @@ elmt:Bounds__Fleet__many_om
     sysml:ownedRelatedElement elmt:Bounds__Fleet__many ;
     sysml:owningRelatedElement elmt:Bounds__Fleet ;
     sysml:membershipOwningNamespace elmt:Bounds__Fleet ;
+    sysml:source elmt:Bounds__Fleet ;
+    sysml:target elmt:Bounds__Fleet__many ;
+    sysml:relatedElement elmt:Bounds__Fleet, elmt:Bounds__Fleet__many ;
+    sysml:memberName "many" ;
     sysml:ownedMemberFeature elmt:Bounds__Fleet__many ;
-    sysml:owningType elmt:Bounds__Fleet .
+    sysml:owningType elmt:Bounds__Fleet ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet\"},{\"@id\":\"Bounds__Fleet__many\"}]" .
 
 expr:Bounds__Fleet__many_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -335,7 +386,11 @@ expr:Bounds__Fleet__many_pmultiplicity_om
     sysml:ownedMemberElement expr:Bounds__Fleet__many_pmultiplicity ;
     sysml:ownedRelatedElement expr:Bounds__Fleet__many_pmultiplicity ;
     sysml:owningRelatedElement elmt:Bounds__Fleet__many ;
-    sysml:membershipOwningNamespace elmt:Bounds__Fleet__many .
+    sysml:membershipOwningNamespace elmt:Bounds__Fleet__many ;
+    sysml:source elmt:Bounds__Fleet__many ;
+    sysml:target expr:Bounds__Fleet__many_pmultiplicity ;
+    sysml:relatedElement elmt:Bounds__Fleet__many, expr:Bounds__Fleet__many_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet__many\"},{\"@id\":\"Bounds__Fleet__many_pmultiplicity\"}]" .
 
 expr:Bounds__Fleet__many_plowerBound
     a sysml:LiteralInteger ;
@@ -355,7 +410,11 @@ expr:Bounds__Fleet__many_plowerBound_om
     sysml:ownedMemberElement expr:Bounds__Fleet__many_plowerBound ;
     sysml:ownedRelatedElement expr:Bounds__Fleet__many_plowerBound ;
     sysml:owningRelatedElement expr:Bounds__Fleet__many_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Bounds__Fleet__many_pmultiplicity .
+    sysml:membershipOwningNamespace expr:Bounds__Fleet__many_pmultiplicity ;
+    sysml:source expr:Bounds__Fleet__many_pmultiplicity ;
+    sysml:target expr:Bounds__Fleet__many_plowerBound ;
+    sysml:relatedElement expr:Bounds__Fleet__many_pmultiplicity, expr:Bounds__Fleet__many_plowerBound ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet__many_pmultiplicity\"},{\"@id\":\"Bounds__Fleet__many_plowerBound\"}]" .
 
 expr:Bounds__Fleet__many_pupperBound
     a sysml:LiteralInfinity ;
@@ -374,7 +433,11 @@ expr:Bounds__Fleet__many_pupperBound_om
     sysml:ownedMemberElement expr:Bounds__Fleet__many_pupperBound ;
     sysml:ownedRelatedElement expr:Bounds__Fleet__many_pupperBound ;
     sysml:owningRelatedElement expr:Bounds__Fleet__many_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Bounds__Fleet__many_pmultiplicity .
+    sysml:membershipOwningNamespace expr:Bounds__Fleet__many_pmultiplicity ;
+    sysml:source expr:Bounds__Fleet__many_pmultiplicity ;
+    sysml:target expr:Bounds__Fleet__many_pupperBound ;
+    sysml:relatedElement expr:Bounds__Fleet__many_pmultiplicity, expr:Bounds__Fleet__many_pupperBound ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet__many_pmultiplicity\"},{\"@id\":\"Bounds__Fleet__many_pupperBound\"}]" .
 
 elmt:Bounds__Fleet__loose
     a sysml:PartUsage ;
@@ -391,6 +454,8 @@ elmt:Bounds__Fleet__loose
     sysml:owningMembership elmt:Bounds__Fleet__loose_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "loose" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isOrdered "true"^^xsd:boolean ;
     sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
@@ -413,8 +478,13 @@ elmt:Bounds__Fleet__loose_om
     sysml:ownedRelatedElement elmt:Bounds__Fleet__loose ;
     sysml:owningRelatedElement elmt:Bounds__Fleet ;
     sysml:membershipOwningNamespace elmt:Bounds__Fleet ;
+    sysml:source elmt:Bounds__Fleet ;
+    sysml:target elmt:Bounds__Fleet__loose ;
+    sysml:relatedElement elmt:Bounds__Fleet, elmt:Bounds__Fleet__loose ;
+    sysml:memberName "loose" ;
     sysml:ownedMemberFeature elmt:Bounds__Fleet__loose ;
-    sysml:owningType elmt:Bounds__Fleet .
+    sysml:owningType elmt:Bounds__Fleet ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet\"},{\"@id\":\"Bounds__Fleet__loose\"}]" .
 
 expr:Bounds__Fleet__loose_pmultiplicity
     a sysml:MultiplicityRange ;
@@ -435,7 +505,11 @@ expr:Bounds__Fleet__loose_pmultiplicity_om
     sysml:ownedMemberElement expr:Bounds__Fleet__loose_pmultiplicity ;
     sysml:ownedRelatedElement expr:Bounds__Fleet__loose_pmultiplicity ;
     sysml:owningRelatedElement elmt:Bounds__Fleet__loose ;
-    sysml:membershipOwningNamespace elmt:Bounds__Fleet__loose .
+    sysml:membershipOwningNamespace elmt:Bounds__Fleet__loose ;
+    sysml:source elmt:Bounds__Fleet__loose ;
+    sysml:target expr:Bounds__Fleet__loose_pmultiplicity ;
+    sysml:relatedElement elmt:Bounds__Fleet__loose, expr:Bounds__Fleet__loose_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet__loose\"},{\"@id\":\"Bounds__Fleet__loose_pmultiplicity\"}]" .
 
 expr:Bounds__Fleet__loose_pupperBound
     a sysml:LiteralInfinity ;
@@ -454,7 +528,11 @@ expr:Bounds__Fleet__loose_pupperBound_om
     sysml:ownedMemberElement expr:Bounds__Fleet__loose_pupperBound ;
     sysml:ownedRelatedElement expr:Bounds__Fleet__loose_pupperBound ;
     sysml:owningRelatedElement expr:Bounds__Fleet__loose_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Bounds__Fleet__loose_pmultiplicity .
+    sysml:membershipOwningNamespace expr:Bounds__Fleet__loose_pmultiplicity ;
+    sysml:source expr:Bounds__Fleet__loose_pmultiplicity ;
+    sysml:target expr:Bounds__Fleet__loose_pupperBound ;
+    sysml:relatedElement expr:Bounds__Fleet__loose_pmultiplicity, expr:Bounds__Fleet__loose_pupperBound ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet__loose_pmultiplicity\"},{\"@id\":\"Bounds__Fleet__loose_pupperBound\"}]" .
 
 elmt:Bounds__Fleet__shared
     a sysml:PartUsage ;
@@ -472,6 +550,8 @@ elmt:Bounds__Fleet__shared
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "shared" ;
     sysml:isReference "true"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Bounds__Fleet__shared_ft0 ;
@@ -488,8 +568,13 @@ elmt:Bounds__Fleet__shared_om
     sysml:ownedRelatedElement elmt:Bounds__Fleet__shared ;
     sysml:owningRelatedElement elmt:Bounds__Fleet ;
     sysml:membershipOwningNamespace elmt:Bounds__Fleet ;
+    sysml:source elmt:Bounds__Fleet ;
+    sysml:target elmt:Bounds__Fleet__shared ;
+    sysml:relatedElement elmt:Bounds__Fleet, elmt:Bounds__Fleet__shared ;
+    sysml:memberName "shared" ;
     sysml:ownedMemberFeature elmt:Bounds__Fleet__shared ;
-    sysml:owningType elmt:Bounds__Fleet .
+    sysml:owningType elmt:Bounds__Fleet ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet\"},{\"@id\":\"Bounds__Fleet__shared\"}]" .
 
 elmt:Bounds__Fleet__owned
     a sysml:PartUsage ;
@@ -506,6 +591,8 @@ elmt:Bounds__Fleet__owned
     sysml:owningMembership elmt:Bounds__Fleet__owned_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "owned" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Bounds__Fleet__owned_ft0 ;
@@ -522,8 +609,13 @@ elmt:Bounds__Fleet__owned_om
     sysml:ownedRelatedElement elmt:Bounds__Fleet__owned ;
     sysml:owningRelatedElement elmt:Bounds__Fleet ;
     sysml:membershipOwningNamespace elmt:Bounds__Fleet ;
+    sysml:source elmt:Bounds__Fleet ;
+    sysml:target elmt:Bounds__Fleet__owned ;
+    sysml:relatedElement elmt:Bounds__Fleet, elmt:Bounds__Fleet__owned ;
+    sysml:memberName "owned" ;
     sysml:ownedMemberFeature elmt:Bounds__Fleet__owned ;
-    sysml:owningType elmt:Bounds__Fleet .
+    sysml:owningType elmt:Bounds__Fleet ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet\"},{\"@id\":\"Bounds__Fleet__owned\"}]" .
 
 elmt:Bounds__Fleet__count
     a sysml:AttributeUsage ;
@@ -540,6 +632,8 @@ elmt:Bounds__Fleet__count
     sysml:owningMembership elmt:Bounds__Fleet__count_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "count" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isDerived "true"^^xsd:boolean ;
     sysml:type "Integer" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -557,8 +651,13 @@ elmt:Bounds__Fleet__count_om
     sysml:ownedRelatedElement elmt:Bounds__Fleet__count ;
     sysml:owningRelatedElement elmt:Bounds__Fleet ;
     sysml:membershipOwningNamespace elmt:Bounds__Fleet ;
+    sysml:source elmt:Bounds__Fleet ;
+    sysml:target elmt:Bounds__Fleet__count ;
+    sysml:relatedElement elmt:Bounds__Fleet, elmt:Bounds__Fleet__count ;
+    sysml:memberName "count" ;
     sysml:ownedMemberFeature elmt:Bounds__Fleet__count ;
-    sysml:owningType elmt:Bounds__Fleet .
+    sysml:owningType elmt:Bounds__Fleet ;
+    json:relatedElement "[{\"@id\":\"Bounds__Fleet\"},{\"@id\":\"Bounds__Fleet__count\"}]" .
 
 elmt:Bounds__Fleet__exact_ft0
     a sysml:FeatureTyping ;

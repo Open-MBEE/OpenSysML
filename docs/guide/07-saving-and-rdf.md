@@ -98,7 +98,17 @@ plays no part in choosing the format, so a destination without an extension, suc
 or a FIFO, needs no extra flags.
 
 Converting to the same format rewrites the input: notation is reformatted, and
-Turtle is normalized (prefixes sorted, predicates grouped by subject).
+Turtle is normalized (prefixes sorted, predicates grouped by subject). Reformatting notation
+lays the statements out — a new line after the `{` of a body and after each `;` in it, the `}`
+on a line of its own, each level indented — so a model generated on one line comes back one
+statement per line. Every lexeme is kept, and so is every line break the author wrote; a body
+holding only an expression (`assert constraint { x > 0 }`), an empty body, the body of an
+expression (`->forAll { in x; ... }`) and a note at the end of a line stay as written.
+`sysml model.sysml -convert sysml -o model.sysml` is therefore the way to tidy a file from the
+command line, and the editor's Format Document lays a file out the same way; a save (below)
+writes the text as it stands. To keep every line break instead and fix indentation and spacing
+only, pass `-keep-line-breaks` with `-convert sysml`, or turn on the editor's `keepLineBreaks`
+setting ([Editors](08-editors.md#keeping-the-authors-line-breaks)).
 
 ### The standard library as a model
 
@@ -128,7 +138,7 @@ outside the mapping. It never writes a partial model.
 
 The same conversion is available as the service method `Convert`, which `GetServerInfo` reports as
 the `convert` capability. It accepts either a `file_path` that the service opens or `content`
-passed inline, takes the same format names as `-from` and `-to`, and returns the written text
+passed inline, takes the same format names as `-from` and `-convert`, and returns the written text
 with its formats, or an `error` together with the diagnostics that explain it.
 `tolerate_syntax_errors` writes notation despite syntax errors; it is rejected for any direction
 that builds a graph, where an unparsed declaration would be silently dropped.
@@ -194,8 +204,8 @@ which the second conversion to RDF confirms. The rules are in
 [reference/rdf-mapping.md](../reference/rdf-mapping.md#source-text).
 
 **Saving to `.sysml` writes the source directly.** It writes the session's own source through
-the formatter rather than re-printing the graph, so comments, notes and spacing are preserved
-whether or not the model was edited. Only the `.ttl` direction uses the mapping. Syntax is
+the formatter rather than re-printing the graph, so comments, notes, spacing and line breaks are
+preserved whether or not the model was edited; only `-convert sysml` lays statements out anew. Only the `.ttl` direction uses the mapping. Syntax is
 checked in every direction, and notation the parser cannot read is rejected, so a save never
 silently reformats a model that does not parse.
 

@@ -1,0 +1,1 @@
+- The language server now speaks through go.lsp.dev 1.0 (`jsonrpc2`, `protocol` and `uri` 1.0.1). Bundled library documents are addressed by their canonical URI, `sysml-stdlib:/<path within the library>` rather than `sysml-stdlib:///<path>`; a client that parses the URI sees the same document, and the server still answers either spelling.

@@ -101,7 +101,10 @@ func (s *Session) readNotebook(path string, sel notebook.Selection) ([]SourceFil
 		if cell.Tagged(notebook.SkipTag) {
 			report.tagged = append(report.tagged, cell.Index)
 		} else {
-			file.Text = declarationsOf(cell.Source, &report)
+			var skipped notebook.Skipped
+			file.Text, skipped = notebook.Declarations(cell.Source)
+			report.metaLines += skipped.CommandLines
+			report.exprLines += skipped.ExpressionLines
 			report.cells++
 			report.declarations += len(declaredNames(parser.New(source.NewWithKind(name, []byte(file.Text), source.KindSysML)).ParseFile()))
 		}
@@ -115,32 +118,6 @@ func (s *Session) readNotebook(path string, sel notebook.Selection) ([]SourceFil
 		files = append(files, SourceFile{Name: path, Kind: source.KindSysML, Of: path, Whole: true})
 	}
 	return files, report.lines(), nil
-}
-
-// declarationsOf is the text of a cell as a load submits it: its declarations
-// where they stand, every `%` command line and expression line blank. The lines
-// passed over are counted into report.
-func declarationsOf(cell string, report *notebookReport) string {
-	lines := make([]string, strings.Count(cell, "\n")+1)
-	for _, stmt := range Statements(cell) {
-		count := strings.Count(stmt.Text, "\n") + 1
-		switch {
-		case stmt.Meta:
-			report.metaLines += count
-		case isExpression(stmt.Text):
-			report.exprLines += count
-		default:
-			copy(lines[stmt.Line-1:], strings.Split(stmt.Text, "\n"))
-		}
-	}
-	return strings.Join(lines, "\n")
-}
-
-// isExpression reports whether a statement Statements split off is an
-// expression the prompt would answer, not a declaration it would submit.
-func isExpression(text string) bool {
-	_, ok := bareExpression(text)
-	return ok
 }
 
 // notebookReport is what a load says of one notebook.

@@ -47,6 +47,6 @@ welcome. Where to find everyone:
   <span class="osml-eco__tag">Support</span>
   <h3>Sponsor</h3>
   <p>OpenSysML is funded through NumFOCUS — sponsorship keeps the stack open.</p>
-  <p class="osml-eco__links"><a href="https://numfocus.org/donate-to-openmbee">Donate to OpenMBEE via NumFOCUS</a></p>
+  <p class="osml-eco__links"><a href="https://opencollective.com/openmbee/contribute">Donate via NumFOCUS on Open Collective</a></p>
 </div>
 </div>

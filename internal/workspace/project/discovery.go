@@ -350,6 +350,10 @@ func (l *linker) drain(unmatched []pending) []pending {
 		project := l.queue[0]
 		l.queue = l.queue[1:]
 		for _, u := range project.Usage {
+			if _, err := u.location(); err != nil {
+				l.linking = append(l.linking, malformedResource(project, u, err))
+				continue
+			}
 			r, err := u.versionRange()
 			if err != nil {
 				l.linking = append(l.linking, malformedConstraint(project, u, err))
@@ -491,6 +495,14 @@ func unsatisfiedUsage(from *Interchange, u Usage, installed []*Interchange) Warn
 		Path: filepath.Join(from.Dir, ProjectFile),
 		Message: fmt.Sprintf("usage %s asks for version %q of %s, which none of the installed versions satisfies: %s",
 			u.Resource, u.constraint(), installed[0].identity(), strings.Join(versions, ", ")),
+	}
+}
+
+// malformedResource describes a usage whose resource spells a location the grammar does not read.
+func malformedResource(from *Interchange, u Usage, err error) Warning {
+	return Warning{
+		Path:    filepath.Join(from.Dir, ProjectFile),
+		Message: fmt.Sprintf("usage %s: %v (a package URL of type generic names a repository as pkg:generic/<name>?vcs_url=<vcs>%%2B<transport>:%%2F%%2F<host>%%2F<path>[%%40<version>][%%23<subpath>], the qualifier percent-encoded)", u.Resource, err),
 	}
 }
 

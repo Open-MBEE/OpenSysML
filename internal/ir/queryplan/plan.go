@@ -53,6 +53,8 @@ const (
 	// OperationExcept and OperationUnion are the ordered set operations over rows.
 	OperationExcept Operation = "except"
 	OperationUnion  Operation = "union"
+	// OperationDiffer is the keyed value comparison of two projected row sets.
+	OperationDiffer Operation = "differ"
 	// OperationTree arranges rows as a containment tree, each with its depth.
 	OperationTree Operation = "tree"
 	// OperationVariable reads a cell's row parameter or the element a

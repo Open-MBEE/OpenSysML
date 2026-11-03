@@ -1,0 +1,1 @@
+- The editors guide (`docs/guide/08-editors.md`) gains a Helix, Neovim and Zed section pointing at the [tree-sitter-sysml](https://github.com/Open-MBEE/tree-sitter-sysml) grammars and query files, with the Helix `languages.toml` declaration that pairs them with `sysml-lsp`.

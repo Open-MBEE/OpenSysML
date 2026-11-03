@@ -174,32 +174,42 @@ func TestCorpusIsPreservedAndStable(t *testing.T) {
 	}
 }
 
+// checkStable formats content under both layouts, asserting each keeps the
+// token stream and is idempotent.
 func checkStable(t *testing.T, name string, content []byte) {
 	t.Helper()
-	once, err := Source(name, content, DefaultOptions)
-	if err != nil {
-		t.Errorf("%s: %v", name, err)
-		return
-	}
-	twice, err := Source(name, once, DefaultOptions)
-	if err != nil {
-		t.Errorf("%s (second pass): %v", name, err)
-		return
-	}
-	if string(once) != string(twice) {
-		t.Errorf("%s: formatting is not idempotent", name)
+	for _, opts := range []Options{DefaultOptions, ConvertOptions} {
+		once, err := Source(name, content, opts)
+		if err != nil {
+			t.Errorf("%s (%+v): %v", name, opts, err)
+			continue
+		}
+		twice, err := Source(name, once, opts)
+		if err != nil {
+			t.Errorf("%s (%+v, second pass): %v", name, opts, err)
+			continue
+		}
+		if string(once) != string(twice) {
+			t.Errorf("%s (%+v): formatting is not idempotent", name, opts)
+		}
 	}
 }
 
 // TestContinuationGolden locks the indentation of lines that continue the line
 // above them, and checks the result is stable under a second pass.
 func TestContinuationGolden(t *testing.T) {
-	const path = "testdata/continuation.sysml"
+	checkGolden(t, "testdata/continuation.sysml", DefaultOptions)
+}
+
+// checkGolden formats path under opts against its .golden.sysml, rewritten
+// under -update, and checks the result is stable under a second pass.
+func checkGolden(t *testing.T, path string, opts Options) {
+	t.Helper()
 	src, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := Source(path, src, DefaultOptions)
+	got, err := Source(path, src, opts)
 	if err != nil {
 		t.Fatalf("Source() error = %v", err)
 	}

@@ -792,3 +792,67 @@ func TestCheckArguments(t *testing.T) {
 	wantReport(t, check(t, binary, boundModel, "-constraint", "Bound::Between(3"),
 		2, "not closed")
 }
+
+// subsettingModel gathers objects of two subsetting usages, `small` and the two
+// `smalls`, into the `subsystem` collection, each violating the assertion.
+const subsettingModel = `
+package Fleet {
+    part def Component {
+        attribute v default = 1.0;
+        assert constraint ok { v < 10.0 }
+    }
+    part def Assembly {
+        part subsystem : Component[*];
+        part small : Component :> subsystem {
+            attribute :>> v = 99.0;
+        }
+        part smalls : Component[2] :> subsystem {
+            attribute :>> v = 50.0;
+        }
+    }
+    part assembly : Assembly;
+}
+`
+
+// TestValidateLabelsASubsettingObjectByItsDeclaration checks -validate names an
+// object a subsetting usage materializes by that usage, in the text and the JSON
+// report alike, never by its position in the collection it subsets.
+func TestValidateLabelsASubsettingObjectByItsDeclaration(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, subsettingModel, "-instantiate", "Fleet::assembly", "-validate=assembly")
+	wantReport(t, got, 1,
+		"✗ assert constraint ok fails (on Fleet::assembly.small ID: 2)",
+		"✗ assert constraint ok fails (on Fleet::assembly.smalls[1] ID: 3)",
+		"✗ assert constraint ok fails (on Fleet::assembly.smalls[2] ID: 4)",
+		"✗ Fleet::assembly is not valid: 3 of 3 assertions fail")
+	if strings.Contains(got.output(), "subsystem[") {
+		t.Errorf("report labels an object by the collection it subsets:\n%s", got.output())
+	}
+
+	got = check(t, binary, subsettingModel, "-instantiate", "Fleet::assembly", "-validate=assembly", "-json")
+	if got.status != 1 {
+		t.Fatalf("exit status = %d, want 1\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Subject string `json:"subject"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	var subjects []string
+	for _, c := range report.Checks {
+		subjects = append(subjects, c.Subject)
+	}
+	want := []string{
+		"assert constraint ok on Fleet::assembly.small",
+		"assert constraint ok on Fleet::assembly.smalls[1]",
+		"assert constraint ok on Fleet::assembly.smalls[2]",
+		"Fleet::assembly",
+	}
+	if strings.Join(subjects, " ") != strings.Join(want, " ") {
+		t.Errorf("JSON subjects = %q, want %q", subjects, want)
+	}
+}

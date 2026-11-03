@@ -39,9 +39,12 @@ type identityFacts struct {
 	byNode map[ast.Node]elementIdentity
 	// declSym is the symbol each declaration node was resolved as, which a
 	// metadata body's members need to find the feature their name restates.
-	declSym    map[ast.Node]*symbols.Symbol
-	consumed   map[ast.Node]bool
-	provenance map[ast.Node]*identity.Scope
+	declSym map[ast.Node]*symbols.Symbol
+	// bodyParamSym is the symbol of each expression body's parameter by name; a
+	// body parameter declares the body node, so declSym cannot hold it.
+	bodyParamSym map[*ast.BodyExpr]map[string]*symbols.Symbol
+	consumed     map[ast.Node]bool
+	provenance   map[ast.Node]*identity.Scope
 	// qualified reports a multi-scope document, whose scoped elements get
 	// IRIs qualified by their scope so ids repeated across scopes stay apart.
 	qualified bool
@@ -133,71 +136,112 @@ func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace, library s
 // refusing an id that is not a constant string or is outside the id alphabet.
 func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model, form IDForm) (*identityFacts, error) {
 	table := identity.Build(model, res, res.Index().DocumentRoot(name))
-
-	facts := &identityFacts{
-		form:       form,
-		byFQN:      map[string]elementIdentity{},
-		byNode:     map[ast.Node]elementIdentity{},
-		declSym:    map[ast.Node]*symbols.Symbol{},
-		consumed:   map[ast.Node]bool{},
-		provenance: map[ast.Node]*identity.Scope{},
-		model:      model,
-		res:        res,
-		library:    map[*symbols.Symbol]string{},
-		pkg:        map[string]string{},
-		pkgOf:      map[string]string{},
-		localOf:    map[string]string{},
-	}
+	facts := newIdentityFacts(form, model, res)
 	scopeKeys := map[string]bool{}
 	for _, sym := range table.Symbols() {
 		info, ok := table.Info(sym)
 		if !ok {
 			continue
 		}
-		if info.Annotated {
-			if err := exportableID(info); err != nil {
-				return nil, err
-			}
-			for _, d := range info.Declarations {
-				facts.consumed[d.Node] = true
-			}
+		if err := facts.consumeAnnotated(info); err != nil {
+			return nil, err
 		}
-		if info.Scope != nil {
-			for _, d := range info.Scope.Declarations {
-				facts.consumed[d.Node] = true
-			}
-			facts.provenance[info.Scope.Symbol.Decl] = info.Scope
-			scopeKeys[info.Scope.Key()] = true
-		}
-		el := elementIdentity{
-			id:         info.EffectiveID,
-			source:     info.Source,
-			declared:   info.Source == identity.SourceDeclared,
-			scope:      info.Scope,
-			membership: info.OwningMembershipID(),
-		}
-		if root := identity.Root(sym); root != sym {
-			if ri, ok := table.Info(root); ok {
-				el.root = ri.FQN
-				if root.Name != "" {
-					el.root = identitySegment(root.Name)
-				}
-			}
-		} else {
-			el.root = info.FQN
-			if sym.Name != "" {
-				el.root = identitySegment(sym.Name)
-			}
-		}
-		facts.byFQN[info.FQN] = el
-		facts.byNode[sym.Decl] = el
-		if sym.Decl != nil {
-			facts.declSym[sym.Decl] = sym
-		}
+		facts.noteScope(info, scopeKeys)
+		facts.index(sym, info, identityRoot(table, sym, info))
 	}
 	facts.qualified = len(scopeKeys) > 1
 	facts.scopes = scopeKeys
 	return facts, nil
+}
+
+// newIdentityFacts is the empty side table for a document in the given id form.
+func newIdentityFacts(form IDForm, model *semantics.Model, res *resolve.Resolver) *identityFacts {
+	return &identityFacts{
+		form:         form,
+		byFQN:        map[string]elementIdentity{},
+		byNode:       map[ast.Node]elementIdentity{},
+		declSym:      map[ast.Node]*symbols.Symbol{},
+		bodyParamSym: map[*ast.BodyExpr]map[string]*symbols.Symbol{},
+		consumed:     map[ast.Node]bool{},
+		provenance:   map[ast.Node]*identity.Scope{},
+		model:        model,
+		res:          res,
+		library:      map[*symbols.Symbol]string{},
+		pkg:          map[string]string{},
+		pkgOf:        map[string]string{},
+		localOf:      map[string]string{},
+	}
+}
+
+// consumeAnnotated checks a symbol's ElementId annotation and marks its
+// declarations consumed, so the writer does not state the annotation again.
+func (f *identityFacts) consumeAnnotated(info *identity.Info) error {
+	if !info.Annotated {
+		return nil
+	}
+	if err := exportableID(info); err != nil {
+		return err
+	}
+	for _, d := range info.Declarations {
+		f.consumed[d.Node] = true
+	}
+	return nil
+}
+
+// noteScope records the scope a symbol's id is qualified under: its declarations
+// are consumed, the scope is the provenance of its symbol, and its key is noted.
+func (f *identityFacts) noteScope(info *identity.Info, scopeKeys map[string]bool) {
+	if info.Scope == nil {
+		return
+	}
+	for _, d := range info.Scope.Declarations {
+		f.consumed[d.Node] = true
+	}
+	f.provenance[info.Scope.Symbol.Decl] = info.Scope
+	scopeKeys[info.Scope.Key()] = true
+}
+
+// identityRoot is the name segment of the root a symbol's id is derived under:
+// the root's name when it has one, else its FQN.
+func identityRoot(table *identity.Table, sym *symbols.Symbol, info *identity.Info) string {
+	if root := identity.Root(sym); root != sym {
+		ri, ok := table.Info(root)
+		if !ok {
+			return ""
+		}
+		if root.Name != "" {
+			return identitySegment(root.Name)
+		}
+		return ri.FQN
+	}
+	if sym.Name != "" {
+		return identitySegment(sym.Name)
+	}
+	return info.FQN
+}
+
+// index files a symbol's identity by FQN and declaration, and a body expression's
+// named parameters by name.
+func (f *identityFacts) index(sym *symbols.Symbol, info *identity.Info, root string) {
+	el := elementIdentity{
+		id:         info.EffectiveID,
+		source:     info.Source,
+		declared:   info.Source == identity.SourceDeclared,
+		scope:      info.Scope,
+		membership: info.OwningMembershipID(),
+		root:       root,
+	}
+	f.byFQN[info.FQN] = el
+	f.byNode[sym.Decl] = el
+	if sym.Decl != nil {
+		f.declSym[sym.Decl] = sym
+	}
+	if body, ok := sym.Decl.(*ast.BodyExpr); ok && sym.Name != "" {
+		if f.bodyParamSym[body] == nil {
+			f.bodyParamSym[body] = map[string]*symbols.Symbol{}
+		}
+		f.bodyParamSym[body][sym.Name] = sym
+	}
 }
 
 // exportableID rejects an ElementId annotation the graph cannot carry back.

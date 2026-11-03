@@ -276,7 +276,7 @@ func testNamespaceCollectionThatCannotBeConstructed(t *testing.T) {
 			attribute hits : Rational = 0;
 			exhibit state tally {
 				entry; then on;
-				state on { entry action bump { assign hits := 1 / hits; } }
+				state on { entry action bump { while hits == 0 { assign hits := hits + 0; } } }
 			}
 		}
 		part wheels : Wheel[2];
@@ -290,8 +290,8 @@ func testNamespaceCollectionThatCannotBeConstructed(t *testing.T) {
 	for attempt := 1; attempt <= 2; attempt++ {
 		for _, calc := range []string{"badCount", "firstBad"} {
 			got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
-			if !errors.Is(err, ErrDivisionByZero) || !strings.Contains(err.Error(), "bads") {
-				t.Fatalf("attempt %d: %s = %s, %v; want %v naming bads", attempt, calc, FormatValue(got), err, ErrDivisionByZero)
+			if !exhaustsBudget(err) || !strings.Contains(err.Error(), "bads") {
+				t.Fatalf("attempt %d: %s = %s, %v; want the runtime's bound reached, naming bads", attempt, calc, FormatValue(got), err)
 			}
 		}
 		if _, ok := ctx.occurrences[resolveSymbol(t, pkg.Scope, "bads")]; ok {

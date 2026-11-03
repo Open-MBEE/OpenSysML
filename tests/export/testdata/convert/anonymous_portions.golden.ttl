@@ -52,7 +52,12 @@ elmt:AnonymousPortions__Fuel_om
     sysml:ownedMemberElement elmt:AnonymousPortions__Fuel ;
     sysml:ownedRelatedElement elmt:AnonymousPortions__Fuel ;
     sysml:owningRelatedElement elmt:AnonymousPortions ;
-    sysml:membershipOwningNamespace elmt:AnonymousPortions .
+    sysml:membershipOwningNamespace elmt:AnonymousPortions ;
+    sysml:source elmt:AnonymousPortions ;
+    sysml:target elmt:AnonymousPortions__Fuel ;
+    sysml:relatedElement elmt:AnonymousPortions, elmt:AnonymousPortions__Fuel ;
+    sysml:memberName "Fuel" ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions\"},{\"@id\":\"AnonymousPortions__Fuel\"}]" .
 
 elmt:AnonymousPortions__Vehicle
     a sysml:PartDefinition ;
@@ -85,7 +90,12 @@ elmt:AnonymousPortions__Vehicle_om
     sysml:ownedMemberElement elmt:AnonymousPortions__Vehicle ;
     sysml:ownedRelatedElement elmt:AnonymousPortions__Vehicle ;
     sysml:owningRelatedElement elmt:AnonymousPortions ;
-    sysml:membershipOwningNamespace elmt:AnonymousPortions .
+    sysml:membershipOwningNamespace elmt:AnonymousPortions ;
+    sysml:source elmt:AnonymousPortions ;
+    sysml:target elmt:AnonymousPortions__Vehicle ;
+    sysml:relatedElement elmt:AnonymousPortions, elmt:AnonymousPortions__Vehicle ;
+    sysml:memberName "Vehicle" ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions\"},{\"@id\":\"AnonymousPortions__Vehicle\"}]" .
 
 elmt:AnonymousPortions__Vehicle__fuel
     a sysml:AttributeUsage ;
@@ -102,6 +112,8 @@ elmt:AnonymousPortions__Vehicle__fuel
     sysml:owningMembership elmt:AnonymousPortions__Vehicle__fuel_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "fuel" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:AnonymousPortions__Fuel ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:AnonymousPortions__Vehicle__fuel_ft0 ;
@@ -118,8 +130,13 @@ elmt:AnonymousPortions__Vehicle__fuel_om
     sysml:ownedRelatedElement elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:owningRelatedElement elmt:AnonymousPortions__Vehicle ;
     sysml:membershipOwningNamespace elmt:AnonymousPortions__Vehicle ;
+    sysml:source elmt:AnonymousPortions__Vehicle ;
+    sysml:target elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:relatedElement elmt:AnonymousPortions__Vehicle, elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:memberName "fuel" ;
     sysml:ownedMemberFeature elmt:AnonymousPortions__Vehicle__fuel ;
-    sysml:owningType elmt:AnonymousPortions__Vehicle .
+    sysml:owningType elmt:AnonymousPortions__Vehicle ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__Vehicle\"},{\"@id\":\"AnonymousPortions__Vehicle__fuel\"}]" .
 
 elmt:AnonymousPortions__Car
     a sysml:IndividualDefinition ;
@@ -150,7 +167,12 @@ elmt:AnonymousPortions__Car_om
     sysml:ownedMemberElement elmt:AnonymousPortions__Car ;
     sysml:ownedRelatedElement elmt:AnonymousPortions__Car ;
     sysml:owningRelatedElement elmt:AnonymousPortions ;
-    sysml:membershipOwningNamespace elmt:AnonymousPortions .
+    sysml:membershipOwningNamespace elmt:AnonymousPortions ;
+    sysml:source elmt:AnonymousPortions ;
+    sysml:target elmt:AnonymousPortions__Car ;
+    sysml:relatedElement elmt:AnonymousPortions, elmt:AnonymousPortions__Car ;
+    sysml:memberName "Car" ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions\"},{\"@id\":\"AnonymousPortions__Car\"}]" .
 
 elmt:AnonymousPortions__car
     a sysml:IndividualUsage ;
@@ -188,7 +210,12 @@ elmt:AnonymousPortions__car_om
     sysml:ownedMemberElement elmt:AnonymousPortions__car ;
     sysml:ownedRelatedElement elmt:AnonymousPortions__car ;
     sysml:owningRelatedElement elmt:AnonymousPortions ;
-    sysml:membershipOwningNamespace elmt:AnonymousPortions .
+    sysml:membershipOwningNamespace elmt:AnonymousPortions ;
+    sysml:source elmt:AnonymousPortions ;
+    sysml:target elmt:AnonymousPortions__car ;
+    sysml:relatedElement elmt:AnonymousPortions, elmt:AnonymousPortions__car ;
+    sysml:memberName "car" ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions\"},{\"@id\":\"AnonymousPortions__car\"}]" .
 
 elmt:AnonymousPortions__car__start
     a sysml:OccurrenceUsage ;
@@ -230,7 +257,12 @@ elmt:AnonymousPortions__car__start_om
     sysml:ownedMemberElement elmt:AnonymousPortions__car__start ;
     sysml:ownedRelatedElement elmt:AnonymousPortions__car__start ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car ;
-    sysml:membershipOwningNamespace elmt:AnonymousPortions__car .
+    sysml:membershipOwningNamespace elmt:AnonymousPortions__car ;
+    sysml:source elmt:AnonymousPortions__car ;
+    sysml:target elmt:AnonymousPortions__car__start ;
+    sysml:relatedElement elmt:AnonymousPortions__car, elmt:AnonymousPortions__car__start ;
+    sysml:memberName "start" ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car\"},{\"@id\":\"AnonymousPortions__car__start\"}]" .
 
 elmt:AnonymousPortions__car__start__fuel
     a sysml:AttributeUsage ;
@@ -247,6 +279,8 @@ elmt:AnonymousPortions__car__start__fuel
     sysml:owningRelationship elmt:AnonymousPortions__car__start__fuel_om ;
     sysml:owningMembership elmt:AnonymousPortions__car__start__fuel_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car__start__fuel_pvalue ;
     sysml:ownedRelationship elmt:AnonymousPortions__car__start__fuel_rd0, expr:AnonymousPortions__car__start__fuel_pvalue_om ;
@@ -267,8 +301,13 @@ elmt:AnonymousPortions__car__start__fuel_om
     sysml:ownedRelatedElement elmt:AnonymousPortions__car__start__fuel ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car__start ;
     sysml:membershipOwningNamespace elmt:AnonymousPortions__car__start ;
+    sysml:source elmt:AnonymousPortions__car__start ;
+    sysml:target elmt:AnonymousPortions__car__start__fuel ;
+    sysml:relatedElement elmt:AnonymousPortions__car__start, elmt:AnonymousPortions__car__start__fuel ;
+    sysml:memberName "fuel" ;
     sysml:ownedMemberFeature elmt:AnonymousPortions__car__start__fuel ;
-    sysml:owningType elmt:AnonymousPortions__car__start .
+    sysml:owningType elmt:AnonymousPortions__car__start ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car__start\"},{\"@id\":\"AnonymousPortions__car__start__fuel\"}]" .
 
 expr:AnonymousPortions__car__start__fuel_pvalue
     a sysml:LiteralInteger ;
@@ -289,8 +328,12 @@ expr:AnonymousPortions__car__start__fuel_pvalue_om
     sysml:ownedRelatedElement expr:AnonymousPortions__car__start__fuel_pvalue ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car__start__fuel ;
     sysml:membershipOwningNamespace elmt:AnonymousPortions__car__start__fuel ;
+    sysml:source elmt:AnonymousPortions__car__start__fuel ;
+    sysml:target expr:AnonymousPortions__car__start__fuel_pvalue ;
+    sysml:relatedElement elmt:AnonymousPortions__car__start__fuel, expr:AnonymousPortions__car__start__fuel_pvalue ;
     sysml:featureWithValue elmt:AnonymousPortions__car__start__fuel ;
-    sysml:value expr:AnonymousPortions__car__start__fuel_pvalue .
+    sysml:value expr:AnonymousPortions__car__start__fuel_pvalue ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car__start__fuel\"},{\"@id\":\"AnonymousPortions__car__start__fuel_pvalue\"}]" .
 
 elmt:AnonymousPortions__car__portionOfLife
     a sysml:OccurrenceUsage ;
@@ -332,7 +375,12 @@ elmt:AnonymousPortions__car__portionOfLife_om
     sysml:ownedMemberElement elmt:AnonymousPortions__car__portionOfLife ;
     sysml:ownedRelatedElement elmt:AnonymousPortions__car__portionOfLife ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car ;
-    sysml:membershipOwningNamespace elmt:AnonymousPortions__car .
+    sysml:membershipOwningNamespace elmt:AnonymousPortions__car ;
+    sysml:source elmt:AnonymousPortions__car ;
+    sysml:target elmt:AnonymousPortions__car__portionOfLife ;
+    sysml:relatedElement elmt:AnonymousPortions__car, elmt:AnonymousPortions__car__portionOfLife ;
+    sysml:memberName "portionOfLife" ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car\"},{\"@id\":\"AnonymousPortions__car__portionOfLife\"}]" .
 
 elmt:AnonymousPortions__car__portionOfLife__fuel
     a sysml:AttributeUsage ;
@@ -349,6 +397,8 @@ elmt:AnonymousPortions__car__portionOfLife__fuel
     sysml:owningRelationship elmt:AnonymousPortions__car__portionOfLife__fuel_om ;
     sysml:owningMembership elmt:AnonymousPortions__car__portionOfLife__fuel_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car__portionOfLife__fuel_pvalue ;
     sysml:ownedRelationship elmt:AnonymousPortions__car__portionOfLife__fuel_rd0, expr:AnonymousPortions__car__portionOfLife__fuel_pvalue_om ;
@@ -369,8 +419,13 @@ elmt:AnonymousPortions__car__portionOfLife__fuel_om
     sysml:ownedRelatedElement elmt:AnonymousPortions__car__portionOfLife__fuel ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car__portionOfLife ;
     sysml:membershipOwningNamespace elmt:AnonymousPortions__car__portionOfLife ;
+    sysml:source elmt:AnonymousPortions__car__portionOfLife ;
+    sysml:target elmt:AnonymousPortions__car__portionOfLife__fuel ;
+    sysml:relatedElement elmt:AnonymousPortions__car__portionOfLife, elmt:AnonymousPortions__car__portionOfLife__fuel ;
+    sysml:memberName "fuel" ;
     sysml:ownedMemberFeature elmt:AnonymousPortions__car__portionOfLife__fuel ;
-    sysml:owningType elmt:AnonymousPortions__car__portionOfLife .
+    sysml:owningType elmt:AnonymousPortions__car__portionOfLife ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car__portionOfLife\"},{\"@id\":\"AnonymousPortions__car__portionOfLife__fuel\"}]" .
 
 expr:AnonymousPortions__car__portionOfLife__fuel_pvalue
     a sysml:LiteralInteger ;
@@ -391,8 +446,12 @@ expr:AnonymousPortions__car__portionOfLife__fuel_pvalue_om
     sysml:ownedRelatedElement expr:AnonymousPortions__car__portionOfLife__fuel_pvalue ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car__portionOfLife__fuel ;
     sysml:membershipOwningNamespace elmt:AnonymousPortions__car__portionOfLife__fuel ;
+    sysml:source elmt:AnonymousPortions__car__portionOfLife__fuel ;
+    sysml:target expr:AnonymousPortions__car__portionOfLife__fuel_pvalue ;
+    sysml:relatedElement elmt:AnonymousPortions__car__portionOfLife__fuel, expr:AnonymousPortions__car__portionOfLife__fuel_pvalue ;
     sysml:featureWithValue elmt:AnonymousPortions__car__portionOfLife__fuel ;
-    sysml:value expr:AnonymousPortions__car__portionOfLife__fuel_pvalue .
+    sysml:value expr:AnonymousPortions__car__portionOfLife__fuel_pvalue ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car__portionOfLife__fuel\"},{\"@id\":\"AnonymousPortions__car__portionOfLife__fuel_pvalue\"}]" .
 
 elmt:AnonymousPortions__car__done
     a sysml:OccurrenceUsage ;
@@ -437,7 +496,12 @@ elmt:AnonymousPortions__car__done_om
     sysml:ownedMemberElement elmt:AnonymousPortions__car__done ;
     sysml:ownedRelatedElement elmt:AnonymousPortions__car__done ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car ;
-    sysml:membershipOwningNamespace elmt:AnonymousPortions__car .
+    sysml:membershipOwningNamespace elmt:AnonymousPortions__car ;
+    sysml:source elmt:AnonymousPortions__car ;
+    sysml:target elmt:AnonymousPortions__car__done ;
+    sysml:relatedElement elmt:AnonymousPortions__car, elmt:AnonymousPortions__car__done ;
+    sysml:memberName "done" ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car\"},{\"@id\":\"AnonymousPortions__car__done\"}]" .
 
 elmt:AnonymousPortions__car__done__fuel
     a sysml:AttributeUsage ;
@@ -454,6 +518,8 @@ elmt:AnonymousPortions__car__done__fuel
     sysml:owningRelationship elmt:AnonymousPortions__car__done__fuel_om ;
     sysml:owningMembership elmt:AnonymousPortions__car__done__fuel_om ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car__done__fuel_pvalue ;
     sysml:ownedRelationship elmt:AnonymousPortions__car__done__fuel_rd0, expr:AnonymousPortions__car__done__fuel_pvalue_om ;
@@ -474,8 +540,13 @@ elmt:AnonymousPortions__car__done__fuel_om
     sysml:ownedRelatedElement elmt:AnonymousPortions__car__done__fuel ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car__done ;
     sysml:membershipOwningNamespace elmt:AnonymousPortions__car__done ;
+    sysml:source elmt:AnonymousPortions__car__done ;
+    sysml:target elmt:AnonymousPortions__car__done__fuel ;
+    sysml:relatedElement elmt:AnonymousPortions__car__done, elmt:AnonymousPortions__car__done__fuel ;
+    sysml:memberName "fuel" ;
     sysml:ownedMemberFeature elmt:AnonymousPortions__car__done__fuel ;
-    sysml:owningType elmt:AnonymousPortions__car__done .
+    sysml:owningType elmt:AnonymousPortions__car__done ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car__done\"},{\"@id\":\"AnonymousPortions__car__done__fuel\"}]" .
 
 expr:AnonymousPortions__car__done__fuel_pvalue
     a sysml:LiteralInteger ;
@@ -496,12 +567,16 @@ expr:AnonymousPortions__car__done__fuel_pvalue_om
     sysml:ownedRelatedElement expr:AnonymousPortions__car__done__fuel_pvalue ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car__done__fuel ;
     sysml:membershipOwningNamespace elmt:AnonymousPortions__car__done__fuel ;
+    sysml:source elmt:AnonymousPortions__car__done__fuel ;
+    sysml:target expr:AnonymousPortions__car__done__fuel_pvalue ;
+    sysml:relatedElement elmt:AnonymousPortions__car__done__fuel, expr:AnonymousPortions__car__done__fuel_pvalue ;
     sysml:featureWithValue elmt:AnonymousPortions__car__done__fuel ;
-    sysml:value expr:AnonymousPortions__car__done__fuel_pvalue .
+    sysml:value expr:AnonymousPortions__car__done__fuel_pvalue ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car__done__fuel\"},{\"@id\":\"AnonymousPortions__car__done__fuel_pvalue\"}]" .
 
 elmt:AnonymousPortions__car___403
     a sysml:OccurrenceUsage ;
-    sysml:qualifiedName "AnonymousPortions::car::@3" ;
+    sysx:positionalName "AnonymousPortions::car::@3" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -527,11 +602,15 @@ elmt:AnonymousPortions__car___403_om
     sysml:ownedMemberElement elmt:AnonymousPortions__car___403 ;
     sysml:ownedRelatedElement elmt:AnonymousPortions__car___403 ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car ;
-    sysml:membershipOwningNamespace elmt:AnonymousPortions__car .
+    sysml:membershipOwningNamespace elmt:AnonymousPortions__car ;
+    sysml:source elmt:AnonymousPortions__car ;
+    sysml:target elmt:AnonymousPortions__car___403 ;
+    sysml:relatedElement elmt:AnonymousPortions__car, elmt:AnonymousPortions__car___403 ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car\"},{\"@id\":\"AnonymousPortions__car___403\"}]" .
 
 elmt:AnonymousPortions__car___404
     a sysml:OccurrenceUsage ;
-    sysml:qualifiedName "AnonymousPortions::car::@4" ;
+    sysx:positionalName "AnonymousPortions::car::@4" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "3"^^xsd:integer ;
     sysx:sourceEndLine "18"^^xsd:integer ;
@@ -561,7 +640,11 @@ elmt:AnonymousPortions__car___404_om
     sysml:ownedMemberElement elmt:AnonymousPortions__car___404 ;
     sysml:ownedRelatedElement elmt:AnonymousPortions__car___404 ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car ;
-    sysml:membershipOwningNamespace elmt:AnonymousPortions__car .
+    sysml:membershipOwningNamespace elmt:AnonymousPortions__car ;
+    sysml:source elmt:AnonymousPortions__car ;
+    sysml:target elmt:AnonymousPortions__car___404 ;
+    sysml:relatedElement elmt:AnonymousPortions__car, elmt:AnonymousPortions__car___404 ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car\"},{\"@id\":\"AnonymousPortions__car___404\"}]" .
 
 elmt:AnonymousPortions__Vehicle__fuel_ft0
     a sysml:FeatureTyping ;

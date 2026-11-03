@@ -387,6 +387,16 @@ func TestEngineWireParity(t *testing.T) {
 	}
 	equal("ExecuteAction", actionParams, mustMarshal(t, actionRes))
 
+	tracedParams := fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"intValue":"6"}},"trace":true}`, hash)
+	tracedRes, err := svc.ExecuteAction(ctx, mustUnmarshal[pb.ExecuteActionRequest](t, tracedParams))
+	if err != nil {
+		t.Fatalf("grpc ExecuteAction with trace: %v", err)
+	}
+	if len(tracedRes.GetTrace()) == 0 {
+		t.Fatalf("a traced ExecuteAction reported no records: %v", tracedRes)
+	}
+	equal("ExecuteAction", tracedParams, mustMarshal(t, tracedRes))
+
 	// An Integer beyond int64 crosses as bigIntValue both ways, as it does
 	// through the service.
 	wideParams := fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"bigIntValue":"590295810358705651712"}}}`, hash)

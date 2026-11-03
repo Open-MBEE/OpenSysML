@@ -145,7 +145,7 @@ jobs:
 
       # Node 24, as the WebAssembly gate pins: Node 22's WASI host crashes on the wasm binaries.
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
 
@@ -218,7 +218,7 @@ jobs:
 
       - name: Upload coverage artifact
         if: needs.changes.outputs.tier == 'full'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-${{ matrix.shard }}
           path: coverage.txt
@@ -257,7 +257,7 @@ jobs:
           python3 scripts/dedupe-coverage.py coverage.txt
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: coverage.txt
@@ -315,7 +315,7 @@ jobs:
       # The npm runner: the packed @openmbee/sysml-mcp beside this platform's
       # package, installed from the tarballs, answers initialize and tools/list.
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - name: Test the npm runner
@@ -367,15 +367,23 @@ jobs:
       - name: Lint the protobuf schema
         run: make proto-lint
 
-      # Wire compatibility against the branch this pull request (or merge group, as
-      # refs/heads/<branch>) merges into; the baseline is a git archive, so a shallow fetch does.
+      # Wire compatibility against the merge base with the base branch (a merge group's base_sha), not
+      # its tip, or a field added there since reads as deleted; a blob-free history fetch reaches it.
       - name: Check the protobuf schema for breaking changes
         env:
           BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
+          BASE_SHA: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
+          HEAD_SHA: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || github.event.pull_request.head.sha }}
         run: |
           BASE_REF=${BASE_REF#refs/heads/}
-          git fetch --no-tags --depth=1 origin "$BASE_REF"
-          make proto-breaking BUF_BREAKING_REF="origin/$BASE_REF"
+          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+            git fetch --no-tags --filter=tree:0 --unshallow origin "$BASE_REF" "$HEAD_SHA"
+          else
+            git fetch --no-tags --filter=tree:0 origin "$BASE_REF" "$HEAD_SHA"
+          fi
+          baseline=${BASE_SHA:-$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")}
+          echo "comparing against $(git rev-parse --short "$baseline")"
+          make proto-breaking BUF_BREAKING_REF="$baseline"
 
       # Race shards skip tests gated here; keep Makefile RACE_SHARD_SKIP and RACE_SHARD_TOOLS_SKIP in sync.
       # Re-run the corpus gate on its own so its verdict is legible in the log
@@ -621,7 +629,7 @@ jobs:
             wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-
 
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
 
@@ -737,7 +745,7 @@ jobs:
         run: go test -C tools -count=1 -v ./bench/llm
 
       - name: Upload binary artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: binaries
           path: bin/
@@ -801,7 +809,7 @@ jobs:
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
           XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
         run: |
-          ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
+          ok() { local result="$1"; [ "$result" = success ] || [ "$result" = skipped ]; }
           if [ "$CHANGES_RESULT" != success ] ||
              ! ok "$BUILD_RESULT" ||
              ! ok "$MDK_PLUGIN_RESULT" ||
@@ -874,7 +882,7 @@ jobs:
           cache: true
 
       - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
 
@@ -938,7 +946,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -967,7 +975,7 @@ jobs:
         run: npm run build:landing
 
       - name: Upload VS Code extension artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vscode-extension
           path: editors/vscode/opensysml-sysml.vsix
@@ -986,7 +994,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -1013,7 +1021,7 @@ jobs:
         run: make jupyterlab-build
 
       - name: Upload JupyterLab extension artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: jupyterlab-extension
           path: client/jupyter-kernel/labextension
@@ -1084,7 +1092,7 @@ jobs:
           cache: true
 
       - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -1186,7 +1194,7 @@ jobs:
           name: binaries
           path: bin
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -1254,7 +1262,7 @@ jobs:
             echo "ok: $mutation is caught"
           done
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: node-conformance
           path: client/node/node-conformance.json
@@ -1486,7 +1494,7 @@ jobs:
           git add -N client/rust/opensysml/src/proto client/rust/conformance/sysml.descriptor.binpb
           git diff --exit-code client/rust/opensysml/src/proto client/rust/conformance/sysml.descriptor.binpb
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: conformance-report-rust
           path: bin/conformance-report-rust.json
@@ -1762,7 +1770,7 @@ jobs:
             --binary "$GITHUB_WORKSPACE/bin/sysml-grpc" \
             --report bin/conformance-report-julia.json
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: conformance-report-julia-${{ matrix.julia-version }}
           path: bin/conformance-report-julia.json
@@ -1822,7 +1830,7 @@ jobs:
 
       - name: Keep the archives for the next run
         if: steps.apt-archives.outputs.cache-matched-key != format('apt-octave-{0}-{1}-{2}', runner.os, steps.image.outputs.version, steps.archives.outputs.digest)
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/apt-archives
           key: apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-${{ steps.archives.outputs.digest }}
@@ -1850,7 +1858,7 @@ jobs:
         if: always()
         run: kill "$svc_pid" 2>/dev/null || true
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: conformance-report-matlab
           path: bin/conformance-report-matlab.json
@@ -1907,7 +1915,7 @@ jobs:
             -binary bin/sysml-grpc -protocols connect,connect-json -allow-skips \
             -report conformance-report-java.json
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: java-conformance-report
@@ -1954,7 +1962,7 @@ jobs:
           make audit-java JAVA_PROJECT_DIRS=editors/syson
 
       - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
           cache: npm
@@ -2013,7 +2021,7 @@ jobs:
         run: make conformance-mcp
 
       # if: always() — the reports matter most when a gate failed and halted the job.
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: conformance-reports

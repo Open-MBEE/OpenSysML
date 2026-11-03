@@ -111,6 +111,8 @@ type Model struct {
 	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
+	// aboutBuilding is set while buildAbout runs, when the index is partial.
+	aboutBuilding bool
 	// aboutShared is the about index shared with other models, nil when m builds its own.
 	aboutShared *AboutIndex
 	// docGathers holds what the workspace-wide indexes are built from, per
@@ -153,7 +155,10 @@ type Model struct {
 	// bodyApplications is the operation each body expression is passed to, indexed per
 	// document root on first query (see bodyparam.go).
 	bodyApplications map[*ast.BodyExpr]bodyApplication
-	bodyIndexed      map[*symbols.Scope]bool
+	// bodySymbols is the body Expression reflected for each `{ … }`, so a
+	// parameter or member the body declares finds its owner.
+	bodySymbols map[*ast.BodyExpr]*symbols.Symbol
+	bodyIndexed map[*symbols.Scope]bool
 	// assumedSupers holds the supertypes a reducer's first parameter is judged under
 	// while its reducer's result is typed (see bodyparam.go).
 	assumedSupers map[*symbols.Symbol]assumedSupertypes
@@ -164,6 +169,8 @@ type Model struct {
 	// the Membership, Annotation and Import objects each element implies
 	// (see reflective_memberships.go, reflective_annotations.go).
 	memberships      map[*symbols.Symbol][]*symbols.Symbol
+	valueExpressions map[*symbols.Symbol]*symbols.Symbol
+	expressionParts  map[*symbols.Symbol]*expressionParts
 	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports     map[*symbols.Symbol][]*symbols.Symbol

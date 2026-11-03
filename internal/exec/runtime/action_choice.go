@@ -73,18 +73,30 @@ func (e *performances) noteGuard(g UnevaluableGuard) {
 	e.ctx.noteFrom(g, e.self, e.behavior)
 }
 
-// beginTokenStep marks the token whose step is running, returning what to
-// restore once its step is over.
-func (e *performances) beginTokenStep(id int64) func() {
+// beginTokenStep marks the token whose step, the step-th of the executor, is
+// running, returning what to restore once its step is over.
+func (e *performances) beginTokenStep(id int64, step int) func() {
+	savedToken, savedStep := e.stepping, e.step
+	e.stepping, e.step = id, step
 	ledger := e.ctx.stepWrites
 	if ledger == nil {
-		return func() {
-			// No ledger was open, so no writer was marked and none is restored.
-		}
+		return func() { e.stepping, e.step = savedToken, savedStep }
 	}
 	saved := ledger.writer
 	ledger.writer = id
-	return func() { ledger.writer = saved }
+	return func() {
+		e.stepping, e.step = savedToken, savedStep
+		ledger.writer = saved
+	}
+}
+
+// recordAssign records the token whose step is running writing value to feature
+// from the body of node.
+func (e *performances) recordAssign(node ast.Node, feature string, value Value) {
+	if tr := e.ctx.trace; tr != nil {
+		tr.recordAssign(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.behavior},
+			e.stepping, e.step, nodeIdentifier(node), feature, value)
+	}
 }
 
 // noteFrameWrite records a write the running token made to a feature f holds.

@@ -1,7 +1,6 @@
 package lsp
 
 import (
-	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -11,7 +10,7 @@ import (
 )
 
 // LibraryScheme is the URI scheme the server gives the bundled standard library:
-// `sysml-stdlib:///<path>`, where the path is the file's path inside the library
+// `sysml-stdlib:/<path>`, where the path is the file's path inside the library
 // (`Kernel Libraries/Kernel Semantic Library/Base.kerml`), percent-encoded. A
 // client opens one through the opensysml/stdlibContent request; the documents
 // are read-only.
@@ -23,7 +22,7 @@ func uriToName(u uri.URI) string {
 	if name, ok := libraryURIName(u); ok {
 		return name
 	}
-	return u.Filename()
+	return u.FsPath()
 }
 
 // nameToURI converts a workspace document name (an OS path) to an LSP URI.
@@ -31,8 +30,12 @@ func nameToURI(name string) uri.URI { return uri.File(name) }
 
 // libraryURI is the sysml-stdlib URI of the named bundled library file.
 func libraryURI(name string) uri.URI {
-	u := url.URL{Scheme: LibraryScheme, Path: "/" + filepath.ToSlash(name)}
-	return uri.URI(u.String())
+	u, err := uri.From(uri.Components{Scheme: LibraryScheme, Path: "/" + filepath.ToSlash(name)})
+	if err != nil {
+		// The scheme is this package's constant and any path encodes.
+		panic("lsp: library URI of " + name + ": " + err.Error())
+	}
+	return u
 }
 
 // isLibraryURI reports whether u names a bundled library document.
@@ -45,12 +48,11 @@ func isLibraryURI(u uri.URI) bool {
 // forward slashes, and whether u is one. A path that is empty or climbs out of
 // the library is none.
 func libraryURIName(u uri.URI) (string, bool) {
-	parsed, err := url.Parse(string(u))
-	if err != nil || !strings.EqualFold(parsed.Scheme, LibraryScheme) {
+	if !strings.EqualFold(u.Scheme(), LibraryScheme) {
 		return "", false
 	}
-	name := strings.TrimPrefix(parsed.Path, "/")
-	if name == "" || parsed.Host != "" {
+	name := strings.TrimPrefix(u.Path(), "/")
+	if name == "" || u.Authority() != "" {
 		return "", false
 	}
 	for _, seg := range strings.Split(name, "/") {

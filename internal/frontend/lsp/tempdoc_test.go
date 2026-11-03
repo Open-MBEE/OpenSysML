@@ -31,7 +31,7 @@ func testDocURI(t testing.TB, name string) uri.URI {
 // own: the working directory, where a bare name lands, or the system temp directory.
 func requireTestOwnedDir(t testing.TB, u uri.URI) {
 	t.Helper()
-	dir := filepath.Dir(u.Filename())
+	dir := filepath.Dir(u.FsPath())
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Getwd: %v", err)

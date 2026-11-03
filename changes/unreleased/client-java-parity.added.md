@@ -1,0 +1,1 @@
+- Java client: `ConversionOptions.withIncludeLibraryStubs` restores the pre-0.11.0 library stubs in api-json (gated on the `convert_library_stubs` capability) and a `Conversion` carries its `libraryReferences`; `Model.renderView` takes `compartments` and `Model.importData` takes `importAs` (`Model.IMPORT_AS_VALUES`), the request options the other clients already expose.

@@ -53,6 +53,9 @@ type duplicate struct {
 // are grouped by the pair of trees the copies lie in, so two copies of the whole
 // standard library are one warning, not one per file.
 func DuplicateLibraries(idx *symbols.Index) []Finding {
+	// Nearly every library package is declared once, so only the first
+	// declaration of a name is kept until a second is met.
+	first := map[string]*symbols.Symbol{}
 	byName := map[string][]*symbols.Symbol{}
 	var order []string
 	for _, doc := range idx.Documents() {
@@ -65,19 +68,20 @@ func DuplicateLibraries(idx *symbols.Index) []Finding {
 			if sym.Name == "" || sym.Kind != symbols.SymbolPackage || !(library || symbols.IsLibraryPackage(sym)) {
 				return true
 			}
-			if _, seen := byName[sym.Name]; !seen {
+			if before, seen := first[sym.Name]; !seen {
+				first[sym.Name] = sym
+			} else if syms := byName[sym.Name]; syms == nil {
 				order = append(order, sym.Name)
+				byName[sym.Name] = []*symbols.Symbol{before, sym}
+			} else {
+				byName[sym.Name] = append(syms, sym)
 			}
-			byName[sym.Name] = append(byName[sym.Name], sym)
 			return true
 		})
 	}
 	var dups []duplicate
 	for _, name := range order {
 		syms := byName[name]
-		if len(syms) < 2 {
-			continue
-		}
 		used := usedDeclaration(idx, name, syms)
 		d := duplicate{name: name, used: used}
 		seen := map[string]bool{used.DocName: true}

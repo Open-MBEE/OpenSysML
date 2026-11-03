@@ -1118,6 +1118,23 @@ message ExecuteActionRequest {
   // default, is a continuous clock; a negative or non-finite step is
   // INVALID_ARGUMENT.
   double clock_step = 9;
+  // Ask for the run's trace in ExecuteActionResponse.trace. Advertised as the
+  // "action_trace" capability; a service withholding it refuses true with
+  // UNIMPLEMENTED, as does an explore schedule with INVALID_ARGUMENT.
+  bool trace = 10;
+  // Signals or items to post to the performing object, in this order, as the
+  // REPL's `%send` does: the run goes until it completes or every token waits,
+  // the next event is then posted to the object's queue and the run goes on,
+  // an accept node waiting for it taking it on the next step. An event of a
+  // type no accept node of the performance names is refused, with the accepts
+  // still waiting. The events exhausted, the run goes on to completion (or for
+  // `advance`); a token still waiting at the end is an accept deadlock,
+  // reported in `error` with the message it waits for. Each names a signal or
+  // item definition, qualified or as the action's namespace sees it; a name no
+  // definition answers to is matched by name alone, as ExecuteState's events
+  // are. Posted to the object performer_symbol_id names, as `%send` posts to
+  // one: INVALID_ARGUMENT without it.
+  repeated string events = 11;
 }
 
 // ExecuteActionResponse contains action execution results
@@ -1144,6 +1161,13 @@ message ExecuteActionResponse {
   // output nothing order-dependent wrote is absent. Populated under the
   // "order_dependence" capability; empty under an explore schedule.
   map<string, int32> order_dependent = 8;
+  // The run's trace in the order the run made it, when the request asked for
+  // it: the token steps, waits, accepts, sends, decisions, assignments and
+  // completion of the action, each a DocumentEvent (see its `kind`), also on a
+  // run that failed, up to the failure. Empty under an explore schedule.
+  repeated DocumentEvent trace = 9;
+  // How many of the oldest records the service's held-events bound discarded.
+  int32 trace_dropped = 10;
 }
 
 // ExecuteStateRequest requests state machine execution
@@ -2852,7 +2876,12 @@ message DocumentState {
 // DocumentEvent is one row an `Events` query answered: one record of the
 // session's trace, in the order the run made it.
 message DocumentEvent {
-  // "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
+  // "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or
+  // "terminate" for a state machine's records; an action's run adds "step" (a
+  // token arriving at a node), "wait" (a token parking at an accept node),
+  // "assign" (a feature written), "decide" (a decision node resolved) and
+  // "complete" (the action's performance completed); its "accept" is the accept
+  // node taking a message and its "send" a message posted.
   string kind = 1;
   // The clock's instant when the record was made: a quantity in the clock's
   // unit when the library reduces one, else a bare real of clock units.
@@ -2863,23 +2892,37 @@ message DocumentEvent {
   // The behavior the record is about, by the name the object exhibits it
   // under, else its declared name; empty for the run's own records.
   string machine = 4;
-  // The state entered, exited or stepped by an entry, exit or do record.
+  // The state entered, exited or stepped by an entry, exit or do record; the
+  // action node a wait, assign, decide or action accept record is at.
   string state = 5;
-  // A fired transition's source and target states.
+  // A fired transition's source and target states; a step's source node (empty
+  // where the token's flow starts) and the node it arrived at; a decide's
+  // branch taken, as `taken` names it.
   string from = 6;
   string to = 7;
   // The object a send was addressed to; unset for every other kind and a
   // send addressed to no object.
   DocumentObject target = 8;
-  // The signal or event accepted or sent, or the trigger a transition fired on.
+  // The signal or event accepted or sent, the trigger a transition fired on, or
+  // the message type or trigger a wait record waits for.
   string event = 9;
   // An accept's payload, one `name = value` entry per parameter in name order.
   repeated string payload = 10;
-  // A choice's alternatives, in the order they were offered, and the one taken.
+  // A choice's alternatives, in the order they were offered, and the one taken;
+  // a decide's branches as `<position>-><target node>`, and the one taken.
   repeated string alternatives = 11;
   string taken = 12;
   // The line the trace prints for the record.
   string text = 13;
+  // The action token a step, wait, assign, decide or action accept record is
+  // about, and the executor step (1-based) that made the record; 0 for a record
+  // of neither (a state machine's, a send from outside the model).
+  int64 token = 14;
+  int32 step = 15;
+  // The feature an assign record wrote and the value it holds since, as the
+  // run's outputs carry values.
+  string feature = 16;
+  Value value = 17;
 }
 
 // DocumentQueryColumn is one projected property, in projection order.

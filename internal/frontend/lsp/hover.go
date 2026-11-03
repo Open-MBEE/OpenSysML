@@ -144,7 +144,7 @@ func (s *Server) symbolDocComments(sym *symbols.Symbol) []string {
 
 // hoverContents renders the hover as Markdown when the client supports it,
 // plain text otherwise; identity, when there is one to state, closes it.
-func (s *Server) hoverContents(signature string, comments []string, elementID string) protocol.MarkupContent {
+func (s *Server) hoverContents(signature string, comments []string, elementID string) *protocol.MarkupContent {
 	if s.wantsMarkdownHover() {
 		var b strings.Builder
 		b.WriteString("```sysml\n")
@@ -158,7 +158,7 @@ func (s *Server) hoverContents(signature string, comments []string, elementID st
 			b.WriteString("\n\n")
 			b.WriteString(elementID)
 		}
-		return protocol.MarkupContent{Kind: protocol.Markdown, Value: b.String()}
+		return &protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: b.String()}
 	}
 
 	value := signature
@@ -168,7 +168,7 @@ func (s *Server) hoverContents(signature string, comments []string, elementID st
 	if elementID != "" {
 		value += "\n\n" + strings.ReplaceAll(elementID, "`", "")
 	}
-	return protocol.MarkupContent{Kind: protocol.PlainText, Value: value}
+	return &protocol.MarkupContent{Kind: protocol.MarkupKindPlainText, Value: value}
 }
 
 // docCommentProse strips the delimiters and per-line decoration from each doc

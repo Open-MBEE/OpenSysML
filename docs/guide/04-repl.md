@@ -569,6 +569,35 @@ or an object reference, in which case the expression reads that object's feature
 values an unpinned `%eval` reads after `%instantiate`. A single `:` separates the context from the
 expression; the `::` inside a qualified name is not a separator.
 
+A qualified name in a prompt expression is resolved from that namespace too, the way KerML
+8.2.3.5.1 resolves one written in a model: the first segment is looked up from the local namespace
+outwards and the remaining segments inside what it found. A member that carries the package's own
+name therefore hides the package. In
+
+```sysml
+package Rover {
+    part def Rover { attribute dryMass = 180.0; }
+    calc rangeKm { in charge; in wattHoursPerKm; charge / wattHoursPerKm }
+}
+```
+
+`Rover` is the part def, so `%eval Rover::dryMass * 2` answers `360.0` and
+`%eval Rover::rangeKm(600, 12)` reports `unresolved reference: Rover::rangeKm`. The specification's
+global scope qualifier `$::` starts the resolution at the root instead, and pinning the context
+reaches the member unqualified:
+
+```
+sysml> %eval $::Rover::rangeKm(600, 12)
+✓ $::Rover::rangeKm(600, 12)
+  = [50.0]
+sysml> %eval in Rover : rangeKm(600, 12)
+✓ rangeKm(600, 12) (in Rover)
+  = [50.0]
+```
+
+`-e` on the command line evaluates the same way, so `sysml -e "$::Rover::rangeKm(600, 12)" rover.sysml`
+is the command-line form.
+
 ### Arguments
 
 The arguments of an invocation — `%calc`, `%analysis`, `%sweep`, `%runs`, `%invoke` and `%check`,

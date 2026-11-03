@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -19,7 +20,9 @@ func TestRuntimeRobustnessInstantiation(t *testing.T) {
 }
 
 // testDuplicateObjectsOfOneDeclaration: materializing the same declaration twice
-// is one object as far as a check is concerned, not an ambiguous subject.
+// leaves two live objects, each carrying the nested feature, so a check naming no
+// object is a question between them — the name denotes the latest, but the check is
+// not silently about it — answered once one of them is named.
 func testDuplicateObjectsOfOneDeclaration(t *testing.T) {
 	src := `
 		package test {
@@ -42,24 +45,38 @@ func testDuplicateObjectsOfOneDeclaration(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", file)
 	rootScope := idx.DocumentRoot("<test>")
 	obj := memberPath(t, rootScope, "test", "o")
+	var tops []*Instance
 	for range 2 {
-		if _, err := ctx.Instantiate(obj); err != nil {
+		inst, err := ctx.Instantiate(obj)
+		if err != nil {
 			t.Fatalf("instantiate o: %v", err)
 		}
+		tops = append(tops, inst)
 	}
 	small := memberPath(t, rootScope, "test", "Leaf", "small")
-	satisfied, err := ctx.EvaluateConstraint(small, small.OwnerScope)
-	if err != nil && !errors.Is(err, ErrViolated) {
-		t.Fatalf("EvaluateConstraint: %v", err)
+	_, err := ctx.EvaluateConstraint(small, small.OwnerScope)
+	if !errors.Is(err, ErrAmbiguousSubject) {
+		t.Fatalf("EvaluateConstraint over two objects of o: %v, want ErrAmbiguousSubject", err)
 	}
-	if satisfied {
-		t.Error("satisfied = true, want the object's 99.0 to violate the constraint")
+	for _, want := range []string{fmt.Sprintf("(leaf of displaced #%d)", tops[0].ID), "(leaf)", "check it on one of them"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("%q does not say %q", err, want)
+		}
+	}
+	for _, top := range tops {
+		satisfied, err := ctx.EvaluateConstraintOn(small, small.OwnerScope, top)
+		if err != nil && !errors.Is(err, ErrViolated) {
+			t.Fatalf("EvaluateConstraintOn #%d: %v", top.ID, err)
+		}
+		if satisfied {
+			t.Errorf("object #%d: satisfied = true, want its leaf's 99.0 to violate the constraint", top.ID)
+		}
 	}
 }
 
 // testDuplicateObjectsHoldingAPlainPart: a nested part typed by a definition
-// rather than by a body of its own is reached through its holder, so what two
-// materializations of that holder leave behind is no ambiguous subject.
+// rather than by a body of its own is reached through its holder, so the one
+// holder's part is the subject, and a second holder's part makes two subjects.
 func testDuplicateObjectsHoldingAPlainPart(t *testing.T) {
 	src := `
 		package test {
@@ -81,16 +98,27 @@ func testDuplicateObjectsHoldingAPlainPart(t *testing.T) {
 	rootScope := idx.DocumentRoot("<test>")
 	obj := memberPath(t, rootScope, "test", "o")
 	small := memberPath(t, rootScope, "test", "Leaf", "small")
-	for range 2 {
-		if _, err := ctx.Instantiate(obj); err != nil {
-			t.Fatalf("instantiate o: %v", err)
-		}
-		satisfied, err := ctx.EvaluateConstraint(small, small.OwnerScope)
-		if err != nil && !errors.Is(err, ErrViolated) {
-			t.Fatalf("EvaluateConstraint: %v", err)
-		}
-		if satisfied {
-			t.Error("satisfied = true, want the object's 99.0 to violate the constraint")
+	first, err := ctx.Instantiate(obj)
+	if err != nil {
+		t.Fatalf("instantiate o: %v", err)
+	}
+	satisfied, err := ctx.EvaluateConstraint(small, small.OwnerScope)
+	if err != nil && !errors.Is(err, ErrViolated) {
+		t.Fatalf("EvaluateConstraint: %v", err)
+	}
+	if satisfied {
+		t.Error("satisfied = true, want the object's 99.0 to violate the constraint")
+	}
+	second, err := ctx.Instantiate(obj)
+	if err != nil {
+		t.Fatalf("instantiate o again: %v", err)
+	}
+	if _, err := ctx.EvaluateConstraint(small, small.OwnerScope); !errors.Is(err, ErrAmbiguousSubject) {
+		t.Fatalf("EvaluateConstraint over two objects of o: %v, want ErrAmbiguousSubject", err)
+	}
+	for _, top := range []*Instance{first, second} {
+		if _, err := ctx.EvaluateConstraintOn(small, small.OwnerScope, top); !errors.Is(err, ErrViolated) {
+			t.Errorf("EvaluateConstraintOn #%d: %v, want its leaf's violation", top.ID, err)
 		}
 	}
 }

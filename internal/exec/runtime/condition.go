@@ -50,8 +50,8 @@ type Condition struct {
 	// whole conjunction Group stands for.
 	Negated bool
 
-	// Required distinguishes a required condition from an assumption, which is
-	// trusted rather than required to hold.
+	// Required distinguishes a required condition from an assumption: a
+	// requirement holds when its assumptions imply its required conditions.
 	Required bool
 
 	// Constraints are the named constraint usages stating the condition through
@@ -653,24 +653,37 @@ func (c conditionCheck) name() string {
 	return c.sym.Name
 }
 
+// conditionVerdict is what evaluating an element's conditions established.
+type conditionVerdict struct {
+	holds bool
+
+	// vacuous says why a holding requirement check judged no required condition:
+	// it states none, or an assumption did not hold. "" for a verdict about conditions.
+	vacuous string
+}
+
 // evaluateConditions evaluates conds in order and reports whether every required
 // one holds, or — for a negated element — whether one of them fails. check.self
 // is the subject already, as checkSubject resolved it.
 func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) (bool, error) {
+	verdict, err := ctx.judgeConditions(check, conds)
+	return verdict.holds, err
+}
+
+// judgeConditions is evaluateConditions with the verdict's vacuity: a requirement check is
+// `allTrue(assumptions()) implies allTrue(constraints())`; a constraint's assumption binds no result.
+func (ctx *Context) judgeConditions(check conditionCheck, conds []Condition) (conditionVerdict, error) {
 	if conflict := conflictingResultExpression(conds); conflict != nil {
-		return false, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
+		return conditionVerdict{}, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
 			check.kind, check.name(), check.what, conflictText(conflict), errConflictingResultExpressions)
 	}
 	// A requirement over no required constraint is true whatever its assumptions
 	// read, so they are not evaluated; a constraint stating nothing binds no result.
 	if check.isRequirementCheck() && !requiresAny(conds) {
-		if check.negated {
-			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: vacuousClaim(check.claimed())}
-		}
-		return true, nil
+		return check.vacuous(vacuousClaim(check.claimed()))
 	}
 	if len(conds) == 0 {
-		return false, check.noResultValue("the constraint declares no condition")
+		return conditionVerdict{}, check.noResultValue("the constraint declares no condition")
 	}
 	features := ctx.conditionFeatures(check.sym)
 	self := check.self
@@ -682,45 +695,87 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	activation, endStep := ctx.beginStep()
 	defer endStep()
 	required := false
-	for _, cond := range conds {
+	for _, cond := range check.assumptionsFirst(conds) {
 		required = required || cond.Required
 		if err := ctx.circularCondition(check, cond); err != nil {
-			return false, err
+			return conditionVerdict{}, err
 		}
 		if cond.Steps != nil && !cond.Negated {
 			// The body's steps ran once; each condition it left is judged on its
 			// own Required, as the conditions of a body stating no steps are.
-			done, err := ctx.evaluateStepsConditions(activation, check, cond, features, self)
+			verdict, done, err := ctx.evaluateStepsConditions(activation, check, cond, features, self)
 			if err != nil {
-				return false, err
+				return conditionVerdict{}, err
 			}
 			if done {
-				return true, nil
+				return verdict, nil
 			}
 			continue
 		}
 		holds, err := ctx.conditionHolds(activation, cond, features, self, check.frames, check.bindings)
 		if err != nil {
-			return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
+			return conditionVerdict{}, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 		}
-		if cond.Required && !holds {
-			// A negated element asserts exactly this: one required condition
-			// failing makes the negated assertion hold.
-			if check.negated {
-				return true, nil
-			}
-			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: conditionLabel(cond)}
+		if !holds && check.decidedBy(cond) {
+			return check.failedCondition(cond)
 		}
 	}
 	if check.negated {
-		// A constraint's assumption is trusted rather than checked, so a negated
-		// constraint stating only assumptions denies nothing.
+		// A constraint's assumption binds no result, so a negated constraint
+		// stating only assumptions denies nothing.
 		if !required {
-			return false, check.noResultValue("the constraint declares no required condition, only assumptions")
+			return conditionVerdict{}, check.noResultValue("the constraint declares no required condition, only assumptions")
 		}
-		return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
+		return conditionVerdict{}, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
 	}
-	return true, nil
+	return conditionVerdict{holds: true}, nil
+}
+
+// assumptionsFirst judges a requirement's assumptions before its required conditions whatever
+// the body's order, as `implies` reads its consequent after its antecedent; a constraint's keep it.
+func (c conditionCheck) assumptionsFirst(conds []Condition) []Condition {
+	if !c.isRequirementCheck() {
+		return conds
+	}
+	ordered := make([]Condition, 0, len(conds))
+	for _, cond := range conds {
+		if !cond.Required {
+			ordered = append(ordered, cond)
+		}
+	}
+	for _, cond := range conds {
+		if cond.Required {
+			ordered = append(ordered, cond)
+		}
+	}
+	return ordered
+}
+
+// decidedBy reports whether cond reading false settles the check: a required condition
+// always does, an assumption only a requirement's (a constraint's binds no result).
+func (c conditionCheck) decidedBy(cond Condition) bool {
+	return cond.Required || c.isRequirementCheck()
+}
+
+// failedCondition is the verdict cond reading false settles the check with: a required one
+// is the violation (what a negated check asserts); an assumption makes the implication true.
+func (c conditionCheck) failedCondition(cond Condition) (conditionVerdict, error) {
+	if cond.Required {
+		if c.negated {
+			return conditionVerdict{holds: true}, nil
+		}
+		return conditionVerdict{}, &ViolationError{Kind: c.kind, Element: c.name(), What: c.what, Condition: conditionLabel(cond)}
+	}
+	return c.vacuous(failedAssumption(c.claimed(), cond))
+}
+
+// vacuous is the verdict of a requirement check true for the reason why rather
+// than on its required conditions; a negated one fails for that same reason.
+func (c conditionCheck) vacuous(why string) (conditionVerdict, error) {
+	if c.negated {
+		return conditionVerdict{}, &ViolationError{Kind: c.kind, Element: c.name(), What: c.what, Condition: why}
+	}
+	return conditionVerdict{holds: true, vacuous: "vacuous: " + why}, nil
 }
 
 // noResultValue is the error for a constraint whose result nothing binds (KerML 1.1
@@ -770,17 +825,6 @@ func (c conditionCheck) isRequirementCheck() bool {
 	return false
 }
 
-// vacuity is why a requirement check over no required condition is true:
-// `allTrue(assumptions()) implies allTrue(constraints())` over no constraint is
-// true (SysML v2 9.2.11 Requirements; KerML 9.2.3 ControlFunctions::allTrue over
-// an empty sequence). "" for a check that is not vacuous.
-func vacuity(check conditionCheck, conds []Condition) string {
-	if !check.isRequirementCheck() || requiresAny(conds) {
-		return ""
-	}
-	return "vacuous: " + vacuousClaim(check.claimed())
-}
-
 // claimed is the requirement whose claim the check judges.
 func (c conditionCheck) claimed() *symbols.Symbol {
 	if c.about != nil {
@@ -789,9 +833,16 @@ func (c conditionCheck) claimed() *symbols.Symbol {
 	return c.sym
 }
 
-// vacuousClaim says what a requirement over no required condition claims.
+// vacuousClaim says why a requirement over no required condition holds: `allTrue(constraints())`
+// over no constraint is true (KerML 9.2.3 ControlFunctions::allTrue over an empty sequence).
 func vacuousClaim(sym *symbols.Symbol) string {
 	return fmt.Sprintf("%s %s states no required constraint, so it holds vacuously", requirementKeyword(sym), sym.Name)
+}
+
+// failedAssumption says why a requirement whose assumption cond does not hold
+// holds: `false implies allTrue(constraints())` is true.
+func failedAssumption(sym *symbols.Symbol, cond Condition) string {
+	return fmt.Sprintf("assumption %s of %s %s did not hold, so it holds vacuously", conditionLabel(cond), requirementKeyword(sym), sym.Name)
 }
 
 // requirementKeyword is the keyword a requirement was declared with
@@ -826,40 +877,34 @@ func circularReference(conds []Condition) *symbols.Symbol {
 	return nil
 }
 
-// evaluateStepsConditions is the loop of evaluateConditions for one body that
-// states steps: the steps run once against the chain's features and bindings,
-// then each condition of the body is evaluated in the frame they left — judged
-// on its own Required, so an assumption failing among them still denies
-// nothing. done reports a verdict reached early, which happens only for a
-// negated element, where one required condition failing is the verdict.
-func (ctx *Context) evaluateStepsConditions(activation int64, check conditionCheck, cond Condition, features map[string]scopedExpr, self *Instance) (done bool, err error) {
+// evaluateStepsConditions is judgeConditions' loop over one body stating steps: the steps run
+// once, then each condition is judged in the frame they left; done reports a verdict settled early.
+func (ctx *Context) evaluateStepsConditions(activation int64, check conditionCheck, cond Condition, features map[string]scopedExpr, self *Instance) (verdict conditionVerdict, done bool, err error) {
 	scoped, bindings := features, check.bindings
 	for _, constraint := range cond.Constraints {
 		scoped, bindings = ctx.constraintScope(scoped, bindings, constraint)
 	}
 	stepFrame, err := ctx.runConstraintSteps(cond.Steps, scoped, self, check.frames, bindings)
 	if err != nil {
-		return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
+		return verdict, false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 	}
 	if len(cond.Group) == 0 {
-		return false, check.noResultValue("the body's steps leave it no result expression to evaluate")
+		return verdict, false, check.noResultValue("the body's steps leave it no result expression to evaluate")
 	}
-	for _, sub := range cond.Group {
+	for _, sub := range check.assumptionsFirst(cond.Group) {
 		if err := ctx.circularCondition(check, sub); err != nil {
-			return false, err
+			return verdict, false, err
 		}
 		holds, err := ctx.conditionHoldsAt(activation, sub, scoped, self, check.frames, bindings, &stepFrame)
 		if err != nil {
-			return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
+			return verdict, false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 		}
-		if sub.Required && !holds {
-			if check.negated {
-				return true, nil
-			}
-			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: conditionLabel(sub)}
+		if !holds && check.decidedBy(sub) {
+			verdict, err = check.failedCondition(sub)
+			return verdict, true, err
 		}
 	}
-	return false, nil
+	return verdict, false, nil
 }
 
 // conditionSubject is the object a check is about: the one supplied when it
@@ -874,7 +919,7 @@ func (ctx *Context) conditionSubject(sym *symbols.Symbol, self *Instance) (carri
 	}
 	roots := []*Instance{self}
 	if self == nil {
-		roots = ctx.rootInstances()
+		roots = ctx.LiveRoots()
 	} else if ctx.modelConforms(self.Type, owner) {
 		return carrier{instance: self, root: self}, nil
 	}
@@ -951,50 +996,10 @@ func (ctx *Context) readThrough(inst *Instance) bool {
 	return !inst.explicit && ctx.denotesOccurrence(inst)
 }
 
-// rootInstances returns the objects this runtime holds that stand on their own,
-// in identity order: an object a feature value holds is reached through its holder, and one
-// materialized to read a nested declaration through is an occurrence of nothing,
-// while an object a caller asked for is a root whatever it materializes. One
-// declaration stands as the objects it denotes, every one of them where it denotes
-// several, and otherwise as one object, the latest materialized of it.
-func (ctx *Context) rootInstances() []*Instance {
-	held := ctx.heldObjectIDs()
-	denoted := make(map[*symbols.Symbol][]*Instance)
-	latest := make(map[*symbols.Symbol]*Instance, len(ctx.instances))
-	for _, inst := range ctx.instances {
-		if inst == nil || held[inst.ID] || (nestedFeature(inst.Type) && ctx.readThrough(inst)) {
-			continue
-		}
-		// A destroyed object is no subject of anything; what it held is reached from where it stands.
-		if ctx.checkNotDestroyed(inst) != nil {
-			continue
-		}
-		if ctx.denotesOccurrence(inst) {
-			denoted[inst.Type] = append(denoted[inst.Type], inst)
-			continue
-		}
-		if kept, ok := latest[inst.Type]; ok && kept.ID > inst.ID {
-			continue
-		}
-		latest[inst.Type] = inst
-	}
-	var out []*Instance
-	for sym, inst := range latest {
-		if _, ok := denoted[sym]; !ok {
-			out = append(out, inst)
-		}
-	}
-	for _, insts := range denoted {
-		out = append(out, insts...)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out
-}
-
 // LiveRoots returns every object this runtime holds that stands on its own — not held
 // by another's feature value, not materialized only to read a nested declaration, not
-// destroyed — in identity order: rootInstances without its one-object-per-declaration
-// choice, for a sweep that is about each object rather than about a declaration.
+// destroyed — in identity order. A declaration materialized twice is two of them: the
+// name denotes the latest, but a feature of the definition is a feature of each object.
 func (ctx *Context) LiveRoots() []*Instance {
 	held := ctx.heldObjectIDs()
 	var out []*Instance
@@ -1132,8 +1137,8 @@ type carrier struct {
 	instance *Instance
 	root     *Instance
 	features []string
-	// segments spell the features walked as a path names them, a collection's
-	// element indexed: what a verdict about the carrier labels it by.
+	// segments spell the features walked as a path names them (heldSegmenter.segment),
+	// ending in the declaration the carrier materializes: what a verdict labels it by.
 	segments   []string
 	occurrence carrierOccurrence
 }
@@ -1206,7 +1211,7 @@ func (ctx *Context) heldObjectsOf(inst *Instance, through func(*Instance, Object
 			}
 			held = NewSequenceValue(&Sequence{elements: standingElements(fv.HeldValue())})
 		}
-		for _, held := range heldSegments(held, source.NameText(of.Name)) {
+		for _, held := range ctx.heldSegments(inst, of.Name, held) {
 			if child, ok := ctx.instances[held.id]; ok {
 				out = append(out, heldObject{feature: of.Name, instance: child, segment: held.segment})
 			}
@@ -1240,35 +1245,127 @@ type heldSegment struct {
 	id      int64
 }
 
-// heldSegments returns the identities a feature value denotes, a collection's elements
-// included, each under the segment a path names it by: the name, indexed for an element.
-func heldSegments(val Value, name string) []heldSegment {
+// heldSegments returns the identities the value of holder's feature denotes, a
+// collection's elements included, each under the segment a path names it by.
+func (ctx *Context) heldSegments(holder *Instance, feature string, val Value) []heldSegment {
+	named := ctx.segmenter(holder)
 	if id, ok := val.Object(); ok {
-		return []heldSegment{{segment: name, id: id}}
-	}
-	var elements []Value
-	switch {
-	case val.Kind == ValSequence && val.Sequence() != nil:
-		elements = standingElements(val)
-	case val.Kind == ValSet && val.Set() != nil:
-		elements = val.Set().Elements()
+		segment, _ := named.segment(feature, id, -1)
+		return []heldSegment{{segment: segment, id: id}}
 	}
 	var out []heldSegment
-	for i, element := range elements {
+	for i, element := range standingCollection(val) {
 		if id, ok := element.Object(); ok {
-			out = append(out, heldSegment{segment: indexedSegment(name, i), id: id})
+			segment, _ := named.segment(feature, id, i)
+			out = append(out, heldSegment{segment: segment, id: id})
 		}
 	}
 	return out
 }
 
+// heldSegmenter names the objects holder's features hold in a path, indexing each
+// subsetting collection once however many of its objects are named.
+type heldSegmenter struct {
+	ctx      *Context
+	holder   *Instance
+	declared map[string]map[int64]int
+}
+
+func (ctx *Context) segmenter(holder *Instance) *heldSegmenter {
+	return &heldSegmenter{ctx: ctx, holder: holder}
+}
+
+// segment names the object id that feature holds, at i of its collection or alone for i < 0: the
+// usage that materialized it where that usage subsets feature (`small`, `smalls[2]`), else feature, indexed.
+func (s *heldSegmenter) segment(feature string, id int64, i int) (segment string, indexed bool) {
+	if child, ok := s.ctx.instances[id]; ok && s.holder != nil {
+		if owner, decl := child.Owner(); owner == s.holder && decl != "" && decl != feature && s.ctx.subsetsFeature(s.holder, decl, feature) {
+			if segment, indexed, ok := s.declaredSegment(decl, id); ok {
+				return segment, indexed
+			}
+		}
+	}
+	if i < 0 {
+		return source.NameText(feature), false
+	}
+	return indexedSegment(source.NameText(feature), i), true
+}
+
+// subsetsFeature reports whether holder's feature decl subsets its feature name,
+// directly or through other features of the holder.
+func (ctx *Context) subsetsFeature(holder *Instance, decl, name string) bool {
+	seen := map[string]bool{name: true}
+	queue := []string{name}
+	for len(queue) > 0 {
+		next := queue[0]
+		queue = queue[1:]
+		for _, feat := range ctx.subsettingFeaturesOf(holder, next) {
+			if feat.Name == decl {
+				return true
+			}
+			if !seen[feat.Name] {
+				seen[feat.Name] = true
+				queue = append(queue, feat.Name)
+			}
+		}
+	}
+	return false
+}
+
+// declaredSegment names the object id by the holder's feature decl: the name alone for one
+// value, indexed by the object's position in a collection; false when decl does not hold it.
+func (s *heldSegmenter) declaredSegment(decl string, id int64) (segment string, indexed, ok bool) {
+	fv := s.holder.FeatureValues[decl]
+	if fv == nil {
+		return "", false, false
+	}
+	val := fv.HeldValue()
+	if held, isObject := val.Object(); isObject {
+		return source.NameText(decl), false, held == id
+	}
+	positions, ok := s.declared[decl]
+	if !ok {
+		positions = map[int64]int{}
+		for j, element := range standingCollection(val) {
+			if held, isObject := element.Object(); isObject {
+				positions[held] = j
+			}
+		}
+		if s.declared == nil {
+			s.declared = map[string]map[int64]int{}
+		}
+		s.declared[decl] = positions
+	}
+	j, ok := positions[id]
+	if !ok {
+		return "", false, false
+	}
+	return indexedSegment(source.NameText(decl), j), true, true
+}
+
+// standingCollection returns the elements a collection value already holds,
+// without materializing a lazy one; nil for a value that is no collection.
+func standingCollection(val Value) []Value {
+	switch {
+	case val.Kind == ValSequence && val.Sequence() != nil:
+		return standingElements(val)
+	case val.Kind == ValSet && val.Set() != nil:
+		return val.Set().Elements()
+	}
+	return nil
+}
+
 // heldObjects returns the identities a feature value denotes, a collection's
 // elements included.
 func heldObjects(val Value) []int64 {
-	held := heldSegments(val, "")
-	out := make([]int64, len(held))
-	for i, h := range held {
-		out[i] = h.id
+	if id, ok := val.Object(); ok {
+		return []int64{id}
+	}
+	var out []int64
+	for _, element := range standingCollection(val) {
+		if id, ok := element.Object(); ok {
+			out = append(out, id)
+		}
 	}
 	return out
 }
@@ -1280,7 +1377,8 @@ func indexedSegment(name string, i int) string {
 }
 
 // carrierLabels names carriers as a diagnostic can quote them: the definition
-// each is an object of, its identity, and the feature path telling two apart.
+// each is an object of, its identity, and the feature path telling two apart; one
+// reached from a root its usage no longer denotes says so, as %instances lists it.
 func (ctx *Context) carrierLabels(carriers []carrier) []string {
 	out := make([]string, 0, len(carriers))
 	for _, c := range carriers {
@@ -1290,12 +1388,32 @@ func (ctx *Context) carrierLabels(carriers []carrier) []string {
 			name = def.Name
 		}
 		label := fmt.Sprintf("%s #%d", name, inst.ID)
-		if path := carrierPath(c, name); len(path) != 0 {
+		path := carrierPath(c, name)
+		switch displaced := ctx.displacedRoot(c.root); {
+		case displaced && len(c.features) != 0:
+			label += fmt.Sprintf(" (%s of displaced #%d)", qualifiedText(path), c.root.ID)
+		case displaced && len(path) != 0:
+			label += " (displaced from " + qualifiedText(path) + ")"
+		case displaced:
+			label += " (displaced)"
+		case len(path) != 0:
 			label += " (" + qualifiedText(path) + ")"
 		}
 		out = append(out, label)
 	}
 	return out
+}
+
+// displacedRoot reports whether root is an object a later materialization of its
+// usage displaced from the name: the usage records one occurrence, and this is not it.
+func (ctx *Context) displacedRoot(root *Instance) bool {
+	if root == nil || root.Type == nil {
+		return false
+	}
+	if _, ok := root.Type.Decl.(*ast.Usage); !ok {
+		return false
+	}
+	return ctx.registersOccurrence(root.Type) && !ctx.denotesOccurrence(root)
 }
 
 // qualifiedText spells walked feature names as a `::`-joined path in the
@@ -1332,25 +1450,6 @@ func carrierPath(c carrier, definition string) []string {
 	if decl != "" && walked[len(walked)-1] != decl {
 		walked[len(walked)-1] = decl
 	}
-	return walked
-}
-
-// carrierFeatures is a verdict's path to a nested carrier: the segments walked from its root,
-// a collection's element indexed as validation spells it, ending in the declaration it materializes.
-func (ctx *Context) carrierFeatures(c carrier) []string {
-	if len(c.segments) == 0 || c.instance == nil {
-		return nil
-	}
-	name := "object"
-	if def := ctx.definitionOf(c.instance.Type); def != nil && def.Name != "" {
-		name = def.Name
-	}
-	decl := carrierDeclaration(c, name)
-	if decl == "" || c.features[len(c.features)-1] == decl {
-		return c.segments
-	}
-	walked := append([]string(nil), c.segments...)
-	walked[len(walked)-1] = source.NameText(decl)
 	return walked
 }
 

@@ -105,9 +105,9 @@ type FailureError struct {
 	Message string
 	// Diagnostics the response carried alongside the failure, if any.
 	Diagnostics []Diagnostic
-	// Trace is the partial ExecuteState trace when that run failed.
+	// Trace is the partial ExecuteAction or ExecuteState trace when a traced run failed.
 	Trace []DocumentEvent
-	// TraceDropped is the number of oldest ExecuteState trace records discarded.
+	// TraceDropped is the number of oldest trace records discarded.
 	TraceDropped int
 	// FinalTime is the simulation clock an ExecuteAction or ExecuteState run
 	// stopped at, in seconds, when it failed under WithAdvance.

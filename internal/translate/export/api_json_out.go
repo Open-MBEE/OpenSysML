@@ -96,13 +96,10 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	}
 	subjects := settled.SubjectsView()
 	elements := make([]apiJSONObject, 0, len(subjects))
-	subjectSlots := make(map[string]int, len(subjects))
-	for position, subject := range subjects {
-		subjectSlots[subject.Value] = position
-	}
-	evaluation := newAPIJSONEvaluation(settled, subjectSlots)
-	mappingNames := newAPIJSONMappingNameIndex(evaluation.structure.graph, subjectSlots)
-	nameIndex := newAPIJSONNameIndexWithSubjectSlots(settled, subjectSlots)
+	index := newAPIJSONWriteIndex(settled)
+	evaluation := newAPIJSONEvaluationWithIndex(index)
+	mappingNames := newAPIJSONMappingNameIndex(index)
+	nameIndex := newAPIJSONNameIndex(settled, index)
 	writer := &apiJSONElementWriter{
 		graph:              settled,
 		evaluation:         evaluation,
@@ -226,18 +223,15 @@ type apiJSONMappingNameIndex struct {
 	hasName      []bool
 }
 
-func newAPIJSONMappingNameIndex(graph *rdf.Graph, subjectSlots map[string]int) *apiJSONMappingNameIndex {
-	defaults := mappingQualifiedNames(graph)
+func newAPIJSONMappingNameIndex(graphIndex *apiJSONGraphIndex) *apiJSONMappingNameIndex {
+	graph := graphIndex.graph
+	defaults := mappingQualifiedNamesWithContext(graph, newMappingQualifiedNameContext(graph, graphIndex))
 	index := &apiJSONMappingNameIndex{
-		subjectSlots: subjectSlots,
-		names:        make([]string, len(subjectSlots)),
-		hasName:      make([]bool, len(subjectSlots)),
+		subjectSlots: graphIndex.slots,
+		names:        make([]string, len(graphIndex.subjects)),
+		hasName:      make([]bool, len(graphIndex.subjects)),
 	}
-	for _, subject := range graph.SubjectsView() {
-		position, ok := subjectSlots[subject.Value]
-		if !ok || position >= len(index.names) {
-			continue
-		}
+	for position, subject := range graphIndex.subjects {
 		id, ok := rdf.SubjectID(subject)
 		if !ok {
 			continue
@@ -262,21 +256,10 @@ func (index *apiJSONMappingNameIndex) name(subject rdf.Term) (string, bool) {
 // apiJSONElement builds the element object for one subject: "@type", "@id",
 // then each property in statement order.
 func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
-	evaluation := newAPIJSONEvaluation(graph)
-	mappingNames := newAPIJSONMappingNameIndex(
-		evaluation.structure.graph, evaluation.structure.subjectSlots,
-	)
-	return apiJSONElementWithEvaluation(graph, subject, evaluation, mappingNames)
-}
-
-func apiJSONElementWithEvaluation(
-	graph *rdf.Graph,
-	subject rdf.Term,
-	evaluation *apiJSONEvaluation,
-	mappingNames *apiJSONMappingNameIndex,
-) (apiJSONObject, error) {
+	index := newAPIJSONWriteIndex(graph)
 	return apiJSONElementWithEvaluationOptions(
-		graph, subject, evaluation, mappingNames, newAPIJSONNameIndex(graph), &apiJSONTermCache{}, APIJSONOptions{},
+		graph, subject, newAPIJSONEvaluationWithIndex(index), newAPIJSONMappingNameIndex(index),
+		newAPIJSONNameIndex(graph, index), &apiJSONTermCache{}, APIJSONOptions{},
 	)
 }
 
@@ -490,7 +473,7 @@ func apiJSONHasPropertyOrderSidecar(element apiJSONObject, graph *rdf.Graph, sub
 			return true
 		}
 	}
-	return graph.HasProperty(subject, rdf.SysML+pQualifiedName)
+	return hasAddress(graph, subject)
 }
 
 func apiJSONGraphPropertyOrder(graph *rdf.Graph, subject rdf.Term) []string {
@@ -652,14 +635,14 @@ func apiJSONNaturalPropertyOrderWithScratch(
 		order = append(order, "")
 		copy(order[insertAt+1:], order[insertAt:])
 		order[insertAt] = "qualifiedName"
-	} else if !hasQualifiedName && graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+	} else if !hasQualifiedName && hasAddress(graph, subject) {
 		order = append(order, "")
 		copy(order[1:], order[:len(order)-1])
 		order[0] = "qualifiedName"
 	}
 
 	if hasQualifiedName || mappingQualifiedNameIndex >= 0 ||
-		graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+		hasAddress(graph, subject) {
 		sidecarOnly = append(sidecarOnly, "qualifiedName")
 	}
 

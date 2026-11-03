@@ -77,7 +77,8 @@ func behaviorUsageKind(kind ast.UsageKind) bool {
 		ast.UsageViewpoint, ast.UsageFramedConcern, ast.UsageCase,
 		ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase,
 		ast.UsageStep, ast.UsageBehavior, ast.UsagePredicate, ast.UsageBool,
-		ast.UsageInteraction, ast.UsageObjective:
+		ast.UsageInteraction, ast.UsageObjective, ast.UsageSatisfy:
+		// A satisfy usage is a requirement usage (SysML 8.3.19).
 		return true
 	}
 	return false

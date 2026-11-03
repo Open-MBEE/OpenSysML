@@ -1,0 +1,5 @@
+✓ package Lander
+✓ package QVTSDemo
+sysml: query QVTSDemo::MisspelledDifferKey operation differ: the left rows project no column elementIdd (columns: elementId, mass)
+  path error at Differ(elementIdd, mass): expected a column named elementIdd on the left rows
+    at left; nearest: elementId

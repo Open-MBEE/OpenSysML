@@ -50,7 +50,7 @@ func TestAPIJSONQualifiedNameUsesEvaluator(t *testing.T) {
 		if !found {
 			continue
 		}
-		graphName, hasGraphName := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+		graphName, hasGraphName := addressOf(graph, subject)
 		mappingName, hasMappingName := element["sysx:mappingQualifiedName"].(string)
 		defaultName, hasDefault := defaults[id]
 		if hasGraphName && hasDefault && graphName == defaultName {
@@ -86,7 +86,7 @@ func TestAPIJSONQualifiedNameUsesEvaluator(t *testing.T) {
 		if !found {
 			continue
 		}
-		graphName, hasGraphName := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+		graphName, hasGraphName := addressOf(graph, subject)
 		mappingName, hasMappingName := element["sysx:mappingQualifiedName"].(string)
 		defaultName, hasDefault := defaults[compactDoc.IDs[i]]
 		if hasGraphName && hasDefault && graphName == defaultName {
@@ -161,7 +161,7 @@ func TestReadAPIJSONMapsSpecQualifiedNameSpelling(t *testing.T) {
 				"at":   "'@2'",
 			} {
 				subject := rdf.ReferenceIRI(rdf.Term{}, id)
-				got, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+				got, ok := addressOf(graph, subject)
 				if !ok || got != want {
 					t.Errorf("%s qualifiedName = %q, want %q", id, got, want)
 				}
@@ -195,7 +195,7 @@ func TestAPIJSONOmitsMappingQualifiedNameWhenDefaultMatches(t *testing.T) {
 		if !ok {
 			continue
 		}
-		graphName, hasGraphName := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+		graphName, hasGraphName := addressOf(graph, subject)
 		defaultName, hasDefault := defaults[id]
 		if hasGraphName && hasDefault && graphName == defaultName {
 			matched++
@@ -230,7 +230,7 @@ func TestAPIJSONOmitsMappingQualifiedNameWhenLibraryNameMatchesSpec(t *testing.T
 	}
 	libraryID := ""
 	for _, subject := range graph.Subjects() {
-		qualifiedName, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+		qualifiedName, ok := addressOf(graph, subject)
 		if !LibraryReference(graph, subject) || !ok || qualifiedName != "ScalarValues::Integer" {
 			continue
 		}

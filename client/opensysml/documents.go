@@ -101,7 +101,8 @@ type DocumentState struct {
 // trace. It is answered, never bound.
 type DocumentEvent struct {
 	// Kind is "accept", "send", "transition", "entry", "exit", "do", "choice",
-	// "guard" or "terminate".
+	// "guard" or "terminate"; an action's run adds "step", "wait", "assign",
+	// "decide" and "complete".
 	Kind string
 	// Time is the run's clock when the record was made: a Quantity when the
 	// clock carries a unit, a Real otherwise.
@@ -110,8 +111,9 @@ type DocumentEvent struct {
 	Object *Object
 	// Machine is the state machine the record is about, as DocumentState.Machine names it.
 	Machine string
-	// State is the state entered, exited or performing, by path; From and To
-	// are a transition's source and target.
+	// State is the state entered, exited or performing, by path, or the action
+	// node a wait, assign, decide or accept record is at; From and To are a
+	// transition's source and target, or a step's.
 	State, From, To string
 	// Target is the object a send was addressed to; nil for any other record.
 	Target *Object
@@ -124,6 +126,14 @@ type DocumentEvent struct {
 	Taken        string
 	// Text is the record as the trace prints it.
 	Text string
+	// Token is the action token a step, wait, assign, decide or accept record is
+	// about and Step the executor step that made it; 0 for a record of neither.
+	Token int64
+	Step  int
+	// Feature is the feature an assign record wrote and Value what it holds since;
+	// Value is nil for any other record.
+	Feature string
+	Value   Value
 }
 
 func (Element) isCell()         { /* marker: closed Cell set */ }
@@ -495,6 +505,12 @@ func documentEventFromProto(event *pb.DocumentEvent) DocumentEvent {
 		Alternatives: append([]string(nil), event.GetAlternatives()...),
 		Taken:        event.GetTaken(),
 		Text:         event.GetText(),
+		Token:        event.GetToken(),
+		Step:         int(event.GetStep()),
+		Feature:      event.GetFeature(),
+	}
+	if event.GetValue() != nil {
+		converted.Value = valueFromProto(event.GetValue())
 	}
 	if event.GetObject() != nil {
 		object := objectFromProto(event.GetObject())

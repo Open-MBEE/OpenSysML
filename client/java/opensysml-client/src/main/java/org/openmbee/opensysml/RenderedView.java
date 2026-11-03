@@ -33,7 +33,10 @@ public record RenderedView(
     shown = List.copyOf(shown);
   }
 
-  /** A flattened rendered node; parents precede children. */
+  /**
+   * A flattened rendered node; parents precede children. {@code compartment} names the compartment
+   * of the parent the node is drawn as a row of ({@code "parts"}, ...); empty for a box.
+   */
   public record Node(
       String id,
       String kind,
@@ -45,11 +48,13 @@ public record RenderedView(
       boolean standIn,
       boolean inherited,
       String parent,
+      String compartment,
       List<Port> ports,
       Optional<Span> origin,
       Optional<Geometry> geometry,
       Optional<Style> style) {
     public Node {
+      Objects.requireNonNull(compartment, "compartment");
       ports = List.copyOf(ports);
       Objects.requireNonNull(origin, "origin");
       Objects.requireNonNull(geometry, "geometry");
@@ -156,6 +161,7 @@ public record RenderedView(
                         node.getStandIn(),
                         node.getInherited(),
                         node.getParent(),
+                        node.getCompartment(),
                         node.getPortsList().stream()
                             .map(
                                 port ->

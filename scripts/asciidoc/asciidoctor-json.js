@@ -2,7 +2,7 @@
 'use strict';
 // Reads one AsciiDoc body on stdin and writes one JSON tree of its blocks and
 // inline runs on stdout; a parse failure exits non-zero with the message.
-const asciidoctor = require('@asciidoctor/core')();
+const asciidoctor = require('@asciidoctor/core');
 
 const OPEN = '\u0001';
 const CLOSE = '\u0002';
@@ -101,6 +101,8 @@ function expand(node, inner, style) {
     case 'value': {
       const text = plainText(inner);
       if (text === null) return [{ kind: 'unsupported', construct: 'styled ' + node.kind + ' text' }];
+      // An unlabelled value run carries no text; the planner shows the value.
+      if (node.kind === 'value' && text === '') return [node];
       return [{ ...node, text }];
     }
     default:
@@ -177,7 +179,11 @@ function lineOf(node) {
   return typeof line === 'number' ? line : 0;
 }
 
-function block(node) {
+function blocksOf(nodes, walk) {
+  return Promise.all(nodes.map((node) => walk(node)));
+}
+
+async function block(node) {
   const base = { kind: node.getContext(), line: lineOf(node) };
   if (node.getContext() === 'section') return section(node, base);
   if (node.hasTitle?.()) {
@@ -187,25 +193,32 @@ function block(node) {
   }
   switch (node.getContext()) {
     case 'paragraph':
-      return Object.assign(base, { runs: runsOf(node.getContent(), 'plain') });
+      return Object.assign(base, { runs: runsOf(await node.getContent(), 'plain') });
     case 'admonition': {
       const admonition = Object.assign(base, {
         style: String(node.getAttribute('name')).toUpperCase(),
         label: String(node.getAttribute('textlabel') || node.getAttribute('name')),
       });
       // A delimited admonition holds blocks (none, when empty); a one-line one holds inline text.
-      if (node.getContentModel() === 'compound') admonition.blocks = node.getBlocks().map(block);
-      else admonition.runs = runsOf(node.getContent(), 'plain');
+      if (node.getContentModel() === 'compound') {
+        admonition.blocks = await blocksOf(node.getBlocks(), block);
+      } else {
+        admonition.runs = runsOf(await node.getContent(), 'plain');
+      }
       return admonition;
     }
     case 'ulist':
-      return Object.assign(base, { kind: 'list', ordered: false, items: node.getItems().map(listItem) });
+      return Object.assign(base, {
+        kind: 'list',
+        ordered: false,
+        items: await blocksOf(node.getItems(), listItem),
+      });
     case 'olist':
       return Object.assign(base, {
         kind: 'list',
         ordered: true,
         start: listStart(node.getAttribute('start')),
-        items: node.getItems().map(listItem),
+        items: await blocksOf(node.getItems(), listItem),
       });
     case 'table':
       return Object.assign(base, table(node));
@@ -220,37 +233,36 @@ function block(node) {
 
 // section carries its level, its title as runs, the id an anchor gave it (the
 // automatic ids are off) and its blocks, subsections among them.
-function section(node, base) {
+async function section(node, base) {
   return Object.assign(base, {
     level: node.getLevel(),
     id: node.getId() || '',
     runs: runsOf(node.getTitle(), 'plain'),
-    blocks: node.getBlocks().map(block),
+    blocks: await blocksOf(node.getBlocks(), block),
   });
 }
 
 // listStart reads an ordered list's `start` attribute: 1 when absent or not a
 // number (Asciidoctor then numbers from 1), the number written otherwise.
 function listStart(attribute) {
-  if (attribute === undefined) return 1;
+  if (attribute === undefined || attribute === null) return 1;
   const start = Number(attribute);
   return Number.isInteger(start) ? start : 1;
 }
 
-function listItem(item) {
-  const entry = { line: lineOf(item), runs: runsOf(item.getText(), 'plain') };
-  if (item.hasBlocks()) entry.blocks = item.getBlocks().map(block);
+async function listItem(item) {
+  const entry = { line: lineOf(item), runs: runsOf(item.getText() || '', 'plain') };
+  if (item.hasBlocks()) entry.blocks = await blocksOf(item.getBlocks(), block);
   return entry;
 }
 
 function table(node) {
-  const rows = node.getRows();
-  const header = rows.getHead().map((row) => row.map(cell));
-  const body = rows.getBody().map((row) => row.map(cell));
-  const footer = rows.getFoot().map((row) => row.map(cell));
+  const header = node.rows.head.map((row) => row.map(cell));
+  const body = node.rows.body.map((row) => row.map(cell));
+  const footer = node.rows.foot.map((row) => row.map(cell));
   const specified = node.hasAttribute('cols');
   return {
-    cols: specified ? node.getColumns().map((column) => Number(column.getAttribute('width')) || 1) : [],
+    cols: specified ? node.columns.map((column) => Number(column.getAttribute('width')) || 1) : [],
     header,
     rows: body,
     footer,
@@ -262,46 +274,41 @@ function cell(c) {
   if (style === 'asciidoc') return { line: lineOf(c), runs: [{ kind: 'unsupported', construct: 'AsciiDoc table cell' }] };
   const span = { colspan: c.getAttribute('colspan') || 1, rowspan: c.getAttribute('rowspan') || 1 };
   if (span.colspan > 1 || span.rowspan > 1) return { line: lineOf(c), runs: [{ kind: 'unsupported', construct: 'spanning table cell' }] };
-  return { line: lineOf(c), runs: runsOf(c.getText(), style && style !== 'default' ? style : 'plain') };
+  return { line: lineOf(c), runs: runsOf(c.getText() || '', style && style !== 'default' ? style : 'plain') };
 }
 
-function main() {
+async function main() {
   const chunks = [];
-  process.stdin.on('data', (chunk) => chunks.push(chunk));
-  process.stdin.on('end', () => {
-    const body = Buffer.concat(chunks).toString('utf8');
-    const registry = asciidoctor.Extensions.create();
-    registry.inlineMacro('sysml', function () {
-      this.positionalAttributes(['target', 'text']);
-      this.process((parent, kind, attributes) => {
-        if (kind !== 'ref' && kind !== 'value') {
-          return this.createInline(parent, 'quoted', '', { type: 'sysml_unknown' });
-        }
-        return this.createInline(parent, 'quoted', attributes.text || '', {
-          type: 'sysml_' + kind,
-          attributes: { target: attributes.target || '' },
-        });
+  for await (const chunk of process.stdin) chunks.push(chunk);
+  const body = Buffer.concat(chunks).toString('utf8');
+  const registry = asciidoctor.Extensions.create();
+  registry.inlineMacro('sysml', function () {
+    this.positionalAttributes(['target', 'text']);
+    this.process((parent, kind, attributes) => {
+      if (kind !== 'ref' && kind !== 'value') {
+        return this.createInline(parent, 'quoted', '', { type: 'sysml_unknown' });
+      }
+      return this.createInline(parent, 'quoted', attributes.text || '', {
+        type: 'sysml_' + kind,
+        attributes: { target: attributes.target || '' },
       });
     });
-    asciidoctor.ConverterFactory.register(new JSONConverter(), ['json']);
-    let doc;
-    try {
-      doc = asciidoctor.load(body, {
-        backend: 'json',
-        safe: 'secure',
-        sourcemap: true,
-        extension_registry: registry,
-        attributes: { stem: 'latexmath', 'skip-front-matter': '', 'sectids!': '' },
-      });
-    } catch (err) {
-      process.stderr.write(String(err?.message ? err.message : err) + '\n');
-      process.exit(1);
-    }
-    const blocks = doc.getBlocks().map(block);
-    if (doc.hasHeader()) blocks.unshift({ kind: 'header', line: 1 });
-    const out = { blocks };
-    process.stdout.write(JSON.stringify(out) + '\n');
   });
+  asciidoctor.ConverterFactory.register(new JSONConverter(), ['json']);
+  const doc = await asciidoctor.load(body, {
+    backend: 'json',
+    safe: 'secure',
+    sourcemap: true,
+    extension_registry: registry,
+    attributes: { stem: 'latexmath', 'skip-front-matter': '', 'sectids!': '' },
+  });
+  const blocks = await blocksOf(doc.getBlocks(), block);
+  if (doc.hasHeader()) blocks.unshift({ kind: 'header', line: 1 });
+  const out = { blocks };
+  process.stdout.write(JSON.stringify(out) + '\n');
 }
 
-main();
+main().catch((err) => {
+  process.stderr.write(String(err?.message ? err.message : err) + '\n');
+  process.exitCode = 1;
+});

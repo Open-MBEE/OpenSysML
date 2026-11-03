@@ -54,6 +54,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityOrderDependence:                "execute_action",
 	sysmlgrpc.CapabilityPerformer:                      "execute_action",
 	sysmlgrpc.CapabilityStateTrace:                     "execute_state",
+	sysmlgrpc.CapabilityActionTrace:                    "execute_action",
 	sysmlgrpc.CapabilityVerification:                   "verify_constraint",
 	sysmlgrpc.CapabilityVerificationQuestions:          "verify_constraint",
 	sysmlgrpc.CapabilityVerificationArguments:          "verify_constraint",

@@ -20,6 +20,11 @@ const booleansModel = `package P {
         part a : D;
         ref part b : D;
         attribute e : ScalarValues::Boolean = false;
+        connection c connect a to b;
+    }
+    connection def CD {
+        end part src : D;
+        end part dst : D;
     }
 }
 `
@@ -103,16 +108,19 @@ func TestAPIJSONStatesEveryNonDerivedBoolean(t *testing.T) {
 		}
 	}
 	for id, want := range map[string]map[string]any{
-		"P__D__a":           {"isComposite": true, "isUnique": true, "isVariable": nil, "isAbstract": false, "isReference": nil},
-		"P__D__b":           {"isComposite": false, "isReference": true},
-		"P__D__v":           {"isVariable": nil, "mayTimeVary": nil},
+		"P__D__a":           {"isComposite": true, "isUnique": true, "isVariable": true, "mayTimeVary": true, "isAbstract": false, "isReference": nil},
+		"P__D__b":           {"isComposite": false, "isReference": true, "isVariable": true, "mayTimeVary": true},
+		"P__D__v":           {"isVariable": true, "mayTimeVary": true},
 		"P__D__n":           {"isUnique": false},
 		"P__D":              {"isAbstract": false, "isVariation": false, "isSufficient": false, "isIndividual": false},
 		"P__D__a_om":        {"isImplied": false},
 		"P__D__e_pvalue_om": {"isDefault": false, "isInitial": false, "isImplied": false},
-		"P_ns":              {apiJSONStatedDefaultsKey: true},
-		"P":                 {apiJSONStatedDefaultsKey: nil},
-		"P__D__e_pvalue":    {"value": false, "isComposite": false},
+		// A connection's end varies in time and is therefore constant (SysML v2.1 §8.2.2.6.1).
+		"P__D__c_pend0":  {"isEnd": true, "isVariable": true, "mayTimeVary": true, "isConstant": true},
+		"P__CD__src":     {"isEnd": true, "mayTimeVary": true, "isConstant": true},
+		"P_ns":           {apiJSONStatedDefaultsKey: true},
+		"P":              {apiJSONStatedDefaultsKey: nil},
+		"P__D__e_pvalue": {"value": false, "isComposite": false, "isVariable": false, "mayTimeVary": nil},
 	} {
 		element, ok := elements[id]
 		if !ok {
@@ -204,9 +212,9 @@ func TestAPIJSONUnmarkedDocumentReadsAsBefore(t *testing.T) {
 		for key, value := range element {
 			flag, isBool := value.(bool)
 			property, known := ontology.PropertyOf(metaclass, key)
-			// An older export states a flag only when the graph does: never a default, never isVariable.
+			// An older export states a flag only when the graph does: never a default.
 			if isBool && known && !apiJSONGraphStatedBooleans[key] &&
-				(flag == (property.Default == "true") || key == "isVariable") {
+				flag == (property.Default == "true") {
 				delete(element, key)
 			}
 		}

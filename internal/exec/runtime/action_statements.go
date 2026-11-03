@@ -66,6 +66,10 @@ func (h *actionStmtHost) describe() string {
 	return "action node " + ActionNodeName(h.node)
 }
 
+func (h *actionStmtHost) recordAssign(feature string, value Value) {
+	h.exec.recordAssign(h.node, feature, value)
+}
+
 func (h *actionStmtHost) send(ec *EvalContext, s lower.Send) error {
 	return h.exec.ctx.send(ec, h.exec.root.scope, h.perf.connections, s, h.exec.self, h.exec.behavior)
 }

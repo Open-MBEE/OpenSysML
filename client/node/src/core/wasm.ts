@@ -561,6 +561,12 @@ function globalGoConstructor(): GoConstructor | undefined {
   return (globalThis as typeof globalThis & { Go?: GoConstructor }).Go;
 }
 
+const codes = new Set<number>(Object.values(Code).filter((value) => typeof value === "number"));
+
+function isCode(value: unknown): value is Code {
+  return typeof value === "number" && codes.has(value);
+}
+
 function readEnvelope(envelope: string): unknown {
   let parsed: unknown;
   try {
@@ -576,11 +582,7 @@ function readEnvelope(envelope: string): unknown {
     error?: { code?: unknown; message?: unknown } | null;
   };
   if (response.error !== undefined && response.error !== null) {
-    const status =
-      typeof response.error.code === "number" &&
-      Object.values(Code).includes(response.error.code)
-        ? response.error.code
-        : Code.Unknown;
+    const status = isCode(response.error.code) ? response.error.code : Code.Unknown;
     throw new ConnectError(
       typeof response.error.message === "string"
         ? response.error.message

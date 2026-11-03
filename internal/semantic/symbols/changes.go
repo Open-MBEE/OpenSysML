@@ -124,17 +124,21 @@ func (r registration) spelling(fqn string) string {
 }
 
 // SpelledName is the name fqn registers a declaration under, which a
-// suggestion table files it by: the declared name of the first of syms
-// registered under fqn as its own, which may hold `::` of its own, else
-// fqn's last segment (as a short name is).
+// suggestion table files it by: the name of the first of syms registered under
+// fqn as its own — the declared name, which may hold `::` of its own, or the
+// short name when fqn ends in that — else fqn's last segment.
 func SpelledName(fqn string, syms []*Symbol) string {
 	for _, sym := range syms {
-		if sym != nil && HasFQN(sym, fqn) {
-			if sym.Name != "" {
-				return sym.Name
-			}
-			break
+		if sym == nil || !HasFQN(sym, fqn) {
+			continue
 		}
+		if sym.Name != "" && hasFQNAs(sym, fqn, sym.Name) {
+			return sym.Name
+		}
+		if short := shortNameOf(sym); short != "" {
+			return short
+		}
+		break
 	}
 	return LastSegment(fqn)
 }

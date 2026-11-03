@@ -16,14 +16,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
-// deprecatedFlag rejects a flag that has been replaced, so the old spelling
-// reports what to write instead of "flag provided but not defined".
-type deprecatedFlag struct{ instead string }
-
-func (f *deprecatedFlag) String() string { return "" }
-
-func (f *deprecatedFlag) Set(string) error { return errors.New(f.instead) }
-
 // runConvert converts the model named on the command line to the format
 // -convert asks for, writing to -o or to stdout.
 //
@@ -403,6 +395,10 @@ func convertOptions(from, to convert.Format) (convert.Options, error) {
 		return opts, errors.New("-library-references and -include-library-stubs require -convert api-json")
 	}
 	opts.IncludeLibraryStubs = includeLibraryStubs
+	if keepLineBreaks && (from != convert.FormatSysML || to != convert.FormatSysML) {
+		return opts, errors.New("-keep-line-breaks applies to -convert sysml or kerml of a model in that notation")
+	}
+	opts.KeepLineBreaks = keepLineBreaks
 	conversionLibraryReferences = nil
 	if libraryReferencesPath != "" {
 		opts.LibraryReferences = func(refs []export.APIJSONLibraryReference) { conversionLibraryReferences = refs }

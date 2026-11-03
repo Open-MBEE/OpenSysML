@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 130
+        "files": 132
       }
     ],
     "counts": {
@@ -112,7 +112,7 @@
       },
       "uml:Association": {
         "pssm": 4,
-        "fixtures": 37
+        "fixtures": 39
       },
       "uml:BroadcastSignalAction": {
         "pssm": 0,
@@ -140,7 +140,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 589
+        "fixtures": 595
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -256,7 +256,7 @@
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 582
+        "fixtures": 586
       },
       "uml:Property[qualifier]": {
         "pssm": 0,
@@ -5129,7 +5129,7 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:2851a465e8c349144e6151315706dea2803cb878d83f5ec2cd6b149f664a0bd0",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/migrate.go:requirementBody"
@@ -5140,7 +5140,7 @@
         "tests/migrate/classify_test.go:TestRequirementIDDropsHTML",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a v1 requirement is written as a `requirement` usage, as a tool's users draw one (id and text as its declared short name and doc), not a `requirement def`: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it is reported rather than written",
+      "reason": "the requirement's `text` tag is written as the usage's `doc` comment, as the mapping's comment shows",
       "scope": []
     },
     {
@@ -5158,7 +5158,7 @@
         "body"
       ],
       "ocl": "sha256:7bdfb618b4e0884d2dcc68265b7674fe23a1dfc51ee44327517f63829d853e0f",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/migrate.go:requirementBody"
@@ -5169,7 +5169,7 @@
         "tests/migrate/classify_test.go:TestRequirementIDDropsHTML",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a v1 requirement is written as a `requirement` usage, as a tool's users draw one (id and text as its declared short name and doc), not a `requirement def`: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it is reported rather than written",
+      "reason": "the requirement's `text` tag is written as the usage's `doc` comment, as the mapping's comment shows",
       "scope": []
     },
     {
@@ -5187,7 +5187,7 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:53d830e0caed9fc29e0c4fe296769baec3b889412caab8c6ef3eb4dab955ce93",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/migrate.go:requirementBody"
@@ -5198,7 +5198,7 @@
         "tests/migrate/classify_test.go:TestRequirementIDDropsHTML",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a v1 requirement is written as a `requirement` usage, as a tool's users draw one (id and text as its declared short name and doc), not a `requirement def`: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it is reported rather than written",
+      "reason": "the mapping creates an unnamed `in` subject parameter that v1 has nothing to fill (its comment: not a v1 concept) and that its own expected text does not spell; the migrator writes none either, the usage's subject being the one every requirement usage has (`Requirements::RequirementCheck::subj`)",
       "scope": []
     },
     {
@@ -5216,7 +5216,7 @@
         "direction"
       ],
       "ocl": "sha256:cd924ef4709ea9aeed03650710f83973ccabe97a9f72b9f4c08f798bbf8445a1",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/migrate.go:requirementBody"
@@ -5227,7 +5227,7 @@
         "tests/migrate/classify_test.go:TestRequirementIDDropsHTML",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a v1 requirement is written as a `requirement` usage, as a tool's users draw one (id and text as its declared short name and doc), not a `requirement def`: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it is reported rather than written",
+      "reason": "the mapping creates an unnamed `in` subject parameter that v1 has nothing to fill (its comment: not a v1 concept) and that its own expected text does not spell; the migrator writes none either, the usage's subject being the one every requirement usage has (`Requirements::RequirementCheck::subj`)",
       "scope": []
     },
     {
@@ -5247,7 +5247,7 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:75cf39306cea38a11fb735918721f52027b52dc13e16dddcc0b5932c39f7b412",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/migrate.go:requirementBody"
@@ -5258,7 +5258,7 @@
         "tests/migrate/classify_test.go:TestRequirementIDDropsHTML",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a v1 requirement is written as a `requirement` usage, as a tool's users draw one (id and text as its declared short name and doc), not a `requirement def`: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it is reported rather than written",
+      "reason": "a v1 requirement is written as a `requirement` usage with its id and text as the declared short name and `doc`, the RequirementUsage the mapping targets and the text its comment shows (`requirement <'id1'> SysMLv1Requirement { doc /* … */ }`), as a tool's users draw one: a nested requirement is its subrequirement, «Satisfy»/«Verify»/«DeriveReqt» ends and a property it types subset it, and an instance of it subsets the usage",
       "scope": []
     },
     {
@@ -17310,7 +17310,7 @@
         "filter"
       ],
       "ocl": "sha256:e7a68fcf4048a864f41348374cb836a02d67bea8d24358890e7dec88d9757769",
-      "status": "faithful",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:informationFlow",
         "internal/translate/migrate/migrate.go:itemFlow",
@@ -21560,14 +21560,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:600eef2f2fad404ce422367ca03702108dcc2900b2e553159bd0b0faceb06ef4",
-      "status": "faithful",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/usecase.go:useCaseBody"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "",
+      "reason": "a UML use case is written as a `use case` usage, not the `use case def` the mapping targets: one element, as in v2 use case models, which a connection can join — the actor lines and the include and extend lines of a use case diagram are connections between the use case and the actors' part usages or the other use cases, and a definition has no ends for a connection to join; its subject and `actor` parameters and its includes are the usage's body, and a property typed by it or an instance of it subsets the usage (the migration reference's UseCase row)",
       "scope": []
     },
     {

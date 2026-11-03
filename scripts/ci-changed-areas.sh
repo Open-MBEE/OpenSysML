@@ -39,6 +39,9 @@ syson_pattern='^editors/syson/'
 # The Go hygiene suite ratchets every tracked test file and fixture, wherever it
 # lives, so one of those changing anywhere runs the Go area.
 hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
+# Go tests (the referees' provenance and figure checks, doc-counts) read the committed
+# baselines and figure pages under docs/project, so a change there runs Go as well as docs.
+project_inputs_pattern='^docs/project/.*\.(json|md)$'
 
 known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$dotnet_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
@@ -63,14 +66,15 @@ emit() {
 fanout=$service
 [[ "${CI_TIER:-full}" = quick ]] && fanout=false
 
-emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern"; } && echo true || echo false)"
+emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern"; } && echo true || echo false)"
 emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,
 # so the Node, Java, Rust and .NET manifests, every editor manifest
-# check_version.py --editors reads, and the editors' client references have
-# to run it too.
-emit python "$( { [[ "$fanout" = true ]] || matches "$python_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/pom\.xml$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^client/dotnet/Directory\.Build\.props$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
+# check_version.py --editors reads, the editors' client references and the
+# Markdown <dependency> snippets that quote the Java client's version have to
+# run it too.
+emit python "$( { [[ "$fanout" = true ]] || matches "$python_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/(pom\.xml|README\.md)$' || matches '^docs/reference/java-api\.md$' || matches '^packaging/agent-skills/skills/opensysml-java/SKILL\.md$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^client/dotnet/Directory\.Build\.props$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
 emit java "$( { [[ "$fanout" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
 emit rust "$( { [[ "$fanout" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
 # The .NET suite serves the Python client's signed-release fixtures as a release

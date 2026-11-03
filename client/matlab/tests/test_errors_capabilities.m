@@ -5,6 +5,9 @@ function test_errors_capabilities()
     assert_equal(caps.parseSources, 'parse_sources', 'parseSources capability');
     assert_equal(caps.verificationQuestions, 'verification_questions', 'question capability');
     assert_equal(caps.undeterminedValue, 'undetermined_value', 'undetermined capability');
+    assert_equal(caps.convertCompact, 'convert_compact', 'compact convert capability');
+    assert_equal(caps.convertCheckDiagnostics, 'convert_check_diagnostics', 'check diagnostics capability');
+    assert_equal(caps.parseSourcesAffected, 'parse_sources_affected', 'affected documents capability');
     assert_equal(numel(fieldnames(caps)) >= 50, true, 'exhaustive capability list');
 
     conn = opensysml.external('127.0.0.1:1');
@@ -26,6 +29,28 @@ function test_errors_capabilities()
     expect_error(@() opensysml.listEngines(conn), 'opensysml:missingCapability');
     err = opensysml.lastError();
     assert_equal(err.details.capability, 'engines', 'RPC capability gate');
+    converting = opensysml.external('127.0.0.1:1');
+    converting.primeServerInfo(struct('version', 'v1', ...
+        'capabilities', {{'convert', 'parse_sources'}}));
+    compactOptions = {{'compact', true}, {'omitDerived', true}, {'keepDerived', {'owner'}}};
+    for i = 1:numel(compactOptions)
+        pair = compactOptions{i};
+        expect_error(@() opensysml.convert(converting, 'api-json', 'content', 'package P;', ...
+            'fromFormat', 'sysml', pair{1}, pair{2}), 'opensysml:missingCapability');
+        err = opensysml.lastError();
+        assert_equal(err.details.capability, 'convert_compact', ...
+            sprintf('%s needs convert_compact', pair{1}));
+    end
+    expect_error(@() opensysml.convert(converting, 'api-json', 'content', 'package P;', ...
+        'fromFormat', 'sysml', 'includeCheckDiagnostics', true), 'opensysml:missingCapability');
+    err = opensysml.lastError();
+    assert_equal(err.details.capability, 'convert_check_diagnostics', ...
+        'includeCheckDiagnostics needs convert_check_diagnostics');
+    expect_error(@() opensysml.parseSources(converting, {{'a.sysml', 'package A;'}}, ...
+        'baseModelHash', 'base'), 'opensysml:missingCapability');
+    err = opensysml.lastError();
+    assert_equal(err.details.capability, 'parse_sources_affected', ...
+        'baseModelHash needs parse_sources_affected');
 
     expect_error(@() opensysml.internal.connectError('invalid_argument', ...
         'bad request', 400, 'ParseSources', conn, {}, struct()), ...
@@ -37,6 +62,12 @@ function test_errors_capabilities()
     expect_error(@() opensysml.internal.connectError('not_found', ...
         'symbol not found: Missing::Symbol', 404, 'GetSymbol', conn, {}, struct()), ...
         'opensysml:connect:symbolNotFound');
+    expect_error(@() opensysml.internal.connectError('unauthenticated', ...
+        'no bearer token', 401, 'ParseSources', conn, {}, struct()), ...
+        'opensysml:connect:unauthenticated');
+    err = opensysml.lastError();
+    assert_equal(err.details.code, 'unauthenticated', 'Connect unauthenticated code');
+    assert_equal(err.details.httpStatus, 401, 'Connect unauthenticated status');
 
     answer = struct('error', 'model execution failed', ...
         'diagnostics', struct('severity', 'error', 'message', 'bad expression'));

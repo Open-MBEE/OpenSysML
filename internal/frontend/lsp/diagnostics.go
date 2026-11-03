@@ -44,6 +44,10 @@ func (s *Server) publishOpenDiagnostics(ctx context.Context, name string) {
 // pubMu, so a client sees the diagnostics of an analysis before the render
 // notification of the same one.
 func (s *Server) sendDiagnosticsLocked(ctx context.Context, name string) {
+	if nb := s.notebooks.named(name); nb != nil {
+		s.sendNotebookDiagnosticsLocked(ctx, nb)
+		return
+	}
 	out := []protocol.Diagnostic{}
 	if content, diags, ok := s.ws.AnalyzedContent(name); ok {
 		for _, f := range s.ws.FindingsOn(name) {
@@ -65,19 +69,29 @@ func protocolDiagnostics(content []byte, diags []diag.Diagnostic) []protocol.Dia
 	out := make([]protocol.Diagnostic, 0, len(diags))
 	pos := positionsFor(content)
 	for _, d := range diags {
-		ld := protocol.Diagnostic{
-			Range:    pos.rangeOf(d.Span),
-			Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1),
-			Message:  d.Message,
-			Code:     d.Code,
-			Source:   d.Source,
-		}
-		if d.Code != "" {
-			ld.CodeDescription = &protocol.CodeDescription{Href: protocol.URI(codes.URL(d.Code))}
-		}
-		out = append(out, ld)
+		out = append(out, protocolDiagnostic(pos, d))
 	}
 	return out
+}
+
+// protocolDiagnostic is one diagnostic located in the content pos indexes, its
+// code linking the catalogue entry that explains it.
+func protocolDiagnostic(pos positions, d diag.Diagnostic) protocol.Diagnostic {
+	ld := protocol.Diagnostic{
+		Range:    pos.rangeOf(d.Span),
+		Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1), // #nosec G115 -- four severities
+		Message:  protocol.String(d.Message),
+	}
+	if d.Code != "" {
+		ld.Code = protocol.String(d.Code)
+		if href, err := uri.Parse(codes.URL(d.Code)); err == nil {
+			ld.CodeDescription = protocol.CodeDescription{Href: href}
+		}
+	}
+	if d.Source != "" {
+		ld.Source = protocol.NewOptional(d.Source)
+	}
+	return ld
 }
 
 // publishFindings publishes the workspace findings reported in documents the

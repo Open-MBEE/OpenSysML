@@ -129,7 +129,7 @@ func toSysML(graph *rdf.Graph, warn func(string), owned bool) ([]byte, error) {
 	}
 	statedNames := map[string]bool{}
 	for _, subject := range graph.Subjects() {
-		if graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+		if hasAddress(graph, subject) {
 			statedNames[subject.Value] = true
 		}
 	}
@@ -736,6 +736,8 @@ type decoder struct {
 	wanted *wanted
 	// printed and usedExpr are written as source text in this pass and rebuilt
 	// canonically; demoted and demotedExpr had their text proved stale earlier.
+	// holders answers blame's reverse lookups over graph for one demoteStale pass.
+	holders     holderIndex
 	printed     map[*element]bool
 	rebuilt     map[*element]bool
 	demoted     map[*element]bool
@@ -843,6 +845,9 @@ func (d *decoder) build() ([]*element, error) {
 	if err := d.verifyNormativeNodes(); err != nil {
 		return nil, err
 	}
+	if err := d.checkStatedMembershipEnds(); err != nil {
+		return nil, err
+	}
 	if err := d.checkReferences(); err != nil {
 		return nil, err
 	}
@@ -879,7 +884,9 @@ func (d *decoder) readElement(subject rdf.Term) (*element, error) {
 	}
 	el.indexStated = d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex)
 	el.trailing = !el.indexStated && d.isResultExpression(el)
-	el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName)
+	if el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName); el.qname == "" {
+		el.qname, _ = addressOf(d.graph, subject)
+	}
 	if !el.indexStated && !el.trailing && d.statedNames[subject.Value] {
 		if n, ok := positionalIndex(d.graph, subject); ok {
 			el.memberIndex, el.positional = n, true
@@ -944,7 +951,7 @@ func (d *decoder) isMembership(subject rdf.Term) bool {
 	metaclass := d.metaclass(subject)
 	return metaclass != "" && (metaclass == mFeatureValue || metaclass == mParameterMembership ||
 		ontology.IsAncestorOrSelf(metaclass, mOwningMembership) || d.prefixAnnotation(subject)) &&
-		!d.graph.HasProperty(subject, rdf.SysML+pQualifiedName)
+		!hasAddress(d.graph, subject)
 }
 
 // prefixAnnotation reports whether subject is the Annotation by which a
@@ -983,7 +990,7 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 	// An expression-metaclass member that carries a qualified name is a member
 	// element of its own — `in expr keep : T` declares one — not a node.
 	if d.isExpressionIRI(member) || expressionMetaclasses[d.metaclass(member)] &&
-		!d.graph.HasProperty(member, rdf.SysML+pQualifiedName) {
+		!hasAddress(d.graph, member) {
 		return true
 	}
 	// A `message` owns its ends through ParameterMembership
@@ -1007,7 +1014,7 @@ func (d *decoder) isExpressionIRI(term rdf.Term) bool {
 // expressionOwner reports whether a term can own an expression parameter.
 func (d *decoder) expressionOwner(term rdf.Term) bool {
 	return d.isExpressionIRI(term) || expressionMetaclasses[d.metaclass(term)] &&
-		!d.graph.HasProperty(term, rdf.SysML+pQualifiedName)
+		!hasAddress(d.graph, term)
 }
 
 // readMembership records the ownership edge an OwningMembership stands for. Both
@@ -1015,6 +1022,85 @@ func (d *decoder) expressionOwner(term rdf.Term) bool {
 // name for the property and once under the Relationship's — and either spelling
 // is accepted, since a graph from another tool may carry only one; spellings
 // that disagree, a literal end, or a second membership claiming the member are
+// checkStatedMembershipEnds validates the stated ends of every membership, the named ones an alias
+// or `first` writes included: readMembership checks only the structural ones it reads.
+func (d *decoder) checkStatedMembershipEnds() error {
+	if d.names != nil {
+		// A later pass re-reads the graph the first pass validated.
+		return nil
+	}
+	for _, subject := range d.graph.SubjectsView() {
+		if !(ontology.IsAncestorOrSelf(d.metaclass(subject), mMembership) || d.nodeMembership[subject.Value]) {
+			continue
+		}
+		var stated string
+		for _, property := range []string{pSource, pTarget, pRelatedElement} {
+			if _, ok := d.graph.Object(subject, rdf.SysML+property); ok {
+				stated = property
+				break
+			}
+		}
+		if stated == "" {
+			continue
+		}
+		what := fmt.Sprintf("the membership <%s>", subject.Value)
+		owner, hasOwner := d.graph.Object(subject, rdf.SysML+pMembershipOwningNamespace)
+		if !hasOwner {
+			owner, hasOwner = d.graph.Object(subject, rdf.SysML+pOwningRelatedElement)
+		}
+		member, hasMember := d.graph.Object(subject, rdf.SysML+pMemberElement)
+		if !hasOwner || !hasMember {
+			continue
+		}
+		if !member.IsIRI() {
+			return &UnsupportedError{
+				What: what,
+				Note: fmt.Sprintf("its member is the name %q, which no element of the graph answers to, yet it states sysml:%s — an end needs an element", member.Value, stated),
+			}
+		}
+		if err := d.membershipEndsAgree(subject, what, owner, member); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// membershipEndsAgree refuses a membership whose stated source, target or relatedElement
+// is not the owner, the member, or both in that order (KerML 8.3.2.3.5, 8.3.2.5.2).
+func (d *decoder) membershipEndsAgree(subject rdf.Term, what string, owner, member rdf.Term) error {
+	// A namespace aliasing itself has one related element: the triples are a set.
+	related := []rdf.Term{owner, member}
+	if owner == member {
+		related = related[:1]
+	}
+	want := map[string][]rdf.Term{pSource: {owner}, pTarget: {member}, pRelatedElement: related}
+	for _, property := range []string{pSource, pTarget, pRelatedElement} {
+		stated := d.graph.Objects(subject, rdf.SysML+property)
+		if len(stated) == 0 {
+			continue
+		}
+		if !slices.Equal(stated, want[property]) {
+			return &UnsupportedError{
+				What: what,
+				Note: fmt.Sprintf("its sysml:%s is %s, but a membership's ends are its owning namespace <%s> and its member <%s>, which its ownership edges state", property, termsText(stated), owner.Value, member.Value),
+			}
+		}
+	}
+	return nil
+}
+
+func termsText(terms []rdf.Term) string {
+	parts := make([]string, 0, len(terms))
+	for _, term := range terms {
+		if term.IsIRI() {
+			parts = append(parts, "<"+term.Value+">")
+		} else {
+			parts = append(parts, fmt.Sprintf("%q", term.Value))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
 // refused, since each would drop an edge.
 func (d *decoder) readMembership(subject rdf.Term) error {
 	what := fmt.Sprintf("the membership <%s>", subject.Value)
@@ -1043,6 +1129,9 @@ func (d *decoder) readMembership(subject rdf.Term) error {
 				}
 			}
 		}
+	}
+	if err := d.membershipEndsAgree(subject, what, owner, member); err != nil {
+		return err
 	}
 	m := membership{iri: subject.Value, owner: owner.Value, member: member.Value}
 	if d.isNodeMembership(subject) {
@@ -1268,6 +1357,12 @@ func (d *decoder) checkReferences() error {
 				triple.Predicate.Value == rdf.SysML+pTarget) {
 			continue
 		}
+		// A membership's ends restate its owner and member, which its ownership edges already check.
+		if (ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), mMembership) || d.nodeMembership[triple.Subject.Value]) &&
+			(triple.Predicate.Value == rdf.SysML+pSource || triple.Predicate.Value == rdf.SysML+pTarget ||
+				triple.Predicate.Value == rdf.SysML+pRelatedElement) {
+			continue
+		}
 		if _, err := d.referencedElement(triple.Object.Value); err != nil {
 			return err
 		}
@@ -1336,7 +1431,7 @@ func (d *decoder) referencedElement(iri string) (*element, error) {
 			}
 		}
 	}
-	if !d.graph.HasProperty(rdf.IRI(target.iri), rdf.SysML+pQualifiedName) {
+	if !hasAddress(d.graph, rdf.IRI(target.iri)) {
 		if d.transparentRoot(target) {
 			// The document wrapper names nothing; a reference to it is
 			// resolved without a spelling.
@@ -1418,7 +1513,7 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 				Note: note,
 			}
 		}
-		if stated, ok := d.graph.Lexical(subject, rdf.SysML+pQualifiedName); ok && stated != lib.qname {
+		if stated, ok := addressOf(d.graph, subject); ok && stated != lib.qname {
 			return nil, &UnsupportedError{
 				What: fmt.Sprintf("the library element <%s>", subject.Value),
 				Note: fmt.Sprintf("the graph names it %s, but the bundled standard library gives id %q to %s", stated, id, lib.qname),
@@ -1482,7 +1577,7 @@ func (d *decoder) resolveLibraryElement(iri, id string) (*identity.LibraryElemen
 }
 
 func (d *decoder) librarySubjectName(subject rdf.Term) (string, string, bool) {
-	if name, ok := d.graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+	if name, ok := addressOf(d.graph, subject); ok {
 		return name, "qualified name", true
 	}
 	var names []string
@@ -1492,7 +1587,7 @@ func (d *decoder) librarySubjectName(subject rdf.Term) (string, string, bool) {
 			return "", "", false
 		}
 		seen[current.Value] = true
-		if name, ok := d.graph.Lexical(current, rdf.SysML+pQualifiedName); ok {
+		if name, ok := addressOf(d.graph, current); ok {
 			return name + qualifiedNameSuffix(names), "name and owners", len(names) > 0
 		}
 		name, ok := d.graph.Lexical(current, rdf.SysML+pDeclaredName)
@@ -2350,7 +2445,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// (KerML.xtext BasicFeaturePrefix `isComposite ?= 'composite' | isPortion ?= 'portion'`).
 		{"portion", isPortion},
 		{"composite", kerml && compositeWord},
-		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant")},
+		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant") && !d.derivedConstantEnd(el)},
 		{"individual", d.boolOf(el, rdf.SysML+"isIndividual")},
 		{"snapshot", portion == "snapshot"},
 		{"timeslice", portion == "timeslice"},
@@ -3065,7 +3160,7 @@ func (d *decoder) importHead(el *element) (string, error) {
 // filter package `import X::*[c]` stands for — or nothing.
 func (d *decoder) filterPackageOf(subject rdf.Term) (rdf.Term, bool) {
 	pkg, ok := d.graph.Object(subject, rdf.SysML+pImportedNamespace)
-	if !ok || d.metaclass(pkg) != mPackage || d.graph.HasProperty(pkg, rdf.SysML+pQualifiedName) {
+	if !ok || d.metaclass(pkg) != mPackage || hasAddress(d.graph, pkg) {
 		return rdf.Term{}, false
 	}
 	owner, ok := d.graph.Object(pkg, rdf.SysML+pOwningRelationship)
@@ -3615,6 +3710,12 @@ func (d *decoder) kerml(el *element) bool {
 	return language == "kerml"
 }
 
+// derivedConstantEnd reports an end stated to vary in time: its isConstant is derived
+// (SysML v2.1 §8.2.2.6.1), so the notation carries no `constant` keyword for it.
+func (d *decoder) derivedConstantEnd(el *element) bool {
+	return d.boolOf(el, rdf.SysML+"isEnd") && d.boolOf(el, rdf.SysML+"mayTimeVary")
+}
+
 // constantKeyword spells isConstant for the grammar: KerML.xtext FeaturePrefix
 // `isConstant ?= 'const'`, SysML.xtext RefPrefix `isConstant ?= 'constant'`.
 func constantKeyword(kerml bool) string {
@@ -4013,7 +4114,7 @@ func (d *decoder) crossFeaturePrefixWords(cross *element) ([]string, error) {
 		keyword string
 		set     bool
 	}{
-		{constantKeyword(kerml), d.boolOf(cross, rdf.SysML+"isConstant")},
+		{constantKeyword(kerml), d.boolOf(cross, rdf.SysML+"isConstant") && !d.derivedConstantEnd(cross)},
 		{"ref", d.boolOf(cross, rdf.SysML+"isReference")},
 	} {
 		if flag.set {

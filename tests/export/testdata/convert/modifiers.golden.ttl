@@ -52,7 +52,12 @@ elmt:Modifiers__Hidden_om
     sysml:ownedRelatedElement elmt:Modifiers__Hidden ;
     sysml:owningRelatedElement elmt:Modifiers ;
     sysml:membershipOwningNamespace elmt:Modifiers ;
-    sysml:visibility "private" .
+    sysml:source elmt:Modifiers ;
+    sysml:target elmt:Modifiers__Hidden ;
+    sysml:relatedElement elmt:Modifiers, elmt:Modifiers__Hidden ;
+    sysml:memberName "Hidden" ;
+    sysml:visibility "private" ;
+    json:relatedElement "[{\"@id\":\"Modifiers\"},{\"@id\":\"Modifiers__Hidden\"}]" .
 
 elmt:Modifiers__Shown
     a sysml:PartDefinition ;
@@ -80,7 +85,12 @@ elmt:Modifiers__Shown_om
     sysml:ownedRelatedElement elmt:Modifiers__Shown ;
     sysml:owningRelatedElement elmt:Modifiers ;
     sysml:membershipOwningNamespace elmt:Modifiers ;
-    sysml:visibility "public" .
+    sysml:source elmt:Modifiers ;
+    sysml:target elmt:Modifiers__Shown ;
+    sysml:relatedElement elmt:Modifiers, elmt:Modifiers__Shown ;
+    sysml:memberName "Shown" ;
+    sysml:visibility "public" ;
+    json:relatedElement "[{\"@id\":\"Modifiers\"},{\"@id\":\"Modifiers__Shown\"}]" .
 
 elmt:Modifiers__Base
     a sysml:PartDefinition ;
@@ -108,7 +118,12 @@ elmt:Modifiers__Base_om
     sysml:ownedMemberElement elmt:Modifiers__Base ;
     sysml:ownedRelatedElement elmt:Modifiers__Base ;
     sysml:owningRelatedElement elmt:Modifiers ;
-    sysml:membershipOwningNamespace elmt:Modifiers .
+    sysml:membershipOwningNamespace elmt:Modifiers ;
+    sysml:source elmt:Modifiers ;
+    sysml:target elmt:Modifiers__Base ;
+    sysml:relatedElement elmt:Modifiers, elmt:Modifiers__Base ;
+    sysml:memberName "Base" ;
+    json:relatedElement "[{\"@id\":\"Modifiers\"},{\"@id\":\"Modifiers__Base\"}]" .
 
 elmt:Modifiers__Derived
     a sysml:PartDefinition ;
@@ -139,7 +154,12 @@ elmt:Modifiers__Derived_om
     sysml:ownedMemberElement elmt:Modifiers__Derived ;
     sysml:ownedRelatedElement elmt:Modifiers__Derived ;
     sysml:owningRelatedElement elmt:Modifiers ;
-    sysml:membershipOwningNamespace elmt:Modifiers .
+    sysml:membershipOwningNamespace elmt:Modifiers ;
+    sysml:source elmt:Modifiers ;
+    sysml:target elmt:Modifiers__Derived ;
+    sysml:relatedElement elmt:Modifiers, elmt:Modifiers__Derived ;
+    sysml:memberName "Derived" ;
+    json:relatedElement "[{\"@id\":\"Modifiers\"},{\"@id\":\"Modifiers__Derived\"}]" .
 
 elmt:Modifiers__Choice
     a sysml:PartDefinition ;
@@ -168,7 +188,12 @@ elmt:Modifiers__Choice_om
     sysml:ownedMemberElement elmt:Modifiers__Choice ;
     sysml:ownedRelatedElement elmt:Modifiers__Choice ;
     sysml:owningRelatedElement elmt:Modifiers ;
-    sysml:membershipOwningNamespace elmt:Modifiers .
+    sysml:membershipOwningNamespace elmt:Modifiers ;
+    sysml:source elmt:Modifiers ;
+    sysml:target elmt:Modifiers__Choice ;
+    sysml:relatedElement elmt:Modifiers, elmt:Modifiers__Choice ;
+    sysml:memberName "Choice" ;
+    json:relatedElement "[{\"@id\":\"Modifiers\"},{\"@id\":\"Modifiers__Choice\"}]" .
 
 elmt:Modifiers__Derived_sc0
     a sysml:Subclassification ;

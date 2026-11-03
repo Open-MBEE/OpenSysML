@@ -264,7 +264,9 @@ public sealed interface DocumentValue {
    * binding one is refused.
    *
    * @param kind {@code "accept"}, {@code "send"}, {@code "transition"}, {@code "entry"}, {@code
-   *     "exit"}, {@code "do"}, {@code "choice"}, {@code "guard"} or {@code "terminate"}
+   *     "exit"}, {@code "do"}, {@code "choice"}, {@code "guard"} or {@code "terminate"}; an action's
+   *     run adds {@code "step"}, {@code "wait"}, {@code "assign"}, {@code "decide"} and {@code
+   *     "complete"}
    * @param time the instant the record was written at, in the runtime clock's unit — a {@link
    *     QuantityValue} when the clock carries a unit, a plain number otherwise
    * @param text the record as the trace prints it
@@ -278,7 +280,12 @@ public sealed interface DocumentValue {
    * @param event the accepted or sent event's type name
    * @param payload the accept's payload, one {@code name = value} text per attribute
    * @param alternatives what a choice drew from, in order
-   * @param taken the alternative the choice took
+   * @param taken the alternative the choice took, or the branch a decide took
+   * @param token the action token a step, wait, assign, decide or accept record is about; 0 for a
+   *     record of none
+   * @param step the executor step that made the record; 0 for none
+   * @param feature the feature an assign record wrote
+   * @param value what that feature holds since; absent for every other kind
    */
   record DocumentEvent(
       String kind,
@@ -293,7 +300,11 @@ public sealed interface DocumentValue {
       String event,
       List<String> payload,
       List<String> alternatives,
-      String taken)
+      String taken,
+      long token,
+      int step,
+      String feature,
+      Optional<Value> value)
       implements DocumentValue {
 
     /**
@@ -312,6 +323,10 @@ public sealed interface DocumentValue {
      * @param payload the payload entries
      * @param alternatives the alternatives
      * @param taken the one taken, never {@code null}
+     * @param token the token, 0 for none
+     * @param step the executor step, 0 for none
+     * @param feature the assigned feature, never {@code null}
+     * @param value the assigned value, when there is one
      */
     public DocumentEvent {
       Objects.requireNonNull(kind, "kind");
@@ -327,6 +342,8 @@ public sealed interface DocumentValue {
       payload = List.copyOf(payload);
       alternatives = List.copyOf(alternatives);
       Objects.requireNonNull(taken, "taken");
+      Objects.requireNonNull(feature, "feature");
+      Objects.requireNonNull(value, "value");
     }
   }
 }

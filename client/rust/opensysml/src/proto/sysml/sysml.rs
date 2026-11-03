@@ -1298,6 +1298,25 @@ pub struct ExecuteActionRequest {
     /// INVALID_ARGUMENT.
     #[prost(double, tag="9")]
     pub clock_step: f64,
+    /// Ask for the run's trace in ExecuteActionResponse.trace. Advertised as the
+    /// "action_trace" capability; a service withholding it refuses true with
+    /// UNIMPLEMENTED, as does an explore schedule with INVALID_ARGUMENT.
+    #[prost(bool, tag="10")]
+    pub trace: bool,
+    /// Signals or items to post to the performing object, in this order, as the
+    /// REPL's `%send` does: the run goes until it completes or every token waits,
+    /// the next event is then posted to the object's queue and the run goes on,
+    /// an accept node waiting for it taking it on the next step. An event of a
+    /// type no accept node of the performance names is refused, with the accepts
+    /// still waiting. The events exhausted, the run goes on to completion (or for
+    /// `advance`); a token still waiting at the end is an accept deadlock,
+    /// reported in `error` with the message it waits for. Each names a signal or
+    /// item definition, qualified or as the action's namespace sees it; a name no
+    /// definition answers to is matched by name alone, as ExecuteState's events
+    /// are. Posted to the object performer_symbol_id names, as `%send` posts to
+    /// one: INVALID_ARGUMENT without it.
+    #[prost(string, repeated, tag="11")]
+    pub events: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// ExecuteActionResponse contains action execution results
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1333,6 +1352,15 @@ pub struct ExecuteActionResponse {
     /// "order_dependence" capability; empty under an explore schedule.
     #[prost(map="string, int32", tag="8")]
     pub order_dependent: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
+    /// The run's trace in the order the run made it, when the request asked for
+    /// it: the token steps, waits, accepts, sends, decisions, assignments and
+    /// completion of the action, each a DocumentEvent (see its `kind`), also on a
+    /// run that failed, up to the failure. Empty under an explore schedule.
+    #[prost(message, repeated, tag="9")]
+    pub trace: ::prost::alloc::vec::Vec<DocumentEvent>,
+    /// How many of the oldest records the service's held-events bound discarded.
+    #[prost(int32, tag="10")]
+    pub trace_dropped: i32,
 }
 /// ExecuteStateRequest requests state machine execution
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3597,7 +3625,12 @@ pub struct DocumentState {
 /// session's trace, in the order the run made it.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DocumentEvent {
-    /// "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
+    /// "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or
+    /// "terminate" for a state machine's records; an action's run adds "step" (a
+    /// token arriving at a node), "wait" (a token parking at an accept node),
+    /// "assign" (a feature written), "decide" (a decision node resolved) and
+    /// "complete" (the action's performance completed); its "accept" is the accept
+    /// node taking a message and its "send" a message posted.
     #[prost(string, tag="1")]
     pub kind: ::prost::alloc::string::String,
     /// The clock's instant when the record was made: a quantity in the clock's
@@ -3612,10 +3645,13 @@ pub struct DocumentEvent {
     /// under, else its declared name; empty for the run's own records.
     #[prost(string, tag="4")]
     pub machine: ::prost::alloc::string::String,
-    /// The state entered, exited or stepped by an entry, exit or do record.
+    /// The state entered, exited or stepped by an entry, exit or do record; the
+    /// action node a wait, assign, decide or action accept record is at.
     #[prost(string, tag="5")]
     pub state: ::prost::alloc::string::String,
-    /// A fired transition's source and target states.
+    /// A fired transition's source and target states; a step's source node (empty
+    /// where the token's flow starts) and the node it arrived at; a decide's
+    /// branch taken, as `taken` names it.
     #[prost(string, tag="6")]
     pub from: ::prost::alloc::string::String,
     #[prost(string, tag="7")]
@@ -3624,13 +3660,15 @@ pub struct DocumentEvent {
     /// send addressed to no object.
     #[prost(message, optional, boxed, tag="8")]
     pub target: ::core::option::Option<::prost::alloc::boxed::Box<DocumentObject>>,
-    /// The signal or event accepted or sent, or the trigger a transition fired on.
+    /// The signal or event accepted or sent, the trigger a transition fired on, or
+    /// the message type or trigger a wait record waits for.
     #[prost(string, tag="9")]
     pub event: ::prost::alloc::string::String,
     /// An accept's payload, one `name = value` entry per parameter in name order.
     #[prost(string, repeated, tag="10")]
     pub payload: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// A choice's alternatives, in the order they were offered, and the one taken.
+    /// A choice's alternatives, in the order they were offered, and the one taken;
+    /// a decide's branches as `<position>-><target node>`, and the one taken.
     #[prost(string, repeated, tag="11")]
     pub alternatives: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, tag="12")]
@@ -3638,6 +3676,19 @@ pub struct DocumentEvent {
     /// The line the trace prints for the record.
     #[prost(string, tag="13")]
     pub text: ::prost::alloc::string::String,
+    /// The action token a step, wait, assign, decide or action accept record is
+    /// about, and the executor step (1-based) that made the record; 0 for a record
+    /// of neither (a state machine's, a send from outside the model).
+    #[prost(int64, tag="14")]
+    pub token: i64,
+    #[prost(int32, tag="15")]
+    pub step: i32,
+    /// The feature an assign record wrote and the value it holds since, as the
+    /// run's outputs carry values.
+    #[prost(string, tag="16")]
+    pub feature: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="17")]
+    pub value: ::core::option::Option<Value>,
 }
 /// DocumentQueryColumn is one projected property, in projection order.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
