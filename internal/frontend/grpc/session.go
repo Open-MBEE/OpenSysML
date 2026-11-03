@@ -713,7 +713,7 @@ func (ss *Session) machines(object int64) ([]*runtime.StateExecutor, error) {
 func (ss *Session) machinesOf(inst *runtime.Instance, object int64) ([]*runtime.StateExecutor, error) {
 	var machines []*runtime.StateExecutor
 	for _, exhibited := range inst.ExhibitedStates() {
-		if exhibited.State != nil {
+		if exhibited.State != nil && exhibited.Err == nil {
 			machines = append(machines, exhibited.State)
 		}
 	}

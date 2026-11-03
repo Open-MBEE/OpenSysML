@@ -92,6 +92,7 @@ elmt:FlowsAndViews__FuelPort_conjugated_om
     sysml:source elmt:FlowsAndViews__FuelPort ;
     sysml:target elmt:FlowsAndViews__FuelPort_conjugated ;
     sysml:relatedElement elmt:FlowsAndViews__FuelPort, elmt:FlowsAndViews__FuelPort_conjugated ;
+    sysml:memberName "~FuelPort" ;
     json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelPort\"},{\"@id\":\"FlowsAndViews__FuelPort_conjugated\"}]" .
 
 elmt:FlowsAndViews__FuelPort_conjugated_pc
@@ -416,6 +417,7 @@ expr:FlowsAndViews__FuelInterface___402_pend0_om
     sysml:source elmt:FlowsAndViews__FuelInterface___402 ;
     sysml:target expr:FlowsAndViews__FuelInterface___402_pend0 ;
     sysml:relatedElement elmt:FlowsAndViews__FuelInterface___402, expr:FlowsAndViews__FuelInterface___402_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0\"}]" .
 
 expr:FlowsAndViews__FuelInterface___402_pend0_prs
@@ -495,6 +497,7 @@ expr:FlowsAndViews__FuelInterface___402_pend1_om
     sysml:source elmt:FlowsAndViews__FuelInterface___402 ;
     sysml:target expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:relatedElement elmt:FlowsAndViews__FuelInterface___402, expr:FlowsAndViews__FuelInterface___402_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1\"}]" .
 
 expr:FlowsAndViews__FuelInterface___402_pend1_prs
@@ -1011,6 +1014,7 @@ expr:FlowsAndViews__vehicle___404_pend0_om
     sysml:source elmt:FlowsAndViews__vehicle___404 ;
     sysml:target expr:FlowsAndViews__vehicle___404_pend0 ;
     sysml:relatedElement elmt:FlowsAndViews__vehicle___404, expr:FlowsAndViews__vehicle___404_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle___404\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend0\"}]" .
 
 expr:FlowsAndViews__vehicle___404_pend0_prs
@@ -1060,6 +1064,7 @@ expr:FlowsAndViews__vehicle___404_pend1_om
     sysml:source elmt:FlowsAndViews__vehicle___404 ;
     sysml:target expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:relatedElement elmt:FlowsAndViews__vehicle___404, expr:FlowsAndViews__vehicle___404_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle___404\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1\"}]" .
 
 expr:FlowsAndViews__vehicle___404_pend1_prs
@@ -1398,6 +1403,7 @@ elmt:FlowsAndViews__vehicleView_om
 
 elmt:FlowsAndViews__vehicleView___400
     a sysml:MembershipExpose ;
+    sysml:source elmt:FlowsAndViews__vehicleView ;
     sysx:positionalName "FlowsAndViews::vehicleView::@0" ;
     sysx:sourceLine "28"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1413,7 +1419,8 @@ elmt:FlowsAndViews__vehicleView___400
     sysml:isImportAll "true"^^xsd:boolean ;
     sysml:isRecursive "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:importedMembership elmt:FlowsAndViews__vehicle_om .
+    sysml:importedMembership elmt:FlowsAndViews__vehicle_om ;
+    sysml:target elmt:FlowsAndViews__vehicle_om .
 
 elmt:FlowsAndViews__FuelInterface__supplierPort_ft0
     a sysml:FeatureTyping ;

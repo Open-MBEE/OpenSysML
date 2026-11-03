@@ -875,8 +875,8 @@ func TestKeptConnectorIDsFollowTheirDeclarations(t *testing.T) {
 
 // A connector attached whole is kept when an older object's behavior fails
 // answering it, at first and when a carry-over materializes it again: the
-// failure is reported as the older object's, and the connector — its write with
-// it — is there for the next command, materialized once.
+// failure is recorded on the older object's behavior, and the connector — its
+// write with it — is there for the next command, materialized once.
 func TestConnectorAnsweredByAFailingBehaviorIsKept(t *testing.T) {
 	s := loadSource(t, `package Demo {
 		private import ScalarValues::*;
@@ -908,7 +908,8 @@ func TestConnectorAnsweredByAFailingBehaviorIsKept(t *testing.T) {
 	const failure = "exhibited state machine listening of object #1: process event: state waiting: eval guard of transition waiting -> noted: division by zero"
 	wants(t, run(t, s, "%instantiate Demo::good"), "ID: 1")
 	wants(t, run(t, s, "%instantiate Demo::Sys"), "ID: 3")
-	wants(t, run(t, s, "%features Demo::Sys"), "fine: <error: "+failure+">")
+	wants(t, run(t, s, "%features Demo::Sys"), "fine = Instance(ID: ")
+	wants(t, run(t, s, "%features Demo::good"), "listening: exhibited state machine, failed: "+failure)
 	listing := run(t, s, "%features Sys.fine")
 	wants(t, listing, "Instance: Demo::Sys.fine (ID: ", "source = Instance(ID: ", "life: exhibited state machine, current state ping")
 	conn := objectIDIn(t, listing)
@@ -920,9 +921,10 @@ func TestConnectorAnsweredByAFailingBehaviorIsKept(t *testing.T) {
 	}
 	wants(t, run(t, s, "%eval in good : heard"), "= 0")
 	got := run(t, s, "%features #"+conn)
-	wants(t, got, "error: #"+conn+" is materialized again, but an older object's behavior failed: "+failure)
-	rejects(t, got, "no object #"+conn)
+	wants(t, got, "Instance: #"+conn+" (ID: "+conn+")", "source = Instance(ID: ", "current state ping")
+	rejects(t, got, "no object #"+conn, "error:")
 	wants(t, run(t, s, "%eval in good : heard"), "= 10")
+	wants(t, run(t, s, "%features Demo::good"), "listening: exhibited state machine, failed: "+failure)
 	wants(t, run(t, s, "%features #"+conn), "Instance: #"+conn+" (ID: "+conn+")", "source = Instance(ID: ", "current state ping")
 	wants(t, run(t, s, "%eval in good : heard"), "= 10")
 	if got := objectIDIn(t, featureLine(t, run(t, s, "%features Demo::Sys"), "fine")); got != conn {

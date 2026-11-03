@@ -118,6 +118,7 @@ elmt:Scopes
 
 elmt:Scopes___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:Scopes ;
     sysx:positionalName "Scopes::@0" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -131,6 +132,7 @@ elmt:Scopes___400
     sysml:importOwningNamespace elmt:Scopes ;
     sysml:visibility "public" ;
     sysml:importedNamespace elmt:Lib ;
+    sysml:target elmt:Lib ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    public import Lib::*;\n" .
 

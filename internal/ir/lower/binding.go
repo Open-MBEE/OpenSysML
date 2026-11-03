@@ -1,6 +1,8 @@
 package lower
 
 import (
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -103,4 +105,27 @@ func lowerBinding(u *ast.Usage, scope *symbols.Scope) (Binding, bool) {
 		}
 	}
 	return Binding{Ends: ends, Scope: scope, Decl: u, Multiplicity: u.Multiplicity}, true
+}
+
+// ThroughEnds rewrites a binding a connector owns onto the features the connector
+// attaches: an end path rooted at an end name is re-rooted at the path that end
+// attaches to (`a.voltage` through `connect s.src to k.dst` is `s.src.voltage`),
+// which is the binding the connector's featuring type holds (KerML 1.1 §8.4.4.6,
+// a connector's related features are features of its featuring type). It reports
+// false for a binding it cannot rewrite whole: an expression end, or a path rooted
+// at a feature of the connector itself rather than at one of its ends.
+func (b Binding) ThroughEnds(attachments map[string]string) (Binding, bool) {
+	out := b
+	for i, end := range b.Ends {
+		head, rest, _ := strings.Cut(end.Path, ".")
+		target, ok := attachments[head]
+		if head == "" || !ok || target == "" {
+			return Binding{}, false
+		}
+		if rest != "" {
+			target += "." + rest
+		}
+		out.Ends[i].Path = target
+	}
+	return out, true
 }

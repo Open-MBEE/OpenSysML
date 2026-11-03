@@ -479,6 +479,7 @@ expr:Machines__Lamp__on__heat___404_succession_pend0_om
     sysml:source elmt:Machines__Lamp__on__heat___404_succession ;
     sysml:target expr:Machines__Lamp__on__heat___404_succession_pend0 ;
     sysml:relatedElement elmt:Machines__Lamp__on__heat___404_succession, expr:Machines__Lamp__on__heat___404_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp__on__heat___404_succession\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0\"}]" .
 
 expr:Machines__Lamp__on__heat___404_succession_pend1
@@ -506,6 +507,7 @@ expr:Machines__Lamp__on__heat___404_succession_pend1_om
     sysml:source elmt:Machines__Lamp__on__heat___404_succession ;
     sysml:target expr:Machines__Lamp__on__heat___404_succession_pend1 ;
     sysml:relatedElement elmt:Machines__Lamp__on__heat___404_succession, expr:Machines__Lamp__on__heat___404_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp__on__heat___404_succession\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1\"}]" .
 
 expr:Machines__Lamp__on__heat___404_succession_pend1_prs
@@ -825,6 +827,7 @@ expr:Machines__Lamp__on__light___404_succession_pend0_om
     sysml:source elmt:Machines__Lamp__on__light___404_succession ;
     sysml:target expr:Machines__Lamp__on__light___404_succession_pend0 ;
     sysml:relatedElement elmt:Machines__Lamp__on__light___404_succession, expr:Machines__Lamp__on__light___404_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp__on__light___404_succession\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0\"}]" .
 
 expr:Machines__Lamp__on__light___404_succession_pend1
@@ -852,6 +855,7 @@ expr:Machines__Lamp__on__light___404_succession_pend1_om
     sysml:source elmt:Machines__Lamp__on__light___404_succession ;
     sysml:target expr:Machines__Lamp__on__light___404_succession_pend1 ;
     sysml:relatedElement elmt:Machines__Lamp__on__light___404_succession, expr:Machines__Lamp__on__light___404_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp__on__light___404_succession\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1\"}]" .
 
 expr:Machines__Lamp__on__light___404_succession_pend1_prs
@@ -1009,6 +1013,7 @@ expr:Machines__Lamp__on__light___405_succession_pend0_om
     sysml:source elmt:Machines__Lamp__on__light___405_succession ;
     sysml:target expr:Machines__Lamp__on__light___405_succession_pend0 ;
     sysml:relatedElement elmt:Machines__Lamp__on__light___405_succession, expr:Machines__Lamp__on__light___405_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp__on__light___405_succession\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0\"}]" .
 
 expr:Machines__Lamp__on__light___405_succession_pend1
@@ -1036,6 +1041,7 @@ expr:Machines__Lamp__on__light___405_succession_pend1_om
     sysml:source elmt:Machines__Lamp__on__light___405_succession ;
     sysml:target expr:Machines__Lamp__on__light___405_succession_pend1 ;
     sysml:relatedElement elmt:Machines__Lamp__on__light___405_succession, expr:Machines__Lamp__on__light___405_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp__on__light___405_succession\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1\"}]" .
 
 expr:Machines__Lamp__on__light___405_succession_pend1_prs
@@ -1193,6 +1199,7 @@ expr:Machines__Lamp___404_succession_pend0_om
     sysml:source elmt:Machines__Lamp___404_succession ;
     sysml:target expr:Machines__Lamp___404_succession_pend0 ;
     sysml:relatedElement elmt:Machines__Lamp___404_succession, expr:Machines__Lamp___404_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp___404_succession\"},{\"@id\":\"Machines__Lamp___404_succession_pend0\"}]" .
 
 expr:Machines__Lamp___404_succession_pend1
@@ -1220,6 +1227,7 @@ expr:Machines__Lamp___404_succession_pend1_om
     sysml:source elmt:Machines__Lamp___404_succession ;
     sysml:target expr:Machines__Lamp___404_succession_pend1 ;
     sysml:relatedElement elmt:Machines__Lamp___404_succession, expr:Machines__Lamp___404_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp___404_succession\"},{\"@id\":\"Machines__Lamp___404_succession_pend1\"}]" .
 
 expr:Machines__Lamp___404_succession_pend1_prs
@@ -1377,6 +1385,7 @@ expr:Machines__Lamp___405_succession_pend0_om
     sysml:source elmt:Machines__Lamp___405_succession ;
     sysml:target expr:Machines__Lamp___405_succession_pend0 ;
     sysml:relatedElement elmt:Machines__Lamp___405_succession, expr:Machines__Lamp___405_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp___405_succession\"},{\"@id\":\"Machines__Lamp___405_succession_pend0\"}]" .
 
 expr:Machines__Lamp___405_succession_pend1
@@ -1404,6 +1413,7 @@ expr:Machines__Lamp___405_succession_pend1_om
     sysml:source elmt:Machines__Lamp___405_succession ;
     sysml:target expr:Machines__Lamp___405_succession_pend1 ;
     sysml:relatedElement elmt:Machines__Lamp___405_succession, expr:Machines__Lamp___405_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp___405_succession\"},{\"@id\":\"Machines__Lamp___405_succession_pend1\"}]" .
 
 expr:Machines__Lamp___405_succession_pend1_prs
@@ -1561,6 +1571,7 @@ expr:Machines__Lamp___406_succession_pend0_om
     sysml:source elmt:Machines__Lamp___406_succession ;
     sysml:target expr:Machines__Lamp___406_succession_pend0 ;
     sysml:relatedElement elmt:Machines__Lamp___406_succession, expr:Machines__Lamp___406_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp___406_succession\"},{\"@id\":\"Machines__Lamp___406_succession_pend0\"}]" .
 
 expr:Machines__Lamp___406_succession_pend1
@@ -1588,6 +1599,7 @@ expr:Machines__Lamp___406_succession_pend1_om
     sysml:source elmt:Machines__Lamp___406_succession ;
     sysml:target expr:Machines__Lamp___406_succession_pend1 ;
     sysml:relatedElement elmt:Machines__Lamp___406_succession, expr:Machines__Lamp___406_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp___406_succession\"},{\"@id\":\"Machines__Lamp___406_succession_pend1\"}]" .
 
 expr:Machines__Lamp___406_succession_pend1_prs

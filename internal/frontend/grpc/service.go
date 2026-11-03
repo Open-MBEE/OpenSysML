@@ -1318,8 +1318,9 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	held.hold(sym, inst)
 
 	return &pb.InstantiateResponse{
-		Instance:  graph.Root,
-		Instances: graph.All,
+		Instance:    graph.Root,
+		Instances:   graph.All,
+		Diagnostics: RunNoteDiagnosticsToProto(runtimeCtx.StartFailureNotes(inst), cached),
 	}, nil
 }
 

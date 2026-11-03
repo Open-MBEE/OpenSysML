@@ -28,6 +28,7 @@ elmt:InvariantReferences
 
 elmt:InvariantReferences___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:InvariantReferences ;
     sysx:positionalName "InvariantReferences::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -41,6 +42,7 @@ elmt:InvariantReferences___400
     sysml:importOwningNamespace elmt:InvariantReferences ;
     sysml:visibility "private" ;
     sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
+    sysml:target <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ScalarValues::*;\n" .
 

@@ -230,21 +230,21 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1291382 present-equal, 32953 present-different, 923659 ours-missing, 70249 pilot-missing, 1987230 absent-both, 30528 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1293814 present-equal, 32931 present-different, 920639 ours-missing, 70251 pilot-missing, 1987230 absent-both, 31138 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 92411 | 1864 | 84782 | 5126 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 26554 | 6118 | 9562 | 335225 | 7723 | 306136 | 19296 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 116607 | 3194 | 106661 | 6811 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 74549 | 2474 | 63909 | 6504 |
-| `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 78118 | 1593 | 72926 | 5550 |
-| `tests/testdata` | 40 | 1460 | 175 | 511 | 16776 | 428 | 15647 | 1057 |
-| `examples` | 56 | 27928 | 6075 | 15212 | 352770 | 8706 | 328111 | 20735 |
-| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 557 | 1 | 452 | 41 |
-| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 90042 | 2092 | 88426 | 4816 |
+| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 103519 | 2163 | 72998 | 5157 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 26554 | 6118 | 9562 | 373507 | 8924 | 265177 | 19378 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 130377 | 3881 | 91735 | 6857 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 83752 | 3132 | 53872 | 6531 |
+| `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 88243 | 1785 | 62271 | 5602 |
+| `tests/testdata` | 40 | 1460 | 175 | 511 | 19006 | 485 | 13312 | 1064 |
+| `examples` | 56 | 27928 | 6075 | 15212 | 393908 | 10182 | 283975 | 20805 |
+| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 629 | 1 | 376 | 41 |
+| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 100873 | 2378 | 76923 | 4816 |
 
 **Defaulted parameters of an invocation** (re-recorded with the extension libraries at
 `DocumentQueries::WhereType(…, exact = false)` and `Differ`): the pilot's `InvocationExpression.parameter`
@@ -328,19 +328,68 @@ library feature it implicitly redefines (`result`, `source`, `logical`, `accepte
 effective name follows a declared redefinition or reference, not an implied one, on both ledgers; a
 separate family. No other row moved.
 
+**An implied membership states its member's name and an import its ends** (re-recorded when the
+writer began stating `memberName` on the memberships it mints without a written member — a connector
+end's `EndFeatureMembership`, named `source`/`target` for a binary connector or by the end it redefines,
+a conjugated port definition's `OwningMembership` (`~P`), a satisfy subject's `SubjectMembership`
+(`subj`) — and `Import::source` and `target`, KerML 8.3.2.3.3, as the import's owning namespace and the
+namespace or membership it imports; and when the reflective read stopped naming the plain Membership
+an expression owns to its referent, which only an alias specifies, KerML 8.3.2.3.5 — the pilot leaves
+it null on all 3089 such rows): 11 scorecard rows moved; 1291410 → 1293814 present-equal, 923659 →
+920639 ours-missing, 32925 → 32931 present-different, 70249 → 70251 pilot-missing, 30528 → 31138
+indeterminate. `source` is equal on every import (670 `NamespaceImport`, 389 `MembershipImport`, 29 +
+75 exposes); `NamespaceImport.target` is equal on 318, indeterminate on 344 — a library namespace the
+comparison cannot key — and ours-missing on 8 whose name resolves to nothing; `MembershipImport.target`
+110 equal / 3 different / 10 ours-missing / 266 indeterminate and `MembershipExpose.target` 71 / 3 / 1
+inherit the imported `OwningMembership[n]`'s positional key, as a membership's `target` inherits its
+member's. `EndFeatureMembership.memberName` moved all 523 rows to equal — a binding's ends read `thisThing`/`sameThing`, a
+succession's `earlierOccurrence`/`laterOccurrence` on both sides, the ends of `Links::selfLinks` and
+`Occurrences::happensBeforeLinks` they redefine, and a declared connector's ends the end of its type they
+redefine, under its effective name (below). `SubjectMembership.memberName` moved 65 rows to equal; the
+3 different predate this change. `OwningMembership.memberName` moved 125 rows to equal (the conjugated
+definitions); the 2 new pilot-missing are conjugated definitions of an unnamed port definition, where
+the pilot states no name either way.
+
+**A binding and a succession subset their KerML bases** (re-recorded when the model began giving a
+SysML binding connector `Links::selfLinks` and a succession `Occurrences::happensBeforeLinks` as their
+implied base, KerML 1.1 §8.4.4.7.1 and §8.4.4.8.1, where both had fallen back to `Base::things`): 4
+scorecard rows moved, all to equal; 1291382 → 1291410 present-equal, 32953 → 32925 present-different.
+`BindingConnectorAsUsage.isVariable`/`mayTimeVary` (3 rows each) and `SuccessionAsUsage.isVariable`/
+`mayTimeVary` (12 each) now read `false` on both sides: SysML v2 §8.3.6.4 derives `mayTimeVary` false
+for a usage conforming to `Links::SelfLink` or `Occurrences::HappensLink`, which the model could not
+see while the base was missing. The 18 `EndFeatureMembership.memberName` rows those usages' implied
+ends still differ on (`source`/`target` here, `thisThing`/`sameThing` and `earlierOccurrence`/
+`laterOccurrence` in the pilot) are the end names the ends now redefine; they moved when the writer
+began stating a minted end's `memberName` (the implied membership names, above).
+
+**A succession's ends are named** (re-recorded when the writer began stating `memberName` on the ends of a
+succession the notation mints — `first`, `then` and transition successions — as `earlierOccurrence` and
+`laterOccurrence`, the ends of `Occurrences::happensBeforeLinks` they redefine, and on the ends of a
+declared succession by the end of its declared type they redefine, under that end's effective name —
+`succession s1 : AB first a then b` with `connection def AB { end a; end b; }` names them `a`/`b`
+(`ConnectionTest::P::s1`), `succession redefines d_before_s : MyDry_Before_Ship_Link` whose association
+declares `end feature redefines earlierOccurrence` names them `earlierOccurrence`/`laterOccurrence`
+(`ChangingFeatureValuesExecution::MyManufacture::d_before_s`); and when a general that declares end
+features — `Links::selfLinks`, `Occurrences::happensBeforeLinks`, library features rather than connectors —
+began naming the ends that redefine them, so a KerML `binding`'s ends are `thisThing`/`sameThing`
+(`Connectors::A::ab`, where they were `source`/`target`); the decoder reads a named end as the
+positional end it is, not as an alias or an addressable element): `EndFeatureMembership.memberName`
+alone moved, to 523 equal, no row different or ours-missing; it is counted with the implied membership
+names above.
+
 ### Where the two sides state different values
 
 The largest **present-different** rows, with the reading the examples support:
 
 | metaclass | property | present-equal | present-different |
 |---|---|---:|---:|
-| `Feature` | `ownedRelationship` | 4199 | 1535 |
+| `Feature` | `ownedRelationship` | 4206 | 1532 |
 | `AttributeUsage` | `ownedRelationship` | 1257 | 1245 |
 | `PartUsage` | `ownedRelationship` | 840 | 1054 |
 | `PartUsage` | `ownedMember` | 339 | 722 |
 | `AttributeUsage` | `ownedMembership` | 1194 | 668 |
 | `PartUsage` | `ownedMembership` | 679 | 668 |
-| `Feature` | `ownedMembership` | 4444 | 571 |
+| `Feature` | `ownedMembership` | 4447 | 571 |
 | `FeatureMembership` | `memberElement` | 9476 | 570 |
 | `FeatureMembership` | `ownedMemberElement` | 9476 | 570 |
 | `FeatureMembership` | `ownedRelatedElement` | 9476 | 570 |
