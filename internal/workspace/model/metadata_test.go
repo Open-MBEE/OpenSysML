@@ -234,3 +234,25 @@ func TestSemanticMetadataTypeDeclaredLaterContributesItsBase(t *testing.T) {
 		t.Fatalf("supertypes of frontLeft once wheel is declared = %v, want Q::wheels among them", got)
 	}
 }
+
+// TestSemanticMetadataKeywordDisplacesTheKindBase: a kind keyword beside a semantic one
+// adds no base the baseType already reaches, as a declared subsetting would not.
+func TestSemanticMetadataKeywordDisplacesTheKindBase(t *testing.T) {
+	src := `package P {
+		private import Metaobjects::SemanticMetadata;
+		part def D;
+		part wheels : D;
+		metadata def wheel :> SemanticMetadata {
+			:>> baseType = wheels meta SysML::Usage;
+		}
+		part def Car {
+			#wheel part frontLeft;
+		}
+	}`
+	if got := diagnoseSource(t, "file:///semantic-metadata-kind.sysml", src); len(got) != 0 {
+		t.Fatalf("expected no diagnostics, got %v", got)
+	}
+	if got := implicitBaseOf(t, src, "P", "Car", "frontLeft"); len(got) != 1 || got[0] != "P::wheels" {
+		t.Fatalf("supertypes of the annotated part = %v, want [P::wheels]", got)
+	}
+}
