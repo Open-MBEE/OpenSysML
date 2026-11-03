@@ -13,6 +13,8 @@ part def Mirror {
 }
 part telescope {
 	part primary : Mirror;
+	part secondary : Mirror;
+	connect primary to secondary;
 }
 `
 
@@ -42,12 +44,18 @@ func TestDescendantsRelationshipsReachOwnedRelationships(t *testing.T) {
 		metaclass     string
 		want          int
 	}{
-		{false, "PartUsage", 1},
+		{false, "PartUsage", 2},
+		{false, "ConnectionUsage", 1},
 		{false, "FeatureMembership", 0},
 		{false, "FeatureTyping", 0},
-		{true, "PartUsage", 1},
-		{true, "FeatureMembership", 1},
-		{true, "FeatureTyping", 1},
+		{false, "EndFeatureMembership", 0},
+		{false, "ReferenceUsage", 2},
+		{true, "PartUsage", 2},
+		{true, "ConnectionUsage", 1},
+		{true, "FeatureMembership", 3},
+		{true, "FeatureTyping", 2},
+		{true, "EndFeatureMembership", 2},
+		{true, "ReferenceUsage", 2},
 	} {
 		if got := descendantsOfKind(t, tc.relationships, tc.metaclass); got != tc.want {
 			t.Errorf("Descendants(relationships = %t) %s rows = %d, want %d", tc.relationships, tc.metaclass, got, tc.want)
