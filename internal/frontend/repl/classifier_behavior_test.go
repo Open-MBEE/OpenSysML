@@ -231,6 +231,21 @@ func TestStateReportsAMachineThatFailedToStart(t *testing.T) {
 	wants(t, run(t, s, "%state test::relay"), "runs no state machine to debug", "no initial state")
 }
 
+// `%state <object>` debugs the machine that started: a machine declared before it
+// that failed to start is a record on the object, not the machine to debug.
+func TestStatePrefersAMachineThatStartedOverOneThatFailed(t *testing.T) {
+	s := loadSource(t, `package P {
+		part def Host {
+			exhibit state broken { state lonely; }
+			exhibit state working { entry; then idle; state idle; }
+		}
+		part host : Host;
+	}`)
+	wants(t, run(t, s, "%instantiate P::host"), "Created instance", "warning:", "broken")
+
+	wants(t, run(t, s, "%state P::host"), `Debugging state machine "working"`, "Current state: idle")
+}
+
 // objectIDIn reports the object identity a command's output names, written either
 // as `#<n>` or as `ID: <n>`.
 func objectIDIn(t *testing.T, out string) string {

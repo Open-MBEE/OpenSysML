@@ -15,6 +15,7 @@ func TestRuntimeRobustnessBehaviorStartFailure(t *testing.T) {
 	t.Run("machine_without_an_initial_state_is_recorded_and_the_object_stands", testStartFailureMachineRecorded)
 	t.Run("action_failing_under_way_is_recorded_with_what_it_wrote", testStartFailureActionRecorded)
 	t.Run("failed_machine_performance_life_is_ended", testStartFailureEndsThePerformanceLife)
+	t.Run("a_running_machine_is_the_objects_machine_before_a_failed_one", testStartFailureRunningMachinePreferred)
 	t.Run("verdict_independent_of_the_failed_body_is_decided", testStartFailureIndependentVerdict)
 	t.Run("verdict_reading_what_the_failed_body_may_write_is_undecided", testStartFailureDependentVerdictUndecided)
 	t.Run("verdict_reading_what_a_dynamic_write_may_reach_is_undecided", testStartFailureDynamicWriteUndecided)
@@ -113,6 +114,26 @@ func testStartFailureEndsThePerformanceLife(t *testing.T) {
 	}
 	if waits := ctx.Clock().Waits(); len(waits) != 0 {
 		t.Errorf("clock waits = %v after the failure, want none", waits)
+	}
+}
+
+func testStartFailureRunningMachinePreferred(t *testing.T) {
+	ctx, host, err := instantiateWithLibraries(t, `package test {
+		part def Host {
+			exhibit state broken { state lonely; }
+			exhibit state working { entry; then idle; state idle; }
+		}
+		part host : Host;
+	}`, "test::host")
+	if !errors.Is(err, errNoInitialState) {
+		t.Fatalf("instantiate host: %v, want broken recorded", err)
+	}
+	machine, ok := host.ExhibitedState()
+	if !ok || machine.Name != "working" || machine.Err != nil {
+		t.Fatalf("ExhibitedState = %v, %t; want working, the machine that started", machine, ok)
+	}
+	if failed := ctx.StartFailures(host); len(failed) != 1 || failed[0].Name != "broken" {
+		t.Errorf("failed behaviors = %v, want broken alone", failed)
 	}
 }
 
