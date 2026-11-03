@@ -231,6 +231,28 @@ func TestStateReportsAMachineThatFailedToStart(t *testing.T) {
 	wants(t, run(t, s, "%state test::relay"), "runs no state machine to debug", "no initial state")
 }
 
+// A change condition that fails to evaluate — unlike one reading a feature with
+// no value, which waits — fails its machine: the object is created with the
+// failure recorded, and `%instantiate` and `%features` report it with its cause.
+func TestInstantiateReportsAChangeConditionThatFailsToEvaluate(t *testing.T) {
+	s := loadSource(t, `package P {
+		private import ScalarValues::*;
+		part def Divider {
+			attribute zero : Integer = 0;
+			exhibit state m {
+				entry; then waiting;
+				state waiting;
+				accept when 1 / zero > 0 then settled;
+				state settled;
+			}
+		}
+		part divider : Divider;
+	}`)
+	const cause = "poll change conditions: state waiting: eval change condition: division by zero"
+	wants(t, run(t, s, "%instantiate P::divider"), "Created instance", "warning: exhibited state machine m of object #1 failed to start and runs no further: "+cause)
+	wants(t, run(t, s, "%features P::divider"), "m: exhibited state machine, failed: exhibited state machine m of object #1: "+cause)
+}
+
 // `%state <object>` debugs the machine that started: a machine declared before it
 // that failed to start is a record on the object, not the machine to debug.
 func TestStatePrefersAMachineThatStartedOverOneThatFailed(t *testing.T) {
