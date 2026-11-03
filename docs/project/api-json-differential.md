@@ -230,21 +230,21 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1293764 present-equal, 32981 present-different, 920639 ours-missing, 70251 pilot-missing, 1987230 absent-both, 31138 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1293766 present-equal, 32614 present-different, 920638 ours-missing, 70251 pilot-missing, 1987230 absent-both, 31504 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 103519 | 2163 | 72998 | 5157 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 26554 | 6118 | 9562 | 373507 | 8924 | 265177 | 19378 |
+| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 103519 | 2155 | 72998 | 5157 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 26554 | 6118 | 9562 | 373507 | 8922 | 265177 | 19378 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 130377 | 3881 | 91735 | 6857 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 83752 | 3132 | 53872 | 6531 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 83754 | 3131 | 53872 | 6531 |
 | `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 88243 | 1785 | 62271 | 5602 |
 | `tests/testdata` | 40 | 1460 | 175 | 511 | 19006 | 485 | 13312 | 1064 |
-| `examples` | 56 | 27928 | 6075 | 15212 | 393892 | 10198 | 283975 | 20805 |
+| `examples` | 56 | 27928 | 6075 | 15212 | 393892 | 10036 | 283975 | 20805 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 629 | 1 | 376 | 41 |
-| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 100839 | 2412 | 76923 | 4816 |
+| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 100839 | 2218 | 76923 | 4816 |
 
 **Defaulted parameters of an invocation** (re-recorded with the extension libraries at
 `DocumentQueries::WhereType(…, exact = false)` and `Differ`): the pilot's `InvocationExpression.parameter`
@@ -388,6 +388,20 @@ parameters of the invoked function that no argument binds (`DocumentQueries::Des
 `Time::DurationOf::clock` in the training corpus's `Time Constraints::healthStates`, different before and after
 this record), where this repository lists only the argument features the invocation owns. A fix of its own
 follows; until it lands, a library parameter gaining a default moves the rows of every caller that omits it.
+
+**An invocation lists the parameters no argument binds** (re-recorded when the writer began listing
+under `InvocationExpression.parameter` the invoked behavior's parameters that no argument binds and no
+owned feature redefines — `Time::DurationOf::clock` for `DurationOf(o)`, a defaulted parameter the call
+leaves to its default, a behavior's `out` for `A().y` — by the parameter's own element, after the owned
+arguments and the result, the `in` ones under `.input` too, as KerML 8.3.4.8.8 derives an invocation's
+parameters from its function's and the pilot lists and orders them; this closes the writer follow-up the
+`WhereType(…, exact = false)` record above left open): 2 scorecard rows moved, present-different →
+indeterminate — a library parameter has no key on either side, the bucket every reference to a
+standard-library element already lands in
+([below](#references-into-this-repositorys-libraries-link-by-id)): `InvocationExpression.input`
+[337 equal, 183 different, 1 ours-missing, 16 absent-both] → [338, 0, 0, 16, 183 indeterminate] and `.parameter` [353, 184] → [354, 0, 183 indeterminate]. Totals: 1293764 → 1293766 present-equal,
+32981 → 32614 present-different, 920639 → 920638 ours-missing, 31138 → 31504 indeterminate; no element count
+moved. The row to equal on each is `A().y` (`Simple Tests/Behaviors.kerml`), whose unbound `A::x` and `A::y` are features of the file and so keyed; the 183 are calls of a library function — the 25 `Descendants(…)` calls of `examples` and `docs/manual/examples` the library pin above moved, the `WhereType(…, exact = false)` calls, every `TimeOf`/`DurationOf`. No other row moved.
 
 ### Where the two sides state different values
 
