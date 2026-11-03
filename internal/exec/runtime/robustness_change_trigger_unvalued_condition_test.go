@@ -10,11 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// A change condition reading a feature that carries no value has no result, so
-// it has not become true: the machine waits on it, naming the feature, and the
-// write that gives the feature a value is what makes it fire. An evaluation
-// that fails on its own terms is still an error: the machine fails with it, and
-// the failure is recorded on the machine beside the object that stands.
+// A change condition reading an unvalued feature waits for the write that values it;
+// one that fails to evaluate fails its machine, recorded, the object standing.
 func TestRuntimeRobustnessChangeTriggerUnvaluedCondition(t *testing.T) {
 	const relaySource = `package test {
 		private import ScalarValues::*;

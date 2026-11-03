@@ -231,9 +231,8 @@ func TestStateReportsAMachineThatFailedToStart(t *testing.T) {
 	wants(t, run(t, s, "%state test::relay"), "runs no state machine to debug", "no initial state")
 }
 
-// A change condition that fails to evaluate — unlike one reading a feature with
-// no value, which waits — fails its machine: the object is created with the
-// failure recorded, and `%instantiate` and `%features` report it with its cause.
+// A failed change condition ends its machine but leaves the object standing;
+// `%instantiate` and `%features` report the failure with its cause.
 func TestInstantiateReportsAChangeConditionThatFailsToEvaluate(t *testing.T) {
 	s := loadSource(t, `package P {
 		private import ScalarValues::*;
