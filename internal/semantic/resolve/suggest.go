@@ -49,7 +49,7 @@ func (r *Resolver) suggestionFor(scope *symbols.Scope, name string, at ast.Node)
 	var cands []suggest.Candidate
 	for _, fqn := range table.Qualified(name) {
 		if r.namesSomething(fqn) {
-			cands = append(cands, suggest.Candidate{Spelling: fqn, Library: r.libraryFQN(fqn)})
+			cands = append(cands, suggest.Candidate{Spelling: fqn, Library: r.libraryFQN(fqn), Short: r.byShortName(fqn)})
 		}
 	}
 	for _, near := range table.Neighbours(name) {
@@ -57,16 +57,37 @@ func (r *Resolver) suggestionFor(scope *symbols.Scope, name string, at ast.Node)
 			cands = append(cands, c)
 		}
 	}
-	out := suggestion{spellings: suggest.Rank(cands), unquoted: r.unquotedFor(scope, name, key.call)}
+	out := suggestion{spellings: suggest.Rank(cands)}
+	// A name declared as written is unresolved for want of an import, not a
+	// quote: the declarations it merely starts are not offered beside it.
+	if !declaredAs(out.spellings, name) {
+		out.unquoted = r.unquotedFor(scope, name, key.call)
+	}
 	journalNew(r, r.suggestions, key, at)
 	r.suggestions[key] = out
 	return out
+}
+
+// declaredAs reports whether one of spellings declares name itself, under some path.
+func declaredAs(spellings []string, name string) bool {
+	for _, spelling := range spellings {
+		if symbols.LastSegment(spelling) == name {
+			return true
+		}
+	}
+	return false
 }
 
 // called reports whether at is a name an invocation calls (see ResolveInvocationName).
 func (r *Resolver) called(at ast.Node) bool {
 	qn, ok := at.(*ast.QualifiedName)
 	return ok && r.invocationNames[qn]
+}
+
+// byShortName reports whether fqn reaches its declaration by the short name
+// rather than the name: `SI::min` is the minute, `DataFunctions::min` is min.
+func (r *Resolver) byShortName(fqn string) bool {
+	return symbols.ShortNamed(r.idx.Declaring(fqn), fqn)
 }
 
 // namesSomething reports whether the declaration registered under fqn is a spelling
@@ -213,6 +234,7 @@ func (r *Resolver) candidateFor(scope *symbols.Scope, near suggest.Neighbour) (s
 				Spelling: fqn,
 				Distance: near.Distance,
 				Library:  r.libraryFQN(fqn),
+				Short:    r.byShortName(fqn),
 			}, true
 		}
 	}
