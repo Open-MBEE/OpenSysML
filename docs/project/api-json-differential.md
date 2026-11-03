@@ -379,12 +379,15 @@ names above.
 
 **The OpenSysML Libraries pin moves to `Descendants(relationships = true)`** (re-recorded when the vendored
 libraries took OpenSysML-Extensions-Library's merge of its #19, which adds the optional `relationships`
-parameter to `DocumentQueries::Descendants`; the baselines record the libraries' digest): the library change
-moves no row. The 25 `InvocationExpression.input` and `InvocationExpression.parameter` rows that moved from
-equal to different (1293814 → 1293764 present-equal) are develop's: since #1871 the invocation of
-`Time::DurationOf`/`TimeOf` no longer lists the implied `clock` argument the pilot lists
-(`Time Constraints::healthStates` in the training corpus) — the record at #1881's merge, which predates
-#1871 on this tree's first-parent line, reads them equal. A fix of its own follows.
+parameter to `DocumentQueries::Descendants`; the baselines record the libraries' digest): the pin moves 25
+`InvocationExpression.input` and `InvocationExpression.parameter` rows from equal to different
+(1293814 → 1293764 present-equal), every one in the `examples` and `manual-examples` roots — the invocations of
+`DocumentQueries::Descendants` that pass no `relationships` argument; the training, KerML-example and
+specification-example roots read as before. The pilot lists among an invocation's `input` and `parameter` the
+parameters of the invoked function that no argument binds (`DocumentQueries::Descendants::relationships` here;
+`Time::DurationOf::clock` in the training corpus's `Time Constraints::healthStates`, different before and after
+this record), where this repository lists only the argument features the invocation owns. A fix of its own
+follows; until it lands, a library parameter gaining a default moves the rows of every caller that omits it.
 
 ### Where the two sides state different values
 
