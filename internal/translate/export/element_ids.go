@@ -158,11 +158,38 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 		ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
 		// A chain end's ReferenceSubsetting owns the chain Feature it denotes (chainFeature).
 		if _, chained := end.AttachedTarget().(*ast.FeatureChainExpr); chained || qualifiedNameChained(end.AttachedTarget()) {
-			chain := rdf.LocalName(e.ids.mintedNode(rdf.ExpressionIRI(feature, "chain"), feature, "chain").Value)
+			chainNode := e.ids.mintedNode(rdf.ExpressionIRI(feature, "chain"), feature, "chain")
+			chain := rdf.LocalName(chainNode.Value)
 			ids.partByNode[partKey{end, "chain"}] = partIDs{element: chain}
 			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "chain"}] = partIDs{element: chain}
+			// The chain Feature owns one FeatureChaining per link, minted beside it (featureChainings).
+			for i := 0; i < endChainLinks(end.AttachedTarget()); i++ {
+				position := fmt.Sprintf("fc%d", i)
+				chaining := e.ids.mintedNode(rdf.ExpressionIRI(chainNode, position), chainNode, position)
+				recorded := partIDs{element: rdf.LocalName(chaining.Value)}
+				ids.partByNode[partKey{end, "chain." + position}] = recorded
+				ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "chain." + position}] = recorded
+			}
 		}
 	}
+}
+
+// endChainLinks counts the features an end's chain target is written as, as the
+// conversion links them (qualifiedChainReferences, featureChainSegments).
+func endChainLinks(target ast.Node) int {
+	switch target := target.(type) {
+	case *ast.FeatureChainExpr:
+		return len(featureChainSegments(target))
+	case *ast.QualifiedName:
+		links := 1
+		for _, part := range target.Parts[1:] {
+			if part.Chained {
+				links++
+			}
+		}
+		return links
+	}
+	return 0
 }
 
 func qualifiedNameChained(target ast.Node) bool {

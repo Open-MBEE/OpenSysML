@@ -135,6 +135,10 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			element, _, err := read.ReadExpressionPart(chain.DocName, chain.Expr.Owner.Decl, chain.Expr.Slot+"."+rel.Slot)
 			return element, true, err
 		}
+		if end, ok := connectorEndChain(rel.Owner); ok {
+			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, end, "chain."+rel.Slot)
+			return element, true, err
+		}
 		return "", true, nil
 	case symbols.ImplicitReferenceMembership:
 		if rel.Owner != nil && rel.Owner.Decl != nil {

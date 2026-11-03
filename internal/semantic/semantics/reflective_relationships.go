@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -31,6 +32,9 @@ func (m *Model) ImplicitRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 // facts at the matching ordinals for a record.
 func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
+	if owner.Chain != nil {
+		return m.chainTargetChainings(owner)
+	}
 	if owner.IsConjugatedPortDefinition() {
 		if original := owner.OwnerScope.Owner(); original != nil {
 			out = append(out, portConjugationSymbol(owner, original))
@@ -642,4 +646,23 @@ func (m *Model) implicitOwnerElements(sym *symbols.Symbol, feature string) ([]*s
 		return m.ownedImplicitRelationships(sym, crossSubsetting), true
 	}
 	return nil, false
+}
+
+// chainTargetChainings are the FeatureChainings the feature a relationship's chain target
+// denotes owns, one per feature the chain is written as (KerML 8.3.3.3.9), as the conversion writes them.
+func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
+	out := []*symbols.Symbol{}
+	for _, target := range m.chainingFeaturesOf(chain) {
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    chain.DocName,
+			DeclSpan:   chain.DeclSpan,
+			Visibility: chain.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: chain, Ordinal: len(out), Form: symbols.ImplicitFeatureChaining,
+				Member: target, Slot: fmt.Sprintf("fc%d", len(out)),
+			},
+		})
+	}
+	return out
 }
