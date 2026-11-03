@@ -400,7 +400,7 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 		negated:  a.Negated,
 		about:    a.AssertedRequirement(),
 	}
-	verdict, err := ctx.judgeConditions(check, conds)
+	verdict, err := ctx.judgeVerdict(check, conds)
 	result := ctx.satisfactionResult(verdict.holds, subject, reached)
 	result.Vacuous = verdict.vacuous
 	return result, err
