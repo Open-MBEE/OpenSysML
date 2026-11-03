@@ -155,6 +155,7 @@ func (e *encoder) expressionStructure(subject rdf.Term, owner string, node ast.N
 	if resultBearing[expressionMetaclass(node)] {
 		e.resultParameter(subject)
 	}
+	e.unboundParameters(subject, node)
 	return nil
 }
 
@@ -635,6 +636,61 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 		e.graph.Add(child, e.sysx(xArgumentName), rdf.String(qualifiedText(arg.Name)))
 	}
 	return nil
+}
+
+// unboundParameters lists under parameter the callee's parameters no argument binds and
+// no owned feature redefines, the `in` ones under input too (KerML 8.3.4.8.8), after the result as the pilot orders them.
+func (e *encoder) unboundParameters(subject rdf.Term, node ast.Node) {
+	var (
+		function *ast.QualifiedName
+		operand  ast.Node
+		args     []ast.Node
+		named    []ast.NamedArg
+	)
+	switch n := node.(type) {
+	case *ast.InvocationExpr:
+		function, operand, args, named = n.Type, n.Operand, n.Args, n.NamedArgs
+	case *ast.ConstructorExpr:
+		function, args, named = n.Type, n.Args, n.NamedArgs
+	default:
+		return
+	}
+	if function == nil || e.ids.model == nil {
+		return
+	}
+	callee, ok := e.res.PartSymbol(function, len(function.Parts)-1)
+	if !ok || callee == nil {
+		return
+	}
+	positional := len(args)
+	if operand != nil {
+		positional++
+	}
+	bound := make(map[string]bool, len(named))
+	for _, arg := range named {
+		if name, ok := e.ids.model.BoundParameter(callee.Scope, callee, arg.Name); ok {
+			bound[name] = true
+		}
+	}
+	boundSymbols := make(map[*symbols.Symbol]bool, positional+len(bound))
+	for i, p := range e.ids.model.SignatureParametersOf(callee) {
+		if i < positional || bound[p.Name] {
+			boundSymbols[p.Symbol] = true
+		}
+	}
+	for _, p := range e.ids.model.BehaviorParametersOf(callee) {
+		if p.IsResult || p.Symbol == nil || boundSymbols[p.Symbol] {
+			continue
+		}
+		term := e.symbolTerm(p.Symbol)
+		if !term.IsIRI() {
+			continue
+		}
+		e.graph.Add(subject, e.sysml(pParameter), term)
+		if p.Direction == ast.DirIn || p.Direction == ast.DirInOut {
+			e.graph.Add(subject, e.sysml(pInput), term)
+		}
+	}
 }
 
 // calleeReference is the collapsed function: the element it resolves to, else

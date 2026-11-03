@@ -1214,7 +1214,11 @@ The rules the tree follows:
   with direction `in`, a `ParameterMembership` in the expression's
   `ownedFeatureMembership`, and a `FeatureValue` membership whose `value` is
   the operand expression. `sysml:parameter`/`sysml:input` identify the
-  parameters, while the JSON annotation preserves their RDF order.
+  parameters, while the JSON annotation preserves their RDF order. An
+  invocation also lists under both the invoked function's `in` parameters no
+  argument binds — `Time::DurationOf::clock` for `DurationOf(o)` — by the
+  parameter's own identity (KerML 8.3.4.8.7: an invocation's parameters are
+  its function's); the decoder rebuilds the call from the owned operands alone.
 - **Metaclasses are the standard ones** where the metamodel names them:
   `LiteralBoolean`, `LiteralInteger`, `LiteralRational`, `LiteralString`,
   `LiteralInfinity`, `NullExpression`, `FeatureReferenceExpression`,
