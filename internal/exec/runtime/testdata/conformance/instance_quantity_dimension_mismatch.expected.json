@@ -2,5 +2,5 @@
 	"type": "instance",
 	"instantiate": "test::Host",
 	"libraries": true,
-	"error": "type mismatch: cannot write 3.0 [m/s] (dimension L·T^-1) to a feature typed by DurationValue (dimension T)"
+	"startFailures": ["type mismatch: cannot write 3.0 [m/s] (dimension L·T^-1) to a feature typed by DurationValue (dimension T)"]
 }

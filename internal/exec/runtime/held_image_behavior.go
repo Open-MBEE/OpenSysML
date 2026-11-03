@@ -174,6 +174,11 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 		t.img.behaviors = append(t.img.behaviors, img)
 		return nil
 	}
+	if b.Err != nil && b.State == nil && b.Action == nil {
+		// A behavior whose binding failed got no execution: its record is the whole image.
+		t.img.behaviors = append(t.img.behaviors, img)
+		return nil
+	}
 	var err error
 	switch {
 	case b.State != nil:
@@ -559,7 +564,11 @@ func (m *materializing) behavior(b imagedBehavior) error {
 	}
 	behavior, occurrence, err := dst.bindClassifierBehavior(inst, decl, b.index)
 	if err != nil {
-		return err
+		if b.err == nil {
+			return err
+		}
+		// A behavior whose binding failed is imaged as its record alone.
+		behavior = dst.unstartedBehavior(inst, decl)
 	}
 	behavior.binding = b.binding
 	behavior.Err = b.err

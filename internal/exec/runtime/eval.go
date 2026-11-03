@@ -3712,13 +3712,69 @@ func (ec *EvalContext) enclosingRun(shape *calcShape) []frame {
 // arguments written after it (KerMLExpressions InstantiatedTypeMember → OwnedFeatureChain).
 func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.FeatureChainExpr) (Value, error) {
 	callee := chainText(chain)
-	fn, predicate, err := ec.chainCallee(chain)
+	if chain.Member == nil || len(chain.Member.Parts) != 1 {
+		fn, err := ec.Eval(chain)
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.invokeChainCallee(n, callee, fn)
+	}
+	name := chain.Member.Parts[0].Text
+	receiver, err := ec.Eval(chain.Operand)
+	// A usage no object stands for is called through the object it would materialize,
+	// under the probe a chain read makes: the receiver is reached and called within it.
+	if err != nil || receiver.Kind == ValUndetermined {
+		base, parts := ast.FeatureChainBase(chain)
+		val, ok, derr := ec.underDeclaredObject(base, parts, func(obj Value, owner *symbols.Symbol) (Value, error) {
+			if len(parts) > 1 {
+				if obj, err = ec.chainMemberValue(obj, parts[:len(parts)-1], owner.Name); err != nil {
+					return Value{}, err
+				}
+			}
+			return ec.invokeChainOn(n, name, callee, obj)
+		})
+		if ok {
+			return val, derr
+		}
+		if derr != nil {
+			return Value{}, derr
+		}
+	}
 	if err != nil {
 		return Value{}, err
 	}
-	if predicate != nil {
-		return ec.invokeChainPredicate(n, callee, predicate)
+	return ec.invokeChainOn(n, name, callee, receiver)
+}
+
+// invokeChainOn calls the member name of the receiver's value: a calc of the receiver's
+// object is the function applied over it even where a bare read would compute its result.
+func (ec *EvalContext) invokeChainOn(n *ast.InvocationExpr, name, callee string, receiver Value) (Value, error) {
+	if id, isObject := receiver.Object(); isObject {
+		if inst, ok := ec.ctx.instances[id]; ok {
+			sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name)
+			if _, held := inst.FeatureValues[name]; !held && found && isCalcUsageSymbol(sym) {
+				fn, err := NewEvalContextIn(ec.ctx, sym.OwnerScope, inst).functionValueOf(sym)
+				if err != nil {
+					return Value{}, err
+				}
+				return ec.invokeChainCallee(n, callee, fn)
+			}
+			// A constraint or requirement member is a predicate about the object, invoked on it
+			// (`req.assumptions()`, `sys.req()`), as its own evaluation invokes the bare name.
+			if found && isPredicateDecl(sym.Decl) {
+				return ec.invokeChainPredicate(n, callee, &chainPredicate{self: inst, sym: sym})
+			}
+		}
 	}
+	fn, err := ec.chainMemberValue(receiver, []ast.NameSegment{{Text: name}}, "")
+	if err != nil {
+		return Value{}, err
+	}
+	return ec.invokeChainCallee(n, callee, fn)
+}
+
+// invokeChainCallee applies the function value a feature chain denotes to the call's arguments.
+func (ec *EvalContext) invokeChainCallee(n *ast.InvocationExpr, callee string, fn Value) (Value, error) {
 	fn = soleElement(fn)
 	if fn.Kind != ValFunction {
 		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, DescribeValue(fn))
@@ -3732,36 +3788,6 @@ func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.Fea
 		return Value{}, err
 	}
 	return ec.invokeFunction(callee, fn, callArgs)
-}
-
-// chainCallee is what a feature chain denotes in call position: a calc of the receiver's
-// object is the function applied over it even where a bare read would compute its result.
-func (ec *EvalContext) chainCallee(chain *ast.FeatureChainExpr) (Value, *chainPredicate, error) {
-	if chain.Member == nil || len(chain.Member.Parts) != 1 {
-		val, err := ec.Eval(chain)
-		return val, nil, err
-	}
-	receiver, err := ec.Eval(chain.Operand)
-	if err != nil {
-		return Value{}, nil, err
-	}
-	name := chain.Member.Parts[0].Text
-	if id, isObject := receiver.Object(); isObject {
-		if inst, ok := ec.ctx.instances[id]; ok {
-			sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name)
-			if _, held := inst.FeatureValues[name]; !held && found && isCalcUsageSymbol(sym) {
-				val, err := NewEvalContextIn(ec.ctx, sym.OwnerScope, inst).functionValueOf(sym)
-				return val, nil, err
-			}
-			// A constraint or requirement member is a predicate about the object, invoked on it
-			// (`req.assumptions()`, `sys.req()`), as its own evaluation invokes the bare name.
-			if found && isPredicateDecl(sym.Decl) {
-				return Value{}, &chainPredicate{self: inst, sym: sym}, nil
-			}
-		}
-	}
-	val, err := ec.chainMemberValue(receiver, chain.Member.Parts, "")
-	return val, nil, err
 }
 
 // chainPredicate is the callee of a chain invocation naming a constraint or requirement
