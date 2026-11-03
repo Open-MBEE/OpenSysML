@@ -328,6 +328,29 @@ library feature it implicitly redefines (`result`, `source`, `logical`, `accepte
 effective name follows a declared redefinition or reference, not an implied one, on both ledgers; a
 separate family. No other row moved.
 
+**An implied membership states its member's name and an import its ends** (re-recorded when the
+writer began stating `memberName` on the memberships it mints without a written member — a connector
+end's `EndFeatureMembership`, named `source`/`target` for a binary connector or by the end it redefines,
+a conjugated port definition's `OwningMembership` (`~P`), a satisfy subject's `SubjectMembership`
+(`subj`) — and `Import::source` and `target`, KerML 8.3.2.3.3, as the import's owning namespace and the
+namespace or membership it imports; and when the reflective read stopped naming the plain Membership
+an expression owns to its referent, which only an alias specifies, KerML 8.3.2.3.5 — the pilot leaves
+it null on all 3089 such rows): 11 scorecard rows moved; 1291382 → 1293686 present-equal, 923659 →
+920721 ours-missing, 32953 → 32977 present-different, 70249 → 70251 pilot-missing, 30528 → 31138
+indeterminate. `source` is equal on every import (670 `NamespaceImport`, 389 `MembershipImport`, 29 +
+75 exposes); `NamespaceImport.target` is equal on 318, indeterminate on 344 — a library namespace the
+comparison cannot key — and ours-missing on 8 whose name resolves to nothing; `MembershipImport.target`
+110 equal / 3 different / 10 ours-missing / 266 indeterminate and `MembershipExpose.target` 71 / 3 / 1
+inherit the imported `OwningMembership[n]`'s positional key, as a membership's `target` inherits its
+member's. `EndFeatureMembership.memberName` moved 423 rows to equal; the 18 different are the ends of a
+`binding` and a `succession`, which redefine `Links::SelfLink::thisThing`/`thatThing` and
+`Occurrences::HappensBefore::earlierOccurrence`/`laterOccurrence` rather than `BinaryConnection`'s
+`source`/`target` the model names them by (`ConnectionTest::P::ab`: ours `source`, pilot `thisThing`) —
+a model-side derivation to correct in its own change; the 82 still ours-missing are ends of a
+non-binary connector with no name to derive. `SubjectMembership.memberName` moved 65 rows to equal; the
+3 different predate this change. `OwningMembership.memberName` moved 125 rows to equal (the conjugated
+definitions); the 2 new pilot-missing are conjugated definitions of an unnamed port definition, where
+the pilot states no name either way.
 ### Where the two sides state different values
 
 The largest **present-different** rows, with the reading the examples support:
