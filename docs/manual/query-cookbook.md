@@ -232,6 +232,26 @@ Note that the connections are still here: a `connection` usage *is* a
 a feature or name filter, or `type = "ConnectionUsage"`, to separate them —
 see [Type filters](#type-filters).
 
+`relationships = true` walks ownership as KerML 8.3.2.1 defines it instead of
+the owned members: each element's `ownedRelationship`, then the related
+elements each relationship owns. The result holds the memberships,
+specializations, typings, feature values and imports that own a model's
+elements, and the implied elements those own — a connector's ends, a port
+definition's conjugated definition, a satisfy usage's subject — which a
+reflection view or a comparison of two readings of one model needs:
+
+```sysml
+calc def Memberships :> Query {
+	in root : Element;
+	WhereType(
+		source = Descendants(source = root, relationships = true),
+		type = "FeatureMembership", exact = true
+	)
+}
+```
+
+The default, `false`, reads as before.
+
 ### Ancestors: `Ancestors`
 
 ```sysml

@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1293814 present-equal, 32931 present-different, 920639 ours-missing, 70251 pilot-missing, 1987230 absent-both, 31138 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1293764 present-equal, 32981 present-different, 920639 ours-missing, 70251 pilot-missing, 1987230 absent-both, 31138 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
@@ -242,9 +242,9 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 | `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 83752 | 3132 | 53872 | 6531 |
 | `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 88243 | 1785 | 62271 | 5602 |
 | `tests/testdata` | 40 | 1460 | 175 | 511 | 19006 | 485 | 13312 | 1064 |
-| `examples` | 56 | 27928 | 6075 | 15212 | 393908 | 10182 | 283975 | 20805 |
+| `examples` | 56 | 27928 | 6075 | 15212 | 393892 | 10198 | 283975 | 20805 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 629 | 1 | 376 | 41 |
-| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 100873 | 2378 | 76923 | 4816 |
+| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 100839 | 2412 | 76923 | 4816 |
 
 **Defaulted parameters of an invocation** (re-recorded with the extension libraries at
 `DocumentQueries::WhereType(…, exact = false)` and `Differ`): the pilot's `InvocationExpression.parameter`
@@ -376,6 +376,18 @@ began naming the ends that redefine them, so a KerML `binding`'s ends are `thisT
 positional end it is, not as an alias or an addressable element): `EndFeatureMembership.memberName`
 alone moved, to 523 equal, no row different or ours-missing; it is counted with the implied membership
 names above.
+
+**The OpenSysML Libraries pin moves to `Descendants(relationships = true)`** (re-recorded when the vendored
+libraries took OpenSysML-Extensions-Library's merge of its #19, which adds the optional `relationships`
+parameter to `DocumentQueries::Descendants`; the baselines record the libraries' digest): the pin moves 25
+`InvocationExpression.input` and `InvocationExpression.parameter` rows from equal to different
+(1293814 → 1293764 present-equal), every one in the `examples` and `manual-examples` roots — the invocations of
+`DocumentQueries::Descendants` that pass no `relationships` argument; the training, KerML-example and
+specification-example roots read as before. The pilot lists among an invocation's `input` and `parameter` the
+parameters of the invoked function that no argument binds (`DocumentQueries::Descendants::relationships` here;
+`Time::DurationOf::clock` in the training corpus's `Time Constraints::healthStates`, different before and after
+this record), where this repository lists only the argument features the invocation owns. A fix of its own
+follows; until it lands, a library parameter gaining a default moves the rows of every caller that omits it.
 
 ### Where the two sides state different values
 
