@@ -893,6 +893,22 @@ func (m *Model) FlowEndAttachments(sym *symbols.Symbol) []FlowEndAttachment {
 
 // generalEndAt returns the end at position i of the first connector sym
 // specializes that has one there, which sym's end at that position redefines.
+// ImpliedEndName names the end at i of a connector the notation mints with no
+// declaration of its own: the end its kind's base declares there, else the binary name.
+func (m *Model) ImpliedEndName(kind ast.UsageKind, i int) string {
+	if fqn, ok := implicitUsageBases[kind]; ok && m.resolver != nil && m.resolver.Index() != nil {
+		for _, base := range m.resolver.Index().LookupQualified(fqn) {
+			if ends := m.endsOf(base); i < len(ends) && ends[i] != nil {
+				return symbols.LastSegment(ends[i].Name)
+			}
+		}
+	}
+	if i >= 0 && i < len(binaryConnectorEndNames) {
+		return binaryConnectorEndNames[i]
+	}
+	return ""
+}
+
 func (m *Model) generalEndAt(sym *symbols.Symbol, i int) *symbols.Symbol {
 	for _, sup := range m.DirectSupertypes(sym) {
 		if !m.isConnectorLike(sup) {

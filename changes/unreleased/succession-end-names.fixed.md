@@ -1,0 +1,1 @@
+- The RDF conversion states `memberName` on the ends of a succession the notation mints — `first`, `then` and transition successions — as `earlierOccurrence` and `laterOccurrence`, the ends of `Occurrences::happensBeforeLinks` they redefine; the decoder reads a named end as the positional end it is, not as an alias or an addressable element.

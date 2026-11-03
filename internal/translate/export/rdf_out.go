@@ -2665,10 +2665,14 @@ func (e *encoder) endMemberName(sym *symbols.Symbol, i int) string {
 		return ""
 	}
 	ends := e.ids.model.ConnectorObjectEnds(sym)
-	if i < 0 || i >= len(ends) {
-		return ""
+	if i < len(ends) && ends[i].Name != "" {
+		return ends[i].Name
 	}
-	return ends[i].Name
+	// A declared succession is no connector object: its ends are named by its kind's base.
+	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageSuccession {
+		return e.ids.model.ImpliedEndName(usage.Kind, i)
+	}
+	return ""
 }
 
 // connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership.

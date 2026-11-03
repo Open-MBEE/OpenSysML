@@ -1661,6 +1661,7 @@ expr:R90__Run___403_succession_pend0_om
     sysml:source elmt:R90__Run___403_succession ;
     sysml:target expr:R90__Run___403_succession_pend0 ;
     sysml:relatedElement elmt:R90__Run___403_succession, expr:R90__Run___403_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"R90__Run___403_succession\"},{\"@id\":\"R90__Run___403_succession_pend0\"}]" .
 
 expr:R90__Run___403_succession_pend1
@@ -1688,6 +1689,7 @@ expr:R90__Run___403_succession_pend1_om
     sysml:source elmt:R90__Run___403_succession ;
     sysml:target expr:R90__Run___403_succession_pend1 ;
     sysml:relatedElement elmt:R90__Run___403_succession, expr:R90__Run___403_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"R90__Run___403_succession\"},{\"@id\":\"R90__Run___403_succession_pend1\"}]" .
 
 expr:R90__Run___403_succession_pend1_prs

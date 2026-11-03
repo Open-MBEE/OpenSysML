@@ -708,6 +708,7 @@ expr:StateMachine__VehicleStates__active___401_succession_pend0_om
     sysml:source elmt:StateMachine__VehicleStates__active___401_succession ;
     sysml:target expr:StateMachine__VehicleStates__active___401_succession_pend0 ;
     sysml:relatedElement elmt:StateMachine__VehicleStates__active___401_succession, expr:StateMachine__VehicleStates__active___401_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0\"}]" .
 
 expr:StateMachine__VehicleStates__active___401_succession_pend1
@@ -735,6 +736,7 @@ expr:StateMachine__VehicleStates__active___401_succession_pend1_om
     sysml:source elmt:StateMachine__VehicleStates__active___401_succession ;
     sysml:target expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
     sysml:relatedElement elmt:StateMachine__VehicleStates__active___401_succession, expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1\"}]" .
 
 expr:StateMachine__VehicleStates__active___401_succession_pend1_prs
@@ -1011,6 +1013,7 @@ expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om
     sysml:source elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
     sysml:target expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0 ;
     sysml:relatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0\"}]" .
 
 expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1
@@ -1038,6 +1041,7 @@ expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om
     sysml:source elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
     sysml:target expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
     sysml:relatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1\"}]" .
 
 expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_prs
@@ -1285,6 +1289,7 @@ expr:StateMachine__VehicleStates___405_succession_pend0_om
     sysml:source elmt:StateMachine__VehicleStates___405_succession ;
     sysml:target expr:StateMachine__VehicleStates___405_succession_pend0 ;
     sysml:relatedElement elmt:StateMachine__VehicleStates___405_succession, expr:StateMachine__VehicleStates___405_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates___405_succession\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0\"}]" .
 
 expr:StateMachine__VehicleStates___405_succession_pend1
@@ -1312,6 +1317,7 @@ expr:StateMachine__VehicleStates___405_succession_pend1_om
     sysml:source elmt:StateMachine__VehicleStates___405_succession ;
     sysml:target expr:StateMachine__VehicleStates___405_succession_pend1 ;
     sysml:relatedElement elmt:StateMachine__VehicleStates___405_succession, expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates___405_succession\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1\"}]" .
 
 expr:StateMachine__VehicleStates___405_succession_pend1_prs
@@ -1577,6 +1583,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om
     sysml:source elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
     sysml:target expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0 ;
     sysml:relatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff_succession, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0 ;
+    sysml:memberName "earlierOccurrence" ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0\"}]" .
 
 expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1
@@ -1604,6 +1611,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om
     sysml:source elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
     sysml:target expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
     sysml:relatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff_succession, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:memberName "laterOccurrence" ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1\"}]" .
 
 expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_prs
