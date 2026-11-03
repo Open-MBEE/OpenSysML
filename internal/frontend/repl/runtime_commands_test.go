@@ -951,9 +951,8 @@ func TestPromptScopeIsTheLastNamespaceDeclared(t *testing.T) {
 	wants(t, run(t, s, "%eval b"), "is ambiguous", "P2::b", "P3::b")
 }
 
-// A qualified name typed at the prompt is resolved from the working namespace as
-// KerML 8.2.3.5.1 resolves one in a model, so a member carrying the package's own
-// name hides the package; `$::` or a pinned context reaches the package's members.
+// Qualified prompt names resolve from the working namespace; `$::` or a
+// pinned context reaches members hidden by a namesake in that namespace.
 func TestPromptQualifiedNamesResolveFromTheWorkingNamespace(t *testing.T) {
 	s := NewSession()
 	s.Submit(`package Rover {
