@@ -351,6 +351,19 @@ non-binary connector with no name to derive. `SubjectMembership.memberName` move
 3 different predate this change. `OwningMembership.memberName` moved 125 rows to equal (the conjugated
 definitions); the 2 new pilot-missing are conjugated definitions of an unnamed port definition, where
 the pilot states no name either way.
+
+**A binding and a succession subset their KerML bases** (re-recorded when the model began giving a
+SysML binding connector `Links::selfLinks` and a succession `Occurrences::happensBeforeLinks` as their
+implied base, KerML 1.1 §8.4.4.7.1 and §8.4.4.8.1, where both had fallen back to `Base::things`): 4
+scorecard rows moved, all to equal; 1291382 → 1291410 present-equal, 32953 → 32925 present-different.
+`BindingConnectorAsUsage.isVariable`/`mayTimeVary` (3 rows each) and `SuccessionAsUsage.isVariable`/
+`mayTimeVary` (12 each) now read `false` on both sides: SysML v2 §8.3.6.4 derives `mayTimeVary` false
+for a usage conforming to `Links::SelfLink` or `Occurrences::HappensLink`, which the model could not
+see while the base was missing. The 18 `EndFeatureMembership.memberName` rows those usages' implied
+ends still differ on (`source`/`target` here, `thisThing`/`sameThing` and `earlierOccurrence`/
+`laterOccurrence` in the pilot) are the end names the ends now redefine; they move once the writer
+states a minted end's `memberName`.
+
 ### Where the two sides state different values
 
 The largest **present-different** rows, with the reading the examples support:

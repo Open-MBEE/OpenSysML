@@ -150,31 +150,34 @@ func (ctx *Context) unstartedBehavior(inst *Instance, decl classifierBehaviorDec
 	return b
 }
 
-// StartFailures lists the behaviors of root and of the objects it holds, directly
-// or below, that failed to start: the diagnostics a creation reports beside the
-// object it still made, in attachment order.
+// StartFailures lists the behaviors of root and of the objects it holds, directly or
+// below, that failed to start, in attachment order: the failures placed, not the objects walked.
 func (ctx *Context) StartFailures(root *Instance) []*ObjectBehavior {
 	if root == nil {
 		return nil
 	}
-	within := map[int64]bool{root.ID: true}
-	for grew := true; grew; {
-		grew = false
-		for _, inst := range ctx.instances {
-			if within[inst.ID] || inst.owner == nil || !within[inst.owner.ID] {
-				continue
-			}
-			within[inst.ID] = true
-			grew = true
-		}
-	}
 	var failed []*ObjectBehavior
 	for _, b := range ctx.objectBehaviors {
-		if b.Err != nil && b.typeBound && within[b.Object.ID] {
+		if b.Err != nil && b.typeBound && ctx.holdsBelow(root, b.Object) {
 			failed = append(failed, b)
 		}
 	}
 	return failed
+}
+
+// holdsBelow reports whether inst is root or an object root holds, directly or
+// below, by the owners of the live objects; an owner no longer held ends the chain.
+func (ctx *Context) holdsBelow(root, inst *Instance) bool {
+	for id := inst.ID; ; {
+		if id == root.ID {
+			return true
+		}
+		live, ok := ctx.instances[id]
+		if !ok || live.owner == nil {
+			return false
+		}
+		id = live.owner.ID
+	}
 }
 
 // hasFailedBehavior reports whether any behavior a type bound failed, in which
