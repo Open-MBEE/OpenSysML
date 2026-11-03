@@ -15,7 +15,16 @@ func (r *Resolver) ResolveInvocationName(scope *symbols.Scope, qn *ast.Qualified
 	}
 	journalNew(r, r.invocationNames, qn, qn)
 	r.invocationNames[qn] = true
+	journalNew(r, r.invocationScopes, qn, qn)
+	r.invocationScopes[qn] = scope
 	return r.resolveQualified(scope, qn, nil)
+}
+
+// InvocationScope is the scope the walk read the called name qn in — a feature value's
+// declaring scope, a body's own — so a later selection among what qn denotes starts there.
+func (r *Resolver) InvocationScope(qn *ast.QualifiedName) (*symbols.Scope, bool) {
+	scope, ok := r.invocationScopes[qn]
+	return scope, ok && scope != nil
 }
 
 // InvocationCandidates returns every declaration a called name may denote from scope, in

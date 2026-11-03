@@ -285,6 +285,9 @@ type Resolver struct {
 	// invocationNames are the names invocations call, whose last segment may
 	// denote several declarations: see ResolveInvocationName.
 	invocationNames map[*ast.QualifiedName]bool
+	// invocationScopes are the scopes the called names were read in, for a reader
+	// selecting among what a name denotes from its call site after the walk.
+	invocationScopes map[*ast.QualifiedName]*symbols.Scope
 	// stack are the frames in progress, innermost last; cur is the innermost
 	// document frame, which reads and dependencies are recorded on (frames.go).
 	stack      []*frame
@@ -300,7 +303,7 @@ type Resolver struct {
 func (r *Resolver) MemoSize() int {
 	return len(r.memo) + len(r.modeMemo) + len(r.filtered) + len(r.featureChains) +
 		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
-		len(r.invocationNames) + len(r.ambiguities) + len(r.reportedQualified) +
+		len(r.invocationNames) + len(r.invocationScopes) + len(r.ambiguities) + len(r.reportedQualified) +
 		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets) +
 		len(r.collisions) + len(r.enumKept) + len(r.enumResults) + len(r.shortNames)
 }
@@ -353,6 +356,7 @@ func New(idx *symbols.Index) *Resolver {
 		resolvingAlias:    map[*symbols.Symbol]bool{},
 		reportedQualified: map[*ast.QualifiedName]bool{},
 		invocationNames:   map[*ast.QualifiedName]bool{},
+		invocationScopes:  map[*ast.QualifiedName]*symbols.Scope{},
 		ambiguities:       map[*ast.QualifiedName]int{},
 		readings:          map[readingKey]Reading{},
 	}

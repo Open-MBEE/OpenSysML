@@ -131,12 +131,25 @@ const selectedCallee = `package Selected {
         in a : ScalarValues::Real;
     }
     attribute checked : ScalarValues::Boolean = R(a = 1.0);
+    calc def h {
+        in a : ScalarValues::Real;
+        in outerOption : ScalarValues::Real default = 1.0;
+        return r : ScalarValues::Real = a + outerOption;
+    }
+    attribute shadowed : ScalarValues::Real = h(1.0) {
+        calc def h {
+            in a : ScalarValues::Real;
+            in innerOption : ScalarValues::Real default = 2.0;
+            return r : ScalarValues::Real = a + innerOption;
+        }
+    }
 }
 `
 
 // A receiver chain's call lists the parameters of the Function typing its final link that
 // no argument binds; an overloaded name lists only the parameters of the overload the arguments' types select;
-// a requirement's unbound subject is its first input parameter.
+// a requirement's unbound subject is its first input parameter; a value's call is read in the
+// feature's declaring scope, so a body member of the same name does not shadow the callee.
 func TestInvocationListsTheSelectedCalleesUnboundParameters(t *testing.T) {
 	g := turtleOf(t, "selected", selectedCallee)
 	for _, tc := range []struct {
@@ -149,6 +162,7 @@ func TestInvocationListsTheSelectedCalleesUnboundParameters(t *testing.T) {
 		{"Selected::C::one", "input", "urn:opensysml:expr:Selected__C__one_pvalue_pin0 urn:sysmlv2:element:Selected__A__g__b"},
 		{"Selected::C::two", "input", "urn:opensysml:expr:Selected__C__two_pvalue_pin0 urn:sysmlv2:element:Selected__B__g__c"},
 		{"Selected::checked", "input", "urn:opensysml:expr:Selected__checked_pvalue_pin0 urn:sysmlv2:element:Selected__R__s"},
+		{"Selected::shadowed", "input", "urn:opensysml:expr:Selected__shadowed_pvalue_pin0 urn:sysmlv2:element:Selected__h__outerOption"},
 	} {
 		if got := strings.Join(inputsOf(t, g, tc.feature, tc.predicate), " "); got != tc.want {
 			t.Errorf("%s value's %s = %q, want %q", tc.feature, tc.predicate, got, tc.want)

@@ -727,11 +727,14 @@ func (e *encoder) invokedBehavior(owner string, node ast.Node) *symbols.Symbol {
 	return nil
 }
 
-// callSiteScope is the scope an invocation's name is read in: its owner's, or where the owner has
-// no symbol of its own (an unnamed element), the scope declaring the name's first referent.
+// callSiteScope is the scope the walk read an invocation's name in; before any walk, the owner's
+// declaring scope (a value resolves there, not among the owner's members), else the first referent's.
 func (e *encoder) callSiteScope(owner string, function *ast.QualifiedName) *symbols.Scope {
-	if sym := e.ids.symByFQN[owner]; sym != nil && sym.Scope != nil {
-		return sym.Scope
+	if scope, ok := e.res.InvocationScope(function); ok {
+		return scope
+	}
+	if sym := e.ids.symByFQN[owner]; sym != nil && sym.OwnerScope != nil {
+		return sym.OwnerScope
 	}
 	if sym, ok := e.res.PartSymbol(function, len(function.Parts)-1); ok && sym != nil {
 		return sym.OwnerScope
