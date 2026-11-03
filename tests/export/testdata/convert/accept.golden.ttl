@@ -118,6 +118,7 @@ elmt:Accepts__Camera_conjugated_om
     sysml:source elmt:Accepts__Camera ;
     sysml:target elmt:Accepts__Camera_conjugated ;
     sysml:relatedElement elmt:Accepts__Camera, elmt:Accepts__Camera_conjugated ;
+    sysml:memberName "~Camera" ;
     json:relatedElement "[{\"@id\":\"Accepts__Camera\"},{\"@id\":\"Accepts__Camera_conjugated\"}]" .
 
 elmt:Accepts__Camera_conjugated_pc
@@ -499,6 +500,7 @@ expr:Accepts__Watch__framed___401_pvalue
 expr:Accepts__Watch__framed___401_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "Accepts__Watch__framed___401_pvalue_preferent" ;
+    sysml:memberName "lens" ;
     sysml:memberElement elmt:Accepts__Watch__lens ;
     sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
     sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue ;

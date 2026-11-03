@@ -193,6 +193,7 @@ elmt:SendNew__Radio_conjugated_om
     sysml:source elmt:SendNew__Radio ;
     sysml:target elmt:SendNew__Radio_conjugated ;
     sysml:relatedElement elmt:SendNew__Radio, elmt:SendNew__Radio_conjugated ;
+    sysml:memberName "~Radio" ;
     json:relatedElement "[{\"@id\":\"SendNew__Radio\"},{\"@id\":\"SendNew__Radio_conjugated\"}]" .
 
 elmt:SendNew__Radio_conjugated_pc
@@ -430,6 +431,7 @@ expr:SendNew__Downlink___402_ppayload
 expr:SendNew__Downlink___402_ppayload_pfunction
     a sysml:Membership ;
     sysml:elementId "SendNew__Downlink___402_ppayload_pfunction" ;
+    sysml:memberName "Telemetry" ;
     sysml:memberElement elmt:SendNew__Telemetry ;
     sysml:owner expr:SendNew__Downlink___402_ppayload ;
     sysml:owningRelatedElement expr:SendNew__Downlink___402_ppayload ;
@@ -552,6 +554,7 @@ expr:SendNew__Downlink___402_preceiver
 expr:SendNew__Downlink___402_preceiver_preferent
     a sysml:Membership ;
     sysml:elementId "SendNew__Downlink___402_preceiver_preferent" ;
+    sysml:memberName "antenna" ;
     sysml:memberElement elmt:SendNew__Downlink__antenna ;
     sysml:owner expr:SendNew__Downlink___402_preceiver ;
     sysml:owningRelatedElement expr:SendNew__Downlink___402_preceiver ;
@@ -663,6 +666,7 @@ expr:SendNew__Downlink___403_ppayload
 expr:SendNew__Downlink___403_ppayload_pfunction
     a sysml:Membership ;
     sysml:elementId "SendNew__Downlink___403_ppayload_pfunction" ;
+    sysml:memberName "Command" ;
     sysml:memberElement elmt:SendNew__Command ;
     sysml:owner expr:SendNew__Downlink___403_ppayload ;
     sysml:owningRelatedElement expr:SendNew__Downlink___403_ppayload ;
@@ -784,6 +788,7 @@ expr:SendNew__Downlink___403_preceiver
 expr:SendNew__Downlink___403_preceiver_preferent
     a sysml:Membership ;
     sysml:elementId "SendNew__Downlink___403_preceiver_preferent" ;
+    sysml:memberName "ground" ;
     sysml:memberElement elmt:SendNew__Downlink__ground ;
     sysml:owner expr:SendNew__Downlink___403_preceiver ;
     sysml:owningRelatedElement expr:SendNew__Downlink___403_preceiver ;

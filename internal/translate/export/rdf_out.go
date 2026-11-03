@@ -741,7 +741,11 @@ type membershipImport struct {
 // an alias written through, else the member's minted membership, else the name.
 func (e *encoder) importedMemberships() {
 	for _, imp := range e.membershipImports {
-		e.graph.Add(imp.subject, e.sysml(pImportedMembership), e.importedMembership(imp.name))
+		membership := e.importedMembership(imp.name)
+		e.graph.Add(imp.subject, e.sysml(pImportedMembership), membership)
+		if membership.IsIRI() {
+			e.graph.Add(imp.subject, e.sysml(pTarget), membership)
+		}
 	}
 }
 
@@ -755,10 +759,18 @@ func importMetaclass(imported, exposed string, expose bool) string {
 
 // importTarget types the import subject by what it imports and states the
 // target: a namespace directly, a membership once the walk has minted it.
-func (e *encoder) importTarget(subject rdf.Term, head func(rdf.Term), n *ast.Import) {
+func (e *encoder) importTarget(subject, owner rdf.Term, head func(rdf.Term), n *ast.Import) {
+	// An Import's source is its importOwningNamespace, its target what it imports (KerML 8.3.2.3.3).
+	if owner.IsIRI() && owner.Value != "" {
+		e.graph.Add(subject, e.sysml(pSource), owner)
+	}
 	if n.Kind == ast.ImportNamespace {
 		head(rdf.SysMLTerm(importMetaclass(mNamespaceImport, mNamespaceExpose, n.IsExpose)))
-		e.graph.Add(subject, e.sysml(pImportedNamespace), e.reference(n.Imported))
+		imported := e.reference(n.Imported)
+		e.graph.Add(subject, e.sysml(pImportedNamespace), imported)
+		if imported.IsIRI() {
+			e.graph.Add(subject, e.sysml(pTarget), imported)
+		}
 		return
 	}
 	head(rdf.SysMLTerm(importMetaclass(mMembershipImport, mMembershipExpose, n.IsExpose)))
@@ -769,7 +781,7 @@ func (e *encoder) importTarget(subject rdf.Term, head func(rdf.Term), n *ast.Imp
 // (SysML.xtext FilterPackage): the import imports an unnamed Package it owns,
 // which imports X and owns a private ElementFilterMembership whose condition is
 // c. The collapsed sysx:filter on the import still names the condition.
-func (e *encoder) filterPackage(subject rdf.Term, within string, n *ast.Import) error {
+func (e *encoder) filterPackage(subject, owner rdf.Term, within string, n *ast.Import) error {
 	pkg := e.ids.minted(rdf.RelationshipIRI(subject, filterPackageSuffix), subject, filterPackageSuffix)
 	inner := e.ids.minted(rdf.RelationshipIRI(pkg, filterImportSuffix), pkg, filterImportSuffix)
 	membership := e.ids.minted(rdf.RelationshipIRI(pkg, filterMembershipSuffix), pkg, filterMembershipSuffix)
@@ -779,11 +791,20 @@ func (e *encoder) filterPackage(subject rdf.Term, within string, n *ast.Import) 
 	e.typed(pkg, mPackage)
 	e.graph.Add(pkg, e.sysml(pElementID), rdf.String(rdf.LocalName(pkg.Value)))
 	e.graph.Add(subject, e.sysml(pImportedNamespace), pkg)
+	if owner.IsIRI() && owner.Value != "" {
+		e.graph.Add(subject, e.sysml(pSource), owner)
+	}
+	e.graph.Add(subject, e.sysml(pTarget), pkg)
 	e.relationshipOwnership(pkg, subject, outerClass, mPackage)
 
+	e.graph.Add(inner, e.sysml(pSource), pkg)
 	if n.Kind == ast.ImportNamespace {
 		e.typed(inner, mNamespaceImport)
-		e.graph.Add(inner, e.sysml(pImportedNamespace), e.reference(n.Imported))
+		imported := e.reference(n.Imported)
+		e.graph.Add(inner, e.sysml(pImportedNamespace), imported)
+		if imported.IsIRI() {
+			e.graph.Add(inner, e.sysml(pTarget), imported)
+		}
 	} else {
 		e.typed(inner, mMembershipImport)
 		e.membershipImports = append(e.membershipImports, membershipImport{inner, n.Imported})
@@ -1853,13 +1874,13 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			// (SysML.xtext FilterPackage): the package imports X and filters it.
 			head(rdf.SysMLTerm(importMetaclass(mNamespaceImport, mNamespaceExpose, n.IsExpose)))
 			e.flags(subject, []boolProperty{{pIsImportAll, n.IsAll}})
-			if err := e.filterPackage(subject, within, n); err != nil {
+			if err := e.filterPackage(subject, ownerTerm, within, n); err != nil {
 				return err
 			}
 		} else {
 			// A membership import names a membership, minted once the walk reaches
 			// the member, so it is written after the walk.
-			e.importTarget(subject, head, n)
+			e.importTarget(subject, ownerTerm, head, n)
 			e.flags(subject, []boolProperty{
 				{pIsImportAll, n.IsAll},
 				{pIsRecursive, n.IsRecursive},
@@ -2544,7 +2565,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, memberName: e.endMemberName(e.ids.declSym[n], i), ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -2566,7 +2587,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			continue
 		}
 		feature, element := ast.EndSelection(target)
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: feature, element: element, flow: true}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: fmt.Sprintf("end%d", i), index: i, memberName: e.endMemberName(e.ids.declSym[n], i), ends: 2, target: feature, element: element, flow: true}); err != nil {
 			return err
 		}
 	}
@@ -2633,6 +2654,21 @@ type connectorEndSpec struct {
 	// flow makes a flow's end a FlowEnd when its target is a name or a chain
 	// (SysML.xtext FlowEnd), rather than a ReferenceUsage.
 	flow bool
+	// memberName is the end's effective name, which its EndFeatureMembership states.
+	memberName string
+}
+
+// endMemberName is the effective name of the end at position i of a connector object usage
+// (ConnectorEndAttachment.Name): declared, redefined, or the binary library's source/target.
+func (e *encoder) endMemberName(sym *symbols.Symbol, i int) string {
+	if sym == nil {
+		return ""
+	}
+	ends := e.ids.model.ConnectorObjectEnds(sym)
+	if i < 0 || i >= len(ends) {
+		return ""
+	}
+	return ends[i].Name
 }
 
 // connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership.
@@ -2675,6 +2711,9 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		}
 	}
 	e.emitMembershipCore(membership, feature, subject, mEndFeatureMembership, true)
+	if end.memberName != "" {
+		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(end.memberName))
+	}
 	if end.target != nil {
 		written := e.text(end.target)
 		if end.element != nil {

@@ -258,6 +258,7 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0
 expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_preferent" ;
+    sysml:memberName "dry mass" ;
     sysml:memberElement elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
     sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 ;
     sysml:owningRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 ;
@@ -647,6 +648,7 @@ elmt:Consumer
 
 elmt:Consumer___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:Consumer ;
     sysx:positionalName "Consumer::@0" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -660,6 +662,7 @@ elmt:Consumer___400
     sysml:importOwningNamespace elmt:Consumer ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:Quoted_20Names ;
+    sysml:target elmt:Quoted_20Names ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import 'Quoted Names'::*;\n" .
 

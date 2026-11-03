@@ -1,4 +1,4 @@
-sha256 527820062a4ba79abb2c18e20d415747a57e77d0163df0eced73c500d3737393 bytes 291130 lines 4253
+sha256 20387f251a8f9c66bc15d8196409416bf4f8bc4ca5bda697c9fdf9876501fae8 bytes 291556 lines 4265
 @prefix elmt: <urn:sysmlv2:element:> .
 @prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
@@ -31,6 +31,7 @@ elmt:IrregularLayout
 
 elmt:IrregularLayout___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:IrregularLayout ;
     sysx:positionalName "IrregularLayout::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -38,4 +39,3 @@ elmt:IrregularLayout___400
     sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "IrregularLayout___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
-    sysml:owningNamespace elmt:IrregularLayout ;

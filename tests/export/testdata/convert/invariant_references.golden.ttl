@@ -28,6 +28,7 @@ elmt:InvariantReferences
 
 elmt:InvariantReferences___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:InvariantReferences ;
     sysx:positionalName "InvariantReferences::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -41,6 +42,7 @@ elmt:InvariantReferences___400
     sysml:importOwningNamespace elmt:InvariantReferences ;
     sysml:visibility "private" ;
     sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
+    sysml:target <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ScalarValues::*;\n" .
 
@@ -290,6 +292,7 @@ elmt:InvariantReferences__Tank___403___400_om
 elmt:InvariantReferences__Tank___403___400_referent
     a sysml:Membership ;
     sysml:elementId "InvariantReferences__Tank___403___400_referent" ;
+    sysml:memberName "ready" ;
     sysml:memberElement elmt:InvariantReferences__Tank__ready ;
     sysml:owner elmt:InvariantReferences__Tank___403___400 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank___403___400 ;
@@ -431,6 +434,7 @@ expr:InvariantReferences__Tank__holds___400_pa0
 expr:InvariantReferences__Tank__holds___400_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "InvariantReferences__Tank__holds___400_pa0_preferent" ;
+    sysml:memberName "sealed" ;
     sysml:memberElement elmt:InvariantReferences__Tank__sealed ;
     sysml:owner expr:InvariantReferences__Tank__holds___400_pa0 ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank__holds___400_pa0 ;
@@ -640,6 +644,7 @@ expr:InvariantReferences__Tank___405___400_pa0
 expr:InvariantReferences__Tank___405___400_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "InvariantReferences__Tank___405___400_pa0_preferent" ;
+    sysml:memberName "sealed" ;
     sysml:memberElement elmt:InvariantReferences__Tank__sealed ;
     sysml:owner expr:InvariantReferences__Tank___405___400_pa0 ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank___405___400_pa0 ;
@@ -737,6 +742,7 @@ expr:InvariantReferences__Tank___405___400_pa1
 expr:InvariantReferences__Tank___405___400_pa1_preferent
     a sysml:Membership ;
     sysml:elementId "InvariantReferences__Tank___405___400_pa1_preferent" ;
+    sysml:memberName "ready" ;
     sysml:memberElement elmt:InvariantReferences__Tank__ready ;
     sysml:owner expr:InvariantReferences__Tank___405___400_pa1 ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank___405___400_pa1 ;
@@ -954,6 +960,7 @@ expr:InvariantReferences__Tank__bounded___400_pa0
 expr:InvariantReferences__Tank__bounded___400_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "InvariantReferences__Tank__bounded___400_pa0_preferent" ;
+    sysml:memberName "level" ;
     sysml:memberElement elmt:InvariantReferences__Tank__level ;
     sysml:owner expr:InvariantReferences__Tank__bounded___400_pa0 ;
     sysml:owningRelatedElement expr:InvariantReferences__Tank__bounded___400_pa0 ;
@@ -1153,6 +1160,7 @@ elmt:InvariantReferences__Tank__bounded___401_om
 elmt:InvariantReferences__Tank__bounded___401_referent
     a sysml:Membership ;
     sysml:elementId "InvariantReferences__Tank__bounded___401_referent" ;
+    sysml:memberName "ready" ;
     sysml:memberElement elmt:InvariantReferences__Tank__ready ;
     sysml:owner elmt:InvariantReferences__Tank__bounded___401 ;
     sysml:owningRelatedElement elmt:InvariantReferences__Tank__bounded___401 ;

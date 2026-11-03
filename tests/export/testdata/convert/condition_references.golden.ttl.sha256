@@ -1,4 +1,4 @@
-sha256 ca59406059c117db59d2d3f5e86f1fdf1160fffc1c07ba8cc39f7b46b519ccf1 bytes 215576 lines 3028
+sha256 b66cabff81c34d668fdf67424bbbcd8487f540243c5e1d2fc91e0141fff64961 bytes 216189 lines 3047
 @prefix elmt: <urn:sysmlv2:element:> .
 @prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
@@ -31,6 +31,7 @@ elmt:ConditionReferences
 
 elmt:ConditionReferences___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:ConditionReferences ;
     sysx:positionalName "ConditionReferences::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -38,4 +39,3 @@ elmt:ConditionReferences___400
     sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "ConditionReferences___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
-    sysml:owningNamespace elmt:ConditionReferences ;

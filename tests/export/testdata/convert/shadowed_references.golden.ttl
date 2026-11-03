@@ -791,6 +791,7 @@ expr:Shadowing__Bus__link_pend0_om
     sysml:source elmt:Shadowing__Bus__link ;
     sysml:target expr:Shadowing__Bus__link_pend0 ;
     sysml:relatedElement elmt:Shadowing__Bus__link, expr:Shadowing__Bus__link_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"Shadowing__Bus__link\"},{\"@id\":\"Shadowing__Bus__link_pend0\"}]" .
 
 expr:Shadowing__Bus__link_pend0_pchain
@@ -878,6 +879,7 @@ expr:Shadowing__Bus__link_pend1_om
     sysml:source elmt:Shadowing__Bus__link ;
     sysml:target expr:Shadowing__Bus__link_pend1 ;
     sysml:relatedElement elmt:Shadowing__Bus__link, expr:Shadowing__Bus__link_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"Shadowing__Bus__link\"},{\"@id\":\"Shadowing__Bus__link_pend1\"}]" .
 
 expr:Shadowing__Bus__link_pend1_prs
@@ -1002,6 +1004,7 @@ elmt:Shadowing__Bus__budgeted_subject_om
     sysml:source elmt:Shadowing__Bus__budgeted ;
     sysml:target elmt:Shadowing__Bus__budgeted_subject ;
     sysml:relatedElement elmt:Shadowing__Bus__budgeted, elmt:Shadowing__Bus__budgeted_subject ;
+    sysml:memberName "subj" ;
     sysml:ownedSubjectParameter elmt:Shadowing__Bus__budgeted_subject ;
     sysml:ownedMemberParameter elmt:Shadowing__Bus__budgeted_subject ;
     sysml:ownedMemberFeature elmt:Shadowing__Bus__budgeted_subject ;
@@ -1029,6 +1032,7 @@ expr:Shadowing__Bus__budgeted_subject_pvalue
 expr:Shadowing__Bus__budgeted_subject_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "Shadowing__Bus__budgeted_subject_pvalue_preferent" ;
+    sysml:memberName "payload" ;
     sysml:memberElement elmt:Shadowing__Bus__payload ;
     sysml:owner expr:Shadowing__Bus__budgeted_subject_pvalue ;
     sysml:owningRelatedElement expr:Shadowing__Bus__budgeted_subject_pvalue ;
@@ -1214,6 +1218,7 @@ elmt:Shadowing___408_subject_om
     sysml:source elmt:Shadowing___408 ;
     sysml:target elmt:Shadowing___408_subject ;
     sysml:relatedElement elmt:Shadowing___408, elmt:Shadowing___408_subject ;
+    sysml:memberName "subj" ;
     sysml:ownedSubjectParameter elmt:Shadowing___408_subject ;
     sysml:ownedMemberParameter elmt:Shadowing___408_subject ;
     sysml:ownedMemberFeature elmt:Shadowing___408_subject ;
@@ -1241,6 +1246,7 @@ expr:Shadowing___408_subject_pvalue
 expr:Shadowing___408_subject_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "Shadowing___408_subject_pvalue_preferent" ;
+    sysml:memberName "payload" ;
     sysml:memberElement elmt:Shadowing__payload ;
     sysml:owner expr:Shadowing___408_subject_pvalue ;
     sysml:owningRelatedElement expr:Shadowing___408_subject_pvalue ;
@@ -1626,6 +1632,7 @@ expr:Shadowing__deeper__load_pvalue_pa0
 expr:Shadowing__deeper__load_pvalue_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Shadowing__deeper__load_pvalue_pa0_preferent" ;
+    sysml:memberName "vehicle" ;
     sysml:memberElement elmt:Shadowing__study__vehicle ;
     sysml:owner expr:Shadowing__deeper__load_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Shadowing__deeper__load_pvalue_pa0 ;
@@ -1705,6 +1712,7 @@ expr:Shadowing__deeper__load_pvalue_pa0_om
 expr:Shadowing__deeper__load_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Shadowing__deeper__load_pvalue_ptargetFeature" ;
+    sysml:memberName "cargo" ;
     sysml:memberElement elmt:Shadowing__Bus__cargo ;
     sysml:owner expr:Shadowing__deeper__load_pvalue ;
     sysml:owningRelatedElement expr:Shadowing__deeper__load_pvalue ;
@@ -2164,6 +2172,7 @@ elmt:Shadowing__Consumer__Lib__Cell_om
 
 elmt:Shadowing__Consumer___401
     a sysml:MembershipImport ;
+    sysml:source elmt:Shadowing__Consumer ;
     sysx:positionalName "Shadowing::Consumer::@1" ;
     sysx:sourceLine "51"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -2178,6 +2187,7 @@ elmt:Shadowing__Consumer___401
     sysml:visibility "private" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:importedMembership elmt:Shadowing__Lib__Cell_om ;
+    sysml:target elmt:Shadowing__Lib__Cell_om ;
     sysx:sourceText "        private import Shadowing::Lib::Cell;\n" .
 
 elmt:Shadowing__Consumer__cell
@@ -2326,6 +2336,7 @@ elmt:Shadowing__Exposed__Lib_om
 
 elmt:Shadowing__Exposed___401
     a sysml:NamespaceImport ;
+    sysml:source elmt:Shadowing__Exposed ;
     sysx:positionalName "Shadowing::Exposed::@1" ;
     sysx:sourceLine "57"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -2339,6 +2350,7 @@ elmt:Shadowing__Exposed___401
     sysml:importOwningNamespace elmt:Shadowing__Exposed ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:Shadowing__Lib ;
+    sysml:target elmt:Shadowing__Lib ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        private import Shadowing::Lib::*;\n" .
 

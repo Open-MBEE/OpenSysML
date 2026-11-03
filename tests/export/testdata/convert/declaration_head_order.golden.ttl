@@ -30,6 +30,7 @@ elmt:HeadOrder
 
 elmt:HeadOrder___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:HeadOrder ;
     sysx:positionalName "HeadOrder::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -43,6 +44,7 @@ elmt:HeadOrder___400
     sysml:importOwningNamespace elmt:HeadOrder ;
     sysml:visibility "private" ;
     sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
+    sysml:target <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ScalarValues::*;\n" .
 

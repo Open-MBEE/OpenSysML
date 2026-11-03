@@ -150,6 +150,7 @@ elmt:StateMachine__Bus_conjugated_om
     sysml:source elmt:StateMachine__Bus ;
     sysml:target elmt:StateMachine__Bus_conjugated ;
     sysml:relatedElement elmt:StateMachine__Bus, elmt:StateMachine__Bus_conjugated ;
+    sysml:memberName "~Bus" ;
     json:relatedElement "[{\"@id\":\"StateMachine__Bus\"},{\"@id\":\"StateMachine__Bus_conjugated\"}]" .
 
 elmt:StateMachine__Bus_conjugated_pc
@@ -1778,6 +1779,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue
 expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_preferent" ;
+    sysml:memberName "lane" ;
     sysml:memberElement elmt:StateMachine__VehicleStates__lane ;
     sysml:owner expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
     sysml:owningRelatedElement expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;

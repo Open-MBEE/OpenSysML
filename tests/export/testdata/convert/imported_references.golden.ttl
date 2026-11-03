@@ -388,6 +388,7 @@ elmt:R90
 
 elmt:R90___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:R90 ;
     sysx:positionalName "R90::@0" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -401,6 +402,7 @@ elmt:R90___400
     sysml:importOwningNamespace elmt:R90 ;
     sysml:visibility "public" ;
     sysml:importedNamespace elmt:OtherPkg ;
+    sysml:target elmt:OtherPkg ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    public import OtherPkg::*;\n" .
 
@@ -576,6 +578,7 @@ expr:R90__A__t_pvalue
 expr:R90__A__t_pvalue_preferent
     a sysml:Membership ;
     sysml:elementId "R90__A__t_pvalue_preferent" ;
+    sysml:memberName "operative" ;
     sysml:memberElement elmt:OtherPkg__Tempo__operative ;
     sysml:owner expr:R90__A__t_pvalue ;
     sysml:owningRelatedElement expr:R90__A__t_pvalue ;
@@ -917,6 +920,7 @@ expr:R90__A__s_pvalue_pa0
 expr:R90__A__s_pvalue_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "R90__A__s_pvalue_pa0_preferent" ;
+    sysml:memberName "w" ;
     sysml:memberElement elmt:R90__A__w ;
     sysml:owner expr:R90__A__s_pvalue_pa0 ;
     sysml:owningRelatedElement expr:R90__A__s_pvalue_pa0 ;
@@ -996,6 +1000,7 @@ expr:R90__A__s_pvalue_pa0_om
 expr:R90__A__s_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "R90__A__s_pvalue_ptargetFeature" ;
+    sysml:memberName "size" ;
     sysml:memberElement elmt:OtherPkg__Inner__Wheel__size ;
     sysml:owner expr:R90__A__s_pvalue ;
     sysml:owningRelatedElement expr:R90__A__s_pvalue ;
@@ -1984,6 +1989,8 @@ elmt:Filtered___400
     sysml:importOwningNamespace elmt:Filtered ;
     sysml:visibility "public" ;
     sysml:importedNamespace elmt:Filtered___400_fp ;
+    sysml:source elmt:Filtered ;
+    sysml:target elmt:Filtered___400_fp ;
     sysml:ownedRelatedElement elmt:Filtered___400_fp ;
     sysx:filter expr:Filtered___400_pfilter ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -2001,7 +2008,9 @@ elmt:Filtered___400_fp
 
 elmt:Filtered___400_fp_im
     a sysml:NamespaceImport ;
+    sysml:source elmt:Filtered___400_fp ;
     sysml:importedNamespace elmt:Meta ;
+    sysml:target elmt:Meta ;
     sysml:elementId "Filtered___400_fp_im" ;
     sysml:importOwningNamespace elmt:Filtered___400_fp ;
     sysml:owner elmt:Filtered___400_fp ;

@@ -374,6 +374,7 @@ expr:P__h__r_pvalue_pa0_pa0
 expr:P__h__r_pvalue_pa0_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "P__h__r_pvalue_pa0_pa0_preferent" ;
+    sysml:memberName "n" ;
     sysml:memberElement elmt:P__n ;
     sysml:owner expr:P__h__r_pvalue_pa0_pa0 ;
     sysml:owningRelatedElement expr:P__h__r_pvalue_pa0_pa0 ;
@@ -453,6 +454,7 @@ expr:P__h__r_pvalue_pa0_pa0_om
 expr:P__h__r_pvalue_pa0_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "P__h__r_pvalue_pa0_ptargetFeature" ;
+    sysml:memberName "next" ;
     sysml:memberElement elmt:P__Node__next ;
     sysml:owner expr:P__h__r_pvalue_pa0 ;
     sysml:owningRelatedElement expr:P__h__r_pvalue_pa0 ;
@@ -532,6 +534,7 @@ expr:P__h__r_pvalue_pa0_om
 expr:P__h__r_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "P__h__r_pvalue_ptargetFeature" ;
+    sysml:memberName "next" ;
     sysml:memberElement elmt:P__Node__next ;
     sysml:owner expr:P__h__r_pvalue ;
     sysml:owningRelatedElement expr:P__h__r_pvalue ;
@@ -659,6 +662,7 @@ expr:P__c_pend0_om
     sysml:source elmt:P__c ;
     sysml:target expr:P__c_pend0 ;
     sysml:relatedElement elmt:P__c, expr:P__c_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"P__c\"},{\"@id\":\"P__c_pend0\"}]" .
 
 expr:P__c_pend0_pchain
@@ -758,6 +762,7 @@ expr:P__c_pend1_om
     sysml:source elmt:P__c ;
     sysml:target expr:P__c_pend1 ;
     sysml:relatedElement elmt:P__c, expr:P__c_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"P__c\"},{\"@id\":\"P__c_pend1\"}]" .
 
 expr:P__c_pend1_pchain

@@ -568,6 +568,7 @@ expr:Chains__Car__a_pvalue_pa0
 expr:Chains__Car__a_pvalue_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Chains__Car__a_pvalue_pa0_preferent" ;
+    sysml:memberName "w" ;
     sysml:memberElement elmt:Chains__Car__w ;
     sysml:owner expr:Chains__Car__a_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Chains__Car__a_pvalue_pa0 ;
@@ -647,6 +648,7 @@ expr:Chains__Car__a_pvalue_pa0_om
 expr:Chains__Car__a_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Chains__Car__a_pvalue_ptargetFeature" ;
+    sysml:memberName "x" ;
     sysml:memberElement elmt:Gen__G1__x ;
     sysml:owner expr:Chains__Car__a_pvalue ;
     sysml:owningRelatedElement expr:Chains__Car__a_pvalue ;
@@ -780,6 +782,7 @@ expr:Chains__Car__b_pvalue_pa0
 expr:Chains__Car__b_pvalue_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Chains__Car__b_pvalue_pa0_preferent" ;
+    sysml:memberName "w" ;
     sysml:memberElement elmt:Chains__Car__w ;
     sysml:owner expr:Chains__Car__b_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Chains__Car__b_pvalue_pa0 ;
@@ -859,6 +862,7 @@ expr:Chains__Car__b_pvalue_pa0_om
 expr:Chains__Car__b_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Chains__Car__b_pvalue_ptargetFeature" ;
+    sysml:memberName "x" ;
     sysml:memberElement elmt:Gen__G2__x ;
     sysml:owner expr:Chains__Car__b_pvalue ;
     sysml:owningRelatedElement expr:Chains__Car__b_pvalue ;
@@ -992,6 +996,7 @@ expr:Chains__Car__c_pvalue_pa0
 expr:Chains__Car__c_pvalue_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Chains__Car__c_pvalue_pa0_preferent" ;
+    sysml:memberName "w" ;
     sysml:memberElement elmt:Chains__Car__w ;
     sysml:owner expr:Chains__Car__c_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Chains__Car__c_pvalue_pa0 ;
@@ -1071,6 +1076,7 @@ expr:Chains__Car__c_pvalue_pa0_om
 expr:Chains__Car__c_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Chains__Car__c_pvalue_ptargetFeature" ;
+    sysml:memberName "y" ;
     sysml:memberElement elmt:Gen__G1__y ;
     sysml:owner expr:Chains__Car__c_pvalue ;
     sysml:owningRelatedElement expr:Chains__Car__c_pvalue ;
@@ -1227,6 +1233,7 @@ expr:Chains__Car__d_pvalue_pa0_pa0
 expr:Chains__Car__d_pvalue_pa0_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Chains__Car__d_pvalue_pa0_pa0_preferent" ;
+    sysml:memberName "axle" ;
     sysml:memberElement elmt:Chains__Car__axle ;
     sysml:owner expr:Chains__Car__d_pvalue_pa0_pa0 ;
     sysml:owningRelatedElement expr:Chains__Car__d_pvalue_pa0_pa0 ;
@@ -1306,6 +1313,7 @@ expr:Chains__Car__d_pvalue_pa0_pa0_om
 expr:Chains__Car__d_pvalue_pa0_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Chains__Car__d_pvalue_pa0_ptargetFeature" ;
+    sysml:memberName "hub" ;
     sysml:memberElement elmt:Chains__Axle__hub ;
     sysml:owner expr:Chains__Car__d_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Chains__Car__d_pvalue_pa0 ;
@@ -1385,6 +1393,7 @@ expr:Chains__Car__d_pvalue_pa0_om
 expr:Chains__Car__d_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Chains__Car__d_pvalue_ptargetFeature" ;
+    sysml:memberName "x" ;
     sysml:memberElement elmt:Gen__G2__x ;
     sysml:owner expr:Chains__Car__d_pvalue ;
     sysml:owningRelatedElement expr:Chains__Car__d_pvalue ;
@@ -1541,6 +1550,7 @@ expr:Chains__Car__e_pvalue_pa0_pa0
 expr:Chains__Car__e_pvalue_pa0_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Chains__Car__e_pvalue_pa0_pa0_preferent" ;
+    sysml:memberName "axle" ;
     sysml:memberElement elmt:Chains__Car__axle ;
     sysml:owner expr:Chains__Car__e_pvalue_pa0_pa0 ;
     sysml:owningRelatedElement expr:Chains__Car__e_pvalue_pa0_pa0 ;
@@ -1620,6 +1630,7 @@ expr:Chains__Car__e_pvalue_pa0_pa0_om
 expr:Chains__Car__e_pvalue_pa0_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Chains__Car__e_pvalue_pa0_ptargetFeature" ;
+    sysml:memberName "hub" ;
     sysml:memberElement elmt:Chains__Axle__hub ;
     sysml:owner expr:Chains__Car__e_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Chains__Car__e_pvalue_pa0 ;
@@ -1699,6 +1710,7 @@ expr:Chains__Car__e_pvalue_pa0_om
 expr:Chains__Car__e_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Chains__Car__e_pvalue_ptargetFeature" ;
+    sysml:memberName "y" ;
     sysml:memberElement elmt:Gen__G1__y ;
     sysml:owner expr:Chains__Car__e_pvalue ;
     sysml:owningRelatedElement expr:Chains__Car__e_pvalue ;
@@ -1873,6 +1885,7 @@ expr:Chains__Car__f_pvalue_pa0
 expr:Chains__Car__f_pvalue_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Chains__Car__f_pvalue_pa0_preferent" ;
+    sysml:memberName "spare" ;
     sysml:memberElement elmt:Chains__Car__spare ;
     sysml:owner expr:Chains__Car__f_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Chains__Car__f_pvalue_pa0 ;
@@ -1952,6 +1965,7 @@ expr:Chains__Car__f_pvalue_pa0_om
 expr:Chains__Car__f_pvalue_ptargetFeature
     a sysml:Membership ;
     sysml:elementId "Chains__Car__f_pvalue_ptargetFeature" ;
+    sysml:memberName "y" ;
     sysml:memberElement elmt:Gen__G1__y ;
     sysml:owner expr:Chains__Car__f_pvalue ;
     sysml:owningRelatedElement expr:Chains__Car__f_pvalue ;

@@ -1357,6 +1357,11 @@ func (d *decoder) checkReferences() error {
 				triple.Predicate.Value == rdf.SysML+pTarget) {
 			continue
 		}
+		// An import's ends restate its owner and what it imports, which may be a library namespace.
+		if ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), mImport) &&
+			(triple.Predicate.Value == rdf.SysML+pSource || triple.Predicate.Value == rdf.SysML+pTarget) {
+			continue
+		}
 		// A membership's ends restate its owner and member, which its ownership edges already check.
 		if (ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), mMembership) || d.nodeMembership[triple.Subject.Value]) &&
 			(triple.Predicate.Value == rdf.SysML+pSource || triple.Predicate.Value == rdf.SysML+pTarget ||
