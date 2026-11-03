@@ -48,8 +48,7 @@ $ sysml -e "3 * (2 + 4)"
   = 18
 ```
 
-Repeat `-e` to evaluate several expressions against the same loaded model; `-calc` calls a
-model's own `calc` the same way (§3).
+Repeat `-e` to evaluate several expressions against the same loaded model (used in §3).
 
 ---
 
@@ -98,14 +97,17 @@ package Rover {
 EOF
 ```
 
-Evaluating the model's own `calc` from the command line — a model as a callable artifact:
+Evaluating the model's own `calc` from the command line — a model as a callable artifact. The
+expression is evaluated inside the last namespace the file declares, `package Rover`, where the name
+`Rover` is the part def `Rover::Rover` (KerML 8.2.3.5.1 resolves the first segment of a qualified
+name from the local namespace outwards), so the package is named with the global scope qualifier
+`$::`:
 
 ```console
-$ sysml -calc "Rover::rangeKm(600, 12)" rover.sysml
+$ sysml -e "$::Rover::rangeKm(600, 12)" rover.sysml
 ✓ package Rover
-✓ Rover::rangeKm(600, 12)
+✓ $::Rover::rangeKm(600, 12)
   = [50.0]
-  standing: value (observed: 1 run under reverse)
 ```
 
 ---
