@@ -2806,8 +2806,8 @@
         "clause": "8.3.2.4.5",
         "name": "validateNamespaceDistinguishibility"
       },
-      "checks": "Memberships of a namespace — owned, inherited and imported — are distinguishable by name and short name, unless their member elements' metaclasses conform in neither direction (KerML 8.3.2.4.3; a warning by default and, for owned, alias, short-name and inherited memberships, an error under strict conformance; the pilot's constant is spelled `Distinguishablity`, the pilot does not implement the metaclass clause, and it never compares an imported membership with another imported or an inherited one). For imported memberships the constraint is reached through KerML 7.2.5.4, which hides a name two imports bring; the warning reports the hidden pair, but resolution binds the first import's member, as the pilot does, where the clause leaves the reference unresolved — hence approximate. One membership two imports reach, two memberships of one element, an imported name an owned member hides and library content are not reported",
-      "implementation": "internal/semantic/resolve/distinguishability.go:checkOwnedNames; internal/semantic/resolve/distinguishability.go:checkInheritedNames; internal/semantic/resolve/distinguishability.go:checkImportedNames; internal/semantic/resolve/distinguishability.go:Resolver.DistinguishableByMetaclass",
+      "checks": "Memberships of a namespace — owned, inherited and imported — are distinguishable by name and short name, unless their member elements' metaclasses conform in neither direction (KerML 8.3.2.4.3; a warning by default and, for owned, alias, short-name and inherited memberships, an error under strict conformance; the pilot's constant is spelled `Distinguishablity`, the pilot does not implement the metaclass clause, and it never compares an imported membership with another imported or an inherited one). Imported memberships never reach the constraint: KerML 7.2.5.4 hides a membership whose name another import, an owned member or (7.3.2) an inherited member repeats, so the namespace keeps no indistinguishable pair; the hiding is a derivation, nothing is reported for it, and a reference to the hidden name is unresolved, as the clause leaves it. One membership two imports reach, two memberships of one element and library content are not hidden",
+      "implementation": "internal/semantic/resolve/distinguishability.go:checkOwnedNames; internal/semantic/resolve/distinguishability.go:checkInheritedNames; internal/semantic/resolve/distinguishability.go:hideImportCollisions; internal/semantic/resolve/distinguishability.go:hiddenImports; internal/semantic/resolve/distinguishability.go:Resolver.DistinguishableByMetaclass",
       "message": "—",
       "negativeCase": "none",
       "codes": [
@@ -2816,8 +2816,7 @@
       "passes": [
         "name-resolution"
       ],
-      "status": "approximate",
-      "rationale": "a name two imports hide is reported but still resolves to the first import's member, where KerML 7.2.5.4 leaves the reference unresolved"
+      "status": "faithful"
     },
     {
       "name": "validateObjectiveMembershipIsComposite",

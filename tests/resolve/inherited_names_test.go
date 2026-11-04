@@ -515,9 +515,9 @@ func diagnosticsWithCode(r *resolve.Resolver, code string) []resolve.Diagnostic 
 
 // An imported membership KerML 7.2.5.4 hides — colliding with another import's
 // or with an owned name — is no membership of the importing namespace
-// (8.3.2.4.5 importedMemberships), so a subtype inherits none of it: the
-// warning stays on the import and the subtype is clean. A collision-free import
-// is inherited as before.
+// (8.3.2.4.5 importedMemberships), so a subtype inherits none of it and is
+// clean, the hiding itself being no violation. A collision-free import is
+// inherited as before.
 func TestHiddenImportsOfAGeneralAreNotInherited(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -527,7 +527,7 @@ func TestHiddenImportsOfAGeneralAreNotInherited(t *testing.T) {
 		{
 			"two imports collide",
 			`part def G { import A::*; import B::*; }`,
-			[]string{"Duplicate of imported member name 'x': P::A::x (import A::*), P::B::x (import B::*)"},
+			nil,
 		},
 		{
 			"an owned name hides an import",
@@ -559,11 +559,11 @@ func TestHiddenImportsOfAGeneralAreNotInherited(t *testing.T) {
 	}
 }
 
-// An import colliding with an inherited name of the same type is not hidden
-// (KerML 8.3.2.4.5 excludes only collisions with each other or with an owned
-// membership): the type is warned, and its subtypes inherit both members and
-// are warned in turn, as the pilot does.
-func TestImportsCollidingWithInheritedNamesAreInherited(t *testing.T) {
+// An import colliding with an inherited name of the same type is hidden by it
+// (KerML 7.3.2: "similarly to how it would be hidden by a conflicting owned
+// membership"), so it is no membership of the type and its subtypes inherit
+// the inherited member alone; nothing is reported at any level.
+func TestImportsCollidingWithInheritedNamesAreHidden(t *testing.T) {
 	r, _, _ := resolvedDoc(t, `package P {
 		part def Base { part x; }
 		package Q { part x; }
@@ -575,13 +575,8 @@ func TestImportsCollidingWithInheritedNamesAreInherited(t *testing.T) {
 	for _, d := range diagnosticsWithCode(r, resolve.CodeNameConflict) {
 		got = append(got, d.Message)
 	}
-	want := []string{
-		"Duplicate of imported member name 'x': P::Q::x (import Q::*), P::Base::x (inherited)",
-		"Duplicate of inherited member name 'x' from Base, Q",
-		"Duplicate of inherited member name 'x' from Base, Q",
-	}
-	if strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Errorf("name conflicts = %q, want %q", got, want)
+	if len(got) != 0 {
+		t.Errorf("name conflicts = %q, want none", got)
 	}
 }
 
