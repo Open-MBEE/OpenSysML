@@ -36,3 +36,27 @@ func TestW9CStepEndImplicitRedefinitionIsNoNameConflict(t *testing.T) {
 		}
 	}
 }
+
+// The behavior's ends may be inherited from a general behavior rather than
+// declared on it; the step's ends still pair with them.
+func TestW9CStepEndRedefinesInheritedBehaviorEnd(t *testing.T) {
+	src := `package Computed {
+	class Occ;
+	behavior Base {
+		end feature source : Occ { feature output; }
+		end feature target : Occ;
+	}
+	behavior Derived specializes Base;
+	behavior Observe {
+		step use : Derived {
+			end feature source { feature redefines output; }
+			end feature target;
+		}
+	}
+}`
+	for _, code := range []string{"name-conflict", "unresolved"} {
+		if got := only(kermlLibraryDiags(t, src), code); len(got) != 0 {
+			t.Errorf("%s: got %+v, want none", code, got)
+		}
+	}
+}
