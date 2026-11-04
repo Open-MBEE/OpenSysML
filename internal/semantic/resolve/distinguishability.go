@@ -855,8 +855,12 @@ func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool 
 	for _, name := range r.ownedNames(scope) {
 		hiding[name] = true
 	}
-	for name := range r.inheritedNamesHiding(scope) {
-		hiding[name] = true
+	for _, syms := range r.inheritedNamesHiding(scope) {
+		for _, sym := range syms {
+			for _, name := range r.memberNames(sym) {
+				hiding[name] = true
+			}
+		}
 	}
 	hidden := map[*symbols.Symbol]bool{}
 	for _, imp := range imports {
@@ -872,6 +876,29 @@ func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool 
 		}
 	}
 	return hidden
+}
+
+// HidesImportedName reports whether an owned or an inherited member of scope
+// binds name, so that no import of scope surfaces it (KerML 7.2.5.4, 7.3.2).
+func (r *Resolver) HidesImportedName(scope *symbols.Scope, name string) bool {
+	if len(r.scopeImports(scope)) == 0 {
+		return false
+	}
+	for _, owned := range r.ownedNames(scope) {
+		if owned == name {
+			return true
+		}
+	}
+	for _, syms := range r.inheritedNamesHiding(scope) {
+		for _, sym := range syms {
+			for _, bound := range r.memberNames(sym) {
+				if bound == name {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // inheritedNamesHiding is what the type owning scope inherits, by name; a scope

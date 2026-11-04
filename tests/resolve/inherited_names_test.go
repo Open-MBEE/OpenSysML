@@ -580,6 +580,23 @@ func TestImportsCollidingWithInheritedNamesAreHidden(t *testing.T) {
 	}
 }
 
+// An inherited member hides an import under its short name as under its name
+// (KerML 8.3.2.4.3 compares both): the subtype inherits the member alone.
+func TestInheritedShortNameHidesImport(t *testing.T) {
+	r, root, scope := resolvedDoc(t, `package P {
+		part def Base { part <e> engine; }
+		package Q { part e; }
+		part def G :> Base { public import Q::*; }
+		part def S :> G { part x :> e; }
+	}`)
+	if got := bindingOf(t, r, root, scope, "e"); got != "P::Base::engine" {
+		t.Errorf("e binds %q, want P::Base::engine", got)
+	}
+	if got := diagnosticsWithCode(r, resolve.CodeNameConflict); len(got) != 0 {
+		t.Errorf("name conflicts = %v, want none", got)
+	}
+}
+
 func TestCyclicGeneralsWithImportsAreAnswered(t *testing.T) {
 	r, _, _ := resolvedDoc(t, `package P {
 		package X { part x; }

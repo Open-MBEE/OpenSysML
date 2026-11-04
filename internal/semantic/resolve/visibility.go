@@ -157,6 +157,9 @@ func (r *Resolver) eachInheritedImport(scope *symbols.Scope, name string, yield 
 		if sup == nil || sup.Scope == nil {
 			continue
 		}
+		if r.HidesImportedName(sup.Scope, name) {
+			continue
+		}
 		for _, imp := range sup.Scope.Imports() {
 			if !inheritedThroughSpecialization(imp) || !r.importPrefixAvailable(sup.Scope, imp, name) {
 				continue
