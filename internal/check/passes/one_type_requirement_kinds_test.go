@@ -2,10 +2,8 @@ package passes
 
 import "testing"
 
-// A concern, framed concern, objective and satisfy requirement are RequirementUsages
-// (`requirementDefinition : RequirementDefinition [0..1]`, SysML v2 §8.3.21.9), and a
-// `render` is a RenderingUsage (`renderingDefinition [0..1]`, §8.3.26.6): a second
-// effective type is reported under the pilot's requirement/rendering message.
+// Concern, framed concern, objective and satisfy are RequirementUsages (SysML v2 §8.3.21.9)
+// and a render a RenderingUsage (§8.3.26.6): a second effective type gets the pilot's message.
 func TestOneTypeCoversTheRequirementAndRenderingUsageFamilies(t *testing.T) {
 	const reqMsg = "A requirement must be typed by one requirement definition."
 	const renMsg = "A rendering must be typed by one rendering definition."
