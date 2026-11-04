@@ -219,3 +219,13 @@ func TestNaryDependencyAndConnectionDefAreDots(t *testing.T) {
 		t.Errorf("end labels = %q, want hub[1],left[1],right[1]", got)
 	}
 }
+
+func TestSplitRouteKeepsALoneWaypointOnTheFirstSegment(t *testing.T) {
+	pieces := splitRoute([]Point{{X: 150, Y: 80}}, 2)
+	if len(pieces) != 3 || len(pieces[0]) != 1 || pieces[0][0] != (Point{X: 150, Y: 80}) || pieces[1] != nil || pieces[2] != nil {
+		t.Fatalf("splitRoute of one waypoint = %v, want it on the first of three pieces", pieces)
+	}
+	if splitRoute(nil, 1) != nil {
+		t.Fatal("splitRoute of no route is not nil")
+	}
+}

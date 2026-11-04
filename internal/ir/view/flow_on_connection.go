@@ -101,7 +101,7 @@ func (w *featureWalk) splitLine(line Edge, flows []flowSite) []Edge {
 	routes := splitRoute(line.Route, len(boxes))
 	atCut := make([]bool, len(boxes))
 	for i, box := range boxes {
-		if box.Geometry == nil && routes != nil {
+		if box.Geometry == nil && routes != nil && len(routes[i+1]) > 0 {
 			cut := routes[i+1][0]
 			box.Geometry, atCut[i] = &Geometry{X: cut.X, Y: cut.Y}, true
 		}
@@ -190,10 +190,16 @@ func segmentRoute(piece []Point, headCut, tailCut bool) []Point {
 }
 
 // splitRoute cuts a stated route into n+1 pieces of equal length, the cut
-// points shared by neighbouring pieces; nil for a route with no two points.
+// points shared by neighbouring pieces; nil for no route. A lone waypoint has
+// no length to cut and stays on the first piece, the others empty.
 func splitRoute(route []Point, n int) [][]Point {
-	if len(route) < 2 {
+	if len(route) == 0 {
 		return nil
+	}
+	if len(route) == 1 {
+		pieces := make([][]Point, n+1)
+		pieces[0] = route
+		return pieces
 	}
 	total := 0.0
 	for i := 1; i < len(route); i++ {

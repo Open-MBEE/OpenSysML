@@ -57,7 +57,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e1" label="" kind="connection" view="ToasterViews::toasterView" link="interconnection-ports.sysml:23">
+        <object id="e1" label="" fqn="ToasterDemo::Toaster::durationInterface" kind="connection" view="ToasterViews::toasterView" link="interconnection-ports.sysml:23">
           <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=0.5;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n4" target="n1:n1.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">

@@ -61,6 +61,7 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 		cells:     map[string]bool{},
 		portBoxes: map[string]drawioBox{},
 		fqns:      map[string]bool{},
+		items:     map[string]bool{},
 	}
 	if r.Kind == KindAction {
 		w.used = r.usedPorts(w.ports)
@@ -68,6 +69,7 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 	}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
+		w.collectItems(root)
 	}
 	w.layout(r)
 	edges, err := w.routeEdges(r)
@@ -91,6 +93,7 @@ type drawioWriter struct {
 	cells     map[string]bool       // the cell IDs written, the ends an edge may attach to
 	portBoxes map[string]drawioBox  // port cell ID -> its box in canvas coordinates
 	fqns      map[string]bool       // the qualified names written on cells so far
+	items     map[string]bool       // the item boxes the flows on a connection line are drawn as
 	names     map[string]drawioName // cell ID -> where its label shows the declared name
 	edgeIDs   map[[2]string]string  // edge ends -> its cell ID, the anchor an edge note joins
 	b         strings.Builder
@@ -814,10 +817,26 @@ func (w *drawioWriter) edgeFQN(edge Edge) string {
 		return ""
 	}
 	fqn := w.siteName(edge.Origin)
-	if w.fqns[fqn] {
+	if w.fqns[fqn] && !w.segment(edge) {
 		return ""
 	}
 	return fqn
+}
+
+// collectItems notes the item boxes under node, the ends a split line's segments share.
+func (w *drawioWriter) collectItems(node *Node) {
+	if itemBox(node) {
+		w.items[node.ID] = true
+	}
+	for _, child := range node.Children {
+		w.collectItems(child)
+	}
+}
+
+// segment reports whether edge is one segment of a connection line the flows on
+// it split: every segment names the connection, being one line.
+func (w *drawioWriter) segment(edge Edge) bool {
+	return edge.Kind == EdgeConnection && (w.items[edge.From] || w.items[edge.To])
 }
 
 // drawioEnds is a set of edge ends.

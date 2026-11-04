@@ -207,7 +207,18 @@ func drawioLinkLine(content, link string) string {
 
 // drawioReroute bends the edge through two waypoints of its own.
 func drawioReroute(cell string) string {
-	const points = `<Array as="points"><mxPoint x="33" y="44"/><mxPoint x="55" y="44"/></Array>`
+	return drawioRerouteThrough(`<mxPoint x="33" y="44"/><mxPoint x="55" y="44"/>`)(cell)
+}
+
+// drawioRerouteThrough is drawioReroute through the given mxPoints.
+func drawioRerouteThrough(waypoints string) func(cell string) string {
+	points := `<Array as="points">` + waypoints + `</Array>`
+	return func(cell string) string {
+		return drawioRerouteWith(cell, points)
+	}
+}
+
+func drawioRerouteWith(cell, points string) string {
 	if re := regexp.MustCompile(`(?s)<Array as="points">.*?</Array>`); re.MatchString(cell) {
 		return re.ReplaceAllString(cell, points)
 	}
@@ -298,7 +309,15 @@ var drawioMutations = []drawioMutation{
 		// split it into segments, and the waypoints survive on the line as a whole.
 		line: func(t *testing.T, editedFile, re *view.DrawioFile, edited, again *view.DrawioCell) {
 			want, got := drawioLinePoints(editedFile, edited), drawioLinePoints(re, again)
-			if len(got) != 2 || !slices.Equal(got, want) {
+			if len(want) == 0 || !slices.Equal(got, want) {
+				t.Errorf("routed through %+v, re-exported through %+v", want, got)
+			}
+		}},
+	{name: "route through one bend", pick: drawioEdge(true), edit: drawioRerouteThrough(`<mxPoint x="150" y="80"/>`), kind: view.DrawioEditRoute,
+		// A lone waypoint cannot be cut between the segments; it stays on the line.
+		line: func(t *testing.T, editedFile, re *view.DrawioFile, edited, again *view.DrawioCell) {
+			want, got := drawioLinePoints(editedFile, edited), drawioLinePoints(re, again)
+			if len(want) == 0 || !slices.Equal(got, want) {
 				t.Errorf("routed through %+v, re-exported through %+v", want, got)
 			}
 		}},
