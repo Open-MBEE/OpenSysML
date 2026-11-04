@@ -145,7 +145,6 @@ const (
 	reasonAlternatives = "a list of alternatives; adjudicated through the alternatives it names"
 	reasonTextual      = "textual notation of §8.2.2 reused as the text of a drawn element"
 	reasonNoCompart    = "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
-	reasonSequence     = "documented as undrawn in view-rendering-forms.md § Notation table: the sequence form draws its own arrow"
 	reasonActionBox    = "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
 	reasonNoKeyword    = "the box is drawn but its keyword is not written"
 	reasonOnlyParallel = "the keyword and name are written, the optional «parallel» marker is not"
