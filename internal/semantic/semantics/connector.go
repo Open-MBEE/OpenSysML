@@ -165,9 +165,6 @@ func (m *Model) effectiveEnds(sym *symbols.Symbol) []connectorEnd {
 	redefined := m.redefinedByEnds(owned)
 	var inherited []connectorEnd
 	for _, sup := range m.DirectSupertypes(sym) {
-		if !m.isConnectorLike(sup) {
-			continue
-		}
 		for i, end := range m.effectiveEnds(sup) {
 			if !endRedefined(end.feature, i, owned, redefined) {
 				inherited = append(inherited, end)
@@ -333,7 +330,7 @@ func (m *Model) declaredEndCount(sym *symbols.Symbol) int {
 			continue
 		}
 		sup := m.relationshipTarget(sym, rel)
-		if sup == nil || sup == sym || !m.isConnectorLike(sup) {
+		if sup == nil || sup == sym {
 			continue
 		}
 		ends := m.effectiveEnds(sup)
