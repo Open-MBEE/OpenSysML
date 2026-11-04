@@ -62,8 +62,7 @@ others: an element's `owner` is the other end of its `owningRelationship`, its `
 what its memberships name. A reader that follows the owned properties does not need them, and
 a reader that does can list them in `keep_derived`. The derived properties the element array completes from the
 metamodel (`isLibraryElement`, …; `sysx:completedProperties` names them on each element) go
-with the rest; the list stays as written, and a listed property the element leaves out states
-nothing either way.
+with the rest, and the list names only the ones still written.
 
 ## The document
 

@@ -75,8 +75,8 @@ func TestAPIJSONUnmarkedCompletedPropertyReadsAsStated(t *testing.T) {
 	}
 }
 
-// The compact form without derived properties leaves the completed derived
-// values out and keeps the list naming them; with them it writes both.
+// The compact form without derived properties leaves the completed ones and
+// their marker out; with them it writes both, as the element array does.
 func TestAPIJSONCompactOmitsCompletedProperties(t *testing.T) {
 	graph := booleansGraph(t)
 	for _, omit := range []bool{false, true} {
@@ -85,10 +85,11 @@ func TestAPIJSONCompactOmitsCompletedProperties(t *testing.T) {
 			t.Fatal(err)
 		}
 		text := string(compact)
-		stated := strings.Contains(text, `"isLibraryElement":`)
+		stated := strings.Contains(text, `"isLibraryElement"`)
+		// visibility is completed at its default, not derived, so the marker still names it.
 		listed := strings.Contains(text, `"`+apiJSONCompletedPropertiesKey+`":["isLibraryElement"`)
-		if stated == omit || !listed || !strings.Contains(text, `"visibility"`) {
-			t.Errorf("OmitDerived=%v: isLibraryElement written %v, listed %v", omit, stated, listed)
+		if stated == omit || listed == omit || !strings.Contains(text, `"visibility"`) {
+			t.Errorf("OmitDerived=%v: isLibraryElement written %v, listed first %v", omit, stated, listed)
 		}
 	}
 }
