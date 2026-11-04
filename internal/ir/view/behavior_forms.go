@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -284,12 +283,6 @@ func statementNode(statement lower.Statement) ast.Node {
 // section of the node's box headed by the body compartment's name.
 func (r *Renderer) bodySection(body compoundBody, doc string, ids *nodeIDs) *Node {
 	return &Node{ID: ids.take(), Kind: body.kind, Origin: nodeOrigin(doc, body.block.Node)}
-}
-
-// flowOwner is the symbol a flow's nodes are placed under: the declaration a
-// subject renders, else the one standing for the node a body belongs to.
-func (r *Renderer) flowOwner(elem *symbols.Symbol, decl ast.Node) *symbols.Symbol {
-	return r.declaredSymbol(elem, decl)
 }
 
 // swimlaneKind is the kind of a swimlane: the dashed lane of a perform-actions

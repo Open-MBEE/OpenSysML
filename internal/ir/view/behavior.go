@@ -377,6 +377,9 @@ const (
 	exitActionKind  = "exit action"
 )
 
+// stateActionKinds is the node kind of each state action compartment's actions.
+var stateActionKinds = map[string]string{"entry": entryActionKind, "do": doActionKind, "exit": exitActionKind}
+
 // stateActionParts are a state's behaviors by compartment, in the figure's
 // order: `entry`, `do`, `exit`.
 func stateActionParts(behaviors *lower.StateBehaviors) []struct {
@@ -442,7 +445,7 @@ func (r *Renderer) stateActionNodes(doc string, behaviors *lower.StateBehaviors,
 			if !ok || behavior.Name == "" && !usage.HasBody {
 				continue
 			}
-			node := &Node{ID: ids.take(), Kind: part.name + " action", Name: nameText(behavior.Name), Type: nodeType(usage),
+			node := &Node{ID: ids.take(), Kind: stateActionKinds[part.name], Name: nameText(behavior.Name), Type: nodeType(usage),
 				Origin: nodeOrigin(doc, behavior.Node)}
 			if node.Name == "" {
 				node.Text = r.behaviorText(doc, behavior)
