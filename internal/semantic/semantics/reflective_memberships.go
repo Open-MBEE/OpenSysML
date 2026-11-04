@@ -83,14 +83,15 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// withDefaultMultiplicity appends, last, the OwningMembership of the Multiplicity
-// stating sym's implicit [1..1] (DefaultMultiplicityMember), as the pilot owns it.
+// withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states
+// (MultiplicityMember): a written range at its clause, the implicit [1..1] last, as the
+// pilot owns them.
 func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symbols.Symbol, ordinal int) []*symbols.Symbol {
-	member := m.DefaultMultiplicityMember(sym)
+	member := m.MultiplicityMember(sym)
 	if member == nil {
 		return memberships
 	}
-	return append(memberships, &symbols.Symbol{
+	membership := &symbols.Symbol{
 		Kind:       symbols.SymbolRelationship,
 		DocName:    sym.DocName,
 		DeclSpan:   source.Span{Offset: sym.DeclSpan.End()},
@@ -98,7 +99,29 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 		Implicit: &symbols.ImplicitRelationship{
 			Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: member,
 		},
-	})
+	}
+	if !IsDefaultMultiplicity(member) {
+		// A written range is owned at its clause: before the body's memberships, as
+		// the conversion orders it.
+		membership.DeclSpan = source.Span{Offset: member.DeclSpan.Offset}
+		at := len(memberships)
+		for i, prior := range memberships {
+			if prior.DeclSpan.Len > 0 && prior.DeclSpan.Offset > member.DeclSpan.Offset {
+				at = i
+				break
+			}
+		}
+		memberships = append(memberships, nil)
+		copy(memberships[at+1:], memberships[at:])
+		memberships[at] = membership
+		for i := at; i < len(memberships); i++ {
+			if memberships[i].Implicit != nil {
+				memberships[i].Implicit.Ordinal = i
+			}
+		}
+		return memberships
+	}
+	return append(memberships, membership)
 }
 
 // withTransitionMemberships places the memberships of a transition's trigger accept and guard
@@ -316,7 +339,7 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if isValueExpressionSymbol(member) {
 		return "FeatureValue"
 	}
-	if IsDefaultMultiplicity(member) {
+	if IsImpliedMultiplicity(member) {
 		// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
 		return "OwningMembership"
 	}

@@ -40,7 +40,7 @@ const defaultMultiplicitySlot = "multiplicity"
 // states (semantics.DefaultMultiplicityMember), by its span when the usage is a record.
 func defaultMultiplicityOwner(sym *symbols.Symbol) (ast.Node, bool) {
 	decl, ok := symbols.ImpliedDeclOf(sym)
-	if !ok || decl.Form != symbols.ImpliedDefaultMultiplicity {
+	if !ok || (decl.Form != symbols.ImpliedDefaultMultiplicity && decl.Form != symbols.ImpliedMultiplicityRange) {
 		return nil, false
 	}
 	if decl.Of != nil {

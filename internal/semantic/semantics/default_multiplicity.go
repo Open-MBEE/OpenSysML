@@ -76,3 +76,60 @@ func (m *Model) declaresMultiplicity(sym *symbols.Symbol) bool {
 	_, declared := m.MultiplicityOf(sym)
 	return declared
 }
+
+// DeclaredMultiplicityMember is the MultiplicityRange a usage's written range
+// (`part wheels : Wheel [4]`) declares: a nameless owned member held by an
+// OwningMembership at the clause, the usage's Type::multiplicity — the shape the
+// conversion writes (`<usage>_pmultiplicity`) and the pilot states. Its bounds are
+// not yet served as elements. One per usage, cached; nil when sym writes no range.
+func (m *Model) DeclaredMultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil || !sym.DeclaresUsage() {
+		return nil
+	}
+	mult := UsageMultiplicityOf(sym)
+	if mult == nil {
+		if !sym.Recorded() || sym.Facts.Multiplicity == nil {
+			return nil
+		}
+	}
+	if cached, ok := m.declaredMultiplicities[sym]; ok {
+		return cached
+	}
+	scope := sym.Scope
+	if scope == nil {
+		scope = symbols.NewScope(sym.OwnerScope, nil)
+		scope.SetOwner(sym)
+	}
+	span := sym.DeclSpan
+	if mult != nil {
+		span = mult.Span()
+	}
+	member := &symbols.Symbol{
+		Kind:       symbols.SymbolMultiplicity,
+		DocName:    sym.DocName,
+		DeclSpan:   span,
+		Visibility: ast.VisibilityDefault,
+		OwnerScope: scope,
+		Decl:       &symbols.ImpliedDecl{Of: sym.Decl, Form: symbols.ImpliedMultiplicityRange},
+	}
+	journal(m, m.declaredMultiplicities, sym, sym.Decl)
+	m.declaredMultiplicities[sym] = member
+	return member
+}
+
+// MultiplicityMember is the Multiplicity sym's own clause or its absence states:
+// the declared range (DeclaredMultiplicityMember) or the implicit [1..1]
+// (DefaultMultiplicityMember); nil when sym states neither.
+func (m *Model) MultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
+	if member := m.DeclaredMultiplicityMember(sym); member != nil {
+		return member
+	}
+	return m.DefaultMultiplicityMember(sym)
+}
+
+// IsImpliedMultiplicity reports whether sym is a Multiplicity a usage's clause
+// or its absence states (MultiplicityMember): the declared range or the default.
+func IsImpliedMultiplicity(sym *symbols.Symbol) bool {
+	decl, ok := symbols.ImpliedDeclOf(sym)
+	return ok && (decl.Form == symbols.ImpliedDefaultMultiplicity || decl.Form == symbols.ImpliedMultiplicityRange)
+}

@@ -15,6 +15,9 @@ const (
 	// ImpliedDefaultMultiplicity is the Multiplicity stating a usage's implicit [1..1]
 	// (SysML v2 §7.6.3), owned last among the usage's memberships; it declares no name.
 	ImpliedDefaultMultiplicity
+	// ImpliedMultiplicityRange is the MultiplicityRange a usage's written range (`[2]`)
+	// declares, owned through an OwningMembership at the clause; it declares no name.
+	ImpliedMultiplicityRange
 )
 
 // ImpliedDecl declares an element the abstract syntax implies for a written

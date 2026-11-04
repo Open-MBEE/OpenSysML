@@ -1287,6 +1287,12 @@ func relationshipMetaclassName(rel symbols.RelationshipDecl) string {
 // MultiplicityMetaclassName is the metaclass of a named multiplicity: a range
 // (`multiplicity m [1..2]`) is a MultiplicityRange, a subset a Multiplicity.
 func MultiplicityMetaclassName(sym *symbols.Symbol) string {
+	if decl, ok := symbols.ImpliedDeclOf(sym); ok {
+		if decl.Form == symbols.ImpliedMultiplicityRange {
+			return "MultiplicityRange"
+		}
+		return "Multiplicity"
+	}
 	if sym.Recorded() {
 		// A multiplicity member's record carries bounds exactly when it declared a range.
 		if sym.Facts.Multiplicity != nil {
@@ -2001,14 +2007,15 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) []*symbo
 // withDefaultMultiplicityMember appends, last, the Multiplicity stating sym's
 // implicit [1..1] (DefaultMultiplicityMember): the member of its last owned membership.
 func (m *Model) withDefaultMultiplicityMember(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
-	if member := m.DefaultMultiplicityMember(sym); member != nil {
+	if member := m.MultiplicityMember(sym); member != nil {
 		return append(members, member)
 	}
 	return members
 }
 
 // multiplicityMembersOf is the `multiplicity` members a type declares (KerML 8.3.3.1.10
-// Type::multiplicity, an owned member that is a Multiplicity); a usage's range is no member.
+// Type::multiplicity, an owned member that is a Multiplicity); a usage's own range or default
+// follows them (withDefaultMultiplicityMember).
 func (m *Model) multiplicityMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for _, member := range ownedMembersOf(sym) {

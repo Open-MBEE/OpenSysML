@@ -395,8 +395,16 @@ func TestDefaultMultiplicityMember(t *testing.T) {
 				t.Errorf("%s owns a default multiplicity, want none", name)
 			}
 		}
-		if got, _ := model.ReflectiveElements(relFixtureSymbol(t, fixture, "tags"), "multiplicity"); len(got) != 0 {
-			t.Errorf("tags multiplicity = %d elements, want none: a declared range is no member", len(got))
+		tags := relFixtureSymbol(t, fixture, "tags")
+		if got, _ := model.ReflectiveElements(tags, "multiplicity"); len(got) != 1 || !IsImpliedMultiplicity(got[0]) || IsDefaultMultiplicity(got[0]) {
+			t.Errorf("tags multiplicity = %d elements, want its declared range alone", len(got))
+		} else if name := MultiplicityMetaclassName(got[0]); name != "MultiplicityRange" {
+			t.Errorf("tags range metaclass = %s, want MultiplicityRange", name)
+		} else if owned, _ := model.ReflectiveElements(tags, "ownedMember"); len(owned) == 0 || owned[0] != got[0] {
+			t.Errorf("tags ownedMember = %d elements, want its declared range first", len(owned))
+		}
+		if got, _ := model.ReflectiveElements(relFixtureSymbol(t, fixture, "tags"), "ownedRelationship"); len(got) == 0 {
+			t.Errorf("tags ownedRelationship = %d elements, want the range's OwningMembership among them", len(got))
 		}
 	}
 	for _, fixture := range reflectiveFixtures(t, "default-multiplicity.kerml", source.KindKerML, "package DK {\n    classifier C { feature f : C; }\n}") {
