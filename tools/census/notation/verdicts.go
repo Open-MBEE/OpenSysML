@@ -109,7 +109,6 @@ var (
 	dotLabel     = Evidence{"internal/ir/view/nary.go:naryDot", naryForms, "internal/ir/view/testdata/nary-connection.dot.golden"}
 	itemBox      = Evidence{"internal/ir/view/flow_on_connection.go:flowsOnConnections", naryForms, "internal/ir/view/nary_test.go:TestFlowsOnAConnectionAreItemBoxesOnItsLine"}
 	itemArrow    = Evidence{"internal/ir/view/flow_on_connection.go:itemBox", naryForms, "internal/ir/view/testdata/nary-flow-on-connection.dot.golden"}
-	objective    = Evidence{"internal/ir/view/case.go:objectiveNode", goldenForms, "internal/ir/view/testdata/case.dot.golden"}
 	views        = map[string]Evidence{
 		"general-view":          {"internal/ir/view/general.go:renderGeneral", goldenForms, "internal/ir/view/testdata/general-definition.dot.golden"},
 		"interconnection-view":  {"internal/ir/view/interconnection.go:renderInterconnection", goldenForms, "internal/ir/view/testdata/interconnection.dot.golden"},
