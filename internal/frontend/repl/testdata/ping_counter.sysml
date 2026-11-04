@@ -3,7 +3,7 @@
 // after %instantiate tells whether it sees the object that ran or a fresh copy.
 package P {
 	private import ScalarValues::*;
-	attribute def Ping;
+	item def Ping;
 	port def PP { out item p : Ping; }
 	part def Sender {
 		port o : PP;

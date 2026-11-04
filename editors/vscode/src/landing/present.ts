@@ -65,6 +65,11 @@ export function missionTone(box: SceneBox): SceneTone | undefined {
   }
   switch (box.step.kind) {
     case "action":
+    case "assign":
+    case "accept action":
+    case "send action":
+    case "loop":
+    case "if":
       return "primary";
     case "decision":
       return "accent";

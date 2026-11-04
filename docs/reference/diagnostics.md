@@ -81,17 +81,16 @@ inherits or one import brings still selects by signature.
 |---------|-------------|
 | `Duplicate of other owned member name 'x'` | the later of two owned members of one namespace |
 | `Duplicate of inherited member name 'x' from T` | an owned member of a type whose name an inherited member already has |
-| `Duplicate of imported member name 'x': P::x (import P::*), Q::x (import Q::*)` | the import that brings the later of two imported members, naming each member and the import that brought it — these memberships are hidden from the importing namespace; a member a type inherits that an imported one repeats is named `(inherited)`, and that pair is not hidden, the inherited member resolving |
 
-An imported name hidden by an owned member of the same name, one membership reached through two
-imports (`import P::*` beside `import Q::*` where `Q` publicly re-imports `P`), an alias or a
-membership import of an element beside the membership that owns it, and the standard library's
-own members are not reported, and none of these is hidden. Nor is a collision among a view's
-`expose`s alone (`view v { expose a::**; expose b::**; }` with a `p` in each): the names are
-still hidden inside the view, but a view exposes each expose's own memberships (SysML
-`ViewUsage::exposedElement`), so both `p` are exposed and rendered; a plain `import` or an
-inherited member taking part in the collision is reported as ever. An alias under another name (`alias Spare for P::x`) binds only
-that name and does not stand in for `P::x`.
+Imported memberships are never the subject of this diagnostic. Two imports bringing distinct
+elements of one name, an import repeating an owned or an inherited name, and a collision among a
+view's `expose`s all hide the imported memberships from the namespace (KerML 7.2.5.4, 7.3.2) — a
+derivation, not a violation — and a reference to a hidden name is an ordinary unresolved reference
+whose message names the hiding imports and the qualified names that still reach each element. One
+membership reached through two imports (`import P::*` beside `import Q::*` where `Q` publicly
+re-imports `P`), an alias or a membership import of an element beside the membership that owns it,
+and the standard library's own members are not hidden either. An alias under another name (`alias
+Spare for P::x`) binds only that name and does not stand in for `P::x`.
 
 The standard library has eight such pairs of its own, which `import ISQ::*` brings in without a
 warning: `MagneticDipoleMomentValue`, `MagneticDipoleMomentUnit`,
@@ -1006,6 +1005,7 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`diagram-layout-duplicate`](#diagram-layout-duplicate) | warning | a layout annotation stated twice about one element |
 | [`diagram-layout-unplaced`](#diagram-layout-unplaced) | warning | a layout annotation on an element no rendering draws |
 | [`diagram-layout-value`](#diagram-layout-value) | error | a layout annotation with an ill-formed value |
+| [`disjoint-feature-types`](#disjoint-feature-types) | warning | a feature typed by two types declared disjoint, so it can have no values |
 | [`end-feature-direction`](#end-feature-direction) | error | an end feature with a direction |
 | [`end-feature-kind`](#end-feature-kind) | error | an end feature that is derived, abstract, composite or a portion |
 | [`end-feature-multiplicity`](#end-feature-multiplicity) | warning | an end feature whose multiplicity is not 1 |
@@ -1057,7 +1057,6 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`redefinition-package-level`](#redefinition-package-level) | error | a redefinition of a package-level feature |
 | [`redefinition-same-featuring`](#redefinition-same-featuring) | error | a redefinition between features of one featuring type |
 | [`redefinition-through-reference`](#redefinition-through-reference) | error | a chain redefinition stepping through a feature that owns no object |
-| [`redefinition-type-mismatch`](#redefinition-type-mismatch) | warning | a redefining feature typed by a type unrelated to the redefined feature's |
 | [`reference-subsetting-at-most-one`](#reference-subsetting-at-most-one) | error | a feature with more than one reference subsetting |
 | [`related-elements`](#related-elements) | error | an association with fewer than two related types |
 | [`result-expression-at-most-one`](#result-expression-at-most-one) | error | a function or expression with more than one result expression |
@@ -1345,6 +1344,14 @@ Specification: OpenSysML diagram layout library
 The coordinates, size or route points of a layout annotation are not of the form the layout library declares (numbers in the view's units, a route of at least two points). Write the value the message names.
 
 Specification: OpenSysML diagram layout library
+
+#### `disjoint-feature-types`
+
+**warning** · Constraints · a feature typed by two types declared disjoint, so it can have no values
+
+A feature's types are its own typings and the types of every feature it subsets or redefines, and types related by disjoining share no instances, so a feature reaching two disjoint types — declared with `disjoint from`, inherited along their specializations, or established by the kernel library (Occurrences::Occurrence is disjoint from Base::DataValue) — can have no values. Type the feature, or the feature it subsets or redefines, by types that can share instances.
+
+Specification: KerML 1.1 §7.3.2.5 Disjoining, §8.3.3.3.4 (a feature's types are its typings' and its subsetted features'); an OpenSysML advisory
 
 #### `end-feature-direction`
 
@@ -1751,14 +1758,6 @@ Specification: KerML 1.0 validateRedefinitionFeaturingTypes
 `:>> a.b` redefines `b` below `a` in this type's context, which needs `a` to own its values; a reference, subject or port usage owns none, so the redefinition has nothing to apply to. Redefine the feature where it is owned, or make the intermediate feature composite.
 
 Specification: KerML 1.0 §8.3.3.3.6 Redefinition
-
-#### `redefinition-type-mismatch`
-
-**warning** · Constraints · a redefining feature typed by a type unrelated to the redefined feature's
-
-The redefining feature is typed by both its declared type and the redefined feature's, so two unrelated types leave it with no possible value — almost always a slip, though no normative constraint forbids it. Type the redefinition by a specialization of the redefined feature's type.
-
-Specification: KerML 1.0 §8.3.3.3.4 (a feature's types are its typings and its subsetted features'); an OpenSysML advisory
 
 #### `reference-subsetting-at-most-one`
 

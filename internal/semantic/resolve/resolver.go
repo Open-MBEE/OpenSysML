@@ -115,10 +115,12 @@ type filteredMemoKey struct {
 // Resolver performs lazy name resolution over a symbol index, memoizing results
 // keyed by the reference AST node and collecting diagnostics.
 type Resolver struct {
-	idx      *symbols.Index
-	memo     map[ast.Node]resolution
-	modeMemo map[modeMemoKey]resolution
-	filtered map[filteredMemoKey]resolution
+	idx *symbols.Index
+	// hidingInherited marks the scopes whose inherited names are being gathered.
+	hidingInherited map[*symbols.Scope]bool
+	memo            map[ast.Node]resolution
+	modeMemo        map[modeMemoKey]resolution
+	filtered        map[filteredMemoKey]resolution
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
