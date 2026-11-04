@@ -35,6 +35,9 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	journal(m, m.transitionParts, sym, sym.Decl)
 	parts := &transitionParts{}
 	if payload, event := triggerPayload(trans); payload != nil || event != nil {
+		if payload != nil && payload.Value != nil {
+			event = payload.Value
+		}
 		parts.accepter = transitionPart(sym, trans.Trigger, trans.TriggerSpan, symbols.SymbolActionUsage, sym, symbols.ExpressionTriggerAction)
 		var decl ast.Node = payload
 		if payload == nil {
@@ -86,8 +89,12 @@ func triggerPayload(trans *ast.TransitionMember) (*ast.Usage, ast.Node) {
 		return nil, nil
 	case *ast.TimeEvent, *ast.ChangeEvent:
 		return nil, t
+	default:
+		// The `when <condition>` spelling is the change event of that condition.
+		change := &ast.ChangeEvent{Condition: t}
+		change.NodeSpan = trans.TriggerSpan
+		return nil, change
 	}
-	return nil, nil
 }
 
 // transitionFeatureKind is the TransitionFeatureKind of the membership through which the

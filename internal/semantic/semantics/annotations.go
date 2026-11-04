@@ -1575,7 +1575,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "feature":
 		var features []*symbols.Symbol
 		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
-			if member.IsFeature() {
+			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
 		}
