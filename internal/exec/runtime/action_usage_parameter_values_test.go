@@ -73,3 +73,35 @@ func TestActionUsageNamesakeDoesNotReplaceBodyFeature(t *testing.T) {
 		t.Errorf("hides.y = %d, want 1", got)
 	}
 }
+
+// A ref parameter a usage values with `this` binds the performer over a default the
+// definition declares, without evaluating `this`.
+func TestActionUsageThisParameterBindsThePerformerOverADefault(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+	part def Thing { attribute seen : Integer default 0; }
+	part def Car :> Thing {
+		part other : Thing;
+		action def Mark {
+			in ref vehicle : Thing default other;
+			first write;
+			action write { assign vehicle.seen := 1; }
+		}
+		action mark : Mark { in ref :>> vehicle = this; }
+	}
+	part car : Car;
+}`))
+	self, err := ctx.Instantiate(oneSymbol(t, idx, "test::car"))
+	if err != nil {
+		t.Fatalf("Instantiate car: %v", err)
+	}
+	if _, err := ctx.ExecuteActionPerformedBy(oneSymbol(t, idx, "test::Car::mark"), self, nil); err != nil {
+		t.Fatalf("mark on car: %v", err)
+	}
+	fv, err := self.GetFeatureValue(ctx, "seen")
+	if err != nil {
+		t.Fatalf("read seen of car: %v", err)
+	}
+	if got := soleInteger(t, "seen", fv.HeldValue()); got != 1 {
+		t.Errorf("mark left car.seen = %d, want 1", got)
+	}
+}

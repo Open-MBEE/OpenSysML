@@ -240,9 +240,8 @@ func newActionExecutorOfGraph(
 	return newActionExecutorOn(ctx, performed, action, declared, tool, graph, self, occurrence), nil
 }
 
-// declaredThrough is callee when body, the action performanceBody resolved it to,
-// is another action's: callee's members then value the performance, under the
-// inputs a node or invocation performing it binds from its pins and arguments.
+// declaredThrough is callee when body, what performanceBody resolved it to, is another
+// action's: callee's members then value the performance, under any inputs bound to it.
 func declaredThrough(callee, body *symbols.Symbol, tool *toolExecution) *symbols.Symbol {
 	if tool != nil || body == callee {
 		return nil
@@ -321,7 +320,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		if i, ok := declared[name]; ok {
 			switch {
 			case e.declared != nil && features[i].Node != ast.Node(usage):
-				if e.redefinesAttribute(member, features[i]) && !performerBinds(usage) {
+				if e.redefinesAttribute(member, features[i]) {
 					features[i] = e.redefinedAttribute(features[i], member, usage)
 				}
 			case features[i].Value == nil && features[i].Node == ast.Node(usage):
@@ -385,9 +384,8 @@ func (e *ActionExecutor) inheritedValue(member *symbols.Symbol) (ast.Node, *symb
 	return value, scope, false
 }
 
-// redefinesAttribute reports whether member, of the usage performed through, redefines
-// the feature attr declares: explicitly, or as a parameter by position (SysML v2.1 §7.17.2).
-// A namesake that only hides it leaves the body's own feature as it is.
+// redefinesAttribute reports whether member redefines the feature attr declares, explicitly or
+// as a parameter by position (SysML v2.1 §7.17.2); a namesake only hiding it does not.
 func (e *ActionExecutor) redefinesAttribute(member *symbols.Symbol, attr lower.Attribute) bool {
 	sym := attr.Symbol
 	if sym == nil {
@@ -408,9 +406,8 @@ func (e *ActionExecutor) redefinesAttribute(member *symbols.Symbol, attr lower.A
 	return len(chain) > 1 && slices.Contains(chain[1:], sym)
 }
 
-// performerBinds reports whether usage is a ref parameter valued by the bare `this`:
-// the performer binds it (bindContextDefault), as it binds one stating no value, so
-// the value is left unevaluated rather than materializing the performance it names.
+// performerBinds reports whether usage is a ref parameter valued by the bare `this`, which
+// the performer binds (bindContextDefault) rather than an evaluation materializing a performance.
 func performerBinds(usage *ast.Usage) bool {
 	if !usage.IsReference || (usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut) {
 		return false
@@ -425,10 +422,13 @@ func performerBinds(usage *ast.Usage) bool {
 	return qn != nil && len(qn.Parts) == 1 && qn.Parts[0].Text == thisName
 }
 
-// redefinedAttribute is attr as member, a parameter of the usage performed through,
-// redefines it (SysML v2.1 §7.17.2): member's own value, else the nearest it inherits.
+// redefinedAttribute is attr as member, a parameter of the usage performed through, redefines
+// it (SysML v2.1 §7.17.2): member's own value, else the nearest it inherits; `this` is the performer's.
 func (e *ActionExecutor) redefinedAttribute(attr lower.Attribute, member *symbols.Symbol, usage *ast.Usage) lower.Attribute {
 	attr.Value, attr.Scope, attr.Binding = e.inheritedValue(member)
+	if performerBinds(usage) {
+		attr.Binding = false
+	}
 	attr.Node, attr.Symbol = usage, member
 	if attr.Type == "" {
 		attr.Type = lower.TypeText(usage)
@@ -1485,10 +1485,12 @@ func (e *ActionExecutor) initializeAttributes() error {
 				continue
 			}
 		}
-		if attr.Value == nil {
+		if attr.Value == nil || e.performerBound(attr) {
 			if e.bindContextDefault(attr) {
 				continue
 			}
+		}
+		if attr.Value == nil {
 			continue
 		}
 		var value Value
@@ -1553,7 +1555,7 @@ func (e *ActionExecutor) bindContextDefault(attr lower.Attribute) bool {
 		scope = e.graph.Scope
 	}
 	param, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
-	if !ok || !e.ctx.performerSeedsRefParam(param, e.self) {
+	if !ok || !e.performerBound(attr) && !e.ctx.performerSeedsRefParam(param, e.self) {
 		return false
 	}
 	value, err := e.mirrorOccurrence(attr.Name, Value{Kind: ValInstance, Instance: e.self.ID})
@@ -1562,6 +1564,21 @@ func (e *ActionExecutor) bindContextDefault(attr lower.Attribute) bool {
 	}
 	e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(attr.Name), value)
 	return true
+}
+
+// performerBound reports whether attr is a ref parameter the performed usage values with
+// `this` (performerBinds): the performer is its value, over any default it redefines.
+func (e *ActionExecutor) performerBound(attr lower.Attribute) bool {
+	if e.declared == nil || e.self == nil || attr.Symbol == nil || attr.Symbol.OwnerScope == nil ||
+		attr.Symbol.OwnerScope.Owner() != e.declared {
+		return false
+	}
+	usage, ok := attr.Node.(*ast.Usage)
+	if !ok || !performerBinds(usage) {
+		return false
+	}
+	typ := e.ctx.extractType(attr.Symbol)
+	return typ == nil || e.ctx.instanceConforms(e.self, typ)
 }
 
 // streamInitialOutput carries the initial value of an output or inout to the listeners,
