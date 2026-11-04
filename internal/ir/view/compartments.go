@@ -137,7 +137,7 @@ func compartmentsOf(rows []*Node) []Compartment {
 // `ref wheel : Wheel`, `gain : dB = 15.0`, `: Sensor` for an anonymous one.
 func (l labeller) rowText(node *Node) string {
 	if node.Kind == statementRowKind {
-		return node.Text
+		return indentNonBreaking(node.Text) // a nested statement's indent survives HTML labels
 	}
 	prefix, _ := splitRowPrefix(node.Kind)
 	if _, ok := stateActionRoles[node.Kind]; ok {
@@ -234,4 +234,11 @@ func (l labeller) compartmentLines(node *Node) []string {
 		}
 	}
 	return lines
+}
+
+// indentNonBreaking writes a row's leading spaces as no-break spaces, which
+// the HTML-like labels of DOT and Mermaid keep where they drop plain ones.
+func indentNonBreaking(text string) string {
+	trimmed := strings.TrimLeft(text, " ")
+	return strings.Repeat("\u00a0", len(text)-len(trimmed)) + trimmed
 }

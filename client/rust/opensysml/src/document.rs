@@ -482,6 +482,9 @@ pub struct RenderNode {
     /// subclassification or subsetting rather than declares it; the notation
     /// draws `^` before `name`.
     pub inherited: bool,
+    /// The state's substates run in parallel; the notation writes «parallel»
+    /// under the name.
+    pub parallel: bool,
     /// Parent node identifier.
     pub parent: String,
     /// The compartment of the parent this node is a row of ("attributes",
@@ -639,6 +642,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                 text: node.text,
                 stand_in: node.stand_in,
                 inherited: node.inherited,
+                parallel: node.parallel,
                 parent: node.parent,
                 compartment: node.compartment,
                 ports: node
@@ -745,6 +749,7 @@ mod render_view_tests {
                     detail: "detail".to_owned(),
                     text: "text".to_owned(),
                     stand_in: true,
+                    parallel: true,
                     ports: vec![wire::RenderPort {
                         id: "n0.0".to_owned(),
                         name: "api".to_owned(),
@@ -817,6 +822,7 @@ mod render_view_tests {
         assert_eq!(rendered.nodes[0].ports[0].direction, "inout");
         assert!(rendered.nodes[0].ports[0].inherited);
         assert!(!rendered.nodes[0].inherited);
+        assert!(rendered.nodes[0].parallel);
         assert_eq!(rendered.nodes[0].origin.as_ref().unwrap().start_line, 4);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().collapsed);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().unplaced);

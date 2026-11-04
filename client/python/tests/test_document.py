@@ -362,7 +362,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     response.canvas.has_size = True
     node = response.nodes.add(
         id="n0", kind="part", name="root", name_synthesized=True, type="Demo::Part",
-        detail="detail", text="text", stand_in=True, parent="", inherited=True,
+        detail="detail", text="text", stand_in=True, parent="", inherited=True, parallel=True,
     )
     node.ports.add(id="n0.0", name="api", type="Demo::API", direction="inout", inherited=True)
     node.origin.file = "views.sysml"
@@ -402,6 +402,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
         "Demo::view", "interconnection", "rendered",
     )
     assert rendered.nodes[0].ports[0].direction == "inout"
+    assert rendered.nodes[0].parallel
     assert rendered.nodes[0].origin.start_line == 4
     assert rendered.nodes[0].geometry.collapsed
     assert rendered.nodes[0].geometry.unplaced
