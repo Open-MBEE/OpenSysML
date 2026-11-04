@@ -27,7 +27,7 @@ flowchart TD
   subgraph n0 ["`*«requirement def»* **LevelReq**`"]
     direction TD
     n0_anchor[" "]
-    n1("`*«frame»*
+    n1("`*«frame concern»*
 **safety**`")
   end
   n2("`*«requirement»*

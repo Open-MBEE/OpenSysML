@@ -12,14 +12,14 @@
             <mxGeometry x="50" y="50" width="76" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n1" label="«part def»&#xA;Airbag" fqn="Systems::Airbag" kind="part def" view="FilteredViews::safetyView" link="filters.sysml:11">
+        <object id="n1" label="«#Safety part def»&#xA;Airbag" fqn="Systems::Airbag" kind="#Safety part def" view="FilteredViews::safetyView" link="filters.sysml:11">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="176" y="50" width="76" height="37" as="geometry"/>
+            <mxGeometry x="176" y="50" width="124" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n2" label="«part def»&#xA;Brake" fqn="Systems::Braking::Brake" kind="part def" view="FilteredViews::safetyView" link="filters.sysml:5">
+        <object id="n2" label="«#Safety part def»&#xA;Brake" fqn="Systems::Braking::Brake" kind="#Safety part def" view="FilteredViews::safetyView" link="filters.sysml:5">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="50" y="137" width="76" height="37" as="geometry"/>
+            <mxGeometry x="50" y="137" width="124" height="37" as="geometry"/>
           </mxCell>
         </object>
       </root>

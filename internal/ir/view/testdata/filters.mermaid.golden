@@ -25,7 +25,5 @@ config:
 flowchart TD
   n0["`*«part def»*
 **Radio**`"]
-  n1["`*«part def»*
-**Airbag**`"]
-  n2["`*«part def»*
-**Brake**`"]
+  n1["«#35;Safety part def»<br>Airbag"]
+  n2["«#35;Safety part def»<br>Brake"]

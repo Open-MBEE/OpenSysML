@@ -982,10 +982,45 @@ func nameText(name string) string {
 // "state", "view" — so a rendering prints no Go type name.
 func declKind(sym *symbols.Symbol) string {
 	kind := sym.Notation()
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.IsEnd && !slices.Contains(strings.Fields(kind), "end") {
-		return "end " + kind
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		if decl.IsEnd && !slices.Contains(strings.Fields(kind), "end") {
+			kind = "end " + kind
+		}
+		return extendedKind(decl.Prefixes, figureKeyword(kind))
+	case *ast.Definition:
+		return extendedKind(decl.Prefixes, kind)
 	}
 	return kind
+}
+
+// figureKeywords are the keywords the figures of §8.2.3 write in full where the
+// textual notation's keyword is one word: «satisfy requirement», «frame concern».
+var figureKeywords = map[string]string{"satisfy": "satisfy requirement", "verify": "verify requirement", "frame": "frame concern"}
+
+// figureKeyword writes a usage's kind as its figure heads it, keeping its modifiers.
+func figureKeyword(kind string) string {
+	prefix, keyword := splitRowPrefix(kind)
+	full, ok := figureKeywords[keyword]
+	if !ok {
+		return kind
+	}
+	return strings.TrimSpace(prefix + " " + full)
+}
+
+// extendedKind writes the user-defined keywords a declaration's prefix metadata
+// adds ahead of its kind: `#command part def`, the §8.2.3.6 extended-def keyword.
+func extendedKind(prefixes []*ast.PrefixMetadata, kind string) string {
+	var words []string
+	for _, prefix := range prefixes {
+		if prefix.Type != nil {
+			words = append(words, "#"+prefix.Type.Text())
+		}
+	}
+	if len(words) == 0 {
+		return kind
+	}
+	return strings.Join(words, " ") + " " + kind
 }
 
 // declType is the type a usage is declared with, as written ("Engine" of

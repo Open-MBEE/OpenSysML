@@ -9,16 +9,16 @@
     "statements": 620,
     "partialStatements": 97,
     "productions": 523,
-    "drawn": 227,
-    "approximate": 53,
-    "undrawn": 71,
+    "drawn": 235,
+    "approximate": 51,
+    "undrawn": 65,
     "notApplicable": 172
   },
   "categories": {
-    "compartment": 141,
+    "compartment": 144,
     "edge": 59,
     "label": 24,
-    "node": 165,
+    "node": 162,
     "textual": 124,
     "view": 10
   },
@@ -78,9 +78,9 @@
       "title": "Definition and Usage Graphical Notation",
       "statements": 28,
       "productions": 24,
-      "drawn": 3,
+      "drawn": 7,
       "approximate": 7,
-      "undrawn": 5,
+      "undrawn": 1,
       "notApplicable": 9
     },
     {
@@ -228,8 +228,8 @@
       "title": "Requirements Graphical Notation",
       "statements": 63,
       "productions": 57,
-      "drawn": 30,
-      "approximate": 6,
+      "drawn": 34,
+      "approximate": 2,
       "undrawn": 1,
       "notApplicable": 20
     },
@@ -259,8 +259,8 @@
       "statements": 22,
       "productions": 16,
       "drawn": 6,
-      "approximate": 0,
-      "undrawn": 4,
+      "approximate": 2,
+      "undrawn": 2,
       "notApplicable": 6
     },
     {
@@ -607,38 +607,6 @@
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.6",
-      "name": "extended-def",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
-    },
-    {
-      "clause": "8.2.3.6",
-      "name": "extended-def-name-compartment",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
-    },
-    {
-      "clause": "8.2.3.6",
-      "name": "extended-usage",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
-    },
-    {
-      "clause": "8.2.3.6",
-      "name": "extended-usage-name-compartment",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
     },
     {
       "clause": "8.2.3.6",
@@ -1957,7 +1925,7 @@
       "category": "node",
       "verdict": "approximate",
       "package": "F",
-      "reason": "a box headed «actor» in DOT, PlantUML, Mermaid and text; only draw.io draws the stick figure (drawio.go plainStyle umlActor)"
+      "reason": "a box headed «actor» in DOT, Mermaid and the text form; PlantUML (`actor`, plantuml.go writeCaseMixedNode) and draw.io (plainStyle umlActor) draw the stick figure"
     },
     {
       "clause": "8.2.3.21",
@@ -1994,22 +1962,6 @@
       "category": "node",
       "verdict": "not-applicable",
       "reason": "a list of alternatives; adjudicated through the alternatives it names"
-    },
-    {
-      "clause": "8.2.3.21",
-      "name": "frame-concern-name-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "written as «frame», the figure's keyword is «frame concern»"
-    },
-    {
-      "clause": "8.2.3.21",
-      "name": "frame-concern-node",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "written as «frame», the figure's keyword is «frame concern»"
     },
     {
       "clause": "8.2.3.21",
@@ -2080,22 +2032,6 @@
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.21",
-      "name": "satisfy-requirement-name-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "written as «satisfy», the figure's keyword is «satisfy requirement»"
-    },
-    {
-      "clause": "8.2.3.21",
-      "name": "satisfy-requirement-usage",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "written as «satisfy», the figure's keyword is «satisfy requirement»"
     },
     {
       "clause": "8.2.3.21",
@@ -2245,18 +2181,18 @@
     {
       "clause": "8.2.3.24",
       "name": "verify-requirement-name-compartment",
-      "category": "node",
-      "verdict": "undrawn",
+      "category": "compartment",
+      "verdict": "approximate",
       "package": "F",
-      "reason": "a verify requirement usage lives in a verification case's objective, which is drawn as a note (case.go objectiveNode)"
+      "reason": "a «verify requirement» node in a tree rendering; in a case rendering the objective that owns it is drawn as a note (case.go objectiveNode)"
     },
     {
       "clause": "8.2.3.24",
       "name": "verify-requirement-node",
       "category": "node",
-      "verdict": "undrawn",
+      "verdict": "approximate",
       "package": "F",
-      "reason": "a verify requirement usage lives in a verification case's objective, which is drawn as a note (case.go objectiveNode)"
+      "reason": "a «verify requirement» node in a tree rendering; in a case rendering the objective that owns it is drawn as a note (case.go objectiveNode)"
     },
     {
       "clause": "8.2.3.25",

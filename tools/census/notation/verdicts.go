@@ -88,6 +88,8 @@ var (
 	variants     = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/tree_compartments_test.go:TestTreeCompartmentVariantForms"}
 	ends         = Evidence{"internal/ir/view/view.go:declKind", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
 	ellipsis     = Evidence{"internal/ir/view/compartments.go:compartmentEntries", []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormText}, "internal/ir/view/elided_rows_test.go:TestElidedCompartmentsCarryTheEllipsis"}
+	figureWords  = Evidence{"internal/ir/view/view.go:figureKeyword", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
+	extendedKind = Evidence{"internal/ir/view/view.go:extendedKind", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
 	greyed       = Evidence{"internal/ir/view/compartments.go:compartmentEntries", []string{FormDOT, FormPlantUML, FormMermaid}, "internal/ir/view/elided_rows_test.go:TestGreyedRowsMarkFoldedEdgeEnds"}
 	controlNode  = Evidence{"internal/ir/view/dot.go:dotSymbolAttributes", controlForms, "internal/ir/view/testdata/state-pseudostates.mermaid.golden"}
 	tableEdge    = Evidence{"internal/ir/view/dot.go:dotEdgeAttributes", edgeForms, "internal/ir/view/notation_table_test.go:TestNotationTableMatchesTheWriters"}
@@ -261,7 +263,8 @@ func buildTable() map[string]Adjudication {
 	set(drawn(CategoryCompartment, compartments), "compartment-stack")
 	set(undrawn(CategoryCompartment, reasonNoCompart+" (a KerML `feature` member never folds into a SysML node's compartments)"), "features-compartment")
 	set(drawn(CategoryCompartment, variants), "variants-compartment", "variant-elementusages-compartment")
-	set(undrawn(CategoryNode, "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"), "extended-def", "extended-def-name-compartment", "extended-usage", "extended-usage-name-compartment")
+	set(drawn(CategoryNode, extendedKind), "extended-def", "extended-usage")
+	set(drawn(CategoryCompartment, extendedKind), "extended-def-name-compartment", "extended-usage-name-compartment")
 
 	set(row(CategoryNode, VerdictNotApplicable, "the textual grammar declares no event occurrence definition (`event` is a usage prefix), so nothing can be declared for the figure", Evidence{}), "event-occurrence-def")
 	set(row(CategoryCompartment, VerdictNotApplicable, "the textual grammar declares no event occurrence definition (`event` is a usage prefix), so nothing can be declared for the figure", Evidence{}), "event-occurrence-def-name-compartment")
@@ -291,14 +294,13 @@ func buildTable() map[string]Adjudication {
 	set(approximate(CategoryNode, "an event occurrence is drawn as a plain «occurrence» box", keywordBox), "event-occurrence")
 	set(approximate(CategoryCompartment, "written as «occurrence»; the `event` prefix is not part of the keyword", keywordBox), "event-occurrence-name-compartment")
 	set(approximate(CategoryCompartment, reasonOnlyParallel, keywordBox), "state-def-name-compartment", "state-name-compartment")
-	set(approximate(CategoryNode, "written as «satisfy», the figure's keyword is «satisfy requirement»", keywordBox), "satisfy-requirement-usage")
-	set(approximate(CategoryCompartment, "written as «satisfy», the figure's keyword is «satisfy requirement»", keywordBox), "satisfy-requirement-name-compartment")
-	set(approximate(CategoryNode, "written as «frame», the figure's keyword is «frame concern»", keywordBox), "frame-concern-node")
-	set(approximate(CategoryCompartment, "written as «frame», the figure's keyword is «frame concern»", keywordBox), "frame-concern-name-compartment")
-	set(undrawn(CategoryNode, "a verify requirement usage lives in a verification case's objective, which is drawn as a note (case.go objectiveNode)"), "verify-requirement-node", "verify-requirement-name-compartment")
+	set(drawn(CategoryNode, figureWords), "satisfy-requirement-usage", "frame-concern-node")
+	set(drawn(CategoryCompartment, figureWords), "satisfy-requirement-name-compartment", "frame-concern-name-compartment")
+	set(approximate(CategoryNode, "a «verify requirement» node in a tree rendering; in a case rendering the objective that owns it is drawn as a note (case.go objectiveNode)", figureWords), "verify-requirement-node")
+	set(approximate(CategoryCompartment, "a «verify requirement» node in a tree rendering; in a case rendering the objective that owns it is drawn as a note (case.go objectiveNode)", figureWords), "verify-requirement-name-compartment")
 	set(drawn(CategoryNode, keywordBox), "connection", "interface", "allocation", "flow-node")
 	set(drawn(CategoryCompartment, keywordBox), "connection-name-compartment", "interface-name-compartment", "allocation-name-compartment", "flow-name-compartment")
-	set(approximate(CategoryNode, "a box headed «actor» in DOT, PlantUML, Mermaid and text; only draw.io draws the stick figure (drawio.go plainStyle umlActor)",
+	set(approximate(CategoryNode, "a box headed «actor» in DOT, Mermaid and the text form; PlantUML (`actor`, plantuml.go writeCaseMixedNode) and draw.io (plainStyle umlActor) draw the stick figure",
 		Evidence{"internal/ir/view/drawio.go:plainStyle", []string{FormDOT, FormPlantUML, FormMermaid, FormDrawio, FormText}, "internal/ir/view/testdata/case.dot.golden"}), "actor")
 	set(drawn(CategoryLabel, roleNode), "subject-name", "actor-name", "stakeholder-name")
 

@@ -91,12 +91,12 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 ## Totals
 
 <!-- census:begin summary -->
-620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **227 drawn**, **53 approximate**, **71 undrawn**, 172 not applicable.
+620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **235 drawn**, **51 approximate**, **65 undrawn**, 172 not applicable.
 
 | Category | Productions |
 | --- | --- |
-| node | 165 |
-| compartment | 141 |
+| node | 162 |
+| compartment | 144 |
 | edge | 59 |
 | label | 24 |
 | view | 10 |
@@ -113,7 +113,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.3 Dependencies Graphical Notation | 9 | 8 | 6 | 0 | 0 | 2 |
 | §8.2.3.4 Annotations Graphical Notation | 12 | 11 | 0 | 1 | 6 | 4 |
 | §8.2.3.5 Namespaces and Packages Graphical Notation | 25 | 24 | 6 | 3 | 6 | 9 |
-| §8.2.3.6 Definition and Usage Graphical Notation | 28 | 24 | 3 | 7 | 5 | 9 |
+| §8.2.3.6 Definition and Usage Graphical Notation | 28 | 24 | 7 | 7 | 1 | 9 |
 | §8.2.3.7 Attributes Graphical Notation | 10 | 9 | 5 | 0 | 0 | 4 |
 | §8.2.3.8 Enumerations Graphical Notation | 9 | 6 | 5 | 0 | 0 | 1 |
 | §8.2.3.9 Occurrences Graphical Notation | 48 | 43 | 17 | 3 | 7 | 16 |
@@ -128,14 +128,14 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.18 States Graphical Notation | 45 | 41 | 11 | 7 | 9 | 14 |
 | §8.2.3.19 Calculations Graphical Notation | 14 | 9 | 5 | 0 | 1 | 3 |
 | §8.2.3.20 Constraints Graphical Notation | 24 | 19 | 13 | 0 | 0 | 6 |
-| §8.2.3.21 Requirements Graphical Notation | 63 | 57 | 30 | 6 | 1 | 20 |
+| §8.2.3.21 Requirements Graphical Notation | 63 | 57 | 34 | 2 | 1 | 20 |
 | §8.2.3.22 Cases Graphical Notation | 4 | 3 | 0 | 1 | 0 | 2 |
 | §8.2.3.23 Analysis Cases Graphical Notation | 12 | 7 | 5 | 0 | 0 | 2 |
-| §8.2.3.24 Verification Cases Graphical Notation | 22 | 16 | 6 | 0 | 4 | 6 |
+| §8.2.3.24 Verification Cases Graphical Notation | 22 | 16 | 6 | 2 | 2 | 6 |
 | §8.2.3.25 Use Cases Graphical Notation | 22 | 16 | 9 | 1 | 0 | 6 |
 | §8.2.3.26 Views and Viewpoints Graphical Notation | 38 | 34 | 13 | 4 | 5 | 12 |
 | §8.2.3.27 Metadata Graphical Notation | 8 | 7 | 2 | 0 | 1 | 4 |
-| **Total** | 620 | 523 | 227 | 53 | 71 | 172 |
+| **Total** | 620 | 523 | 235 | 51 | 65 | 172 |
 <!-- census:end clauses -->
 
 ## Gaps
@@ -183,10 +183,6 @@ package a follow-up can take one at a time (see below).
 | --- | --- | --- | --- | --- |
 | `composite-feature-membership` | edge | approximate | F | view-rendering-forms.md § Notation table: Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. A mixed rendering draws it from an owner to every composite usage nested in its node — a part, action or state usage, a view usage — where PlantUML and the text form show it and DOT and Mermaid leave it to the nesting ([case and mixed diagrams](view-rendering-forms.md#case-and-mixed-diagrams)). |
 | `definition` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots at its base: Graphviz sets the dots in line behind the triangle, D2 has no dots and draws the plain triangle, Mermaid writes `typing` as the edge text. |
-| `extended-def` | node | undrawn | F | a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind |
-| `extended-def-name-compartment` | node | undrawn | F | a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind |
-| `extended-usage` | node | undrawn | F | a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind |
-| `extended-usage-name-compartment` | node | undrawn | F | a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind |
 | `features-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all (a KerML `feature` member never folds into a SysML node's compartments) |
 | `noncomposite-feature-membership` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow diamond at the owner; Mermaid leads the edge text with `◇`. A mixed rendering draws it to every referential usage nested in its owner's node — a `ref` part, an attribute, a port — as above. |
 | `redefinition` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow triangle with a bar across the line: Graphviz sets the tee behind the triangle, D2 has no bar and draws the plain triangle, Mermaid writes `redefinition` as the edge text. |
@@ -314,12 +310,8 @@ package a follow-up can take one at a time (see below).
 
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
-| `actor` | node | approximate | F | a box headed «actor» in DOT, PlantUML, Mermaid and text; only draw.io draws the stick figure (drawio.go plainStyle umlActor) |
+| `actor` | node | approximate | F | a box headed «actor» in DOT, Mermaid and the text form; PlantUML (`actor`, plantuml.go writeCaseMixedNode) and draw.io (plainStyle umlActor) draw the stick figure |
 | `concern-stakeholder-link` | edge | undrawn | F | the line from a concern to its stakeholder is not drawn |
-| `frame-concern-name-compartment` | compartment | approximate | F | written as «frame», the figure's keyword is «frame concern» |
-| `frame-concern-node` | node | approximate | F | written as «frame», the figure's keyword is «frame concern» |
-| `satisfy-requirement-name-compartment` | compartment | approximate | F | written as «satisfy», the figure's keyword is «satisfy requirement» |
-| `satisfy-requirement-usage` | node | approximate | F | written as «satisfy», the figure's keyword is «satisfy requirement» |
 | `satisfy-requirements-compartment` | compartment | approximate | F | headed `satisfies` and listing the satisfy requirement usages as rows; the figure heads it `satisfy requirements` (its `satify` is a typo) over a text block |
 
 #### §8.2.3.22 Cases Graphical Notation
@@ -334,8 +326,8 @@ package a follow-up can take one at a time (see below).
 | --- | --- | --- | --- | --- |
 | `verification-methods-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
 | `verifies-compartment` | compartment | undrawn | F | a verify requirement usage is a member of the case's objective and lists under its row, not in a compartment of the case |
-| `verify-requirement-name-compartment` | node | undrawn | F | a verify requirement usage lives in a verification case's objective, which is drawn as a note (case.go objectiveNode) |
-| `verify-requirement-node` | node | undrawn | F | a verify requirement usage lives in a verification case's objective, which is drawn as a note (case.go objectiveNode) |
+| `verify-requirement-name-compartment` | compartment | approximate | F | a «verify requirement» node in a tree rendering; in a case rendering the objective that owns it is drawn as a note (case.go objectiveNode) |
+| `verify-requirement-node` | node | approximate | F | a «verify requirement» node in a tree rendering; in a case rendering the objective that owns it is drawn as a note (case.go objectiveNode) |
 
 #### §8.2.3.25 Use Cases Graphical Notation
 
@@ -374,7 +366,7 @@ package a follow-up can take one at a time (see below).
 | C | §8.2.3.3/.13 n-ary dots and §8.2.3.16 flow-on-connection | 0 | 0 |  |
 | D | §8.2.3.9 sequence glyphs | 8 | 3 | `event-occurrence`, `event-occurrence-name-compartment`, `individuals-compartment`, `portion-relationship`, `proxy-label`, `sequence-compartment`, `sq-port`, `sq-proxy`, `sq-succession`, `succession-label`, `message` |
 | E | §8.2.3.2 textual-compartment greying | 0 | 1 | `element-inside-textual-compartment` |
-| F | everything else | 27 | 27 | `general-compartment`, `imported-package-with-name-in-tab`, `imported-package-with-name-inside`, `members-compartment`, `owned-membership`, `package-node`, `package-with-name-in-tab`, `package-with-name-inside`, `packages-compartment`, `relationships-compartment`, `composite-feature-membership`, `definition`, `extended-def`, `extended-def-name-compartment`, `extended-usage`, `extended-usage-name-compartment`, `features-compartment`, `noncomposite-feature-membership`, `redefinition`, `reference-subsetting`, `subclassification`, `subsetting`, `directed-features-compartment`, `interconnection-compartment`, `pdh`, `pdv`, `port-b`, `port-l`, `port-r`, `port-t`, `proxy-h`, `proxy-v`, `connection-definition-elaboration`, `connection-usage-elaboration`, `interface-connection`, `flow`, `result-compartment`, `actor`, `concern-stakeholder-link`, `frame-concern-name-compartment`, `frame-concern-node`, `satisfy-requirement-name-compartment`, `satisfy-requirement-usage`, `satisfy-requirements-compartment`, `objective-compartment`, `verification-methods-compartment`, `verifies-compartment`, `verify-requirement-name-compartment`, `verify-requirement-node`, `includes-compartment`, `exposes-compartment`, `filters-compartment`, `rendering-compartment`, `metadata-feature-annotation-node` |
+| F | everything else | 21 | 25 | `general-compartment`, `imported-package-with-name-in-tab`, `imported-package-with-name-inside`, `members-compartment`, `owned-membership`, `package-node`, `package-with-name-in-tab`, `package-with-name-inside`, `packages-compartment`, `relationships-compartment`, `composite-feature-membership`, `definition`, `features-compartment`, `noncomposite-feature-membership`, `redefinition`, `reference-subsetting`, `subclassification`, `subsetting`, `directed-features-compartment`, `interconnection-compartment`, `pdh`, `pdv`, `port-b`, `port-l`, `port-r`, `port-t`, `proxy-h`, `proxy-v`, `connection-definition-elaboration`, `connection-usage-elaboration`, `interface-connection`, `flow`, `result-compartment`, `actor`, `concern-stakeholder-link`, `satisfy-requirements-compartment`, `objective-compartment`, `verification-methods-compartment`, `verifies-compartment`, `verify-requirement-name-compartment`, `verify-requirement-node`, `includes-compartment`, `exposes-compartment`, `filters-compartment`, `rendering-compartment`, `metadata-feature-annotation-node` |
 <!-- census:end packages -->
 
 ## Decisions

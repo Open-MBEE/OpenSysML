@@ -11,7 +11,7 @@ digraph "NotationGlyphs::Diagrams::mixedGlyphs" {
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«frame»</i></font><br/><b>safety</b>>];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«frame concern»</i></font><br/><b>safety</b>>];
   }
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«requirement»</i></font><br/><b>NotationGlyphs::levelReq</b>>];
   subgraph "cluster_n3" {
