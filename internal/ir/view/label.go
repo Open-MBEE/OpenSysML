@@ -204,10 +204,10 @@ func shown(node *Node) string {
 	return node.Name
 }
 
-// displayText decodes a quoted name's escapes for a drawn label: a carriage
+// DisplayText decodes notation text's escapes for a drawn label: a carriage
 // return is a line break and the other control escapes have no glyph, so they
 // are dropped.
-func displayText(raw string) string {
+func DisplayText(raw string) string {
 	text := source.Unescape(raw)
 	if !strings.ContainsAny(text, "\r\b\f") {
 		return text
@@ -274,11 +274,11 @@ func (l labeller) text(raw string) string {
 	if l.skin.cameo {
 		raw = bareNames(raw)
 	}
-	return displayText(raw)
+	return DisplayText(raw)
 }
 
 // bareNames drops the quotes off every unrestricted name in notation text, whose
-// escapes stay for displayText to decode; a string literal's text is kept whole.
+// escapes stay for DisplayText to decode; a string literal's text is kept whole.
 func bareNames(text string) string {
 	if !strings.ContainsRune(text, '\'') {
 		return text

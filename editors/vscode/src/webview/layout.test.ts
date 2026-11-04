@@ -27,6 +27,7 @@ import {
   keepOrthogonalRoutes,
   byCodeUnit,
   insertedWaypoint,
+  ARROW_ROW,
   labelLines,
   labelSize,
   edgeLabelBox,
@@ -784,6 +785,8 @@ test("simpleNames keeps the qualifier that tells nodes of one name apart", () =>
     ],
   );
   assert.deepEqual(labelLines(nodes[0], [], names), ["Plant::pump"]);
+  const item: RenderNode = { ...nodes[0], id: "f", kind: "flow", name: "", text: "of Fuel\nin bulk", arrow: "right" };
+  assert.deepEqual(labelLines(item, undefined, names), ["«flow»", "of Fuel", "in bulk", ARROW_ROW]);
   assert.deepEqual(labelLines(nodes[2], [], names), ["tank"]);
   assert.deepEqual(
     labelLines(node("e", "Plant::pump.mass", { inherited: true, type: "Real" }), ["typings", "keywords"], names),

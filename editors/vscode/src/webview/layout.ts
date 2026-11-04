@@ -729,7 +729,7 @@ export function labelLines(
     lines.push(`«${node.kind}»`);
   }
   if (node.arrow === undefined || node.name !== "" || node.detail !== "" || (node.text ?? "") !== "") {
-    lines.push(labelHead(node, draws("typings"), draws("qualifiers"), names));
+    lines.push(...labelHead(node, draws("typings"), draws("qualifiers"), names).split("\n"));
   }
   if (node.detail !== "" && draws("compartments")) {
     lines.push(node.detail);

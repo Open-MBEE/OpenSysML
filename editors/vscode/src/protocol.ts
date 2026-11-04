@@ -94,7 +94,7 @@ export interface RenderNode {
   name: string;
   type: string;
   detail: string;
-  /** Heads a node whose name is not shown: a value specification's literal, an accept's event, an item box's payload. */
+  /** Heads a node whose name is not shown — a value specification's literal, an accept's event, an item box's payload — with its escapes decoded. */
   text?: string;
   /** Set on an item box drawn on a connection line: `right` when the item goes toward the line's second end, `left` toward its first. */
   arrow?: string;

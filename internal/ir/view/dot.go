@@ -246,13 +246,13 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 			parts = append(parts, "["+dotEscape(typ)+"]")
 		}
 		if shown(root) != "" {
-			parts = append(parts, dotEscape(displayText(w.labels.name(root))))
+			parts = append(parts, dotEscape(DisplayText(w.labels.name(root))))
 			w.frameRoot = root.ID
 		}
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(displayText(symbols.LastSegment(r.View)))+" ]")
+		parts = append(parts, "[ "+dotEscape(DisplayText(symbols.LastSegment(r.View)))+" ]")
 	}
 	return strings.Join(parts, " ")
 }
@@ -2367,7 +2367,7 @@ func (w *dotWriter) edgeTexts(edge Edge) (from, label, to string) {
 	if edge.Kind == EdgeTransition {
 		label = strings.TrimPrefix(label, "accept ")
 	}
-	return displayText(bareNames(edge.FromLabel)), displayText(label), displayText(bareNames(edge.ToLabel))
+	return DisplayText(bareNames(edge.FromLabel)), DisplayText(label), DisplayText(bareNames(edge.ToLabel))
 }
 
 // halfPixel rounds a coordinate to the nearest half pixel.

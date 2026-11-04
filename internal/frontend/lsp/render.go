@@ -557,7 +557,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Inherited:       node.Inherited,
 			Type:            node.Type,
 			Detail:          node.Detail,
-			Text:            node.Text,
+			Text:            view.DisplayText(node.Text),
 			Arrow:           node.Arrow,
 			Parent:          node.Parent,
 			Compartment:     node.Compartment,
