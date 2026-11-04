@@ -1,16 +1,19 @@
 using System;
+using System.Collections.Generic;
 
 namespace OpenMBEE.OpenSysML;
 
 /// <summary>
 /// How <see cref="Model.ExecuteActionAsync"/>, <see cref="Model.ExecuteStateAsync"/> and their
 /// exploring counterparts run a behavior: the scheduling policy, the object performing it, the
-/// state-run trace, and the run's clock and draws, each as the <c>sysml</c> command's flag of the same
+/// trace, events, and the run's clock and draws, each as the <c>sysml</c> command's flag of the same
 /// name sets it. Values outside what the service accepts (an unknown draw policy, a negative advance or
 /// clock step, a malformed schedule) are refused by the service with <see cref="StatusCode.InvalidArgument"/>.
 /// </summary>
 public sealed class RunOptions
 {
+    private readonly ValueList<string> events = new([]);
+
     /// <summary>The scheduling policy that explores every order (<c>sysml -schedule explore</c>), with its default budget.</summary>
     public const string Explore = "explore";
 
@@ -34,10 +37,24 @@ public sealed class RunOptions
     public string? PerformerSymbolId { get; init; }
 
     /// <summary>
-    /// Whether a state run returns its trace, failed or not, in <see cref="StateRun.Trace"/>; only a state
-    /// run has one, and an exploration describes no single run. Needs <see cref="Capabilities.StateTrace"/>.
+    /// Whether a run returns its trace, failed or not, in <see cref="ActionRun.Trace"/> or
+    /// <see cref="StateRun.Trace"/>; an exploration describes no single run. Needs
+    /// <see cref="Capabilities.ActionTrace"/> for an action or <see cref="Capabilities.StateTrace"/> for a state.
     /// </summary>
     public bool Trace { get; init; }
+
+    /// <summary>
+    /// Event names sent to the behavior, in order; empty for none. An action needs a performer and a
+    /// non-exploring schedule. For a state run, supply these or the call's events argument, not both.
+    /// The list is copied when set.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">The list is null.</exception>
+    /// <exception cref="ArgumentException">An event is null.</exception>
+    public IReadOnlyList<string> Events
+    {
+        get => events;
+        init => events = new ValueList<string>(value);
+    }
 
     /// <summary>
     /// Simulated time, in seconds, to run for (<c>sysml -advance</c>): the behavior is started and its clock

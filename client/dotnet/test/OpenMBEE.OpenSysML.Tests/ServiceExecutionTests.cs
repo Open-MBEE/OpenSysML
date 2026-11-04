@@ -20,7 +20,7 @@ namespace OpenMBEE.OpenSysML.Tests;
 [Trait(Category.Name, Category.Integration)]
 public sealed class ServiceExecutionTests(ServiceFixture services) : IClassFixture<ServiceFixture>
 {
-    private const string Withheld = "schedule,schedule_explore,performer,state_trace,check";
+    private const string Withheld = "schedule,schedule_explore,performer,state_trace,action_trace,check";
 
     public static TheoryData<ClientWire> Wires => ClientWires.All;
 
@@ -78,6 +78,27 @@ public sealed class ServiceExecutionTests(ServiceFixture services) : IClassFixtu
         Assert.Contains("draw policy", draws.ServiceMessage, StringComparison.Ordinal);
         Assert.Contains("seed:abc", seed.ServiceMessage, StringComparison.Ordinal);
         Assert.Equal(StatusCode.NotFound, gone.StatusCode);
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
+    public async Task ActionTracesAreReturnedOnSuccessAndKeptOnFailure(ClientWire wire)
+    {
+        await using var connection = await OpenAsync(wire);
+        var timed = await LoadAsync(connection, "timed.sysml");
+
+        var completed = await timed.ExecuteActionAsync("Timed::delayed", options: new RunOptions { Trace = true }, cancellationToken: Token);
+        var failed = await Assert.ThrowsAsync<ExecutionException>(() =>
+            timed.ExecuteActionAsync("Timed::delayed", options: new RunOptions { Trace = true, Advance = 2 }, cancellationToken: Token));
+        var plain = await timed.ExecuteActionAsync("Timed::delayed", cancellationToken: Token);
+
+        Assert.NotEmpty(completed.Trace);
+        Assert.NotEmpty(failed.Trace);
+        Assert.Equal(2.0, failed.FinalTime);
+        Assert.Equal(Model.ExecuteActionMethod, failed.Method);
+        Assert.Empty(plain.Trace);
+        Assert.Equal(0, plain.TraceDropped);
+        Assert.Equal(plain.Outputs, completed.Outputs);
     }
 
     [Theory]

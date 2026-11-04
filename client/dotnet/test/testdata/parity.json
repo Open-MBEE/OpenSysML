@@ -53,7 +53,9 @@
         "parse/a_syntax_error_is_a_diagnostic_not_a_status",
         "parse/an_absent_file_is_not_found",
         "parse/naming_no_source_is_invalid",
-        "parse/strict_conformance_is_asked_for_by_field"
+        "parse/strict_conformance_is_asked_for_by_field",
+        "parse/strict_conformance_refuses_an_extension",
+        "parse/an_extension_is_a_warning_by_default"
       ],
       "tests": [
         "ModelParseTests.LoadSendsThePathAloneAndReadsTheParse",
@@ -272,6 +274,11 @@
           "capability": "schedule_explore",
           "field": "schedule",
           "when": "schedule spells an exploring policy"
+        },
+        {
+          "capability": "action_trace",
+          "field": "trace",
+          "when": "trace is true"
         },
         {
           "capability": "performer",
@@ -1216,7 +1223,9 @@
           "when": "a binding holds an exact Rational no double holds; one a double holds is sent as that double"
         }
       ],
-      "valueFields": [],
+      "valueFields": [
+        "bindings.values.event.value"
+      ],
       "scenarios": [
         "document/a_named_query_answers_typed_rows_in_order",
         "document/an_empty_result_keeps_its_schema",
@@ -2637,6 +2646,16 @@
           "taken",
           "text"
         ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExecuteActionSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "token",
+          "step",
+          "feature",
+          "value"
+        ]
       }
     ],
     "sysml.DocumentObject": [
@@ -2886,7 +2905,9 @@
           "advance",
           "seed",
           "draws",
-          "clock_step"
+          "clock_step",
+          "trace",
+          "events"
         ]
       }
     ],
@@ -2899,7 +2920,9 @@
           "diagnostics",
           "final_time",
           "performer_attributes",
-          "order_dependent"
+          "order_dependent",
+          "trace",
+          "trace_dropped"
         ]
       },
       {

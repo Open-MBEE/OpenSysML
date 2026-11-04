@@ -57,6 +57,10 @@ internal static class CompleteExecutionWire
         Alternatives = { "a", "b" },
         Taken = "b",
         Text = "send Switch to #3",
+        Token = long.MaxValue,
+        Step = 3,
+        Feature = "this.level",
+        Value = new Wire.Value { IntValue = 2 },
     };
 
     /// <summary>A document value of every arm, and an anonymous element, each part set.</summary>
@@ -107,6 +111,8 @@ internal static class CompleteExecutionWire
         FinalTime = 8,
         PerformerAttributes = { ["this.level"] = new Wire.Value { IntValue = 2 } },
         OrderDependent = { ["result"] = 1 },
+        Trace = { Event },
+        TraceDropped = 2,
     };
 
     /// <summary>A trace: the complete record, then one record per kind of instant.</summary>
@@ -226,6 +232,8 @@ internal static class CompleteExecutionWire
         Error = "action execution failed: still waiting at 5 s without completing",
         Diagnostics = { ChoicePoint },
         FinalTime = 2,
+        Trace = { Event },
+        TraceDropped = 4,
     };
 
     /// <summary>A traced run of a state machine that failed, with its trace up to the failure.</summary>

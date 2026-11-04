@@ -46,10 +46,27 @@ def report(classes, valid=10, covered=5, sources=()):
     )
 
 
+def python_hosts(test):
+    """Launch registered Python stand-ins explicitly, including on Windows."""
+    registered = set()
+    popen = gates.subprocess.Popen
+
+    def launch(argv, *args, **kwargs):
+        if argv and argv[0] in registered:
+            argv = [sys.executable, *argv]
+        return popen(argv, *args, **kwargs)
+
+    patch = mock.patch.object(gates.subprocess, "Popen", side_effect=launch)
+    patch.start()
+    test.addCleanup(patch.stop)
+    return registered
+
+
 class GatesTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
+        self.python_hosts = python_hosts(self)
         self.global_json = os.path.join(self.tmp.name, "global.json")
         with open(self.global_json, "w", encoding="utf-8") as f:
             json.dump({"sdk": {"version": "10.0.402"}}, f)
@@ -66,6 +83,7 @@ class GatesTest(unittest.TestCase):
                 sys.stdout.write({runtimes!r})
                 """))
         os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
+        self.python_hosts.add(path)
         return path
 
     def write(self, name, text):
@@ -77,7 +95,7 @@ class GatesTest(unittest.TestCase):
 
     def main_on_legacy_console(self, argv):
         buffer = io.BytesIO()
-        with io.TextIOWrapper(buffer, encoding="cp1252", errors="strict") as stdout:
+        with io.TextIOWrapper(buffer, encoding="cp1252", errors="strict", newline="\n") as stdout:
             with contextlib.redirect_stdout(stdout):
                 result = gates.main(argv)
             stdout.flush()
@@ -93,7 +111,7 @@ class GatesTest(unittest.TestCase):
         path = self.write("run/coverage.cobertura.1.xml", report(["/_/client/dotnet/src/Lib/A.cs"]))
         result, stdout = self.main_on_legacy_console(["coverage", os.path.dirname(path)])
         self.assertEqual(result, 0)
-        self.assertEqual(stdout, f"OK {path}: 5 of 10 lines covered\n")
+        self.assertEqual(stdout, f"OK {os.path.normpath(path)}: 5 of 10 lines covered\n")
 
     def test_main_sample_can_report_success_on_a_legacy_windows_console(self):
         for served in (None, "sysml-grpc v1.0.0, 3 capabilities"):
@@ -210,6 +228,7 @@ class GatesTest(unittest.TestCase):
     def executable(self, name, body):
         path = self.write(name, f"#!{sys.executable}\n" + textwrap.dedent(body))
         os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
+        self.python_hosts.add(path)
         return path
 
     def sample_host(self, service_line="sysml-grpc v1.0.0, 3 capabilities", identity=IDENTITY, model_line=gates.SAMPLE_MODEL_LINE,
@@ -889,6 +908,7 @@ class GoldensTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
+        self.python_hosts = python_hosts(self)
         self.calls = os.path.join(self.tmp.name, "calls.json")
         self.manifest = os.path.join(self.tmp.name, "goldens.json")
         self.write_manifest([
@@ -914,6 +934,7 @@ class GoldensTest(unittest.TestCase):
                     print("error: out of date", file=sys.stderr); sys.exit(1)
                 """))
         os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
+        self.python_hosts.add(path)
         return path
 
     def recorded(self):

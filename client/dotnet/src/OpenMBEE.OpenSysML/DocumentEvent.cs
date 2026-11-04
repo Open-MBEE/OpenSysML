@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace OpenMBEE.OpenSysML;
 
 /// <summary>
-/// One record of a run's trace, in the order the run made it: what a state run returns when it is
+/// One record of a run's trace, in the order the run made it: what an action or state run returns when it is
 /// asked for its trace, and the row an <c>Events</c> document query answers.
 /// </summary>
 public sealed record DocumentEvent
@@ -39,6 +39,48 @@ public sealed record DocumentEvent
         IEnumerable<string> alternatives,
         string taken,
         string text)
+        : this(kind, time, subject, machine, state, from, to, target, signal, payload, alternatives, taken, text, 0, 0, string.Empty, null)
+    {
+    }
+
+    /// <summary>Creates a trace record with its action-token and assignment facts, copying its lists.</summary>
+    /// <param name="kind">The kind of trace record.</param>
+    /// <param name="time">The clock's instant; null when none was reported.</param>
+    /// <param name="subject">The object whose behavior made the record; null for the run's own records.</param>
+    /// <param name="machine">The behavior the record is about.</param>
+    /// <param name="state">The state entered, exited or stepped.</param>
+    /// <param name="from">A fired transition's source.</param>
+    /// <param name="to">A fired transition's target.</param>
+    /// <param name="target">The object a send was addressed to; null otherwise.</param>
+    /// <param name="signal">The signal or event.</param>
+    /// <param name="payload">The accepted payload.</param>
+    /// <param name="alternatives">A choice's alternatives, in order.</param>
+    /// <param name="taken">The alternative taken.</param>
+    /// <param name="text">The line the trace prints.</param>
+    /// <param name="token">The action token's identity; 0 when none was reported.</param>
+    /// <param name="step">The action graph's 1-based step index; 0 for a record of neither an action token nor a step.</param>
+    /// <param name="feature">The feature assigned by an assignment record; empty otherwise.</param>
+    /// <param name="value">The assigned value; null when none was reported.</param>
+    /// <exception cref="ArgumentNullException">A string or list is null.</exception>
+    /// <exception cref="ArgumentException">A payload entry or alternative is null.</exception>
+    public DocumentEvent(
+        string kind,
+        DocumentValue? time,
+        DocumentObject? subject,
+        string machine,
+        string state,
+        string from,
+        string to,
+        DocumentObject? target,
+        string signal,
+        IEnumerable<string> payload,
+        IEnumerable<string> alternatives,
+        string taken,
+        string text,
+        long token,
+        int step,
+        string feature,
+        Value? value)
     {
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(machine);
@@ -48,6 +90,7 @@ public sealed record DocumentEvent
         ArgumentNullException.ThrowIfNull(signal);
         ArgumentNullException.ThrowIfNull(taken);
         ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(feature);
         Kind = kind;
         Time = time;
         Subject = subject;
@@ -61,6 +104,10 @@ public sealed record DocumentEvent
         Alternatives = new ValueList<string>(alternatives);
         Taken = taken;
         Text = text;
+        Token = token;
+        Step = step;
+        Feature = feature;
+        Value = value;
     }
 
     /// <summary>What the record is: <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>, <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c>.</summary>
@@ -105,6 +152,18 @@ public sealed record DocumentEvent
 
     /// <summary>The line the trace prints for the record.</summary>
     public string Text { get; }
+
+    /// <summary>The identity of the action token; 0 when none was reported.</summary>
+    public long Token { get; }
+
+    /// <summary>The action graph's 1-based step index; 0 for a record of neither an action token nor a step.</summary>
+    public int Step { get; }
+
+    /// <summary>The feature assigned by an assignment record; empty otherwise.</summary>
+    public string Feature { get; }
+
+    /// <summary>The assigned value; null when none was reported.</summary>
+    public Value? Value { get; }
 
     /// <summary>The record as the trace prints it, <see cref="Text"/>.</summary>
     /// <returns>The record's line.</returns>

@@ -24,6 +24,7 @@ internal static class FakeModels
         Capabilities.ScheduleExplore,
         Capabilities.Performer,
         Capabilities.StateTrace,
+        Capabilities.ActionTrace,
         Capabilities.Check,
         Capabilities.Engines,
         Capabilities.Verification,

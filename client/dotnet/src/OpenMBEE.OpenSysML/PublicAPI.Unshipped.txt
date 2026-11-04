@@ -41,6 +41,7 @@ abstract OpenMBEE.OpenSysML.Value.Equals(OpenMBEE.OpenSysML.Value? other) -> boo
 abstract OpenMBEE.OpenSysML.Value.Kind.get -> OpenMBEE.OpenSysML.ValueKind
 abstract OpenMBEE.OpenSysML.Value.NumberValue.ToDouble() -> double
 const OpenMBEE.OpenSysML.Capabilities.ActionBodyStatementAuthoring = "action_body_statement_authoring" -> string!
+const OpenMBEE.OpenSysML.Capabilities.ActionTrace = "action_trace" -> string!
 const OpenMBEE.OpenSysML.Capabilities.ApplyEdits = "apply_edits" -> string!
 const OpenMBEE.OpenSysML.Capabilities.Authoring = "authoring" -> string!
 const OpenMBEE.OpenSysML.Capabilities.BigIntValues = "big_int_values" -> string!
@@ -904,12 +905,15 @@ static OpenMBEE.OpenSysML.ValueList<T>.operator ==(OpenMBEE.OpenSysML.ValueList<
 OpenMBEE.OpenSysML.ActionRun
 OpenMBEE.OpenSysML.ActionRun.<Clone>$() -> OpenMBEE.OpenSysML.ActionRun!
 OpenMBEE.OpenSysML.ActionRun.ActionRun(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, OpenMBEE.OpenSysML.Value!>>! outputs, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, double finalTime, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, OpenMBEE.OpenSysML.Value!>>! performerAttributes, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, int>>! orderDependent) -> void
+OpenMBEE.OpenSysML.ActionRun.ActionRun(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, OpenMBEE.OpenSysML.Value!>>! outputs, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, double finalTime, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, OpenMBEE.OpenSysML.Value!>>! performerAttributes, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, int>>! orderDependent, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.DocumentEvent!>! trace, int traceDropped) -> void
 OpenMBEE.OpenSysML.ActionRun.Diagnostics.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Diagnostic!>
 OpenMBEE.OpenSysML.ActionRun.Equals(OpenMBEE.OpenSysML.ActionRun? other) -> bool
 OpenMBEE.OpenSysML.ActionRun.FinalTime.get -> double
 OpenMBEE.OpenSysML.ActionRun.OrderDependent.get -> OpenMBEE.OpenSysML.ValueDictionary<int>
 OpenMBEE.OpenSysML.ActionRun.Outputs.get -> OpenMBEE.OpenSysML.ValueDictionary<OpenMBEE.OpenSysML.Value!>
 OpenMBEE.OpenSysML.ActionRun.PerformerAttributes.get -> OpenMBEE.OpenSysML.ValueDictionary<OpenMBEE.OpenSysML.Value!>
+OpenMBEE.OpenSysML.ActionRun.Trace.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.DocumentEvent!>
+OpenMBEE.OpenSysML.ActionRun.TraceDropped.get -> int
 OpenMBEE.OpenSysML.Bound
 OpenMBEE.OpenSysML.Bound.<Clone>$() -> OpenMBEE.OpenSysML.Bound!
 OpenMBEE.OpenSysML.Bound.Bound(string! name, long limit, bool reached) -> void
@@ -1020,6 +1024,7 @@ OpenMBEE.OpenSysML.DocumentEvent
 OpenMBEE.OpenSysML.DocumentEvent.<Clone>$() -> OpenMBEE.OpenSysML.DocumentEvent!
 OpenMBEE.OpenSysML.DocumentEvent.Alternatives.get -> OpenMBEE.OpenSysML.ValueList<string!>
 OpenMBEE.OpenSysML.DocumentEvent.DocumentEvent(string! kind, OpenMBEE.OpenSysML.DocumentValue? time, OpenMBEE.OpenSysML.DocumentObject? subject, string! machine, string! state, string! from, string! to, OpenMBEE.OpenSysML.DocumentObject? target, string! signal, System.Collections.Generic.IEnumerable<string!>! payload, System.Collections.Generic.IEnumerable<string!>! alternatives, string! taken, string! text) -> void
+OpenMBEE.OpenSysML.DocumentEvent.DocumentEvent(string! kind, OpenMBEE.OpenSysML.DocumentValue? time, OpenMBEE.OpenSysML.DocumentObject? subject, string! machine, string! state, string! from, string! to, OpenMBEE.OpenSysML.DocumentObject? target, string! signal, System.Collections.Generic.IEnumerable<string!>! payload, System.Collections.Generic.IEnumerable<string!>! alternatives, string! taken, string! text, long token, int step, string! feature, OpenMBEE.OpenSysML.Value? value) -> void
 OpenMBEE.OpenSysML.DocumentEvent.Equals(OpenMBEE.OpenSysML.DocumentEvent? other) -> bool
 OpenMBEE.OpenSysML.DocumentEvent.Event.get -> string!
 OpenMBEE.OpenSysML.DocumentEvent.From.get -> string!
@@ -1031,6 +1036,10 @@ OpenMBEE.OpenSysML.DocumentEvent.Subject.get -> OpenMBEE.OpenSysML.DocumentObjec
 OpenMBEE.OpenSysML.DocumentEvent.Taken.get -> string!
 OpenMBEE.OpenSysML.DocumentEvent.Target.get -> OpenMBEE.OpenSysML.DocumentObject?
 OpenMBEE.OpenSysML.DocumentEvent.Text.get -> string!
+OpenMBEE.OpenSysML.DocumentEvent.Token.get -> long
+OpenMBEE.OpenSysML.DocumentEvent.Step.get -> int
+OpenMBEE.OpenSysML.DocumentEvent.Feature.get -> string!
+OpenMBEE.OpenSysML.DocumentEvent.Value.get -> OpenMBEE.OpenSysML.Value?
 OpenMBEE.OpenSysML.DocumentEvent.Time.get -> OpenMBEE.OpenSysML.DocumentValue?
 OpenMBEE.OpenSysML.DocumentEvent.To.get -> string!
 OpenMBEE.OpenSysML.DocumentObject
@@ -1147,6 +1156,8 @@ OpenMBEE.OpenSysML.RunOptions.ClockStep.get -> double
 OpenMBEE.OpenSysML.RunOptions.ClockStep.init -> void
 OpenMBEE.OpenSysML.RunOptions.Draws.get -> string?
 OpenMBEE.OpenSysML.RunOptions.Draws.init -> void
+OpenMBEE.OpenSysML.RunOptions.Events.get -> System.Collections.Generic.IReadOnlyList<string!>!
+OpenMBEE.OpenSysML.RunOptions.Events.init -> void
 OpenMBEE.OpenSysML.RunOptions.Explores.get -> bool
 OpenMBEE.OpenSysML.RunOptions.PerformerSymbolId.get -> string?
 OpenMBEE.OpenSysML.RunOptions.PerformerSymbolId.init -> void

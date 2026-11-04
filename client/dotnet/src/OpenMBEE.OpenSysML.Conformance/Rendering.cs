@@ -145,11 +145,12 @@ internal static class Rendering
     internal static Wire.ExecuteActionResponse ActionRun(ActionRun run)
     {
         ArgumentNullException.ThrowIfNull(run);
-        var rendered = new Wire.ExecuteActionResponse { FinalTime = run.FinalTime };
+        var rendered = new Wire.ExecuteActionResponse { FinalTime = run.FinalTime, TraceDropped = run.TraceDropped };
         Values(rendered.Outputs, run.Outputs);
         rendered.Diagnostics.AddRange(Diagnostics(run.Diagnostics));
         Values(rendered.PerformerAttributes, run.PerformerAttributes);
         rendered.OrderDependent.Add(run.OrderDependent.ToDictionary(StringComparer.Ordinal));
+        rendered.Trace.AddRange(Trace(run.Trace));
         return rendered;
     }
 
@@ -1237,6 +1238,10 @@ internal static class Rendering
             Alternatives = { record.Alternatives },
             Taken = record.Taken,
             Text = record.Text,
+            Token = record.Token,
+            Step = record.Step,
+            Feature = record.Feature,
+            Value = record.Value is { } value ? Value(value) : null,
         };
 
     private static IEnumerable<Wire.CaseEvaluation> Evaluations(IEnumerable<CaseEvaluation> evaluations)

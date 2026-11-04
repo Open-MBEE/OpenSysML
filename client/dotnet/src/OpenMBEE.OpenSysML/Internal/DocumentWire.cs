@@ -204,7 +204,11 @@ internal static class DocumentWire
             value.Payload.ToList(),
             value.Alternatives.ToList(),
             value.Taken,
-            value.Text);
+            value.Text,
+            value.Token,
+            value.Step,
+            value.Feature,
+            value.Value is { } assigned ? ValueWire.FromWire(assigned, method, path + ".value") : null);
 
     private static UnsupportedValueException Unsupported(Wire.DocumentValue value, string method, string path) =>
         new($"The service answered a document value at {path} of a kind this client does not know; a newer client may read it.", method, path, value.ToByteArray());

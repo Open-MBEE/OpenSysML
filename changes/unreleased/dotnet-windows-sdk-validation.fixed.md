@@ -1,0 +1,2 @@
+- Refresh the C# SDK's service bindings and capability inventory, preserve action trace and event data through the public API and conformance adapters, and derive the gRPC conformance scenario count from the suite.
+- Correct the Rust cache-lock interoperability fixture's `fs4` API usage and make the .NET gate-script test fixtures portable to Windows.

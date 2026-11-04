@@ -18,7 +18,7 @@ internal static class ExecutionArea
     [
         RpcAdapter.Of<Wire.ExecuteActionRequest>(
             "ExecuteAction",
-            ["model_hash", "action_symbol_id", "inputs", "schedule", "performer_symbol_id", "advance", "seed", "draws", "clock_step"],
+            ["model_hash", "action_symbol_id", "inputs", "schedule", "performer_symbol_id", "advance", "seed", "draws", "clock_step", "trace", "events"],
             ExecuteActionAsync),
         RpcAdapter.Of<Wire.ExecuteStateRequest>(
             "ExecuteState",
@@ -39,11 +39,12 @@ internal static class ExecutionArea
         var options = Options(
             request.Schedule,
             request.PerformerSymbolId,
-            trace: false,
+            request.Trace,
             request.HasAdvance ? request.Advance : null,
             request.HasSeed ? request.Seed : null,
             request.Draws,
-            request.ClockStep);
+            request.ClockStep,
+            request.Events);
         var inputs = RequestValues.Map(request.Inputs, "inputs");
         var response = new Wire.ExecuteActionResponse();
         try
@@ -64,6 +65,8 @@ internal static class ExecutionArea
             response.Error = failure.Message;
             response.Diagnostics.AddRange(Rendering.Diagnostics(failure.Diagnostics));
             response.FinalTime = failure.FinalTime;
+            response.Trace.AddRange(Rendering.Trace(failure.Trace));
+            response.TraceDropped = failure.TraceDropped;
         }
 
         return new ScenarioAnswer.Answered(response);
@@ -151,7 +154,7 @@ internal static class ExecutionArea
     }
 
     // A field the request leaves empty is an option the API leaves null; the runner has a RunOptions of its own.
-    private static OpenSysML.RunOptions Options(string schedule, string performer, bool trace, double? advance, ulong? seed, string draws, double clockStep) =>
+    private static OpenSysML.RunOptions Options(string schedule, string performer, bool trace, double? advance, ulong? seed, string draws, double clockStep, IReadOnlyList<string>? events = null) =>
         new()
         {
             Schedule = schedule.Length > 0 ? schedule : null,
@@ -161,5 +164,6 @@ internal static class ExecutionArea
             Seed = seed,
             Draws = draws.Length > 0 ? draws : null,
             ClockStep = clockStep,
+            Events = events ?? [],
         };
 }

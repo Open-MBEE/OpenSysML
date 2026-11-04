@@ -424,7 +424,7 @@ use after disposal, which are the standard exceptions:
 | The service no longer holds the model a call named | `ModelNotFoundException`, a `ServiceException` with `NotFound` |
 | The service could not read a file a parse named | `ModelFileNotFoundException`, a `ServiceException` with `NotFound` |
 | The service answered, reporting a failure about the model: an expression that did not evaluate, a symbol that is not there, an object that could not be built | `ModelException`, with `Method` and the answer's `Diagnostics`; `SymbolNotFoundException`, with `Name` and `Suggestions`, for a symbol; `ModelErrorsException` from `RequireNoErrors` |
-| The service answered that a run failed: no initial node, no such behavior, a performer that could not be made, a run still waiting when its advance ran out | `ExecutionException`, a `ModelException` with the run's `FinalTime` and, for a traced state run, its `Trace` up to the failure and `TraceDropped` |
+| The service answered that a run failed: no initial node, no such behavior, a performer that could not be made, a run still waiting when its advance ran out | `ExecutionException`, a `ModelException` with the run's `FinalTime` and, for a traced action or state run, its `Trace` up to the failure and `TraceDropped` |
 | The service answered a check it refused before any search: the behavior, a property or the performer does not resolve | `CheckException`, a `ModelException` with the `Partial` result the answer carried, including its verdict when supplied |
 | The service answered that it could not verify, validate, calculate or sweep at all: an unknown symbol, a symbol of another kind, a subject or argument that does not read, a range no values follow from | `VerificationException`, a `ModelException` with the failure's `Reason` (`FailureReason.WrongKind` for a symbol of another kind) and the `Instances`, `Verifications` and engine `Standing` the answer carried |
 | The service answered that an analysis case could not run to its end | `AnalysisException`, a `VerificationException` with the `Partial` run: the outputs computed, the verdicts and evaluations made and the objects named before the failure |
@@ -533,6 +533,7 @@ var run = await model.ExecuteActionAsync("Test::addFive", new Dictionary<string,
 var declared = await model.ExecuteActionAsync("Test::race", options: new RunOptions { Schedule = "declared" });
 var every = await model.ExploreActionAsync("Test::race");             // every outcome, and whether that is all of them
 var traced = await model.ExecuteStateAsync("Test::Machine", options: new RunOptions { Trace = true });
+var tracedAction = await model.ExecuteActionAsync("Test::addFive", options: new RunOptions { Trace = true });
 var tank = (await connection.LoadAsync("tank.sysml")).RequireNoErrors();
 var check = await tank.CheckActionAsync("Plant::Tank::fill", options: new CheckOptions
 {
@@ -542,19 +543,14 @@ var check = await tank.CheckActionAsync("Plant::Tank::fill", options: new CheckO
 
 | Method | Answers |
 | --- | --- |
-| `ExecuteActionAsync` | An `ActionRun`: the action's `Outputs`, the `PerformerAttributes` of the object it ran on (`this.level`), its `Diagnostics` (choice points, unevaluable guards), the `FinalTime` of its clock, and the outputs each `OrderDependent` choice touched |
+| `ExecuteActionAsync` | An `ActionRun`: the action's `Outputs`, the `PerformerAttributes` of the object it ran on (`this.level`), its `Diagnostics` (choice points, unevaluable guards), the `FinalTime` of its clock, the outputs each `OrderDependent` choice touched, and, when requested, its `Trace` and `TraceDropped` |
 | `ExecuteStateAsync` | A `StateRun`: the `StatesVisited` in the order the run entered them, the `FinalContext`, and, when `RunOptions.Trace` asks for it, the run's `Trace` of `DocumentEvent`s and how many records the service dropped |
 | `ExploreActionAsync` / `ExploreStateAsync` | An `Exploration`: each distinct `Outcome` with its linearizations, witness choices and model-draw probability, whether the exploration was `Complete`, and the budgets that cut it short |
 | `CheckActionAsync` / `CheckStateAsync` | A `CheckResult`: the verdict (`holds`, `fails`, `undecided`), the report's lines, the search's statistics, each violation, divergence and final outcome with a `CheckWitness` that replays it, the symbolic engine's claim, and the `Standing` of the engine that answered |
 
-`RunOptions` carries what the `sysml` command's run flags do: the `Schedule` (`declared`,
-`reverse`, `seed:<n>`, or `explore[:runs=<n>,depth=<d>]` for an exploration), the
-`PerformerSymbolId` of the object performing the behavior, the state-run `Trace`, and the
-run's `Advance`, `Seed`, `Draws` and `ClockStep`. A run and an exploration answer differently,
-so each call takes only its own kind of schedule: an exploring schedule passed to
-`ExecuteActionAsync`, a single-run schedule passed to an explore call, or a trace asked of an
-action or an exploration is an `InvalidRequestException` before anything is sent. An explore
-call naming no schedule explores under the service's default budget. `CheckOptions` carries
+`RunOptions` carries what the `sysml` command's run flags do: the `Schedule` (`declared`, `reverse`, `seed:<n>`, or `explore[:runs=<n>,depth=<d>]` for an exploration), the `PerformerSymbolId` of the object performing the behavior, the action or state run's `Trace`, its ordered `Events`, and the run's `Advance`, `Seed`, `Draws` and `ClockStep`. Action events need a performer and cannot be posted under an exploring schedule. State events can be supplied through options or through the existing events argument, but not both. Lists are copied when set.
+
+A run and an exploration answer differently, so each call takes only its own kind of schedule: an exploring schedule passed to `ExecuteActionAsync`, a single-run schedule passed to an explore call, or a trace asked of an exploration is an `InvalidRequestException` before anything is sent. An explore call naming no schedule explores under the service's default budget. `CheckOptions` carries
 the `-check-*` flags: the properties held at every stable state, the features allowed to
 diverge, the symbolic engine's free inputs and assumptions, whether each witness carries its
 file, the bounds, the engine and the performer. A failing property is a `CheckResult`, never
@@ -564,11 +560,13 @@ draw policy or engine, and a negative bound are the service's to refuse, with
 
 Before anything is sent, a call is held to the capabilities its options need, in the order
 the service checks them: `schedule` for a schedule and `schedule_explore` for an exploring
-one, `state_trace` for a trace, `performer` for a performer, and the value capabilities of
+one, `action_trace` or `state_trace` for the corresponding trace, `performer` for a performer, and the value capabilities of
 each input; a check needs `check`, then `performer`, `engines` for an engine and
 `schedule_explore` for the `explore` engine. `final_time` and `order_dependence` only say
 whether the service fills those fields: they are read whatever it advertises, as 0 or empty
 from a service without them.
+
+Action trace records also preserve their `Token` identity, graph `Step` index, assigned `Feature`, and assigned `Value`. The existing action-run and trace-record constructors remain available and default the additional facts to empty or zero.
 
 A trace record, and the row of a document query, is read into the `DocumentValue` family:
 an element (with no `Id` when the service names an anonymous one), an object, a string, a
@@ -1342,7 +1340,7 @@ make conformance-dotnet conformance-dotnet-check   # the conformance suite; see 
 dotnet restore client/dotnet/OpenSysML.slnx --locked-mode
 dotnet format client/dotnet/OpenSysML.slnx --verify-no-changes --no-restore
 dotnet build client/dotnet/OpenSysML.slnx -c Release --no-restore -warnaserror
-dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build --filter 'Category=Unit'
+dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build --filter-trait 'Category=Unit'
 ```
 
 `dotnet test` runs on Microsoft.Testing.Platform, which `global.json` selects; the VSTest
@@ -1498,7 +1496,7 @@ alone with the pinned buf:
 
 ```bash
 BUF='go run github.com/bufbuild/buf/cmd/buf@v1.57.2' OPENSYSML_REQUIRE_BUF=1 \
-  dotnet test --project client/dotnet/test/OpenMBEE.OpenSysML.Tests -c Release --filter 'FullyQualifiedName~WireSchemaTests'
+  dotnet test --project client/dotnet/test/OpenMBEE.OpenSysML.Tests -c Release --filter-class 'OpenMBEE.OpenSysML.Tests.WireSchemaTests'
 ```
 
 [`api/proto/buf.gen.csharp.yaml`](../../api/proto/buf.gen.csharp.yaml) pins the generators
