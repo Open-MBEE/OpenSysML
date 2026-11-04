@@ -84,8 +84,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states
-// (MultiplicityMember): a written range at its clause, the implicit [1..1] last, as the
-// pilot owns them.
+// (MultiplicityMember): a written range at its clause, the implicit [1..1] last.
 func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symbols.Symbol, ordinal int) []*symbols.Symbol {
 	member := m.MultiplicityMember(sym)
 	if member == nil {
@@ -101,16 +100,8 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 		},
 	}
 	if !IsDefaultMultiplicity(member) {
-		// A written range is owned at its clause: before the body's memberships, as
-		// the conversion orders it.
 		membership.DeclSpan = source.Span{Offset: member.DeclSpan.Offset}
-		at := len(memberships)
-		for i, prior := range memberships {
-			if prior.DeclSpan.Len > 0 && prior.DeclSpan.Offset > member.DeclSpan.Offset {
-				at = i
-				break
-			}
-		}
+		at := clausePosition(memberships, member.DeclSpan.Offset)
 		memberships = append(memberships, nil)
 		copy(memberships[at+1:], memberships[at:])
 		memberships[at] = membership
@@ -1025,4 +1016,15 @@ func (m *Model) aliasMemberElement(sym *symbols.Symbol) *symbols.Symbol {
 		return target
 	}
 	return nil
+}
+
+// clausePosition is where a head clause at offset sits among items in source order:
+// before the first body item past it, else last.
+func clausePosition(items []*symbols.Symbol, offset int) int {
+	for i, item := range items {
+		if item.DeclSpan.Len > 0 && item.DeclSpan.Offset > offset {
+			return i
+		}
+	}
+	return len(items)
 }

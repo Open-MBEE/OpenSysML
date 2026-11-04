@@ -2004,12 +2004,20 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) []*symbo
 // ownedMembersOf is every element sym's own body declares, in declaration order:
 // an alias is a membership rather than an element, and a name registered twice
 // (short and primary) is one element.
-// withDefaultMultiplicityMember appends, last, the Multiplicity stating sym's
-// implicit [1..1] (DefaultMultiplicityMember): the member of its last owned membership.
+// withDefaultMultiplicityMember adds the Multiplicity sym states (MultiplicityMember):
+// a written range at its clause, the implicit [1..1] last.
 func (m *Model) withDefaultMultiplicityMember(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
-	if member := m.MultiplicityMember(sym); member != nil {
+	member := m.MultiplicityMember(sym)
+	if member == nil {
+		return members
+	}
+	if IsDefaultMultiplicity(member) {
 		return append(members, member)
 	}
+	at := clausePosition(members, member.DeclSpan.Offset)
+	members = append(members, nil)
+	copy(members[at+1:], members[at:])
+	members[at] = member
 	return members
 }
 

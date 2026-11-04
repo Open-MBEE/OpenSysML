@@ -77,11 +77,8 @@ func (m *Model) declaresMultiplicity(sym *symbols.Symbol) bool {
 	return declared
 }
 
-// DeclaredMultiplicityMember is the MultiplicityRange a usage's written range
-// (`part wheels : Wheel [4]`) declares: a nameless owned member held by an
-// OwningMembership at the clause, the usage's Type::multiplicity — the shape the
-// conversion writes (`<usage>_pmultiplicity`) and the pilot states. Its bounds are
-// not yet served as elements. One per usage, cached; nil when sym writes no range.
+// DeclaredMultiplicityMember is the nameless MultiplicityRange a usage's written range
+// (`[4]`) declares, owned at the clause as the conversion writes it; nil without a range.
 func (m *Model) DeclaredMultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil || !sym.DeclaresUsage() {
 		return nil
@@ -117,9 +114,8 @@ func (m *Model) DeclaredMultiplicityMember(sym *symbols.Symbol) *symbols.Symbol 
 	return member
 }
 
-// MultiplicityMember is the Multiplicity sym's own clause or its absence states:
-// the declared range (DeclaredMultiplicityMember) or the implicit [1..1]
-// (DefaultMultiplicityMember); nil when sym states neither.
+// MultiplicityMember is the Multiplicity sym states: its declared range
+// (DeclaredMultiplicityMember) or its implicit [1..1] (DefaultMultiplicityMember).
 func (m *Model) MultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
 	if member := m.DeclaredMultiplicityMember(sym); member != nil {
 		return member
@@ -127,8 +123,8 @@ func (m *Model) MultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
 	return m.DefaultMultiplicityMember(sym)
 }
 
-// IsImpliedMultiplicity reports whether sym is a Multiplicity a usage's clause
-// or its absence states (MultiplicityMember): the declared range or the default.
+// IsImpliedMultiplicity reports whether sym is a usage's declared range or default
+// Multiplicity (MultiplicityMember).
 func IsImpliedMultiplicity(sym *symbols.Symbol) bool {
 	decl, ok := symbols.ImpliedDeclOf(sym)
 	return ok && (decl.Form == symbols.ImpliedDefaultMultiplicity || decl.Form == symbols.ImpliedMultiplicityRange)

@@ -326,6 +326,7 @@ func TestDefaultMultiplicityMember(t *testing.T) {
     part def Vehicle {
         attribute mass : ScalarValues::Real;
         attribute tags : ScalarValues::String [2];
+        part wheels [4] { part hub; }
         part wheel : Wheel;
         part spare :> wheel;
         action go;
@@ -402,6 +403,16 @@ func TestDefaultMultiplicityMember(t *testing.T) {
 			t.Errorf("tags range metaclass = %s, want MultiplicityRange", name)
 		} else if owned, _ := model.ReflectiveElements(tags, "ownedMember"); len(owned) == 0 || owned[0] != got[0] {
 			t.Errorf("tags ownedMember = %d elements, want its declared range first", len(owned))
+		}
+		wheels := relFixtureSymbol(t, fixture, "wheels")
+		rangeOf := model.DeclaredMultiplicityMember(wheels)
+		for _, feature := range []string{"ownedMember", "member", "ownedElement"} {
+			if got, _ := model.ReflectiveElements(wheels, feature); len(got) < 2 || got[0] != rangeOf {
+				t.Errorf("wheels %s = %d elements, want its declared range before hub", feature, len(got))
+			}
+		}
+		if got, _ := model.ReflectiveElements(wheels, "ownedMembership"); len(got) < 2 || got[0].Implicit == nil || got[0].Implicit.Member != rangeOf {
+			t.Errorf("wheels ownedMembership = %d elements, want the range's membership before hub's", len(got))
 		}
 		if got, _ := model.ReflectiveElements(relFixtureSymbol(t, fixture, "tags"), "ownedRelationship"); len(got) == 0 {
 			t.Errorf("tags ownedRelationship = %d elements, want the range's OwningMembership among them", len(got))
