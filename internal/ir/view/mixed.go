@@ -66,6 +66,10 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 		}
 	}
 	if w.seen[sym] {
+		if exposed && mixedStructural(sym) && !w.queued(sym) {
+			// Walked as an exposed structure's member, it is exposed itself too.
+			w.queueStructure(sym, parent)
+		}
 		return
 	}
 	w.seen[sym] = true
@@ -204,6 +208,16 @@ func (w *mixedWalk) queueStructure(sym *symbols.Symbol, parent *Node) {
 	w.walkStructureMembers(sym, parent)
 }
 
+// queued reports whether sym is already queued for the interconnection builder.
+func (w *mixedWalk) queued(sym *symbols.Symbol) bool {
+	for _, entry := range w.structures {
+		if entry.sym == sym {
+			return true
+		}
+	}
+	return false
+}
+
 // walkStructureMembers collects structural descendants into the shared node map.
 func (w *mixedWalk) walkStructureMembers(sym *symbols.Symbol, parent *Node) {
 	if !w.structureOwners[sym] {
@@ -331,6 +345,10 @@ func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*
 		}
 		for _, member := range w.deferredMembers[sym] {
 			w.render(member, false, owner)
+		}
+		if collapsed(owner) {
+			// A collapsed owner draws nothing beneath it, so a member drawn elsewhere stays there.
+			continue
 		}
 		existingChildren := append([]*Node(nil), owner.Children...)
 		var children []*Node
