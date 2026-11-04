@@ -30,10 +30,7 @@ func TestRenderingsDrawEachNodeOnce(t *testing.T) {
 	for _, files := range fixtureSets(t, paths, exists) {
 		renderer, idx := fixtureRenderer(t, files)
 		for _, file := range files {
-			var tops []*symbols.Symbol
-			for _, sym := range idx.DocumentRoot(file).AllMembers() {
-				tops = append(tops, sym)
-			}
+			tops := append([]*symbols.Symbol(nil), idx.DocumentRoot(file).AllMembers()...)
 			for _, v := range fixtureViews(idx.DocumentRoot(file)) {
 				rendering, err := renderer.Render(v)
 				if err != nil {
