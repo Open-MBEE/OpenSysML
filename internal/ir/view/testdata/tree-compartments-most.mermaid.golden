@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» CompartmentDemoViews::controllers"
 ---
 %% CompartmentDemoViews::controllers — tree rendering (render asTreeDiagram)
 %% not represented: 4 member(s) drawn as compartment rows of their owner

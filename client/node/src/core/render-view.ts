@@ -5,6 +5,7 @@ import type {
   RenderEdge as PbRenderEdge,
   RenderGeometry as PbRenderGeometry,
   RenderNode as PbRenderNode,
+  RenderFrame as PbRenderFrame,
   RenderNote as PbRenderNote,
   RenderPoint as PbRenderPoint,
   RenderPort as PbRenderPort,
@@ -115,6 +116,15 @@ export interface RenderNote {
   origin?: RenderSpan;
 }
 
+/** The view frame of SysML v2 §8.2.3.26 round a graph-shaped rendering. */
+export interface RenderFrame {
+  name: string;
+  type: string;
+  exposes: readonly string[];
+  filters: readonly string[];
+  annotations: readonly string[];
+}
+
 export interface RenderedView {
   view: string;
   kind: string;
@@ -128,6 +138,8 @@ export interface RenderedView {
   notices: readonly string[];
   /** The optional notation elements the rendering drew. */
   shown: readonly string[];
+  /** The view frame; absent for a frameless rendering. */
+  frame?: RenderFrame;
 }
 
 function spanOf(span: PbSpan | undefined): RenderSpan | undefined {
@@ -253,8 +265,21 @@ export function renderedViewFromJson(json: unknown): RenderedView {
   return renderedViewOf(fromJson(RenderViewResponseSchema, json as JsonValue));
 }
 
+function frameOf(frame: PbRenderFrame | undefined): RenderFrame | undefined {
+  return frame === undefined
+    ? undefined
+    : {
+        name: frame.name,
+        type: frame.type,
+        exposes: [...frame.exposes],
+        filters: [...frame.filters],
+        annotations: [...frame.annotations],
+      };
+}
+
 export function renderedViewOf(response: RenderViewResponse): RenderedView {
   const canvas = canvasOf(response.canvas);
+  const frame = frameOf(response.frame);
   return {
     view: response.view,
     kind: response.kind,
@@ -267,5 +292,6 @@ export function renderedViewOf(response: RenderViewResponse): RenderedView {
     notices: [...response.notices],
     shown: [...response.shown],
     ...(canvas === undefined ? {} : { canvas }),
+    ...(frame === undefined ? {} : { frame }),
   };
 }

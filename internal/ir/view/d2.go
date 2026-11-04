@@ -46,7 +46,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	}
 	r = r.showing(options.Show).settleUnplaced(options.Unplaced, options.Compartments, FormD2)
 	w := &d2Writer{
-		fills:   familyFills{palette: options.Palette, tree: r.Kind == KindTree},
+		fills:   familyFills{palette: options.Palette, tree: r.Kind == KindTree, sequence: r.Kind == KindSequence},
 		labels:  labelsOf(r.Roots, false, nil, r.Shown),
 		ports:   r.portView(options.Ports),
 		nested:  r.Kind != KindTree,
@@ -90,6 +90,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	w.writeClasses(&b)
 	r.writeGeometryComments(&b, "#")
 	b.WriteString(w.body.String())
+	w.writeFrame(r, &b)
 	return b.String(), nil
 }
 
@@ -203,10 +204,11 @@ var d2Classes = []struct{ name, body string }{
 	{"usage", styleOpen + d2Element + "; font-size: 14; border-radius: 8 }"},
 	{"package", styleOpen + d2Element + "; font-size: 14; stroke-width: 2 }"},
 	{"region", styleOpen + d2Element + "; font-size: 14; stroke-dash: 3 }"},
+	{"annotation", "shape: page; style: { " + d2Element + fontSizeClose},
 	{"pin", styleOpen + d2Element + "; font-size: 10 }"},
 	{"initial", "shape: oval; width: 18; height: 18; style: { fill: black; stroke: black }"},
 	{"final", "shape: oval; width: 22; height: 22; style: { fill: black; stroke: black; double-border: true }"},
-	{"terminate", "shape: text; style: { font-size: 24; bold: true; font-color: black }"},
+	{"terminate", "shape: oval; width: 22; height: 22; style: { " + d2Element + "; font-size: 14; bold: true }"},
 	{"bar", "shape: rectangle; width: 80; height: 8; style: { fill: black; stroke: black }"},
 	{"choice", "shape: diamond; style: { " + d2Element + fontSizeClose},
 	{"history", "shape: oval; width: 26; height: 26; style: { " + d2Element + fontSizeClose},
@@ -327,7 +329,8 @@ func (w *d2Writer) writeNode(node *Node, scope, indent string) {
 	if link := w.link(node.Origin); link != "" {
 		attrs = append(attrs, link)
 	}
-	if style := w.nodeStyle(node); style != "" {
+	// A proxy on a lifeline is a point, not a box the palette fills.
+	if style := w.nodeStyle(node, w.ports.sequence && scope != ""); style != "" {
 		attrs = append(attrs, styleOpen+style+" }")
 	}
 	pins := w.pins(node)
@@ -360,7 +363,7 @@ func (w *d2Writer) writeNode(node *Node, scope, indent string) {
 // ports display, a tree's parameter pins, an action's the ones an edge ends at.
 func (w *d2Writer) pins(node *Node) []Port {
 	switch {
-	case w.ports.interconnection, w.ports.tree:
+	case w.ports.interconnection, w.ports.tree, w.ports.sequence:
 		return w.ports.of(node)
 	case w.ports.action:
 		var pins []Port
@@ -426,6 +429,8 @@ func d2NodeClass(node *Node, glyphs bool) string {
 		}
 	}
 	switch {
+	case annotationKind(node.Kind):
+		return "annotation"
 	case slices.Contains(strings.Fields(node.Kind), "package"):
 		return "package"
 	case isDefinitionKind(node.Kind):
@@ -461,10 +466,10 @@ func (w *d2Writer) label(node *Node, class string) string {
 // nodeStyle is a node's own style: its palette fill with the border in the
 // family colour, else the colours its Style states, then the Style's size and
 // weight. A font family is not drawn, D2 naming none.
-func (w *d2Writer) nodeStyle(node *Node) string {
+func (w *d2Writer) nodeStyle(node *Node, proxy bool) string {
 	var attrs []string
 	switch {
-	case w.fills.filled(node):
+	case !proxy && w.fills.filled(node):
 		attrs = append(attrs, "fill: "+d2Color(w.fills.fill(node)), "stroke: "+d2Color(w.fills.color(node)))
 		if node.Style != nil && node.Style.Text != "" {
 			attrs = append(attrs, "font-color: "+d2Color(node.Style.Text))
@@ -542,7 +547,7 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 		class = "dependency"
 	case EdgeSuccessionFlow:
 		class = "successionflow"
-	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeMessage:
 		class = "open"
 	case EdgePortion:
 		// A filled circle stands at the occurrence end: D2 has no three-quarter circle.
@@ -659,4 +664,19 @@ var d2Escapes = strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "${", `\${
 // d2Quote writes text as a D2 double-quoted string.
 func d2Quote(text string) string {
 	return `"` + d2Escapes.Replace(text) + `"`
+}
+
+// writeFrame writes the view frame's compartments (§8.2.3.26) as text shapes
+// pinned near the diagram's corners: the name compartment at the top left, the
+// exposes top right, the filters bottom left, the annotations bottom right.
+// D2 draws no frame rectangle round a diagram, so the frame is its corners.
+func (w *d2Writer) writeFrame(r *Rendering, b *strings.Builder) {
+	if r.Frame == nil {
+		return
+	}
+	corners := map[string]string{FrameTopRight: "top-right", FrameBottomLeft: "bottom-left", FrameBottomRight: "bottom-right"}
+	fmt.Fprintf(b, "frame_name: %s { shape: text; near: top-left }\n", d2Quote(r.Frame.NameLine()))
+	for _, c := range r.Frame.Compartments() {
+		fmt.Fprintf(b, "frame_%s: %s { shape: text; near: %s }\n", c.Corner, d2Quote(strings.Join(c.Lines, "\n")), corners[c.Corner])
+	}
 }

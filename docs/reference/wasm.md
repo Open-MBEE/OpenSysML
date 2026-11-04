@@ -163,7 +163,7 @@ the view kind, stated rendering, notices, canvas, nodes, edges, notes and, for t
 
 `show` is optional: an array naming the [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
 to draw besides those the view's rendering shows (`parameter-symbols`, `port-symbols`,
-`compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`),
+`compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, `annotations`, or `all`),
 as `sysml -render-show` does; an unknown name is an invalid-argument error. The response's
 `shown` lists the elements drawn.
 

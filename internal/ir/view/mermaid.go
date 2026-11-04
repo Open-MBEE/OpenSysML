@@ -71,7 +71,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	}
 	var fills familyFills
 	if options.Palette != "" && options.Palette.check() == nil {
-		fills = familyFills{palette: options.Palette, tree: r.Kind == KindTree}
+		fills = familyFills{palette: options.Palette, tree: r.Kind == KindTree, sequence: r.Kind == KindSequence}
 		for _, root := range r.Roots {
 			fills.collect(root)
 		}
@@ -322,7 +322,7 @@ func mermaidUnsupportedColors(style *Style) int {
 }
 
 func (r *Rendering) mermaidUnrepresentedStyleCounts() (nodeFonts, edgeFonts, fields int, stateStyles []string) {
-	stateFills := familyFills{tree: r.Kind == KindTree}
+	stateFills := familyFills{tree: r.Kind == KindTree, sequence: r.Kind == KindSequence}
 	var walk func(*Node)
 	walk = func(node *Node) {
 		if node.Style != nil {
@@ -426,13 +426,11 @@ func (r *Rendering) hasState(id string) bool {
 	return false
 }
 
+// hasSequenceParticipant reports whether id is a lifeline or a proxy on one, which
+// a note or message anchored to it is written over.
 func (r *Rendering) hasSequenceParticipant(id string) bool {
-	for _, node := range r.Roots {
-		if node.ID == id {
-			return true
-		}
-	}
-	return false
+	_, ok := r.participants()[id]
+	return ok
 }
 
 // writeGeometryComments writes the canvas, node placements and edge routes as
@@ -582,6 +580,9 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 	}
 	if extra > 0 {
 		fmt.Fprintf(b, "  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n", extra*mermaidTitleLine)
+	}
+	if r.Frame != nil {
+		fmt.Fprintf(b, "title: %q\n", r.Frame.NameLine())
 	}
 	b.WriteString("---\n")
 }
@@ -1226,10 +1227,15 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		}
 	}
 	switch node.Kind {
+	case commentKind, docKind, repKind:
+		// Mermaid's card is the nearest to the note's folded corner.
+		return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
 	case startKind, "initial":
 		return `@{ shape: f-circ, label: "" }`
-	case "final", terminateKind:
+	case "final":
 		return `@{ shape: fr-circ, label: "" }`
+	case terminateKind:
+		return `@{ shape: cross-circ, label: "" }`
 	case "junction":
 		return `@{ shape: f-circ, label: "" }`
 	case connectionDotKind, connectionDefDotKind, dependencyDotKind:
@@ -1296,7 +1302,7 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 		markdown = append(markdown, first)
 		head = head[1:]
 	} else if keyword := labels.keyword(node); keyword != "" {
-		markdown = append(markdown, "*"+keyword+"*")
+		markdown = append(markdown, marked(labels.mark(node), "*"+keyword+"*"))
 	}
 	for _, line := range head {
 		markdown = append(markdown, "**"+line+"**")
@@ -1743,32 +1749,47 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, op
 			fmt.Fprintf(b, "  link %s: Source @ %s\n", node.ID, url)
 		}
 	}
-	r.writeSequenceNotes(b)
+	participants := r.participants()
+	r.writeSequenceNotes(b, participants)
 	writtenNotes := map[int]bool{}
 	for _, edge := range r.Edges {
+		from, to, arrow := participants[edge.From], participants[edge.To], mermaidSequenceArrow(edge.Kind)
 		// The colon is part of the message syntax; only the text after it is left
 		// off when the message carries none.
 		if edge.Label == "" {
-			fmt.Fprintf(b, "  %s->>%s:\n", edge.From, edge.To)
+			fmt.Fprintf(b, "  %s%s%s:\n", from, arrow, to)
 		} else {
-			fmt.Fprintf(b, "  %s->>%s: %s\n", edge.From, edge.To, mermaidText(edge.Label))
+			fmt.Fprintf(b, "  %s%s%s: %s\n", from, arrow, to, mermaidText(edge.Label))
 		}
 		for i, note := range r.Notes {
 			if note.EdgeFrom == "" || writtenNotes[i] {
 				continue
 			}
-			if (edge.From == note.EdgeFrom && edge.To == note.EdgeTo) ||
-				(edge.From == note.EdgeTo && edge.To == note.EdgeFrom) {
-				r.writeSequenceNote(b, note)
+			// A note names the edge's own ends (its events), lifted only when written.
+			if (edge.From == note.EdgeFrom && edge.To == note.EdgeTo) || (edge.From == note.EdgeTo && edge.To == note.EdgeFrom) {
+				r.writeSequenceNote(b, note, participants)
 				writtenNotes[i] = true
 			}
 		}
 	}
 	for i, note := range r.Notes {
 		if note.EdgeFrom != "" && !writtenNotes[i] {
-			r.writeSequenceNote(b, note)
+			r.writeSequenceNote(b, note, participants)
 		}
 	}
+}
+
+// mermaidSequenceArrow is each edge kind's arrow in a sequence diagram: the
+// §8.2.3.9 message is a solid line with an open head, the succession a dashed
+// one; a flow keeps its filled head.
+func mermaidSequenceArrow(edge EdgeKind) string {
+	switch edge {
+	case EdgeMessage:
+		return "-)"
+	case EdgeSuccession:
+		return "--)"
+	}
+	return "->>"
 }
 
 // writeStateNode writes one state and its substates. A body's start is the `[*]`
@@ -1858,29 +1879,32 @@ func (r *Rendering) writeStateNotes(b *strings.Builder, anchor string, depth int
 	}
 }
 
-func (r *Rendering) writeSequenceNotes(b *strings.Builder) {
+// writeSequenceNotes writes the notes anchored to a participant or to one of its
+// proxies, which participants maps to its lifeline, before the messages.
+func (r *Rendering) writeSequenceNotes(b *strings.Builder, participants map[string]string) {
 	for _, note := range r.Notes {
-		if note.Anchor != "" && note.EdgeFrom == "" && r.hasSequenceParticipant(note.Anchor) {
-			r.writeSequenceNote(b, note)
+		if note.Anchor != "" && note.EdgeFrom == "" && r.hasSequenceParticipant(participants[note.Anchor]) {
+			r.writeSequenceNote(b, note, participants)
 		}
 	}
 }
 
-func (r *Rendering) writeSequenceNote(b *strings.Builder, note Note) {
+func (r *Rendering) writeSequenceNote(b *strings.Builder, note Note, participants map[string]string) {
 	lines := strings.Split(note.Text, "\n")
 	for i, line := range lines {
 		lines[i] = mermaidText(line)
 	}
 	text := strings.Join(lines, "<br>")
 	if note.EdgeFrom != "" {
-		if !r.hasSequenceParticipant(note.EdgeFrom) || !r.hasSequenceParticipant(note.EdgeTo) {
+		from, to := participants[note.EdgeFrom], participants[note.EdgeTo]
+		if !r.hasSequenceParticipant(from) || !r.hasSequenceParticipant(to) {
 			return
 		}
-		fmt.Fprintf(b, "  Note over %s,%s: %s\n", note.EdgeFrom, note.EdgeTo, text)
+		fmt.Fprintf(b, "  Note over %s,%s: %s\n", from, to, text)
 		return
 	}
 	if note.Anchor != "" {
-		fmt.Fprintf(b, "  Note over %s: %s\n", note.Anchor, text)
+		fmt.Fprintf(b, "  Note over %s: %s\n", participants[note.Anchor], text)
 	}
 }
 
@@ -2100,7 +2124,7 @@ func mermaidEdges(source string) int {
 // a flowchart's or state diagram's between spaces or before its label's bar, or
 // a sequence message's.
 func declaresEdge(statement string) bool {
-	if strings.Contains(statement, "->>") {
+	if strings.Contains(statement, "->>") || strings.Contains(statement, "-)") {
 		return true
 	}
 	for _, arrow := range []string{"-->", "---", "-.->", "-.-", "==="} {

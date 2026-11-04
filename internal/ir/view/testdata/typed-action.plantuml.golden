@@ -1,5 +1,6 @@
 @startuml
 ' TypedViews::cycleView — action rendering (view def ActionFlowView)
+mainframe <size:10>//«view»//</size> **TypedViews::cycleView** : ActionFlowView\n<size:10>expose Typed::run</size>
 <style>
 root {
   BackGroundColor white

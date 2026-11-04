@@ -1,5 +1,6 @@
 @startuml
 ' ToasterViews::toasterView — interconnection rendering (render asInterconnectionDiagram)
+mainframe <size:10>//«view»//</size> **ToasterViews::toasterView**\n<size:10>expose ToasterDemo::Toaster</size>
 <style>
 root {
   BackGroundColor white

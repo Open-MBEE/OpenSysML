@@ -30,7 +30,7 @@ func TestSuppressedCompartmentsAreNotListedNorClipped(t *testing.T) {
 		}
 		return string(out)
 	}
-	selective := dot("selective")
+	selective := withoutViewFrame(dot("selective"))
 	for _, row := range []string{"resolution", "exposure", "mount", "data", "focus"} {
 		if !strings.Contains(selective, row) {
 			t.Errorf("selective lacks the row %s of a compartment left on", row)
@@ -44,7 +44,7 @@ func TestSuppressedCompartmentsAreNotListedNorClipped(t *testing.T) {
 	if strings.Contains(selective, "compartment row(s) with no room") {
 		t.Errorf("selective reports clipped rows:\n%s", selective)
 	}
-	collapsed := dot("collapsed")
+	collapsed := withoutViewFrame(dot("collapsed"))
 	for _, text := range []string{"resolution", "mount", "data", "focus", "capture", "frame", "compartment row(s) with no room"} {
 		if strings.Contains(collapsed, text) {
 			t.Errorf("collapsed writes %q, though every compartment is hidden", text)

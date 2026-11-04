@@ -395,6 +395,9 @@ def test_render_view_decodes_all_fields_and_optional_messages():
         x=1, y=2, width=3, height=4, has_size=True,
         origin=sysml_pb2.Span(file="views.sysml"),
     )
+    response.frame.name = "Demo::view"
+    response.frame.type = "ViewDef"
+    response.frame.exposes.append("expose Demo::car")
 
     rendered = render_view_result(response)
     assert isinstance(rendered, RenderedView)
@@ -414,6 +417,9 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert rendered.notes[0].origin.file == "views.sysml"
     assert rendered.notices == ("notice",)
     assert rendered.shown == ("port-symbols", "typings")
+    assert (rendered.frame.name, rendered.frame.type) == ("Demo::view", "ViewDef")
+    assert rendered.frame.exposes == ("expose Demo::car",)
+    assert rendered.frame.filters == ()
 
     sparse = render_view_result(sysml_pb2.RenderViewResponse(
         nodes=[sysml_pb2.RenderNode()],
@@ -430,6 +436,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
 
     empty = render_view_result(sysml_pb2.RenderViewResponse())
     assert empty.canvas is None
+    assert empty.frame is None
     assert empty.nodes == ()
 
 

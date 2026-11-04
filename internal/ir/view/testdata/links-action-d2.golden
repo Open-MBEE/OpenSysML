@@ -20,14 +20,14 @@ n0: "«action def»\nDrive" {
     link: "https://example.test/src/action.sysml#L16"
     "n2.1": "^torque" { class: pin }
   }
-  n3: "«action»\nmonitor\nown flow" {
+  n3: "«action»\nmonitor\naction flow" {
     class: usage
     link: "https://example.test/src/action.sysml#L20"
     "n3.0": "reading" { class: pin }
     n4: "" { class: initial; link: "https://example.test/src/action.sysml#L22" }
     n5: "«action»\nrecord" { class: usage; link: "https://example.test/src/action.sysml#L23" }
   }
-  n6: "«action»\ntally" { class: usage; link: "https://example.test/src/action.sysml#L29" }
+  n6: "«assign»\ntally\nspeed := speed + 1" { class: usage; link: "https://example.test/src/action.sysml#L29" }
   n7: "" { class: bar; link: "https://example.test/src/action.sysml#L33" }
   n8: "" { class: bar; link: "https://example.test/src/action.sysml#L34" }
   n9: "" { class: final; link: "https://example.test/src/action.sysml#L35" }
@@ -46,4 +46,6 @@ n0.n7 -> n0.n6: { class: succession; link: "https://example.test/src/action.sysm
 n0.n8 -> n0.n11: { class: succession; link: "https://example.test/src/action.sysml#L47" }
 n0.n10 -> n0.n9: { class: succession; link: "https://example.test/src/action.sysml#L50" }
 n0.n11 -> n0.n9: "[speed > 0]" { class: succession; link: "https://example.test/src/action.sysml#L48" }
-n0.n11 -> n0.n10: { class: succession; link: "https://example.test/src/action.sysml#L49" }
+n0.n11 -> n0.n10: "else" { class: succession; link: "https://example.test/src/action.sysml#L49" }
+frame_name: "«view» FlowViews::driveView : ActionFlowView" { shape: text; near: top-left }
+frame_tr: "expose Flows::Drive" { shape: text; near: top-right }
