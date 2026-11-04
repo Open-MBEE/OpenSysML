@@ -18,6 +18,8 @@ func TestRuntimeRobustnessConnectorNestedBindings(t *testing.T) {
 	t.Run("end_body_value_conflicting_with_the_connected_port", testEndBodyValueConflictingWithThePort)
 	t.Run("end_body_default_yields_to_the_connected_port", testEndBodyDefaultYieldsToThePort)
 	t.Run("end_body_value_of_an_anonymous_connector_binds_its_ends", testEndBodyValueOfAnAnonymousConnector)
+	t.Run("failing_end_body_default_yields_to_an_explicit_binding", testFailingEndBodyDefaultYieldsToAnExplicitBinding)
+	t.Run("end_body_value_of_a_required_connector_collection", testEndBodyValueOfARequiredConnectorCollection)
 }
 
 // instantiatePartWithLibraries is instantiatePart over an index carrying the standard library.
@@ -205,6 +207,48 @@ func testEndBodyValueOfAnAnonymousConnector(t *testing.T) {
 				part s : Src;
 				part k : Snk;
 				interface : L connect s.src to k.dst;
+			}
+		}`)
+	wantIntegerAt(t, ctx, inst, "k.dst.voltage", 12)
+}
+
+// testFailingEndBodyDefaultYieldsToAnExplicitBinding: a `default =` whose expression fails is
+// never evaluated against a port another binding values; it fails only where it applies.
+func testFailingEndBodyDefaultYieldsToAnExplicitBinding(t *testing.T) {
+	inst, ctx := instantiatePartWithLibraries(t, "Sys", `
+		package test {
+			private import ScalarValues::*;`+connectorNestedBindingParts+`
+			interface def L {
+				end a : Pw;
+				end b : ~Pw { attribute :>> voltage default = 1 / divisor; }
+				attribute divisor : Integer = 0;
+			}
+			part def Sys {
+				part s : Src;
+				part k : Snk;
+				part lone : Snk;
+				interface i : L connect s.src to k.dst;
+				interface j : L connect s.src to lone.dst;
+				bind k.dst.voltage = s.src.voltage;
+			}
+		}`)
+	wantIntegerAt(t, ctx, inst, "k.dst.voltage", 28)
+	if _, err := featureValueAt(t, ctx, inst, "lone.dst.voltage"); err == nil {
+		t.Errorf("GetFeatureValue(lone.dst.voltage) = nil error, want the failing default's error where it applies")
+	}
+}
+
+// testEndBodyValueOfARequiredConnectorCollection: a connector declared `[2]` holds two objects,
+// each stating the end-body value; the value they agree on binds the port.
+func testEndBodyValueOfARequiredConnectorCollection(t *testing.T) {
+	inst, ctx := instantiatePartWithLibraries(t, "Sys", `
+		package test {
+			private import ScalarValues::*;`+connectorNestedBindingParts+`
+			interface def L { end a : Pw; end b : ~Pw { attribute :>> voltage = 12; } }
+			part def Sys {
+				part s : Src;
+				part k : Snk;
+				interface i : L [2] connect s.src to k.dst;
 			}
 		}`)
 	wantIntegerAt(t, ctx, inst, "k.dst.voltage", 12)
