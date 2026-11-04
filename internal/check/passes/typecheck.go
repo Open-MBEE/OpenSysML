@@ -1184,16 +1184,6 @@ func isRequirementUsageKind(k symbols.SymbolKind) bool {
 	return false
 }
 
-// isRequirementDefKind reports whether k is a RequirementDefinition or one of
-// its specializations (ConcernDefinition, ViewpointDefinition).
-func isRequirementDefKind(k symbols.SymbolKind) bool {
-	switch k {
-	case symbols.SymbolRequirementDef, symbols.SymbolConcernDef, symbols.SymbolViewpointDef:
-		return true
-	}
-	return false
-}
-
 // isCompatibleTyping reports whether a definition of defKind types a usage of useKind;
 // an `individual`/`snapshot`/`timeslice` usage also takes any occurrence definition (§8.3.9.11).
 func isCompatibleTyping(useKind ast.UsageKind, defKind symbols.SymbolKind, isOccurrenceUsage bool) bool {

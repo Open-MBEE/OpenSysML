@@ -29,9 +29,9 @@ const nestedObjectsModelSource = `package Nested {
 	analysis def Grouping {
 		subject s : Engine;
 		in attribute k : Real = 1.0;
-		out attribute pooled : Engine[*] = pool.elements;
+		out ref pooled : Engine[*] = pool.elements;
 		out attribute gridded : Array = grid;
-		out attribute nested : Engine[*] = ((e), (s, (f)));
+		out ref nested : Engine[*] = ((e), (s, (f)));
 		out attribute weigher = g.weigh;
 		return : Real = s.mass * k;
 	}
