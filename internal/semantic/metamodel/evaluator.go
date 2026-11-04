@@ -34,6 +34,7 @@ type Evaluator struct {
 	reasons                      map[propertyKey]Reason
 	internedStrings              map[string]string
 	structureQualifiedNames      map[ElementKey]structureQualifiedNameCacheEntry
+	structureInherited           map[ElementKey]structureInheritedCacheEntry
 	structureQualifiedNameBases  map[ElementKey]structureQualifiedNameCacheEntry
 	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
 	structureOwnedFilters        map[structureOwnedFilterKey]structureMemoEntry
@@ -55,6 +56,7 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		reasons:                      make(map[propertyKey]Reason),
 		internedStrings:              make(map[string]string),
 		structureQualifiedNames:      make(map[ElementKey]structureQualifiedNameCacheEntry),
+		structureInherited:           make(map[ElementKey]structureInheritedCacheEntry),
 		structureQualifiedNameBases:  make(map[ElementKey]structureQualifiedNameCacheEntry),
 		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
 		structureOwnedFilters:        make(map[structureOwnedFilterKey]structureMemoEntry),

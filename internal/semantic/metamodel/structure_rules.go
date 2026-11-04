@@ -4566,6 +4566,33 @@ func (e *Evaluator) structureInheritedValues(element Element, property string) (
 	if e.options.Structure == nil || e.model == nil {
 		return nil, false
 	}
+	inherited, ok := e.structureInheritedMembershipList(element)
+	if !ok {
+		return nil, false
+	}
+	return e.structureMembershipsProperty(inherited, property)
+}
+
+// structureInheritedCacheEntry memoizes a type's inherited memberships, which
+// every property of the family projects from.
+type structureInheritedCacheEntry struct {
+	values []Value
+	ok     bool
+}
+
+// structureInheritedMembershipList is Type::inheritedMembership (KerML 8.3.3.1.10):
+// the supertypes' non-private memberships with the redefined features removed.
+func (e *Evaluator) structureInheritedMembershipList(element Element) ([]Value, bool) {
+	key := element.Key()
+	if entry, done := e.structureInherited[key]; done {
+		return entry.values, entry.ok
+	}
+	values, ok := e.computeStructureInheritedMemberships(element)
+	e.structureInherited[key] = structureInheritedCacheEntry{values: values, ok: ok}
+	return values, ok
+}
+
+func (e *Evaluator) computeStructureInheritedMemberships(element Element) ([]Value, bool) {
 	bases, ok := e.structureOwnedSupertypes(element)
 	if !ok {
 		return nil, false
@@ -4580,11 +4607,7 @@ func (e *Evaluator) structureInheritedValues(element Element, property string) (
 		inherited = append(inherited, memberships...)
 	}
 	inherited = uniqueStructureValueSequence(inherited, e.options.Structure).Values
-	inherited, ok = e.structureRemoveRedefinedMemberships(element, inherited)
-	if !ok {
-		return nil, false
-	}
-	return e.structureMembershipsProperty(inherited, property)
+	return e.structureRemoveRedefinedMemberships(element, inherited)
 }
 
 func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
@@ -4995,17 +5018,22 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 		}
 	}
 
-	var result []Value
-	for i, entry := range candidates {
-		if entry.isFeature {
-			removed := false
-			key := e.structureFeatureKey(entry.feature)
-			for j, other := range candidates {
-				if i != j && other.isFeature && other.redefined[key] && e.structureFeatureKey(other.feature) != key {
-					removed = true
-					break
-				}
+	redefinedByOthers := make(map[ElementKey]bool)
+	for _, entry := range candidates {
+		if !entry.isFeature {
+			continue
+		}
+		own := e.structureFeatureKey(entry.feature)
+		for redefined := range entry.redefined {
+			if redefined != own {
+				redefinedByOthers[redefined] = true
 			}
+		}
+	}
+	var result []Value
+	for _, entry := range candidates {
+		if entry.isFeature {
+			removed := redefinedByOthers[e.structureFeatureKey(entry.feature)]
 			if !removed {
 				for redefined := range ownedRedefined {
 					if entry.redefined[redefined] {
