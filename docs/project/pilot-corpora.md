@@ -127,9 +127,28 @@ the imports that hide the name, or a consequence of one:
 | `sysml-examples/Vehicle Example/Annex_A_VehicleViews.sysml` | 87 → 93 | six unqualified `vehicle_b` in the analysis and verification cases (`subject = vehicle_b;`, `vehicle_b.engine`, `vehicle_b.mass`, `:> vehicle_b`): the recursive `import …VehicleConfiguration_b::**` brings `PartsTree::vehicle_b` and the two `CruiseControl…::vehicle_b` |
 | `sysml-examples/Vehicle Example/SysML v2 Spec Annex A SimpleVehicleModel.sysml` | 134 → 154 | the same `vehicle_b` references (eleven), `part engine redefines engine` twice (`engine` is brought three times, once under each `vehicle_b`) and `perform … redefines providePower` (`PartsTree::vehicle_b::providePower` beside `ActionTree::providePower`); the other six — `peakHorsePower`, `fuelEfficiency` and `cost` redefined under each unresolved `engine`, and `vehicle_b_1.ignitionCmdPort`, `vehicle_b_1.vehicleToRoadPort` where `vehicle_b_1 :> vehicle_b` — are consequences of those, a redefinition or a member read through a feature whose general did not resolve |
 
-`AHFSequences.sysml` and `AHFNorwayTopics.sysml` warn about hidden names but reference none of
-them unqualified, so their counts stand. The training corpus references no hidden name and stays
-clean.
+`AHFSequences.sysml` and `AHFNorwayTopics.sysml` reference no hidden name unqualified. The
+training corpus references no hidden name and stays clean.
+
+### The hiding is not reported
+
+The same clause makes the hiding a derivation and says the names left "will always be distinct",
+so the `Duplicate of imported member name` warning the round above left beside each hidden name
+marked well-formed models; KerML 7.3.2 hides an import under an inherited name the same way.
+The warning is retired, in default and strict mode, and an import an inherited name hides is no
+longer inherited by a specialization, so the `Duplicate of inherited member name` warnings that
+followed it in `Annex_A_VehicleViews.sysml` and `SimpleVehicleModel.sysml` go with it. The
+ratchet moved by the 235 warnings six files lose; every `unresolved reference` error of the table
+above stands:
+
+| File | Before → after |
+|---|---|
+| `kerml-examples/Simple Tests/Imports.kerml` | 7 → 3 |
+| `sysml-validation/13-Model Containment/13a-Model Containment.sysml` | 9 → 3 |
+| `sysml-examples/Vehicle Example/Annex_A_VehicleViews.sysml` | 93 → 6 |
+| `sysml-examples/Vehicle Example/SysML v2 Spec Annex A SimpleVehicleModel.sysml` | 154 → 20 |
+| `sysml-examples/Arrowhead Framework Example/AHFNorwayTopics.sysml` | 2 → 0 |
+| `sysml-validation/04-Functional Allocation/4a-Functional Allocation.sysml` | 2 → 0 |
 
 ## Local runs
 

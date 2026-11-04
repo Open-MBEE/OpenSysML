@@ -285,11 +285,10 @@ inherited one, for a name inherited from two supertypes, and from a library base
 `Type::inheritedMembership` "subsets membership" (8.3.3.1.10) and 7.3.2.1 requires inherited member
 names to be "distinct from each other and from the member names of all owned memberships". The
 finding, its wording and its position are those of the default mode; only the severity moves.
-`Duplicate of imported member name` is not escalated: 7.2.5.4 hides a colliding imported membership
+An imported collision is reported in neither mode: 7.2.5.4 hides a colliding imported membership
 from the importing namespace, so the namespace keeps no indistinguishable membership and is
-well-formed, and the warning marks only that OpenSysML binds the first import's member where the
-specification binds none. The tests are `TestIndistinguishableMembershipsAreErrorsUnderStrictConformance`
-and `TestImportedNameCollisionStaysAWarningUnderStrictConformance` in `internal/check/passes`.
+well-formed. The tests are `TestIndistinguishableMembershipsAreErrorsUnderStrictConformance`
+and `TestImportedNameCollisionIsNoConflictUnderStrictConformance` in `internal/check/passes`.
 
 ## Metadata and model-level evaluability
 
