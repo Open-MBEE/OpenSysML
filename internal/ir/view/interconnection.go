@@ -125,7 +125,7 @@ type featureWalk struct {
 	// connection line each shares its ends with.
 	flows []flowSite
 	out   *Rendering
-	mixed      bool
+	mixed bool
 	// pruned is each member the view's filter conditions kept the walk from drawing.
 	pruned map[*symbols.Symbol]bool
 }
@@ -513,7 +513,7 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 	}
 	route, style := r.routeOf(w.view, connector, out), r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
 	if kind == EdgeConnection && nary(len(resolved)) {
-		w.naryConnection(connector, within, ends, resolved, style)
+		w.naryConnection(connector, within, ends, resolved, route, style)
 		return
 	}
 	for i := 0; i < len(resolved); i++ {
@@ -533,8 +533,12 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 // n-ary dot (§8.2.3.13): a filled dot named for the connection, nested where
 // the connection was found, and a segment from it to each end, the end's role
 // name and multiplicity at the end.
-func (w *featureWalk) naryConnection(connector *symbols.Symbol, within *Node, ends []connectorEnd, resolved []edgeEnd, style *Style) {
+func (w *featureWalk) naryConnection(connector *symbols.Symbol, within *Node, ends []connectorEnd, resolved []edgeEnd, route []Point, style *Style) {
 	r, out := w.r, w.out
+	if len(route) > 0 {
+		out.Notices = append(out.Notices, fmt.Sprintf("connection %s states a route; its %d ends are drawn as a dot and segments, which the route does not steer",
+			localName(connector), len(resolved)))
+	}
 	dot := r.naryDot(w.ids.take(), connectionDotKind, r.connectorName(connector), w.view, connector, out)
 	w.nodes[connector] = append(w.nodes[connector], dot)
 	if within == nil {

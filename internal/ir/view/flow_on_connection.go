@@ -126,6 +126,13 @@ func (w *featureWalk) splitLine(line Edge, flows []flowSite) []Edge {
 		}
 		segments = append(segments, segment)
 	}
+	// A note on the line, or on a flow drawn on it, stays with the first segment.
+	for i := range w.out.Notes {
+		note := &w.out.Notes[i]
+		if ends := [2]string{note.EdgeFrom, note.EdgeTo}; ends == [2]string{line.From, line.To} || ends == [2]string{line.To, line.From} {
+			note.EdgeFrom, note.EdgeTo = line.From, boxes[0].ID
+		}
+	}
 	return segments
 }
 

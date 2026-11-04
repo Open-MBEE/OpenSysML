@@ -225,6 +225,9 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	if node.Type != "" {
 		line += " : " + node.Type
 	}
+	if itemBox(node) && name == "" && node.Text != "" {
+		line += " " + node.Text
+	}
 	if node.Detail != "" && shown.Has(ElementCompartments) {
 		line += " (" + node.Detail + ")"
 	}

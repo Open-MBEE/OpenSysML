@@ -253,6 +253,10 @@ func (w *plantumlWriter) writeClassDiagram(r *Rendering) {
 // writeClassNode writes one class and, in a tree, its children with the
 // containment edge to each.
 func (w *plantumlWriter) writeClassNode(node *Node) {
+	if isDotKind(node.Kind) {
+		w.writeDot(node, "")
+		return
+	}
 	fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
 	for _, child := range node.Children {
 		w.writeClassNode(child)
@@ -260,6 +264,11 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 			fmt.Fprintf(&w.b, "%s -- %s\n", node.ID, child.ID)
 		}
 	}
+}
+
+// writeDot writes the n-ary dot: PlantUML's circle, filled by the dot stereotype, its name beside it.
+func (w *plantumlWriter) writeDot(node *Node, indent string) {
+	fmt.Fprintf(&w.b, "%scircle %s as %s <<%s>>\n", indent, plantumlQuote(plantumlText(shown(node))), node.ID, plantumlDotStereotype)
 }
 
 // writeRectangleDiagram writes an interconnection as nested rectangles: a node
@@ -294,8 +303,7 @@ func (w *plantumlWriter) writeRectangleNode(node *Node, depth int) {
 	indent := strings.Repeat("  ", depth)
 	switch {
 	case isDotKind(node.Kind):
-		// The n-ary dot: PlantUML's circle, filled by the dot stereotype, its name beside it.
-		fmt.Fprintf(&w.b, "%scircle %s as %s <<%s>>\n", indent, plantumlQuote(plantumlText(shown(node))), node.ID, plantumlDotStereotype)
+		w.writeDot(node, indent)
 		return
 	case itemBox(node):
 		fmt.Fprintf(&w.b, "%slabel %s as %s\n", indent, plantumlQuote(w.plantumlLabel(node)), node.ID)

@@ -49,7 +49,7 @@ class "<size:10>//«part def»//</size>\n**Chassis**" as n0 <<part def>>
 class "<size:10>//«part def»//</size>\n**Lights**" as n1 <<part def>>
 class "<size:10>//«part def»//</size>\n**Brakes**" as n2 <<part def>>
 class "<size:10>//«part def»//</size>\n**Steering**" as n3 <<part def>>
-class "<size:10>//«dependency dot»//</size>\n**rules**" as n4 <<dependency dot>> <<usage>>
+circle "NaryRules::rules" as n4 <<dot>>
 n2 .. n4
 n3 .. n4
 n4 ..> n0

@@ -1152,16 +1152,24 @@ func (g *generalGraph) relationshipTargets(rel *symbols.Symbol) []*symbols.Symbo
 // relationships; and at least two ends are drawn or may be. ok is false when
 // no dot is drawn.
 func (g *generalGraph) hub(sym *symbols.Symbol, kind, label string, ends []*symbols.Symbol) (*Node, bool) {
-	drawn, admitted := 0, 0
+	// Admittance is settled before hubEnd draws any end, so an unrelated
+	// relationship brings no node into the view.
+	drawn := 0
 	for _, end := range ends {
 		if g.drawn(end) != nil {
 			drawn++
 		}
-		if g.hubEnd(end) != nil {
+	}
+	if g.exposed == nil && drawn == 0 {
+		return nil, false
+	}
+	admitted := 0
+	for _, end := range ends {
+		if g.drawn(end) != nil || g.hubAdmits(end) {
 			admitted++
 		}
 	}
-	if g.exposed == nil && drawn == 0 || admitted < 2 {
+	if admitted < 2 {
 		return nil, false
 	}
 	key := symbols.KeyOf(sym)
@@ -1224,7 +1232,7 @@ func (g *generalGraph) connectionEdges(sym *symbols.Symbol) []Edge {
 // naryConnection draws a connection of more than two ends as its dot and segments.
 func (g *generalGraph) naryConnection(sym *symbols.Symbol, ends []semantics.ConnectorEndAttachment) []Edge {
 	var targets []*symbols.Symbol
-	labels := map[*symbols.Symbol]string{}
+	var labels []string // the role at each end of targets, in step with it
 	for _, end := range ends {
 		target, ok := g.r.resolveEnd(sym.OwnerScope, end.Attachment)
 		if !ok {
@@ -1233,19 +1241,20 @@ func (g *generalGraph) naryConnection(sym *symbols.Symbol, ends []semantics.Conn
 			}
 			continue
 		}
-		targets = append(targets, target)
+		label := ""
 		if end.EndFeature != nil {
-			labels[target] = g.r.usageLabel(end.EndFeature)
+			label = g.r.usageLabel(end.EndFeature)
 		}
+		targets, labels = append(targets, target), append(labels, label)
 	}
 	dot, ok := g.hub(sym, connectionDotKind, g.r.connectorName(sym), targets)
 	if !ok {
 		return nil
 	}
 	var out []Edge
-	for _, target := range targets {
+	for i, target := range targets {
 		if end := g.hubEnd(target); end != nil {
-			out = append(out, Edge{From: dot.ID, To: end.ID, ToLabel: labels[target], Kind: EdgeConnection, Origin: symbolOrigin(sym)})
+			out = append(out, Edge{From: dot.ID, To: end.ID, ToLabel: labels[i], Kind: EdgeConnection, Origin: symbolOrigin(sym)})
 		}
 	}
 	return out

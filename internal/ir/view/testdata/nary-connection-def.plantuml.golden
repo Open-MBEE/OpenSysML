@@ -45,7 +45,7 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "<size:10>//«connection def dot»//</size>\n**Triad**" as n0 <<connection def dot>> <<usage>>
+circle "Nary::Triad" as n0 <<dot>>
 class "<size:10>//«part def»//</size>\n**Hub**" as n4 <<part def>>
 class "<size:10>//«part def»//</size>\n**Spoke**" as n5 <<part def>>
 n0 -- "hub" n4
