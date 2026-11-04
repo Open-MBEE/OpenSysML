@@ -784,7 +784,7 @@ box as borderless text (`shape=plaintext`, `label`, `shape: text`) whose last li
 edge labels hidden the box keeps its keyword and arrow. `testdata/nary.sysml` and
 `testdata/interconnection-ports.sysml` exercise it (`TestFlowsOnAConnectionAreItemBoxesOnItsLine`).
 
-A `DiagramLayout::Route` on the connection is the whole line's: it is cut into pieces of equal length, one per segment, and an item box the model does not place stands where it is cut. A draw.io import reads the line back the same way — the waypoints of every segment cell, in the line's order, are the connection's one `Route`, so bending one segment never drops the bends of another.
+A `DiagramLayout::Route` on the connection is the whole line's: it is cut into pieces of equal length, one per segment, and an item box the model does not place stands where it is cut; a lone waypoint, which has no length to cut, stays on the first segment. A draw.io import reads the line back the same way — the waypoints of every segment cell, in the line's order, are the connection's one `Route`, so bending one segment never drops the bends of another.
 
 ### Edge routing
 
