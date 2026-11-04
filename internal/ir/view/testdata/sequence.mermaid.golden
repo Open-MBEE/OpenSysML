@@ -35,6 +35,9 @@ sequenceDiagram
   participant n0 as «part»<br>producer
   participant n1 as «part»<br>server
   participant n2 as «part»<br>consumer
-  n2->>n1: subscribe_message
-  n0->>n1: publish_message
-  n1->>n2: deliver_message
+  n2-)n1: subscribe_message of Subscribe
+  n1--)n1:
+  n2--)n2:
+  n0-)n1: publish_message of Publish
+  n1--)n1:
+  n1-)n2: deliver_message of Deliver

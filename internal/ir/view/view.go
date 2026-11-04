@@ -286,6 +286,8 @@ const (
 	// EdgeDependencyClient is the client link of an n-ary dependency: from a
 	// client to the dependency's dot, dashed with no head.
 	EdgeDependencyClient
+	// EdgeMessage is a message of an interaction, from the sending event to the receiving one.
+	EdgeMessage
 	// edgeKindCount is one past the last edge kind, sizing edgeKindNames.
 	edgeKindCount
 )
@@ -327,6 +329,7 @@ var edgeKindNames = [edgeKindCount]string{
 	EdgeUnownedMembership:   "unowned membership",
 	EdgeExpose:              "expose",
 	EdgeDependencyClient:    "dependency client",
+	EdgeMessage:             "message",
 }
 
 // String names an edge kind the way the notation speaks of it.
@@ -379,6 +382,9 @@ type Node struct {
 	// the notation prefixes its name with `^`, and a folding that hides it hides nothing
 	// of the owner's. A redefining usage the owner declares is its own, not inherited.
 	Inherited bool
+	// Parallel marks a state whose substates run in parallel (`state s parallel { … }`):
+	// the notation writes «parallel» after the name in its name compartment.
+	Parallel bool
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
@@ -579,6 +585,9 @@ type Rendering struct {
 	// Pictures are the pictures drawn on the canvas, in the order the view
 	// states them; a later one is drawn over an earlier one it overlaps.
 	Pictures []Picture
+	// Frame is the view frame (§8.2.3.26) drawn round a graph-shaped rendering
+	// of a view; nil for a frameless rendering.
+	Frame *Frame
 	// Notices are what the rendering could not represent, reported rather than
 	// dropped: an exposed element with no place in this kind of rendering, a
 	// connection to something the view does not expose, a behavior that does not
@@ -712,6 +721,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
 		out.Canvas = r.canvasOf(view, out)
+		out.Frame = r.frameOf(view)
 		r.notesOf(view, view, "", out)
 		r.picturesOf(view, out)
 	case KindTable, KindMatrix, KindSequence:
@@ -984,6 +994,14 @@ func declKind(sym *symbols.Symbol) string {
 	kind := sym.Notation()
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
+		// `event` and `individual` are parsed as modifiers of the usage; the notation
+		// heads its box «event occurrence», «individual part» (SysML v2.1 §8.2.3.9).
+		if decl.IsEvent && !strings.HasPrefix(kind, "event ") {
+			kind = "event " + kind
+		}
+		if decl.IsIndividual && !strings.HasPrefix(kind, "individual ") {
+			kind = "individual " + kind
+		}
 		if decl.IsEnd && !slices.Contains(strings.Fields(kind), "end") {
 			kind = "end " + kind
 		}

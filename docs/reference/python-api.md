@@ -822,6 +822,10 @@ Typed query rows, document values, and document and view render results.
     options:
       heading_level: 3
 
+::: opensysml.RenderFrame
+    options:
+      heading_level: 3
+
 ::: opensysml.RenderPoint
     options:
       heading_level: 3

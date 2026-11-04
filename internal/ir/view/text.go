@@ -197,7 +197,14 @@ func endLabel(labels map[string]string, node, port string) string {
 // rowLine is a compartment row's line of the text form: its kind, name, type
 // and value, as the graph forms' compartment rows read.
 func rowLine(row *Node) string {
+	if row.Kind == statementRowKind {
+		return row.Text
+	}
+	// The individuals compartment says `individual`; its rows keep the keyword alone.
 	line := row.Kind
+	if individualUsage(row.Kind) {
+		line = strings.TrimPrefix(row.Kind, individualPrefix)
+	}
 	if name := shown(row); name != "" {
 		line += " " + usagePrefix(row.Inherited) + name
 	} else if row.Text != "" {
@@ -228,8 +235,14 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	if itemBox(node) && name == "" && node.Text != "" {
 		line += " " + node.Text
 	}
-	if node.Detail != "" && shown.Has(ElementCompartments) {
+	if node.Parallel && shown.Has(ElementKeywords) {
+		line += " parallel"
+	}
+	if node.Detail != "" && (annotationKind(node.Kind) || shown.Has(ElementCompartments)) {
 		line += " (" + node.Detail + ")"
+	}
+	if annotationKind(node.Kind) && node.Text != "" {
+		line += " " + strconv.Quote(node.Text)
 	}
 	if g := node.Geometry; g.placed() {
 		line += fmt.Sprintf(" at (%s, %s)", formatCoord(g.X), formatCoord(g.Y))
@@ -249,7 +262,7 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		}
 	}
 	elided := node.Elided && shown.Has(ElementCompartments)
-	if ports.interconnection || ports.action || ports.tree {
+	if ports.interconnection || ports.action || ports.tree || ports.sequence {
 		for _, port := range ports.of(node) {
 			labels[port.ID] = labels[node.ID] + "." + port.Name
 			b.WriteString(strings.Repeat("  ", depth+1) + pinLine(port, ports) + "\n")
@@ -263,6 +276,10 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		writeNodeText(b, child, depth+1, labels, names, ports, shown)
 		if child.Kind == startKind {
 			labels[child.ID] = "start of " + labels[node.ID]
+		}
+		// A proxy on a lifeline is named through it, `producer.publish_source_event`.
+		if ports.sequence {
+			labels[child.ID] = labels[node.ID] + "." + labels[child.ID]
 		}
 	}
 	if elided {
@@ -303,6 +320,8 @@ func pinLine(port Port, ports portView) string {
 	switch {
 	case ports.interconnectionPort(port):
 		return "port " + ports.pinLabel(port)
+	case ports.sequence:
+		return "port " + port.displayName()
 	case ports.tree:
 		return parameterPinLine(port)
 	}
@@ -542,7 +561,7 @@ func edgeArrow(kind Kind, edge EdgeKind) string {
 		return ".."
 	case EdgeSuccessionFlow:
 		return "~>"
-	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeMessage:
 		return "->"
 	case EdgePortion:
 		return "@--"

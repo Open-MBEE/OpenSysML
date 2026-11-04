@@ -1,5 +1,6 @@
 @startuml
 ' FilteredViews::safetyView — tree rendering
+mainframe <size:10>//«view»//</size> **FilteredViews::safetyView** : SafetyView\n<size:10>expose Systems::Radio</size>
 <style>
 root {
   BackGroundColor white

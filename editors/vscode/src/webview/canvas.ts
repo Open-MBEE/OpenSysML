@@ -14,12 +14,17 @@ import {
   MARGIN,
   movable,
   nodeExtent,
+  nodeMark,
+  pinArrow,
   PlacedEdge,
   PlacedNode,
   portBox,
+  portCenter,
   portLabelPlacement,
   PORT_SIZE,
+  proxyLabelPlacement,
   portName,
+  SECTION_KINDS,
   steerable,
   type PlacedPort,
 } from "./layout";
@@ -52,6 +57,9 @@ export function drawCanvas(layout: CanvasLayout): SVGSVGElement {
     "font-size": String(FONT_SIZE),
   });
   svg.append(markers());
+  if (layout.frame) {
+    svg.append(drawFrame(layout));
+  }
   const nodes = element("g", { class: "nodes" });
   for (const root of layout.roots) {
     drawNode(nodes, root, layout);
@@ -241,6 +249,14 @@ function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
       x1: String(box.x + box.width / 2), y1: String(box.y + box.height),
       x2: String(box.x + box.width / 2), y2: String(entry.lifeline), class: "lifeline",
     }));
+    // A port on the lifeline's border has a lifeline of its own for the messages at it.
+    for (const port of entry.ports) {
+      const center = portCenter(box, port);
+      group.append(element("line", {
+        x1: String(center.x), y1: String(center.y + PORT_SIZE / 2),
+        x2: String(center.x), y2: String(entry.lifeline), class: "lifeline",
+      }));
+    }
   }
   group.append(shape(entry));
   if (DOT_KINDS.has(entry.node.kind) && entry.node.name !== "") {
@@ -252,12 +268,20 @@ function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
   if (entry.node.arrow !== undefined) {
     group.append(itemArrow(entry));
   }
+  const mark = entry.shape === "box" ? nodeMark(entry.node.kind) : "";
+  if (mark !== "") {
+    group.append(markGraphic(box, mark));
+  }
+  // A proxy on a lifeline is labelled beside its point (§8.2.3.9 proxy-label).
+  const proxy = entry.parent?.lifeline !== undefined;
   if (entry.lines.length > 0) {
-    const text = element("text", { x: String(box.x + LABEL_PAD_X), y: String(box.y + LABEL_PAD_Y), class: "label" });
+    const placement = proxyLabelPlacement(entry);
+    const labelX = proxy ? placement.x : box.x + LABEL_PAD_X;
+    const text = element("text", { x: String(labelX), y: String(proxy ? placement.y : box.y + LABEL_PAD_Y), class: "label" });
     entry.lines.forEach((line, i) => {
       const span = element("tspan", {
-        x: String(box.x + LABEL_PAD_X),
-        dy: String(i === 0 ? LINE_HEIGHT * 0.8 : LINE_HEIGHT),
+        x: String(labelX),
+        dy: String(proxy ? 0 : i === 0 ? LINE_HEIGHT * 0.8 : LINE_HEIGHT),
         class: labelLineClass(entry.lines, i),
       });
       span.textContent = line;
@@ -304,6 +328,9 @@ function pinGraphic(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode)
     height: String(PORT_SIZE),
     class: classes.join(" "),
   });
+  if (port.port.direction) {
+    rect.setAttribute("rx", String(PIN_CORNER));
+  }
   if (entry.node.fill !== undefined) {
     rect.style.setProperty("--node-fill", entry.node.fill);
   }
@@ -317,7 +344,38 @@ function pinGraphic(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode)
     class: "port-label",
   });
   text.textContent = portName(port.port);
-  return [title, rect, text];
+  const arrow = pinArrow(port.port.direction, port.side);
+  if (arrow === "") {
+    return [title, rect, text];
+  }
+  const glyph = element("text", {
+    x: String(square.x + PORT_SIZE / 2),
+    y: String(square.y + PORT_SIZE * 0.8),
+    "text-anchor": "middle",
+    class: "pin-arrow",
+  });
+  glyph.textContent = arrow;
+  return [title, rect, glyph, text];
+}
+
+// PIN_CORNER rounds a pin's corners, as the notation's parameter pins are drawn.
+const PIN_CORNER = 2;
+
+// MARK_WIDTH and MARK_HEIGHT size the figure in a node's top-left corner.
+const MARK_WIDTH = 12;
+const MARK_HEIGHT = 9;
+
+// markGraphic is the small filled figure in a box's top-left corner: the send
+// action's pentagon pointing out of the node, the accept action's notched flag.
+function markGraphic(box: PlacedNode["box"], mark: "send" | "accept"): SVGElement {
+  const x = box.x + 4;
+  const y = box.y + 4;
+  const w = MARK_WIDTH;
+  const h = MARK_HEIGHT;
+  const points = mark === "send"
+    ? `${x},${y} ${x + w * 0.7},${y} ${x + w},${y + h / 2} ${x + w * 0.7},${y + h} ${x},${y + h}`
+    : `${x},${y} ${x + w},${y} ${x + w},${y + h} ${x},${y + h} ${x + w * 0.3},${y + h / 2}`;
+  return element("polygon", { points, class: `shape filled mark ${mark}` });
 }
 
 // shape is the outline a node is drawn with: a box for an element, square-cornered
@@ -352,6 +410,17 @@ function outlineOf(entry: PlacedNode): SVGElement {
       );
       return group;
     }
+    case "cross": {
+      // The terminate node: a circle crossed by an X (§8.2.3.17 terminate-node).
+      const group = element("g", { class: "shape" });
+      const arm = width / 2 / Math.SQRT2;
+      group.append(
+        element("circle", { cx: String(cx), cy: String(cy), r: String(width / 2), class: "shape" }),
+        element("line", { x1: String(cx - arm), y1: String(cy - arm), x2: String(cx + arm), y2: String(cy + arm), class: "shape" }),
+        element("line", { x1: String(cx - arm), y1: String(cy + arm), x2: String(cx + arm), y2: String(cy - arm), class: "shape" }),
+      );
+      return group;
+    }
     case "diamond":
       return element("polygon", {
         points: `${cx},${y} ${x + width},${cy} ${cx},${y + height} ${x},${cy}`,
@@ -375,7 +444,7 @@ function outlineOf(entry: PlacedNode): SVGElement {
         x: String(x), y: String(y), width: String(width), height: String(height),
         class: classes.join(" "),
       };
-      if (classes[1] !== "definition") {
+      if (classes[1] !== "definition" && classes[1] !== "section") {
         attrs.rx = String(CORNER);
       }
       return element("rect", attrs);
@@ -385,12 +454,15 @@ function outlineOf(entry: PlacedNode): SVGElement {
 
 // boxClass is what a box is drawn as, the way the PlantUML form stereotypes it; the
 // looks pick corner and border by it, a definition alone square in every look.
-function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
+function boxClass(kind: string): "package" | "definition" | "region" | "section" | "usage" {
   if (kind.split(" ").includes("package")) {
     return "package";
   }
-  if (kind === "region") {
+  if (kind === "region" || kind === "swimlane") {
     return "region";
+  }
+  if (SECTION_KINDS.has(kind)) {
+    return "section";
   }
   if (kind.endsWith(" def") || CLASSIFIER_KINDS.has(kind)) {
     return "definition";
@@ -428,6 +500,7 @@ function drawEdge(edge: PlacedEdge): SVGGElement {
     case "frame":
     case "event":
     case "expose":
+    case "message":
       attrs["marker-end"] = "url(#arrow-open)";
       break;
     case "reference subsetting":
@@ -501,6 +574,60 @@ function drawHandles(edge: PlacedEdge): SVGGElement {
 
 function polyline(points: RenderPoint[]): string {
   return points.map((p) => `${p.x},${p.y}`).join(" ");
+}
+
+/**
+ * drawFrame is the view frame round the canvas: the frame rectangle, the name compartment
+ * `«view» name : type` as the tab at its top-left corner, and the info compartments at the
+ * other corners: exposes top right, filters bottom left, the view's annotations bottom right.
+ */
+function drawFrame(layout: CanvasLayout): SVGGElement {
+  const frame = layout.frame!;
+  const group = element("g", { class: "opensysml-frame" });
+  const { x, y } = layout.origin;
+  const pad = 4;
+  const line = FONT_SIZE + 2;
+  group.append(
+    element("rect", { x: String(x), y: String(y), width: String(layout.width), height: String(layout.height), fill: "none", stroke: "currentColor", "stroke-width": "0.5" }),
+  );
+  const name = frame.type ? `${frame.name} : ${frame.type}` : frame.name;
+  const tabWidth = Math.min(layout.width, (name.length + 7) * FONT_SIZE * 0.6 + 2 * pad);
+  const tabHeight = line + 2 * pad;
+  const tab = element("path", {
+    d: `M${x} ${y + tabHeight} V${y} H${x + tabWidth} V${y + tabHeight - pad} L${x + tabWidth - pad} ${y + tabHeight} Z`,
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "0.5",
+  });
+  const label = element("text", { x: String(x + pad), y: String(y + pad + FONT_SIZE), class: "frame-name" });
+  const keyword = element("tspan", { class: "keyword", "font-style": "italic", "font-size": String(FONT_SIZE - 3) });
+  keyword.textContent = "«view» ";
+  const bold = element("tspan", { "font-weight": "bold" });
+  bold.textContent = name;
+  label.append(keyword, bold);
+  group.append(tab, label);
+  const compartments: Array<[string[] | undefined, "tr" | "bl" | "br"]> = [
+    [frame.exposes, "tr"],
+    [frame.filters, "bl"],
+    [frame.annotations, "br"],
+  ];
+  for (const [lines, corner] of compartments) {
+    if (!lines || lines.length === 0) {
+      continue;
+    }
+    const width = Math.max(...lines.map((l) => l.length)) * (FONT_SIZE - 3) * 0.6 + 2 * pad;
+    const height = lines.length * line + 2 * pad;
+    const left = corner === "bl" ? x : x + layout.width - width;
+    const top = corner === "tr" ? y : y + layout.height - height;
+    const text = element("text", { x: String(left + pad), y: String(top + pad + FONT_SIZE - 3), class: `frame-${corner}`, "font-size": String(FONT_SIZE - 3) });
+    lines.forEach((content, i) => {
+      const span = element("tspan", { x: String(left + pad), dy: i === 0 ? "0" : String(line) });
+      span.textContent = content;
+      text.append(span);
+    });
+    group.append(text);
+  }
+  return group;
 }
 
 function element<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] {

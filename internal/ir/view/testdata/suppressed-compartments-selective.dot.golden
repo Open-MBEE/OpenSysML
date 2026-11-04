@@ -7,5 +7,14 @@ digraph "CameraViews::selective" {
   graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Imaging</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">resolution = 4096<br/>exposure</td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left">mount</td></tr><hr/><tr><td><font point-size="10">ports</font></td></tr><tr><td align="left">data</td></tr><hr/><tr><td><font point-size="10">constraints</font></td></tr><tr><td align="left">focus</td></tr><tr><td align="left">…</td></tr></table>>, margin=0, pos="130,-120!", pin=true, width=3.3333333333333335, height=3.0555555555555554, fixedsize=true];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>CameraViews::selective</b>>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    bb="2,-238,258,18";
+    "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Imaging</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">resolution = 4096<br/>exposure</td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left">mount</td></tr><hr/><tr><td><font point-size="10">ports</font></td></tr><tr><td align="left">data</td></tr><hr/><tr><td><font point-size="10">constraints</font></td></tr><tr><td align="left">focus</td></tr><tr><td align="left">…</td></tr></table>>, margin=0, pos="130,-120!", pin=true, width=3.3333333333333335, height=3.0555555555555554, fixedsize=true];
+    "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Camera::Imaging</font>>, pos="149.5,-28!", pin=true, width=2.7916666666666665, height=0.5];
+  }
 }

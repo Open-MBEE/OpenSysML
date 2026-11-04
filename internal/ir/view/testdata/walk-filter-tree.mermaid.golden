@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» FilteredWalk::structure"
 ---
 %% FilteredWalk::structure — tree rendering (render asTreeDiagram)
 flowchart TD

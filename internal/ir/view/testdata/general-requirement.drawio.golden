@@ -8,6 +8,15 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» GeneralViews::requirementView : GeneralView" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=444;height=40;" vertex="1" parent="1">
+            <mxGeometry width="1714" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose VehicleRequirements**" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="1462" width="252" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_bl" value="filter @SysML::RequirementDefinition or @SysML::RequirementUsage" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry y="1133" width="554" height="36" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«requirement def»&#xA;MassRequirement&#xA;id R1, “The total mass of the vehicle shall not exceed the stated...”" fqn="VehicleRequirements::MassRequirement" kind="requirement def" view="GeneralViews::requirementView" link="general.sysml:33">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="596" height="54" as="geometry"/>

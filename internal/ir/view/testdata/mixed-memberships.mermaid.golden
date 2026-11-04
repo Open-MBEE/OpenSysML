@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» MixedMemberships::memberships"
 ---
 %% MixedMemberships::memberships — mixed rendering (render asMixedDiagram)
 flowchart TD

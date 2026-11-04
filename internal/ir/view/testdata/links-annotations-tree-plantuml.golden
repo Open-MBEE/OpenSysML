@@ -1,0 +1,81 @@
+@startuml
+' AnnotationViews::tree — tree rendering (render asTreeDiagram)
+mainframe <size:10>//«view»//</size> **AnnotationViews::tree**\n<size:10>expose Annotated::Pump</size>\n<size:10>expose Annotated::Tank</size>\n<size:10>The structure of the loop, annotated.</size>
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**Pump**" as n0 <<part def>> [[https://example.test/src/annotations.sysml#L5]]
+class "<size:10>//«attribute»//</size>\n**rate**" as n1 <<attribute>> <<usage>> [[https://example.test/src/annotations.sysml#L7]]
+note as n2
+  <size:10>//«doc»//</size>
+  Moves fluid from the tank to the loop.
+end note
+note as n3
+  Sized for the nominal flow.
+end note
+note as n4
+  <size:10>//«comment»//</size>
+  **Safety**
+  locale <U+0022>en<U+0022>
+  Both are rated for the loop pressure.
+end note
+note as n5
+  <size:10>//«rep»//</size>
+  **inline**
+  language <U+0022>plantuml<U+0022>
+  component Pump
+end note
+class "<size:10>//«part def»//</size>\n**Tank**" as n6 <<part def>> [[https://example.test/src/annotations.sysml#L13]]
+note as n7
+  <size:10>//«doc»//</size>
+  **Capacity**
+  locale <U+0022>en<U+0022>
+  Holds the working fluid.
+end note
+n0 o-- n1 : [[https://example.test/src/annotations.sysml#L7]]
+n2 .. n0 : [[https://example.test/src/annotations.sysml#L6]]
+n3 .. n0 : [[https://example.test/src/annotations.sysml#L8]]
+n4 .. n0 : [[https://example.test/src/annotations.sysml#L9]]
+n4 .. n6 : [[https://example.test/src/annotations.sysml#L9]]
+n5 .. n0 : [[https://example.test/src/annotations.sysml#L11]]
+n7 .. n6 : [[https://example.test/src/annotations.sysml#L14]]
+@enduml

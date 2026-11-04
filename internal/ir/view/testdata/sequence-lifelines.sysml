@@ -71,6 +71,42 @@ package Lifelines {
 		message ask of A from client.askSent to server.askTaken;
 	}
 
+	// Two events no message attaches to stand between the messages' events.
+	occurrence def Staged {
+		part client {
+			event occurrence askSent;
+			event occurrence replyTaken;
+		}
+
+		part server {
+			event occurrence askTaken;
+			then event occurrence stageOne;
+			then event occurrence stageTwo;
+			then event occurrence replySent;
+		}
+
+		message reply of B from server.replySent to client.replyTaken;
+		message ask of A from client.askSent to server.askTaken;
+	}
+
+	// A chain of successions after a message's event, declared last link first and
+	// reaching no later message: the rows follow the events, not the declarations.
+	occurrence def Chained {
+		part client {
+			event occurrence askSent;
+		}
+
+		part server {
+			event occurrence askTaken;
+			event occurrence second;
+			event occurrence third;
+		}
+
+		message ask of A from client.askSent to server.askTaken;
+		succession first server.second then server.third;
+		succession first server.askTaken then server.second;
+	}
+
 	// Two messages nothing orders: `pong` is declared first and stays first.
 	occurrence def Unordered {
 		part left {
@@ -158,6 +194,14 @@ package LifelineViews {
 
 	view settledView : SequenceView {
 		expose Lifelines::Settled;
+	}
+
+	view stagedView : SequenceView {
+		expose Lifelines::Staged;
+	}
+
+	view chainedView : SequenceView {
+		expose Lifelines::Chained;
 	}
 
 	view unorderedView : SequenceView {

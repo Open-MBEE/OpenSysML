@@ -6,3 +6,5 @@ classes: {
 }
 # layout: n0 x=10 y=10 w=300 h=420
 n0: "«part def»\nImaging\nattributes\nresolution = 4096\nexposure\nitems\n'frame'\nparts\nmount\nports\ndata\nactions\ncapture\nconstraints\nfocus\n…" { class: definition }
+frame_name: "«view» CameraViews::roomy" { shape: text; near: top-left }
+frame_tr: "expose Camera::Imaging" { shape: text; near: top-right }

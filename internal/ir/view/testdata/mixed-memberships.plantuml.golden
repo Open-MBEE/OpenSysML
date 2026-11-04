@@ -1,5 +1,6 @@
 @startuml
 ' MixedMemberships::memberships — mixed rendering (render asMixedDiagram)
+mainframe <size:10>//«view»//</size> **MixedMemberships::memberships**\n<size:10>expose MixedMemberships</size>
 <style>
 root {
   BackGroundColor white
