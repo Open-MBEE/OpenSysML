@@ -106,6 +106,44 @@ func TestFeatureSpecializationAfterRelationshipClause(t *testing.T) {
 	wantRelationshipError(t, "a.kerml", "feature x inverse of a ::> b;", "is a specialization")
 }
 
+// `chains` takes one feature chain and `inverse of` one feature, where the other
+// feature clauses list targets (KerML.xtext:560 ChainingPart, :564 InvertingPart,
+// :568 TypeFeaturingPart). Issue #1884. The comma is reported, the surplus
+// targets are read past, and the declaration after the clause is kept.
+func TestFeatureSingleTargetClauseList(t *testing.T) {
+	for _, tc := range []struct {
+		name, src, want string
+	}{
+		{"chains_names", "package P { feature a; feature b; feature x chains a, b; feature y; }", "`chains` takes one feature chain"},
+		{"chains_after_chain", "package P { feature x chains a.b, c.d; feature y; }", "`chains` takes one feature chain"},
+		{"chains_before_body", "package P { feature x chains a, b { feature z; } feature y; }", "`chains` takes one feature chain"},
+		{"inverse_of_names", "package P { feature x inverse of a, b; feature y; }", "`inverse of` takes one feature"},
+		{"inverse_of_chains", "package P { feature x inverse of a.b, c, d.e; feature y; }", "`inverse of` takes one feature"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := New(source.New(tc.name+".kerml", []byte(tc.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 1 {
+				t.Fatalf("%q: got %d diagnostics, want 1: %v", tc.src, len(p.Diagnostics), p.Diagnostics)
+			}
+			d := p.Diagnostics[0]
+			if !strings.Contains(d.Message, tc.want) {
+				t.Errorf("%q: diagnostic %q, want one containing %q", tc.src, d.Message, tc.want)
+			}
+			if want := strings.Index(tc.src, ","); d.Span.Offset != want {
+				t.Errorf("%q: diagnostic at offset %d, want %d (the first comma)", tc.src, d.Span.Offset, want)
+			}
+			dump := ast.Dump(root)
+			if strings.Count(dump, "(Relationship ") != 1 {
+				t.Errorf("%q: want the one target the clause takes in the tree:\n%s", tc.src, dump)
+			}
+			if !strings.Contains(dump, `name="y"`) {
+				t.Errorf("%q: declaration after the clause was dropped:\n%s", tc.src, dump)
+			}
+		})
+	}
+}
+
 // On a feature, conjugation and a specialization list are alternatives
 // (KerML.xtext:549 FeatureDeclaration: (FeatureSpecializationPart |
 // FeatureConjugationPart)?) — stating both is an error in either order.
@@ -201,6 +239,14 @@ func TestRelationshipClauseShapesAccepted(t *testing.T) {
 		// `ordered`/`nonunique` once each, in either order.
 		{"a.kerml", "feature x : A ordered nonunique;"},
 		{"a.kerml", "feature x : A nonunique ordered;"},
+		// `chains` takes one feature chain or one feature, `inverse of` one
+		// feature or chain; `featured by` alone of the three lists its targets.
+		{"a.kerml", "feature x chains a.b.c;"},
+		{"a.kerml", "feature x chains a;"},
+		{"a.kerml", "feature x inverse of a;"},
+		{"a.kerml", "feature x inverse of a.b;"},
+		{"a.kerml", "feature x featured by A, B;"},
+		{"a.kerml", "feature x : T chains a.b inverse of c featured by A;"},
 	} {
 		wantRelationshipClean(t, tc.name, tc.src)
 	}

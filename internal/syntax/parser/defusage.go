@@ -4246,9 +4246,38 @@ func (p *Parser) parseRelationshipsInto(shape declShape, seen *relClauseState) (
 			r := p.parseRelationshipClauseTarget(kind)
 			r.TypedBy, typedBy = typedBy, source.Span{}
 			rels = append(rels, r)
-			if !p.accept2(lexer.Comma) {
+			commaTok, ok := p.accept(lexer.Comma)
+			if !ok {
 				break
 			}
+			if msg := singleTargetClauseList(kind); msg != "" {
+				p.error(commaTok.Span, msg)
+				p.skipRelationshipClauseTargets(kind)
+				break
+			}
+		}
+	}
+}
+
+// singleTargetClauseList is the diagnostic for a comma after the one target a
+// `chains` or `inverse of` clause takes; empty for a clause that lists targets.
+func singleTargetClauseList(kind ast.RelationshipKind) string {
+	switch kind {
+	case ast.RelChains:
+		return "`chains` takes one feature chain, its chaining features joined by `.` (`chains a.b`), not a comma-separated list (KerML 1.1 8.2.4.3.1 ChainingPart, 8.2.4.3.5 FeatureChain)"
+	case ast.RelInverseOf:
+		return "`inverse of` takes one feature, a qualified name or a feature chain, not a comma-separated list (KerML 1.1 8.2.4.3.1 InvertingPart, 8.2.4.3.6 OwnedFeatureInverting)"
+	}
+	return ""
+}
+
+// skipRelationshipClauseTargets reads the surplus targets of a misreported list,
+// so the declaration still ends at its `;` or body.
+func (p *Parser) skipRelationshipClauseTargets(kind ast.RelationshipKind) {
+	for {
+		p.parseRelationshipClauseTarget(kind)
+		if !p.accept2(lexer.Comma) {
+			return
 		}
 	}
 }
