@@ -323,8 +323,8 @@ For clients that need to display those names without bundling the library,
 `ConvertResponse.library_references` carries a separate table of `id`, `qualified_name`
 and `type` (metaclass), advertised as `convert_library_references`. The
 [compact API JSON document](api-json-compact.md) carries the same information in the
-optional top-level `libraryReferences` table, with literal `@id`, `qualifiedName` and
-`@type` keys. Only library elements referenced by the written output are included,
+optional top-level `libraryReferences` table, with literal `@id`, `qualifiedName` (or
+`libraryPath`, for an unnamed member) and `@type` keys. Only library elements referenced by the written output are included,
 sorted by ID; no library declarations are added to the default element array.
 
 The CLI writes that table as a JSON side file, without changing the model output:

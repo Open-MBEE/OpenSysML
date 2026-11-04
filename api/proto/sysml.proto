@@ -1328,6 +1328,7 @@ message LibraryReference {
   string id = 1;
   string qualified_name = 2;
   string type = 3; // Metaclass, as API JSON's @type spells it.
+  string library_path = 4; // Positional path owner/Metaclass[i] of an unnamed member, which has no qualified_name.
 }
 
 // MigrateRequest asks for a SysML v1 model migrated to v2. The source is a

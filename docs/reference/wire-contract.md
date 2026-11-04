@@ -2053,9 +2053,11 @@ names every standard-library element the output references: each entry has `id` 
 literal normative ID), `qualifiedName` and `type` (the API JSON metaclass). Entries are
 sorted by ID and do not declare elements or roots. It needs no request option and is
 advertised as `convert_library_references`; an empty table means no library references.
-`qualifiedName` is empty for an unnamed library relationship, such as an owning membership.
+`qualifiedName` is empty for an unnamed library relationship, such as an owning membership;
+an unnamed library member (a documentation comment, an invariant, an unnamed connector) has
+`libraryPath` instead, the positional path `Owner::qualifiedName/Metaclass[i]`.
 The compact document also carries the table outside `elements`, using the API JSON keys
-`@id`, `qualifiedName` and `@type`. For graph input, only library metadata present in the
+`@id`, `qualifiedName` (or `libraryPath`) and `@type`. For graph input, only library metadata present in the
 graph can be reported. Other target formats and failed conversions return no table.
 
 `includeLibraryStubs`, advertised as `convert_library_stubs`, restores the ownerless

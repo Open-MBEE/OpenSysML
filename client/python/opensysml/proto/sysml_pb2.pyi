@@ -1127,14 +1127,16 @@ class ConvertResponse(_message.Message):
     def __init__(self, content: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., experimental: _Optional[bool] = ..., experimental_notice: _Optional[str] = ..., library_references: _Optional[_Iterable[_Union[LibraryReference, _Mapping]]] = ...) -> None: ...
 
 class LibraryReference(_message.Message):
-    __slots__ = ("id", "qualified_name", "type")
+    __slots__ = ("id", "qualified_name", "type", "library_path")
     ID_FIELD_NUMBER: _ClassVar[int]
     QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
+    LIBRARY_PATH_FIELD_NUMBER: _ClassVar[int]
     id: str
     qualified_name: str
     type: str
-    def __init__(self, id: _Optional[str] = ..., qualified_name: _Optional[str] = ..., type: _Optional[str] = ...) -> None: ...
+    library_path: str
+    def __init__(self, id: _Optional[str] = ..., qualified_name: _Optional[str] = ..., type: _Optional[str] = ..., library_path: _Optional[str] = ...) -> None: ...
 
 class MigrateRequest(_message.Message):
     __slots__ = ("file_path", "content", "from_format", "to_format", "report", "results", "layout_path", "layout_content", "image_base_url", "strict")
