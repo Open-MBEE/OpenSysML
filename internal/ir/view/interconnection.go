@@ -513,6 +513,7 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 	}
 	notes := len(out.Notes)
 	route, style := r.routeOf(w.view, connector, out), r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
+	noteEnd := len(out.Notes)
 	if kind == EdgeConnection && nary(len(resolved)) {
 		w.naryConnection(connector, within, ends, resolved, route, style)
 		// The connection's notes, anchored on its first two ends by edgeDress, sit at the dot.
@@ -530,7 +531,7 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 		}
 	}
 	if kind == EdgeFlow || kind == EdgeSuccessionFlow {
-		w.flows = append(w.flows, flowSite{index: len(out.Edges) - 1, sym: connector, within: within})
+		w.flows = append(w.flows, flowSite{index: len(out.Edges) - 1, sym: connector, within: within, notes: [2]int{notes, noteEnd}})
 	}
 }
 

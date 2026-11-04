@@ -277,8 +277,16 @@ func TestNaryNotesAnchorAtTheDotAndTheItemBox(t *testing.T) {
 	if n := anchors["the line"]; n.Anchor != "" || n.EdgeFrom == "" || !itemBox(nodeByID(car.Roots, n.EdgeTo)) {
 		t.Errorf("the line's note = %+v, want it on the first segment, from the line's end to an item box", n)
 	}
-	if len(car.Notes) != 2 {
-		t.Errorf("notes = %+v, want the two stated", car.Notes)
+	// One annotation about the line and the flow is a note on each: the shared origin
+	// does not make the line's note the flow's.
+	shared := map[string]int{}
+	for _, note := range car.Notes {
+		if note.Text == "shared" {
+			shared[note.Anchor+"|"+note.EdgeTo]++
+		}
+	}
+	if len(car.Notes) != 4 || shared[level.ID+"|"] != 1 || shared["|"+anchors["the line"].EdgeTo] != 1 {
+		t.Errorf("notes = %+v, want the four stated, the shared one on the box and on the first segment", car.Notes)
 	}
 }
 

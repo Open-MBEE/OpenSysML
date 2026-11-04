@@ -69,6 +69,7 @@ package NaryViews {
 		render asInterconnectionDiagram;
 		metadata Note about Nary::Car::fuelLine { text = "the line"; x = 10; y = 10; }
 		metadata Note about Nary::Car::level { text = "the reading"; x = 10; y = 40; }
+		metadata Note about Nary::Car::fuelLine, Nary::Car::level { text = "shared"; x = 10; y = 70; }
 	}
 	view definitionsRouted {
 		expose Nary::Triad;

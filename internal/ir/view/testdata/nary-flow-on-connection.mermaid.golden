@@ -44,7 +44,8 @@ flowchart LR
     n5@{ shape: text, label: "`*«flow»*
 ◀—`" }
     n6@{ shape: text, label: "«message»<br>—#gt;" }
-    note1@{ shape: notch-rect, label: "the reading" }
+    note1@{ shape: notch-rect, label: "shared<br>shared" }
+    note2@{ shape: notch-rect, label: "the reading" }
   end
   n1.0 === n4
   n4 === n5
@@ -52,11 +53,13 @@ flowchart LR
   n6 === n2.0
   n1.0 --> n3.0
   note0 -.- n1_anchor
+  note1 -.- n1_anchor
+  note2 -.- n5
   note1 -.- n5
   classDef anchor fill:none,stroke:none
   class n1_anchor anchor
   classDef note fill:#FEFFDD,stroke:#181818
-  class note0,note1 note
+  class note0,note1,note2 note
   linkStyle 0 stroke-width:3px
   linkStyle 1 stroke-width:3px
   linkStyle 2 stroke-width:3px

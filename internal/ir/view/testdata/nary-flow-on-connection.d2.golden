@@ -1,5 +1,5 @@
 # NaryViews::carLinks — interconnection rendering (render asInterconnectionDiagram)
-# not represented: 2 note(s); the dot form draws notes
+# not represented: 4 note(s); the dot form draws notes
 classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }

@@ -19,12 +19,15 @@ digraph "NaryViews::carLinks" {
     "n6" [shape=plaintext, margin=0, label=<<font point-size="10"><i>«message»</i></font><br/>—&gt;>];
   }
   "note:0" [shape=note, label="the line"];
-  "note:1" [shape=note, label="the reading"];
+  "note:1" [shape=note, label="shared"];
+  "note:2" [shape=note, label="the reading"];
   "n1":"n1.0" -> "n4" [arrowhead=none, penwidth=3];
   "n4" -> "n5" [arrowhead=none, penwidth=3];
   "n5" -> "n6" [arrowhead=none, penwidth=3];
   "n6" -> "n2":"n2.0" [arrowhead=none, penwidth=3];
   "n1":"n1.0" -> "n3":"n3.0";
   "note:0" -> "n1" [style=dashed, arrowhead=none];
+  "note:1" -> "n1" [style=dashed, arrowhead=none];
+  "note:2" -> "n5" [style=dashed, arrowhead=none];
   "note:1" -> "n5" [style=dashed, arrowhead=none];
 }
