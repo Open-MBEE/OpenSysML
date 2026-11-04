@@ -1187,13 +1187,20 @@ func (ctx *Context) appendUniqueValues(out, els []Value, seen map[valueKey]int) 
 	return out, seen
 }
 
-// valuesAlsoIn keeps, in order, the values of pool that els also holds.
+// valuesAlsoIn keeps, in order, the values of pool that els also holds, each as many times as els holds it.
 func (ctx *Context) valuesAlsoIn(pool, els []Value) []Value {
-	in := make(map[valueKey]bool, len(els))
+	in := make(map[valueKey]int, len(els))
 	for _, v := range els {
-		in[ctx.valueKey(v)] = true
+		in[ctx.valueKey(v)]++
 	}
-	return slices.DeleteFunc(slices.Clone(pool), func(v Value) bool { return !in[ctx.valueKey(v)] })
+	return slices.DeleteFunc(slices.Clone(pool), func(v Value) bool {
+		key := ctx.valueKey(v)
+		if in[key] == 0 {
+			return true
+		}
+		in[key]--
+		return false
+	})
 }
 
 // siblingSubsetterValues is the values the other features subsetting what fv subsets already

@@ -16,6 +16,7 @@ func TestRuntimeRobustnessSubsettedPool(t *testing.T) {
 	t.Run("a subsetted feature holding a default lends no value", testSubsettedDefaultNoPool)
 	t.Run("a nonunique subsetter draws every occurrence", testSubsettedNonuniqueOccurrences)
 	t.Run("false and 0 are two values to draw", testSubsettedFalseAndZero)
+	t.Run("a value is drawn no more times than each subsetted feature holds it", testSubsettedOccurrencesOfEach)
 }
 
 const subsettedOccurrences = `package P {
@@ -25,6 +26,9 @@ const subsettedOccurrences = `package P {
 		attribute target : Integer [2] nonunique :> source;
 		attribute mixed [2] = (false, 0);
 		attribute both [2] :> mixed;
+		attribute xs : Integer [3] nonunique = (1, 1, 3);
+		attribute ys : Integer [3] nonunique = (1, 2, 3);
+		attribute common : Integer [2] nonunique :> xs, ys;
 	}
 }`
 
@@ -45,6 +49,12 @@ func occurrencesRead(t *testing.T, name string) []Value {
 func testSubsettedNonuniqueOccurrences(t *testing.T) {
 	if got := occurrencesRead(t, "target"); len(got) != 2 || FormatValue(got[0]) != "1" || FormatValue(got[1]) != "1" {
 		t.Errorf("target = %v, want (1, 1), both occurrences source holds", got)
+	}
+}
+
+func testSubsettedOccurrencesOfEach(t *testing.T) {
+	if got := occurrencesRead(t, "common"); len(got) != 2 || FormatValue(got[0]) != "1" || FormatValue(got[1]) != "3" {
+		t.Errorf("common = %v, want (1, 3): ys holds 1 once", got)
 	}
 }
 
