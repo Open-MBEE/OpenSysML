@@ -940,10 +940,41 @@ test("layoutCanvas never draws a message upward: a sending event sits at or abov
     const box = layout.nodes.get(id)!.box;
     return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   };
-  const [, second] = layout.edges;
+  const [first, second] = layout.edges;
   assert.deepEqual(second.points, [centre("e3"), centre("e2")]);
-  assert.ok(centre("e3").y <= centre("e2").y);
+  assert.ok(centre("e3").y < centre("e2").y);
   assert.notDeepEqual(centre("e3"), centre("e1"));
+  // The first message moved down a row with its two points, and stays level.
+  assert.deepEqual(first.points, [centre("e1"), centre("e2")]);
+  assert.equal(first.points[0].y, first.points[1].y);
+});
+
+test("layoutCanvas gives every sender to one receiving event a point of its own", () => {
+  const senders = ["s1", "s2", "s3", "s4"];
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "client"),
+        node("b", "server"),
+        node("r", "taken", { kind: "event occurrence", parent: "b" }),
+        ...senders.map((id) => node(id, id, { kind: "event occurrence", parent: "a" })),
+      ],
+      senders.map((id) => ({ from: id, to: "r", label: id, kind: "message" })),
+      { kind: "sequence" },
+    ),
+  );
+  const centre = (id: string) => {
+    const box = layout.nodes.get(id)!.box;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const ys = new Set(senders.map((id) => centre(id).y));
+  assert.equal(ys.size, senders.length);
+  for (const [i, message] of layout.edges.entries()) {
+    assert.deepEqual(message.points, [centre(senders[i]), centre("r")]);
+    assert.ok(message.points[0].y <= message.points[1].y);
+    assert.ok(message.points[0].y > MARGIN);
+  }
+  assert.ok(layout.nodes.get("a")!.lifeline! > centre("r").y);
 });
 
 test("layoutCanvas places a sequence's proxy where a drawn edge first reaches it, not a hidden one", () => {

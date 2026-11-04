@@ -170,9 +170,12 @@ type Model struct {
 
 	// bindingIR memoizes binding connectors declared by each materialized
 	// object type, including bindings inherited from its supertypes.
-	bindingIR       map[*symbols.Symbol][]lower.Binding
-	bindingRoots    map[*symbols.Symbol]map[string]bool
-	bindingFeatures map[*symbols.Symbol]map[string][]lower.Binding
+	bindingIR map[*symbols.Symbol][]lower.Binding
+	// hoistingBindings marks the declarations whose connectors' bindings are being
+	// collected, so a connector typed by its own holder's definition ends the descent.
+	hoistingBindings map[*symbols.Symbol]bool
+	bindingRoots     map[*symbols.Symbol]map[string]bool
+	bindingFeatures  map[*symbols.Symbol]map[string][]lower.Binding
 
 	// namespaceUsageIndex is the model's namespace-owned bindings and subsetting
 	// usages walked once, on the first namespace denotation that needs them.
@@ -186,6 +189,9 @@ type Model struct {
 	// actionInterfaces the interface a tool performance binds. Lazy, like names.
 	actionGraphs     map[*symbols.Symbol]*loweredAction
 	actionInterfaces map[*symbols.Symbol]*loweredAction
+	// declaredShapes memoizes, by the usage performed through, the shape of a
+	// performance whose features are that usage's members (ActionExecutor.declared).
+	declaredShapes map[*symbols.Symbol]*performanceShape
 
 	behaviorOrdersReady bool
 	behaviorOrders      []lower.BehaviorOrder
@@ -283,6 +289,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		toolUnits:           make(map[toolUnitKey]semantics.Unit),
 		objectConns:         make(map[*symbols.Symbol][]lower.Connection),
 		bindingIR:           make(map[*symbols.Symbol][]lower.Binding),
+		hoistingBindings:    make(map[*symbols.Symbol]bool),
 		bindingRoots:        make(map[*symbols.Symbol]map[string]bool),
 		bindingFeatures:     make(map[*symbols.Symbol]map[string][]lower.Binding),
 		classifierBehaviors: make(map[*symbols.Symbol][]classifierBehaviorDecl),

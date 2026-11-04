@@ -89,10 +89,14 @@ elmt:Vehicles__Vehicle__mass
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c> ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Vehicles__Vehicle__mass_pmultiplicity ;
+    sysml:ownedRelationship elmt:Vehicles__Vehicle__mass_ft0, expr:Vehicles__Vehicle__mass_pmultiplicity_om ;
+    sysml:ownedMembership expr:Vehicles__Vehicle__mass_pmultiplicity_om ;
+    sysml:ownedMember expr:Vehicles__Vehicle__mass_pmultiplicity ;
     sysml:ownedTyping elmt:Vehicles__Vehicle__mass_ft0 ;
     sysml:ownedSpecialization elmt:Vehicles__Vehicle__mass_ft0 ;
-    sysml:ownedRelationship elmt:Vehicles__Vehicle__mass_ft0 ;
-    sysx:sourceText "        attribute mass : ISQ::MassValue;\n" .
+    sysx:sourceText "        attribute mass : ISQ::MassValue;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Vehicles__Vehicle__mass_ft0\"},{\"@id\":\"Vehicles__Vehicle__mass_pmultiplicity_om\"}]" .
 
 elmt:Vehicles__Vehicle__mass_om
     a sysml:FeatureMembership ;
@@ -110,6 +114,28 @@ elmt:Vehicles__Vehicle__mass_om
     sysml:ownedMemberFeature elmt:Vehicles__Vehicle__mass ;
     sysml:owningType elmt:Vehicles__Vehicle ;
     json:relatedElement "[{\"@id\":\"Vehicles__Vehicle\"},{\"@id\":\"Vehicles__Vehicle__mass\"}]" .
+
+expr:Vehicles__Vehicle__mass_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Vehicles__Vehicle__mass_pmultiplicity" ;
+    sysml:owner elmt:Vehicles__Vehicle__mass ;
+    sysml:owningRelationship expr:Vehicles__Vehicle__mass_pmultiplicity_om ;
+    sysml:owningMembership expr:Vehicles__Vehicle__mass_pmultiplicity_om .
+
+expr:Vehicles__Vehicle__mass_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicles__Vehicle__mass_pmultiplicity_om" ;
+    sysml:owner elmt:Vehicles__Vehicle__mass ;
+    sysml:memberElement expr:Vehicles__Vehicle__mass_pmultiplicity ;
+    sysml:ownedMemberElement expr:Vehicles__Vehicle__mass_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Vehicles__Vehicle__mass_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Vehicles__Vehicle__mass ;
+    sysml:membershipOwningNamespace elmt:Vehicles__Vehicle__mass ;
+    sysml:source elmt:Vehicles__Vehicle__mass ;
+    sysml:target expr:Vehicles__Vehicle__mass_pmultiplicity ;
+    sysml:relatedElement elmt:Vehicles__Vehicle__mass, expr:Vehicles__Vehicle__mass_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Vehicles__Vehicle__mass\"},{\"@id\":\"Vehicles__Vehicle__mass_pmultiplicity\"}]" .
 
 elmt:Vehicles__Vehicle__engine
     a sysml:PartUsage ;
@@ -132,6 +158,7 @@ elmt:Vehicles__Vehicle__engine
     sysml:multiplicity expr:Vehicles__Vehicle__engine_pmultiplicity ;
     sysml:ownedRelationship elmt:Vehicles__Vehicle__engine_ft0, expr:Vehicles__Vehicle__engine_pmultiplicity_om ;
     sysml:ownedMembership expr:Vehicles__Vehicle__engine_pmultiplicity_om ;
+    sysml:ownedMember expr:Vehicles__Vehicle__engine_pmultiplicity ;
     sysml:upperBound expr:Vehicles__Vehicle__engine_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Vehicles__Vehicle__engine_ft0 ;

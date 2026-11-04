@@ -173,7 +173,7 @@ against the metaclass the position requires, which is a cross-cutting change to 
 
 ## Conformance policy we keep
 
-### A redefinition's declared types are checked for direct conformance
+### A redefinition's declared types were checked for direct conformance
 
 ```kerml
 classifier Try specializes B {
@@ -190,13 +190,21 @@ one: the redefining feature is typed by its own typings *and* the redefined feat
 under `faces : StructuredSurface`). The pilot leaves the consequence to model semantics or a
 reasoner; we apply the direct pairwise test as an advisory check.
 
-**Adjudicated divergence, kept as a warning.** `redefinition-type-mismatch` reports a redefinition
-typed by two unrelated types, because it is almost always a slip, but as a warning, so no model the
-specification admits is rejected. The two `Import3` `noErrors` rows in
-[pilot-xpect.md](pilot-xpect.md#noerrors--266-of-277-agree) closed with that severity; calling them
-wording-only would have been false — the pilot emits nothing there. (The same check once caught the
-non-conforming individual redefinition in `Individuals Examples/AnalysisIndividualExample.sysml`,
-fixed upstream at `2026-07`.)
+**Adjudicated divergence, replaced.** `redefinition-type-mismatch` reported a redefinition typed by
+two types that did not conform, as a warning so that no model the specification admits was rejected.
+It could not tell disjoint types from merely unrelated ones: `class B;` and `class B disjoint from A;`
+drew the same report under `feature f : A`, though the first is a legal feature typed by the
+intersection of `A` and `B` and only the second can have no values (issue #1887). It was withdrawn
+in favour of `disjoint-feature-types`, which reports a feature — redefining, subsetting or directly
+typed — two of whose effective types are provably disjoint: declared `disjoint from` (KerML 7.3.2.5,
+8.3.3.1.4), inherited along their specializations (7.3.2.4), through a union of types each disjoint
+from the other (7.3.2.3), or established by the kernel library's `Occurrence … disjoint from
+DataValue` (8.4.4.2, 8.4.4.3). Mere unrelatedness is never reported. The two `Import3` `noErrors`
+rows in [pilot-xpect.md](pilot-xpect.md#noerrors--266-of-277-agree) closed when the old report
+became a warning; `A::a1` and `A` there are unrelated, not disjoint, so we now emit nothing on them,
+as the pilot does. (The old check once caught the non-conforming individual redefinition in
+`Individuals Examples/AnalysisIndividualExample.sysml`, fixed upstream at `2026-07`; that pair was
+unrelated too, and is not reported today.)
 
 ### A specialization cycle is reported, and the pilot has no such check
 
@@ -277,11 +285,10 @@ inherited one, for a name inherited from two supertypes, and from a library base
 `Type::inheritedMembership` "subsets membership" (8.3.3.1.10) and 7.3.2.1 requires inherited member
 names to be "distinct from each other and from the member names of all owned memberships". The
 finding, its wording and its position are those of the default mode; only the severity moves.
-`Duplicate of imported member name` is not escalated: 7.2.5.4 hides a colliding imported membership
+An imported collision is reported in neither mode: 7.2.5.4 hides a colliding imported membership
 from the importing namespace, so the namespace keeps no indistinguishable membership and is
-well-formed, and the warning marks only that OpenSysML binds the first import's member where the
-specification binds none. The tests are `TestIndistinguishableMembershipsAreErrorsUnderStrictConformance`
-and `TestImportedNameCollisionStaysAWarningUnderStrictConformance` in `internal/check/passes`.
+well-formed. The tests are `TestIndistinguishableMembershipsAreErrorsUnderStrictConformance`
+and `TestImportedNameCollisionIsNoConflictUnderStrictConformance` in `internal/check/passes`.
 
 ## Metadata and model-level evaluability
 
