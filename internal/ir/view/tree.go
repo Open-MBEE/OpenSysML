@@ -32,9 +32,18 @@ func (r *Renderer) treeDepth() int {
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	out.sites = map[*Node]treeSite{}
-	descendants := r.exposedDescendants(view, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(view, sym) })
+	descendants := r.exposedDescendants(view, exposed, func(sym *symbols.Symbol) []*symbols.Symbol {
+		return append(r.walkMembers(view, sym), r.annotatingMembers(sym)...)
+	})
 	for _, elem := range exposed {
 		if descendants[symbols.KeyOf(elem)] {
+			continue
+		}
+		// An annotation exposed on its own is the note of §8.2.3.4, as under its owner.
+		if annotatingSymbol(elem) {
+			if node := r.annotationNode(ids, view, elem, out); node != nil {
+				out.Roots = append(out.Roots, node)
+			}
 			continue
 		}
 		walk := treeWalk{view: view, ids: ids, path: expansion{}, out: out}

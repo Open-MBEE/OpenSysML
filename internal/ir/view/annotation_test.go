@@ -232,3 +232,28 @@ func TestGeneralGraphAnnotationsObeyViewFilters(t *testing.T) {
 		t.Errorf("unfiltered definition graph annotation nodes = %v, links = %d", kinds, anchorEdges(unfiltered))
 	}
 }
+
+// An annotation exposed without its owner is the same note, with its body and
+// a link to each drawn element it annotates; exposed beside its owner it is
+// drawn once, under the owner.
+func TestExposedAnnotationIsDrawnWithItsLinks(t *testing.T) {
+	rendering := render(t, "annotations.sysml", "AnnotationViews::exposedComment")
+	notes := annotationNodesUnder(rendering.Roots)
+	if len(notes) != 2 || notes[0].Kind != commentKind || !strings.HasSuffix(notes[0].Name, "Safety") || !strings.Contains(notes[0].Text, "rated for the loop pressure") {
+		t.Fatalf("annotation nodes = %+v, want Safety with its body before Tank's doc:\n%s", notes, rendering.Text())
+	}
+	// Safety to Tank — Pump is not drawn — and Tank's own doc.
+	if got := anchorEdges(rendering); got != 2 {
+		t.Errorf("annotation links = %d, want 2: %+v", got, rendering.Edges)
+	}
+	rendering = render(t, "annotations.sysml", "AnnotationViews::exposedWithOwner")
+	safety := 0
+	for _, node := range annotationNodesUnder(rendering.Roots) {
+		if strings.HasSuffix(node.Name, "Safety") {
+			safety++
+		}
+	}
+	if safety != 1 || len(rendering.Roots) != 1 {
+		t.Errorf("Safety drawn %d time(s) under %d root(s), want once under Pump:\n%s", safety, len(rendering.Roots), rendering.Text())
+	}
+}
