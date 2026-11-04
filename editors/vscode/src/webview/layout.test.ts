@@ -767,6 +767,49 @@ test("layoutCanvas lays a sequence out as lifelines in a row with messages down 
   assert.equal(layout.placeable, false);
 });
 
+test("layoutCanvas puts a sequence's proxies on their lifelines at their rows and its ports on the lifeline's border", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "producer", { ports: [{ id: "p", name: "out" }] }),
+        node("b", "server"),
+        node("e1", "sent", { kind: "event occurrence", parent: "a" }),
+        node("e2", "received", { kind: "event occurrence", parent: "b" }),
+        node("e3", "done", { kind: "event occurrence", parent: "b" }),
+      ],
+      [
+        { from: "e1", to: "e2", label: "publish of Publish", kind: "message" },
+        { from: "e2", to: "e3", label: "", kind: "succession" },
+        { from: "a", to: "b", fromPort: "p", label: "of Ping", kind: "flow" },
+      ],
+      { kind: "sequence" },
+    ),
+  );
+  const a = layout.nodes.get("a")!;
+  const b = layout.nodes.get("b")!;
+  const e1 = layout.nodes.get("e1")!;
+  const e2 = layout.nodes.get("e2")!;
+  const e3 = layout.nodes.get("e3")!;
+  const [publish, then, ping] = layout.edges;
+  // A proxy is a filled point on its lifeline's x at the row of its first edge, labelled by its name.
+  assert.equal(e1.shape, "circle");
+  assert.deepEqual(e1.lines, ["sent"]);
+  assert.equal(e1.box.x + e1.box.width / 2, a.box.x + a.box.width / 2);
+  assert.equal(e1.box.y + e1.box.height / 2, publish.points[0].y);
+  assert.equal(e2.box.x + e2.box.width / 2, b.box.x + b.box.width / 2);
+  assert.equal(e2.box.y + e2.box.height / 2, publish.points[1].y);
+  // A succession between two proxies of one lifeline is drawn as a self-message, its target at the return.
+  assert.equal(then.points.length, 4);
+  assert.equal(e3.box.y + e3.box.height / 2, then.points[3].y);
+  assert.ok(e3.box.y > e2.box.y);
+  // A port sits on the lifeline's bottom border, and the flow leaves from under it.
+  assert.equal(a.ports.length, 1);
+  assert.equal(a.ports[0].side, "south");
+  assert.equal(ping.points[0].x, portCenter(a.box, a.ports[0]).x);
+  assert.equal(ping.points[1].x, b.box.x + b.box.width / 2);
+  assert.ok(ping.points[0].y > then.points[3].y);
+});
+
 test("simpleNames keeps the qualifier that tells nodes of one name apart", () => {
   const nodes = [
     node("a", "Plant::pump"),

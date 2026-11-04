@@ -171,6 +171,8 @@ const BAR_HEIGHT = 6;
 const LOOP_REACH = 36;
 /** Between the messages of a sequence, and below its last one. */
 const MESSAGE_GAP = 40;
+/** The diameter of a proxy's filled circle on its lifeline (§8.2.3.9 sq-proxy). */
+const PROXY_SIZE = 10;
 /** How far a message to its own lifeline reaches out. */
 const SELF_MESSAGE_REACH = 28;
 
@@ -223,7 +225,6 @@ export function layoutCanvas(
   }
   if (result.kind === "sequence") {
     const layout = layoutSequence(result, roots, placed, overrides.hiddenKinds);
-    placePorts(result.edges ?? [], placed, auto);
     return coveringDrawn({ ...layout, routing });
   }
   const owners = memberEdgeOwners(result.edges ?? [], placed, overrides.hiddenKinds);
@@ -319,7 +320,9 @@ function coveringHeld(layout: CanvasLayout, held: CanvasLayout | undefined): Can
 
 // layoutSequence lays lifelines out in a row, in the order rendered, and its
 // messages down them in the order the model states; nothing here reads the model's
-// geometry, since a sequence rendering carries none.
+// geometry, since a sequence rendering carries none. A lifeline's ports sit on its
+// bottom border and its proxies (the events its messages end at) are points on the
+// lifeline at the row of their first message, labelled beside it.
 function layoutSequence(
   result: RenderResult,
   roots: PlacedNode[],
@@ -336,17 +339,35 @@ function layoutSequence(
     const size = labelSize(root.lines);
     root.box = { x, y: MARGIN, width: size.width, height: size.height };
     root.lifeline = bottom;
+    const ports = root.node.ports ?? [];
+    root.ports = ports.map((port, i) => ({ port, side: "south", offset: (i + 1) / (ports.length + 1) }));
     x += size.width + GAP;
   }
+  // endX is the x an edge end is drawn at: its port's, else its lifeline's centre.
+  const endX = (id: string, portId: string | undefined): number => {
+    const entry = placed.get(id);
+    if (!entry) {
+      return MARGIN;
+    }
+    const lifeline = entry.parent ?? entry;
+    const port = portId === undefined ? undefined : lifeline.ports.find((p) => p.port.id === portId);
+    return port ? portCenter(lifeline.box, port).x : lifeline.box.x + lifeline.box.width / 2;
+  };
+  const placeProxy = (id: string, cx: number, cy: number): void => {
+    const entry = placed.get(id);
+    if (entry?.parent !== undefined && entry.box.width === 0) {
+      entry.box = { x: cx - PROXY_SIZE / 2, y: cy - PROXY_SIZE / 2, width: PROXY_SIZE, height: PROXY_SIZE };
+      entry.shape = "circle";
+      entry.lines = [entry.node.name];
+    }
+  };
   let row = 0;
   const routed = edges.map((edge, index): PlacedEdge => {
     const y = MARGIN + headHeight(roots) + MESSAGE_GAP * (hidden[index] ? row : ++row);
-    const from = placed.get(edge.from)?.box;
-    const to = placed.get(edge.to)?.box;
-    const fromX = from ? from.x + from.width / 2 : MARGIN;
-    const toX = to ? to.x + to.width / 2 : MARGIN;
+    const fromX = endX(edge.from, edge.fromPort);
+    const toX = endX(edge.to, edge.toPort);
     const points =
-      edge.from === edge.to
+      fromX === toX
         ? [
             { x: fromX, y },
             { x: fromX + SELF_MESSAGE_REACH, y },
@@ -357,6 +378,8 @@ function layoutSequence(
             { x: fromX, y },
             { x: toX, y },
           ];
+    placeProxy(edge.from, points[0].x, points[0].y);
+    placeProxy(edge.to, points[points.length - 1].x, points[points.length - 1].y);
     return {
       edge,
       index,
@@ -367,6 +390,12 @@ function layoutSequence(
       rerouted: false,
     };
   });
+  // A proxy no drawn edge reaches sits at the foot of its lifeline.
+  for (const root of roots) {
+    for (const proxy of root.children) {
+      placeProxy(proxy.node.id, root.box.x + root.box.width / 2, bottom - PROXY_SIZE);
+    }
+  }
   return {
     roots,
     nodes: placed,
