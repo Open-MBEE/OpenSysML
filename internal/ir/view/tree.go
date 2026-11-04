@@ -39,9 +39,10 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 		if descendants[symbols.KeyOf(elem)] {
 			continue
 		}
-		// An annotation exposed on its own is the note of §8.2.3.4, as under its owner.
+		// An annotation exposed on its own is the note of §8.2.3.4, named as a root is.
 		if annotatingSymbol(elem) {
 			if node := r.annotationNode(ids, view, elem, out); node != nil {
+				node.Name = r.notationName(elem)
 				out.Roots = append(out.Roots, node)
 			}
 			continue
