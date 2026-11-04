@@ -46,6 +46,16 @@ package AnnotationViews {
 		filter @SysML::PartDefinition;
 		render asTreeDiagram;
 	}
+	view exposedComment {
+		expose Annotated::Pump::Safety;
+		expose Annotated::Tank;
+		render asTreeDiagram;
+	}
+	view exposedWithOwner {
+		expose Annotated::Pump;
+		expose Annotated::Pump::Safety;
+		render asTreeDiagram;
+	}
 	view placed {
 		expose Annotated::Valve;
 		render asTreeDiagram;
