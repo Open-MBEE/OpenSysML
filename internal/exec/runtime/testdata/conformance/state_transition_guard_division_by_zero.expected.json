@@ -1,0 +1,6 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::ctl",
+  "startFailures": ["eval guard of transition s1 -> s2: division by zero"]
+}

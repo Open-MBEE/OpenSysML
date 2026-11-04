@@ -9,8 +9,8 @@ import (
 
 // TestRuntimeRobustnessShadowedInheritedFeature exercises a specialization whose
 // feature duplicates an inherited name without redefining it: the two are held
-// apart, so an unvalued one is read as unset rather than as its namesake, and a
-// write to the hidden one is checked against its own declaration.
+// apart, so an unvalued one is read as unset (a guard over it does not hold) rather
+// than as its namesake, and a write to the hidden one is checked against its declaration.
 func TestRuntimeRobustnessShadowedInheritedFeature(t *testing.T) {
 	t.Run("unvalued_shadowing_feature_does_not_hide_the_inherited_one", testShadowedUnvaluedShadowingFeature)
 	t.Run("unvalued_inherited_feature_is_not_read_from_the_shadowing_one", testShadowedUnvaluedInheritedFeature)
@@ -47,7 +47,7 @@ func testShadowedUnvaluedShadowingFeature(t *testing.T) {
 }
 
 func testShadowedUnvaluedInheritedFeature(t *testing.T) {
-	_, err := executeActionSource(t, "Derived", `package test {
+	results, err := executeActionSource(t, "Derived", `package test {
 		private import ScalarValues::*;
 		action def Base {
 			attribute go : Boolean;
@@ -58,15 +58,20 @@ func testShadowedUnvaluedInheritedFeature(t *testing.T) {
 			action b { assign c := 1; }
 		}
 		action def Derived :> Base {
-			attribute go : Boolean = false;
+			attribute go : Boolean = true;
 		}
 	}`)
-	var noValue *NoValueError
-	if !errors.As(err, &noValue) {
-		t.Fatalf("error = %v, want NoValueError for the general's unvalued go, not a read of the specialization's", err)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
 	}
-	if noValue.Feature != "Base::go" {
-		t.Fatalf("NoValueError.Feature = %q, want Base::go", noValue.Feature)
+	if got := results["c"]; got.Const.Int != 0 {
+		t.Fatalf("c = %v, want 0: the guard reads the general's unvalued go, not the specialization's true", got)
+	}
+	if got, ok := results["Base::go"]; ok {
+		t.Fatalf("Base::go = %v, want the general's unvalued feature left unset", got)
+	}
+	if got, ok := results["go"]; !ok || !got.isBool() || !got.Const.Bool {
+		t.Fatalf("go = %v (held %v), want true", got, ok)
 	}
 }
 

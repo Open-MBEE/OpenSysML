@@ -105,13 +105,13 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		// An earlier candidate's effect may have blocked this guard since the poll
 		// read it, and the fire path re-tests it: a transition that would not move
 		// the machine must stay armed rather than latch as fired.
-		pass, err := e.passesGuard(trans)
+		pass, unvalued, err := e.guardHolds(trans)
 		if err != nil {
 			return false, fmt.Errorf("eval change guard: %w", err)
 		}
 		if !pass {
 			poll.blocked[trans] = true
-			poll.wait(trans, candidate.source.Name, "guard is false")
+			poll.wait(trans, candidate.source.Name, guardWaitReason(unvalued))
 			return false, nil
 		}
 		// The edge is latched before it is taken: an effect that leaves the
@@ -261,6 +261,7 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 				}
 				// The guard is read once per poll, alongside the condition, so which
 				// transitions this rise enables does not depend on selection order.
+				var guardUnvalued error
 				if decided {
 					var unevaluable *UnevaluableGuard
 					var err error
@@ -270,14 +271,14 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 					if unevaluable != nil {
 						poll.unevaluable[trans] = *unevaluable
 					}
-				} else if poll.guard[trans], err = e.passesGuard(trans); err != nil {
+				} else if poll.guard[trans], guardUnvalued, err = e.guardHolds(trans); err != nil {
 					return fmt.Errorf("state %s: eval change guard: %w", source.Name, err)
 				}
 				if poll.guard[trans] {
 					decided = true
 				} else if _, unevaluable := poll.unevaluable[trans]; !unevaluable {
 					poll.blocked[trans] = true
-					poll.wait(trans, source.Name, "guard is false")
+					poll.wait(trans, source.Name, guardWaitReason(guardUnvalued))
 				}
 			}
 		}
@@ -334,6 +335,15 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 	// gives the feature its value is the one that must re-poll it.
 	e.changeReads[trans] = reads
 	return holds, unvalued, nil
+}
+
+// guardWaitReason is why a change transition whose guard did not hold waits:
+// the guard is false, or has no result yet for the unvalued read it made.
+func guardWaitReason(unvalued error) string {
+	if unvalued != nil {
+		return "guard has no result yet: " + unvalued.Error()
+	}
+	return "guard is false"
 }
 
 // readsNoValue reports whether err is a read of a feature that carries no value,
