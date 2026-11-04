@@ -1,6 +1,5 @@
-// `chains` takes one feature chain — a single chaining feature or two or more
-// joined by `.` — and `inverse of` one feature or feature chain; `featured by`
-// lists its targets (KerML 1.1 8.2.4.3.1 ChainingPart, InvertingPart, TypeFeaturingPart).
+// `chains` takes one feature chain and `inverse of` one feature or chain;
+// `featured by` lists its targets (KerML 1.1 8.2.4.3.1).
 package P {
 	class T { feature b; feature c { feature d; } }
 	class U;

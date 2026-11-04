@@ -106,10 +106,8 @@ func TestFeatureSpecializationAfterRelationshipClause(t *testing.T) {
 	wantRelationshipError(t, "a.kerml", "feature x inverse of a ::> b;", "is a specialization")
 }
 
-// `chains` takes one feature chain and `inverse of` one feature, where the other
-// feature clauses list targets (KerML.xtext:560 ChainingPart, :564 InvertingPart,
-// :568 TypeFeaturingPart). Issue #1884. The comma is reported, the surplus
-// targets are read past, and the declaration after the clause is kept.
+// `chains` takes one feature chain and `inverse of` one feature (KerML.xtext:560, :564):
+// the comma is reported, the surplus read past, the next declaration kept (#1884).
 func TestFeatureSingleTargetClauseList(t *testing.T) {
 	for _, tc := range []struct {
 		name, src, want string
