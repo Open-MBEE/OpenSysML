@@ -1,6 +1,7 @@
 package view
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -245,6 +246,15 @@ func TestExposedAnnotationIsDrawnWithItsLinks(t *testing.T) {
 	// Safety to Tank — Pump is not drawn — and Tank's own doc.
 	if got := anchorEdges(rendering); got != 2 {
 		t.Errorf("annotation links = %d, want 2: %+v", got, rendering.Edges)
+	}
+	// Two same-named annotations exposed on their own are told apart as roots are, by owner.
+	rendering = render(t, "annotations.sysml", "AnnotationViews::exposedTwins")
+	var names []string
+	for _, node := range annotationNodesUnder(rendering.Roots) {
+		names = append(names, node.Name)
+	}
+	if want := []string{"Twins::Heater::Safety", "Twins::Cooler::Safety"}; !slices.Equal(names, want) {
+		t.Errorf("exposed annotation names = %q, want %q", names, want)
 	}
 	rendering = render(t, "annotations.sysml", "AnnotationViews::exposedWithOwner")
 	safety := 0
