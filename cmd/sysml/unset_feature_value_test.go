@@ -64,7 +64,7 @@ func TestUnsetFeatureValueReadsTheSameOnEverySurface(t *testing.T) {
 // whose machine counts what it accepts.
 const pingCounterModel = `package P {
     private import ScalarValues::*;
-    attribute def Ping;
+    item def Ping;
     port def PP { out item p : Ping; }
     part def Sender {
         port o : PP;

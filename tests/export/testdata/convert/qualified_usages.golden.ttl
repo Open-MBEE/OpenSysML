@@ -1,4 +1,5 @@
 @prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
@@ -693,10 +694,14 @@ elmt:Q__ctx__sub
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Q__Sub ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Q__ctx__sub_pmultiplicity ;
+    sysml:ownedRelationship elmt:Q__ctx__sub_ft0, expr:Q__ctx__sub_pmultiplicity_om ;
+    sysml:ownedMembership expr:Q__ctx__sub_pmultiplicity_om ;
+    sysml:ownedMember expr:Q__ctx__sub_pmultiplicity ;
     sysml:ownedTyping elmt:Q__ctx__sub_ft0 ;
     sysml:ownedSpecialization elmt:Q__ctx__sub_ft0 ;
-    sysml:ownedRelationship elmt:Q__ctx__sub_ft0 ;
-    sysx:sourceText "        part sub : Sub;\n" .
+    sysx:sourceText "        part sub : Sub;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Q__ctx__sub_ft0\"},{\"@id\":\"Q__ctx__sub_pmultiplicity_om\"}]" .
 
 elmt:Q__ctx__sub_om
     a sysml:FeatureMembership ;
@@ -714,6 +719,28 @@ elmt:Q__ctx__sub_om
     sysml:ownedMemberFeature elmt:Q__ctx__sub ;
     sysml:owningType elmt:Q__ctx ;
     json:relatedElement "[{\"@id\":\"Q__ctx\"},{\"@id\":\"Q__ctx__sub\"}]" .
+
+expr:Q__ctx__sub_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Q__ctx__sub_pmultiplicity" ;
+    sysml:owner elmt:Q__ctx__sub ;
+    sysml:owningRelationship expr:Q__ctx__sub_pmultiplicity_om ;
+    sysml:owningMembership expr:Q__ctx__sub_pmultiplicity_om .
+
+expr:Q__ctx__sub_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Q__ctx__sub_pmultiplicity_om" ;
+    sysml:owner elmt:Q__ctx__sub ;
+    sysml:memberElement expr:Q__ctx__sub_pmultiplicity ;
+    sysml:ownedMemberElement expr:Q__ctx__sub_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Q__ctx__sub_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Q__ctx__sub ;
+    sysml:membershipOwningNamespace elmt:Q__ctx__sub ;
+    sysml:source elmt:Q__ctx__sub ;
+    sysml:target expr:Q__ctx__sub_pmultiplicity ;
+    sysml:relatedElement elmt:Q__ctx__sub, expr:Q__ctx__sub_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Q__ctx__sub\"},{\"@id\":\"Q__ctx__sub_pmultiplicity\"}]" .
 
 elmt:Q__ctx__pa
     a sysml:PerformActionUsage ;
@@ -819,7 +846,7 @@ elmt:Q__ctx__sa
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Q__Ctx__a2 ;
-    sysml:references <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
+    sysml:references expr:Q__ctx__sa_pchain0 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:Q__ctx__sa_rs ;
     sysml:ownedSubsetting elmt:Q__ctx__sa_rs, elmt:Q__ctx__sa_rd0 ;
@@ -848,12 +875,12 @@ elmt:Q__ctx__sa_om
     sysml:owningType elmt:Q__ctx ;
     json:relatedElement "[{\"@id\":\"Q__ctx\"},{\"@id\":\"Q__ctx__sa\"}]" .
 
-<urn:opensysml:expr:Q__ctx__sa_pchain0>
+expr:Q__ctx__sa_pchain0
     a sysml:Feature ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Q__ctx__sa_pchain0" ;
-    sysml:ownedFeatureChaining <urn:opensysml:expr:Q__ctx__sa_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx__sa_pchain0_pfc1> ;
-    sysml:ownedRelationship <urn:opensysml:expr:Q__ctx__sa_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx__sa_pchain0_pfc1> ;
+    sysml:ownedFeatureChaining expr:Q__ctx__sa_pchain0_pfc0, expr:Q__ctx__sa_pchain0_pfc1 ;
+    sysml:ownedRelationship expr:Q__ctx__sa_pchain0_pfc0, expr:Q__ctx__sa_pchain0_pfc1 ;
     sysml:chainingFeature elmt:Q__ctx__sub, elmt:Q__Sub__sa ;
     sysml:owningRelationship elmt:Q__ctx__sa_rs ;
     sysml:owner elmt:Q__ctx__sa ;
@@ -861,28 +888,28 @@ elmt:Q__ctx__sa_om
     json:ownedRelationship "[{\"@id\":\"Q__ctx__sa_pchain0_pfc0\"},{\"@id\":\"Q__ctx__sa_pchain0_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"Q__ctx__sub\"},{\"@id\":\"Q__Sub__sa\"}]" .
 
-<urn:opensysml:expr:Q__ctx__sa_pchain0_pfc0>
+expr:Q__ctx__sa_pchain0_pfc0
     a sysml:FeatureChaining ;
     sysml:elementId "Q__ctx__sa_pchain0_pfc0" ;
-    sysml:featureChained <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
-    sysml:source <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
-    sysml:owningRelatedElement <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
+    sysml:featureChained expr:Q__ctx__sa_pchain0 ;
+    sysml:source expr:Q__ctx__sa_pchain0 ;
+    sysml:owningRelatedElement expr:Q__ctx__sa_pchain0 ;
     sysml:chainingFeature elmt:Q__ctx__sub ;
     sysml:target elmt:Q__ctx__sub ;
-    sysml:owner <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
-    sysml:relatedElement <urn:opensysml:expr:Q__ctx__sa_pchain0>, elmt:Q__ctx__sub ;
+    sysml:owner expr:Q__ctx__sa_pchain0 ;
+    sysml:relatedElement expr:Q__ctx__sa_pchain0, elmt:Q__ctx__sub ;
     json:relatedElement "[{\"@id\":\"Q__ctx__sa_pchain0\"},{\"@id\":\"Q__ctx__sub\"}]" .
 
-<urn:opensysml:expr:Q__ctx__sa_pchain0_pfc1>
+expr:Q__ctx__sa_pchain0_pfc1
     a sysml:FeatureChaining ;
     sysml:elementId "Q__ctx__sa_pchain0_pfc1" ;
-    sysml:featureChained <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
-    sysml:source <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
-    sysml:owningRelatedElement <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
+    sysml:featureChained expr:Q__ctx__sa_pchain0 ;
+    sysml:source expr:Q__ctx__sa_pchain0 ;
+    sysml:owningRelatedElement expr:Q__ctx__sa_pchain0 ;
     sysml:chainingFeature elmt:Q__Sub__sa ;
     sysml:target elmt:Q__Sub__sa ;
-    sysml:owner <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
-    sysml:relatedElement <urn:opensysml:expr:Q__ctx__sa_pchain0>, elmt:Q__Sub__sa ;
+    sysml:owner expr:Q__ctx__sa_pchain0 ;
+    sysml:relatedElement expr:Q__ctx__sa_pchain0, elmt:Q__Sub__sa ;
     json:relatedElement "[{\"@id\":\"Q__ctx__sa_pchain0\"},{\"@id\":\"Q__Sub__sa\"}]" .
 
 elmt:Q__ctx__es
@@ -989,7 +1016,7 @@ elmt:Q__ctx__ss
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Q__Ctx__s2 ;
-    sysml:references <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
+    sysml:references expr:Q__ctx__ss_pchain0 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:Q__ctx__ss_rs ;
     sysml:ownedSubsetting elmt:Q__ctx__ss_rs, elmt:Q__ctx__ss_rd0 ;
@@ -1018,12 +1045,12 @@ elmt:Q__ctx__ss_om
     sysml:owningType elmt:Q__ctx ;
     json:relatedElement "[{\"@id\":\"Q__ctx\"},{\"@id\":\"Q__ctx__ss\"}]" .
 
-<urn:opensysml:expr:Q__ctx__ss_pchain0>
+expr:Q__ctx__ss_pchain0
     a sysml:Feature ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Q__ctx__ss_pchain0" ;
-    sysml:ownedFeatureChaining <urn:opensysml:expr:Q__ctx__ss_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx__ss_pchain0_pfc1> ;
-    sysml:ownedRelationship <urn:opensysml:expr:Q__ctx__ss_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx__ss_pchain0_pfc1> ;
+    sysml:ownedFeatureChaining expr:Q__ctx__ss_pchain0_pfc0, expr:Q__ctx__ss_pchain0_pfc1 ;
+    sysml:ownedRelationship expr:Q__ctx__ss_pchain0_pfc0, expr:Q__ctx__ss_pchain0_pfc1 ;
     sysml:chainingFeature elmt:Q__ctx__sub, elmt:Q__Sub__ss ;
     sysml:owningRelationship elmt:Q__ctx__ss_rs ;
     sysml:owner elmt:Q__ctx__ss ;
@@ -1031,28 +1058,28 @@ elmt:Q__ctx__ss_om
     json:ownedRelationship "[{\"@id\":\"Q__ctx__ss_pchain0_pfc0\"},{\"@id\":\"Q__ctx__ss_pchain0_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"Q__ctx__sub\"},{\"@id\":\"Q__Sub__ss\"}]" .
 
-<urn:opensysml:expr:Q__ctx__ss_pchain0_pfc0>
+expr:Q__ctx__ss_pchain0_pfc0
     a sysml:FeatureChaining ;
     sysml:elementId "Q__ctx__ss_pchain0_pfc0" ;
-    sysml:featureChained <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
-    sysml:source <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
-    sysml:owningRelatedElement <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
+    sysml:featureChained expr:Q__ctx__ss_pchain0 ;
+    sysml:source expr:Q__ctx__ss_pchain0 ;
+    sysml:owningRelatedElement expr:Q__ctx__ss_pchain0 ;
     sysml:chainingFeature elmt:Q__ctx__sub ;
     sysml:target elmt:Q__ctx__sub ;
-    sysml:owner <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
-    sysml:relatedElement <urn:opensysml:expr:Q__ctx__ss_pchain0>, elmt:Q__ctx__sub ;
+    sysml:owner expr:Q__ctx__ss_pchain0 ;
+    sysml:relatedElement expr:Q__ctx__ss_pchain0, elmt:Q__ctx__sub ;
     json:relatedElement "[{\"@id\":\"Q__ctx__ss_pchain0\"},{\"@id\":\"Q__ctx__sub\"}]" .
 
-<urn:opensysml:expr:Q__ctx__ss_pchain0_pfc1>
+expr:Q__ctx__ss_pchain0_pfc1
     a sysml:FeatureChaining ;
     sysml:elementId "Q__ctx__ss_pchain0_pfc1" ;
-    sysml:featureChained <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
-    sysml:source <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
-    sysml:owningRelatedElement <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
+    sysml:featureChained expr:Q__ctx__ss_pchain0 ;
+    sysml:source expr:Q__ctx__ss_pchain0 ;
+    sysml:owningRelatedElement expr:Q__ctx__ss_pchain0 ;
     sysml:chainingFeature elmt:Q__Sub__ss ;
     sysml:target elmt:Q__Sub__ss ;
-    sysml:owner <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
-    sysml:relatedElement <urn:opensysml:expr:Q__ctx__ss_pchain0>, elmt:Q__Sub__ss ;
+    sysml:owner expr:Q__ctx__ss_pchain0 ;
+    sysml:relatedElement expr:Q__ctx__ss_pchain0, elmt:Q__Sub__ss ;
     json:relatedElement "[{\"@id\":\"Q__ctx__ss_pchain0\"},{\"@id\":\"Q__Sub__ss\"}]" .
 
 elmt:Q__ctx__iu
@@ -1509,13 +1536,13 @@ elmt:Q__ctx__sa_rs
     sysml:specific elmt:Q__ctx__sa ;
     sysml:source elmt:Q__ctx__sa ;
     sysml:owningRelatedElement elmt:Q__ctx__sa ;
-    sysml:referencedFeature <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
-    sysml:subsettedFeature <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
-    sysml:general <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
-    sysml:target <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
+    sysml:referencedFeature expr:Q__ctx__sa_pchain0 ;
+    sysml:subsettedFeature expr:Q__ctx__sa_pchain0 ;
+    sysml:general expr:Q__ctx__sa_pchain0 ;
+    sysml:target expr:Q__ctx__sa_pchain0 ;
     sysml:owner elmt:Q__ctx__sa ;
-    sysml:relatedElement elmt:Q__ctx__sa, <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
-    sysml:ownedRelatedElement <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
+    sysml:relatedElement elmt:Q__ctx__sa, expr:Q__ctx__sa_pchain0 ;
+    sysml:ownedRelatedElement expr:Q__ctx__sa_pchain0 ;
     json:relatedElement "[{\"@id\":\"Q__ctx__sa\"},{\"@id\":\"Q__ctx__sa_pchain0\"}]" .
 
 elmt:Q__ctx__sa_rd0
@@ -1576,13 +1603,13 @@ elmt:Q__ctx__ss_rs
     sysml:specific elmt:Q__ctx__ss ;
     sysml:source elmt:Q__ctx__ss ;
     sysml:owningRelatedElement elmt:Q__ctx__ss ;
-    sysml:referencedFeature <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
-    sysml:subsettedFeature <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
-    sysml:general <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
-    sysml:target <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
+    sysml:referencedFeature expr:Q__ctx__ss_pchain0 ;
+    sysml:subsettedFeature expr:Q__ctx__ss_pchain0 ;
+    sysml:general expr:Q__ctx__ss_pchain0 ;
+    sysml:target expr:Q__ctx__ss_pchain0 ;
     sysml:owner elmt:Q__ctx__ss ;
-    sysml:relatedElement elmt:Q__ctx__ss, <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
-    sysml:ownedRelatedElement <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
+    sysml:relatedElement elmt:Q__ctx__ss, expr:Q__ctx__ss_pchain0 ;
+    sysml:ownedRelatedElement expr:Q__ctx__ss_pchain0 ;
     json:relatedElement "[{\"@id\":\"Q__ctx__ss\"},{\"@id\":\"Q__ctx__ss_pchain0\"}]" .
 
 elmt:Q__ctx__ss_rd0

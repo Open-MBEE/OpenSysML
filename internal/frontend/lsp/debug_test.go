@@ -481,14 +481,12 @@ func TestDebugStateMachineSession(t *testing.T) {
 	wantState(t, snap, debugSuspended)
 	wantStrings(t, "active after a refused guard", snap.ActiveStates, []string{id["motion"], id["idle"], id["clock"], id["elapsed"]})
 
-	// A guard reading a signal feature the message never carried fails the
-	// run, which the snapshot reports rather than hiding.
+	// A guard reading a signal feature the message never carried has no result,
+	// so it does not hold and the machine stays where it was.
 	snap = mustDebug(t, s, MethodDebugSend, &debugSendParams{Session: snap.Session, Signal: "Go"})
-	snap = mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: snap.Session})
-	wantState(t, snap, debugFailed)
-	if snap.Reason == "" {
-		t.Error("a failed run gives no reason")
-	}
+	snap = mustDebug(t, s, MethodDebugContinue, &debugSessionParams{Session: snap.Session})
+	wantState(t, snap, debugSuspended)
+	wantStrings(t, "active after an unvalued guard", snap.ActiveStates, []string{id["motion"], id["idle"], id["clock"], id["elapsed"]})
 
 	// A passing guard takes the transition into the composite state and its entry
 	// transition, in order; the composite state is active with its substate.

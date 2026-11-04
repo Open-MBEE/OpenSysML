@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "instantiate": "test::Report",
+  "libraries": true,
+  "slots": {
+    "triggerKind": {"type": "EnumLiteral", "value": "TransitionFeatureKind::trigger"},
+    "triggerIsLiteral": {"type": "Boolean", "value": true},
+    "guardIsLiteral": {"type": "Boolean", "value": true},
+    "effectIsLiteral": {"type": "Boolean", "value": true},
+    "guardIsNotEffect": {"type": "Boolean", "value": false},
+    "membershipsAreTransitionFeatures": {"type": "Boolean", "value": true},
+    "kindIsTransitionFeatureKind": {"type": "Boolean", "value": true},
+    "whenKind": {"type": "EnumLiteral", "value": "TriggerKind::when"},
+    "whenIsLiteral": {"type": "Boolean", "value": true},
+    "atIsLiteral": {"type": "Boolean", "value": true},
+    "afterIsLiteral": {"type": "Boolean", "value": true},
+    "argumentIsTrigger": {"type": "Boolean", "value": true}
+  }
+}

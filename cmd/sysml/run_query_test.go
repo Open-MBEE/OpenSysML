@@ -615,12 +615,12 @@ func TestRunQueryJSONTableSpellsRelationshipsByID(t *testing.T) {
 		t.Fatalf("want one check with a two-row table:\n%s", got.stdout)
 	}
 	for _, row := range report.Checks[0].Table.Rows {
-		if len(row.Cells) != 2 || len(row.Cells[0]) != 1 || len(row.Cells[1]) != 1 {
-			t.Fatalf("row %s: cells = %v, want one elementId and one ownedRelationship", row.Element, row.Cells)
+		if len(row.Cells) != 2 || len(row.Cells[0]) != 1 || len(row.Cells[1]) != 2 {
+			t.Fatalf("row %s: cells = %v, want one elementId and two ownedRelationships (the typing, the implied default Multiplicity's)", row.Element, row.Cells)
 		}
 		id, _ := strconv.Unquote(row.Cells[0][0])
-		if want := id + "_ft0"; id == "" || row.Cells[1][0] != want {
-			t.Errorf("row %s: ownedRelationship spelled %q, want %q", row.Element, row.Cells[1][0], want)
+		if want := []string{id + "_ft0", id + "_pmultiplicity_om"}; id == "" || !slices.Equal(row.Cells[1], want) {
+			t.Errorf("row %s: ownedRelationship spelled %q, want %q", row.Element, row.Cells[1], want)
 		}
 	}
 }

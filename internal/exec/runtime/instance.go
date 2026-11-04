@@ -1301,6 +1301,10 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 		return inst.materializeComposite(ctx, fv, name, open, composite)
 	}
 
+	// A feature holding values rather than objects holds values of what it subsets, as an object feature does.
+	if _, err := inst.materializeFromSubsetted(ctx, fv, name, nil); err != nil {
+		return nil, err
+	}
 	return fv, nil
 }
 

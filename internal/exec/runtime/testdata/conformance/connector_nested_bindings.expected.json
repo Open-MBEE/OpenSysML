@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "instantiate": "test::system",
+  "constraints": {
+    "throughPartBindingHolds": true,
+    "throughSharedBindingHolds": true,
+    "throughChainBindingHolds": true,
+    "nestedConnectorBindingHolds": true,
+    "twoLevelNestingHolds": true,
+    "endBodyValueHolds": true,
+    "endBodyDefaultApplies": true,
+    "endBodyDefaultYields": true,
+    "usageEndBodyValueHolds": true
+  },
+  "materialization": {}
+}
