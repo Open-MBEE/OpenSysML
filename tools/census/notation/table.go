@@ -33,6 +33,9 @@ type notationRow struct {
 	status, notes string
 }
 
+// The statuses a row may state, as TestNotationTableMatchesTheWriters admits them.
+var notationStatuses = map[string]bool{"conformant": true, "approximate": true, "differs from pilot": true}
+
 // ReadNotationTable parses the notation table of view-rendering-forms.md.
 func ReadNotationTable(root string) (*NotationTable, error) {
 	content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(notationTablePath))) // #nosec G304 -- fixed repository path
@@ -71,6 +74,9 @@ func ParseNotationTable(content string) (*NotationTable, error) {
 			continue
 		}
 		inTable = true
+		if !notationStatuses[cells[8]] {
+			return nil, fmt.Errorf("%s: notation table row %q states status %q; want conformant, approximate or differs from pilot", notationTablePath, cells[0], cells[8])
+		}
 		for _, m := range backticked.FindAllStringSubmatch(cells[0], -1) {
 			name := m[1]
 			if production, ok := tableNames[name]; ok {
@@ -88,8 +94,8 @@ func ParseNotationTable(content string) (*NotationTable, error) {
 }
 
 // adjudicate turns a table row into the census verdict: an approximate status
-// is approximate with the row's notes as the reason; a conformant status, a
-// spec-over-pilot status or a stated glyph is drawn.
+// is approximate with the row's notes as the reason; a conformant status or a
+// spec-over-pilot one is drawn.
 func (t *NotationTable) adjudicate(name string) (Adjudication, bool) {
 	if t == nil {
 		return Adjudication{}, false
@@ -98,7 +104,7 @@ func (t *NotationTable) adjudicate(name string) (Adjudication, bool) {
 	if !ok {
 		return Adjudication{}, false
 	}
-	if strings.HasPrefix(r.status, "approximate") {
+	if r.status == "approximate" {
 		return approximate(CategoryEdge, "view-rendering-forms.md § Notation table: "+r.notes, tableEdge), true
 	}
 	return drawn(CategoryEdge, tableEdge), true

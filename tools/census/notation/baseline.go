@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
@@ -340,8 +341,10 @@ func gapLess(a, b Gap) bool {
 }
 
 func clauseIndex(number string) int {
-	n := 0
-	fmt.Sscanf(strings.TrimPrefix(number, clausePrefix), "%d", &n)
+	n, err := strconv.Atoi(strings.TrimPrefix(number, clausePrefix))
+	if err != nil {
+		return 0
+	}
 	return n
 }
 

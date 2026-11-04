@@ -3,7 +3,6 @@ package notation
 import (
 	"fmt"
 	"sort"
-	"strings"
 )
 
 // Category is what a production draws: a node, a compartment, a relationship or
@@ -180,6 +179,43 @@ func buildTable() map[string]Adjudication {
 		"accept-action-expression", "metadata-feature-decl", "metadata-feature-name", "metadata-feature-name-value-list",
 		"expression-text", "view-frame-info-contents", "sq-port-label")
 
+	// The contents and elements of every compartment are §8.2.2 text.
+	set(textual(),
+		"actions-compartment-contents", "actions-compartment-element", "actors-compartment-contents",
+		"actors-compartment-element", "allocations-compartment-contents", "allocations-compartment-element",
+		"analyses-compartment-contents", "analyses-compartment-element", "assert-constraints-compartment-contents",
+		"assert-constraints-compartment-element", "assume-constraints-compartment-contents",
+		"attributes-compartment-contents", "attributes-compartment-element", "calcs-compartment-contents",
+		"calcs-compartment-element", "connections-compartment-contents", "connections-compartment-element",
+		"constraints-compartment-contents", "constraints-usage-compartment-element",
+		"directed-features-compartment-contents", "directed-features-compartment-element", "ends-compartment-contents",
+		"ends-compartment-element", "enums-compartment-element", "exhibit-states-compartment-contents",
+		"exhibit-states-compartment-element-compartment", "exposes-compartment-contents", "exposes-compartment-element",
+		"features-compartment-contents", "features-compartment-element", "filters-compartment-contents",
+		"filters-compartment-element", "flows-compartment-contents", "flows-compartment-element",
+		"frames-compartment-contents", "frames-compartment-element", "include-use-cases-compartment-contents",
+		"include-use-cases-compartment-element", "includes-compartment-contents", "includes-compartment-element",
+		"individuals-compartment-contents", "individuals-compartment-element", "interfaces-compartment-contents",
+		"interfaces-compartment-element", "items-compartment-contents", "items-compartment-element",
+		"members-compartment-contents", "members-compartment-element", "objective-compartment-contents",
+		"objective-compartment-element", "occurrences-compartment-contents", "occurrences-compartment-element",
+		"packages-compartment-contents", "packages-compartment-element", "parameters-compartment-contents",
+		"parameters-compartment-element", "parts-compartment-contents", "parts-compartment-element",
+		"perform-actions-compartment-contents", "perform-actions-compartment-element", "performed-by-compartment-contents",
+		"ports-compartment-contents", "ports-compartment-element", "relationships-compartment-contents",
+		"relationships-compartment-element", "rendering-compartment-contents", "require-constraints-compartment-contents",
+		"requirements-compartment-contents", "requirements-compartment-element", "result-compartment-contents",
+		"satisfies-compartment-contents", "satisfy-requirements-compartment-contents", "snapshots-compartment-contents",
+		"snapshots-compartment-element", "stakeholders-compartment-contents", "stakeholders-compartment-element",
+		"state-actions-compartment-contents", "state-actions-compartment-element", "states-compartment-contents",
+		"states-compartment-element", "subject-compartment-contents", "subject-compartment-element",
+		"successions-compartment-contents", "timeslices-compartment-contents", "timeslices-compartment-element",
+		"use-cases-compartment-contents", "use-cases-compartment-element", "variants-compartment-contents",
+		"verification-methods-compartment-contents", "verification-methods-compartment-element",
+		"verifications-compartment-contents", "verifications-compartment-element", "verifies-compartment-contents",
+		"verifies-compartment-element", "viewpoints-compartment-contents", "viewpoints-compartment-element",
+		"views-compartment-contents", "views-compartment-element")
+
 	// Whole views.
 	for name, ev := range views {
 		set(drawn(CategoryView, ev), name)
@@ -338,9 +374,6 @@ func Adjudicate(name string, edges *NotationTable) (Adjudication, error) {
 	}
 	if adj, ok := edges.adjudicate(name); ok {
 		return adj, nil
-	}
-	if strings.HasSuffix(name, "-compartment-contents") || strings.HasSuffix(name, "-compartment-element") || strings.HasSuffix(name, "-compartment-element-compartment") {
-		return textual(), nil
 	}
 	return Adjudication{}, fmt.Errorf("no adjudication for production %s", name)
 }

@@ -43,8 +43,10 @@ func TestEveryExcerptProductionHasAVerdict(t *testing.T) {
 	if counts[VerdictDrawn] == 0 || counts[VerdictUndrawn] == 0 {
 		t.Errorf("verdicts %v", counts)
 	}
-	if _, err := Adjudicate("no-such-production", edges); err == nil || !strings.Contains(err.Error(), "no adjudication") {
-		t.Errorf("an unknown production: %v", err)
+	for _, name := range []string{"no-such-production", "symbols-compartment-element", "symbols-compartment-contents"} {
+		if _, err := Adjudicate(name, edges); err == nil || !strings.Contains(err.Error(), "no adjudication") {
+			t.Errorf("%s: %v", name, err)
+		}
 	}
 }
 
@@ -111,6 +113,10 @@ func TestParseNotationTable(t *testing.T) {
 	}
 	if _, err := ParseNotationTable("### Notation table\n| a | b |\n"); err == nil {
 		t.Error("a row with the wrong cell count parses")
+	}
+	misspelt := strings.Replace(content, "| approximate |", "| approximte |", 1)
+	if _, err := ParseNotationTable(misspelt); err == nil || !strings.Contains(err.Error(), "states status \"approximte\"") {
+		t.Errorf("a misspelt status: %v", err)
 	}
 }
 
