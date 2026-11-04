@@ -108,6 +108,9 @@ func mappingShapeDisagreements(t *testing.T, path string, graph *rdf.Graph) int 
 	withoutNames := rdf.NewGraphOf(stripped, graph.Prefixes)
 	var failures []string
 	for _, subject := range graph.Subjects() {
+		if export.LibraryReference(graph, subject) {
+			continue
+		}
 		want := named[subject.Value]
 		got := export.MappingElementSubject(withoutNames, subject)
 		if want != got {
@@ -116,7 +119,7 @@ func mappingShapeDisagreements(t *testing.T, path string, graph *rdf.Graph) int 
 	}
 	seenMembers := map[string]bool{}
 	for _, subject := range graph.Subjects() {
-		if !export.MappingMembershipEdgeSubject(withoutNames, subject) {
+		if export.LibraryReference(graph, subject) || !export.MappingMembershipEdgeSubject(withoutNames, subject) {
 			continue
 		}
 		for _, property := range []string{

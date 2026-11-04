@@ -121,6 +121,9 @@ func readAPIJSONLibraryReferences(decoder *json.Decoder) ([]APIJSONLibraryRefere
 }
 
 func addAPIJSONLibraryReferences(graph *rdf.Graph, references []APIJSONLibraryReference) error {
+	// Every entry states its type before any stub is filled in, so a membership's
+	// member is typed as the document says, not as the library index would.
+	var stubs []rdf.Term
 	for _, reference := range references {
 		subject := rdf.ReferenceIRI(rdf.Term{}, reference.ID)
 		typ, err := apiJSONTypeIRI(reference.Type)
@@ -138,7 +141,15 @@ func addAPIJSONLibraryReferences(graph *rdf.Graph, references []APIJSONLibraryRe
 		} else {
 			graph.Add(subject, rdf.IRI(rdf.RDFType), typ)
 			graph.Add(subject, rdf.SysMLTerm("isLibraryElement"), rdf.Bool(true))
+			stubs = append(stubs, subject)
 		}
+	}
+	for _, subject := range stubs {
+		id, _ := rdf.SubjectID(subject)
+		addLibraryStub(graph, sharedLibraryIndex(), subject, id)
+	}
+	for _, reference := range references {
+		subject := rdf.ReferenceIRI(rdf.Term{}, reference.ID)
 		if reference.LibraryPath != "" {
 			if !graph.HasProperty(subject, rdf.OpenSysML+xLibraryPath) {
 				graph.Add(subject, rdf.OpenSysMLTerm(xLibraryPath), rdf.String(reference.LibraryPath))

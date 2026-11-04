@@ -1,0 +1,41 @@
+sha256 fb15fc656b5787cebf26d86c58d4cf46767288f1f562323d52e652a9ab9b38b8 bytes 246628 lines 4979
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Shadowing
+    a sysml:Package ;
+    sysml:qualifiedName "Shadowing" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "59"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Shadowing" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Shadowing" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Shadowing__Field, elmt:Shadowing__packet_20data_20field, elmt:Shadowing__Packet, elmt:Shadowing__Thermal_20Packet, elmt:Shadowing__payload, elmt:Shadowing__Bus, elmt:Shadowing__Budget, elmt:Shadowing__budget, elmt:Shadowing___408, elmt:Shadowing__bus, elmt:Shadowing__Study, elmt:Shadowing__study, elmt:Shadowing__deeper, elmt:Shadowing__Frame, elmt:Shadowing__Lib, elmt:Shadowing__Consumer, elmt:Shadowing__Exposed ;
+    sysml:ownedMembership elmt:Shadowing__Field_om, elmt:Shadowing__packet_20data_20field_om, elmt:Shadowing__Packet_om, elmt:Shadowing__Thermal_20Packet_om, elmt:Shadowing__payload_om, elmt:Shadowing__Bus_om, elmt:Shadowing__Budget_om, elmt:Shadowing__budget_om, elmt:Shadowing___408_om, elmt:Shadowing__bus_om, elmt:Shadowing__Study_om, elmt:Shadowing__study_om, elmt:Shadowing__deeper_om, elmt:Shadowing__Frame_om, elmt:Shadowing__Lib_om, elmt:Shadowing__Consumer_om, elmt:Shadowing__Exposed_om ;
+    sysml:ownedRelationship elmt:Shadowing__Field_om, elmt:Shadowing__packet_20data_20field_om, elmt:Shadowing__Packet_om, elmt:Shadowing__Thermal_20Packet_om, elmt:Shadowing__payload_om, elmt:Shadowing__Bus_om, elmt:Shadowing__Budget_om, elmt:Shadowing__budget_om, elmt:Shadowing___408_om, elmt:Shadowing__bus_om, elmt:Shadowing__Study_om, elmt:Shadowing__study_om, elmt:Shadowing__deeper_om, elmt:Shadowing__Frame_om, elmt:Shadowing__Lib_om, elmt:Shadowing__Consumer_om, elmt:Shadowing__Exposed_om ;
+    sysx:sourceText "package Shadowing {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Shadowing__Field\"},{\"@id\":\"Shadowing__packet_20data_20field\"},{\"@id\":\"Shadowing__Packet\"},{\"@id\":\"Shadowing__Thermal_20Packet\"},{\"@id\":\"Shadowing__payload\"},{\"@id\":\"Shadowing__Bus\"},{\"@id\":\"Shadowing__Budget\"},{\"@id\":\"Shadowing__budget\"},{\"@id\":\"Shadowing___408\"},{\"@id\":\"Shadowing__bus\"},{\"@id\":\"Shadowing__Study\"},{\"@id\":\"Shadowing__study\"},{\"@id\":\"Shadowing__deeper\"},{\"@id\":\"Shadowing__Frame\"},{\"@id\":\"Shadowing__Lib\"},{\"@id\":\"Shadowing__Consumer\"},{\"@id\":\"Shadowing__Exposed\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadowing__Field_om\"},{\"@id\":\"Shadowing__packet_20data_20field_om\"},{\"@id\":\"Shadowing__Packet_om\"},{\"@id\":\"Shadowing__Thermal_20Packet_om\"},{\"@id\":\"Shadowing__payload_om\"},{\"@id\":\"Shadowing__Bus_om\"},{\"@id\":\"Shadowing__Budget_om\"},{\"@id\":\"Shadowing__budget_om\"},{\"@id\":\"Shadowing___408_om\"},{\"@id\":\"Shadowing__bus_om\"},{\"@id\":\"Shadowing__Study_om\"},{\"@id\":\"Shadowing__study_om\"},{\"@id\":\"Shadowing__deeper_om\"},{\"@id\":\"Shadowing__Frame_om\"},{\"@id\":\"Shadowing__Lib_om\"},{\"@id\":\"Shadowing__Consumer_om\"},{\"@id\":\"Shadowing__Exposed_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Field_om\"},{\"@id\":\"Shadowing__packet_20data_20field_om\"},{\"@id\":\"Shadowing__Packet_om\"},{\"@id\":\"Shadowing__Thermal_20Packet_om\"},{\"@id\":\"Shadowing__payload_om\"},{\"@id\":\"Shadowing__Bus_om\"},{\"@id\":\"Shadowing__Budget_om\"},{\"@id\":\"Shadowing__budget_om\"},{\"@id\":\"Shadowing___408_om\"},{\"@id\":\"Shadowing__bus_om\"},{\"@id\":\"Shadowing__Study_om\"},{\"@id\":\"Shadowing__study_om\"},{\"@id\":\"Shadowing__deeper_om\"},{\"@id\":\"Shadowing__Frame_om\"},{\"@id\":\"Shadowing__Lib_om\"},{\"@id\":\"Shadowing__Consumer_om\"},{\"@id\":\"Shadowing__Exposed_om\"}]" .
+
+elmt:Shadowing__Field
+    a sysml:AttributeDefinition ;
+    sysml:qualifiedName "Shadowing::Field" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
+    sysml:elementId "Shadowing__Field" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Shadowing ;
+    sysml:owner elmt:Shadowing ;

@@ -304,8 +304,12 @@ name it lacks. The id of an unnamed member is this implementation's: a
 version-5 UUID of that path under its owner's normative id
 (`identity.AnonymousMemberOf`), since the standard publishes no rule for them.
 The reader of the element form restates these from the ids its completed
-properties reference, so the graph read from the JSON form is the graph the
-Turtle form parses to.
+properties reference and, in the compact form, from every `libraryReferences`
+entry, each typed as the entry states; a member the model's own statements
+reference resolves by its normative id, as before. A stub the encoder adds for
+an inherited member states the metaclass the semantic model classifies it by
+(a KerML `feature` as `sysml:Feature`); the stub of a member the model text
+references directly keeps stating its declaration's, as it did.
 
 Such an element has no owner in the graph, and the document's root namespace
 does not take it (`LibraryReference`). The graph form — Turtle — keeps these

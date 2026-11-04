@@ -421,7 +421,7 @@ func TestFirstThenOwnsItsConnectorEnds(t *testing.T) {
 			t.Errorf("the graph should state %q:\n%s", want, graph)
 		}
 	}
-	if n := strings.Count(graph, "a sysml:EndFeatureMembership"); n != 4 {
+	if n := declaredOfType(graph, "EndFeatureMembership"); n != 4 {
 		t.Errorf("the two successions should own two ends each, found %d end memberships:\n%s", n, graph)
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)

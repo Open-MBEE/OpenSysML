@@ -1,0 +1,41 @@
+sha256 bd02dbd60564b52075039792137e60dd74739f0ba3c86962dcfdac7fa552492f bytes 209877 lines 3849
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:ActionNodes
+    a sysml:Package ;
+    sysml:qualifiedName "ActionNodes" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "28"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "ActionNodes" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "ActionNodes" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ActionNodes__Command, elmt:ActionNodes__Radio, elmt:ActionNodes__Brake, elmt:ActionNodes__Drive ;
+    sysml:ownedMembership elmt:ActionNodes__Command_om, elmt:ActionNodes__Radio_om, elmt:ActionNodes__Brake_om, elmt:ActionNodes__Drive_om ;
+    sysml:ownedRelationship elmt:ActionNodes__Command_om, elmt:ActionNodes__Radio_om, elmt:ActionNodes__Brake_om, elmt:ActionNodes__Drive_om ;
+    sysx:sourceText "package ActionNodes {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"ActionNodes__Command\"},{\"@id\":\"ActionNodes__Radio\"},{\"@id\":\"ActionNodes__Brake\"},{\"@id\":\"ActionNodes__Drive\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ActionNodes__Command_om\"},{\"@id\":\"ActionNodes__Radio_om\"},{\"@id\":\"ActionNodes__Brake_om\"},{\"@id\":\"ActionNodes__Drive_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ActionNodes__Command_om\"},{\"@id\":\"ActionNodes__Radio_om\"},{\"@id\":\"ActionNodes__Brake_om\"},{\"@id\":\"ActionNodes__Drive_om\"}]" .
+
+elmt:ActionNodes__Command
+    a sysml:AttributeDefinition ;
+    sysml:qualifiedName "ActionNodes::Command" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
+    sysml:elementId "ActionNodes__Command" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ActionNodes ;
+    sysml:owner elmt:ActionNodes ;

@@ -481,7 +481,12 @@ ours-missing):
    membership, unnamed ones by `sysx:libraryPath`, the bridge's positional path `Owner/Metaclass[i]`
    (`identity.AnonymousMemberOf`, one derivation for the writer, the reader, the decoder and the referee)
    — and the compact form's `libraryReferences` table carries that path as `libraryPath`; no existing
-   statement changes. The present-different rows were classified
+   statement changes. The reader of the element form restates the stubs from the ids the completed lists
+   reference (and, in the compact form, from every `libraryReferences` entry, typed as the entry states).
+   Fallout: an inherited member's stub states the metaclass the semantic model classifies it by (a KerML
+   `feature` as `Feature`), while the pre-existing stub of a member the model text references directly
+   keeps its declaration's (`AttributeUsage` for the same feature); unifying them changes existing Turtle
+   statements and is left to a follow-up. The present-different rows were classified
    on the training root by the exact difference of the two lists, and fall into four causes:
    - Elements the structure-mode evaluator gives no implied base: expressions, their anonymous result
      features (the `Feature` rows of the gap table below) and multiplicity ranges. The semantic model

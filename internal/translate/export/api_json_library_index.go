@@ -68,37 +68,47 @@ func addReferencedLibraryStubs(graph *rdf.Graph, completed map[string]bool) {
 	}
 	for _, subject := range unheld {
 		id, _ := rdf.SubjectID(subject)
-		if library, ok := index.catalog.Element(id); ok && library.Symbol != nil {
-			addNamedLibraryStub(graph, subject, library, index.model)
-			continue
-		}
-		if library, ok := index.catalog.OwningMembership(id); ok && library.Symbol != nil {
-			member := rdf.ElementIRIForID(library.ID)
-			addNamedLibraryStub(graph, member, library, index.model)
-			addLibraryMembershipStub(graph, subject, id, member, identity.OwningMembershipMetaclass(index.model, library.Symbol), "")
-			continue
-		}
-		if member, ok := index.anonymous.Element(id); ok {
-			addAnonymousLibraryStub(graph, subject, member)
-			continue
-		}
-		if member, ok := index.anonymous.OwningMembership(id); ok {
-			element := rdf.ElementIRIForID(member.ID)
-			addAnonymousLibraryStub(graph, element, member)
-			addLibraryMembershipStub(graph, subject, id, element, member.MembershipMetaclass, member.MembershipPath)
-		}
+		addLibraryStub(graph, index, subject, id)
 	}
 }
 
+// addLibraryStub states what the Turtle form states about the library element or
+// owning membership id names, and reports whether the index knows the id.
+func addLibraryStub(graph *rdf.Graph, index *libraryIndex, subject rdf.Term, id string) bool {
+	if library, ok := index.catalog.Element(id); ok && library.Symbol != nil {
+		addNamedLibraryStub(graph, subject, library, index.model)
+		return true
+	}
+	if library, ok := index.catalog.OwningMembership(id); ok && library.Symbol != nil {
+		member := rdf.ElementIRIForID(library.ID)
+		addNamedLibraryStub(graph, member, library, index.model)
+		addLibraryMembershipStub(graph, subject, id, member, identity.OwningMembershipMetaclass(index.model, library.Symbol))
+		return true
+	}
+	if member, ok := index.anonymous.Element(id); ok {
+		addAnonymousLibraryStub(graph, subject, member)
+		return true
+	}
+	if member, ok := index.anonymous.OwningMembership(id); ok {
+		element := rdf.ElementIRIForID(member.ID)
+		addAnonymousLibraryStub(graph, element, member)
+		addLibraryMembershipStub(graph, subject, id, element, member.MembershipMetaclass)
+		return true
+	}
+	return false
+}
+
 func addNamedLibraryStub(graph *rdf.Graph, subject rdf.Term, library *identity.LibraryElement, model *semantics.Model) {
-	if graph.HasProperty(subject, rdf.RDFType) {
+	if graph.HasProperty(subject, rdf.SysML+pElementID) {
 		return
 	}
 	metaclass := libraryStubMetaclass(model, library.Symbol)
 	if metaclass == "" {
 		return
 	}
-	graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
+	if !graph.HasProperty(subject, rdf.RDFType) {
+		graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
+	}
 	graph.Add(subject, rdf.SysMLTerm(pElementID), rdf.String(library.ID))
 	graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
 	if declared, _ := declaredNameAndMembers(library.Symbol.Decl); declared != "" {
@@ -108,26 +118,37 @@ func addNamedLibraryStub(graph *rdf.Graph, subject rdf.Term, library *identity.L
 }
 
 func addAnonymousLibraryStub(graph *rdf.Graph, subject rdf.Term, member identity.AnonymousMember) {
-	if graph.HasProperty(subject, rdf.RDFType) {
+	if graph.HasProperty(subject, rdf.SysML+pElementID) {
 		return
 	}
-	graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(member.Metaclass))
+	if !graph.HasProperty(subject, rdf.RDFType) {
+		graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(member.Metaclass))
+	}
 	graph.Add(subject, rdf.SysMLTerm(pElementID), rdf.String(member.ID))
 	graph.Add(subject, rdf.OpenSysMLTerm(xLibraryPath), rdf.String(member.Path))
 	graph.Add(subject, rdf.SysMLTerm(pIsLibraryElement), rdf.Bool(true))
 }
 
-func addLibraryMembershipStub(graph *rdf.Graph, subject rdf.Term, id string, member rdf.Term, metaclass, path string) {
-	if graph.HasProperty(subject, rdf.RDFType) || metaclass == "" {
+func addLibraryMembershipStub(graph *rdf.Graph, subject rdf.Term, id string, member rdf.Term, metaclass string) {
+	if graph.HasProperty(subject, rdf.SysML+pElementID) || metaclass == "" {
 		return
 	}
-	graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
+	if !graph.HasProperty(subject, rdf.RDFType) {
+		graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
+	}
 	graph.Add(subject, rdf.SysMLTerm(pElementID), rdf.String(id))
 	graph.Add(subject, rdf.SysMLTerm(pMemberElement), member)
-	if path != "" {
-		graph.Add(subject, rdf.OpenSysMLTerm(xLibraryPath), rdf.String(path))
-	}
 	graph.Add(subject, rdf.SysMLTerm(pIsLibraryElement), rdf.Bool(true))
+}
+
+// libraryStubMetaclass is the metamodel class a library stub states for sym: the
+// semantic model's, which knows a `bool` feature as a BooleanExpression and a
+// `subject` as a ReferenceUsage, or the declaration's where the model has none.
+func libraryStubMetaclass(model *semantics.Model, sym *symbols.Symbol) string {
+	if metaclass := model.MetaclassOf(sym); metaclass != nil && metaclass.Name != "" {
+		return metaclass.Name
+	}
+	return declaredMetaclass(sym.Decl)
 }
 
 // apiJSONCompletedReferenceIDs are the ids the completed derived properties of
@@ -157,12 +178,42 @@ func apiJSONCompletedReferenceIDs(objects []apiJSONElementData) map[string]bool 
 	return ids
 }
 
-// libraryStubMetaclass is the metamodel class a library stub states for sym: the
-// semantic model's, which knows a `bool` feature as a BooleanExpression and a
-// `subject` as a ReferenceUsage, or the declaration's where the model has none.
-func libraryStubMetaclass(model *semantics.Model, sym *symbols.Symbol) string {
-	if metaclass := model.MetaclassOf(sym); metaclass != nil && metaclass.Name != "" {
-		return metaclass.Name
+// apiJSONObjectCompletedReferenceIDs collects the ids the completed properties of
+// the written element form reference, as apiJSONCompletedReferenceIDs does for the read one.
+func apiJSONObjectCompletedReferenceIDs(objects []apiJSONObject) map[string]bool {
+	ids := map[string]bool{}
+	var walk func(value any)
+	walk = func(value any) {
+		switch value := value.(type) {
+		case apiJSONReference:
+			if value.ID != "" {
+				ids[value.ID] = true
+			}
+		case []any:
+			for _, item := range value {
+				walk(item)
+			}
+		}
 	}
-	return declaredMetaclass(sym.Decl)
+	for _, object := range objects {
+		completed := map[string]bool{}
+		for _, member := range object {
+			if member.key != apiJSONCompletedPropertiesKey {
+				continue
+			}
+			if names, ok := member.value.([]any); ok {
+				for _, name := range names {
+					if text, ok := name.(string); ok {
+						completed[text] = true
+					}
+				}
+			}
+		}
+		for _, member := range object {
+			if completed[member.key] {
+				walk(member.value)
+			}
+		}
+	}
+	return ids
 }
