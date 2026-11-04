@@ -2725,7 +2725,9 @@ jobs:
                           dist/grpc/sysml-grpc-linux-amd64 \
                           dist/jupyter/sysml-jupyter-kernel-linux-amd64 \
                           dist/mcp/sysml-mcp-linux-amd64; do
-              reported="$("$binary" --version 2>&1 | head -n 1)"
+              # No pipe into head: the binary would take SIGPIPE under pipefail.
+              output="$("$binary" --version 2>&1)"
+              reported="${output%%$'\n'*}"
               case " $reported " in
                 *" ${CIRCLE_TAG} "*) echo "ok: $binary reports ${CIRCLE_TAG}" ;;
                 *) fail "$binary" "it reports '${reported}'" ;;
@@ -3933,7 +3935,8 @@ jobs:
               --build-arg BUILD_TIME="${BUILD_TIME}" \
               -t openmbee/opensysml:check .
             for binary in sysml-grpc sysml sysml-lsp; do
-              reported=$(docker run --rm --entrypoint "$binary" openmbee/opensysml:check -version | head -n 1)
+              output=$(docker run --rm --entrypoint "$binary" openmbee/opensysml:check -version)
+              reported="${output%%$'\n'*}"
               echo "$reported"
               case "$reported" in
                 *"${CIRCLE_TAG}"*) ;;
