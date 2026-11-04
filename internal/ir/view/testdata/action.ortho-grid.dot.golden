@@ -13,47 +13,47 @@ digraph "FlowViews::driveView" {
     labelloc=t;
     penwidth=0.5;
     margin=8;
-    bb="42,-505,494,-22";
+    bb="42,-530,598,-22";
     subgraph "cluster_n0" {
       label=<<font point-size="10"><i>«action def»</i></font><br/><b>Drive</b>>;
       color=black;
       penwidth=0.5;
-      bb="50,-497,486,-50";
-      "n0" [shape=point, style=invis, width=0, height=0, label="", pos="268,-273.5!", pin=true];
+      bb="50,-522,590,-50";
+      "n0" [shape=point, style=invis, width=0, height=0, label="", pos="320,-286!", pin=true];
       "n1" [shape=circle, fillcolor=black, label="", pos="76,-152!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
       "n2" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>provide</b>>, margin=0, pos="176.5,-160.5!", pin=true, width=1.125, height=0.5138888888888888, fixedsize=true];
-      "n2.0" [shape=box, label="", xlabel="^fuel", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="176.5,-136!", pin=true];
-      "n2.1" [shape=box, label="", xlabel="^torque", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="176.5,-185!", pin=true];
+      "n2.0" [shape=box, style="rounded,filled", label="↓", xlabel="^fuel", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="176.5,-136!", pin=true];
+      "n2.1" [shape=box, style="rounded,filled", label="↓", xlabel="^torque", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="176.5,-185!", pin=true];
       subgraph "cluster_n3" {
-        label=<<font point-size="10"><i>«action»</i></font><br/><b>monitor</b><br/>own flow>;
+        label=<<font point-size="10"><i>«action»</i></font><br/><b>monitor</b>>;
         color=black;
         penwidth=0.5;
-        bb="267,-304,441,-142";
-        "n3" [shape=point, style=invis, width=0, height=0, label="", pos="354,-223!", pin=true];
-        "n3.0" [shape=box, label="", xlabel="reading", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="354,-136!", pin=true];
-        "n4" [shape=circle, fillcolor=black, label="", pos="293,-261!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
-        "n5" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>record</b>>, margin=0, pos="389,-269.5!", pin=true, width=1, height=0.5138888888888888, fixedsize=true];
+        bb="267,-312,441,-142";
+        "n3" [shape=point, style=invis, width=0, height=0, label="", pos="354,-227!", pin=true];
+        "n3.0" [shape=box, style="rounded,filled", label="↓", xlabel="reading", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="354,-136!", pin=true];
+        "n4" [shape=circle, fillcolor=black, label="", pos="293,-269!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+        "n5" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>record</b>>, margin=0, pos="389,-277.5!", pin=true, width=1, height=0.5138888888888888, fixedsize=true];
       }
-      "n6" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>tally</b>>, margin=0, pos="98,-372.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888, fixedsize=true];
-      "n7" [fillcolor=black, label="", xlabel="split", pos="240,-359!", pin=true, width=1.6666666666666667, height=0.1388888888888889, fixedsize=true];
-      "n8" [fillcolor=black, label="", xlabel="sync", pos="410,-359!", pin=true, width=1.6666666666666667, height=0.1388888888888889, fixedsize=true];
-      "n9" [shape=doublecircle, fillcolor=black, label="", pos="81,-456!", pin=true, width=0.4166666666666667, height=0.4166666666666667, fixedsize=true];
-      "n10" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>park</b>>, margin=0, pos="178,-459.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888, fixedsize=true];
-      "n11" [shape=diamond, label="", xlabel="check", pos="280,-461!", pin=true, width=0.5555555555555556, height=0.5555555555555556, fixedsize=true];
+      "n6" [style="rounded,filled", label=<<font point-size="10"><i>«assign»</i></font><br/><b>tally</b><br/>speed := speed + 1>, margin=0, pos="150,-389!", pin=true, width=2.3333333333333335, height=0.75, fixedsize=true];
+      "n7" [fillcolor=black, label="", xlabel="split", pos="344,-367!", pin=true, width=1.6666666666666667, height=0.1388888888888889, fixedsize=true];
+      "n8" [fillcolor=black, label="", xlabel="sync", pos="514,-367!", pin=true, width=1.6666666666666667, height=0.1388888888888889, fixedsize=true];
+      "n9" [shape=doublecircle, fillcolor=black, label="", pos="81,-481!", pin=true, width=0.4166666666666667, height=0.4166666666666667, fixedsize=true];
+      "n10" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>park</b>>, margin=0, pos="178,-484.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888, fixedsize=true];
+      "n11" [shape=diamond, label="", xlabel="check", pos="280,-486!", pin=true, width=0.5555555555555556, height=0.5555555555555556, fixedsize=true];
     }
-    "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Flows::Drive</font>>, pos="398,-68!", pin=true, width=2.4444444444444446, height=0.5];
+    "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Flows::Drive</font>>, pos="502,-68!", pin=true, width=2.4444444444444446, height=0.5];
   }
-  "n4" -> "n5" [style=dashed, arrowhead=vee, pos="e,353,-260 303,-261 303,-261 328,-261 328,-261 328,-261 328,-260 328,-260 328,-260 343,-260 343,-260"];
-  "n1" -> "n7" [style=dashed, arrowhead=vee, pos="e,180,-357 76,-162 76,-162 76,-269 76,-269 76,-269 148,-269 148,-269 148,-269 148,-357 148,-357 148,-357 170,-357 170,-357"];
-  "n2" -> "n8" [style=dashed, arrowhead=vee, pos="e,350,-359 177,-179 177,-179 177,-329 177,-329 177,-329 321,-329 321,-329 321,-329 321,-359 321,-359 321,-359 340,-359 340,-359"];
+  "n4" -> "n5" [style=dashed, arrowhead=vee, pos="e,353,-268 303,-269 303,-269 328,-269 328,-269 328,-269 328,-268 328,-268 328,-268 343,-268 343,-268"];
+  "n1" -> "n7" [style=dashed, arrowhead=vee, pos="e,284,-365 76,-162 76,-162 76,-273 76,-273 76,-273 250,-273 250,-273 250,-273 250,-365 250,-365 250,-365 274,-365 274,-365"];
+  "n2" -> "n8" [style=dashed, arrowhead=vee, pos="e,454,-365 177,-179 177,-179 177,-337 177,-337 177,-337 429,-337 429,-337 429,-337 429,-365 429,-365 429,-365 444,-365 444,-365"];
   "n2.1" -> "n3.0" [pos="e,354,-137 176.5,-184 176.5,-184 176.5,-200 176.5,-200 176.5,-200 242,-200 242,-200 242,-200 242,-121 242,-121 242,-121 354,-121 354,-121 354,-121 354,-129 354,-129"];
-  "n3" -> "n8" [style=dashed, arrowhead=vee, pos="e,380,-354 354,-304 354,-304 354,-321 354,-321 354,-321 380,-321 380,-321 380,-321 380,-344 380,-344", ltail="cluster_n3"];
-  "n6" -> "n8" [style=dashed, arrowhead=vee, pos="e,350,-357 98,-354 98,-354 98,-338 98,-338 98,-338 329,-338 329,-338 329,-338 329,-357 329,-357 329,-357 340,-357 340,-357"];
-  "n7" -> "n2" [style=dashed, arrowhead=vee, pos="e,156,-179 180,-359 180,-359 156,-359 156,-359 156,-359 156,-189 156,-189"];
-  "n7" -> "n3" [style=dashed, arrowhead=vee, pos="e,267,-264 240,-354 240,-354 240,-264 240,-264 240,-264 257,-264 257,-264", lhead="cluster_n3"];
-  "n7" -> "n6" [style=dashed, arrowhead=vee, pos="e,130,-382 240,-364 240,-364 240,-382 240,-382 240,-382 140,-382 140,-382"];
-  "n8" -> "n11" [style=dashed, arrowhead=vee, pos="e,300,-451 410,-364 410,-364 410,-451 410,-451 410,-451 310,-451 310,-451"];
-  "n10" -> "n9" [style=dashed, arrowhead=vee, pos="e,96,-456 146,-460 146,-460 121,-460 121,-460 121,-460 121,-456 121,-456 121,-456 106,-456 106,-456"];
-  "n11" -> "n9" [label="[speed > 0]", style=dashed, arrowhead=vee, pos="e,89,-441 280,-441 280,-441 280,-425 280,-425 280,-425 89,-425 89,-425 89,-425 89,-433 89,-433", lp="184.5,-413"];
-  "n11" -> "n10" [style=dashed, arrowhead=vee, pos="e,210,-460 260,-461 260,-461 235,-461 235,-461 235,-461 235,-460 235,-460 235,-460 220,-460 220,-460"];
+  "n3" -> "n8" [style=dashed, arrowhead=vee, pos="e,484,-362 441,-227 441,-227 484,-227 484,-227 484,-227 484,-352 484,-352", ltail="cluster_n3"];
+  "n6" -> "n8" [style=dashed, arrowhead=vee, pos="e,484,-372 234,-403 234,-403 484,-403 484,-403 484,-403 484,-382 484,-382"];
+  "n7" -> "n2" [style=dashed, arrowhead=vee, pos="e,217,-170 284,-367 284,-367 251,-367 251,-367 251,-367 251,-170 251,-170 251,-170 227,-170 227,-170"];
+  "n7" -> "n3" [style=dashed, arrowhead=vee, pos="e,354,-312 344,-362 344,-362 344,-329 344,-329 344,-329 354,-329 354,-329 354,-329 354,-320.5 354,-320.5", lhead="cluster_n3"];
+  "n7" -> "n6" [style=dashed, arrowhead=vee, pos="e,234,-389 344,-372 344,-372 344,-389 344,-389 344,-389 244,-389 244,-389"];
+  "n8" -> "n11" [style=dashed, arrowhead=vee, pos="e,300,-476 514,-372 514,-372 514,-476 514,-476 514,-476 310,-476 310,-476"];
+  "n10" -> "n9" [style=dashed, arrowhead=vee, pos="e,96,-481 146,-485 146,-485 121,-485 121,-485 121,-485 121,-481 121,-481 121,-481 106,-481 106,-481"];
+  "n11" -> "n9" [label="[speed > 0]", style=dashed, arrowhead=vee, pos="e,89,-466 280,-466 280,-466 280,-450 280,-450 280,-450 89,-450 89,-450 89,-450 89,-458 89,-458", lp="184.5,-438"];
+  "n11" -> "n10" [label="else", style=dashed, arrowhead=vee, pos="e,210,-485 260,-486 260,-486 235,-486 235,-486 235,-486 235,-485 235,-485 235,-485 220,-485 220,-485", lp="241.5,-498"];
 }

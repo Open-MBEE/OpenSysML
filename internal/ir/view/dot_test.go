@@ -39,6 +39,8 @@ func TestGoldenDOT(t *testing.T) {
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState, false},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState, false},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction, false},
+		{"action-forms", "action-forms.sysml", "ActionFormViews::monitorView", KindAction, false},
+		{"state-forms", "state-forms.sysml", "FurnaceViews::burner", KindState, false},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase, false},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed, false},
 		{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed, false},
@@ -409,6 +411,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 		EdgeUnownedMembership:   `"a" -> "b" [label="k", dir=back, arrowtail=odot];`,
 		EdgeExpose:              `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
 		EdgeDependencyClient:    `"a" -> "b" [label="k", dir=none, style=dashed];`,
+		EdgeMessage:             `"a" -> "b" [label="k", arrowhead=vee];`,
 	}
 	// A case or mixed diagram draws composition in its own notation.
 	caseStyles := map[EdgeKind]string{
@@ -1276,7 +1279,7 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 			tag := label[i+1 : i+end]
 			i += end
 			switch {
-			case tag == "br/" || tag == "hr/":
+			case tag == "br/" || tag == "hr/" || tag == `br align="left"/`:
 			case tag == "b" || tag == "i" || tag == "tr" || dotTableCellTag(tag) ||
 				strings.HasPrefix(tag, `table border="`) && strings.HasSuffix(tag, `"`) ||
 				strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
@@ -1317,7 +1320,7 @@ func dotTableCellTag(tag string) bool {
 	}
 	for _, attr := range fields[1:] {
 		name, value, ok := strings.Cut(attr, "=")
-		if !ok || !slices.Contains([]string{"align", "port", "border", "fixedsize", "width", "height", "colspan", "bgcolor"}, name) ||
+		if !ok || !slices.Contains([]string{"align", "port", "border", "style", "fixedsize", "width", "height", "colspan", "bgcolor"}, name) ||
 			len(value) < 2 || value[0] != '"' || value[len(value)-1] != '"' {
 			return false
 		}

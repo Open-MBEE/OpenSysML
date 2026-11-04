@@ -1,10 +1,19 @@
 SequenceViews::pubSubView - sequence rendering (view def SequenceView)
 
 part producer
+  event occurrence publish_source_event
 part server
+  event occurrence subscribe_target_event
+  event occurrence publish_target_event
+  event occurrence deliver_source_event
 part consumer
+  event occurrence subscribe_source_event
+  event occurrence deliver_target_event
 
 messages:
-  consumer => server: subscribe_message
-  producer => server: publish_message
-  server => consumer: deliver_message
+  consumer.subscribe_source_event -> server.subscribe_target_event: subscribe_message of Subscribe
+  server.subscribe_target_event -> server.publish_target_event
+  consumer.subscribe_source_event -> consumer.deliver_target_event
+  producer.publish_source_event -> server.publish_target_event: publish_message of Publish
+  server.publish_target_event -> server.deliver_source_event
+  server.deliver_source_event -> consumer.deliver_target_event: deliver_message of Deliver

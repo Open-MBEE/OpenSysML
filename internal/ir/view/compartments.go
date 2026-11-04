@@ -23,31 +23,56 @@ type Compartment struct {
 // chapters of the language specification introducing each kind; a kind not
 // named here follows them in the order its members were declared.
 var compartmentOrder = []string{
-	"attributes", "enumerations", "occurrences", "items", "parts", "ports",
-	"connections", "interfaces", "allocations", "actions", "states", "calculations",
+	"attributes", "enumerations", "occurrences", "individuals", "items", "parts", "ports",
+	"connections", "interfaces", "allocations", "actions", "states", "state actions", "calculations",
 	"constraints", "requirements", "cases", "analyses", "verifications", "use cases",
 	"views", "viewpoints", "renderings", "metadata",
 }
 
 // compartmentPlurals are the compartment names whose keyword does not take
 // a plain "s".
+// stateActionRoles are the kinds the `state actions` compartment gathers.
+var stateActionRoles = map[string]bool{entryActionKind: true, doActionKind: true, exitActionKind: true}
+
 var compartmentPlurals = map[string]string{
-	"calc":     "calculations",
-	"enum":     "enumerations",
-	"analysis": "analyses",
-	"metadata": "metadata",
-	docKind:    docKind, // the `doc` compartment of §8.2.3.4 (documentation-compartment)
-	repKind:    repKind,
+	"calc":           "calculations",
+	"enum":           "enumerations",
+	"analysis":       "analyses",
+	"metadata":       "metadata",
+	entryActionKind:  "state actions",
+	doActionKind:     "state actions",
+	exitActionKind:   "state actions",
+	sendActionKind:   "actions",
+	acceptActionKind: "actions",
+	assignKind:       "actions",
+	loopKind:         "actions",
+	ifKind:           "actions",
+	terminateKind:    "actions",
+	"perform":        "perform actions",
+	docKind:          docKind, // the `doc` compartment of §8.2.3.4 (documentation-compartment)
+	repKind:          repKind,
 }
 
 // rowPrefixes are the modifier keywords a kind may begin with, which the row
 // keeps before its name while the compartment is named by the kind after them.
-var rowPrefixes = []string{"ref", "abstract", "variation", "individual", "readonly", "derived", "end"}
+var rowPrefixes = []string{"ref", "abstract", "variation", "individual", "readonly", "derived", "end", "event"}
+
+// individualPrefix leads the kind of an individual usage, which the
+// `individuals` compartment collects whatever its keyword (SysML v2.1 §8.2.3.9).
+const individualPrefix = "individual "
+
+// individualUsage reports the kind of an individual usage, not of an `individual def`.
+func individualUsage(kind string) bool {
+	return strings.HasPrefix(kind, individualPrefix) && !strings.HasSuffix(kind, " def")
+}
 
 // compartmentName is the name of the compartment a member of kind belongs to:
 // the plural of its keyword after any modifier, "part defs" for a nested
-// definition.
+// definition, "individuals" for an individual usage of any keyword.
 func compartmentName(kind string) string {
+	if individualUsage(kind) {
+		return "individuals"
+	}
 	_, keyword := splitRowPrefix(kind)
 	if keyword == "" {
 		return ""
@@ -116,7 +141,17 @@ func (l labeller) rowText(node *Node) string {
 	if annotationKind(node.Kind) {
 		return l.text(annotationRowText(node))
 	}
+	if node.Kind == statementRowKind {
+		return node.Text
+	}
 	prefix, _ := splitRowPrefix(node.Kind)
+	if _, ok := stateActionRoles[node.Kind]; ok {
+		prefix = node.Kind // a `state actions` row keeps its entry/do/exit role
+	}
+	// The individuals compartment says `individual`; its row keeps the keyword instead.
+	if individualUsage(node.Kind) {
+		prefix = strings.TrimPrefix(node.Kind, individualPrefix)
+	}
 	text := shown(node)
 	if text != "" {
 		text = usagePrefix(node.Inherited) + text
@@ -145,7 +180,17 @@ func (l labeller) compartments(node *Node) []Compartment {
 	if !l.shown.Has(ElementCompartments) {
 		return nil
 	}
-	return node.Compartments
+	if !l.skin.cameo {
+		return node.Compartments
+	}
+	// Cameo writes a state's behaviors as `entry / a` lines under its name.
+	var kept []Compartment
+	for _, compartment := range node.Compartments {
+		if !stateActionCompartment(compartment.Name) {
+			kept = append(kept, compartment)
+		}
+	}
+	return kept
 }
 
 // referenceRow reports whether sym lists as a reference row, the `ref part`

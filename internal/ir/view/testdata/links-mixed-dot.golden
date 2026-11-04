@@ -61,7 +61,7 @@ digraph "MixedExamples::mixedDiagram" {
       }
       "n1" [label=<<font point-size="10"><i>«state def»</i></font><br/><b>Ready</b><br/>declares no states>, URL="https://example.test/src/mixed.sysml#L27", tooltip="MixedExamples::Ready"];
       subgraph "cluster_n2" {
-        label=<<font point-size="10"><i>«state def»</i></font><br/><b>Modes</b>>;
+        label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state def»</i></font><br/><b>Modes</b></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
         color=black;
         penwidth=0.5;
         URL="https://example.test/src/mixed.sysml#L29";
@@ -87,7 +87,7 @@ digraph "MixedExamples::mixedDiagram" {
       "n12" [shape=note, label=<<b>objective</b><br/>Inspect the plant and report its operating state.>, URL="https://example.test/src/mixed.sysml#L45", tooltip="mixed.sysml:45:3"];
       "n13" [style="rounded,filled", label=<<font point-size="10"><i>«perform action»</i></font><br/><b>run</b><br/>declares no nodes>, URL="https://example.test/src/mixed.sysml#L48", tooltip="MixedExamples::Inspection::run"];
       subgraph "cluster_n14" {
-        label=<<font point-size="10"><i>«exhibit state»</i></font><br/><b>mode</b>>;
+        label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«exhibit state»</i></font><br/><b>mode</b></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
         color=black;
         penwidth=0.5;
         URL="https://example.test/src/mixed.sysml#L49";

@@ -23,6 +23,7 @@ import {
   clampNodeToBounds,
   type CanvasLayout,
   GAP,
+  glyphSize,
   freePlacement,
   keepOrthogonalRoutes,
   byCodeUnit,
@@ -765,6 +766,201 @@ test("layoutCanvas lays a sequence out as lifelines in a row with messages down 
   assert.equal(ask.points[0].x, a.box.x + a.box.width / 2);
   assert.equal(ask.points[1].x, b.box.x + b.box.width / 2);
   assert.equal(layout.placeable, false);
+});
+
+test("layoutCanvas puts a sequence's proxies on their lifelines at their rows and its ports on the lifeline's border", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "producer", { ports: [{ id: "p", name: "out" }] }),
+        node("b", "server"),
+        node("e1", "sent", { kind: "event occurrence", parent: "a" }),
+        node("e2", "received", { kind: "event occurrence", parent: "b" }),
+        node("e3", "done", { kind: "event occurrence", parent: "b" }),
+      ],
+      [
+        { from: "e1", to: "e2", label: "publish of Publish", kind: "message" },
+        { from: "e2", to: "e3", label: "", kind: "succession" },
+        { from: "a", to: "b", fromPort: "p", label: "of Ping", kind: "flow" },
+      ],
+      { kind: "sequence" },
+    ),
+  );
+  const a = layout.nodes.get("a")!;
+  const b = layout.nodes.get("b")!;
+  const e1 = layout.nodes.get("e1")!;
+  const e2 = layout.nodes.get("e2")!;
+  const e3 = layout.nodes.get("e3")!;
+  const [publish, then, ping] = layout.edges;
+  // A proxy is a filled point on its lifeline's x at the row of its first edge, labelled by its name.
+  assert.equal(e1.shape, "circle");
+  assert.deepEqual(e1.lines, ["sent"]);
+  assert.equal(e1.box.x + e1.box.width / 2, a.box.x + a.box.width / 2);
+  assert.equal(e1.box.y + e1.box.height / 2, publish.points[0].y);
+  assert.equal(e2.box.x + e2.box.width / 2, b.box.x + b.box.width / 2);
+  assert.equal(e2.box.y + e2.box.height / 2, publish.points[1].y);
+  // A succession from a placed point to a later event of the same lifeline runs down the lifeline to it.
+  assert.deepEqual(then.points, [
+    { x: e2.box.x + e2.box.width / 2, y: e2.box.y + e2.box.height / 2 },
+    { x: e3.box.x + e3.box.width / 2, y: e3.box.y + e3.box.height / 2 },
+  ]);
+  assert.ok(e3.box.y > e2.box.y);
+  // A port sits on the lifeline's bottom border, and the flow leaves from under it.
+  assert.equal(a.ports.length, 1);
+  assert.equal(a.ports[0].side, "south");
+  assert.equal(ping.points[0].x, portCenter(a.box, a.ports[0]).x);
+  assert.equal(ping.points[1].x, b.box.x + b.box.width / 2);
+  assert.ok(ping.points[0].y > then.points[1].y);
+  // The canvas reaches past the last lifeline's proxy label.
+  assert.ok(layout.width >= e2.box.x + e2.box.width + 4 + glyphSize("received").width);
+});
+
+test("layoutCanvas gives an event one point and runs every edge at it to that point", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "consumer"),
+        node("b", "server"),
+        node("c", "log"),
+        node("e1", "subscribeSent", { kind: "event occurrence", parent: "a" }),
+        node("e2", "subscribeTaken", { kind: "event occurrence", parent: "b" }),
+        node("e3", "logged", { kind: "event occurrence", parent: "c" }),
+        node("e4", "deliverTaken", { kind: "event occurrence", parent: "a" }),
+        node("e5", "done", { kind: "event occurrence", parent: "a" }),
+      ],
+      [
+        { from: "e1", to: "e2", label: "subscribe", kind: "message" },
+        { from: "e2", to: "e3", label: "", kind: "succession" },
+        { from: "e3", to: "e4", label: "deliver", kind: "message" },
+        { from: "e1", to: "e4", label: "", kind: "succession" },
+        { from: "e4", to: "e5", label: "", kind: "succession" },
+      ],
+      { kind: "sequence" },
+    ),
+  );
+  const centre = (id: string) => {
+    const box = layout.nodes.get(id)!.box;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const [subscribe, logged, deliver, awaited, done] = layout.edges;
+  // The succession leaves the point the message placed and opens a row for the event it reaches.
+  assert.deepEqual(logged.points, [centre("e2"), centre("e3")]);
+  assert.ok(centre("e3").y > centre("e2").y);
+  // A message leaving a point on the latest row stays on that row, horizontal.
+  assert.deepEqual(deliver.points, [centre("e3"), centre("e4")]);
+  assert.equal(deliver.points[0].y, deliver.points[1].y);
+  // A succession between two placed points takes no row and joins them.
+  assert.deepEqual(awaited.points, [centre("e1"), centre("e4")]);
+  assert.equal(subscribe.points[0].y, centre("e1").y);
+  // The next event opens the next row, under the last one used, and the lifelines end a row below.
+  const gap = centre("e3").y - centre("e2").y;
+  assert.equal(done.points[1].y, centre("e4").y + gap);
+  assert.equal(layout.nodes.get("a")!.lifeline, centre("e5").y + gap);
+});
+
+test("layoutCanvas never puts two events of a lifeline at one point", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "client"),
+        node("b", "server"),
+        node("e1", "sent", { kind: "event occurrence", parent: "a" }),
+        node("e2", "taken", { kind: "event occurrence", parent: "b" }),
+        node("e3", "takenAgain", { kind: "event occurrence", parent: "b" }),
+      ],
+      [
+        { from: "e1", to: "e2", label: "first", kind: "message" },
+        { from: "e1", to: "e3", label: "second", kind: "message" },
+        { from: "e2", to: "e3", label: "", kind: "succession" },
+      ],
+      { kind: "sequence" },
+    ),
+  );
+  const centre = (id: string) => {
+    const box = layout.nodes.get(id)!.box;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const [first, second, then] = layout.edges;
+  // The second message from the placed event opens a row, since its lifeline's point on the first is taken.
+  assert.equal(first.points[0].y, first.points[1].y);
+  assert.deepEqual(second.points, [centre("e1"), centre("e3")]);
+  assert.ok(centre("e3").y > centre("e2").y);
+  assert.equal(centre("e3").x, centre("e2").x);
+  // The succession between them runs down the lifeline from one point to the other.
+  assert.deepEqual(then.points, [centre("e2"), centre("e3")]);
+});
+
+test("layoutCanvas keeps a self-message's loop whichever end names the event, and the next row under it", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [node("a", "worker"), node("b", "other"), node("e1", "tick", { kind: "event occurrence", parent: "a" }), node("e2", "tock", { kind: "event occurrence", parent: "a" })],
+      [
+        { from: "a", to: "e1", label: "start", kind: "message" },
+        { from: "e1", to: "a", label: "again", kind: "message" },
+        { from: "e2", to: "a", label: "once", kind: "message" },
+        { from: "a", to: "e2", label: "twice", kind: "message" },
+        { from: "a", to: "b", label: "after", kind: "message" },
+      ],
+      { kind: "sequence" },
+    ),
+  );
+  const centre = (id: string) => {
+    const box = layout.nodes.get(id)!.box;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const [start, again, once, twice, after] = layout.edges;
+  for (const loop of [start, again, once, twice]) {
+    assert.equal(loop.points.length, 4);
+  }
+  assert.deepEqual(again.points[0], centre("e1"));
+  assert.deepEqual(twice.points[0], centre("e2"));
+  assert.ok(centre("e2").y > again.points[3].y);
+  assert.ok(after.points[0].y > twice.points[3].y);
+  assert.ok(layout.nodes.get("a")!.lifeline! > after.points[0].y);
+});
+
+test("layoutCanvas never draws a message upward: a sending event sits at or above its placed receiving point", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "client"),
+        node("b", "server"),
+        node("e1", "sent", { kind: "event occurrence", parent: "a" }),
+        node("e2", "taken", { kind: "event occurrence", parent: "b" }),
+        node("e3", "sentToo", { kind: "event occurrence", parent: "a" }),
+      ],
+      [
+        { from: "e1", to: "e2", label: "first", kind: "message" },
+        { from: "e3", to: "e2", label: "second", kind: "message" },
+      ],
+      { kind: "sequence" },
+    ),
+  );
+  const centre = (id: string) => {
+    const box = layout.nodes.get(id)!.box;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const [, second] = layout.edges;
+  assert.deepEqual(second.points, [centre("e3"), centre("e2")]);
+  assert.ok(centre("e3").y <= centre("e2").y);
+  assert.notDeepEqual(centre("e3"), centre("e1"));
+});
+
+test("layoutCanvas places a sequence's proxy where a drawn edge first reaches it, not a hidden one", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [node("a", "producer"), node("b", "server"), node("e1", "sent", { kind: "event occurrence", parent: "a" }), node("e2", "done", { kind: "event occurrence", parent: "a" })],
+      [
+        { from: "e1", to: "b", label: "m", kind: "message" },
+        { from: "e1", to: "e2", label: "", kind: "succession" },
+      ],
+      { kind: "sequence" },
+    ),
+    { hiddenKinds: new Set(["message"]) },
+  );
+  const e1 = layout.nodes.get("e1")!;
+  const [, then] = layout.edges;
+  assert.equal(e1.box.y + e1.box.height / 2, then.points[0].y);
 });
 
 test("simpleNames keeps the qualifier that tells nodes of one name apart", () => {
@@ -4155,4 +4351,16 @@ test("layoutCanvas keeps a sized owner's members where they fit, lane or no lane
   );
   const owner = hidden.nodes.get("owner")!;
   assert.equal(hidden.nodes.get("member")!.box.y, owner.box.y + headerBox(owner).height, "a hidden edge asks for no lane");
+});
+
+test("labelLines heads an unnamed statement by what it does and a statement row by its text alone", () => {
+  const names = simpleNames([]);
+  const assign = node("a", "", { kind: "assign", text: "count := count + 1" });
+  assert.deepEqual(labelLines(assign, undefined, names), ["«assign»", "count := count + 1"]);
+  assert.deepEqual(labelLines(assign, ["compartments"], names), ["count := count + 1"]);
+  const row = node("r", "", { kind: "statement", text: "count < 10", parent: "a" });
+  assert.deepEqual(labelLines(row, undefined, names), ["count < 10"]);
+  const parallel = node("s", "running", { kind: "state", parallel: true });
+  assert.deepEqual(labelLines(parallel, undefined, names), ["«state»", "running", "«parallel»"]);
+  assert.deepEqual(labelLines(parallel, ["typings"], names), ["running"]);
 });

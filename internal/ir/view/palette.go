@@ -124,7 +124,7 @@ func (k Kind) paletteBorders() bool { return k != KindSequence }
 
 // controlKinds are the kinds drawn as control and pseudo-state nodes: they
 // keep the black-and-white rules and a square shape under every palette.
-var controlKinds = map[string]bool{startKind: true, "initial": true, "final": true, "fork": true, "join": true,
+var controlKinds = map[string]bool{startKind: true, "initial": true, "final": true, terminateKind: true, "fork": true, "join": true,
 	"merge": true, "decision": true, "choice": true, "junction": true, "shallow history": true, "deep history": true,
 	connectionDotKind: true, connectionDefDotKind: true, dependencyDotKind: true}
 
@@ -133,6 +133,7 @@ var controlKinds = map[string]bool{startKind: true, "initial": true, "final": tr
 type familyFills struct {
 	palette  Palette  // the fills, by keyword family; empty is black and white
 	tree     bool     // containment is drawn as edges, so a node with children is filled too
+	sequence bool     // a lifeline is filled whatever proxies it holds; the proxies are points
 	families []string // the keyword families of the nodes filled, in palette order
 }
 
@@ -143,7 +144,7 @@ func (f *familyFills) filled(node *Node) bool {
 }
 
 func (f *familyFills) classable(node *Node) bool {
-	return !controlKinds[node.Kind] && !itemBox(node) && !annotationKind(node.Kind) && (len(node.Children) == 0 || f.tree)
+	return !controlKinds[node.Kind] && !itemBox(node) && !annotationKind(node.Kind) && (len(node.Children) == 0 || f.tree || f.sequence)
 }
 
 // collect records the keyword families of the nodes under node that a palette
@@ -155,6 +156,10 @@ func (f *familyFills) collect(node *Node) {
 			f.families = append(f.families, family)
 			slices.SortFunc(f.families, func(a, b string) int { return familyRank(a) - familyRank(b) })
 		}
+	}
+	// A sequence's proxies are points on their lifelines, in no family of their own.
+	if f.sequence {
+		return
 	}
 	for _, child := range node.Children {
 		f.collect(child)
@@ -208,7 +213,7 @@ func (r *Rendering) Fills(palette Palette) (map[string]Fill, error) {
 	if palette == "" || !r.Kind.SupportsPalette() {
 		return fills, nil
 	}
-	f := familyFills{palette: palette, tree: r.Kind == KindTree}
+	f := familyFills{palette: palette, tree: r.Kind == KindTree, sequence: r.Kind == KindSequence}
 	for _, root := range r.Roots {
 		f.collect(root)
 	}
@@ -221,6 +226,10 @@ func (r *Rendering) Fills(palette Palette) (map[string]Fill, error) {
 				fill.Border = f.color(node)
 			}
 			fills[node.ID] = fill
+		}
+		// A sequence's proxies are points on their lifelines, not boxes to fill.
+		if r.Kind == KindSequence {
+			return
 		}
 		for _, child := range node.Children {
 			walk(child)
@@ -294,7 +303,7 @@ var familyWords = map[string]string{
 	"requirement": "requirement", "constraint": "constraint", "connection": "connection", "connect": "connection",
 	"interface": "interface", "case": "case", "allocation": "allocation", "allocate": "allocation",
 	"analysis": "analysis", "verification": "verification", "enum": "enum", "occurrence": "occurrence",
-	"flow": "flow", "message": "flow", "perform": "action",
+	"flow": "flow", "message": "flow", "perform": "action", assignKind: "action", loopKind: "action", ifKind: "action",
 	"actor": useCaseLabel, "subject": "case", "objective": "requirement",
 }
 

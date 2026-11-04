@@ -34,5 +34,6 @@ config:
 sequenceDiagram
   participant n0 as «part»<br>left
   participant n1 as «part»<br>right
-  n0->>n1: early
-  n0->>n1: late
+  n0-)n1: early of Tick
+  n1--)n0:
+  n0-)n1: late of Tick

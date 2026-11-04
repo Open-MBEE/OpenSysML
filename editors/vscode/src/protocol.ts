@@ -94,13 +94,15 @@ export interface RenderNode {
   name: string;
   type: string;
   detail: string;
-  /** Heads a node whose name is not shown — a value specification's literal, an accept's event, an item box's payload — with its escapes decoded. */
+  /** Heads a node whose name is not shown — a value specification's literal, an accept's event, an item box's payload, what an unnamed statement does (`count := count + 1`) under its «keyword» — with its escapes decoded. */
   text?: string;
   /** Set on an item box drawn on a connection line: `right` when the item goes toward the line's second end, `left` toward its first. */
   arrow?: string;
   parent?: string;
   /** The owner the node is drawn or listed under has the usage through typing, subclassification or subsetting rather than declares it; the label prefixes `name` with `^`. */
   inherited?: boolean;
+  /** The state's substates run in parallel; the label writes «parallel» under the name. */
+  parallel?: boolean;
   /** The qualified name a model edit targets the declaration by, in whichever workspace document declares it; absent for a node with none, and for a library's. */
   fqn?: string;
   /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */

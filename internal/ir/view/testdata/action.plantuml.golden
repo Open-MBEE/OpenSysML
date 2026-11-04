@@ -45,11 +45,11 @@ hide empty description
 state "<size:10>//«action def»//</size>\n**Drive**" as n0 <<action def>> {
   state "**initial**" as n1 <<start>>
   state "<size:10>//«action»//</size>\n**provide**\nparameters\nin ^fuel\nout ^torque" as n2 <<action>> <<usage>>
-  state "<size:10>//«action»//</size>\n**monitor**\nown flow\nparameters\nin reading" as n3 <<action>> <<usage>> {
+  state "<size:10>//«action»//</size>\n**monitor**\nparameters\nin reading\naction flow" as n3 <<action>> <<usage>> {
     state "**initial**" as n4 <<start>>
     state "<size:10>//«action»//</size>\n**record**" as n5 <<action>> <<usage>>
   }
-  state "<size:10>//«action»//</size>\n**tally**" as n6 <<action>> <<usage>>
+  state "<size:10>//«assign»//</size>\n**tally**\nspeed := speed + 1" as n6 <<assign>> <<usage>>
   state "<size:10>//«fork»//</size>\n**split**" as n7 <<fork>>
   state "<size:10>//«join»//</size>\n**sync**" as n8 <<join>>
   state "**final**" as n9 <<end>>
@@ -68,5 +68,5 @@ n7 -[dashed]-> n6
 n8 -[dashed]-> n11
 n10 -[dashed]-> n9
 n11 -[dashed]-> n9 : [speed <U+003E> 0]
-n11 -[dashed]-> n10
+n11 -[dashed]-> n10 : else
 @enduml

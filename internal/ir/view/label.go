@@ -334,7 +334,7 @@ func keyworded(node *Node) bool {
 	if node.Kind == commentKind {
 		return shown(node) != "" || node.Detail != ""
 	}
-	return shown(node) != "" || node.Type != "" || itemBox(node)
+	return shown(node) != "" || node.Type != "" || itemBox(node) || statementKind(node.Kind)
 }
 
 // headed reports whether a node's head says something of the node's own — a
@@ -346,10 +346,46 @@ func headed(node *Node) bool {
 // keyworded reports whether the skin writes a node's keyword line: Cameo shows
 // none on a state or an action, whose notation says their kind already.
 func (l labeller) keyworded(node *Node) bool {
-	if l.skin.cameo && (node.Kind == "state" || node.Kind == "action") {
+	if l.skin.cameo && (node.Kind == "state" || node.Kind == "action" || statementKind(node.Kind)) {
 		return false
 	}
 	return keyworded(node)
+}
+
+// The marks the figures set in the top-left corner of a send action node (a
+// pentagon pointing out of the node, U+2B53) and an accept action node (the
+// notched flag the UML accept-event action wears, U+2691 standing in for it).
+const (
+	sendMark   = "⭓"
+	acceptMark = "⚑"
+)
+
+// kindMark is the figure in the corner of a node's box, "" for a kind with none.
+func kindMark(kind string) string {
+	switch kind {
+	case sendActionKind:
+		return sendMark
+	case acceptActionKind:
+		return acceptMark
+	}
+	return ""
+}
+
+// mark is the corner mark the skin writes on a node: the kind's, when the
+// rendering shows keywords; Cameo marks none.
+func (l labeller) mark(node *Node) string {
+	if !l.shown.Has(ElementKeywords) || l.skin.cameo {
+		return ""
+	}
+	return kindMark(node.Kind)
+}
+
+// marked leads a keyword line with the node's corner mark, when it has one.
+func marked(mark, keyword string) string {
+	if mark == "" {
+		return keyword
+	}
+	return mark + " " + keyword
 }
 
 // keyword is a node's keyword line, the kind in guillemets, or "" when the
@@ -368,9 +404,13 @@ func (l labeller) details(node *Node) []string {
 	switch {
 	case annotationKind(node.Kind):
 		return l.annotationLines(node)
-	case node.Detail == "" || !l.shown.Has(ElementCompartments):
+	case !l.shown.Has(ElementCompartments):
+		return nil
 	case l.skin.cameo && ast.NotationKeyword(node.Kind) == "state":
-		lines = cameoStateDetails(node.Detail)
+		if detail := cameoStateDetail(node); detail != "" {
+			lines = cameoStateDetails(detail)
+		}
+	case node.Detail == "":
 	case l.skin.cameo:
 		lines = []string{bareNames(node.Detail)}
 	default:
@@ -407,9 +447,22 @@ func (l labeller) lines(node *Node) []string {
 		lines = append(lines, keyword)
 	}
 	lines = append(lines, l.headLines(node)...)
+	lines = append(lines, l.parallel(node)...)
 	lines = append(lines, l.details(node)...)
 	lines = append(lines, l.parameterLines(node)...)
 	return append(lines, l.compartmentLines(node)...)
+}
+
+// parallelKeyword is the line the name compartment of a parallel state ends in.
+const parallelKeyword = "«parallel»"
+
+// parallel is the «parallel» line of a parallel state's name compartment, under
+// its name, when the rendering shows keywords; none otherwise.
+func (l labeller) parallel(node *Node) []string {
+	if !node.Parallel || !l.shown.Has(ElementKeywords) {
+		return nil
+	}
+	return []string{parallelKeyword}
 }
 
 // titleLines joins the keyword to the first head line for a container title.
@@ -422,6 +475,7 @@ func (l labeller) titleLines(node *Node) []string {
 		head[0] = keyword + " " + head[0]
 	}
 	lines = append(lines, head...)
+	lines = append(lines, l.parallel(node)...)
 	lines = append(lines, l.details(node)...)
 	lines = append(lines, l.parameterLines(node)...)
 	return append(lines, l.compartmentLines(node)...)
@@ -446,6 +500,40 @@ func (l labeller) parameterLines(node *Node) []string {
 		return nil
 	}
 	return append([]string{"parameters"}, lines...)
+}
+
+// cameoStateDetail is a state's detail as Cameo writes it: its notes, then each
+// behavior compartment as `entry / a, b`, the kind alone for an unnamed one.
+func cameoStateDetail(node *Node) string {
+	detail := node.Detail
+	for _, compartment := range node.Compartments {
+		if !stateActionCompartment(compartment.Name) {
+			continue
+		}
+		var names []string
+		for _, row := range compartment.Rows {
+			switch {
+			case row.Name != "":
+				names = append(names, row.Name)
+			case row.Type != "":
+				names = append(names, source.ReferenceEndNames(row.Type))
+			case !strings.HasPrefix(row.Text, "action"):
+				names = append(names, row.Text)
+			}
+		}
+		line := compartment.Name
+		if len(names) > 0 {
+			line += " / " + strings.Join(names, ", ")
+		}
+		detail = detailWith(detail, line)
+	}
+	return detail
+}
+
+// stateActionCompartment reports whether a compartment name is a state's
+// `entry`, `do` or `exit` compartment.
+func stateActionCompartment(name string) bool {
+	return name == "entry" || name == "do" || name == "exit"
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one

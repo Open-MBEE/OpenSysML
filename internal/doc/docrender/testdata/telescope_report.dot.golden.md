@@ -120,7 +120,7 @@ digraph {
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<font point-size="10"><i>«state»</i></font><br/><b>operatingStates</b>>;
+    label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state»</i></font><br/><b>operatingStates</b></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
