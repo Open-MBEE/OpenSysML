@@ -23,7 +23,10 @@ verification case def Check
     verify requirement safe
       frame concern ^safety
   actor tester
-#command part def Launcher
+abstract #command part def Launcher
+#command requirement def Goal
+  subject system
+#command verification case def Audit
 
 relationships:
   Check o-- controller
@@ -32,6 +35,7 @@ relationships:
   controller *-- s1
   controller *-- s2
   safe --:|> Safe
+  system --:|> Launcher
 
 not represented:
   - satisfy requirement Headings::Controller::safe is drawn between the nodes of its ends; the view does not show both, so no edge is drawn

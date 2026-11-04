@@ -82,10 +82,16 @@ flowchart TD
   n2 --- n19
     n22("`*«actor»*
 **tester**`")
-  n23["«#35;command part def»<br>Launcher"]
+  n23["«abstract #35;command part def»<br>Launcher"]
+  n24["«#35;command requirement def»<br>Goal"]
+    n25("`*«subject»*
+**system**`")
+  n24 --- n25
+  n26["«#35;command verification case def»<br>Audit"]
   n2 ---|"◇"| n3
   n2 ---|"◇"| n22
   n3 ---|"◇"| n4
   n3 ---|"◆"| n7
   n3 ---|"◆"| n10
   n20 -->|"typing"| n0
+  n25 -->|"typing"| n23

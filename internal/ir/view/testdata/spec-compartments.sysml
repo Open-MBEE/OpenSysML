@@ -14,7 +14,11 @@ package Headings {
         frame concern safety : Safety;
     }
     metadata def command;
-    #command part def Launcher;
+    abstract #command part def Launcher;
+    #command requirement def Goal {
+        subject system : Launcher;
+    }
+    #command verification case def Audit;
     rendering def Gauge;
     metadata def Rationale { attribute text : ScalarValues::String; }
     part def Sensor { port a : Plug; port b : Plug; }
@@ -74,6 +78,8 @@ package HeadingViews {
         expose Headings::Safe;
         expose Headings::Check;
         expose Headings::Launcher;
+        expose Headings::Goal;
+        expose Headings::Audit;
         render asTreeDiagram;
     }
 }

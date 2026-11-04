@@ -1008,8 +1008,8 @@ func figureKeyword(kind string) string {
 	return strings.TrimSpace(prefix + " " + full)
 }
 
-// extendedKind writes the user-defined keywords a declaration's prefix metadata
-// adds ahead of its kind: `#command part def`, the §8.2.3.6 extended-def keyword.
+// extendedKind writes the user-defined keywords of a declaration's prefix metadata between
+// its modifiers and its kind, as written: `abstract #command part def` (§8.2.3.6 extended-def).
 func extendedKind(prefixes []*ast.PrefixMetadata, kind string) string {
 	var words []string
 	for _, prefix := range prefixes {
@@ -1020,7 +1020,8 @@ func extendedKind(prefixes []*ast.PrefixMetadata, kind string) string {
 	if len(words) == 0 {
 		return kind
 	}
-	return strings.Join(words, " ") + " " + kind
+	modifiers, keyword := splitRowPrefix(kind)
+	return strings.TrimSpace(modifiers + " " + strings.Join(words, " ") + " " + keyword)
 }
 
 // declType is the type a usage is declared with, as written ("Engine" of
