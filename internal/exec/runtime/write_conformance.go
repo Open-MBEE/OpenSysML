@@ -406,7 +406,7 @@ func (ctx *Context) holdAsReal(value *Value, declared *symbols.Symbol) error {
 // holdAsEnumerated stores a scalar admitted by an enumeration-typed feature as the
 // enumerated value it equals, so what the feature holds is of the enumeration.
 func (ctx *Context) holdAsEnumerated(value *Value, declared *symbols.Symbol) error {
-	if declared == nil || declared.Kind != symbols.SymbolEnumerationDef {
+	if !semantics.IsEnumeration(declared) {
 		return nil
 	}
 	switch value.Kind {
