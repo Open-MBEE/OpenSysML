@@ -2221,11 +2221,16 @@ constraints derive — and lists the keys it completed on the element in
 `"sysx:completedProperties": [...]`; a property the graph states is written as
 stated and not listed. A membership's and an import's `visibility` the graph
 leaves at the metamodel default is completed at it (`public`, 8.3.2.4.3;
-`private`, 8.3.2.4.2) and listed the same way. A property the evaluator cannot
-derive from the graph — one that needs the inherited members of a type whose
-general types the graph does not state, the implied library bases included — is
-not completed: `feature`, `inheritedMembership`, `member` and the collections
-over them stay as the graph states them. Reading, a listed property is
+`private`, 8.3.2.4.2) and listed the same way. The inherited-member family
+(`inheritedMembership`, `feature`, `featureMembership`, `inheritedFeature`,
+`directedFeature`, `input`, `output`, a type's `membership` and `member`, a
+usage's or definition's `usage` and `directedUsage`) is completed from the
+semantic model's inheritance table, which supplies the non-private memberships
+of the general types the graph does not describe — the explicit and implied
+library bases — with redefined features removed (8.3.3.1.10). An element whose
+implied bases the metaclass alone does not determine (an expression, its result
+feature, a multiplicity range, a nested usage's implied subsettings) inherits
+only what the graph states for it. Reading, a listed property is
 the writer's completion and states no triple, so the graph read back is the
 graph written; a property no list names — in a document another writer
 produced, or one this list was stripped from — is the statement it looks like. The compact form's `omit_derived` leaves the completed
