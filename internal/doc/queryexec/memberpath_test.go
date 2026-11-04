@@ -617,3 +617,51 @@ calc def Plenty :> Query {
 		t.Fatalf("C cells = %v, want empty, {1,2}", got)
 	}
 }
+
+// A segment naming no member of the element reached reads the element-valued
+// metaclass feature of that name, so `type.documentation` on a usage reads the
+// documentation of its definition; a row whose type has none is an empty cell.
+func TestExecuteMemberPathReadsMetaclassFeatureSegment(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+package Reqs {
+	requirement def Documented {
+		doc /* The statement. */
+	}
+	requirement def Silent;
+	part holder {
+		requirement a : Documented;
+		requirement b : Silent;
+	}
+}
+calc def Statements :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name", "type.documentation"),
+		tolerate = true
+	)
+}`)
+	result, err := fixture.execute(t, "Statements", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Reqs::holder"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	position := slices.IndexFunc(result.Columns(), func(c Column) bool { return c.Name() == "type.documentation" })
+	if position < 0 {
+		t.Fatalf("no type.documentation column in %v", result.Columns())
+	}
+	var got [][]string
+	for _, row := range result.Rows() {
+		var cell []string
+		for _, v := range row.Cells()[position].Values() {
+			text, _ := v.String()
+			cell = append(cell, text)
+		}
+		got = append(got, cell)
+	}
+	want := [][]string{{"The statement."}, nil}
+	if !slices.EqualFunc(got, want, slices.Equal) {
+		t.Fatalf("type.documentation cells = %q, want %q", got, want)
+	}
+}
