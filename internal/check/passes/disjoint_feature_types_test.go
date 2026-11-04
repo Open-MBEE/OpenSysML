@@ -102,9 +102,8 @@ func TestDisjointFeatureTypes_TwoTypings(t *testing.T) {
 	wantDisjointReport(t, disjointReports(t, "a.kerml", src), "f", "A", "B")
 }
 
-// Occurrences::Occurrence is declared disjoint from Base::DataValue (KerML 1.1
-// §8.4.4.2, §8.4.4.3; Occurrences.kerml), so a class and a data type are
-// disjoint without any disjoining in the model.
+// Occurrences.kerml declares Occurrence disjoint from DataValue (KerML 1.1 §8.4.4.2,
+// §8.4.4.3), so a class and a data type are disjoint with no disjoining in the model.
 func TestDisjointFeatureTypes_LibraryDisjoiningClassFromDataType(t *testing.T) {
 	const src = `
 		datatype D; class C;

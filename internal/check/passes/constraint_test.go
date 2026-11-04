@@ -457,9 +457,8 @@ func TestConstraint_RedefinitionInNestedDefinition(t *testing.T) {
 	}
 }
 
-// A redefining feature's type joins the redefined one's (KerML 8.3.3.3.4) and
-// neither the spec nor the pilot checks the two conform: unrelated types are
-// silent, and only provably disjoint ones are reported (disjoint-feature-types).
+// A redefining feature's type joins the redefined one's (KerML 8.3.3.3.4): unrelated
+// types are silent, only provably disjoint ones are reported (disjoint-feature-types).
 func TestConstraint_RedefinitionUnrelatedTypeStaysSilent(t *testing.T) {
 	src := `
 		attribute def SpeedType;
@@ -490,9 +489,8 @@ func TestConstraint_RedefinitionConformingTypeStaysSilent(t *testing.T) {
 	}
 }
 
-// ShapeItems redefines `faces : StructuredSurface` as `Polygon` and
-// `PlanarSurface`, which the pinned pilot validator accepts: analyzed against
-// the library the file carries no error, and the unrelated types no report.
+// ShapeItems redefines `faces : StructuredSurface` as `Polygon` and `PlanarSurface`,
+// which the pilot accepts: against the library it carries no error and no report.
 func TestConstraint_ShapeItemsRedefinitionsAreNotErrors(t *testing.T) {
 	const name = "Domain Libraries/Geometry/ShapeItems.sysml"
 	src, err := libs.DefaultSource().Read(name)

@@ -442,10 +442,8 @@ func (cc *constraintChecker) checkUnnamedRedefinitionValue(sym *symbols.Symbol) 
 	})
 }
 
-// checkRedefinition flags a usage that redefines a member it does not inherit
-// or reach through its featuring context. The redefining feature's declared type
-// is added to the redefined one's, not checked against it (KerML 8.3.3.3.4);
-// checkDisjointFeatureTypes reports the pair when the two share no instances.
+// checkRedefinition flags a usage that redefines a member it does not inherit; its
+// type joins the redefined one's (KerML 8.3.3.3.4), see checkDisjointFeatureTypes.
 func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 	rels := semantics.RelationshipsOf(sym)
 	if len(rels) == 0 {

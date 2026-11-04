@@ -28,9 +28,8 @@ func TestConformsThroughUnion(t *testing.T) {
 	}
 }
 
-// Disjoint holds only where a disjoining is declared or inherited, is symmetric,
-// descends to subtypes and through unions (a unioning cycle establishes nothing),
-// and never follows from unrelatedness.
+// Disjoint is symmetric, descends to subtypes and through unions (a unioning cycle
+// establishes nothing), and never follows from mere unrelatedness.
 func TestDisjoint(t *testing.T) {
 	m, root := buildModelNamed(t, "a.kerml", `
 		class A; class B disjoint from A; class C;

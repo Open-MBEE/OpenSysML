@@ -7,10 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
-// checkDisjointFeatureTypes reports a feature two of whose types are provably
-// disjoint, so it can have no values: a feature's types are the union of its
-// typings' and its subsetted (redefined) features' types (KerML 1.1 §8.3.3.3.4),
-// and types related by disjoining share no instances (§7.3.2.5).
+// checkDisjointFeatureTypes reports a feature two of whose types (its typings' and
+// its subsetted features', KerML 1.1 §8.3.3.3.4) are disjoint, so it has no values.
 func (cc *constraintChecker) checkDisjointFeatureTypes(sym *symbols.Symbol) {
 	if sym == nil || !sym.IsFeature() || sym.Recorded() {
 		return
