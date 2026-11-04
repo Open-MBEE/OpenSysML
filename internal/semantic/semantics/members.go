@@ -244,6 +244,10 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 		sup := src.sym
 		if sup.Scope != nil {
 			for _, s := range m.resolver.LocalBindings(sup.Scope, name) {
+				// An expanded import an owned or inherited name of sup hides is no member of sup.
+				if s.OwnerScope != sup.Scope && m.resolver.HidesImportedName(sup.Scope, name) {
+					continue
+				}
 				if m.inheritedAlong(s, src.via) && !yield(s) {
 					return
 				}

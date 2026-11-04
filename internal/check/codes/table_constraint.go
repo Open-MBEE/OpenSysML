@@ -66,6 +66,13 @@ var constraintCodes = []Entry{
 		Spec: "KerML 1.0 validateClassifierDefaultSupertype",
 	},
 	{
+		Code: "disjoint-feature-types", Tier: TierConstraint, Severity: "warning",
+		Summary: "a feature typed by two types declared disjoint, so it can have no values",
+		Meaning: "A feature's types are its own typings and the types of every feature it subsets or redefines, and types related by disjoining share no instances, so a feature reaching two disjoint types — declared with `disjoint from`, inherited along their specializations, or established by the kernel library (Occurrences::Occurrence is disjoint from Base::DataValue) — can have no values. " +
+			"Type the feature, or the feature it subsets or redefines, by types that can share instances.",
+		Spec: "KerML 1.1 §7.3.2.5 Disjoining, §8.3.3.3.4 (a feature's types are its typings' and its subsetted features'); an OpenSysML advisory",
+	},
+	{
 		Code: "feature-has-type", Tier: TierConstraint, Severity: "error",
 		Summary: "a feature with no type",
 		Meaning: "Every feature has at least one type, declared or implied through what it subsets or redefines; this one has none. " +
@@ -183,13 +190,6 @@ var constraintCodes = []Entry{
 		Meaning: "A member written `:>> x = v` takes the name of what it redefines; here the redefined feature's name differs from what the owner's other members expect, so the value lands on a member the model names otherwise. " +
 			"Name the member, or redefine the feature the name was meant for.",
 		Spec: "",
-	},
-	{
-		Code: "redefinition-type-mismatch", Tier: TierConstraint, Severity: "warning",
-		Summary: "a redefining feature typed by a type unrelated to the redefined feature's",
-		Meaning: "The redefining feature is typed by both its declared type and the redefined feature's, so two unrelated types leave it with no possible value — almost always a slip, though no normative constraint forbids it. " +
-			"Type the redefinition by a specialization of the redefined feature's type.",
-		Spec: "KerML 1.0 §8.3.3.3.4 (a feature's types are its typings and its subsetted features'); an OpenSysML advisory",
 	},
 	{
 		Code: "redefinition-through-reference", Tier: TierConstraint, Severity: "error",

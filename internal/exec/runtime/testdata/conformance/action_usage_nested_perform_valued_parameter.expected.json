@@ -1,0 +1,8 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::caller",
+	"outputs": {
+		"r": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]}
+	}
+}

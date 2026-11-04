@@ -84,10 +84,14 @@ elmt:P__Node__next
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:P__Node ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:P__Node__next_pmultiplicity ;
+    sysml:ownedRelationship elmt:P__Node__next_ft0, expr:P__Node__next_pmultiplicity_om ;
+    sysml:ownedMembership expr:P__Node__next_pmultiplicity_om ;
+    sysml:ownedMember expr:P__Node__next_pmultiplicity ;
     sysml:ownedTyping elmt:P__Node__next_ft0 ;
     sysml:ownedSpecialization elmt:P__Node__next_ft0 ;
-    sysml:ownedRelationship elmt:P__Node__next_ft0 ;
-    sysx:sourceText "        part next : Node;\n" .
+    sysx:sourceText "        part next : Node;\n" ;
+    json:ownedRelationship "[{\"@id\":\"P__Node__next_ft0\"},{\"@id\":\"P__Node__next_pmultiplicity_om\"}]" .
 
 elmt:P__Node__next_om
     a sysml:FeatureMembership ;
@@ -105,6 +109,28 @@ elmt:P__Node__next_om
     sysml:ownedMemberFeature elmt:P__Node__next ;
     sysml:owningType elmt:P__Node ;
     json:relatedElement "[{\"@id\":\"P__Node\"},{\"@id\":\"P__Node__next\"}]" .
+
+expr:P__Node__next_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "P__Node__next_pmultiplicity" ;
+    sysml:owner elmt:P__Node__next ;
+    sysml:owningRelationship expr:P__Node__next_pmultiplicity_om ;
+    sysml:owningMembership expr:P__Node__next_pmultiplicity_om .
+
+expr:P__Node__next_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "P__Node__next_pmultiplicity_om" ;
+    sysml:owner elmt:P__Node__next ;
+    sysml:memberElement expr:P__Node__next_pmultiplicity ;
+    sysml:ownedMemberElement expr:P__Node__next_pmultiplicity ;
+    sysml:ownedRelatedElement expr:P__Node__next_pmultiplicity ;
+    sysml:owningRelatedElement elmt:P__Node__next ;
+    sysml:membershipOwningNamespace elmt:P__Node__next ;
+    sysml:source elmt:P__Node__next ;
+    sysml:target expr:P__Node__next_pmultiplicity ;
+    sysml:relatedElement elmt:P__Node__next, expr:P__Node__next_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"P__Node__next\"},{\"@id\":\"P__Node__next_pmultiplicity\"}]" .
 
 elmt:P__n
     a sysml:PartUsage ;
@@ -200,10 +226,14 @@ elmt:P__H__q
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:P__Node ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:P__H__q_pmultiplicity ;
+    sysml:ownedRelationship elmt:P__H__q_ft0, expr:P__H__q_pmultiplicity_om ;
+    sysml:ownedMembership expr:P__H__q_pmultiplicity_om ;
+    sysml:ownedMember expr:P__H__q_pmultiplicity ;
     sysml:ownedTyping elmt:P__H__q_ft0 ;
     sysml:ownedSpecialization elmt:P__H__q_ft0 ;
-    sysml:ownedRelationship elmt:P__H__q_ft0 ;
-    sysx:sourceText "        part q : Node;\n" .
+    sysx:sourceText "        part q : Node;\n" ;
+    json:ownedRelationship "[{\"@id\":\"P__H__q_ft0\"},{\"@id\":\"P__H__q_pmultiplicity_om\"}]" .
 
 elmt:P__H__q_om
     a sysml:FeatureMembership ;
@@ -221,6 +251,28 @@ elmt:P__H__q_om
     sysml:ownedMemberFeature elmt:P__H__q ;
     sysml:owningType elmt:P__H ;
     json:relatedElement "[{\"@id\":\"P__H\"},{\"@id\":\"P__H__q\"}]" .
+
+expr:P__H__q_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "P__H__q_pmultiplicity" ;
+    sysml:owner elmt:P__H__q ;
+    sysml:owningRelationship expr:P__H__q_pmultiplicity_om ;
+    sysml:owningMembership expr:P__H__q_pmultiplicity_om .
+
+expr:P__H__q_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "P__H__q_pmultiplicity_om" ;
+    sysml:owner elmt:P__H__q ;
+    sysml:memberElement expr:P__H__q_pmultiplicity ;
+    sysml:ownedMemberElement expr:P__H__q_pmultiplicity ;
+    sysml:ownedRelatedElement expr:P__H__q_pmultiplicity ;
+    sysml:owningRelatedElement elmt:P__H__q ;
+    sysml:membershipOwningNamespace elmt:P__H__q ;
+    sysml:source elmt:P__H__q ;
+    sysml:target expr:P__H__q_pmultiplicity ;
+    sysml:relatedElement elmt:P__H__q, expr:P__H__q_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"P__H__q\"},{\"@id\":\"P__H__q_pmultiplicity\"}]" .
 
 elmt:P__h
     a sysml:PartUsage ;

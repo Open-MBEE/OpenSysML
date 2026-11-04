@@ -1,0 +1,18 @@
+{
+  "type": "instance",
+  "instantiate": "test::vals",
+  "slots": {
+    "q": {"type": "Integer", "value": 4},
+    "r": {"type": "Integer", "value": 4},
+    "top": {"type": "Integer", "value": 1},
+    "pair": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}, {"type": "Integer", "value": 20}]},
+    "picked": {"type": "Integer", "value": 8}
+  },
+  "materialization": {},
+  "validation": {
+    "verdicts": [
+      {"kind": "binding", "assertion": "binding [1] bind [0..1] picked = [0..1] late", "status": "holds"}
+    ],
+    "valid": true
+  }
+}

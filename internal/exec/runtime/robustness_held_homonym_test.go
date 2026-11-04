@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"errors"
+	"slices"
 	"testing"
 )
 
@@ -11,8 +11,10 @@ func TestRuntimeRobustnessHeldHomonym(t *testing.T) {
 	t.Run("unset_state_attribute_is_no_value_beside_a_machine_homonym", testHeldHomonymUnsetStateAttributeIsNoValue)
 }
 
+// Both guards read idle's unset x, so neither holds and the machine rests in wait; a read
+// falling through to the machine's x = 7 would take high.
 func testHeldHomonymUnsetStateAttributeIsNoValue(t *testing.T) {
-	_, _, err := executeStateSource(t, "Modes", `package test {
+	_, states, err := executeStateSource(t, "Modes", `package test {
 		private import ScalarValues::*;
 		state def Modes {
 			attribute x : Integer = 7;
@@ -28,11 +30,10 @@ func testHeldHomonymUnsetStateAttributeIsNoValue(t *testing.T) {
 			}
 		}
 	}`)
-	var noValue *NoValueError
-	if !errors.Is(err, ErrNoValue) || !errors.As(err, &noValue) {
-		t.Fatalf("error = %v, want ErrNoValue for the state's unset attribute x", err)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
 	}
-	if noValue.Feature != "x" {
-		t.Errorf("NoValueError.Feature = %q, want x", noValue.Feature)
+	if !slices.Contains(states, "wait") || slices.Contains(states, "high") || slices.Contains(states, "low") {
+		t.Fatalf("states = %v, want wait held and neither high nor low entered", states)
 	}
 }
