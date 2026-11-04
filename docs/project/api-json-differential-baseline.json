@@ -120,9 +120,9 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1757290,
-      "presentDifferent": 49344,
-      "oursMissing": 421304,
+      "presentEqual": 1757296,
+      "presentDifferent": 49342,
+      "oursMissing": 421300,
       "pilotMissing": 73331,
       "absentBoth": 1985949,
       "indeterminate": 50584,
@@ -306,9 +306,9 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 119498,
-        "presentDifferent": 2469,
-        "oursMissing": 29346,
+        "presentEqual": 119504,
+        "presentDifferent": 2467,
+        "oursMissing": 29342,
         "pilotMissing": 5950,
         "absentBoth": 134917,
         "indeterminate": 3310,
@@ -75903,8 +75903,8 @@
       0
     ],
     "ReferenceUsage.isVariable": [
-      2322,
-      5,
+      2323,
+      4,
       0,
       0,
       0,
@@ -75939,8 +75939,8 @@
       0
     ],
     "ReferenceUsage.mayTimeVary": [
-      2322,
-      5,
+      2323,
+      4,
       0,
       0,
       0,
@@ -88269,9 +88269,9 @@
       0
     ],
     "SubjectMembership.memberName": [
-      372,
+      374,
       3,
-      2,
+      0,
       0,
       0,
       0,
@@ -88332,9 +88332,9 @@
       0
     ],
     "SubjectMembership.ownedMemberName": [
-      372,
+      374,
       3,
-      2,
+      0,
       0,
       0,
       0,

@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1757290 present-equal, 49344 present-different, 421304 ours-missing, 73331 pilot-missing, 1985949 absent-both, 50584 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1757296 present-equal, 49342 present-different, 421300 ours-missing, 73331 pilot-missing, 1985949 absent-both, 50584 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
@@ -240,11 +240,20 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 | `examples/pilot-corpora/sysml-examples` | 99 | 26554 | 6118 | 9562 | 508362 | 13641 | 120590 | 19877 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 177688 | 5773 | 40773 | 7096 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 111490 | 4167 | 24859 | 7399 |
-| `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 119498 | 2469 | 29346 | 5950 |
+| `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 119504 | 2467 | 29342 | 5950 |
 | `tests/testdata` | 40 | 1460 | 175 | 511 | 25673 | 729 | 6186 | 1116 |
 | `examples` | 56 | 27928 | 6075 | 15212 | 533819 | 16027 | 130043 | 21654 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 839 | 3 | 162 | 41 |
 | `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 138749 | 3185 | 36706 | 4919 |
+
+**A satisfy or verify usage is a requirement check** (re-recorded when the implied-generalization
+audit gave `satisfy requirement` and an objective's `verify requirement` their library bases,
+`Requirements::satisfiedRequirementChecks` / `requirementChecks`, where they had only `Base::things`):
+in `examples/spec-examples` the subject memberships of two such usages now state the inherited
+`subj` as the pilot does (`SubjectMembership.memberName`/`ownedMemberName` 372 → 374 present-equal,
+2 → 0 present-different) and one `ReferenceUsage` reports `isVariable`/`mayTimeVary` as the pilot
+does (2322 → 2323 equal, 5 → 4 different); the root moved 119498 → 119504 present-equal,
+2469 → 2467 present-different, 29346 → 29342 ours-missing. No other root or row moved.
 
 **Defaulted parameters of an invocation** (re-recorded with the extension libraries at
 `DocumentQueries::WhereType(…, exact = false)` and `Differ`): the pilot's `InvocationExpression.parameter`
@@ -442,7 +451,7 @@ ours-missing):
    payload feature and type; §8.3.4.11.2 `MultiplicityRange::bound`; SysML 2.1 Beta 2 §8.4 a usage's
    `owningDefinition`, `owningUsage`, `definition`, nested usages and variants, a definition's owned usages
    and variants, each usage kind's `*Definition`, the requirement, case, state, accept/send properties):
-   1757290 present-equal, 49344 present-different, 421304 ours-missing, 73331 pilot-missing, 50584
+   1757296 present-equal, 49342 present-different, 421300 ours-missing, 73331 pilot-missing, 50584
    indeterminate. `owningType` 40891, `owningNamespace` 19350, `name` 13378, `owningUsage` 5089,
    `owningDefinition` 4324, `bound` 1215, `endOwningType` 482 and the `*Definition` properties moved to
    present-equal without a present-different row; `isConjugated` 34849 / 7, `featuringType` 12641 / 20
