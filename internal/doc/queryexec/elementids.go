@@ -32,6 +32,23 @@ type ElementIDReader interface {
 	ReadExpressionPart(doc string, node ast.Node, slot string) (element, membership string, err error)
 }
 
+// defaultMultiplicitySlot is the slot the conversion mints a usage's default
+// Multiplicity under: the property it states, as the declared range is.
+const defaultMultiplicitySlot = "multiplicity"
+
+// defaultMultiplicityOwner is the node of the usage whose implicit [1..1] sym
+// states (semantics.DefaultMultiplicityMember), by its span when the usage is a record.
+func defaultMultiplicityOwner(sym *symbols.Symbol) (ast.Node, bool) {
+	decl, ok := symbols.ImpliedDeclOf(sym)
+	if !ok || decl.Form != symbols.ImpliedDefaultMultiplicity {
+		return nil, false
+	}
+	if decl.Of != nil {
+		return decl.Of, true
+	}
+	return spanNode{sym.DeclSpan}, true
+}
+
 // expressionPartSlot is the slot the conversion names a synthesized
 // expression parameter by: `in%d` for an operand's or type argument's
 // parameter, `out` for the result.
@@ -96,6 +113,11 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Expr.Owner.Decl, slot)
 		return element, err
 	}
+	if owner, ok := defaultMultiplicityOwner(sym); ok {
+		// The Multiplicity stating a usage's implicit [1..1] is minted under the usage (defaultMultiplicity).
+		element, _, err := read.ReadExpressionPart(sym.DocName, owner, defaultMultiplicitySlot)
+		return element, err
+	}
 	if end, ok := connectorEndChain(sym); ok {
 		// The chain Feature a connector end's ReferenceSubsetting owns is minted under the end.
 		element, _, err := read.ReadExpressionPart(sym.DocName, end, "chain")
@@ -124,6 +146,10 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		}
 		if span, slot, ok := bodyParameterSlot(rel.Member); ok {
 			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, spanNode{span}, slot)
+			return membership, true, err
+		}
+		if owner, ok := defaultMultiplicityOwner(rel.Member); ok {
+			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, owner, defaultMultiplicitySlot)
 			return membership, true, err
 		}
 		if rel.Member != nil {

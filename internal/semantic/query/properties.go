@@ -91,6 +91,10 @@ func (r *PropertyReader) identityValues(sym *symbols.Symbol, property string) ([
 		}
 		return presentValues(fqn)
 	case PropertyQualifiedName:
+		if semantics.IsDefaultMultiplicity(sym) {
+			// Element::qualifiedName is null for an unnamed element (KerML 1.1 §8.3.2.1).
+			return nil, false
+		}
 		if r.identity != nil {
 			if identity := r.identity(sym); identity != "" && identity != fqn {
 				return nil, false

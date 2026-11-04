@@ -12,6 +12,9 @@ const (
 	// ImpliedConjugatedPortDefinition is a PortDefinition's implied conjugate;
 	// its effective name is null without a name, else `~` plus that name; it declares no short name.
 	ImpliedConjugatedPortDefinition ImpliedForm = iota
+	// ImpliedDefaultMultiplicity is the Multiplicity stating a usage's implicit [1..1]
+	// (SysML v2 §7.6.3), owned last among the usage's memberships; it declares no name.
+	ImpliedDefaultMultiplicity
 )
 
 // ImpliedDecl declares an element the abstract syntax implies for a written
@@ -24,8 +27,14 @@ type ImpliedDecl struct {
 	Form ImpliedForm
 }
 
-// Span is the span of the written declaration the element is implied for.
-func (d *ImpliedDecl) Span() source.Span { return d.Of.Span() }
+// Span is the span of the written declaration the element is implied for; empty
+// when that declaration is a record, which has no node.
+func (d *ImpliedDecl) Span() source.Span {
+	if d.Of == nil {
+		return source.Span{}
+	}
+	return d.Of.Span()
+}
 
 // LeadingTrivia is empty: nothing is written for an implied element.
 func (d *ImpliedDecl) LeadingTrivia() []ast.Trivia { return nil }

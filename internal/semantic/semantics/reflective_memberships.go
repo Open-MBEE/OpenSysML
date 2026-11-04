@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -49,6 +50,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 	}
 	if sym.Scope == nil {
+		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out
 		return out
 	}
@@ -73,8 +75,27 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 		return true
 	})
+	out = m.withDefaultMultiplicity(sym, out, ordinal)
 	m.memberships[sym] = out
 	return out
+}
+
+// withDefaultMultiplicity appends, last, the OwningMembership of the Multiplicity
+// stating sym's implicit [1..1] (DefaultMultiplicityMember), as the pilot owns it.
+func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symbols.Symbol, ordinal int) []*symbols.Symbol {
+	member := m.DefaultMultiplicityMember(sym)
+	if member == nil {
+		return memberships
+	}
+	return append(memberships, &symbols.Symbol{
+		Kind:       symbols.SymbolRelationship,
+		DocName:    sym.DocName,
+		DeclSpan:   source.Span{Offset: sym.DeclSpan.End()},
+		Visibility: sym.Visibility,
+		Implicit: &symbols.ImplicitRelationship{
+			Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: member,
+		},
+	})
 }
 
 // isSatisfySubjectSymbol reports whether sym is the subject parameter a satisfy
@@ -270,6 +291,10 @@ func (m *Model) implicitOwnedRelationships(sym *symbols.Symbol) []*symbols.Symbo
 func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if isValueExpressionSymbol(member) {
 		return "FeatureValue"
+	}
+	if IsDefaultMultiplicity(member) {
+		// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
+		return "OwningMembership"
 	}
 	if member != nil && member.Expr != nil {
 		switch member.Expr.Role {

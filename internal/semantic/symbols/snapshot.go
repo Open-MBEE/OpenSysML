@@ -661,7 +661,7 @@ func (d *sectionReader) decl() ast.Node {
 	if form == 0 {
 		return n
 	}
-	if form < 0 || form-1 > int64(ImpliedConjugatedPortDefinition) {
+	if form < 0 || form-1 > int64(ImpliedDefaultMultiplicity) {
 		d.r.Fail("implied form")
 		return n
 	}

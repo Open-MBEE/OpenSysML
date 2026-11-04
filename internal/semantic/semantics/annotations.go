@@ -1564,7 +1564,12 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return ownedMembersOf(sym), true
+		return m.withDefaultMultiplicityMember(sym, ownedMembersOf(sym)), true
+	case "multiplicity":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return nil, false
+		}
+		return m.withDefaultMultiplicityMember(sym, m.multiplicityMembersOf(sym)), true
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
@@ -1882,7 +1887,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 			members = append(members, chain)
 		}
 	}
-	return members
+	return m.withDefaultMultiplicityMember(sym, members)
 }
 
 // connectorRelatedFeatures is Connector::relatedFeature, sourceFeature or
@@ -1990,6 +1995,27 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) []*symbo
 // ownedMembersOf is every element sym's own body declares, in declaration order:
 // an alias is a membership rather than an element, and a name registered twice
 // (short and primary) is one element.
+// withDefaultMultiplicityMember appends, last, the Multiplicity stating sym's
+// implicit [1..1] (DefaultMultiplicityMember): the member of its last owned membership.
+func (m *Model) withDefaultMultiplicityMember(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
+	if member := m.DefaultMultiplicityMember(sym); member != nil {
+		return append(members, member)
+	}
+	return members
+}
+
+// multiplicityMembersOf is the `multiplicity` members a type declares (KerML 8.3.3.1.10
+// Type::multiplicity, an owned member that is a Multiplicity); a usage's range is no member.
+func (m *Model) multiplicityMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, member := range ownedMembersOf(sym) {
+		if member.Kind == symbols.SymbolMultiplicity {
+			out = append(out, member)
+		}
+	}
+	return out
+}
+
 func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Scope == nil {
 		return nil
