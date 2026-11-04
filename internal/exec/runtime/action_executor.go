@@ -35,9 +35,8 @@ type ActionExecutor struct {
 	// action states the body performed; performed is the action as named, a usage
 	// stating no body of its own or the action itself, whose metadata binds the performance.
 	action, performed *symbols.Symbol
-	// declared is the usage performed as itself whose body action states: its members
-	// value the parameters they redefine. Nil for a body of its own or a performance
-	// another action's node or invocation binds the parameters of.
+	// declared is the usage whose body action states, when it states another's: its
+	// members value the parameters they redefine. Nil for an action performing its own body.
 	declared *symbols.Symbol
 	// tool is the ToolExecution annotating performed, whose tool performs the action in
 	// place of its body; nil for an action performed by its body.
@@ -224,7 +223,7 @@ func newActionExecutorOfGraph(
 		if err != nil {
 			return nil, err
 		}
-		declared = declaredThrough(performed, callee, action, tool)
+		declared = declaredThrough(callee, action, tool)
 	} else {
 		held, found, err := ctx.toolPerformance(performed, action)
 		if err != nil {
@@ -241,12 +240,11 @@ func newActionExecutorOfGraph(
 	return newActionExecutorOn(ctx, performed, action, declared, tool, graph, self, occurrence), nil
 }
 
-// declaredThrough is callee, performed as itself, when body, the action
-// performanceBody resolved it to, is another action's: callee's members then value
-// the performance. A node or invocation performing callee binds its parameters
-// itself, from its pins, arguments and performer, so performed differs from callee.
-func declaredThrough(performed, callee, body *symbols.Symbol, tool *toolExecution) *symbols.Symbol {
-	if tool != nil || body == callee || performed != callee {
+// declaredThrough is callee when body, the action performanceBody resolved it to,
+// is another action's: callee's members then value the performance, under the
+// inputs a node or invocation performing it binds from its pins and arguments.
+func declaredThrough(callee, body *symbols.Symbol, tool *toolExecution) *symbols.Symbol {
+	if tool != nil || body == callee {
 		return nil
 	}
 	return callee
@@ -323,7 +321,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		if i, ok := declared[name]; ok {
 			switch {
 			case e.declared != nil && features[i].Node != ast.Node(usage):
-				if e.redefinesAttribute(member, features[i]) {
+				if e.redefinesAttribute(member, features[i]) && !performerBinds(usage) {
 					features[i] = e.redefinedAttribute(features[i], member, usage)
 				}
 			case features[i].Value == nil && features[i].Node == ast.Node(usage):
@@ -408,6 +406,23 @@ func (e *ActionExecutor) redefinesAttribute(member *symbols.Symbol, attr lower.A
 	}
 	chain := semantics.ParameterRedefinitionChain(member)
 	return len(chain) > 1 && slices.Contains(chain[1:], sym)
+}
+
+// performerBinds reports whether usage is a ref parameter valued by the bare `this`:
+// the performer binds it (bindContextDefault), as it binds one stating no value, so
+// the value is left unevaluated rather than materializing the performance it names.
+func performerBinds(usage *ast.Usage) bool {
+	if !usage.IsReference || (usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut) {
+		return false
+	}
+	var qn *ast.QualifiedName
+	switch value := usage.Value.(type) {
+	case *ast.FeatureReference:
+		qn = value.Name
+	case *ast.QualifiedName:
+		qn = value
+	}
+	return qn != nil && len(qn.Parts) == 1 && qn.Parts[0].Text == thisName
 }
 
 // redefinedAttribute is attr as member, a parameter of the usage performed through,
