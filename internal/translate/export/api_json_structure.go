@@ -502,6 +502,9 @@ func (s *apiJSONGraphStructure) Attribute(element metamodel.Element, property st
 	}
 	objects := s.graph.ObjectsView(subject, apiJSONSysMLPredicate(graphProperty))
 	if len(objects) == 0 {
+		if definition.HasDefault && !definition.Many {
+			return apiJSONGraphAttributeDefault(definition), true
+		}
 		if definition.Lower > 0 {
 			return metamodel.Value{}, false
 		}
@@ -522,6 +525,15 @@ func (s *apiJSONGraphStructure) Attribute(element metamodel.Element, property st
 		values = append(values, value)
 	}
 	return metamodel.Value{Kind: metamodel.SequenceValue, Values: values, Success: true}, true
+}
+
+// apiJSONGraphAttributeDefault is the metamodel default an unstated attribute
+// takes (KerML 8.3.2.4.3 Membership::visibility = public, Import = private).
+func apiJSONGraphAttributeDefault(definition ontology.Property) metamodel.Value {
+	if definition.Range == rdf.XSD+"boolean" {
+		return metamodel.Value{Kind: metamodel.BooleanValue, Boolean: definition.Default == "true", Success: true}
+	}
+	return metamodel.Value{Kind: metamodel.StringValue, String: definition.Default, Success: true}
 }
 
 func apiJSONGraphAttributeValue(object rdf.Term) (metamodel.Value, bool) {

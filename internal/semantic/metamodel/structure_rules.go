@@ -4649,6 +4649,9 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 		return nil, true
 	}
 	visited[element.Key()] = true
+	if element.Symbol != nil {
+		return e.structureLibraryTypeMembers(element, property)
+	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
 		return nil, false
@@ -4711,7 +4714,7 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 			values = append(values, membershipValue)
 			continue
 		}
-		members, ok := e.structureMembershipMembers(membership)
+		members, ok := e.structureMembershipMemberElements(membership)
 		if !ok {
 			return nil, false
 		}
@@ -4733,6 +4736,68 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 	return uniqueStructureValueSequence(values, e.options.Structure).Values, true
 }
 
+// structureLibraryTypeMembers reads a library base's non-private memberships from the
+// semantic inheritance table (KerML 8.3.3.1.10 nonPrivateMemberships); the graph states none.
+func (e *Evaluator) structureLibraryTypeMembers(base Element, property string) ([]Value, bool) {
+	if e.model == nil || !e.completeMembers(base.Symbol) {
+		return nil, false
+	}
+	var public, protected, inherited []Value
+	for _, member := range e.model.MembersOf(base.Symbol) {
+		if member == nil || (e.resolver != nil && !e.resolver.InheritedMemberVisible(nil, member)) {
+			continue
+		}
+		membership := ElementOf(member).Membership
+		if !hasMembership(membership) {
+			continue
+		}
+		var value Value
+		switch property {
+		case "membership":
+			value = membershipValue(membership)
+		case "featureMembership":
+			if !membership.Feature {
+				continue
+			}
+			value = membershipValue(membership)
+		case "feature":
+			if !membership.Feature {
+				continue
+			}
+			value = elementValue(ElementOf(member))
+		default:
+			value = elementValue(ElementOf(member))
+		}
+		switch {
+		case member.Owner() != base.Symbol:
+			inherited = append(inherited, value)
+		case member.Visibility == ast.VisibilityProtected:
+			protected = append(protected, value)
+		default:
+			public = append(public, value)
+		}
+	}
+	return append(append(public, protected...), inherited...), true
+}
+
+// structureMembershipMemberElements is structureMembershipMembers for a membership the
+// graph may not state: a semantic membership answers its member symbol directly.
+func (e *Evaluator) structureMembershipMemberElements(membership Element) ([]Element, bool) {
+	if membership.Membership.Aspect == "" && membership.Membership.Member != nil {
+		return []Element{ElementOf(membership.Membership.Member)}, true
+	}
+	return e.structureMembershipMembers(membership)
+}
+
+// structureFeatureKey identifies a feature the same way whether the graph states it
+// or the semantic model supplies it, so redefinitions match across the two.
+func (e *Evaluator) structureFeatureKey(feature Element) ElementKey {
+	if feature.Symbol != nil && !feature.IsMembership {
+		return ElementOf(feature.Symbol).Key()
+	}
+	return feature.Key()
+}
+
 func (e *Evaluator) structureNonPrivateMemberships(
 	element Element,
 	visited map[ElementKey]bool,
@@ -4741,6 +4806,9 @@ func (e *Evaluator) structureNonPrivateMemberships(
 		return nil, true
 	}
 	visited[element.Key()] = true
+	if element.Symbol != nil {
+		return e.structureLibraryTypeMembers(element, "membership")
+	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
 		return nil, false
@@ -4830,7 +4898,7 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 			return nil, false
 		}
 		membership := Element{Membership: membershipValue.Membership, IsMembership: true}
-		members, ok := e.structureMembershipMembers(membership)
+		members, ok := e.structureMembershipMemberElements(membership)
 		if !ok {
 			return nil, false
 		}
@@ -4854,7 +4922,7 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 			}
 			entry.redefined = make(map[ElementKey]bool, len(redefined))
 			for _, feature := range redefined {
-				entry.redefined[feature.Key()] = true
+				entry.redefined[e.structureFeatureKey(feature)] = true
 			}
 		}
 		candidates = append(candidates, entry)
@@ -4885,7 +4953,7 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 				if target.Kind != ElementValue {
 					return nil, false
 				}
-				ownedRedefined[target.Element.Key()] = true
+				ownedRedefined[e.structureFeatureKey(target.Element)] = true
 			}
 		}
 	}
@@ -4895,7 +4963,7 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 		if entry.isFeature {
 			removed := false
 			for j, other := range candidates {
-				if i != j && other.isFeature && other.redefined[entry.feature.Key()] {
+				if i != j && other.isFeature && other.redefined[e.structureFeatureKey(entry.feature)] {
 					removed = true
 					break
 				}
@@ -4918,6 +4986,13 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 }
 
 func (e *Evaluator) structureAllRedefinedFeatures(feature Element) ([]Element, bool) {
+	if feature.Symbol != nil && feature.Aspect == "" && e.model != nil {
+		result := []Element{feature}
+		for _, redefined := range e.model.AllRedefinedFeatures(feature.Symbol) {
+			result = append(result, ElementOf(redefined))
+		}
+		return result, true
+	}
 	seen := map[ElementKey]bool{feature.Key(): true}
 	queue := []Element{feature}
 	result := []Element{feature}
@@ -6038,11 +6113,7 @@ func (e *Evaluator) structureNamespaceMemberships(element Element) (Value, bool,
 		return Value{}, handled, false
 	}
 	if element.Symbol == nil {
-		e.recordUnsupportedReason(element, "Namespace", "membership", Reason{
-			Category: ReasonUnrepresentedElement,
-			Detail:   "Namespace::membership has no semantic namespace symbol",
-		})
-		return Value{}, true, false
+		return e.structureGraphNamespaceMemberships(element, owned)
 	}
 	if !e.completeMembers(element.Symbol) {
 		e.recordMemberCompletenessFailure(element, "Namespace", "membership", element.Symbol)
@@ -6113,6 +6184,41 @@ func (e *Evaluator) structureImportedMemberships(element Element) (Value, bool, 
 	return value, true, ok
 }
 
+// structureGraphNamespaceMemberships derives Namespace::membership for a graph namespace
+// (KerML 8.3.2.4.5): owned, then a type's inherited (8.3.3.1.10), then imported memberships.
+func (e *Evaluator) structureGraphNamespaceMemberships(element Element, owned Value) (Value, bool, bool) {
+	values := slicesClone(owned.Values)
+	isType, known := e.isMetaclass(element, "Type")
+	if !known {
+		e.recordUnsupportedReason(element, "Namespace", "membership", Reason{
+			Category: ReasonUnrepresentedElement,
+			Detail:   "Namespace::membership has no represented metaclass",
+		})
+		return Value{}, true, false
+	}
+	if isType {
+		inherited, ok := e.structureInheritedValues(element, "membership")
+		if !ok {
+			e.recordUnsupportedReason(element, "Namespace", "membership", Reason{
+				Category: ReasonUnresolvedReference,
+				Detail:   "Namespace::membership has unresolved specialization references",
+			})
+			return Value{}, true, false
+		}
+		values = append(values, inherited...)
+	}
+	imported, handled, ok := e.structureImportedMemberships(element)
+	if !handled || !ok {
+		e.recordUnsupportedReason(element, "Namespace", "membership", Reason{
+			Category: ReasonUnresolvedReference,
+			Detail:   "Namespace::membership contains an unresolved imported reference",
+		})
+		return Value{}, true, false
+	}
+	values = append(values, imported.Values...)
+	return uniqueStructureValueSequence(values, e.options.Structure), true, true
+}
+
 func (e *Evaluator) structureNamespaceMembers(element Element) (Value, bool, bool) {
 	memberships, handled, ok := e.structureNamespaceMemberships(element)
 	if !handled || !ok {
@@ -6125,7 +6231,7 @@ func (e *Evaluator) structureNamespaceMembers(element Element) (Value, bool, boo
 	var values []Value
 	for _, membership := range memberships.Values {
 		handle := Element{Membership: membership.Membership, IsMembership: true}
-		members, ok := e.structureMembershipMembers(handle)
+		members, ok := e.structureMembershipMemberElements(handle)
 		if !ok {
 			e.recordUnsupportedReason(element, "Namespace", "member", Reason{
 				Category: ReasonUnrepresentedEndpoint,
