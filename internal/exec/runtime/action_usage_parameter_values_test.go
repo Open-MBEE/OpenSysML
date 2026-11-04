@@ -15,6 +15,15 @@ const actionUsageParameterValuesSource = `package P {
 	action r : Step {
 		in x redefines x = 9;
 	}
+	action def Count {
+		attribute x = 1;
+		out y;
+		first start;
+		then assign y := x;
+	}
+	action hides : Count {
+		attribute x = 9;
+	}
 }
 `
 
@@ -53,5 +62,14 @@ func TestActionUsageInputOverridesOwnValue(t *testing.T) {
 	outputs := executeActionUsage(t, "s", map[string]Value{"x": integerValue(4)})
 	if got := soleInteger(t, "y", outputs["y"]); got != 5 {
 		t.Errorf("s.y = %d, want 5", got)
+	}
+}
+
+// A usage member that only hides a same-named feature of the definition, redefining
+// nothing, leaves the body reading the definition's own feature (KerML 1.0 §8.2.3.5.3).
+func TestActionUsageNamesakeDoesNotReplaceBodyFeature(t *testing.T) {
+	outputs := executeActionUsage(t, "hides", nil)
+	if got := soleInteger(t, "y", outputs["y"]); got != 1 {
+		t.Errorf("hides.y = %d, want 1", got)
 	}
 }

@@ -35,8 +35,9 @@ type ActionExecutor struct {
 	// action states the body performed; performed is the action as named, a usage
 	// stating no body of its own or the action itself, whose metadata binds the performance.
 	action, performed *symbols.Symbol
-	// declared is the usage action's body is performed through, when that usage
-	// states no body of its own: its members value the parameters they redefine.
+	// declared is the usage performed as itself whose body action states: its members
+	// value the parameters they redefine. Nil for a body of its own or a performance
+	// another action's node or invocation binds the parameters of.
 	declared *symbols.Symbol
 	// tool is the ToolExecution annotating performed, whose tool performs the action in
 	// place of its body; nil for an action performed by its body.
@@ -223,7 +224,7 @@ func newActionExecutorOfGraph(
 		if err != nil {
 			return nil, err
 		}
-		declared = declaredThrough(callee, action, tool)
+		declared = declaredThrough(performed, callee, action, tool)
 	} else {
 		held, found, err := ctx.toolPerformance(performed, action)
 		if err != nil {
@@ -240,10 +241,12 @@ func newActionExecutorOfGraph(
 	return newActionExecutorOn(ctx, performed, action, declared, tool, graph, self, occurrence), nil
 }
 
-// declaredThrough is callee when body, the action performanceBody resolved it to,
-// is another action's: callee's members then redefine body's parameters.
-func declaredThrough(callee, body *symbols.Symbol, tool *toolExecution) *symbols.Symbol {
-	if tool != nil || body == callee {
+// declaredThrough is callee, performed as itself, when body, the action
+// performanceBody resolved it to, is another action's: callee's members then value
+// the performance. A node or invocation performing callee binds its parameters
+// itself, from its pins, arguments and performer, so performed differs from callee.
+func declaredThrough(performed, callee, body *symbols.Symbol, tool *toolExecution) *symbols.Symbol {
+	if tool != nil || body == callee || performed != callee {
 		return nil
 	}
 	return callee
@@ -320,7 +323,9 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		if i, ok := declared[name]; ok {
 			switch {
 			case e.declared != nil && features[i].Node != ast.Node(usage):
-				features[i] = e.redefinedAttribute(features[i], member, usage)
+				if e.redefinesAttribute(member, features[i]) {
+					features[i] = e.redefinedAttribute(features[i], member, usage)
+				}
 			case features[i].Value == nil && features[i].Node == ast.Node(usage):
 				features[i].Value, features[i].Scope, features[i].Binding = e.inheritedValue(member)
 			}
@@ -380,6 +385,29 @@ func (e *ActionExecutor) inheritedValue(member *symbols.Symbol) (ast.Node, *symb
 	}
 	value, scope := e.ctx.model.semantics.ParameterDefault(member)
 	return value, scope, false
+}
+
+// redefinesAttribute reports whether member, of the usage performed through, redefines
+// the feature attr declares: explicitly, or as a parameter by position (SysML v2.1 §7.17.2).
+// A namesake that only hides it leaves the body's own feature as it is.
+func (e *ActionExecutor) redefinesAttribute(member *symbols.Symbol, attr lower.Attribute) bool {
+	sym := attr.Symbol
+	if sym == nil {
+		scope := attr.Scope
+		if scope == nil {
+			scope = e.graph.Scope
+		}
+		sym = memberSymbol(scope, attr.Node)
+	}
+	if sym == nil {
+		return false
+	}
+	semantics := e.ctx.model.semantics
+	if slices.Contains(semantics.AllRedefinedFeatures(member), sym) {
+		return true
+	}
+	chain := semantics.ParameterRedefinitionChain(member)
+	return len(chain) > 1 && slices.Contains(chain[1:], sym)
 }
 
 // redefinedAttribute is attr as member, a parameter of the usage performed through,
