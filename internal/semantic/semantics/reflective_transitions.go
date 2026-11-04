@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// transitionParts are the features a transition owns through TransitionFeatureMemberships
-// that its scope declares no symbol for (SysML v2 §8.3.17.10): the trigger's accept, with
-// its payload parameter and a time or change event's TriggerInvocationExpression, and the guard.
+// transitionParts are the trigger accept (with its payload and that payload's value) and the guard
+// a transition owns through TransitionFeatureMemberships but its scope declares no symbol for (SysML v2.1 §8.3.18.9).
 type transitionParts struct {
 	accepter     *symbols.Symbol
 	payload      *symbols.Symbol
@@ -75,9 +74,8 @@ func transitionDecl(sym *symbols.Symbol) (*ast.TransitionMember, bool) {
 	return trans, ok && !trans.IsSuccession
 }
 
-// triggerPayload is the payload parameter a transition's trigger declares, or the time or
-// change event an unnamed payload's value is (SysML.xtext TriggerValuePart), as the
-// conversion writes them; neither for a call event or a `when <name>` signal.
+// triggerPayload is a trigger's payload parameter, or the event an unnamed payload's value is
+// (SysML.xtext TriggerValuePart), as the conversion writes them; neither for a call or `when <name>`.
 func triggerPayload(trans *ast.TransitionMember) (*ast.Usage, ast.Node) {
 	switch t := trans.Trigger.(type) {
 	case nil, *ast.ErrorNode, *ast.QualifiedName, *ast.FeatureReference, *ast.AcceptEvent, *ast.CallEvent:
@@ -98,7 +96,7 @@ func triggerPayload(trans *ast.TransitionMember) (*ast.Usage, ast.Node) {
 }
 
 // transitionFeatureKind is the TransitionFeatureKind of the membership through which the
-// transition owner owns member, ok false for a member it owns otherwise (SysML v2 §8.3.17.9).
+// transition owner owns member, ok false for a member it owns otherwise (SysML v2.1 §8.3.18.8).
 func (m *Model) transitionFeatureKind(owner, member *symbols.Symbol) (string, bool) {
 	if member != nil && member.Expr != nil && member.Expr.Owner == owner {
 		switch member.Expr.Role {
@@ -176,7 +174,7 @@ func (m *Model) acceptParts(sym *symbols.Symbol) *transitionParts {
 }
 
 // transitionElements is ReflectiveElements for the features of a transition and of its
-// trigger's accept (SysML v2 §8.3.17.10 TransitionUsage, §8.3.17.2 AcceptActionUsage).
+// trigger's accept (SysML v2.1 §8.3.18.9 TransitionUsage, §8.3.17.2 AcceptActionUsage).
 func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
 	if parts := m.transitionPartsOf(sym); parts != nil {
 		switch feature {

@@ -1,6 +1,6 @@
 // A transition owns its trigger's accept, its guard and its effect through TransitionFeatureMemberships
 // whose kind is a TransitionFeatureKind literal, and a time or change trigger's payload is a
-// TriggerInvocationExpression whose kind is a TriggerKind literal (SysML v2 §8.3.17).
+// TriggerInvocationExpression whose kind is a TriggerKind literal (SysML v2.1 §8.3.18.8, §8.3.17.17).
 package test {
     private import ScalarValues::*;
     private import Time::*;
