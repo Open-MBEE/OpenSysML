@@ -17,8 +17,10 @@ import {
   PlacedEdge,
   PlacedNode,
   portBox,
+  portCenter,
   portLabelPlacement,
   PORT_SIZE,
+  proxyLabelPlacement,
   portName,
   steerable,
   type PlacedPort,
@@ -241,6 +243,14 @@ function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
       x1: String(box.x + box.width / 2), y1: String(box.y + box.height),
       x2: String(box.x + box.width / 2), y2: String(entry.lifeline), class: "lifeline",
     }));
+    // A port on the lifeline's border has a lifeline of its own for the messages at it.
+    for (const port of entry.ports) {
+      const center = portCenter(box, port);
+      group.append(element("line", {
+        x1: String(center.x), y1: String(center.y + PORT_SIZE / 2),
+        x2: String(center.x), y2: String(entry.lifeline), class: "lifeline",
+      }));
+    }
   }
   group.append(shape(entry));
   if (DOT_KINDS.has(entry.node.kind) && entry.node.name !== "") {
@@ -252,12 +262,16 @@ function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
   if (entry.node.arrow !== undefined) {
     group.append(itemArrow(entry));
   }
+  // A proxy on a lifeline is labelled beside its point (§8.2.3.9 proxy-label).
+  const proxy = entry.parent?.lifeline !== undefined;
   if (entry.lines.length > 0) {
-    const text = element("text", { x: String(box.x + LABEL_PAD_X), y: String(box.y + LABEL_PAD_Y), class: "label" });
+    const placement = proxyLabelPlacement(entry);
+    const labelX = proxy ? placement.x : box.x + LABEL_PAD_X;
+    const text = element("text", { x: String(labelX), y: String(proxy ? placement.y : box.y + LABEL_PAD_Y), class: "label" });
     entry.lines.forEach((line, i) => {
       const span = element("tspan", {
-        x: String(box.x + LABEL_PAD_X),
-        dy: String(i === 0 ? LINE_HEIGHT * 0.8 : LINE_HEIGHT),
+        x: String(labelX),
+        dy: String(proxy ? 0 : i === 0 ? LINE_HEIGHT * 0.8 : LINE_HEIGHT),
         class: labelLineClass(entry.lines, i),
       });
       span.textContent = line;
@@ -428,6 +442,7 @@ function drawEdge(edge: PlacedEdge): SVGGElement {
     case "frame":
     case "event":
     case "expose":
+    case "message":
       attrs["marker-end"] = "url(#arrow-open)";
       break;
     case "reference subsetting":

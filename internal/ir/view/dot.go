@@ -273,7 +273,7 @@ func newDOTWriter(r *Rendering, options Options, arranged bool) *dotWriter {
 	skin := skinOf(options.Style)
 	w := &dotWriter{kind: r.Kind, tree: r.Kind == KindTree, nesting: r.nestingEdges(), nodes: r.nodeTree(), action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, spread: map[string]boundarySide{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
-		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures, pictureRefusals: r.pictureRefusals(), links: options.Links}
+		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree, sequence: r.Kind == KindSequence}, skin: skin, pictures: r.Pictures, pictureRefusals: r.pictureRefusals(), links: options.Links}
 	w.notices = append(w.notices, refusedPictureNotices(w.pictures, w.pictureRefusals)...)
 	w.sources = map[string]bool{}
 	for _, edge := range r.Edges {
@@ -2155,7 +2155,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		attrs = append(attrs, dirNone, dotStyleDashed)
 	case EdgeSuccessionFlow:
 		attrs = append(attrs, dotStyleDashed)
-	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeMessage:
 		attrs = append(attrs, dotArrowheadVee)
 	case EdgePortion:
 		// Graphviz has no three-quarter circle: a filled circle stands at the occurrence end.

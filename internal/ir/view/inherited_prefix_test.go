@@ -110,6 +110,26 @@ func TestCompartmentRowsPrefixInheritedUsages(t *testing.T) {
 	}
 }
 
+// An individual usage folds into the `individuals` compartment whatever its
+// keyword (SysML v2.1 §8.2.3.9 individuals-compartment), the row keeping the
+// keyword the compartment's name no longer says.
+func TestCompartmentRowsCollectIndividuals(t *testing.T) {
+	rendering := render(t, "individuals.sysml", "IndividualViews::missionTree")
+	folded := foldCompartments(rendering.showing(AllShown()), CompartmentsMost)
+	mission := nodeAt(folded.Roots, "Probes::Mission")
+	if mission == nil {
+		t.Fatalf("Mission is not drawn; roots: %v", nodeNames(folded.Roots))
+	}
+	want := "individuals: part voyager : Voyager, item relay : Voyager, occurrence cruise : Cruise; parts: lander : Probe"
+	if got := compartmentText(mission); got != want {
+		t.Errorf("Mission's compartments = %q, want %q", got, want)
+	}
+	text := folded.textWith(Options{Show: AllShown(), Compartments: CompartmentsMost})
+	if !strings.Contains(text, "  individuals\n    part voyager : Voyager\n") {
+		t.Errorf("text lacks the individuals compartment:\n%s", text)
+	}
+}
+
 // The edge a folded row's membership and typing fold into names the row the
 // way its label does: after `^` when the row is inherited.
 func TestFoldedMembershipEdgeLabelsPrefixInheritedUsages(t *testing.T) {

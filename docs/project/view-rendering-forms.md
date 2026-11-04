@@ -498,6 +498,32 @@ the block's `// layout:` header names, so a positioned view is drawn where its `
 it. Without a Graphviz the PDF keeps the DOT source under a notice, as it does without any
 optional tool — see [Surfaces](#surfaces).
 
+### Lifeline points, ports and successions
+
+The events a message or succession ends at are drawn as the specification's `sq-proxy`
+(SysML v2.1 §8.2.3.9): a filled point on the lifeline of the part that declares the event,
+labelled with the event's name, so `message publish of Publish from producer.sent to
+server.taken` runs from the point `sent` on `producer` to the point `taken` on `server`.
+The proxies are the lifeline node's children, in the order their events are declared; a
+form whose arrows run between participants and know no point on a lifeline (PlantUML,
+Mermaid) lifts the arrow's ends to the lifelines, D2 nests the proxies as spans of their
+actors, and the text form names a proxy through its lifeline (`producer.sent`). A port a
+message ends at is a port of the lifeline node (`sq-port`), drawn as a square on the box's
+bottom border with a lifeline of its own on the canvas and listed under the lifeline in text;
+the arrow ends at it.
+
+A `message` is an edge of its own kind, solid with an open head, labelled as `message-label`
+writes it: the message's name and `of` the payload it carries (`publish of Publish`), the
+type it is declared with when it is anonymous, else the payload alone. A `flow` between
+events keeps the flow glyph's filled head. The successions between events — `succession`
+usages and member-attached `then` — are drawn as the dashed open-headed `sq-succession`
+rows of the sequence, labelled with the succession's name, each after the row of its source
+event (or of an event ordered before it) and before the row of its target; a succession
+between two events of one lifeline is a self-message. PlantUML writes `->>` and `-->>`,
+Mermaid `-)` and `--)`, D2 its `open` and `succession` classes, the canvas its open
+arrowheads. An `event occurrence` is headed «event occurrence», as the figure's
+`event-occurrence-name-compartment` writes it.
+
 ### The document default
 
 A document states no form; `-diagram-form` is chosen at render time, and when it is not stated the
@@ -705,8 +731,9 @@ compartments and labels of the clause still lack.
 | `connection` | `connection` | `arrowhead=none, penwidth=3` | `-[thickness=3]-` | `===` | `-- connection` | `endArrow=none;strokeWidth=3` | `none` | conformant | The Pilot's heavy undirected connector; `penwidth=3` is dropped under the cameo style. |
 | `binding-connection` | `binding` | `arrowhead=none` | `--` | `===` | `-- edge` | `endArrow=none` | `none` | conformant | Labelled `=` where the binding has no name of its own, in every form. |
 | `flow` | `flow` | *(default)* | `-->` | `-->` | `-> edge` | `endArrow=block;endFill=1` | `end arrow` | approximate | Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it). |
-| `aflow-succession` | `succession` | `style=dashed, arrowhead=vee` | `-[dashed]->` | `-.->` | `-> succession` | `dashed=1;endArrow=open` | `end arrow-open` | differs from pilot | Dashed with an open head and the guard as its text; the Pilot draws a succession solid. Mermaid's `-.->` and D2's dashed arrow carry a filled head. |
+| `aflow-succession`, `sq-succession` | `succession` | `style=dashed, arrowhead=vee` | `-[dashed]->` | `-.->` | `-> succession` | `dashed=1;endArrow=open` | `end arrow-open` | differs from pilot | Dashed with an open head and the guard as its text; the Pilot draws a succession solid. Mermaid's `-.->` and D2's dashed arrow carry a filled head. |
 | `transition`, `st-succession` | `transition` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `endArrow=open` | `end arrow-open` | approximate | Solid with an open head; Mermaid and D2 have only a filled head. |
+| `message` | `message` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | approximate | Solid with an open head from the sending event to the receiving one, labelled `name of payload` (§8.2.3.9 message-label); in a sequence, PlantUML writes `->>` and Mermaid `-)`. Mermaid's flowchart and D2 have only a filled head. |
 | `subclassification`, `specialization` | `specialization` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-hollow` | approximate | Solid hollow triangle; Mermaid has no triangle head and names the kind as the edge text instead. |
 | `subsetting` | `subsetting` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-hollow` | approximate | The same hollow triangle, no text; Mermaid writes `subsetting` as the edge text, having no triangle. |
 | `redefinition` | `redefinition` | `arrowhead=onormaltee` | `--\|\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-bar` | approximate | Hollow triangle with a bar across the line: Graphviz sets the tee behind the triangle, D2 has no bar and draws the plain triangle, Mermaid writes `redefinition` as the edge text. |
@@ -729,7 +756,7 @@ compartments and labels of the clause still lack.
 | `require-edge`, `assume-edge`, `assert-edge` | `require`, `assume`, `assert` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«require»`, `«assume»` or `«assert»`, from the requirer, assumer or assertor to the constraint or requirement it declares (`require constraint c { … }`) or names (`require r1;`), in the requirement and definition graphs and the mixed rendering; a tree nests the declared forms in their owner, and a mixed rendering nests them and draws this edge from the owner to the nested node, as it draws every nested membership. |
 | `frame-edge` | `frame` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | differs from pilot | Solid open arrow labelled `«frame»`, from the framer to the concern it declares or names, as above. The Pilot has no rule of its own and writes a feature membership's `*--`. |
 | `event-edge` | `event` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«event»`, from the eventer to an `event occurrence` it owns, in the definition graph, the tree and the mixed rendering, which draw the membership of each usage. |
-| `portion-relationship` | `portion` | `dir=back, arrowtail=dot` | `#--` | `---` | `<- portion` | `startArrow=oval;startFill=1;endArrow=none` | `start portion` | approximate | Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle. The Pilot writes `*--`. |
+| `portion-relationship` | `portion` | `dir=back, arrowtail=dot` | `#--` | `---` | `<- portion` | `startArrow=oval;startFill=1;endArrow=none` | `start portion` | approximate | Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle, which no Graphviz, PlantUML, D2 or draw.io arrowhead is. The Pilot writes `*--`. |
 | `reference-subsetting` | `reference subsetting` | `arrowhead=onormaldot` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-four-dots` | approximate | Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML and D2 draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--\|>`. |
 | `unowned-membership` | `unowned membership` | `dir=back, arrowtail=odot` | `0--` | `---` | `<- membership` | `startArrow=oval;startFill=0;endArrow=none` | `start circle-hollow` | differs from pilot | Solid line with a hollow circle at the namespace, from a package to a drawn package it holds by `alias`, the alias name at the member's end, in the package graph; Mermaid draws a plain line with `○` leading the text. The Pilot writes `+..`, dashed with a circle-plus. |
 | `expose-r`, `toplevel-expose-r`, `recursive-expose-r` | `expose` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Dashed open arrow labelled `«expose»`, `«expose»*` or `«expose»**` as an import is, from a view usage to an element it exposes when both are drawn apart (a tree or mixed rendering), one edge per distinct exposure (two statements that say the same draw one edge, as imports do); the exposures a nested view's node holds as its children are shown by the nesting. |
@@ -739,8 +766,8 @@ where the arrow alone would not tell a specialization, subsetting, redefinition 
 canvas dashes a `succession`, `succession flow`, `import`, `derive`, `refine`, `dependency`, `expose` or
 `anchor` edge by its CSS class. Under the cameo style a tree's `containment` is Cameo's filled diamond instead.
 
-The sequence-diagram `message` and `sq-succession` glyphs remain undrawn as such: a sequence
-message is the grammar's own arrow. `testdata/notation-glyphs.sysml` exercises the succession flow,
+The sequence `message` and `sq-succession` glyphs are the message and succession rows of a
+sequence rendering. `testdata/notation-glyphs.sysml` exercises the succession flow,
 require, assume, assert, frame, event, portion, reference subsetting, unowned membership and
 expose edges in each rendering kind that draws them (`glyphs-*.golden`).
 
