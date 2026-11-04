@@ -431,14 +431,19 @@ func (ctx *Context) claimBinding(key featureValueRef, decl *ast.Usage) func() {
 	}
 }
 
-func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *FeatureValue,
-	endpointName string, bindings []lower.Binding, key featureValueRef) (bindingSetResult, error) {
+// attemptBindings tries each binding against the target with its carrying end read as
+// carryingRead: through its bindings first, so no object is created while another binding may
+// determine the feature; materialized — an object of its own identified with the other end —
+// only once none did, at the outermost resolution.
+func (ctx *Context) attemptBindings(owner, targetInst *Instance, target *FeatureValue,
+	endpointName string, bindings []lower.Binding, key featureValueRef, carryingRead endRead,
+) ([]bindingAttempt, bindingSetResult, error) {
 	var result bindingSetResult
 	var attempts []bindingAttempt
 	for _, binding := range bindings {
 		partial, err := ctx.partialBinding(owner, targetInst, target, binding, key)
 		if err != nil {
-			return result, err
+			return nil, result, err
 		}
 		if partial {
 			// A binding linking fewer values than an end holds identifies some value of one
@@ -446,9 +451,9 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 			// without determining either, so the feature holds what its own declaration states.
 			continue
 		}
-		attempt := ctx.attemptBinding(owner, targetInst, target, binding, key)
+		attempt := ctx.attemptBinding(owner, targetInst, target, binding, key, carryingRead)
 		if attempt.err != nil {
-			return result, attempt.err
+			return nil, result, attempt.err
 		}
 		if attempt.cycle {
 			result.cycleFeatures = attempt.cycleFeatures
@@ -460,12 +465,24 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 			continue
 		}
 		if err := ctx.wholeBindingCounts(binding, attempt.value); err != nil {
-			return result, err
+			return nil, result, err
 		}
 		if end := bindingEndForPath(binding, endpointName); end >= 0 {
 			attempt.contributor = ctx.bindingEndpointText(binding, 1-end)
 		}
 		attempts = append(attempts, attempt)
+	}
+	return attempts, result, nil
+}
+
+func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *FeatureValue,
+	endpointName string, bindings []lower.Binding, key featureValueRef) (bindingSetResult, error) {
+	attempts, result, err := ctx.attemptBindings(owner, targetInst, target, endpointName, bindings, key, endBound)
+	if err == nil && len(attempts) == 0 && len(ctx.resolvingBindings) == 1 {
+		attempts, result, err = ctx.attemptBindings(owner, targetInst, target, endpointName, bindings, key, endMaterialized)
+	}
+	if err != nil {
+		return result, err
 	}
 	attempts = withoutDisplacedDefaults(attempts)
 	// Every binding of the whole feature identifies it with its other end, so
@@ -804,7 +821,7 @@ func bindingEndForPath(binding lower.Binding, path string) int {
 }
 
 func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureValue,
-	binding lower.Binding, key featureValueRef) (attempt bindingAttempt) {
+	binding lower.Binding, key featureValueRef, carryingRead endRead) (attempt bindingAttempt) {
 	defer ctx.claimBinding(key, binding.Decl)()
 
 	left, err := ctx.resolveBindingEndpoint(owner, binding, 0)
@@ -845,9 +862,9 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 	var leftValue, rightValue Value
 	var leftSet, rightSet bool
 	if leftCarries {
-		leftValue, leftSet, rightValue, rightSet, err = ctx.readBindingEnds(owner, left, right, rightCarries)
+		leftValue, leftSet, rightValue, rightSet, err = ctx.readBindingEnds(owner, left, right, rightCarries, carryingRead)
 	} else {
-		rightValue, rightSet, leftValue, leftSet, err = ctx.readBindingEnds(owner, right, left, leftCarries)
+		rightValue, rightSet, leftValue, leftSet, err = ctx.readBindingEnds(owner, right, left, leftCarries, carryingRead)
 	}
 	if err != nil {
 		attempt.err = err
@@ -943,9 +960,9 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 	return attempt
 }
 
-// readBindingEnds reads the other end first, then the carrying end, both through their own bindings
-// (no object is created to bind to); a spread other end is materialized once the carrying end has nothing.
-func (ctx *Context) readBindingEnds(owner *Instance, carrying, other bindingEndpoint, otherCarries bool,
+// readBindingEnds reads the other end first, through its own bindings, so what it holds is what the
+// carrying end becomes; a spread other end is materialized once the carrying end has nothing of its own.
+func (ctx *Context) readBindingEnds(owner *Instance, carrying, other bindingEndpoint, otherCarries bool, carryingRead endRead,
 ) (carryingValue Value, carryingSet bool, otherValue Value, otherSet bool, err error) {
 	otherRead := endBound
 	if otherCarries {
@@ -956,18 +973,21 @@ func (ctx *Context) readBindingEnds(owner *Instance, carrying, other bindingEndp
 		return
 	}
 	if !otherSet && other.spread() {
-		carryingRead := endOwn
+		defaultedRead := endOwn
 		if endpointDefaulted(carrying) {
-			carryingRead = endBound
+			defaultedRead = carryingRead
 		}
-		carryingValue, carryingSet, err = ctx.bindingEndpointValue(carrying, owner, carryingRead)
+		carryingValue, carryingSet, err = ctx.bindingEndpointValue(carrying, owner, defaultedRead)
 		if err != nil || carryingSet {
 			return
 		}
 		otherValue, otherSet, err = ctx.bindingEndpointValue(other, owner, endMaterialized)
 		return
 	}
-	carryingValue, carryingSet, err = ctx.bindingEndpointValue(carrying, owner, endBound)
+	if otherSet && carryingRead == endMaterialized {
+		carryingRead = endBound
+	}
+	carryingValue, carryingSet, err = ctx.bindingEndpointValue(carrying, owner, carryingRead)
 	return
 }
 
