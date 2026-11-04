@@ -98,4 +98,9 @@ package NaryViews {
 		render asTreeDiagram;
 		metadata DiagramLayout::Route about Nary::Wheel::spokes { points = (100, 100, 200, 100); }
 	}
+	view routedWheel {
+		expose Nary::Wheel;
+		render asInterconnectionDiagram;
+		metadata DiagramLayout::Route about Nary::Wheel::spokes { points = (100, 100, 200, 100); }
+	}
 }
