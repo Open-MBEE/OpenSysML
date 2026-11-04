@@ -46,11 +46,16 @@ var rowPrefixes = []string{"ref", "abstract", "variation", "individual", "readon
 // `individuals` compartment collects whatever its keyword (SysML v2.1 §8.2.3.9).
 const individualPrefix = "individual "
 
+// individualUsage reports the kind of an individual usage, not of an `individual def`.
+func individualUsage(kind string) bool {
+	return strings.HasPrefix(kind, individualPrefix) && !strings.HasSuffix(kind, " def")
+}
+
 // compartmentName is the name of the compartment a member of kind belongs to:
 // the plural of its keyword after any modifier, "part defs" for a nested
 // definition, "individuals" for an individual usage of any keyword.
 func compartmentName(kind string) string {
-	if strings.HasPrefix(kind, individualPrefix) {
+	if individualUsage(kind) {
 		return "individuals"
 	}
 	_, keyword := splitRowPrefix(kind)
@@ -120,7 +125,7 @@ func compartmentsOf(rows []*Node) []Compartment {
 func (l labeller) rowText(node *Node) string {
 	prefix, _ := splitRowPrefix(node.Kind)
 	// The individuals compartment says `individual`; its row keeps the keyword instead.
-	if strings.HasPrefix(node.Kind, individualPrefix) {
+	if individualUsage(node.Kind) {
 		prefix = strings.TrimPrefix(node.Kind, individualPrefix)
 	}
 	text := shown(node)

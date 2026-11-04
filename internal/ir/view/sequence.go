@@ -135,8 +135,8 @@ func (e *lifelineEnds) end(occurrence *symbols.Symbol, lifeline *Node) (node, po
 	}
 	proxy, ok := e.proxies[occurrence]
 	if !ok {
-		proxy = &Node{ID: e.ids.take(), Kind: declKind(occurrence), Name: localName(occurrence), Origin: symbolOrigin(occurrence),
-			Geometry: e.r.geometryOf(e.view, occurrence, e.out)}
+		// A proxy's place is its row on the lifeline, so no Layout positions it; its Style and Notes apply.
+		proxy = &Node{ID: e.ids.take(), Kind: declKind(occurrence), Name: localName(occurrence), Origin: symbolOrigin(occurrence)}
 		e.r.dress(e.view, occurrence, proxy, e.out)
 		e.proxies[occurrence] = proxy
 		lifeline.Children = append(lifeline.Children, proxy)

@@ -198,7 +198,10 @@ func endLabel(labels map[string]string, node, port string) string {
 // and value, as the graph forms' compartment rows read.
 func rowLine(row *Node) string {
 	// The individuals compartment says `individual`; its rows keep the keyword alone.
-	line := strings.TrimPrefix(row.Kind, individualPrefix)
+	line := row.Kind
+	if individualUsage(row.Kind) {
+		line = strings.TrimPrefix(row.Kind, individualPrefix)
+	}
 	if name := shown(row); name != "" {
 		line += " " + usagePrefix(row.Inherited) + name
 	} else if row.Text != "" {
