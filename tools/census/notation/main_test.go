@@ -218,6 +218,7 @@ func TestCheckCatchesAChangedText(t *testing.T) {
 }
 
 func TestCheckHandlesAnAbsentText(t *testing.T) {
+	t.Setenv(RequireEnv, "")
 	dir := stageRoot(t)
 	if err := os.Remove(filepath.Join(dir, filepath.FromSlash(defaultTextPath))); err != nil {
 		t.Fatal(err)
