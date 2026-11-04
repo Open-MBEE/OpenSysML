@@ -47,6 +47,36 @@ public sealed class PrivateConnectionTests
     }
 
     [Fact]
+    public async Task ReadinessMarkersAreCompleteAndReplacedWhenTheChildRestarts()
+    {
+        using var child = FakeChild.Create(fake => new FakeScript
+        {
+            Report = "127.0.0.1:50051",
+            ArgumentsFile = fake.ArgumentsFile,
+            ProcessIdFile = fake.ProcessIdFile,
+            ExitMarker = fake.ExitMarker,
+        });
+        using var handler = new FakeServiceHandler();
+        var registry = Registry();
+
+        for (var round = 0; round < 2; round++)
+        {
+            await using var connection = await OpenAsync(Options(child, handler), registry);
+            var processId = Assert.IsType<int>(Assert.Single(registry.Entries()).ProcessId);
+
+            Assert.Equal(processId, await child.ProcessIdAsync());
+            Assert.Equal(["-port", "0", "-health-port", "0", "-report-address", "-exit-with-parent"], await File.ReadAllLinesAsync(child.ArgumentsFile, Token));
+
+            await connection.DisposeAsync();
+            await FakeChild.AssertGoneAsync(processId);
+
+            Assert.Equal("stdin closed\n", await File.ReadAllTextAsync(child.ExitMarker, Token));
+            Assert.Empty(Directory.EnumerateFiles(child.Directory, "*.tmp"));
+            Assert.Empty(registry.Entries());
+        }
+    }
+
+    [Fact]
     public async Task ConnectionsThatAgreeShareOneServiceUntilTheLastCloses()
     {
         using var child = FakeChild.Serving();

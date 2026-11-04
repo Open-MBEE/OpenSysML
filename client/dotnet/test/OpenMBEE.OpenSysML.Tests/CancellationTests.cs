@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using OpenMBEE.OpenSysML.Internal;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;
@@ -63,12 +64,12 @@ public sealed class CancellationTests
                 throw new InvalidOperationException("unreachable");
             },
         };
-        await using var connection = await FakeConnection.OpenAsync(handler, FakeConnection.Options(handler, requestTimeout: TimeSpan.FromMilliseconds(200)));
+        await using var transport = FakeConnection.Transport(handler, ownsHandler: false, FakeConnection.Options(handler));
 
         // Only the client's own deadline can end the call; the caller's token is a backstop that fails the test instead of hanging it.
         using var backstop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         backstop.CancelAfter(TimeSpan.FromSeconds(10));
-        var error = await Assert.ThrowsAsync<TransportException>(() => connection.CallGetSymbolAsync(backstop.Token));
+        var error = await Assert.ThrowsAsync<TransportException>(() => transport.CallGetSymbolAsync(DateTime.UtcNow.AddMilliseconds(200), backstop.Token));
 
         Assert.Equal(StatusCode.DeadlineExceeded, error.StatusCode);
         Assert.Contains("did not complete before its deadline", error.Message, StringComparison.Ordinal);
@@ -78,22 +79,23 @@ public sealed class CancellationTests
     [MemberData(nameof(ClientWires.All), MemberType = typeof(ClientWires))]
     public async Task WhenTheDeadlineAndTheCallerBothFiredTheCallerWins(ClientWire wire)
     {
-        using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        using var handler = new FakeServiceHandler(wire)
-        {
-            Respond = async (_, token) =>
-            {
-                // The deadline cancels the request first; the caller then cancels before the failure is mapped.
-                await Task.Delay(Timeout.Infinite, token).ContinueWith(_ => { }, TaskScheduler.Default);
-                await cancel.CancelAsync();
-                throw new OperationCanceledException(token);
-            },
-        };
-        await using var connection = await FakeConnection.OpenAsync(handler, FakeConnection.Options(handler, requestTimeout: TimeSpan.FromMilliseconds(200)));
+        using var cancel = new CancellationTokenSource();
+        using var deadline = new CancellationTokenSource();
+        using var handler = new FakeServiceHandler(wire);
+        await using var transport = FakeConnection.Transport(handler, ownsHandler: false, FakeConnection.Options(handler));
+        await deadline.CancelAsync();
+        await cancel.CancelAsync();
+        const string Method = "sysml.SysMLService/GetSymbol";
 
-        var error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => connection.CallGetSymbolAsync(cancel.Token));
+        var mapped = transport is ConnectTransport connect
+            ? connect.Map(new OperationCanceledException(deadline.Token), Method, answered: false, cancel.Token, deadline.Token)
+            : GrpcTransport.Map(
+                new Grpc.Core.RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "deadline expired")),
+                serverStatus: null, Method, new Uri(FakeServiceHandler.Address), CredentialSource.None, cancel.Token);
+        var error = Assert.IsType<OperationCanceledException>(mapped);
 
         Assert.Equal(cancel.Token, error.CancellationToken);
+        Assert.Empty(handler.Requests);
     }
 
     [Fact]

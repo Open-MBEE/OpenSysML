@@ -43,7 +43,8 @@ internal sealed class ReleaseServer : IAsyncDisposable
         listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         BaseUrl = new Uri($"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/");
-        accepting = Task.Run(AcceptAsync);
+        // A deliberately paced peer must not stop sending when the test runner's thread pool is busy.
+        accepting = Task.Factory.StartNew(Accept, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
     }
 
     /// <summary>The server's root, which is both the download host and the API.</summary>
@@ -165,27 +166,28 @@ internal sealed class ReleaseServer : IAsyncDisposable
         stopping.Dispose();
     }
 
-    private async Task AcceptAsync()
+    private void Accept()
     {
         while (!stopping.IsCancellationRequested)
         {
             TcpClient client;
             try
             {
-                client = await listener.AcceptTcpClientAsync(stopping.Token).ConfigureAwait(false);
+                client = listener.AcceptTcpClient();
+                client.NoDelay = true;
             }
-            catch (Exception error) when (error is OperationCanceledException or SocketException or ObjectDisposedException)
+            catch (Exception error) when (stopping.IsCancellationRequested && error is SocketException or ObjectDisposedException or InvalidOperationException)
             {
                 return;
             }
 
             var id = Interlocked.Increment(ref nextConnection);
             open[id] = client;
-            serving.Add(Task.Run(async () =>
+            serving.Add(Task.Factory.StartNew(() =>
             {
                 try
                 {
-                    await AnswerAsync(client).ConfigureAwait(false);
+                    AnswerClient(client);
                 }
                 catch (Exception error) when (error is IOException or SocketException or ObjectDisposedException or OperationCanceledException)
                 {
@@ -196,21 +198,21 @@ internal sealed class ReleaseServer : IAsyncDisposable
                     open.TryRemove(id, out _);
                     client.Dispose();
                 }
-            }));
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default));
         }
     }
 
-    private async Task AnswerAsync(TcpClient client)
+    private void AnswerClient(TcpClient client)
     {
-        while (await AnswerOnceAsync(client).ConfigureAwait(false))
+        while (AnswerOnce(client))
         {
         }
     }
 
-    private async Task<bool> AnswerOnceAsync(TcpClient client)
+    private bool AnswerOnce(TcpClient client)
     {
         var stream = client.GetStream();
-        var request = await ReadRequestAsync(stream).ConfigureAwait(false);
+        var request = ReadRequest(stream);
         if (request is null)
         {
             return false;
@@ -222,7 +224,7 @@ internal sealed class ReleaseServer : IAsyncDisposable
         var answer = answers.GetValueOrDefault(path) ?? new Answer { Status = 404, Body = Encoding.ASCII.GetBytes("Not Found") };
         if (answer.Silent)
         {
-            await Task.Delay(Timeout.Infinite, stopping.Token).ConfigureAwait(false);
+            Wait(Timeout.InfiniteTimeSpan, stopping.Token);
         }
 
         var head = new StringBuilder();
@@ -249,10 +251,10 @@ internal sealed class ReleaseServer : IAsyncDisposable
             header = header[..Math.Min(headerStall, header.Length)];
         }
 
-        await WriteChunksAsync(stream, header, answer.HeaderChunkBytes, answer.HeaderChunkDelay, stopping.Token).ConfigureAwait(false);
+        WriteChunks(stream, header, answer.HeaderChunkBytes, answer.HeaderChunkDelay, stopping.Token);
         if (answer.HeaderStallAfter is not null)
         {
-            await Task.Delay(Timeout.Infinite, stopping.Token).ConfigureAwait(false);
+            Wait(Timeout.InfiniteTimeSpan, stopping.Token);
         }
 
         if (answer.Endless)
@@ -260,15 +262,16 @@ internal sealed class ReleaseServer : IAsyncDisposable
             var chunk = new byte[64 * 1024];
             while (true)
             {
-                await stream.WriteAsync(chunk, stopping.Token).ConfigureAwait(false);
+                stopping.Token.ThrowIfCancellationRequested();
+                stream.Write(chunk);
             }
         }
 
         var sent = answer.StallAfter is { } stallAfter ? answer.Body.AsMemory(0, Math.Min(stallAfter, answer.Body.Length)) : answer.Body;
-        await WriteChunksAsync(stream, sent, answer.ChunkBytes, answer.ChunkDelay, stopping.Token).ConfigureAwait(false);
+        WriteChunks(stream, sent, answer.ChunkBytes, answer.ChunkDelay, stopping.Token);
         if (answer.StallAfter is not null)
         {
-            await Task.Delay(Timeout.Infinite, stopping.Token).ConfigureAwait(false);
+            Wait(Timeout.InfiniteTimeSpan, stopping.Token);
         }
 
         if (!answer.KeepAlive)
@@ -279,30 +282,41 @@ internal sealed class ReleaseServer : IAsyncDisposable
         return answer.KeepAlive;
     }
 
-    private static async Task WriteChunksAsync(NetworkStream stream, ReadOnlyMemory<byte> bytes, int chunkBytes, TimeSpan? delay, CancellationToken cancellationToken)
+    private static void WriteChunks(NetworkStream stream, ReadOnlyMemory<byte> bytes, int chunkBytes, TimeSpan? delay, CancellationToken cancellationToken)
     {
         if (delay is null)
         {
-            await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-            await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            stream.Write(bytes.Span);
+            stream.Flush();
             return;
         }
 
         for (var offset = 0; offset < bytes.Length; offset += chunkBytes)
         {
-            await stream.WriteAsync(bytes[offset..Math.Min(offset + chunkBytes, bytes.Length)], cancellationToken).ConfigureAwait(false);
-            await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-            await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            stream.Write(bytes.Span[offset..Math.Min(offset + chunkBytes, bytes.Length)]);
+            stream.Flush();
+            Wait(delay.Value, cancellationToken);
         }
     }
 
-    private async Task<(string Path, Dictionary<string, string> Headers)?> ReadRequestAsync(NetworkStream stream)
+    private static void Wait(TimeSpan delay, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.WaitHandle.WaitOne(delay))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+    }
+
+    private (string Path, Dictionary<string, string> Headers)? ReadRequest(NetworkStream stream)
     {
         var bytes = new List<byte>();
         var buffer = new byte[1];
         while (bytes.Count < 64 * 1024)
         {
-            if (await stream.ReadAsync(buffer, stopping.Token).ConfigureAwait(false) == 0)
+            stopping.Token.ThrowIfCancellationRequested();
+            if (stream.Read(buffer) == 0)
             {
                 return null;
             }

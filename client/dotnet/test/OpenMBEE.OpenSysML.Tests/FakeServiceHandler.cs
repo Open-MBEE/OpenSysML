@@ -14,6 +14,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
+using OpenMBEE.OpenSysML.Internal;
 
 namespace OpenMBEE.OpenSysML.Tests;
 
@@ -289,6 +290,12 @@ internal static class ConnectResponses
 /// <summary>Connections over a <see cref="FakeServiceHandler"/>.</summary>
 internal static class FakeConnection
 {
+    /// <summary>A transport over the borrowed fake handler, without connection negotiation.</summary>
+    internal static ITransport Transport(FakeServiceHandler handler, bool ownsHandler, ConnectionOptions options) =>
+        handler.Wire == ClientWire.Grpc
+            ? new GrpcTransport(new Uri(FakeServiceHandler.Address), handler, ownsHandler, options, CallHeaders.None)
+            : new ConnectTransport(new Uri(FakeServiceHandler.Address), handler, ownsHandler, options, CallHeaders.None);
+
     /// <summary>Options addressing the fake on its wire, through it, with any of these overridden.</summary>
     internal static ConnectionOptions Options(
         FakeServiceHandler handler,
@@ -323,6 +330,17 @@ internal static class FakeConnection
             "GetSymbol",
             new Wire.GetSymbolRequest { ModelHash = "m", SymbolId = "A" },
             cancellationToken);
+
+    /// <summary>A raw transport call, with its deadline independent of any connection handshake.</summary>
+    internal static Task<Wire.SymbolResponse> CallGetSymbolAsync(this ITransport transport, DateTime deadline, CancellationToken cancellationToken)
+    {
+        if (!RpcMethods.TryResolve<Wire.GetSymbolRequest, Wire.SymbolResponse>("GetSymbol", out var method, out var problem))
+        {
+            throw new InvalidOperationException(problem);
+        }
+
+        return transport.UnaryAsync(method, new Wire.GetSymbolRequest { ModelHash = "m", SymbolId = "A" }, deadline, cancellationToken);
+    }
 
     /// <summary>A raw GetSymbol call under the test's token.</summary>
     internal static Task<Wire.SymbolResponse> GetSymbolAsync(this Connection connection) =>

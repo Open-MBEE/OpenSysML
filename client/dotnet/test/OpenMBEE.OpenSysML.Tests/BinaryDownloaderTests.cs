@@ -1,8 +1,10 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -308,12 +310,13 @@ public sealed class BinaryDownloaderTests : IAsyncLifetime
         var answer = new ReleaseServer.Answer { Body = Encoding.ASCII.GetBytes($"{{\"tag_name\":\"{Tag}\"}}"), HeaderChunkBytes = 4, HeaderChunkDelay = TimeSpan.FromMilliseconds(100) };
         server.Serve(latest, redirect ? answer with { Status = 302, Location = "/latest", Body = [] } : answer);
         server.Serve("/latest", answer);
-        using var downloader = Downloader(server.Source(idle: TimeSpan.FromMilliseconds(600)));
-        var clock = Stopwatch.StartNew();
+        await using var probe = LatestProbe();
+        var result = Assert.Single(await probe.ReadToExitAsync());
+        var elapsed = TimeSpan.FromTicks(result.GetProperty("elapsedTicks").GetInt64());
 
-        Assert.Equal(Tag, await downloader.LatestAsync(Repo, Token));
+        AssertLatest(result);
 
-        Assert.True(clock.Elapsed > TimeSpan.FromMilliseconds(1200), $"headers arrived in {clock.Elapsed}, too soon to prove an idle timeout");
+        Assert.True(elapsed > TimeSpan.FromMilliseconds(1200), $"headers arrived in {elapsed}, too soon to prove an idle timeout");
         Assert.Equal(redirect ? [latest, "/latest"] : new[] { latest }, server.Requested);
     }
 
@@ -326,13 +329,14 @@ public sealed class BinaryDownloaderTests : IAsyncLifetime
             HeaderChunkDelay = TimeSpan.FromMilliseconds(100),
             HeaderStallAfter = 16,
         });
-        using var downloader = Downloader(server.Source(idle: TimeSpan.FromMilliseconds(600)));
-        var clock = Stopwatch.StartNew();
+        await using var probe = LatestProbe();
+        var result = Assert.Single(await probe.ReadToExitAsync());
 
-        var error = await Assert.ThrowsAsync<ServiceStartException>(() => downloader.LatestAsync(Repo, Token));
-
-        Assert.InRange(clock.Elapsed, TimeSpan.FromMilliseconds(1200), TimeSpan.FromSeconds(10));
-        Assert.IsType<TimeoutException>(error.InnerException);
+        Assert.Equal("failed", result.GetProperty("event").GetString());
+        Assert.Equal(typeof(ServiceStartException).ToString(), result.GetProperty("type").GetString());
+        Assert.InRange(TimeSpan.FromTicks(result.GetProperty("elapsedTicks").GetInt64()), TimeSpan.FromMilliseconds(1200), TimeSpan.FromSeconds(10));
+        Assert.Equal(typeof(TimeoutException).ToString(), result.GetProperty("cause").GetString());
+        Assert.Equal([$"/repos/{Repo}/releases/latest"], server.Requested);
     }
 
     [Fact]
@@ -362,15 +366,16 @@ public sealed class BinaryDownloaderTests : IAsyncLifetime
             HeaderChunkDelay = TimeSpan.FromMilliseconds(100),
             KeepAlive = true,
         });
-        using var downloader = Downloader(server.Source(idle: TimeSpan.FromMilliseconds(600)));
-
-        Assert.Equal(Tag, await downloader.LatestAsync(Repo, Token));
+        await using var probe = LatestProbe(requests: 3);
+        AssertLatest(await probe.ReadAsync());
         await Task.Delay(200, Token);
-        Assert.Equal(Tag, await downloader.LatestAsync(Repo, Token));
+        await probe.SendLineAsync();
+        AssertLatest(await probe.ReadAsync());
         Assert.Equal(1, server.Connections);
 
         await Task.Delay(800, Token);
-        Assert.Equal(Tag, await downloader.LatestAsync(Repo, Token));
+        await probe.SendLineAsync();
+        AssertLatest(Assert.Single(await probe.ReadToExitAsync()));
         Assert.Equal(3, server.Requested.Count);
     }
 
@@ -527,6 +532,15 @@ public sealed class BinaryDownloaderTests : IAsyncLifetime
     private static ReleaseRequest Request(bool unpinnedAllowed = false) => new(Repo, Tag, Explicit: true, unpinnedAllowed);
 
     private BinaryDownloader Downloader(ReleaseSource source) => new(source, logger);
+
+    private ProbeRun LatestProbe(int requests = 1) =>
+        ProbeRun.Start(ProbeRun.Cache, "latest", server.BaseUrl.AbsoluteUri, Repo, "600", requests.ToString(CultureInfo.InvariantCulture));
+
+    private static void AssertLatest(JsonElement result)
+    {
+        Assert.True(result.GetProperty("event").GetString() == "latest", result.GetRawText());
+        Assert.Equal(Tag, result.GetProperty("tag").GetString());
+    }
 
     private Task<CacheTransaction> Begin() => CacheTransaction.BeginAsync(cache.Layout, logger, Token);
 

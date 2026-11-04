@@ -15,12 +15,12 @@ var script = JsonSerializer.Deserialize<Script>(
 
 if (script.ArgumentsFile is { } argumentsFile)
 {
-    File.WriteAllLines(argumentsFile, args);
+    Publish(argumentsFile, string.Join(Environment.NewLine, args) + (args.Length == 0 ? string.Empty : Environment.NewLine));
 }
 
 if (script.ProcessIdFile is { } processIdFile)
 {
-    File.WriteAllText(processIdFile, Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    Publish(processIdFile, Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
 }
 
 using var stdinClosed = new ManualResetEventSlim();
@@ -91,10 +91,17 @@ if (script.IgnoreStdinEnd)
 stdinClosed.Wait();
 if (script.ExitMarker is { } marker)
 {
-    File.WriteAllText(marker, "stdin closed\n");
+    Publish(marker, "stdin closed\n");
 }
 
 return 0;
+
+static void Publish(string path, string content)
+{
+    var pending = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+    File.WriteAllText(pending, content);
+    File.Move(pending, path, overwrite: true);
+}
 
 static void Write(Stream stream, string text)
 {

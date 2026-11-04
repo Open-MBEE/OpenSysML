@@ -3,7 +3,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-using OpenMBEE.OpenSysML.Internal;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;
@@ -17,8 +16,6 @@ namespace OpenMBEE.OpenSysML.Tests;
 public sealed class TransportContractTests
 {
     private const string GetSymbol = "sysml.SysMLService/GetSymbol";
-    private static readonly Uri Address = new("http://fake.invalid:50051/");
-
     public static MatrixTheoryData<ClientWire, StatusCode> RefusalStatuses =>
         new([ClientWire.Grpc, ClientWire.ConnectProto, ClientWire.ConnectJson], [.. Enum.GetValues<StatusCode>().Where(code => code != StatusCode.Ok)]);
 
@@ -137,8 +134,8 @@ public sealed class TransportContractTests
         {
             var options = new ConnectionOptions { Protocol = wire.Protocol(), Encoding = wire.Encoding() };
 
-            await Transport(owned, ownsHandler: true, options).DisposeAsync();
-            var transport = Transport(borrowed, ownsHandler: false, options);
+            await FakeConnection.Transport(owned, ownsHandler: true, options).DisposeAsync();
+            var transport = FakeConnection.Transport(borrowed, ownsHandler: false, options);
             await transport.DisposeAsync();
             await transport.DisposeAsync();
 
@@ -146,11 +143,6 @@ public sealed class TransportContractTests
             Assert.Equal(0, borrowed.Disposals);
         }
     }
-
-    private static ITransport Transport(FakeServiceHandler handler, bool ownsHandler, ConnectionOptions options) =>
-        handler.Wire == ClientWire.Grpc
-            ? new GrpcTransport(Address, handler, ownsHandler, options, CallHeaders.None)
-            : new ConnectTransport(Address, handler, ownsHandler, options, CallHeaders.None);
 
     // Each 'x' adds one byte to the encoded message in either encoding, except where a protobuf length prefix grows.
     private static Wire.SymbolResponse ResponseOfSize(FakeServiceHandler handler, int size)

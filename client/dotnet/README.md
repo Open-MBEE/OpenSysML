@@ -1406,6 +1406,9 @@ Unit tests drive every way a private service starts and stops against
 under the binary's name, into a directory of their own with a script beside it: it reports,
 misreports or withholds an address, exits, lingers or floods its output as the script says.
 It serves nothing; the in-process fake HTTP handler answers the connection.
+Readiness and exit markers are published by renaming closed temporary files, so readers do not race a write still open on Windows; restarts replace the previous markers.
+
+Cancellation tests exercise caller cancellation through real transports and connection normalization. The short deadline-only test applies its budget to the target RPC, not connection negotiation, and the both-cancelled precedence test supplies already-cancelled tokens directly to transport error mapping rather than relying on timer ordering.
 
 Two probes, which the solution also builds, prove what only a process of its own can show,
 and the tests run them against the real binary. [`test/OpenMBEE.OpenSysML.OrphanProbe`](test/OpenMBEE.OpenSysML.OrphanProbe/)
@@ -1463,6 +1466,7 @@ identity, over a changed manifest, and unsigned, and every one must be refused a
 without its signature being fetched: this client verifies pins alone, so no signature passes as
 verified. The real binary is published there too, under a pin of its digest, and a private
 service must start from its download, over each protocol, and a second open must fetch nothing.
+The release host uses dedicated blocking accept and connection workers with cancellation-aware pacing and TCP `NoDelay`, keeping intentional header and body trickles independent of the client's thread-pool load. Timing-sensitive header checks run the real downloader in the cache probe's separate process and measure the HTTP operation there, excluding process startup and test-runner scheduling; they retain their idle deadlines, elapsed-time bounds, redirect checks, and pooled-connection reuse checks under normal suite concurrency.
 
 CI runs the whole suite on Linux against the service its build job makes, then both
 conformance targets, and, in the full tier, natively on macOS and Windows against a

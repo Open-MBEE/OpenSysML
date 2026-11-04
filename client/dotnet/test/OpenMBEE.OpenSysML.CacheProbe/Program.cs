@@ -17,5 +17,8 @@ using OpenMBEE.OpenSysML.CacheProbe;
 //   crash <cache-dir> <step> <payload-file> <version> <repo>
 //                                 install the payload as that release in a cache transaction and snapshot it,
 //                                 stopping at <step> to report "reached" and wait to be killed
+//   latest <api> <repo> <idle-ms> <requests>
+//                                 fetch the latest tag against the test host with an idle deadline, reporting
+//                                 the result and elapsed time; wait for a line before each subsequent request
 // Each step is written as a line of JSON.
 return await Host.RunAsync(args);
