@@ -23,11 +23,14 @@ type Compartment struct {
 // chapters of the language specification introducing each kind; a kind not
 // named here follows them in the order its members were declared.
 var compartmentOrder = []string{
-	"attributes", "enums", "occurrences", "items", "parts", "ports", "ends",
-	"connections", "interfaces", "flows", "allocations", "actions", "states", "calcs",
+	"attributes", "enums", "occurrences", "individuals", "items", "parts", "ports", "ends",
+	"connections", "interfaces", "flows", "allocations", "actions", "states", "state actions", "calcs",
 	"constraints", "requirements", "satisfies", "cases", "analyses", "verifications", "verifies",
 	"use cases", "include use cases", "subject", "objective", "views", "viewpoints", "rendering", "metadata",
 }
+
+// stateActionRoles are the kinds the `state actions` compartment gathers.
+var stateActionRoles = map[string]bool{entryActionKind: true, doActionKind: true, exitActionKind: true}
 
 // compartmentHeadings are the compartment names the figures of SysML v2 §8.2.3
 // head otherwise than by the plain plural of the members' keyword.
@@ -44,15 +47,39 @@ var compartmentHeadings = map[string]string{
 	"objective":      "objective",
 	"satisfy":        "satisfies",
 	"verify":         "verifies",
+	entryActionKind:  "state actions",
+	doActionKind:     "state actions",
+	exitActionKind:   "state actions",
+	sendActionKind:   "actions",
+	acceptActionKind: "actions",
+	assignKind:       "actions",
+	loopKind:         "actions",
+	ifKind:           "actions",
+	terminateKind:    "actions",
+	"perform":        "perform actions",
+	docKind:          docKind, // the `doc` compartment of §8.2.3.4 (documentation-compartment)
+	repKind:          repKind,
 }
 
 // rowPrefixes are the modifier keywords a kind may begin with, which the row
 // keeps before its name while the compartment is named by the kind after them.
-var rowPrefixes = []string{"ref", "abstract", "variation", "individual", "readonly", "derived", "end"}
+var rowPrefixes = []string{"ref", "abstract", "variation", "individual", "readonly", "derived", "end", "event"}
 
-// compartmentName is the compartment a member of kind lists in, as the figures head
-// it: the figure's heading or the keyword's plural; `end` features list under "ends".
+// individualPrefix leads the kind of an individual usage, which the
+// `individuals` compartment collects whatever its keyword (SysML v2.1 §8.2.3.9).
+const individualPrefix = "individual "
+
+// individualUsage reports the kind of an individual usage, not of an `individual def`.
+func individualUsage(kind string) bool {
+	return strings.HasPrefix(kind, individualPrefix) && !strings.HasSuffix(kind, " def")
+}
+
+// compartmentName is the compartment a member of kind lists in, as the figures head it: the
+// heading or the keyword's plural; `end` features list under "ends", individual usages under "individuals".
 func compartmentName(kind string) string {
+	if individualUsage(kind) {
+		return "individuals"
+	}
 	prefix, keyword := splitRowPrefix(kind)
 	if keyword == "" {
 		return ""
@@ -121,7 +148,20 @@ func compartmentsOf(rows []*Node) []Compartment {
 // textual notation writes it without the keyword its compartment names:
 // `ref wheel : Wheel`, `gain : dB = 15.0`, `: Sensor` for an anonymous one.
 func (l labeller) rowText(node *Node) string {
+	if annotationKind(node.Kind) {
+		return l.text(annotationRowText(node))
+	}
+	if node.Kind == statementRowKind {
+		return node.Text
+	}
 	prefix, _ := splitRowPrefix(node.Kind)
+	if _, ok := stateActionRoles[node.Kind]; ok {
+		prefix = node.Kind // a `state actions` row keeps its entry/do/exit role
+	}
+	// The individuals compartment says `individual`; its row keeps the keyword instead.
+	if individualUsage(node.Kind) {
+		prefix = strings.TrimPrefix(node.Kind, individualPrefix)
+	}
 	text := shown(node)
 	if text != "" {
 		text = usagePrefix(node.Inherited) + text
@@ -150,7 +190,17 @@ func (l labeller) compartments(node *Node) []Compartment {
 	if !l.shown.Has(ElementCompartments) {
 		return nil
 	}
-	return node.Compartments
+	if !l.skin.cameo {
+		return node.Compartments
+	}
+	// Cameo writes a state's behaviors as `entry / a` lines under its name.
+	var kept []Compartment
+	for _, compartment := range node.Compartments {
+		if !stateActionCompartment(compartment.Name) {
+			kept = append(kept, compartment)
+		}
+	}
+	return kept
 }
 
 // referenceRow reports whether sym lists as a reference row, the `ref part`
@@ -195,7 +245,7 @@ func (l labeller) compartmentLines(node *Node) []string {
 	for _, compartment := range l.compartments(node) {
 		lines = append(lines, compartment.Name)
 		for _, row := range compartment.Rows {
-			lines = append(lines, l.rowText(row))
+			lines = append(lines, strings.Split(l.rowText(row), "\n")...)
 		}
 	}
 	return lines

@@ -256,11 +256,34 @@ node with a single output and nothing else — a UML value specification action 
 `action value3 { out result : Boolean = true; }` — the literal its result is bound to (`true`,
 `"SH-0"`, `0`), or `: Type` when the result has a type and no value. A node whose type names what
 it calls heads `: Type` as any typed anonymous usage does, so a migrated `call5 : 'Setup APS'`
-reads `: 'Setup APS'`. The `own flow` detail marks a node whose nested flow is drawn inside it;
-it is set only when that flow lowers to nodes of its own, so an action whose body is a single
-statement or a bound value carries no `own flow` and no nested cluster. The node is the nested
-flow's frame: its own pins are the ones the flow's bindings attach to, and the flow's nodes take
-the IDs after it.
+reads `: 'Setup APS'`. The `action flow` compartment (§8.2.3.17 action-flow-compartment) heads a
+node whose nested flow is drawn inside it; it is set only when that flow lowers to nodes of its own,
+so an action whose body is a single statement or a bound value carries no `action flow`
+compartment and no nested cluster. The node is the nested flow's frame: its own pins are the ones
+the flow's bindings attach to, and the flow's nodes take the IDs after it.
+
+### Action and state node forms
+
+The action nodes of §8.2.3.17 and the state nodes of §8.2.3.18 are drawn as their figures give
+them, the lowered `ActionGraph` and `StateGraph` saying which form a node takes
+(`behavior_forms.go` `statementNodeKind`, `behavior.go` `stateNode`):
+
+| Production | Form | Where |
+| --- | --- | --- |
+| `send-action-node`, `accept-action-node` | A rounded box headed by the «send action» or «accept action» name compartment, the figure's corner glyph at its top left (a filled pentagon pointing out of the node for send, a notched flag for accept), then the expression as written: `Alarm to sensor`, `reading : Reading via inPort` | DOT (`dot.go` `assemble`, a mark cell), draw.io (`drawio.go` `writeMark`), canvas (`canvas.ts` `markGraphic`); PlantUML and Mermaid write the glyph as `▷` / `◁` before the keyword, D2 and the text form omit it |
+| `assign-action-node` | A rounded box headed by «assign» with the assignment as written, `count := count + 1` | every form |
+| `while-loop-action-node`, `for-loop-action-node` | A rounded box headed by «loop», then the `while condition`, `for iterator` and `until condition` compartments the loop declares, then the `loop body` as a nested section whose nodes are the body's flow | every form; the body a cluster in DOT, a container in PlantUML, Mermaid, D2 and draw.io, a nested box on the canvas |
+| `if-else-action-node` | A rounded box headed by «if», the `if condition` compartment, then the `then body` and `else body` sections | every form, as the loop |
+| `else-branch` | The `else <target>` succession of a decision labelled `else`, dashed with an open head as any guarded succession | every form (`behavior.go` `successionLabel`, `lower.ActionEdge.Else`) |
+| `terminate-node` | A white circle crossed by an X | DOT (`shape=circle`, a bold `✕`), Mermaid (`cross-circ`), draw.io (`umlDestroy`), canvas (`shape: "cross"`); PlantUML has no terminate pseudostate and D2 no crossed circle, both draw a plain end |
+| `param-l`, `param-r`, `param-t`, `param-b` | A parameter pin is a rounded square carrying its direction arrow (`pdh` on a left or right pin: `→` into the node for `in`, out of it for `out`, `↔` for `inout`; `pdv` on a top or bottom pin: `↓`, `↑`, `↕`), its name beside it; a part's port keeps its plain square | DOT (`dot_ports.go` `pinArrowCell`), draw.io (`drawio.go` `writePinArrow`), canvas (`layout.ts` `pinArrow`) |
+| `state-entry-action`, `state-do-action`, `state-exit-action` | A state's behaviors as `entry`, `do` and `exit` compartments, each behavior a row as declared (`action initialize : InitializePEAS`, `action`, the body's statement for a bodied anonymous action); the Cameo style keeps Cameo's `entry / x` lines | every form (`behavior.go` `stateActionCompartments`) |
+| `entry-action`, `do-action`, `exit-action` | A composite state draws each behavior declared as a named or bodied action as a node headed «entry action», «do action» or «exit action» among its substates | every form (`behavior.go` `stateActionNodes`) |
+| `state-transition-compartment` | A state machine and a composite state head their substates with the `state transition` compartment | every form |
+| `state-actions-compartment` | A tree folding a state's members (`compartments: most`) lists its entry, do and exit actions in one `state actions` compartment, each row as declared (`entry action ignite : Ignite`) | every form (`compartments.go` `compartmentName`) |
+| `successions-compartment` | A tree folding a definition's members lists its successions in a `successions` compartment, each row `first a then b` | every form (`tree.go` `successionText`) |
+| `state-def-name-compartment`, `state-name-compartment` | «parallel» under the name of a parallel state (`Node.Parallel`) | every form (`label.go` `parallel`) |
+| `perform-actions-swimlanes`, `swimlane`, `performed-by-compartment` | Not drawn | — |
 
 A state's compartment lines name its behaviours (`stateBehaviorLabel`, `behaviorText` in
 `behavior.go`): `entry / prime`, `do / Initialize`, `exit / Settle`, each behaviour by its name,
@@ -498,6 +521,32 @@ the block's `// layout:` header names, so a positioned view is drawn where its `
 it. Without a Graphviz the PDF keeps the DOT source under a notice, as it does without any
 optional tool — see [Surfaces](#surfaces).
 
+### Lifeline points, ports and successions
+
+The events a message or succession ends at are drawn as the specification's `sq-proxy`
+(SysML v2.1 §8.2.3.9): a filled point on the lifeline of the part that declares the event,
+labelled with the event's name, so `message publish of Publish from producer.sent to
+server.taken` runs from the point `sent` on `producer` to the point `taken` on `server`.
+The proxies are the lifeline node's children, in the order their events are declared; a
+form whose arrows run between participants and know no point on a lifeline (PlantUML,
+Mermaid) lifts the arrow's ends to the lifelines, D2 nests the proxies as spans of their
+actors, and the text form names a proxy through its lifeline (`producer.sent`). A port a
+message ends at is a port of the lifeline node (`sq-port`), drawn as a square on the box's
+bottom border with a lifeline of its own on the canvas and listed under the lifeline in text;
+the arrow ends at it.
+
+A `message` is an edge of its own kind, solid with an open head, labelled as `message-label`
+writes it: the message's name and `of` the payload it carries (`publish of Publish`), the
+type it is declared with when it is anonymous, else the payload alone. A `flow` between
+events keeps the flow glyph's filled head. The successions between events — `succession`
+usages and member-attached `then` — are drawn as the dashed open-headed `sq-succession`
+rows of the sequence, labelled with the succession's name, each after the row of its source
+event (or of an event ordered before it) and before the row of its target; a succession
+between two events of one lifeline is a self-message. PlantUML writes `->>` and `-->>`,
+Mermaid `-)` and `--)`, D2 its `open` and `succession` classes, the canvas its open
+arrowheads. An `event occurrence` is headed «event occurrence», as the figure's
+`event-occurrence-name-compartment` writes it.
+
 ### The document default
 
 A document states no form; `-diagram-form` is chosen at render time, and when it is not stated the
@@ -565,7 +614,8 @@ digraph "VehicleViews::vehicleView" {
   `join`, `shallow history`, `deep history`, and a terminate action — and is drawn as its UML
   symbol whenever a Layout sizes it, and always under the [cameo style](#the-cameo-style)
   (`isSymbolKind`, `dotSymbolAttributes`): a filled dot for `initial` and `junction`, a bull's-eye
-  for `final` and terminate, a diamond for `choice`, `decision` and `merge`, a filled bar for
+  for `final`, a white circle crossed by an X for terminate (`dotTerminateAttributes`, drawn so
+  whether or not a Layout sizes it), a diamond for `choice`, `decision` and `merge`, a filled bar for
   `fork` and `join` lying the way its box is longer, a white ring lettered `H` or `H*` for a
   history. No text is set inside a symbol; a name the model gave is set beside it as `xlabel`,
   a synthesized one not at all. SysML v2 has no entry- or exit-point pseudo-states: a state's
@@ -705,8 +755,9 @@ compartments and labels of the clause still lack.
 | `connection` | `connection` | `arrowhead=none, penwidth=3` | `-[thickness=3]-` | `===` | `-- connection` | `endArrow=none;strokeWidth=3` | `none` | conformant | The Pilot's heavy undirected connector; `penwidth=3` is dropped under the cameo style. |
 | `binding-connection` | `binding` | `arrowhead=none` | `--` | `===` | `-- edge` | `endArrow=none` | `none` | conformant | Labelled `=` where the binding has no name of its own, in every form. |
 | `flow` | `flow` | *(default)* | `-->` | `-->` | `-> edge` | `endArrow=block;endFill=1` | `end arrow` | approximate | Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it). |
-| `aflow-succession` | `succession` | `style=dashed, arrowhead=vee` | `-[dashed]->` | `-.->` | `-> succession` | `dashed=1;endArrow=open` | `end arrow-open` | differs from pilot | Dashed with an open head and the guard as its text; the Pilot draws a succession solid. Mermaid's `-.->` and D2's dashed arrow carry a filled head. |
-| `transition`, `st-succession` | `transition` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `endArrow=open` | `end arrow-open` | approximate | Solid with an open head; Mermaid and D2 have only a filled head. |
+| `aflow-succession`, `sq-succession` | `succession` | `style=dashed, arrowhead=vee` | `-[dashed]->` | `-.->` | `-> succession` | `dashed=1;endArrow=open` | `end arrow-open` | differs from pilot | Dashed with an open head and the guard as its text; the Pilot draws a succession solid. Mermaid's `-.->` and D2's dashed arrow carry a filled head. |
+| `transition`, `st-succession` | `transition` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `endArrow=open` | `end arrow-open` | approximate | Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head. |
+| `message` | `message` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | approximate | Solid with an open head from the sending event to the receiving one, labelled `name of payload` (§8.2.3.9 message-label); in a sequence, PlantUML writes `->>` and Mermaid `-)`. Mermaid's flowchart and D2 have only a filled head. |
 | `subclassification`, `specialization` | `specialization` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-hollow` | approximate | Solid hollow triangle; Mermaid has no triangle head and names the kind as the edge text instead. |
 | `subsetting` | `subsetting` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-hollow` | approximate | The same hollow triangle, no text; Mermaid writes `subsetting` as the edge text, having no triangle. |
 | `redefinition` | `redefinition` | `arrowhead=onormaltee` | `--\|\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-bar` | approximate | Hollow triangle with a bar across the line: Graphviz sets the tee behind the triangle, D2 has no bar and draws the plain triangle, Mermaid writes `redefinition` as the edge text. |
@@ -724,12 +775,12 @@ compartments and labels of the clause still lack.
 | `perform-edge` | `perform` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«perform»`, from the performing usage to the action. |
 | `exhibit-edge` | `exhibit` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«exhibit»`, from the exhibiting usage to the state. |
 | `association` (actor or subject line, connection definition) | `association` | `dir=none` | `--` | `---` | `-- edge` | `endArrow=none` | `none` | conformant | Plain undirected line. |
-| objective anchor | `anchor` | `dir=none, style=dashed` | `..` | `-.-` | `-> edge` | `dashed=1;endArrow=none` | `none` | conformant | Dashed line without a head, the note's anchor. |
+| `annotation-link` (and the objective anchor) | `anchor` | `dir=none, style=dashed` | `..` | `-.-` | `-> edge` | `dashed=1;endArrow=none` | `none` | conformant | Dashed line without a head (§8.2.3.4 `annotation-link`), from a comment, doc or rep node to each element it annotates, and the anchor of a `DiagramLayout::Note` or a case objective. |
 | `succession-flow` | `succession flow` | `style=dashed` | `-[dashed]->` | `-.->` | `-> successionflow` | `dashed=1;endArrow=block;endFill=1` | `end arrow` | differs from pilot | Dashed with a filled head and `«succession flow»` as its text, between the ends of a `succession flow` in action and interconnection renderings; the succession it also states is not drawn twice, except for the guard of a succession that gates it, and the keyword stays when connector names are hidden. The Pilot writes `..>`, an open head. |
 | `require-edge`, `assume-edge`, `assert-edge` | `require`, `assume`, `assert` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«require»`, `«assume»` or `«assert»`, from the requirer, assumer or assertor to the constraint or requirement it declares (`require constraint c { … }`) or names (`require r1;`), in the requirement and definition graphs and the mixed rendering; a tree nests the declared forms in their owner, and a mixed rendering nests them and draws this edge from the owner to the nested node, as it draws every nested membership. |
 | `frame-edge` | `frame` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | differs from pilot | Solid open arrow labelled `«frame»`, from the framer to the concern it declares or names, as above. The Pilot has no rule of its own and writes a feature membership's `*--`. |
 | `event-edge` | `event` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«event»`, from the eventer to an `event occurrence` it owns, in the definition graph, the tree and the mixed rendering, which draw the membership of each usage. |
-| `portion-relationship` | `portion` | `dir=back, arrowtail=dot` | `#--` | `---` | `<- portion` | `startArrow=oval;startFill=1;endArrow=none` | `start portion` | approximate | Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle. The Pilot writes `*--`. |
+| `portion-relationship` | `portion` | `dir=back, arrowtail=dot` | `#--` | `---` | `<- portion` | `startArrow=oval;startFill=1;endArrow=none` | `start portion` | approximate | Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle, which no Graphviz, PlantUML, D2 or draw.io arrowhead is. The Pilot writes `*--`. |
 | `reference-subsetting` | `reference subsetting` | `arrowhead=onormaldot` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-four-dots` | approximate | Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML and D2 draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--\|>`. |
 | `unowned-membership` | `unowned membership` | `dir=back, arrowtail=odot` | `0--` | `---` | `<- membership` | `startArrow=oval;startFill=0;endArrow=none` | `start circle-hollow` | differs from pilot | Solid line with a hollow circle at the namespace, from a package to a drawn package it holds by `alias`, the alias name at the member's end, in the package graph; Mermaid draws a plain line with `○` leading the text. The Pilot writes `+..`, dashed with a circle-plus. |
 | `expose-r`, `toplevel-expose-r`, `recursive-expose-r` | `expose` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Dashed open arrow labelled `«expose»`, `«expose»*` or `«expose»**` as an import is, from a view usage to an element it exposes when both are drawn apart (a tree or mixed rendering), one edge per distinct exposure (two statements that say the same draw one edge, as imports do); the exposures a nested view's node holds as its children are shown by the nesting. |
@@ -739,8 +790,8 @@ where the arrow alone would not tell a specialization, subsetting, redefinition 
 canvas dashes a `succession`, `succession flow`, `import`, `derive`, `refine`, `dependency`, `expose` or
 `anchor` edge by its CSS class. Under the cameo style a tree's `containment` is Cameo's filled diamond instead.
 
-The sequence-diagram `message` and `sq-succession` glyphs remain undrawn as such: a sequence
-message is the grammar's own arrow. `testdata/notation-glyphs.sysml` exercises the succession flow,
+The sequence `message` and `sq-succession` glyphs are the message and succession rows of a
+sequence rendering. `testdata/notation-glyphs.sysml` exercises the succession flow,
 require, assume, assert, frame, event, portion, reference subsetting, unowned membership and
 expose edges in each rendering kind that draws them (`glyphs-*.golden`).
 
@@ -844,6 +895,37 @@ Forms that draw no style write a notice (`%% not represented: style cameo; only 
 Mermaid forms draw a diagram in a style`). Unsupported Style fields and unrepresentable Notes
 are counted in notices rather than dropped silently.
 
+### Annotation nodes and the view frame
+
+A tree, definition, package or requirement rendering draws the comments, documentation and
+textual representations of its members as the figures of SysML v2.1 §8.2.3.4 do
+(`annotation.go` `annotationNode`, `tree.go` `annotationChildren`, `general.go`): a note — a box
+with a folded corner (`shape=note`, PlantUML `note`, Mermaid `notch-rect`, D2 `page`, draw.io
+`shape=note`) — headed `«comment»` with the comment's name when it has one, `«doc»` with the
+documentation's name, or `«rep»` with the representation's name, the `locale` and `language` in
+smaller text, the body below. A dashed `anchor` edge joins the note to every element it is `about`,
+or to its owner when it names none (`tree_edges.go` `annotationLinks`). A positioned or folded
+node lists its documentation in a `doc` compartment instead (`compartments.go`
+`annotationRowText`). A view's `filter` admits or rejects annotations as it does any member, and
+the optional element `annotations` (`showAnnotations`) leaves them all out, the layout Notes
+anchored to them included. The text form writes them as `comment`, `doc` and `rep` lines.
+
+Every rendering of a view is drawn inside the §8.2.3.26 view frame (`frame.go` `frameOf`,
+`Rendering.Frame`): the frame rectangle, the name compartment at its top-left corner —
+`«view»` over the view's name, `: ViewDef` after it when the view is typed — and three
+information compartments: the view's `expose` lines at the top-right, its `filter` conditions at
+the bottom-left, its comments and documentation at the bottom-right; an empty compartment is
+left out. DOT draws it as `subgraph cluster_frame` with the name as the cluster label and the
+three compartments as `frame_tr`, `frame_bl` and `frame_br` nodes ranked to the top and bottom
+(`dot.go` `openFrame`, `writeFrameCompartments`), draw.io as a `shape=umlFrame` with text cells
+at the corners (`drawio.go` `writeFrame`), the VS Code canvas as the frame rectangle, its tab and
+its corner texts (`canvas.ts` `drawFrame`). PlantUML writes the frame as its `mainframe`, whose
+tab holds the name and, having no corner compartments, the information lines below it
+(`plantuml.go` `writeMainframe`); Mermaid, which draws no frame, writes the name line as the
+frontmatter `title`; D2 writes the name and the compartments as `text` shapes `near` the four
+corners (`d2.go` `writeFrame`). The Cameo style keeps Cameo's own frame and header tab. A stated
+`Canvas` sets the frame's bounds as before.
+
 By default the DOT form is drawn in the **Standard B&W style** of the OMG SysML v2 Pilot Implementation's
 PlantUML visualizer, after the `sysmlbw` PlantUML skin by Hisashi Miyashita (Mgnite Inc.) shipped
 with it — `github.com/himi/plantuml`, branch `psysml`,
@@ -870,7 +952,7 @@ translation to DOT is:
 | Pilot `caseConnectionUsage`, `caseConnector`: `-[thickness=3]-` | `EdgeConnection`: `arrowhead=none, penwidth=3` |
 | Pilot `caseFlow`, `caseSuccession`, `caseTransitionUsage`: `-->` | the `EdgeKind` table above, unchanged |
 | initial and final pseudo-states | the UML filled black dot: `shape=circle` (`doublecircle` for a final), `fillcolor=black`, `label=""`, `width=0.2` unless a Layout sizes it; a pseudo-state the model names keeps its labelled ring unless a Layout sizes it. An action's `start` and `done`, being the language's names and not the body's, and a name a migration made up (`Node.NameSynthesized`) are the dot and the ring, as the notation draws them. The `start` point is unchanged |
-| symbol kinds in a stated box | a node whose Layout states a size and whose kind has a notation symbol is drawn as the symbol with no text inside it: `decision`, `merge` and `choice` as `shape=diamond`; `fork` and `join` as the filled bar (the stated box, `fillcolor=black`); `initial` and `junction` as the filled dot; `final` and a terminate action as `shape=doublecircle, fillcolor=black`; a port (`port`, `ref port`, not a `port def`) as its stated square, filled by the palette when one is set. The head the node would have carried is set beside the symbol as `xlabel="…"`, a plain string, and left out when `Node.NameSynthesized` marks the name as one a migration made up |
+| symbol kinds in a stated box | a node whose Layout states a size and whose kind has a notation symbol is drawn as the symbol with no text inside it: `decision`, `merge` and `choice` as `shape=diamond`; `fork` and `join` as the filled bar (the stated box, `fillcolor=black`); `initial` and `junction` as the filled dot; `final` as `shape=doublecircle, fillcolor=black`; a terminate action as `shape=circle, fillcolor=white` with a bold `✕` inside; a port (`port`, `ref port`, not a `port def`) as its stated square, filled by the palette when one is set. The head the node would have carried is set beside the symbol as `xlabel="…"`, a plain string, and left out when `Node.NameSynthesized` marks the name as one a migration made up |
 
 Not translated, because Graphviz has no vocabulary for them: `Shadowing 0` (no shadows to turn
 off), `hide circle` (no class circles), `wrapWidth 300` (DOT does not wrap label text; the writer
@@ -1593,6 +1675,7 @@ attribute a rendering in the model chooses it by:
 | `parameter-symbols` | `showParameterSymbols` | A case's `actor`, `subject` and `stakeholder` parameters as squares on the node's boundary (an action's parameter pins are its node form's, always drawn). Without them a connection that ended at a parameter ends at the node that declares it: one line per connection, one node per actor. A tree lists a case's parameters as members and a calc's, action's or constraint's as pins of their owner, all of which stay. | §7.26.5; §8.2.3 `distinguished-parameter`, `distinguished-parameter-link` |
 | `port-symbols` | `showPortSymbols` | A part's ports, and a constraint's parameters, as pins on its boundary. Without them a connection that ended at a port ends at the part, a binding that ended at a parameter at the constraint; a port drawn as a nested member of a tree is model structure and stays, as are a tree's parameter pins. Default. | §7.26.5; §8.2.3 `port-node` |
 | `compartments` | `showCompartments` | The lists of nested features inside a node. Default. | §7.26.5; §8.2.3 `compartment` |
+| `annotations` | `showAnnotations` | The comment, documentation and textual representation nodes beside the elements they annotate, each joined to them by a dashed annotation link, and the `doc` compartment of a positioned node. Default, as the notation's figures draw them. | §7.3.3; §8.2.3.4 `annotation-node`, `annotation-link`, `documentation-compartment` |
 | `edge-labels` | `showEdgeLabels` | The names of connections, flows, bindings and allocations along their lines. Without them no label box is left. A sequence diagram's message lines keep their labels: the label is the message. | §8.2.3 `edge-label` |
 | `keywords` | `showKeywords` | The `«keyword»` over each name (`«part def»`, `«part»`, `«enum def»`, …), as the notation's examples, the pilot and SysON draw every node. Default. | §8.2.3 `keyword-list` |
 | `multiplicities` | `showMultiplicities` | A feature's `[m..n]` after its name and at a composition's part end. | §8.2.3 `multiplicity` |

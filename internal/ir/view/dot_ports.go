@@ -186,8 +186,14 @@ func (w *dotWriter) writePins(node *Node, indent string) {
 		return
 	}
 	for _, port := range w.ports.of(node) {
-		attrs := []string{"shape=box", `label=""`, "xlabel=" + dotQuote(w.ports.pinLabel(port)), "fontsize=" + strconv.Itoa(dotPinPts),
-			"width=" + dotInches(dotPinSize), "height=" + dotInches(dotPinSize), "fixedsize=true"}
+		attrs := []string{"shape=box"}
+		if port.Parameter {
+			attrs = append(attrs, "style="+dotQuote("rounded,filled"), "label="+dotQuote(pinArrow(port.Direction, w.pinNodeSide(node, port))))
+		} else {
+			attrs = append(attrs, `label=""`)
+		}
+		attrs = append(attrs, "xlabel="+dotQuote(w.ports.pinLabel(port)), "fontsize="+strconv.Itoa(dotPinPts),
+			"width="+dotInches(dotPinSize), "height="+dotInches(dotPinSize), "fixedsize=true")
 		if w.skin.cameo {
 			attrs = append(attrs, "fillcolor="+dotQuote(cameoNoteFill), dotColorAttr(cameoActionLine))
 		}
@@ -196,6 +202,21 @@ func (w *dotWriter) writePins(node *Node, indent string) {
 		}
 		fmt.Fprintf(&w.b, "%s%s [%s];\n", indent, dotQuote(port.ID), strings.Join(attrs, ", "))
 	}
+}
+
+// pinNodeSide is the side of its node a pin node sits on: the one its box is
+// nearest when both are placed, else the left for an input, the right for any
+// other, where the Pilot's figures set them.
+func (w *dotWriter) pinNodeSide(node *Node, port Port) boundarySide {
+	if box, ok := w.pins[port.ID]; ok {
+		if owner, ok := w.boxes[node.ID]; ok {
+			return owner.nearestSide(box.centre(), Point{X: box.centre().X - owner.centre().X, Y: box.centre().Y - owner.centre().Y})
+		}
+	}
+	if port.Direction == PortIn {
+		return leftSide
+	}
+	return rightSide
 }
 
 // portSide is the side of its node a port no route meets sits on: 0 the top,
@@ -287,7 +308,8 @@ func (w *dotWriter) dotPinRow(ports []Port, columns int) string {
 	cells := []string{dotEmptyCell}
 	for _, port := range ports {
 		cells = append(cells,
-			fmt.Sprintf(`<td port=%s border="1" fixedsize="true" width="%d" height="%d" bgcolor=%s></td>`, dotQuote(port.ID), dotPinSize-2, dotPinSize-2, dotQuote(w.pinFill())),
+			fmt.Sprintf(`<td port=%s border="1"%s fixedsize="true" width="%d" height="%d" bgcolor=%s>%s</td>`,
+				dotQuote(port.ID), dotPinStyle(port), dotPinSize-2, dotPinSize-2, dotQuote(w.pinFill()), w.pinArrowCell(port)),
 			fmt.Sprintf(`<td align="left">%s</td>`, w.labels.sized(w.labels.size(), dotPinPts, dotEscape(w.ports.pinLabel(port)))),
 			dotEmptyCell)
 	}
@@ -296,6 +318,35 @@ func (w *dotWriter) dotPinRow(ports []Port, columns int) string {
 	}
 	return "<tr>" + strings.Join(cells, "") + "</tr>"
 }
+
+// dotPinStyle rounds the cell of a parameter pin, as the notation draws one; a
+// part's port keeps its square.
+func dotPinStyle(port Port) string {
+	if port.Parameter {
+		return ` style="rounded"`
+	}
+	return ""
+}
+
+// pinArrowCell is the direction arrow set in a pin cell of a label's top or
+// bottom row, in small type; "" for a port with no direction.
+func (w *dotWriter) pinArrowCell(port Port) string {
+	if !port.Parameter {
+		return ""
+	}
+	side := topSide
+	if w.portSide(port) == 1 {
+		side = bottomSide
+	}
+	arrow := pinArrow(port.Direction, side)
+	if arrow == "" {
+		return ""
+	}
+	return fmt.Sprintf(`<font point-size="%d">%s</font>`, dotPinArrowPts, arrow)
+}
+
+// dotPinArrowPts is the type size of the direction arrow inside a pin.
+const dotPinArrowPts = 7
 
 // pinFill is the fill of a pin's square: white, Cameo's note fill in its skin.
 func (w *dotWriter) pinFill() string {
@@ -313,8 +364,8 @@ func (w *dotWriter) dotPortRow(ports []Port) string {
 	}
 	var cells []string
 	for _, port := range ports {
-		cells = append(cells, fmt.Sprintf(`<td port=%s border="1" fixedsize="true" width="%d" height="%d"></td><td align="left">%s</td>`,
-			dotQuote(port.ID), dotPinSize-2, dotPinSize-2, w.labels.sized(w.labels.size(), dotPinPts, dotEscape(w.ports.pinLabel(port)))))
+		cells = append(cells, fmt.Sprintf(`<td port=%s border="1"%s fixedsize="true" width="%d" height="%d">%s</td><td align="left">%s</td>`,
+			dotQuote(port.ID), dotPinStyle(port), dotPinSize-2, dotPinSize-2, w.pinArrowCell(port), w.labels.sized(w.labels.size(), dotPinPts, dotEscape(w.ports.pinLabel(port)))))
 	}
 	return "<tr>" + strings.Join(cells, "") + "</tr>"
 }

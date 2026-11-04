@@ -1,6 +1,7 @@
 package view
 
 import (
+	"slices"
 	"testing"
 )
 
@@ -40,14 +41,23 @@ const typedStateDerived = `package App {
 func TestStateBehaviorTextFromTypingDocument(t *testing.T) {
 	rendering, _, _ := renderModel(t, []string{"lib.sysml", "app.sysml"}, []string{typedStateBase, typedStateDerived}, "App::runStates", "App::Run")
 	data := rendering.Data()
-	var detail string
+	var detail, working string
 	for _, node := range data.Nodes {
 		if node.Name == "working" {
-			detail = node.Detail
+			detail, working = node.Detail, node.ID
 		}
 	}
-	if want := "initial, entry / count := 0, do / count := count + 1, exit / Tick"; detail != want {
-		t.Errorf("working detail = %q, want %q", detail, want)
+	if detail != "initial" {
+		t.Errorf("working detail = %q, want %q", detail, "initial")
+	}
+	var rows []string
+	for _, node := range data.Nodes {
+		if node.Parent == working && node.Compartment != "" {
+			rows = append(rows, node.Compartment+" / "+node.Text)
+		}
+	}
+	if want := []string{"entry / count := 0", "do / count := count + 1", "exit / Tick"}; !slices.Equal(rows, want) {
+		t.Errorf("working compartment rows = %q, want %q", rows, want)
 	}
 	var label string
 	for _, edge := range data.Edges {

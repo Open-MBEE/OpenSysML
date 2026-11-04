@@ -48,7 +48,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		return r.runTimelinePlantUML(options), nil
 	}
 	r = r.showing(options.Show).settleUnplaced(options.Unplaced, options.Compartments, FormPlantUML)
-	w := &plantumlWriter{kind: r.Kind, borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
+	w := &plantumlWriter{kind: r.Kind, borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree, sequence: r.Kind == KindSequence},
 		labels: labelsOf(r.Roots, false, nil, r.Shown), ports: r.portView(options.Ports), links: options.Links,
 		writtenPorts: make(map[string]struct{}), nesting: r.nestingEdges()}
 	w.labels.listedPin = r.listedPin(func(node *Node, port Port) bool { return r.Kind == KindMixed && drawsPort(w.ports.of(node), port) })
@@ -99,6 +99,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	for _, notice := range slices.Concat(r.Notices, notices) {
 		fmt.Fprintf(b, "' not represented: %s\n", notice)
 	}
+	w.writeMainframe(r, b)
 	w.writeStyle(hasDot(r.Roots))
 	if direction != "" {
 		b.WriteString(direction + "\n")
@@ -257,7 +258,11 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 		w.writeDot(node, "")
 		return
 	}
-	fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
+	if annotationKind(node.Kind) {
+		w.writeAnnotationNote(node, "")
+	} else {
+		fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
+	}
 	for _, child := range node.Children {
 		w.writeClassNode(child)
 		if !w.nesting[[2]string{node.ID, child.ID}] {
@@ -509,9 +514,41 @@ func (w *plantumlWriter) writeSequenceDiagram(r *Rendering) {
 		}
 		fmt.Fprintf(b, "participant %s as %s%s\n", plantumlQuote(label), node.ID, w.decoration(node))
 	}
+	participants := r.participants()
 	for _, edge := range r.Edges {
-		w.writeArrowEdge(edge, edge.From, edge.To, true)
+		w.writeArrowEdge(edge, participants[edge.From], participants[edge.To], true)
 	}
+}
+
+// participants maps every node of a sequence rendering to the lifeline it is
+// drawn on: a lifeline to itself, a proxy on a lifeline to that lifeline, for
+// a form whose arrows run between participants and know no point on a lifeline.
+func (r *Rendering) participants() map[string]string {
+	participants := map[string]string{}
+	var walk func(node *Node, lifeline string)
+	walk = func(node *Node, lifeline string) {
+		participants[node.ID] = lifeline
+		for _, child := range node.Children {
+			walk(child, lifeline)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root, root.ID)
+	}
+	return participants
+}
+
+// plantumlSequenceArrow is each edge kind's arrow in a sequence diagram: the
+// §8.2.3.9 message is a solid line with an open head, the succession a dashed
+// one; a flow keeps its filled head.
+func plantumlSequenceArrow(edge EdgeKind) string {
+	switch edge {
+	case EdgeMessage:
+		return "->>"
+	case EdgeSuccession:
+		return "-->>"
+	}
+	return "->"
 }
 
 // writeEdge writes one edge as its kind's arrow, with its label when it carries one.
@@ -556,7 +593,7 @@ func (w *plantumlWriter) writeArrow(indent, from, to, arrow, label string, origi
 func (w *plantumlWriter) writeArrowEdge(edge Edge, from, to string, sequence bool) {
 	arrow := plantumlArrow(w.kind, edge.Kind)
 	if sequence {
-		arrow = "->"
+		arrow = plantumlSequenceArrow(edge.Kind)
 	}
 	if edge.FromLabel != "" {
 		from += " " + plantumlQuote(plantumlEdgeText(w.kind, edge.FromLabel))
@@ -620,7 +657,7 @@ func plantumlArrow(kind Kind, edge EdgeKind) string {
 		return ".."
 	case EdgeSuccessionFlow:
 		return "-[dashed]->"
-	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeMessage:
 		return "-->"
 	case EdgePortion:
 		// PlantUML has no three-quarter circle: its filled square stands at the occurrence end.
@@ -674,6 +711,20 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	return out.String()
 }
 
+// writeAnnotationNote writes an annotation node (§8.2.3.4) as a PlantUML
+// note, the folded-corner box, its label a line per row.
+func (w *plantumlWriter) writeAnnotationNote(node *Node, indent string) {
+	fmt.Fprintf(&w.b, "%snote as %s%s\n", indent, node.ID, w.noteDecoration(node))
+	for _, line := range strings.Split(w.plantumlLabel(node), `\n`) {
+		if line == "" {
+			fmt.Fprintf(&w.b, "%s  \n", indent)
+			continue
+		}
+		fmt.Fprintf(&w.b, "%s  %s\n", indent, line)
+	}
+	fmt.Fprintf(&w.b, "%send note\n", indent)
+}
+
 // noteDecoration styles a note node using the rendering's palette and annotation.
 func (w *plantumlWriter) noteDecoration(node *Node) string {
 	var out strings.Builder
@@ -697,7 +748,7 @@ func (w *plantumlWriter) noteDecoration(node *Node) string {
 // choice diamond (a merge and a junction too, PlantUML having no round
 // junction), and the history circles.
 var plantumlPseudostates = map[string]string{
-	"initial": "start", "final": "end", "fork": "fork", "join": "join",
+	"initial": "start", "final": "end", terminateKind: "end", "fork": "fork", "join": "join",
 	"decision": "choice", "choice": "choice", "merge": "choice", "junction": "choice",
 	"shallow history": "history", "deep history": "history*",
 }
@@ -725,10 +776,15 @@ func plantumlShapeStereotype(node *Node) string {
 func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	var parts []string
 	if keyword := w.labels.keyword(node); keyword != "" {
-		parts = append(parts, fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, plantumlText(keyword)))
+		parts = append(parts, marked(w.labels.mark(node), fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, plantumlText(keyword))))
 	}
-	if head := w.labels.head(node); head != "" {
+	if annotationKind(node.Kind) && shown(node) == "" {
+		parts = append(parts, strings.Split(plantumlText(w.labels.head(node)), "\n")...)
+	} else if head := w.labels.head(node); head != "" {
 		parts = append(parts, "**"+plantumlText(head)+"**")
+	}
+	for _, line := range w.labels.parallel(node) {
+		parts = append(parts, fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, plantumlText(line)))
 	}
 	for _, line := range w.labels.details(node) {
 		parts = append(parts, plantumlText(line))
@@ -768,4 +824,24 @@ func plantumlText(text string) string {
 		}
 	}
 	return out.String()
+}
+
+// writeMainframe writes the view frame (§8.2.3.26) as PlantUML's mainframe: the
+// frame round the diagram with the name compartment at its top-left corner.
+// PlantUML has no corner compartments, so the frame's info contents follow the
+// name as further lines of the compartment.
+func (w *plantumlWriter) writeMainframe(r *Rendering, b *strings.Builder) {
+	if r.Frame == nil {
+		return
+	}
+	lines := []string{"<size:10>//«view»//</size> **" + plantumlText(DisplayText(r.Frame.Name)) + "**"}
+	if r.Frame.Type != "" {
+		lines[0] += " : " + plantumlText(DisplayText(r.Frame.Type))
+	}
+	for _, c := range r.Frame.Compartments() {
+		for _, line := range c.Lines {
+			lines = append(lines, "<size:10>"+plantumlText(line)+"</size>")
+		}
+	}
+	fmt.Fprintf(b, "mainframe %s\n", strings.Join(lines, "\\n"))
 }

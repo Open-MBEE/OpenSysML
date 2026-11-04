@@ -5,7 +5,7 @@ part tank
 part spare
 timeslice filling
 snapshot full
-occurrence startup
+event occurrence startup
 requirement def LevelReq
 require constraint keepLevel
 assume constraint lowLevel

@@ -20,6 +20,10 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+title: "«view» MixedExamples::mixedDiagram"
 ---
 %% MixedExamples::mixedDiagram — mixed rendering (render asMixedDiagram)
 flowchart TD
@@ -65,7 +69,8 @@ flowchart TD
     n1["`*«state def»*
 **Ready**
 declares no states`"]
-    subgraph n2 ["`*«state def»* **Modes**`"]
+    subgraph n2 ["`*«state def»* **Modes**
+state transition`"]
       direction TD
       n2_anchor[" "]
       n4@{ shape: f-circ, label: "" }
@@ -91,7 +96,8 @@ initial`")
     n13("`*«perform action»*
 **run**
 declares no nodes`")
-    subgraph n14 ["`*«exhibit state»* **mode**`"]
+    subgraph n14 ["`*«exhibit state»* **mode**
+state transition`"]
       direction TD
       n14_anchor[" "]
       n16@{ shape: f-circ, label: "" }

@@ -13,7 +13,7 @@ n1: "«part»\ntank" { class: usage }
 n2: "«part»\nspare" { class: usage }
 n3: "«timeslice»\nfilling" { class: usage }
 n4: "«snapshot»\nfull" { class: usage }
-n5: "«occurrence»\nstartup" { class: usage }
+n5: "«event occurrence»\nstartup" { class: usage }
 n6: "«requirement def»\nLevelReq" { class: definition }
 n7: "«require constraint»\nkeepLevel" { class: usage }
 n8: "«assume constraint»\nlowLevel" { class: usage }
@@ -32,3 +32,6 @@ n6 -> n10: "assume" { class: open }
 n6 -> n7: "require" { class: open }
 n6 -> n8: "assume" { class: open }
 n11 -> n12: "assert" { class: open }
+frame_name: "«view» NotationGlyphs::Diagrams::definitionGlyphs : GeneralView" { shape: text; near: top-left }
+frame_tr: "expose Plant\nexpose Plant::tank\nexpose Plant::spare\nexpose Plant::filling\nexpose Plant::full\nexpose Plant::startup\nexpose LevelReq\nexpose LevelReq::keepLevel\nexpose LevelReq::lowLevel\nexpose bounded\nexpose tight\nexpose capacity\nexpose capacity::asserted" { shape: text; near: top-right }
+frame_bl: "filter @SysML::Definition or @SysML::Usage" { shape: text; near: bottom-left }

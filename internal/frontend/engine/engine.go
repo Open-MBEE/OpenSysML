@@ -391,6 +391,9 @@ func marshalRenderView(model *cachedModel, data view.Data) ([]byte, error) {
 		Nodes:   make([]JRenderNode, 0, len(data.Nodes)),
 		Edges:   make([]JRenderEdge, 0, len(data.Edges)),
 	}
+	if f := data.Frame; f != nil {
+		out.Frame = &JRenderFrame{Name: f.Name, Type: f.Type, Exposes: f.Exposes, Filters: f.Filters, Annotations: f.Annotations}
+	}
 	if data.Canvas != nil {
 		out.Canvas = &JRenderCanvas{
 			Unit: data.Canvas.Unit, Width: data.Canvas.Width, Height: data.Canvas.Height, HasSize: data.Canvas.HasSize,

@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» NaryViews::definitions" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=268;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Nary::Triad&#xA;expose Nary::Hub&#xA;expose Nary::Spoke" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="659" width="168" height="59" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«connection def dot»&#xA;Triad" fqn="Nary::Triad" kind="connection def dot" view="NaryViews::definitions">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="12" height="12" as="geometry"/>
