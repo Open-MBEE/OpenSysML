@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:560a554931f9c9a6d48a09887cc6bf254ceee3b6d4f5020823155065fbaab78e"
+        "sourceDigest": "sha256:e2e2228576927de6f2156bb8158ea24442c05ab55f0e1c73ae6592ffd1561224"
       }
     ],
     "inputs": [
@@ -120,12 +120,12 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1806828,
-      "presentDifferent": 130800,
+      "presentEqual": 1807603,
+      "presentDifferent": 129158,
       "oursMissing": 309622,
       "pilotMissing": 74321,
       "absentBoth": 1985215,
-      "indeterminate": 31238,
+      "indeterminate": 32105,
       "pilotNondeterministic": 516
     },
     "rows": 11767,
@@ -161,12 +161,12 @@
         "typeMismatch": 10
       },
       "properties": {
-        "presentEqual": 145720,
-        "presentDifferent": 11501,
+        "presentEqual": 145775,
+        "presentDifferent": 11286,
         "oursMissing": 20816,
         "pilotMissing": 5324,
         "absentBoth": 164260,
-        "indeterminate": 2614,
+        "indeterminate": 2774,
         "pilotNondeterministic": 62
       },
       "duplicateElements": {
@@ -197,12 +197,12 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 523433,
-        "presentDifferent": 39423,
+        "presentEqual": 523735,
+        "presentDifferent": 38775,
         "oursMissing": 85688,
         "pilotMissing": 20224,
         "absentBoth": 575783,
-        "indeterminate": 7204,
+        "indeterminate": 7550,
         "pilotNondeterministic": 172
       },
       "duplicateElements": {
@@ -233,12 +233,12 @@
         "typeMismatch": 15
       },
       "properties": {
-        "presentEqual": 183444,
-        "presentDifferent": 15222,
+        "presentEqual": 183502,
+        "presentDifferent": 15072,
         "oursMissing": 27351,
         "pilotMissing": 7194,
         "absentBoth": 205954,
-        "indeterminate": 2639,
+        "indeterminate": 2731,
         "pilotNondeterministic": 66
       },
       "duplicateElements": {
@@ -270,8 +270,8 @@
         "typeMismatch": 1034
       },
       "properties": {
-        "presentEqual": 113470,
-        "presentDifferent": 8826,
+        "presentEqual": 113485,
+        "presentDifferent": 8811,
         "oursMissing": 19512,
         "pilotMissing": 7607,
         "absentBoth": 106159,
@@ -306,12 +306,12 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 123319,
-        "presentDifferent": 6328,
+        "presentEqual": 123508,
+        "presentDifferent": 6127,
         "oursMissing": 22800,
         "pilotMissing": 6049,
         "absentBoth": 134866,
-        "indeterminate": 2176,
+        "indeterminate": 2188,
         "pilotNondeterministic": 7
       },
       "duplicateElements": {
@@ -343,12 +343,12 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 26591,
-        "presentDifferent": 1901,
+        "presentEqual": 26598,
+        "presentDifferent": 1879,
         "oursMissing": 4301,
         "pilotMissing": 1159,
         "absentBoth": 31336,
-        "indeterminate": 400,
+        "indeterminate": 415,
         "pilotNondeterministic": 0
       },
       "duplicateElements": {
@@ -380,12 +380,12 @@
         "typeMismatch": 186
       },
       "properties": {
-        "presentEqual": 548806,
-        "presentDifferent": 38634,
+        "presentEqual": 548936,
+        "presentDifferent": 38306,
         "oursMissing": 99644,
         "pilotMissing": 21795,
         "absentBoth": 615877,
-        "indeterminate": 12426,
+        "indeterminate": 12624,
         "pilotNondeterministic": 164
       },
       "duplicateElements": {
@@ -452,12 +452,12 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 141160,
-        "presentDifferent": 8932,
+        "presentEqual": 141179,
+        "presentDifferent": 8869,
         "oursMissing": 29420,
         "pilotMissing": 4928,
         "absentBoth": 149987,
-        "indeterminate": 3218,
+        "indeterminate": 3262,
         "pilotNondeterministic": 36
       },
       "duplicateElements": {
@@ -36654,8 +36654,8 @@
       0
     ],
     "Feature.feature": [
-      28,
-      576,
+      55,
+      549,
       9806,
       6,
       0,
@@ -36663,8 +36663,8 @@
       0
     ],
     "Feature.featureMembership": [
-      29,
-      576,
+      56,
+      549,
       9806,
       6,
       0,
@@ -36699,8 +36699,8 @@
       0
     ],
     "Feature.inheritedFeature": [
-      28,
-      582,
+      55,
+      555,
       9806,
       0,
       0,
@@ -66877,11 +66877,11 @@
     ],
     "OccurrenceUsage.feature": [
       0,
-      101,
+      103,
       26,
       0,
       0,
-      17,
+      15,
       0
     ],
     "OccurrenceUsage.featureMembership": [
@@ -66931,11 +66931,11 @@
     ],
     "OccurrenceUsage.inheritedFeature": [
       0,
-      101,
+      103,
       26,
       0,
       0,
-      17,
+      15,
       0
     ],
     "OccurrenceUsage.inheritedMembership": [
@@ -70027,16 +70027,16 @@
     ],
     "PartUsage.feature": [
       0,
-      1160,
+      1159,
       300,
       0,
       0,
-      529,
+      530,
       0
     ],
     "PartUsage.featureMembership": [
-      536,
-      1153,
+      537,
+      1152,
       300,
       0,
       0,
@@ -70081,11 +70081,11 @@
     ],
     "PartUsage.inheritedFeature": [
       0,
-      1153,
+      1152,
       300,
       0,
       0,
-      536,
+      537,
       0
     ],
     "PartUsage.inheritedMembership": [
@@ -75732,17 +75732,17 @@
       0
     ],
     "ReferenceUsage.feature": [
-      94,
-      923,
+      177,
+      417,
       1309,
       0,
       0,
-      1,
+      424,
       0
     ],
     "ReferenceUsage.featureMembership": [
-      94,
-      924,
+      601,
+      417,
       1309,
       0,
       0,
@@ -75777,12 +75777,12 @@
       0
     ],
     "ReferenceUsage.inheritedFeature": [
-      94,
-      923,
+      177,
+      416,
       1309,
       0,
       0,
-      1,
+      425,
       0
     ],
     "ReferenceUsage.inheritedMembership": [
@@ -96495,17 +96495,17 @@
       0
     ],
     "Usage.feature": [
-      0,
-      30,
-      0,
-      0,
+      3,
+      16,
       0,
       0,
+      0,
+      11,
       0
     ],
     "Usage.featureMembership": [
-      0,
-      30,
+      14,
+      16,
       0,
       0,
       0,
@@ -96540,12 +96540,12 @@
       0
     ],
     "Usage.inheritedFeature": [
-      0,
-      30,
-      0,
-      0,
+      3,
+      16,
       0,
       0,
+      0,
+      11,
       0
     ],
     "Usage.inheritedMembership": [

@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 93444 elements matched (18451 ours-only, 37881 pilot-only, 0 of them implied); properties: 1806828 present-equal, 130800 present-different, 309622 ours-missing, 74321 pilot-missing, 1985215 absent-both, 31238 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 93444 elements matched (18451 ours-only, 37881 pilot-only, 0 of them implied); properties: 1807603 present-equal, 129158 present-different, 309622 ours-missing, 74321 pilot-missing, 1985215 absent-both, 32105 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
@@ -486,7 +486,14 @@ ours-missing):
    Fallout: an inherited member's stub states the metaclass the semantic model classifies it by (a KerML
    `feature` as `Feature`), while the pre-existing stub of a member the model text references directly
    keeps its declaration's (`AttributeUsage` for the same feature); unifying them changes existing Turtle
-   statements and is left to a follow-up. The present-different rows were classified
+   statements and is left to a follow-up. Re-recorded once more on this writer (the `ReferenceUsage`
+   correction: a reference usage has no kind base beyond `Base::things`, so its lists no longer carry
+   `Base::DataValue`'s members): present-equal +775, present-different −1642, indeterminate +867,
+   ours-missing unchanged — `ReferenceUsage.featureMembership` 507 rows different → equal;
+   `ReferenceUsage.feature`/`inheritedFeature` 506 rows different → 83 equal and 424 indeterminate, lists that
+   now agree at every keyed position and reference a library member neither key table addresses; `Feature`
+   27 rows different → equal in each of the three; `Usage`, `OccurrenceUsage` and `PartUsage` by one to
+   fourteen rows. The present-different rows were classified
    on the training root by the exact difference of the two lists, and fall into four causes:
    - Elements the structure-mode evaluator gives no implied base: expressions, their anonymous result
      features (the `Feature` rows of the gap table below) and multiplicity ranges. The semantic model
@@ -695,9 +702,9 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | # | metaclass | property | ours-missing | present-different | in-flight overlap | derivation clause |
 |---:|---|---|---:|---:|---|---|
 | 1 | `Feature` | `inheritedMembership` | 9806 | 611 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::inheritedMembership = inheritedMemberships(excluded)` over the supertypes (KerML 8.3.3.1, deriveTypeInheritedMembership) |
-| 2 | `Feature` | `inheritedFeature` | 9806 | 582 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1, deriveTypeInheritedFeature) |
-| 3 | `Feature` | `featureMembership` | 9806 | 576 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1; KERML11-191 restricts the inherited part to the supertypes) |
-| 4 | `Feature` | `feature` | 9806 | 576 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1, deriveTypeFeature) |
+| 2 | `Feature` | `inheritedFeature` | 9806 | 555 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1, deriveTypeInheritedFeature) |
+| 3 | `Feature` | `featureMembership` | 9806 | 549 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1; KERML11-191 restricts the inherited part to the supertypes) |
+| 4 | `Feature` | `feature` | 9806 | 549 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1, deriveTypeFeature) |
 | 5 | `Feature` | `type` | 9663 | 41 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::type = typing.type` with the types inherited through chaining and redefinition (KerML 8.3.3.3, deriveFeatureType) |
 | 6 | `Feature` | `name` | 8882 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Element::name = effectiveName()`: the declared name, or for a feature the name of the feature it redefines (KerML 8.3.2.1, deriveElementName) |
 | 7 | `Feature` | `membership` | 5338 | 5079 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Namespace::membership = ownedMembership->union(importedMembership)`, and for a Type also `inheritedMembership` (KerML 8.3.2.4, 8.3.3.1) |
