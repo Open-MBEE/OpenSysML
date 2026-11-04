@@ -395,12 +395,14 @@ by our first diagnostic:
 
 The two **conformance** rows this table carried, `SimpleImportTestsFromOtherFile_Import3{,_FT}`
 (`try (typed by a1) redefines b (typed by A): types do not conform`), closed when the
-redefinition-type-mismatch report became an advisory warning, which `noErrors` does not count. A
+redefinition-type-mismatch report became an advisory warning, which `noErrors` does not count; that
+report has since been withdrawn for `disjoint-feature-types`, which says nothing about the unrelated
+`a1` and `A` (see [adjudications.md](adjudications.md)), so the two files now draw no report at all. A
 redefinition is a subsetting, so the redefining feature is typed by its own type *and* the redefined
 feature's (KerML 8.3.3.3.4, 8.3.3.3.6), and neither KerML nor SysML v2 constrains the two to
 conform; the pinned validator accepts `item :>> faces : Polygon` under `faces : StructuredSurface`
 in its own `ShapeItems` library. The reading is in
-[adjudications.md](adjudications.md#a-redefinitions-declared-types-are-checked-for-direct-conformance).
+[adjudications.md](adjudications.md#a-redefinitions-declared-types-were-checked-for-direct-conformance).
 
 The two nested-member **specialization cycle** rows joined this family when `DirectSupertypes` stopped memoizing
 an answer computed while the resolver's cycle guard had cut a lookup short (the trigger-argument

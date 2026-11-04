@@ -1,67 +1,56 @@
 package passes
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
-// A union's instances are exactly those of its unioning types, so a union
-// conforms to every type all of them conform to (KerML 1.0 §8.3.3).
-func TestConstraintRedefinitionConformsThroughUnion(t *testing.T) {
+// A union's instances are exactly those of its unioning types (KerML 1.1
+// §7.3.2.3), so a union of types all disjoint from Wheel is disjoint from it.
+func TestConstraintUnionOfDisjointTypesIsDisjoint(t *testing.T) {
 	const src = `
 		classifier Wheel;
-		classifier MyWheel1 specializes Wheel;
-		classifier MyWheel2 specializes Wheel;
-		classifier MyWheel unions MyWheel1, MyWheel2;
+		classifier Rock disjoint from Wheel;
+		classifier Rock1 specializes Rock;
+		classifier Rock2 specializes Rock;
+		classifier Rocks unions Rock1, Rock2;
 		classifier Vehicle { feature rollsOn : Wheel; }
 		classifier MyVehicle specializes Vehicle {
-			feature redefines rollsOn : MyWheel;
+			feature redefines rollsOn : Rocks;
 		}`
 	for _, name := range []string{"a.kerml", "a.sysml"} {
-		diags := diagsIn(t, name, src, "constraint")
-		for _, d := range diags {
-			if d.Code == "redefinition-type-mismatch" {
-				t.Errorf("%s: unexpected diagnostic: %s", name, d.Message)
-			}
-		}
+		wantDisjointReport(t, disjointReports(t, name, src), "rollsOn", "Rocks", "Wheel")
 	}
 }
 
-// A union whose constituents do not all conform is still a mismatch: unioning
-// widens conformance only as far as every unioning type reaches.
-func TestConstraintRedefinitionUnionMemberDoesNotConform(t *testing.T) {
+// A union with one unioning type that may share instances with Wheel is not
+// disjoint from it, whatever the others are.
+func TestConstraintUnionWithSharingMemberIsNotDisjoint(t *testing.T) {
 	const src = `
 		classifier Wheel;
-		classifier Sprocket;
+		classifier Rock disjoint from Wheel;
 		classifier MyWheel1 specializes Wheel;
-		classifier MyWheel unions MyWheel1, Sprocket;
+		classifier Mixed unions Rock, MyWheel1;
 		classifier Vehicle { feature rollsOn : Wheel; }
 		classifier MyVehicle specializes Vehicle {
-			feature redefines rollsOn : MyWheel;
+			feature redefines rollsOn : Mixed;
 		}`
-	diags := diagsIn(t, "a.kerml", src, "constraint")
-	if !hasCode(diags, "redefinition-type-mismatch") {
-		t.Fatalf("expected redefinition-type-mismatch, got %v", diags)
-	}
-	for _, d := range diags {
-		if d.Code == "redefinition-type-mismatch" &&
-			!strings.Contains(d.Message, "types do not conform") {
-			t.Errorf("got %q", d.Message)
-		}
+	if diags := disjointReports(t, "a.kerml", src); len(diags) != 0 {
+		t.Fatalf("expected no report, got %v", diags)
 	}
 }
 
-// A union that names itself terminates rather than recursing forever.
-func TestConstraintRedefinitionUnionCycleTerminates(t *testing.T) {
+// Unioning cycles terminate: a union that reaches no type of its own establishes
+// nothing, so it is neither disjoint nor conforming.
+func TestConstraintUnionCycleTerminates(t *testing.T) {
 	const src = `
 		classifier Wheel;
-		classifier MyWheel unions MyOtherWheel;
-		classifier MyOtherWheel unions MyWheel;
+		classifier Rock disjoint from Wheel;
+		classifier Rock1 specializes Rock;
+		classifier Rocks unions Rock, Other;
+		classifier Other unions Rocks, Rock1;
 		classifier Vehicle { feature rollsOn : Wheel; }
 		classifier MyVehicle specializes Vehicle {
-			feature redefines rollsOn : MyWheel;
+			feature redefines rollsOn : Rocks;
 		}`
-	if !hasCode(diagsIn(t, "a.kerml", src, "constraint"), "redefinition-type-mismatch") {
-		t.Fatal("expected redefinition-type-mismatch for a union that reaches no type")
+	if diags := disjointReports(t, "a.kerml", src); len(diags) != 0 {
+		t.Fatalf("expected no report, got %v", diags)
 	}
 }
