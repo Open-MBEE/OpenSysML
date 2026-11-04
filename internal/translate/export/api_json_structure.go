@@ -26,6 +26,15 @@ type apiJSONGraphStructure struct {
 	owningRelationshipByOwned   [][]rdf.Term
 	owningMembershipByMember    [][]rdf.Term
 	owningRelatedByRelationship [][]rdf.Term
+	metaclassByPosition         []apiJSONMetaclass
+	ownedRelationshipsCache     []*apiJSONOwnedRelationships
+}
+
+// apiJSONOwnedRelationships memoizes an element's owned relationships, which
+// every owned collection the evaluator derives starts from.
+type apiJSONOwnedRelationships struct {
+	relationships []metamodel.Element
+	ok            bool
 }
 
 type apiJSONEvaluation struct {
@@ -124,6 +133,8 @@ func newAPIJSONGraphStructure(index *apiJSONGraphIndex) *apiJSONGraphStructure {
 		}
 	}
 	s.elements = make([]metamodel.Element, len(subjects))
+	s.metaclassByPosition = make([]apiJSONMetaclass, len(subjects))
+	s.ownedRelationshipsCache = make([]*apiJSONOwnedRelationships, len(subjects))
 	s.ownedRelationshipsByEnd = make([][]rdf.Term, len(subjects))
 	s.owningRelationshipByOwned = make([][]rdf.Term, len(subjects))
 	s.owningMembershipByMember = make([][]rdf.Term, len(subjects))
@@ -140,7 +151,9 @@ func newAPIJSONGraphStructure(index *apiJSONGraphIndex) *apiJSONGraphStructure {
 // placeElement makes the element at position stand for subject and files the
 // position under the subject's id.
 func (s *apiJSONGraphStructure) placeElement(position int, subject rdf.Term) {
-	if class, ok := s.metaclass(subject); ok {
+	class, ok := s.metaclass(subject)
+	s.metaclassByPosition[position] = apiJSONMetaclass{class, ok}
+	if ok {
 		aspect := apiJSONGraphAspectPrefix + strconv.Itoa(position)
 		element := metamodel.Element{Aspect: aspect}
 		if ontology.IsAncestorOrSelf(class, "Membership") {
@@ -218,18 +231,28 @@ func (s *apiJSONGraphStructure) typeMetaclass(typ string) (string, bool) {
 }
 
 func (s *apiJSONGraphStructure) subject(element metamodel.Element) (rdf.Term, bool) {
+	position, ok := s.position(element)
+	if !ok {
+		return rdf.Term{}, false
+	}
+	return s.index.subjects[position], true
+}
+
+// position is the graph position an element's aspect names, when the element
+// placed there is this one.
+func (s *apiJSONGraphStructure) position(element metamodel.Element) (int, bool) {
 	aspect := element.Aspect
 	if element.IsMembership {
 		aspect = element.Membership.Aspect
 	}
 	if !strings.HasPrefix(aspect, apiJSONGraphAspectPrefix) {
-		return rdf.Term{}, false
+		return 0, false
 	}
 	position, err := strconv.Atoi(strings.TrimPrefix(aspect, apiJSONGraphAspectPrefix))
 	if err != nil || position < 0 || position >= len(s.elements) || s.elements[position].Key() != element.Key() {
-		return rdf.Term{}, false
+		return 0, false
 	}
-	return s.index.subjects[position], true
+	return position, true
 }
 
 func (s *apiJSONGraphStructure) element(subject rdf.Term) (metamodel.Element, bool) {
@@ -253,11 +276,12 @@ func (s *apiJSONGraphStructure) relatedBySubject(index [][]rdf.Term, subject rdf
 }
 
 func (s *apiJSONGraphStructure) Metaclass(element metamodel.Element) (string, bool) {
-	subject, ok := s.subject(element)
+	position, ok := s.position(element)
 	if !ok {
 		return "", false
 	}
-	return s.metaclass(subject)
+	cached := s.metaclassByPosition[position]
+	return cached.class, cached.ok
 }
 
 func (s *apiJSONGraphStructure) DerivedName(element metamodel.Element) (string, bool) {
@@ -273,8 +297,20 @@ func (*apiJSONGraphStructure) Specializes(sub, super string) bool {
 }
 
 func (s *apiJSONGraphStructure) OwnedRelationships(element metamodel.Element) ([]metamodel.Element, bool) {
-	subject, ok := s.subject(element)
-	if !ok || LibraryReference(s.graph, subject) {
+	position, ok := s.position(element)
+	if !ok {
+		return nil, false
+	}
+	if cached := s.ownedRelationshipsCache[position]; cached != nil {
+		return cached.relationships, cached.ok
+	}
+	relationships, ok := s.computeOwnedRelationships(s.index.subjects[position])
+	s.ownedRelationshipsCache[position] = &apiJSONOwnedRelationships{relationships: relationships, ok: ok}
+	return relationships, ok
+}
+
+func (s *apiJSONGraphStructure) computeOwnedRelationships(subject rdf.Term) ([]metamodel.Element, bool) {
+	if LibraryReference(s.graph, subject) {
 		return nil, false
 	}
 	terms := append([]rdf.Term(nil), s.graph.ObjectsView(subject, rdf.SysML+"ownedRelationship")...)

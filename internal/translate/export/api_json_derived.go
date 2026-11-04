@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
@@ -182,6 +183,31 @@ func apiJSONCompletesProperty(metaclass, name string) bool {
 	return false
 }
 
+// apiJSONMetaclassCompletion is a completed property with its graph predicate,
+// listed once per metaclass.
+type apiJSONMetaclassCompletion struct {
+	apiJSONCompletedProperty
+	predicate string
+}
+
+var apiJSONCompletionsByMetaclass sync.Map
+
+// apiJSONCompletedPropertiesOf lists the completed properties a metaclass has,
+// computed once per metaclass from the table.
+func apiJSONCompletedPropertiesOf(metaclass string) []apiJSONMetaclassCompletion {
+	if cached, ok := apiJSONCompletionsByMetaclass.Load(metaclass); ok {
+		return cached.([]apiJSONMetaclassCompletion)
+	}
+	var completions []apiJSONMetaclassCompletion
+	for _, property := range apiJSONCompletedProperties {
+		if ontology.IsAncestorOrSelf(metaclass, property.class) {
+			completions = append(completions, apiJSONMetaclassCompletion{property, rdf.SysML + property.name})
+		}
+	}
+	cached, _ := apiJSONCompletionsByMetaclass.LoadOrStore(metaclass, completions)
+	return cached.([]apiJSONMetaclassCompletion)
+}
+
 // completeDerived appends the completed derived properties of subject the graph
 // does not state, and the marker naming them.
 func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass string, element apiJSONObject) apiJSONObject {
@@ -194,14 +220,13 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 		return element
 	}
 	var completed []any
-	for _, property := range apiJSONCompletedProperties {
-		if !ontology.IsAncestorOrSelf(metaclass, property.class) ||
-			w.graph.HasProperty(subject, rdf.SysML+property.name) || apiJSONHasMember(element, property.name) {
+	for _, property := range apiJSONCompletedPropertiesOf(metaclass) {
+		if w.graph.HasProperty(subject, property.predicate) || apiJSONHasMember(element, property.name) {
 			continue
 		}
 		spelled := property.defaultValue
 		if spelled == nil {
-			value, supported := w.evaluation.evaluator.PropertyReadOnly(semanticElement, property.class, property.name)
+			value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, property.class, property.name)
 			if !supported {
 				continue
 			}
