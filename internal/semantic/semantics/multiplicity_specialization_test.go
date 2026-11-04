@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -88,18 +89,49 @@ func TestKerMLMultiplicityMemberSpecializesNaturals(t *testing.T) {
         multiplicity m [2];
         multiplicity n subsets Base::exactlyOne;
         multiplicity o subsets m;
+        multiplicity p subsets q;
+        multiplicity q subsets p;
+        multiplicity r subsets r;
     }
 }`
 	for _, fixture := range reflectiveFixtures(t, "multiplicity-member.kerml", source.KindKerML, src) {
 		model := fixture.model
 		naturals := libraryFeature(t, model, "Base::naturals")
+		natural := libraryFeature(t, model, "ScalarValues::Natural")
+		exactlyOne := libraryFeature(t, model, "Base::exactlyOne")
 		m := relFixtureSymbol(t, fixture, "m")
 		if supers := model.DirectSupertypes(m); len(supers) != 1 || supers[0] != naturals {
 			t.Errorf("DirectSupertypes(m) = %v, want [Base::naturals]", supers)
 		}
-		for _, name := range []string{"n", "o"} {
-			if generals := model.ImplicitGenerals(relFixtureSymbol(t, fixture, name)); len(generals) != 0 {
+		// A declared `subsets` is the member's general; reaching naturals through it, the
+		// member takes no implied one and still inherits the type (KerML 1.1 §8.3.3.3.1).
+		for name, general := range map[string]*symbols.Symbol{"n": exactlyOne, "o": m} {
+			sym := relFixtureSymbol(t, fixture, name)
+			if generals := model.ImplicitGenerals(sym); len(generals) != 0 {
 				t.Errorf("ImplicitGenerals(%s) = %v, want none: its declared subsetting reaches Base::naturals", name, generals)
+			}
+			if supers := model.DirectSupertypes(sym); len(supers) != 1 || supers[0] != general {
+				t.Errorf("DirectSupertypes(%s) = %v, want [%s]", name, supers, general.Name)
+			}
+			if declared := model.DeclaredSupertypes(sym); len(declared) != 1 || declared[0] != general {
+				t.Errorf("DeclaredSupertypes(%s) = %v, want [%s]", name, declared, general.Name)
+			}
+			if !model.Conforms(sym, naturals) {
+				t.Errorf("%s does not conform to Base::naturals through its declared subsetting", name)
+			}
+			if types := model.FeatureTypeSet(sym); len(types) != 1 || types[0] != natural {
+				t.Errorf("FeatureTypeSet(%s) = %v, want [ScalarValues::Natural]", name, types)
+			}
+		}
+		// A cycle reaches no base, so each member on it keeps the implied one beside
+		// the general it declares (a recorded member answers from its recorded supers).
+		for _, name := range []string{"p", "q", "r"} {
+			sym := relFixtureSymbol(t, fixture, name)
+			if supers := model.DirectSupertypes(sym); !slices.Contains(supers, naturals) {
+				t.Errorf("DirectSupertypes(%s) = %v, want Base::naturals among them: its declared chain is a cycle", name, supers)
+			}
+			if !model.Conforms(sym, naturals) {
+				t.Errorf("%s does not conform to Base::naturals", name)
 			}
 		}
 		zeroOrOne := libraryFeature(t, model, "Base::zeroOrOne")

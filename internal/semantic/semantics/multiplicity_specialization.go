@@ -28,7 +28,7 @@ func (m *Model) implicitMultiplicityBase(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	return m.kindBaseSymbol(m.multiplicityBase, sym, func() *symbols.Symbol {
-		if m.declaredMultiplicityReaches(sym, fqn, nil) {
+		if m.declaredGeneralizationReaches(sym, fqn, nil) {
 			return nil
 		}
 		for _, base := range m.resolver.Index().LookupQualified(fqn) {
@@ -40,20 +40,9 @@ func (m *Model) implicitMultiplicityBase(sym *symbols.Symbol) *symbols.Symbol {
 	})
 }
 
-// declaredMultiplicityReaches reports whether the multiplicity sym declares it subsets
-// (`multiplicity m subsets n`) is or reaches want, so sym needs no implied subsetting of it.
-func (m *Model) declaredMultiplicityReaches(sym *symbols.Symbol, want string, visiting map[*symbols.Symbol]bool) bool {
-	target := m.SubsettedMultiplicity(sym)
-	if target == nil || target == sym || visiting[target] {
-		return false
-	}
-	// Every Multiplicity specializes Base::naturals, by declaration or by implication.
-	if symbols.HasFQN(target, want) || (want == naturalsFQN && target.Kind == symbols.SymbolMultiplicity) {
-		return true
-	}
-	if visiting == nil {
-		visiting = make(map[*symbols.Symbol]bool)
-	}
-	visiting[sym] = true
-	return m.declaredGeneralizationReaches(target, want, nil) || m.declaredMultiplicityReaches(target, want, visiting)
+// multiplicityBaseIs reports whether sym is a multiplicity whose implied base is want,
+// so a declared chain reaching sym reaches want as a chain reaching a usage of the kind does.
+func (m *Model) multiplicityBaseIs(sym *symbols.Symbol, want string) bool {
+	fqn, ok := m.MultiplicityBaseFQN(sym)
+	return ok && fqn == want
 }

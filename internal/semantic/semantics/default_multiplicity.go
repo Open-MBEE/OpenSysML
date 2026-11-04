@@ -70,11 +70,14 @@ func (m *Model) ImpliesIndividualMultiplicity(sym *symbols.Symbol) bool {
 	if m == nil || sym == nil || sym.Implicit != nil || !sym.DeclaresDefinition() || m.isKerMLDoc(sym) {
 		return false
 	}
+	if !m.reflectiveMetaclassConforms(sym, "OccurrenceDefinition") {
+		return false
+	}
 	if sym.Recorded() {
 		return sym.Facts.Modifiers.Has(symbols.ModIndividual)
 	}
 	def, ok := sym.Decl.(*ast.Definition)
-	return ok && def.IsIndividual && m.reflectiveMetaclassConforms(sym, "OccurrenceDefinition")
+	return ok && def.IsIndividual
 }
 
 // IndividualMultiplicityMember is the Multiplicity an individual OccurrenceDefinition is

@@ -668,6 +668,9 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 		}
 	}
 	targets = append(targets, m.semanticMetadataBases(sym)...)
+	if sub := m.SubsettedMultiplicity(sym); sub != nil {
+		targets = append(targets, sub)
+	}
 	for _, target := range targets {
 		// A declaration on the path back to itself is a cycle, not a path to
 		// the base, so it does not displace the implicit one.
@@ -681,7 +684,8 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 			// except back through a cycle, which reaches nothing new, or a
 			// conjugated one, whose supertypes come from what it conjugates.
 			if (slices.Contains(m.kindBaseFQNs(target, m.isKerMLDoc(target)), want) ||
-				slices.Contains(m.kindBaseDefinitionFQNs(target, m.isKerMLDoc(target)), want)) &&
+				slices.Contains(m.kindBaseDefinitionFQNs(target, m.isKerMLDoc(target)), want) ||
+				m.multiplicityBaseIs(target, want)) &&
 				!declaresConjugation(target) && !m.declaredReaches(target, sym, nil) {
 				sameBase = true
 			}
@@ -707,11 +711,16 @@ func (m *Model) declaredReaches(from, want *symbols.Symbol, visiting map[*symbol
 	}
 	visiting[from] = true
 
+	var targets []*symbols.Symbol
 	for _, rel := range RelationshipsOf(from) {
-		if rel == nil || !GeneralizationKind(rel.Kind) {
-			continue
+		if rel != nil && GeneralizationKind(rel.Kind) {
+			targets = append(targets, m.relationshipTarget(from, rel))
 		}
-		target := m.relationshipTarget(from, rel)
+	}
+	if sub := m.SubsettedMultiplicity(from); sub != nil {
+		targets = append(targets, sub)
+	}
+	for _, target := range targets {
 		if target == want || m.declaredReaches(target, want, visiting) {
 			return true
 		}
@@ -974,7 +983,7 @@ func (m *Model) declaredChainReachesKindBase(sym *symbols.Symbol) bool {
 // computeDeclaredChainReachesKindBase derives declaredChainReachesKindBase for a declaration.
 func (m *Model) computeDeclaredChainReachesKindBase(sym *symbols.Symbol) bool {
 	if fqn, ok := m.MultiplicityBaseFQN(sym); ok {
-		return m.declaredMultiplicityReaches(sym, fqn, nil)
+		return m.declaredGeneralizationReaches(sym, fqn, nil)
 	}
 	var fqn string
 	var ok bool
