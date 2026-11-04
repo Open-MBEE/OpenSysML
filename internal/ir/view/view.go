@@ -14,6 +14,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -974,7 +975,11 @@ func nameText(name string) string {
 // declKind names an element the way the notation declares it — "part def",
 // "state", "view" — so a rendering prints no Go type name.
 func declKind(sym *symbols.Symbol) string {
-	return sym.Notation()
+	kind := sym.Notation()
+	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.IsEnd && !slices.Contains(strings.Fields(kind), "end") {
+		return "end " + kind
+	}
+	return kind
 }
 
 // declType is the type a usage is declared with, as written ("Engine" of

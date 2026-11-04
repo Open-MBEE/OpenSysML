@@ -23,35 +23,47 @@ type Compartment struct {
 // chapters of the language specification introducing each kind; a kind not
 // named here follows them in the order its members were declared.
 var compartmentOrder = []string{
-	"attributes", "enumerations", "occurrences", "items", "parts", "ports",
-	"connections", "interfaces", "allocations", "actions", "states", "calculations",
-	"constraints", "requirements", "cases", "analyses", "verifications", "use cases",
-	"views", "viewpoints", "renderings", "metadata",
+	"attributes", "enums", "occurrences", "items", "parts", "ports", "ends",
+	"connections", "interfaces", "flows", "allocations", "actions", "states", "calcs",
+	"constraints", "requirements", "satisfies", "cases", "analyses", "verifications", "verifies",
+	"use cases", "include use cases", "subject", "objective", "views", "viewpoints", "rendering", "metadata",
 }
 
-// compartmentPlurals are the compartment names whose keyword does not take
-// a plain "s".
-var compartmentPlurals = map[string]string{
-	"calc":     "calculations",
-	"enum":     "enumerations",
+// compartmentHeadings are the compartment names the figures of SysML v2 §8.2.3
+// head otherwise than by the plain plural of the members' keyword.
+var compartmentHeadings = map[string]string{
+	"calc":     "calcs",
+	"enum":     "enums",
 	"analysis": "analyses",
 	"metadata": "metadata",
+	// A metadata usage with no keyword of its own is named by its classification.
+	"metadata usage": "metadata",
+	"render":         "rendering",
+	"rendering":      "rendering",
+	"subject":        "subject",
+	"objective":      "objective",
+	"satisfy":        "satisfies",
+	"verify":         "verifies",
 }
 
 // rowPrefixes are the modifier keywords a kind may begin with, which the row
 // keeps before its name while the compartment is named by the kind after them.
 var rowPrefixes = []string{"ref", "abstract", "variation", "individual", "readonly", "derived", "end"}
 
-// compartmentName is the name of the compartment a member of kind belongs to:
-// the plural of its keyword after any modifier, "part defs" for a nested
-// definition.
+// compartmentName is the name of the compartment a member of kind belongs to
+// as the graphical notation heads it: the plural of its keyword after any
+// modifier ("part defs" for a nested definition) unless the figures head it
+// otherwise, and "ends" for a connection's end features whatever their kind.
 func compartmentName(kind string) string {
-	_, keyword := splitRowPrefix(kind)
+	prefix, keyword := splitRowPrefix(kind)
 	if keyword == "" {
 		return ""
 	}
-	if plural, ok := compartmentPlurals[keyword]; ok {
-		return plural
+	if slices.Contains(strings.Fields(prefix), "end") {
+		return "ends"
+	}
+	if heading, ok := compartmentHeadings[keyword]; ok {
+		return heading
 	}
 	return keyword + "s"
 }

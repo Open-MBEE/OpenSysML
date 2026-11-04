@@ -13,8 +13,8 @@ package MixedExamples
     part tank
       port ^inlet
   connection def Connection
-    part a
-    part b
+    end part a
+    end part b
   state def Ready (declares no states)
   state def Modes
     start

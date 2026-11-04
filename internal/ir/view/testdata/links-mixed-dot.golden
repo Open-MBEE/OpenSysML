@@ -50,8 +50,8 @@ digraph "MixedExamples::mixedDiagram" {
       URL="https://example.test/src/mixed.sysml#L22";
       tooltip="MixedExamples::Connection";
       "n28" [shape=point, style=invis, width=0, height=0, label=""];
-      "n29" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>a</b>>, URL="https://example.test/src/mixed.sysml#L23", tooltip="MixedExamples::Connection::a"];
-      "n30" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>b</b>>, URL="https://example.test/src/mixed.sysml#L24", tooltip="MixedExamples::Connection::b"];
+      "n29" [style="rounded,filled", label=<<font point-size="10"><i>«end part»</i></font><br/><b>a</b>>, URL="https://example.test/src/mixed.sysml#L23", tooltip="MixedExamples::Connection::a"];
+      "n30" [style="rounded,filled", label=<<font point-size="10"><i>«end part»</i></font><br/><b>b</b>>, URL="https://example.test/src/mixed.sysml#L24", tooltip="MixedExamples::Connection::b"];
     }
     "n1" [label=<<font point-size="10"><i>«state def»</i></font><br/><b>Ready</b><br/>declares no states>, URL="https://example.test/src/mixed.sysml#L27", tooltip="MixedExamples::Ready"];
     subgraph "cluster_n2" {

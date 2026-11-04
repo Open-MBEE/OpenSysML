@@ -1,0 +1,69 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% HeadingViews::headings — tree rendering (render asTreeDiagram)
+%% not represented: 15 node(s) without a position, drawn as compartment rows of the node above them, and 25 node(s) under them left undrawn
+%% layout: n0 x=10 y=10
+%% layout: n3 x=200 y=10
+%% layout: n18 x=500 y=10
+%% layout: n25 x=10 y=300
+%% layout: n44 x=300 y=300
+flowchart TD
+  n0["`*«enum def»*
+**Mode**
+enums
+idle
+active`"]
+  n3["`*«part def»*
+**Controller**
+attributes
+gain
+parts
+s1
+s2
+flows
+flow
+calcs
+total
+satisfies
+safe
+rendering
+gauge
+metadata
+metadata usage`"]
+  n18["`*«connection def»*
+**Link**
+ends
+end source
+end target`"]
+  n25["`*«verification case def»*
+**Check**
+subject
+controller
+objective
+objective
+actors
+tester`"]
+  n44["`*«view def»*
+**Dashboard**`"]
+  n25 ---|"◇ controller"| n3

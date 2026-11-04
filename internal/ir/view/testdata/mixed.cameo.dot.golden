@@ -63,8 +63,8 @@ digraph "MixedExamples::mixedDiagram" {
         color="#99795C";
         penwidth=1;
         "n28" [shape=point, style=invis, width=0, height=0, label=""];
-        "n29" [label=<<font point-size="9">«part»</font><br/><b>a</b>>];
-        "n30" [label=<<font point-size="9">«part»</font><br/><b>b</b>>];
+        "n29" [label=<<font point-size="9">«end part»</font><br/><b>a</b>>];
+        "n30" [label=<<font point-size="9">«end part»</font><br/><b>b</b>>];
       }
       "n1" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«state def»</font><br/><b>Ready</b></td></tr><hr/><tr><td align="left">declares no states</td></tr></table>>];
       subgraph "cluster_n2" {

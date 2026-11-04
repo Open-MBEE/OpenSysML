@@ -57,9 +57,9 @@ flowchart TD
     end
     subgraph n28 ["`*«connection def»* **Connection**`"]
       direction TD
-      n29("`*«part»*
+      n29("`*«end part»*
 **a**`")
-      n30("`*«part»*
+      n30("`*«end part»*
 **b**`")
     end
     n1["`*«state def»*

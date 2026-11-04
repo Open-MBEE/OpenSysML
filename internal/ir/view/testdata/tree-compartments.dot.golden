@@ -12,7 +12,7 @@ digraph "AmplifierViews::positioned" {
   "n5" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>housing</b>>, margin=0, pos="360,-420!", pin=true, width=1.6666666666666667, height=0.5555555555555556, fixedsize=true];
   "n6" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>shield</b>>, margin=0, pos="90,-235!", pin=true, width=1.3888888888888888, height=0.4166666666666667, fixedsize=true];
   "n12" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Housing</b>>, margin=0, pos="360,-30!", pin=true, width=1.6666666666666667, height=0.5555555555555556, fixedsize=true];
-  "n13" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«enum def»</i></font><br/><b>Band</b></td></tr><hr/><tr><td><font point-size="10">enumerations</font></td></tr><tr><td align="left">low<br/>high</td></tr></table>>, margin=0, pos="550,-60!", pin=true, width=1.3888888888888888, height=1.3888888888888888, fixedsize=true];
+  "n13" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«enum def»</i></font><br/><b>Band</b></td></tr><hr/><tr><td><font point-size="10">enums</font></td></tr><tr><td align="left">low<br/>high</td></tr></table>>, margin=0, pos="550,-60!", pin=true, width=1.3888888888888888, height=1.3888888888888888, fixedsize=true];
   "n0" -> "n5" [dir=back, arrowtail=diamond];
   "n0" -> "n12" [headlabel="shield", dir=back, arrowtail=diamond];
   "n5" -> "n12" [arrowhead=onormaldotdot];
