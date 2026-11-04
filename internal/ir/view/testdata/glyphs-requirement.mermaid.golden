@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NotationGlyphs::Diagrams::requirementGlyphs : GeneralView"
 ---
 %% NotationGlyphs::Diagrams::requirementGlyphs — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
 flowchart TD
@@ -32,6 +33,8 @@ flowchart TD
   n3("`*«concern»*
 **safety**
 “Nothing overflows.”`")
+  n4@{ shape: notch-rect, label: "«doc»<br>Nothing overflows." }
   n0 -->|"frame"| n3
   n1 -->|"typing"| n0
   n2 -->|"require"| n1
+  n4 -.- n3

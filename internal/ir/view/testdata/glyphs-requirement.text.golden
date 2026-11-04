@@ -4,8 +4,10 @@ requirement def LevelReq
 requirement levelReq
 requirement capacity
 concern safety (“Nothing overflows.”)
+doc "Nothing overflows."
 
 relationships:
   LevelReq -> safety: frame
   levelReq --:|> LevelReq
   capacity -> levelReq: require
+  doc n4 .. safety

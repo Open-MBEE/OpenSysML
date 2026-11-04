@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» MachineViews::vehicleStates : StateTransitionView" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=495;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Machines::VehicleStates" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="559" width="268" height="36" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«state def»&#xA;VehicleStates" fqn="Machines::VehicleStates" kind="state def" view="MachineViews::vehicleStates" link="state.sysml:8">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="209" height="461" as="geometry"/>

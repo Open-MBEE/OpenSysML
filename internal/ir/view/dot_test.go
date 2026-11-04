@@ -50,6 +50,8 @@ func TestGoldenDOT(t *testing.T) {
 		{"abstract-interconnection", "abstract.sysml", "AbstractViews::familyLinks", KindInterconnection, false},
 		{"abstract-mixed", "abstract.sysml", "AbstractViews::familyMixed", KindMixed, false},
 		{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement, false},
+		{"annotations-tree", "annotations.sysml", "AnnotationViews::tree", KindTree, false},
+		{"annotations-definitions", "annotations.sysml", "AnnotationViews::definitions", KindDefinition, false},
 		{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition, false},
 		{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage, false},
 		{"glyphs-requirement", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::requirementGlyphs", KindRequirement, false},
@@ -586,7 +588,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// canvas: unit=px w=1200 h=800\n// layout: neato -n2\n",
 		// Loop: no Layout, boxed a margin round pump and tank, its anchor at the centre.
-		"    bb=\"292,692,628,768\";\n    \"n0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"460,730!\", pin=true];\n",
+		"    bb=\"292,692,628,768\";\n      \"n0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"460,730!\", pin=true];\n",
 		"  graph [fontname=\"Helvetica\", layout=neato, inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,800!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"1200,0!\", pin=true];\n  subgraph",
 		// pump: top-left (300, 40), no size, so the centre of a 96x36 box fitted to
 		// eleven glyphs at its Style's 11pt over a 10pt keyword line, stated but not

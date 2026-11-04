@@ -1,0 +1,22 @@
+AnnotationViews::definitions - definition rendering (view def GeneralView, filter @PartDefinition; @Definition)
+
+part def Pump
+part def Tank
+part def Valve
+part def Seat
+doc "Moves fluid from the tank to the loop."
+comment "Sized for the nominal flow."
+comment Safety (locale "en") "Both are rated for the loop pressure."
+rep inline (language "plantuml") "component Pump"
+doc Capacity (locale "en") "Holds the working fluid."
+doc "Closes the loop."
+
+relationships:
+  Valve *-- Seat: seat
+  doc n4 .. Pump
+  comment n5 .. Pump
+  Safety .. Pump
+  Safety .. Tank
+  inline .. Pump
+  Capacity .. Tank
+  doc n9 .. Valve

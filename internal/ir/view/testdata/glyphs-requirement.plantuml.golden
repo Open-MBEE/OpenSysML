@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::requirementGlyphs — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
+mainframe <size:10>//«view»//</size> **NotationGlyphs::Diagrams::requirementGlyphs** : GeneralView\n<size:10>expose LevelReq</size>\n<size:10>expose levelReq</size>\n<size:10>expose capacity</size>\n<size:10>expose safety</size>\n<size:10>filter @SysML::RequirementDefinition or @SysML::RequirementUsage</size>
 <style>
 root {
   BackGroundColor white
@@ -46,7 +47,12 @@ class "<size:10>//«requirement def»//</size>\n**LevelReq**" as n0 <<requiremen
 class "<size:10>//«requirement»//</size>\n**levelReq**" as n1 <<requirement>> <<usage>>
 class "<size:10>//«requirement»//</size>\n**capacity**" as n2 <<requirement>> <<usage>>
 class "<size:10>//«concern»//</size>\n**safety**\n“Nothing overflows.”" as n3 <<concern>> <<usage>>
+note as n4
+  <size:10>//«doc»//</size>
+  Nothing overflows.
+end note
 n0 --> n3 : frame
 n1 --:|> n0
 n2 --> n1 : require
+n4 .. n3
 @enduml

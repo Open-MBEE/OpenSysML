@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» TypedViews::boilerView : StateTransitionView" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=453;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Typed::Boiler" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="643" width="184" height="36" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«state def»&#xA;Boiler" fqn="Typed::Boiler" kind="state def" view="TypedViews::boilerView" link="typed-behavior.sysml:17">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="177" height="249" as="geometry"/>

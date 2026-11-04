@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AnnotationViews::definitions — definition rendering (view def GeneralView, filter @PartDefinition; @Definition) -->
+<!-- 10 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="AnnotationViews-definitions" name="AnnotationViews::definitions">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1386" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» AnnotationViews::definitions : GeneralView" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=436;height=40;" vertex="1" parent="1">
+            <mxGeometry width="1386" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Annotated*[@SysML::Definition]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="1059" width="327" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_bl" value="filter @SysML::PartDefinition" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry y="1133" width="260" height="36" as="geometry"/>
+        </mxCell>
+        <object id="n0" label="«part def»&#xA;Pump" fqn="Annotated::Pump" kind="part def" view="AnnotationViews::definitions" link="annotations.sysml:5">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="50" y="50" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part def»&#xA;Tank" fqn="Annotated::Tank" kind="part def" view="AnnotationViews::definitions" link="annotations.sysml:13">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="176" y="50" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«part def»&#xA;Valve" fqn="Annotated::Valve" kind="part def" view="AnnotationViews::definitions" link="annotations.sysml:16">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="302" y="50" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«part def»&#xA;Seat" fqn="Annotated::Seat" kind="part def" view="AnnotationViews::definitions" link="annotations.sysml:22">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="428" y="50" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«doc»&#xA;Moves fluid from the tank to the loop." kind="doc" view="AnnotationViews::definitions" link="annotations.sysml:6">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+            <mxGeometry x="50" y="137" width="367" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="Sized for the nominal flow." kind="comment" view="AnnotationViews::definitions" link="annotations.sysml:8">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+            <mxGeometry x="467" y="137" width="266" height="36" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="«comment»&#xA;Safety&#xA;locale &#34;en&#34;&#xA;Both are rated for the loop pressure." fqn="Annotated::Pump::Safety" kind="comment" view="AnnotationViews::definitions" link="annotations.sysml:9">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+            <mxGeometry x="783" y="137" width="327" height="71" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«rep»&#xA;inline&#xA;language &#34;plantuml&#34;&#xA;component Pump" fqn="Annotated::Pump::inline" kind="rep" view="AnnotationViews::definitions" link="annotations.sysml:11">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+            <mxGeometry x="1160" y="137" width="176" height="71" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n8" label="«doc»&#xA;Capacity&#xA;locale &#34;en&#34;&#xA;Holds the working fluid." fqn="Annotated::Tank::Capacity" kind="doc" view="AnnotationViews::definitions" link="annotations.sysml:14">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+            <mxGeometry x="50" y="258" width="218" height="71" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n9" label="«doc»&#xA;Closes the loop." kind="doc" view="AnnotationViews::definitions" link="annotations.sysml:17">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+            <mxGeometry x="318" y="258" width="164" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="composition" view="AnnotationViews::definitions" link="annotations.sysml:18">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n2" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e0:to" value="seat" style="edgeLabel;html=0;align=center;verticalAlign=middle;resizable=0;" vertex="1" connectable="0" parent="e0">
+          <mxGeometry x="0.8" relative="1" as="geometry"/>
+        </mxCell>
+        <object id="e1" label="" kind="anchor" view="AnnotationViews::definitions" link="annotations.sysml:6">
+          <mxCell style="edgeStyle=none;exitX=0.5014;exitY=0;exitPerimeter=0;entryX=0.25;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n4" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="234" y="121"/>
+                <mxPoint x="69" y="121"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="anchor" view="AnnotationViews::definitions" link="annotations.sysml:8">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n5" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="600" y="117"/>
+                <mxPoint x="88" y="117"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="anchor" view="AnnotationViews::definitions" link="annotations.sysml:9">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.507;exitPerimeter=0;entryX=0.75;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n6" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="758" y="173"/>
+                <mxPoint x="758" y="114"/>
+                <mxPoint x="107" y="114"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e4" label="" kind="anchor" view="AnnotationViews::definitions" link="annotations.sysml:9">
+          <mxCell style="edgeStyle=none;exitX=0.5015;exitY=0;exitPerimeter=0;entryX=1;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n6" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="947" y="108"/>
+                <mxPoint x="277" y="108"/>
+                <mxPoint x="277" y="78"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e5" label="" kind="anchor" view="AnnotationViews::definitions" link="annotations.sysml:11">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n7" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1248" y="111"/>
+                <mxPoint x="151" y="111"/>
+                <mxPoint x="151" y="78"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e6" label="" kind="anchor" view="AnnotationViews::definitions" link="annotations.sysml:14">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.507;exitPerimeter=0;entryX=0.25;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n8" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="34" y="294"/>
+                <mxPoint x="34" y="108"/>
+                <mxPoint x="195" y="108"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e7" label="" kind="anchor" view="AnnotationViews::definitions" link="annotations.sysml:17">
+          <mxCell style="edgeStyle=none;exitX=0.75;exitY=0;exitPerimeter=0;entryX=0.75;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n9" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="441" y="105"/>
+                <mxPoint x="359" y="105"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

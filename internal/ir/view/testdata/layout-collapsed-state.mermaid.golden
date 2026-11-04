@@ -27,6 +27,7 @@ config:
     transitionLabelColor: "#000000"
     labelBackgroundColor: "#FFFFFF"
     specialStateColor: "#181818"
+title: "«view» FoldedBehaviors::states : StateTransitionView"
 ---
 %% FoldedBehaviors::states — state rendering (view def StateTransitionView)
 %% layout: n2 collapsed

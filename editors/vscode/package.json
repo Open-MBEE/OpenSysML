@@ -137,8 +137,7 @@
             "The pilot look, filled by keyword family from ColorBrewer Set2.",
             "The pilot look, filled by keyword family from ColorBrewer Dark2.",
             "The pilot look, filled by keyword family from the viridis colour map.",
-              "The comment, documentation and textual representation nodes beside the elements they annotate, joined by dashed annotation links.",
-            "The pilot look, filled by keyword family from the cividis colour map.",
+            "The pilot look, filled by keyword family from the cividis colour map."
             ],
           "markdownDescription": "The look every diagram is drawn in, also chosen from the **Style** list in the diagram panel. A palette colours definitions with their keyword family's colour and usages with a lighter tint of it, the same colours the DOT and PlantUML exports take; text stays black. `cameo` draws Cameo Systems Modeler's look and asks the server for its cameo drawing style when the diagram is exported as DOT."
         },
@@ -169,10 +168,11 @@
               "Multiplicities after names.",
               "The `: Type` after a name.",
               "The qualified-name prefix of each name.",
+              "The comment, documentation and textual representation nodes beside the elements they annotate, joined by dashed annotation links.",
               "Every optional notation element."
             ]
           },
-          "markdownDescription": "Optional notation elements every diagram draws besides the ones its view's rendering shows and the default (port symbols, compartments and keywords), by the names the SysML v2 notation makes optional; `all` draws every one. Applies to the diagram panel and to exports, on a server that lists the elements (`openSysmlRenderElements`)."
+          "markdownDescription": "Optional notation elements every diagram draws besides the ones its view's rendering shows and the default (port symbols, compartments, keywords and annotations), by the names the SysML v2 notation makes optional; `all` draws every one. Applies to the diagram panel and to exports, on a server that lists the elements (`openSysmlRenderElements`)."
         },
         "opensysml.diagram.openIn": {
           "type": "string",

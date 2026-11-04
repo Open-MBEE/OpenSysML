@@ -33,3 +33,5 @@ n7 -> n1: "references" { class: specialization }
 n7 <- n8: { class: reference }
 n9 -> n10: "«expose»" { class: dependency }
 n10 <- n11: { class: reference }
+frame_name: "«view» NotationGlyphs::Diagrams::treeGlyphs" { shape: text; near: top-left }
+frame_tr: "expose Plant\nexpose tankView\nexpose Tank" { shape: text; near: top-right }

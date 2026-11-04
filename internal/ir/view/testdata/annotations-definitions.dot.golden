@@ -1,0 +1,36 @@
+// view: AnnotationViews::definitions
+// kind: definition
+// stated: view def GeneralView, filter @PartDefinition; @Definition
+// layout: dot
+digraph "AnnotationViews::definitions" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>AnnotationViews::definitions</b> : GeneralView>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Pump</b>>];
+    "n1" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Tank</b>>];
+    "n2" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Valve</b>>];
+    "n3" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Seat</b>>];
+    "n4" [shape=note, label=<<font point-size="10"><i>«doc»</i></font><br/>Moves fluid from the tank to the loop.>];
+    "n5" [shape=note, label=<Sized for the nominal flow.>];
+    "n6" [shape=note, label=<<font point-size="10"><i>«comment»</i></font><br/><b>Safety</b><br/>locale &#34;en&#34;<br/>Both are rated for the loop pressure.>];
+    "n7" [shape=note, label=<<font point-size="10"><i>«rep»</i></font><br/><b>inline</b><br/>language &#34;plantuml&#34;<br/>component Pump>];
+    "n8" [shape=note, label=<<font point-size="10"><i>«doc»</i></font><br/><b>Capacity</b><br/>locale &#34;en&#34;<br/>Holds the working fluid.>];
+    "n9" [shape=note, label=<<font point-size="10"><i>«doc»</i></font><br/>Closes the loop.>];
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Annotated*[@SysML::Definition]</font>>]; }
+    { rank=max; "frame_bl" [shape=none, margin=0, label=<<font point-size="10">filter @SysML::PartDefinition</font>>]; }
+  }
+  "n2" -> "n3" [headlabel="seat", dir=back, arrowtail=diamond];
+  "n4" -> "n0" [dir=none, style=dashed];
+  "n5" -> "n0" [dir=none, style=dashed];
+  "n6" -> "n0" [dir=none, style=dashed];
+  "n6" -> "n1" [dir=none, style=dashed];
+  "n7" -> "n0" [dir=none, style=dashed];
+  "n8" -> "n1" [dir=none, style=dashed];
+  "n9" -> "n2" [dir=none, style=dashed];
+}

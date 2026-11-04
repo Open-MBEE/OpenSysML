@@ -23,6 +23,7 @@ config:
   flowchart:
     subGraphTitleMargin:
       bottom: 48
+title: "«view» FoldedBehaviors::flows : ActionFlowView"
 ---
 %% FoldedBehaviors::flows — action rendering (view def ActionFlowView)
 %% layout: n1 collapsed

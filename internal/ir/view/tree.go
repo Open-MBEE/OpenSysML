@@ -220,7 +220,11 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 // compartment; the tree's edges join each to the elements it annotates.
 func (r *Renderer) annotationChildren(ids *nodeIDs, view, sym *symbols.Symbol, out *Rendering) []*Node {
 	var nodes []*Node
+	filters := r.walkFilters(view)
 	for _, member := range r.annotatingMembers(sym) {
+		if len(filters) > 0 && !r.admits(filters, member) {
+			continue
+		}
 		if node := r.annotationNode(ids, view, member, out); node != nil {
 			nodes = append(nodes, node)
 		}

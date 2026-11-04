@@ -27,3 +27,5 @@ n3: "«constraint def»\nBetween" {
   "n3.0": "in low" { class: pin }
   "n3.1": "in value" { class: pin }
 }
+frame_name: "«view» ParameterCalcViews::definitions" { shape: text; near: top-left }
+frame_tr: "expose ParameterCalcs::Add\nexpose ParameterCalcs::Scale\nexpose ParameterCalcs::Heat\nexpose ParameterCalcs::Between" { shape: text; near: top-right }

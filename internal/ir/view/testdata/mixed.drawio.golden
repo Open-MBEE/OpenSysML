@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» MixedExamples::mixedDiagram" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=310;height=40;" vertex="1" parent="1">
+            <mxGeometry width="1256" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose MixedExamples" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="1072" width="184" height="36" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«package»&#xA;MixedExamples" fqn="MixedExamples" kind="package" view="MixedExamples::mixedDiagram" link="mixed.sysml:1">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="1156" height="827" as="geometry"/>

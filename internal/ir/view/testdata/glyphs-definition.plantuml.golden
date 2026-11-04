@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::definitionGlyphs — definition rendering (view def GeneralView, filter @Definition or @Usage)
+mainframe <size:10>//«view»//</size> **NotationGlyphs::Diagrams::definitionGlyphs** : GeneralView\n<size:10>expose Plant</size>\n<size:10>expose Plant::tank</size>\n<size:10>expose Plant::spare</size>\n<size:10>expose Plant::filling</size>\n<size:10>expose Plant::full</size>\n<size:10>expose Plant::startup</size>\n<size:10>expose LevelReq</size>\n<size:10>expose LevelReq::keepLevel</size>\n<size:10>expose LevelReq::lowLevel</size>\n<size:10>expose bounded</size>\n<size:10>expose tight</size>\n<size:10>expose capacity</size>\n<size:10>expose capacity::asserted</size>\n<size:10>filter @SysML::Definition or @SysML::Usage</size>
 <style>
 root {
   BackGroundColor white

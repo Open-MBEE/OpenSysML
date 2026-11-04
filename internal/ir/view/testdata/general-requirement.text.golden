@@ -15,6 +15,8 @@ verification lightMassTest
 verification heavyMassTest
 verification def StopTest
 verification stopTest
+doc "The total mass of the vehicle shall not exceed the stated mass limit, measured empty and without a driver."
+doc "The vehicle shall stop within the stated distance."
 
 relationships:
   EmergencyStopRequirement --|> StoppingRequirement
@@ -32,6 +34,8 @@ relationships:
   heavyMassTest -> vehicleMass: «verify»
   StopTest -> emergencyStop: «verify»
   stopTest -> emergencyStop: «verify»
+  doc n15 .. MassRequirement
+  doc n16 .. StoppingRequirement
 
 not represented:
   - 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements

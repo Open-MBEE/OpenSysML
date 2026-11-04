@@ -1,5 +1,6 @@
 @startuml
 ' MixedExamples::mixedDiagram — mixed rendering (render asMixedDiagram)
+mainframe <size:10>//«view»//</size> **MixedExamples::mixedDiagram**\n<size:10>expose MixedExamples</size>
 <style>
 root {
   BackGroundColor white

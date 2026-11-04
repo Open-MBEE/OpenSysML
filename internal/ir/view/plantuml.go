@@ -96,6 +96,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		fmt.Fprintf(b, " (%s)", r.Stated)
 	}
 	b.WriteString("\n")
+	w.writeMainframe(r, b)
 	for _, notice := range slices.Concat(r.Notices, notices) {
 		fmt.Fprintf(b, "' not represented: %s\n", notice)
 	}
@@ -788,4 +789,24 @@ func plantumlText(text string) string {
 		}
 	}
 	return out.String()
+}
+
+// writeMainframe writes the view frame (§8.2.3.26) as PlantUML's mainframe: the
+// frame round the diagram with the name compartment at its top-left corner.
+// PlantUML has no corner compartments, so the frame's info contents follow the
+// name as further lines of the compartment.
+func (w *plantumlWriter) writeMainframe(r *Rendering, b *strings.Builder) {
+	if r.Frame == nil {
+		return
+	}
+	lines := []string{"<size:10>//«view»//</size> **" + plantumlText(DisplayText(r.Frame.Name)) + "**"}
+	if r.Frame.Type != "" {
+		lines[0] += " : " + plantumlText(DisplayText(r.Frame.Type))
+	}
+	for _, c := range r.Frame.Compartments() {
+		for _, line := range c.Lines {
+			lines = append(lines, "<size:10>"+plantumlText(line)+"</size>")
+		}
+	}
+	fmt.Fprintf(b, "mainframe %s\n", strings.Join(lines, "\\n"))
 }

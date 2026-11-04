@@ -36,6 +36,12 @@ package AnnotationViews {
 	}
 	view definitions : GeneralView {
 		expose Annotated::*[@SysML::Definition];
+		filter @SysML::PartDefinition;
+	}
+	view filtered {
+		expose Annotated::Pump;
+		filter @SysML::PartDefinition;
+		render asTreeDiagram;
 	}
 	view placed {
 		expose Annotated::Valve;
@@ -48,5 +54,6 @@ package AnnotationViews {
 	view bare {
 		expose Annotated::Pump;
 		render noAnnotations;
+		metadata Note about Annotated::Pump::Safety { text = "a note on the comment"; x = 300; y = 20; width = 120; height = 40; }
 	}
 }

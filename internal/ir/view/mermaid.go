@@ -583,6 +583,9 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 	if extra > 0 {
 		fmt.Fprintf(b, "  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n", extra*mermaidTitleLine)
 	}
+	if r.Frame != nil {
+		fmt.Fprintf(b, "title: %q\n", r.Frame.NameLine())
+	}
 	b.WriteString("---\n")
 }
 

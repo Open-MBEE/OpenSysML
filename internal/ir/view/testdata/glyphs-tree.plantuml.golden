@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::treeGlyphs — tree rendering
+mainframe <size:10>//«view»//</size> **NotationGlyphs::Diagrams::treeGlyphs**\n<size:10>expose Plant</size>\n<size:10>expose tankView</size>\n<size:10>expose Tank</size>
 <style>
 root {
   BackGroundColor white

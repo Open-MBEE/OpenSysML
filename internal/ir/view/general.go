@@ -311,17 +311,14 @@ func (g *generalGraph) node(sym *symbols.Symbol) *Node {
 
 // annotationNodes draws the annotation nodes of what sym declares in its body
 // (§8.2.3.4) beside its node, each linked by a dashed annotation link to the
-// drawn elements it annotates. A requirement's documentation is the text of
-// its node already and is not drawn twice.
+// drawn elements it annotates. A requirement node quotes the opening of its
+// documentation as its detail; the documentation node carries the whole text.
 func (g *generalGraph) annotationNodes(sym *symbols.Symbol) {
 	owner := g.drawn(sym)
 	if owner == nil {
 		return
 	}
 	for _, member := range g.r.annotatingMembers(sym) {
-		if member.Kind == symbols.SymbolDocumentation && g.kind == KindRequirement && isRequirement(sym) {
-			continue
-		}
 		node := g.r.annotationNode(g.ids, g.view, member, g.out)
 		if node == nil {
 			continue

@@ -164,6 +164,19 @@ export interface RenderCanvas {
   height?: number;
 }
 
+/** RenderFrame is the view frame drawn round a diagram: its name compartment and the info compartments at its corners. */
+export interface RenderFrame {
+  name: string;
+  /** The view definition the view is typed by; absent for an untyped view. */
+  type?: string;
+  /** The view's expose statements, the top-right info compartment. */
+  exposes?: string[];
+  /** The view's element filters, the bottom-left info compartment. */
+  filters?: string[];
+  /** The comments and documentation annotating the view, the bottom-right info compartment. */
+  annotations?: string[];
+}
+
 /** RenderOwner is a namespace declaring a node: its qualified name, and whether it is a feature an end path chains through with `.`. */
 export interface RenderOwner {
   fqn: string;
@@ -228,6 +241,8 @@ export interface RenderResult {
   columns?: string[];
   notices: string[];
   canvas?: RenderCanvas;
+  /** The view frame drawn round the diagram; absent from a frameless rendering or a server predating frames. */
+  frame?: RenderFrame;
   /** What the server lets a diagram of this kind edit; absent when the rendering is not editable. */
   palette?: EditPalette;
   version: number;

@@ -219,7 +219,7 @@ func (w *dotWriter) openFrame(r *Rendering, edges []Edge) {
 		attrs = append(attrs, dotFontSizeAttr(cameoFontSize), dotColorAttr(cameoFrameColor), dotPenWidthOne)
 	} else {
 		fmt.Fprintf(&w.b, "    label=<%s>;\n", w.viewFrameName(r.Frame))
-		attrs = append(attrs, dotColorAttr(w.skin.line), "penwidth=0.5")
+		attrs = append(attrs, "penwidth=0.5")
 	}
 	for _, attr := range append(attrs, "margin="+formatCoord(dotFrameMargin)) {
 		fmt.Fprintf(&w.b, "    %s;\n", attr)
@@ -250,9 +250,9 @@ func (w *dotWriter) viewFrameName(frame *Frame) string {
 	if frame == nil {
 		return ""
 	}
-	name := w.labels.sized(w.labels.size(), w.labels.keywordSize(), w.labels.keywordText("«view»")) + " <b>" + dotEscape(displayText(frame.Name)) + "</b>"
+	name := w.labels.sized(w.labels.size(), w.labels.keywordSize(), w.labels.keywordText("«view»")) + " <b>" + dotEscape(DisplayText(frame.Name)) + "</b>"
 	if frame.Type != "" {
-		name += " : " + dotEscape(displayText(frame.Type))
+		name += " : " + dotEscape(DisplayText(frame.Type))
 	}
 	return name
 }
@@ -264,7 +264,7 @@ func (w *dotWriter) viewFrameName(frame *Frame) string {
 // corner; an unpositioned one ranks the top compartment first and the bottom
 // ones last, Graphviz choosing where along the rank they sit.
 func (w *dotWriter) writeFrameCompartments(r *Rendering, edges []Edge) {
-	if r.Frame == nil {
+	if r.Frame == nil || w.skin.cameo {
 		return
 	}
 	var box nodeBox
@@ -273,7 +273,7 @@ func (w *dotWriter) writeFrameCompartments(r *Rendering, edges []Edge) {
 	}
 	for _, c := range r.Frame.Compartments() {
 		id := dotFrameCompartmentID(c.Corner)
-		attrs := []string{"shape=plaintext", dotMarginZero, dotLabelAttribute("<" + w.labels.sized(w.labels.size(), w.labels.keywordSize(), dotEscape(strings.Join(c.Lines, "\n"))) + ">")}
+		attrs := []string{"shape=none", dotMarginZero, dotLabelAttribute("<" + w.labels.sized(w.labels.size(), w.labels.keywordSize(), dotEscape(strings.Join(c.Lines, "\n"))) + ">")}
 		if w.placement.positioned() {
 			width, height := w.labels.dotTextBox(c.Lines)
 			corner := Point{X: box.high.X - width/2, Y: box.low.Y + height/2}
@@ -285,19 +285,20 @@ func (w *dotWriter) writeFrameCompartments(r *Rendering, edges []Edge) {
 			}
 			attrs = append(attrs, w.dotPin(corner), dotWidthAttr(width), dotHeightAttr(height))
 		}
-		fmt.Fprintf(&w.b, "    %s [%s];\n", dotQuote(id), strings.Join(attrs, ", "))
-		if !w.placement.positioned() {
-			rank := "max"
-			if c.Corner == FrameTopRight {
-				rank = "min"
-			}
-			fmt.Fprintf(&w.b, "    { rank=%s; %s; }\n", rank, dotQuote(id))
+		if w.placement.positioned() {
+			fmt.Fprintf(&w.b, "    %s [%s];\n", dotQuote(id), strings.Join(attrs, ", "))
+			continue
 		}
+		rank := "max"
+		if c.Corner == FrameTopRight {
+			rank = "min"
+		}
+		fmt.Fprintf(&w.b, "    { rank=%s; %s [%s]; }\n", rank, dotQuote(id), strings.Join(attrs, ", "))
 	}
 }
 
 // dotFrameCompartmentID is the node ID of a frame info compartment by its corner.
-func dotFrameCompartmentID(corner string) string { return "frame:" + corner }
+func dotFrameCompartmentID(corner string) string { return "frame_" + corner }
 
 // frameHeader is the Cameo frame's header text as HTML-like label content:
 // the diagram kind in bold, the first drawn root's type in brackets and its

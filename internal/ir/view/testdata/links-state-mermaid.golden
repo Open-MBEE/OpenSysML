@@ -27,6 +27,7 @@ config:
     transitionLabelColor: "#000000"
     labelBackgroundColor: "#FFFFFF"
     specialStateColor: "#181818"
+title: "«view» MachineViews::vehicleStates : StateTransitionView"
 ---
 %% MachineViews::vehicleStates — state rendering (view def StateTransitionView)
 stateDiagram-v2

@@ -64,9 +64,15 @@ func (r *Rendering) showing(more Shown) *Rendering {
 		edges = append(edges, out.Edges[i])
 	}
 	out.Edges = edges
+	notes := out.Notes[:0]
 	for i := range out.Notes {
+		if n.dropped[out.Notes[i].Anchor] || n.dropped[out.Notes[i].EdgeFrom] || n.dropped[out.Notes[i].EdgeTo] {
+			continue
+		}
 		n.note(&out.Notes[i])
+		notes = append(notes, out.Notes[i])
 	}
+	out.Notes = notes
 	return out
 }
 

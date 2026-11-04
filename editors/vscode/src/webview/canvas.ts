@@ -52,6 +52,9 @@ export function drawCanvas(layout: CanvasLayout): SVGSVGElement {
     "font-size": String(FONT_SIZE),
   });
   svg.append(markers());
+  if (layout.frame) {
+    svg.append(drawFrame(layout));
+  }
   const nodes = element("g", { class: "nodes" });
   for (const root of layout.roots) {
     drawNode(nodes, root, layout);
@@ -501,6 +504,60 @@ function drawHandles(edge: PlacedEdge): SVGGElement {
 
 function polyline(points: RenderPoint[]): string {
   return points.map((p) => `${p.x},${p.y}`).join(" ");
+}
+
+/**
+ * drawFrame is the view frame round the canvas: the frame rectangle, the name compartment
+ * `«view» name : type` as the tab at its top-left corner, and the info compartments at the
+ * other corners: exposes top right, filters bottom left, the view's annotations bottom right.
+ */
+function drawFrame(layout: CanvasLayout): SVGGElement {
+  const frame = layout.frame!;
+  const group = element("g", { class: "opensysml-frame" });
+  const { x, y } = layout.origin;
+  const pad = 4;
+  const line = FONT_SIZE + 2;
+  group.append(
+    element("rect", { x: String(x), y: String(y), width: String(layout.width), height: String(layout.height), fill: "none", stroke: "currentColor", "stroke-width": "0.5" }),
+  );
+  const name = frame.type ? `${frame.name} : ${frame.type}` : frame.name;
+  const tabWidth = Math.min(layout.width, (name.length + 7) * FONT_SIZE * 0.6 + 2 * pad);
+  const tabHeight = line + 2 * pad;
+  const tab = element("path", {
+    d: `M${x} ${y + tabHeight} V${y} H${x + tabWidth} V${y + tabHeight - pad} L${x + tabWidth - pad} ${y + tabHeight} Z`,
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "0.5",
+  });
+  const label = element("text", { x: String(x + pad), y: String(y + pad + FONT_SIZE), class: "frame-name" });
+  const keyword = element("tspan", { class: "keyword", "font-style": "italic", "font-size": String(FONT_SIZE - 3) });
+  keyword.textContent = "«view» ";
+  const bold = element("tspan", { "font-weight": "bold" });
+  bold.textContent = name;
+  label.append(keyword, bold);
+  group.append(tab, label);
+  const compartments: Array<[string[] | undefined, "tr" | "bl" | "br"]> = [
+    [frame.exposes, "tr"],
+    [frame.filters, "bl"],
+    [frame.annotations, "br"],
+  ];
+  for (const [lines, corner] of compartments) {
+    if (!lines || lines.length === 0) {
+      continue;
+    }
+    const width = Math.max(...lines.map((l) => l.length)) * (FONT_SIZE - 3) * 0.6 + 2 * pad;
+    const height = lines.length * line + 2 * pad;
+    const left = corner === "bl" ? x : x + layout.width - width;
+    const top = corner === "tr" ? y : y + layout.height - height;
+    const text = element("text", { x: String(left + pad), y: String(top + pad + FONT_SIZE - 3), class: `frame-${corner}`, "font-size": String(FONT_SIZE - 3) });
+    lines.forEach((content, i) => {
+      const span = element("tspan", { x: String(left + pad), dy: i === 0 ? "0" : String(line) });
+      span.textContent = content;
+      text.append(span);
+    });
+    group.append(text);
+  }
+  return group;
 }
 
 function element<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] {

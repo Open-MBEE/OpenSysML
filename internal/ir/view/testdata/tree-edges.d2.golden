@@ -85,3 +85,5 @@ n27 <- n32: { class: reference }
 n27 <- n33: { class: composition }
 n27 <- n34: { class: composition }
 n27 <- n35: { class: composition }
+frame_name: "«view» FleetViews::structure" { shape: text; near: top-left }
+frame_tr: "expose Fleet::Vehicle\nexpose Fleet::SportsCar\nexpose Fleet::Chassis\nexpose Fleet::LightChassis\nexpose Fleet::Wheel\nexpose Fleet::Driver\nexpose Fleet::Mass\nexpose Fleet::fleetCar" { shape: text; near: top-right }

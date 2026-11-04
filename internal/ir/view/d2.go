@@ -90,6 +90,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	w.writeClasses(&b)
 	r.writeGeometryComments(&b, "#")
 	b.WriteString(w.body.String())
+	w.writeFrame(r, &b)
 	return b.String(), nil
 }
 
@@ -662,4 +663,19 @@ var d2Escapes = strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "${", `\${
 // d2Quote writes text as a D2 double-quoted string.
 func d2Quote(text string) string {
 	return `"` + d2Escapes.Replace(text) + `"`
+}
+
+// writeFrame writes the view frame's compartments (§8.2.3.26) as text shapes
+// pinned near the diagram's corners: the name compartment at the top left, the
+// exposes top right, the filters bottom left, the annotations bottom right.
+// D2 draws no frame rectangle round a diagram, so the frame is its corners.
+func (w *d2Writer) writeFrame(r *Rendering, b *strings.Builder) {
+	if r.Frame == nil {
+		return
+	}
+	corners := map[string]string{FrameTopRight: "top-right", FrameBottomLeft: "bottom-left", FrameBottomRight: "bottom-right"}
+	fmt.Fprintf(b, "frame_name: %s { shape: text; near: top-left }\n", d2Quote(r.Frame.NameLine()))
+	for _, c := range r.Frame.Compartments() {
+		fmt.Fprintf(b, "frame_%s: %s { shape: text; near: %s }\n", c.Corner, d2Quote(strings.Join(c.Lines, "\n")), corners[c.Corner])
+	}
 }

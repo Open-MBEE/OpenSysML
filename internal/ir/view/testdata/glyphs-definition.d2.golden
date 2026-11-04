@@ -32,3 +32,6 @@ n6 -> n10: "assume" { class: open }
 n6 -> n7: "require" { class: open }
 n6 -> n8: "assume" { class: open }
 n11 -> n12: "assert" { class: open }
+frame_name: "«view» NotationGlyphs::Diagrams::definitionGlyphs : GeneralView" { shape: text; near: top-left }
+frame_tr: "expose Plant\nexpose Plant::tank\nexpose Plant::spare\nexpose Plant::filling\nexpose Plant::full\nexpose Plant::startup\nexpose LevelReq\nexpose LevelReq::keepLevel\nexpose LevelReq::lowLevel\nexpose bounded\nexpose tight\nexpose capacity\nexpose capacity::asserted" { shape: text; near: top-right }
+frame_bl: "filter @SysML::Definition or @SysML::Usage" { shape: text; near: bottom-left }

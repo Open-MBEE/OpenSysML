@@ -1,5 +1,6 @@
 @startuml
 ' CompartmentDemoViews::hub — tree rendering (render asTreeDiagram)
+mainframe <size:10>//«view»//</size> **CompartmentDemoViews::hub**\n<size:10>expose PortDemo::Hub</size>\n<size:10>expose PortDemo::Buffer</size>
 ' not represented: 5 member(s) drawn as compartment rows of their owner
 <style>
 root {

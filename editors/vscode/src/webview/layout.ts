@@ -11,8 +11,7 @@ import {
   type RenderNode,
   type RenderPort,
   type RenderPoint,
-  type RenderResult,
-} from "../protocol";
+  type RenderResult, type RenderFrame } from "../protocol";
 import type { AutoLayout } from "./autolayout";
 import {
   GAP,
@@ -112,6 +111,8 @@ export interface CanvasLayout {
   routing: Routing;
   /** What the layout left undrawn, worded as the renderer's notices. */
   notices: string[];
+  /** The view frame drawn round the diagram, when the rendering has one. */
+  frame?: RenderFrame;
 }
 
 /** The rendering kinds whose renderers position nodes and route edges from DiagramLayout. */
@@ -261,6 +262,7 @@ export function layoutCanvas(
       placeable: PLACEABLE_KINDS.has(result.kind),
       routing,
       notices: clippingNotice(placed),
+      frame: result.frame,
     }),
     overrides.held,
   );

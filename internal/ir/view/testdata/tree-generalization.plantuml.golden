@@ -1,5 +1,6 @@
 @startuml
 ' MicroscopeViews::positioned — tree rendering (render asTreeDiagram)
+mainframe <size:10>//«view»//</size> **MicroscopeViews::positioned**\n<size:10>expose Microscope*</size>
 ' not represented: 7 positioned node(s) and 3 route(s) kept as comments; PlantUML pins no position, the dot form does
 <style>
 root {
