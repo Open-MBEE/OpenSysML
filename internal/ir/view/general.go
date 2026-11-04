@@ -1333,9 +1333,9 @@ func (g *generalGraph) relationshipEdges(sym *symbols.Symbol) (edges []Edge, ok 
 
 // exposedRelationships draws, on a rendering of another kind whose nodes drawn
 // stand for their elements, the dependency-like relationships view exposes
-// between the nodes of their ends, following their Route annotations: the
-// graphical notation draws a dependency between any two element nodes a view
-// shows. An exposed end no node draws yet gets a plain node, so the line has
+// between the nodes of their ends, following their Route annotations (an n-ary
+// one's dot and segments are not steered; a notice says so): the graphical
+// notation draws a dependency between any two element nodes a view shows. An exposed end no node draws yet gets a plain node, so the line has
 // both ends. It returns the exposed elements drawn this way.
 func (r *Renderer) exposedRelationships(view *symbols.Symbol, exposed []*symbols.Symbol, ids *nodeIDs,
 	drawn map[symbols.ElementKey]*Node, out *Rendering) map[*symbols.Symbol]bool {
@@ -1355,8 +1355,14 @@ func (r *Renderer) exposedRelationships(view *symbols.Symbol, exposed []*symbols
 			out.Notices = append(out.Notices, fmt.Sprintf("%s %s is drawn between the nodes of its ends; the view does not show both, so no edge is drawn",
 				declKind(sym), r.notationName(sym)))
 		}
+		route := r.routeOf(view, sym, out)
+		if len(route) > 0 && g.hubbed(sym) {
+			out.Notices = append(out.Notices, fmt.Sprintf("%s %s states a route; its ends are drawn as a dot and segments, which the route does not steer",
+				declKind(sym), r.notationName(sym)))
+			route = nil
+		}
 		for _, edge := range edges {
-			edge.Route = r.routeOf(view, sym, out)
+			edge.Route = route
 			edge.Style = r.edgeDress(view, sym, edge.From, edge.To, out)
 			g.add(edge)
 		}
@@ -1365,4 +1371,11 @@ func (r *Renderer) exposedRelationships(view *symbols.Symbol, exposed []*symbols
 		used[sym] = true
 	}
 	return used
+}
+
+// hubbed reports whether sym is drawn as an n-ary dot, whose segments no single
+// Route steers, as the interconnection walk's naryConnection also holds.
+func (g *generalGraph) hubbed(sym *symbols.Symbol) bool {
+	node := g.drawn(sym)
+	return node != nil && (node.Kind == connectionDotKind || node.Kind == dependencyDotKind)
 }
