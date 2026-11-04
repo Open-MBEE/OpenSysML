@@ -23,6 +23,7 @@ import {
   clampNodeToBounds,
   type CanvasLayout,
   GAP,
+  glyphSize,
   freePlacement,
   keepOrthogonalRoutes,
   byCodeUnit,
@@ -808,6 +809,25 @@ test("layoutCanvas puts a sequence's proxies on their lifelines at their rows an
   assert.equal(ping.points[0].x, portCenter(a.box, a.ports[0]).x);
   assert.equal(ping.points[1].x, b.box.x + b.box.width / 2);
   assert.ok(ping.points[0].y > then.points[3].y);
+  // The canvas reaches past the last lifeline's proxy label.
+  assert.ok(layout.width >= e2.box.x + e2.box.width + 4 + glyphSize("received").width);
+});
+
+test("layoutCanvas places a sequence's proxy where a drawn edge first reaches it, not a hidden one", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [node("a", "producer"), node("b", "server"), node("e1", "sent", { kind: "event occurrence", parent: "a" }), node("e2", "done", { kind: "event occurrence", parent: "a" })],
+      [
+        { from: "e1", to: "b", label: "m", kind: "message" },
+        { from: "e1", to: "e2", label: "", kind: "succession" },
+      ],
+      { kind: "sequence" },
+    ),
+    { hiddenKinds: new Set(["message"]) },
+  );
+  const e1 = layout.nodes.get("e1")!;
+  const [, then] = layout.edges;
+  assert.equal(e1.box.y + e1.box.height / 2, then.points[0].y);
 });
 
 test("simpleNames keeps the qualifier that tells nodes of one name apart", () => {

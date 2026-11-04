@@ -361,7 +361,7 @@ func (w *d2Writer) writeNode(node *Node, scope, indent string) {
 // ports display, a tree's parameter pins, an action's the ones an edge ends at.
 func (w *d2Writer) pins(node *Node) []Port {
 	switch {
-	case w.ports.interconnection, w.ports.tree:
+	case w.ports.interconnection, w.ports.tree, w.ports.sequence:
 		return w.ports.of(node)
 	case w.ports.action:
 		var pins []Port

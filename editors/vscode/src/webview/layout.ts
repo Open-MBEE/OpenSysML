@@ -378,8 +378,11 @@ function layoutSequence(
             { x: fromX, y },
             { x: toX, y },
           ];
-    placeProxy(edge.from, points[0].x, points[0].y);
-    placeProxy(edge.to, points[points.length - 1].x, points[points.length - 1].y);
+    // A hidden edge places no proxy: the point goes where a drawn edge first reaches it.
+    if (!hidden[index]) {
+      placeProxy(edge.from, points[0].x, points[0].y);
+      placeProxy(edge.to, points[points.length - 1].x, points[points.length - 1].y);
+    }
     return {
       edge,
       index,
@@ -971,7 +974,17 @@ export function nodeExtent(
     extent.reach(label.x, label.y);
     extent.reach(label.x + label.width, label.y + label.height);
   }
+  if (node.parent?.lifeline !== undefined) {
+    const label = proxyLabelPlacement(node);
+    extent.reach(label.x + label.width, label.y);
+  }
   return extent.box();
+}
+
+/** proxyLabelPlacement is where a proxy's name is drawn: to the right of its point, on its baseline. */
+export function proxyLabelPlacement(proxy: PlacedNode): { x: number; y: number; width: number; height: number } {
+  const size = glyphSize(proxy.lines.join(""));
+  return { x: proxy.box.x + proxy.box.width + 4, y: proxy.box.y + proxy.box.height, ...size };
 }
 
 /** edgeLabelBox is the box an edge's label is drawn in, centred over the edge's midpoint; none for an unlabelled edge. */

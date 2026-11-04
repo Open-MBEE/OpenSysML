@@ -157,6 +157,10 @@ func (f *familyFills) collect(node *Node) {
 			slices.SortFunc(f.families, func(a, b string) int { return familyRank(a) - familyRank(b) })
 		}
 	}
+	// A sequence's proxies are points on their lifelines, in no family of their own.
+	if f.sequence {
+		return
+	}
 	for _, child := range node.Children {
 		f.collect(child)
 	}

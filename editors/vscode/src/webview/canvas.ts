@@ -20,6 +20,7 @@ import {
   portCenter,
   portLabelPlacement,
   PORT_SIZE,
+  proxyLabelPlacement,
   portName,
   steerable,
   type PlacedPort,
@@ -264,8 +265,9 @@ function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
   // A proxy on a lifeline is labelled beside its point (§8.2.3.9 proxy-label).
   const proxy = entry.parent?.lifeline !== undefined;
   if (entry.lines.length > 0) {
-    const labelX = proxy ? box.x + box.width + 4 : box.x + LABEL_PAD_X;
-    const text = element("text", { x: String(labelX), y: String(proxy ? box.y + box.height : box.y + LABEL_PAD_Y), class: "label" });
+    const placement = proxyLabelPlacement(entry);
+    const labelX = proxy ? placement.x : box.x + LABEL_PAD_X;
+    const text = element("text", { x: String(labelX), y: String(proxy ? placement.y : box.y + LABEL_PAD_Y), class: "label" });
     entry.lines.forEach((line, i) => {
       const span = element("tspan", {
         x: String(labelX),

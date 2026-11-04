@@ -31,7 +31,8 @@ func runParticipantLabel(node *Node) string {
 // attaching to an event nested in a lifeline is drawn on that lifeline. Anything
 // a sequence rendering cannot show is reported rather than dropped.
 func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
-	ends := &lifelineEnds{ids: &nodeIDs{}, lifelines: map[*symbols.Symbol]*Node{}, proxies: map[*symbols.Symbol]*Node{}, ports: map[*symbols.Symbol]string{}}
+	ends := &lifelineEnds{r: r, view: view, out: out, ids: &nodeIDs{},
+		lifelines: map[*symbols.Symbol]*Node{}, proxies: map[*symbols.Symbol]*Node{}, ports: map[*symbols.Symbol]string{}}
 	stated := &interactions{}
 	visited := map[*symbols.Symbol]bool{}
 	for _, elem := range exposed {
@@ -80,6 +81,9 @@ func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbo
 // lifelines themselves, the proxies of the events a lifeline's body declares (SysML
 // v2.1 §8.2.3.9 sq-proxy), and the ports on a lifeline's border (sq-port).
 type lifelineEnds struct {
+	r         *Renderer
+	view      *symbols.Symbol
+	out       *Rendering
 	ids       *nodeIDs
 	lifelines map[*symbols.Symbol]*Node
 	proxies   map[*symbols.Symbol]*Node
@@ -131,7 +135,9 @@ func (e *lifelineEnds) end(occurrence *symbols.Symbol, lifeline *Node) (node, po
 	}
 	proxy, ok := e.proxies[occurrence]
 	if !ok {
-		proxy = &Node{ID: e.ids.take(), Kind: declKind(occurrence), Name: localName(occurrence), Origin: symbolOrigin(occurrence)}
+		proxy = &Node{ID: e.ids.take(), Kind: declKind(occurrence), Name: localName(occurrence), Origin: symbolOrigin(occurrence),
+			Geometry: e.r.geometryOf(e.view, occurrence, e.out)}
+		e.r.dress(e.view, occurrence, proxy, e.out)
 		e.proxies[occurrence] = proxy
 		lifeline.Children = append(lifeline.Children, proxy)
 	}
@@ -563,23 +569,57 @@ func (r *Renderer) orderMessages(messages []message, successions []succession, o
 		eventsIndegree[at[o.to]]++
 	}
 	var cyclic []string
+	ordered := func(a, b *symbols.Symbol) bool { return a == b }
 	if placed, ok := stableTopological(eventsLater, eventsIndegree); !ok {
 		cyclic = r.cyclicOrders(stated, at, placed)
 	} else {
 		cyclic = r.sortMessageRows(messages, occurrences, stated)
+		ordered = reaches(eventsLater, at)
 	}
 	if cyclic != nil {
 		out.Notices = append(out.Notices, fmt.Sprintf(
 			"successions form a cycle (%s); the messages are shown in declaration order",
 			strings.Join(cyclic, ", ")))
 	}
-	return sequenceRows(messages, successions, orders)
+	return sequenceRows(messages, successions, orders, ordered)
 }
 
-// sequenceRows are the rows of the sequence in order: the messages as sorted, each
-// succession's arrow after the row its source event is on, else before the row its
-// target event is on, else after the messages.
-func sequenceRows(messages []message, successions []succession, orders []order) []Edge {
+// reaches reports whether an event is another or is ordered before it, through
+// the events' order graph: later lists each event's successors by index.
+func reaches(later [][]int, at map[*symbols.Symbol]int) func(a, b *symbols.Symbol) bool {
+	return func(a, b *symbols.Symbol) bool {
+		if a == b {
+			return true
+		}
+		from, ok := at[a]
+		to, known := at[b]
+		if !ok || !known {
+			return false
+		}
+		seen := make([]bool, len(later))
+		stack := []int{from}
+		for len(stack) > 0 {
+			i := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			for _, j := range later[i] {
+				if j == to {
+					return true
+				}
+				if !seen[j] {
+					seen[j] = true
+					stack = append(stack, j)
+				}
+			}
+		}
+		return false
+	}
+}
+
+// sequenceRows are the rows of the sequence in order: the messages as sorted, then
+// each succession's arrow after the last row holding its source or an event ordered
+// before it, else before the first row holding its target or an event ordered after
+// it, else after the messages. before is the events' order, identity when cyclic.
+func sequenceRows(messages []message, successions []succession, orders []order, before func(a, b *symbols.Symbol) bool) []Edge {
 	type row struct {
 		edge   Edge
 		events []*symbols.Symbol
@@ -588,24 +628,23 @@ func sequenceRows(messages []message, successions []succession, orders []order) 
 	for _, msg := range messages {
 		rows = append(rows, row{edge: msg.edge, events: msg.events()})
 	}
-	holding := func(event *symbols.Symbol) int {
+	for _, s := range successions {
+		o := orders[s.order]
+		after, ahead := -1, len(rows)
 		for i, r := range rows {
 			for _, held := range r.events {
-				if held == event {
-					return i
+				if before(held, o.from) {
+					after = max(after, i)
+				}
+				if before(o.to, held) {
+					ahead = min(ahead, i)
 				}
 			}
 		}
-		return -1
-	}
-	for _, s := range successions {
-		o := orders[s.order]
-		place := len(rows)
-		if i := holding(o.from); i >= 0 {
-			for place = i + 1; place < len(rows) && rows[place].events == nil; place++ {
+		place := ahead
+		if after >= 0 {
+			for place = after + 1; place < len(rows) && rows[place].events == nil; place++ {
 			}
-		} else if i := holding(o.to); i >= 0 {
-			place = i
 		}
 		rows = slices.Insert(rows, place, row{edge: s.edge})
 	}

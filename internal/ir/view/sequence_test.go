@@ -184,6 +184,32 @@ func TestSequenceRenderingFollowsOrdersThroughUnmessagedEvents(t *testing.T) {
 	}
 }
 
+// The successions through events no message attaches to are rows between the
+// messages they order, in the events' order, not after them.
+func TestSequenceRenderingPlacesSuccessionsBetweenTheirMessages(t *testing.T) {
+	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::stagedView")
+	server := rendering.Roots[1]
+	names := map[string]string{}
+	for _, proxy := range server.Children {
+		names[proxy.ID] = proxy.Name
+	}
+	var rows []string
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeSuccession {
+			rows = append(rows, names[edge.From]+" then "+names[edge.To])
+			continue
+		}
+		rows = append(rows, edge.Label)
+	}
+	want := []string{"ask of A", "askTaken then stageOne", "stageOne then stageTwo", "stageTwo then replySent", "reply of B"}
+	if !slices.Equal(rows, want) {
+		t.Errorf("rows = %v, want %v", rows, want)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+}
+
 // Messages nothing orders keep declaration order.
 func TestSequenceRenderingKeepsDeclarationOrderWhereNothingIsStated(t *testing.T) {
 	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::unorderedView")
