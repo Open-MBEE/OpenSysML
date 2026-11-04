@@ -428,6 +428,7 @@ function drawEdge(edge: PlacedEdge): SVGGElement {
     case "frame":
     case "event":
     case "expose":
+    case "message":
       attrs["marker-end"] = "url(#arrow-open)";
       break;
     case "reference subsetting":

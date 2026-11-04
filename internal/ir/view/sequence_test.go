@@ -17,23 +17,55 @@ func TestSequenceRenderingDrawsLifelinesAndMessages(t *testing.T) {
 	if got := lifelineNames(rendering); !slices.Equal(got, []string{"producer", "server", "consumer"}) {
 		t.Errorf("lifelines = %v, want the parts the interaction declares in order", got)
 	}
-	for _, node := range rendering.Roots {
-		if len(node.Children) != 0 {
-			t.Errorf("lifeline %s holds %d children; a sequence diagram nests nothing", node.Name, len(node.Children))
-		}
+	// The events a message ends at are proxies on their lifelines (§8.2.3.9
+	// sq-proxy), each named as the lifeline's body declares it.
+	wantProxies := [][]string{{"publish_source_event"}, {"subscribe_target_event", "publish_target_event", "deliver_source_event"},
+		{"subscribe_source_event", "deliver_target_event"}}
+	for i, node := range rendering.Roots {
 		if !node.Origin.Located() {
 			t.Errorf("lifeline %s carries no origin", node.Name)
+		}
+		var proxies []string
+		for _, child := range node.Children {
+			proxies = append(proxies, child.Name)
+			if child.Kind != "event occurrence" || !child.Origin.Located() {
+				t.Errorf("proxy %s on %s is a %q at %v, want an event occurrence with its origin", child.Name, node.Name, child.Kind, child.Origin)
+			}
+		}
+		if !slices.Equal(proxies, wantProxies[i]) {
+			t.Errorf("lifeline %s holds the proxies %v, want %v", node.Name, proxies, wantProxies[i])
 		}
 	}
 	// The successions between the events state that the subscription precedes the
 	// publication, against the order the messages are declared in.
-	if got := messageLabels(rendering); !slices.Equal(got, []string{"subscribe_message", "publish_message", "deliver_message"}) {
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"subscribe_message of Subscribe", "publish_message of Publish", "deliver_message of Deliver"}) {
 		t.Errorf("messages = %v, want one per message usage in the stated order", got)
 	}
+	participants := rendering.participants()
 	for _, edge := range rendering.Edges {
-		if edge.Kind != EdgeFlow {
-			t.Errorf("message %q is an edge of kind %v, want a flow", edge.Label, edge.Kind)
+		if edge.Kind != EdgeMessage && edge.Kind != EdgeSuccession {
+			t.Errorf("%q is an edge of kind %v, want a message or a succession", edge.Label, edge.Kind)
 		}
+		if participants[edge.From] == "" || participants[edge.To] == "" {
+			t.Errorf("%q runs %s -> %s, which is not between the lifelines' proxies", edge.Label, edge.From, edge.To)
+		}
+	}
+	// The `then` chains of server and consumer are dashed successions between
+	// their proxies, each after the row of the event it leads from.
+	wantRows := []string{"subscribe_message of Subscribe", "succession server", "succession consumer", "publish_message of Publish", "succession server", "deliver_message of Deliver"}
+	var rows []string
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeSuccession {
+			if edge.From == edge.To || participants[edge.From] != participants[edge.To] {
+				t.Errorf("succession %s -> %s, want one between two proxies of one lifeline", edge.From, edge.To)
+			}
+			rows = append(rows, "succession "+lifelineName(rendering, participants[edge.From]))
+			continue
+		}
+		rows = append(rows, edge.Label)
+	}
+	if !slices.Equal(rows, wantRows) {
+		t.Errorf("rows = %v, want %v", rows, wantRows)
 	}
 	if len(rendering.Notices) != 0 {
 		t.Errorf("notices = %v, want none: the interaction is shown whole", rendering.Notices)
@@ -78,15 +110,24 @@ func TestSequenceRenderingReportsWhatItCannotShow(t *testing.T) {
 	if got := lifelineNames(rendering); !slices.Equal(got, []string{"caller", "callee"}) {
 		t.Errorf("lifelines = %v, want the parts only", got)
 	}
-	if got := messageLabels(rendering); !slices.Equal(got, []string{"of Ping", "echo"}) {
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"of Ping", "echo of Ping"}) {
 		t.Errorf("messages = %v, want the port-to-port flow and the self-message in declaration order", got)
 	}
-	ping, echo := edgeLabeled(t, rendering, "of Ping"), edgeLabeled(t, rendering, "echo")
-	if ping.From != rendering.Roots[0].ID || ping.To != rendering.Roots[1].ID {
+	ping, echo := edgeLabeled(t, rendering, "of Ping"), edgeLabeled(t, rendering, "echo of Ping")
+	caller, callee := rendering.Roots[0], rendering.Roots[1]
+	if ping.From != caller.ID || ping.To != callee.ID {
 		t.Errorf("the flow between the ports is drawn %s => %s, want caller => callee", ping.From, ping.To)
 	}
-	if echo.From != echo.To {
-		t.Errorf("the message between two events of caller is drawn %s => %s, want a self-message",
+	// The ports a message ends at are drawn on their lifelines' borders (§8.2.3.9 sq-port).
+	if len(caller.Ports) != 1 || len(callee.Ports) != 1 || ping.FromPort != caller.Ports[0].ID || ping.ToPort != callee.Ports[0].ID {
+		t.Errorf("the flow between the ports ends at %q and %q; caller has the ports %v, callee %v", ping.FromPort, ping.ToPort, caller.Ports, callee.Ports)
+	}
+	if caller.Ports[0].Name != "outbox" || caller.Ports[0].Direction != PortUndirected {
+		t.Errorf("caller's port = %+v, want outbox, undirected", caller.Ports[0])
+	}
+	participants := rendering.participants()
+	if echo.From == echo.To || participants[echo.From] != caller.ID || participants[echo.To] != caller.ID {
+		t.Errorf("the message between two events of caller is drawn %s => %s, want between two proxies of caller",
 			echo.From, echo.To)
 	}
 	wants := []string{
@@ -109,7 +150,7 @@ func TestSequenceRenderingReportsWhatItCannotShow(t *testing.T) {
 // against the order they are declared in.
 func TestSequenceRenderingHonoursStatedOrder(t *testing.T) {
 	rendering := render(t, "sequence-order.sysml", "OrderingViews::relayView")
-	if got := messageLabels(rendering); !slices.Equal(got, []string{"early", "late"}) {
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"early of Tick", "late of Tick"}) {
 		t.Errorf("messages = %v, want the succession to put early first", got)
 	}
 	if len(rendering.Notices) != 0 {
@@ -122,7 +163,7 @@ func TestSequenceRenderingHonoursStatedOrder(t *testing.T) {
 func TestSequenceRenderingOrdersMessagesByTheirLifelines(t *testing.T) {
 	for _, view := range []string{"LifelineViews::relayView", "LifelineViews::relayReversedView"} {
 		rendering := render(t, "sequence-lifelines.sysml", view)
-		if got := messageLabels(rendering); !slices.Equal(got, []string{"a", "b", "c"}) {
+		if got := messageLabels(rendering); !slices.Equal(got, []string{"a of A", "b of B", "c of C"}) {
 			t.Errorf("%s: messages = %v, want a, b, c as the successions on q state", view, got)
 		}
 		if len(rendering.Notices) != 0 {
@@ -135,7 +176,7 @@ func TestSequenceRenderingOrdersMessagesByTheirLifelines(t *testing.T) {
 // messages on either side of it.
 func TestSequenceRenderingFollowsOrdersThroughUnmessagedEvents(t *testing.T) {
 	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::settledView")
-	if got := messageLabels(rendering); !slices.Equal(got, []string{"ask", "reply"}) {
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"ask of A", "reply of B"}) {
 		t.Errorf("messages = %v, want ask before reply through the settle event", got)
 	}
 	if len(rendering.Notices) != 0 {
@@ -146,7 +187,7 @@ func TestSequenceRenderingFollowsOrdersThroughUnmessagedEvents(t *testing.T) {
 // Messages nothing orders keep declaration order.
 func TestSequenceRenderingKeepsDeclarationOrderWhereNothingIsStated(t *testing.T) {
 	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::unorderedView")
-	if got := messageLabels(rendering); !slices.Equal(got, []string{"pong", "ping"}) {
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"pong of B", "ping of A"}) {
 		t.Errorf("messages = %v, want declaration order", got)
 	}
 	if len(rendering.Notices) != 0 {
@@ -162,8 +203,8 @@ func TestSequenceRenderingReportsOrdersNoRowCanSatisfy(t *testing.T) {
 		messages []string
 		named    string
 	}{
-		{"LifelineViews::reversedView", []string{"back", "m"}, "received to sent"},
-		{"LifelineViews::crossedView", []string{"two", "one"}, "crossing"},
+		{"LifelineViews::reversedView", []string{"back of B", "m of A"}, "received to sent"},
+		{"LifelineViews::crossedView", []string{"two of B", "one of A"}, "crossing"},
 	} {
 		rendering := render(t, "sequence-lifelines.sysml", tc.view)
 		if got := messageLabels(rendering); !slices.Equal(got, tc.messages) {
@@ -184,7 +225,7 @@ func TestSequenceRenderingReportsOrdersNoRowCanSatisfy(t *testing.T) {
 // running opposite ways are no cycle, and the other messages' orders still hold.
 func TestSequenceRenderingLeavesUntimedMessageEndsUnordered(t *testing.T) {
 	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::reciprocalView")
-	if got := messageLabels(rendering); !slices.Equal(got, []string{"forward", "backward", "early", "late"}) {
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"forward of A", "backward of B", "early of A", "late of C"}) {
 		t.Errorf("messages = %v, want the lifeline-attached pair in declaration order, then early before late", got)
 	}
 	if len(rendering.Notices) != 0 {
@@ -196,7 +237,7 @@ func TestSequenceRenderingLeavesUntimedMessageEndsUnordered(t *testing.T) {
 // reported, naming the successions, and declaration order stands.
 func TestSequenceRenderingReportsASuccessionCycle(t *testing.T) {
 	rendering := render(t, "sequence-order.sysml", "OrderingViews::deadlockView")
-	if got := messageLabels(rendering); !slices.Equal(got, []string{"ask", "reply"}) {
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"ask of Tick", "reply of Tick"}) {
 		t.Errorf("messages = %v, want declaration order", got)
 	}
 	if len(rendering.Notices) != 1 {
@@ -243,7 +284,7 @@ func TestSequenceMermaidDeclaresParticipantsFirst(t *testing.T) {
 	if lines[1] != "sequenceDiagram" {
 		t.Errorf("second line = %q, want sequenceDiagram", lines[1])
 	}
-	var messages int
+	var messages, successions int
 	for _, line := range lines[2:] {
 		line = strings.TrimSpace(line)
 		switch {
@@ -251,7 +292,9 @@ func TestSequenceMermaidDeclaresParticipantsFirst(t *testing.T) {
 			if messages > 0 {
 				t.Errorf("participant declared after a message: %q", line)
 			}
-		case strings.Contains(line, "->>"):
+		case strings.Contains(line, "--)"):
+			successions++
+		case strings.Contains(line, "-)"):
 			messages++
 			if !strings.Contains(line, ": ") {
 				t.Errorf("message carries no label: %q", line)
@@ -260,8 +303,8 @@ func TestSequenceMermaidDeclaresParticipantsFirst(t *testing.T) {
 			t.Errorf("unexpected line in the sequence diagram: %q", line)
 		}
 	}
-	if messages != 3 {
-		t.Errorf("%d messages in the diagram, want 3", messages)
+	if messages != 3 || successions != 3 {
+		t.Errorf("%d messages and %d successions in the diagram, want 3 of each", messages, successions)
 	}
 }
 
@@ -287,11 +330,24 @@ func edgeLabeled(t *testing.T, rendering *Rendering, label string) Edge {
 	return Edge{}
 }
 
-// messageLabels are the labels of a rendering's messages, in order.
+// messageLabels are the labels of a rendering's messages, in order: its message
+// and flow edges, not the successions drawn between them.
 func messageLabels(rendering *Rendering) []string {
 	out := make([]string, 0, len(rendering.Edges))
 	for _, edge := range rendering.Edges {
-		out = append(out, edge.Label)
+		if edge.Kind == EdgeMessage || edge.Kind == EdgeFlow {
+			out = append(out, edge.Label)
+		}
 	}
 	return out
+}
+
+// lifelineName is the name of the lifeline with the given ID.
+func lifelineName(rendering *Rendering, id string) string {
+	for _, node := range rendering.Roots {
+		if node.ID == id {
+			return node.Name
+		}
+	}
+	return ""
 }

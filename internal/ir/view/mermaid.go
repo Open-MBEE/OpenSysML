@@ -71,7 +71,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	}
 	var fills familyFills
 	if options.Palette != "" && options.Palette.check() == nil {
-		fills = familyFills{palette: options.Palette, tree: r.Kind == KindTree}
+		fills = familyFills{palette: options.Palette, tree: r.Kind == KindTree, sequence: r.Kind == KindSequence}
 		for _, root := range r.Roots {
 			fills.collect(root)
 		}
@@ -322,7 +322,7 @@ func mermaidUnsupportedColors(style *Style) int {
 }
 
 func (r *Rendering) mermaidUnrepresentedStyleCounts() (nodeFonts, edgeFonts, fields int, stateStyles []string) {
-	stateFills := familyFills{tree: r.Kind == KindTree}
+	stateFills := familyFills{tree: r.Kind == KindTree, sequence: r.Kind == KindSequence}
 	var walk func(*Node)
 	walk = func(node *Node) {
 		if node.Style != nil {
@@ -1738,20 +1738,22 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, op
 	}
 	r.writeSequenceNotes(b)
 	writtenNotes := map[int]bool{}
+	participants := r.participants()
 	for _, edge := range r.Edges {
+		from, to, arrow := participants[edge.From], participants[edge.To], mermaidSequenceArrow(edge.Kind)
 		// The colon is part of the message syntax; only the text after it is left
 		// off when the message carries none.
 		if edge.Label == "" {
-			fmt.Fprintf(b, "  %s->>%s:\n", edge.From, edge.To)
+			fmt.Fprintf(b, "  %s%s%s:\n", from, arrow, to)
 		} else {
-			fmt.Fprintf(b, "  %s->>%s: %s\n", edge.From, edge.To, mermaidText(edge.Label))
+			fmt.Fprintf(b, "  %s%s%s: %s\n", from, arrow, to, mermaidText(edge.Label))
 		}
 		for i, note := range r.Notes {
 			if note.EdgeFrom == "" || writtenNotes[i] {
 				continue
 			}
-			if (edge.From == note.EdgeFrom && edge.To == note.EdgeTo) ||
-				(edge.From == note.EdgeTo && edge.To == note.EdgeFrom) {
+			if (from == note.EdgeFrom && to == note.EdgeTo) ||
+				(from == note.EdgeTo && to == note.EdgeFrom) {
 				r.writeSequenceNote(b, note)
 				writtenNotes[i] = true
 			}
@@ -1762,6 +1764,19 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, op
 			r.writeSequenceNote(b, note)
 		}
 	}
+}
+
+// mermaidSequenceArrow is each edge kind's arrow in a sequence diagram: the
+// §8.2.3.9 message is a solid line with an open head, the succession a dashed
+// one; a flow keeps its filled head.
+func mermaidSequenceArrow(edge EdgeKind) string {
+	switch edge {
+	case EdgeMessage:
+		return "-)"
+	case EdgeSuccession:
+		return "--)"
+	}
+	return "->>"
 }
 
 // writeStateNode writes one state and its substates. A body's start is the `[*]`
@@ -2093,7 +2108,7 @@ func mermaidEdges(source string) int {
 // a flowchart's or state diagram's between spaces or before its label's bar, or
 // a sequence message's.
 func declaresEdge(statement string) bool {
-	if strings.Contains(statement, "->>") {
+	if strings.Contains(statement, "->>") || strings.Contains(statement, "-)") {
 		return true
 	}
 	for _, arrow := range []string{"-->", "---", "-.->", "-.-", "==="} {

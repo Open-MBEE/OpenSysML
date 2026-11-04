@@ -248,7 +248,7 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 			b.WriteString(strings.Repeat("  ", depth+2) + rowLine(row) + "\n")
 		}
 	}
-	if ports.interconnection || ports.action || ports.tree {
+	if ports.interconnection || ports.action || ports.tree || ports.sequence {
 		for _, port := range ports.of(node) {
 			labels[port.ID] = labels[node.ID] + "." + port.Name
 			b.WriteString(strings.Repeat("  ", depth+1) + pinLine(port, ports) + "\n")
@@ -261,6 +261,10 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		writeNodeText(b, child, depth+1, labels, names, ports, shown)
 		if child.Kind == startKind {
 			labels[child.ID] = "start of " + labels[node.ID]
+		}
+		// A proxy on a lifeline is named through it, `producer.publish_source_event`.
+		if ports.sequence {
+			labels[child.ID] = labels[node.ID] + "." + labels[child.ID]
 		}
 	}
 }
@@ -298,6 +302,8 @@ func pinLine(port Port, ports portView) string {
 	switch {
 	case ports.interconnectionPort(port):
 		return "port " + ports.pinLabel(port)
+	case ports.sequence:
+		return "port " + port.displayName()
 	case ports.tree:
 		return parameterPinLine(port)
 	}
@@ -537,7 +543,7 @@ func edgeArrow(kind Kind, edge EdgeKind) string {
 		return ".."
 	case EdgeSuccessionFlow:
 		return "~>"
-	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeMessage:
 		return "->"
 	case EdgePortion:
 		return "@--"

@@ -407,6 +407,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 		EdgeUnownedMembership:   `"a" -> "b" [label="k", dir=back, arrowtail=odot];`,
 		EdgeExpose:              `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
 		EdgeDependencyClient:    `"a" -> "b" [label="k", dir=none, style=dashed];`,
+		EdgeMessage:             `"a" -> "b" [label="k", arrowhead=vee];`,
 	}
 	// A case or mixed diagram draws composition in its own notation.
 	caseStyles := map[EdgeKind]string{

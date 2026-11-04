@@ -288,8 +288,15 @@ func TestD2SequenceDiagram(t *testing.T) {
 		}
 		last = at
 	}
+	paths := map[string]string{}
+	for _, root := range rendering.Roots {
+		paths[root.ID] = root.ID
+		for _, proxy := range root.Children {
+			paths[proxy.ID] = root.ID + "." + proxy.ID
+		}
+	}
 	for _, edge := range rendering.Edges {
-		want := fmt.Sprintf("\n  %s -> %s: ", edge.From, edge.To)
+		want := fmt.Sprintf("\n  %s -> %s: ", paths[edge.From], paths[edge.To])
 		if at := strings.Index(d2, want); at < last {
 			t.Errorf("message %s -> %s is missing or out of order:\n%s", edge.From, edge.To, d2)
 		} else {

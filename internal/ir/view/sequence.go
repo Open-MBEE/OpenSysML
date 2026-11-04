@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -30,8 +31,7 @@ func runParticipantLabel(node *Node) string {
 // attaching to an event nested in a lifeline is drawn on that lifeline. Anything
 // a sequence rendering cannot show is reported rather than dropped.
 func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
-	ids := &nodeIDs{}
-	lifelines := map[*symbols.Symbol]*Node{}
+	ends := &lifelineEnds{ids: &nodeIDs{}, lifelines: map[*symbols.Symbol]*Node{}, proxies: map[*symbols.Symbol]*Node{}, ports: map[*symbols.Symbol]string{}}
 	stated := &interactions{}
 	visited := map[*symbols.Symbol]bool{}
 	for _, elem := range exposed {
@@ -44,19 +44,19 @@ func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbo
 			stated.addConnector(elem)
 		case occurrenceContainer(elem), lifelineLike(elem):
 			for _, participant := range r.lifelinesOf(elem) {
-				if lifelines[participant] != nil {
+				if ends.lifelines[participant] != nil {
 					continue
 				}
 				name := r.notationName(participant)
 				if participant != elem {
 					name = localName(participant)
 				}
-				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name, NameSynthesized: r.model.NameSynthesized(participant),
+				node := &Node{ID: ends.ids.take(), Kind: declKind(participant), Name: name, NameSynthesized: r.model.NameSynthesized(participant),
 					Type: r.headType(participant), Typings: r.headTypings(participant), Origin: symbolOrigin(participant),
 					Geometry: r.geometryOf(view, participant, out)}
 				r.dress(view, participant, node, out)
 				out.Roots = append(out.Roots, node)
-				lifelines[participant] = node
+				ends.lifelines[participant] = node
 			}
 			r.collectInteractions(elem, stated, visited, 0)
 		default:
@@ -71,7 +71,82 @@ func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbo
 			"%s states no direction; a sequence rendering shows directed messages only",
 			r.noticeSubject(connector)))
 	}
-	out.Edges = r.orderMessages(r.messages(view, stated.flows, lifelines, out), stated.orders, out)
+	messages := r.messages(view, stated.flows, ends, out)
+	out.Edges = r.orderMessages(messages, r.successions(view, stated.orders, ends, out), stated.orders, out)
+	ends.sortProxies()
+}
+
+// lifelineEnds are the places a message or succession ends on the lifelines: the
+// lifelines themselves, the proxies of the events a lifeline's body declares (SysML
+// v2.1 §8.2.3.9 sq-proxy), and the ports on a lifeline's border (sq-port).
+type lifelineEnds struct {
+	ids       *nodeIDs
+	lifelines map[*symbols.Symbol]*Node
+	proxies   map[*symbols.Symbol]*Node
+	ports     map[*symbols.Symbol]string
+}
+
+// sortProxies puts each lifeline's proxies in the order their events are declared,
+// whatever order the messages reached them in.
+func (e *lifelineEnds) sortProxies() {
+	declared := make(map[*Node]*symbols.Symbol, len(e.proxies))
+	for sym, proxy := range e.proxies {
+		declared[proxy] = sym
+	}
+	for _, lifeline := range e.lifelines {
+		sort.SliceStable(lifeline.Children, func(i, j int) bool {
+			return declaredBefore(declared[lifeline.Children[i]], declared[lifeline.Children[j]])
+		})
+	}
+}
+
+// lifelineOf is the lifeline an occurrence is on: the nearest of its owners drawn as one.
+func (e *lifelineEnds) lifelineOf(occurrence *symbols.Symbol) *Node {
+	for sym := occurrence; sym != nil; sym = sym.Owner() {
+		if node, ok := e.lifelines[sym]; ok {
+			return node
+		}
+	}
+	return nil
+}
+
+// end is where an edge to occurrence is drawn on its lifeline: at the lifeline
+// itself, at the proxy of an event it holds, or at one of its ports.
+func (e *lifelineEnds) end(occurrence *symbols.Symbol, lifeline *Node) (node, port string) {
+	if e.lifelines[occurrence] == lifeline {
+		return lifeline.ID, ""
+	}
+	if isPortUsage(occurrence) {
+		id, ok := e.ports[occurrence]
+		if !ok {
+			id = e.ids.take()
+			e.ports[occurrence] = id
+			lifeline.Ports = append(lifeline.Ports, Port{ID: id, Name: localName(occurrence), Type: declType(occurrence),
+				Direction: PortUndirected, Origin: symbolOrigin(occurrence)})
+		}
+		return lifeline.ID, id
+	}
+	if !lifelineLike(occurrence) {
+		return lifeline.ID, ""
+	}
+	proxy, ok := e.proxies[occurrence]
+	if !ok {
+		proxy = &Node{ID: e.ids.take(), Kind: declKind(occurrence), Name: localName(occurrence), Origin: symbolOrigin(occurrence)}
+		e.proxies[occurrence] = proxy
+		lifeline.Children = append(lifeline.Children, proxy)
+	}
+	return proxy.ID, ""
+}
+
+// timed reports an occurrence drawn as a proxy on its lifeline: an event of its own.
+func (e *lifelineEnds) timed(occurrence *symbols.Symbol) bool {
+	_, ok := e.proxies[occurrence]
+	return ok
+}
+
+// isPortUsage reports a port usage, which a sequence draws on its lifeline's border.
+func isPortUsage(sym *symbols.Symbol) bool {
+	return sym != nil && sym.Kind == symbols.SymbolPortUsage
 }
 
 // lifelinesOf are the lifelines an exposed element contributes: the occurrences
@@ -110,6 +185,10 @@ type message struct {
 type order struct {
 	from, to *symbols.Symbol
 	name     string
+	// succession is the usage stating the order, nil for a member-attached `then`,
+	// which has no declaration of its own.
+	succession *symbols.Symbol
+	origin     Origin
 }
 
 // interactions are what a sequence rendering reads between lifelines: the flows
@@ -208,7 +287,7 @@ func (r *Renderer) addSuccessionUsage(succession *symbols.Symbol, into *interact
 	if succession.Name != "" && !succession.EffectiveName() {
 		name = localName(succession)
 	}
-	into.orders = append(into.orders, order{from: from, to: to, name: name})
+	into.orders = append(into.orders, order{from: from, to: to, name: name, succession: succession, origin: symbolOrigin(succession)})
 }
 
 // addSuccessionEdges records the orders a member-attached `then` states, which
@@ -224,7 +303,7 @@ func (r *Renderer) addSuccessionEdges(sym *symbols.Symbol, into *interactions) {
 		if from == nil || to == nil {
 			continue
 		}
-		into.orders = append(into.orders, order{from: from, to: to})
+		into.orders = append(into.orders, order{from: from, to: to, origin: nodeOrigin(symbols.DocNameOf(sym.OwnerScope), edge)})
 	}
 }
 
@@ -271,7 +350,7 @@ func declaredMembers(decl ast.Node) []ast.Node {
 // declarations. An end naming nothing the rendering shows is reported and the
 // message dropped; both ends resolving to one lifeline is a self-message, which
 // a sequence diagram draws.
-func (r *Renderer) messages(view *symbols.Symbol, flows []*symbols.Symbol, lifelines map[*symbols.Symbol]*Node, out *Rendering) []message {
+func (r *Renderer) messages(view *symbols.Symbol, flows []*symbols.Symbol, ends *lifelineEnds, out *Rendering) []message {
 	var messages []message
 	for _, flow := range flows {
 		usage, _ := flow.Decl.(*ast.Usage)
@@ -280,28 +359,31 @@ func (r *Renderer) messages(view *symbols.Symbol, flows []*symbols.Symbol, lifel
 				r.subject(flow, messageKind(flow))))
 			continue
 		}
-		var ends []*symbols.Symbol
-		var nodes []*Node
-		var timed []bool
+		var occurrences []*symbols.Symbol
+		var nodes, ports []string
 		for _, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
-			occurrence, node := r.messageEnd(flow, ast.EndTarget(end), lifelines)
-			if node == nil {
+			occurrence, lifeline := r.messageEnd(flow, ast.EndTarget(end), ends)
+			if lifeline == nil {
 				out.Notices = append(out.Notices, fmt.Sprintf(
 					"%s attaches to %s, which is on no lifeline the rendering shows; no message is drawn",
 					r.subject(flow, messageKind(flow)), endText(end)))
 				break
 			}
-			ends, nodes = append(ends, occurrence), append(nodes, node)
-			timed = append(timed, lifelines[occurrence] != node && lifelineLike(occurrence))
+			node, port := ends.end(occurrence, lifeline)
+			occurrences, nodes, ports = append(occurrences, occurrence), append(nodes, node), append(ports, port)
 		}
 		if len(nodes) != 2 {
 			continue
 		}
+		kind := EdgeFlow
+		if messageKind(flow) == "message" {
+			kind = EdgeMessage
+		}
 		messages = append(messages, message{
-			flow: flow, from: ends[0], to: ends[1], fromTimed: timed[0], toTimed: timed[1],
-			edge: Edge{From: nodes[0].ID, To: nodes[1].ID, Label: r.messageLabel(flow), Kind: EdgeFlow,
+			flow: flow, from: occurrences[0], to: occurrences[1], fromTimed: ends.timed(occurrences[0]), toTimed: ends.timed(occurrences[1]),
+			edge: Edge{From: nodes[0], To: nodes[1], FromPort: ports[0], ToPort: ports[1], Label: r.messageLabel(flow), Kind: kind,
 				Origin: symbolOrigin(flow), Route: r.routeOf(view, flow, out),
-				Style: r.edgeDress(view, flow, nodes[0].ID, nodes[1].ID, out)},
+				Style: r.edgeDress(view, flow, nodes[0], nodes[1], out)},
 		})
 	}
 	sort.SliceStable(messages, func(i, j int) bool { return declaredBefore(messages[i].flow, messages[j].flow) })
@@ -312,19 +394,45 @@ func (r *Renderer) messages(view *symbols.Symbol, flows []*symbols.Symbol, lifel
 // arrow is drawn on: the whole feature chain first, then a segment shorter, then
 // the nearest owner shown — `producer.publish_source_event` is an event of the
 // `producer` lifeline.
-func (r *Renderer) messageEnd(flow *symbols.Symbol, end ast.Node, lifelines map[*symbols.Symbol]*Node) (*symbols.Symbol, *Node) {
+func (r *Renderer) messageEnd(flow *symbols.Symbol, end ast.Node, ends *lifelineEnds) (*symbols.Symbol, *Node) {
 	for attachment := end; attachment != nil; attachment = chainOperand(attachment) {
 		target, ok := r.resolver.ResolveTarget(flow.OwnerScope, attachment)
 		if !ok {
 			continue
 		}
-		for sym := target; sym != nil; sym = sym.Owner() {
-			if node, ok := lifelines[sym]; ok {
-				return target, node
-			}
+		if lifeline := ends.lifelineOf(target); lifeline != nil {
+			return target, lifeline
 		}
 	}
 	return nil, nil
+}
+
+// successions are the orders drawn as the dashed succession arrows of the sequence
+// (SysML v2.1 §8.2.3.9 sq-succession), each between the proxies or lifelines of
+// its ends; an order with an end on no lifeline shown is kept for sorting only.
+func (r *Renderer) successions(view *symbols.Symbol, orders []order, ends *lifelineEnds, out *Rendering) []succession {
+	var successions []succession
+	for i, o := range orders {
+		from, to := ends.lifelineOf(o.from), ends.lifelineOf(o.to)
+		if from == nil || to == nil {
+			continue
+		}
+		fromNode, fromPort := ends.end(o.from, from)
+		toNode, toPort := ends.end(o.to, to)
+		edge := Edge{From: fromNode, To: toNode, FromPort: fromPort, ToPort: toPort, Label: o.name, Name: o.name, Kind: EdgeSuccession, Origin: o.origin}
+		if o.succession != nil {
+			edge.Route = r.routeOf(view, o.succession, out)
+			edge.Style = r.edgeDress(view, o.succession, fromNode, toNode, out)
+		}
+		successions = append(successions, succession{order: i, edge: edge})
+	}
+	return successions
+}
+
+// succession is an order drawn as an arrow: the order it draws and its edge.
+type succession struct {
+	order int
+	edge  Edge
 }
 
 // noticeSubject names an element a notice is about, by what it was declared as.
@@ -373,11 +481,15 @@ func endText(end ast.Node) string {
 	return strings.Join(segments, ".")
 }
 
-// messageLabel names a message: its own name, else the type it is declared with,
-// else the payload it carries as written, else the keyword that declared it. An
-// anonymous message is normal notation, so it is never left unlabeled.
+// messageLabel is a message's label as SysML v2.1 §8.2.3.9 message-label writes
+// it: its declaration and `of` the payload it carries; else the type it is declared
+// with, else the payload alone, else the keyword that declared it. An anonymous
+// message is normal notation, so it is never left unlabeled.
 func (r *Renderer) messageLabel(flow *symbols.Symbol) string {
 	if flow.Name != "" && !flow.EffectiveName() {
+		if payload := payloadText(flow); payload != "" {
+			return localName(flow) + " of " + payload
+		}
 		return localName(flow)
 	}
 	if declared := declType(flow); declared != "" {
@@ -422,7 +534,7 @@ func declaredBefore(a, b *symbols.Symbol) bool {
 // orderMessages is the messages in the order the model states: each one a row
 // its events share, sorted by the orders between those events (declaration order
 // between rows nothing orders); a cycle is reported and declaration order stands.
-func (r *Renderer) orderMessages(messages []message, orders []order, out *Rendering) []Edge {
+func (r *Renderer) orderMessages(messages []message, successions []succession, orders []order, out *Rendering) []Edge {
 	occurrences := sequencedOccurrences(messages, orders)
 	at := make(map[*symbols.Symbol]int, len(occurrences))
 	for i, occurrence := range occurrences {
@@ -461,9 +573,45 @@ func (r *Renderer) orderMessages(messages []message, orders []order, out *Render
 			"successions form a cycle (%s); the messages are shown in declaration order",
 			strings.Join(cyclic, ", ")))
 	}
-	edges := make([]Edge, 0, len(messages))
+	return sequenceRows(messages, successions, orders)
+}
+
+// sequenceRows are the rows of the sequence in order: the messages as sorted, each
+// succession's arrow after the row its source event is on, else before the row its
+// target event is on, else after the messages.
+func sequenceRows(messages []message, successions []succession, orders []order) []Edge {
+	type row struct {
+		edge   Edge
+		events []*symbols.Symbol
+	}
+	rows := make([]row, 0, len(messages)+len(successions))
 	for _, msg := range messages {
-		edges = append(edges, msg.edge)
+		rows = append(rows, row{edge: msg.edge, events: msg.events()})
+	}
+	holding := func(event *symbols.Symbol) int {
+		for i, r := range rows {
+			for _, held := range r.events {
+				if held == event {
+					return i
+				}
+			}
+		}
+		return -1
+	}
+	for _, s := range successions {
+		o := orders[s.order]
+		place := len(rows)
+		if i := holding(o.from); i >= 0 {
+			for place = i + 1; place < len(rows) && rows[place].events == nil; place++ {
+			}
+		} else if i := holding(o.to); i >= 0 {
+			place = i
+		}
+		rows = slices.Insert(rows, place, row{edge: s.edge})
+	}
+	edges := make([]Edge, 0, len(rows))
+	for _, r := range rows {
+		edges = append(edges, r.edge)
 	}
 	return edges
 }

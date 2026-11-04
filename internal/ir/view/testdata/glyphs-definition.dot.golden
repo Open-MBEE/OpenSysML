@@ -11,7 +11,7 @@ digraph "NotationGlyphs::Diagrams::definitionGlyphs" {
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>spare</b>>];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«timeslice»</i></font><br/><b>filling</b>>];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«snapshot»</i></font><br/><b>full</b>>];
-  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«occurrence»</i></font><br/><b>startup</b>>];
+  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«event occurrence»</i></font><br/><b>startup</b>>];
   "n6" [label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>LevelReq</b>>];
   "n7" [style="rounded,filled", label=<<font point-size="10"><i>«require constraint»</i></font><br/><b>keepLevel</b>>];
   "n8" [style="rounded,filled", label=<<font point-size="10"><i>«assume constraint»</i></font><br/><b>lowLevel</b>>];

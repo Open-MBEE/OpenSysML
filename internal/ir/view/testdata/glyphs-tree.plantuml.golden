@@ -48,7 +48,7 @@ class "<size:10>//«attribute»//</size>\n**^level**" as n2 <<attribute>> <<usag
 class "<size:10>//«part»//</size>\n**pump**" as n3 <<part>> <<usage>>
 class "<size:10>//«timeslice»//</size>\n**filling**" as n4 <<timeslice>> <<usage>>
 class "<size:10>//«snapshot»//</size>\n**full**" as n5 <<snapshot>> <<usage>>
-class "<size:10>//«occurrence»//</size>\n**startup**" as n6 <<occurrence>> <<usage>>
+class "<size:10>//«event occurrence»//</size>\n**startup**" as n6 <<event occurrence>> <<usage>>
 class "<size:10>//«part»//</size>\n**spare**" as n7 <<part>> <<usage>>
 class "<size:10>//«attribute»//</size>\n**^level**" as n8 <<attribute>> <<usage>>
 class "<size:10>//«view»//</size>\n**tankView**" as n9 <<view>> <<usage>>

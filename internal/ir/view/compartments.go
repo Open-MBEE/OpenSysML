@@ -40,7 +40,7 @@ var compartmentPlurals = map[string]string{
 
 // rowPrefixes are the modifier keywords a kind may begin with, which the row
 // keeps before its name while the compartment is named by the kind after them.
-var rowPrefixes = []string{"ref", "abstract", "variation", "individual", "readonly", "derived", "end"}
+var rowPrefixes = []string{"ref", "abstract", "variation", "individual", "readonly", "derived", "end", "event"}
 
 // compartmentName is the name of the compartment a member of kind belongs to:
 // the plural of its keyword after any modifier, "part defs" for a nested
