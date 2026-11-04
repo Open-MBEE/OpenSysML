@@ -224,12 +224,28 @@ func (r *Renderer) treeNodeShallow(walk treeWalk, sym, owner *symbols.Symbol, qu
 		Type: r.headType(sym), Typings: r.headTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.inheritedGeometryOf(view, owner, sym, out),
 		Style: r.inheritedStyleOf(view, owner, sym, out), Referential: r.referenceRow(sym)}
 	out.noteTreeSite(node, view, sym)
+	node.Text = r.successionText(sym)
 	if walk.path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")
 		return node
 	}
 	r.notesOf(view, sym, node.ID, out)
 	return node
+}
+
+// successionText is the `first a then b` a succession row of a compartment
+// reads (SysML v2.1 §8.2.3.18, the successions compartment); "" for anything else.
+func (r *Renderer) successionText(sym *symbols.Symbol) string {
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || usage.Kind != ast.UsageSuccession || len(usage.ConnectorEnds) != 2 {
+		return ""
+	}
+	doc := symbolOrigin(sym).Doc
+	first, then := r.nodeText(doc, usage.ConnectorEnds[0].Target), r.nodeText(doc, usage.ConnectorEnds[1].Target)
+	if first == "" || then == "" {
+		return ""
+	}
+	return "first " + first + " then " + then
 }
 
 // expansion is what a walk is drawing above the element at hand: each element

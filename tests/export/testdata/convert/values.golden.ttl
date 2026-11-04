@@ -263,13 +263,16 @@ elmt:Values__Sized__size
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__size_pvalue ;
-    sysml:ownedRelationship elmt:Values__Sized__size_ft0, expr:Values__Sized__size_pvalue_om ;
-    sysml:ownedMembership expr:Values__Sized__size_pvalue_om ;
+    sysml:ownedRelationship elmt:Values__Sized__size_ft0, expr:Values__Sized__size_pvalue_om, expr:Values__Sized__size_pmultiplicity_om ;
+    sysml:ownedMembership expr:Values__Sized__size_pvalue_om, expr:Values__Sized__size_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Values__Sized__size_pmultiplicity ;
+    sysml:ownedMember expr:Values__Sized__size_pmultiplicity ;
     sysml:ownedTyping elmt:Values__Sized__size_ft0 ;
     sysml:ownedSpecialization elmt:Values__Sized__size_ft0 ;
     sysx:sourceText "        attribute size : Real = 4.5;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Values__Sized__size_ft0\"},{\"@id\":\"Values__Sized__size_pvalue_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Values__Sized__size_ft0\"},{\"@id\":\"Values__Sized__size_pvalue_om\"},{\"@id\":\"Values__Sized__size_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Values__Sized__size_pvalue_om\"},{\"@id\":\"Values__Sized__size_pmultiplicity_om\"}]" .
 
 elmt:Values__Sized__size_om
     a sysml:FeatureMembership ;
@@ -314,6 +317,28 @@ expr:Values__Sized__size_pvalue_om
     sysml:value expr:Values__Sized__size_pvalue ;
     json:relatedElement "[{\"@id\":\"Values__Sized__size\"},{\"@id\":\"Values__Sized__size_pvalue\"}]" .
 
+expr:Values__Sized__size_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Values__Sized__size_pmultiplicity" ;
+    sysml:owner elmt:Values__Sized__size ;
+    sysml:owningRelationship expr:Values__Sized__size_pmultiplicity_om ;
+    sysml:owningMembership expr:Values__Sized__size_pmultiplicity_om .
+
+expr:Values__Sized__size_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Values__Sized__size_pmultiplicity_om" ;
+    sysml:owner elmt:Values__Sized__size ;
+    sysml:memberElement expr:Values__Sized__size_pmultiplicity ;
+    sysml:ownedMemberElement expr:Values__Sized__size_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Values__Sized__size_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Values__Sized__size ;
+    sysml:membershipOwningNamespace elmt:Values__Sized__size ;
+    sysml:source elmt:Values__Sized__size ;
+    sysml:target expr:Values__Sized__size_pmultiplicity ;
+    sysml:relatedElement elmt:Values__Sized__size, expr:Values__Sized__size_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__size\"},{\"@id\":\"Values__Sized__size_pmultiplicity\"}]" .
+
 elmt:Values__Sized__label
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Values::Sized::label" ;
@@ -333,13 +358,16 @@ elmt:Values__Sized__label
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "String" ;
     sysml:value expr:Values__Sized__label_pvalue ;
-    sysml:ownedRelationship elmt:Values__Sized__label_ft0, expr:Values__Sized__label_pvalue_om ;
-    sysml:ownedMembership expr:Values__Sized__label_pvalue_om ;
+    sysml:ownedRelationship elmt:Values__Sized__label_ft0, expr:Values__Sized__label_pvalue_om, expr:Values__Sized__label_pmultiplicity_om ;
+    sysml:ownedMembership expr:Values__Sized__label_pvalue_om, expr:Values__Sized__label_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Values__Sized__label_pmultiplicity ;
+    sysml:ownedMember expr:Values__Sized__label_pmultiplicity ;
     sysml:ownedTyping elmt:Values__Sized__label_ft0 ;
     sysml:ownedSpecialization elmt:Values__Sized__label_ft0 ;
     sysx:sourceText "        attribute label : String = \"front\";\n" ;
-    json:ownedRelationship "[{\"@id\":\"Values__Sized__label_ft0\"},{\"@id\":\"Values__Sized__label_pvalue_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Values__Sized__label_ft0\"},{\"@id\":\"Values__Sized__label_pvalue_om\"},{\"@id\":\"Values__Sized__label_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Values__Sized__label_pvalue_om\"},{\"@id\":\"Values__Sized__label_pmultiplicity_om\"}]" .
 
 elmt:Values__Sized__label_om
     a sysml:FeatureMembership ;
@@ -384,6 +412,28 @@ expr:Values__Sized__label_pvalue_om
     sysml:value expr:Values__Sized__label_pvalue ;
     json:relatedElement "[{\"@id\":\"Values__Sized__label\"},{\"@id\":\"Values__Sized__label_pvalue\"}]" .
 
+expr:Values__Sized__label_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Values__Sized__label_pmultiplicity" ;
+    sysml:owner elmt:Values__Sized__label ;
+    sysml:owningRelationship expr:Values__Sized__label_pmultiplicity_om ;
+    sysml:owningMembership expr:Values__Sized__label_pmultiplicity_om .
+
+expr:Values__Sized__label_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Values__Sized__label_pmultiplicity_om" ;
+    sysml:owner elmt:Values__Sized__label ;
+    sysml:memberElement expr:Values__Sized__label_pmultiplicity ;
+    sysml:ownedMemberElement expr:Values__Sized__label_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Values__Sized__label_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Values__Sized__label ;
+    sysml:membershipOwningNamespace elmt:Values__Sized__label ;
+    sysml:source elmt:Values__Sized__label ;
+    sysml:target expr:Values__Sized__label_pmultiplicity ;
+    sysml:relatedElement elmt:Values__Sized__label, expr:Values__Sized__label_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__label\"},{\"@id\":\"Values__Sized__label_pmultiplicity\"}]" .
+
 elmt:Values__Sized__total
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Values::Sized::total" ;
@@ -403,13 +453,16 @@ elmt:Values__Sized__total
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__total_pvalue ;
-    sysml:ownedRelationship elmt:Values__Sized__total_ft0, expr:Values__Sized__total_pvalue_om ;
-    sysml:ownedMembership expr:Values__Sized__total_pvalue_om ;
+    sysml:ownedRelationship elmt:Values__Sized__total_ft0, expr:Values__Sized__total_pvalue_om, expr:Values__Sized__total_pmultiplicity_om ;
+    sysml:ownedMembership expr:Values__Sized__total_pvalue_om, expr:Values__Sized__total_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Values__Sized__total_pmultiplicity ;
+    sysml:ownedMember expr:Values__Sized__total_pmultiplicity ;
     sysml:ownedTyping elmt:Values__Sized__total_ft0 ;
     sysml:ownedSpecialization elmt:Values__Sized__total_ft0 ;
     sysx:sourceText "        attribute total : Real = 1.0 + 2.0;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Values__Sized__total_ft0\"},{\"@id\":\"Values__Sized__total_pvalue_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Values__Sized__total_ft0\"},{\"@id\":\"Values__Sized__total_pvalue_om\"},{\"@id\":\"Values__Sized__total_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Values__Sized__total_pvalue_om\"},{\"@id\":\"Values__Sized__total_pmultiplicity_om\"}]" .
 
 elmt:Values__Sized__total_om
     a sysml:FeatureMembership ;
@@ -599,6 +652,28 @@ expr:Values__Sized__total_pvalue_om
     sysml:featureWithValue elmt:Values__Sized__total ;
     sysml:value expr:Values__Sized__total_pvalue ;
     json:relatedElement "[{\"@id\":\"Values__Sized__total\"},{\"@id\":\"Values__Sized__total_pvalue\"}]" .
+
+expr:Values__Sized__total_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Values__Sized__total_pmultiplicity" ;
+    sysml:owner elmt:Values__Sized__total ;
+    sysml:owningRelationship expr:Values__Sized__total_pmultiplicity_om ;
+    sysml:owningMembership expr:Values__Sized__total_pmultiplicity_om .
+
+expr:Values__Sized__total_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Values__Sized__total_pmultiplicity_om" ;
+    sysml:owner elmt:Values__Sized__total ;
+    sysml:memberElement expr:Values__Sized__total_pmultiplicity ;
+    sysml:ownedMemberElement expr:Values__Sized__total_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Values__Sized__total_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Values__Sized__total ;
+    sysml:membershipOwningNamespace elmt:Values__Sized__total ;
+    sysml:source elmt:Values__Sized__total ;
+    sysml:target expr:Values__Sized__total_pmultiplicity ;
+    sysml:relatedElement elmt:Values__Sized__total, expr:Values__Sized__total_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__total\"},{\"@id\":\"Values__Sized__total_pmultiplicity\"}]" .
 
 elmt:Values__Total__x_ft0
     a sysml:FeatureTyping ;

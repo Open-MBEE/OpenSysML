@@ -266,7 +266,7 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 	}
 	for _, t := range check.Triples() {
 		if structural(t) && !graph.Has(t) && !derivedNameOmitted(graph, t) && !derivedVariabilityOmitted(graph, check, t) &&
-			!derivedMembershipOmitted(graph, check, t) {
+			!derivedMembershipOmitted(graph, check, t) && !derivedMultiplicityOmitted(graph, check, t) {
 			out = append(out, t)
 		}
 	}
@@ -306,6 +306,36 @@ func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 		(ontology.IsAncestorOrSelf(metaclass, mImport) && (key == pSource || key == pTarget))
 	return derives &&
 		!graph.HasProperty(t.Subject, rdf.SysML+key) && !graph.HasProperty(t.Subject, rdf.AnnotationJSON+key)
+}
+
+// derivedMultiplicityOmitted reports a statement of a usage's implied default Multiplicity
+// (SysML v2 7.6.3) the candidate derives and the graph omits — the Multiplicity, its
+// OwningMembership and the usage's edges to them — or the ownedMember restating a declared
+// range the graph states as the usage's multiplicity; an older graph states no less.
+func derivedMultiplicityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
+	defaultMultiplicity := func(term rdf.Term) bool {
+		return term.IsIRI() && !graph.HasProperty(term, rdf.RDFType) &&
+			rdf.LocalName(check.Type(term)) == mMultiplicityClass
+	}
+	owningMembership := func(term rdf.Term) bool {
+		if !term.IsIRI() || graph.HasProperty(term, rdf.RDFType) {
+			return false
+		}
+		for _, member := range check.Objects(term, rdf.SysML+pOwnedMemberElement) {
+			if defaultMultiplicity(member) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, term := range []rdf.Term{t.Subject, t.Object} {
+		if defaultMultiplicity(term) || owningMembership(term) {
+			return true
+		}
+	}
+	return t.Predicate.Value == rdf.SysML+pOwnedMember && t.Object.IsIRI() &&
+		rdf.LocalName(check.Type(t.Object)) == mMultiplicityRange &&
+		graph.Has(rdf.Triple{Subject: t.Subject, Predicate: rdf.IRI(rdf.SysML + pMultiplicity), Object: t.Object})
 }
 
 // derivedNameOmitted reports a sysml:name the candidate derives for an element

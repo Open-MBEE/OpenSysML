@@ -30,6 +30,7 @@ var plantumlGoldenCases = []struct {
 	{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 	{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 	{"action", "action.sysml", "FlowViews::driveView", KindAction},
+	{"action-forms", "action-forms.sysml", "ActionFormViews::monitorView", KindAction},
 	{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
 	{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 	{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed},
@@ -116,6 +117,11 @@ func TestPlantUMLDrawsEveryNodeAndEdge(t *testing.T) {
 			walk = func(node *Node) {
 				if node.Kind != startKind && !strings.Contains(puml, " as "+node.ID+"\n") && !strings.Contains(puml, " as "+node.ID+" ") {
 					t.Errorf("node %s (%s) is not declared:\n%s", node.ID, (labeller{}).head(node), puml)
+				}
+				// A sequence's proxies are points on their lifelines, which PlantUML
+				// has no participant for: their arrows run between the lifelines.
+				if rendering.Kind == KindSequence {
+					return
 				}
 				for _, child := range node.Children {
 					walk(child)
@@ -259,7 +265,7 @@ func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 		"  state \"<size:10>//«fork»//</size>\\n**split**\" as n7 <<fork>>\n",
 		"  state \"**final**\" as n9 <<end>>\n",
 		"  state \"<size:10>//«decision»//</size>\\n**check**\" as n11 <<choice>>\n",
-		"  state \"<size:10>//«action»//</size>\\n**monitor**\\nown flow\\nparameters\\nin reading\" as n3 <<action>> <<usage>> {\n",
+		"  state \"<size:10>//«action»//</size>\\n**monitor**\\nparameters\\nin reading\\naction flow\" as n3 <<action>> <<usage>> {\n",
 		"\nn2 --> n3 : torque to reading\n",
 		"\nn11 -[dashed]-> n9 : [speed <U+003E> 0]\n",
 		"\nn1 -[dashed]-> n7\n",
@@ -283,7 +289,7 @@ func TestPlantUMLSequenceDiagram(t *testing.T) {
 	}
 	for _, want := range []string{
 		"' not represented: message pending states no source and target; no message is drawn\n",
-		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n1 : of Ping\nn0 -> n0 : echo\n@enduml\n",
+		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n1 : of Ping\nn0 ->> n0 : echo of Ping\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("sequence PlantUML lacks %q:\n%s", want, puml)
@@ -622,7 +628,7 @@ var (
 	// plantumlArrowLine matches an arrow statement between two aliases, a
 	// port's being its node's dotted with its index, an end name quoted at
 	// its end.
-	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+)( "[^"]*")? (-\[[a-z=0-9]+\]->?|-->|->|--\|>|--:\|>|--\|\|>|\.\.>|\*--|o--|\+--|#--|0--|--|\.\.) ("[^"]*" )?([\w.]+)( : .*)?$`)
+	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+)( "[^"]*")? (-\[[a-z=0-9]+\]->?|-->>|->>|-->|->|--\|>|--:\|>|--\|\|>|\.\.>|\*--|o--|\+--|#--|0--|--|\.\.) ("[^"]*" )?([\w.]+)( : .*)?$`)
 	// plantumlDeclarationLine matches an element declaration with its alias.
 	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port|usecase|actor|note|circle|label|package) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
 	// dotFillLine and plantumlFillLine pick the fill a node is given in each form.

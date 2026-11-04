@@ -1,0 +1,99 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 72
+---
+%% ActionFormViews::monitorView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+flowchart TD
+  subgraph n0 ["`*«action def»* **Monitor**
+parameters
+in sensor
+out alarm`"]
+    direction TD
+    n1@{ shape: f-circ, label: "" }
+    n2("`⚑ *«accept action»*
+**acceptReading**
+reading : Reading
+parameters
+out reading
+inout ^payload
+in ^receiver`")
+    n3("`⭓ *«send action»*
+**sendAlarm**
+Alarm to sensor
+parameters
+in ^payload
+in ^sender
+in ^receiver`")
+    n4("`*«assign»*
+**tally**
+count := count + 1`")
+    subgraph n5 ["«loop» wait<br>while condition<br>count #lt; 10"]
+      direction TD
+      n5_anchor[" "]
+      subgraph n7 ["`**loop body**`"]
+        direction TD
+        n8("`*«action»*
+**poll**`")
+        n9("`*«action»*
+**record**`")
+      end
+    end
+    subgraph n10 ["`*«loop»* **sweep**
+for iterator
+i in 1..3`"]
+      direction TD
+      n10_anchor[" "]
+      subgraph n12 ["`**loop body**`"]
+        direction TD
+        n13("`*«action»*
+**'step'**`")
+      end
+    end
+    subgraph n14 ["«if» choose<br>if condition<br>count #gt; 5"]
+      direction TD
+      n14_anchor[" "]
+      subgraph n16 ["`**then body**`"]
+        direction TD
+        n17("`*«action»*
+**raise**`")
+      end
+      subgraph n18 ["`**else body**`"]
+        direction TD
+        n19("`*«action»*
+**lower**`")
+      end
+    end
+    n20@{ shape: cross-circ, label: "" }
+  end
+  n8 -.-> n9
+  n1 -.-> n2
+  n2 -.-> n4
+  n3 -.-> n5_anchor
+  n4 -.-> n3
+  n5_anchor -.-> n10_anchor
+  n10_anchor -.-> n14_anchor
+  n14_anchor -.-> n20
+  classDef anchor fill:none,stroke:none
+  class n10_anchor,n14_anchor,n5_anchor anchor

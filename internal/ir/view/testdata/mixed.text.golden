@@ -17,6 +17,7 @@ package MixedExamples
     part b
   state def Ready (declares no states)
   state def Modes
+    state transition
     start
     state ready (initial)
   action def Operate
@@ -29,6 +30,7 @@ package MixedExamples
   objective (Inspect the plant and report its operating state.)
   perform action run (declares no nodes)
   exhibit state mode
+    state transition
     start
     state ^ready (initial)
   part def Person

@@ -191,8 +191,13 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pilot DOT: %v", err)
 	}
+	// The Pilot look draws the notation's `entry`, `do` and `exit` compartments,
+	// each behavior a row as declared.
 	for _, want := range []string{
-		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap", "do / InitializePEAS",
+		`<b>Init</b><br/>initial</td></tr><hr/><tr><td><font point-size="10">do</font></td></tr><tr><td align="left">action initialize : InitializePEAS</td></tr>`,
+		`<tr><td><font point-size="10">entry</font></td></tr><tr><td align="left">action : Warm</td></tr><hr/><tr><td><font point-size="10">do</font></td></tr><tr><td align="left">action</td></tr><hr/><tr><td><font point-size="10">exit</font></td></tr><tr><td align="left">action cool : Cool</td></tr>`,
+		`<tr><td><font point-size="10">do</font></td></tr><tr><td align="left">action</td></tr><hr/><tr><td><font point-size="10">exit</font></td></tr><tr><td align="left">action wrap</td></tr>`,
+		`<tr><td><font point-size="10">do</font></td></tr><tr><td align="left">action : InitializePEAS</td></tr>`,
 	} {
 		if !strings.Contains(pilot, want) {
 			t.Errorf("pilot DOT lacks %q:\n%s", want, pilot)
@@ -215,7 +220,7 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 		}
 	}
 	if !strings.Contains(pilot, `fontname="Helvetica", fontsize=14,`) ||
-		!strings.Contains(pilot, `<font point-size="10"><i>«state»</i></font><br/><b>Init</b><br/>initial, do / initialize>`) {
+		!strings.Contains(pilot, `<font point-size="10"><i>«state»</i></font><br/><b>Init</b><br/>initial</td>`) {
 		t.Errorf("pilot DOT lost its type:\n%s", pilot)
 	}
 }

@@ -158,10 +158,14 @@ elmt:Shadowing__Packet__data_20field
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Field ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadowing__Packet__data_20field_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadowing__Packet__data_20field_ft0, expr:Shadowing__Packet__data_20field_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__Packet__data_20field_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Packet__data_20field_pmultiplicity ;
     sysml:ownedTyping elmt:Shadowing__Packet__data_20field_ft0 ;
     sysml:ownedSpecialization elmt:Shadowing__Packet__data_20field_ft0 ;
-    sysml:ownedRelationship elmt:Shadowing__Packet__data_20field_ft0 ;
-    sysx:sourceText "        attribute 'data field' : Field;\n" .
+    sysx:sourceText "        attribute 'data field' : Field;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Packet__data_20field_ft0\"},{\"@id\":\"Shadowing__Packet__data_20field_pmultiplicity_om\"}]" .
 
 elmt:Shadowing__Packet__data_20field_om
     a sysml:FeatureMembership ;
@@ -179,6 +183,28 @@ elmt:Shadowing__Packet__data_20field_om
     sysml:ownedMemberFeature elmt:Shadowing__Packet__data_20field ;
     sysml:owningType elmt:Shadowing__Packet ;
     json:relatedElement "[{\"@id\":\"Shadowing__Packet\"},{\"@id\":\"Shadowing__Packet__data_20field\"}]" .
+
+expr:Shadowing__Packet__data_20field_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Packet__data_20field_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__Packet__data_20field ;
+    sysml:owningRelationship expr:Shadowing__Packet__data_20field_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Packet__data_20field_pmultiplicity_om .
+
+expr:Shadowing__Packet__data_20field_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Packet__data_20field_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__Packet__data_20field ;
+    sysml:memberElement expr:Shadowing__Packet__data_20field_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Packet__data_20field_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Packet__data_20field_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__Packet__data_20field ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Packet__data_20field ;
+    sysml:source elmt:Shadowing__Packet__data_20field ;
+    sysml:target expr:Shadowing__Packet__data_20field_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__Packet__data_20field, expr:Shadowing__Packet__data_20field_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Packet__data_20field\"},{\"@id\":\"Shadowing__Packet__data_20field_pmultiplicity\"}]" .
 
 elmt:Shadowing__Packet__payload
     a sysml:PartUsage ;
@@ -198,6 +224,10 @@ elmt:Shadowing__Packet__payload
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadowing__Packet__payload_pmultiplicity ;
+    sysml:ownedRelationship expr:Shadowing__Packet__payload_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__Packet__payload_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Packet__payload_pmultiplicity ;
     sysx:sourceText "        part payload;\n" .
 
 elmt:Shadowing__Packet__payload_om
@@ -216,6 +246,28 @@ elmt:Shadowing__Packet__payload_om
     sysml:ownedMemberFeature elmt:Shadowing__Packet__payload ;
     sysml:owningType elmt:Shadowing__Packet ;
     json:relatedElement "[{\"@id\":\"Shadowing__Packet\"},{\"@id\":\"Shadowing__Packet__payload\"}]" .
+
+expr:Shadowing__Packet__payload_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Packet__payload_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__Packet__payload ;
+    sysml:owningRelationship expr:Shadowing__Packet__payload_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Packet__payload_pmultiplicity_om .
+
+expr:Shadowing__Packet__payload_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Packet__payload_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__Packet__payload ;
+    sysml:memberElement expr:Shadowing__Packet__payload_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Packet__payload_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Packet__payload_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__Packet__payload ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Packet__payload ;
+    sysml:source elmt:Shadowing__Packet__payload ;
+    sysml:target expr:Shadowing__Packet__payload_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__Packet__payload, expr:Shadowing__Packet__payload_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Packet__payload\"},{\"@id\":\"Shadowing__Packet__payload_pmultiplicity\"}]" .
 
 elmt:Shadowing__Thermal_20Packet
     a sysml:PartDefinition ;
@@ -370,10 +422,14 @@ elmt:Shadowing__Thermal_20Packet__data_20field__data_20field
     sysml:declaredName "data field" ;
     sysml:type elmt:Shadowing__Field ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_ft0, expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity ;
     sysml:ownedTyping elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_ft0 ;
     sysml:ownedSpecialization elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_ft0 ;
-    sysml:ownedRelationship elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_ft0 ;
-    sysx:sourceText "            attribute 'data field' : Field;\n" .
+    sysx:sourceText "            attribute 'data field' : Field;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Thermal_20Packet__data_20field__data_20field_ft0\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity_om\"}]" .
 
 elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_om
     a sysml:FeatureMembership ;
@@ -391,6 +447,28 @@ elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_om
     sysml:ownedMemberFeature elmt:Shadowing__Thermal_20Packet__data_20field__data_20field ;
     sysml:owningType elmt:Shadowing__Thermal_20Packet__data_20field ;
     json:relatedElement "[{\"@id\":\"Shadowing__Thermal_20Packet__data_20field\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field__data_20field\"}]" .
+
+expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__Thermal_20Packet__data_20field__data_20field ;
+    sysml:owningRelationship expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity_om .
+
+expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__Thermal_20Packet__data_20field__data_20field ;
+    sysml:memberElement expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__Thermal_20Packet__data_20field__data_20field ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Thermal_20Packet__data_20field__data_20field ;
+    sysml:source elmt:Shadowing__Thermal_20Packet__data_20field__data_20field ;
+    sysml:target expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__Thermal_20Packet__data_20field__data_20field, expr:Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Thermal_20Packet__data_20field__data_20field\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field__data_20field_pmultiplicity\"}]" .
 
 elmt:Shadowing__payload
     a sysml:PartUsage ;
@@ -487,10 +565,14 @@ elmt:Shadowing__Bus__payload
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:subsets elmt:Shadowing__payload ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadowing__Bus__payload_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadowing__Bus__payload_ss0, expr:Shadowing__Bus__payload_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__Bus__payload_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Bus__payload_pmultiplicity ;
     sysml:ownedSubsetting elmt:Shadowing__Bus__payload_ss0 ;
     sysml:ownedSpecialization elmt:Shadowing__Bus__payload_ss0 ;
-    sysml:ownedRelationship elmt:Shadowing__Bus__payload_ss0 ;
-    sysx:sourceText "        part payload :> Shadowing::payload;\n" .
+    sysx:sourceText "        part payload :> Shadowing::payload;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__payload_ss0\"},{\"@id\":\"Shadowing__Bus__payload_pmultiplicity_om\"}]" .
 
 elmt:Shadowing__Bus__payload_om
     a sysml:FeatureMembership ;
@@ -508,6 +590,28 @@ elmt:Shadowing__Bus__payload_om
     sysml:ownedMemberFeature elmt:Shadowing__Bus__payload ;
     sysml:owningType elmt:Shadowing__Bus ;
     json:relatedElement "[{\"@id\":\"Shadowing__Bus\"},{\"@id\":\"Shadowing__Bus__payload\"}]" .
+
+expr:Shadowing__Bus__payload_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Bus__payload_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__Bus__payload ;
+    sysml:owningRelationship expr:Shadowing__Bus__payload_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Bus__payload_pmultiplicity_om .
+
+expr:Shadowing__Bus__payload_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Bus__payload_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__Bus__payload ;
+    sysml:memberElement expr:Shadowing__Bus__payload_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__payload_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__payload_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__Bus__payload ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Bus__payload ;
+    sysml:source elmt:Shadowing__Bus__payload ;
+    sysml:target expr:Shadowing__Bus__payload_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__Bus__payload, expr:Shadowing__Bus__payload_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Bus__payload\"},{\"@id\":\"Shadowing__Bus__payload_pmultiplicity\"}]" .
 
 elmt:Shadowing__Bus__cargo
     a sysml:PartUsage ;
@@ -528,10 +632,14 @@ elmt:Shadowing__Bus__cargo
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:subsets elmt:Shadowing__payload ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadowing__Bus__cargo_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadowing__Bus__cargo_ss0, expr:Shadowing__Bus__cargo_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__Bus__cargo_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Bus__cargo_pmultiplicity ;
     sysml:ownedSubsetting elmt:Shadowing__Bus__cargo_ss0 ;
     sysml:ownedSpecialization elmt:Shadowing__Bus__cargo_ss0 ;
-    sysml:ownedRelationship elmt:Shadowing__Bus__cargo_ss0 ;
-    sysx:sourceText "        part cargo :> Shadowing::payload;\n" .
+    sysx:sourceText "        part cargo :> Shadowing::payload;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__cargo_ss0\"},{\"@id\":\"Shadowing__Bus__cargo_pmultiplicity_om\"}]" .
 
 elmt:Shadowing__Bus__cargo_om
     a sysml:FeatureMembership ;
@@ -549,6 +657,28 @@ elmt:Shadowing__Bus__cargo_om
     sysml:ownedMemberFeature elmt:Shadowing__Bus__cargo ;
     sysml:owningType elmt:Shadowing__Bus ;
     json:relatedElement "[{\"@id\":\"Shadowing__Bus\"},{\"@id\":\"Shadowing__Bus__cargo\"}]" .
+
+expr:Shadowing__Bus__cargo_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Bus__cargo_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__Bus__cargo ;
+    sysml:owningRelationship expr:Shadowing__Bus__cargo_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Bus__cargo_pmultiplicity_om .
+
+expr:Shadowing__Bus__cargo_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Bus__cargo_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__Bus__cargo ;
+    sysml:memberElement expr:Shadowing__Bus__cargo_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__cargo_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__cargo_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__Bus__cargo ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Bus__cargo ;
+    sysml:source elmt:Shadowing__Bus__cargo ;
+    sysml:target expr:Shadowing__Bus__cargo_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__Bus__cargo, expr:Shadowing__Bus__cargo_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Bus__cargo\"},{\"@id\":\"Shadowing__Bus__cargo_pmultiplicity\"}]" .
 
 elmt:Shadowing__Bus__carried
     a sysml:PartUsage ;
@@ -644,10 +774,14 @@ elmt:Shadowing__Bus__wrapped
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Packet ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadowing__Bus__wrapped_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadowing__Bus__wrapped_ft0, expr:Shadowing__Bus__wrapped_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__Bus__wrapped_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Bus__wrapped_pmultiplicity ;
     sysml:ownedTyping elmt:Shadowing__Bus__wrapped_ft0 ;
     sysml:ownedSpecialization elmt:Shadowing__Bus__wrapped_ft0 ;
-    sysml:ownedRelationship elmt:Shadowing__Bus__wrapped_ft0 ;
-    sysx:sourceText "        part wrapped : Shadowing::Packet;\n" .
+    sysx:sourceText "        part wrapped : Shadowing::Packet;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__wrapped_ft0\"},{\"@id\":\"Shadowing__Bus__wrapped_pmultiplicity_om\"}]" .
 
 elmt:Shadowing__Bus__wrapped_om
     a sysml:FeatureMembership ;
@@ -665,6 +799,28 @@ elmt:Shadowing__Bus__wrapped_om
     sysml:ownedMemberFeature elmt:Shadowing__Bus__wrapped ;
     sysml:owningType elmt:Shadowing__Bus ;
     json:relatedElement "[{\"@id\":\"Shadowing__Bus\"},{\"@id\":\"Shadowing__Bus__wrapped\"}]" .
+
+expr:Shadowing__Bus__wrapped_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Bus__wrapped_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__Bus__wrapped ;
+    sysml:owningRelationship expr:Shadowing__Bus__wrapped_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Bus__wrapped_pmultiplicity_om .
+
+expr:Shadowing__Bus__wrapped_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Bus__wrapped_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__Bus__wrapped ;
+    sysml:memberElement expr:Shadowing__Bus__wrapped_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__wrapped_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__wrapped_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__Bus__wrapped ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Bus__wrapped ;
+    sysml:source elmt:Shadowing__Bus__wrapped ;
+    sysml:target expr:Shadowing__Bus__wrapped_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__Bus__wrapped, expr:Shadowing__Bus__wrapped_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Bus__wrapped\"},{\"@id\":\"Shadowing__Bus__wrapped_pmultiplicity\"}]" .
 
 elmt:Shadowing__Bus__raw
     a sysml:PartUsage ;
@@ -685,10 +841,14 @@ elmt:Shadowing__Bus__raw
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Bus__Packet ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadowing__Bus__raw_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadowing__Bus__raw_ft0, expr:Shadowing__Bus__raw_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__Bus__raw_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Bus__raw_pmultiplicity ;
     sysml:ownedTyping elmt:Shadowing__Bus__raw_ft0 ;
     sysml:ownedSpecialization elmt:Shadowing__Bus__raw_ft0 ;
-    sysml:ownedRelationship elmt:Shadowing__Bus__raw_ft0 ;
-    sysx:sourceText "        part raw : Packet;\n" .
+    sysx:sourceText "        part raw : Packet;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__raw_ft0\"},{\"@id\":\"Shadowing__Bus__raw_pmultiplicity_om\"}]" .
 
 elmt:Shadowing__Bus__raw_om
     a sysml:FeatureMembership ;
@@ -706,6 +866,28 @@ elmt:Shadowing__Bus__raw_om
     sysml:ownedMemberFeature elmt:Shadowing__Bus__raw ;
     sysml:owningType elmt:Shadowing__Bus ;
     json:relatedElement "[{\"@id\":\"Shadowing__Bus\"},{\"@id\":\"Shadowing__Bus__raw\"}]" .
+
+expr:Shadowing__Bus__raw_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Bus__raw_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__Bus__raw ;
+    sysml:owningRelationship expr:Shadowing__Bus__raw_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Bus__raw_pmultiplicity_om .
+
+expr:Shadowing__Bus__raw_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Bus__raw_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__Bus__raw ;
+    sysml:memberElement expr:Shadowing__Bus__raw_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__raw_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__raw_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__Bus__raw ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Bus__raw ;
+    sysml:source elmt:Shadowing__Bus__raw ;
+    sysml:target expr:Shadowing__Bus__raw_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__Bus__raw, expr:Shadowing__Bus__raw_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Bus__raw\"},{\"@id\":\"Shadowing__Bus__raw_pmultiplicity\"}]" .
 
 elmt:Shadowing__Bus__link
     a sysml:ConnectionUsage ;
@@ -1564,10 +1746,14 @@ elmt:Shadowing__deeper__load
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Shadowing__deeper__load_pvalue ;
-    sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_om ;
-    sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_om ;
+    sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_om, expr:Shadowing__deeper__load_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_om, expr:Shadowing__deeper__load_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute load = vehicle.cargo;\n" .
+    sysml:multiplicity expr:Shadowing__deeper__load_pmultiplicity ;
+    sysml:ownedMember expr:Shadowing__deeper__load_pmultiplicity ;
+    sysx:sourceText "        attribute load = vehicle.cargo;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__deeper__load_pvalue_om\"},{\"@id\":\"Shadowing__deeper__load_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadowing__deeper__load_pvalue_om\"},{\"@id\":\"Shadowing__deeper__load_pmultiplicity_om\"}]" .
 
 elmt:Shadowing__deeper__load_om
     a sysml:FeatureMembership ;
@@ -1758,6 +1944,28 @@ expr:Shadowing__deeper__load_pvalue_om
     sysml:value expr:Shadowing__deeper__load_pvalue ;
     json:relatedElement "[{\"@id\":\"Shadowing__deeper__load\"},{\"@id\":\"Shadowing__deeper__load_pvalue\"}]" .
 
+expr:Shadowing__deeper__load_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__deeper__load_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__deeper__load ;
+    sysml:owningRelationship expr:Shadowing__deeper__load_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__deeper__load_pmultiplicity_om .
+
+expr:Shadowing__deeper__load_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__deeper__load_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__deeper__load ;
+    sysml:memberElement expr:Shadowing__deeper__load_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__deeper__load_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__deeper__load_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__deeper__load ;
+    sysml:membershipOwningNamespace elmt:Shadowing__deeper__load ;
+    sysml:source elmt:Shadowing__deeper__load ;
+    sysml:target expr:Shadowing__deeper__load_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__deeper__load, expr:Shadowing__deeper__load_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__deeper__load\"},{\"@id\":\"Shadowing__deeper__load_pmultiplicity\"}]" .
+
 elmt:Shadowing__Frame
     a sysml:PartDefinition ;
     sysml:qualifiedName "Shadowing::Frame" ;
@@ -1852,10 +2060,14 @@ elmt:Shadowing__Frame__packet_20data_20field
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Field ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadowing__Frame__packet_20data_20field_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadowing__Frame__packet_20data_20field_ft0, expr:Shadowing__Frame__packet_20data_20field_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__Frame__packet_20data_20field_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Frame__packet_20data_20field_pmultiplicity ;
     sysml:ownedTyping elmt:Shadowing__Frame__packet_20data_20field_ft0 ;
     sysml:ownedSpecialization elmt:Shadowing__Frame__packet_20data_20field_ft0 ;
-    sysml:ownedRelationship elmt:Shadowing__Frame__packet_20data_20field_ft0 ;
-    sysx:sourceText "        attribute 'packet data field' : Shadowing::Field;\n" .
+    sysx:sourceText "        attribute 'packet data field' : Shadowing::Field;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Frame__packet_20data_20field_ft0\"},{\"@id\":\"Shadowing__Frame__packet_20data_20field_pmultiplicity_om\"}]" .
 
 elmt:Shadowing__Frame__packet_20data_20field_om
     a sysml:FeatureMembership ;
@@ -1873,6 +2085,28 @@ elmt:Shadowing__Frame__packet_20data_20field_om
     sysml:ownedMemberFeature elmt:Shadowing__Frame__packet_20data_20field ;
     sysml:owningType elmt:Shadowing__Frame ;
     json:relatedElement "[{\"@id\":\"Shadowing__Frame\"},{\"@id\":\"Shadowing__Frame__packet_20data_20field\"}]" .
+
+expr:Shadowing__Frame__packet_20data_20field_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Frame__packet_20data_20field_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__Frame__packet_20data_20field ;
+    sysml:owningRelationship expr:Shadowing__Frame__packet_20data_20field_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Frame__packet_20data_20field_pmultiplicity_om .
+
+expr:Shadowing__Frame__packet_20data_20field_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Frame__packet_20data_20field_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__Frame__packet_20data_20field ;
+    sysml:memberElement expr:Shadowing__Frame__packet_20data_20field_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Frame__packet_20data_20field_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Frame__packet_20data_20field_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__Frame__packet_20data_20field ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Frame__packet_20data_20field ;
+    sysml:source elmt:Shadowing__Frame__packet_20data_20field ;
+    sysml:target expr:Shadowing__Frame__packet_20data_20field_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__Frame__packet_20data_20field, expr:Shadowing__Frame__packet_20data_20field_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Frame__packet_20data_20field\"},{\"@id\":\"Shadowing__Frame__packet_20data_20field_pmultiplicity\"}]" .
 
 elmt:Shadowing__Frame__outer
     a sysml:PartUsage ;
@@ -1894,10 +2128,14 @@ elmt:Shadowing__Frame__outer
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Frame ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadowing__Frame__outer_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadowing__Frame__outer_ft0, expr:Shadowing__Frame__outer_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__Frame__outer_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Frame__outer_pmultiplicity ;
     sysml:ownedTyping elmt:Shadowing__Frame__outer_ft0 ;
     sysml:ownedSpecialization elmt:Shadowing__Frame__outer_ft0 ;
-    sysml:ownedRelationship elmt:Shadowing__Frame__outer_ft0 ;
-    sysx:sourceText "        ref part outer : Shadowing::Frame;\n" .
+    sysx:sourceText "        ref part outer : Shadowing::Frame;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Frame__outer_ft0\"},{\"@id\":\"Shadowing__Frame__outer_pmultiplicity_om\"}]" .
 
 elmt:Shadowing__Frame__outer_om
     a sysml:FeatureMembership ;
@@ -1915,6 +2153,28 @@ elmt:Shadowing__Frame__outer_om
     sysml:ownedMemberFeature elmt:Shadowing__Frame__outer ;
     sysml:owningType elmt:Shadowing__Frame ;
     json:relatedElement "[{\"@id\":\"Shadowing__Frame\"},{\"@id\":\"Shadowing__Frame__outer\"}]" .
+
+expr:Shadowing__Frame__outer_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Frame__outer_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__Frame__outer ;
+    sysml:owningRelationship expr:Shadowing__Frame__outer_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Frame__outer_pmultiplicity_om .
+
+expr:Shadowing__Frame__outer_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Frame__outer_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__Frame__outer ;
+    sysml:memberElement expr:Shadowing__Frame__outer_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Frame__outer_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Frame__outer_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__Frame__outer ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Frame__outer ;
+    sysml:source elmt:Shadowing__Frame__outer ;
+    sysml:target expr:Shadowing__Frame__outer_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__Frame__outer, expr:Shadowing__Frame__outer_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Frame__outer\"},{\"@id\":\"Shadowing__Frame__outer_pmultiplicity\"}]" .
 
 elmt:Shadowing__Frame__inner
     a sysml:PartUsage ;
@@ -1936,10 +2196,14 @@ elmt:Shadowing__Frame__inner
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadowing__Frame__Frame ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadowing__Frame__inner_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadowing__Frame__inner_ft0, expr:Shadowing__Frame__inner_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadowing__Frame__inner_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Frame__inner_pmultiplicity ;
     sysml:ownedTyping elmt:Shadowing__Frame__inner_ft0 ;
     sysml:ownedSpecialization elmt:Shadowing__Frame__inner_ft0 ;
-    sysml:ownedRelationship elmt:Shadowing__Frame__inner_ft0 ;
-    sysx:sourceText "        ref part inner : Frame;\n" .
+    sysx:sourceText "        ref part inner : Frame;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Frame__inner_ft0\"},{\"@id\":\"Shadowing__Frame__inner_pmultiplicity_om\"}]" .
 
 elmt:Shadowing__Frame__inner_om
     a sysml:FeatureMembership ;
@@ -1957,6 +2221,28 @@ elmt:Shadowing__Frame__inner_om
     sysml:ownedMemberFeature elmt:Shadowing__Frame__inner ;
     sysml:owningType elmt:Shadowing__Frame ;
     json:relatedElement "[{\"@id\":\"Shadowing__Frame\"},{\"@id\":\"Shadowing__Frame__inner\"}]" .
+
+expr:Shadowing__Frame__inner_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Frame__inner_pmultiplicity" ;
+    sysml:owner elmt:Shadowing__Frame__inner ;
+    sysml:owningRelationship expr:Shadowing__Frame__inner_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Frame__inner_pmultiplicity_om .
+
+expr:Shadowing__Frame__inner_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Frame__inner_pmultiplicity_om" ;
+    sysml:owner elmt:Shadowing__Frame__inner ;
+    sysml:memberElement expr:Shadowing__Frame__inner_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Frame__inner_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Frame__inner_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadowing__Frame__inner ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Frame__inner ;
+    sysml:source elmt:Shadowing__Frame__inner ;
+    sysml:target expr:Shadowing__Frame__inner_pmultiplicity ;
+    sysml:relatedElement elmt:Shadowing__Frame__inner, expr:Shadowing__Frame__inner_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Frame__inner\"},{\"@id\":\"Shadowing__Frame__inner_pmultiplicity\"}]" .
 
 elmt:Shadowing__Frame__Field
     a sysml:PartDefinition ;
