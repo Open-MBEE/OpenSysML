@@ -569,7 +569,7 @@ test("landingModel lifts an action view's nodes out of the action's box and keys
   assert.equal(model.render.nodes.length, 11, "nine steps, the start and the final");
   assert.ok(model.render.nodes.every((node) => node.parent === undefined), "the nodes are drawn at the top level");
   assert.equal(model.render.edges.length, 11);
-  assert.deepEqual(model.render.edges.filter((edge) => edge.label !== "").map((edge) => edge.label), ["[remaining >= 3970 ['m/s']]"]);
+  assert.deepEqual(model.render.edges.filter((edge) => edge.label !== "").map((edge) => edge.label), ["[remaining >= 3970 ['m/s']]", "else"]);
   assert.equal(model.root.symbol, "MissionSequence::apollo11", "the root is the object performing the action");
   assert.equal(stateIdOf(model, "awaitGo"), model.action.nodes.get("awaitGo")?.id);
   assert.equal(stateIdOf(model, "nowhere"), undefined);

@@ -29,8 +29,10 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <mxCell id="n2:n2.0:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2:n2.0">
-          <mxGeometry width="12" height="12" as="geometry"/>
+        <mxCell id="n2:n2.0:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2">
+          <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
+            <mxPoint x="-6" y="-6" as="offset"/>
+          </mxGeometry>
         </mxCell>
         <object id="n2:n2.1" label="^torque" fqn="Flows::Provide::torque" kind="parameter" view="FlowViews::driveView" link="action.sysml:8">
           <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n2">
@@ -39,8 +41,10 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <mxCell id="n2:n2.1:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2:n2.1">
-          <mxGeometry width="12" height="12" as="geometry"/>
+        <mxCell id="n2:n2.1:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2">
+          <mxGeometry x="1" y="0.5" width="12" height="12" relative="1" as="geometry">
+            <mxPoint x="-6" y="-6" as="offset"/>
+          </mxGeometry>
         </mxCell>
         <object id="n3" label="«action»&#xA;monitor" fqn="Flows::Drive::monitor" kind="action" view="FlowViews::driveView" link="action.sysml:20">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
@@ -57,8 +61,10 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <mxCell id="n3:n3.0:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n3:n3.0">
-          <mxGeometry width="12" height="12" as="geometry"/>
+        <mxCell id="n3:n3.0:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n3">
+          <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
+            <mxPoint x="-6" y="-6" as="offset"/>
+          </mxGeometry>
         </mxCell>
         <object id="n4" label="initial" fqn="Flows::Drive::monitor::begin" kind="initial" view="FlowViews::driveView" link="action.sysml:22">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n3">

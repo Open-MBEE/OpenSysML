@@ -35,8 +35,8 @@ type StateGraph struct {
 	// executable statements by the time it is reached.
 	Behaviors map[*ast.StateNode]*StateBehaviors
 
-	// Parallel: state → whether its substates run in parallel, by its own
-	// `parallel` or an inherited definition's; MachineParallel says it of the machine.
+	// Parallel: state → its substates run in parallel, by its own `parallel` or
+	// an inherited definition's; MachineParallel says it of the machine.
 	Parallel        map[*ast.StateNode]bool
 	MachineParallel bool
 

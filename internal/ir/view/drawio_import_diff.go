@@ -449,6 +449,9 @@ func (m *drawioMatcher) edgeLabel(cell *DrawioCell, f *DrawioFile) string {
 // position is drawn on its owner's border, so only its style is read.
 func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 	origin, isPort := m.originOf(base.ID)
+	if !isPort && base.FQN == "" && cell.FQN == "" {
+		return // a section of a node's box (a loop body), standing for no declaration
+	}
 	edit := DrawioEdit{Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell, base), Origin: origin}
 	if isPort {
 		owner, size := m.base.Cell(base.Parent), DrawioBox{}
@@ -731,6 +734,9 @@ func (m *drawioMatcher) editedOf(base *DrawioCell) *DrawioCell {
 
 // framePlace writes a Layout putting node at its page box, as the file has it.
 func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized bool) {
+	if base.FQN == "" && cell.FQN == "" {
+		return // a section of a node's box, standing for no declaration
+	}
 	box := fullBox(cell)
 	layout := &semantics.Layout{X: box.X - m.frameShift(base).X, Y: box.Y - m.frameShift(base).Y, Collapsed: cell.Collapsed}
 	if sized {

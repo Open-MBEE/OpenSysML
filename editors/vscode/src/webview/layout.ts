@@ -52,6 +52,9 @@ export type Shape =
 /** STATEMENT_KINDS are the action node kinds whose «keyword» compartment heads the node even unnamed (§8.2.3.17). */
 export const STATEMENT_KINDS: ReadonlySet<string> = new Set(["send action", "accept action", "assign", "loop", "if"]);
 
+/** STATEMENT_ROW_KIND is a compartment row that is a statement as written, drawn as its text alone. */
+export const STATEMENT_ROW_KIND = "statement";
+
 /** SECTION_KINDS are the body compartments of a compound node drawn as a container: a loop body, a branch, a swimlane. */
 export const SECTION_KINDS: ReadonlySet<string> = new Set(["loop body", "then body", "else body", "swimlane"]);
 
@@ -757,19 +760,22 @@ export function labelLines(
   }
   const draws = (element: string): boolean =>
     shown === undefined || shown.includes(element);
+  if (node.compartment && node.kind === STATEMENT_ROW_KIND) {
+    return [node.text ?? ""];
+  }
   const lines: string[] = [];
   const statement = STATEMENT_KINDS.has(node.kind);
-  if ((node.name !== "" || node.arrow !== undefined || statement) && draws("keywords")) {
+  const keyword = (node.name !== "" || node.arrow !== undefined || statement) && draws("keywords");
+  if (keyword) {
     lines.push(`«${node.kind}»`);
   }
-  if ((node.arrow === undefined || node.name !== "" || node.detail !== "" || (node.text ?? "") !== "") && (node.name !== "" || !statement || lines.length === 0)) {
+  if (statement && node.name === "" && node.text) {
+    lines.push(node.text);
+  } else if ((node.arrow === undefined || node.name !== "" || node.detail !== "" || (node.text ?? "") !== "") && (node.name !== "" || !statement || !keyword)) {
     lines.push(...labelHead(node, draws("typings"), draws("qualifiers"), names).split("\n"));
   }
   if (node.parallel && draws("keywords")) {
     lines.push("«parallel»");
-  }
-  if (statement && node.name === "" && node.text) {
-    lines.push(node.text);
   }
   if (node.detail !== "" && draws("compartments")) {
     lines.push(node.detail);

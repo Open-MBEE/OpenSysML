@@ -113,7 +113,7 @@ func drawioFirst(file *view.DrawioFile, want func(c *view.DrawioCell) bool) *vie
 
 // A named vertex a Layout can place: not a port, which is drawn on its owner's border.
 func drawioPlaceable(c *view.DrawioCell) bool {
-	return c.Vertex && c.FQN != "" && c.Kind != "port" && c.HasGeometry && !c.Collapsed
+	return c.Vertex && c.FQN != "" && c.Kind != "port" && c.Kind != "parameter" && c.HasGeometry && !c.Collapsed
 }
 
 // drawioLeaf picks the first placeable vertex containing no other, so its move

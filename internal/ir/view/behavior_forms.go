@@ -295,7 +295,7 @@ func statementNode(statement lower.Statement) ast.Node {
 // bodySection is the container a compound node's flow body is drawn in: a
 // section of the node's box headed by the body compartment's name.
 func (r *Renderer) bodySection(body compoundBody, doc string, ids *nodeIDs) *Node {
-	return &Node{ID: ids.take(), Kind: body.kind, Origin: nodeOrigin(doc, body.block.Node)}
+	return &Node{ID: ids.take(), Kind: body.kind}
 }
 
 // swimlaneKind is the kind of a swimlane: the dashed lane of a perform-actions

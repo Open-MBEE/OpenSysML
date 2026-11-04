@@ -85,6 +85,8 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 
 // drawioWriter composes one draw.io file from a rendering.
 type drawioWriter struct {
+	// sections counts the body sections being written, whose nodes get no fqn.
+	sections int
 	arranger
 	fills     familyFills
 	used      map[string]map[string]bool
@@ -425,6 +427,9 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 		rel = box.relativeTo(w.boxes[parent])
 	}
 	fqn := w.fqn(node, parentFQN)
+	if w.sections > 0 || sectionKind(node.Kind) {
+		fqn = "" // a body section and its nodes stand for no addressable declaration
+	}
 	nested := fqn
 	if nested == "" {
 		nested = parentFQN
@@ -454,6 +459,10 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 	}
 	w.writeMark(node)
 	w.writePorts(node, nested)
+	if sectionKind(node.Kind) {
+		w.sections++
+		defer func() { w.sections-- }()
+	}
 	for _, child := range node.Children {
 		w.writeNode(child, node.ID, nested)
 	}
@@ -498,25 +507,32 @@ func (w *drawioWriter) writePorts(node *Node, fqn string) {
 		w.b.WriteString(` vertex="1"`)
 		w.attr("parent", node.ID)
 		w.b.WriteString(">\n")
-		if g := port.Geometry; g.placed() {
-			size := drawioBox{Width: drawioPortSize, Height: drawioPortSize}
-			if g.HasSize {
-				size = drawioBox{Width: g.Width, Height: g.Height}
-			}
-			w.geometry(drawioWrappedBodyIndent, drawioBox{X: g.X - box.X, Y: g.Y - box.Y, Width: size.Width, Height: size.Height}, nil, nil)
-		} else {
-			w.relativeGeometry(drawioWrappedBodyIndent, side, fraction)
-		}
+		w.portGeometry(drawioWrappedBodyIndent, port, box, side, fraction)
 		w.portBoxes[id] = portCellBox(box, routeSide(side), fraction, port.Geometry)
 		w.closeObject()
-		w.writePinArrow(id, port, side)
+		w.writePinArrow(node, id, port, box, side, fraction)
 		w.cells[id] = true
 	}
 }
 
+// portGeometry writes a port cell's geometry: where its Layout places it,
+// relative to its owner's box, else at its fraction of the owner's side.
+func (w *drawioWriter) portGeometry(indent string, port Port, box drawioBox, side PortDirection, fraction float64) {
+	if g := port.Geometry; g.placed() {
+		size := drawioBox{Width: drawioPortSize, Height: drawioPortSize}
+		if g.HasSize {
+			size = drawioBox{Width: g.Width, Height: g.Height}
+		}
+		w.geometry(indent, drawioBox{X: g.X - box.X, Y: g.Y - box.Y, Width: size.Width, Height: size.Height}, nil, nil)
+		return
+	}
+	w.relativeGeometry(indent, side, fraction)
+}
+
 // writePinArrow sets the pin's direction arrow (§8.2.3.17 pdh, pdv) as a text
-// cell filling the pin; a port with no direction gets none.
-func (w *drawioWriter) writePinArrow(pin string, port Port, side PortDirection) {
+// cell of the owner over the pin, placed as the pin is; a port with no
+// direction gets none. The pin cell itself stays childless, a port of the owner.
+func (w *drawioWriter) writePinArrow(node *Node, pin string, port Port, box drawioBox, side PortDirection, fraction float64) {
 	if !port.Parameter {
 		return
 	}
@@ -532,9 +548,9 @@ func (w *drawioWriter) writePinArrow(pin string, port Port, side PortDirection) 
 	w.attr("value", arrow)
 	w.attr("style", "text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;")
 	w.b.WriteString(` vertex="1"`)
-	w.attr("parent", pin)
+	w.attr("parent", node.ID)
 	w.b.WriteString(">\n")
-	w.geometry(drawioCellBodyIndent, drawioBox{Width: drawioPortSize, Height: drawioPortSize}, nil, nil)
+	w.portGeometry(drawioCellBodyIndent, port, box, side, fraction)
 	w.closeCell()
 }
 

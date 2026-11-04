@@ -85,9 +85,9 @@ func TestLandingLunarMissionModel(t *testing.T) {
 		t.Fatalf("mission diagram root = %+v, want the LunarMission action def", action)
 	}
 	wantKinds := map[string]string{
-		"start": "initial", "translunarInjection": "action", "lunarOrbitInsertion": "action", "landingGo": "decision",
-		"awaitGo": "action", "descent": "action", "surfaceOperations": "action", "ascent": "action",
-		"transEarthInjection": "action", "splashdown": "action", "done": "final",
+		"start": "initial", "translunarInjection": "assign", "lunarOrbitInsertion": "assign", "landingGo": "decision",
+		"awaitGo": "accept action", "descent": "assign", "surfaceOperations": "assign", "ascent": "assign",
+		"transEarthInjection": "assign", "splashdown": "assign", "done": "final",
 	}
 	if !reflect.DeepEqual(kinds, wantKinds) {
 		t.Errorf("mission diagram nodes: got %v, want %v", kinds, wantKinds)
@@ -110,7 +110,7 @@ func TestLandingLunarMissionModel(t *testing.T) {
 	}
 	wantLabels := map[string]string{
 		"start->translunarInjection": "", "translunarInjection->lunarOrbitInsertion": "", "lunarOrbitInsertion->landingGo": "",
-		"landingGo->awaitGo": "[remaining >= 3970 ['m/s']]", "landingGo->transEarthInjection": "", "awaitGo->descent": "",
+		"landingGo->awaitGo": "[remaining >= 3970 ['m/s']]", "landingGo->transEarthInjection": "else", "awaitGo->descent": "",
 		"descent->surfaceOperations": "", "surfaceOperations->ascent": "", "ascent->transEarthInjection": "",
 		"transEarthInjection->splashdown": "", "splashdown->done": "",
 	}
