@@ -8,7 +8,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // apiJSONCompletedPropertiesKey names, on an element object, the derived
@@ -335,10 +334,7 @@ func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (stri
 
 // libraryCatalog is the catalog of normative library ids, built once per evaluation.
 func (e *apiJSONEvaluation) libraryCatalog() *identity.Catalog {
-	e.catalogOnce.Do(func() {
-		e.catalog = identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
-	})
-	return e.catalog
+	return e.structure.libraryCatalog()
 }
 
 // apiJSONCheckCompletedProperties refuses a sysx:completedProperties list naming a

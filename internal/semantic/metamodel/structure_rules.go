@@ -4293,7 +4293,15 @@ func (e *Evaluator) structureElementSymbol(element Element) *symbols.Symbol {
 	if element.Symbol != nil {
 		return element.Symbol
 	}
-	if element.Node == nil || e.model == nil {
+	if element.Node == nil {
+		if structure, ok := e.options.Structure.(LibrarySymbolStructure); ok {
+			if symbol, found := structure.LibrarySymbol(element); found {
+				return symbol
+			}
+		}
+		return nil
+	}
+	if e.model == nil {
 		return nil
 	}
 	var scope *symbols.Scope
@@ -4562,16 +4570,21 @@ func (e *Evaluator) structureInheritedValues(element Element, property string) (
 	if !ok {
 		return nil, false
 	}
-	var values []Value
-	visited := make(map[ElementKey]bool)
+	var inherited []Value
+	visited := map[ElementKey]bool{element.Key(): true}
 	for _, base := range bases {
-		inherited, ok := e.structureTypeMembers(base, property, visited)
+		memberships, ok := e.structureTypeMembers(base, "membership", visited)
 		if !ok {
 			return nil, false
 		}
-		values = append(values, inherited...)
+		inherited = append(inherited, memberships...)
 	}
-	return uniqueStructureValueSequence(values, e.options.Structure).Values, true
+	inherited = uniqueStructureValueSequence(inherited, e.options.Structure).Values
+	inherited, ok = e.structureRemoveRedefinedMemberships(element, inherited)
+	if !ok {
+		return nil, false
+	}
+	return e.structureMembershipsProperty(inherited, property)
 }
 
 func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
@@ -4615,6 +4628,10 @@ func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
 	for _, fqn := range impliedBases {
 		symbols := e.resolver.Index().LookupQualified(fqn)
 		if len(symbols) == 0 {
+			// Without the standard library there is no implied base to inherit from.
+			if !e.resolver.Index().HasLibrary() {
+				continue
+			}
 			return nil, false
 		}
 		base := ElementOf(symbols[0])
@@ -4649,7 +4666,7 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 		return nil, true
 	}
 	visited[element.Key()] = true
-	if element.Symbol != nil {
+	if element.Symbol != nil && !e.structureKnows(element) {
 		return e.structureLibraryTypeMembers(element, property)
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
@@ -4694,46 +4711,7 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 	memberships := uniqueStructureValueSequence(
 		append(append(public, protected...), inherited...), e.options.Structure,
 	).Values
-	if property == "membership" {
-		return memberships, true
-	}
-	var values []Value
-	for _, membershipValue := range memberships {
-		if membershipValue.Kind != MembershipValue {
-			return nil, false
-		}
-		membership := Element{Membership: membershipValue.Membership, IsMembership: true}
-		isFeature, known := e.isMetaclass(membership, "FeatureMembership")
-		if !known {
-			return nil, false
-		}
-		if !isFeature {
-			continue
-		}
-		if property == "featureMembership" {
-			values = append(values, membershipValue)
-			continue
-		}
-		members, ok := e.structureMembershipMemberElements(membership)
-		if !ok {
-			return nil, false
-		}
-		for _, member := range members {
-			if property == "feature" {
-				isFeature, known := e.isMetaclass(member, "Feature")
-				if !known {
-					return nil, false
-				}
-				if !isFeature {
-					continue
-				}
-				values = append(values, elementValue(member))
-			} else {
-				values = append(values, elementValue(member))
-			}
-		}
-	}
-	return uniqueStructureValueSequence(values, e.options.Structure).Values, true
+	return e.structureMembershipsProperty(memberships, property)
 }
 
 // structureLibraryTypeMembers reads a library base's non-private memberships from the
@@ -4783,19 +4761,74 @@ func (e *Evaluator) structureLibraryTypeMembers(base Element, property string) (
 // structureMembershipMemberElements is structureMembershipMembers for a membership the
 // graph may not state: a semantic membership answers its member symbol directly.
 func (e *Evaluator) structureMembershipMemberElements(membership Element) ([]Element, bool) {
-	if membership.Membership.Aspect == "" && membership.Membership.Member != nil {
+	if membership.Membership.Member != nil && !e.structureKnows(membership) {
 		return []Element{ElementOf(membership.Membership.Member)}, true
 	}
 	return e.structureMembershipMembers(membership)
 }
 
-// structureFeatureKey identifies a feature the same way whether the graph states it
-// or the semantic model supplies it, so redefinitions match across the two.
+// structureKnows reports whether the structure represents element itself; a
+// semantic symbol it only references, or never states, it does not.
+func (e *Evaluator) structureKnows(element Element) bool {
+	_, known := e.options.Structure.Metaclass(element)
+	return known
+}
+
+// structureFeatureKey identifies a feature the same way whether the graph states it,
+// references it in a library or the semantic model supplies it, so redefinitions match.
 func (e *Evaluator) structureFeatureKey(feature Element) ElementKey {
-	if feature.Symbol != nil && !feature.IsMembership {
-		return ElementOf(feature.Symbol).Key()
+	if !feature.IsMembership {
+		if symbol := e.structureElementSymbol(feature); symbol != nil {
+			return ElementOf(symbol).Key()
+		}
 	}
 	return feature.Key()
+}
+
+// structureMembershipsProperty projects memberships onto a Type property:
+// the memberships, the feature memberships, the features or every member.
+func (e *Evaluator) structureMembershipsProperty(memberships []Value, property string) ([]Value, bool) {
+	if property == "membership" {
+		return memberships, true
+	}
+	var values []Value
+	for _, membershipValue := range memberships {
+		if membershipValue.Kind != MembershipValue {
+			return nil, false
+		}
+		membership := Element{Membership: membershipValue.Membership, IsMembership: true}
+		isFeature, known := membershipValue.Membership.Feature, true
+		if e.structureKnows(membership) {
+			isFeature, known = e.isMetaclass(membership, "FeatureMembership")
+		}
+		if !known {
+			return nil, false
+		}
+		if !isFeature {
+			continue
+		}
+		if property == "featureMembership" {
+			values = append(values, membershipValue)
+			continue
+		}
+		members, ok := e.structureMembershipMemberElements(membership)
+		if !ok {
+			return nil, false
+		}
+		for _, member := range members {
+			if property == "feature" {
+				isFeature, known := e.isMetaclass(member, "Feature")
+				if !known {
+					return nil, false
+				}
+				if !isFeature {
+					continue
+				}
+			}
+			values = append(values, elementValue(member))
+		}
+	}
+	return uniqueStructureValueSequence(values, e.options.Structure).Values, true
 }
 
 func (e *Evaluator) structureNonPrivateMemberships(
@@ -4806,7 +4839,7 @@ func (e *Evaluator) structureNonPrivateMemberships(
 		return nil, true
 	}
 	visited[element.Key()] = true
-	if element.Symbol != nil {
+	if element.Symbol != nil && !e.structureKnows(element) {
 		return e.structureLibraryTypeMembers(element, "membership")
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
@@ -4962,8 +4995,9 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 	for i, entry := range candidates {
 		if entry.isFeature {
 			removed := false
+			key := e.structureFeatureKey(entry.feature)
 			for j, other := range candidates {
-				if i != j && other.isFeature && other.redefined[e.structureFeatureKey(entry.feature)] {
+				if i != j && other.isFeature && other.redefined[key] && e.structureFeatureKey(other.feature) != key {
 					removed = true
 					break
 				}
@@ -4986,9 +5020,9 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 }
 
 func (e *Evaluator) structureAllRedefinedFeatures(feature Element) ([]Element, bool) {
-	if feature.Symbol != nil && feature.Aspect == "" && e.model != nil {
+	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && !e.structureKnows(feature) {
 		result := []Element{feature}
-		for _, redefined := range e.model.AllRedefinedFeatures(feature.Symbol) {
+		for _, redefined := range e.model.AllRedefinedFeatures(symbol) {
 			result = append(result, ElementOf(redefined))
 		}
 		return result, true

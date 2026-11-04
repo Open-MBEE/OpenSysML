@@ -9,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -28,6 +29,8 @@ type apiJSONGraphStructure struct {
 	owningRelatedByRelationship [][]rdf.Term
 	metaclassByPosition         []apiJSONMetaclass
 	ownedRelationshipsCache     []*apiJSONOwnedRelationships
+	catalogOnce                 sync.Once
+	catalog                     *identity.Catalog
 }
 
 // apiJSONOwnedRelationships memoizes an element's owned relationships, which
@@ -37,11 +40,34 @@ type apiJSONOwnedRelationships struct {
 	ok            bool
 }
 
+// libraryCatalog is the catalog of normative library ids, built once per structure.
+func (s *apiJSONGraphStructure) libraryCatalog() *identity.Catalog {
+	s.catalogOnce.Do(func() {
+		s.catalog = identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
+	})
+	return s.catalog
+}
+
+// LibrarySymbol resolves a library reference the graph states by id to the library symbol.
+func (s *apiJSONGraphStructure) LibrarySymbol(element metamodel.Element) (*symbols.Symbol, bool) {
+	subject, ok := s.subject(element)
+	if !ok || !LibraryReference(s.graph, subject) {
+		return nil, false
+	}
+	id, ok := rdf.SubjectID(subject)
+	if !ok {
+		return nil, false
+	}
+	library, ok := s.libraryCatalog().Element(id)
+	if !ok || library == nil || library.Symbol == nil {
+		return nil, false
+	}
+	return library.Symbol, true
+}
+
 type apiJSONEvaluation struct {
-	structure   *apiJSONGraphStructure
-	evaluator   *metamodel.Evaluator
-	catalogOnce sync.Once
-	catalog     *identity.Catalog
+	structure *apiJSONGraphStructure
+	evaluator *metamodel.Evaluator
 }
 
 func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {
