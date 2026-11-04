@@ -915,6 +915,7 @@ expr:ConnectorEnds__Vehicle___408_pend0
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___408_pend0_prs, expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om ;
     sysml:multiplicity expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
     sysml:upperBound expr:ConnectorEnds__Vehicle___408_pend0_pupperBound ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_prs\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om\"}]" .
 
@@ -1053,6 +1054,7 @@ expr:ConnectorEnds__Vehicle___408_pend1
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___408_pend1_prs, expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity_om ;
     sysml:multiplicity expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
     sysml:lowerBound expr:ConnectorEnds__Vehicle___408_pend1_plowerBound ;
     sysml:upperBound expr:ConnectorEnds__Vehicle___408_pend1_pupperBound ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_prs\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_pmultiplicity_om\"}]" .
@@ -1419,6 +1421,7 @@ expr:ConnectorEnds__Vehicle___4010_pend0
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4010_pend0_prs, expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity_om ;
     sysml:multiplicity expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
     sysml:lowerBound expr:ConnectorEnds__Vehicle___4010_pend0_plowerBound ;
     sysml:upperBound expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_prs\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_pmultiplicity_om\"}]" .
@@ -1547,6 +1550,7 @@ expr:ConnectorEnds__Vehicle___4010_pend1
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4010_pend1_prs, expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity_om ;
     sysml:multiplicity expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
     sysml:lowerBound expr:ConnectorEnds__Vehicle___4010_pend1_plowerBound ;
     sysml:upperBound expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_prs\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_pmultiplicity_om\"}]" .
