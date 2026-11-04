@@ -118,7 +118,8 @@ func TestSysMLBindingOwnMultiplicityTakesTheDeclaredForm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := strings.Count(string(again), "sysml:multiplicity expr:"); n != 2 {
+	// The ends a and b state their implied default Multiplicity too; the ranges are the bindings' own.
+	if n := strings.Count(string(again), "a sysml:MultiplicityRange ;"); n != 2 {
 		t.Errorf("want the two bindings to keep their own bounds, got %d\n%s", n, again)
 	}
 	if strings.Contains(string(again), "_pend0_pupperBound") {

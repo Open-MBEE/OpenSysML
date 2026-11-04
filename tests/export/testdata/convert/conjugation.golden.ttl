@@ -1,4 +1,5 @@
 @prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
@@ -126,6 +127,10 @@ elmt:Conjugation__CommunicationPort__signal
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Conjugation__CommunicationPort__signal_pmultiplicity ;
+    sysml:ownedRelationship expr:Conjugation__CommunicationPort__signal_pmultiplicity_om ;
+    sysml:ownedMembership expr:Conjugation__CommunicationPort__signal_pmultiplicity_om ;
+    sysml:ownedMember expr:Conjugation__CommunicationPort__signal_pmultiplicity ;
     sysx:sourceText "        out item signal;\n" .
 
 elmt:Conjugation__CommunicationPort__signal_om
@@ -144,6 +149,28 @@ elmt:Conjugation__CommunicationPort__signal_om
     sysml:ownedMemberFeature elmt:Conjugation__CommunicationPort__signal ;
     sysml:owningType elmt:Conjugation__CommunicationPort ;
     json:relatedElement "[{\"@id\":\"Conjugation__CommunicationPort\"},{\"@id\":\"Conjugation__CommunicationPort__signal\"}]" .
+
+expr:Conjugation__CommunicationPort__signal_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Conjugation__CommunicationPort__signal_pmultiplicity" ;
+    sysml:owner elmt:Conjugation__CommunicationPort__signal ;
+    sysml:owningRelationship expr:Conjugation__CommunicationPort__signal_pmultiplicity_om ;
+    sysml:owningMembership expr:Conjugation__CommunicationPort__signal_pmultiplicity_om .
+
+expr:Conjugation__CommunicationPort__signal_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Conjugation__CommunicationPort__signal_pmultiplicity_om" ;
+    sysml:owner elmt:Conjugation__CommunicationPort__signal ;
+    sysml:memberElement expr:Conjugation__CommunicationPort__signal_pmultiplicity ;
+    sysml:ownedMemberElement expr:Conjugation__CommunicationPort__signal_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Conjugation__CommunicationPort__signal_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Conjugation__CommunicationPort__signal ;
+    sysml:membershipOwningNamespace elmt:Conjugation__CommunicationPort__signal ;
+    sysml:source elmt:Conjugation__CommunicationPort__signal ;
+    sysml:target expr:Conjugation__CommunicationPort__signal_pmultiplicity ;
+    sysml:relatedElement elmt:Conjugation__CommunicationPort__signal, expr:Conjugation__CommunicationPort__signal_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Conjugation__CommunicationPort__signal\"},{\"@id\":\"Conjugation__CommunicationPort__signal_pmultiplicity\"}]" .
 
 elmt:Conjugation__Ground
     a sysml:PartDefinition ;
@@ -207,10 +234,14 @@ elmt:Conjugation__Ground__groundPort
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Conjugation__Ground__groundPort_pmultiplicity ;
+    sysml:ownedRelationship elmt:Conjugation__Ground__groundPort_ft0, expr:Conjugation__Ground__groundPort_pmultiplicity_om ;
+    sysml:ownedMembership expr:Conjugation__Ground__groundPort_pmultiplicity_om ;
+    sysml:ownedMember expr:Conjugation__Ground__groundPort_pmultiplicity ;
     sysml:ownedTyping elmt:Conjugation__Ground__groundPort_ft0 ;
     sysml:ownedSpecialization elmt:Conjugation__Ground__groundPort_ft0 ;
-    sysml:ownedRelationship elmt:Conjugation__Ground__groundPort_ft0 ;
-    sysx:sourceText "        port groundPort : CommunicationPort;\n" .
+    sysx:sourceText "        port groundPort : CommunicationPort;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Conjugation__Ground__groundPort_ft0\"},{\"@id\":\"Conjugation__Ground__groundPort_pmultiplicity_om\"}]" .
 
 elmt:Conjugation__Ground__groundPort_om
     a sysml:FeatureMembership ;
@@ -228,6 +259,28 @@ elmt:Conjugation__Ground__groundPort_om
     sysml:ownedMemberFeature elmt:Conjugation__Ground__groundPort ;
     sysml:owningType elmt:Conjugation__Ground ;
     json:relatedElement "[{\"@id\":\"Conjugation__Ground\"},{\"@id\":\"Conjugation__Ground__groundPort\"}]" .
+
+expr:Conjugation__Ground__groundPort_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Conjugation__Ground__groundPort_pmultiplicity" ;
+    sysml:owner elmt:Conjugation__Ground__groundPort ;
+    sysml:owningRelationship expr:Conjugation__Ground__groundPort_pmultiplicity_om ;
+    sysml:owningMembership expr:Conjugation__Ground__groundPort_pmultiplicity_om .
+
+expr:Conjugation__Ground__groundPort_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Conjugation__Ground__groundPort_pmultiplicity_om" ;
+    sysml:owner elmt:Conjugation__Ground__groundPort ;
+    sysml:memberElement expr:Conjugation__Ground__groundPort_pmultiplicity ;
+    sysml:ownedMemberElement expr:Conjugation__Ground__groundPort_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Conjugation__Ground__groundPort_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Conjugation__Ground__groundPort ;
+    sysml:membershipOwningNamespace elmt:Conjugation__Ground__groundPort ;
+    sysml:source elmt:Conjugation__Ground__groundPort ;
+    sysml:target expr:Conjugation__Ground__groundPort_pmultiplicity ;
+    sysml:relatedElement elmt:Conjugation__Ground__groundPort, expr:Conjugation__Ground__groundPort_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Ground__groundPort\"},{\"@id\":\"Conjugation__Ground__groundPort_pmultiplicity\"}]" .
 
 elmt:Conjugation__Ground__spacePort
     a sysml:PortUsage ;
@@ -249,10 +302,14 @@ elmt:Conjugation__Ground__spacePort
     sysx:conjugatedTyping "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Conjugation__Ground__spacePort_pmultiplicity ;
+    sysml:ownedRelationship elmt:Conjugation__Ground__spacePort_ft0, expr:Conjugation__Ground__spacePort_pmultiplicity_om ;
+    sysml:ownedMembership expr:Conjugation__Ground__spacePort_pmultiplicity_om ;
+    sysml:ownedMember expr:Conjugation__Ground__spacePort_pmultiplicity ;
     sysml:ownedTyping elmt:Conjugation__Ground__spacePort_ft0 ;
     sysml:ownedSpecialization elmt:Conjugation__Ground__spacePort_ft0 ;
-    sysml:ownedRelationship elmt:Conjugation__Ground__spacePort_ft0 ;
-    sysx:sourceText "        port spacePort : ~CommunicationPort;\n" .
+    sysx:sourceText "        port spacePort : ~CommunicationPort;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Conjugation__Ground__spacePort_ft0\"},{\"@id\":\"Conjugation__Ground__spacePort_pmultiplicity_om\"}]" .
 
 elmt:Conjugation__Ground__spacePort_om
     a sysml:FeatureMembership ;
@@ -270,6 +327,28 @@ elmt:Conjugation__Ground__spacePort_om
     sysml:ownedMemberFeature elmt:Conjugation__Ground__spacePort ;
     sysml:owningType elmt:Conjugation__Ground ;
     json:relatedElement "[{\"@id\":\"Conjugation__Ground\"},{\"@id\":\"Conjugation__Ground__spacePort\"}]" .
+
+expr:Conjugation__Ground__spacePort_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Conjugation__Ground__spacePort_pmultiplicity" ;
+    sysml:owner elmt:Conjugation__Ground__spacePort ;
+    sysml:owningRelationship expr:Conjugation__Ground__spacePort_pmultiplicity_om ;
+    sysml:owningMembership expr:Conjugation__Ground__spacePort_pmultiplicity_om .
+
+expr:Conjugation__Ground__spacePort_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Conjugation__Ground__spacePort_pmultiplicity_om" ;
+    sysml:owner elmt:Conjugation__Ground__spacePort ;
+    sysml:memberElement expr:Conjugation__Ground__spacePort_pmultiplicity ;
+    sysml:ownedMemberElement expr:Conjugation__Ground__spacePort_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Conjugation__Ground__spacePort_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Conjugation__Ground__spacePort ;
+    sysml:membershipOwningNamespace elmt:Conjugation__Ground__spacePort ;
+    sysml:source elmt:Conjugation__Ground__spacePort ;
+    sysml:target expr:Conjugation__Ground__spacePort_pmultiplicity ;
+    sysml:relatedElement elmt:Conjugation__Ground__spacePort, expr:Conjugation__Ground__spacePort_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Ground__spacePort\"},{\"@id\":\"Conjugation__Ground__spacePort_pmultiplicity\"}]" .
 
 elmt:Conjugation__Link
     a sysml:InterfaceDefinition ;
@@ -335,10 +414,14 @@ elmt:Conjugation__Link__a
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Conjugation__Link__a_pmultiplicity ;
+    sysml:ownedRelationship elmt:Conjugation__Link__a_ft0, expr:Conjugation__Link__a_pmultiplicity_om ;
+    sysml:ownedMembership expr:Conjugation__Link__a_pmultiplicity_om ;
+    sysml:ownedMember expr:Conjugation__Link__a_pmultiplicity ;
     sysml:ownedTyping elmt:Conjugation__Link__a_ft0 ;
     sysml:ownedSpecialization elmt:Conjugation__Link__a_ft0 ;
-    sysml:ownedRelationship elmt:Conjugation__Link__a_ft0 ;
-    sysx:sourceText "        end port a : CommunicationPort;\n" .
+    sysx:sourceText "        end port a : CommunicationPort;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Conjugation__Link__a_ft0\"},{\"@id\":\"Conjugation__Link__a_pmultiplicity_om\"}]" .
 
 elmt:Conjugation__Link__a_om
     a sysml:FeatureMembership ;
@@ -356,6 +439,28 @@ elmt:Conjugation__Link__a_om
     sysml:ownedMemberFeature elmt:Conjugation__Link__a ;
     sysml:owningType elmt:Conjugation__Link ;
     json:relatedElement "[{\"@id\":\"Conjugation__Link\"},{\"@id\":\"Conjugation__Link__a\"}]" .
+
+expr:Conjugation__Link__a_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Conjugation__Link__a_pmultiplicity" ;
+    sysml:owner elmt:Conjugation__Link__a ;
+    sysml:owningRelationship expr:Conjugation__Link__a_pmultiplicity_om ;
+    sysml:owningMembership expr:Conjugation__Link__a_pmultiplicity_om .
+
+expr:Conjugation__Link__a_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Conjugation__Link__a_pmultiplicity_om" ;
+    sysml:owner elmt:Conjugation__Link__a ;
+    sysml:memberElement expr:Conjugation__Link__a_pmultiplicity ;
+    sysml:ownedMemberElement expr:Conjugation__Link__a_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Conjugation__Link__a_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Conjugation__Link__a ;
+    sysml:membershipOwningNamespace elmt:Conjugation__Link__a ;
+    sysml:source elmt:Conjugation__Link__a ;
+    sysml:target expr:Conjugation__Link__a_pmultiplicity ;
+    sysml:relatedElement elmt:Conjugation__Link__a, expr:Conjugation__Link__a_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Link__a\"},{\"@id\":\"Conjugation__Link__a_pmultiplicity\"}]" .
 
 elmt:Conjugation__Link__b
     a sysml:PortUsage ;
@@ -379,10 +484,14 @@ elmt:Conjugation__Link__b
     sysx:conjugatedTyping "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Conjugation__Link__b_pmultiplicity ;
+    sysml:ownedRelationship elmt:Conjugation__Link__b_ft0, expr:Conjugation__Link__b_pmultiplicity_om ;
+    sysml:ownedMembership expr:Conjugation__Link__b_pmultiplicity_om ;
+    sysml:ownedMember expr:Conjugation__Link__b_pmultiplicity ;
     sysml:ownedTyping elmt:Conjugation__Link__b_ft0 ;
     sysml:ownedSpecialization elmt:Conjugation__Link__b_ft0 ;
-    sysml:ownedRelationship elmt:Conjugation__Link__b_ft0 ;
-    sysx:sourceText "        end port b : ~CommunicationPort;\n" .
+    sysx:sourceText "        end port b : ~CommunicationPort;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Conjugation__Link__b_ft0\"},{\"@id\":\"Conjugation__Link__b_pmultiplicity_om\"}]" .
 
 elmt:Conjugation__Link__b_om
     a sysml:FeatureMembership ;
@@ -400,6 +509,28 @@ elmt:Conjugation__Link__b_om
     sysml:ownedMemberFeature elmt:Conjugation__Link__b ;
     sysml:owningType elmt:Conjugation__Link ;
     json:relatedElement "[{\"@id\":\"Conjugation__Link\"},{\"@id\":\"Conjugation__Link__b\"}]" .
+
+expr:Conjugation__Link__b_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Conjugation__Link__b_pmultiplicity" ;
+    sysml:owner elmt:Conjugation__Link__b ;
+    sysml:owningRelationship expr:Conjugation__Link__b_pmultiplicity_om ;
+    sysml:owningMembership expr:Conjugation__Link__b_pmultiplicity_om .
+
+expr:Conjugation__Link__b_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Conjugation__Link__b_pmultiplicity_om" ;
+    sysml:owner elmt:Conjugation__Link__b ;
+    sysml:memberElement expr:Conjugation__Link__b_pmultiplicity ;
+    sysml:ownedMemberElement expr:Conjugation__Link__b_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Conjugation__Link__b_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Conjugation__Link__b ;
+    sysml:membershipOwningNamespace elmt:Conjugation__Link__b ;
+    sysml:source elmt:Conjugation__Link__b ;
+    sysml:target expr:Conjugation__Link__b_pmultiplicity ;
+    sysml:relatedElement elmt:Conjugation__Link__b, expr:Conjugation__Link__b_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Link__b\"},{\"@id\":\"Conjugation__Link__b_pmultiplicity\"}]" .
 
 elmt:Conjugation__Ground__groundPort_ft0
     a sysml:FeatureTyping ;

@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -49,6 +50,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 	}
 	if sym.Scope == nil {
+		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out
 		return out
 	}
@@ -76,8 +78,41 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if parts := m.transitionMembers(sym); len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
 	}
+	out = m.withDefaultMultiplicity(sym, out, len(out))
 	m.memberships[sym] = out
 	return out
+}
+
+// withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states
+// (MultiplicityMember): a written range at its clause, the implicit [1..1] last.
+func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symbols.Symbol, ordinal int) []*symbols.Symbol {
+	member := m.MultiplicityMember(sym)
+	if member == nil {
+		return memberships
+	}
+	membership := &symbols.Symbol{
+		Kind:       symbols.SymbolRelationship,
+		DocName:    sym.DocName,
+		DeclSpan:   source.Span{Offset: sym.DeclSpan.End()},
+		Visibility: sym.Visibility,
+		Implicit: &symbols.ImplicitRelationship{
+			Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: member,
+		},
+	}
+	if !IsDefaultMultiplicity(member) {
+		membership.DeclSpan = source.Span{Offset: member.DeclSpan.Offset}
+		at := clausePosition(memberships, member.DeclSpan.Offset)
+		memberships = append(memberships, nil)
+		copy(memberships[at+1:], memberships[at:])
+		memberships[at] = membership
+		for i := at; i < len(memberships); i++ {
+			if memberships[i].Implicit != nil {
+				memberships[i].Implicit.Ordinal = i
+			}
+		}
+		return memberships
+	}
+	return append(memberships, membership)
 }
 
 // withTransitionMemberships places the memberships of a transition's trigger accept and guard
@@ -294,6 +329,10 @@ func (m *Model) implicitOwnedRelationships(sym *symbols.Symbol) []*symbols.Symbo
 func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if isValueExpressionSymbol(member) {
 		return "FeatureValue"
+	}
+	if IsImpliedMultiplicity(member) {
+		// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
+		return "OwningMembership"
 	}
 	if member != nil && member.Expr != nil {
 		switch member.Expr.Role {
@@ -977,4 +1016,15 @@ func (m *Model) aliasMemberElement(sym *symbols.Symbol) *symbols.Symbol {
 		return target
 	}
 	return nil
+}
+
+// clausePosition is where a head clause at offset sits among items in source order:
+// before the first body item past it, else last.
+func clausePosition(items []*symbols.Symbol, offset int) int {
+	for i, item := range items {
+		if item.DeclSpan.Len > 0 && item.DeclSpan.Offset > offset {
+			return i
+		}
+	}
+	return len(items)
 }
