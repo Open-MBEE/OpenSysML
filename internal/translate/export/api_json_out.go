@@ -87,7 +87,7 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 		return nil, err
 	}
 	settled, err := rdf.ReconcileCollectionsWithPolicy(wrapped, func(subject rdf.Term, key string) bool {
-		metaclass := strings.TrimPrefix(wrapped.Type(subject), rdf.SysML)
+		metaclass := apiJSONOntologyMetaclass(strings.TrimPrefix(wrapped.Type(subject), rdf.SysML))
 		property, ok := ontology.PropertyOf(metaclass, key)
 		return ok && property.Nonunique
 	})
@@ -375,7 +375,7 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 				}
 				continue
 			}
-			property, propertyKnown := ontology.PropertyOf(metaclass, key)
+			property, propertyKnown := ontology.PropertyOf(apiJSONOntologyMetaclass(metaclass), key)
 			objectProperty := propertyKnown && property.Kind == ontology.ObjectProperty
 			value, err := apiJSONSysMLValue(
 				w.graph, subject, predicate, key, metaclass, property, propertyKnown, objectProperty, w.nameIndex,
@@ -1174,7 +1174,7 @@ func apiJSONResolveUnresolvedProperty(
 	if len(names) == 0 {
 		return value, true
 	}
-	property, known := ontology.PropertyOf(metaclass, key)
+	property, known := ontology.PropertyOf(apiJSONOntologyMetaclass(metaclass), key)
 	subjectID, _ := rdf.SubjectID(subject)
 	if options.Omitted != nil || options.Diagnostic != nil {
 		for _, name := range names {
