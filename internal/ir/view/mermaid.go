@@ -426,13 +426,11 @@ func (r *Rendering) hasState(id string) bool {
 	return false
 }
 
+// hasSequenceParticipant reports whether id is a lifeline or a proxy on one, which
+// a note or message anchored to it is written over.
 func (r *Rendering) hasSequenceParticipant(id string) bool {
-	for _, node := range r.Roots {
-		if node.ID == id {
-			return true
-		}
-	}
-	return false
+	_, ok := r.participants()[id]
+	return ok
 }
 
 // writeGeometryComments writes the canvas, node placements and edge routes as
@@ -1736,9 +1734,9 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, op
 			fmt.Fprintf(b, "  link %s: Source @ %s\n", node.ID, url)
 		}
 	}
-	r.writeSequenceNotes(b)
-	writtenNotes := map[int]bool{}
 	participants := r.participants()
+	r.writeSequenceNotes(b, participants)
+	writtenNotes := map[int]bool{}
 	for _, edge := range r.Edges {
 		from, to, arrow := participants[edge.From], participants[edge.To], mermaidSequenceArrow(edge.Kind)
 		// The colon is part of the message syntax; only the text after it is left
@@ -1752,16 +1750,16 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, op
 			if note.EdgeFrom == "" || writtenNotes[i] {
 				continue
 			}
-			if (from == note.EdgeFrom && to == note.EdgeTo) ||
-				(from == note.EdgeTo && to == note.EdgeFrom) {
-				r.writeSequenceNote(b, note)
+			noteFrom, noteTo := participants[note.EdgeFrom], participants[note.EdgeTo]
+			if (from == noteFrom && to == noteTo) || (from == noteTo && to == noteFrom) {
+				r.writeSequenceNote(b, note, participants)
 				writtenNotes[i] = true
 			}
 		}
 	}
 	for i, note := range r.Notes {
 		if note.EdgeFrom != "" && !writtenNotes[i] {
-			r.writeSequenceNote(b, note)
+			r.writeSequenceNote(b, note, participants)
 		}
 	}
 }
@@ -1866,29 +1864,32 @@ func (r *Rendering) writeStateNotes(b *strings.Builder, anchor string, depth int
 	}
 }
 
-func (r *Rendering) writeSequenceNotes(b *strings.Builder) {
+// writeSequenceNotes writes the notes anchored to a participant or to one of its
+// proxies, which participants maps to its lifeline, before the messages.
+func (r *Rendering) writeSequenceNotes(b *strings.Builder, participants map[string]string) {
 	for _, note := range r.Notes {
-		if note.Anchor != "" && note.EdgeFrom == "" && r.hasSequenceParticipant(note.Anchor) {
-			r.writeSequenceNote(b, note)
+		if note.Anchor != "" && note.EdgeFrom == "" && r.hasSequenceParticipant(participants[note.Anchor]) {
+			r.writeSequenceNote(b, note, participants)
 		}
 	}
 }
 
-func (r *Rendering) writeSequenceNote(b *strings.Builder, note Note) {
+func (r *Rendering) writeSequenceNote(b *strings.Builder, note Note, participants map[string]string) {
 	lines := strings.Split(note.Text, "\n")
 	for i, line := range lines {
 		lines[i] = mermaidText(line)
 	}
 	text := strings.Join(lines, "<br>")
 	if note.EdgeFrom != "" {
-		if !r.hasSequenceParticipant(note.EdgeFrom) || !r.hasSequenceParticipant(note.EdgeTo) {
+		from, to := participants[note.EdgeFrom], participants[note.EdgeTo]
+		if !r.hasSequenceParticipant(from) || !r.hasSequenceParticipant(to) {
 			return
 		}
-		fmt.Fprintf(b, "  Note over %s,%s: %s\n", note.EdgeFrom, note.EdgeTo, text)
+		fmt.Fprintf(b, "  Note over %s,%s: %s\n", from, to, text)
 		return
 	}
 	if note.Anchor != "" {
-		fmt.Fprintf(b, "  Note over %s: %s\n", note.Anchor, text)
+		fmt.Fprintf(b, "  Note over %s: %s\n", participants[note.Anchor], text)
 	}
 }
 

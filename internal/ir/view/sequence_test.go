@@ -210,6 +210,33 @@ func TestSequenceRenderingPlacesSuccessionsBetweenTheirMessages(t *testing.T) {
 	}
 }
 
+// A chain of successions declared last link first, after a message's event and
+// before no message, is drawn in the events' order: each row holds its events.
+func TestSequenceRenderingOrdersAChainOfSuccessionsByTheirEvents(t *testing.T) {
+	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::chainedView")
+	names := map[string]string{}
+	for _, root := range rendering.Roots {
+		for _, proxy := range root.Children {
+			names[proxy.ID] = proxy.Name
+		}
+	}
+	var rows []string
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeSuccession {
+			rows = append(rows, names[edge.From]+" then "+names[edge.To])
+			continue
+		}
+		rows = append(rows, edge.Label)
+	}
+	want := []string{"ask of A", "askTaken then second", "second then third"}
+	if !slices.Equal(rows, want) {
+		t.Errorf("rows = %v, want %v", rows, want)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+}
+
 // Messages nothing orders keep declaration order.
 func TestSequenceRenderingKeepsDeclarationOrderWhereNothingIsStated(t *testing.T) {
 	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::unorderedView")

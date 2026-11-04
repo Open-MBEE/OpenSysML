@@ -799,18 +799,63 @@ test("layoutCanvas puts a sequence's proxies on their lifelines at their rows an
   assert.equal(e1.box.y + e1.box.height / 2, publish.points[0].y);
   assert.equal(e2.box.x + e2.box.width / 2, b.box.x + b.box.width / 2);
   assert.equal(e2.box.y + e2.box.height / 2, publish.points[1].y);
-  // A succession between two proxies of one lifeline is drawn as a self-message, its target at the return.
-  assert.equal(then.points.length, 4);
-  assert.equal(e3.box.y + e3.box.height / 2, then.points[3].y);
+  // A succession from a placed point to a later event of the same lifeline runs down the lifeline to it.
+  assert.deepEqual(then.points, [
+    { x: e2.box.x + e2.box.width / 2, y: e2.box.y + e2.box.height / 2 },
+    { x: e3.box.x + e3.box.width / 2, y: e3.box.y + e3.box.height / 2 },
+  ]);
   assert.ok(e3.box.y > e2.box.y);
   // A port sits on the lifeline's bottom border, and the flow leaves from under it.
   assert.equal(a.ports.length, 1);
   assert.equal(a.ports[0].side, "south");
   assert.equal(ping.points[0].x, portCenter(a.box, a.ports[0]).x);
   assert.equal(ping.points[1].x, b.box.x + b.box.width / 2);
-  assert.ok(ping.points[0].y > then.points[3].y);
+  assert.ok(ping.points[0].y > then.points[1].y);
   // The canvas reaches past the last lifeline's proxy label.
   assert.ok(layout.width >= e2.box.x + e2.box.width + 4 + glyphSize("received").width);
+});
+
+test("layoutCanvas gives an event one point and runs every edge at it to that point", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "consumer"),
+        node("b", "server"),
+        node("c", "log"),
+        node("e1", "subscribeSent", { kind: "event occurrence", parent: "a" }),
+        node("e2", "subscribeTaken", { kind: "event occurrence", parent: "b" }),
+        node("e3", "logged", { kind: "event occurrence", parent: "c" }),
+        node("e4", "deliverTaken", { kind: "event occurrence", parent: "a" }),
+        node("e5", "done", { kind: "event occurrence", parent: "a" }),
+      ],
+      [
+        { from: "e1", to: "e2", label: "subscribe", kind: "message" },
+        { from: "e2", to: "e3", label: "", kind: "succession" },
+        { from: "e3", to: "e4", label: "deliver", kind: "message" },
+        { from: "e1", to: "e4", label: "", kind: "succession" },
+        { from: "e4", to: "e5", label: "", kind: "succession" },
+      ],
+      { kind: "sequence" },
+    ),
+  );
+  const centre = (id: string) => {
+    const box = layout.nodes.get(id)!.box;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const [subscribe, logged, deliver, awaited, done] = layout.edges;
+  // The succession leaves the point the message placed and opens a row for the event it reaches.
+  assert.deepEqual(logged.points, [centre("e2"), centre("e3")]);
+  assert.ok(centre("e3").y > centre("e2").y);
+  // A message leaving a point on the latest row stays on that row, horizontal.
+  assert.deepEqual(deliver.points, [centre("e3"), centre("e4")]);
+  assert.equal(deliver.points[0].y, deliver.points[1].y);
+  // A succession between two placed points takes no row and joins them.
+  assert.deepEqual(awaited.points, [centre("e1"), centre("e4")]);
+  assert.equal(subscribe.points[0].y, centre("e1").y);
+  // The next event opens the next row, under the last one used, and the lifelines end a row below.
+  const gap = centre("e3").y - centre("e2").y;
+  assert.equal(done.points[1].y, centre("e4").y + gap);
+  assert.equal(layout.nodes.get("a")!.lifeline, centre("e5").y + gap);
 });
 
 test("layoutCanvas places a sequence's proxy where a drawn edge first reaches it, not a hidden one", () => {

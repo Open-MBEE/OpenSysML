@@ -322,7 +322,8 @@ function coveringHeld(layout: CanvasLayout, held: CanvasLayout | undefined): Can
 // messages down them in the order the model states; nothing here reads the model's
 // geometry, since a sequence rendering carries none. A lifeline's ports sit on its
 // bottom border and its proxies (the events its messages end at) are points on the
-// lifeline at the row of their first message, labelled beside it.
+// lifeline, labelled beside it: an event has one point, placed by the first drawn
+// edge reaching it, and every later edge at that event runs to that point.
 function layoutSequence(
   result: RenderResult,
   roots: PlacedNode[],
@@ -332,13 +333,11 @@ function layoutSequence(
   const edges = result.edges ?? [];
   // A hidden message takes no row of its own; the rows close up over it.
   const hidden = edges.map((edge) => hiddenKinds?.has(edge.kind) === true);
-  const shown = hidden.filter((h) => !h).length;
-  const bottom = MARGIN + headHeight(roots) + MESSAGE_GAP * (shown + 1);
+  const headY = MARGIN + headHeight(roots);
   let x = MARGIN;
   for (const root of roots) {
     const size = labelSize(root.lines);
     root.box = { x, y: MARGIN, width: size.width, height: size.height };
-    root.lifeline = bottom;
     const ports = root.node.ports ?? [];
     root.ports = ports.map((port, i) => ({ port, side: "south", offset: (i + 1) / (ports.length + 1) }));
     x += size.width + GAP;
@@ -353,6 +352,12 @@ function layoutSequence(
     const port = portId === undefined ? undefined : lifeline.ports.find((p) => p.port.id === portId);
     return port ? portCenter(lifeline.box, port).x : lifeline.box.x + lifeline.box.width / 2;
   };
+  // placedProxy is the point of an event an earlier edge already placed.
+  const placedProxy = (id: string): PlacedNode | undefined => {
+    const entry = placed.get(id);
+    return entry?.parent !== undefined && entry.box.width > 0 ? entry : undefined;
+  };
+  const centre = (entry: PlacedNode): { x: number; y: number } => ({ x: entry.box.x + entry.box.width / 2, y: entry.box.y + entry.box.height / 2 });
   const placeProxy = (id: string, cx: number, cy: number): void => {
     const entry = placed.get(id);
     if (entry?.parent !== undefined && entry.box.width === 0) {
@@ -361,23 +366,34 @@ function layoutSequence(
       entry.lines = [entry.node.name];
     }
   };
-  let row = 0;
+  let rows = 0;
   const routed = edges.map((edge, index): PlacedEdge => {
-    const y = MARGIN + headHeight(roots) + MESSAGE_GAP * (hidden[index] ? row : ++row);
-    const fromX = endX(edge.from, edge.fromPort);
-    const toX = endX(edge.to, edge.toPort);
+    const fromProxy = placedProxy(edge.from);
+    const toProxy = placedProxy(edge.to);
+    const latest = headY + MESSAGE_GAP * rows;
+    // An edge between two placed points takes no row; a message leaving a point on the
+    // latest row stays on it; a hidden edge takes none; any other edge opens a row.
+    let y: number;
+    if (hidden[index]) {
+      y = latest;
+    } else if (fromProxy && toProxy) {
+      y = Math.max(centre(fromProxy).y, centre(toProxy).y);
+    } else if (edge.kind !== "succession" && (fromProxy ?? toProxy) !== undefined && centre((fromProxy ?? toProxy)!).y === latest) {
+      y = latest;
+    } else {
+      y = headY + MESSAGE_GAP * ++rows;
+    }
+    const from = fromProxy ? centre(fromProxy) : { x: endX(edge.from, edge.fromPort), y };
+    const to = toProxy ? centre(toProxy) : { x: endX(edge.to, edge.toPort), y };
     const points =
-      fromX === toX
+      from.x === to.x && from.y === to.y
         ? [
-            { x: fromX, y },
-            { x: fromX + SELF_MESSAGE_REACH, y },
-            { x: fromX + SELF_MESSAGE_REACH, y: y + MESSAGE_GAP / 2 },
-            { x: fromX, y: y + MESSAGE_GAP / 2 },
+            from,
+            { x: from.x + SELF_MESSAGE_REACH, y: from.y },
+            { x: from.x + SELF_MESSAGE_REACH, y: from.y + MESSAGE_GAP / 2 },
+            { x: from.x, y: from.y + MESSAGE_GAP / 2 },
           ]
-        : [
-            { x: fromX, y },
-            { x: toX, y },
-          ];
+        : [from, to];
     // A hidden edge places no proxy: the point goes where a drawn edge first reaches it.
     if (!hidden[index]) {
       placeProxy(edge.from, points[0].x, points[0].y);
@@ -393,8 +409,10 @@ function layoutSequence(
       rerouted: false,
     };
   });
-  // A proxy no drawn edge reaches sits at the foot of its lifeline.
+  const bottom = headY + MESSAGE_GAP * (rows + 1);
   for (const root of roots) {
+    root.lifeline = bottom;
+    // A proxy no drawn edge reaches sits at the foot of its lifeline.
     for (const proxy of root.children) {
       placeProxy(proxy.node.id, root.box.x + root.box.width / 2, bottom - PROXY_SIZE);
     }

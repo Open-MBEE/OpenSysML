@@ -618,11 +618,14 @@ func reaches(later [][]int, at map[*symbols.Symbol]int) func(a, b *symbols.Symbo
 // sequenceRows are the rows of the sequence in order: the messages as sorted, then
 // each succession's arrow after the last row holding its source or an event ordered
 // before it, else before the first row holding its target or an event ordered after
-// it, else after the messages. before is the events' order, identity when cyclic.
+// it, else after the messages. A placed succession's row holds its two events, so a
+// chain declared out of order still settles by its events; successions nothing orders
+// keep declaration order. before is the events' order, identity when cyclic.
 func sequenceRows(messages []message, successions []succession, orders []order, before func(a, b *symbols.Symbol) bool) []Edge {
 	type row struct {
-		edge   Edge
-		events []*symbols.Symbol
+		edge       Edge
+		events     []*symbols.Symbol
+		succession bool
 	}
 	rows := make([]row, 0, len(messages)+len(successions))
 	for _, msg := range messages {
@@ -641,12 +644,13 @@ func sequenceRows(messages []message, successions []succession, orders []order, 
 				}
 			}
 		}
+		// After its source's row and the successions already there, in declaration order.
 		place := ahead
 		if after >= 0 {
-			for place = after + 1; place < len(rows) && rows[place].events == nil; place++ {
+			for place = after + 1; place < ahead && rows[place].succession; place++ {
 			}
 		}
-		rows = slices.Insert(rows, place, row{edge: s.edge})
+		rows = slices.Insert(rows, place, row{edge: s.edge, events: []*symbols.Symbol{o.from, o.to}, succession: true})
 	}
 	edges := make([]Edge, 0, len(rows))
 	for _, r := range rows {
