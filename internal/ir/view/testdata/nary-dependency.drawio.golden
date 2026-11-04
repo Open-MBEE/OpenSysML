@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NaryViews::dependencies — tree rendering (render asTreeDiagram) -->
+<!-- 5 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="NaryViews-dependencies" name="NaryViews::dependencies">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part def»&#xA;Chassis" fqn="NaryRules::Chassis" kind="part def" view="NaryViews::dependencies">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="50" y="50" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part def»&#xA;Lights" fqn="NaryRules::Lights" kind="part def" view="NaryViews::dependencies">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="181" y="50" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«part def»&#xA;Brakes" fqn="NaryRules::Brakes" kind="part def" view="NaryViews::dependencies">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="307" y="50" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«part def»&#xA;Steering" fqn="NaryRules::Steering" kind="part def" view="NaryViews::dependencies">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="50" y="137" width="90" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«dependency dot»&#xA;rules" fqn="NaryRules::rules" kind="dependency dot" view="NaryViews::dependencies">
+          <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+            <mxGeometry x="190" y="137" width="12" height="12" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="dependency client" view="NaryViews::dependencies">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n2" target="n4">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="345" y="138"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="dependency client" view="NaryViews::dependencies">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n3" target="n4">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="165" y="156"/>
+                <mxPoint x="165" y="149"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="dependency" view="NaryViews::dependencies">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.3333;exitPerimeter=0;entryX=1;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="161" y="141"/>
+                <mxPoint x="161" y="78"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="dependency" view="NaryViews::dependencies">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.75;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="219" y="146"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

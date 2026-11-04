@@ -506,3 +506,37 @@ test("layoutCanvas draws a membership edge from the owner's header line inside t
     );
   }
 });
+
+test("drawCanvas draws an n-ary dot as a filled circle named beside it and an item box as text over its arrow", () => {
+  const graph: RenderResult = {
+    ...result,
+    kind: "interconnection",
+    nodes: [
+      node("a", "A"), node("b", "B"), node("c", "C"),
+      node("dot", "triad", { kind: "connection dot" }),
+      node("f", "", { kind: "flow", text: "of Fuel", arrow: "right" }),
+      node("m", "", { kind: "message", text: "of Ack", arrow: "left" }),
+    ],
+    edges: [
+      { from: "dot", to: "a", label: "", kind: "connection" },
+      { from: "dot", to: "b", label: "", kind: "connection" },
+      { from: "dot", to: "c", label: "", kind: "connection" },
+      { from: "a", to: "f", label: "", kind: "connection" },
+      { from: "f", to: "b", label: "", kind: "connection" },
+      { from: "b", to: "m", label: "", kind: "connection" },
+      { from: "m", to: "c", label: "", kind: "connection" },
+    ],
+  };
+  const svg = drawCanvas(layoutCanvas(graph));
+  const dot = svg.querySelector('g[data-opensysml-id="dot"]')!;
+  assert.equal(dot.querySelector("circle")?.classList.contains("filled"), true);
+  assert.equal(dot.querySelector("text.head")?.textContent, "triad");
+  const flow = svg.querySelector('g[data-opensysml-id="f"]')!;
+  assert.deepEqual([...flow.querySelectorAll("tspan")].map((span) => span.textContent).slice(0, 2), ["«flow»", "of Fuel"]);
+  const flowArrow = flow.querySelector("line.item-arrow")!;
+  assert.equal(flowArrow.getAttribute("marker-end"), "url(#arrow)");
+  assert.ok(Number(flowArrow.getAttribute("x2")) > Number(flowArrow.getAttribute("x1")), "a right arrow points right");
+  const message = svg.querySelector('g[data-opensysml-id="m"] line.item-arrow')!;
+  assert.equal(message.getAttribute("marker-end"), "url(#arrow-open)");
+  assert.ok(Number(message.getAttribute("x2")) < Number(message.getAttribute("x1")), "a left arrow points left");
+});

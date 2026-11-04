@@ -1,0 +1,54 @@
+@startuml
+' NaryViews::definitions — tree rendering (render asTreeDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+.dot {
+  BackGroundColor black
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+circle "Nary::Triad" as n0 <<dot>>
+class "<size:10>//«part def»//</size>\n**Hub**" as n4 <<part def>>
+class "<size:10>//«part def»//</size>\n**Spoke**" as n5 <<part def>>
+n0 -- "hub" n4
+n0 -- "left" n5
+n0 -- "right" n5
+@enduml

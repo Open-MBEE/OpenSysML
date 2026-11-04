@@ -1,0 +1,16 @@
+NaryViews::wheelLinks - interconnection rendering (render asInterconnectionDiagram)
+
+part def Wheel
+  part hub
+  part leftSpoke
+  part rightSpoke
+  connection dot
+  connection dot
+
+connections:
+  connection dot n4 -- hub: hub
+  connection dot n4 -- leftSpoke: left
+  connection dot n4 -- rightSpoke: right
+  connection dot n5 -- hub
+  connection dot n5 -- leftSpoke
+  connection dot n5 -- rightSpoke

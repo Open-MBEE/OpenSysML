@@ -125,7 +125,8 @@ func (k Kind) paletteBorders() bool { return k != KindSequence }
 // controlKinds are the kinds drawn as control and pseudo-state nodes: they
 // keep the black-and-white rules and a square shape under every palette.
 var controlKinds = map[string]bool{startKind: true, "initial": true, "final": true, "fork": true, "join": true,
-	"merge": true, "decision": true, "choice": true, "junction": true, "shallow history": true, "deep history": true}
+	"merge": true, "decision": true, "choice": true, "junction": true, "shallow history": true, "deep history": true,
+	connectionDotKind: true, connectionDefDotKind: true, dependencyDotKind: true}
 
 // familyFills is how a form that fills nodes colours them from a palette, the
 // same for every such form so a node takes one fill whichever is written.
@@ -142,7 +143,7 @@ func (f *familyFills) filled(node *Node) bool {
 }
 
 func (f *familyFills) classable(node *Node) bool {
-	return !controlKinds[node.Kind] && (len(node.Children) == 0 || f.tree)
+	return !controlKinds[node.Kind] && !itemBox(node) && (len(node.Children) == 0 || f.tree)
 }
 
 // collect records the keyword families of the nodes under node that a palette

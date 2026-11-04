@@ -1,0 +1,26 @@
+// view: NaryViews::carLinks
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// layout: dot
+digraph "NaryViews::carLinks" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«part def»</i></font><br/><b>Car</b>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>tank</b></td></tr></table></td></tr><tr><td></td><td port="n1.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^fuelOut</font></td><td></td></tr></table>>];
+    "n2" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n2.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^fuelIn</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>engine</b></td></tr></table></td></tr></table>>];
+    "n3" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n3.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^fuelIn</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>gauge</b></td></tr></table></td></tr></table>>];
+    "n4" [shape=plaintext, margin=0, label=<<font point-size="10"><i>«flow»</i></font><br/>—▶>];
+    "n5" [shape=plaintext, margin=0, label=<<font point-size="10"><i>«flow»</i></font><br/>◀—>];
+    "n6" [shape=plaintext, margin=0, label=<<font point-size="10"><i>«message»</i></font><br/>—&gt;>];
+  }
+  "n1":"n1.0" -> "n4" [arrowhead=none, penwidth=3];
+  "n4" -> "n5" [arrowhead=none, penwidth=3];
+  "n5" -> "n6" [arrowhead=none, penwidth=3];
+  "n6" -> "n2":"n2.0" [arrowhead=none, penwidth=3];
+  "n1":"n1.0" -> "n3":"n3.0";
+}

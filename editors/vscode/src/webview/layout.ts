@@ -725,12 +725,17 @@ export function labelLines(
   const draws = (element: string): boolean =>
     shown === undefined || shown.includes(element);
   const lines: string[] = [];
-  if (node.name !== "" && draws("keywords")) {
+  if ((node.name !== "" || node.arrow !== undefined) && draws("keywords")) {
     lines.push(`«${node.kind}»`);
   }
-  lines.push(labelHead(node, draws("typings"), draws("qualifiers"), names));
+  if (node.arrow === undefined || node.name !== "" || node.detail !== "" || (node.text ?? "") !== "") {
+    lines.push(...labelHead(node, draws("typings"), draws("qualifiers"), names).split("\n"));
+  }
   if (node.detail !== "" && draws("compartments")) {
     lines.push(node.detail);
+  }
+  if (node.arrow !== undefined) {
+    lines.push(ARROW_ROW);
   }
   return lines;
 }
@@ -1619,7 +1624,7 @@ function labelHead(
   names?: ReadonlyMap<string, string>,
 ): string {
   if (node.name === "") {
-    return node.kind;
+    return node.type === "" && (node.text ?? "") !== "" ? node.text! : node.kind;
   }
   const name = (node.inherited ? "^" : "") + (qualified
     ? node.name
@@ -1647,6 +1652,12 @@ export function labelSize(lines: string[]): { width: number; height: number } {
   };
 }
 
+/** DOT_KINDS are the n-ary dots of §8.2.3.3 and §8.2.3.13: a filled circle with the name beside it. */
+export const DOT_KINDS = new Set(["connection dot", "connection def dot", "dependency dot"]);
+
+/** ARROW_ROW is the label row an item box on a connection line keeps for its arrow. */
+export const ARROW_ROW = "";
+
 /** shapeOf is the symbol a control node's kind is drawn as, or a label box. */
 export function shapeOf(kind: string): Shape {
   switch (kind) {
@@ -1668,7 +1679,7 @@ export function shapeOf(kind: string): Shape {
     case "deep history":
       return "history";
     default:
-      return "box";
+      return DOT_KINDS.has(kind) ? "circle" : "box";
   }
 }
 

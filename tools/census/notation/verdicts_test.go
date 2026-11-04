@@ -71,7 +71,7 @@ func TestAdjudicationRules(t *testing.T) {
 		{"connection-def-graphical", VerdictDrawn, CategoryEdge},
 		{"flow", VerdictApproximate, CategoryEdge},
 		{"aflow-succession", VerdictDrawn, CategoryEdge},
-		{"n-ary-connection-dot", VerdictUndrawn, CategoryNode},
+		{"n-ary-connection-dot", VerdictDrawn, CategoryNode},
 		{"general-view", VerdictDrawn, CategoryView},
 		{"root-view", VerdictApproximate, CategoryView},
 	}

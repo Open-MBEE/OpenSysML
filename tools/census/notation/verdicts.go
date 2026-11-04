@@ -98,6 +98,13 @@ var (
 	flowLabel    = Evidence{"internal/ir/view/interconnection.go:connectorLabel", edgeForms, "internal/ir/view/testdata/interconnection.dot.golden"}
 	messageLabel = Evidence{"internal/ir/view/sequence.go:messageLabel", seqForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
 	roleNode     = Evidence{"internal/ir/view/case.go:roleNode", goldenForms, "internal/ir/view/testdata/case.dot.golden"}
+	naryForms    = []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormCanvas, FormText, FormSVG}
+	connDot      = Evidence{"internal/ir/view/interconnection.go:naryConnection", naryForms, "internal/ir/view/nary_test.go:TestNaryConnectionIsADotWithASegmentPerEnd"}
+	defDot       = Evidence{"internal/ir/view/tree_edges.go:drawAssociationDot", naryForms, "internal/ir/view/nary_test.go:TestNaryDependencyAndConnectionDefAreDots"}
+	depDot       = Evidence{"internal/ir/view/general.go:naryDependency", naryForms, "internal/ir/view/nary_test.go:TestNaryDependencyAndConnectionDefAreDots"}
+	dotLabel     = Evidence{"internal/ir/view/nary.go:naryDot", naryForms, "internal/ir/view/testdata/nary-connection.dot.golden"}
+	itemBox      = Evidence{"internal/ir/view/flow_on_connection.go:flowsOnConnections", naryForms, "internal/ir/view/nary_test.go:TestFlowsOnAConnectionAreItemBoxesOnItsLine"}
+	itemArrow    = Evidence{"internal/ir/view/flow_on_connection.go:itemBox", naryForms, "internal/ir/view/testdata/nary-flow-on-connection.dot.golden"}
 	objective    = Evidence{"internal/ir/view/case.go:objectiveNode", goldenForms, "internal/ir/view/testdata/case.dot.golden"}
 	views        = map[string]Evidence{
 		"general-view":          {"internal/ir/view/general.go:renderGeneral", goldenForms, "internal/ir/view/testdata/general-definition.dot.golden"},
@@ -114,11 +121,9 @@ const (
 	reasonTextual      = "textual notation of §8.2.2 reused as the text of a drawn element"
 	reasonNoCompart    = "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
 	reasonFiltered     = "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
-	reasonNAry         = "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
 	reasonSequence     = "documented as undrawn in view-rendering-forms.md § Notation table: the sequence form draws its own arrow"
 	reasonActionBox    = "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
 	reasonNoKeyword    = "the box is drawn but its keyword is not written"
-	reasonOnConnection = "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
 	reasonCameoOnly    = "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame"
 	reasonOnlyParallel = "the keyword and name are written, the optional «parallel» marker is not"
 )
@@ -231,8 +236,8 @@ func buildTable() map[string]Adjudication {
 	set(drawn(CategoryLabel, edgeLabel), "rel-name", "relationship-name")
 
 	// §8.2.3.3 dependencies.
-	set(undrawn(CategoryNode, reasonNAry), "n-ary-association-dot")
-	set(undrawn(CategoryEdge, reasonNAry), "n-ary-dependency", "n-ary-dependency-client-or-supplier-link", "n-ary-dependency-client-link", "n-ary-dependency-supplier-link")
+	set(drawn(CategoryNode, depDot), "n-ary-association-dot")
+	set(drawn(CategoryEdge, depDot), "n-ary-dependency", "n-ary-dependency-client-or-supplier-link", "n-ary-dependency-supplier-link")
 
 	// §8.2.3.4 annotations.
 	set(undrawn(CategoryNode, reasonFiltered), "comment-node", "comment-without-keyword", "comment-with-keyword", "documentation-node", "textual-representation-node")
@@ -335,12 +340,15 @@ func buildTable() map[string]Adjudication {
 	set(drawn(CategoryLabel, edgeLabel), "connection-label")
 	set(approximate(CategoryEdge, "drawn as a connection edge between the ports; the «interface» keyword is not written", tableEdge), "interface-connection")
 	set(drawn(CategoryLabel, edgeLabel), "interface-label")
-	set(undrawn(CategoryNode, reasonNAry), "n-ary-def-connection-dot", "n-ary-connection-dot")
-	set(undrawn(CategoryEdge, reasonNAry), "n-ary-connection-def", "n-ary-def-segment", "n-ary-connection", "n-ary-segment")
-	set(undrawn(CategoryLabel, reasonNAry), "cdot-label")
+	set(drawn(CategoryNode, defDot), "n-ary-def-connection-dot")
+	set(drawn(CategoryNode, connDot), "n-ary-connection-dot")
+	set(drawn(CategoryEdge, defDot), "n-ary-connection-def", "n-ary-def-segment")
+	set(drawn(CategoryEdge, connDot), "n-ary-connection", "n-ary-segment")
+	set(drawn(CategoryLabel, dotLabel), "cdot-label")
 	set(undrawn(CategoryView, "a connection's own interconnection view nested in its node is not drawn"), "connection-definition-elaboration", "connection-usage-elaboration")
 	set(drawn(CategoryLabel, flowLabel), "flow-label", "succession-flow-label")
-	set(undrawn(CategoryNode, reasonOnConnection), "flow-on-connection", "flow-node-r", "flow-node-l", "sflow-node-r", "sflow-node-l", "message-node-r", "message-node-l")
+	set(drawn(CategoryNode, itemBox), "flow-on-connection")
+	set(drawn(CategoryNode, itemArrow), "flow-node-r", "flow-node-l", "sflow-node-r", "sflow-node-l", "message-node-r", "message-node-l")
 
 	// §8.2.3.17 actions.
 	set(drawn(CategoryNode, controlNode), "start-node", "done-node", "fork-node", "join-node", "decision-node", "merge-node")

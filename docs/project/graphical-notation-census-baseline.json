@@ -9,9 +9,9 @@
     "statements": 620,
     "partialStatements": 97,
     "productions": 523,
-    "drawn": 199,
+    "drawn": 218,
     "approximate": 55,
-    "undrawn": 97,
+    "undrawn": 78,
     "notApplicable": 172
   },
   "categories": {
@@ -48,9 +48,9 @@
       "title": "Dependencies Graphical Notation",
       "statements": 9,
       "productions": 8,
-      "drawn": 1,
+      "drawn": 6,
       "approximate": 0,
-      "undrawn": 5,
+      "undrawn": 0,
       "notApplicable": 2
     },
     {
@@ -148,9 +148,9 @@
       "title": "Connections Graphical Notation",
       "statements": 35,
       "productions": 31,
-      "drawn": 12,
+      "drawn": 19,
       "approximate": 0,
-      "undrawn": 9,
+      "undrawn": 2,
       "notApplicable": 10
     },
     {
@@ -178,9 +178,9 @@
       "title": "Flows Graphical Notation",
       "statements": 30,
       "productions": 22,
-      "drawn": 8,
+      "drawn": 15,
       "approximate": 1,
-      "undrawn": 9,
+      "undrawn": 2,
       "notApplicable": 4
     },
     {
@@ -363,46 +363,6 @@
       "category": "node",
       "verdict": "not-applicable",
       "reason": "a list of alternatives; adjudicated through the alternatives it names"
-    },
-    {
-      "clause": "8.2.3.3",
-      "name": "n-ary-association-dot",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.3",
-      "name": "n-ary-dependency",
-      "category": "edge",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.3",
-      "name": "n-ary-dependency-client-link",
-      "category": "edge",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.3",
-      "name": "n-ary-dependency-client-or-supplier-link",
-      "category": "edge",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.3",
-      "name": "n-ary-dependency-supplier-link",
-      "category": "edge",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
     },
     {
       "clause": "8.2.3.4",
@@ -1217,14 +1177,6 @@
     },
     {
       "clause": "8.2.3.13",
-      "name": "cdot-label",
-      "category": "label",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.13",
       "name": "connection-definition-elaboration",
       "category": "view",
       "verdict": "undrawn",
@@ -1266,54 +1218,6 @@
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.13",
-      "name": "n-ary-connection",
-      "category": "edge",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.13",
-      "name": "n-ary-connection-def",
-      "category": "edge",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.13",
-      "name": "n-ary-connection-dot",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.13",
-      "name": "n-ary-def-connection-dot",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.13",
-      "name": "n-ary-def-segment",
-      "category": "edge",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.13",
-      "name": "n-ary-segment",
-      "category": "edge",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
     },
     {
       "clause": "8.2.3.13",
@@ -1404,30 +1308,6 @@
     },
     {
       "clause": "8.2.3.16",
-      "name": "flow-node-l",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.16",
-      "name": "flow-node-r",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.16",
-      "name": "flow-on-connection",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.16",
       "name": "flows-compartment",
       "category": "compartment",
       "verdict": "undrawn",
@@ -1458,42 +1338,10 @@
     },
     {
       "clause": "8.2.3.16",
-      "name": "message-node-l",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.16",
-      "name": "message-node-r",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.16",
       "name": "msg-end-node",
       "category": "node",
       "verdict": "not-applicable",
       "reason": "a list of alternatives; adjudicated through the alternatives it names"
-    },
-    {
-      "clause": "8.2.3.16",
-      "name": "sflow-node-l",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
-    },
-    {
-      "clause": "8.2.3.16",
-      "name": "sflow-node-r",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "C",
-      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
     },
     {
       "clause": "8.2.3.17",

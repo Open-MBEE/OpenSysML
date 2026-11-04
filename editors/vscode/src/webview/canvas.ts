@@ -9,6 +9,7 @@ import {
   edgeExtent,
   FONT_SIZE,
   labelLineClass,
+  DOT_KINDS,
   liftedEdges,
   MARGIN,
   movable,
@@ -242,6 +243,15 @@ function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
     }));
   }
   group.append(shape(entry));
+  if (DOT_KINDS.has(entry.node.kind) && entry.node.name !== "") {
+    // The n-ary dot's name stands beside it, as the notation's cdot-label.
+    const text = element("text", { x: String(box.x + box.width + LABEL_PAD_X), y: String(box.y + box.height / 2 + FONT_SIZE / 3), class: "label head" });
+    text.textContent = entry.node.name;
+    group.append(text);
+  }
+  if (entry.node.arrow !== undefined) {
+    group.append(itemArrow(entry));
+  }
   if (entry.lines.length > 0) {
     const text = element("text", { x: String(box.x + LABEL_PAD_X), y: String(box.y + LABEL_PAD_Y), class: "label" });
     entry.lines.forEach((line, i) => {
@@ -357,7 +367,7 @@ function outlineOf(entry: PlacedNode): SVGElement {
       return group;
     }
     case "box": {
-      const classes = ["shape", boxClass(entry.node.kind)];
+      const classes = ["shape", entry.node.arrow !== undefined ? "item" : boxClass(entry.node.kind)];
       if (entry.children.length > 0) {
         classes.push("container");
       }
@@ -386,6 +396,17 @@ function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
     return "definition";
   }
   return "usage";
+}
+
+// itemArrow is the arrow under an item box's text (§8.2.3.16): a filled head for a flow, an open
+// one for a message, pointing right toward the connection line's second end or left toward its first.
+function itemArrow(entry: PlacedNode): SVGElement {
+  const { x, y, width, height } = entry.box;
+  const inset = LABEL_PAD_X + 2;
+  const baseline = y + height - LABEL_PAD_Y - LINE_HEIGHT / 2;
+  const [x1, x2] = entry.node.arrow === "left" ? [x + width - inset, x + inset] : [x + inset, x + width - inset];
+  const marker = entry.node.kind === "message" ? "url(#arrow-open)" : "url(#arrow)";
+  return element("line", { x1: String(x1), y1: String(baseline), x2: String(x2), y2: String(baseline), class: "arrow-line item-arrow", "marker-end": marker });
 }
 
 // drawEdge is an edge's polyline with the arrowhead its kind takes and its label
@@ -422,6 +443,7 @@ function drawEdge(edge: PlacedEdge): SVGGElement {
     case "binding":
     case "association":
     case "anchor":
+    case "dependency client":
       break;
     case "specialization":
     case "subsetting":

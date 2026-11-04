@@ -91,7 +91,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 ## Totals
 
 <!-- census:begin summary -->
-620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **199 drawn**, **55 approximate**, **97 undrawn**, 172 not applicable.
+620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **218 drawn**, **55 approximate**, **78 undrawn**, 172 not applicable.
 
 | Category | Productions |
 | --- | --- |
@@ -110,7 +110,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | --- | --- | --- | --- | --- | --- | --- |
 | §8.2.3.1 Graphical Notation Overview | 0 | 0 | 0 | 0 | 0 | 0 |
 | §8.2.3.2 Elements and Relationships Graphical Notation | 9 | 9 | 2 | 0 | 3 | 4 |
-| §8.2.3.3 Dependencies Graphical Notation | 9 | 8 | 1 | 0 | 5 | 2 |
+| §8.2.3.3 Dependencies Graphical Notation | 9 | 8 | 6 | 0 | 0 | 2 |
 | §8.2.3.4 Annotations Graphical Notation | 12 | 11 | 0 | 1 | 6 | 4 |
 | §8.2.3.5 Namespaces and Packages Graphical Notation | 25 | 24 | 6 | 3 | 6 | 9 |
 | §8.2.3.6 Definition and Usage Graphical Notation | 28 | 24 | 1 | 7 | 7 | 9 |
@@ -120,10 +120,10 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.10 Items Graphical Notation | 12 | 9 | 6 | 0 | 0 | 3 |
 | §8.2.3.11 Parts Graphical Notation | 18 | 13 | 7 | 0 | 2 | 4 |
 | §8.2.3.12 Ports Graphical Notation | 20 | 16 | 6 | 6 | 2 | 2 |
-| §8.2.3.13 Connections Graphical Notation | 35 | 31 | 12 | 0 | 9 | 10 |
+| §8.2.3.13 Connections Graphical Notation | 35 | 31 | 19 | 0 | 2 | 10 |
 | §8.2.3.14 Interfaces Graphical Notation | 17 | 12 | 6 | 1 | 1 | 4 |
 | §8.2.3.15 Allocations Graphical Notation | 14 | 9 | 6 | 0 | 0 | 3 |
-| §8.2.3.16 Flows Graphical Notation | 30 | 22 | 8 | 1 | 9 | 4 |
+| §8.2.3.16 Flows Graphical Notation | 30 | 22 | 15 | 1 | 2 | 4 |
 | §8.2.3.17 Actions Graphical Notation | 72 | 68 | 21 | 11 | 18 | 18 |
 | §8.2.3.18 States Graphical Notation | 45 | 41 | 11 | 7 | 9 | 14 |
 | §8.2.3.19 Calculations Graphical Notation | 14 | 9 | 4 | 1 | 1 | 3 |
@@ -135,7 +135,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.25 Use Cases Graphical Notation | 22 | 16 | 9 | 0 | 1 | 6 |
 | §8.2.3.26 Views and Viewpoints Graphical Notation | 38 | 34 | 13 | 4 | 5 | 12 |
 | §8.2.3.27 Metadata Graphical Notation | 8 | 7 | 2 | 0 | 1 | 4 |
-| **Total** | 620 | 523 | 199 | 55 | 97 | 172 |
+| **Total** | 620 | 523 | 218 | 55 | 78 | 172 |
 <!-- census:end clauses -->
 
 ## Gaps
@@ -151,16 +151,6 @@ package a follow-up can take one at a time (see below).
 | `element-inside-textual-compartment` | node | undrawn | E | the greyed element inside a textual compartment is not drawn; compartment rows are plain text |
 | `ellipsis-at-lower-left-corner` | label | undrawn | E | hidden compartment rows are dropped without the '…' mark (compartments.go hidden rows) |
 | `general-compartment` | compartment | undrawn | F | a nested general view inside a node's compartment is not drawn; nested nodes are drawn as a tree |
-
-#### §8.2.3.3 Dependencies Graphical Notation
-
-| Production | Category | Verdict | Package | Reason |
-| --- | --- | --- | --- | --- |
-| `n-ary-association-dot` | node | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
-| `n-ary-dependency` | edge | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
-| `n-ary-dependency-client-link` | edge | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
-| `n-ary-dependency-client-or-supplier-link` | edge | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
-| `n-ary-dependency-supplier-link` | edge | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
 
 #### §8.2.3.4 Annotations Graphical Notation
 
@@ -252,15 +242,8 @@ package a follow-up can take one at a time (see below).
 
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
-| `cdot-label` | label | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
 | `connection-definition-elaboration` | view | undrawn | F | a connection's own interconnection view nested in its node is not drawn |
 | `connection-usage-elaboration` | view | undrawn | F | a connection's own interconnection view nested in its node is not drawn |
-| `n-ary-connection` | edge | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
-| `n-ary-connection-def` | edge | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
-| `n-ary-connection-dot` | node | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
-| `n-ary-def-connection-dot` | node | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
-| `n-ary-def-segment` | edge | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
-| `n-ary-segment` | edge | undrawn | C | n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table |
 
 #### §8.2.3.14 Interfaces Graphical Notation
 
@@ -274,15 +257,8 @@ package a follow-up can take one at a time (see below).
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
 | `flow` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it). |
-| `flow-node-l` | node | undrawn | C | the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table |
-| `flow-node-r` | node | undrawn | C | the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table |
-| `flow-on-connection` | node | undrawn | C | the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table |
 | `flows-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
 | `message` | edge | undrawn | D | documented as undrawn in view-rendering-forms.md § Notation table: the sequence form draws its own arrow |
-| `message-node-l` | node | undrawn | C | the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table |
-| `message-node-r` | node | undrawn | C | the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table |
-| `sflow-node-l` | node | undrawn | C | the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table |
-| `sflow-node-r` | node | undrawn | C | the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table |
 
 #### §8.2.3.17 Actions Graphical Notation
 
@@ -409,7 +385,7 @@ package a follow-up can take one at a time (see below).
 | --- | --- | --- | --- | --- |
 | A | §8.2.3.26 view frame and §8.2.3.4 annotation nodes | 9 | 4 | `annotation-link`, `comment-node`, `comment-with-keyword`, `comment-without-keyword`, `documentation-compartment`, `documentation-node`, `textual-representation-node`, `framed-view`, `root-view`, `view-frame-info-compartment-bl`, `view-frame-info-compartment-br`, `view-frame-info-compartment-tr`, `view-frame-name-compartment` |
 | B | §8.2.3.17–.18 action and state node forms | 27 | 18 | `accept-action-name-compartment`, `accept-action-node`, `action-flow-compartment`, `assign-action-name-compartment`, `assign-action-node`, `else-body`, `else-branch`, `for-loop-action-name-compartment`, `for-loop-action-node`, `if-condition`, `if-else-action-node`, `ifelse-action-name-compartment`, `iteration`, `loop-body`, `param-b`, `param-l`, `param-r`, `param-t`, `perform-actions-swimlanes`, `performed-by-compartment`, `send-action-name-compartment`, `send-action-node`, `swimlane`, `terminate-node`, `then-body`, `until-condition`, `while-condition`, `while-loop-action-name-compartment`, `while-loop-action-node`, `do-action`, `do-action-name-comp`, `entry-action`, `entry-action-name-comp`, `exit-action`, `exit-action-name-comp`, `st-succession`, `state-actions-compartment`, `state-def-name-compartment`, `state-do-action`, `state-entry-action`, `state-exit-action`, `state-name-compartment`, `state-transition-compartment`, `successions-compartment`, `transition` |
-| C | §8.2.3.3/.13 n-ary dots and §8.2.3.16 flow-on-connection | 19 | 0 | `n-ary-association-dot`, `n-ary-dependency`, `n-ary-dependency-client-link`, `n-ary-dependency-client-or-supplier-link`, `n-ary-dependency-supplier-link`, `cdot-label`, `n-ary-connection`, `n-ary-connection-def`, `n-ary-connection-dot`, `n-ary-def-connection-dot`, `n-ary-def-segment`, `n-ary-segment`, `flow-node-l`, `flow-node-r`, `flow-on-connection`, `message-node-l`, `message-node-r`, `sflow-node-l`, `sflow-node-r` |
+| C | §8.2.3.3/.13 n-ary dots and §8.2.3.16 flow-on-connection | 0 | 0 |  |
 | D | §8.2.3.9 sequence glyphs | 8 | 3 | `event-occurrence`, `event-occurrence-name-compartment`, `individuals-compartment`, `portion-relationship`, `proxy-label`, `sequence-compartment`, `sq-port`, `sq-proxy`, `sq-succession`, `succession-label`, `message` |
 | E | §8.2.3.2 textual-compartment greying | 2 | 0 | `element-inside-textual-compartment`, `ellipsis-at-lower-left-corner` |
 | F | everything else | 32 | 30 | `general-compartment`, `imported-package-with-name-in-tab`, `imported-package-with-name-inside`, `members-compartment`, `owned-membership`, `package-node`, `package-with-name-in-tab`, `package-with-name-inside`, `packages-compartment`, `relationships-compartment`, `composite-feature-membership`, `definition`, `extended-def`, `extended-def-name-compartment`, `extended-usage`, `extended-usage-name-compartment`, `features-compartment`, `noncomposite-feature-membership`, `redefinition`, `reference-subsetting`, `subclassification`, `subsetting`, `variant-elementusages-compartment`, `variants-compartment`, `enums-compartment`, `directed-features-compartment`, `interconnection-compartment`, `pdh`, `pdv`, `port-b`, `port-l`, `port-r`, `port-t`, `proxy-h`, `proxy-v`, `connection-definition-elaboration`, `connection-usage-elaboration`, `ends-compartment`, `interface-connection`, `flow`, `flows-compartment`, `calcs-compartment`, `result-compartment`, `actor`, `concern-stakeholder-link`, `frame-concern-name-compartment`, `frame-concern-node`, `satisfies-compartment`, `satisfy-requirement-name-compartment`, `satisfy-requirement-usage`, `satisfy-requirements-compartment`, `subject-compartment`, `objective-compartment`, `verification-methods-compartment`, `verifies-compartment`, `verify-requirement-name-compartment`, `verify-requirement-node`, `includes-compartment`, `exposes-compartment`, `filters-compartment`, `rendering-compartment`, `metadata-feature-annotation-node` |

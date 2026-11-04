@@ -149,6 +149,10 @@ func (n *narrowing) narrow(node *Node) {
 	if !n.shown.Has(ElementTypings) {
 		node.Type = ""
 	}
+	if !n.shown.Has(ElementEdgeLabels) && (isDotKind(node.Kind) || itemBox(node)) && n.kind != KindSequence && !generalViewGraph(n.kind) {
+		// The name on an n-ary dot and the text of an item box are a connector's label.
+		node.Name, node.Text = "", ""
+	}
 }
 
 // edge moves an edge's ends off what was left out: an end at a removed port

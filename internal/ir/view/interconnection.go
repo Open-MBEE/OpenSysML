@@ -101,6 +101,7 @@ func (w *featureWalk) connectorEdges() {
 		seen[connector] = true
 		w.connectionEdges(connector.sym, connector.within)
 	}
+	w.flowsOnConnections()
 }
 
 // featureWalk is one interconnection rendering's walk over the exposed features:
@@ -120,8 +121,11 @@ type featureWalk struct {
 	pins       map[*Node]map[*symbols.Symbol]string
 	parent     map[*Node]*Node
 	connectors []connectorSite
-	out        *Rendering
-	mixed      bool
+	// flows are the flow edges drawn, which flowsOnConnections moves onto the
+	// connection line each shares its ends with.
+	flows []flowSite
+	out   *Rendering
+	mixed bool
 	// pruned is each member the view's filter conditions kept the walk from drawing.
 	pruned map[*symbols.Symbol]bool
 }
@@ -508,6 +512,10 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 		resolved = append(resolved, at)
 	}
 	route, style := r.routeOf(w.view, connector, out), r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
+	if kind == EdgeConnection && nary(len(resolved)) {
+		w.naryConnection(connector, within, ends, resolved, route, style)
+		return
+	}
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{
@@ -515,6 +523,31 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 				Label: label, Kind: kind, Origin: symbolOrigin(connector), Route: slices.Clone(route), Style: style,
 			})
 		}
+	}
+	if kind == EdgeFlow || kind == EdgeSuccessionFlow {
+		w.flows = append(w.flows, flowSite{index: len(out.Edges) - 1, sym: connector, within: within})
+	}
+}
+
+// naryConnection draws a connection of more than two ends as §8.2.3.13's n-ary dot, nested
+// where the connection was found, with a segment to each end labelled with the end's role.
+func (w *featureWalk) naryConnection(connector *symbols.Symbol, within *Node, ends []connectorEnd, resolved []edgeEnd, route []Point, style *Style) {
+	r, out := w.r, w.out
+	if len(route) > 0 {
+		out.Notices = append(out.Notices, fmt.Sprintf("connection %s states a route; its %d ends are drawn as a dot and segments, which the route does not steer",
+			localName(connector), len(resolved)))
+	}
+	dot := r.naryDot(w.ids.take(), connectionDotKind, r.connectorName(connector), w.view, connector, out)
+	w.nodes[connector] = append(w.nodes[connector], dot)
+	if within == nil {
+		out.Roots = append(out.Roots, dot)
+	} else {
+		w.parent[dot] = within
+		within.Children = append(within.Children, dot)
+	}
+	for i, end := range resolved {
+		out.Edges = append(out.Edges, Edge{From: dot.ID, To: end.node.ID, ToPort: end.port, ToLabel: ends[i].label,
+			Kind: EdgeConnection, Origin: symbolOrigin(connector), Style: style})
 	}
 }
 
@@ -581,6 +614,9 @@ func featureValue(sym *symbols.Symbol) ast.Node {
 type connectorEnd struct {
 	attachment ast.Node
 	path       string
+	// label is the end's role name and multiplicity, at its end of an n-ary
+	// segment; "" for an end the model gives no name of its own.
+	label string
 }
 
 // drawsConnector reports whether an interconnection rendering draws sym as an
@@ -626,7 +662,11 @@ func (r *Renderer) connectorEnds(connector *symbols.Symbol) ([]connectorEnd, Edg
 		if att.Attachment == nil {
 			continue
 		}
-		out = append(out, connectorEnd{attachment: att.Attachment, path: lower.FeaturePath(att.Attachment)})
+		end := connectorEnd{attachment: att.Attachment, path: lower.FeaturePath(att.Attachment)}
+		if att.EndFeature != nil {
+			end.label = r.usageLabel(att.EndFeature)
+		}
+		out = append(out, end)
 	}
 	return out, EdgeConnection
 }
@@ -777,13 +817,19 @@ func (r *Renderer) connectorLabel(connector *symbols.Symbol) string {
 	if payload := flowPayload(connector); payload != "" {
 		return "of " + notationName(payload)
 	}
+	if name := r.connectorName(connector); name != "" {
+		return name
+	}
+	return declKind(connector)
+}
+
+// connectorName is what names a connector in a drawing: its own given name,
+// else its declared type; "" for one with neither, which its kind stands for.
+func (r *Renderer) connectorName(connector *symbols.Symbol) string {
 	if connector.Name != "" && !connector.EffectiveName() && !r.model.NameSynthesized(connector) {
 		return localName(connector)
 	}
-	if declared := declType(connector); declared != "" {
-		return declared
-	}
-	return declKind(connector)
+	return declType(connector)
 }
 
 // flowPayload is what a flow carries, as written, empty for a flow declaring no

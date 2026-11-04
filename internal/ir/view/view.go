@@ -282,6 +282,9 @@ const (
 	EdgeUnownedMembership
 	// EdgeExpose is a view's exposure of an element, from the view.
 	EdgeExpose
+	// EdgeDependencyClient is the client link of an n-ary dependency: from a
+	// client to the dependency's dot, dashed with no head.
+	EdgeDependencyClient
 	// edgeKindCount is one past the last edge kind, sizing edgeKindNames.
 	edgeKindCount
 )
@@ -322,6 +325,7 @@ var edgeKindNames = [edgeKindCount]string{
 	EdgeReferenceSubsetting: "reference subsetting",
 	EdgeUnownedMembership:   "unowned membership",
 	EdgeExpose:              "expose",
+	EdgeDependencyClient:    "dependency client",
 }
 
 // String names an edge kind the way the notation speaks of it.
@@ -383,6 +387,9 @@ type Node struct {
 	// the literal a value specification's result is bound to, the event an
 	// accept waits for, the message a send sends. Empty when its kind heads it.
 	Text string
+	// Arrow is set on an item box drawn on a connection line (flow-on-connection):
+	// "right" when the item flows toward the line's second end, "left" toward its first.
+	Arrow string
 	// Children are the nodes nested in this one.
 	Children []*Node
 	// Ports are the features drawn on the node's border, an action's pins, which
