@@ -92,7 +92,7 @@ func TestParseNotationTable(t *testing.T) {
 		"| Production | `EdgeKind` | DOT | PlantUML | Mermaid | D2 | draw.io | Canvas | Status | Notes |\n" +
 		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n" +
 		"| `connection` | `connection` | `arrowhead=none` | `--` | `---` | `--` | `endArrow=none` | `none` | conformant | |\n" +
-		"| `subclassification`, `specialization` | `specialization` | `arrowhead=empty` | `--\\|>` | `-->` | `->` | `endArrow=block` | `end triangle-hollow` | approximate | Mermaid has no triangle head. |\n" +
+		"| `subclassification`, `specialization` | `specialization` | `arrowhead=empty` | `--\\|>` | `-->` | `->` | `endArrow=block` | `end triangle-hollow` | approximate | Mermaid has no triangle head ([glyphs](#glyphs)). |\n" +
 		"| objective anchor | `anchor` | a | b | c | d | e | f | conformant | |\n" +
 		"\n### Next\n\n| not | a | notation | table | row | at | all | so | it | stops |\n"
 	table, err := ParseNotationTable(content)
@@ -102,7 +102,7 @@ func TestParseNotationTable(t *testing.T) {
 	if got := strings.Join(table.Names(), ","); got != "connection-graphical,subclassification" {
 		t.Errorf("names %q", got)
 	}
-	if adj, ok := table.adjudicate("subclassification"); !ok || adj.Verdict != VerdictApproximate || !strings.Contains(adj.Reason, "Mermaid has no triangle head") {
+	if adj, ok := table.adjudicate("subclassification"); !ok || adj.Verdict != VerdictApproximate || !strings.Contains(adj.Reason, "Mermaid has no triangle head ([glyphs](view-rendering-forms.md#glyphs))") {
 		t.Errorf("subclassification: %v %+v", ok, adj)
 	}
 	if adj, ok := table.adjudicate("connection-graphical"); !ok || adj.Verdict != VerdictDrawn {

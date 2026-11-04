@@ -632,7 +632,7 @@
       "category": "edge",
       "verdict": "approximate",
       "package": "F",
-      "reason": "view-rendering-forms.md § Notation table: Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. A mixed rendering draws it from an owner to every composite usage nested in its node — a part, action or state usage, a view usage — where PlantUML and the text form show it and DOT and Mermaid leave it to the nesting ([case and mixed diagrams](#case-and-mixed-diagrams))."
+      "reason": "view-rendering-forms.md § Notation table: Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. A mixed rendering draws it from an owner to every composite usage nested in its node — a part, action or state usage, a view usage — where PlantUML and the text form show it and DOT and Mermaid leave it to the nesting ([case and mixed diagrams](view-rendering-forms.md#case-and-mixed-diagrams))."
     },
     {
       "clause": "8.2.3.6",

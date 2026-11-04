@@ -3,6 +3,7 @@ package notation
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -94,8 +95,8 @@ func ParseNotationTable(content string) (*NotationTable, error) {
 }
 
 // adjudicate turns a table row into the census verdict: an approximate status
-// is approximate with the row's notes as the reason; a conformant status or a
-// spec-over-pilot one is drawn.
+// is approximate with the row's notes as the reason (its same-page anchors
+// retargeted to the rendering-forms page); conformant or spec-over-pilot is drawn.
 func (t *NotationTable) adjudicate(name string) (Adjudication, bool) {
 	if t == nil {
 		return Adjudication{}, false
@@ -105,7 +106,8 @@ func (t *NotationTable) adjudicate(name string) (Adjudication, bool) {
 		return Adjudication{}, false
 	}
 	if r.status == "approximate" {
-		return approximate(CategoryEdge, "view-rendering-forms.md § Notation table: "+r.notes, tableEdge), true
+		notes := strings.ReplaceAll(r.notes, "](#", "]("+path.Base(notationTablePath)+"#")
+		return approximate(CategoryEdge, "view-rendering-forms.md § Notation table: "+notes, tableEdge), true
 	}
 	return drawn(CategoryEdge, tableEdge), true
 }
