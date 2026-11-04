@@ -1576,7 +1576,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)), true
+		return m.withDefaultMultiplicityMember(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))), true
 	case "feature":
 		var features []*symbols.Symbol
 		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
