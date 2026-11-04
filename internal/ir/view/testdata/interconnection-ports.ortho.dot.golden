@@ -10,14 +10,15 @@ digraph "ToasterViews::toasterView" {
     label=<<font point-size="10"><i>«part def»</i></font><br/><b>Toaster</b>>;
     color=black;
     penwidth=0.5;
-    bb="8,-214,257,-8";
-    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="132.5,-111!", pin=true];
-    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>heating</b>>, margin=0, pos="67.5,-179.5!", pin=true, width=1.125, height=0.5138888888888888, fixedsize=true];
-    "n1.0" [shape=box, label="", xlabel="^durationIn", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="67.5,-155!", pin=true];
+    bb="8,-318,257,-8";
+    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="132.5,-163!", pin=true];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>heating</b>>, margin=0, pos="67.5,-283.5!", pin=true, width=1.125, height=0.5138888888888888, fixedsize=true];
+    "n1.0" [shape=box, label="", xlabel="^durationIn", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="67.5,-259!", pin=true];
     "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>control</b>>, margin=0, pos="67.72,-92.5!", pin=true, width=1.1866666666666665, height=0.5138888888888888, fixedsize=true];
     "n2.0" [shape=box, label="", xlabel="^durationOut", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="67.5,-117!", pin=true];
     "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>chassis</b>>, margin=0, pos="200.5,-92.5!", pin=true, width=1.125, height=0.5138888888888888, fixedsize=true];
+    "n4" [shape=plaintext, margin=0, label=<<font point-size="10"><i>«flow»</i></font><br/><b>of Real</b><br/>—▶>, pos="67.5,-188!", pin=true, width=1.125, height=0.75, fixedsize=true];
   }
-  "n2.0" -> "n1.0" [label="durationInterface", arrowhead=none, penwidth=3, pos="67.5,-116 67.5,-116 67.5,-156 67.5,-156", lp="138,-136"];
-  "n2.0" -> "n1.0" [label="of Real", pos="e,67.5,-156 67.5,-116 67.5,-116 67.5,-146 67.5,-146", lp="36,-136"];
+  "n2.0" -> "n4" [label="durationInterface", arrowhead=none, penwidth=3, pos="67.5,-116 67.5,-116 67.5,-161 67.5,-161", lp="138,-138.5"];
+  "n4" -> "n1.0" [arrowhead=none, penwidth=3, pos="67.5,-215 67.5,-215 67.5,-260 67.5,-260"];
 }
