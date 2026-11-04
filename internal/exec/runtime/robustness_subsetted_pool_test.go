@@ -14,6 +14,44 @@ func TestRuntimeRobustnessSubsettedPool(t *testing.T) {
 	t.Run("a value the subsetter's type does not admit is not drawn", testSubsettedValueOfOtherType)
 	t.Run("a write to the subsetted values redraws the subsetter", testSubsettedValuesRewritten)
 	t.Run("a subsetted feature holding a default lends no value", testSubsettedDefaultNoPool)
+	t.Run("a nonunique subsetter draws every occurrence", testSubsettedNonuniqueOccurrences)
+	t.Run("false and 0 are two values to draw", testSubsettedFalseAndZero)
+}
+
+const subsettedOccurrences = `package P {
+	private import ScalarValues::*;
+	part def Holder {
+		attribute source : Integer [2] nonunique = (1, 1);
+		attribute target : Integer [2] nonunique :> source;
+		attribute mixed [2] = (false, 0);
+		attribute both [2] :> mixed;
+	}
+}`
+
+func occurrencesRead(t *testing.T, name string) []Value {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<subsetted-occurrences>", parseAndBuild(t, subsettedOccurrences))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	fv, err := inst.GetFeatureValue(ctx, name)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	return elementsOf(fv.HeldValue())
+}
+
+func testSubsettedNonuniqueOccurrences(t *testing.T) {
+	if got := occurrencesRead(t, "target"); len(got) != 2 || FormatValue(got[0]) != "1" || FormatValue(got[1]) != "1" {
+		t.Errorf("target = %v, want (1, 1), both occurrences source holds", got)
+	}
+}
+
+func testSubsettedFalseAndZero(t *testing.T) {
+	if got := occurrencesRead(t, "both"); len(got) != 2 || FormatValue(got[0]) != "false" || FormatValue(got[1]) != "0" {
+		t.Errorf("both = %v, want (false, 0)", got)
+	}
 }
 
 const subsettedValues = `package P {

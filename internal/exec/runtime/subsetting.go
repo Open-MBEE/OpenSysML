@@ -1106,7 +1106,7 @@ func (ctx *Context) subsettedPool(inst *Instance, fv *FeatureValue, subsetted []
 		// A write to the subsetted feature unmaterializes fv, to draw again from what it then holds.
 		ctx.listRead(subFV, fv)
 		if !pooled {
-			pool, _ = ctx.appendUniqueValues(nil, held, nil)
+			pool = ctx.poolValues(held, fv.Feature.Unique)
 			pooled = true
 			continue
 		}
@@ -1158,21 +1158,30 @@ func drawable(v Value) bool {
 	return !isEmptyValue(v) && v.Kind != ValUndetermined && v.Kind != ValInvalid
 }
 
+// poolValues is the drawable values of held, each once for a unique subsetter, every occurrence else.
+func (ctx *Context) poolValues(held []Value, unique bool) []Value {
+	if unique {
+		pool, _ := ctx.appendUniqueValues(nil, held, nil)
+		return pool
+	}
+	return slices.DeleteFunc(slices.Clone(held), func(v Value) bool { return !drawable(v) })
+}
+
 // appendUniqueValues appends the drawable values of els to out, dropping one already seen, as a
-// unique feature holds each value once; the seen set is made on the first value and returned.
-func (ctx *Context) appendUniqueValues(out, els []Value, seen map[valueKey]bool) ([]Value, map[valueKey]bool) {
+// unique feature holds each value once; seen counts the values chosen and is made on the first.
+func (ctx *Context) appendUniqueValues(out, els []Value, seen map[valueKey]int) ([]Value, map[valueKey]int) {
 	for _, v := range els {
 		if !drawable(v) {
 			continue
 		}
 		key := ctx.valueKey(v)
-		if seen[key] {
+		if seen[key] > 0 {
 			continue
 		}
 		if seen == nil {
-			seen = make(map[valueKey]bool)
+			seen = make(map[valueKey]int)
 		}
-		seen[key] = true
+		seen[key]++
 		out = append(out, v)
 	}
 	return out, seen
@@ -1212,7 +1221,7 @@ func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, sub
 
 // bindingWitnesses draws, per binding constraining the named feature, as many of its other end's
 // values as the binding links, from pool where the subsetted features fix one (KerML 1.1 §7.4.6).
-func (ctx *Context) bindingWitnesses(inst *Instance, name string, composite *symbols.Symbol, pool []Value, pooled bool, taken map[valueKey]bool) ([]Value, map[valueKey]bool, error) {
+func (ctx *Context) bindingWitnesses(inst *Instance, name string, composite *symbols.Symbol, pool []Value, pooled bool, taken map[valueKey]bool) ([]Value, map[valueKey]int, error) {
 	draw := witnessDraw{ctx: ctx, inst: inst, fv: inst.FeatureValues[name], composite: composite, pooled: pooled, pool: pool, taken: taken}
 	// A binding of an owner naming the feature through its path constrains it as well.
 	for current, path := inst, name; current != nil; {
@@ -1275,7 +1284,7 @@ type witnessDraw struct {
 	inPool    map[valueKey]bool
 	taken     map[valueKey]bool
 	chosen    []Value
-	seen      map[valueKey]bool
+	seen      map[valueKey]int
 }
 
 // typed keeps the candidates the drawn feature may hold: objects for an object feature, else values its type admits.
@@ -1359,7 +1368,7 @@ func (ctx *Context) drawBindingWitnesses(draw *witnessDraw, inst, current *Insta
 // pick draws up to links admitted candidates, those no sibling subsetter holds first.
 func (d *witnessDraw) pick(candidates []Value, links int64) {
 	admits := func(v Value) bool {
-		return d.admitsPooled(v) && !d.seen[d.ctx.valueKey(v)]
+		return d.admitsPooled(v) && d.seen[d.ctx.valueKey(v)] == 0
 	}
 	for n := int64(0); n < links; n++ {
 		pick := slices.IndexFunc(candidates, func(v Value) bool { return admits(v) && !d.taken[d.ctx.valueKey(v)] })
@@ -1382,16 +1391,24 @@ func (ctx *Context) drawsFromSubsetted(loc bindingLocation) bool {
 }
 
 // pickFromPool fills chosen to want values from pool, those no sibling subsetter holds first.
-func (ctx *Context) pickFromPool(chosen []Value, seen map[valueKey]bool, pool []Value, taken map[valueKey]bool, want int64) ([]Value, map[valueKey]bool) {
+func (ctx *Context) pickFromPool(chosen []Value, seen map[valueKey]int, pool []Value, taken map[valueKey]bool, want int64) ([]Value, map[valueKey]int) {
+	if seen == nil {
+		seen = make(map[valueKey]int)
+	}
 	for _, fresh := range []bool{true, false} {
+		// A nonunique subsetter may hold each occurrence the pool holds: the nth is free while fewer are chosen.
+		occurrence := make(map[valueKey]int, len(pool))
 		for _, v := range pool {
 			if int64(len(chosen)) >= want {
 				return chosen, seen
 			}
-			if key := ctx.valueKey(v); seen[key] || (fresh && taken[key]) {
+			key := ctx.valueKey(v)
+			occurrence[key]++
+			if seen[key] >= occurrence[key] || (fresh && taken[key]) {
 				continue
 			}
-			chosen, seen = ctx.appendUniqueValues(chosen, []Value{v}, seen)
+			chosen = append(chosen, v)
+			seen[key]++
 		}
 	}
 	return chosen, seen
