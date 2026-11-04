@@ -428,7 +428,7 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 	}
 	fqn := w.fqn(node, parentFQN)
 	if w.sections > 0 || sectionKind(node.Kind) {
-		fqn = "" // a body section and its nodes stand for no addressable declaration
+		fqn = "" // a body section and its nodes: the body is an anonymous action, so no name reaches them
 	}
 	nested := fqn
 	if nested == "" {

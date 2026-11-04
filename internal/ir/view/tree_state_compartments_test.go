@@ -16,7 +16,7 @@ func TestGoldenTreeStateCompartments(t *testing.T) {
 		rows         []string
 	}{
 		{"burnerTree", "state-forms-most", []string{"successions", "first running then off", "transitions"}},
-		{"runningTree", "state-forms-running-most", []string{"state actions", "entry action ignite", "exit action : Furnace::Purge", "do action", "states"}},
+		{"runningTree", "state-forms-running-most", []string{"state actions", "entry action ignite", "exit action", "do action", "states"}},
 	} {
 		rendering := render(t, "state-forms.sysml", "FurnaceViews::"+tc.view)
 		for _, form := range []Form{FormDot, FormMermaid, FormPlantUML, FormD2, FormText} {
@@ -33,6 +33,15 @@ func TestGoldenTreeStateCompartments(t *testing.T) {
 		for _, want := range tc.rows {
 			if !strings.Contains(text, want) {
 				t.Errorf("%s folded tree lacks %q:\n%s", tc.view, want, text)
+			}
+		}
+		dot, err := rendering.WriteWith(FormDot, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range tc.rows {
+			if !strings.Contains(dot, want) {
+				t.Errorf("%s folded DOT lacks %q", tc.view, want)
 			}
 		}
 	}

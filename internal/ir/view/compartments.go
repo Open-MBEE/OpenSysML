@@ -31,6 +31,9 @@ var compartmentOrder = []string{
 
 // compartmentPlurals are the compartment names whose keyword does not take
 // a plain "s".
+// stateActionRoles are the kinds the `state actions` compartment gathers.
+var stateActionRoles = map[string]bool{entryActionKind: true, doActionKind: true, exitActionKind: true}
+
 var compartmentPlurals = map[string]string{
 	"calc":           "calculations",
 	"enum":           "enumerations",
@@ -125,6 +128,9 @@ func (l labeller) rowText(node *Node) string {
 		return node.Text
 	}
 	prefix, _ := splitRowPrefix(node.Kind)
+	if _, ok := stateActionRoles[node.Kind]; ok {
+		prefix = node.Kind // a `state actions` row keeps its entry/do/exit role
+	}
 	text := shown(node)
 	if text != "" {
 		text = usagePrefix(node.Inherited) + text

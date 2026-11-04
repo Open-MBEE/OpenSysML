@@ -43,5 +43,5 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "<size:10>//«state»//</size>\n**running**\nstates\nlow\nhigh\nstate actions\nignite : Ignite\n: Purge\n: Action" as n0 <<state>> <<usage>>
+class "<size:10>//«state»//</size>\n**running**\nstates\nlow\nhigh\nstate actions\nentry action ignite : Ignite\nexit action : Purge\ndo action : Action" as n0 <<state>> <<usage>>
 @enduml

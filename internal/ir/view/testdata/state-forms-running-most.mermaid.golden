@@ -30,6 +30,6 @@ states
 low
 high
 state actions
-ignite : Ignite
-: Purge
-: Action`")
+entry action ignite : Ignite
+exit action : Purge
+do action : Action`")
