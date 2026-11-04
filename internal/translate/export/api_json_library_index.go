@@ -17,9 +17,25 @@ import (
 // decoder: the catalog of normative ids, the semantic model that gives each
 // element its metaclass, and the index of the unnamed members by minted id.
 type libraryIndex struct {
+	// mu serializes the model's queries, which memoize: the catalog and the anonymous index are frozen.
+	mu        sync.Mutex
 	model     *semantics.Model
 	catalog   *identity.Catalog
 	anonymous *identity.AnonymousIndex
+}
+
+// stubMetaclass is libraryStubMetaclass for sym under the index's lock.
+func (index *libraryIndex) stubMetaclass(sym *symbols.Symbol) string {
+	index.mu.Lock()
+	defer index.mu.Unlock()
+	return libraryStubMetaclass(index.model, sym)
+}
+
+// owningMembershipMetaclass is identity.OwningMembershipMetaclass for sym under the index's lock.
+func (index *libraryIndex) owningMembershipMetaclass(sym *symbols.Symbol) string {
+	index.mu.Lock()
+	defer index.mu.Unlock()
+	return identity.OwningMembershipMetaclass(index.model, sym)
 }
 
 var (
@@ -76,13 +92,13 @@ func addReferencedLibraryStubs(graph *rdf.Graph, completed map[string]bool) {
 // owning membership id names, and reports whether the index knows the id.
 func addLibraryStub(graph *rdf.Graph, index *libraryIndex, subject rdf.Term, id string) bool {
 	if library, ok := index.catalog.Element(id); ok && library.Symbol != nil {
-		addNamedLibraryStub(graph, subject, library, index.model)
+		addNamedLibraryStub(graph, subject, library, index.stubMetaclass(library.Symbol))
 		return true
 	}
 	if library, ok := index.catalog.OwningMembership(id); ok && library.Symbol != nil {
 		member := rdf.ElementIRIForID(library.ID)
-		addNamedLibraryStub(graph, member, library, index.model)
-		addLibraryMembershipStub(graph, subject, id, member, identity.OwningMembershipMetaclass(index.model, library.Symbol))
+		addNamedLibraryStub(graph, member, library, index.stubMetaclass(library.Symbol))
+		addLibraryMembershipStub(graph, subject, id, member, index.owningMembershipMetaclass(library.Symbol))
 		return true
 	}
 	if member, ok := index.anonymous.Element(id); ok {
@@ -98,11 +114,10 @@ func addLibraryStub(graph *rdf.Graph, index *libraryIndex, subject rdf.Term, id 
 	return false
 }
 
-func addNamedLibraryStub(graph *rdf.Graph, subject rdf.Term, library *identity.LibraryElement, model *semantics.Model) {
+func addNamedLibraryStub(graph *rdf.Graph, subject rdf.Term, library *identity.LibraryElement, metaclass string) {
 	if graph.HasProperty(subject, rdf.SysML+pElementID) {
 		return
 	}
-	metaclass := libraryStubMetaclass(model, library.Symbol)
 	if metaclass == "" {
 		return
 	}

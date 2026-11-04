@@ -4584,11 +4584,16 @@ type structureInheritedCacheEntry struct {
 // the supertypes' non-private memberships with the redefined features removed.
 func (e *Evaluator) structureInheritedMembershipList(element Element) ([]Value, bool) {
 	key := element.Key()
-	if entry, done := e.structureInherited[key]; done {
+	e.mu.Lock()
+	entry, done := e.structureInherited[key]
+	e.mu.Unlock()
+	if done {
 		return entry.values, entry.ok
 	}
 	values, ok := e.computeStructureInheritedMemberships(element)
+	e.mu.Lock()
 	e.structureInherited[key] = structureInheritedCacheEntry{values: values, ok: ok}
+	e.mu.Unlock()
 	return values, ok
 }
 

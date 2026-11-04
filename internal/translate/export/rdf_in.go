@@ -1695,7 +1695,7 @@ func (d *decoder) libraryMetaclassCompatible(subject rdf.Term, lib *identity.Lib
 	if lib.Symbol == nil {
 		return false
 	}
-	for _, expected := range []string{libraryStubMetaclass(sharedLibraryIndex().model, lib.Symbol), declaredMetaclass(lib.Symbol.Decl)} {
+	for _, expected := range []string{sharedLibraryIndex().stubMetaclass(lib.Symbol), declaredMetaclass(lib.Symbol.Decl)} {
 		if expected != "" && ontology.IsAncestorOrSelf(stated, expected) {
 			return true
 		}
