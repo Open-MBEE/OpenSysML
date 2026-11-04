@@ -207,13 +207,19 @@ func declName(decl ast.Node) string {
 // with the body it was declared in. declScope is the scope the declaration
 // itself was written in.
 func (g *StateGraph) inheritedContent(decl ast.Node, declScope *symbols.Scope) ([]inheritedMember, []ast.Node, error) {
+	return g.inheritedContentOnce(decl, declScope, map[ast.Node]bool{})
+}
+
+// inheritedContentOnce is inheritedContent with the definitions already materialized
+// in reached: one reached along two paths (`es : M :> m` with `m : M`) contributes once.
+func (g *StateGraph) inheritedContentOnce(decl ast.Node, declScope *symbols.Scope, reached map[ast.Node]bool) ([]inheritedMember, []ast.Node, error) {
 	var members []inheritedMember
 	var owners []ast.Node
 	for _, qn := range stateTypeNames(decl) {
 		def, body, ok := g.stateType(declScope, qn)
 		// An unresolved type is reported by the name-resolution tier; lowering has
 		// no content to materialize from it.
-		if !ok || def == nil || !isStateDecl(def) || def == decl {
+		if !ok || def == nil || !isStateDecl(def) || def == decl || reached[def] {
 			continue
 		}
 		if g.materializing[def] {
@@ -221,8 +227,9 @@ func (g *StateGraph) inheritedContent(decl ast.Node, declScope *symbols.Scope) (
 				ErrRecursiveStateTyping, declName(decl), declName(def))
 		}
 		g.materializing[def] = true
-		superMembers, superOwners, err := g.inheritedContent(def, outerScope(body, def))
+		superMembers, superOwners, err := g.inheritedContentOnce(def, outerScope(body, def), reached)
 		g.materializing[def] = false
+		reached[def] = true
 		if err != nil {
 			return nil, nil, err
 		}
@@ -643,14 +650,26 @@ func (g *StateGraph) keptAttributes(inherited, own []Attribute) []Attribute {
 	return kept
 }
 
-// redefinesAttribute reports whether nearer redefines farther by clause.
+// redefinesAttribute reports whether nearer redefines farther: by clause, or as a
+// parameter by position (KerML 1.1 §8.4.4.7.2, checkFeatureParameterRedefinition).
 func (g *StateGraph) redefinesAttribute(nearer, farther Attribute) bool {
 	usage, ok := nearer.Node.(*ast.Usage)
 	if !ok {
 		return false
 	}
 	resolver, _ := g.endpoints.(StateRedefinitionResolver)
-	return redefinesByClause(resolver, nearer.Scope, usage, farther.Symbol)
+	if redefinesByClause(resolver, nearer.Scope, usage, farther.Symbol) {
+		return true
+	}
+	sem := g.Semantics()
+	if sem == nil || nearer.Symbol == nil || farther.Symbol == nil {
+		return false
+	}
+	if slices.Contains(sem.AllRedefinedFeatures(nearer.Symbol), farther.Symbol) {
+		return true
+	}
+	chain := sem.ParameterRedefinitionChain(nearer.Symbol)
+	return len(chain) > 1 && slices.Contains(chain[1:], farther.Symbol)
 }
 
 // DescribeMember names a state machine member in modelling terms, for a message

@@ -541,7 +541,9 @@ func actionCandidates(
 		sym = sel.Called()
 		ok = sym != nil
 	default:
-		sym, ok = ctx.resolveQualified(scope, target)
+		if sym, ok = ctx.resolveQualified(scope, target); ok {
+			sym = ctx.performedThrough(inv.step, sym)
+		}
 	}
 	if !ok || sym == nil {
 		return nil, nil, &UnresolvedActionError{Name: name}
@@ -553,6 +555,16 @@ func actionCandidates(
 		return nil, nil, fmt.Errorf("%w: %s is not an action (%v)", errNotABehavior, name, sym.Kind)
 	}
 	return sym, nil, nil
+}
+
+// performedThrough is the action usage a typed step subsets when its performances are that
+// usage's (subsettedBehavior) and the usage is of the type, else the type itself.
+func (ctx *Context) performedThrough(step, typ *symbols.Symbol) *symbols.Symbol {
+	through := ctx.subsettedBehavior(step)
+	if through == nil || !ctx.model.semantics.Conforms(through, typ) {
+		return typ
+	}
+	return through
 }
 
 // bindArgumentList binds an invocation's arguments, written, into inputs by the callee's
