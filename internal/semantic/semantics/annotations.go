@@ -1567,13 +1567,13 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withTransitionParts(sym, ownedMembersOf(sym)), true
+		return append(m.acceptParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...), true
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)), true
+		return append(m.acceptParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...), true
 	case "feature":
-		var features []*symbols.Symbol
+		features := m.acceptParameters(sym)
 		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)

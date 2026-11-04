@@ -1,0 +1,17 @@
+{
+  "type": "instance",
+  "instantiate": "test::Report",
+  "libraries": true,
+  "slots": {
+    "receiverIsReference": {"type": "Boolean", "value": true},
+    "receiverPort": {"type": "String", "value": "p"},
+    "namedPayloadReceiverPort": {"type": "String", "value": "p"},
+    "parameters": {"type": "Integer", "value": 2},
+    "ownedFeatures": {"type": "Integer", "value": 2},
+    "receiverDirection": {"type": "EnumLiteral", "value": "FeatureDirectionKind::in"},
+    "receiverIsParameter": {"type": "Boolean", "value": true},
+    "receiverValueIsArgument": {"type": "Boolean", "value": true},
+    "noViaParameters": {"type": "Integer", "value": 1},
+    "noViaReceivers": {"type": "Integer", "value": 0}
+  }
+}

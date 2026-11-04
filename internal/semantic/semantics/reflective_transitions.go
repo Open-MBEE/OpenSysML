@@ -3,6 +3,7 @@ package semantics
 import (
 	"sort"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -14,7 +15,34 @@ type transitionParts struct {
 	accepter     *symbols.Symbol
 	payload      *symbols.Symbol
 	payloadValue *symbols.Symbol
-	guard        *symbols.Symbol
+	// receiver is the `via` port's parameter, valued by the FeatureReferenceExpression receiverValue.
+	receiver      *symbols.Symbol
+	receiverValue *symbols.Symbol
+	guard         *symbols.Symbol
+}
+
+// acceptParameters are the payload and receiver parameters of the trigger accept sym, in that
+// order; nil for any other symbol (SysML v2.1 §8.3.17.2 AcceptActionUsage).
+func (m *Model) acceptParameters(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionTriggerAction {
+		return nil
+	}
+	parts := m.acceptParts(sym)
+	var out []*symbols.Symbol
+	for _, param := range []*symbols.Symbol{parts.payload, parts.receiver} {
+		if param != nil {
+			out = append(out, param)
+		}
+	}
+	return out
+}
+
+// parameterValue is the value of the accept's payload or receiver parameter param.
+func (p *transitionParts) parameterValue(param *symbols.Symbol) *symbols.Symbol {
+	if param == p.receiver {
+		return p.receiverValue
+	}
+	return p.payloadValue
 }
 
 // transitionPartsOf are the parts of the transition sym, synthesized once per model so every
@@ -45,6 +73,16 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 		parts.payload = transitionPart(sym, decl, decl.Span(), symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
 		if event != nil {
 			parts.payloadValue = transitionPart(sym, event, event.Span(), symbols.SymbolExpression, parts.payload, symbols.ExpressionValue)
+		}
+		if trans.Via != nil {
+			// Bind the port here too, so the receiver's referent reads where no document walk ran.
+			m.resolver.ResolveReference(resolve.Reference{Scope: sym.OwnerScope, QN: trans.Via, Via: true})
+			ref := &ast.FeatureReference{Name: trans.Via}
+			ref.NodeSpan = trans.Via.Span()
+			receiver := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: ref}
+			receiver.NodeSpan = trans.Via.Span()
+			parts.receiver = transitionPart(sym, receiver, receiver.NodeSpan, symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
+			parts.receiverValue = transitionPart(sym, ref, ref.NodeSpan, symbols.SymbolExpression, parts.receiver, symbols.ExpressionValue)
 		}
 	}
 	if trans.Guard != nil {
@@ -201,6 +239,8 @@ func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symb
 		return optionalElement(parts.payload), true
 	case "payloadArgument":
 		return optionalElement(parts.payloadValue), true
+	case "receiverArgument":
+		return optionalElement(parts.receiverValue), true
 	}
 	return nil, false
 }
