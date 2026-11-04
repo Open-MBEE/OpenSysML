@@ -285,7 +285,7 @@ func derivedVariabilityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 }
 
 // derivedMembershipOmitted reports a Membership end or name, or an Import's end (sysml: statement or
-// its collection annotation), the candidate derives (KerML 8.3.2.3.5, 8.3.2.3.3) and the graph omits.
+// its collection annotation), the candidate derives (KerML 8.3.2.4.3, 8.3.2.4.2) and the graph omits.
 func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 	var key string
 	switch {

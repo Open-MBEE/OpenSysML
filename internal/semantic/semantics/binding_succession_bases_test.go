@@ -7,7 +7,7 @@ import (
 )
 
 // TestBindingAndSuccessionSubsetTheirKerMLBases: a binding subsets Links::selfLinks, a succession
-// Occurrences::happensBeforeLinks (KerML 1.1 §8.4.4.7.1, §8.4.4.8.1); ends named by what they redefine.
+// Occurrences::happensBeforeLinks (KerML 1.1 §8.3.4.5.2, §8.3.4.5.4); ends named by what they redefine.
 func TestBindingAndSuccessionSubsetTheirKerMLBases(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
     part def D {
