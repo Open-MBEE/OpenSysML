@@ -20,6 +20,9 @@ type performanceShape struct {
 // performanceShape is the shape of e's performance of e.graph as e.action: the
 // Model's memoized one for a graph it lowered, else one built for e alone.
 func (e *ActionExecutor) performanceShape() *performanceShape {
+	if e.declared != nil {
+		return e.declaredShape()
+	}
 	lowered := e.ctx.model.loweredAs(e.action, e.graph)
 	if lowered == nil {
 		return e.buildPerformanceShape(new(performanceShape))
@@ -28,6 +31,21 @@ func (e *ActionExecutor) performanceShape() *performanceShape {
 		e.buildPerformanceShape(&lowered.shape)
 	}
 	return &lowered.shape
+}
+
+// declaredShape is the shape of a performance through the declared usage, memoized
+// per usage: its members, not the body's alone, are the features it holds.
+func (e *ActionExecutor) declaredShape() *performanceShape {
+	m := e.ctx.model
+	if shape := m.declaredShapes[e.declared]; shape != nil {
+		return shape
+	}
+	shape := e.buildPerformanceShape(new(performanceShape))
+	if m.declaredShapes == nil {
+		m.declaredShapes = make(map[*symbols.Symbol]*performanceShape)
+	}
+	m.declaredShapes[e.declared] = shape
+	return shape
 }
 
 // buildPerformanceShape computes the shape from the graph and the semantic model into shape.

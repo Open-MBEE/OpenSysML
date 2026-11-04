@@ -35,6 +35,9 @@ type ActionExecutor struct {
 	// action states the body performed; performed is the action as named, a usage
 	// stating no body of its own or the action itself, whose metadata binds the performance.
 	action, performed *symbols.Symbol
+	// declared is the usage whose body action states, when it states another's: its
+	// members value the parameters they redefine. Nil for an action performing its own body.
+	declared *symbols.Symbol
 	// tool is the ToolExecution annotating performed, whose tool performs the action in
 	// place of its body; nil for an action performed by its body.
 	tool *toolExecution
@@ -212,12 +215,15 @@ func newActionExecutorOfGraph(
 	}
 
 	var tool *toolExecution
+	var declared *symbols.Symbol
 	if graph == nil {
 		var err error
+		callee := action
 		action, tool, graph, err = ctx.performanceBody(performed, action)
 		if err != nil {
 			return nil, err
 		}
+		declared = declaredThrough(callee, action, tool)
 	} else {
 		held, found, err := ctx.toolPerformance(performed, action)
 		if err != nil {
@@ -231,14 +237,23 @@ func newActionExecutorOfGraph(
 			action, tool = held, found
 		}
 	}
-	return newActionExecutorOn(ctx, performed, action, tool, graph, self, occurrence), nil
+	return newActionExecutorOn(ctx, performed, action, declared, tool, graph, self, occurrence), nil
+}
+
+// declaredThrough is callee when body, what performanceBody resolved it to, is another
+// action's: callee's members then value the performance, under any inputs bound to it.
+func declaredThrough(callee, body *symbols.Symbol, tool *toolExecution) *symbols.Symbol {
+	if tool != nil || body == callee {
+		return nil
+	}
+	return callee
 }
 
 // newActionExecutorOn is an execution of graph, the lowering of action, ready to
 // begin at its root and attached to ctx's clock.
 func newActionExecutorOn(
 	ctx *Context,
-	performed, action *symbols.Symbol,
+	performed, action, declared *symbols.Symbol,
 	tool *toolExecution,
 	graph *lower.ActionGraph,
 	self, occurrence *Instance,
@@ -247,6 +262,7 @@ func newActionExecutorOn(
 		performances:     performances{ctx: ctx, self: self, behavior: action, occurrence: occurrence},
 		action:           action,
 		performed:        performed,
+		declared:         declared,
 		tool:             tool,
 		dynamicsKind:     ctx.stateSpaceKindOf(action),
 		occurrence:       occurrence,
@@ -285,7 +301,11 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 	for i, attr := range features {
 		declared[attr.Name] = i
 	}
-	for _, member := range e.ctx.model.semantics.MembersOf(e.action) {
+	holder := e.action
+	if e.declared != nil {
+		holder = e.declared
+	}
+	for _, member := range e.ctx.model.semantics.MembersOf(holder) {
 		usage, ok := member.Decl.(*ast.Usage)
 		if !ok || !lower.DeclaresNodeFeature(usage) || e.ctx.libraryDeclared(member) {
 			continue
@@ -298,7 +318,12 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			continue
 		}
 		if i, ok := declared[name]; ok {
-			if features[i].Value == nil && features[i].Node == ast.Node(usage) {
+			switch {
+			case e.declared != nil && features[i].Node != ast.Node(usage):
+				if e.redefinesAttribute(member, features[i]) {
+					features[i] = e.redefinedAttribute(features[i], member, usage)
+				}
+			case features[i].Value == nil && features[i].Node == ast.Node(usage):
 				features[i].Value, features[i].Scope, features[i].Binding = e.inheritedValue(member)
 			}
 			features[i].Optional = e.ctx.admitsNoValue(member)
@@ -319,7 +344,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		}
 		return held[sym]
 	}
-	e.ctx.shadowedInherited(e.action,
+	e.ctx.shadowedInherited(holder,
 		func(name string) bool { _, ok := declared[name]; return ok },
 		bound,
 		func(member *symbols.Symbol, usage *ast.Usage, key string) {
@@ -357,6 +382,58 @@ func (e *ActionExecutor) inheritedValue(member *symbols.Symbol) (ast.Node, *symb
 	}
 	value, scope := e.ctx.model.semantics.ParameterDefault(member)
 	return value, scope, false
+}
+
+// redefinesAttribute reports whether member redefines the feature attr declares, explicitly or
+// as a parameter by position (SysML v2.1 §7.17.2); a namesake only hiding it does not.
+func (e *ActionExecutor) redefinesAttribute(member *symbols.Symbol, attr lower.Attribute) bool {
+	sym := attr.Symbol
+	if sym == nil {
+		scope := attr.Scope
+		if scope == nil {
+			scope = e.graph.Scope
+		}
+		sym = memberSymbol(scope, attr.Node)
+	}
+	if sym == nil {
+		return false
+	}
+	semantics := e.ctx.model.semantics
+	if slices.Contains(semantics.AllRedefinedFeatures(member), sym) {
+		return true
+	}
+	chain := semantics.ParameterRedefinitionChain(member)
+	return len(chain) > 1 && slices.Contains(chain[1:], sym)
+}
+
+// performerBinds reports whether usage is a ref parameter valued by the bare `this`, which
+// the performer binds (bindContextDefault) rather than an evaluation materializing a performance.
+func performerBinds(usage *ast.Usage) bool {
+	if !usage.IsReference || (usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut) {
+		return false
+	}
+	var qn *ast.QualifiedName
+	switch value := usage.Value.(type) {
+	case *ast.FeatureReference:
+		qn = value.Name
+	case *ast.QualifiedName:
+		qn = value
+	}
+	return qn != nil && len(qn.Parts) == 1 && qn.Parts[0].Text == thisName
+}
+
+// redefinedAttribute is attr as member, a parameter of the usage performed through, redefines
+// it (SysML v2.1 §7.17.2): member's own value, else the nearest it inherits; `this` is the performer's.
+func (e *ActionExecutor) redefinedAttribute(attr lower.Attribute, member *symbols.Symbol, usage *ast.Usage) lower.Attribute {
+	attr.Value, attr.Scope, attr.Binding = e.inheritedValue(member)
+	if performerBinds(usage) {
+		attr.Binding = false
+	}
+	attr.Node, attr.Symbol = usage, member
+	if attr.Type == "" {
+		attr.Type = lower.TypeText(usage)
+	}
+	return attr
 }
 
 // holdVisible marks the feature attr declares and every feature it redefines as held.
@@ -1408,10 +1485,12 @@ func (e *ActionExecutor) initializeAttributes() error {
 				continue
 			}
 		}
-		if attr.Value == nil {
+		if attr.Value == nil || e.performerBound(attr) {
 			if e.bindContextDefault(attr) {
 				continue
 			}
+		}
+		if attr.Value == nil {
 			continue
 		}
 		var value Value
@@ -1476,7 +1555,7 @@ func (e *ActionExecutor) bindContextDefault(attr lower.Attribute) bool {
 		scope = e.graph.Scope
 	}
 	param, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
-	if !ok || !e.ctx.performerSeedsRefParam(param, e.self) {
+	if !ok || !e.performerBound(attr) && !e.ctx.performerSeedsRefParam(param, e.self) {
 		return false
 	}
 	value, err := e.mirrorOccurrence(attr.Name, Value{Kind: ValInstance, Instance: e.self.ID})
@@ -1485,6 +1564,21 @@ func (e *ActionExecutor) bindContextDefault(attr lower.Attribute) bool {
 	}
 	e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(attr.Name), value)
 	return true
+}
+
+// performerBound reports whether attr is a ref parameter the performed usage values with
+// `this` (performerBinds): the performer is its value, over any default it redefines.
+func (e *ActionExecutor) performerBound(attr lower.Attribute) bool {
+	if e.declared == nil || e.self == nil || attr.Symbol == nil || attr.Symbol.OwnerScope == nil ||
+		attr.Symbol.OwnerScope.Owner() != e.declared {
+		return false
+	}
+	usage, ok := attr.Node.(*ast.Usage)
+	if !ok || !performerBinds(usage) {
+		return false
+	}
+	typ := e.ctx.extractType(attr.Symbol)
+	return typ == nil || e.ctx.instanceConforms(e.self, typ)
 }
 
 // streamInitialOutput carries the initial value of an output or inout to the listeners,
@@ -2258,11 +2352,14 @@ func (e *ActionExecutor) falseGuardLeavesRepeated(graph *lower.ActionGraph, edge
 		"a false guard leaves the performances of the repeated step unordered with respect to its source", edge.Decl))
 }
 
-// guardHolds evaluates the guard a succession out of node carries; a succession
-// carrying none is unconditional.
+// guardHolds evaluates the guard a succession out of node carries; none is unconditional, and
+// one reading a feature with no value is not true, so it does not assert it (SysML v2 7.17.5).
 func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool, error) {
 	return e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, ec.scope, func() (bool, error) {
 		result, err := guardResult(ec, guard)
+		if readsNoValue(err) {
+			return false, nil
+		}
 		if err != nil {
 			return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
 		}

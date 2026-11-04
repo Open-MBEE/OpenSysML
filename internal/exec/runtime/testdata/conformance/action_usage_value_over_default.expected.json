@@ -1,0 +1,8 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::s",
+	"outputs": {
+		"y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]}
+	}
+}

@@ -1,0 +1,7 @@
+{
+  "type": "state",
+  "evaluate": "test::Ctl::sm",
+  "performers": [
+    {"object": "test::ctl", "events": [{"signal": "Set"}], "finalState": "s2"}
+  ]
+}

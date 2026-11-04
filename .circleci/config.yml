@@ -4037,6 +4037,30 @@ jobs:
       - rehearsal-skip:
           what: "docker buildx build --push (the multi-platform image to Docker Hub)"
 
+  publish-textmate-grammars:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - rehearsal-tag
+      # Open-MBEE/sysml-v2-textmate is the grammar repository GitHub Linguist
+      # vendors for SysML v2 and KerML highlighting; it carries the grammars of
+      # the latest release, so the push follows the GitHub release. The token
+      # is the one publish-github-release uses, which has to write that
+      # repository's contents too. A rehearsal commits locally and pushes nothing.
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: stage the grammar sync without pushing"
+                command: scripts/sync-textmate-grammars.sh --publish --tag "${CIRCLE_TAG}" --dry-run
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: Publish the TextMate grammars to Open-MBEE/sysml-v2-textmate
+                command: scripts/sync-textmate-grammars.sh --publish --tag "${CIRCLE_TAG}"
+
   publish-github-release:
     docker:
       - image: cibuilds/github:0.13
@@ -4616,6 +4640,14 @@ workflows:
           # exactly, so the case here has to match it.
           context:
             - DockerHub
+          requires:
+            - Publish GitHub release
+          filters: *release-tags
+
+      - publish-textmate-grammars:
+          name: Publish the TextMate grammars
+          # After the GitHub release, like the registry publishers, so the
+          # grammar repository never runs ahead of a release that failed.
           requires:
             - Publish GitHub release
           filters: *release-tags

@@ -1454,6 +1454,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.parameterElements(sym, feature); ok {
 		return elems, true
 	}
+	if elems, ok := m.transitionElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1564,7 +1567,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, ownedMembersOf(sym)), true
+		return m.withDefaultMultiplicityMember(sym, m.withTransitionParts(sym, ownedMembersOf(sym))), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1573,11 +1576,11 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.membersIncludingAnonymous(sym), true
+		return m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)), true
 	case "feature":
 		var features []*symbols.Symbol
-		for _, member := range m.membersIncludingAnonymous(sym) {
-			if member.IsFeature() {
+		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
+			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
 		}
@@ -1643,8 +1646,8 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return []*symbols.Symbol{}, true
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
-		for _, member := range ownedMembersOf(sym) {
-			if member.IsFeature() {
+		for _, member := range m.withTransitionParts(sym, ownedMembersOf(sym)) {
+			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
 		}
@@ -1859,7 +1862,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		members = append(members, value)
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
-	members = append(members, ownedMembersOf(sym)...)
+	members = append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2087,6 +2090,8 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 			return ast.DirIn, true
 		case symbols.ExpressionResult:
 			return ast.DirOut, true
+		case symbols.ExpressionPayload:
+			return ast.DirIn, true
 		}
 		return ast.DirNone, true
 	}
@@ -2172,6 +2177,11 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	if sym.Kind == symbols.SymbolAlias {
 		if value, ok := m.aliasMembershipValue(sym, feature); ok {
 			return value, true
+		}
+	}
+	if feature == "kind" && isExpressionSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper {
+		if kind := triggerKind(sym.Decl); kind != "" {
+			return m.enumLiteralValue(m.sysmlMetaclass("TriggerKind"), kind)
 		}
 	}
 	if sym.Expr != nil && !isExpressionParameterSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper &&

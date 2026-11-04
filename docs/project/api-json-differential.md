@@ -380,7 +380,7 @@ the pilot states no name either way.
 
 **A binding and a succession subset their KerML bases** (re-recorded when the model began giving a
 SysML binding connector `Links::selfLinks` and a succession `Occurrences::happensBeforeLinks` as their
-implied base, KerML 1.1 §8.4.4.7.1 and §8.4.4.8.1, where both had fallen back to `Base::things`): 4
+implied base, KerML 1.1 §8.3.4.5.2 and §8.4.4.6.2 for a binding, §8.3.4.5.4 and §8.4.4.6.3 for a succession, where both had fallen back to `Base::things`): 4
 scorecard rows moved, all to equal; 1291382 → 1291410 present-equal, 32953 → 32925 present-different.
 `BindingConnectorAsUsage.isVariable`/`mayTimeVary` (3 rows each) and `SuccessionAsUsage.isVariable`/
 `mayTimeVary` (12 each) now read `false` on both sides: SysML v2 §8.3.6.4 derives `mayTimeVary` false

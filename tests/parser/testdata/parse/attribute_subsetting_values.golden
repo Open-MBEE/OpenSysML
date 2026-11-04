@@ -1,0 +1,69 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Values"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="q" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (LiteralInteger value="4")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="r" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="subsets" target=q
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="faces" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Multiplicity range=false
+                (LiteralInteger value="6"))
+              (OperatorExpr operator=".."
+                (LiteralInteger value="1")
+                (LiteralInteger value="6"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="top" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="subsets" target=faces
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="codes" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="3"))
+              (SequenceExpr
+                (LiteralInteger value="7")
+                (LiteralInteger value="8")
+                (LiteralInteger value="9"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="late" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="2"))
+              (SequenceExpr
+                (LiteralInteger value="8")
+                (LiteralInteger value="9"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="picked" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (Relationship kind="subsets" target=codes
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))))
+          (Membership visibility="default"
+            (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Multiplicity range=false
+                (LiteralInteger value="1"))
+              (ConnectorEnd target="picked"
+                (Multiplicity range=true
+                  (LiteralInteger value="0")
+                  (LiteralInteger value="1"))
+                (*ast.QualifiedName))
+              (ConnectorEnd target="late"
+                (Multiplicity range=true
+                  (LiteralInteger value="0")
+                  (LiteralInteger value="1"))
+                (*ast.QualifiedName)))))))))
