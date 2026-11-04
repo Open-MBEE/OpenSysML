@@ -83,11 +83,8 @@ func DerivedID(namespace, name string) string {
 	return uuid5(mustParse(namespace), name).String()
 }
 
-// AnonymousMemberID is this implementation's fixed id for a library member
-// declared without a name — a documentation comment, an invariant, an unnamed
-// feature — which no qualified name derives: uuid5 under its owner's id of the
-// metaclass and the member's ordinal among the owner's anonymous members of that
-// metaclass, in declaration order. The pilot's ids for these follow no published rule.
+// AnonymousMemberID is this implementation's id for an unnamed library member: uuid5 under
+// its owner's id of metaclass and declaration ordinal; the pilot publishes no rule for these.
 func AnonymousMemberID(ownerID, metaclass string, ordinal int) string {
 	if ownerID == "" || metaclass == "" || ordinal < 0 {
 		return ""
