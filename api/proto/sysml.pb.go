@@ -4541,7 +4541,7 @@ type DiagnosticsRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	ModelHash string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"`
 	// Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
-	// undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+	// undeclared-signal, deferred-keeper-unmarked or
 	// rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
 	DisableLint []string `protobuf:"bytes,2,rep,name=disable_lint,json=disableLint,proto3" json:"disable_lint,omitempty"`
 	// Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):

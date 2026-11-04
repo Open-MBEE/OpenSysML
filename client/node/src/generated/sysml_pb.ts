@@ -2580,7 +2580,7 @@ export type DiagnosticsRequest = Message<"sysml.DiagnosticsRequest"> & {
 
   /**
    * Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
-   * undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+   * undeclared-signal, deferred-keeper-unmarked or
    * rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
    *
    * @generated from field: repeated string disable_lint = 2;

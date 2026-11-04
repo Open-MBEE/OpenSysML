@@ -1004,7 +1004,7 @@ message SymbolResponse {
 message DiagnosticsRequest {
   string model_hash = 1;
   // Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
-  // undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+  // undeclared-signal, deferred-keeper-unmarked or
   // rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
   repeated string disable_lint = 2;
   // Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):

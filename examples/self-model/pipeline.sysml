@@ -312,8 +312,6 @@ package OpenSysMLPipeline {
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
         part nestedRedefinitions : ConstraintCheck { attribute :>> goType = "NestedRedefinitionPass"; }
-        // A lint: a connection between ports of unrelated definitions.
-        part portTypeMismatch : ConstraintCheck { attribute :>> goType = "PortTypeMismatchPass"; }
 
         in item typed : TypeTable;
         out item findings : Diagnostic;

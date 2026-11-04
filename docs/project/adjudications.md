@@ -243,19 +243,82 @@ it, three ends typed by `BinaryInterface` do.
 
 **Pilot limitation** for the fixture that declares the rule universally.
 
-### Three lints report models the specification accepts
+### Two lints report models the specification accepts
 
 `undeclared-signal` reports a `when <name>` — an OpenSysML spelling — whose
-name no visible declaration and no `send` in the workspace accounts for, `port-type-mismatch`
-reports a `connect`, interface usage or `flow` joining ports whose definitions are unrelated and
-whose directed features are not conjugate (SysML v2 §7.12.2), and `deferred-keeper-unmarked`
+name no visible declaration and no `send` in the workspace accounts for, and `deferred-keeper-unmarked`
 reports an accept of a deferred signal at the root of a `MigrationMetadata::DeferredEvent`
 state's do action that the `MigrationMetadata::DeferredKeeper` marker does not name as the
-keeping loop. None is a rule of the
-specification, and the pilot reports none, so all are **warnings in every mode**: `-strict`
+keeping loop. Neither is a rule of the
+specification, and the pilot reports neither, so both are **warnings in every mode**: `-strict`
 promotes notation, and no lint is about notation. Each has a code a surface can switch off
-([diagnostics reference](../reference/diagnostics.md)), and none fires on a model of the four OMG
-corpora, the gate every new warning passes.
+([diagnostics reference](../reference/diagnostics.md)), and neither fires on a model of the four OMG
+corpora, the gate every new warning passes. A third lint, `port-type-mismatch`, was withdrawn; the
+next section records why.
+
+---
+
+### Connecting ports of unrelated or disjoint definitions draws no report
+
+**Question.** `connect x.p1 to y.p2;` joins `port p1 : P1` to `port p2 : P2`, two port definitions
+that neither specialize one another nor a common definition of the model, and whose directed
+features (`out attribute a` against `in attribute b`) are not conjugate. Is the connection
+ill-formed?
+
+**Specification.** No clause constrains the types at the two ends of a connector against one
+another:
+
+- KerML 1.1 §8.3.4.5.3 `Connector` states `checkConnectorTypeFeaturing` (each related feature is
+  featured by the connector's featuring types), `validateConnectorRelatedFeatures` (a concrete
+  connector relates at least two features), `validateConnectorBinarySpecialization` and the
+  `checkConnector*Specialization` library bindings; a connector's `relatedFeature`s are the features
+  its ends reference-subset (`relatedFeature = connectorEnd.ownedReferenceSubsetting.referencedFeature`),
+  and nothing relates one related feature's types to another's.
+- KerML §8.3.4.5.2 `BindingConnector` adds only `validateBindingConnectorIsBinary` and
+  `checkBindingConnectorSpecialization`; a binding makes its two ends one value, which is why
+  `bound-feature-types` judges a `bind` and nothing judges a `connect` the same way.
+- KerML §8.3.4.9.2–3 `Flow`, `FlowEnd` constrain the payload (`validateFlowPayloadFeature`), the ends'
+  shape (`validateFlowEndIsEnd`, `validateFlowEndNestedFeature`, `validateFlowEndOwningType`) and the
+  library bindings (`checkFlowSpecialization`, `checkFlowWithEndsSpecialization`).
+- SysML v2 §8.3.12.5–6 `PortDefinition`, `PortUsage` constrain conjugation structure
+  (`validatePortDefinitionConjugatedPortDefinition`), composition
+  (`validatePortDefinitionOwnedUsagesNotComposite`, `validatePortUsageIsReference`) and the library
+  bindings; §8.3.13.4 `ConnectionUsage` and §8.3.14.3 `InterfaceUsage` add the library bindings and
+  §8.3.14 restricts an interface's ends to ports (§7.14.2: "All the end features of an interface
+  definition or usage must be port usages"); §8.3.16.3 `FlowUsage` adds `validateFlowDefinitionFlowEnds`.
+- SysML v2 §7.12.2 defines the relation the lint tested — "Two ports are said to conform if each
+  feature of one port has a matching feature on the other port" — and gives its consequence: "In this
+  case, if the two ports are connected, it is possible to have a flow between every directed feature
+  of one port and the matching feature on the other port." It then adds "Bindings can also be used to
+  relate features of connected ports". Conformance is the condition under which every directed
+  feature can be paired, not a requirement on a connection; §7.14.1 describes an interface as "a
+  connection all of whose ends are ports" without constraining them further.
+
+**Pilot.** The pinned validator's `checkConnector` (arity, binary specialization, type featuring),
+`checkInterfaceDefinitionEnds`/`checkInterfaceUsageEnds` (ends must be port usages) and
+`checkFlowEnd` are the whole of what it checks on these constructs; it is silent on the fixture
+above, and on the same fixture with `P2` declared `disjoint from P1`.
+
+**Reasoning.** The two ends of a link are distinct features with distinct values (a `connect`
+relates two ports, it does not identify them), so neither unrelated nor disjoint definitions at the
+two ends make the connector unsatisfiable. What *is* provably empty is one feature typed by two
+disjoint types (KerML §8.3.3.3.4: a feature's types are its typings' and its subsetted features'),
+and a connector end reaches that when the connector is typed by an interface or connection
+definition: the end redefines that definition's end (SysML v2 §7.13.2, implicitly by position) and
+reference-subsets the port it attaches to, so `interface : Link connect y.p3 to y.p1c` with `end a :
+P1` in `Link` and `P3 disjoint from P1` has an end typed by both `P1` and `P3`.
+`disjoint-feature-types` already reports that end (issue #1887's principle: disjoint, not unrelated);
+it now names it by its connector and the feature it attaches to (*the end of this interface at
+y.p3*) rather than by its empty name.
+
+**Adjudicated, lint withdrawn.** `port-type-mismatch` reported a `connect`, interface usage or
+`flow` between ports of unrelated definitions whose directed features were not conjugate, as a
+warning. Like `redefinition-type-mismatch` before it, it conflated "unrelated" with "incompatible":
+the specification states no rule for the case, so there is no rule to implement at any severity, and
+the lint is removed rather than narrowed. `port-conjugation`, the one-sided warning on an interface
+*definition* whose two port-typed ends have non-conjugate directed features, is a separate check
+with its own row in [spec-compliance.md](spec-compliance.md) and is unchanged. The four OMG corpora drew no `port-type-mismatch`
+report, so no corpus expectation moves.
 
 ---
 
