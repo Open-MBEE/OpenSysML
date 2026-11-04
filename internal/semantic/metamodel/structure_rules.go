@@ -4585,7 +4585,8 @@ type structureValueCacheEntry struct {
 	handled, ok bool
 }
 
-// memoizedStructureValue reads cache under the evaluator mutex and computes outside it, like the other memos.
+// memoizedStructureValue reads cache under the evaluator mutex and computes outside it;
+// it stores and serves clones, so an edited result never reaches another property.
 func (e *Evaluator) memoizedStructureValue(
 	cache map[ElementKey]structureValueCacheEntry, element Element, compute func(Element) (Value, bool, bool),
 ) (Value, bool, bool) {
@@ -4594,11 +4595,11 @@ func (e *Evaluator) memoizedStructureValue(
 	entry, done := cache[key]
 	e.mu.Unlock()
 	if done {
-		return entry.value, entry.handled, entry.ok
+		return cloneValue(entry.value), entry.handled, entry.ok
 	}
 	value, handled, ok := compute(element)
 	e.mu.Lock()
-	cache[key] = structureValueCacheEntry{value: value, handled: handled, ok: ok}
+	cache[key] = structureValueCacheEntry{value: cloneValue(value), handled: handled, ok: ok}
 	e.mu.Unlock()
 	return value, handled, ok
 }
@@ -4618,11 +4619,11 @@ func (e *Evaluator) structureInheritedMembershipList(element Element) ([]Value, 
 	entry, done := e.structureInherited[key]
 	e.mu.Unlock()
 	if done {
-		return entry.values, entry.ok
+		return slicesClone(entry.values), entry.ok
 	}
 	values, ok := e.computeStructureInheritedMemberships(element)
 	e.mu.Lock()
-	e.structureInherited[key] = structureInheritedCacheEntry{values: values, ok: ok}
+	e.structureInherited[key] = structureInheritedCacheEntry{values: slicesClone(values), ok: ok}
 	e.mu.Unlock()
 	return values, ok
 }
