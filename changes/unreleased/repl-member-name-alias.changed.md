@@ -1,1 +1,0 @@
-- The REPL calls `nsmerge.MemberName` directly instead of through a private forwarding alias; no behaviour change.
