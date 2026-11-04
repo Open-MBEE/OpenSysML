@@ -96,10 +96,10 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		fmt.Fprintf(b, " (%s)", r.Stated)
 	}
 	b.WriteString("\n")
-	w.writeMainframe(r, b)
 	for _, notice := range slices.Concat(r.Notices, notices) {
 		fmt.Fprintf(b, "' not represented: %s\n", notice)
 	}
+	w.writeMainframe(r, b)
 	w.writeStyle(hasDot(r.Roots))
 	if direction != "" {
 		b.WriteString(direction + "\n")

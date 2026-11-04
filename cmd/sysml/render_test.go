@@ -294,7 +294,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 *-- n1\n@enduml\n"} {
+	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\nmainframe <size:10>//«view»//</size> **Demo::overview**\\n<size:10>expose Demo::Vehicle</size>\n<style>", "skinparam wrapWidth 300", "hide circle", `class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 *-- n1\n@enduml\n"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}

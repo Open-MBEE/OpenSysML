@@ -6,32 +6,41 @@ digraph "FlowViews::driveView" {
   graph [fontname="Helvetica", compound=true, splines=ortho, layout=neato, inputscale=72, dpi=72];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  subgraph "cluster_n0" {
-    label=<<font point-size="10"><i>«action def»</i></font><br/><b>Drive</b>>;
-    color=black;
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>FlowViews::driveView</b> : ActionFlowView>;
+    labeljust=l;
+    labelloc=t;
     penwidth=0.5;
-    bb="8,-721,298,-8";
-    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="153,-364.5!", pin=true];
-    "n1" [shape=circle, fillcolor=black, label="", pos="162,-85!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
-    "n2" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>provide</b>>, margin=0, pos="162.5,-223.5!", pin=true, width=1.125, height=0.5138888888888888, fixedsize=true];
-    "n2.0" [shape=box, label="", xlabel="^fuel", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="162.5,-199!", pin=true];
-    "n2.1" [shape=box, label="", xlabel="^torque", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="162.5,-248!", pin=true];
-    subgraph "cluster_n3" {
-      label=<<font point-size="10"><i>«action»</i></font><br/><b>monitor</b><br/>own flow>;
+    margin=8;
+    bb="0,-729,306,20";
+    subgraph "cluster_n0" {
+      label=<<font point-size="10"><i>«action def»</i></font><br/><b>Drive</b>>;
       color=black;
       penwidth=0.5;
-      bb="24,-464,140,-249";
-      "n3" [shape=point, style=invis, width=0, height=0, label="", pos="82,-356.5!", pin=true];
-      "n3.0" [shape=box, label="", xlabel="reading", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="82,-243!", pin=true];
-      "n4" [shape=circle, fillcolor=black, label="", pos="56,-343!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
-      "n5" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>record</b>>, margin=0, pos="76,-429.5!", pin=true, width=1, height=0.5138888888888888, fixedsize=true];
+      bb="8,-721,298,-8";
+      "n0" [shape=point, style=invis, width=0, height=0, label="", pos="153,-364.5!", pin=true];
+      "n1" [shape=circle, fillcolor=black, label="", pos="162,-85!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+      "n2" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>provide</b>>, margin=0, pos="162.5,-223.5!", pin=true, width=1.125, height=0.5138888888888888, fixedsize=true];
+      "n2.0" [shape=box, label="", xlabel="^fuel", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="162.5,-199!", pin=true];
+      "n2.1" [shape=box, label="", xlabel="^torque", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="162.5,-248!", pin=true];
+      subgraph "cluster_n3" {
+        label=<<font point-size="10"><i>«action»</i></font><br/><b>monitor</b><br/>own flow>;
+        color=black;
+        penwidth=0.5;
+        bb="24,-464,140,-249";
+        "n3" [shape=point, style=invis, width=0, height=0, label="", pos="82,-356.5!", pin=true];
+        "n3.0" [shape=box, label="", xlabel="reading", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="82,-243!", pin=true];
+        "n4" [shape=circle, fillcolor=black, label="", pos="56,-343!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+        "n5" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>record</b>>, margin=0, pos="76,-429.5!", pin=true, width=1, height=0.5138888888888888, fixedsize=true];
+      }
+      "n6" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>tally</b>>, margin=0, pos="250,-342.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888, fixedsize=true];
+      "n7" [fillcolor=black, label="", xlabel="split", pos="162,-150!", pin=true, width=1.6666666666666667, height=0.1388888888888889, fixedsize=true];
+      "n8" [fillcolor=black, label="", xlabel="sync", pos="222,-430!", pin=true, width=1.6666666666666667, height=0.1388888888888889, fixedsize=true];
+      "n9" [shape=doublecircle, fillcolor=black, label="", pos="194,-690!", pin=true, width=0.4166666666666667, height=0.4166666666666667, fixedsize=true];
+      "n10" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>park</b>>, margin=0, pos="236,-606.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888, fixedsize=true];
+      "n11" [shape=diamond, label="", xlabel="check", pos="222,-518!", pin=true, width=0.5555555555555556, height=0.5555555555555556, fixedsize=true];
     }
-    "n6" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>tally</b>>, margin=0, pos="250,-342.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888, fixedsize=true];
-    "n7" [fillcolor=black, label="", xlabel="split", pos="162,-150!", pin=true, width=1.6666666666666667, height=0.1388888888888889, fixedsize=true];
-    "n8" [fillcolor=black, label="", xlabel="sync", pos="222,-430!", pin=true, width=1.6666666666666667, height=0.1388888888888889, fixedsize=true];
-    "n9" [shape=doublecircle, fillcolor=black, label="", pos="194,-690!", pin=true, width=0.4166666666666667, height=0.4166666666666667, fixedsize=true];
-    "n10" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>park</b>>, margin=0, pos="236,-606.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888, fixedsize=true];
-    "n11" [shape=diamond, label="", xlabel="check", pos="222,-518!", pin=true, width=0.5555555555555556, height=0.5555555555555556, fixedsize=true];
+    "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Flows::Drive</font>>, pos="210,-26!", pin=true, width=2.4444444444444446, height=0.5];
   }
   "n4" -> "n5" [style=dashed, arrowhead=vee, pos="e,94,-411 66,-343 66,-343 94,-343 94,-343 94,-343 94,-401 94,-401"];
   "n1" -> "n7" [style=dashed, arrowhead=vee, pos="e,162,-145 162,-95 162,-95 162,-135 162,-135"];

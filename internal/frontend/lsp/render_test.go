@@ -1323,7 +1323,7 @@ package StyledViews {
 	}
 	plain := render(t, "KitViews::widgetTree", "dot", "", "")
 	pilot := render(t, "KitViews::widgetTree", "dot", "pilot", "")
-	if plain.Style != "pilot" || pilot.Artifact != plain.Artifact || strings.Contains(plain.Artifact, "cluster_frame") {
+	if plain.Style != "pilot" || pilot.Artifact != plain.Artifact || strings.Contains(plain.Artifact, `color="#5B5B59";`) {
 		t.Errorf("default style %q; the pilot artifact differs from the default or frames the diagram:\n%s", plain.Style, plain.Artifact)
 	}
 	mermaid := render(t, "KitViews::widgetTree", "mermaid", "cameo", "")
@@ -1379,7 +1379,7 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 		t.Fatalf("Initialize err = %v", err)
 	}
 	experimental := experimentalCaps(t, res)
-	wantNames := []string{"parameter-symbols", "port-symbols", "compartments", "edge-labels", "keywords", "multiplicities", "typings", "qualifiers", "all"}
+	wantNames := []string{"parameter-symbols", "port-symbols", "compartments", "edge-labels", "keywords", "multiplicities", "typings", "qualifiers", "annotations", "all"}
 	if advertised, _ := experimental[RenderElementsCapability].([]string); !slices.Equal(advertised, wantNames) {
 		t.Fatalf("%s = %#v, want %v", RenderElementsCapability, experimental[RenderElementsCapability], wantNames)
 	}
@@ -1402,8 +1402,8 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
-	if !slices.Equal(plain.Shown, []string{"port-symbols", "compartments", "keywords"}) {
-		t.Errorf("shown = %v, want the default, port-symbols, compartments then keywords", plain.Shown)
+	if !slices.Equal(plain.Shown, []string{"port-symbols", "compartments", "keywords", "annotations"}) {
+		t.Errorf("shown = %v, want the default, port-symbols, compartments, keywords then annotations", plain.Shown)
 	}
 	if strings.Contains(plain.Artifact, `label="wire"`) {
 		t.Errorf("the default drew an edge label:\n%s", plain.Artifact)
@@ -1412,7 +1412,7 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render show=edge-labels: %v", err)
 	}
-	if !slices.Equal(shown.Shown, []string{"port-symbols", "compartments", "edge-labels", "keywords"}) {
+	if !slices.Equal(shown.Shown, []string{"port-symbols", "compartments", "edge-labels", "keywords", "annotations"}) {
 		t.Errorf("shown = %v, want the default and edge-labels", shown.Shown)
 	}
 	if !strings.Contains(shown.Artifact, `label="wire"`) {

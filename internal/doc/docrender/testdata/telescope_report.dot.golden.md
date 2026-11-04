@@ -89,13 +89,21 @@ digraph "Observatory::interconnectView" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  subgraph "cluster_n0" {
-    label=<<font point-size="10"><i>«part»</i></font><br/><b>imagingChain</b>>;
-    color=black;
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>Observatory::interconnectView</b>>;
+    labeljust=l;
+    labelloc=t;
     penwidth=0.5;
-    "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>camera</b></td></tr></table></td></tr><tr><td></td><td port="n1.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^output</font></td><td></td></tr></table>>];
-    "n2" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n2.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^input</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>recorder</b></td></tr></table></td></tr></table>>];
+    margin=8;
+    subgraph "cluster_n0" {
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>imagingChain</b>>;
+      color=black;
+      penwidth=0.5;
+      "n0" [shape=point, style=invis, width=0, height=0, label=""];
+      "n1" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>camera</b></td></tr></table></td></tr><tr><td></td><td port="n1.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^output</font></td><td></td></tr></table>>];
+      "n2" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n2.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^input</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>recorder</b></td></tr></table></td></tr></table>>];
+    }
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose imagingChain</font>>]; }
   }
   "n1":"n1.0" -> "n2":"n2.0" [arrowhead=none, penwidth=3];
 }

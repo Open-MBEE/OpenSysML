@@ -1,8 +1,8 @@
 @startuml
 ' AmplifierViews::positioned — tree rendering (render asTreeDiagram)
-mainframe <size:10>//«view»//</size> **AmplifierViews::positioned**\n<size:10>expose Amplifier::Stage</size>\n<size:10>expose Amplifier::Housing</size>\n<size:10>expose Amplifier::Band</size>
 ' not represented: 10 node(s) without a position, drawn as compartment rows of the node above them, and 1 node(s) under them left undrawn
 ' not represented: 5 positioned node(s) and 0 route(s) kept as comments; PlantUML pins no position, the dot form does
+mainframe <size:10>//«view»//</size> **AmplifierViews::positioned**\n<size:10>expose Amplifier::Stage</size>\n<size:10>expose Amplifier::Housing</size>\n<size:10>expose Amplifier::Band</size>
 <style>
 root {
   BackGroundColor white

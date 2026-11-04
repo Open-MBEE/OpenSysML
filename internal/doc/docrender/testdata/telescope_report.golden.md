@@ -103,6 +103,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» Observatory::interconnectView"
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR

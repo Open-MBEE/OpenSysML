@@ -163,6 +163,11 @@ func drawioSameCell(edited *view.DrawioFile, content string, cell *view.DrawioCe
 		}
 		return ""
 	}
+	if !cell.Edge && cell.FQN == "" {
+		if c := re.Cell(cell.ID); c != nil && !c.Edge {
+			return c
+		}
+	}
 	if !cell.Edge {
 		return drawioFirst(re, func(c *view.DrawioCell) bool {
 			return !c.Edge && c.Kind == cell.Kind && c.FQN == cell.FQN && fqnOf(re, c.Parent) == fqnOf(edited, cell.Parent)
