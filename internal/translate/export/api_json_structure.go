@@ -29,8 +29,10 @@ type apiJSONGraphStructure struct {
 }
 
 type apiJSONEvaluation struct {
-	structure *apiJSONGraphStructure
-	evaluator *metamodel.Evaluator
+	structure   *apiJSONGraphStructure
+	evaluator   *metamodel.Evaluator
+	catalogOnce sync.Once
+	catalog     *identity.Catalog
 }
 
 func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {

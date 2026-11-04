@@ -21,7 +21,8 @@ const apiJSONExplicitDefaultsKey = "sysx:explicitDefaults"
 // the element form reserves for its own markers and so never writes as a graph fact.
 func apiJSONReservedPredicate(predicate string) bool {
 	return predicate == rdf.OpenSysML+strings.TrimPrefix(apiJSONStatedDefaultsKey, "sysx:") ||
-		predicate == rdf.OpenSysML+strings.TrimPrefix(apiJSONExplicitDefaultsKey, "sysx:")
+		predicate == rdf.OpenSysML+strings.TrimPrefix(apiJSONExplicitDefaultsKey, "sysx:") ||
+		predicate == rdf.OpenSysML+strings.TrimPrefix(apiJSONCompletedPropertiesKey, "sysx:")
 }
 
 // apiJSONExternalForm reports whether the graph is already an external

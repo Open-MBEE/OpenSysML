@@ -2196,6 +2196,23 @@ boolean at the implied value (`sysml:isAbstract false` written by hand) keeps
 it: the element lists such members in `"sysx:explicitDefaults": [...]`, and the
 reader takes them as the statements they are. Both keys are reserved for these
 markers — a `sysx:statedDefaults` or `sysx:explicitDefaults` predicate in the
+graph is never written as a fact.
+
+**Derived properties.** The graph states a derived property only where the
+notation's mapping has a reason to (`owner`, `owningNamespace`, a membership's
+ends and names, an expression's `function` and `argument`); the OMG API JSON
+shape states every derived property of the metaclass. The writer completes the
+ones the metamodel evaluator (`internal/semantic/metamodel`) derives from the
+graph and the library, each as its `derive*` constraint of KerML 1.1 §8.3
+defines it — `Element::isLibraryElement` (8.3.2.1.2) — and lists the keys it
+completed on the element in `"sysx:completedProperties": [...]`; a property the
+graph states is written as stated and not listed. Reading a document that
+carries `sysx:statedDefaults`, a listed property is the writer's completion and
+states no triple, so the graph read back is the graph written; without the
+marker, or in a document another writer produced, every stated property is the
+statement it looks like. The compact form's `omit_derived` leaves the completed
+properties out with the other derived ones, and the list with them. The key is
+reserved like the two above: a `sysx:completedProperties` predicate in the
 graph is never written as a fact. A graph that is already an external writer's
 element form (one stating `isImpliedIncluded`, which this mapping never does)
 is written as it is: nothing is completed and no marker is set, so the document

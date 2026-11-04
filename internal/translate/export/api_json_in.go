@@ -486,6 +486,7 @@ type apiJSONElementData struct {
 	toolkitForm          bool
 	statedDefaults       bool
 	explicitDefaults     map[string]bool
+	completedProperties  map[string]bool
 }
 
 var apiJSONInteger = regexp.MustCompile(`^-?[0-9]+$`)
@@ -665,6 +666,10 @@ func (emitter *apiJSONMappingEmitter) member(member apiJSONMember) error {
 	}
 	if emitter.statedDefaults && !object.explicitDefaults[member.key] &&
 		apiJSONImpliedBoolean(emitter.typ, member, object.members) {
+		return nil
+	}
+	// A derived property the writer completed states no triple; the graph derives it again.
+	if emitter.statedDefaults && object.completedProperties[member.key] {
 		return nil
 	}
 	predicate, sysmlKey, err := emitter.cache.predicate(member.key)
@@ -1139,18 +1144,23 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 			}
 			continue
 		}
-		if key == apiJSONExplicitDefaultsKey {
+		if key == apiJSONExplicitDefaultsKey || key == apiJSONCompletedPropertiesKey {
 			names, ok := value.([]any)
 			if !ok {
 				return object, fmt.Errorf("%s is an array of property names, not %v", key, value)
 			}
-			object.explicitDefaults = make(map[string]bool, len(names))
+			named := make(map[string]bool, len(names))
 			for _, name := range names {
 				text, ok := name.(string)
 				if !ok {
 					return object, fmt.Errorf("%s names a property with a string, not %v", key, name)
 				}
-				object.explicitDefaults[text] = true
+				named[text] = true
+			}
+			if key == apiJSONExplicitDefaultsKey {
+				object.explicitDefaults = named
+			} else {
+				object.completedProperties = named
 			}
 			continue
 		}

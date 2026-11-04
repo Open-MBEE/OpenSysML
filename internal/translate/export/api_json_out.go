@@ -434,6 +434,7 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	if hasMappingName && !mappingNameEmitted {
 		element = append(element, apiJSONMember{key: apiJSONMappingQualifiedNameKey, value: mappingName})
 	}
+	element = w.completeDerived(subject, metaclass, element)
 	if len(mappingValues) > 0 {
 		member := apiJSONMember{key: apiJSONMappingValuesKey, value: mappingValues}
 		if mappingValuesPosition < 0 {
