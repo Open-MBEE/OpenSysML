@@ -86,7 +86,7 @@ func (m *Model) TextualRepresentationOf(sym *symbols.Symbol) []string {
 // AnnotationBodyOf is Comment::body or TextualRepresentation::body of the
 // comment, documentation or textual representation sym declares, exact
 // (source.CommentBody) and "" for an empty one; false for any other element
-// or when the notation cannot be read.
+// or when the notation of its document cannot be read.
 func (m *Model) AnnotationBodyOf(sym *symbols.Symbol) (string, bool) {
 	if m == nil || sym == nil || m.sourceText == nil {
 		return "", false
@@ -102,10 +102,12 @@ func (m *Model) AnnotationBodyOf(sym *symbols.Symbol) (string, bool) {
 	default:
 		return "", false
 	}
-	if span.Len == 0 {
+	// A body token is at least `/**/`, so an empty read is a document the lookup lacks.
+	raw := m.sourceText(sym.DocName, span)
+	if raw == "" {
 		return "", false
 	}
-	return m.commentBody(sym, span), true
+	return source.CommentBody(raw), true
 }
 
 // commentBody is Comment::body of the comment or documentation sym declares

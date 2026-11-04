@@ -198,3 +198,30 @@ func TestAnnotationBodyOfAnEmptyCommentIsTheEmptyString(t *testing.T) {
 		}
 	}
 }
+
+// A lookup that lacks the annotation's document reads nothing for it: the body
+// is absent, not the empty string a blank `/* */` reports.
+func TestAnnotationBodyOfAnUnreadableDocumentIsAbsent(t *testing.T) {
+	file := source.New("annotated.sysml", []byte(annotatedModel))
+	root := parser.New(file).ParseFile()
+	index := symbols.NewIndex()
+	index.AddDocument(file.Name(), root)
+	resolver := resolve.New(index)
+	model := semantics.NewModel(resolver)
+	resolver.SetModel(model)
+	model.SetSourceText(func(doc string, span source.Span) string {
+		if doc != "other.sysml" {
+			return ""
+		}
+		return file.Text(span)
+	})
+	reader := NewPropertyReader(index, resolver, model)
+	bbb := index.LookupQualified("Model::bbb")[0]
+	rep := anonymousMember(t, bbb, symbols.SymbolTextualRepresentation)
+	if got, ok := reader.Values(rep, PropertyBody); ok || len(got) != 0 {
+		t.Errorf("body of an unreadable document = %q, %v; want absent", got, ok)
+	}
+	if got, ok := reader.Values(bbb, PropertyTextualRepresentation); ok || len(got) != 0 {
+		t.Errorf("textualRepresentation of an unreadable document = %q, %v; want absent", got, ok)
+	}
+}
