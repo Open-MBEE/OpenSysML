@@ -1669,6 +1669,11 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 		left -= float64(len(keyword)) * dotLineHeight(keywordSize)
 		parts.keyword = l.sized(base, keywordSize, l.keywordText(dotEscapeLines(keyword)))
 	}
+	// The ellipsis keeps its line at the foot of the box ahead of the compartments.
+	if mark := dotLineHeight(size); l.elided(node) && mark <= left {
+		left -= mark
+		parts.elided = true
+	}
 	room := fits
 	for _, line := range l.details(node) {
 		wrapped := dotWrap(line, width, size, false)
@@ -1701,7 +1706,6 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 		left = below
 		parts.compartments = append(parts.compartments, fitted)
 	}
-	parts.elided = l.elided(node)
 	return parts
 }
 
@@ -1796,7 +1800,7 @@ func (l labeller) assemble(parts labelParts) string {
 	} else if parts.keyword != "" {
 		title = parts.keyword + "<br/>" + title
 	}
-	if len(parts.compartments) == 0 {
+	if len(parts.compartments) == 0 && !parts.elided {
 		if !l.skin.cameo {
 			return "<" + strings.Join(append([]string{title}, parts.details...), "<br/>") + ">"
 		}

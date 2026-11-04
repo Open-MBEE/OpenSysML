@@ -213,6 +213,7 @@ type folder struct {
 	mode                  Compartments
 	owners                map[string]string  // folded node ID -> the ID of the node whose row it is
 	rows                  map[string]*Node   // folded node ID -> the node, a row or one left undrawn under a row
+	copies                map[string][]*Node // nested port ID -> the row copies rowsUnder lists it as
 	nesting               map[[2]string]bool // the membership edges drawn from a node to one nested in it
 	drawn, hidden, nested int
 }
@@ -368,6 +369,10 @@ func (f *folder) rowsUnder(row *Node) []*Node {
 			sub.Name, sub.Children, sub.NameSynthesized = path+"."+child.Name, nil, false
 			typeRow(&sub)
 			rows = append(rows, &sub)
+			if f.copies == nil {
+				f.copies = map[string][]*Node{}
+			}
+			f.copies[child.ID] = append(f.copies[child.ID], &sub)
 			walk(child, sub.Name)
 		}
 	}
@@ -493,6 +498,9 @@ func (f *folder) grey(ids ...string) {
 	for _, id := range ids {
 		if row, ok := f.rows[id]; ok {
 			row.Greyed = true
+		}
+		for _, copy := range f.copies[id] {
+			copy.Greyed = true
 		}
 	}
 }

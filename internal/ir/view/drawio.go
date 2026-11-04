@@ -431,8 +431,9 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 	}
 	compartments := w.compartments(node)
 	header := w.headerHeight(node)
+	ellipsis := w.ellipsisHeight(node)
 	w.openObject(drawioObject{id: node.ID, label: strings.Join(w.headerLines(node), "\n"), fqn: fqn, kind: node.Kind, link: w.link(node.Origin), name: w.nodeName(node)})
-	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0))
+	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0 || ellipsis > 0))
 	w.b.WriteString(` vertex="1"`)
 	if collapsed(node) {
 		w.b.WriteString(` collapsed="1"`)
@@ -452,8 +453,10 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 		w.writeCompartment(fmt.Sprintf("%s:c%d", node.ID, i), node, compartment, drawioBox{Y: y, Width: box.Width, Height: height})
 		y += height
 	}
-	if height := w.ellipsisHeight(node); height > 0 {
-		w.writeTextCell(node.ID+":ellipsis", node, ellipsisMark, drawioBox{Y: y, Width: box.Width, Height: height})
+	if ellipsis > 0 {
+		// A stated box too short for the mark keeps it inside, at its lower left.
+		y = math.Min(y, math.Max(0, box.Height-ellipsis))
+		w.writeTextCell(node.ID+":ellipsis", node, ellipsisMark, drawioBox{Y: y, Width: box.Width, Height: ellipsis})
 	}
 	w.writePorts(node, nested)
 	for _, child := range node.Children {

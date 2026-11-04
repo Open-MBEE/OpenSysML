@@ -1,6 +1,8 @@
 package view
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -10,12 +12,20 @@ import (
 // shows no compartments at all.
 func TestElidedCompartmentsCarryTheEllipsis(t *testing.T) {
 	for _, form := range []Form{FormDot, FormMermaid, FormPlantUML, FormD2, FormDrawio, FormText} {
-		selective, err := render(t, "suppressed-compartments.sysml", "CameraViews::selective").Write(form)
-		if err != nil {
-			t.Fatalf("write selective %s: %v", form, err)
+		// A 33 pt stated box holds its head alone: DOT, which fits the label to the
+		// stated size, has no room for the mark there and drops it as it drops rows.
+		views := []string{"selective", "roomy", "collapsed", "cramped"}
+		if form == FormDot {
+			views = views[:2]
 		}
-		if !strings.Contains(string(selective), ellipsisMark) {
-			t.Errorf("%s: a node with hidden compartments lacks the %s mark", form, ellipsisMark)
+		for _, view := range views {
+			out, err := render(t, "suppressed-compartments.sysml", "CameraViews::"+view).Write(form)
+			if err != nil {
+				t.Fatalf("write %s %s: %v", view, form, err)
+			}
+			if !strings.Contains(string(out), ellipsisMark) {
+				t.Errorf("%s %s: a node with hidden compartments lacks the %s mark", view, form, ellipsisMark)
+			}
 		}
 		bare, err := render(t, "suppressed-compartments.sysml", "CameraViews::bare").Write(form)
 		if err != nil {
@@ -32,6 +42,44 @@ func TestElidedCompartmentsCarryTheEllipsis(t *testing.T) {
 	if strings.Contains(string(plain), ellipsisMark) {
 		t.Errorf("a node with every row listed carries the %s mark", ellipsisMark)
 	}
+}
+
+// A draw.io box whose stated height leaves no room under its header still
+// keeps the ellipsis cell inside it, at its lower left.
+func TestDrawioEllipsisStaysInsideAStatedBox(t *testing.T) {
+	out, err := render(t, "suppressed-compartments.sysml", "CameraViews::collapsed").Write(FormDrawio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cell := regexp.MustCompile(`<mxCell id="([^"]+):ellipsis"[^>]*parent="([^"]+)"[^>]*>\s*<mxGeometry([^>]*)/>`).FindStringSubmatch(string(out))
+	if cell == nil {
+		t.Fatalf("no ellipsis cell:\n%s", out)
+	}
+	if cell[1] != cell[2] {
+		t.Errorf("the ellipsis cell of %s is parented to %s", cell[1], cell[2])
+	}
+	y, height := drawioGeometryAttr(t, cell[3], "y"), drawioGeometryAttr(t, cell[3], "height")
+	box := regexp.MustCompile(`<object id="` + regexp.QuoteMeta(cell[1]) + `"[^>]*>\s*<mxCell[^>]*>\s*<mxGeometry([^>]*)/>`).FindStringSubmatch(string(out))
+	if box == nil {
+		t.Fatalf("no box %s:\n%s", cell[1], out)
+	}
+	if stated := drawioGeometryAttr(t, box[1], "height"); y+height > stated {
+		t.Errorf("the ellipsis cell at y=%v, height %v leaves the box's stated height %v", y, height, stated)
+	}
+}
+
+// drawioGeometryAttr reads one numeric attribute of an mxGeometry's attribute text, 0 when absent.
+func drawioGeometryAttr(t *testing.T, attrs, name string) float64 {
+	t.Helper()
+	m := regexp.MustCompile(` ` + name + `="([^"]*)"`).FindStringSubmatch(attrs)
+	if m == nil {
+		return 0
+	}
+	v, err := strconv.ParseFloat(m[1], 64)
+	if err != nil {
+		t.Fatalf("%s=%q: %v", name, m[1], err)
+	}
+	return v
 }
 
 // A compartment row an edge ends at — the membership line folded to its
