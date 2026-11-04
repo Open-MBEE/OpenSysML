@@ -68,7 +68,7 @@
         "document": "sysml",
         "clause": "8.3.17.4"
       },
-      "checks": "An action is typed by action definitions",
+      "checks": "An action is typed by Behaviors: action definitions nominally, and any definition kind that is a Behavior (a state, calculation, case, flow, constraint or requirement definition among them)",
       "implementation": "internal/check/passes/typecheck.go:compatibleTyping (messages in internal/check/passes/w10b_usage_typing.go:pilotTypingMessage)",
       "message": "—",
       "negativeCase": "`semantic/s01-action-typed-by-part-def.sysml`",
@@ -445,7 +445,7 @@
         "document": "sysml",
         "clause": "8.3.7.3"
       },
-      "checks": "An attribute is typed by attribute definitions",
+      "checks": "An attribute is typed by data types (attribute and enumeration definitions), whatever its direction",
       "implementation": "internal/check/passes/typecheck.go:compatibleTyping (messages in internal/check/passes/w10b_usage_typing.go:pilotTypingMessage)",
       "message": "—",
       "negativeCase": "`xpect/p15-attribute-typed-by-part-def.sysml`",
@@ -551,7 +551,7 @@
         "document": "sysml",
         "clause": "8.3.19.3"
       },
-      "checks": "A calculation is typed by one calculation definition",
+      "checks": "A calculation is typed by one Function, counting effective types: a declared supertype of another declared type is redundant, and the implied base `Calculations::Calculation` is a second type beside any declared Function that does not specialize it (a constraint definition), as the pilot counts it",
       "implementation": "internal/check/passes/one_type.go:checkOneType",
       "message": "—",
       "negativeCase": "`semantic/s07-calc-typed-by-action-def.sysml`",
@@ -2806,8 +2806,8 @@
         "clause": "8.3.2.4.5",
         "name": "validateNamespaceDistinguishibility"
       },
-      "checks": "Memberships of a namespace — owned, inherited and imported — are distinguishable by name and short name, unless their member elements' metaclasses conform in neither direction (KerML 8.3.2.4.3; a warning by default and, for owned, alias, short-name and inherited memberships, an error under strict conformance; the pilot's constant is spelled `Distinguishablity`, the pilot does not implement the metaclass clause, and it never compares an imported membership with another imported or an inherited one). For imported memberships the constraint is reached through KerML 7.2.5.4, which hides a name two imports bring; the warning reports the hidden pair, but resolution binds the first import's member, as the pilot does, where the clause leaves the reference unresolved — hence approximate. One membership two imports reach, two memberships of one element, an imported name an owned member hides and library content are not reported",
-      "implementation": "internal/semantic/resolve/distinguishability.go:checkOwnedNames; internal/semantic/resolve/distinguishability.go:checkInheritedNames; internal/semantic/resolve/distinguishability.go:checkImportedNames; internal/semantic/resolve/distinguishability.go:Resolver.DistinguishableByMetaclass",
+      "checks": "Memberships of a namespace — owned, inherited and imported — are distinguishable by name and short name, unless their member elements' metaclasses conform in neither direction (KerML 8.3.2.4.3; a warning by default and, for owned, alias, short-name and inherited memberships, an error under strict conformance; the pilot's constant is spelled `Distinguishablity`, the pilot does not implement the metaclass clause, and it never compares an imported membership with another imported or an inherited one). Imported memberships never reach the constraint: KerML 7.2.5.4 hides a membership whose name another import, an owned member or (7.3.2) an inherited member repeats, so the namespace keeps no indistinguishable pair; the hiding is a derivation, nothing is reported for it, and a reference to the hidden name is unresolved, as the clause leaves it. One membership two imports reach, two memberships of one element and library content are not hidden",
+      "implementation": "internal/semantic/resolve/distinguishability.go:checkOwnedNames; internal/semantic/resolve/distinguishability.go:checkInheritedNames; internal/semantic/resolve/distinguishability.go:hideImportCollisions; internal/semantic/resolve/distinguishability.go:hiddenImports; internal/semantic/resolve/distinguishability.go:Resolver.DistinguishableByMetaclass",
       "message": "—",
       "negativeCase": "none",
       "codes": [
@@ -2816,8 +2816,7 @@
       "passes": [
         "name-resolution"
       ],
-      "status": "approximate",
-      "rationale": "a name two imports hide is reported but still resolves to the first import's member, where KerML 7.2.5.4 leaves the reference unresolved"
+      "status": "faithful"
     },
     {
       "name": "validateObjectiveMembershipIsComposite",
@@ -3551,7 +3550,7 @@
         "document": "sysml",
         "clause": "8.3.21.9"
       },
-      "checks": "A requirement is typed by one requirement definition",
+      "checks": "A requirement is typed by one RequirementDefinition, a concern or viewpoint definition among them, counting effective types (a declared supertype of another declared type is redundant)",
       "implementation": "internal/check/passes/one_type.go:checkOneType",
       "message": "—",
       "negativeCase": "`semantic/s31-requirement-typed-by-constraint-def.sysml`",
@@ -3894,7 +3893,7 @@
         "document": "sysml",
         "clause": "8.3.18.6"
       },
-      "checks": "A state is typed by state definitions",
+      "checks": "A state is typed by Behaviors: state definitions nominally, and any definition kind that is a Behavior (an action or calculation definition among them)",
       "implementation": "internal/check/passes/typecheck.go:compatibleTyping (messages in internal/check/passes/w10b_usage_typing.go:pilotTypingMessage)",
       "message": "—",
       "negativeCase": "`semantic/s35-state-typed-by-part-def.sysml`",
@@ -4550,7 +4549,7 @@
         "document": "sysml",
         "clause": "8.3.24.4"
       },
-      "checks": "A verification case is typed by one verification case definition",
+      "checks": "A verification case is typed by one case definition, counting effective types: the implied base `VerificationCases::VerificationCase` is a second type beside a declared case definition that does not specialize it",
       "implementation": "internal/check/passes/one_type.go:checkOneType",
       "message": "—",
       "negativeCase": "`semantic/s39-verification-typed-by-case-def.sysml`",

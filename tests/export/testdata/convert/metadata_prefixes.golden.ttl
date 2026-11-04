@@ -517,15 +517,18 @@ elmt:Prefixed__wheel
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "wheel" ;
     sysml:isEnd "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Prefixed__wheel___400 ;
-    sysml:ownedMembership elmt:Prefixed__wheel___400_om ;
-    sysml:ownedRelationship elmt:Prefixed__wheel___400_om, elmt:Prefixed__wheel_ft0 ;
+    sysml:ownedMember elmt:Prefixed__wheel___400, expr:Prefixed__wheel_pmultiplicity ;
+    sysml:ownedMembership elmt:Prefixed__wheel___400_om, expr:Prefixed__wheel_pmultiplicity_om ;
+    sysml:ownedRelationship elmt:Prefixed__wheel___400_om, elmt:Prefixed__wheel_ft0, expr:Prefixed__wheel_pmultiplicity_om ;
     sysml:type elmt:Prefixed__Car ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Prefixed__wheel_pmultiplicity ;
     sysml:ownedTyping elmt:Prefixed__wheel_ft0 ;
     sysml:ownedSpecialization elmt:Prefixed__wheel_ft0 ;
     sysx:sourceText "    end #Safety part wheel : Car;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Prefixed__wheel___400_om\"},{\"@id\":\"Prefixed__wheel_ft0\"}]" .
+    json:ownedMember "[{\"@id\":\"Prefixed__wheel___400\"},{\"@id\":\"Prefixed__wheel_pmultiplicity\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Prefixed__wheel___400_om\"},{\"@id\":\"Prefixed__wheel_pmultiplicity_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Prefixed__wheel___400_om\"},{\"@id\":\"Prefixed__wheel_ft0\"},{\"@id\":\"Prefixed__wheel_pmultiplicity_om\"}]" .
 
 elmt:Prefixed__wheel_om
     a sysml:OwningMembership ;
@@ -576,6 +579,28 @@ elmt:Prefixed__wheel___400_om
     sysml:target elmt:Prefixed__wheel___400 ;
     sysml:relatedElement elmt:Prefixed__wheel, elmt:Prefixed__wheel___400 ;
     json:relatedElement "[{\"@id\":\"Prefixed__wheel\"},{\"@id\":\"Prefixed__wheel___400\"}]" .
+
+expr:Prefixed__wheel_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Prefixed__wheel_pmultiplicity" ;
+    sysml:owner elmt:Prefixed__wheel ;
+    sysml:owningRelationship expr:Prefixed__wheel_pmultiplicity_om ;
+    sysml:owningMembership expr:Prefixed__wheel_pmultiplicity_om .
+
+expr:Prefixed__wheel_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Prefixed__wheel_pmultiplicity_om" ;
+    sysml:owner elmt:Prefixed__wheel ;
+    sysml:memberElement expr:Prefixed__wheel_pmultiplicity ;
+    sysml:ownedMemberElement expr:Prefixed__wheel_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Prefixed__wheel_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Prefixed__wheel ;
+    sysml:membershipOwningNamespace elmt:Prefixed__wheel ;
+    sysml:source elmt:Prefixed__wheel ;
+    sysml:target expr:Prefixed__wheel_pmultiplicity ;
+    sysml:relatedElement elmt:Prefixed__wheel, expr:Prefixed__wheel_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Prefixed__wheel\"},{\"@id\":\"Prefixed__wheel_pmultiplicity\"}]" .
 
 elmt:Prefixed__Notes
     a sysml:Package ;
@@ -1504,7 +1529,7 @@ elmt:Prefixed__Braking__braked
     sysml:owningMembership elmt:Prefixed__Braking__braked_om ;
     sysml:declaredName "braked" ;
     sysx:declaredKeyword "constraint" ;
-    sysml:ownedMember elmt:Prefixed__Braking__braked___400 ;
+    sysml:ownedMember elmt:Prefixed__Braking__braked___400, expr:Prefixed__Braking__braked_pmultiplicity ;
     sysml:ownedMembership elmt:Prefixed__Braking__braked___400_om, expr:Prefixed__Braking__braked_pmultiplicity_om, expr:Prefixed__Braking__braked_pvalue_om ;
     sysml:ownedRelationship elmt:Prefixed__Braking__braked___400_om, expr:Prefixed__Braking__braked_pmultiplicity_om, expr:Prefixed__Braking__braked_pvalue_om ;
     sysml:multiplicity expr:Prefixed__Braking__braked_pmultiplicity ;
@@ -1512,6 +1537,7 @@ elmt:Prefixed__Braking__braked
     sysml:value expr:Prefixed__Braking__braked_pvalue ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        require #Safety constraint braked[1] = true;\n" ;
+    json:ownedMember "[{\"@id\":\"Prefixed__Braking__braked___400\"},{\"@id\":\"Prefixed__Braking__braked_pmultiplicity\"}]" ;
     json:ownedMembership "[{\"@id\":\"Prefixed__Braking__braked___400_om\"},{\"@id\":\"Prefixed__Braking__braked_pmultiplicity_om\"},{\"@id\":\"Prefixed__Braking__braked_pvalue_om\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Prefixed__Braking__braked___400_om\"},{\"@id\":\"Prefixed__Braking__braked_pmultiplicity_om\"},{\"@id\":\"Prefixed__Braking__braked_pvalue_om\"}]" .
 

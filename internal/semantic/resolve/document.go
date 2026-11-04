@@ -925,11 +925,15 @@ func (r *Resolver) featureOf(sym *symbols.Symbol, name string, walk featureWalk)
 
 func (r *Resolver) searchFeatureOf(sym *symbols.Symbol, name string, walk featureWalk) (*symbols.Symbol, bool) {
 	if sym.Scope != nil {
-		if found, ok := walk.hide.lookupLocal(sym.Scope, name); ok && inheritableMember(found) {
+		// An import an owned or inherited name of sym hides is no member of sym.
+		found, ok := walk.hide.lookupLocal(sym.Scope, name)
+		if ok && inheritableMember(found) && (found.OwnerScope == sym.Scope || !r.HidesImportedName(sym.Scope, name)) {
 			return found, true
 		}
-		if found, ok := r.importedFeatureOf(sym, name); ok && !walk.hide.hides(found) {
-			return found, true
+		if !ok {
+			if found, ok := r.importedFeatureOf(sym, name); ok && !walk.hide.hides(found) && !r.HidesImportedName(sym.Scope, name) {
+				return found, true
+			}
 		}
 	} else if sym.Decl == nil && r.idx != nil {
 		// A restored library symbol has no scope; its members are indexed.
