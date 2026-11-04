@@ -669,7 +669,7 @@ func (emitter *apiJSONMappingEmitter) member(member apiJSONMember) error {
 		return nil
 	}
 	// A derived property the writer completed states no triple; the graph derives it again.
-	if emitter.statedDefaults && object.completedProperties[member.key] {
+	if object.completedProperties[member.key] {
 		return nil
 	}
 	predicate, sysmlKey, err := emitter.cache.predicate(member.key)

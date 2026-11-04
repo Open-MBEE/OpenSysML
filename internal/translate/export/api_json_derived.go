@@ -25,6 +25,10 @@ type apiJSONCompletedProperty struct {
 // element form writes them. A class's entry applies to every metaclass under it.
 var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Element", name: "isLibraryElement", clause: "8.3.2.1.2 deriveElementIsLibraryElement"},
+	{class: "Membership", name: "memberElementId", clause: "8.3.2.4.3 deriveMembershipMemberElementId"},
+	{class: "OwningMembership", name: "ownedMemberElementId", clause: "8.3.2.4.8 ownedMemberElementId redefines memberElementId"},
+	{class: "OwningMembership", name: "ownedMemberName", clause: "8.3.2.4.8 deriveOwningMembershipOwnedMemberName"},
+	{class: "OwningMembership", name: "ownedMemberShortName", clause: "8.3.2.4.8 deriveOwningMembershipOwnedMemberShortName"},
 }
 
 // apiJSONCompletedPropertyNames maps every completed property name to the
