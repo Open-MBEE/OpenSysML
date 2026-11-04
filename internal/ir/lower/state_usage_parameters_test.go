@@ -136,3 +136,27 @@ func TestToStateGraphUsageRedefinesConnection(t *testing.T) {
 		t.Fatalf("ends = %v, want [a c]", got)
 	}
 }
+
+// A redefinition that restates no ends inherits them: the inherited route stays.
+func TestToStateGraphUsageRedefinesConnectionWithoutEnds(t *testing.T) {
+	graph := usageStateGraph(t, `package M {
+	port def P;
+	state def Def {
+		port a : P;
+		port b : P;
+		connection link connect a to b;
+		entry; then s1;
+		state s1;
+	}
+	state usage : Def {
+		connection :>> link;
+	}
+}
+`, "usage")
+	if len(graph.Connections) != 1 {
+		t.Fatalf("connections = %d, want the inherited route", len(graph.Connections))
+	}
+	if got := graph.Connections[0].Ends; len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Fatalf("ends = %v, want [a b]", got)
+	}
+}

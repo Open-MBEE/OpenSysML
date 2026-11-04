@@ -520,7 +520,7 @@ func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attrib
 // order: a name written in them resolves in that body's scope, and a succession
 // out of an entry action names one of them.
 // keptConnections lowers the connectors of every body group, farther first, dropping an
-// inherited connector that a nearer one redefines.
+// inherited connector that a nearer one redefines with ends of its own.
 func (g *StateGraph) keptConnections(body []inheritedMember) []Connection {
 	type declared struct {
 		conns []Connection
@@ -535,10 +535,14 @@ func (g *StateGraph) keptConnections(body []inheritedMember) []Connection {
 				continue
 			}
 			sym := group.scope.MemberDeclaring(u)
+			conns := lowerConnections([]ast.Node{member}, OwnerBehavior, group.scope)
+			if len(conns) == 0 {
+				continue
+			}
 			kept = slices.DeleteFunc(kept, func(d declared) bool {
 				return g.redefinesMember(group.scope, u, sym, d.sym)
 			})
-			own = append(own, declared{conns: lowerConnections([]ast.Node{member}, OwnerBehavior, group.scope), sym: sym})
+			own = append(own, declared{conns: conns, sym: sym})
 		}
 		kept = append(kept, own...)
 	}
