@@ -223,3 +223,39 @@ func TestSplitRouteKeepsALoneWaypointOnTheFirstSegment(t *testing.T) {
 		t.Fatal("splitRoute of no route is not nil")
 	}
 }
+
+// A Route about an n-ary relationship steers none of its segments: one polyline
+// has no place for the dot, so each segment is laid out on its own and a notice
+// says the route was not followed, as the interconnection rendering already holds.
+func TestRoutedNaryRelationshipSegmentsCarryNoRoute(t *testing.T) {
+	for _, tc := range []struct{ view, name, kind string }{
+		{"NaryViews::routedRules", "rules", dependencyDotKind},
+		{"NaryViews::routedSpokes", "spokes", connectionDotKind},
+	} {
+		rendering := render(t, "nary.sysml", tc.view)
+		dots := dotNodes(rendering)[tc.kind]
+		if len(dots) != 1 || !strings.HasSuffix(dots[0].Name, "::"+tc.name) {
+			t.Fatalf("%s: %d dots, first named %q, want one named %s:\n%s", tc.view, len(dots), dots[0].Name, tc.name, rendering.Text())
+		}
+		segments := 0
+		for _, edge := range rendering.Edges {
+			if edge.From != dots[0].ID && edge.To != dots[0].ID {
+				continue
+			}
+			segments++
+			if len(edge.Route) != 0 {
+				t.Errorf("%s: segment %s → %s carries the relationship's route %v", tc.view, edge.From, edge.To, edge.Route)
+			}
+		}
+		if segments < 3 {
+			t.Errorf("%s: %d segments at the dot, want at least 3", tc.view, segments)
+		}
+		noticed := false
+		for _, notice := range rendering.Notices {
+			noticed = noticed || strings.Contains(notice, tc.name+" states a route")
+		}
+		if !noticed {
+			t.Errorf("%s: notices = %q, want one saying %s states a route", tc.view, rendering.Notices, tc.name)
+		}
+	}
+}
