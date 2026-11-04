@@ -27,7 +27,7 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: 'all' requires a type, %s is a %s",
 			ErrTypeMismatch, qualifiedNameToString(qn), target.Notation())
 	}
-	if target.Kind == symbols.SymbolEnumerationDef {
+	if semantics.IsEnumeration(target) {
 		return ec.literalValues(sem.LiteralsOf(target))
 	}
 	// The extent is the run's, not the shape's: nothing derived over it is shared.

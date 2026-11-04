@@ -1208,7 +1208,7 @@ func (ec *EvalContext) unresolvedQualifiedName(qn *ast.QualifiedName, reading re
 			continue
 		}
 		memberName := qn.Parts[i+1].Text
-		if owner.Kind == symbols.SymbolEnumerationDef {
+		if semantics.IsEnumeration(owner) {
 			return fmt.Errorf("%w: %s is not a literal of %s (%s)",
 				errNotALiteral, memberName, owner.Name, ec.ctx.enumerationSummary(owner))
 		}
