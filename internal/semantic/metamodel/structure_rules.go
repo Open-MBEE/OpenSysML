@@ -3905,7 +3905,13 @@ func (e *Evaluator) computeStructureOwnedMembers(element Element) (Value, bool, 
 	return uniqueStructureValueSequence(structureSequence(members).Values, e.options.Structure), true, true
 }
 
+// structureEffectiveFeatures memoizes Type::feature per element: directedFeature,
+// input, output and the filtered features all project from it.
 func (e *Evaluator) structureEffectiveFeatures(element Element) (Value, bool, bool) {
+	return e.memoizedStructureValue(e.structureEffective, element, e.computeStructureEffectiveFeatures)
+}
+
+func (e *Evaluator) computeStructureEffectiveFeatures(element Element) (Value, bool, bool) {
 	if element.Symbol != nil && e.model != nil {
 		portUsage, known := e.isMetaclass(element, "PortUsage")
 		if known && portUsage {
@@ -4571,6 +4577,30 @@ func (e *Evaluator) structureInheritedValues(element Element, property string) (
 		return nil, false
 	}
 	return e.structureMembershipsProperty(inherited, property)
+}
+
+// structureValueCacheEntry memoizes a derived structure value with its handled and ok verdicts.
+type structureValueCacheEntry struct {
+	value       Value
+	handled, ok bool
+}
+
+// memoizedStructureValue reads cache under the evaluator mutex and computes outside it, like the other memos.
+func (e *Evaluator) memoizedStructureValue(
+	cache map[ElementKey]structureValueCacheEntry, element Element, compute func(Element) (Value, bool, bool),
+) (Value, bool, bool) {
+	key := element.Key()
+	e.mu.Lock()
+	entry, done := cache[key]
+	e.mu.Unlock()
+	if done {
+		return entry.value, entry.handled, entry.ok
+	}
+	value, handled, ok := compute(element)
+	e.mu.Lock()
+	cache[key] = structureValueCacheEntry{value: value, handled: handled, ok: ok}
+	e.mu.Unlock()
+	return value, handled, ok
 }
 
 // structureInheritedCacheEntry memoizes a type's inherited memberships, which
@@ -6172,7 +6202,12 @@ func (e *Evaluator) structureMemberName(element Element, memberProperty, namePro
 	return nullValue(), true, true
 }
 
+// structureNamespaceMemberships memoizes Namespace::membership per element; member projects from it.
 func (e *Evaluator) structureNamespaceMemberships(element Element) (Value, bool, bool) {
+	return e.memoizedStructureValue(e.structureNamespace, element, e.computeStructureNamespaceMemberships)
+}
+
+func (e *Evaluator) computeStructureNamespaceMemberships(element Element) (Value, bool, bool) {
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
 		if handled {
