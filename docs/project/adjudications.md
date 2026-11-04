@@ -296,8 +296,9 @@ another:
 
 **Pilot.** The pinned validator's `checkConnector` (arity, binary specialization, type featuring),
 `checkInterfaceDefinitionEnds`/`checkInterfaceUsageEnds` (ends must be port usages) and
-`checkFlowEnd` are the whole of what it checks on these constructs; it is silent on the fixture
-above, and on the same fixture with `P2` declared `disjoint from P1`.
+`checkFlowEnd` are the whole of what it checks on these constructs; run on the fixture above
+(as a `connect`, an interface usage and a `flow`), and on a KerML `connector` between features of
+two classes declared `disjoint from` one another, it reports nothing.
 
 **Reasoning.** The two ends of a link are distinct features with distinct values (a `connect`
 relates two ports, it does not identify them), so neither unrelated nor disjoint definitions at the
