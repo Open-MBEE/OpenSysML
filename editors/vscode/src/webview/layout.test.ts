@@ -890,6 +890,62 @@ test("layoutCanvas never puts two events of a lifeline at one point", () => {
   assert.deepEqual(then.points, [centre("e2"), centre("e3")]);
 });
 
+test("layoutCanvas keeps a self-message's loop whichever end names the event, and the next row under it", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [node("a", "worker"), node("b", "other"), node("e1", "tick", { kind: "event occurrence", parent: "a" }), node("e2", "tock", { kind: "event occurrence", parent: "a" })],
+      [
+        { from: "a", to: "e1", label: "start", kind: "message" },
+        { from: "e1", to: "a", label: "again", kind: "message" },
+        { from: "e2", to: "a", label: "once", kind: "message" },
+        { from: "a", to: "e2", label: "twice", kind: "message" },
+        { from: "a", to: "b", label: "after", kind: "message" },
+      ],
+      { kind: "sequence" },
+    ),
+  );
+  const centre = (id: string) => {
+    const box = layout.nodes.get(id)!.box;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const [start, again, once, twice, after] = layout.edges;
+  for (const loop of [start, again, once, twice]) {
+    assert.equal(loop.points.length, 4);
+  }
+  assert.deepEqual(again.points[0], centre("e1"));
+  assert.deepEqual(twice.points[0], centre("e2"));
+  assert.ok(centre("e2").y > again.points[3].y);
+  assert.ok(after.points[0].y > twice.points[3].y);
+  assert.ok(layout.nodes.get("a")!.lifeline! > after.points[0].y);
+});
+
+test("layoutCanvas never draws a message upward: a sending event sits at or above its placed receiving point", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "client"),
+        node("b", "server"),
+        node("e1", "sent", { kind: "event occurrence", parent: "a" }),
+        node("e2", "taken", { kind: "event occurrence", parent: "b" }),
+        node("e3", "sentToo", { kind: "event occurrence", parent: "a" }),
+      ],
+      [
+        { from: "e1", to: "e2", label: "first", kind: "message" },
+        { from: "e3", to: "e2", label: "second", kind: "message" },
+      ],
+      { kind: "sequence" },
+    ),
+  );
+  const centre = (id: string) => {
+    const box = layout.nodes.get(id)!.box;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const [, second] = layout.edges;
+  assert.deepEqual(second.points, [centre("e3"), centre("e2")]);
+  assert.ok(centre("e3").y <= centre("e2").y);
+  assert.notDeepEqual(centre("e3"), centre("e1"));
+});
+
 test("layoutCanvas places a sequence's proxy where a drawn edge first reaches it, not a hidden one", () => {
   const layout = layoutCanvas(
     rendering(

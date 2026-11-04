@@ -364,6 +364,15 @@ function layoutSequence(
     const lifeline = entry?.parent ?? entry;
     return lifeline?.children.some((proxy) => proxy.box.width > 0 && centre(proxy).y === y) ?? false;
   };
+  const isProxy = (id: string): boolean => placed.get(id)?.parent !== undefined;
+  // freeAbove is the lowest y at or above y where the end's lifeline has no point yet.
+  const freeAbove = (id: string, y: number): number => {
+    let at = y;
+    while (at > headY && occupied(id, at)) {
+      at -= MESSAGE_GAP / 2;
+    }
+    return at;
+  };
   const placeProxy = (id: string, cx: number, cy: number): void => {
     const entry = placed.get(id);
     if (entry?.parent !== undefined && entry.box.width === 0) {
@@ -377,21 +386,24 @@ function layoutSequence(
     const fromProxy = placedProxy(edge.from);
     const toProxy = placedProxy(edge.to);
     const latest = headY + MESSAGE_GAP * rows;
-    // An edge between two placed points takes no row; a message leaving a point on the
-    // latest row stays on it unless its other end's lifeline has a point there already;
-    // a hidden edge takes none; any other edge opens a row.
+    // An edge between two placed points joins them; a sending end never sits below its
+    // placed receiving point; a message leaving a point on the latest row stays on it
+    // unless the receiving lifeline has a point there; a hidden edge takes no row; any
+    // other edge opens a row.
     let y: number;
     if (hidden[index]) {
       y = latest;
     } else if (fromProxy && toProxy) {
       y = Math.max(centre(fromProxy).y, centre(toProxy).y);
+    } else if (toProxy) {
+      y = isProxy(edge.from) ? freeAbove(edge.from, centre(toProxy).y) : centre(toProxy).y;
     } else if (
+      fromProxy &&
       edge.kind !== "succession" &&
-      (fromProxy ?? toProxy) !== undefined &&
-      centre((fromProxy ?? toProxy)!).y === latest &&
-      !occupied(fromProxy ? edge.to : edge.from, latest)
+      centre(fromProxy).y >= latest &&
+      (!isProxy(edge.to) || !occupied(edge.to, centre(fromProxy).y))
     ) {
-      y = latest;
+      y = centre(fromProxy).y;
     } else {
       y = headY + MESSAGE_GAP * ++rows;
     }
@@ -406,6 +418,11 @@ function layoutSequence(
             { x: from.x, y: from.y + MESSAGE_GAP / 2 },
           ]
         : [from, to];
+    // The next row opens under whatever this edge reached.
+    const low = Math.max(...points.map((point) => point.y));
+    while (!hidden[index] && headY + MESSAGE_GAP * (rows + 1) <= low) {
+      rows++;
+    }
     // A hidden edge places no proxy: the point goes where a drawn edge first reaches it.
     if (!hidden[index]) {
       placeProxy(edge.from, points[0].x, points[0].y);
