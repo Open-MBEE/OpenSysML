@@ -56,6 +56,13 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 			t.Errorf("t1 kind %d = %s, want %s", i, kinds[i], want[i])
 		}
 	}
+	if accepter, _ := m.ReflectiveElements(nested(t, sm, "t6"), "triggerAction"); len(accepter) == 1 {
+		payload, _ := m.ReflectiveElements(accepter[0], "payloadParameter")
+		owned, _ := m.ReflectiveElements(payload[0], "ownedElement")
+		if len(owned) != 1 {
+			t.Errorf("t6 payload ownedElement = %v, want its one TriggerInvocationExpression", owned)
+		}
+	}
 	t7 := nested(t, sm, "t7")
 	if effect, ok := m.ReflectiveElements(t7, "effectAction"); !ok || len(effect) != 1 || effect[0].Name != "effect" {
 		t.Errorf("t7.effectAction = %v (present %t), want its `do action effect`", effect, ok)
