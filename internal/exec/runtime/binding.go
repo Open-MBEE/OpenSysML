@@ -77,6 +77,9 @@ type bindingEndpoint struct {
 	// selection is the end as written (`xs#(2)`), for diagnostics.
 	index, selection ast.Node
 	scope            *symbols.Scope
+	// on is the object an expression end is read on when it is not the binding's owner:
+	// the connector object whose binding was re-rooted onto its holder.
+	on *Instance
 }
 
 // selects reports an end selecting one element of its feature: it reads the element and is
@@ -116,6 +119,8 @@ type bindingAttempt struct {
 	cycleFeatures []string
 	assignment    *bindingAssignment
 	err           error
+	// defaulted marks the value of a `default =` end, which another binding's value displaces.
+	defaulted bool
 }
 
 type bindingAssignment struct {
@@ -146,24 +151,21 @@ func (ctx *Context) objectBindings(typeSym *symbols.Symbol) []lower.Binding {
 	return bindings
 }
 
-// declaredBindings lowers the bindings sym's own declaration states.
+// declaredBindings lowers the bindings sym's own declaration states: the binding connectors
+// among its members and the feature values its end features' bodies state.
 func (ctx *Context) declaredBindings(sym *symbols.Symbol) []lower.Binding {
-	return lower.ToBindings(sym.Decl, DeclScope(sym))
+	scope := DeclScope(sym)
+	return append(lower.ToBindings(sym.Decl, scope), lower.EndValueBindings(sym.Decl, scope)...)
 }
 
-// connectorOwnedBindings is what the connector usages decl declares bind among
-// decl's features: the bindings each owns — in its body, its definition and the
-// definition's supertypes — rewritten from its end features onto the features
-// the ends attach (KerML 1.1 §8.4.4.6.2: the related features of a binding
-// connector have the same values; SysML v2 §7.13: an interface or connection
-// end is the connected usage). A library-declared binding states the kernel
-// frame of the connector object, not the model's features, a variant is a choice
-// the variation offers rather than a connector it holds, and a usage whose lower
-// bound is zero may denote no connector, so none of them contributes.
+// connectorOwnedBindings is what the connectors decl declares bind among decl's features: every
+// binding each owns (connectorBindings), re-rooted from its ends onto what they attach (ThroughEnds).
 func (ctx *Context) connectorOwnedBindings(decl *symbols.Symbol) []lower.Binding {
-	if decl == nil || ctx.libraryDeclared(decl) {
+	if decl == nil || ctx.libraryDeclared(decl) || ctx.model.hoistingBindings[decl] {
 		return nil
 	}
+	ctx.model.hoistingBindings[decl] = true
+	defer delete(ctx.model.hoistingBindings, decl)
 	var out []lower.Binding
 	for _, member := range unwrappedDeclMembers(decl.Decl) {
 		usage, ok := member.(*ast.Usage)
@@ -177,22 +179,53 @@ func (ctx *Context) connectorOwnedBindings(decl *symbols.Symbol) []lower.Binding
 		if connSym == nil || !ctx.model.semantics.IsConnectorUsage(connSym) || ctx.connectorMayBeAbsent(connSym, usage) {
 			continue
 		}
-		attachments := ctx.connectorEndAttachmentPaths(connSym)
-		if len(attachments) == 0 {
+		roots := ctx.connectorEndAttachmentPaths(connSym)
+		if len(roots) == 0 {
 			continue
 		}
-		for _, source := range append(ctx.model.semantics.AllSupertypes(connSym), connSym) {
-			if source == nil || ctx.libraryDeclared(source) {
-				continue
-			}
-			for _, binding := range ctx.declaredBindings(source) {
-				if through, ok := binding.ThroughEnds(attachments); ok {
-					out = append(out, through)
-				}
+		self := lower.Hop{Feature: symbols.LastSegment(connSym.Name)}
+		if self.Feature == "" {
+			self.Anonymous = usage
+		}
+		for _, binding := range ctx.connectorBindings(connSym) {
+			ctx.rootConnectorFeatures(roots, connSym, self.Feature, binding)
+			if through, ok := binding.ThroughEnds(roots, self); ok {
+				out = append(out, through)
 			}
 		}
 	}
 	return out
+}
+
+// connectorBindings is every non-library binding a connector usage owns: its own, its definition's
+// and supertypes' declared ones, and those the connectors nested in them bind over their ends.
+func (ctx *Context) connectorBindings(connSym *symbols.Symbol) []lower.Binding {
+	var out []lower.Binding
+	for _, source := range append(ctx.model.semantics.AllSupertypes(connSym), connSym) {
+		if source == nil || ctx.libraryDeclared(source) {
+			continue
+		}
+		out = append(out, ctx.declaredBindings(source)...)
+		out = append(out, ctx.connectorOwnedBindings(source)...)
+	}
+	return out
+}
+
+// rootConnectorFeatures adds to roots each feature of the connector usage self a binding
+// end path is rooted at, reached from the connector's holder as `self.name`.
+func (ctx *Context) rootConnectorFeatures(roots map[string]string, connSym *symbols.Symbol, self string, binding lower.Binding) {
+	if self == "" {
+		return
+	}
+	for _, end := range binding.Ends {
+		head, _, _ := strings.Cut(end.Path, ".")
+		if _, known := roots[head]; known || head == "" {
+			continue
+		}
+		if _, ok := ctx.model.semantics.LookupMember(connSym, head); ok {
+			roots[head] = self + "." + head
+		}
+	}
 }
 
 // connectorEndAttachmentPaths maps each name of each end of a connector usage —
@@ -434,6 +467,7 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 		}
 		attempts = append(attempts, attempt)
 	}
+	attempts = withoutDisplacedDefaults(attempts)
 	// Every binding of the whole feature identifies it with its other end, so
 	// two of them must agree on its values, a sequence like a scalar.
 	if len(attempts) > 1 {
@@ -465,6 +499,21 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 		result.value, result.found = attempts[0].value, true
 	}
 	return result, nil
+}
+
+// withoutDisplacedDefaults drops the attempts of `default =` ends once any other binding
+// states the feature's value (SysML v2 §7.13.4: a default applies absent other values).
+func withoutDisplacedDefaults(attempts []bindingAttempt) []bindingAttempt {
+	stated := attempts[:0:0]
+	for _, attempt := range attempts {
+		if !attempt.defaulted {
+			stated = append(stated, attempt)
+		}
+	}
+	if len(stated) == 0 {
+		return attempts
+	}
+	return stated
 }
 
 // constrainingBinding reports whether binding constrains its ends on inst without determining
@@ -519,7 +568,7 @@ func (ctx *Context) CheckBindingOn(binding lower.Binding, inst *Instance) (Check
 		if err != nil {
 			return result, err
 		}
-		val, found, err := ctx.bindingEndpointValue(endpoint, inst, true)
+		val, found, err := ctx.bindingEndpointValue(endpoint, inst, endMaterialized)
 		if err != nil {
 			return result, err
 		}
@@ -591,7 +640,7 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 		if err != nil {
 			return false, err
 		}
-		_, found, err := ctx.bindingEndpointValue(other, owner, false)
+		_, found, err := ctx.bindingEndpointValue(other, owner, endOwn)
 		if err != nil || !found {
 			return false, err
 		}
@@ -639,7 +688,7 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 		if carries {
 			val, found, err = ctx.ownEndpointValue(endpoint.locations[0])
 		} else {
-			val, found, err = ctx.bindingEndpointValue(endpoint, owner, false)
+			val, found, err = ctx.bindingEndpointValue(endpoint, owner, endOwn)
 		}
 		if err != nil {
 			return false, err
@@ -779,6 +828,19 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 		return attempt
 	}
 	attempt.settled = !ctx.resolvingBindingEnd(left, leftCarries) && !ctx.resolvingBindingEnd(right, rightCarries)
+	// A `default =` value applies only to a feature with no value of its own (SysML v2 §7.13.4).
+	if carrying, other := left, 1; true {
+		if rightCarries {
+			carrying, other = right, 0
+		}
+		if binding.Ends[other].Default {
+			attempt.defaulted = true
+			if endpointDeclaresValue(carrying) {
+				attempt.settled = false
+				return attempt
+			}
+		}
+	}
 
 	var leftValue, rightValue Value
 	var leftSet, rightSet bool
@@ -881,24 +943,44 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 	return attempt
 }
 
-// readBindingEnds reads the other end first, so an object it holds is what the carrying end becomes;
-// a spread other end is materialized only once the carrying end has nothing of its own, a default included.
+// readBindingEnds reads the other end first, then the carrying end, both through their own bindings
+// (no object is created to bind to); a spread other end is materialized once the carrying end has nothing.
 func (ctx *Context) readBindingEnds(owner *Instance, carrying, other bindingEndpoint, otherCarries bool,
 ) (carryingValue Value, carryingSet bool, otherValue Value, otherSet bool, err error) {
-	otherValue, otherSet, err = ctx.bindingEndpointValue(other, owner, otherCarries)
+	otherRead := endBound
+	if otherCarries {
+		otherRead = endMaterialized
+	}
+	otherValue, otherSet, err = ctx.bindingEndpointValue(other, owner, otherRead)
 	if err != nil {
 		return
 	}
 	if !otherSet && other.spread() {
-		carryingValue, carryingSet, err = ctx.bindingEndpointValue(carrying, owner, endpointDefaulted(carrying))
+		carryingRead := endOwn
+		if endpointDefaulted(carrying) {
+			carryingRead = endBound
+		}
+		carryingValue, carryingSet, err = ctx.bindingEndpointValue(carrying, owner, carryingRead)
 		if err != nil || carryingSet {
 			return
 		}
-		otherValue, otherSet, err = ctx.bindingEndpointValue(other, owner, true)
+		otherValue, otherSet, err = ctx.bindingEndpointValue(other, owner, endMaterialized)
 		return
 	}
-	carryingValue, carryingSet, err = ctx.bindingEndpointValue(carrying, owner, !(otherSet && ctx.unmaterializedObjectEnd(carrying)))
+	carryingValue, carryingSet, err = ctx.bindingEndpointValue(carrying, owner, endBound)
 	return
+}
+
+// endpointDeclaresValue reports a feature end whose every feature states a value of its own,
+// by its declaration or by a write.
+func endpointDeclaresValue(endpoint bindingEndpoint) bool {
+	for _, loc := range endpoint.locations {
+		fv := loc.instance.FeatureValues[loc.name]
+		if fv.Feature.DefaultValue == nil && !fv.Written {
+			return false
+		}
+	}
+	return len(endpoint.locations) != 0
 }
 
 // endpointDefaulted reports a feature end whose every feature declares a default value.
@@ -941,10 +1023,18 @@ func bindingInvolvesFeature(binding lower.Binding, name string) bool {
 func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Binding, end int) (bindingEndpoint, error) {
 	path := binding.Ends[end].Path
 	if path == "" {
-		if binding.Ends[end].Expr != nil {
-			return bindingEndpoint{expr: binding.Ends[end].Expr, scope: binding.Scope}, nil
+		if binding.Ends[end].Expr == nil {
+			return bindingEndpoint{}, fmt.Errorf("%w: empty endpoint", errBindingEnd)
 		}
-		return bindingEndpoint{}, fmt.Errorf("%w: empty endpoint", errBindingEnd)
+		endpoint := bindingEndpoint{expr: binding.Ends[end].Expr, scope: binding.Scope}
+		if via := binding.Ends[end].Via; len(via) != 0 {
+			on, err := ctx.bindingEndpointObject(owner, via)
+			if err != nil {
+				return bindingEndpoint{}, err
+			}
+			endpoint.on = on
+		}
+		return endpoint, nil
 	}
 	locations, err := ctx.resolveBindingLocations(owner, path)
 	if err != nil {
@@ -1074,18 +1164,86 @@ func (ctx *Context) resolveBindingLocations(owner *Instance, path string) ([]bin
 	return locations, nil
 }
 
+// boundValueOf is what a feature's own bindings determine it holds, creating no object for it, and
+// nothing while its own resolution is in progress (it then reads as undetermined, not as a cycle).
+func (ctx *Context) boundValueOf(loc bindingLocation) (Value, bool, error) {
+	if ctx.resolvingBindings[featureValueRef{instance: loc.instance.ID, feature: loc.name}] {
+		return Value{}, false, nil
+	}
+	val, found, err := ctx.resolveBindingValue(loc.instance, loc.name)
+	if err != nil || !found {
+		return Value{}, false, err
+	}
+	return val, true, nil
+}
+
+// bindingEndpointObject is the connector object via leads to from owner, hop by hop.
+func (ctx *Context) bindingEndpointObject(owner *Instance, via []lower.Hop) (*Instance, error) {
+	current := owner
+	for _, hop := range via {
+		next, err := ctx.connectorObjectAt(current, hop)
+		if err != nil {
+			return nil, err
+		}
+		current = next
+	}
+	return current, nil
+}
+
+func (ctx *Context) connectorObjectAt(owner *Instance, hop lower.Hop) (*Instance, error) {
+	if hop.Anonymous != nil {
+		connectors, err := owner.OwnedConnectors(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("%w: anonymous connector: %w", errBindingEnd, err)
+		}
+		for _, conn := range connectors {
+			if conn.Type != nil && conn.Type.Decl == hop.Anonymous {
+				return conn, nil
+			}
+		}
+		return nil, fmt.Errorf("%w: anonymous connector holds no object", errBindingEnd)
+	}
+	fv, err := owner.GetFeatureValue(ctx, hop.Feature)
+	if err != nil {
+		return nil, fmt.Errorf("%w %q: %w", errBindingEnd, hop.Feature, err)
+	}
+	held, err := ctx.HeldElements(fv.HeldValue())
+	if err != nil {
+		return nil, fmt.Errorf("%w %q: %w", errBindingEnd, hop.Feature, err)
+	}
+	if len(held) != 1 {
+		return nil, fmt.Errorf("%w %q: holds %d objects, want one", errBindingEnd, hop.Feature, len(held))
+	}
+	id, isObject := held[0].Object()
+	if !isObject {
+		return nil, fmt.Errorf("%w %q: holds no object", errBindingEnd, hop.Feature)
+	}
+	obj, ok, err := ctx.reachedObject(id)
+	if err != nil {
+		return nil, fmt.Errorf("%w %q: %w", errBindingEnd, hop.Feature, err)
+	}
+	if !ok {
+		return nil, fmt.Errorf("%w %q: instance %d is not materialized", errBindingEnd, hop.Feature, id)
+	}
+	return obj, nil
+}
+
 // bindingEndpointValue is what an end holds: its expression's or feature's value, or a spread end's
 // values together in object order — nothing while one of them is undetermined.
-func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instance, materialize bool) (Value, bool, error) {
+func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instance, read endRead) (Value, bool, error) {
 	if endpoint.selects() {
-		whole, found, err := ctx.bindingEndpointValue(bindingEndpoint{locations: endpoint.locations}, owner, materialize)
+		whole, found, err := ctx.bindingEndpointValue(bindingEndpoint{locations: endpoint.locations}, owner, read)
 		if err != nil || !found {
 			return Value{}, false, err
 		}
 		return ctx.selectedBindingElement(endpoint, owner, whole)
 	}
 	if endpoint.expr != nil {
-		value, err := ctx.EvalWithScopeOn(endpoint.expr, endpoint.scope, owner)
+		on := owner
+		if endpoint.on != nil {
+			on = endpoint.on
+		}
+		value, err := ctx.EvalWithScopeOn(endpoint.expr, endpoint.scope, on)
 		if err != nil {
 			if errors.Is(err, errUninitializedFeatureValue) {
 				return Value{}, false, nil
@@ -1099,11 +1257,11 @@ func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instan
 		return value, true, nil
 	}
 	if !endpoint.spread() {
-		return ctx.bindingLocationValue(endpoint.locations[0], materialize)
+		return ctx.bindingLocationValue(endpoint.locations[0], read)
 	}
 	var all []Value
 	for _, loc := range endpoint.locations {
-		val, found, err := ctx.bindingLocationValue(loc, materialize)
+		val, found, err := ctx.bindingLocationValue(loc, read)
 		var undetermined *undeterminedBindingError
 		if errors.As(err, &undetermined) {
 			return Value{}, false, nil
@@ -1137,9 +1295,9 @@ func (ctx *Context) selectedBindingElement(endpoint bindingEndpoint, owner *Inst
 		errBindingEnd, ctx.bindingExprText(endpoint.selection, endpoint.scope), err)
 }
 
-func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) (Value, bool, error) {
+func (ctx *Context) bindingLocationValue(loc bindingLocation, read endRead) (Value, bool, error) {
 	fv := loc.instance.FeatureValues[loc.name]
-	if fv.BindingDerived && materialize {
+	if fv.BindingDerived && read == endMaterialized {
 		return Value{}, false, nil
 	}
 	if fv.BindingDerived {
@@ -1149,18 +1307,16 @@ func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) 
 				return val, true, nil
 			}
 		}
-		val, found, err := ctx.resolveBindingValue(loc.instance, loc.name)
-		if err != nil {
-			return Value{}, false, err
-		}
-		if found {
-			return val, true, nil
-		}
-		return Value{}, false, nil
+		return ctx.boundValueOf(loc)
 	}
 	if !fv.Materialized {
-		if !materialize && ctx.CompositeTypeOf(fv.Feature) != nil {
-			return Value{}, false, nil
+		if ctx.CompositeTypeOf(fv.Feature) != nil {
+			if read == endBound {
+				return ctx.boundValueOf(loc)
+			}
+			if read == endOwn {
+				return Value{}, false, nil
+			}
 		}
 		if _, err := loc.instance.materializeFeatureValueIntrinsic(ctx, loc.name); err != nil {
 			return Value{}, false, &FeatureValueError{Err: err, Instance: loc.instance, Feature: loc.name}
@@ -1180,18 +1336,15 @@ func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) 
 	return val, found, nil
 }
 
-// unmaterializedObjectEnd reports whether an endpoint is an object-valued
-// feature the run has not yet materialized, so materializing it would build a
-// fresh object rather than read one.
-func (ctx *Context) unmaterializedObjectEnd(endpoint bindingEndpoint) bool {
-	for _, loc := range endpoint.locations {
-		fv := loc.instance.FeatureValues[loc.name]
-		if !fv.Materialized && ctx.CompositeTypeOf(fv.Feature) != nil {
-			return true
-		}
-	}
-	return false
-}
+// endRead is how far a binding end is read: what it holds or its declaration states (endOwn),
+// that and what its own bindings determine, creating no object (endBound), or materialized.
+type endRead int
+
+const (
+	endOwn endRead = iota
+	endBound
+	endMaterialized
+)
 
 // bindingEndpointDerived reports a feature end whose every value was assigned by a binding.
 func bindingEndpointDerived(endpoint bindingEndpoint) bool {

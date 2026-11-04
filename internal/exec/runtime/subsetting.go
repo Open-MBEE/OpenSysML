@@ -1266,7 +1266,7 @@ func (ctx *Context) drawBindingWitnesses(draw *witnessDraw, inst, current *Insta
 		}
 	}
 	// An end that cannot be read shares nothing here; validating the binding reports why.
-	val, found, err := ctx.bindingEndpointValue(other, current, true)
+	val, found, err := ctx.bindingEndpointValue(other, current, endMaterialized)
 	if err != nil || !found {
 		return nil
 	}
