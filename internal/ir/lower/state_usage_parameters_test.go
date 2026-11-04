@@ -110,3 +110,29 @@ func TestToStateGraphUsageInheritsConnections(t *testing.T) {
 		t.Fatalf("connections = %d, want the definition's one", len(graph.Connections))
 	}
 }
+
+// A connector the usage redefines replaces the inherited one: the send routes over the
+// usage's ends only.
+func TestToStateGraphUsageRedefinesConnection(t *testing.T) {
+	graph := usageStateGraph(t, `package M {
+	port def P;
+	state def Def {
+		port a : P;
+		port b : P;
+		port c : P;
+		connection link connect a to b;
+		entry; then s1;
+		state s1;
+	}
+	state usage : Def {
+		connection :>> link connect a to c;
+	}
+}
+`, "usage")
+	if len(graph.Connections) != 1 {
+		t.Fatalf("connections = %d, want the redefining one only", len(graph.Connections))
+	}
+	if got := graph.Connections[0].Ends; len(got) != 2 || got[0] != "a" || got[1] != "c" {
+		t.Fatalf("ends = %v, want [a c]", got)
+	}
+}

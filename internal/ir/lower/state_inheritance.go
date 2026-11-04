@@ -657,19 +657,26 @@ func (g *StateGraph) redefinesAttribute(nearer, farther Attribute) bool {
 	if !ok {
 		return false
 	}
-	resolver, _ := g.endpoints.(StateRedefinitionResolver)
-	if redefinesByClause(resolver, nearer.Scope, usage, farther.Symbol) {
+	if g.redefinesMember(nearer.Scope, usage, nearer.Symbol, farther.Symbol) {
 		return true
 	}
 	sem := g.Semantics()
 	if sem == nil || nearer.Symbol == nil || farther.Symbol == nil {
 		return false
 	}
-	if slices.Contains(sem.AllRedefinedFeatures(nearer.Symbol), farther.Symbol) {
-		return true
-	}
 	chain := sem.ParameterRedefinitionChain(nearer.Symbol)
 	return len(chain) > 1 && slices.Contains(chain[1:], farther.Symbol)
+}
+
+// redefinesMember reports whether usage, declared as sym in scope, redefines farther: by
+// clause, or as the semantic model derives it.
+func (g *StateGraph) redefinesMember(scope *symbols.Scope, usage *ast.Usage, sym, farther *symbols.Symbol) bool {
+	resolver, _ := g.endpoints.(StateRedefinitionResolver)
+	if redefinesByClause(resolver, scope, usage, farther) {
+		return true
+	}
+	sem := g.Semantics()
+	return sem != nil && sym != nil && farther != nil && slices.Contains(sem.AllRedefinedFeatures(sym), farther)
 }
 
 // DescribeMember names a state machine member in modelling terms, for a message
