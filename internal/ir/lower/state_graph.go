@@ -357,7 +357,9 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	graph.machineDecl = stateMachineDecl
 	graph.recordRunToCompletion(nil, body, DescribeMember(stateMachineDecl))
 
-	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
+	for _, group := range groupMembers(body) {
+		graph.Connections = append(graph.Connections, lowerConnections(group.nodes, OwnerBehavior, group.scope)...)
+	}
 	graph.Attributes = graph.keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
 	parallelMachine := stateMachineIsParallel(stateMachineDecl)
 	for _, owner := range owners {

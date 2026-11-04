@@ -398,7 +398,8 @@ func (e *StateExecutor) initializeAttributes() error {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
 					errStatePerformanceOccurrence, attr.Name, e.occurrence.ID, err)
 			}
-			if attr.Binding && !fv.Written && !occurrenceHasRedefinedDefault(fv, attr, e.graph.Scope) {
+			supplies := e.ctx.occurrenceSupplies(attr, fv)
+			if supplies && attr.Binding && !fv.Written && !occurrenceHasRedefinedDefault(fv, attr, e.graph.Scope) {
 				_, seeded, err := e.ctx.seedBodyBindingFromFeatureValue(e.stateCells, attr.Name, fv)
 				if err != nil {
 					return fmt.Errorf("derive state machine attribute %s: %w", attr.Name, err)
@@ -407,7 +408,7 @@ func (e *StateExecutor) initializeAttributes() error {
 					continue
 				}
 			}
-			if value := fv.HeldValue(); value.Kind != ValInvalid &&
+			if value := fv.HeldValue(); supplies &&
 				(!attr.Binding || fv.Written || occurrenceHasRedefinedDefault(fv, attr, e.graph.Scope)) {
 				e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
 				continue
