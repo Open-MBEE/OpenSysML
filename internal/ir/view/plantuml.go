@@ -730,6 +730,9 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	if head := w.labels.head(node); head != "" {
 		parts = append(parts, "**"+plantumlText(head)+"**")
 	}
+	for _, line := range w.labels.parallel(node) {
+		parts = append(parts, fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, plantumlText(line)))
+	}
 	for _, line := range w.labels.details(node) {
 		parts = append(parts, plantumlText(line))
 	}

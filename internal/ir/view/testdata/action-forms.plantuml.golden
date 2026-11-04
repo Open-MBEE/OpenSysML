@@ -47,32 +47,32 @@ state "<size:10>//«action def»//</size>\n**Monitor**\nparameters\nin sensor\no
   state "⭓ <size:10>//«send action»//</size>\n**sendAlarm**\nAlarm to sensor\nparameters\nin ^payload\nin ^sender\nin ^receiver" as n3 <<send action>> <<usage>>
   state "<size:10>//«assign»//</size>\n**tally**\ncount := count + 1" as n4 <<assign>> <<usage>>
   state "<size:10>//«loop»//</size>\n**wait**\nwhile condition\ncount <U+003C> 10" as n5 <<loop>> <<usage>> {
-    state "**loop body**" as n6 <<loop body>> <<usage>> {
-      state "<size:10>//«action»//</size>\n**poll**" as n7 <<action>> <<usage>>
-      state "<size:10>//«action»//</size>\n**record**" as n8 <<action>> <<usage>>
+    state "**loop body**" as n7 <<loop body>> <<usage>> {
+      state "<size:10>//«action»//</size>\n**poll**" as n8 <<action>> <<usage>>
+      state "<size:10>//«action»//</size>\n**record**" as n9 <<action>> <<usage>>
     }
   }
-  state "<size:10>//«loop»//</size>\n**sweep**\nfor iterator\ni in 1..3" as n9 <<loop>> <<usage>> {
-    state "**loop body**" as n10 <<loop body>> <<usage>> {
-      state "<size:10>//«action»//</size>\n**'step'**" as n11 <<action>> <<usage>>
+  state "<size:10>//«loop»//</size>\n**sweep**\nfor iterator\ni in 1..3" as n10 <<loop>> <<usage>> {
+    state "**loop body**" as n12 <<loop body>> <<usage>> {
+      state "<size:10>//«action»//</size>\n**'step'**" as n13 <<action>> <<usage>>
     }
   }
-  state "<size:10>//«if»//</size>\n**choose**\nif condition\ncount <U+003E> 5" as n12 <<if>> <<usage>> {
-    state "**then body**" as n13 <<then body>> <<usage>> {
-      state "<size:10>//«action»//</size>\n**raise**" as n14 <<action>> <<usage>>
+  state "<size:10>//«if»//</size>\n**choose**\nif condition\ncount <U+003E> 5" as n14 <<if>> <<usage>> {
+    state "**then body**" as n16 <<then body>> <<usage>> {
+      state "<size:10>//«action»//</size>\n**raise**" as n17 <<action>> <<usage>>
     }
-    state "**else body**" as n15 <<else body>> <<usage>> {
-      state "<size:10>//«action»//</size>\n**lower**" as n16 <<action>> <<usage>>
+    state "**else body**" as n18 <<else body>> <<usage>> {
+      state "<size:10>//«action»//</size>\n**lower**" as n19 <<action>> <<usage>>
     }
   }
-  state "<size:10>//«terminate action»//</size>\n**final**" as n17 <<end>>
+  state "<size:10>//«terminate action»//</size>\n**final**" as n20 <<end>>
 }
-n7 -[dashed]-> n8
+n8 -[dashed]-> n9
 n1 -[dashed]-> n2
 n2 -[dashed]-> n4
 n3 -[dashed]-> n5
 n4 -[dashed]-> n3
-n5 -[dashed]-> n9
-n9 -[dashed]-> n12
-n12 -[dashed]-> n17
+n5 -[dashed]-> n10
+n10 -[dashed]-> n14
+n14 -[dashed]-> n20
 @enduml

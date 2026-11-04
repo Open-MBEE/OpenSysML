@@ -49,7 +49,7 @@ state "<size:10>//«state def»//</size>\n**Thermostat**\nstate transition" as n
     [*] --> n3 : [wet]
     [*] --> n4
   }
-  state "<size:10>//«state»//</size>\n**monitoring**\nstate transition" as n5 <<state>> <<usage>> {
+  state "<size:10>//«state»//</size>\n**monitoring**\n<size:10>//«parallel»//</size>\nstate transition" as n5 <<state>> <<usage>> {
     state "<size:10>//«region»//</size>\n**lights**" as n6 <<region>> {
       state "<size:10>//«state»//</size>\n**lit**" as n8 <<state>> <<usage>>
       state "<size:10>//«state»//</size>\n**unlit**" as n9 <<state>> <<usage>>

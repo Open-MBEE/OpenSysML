@@ -768,6 +768,9 @@ export function labelLines(
   if (node.parallel && draws("keywords")) {
     lines.push("«parallel»");
   }
+  if (statement && node.name === "" && node.text) {
+    lines.push(node.text);
+  }
   if (node.detail !== "" && draws("compartments")) {
     lines.push(node.detail);
   }

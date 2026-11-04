@@ -110,8 +110,9 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	record func(*symbols.Symbol, *Node)) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
 		Type: r.headType(machine), Origin: symbolOrigin(machine), InheritedFrom: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out),
-		Parallel: stateIsParallel(machine.Decl)}
+		Parallel: graph.MachineParallel}
 	r.dress(view, machine, root, out)
+	root.Compartments = append(root.Compartments, r.stateActionCompartments(machine.DocName, graph.Behaviors[graph.Machine], ids)...)
 	root.Children = append(root.Children, r.stateActionNodes(machine.DocName, graph.Behaviors[graph.Machine], ids)...)
 	if record != nil {
 		record(machine, root)
@@ -349,24 +350,12 @@ func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, mach
 		node.Kind, node.Name, node.Type, node.NameSynthesized = "final", ast.DoneFeature, "", true
 		return node
 	}
-	node.Parallel = stateIsParallel(graph.DeclOf(state))
+	node.Parallel = graph.Parallel[state]
 	if graph.UnconditionalStart(bodyOwning(graph, state)) == state {
 		node.Detail = "initial"
 	}
-	node.Compartments = r.stateActionCompartments(node.Origin.Doc, graph.Behaviors[state])
+	node.Compartments = r.stateActionCompartments(node.Origin.Doc, graph.Behaviors[state], ids)
 	return node
-}
-
-// stateIsParallel reports whether a state's declaration marks its substates
-// parallel (`state s parallel { … }`, `state def D parallel { … }`).
-func stateIsParallel(decl ast.Node) bool {
-	switch n := decl.(type) {
-	case *ast.Usage:
-		return n.IsParallel
-	case *ast.Definition:
-		return n.IsParallel
-	}
-	return false
 }
 
 // The kinds of a state's entry, do and exit action nodes (§8.2.3.18
@@ -398,7 +387,7 @@ func stateActionParts(behaviors *lower.StateBehaviors) []struct {
 // stateActionCompartments are a state's `entry`, `do` and `exit` compartments
 // (§8.2.3.18 state-entry-action, state-do-action, state-exit-action), each
 // listing the behaviors it runs as written, one a row; none for a state with none.
-func (r *Renderer) stateActionCompartments(doc string, behaviors *lower.StateBehaviors) []Compartment {
+func (r *Renderer) stateActionCompartments(doc string, behaviors *lower.StateBehaviors, ids *nodeIDs) []Compartment {
 	var compartments []Compartment
 	for _, part := range stateActionParts(behaviors) {
 		if len(part.list) == 0 {
@@ -406,7 +395,7 @@ func (r *Renderer) stateActionCompartments(doc string, behaviors *lower.StateBeh
 		}
 		var rows []*Node
 		for _, behavior := range part.list {
-			rows = append(rows, &Node{Kind: statementRowKind, Name: nameText(behavior.Name), Type: nodeType(behavior.Node),
+			rows = append(rows, &Node{ID: ids.take(), Kind: statementRowKind, Name: nameText(behavior.Name), Type: nodeType(behavior.Node),
 				Text: r.stateActionText(doc, behavior), Origin: nodeOrigin(doc, behavior.Node)})
 		}
 		compartments = append(compartments, Compartment{Name: part.name, Rows: rows})
@@ -885,7 +874,7 @@ func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, fr
 				child.Compartments = append(child.Compartments, Compartment{Name: actionFlowCompartment})
 			}
 		}
-		compartments, bodies := r.compoundCompartments(graph, node, nodeDoc)
+		compartments, bodies := r.compoundCompartments(graph, node, nodeDoc, ids)
 		child.Compartments = append(child.Compartments, compartments...)
 		for _, body := range bodies {
 			if depth >= maxBehaviorDepth {

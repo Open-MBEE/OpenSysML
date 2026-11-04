@@ -146,10 +146,10 @@ func TestDOTCameoStateNotation(t *testing.T) {
 	// Transition labels: `trigger [guard] / effect`, once, as `label` with a
 	// stated `lp`, never doubled by an `xlabel`.
 	for edge, label := range map[string]string{
-		`"n1" -> "n2"`:  `label="Done"`,
-		`"n2" -> "n11"`: `label="Done [timer > 0]"`,
-		`"n2" -> "n1"`:  `label="Abort / retry"`,
-		`"n12" -> "n5"`: `label="[timer > 0]"`,
+		`"n1" -> "n3"`:   `label="Done"`,
+		`"n3" -> "n18"`:  `label="Done [timer > 0]"`,
+		`"n3" -> "n1"`:   `label="Abort / retry"`,
+		`"n19" -> "n11"`: `label="[timer > 0]"`,
 	} {
 		line := dotLine(source, edge)
 		if !strings.Contains(line, label) || !strings.Contains(line, " lp=") {
@@ -165,20 +165,20 @@ func TestDOTCameoStateNotation(t *testing.T) {
 		}
 	}
 	checkLabelsOutsideStates(t, rendering, source)
-	// Pseudostates: the initial dot in the machine and in a composite state,
+	// Pseudostates (numbered after the states' behavior rows): the initial dot in the machine and in a composite state,
 	// the final bull's-eye, choice diamond, junction dot, fork and join bars
 	// oriented by their bounds, the history rings lettered H and H*; each at its
 	// stated bounds, named beside it when the name is the model's.
 	for node, want := range map[string][]string{
-		`"n18"`: {`shape=circle`, `fillcolor=black`, `pos="47.5,362.5!"`, `width=0.20833333333333334`},
-		`"n19"`: {`shape=circle`, `fillcolor=black`, `pos="567.5,332.5!"`},
-		`"n11"`: {`shape=doublecircle`, `pos="360,70!"`, `width=0.2777777777777778`},
-		`"n12"`: {`shape=diamond`, `label=""`, `xlabel="which"`, `pos="600,170!"`},
-		`"n13"`: {`shape=circle`, `fillcolor=black`, `label=""`, `xlabel="settle"`, `pos="600,102!"`, `width=0.2222222222222222`},
-		`"n14"`: {`fillcolor=black`, `label=""`, `xlabel="spread"`, `pos="730,102!"`, `width=0.8333333333333334`, `height=0.1388888888888889`},
-		`"n15"`: {`fillcolor=black`, `label=""`, `xlabel="collect"`, `pos="935,90!"`, `width=0.1388888888888889`, `height=1.6666666666666667`},
-		`"n16"`: {`shape=circle`, `fillcolor=white`, `label="H"`, `xlabel="resume"`, `pos="870,310!"`},
-		`"n17"`: {`shape=circle`, `fillcolor=white`, `label="H*"`, `xlabel="recall"`, `pos="930,310!"`},
+		`"n25"`: {`shape=circle`, `fillcolor=black`, `pos="47.5,362.5!"`, `width=0.20833333333333334`},
+		`"n26"`: {`shape=circle`, `fillcolor=black`, `pos="567.5,332.5!"`},
+		`"n18"`: {`shape=doublecircle`, `pos="360,70!"`, `width=0.2777777777777778`},
+		`"n19"`: {`shape=diamond`, `label=""`, `xlabel="which"`, `pos="600,170!"`},
+		`"n20"`: {`shape=circle`, `fillcolor=black`, `label=""`, `xlabel="settle"`, `pos="600,102!"`, `width=0.2222222222222222`},
+		`"n21"`: {`fillcolor=black`, `label=""`, `xlabel="spread"`, `pos="730,102!"`, `width=0.8333333333333334`, `height=0.1388888888888889`},
+		`"n22"`: {`fillcolor=black`, `label=""`, `xlabel="collect"`, `pos="935,90!"`, `width=0.1388888888888889`, `height=1.6666666666666667`},
+		`"n23"`: {`shape=circle`, `fillcolor=white`, `label="H"`, `xlabel="resume"`, `pos="870,310!"`},
+		`"n24"`: {`shape=circle`, `fillcolor=white`, `label="H*"`, `xlabel="recall"`, `pos="930,310!"`},
 	} {
 		line := dotLine(source, node)
 		if line == "" {
@@ -190,7 +190,7 @@ func TestDOTCameoStateNotation(t *testing.T) {
 			}
 		}
 	}
-	for _, edge := range []string{`"n18" -> "n1" [arrowhead=vee, pos="e,47,300 47,355`, `"n19" -> "n4" [arrowhead=vee, pos="e,567,280 567,325`, `"n2" -> "n16" [label="Resume"`, `"n16" -> "n4" [arrowhead=vee, pos="e,660,280`, `"n1" -> "n17" [label="Recall"`, `"n17" -> "n5" [arrowhead=vee, pos="e,780,200`} {
+	for _, edge := range []string{`"n25" -> "n1" [arrowhead=vee, pos="e,47,300 47,355`, `"n26" -> "n9" [arrowhead=vee, pos="e,567,280 567,325`, `"n3" -> "n23" [label="Resume"`, `"n23" -> "n9" [arrowhead=vee, pos="e,660,280`, `"n1" -> "n24" [label="Recall"`, `"n24" -> "n11" [arrowhead=vee, pos="e,780,200`} {
 		if !strings.Contains(source, edge) {
 			t.Errorf("transition %s not drawn:\n%s", edge, source)
 		}
@@ -198,7 +198,7 @@ func TestDOTCameoStateNotation(t *testing.T) {
 	if line := dotLine(source, `"note:0"`); !strings.Contains(line, `pos="375,130!"`) {
 		t.Errorf("note misplaced: %s", line)
 	}
-	if !strings.Contains(source, `"note:0" -> "n2" [style=dashed, arrowhead=none]`) {
+	if !strings.Contains(source, `"note:0" -> "n3" [style=dashed, arrowhead=none]`) {
 		t.Errorf("note anchor not dashed:\n%s", source)
 	}
 	if strings.Contains(source, "not represented") {

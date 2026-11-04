@@ -216,6 +216,7 @@ type RenderNode struct {
 	NameSynthesized bool            `json:"nameSynthesized,omitzero"`
 	Inherited       bool            `json:"inherited,omitzero"`
 	Parallel        bool            `json:"parallel,omitzero"`
+	Text            string          `json:"text,omitzero"`
 	Type            string          `json:"type"`
 	Detail          string          `json:"detail"`
 	Text            string          `json:"text,omitempty"`
@@ -558,6 +559,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Inherited:       node.Inherited,
 			Type:            node.Type,
 			Parallel:        node.Parallel,
+			Text:            node.Text,
 			Detail:          node.Detail,
 			Text:            view.DisplayText(node.Text),
 			Arrow:           node.Arrow,

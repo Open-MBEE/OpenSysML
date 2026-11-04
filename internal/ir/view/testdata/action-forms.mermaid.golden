@@ -52,48 +52,48 @@ count := count + 1`")
     subgraph n5 ["«loop» wait<br>while condition<br>count #lt; 10"]
       direction TD
       n5_anchor[" "]
-      subgraph n6 ["`**loop body**`"]
+      subgraph n7 ["`**loop body**`"]
         direction TD
-        n7("`*«action»*
-**poll**`")
         n8("`*«action»*
+**poll**`")
+        n9("`*«action»*
 **record**`")
       end
     end
-    subgraph n9 ["`*«loop»* **sweep**
+    subgraph n10 ["`*«loop»* **sweep**
 for iterator
 i in 1..3`"]
       direction TD
-      n9_anchor[" "]
-      subgraph n10 ["`**loop body**`"]
+      n10_anchor[" "]
+      subgraph n12 ["`**loop body**`"]
         direction TD
-        n11("`*«action»*
+        n13("`*«action»*
 **'step'**`")
       end
     end
-    subgraph n12 ["«if» choose<br>if condition<br>count #gt; 5"]
+    subgraph n14 ["«if» choose<br>if condition<br>count #gt; 5"]
       direction TD
-      n12_anchor[" "]
-      subgraph n13 ["`**then body**`"]
+      n14_anchor[" "]
+      subgraph n16 ["`**then body**`"]
         direction TD
-        n14("`*«action»*
+        n17("`*«action»*
 **raise**`")
       end
-      subgraph n15 ["`**else body**`"]
+      subgraph n18 ["`**else body**`"]
         direction TD
-        n16("`*«action»*
+        n19("`*«action»*
 **lower**`")
       end
     end
-    n17@{ shape: cross-circ, label: "" }
+    n20@{ shape: cross-circ, label: "" }
   end
-  n7 -.-> n8
+  n8 -.-> n9
   n1 -.-> n2
   n2 -.-> n4
   n3 -.-> n5_anchor
   n4 -.-> n3
-  n5_anchor -.-> n9_anchor
-  n9_anchor -.-> n12_anchor
-  n12_anchor -.-> n17
+  n5_anchor -.-> n10_anchor
+  n10_anchor -.-> n14_anchor
+  n14_anchor -.-> n20
   classDef anchor fill:none,stroke:none
-  class n12_anchor,n5_anchor,n9_anchor anchor
+  class n10_anchor,n14_anchor,n5_anchor anchor

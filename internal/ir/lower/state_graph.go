@@ -35,6 +35,11 @@ type StateGraph struct {
 	// executable statements by the time it is reached.
 	Behaviors map[*ast.StateNode]*StateBehaviors
 
+	// Parallel: state → whether its substates run in parallel, by its own
+	// `parallel` or an inherited definition's; MachineParallel says it of the machine.
+	Parallel        map[*ast.StateNode]bool
+	MachineParallel bool
+
 	// HiddenStates are graph-only composite owners synthesized for parallel
 	// regions. They execute behaviors but are not user-visible state visits.
 	HiddenStates map[*ast.StateNode]bool
@@ -354,6 +359,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	for _, owner := range owners {
 		parallelMachine = parallelMachine || stateMachineIsParallel(owner)
 	}
+	graph.MachineParallel = parallelMachine
 	graph.Machine = graph.machineState(stateMachineDecl, inherited, members, scope)
 
 	for _, group := range groupMembers(body) {
@@ -603,6 +609,7 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 	for _, owner := range owners {
 		parallel = parallel || stateMachineIsParallel(owner)
 	}
+	graph.Parallel[state] = parallel
 
 	body := append(append([]inheritedMember{}, inherited...), ownMembers(usage.Members, bodyScope)...)
 	graph.recordRunToCompletion(state, body, "the state "+name)
@@ -663,6 +670,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		endpoints:            endpoints,
 		StateScopes:          make(map[*ast.StateNode]*symbols.Scope),
 		Behaviors:            make(map[*ast.StateNode]*StateBehaviors),
+		Parallel:             make(map[*ast.StateNode]bool),
 		HiddenStates:         make(map[*ast.StateNode]bool),
 		HiddenRegionOf:       make(map[*ast.StateNode]*ast.StateRegion),
 		RegionState:          make(map[*ast.StateRegion]*ast.StateNode),

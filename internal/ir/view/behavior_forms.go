@@ -158,12 +158,13 @@ type compoundBody struct {
 // `for iterator`, `loop body`; `if condition`, `then body`, `else body`. A body
 // of statements is listed in its compartment; one that is a flow is a section
 // returned for the caller to draw the flow in.
-func (r *Renderer) compoundCompartments(graph *lower.ActionGraph, node ast.Node, doc string) ([]Compartment, []compoundBody) {
+func (r *Renderer) compoundCompartments(graph *lower.ActionGraph, node ast.Node, doc string, ids *nodeIDs) ([]Compartment, []compoundBody) {
 	body := graph.Bodies[node]
 	if len(body) != 1 {
 		return nil, nil
 	}
 	var compartments []Compartment
+	defer func() { numberRows(ids, compartments) }()
 	var bodies []compoundBody
 	expression := func(name string, expr ast.Node) {
 		if expr != nil {
@@ -211,6 +212,18 @@ func (r *Renderer) iterationText(doc string, loop lower.Loop) string {
 		return ""
 	}
 	return nameText(loop.Variable) + " in " + collection
+}
+
+// numberRows gives every compartment row an ID of its own, so that the view
+// data and the canvas can tell the rows apart.
+func numberRows(ids *nodeIDs, compartments []Compartment) {
+	for _, compartment := range compartments {
+		for _, row := range compartment.Rows {
+			if row.ID == "" {
+				row.ID = ids.take()
+			}
+		}
+	}
 }
 
 // statementRows is the one row of a compartment holding an expression.

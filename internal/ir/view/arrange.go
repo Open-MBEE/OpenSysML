@@ -274,7 +274,8 @@ func (a *arranger) headerLines(node *Node) []string {
 }
 
 // compartments are the compartments a node's cell stacks: those shown, less
-// any a Layout hides and any left without a row.
+// any a Layout hides and any a Layout left without a row. A compartment that
+// heads the node's children (`action flow`, `state transition`) has no rows and stays.
 func (a *arranger) compartments(node *Node) []Compartment {
 	var out []Compartment
 	for _, compartment := range a.labels.compartments(node) {
@@ -284,7 +285,7 @@ func (a *arranger) compartments(node *Node) []Compartment {
 				rows = append(rows, row)
 			}
 		}
-		if len(rows) > 0 {
+		if len(rows) > 0 || len(compartment.Rows) == 0 {
 			out = append(out, Compartment{Name: compartment.Name, Rows: rows})
 		}
 	}
