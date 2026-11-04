@@ -62,7 +62,8 @@ func TestRenderingsDrawEachNodeOnce(t *testing.T) {
 	}
 }
 
-// assertNodesOnce fails when two nodes of rendering share an id or one node is placed twice.
+// assertNodesOnce fails when two nodes of rendering share an id or one node is placed twice, and when
+// the node list RenderView answers, compartment rows included, names one id twice.
 func assertNodesOnce(t *testing.T, name string, rendering *view.Rendering) {
 	t.Helper()
 	ids := map[string]*view.Node{}
@@ -86,6 +87,17 @@ func assertNodesOnce(t *testing.T, name string, rendering *view.Rendering) {
 		}
 	}
 	visit(rendering.Roots)
+	for _, show := range []view.Shown{{}, view.AllShown()} {
+		for _, mode := range []view.Compartments{"", view.CompartmentsPositioned, view.CompartmentsMost, view.CompartmentsPorts} {
+			seen := map[string]bool{}
+			for _, node := range rendering.DataWith(view.Options{Show: show, Compartments: mode}).Nodes {
+				if seen[node.ID] {
+					t.Errorf("%s: id %s (%s) is listed twice with compartments %q and show %v", name, node.ID, node.Name, mode, show.Names())
+				}
+				seen[node.ID] = true
+			}
+		}
+	}
 }
 
 // fixtureRenderer loads files as documents of one model over the standard library.
