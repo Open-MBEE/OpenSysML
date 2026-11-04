@@ -51,6 +51,10 @@ package AnnotationViews {
 	rendering noAnnotations :> Views::asTreeDiagram {
 		attribute showAnnotations : Boolean default = false;
 	}
+	view empty {
+		expose Annotated::Pump;
+		filter @SysML::RequirementUsage;
+	}
 	view bare {
 		expose Annotated::Pump;
 		render noAnnotations;

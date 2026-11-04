@@ -116,8 +116,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	fmt.Fprintf(b, "  edge [%s];\n", strings.Join(w.skin.edgeDefaults(), ", "))
 	w.writeCanvas()
 	if r.Empty() && len(w.notes) == 0 {
-		fmt.Fprintf(b, "  \"empty\" [shape=plaintext, label=%s];\n", dotQuote(r.EmptyReason()))
-		b.WriteString("}\n")
+		w.writeEmpty(r, edges)
 		return b.String(), nil
 	}
 	depth := 1
@@ -144,6 +143,23 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	w.writeAnchors(w.notes, edges)
 	b.WriteString("}\n")
 	return b.String(), nil
+}
+
+// writeEmpty writes the placeholder of a rendering with nothing to draw, inside
+// the view frame when the view has one; the Cameo style stays frameless here.
+func (w *dotWriter) writeEmpty(r *Rendering, edges []Edge) {
+	framed := r.Frame != nil && !w.skin.cameo
+	indent := "  "
+	if framed {
+		w.openFrame(r, edges)
+		w.writeFrameCompartments(r, edges)
+		indent = "    "
+	}
+	fmt.Fprintf(&w.b, "%s\"empty\" [shape=plaintext, label=%s];\n", indent, dotQuote(r.EmptyReason()))
+	if framed {
+		w.b.WriteString("  }\n")
+	}
+	w.b.WriteString("}\n")
 }
 
 // settleEdges places what the drawing leaves unplaced and settles which edges

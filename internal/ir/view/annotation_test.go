@@ -172,3 +172,46 @@ func withoutViewFrame(dot string) string {
 	}
 	return strings.Join(kept, "\n")
 }
+
+// A view whose filter admits nothing still draws its frame round the empty
+// placeholder in DOT (§8.2.3.26); the Cameo style stays frameless there.
+func TestEmptyViewKeepsItsFrame(t *testing.T) {
+	rendering := render(t, "annotations.sysml", "AnnotationViews::empty")
+	if !rendering.Empty() || rendering.Frame == nil {
+		t.Fatalf("want an empty framed rendering, got roots %d frame %+v", len(rendering.Roots), rendering.Frame)
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{dotFrameCluster, "«view»", "<b>AnnotationViews::empty</b>", `"frame_bl"`, "filter @SysML::RequirementUsage", `"empty" [shape=plaintext`} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	checkDOTSyntax(t, dot)
+	cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(cameo, dotFrameCluster) || !strings.Contains(cameo, `"empty"`) {
+		t.Errorf("the Cameo style of an empty view changed:\n%s", cameo)
+	}
+}
+
+func TestCloneCopiesTheFrame(t *testing.T) {
+	rendering := render(t, "annotations.sysml", "AnnotationViews::definitions")
+	clone := rendering.Clone()
+	if clone.Frame == rendering.Frame {
+		t.Fatal("the clone shares the frame")
+	}
+	clone.Frame.Name = "other"
+	clone.Frame.Exposes[0] = "custom"
+	clone.Frame.Filters[0] = "custom"
+	if rendering.Frame.Name == "other" || rendering.Frame.Exposes[0] == "custom" || rendering.Frame.Filters[0] == "custom" {
+		t.Errorf("editing the clone's frame changed the original: %+v", rendering.Frame)
+	}
+	if (*Rendering)(nil).Clone() != nil {
+		t.Error("cloning nil is not nil")
+	}
+}
