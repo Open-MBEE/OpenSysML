@@ -2028,7 +2028,7 @@ func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol
 		}
 		scope.ForEachMember(func(s *symbols.Symbol) bool {
 			if s.Kind == symbols.SymbolAlias || seen[s] ||
-				(!anonymous[s] && !namedSet[s] && s.Kind != symbols.SymbolDocumentation) ||
+				(!anonymous[s] && !namedSet[s] && !(s.Kind == symbols.SymbolDocumentation && s.Name == "")) ||
 				(inherited && m.maskedBy(mask, s)) {
 				return true
 			}
