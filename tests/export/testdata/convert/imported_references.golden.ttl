@@ -271,6 +271,10 @@ elmt:OtherPkg__Inner__Wheel__size
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:OtherPkg__Inner__Wheel__size_pmultiplicity ;
+    sysml:ownedRelationship expr:OtherPkg__Inner__Wheel__size_pmultiplicity_om ;
+    sysml:ownedMembership expr:OtherPkg__Inner__Wheel__size_pmultiplicity_om ;
+    sysml:ownedMember expr:OtherPkg__Inner__Wheel__size_pmultiplicity ;
     sysx:sourceText "            attribute size;\n" .
 
 elmt:OtherPkg__Inner__Wheel__size_om
@@ -289,6 +293,28 @@ elmt:OtherPkg__Inner__Wheel__size_om
     sysml:ownedMemberFeature elmt:OtherPkg__Inner__Wheel__size ;
     sysml:owningType elmt:OtherPkg__Inner__Wheel ;
     json:relatedElement "[{\"@id\":\"OtherPkg__Inner__Wheel\"},{\"@id\":\"OtherPkg__Inner__Wheel__size\"}]" .
+
+expr:OtherPkg__Inner__Wheel__size_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "OtherPkg__Inner__Wheel__size_pmultiplicity" ;
+    sysml:owner elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:owningRelationship expr:OtherPkg__Inner__Wheel__size_pmultiplicity_om ;
+    sysml:owningMembership expr:OtherPkg__Inner__Wheel__size_pmultiplicity_om .
+
+expr:OtherPkg__Inner__Wheel__size_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "OtherPkg__Inner__Wheel__size_pmultiplicity_om" ;
+    sysml:owner elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:memberElement expr:OtherPkg__Inner__Wheel__size_pmultiplicity ;
+    sysml:ownedMemberElement expr:OtherPkg__Inner__Wheel__size_pmultiplicity ;
+    sysml:ownedRelatedElement expr:OtherPkg__Inner__Wheel__size_pmultiplicity ;
+    sysml:owningRelatedElement elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:membershipOwningNamespace elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:source elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:target expr:OtherPkg__Inner__Wheel__size_pmultiplicity ;
+    sysml:relatedElement elmt:OtherPkg__Inner__Wheel__size, expr:OtherPkg__Inner__Wheel__size_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"OtherPkg__Inner__Wheel__size\"},{\"@id\":\"OtherPkg__Inner__Wheel__size_pmultiplicity\"}]" .
 
 elmt:OtherPkg__Inner__wheels
     a sysml:PartUsage ;
@@ -491,10 +517,14 @@ elmt:R90__A__custodyBudget
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:R90__A__custodyBudget_pmultiplicity ;
+    sysml:ownedRelationship elmt:R90__A__custodyBudget_ft0, expr:R90__A__custodyBudget_pmultiplicity_om ;
+    sysml:ownedMembership expr:R90__A__custodyBudget_pmultiplicity_om ;
+    sysml:ownedMember expr:R90__A__custodyBudget_pmultiplicity ;
     sysml:ownedTyping elmt:R90__A__custodyBudget_ft0 ;
     sysml:ownedSpecialization elmt:R90__A__custodyBudget_ft0 ;
-    sysml:ownedRelationship elmt:R90__A__custodyBudget_ft0 ;
-    sysx:sourceText "        item custodyBudget : OtherPkg::BudgetLedger;\n" .
+    sysx:sourceText "        item custodyBudget : OtherPkg::BudgetLedger;\n" ;
+    json:ownedRelationship "[{\"@id\":\"R90__A__custodyBudget_ft0\"},{\"@id\":\"R90__A__custodyBudget_pmultiplicity_om\"}]" .
 
 elmt:R90__A__custodyBudget_om
     a sysml:FeatureMembership ;
@@ -512,6 +542,28 @@ elmt:R90__A__custodyBudget_om
     sysml:ownedMemberFeature elmt:R90__A__custodyBudget ;
     sysml:owningType elmt:R90__A ;
     json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__custodyBudget\"}]" .
+
+expr:R90__A__custodyBudget_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "R90__A__custodyBudget_pmultiplicity" ;
+    sysml:owner elmt:R90__A__custodyBudget ;
+    sysml:owningRelationship expr:R90__A__custodyBudget_pmultiplicity_om ;
+    sysml:owningMembership expr:R90__A__custodyBudget_pmultiplicity_om .
+
+expr:R90__A__custodyBudget_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__A__custodyBudget_pmultiplicity_om" ;
+    sysml:owner elmt:R90__A__custodyBudget ;
+    sysml:memberElement expr:R90__A__custodyBudget_pmultiplicity ;
+    sysml:ownedMemberElement expr:R90__A__custodyBudget_pmultiplicity ;
+    sysml:ownedRelatedElement expr:R90__A__custodyBudget_pmultiplicity ;
+    sysml:owningRelatedElement elmt:R90__A__custodyBudget ;
+    sysml:membershipOwningNamespace elmt:R90__A__custodyBudget ;
+    sysml:source elmt:R90__A__custodyBudget ;
+    sysml:target expr:R90__A__custodyBudget_pmultiplicity ;
+    sysml:relatedElement elmt:R90__A__custodyBudget, expr:R90__A__custodyBudget_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"R90__A__custodyBudget\"},{\"@id\":\"R90__A__custodyBudget_pmultiplicity\"}]" .
 
 elmt:R90__A__t
     a sysml:AttributeUsage ;
@@ -532,13 +584,16 @@ elmt:R90__A__t
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__Tempo ;
     sysml:value expr:R90__A__t_pvalue ;
-    sysml:ownedRelationship elmt:R90__A__t_ft0, expr:R90__A__t_pvalue_om ;
-    sysml:ownedMembership expr:R90__A__t_pvalue_om ;
+    sysml:ownedRelationship elmt:R90__A__t_ft0, expr:R90__A__t_pvalue_om, expr:R90__A__t_pmultiplicity_om ;
+    sysml:ownedMembership expr:R90__A__t_pvalue_om, expr:R90__A__t_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:R90__A__t_pmultiplicity ;
+    sysml:ownedMember expr:R90__A__t_pmultiplicity ;
     sysml:ownedTyping elmt:R90__A__t_ft0 ;
     sysml:ownedSpecialization elmt:R90__A__t_ft0 ;
     sysx:sourceText "        attribute t : Tempo = Tempo::operative;\n" ;
-    json:ownedRelationship "[{\"@id\":\"R90__A__t_ft0\"},{\"@id\":\"R90__A__t_pvalue_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"R90__A__t_ft0\"},{\"@id\":\"R90__A__t_pvalue_om\"},{\"@id\":\"R90__A__t_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R90__A__t_pvalue_om\"},{\"@id\":\"R90__A__t_pmultiplicity_om\"}]" .
 
 elmt:R90__A__t_om
     a sysml:FeatureMembership ;
@@ -627,6 +682,28 @@ expr:R90__A__t_pvalue_om
     sysml:value expr:R90__A__t_pvalue ;
     json:relatedElement "[{\"@id\":\"R90__A__t\"},{\"@id\":\"R90__A__t_pvalue\"}]" .
 
+expr:R90__A__t_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "R90__A__t_pmultiplicity" ;
+    sysml:owner elmt:R90__A__t ;
+    sysml:owningRelationship expr:R90__A__t_pmultiplicity_om ;
+    sysml:owningMembership expr:R90__A__t_pmultiplicity_om .
+
+expr:R90__A__t_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__A__t_pmultiplicity_om" ;
+    sysml:owner elmt:R90__A__t ;
+    sysml:memberElement expr:R90__A__t_pmultiplicity ;
+    sysml:ownedMemberElement expr:R90__A__t_pmultiplicity ;
+    sysml:ownedRelatedElement expr:R90__A__t_pmultiplicity ;
+    sysml:owningRelatedElement elmt:R90__A__t ;
+    sysml:membershipOwningNamespace elmt:R90__A__t ;
+    sysml:source elmt:R90__A__t ;
+    sysml:target expr:R90__A__t_pmultiplicity ;
+    sysml:relatedElement elmt:R90__A__t, expr:R90__A__t_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"R90__A__t\"},{\"@id\":\"R90__A__t_pmultiplicity\"}]" .
+
 elmt:R90__A__b2
     a sysml:ItemUsage ;
     sysml:qualifiedName "R90::A::b2" ;
@@ -646,10 +723,14 @@ elmt:R90__A__b2
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:R90__A__b2_pmultiplicity ;
+    sysml:ownedRelationship elmt:R90__A__b2_ft0, expr:R90__A__b2_pmultiplicity_om ;
+    sysml:ownedMembership expr:R90__A__b2_pmultiplicity_om ;
+    sysml:ownedMember expr:R90__A__b2_pmultiplicity ;
     sysml:ownedTyping elmt:R90__A__b2_ft0 ;
     sysml:ownedSpecialization elmt:R90__A__b2_ft0 ;
-    sysml:ownedRelationship elmt:R90__A__b2_ft0 ;
-    sysx:sourceText "        item b2 : BudgetLedger;\n" .
+    sysx:sourceText "        item b2 : BudgetLedger;\n" ;
+    json:ownedRelationship "[{\"@id\":\"R90__A__b2_ft0\"},{\"@id\":\"R90__A__b2_pmultiplicity_om\"}]" .
 
 elmt:R90__A__b2_om
     a sysml:FeatureMembership ;
@@ -667,6 +748,28 @@ elmt:R90__A__b2_om
     sysml:ownedMemberFeature elmt:R90__A__b2 ;
     sysml:owningType elmt:R90__A ;
     json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__b2\"}]" .
+
+expr:R90__A__b2_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "R90__A__b2_pmultiplicity" ;
+    sysml:owner elmt:R90__A__b2 ;
+    sysml:owningRelationship expr:R90__A__b2_pmultiplicity_om ;
+    sysml:owningMembership expr:R90__A__b2_pmultiplicity_om .
+
+expr:R90__A__b2_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__A__b2_pmultiplicity_om" ;
+    sysml:owner elmt:R90__A__b2 ;
+    sysml:memberElement expr:R90__A__b2_pmultiplicity ;
+    sysml:ownedMemberElement expr:R90__A__b2_pmultiplicity ;
+    sysml:ownedRelatedElement expr:R90__A__b2_pmultiplicity ;
+    sysml:owningRelatedElement elmt:R90__A__b2 ;
+    sysml:membershipOwningNamespace elmt:R90__A__b2 ;
+    sysml:source elmt:R90__A__b2 ;
+    sysml:target expr:R90__A__b2_pmultiplicity ;
+    sysml:relatedElement elmt:R90__A__b2, expr:R90__A__b2_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"R90__A__b2\"},{\"@id\":\"R90__A__b2_pmultiplicity\"}]" .
 
 elmt:R90__A__b3
     a sysml:ItemUsage ;
@@ -687,10 +790,14 @@ elmt:R90__A__b3
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:R90__A__b3_pmultiplicity ;
+    sysml:ownedRelationship elmt:R90__A__b3_ft0, expr:R90__A__b3_pmultiplicity_om ;
+    sysml:ownedMembership expr:R90__A__b3_pmultiplicity_om ;
+    sysml:ownedMember expr:R90__A__b3_pmultiplicity ;
     sysml:ownedTyping elmt:R90__A__b3_ft0 ;
     sysml:ownedSpecialization elmt:R90__A__b3_ft0 ;
-    sysml:ownedRelationship elmt:R90__A__b3_ft0 ;
-    sysx:sourceText "        item b3 : Ledger;\n" .
+    sysx:sourceText "        item b3 : Ledger;\n" ;
+    json:ownedRelationship "[{\"@id\":\"R90__A__b3_ft0\"},{\"@id\":\"R90__A__b3_pmultiplicity_om\"}]" .
 
 elmt:R90__A__b3_om
     a sysml:FeatureMembership ;
@@ -708,6 +815,28 @@ elmt:R90__A__b3_om
     sysml:ownedMemberFeature elmt:R90__A__b3 ;
     sysml:owningType elmt:R90__A ;
     json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__b3\"}]" .
+
+expr:R90__A__b3_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "R90__A__b3_pmultiplicity" ;
+    sysml:owner elmt:R90__A__b3 ;
+    sysml:owningRelationship expr:R90__A__b3_pmultiplicity_om ;
+    sysml:owningMembership expr:R90__A__b3_pmultiplicity_om .
+
+expr:R90__A__b3_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__A__b3_pmultiplicity_om" ;
+    sysml:owner elmt:R90__A__b3 ;
+    sysml:memberElement expr:R90__A__b3_pmultiplicity ;
+    sysml:ownedMemberElement expr:R90__A__b3_pmultiplicity ;
+    sysml:ownedRelatedElement expr:R90__A__b3_pmultiplicity ;
+    sysml:owningRelatedElement elmt:R90__A__b3 ;
+    sysml:membershipOwningNamespace elmt:R90__A__b3 ;
+    sysml:source elmt:R90__A__b3 ;
+    sysml:target expr:R90__A__b3_pmultiplicity ;
+    sysml:relatedElement elmt:R90__A__b3, expr:R90__A__b3_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"R90__A__b3\"},{\"@id\":\"R90__A__b3_pmultiplicity\"}]" .
 
 elmt:R90__A__w
     a sysml:PartUsage ;
@@ -729,13 +858,16 @@ elmt:R90__A__w
     sysml:type elmt:OtherPkg__Inner__Wheel ;
     sysml:subsets elmt:OtherPkg__Inner__wheels ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:R90__A__w_pmultiplicity ;
+    sysml:ownedRelationship elmt:R90__A__w_ft0, elmt:R90__A__w_ss0, expr:R90__A__w_pmultiplicity_om ;
+    sysml:ownedMembership expr:R90__A__w_pmultiplicity_om ;
+    sysml:ownedMember expr:R90__A__w_pmultiplicity ;
     sysml:ownedTyping elmt:R90__A__w_ft0 ;
     sysml:ownedSpecialization elmt:R90__A__w_ft0, elmt:R90__A__w_ss0 ;
-    sysml:ownedRelationship elmt:R90__A__w_ft0, elmt:R90__A__w_ss0 ;
     sysml:ownedSubsetting elmt:R90__A__w_ss0 ;
     sysx:sourceText "        part w : Inner::Wheel :> Inner::wheels;\n" ;
-    json:ownedSpecialization "[{\"@id\":\"R90__A__w_ft0\"},{\"@id\":\"R90__A__w_ss0\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"R90__A__w_ft0\"},{\"@id\":\"R90__A__w_ss0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"R90__A__w_ft0\"},{\"@id\":\"R90__A__w_ss0\"},{\"@id\":\"R90__A__w_pmultiplicity_om\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"R90__A__w_ft0\"},{\"@id\":\"R90__A__w_ss0\"}]" .
 
 elmt:R90__A__w_om
     a sysml:FeatureMembership ;
@@ -753,6 +885,28 @@ elmt:R90__A__w_om
     sysml:ownedMemberFeature elmt:R90__A__w ;
     sysml:owningType elmt:R90__A ;
     json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__w\"}]" .
+
+expr:R90__A__w_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "R90__A__w_pmultiplicity" ;
+    sysml:owner elmt:R90__A__w ;
+    sysml:owningRelationship expr:R90__A__w_pmultiplicity_om ;
+    sysml:owningMembership expr:R90__A__w_pmultiplicity_om .
+
+expr:R90__A__w_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__A__w_pmultiplicity_om" ;
+    sysml:owner elmt:R90__A__w ;
+    sysml:memberElement expr:R90__A__w_pmultiplicity ;
+    sysml:ownedMemberElement expr:R90__A__w_pmultiplicity ;
+    sysml:ownedRelatedElement expr:R90__A__w_pmultiplicity ;
+    sysml:owningRelatedElement elmt:R90__A__w ;
+    sysml:membershipOwningNamespace elmt:R90__A__w ;
+    sysml:source elmt:R90__A__w ;
+    sysml:target expr:R90__A__w_pmultiplicity ;
+    sysml:relatedElement elmt:R90__A__w, expr:R90__A__w_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"R90__A__w\"},{\"@id\":\"R90__A__w_pmultiplicity\"}]" .
 
 elmt:R90__A__spare
     a sysml:ReferenceUsage ;
@@ -816,6 +970,10 @@ elmt:R90__A__size
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:R90__A__size_pmultiplicity ;
+    sysml:ownedRelationship expr:R90__A__size_pmultiplicity_om ;
+    sysml:ownedMembership expr:R90__A__size_pmultiplicity_om ;
+    sysml:ownedMember expr:R90__A__size_pmultiplicity ;
     sysx:sourceText "        attribute size;\n" .
 
 elmt:R90__A__size_om
@@ -835,6 +993,28 @@ elmt:R90__A__size_om
     sysml:owningType elmt:R90__A ;
     json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__size\"}]" .
 
+expr:R90__A__size_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "R90__A__size_pmultiplicity" ;
+    sysml:owner elmt:R90__A__size ;
+    sysml:owningRelationship expr:R90__A__size_pmultiplicity_om ;
+    sysml:owningMembership expr:R90__A__size_pmultiplicity_om .
+
+expr:R90__A__size_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__A__size_pmultiplicity_om" ;
+    sysml:owner elmt:R90__A__size ;
+    sysml:memberElement expr:R90__A__size_pmultiplicity ;
+    sysml:ownedMemberElement expr:R90__A__size_pmultiplicity ;
+    sysml:ownedRelatedElement expr:R90__A__size_pmultiplicity ;
+    sysml:owningRelatedElement elmt:R90__A__size ;
+    sysml:membershipOwningNamespace elmt:R90__A__size ;
+    sysml:source elmt:R90__A__size ;
+    sysml:target expr:R90__A__size_pmultiplicity ;
+    sysml:relatedElement elmt:R90__A__size, expr:R90__A__size_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"R90__A__size\"},{\"@id\":\"R90__A__size_pmultiplicity\"}]" .
+
 elmt:R90__A__s
     a sysml:AttributeUsage ;
     sysml:qualifiedName "R90::A::s" ;
@@ -853,10 +1033,14 @@ elmt:R90__A__s
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:R90__A__s_pvalue ;
-    sysml:ownedRelationship expr:R90__A__s_pvalue_om ;
-    sysml:ownedMembership expr:R90__A__s_pvalue_om ;
+    sysml:ownedRelationship expr:R90__A__s_pvalue_om, expr:R90__A__s_pmultiplicity_om ;
+    sysml:ownedMembership expr:R90__A__s_pvalue_om, expr:R90__A__s_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute s = w.size;\n" .
+    sysml:multiplicity expr:R90__A__s_pmultiplicity ;
+    sysml:ownedMember expr:R90__A__s_pmultiplicity ;
+    sysx:sourceText "        attribute s = w.size;\n" ;
+    json:ownedRelationship "[{\"@id\":\"R90__A__s_pvalue_om\"},{\"@id\":\"R90__A__s_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R90__A__s_pvalue_om\"},{\"@id\":\"R90__A__s_pmultiplicity_om\"}]" .
 
 elmt:R90__A__s_om
     a sysml:FeatureMembership ;
@@ -1047,6 +1231,28 @@ expr:R90__A__s_pvalue_om
     sysml:value expr:R90__A__s_pvalue ;
     json:relatedElement "[{\"@id\":\"R90__A__s\"},{\"@id\":\"R90__A__s_pvalue\"}]" .
 
+expr:R90__A__s_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "R90__A__s_pmultiplicity" ;
+    sysml:owner elmt:R90__A__s ;
+    sysml:owningRelationship expr:R90__A__s_pmultiplicity_om ;
+    sysml:owningMembership expr:R90__A__s_pmultiplicity_om .
+
+expr:R90__A__s_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__A__s_pmultiplicity_om" ;
+    sysml:owner elmt:R90__A__s ;
+    sysml:memberElement expr:R90__A__s_pmultiplicity ;
+    sysml:ownedMemberElement expr:R90__A__s_pmultiplicity ;
+    sysml:ownedRelatedElement expr:R90__A__s_pmultiplicity ;
+    sysml:owningRelatedElement elmt:R90__A__s ;
+    sysml:membershipOwningNamespace elmt:R90__A__s ;
+    sysml:source elmt:R90__A__s ;
+    sysml:target expr:R90__A__s_pmultiplicity ;
+    sysml:relatedElement elmt:R90__A__s, expr:R90__A__s_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"R90__A__s\"},{\"@id\":\"R90__A__s_pmultiplicity\"}]" .
+
 elmt:R90__A__unresolved
     a sysml:PartUsage ;
     sysml:qualifiedName "R90::A::unresolved" ;
@@ -1066,10 +1272,14 @@ elmt:R90__A__unresolved
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Elsewhere::Missing" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:R90__A__unresolved_pmultiplicity ;
+    sysml:ownedRelationship elmt:R90__A__unresolved_ft0, expr:R90__A__unresolved_pmultiplicity_om ;
+    sysml:ownedMembership expr:R90__A__unresolved_pmultiplicity_om ;
+    sysml:ownedMember expr:R90__A__unresolved_pmultiplicity ;
     sysml:ownedTyping elmt:R90__A__unresolved_ft0 ;
     sysml:ownedSpecialization elmt:R90__A__unresolved_ft0 ;
-    sysml:ownedRelationship elmt:R90__A__unresolved_ft0 ;
-    sysx:sourceText "        part unresolved : Elsewhere::Missing;\n" .
+    sysx:sourceText "        part unresolved : Elsewhere::Missing;\n" ;
+    json:ownedRelationship "[{\"@id\":\"R90__A__unresolved_ft0\"},{\"@id\":\"R90__A__unresolved_pmultiplicity_om\"}]" .
 
 elmt:R90__A__unresolved_om
     a sysml:FeatureMembership ;
@@ -1087,6 +1297,28 @@ elmt:R90__A__unresolved_om
     sysml:ownedMemberFeature elmt:R90__A__unresolved ;
     sysml:owningType elmt:R90__A ;
     json:relatedElement "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__A__unresolved\"}]" .
+
+expr:R90__A__unresolved_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "R90__A__unresolved_pmultiplicity" ;
+    sysml:owner elmt:R90__A__unresolved ;
+    sysml:owningRelationship expr:R90__A__unresolved_pmultiplicity_om ;
+    sysml:owningMembership expr:R90__A__unresolved_pmultiplicity_om .
+
+expr:R90__A__unresolved_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__A__unresolved_pmultiplicity_om" ;
+    sysml:owner elmt:R90__A__unresolved ;
+    sysml:memberElement expr:R90__A__unresolved_pmultiplicity ;
+    sysml:ownedMemberElement expr:R90__A__unresolved_pmultiplicity ;
+    sysml:ownedRelatedElement expr:R90__A__unresolved_pmultiplicity ;
+    sysml:owningRelatedElement elmt:R90__A__unresolved ;
+    sysml:membershipOwningNamespace elmt:R90__A__unresolved ;
+    sysml:source elmt:R90__A__unresolved ;
+    sysml:target expr:R90__A__unresolved_pmultiplicity ;
+    sysml:relatedElement elmt:R90__A__unresolved, expr:R90__A__unresolved_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"R90__A__unresolved\"},{\"@id\":\"R90__A__unresolved_pmultiplicity\"}]" .
 
 elmt:R90__B
     a sysml:PartDefinition ;
@@ -1232,6 +1464,10 @@ elmt:R90__G1__x
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:R90__G1__x_pmultiplicity ;
+    sysml:ownedRelationship expr:R90__G1__x_pmultiplicity_om ;
+    sysml:ownedMembership expr:R90__G1__x_pmultiplicity_om ;
+    sysml:ownedMember expr:R90__G1__x_pmultiplicity ;
     sysx:sourceText "        part x;\n" .
 
 elmt:R90__G1__x_om
@@ -1250,6 +1486,28 @@ elmt:R90__G1__x_om
     sysml:ownedMemberFeature elmt:R90__G1__x ;
     sysml:owningType elmt:R90__G1 ;
     json:relatedElement "[{\"@id\":\"R90__G1\"},{\"@id\":\"R90__G1__x\"}]" .
+
+expr:R90__G1__x_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "R90__G1__x_pmultiplicity" ;
+    sysml:owner elmt:R90__G1__x ;
+    sysml:owningRelationship expr:R90__G1__x_pmultiplicity_om ;
+    sysml:owningMembership expr:R90__G1__x_pmultiplicity_om .
+
+expr:R90__G1__x_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__G1__x_pmultiplicity_om" ;
+    sysml:owner elmt:R90__G1__x ;
+    sysml:memberElement expr:R90__G1__x_pmultiplicity ;
+    sysml:ownedMemberElement expr:R90__G1__x_pmultiplicity ;
+    sysml:ownedRelatedElement expr:R90__G1__x_pmultiplicity ;
+    sysml:owningRelatedElement elmt:R90__G1__x ;
+    sysml:membershipOwningNamespace elmt:R90__G1__x ;
+    sysml:source elmt:R90__G1__x ;
+    sysml:target expr:R90__G1__x_pmultiplicity ;
+    sysml:relatedElement elmt:R90__G1__x, expr:R90__G1__x_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"R90__G1__x\"},{\"@id\":\"R90__G1__x_pmultiplicity\"}]" .
 
 elmt:R90__G2
     a sysml:PartDefinition ;
@@ -1307,6 +1565,10 @@ elmt:R90__G2__x
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:R90__G2__x_pmultiplicity ;
+    sysml:ownedRelationship expr:R90__G2__x_pmultiplicity_om ;
+    sysml:ownedMembership expr:R90__G2__x_pmultiplicity_om ;
+    sysml:ownedMember expr:R90__G2__x_pmultiplicity ;
     sysx:sourceText "        part x;\n" .
 
 elmt:R90__G2__x_om
@@ -1325,6 +1587,28 @@ elmt:R90__G2__x_om
     sysml:ownedMemberFeature elmt:R90__G2__x ;
     sysml:owningType elmt:R90__G2 ;
     json:relatedElement "[{\"@id\":\"R90__G2\"},{\"@id\":\"R90__G2__x\"}]" .
+
+expr:R90__G2__x_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "R90__G2__x_pmultiplicity" ;
+    sysml:owner elmt:R90__G2__x ;
+    sysml:owningRelationship expr:R90__G2__x_pmultiplicity_om ;
+    sysml:owningMembership expr:R90__G2__x_pmultiplicity_om .
+
+expr:R90__G2__x_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__G2__x_pmultiplicity_om" ;
+    sysml:owner elmt:R90__G2__x ;
+    sysml:memberElement expr:R90__G2__x_pmultiplicity ;
+    sysml:ownedMemberElement expr:R90__G2__x_pmultiplicity ;
+    sysml:ownedRelatedElement expr:R90__G2__x_pmultiplicity ;
+    sysml:owningRelatedElement elmt:R90__G2__x ;
+    sysml:membershipOwningNamespace elmt:R90__G2__x ;
+    sysml:source elmt:R90__G2__x ;
+    sysml:target expr:R90__G2__x_pmultiplicity ;
+    sysml:relatedElement elmt:R90__G2__x, expr:R90__G2__x_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"R90__G2__x\"},{\"@id\":\"R90__G2__x_pmultiplicity\"}]" .
 
 elmt:R90__H
     a sysml:PartDefinition ;
@@ -2179,10 +2463,14 @@ elmt:Filtered__C__other
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Meta__Tagged ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Filtered__C__other_pmultiplicity ;
+    sysml:ownedRelationship elmt:Filtered__C__other_ft0, expr:Filtered__C__other_pmultiplicity_om ;
+    sysml:ownedMembership expr:Filtered__C__other_pmultiplicity_om ;
+    sysml:ownedMember expr:Filtered__C__other_pmultiplicity ;
     sysml:ownedTyping elmt:Filtered__C__other_ft0 ;
     sysml:ownedSpecialization elmt:Filtered__C__other_ft0 ;
-    sysml:ownedRelationship elmt:Filtered__C__other_ft0 ;
-    sysx:sourceText "        attribute other : Tagged;\n" .
+    sysx:sourceText "        attribute other : Tagged;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Filtered__C__other_ft0\"},{\"@id\":\"Filtered__C__other_pmultiplicity_om\"}]" .
 
 elmt:Filtered__C__other_om
     a sysml:FeatureMembership ;
@@ -2200,6 +2488,28 @@ elmt:Filtered__C__other_om
     sysml:ownedMemberFeature elmt:Filtered__C__other ;
     sysml:owningType elmt:Filtered__C ;
     json:relatedElement "[{\"@id\":\"Filtered__C\"},{\"@id\":\"Filtered__C__other\"}]" .
+
+expr:Filtered__C__other_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Filtered__C__other_pmultiplicity" ;
+    sysml:owner elmt:Filtered__C__other ;
+    sysml:owningRelationship expr:Filtered__C__other_pmultiplicity_om ;
+    sysml:owningMembership expr:Filtered__C__other_pmultiplicity_om .
+
+expr:Filtered__C__other_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Filtered__C__other_pmultiplicity_om" ;
+    sysml:owner elmt:Filtered__C__other ;
+    sysml:memberElement expr:Filtered__C__other_pmultiplicity ;
+    sysml:ownedMemberElement expr:Filtered__C__other_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Filtered__C__other_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Filtered__C__other ;
+    sysml:membershipOwningNamespace elmt:Filtered__C__other ;
+    sysml:source elmt:Filtered__C__other ;
+    sysml:target expr:Filtered__C__other_pmultiplicity ;
+    sysml:relatedElement elmt:Filtered__C__other, expr:Filtered__C__other_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Filtered__C__other\"},{\"@id\":\"Filtered__C__other_pmultiplicity\"}]" .
 
 elmt:Filtered___402
     a sysml:ElementFilterMembership ;
