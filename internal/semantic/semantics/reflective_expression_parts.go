@@ -313,6 +313,14 @@ func (m *Model) expressionOwnedElements(expr *symbols.Symbol) []*symbols.Symbol 
 // expressionOwnedParts are the elements expr owns, parameters first then the
 // result, as the conversion lists them.
 func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
+	if accept := m.acceptParts(expr); accept != nil {
+		// A trigger's accept owns its payload, which owns its value.
+		member := accept.payload
+		if expr.Expr.Role == symbols.ExpressionPayload {
+			member = accept.payloadValue
+		}
+		return optionalElement(member)
+	}
 	parts := m.expressionPartsOf(expr)
 	if parts == nil {
 		return nil
