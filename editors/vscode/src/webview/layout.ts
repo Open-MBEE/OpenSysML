@@ -728,7 +728,7 @@ export function labelLines(
   if ((node.name !== "" || node.arrow !== undefined) && draws("keywords")) {
     lines.push(`«${node.kind}»`);
   }
-  if (node.arrow === undefined || node.name !== "" || node.detail !== "") {
+  if (node.arrow === undefined || node.name !== "" || node.detail !== "" || (node.text ?? "") !== "") {
     lines.push(labelHead(node, draws("typings"), draws("qualifiers"), names));
   }
   if (node.detail !== "" && draws("compartments")) {
@@ -1624,7 +1624,7 @@ function labelHead(
   names?: ReadonlyMap<string, string>,
 ): string {
   if (node.name === "") {
-    return node.kind;
+    return node.type === "" && (node.text ?? "") !== "" ? node.text! : node.kind;
   }
   const name = (node.inherited ? "^" : "") + (qualified
     ? node.name

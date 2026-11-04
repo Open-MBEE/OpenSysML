@@ -849,6 +849,9 @@ test("labelLines and shapeOf follow the graphical notation", () => {
   assert.deepEqual(labelLines(node("a", "", { kind: "fork" })), []);
   assert.equal(shapeOf("part def"), "box");
   assert.equal(shapeOf("initial"), "circle");
+  for (const kind of ["connection dot", "connection def dot", "dependency dot"]) {
+    assert.equal(shapeOf(kind), "circle", `${kind} is the n-ary dot`);
+  }
   assert.equal(shapeOf("final"), "ring");
   assert.equal(shapeOf("fork"), "bar");
   assert.equal(shapeOf("decision"), "diamond");
