@@ -365,14 +365,6 @@ function layoutSequence(
     return lifeline?.children.some((proxy) => proxy.box.width > 0 && centre(proxy).y === y) ?? false;
   };
   const isProxy = (id: string): boolean => placed.get(id)?.parent !== undefined;
-  // freeAbove is the lowest y at or above y where the end's lifeline has no point yet.
-  const freeAbove = (id: string, y: number): number => {
-    let at = y;
-    while (at > headY && occupied(id, at)) {
-      at -= MESSAGE_GAP / 2;
-    }
-    return at;
-  };
   const placeProxy = (id: string, cx: number, cy: number): void => {
     const entry = placed.get(id);
     if (entry?.parent !== undefined && entry.box.width === 0) {
@@ -382,21 +374,38 @@ function layoutSequence(
     }
   };
   let rows = 0;
-  const routed = edges.map((edge, index): PlacedEdge => {
+  const routed: PlacedEdge[] = [];
+  // openRowAt moves every point and route at or below y down a row, so a new point can take y.
+  const openRowAt = (y: number): void => {
+    for (const root of roots) {
+      for (const proxy of root.children) {
+        if (proxy.box.width > 0 && centre(proxy).y >= y) {
+          proxy.box = { ...proxy.box, y: proxy.box.y + MESSAGE_GAP };
+        }
+      }
+    }
+    for (const route of routed) {
+      route.points = route.points.map((point) => (point.y >= y ? { x: point.x, y: point.y + MESSAGE_GAP } : point));
+      route.label = midpoint(route.points);
+    }
+    rows++;
+  };
+  for (const [index, edge] of edges.entries()) {
     const fromProxy = placedProxy(edge.from);
     const toProxy = placedProxy(edge.to);
     const latest = headY + MESSAGE_GAP * rows;
-    // An edge between two placed points joins them; a sending end never sits below its
-    // placed receiving point; a message leaving a point on the latest row stays on it
-    // unless the receiving lifeline has a point there; a hidden edge takes no row; any
-    // other edge opens a row.
+    // Placed points are joined, a sender sits at or above its placed receiver, a message
+    // from a point on the latest row stays on it; else an edge opens a row, a hidden one none.
     let y: number;
     if (hidden[index]) {
       y = latest;
     } else if (fromProxy && toProxy) {
       y = Math.max(centre(fromProxy).y, centre(toProxy).y);
     } else if (toProxy) {
-      y = isProxy(edge.from) ? freeAbove(edge.from, centre(toProxy).y) : centre(toProxy).y;
+      y = centre(toProxy).y;
+      if (isProxy(edge.from) && occupied(edge.from, y)) {
+        openRowAt(y);
+      }
     } else if (
       fromProxy &&
       edge.kind !== "succession" &&
@@ -428,7 +437,7 @@ function layoutSequence(
       placeProxy(edge.from, points[0].x, points[0].y);
       placeProxy(edge.to, points[points.length - 1].x, points[points.length - 1].y);
     }
-    return {
+    routed.push({
       edge,
       index,
       points,
@@ -436,8 +445,8 @@ function layoutSequence(
       label: midpoint(points),
       hidden: hidden[index],
       rerouted: false,
-    };
-  });
+    });
+  }
   const bottom = headY + MESSAGE_GAP * (rows + 1);
   for (const root of roots) {
     root.lifeline = bottom;
