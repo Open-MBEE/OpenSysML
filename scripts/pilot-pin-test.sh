@@ -9,8 +9,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 # A release repository with one tag: a populated subtree, an empty one, a pair the
-# multi-target case fetches together, and a directory of two grammars the file case
-# fetches one of.
+# multi-target case fetches together, and two grammars the file case fetches one of.
 release="$work/release"
 git -C "$work" init -q release
 git -C "$release" config user.email ci@example.com
