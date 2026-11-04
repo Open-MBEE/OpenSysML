@@ -2229,7 +2229,8 @@ over them stay as the graph states them. Reading, a listed property is
 the writer's completion and states no triple, so the graph read back is the
 graph written; a property no list names — in a document another writer
 produced, or one this list was stripped from — is the statement it looks like. The compact form's `omit_derived` leaves the completed
-properties out with the other derived ones, and the list with them. The key is
+derived values out with the other derived ones; the list stays, and a listed property
+the element leaves out states nothing either way. The key is
 reserved like the two above: a `sysx:completedProperties` predicate in the
 graph is never written as a fact. A graph that is already an external writer's
 element form (one stating `isImpliedIncluded`, which this mapping never does)
