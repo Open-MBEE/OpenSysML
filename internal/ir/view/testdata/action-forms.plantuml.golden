@@ -65,7 +65,7 @@ state "<size:10>//«action def»//</size>\n**Monitor**\nparameters\nin sensor\no
       state "<size:10>//«action»//</size>\n**lower**" as n19 <<action>> <<usage>>
     }
   }
-  state "<size:10>//«terminate action»//</size>\n**final**" as n20 <<end>>
+  state "<size:10>//«terminate action»//</size>\n**final**\nparameters\nin ^terminatedOccurrence" as n20 <<end>>
 }
 n8 -[dashed]-> n9
 n1 -[dashed]-> n2

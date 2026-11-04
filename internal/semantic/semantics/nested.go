@@ -76,9 +76,16 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 		u.Included = d.IsIncludedUseCase()
 		u.RequirementConstraint = d.IsRequirementConstraint()
 		u.Assumed = d.IsAssumedConstraint()
-	case *ast.SubstateMember:
-		// The `state s;` of a state body is a composite StateUsage the parser
-		// records as a SubstateMember.
+		u.Event = d.IsEvent
+		u.Accept = hasAcceptPayload(d)
+		u.Send = d.IsActionNode && hasSendStatement(d)
+		u.Terminate = d.IsTerminate
+		u.Verified = d.IsVerifiedRequirement()
+	case *ast.SubstateMember, *ast.TransitionMember:
+		// The `state s;` and `transition …` of a body are composite usages the
+		// parser records as members.
+	case *ast.SendStatement:
+		u.Send = true
 	case *ast.AssumeMember, *ast.RequireMember:
 		// The constraint an `assume`/`require` member owns is composite: its
 		// grammar has no `ref` (SysML.xtext RequirementConstraintUsage).
@@ -104,6 +111,9 @@ func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, own
 		if fqn := stateActionFQN(usage); fqn != "" && fqn != stateActionFQNs["do"] {
 			u.EntryExitAction = true
 		}
+		if kind == ast.UsageAttribute && !m.isSysMLUsage(sym) {
+			return m.kermlFeatureNestedFQN(sym, owner, usage)
+		}
 	}
 	o, ok := nestedOwnerOf(owner)
 	if !ok {
@@ -126,6 +136,9 @@ type NestedUsage struct {
 	// state` and `include use case` forms; RequirementConstraint is a
 	// `require` or `assume` constraint, Assumed the `assume` one.
 	Performed, Exhibited, Included, RequirementConstraint, Assumed bool
+	// Event, Accept, Send, Terminate and Verified are the `event occurrence`,
+	// accept, send and terminate action and objective `verify` roles.
+	Event, Accept, Send, Terminate, Verified bool
 	// EntryExitAction is a state's `entry` or `exit` action: a subperformance of
 	// the state but no subaction, since `StateAction::subactions :> middle`.
 	EntryExitAction bool
@@ -137,16 +150,19 @@ type NestedOwner struct {
 	Usage ast.UsageKind
 	Def   ast.DefinitionKind
 	IsDef bool
+	// Parallel is the owner's `parallel` (StateDefinition/StateUsage::isParallel).
+	Parallel bool
 }
 
 // nestedOwnerOf is the declaration kind of owner, false for a declaration
 // that is neither a usage (or a member form standing in for one) nor a definition.
 func nestedOwnerOf(owner *symbols.Symbol) (NestedOwner, bool) {
 	if u, ok := ownerUsageKind(owner); ok {
-		return NestedOwner{Usage: u}, true
+		usage, _ := owner.Decl.(*ast.Usage)
+		return NestedOwner{Usage: u, Parallel: usage != nil && usage.IsParallel}, true
 	}
 	if d, ok := owner.Decl.(*ast.Definition); ok {
-		return NestedOwner{Def: d.Kind, IsDef: true}, true
+		return NestedOwner{Def: d.Kind, IsDef: true, Parallel: d.IsParallel}, true
 	}
 	return NestedOwner{}, false
 }
@@ -196,13 +212,18 @@ func nestedRuleFQN(u NestedUsage, owner NestedOwner) (fqn string, step bool) {
 		return partNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageItem, ast.UsagePort, ast.UsageOccurrence, ast.UsageIndividual:
 		return occurrenceNestedFQN(owner, u.Composite, u.Portion, false)
-	case ast.UsageAction, ast.UsageTransition, ast.UsageFlow:
+	case ast.UsageTransition:
+		return transitionNestedFQN(owner, u.Composite, u.Portion)
+	case ast.UsageAction, ast.UsageFlow:
 		if u.EntryExitAction {
 			return "", true
 		}
+		if fqn := actionKindNestedFQN(u, owner); fqn != "" {
+			return fqn, false
+		}
 		return actionNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageState:
-		return stateNestedFQN(owner, u.Composite, u.Portion)
+		return stateNestedFQN(owner, u.Composite, u.Portion, owner.Parallel)
 	case ast.UsageCalc:
 		return calcNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageCase, ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase:
@@ -236,11 +257,38 @@ func familyNestedFQN(u NestedUsage, owner NestedOwner) string {
 		if ownerInUseCaseFamily(owner) && u.Included {
 			return "UseCases::UseCase::includedUseCases"
 		}
+	case ast.UsageOccurrence, ast.UsageIndividual:
+		if u.Event && ownerInOccurrenceFamily(owner) {
+			return "Occurrences::Occurrence::timeEnclosedOccurrences"
+		}
+	case ast.UsageActor:
+		switch {
+		case ownerInRequirementFamily(owner):
+			return "Requirements::RequirementCheck::actors"
+		case ownerInCaseFamily(owner):
+			return "Cases::Case::actors"
+		}
+	case ast.UsageStakeholder:
+		if ownerInRequirementFamily(owner) {
+			return "Requirements::RequirementCheck::stakeholders"
+		}
+	case ast.UsageFramedConcern:
+		if ownerInRequirementFamily(owner) {
+			return "Requirements::RequirementCheck::concerns"
+		}
+	case ast.UsageSatisfy:
+		if u.Verified && !owner.IsDef && owner.Usage == ast.UsageObjective {
+			return "VerificationCases::VerificationCase::obj::requirementVerifications"
+		}
 	}
 	if !u.Composite {
 		return ""
 	}
 	switch u.Kind {
+	case ast.UsageViewpoint:
+		if ownerInViewFamily(owner) {
+			return "Views::View::viewpointSatisfactions"
+		}
 	case ast.UsageItem:
 		if ownerInItemFamily(owner) {
 			return "Items::Item::subitems"
@@ -303,9 +351,43 @@ func actionNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind)
 }
 
 // stateNestedFQN is the rule chain of a nested state that is not exhibited.
-func stateNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
+// actionKindNestedFQN is the subaction feature an accept, send or terminate
+// action subsets (SysML v2 §8.4 check*ActionUsageSubactionSpecialization).
+func actionKindNestedFQN(u NestedUsage, owner NestedOwner) string {
+	if !u.Composite || !ownerInActionFamily(owner) {
+		return ""
+	}
+	switch {
+	case u.Accept:
+		return "Actions::Action::acceptSubactions"
+	case u.Send:
+		return "Actions::Action::sendSubactions"
+	case u.Terminate:
+		return "Actions::Action::terminateSubactions"
+	}
+	return ""
+}
+
+// transitionNestedFQN: a state's transitions are its stateTransitions, an
+// action's its decisionTransitions (SysML v2 §8.4 checkTransitionUsageState/ActionSpecialization).
+func transitionNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInStateFamily(owner) {
-		return "States::StateAction::substates", false
+		return "States::StateAction::stateTransitions", false
+	}
+	if composite && ownerInActionFamily(owner) {
+		return "Actions::Action::decisionTransitions", false
+	}
+	return actionNestedFQN(owner, composite, portion)
+}
+
+// Substates of a parallel state are its substates, of any other its
+// exclusiveStates (SysML v2 §8.4 checkStateUsageSubstate/ExclusiveStateSpecialization).
+func stateNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind, parallel bool) (string, bool) {
+	if composite && ownerInStateFamily(owner) {
+		if parallel {
+			return "States::StateAction::substates", false
+		}
+		return "States::StateAction::exclusiveStates", false
 	}
 	if composite && ownerInPartFamily(owner) {
 		return "Parts::Part::ownedStates", false
@@ -546,4 +628,30 @@ func ownerInRenderingFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner,
 		[]ast.UsageKind{ast.UsageRendering, ast.UsageViewRendering},
 		[]ast.DefinitionKind{ast.DefRendering})
+}
+
+// kermlFeatureNestedFQN: a class-typed feature of an occurrence is a suboccurrence
+// when composite and a portion when a portion; a struct-typed one of an object is
+// a subobject (KerML 1.1 §8.4 checkFeatureSuboccurrence/Portion/SubobjectSpecialization).
+func (m *Model) kermlFeatureNestedFQN(sym, owner *symbols.Symbol, usage *ast.Usage) string {
+	if !usage.IsComposite && !usage.IsPortion {
+		return ""
+	}
+	typed, ok := m.declaredTypeFeatureBase(sym)
+	if !ok {
+		return ""
+	}
+	object := typed == "Objects::objects" || typed == "Objects::linkObjects"
+	if !object && typed != "Occurrences::occurrences" {
+		return ""
+	}
+	switch {
+	case usage.IsPortion && m.conformsByName(owner, occurrenceFQN):
+		return "Occurrences::Occurrence::portions"
+	case object && m.conformsByName(owner, "Objects::Object"):
+		return "Objects::Object::subobjects"
+	case m.conformsByName(owner, occurrenceFQN):
+		return "Occurrences::Occurrence::suboccurrences"
+	}
+	return ""
 }

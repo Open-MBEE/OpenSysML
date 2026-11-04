@@ -32,6 +32,7 @@ action def Monitor
     else body
       action lower
   terminate action final
+    in ^terminatedOccurrence
 
 flow:
   poll -> record

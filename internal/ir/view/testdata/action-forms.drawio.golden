@@ -203,11 +203,23 @@
             <mxGeometry x="16" y="75" width="64" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n20" label="«terminate action»&#xA;final" fqn="ActionForms::Monitor::final" kind="terminate action" view="ActionFormViews::monitorView" link="action-forms.sysml:31">
+        <object id="n20" label="«terminate action»&#xA;final&#xA;parameters&#xA;in ^terminatedOccurrence" fqn="ActionForms::Monitor::final" kind="terminate action" view="ActionFormViews::monitorView" link="action-forms.sysml:31">
           <mxCell style="shape=umlDestroy;html=0;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="n0">
             <mxGeometry x="348" y="574" width="20" height="20" as="geometry"/>
           </mxCell>
         </object>
+        <object id="n20:n20.0" label="^terminatedOccurrence" fqn="ActionForms::Monitor::final::terminatedOccurrence" kind="parameter" view="ActionFormViews::monitorView">
+          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n20">
+            <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="n20:n20.0:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n20">
+          <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
+            <mxPoint x="-6" y="-6" as="offset"/>
+          </mxGeometry>
+        </mxCell>
         <object id="e0" label="" kind="succession" view="ActionFormViews::monitorView" link="action-forms.sysml:21">
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n8" target="n9">
             <mxGeometry relative="1" as="geometry"/>

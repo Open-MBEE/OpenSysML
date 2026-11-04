@@ -396,66 +396,6 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, target)
 	}
 
-	// Flow usages (message/flow keywords) need implicit typing from stdlib Message/Flow
-	// even when explicitly typed "of Type". This allows accessing stdlib members like
-	// sourceEvent/targetEvent in messages typed by payload item defs.
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageFlow {
-		// Look up stdlib Message flow def directly from index (FQN: Flows::Message)
-		messageDefs := m.resolver.Index().LookupQualified("Flows::Message")
-		if len(messageDefs) > 0 && messageDefs[0] != nil {
-			messageDef := messageDefs[0]
-			if !seen[messageDef] {
-				seen[messageDef] = true
-				out = append(out, messageDef)
-			}
-		}
-	}
-
-	// Action usages containing send statements need implicit SendAction typing
-	// to provide access to sentMessage member
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageAction {
-		if hasSendStatement(usage) {
-			sendActionDefs := m.resolver.Index().LookupQualified("Actions::SendAction")
-			if len(sendActionDefs) > 0 && sendActionDefs[0] != nil {
-				sendActionDef := sendActionDefs[0]
-				if !seen[sendActionDef] {
-					seen[sendActionDef] = true
-					out = append(out, sendActionDef)
-				}
-			}
-		}
-	}
-
-	// A send written as an action node is a SendActionUsage of its own, so it is
-	// typed by SendAction whether or not a usage declares it.
-	if _, ok := sym.Decl.(*ast.SendStatement); ok {
-		for _, sendDef := range m.resolver.Index().LookupQualified("Actions::SendAction") {
-			if sendDef == nil || sendDef == sym || seen[sendDef] {
-				continue
-			}
-			seen[sendDef] = true
-			out = append(out, sendDef)
-			break
-		}
-	}
-
-	// An action usage with an accept payload is an AcceptActionUsage, implicitly
-	// typed by AcceptAction, which supplies `receiver` and `acceptedMessage`
-	// (SysML v2 §7.16.5, §8.3.17).
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageAction && hasAcceptPayload(usage) {
-		for _, acceptDef := range m.resolver.Index().LookupQualified("Actions::AcceptAction") {
-			if acceptDef == nil || acceptDef == sym || seen[acceptDef] {
-				continue
-			}
-			seen[acceptDef] = true
-			out = append(out, acceptDef)
-			break
-		}
-	}
-
-	// A variant specializes the variation it is a variant of, so it carries the
-	// variation's type and features and restates only what it chooses
-	// (SysML v2 §7.20).
 	if variation := m.VariationPointOwning(sym); variation != nil && variation != sym && !seen[variation] {
 		seen[variation] = true
 		out = append(out, variation)
@@ -497,12 +437,17 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	// An end of a connector implicitly redefines the end at its own position of
 	// each connector its owner specializes, and so takes that end's type when it
 	// declares none (see connector.go).
-	for _, redefined := range m.implicitEndRedefinitions(sym) {
+	ends := m.implicitEndRedefinitions(sym)
+	for _, redefined := range ends {
 		if seen[redefined] {
 			continue
 		}
 		seen[redefined] = true
 		out = append(out, redefined)
+	}
+	if p := m.implicitEndParticipant(sym, len(ends) > 0 || declaresRedefinition(sym)); p != nil && p != sym && !seen[p] {
+		seen[p] = true
+		out = append(out, p)
 	}
 
 	// The cross feature an end owns is implicitly typed by the end's types and

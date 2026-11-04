@@ -10,22 +10,28 @@ import (
 
 // Standard-library names the implicit-base tables state more than once.
 const (
-	partFQN         = "Parts::Part"
-	anythingFQN     = "Base::Anything"
-	dataValueFQN    = "Base::DataValue"
-	occurrenceFQN   = "Occurrences::Occurrence"
-	renderingFQN    = "Views::Rendering"
-	concernCheckFQN = "Requirements::ConcernCheck"
-	linksFQN        = "Links::links"
-	linkFQN         = "Links::Link"
-	partsFQN        = "Parts::parts"
-	dataValuesFQN   = "Base::dataValues"
-	lifeFQN         = "Occurrences::Life"
-	performancesFQN = "Performances::performances"
-	evaluationsFQN  = "Performances::evaluations"
-	performanceFQN  = "Performances::Performance"
-	flowsFQN        = "Flows::flows"
-	assocStructKw   = "assoc struct"
+	partFQN          = "Parts::Part"
+	anythingFQN      = "Base::Anything"
+	dataValueFQN     = "Base::DataValue"
+	occurrenceFQN    = "Occurrences::Occurrence"
+	renderingFQN     = "Views::Rendering"
+	concernCheckFQN  = "Requirements::ConcernCheck"
+	linksFQN         = "Links::links"
+	linkFQN          = "Links::Link"
+	partsFQN         = "Parts::parts"
+	dataValuesFQN    = "Base::dataValues"
+	lifeFQN          = "Occurrences::Life"
+	performancesFQN  = "Performances::performances"
+	evaluationsFQN   = "Performances::evaluations"
+	performanceFQN   = "Performances::Performance"
+	flowsFQN         = "Flows::flows"
+	forksFQN         = "Actions::Action::forks"
+	joinsFQN         = "Actions::Action::joins"
+	mergesFQN        = "Actions::Action::merges"
+	decisionsFQN     = "Actions::Action::decisions"
+	acceptActionsFQN = "Actions::acceptActions"
+	sendActionsFQN   = "Actions::sendActions"
+	assocStructKw    = "assoc struct"
 )
 
 // implicitUsageBases maps each usage kind to the standard-library base feature
@@ -122,6 +128,15 @@ var implicitKerMLBinaryFeatureBases = map[string]string{
 	"connector": "Links::binaryLinks",
 }
 
+// flowDeclaresEnds reports whether a flow has end features (`from a to b` or owned `end`
+// members), which makes it a flowTransfer rather than a bare transfer (KerML 1.1 §8.4).
+func (m *Model) flowDeclaresEnds(sym *symbols.Symbol, d *ast.Usage) bool {
+	if d.FlowEnds != nil && (d.FlowEnds.From != nil || d.FlowEnds.To != nil) {
+		return true
+	}
+	return len(m.ownedEnds(sym)) > 0
+}
+
 // implicitKerMLBehaviorBases is the behavior base a kind that is also an
 // association specializes: an interaction is a Performance and a Link (KerML 1.1 §7.4.10.2).
 var implicitKerMLBehaviorBases = map[string]string{
@@ -169,7 +184,8 @@ var implicitKerMLFeatureBases = map[string]string{
 	"bool":        "Performances::booleanEvaluations",
 	"inv":         "Performances::trueEvaluations",
 	"interaction": performancesFQN,
-	"flow":        "Transfers::flowTransfers",
+	"flow":        "Transfers::transfers",
+	"metadata":    "Metaobjects::metaobjects",
 	"metaclass":   "Objects::objects", // a Metaclass is a Structure; only a MetadataFeature subsets metaobjects
 }
 
@@ -195,11 +211,7 @@ func (m *Model) ImpliedBaseFQNs(node ast.Node, kind source.Kind) []string {
 			}
 			break
 		}
-		usageKind := declaration.Kind
-		if declaration.IsIndividual {
-			usageKind = ast.UsageIndividual
-		}
-		if base, ok := implicitUsageBases[usageKind]; ok {
+		if base, ok := implicitUsageBases[declaration.Kind]; ok {
 			bases = append(bases, base)
 		}
 	case *ast.Definition:
@@ -396,12 +408,6 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 		if d.Keyword == "" && d.Kind == ast.UsageAttribute {
 			return anythingFQN, true
 		}
-		if d.IsIndividual && d.Kind == ast.UsageOccurrence {
-			// An individual occurrence is a life, not an arbitrary occurrence
-			// (SysML v2 §7.9.4), however the modifier is spelled.
-			fqn, ok := implicitUsageBases[ast.UsageIndividual]
-			return fqn, ok
-		}
 		if fqn, ok := m.usageBaseFeatureFQN(sym); ok {
 			return fqn, true
 		}
@@ -443,13 +449,15 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 		return fqn, ok
 	// A control node is the action usage of its ControlAction (SysML v2 §8.3.17).
 	case *ast.ForkNode:
-		return "Actions::ForkAction", true
+		return forksFQN, true
 	case *ast.JoinNode:
-		return "Actions::JoinAction", true
+		return joinsFQN, true
 	case *ast.MergeNode:
-		return "Actions::MergeAction", true
+		return mergesFQN, true
 	case *ast.DecisionNode:
-		return "Actions::DecisionAction", true
+		return decisionsFQN, true
+	case *ast.SendStatement:
+		return sendActionsFQN, true
 	}
 	return "", false
 }
@@ -475,15 +483,19 @@ func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 				return "Interfaces::binaryInterfaces", true
 			}
 		}
-		// A message and a succession flow subset bases of their own (SysML v2
-		// §8.3.15.4 checkFlowUsageSpecialization, §8.3.15.6, §8.3.15.7).
+		// Every flow usage subsets messages; one with owned ends subsets flows
+		// (SysML v2 §8.4 checkFlowUsageSpecialization, checkFlowUsageFlowSpecialization).
 		if d.Kind == ast.UsageFlow {
 			switch {
-			case d.Keyword == "message":
-				return "Flows::messages", true
 			case d.IsSuccessionFlow():
 				return "Flows::successionFlows", true
+			case d.Keyword != "message" && m.flowDeclaresEnds(sym, d):
+				return flowsFQN, true
 			}
+			return "Flows::messages", true
+		}
+		if fqn, ok := usageRoleBaseFQN(d); ok {
+			return fqn, true
 		}
 		fqn, ok := implicitUsageBases[d.Kind]
 		if !ok {
@@ -504,9 +516,51 @@ func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 	case *ast.AssumeMember, *ast.RequireMember:
 		fqn, ok := implicitUsageBases[ast.UsageConstraint]
 		return fqn, ok
+	case *ast.SendStatement:
+		return sendActionsFQN, true
+	case *ast.ForkNode:
+		return forksFQN, true
+	case *ast.JoinNode:
+		return joinsFQN, true
+	case *ast.MergeNode:
+		return mergesFQN, true
+	case *ast.DecisionNode:
+		return decisionsFQN, true
 	default:
 		return "", false
 	}
+}
+
+// usageRoleBaseFQN is the base feature a usage's role picks ahead of its kind's
+// (SysML v2 §8.4 checkAccept/Send/TerminateActionUsage, AssertConstraintUsage, SatisfyRequirementUsage).
+func usageRoleBaseFQN(d *ast.Usage) (string, bool) {
+	switch d.Kind {
+	case ast.UsageAction:
+		switch {
+		case d.IsTerminate:
+			return "Actions::terminateActions", true
+		case hasAcceptPayload(d):
+			return acceptActionsFQN, true
+		case d.IsActionNode && hasSendStatement(d):
+			return sendActionsFQN, true
+		}
+	case ast.UsageConstraint:
+		if d.PrefixKeyword == "assert" {
+			if d.IsNegated {
+				return "Constraints::negatedConstraintChecks", true
+			}
+			return "Constraints::assertedConstraintChecks", true
+		}
+	case ast.UsageSatisfy:
+		if d.IsVerifiedRequirement() {
+			return implicitUsageBases[ast.UsageRequirement], true
+		}
+		if d.IsNegated {
+			return "Requirements::notSatisfiedRequirementChecks", true
+		}
+		return "Requirements::satisfiedRequirementChecks", true
+	}
+	return "", false
 }
 
 // isKerMLDoc reports whether sym is declared by a KerML document, as recorded
@@ -753,6 +807,12 @@ func (m *Model) computeImplicitKerMLFeatureBase(sym *symbols.Symbol, usage *ast.
 	if binary, bok := implicitKerMLBinaryFeatureBases[usage.Keyword]; bok && m.declaredEndCount(sym) == 2 {
 		fqn, ok = binary, true
 	}
+	switch {
+	case usage.IsSuccessionFlow():
+		fqn, ok = "Transfers::flowTransfersBefore", true
+	case usage.Keyword == "flow" && m.flowDeclaresEnds(sym, usage):
+		fqn, ok = "Transfers::flowTransfers", true
+	}
 	if !ok || m.declaredGeneralizationReaches(sym, fqn, nil) {
 		return nil
 	}
@@ -818,6 +878,10 @@ func (m *Model) computeImplicitUsageBaseFeature(sym *symbols.Symbol) *symbols.Sy
 // declaredTypeFeatureBase returns the base feature implied by the kind of the
 // type sym is declared to have, if it declares one that is a KerML type.
 func (m *Model) declaredTypeFeatureBase(sym *symbols.Symbol) (string, bool) {
+	// A metadata feature subsets metaobjects whatever its type's kind (KerML 1.1 §8.4).
+	if keywordOf(sym) == "metadata" {
+		return "", false
+	}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != ast.RelTyping {
 			continue
