@@ -24,6 +24,7 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
             transition t4 first late accept after 2 [SI::s] then idle;
             transition t5 first idle when x > 7 then busy;
             transition t6 first busy accept tick : Sig at TimeOf(this) then fin;
+            transition t7 first fin accept Sig do action effect then late;
         }
     }
 }
@@ -54,6 +55,19 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 		if kinds[i] != want[i] {
 			t.Errorf("t1 kind %d = %s, want %s", i, kinds[i], want[i])
 		}
+	}
+	t7 := nested(t, sm, "t7")
+	if effect, ok := m.ReflectiveElements(t7, "effectAction"); !ok || len(effect) != 1 || effect[0].Name != "effect" {
+		t.Errorf("t7.effectAction = %v (present %t), want its `do action effect`", effect, ok)
+	}
+	if accepter, _ := m.ReflectiveElements(t7, "triggerAction"); len(accepter) == 1 {
+		owned, _ := m.ReflectiveElements(accepter[0], "ownedFeature")
+		payload, _ := m.ReflectiveElements(accepter[0], "payloadParameter")
+		if len(owned) != 1 || len(payload) != 1 || owned[0] != payload[0] {
+			t.Errorf("t7 accept ownedFeature = %v, want its payload parameter %v", owned, payload)
+		}
+	} else {
+		t.Error("t7 has no trigger accept")
 	}
 	for name, want := range map[string]string{
 		"t2": "SysML::Systems::TriggerKind::when",

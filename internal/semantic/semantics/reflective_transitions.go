@@ -118,10 +118,15 @@ func (m *Model) transitionEffect(sym *symbols.Symbol) *symbols.Symbol {
 	if !ok || len(trans.Effect) != 1 || sym.Scope == nil {
 		return nil
 	}
-	effect, ok := sym.Scope.LookupLocal("effect")
-	if !ok || effect == nil || effect.Decl != memberDecl(trans.Effect[0]) {
-		return nil
-	}
+	decl := memberDecl(trans.Effect[0])
+	var effect *symbols.Symbol
+	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member != nil && member.Decl == decl {
+			effect = member
+			return false
+		}
+		return true
+	})
 	return effect
 }
 
