@@ -54,3 +54,32 @@ func TestConstraintUnionCycleTerminates(t *testing.T) {
 		t.Fatalf("expected no report, got %v", diags)
 	}
 }
+
+// A disjoining from a union excludes every unioning type, since the union holds
+// each one's instances.
+func TestConstraintDisjoiningFromUnionExcludesItsMembers(t *testing.T) {
+	const src = `
+		class A; class B;
+		class U unions A, B;
+		class C disjoint from U;
+		class A1 :> A;
+		class X { feature f : A, C; }
+		class Y { feature g : A1, C; }`
+	diags := disjointReports(t, "a.kerml", src)
+	if len(diags) != 2 {
+		t.Fatalf("reports = %d, want f and g: %v", len(diags), diags)
+	}
+}
+
+// A subtype of a union holds a subset of the union's instances, so it inherits
+// the union's disjointness.
+func TestConstraintSubtypeOfDisjointUnion(t *testing.T) {
+	const src = `
+		class Wheel;
+		class Rock disjoint from Wheel;
+		class Stone disjoint from Wheel;
+		class Rocks unions Rock, Stone;
+		class Pebbles specializes Rocks;
+		class X { feature f : Pebbles, Wheel; }`
+	wantDisjointReport(t, disjointReports(t, "a.kerml", src), "f", "Pebbles", "Wheel")
+}
