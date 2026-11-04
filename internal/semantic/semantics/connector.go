@@ -276,18 +276,18 @@ func qualifiedNameNames(qn *ast.QualifiedName, sym *symbols.Symbol) bool {
 	return true
 }
 
-// ImplicitEndRedefinitions returns the ends of the connectors its owner
-// specializes that sym redefines by occupying their position, whatever its
-// `:>>` clauses name besides. The features it redefines are one feature with it,
-// so an object holds one set of values under all their names.
+// ImplicitEndRedefinitions returns the ends of the types its owner specializes
+// that sym redefines by occupying their position, whatever its `:>>` clauses
+// name besides. The features it redefines are one feature with it, so an object
+// holds one set of values under all their names.
 func (m *Model) ImplicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.implicitEndRedefinitions(sym)
 }
 
 // implicitEndRedefinitions returns the features sym implicitly redefines as an
-// end of its owning connector: the end at the same position of each general
-// connector (KerML 7.4.6, SysML v2 7.13.2). An explicit `:>>` adds to these
-// rather than replacing them. It returns nothing for a feature that is not an end.
+// end of its owning type: the end at the same position of each direct general
+// type, a step's behavior included (KerML 1.1 §8.3.3.3.4 checkFeatureEndRedefinition).
+// An explicit `:>>` adds to these. It returns nothing for a feature that is not an end.
 func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	if !declaresEnd(sym) {
 		return nil
@@ -296,7 +296,7 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 		return nil
 	}
 	owner := sym.OwnerScope.Owner()
-	if !m.isConnectorLike(owner) {
+	if owner == nil {
 		return nil
 	}
 	position := -1
@@ -312,9 +312,6 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 
 	var out []*symbols.Symbol
 	for _, sup := range m.DirectSupertypes(owner) {
-		if !m.isConnectorLike(sup) {
-			continue
-		}
 		supEnds := m.endsOf(sup)
 		if position >= len(supEnds) {
 			continue
