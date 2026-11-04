@@ -2259,9 +2259,10 @@ func (e *ActionExecutor) falseGuardLeavesRepeated(graph *lower.ActionGraph, edge
 }
 
 // guardHolds evaluates the guard a succession out of node carries; a succession
-// carrying none is unconditional.
+// carrying none is unconditional. A guard reading a feature with no value has no
+// result, so it is not true and the succession is not asserted (SysML v2 7.17.5).
 func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool, error) {
-	return e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, ec.scope, func() (bool, error) {
+	holds, err := e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, ec.scope, func() (bool, error) {
 		result, err := guardResult(ec, guard)
 		if err != nil {
 			return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
@@ -2272,6 +2273,10 @@ func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool
 		}
 		return result.Const.Bool, nil
 	})
+	if readsNoValue(err) {
+		return false, nil
+	}
+	return holds, err
 }
 
 // guardResult is what a guard evaluates to; no guard is true.
