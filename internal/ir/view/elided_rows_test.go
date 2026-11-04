@@ -1,6 +1,8 @@
 package view
 
 import (
+	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -115,4 +117,95 @@ func TestGreyedRowsMarkFoldedEdgeEnds(t *testing.T) {
 	if strings.Contains(string(unfolded), `color="gray"`) {
 		t.Errorf("an unfolded tree greys a node:\n%s", unfolded)
 	}
+}
+
+// A stated DOT box takes the ellipsis only when the table it sets, padding
+// included, still fits the box; the mark appears once the box has the room and
+// stays as the box grows.
+func TestEllipsisFitsTheStatedDOTBox(t *testing.T) {
+	model, err := os.ReadFile("testdata/suppressed-compartments.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var marked, unmarked int
+	for height := 33; height <= 90; height++ {
+		text := string(model) + fmt.Sprintf(`package TightViews {
+	private import Views::*;
+	private import DiagramLayout::*;
+	view tight {
+		expose Camera::Imaging;
+		metadata Layout about Camera::Imaging {
+			x = 10; y = 10; width = 200; height = %d;
+			showAttributes = false; showParts = false; showReferences = false; showPorts = false;
+			showConstraints = false; showItems = false; showActions = false;
+		}
+		render asTreeDiagram;
+	}
+}
+`, height)
+		out, err := renderSource(t, "TightViews::tight", text).Write(FormDot)
+		if err != nil {
+			t.Fatalf("height %d: %v", height, err)
+		}
+		label := dotNodeLabel(t, string(out), "Imaging")
+		if got := dotHTMLLabelHeight(label, dotBaseFontSize(string(out))); got > float64(height) {
+			t.Errorf("height %d: the label %s needs %.1f points", height, label, got)
+		}
+		if strings.Contains(label, ellipsisMark) {
+			marked++
+		} else if marked > 0 {
+			t.Errorf("height %d: the mark fitted a shorter box but not this one", height)
+		} else {
+			unmarked++
+		}
+	}
+	if marked == 0 || unmarked == 0 {
+		t.Errorf("the sweep set %d labels with the mark and %d without; want both", marked, unmarked)
+	}
+}
+
+// dotNodeLabel is the HTML-like label of the DOT node naming name.
+func dotNodeLabel(t *testing.T, dot, name string) string {
+	t.Helper()
+	for _, line := range strings.Split(dot, "\n") {
+		if start := strings.Index(line, "[label=<"); start >= 0 && strings.Contains(line, name) {
+			if end := strings.LastIndex(line, ">,"); end > start {
+				return line[start+len("[label=") : end+1]
+			}
+		}
+	}
+	t.Fatalf("no labelled node %s in\n%s", name, dot)
+	return ""
+}
+
+// dotBaseFontSize is the font size the DOT output's nodes default to.
+func dotBaseFontSize(dot string) float64 {
+	if m := regexp.MustCompile(`node \[[^\]]*fontsize="?([0-9.]+)`).FindStringSubmatch(dot); m != nil {
+		size, _ := strconv.ParseFloat(m[1], 64)
+		return size
+	}
+	return 14
+}
+
+// dotHTMLLabelHeight measures a DOT HTML-like label as Graphviz lays it out: each
+// line at its point size, each table row padded above and below.
+func dotHTMLLabelHeight(label string, base float64) float64 {
+	inner := strings.TrimSuffix(strings.TrimPrefix(label, "<"), ">")
+	rows, padding := []string{inner}, 0.0
+	if strings.HasPrefix(inner, "<table") {
+		rows, padding = strings.Split(inner, "<tr>")[1:], 2*float64(dotCellPadding)
+	}
+	pointSize := regexp.MustCompile(`point-size="([0-9.]+)"`)
+	var height float64
+	for _, row := range rows {
+		height += padding
+		for _, line := range strings.Split(row, "<br/>") {
+			size := base
+			if m := pointSize.FindStringSubmatch(line); m != nil {
+				size, _ = strconv.ParseFloat(m[1], 64)
+			}
+			height += dotLineHeight(size)
+		}
+	}
+	return height
 }

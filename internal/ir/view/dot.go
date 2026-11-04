@@ -1645,20 +1645,32 @@ const (
 // there, no table is written and the title alone is fitted to the whole box.
 func (l labeller) dotFittedLabel(node *Node, width, height float64) (label string, clipped int) {
 	if l.compartmented(node) {
-		parts := l.fitParts(node, width-dotCompartmentPadding, height-dotCompartmentChrome)
+		parts := l.fitParts(node, width-dotCompartmentPadding, height-dotCompartmentChrome, l.elided(node))
 		if len(parts.details) == 0 && len(parts.compartments) == 0 {
-			parts = l.fitParts(node, width, height)
+			parts = l.fitTitle(node, width, height)
 			parts.details, parts.compartments = nil, nil
 			parts.clipped = l.rowCount(node)
 		}
 		return dotLabelAttribute(l.assemble(parts)), parts.clipped
 	}
-	parts := l.fitParts(node, width, height)
+	parts := l.fitTitle(node, width, height)
 	return dotLabelAttribute(l.assemble(parts)), parts.clipped
 }
 
-// fitParts is a node's label fitted to a box, by part, in dotFittedLabel's order.
-func (l labeller) fitParts(node *Node, width, height float64) labelParts {
+// fitTitle fits a label without compartments: in the padded table the ellipsis
+// sets when the mark has room there, else as plain lines in the whole box.
+func (l labeller) fitTitle(node *Node, width, height float64) labelParts {
+	if l.elided(node) {
+		if parts := l.fitParts(node, width-dotCompartmentPadding, height-dotCompartmentPadding, true); parts.elided {
+			return parts
+		}
+	}
+	return l.fitParts(node, width, height, false)
+}
+
+// fitParts is a node's label fitted to a box, by part, in dotFittedLabel's
+// order; mark asks for the ellipsis row when the box has room for it.
+func (l labeller) fitParts(node *Node, width, height float64, mark bool) labelParts {
 	base := l.sizeOf(node)
 	size, head, keyword, fits := l.fitHead(node, width, height, base)
 	var parts labelParts
@@ -1669,9 +1681,9 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 		left -= float64(len(keyword)) * dotLineHeight(keywordSize)
 		parts.keyword = l.sized(base, keywordSize, l.keywordText(dotEscapeLines(keyword)))
 	}
-	// The ellipsis keeps its line at the foot of the box ahead of the compartments.
-	if mark := dotLineHeight(size); l.elided(node) && mark <= left {
-		left -= mark
+	// The ellipsis keeps its padded row at the foot of the box ahead of the compartments.
+	if row := dotLineHeight(size) + dotCompartmentPadding; mark && row <= left {
+		left -= row
 		parts.elided = true
 	}
 	room := fits
