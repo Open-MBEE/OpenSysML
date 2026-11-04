@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -147,5 +149,36 @@ func TestImpliedSpecializationAuditRows(t *testing.T) {
 				t.Errorf("verify requirement: member subj does not resolve")
 			}
 		}
+	}
+}
+
+// The public base queries agree with the implied edges: a typed KerML metadata
+// feature's base is metaobjects, and the AST-only ImpliedBaseFQNs gives an
+// individual occurrence usage an occurrence, not a Life.
+func TestImpliedSpecializationAuditQueriesAgree(t *testing.T) {
+	mk, rootk := buildModelWithLibraryNamedKind(t, "q.kerml", source.KindKerML, `package K {
+		struct S; metadata typed : S; metadata untyped : Metaobjects::Metaobject; }`)
+	for _, name := range []string{"typed", "untyped"} {
+		sym := auditLibraryBases(t, rootk, "K::"+name)
+		if fqn, ok := mk.FeatureBaseFQN(sym); !ok || fqn != "Metaobjects::metaobjects" {
+			t.Errorf("FeatureBaseFQN(%s) = %q, %v, want Metaobjects::metaobjects", name, fqn, ok)
+		}
+		if got := impliedLibraryFQNs(mk, sym); !slices.Contains(got, "Metaobjects::metaobjects") || slices.Contains(got, "Objects::objects") {
+			t.Errorf("%s: implied generals %v, want Metaobjects::metaobjects and no Objects::objects", name, got)
+		}
+	}
+	m, root := buildModelWithLibraryNamedKind(t, "q.sysml", source.KindSysML, `package P {
+		individual occurrence def IOD; individual occurrence x : IOD; }`)
+	sym := auditLibraryBases(t, root, "P::x")
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		t.Fatalf("P::x is %T, want *ast.Usage", sym.Decl)
+	}
+	if got := m.ImpliedBaseFQNs(usage, source.KindSysML); !slices.Equal(got, []string{"Occurrences::occurrences"}) {
+		t.Errorf("ImpliedBaseFQNs(individual occurrence x) = %v, want [Occurrences::occurrences]", got)
+	}
+	def := auditLibraryBases(t, root, "P::IOD")
+	if got := m.ImpliedBaseFQNs(def.Decl, source.KindSysML); !slices.Equal(got, []string{"Occurrences::Life"}) {
+		t.Errorf("ImpliedBaseFQNs(individual occurrence def) = %v, want [Occurrences::Life]", got)
 	}
 }

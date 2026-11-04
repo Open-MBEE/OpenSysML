@@ -208,11 +208,7 @@ func (m *Model) ImpliedBaseFQNs(node ast.Node, kind source.Kind) []string {
 			}
 			break
 		}
-		usageKind := declaration.Kind
-		if declaration.IsIndividual {
-			usageKind = ast.UsageIndividual
-		}
-		if base, ok := implicitUsageBases[usageKind]; ok {
+		if base, ok := implicitUsageBases[declaration.Kind]; ok {
 			bases = append(bases, base)
 		}
 	case *ast.Definition:
@@ -802,7 +798,7 @@ func (m *Model) computeImplicitKerMLFeatureBase(sym *symbols.Symbol, usage *ast.
 	fqn, ok := implicitKerMLFeatureBases[usage.Keyword]
 	// A typed feature subsets the base feature of its type's kind, not of its own
 	// keyword: `feature f : C` with C a class subsets Occurrences::occurrences.
-	if typed, tok := m.declaredTypeFeatureBase(sym); tok && usage.Keyword != "metadata" {
+	if typed, tok := m.declaredTypeFeatureBase(sym); tok {
 		fqn, ok = typed, true
 	}
 	if binary, bok := implicitKerMLBinaryFeatureBases[usage.Keyword]; bok && m.declaredEndCount(sym) == 2 {
@@ -879,6 +875,10 @@ func (m *Model) computeImplicitUsageBaseFeature(sym *symbols.Symbol) *symbols.Sy
 // declaredTypeFeatureBase returns the base feature implied by the kind of the
 // type sym is declared to have, if it declares one that is a KerML type.
 func (m *Model) declaredTypeFeatureBase(sym *symbols.Symbol) (string, bool) {
+	// A metadata feature subsets metaobjects whatever its type's kind (KerML 1.1 §8.4).
+	if keywordOf(sym) == "metadata" {
+		return "", false
+	}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != ast.RelTyping {
 			continue
