@@ -1,0 +1,2728 @@
+{
+  "source": {
+    "pilotTag": "2026-09",
+    "releaseCommit": "b7a6b77000c9136f8f24822fc9d2cb237c76267f",
+    "text": "build/spec-docs/sysml.txt",
+    "clause": "8.2.3"
+  },
+  "totals": {
+    "statements": 620,
+    "partialStatements": 97,
+    "productions": 523,
+    "drawn": 199,
+    "approximate": 55,
+    "undrawn": 97,
+    "notApplicable": 172
+  },
+  "categories": {
+    "compartment": 141,
+    "edge": 59,
+    "label": 24,
+    "node": 165,
+    "textual": 124,
+    "view": 10
+  },
+  "clauses": [
+    {
+      "number": "8.2.3.1",
+      "title": "Graphical Notation Overview",
+      "statements": 0,
+      "productions": 0,
+      "drawn": 0,
+      "approximate": 0,
+      "undrawn": 0,
+      "notApplicable": 0
+    },
+    {
+      "number": "8.2.3.2",
+      "title": "Elements and Relationships Graphical Notation",
+      "statements": 9,
+      "productions": 9,
+      "drawn": 2,
+      "approximate": 0,
+      "undrawn": 3,
+      "notApplicable": 4
+    },
+    {
+      "number": "8.2.3.3",
+      "title": "Dependencies Graphical Notation",
+      "statements": 9,
+      "productions": 8,
+      "drawn": 1,
+      "approximate": 0,
+      "undrawn": 5,
+      "notApplicable": 2
+    },
+    {
+      "number": "8.2.3.4",
+      "title": "Annotations Graphical Notation",
+      "statements": 12,
+      "productions": 11,
+      "drawn": 0,
+      "approximate": 1,
+      "undrawn": 6,
+      "notApplicable": 4
+    },
+    {
+      "number": "8.2.3.5",
+      "title": "Namespaces and Packages Graphical Notation",
+      "statements": 25,
+      "productions": 24,
+      "drawn": 6,
+      "approximate": 3,
+      "undrawn": 6,
+      "notApplicable": 9
+    },
+    {
+      "number": "8.2.3.6",
+      "title": "Definition and Usage Graphical Notation",
+      "statements": 28,
+      "productions": 24,
+      "drawn": 1,
+      "approximate": 7,
+      "undrawn": 7,
+      "notApplicable": 9
+    },
+    {
+      "number": "8.2.3.7",
+      "title": "Attributes Graphical Notation",
+      "statements": 10,
+      "productions": 9,
+      "drawn": 5,
+      "approximate": 0,
+      "undrawn": 0,
+      "notApplicable": 4
+    },
+    {
+      "number": "8.2.3.8",
+      "title": "Enumerations Graphical Notation",
+      "statements": 9,
+      "productions": 6,
+      "drawn": 4,
+      "approximate": 1,
+      "undrawn": 0,
+      "notApplicable": 1
+    },
+    {
+      "number": "8.2.3.9",
+      "title": "Occurrences Graphical Notation",
+      "statements": 48,
+      "productions": 43,
+      "drawn": 17,
+      "approximate": 3,
+      "undrawn": 7,
+      "notApplicable": 16
+    },
+    {
+      "number": "8.2.3.10",
+      "title": "Items Graphical Notation",
+      "statements": 12,
+      "productions": 9,
+      "drawn": 6,
+      "approximate": 0,
+      "undrawn": 0,
+      "notApplicable": 3
+    },
+    {
+      "number": "8.2.3.11",
+      "title": "Parts Graphical Notation",
+      "statements": 18,
+      "productions": 13,
+      "drawn": 7,
+      "approximate": 0,
+      "undrawn": 2,
+      "notApplicable": 4
+    },
+    {
+      "number": "8.2.3.12",
+      "title": "Ports Graphical Notation",
+      "statements": 20,
+      "productions": 16,
+      "drawn": 6,
+      "approximate": 6,
+      "undrawn": 2,
+      "notApplicable": 2
+    },
+    {
+      "number": "8.2.3.13",
+      "title": "Connections Graphical Notation",
+      "statements": 35,
+      "productions": 31,
+      "drawn": 12,
+      "approximate": 0,
+      "undrawn": 9,
+      "notApplicable": 10
+    },
+    {
+      "number": "8.2.3.14",
+      "title": "Interfaces Graphical Notation",
+      "statements": 17,
+      "productions": 12,
+      "drawn": 6,
+      "approximate": 1,
+      "undrawn": 1,
+      "notApplicable": 4
+    },
+    {
+      "number": "8.2.3.15",
+      "title": "Allocations Graphical Notation",
+      "statements": 14,
+      "productions": 9,
+      "drawn": 6,
+      "approximate": 0,
+      "undrawn": 0,
+      "notApplicable": 3
+    },
+    {
+      "number": "8.2.3.16",
+      "title": "Flows Graphical Notation",
+      "statements": 30,
+      "productions": 22,
+      "drawn": 8,
+      "approximate": 1,
+      "undrawn": 9,
+      "notApplicable": 4
+    },
+    {
+      "number": "8.2.3.17",
+      "title": "Actions Graphical Notation",
+      "statements": 72,
+      "productions": 68,
+      "drawn": 21,
+      "approximate": 11,
+      "undrawn": 18,
+      "notApplicable": 18
+    },
+    {
+      "number": "8.2.3.18",
+      "title": "States Graphical Notation",
+      "statements": 45,
+      "productions": 41,
+      "drawn": 11,
+      "approximate": 7,
+      "undrawn": 9,
+      "notApplicable": 14
+    },
+    {
+      "number": "8.2.3.19",
+      "title": "Calculations Graphical Notation",
+      "statements": 14,
+      "productions": 9,
+      "drawn": 4,
+      "approximate": 1,
+      "undrawn": 1,
+      "notApplicable": 3
+    },
+    {
+      "number": "8.2.3.20",
+      "title": "Constraints Graphical Notation",
+      "statements": 24,
+      "productions": 19,
+      "drawn": 13,
+      "approximate": 0,
+      "undrawn": 0,
+      "notApplicable": 6
+    },
+    {
+      "number": "8.2.3.21",
+      "title": "Requirements Graphical Notation",
+      "statements": 63,
+      "productions": 57,
+      "drawn": 28,
+      "approximate": 8,
+      "undrawn": 1,
+      "notApplicable": 20
+    },
+    {
+      "number": "8.2.3.22",
+      "title": "Cases Graphical Notation",
+      "statements": 4,
+      "productions": 3,
+      "drawn": 0,
+      "approximate": 1,
+      "undrawn": 0,
+      "notApplicable": 2
+    },
+    {
+      "number": "8.2.3.23",
+      "title": "Analysis Cases Graphical Notation",
+      "statements": 12,
+      "productions": 7,
+      "drawn": 5,
+      "approximate": 0,
+      "undrawn": 0,
+      "notApplicable": 2
+    },
+    {
+      "number": "8.2.3.24",
+      "title": "Verification Cases Graphical Notation",
+      "statements": 22,
+      "productions": 16,
+      "drawn": 6,
+      "approximate": 0,
+      "undrawn": 4,
+      "notApplicable": 6
+    },
+    {
+      "number": "8.2.3.25",
+      "title": "Use Cases Graphical Notation",
+      "statements": 22,
+      "productions": 16,
+      "drawn": 9,
+      "approximate": 0,
+      "undrawn": 1,
+      "notApplicable": 6
+    },
+    {
+      "number": "8.2.3.26",
+      "title": "Views and Viewpoints Graphical Notation",
+      "statements": 38,
+      "productions": 34,
+      "drawn": 13,
+      "approximate": 4,
+      "undrawn": 5,
+      "notApplicable": 12
+    },
+    {
+      "number": "8.2.3.27",
+      "title": "Metadata Graphical Notation",
+      "statements": 8,
+      "productions": 7,
+      "drawn": 2,
+      "approximate": 0,
+      "undrawn": 1,
+      "notApplicable": 4
+    }
+  ],
+  "nonDrawn": [
+    {
+      "clause": "8.2.3.2",
+      "name": "compartment",
+      "partial": true,
+      "category": "compartment",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.2",
+      "name": "element",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.2",
+      "name": "element-inside-textual-compartment",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "E",
+      "reason": "the greyed element inside a textual compartment is not drawn; compartment rows are plain text"
+    },
+    {
+      "clause": "8.2.3.2",
+      "name": "element-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.2",
+      "name": "ellipsis-at-lower-left-corner",
+      "category": "label",
+      "verdict": "undrawn",
+      "package": "E",
+      "reason": "hidden compartment rows are dropped without the '…' mark (compartments.go hidden rows)"
+    },
+    {
+      "clause": "8.2.3.2",
+      "name": "general-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "a nested general view inside a node's compartment is not drawn; nested nodes are drawn as a tree"
+    },
+    {
+      "clause": "8.2.3.2",
+      "name": "general-element",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.3",
+      "name": "dependencies-and-annotations-element",
+      "partial": true,
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.3",
+      "name": "dependencies-element",
+      "partial": true,
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.3",
+      "name": "n-ary-association-dot",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.3",
+      "name": "n-ary-dependency",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.3",
+      "name": "n-ary-dependency-client-link",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.3",
+      "name": "n-ary-dependency-client-or-supplier-link",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.3",
+      "name": "n-ary-dependency-supplier-link",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "annotated-element",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "annotation-link",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "A",
+      "reason": "only the anchor of a DiagramLayout::Note or a case objective is drawn (EdgeAnchor); comments are filtered out"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "annotation-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "comment-node",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "A",
+      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "comment-with-keyword",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "A",
+      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "comment-without-keyword",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "A",
+      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "documentation-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "A",
+      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "documentation-node",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "A",
+      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "language-string",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "text-block",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.4",
+      "name": "textual-representation-node",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "A",
+      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "general-node",
+      "partial": true,
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "general-relationship",
+      "partial": true,
+      "category": "edge",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "imported-package-with-name-in-tab",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "an imported package is drawn as an ordinary package node at the end of an import edge"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "imported-package-with-name-inside",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "an imported package is drawn as an ordinary package node at the end of an import edge"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "members-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "members-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "members-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "namespace-node",
+      "partial": true,
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "owned-membership",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "view-rendering-forms.md § Notation table: Circle-plus at the namespace: Graphviz has no such arrow, so a `+` tail label is set on its hollow circle; D2 puts a `+` arrowhead label beside its circle; Mermaid draws a plain line, a tree's nesting showing the ownership. A mixed rendering draws it from an owner to every nested member that is no feature — a nested package or definition — as above."
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "package-node",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "a «package» box without the tab; PlantUML's `package` folder is the nearest form"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "package-with-name-in-tab",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "the name-in-tab form is not drawn; packages are keyword boxes"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "package-with-name-inside",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "a «package» box without the tab; PlantUML's `package` folder is the nearest form"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "packages-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "packages-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "packages-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "relationships-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "relationships-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.5",
+      "name": "relationships-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "composite-feature-membership",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "view-rendering-forms.md § Notation table: Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. A mixed rendering draws it from an owner to every composite usage nested in its node — a part, action or state usage, a view usage — where PlantUML and the text form show it and DOT and Mermaid leave it to the nesting ([case and mixed diagrams](view-rendering-forms.md#case-and-mixed-diagrams))."
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "definition",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots at its base: Graphviz sets the dots in line behind the triangle, D2 has no dots and draws the plain triangle, Mermaid writes `typing` as the edge text."
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "definition-name-with-alias",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "el-prefix",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "extended-def",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "extended-def-name-compartment",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "extended-usage",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "extended-usage-name-compartment",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "features-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "features-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "features-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "noncomposite-feature-membership",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "view-rendering-forms.md § Notation table: Hollow diamond at the owner; Mermaid leads the edge text with `◇`. A mixed rendering draws it to every referential usage nested in its owner's node — a `ref` part, an attribute, a port — as above."
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "redefinition",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "view-rendering-forms.md § Notation table: Hollow triangle with a bar across the line: Graphviz sets the tee behind the triangle, D2 has no bar and draws the plain triangle, Mermaid writes `redefinition` as the edge text."
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "reference-subsetting",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "view-rendering-forms.md § Notation table: Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML and D2 draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--|>`."
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "subclassification",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "view-rendering-forms.md § Notation table: Solid hollow triangle; Mermaid has no triangle head and names the kind as the edge text instead."
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "subsetting",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "view-rendering-forms.md § Notation table: The same hollow triangle, no text; Mermaid writes `subsetting` as the edge text, having no triangle."
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "type-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "type-relationship",
+      "category": "edge",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "usage-cp",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "usage-name-with-alias",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "variant-elementusages-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "variants-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.6",
+      "name": "variants-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.7",
+      "name": "attributes-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.7",
+      "name": "attributes-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.7",
+      "name": "definition-node",
+      "partial": true,
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.7",
+      "name": "usage-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.8",
+      "name": "enums-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "headed `enumerations`; the figure heads it `enums`"
+    },
+    {
+      "clause": "8.2.3.8",
+      "name": "enums-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "event-occurrence",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "D",
+      "reason": "an event occurrence is drawn as a plain «occurrence» box"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "event-occurrence-def",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "the textual grammar declares no event occurrence definition (`event` is a usage prefix), so nothing can be declared for the figure"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "event-occurrence-def-name-compartment",
+      "category": "compartment",
+      "verdict": "not-applicable",
+      "reason": "the textual grammar declares no event occurrence definition (`event` is a usage prefix), so nothing can be declared for the figure"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "event-occurrence-name-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "D",
+      "reason": "written as «occurrence»; the `event` prefix is not part of the keyword"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "eventer",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "individuals-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "D",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "individuals-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "individuals-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "occurrences-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "occurrences-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "portion-relationship",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "D",
+      "reason": "view-rendering-forms.md § Notation table: Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle. The Pilot writes `*--`."
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "proxy-label",
+      "category": "label",
+      "verdict": "undrawn",
+      "package": "D",
+      "reason": "labels the undrawn sq-proxy"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "sequence-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "D",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "snapshots-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "snapshots-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "sq-graphical-element",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "sq-graphical-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "sq-graphical-relationship",
+      "category": "edge",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "sq-port",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "D",
+      "reason": "a port is not given a lifeline; sequence.go lifelinesOf collects parts and occurrences"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "sq-port-label",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "sq-proxy",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "D",
+      "reason": "a feature-chain proxy lifeline is not drawn"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "sq-succession",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "D",
+      "reason": "documented as undrawn in view-rendering-forms.md § Notation table: the sequence form draws its own arrow"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "succession-label",
+      "category": "label",
+      "verdict": "undrawn",
+      "package": "D",
+      "reason": "labels the undrawn sq-succession"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "timeslice-or-snapshot-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "timeslices-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.9",
+      "name": "timeslices-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.10",
+      "name": "interconnection-element",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.10",
+      "name": "items-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.10",
+      "name": "items-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.11",
+      "name": "directed-features-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.11",
+      "name": "directed-features-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.11",
+      "name": "directed-features-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.11",
+      "name": "interconnection-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.11",
+      "name": "parts-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.11",
+      "name": "parts-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.12",
+      "name": "pdh",
+      "category": "label",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no form draws the direction arrow inside a port or parameter square"
+    },
+    {
+      "clause": "8.2.3.12",
+      "name": "pdv",
+      "category": "label",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no form draws the direction arrow inside a port or parameter square"
+    },
+    {
+      "clause": "8.2.3.12",
+      "name": "port-b",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "the port square is placed on the owner's boundary but the direction arrow (pdh/pdv) inside it is not drawn"
+    },
+    {
+      "clause": "8.2.3.12",
+      "name": "port-l",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "the port square is placed on the owner's boundary but the direction arrow (pdh/pdv) inside it is not drawn"
+    },
+    {
+      "clause": "8.2.3.12",
+      "name": "port-r",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "the port square is placed on the owner's boundary but the direction arrow (pdh/pdv) inside it is not drawn"
+    },
+    {
+      "clause": "8.2.3.12",
+      "name": "port-t",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "the port square is placed on the owner's boundary but the direction arrow (pdh/pdv) inside it is not drawn"
+    },
+    {
+      "clause": "8.2.3.12",
+      "name": "ports-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.12",
+      "name": "ports-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.12",
+      "name": "proxy-h",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "a conjugated port is written as `~Type` text (view.go typingTexts), not as the proxy glyph"
+    },
+    {
+      "clause": "8.2.3.12",
+      "name": "proxy-v",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "a conjugated port is written as `~Type` text (view.go typingTexts), not as the proxy glyph"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "a-direction",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "a-property",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "a-redefinition",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "a-subsetting",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "c-adornment",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "cdot-label",
+      "category": "label",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "connection-definition-elaboration",
+      "category": "view",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "a connection's own interconnection view nested in its node is not drawn"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "connection-end",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "connection-relationship",
+      "category": "edge",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "connection-usage-elaboration",
+      "category": "view",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "a connection's own interconnection view nested in its node is not drawn"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "connections-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "connections-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "n-ary-connection",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "n-ary-connection-def",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "n-ary-connection-dot",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "n-ary-def-connection-dot",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "n-ary-def-segment",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "n-ary-segment",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "n-ary dots are documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.13",
+      "name": "usage-edge",
+      "category": "edge",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.14",
+      "name": "ends-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.14",
+      "name": "ends-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.14",
+      "name": "ends-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.14",
+      "name": "interface-connection",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "drawn as a connection edge between the ports; the «interface» keyword is not written"
+    },
+    {
+      "clause": "8.2.3.14",
+      "name": "interfaces-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.14",
+      "name": "interfaces-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.15",
+      "name": "allocation-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.15",
+      "name": "allocations-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.15",
+      "name": "allocations-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "flow",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "view-rendering-forms.md § Notation table: Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it)."
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "flow-end-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "flow-node-l",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "flow-node-r",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "flow-on-connection",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "flows-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "flows-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "flows-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "message",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "D",
+      "reason": "documented as undrawn in view-rendering-forms.md § Notation table: the sequence form draws its own arrow"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "message-node-l",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "message-node-r",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "msg-end-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "sflow-node-l",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.16",
+      "name": "sflow-node-r",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "C",
+      "reason": "the item box on a connection line (flow-on-connection) is documented as undrawn in view-rendering-forms.md § Notation table"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "accept-action-expression",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "accept-action-name-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "accept-action-node",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "action-body",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "action-body-textual",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "action-flow-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "action-flow-element",
+      "partial": true,
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "action-flow-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "action-flow-relationship",
+      "category": "edge",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "actions-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "actions-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "assign-action-name-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "assign-action-node",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "condition-expression",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "else-body",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "else-branch",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the else branch of a decision is drawn as a plain succession without the `else` guard"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "for-loop-action-name-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "for-loop-action-node",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "if-condition",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "if-else-action-node",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "ifelse-action-name-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "iteration",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "iteration-expression",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "loop-body",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "param-b",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "param-l",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "param-r",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "param-t",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "parameter",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "parameters-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "parameters-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "perform-actions-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "perform-actions-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "perform-actions-swimlanes",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "swimlanes are not drawn"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "performed-by-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "performed-by-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "performer-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "send-action-expression",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "send-action-name-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "send-action-node",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "swimlane",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "swimlanes are not drawn"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "terminate-node",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "DOT and Mermaid draw a double circle, the figure's X-in-a-circle only draw.io (umlDestroy) does"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "then-body",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "until-condition",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "while-condition",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "while-loop-action-name-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
+    },
+    {
+      "clause": "8.2.3.17",
+      "name": "while-loop-action-node",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "do-action",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "do-action-name-comp",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "entry-action",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "entry-action-name-comp",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "exhibit-states-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "exhibit-states-compartment-element-compartment",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "exhibitor",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "exit-action",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "exit-action-name-comp",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "st-succession",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "view-rendering-forms.md § Notation table: Solid with an open head; Mermaid and D2 have only a filled head."
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-actions-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-actions-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-actions-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-def-name-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "the keyword and name are written, the optional «parallel» marker is not"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-do-action",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "entry/do/exit actions are written as text lines in the state box, not as labelled compartments"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-entry-action",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "entry/do/exit actions are written as text lines in the state box, not as labelled compartments"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-exit-action",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "entry/do/exit actions are written as text lines in the state box, not as labelled compartments"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-name-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "the keyword and name are written, the optional «parallel» marker is not"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-source",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-subaction-body",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-subaction-body-textual",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-subaction-declaration",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-transition-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-transition-element",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "state-transition-node",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "states-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "states-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "successions-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "B",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "successions-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.18",
+      "name": "transition",
+      "category": "edge",
+      "verdict": "approximate",
+      "package": "B",
+      "reason": "view-rendering-forms.md § Notation table: Solid with an open head; Mermaid and D2 have only a filled head."
+    },
+    {
+      "clause": "8.2.3.19",
+      "name": "calcs-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "headed `calculations`; the figure heads it `calcs`"
+    },
+    {
+      "clause": "8.2.3.19",
+      "name": "calcs-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.19",
+      "name": "calcs-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.19",
+      "name": "result-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.19",
+      "name": "result-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.20",
+      "name": "assert-constraints-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.20",
+      "name": "assert-constraints-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.20",
+      "name": "assertor",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.20",
+      "name": "assumer",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.20",
+      "name": "constraints-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.20",
+      "name": "constraints-usage-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "actor",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "a box headed «actor» in DOT, PlantUML, Mermaid and text; only draw.io draws the stick figure (drawio.go plainStyle umlActor)"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "actors-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "actors-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "assume-constraints-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "concern-stakeholder-link",
+      "category": "edge",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "the line from a concern to its stakeholder is not drawn"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "distinguished-parameter",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "frame-concern-name-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "written as «frame», the figure's keyword is «frame concern»"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "frame-concern-node",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "written as «frame», the figure's keyword is «frame concern»"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "framer",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "frames-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "frames-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "require-constraint-element",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "require-constraints-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "requirements-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "requirements-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "requirer",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "satisfier",
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "satisfies-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "headed `satisfys` by compartments.go compartmentName's plural; the figure heads it `satisfies`"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "satisfies-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "satisfy-requirement-name-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "written as «satisfy», the figure's keyword is «satisfy requirement»"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "satisfy-requirement-usage",
+      "category": "node",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "written as «satisfy», the figure's keyword is «satisfy requirement»"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "satisfy-requirements-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "headed `satisfys` by compartments.go compartmentName's plural; the figure heads it `satisfies`"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "satisfy-requirements-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "stakeholders-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "stakeholders-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "subject-actors-stakeholders-node",
+      "partial": true,
+      "category": "node",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "subject-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "headed `subjects`; the figure heads it `subject`"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "subject-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.21",
+      "name": "subject-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.22",
+      "name": "objective-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "the objective is drawn as a note anchored to the case (case.go objectiveNode), not as a compartment"
+    },
+    {
+      "clause": "8.2.3.22",
+      "name": "objective-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.22",
+      "name": "objective-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.23",
+      "name": "analyses-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.23",
+      "name": "analyses-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.24",
+      "name": "verification-methods-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.24",
+      "name": "verification-methods-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.24",
+      "name": "verification-methods-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.24",
+      "name": "verifications-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.24",
+      "name": "verifications-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.24",
+      "name": "verifies-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.24",
+      "name": "verifies-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.24",
+      "name": "verifies-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.24",
+      "name": "verify-requirement-name-compartment",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "a verify requirement usage lives in a verification case's objective, which is drawn as a note (case.go objectiveNode)"
+    },
+    {
+      "clause": "8.2.3.24",
+      "name": "verify-requirement-node",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "a verify requirement usage lives in a verification case's objective, which is drawn as a note (case.go objectiveNode)"
+    },
+    {
+      "clause": "8.2.3.25",
+      "name": "include-use-cases-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.25",
+      "name": "include-use-cases-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.25",
+      "name": "includes-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.25",
+      "name": "includes-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.25",
+      "name": "includes-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.25",
+      "name": "use-cases-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.25",
+      "name": "use-cases-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "expose-relationship",
+      "category": "edge",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "exposes-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "exposes-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "exposes-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "filters-compartment",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "filters-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "filters-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "framed-view",
+      "category": "view",
+      "verdict": "approximate",
+      "package": "A",
+      "reason": "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "frameless-view",
+      "category": "view",
+      "verdict": "not-applicable",
+      "reason": "a list of alternatives; adjudicated through the alternatives it names"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "rendering-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "F",
+      "reason": "headed `renderings`; the figure heads it `rendering`"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "rendering-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "root-view",
+      "category": "view",
+      "verdict": "approximate",
+      "package": "A",
+      "reason": "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "view-frame-info-compartment-bl",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "A",
+      "reason": "no form draws the frame's info compartments"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "view-frame-info-compartment-br",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "A",
+      "reason": "no form draws the frame's info compartments"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "view-frame-info-compartment-tr",
+      "category": "compartment",
+      "verdict": "undrawn",
+      "package": "A",
+      "reason": "no form draws the frame's info compartments"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "view-frame-info-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "view-frame-name-compartment",
+      "category": "compartment",
+      "verdict": "approximate",
+      "package": "A",
+      "reason": "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame; its header reads the view's name without the «view» keyword"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "viewpoints-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "viewpoints-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "views-compartment-contents",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.26",
+      "name": "views-compartment-element",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.27",
+      "name": "expression-text",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.27",
+      "name": "metadata-feature-annotation-node",
+      "category": "node",
+      "verdict": "undrawn",
+      "package": "F",
+      "reason": "a metadata usage annotating an element is not drawn as a «metadata» note"
+    },
+    {
+      "clause": "8.2.3.27",
+      "name": "metadata-feature-decl",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.27",
+      "name": "metadata-feature-name",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    },
+    {
+      "clause": "8.2.3.27",
+      "name": "metadata-feature-name-value-list",
+      "category": "textual",
+      "verdict": "not-applicable",
+      "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
+    }
+  ]
+}

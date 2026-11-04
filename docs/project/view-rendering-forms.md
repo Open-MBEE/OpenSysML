@@ -696,6 +696,9 @@ canvas ends the edge in (`start` at the edge's source) — and whether the drawi
 **differs from pilot** (the spec and the Pilot's PlantUML visualizer disagree and the spec wins).
 `TestNotationTableMatchesTheWriters` (`internal/ir/view/notation_table_test.go`) and the canvas
 test read this table and hold the writers to it, so a glyph changes here and in the code together.
+The [graphical notation census](graphical-notation-census.md) reads this table too, as the edge
+rows of its production-by-production census of all of §8.2.3, and its gap list says what the nodes,
+compartments and labels of the clause still lack.
 
 | Production | `EdgeKind` | DOT | PlantUML | Mermaid | D2 | draw.io | Canvas | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
