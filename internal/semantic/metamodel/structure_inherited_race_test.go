@@ -7,10 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// The inherited-membership memo is shared by every property of the family, so
-// concurrent structure-mode reads of one type must not race on it (run under -race).
-// A sibling type is read first so the semantic model's own memos are warm: the
-// evaluator, not the model, is what one conversion reads from several goroutines.
+// Concurrent structure-mode reads of one type must not race on the shared inherited-membership
+// memo (run under -race); a sibling is read first so only the evaluator's memos are cold.
 func TestInheritedPropertiesOfOneTypeReadConcurrently(t *testing.T) {
 	evaluator, _ := newTestEvaluatorWithIndex(t, libs.NewModelIndex(), "race.sysml", "package P {}")
 	warm, owner := Element{Aspect: "warm"}, Element{Aspect: "owner"}
