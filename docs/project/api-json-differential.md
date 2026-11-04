@@ -230,21 +230,21 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1293766 present-equal, 32614 present-different, 920638 ours-missing, 70251 pilot-missing, 1987230 absent-both, 31504 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 93445 elements matched (18452 ours-only, 37880 pilot-only, 0 of them implied); properties: 1757290 present-equal, 49344 present-different, 421304 ours-missing, 73331 pilot-missing, 1985949 absent-both, 50584 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 103519 | 2155 | 72998 | 5157 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 26554 | 6118 | 9562 | 373507 | 8922 | 265177 | 19378 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 130377 | 3881 | 91735 | 6857 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 83754 | 3131 | 53872 | 6531 |
-| `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 88243 | 1785 | 62271 | 5602 |
-| `tests/testdata` | 40 | 1460 | 175 | 511 | 19006 | 485 | 13312 | 1064 |
-| `examples` | 56 | 27928 | 6075 | 15212 | 393892 | 10036 | 283975 | 20805 |
-| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 629 | 1 | 376 | 41 |
-| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 100839 | 2218 | 76923 | 4816 |
+| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 141172 | 3350 | 32639 | 5279 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 26554 | 6118 | 9562 | 508362 | 13641 | 120590 | 19877 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 177688 | 5773 | 40773 | 7096 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 111490 | 4167 | 24859 | 7399 |
+| `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 119498 | 2469 | 29346 | 5950 |
+| `tests/testdata` | 40 | 1460 | 175 | 511 | 25673 | 729 | 6186 | 1116 |
+| `examples` | 56 | 27928 | 6075 | 15212 | 533819 | 16027 | 130043 | 21654 |
+| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 839 | 3 | 162 | 41 |
+| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 138749 | 3185 | 36706 | 4919 |
 
 **Defaulted parameters of an invocation** (re-recorded with the extension libraries at
 `DocumentQueries::WhereType(…, exact = false)` and `Differ`): the pilot's `InvocationExpression.parameter`
@@ -402,6 +402,79 @@ standard-library element already lands in
 [337 equal, 183 different, 1 ours-missing, 16 absent-both] → [338, 0, 0, 16, 183 indeterminate] and `.parameter` [353, 184] → [354, 0, 183 indeterminate]. Totals: 1293764 → 1293766 present-equal,
 32981 → 32614 present-different, 920639 → 920638 ours-missing, 31138 → 31504 indeterminate; no element count
 moved. The row to equal on each is `A().y` (`Simple Tests/Behaviors.kerml`), whose unbound `A::x` and `A::y` are features of the file and so keyed; the 183 are calls of a library function — the 25 `Descendants(…)` calls of `examples` and `docs/manual/examples` the library pin above moved, the `WhereType(…, exact = false)` calls, every `TimeOf`/`DurationOf`. No other row moved.
+
+### The element form completes the derived properties
+
+The writer now completes, from the metamodel evaluator in its graph-structure mode over the exported
+graph and the library, the derived properties the graph does not state (`docs/reference/rdf-mapping.md`
+§ Derived properties; the table is `apiJSONCompletedProperties` in `export/api_json_derived.go`), each as
+its `derive*` constraint defines it, and names them per element in `sysx:completedProperties`. Measured in
+four steps against the baseline above it (1293766 present-equal, 32614 present-different, 920638
+ours-missing):
+
+1. `Element::isLibraryElement` (KerML 1.1 Beta 2 §8.3.2.1.2 `deriveElementIsLibraryElement`): 93013 rows
+   ours-missing → present-equal, none to present-different; 1386779 / 32614 / 827625. The 432 still
+   missing sit on elements whose metaclass the two sides state differently.
+2. `Membership::memberElementId` (§8.3.2.4.3 `deriveMembershipMemberElementId`),
+   `OwningMembership::ownedMemberElementId`, `ownedMemberName`, `ownedMemberShortName` (§8.3.2.4.8; the
+   ids and names redefine `memberElementId`, `memberName`, `memberShortName`, so a stated member name is
+   the owned member name): 1476607 / 37735 / 729459. Each id row inherits its metaclass's `memberElement`
+   row verbatim — the 5121 new present-different are the positionally keyed members the `memberElement`
+   row already counts different (the `target`/`relatedElement` adjudication above); the 88
+   `Membership.memberElementId` still missing name a member that resolves to no element.
+3. A `Membership`'s `visibility` the graph leaves at its default is completed as `public` (§8.3.2.4.3), an
+   `Import`'s as `private` (§8.3.2.4.2): 39407 rows present-equal, 3331 present-different. 3289 of the
+   different are `ParameterMembership`s of expression arguments, which the pilot states `private`: the
+   notation's `ArgumentMember` (§8.2.5.8.4) carries no visibility indicator and the metamodel's default is
+   `public`, so the spec's value stands. 24 `MembershipImport`s and 7 `NamespaceImport`s without an indicator
+   the pilot states `public`; the metamodel's `Import::visibility` default is `private`, which stands.
+   11 `FeatureMembership`s of a `for` loop's variable the pilot states `protected` (its grammar's own
+   choice; the metamodel default stands).
+4. The ownership, naming, typing and owned-collection properties (§8.3.2.1.2 `name`, `shortName`,
+   `owningMembership`, `owningNamespace`, `ownedElement`, `documentation`, `textualRepresentation`;
+   §8.3.2.4.5 `ownedMembership`, `ownedMember`, `ownedImport`, `importedMembership`; §8.3.2.3.2/§8.3.2.3.5
+   the annotation ends; §8.3.3.1.10 `isConjugated`, `multiplicity`, the owned specializations, feature
+   memberships, features, end features and conjugator; §8.3.3.2.2 `ownedSubclassification`; §8.3.3.3.4
+   `owningType`, `owningFeatureMembership`, `endOwningType`, `featureTarget`, `featuringType`, `type` and
+   the owned typings, subsettings, redefinitions, type featurings, chainings; the `owningType` of a
+   FeatureMembership, Specialization, Conjugation, Disjoining, Differencing, Intersecting and Unioning;
+   §8.3.4.6.3 `Step::behavior`; §8.3.4.7.3 `Expression::function`, `result`; §8.3.4.9.2 the flow ends,
+   payload feature and type; §8.3.4.11.2 `MultiplicityRange::bound`; SysML 2.1 Beta 2 §8.4 a usage's
+   `owningDefinition`, `owningUsage`, `definition`, nested usages and variants, a definition's owned usages
+   and variants, each usage kind's `*Definition`, the requirement, case, state, accept/send properties):
+   1757290 present-equal, 49344 present-different, 421304 ours-missing, 73331 pilot-missing, 50584
+   indeterminate. `owningType` 40891, `owningNamespace` 19350, `name` 13378, `owningUsage` 5089,
+   `owningDefinition` 4324, `bound` 1215, `endOwningType` 482 and the `*Definition` properties moved to
+   present-equal without a present-different row; `isConjugated` 34849 / 7, `featuringType` 12641 / 20
+   (8652 indeterminate: a value naming a library type the pilot keys differently), `featureTarget`
+   32111 / 131 (the 131 are a `FeatureChainExpression`'s chain, where the pilot targets the referenced
+   usage and we the chain's last link), `owningFeatureMembership` 19617 / 441 (ours `ParameterMembership`
+   where the pilot's is a `ReturnParameterMembership` — the owning membership's own metaclass row). The
+   collection rows inherit the `ownedRelationship`/`ownedMembership` differences recorded above —
+   `ownedElement` 17874 / 3665, `ownedMember` 12438 / 1951, `nestedUsage` 2113 / 519, `ownedUsage`
+   1122 / 235 and the narrower nested/owned kinds in proportion: the pilot lists an implied member
+   (a `Multiplicity`, a result parameter) the graph does not state. `definition` and the typed
+   `*Definition` rows are indeterminate where the type is a library element (2640 / 1584 / 447 / 411).
+
+Not completed, and why: `Type::feature`, `featureMembership`, `inheritedMembership`, `inheritedFeature`,
+`directedFeature`, `input`, `output`, `endFeature`, a type's `member`/`membership`, `Usage::usage`,
+`Definition::usage` and `directedUsage` (about 215000 rows) need the inherited members of every general
+type; the structure-mode evaluator sees neither the implied library bases the graph does not state nor
+the members of a general type outside the graph, and its own-members-only answer would be wrong under
+§8.3.3.1.10, so the rows stay ours-missing until the exporter is given the semantic inheritance table
+(`internal/semantic/semantics` `Model.MembersOf`). `Behavior::step` (0 equal / 257 different),
+`Step::parameter` and `Behavior::parameter` (21 / 530), `InstantiationExpression::instantiatedType`
+(143 / 464), `Usage::nestedTransition`, `Definition::ownedTransition`, `objectiveRequirement`,
+`Definition::ownedRequirement` were measured and withdrawn: the pilot's lists differ from the evaluator's in
+content or order and the difference is not yet adjudicated. `Relationship::relatedElement`, `source` and
+`target` of a non-membership relationship were withdrawn because an import's library-membership end is
+derivable only on the first write, not after a read. `Expression::isModelLevelEvaluable`,
+`Import::importedElement`, `MetadataFeature::metaclass`, `EventOccurrenceUsage::eventOccurrence`,
+`AssertConstraintUsage::assertedConstraint`, `Association::relatedType`/`sourceType`/`targetType`,
+`ActionDefinition::action`, `AssignmentActionUsage::referent`/`valueExpression`, `ViewUsage::exposedElement`,
+`SatisfyRequirementUsage::satisfyingFeature`, `VerificationCaseUsage::verifiedRequirement`,
+`Package::filterCondition`, the loop, `if` and analysis-result properties have no evaluator rule yet
+(`docs/project/constraint-manifest.json` lists them as not implemented).
 
 ### Where the two sides state different values
 

@@ -2203,10 +2203,29 @@ notation's mapping has a reason to (`owner`, `owningNamespace`, a membership's
 ends and names, an expression's `function` and `argument`); the OMG API JSON
 shape states every derived property of the metaclass. The writer completes the
 ones the metamodel evaluator (`internal/semantic/metamodel`) derives from the
-graph and the library, each as its `derive*` constraint of KerML 1.1 §8.3
-defines it — `Element::isLibraryElement` (8.3.2.1.2) — and lists the keys it
-completed on the element in `"sysx:completedProperties": [...]`; a property the
-graph states is written as stated and not listed. Reading, a listed property is
+graph and the library, each as its `derive*` constraint of KerML 1.1 §8.3 or
+SysML 2.1 §8.4 defines it — `Element::isLibraryElement`, the element's `name`,
+`shortName`, `owningMembership`, `owningNamespace` and `ownedElement`
+(8.3.2.1.2), a membership's `memberElementId` and an owning membership's
+`ownedMemberElementId`, `ownedMemberName` and `ownedMemberShortName`
+(8.3.2.4.3, 8.3.2.4.8), a namespace's owned memberships, members and imports
+(8.3.2.4.5), a type's `isConjugated`, `multiplicity` and owned specializations,
+feature memberships, features and conjugator (8.3.3.1.10), a feature's
+`owningType`, `owningFeatureMembership`, `featureTarget`, `featuringType`,
+`type` and owned typings, subsettings, redefinitions, chainings (8.3.3.3.4), a
+step's `behavior` and an expression's `function` and `result` (8.3.4.6.3,
+8.3.4.7.3), a multiplicity range's `bound` (8.3.4.11.2), and in SysML a usage's
+and definition's owning, defining and nested/owned usage collections, the
+requirement, case, state, send/accept and flow properties their §8.4
+constraints derive — and lists the keys it completed on the element in
+`"sysx:completedProperties": [...]`; a property the graph states is written as
+stated and not listed. A membership's and an import's `visibility` the graph
+leaves at the metamodel default is completed at it (`public`, 8.3.2.4.3;
+`private`, 8.3.2.4.2) and listed the same way. A property the evaluator cannot
+derive from the graph — one that needs the inherited members of a type whose
+general types the graph does not state, the implied library bases included — is
+not completed: `feature`, `inheritedMembership`, `member` and the collections
+over them stay as the graph states them. Reading, a listed property is
 the writer's completion and states no triple, so the graph read back is the
 graph written; a property no list names — in a document another writer
 produced, or one this list was stripped from — is the statement it looks like. The compact form's `omit_derived` leaves the completed

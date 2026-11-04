@@ -303,10 +303,8 @@ func (e *apiJSONEvaluation) libraryCatalog() *identity.Catalog {
 	return e.catalog
 }
 
-// apiJSONCheckCompletedProperties refuses a sysx:completedProperties list that
-// names a property the writer does not complete for the metaclass: a stated
-// property is never dropped on a list's word. A listed property the element
-// leaves out (a compacted false flag) states nothing either way.
+// apiJSONCheckCompletedProperties refuses a sysx:completedProperties list naming a
+// property the writer does not complete for the metaclass; a stated one is never dropped on its word.
 func apiJSONCheckCompletedProperties(object *apiJSONElementData, metaclass string) error {
 	for name := range object.completedProperties {
 		if !apiJSONCompletesProperty(metaclass, name) {
