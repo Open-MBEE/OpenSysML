@@ -210,6 +210,8 @@ var d2Classes = []struct{ name, body string }{
 	{"bar", "shape: rectangle; width: 80; height: 8; style: { fill: black; stroke: black }"},
 	{"choice", "shape: diamond; style: { " + d2Element + fontSizeClose},
 	{"history", "shape: oval; width: 26; height: 26; style: { " + d2Element + fontSizeClose},
+	{"dot", "shape: oval; width: 18; height: 18; style: { fill: black; stroke: black; font-size: 14 }; label.near: outside-bottom-center"},
+	{"item", "shape: text; style: { font-size: 14; font-color: black }"},
 	{"edge", styleOpen + d2Arrow + solidStrokeClose},
 	{"connection", styleOpen + d2Arrow + "; stroke-width: 3 }"},
 	{"succession", styleOpen + d2Arrow + dashedStrokeClose},
@@ -399,6 +401,12 @@ func (w *d2Writer) class(node *Node) string {
 // d2NodeClass is the class a node is drawn with: a pseudostate glyph for a
 // control node where glyphs are drawn, else the element's shape by kind.
 func d2NodeClass(node *Node, glyphs bool) string {
+	switch {
+	case isDotKind(node.Kind):
+		return "dot"
+	case itemBox(node):
+		return "item"
+	}
 	if glyphs {
 		switch node.Kind {
 		case startKind, "initial", "junction":
@@ -444,6 +452,8 @@ func (w *d2Writer) label(node *Node, class string) string {
 		if shown(node) == "" {
 			return ""
 		}
+	case "dot":
+		return shown(node)
 	}
 	return strings.Join(w.labels.lines(node), "\n")
 }
@@ -541,6 +551,8 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 		class = "specialization"
 	case EdgeUnownedMembership:
 		arrow, class = "<-", "membership"
+	case EdgeDependencyClient:
+		arrow, class = "--", "dependency"
 	}
 	w.writeArrow(indent, d2EdgeSpec{from: w.end(edge.From, edge.FromPort), to: w.end(edge.To, edge.ToPort), arrow: arrow, label: edge.Label, class: class, style: edge.Style, origin: edge.Origin}, d2EndLabels(edge)...)
 }

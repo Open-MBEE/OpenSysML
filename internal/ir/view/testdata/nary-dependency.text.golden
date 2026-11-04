@@ -1,0 +1,13 @@
+NaryViews::dependencies - tree rendering (render asTreeDiagram)
+
+part def Chassis
+part def Lights
+part def Brakes
+part def Steering
+dependency dot rules
+
+relationships:
+  Brakes .. rules
+  Steering .. rules
+  rules ..> Chassis
+  rules ..> Lights

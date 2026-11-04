@@ -415,7 +415,7 @@ func TestAPinnedDOTNodeSpansItsPinRows(t *testing.T) {
 	}
 	pinned := 0
 	for _, line := range strings.Split(source, "\n") {
-		if !strings.Contains(line, "shape=plain") {
+		if !strings.Contains(line, "shape=plain,") {
 			continue
 		}
 		pinned++

@@ -94,6 +94,8 @@ export interface RenderNode {
   name: string;
   type: string;
   detail: string;
+  /** Set on an item box drawn on a connection line: `right` when the item goes toward the line's second end, `left` toward its first. */
+  arrow?: string;
   parent?: string;
   /** The owner the node is drawn or listed under has the usage through typing, subclassification or subsetting rather than declares it; the label prefixes `name` with `^`. */
   inherited?: boolean;

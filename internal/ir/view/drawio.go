@@ -147,7 +147,7 @@ func drawioGlyphSizeOf(node *Node) (width, height float64, ok bool) {
 		return 0, 0, false
 	case node.Kind == "final":
 		return drawioFinalSize, drawioFinalSize, true
-	case node.Kind == "junction":
+	case node.Kind == "junction", isDotKind(node.Kind):
 		return drawioJunctionDim, drawioJunctionDim, true
 	case isBarKind(node.Kind):
 		return drawioBarLength, drawioBarWidth, true
@@ -651,6 +651,8 @@ func (w *drawioWriter) nodeStyle(node *Node, header float64, compartmented bool)
 // or the case notation's ellipse, note and actor.
 func (w *drawioWriter) plainStyle(node *Node) string {
 	switch {
+	case itemBox(node):
+		return "text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;"
 	case caseNodeKind(node.Kind):
 		return "ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;"
 	case node.Kind == "objective":
@@ -806,7 +808,7 @@ func (w *drawioWriter) writeEdge(i int, edge Edge) {
 func (w *drawioWriter) edgeFQN(edge Edge) string {
 	switch edge.Kind {
 	case EdgeConnection, EdgeBinding, EdgeAssociation, EdgeFlow, EdgeSuccession, EdgeSuccessionFlow, EdgeTransition,
-		EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeImport, EdgeDependency, EdgeDerive, EdgeRefine,
+		EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeImport, EdgeDependency, EdgeDependencyClient, EdgeDerive, EdgeRefine,
 		EdgeExpose, EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
 	default:
 		return ""
@@ -956,7 +958,7 @@ func drawioEdgeStyle(kind EdgeKind) string {
 		return "startArrow=circlePlus;startFill=0;endArrow=none"
 	case EdgeImport, EdgeDependency, EdgeDerive, EdgeRefine, EdgeExpose, EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
 		return "dashed=1;endArrow=open"
-	case EdgeAnchor:
+	case EdgeAnchor, EdgeDependencyClient:
 		return "dashed=1;endArrow=none"
 	case EdgeSuccessionFlow:
 		return "dashed=1;endArrow=block;endFill=1"

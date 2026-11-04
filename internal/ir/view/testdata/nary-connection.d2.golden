@@ -1,0 +1,21 @@
+# NaryViews::wheelLinks — interconnection rendering (render asInterconnectionDiagram)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  dot: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black; font-size: 14 }; label.near: outside-bottom-center }
+  connection: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 3 } }
+}
+n0: "«part def»\nWheel" {
+  class: definition
+  n1: "«part»\nhub" { class: usage }
+  n2: "«part»\nleftSpoke" { class: usage }
+  n3: "«part»\nrightSpoke" { class: usage }
+  n4: "" { class: dot }
+  n5: "" { class: dot }
+}
+n0.n4 -- n0.n1: { class: connection; target-arrowhead: { label: "hub" } }
+n0.n4 -- n0.n2: { class: connection; target-arrowhead: { label: "left" } }
+n0.n4 -- n0.n3: { class: connection; target-arrowhead: { label: "right" } }
+n0.n5 -- n0.n1: { class: connection }
+n0.n5 -- n0.n2: { class: connection }
+n0.n5 -- n0.n3: { class: connection }

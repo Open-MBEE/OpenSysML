@@ -530,7 +530,7 @@ func edgeArrow(kind Kind, edge EdgeKind) string {
 		return "..>"
 	case EdgeAssociation:
 		return "--"
-	case EdgeAnchor:
+	case EdgeAnchor, EdgeDependencyClient:
 		return ".."
 	case EdgeSuccessionFlow:
 		return "~>"

@@ -715,7 +715,8 @@ compartments and labels of the clause still lack.
 | `noncomposite-feature-membership` | `reference` | `dir=back, arrowtail=odiamond` | `o--` | `---` | `<- reference` | `startArrow=diamondThin;startFill=0;endArrow=none` | `start diamond-hollow` | approximate | Hollow diamond at the owner; Mermaid leads the edge text with `◇`. A mixed rendering draws it to every referential usage nested in its owner's node — a `ref` part, an attribute, a port — as above. |
 | `owned-membership` | `containment` | `dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0` | `+--` | `---` | `<- containment` | `startArrow=circlePlus;startFill=0;endArrow=none` | `start circle-plus` | approximate | Circle-plus at the namespace: Graphviz has no such arrow, so a `+` tail label is set on its hollow circle; D2 puts a `+` arrowhead label beside its circle; Mermaid draws a plain line, a tree's nesting showing the ownership. A mixed rendering draws it from an owner to every nested member that is no feature — a nested package or definition — as above. |
 | `import`, `top-level-import`, `recursive-import` | `import` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Dashed open arrow labelled `«import»`, `«import»*` for a namespace import, `«import»**` for a recursive one, the visibility inside the guillemets (`«private import»`). |
-| `binary-dependency` | `dependency`, `derive`, `refine` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Dashed open arrow; a derivation or refinement carries `«derive»` or `«refine»` as its text. |
+| `binary-dependency` | `dependency`, `derive`, `refine` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Dashed open arrow; a derivation or refinement carries `«derive»` or `«refine»` as its text. An n-ary dependency's supplier link (`n-ary-dependency-supplier-link`) is this arrow from the dependency's dot to each supplier. |
+| `n-ary-dependency-client-link` | `dependency client` | `dir=none, style=dashed` | `..` | `-.-` | `-- dependency` | `dashed=1;endArrow=none` | `none` | conformant | Dashed line with no head, from each client of an n-ary dependency to the dependency's dot (§8.2.3.3); the dot carries the dependency's name. |
 | `satisfy-edge` | `satisfy` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«satisfy»`. |
 | `verify-relationship` | `verify` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«verify»`. |
 | `allocate-relationship` | `allocate` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«allocate»`. |
@@ -738,12 +739,50 @@ where the arrow alone would not tell a specialization, subsetting, redefinition 
 canvas dashes a `succession`, `succession flow`, `import`, `derive`, `refine`, `dependency`, `expose` or
 `anchor` edge by its CSS class. Under the cameo style a tree's `containment` is Cameo's filled diamond instead.
 
-The n-ary association and connection dots, the `flow-on-connection` item box and the
-sequence-diagram `message` and `sq-succession` glyphs remain undrawn as such: a connection with
-more than two ends is drawn as its pairs, a flow on a connection as a flow, and a sequence message
-as the grammar's own arrow. `testdata/notation-glyphs.sysml` exercises the succession flow,
+The sequence-diagram `message` and `sq-succession` glyphs remain undrawn as such: a sequence
+message is the grammar's own arrow. `testdata/notation-glyphs.sysml` exercises the succession flow,
 require, assume, assert, frame, event, portion, reference subsetting, unowned membership and
 expose edges in each rendering kind that draws them (`glyphs-*.golden`).
+
+#### N-ary dots
+
+A connection usage or connection definition with more than two ends, and a dependency with more
+than one client or more than one supplier, are drawn as the notation's n-ary dot (§8.2.3.3
+`n-ary-dependency`, §8.2.3.13 `n-ary-connection` and `n-ary-connection-def`): a filled dot node
+(`connection dot`, `connection def dot`, `dependency dot`) carrying the element's name beside it as
+its `cdot-label` — the connection's own name, else its declared type; a dependency's name — with
+one segment per end rather than a line per pair of ends. An interconnection nests the dot in the
+node the connection was found in (`interconnection.go:naryConnection`), a general view draws it
+among the nodes (`general.go:naryConnection`, `general.go:naryDependency`), and a tree redraws the
+box of a ternary connection def as the dot (`tree_edges.go:drawAssociationDot`). A connection's
+segments are `connection` edges and a def's `association` lines, each carrying the end's role name
+and multiplicity at the end (`n-ary-segment`, `n-ary-def-segment`); a dependency's are the dashed
+headless `dependency client` link from each client and the `dependency` arrow to each supplier (a
+refinement's keeps its `«refine»`). The figures draw every segment solid, a def's included. DOT
+writes the dot as a filled circle with the name as its `xlabel`, draw.io as the UML junction glyph
+with the label below, D2 as a filled oval with the label outside, the canvas as a filled circle
+with the name at its right; PlantUML's `circle` element, filled by the `dot` stereotype, sets the
+name beside it; Mermaid's filled circle (`f-circ`) has no label beside it, so the name is the
+shape's own label (approximate). `testdata/nary.sysml` exercises each (`nary-*.golden`,
+`TestNaryConnectionIsADotWithASegmentPerEnd`, `TestNaryDependencyAndConnectionDefAreDots`).
+
+#### Flow on a connection
+
+A flow, succession flow or message whose two ends are the two ends of a drawn connection is drawn
+on the connection's line as the notation's `flow-on-connection` (§8.2.3.16) rather than as an edge
+of its own: an item box — the keyword line `«flow»`, `«succession flow»` or `«message»` over the
+item's text, over a short arrow pointing right toward the line's second end (`flow-node-r`,
+`sflow-node-r`, `message-node-r`) or left toward its first (`flow-node-l`, `sflow-node-l`,
+`message-node-l`), a filled head for a flow and an open one for a message — splits the line into
+segments: from the first end to the box, between boxes when several flows share the line, and from
+the last box to the second end, the line's label on its first segment
+(`flow_on_connection.go:flowsOnConnections`). The box's `Node.Arrow` is `right` or `left`. A stated
+route is cut at even intervals, each box placed at its cut. DOT, PlantUML, Mermaid and D2 write the
+box as borderless text (`shape=plaintext`, `label`, `shape: text`) whose last line is the arrow glyph
+(`—▶`/`◀—`, `—>`/`<—`), draw.io as a `text` cell, and the canvas draws the arrow as a line with the
+`arrow` or `arrow-open` marker. A flow between ends no connection joins stays a `flow` edge; with
+edge labels hidden the box keeps its keyword and arrow. `testdata/nary.sysml` and
+`testdata/interconnection-ports.sysml` exercise it (`TestFlowsOnAConnectionAreItemBoxesOnItsLine`).
 
 ### Edge routing
 

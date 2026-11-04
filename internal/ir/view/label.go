@@ -224,6 +224,9 @@ func (l labeller) head(node *Node) string {
 	switch name, typ := shown(node), node.Type; {
 	case name == "" && typ == "" && node.Text != "":
 		return l.text(node.Text)
+	case name == "" && typ == "" && itemBox(node):
+		// An item box with its text hidden is its keyword and arrow alone.
+		return ""
 	case name == "" && typ == "":
 		return node.Kind
 	case name == "":
@@ -310,14 +313,18 @@ func bareNames(text string) string {
 // headLines is the head split at the line breaks its escapes decode to, each
 // line headed separately by every form's label writer.
 func (l labeller) headLines(node *Node) []string {
-	return strings.Split(l.head(node), "\n")
+	head := l.head(node)
+	if head == "" {
+		return nil
+	}
+	return strings.Split(head, "\n")
 }
 
 // keyworded reports whether a node's label has a keyword line, the kind in
 // guillemets after the head: every node whose head is a name or a type. A head
 // saying what the node does stands alone, as the kind is nothing beside it.
 func keyworded(node *Node) bool {
-	return shown(node) != "" || node.Type != ""
+	return shown(node) != "" || node.Type != "" || itemBox(node)
 }
 
 // headed reports whether a node's head says something of the node's own — a
@@ -347,16 +354,21 @@ func (l labeller) keyword(node *Node) string {
 // details are the lines of a node's label after its title: its notes, one
 // entry a line.
 func (l labeller) details(node *Node) []string {
+	var lines []string
 	switch {
 	case node.Detail == "" || !l.shown.Has(ElementCompartments):
-		return nil
 	case l.skin.cameo && ast.NotationKeyword(node.Kind) == "state":
-		return cameoStateDetails(node.Detail)
+		lines = cameoStateDetails(node.Detail)
 	case l.skin.cameo:
-		return []string{bareNames(node.Detail)}
+		lines = []string{bareNames(node.Detail)}
 	default:
-		return []string{node.Detail}
+		lines = []string{node.Detail}
 	}
+	if arrow := itemArrow(node); arrow != "" {
+		// An item box on a connection line ends in the arrow the item goes by.
+		lines = append(lines, arrow)
+	}
+	return lines
 }
 
 // lines is a node's diagram label in the order the block notation stacks a
@@ -378,7 +390,9 @@ func (l labeller) lines(node *Node) []string {
 func (l labeller) titleLines(node *Node) []string {
 	head := l.headLines(node)
 	lines := make([]string, 0, len(head)+len(l.details(node)))
-	if keyword := l.keyword(node); keyword != "" {
+	if keyword := l.keyword(node); keyword != "" && len(head) == 0 {
+		head = []string{keyword}
+	} else if keyword != "" {
 		head[0] = keyword + " " + head[0]
 	}
 	lines = append(lines, head...)

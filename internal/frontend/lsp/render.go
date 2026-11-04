@@ -217,6 +217,7 @@ type RenderNode struct {
 	Inherited       bool            `json:"inherited,omitzero"`
 	Type            string          `json:"type"`
 	Detail          string          `json:"detail"`
+	Arrow           string          `json:"arrow,omitempty"`
 	Parent          string          `json:"parent,omitempty"`
 	Compartment     string          `json:"compartment,omitempty"`
 	Fill            string          `json:"fill,omitempty"`
@@ -555,6 +556,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Inherited:       node.Inherited,
 			Type:            node.Type,
 			Detail:          node.Detail,
+			Arrow:           node.Arrow,
 			Parent:          node.Parent,
 			Compartment:     node.Compartment,
 			Fill:            fills[node.ID].Fill,

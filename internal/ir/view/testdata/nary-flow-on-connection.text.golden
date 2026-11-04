@@ -1,0 +1,19 @@
+NaryViews::carLinks - interconnection rendering (render asInterconnectionDiagram)
+
+part def Car
+  part tank
+    port ^fuelOut
+  part engine
+    port ^fuelIn
+  part gauge
+    port ^fuelIn
+  flow
+  flow
+  message
+
+connections:
+  tank.fuelOut -- flow n4
+  flow n4 -- flow n5
+  flow n5 -- message n6
+  message n6 -- engine.fuelIn
+  tank.fuelOut => gauge.fuelIn

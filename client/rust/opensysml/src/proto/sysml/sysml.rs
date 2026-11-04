@@ -3941,6 +3941,11 @@ pub struct RenderNode {
     /// prefixes its name with `^`. `name` stays the bare name.
     #[prost(bool, tag="15")]
     pub inherited: bool,
+    /// Set on an item box drawn on a connection line (a flow, succession flow or
+    /// message whose ends are the connection's): "right" when the item goes toward
+    /// the line's second end, "left" toward its first. Empty for every other node.
+    #[prost(string, tag="16")]
+    pub arrow: ::prost::alloc::string::String,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

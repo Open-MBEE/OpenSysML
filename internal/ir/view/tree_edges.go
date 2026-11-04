@@ -151,7 +151,9 @@ func (g *treeGraph) associationLines() {
 		kept := nodes[:0]
 		for _, node := range nodes {
 			site := g.out.sites[node]
-			if line, ok := g.associationLine(node, site); ok {
+			if line, ok := g.associationLine(node, site); ok && nary(len(line.ends)) {
+				g.drawAssociationDot(node, site, line)
+			} else if ok {
 				g.drawAssociation(node, site, line)
 				continue
 			}
@@ -227,13 +229,35 @@ type linedEdge struct {
 	property, typ symbols.ElementKey
 }
 
-// association is a connection def drawn as a line: the nodes of its two end
-// types, its ends, and for each end the drawn property it crosses, nil for none.
+// association is a connection def drawn as a line or an n-ary dot: the nodes
+// of its end types, its ends, their types, and for each end of a binary def
+// the drawn property it crosses, nil for none.
 type association struct {
 	from, to *Node
+	typed    []*Node
 	ends     []*symbols.Symbol
-	types    [2]*symbols.Symbol
+	types    []*symbols.Symbol
 	crossed  [2]*symbols.Symbol
+}
+
+// drawAssociationDot redraws the box of a connection def with more than two
+// ends as the notation's n-ary dot (§8.2.3.13): the dot, named for the def,
+// stands where the box did, and a segment runs from it to each end's type,
+// the end's role name and multiplicity at the type.
+func (g *treeGraph) drawAssociationDot(node *Node, site treeSite, line association) {
+	def := site.sym
+	node.Kind, node.Compartments, node.Children, node.Type, node.Typings = connectionDefDotKind, nil, nil, "", nil
+	if g.r.model.NameSynthesized(def) {
+		node.Name = ""
+	}
+	for i, end := range line.ends {
+		label := ""
+		if !g.r.model.NameSynthesized(end) {
+			label = g.r.usageLabel(end)
+		}
+		g.add(Edge{From: node.ID, To: line.typed[i].ID, Kind: EdgeAssociation, ToLabel: label, Origin: symbolOrigin(def),
+			Style: g.r.styleOf(site.view, end, g.out)}, end)
+	}
 }
 
 // associationLine is the line the connection def of node is drawn as: between
@@ -251,7 +275,7 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 		return line, false
 	}
 	line.ends = g.r.model.EndFeatures(def)
-	if len(line.ends) != 2 {
+	if len(line.ends) < 2 {
 		return line, false
 	}
 	for _, rel := range semantics.RelationshipsOf(def) {
@@ -260,7 +284,8 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 		}
 	}
 	members := g.r.containedMembers(def)
-	var typed [2]*Node
+	line.types, line.typed = make([]*symbols.Symbol, len(line.ends)), make([]*Node, len(line.ends))
+	typed := line.typed
 	for i, end := range line.ends {
 		if !slices.Contains(members, end) || g.endHasContent(end) {
 			return line, false
@@ -279,6 +304,9 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 		if !slices.Contains(line.ends, member) {
 			return line, false
 		}
+	}
+	if nary(len(line.ends)) {
+		return line, true
 	}
 	for i, end := range line.ends {
 		p := g.r.model.CrossFeature(end)

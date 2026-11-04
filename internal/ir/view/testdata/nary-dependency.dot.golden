@@ -1,0 +1,18 @@
+// view: NaryViews::dependencies
+// kind: tree
+// stated: render asTreeDiagram
+// layout: dot
+digraph "NaryViews::dependencies" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Chassis</b>>];
+  "n1" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Lights</b>>];
+  "n2" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Brakes</b>>];
+  "n3" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Steering</b>>];
+  "n4" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label="", xlabel="rules"];
+  "n2" -> "n4" [dir=none, style=dashed];
+  "n3" -> "n4" [dir=none, style=dashed];
+  "n4" -> "n0" [arrowhead=vee, style=dashed];
+  "n4" -> "n1" [arrowhead=vee, style=dashed];
+}
