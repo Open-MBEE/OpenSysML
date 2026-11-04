@@ -183,8 +183,8 @@ differ in a few places. The row-by-row audit is
 - **Adjudicated divergence — a flow usage without ends is a message, not a flow.** The pilot gives
   every `FlowUsage` `Flows::flows`; `checkFlowUsageSpecialization` asks for `Flows::messages` of
   every flow usage and `checkFlowUsageFlowSpecialization` for `flows` only when it has
-  `ownedEndFeatures`. We imply `messages` always and `flows` when the usage declares `from`/`to`
-  ends (`semantics/implicit.go` `flowDeclaresEnds`); the KerML `flow` is treated the same way
+  `ownedEndFeatures`. We imply `messages` always and `flows` when the usage has end features —
+  `from`/`to` or owned `end` members (`semantics/implicit.go` `flowDeclaresEnds`); the KerML `flow` is treated the same way
   (`Transfers::transfers`, `flowTransfers` with ends). A flow typed by a flow definition still
   reaches `Flow` through its type.
 - **Our defect, closed — a definition where the specification names a feature.** Control nodes

@@ -128,10 +128,13 @@ var implicitKerMLBinaryFeatureBases = map[string]string{
 	"connector": "Links::binaryLinks",
 }
 
-// flowDeclaresEnds reports whether a flow declares its ends (`from a to b`), which
-// makes it a flowTransfer rather than a bare transfer (KerML 1.1 §8.4 checkFlowWithEndsSpecialization).
-func flowDeclaresEnds(d *ast.Usage) bool {
-	return d.FlowEnds != nil && (d.FlowEnds.From != nil || d.FlowEnds.To != nil)
+// flowDeclaresEnds reports whether a flow has end features (`from a to b` or owned `end`
+// members), which makes it a flowTransfer rather than a bare transfer (KerML 1.1 §8.4).
+func (m *Model) flowDeclaresEnds(sym *symbols.Symbol, d *ast.Usage) bool {
+	if d.FlowEnds != nil && (d.FlowEnds.From != nil || d.FlowEnds.To != nil) {
+		return true
+	}
+	return len(m.ownedEnds(sym)) > 0
 }
 
 // implicitKerMLBehaviorBases is the behavior base a kind that is also an
@@ -486,7 +489,7 @@ func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 			switch {
 			case d.IsSuccessionFlow():
 				return "Flows::successionFlows", true
-			case d.Keyword != "message" && flowDeclaresEnds(d):
+			case d.Keyword != "message" && m.flowDeclaresEnds(sym, d):
 				return flowsFQN, true
 			}
 			return "Flows::messages", true
@@ -807,7 +810,7 @@ func (m *Model) computeImplicitKerMLFeatureBase(sym *symbols.Symbol, usage *ast.
 	switch {
 	case usage.IsSuccessionFlow():
 		fqn, ok = "Transfers::flowTransfersBefore", true
-	case usage.Keyword == "flow" && flowDeclaresEnds(usage):
+	case usage.Keyword == "flow" && m.flowDeclaresEnds(sym, usage):
 		fqn, ok = "Transfers::flowTransfers", true
 	}
 	if !ok || m.declaredGeneralizationReaches(sym, fqn, nil) {

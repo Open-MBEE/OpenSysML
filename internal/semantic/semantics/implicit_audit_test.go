@@ -182,3 +182,18 @@ func TestImpliedSpecializationAuditQueriesAgree(t *testing.T) {
 		t.Errorf("ImpliedBaseFQNs(individual occurrence def) = %v, want [Occurrences::Life]", got)
 	}
 }
+
+// A flow whose ends are owned `end` members has end features like `from a to b`
+// does (checkFlowUsageFlowSpecialization): it is a flow, not only a message.
+func TestImpliedSpecializationAuditFlowWithOwnedEnds(t *testing.T) {
+	m, root := buildModelWithLibraryNamedKind(t, "fe.sysml", source.KindSysML, `package P {
+		part def A { port p; } part a : A; part b : A;
+		flow f : Transfers::MessageTransfer { end :>> source ::> a.p; end :>> target ::> b.p; }
+		flow g : Transfers::MessageTransfer; }`)
+	if got := impliedLibraryFQNs(m, auditLibraryBases(t, root, "P::f")); !slices.Contains(got, "Flows::flows") {
+		t.Errorf("flow with owned ends: implied %v, want Flows::flows", got)
+	}
+	if got := impliedLibraryFQNs(m, auditLibraryBases(t, root, "P::g")); slices.Contains(got, "Flows::flows") || !slices.Contains(got, "Flows::messages") {
+		t.Errorf("flow without ends: implied %v, want Flows::messages and no Flows::flows", got)
+	}
+}
