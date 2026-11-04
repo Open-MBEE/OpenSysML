@@ -4,9 +4,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// The n-ary dot of the graphical notation (SysML v2 §8.2.3.3, §8.2.3.13): a
-// connection, connection definition or dependency with more than two ends is
-// a filled dot carrying the name, with one segment to each end.
+// The n-ary dot (SysML v2 §8.2.3.3, §8.2.3.13): a connection, connection definition or
+// dependency of more than two ends is a filled dot carrying the name, one segment per end.
 const (
 	connectionDotKind    = "connection dot"
 	connectionDefDotKind = "connection def dot"

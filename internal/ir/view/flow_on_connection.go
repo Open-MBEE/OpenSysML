@@ -28,12 +28,8 @@ func edgeLineEnds(edge Edge) lineEnds {
 
 func (l lineEnds) reversed() lineEnds { return lineEnds{l.to, l.toPort, l.from, l.fromPort} }
 
-// flowsOnConnections redraws each flow whose two ends are a connection's as
-// the notation's flow-on-connection (§8.2.3.16): the connection line is split
-// by an item box per flow — «flow», «succession flow» or «message» over the
-// item's text and an arrow the way it goes — in the flows' order, the line's
-// label staying on its first segment. A flow sharing ends with no connection
-// stays an edge of its own.
+// flowsOnConnections redraws each flow whose ends are a connection's as §8.2.3.16's item box
+// splitting the line (label on the first segment); a flow with no such connection stays an edge.
 func (w *featureWalk) flowsOnConnections() {
 	out := w.out
 	onLine := map[int][]flowSite{}
@@ -89,10 +85,8 @@ func (w *featureWalk) dotSegment(edge Edge) bool {
 	return false
 }
 
-// splitLine is the connection line redrawn through the item boxes of the flows
-// on it: a segment from the line's first end to the first box, one between each
-// two boxes, one from the last to the second end. A stated route is split at
-// even intervals, each unplaced box standing where it is cut.
+// splitLine is the connection line redrawn as segments between its ends and the item boxes;
+// a stated route is cut at even intervals, each unplaced box standing where it is cut.
 func (w *featureWalk) splitLine(line Edge, flows []flowSite) []Edge {
 	boxes := make([]*Node, len(flows))
 	for i, flow := range flows {
@@ -137,9 +131,8 @@ func (w *featureWalk) splitLine(line Edge, flows []flowSite) []Edge {
 	return segments
 }
 
-// itemBox is the box of a flow drawn on the connection line: its keyword is
-// its kind, its text the flow's label, and its arrow points the way the item
-// goes along the line — right toward the line's second end, left toward its first.
+// itemBox is a flow's box on the connection line: keyword its kind, text the flow's label,
+// arrow the way the item goes (right toward the line's second end, left toward its first).
 func (w *featureWalk) itemBox(flow Edge, site flowSite, line Edge) *Node {
 	r, out := w.r, w.out
 	kind, text := flowBoxKind(site.sym, flow.Kind), flow.Label
@@ -189,9 +182,8 @@ func segmentRoute(piece []Point, headCut, tailCut bool) []Point {
 	return piece
 }
 
-// splitRoute cuts a stated route into n+1 pieces of equal length, the cut
-// points shared by neighbouring pieces; nil for no route. A lone waypoint has
-// no length to cut and stays on the first piece, the others empty.
+// splitRoute cuts a stated route into n+1 pieces of equal length sharing their cut points;
+// nil for no route, and a lone waypoint, with no length to cut, stays on the first piece.
 func splitRoute(route []Point, n int) [][]Point {
 	if len(route) == 0 {
 		return nil

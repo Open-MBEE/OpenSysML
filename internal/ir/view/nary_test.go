@@ -67,10 +67,8 @@ func edgesFrom(rendering *Rendering, id string) []Edge {
 	return out
 }
 
-// A connection usage of three ends is a dot nested in the owner, named for the
-// connection, with a connection segment to each end labelled with the end's
-// role name and multiplicity; an unnamed one a dot with no label. No pairwise
-// line is drawn.
+// A connection usage of three ends is a dot nested in the owner, named for the connection,
+// with a labelled segment to each end and no pairwise line; an unnamed one has no label.
 func TestNaryConnectionIsADotWithASegmentPerEnd(t *testing.T) {
 	rendering := render(t, "nary.sysml", "NaryViews::wheelLinks")
 	dots := dotNodes(rendering)[connectionDotKind]
@@ -117,10 +115,8 @@ func TestNaryConnectionIsADotWithASegmentPerEnd(t *testing.T) {
 	}
 }
 
-// A flow whose ends are a connection's two ports is an item box on the
-// connection's line: «flow», «succession flow» or «message» over the item,
-// with the arrow the way it goes, the line split around the boxes. A flow
-// between ports no connection joins stays an edge.
+// A flow whose ends are a connection's ports is an item box splitting the connection's line,
+// its arrow the way the item goes; a flow between ports no connection joins stays an edge.
 func TestFlowsOnAConnectionAreItemBoxesOnItsLine(t *testing.T) {
 	rendering := render(t, "nary.sysml", "NaryViews::carLinks")
 	var boxes []*Node
@@ -174,10 +170,8 @@ func TestFlowsOnAConnectionAreItemBoxesOnItsLine(t *testing.T) {
 	}
 }
 
-// A dependency of several clients or suppliers is a dot named for it, with a
-// dashed headless client link from each client and a dependency arrow to each
-// supplier; a connection def of three ends a dot in the tree with a segment
-// to each end's type.
+// A dependency of several clients or suppliers is a named dot with a dashed headless link from
+// each client and an arrow to each supplier; a connection def of three ends a dot in the tree.
 func TestNaryDependencyAndConnectionDefAreDots(t *testing.T) {
 	rendering := render(t, "nary.sysml", "NaryViews::dependencies")
 	dots := dotNodes(rendering)[dependencyDotKind]

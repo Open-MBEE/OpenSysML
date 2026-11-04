@@ -327,9 +327,8 @@ func (m *drawioMatcher) diff(cell, base *DrawioCell, baseKeys map[string]DrawioE
 	m.diffEdge(cell, base, baseKeys[base.ID])
 }
 
-// lineOf is the line the edge i is a segment of when the flows on a connection
-// split its line: every segment's index in the line's order; i alone otherwise.
-// A connection's one Route is the whole line's, so the segments import together.
+// lineOf is every segment of the split connection line edge i belongs to, in order (i alone
+// for any other edge): a connection's one Route is the whole line's, so they import together.
 func (m *drawioMatcher) lineOf(i int) []int {
 	edge := m.norm.Edges[i]
 	if edge.Kind != EdgeConnection || !m.itemBoxAt(edge.From) && !m.itemBoxAt(edge.To) {

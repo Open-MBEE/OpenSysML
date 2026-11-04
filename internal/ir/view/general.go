@@ -1059,10 +1059,8 @@ func (g *generalGraph) dependencyLabel(sym *symbols.Symbol) string {
 	return localName(sym)
 }
 
-// naryDependency draws a dependency with several clients or suppliers as the
-// notation's n-ary dot (§8.2.3.3): a filled dot named for the dependency, a
-// dashed headless link from each client to it and a dependency arrow from it
-// to each supplier; a refinement's arrows keep their «refine».
+// naryDependency draws a dependency of several clients or suppliers as §8.2.3.3's n-ary dot:
+// a dashed headless link from each client, a dependency arrow (a refinement's «refine») to each supplier.
 func (g *generalGraph) naryDependency(sym *symbols.Symbol, kind EdgeKind, name string, dep *ast.Dependency) []Edge {
 	clients, suppliers := g.hubEnds(name, sym, dep.Clients), g.hubEnds(name, sym, dep.Suppliers)
 	label := ""
@@ -1147,10 +1145,8 @@ func (g *generalGraph) relationshipTargets(rel *symbols.Symbol) []*symbols.Symbo
 	return ends
 }
 
-// hub is the dot node of the n-ary relationship sym among the given ends,
-// admitted as relate admits a line: some end is drawn, or the graph exposes
-// relationships; and at least two ends are drawn or may be. ok is false when
-// no dot is drawn.
+// hub is the dot node of the n-ary relationship sym, admitted as relate admits a line (some end
+// drawn, or relationships exposed; two or more ends drawn or admissible); ok is false for none.
 func (g *generalGraph) hub(sym *symbols.Symbol, kind, label string, ends []*symbols.Symbol) (*Node, bool) {
 	// Admittance is settled before hubEnd draws any end, so an unrelated
 	// relationship brings no node into the view.
@@ -1205,10 +1201,8 @@ func (g *generalGraph) hubEnd(end *symbols.Symbol) *Node {
 	return g.node(end)
 }
 
-// connectionEdges draws a binary connection between the elements it connects,
-// labelled with its name, and one of more ends as the n-ary dot (§8.2.3.13):
-// the dot named for the connection, a segment to each end, the end's role
-// name and multiplicity at the end.
+// connectionEdges draws a binary connection as a named line between its ends, and one of more
+// ends as §8.2.3.13's n-ary dot with a segment to each end, labelled with the end's role.
 func (g *generalGraph) connectionEdges(sym *symbols.Symbol) []Edge {
 	ends := g.r.model.ConnectorEndAttachments(sym)
 	if nary(len(ends)) {

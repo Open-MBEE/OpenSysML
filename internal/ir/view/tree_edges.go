@@ -229,9 +229,8 @@ type linedEdge struct {
 	property, typ symbols.ElementKey
 }
 
-// association is a connection def drawn as a line or an n-ary dot: the nodes
-// of its end types, its ends, their types, and for each end of a binary def
-// the drawn property it crosses, nil for none.
+// association is a connection def drawn as a line or an n-ary dot: its end types' nodes, its
+// ends and their types, and for each end of a binary def the drawn property it crosses, or nil.
 type association struct {
 	from, to *Node
 	typed    []*Node
@@ -240,10 +239,8 @@ type association struct {
 	crossed  [2]*symbols.Symbol
 }
 
-// drawAssociationDot redraws the box of a connection def with more than two
-// ends as the notation's n-ary dot (§8.2.3.13): the dot, named for the def,
-// stands where the box did, and a segment runs from it to each end's type,
-// the end's role name and multiplicity at the type.
+// drawAssociationDot redraws a connection def of more than two ends as §8.2.3.13's n-ary dot
+// where its box stood, a segment to each end's type labelled with the end's role.
 func (g *treeGraph) drawAssociationDot(node *Node, site treeSite, line association) {
 	def := site.sym
 	node.Kind, node.Compartments, node.Children, node.Type, node.Typings = connectionDefDotKind, nil, nil, "", nil

@@ -529,10 +529,8 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 	}
 }
 
-// naryConnection draws a connection of more than two ends as the notation's
-// n-ary dot (§8.2.3.13): a filled dot named for the connection, nested where
-// the connection was found, and a segment from it to each end, the end's role
-// name and multiplicity at the end.
+// naryConnection draws a connection of more than two ends as §8.2.3.13's n-ary dot, nested
+// where the connection was found, with a segment to each end labelled with the end's role.
 func (w *featureWalk) naryConnection(connector *symbols.Symbol, within *Node, ends []connectorEnd, resolved []edgeEnd, route []Point, style *Style) {
 	r, out := w.r, w.out
 	if len(route) > 0 {

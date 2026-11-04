@@ -398,9 +398,8 @@ function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
   return "usage";
 }
 
-// itemArrow is the arrow under an item box's text (flow-on-connection, §8.2.3.16): a
-// short line with a filled head for a flow, an open one for a message, pointing right
-// toward the connection line's second end or left toward its first.
+// itemArrow is the arrow under an item box's text (§8.2.3.16): a filled head for a flow, an open
+// one for a message, pointing right toward the connection line's second end or left toward its first.
 function itemArrow(entry: PlacedNode): SVGElement {
   const { x, y, width, height } = entry.box;
   const inset = LABEL_PAD_X + 2;
