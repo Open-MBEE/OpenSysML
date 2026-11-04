@@ -22,6 +22,15 @@ package Annotated {
 	part def Seat;
 }
 
+package Twins {
+	part def Heater {
+		comment Safety /* Rated for the heater's pressure. */
+	}
+	part def Cooler {
+		comment Safety /* Rated for the cooler's pressure. */
+	}
+}
+
 package AnnotationViews {
 	private import ScalarValues::Boolean;
 	private import Views::*;
@@ -49,6 +58,11 @@ package AnnotationViews {
 	view exposedComment {
 		expose Annotated::Pump::Safety;
 		expose Annotated::Tank;
+		render asTreeDiagram;
+	}
+	view exposedTwins {
+		expose Twins::Heater::Safety;
+		expose Twins::Cooler::Safety;
 		render asTreeDiagram;
 	}
 	view exposedWithOwner {
