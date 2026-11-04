@@ -33,8 +33,8 @@ stateDiagram-v2
   state "«state def» Burner<br>state transition" as n0 {
     state "«state»<br>off<br>initial" as n1
     state "«state» running<br>«parallel»<br>entry<br>action ignite : Ignite<br>do<br>flame := true<br>exit<br>action : Purge<br>state transition" as n2 {
-      state "«entry action»<br>ignite" as n8
-      state "flame := true" as n9
+      state "«entry action»<br>ignite" as n9
+      state "flame := true" as n10
       state "«region»<br>low" as n6
       state "«region»<br>high" as n7
     }

@@ -91,12 +91,12 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 ## Totals
 
 <!-- census:begin summary -->
-620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **218 drawn**, **55 approximate**, **78 undrawn**, 172 not applicable.
+620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **255 drawn**, **42 approximate**, **54 undrawn**, 172 not applicable.
 
 | Category | Productions |
 | --- | --- |
-| node | 165 |
-| compartment | 141 |
+| node | 162 |
+| compartment | 144 |
 | edge | 59 |
 | label | 24 |
 | view | 10 |
@@ -124,8 +124,8 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.14 Interfaces Graphical Notation | 17 | 12 | 6 | 1 | 1 | 4 |
 | §8.2.3.15 Allocations Graphical Notation | 14 | 9 | 6 | 0 | 0 | 3 |
 | §8.2.3.16 Flows Graphical Notation | 30 | 22 | 15 | 1 | 2 | 4 |
-| §8.2.3.17 Actions Graphical Notation | 72 | 68 | 21 | 11 | 18 | 18 |
-| §8.2.3.18 States Graphical Notation | 45 | 41 | 11 | 7 | 9 | 14 |
+| §8.2.3.17 Actions Graphical Notation | 72 | 68 | 44 | 3 | 3 | 18 |
+| §8.2.3.18 States Graphical Notation | 45 | 41 | 25 | 2 | 0 | 14 |
 | §8.2.3.19 Calculations Graphical Notation | 14 | 9 | 4 | 1 | 1 | 3 |
 | §8.2.3.20 Constraints Graphical Notation | 24 | 19 | 13 | 0 | 0 | 6 |
 | §8.2.3.21 Requirements Graphical Notation | 63 | 57 | 28 | 8 | 1 | 20 |
@@ -135,7 +135,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.25 Use Cases Graphical Notation | 22 | 16 | 9 | 0 | 1 | 6 |
 | §8.2.3.26 Views and Viewpoints Graphical Notation | 38 | 34 | 13 | 4 | 5 | 12 |
 | §8.2.3.27 Metadata Graphical Notation | 8 | 7 | 2 | 0 | 1 | 4 |
-| **Total** | 620 | 523 | 218 | 55 | 78 | 172 |
+| **Total** | 620 | 523 | 255 | 42 | 54 | 172 |
 <!-- census:end clauses -->
 
 ## Gaps
@@ -264,56 +264,19 @@ package a follow-up can take one at a time (see below).
 
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
-| `accept-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
-| `accept-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
-| `action-flow-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `assign-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
-| `assign-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
-| `else-body` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
-| `else-branch` | edge | undrawn | B | the else branch of a decision is drawn as a plain succession without the `else` guard |
-| `for-loop-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
-| `for-loop-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
-| `if-condition` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
-| `if-else-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
-| `ifelse-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
-| `iteration` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
-| `loop-body` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
-| `param-b` | node | approximate | B | the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn |
-| `param-l` | node | approximate | B | the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn |
-| `param-r` | node | approximate | B | the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn |
-| `param-t` | node | approximate | B | the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn |
+| `accept-action-node` | node | approximate | B | a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2 |
 | `perform-actions-swimlanes` | compartment | undrawn | B | swimlanes are not drawn |
 | `performed-by-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `send-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
-| `send-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
+| `send-action-node` | node | approximate | B | a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2 |
 | `swimlane` | compartment | undrawn | B | swimlanes are not drawn |
-| `terminate-node` | node | approximate | B | DOT and Mermaid draw a double circle, the figure's X-in-a-circle only draw.io (umlDestroy) does |
-| `then-body` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
-| `until-condition` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
-| `while-condition` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
-| `while-loop-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
-| `while-loop-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
+| `terminate-node` | node | approximate | B | the figure's X in a circle in DOT, Mermaid (cross-circ), draw.io (umlDestroy) and the canvas; PlantUML has no terminate pseudostate and D2 no crossed circle, both draw a plain end |
 
 #### §8.2.3.18 States Graphical Notation
 
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
-| `do-action` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
-| `do-action-name-comp` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
-| `entry-action` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
-| `entry-action-name-comp` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
-| `exit-action` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
-| `exit-action-name-comp` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
-| `st-succession` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head; Mermaid and D2 have only a filled head. |
-| `state-actions-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `state-def-name-compartment` | compartment | approximate | B | the keyword and name are written, the optional «parallel» marker is not |
-| `state-do-action` | compartment | approximate | B | entry/do/exit actions are written as text lines in the state box, not as labelled compartments |
-| `state-entry-action` | compartment | approximate | B | entry/do/exit actions are written as text lines in the state box, not as labelled compartments |
-| `state-exit-action` | compartment | approximate | B | entry/do/exit actions are written as text lines in the state box, not as labelled compartments |
-| `state-name-compartment` | compartment | approximate | B | the keyword and name are written, the optional «parallel» marker is not |
-| `state-transition-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `successions-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `transition` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head; Mermaid and D2 have only a filled head. |
+| `st-succession` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head. |
+| `transition` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head. |
 
 #### §8.2.3.19 Calculations Graphical Notation
 
@@ -384,7 +347,7 @@ package a follow-up can take one at a time (see below).
 | Package | Scope | Undrawn | Approximate | Productions |
 | --- | --- | --- | --- | --- |
 | A | §8.2.3.26 view frame and §8.2.3.4 annotation nodes | 9 | 4 | `annotation-link`, `comment-node`, `comment-with-keyword`, `comment-without-keyword`, `documentation-compartment`, `documentation-node`, `textual-representation-node`, `framed-view`, `root-view`, `view-frame-info-compartment-bl`, `view-frame-info-compartment-br`, `view-frame-info-compartment-tr`, `view-frame-name-compartment` |
-| B | §8.2.3.17–.18 action and state node forms | 27 | 18 | `accept-action-name-compartment`, `accept-action-node`, `action-flow-compartment`, `assign-action-name-compartment`, `assign-action-node`, `else-body`, `else-branch`, `for-loop-action-name-compartment`, `for-loop-action-node`, `if-condition`, `if-else-action-node`, `ifelse-action-name-compartment`, `iteration`, `loop-body`, `param-b`, `param-l`, `param-r`, `param-t`, `perform-actions-swimlanes`, `performed-by-compartment`, `send-action-name-compartment`, `send-action-node`, `swimlane`, `terminate-node`, `then-body`, `until-condition`, `while-condition`, `while-loop-action-name-compartment`, `while-loop-action-node`, `do-action`, `do-action-name-comp`, `entry-action`, `entry-action-name-comp`, `exit-action`, `exit-action-name-comp`, `st-succession`, `state-actions-compartment`, `state-def-name-compartment`, `state-do-action`, `state-entry-action`, `state-exit-action`, `state-name-compartment`, `state-transition-compartment`, `successions-compartment`, `transition` |
+| B | §8.2.3.17–.18 action and state node forms | 3 | 5 | `accept-action-node`, `perform-actions-swimlanes`, `performed-by-compartment`, `send-action-node`, `swimlane`, `terminate-node`, `st-succession`, `transition` |
 | C | §8.2.3.3/.13 n-ary dots and §8.2.3.16 flow-on-connection | 0 | 0 |  |
 | D | §8.2.3.9 sequence glyphs | 8 | 3 | `event-occurrence`, `event-occurrence-name-compartment`, `individuals-compartment`, `portion-relationship`, `proxy-label`, `sequence-compartment`, `sq-port`, `sq-proxy`, `sq-succession`, `succession-label`, `message` |
 | E | §8.2.3.2 textual-compartment greying | 2 | 0 | `element-inside-textual-compartment`, `ellipsis-at-lower-left-corner` |

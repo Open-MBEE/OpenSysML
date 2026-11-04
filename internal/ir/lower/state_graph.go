@@ -40,6 +40,10 @@ type StateGraph struct {
 	Parallel        map[*ast.StateNode]bool
 	MachineParallel bool
 
+	// Features: a state's entry, do or exit action usage → the directed parameters
+	// it declares (`in target : Target;`), the pins a view draws on its node.
+	Features map[ast.Node][]Feature
+
 	// HiddenStates are graph-only composite owners synthesized for parallel
 	// regions. They execute behaviors but are not user-visible state visits.
 	HiddenStates map[*ast.StateNode]bool
@@ -585,6 +589,7 @@ func (g *StateGraph) lowerBehaviorsFor(state *ast.StateNode, actions []ast.Node,
 		behavior := lowerStateBehavior(actual, nil, declared, g.resolver)
 		behavior.Owner = state
 		behaviors = append(behaviors, behavior)
+		g.lowerBehaviorFeatures(actual, declared)
 	}
 	return behaviors
 }
@@ -2175,4 +2180,31 @@ func collectStateNodeTransitions(graph *StateGraph, n *ast.StateNode, body trans
 		}
 	}
 	return nil
+}
+
+// lowerBehaviorFeatures records the directed parameters a state's action usage
+// declares among its members, as an action graph records its nodes' features.
+func (g *StateGraph) lowerBehaviorFeatures(node ast.Node, scope *symbols.Scope) {
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return
+	}
+	body := childScope(scope, node)
+	var features []Feature
+	for _, member := range ast.NodeBodyMembers(usage) {
+		m, ok := unwrapMembership(member).(*ast.Usage)
+		if !ok || m.Direction != ast.DirIn && m.Direction != ast.DirOut {
+			continue
+		}
+		if feature, ok := declaredFeature(m, body); ok {
+			features = append(features, feature)
+		}
+	}
+	if len(features) == 0 {
+		return
+	}
+	if g.Features == nil {
+		g.Features = make(map[ast.Node][]Feature)
+	}
+	g.Features[usage] = features
 }

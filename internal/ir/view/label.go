@@ -399,7 +399,6 @@ func (l labeller) details(node *Node) []string {
 			lines = cameoStateDetails(detail)
 		}
 	case node.Detail == "":
-		return nil
 	case l.skin.cameo:
 		lines = []string{bareNames(node.Detail)}
 	default:

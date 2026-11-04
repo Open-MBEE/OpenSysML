@@ -113,7 +113,7 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		Parallel: graph.MachineParallel}
 	r.dress(view, machine, root, out)
 	root.Compartments = append(root.Compartments, r.stateActionCompartments(machine.DocName, graph.Behaviors[graph.Machine], ids)...)
-	root.Children = append(root.Children, r.stateActionNodes(machine.DocName, graph.Behaviors[graph.Machine], ids)...)
+	root.Children = append(root.Children, r.stateActionNodes(machine, machine.DocName, graph, graph.Behaviors[graph.Machine], ids)...)
 	if record != nil {
 		record(machine, root)
 	}
@@ -168,17 +168,6 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		}
 		parent.Children = append(parent.Children, nodes[state])
 	}
-	// A composite state draws its entry, do and exit actions as nodes of its
-	// state-transition view, under the compartment that heads the view.
-	for _, state := range graph.States {
-		if node := nodes[state]; len(node.Children) > 0 {
-			node.Children = append(r.stateActionNodes(node.Origin.Doc, graph.Behaviors[state], ids), node.Children...)
-			node.Compartments = append(node.Compartments, Compartment{Name: stateTransitionCompartment})
-		}
-	}
-	if len(root.Children) > 0 {
-		root.Compartments = append(root.Compartments, Compartment{Name: stateTransitionCompartment})
-	}
 	for _, pseudo := range graph.Pseudostates {
 		node := place(&Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: nameText(pseudo.Name),
 			Origin: nodeOrigin(docOf(graph, pseudo, machine.DocName), pseudo)}, graph.PseudostateOwner[pseudo], pseudo, pseudo.Name)
@@ -207,6 +196,17 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	}
 	for _, body := range bodies {
 		r.entryEdges(view, machine, graph, body, nodes, ids, out)
+	}
+	// A composite state — one with substates, pseudostates or a start — draws its
+	// entry, do and exit actions as nodes under the compartment heading its view.
+	for _, state := range graph.States {
+		if node := nodes[state]; len(node.Children) > 0 {
+			node.Children = append(r.stateActionNodes(machine, node.Origin.Doc, graph, graph.Behaviors[state], ids), node.Children...)
+			node.Compartments = append(node.Compartments, Compartment{Name: stateTransitionCompartment})
+		}
+	}
+	if len(root.Children) > 0 {
+		root.Compartments = append(root.Compartments, Compartment{Name: stateTransitionCompartment})
 	}
 
 	sources := make([]ast.Node, 0, len(graph.States)+len(graph.Pseudostates))
@@ -426,7 +426,7 @@ func (r *Renderer) stateActionText(doc string, behavior lower.StateBehavior) str
 // stateActionNodes are the entry, do and exit action nodes a composite state
 // draws among its substates: each behavior declared as a named or bodied
 // action usage, headed «entry action» and so on, with its pins.
-func (r *Renderer) stateActionNodes(doc string, behaviors *lower.StateBehaviors, ids *nodeIDs) []*Node {
+func (r *Renderer) stateActionNodes(machine *symbols.Symbol, doc string, graph *lower.StateGraph, behaviors *lower.StateBehaviors, ids *nodeIDs) []*Node {
 	var nodes []*Node
 	for _, part := range stateActionParts(behaviors) {
 		for _, behavior := range part.list {
@@ -439,6 +439,7 @@ func (r *Renderer) stateActionNodes(doc string, behaviors *lower.StateBehaviors,
 			if node.Name == "" {
 				node.Text = r.behaviorText(doc, behavior)
 			}
+			node.Ports = r.inheritedPorts(machine, usage, node.ID, actionPorts(node.ID, graph.Features[usage], doc), declaresResult(graph.Features[usage]))
 			nodes = append(nodes, node)
 		}
 	}

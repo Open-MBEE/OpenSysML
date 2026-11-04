@@ -536,10 +536,7 @@ func (w *drawioWriter) writePinArrow(node *Node, pin string, port Port, box draw
 	if !port.Parameter {
 		return
 	}
-	arrow := pinArrow(port.Direction, map[PortDirection]boundarySide{PortIn: leftSide, PortOut: rightSide}[side])
-	if side == PortUndirected {
-		arrow = pinArrow(port.Direction, topSide)
-	}
+	arrow := pinArrow(port.Direction, drawioPinSide(port, box, side))
 	if arrow == "" {
 		return
 	}
@@ -552,6 +549,36 @@ func (w *drawioWriter) writePinArrow(node *Node, pin string, port Port, box draw
 	w.b.WriteString(">\n")
 	w.portGeometry(drawioCellBodyIndent, port, box, side, fraction)
 	w.closeCell()
+}
+
+// drawioPinSide is the side of its owner a pin sits on: the one nearest its
+// placed box, else the side its direction gives it (an input left, an output right).
+func drawioPinSide(port Port, box drawioBox, side PortDirection) boundarySide {
+	if g := port.Geometry; g.placed() {
+		size := float64(drawioPortSize)
+		w, h := size, size
+		if g.HasSize {
+			w, h = g.Width, g.Height
+		}
+		cx, cy := g.X+w/2-box.X, g.Y+h/2-box.Y
+		nearest, best := leftSide, cx
+		for _, candidate := range []struct {
+			side boundarySide
+			dist float64
+		}{{rightSide, box.Width - cx}, {topSide, cy}, {bottomSide, box.Height - cy}} {
+			if candidate.dist < best {
+				nearest, best = candidate.side, candidate.dist
+			}
+		}
+		return nearest
+	}
+	switch side {
+	case PortIn:
+		return leftSide
+	case PortOut:
+		return rightSide
+	}
+	return topSide
 }
 
 // drawioMarkStyle is the filled figure in a node's top-left corner: the send
