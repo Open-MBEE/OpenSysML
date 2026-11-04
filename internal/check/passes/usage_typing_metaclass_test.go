@@ -5,16 +5,20 @@ import (
 	"testing"
 )
 
-// The five typings of issue #1885: each usage kind takes the metaclass its
-// derived definition property names, whatever the keyword of the definition.
+// The typings of issue #1885, with the standard library loaded: a usage takes
+// the metaclass its derived definition property names, whatever the keyword of
+// the definition, and a one-type kind counts the base its kind implies among its
+// effective types, so a Function that is no Calculation is a second type.
 func TestUsageTypingFollowsTheDefinitionPropertyMetaclass(t *testing.T) {
 	for _, src := range []string{
 		"package P { action def AD; part def Q { state s : AD; } }",
-		"package P { constraint def CD; part def Q { calc c : CD; } }",
 		"package P { concern def C; viewpoint def V; part def Q { requirement r1 : C; requirement r2 : V; } }",
-		"package P { constraint def CD; requirement def RD; part def Q { action a : CD; action b : RD; } }",
+		"package P { requirement def A; requirement def B :> A; part def Q { requirement r : A, B; } }",
+		"package P { constraint def CD; requirement def RD; part def Q { action a : CD; action b : RD; state s : CD; } }",
+		"package P { case def CD; calc def K; part def Q { calc c : CD; calc k : K; } }",
+		"package P { attribute def AD; enum def E { a; } part def Q { in attribute a : AD; out attribute e : E; } }",
 	} {
-		if diags := typeDiags(t, src); len(diags) != 0 {
+		if diags := except(libraryTypeDiags(t, src), "inherited-name-conflict"); len(diags) != 0 {
 			t.Errorf("%s: expected no type diagnostics, got %v", src, diags)
 		}
 	}
@@ -24,9 +28,11 @@ func TestUsageTypingFollowsTheDefinitionPropertyMetaclass(t *testing.T) {
 		{"package P { part def PD; part def Q { attribute a : PD; } }", "An attribute must be typed by attribute definitions."},
 		{"package P { part def PD; part def Q { state s : PD; } }", "A state must be typed by state definitions."},
 		{"package P { action def AD; part def Q { calc c : AD; } }", "A calculation must be typed by one calculation definition."},
+		{"package P { constraint def CD; part def Q { calc c : CD; } }", "A calculation must be typed by one calculation definition."},
 		{"package P { constraint def CD; part def Q { requirement r : CD; } }", "A requirement must be typed by one requirement definition."},
+		{"package P { case def CD; part def Q { verification v : CD; } }", "A verification case must be typed by one verification case definition."},
 	} {
-		diags := typeDiags(t, tt.src)
+		diags := except(libraryTypeDiags(t, tt.src), "inherited-name-conflict")
 		if len(diags) != 1 || diags[0].Message != tt.want {
 			t.Errorf("%s: want %q, got %v", tt.src, tt.want, diags)
 		}
@@ -34,7 +40,8 @@ func TestUsageTypingFollowsTheDefinitionPropertyMetaclass(t *testing.T) {
 }
 
 // Every usage kind against the definition kinds its metaclass admits and
-// rejects (SysML v2 §8.3, the `/…Definition` property of each usage metaclass).
+// rejects (SysML v2 §8.3, the `/…Definition` property of each usage metaclass),
+// on a bare index: the metaclass rule alone, before the one-type count.
 func TestUsageTypingKindTable(t *testing.T) {
 	cases := []struct {
 		usage            string
@@ -61,7 +68,7 @@ func TestUsageTypingKindTable(t *testing.T) {
 		{"rendering", []string{"rendering def"}, []string{"part def", "view def"}},
 		{"case", []string{"case def", "analysis def", "verification def", "use case def"}, []string{"calc def", "part def"}},
 		{"analysis", []string{"analysis def"}, []string{"case def", "verification def"}},
-		{"verification", []string{"verification def", "case def"}, []string{"calc def", "part def"}},
+		{"verification", []string{"verification def"}, []string{"calc def", "part def"}},
 		{"use case", []string{"use case def"}, []string{"case def", "analysis def"}},
 		{"metadata", []string{"metadata def"}, []string{"item def", "part def"}},
 	}

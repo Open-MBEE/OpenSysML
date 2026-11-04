@@ -7,6 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const msgEnumerationAttributeTypes = "An enumeration attribute cannot have more than one type."
@@ -54,11 +55,12 @@ func (tc *typeChecker) checkOneType(scope *symbols.Scope, d featureDecl) {
 	})
 }
 
-// effectiveDeclaredTypes counts the types a declaration names once a type that
-// is a supertype of another named type is dropped as redundant (KerML 1.1
-// §8.3.3.3.4 deriveFeatureType); a type that does not resolve counts as its own.
+// effectiveDeclaredTypes counts the types a declaration has: those it names and
+// the kind's library base its implied subsetting brings, with a type that is a
+// supertype of another dropped as redundant (KerML 1.1 §8.3.3.3.4
+// deriveFeatureType). A type that does not resolve counts as its own.
 func (tc *typeChecker) effectiveDeclaredTypes(scope *symbols.Scope, d featureDecl) int {
-	var resolved []*symbols.Symbol
+	resolved := kindBases(tc.expr.model, tc.resolver, scope.MemberDeclaring(d.node), tc.lang == source.KindKerML)
 	unresolved := 0
 	for _, rel := range d.relationships {
 		if rel == nil || rel.Kind != ast.RelTyping {

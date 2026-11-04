@@ -184,11 +184,17 @@ func kermlTypeTypesUsage(decl declKind, keyword string) bool {
 // usageKindBases returns the standard-library definitions every usage of usage's
 // kind specializes implicitly (SysML v2 §8.3, the check…Specialization constraints).
 func usageKindBases(model *semantics.Model, resolver *resolve.Resolver, usage *symbols.Symbol) []*symbols.Symbol {
+	return kindBases(model, resolver, usage, false)
+}
+
+// kindBases is usageKindBases for a declaration in either language: a KerML
+// feature's implied base is its keyword's (KerML 1.1 §8.4), not a usage kind's.
+func kindBases(model *semantics.Model, resolver *resolve.Resolver, usage *symbols.Symbol, isKerML bool) []*symbols.Symbol {
 	if model == nil || resolver == nil || resolver.Index() == nil || usage == nil {
 		return nil
 	}
 	var bases []*symbols.Symbol
-	for _, fqn := range model.KindBaseFQNs(usage, false) {
+	for _, fqn := range model.KindBaseFQNs(usage, isKerML) {
 		for _, base := range resolver.Index().LookupQualified(fqn) {
 			if base != nil {
 				bases = append(bases, base)
