@@ -101,3 +101,67 @@ func metaclassName(model *semantics.Model, sym *symbols.Symbol) string {
 	}
 	return ""
 }
+
+// AnonymousIndex finds the unnamed members of the bundled library by the ids this
+// implementation mints for them, which a version-5 UUID cannot be reversed to.
+type AnonymousIndex struct {
+	byID, byMembershipID map[string]AnonymousMember
+}
+
+// AnonymousMemberIndex indexes every unnamed member declared directly in a
+// named element of catalog, by element id and by owning-membership id.
+func AnonymousMemberIndex(model *semantics.Model, catalog *Catalog) *AnonymousIndex {
+	index := &AnonymousIndex{byID: map[string]AnonymousMember{}, byMembershipID: map[string]AnonymousMember{}}
+	if model == nil || catalog == nil {
+		return index
+	}
+	for _, owner := range catalog.Elements() {
+		if owner.Symbol == nil || owner.Symbol.Scope == nil {
+			continue
+		}
+		owner.Symbol.Scope.ForEachAnonymousMember(func(sym *symbols.Symbol) bool {
+			if member, ok := AnonymousMemberOf(model, catalog, sym); ok {
+				index.byID[member.ID] = member
+				index.byMembershipID[member.OwningMembershipID] = member
+			}
+			return true
+		})
+	}
+	return index
+}
+
+// Element is the unnamed member with the given element id.
+func (i *AnonymousIndex) Element(id string) (AnonymousMember, bool) {
+	if i == nil {
+		return AnonymousMember{}, false
+	}
+	member, ok := i.byID[id]
+	return member, ok
+}
+
+// OwningMembership is the unnamed member whose owning membership has the given id.
+func (i *AnonymousIndex) OwningMembership(id string) (AnonymousMember, bool) {
+	if i == nil {
+		return AnonymousMember{}, false
+	}
+	member, ok := i.byMembershipID[id]
+	return member, ok
+}
+
+// OwningMembershipMetaclass is the metaclass of the membership through which a
+// library element's owner owns it (FeatureMembership, OwningMembership, …), or "".
+func OwningMembershipMetaclass(model *semantics.Model, sym *symbols.Symbol) string {
+	if model == nil || sym == nil {
+		return ""
+	}
+	owner := sym.Owner()
+	if owner == nil {
+		return ""
+	}
+	for _, membership := range model.OwnedMemberships(owner) {
+		if membership.Implicit != nil && membership.Implicit.Member == sym {
+			return metaclassName(model, membership)
+		}
+	}
+	return ""
+}

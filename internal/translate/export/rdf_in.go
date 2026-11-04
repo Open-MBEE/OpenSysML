@@ -1521,6 +1521,16 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 					}
 				}
 			}
+			if anonymous, found := sharedLibraryIndex().anonymous.OwningMembership(id); !ok && found {
+				if len(members) != 1 || !member.IsIRI() || rdf.LocalName(member.Value) != anonymous.ID {
+					return nil, &UnsupportedError{
+						What: fmt.Sprintf("the library membership <%s>", subject.Value),
+						Note: fmt.Sprintf("its id is that of the owning membership of %s, and its memberElement is not that library member", anonymous.Path),
+					}
+				}
+				stubs[subject.Value] = true
+				continue
+			}
 			if !ok {
 				note := fmt.Sprintf("it is marked sysml:isLibraryElement, but the bundled standard library has no owning membership with id %q", id)
 				if hasMemberName {
@@ -1551,6 +1561,16 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 			continue
 		}
 		lib, ok := d.libraryElement(subject.Value, id)
+		if anonymous, found := sharedLibraryIndex().anonymous.Element(id); !ok && found {
+			if stated, has := d.graph.Lexical(subject, rdf.OpenSysML+xLibraryPath); has && stated != anonymous.Path {
+				return nil, &UnsupportedError{
+					What: fmt.Sprintf("the library element <%s>", subject.Value),
+					Note: fmt.Sprintf("the graph names it %s, but the bundled standard library gives id %q to %s", stated, id, anonymous.Path),
+				}
+			}
+			stubs[subject.Value] = true
+			continue
+		}
 		if !ok {
 			note := fmt.Sprintf("it is marked sysml:isLibraryElement, but the bundled standard library has no element with id %q", id)
 			if name, kind, stated := d.librarySubjectName(subject); stated {

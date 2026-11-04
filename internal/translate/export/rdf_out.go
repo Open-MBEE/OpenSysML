@@ -109,6 +109,7 @@ const (
 	xSourceText     = "sourceText"
 	xSourceTail     = "sourceTail"
 	xSourceLanguage = "sourceLanguage"
+	xLibraryPath    = "libraryPath"
 	// xSourceDocument names the document a root element was written in, when
 	// several documents are converted as one model.
 	xSourceDocument = "sourceDocument"
@@ -530,6 +531,7 @@ func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
 	}
 	e.mintedComposites()
 	e.libraryNames()
+	e.inheritedLibraryNames()
 	e.sourceText()
 	if err := rdf.AnnotateCollections(e.graph); err != nil {
 		return err
@@ -886,48 +888,122 @@ func (e *encoder) libraryNames() {
 	}
 	slices.Sort(subjects)
 	named := map[string]bool{}
-	// name states ref's element, reporting whether it is named in the graph.
-	name := func(ref libraryRef) bool {
-		if done, seen := named[ref.subject.Value]; seen {
-			return done
-		}
-		named[ref.subject.Value] = false
-		metaclass := declaredMetaclass(ref.node)
-		switch n := ref.node.(type) {
-		case *ast.Package:
-			// `standard library package` (KerML 1.0 § 8.3.4.13.3 LibraryPackage).
-			metaclass = mPackage
-			if n.IsLibrary {
-				metaclass = mLibraryPackage
-			}
-		case *ast.Alias:
-			// An alias is a Membership, which the graph names by the membership
-			// it is rather than as an element.
-			return false
-		}
-		if metaclass == "" {
-			return false
-		}
-		named[ref.subject.Value] = true
-		e.graph.Add(ref.subject, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
-		e.graph.Add(ref.subject, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.subject.Value)))
-		e.graph.Add(ref.subject, addressTerm(ref.fqn), rdf.String(ref.fqn))
-		if declared, _ := declaredNameAndMembers(ref.node); declared != "" {
-			e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared))
-		}
-		e.graph.Add(ref.subject, e.sysml(pIsLibraryElement), rdf.Bool(true))
-		return true
-	}
 	for _, iri := range subjects {
 		ref := e.libraryRefs[iri]
 		if referenced[iri] {
-			name(ref)
+			e.nameLibraryRef(ref, named)
 		}
-		if ref.membership.Value != "" && referenced[ref.membership.Value] && name(ref) {
-			e.graph.Add(ref.membership, rdf.IRI(rdf.RDFType), e.sysml(mOwningMembership))
-			e.graph.Add(ref.membership, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.membership.Value)))
-			e.graph.Add(ref.membership, e.sysml(pMemberElement), ref.subject)
-			e.graph.Add(ref.membership, e.sysml(pIsLibraryElement), rdf.Bool(true))
+		if ref.membership.Value != "" && referenced[ref.membership.Value] && e.nameLibraryRef(ref, named) {
+			e.nameLibraryMembership(ref, mOwningMembership)
+		}
+	}
+}
+
+// nameLibraryRef states ref's element, reporting whether it is named in the graph.
+func (e *encoder) nameLibraryRef(ref libraryRef, named map[string]bool) bool {
+	if done, seen := named[ref.subject.Value]; seen {
+		return done
+	}
+	named[ref.subject.Value] = false
+	metaclass := declaredMetaclass(ref.node)
+	switch n := ref.node.(type) {
+	case *ast.Package:
+		// `standard library package` (KerML 1.0 § 8.3.4.13.3 LibraryPackage).
+		metaclass = mPackage
+		if n.IsLibrary {
+			metaclass = mLibraryPackage
+		}
+	case *ast.Alias:
+		// An alias is a Membership, which the graph names by the membership
+		// it is rather than as an element.
+		return false
+	}
+	if metaclass == "" {
+		return false
+	}
+	named[ref.subject.Value] = true
+	e.graph.Add(ref.subject, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
+	e.graph.Add(ref.subject, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.subject.Value)))
+	e.graph.Add(ref.subject, addressTerm(ref.fqn), rdf.String(ref.fqn))
+	if declared, _ := declaredNameAndMembers(ref.node); declared != "" {
+		e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared))
+	}
+	e.graph.Add(ref.subject, e.sysml(pIsLibraryElement), rdf.Bool(true))
+	return true
+}
+
+// nameLibraryMembership states ref's owning membership, a library OwningMembership of ref's element.
+func (e *encoder) nameLibraryMembership(ref libraryRef, metaclass string) {
+	e.graph.Add(ref.membership, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
+	e.graph.Add(ref.membership, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.membership.Value)))
+	e.graph.Add(ref.membership, e.sysml(pMemberElement), ref.subject)
+	e.graph.Add(ref.membership, e.sysml(pIsLibraryElement), rdf.Bool(true))
+}
+
+// inheritedLibraryNames names the library members the document's types inherit,
+// which the element form's completed inherited lists reference and the graph does
+// not otherwise link to: named ones as libraryNames does, unnamed ones (documentation,
+// invariants, unnamed features) by metaclass, elementId and the positional path
+// (sysx:libraryPath, owner/Metaclass[i]) that stands in for the qualified name an
+// unnamed element lacks; the owning membership of each likewise.
+func (e *encoder) inheritedLibraryNames() {
+	model := e.ids.model
+	if model == nil {
+		return
+	}
+	catalog := identity.LibraryCatalog(e.res.Index())
+	fqns := make([]string, 0, len(e.ids.symByFQN))
+	for fqn := range e.ids.symByFQN {
+		fqns = append(fqns, fqn)
+	}
+	slices.Sort(fqns)
+	named := map[string]bool{}
+	for _, fqn := range fqns {
+		sym := e.ids.symByFQN[fqn]
+		if sym == nil || sym.Scope == nil || sym.Implicit != nil {
+			continue
+		}
+		memberships, ok := model.ReflectiveElements(sym, "inheritedMembership")
+		if !ok {
+			continue
+		}
+		for _, membership := range memberships {
+			if membership.Implicit == nil || membership.Implicit.Member == nil {
+				continue
+			}
+			if sym := membership.Implicit.Member; sym.Name != "" {
+				el, ok := catalog.ElementForSymbol(sym)
+				if !ok || el == nil || el.ID == "" || named[el.ID] {
+					continue
+				}
+				named[el.ID] = true
+				ref := libraryRef{node: sym.Decl, fqn: el.FQN, subject: rdf.ElementIRIForID(el.ID)}
+				if el.OwningMembershipID != "" {
+					ref.membership = rdf.ElementIRIForID(el.OwningMembershipID)
+				}
+				if e.nameLibraryRef(ref, map[string]bool{}) && ref.membership.Value != "" {
+					if kind := identity.OwningMembershipMetaclass(model, sym); kind != "" {
+						e.nameLibraryMembership(ref, kind)
+					}
+				}
+				continue
+			}
+			member, ok := identity.AnonymousMemberOf(model, catalog, membership.Implicit.Member)
+			if !ok || named[member.ID] {
+				continue
+			}
+			named[member.ID] = true
+			subject := rdf.ElementIRIForID(member.ID)
+			e.graph.Add(subject, rdf.IRI(rdf.RDFType), e.sysml(member.Metaclass))
+			e.graph.Add(subject, e.sysml(pElementID), rdf.String(member.ID))
+			e.graph.Add(subject, e.sysx(xLibraryPath), rdf.String(member.Path))
+			e.graph.Add(subject, e.sysml(pIsLibraryElement), rdf.Bool(true))
+			owning := rdf.ElementIRIForID(member.OwningMembershipID)
+			e.graph.Add(owning, rdf.IRI(rdf.RDFType), e.sysml(member.MembershipMetaclass))
+			e.graph.Add(owning, e.sysml(pElementID), rdf.String(member.OwningMembershipID))
+			e.graph.Add(owning, e.sysml(pMemberElement), subject)
+			e.graph.Add(owning, e.sysx(xLibraryPath), rdf.String(member.MembershipPath))
+			e.graph.Add(owning, e.sysml(pIsLibraryElement), rdf.Bool(true))
 		}
 	}
 }
