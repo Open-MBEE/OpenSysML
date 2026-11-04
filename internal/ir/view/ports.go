@@ -88,7 +88,10 @@ type portView struct {
 	action          bool
 	// tree reports a tree rendering, whose pins are the parameters of its
 	// calculations, actions and constraints, written direction first.
-	tree      bool
+	tree bool
+	// sequence reports a sequence rendering, whose ports are the ones on a
+	// lifeline's border that a message ends at.
+	sequence  bool
 	mixed     bool
 	minimal   bool
 	connected map[string]bool
@@ -103,7 +106,7 @@ func (r *Rendering) portView(display Ports) portView { return r.portViewOver(dis
 // no pin stands for a connector the form leaves out.
 func (r *Rendering) portViewOver(display Ports, edges []Edge) portView {
 	v := portView{interconnection: r.Kind == KindInterconnection || r.Kind == KindMixed, action: r.Kind == KindAction,
-		tree: r.Kind == KindTree, mixed: r.Kind == KindMixed, minimal: display != PortsFull && r.Kind.SupportsPorts()}
+		tree: r.Kind == KindTree, sequence: r.Kind == KindSequence, mixed: r.Kind == KindMixed, minimal: display != PortsFull && r.Kind.SupportsPorts()}
 	if !v.minimal {
 		return v
 	}

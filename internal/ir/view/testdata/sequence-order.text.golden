@@ -1,8 +1,13 @@
 OrderingViews::relayView - sequence rendering (view def SequenceView)
 
 part left
+  event occurrence lateSent
+  event occurrence earlySent
 part right
+  event occurrence lateTaken
+  event occurrence earlyTaken
 
 messages:
-  left => right: early
-  left => right: late
+  left.earlySent -> right.earlyTaken: early of Tick
+  right.earlyTaken -> left.lateSent
+  left.lateSent -> right.lateTaken: late of Tick

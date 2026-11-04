@@ -78,7 +78,9 @@ var (
 	controlForms = []string{FormDOT, FormMermaid, FormDrawio, FormCanvas}
 	edgeForms    = []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormCanvas}
 	pinForms     = []string{FormDOT, FormCanvas}
-	seqForms     = []string{FormPlantUML, FormMermaid, FormD2, FormText}
+	seqForms     = []string{FormPlantUML, FormMermaid, FormD2, FormText, FormCanvas}
+	proxyForms   = []string{FormCanvas, FormText}
+	seqPortForms = []string{FormCanvas, FormText, FormD2}
 	dotForms     = []string{FormDOT}
 
 	keywordBox   = Evidence{"internal/ir/view/label.go:keyword", goldenForms, "internal/ir/view/label_test.go:TestLabelLines"}
@@ -107,6 +109,12 @@ var (
 	edgeLabel    = Evidence{"internal/ir/view/dot.go:dotEdgeAttributes", edgeForms, "internal/ir/view/notation_test.go:TestEdgeLabelsAreShownWhenAsked"}
 	flowLabel    = Evidence{"internal/ir/view/interconnection.go:connectorLabel", edgeForms, "internal/ir/view/testdata/interconnection.dot.golden"}
 	messageLabel = Evidence{"internal/ir/view/sequence.go:messageLabel", seqForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
+	message      = Evidence{"internal/ir/view/sequence.go:messages", seqForms, "internal/ir/view/testdata/sequence.plantuml.golden"}
+	sqSuccession = Evidence{"internal/ir/view/sequence.go:successions", seqForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingPlacesSuccessionsBetweenTheirMessages"}
+	sqProxy      = Evidence{"internal/ir/view/sequence.go:end", proxyForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
+	sqPort       = Evidence{"internal/ir/view/sequence.go:end", seqPortForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingReportsWhatItCannotShow"}
+	eventBox     = Evidence{"internal/ir/view/view.go:declKind", goldenForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
+	individuals  = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/inherited_prefix_test.go:TestCompartmentRowsCollectIndividuals"}
 	roleNode     = Evidence{"internal/ir/view/case.go:roleNode", goldenForms, "internal/ir/view/testdata/case.dot.golden"}
 	naryForms    = []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormCanvas, FormText, FormSVG}
 	connDot      = Evidence{"internal/ir/view/interconnection.go:naryConnection", naryForms, "internal/ir/view/nary_test.go:TestNaryConnectionIsADotWithASegmentPerEnd"}
@@ -131,7 +139,6 @@ const (
 	reasonTextual      = "textual notation of §8.2.2 reused as the text of a drawn element"
 	reasonNoCompart    = "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
 	reasonFiltered     = "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
-	reasonSequence     = "documented as undrawn in view-rendering-forms.md § Notation table: the sequence form draws its own arrow"
 	reasonActionBox    = "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
 	reasonNoKeyword    = "the box is drawn but its keyword is not written"
 	reasonCameoOnly    = "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame"
@@ -292,8 +299,8 @@ func buildTable() map[string]Adjudication {
 		"assume-constraint-name-compartment", "require-constraint-name-compartment", "requirement-name-compartment",
 		"concern-name-compartment", "analysis-name-compartment", "verification-name-compartment",
 		"use-case-name-compartment", "include-use-case-name-compartment", "viewpoint-name-compartment", "view-name-compartment")
-	set(approximate(CategoryNode, "an event occurrence is drawn as a plain «occurrence» box", keywordBox), "event-occurrence")
-	set(approximate(CategoryCompartment, "written as «occurrence»; the `event` prefix is not part of the keyword", keywordBox), "event-occurrence-name-compartment")
+	set(drawn(CategoryNode, eventBox), "event-occurrence")
+	set(drawn(CategoryCompartment, eventBox), "event-occurrence-name-compartment")
 	set(drawn(CategoryCompartment, parallelMark), "state-def-name-compartment", "state-name-compartment")
 	set(approximate(CategoryNode, "written as «satisfy», the figure's keyword is «satisfy requirement»", keywordBox), "satisfy-requirement-usage")
 	set(approximate(CategoryCompartment, "written as «satisfy», the figure's keyword is «satisfy requirement»", keywordBox), "satisfy-requirement-name-compartment")
@@ -322,18 +329,21 @@ func buildTable() map[string]Adjudication {
 	set(approximate(CategoryCompartment, "headed `subjects`; the figure heads it `subject`", compartments), "subject-compartment")
 	set(approximate(CategoryCompartment, "headed `satisfys` by compartments.go compartmentName's plural; the figure heads it `satisfies`", compartments), "satisfy-requirements-compartment", "satisfies-compartment")
 	set(approximate(CategoryCompartment, "the objective is drawn as a note anchored to the case (case.go objectiveNode), not as a compartment", objective), "objective-compartment")
-	set(undrawn(CategoryCompartment, reasonNoCompart), "individuals-compartment", "sequence-compartment", "directed-features-compartment",
+	set(drawn(CategoryCompartment, individuals), "individuals-compartment")
+	set(undrawn(CategoryCompartment, "holds a sequence view; no box form nests a diagram, and the canvas lays a sequence out as a diagram of its own"), "sequence-compartment")
+	set(undrawn(CategoryCompartment, reasonNoCompart), "directed-features-compartment",
 		"interconnection-compartment", "ends-compartment", "flows-compartment", "performed-by-compartment",
 		"result-compartment",
 		"verifies-compartment", "verification-methods-compartment", "includes-compartment", "exposes-compartment", "filters-compartment")
 
 	// §8.2.3.9 sequences.
 	set(drawn(CategoryNode, sequence), "sq-head-node", "sq-part", "sq-l-node", "lifeline")
-	set(undrawn(CategoryNode, "a port is not given a lifeline; sequence.go lifelinesOf collects parts and occurrences"), "sq-port")
-	set(undrawn(CategoryNode, "a feature-chain proxy lifeline is not drawn"), "sq-proxy")
-	set(undrawn(CategoryLabel, "labels the undrawn sq-proxy"), "proxy-label")
-	set(undrawn(CategoryEdge, reasonSequence), "message", "sq-succession")
-	set(undrawn(CategoryLabel, "labels the undrawn sq-succession"), "succession-label")
+	set(drawn(CategoryNode, sqPort), "sq-port")
+	set(drawn(CategoryNode, sqProxy), "sq-proxy")
+	set(drawn(CategoryLabel, sqProxy), "proxy-label")
+	set(approximate(CategoryEdge, "solid with an open head in PlantUML (`->>`), Mermaid (`-)`) and the canvas; D2 has only a filled head", message), "message")
+	set(approximate(CategoryEdge, "dashed with an open head in PlantUML (`-->>`), Mermaid (`--)`) and the canvas; D2's dashed arrow carries a filled head", sqSuccession), "sq-succession")
+	set(drawn(CategoryLabel, sqSuccession), "succession-label")
 	set(drawn(CategoryLabel, messageLabel), "message-label")
 
 	// §8.2.3.12 ports and parameters: the boundary squares and their labels.

@@ -54,7 +54,7 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 	}
 	w := &drawioWriter{
 		arranger:  newArranger(labelsOf(r.Roots, false, nil, r.Shown), r.portView(options.Ports)),
-		fills:     familyFills{palette: options.Palette, tree: r.Kind == KindTree},
+		fills:     familyFills{palette: options.Palette, tree: r.Kind == KindTree, sequence: r.Kind == KindSequence},
 		names:     map[string]drawioName{},
 		links:     options.Links,
 		view:      r.View,
@@ -917,7 +917,7 @@ func (w *drawioWriter) writeEdge(i int, edge Edge) {
 // flow, transition…); a member's edge (composition, typing) or a name a cell carries gives none.
 func (w *drawioWriter) edgeFQN(edge Edge) string {
 	switch edge.Kind {
-	case EdgeConnection, EdgeBinding, EdgeAssociation, EdgeFlow, EdgeSuccession, EdgeSuccessionFlow, EdgeTransition,
+	case EdgeConnection, EdgeBinding, EdgeAssociation, EdgeFlow, EdgeMessage, EdgeSuccession, EdgeSuccessionFlow, EdgeTransition,
 		EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeImport, EdgeDependency, EdgeDependencyClient, EdgeDerive, EdgeRefine,
 		EdgeExpose, EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
 	default:
@@ -1070,7 +1070,7 @@ func drawioEdgeStyle(kind EdgeKind) string {
 		return "endArrow=block;endFill=1"
 	case EdgeSuccession:
 		return "dashed=1;endArrow=open"
-	case EdgeTransition, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+	case EdgeTransition, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeMessage:
 		return "endArrow=open"
 	case EdgeSpecialization, EdgeSubsetting, EdgeRedefinition, EdgeReferenceSubsetting:
 		return "endArrow=block;endFill=0"

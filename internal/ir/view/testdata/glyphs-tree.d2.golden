@@ -15,7 +15,7 @@ n2: "«attribute»\n^level" { class: usage }
 n3: "«part»\npump" { class: usage }
 n4: "«timeslice»\nfilling" { class: usage }
 n5: "«snapshot»\nfull" { class: usage }
-n6: "«occurrence»\nstartup" { class: usage }
+n6: "«event occurrence»\nstartup" { class: usage }
 n7: "«part»\nspare" { class: usage }
 n8: "«attribute»\n^level" { class: usage }
 n9: "«view»\ntankView" { class: usage }

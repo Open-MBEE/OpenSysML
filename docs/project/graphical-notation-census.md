@@ -91,12 +91,12 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 ## Totals
 
 <!-- census:begin summary -->
-620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **255 drawn**, **42 approximate**, **54 undrawn**, 172 not applicable.
+620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **225 drawn**, **55 approximate**, **71 undrawn**, 172 not applicable.
 
 | Category | Productions |
 | --- | --- |
-| node | 162 |
-| compartment | 144 |
+| node | 165 |
+| compartment | 141 |
 | edge | 59 |
 | label | 24 |
 | view | 10 |
@@ -116,16 +116,16 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.6 Definition and Usage Graphical Notation | 28 | 24 | 1 | 7 | 7 | 9 |
 | §8.2.3.7 Attributes Graphical Notation | 10 | 9 | 5 | 0 | 0 | 4 |
 | §8.2.3.8 Enumerations Graphical Notation | 9 | 6 | 4 | 1 | 0 | 1 |
-| §8.2.3.9 Occurrences Graphical Notation | 48 | 43 | 17 | 3 | 7 | 16 |
+| §8.2.3.9 Occurrences Graphical Notation | 48 | 43 | 24 | 2 | 1 | 16 |
 | §8.2.3.10 Items Graphical Notation | 12 | 9 | 6 | 0 | 0 | 3 |
 | §8.2.3.11 Parts Graphical Notation | 18 | 13 | 7 | 0 | 2 | 4 |
 | §8.2.3.12 Ports Graphical Notation | 20 | 16 | 6 | 6 | 2 | 2 |
 | §8.2.3.13 Connections Graphical Notation | 35 | 31 | 19 | 0 | 2 | 10 |
 | §8.2.3.14 Interfaces Graphical Notation | 17 | 12 | 6 | 1 | 1 | 4 |
 | §8.2.3.15 Allocations Graphical Notation | 14 | 9 | 6 | 0 | 0 | 3 |
-| §8.2.3.16 Flows Graphical Notation | 30 | 22 | 15 | 1 | 2 | 4 |
-| §8.2.3.17 Actions Graphical Notation | 72 | 68 | 44 | 3 | 3 | 18 |
-| §8.2.3.18 States Graphical Notation | 45 | 41 | 25 | 2 | 0 | 14 |
+| §8.2.3.16 Flows Graphical Notation | 30 | 22 | 15 | 2 | 1 | 4 |
+| §8.2.3.17 Actions Graphical Notation | 72 | 68 | 21 | 11 | 18 | 18 |
+| §8.2.3.18 States Graphical Notation | 45 | 41 | 11 | 7 | 9 | 14 |
 | §8.2.3.19 Calculations Graphical Notation | 14 | 9 | 4 | 1 | 1 | 3 |
 | §8.2.3.20 Constraints Graphical Notation | 24 | 19 | 13 | 0 | 0 | 6 |
 | §8.2.3.21 Requirements Graphical Notation | 63 | 57 | 28 | 8 | 1 | 20 |
@@ -135,7 +135,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.25 Use Cases Graphical Notation | 22 | 16 | 9 | 0 | 1 | 6 |
 | §8.2.3.26 Views and Viewpoints Graphical Notation | 38 | 34 | 13 | 4 | 5 | 12 |
 | §8.2.3.27 Metadata Graphical Notation | 8 | 7 | 2 | 0 | 1 | 4 |
-| **Total** | 620 | 523 | 255 | 42 | 54 | 172 |
+| **Total** | 620 | 523 | 225 | 55 | 71 | 172 |
 <!-- census:end clauses -->
 
 ## Gaps
@@ -207,16 +207,9 @@ package a follow-up can take one at a time (see below).
 
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
-| `event-occurrence` | node | approximate | D | an event occurrence is drawn as a plain «occurrence» box |
-| `event-occurrence-name-compartment` | compartment | approximate | D | written as «occurrence»; the `event` prefix is not part of the keyword |
-| `individuals-compartment` | compartment | undrawn | D | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `portion-relationship` | edge | approximate | D | view-rendering-forms.md § Notation table: Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle. The Pilot writes `*--`. |
-| `proxy-label` | label | undrawn | D | labels the undrawn sq-proxy |
-| `sequence-compartment` | compartment | undrawn | D | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `sq-port` | node | undrawn | D | a port is not given a lifeline; sequence.go lifelinesOf collects parts and occurrences |
-| `sq-proxy` | node | undrawn | D | a feature-chain proxy lifeline is not drawn |
-| `sq-succession` | edge | undrawn | D | documented as undrawn in view-rendering-forms.md § Notation table: the sequence form draws its own arrow |
-| `succession-label` | label | undrawn | D | labels the undrawn sq-succession |
+| `portion-relationship` | edge | approximate | D | view-rendering-forms.md § Notation table: Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle, which no Graphviz, PlantUML, D2 or draw.io arrowhead is. The Pilot writes `*--`. |
+| `sequence-compartment` | compartment | undrawn | D | holds a sequence view; no box form nests a diagram, and the canvas lays a sequence out as a diagram of its own |
+| `sq-succession` | edge | approximate | D | dashed with an open head in PlantUML (`-->>`), Mermaid (`--)`) and the canvas; D2's dashed arrow carries a filled head |
 
 #### §8.2.3.11 Parts Graphical Notation
 
@@ -258,25 +251,62 @@ package a follow-up can take one at a time (see below).
 | --- | --- | --- | --- | --- |
 | `flow` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it). |
 | `flows-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `message` | edge | undrawn | D | documented as undrawn in view-rendering-forms.md § Notation table: the sequence form draws its own arrow |
+| `message` | edge | approximate | D | solid with an open head in PlantUML (`->>`), Mermaid (`-)`) and the canvas; D2 has only a filled head |
 
 #### §8.2.3.17 Actions Graphical Notation
 
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
-| `accept-action-node` | node | approximate | B | a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2 |
+| `accept-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
+| `accept-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
+| `action-flow-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
+| `assign-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
+| `assign-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
+| `else-body` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
+| `else-branch` | edge | undrawn | B | the else branch of a decision is drawn as a plain succession without the `else` guard |
+| `for-loop-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
+| `for-loop-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
+| `if-condition` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
+| `if-else-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
+| `ifelse-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
+| `iteration` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
+| `loop-body` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
+| `param-b` | node | approximate | B | the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn |
+| `param-l` | node | approximate | B | the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn |
+| `param-r` | node | approximate | B | the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn |
+| `param-t` | node | approximate | B | the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn |
 | `perform-actions-swimlanes` | compartment | undrawn | B | swimlanes are not drawn |
 | `performed-by-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `send-action-node` | node | approximate | B | a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2 |
+| `send-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
+| `send-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
 | `swimlane` | compartment | undrawn | B | swimlanes are not drawn |
-| `terminate-node` | node | approximate | B | the figure's X in a circle in DOT, Mermaid (cross-circ), draw.io (umlDestroy) and the canvas; PlantUML has no terminate pseudostate and D2 no crossed circle, both draw a plain end |
+| `terminate-node` | node | approximate | B | DOT and Mermaid draw a double circle, the figure's X-in-a-circle only draw.io (umlDestroy) does |
+| `then-body` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
+| `until-condition` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
+| `while-condition` | compartment | undrawn | B | the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes |
+| `while-loop-action-name-compartment` | compartment | undrawn | B | the box is drawn but its keyword is not written (behavior.go actionNodeKind) |
+| `while-loop-action-node` | node | approximate | B | behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written |
 
 #### §8.2.3.18 States Graphical Notation
 
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
-| `st-succession` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head. |
-| `transition` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head. |
+| `do-action` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
+| `do-action-name-comp` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
+| `entry-action` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
+| `entry-action-name-comp` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
+| `exit-action` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
+| `exit-action-name-comp` | node | undrawn | B | entry/do/exit action nodes are not drawn; the state box lists them as text |
+| `st-succession` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head; Mermaid and D2 have only a filled head. |
+| `state-actions-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
+| `state-def-name-compartment` | compartment | approximate | B | the keyword and name are written, the optional «parallel» marker is not |
+| `state-do-action` | compartment | approximate | B | entry/do/exit actions are written as text lines in the state box, not as labelled compartments |
+| `state-entry-action` | compartment | approximate | B | entry/do/exit actions are written as text lines in the state box, not as labelled compartments |
+| `state-exit-action` | compartment | approximate | B | entry/do/exit actions are written as text lines in the state box, not as labelled compartments |
+| `state-name-compartment` | compartment | approximate | B | the keyword and name are written, the optional «parallel» marker is not |
+| `state-transition-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
+| `successions-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
+| `transition` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head; Mermaid and D2 have only a filled head. |
 
 #### §8.2.3.19 Calculations Graphical Notation
 
@@ -347,9 +377,9 @@ package a follow-up can take one at a time (see below).
 | Package | Scope | Undrawn | Approximate | Productions |
 | --- | --- | --- | --- | --- |
 | A | §8.2.3.26 view frame and §8.2.3.4 annotation nodes | 9 | 4 | `annotation-link`, `comment-node`, `comment-with-keyword`, `comment-without-keyword`, `documentation-compartment`, `documentation-node`, `textual-representation-node`, `framed-view`, `root-view`, `view-frame-info-compartment-bl`, `view-frame-info-compartment-br`, `view-frame-info-compartment-tr`, `view-frame-name-compartment` |
-| B | §8.2.3.17–.18 action and state node forms | 3 | 5 | `accept-action-node`, `perform-actions-swimlanes`, `performed-by-compartment`, `send-action-node`, `swimlane`, `terminate-node`, `st-succession`, `transition` |
+| B | §8.2.3.17–.18 action and state node forms | 27 | 18 | `accept-action-name-compartment`, `accept-action-node`, `action-flow-compartment`, `assign-action-name-compartment`, `assign-action-node`, `else-body`, `else-branch`, `for-loop-action-name-compartment`, `for-loop-action-node`, `if-condition`, `if-else-action-node`, `ifelse-action-name-compartment`, `iteration`, `loop-body`, `param-b`, `param-l`, `param-r`, `param-t`, `perform-actions-swimlanes`, `performed-by-compartment`, `send-action-name-compartment`, `send-action-node`, `swimlane`, `terminate-node`, `then-body`, `until-condition`, `while-condition`, `while-loop-action-name-compartment`, `while-loop-action-node`, `do-action`, `do-action-name-comp`, `entry-action`, `entry-action-name-comp`, `exit-action`, `exit-action-name-comp`, `st-succession`, `state-actions-compartment`, `state-def-name-compartment`, `state-do-action`, `state-entry-action`, `state-exit-action`, `state-name-compartment`, `state-transition-compartment`, `successions-compartment`, `transition` |
 | C | §8.2.3.3/.13 n-ary dots and §8.2.3.16 flow-on-connection | 0 | 0 |  |
-| D | §8.2.3.9 sequence glyphs | 8 | 3 | `event-occurrence`, `event-occurrence-name-compartment`, `individuals-compartment`, `portion-relationship`, `proxy-label`, `sequence-compartment`, `sq-port`, `sq-proxy`, `sq-succession`, `succession-label`, `message` |
+| D | §8.2.3.9 sequence glyphs | 1 | 3 | `portion-relationship`, `sequence-compartment`, `sq-succession`, `message` |
 | E | §8.2.3.2 textual-compartment greying | 2 | 0 | `element-inside-textual-compartment`, `ellipsis-at-lower-left-corner` |
 | F | everything else | 32 | 30 | `general-compartment`, `imported-package-with-name-in-tab`, `imported-package-with-name-inside`, `members-compartment`, `owned-membership`, `package-node`, `package-with-name-in-tab`, `package-with-name-inside`, `packages-compartment`, `relationships-compartment`, `composite-feature-membership`, `definition`, `extended-def`, `extended-def-name-compartment`, `extended-usage`, `extended-usage-name-compartment`, `features-compartment`, `noncomposite-feature-membership`, `redefinition`, `reference-subsetting`, `subclassification`, `subsetting`, `variant-elementusages-compartment`, `variants-compartment`, `enums-compartment`, `directed-features-compartment`, `interconnection-compartment`, `pdh`, `pdv`, `port-b`, `port-l`, `port-r`, `port-t`, `proxy-h`, `proxy-v`, `connection-definition-elaboration`, `connection-usage-elaboration`, `ends-compartment`, `interface-connection`, `flow`, `flows-compartment`, `calcs-compartment`, `result-compartment`, `actor`, `concern-stakeholder-link`, `frame-concern-name-compartment`, `frame-concern-node`, `satisfies-compartment`, `satisfy-requirement-name-compartment`, `satisfy-requirement-usage`, `satisfy-requirements-compartment`, `subject-compartment`, `objective-compartment`, `verification-methods-compartment`, `verifies-compartment`, `verify-requirement-name-compartment`, `verify-requirement-node`, `includes-compartment`, `exposes-compartment`, `filters-compartment`, `rendering-compartment`, `metadata-feature-annotation-node` |
 <!-- census:end packages -->

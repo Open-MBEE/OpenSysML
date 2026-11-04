@@ -285,6 +285,33 @@ test("drawCanvas draws a sequence's lifelines", () => {
   assert.equal(svg.querySelectorAll("g.opensysml-node.movable").length, 0);
 });
 
+test("drawCanvas draws a sequence's proxies as filled points labelled beside the lifeline, its ports with lifelines of their own, and a message with an open head", () => {
+  const svg = drawCanvas(layoutCanvas({
+    ...result,
+    kind: "sequence",
+    nodes: [
+      node("a", "producer", { ports: [{ id: "p", name: "out" }] }),
+      node("b", "server"),
+      node("e1", "sent", { kind: "event occurrence", parent: "a" }),
+      node("e2", "received", { kind: "event occurrence", parent: "b" }),
+    ],
+    edges: [
+      { from: "e1", to: "e2", label: "publish of Publish", kind: "message" },
+      { from: "e2", to: "e2", label: "", kind: "succession" },
+    ],
+  }));
+  // Two lifelines and the port's own.
+  assert.equal(svg.querySelectorAll("line.lifeline").length, 3);
+  const proxy = svg.querySelector<SVGGElement>('g[data-opensysml-id="e1"]')!;
+  const point = proxy.querySelector("circle.shape.filled")!;
+  assert.ok(point);
+  const label = proxy.querySelector("text.label")!;
+  assert.equal(label.textContent, "sent");
+  assert.ok(Number(label.getAttribute("x")) > Number(point.getAttribute("cx")));
+  assert.equal(svg.querySelector("g.opensysml-edge.message polyline")!.getAttribute("marker-end"), "url(#arrow-open)");
+  assert.equal(svg.querySelector("g.opensysml-edge.succession polyline")!.getAttribute("marker-end"), "url(#arrow-open)");
+});
+
 test("drawCanvas classes each box as the PlantUML form stereotypes it, squaring only a definition", () => {
   const boxed: RenderResult = {
     ...result,
