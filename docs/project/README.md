@@ -10,6 +10,8 @@ within these records and means nothing outside this repository.
 
 - **[Spec compliance](spec-compliance.md)** — faithful, approximate, or not implemented,
   rule by rule
+- **[Implicit specialization audit](implicit-specialization-audit.md)** — every implied
+  generalization against KerML/SysML §8.4 and the pilot's map, row by row
 - **[Training examples](training-examples.md)** — the OMG corpus, adjudicated per file
 - **[Pilot corpora gate](pilot-corpora.md)** — OpenSysML diagnostics on the three pinned OMG pilot
   corpora, ratcheted in CI
