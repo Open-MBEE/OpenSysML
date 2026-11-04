@@ -333,6 +333,13 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 // Notes stay anchored to the node, where the usage is named.
 func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	sym := site.sym
+	// An annotation nested under its owner is linked by the owner's walk below.
+	if annotatingSymbol(sym) {
+		if g.parent[node.ID] == "" {
+			g.annotationLinks(nil, node, sym, site.view)
+		}
+		return
+	}
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil {
 			continue

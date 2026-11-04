@@ -846,9 +846,19 @@ export function labelLines(
   }
   const lines: string[] = [];
   const statement = STATEMENT_KINDS.has(node.kind);
-  const keyword = (node.name !== "" || node.arrow !== undefined || statement) && draws("keywords");
+  const annotation = ANNOTATION_KINDS.has(node.kind);
+  const keyword =
+    (node.name !== "" || node.arrow !== undefined || statement || annotationKeyworded(node)) && draws("keywords");
   if (keyword) {
     lines.push(`«${node.kind}»`);
+  }
+  if (annotation && node.name === "") {
+    // Unnamed, the locale or language heads the note, else the body itself does (§8.2.3.4).
+    lines.push(...(node.detail !== "" ? node.detail : (node.text ?? "")).split("\n"));
+    if (node.detail !== "" && (node.text ?? "") !== "") {
+      lines.push(...(node.text ?? "").split("\n"));
+    }
+    return lines;
   }
   if (statement && node.name === "" && node.text) {
     lines.push(node.text);
@@ -872,6 +882,11 @@ export function labelLines(
 
 /** The annotation nodes of §8.2.3.4, whose body follows the head and detail even when named. */
 const ANNOTATION_KINDS: ReadonlySet<string> = new Set(["comment", "doc", "rep"]);
+
+/** Documentation and textual representations are headed by their keyword even unnamed; a comment only with a name or locale. */
+function annotationKeyworded(node: RenderNode): boolean {
+  return node.kind === "doc" || node.kind === "rep" || (node.kind === "comment" && node.detail !== "");
+}
 
 /** LabelLineClass is the part of a label a line is: its «kind», its head or a detail line. */
 export type LabelLineClass = "keyword" | "head" | "detail";
