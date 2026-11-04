@@ -24,6 +24,9 @@ func TestNestedStatementsListTheirBodies(t *testing.T) {
 			loop {
 				assign count := count + 2;
 			} until count > 20;
+			loop {
+				assign count := 0;
+			}
 		}
 	}
 }
@@ -47,6 +50,9 @@ package Diagrams {
 		if !strings.Contains(text, want+"\n") && !strings.Contains(text, want+" ") {
 			t.Errorf("text form lacks the row %q:\n%s", want, text)
 		}
+	}
+	if got := strings.Count(text, "until"); got != 1 {
+		t.Errorf("a `loop { }` written without `until` gets no until row; %d until rows in:\n%s", got, text)
 	}
 	dot, err := rendering.DOT()
 	if err != nil {

@@ -264,7 +264,9 @@ func (r *Renderer) indentedStatementRows(doc string, statements []lower.Statemen
 			if stmt.Kind == ast.LoopUntil {
 				row("loop")
 				body(&stmt.Body)
-				row(joinNonEmpty("until", r.nodeText(doc, stmt.Condition)))
+				if stmt.Condition != nil { // a `loop { }` written without `until` has none
+					row(joinNonEmpty("until", r.nodeText(doc, stmt.Condition)))
+				}
 				continue
 			}
 			row(r.statementText(doc, stmt))

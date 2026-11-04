@@ -78,7 +78,10 @@ type RenderNode struct {
 	Detail          string
 	Text            string
 	StandIn         bool
-	Parent          string
+	// Parallel marks a state whose substates run in parallel; the notation
+	// writes «parallel» under its name.
+	Parallel bool
+	Parent   string
 	// Compartment names the compartment of Parent this node is a row of
 	// ("attributes", "parts", "ports", ...); empty for a node drawn as a box.
 	Compartment string
@@ -208,8 +211,8 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 	for _, node := range response.Nodes {
 		converted := RenderNode{
 			ID: node.Id, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
-			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent, Compartment: node.Compartment,
-			Origin: renderSpanFromProto(node.Origin),
+			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parallel: node.Parallel, Parent: node.Parent,
+			Compartment: node.Compartment, Origin: renderSpanFromProto(node.Origin),
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, RenderPort{

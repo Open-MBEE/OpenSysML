@@ -13,7 +13,7 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 		Canvas: &pb.RenderCanvas{Unit: "px", Width: 800, Height: 400, HasSize: true},
 		Nodes: []*pb.RenderNode{{
 			Id: "n0", Kind: "part", Name: "root", NameSynthesized: true, Type: "Demo::Part",
-			Detail: "detail", Text: "text", StandIn: true, Parent: "parent",
+			Detail: "detail", Text: "text", StandIn: true, Parallel: true, Parent: "parent",
 			Ports:    []*pb.RenderPort{{Id: "n0.0", Name: "api", Type: "Demo::API", Direction: "inout"}},
 			Origin:   &pb.Span{File: "views.sysml", StartLine: 4},
 			Geometry: &pb.RenderGeometry{X: 1, Y: 2, Width: 3, Height: 4, HasSize: true, Collapsed: true, Unplaced: true},
@@ -41,7 +41,7 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 	node := rendered.Nodes[0]
 	if node.ID != "n0" || node.Kind != "part" || node.Name != "root" || !node.NameSynthesized ||
 		node.Type != "Demo::Part" || node.Detail != "detail" || node.Text != "text" ||
-		!node.StandIn || node.Parent != "parent" || node.Ports[0].Direction != "inout" {
+		!node.StandIn || !node.Parallel || node.Parent != "parent" || node.Ports[0].Direction != "inout" {
 		t.Errorf("rendered node = %+v", node)
 	}
 	if node.Origin == nil || node.Origin.StartLine != 4 || node.Geometry == nil ||
