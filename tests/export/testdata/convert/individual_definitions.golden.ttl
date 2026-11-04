@@ -74,12 +74,16 @@ elmt:IndividualDefinitions__Neil_20Armstrong
     sysml:owningMembership elmt:IndividualDefinitions__Neil_20Armstrong_om ;
     sysml:declaredName "Neil Armstrong" ;
     sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:multiplicity expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity ;
+    sysml:ownedRelationship expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity_om, elmt:IndividualDefinitions__Neil_20Armstrong_sc0 ;
+    sysml:ownedMembership expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity_om ;
+    sysml:ownedMember expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity ;
     sysml:specializes elmt:IndividualDefinitions__Astronaut ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSubclassification elmt:IndividualDefinitions__Neil_20Armstrong_sc0 ;
     sysml:ownedSpecialization elmt:IndividualDefinitions__Neil_20Armstrong_sc0 ;
-    sysml:ownedRelationship elmt:IndividualDefinitions__Neil_20Armstrong_sc0 ;
-    sysx:sourceText "\tindividual part def 'Neil Armstrong' :> Astronaut;\n" .
+    sysx:sourceText "\tindividual part def 'Neil Armstrong' :> Astronaut;\n" ;
+    json:ownedRelationship "[{\"@id\":\"IndividualDefinitions__Neil_20Armstrong_pmultiplicity_om\"},{\"@id\":\"IndividualDefinitions__Neil_20Armstrong_sc0\"}]" .
 
 elmt:IndividualDefinitions__Neil_20Armstrong_om
     a sysml:OwningMembership ;
@@ -95,6 +99,28 @@ elmt:IndividualDefinitions__Neil_20Armstrong_om
     sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__Neil_20Armstrong ;
     sysml:memberName "Neil Armstrong" ;
     json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Neil_20Armstrong\"}]" .
+
+expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "IndividualDefinitions__Neil_20Armstrong_pmultiplicity" ;
+    sysml:owner elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:owningRelationship expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity_om ;
+    sysml:owningMembership expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity_om .
+
+expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Neil_20Armstrong_pmultiplicity_om" ;
+    sysml:owner elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:memberElement expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity ;
+    sysml:ownedMemberElement expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity ;
+    sysml:ownedRelatedElement expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:source elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:target expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity ;
+    sysml:relatedElement elmt:IndividualDefinitions__Neil_20Armstrong, expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Neil_20Armstrong\"},{\"@id\":\"IndividualDefinitions__Neil_20Armstrong_pmultiplicity\"}]" .
 
 elmt:IndividualDefinitions__Sample
     a sysml:ItemDefinition ;
@@ -143,6 +169,10 @@ elmt:IndividualDefinitions__Sample_2010005
     sysml:owningMembership elmt:IndividualDefinitions__Sample_2010005_om ;
     sysml:declaredName "Sample 10005" ;
     sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:multiplicity expr:IndividualDefinitions__Sample_2010005_pmultiplicity ;
+    sysml:ownedRelationship expr:IndividualDefinitions__Sample_2010005_pmultiplicity_om ;
+    sysml:ownedMembership expr:IndividualDefinitions__Sample_2010005_pmultiplicity_om ;
+    sysml:ownedMember expr:IndividualDefinitions__Sample_2010005_pmultiplicity ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\tindividual item def 'Sample 10005';\n" .
 
@@ -161,6 +191,28 @@ elmt:IndividualDefinitions__Sample_2010005_om
     sysml:memberName "Sample 10005" ;
     json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Sample_2010005\"}]" .
 
+expr:IndividualDefinitions__Sample_2010005_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "IndividualDefinitions__Sample_2010005_pmultiplicity" ;
+    sysml:owner elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:owningRelationship expr:IndividualDefinitions__Sample_2010005_pmultiplicity_om ;
+    sysml:owningMembership expr:IndividualDefinitions__Sample_2010005_pmultiplicity_om .
+
+expr:IndividualDefinitions__Sample_2010005_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Sample_2010005_pmultiplicity_om" ;
+    sysml:owner elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:memberElement expr:IndividualDefinitions__Sample_2010005_pmultiplicity ;
+    sysml:ownedMemberElement expr:IndividualDefinitions__Sample_2010005_pmultiplicity ;
+    sysml:ownedRelatedElement expr:IndividualDefinitions__Sample_2010005_pmultiplicity ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:source elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:target expr:IndividualDefinitions__Sample_2010005_pmultiplicity ;
+    sysml:relatedElement elmt:IndividualDefinitions__Sample_2010005, expr:IndividualDefinitions__Sample_2010005_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Sample_2010005\"},{\"@id\":\"IndividualDefinitions__Sample_2010005_pmultiplicity\"}]" .
+
 elmt:IndividualDefinitions__FirstLanding
     a sysml:OccurrenceDefinition ;
     sysml:qualifiedName "IndividualDefinitions::FirstLanding" ;
@@ -176,6 +228,10 @@ elmt:IndividualDefinitions__FirstLanding
     sysml:owningMembership elmt:IndividualDefinitions__FirstLanding_om ;
     sysml:declaredName "FirstLanding" ;
     sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:multiplicity expr:IndividualDefinitions__FirstLanding_pmultiplicity ;
+    sysml:ownedRelationship expr:IndividualDefinitions__FirstLanding_pmultiplicity_om ;
+    sysml:ownedMembership expr:IndividualDefinitions__FirstLanding_pmultiplicity_om ;
+    sysml:ownedMember expr:IndividualDefinitions__FirstLanding_pmultiplicity ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\tindividual occurrence def FirstLanding;\n" .
 
@@ -194,6 +250,28 @@ elmt:IndividualDefinitions__FirstLanding_om
     sysml:memberName "FirstLanding" ;
     json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__FirstLanding\"}]" .
 
+expr:IndividualDefinitions__FirstLanding_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "IndividualDefinitions__FirstLanding_pmultiplicity" ;
+    sysml:owner elmt:IndividualDefinitions__FirstLanding ;
+    sysml:owningRelationship expr:IndividualDefinitions__FirstLanding_pmultiplicity_om ;
+    sysml:owningMembership expr:IndividualDefinitions__FirstLanding_pmultiplicity_om .
+
+expr:IndividualDefinitions__FirstLanding_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__FirstLanding_pmultiplicity_om" ;
+    sysml:owner elmt:IndividualDefinitions__FirstLanding ;
+    sysml:memberElement expr:IndividualDefinitions__FirstLanding_pmultiplicity ;
+    sysml:ownedMemberElement expr:IndividualDefinitions__FirstLanding_pmultiplicity ;
+    sysml:ownedRelatedElement expr:IndividualDefinitions__FirstLanding_pmultiplicity ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__FirstLanding ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__FirstLanding ;
+    sysml:source elmt:IndividualDefinitions__FirstLanding ;
+    sysml:target expr:IndividualDefinitions__FirstLanding_pmultiplicity ;
+    sysml:relatedElement elmt:IndividualDefinitions__FirstLanding, expr:IndividualDefinitions__FirstLanding_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__FirstLanding\"},{\"@id\":\"IndividualDefinitions__FirstLanding_pmultiplicity\"}]" .
+
 elmt:IndividualDefinitions__PlantFlag
     a sysml:ActionDefinition ;
     sysml:qualifiedName "IndividualDefinitions::PlantFlag" ;
@@ -209,6 +287,10 @@ elmt:IndividualDefinitions__PlantFlag
     sysml:owningMembership elmt:IndividualDefinitions__PlantFlag_om ;
     sysml:declaredName "PlantFlag" ;
     sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:multiplicity expr:IndividualDefinitions__PlantFlag_pmultiplicity ;
+    sysml:ownedRelationship expr:IndividualDefinitions__PlantFlag_pmultiplicity_om ;
+    sysml:ownedMembership expr:IndividualDefinitions__PlantFlag_pmultiplicity_om ;
+    sysml:ownedMember expr:IndividualDefinitions__PlantFlag_pmultiplicity ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\tindividual action def PlantFlag;\n" .
 
@@ -227,6 +309,28 @@ elmt:IndividualDefinitions__PlantFlag_om
     sysml:memberName "PlantFlag" ;
     json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__PlantFlag\"}]" .
 
+expr:IndividualDefinitions__PlantFlag_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "IndividualDefinitions__PlantFlag_pmultiplicity" ;
+    sysml:owner elmt:IndividualDefinitions__PlantFlag ;
+    sysml:owningRelationship expr:IndividualDefinitions__PlantFlag_pmultiplicity_om ;
+    sysml:owningMembership expr:IndividualDefinitions__PlantFlag_pmultiplicity_om .
+
+expr:IndividualDefinitions__PlantFlag_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__PlantFlag_pmultiplicity_om" ;
+    sysml:owner elmt:IndividualDefinitions__PlantFlag ;
+    sysml:memberElement expr:IndividualDefinitions__PlantFlag_pmultiplicity ;
+    sysml:ownedMemberElement expr:IndividualDefinitions__PlantFlag_pmultiplicity ;
+    sysml:ownedRelatedElement expr:IndividualDefinitions__PlantFlag_pmultiplicity ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__PlantFlag ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__PlantFlag ;
+    sysml:source elmt:IndividualDefinitions__PlantFlag ;
+    sysml:target expr:IndividualDefinitions__PlantFlag_pmultiplicity ;
+    sysml:relatedElement elmt:IndividualDefinitions__PlantFlag, expr:IndividualDefinitions__PlantFlag_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__PlantFlag\"},{\"@id\":\"IndividualDefinitions__PlantFlag_pmultiplicity\"}]" .
+
 elmt:IndividualDefinitions__Spacecraft
     a sysml:PartDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Spacecraft" ;
@@ -243,6 +347,10 @@ elmt:IndividualDefinitions__Spacecraft
     sysml:declaredName "Spacecraft" ;
     sysml:isAbstract "true"^^xsd:boolean ;
     sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:multiplicity expr:IndividualDefinitions__Spacecraft_pmultiplicity ;
+    sysml:ownedRelationship expr:IndividualDefinitions__Spacecraft_pmultiplicity_om ;
+    sysml:ownedMembership expr:IndividualDefinitions__Spacecraft_pmultiplicity_om ;
+    sysml:ownedMember expr:IndividualDefinitions__Spacecraft_pmultiplicity ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\tabstract individual part def Spacecraft;\n" .
 
@@ -261,6 +369,28 @@ elmt:IndividualDefinitions__Spacecraft_om
     sysml:memberName "Spacecraft" ;
     json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Spacecraft\"}]" .
 
+expr:IndividualDefinitions__Spacecraft_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "IndividualDefinitions__Spacecraft_pmultiplicity" ;
+    sysml:owner elmt:IndividualDefinitions__Spacecraft ;
+    sysml:owningRelationship expr:IndividualDefinitions__Spacecraft_pmultiplicity_om ;
+    sysml:owningMembership expr:IndividualDefinitions__Spacecraft_pmultiplicity_om .
+
+expr:IndividualDefinitions__Spacecraft_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Spacecraft_pmultiplicity_om" ;
+    sysml:owner elmt:IndividualDefinitions__Spacecraft ;
+    sysml:memberElement expr:IndividualDefinitions__Spacecraft_pmultiplicity ;
+    sysml:ownedMemberElement expr:IndividualDefinitions__Spacecraft_pmultiplicity ;
+    sysml:ownedRelatedElement expr:IndividualDefinitions__Spacecraft_pmultiplicity ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Spacecraft ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Spacecraft ;
+    sysml:source elmt:IndividualDefinitions__Spacecraft ;
+    sysml:target expr:IndividualDefinitions__Spacecraft_pmultiplicity ;
+    sysml:relatedElement elmt:IndividualDefinitions__Spacecraft, expr:IndividualDefinitions__Spacecraft_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Spacecraft\"},{\"@id\":\"IndividualDefinitions__Spacecraft_pmultiplicity\"}]" .
+
 elmt:IndividualDefinitions__Eagle
     a sysml:IndividualDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Eagle" ;
@@ -276,11 +406,15 @@ elmt:IndividualDefinitions__Eagle
     sysml:owningMembership elmt:IndividualDefinitions__Eagle_om ;
     sysml:declaredName "Eagle" ;
     sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:multiplicity expr:IndividualDefinitions__Eagle_pmultiplicity ;
+    sysml:ownedRelationship expr:IndividualDefinitions__Eagle_pmultiplicity_om, elmt:IndividualDefinitions__Eagle_sp0 ;
+    sysml:ownedMembership expr:IndividualDefinitions__Eagle_pmultiplicity_om ;
+    sysml:ownedMember expr:IndividualDefinitions__Eagle_pmultiplicity ;
     sysml:specializes elmt:IndividualDefinitions__Spacecraft ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSpecialization elmt:IndividualDefinitions__Eagle_sp0 ;
-    sysml:ownedRelationship elmt:IndividualDefinitions__Eagle_sp0 ;
-    sysx:sourceText "\tindividual def Eagle :> Spacecraft;\n" .
+    sysx:sourceText "\tindividual def Eagle :> Spacecraft;\n" ;
+    json:ownedRelationship "[{\"@id\":\"IndividualDefinitions__Eagle_pmultiplicity_om\"},{\"@id\":\"IndividualDefinitions__Eagle_sp0\"}]" .
 
 elmt:IndividualDefinitions__Eagle_om
     a sysml:OwningMembership ;
@@ -296,6 +430,28 @@ elmt:IndividualDefinitions__Eagle_om
     sysml:relatedElement elmt:IndividualDefinitions, elmt:IndividualDefinitions__Eagle ;
     sysml:memberName "Eagle" ;
     json:relatedElement "[{\"@id\":\"IndividualDefinitions\"},{\"@id\":\"IndividualDefinitions__Eagle\"}]" .
+
+expr:IndividualDefinitions__Eagle_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "IndividualDefinitions__Eagle_pmultiplicity" ;
+    sysml:owner elmt:IndividualDefinitions__Eagle ;
+    sysml:owningRelationship expr:IndividualDefinitions__Eagle_pmultiplicity_om ;
+    sysml:owningMembership expr:IndividualDefinitions__Eagle_pmultiplicity_om .
+
+expr:IndividualDefinitions__Eagle_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Eagle_pmultiplicity_om" ;
+    sysml:owner elmt:IndividualDefinitions__Eagle ;
+    sysml:memberElement expr:IndividualDefinitions__Eagle_pmultiplicity ;
+    sysml:ownedMemberElement expr:IndividualDefinitions__Eagle_pmultiplicity ;
+    sysml:ownedRelatedElement expr:IndividualDefinitions__Eagle_pmultiplicity ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Eagle ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Eagle ;
+    sysml:source elmt:IndividualDefinitions__Eagle ;
+    sysml:target expr:IndividualDefinitions__Eagle_pmultiplicity ;
+    sysml:relatedElement elmt:IndividualDefinitions__Eagle, expr:IndividualDefinitions__Eagle_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Eagle\"},{\"@id\":\"IndividualDefinitions__Eagle_pmultiplicity\"}]" .
 
 elmt:IndividualDefinitions__Mission
     a sysml:PartDefinition ;

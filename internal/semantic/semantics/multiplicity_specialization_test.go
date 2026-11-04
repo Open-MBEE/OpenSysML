@@ -1,0 +1,199 @@
+package semantics
+
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+)
+
+// libraryFeature is the one library element the stand-in index knows under fqn.
+func libraryFeature(t *testing.T, model *Model, fqn string) *symbols.Symbol {
+	t.Helper()
+	found := model.resolver.Index().LookupQualified(fqn)
+	if len(found) != 1 || found[0] == nil {
+		t.Fatalf("LookupQualified(%s) = %d symbols, want one", fqn, len(found))
+	}
+	return found[0]
+}
+
+// TestMultiplicitySpecializesNaturals covers KerML 1.1 §8.3.3.1.9
+// checkMultiplicitySpecialization: a usage's written range and its implied [1..1]
+// (a feature of a type's, SysML v2 §7.6.3) each subset Base::naturals, which types
+// them ScalarValues::Natural.
+func TestMultiplicitySpecializesNaturals(t *testing.T) {
+	src := `package MS {
+    part def P;
+    part def Car {
+        part p : P [2];
+        part q : P;
+        part r : P [0..*];
+    }
+}`
+	for _, fixture := range reflectiveFixtures(t, "multiplicity-naturals.sysml", source.KindSysML, src) {
+		model := fixture.model
+		naturals := libraryFeature(t, model, "Base::naturals")
+		natural := libraryFeature(t, model, "ScalarValues::Natural")
+		for _, name := range []string{"p", "q", "r"} {
+			usage := relFixtureSymbol(t, fixture, name)
+			member := model.MultiplicityMember(usage)
+			if member == nil {
+				t.Fatalf("MultiplicityMember(%s) = nil", name)
+			}
+			if fqn, ok := model.MultiplicityBaseFQN(member); !ok || fqn != "Base::naturals" {
+				t.Errorf("MultiplicityBaseFQN(%s multiplicity) = %q, %t; want Base::naturals", name, fqn, ok)
+			}
+			if supers := model.DirectSupertypes(member); len(supers) != 1 || supers[0] != naturals {
+				t.Errorf("DirectSupertypes(%s multiplicity) = %v, want [Base::naturals]", name, supers)
+			}
+			if generals := model.ImplicitGenerals(member); len(generals) != 1 || generals[0] != naturals {
+				t.Errorf("ImplicitGenerals(%s multiplicity) = %v, want [Base::naturals]", name, generals)
+			}
+			if types := model.FeatureTypeSet(member); len(types) != 1 || types[0] != natural {
+				t.Errorf("FeatureTypeSet(%s multiplicity) = %v, want [ScalarValues::Natural]", name, types)
+			}
+			if types, _ := model.ReflectiveElements(member, "type"); len(types) != 1 || types[0] != natural {
+				t.Errorf("%s multiplicity type = %v, want [ScalarValues::Natural]", name, types)
+			}
+		}
+		// The usages themselves keep their own bases: naturals is their multiplicity's.
+		for _, super := range model.DirectSupertypes(relFixtureSymbol(t, fixture, "q")) {
+			if super == naturals {
+				t.Error("q itself specializes Base::naturals")
+			}
+		}
+	}
+}
+
+// TestImpliedBaseFQNsForMultiplicityMetaclasses covers the metaclass-keyed reading
+// a graph element without a symbol gets: Base::naturals for either multiplicity metaclass.
+func TestImpliedBaseFQNsForMultiplicityMetaclasses(t *testing.T) {
+	model := NewModel(nil)
+	for _, metaclass := range []string{"Multiplicity", "MultiplicityRange"} {
+		for _, kind := range []source.Kind{source.KindKerML, source.KindSysML} {
+			if got := model.ImpliedBaseFQNsForMetaclass(metaclass, kind); len(got) != 1 || got[0] != "Base::naturals" {
+				t.Errorf("ImpliedBaseFQNsForMetaclass(%s, %v) = %v, want [Base::naturals]", metaclass, kind, got)
+			}
+		}
+	}
+}
+
+// TestKerMLMultiplicityMemberSpecializesNaturals covers the KerML `multiplicity`
+// member (KerML 1.1 §8.4.4.12.2): a range subsets Base::naturals, a member that
+// declares a subsetting reaching it does not take the implied one too, and the
+// library's own ranges specialize it.
+func TestKerMLMultiplicityMemberSpecializesNaturals(t *testing.T) {
+	src := `package MK {
+    classifier C {
+        multiplicity m [2];
+        multiplicity n subsets Base::exactlyOne;
+        multiplicity o subsets m;
+    }
+}`
+	for _, fixture := range reflectiveFixtures(t, "multiplicity-member.kerml", source.KindKerML, src) {
+		model := fixture.model
+		naturals := libraryFeature(t, model, "Base::naturals")
+		m := relFixtureSymbol(t, fixture, "m")
+		if supers := model.DirectSupertypes(m); len(supers) != 1 || supers[0] != naturals {
+			t.Errorf("DirectSupertypes(m) = %v, want [Base::naturals]", supers)
+		}
+		for _, name := range []string{"n", "o"} {
+			if generals := model.ImplicitGenerals(relFixtureSymbol(t, fixture, name)); len(generals) != 0 {
+				t.Errorf("ImplicitGenerals(%s) = %v, want none: its declared subsetting reaches Base::naturals", name, generals)
+			}
+		}
+		zeroOrOne := libraryFeature(t, model, "Base::zeroOrOne")
+		if supers := model.DirectSupertypes(zeroOrOne); len(supers) != 1 || supers[0] != naturals {
+			t.Errorf("DirectSupertypes(Base::zeroOrOne) = %v, want [Base::naturals]", supers)
+		}
+		if generals := model.ImplicitGenerals(naturals); len(generals) != 0 {
+			for _, general := range generals {
+				if general == naturals {
+					t.Error("Base::naturals specializes itself")
+				}
+			}
+		}
+	}
+}
+
+// TestIndividualOccurrenceDefinitionMultiplicity covers SysML v2 §8.3.9.3
+// checkOccurrenceDefinitionMultiplicitySpecialization: an individual occurrence
+// definition is parsed with a Multiplicity, its first owned member, subsetting
+// Base::zeroOrOne; a definition that is not individual has none.
+func TestIndividualOccurrenceDefinitionMultiplicity(t *testing.T) {
+	src := `package IO {
+    part def P;
+    individual part def I { part x : P; attribute a; }
+    individual occurrence def O;
+    individual item def J :> P;
+    part def Q { part y : P; }
+    occurrence def R;
+    attribute def A;
+}`
+	for _, fixture := range reflectiveFixtures(t, "individual-multiplicity.sysml", source.KindSysML, src) {
+		model := fixture.model
+		zeroOrOne := libraryFeature(t, model, "Base::zeroOrOne")
+		natural := libraryFeature(t, model, "ScalarValues::Natural")
+		for _, name := range []string{"I", "O", "J"} {
+			def := relFixtureSymbol(t, fixture, name)
+			member := model.IndividualMultiplicityMember(def)
+			if member == nil {
+				t.Fatalf("IndividualMultiplicityMember(%s) = nil, want the Multiplicity it is parsed with", name)
+			}
+			if again := model.MultiplicityMember(def); again != member {
+				t.Errorf("MultiplicityMember(%s) is not its individual multiplicity", name)
+			}
+			if !IsIndividualMultiplicity(member) || !IsImpliedMultiplicity(member) || IsDefaultMultiplicity(member) || !member.Implied() {
+				t.Errorf("%s's member is not recognised as an individual multiplicity", name)
+			}
+			if got := model.fqnOf(model.MetaclassOf(member)); got != "KerML::Core::Multiplicity" {
+				t.Errorf("%s multiplicity metaclass = %s, want KerML::Core::Multiplicity", name, got)
+			}
+			if fqn, ok := model.MultiplicityBaseFQN(member); !ok || fqn != "Base::zeroOrOne" {
+				t.Errorf("MultiplicityBaseFQN(%s multiplicity) = %q, %t; want Base::zeroOrOne", name, fqn, ok)
+			}
+			if supers := model.DirectSupertypes(member); len(supers) != 1 || supers[0] != zeroOrOne {
+				t.Errorf("DirectSupertypes(%s multiplicity) = %v, want [Base::zeroOrOne] alone: naturals is reached through it", name, supers)
+			}
+			if types := model.FeatureTypeSet(member); len(types) != 1 || types[0] != natural {
+				t.Errorf("FeatureTypeSet(%s multiplicity) = %v, want [ScalarValues::Natural]", name, types)
+			}
+			assertRelFeature(t, model, def, "multiplicity", member)
+			assertRelFeature(t, model, member, "owner", def)
+			if members, _ := model.ReflectiveElements(def, "ownedMember"); len(members) == 0 || members[0] != member {
+				t.Errorf("%s ownedMember = %d elements, want the individual multiplicity first", name, len(members))
+			}
+			if elements, _ := model.ReflectiveElements(def, "ownedElement"); len(elements) == 0 || elements[0] != member {
+				t.Errorf("%s ownedElement = %d elements, want the individual multiplicity first", name, len(elements))
+			}
+			rels := model.OwnedRelationships(def)
+			if len(rels) == 0 || rels[0].Implicit == nil || rels[0].Implicit.Member != member {
+				t.Fatalf("the first owned relationship of %s is not the individual multiplicity's membership", name)
+			}
+			if got := relMetaName(model, rels[0]); got != "OwningMembership" {
+				t.Errorf("%s membership metaclass = %s, want OwningMembership", name, got)
+			}
+			for i, membership := range model.OwnedMemberships(def) {
+				if membership.Implicit != nil && membership.Implicit.Ordinal != i {
+					t.Errorf("%s owned membership %d has ordinal %d", name, i, membership.Implicit.Ordinal)
+				}
+			}
+			if got := model.OwningMembership(member); got != rels[0] {
+				t.Errorf("OwningMembership(%s multiplicity) is not the membership %s owns it through", name, name)
+			}
+		}
+		for _, name := range []string{"P", "Q", "R", "A"} {
+			def := relFixtureSymbol(t, fixture, name)
+			if model.MultiplicityMember(def) != nil {
+				t.Errorf("%s owns a multiplicity, want none: it is not individual", name)
+			}
+			if got, _ := model.ReflectiveElements(def, "multiplicity"); len(got) != 0 {
+				t.Errorf("%s multiplicity = %v, want none", name, got)
+			}
+		}
+		x := relFixtureSymbol(t, fixture, "x")
+		if member := model.MultiplicityMember(x); member == nil || !IsDefaultMultiplicity(member) {
+			t.Error("x, a usage of an individual definition, does not keep its own implicit [1..1]")
+		}
+	}
+}

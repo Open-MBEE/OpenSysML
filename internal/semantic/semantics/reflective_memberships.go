@@ -84,7 +84,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states
-// (MultiplicityMember): a written range at its clause, the implicit [1..1] last.
+// (MultiplicityMember): a written range at its clause, the implicit [1..1] last, an
+// individual OccurrenceDefinition's first, as the pilot orders them.
 func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symbols.Symbol, ordinal int) []*symbols.Symbol {
 	member := m.MultiplicityMember(sym)
 	if member == nil {
@@ -99,20 +100,28 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 			Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: member,
 		},
 	}
-	if !IsDefaultMultiplicity(member) {
-		membership.DeclSpan = source.Span{Offset: member.DeclSpan.Offset}
-		at := clausePosition(memberships, member.DeclSpan.Offset)
-		memberships = append(memberships, nil)
-		copy(memberships[at+1:], memberships[at:])
-		memberships[at] = membership
-		for i := at; i < len(memberships); i++ {
-			if memberships[i].Implicit != nil {
-				memberships[i].Implicit.Ordinal = i
-			}
-		}
-		return memberships
+	if IsDefaultMultiplicity(member) {
+		return append(memberships, membership)
 	}
-	return append(memberships, membership)
+	membership.DeclSpan = source.Span{Offset: member.DeclSpan.Offset}
+	at := 0
+	if IsDeclaredMultiplicityRange(member) {
+		at = clausePosition(memberships, member.DeclSpan.Offset)
+	}
+	return insertMembership(memberships, membership, at)
+}
+
+// insertMembership places membership at index at, renumbering the ordinals from there on.
+func insertMembership(memberships []*symbols.Symbol, membership *symbols.Symbol, at int) []*symbols.Symbol {
+	memberships = append(memberships, nil)
+	copy(memberships[at+1:], memberships[at:])
+	memberships[at] = membership
+	for i := at; i < len(memberships); i++ {
+		if memberships[i].Implicit != nil {
+			memberships[i].Implicit.Ordinal = i
+		}
+	}
+	return memberships
 }
 
 // withTransitionMemberships places the memberships of a transition's trigger accept and guard
@@ -300,11 +309,16 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 			body = append(body, ann)
 		}
 	}
-	out = append(out, m.ImplicitRelationships(sym)...)
 	body = append(body, m.OwnedImports(sym)...)
 	body = append(body, m.OwnedMemberships(sym)...)
 	body = append(body, m.AnnotatingRelationships(sym)...)
 	sort.SliceStable(body, func(i, j int) bool { return body[i].DeclSpan.Offset < body[j].DeclSpan.Offset })
+	// An individual definition's Multiplicity precedes its written clauses, as the pilot parses it.
+	if len(body) > 0 && body[0].Implicit != nil && IsIndividualMultiplicity(body[0].Implicit.Member) {
+		out = append(out, body[0])
+		body = body[1:]
+	}
+	out = append(out, m.ImplicitRelationships(sym)...)
 	return append(out, body...)
 }
 

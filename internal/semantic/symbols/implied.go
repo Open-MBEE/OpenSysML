@@ -18,6 +18,9 @@ const (
 	// ImpliedMultiplicityRange is the MultiplicityRange a usage's written range (`[2]`)
 	// declares, owned through an OwningMembership at the clause; it declares no name.
 	ImpliedMultiplicityRange
+	// ImpliedIndividualMultiplicity is the Multiplicity an individual OccurrenceDefinition
+	// is parsed with, the source of its implied Subsetting (SysML v2 §8.3.9.3); it declares no name.
+	ImpliedIndividualMultiplicity
 )
 
 // ImpliedDecl declares an element the abstract syntax implies for a written

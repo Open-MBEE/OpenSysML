@@ -1611,6 +1611,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Members); err != nil {
 			return err
 		}
+		e.defaultMultiplicity(subject, n, nil)
 		e.relationships(subject, owner, n.Relationships)
 		if n.Kind == ast.DefPort {
 			// Every port definition owns its conjugate (SysML.xtext
@@ -3344,20 +3345,20 @@ func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multipl
 	return e.multiplicityBounds(subject, rangeNode, owner, mult)
 }
 
-// defaultMultiplicity emits the Multiplicity stating a usage's implicit [1..1]
-// (SysML v2 §7.6.3, semantics.ImpliesDefaultMultiplicity): a Multiplicity with no
-// bounds, owned last among the usage's memberships, as the pilot states it.
+// defaultMultiplicity emits the Multiplicity a usage's implicit [1..1] (SysML v2 §7.6.3) or
+// an individual definition (§8.3.9.3; semantics.ImpliesMultiplicity) is parsed with: one with
+// no bounds, owned last among a usage's memberships and first among a definition's, as the pilot states it.
 func (e *encoder) defaultMultiplicity(subject rdf.Term, node ast.Node, mult *ast.Multiplicity) {
 	sym := e.ids.declSym[node]
-	if mult != nil || sym == nil || !e.ids.model.ImpliesDefaultMultiplicity(sym) {
+	if mult != nil || sym == nil || !e.ids.model.ImpliesMultiplicity(sym) {
 		return
 	}
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	multiplicity := e.ids.mintedNode(rdf.ExpressionIRI(subject, pMultiplicity), subject, pMultiplicity)
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(multiplicity), multiplicity, rdf.OwningMembershipSuffix)
 	for _, c := range []struct{ iri, standsFor string }{
-		{multiplicity.Value, "the default multiplicity of " + rdf.LocalName(subject.Value)},
-		{membership.Value, "the owning membership of the default multiplicity"},
+		{multiplicity.Value, "the implied multiplicity of " + rdf.LocalName(subject.Value)},
+		{membership.Value, "the owning membership of the implied multiplicity"},
 	} {
 		if prior, taken := e.claim(c.iri, c.standsFor); taken && e.idErr == nil {
 			e.idErr = &UnsupportedError{
