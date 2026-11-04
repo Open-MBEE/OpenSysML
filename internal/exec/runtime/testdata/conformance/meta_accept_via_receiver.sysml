@@ -23,6 +23,7 @@ package test {
         attribute receiverDirection = (Machine::sm::t1 meta SysML::TransitionUsage).triggerAction.parameter#(2).direction;
         attribute receiverIsParameter = (Machine::sm::t1 meta SysML::TransitionUsage).triggerAction.parameter#(2).owningMembership istype SysML::ParameterMembership;
         attribute receiverValueIsArgument = (Machine::sm::t1 meta SysML::TransitionUsage).triggerAction.parameter#(2) == (Machine::sm::t1 meta SysML::TransitionUsage).triggerAction.receiverArgument.owningMembership.featureWithValue;
+        attribute parametersDistinct = (Machine::sm::t1 meta SysML::TransitionUsage).triggerAction.parameter#(1) != (Machine::sm::t1 meta SysML::TransitionUsage).triggerAction.parameter#(2);
         attribute noViaParameters = SequenceFunctions::size((Machine::sm::t3 meta SysML::TransitionUsage).triggerAction.parameter);
         attribute noViaReceivers = SequenceFunctions::size((Machine::sm::t3 meta SysML::TransitionUsage).triggerAction.receiverArgument);
     }

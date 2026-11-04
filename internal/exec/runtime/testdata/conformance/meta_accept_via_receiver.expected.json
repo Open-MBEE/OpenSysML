@@ -11,6 +11,7 @@
     "receiverDirection": {"type": "EnumLiteral", "value": "FeatureDirectionKind::in"},
     "receiverIsParameter": {"type": "Boolean", "value": true},
     "receiverValueIsArgument": {"type": "Boolean", "value": true},
+    "parametersDistinct": {"type": "Boolean", "value": true},
     "noViaParameters": {"type": "Integer", "value": 1},
     "noViaReceivers": {"type": "Integer", "value": 0}
   }

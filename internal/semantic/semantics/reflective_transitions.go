@@ -82,6 +82,7 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 			receiver := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: ref}
 			receiver.NodeSpan = trans.Via.Span()
 			parts.receiver = transitionPart(sym, receiver, receiver.NodeSpan, symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
+			parts.receiver.Expr.Index = 1 // the accept's second parameter, so its identity is not the payload's
 			parts.receiverValue = transitionPart(sym, ref, ref.NodeSpan, symbols.SymbolExpression, parts.receiver, symbols.ExpressionValue)
 		}
 	}

@@ -52,16 +52,22 @@ func TestViaTriggerReflectsItsReceiver(t *testing.T) {
 			}
 		}
 		owned, _ := m.ReflectiveElements(accepter, "ownedFeature")
+		memberships := m.OwnedMemberships(accepter)
+		if len(memberships) != 2 {
+			t.Fatalf("%s accept ownedMembership = %v, want two", name, memberships)
+		}
 		receiver := owned[1]
+		if symbols.KeyOf(receiver) == symbols.KeyOf(owned[0]) || symbols.KeyOf(args[0]) == symbols.KeyOf(m.ValueExpression(owned[0])) {
+			t.Errorf("%s receiver shares an identity with the payload", name)
+		}
+		if symbols.KeyOf(memberships[1]) == symbols.KeyOf(memberships[0]) {
+			t.Errorf("%s accept parameter memberships share an identity", name)
+		}
 		if value := m.ValueExpression(receiver); value != args[0] {
 			t.Errorf("%s receiver value = %v, want its receiverArgument", name, value)
 		}
 		if got, ok := m.ReflectiveFeatureValue(receiver, "direction"); !ok || got.RefFQN == "" || got.RefFQN[len(got.RefFQN)-2:] != "in" {
 			t.Errorf("%s receiver direction = %v, want in", name, got)
-		}
-		memberships := m.OwnedMemberships(accepter)
-		if len(memberships) != 2 {
-			t.Fatalf("%s accept ownedMembership = %v, want two", name, memberships)
 		}
 		for _, membership := range memberships {
 			if meta := m.MetaclassOf(membership); meta == nil || meta.Name != "ParameterMembership" {
