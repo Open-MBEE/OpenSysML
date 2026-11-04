@@ -92,17 +92,18 @@ func (w *featureWalk) dotSegment(edge Edge) bool {
 // splitLine is the connection line redrawn through the item boxes of the flows
 // on it: a segment from the line's first end to the first box, one between each
 // two boxes, one from the last to the second end. A stated route is split at
-// even intervals, each box placed where it is cut.
+// even intervals, each unplaced box standing where it is cut.
 func (w *featureWalk) splitLine(line Edge, flows []flowSite) []Edge {
 	boxes := make([]*Node, len(flows))
 	for i, flow := range flows {
 		boxes[i] = w.itemBox(w.out.Edges[flow.index], flow, line)
 	}
 	routes := splitRoute(line.Route, len(boxes))
+	atCut := make([]bool, len(boxes))
 	for i, box := range boxes {
 		if box.Geometry == nil && routes != nil {
 			cut := routes[i+1][0]
-			box.Geometry = &Geometry{X: cut.X, Y: cut.Y}
+			box.Geometry, atCut[i] = &Geometry{X: cut.X, Y: cut.Y}, true
 		}
 	}
 	stops := make([]edgeEnd, 0, len(boxes)+2)
@@ -116,7 +117,7 @@ func (w *featureWalk) splitLine(line Edge, flows []flowSite) []Edge {
 		segment := Edge{From: stops[i-1].node.ID, FromPort: stops[i-1].port, To: stops[i].node.ID, ToPort: stops[i].port,
 			Kind: EdgeConnection, Origin: line.Origin, Style: line.Style}
 		if routes != nil {
-			segment.Route = routes[i-1]
+			segment.Route = segmentRoute(routes[i-1], i > 1 && atCut[i-2], i < len(stops)-1 && atCut[i-1])
 		}
 		if i == 1 {
 			segment.Label, segment.Name, segment.FromLabel = line.Label, line.Name, line.FromLabel
@@ -171,6 +172,21 @@ func flowBoxKind(sym *symbols.Symbol, kind EdgeKind) string {
 		return "message"
 	}
 	return kind.String()
+}
+
+// segmentRoute is a piece of a split route less the cut points a box stands
+// on: the segment ends at the box, so such a cut adds no bend.
+func segmentRoute(piece []Point, headCut, tailCut bool) []Point {
+	if headCut {
+		piece = piece[1:]
+	}
+	if tailCut && len(piece) > 0 {
+		piece = piece[:len(piece)-1]
+	}
+	if len(piece) == 0 {
+		return nil
+	}
+	return piece
 }
 
 // splitRoute cuts a stated route into n+1 pieces of equal length, the cut
