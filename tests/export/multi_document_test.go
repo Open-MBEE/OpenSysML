@@ -391,7 +391,7 @@ func TestModelWritesOnlyItsUnreferencedDocuments(t *testing.T) {
 		documentMapping, documentDefault := apiJSONMappingNamesForElement(
 			t, partsByDocument[documentByElement[id]], id,
 		)
-		if !sameAPIJSONElementWithUnavailableQualifiedName(element, parts[id]) ||
+		if !sameAPIJSONElementWithUnavailableQualifiedName(element, parts[id], partsByDocument[documentByElement[id]]) ||
 			wholeMapping != documentMapping {
 			t.Errorf("%s: the whole model writes\n%s\nthe document declaring it writes\n%s\nmapping names: whole=%q document=%q; defaults: whole=%q document=%q",
 				id, element, parts[id], wholeMapping, documentMapping, wholeDefault, documentDefault)
@@ -404,7 +404,7 @@ func TestModelWritesOnlyItsUnreferencedDocuments(t *testing.T) {
 	}
 }
 
-func sameAPIJSONElementWithUnavailableQualifiedName(whole, document string) bool {
+func sameAPIJSONElementWithUnavailableQualifiedName(whole, document string, documentElements map[string]string) bool {
 	var wholeElement, documentElement map[string]any
 	if json.Unmarshal([]byte(whole), &wholeElement) != nil ||
 		json.Unmarshal([]byte(document), &documentElement) != nil {
@@ -426,7 +426,60 @@ func sameAPIJSONElementWithUnavailableQualifiedName(whole, document string) bool
 	}
 	delete(wholeElement, "sysx:mappingQualifiedName")
 	delete(documentElement, "sysx:mappingQualifiedName")
+	// A completed property the two sides both state has to agree unless a value
+	// reaches outside the document; one side alone may state it only when the
+	// element's own references leave the document, as its derivation then can.
+	var elementLeaves bool
+	for key, value := range wholeElement {
+		if !strings.HasPrefix(key, "sysx:") && apiJSONValueLeavesDocument(value, documentElements) {
+			elementLeaves = true
+			break
+		}
+	}
+	for _, element := range []map[string]any{wholeElement, documentElement} {
+		completed, _ := element["sysx:completedProperties"].([]any)
+		for _, name := range completed {
+			key := name.(string)
+			wholeValue, wholeHas := wholeElement[key]
+			documentValue, documentHas := documentElement[key]
+			switch {
+			case wholeHas && documentHas && reflect.DeepEqual(wholeValue, documentValue):
+				continue
+			case wholeHas && documentHas:
+				if !apiJSONValueLeavesDocument(wholeValue, documentElements) &&
+					!apiJSONValueLeavesDocument(documentValue, documentElements) {
+					return false
+				}
+			case !elementLeaves:
+				return false
+			}
+			delete(wholeElement, key)
+			delete(documentElement, key)
+		}
+		delete(element, "sysx:completedProperties")
+	}
 	return reflect.DeepEqual(wholeElement, documentElement)
+}
+
+// apiJSONValueLeavesDocument reports whether a property value references an
+// element the document does not write.
+func apiJSONValueLeavesDocument(value any, documentElements map[string]string) bool {
+	switch v := value.(type) {
+	case []any:
+		for _, item := range v {
+			if apiJSONValueLeavesDocument(item, documentElements) {
+				return true
+			}
+		}
+	case map[string]any:
+		id, _ := v["@id"].(string)
+		if id == "" {
+			return false
+		}
+		_, inDocument := documentElements[id]
+		return !inDocument
+	}
+	return false
 }
 
 func apiJSONMappingNamesForElement(t *testing.T, elements map[string]string, id string) (string, string) {

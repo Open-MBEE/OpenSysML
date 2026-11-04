@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -65,8 +66,10 @@ func TestConvertDocumentsWritesTheNamedOnes(t *testing.T) {
 		t.Errorf("App::e is not written: %v", app)
 	}
 	parts := map[string]string{}
+	partsByDocument := map[string]map[string]string{}
 	for _, document := range []string{"lib.sysml", "app.sysml", "fleet.sysml"} {
-		for id, element := range convertElements(t, srv, hash, document) {
+		partsByDocument[document] = convertElements(t, srv, hash, document)
+		for id, element := range partsByDocument[document] {
 			if _, taken := parts[id]; taken {
 				t.Errorf("%s writes %s, which another document also wrote", document, id)
 			}
@@ -77,7 +80,13 @@ func TestConvertDocumentsWritesTheNamedOnes(t *testing.T) {
 		t.Errorf("the documents written one at a time write %d elements, the whole model %d", len(parts), len(whole))
 	}
 	for id, element := range whole {
-		if !sameAPIJSONElementExceptUnavailableQualifiedName(element, parts[id]) {
+		var document map[string]string
+		for _, elements := range partsByDocument {
+			if _, ok := elements[id]; ok {
+				document = elements
+			}
+		}
+		if !sameAPIJSONElementExceptUnavailableQualifiedName(element, parts[id], document) {
 			t.Errorf("%s: the whole model writes\n%s\nits document alone writes\n%s", id, element, parts[id])
 		}
 	}
@@ -86,7 +95,7 @@ func TestConvertDocumentsWritesTheNamedOnes(t *testing.T) {
 	}
 }
 
-func sameAPIJSONElementExceptUnavailableQualifiedName(left, right string) bool {
+func sameAPIJSONElementExceptUnavailableQualifiedName(left, right string, documents map[string]string) bool {
 	var leftElement, rightElement map[string]any
 	if json.Unmarshal([]byte(left), &leftElement) != nil || json.Unmarshal([]byte(right), &rightElement) != nil {
 		return false
@@ -105,7 +114,59 @@ func sameAPIJSONElementExceptUnavailableQualifiedName(left, right string) bool {
 	} else if rightHasName {
 		return false
 	}
+	// A completed property both state has to agree unless a value reaches outside
+	// the document; one side alone may state it only when the element's references do.
+	var elementLeaves bool
+	for key, value := range leftElement {
+		if !strings.HasPrefix(key, "sysx:") && apiJSONValueLeavesDocument(value, documents) {
+			elementLeaves = true
+			break
+		}
+	}
+	for _, element := range []map[string]any{leftElement, rightElement} {
+		completed, _ := element["sysx:completedProperties"].([]any)
+		for _, name := range completed {
+			key := name.(string)
+			leftValue, leftHas := leftElement[key]
+			rightValue, rightHas := rightElement[key]
+			switch {
+			case leftHas && rightHas && reflect.DeepEqual(leftValue, rightValue):
+				continue
+			case leftHas && rightHas:
+				if !apiJSONValueLeavesDocument(leftValue, documents) &&
+					!apiJSONValueLeavesDocument(rightValue, documents) {
+					return false
+				}
+			case !elementLeaves:
+				return false
+			}
+			delete(leftElement, key)
+			delete(rightElement, key)
+		}
+		delete(element, "sysx:completedProperties")
+	}
 	return reflect.DeepEqual(leftElement, rightElement)
+}
+
+// apiJSONValueLeavesDocument reports whether a value references an element the
+// document does not write.
+func apiJSONValueLeavesDocument(value any, documents map[string]string) bool {
+	switch v := value.(type) {
+	case []any:
+		for _, item := range v {
+			if apiJSONValueLeavesDocument(item, documents) {
+				return true
+			}
+		}
+	case map[string]any:
+		id, _ := v["@id"].(string)
+		if id == "" {
+			return false
+		}
+		_, inDocument := documents[id]
+		return !inDocument
+	}
+	return false
 }
 
 // The capability is advertised.

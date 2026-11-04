@@ -822,6 +822,10 @@ func (e *Evaluator) structureMembershipProperty(element Element, class, name str
 	case "shortName":
 		return e.structureName(element, "shortName")
 	case "ownedMemberName":
+		// ownedMemberName redefines memberName (KerML 8.3.2.4.8): a stated memberName is it.
+		if stated, ok := e.options.Structure.Attribute(element, "memberName"); ok && stated.Kind == StringValue {
+			return stated, true, true
+		}
 		value, handled, ok := e.structureMemberName(element, "", "name")
 		if handled && !ok {
 			e.recordUnsupportedReason(
@@ -831,6 +835,9 @@ func (e *Evaluator) structureMembershipProperty(element Element, class, name str
 		}
 		return value, handled, ok
 	case "ownedMemberShortName":
+		if stated, ok := e.options.Structure.Attribute(element, "memberShortName"); ok && stated.Kind == StringValue {
+			return stated, true, true
+		}
 		value, handled, ok := e.structureMemberName(element, "", "shortName")
 		if handled && !ok {
 			e.recordUnsupportedReason(
@@ -895,6 +902,12 @@ func (e *Evaluator) structureMembershipProperty(element Element, class, name str
 				},
 			)
 			return Value{}, true, false
+		}
+		// memberElementId = memberElement.elementId (KerML 8.3.2.4.3): a stated elementId
+		// is it; the subject's id stands in only where the graph states none.
+		if stated, ok := e.options.Structure.Attribute(members[0], "elementId"); ok &&
+			stated.Kind == StringValue && stated.String != "" {
+			return stated, true, true
 		}
 		identity, ok := e.options.Structure.(ElementIdentityStructure)
 		if !ok {
@@ -1766,29 +1779,32 @@ func (e *Evaluator) structureFilterValuesAsSequence(values []Value, expected str
 	return sequence(filtered...), true, true
 }
 
+// structureRangeMetaclasses maps an owned-relationship collection to the
+// metaclass of its members.
+var structureRangeMetaclasses = map[string]string{
+	"ownedAnnotation":          "Annotation",
+	"ownedConjugator":          "Conjugation",
+	"ownedCrossSubsetting":     "CrossSubsetting",
+	"ownedDifferencing":        "Differencing",
+	"ownedDisjoining":          "Disjoining",
+	"ownedFeatureChaining":     "FeatureChaining",
+	"ownedFeatureInverting":    "FeatureInverting",
+	"ownedFeatureMembership":   "FeatureMembership",
+	"ownedImport":              "Import",
+	"ownedIntersecting":        "Intersecting",
+	"ownedMembership":          "Membership",
+	"ownedRedefinition":        "Redefinition",
+	"ownedReferenceSubsetting": "ReferenceSubsetting",
+	"ownedSpecialization":      "Specialization",
+	"ownedSubclassification":   "Subclassification",
+	"ownedSubsetting":          "Subsetting",
+	"ownedTypeFeaturing":       "TypeFeaturing",
+	"ownedTyping":              "FeatureTyping",
+	"ownedUnioning":            "Unioning",
+}
+
 func structureRange(class, property string) (string, bool) {
-	metaclasses := map[string]string{
-		"ownedAnnotation":          "Annotation",
-		"ownedConjugator":          "Conjugation",
-		"ownedCrossSubsetting":     "CrossSubsetting",
-		"ownedDifferencing":        "Differencing",
-		"ownedDisjoining":          "Disjoining",
-		"ownedFeatureChaining":     "FeatureChaining",
-		"ownedFeatureInverting":    "FeatureInverting",
-		"ownedFeatureMembership":   "FeatureMembership",
-		"ownedImport":              "Import",
-		"ownedIntersecting":        "Intersecting",
-		"ownedMembership":          "Membership",
-		"ownedRedefinition":        "Redefinition",
-		"ownedReferenceSubsetting": "ReferenceSubsetting",
-		"ownedSpecialization":      "Specialization",
-		"ownedSubclassification":   "Subclassification",
-		"ownedSubsetting":          "Subsetting",
-		"ownedTypeFeaturing":       "TypeFeaturing",
-		"ownedTyping":              "FeatureTyping",
-		"ownedUnioning":            "Unioning",
-	}
-	metaclass, ok := metaclasses[property]
+	metaclass, ok := structureRangeMetaclasses[property]
 	return metaclass, ok
 }
 
@@ -1982,8 +1998,29 @@ func (e *Evaluator) structureUsageComposite(element Element) (bool, bool, bool) 
 	return composite.Boolean, true, true
 }
 
+// structureName is the element's effective name or short name, computed once
+// per element and property: the memberships and the owned collections ask again.
 func (e *Evaluator) structureName(element Element, property string) (Value, bool, bool) {
-	return e.structureNameWithSeen(element, property, make(map[ElementKey]bool))
+	key := structureNameKey{element: element.Key(), property: property}
+	e.mu.Lock()
+	cached, known := e.structureNames[key]
+	e.mu.Unlock()
+	if known {
+		return cached.value, cached.handled, cached.ok
+	}
+	value, handled, ok := e.structureNameWithSeen(element, property, make(map[ElementKey]bool))
+	e.mu.Lock()
+	if e.structureNames == nil {
+		e.structureNames = make(map[structureNameKey]structureMemoEntry)
+	}
+	e.structureNames[key] = structureMemoEntry{value: value, handled: handled, ok: ok}
+	e.mu.Unlock()
+	return value, handled, ok
+}
+
+type structureNameKey struct {
+	element  ElementKey
+	property string
 }
 
 func (e *Evaluator) structureNameWithSeen(element Element, property string, seen map[ElementKey]bool) (Value, bool, bool) {
@@ -3745,7 +3782,41 @@ func (e *Evaluator) structureOwnedElementFilter(element Element, expected string
 	return sequence(values...), true, true
 }
 
+// structureMemoEntry memoizes a structure-mode projection every property of an
+// element's owned collections starts from.
+type structureMemoEntry struct {
+	value   Value
+	handled bool
+	ok      bool
+}
+
+// structureOwnedFilter is the element's owned relationships of the expected
+// metaclass, computed once per element and metaclass for every collection over it.
 func (e *Evaluator) structureOwnedFilter(element Element, expected string, memberships bool) (Value, bool, bool) {
+	key := structureOwnedFilterKey{element: element.Key(), expected: expected, memberships: memberships}
+	e.mu.Lock()
+	cached, known := e.structureOwnedFilters[key]
+	e.mu.Unlock()
+	if known {
+		return cloneValue(cached.value), cached.handled, cached.ok
+	}
+	value, handled, ok := e.computeStructureOwnedFilter(element, expected, memberships)
+	e.mu.Lock()
+	if e.structureOwnedFilters == nil {
+		e.structureOwnedFilters = make(map[structureOwnedFilterKey]structureMemoEntry)
+	}
+	e.structureOwnedFilters[key] = structureMemoEntry{value: cloneValue(value), handled: handled, ok: ok}
+	e.mu.Unlock()
+	return value, handled, ok
+}
+
+type structureOwnedFilterKey struct {
+	element     ElementKey
+	expected    string
+	memberships bool
+}
+
+func (e *Evaluator) computeStructureOwnedFilter(element Element, expected string, memberships bool) (Value, bool, bool) {
 	relationships, ok := e.options.Structure.OwnedRelationships(element)
 	if !ok {
 		return Value{}, true, false
@@ -3798,7 +3869,26 @@ func (e *Evaluator) structureOwnedFeatures(element Element) (Value, bool, bool) 
 	return uniqueStructureValueSequence(features, e.options.Structure), true, true
 }
 
+// structureOwnedMembers is Namespace::ownedMember, computed once per element.
 func (e *Evaluator) structureOwnedMembers(element Element) (Value, bool, bool) {
+	key := element.Key()
+	e.mu.Lock()
+	cached, known := e.structureOwnedMemberLists[key]
+	e.mu.Unlock()
+	if known {
+		return cloneValue(cached.value), cached.handled, cached.ok
+	}
+	value, handled, ok := e.computeStructureOwnedMembers(element)
+	e.mu.Lock()
+	if e.structureOwnedMemberLists == nil {
+		e.structureOwnedMemberLists = make(map[ElementKey]structureMemoEntry)
+	}
+	e.structureOwnedMemberLists[key] = structureMemoEntry{value: cloneValue(value), handled: handled, ok: ok}
+	e.mu.Unlock()
+	return value, handled, ok
+}
+
+func (e *Evaluator) computeStructureOwnedMembers(element Element) (Value, bool, bool) {
 	memberships, handled, ok := e.structureOwnedFilter(element, "OwningMembership", true)
 	if !handled || !ok {
 		return Value{}, true, false

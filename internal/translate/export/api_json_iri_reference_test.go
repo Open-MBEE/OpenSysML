@@ -101,7 +101,9 @@ func TestShuffledElementSetDecodes(t *testing.T) {
 	}
 	for _, object := range objects {
 		for key, value := range object {
-			if strings.HasPrefix(key, "sysx:") {
+			// The completion list stays: without it the completed derived
+			// properties would read as statements, which is another document.
+			if strings.HasPrefix(key, "sysx:") && key != apiJSONCompletedPropertiesKey {
 				delete(object, key)
 			}
 			if list, ok := value.([]any); ok {
