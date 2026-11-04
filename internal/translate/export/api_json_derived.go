@@ -339,7 +339,10 @@ func (w *apiJSONElementWriter) anonymousLibraryID(symbol *symbols.Symbol, member
 	if w.evaluation.model == nil {
 		return "", false
 	}
-	member, ok := identity.AnonymousMemberOf(w.evaluation.model, w.evaluation.libraryCatalog(), symbol)
+	member, ok := sharedLibraryIndex().anonymous.Member(symbol)
+	if !ok {
+		member, ok = identity.AnonymousMemberOf(w.evaluation.model, w.evaluation.libraryCatalog(), symbol)
+	}
 	if !ok {
 		return "", false
 	}

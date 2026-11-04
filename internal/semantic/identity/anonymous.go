@@ -106,12 +106,16 @@ func metaclassName(model *semantics.Model, sym *symbols.Symbol) string {
 // implementation mints for them, which a version-5 UUID cannot be reversed to.
 type AnonymousIndex struct {
 	byID, byMembershipID map[string]AnonymousMember
+	bySymbol             map[*symbols.Symbol]AnonymousMember
 }
 
 // AnonymousMemberIndex indexes every unnamed member declared directly in a
 // named element of catalog, by element id and by owning-membership id.
 func AnonymousMemberIndex(model *semantics.Model, catalog *Catalog) *AnonymousIndex {
-	index := &AnonymousIndex{byID: map[string]AnonymousMember{}, byMembershipID: map[string]AnonymousMember{}}
+	index := &AnonymousIndex{
+		byID: map[string]AnonymousMember{}, byMembershipID: map[string]AnonymousMember{},
+		bySymbol: map[*symbols.Symbol]AnonymousMember{},
+	}
 	if model == nil || catalog == nil {
 		return index
 	}
@@ -123,11 +127,21 @@ func AnonymousMemberIndex(model *semantics.Model, catalog *Catalog) *AnonymousIn
 			if member, ok := AnonymousMemberOf(model, catalog, sym); ok {
 				index.byID[member.ID] = member
 				index.byMembershipID[member.OwningMembershipID] = member
+				index.bySymbol[sym] = member
 			}
 			return true
 		})
 	}
 	return index
+}
+
+// Member is the indexed unnamed member declared by sym, as AnonymousMemberOf derives it.
+func (i *AnonymousIndex) Member(sym *symbols.Symbol) (AnonymousMember, bool) {
+	if i == nil {
+		return AnonymousMember{}, false
+	}
+	member, ok := i.bySymbol[sym]
+	return member, ok
 }
 
 // Element is the unnamed member with the given element id.
