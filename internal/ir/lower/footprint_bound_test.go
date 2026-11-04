@@ -42,10 +42,8 @@ func attributeExpression(t *testing.T, src, name string) (*symbols.Scope, ast.No
 	return nil, nil
 }
 
-// Reading a feature valued by an expression reads what its expression reads, through
-// features so valued in turn; a feature every such feature references is reached once,
-// however many expressions reach it, so the footprint of a mutually referencing set
-// is built in time linear in the references, not in the paths through them (#1929).
+// A set of mutually referencing expression-valued features reads each binding once,
+// in time linear in the references, not in the paths through them (#1929).
 func TestExpressionFootprintReadsEachBoundFeatureOnce(t *testing.T) {
 	const n = 24
 	var b strings.Builder
