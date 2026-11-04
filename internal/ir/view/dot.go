@@ -246,13 +246,13 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 			parts = append(parts, "["+dotEscape(typ)+"]")
 		}
 		if shown(root) != "" {
-			parts = append(parts, dotEscape(displayText(w.labels.name(root))))
+			parts = append(parts, dotEscape(DisplayText(w.labels.name(root))))
 			w.frameRoot = root.ID
 		}
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(displayText(symbols.LastSegment(r.View)))+" ]")
+		parts = append(parts, "[ "+dotEscape(DisplayText(symbols.LastSegment(r.View)))+" ]")
 	}
 	return strings.Join(parts, " ")
 }
@@ -1265,6 +1265,9 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		attrs = []string{"shape=point", dotFillBlack, `label=""`}
 	case w.symbol(node):
 		attrs = w.dotSymbolAttributes(node)
+	case itemBox(node):
+		// An item box on a connection line has no border: text and arrow alone.
+		attrs = []string{"shape=plaintext", dotMarginZero, w.labels.dotLabel(node)}
 	case node.Kind == "initial" || node.Kind == "final":
 		attrs = w.dotPseudostateAttributes(node)
 	case w.pinned(node):
@@ -1373,7 +1376,7 @@ func isSymbolKind(kind string) bool {
 	case startKind, "initial", "final", terminateKind, "merge", "decision", "choice", "junction":
 		return true
 	}
-	return isBarKind(kind) || isHistoryKind(kind) || isPortKind(kind)
+	return isBarKind(kind) || isHistoryKind(kind) || isPortKind(kind) || isDotKind(kind)
 }
 
 // isHistoryKind reports whether a kind is a history pseudo-state, drawn as a
@@ -1397,7 +1400,7 @@ func isBarKind(kind string) bool {
 // in a stated box, and every one but a port in the Cameo look.
 func (w *dotWriter) symbol(node *Node) bool {
 	stated := node.Geometry != nil && node.Geometry.HasSize
-	return isSymbolKind(node.Kind) && (stated || w.skin.cameo && !isPortKind(node.Kind))
+	return isDotKind(node.Kind) || isSymbolKind(node.Kind) && (stated || w.skin.cameo && !isPortKind(node.Kind))
 }
 
 // cameoSymbolSize is the size, in points, the Cameo look draws a symbol at with
@@ -1422,7 +1425,7 @@ func (w *dotWriter) round(node *Node) bool {
 	case "junction", terminateKind, shallowHistoryKind, deepHistoryKind:
 		return w.symbol(node)
 	}
-	return false
+	return isDotKind(node.Kind)
 }
 
 // isPortKind reports whether a kind is a port usage: `port`, `ref port`, but no
@@ -1444,7 +1447,7 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 		attrs = append([]string{"shape=diamond"}, w.skin.fill(node.Kind)...)
 	case "fork", "join":
 		attrs = []string{dotFillBlack}
-	case startKind, "initial", "junction":
+	case startKind, "initial", "junction", connectionDotKind, connectionDefDotKind, dependencyDotKind:
 		attrs = []string{dotShapeCircle, dotFillBlack}
 	case "final", terminateKind:
 		attrs = []string{"shape=doublecircle", dotFillBlack}
@@ -1773,7 +1776,9 @@ func (l labeller) keywordText(text string) string {
 // the title line by line; Cameo sets them in a compartment under a rule.
 func (l labeller) assemble(parts labelParts) string {
 	title := parts.head
-	if parts.keyword != "" {
+	if parts.keyword != "" && title == "" {
+		title = parts.keyword
+	} else if parts.keyword != "" {
 		title = parts.keyword + "<br/>" + title
 	}
 	if len(parts.compartments) == 0 {
@@ -2162,6 +2167,8 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		attrs = append(attrs, dotDirBack, "arrowtail=odot")
 	case EdgeExpose:
 		attrs = append(attrs, dotArrowheadVee, dotStyleDashed)
+	case EdgeDependencyClient:
+		attrs = append(attrs, dirNone, dotStyleDashed)
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
@@ -2360,7 +2367,7 @@ func (w *dotWriter) edgeTexts(edge Edge) (from, label, to string) {
 	if edge.Kind == EdgeTransition {
 		label = strings.TrimPrefix(label, "accept ")
 	}
-	return displayText(bareNames(edge.FromLabel)), displayText(label), displayText(bareNames(edge.ToLabel))
+	return DisplayText(bareNames(edge.FromLabel)), DisplayText(label), DisplayText(bareNames(edge.ToLabel))
 }
 
 // halfPixel rounds a coordinate to the nearest half pixel.
@@ -2627,7 +2634,10 @@ const dotKeywordPointSize = 10
 // the notes, one line each. A state's name is bold too, where the Pilot's is plain:
 // the label's extent estimate (dotLabelExtent) and the other forms are kept to.
 func (l labeller) dotLabel(node *Node) string {
-	parts := labelParts{head: "<b>" + dotEscape(l.head(node)) + "</b>"}
+	var parts labelParts
+	if head := l.head(node); head != "" {
+		parts.head = "<b>" + dotEscape(head) + "</b>"
+	}
 	if keyword := l.keyword(node); keyword != "" {
 		parts.keyword = l.sized(l.sizeOf(node), l.keywordSize(), l.keywordText(dotEscape(keyword)))
 	}

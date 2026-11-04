@@ -339,7 +339,7 @@ func (t *translator) sortOf(
 // enumerationTypeOf returns the enumeration definition typing sym, or nil.
 func (t *translator) enumerationTypeOf(sym *symbols.Symbol) *symbols.Symbol {
 	for _, super := range t.model.AllSupertypes(sym) {
-		if super.Kind == symbols.SymbolEnumerationDef {
+		if semantics.IsEnumeration(super) {
 			return super
 		}
 	}

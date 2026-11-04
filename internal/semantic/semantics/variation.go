@@ -46,7 +46,7 @@ func DeclaresVariant(sym *symbols.Symbol) bool {
 // IsVariant reports whether sym is a variant: declared `variant`, or an
 // enumerated value, held by a variant membership (SysML v2 §7.6.4).
 func IsVariant(sym *symbols.Symbol) bool {
-	return DeclaresVariant(sym) || EnumerationOwning(sym) != nil
+	return DeclaresVariant(sym) || (sym != nil && enumeratedValueOwning(sym) != nil)
 }
 
 // VariantValue returns the value expression a variant declares, or nil when it

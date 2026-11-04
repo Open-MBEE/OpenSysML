@@ -1,0 +1,15 @@
+# NaryViews::dependencies — tree rendering (render asTreeDiagram)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  dot: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black; font-size: 14 }; label.near: outside-bottom-center }
+  dependency: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+}
+n0: "«part def»\nChassis" { class: definition }
+n1: "«part def»\nLights" { class: definition }
+n2: "«part def»\nBrakes" { class: definition }
+n3: "«part def»\nSteering" { class: definition }
+n4: "NaryRules::rules" { class: dot }
+n2 -- n4: { class: dependency }
+n3 -- n4: { class: dependency }
+n4 -> n0: { class: dependency }
+n4 -> n1: { class: dependency }

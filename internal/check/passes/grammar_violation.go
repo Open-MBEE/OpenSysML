@@ -9,11 +9,12 @@ import (
 // forms, while the parser reads them into the tree the author intended.
 const (
 	CodeImportVisibility      = "import-visibility"
+	CodeExposeVisibility      = "expose-visibility"
 	CodeEnumerationBodyMember = "enumeration-body-member"
 )
 
-// GrammarViolationPass escalates the parser's warnings on a bare `import` (ImportPrefix)
-// and an illegal EnumerationBody member to errors; both read, so neither gates a tier.
+// GrammarViolationPass escalates the parser's warnings on a bare `import` (ImportPrefix), a
+// visibility-prefixed `expose` and an illegal EnumerationBody member to errors; all read, so none gates a tier.
 type GrammarViolationPass struct{}
 
 func (GrammarViolationPass) Level() PassLevel { return LevelSyntax }
@@ -28,7 +29,7 @@ func (GrammarViolationPass) Run(ctx *Context, name string, root *ast.RootNamespa
 			continue
 		}
 		switch d.Code {
-		case CodeImportVisibility, CodeEnumerationBodyMember:
+		case CodeImportVisibility, CodeExposeVisibility, CodeEnumerationBodyMember:
 			d.Severity = diag.SeverityError
 			d.Notation = true
 			diags = append(diags, d)

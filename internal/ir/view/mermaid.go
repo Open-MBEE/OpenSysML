@@ -1132,7 +1132,7 @@ func isMermaidDiamond(kind string) bool {
 
 func isMermaidControl(kind string) bool {
 	return isMermaidControlNode(kind) || kind == "final" || kind == terminateKind ||
-		kind == "junction" || isHistoryKind(kind) || isMermaidDiamond(kind)
+		kind == "junction" || isHistoryKind(kind) || isMermaidDiamond(kind) || isDotKind(kind)
 }
 
 // mermaidStyleCSS is a Style's fields as Mermaid's comma-separated CSS.
@@ -1232,6 +1232,9 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		return `@{ shape: fr-circ, label: "" }`
 	case "junction":
 		return `@{ shape: f-circ, label: "" }`
+	case connectionDotKind, connectionDefDotKind, dependencyDotKind:
+		// A flowchart's filled circle; the name is its label, there being no label beside.
+		return `@{ shape: f-circ, label: "` + mermaidText(shown(node)) + `" }`
 	case "fork", "join":
 		name := ""
 		if !node.NameSynthesized {
@@ -1250,6 +1253,9 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		return `(("H"))`
 	case deepHistoryKind:
 		return `(("H*"))`
+	}
+	if itemBox(node) {
+		return `@{ shape: text, label: ` + mermaidNodeLabel(node, labels, options) + ` }`
 	}
 	rounded := true
 	if options.Style == StyleCameo {
@@ -1981,7 +1987,7 @@ func mermaidArrow(edge EdgeKind) string {
 		return "-.->"
 	case EdgeComposition, EdgeReference, EdgeContainment, EdgeAssociation, EdgePortion, EdgeUnownedMembership:
 		return "---"
-	case EdgeAnchor:
+	case EdgeAnchor, EdgeDependencyClient:
 		return "-.-"
 	}
 	return "-->"

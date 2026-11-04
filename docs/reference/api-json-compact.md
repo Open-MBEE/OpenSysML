@@ -60,7 +60,9 @@ source that is not notation. It composes with `documents` and with `id_form`.
 A derived property is one the metamodel computes (`derived="true"` in `SysML.ecore`) from
 others: an element's `owner` is the other end of its `owningRelationship`, its `member`s are
 what its memberships name. A reader that follows the owned properties does not need them, and
-a reader that does can list them in `keep_derived`.
+a reader that does can list them in `keep_derived`. The derived properties the element array completes from the
+metamodel (`isLibraryElement`, …; `sysx:completedProperties` names them on each element) go
+with the rest, and the list names only the ones still written.
 
 ## The document
 

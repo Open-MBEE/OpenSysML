@@ -462,6 +462,12 @@ jobs:
         if: needs.changes.outputs.tier == 'full'
         run: go run -C tools ./cmd/transformation-census -check -require-xmi
 
+      # The graphical-notation census's baseline is compared against a fresh
+      # extraction from the specification text the spec-examples step rendered.
+      - name: Graphical notation census matches the pinned specification
+        if: needs.changes.outputs.tier == 'full'
+        run: go run -C tools ./cmd/notation-census -check -require-text
+
       # The migration of the PSSM suite to v2 notation on its own, so its report
       # totals are legible in the log and a skip must not pass; see
       # docs/project/pssm-migration.md.
@@ -1128,6 +1134,13 @@ jobs:
           OPENSYSML_REQUIRE_PSSM_SUITE: ""
           OPENSYSML_REQUIRE_SYSML_V1TOV2: ""
         run: go run -C tools ./cmd/transformation-census -check
+
+      # Same for the graphical-notation census: the baseline, the document and
+      # the evidence citations; the text comparison runs in the gate job above.
+      - name: Check the graphical notation census matches its baseline
+        env:
+          OPENSYSML_REQUIRE_SPEC_EXAMPLES: ""
+        run: go run -C tools ./cmd/notation-census -check
 
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - name: Check changelog fragments

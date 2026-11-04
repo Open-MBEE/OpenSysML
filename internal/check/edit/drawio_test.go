@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -94,8 +95,11 @@ type drawioMutation struct {
 	kind view.DrawioEditKind
 	// children asks that the edited cell's children keep their boxes as well.
 	children bool
-	notice   string
-	check    func(t *testing.T, edited, reexported *view.DrawioCell)
+	// line checks the re-export's whole line through the edited cell instead,
+	// for an edit the segments of a split connection line share.
+	line   func(t *testing.T, editedFile, re *view.DrawioFile, edited, again *view.DrawioCell)
+	notice string
+	check  func(t *testing.T, edited, reexported *view.DrawioCell)
 }
 
 func drawioFirst(file *view.DrawioFile, want func(c *view.DrawioCell) bool) *view.DrawioCell {
@@ -203,11 +207,56 @@ func drawioLinkLine(content, link string) string {
 
 // drawioReroute bends the edge through two waypoints of its own.
 func drawioReroute(cell string) string {
-	const points = `<Array as="points"><mxPoint x="33" y="44"/><mxPoint x="55" y="44"/></Array>`
+	return drawioRerouteThrough(`<mxPoint x="33" y="44"/><mxPoint x="55" y="44"/>`)(cell)
+}
+
+// drawioRerouteThrough is drawioReroute through the given mxPoints.
+func drawioRerouteThrough(waypoints string) func(cell string) string {
+	points := `<Array as="points">` + waypoints + `</Array>`
+	return func(cell string) string {
+		return drawioRerouteWith(cell, points)
+	}
+}
+
+func drawioRerouteWith(cell, points string) string {
 	if re := regexp.MustCompile(`(?s)<Array as="points">.*?</Array>`); re.MatchString(cell) {
 		return re.ReplaceAllString(cell, points)
 	}
 	return strings.Replace(cell, `as="geometry"/>`, `as="geometry">`+points+`</mxGeometry>`, 1)
+}
+
+// drawioLinePoints are the waypoints of the line cell is a segment of: the
+// file's edges of its kind about its element, chained end to end.
+func drawioLinePoints(file *view.DrawioFile, cell *view.DrawioCell) []view.Point {
+	var segments []*view.DrawioCell
+	for i := range file.Cells {
+		if c := &file.Cells[i]; c.Edge && c.Kind == cell.Kind && c.FQN == cell.FQN && c.FQN != "" {
+			segments = append(segments, c)
+		}
+	}
+	if len(segments) == 0 {
+		return cell.Points
+	}
+	start := segments[0]
+	for _, s := range segments {
+		if !slices.ContainsFunc(segments, func(o *view.DrawioCell) bool { return o != s && o.Target == s.Source }) {
+			start = s
+			break
+		}
+	}
+	var points []view.Point
+	for cur := start; cur != nil; {
+		points = append(points, cur.Points...)
+		var next *view.DrawioCell
+		for _, s := range segments {
+			if s != cur && s.Source == cur.Target {
+				next = s
+				break
+			}
+		}
+		cur = next
+	}
+	return points
 }
 
 var drawioMutations = []drawioMutation{
@@ -256,9 +305,20 @@ var drawioMutations = []drawioMutation{
 			}
 		}},
 	{name: "route", pick: drawioEdge(true), edit: drawioReroute, kind: view.DrawioEditRoute,
-		check: func(t *testing.T, edited, re *view.DrawioCell) {
-			if len(re.Points) != 2 || re.Points[0] != edited.Points[0] || re.Points[1] != edited.Points[1] {
-				t.Errorf("routed through %+v, re-exported through %+v", edited.Points, re.Points)
+		// A connection's one Route is its whole line's: the flows drawn on the line
+		// split it into segments, and the waypoints survive on the line as a whole.
+		line: func(t *testing.T, editedFile, re *view.DrawioFile, edited, again *view.DrawioCell) {
+			want, got := drawioLinePoints(editedFile, edited), drawioLinePoints(re, again)
+			if len(want) == 0 || !slices.Equal(got, want) {
+				t.Errorf("routed through %+v, re-exported through %+v", want, got)
+			}
+		}},
+	{name: "route through one bend", pick: drawioEdge(true), edit: drawioRerouteThrough(`<mxPoint x="150" y="80"/>`), kind: view.DrawioEditRoute,
+		// A lone waypoint cannot be cut between the segments; it stays on the line.
+		line: func(t *testing.T, editedFile, re *view.DrawioFile, edited, again *view.DrawioCell) {
+			want, got := drawioLinePoints(editedFile, edited), drawioLinePoints(re, again)
+			if len(want) == 0 || !slices.Equal(got, want) {
+				t.Errorf("routed through %+v, re-exported through %+v", want, got)
 			}
 		}},
 	{name: "route without a Route home", pick: drawioEdge(false), edit: drawioReroute,
@@ -457,7 +517,11 @@ func TestDrawioRoundTrip(t *testing.T) {
 						if again == nil {
 							t.Fatalf("the re-export has no cell for %s, %s %s", e.Cell, was.Kind, was.FQN)
 						}
-						mut.check(t, was, again)
+						if mut.line != nil {
+							mut.line(t, editedFile, re, was, again)
+						} else {
+							mut.check(t, was, again)
+						}
 					}
 					if mut.children {
 						for i := range editedFile.Cells {

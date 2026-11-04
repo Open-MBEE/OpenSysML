@@ -61,6 +61,7 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 		cells:     map[string]bool{},
 		portBoxes: map[string]drawioBox{},
 		fqns:      map[string]bool{},
+		items:     map[string]bool{},
 	}
 	if r.Kind == KindAction {
 		w.used = r.usedPorts(w.ports)
@@ -68,6 +69,7 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 	}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
+		w.collectItems(root)
 	}
 	w.layout(r)
 	edges, err := w.routeEdges(r)
@@ -91,6 +93,7 @@ type drawioWriter struct {
 	cells     map[string]bool       // the cell IDs written, the ends an edge may attach to
 	portBoxes map[string]drawioBox  // port cell ID -> its box in canvas coordinates
 	fqns      map[string]bool       // the qualified names written on cells so far
+	items     map[string]bool       // the item boxes the flows on a connection line are drawn as
 	names     map[string]drawioName // cell ID -> where its label shows the declared name
 	edgeIDs   map[[2]string]string  // edge ends -> its cell ID, the anchor an edge note joins
 	b         strings.Builder
@@ -147,7 +150,7 @@ func drawioGlyphSizeOf(node *Node) (width, height float64, ok bool) {
 		return 0, 0, false
 	case node.Kind == "final":
 		return drawioFinalSize, drawioFinalSize, true
-	case node.Kind == "junction":
+	case node.Kind == "junction", isDotKind(node.Kind):
 		return drawioJunctionDim, drawioJunctionDim, true
 	case isBarKind(node.Kind):
 		return drawioBarLength, drawioBarWidth, true
@@ -651,6 +654,8 @@ func (w *drawioWriter) nodeStyle(node *Node, header float64, compartmented bool)
 // or the case notation's ellipse, note and actor.
 func (w *drawioWriter) plainStyle(node *Node) string {
 	switch {
+	case itemBox(node):
+		return "text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;"
 	case caseNodeKind(node.Kind):
 		return "ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;"
 	case node.Kind == "objective":
@@ -806,16 +811,32 @@ func (w *drawioWriter) writeEdge(i int, edge Edge) {
 func (w *drawioWriter) edgeFQN(edge Edge) string {
 	switch edge.Kind {
 	case EdgeConnection, EdgeBinding, EdgeAssociation, EdgeFlow, EdgeSuccession, EdgeSuccessionFlow, EdgeTransition,
-		EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeImport, EdgeDependency, EdgeDerive, EdgeRefine,
+		EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeImport, EdgeDependency, EdgeDependencyClient, EdgeDerive, EdgeRefine,
 		EdgeExpose, EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
 	default:
 		return ""
 	}
 	fqn := w.siteName(edge.Origin)
-	if w.fqns[fqn] {
+	if w.fqns[fqn] && !w.segment(edge) {
 		return ""
 	}
 	return fqn
+}
+
+// collectItems notes the item boxes under node, the ends a split line's segments share.
+func (w *drawioWriter) collectItems(node *Node) {
+	if itemBox(node) {
+		w.items[node.ID] = true
+	}
+	for _, child := range node.Children {
+		w.collectItems(child)
+	}
+}
+
+// segment reports whether edge is one segment of a connection line the flows on
+// it split: every segment names the connection, being one line.
+func (w *drawioWriter) segment(edge Edge) bool {
+	return edge.Kind == EdgeConnection && (w.items[edge.From] || w.items[edge.To])
 }
 
 // drawioEnds is a set of edge ends.
@@ -956,7 +977,7 @@ func drawioEdgeStyle(kind EdgeKind) string {
 		return "startArrow=circlePlus;startFill=0;endArrow=none"
 	case EdgeImport, EdgeDependency, EdgeDerive, EdgeRefine, EdgeExpose, EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
 		return "dashed=1;endArrow=open"
-	case EdgeAnchor:
+	case EdgeAnchor, EdgeDependencyClient:
 		return "dashed=1;endArrow=none"
 	case EdgeSuccessionFlow:
 		return "dashed=1;endArrow=block;endFill=1"

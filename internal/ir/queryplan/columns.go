@@ -393,6 +393,16 @@ func (c *compiler) compileColumnReference(
 			}, c.staticType(param.Symbol), nil
 		}
 	}
+	if enum := semantics.EnumerationOwning(target); enum != nil {
+		// An enumeration literal is a value of its enumeration, not a property of the row.
+		return Expression{
+			operation:    OperationElement,
+			target:       symbols.FQNOf(target),
+			element:      target,
+			multiplicity: Multiplicity{Lower: 1, Upper: 1, Known: true},
+			origin:       symbols.NodeOrigin(owner.DocName, expression),
+		}, columnType{element: enum}, nil
+	}
 	return Expression{
 		operation:    OperationRowProperty,
 		target:       target.Name,

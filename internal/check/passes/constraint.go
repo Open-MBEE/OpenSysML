@@ -89,6 +89,7 @@ func (cc *constraintChecker) check(sym *symbols.Symbol) {
 	cc.checkFlowEndSubsetting(sym)
 	cc.checkInterfaceEndConjugation(sym)
 	cc.checkRedefinition(sym)
+	cc.checkDisjointFeatureTypes(sym)
 	cc.checkW10BRedefinition(sym)
 	cc.checkW10BCrossFeatures(sym)
 	cc.checkSubsettingFeaturingTypes(sym)
@@ -441,11 +442,8 @@ func (cc *constraintChecker) checkUnnamedRedefinitionValue(sym *symbols.Symbol) 
 	})
 }
 
-// checkRedefinition flags a usage that redefines a member without proper
-// inheritance, type conformance, or multiplicity bounds. SysML constraints:
-// (1) redefined member must be inherited, (2) redefining usage must have a type
-// that conforms to the redefined usage's type, (3) multiplicity bounds must be
-// compatible (lower >= redefined.lower, upper <= redefined.upper).
+// checkRedefinition flags a usage that redefines a member it does not inherit; its
+// type joins the redefined one's (KerML 8.3.3.3.4), see checkDisjointFeatureTypes.
 func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 	rels := semantics.RelationshipsOf(sym)
 	if len(rels) == 0 {
@@ -531,26 +529,6 @@ func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 				Code:   "redefinition-no-inherited",
 				Source: "constraint",
 			})
-			continue
-		}
-
-		// A redefining feature's declared type is added to the redefined one's,
-		// not checked against it (KerML 8.3.3.3.4), so an unrelated type is advisory.
-		usageType := extractUsageType(cc, sym)
-		redefinedType := extractUsageType(cc, redefined)
-
-		if usageType != nil && redefinedType != nil {
-			if !cc.model.Conforms(usageType, redefinedType) {
-				cc.diags = append(cc.diags, diag.Diagnostic{
-					Severity: diag.SeverityWarning,
-					Span:     rel.Target.Span(),
-					Message: fmt.Sprintf(
-						"%s (typed by %s) redefines %s (typed by %s): types do not conform",
-						sym.Name, usageType.Name, redefined.Name, redefinedType.Name),
-					Code:   "redefinition-type-mismatch",
-					Source: "constraint",
-				})
-			}
 		}
 	}
 }
@@ -770,38 +748,6 @@ func isPackageLevelScope(scope *symbols.Scope) bool {
 		return scope.Parent() == nil
 	}
 	return owner.Kind == symbols.SymbolPackage || owner.Kind == symbols.SymbolNamespace
-}
-
-// extractUsageType extracts the type of a usage via its RelTyping relationship.
-// Returns nil if no explicit type is found.
-func extractUsageType(cc *constraintChecker, sym *symbols.Symbol) *symbols.Symbol {
-	if sym.Recorded() {
-		for _, typ := range cc.model.RecordedRelationshipTargets(sym, ast.RelTyping) {
-			return typ
-		}
-		return nil
-	}
-	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil || rel.Kind != ast.RelTyping {
-			continue
-		}
-		targetNode := rel.Target
-		if fr, ok := targetNode.(*ast.FeatureReference); ok {
-			targetNode = fr.Name
-		}
-		if qn, ok := targetNode.(*ast.QualifiedName); ok {
-			resolved, ok := cc.resolver.ResolveQualified(sym.OwnerScope, qn)
-			if ok && resolved != nil {
-				if canonical, aliasOK := cc.resolver.ResolveAliasTarget(resolved); aliasOK {
-					resolved = canonical
-				} else {
-					continue
-				}
-				return resolved
-			}
-		}
-	}
-	return nil
 }
 
 // resolveInheritedMember resolves a qualified name from owner's inherited scopes only,

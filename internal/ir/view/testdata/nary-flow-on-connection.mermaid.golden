@@ -1,0 +1,54 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% NaryViews::carLinks — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["`*«part def»* **Car**`"]
+    direction LR
+    subgraph n1 ["`*«part»* **tank**`"]
+      direction LR
+      n1.0["^fuelOut"]
+    end
+    subgraph n2 ["`*«part»* **engine**`"]
+      direction LR
+      n2.0["^fuelIn"]
+    end
+    subgraph n3 ["`*«part»* **gauge**`"]
+      direction LR
+      n3.0["^fuelIn"]
+    end
+    n4@{ shape: text, label: "`*«flow»*
+—▶`" }
+    n5@{ shape: text, label: "`*«flow»*
+◀—`" }
+    n6@{ shape: text, label: "«message»<br>—#gt;" }
+  end
+  n1.0 === n4
+  n4 === n5
+  n5 === n6
+  n6 === n2.0
+  n1.0 --> n3.0
+  linkStyle 0 stroke-width:3px
+  linkStyle 1 stroke-width:3px
+  linkStyle 2 stroke-width:3px
+  linkStyle 3 stroke-width:3px

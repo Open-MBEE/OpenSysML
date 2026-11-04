@@ -3097,6 +3097,10 @@ message RenderNode {
   // subclassification or subsetting rather than declares it; the notation
   // prefixes its name with `^`. `name` stays the bare name.
   bool inherited = 15;
+  // Set on an item box drawn on a connection line (a flow, succession flow or
+  // message whose ends are the connection's): "right" when the item goes toward
+  // the line's second end, "left" toward its first. Empty for every other node.
+  string arrow = 16;
 }
 
 // RenderPort is a feature drawn on a node's border.

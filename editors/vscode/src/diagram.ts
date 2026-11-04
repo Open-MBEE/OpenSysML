@@ -1622,7 +1622,9 @@ function html(
       #diagram .line { fill: none; stroke: var(--vscode-foreground); stroke-width: 1.25px; }
       #diagram .lifeline { stroke: var(--vscode-foreground); stroke-width: 1px; stroke-dasharray: 6 4; opacity: 0.6; }
       #diagram .succession .line, #diagram .import .line, #diagram .derive .line, #diagram .refine .line,
-      #diagram .dependency .line, #diagram .anchor .line, #diagram .succession-flow .line, #diagram .expose .line { stroke-dasharray: 5 4; }
+      #diagram .dependency .line, #diagram .anchor .line, #diagram .succession-flow .line, #diagram .expose .line,
+      #diagram .dependency-client .line { stroke-dasharray: 5 4; }
+      #diagram .shape.item { fill: none; stroke: none; }
       #diagram .arrow-fill { fill: var(--vscode-foreground); }
       #diagram .arrow-line { fill: none; stroke: var(--vscode-foreground); stroke-width: 1.25px; }
       #diagram .arrow-hollow { fill: var(--vscode-editor-background); stroke: var(--vscode-foreground); stroke-width: 1px; }

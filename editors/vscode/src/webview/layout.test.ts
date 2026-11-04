@@ -27,6 +27,7 @@ import {
   keepOrthogonalRoutes,
   byCodeUnit,
   insertedWaypoint,
+  ARROW_ROW,
   labelLines,
   labelSize,
   edgeLabelBox,
@@ -784,6 +785,8 @@ test("simpleNames keeps the qualifier that tells nodes of one name apart", () =>
     ],
   );
   assert.deepEqual(labelLines(nodes[0], [], names), ["Plant::pump"]);
+  const item: RenderNode = { ...nodes[0], id: "f", kind: "flow", name: "", text: "of Fuel\nin bulk", arrow: "right" };
+  assert.deepEqual(labelLines(item, undefined, names), ["«flow»", "of Fuel", "in bulk", ARROW_ROW]);
   assert.deepEqual(labelLines(nodes[2], [], names), ["tank"]);
   assert.deepEqual(
     labelLines(node("e", "Plant::pump.mass", { inherited: true, type: "Real" }), ["typings", "keywords"], names),
@@ -849,6 +852,9 @@ test("labelLines and shapeOf follow the graphical notation", () => {
   assert.deepEqual(labelLines(node("a", "", { kind: "fork" })), []);
   assert.equal(shapeOf("part def"), "box");
   assert.equal(shapeOf("initial"), "circle");
+  for (const kind of ["connection dot", "connection def dot", "dependency dot"]) {
+    assert.equal(shapeOf(kind), "circle", `${kind} is the n-ary dot`);
+  }
   assert.equal(shapeOf("final"), "ring");
   assert.equal(shapeOf("fork"), "bar");
   assert.equal(shapeOf("decision"), "diamond");

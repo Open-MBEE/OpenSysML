@@ -259,6 +259,19 @@ skill says the same thing:
    `client/python/tests/test_check_version.py` with the other in-repo references, so the release
    commit's version bump moves it.
 
+### 6.4 The TextMate grammar mirror
+
+GitHub highlights `.sysml` and `.kerml` through [Linguist](https://github.com/github-linguist/linguist),
+which vendors a grammar *repository*, so the grammars `editors/vscode/tools/gengrammar` generates into
+`editors/vscode/syntaxes/` are mirrored unchanged in
+[Open-MBEE/sysml-v2-textmate](https://github.com/Open-MBEE/sysml-v2-textmate). Nothing is edited there:
+a grammar change lands here (`make vscode-grammar`, whose tests fail on a stale committed file), and
+the tag's `publish-textmate-grammars` job pushes the files committed at the tag to the mirror after the
+GitHub release (`scripts/sync-textmate-grammars.sh --publish`), and only for the newest stable release,
+so a pre-release or a re-run of an older tag never rolls the mirror back. `make textmate-grammars-check`
+diffs the mirror against HEAD's grammars; between releases it reports the grammar changes develop has
+accumulated, which is expected, so it is not a CI gate.
+
 ## 7. Code Style & Commits
 
 - **Formatting:** `gofmt` is mandatory (CI-enforced). Follow *Effective Go*. Document exported types/functions.

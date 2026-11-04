@@ -99,7 +99,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	for _, notice := range slices.Concat(r.Notices, notices) {
 		fmt.Fprintf(b, "' not represented: %s\n", notice)
 	}
-	w.writeStyle()
+	w.writeStyle(hasDot(r.Roots))
 	if direction != "" {
 		b.WriteString(direction + "\n")
 	}
@@ -200,7 +200,7 @@ const plantumlKeywordFontSize = 10
 // bars, the corner radius a usage's stereotype rounds, the heavier border of a
 // package and the dashed one of a region. Stereotypes are hidden: the label
 // carries the keyword line.
-func (w *plantumlWriter) writeStyle() {
+func (w *plantumlWriter) writeStyle(dots bool) {
 	b := &w.b
 	b.WriteString("<style>\n")
 	fmt.Fprintf(b, "root {\n  BackGroundColor white\n  FontName %s\n  FontSize %d\n  FontColor black\n  LineColor %s\n  HorizontalAlignment left\n}\n",
@@ -213,6 +213,9 @@ func (w *plantumlWriter) writeStyle() {
 	fmt.Fprintf(b, ".%s {\n  RoundCorner %d\n}\n", plantumlUsageStereotype, plantumlUsageRadius)
 	fmt.Fprintf(b, ".%s {\n  LineThickness %s\n}\n", plantumlPackageStereotype, plantumlGroupThickness)
 	b.WriteString(".region {\n  LineStyle 4\n}\n")
+	if dots {
+		fmt.Fprintf(b, ".%s {\n  BackGroundColor black\n}\n", plantumlDotStereotype)
+	}
 	b.WriteString("</style>\n")
 	fmt.Fprintf(b, "skinparam wrapWidth %d\n", plantumlWrapWidth)
 	b.WriteString("hide stereotype\n")
@@ -224,6 +227,8 @@ func (w *plantumlWriter) writeStyle() {
 const (
 	plantumlUsageStereotype   = "usage"
 	plantumlPackageStereotype = "package"
+	// plantumlDotStereotype fills the circle of an n-ary dot black.
+	plantumlDotStereotype = "dot"
 )
 
 // writeClassDiagram writes a tree as a class diagram: every node a class, and
@@ -248,6 +253,10 @@ func (w *plantumlWriter) writeClassDiagram(r *Rendering) {
 // writeClassNode writes one class and, in a tree, its children with the
 // containment edge to each.
 func (w *plantumlWriter) writeClassNode(node *Node) {
+	if isDotKind(node.Kind) {
+		w.writeDot(node, "")
+		return
+	}
 	fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
 	for _, child := range node.Children {
 		w.writeClassNode(child)
@@ -255,6 +264,11 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 			fmt.Fprintf(&w.b, "%s -- %s\n", node.ID, child.ID)
 		}
 	}
+}
+
+// writeDot writes the n-ary dot: PlantUML's circle, filled by the dot stereotype, its name beside it.
+func (w *plantumlWriter) writeDot(node *Node, indent string) {
+	fmt.Fprintf(&w.b, "%scircle %s as %s <<%s>>\n", indent, plantumlQuote(plantumlText(shown(node))), node.ID, plantumlDotStereotype)
 }
 
 // writeRectangleDiagram writes an interconnection as nested rectangles: a node
@@ -287,6 +301,14 @@ func portOr(port, node string) string {
 // when it has any.
 func (w *plantumlWriter) writeRectangleNode(node *Node, depth int) {
 	indent := strings.Repeat("  ", depth)
+	switch {
+	case isDotKind(node.Kind):
+		w.writeDot(node, indent)
+		return
+	case itemBox(node):
+		fmt.Fprintf(&w.b, "%slabel %s as %s\n", indent, plantumlQuote(w.plantumlLabel(node)), node.ID)
+		return
+	}
 	fmt.Fprintf(&w.b, "%srectangle %s as %s%s", indent, plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
 	ports := w.ports.of(node)
 	if len(node.Children) == 0 && len(ports) == 0 {
@@ -594,7 +616,7 @@ func plantumlArrow(kind Kind, edge EdgeKind) string {
 		return "..>"
 	case EdgeAssociation:
 		return "--"
-	case EdgeAnchor:
+	case EdgeAnchor, EdgeDependencyClient:
 		return ".."
 	case EdgeSuccessionFlow:
 		return "-[dashed]->"
@@ -705,7 +727,9 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	if keyword := w.labels.keyword(node); keyword != "" {
 		parts = append(parts, fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, plantumlText(keyword)))
 	}
-	parts = append(parts, "**"+plantumlText(w.labels.head(node))+"**")
+	if head := w.labels.head(node); head != "" {
+		parts = append(parts, "**"+plantumlText(head)+"**")
+	}
 	for _, line := range w.labels.details(node) {
 		parts = append(parts, plantumlText(line))
 	}

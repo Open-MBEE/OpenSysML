@@ -48,7 +48,8 @@ rectangle "<size:10>//«part def»//</size>\n**Toaster**" as n0 <<part def>> {
     port "^durationOut" as n2.0
   }
   rectangle "<size:10>//«part»//</size>\n**chassis**" as n3 <<part>> <<usage>>
+  label "<size:10>//«flow»//</size>\n—▶" as n4
 }
-n2.0 -[thickness=3]- n1.0
-n2.0 --> n1.0
+n2.0 -[thickness=3]- n4
+n4 -[thickness=3]- n1.0
 @enduml
