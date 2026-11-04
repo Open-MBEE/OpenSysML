@@ -2970,10 +2970,8 @@ func (e *StateExecutor) passesGuard(trans *lower.Transition) (bool, error) {
 	return holds, err
 }
 
-// guardHolds is passesGuard telling a guard with no result apart: one that reads
-// a feature carrying no value has no Boolean result, so it is not true and the
-// transition is not enabled (SysML v2 7.18.2), returned as unvalued rather than
-// as an error; an evaluation that fails on its own terms is still the error.
+// guardHolds is passesGuard with a guard that has no result told apart: a read of a
+// feature with no value is not true (SysML v2 7.18.2), returned as unvalued, not an error.
 func (e *StateExecutor) guardHolds(trans *lower.Transition) (holds bool, unvalued, err error) {
 	if trans == nil || trans.Guard == nil {
 		return true, nil, nil
@@ -2981,7 +2979,12 @@ func (e *StateExecutor) guardHolds(trans *lower.Transition) (holds bool, unvalue
 	holds, err = e.ctx.guardUnderStatementOrders(trans.Guard, e.ctx.enclosingExecutorStep(), trans.BodyScope, func() (bool, error) {
 		val, err := e.evalTransitionStep(trans, trans.Guard, trans.BodyScope)
 		if err != nil {
-			return false, fmt.Errorf("eval guard of %s: %w", transitionDescription(trans), err)
+			err = fmt.Errorf("eval guard of %s: %w", transitionDescription(trans), err)
+			if readsNoValue(err) {
+				unvalued = err
+				return false, nil
+			}
+			return false, err
 		}
 		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
 			return false, fmt.Errorf("%w: guard of %s must be boolean, got %s",
@@ -2989,10 +2992,10 @@ func (e *StateExecutor) guardHolds(trans *lower.Transition) (holds bool, unvalue
 		}
 		return val.Const.Bool, nil
 	})
-	if readsNoValue(err) {
-		return false, err, nil
+	if holds || err != nil {
+		unvalued = nil
 	}
-	return holds, nil, err
+	return holds, unvalued, err
 }
 
 // transitionDescription names a transition for a diagnostic: by the name it was
@@ -5655,15 +5658,17 @@ func (e *StateExecutor) runEntryRouteEffects(effects []routeEffect) error {
 	return nil
 }
 
-// entryGuardHolds evaluates an entry transition's guard in the body it is
-// written in, reading the attributes of the state that owns that body. As for
-// guardHolds, a guard reading a feature with no value has no result and does not hold.
+// entryGuardHolds evaluates an entry transition's guard in the body it is written in,
+// reading the owning state's attributes; as in guardHolds, a guard with no result does not hold.
 func (e *StateExecutor) entryGuardHolds(owner ast.Node, entry *lower.EntryTransition) (bool, error) {
 	if entry.Guard == nil {
 		return true, nil
 	}
-	holds, err := e.ctx.guardUnderStatementOrders(entry.Guard, e.ctx.enclosingExecutorStep(), entry.Scope, func() (bool, error) {
+	return e.ctx.guardUnderStatementOrders(entry.Guard, e.ctx.enclosingExecutorStep(), entry.Scope, func() (bool, error) {
 		val, err := e.evalStepOf(e.bodyState(owner), entry.Guard, entry.Scope)
+		if readsNoValue(err) {
+			return false, nil
+		}
 		if err != nil {
 			return false, fmt.Errorf("eval guard of the entry transition into %s: %w", StateVertexName(entryTarget(entry)), err)
 		}
@@ -5672,10 +5677,6 @@ func (e *StateExecutor) entryGuardHolds(owner ast.Node, entry *lower.EntryTransi
 		}
 		return val.Const.Bool, nil
 	})
-	if readsNoValue(err) {
-		return false, nil
-	}
-	return holds, err
 }
 
 // bodyState is the state whose attributes a body's entry transitions read: the

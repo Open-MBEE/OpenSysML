@@ -10,10 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// A transition guard reading a feature that carries no value has no Boolean
-// result, so the transition is not enabled (SysML v2 §7.18.2): the machine keeps
-// running exactly as under a false guard, and a guard that fails to evaluate on
-// its own terms is still an error.
+// A transition guard reading a feature with no value is not true (SysML v2 §7.18.2): the
+// machine runs on exactly as under a false guard, while a failing evaluation is still an error.
 func TestRuntimeRobustnessTransitionGuardUnvalued(t *testing.T) {
 	// controller declares v by decl and guards the transitions of machine on it.
 	controller := func(decl, machine string) string {
@@ -93,8 +91,7 @@ func TestRuntimeRobustnessTransitionGuardUnvalued(t *testing.T) {
 		steps         []step
 		want          string
 	}{{
-		// The write alone moves nothing, as for a false guard; Go re-enters s1,
-		// whose completion reads the guard again, now holding.
+		// The write alone moves nothing, as for a false guard; the Go re-entering s1 has its completion read the guard again.
 		"completion guard", `
 			entry; then s1;
 			state s1;
