@@ -813,8 +813,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 			return ec.ctx.objectValue(ec.self)
 		}
 		// Then `this`, the context occurrence of what is being evaluated: the
-		// object owning the performance, which is the bound instance.
-		if name == thisName && ec.namesOccurrenceThis(name) {
+		// object owning the performance, which is the bound instance. Where no
+		// library declares it, it still names that occurrence, as `that` does.
+		if name == thisName && (ec.namesOccurrenceThis(name) || ec.self != nil && !ec.scopeNames(name)) {
 			return ec.thisValue()
 		}
 		// Then a Kernel Semantic Library member of the bound instance, which the
@@ -1422,6 +1423,15 @@ func (ec *EvalContext) namesOccurrenceThis(name string) bool {
 	}
 	sym, ok := ec.lookupName(name)
 	return ok && ec.ctx.model.resolver.IsOccurrenceThis(sym)
+}
+
+// scopeNames reports whether the scope evaluated in resolves name at all.
+func (ec *EvalContext) scopeNames(name string) bool {
+	if ec.scope == nil {
+		return false
+	}
+	_, ok := ec.lookupName(name)
+	return ok
 }
 
 // thisValue is the context occurrence `this` denotes in the body being evaluated:
