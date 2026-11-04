@@ -121,7 +121,8 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		return b.String(), nil
 	}
 	depth := 1
-	if w.skin.cameo {
+	framed := w.skin.cameo || r.Frame != nil
+	if framed {
 		w.openFrame(r, edges)
 		depth = 2
 	}
@@ -133,7 +134,8 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	}
 	w.writeNotes(over, depth, false)
 	w.writePictures(depth, true)
-	if w.skin.cameo {
+	if framed {
+		w.writeFrameCompartments(r, edges)
 		b.WriteString("  }\n")
 	}
 	for _, edge := range edges {
@@ -211,8 +213,15 @@ func (w *dotWriter) writeHeader(r *Rendering) {
 // is sized, else round everything placed.
 func (w *dotWriter) openFrame(r *Rendering, edges []Edge) {
 	fmt.Fprintf(&w.b, "  subgraph %s {\n", dotQuote(dotFrameCluster))
-	fmt.Fprintf(&w.b, "    label=<%s>;\n", w.frameHeader(r))
-	for _, attr := range []string{"labeljust=l", dotLabelTop, dotFontSizeAttr(cameoFontSize), dotColorAttr(cameoFrameColor), dotPenWidthOne, "margin=" + formatCoord(dotFrameMargin)} {
+	attrs := []string{"labeljust=l", dotLabelTop}
+	if w.skin.cameo {
+		fmt.Fprintf(&w.b, "    label=<%s>;\n", w.frameHeader(r))
+		attrs = append(attrs, dotFontSizeAttr(cameoFontSize), dotColorAttr(cameoFrameColor), dotPenWidthOne)
+	} else {
+		fmt.Fprintf(&w.b, "    label=<%s>;\n", w.viewFrameName(r.Frame))
+		attrs = append(attrs, dotColorAttr(w.skin.line), "penwidth=0.5")
+	}
+	for _, attr := range append(attrs, "margin="+formatCoord(dotFrameMargin)) {
 		fmt.Fprintf(&w.b, "    %s;\n", attr)
 	}
 	if w.placement.positioned() {
@@ -232,6 +241,63 @@ const (
 	dotFrameMargin  = 8
 	dotFrameHeader  = 20
 )
+
+// viewFrameName is the view frame's name compartment (§8.2.3.26) as HTML-like
+// label content: `«view»` at the keyword size, the view's name in bold and its
+// view definition after the colon. A rendering of exposed elements alone, with
+// no view, is headed by nothing.
+func (w *dotWriter) viewFrameName(frame *Frame) string {
+	if frame == nil {
+		return ""
+	}
+	name := w.labels.sized(w.labels.size(), w.labels.keywordSize(), w.labels.keywordText("«view»")) + " <b>" + dotEscape(displayText(frame.Name)) + "</b>"
+	if frame.Type != "" {
+		name += " : " + dotEscape(displayText(frame.Type))
+	}
+	return name
+}
+
+// writeFrameCompartments writes the frame's info compartments (§8.2.3.26,
+// view-frame-info-compartment-tr/bl/br) as borderless text nodes inside the
+// frame: the exposes at the top right, the filters at the bottom left, the
+// view's annotations at the bottom right. A positioned drawing pins each at its
+// corner; an unpositioned one ranks the top compartment first and the bottom
+// ones last, Graphviz choosing where along the rank they sit.
+func (w *dotWriter) writeFrameCompartments(r *Rendering, edges []Edge) {
+	if r.Frame == nil {
+		return
+	}
+	var box nodeBox
+	if w.placement.positioned() {
+		box = w.extent(edges)
+	}
+	for _, c := range r.Frame.Compartments() {
+		id := dotFrameCompartmentID(c.Corner)
+		attrs := []string{"shape=plaintext", dotMarginZero, dotLabelAttribute("<" + w.labels.sized(w.labels.size(), w.labels.keywordSize(), dotEscape(strings.Join(c.Lines, "\n"))) + ">")}
+		if w.placement.positioned() {
+			width, height := w.labels.dotTextBox(c.Lines)
+			corner := Point{X: box.high.X - width/2, Y: box.low.Y + height/2}
+			if c.Corner != FrameTopRight {
+				corner.Y = box.high.Y - height/2
+			}
+			if c.Corner == FrameBottomLeft {
+				corner.X = box.low.X + width/2
+			}
+			attrs = append(attrs, w.dotPin(corner), dotWidthAttr(width), dotHeightAttr(height))
+		}
+		fmt.Fprintf(&w.b, "    %s [%s];\n", dotQuote(id), strings.Join(attrs, ", "))
+		if !w.placement.positioned() {
+			rank := "max"
+			if c.Corner == FrameTopRight {
+				rank = "min"
+			}
+			fmt.Fprintf(&w.b, "    { rank=%s; %s; }\n", rank, dotQuote(id))
+		}
+	}
+}
+
+// dotFrameCompartmentID is the node ID of a frame info compartment by its corner.
+func dotFrameCompartmentID(corner string) string { return "frame:" + corner }
 
 // frameHeader is the Cameo frame's header text as HTML-like label content:
 // the diagram kind in bold, the first drawn root's type in brackets and its
