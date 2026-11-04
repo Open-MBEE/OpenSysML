@@ -750,38 +750,6 @@ func isPackageLevelScope(scope *symbols.Scope) bool {
 	return owner.Kind == symbols.SymbolPackage || owner.Kind == symbols.SymbolNamespace
 }
 
-// extractUsageType extracts the type of a usage via its RelTyping relationship.
-// Returns nil if no explicit type is found.
-func extractUsageType(cc *constraintChecker, sym *symbols.Symbol) *symbols.Symbol {
-	if sym.Recorded() {
-		for _, typ := range cc.model.RecordedRelationshipTargets(sym, ast.RelTyping) {
-			return typ
-		}
-		return nil
-	}
-	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil || rel.Kind != ast.RelTyping {
-			continue
-		}
-		targetNode := rel.Target
-		if fr, ok := targetNode.(*ast.FeatureReference); ok {
-			targetNode = fr.Name
-		}
-		if qn, ok := targetNode.(*ast.QualifiedName); ok {
-			resolved, ok := cc.resolver.ResolveQualified(sym.OwnerScope, qn)
-			if ok && resolved != nil {
-				if canonical, aliasOK := cc.resolver.ResolveAliasTarget(resolved); aliasOK {
-					resolved = canonical
-				} else {
-					continue
-				}
-				return resolved
-			}
-		}
-	}
-	return nil
-}
-
 // resolveInheritedMember resolves a qualified name from owner's inherited scopes only,
 // excluding locally declared members. Used for redefines validation where target
 // must be inherited, not local.
