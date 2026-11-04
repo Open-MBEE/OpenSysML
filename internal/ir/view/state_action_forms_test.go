@@ -16,6 +16,7 @@ func TestPseudostateOnlyStateDrawsItsActionNodesWithPins(t *testing.T) {
 		entry; then active;
 		state active {
 			entry action prepare : Prepare;
+			do action pump { out pumped : Target; }
 			choice decide;
 		}
 	}
@@ -27,16 +28,27 @@ package Diagrams {
 	}
 }`)
 	active := findNode(t, rendering.Roots, "active")
-	var prepare *Node
+	var prepare, pump *Node
 	for _, child := range active.Children {
-		if child.Kind == entryActionKind {
+		switch child.Kind {
+		case entryActionKind:
 			prepare = child
+		case doActionKind:
+			pump = child
 		}
 	}
-	if prepare == nil || prepare.Name != "prepare" {
-		t.Fatalf("active's children %v lack the «entry action» prepare", nodeNames(active.Children))
+	if prepare == nil || prepare.Name != "prepare" || pump == nil || pump.Name != "pump" {
+		t.Fatalf("active's children %v lack the «entry action» prepare and «do action» pump", nodeNames(active.Children))
 	}
-	wantEqual(t, "pins", pinTexts(prepare), []string{"in target"})
+	// A pin of the action's definition is inherited; one the usage declares is its own.
+	wantEqual(t, "prepare's pins", pinTexts(prepare), []string{"in target"})
+	if !prepare.Ports[0].Inherited {
+		t.Errorf("prepare's target pin comes from Prepare, so is inherited: %+v", prepare.Ports[0])
+	}
+	wantEqual(t, "pump's pins", pinTexts(pump), []string{"out pumped"})
+	if pump.Ports[0].Inherited {
+		t.Errorf("pump declares its pumped pin, so it is its own: %+v", pump.Ports[0])
+	}
 	if !hasCompartment(active, stateTransitionCompartment) {
 		t.Errorf("active's compartments %+v lack %q", active.Compartments, stateTransitionCompartment)
 	}

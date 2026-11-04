@@ -2183,7 +2183,7 @@ func collectStateNodeTransitions(graph *StateGraph, n *ast.StateNode, body trans
 }
 
 // lowerBehaviorFeatures records the directed parameters a state's action usage
-// declares among its members, as an action graph records its nodes' features.
+// declares among its own members, as lowerFeatures does for an action graph's nodes.
 func (g *StateGraph) lowerBehaviorFeatures(node ast.Node, scope *symbols.Scope) {
 	usage, ok := node.(*ast.Usage)
 	if !ok {
@@ -2191,7 +2191,7 @@ func (g *StateGraph) lowerBehaviorFeatures(node ast.Node, scope *symbols.Scope) 
 	}
 	body := childScope(scope, node)
 	var features []Feature
-	for _, member := range ast.NodeBodyMembers(usage) {
+	for _, member := range usage.Members {
 		m, ok := unwrapMembership(member).(*ast.Usage)
 		if !ok || m.Direction != ast.DirIn && m.Direction != ast.DirOut {
 			continue
