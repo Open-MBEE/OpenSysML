@@ -1750,8 +1750,8 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, op
 			if note.EdgeFrom == "" || writtenNotes[i] {
 				continue
 			}
-			noteFrom, noteTo := participants[note.EdgeFrom], participants[note.EdgeTo]
-			if (from == noteFrom && to == noteTo) || (from == noteTo && to == noteFrom) {
+			// A note names the edge's own ends (its events), lifted only when written.
+			if (edge.From == note.EdgeFrom && edge.To == note.EdgeTo) || (edge.From == note.EdgeTo && edge.To == note.EdgeFrom) {
 				r.writeSequenceNote(b, note, participants)
 				writtenNotes[i] = true
 			}

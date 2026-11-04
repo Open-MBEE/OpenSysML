@@ -358,6 +358,12 @@ function layoutSequence(
     return entry?.parent !== undefined && entry.box.width > 0 ? entry : undefined;
   };
   const centre = (entry: PlacedNode): { x: number; y: number } => ({ x: entry.box.x + entry.box.width / 2, y: entry.box.y + entry.box.height / 2 });
+  // occupied reports whether an end's lifeline already has an event's point at y: no two events share a point.
+  const occupied = (id: string, y: number): boolean => {
+    const entry = placed.get(id);
+    const lifeline = entry?.parent ?? entry;
+    return lifeline?.children.some((proxy) => proxy.box.width > 0 && centre(proxy).y === y) ?? false;
+  };
   const placeProxy = (id: string, cx: number, cy: number): void => {
     const entry = placed.get(id);
     if (entry?.parent !== undefined && entry.box.width === 0) {
@@ -372,13 +378,19 @@ function layoutSequence(
     const toProxy = placedProxy(edge.to);
     const latest = headY + MESSAGE_GAP * rows;
     // An edge between two placed points takes no row; a message leaving a point on the
-    // latest row stays on it; a hidden edge takes none; any other edge opens a row.
+    // latest row stays on it unless its other end's lifeline has a point there already;
+    // a hidden edge takes none; any other edge opens a row.
     let y: number;
     if (hidden[index]) {
       y = latest;
     } else if (fromProxy && toProxy) {
       y = Math.max(centre(fromProxy).y, centre(toProxy).y);
-    } else if (edge.kind !== "succession" && (fromProxy ?? toProxy) !== undefined && centre((fromProxy ?? toProxy)!).y === latest) {
+    } else if (
+      edge.kind !== "succession" &&
+      (fromProxy ?? toProxy) !== undefined &&
+      centre((fromProxy ?? toProxy)!).y === latest &&
+      !occupied(fromProxy ? edge.to : edge.from, latest)
+    ) {
       y = latest;
     } else {
       y = headY + MESSAGE_GAP * ++rows;

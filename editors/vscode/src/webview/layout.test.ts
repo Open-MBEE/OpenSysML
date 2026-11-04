@@ -858,6 +858,38 @@ test("layoutCanvas gives an event one point and runs every edge at it to that po
   assert.equal(layout.nodes.get("a")!.lifeline, centre("e5").y + gap);
 });
 
+test("layoutCanvas never puts two events of a lifeline at one point", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "client"),
+        node("b", "server"),
+        node("e1", "sent", { kind: "event occurrence", parent: "a" }),
+        node("e2", "taken", { kind: "event occurrence", parent: "b" }),
+        node("e3", "takenAgain", { kind: "event occurrence", parent: "b" }),
+      ],
+      [
+        { from: "e1", to: "e2", label: "first", kind: "message" },
+        { from: "e1", to: "e3", label: "second", kind: "message" },
+        { from: "e2", to: "e3", label: "", kind: "succession" },
+      ],
+      { kind: "sequence" },
+    ),
+  );
+  const centre = (id: string) => {
+    const box = layout.nodes.get(id)!.box;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const [first, second, then] = layout.edges;
+  // The second message from the placed event opens a row, since its lifeline's point on the first is taken.
+  assert.equal(first.points[0].y, first.points[1].y);
+  assert.deepEqual(second.points, [centre("e1"), centre("e3")]);
+  assert.ok(centre("e3").y > centre("e2").y);
+  assert.equal(centre("e3").x, centre("e2").x);
+  // The succession between them runs down the lifeline from one point to the other.
+  assert.deepEqual(then.points, [centre("e2"), centre("e3")]);
+});
+
 test("layoutCanvas places a sequence's proxy where a drawn edge first reaches it, not a hidden one", () => {
   const layout = layoutCanvas(
     rendering(

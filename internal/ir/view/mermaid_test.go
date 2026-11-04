@@ -387,6 +387,18 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		strings.Contains(proxied, "not drawn") {
 		t.Errorf("sequence notes on proxies:\n%s", proxied)
 	}
+	// Two messages between the same lifelines: the note follows the message it is on.
+	second := (&Rendering{Kind: KindSequence,
+		Roots: []*Node{
+			{ID: "a", Kind: "part", Name: "a", Children: []*Node{{ID: "e1", Kind: "event occurrence", Name: "sent1"}, {ID: "e3", Kind: "event occurrence", Name: "sent2"}}},
+			{ID: "b", Kind: "part", Name: "b", Children: []*Node{{ID: "e2", Kind: "event occurrence", Name: "taken1"}, {ID: "e4", Kind: "event occurrence", Name: "taken2"}}},
+		},
+		Edges: []Edge{{From: "e1", To: "e2", Kind: EdgeMessage, Label: "first"}, {From: "e3", To: "e4", Kind: EdgeMessage, Label: "second"}},
+		Notes: []Note{{EdgeFrom: "e3", EdgeTo: "e4", Text: "on the second"}},
+	}).Mermaid()
+	if at, note := strings.Index(second, "a-)b: second"), strings.Index(second, "Note over a,b: on the second"); at < 0 || note < at {
+		t.Errorf("sequence note is not after its own message:\n%s", second)
+	}
 	stateNotes := (&Rendering{Kind: KindState, Roots: []*Node{{
 		ID: "machine", Kind: "state", Name: "machine", Children: []*Node{
 			{ID: "start", Kind: startKind, NameSynthesized: true},
