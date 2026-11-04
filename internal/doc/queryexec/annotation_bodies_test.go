@@ -1,8 +1,11 @@
 package queryexec
 
 import (
+	"errors"
 	"slices"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // annotatedBody documents one part and gives another a textual representation
@@ -73,5 +76,99 @@ calc def Q :> Query {
 		if got := cellStrings(t, result, column); !slices.EqualFunc(got, cells, slices.Equal) {
 			t.Errorf("%s cells = %q, want %q", column, got, cells)
 		}
+	}
+}
+
+// featureNamedBody declares features that share their names with the
+// annotation properties, on a definition an object can be made of.
+const featureNamedBody = `
+part def Message {
+	attribute body : String default "Hello";
+	attribute locale : String default "fr";
+	attribute language : String default "en";
+}
+part msg : Message;
+part blank;
+`
+
+// TestExecuteAnnotationPropertiesDoNotShadowFeatures verifies a feature named
+// body, locale or language is still read on an element that is no annotation,
+// and that one lacking it is the missing-feature error it was.
+func TestExecuteAnnotationPropertiesDoNotShadowFeatures(t *testing.T) {
+	fixture := loadExecutionFixture(t, featureNamedBody+`
+calc def Q :> Query {
+	Project(source = Named(qualifiedName = "Observatory::msg"), properties = ("body", "locale", "language"))
+}
+calc def Missing :> Query {
+	Project(
+		source = WhereType(source = Descendants(source = Named(qualifiedName = "Observatory"), maxDepth = 1), type = "PartUsage"),
+		properties = ("body")
+	)
+}
+calc def NoRowHasIt :> Query {
+	Project(source = Named(qualifiedName = "Observatory::blank"), properties = ("body"))
+}`)
+	result, err := fixture.execute(t, "Q", Bindings{}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	for column, want := range map[string]string{"body": "Hello", "locale": "fr", "language": "en"} {
+		if got := cellStrings(t, result, column); !slices.EqualFunc(got, [][]string{{want}}, slices.Equal) {
+			t.Errorf("%s cells = %q, want [[%q]]", column, got, want)
+		}
+	}
+	_, err = fixture.execute(t, "Missing", Bindings{}, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorMissingFeature || executionError.Target != "Observatory::blank" {
+		t.Fatalf("body of a part without one: err = %v, want ErrorMissingFeature at Observatory::blank", err)
+	}
+	_, err = fixture.execute(t, "NoRowHasIt", Bindings{}, Options{})
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorUnknownProperty {
+		t.Fatalf("body no row has: err = %v, want ErrorUnknownProperty", err)
+	}
+}
+
+// TestExecuteObjectFeaturesNamedLikeAnnotationProperties verifies an object row
+// reads its own body, locale and language features: an object is no annotation.
+func TestExecuteObjectFeaturesNamedLikeAnnotationProperties(t *testing.T) {
+	fixture := loadExecutionFixture(t, featureNamedBody+`
+calc def Q :> Query {
+	in root : Element;
+	Project(source = root, properties = ("name", "body", "locale", "language"))
+}`)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	message, err := ctx.Instantiate(fixture.symbol(t, "msg"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	result, err := Execute(fixture.program(t, "Q"),
+		Context{Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
+			Roots: []Root{{Label: "msg", Object: message}}},
+		Bindings{"root": {ObjectValue(message, "msg")}}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	for column, want := range map[string]string{"body": "Hello", "locale": "fr", "language": "en"} {
+		if got := cellStrings(t, result, column); !slices.EqualFunc(got, [][]string{{want}}, slices.Equal) {
+			t.Errorf("%s cells = %q, want [[%q]]", column, got, want)
+		}
+	}
+}
+
+// TestExecuteProjectsAnEmptyAnnotationBody verifies a blank `/* */` is the
+// empty string, not an empty cell.
+func TestExecuteProjectsAnEmptyAnnotationBody(t *testing.T) {
+	result := annotatedRows(t, `
+part empty {
+	doc /* */
+}
+calc def Q :> Query {
+	Project(
+		source = WhereType(source = Descendants(source = Named(qualifiedName = "Observatory::empty"), maxDepth = 1), type = "Documentation"),
+		properties = ("body")
+	)
+}`)
+	if got := cellStrings(t, result, "body"); !slices.EqualFunc(got, [][]string{{""}}, slices.Equal) {
+		t.Fatalf("body cells = %q, want [[\"\"]]", got)
 	}
 }

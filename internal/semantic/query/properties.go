@@ -64,7 +64,9 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		if r.semantics == nil {
 			return nil, false
 		}
-		return presentValues(r.semantics.AnnotationBodyOf(sym))
+		if body, ok := r.semantics.AnnotationBodyOf(sym); ok {
+			return []string{body}, true
+		}
 	case PropertyLocale, PropertyLanguage:
 		return presentValues(annotationString(sym, property))
 	case PropertyType:

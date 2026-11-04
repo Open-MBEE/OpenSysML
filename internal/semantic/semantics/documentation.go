@@ -85,20 +85,27 @@ func (m *Model) TextualRepresentationOf(sym *symbols.Symbol) []string {
 
 // AnnotationBodyOf is Comment::body or TextualRepresentation::body of the
 // comment, documentation or textual representation sym declares, exact
-// (source.CommentBody); "" for any other element or an unreadable notation.
-func (m *Model) AnnotationBodyOf(sym *symbols.Symbol) string {
-	if m == nil || sym == nil {
-		return ""
+// (source.CommentBody) and "" for an empty one; false for any other element
+// or when the notation cannot be read.
+func (m *Model) AnnotationBodyOf(sym *symbols.Symbol) (string, bool) {
+	if m == nil || sym == nil || m.sourceText == nil {
+		return "", false
 	}
+	var span source.Span
 	switch decl := sym.Decl.(type) {
 	case *ast.Comment:
-		return m.commentBody(sym, decl.BodySpan)
+		span = decl.BodySpan
 	case *ast.Documentation:
-		return m.commentBody(sym, decl.BodySpan)
+		span = decl.BodySpan
 	case *ast.TextualRepresentation:
-		return m.commentBody(sym, decl.BodySpan)
+		span = decl.BodySpan
+	default:
+		return "", false
 	}
-	return ""
+	if span.Len == 0 {
+		return "", false
+	}
+	return m.commentBody(sym, span), true
 }
 
 // commentBody is Comment::body of the comment or documentation sym declares

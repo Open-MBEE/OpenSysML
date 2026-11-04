@@ -160,3 +160,41 @@ func TestAnnotationBodiesNeedTheNotation(t *testing.T) {
 		t.Errorf("language without notation = %q, %v; want [rus]", got, ok)
 	}
 }
+
+// An annotation with an empty `/* */` has a body, the empty string, which is
+// reported; its owner's textualRepresentation leaves the blank out, as
+// documentation does.
+func TestAnnotationBodyOfAnEmptyCommentIsTheEmptyString(t *testing.T) {
+	file := source.New("empty.sysml", []byte(`package Model {
+		part x {
+			doc /* */
+			rep language "en" /**/
+		}
+	}`))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics = %v", p.Diagnostics)
+	}
+	index := symbols.NewIndex()
+	index.AddDocument(file.Name(), root)
+	resolver := resolve.New(index)
+	model := semantics.NewModel(resolver)
+	resolver.SetModel(model)
+	model.SetSourceText(func(_ string, span source.Span) string { return file.Text(span) })
+	reader := NewPropertyReader(index, resolver, model)
+	x := index.LookupQualified("Model::x")[0]
+	for _, sym := range []*symbols.Symbol{
+		anonymousMember(t, x, symbols.SymbolDocumentation),
+		anonymousMember(t, x, symbols.SymbolTextualRepresentation),
+	} {
+		if got, ok := reader.Values(sym, PropertyBody); !ok || !slices.Equal(got, []string{""}) {
+			t.Errorf("body of %s = %q, %v; want [\"\"], true", sym.Kind, got, ok)
+		}
+	}
+	for _, property := range []string{PropertyDocumentation, PropertyTextualRepresentation} {
+		if got, ok := reader.Values(x, property); ok || len(got) != 0 {
+			t.Errorf("%s of x = %q, %v; want absent for blank bodies", property, got, ok)
+		}
+	}
+}
