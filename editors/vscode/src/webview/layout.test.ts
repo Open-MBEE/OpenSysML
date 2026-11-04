@@ -4158,7 +4158,7 @@ test("labelLines heads an unnamed statement by what it does and a statement row 
   const assign = node("a", "", { kind: "assign", text: "count := count + 1" });
   assert.deepEqual(labelLines(assign, undefined, names), ["«assign»", "count := count + 1"]);
   assert.deepEqual(labelLines(assign, ["compartments"], names), ["count := count + 1"]);
-  const row = node("r", "", { kind: "statement", text: "count < 10", parent: "a", compartment: "while condition" });
+  const row = node("r", "", { kind: "statement", text: "count < 10", parent: "a" });
   assert.deepEqual(labelLines(row, undefined, names), ["count < 10"]);
   const parallel = node("s", "running", { kind: "state", parallel: true });
   assert.deepEqual(labelLines(parallel, undefined, names), ["«state»", "running", "«parallel»"]);

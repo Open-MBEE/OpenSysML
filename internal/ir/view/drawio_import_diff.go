@@ -449,7 +449,7 @@ func (m *drawioMatcher) edgeLabel(cell *DrawioCell, f *DrawioFile) string {
 // position is drawn on its owner's border, so only its style is read.
 func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 	origin, isPort := m.originOf(base.ID)
-	if !isPort && base.FQN == "" && cell.FQN == "" {
+	if !isPort && base.FQN == "" && cell.FQN == "" && !origin.Located() {
 		return // a section of a node's box (a loop body), standing for no declaration
 	}
 	edit := DrawioEdit{Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell, base), Origin: origin}
@@ -685,6 +685,17 @@ func (m *drawioMatcher) frameShift(base *DrawioCell) DrawioBox {
 	if parent == nil {
 		return DrawioBox{}
 	}
+	if sectionKind(parent.Kind) {
+		// A body section is laid out by its node, never placed: its nodes are
+		// placed in the section's frame as the file shows it, the node pinned.
+		section := m.base.Cell(base.Parent)
+		if owner := m.nodes[section.Parent]; owner != nil && !owner.Geometry.placed() {
+			m.pin(section.Parent)
+		}
+		box := fullBox(m.editedOf(section))
+		shift := m.w.childShift(parent, drawioBox(box))
+		return DrawioBox{X: shift.X, Y: shift.Y}
+	}
 	if !parent.Geometry.placed() {
 		m.pin(base.Parent)
 		return DrawioBox{}
@@ -734,7 +745,8 @@ func (m *drawioMatcher) editedOf(base *DrawioCell) *DrawioCell {
 
 // framePlace writes a Layout putting node at its page box, as the file has it.
 func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized bool) {
-	if base.FQN == "" && cell.FQN == "" {
+	origin, _ := m.originOf(base.ID)
+	if base.FQN == "" && cell.FQN == "" && !origin.Located() {
 		return // a section of a node's box, standing for no declaration
 	}
 	box := fullBox(cell)
@@ -745,7 +757,6 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 	if node.Geometry != nil {
 		layout.Hidden = node.Geometry.Hidden
 	}
-	origin, _ := m.originOf(base.ID)
 	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell, base), Origin: origin, Layout: layout})
 }
 

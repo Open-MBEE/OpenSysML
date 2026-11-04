@@ -123,6 +123,20 @@ func drawioLeaf(f *view.DrawioFile, _ func(*view.DrawioCell) *view.DrawioImport)
 	return drawioFirst(f, func(c *view.DrawioCell) bool { return drawioPlaceable(c) && !drawioHasChildren(f, c) })
 }
 
+// drawioBodyLeaf picks the first node drawn inside a loop or if body section: it
+// has no qualified name (the body is an anonymous action), only its declaration.
+func drawioBodyLeaf(f *view.DrawioFile, _ func(*view.DrawioCell) *view.DrawioImport) *view.DrawioCell {
+	return drawioFirst(f, func(c *view.DrawioCell) bool {
+		return c.Vertex && c.FQN == "" && c.Link != "" && c.Kind != "port" && c.Kind != "parameter" && c.HasGeometry &&
+			!c.Collapsed && drawioInBody(f, c) && !drawioHasChildren(f, c)
+	})
+}
+
+func drawioInBody(f *view.DrawioFile, c *view.DrawioCell) bool {
+	parent := drawioFirst(f, func(d *view.DrawioCell) bool { return d.ID == c.Parent })
+	return parent != nil && strings.HasSuffix(parent.Kind, " body")
+}
+
 func drawioContainer(f *view.DrawioFile, _ func(*view.DrawioCell) *view.DrawioImport) *view.DrawioCell {
 	return drawioFirst(f, func(c *view.DrawioCell) bool { return drawioPlaceable(c) && drawioHasChildren(f, c) })
 }
@@ -163,12 +177,14 @@ func drawioSameCell(edited *view.DrawioFile, content string, cell *view.DrawioCe
 		}
 		return ""
 	}
+	declared := drawioLinkLine(content, cell.Link)
 	if !cell.Edge {
 		return drawioFirst(re, func(c *view.DrawioCell) bool {
-			return !c.Edge && c.Kind == cell.Kind && c.FQN == cell.FQN && fqnOf(re, c.Parent) == fqnOf(edited, cell.Parent)
+			// A node of a loop body has no qualified name: its declaration tells it apart.
+			sameDecl := cell.FQN != "" || cell.Link == "" || drawioLinkLine(recontent, c.Link) == declared
+			return !c.Edge && c.Kind == cell.Kind && c.FQN == cell.FQN && fqnOf(re, c.Parent) == fqnOf(edited, cell.Parent) && sameDecl
 		})
 	}
-	declared := drawioLinkLine(content, cell.Link)
 	same := func(f *view.DrawioFile, c *view.DrawioCell, source string) bool {
 		if !c.Edge || c.Kind != cell.Kind {
 			return false
@@ -281,6 +297,13 @@ var drawioMutations = []drawioMutation{
 		check: func(t *testing.T, edited, re *view.DrawioCell) {
 			if !drawioSameBox(edited.Geometry, re.Geometry) {
 				t.Errorf("moved to %+v, re-exported at %+v", edited.Geometry, re.Geometry)
+			}
+		}},
+	{name: "move in body", pick: drawioBodyLeaf,
+		edit: func(cell string) string { return drawioShift(cell, "x", 77) }, kind: view.DrawioEditLayout,
+		check: func(t *testing.T, edited, re *view.DrawioCell) {
+			if !drawioSameBox(edited.Geometry, re.Geometry) {
+				t.Errorf("moved in its body to %+v, re-exported at %+v", edited.Geometry, re.Geometry)
 			}
 		}},
 	{name: "move container", pick: drawioContainer, children: true,

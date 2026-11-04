@@ -760,7 +760,7 @@ export function labelLines(
   }
   const draws = (element: string): boolean =>
     shown === undefined || shown.includes(element);
-  if (node.compartment && node.kind === STATEMENT_ROW_KIND) {
+  if (node.kind === STATEMENT_ROW_KIND) {
     return [node.text ?? ""];
   }
   const lines: string[] = [];
