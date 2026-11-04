@@ -1,4 +1,5 @@
 {
   "type": "state",
-  "error": "eval guard of transition wait -> high: no value for feature x"
+  "finalState": "wait",
+  "stateVisits": ["idle", "wait"]
 }

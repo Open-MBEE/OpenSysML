@@ -2352,11 +2352,14 @@ func (e *ActionExecutor) falseGuardLeavesRepeated(graph *lower.ActionGraph, edge
 		"a false guard leaves the performances of the repeated step unordered with respect to its source", edge.Decl))
 }
 
-// guardHolds evaluates the guard a succession out of node carries; a succession
-// carrying none is unconditional.
+// guardHolds evaluates the guard a succession out of node carries; none is unconditional, and
+// one reading a feature with no value is not true, so it does not assert it (SysML v2 7.17.5).
 func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool, error) {
 	return e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, ec.scope, func() (bool, error) {
 		result, err := guardResult(ec, guard)
+		if readsNoValue(err) {
+			return false, nil
+		}
 		if err != nil {
 			return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
 		}
