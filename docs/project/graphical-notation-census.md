@@ -91,7 +91,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 ## Totals
 
 <!-- census:begin summary -->
-620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **218 drawn**, **55 approximate**, **78 undrawn**, 172 not applicable.
+620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **231 drawn**, **51 approximate**, **69 undrawn**, 172 not applicable.
 
 | Category | Productions |
 | --- | --- |
@@ -111,7 +111,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.1 Graphical Notation Overview | 0 | 0 | 0 | 0 | 0 | 0 |
 | §8.2.3.2 Elements and Relationships Graphical Notation | 9 | 9 | 2 | 0 | 3 | 4 |
 | §8.2.3.3 Dependencies Graphical Notation | 9 | 8 | 6 | 0 | 0 | 2 |
-| §8.2.3.4 Annotations Graphical Notation | 12 | 11 | 0 | 1 | 6 | 4 |
+| §8.2.3.4 Annotations Graphical Notation | 12 | 11 | 7 | 0 | 0 | 4 |
 | §8.2.3.5 Namespaces and Packages Graphical Notation | 25 | 24 | 6 | 3 | 6 | 9 |
 | §8.2.3.6 Definition and Usage Graphical Notation | 28 | 24 | 1 | 7 | 7 | 9 |
 | §8.2.3.7 Attributes Graphical Notation | 10 | 9 | 5 | 0 | 0 | 4 |
@@ -133,9 +133,9 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.23 Analysis Cases Graphical Notation | 12 | 7 | 5 | 0 | 0 | 2 |
 | §8.2.3.24 Verification Cases Graphical Notation | 22 | 16 | 6 | 0 | 4 | 6 |
 | §8.2.3.25 Use Cases Graphical Notation | 22 | 16 | 9 | 0 | 1 | 6 |
-| §8.2.3.26 Views and Viewpoints Graphical Notation | 38 | 34 | 13 | 4 | 5 | 12 |
+| §8.2.3.26 Views and Viewpoints Graphical Notation | 38 | 34 | 19 | 1 | 2 | 12 |
 | §8.2.3.27 Metadata Graphical Notation | 8 | 7 | 2 | 0 | 1 | 4 |
-| **Total** | 620 | 523 | 218 | 55 | 78 | 172 |
+| **Total** | 620 | 523 | 231 | 51 | 69 | 172 |
 <!-- census:end clauses -->
 
 ## Gaps
@@ -151,18 +151,6 @@ package a follow-up can take one at a time (see below).
 | `element-inside-textual-compartment` | node | undrawn | E | the greyed element inside a textual compartment is not drawn; compartment rows are plain text |
 | `ellipsis-at-lower-left-corner` | label | undrawn | E | hidden compartment rows are dropped without the '…' mark (compartments.go hidden rows) |
 | `general-compartment` | compartment | undrawn | F | a nested general view inside a node's compartment is not drawn; nested nodes are drawn as a tree |
-
-#### §8.2.3.4 Annotations Graphical Notation
-
-| Production | Category | Verdict | Package | Reason |
-| --- | --- | --- | --- | --- |
-| `annotation-link` | edge | approximate | A | only the anchor of a DiagramLayout::Note or a case objective is drawn (EdgeAnchor); comments are filtered out |
-| `comment-node` | node | undrawn | A | annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn |
-| `comment-with-keyword` | node | undrawn | A | annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn |
-| `comment-without-keyword` | node | undrawn | A | annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn |
-| `documentation-compartment` | compartment | undrawn | A | annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn |
-| `documentation-node` | node | undrawn | A | annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn |
-| `textual-representation-node` | node | undrawn | A | annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn |
 
 #### §8.2.3.5 Namespaces and Packages Graphical Notation
 
@@ -363,13 +351,7 @@ package a follow-up can take one at a time (see below).
 | --- | --- | --- | --- | --- |
 | `exposes-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
 | `filters-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `framed-view` | view | approximate | A | only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame |
 | `rendering-compartment` | compartment | approximate | F | headed `renderings`; the figure heads it `rendering` |
-| `root-view` | view | approximate | A | only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame |
-| `view-frame-info-compartment-bl` | compartment | undrawn | A | no form draws the frame's info compartments |
-| `view-frame-info-compartment-br` | compartment | undrawn | A | no form draws the frame's info compartments |
-| `view-frame-info-compartment-tr` | compartment | undrawn | A | no form draws the frame's info compartments |
-| `view-frame-name-compartment` | compartment | approximate | A | only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame; its header reads the view's name without the «view» keyword |
 
 #### §8.2.3.27 Metadata Graphical Notation
 
@@ -383,7 +365,7 @@ package a follow-up can take one at a time (see below).
 <!-- census:begin packages -->
 | Package | Scope | Undrawn | Approximate | Productions |
 | --- | --- | --- | --- | --- |
-| A | §8.2.3.26 view frame and §8.2.3.4 annotation nodes | 9 | 4 | `annotation-link`, `comment-node`, `comment-with-keyword`, `comment-without-keyword`, `documentation-compartment`, `documentation-node`, `textual-representation-node`, `framed-view`, `root-view`, `view-frame-info-compartment-bl`, `view-frame-info-compartment-br`, `view-frame-info-compartment-tr`, `view-frame-name-compartment` |
+| A | §8.2.3.26 view frame and §8.2.3.4 annotation nodes | 0 | 0 |  |
 | B | §8.2.3.17–.18 action and state node forms | 27 | 18 | `accept-action-name-compartment`, `accept-action-node`, `action-flow-compartment`, `assign-action-name-compartment`, `assign-action-node`, `else-body`, `else-branch`, `for-loop-action-name-compartment`, `for-loop-action-node`, `if-condition`, `if-else-action-node`, `ifelse-action-name-compartment`, `iteration`, `loop-body`, `param-b`, `param-l`, `param-r`, `param-t`, `perform-actions-swimlanes`, `performed-by-compartment`, `send-action-name-compartment`, `send-action-node`, `swimlane`, `terminate-node`, `then-body`, `until-condition`, `while-condition`, `while-loop-action-name-compartment`, `while-loop-action-node`, `do-action`, `do-action-name-comp`, `entry-action`, `entry-action-name-comp`, `exit-action`, `exit-action-name-comp`, `st-succession`, `state-actions-compartment`, `state-def-name-compartment`, `state-do-action`, `state-entry-action`, `state-exit-action`, `state-name-compartment`, `state-transition-compartment`, `successions-compartment`, `transition` |
 | C | §8.2.3.3/.13 n-ary dots and §8.2.3.16 flow-on-connection | 0 | 0 |  |
 | D | §8.2.3.9 sequence glyphs | 8 | 3 | `event-occurrence`, `event-occurrence-name-compartment`, `individuals-compartment`, `portion-relationship`, `proxy-label`, `sequence-compartment`, `sq-port`, `sq-proxy`, `sq-succession`, `succession-label`, `message` |

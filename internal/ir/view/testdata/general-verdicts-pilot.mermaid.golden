@@ -61,8 +61,6 @@ id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases:
 **StopTest**`"]
   n14("`*«verification»*
 **stopTest**`")
-  n15@{ shape: notch-rect, label: "«doc»<br>The total mass of the vehicle shall not exceed the stated mass limit, measured empty and without a driver." }
-  n16@{ shape: notch-rect, label: "«doc»<br>The vehicle shall stop within the stated distance." }
   n2 -->|"specialization"| n1
   n3 -->|"typing"| n0
   n4 -->|"typing"| n0
@@ -78,8 +76,6 @@ id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases:
   n12 -->|"«verify»"| n3
   n13 -->|"«verify»"| n5
   n14 -->|"«verify»"| n5
-  n15 -.- n0
-  n16 -.- n1
   style n3 fill:#EEBF99,stroke:#D55E00
   style n4 fill:#99D8C7,stroke:#009E73
   style n5 fill:#EBC9DC,stroke:#CC79A7

@@ -28,8 +28,6 @@ digraph "GeneralViews::requirementView" {
     "n12" [style="rounded,filled", label=<<font point-size="10"><i>«verification»</i></font><br/><b>heavyMassTest</b>>];
     "n13" [label=<<font point-size="10"><i>«verification def»</i></font><br/><b>StopTest</b>>];
     "n14" [style="rounded,filled", label=<<font point-size="10"><i>«verification»</i></font><br/><b>stopTest</b>>];
-    "n15" [shape=note, label=<<font point-size="10"><i>«doc»</i></font><br/>The total mass of the vehicle shall not exceed the stated mass limit, measured empty and without a driver.>];
-    "n16" [shape=note, label=<<font point-size="10"><i>«doc»</i></font><br/>The vehicle shall stop within the stated distance.>];
     { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose VehicleRequirements**</font>>]; }
     { rank=max; "frame_bl" [shape=none, margin=0, label=<<font point-size="10">filter @SysML::RequirementDefinition or @SysML::RequirementUsage</font>>]; }
   }
@@ -48,6 +46,4 @@ digraph "GeneralViews::requirementView" {
   "n12" -> "n3" [label="«verify»", arrowhead=vee];
   "n13" -> "n5" [label="«verify»", arrowhead=vee];
   "n14" -> "n5" [label="«verify»", arrowhead=vee];
-  "n15" -> "n0" [dir=none, style=dashed];
-  "n16" -> "n1" [dir=none, style=dashed];
 }

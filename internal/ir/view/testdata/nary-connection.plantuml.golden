@@ -1,5 +1,6 @@
 @startuml
 ' NaryViews::wheelLinks — interconnection rendering (render asInterconnectionDiagram)
+mainframe <size:10>//«view»//</size> **NaryViews::wheelLinks**\n<size:10>expose Nary::Wheel</size>
 <style>
 root {
   BackGroundColor white

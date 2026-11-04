@@ -28,8 +28,6 @@ digraph "GeneralViews::requirementView" {
     "n12" [style="rounded,filled", label=<<font point-size="10"><i>«verification»</i></font><br/><b>heavyMassTest</b>>, URL="https://example.test/src/general.sysml#L77", tooltip="VehicleVerification::heavyMassTest"];
     "n13" [label=<<font point-size="10"><i>«verification def»</i></font><br/><b>StopTest</b>>, URL="https://example.test/src/general.sysml#L80", tooltip="VehicleVerification::StopTest"];
     "n14" [style="rounded,filled", label=<<font point-size="10"><i>«verification»</i></font><br/><b>stopTest</b>>, URL="https://example.test/src/general.sysml#L86", tooltip="VehicleVerification::stopTest"];
-    "n15" [shape=note, label=<<font point-size="10"><i>«doc»</i></font><br/>The total mass of the vehicle shall not exceed the stated mass limit, measured empty and without a driver.>, URL="https://example.test/src/general.sysml#L34", tooltip="general.sysml:34:3"];
-    "n16" [shape=note, label=<<font point-size="10"><i>«doc»</i></font><br/>The vehicle shall stop within the stated distance.>, URL="https://example.test/src/general.sysml#L40", tooltip="general.sysml:40:3"];
     { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose VehicleRequirements**</font>>]; }
     { rank=max; "frame_bl" [shape=none, margin=0, label=<<font point-size="10">filter @SysML::RequirementDefinition or @SysML::RequirementUsage</font>>]; }
   }
@@ -48,6 +46,4 @@ digraph "GeneralViews::requirementView" {
   "n12" -> "n3" [label="«verify»", arrowhead=vee, URL="https://example.test/src/general.sysml#L70", tooltip="VehicleVerification::MassTest::vehicleMass"];
   "n13" -> "n5" [label="«verify»", arrowhead=vee, URL="https://example.test/src/general.sysml#L83", tooltip="VehicleVerification::StopTest::emergencyStop"];
   "n14" -> "n5" [label="«verify»", arrowhead=vee, URL="https://example.test/src/general.sysml#L83", tooltip="VehicleVerification::StopTest::emergencyStop"];
-  "n15" -> "n0" [dir=none, style=dashed, URL="https://example.test/src/general.sysml#L34", tooltip="general.sysml:34:3"];
-  "n16" -> "n1" [dir=none, style=dashed, URL="https://example.test/src/general.sysml#L40", tooltip="general.sysml:40:3"];
 }

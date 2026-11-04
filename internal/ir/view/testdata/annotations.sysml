@@ -38,6 +38,9 @@ package AnnotationViews {
 		expose Annotated::*[@SysML::Definition];
 		filter @SysML::PartDefinition;
 	}
+	view unfiltered : GeneralView {
+		expose Annotated::*;
+	}
 	view filtered {
 		expose Annotated::Pump;
 		filter @SysML::PartDefinition;

@@ -61,8 +61,6 @@ id R3.1`")
 **StopTest**`"]
   n14("`*«verification»*
 **stopTest**`")
-  n15@{ shape: notch-rect, label: "«doc»<br>The total mass of the vehicle shall not exceed the stated mass limit, measured empty and without a driver." }
-  n16@{ shape: notch-rect, label: "«doc»<br>The vehicle shall stop within the stated distance." }
   n2 -->|"specialization"| n1
   n3 -->|"typing"| n0
   n4 -->|"typing"| n0
@@ -78,8 +76,6 @@ id R3.1`")
   n12 -->|"«verify»"| n3
   n13 -->|"«verify»"| n5
   n14 -->|"«verify»"| n5
-  n15 -.- n0
-  n16 -.- n1
   click n0 href "https://example.test/src/general.sysml#L33"
   click n1 href "https://example.test/src/general.sysml#L39"
   click n2 href "https://example.test/src/general.sysml#L42"
@@ -95,5 +91,3 @@ id R3.1`")
   click n12 href "https://example.test/src/general.sysml#L77"
   click n13 href "https://example.test/src/general.sysml#L80"
   click n14 href "https://example.test/src/general.sysml#L86"
-  click n15 href "https://example.test/src/general.sysml#L34"
-  click n16 href "https://example.test/src/general.sysml#L40"

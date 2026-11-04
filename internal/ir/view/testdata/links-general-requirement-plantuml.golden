@@ -59,14 +59,6 @@ class "<size:10>//«verification»//</size>\n**lightMassTest**" as n11 <<verific
 class "<size:10>//«verification»//</size>\n**heavyMassTest**" as n12 <<verification>> <<usage>> [[https://example.test/src/general.sysml#L77]]
 class "<size:10>//«verification def»//</size>\n**StopTest**" as n13 <<verification def>> [[https://example.test/src/general.sysml#L80]]
 class "<size:10>//«verification»//</size>\n**stopTest**" as n14 <<verification>> <<usage>> [[https://example.test/src/general.sysml#L86]]
-note as n15
-  <size:10>//«doc»//</size>
-  The total mass of the vehicle shall not exceed the stated mass limit, measured empty and without a driver.
-end note
-note as n16
-  <size:10>//«doc»//</size>
-  The vehicle shall stop within the stated distance.
-end note
 n2 --|> n1 : [[https://example.test/src/general.sysml#L42]]
 n3 --:|> n0 : [[https://example.test/src/general.sysml#L44]]
 n4 --:|> n0 : [[https://example.test/src/general.sysml#L47]]
@@ -82,6 +74,4 @@ n11 --> n3 : «verify» [[https://example.test/src/general.sysml#L70]]
 n12 --> n3 : «verify» [[https://example.test/src/general.sysml#L70]]
 n13 --> n5 : «verify» [[https://example.test/src/general.sysml#L83]]
 n14 --> n5 : «verify» [[https://example.test/src/general.sysml#L83]]
-n15 .. n0 : [[https://example.test/src/general.sysml#L34]]
-n16 .. n1 : [[https://example.test/src/general.sysml#L40]]
 @enduml

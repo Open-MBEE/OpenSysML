@@ -30,8 +30,6 @@ digraph "GeneralViews::requirementView" {
     "n12" [label=<<font point-size="9">«verification»</font><br/><b>heavyMassTest</b>>];
     "n13" [label=<<font point-size="9">«verification def»</font><br/><b>StopTest</b>>];
     "n14" [label=<<font point-size="9">«verification»</font><br/><b>stopTest</b>>];
-    "n15" [shape=note, fillcolor="#FFFFFF", color="#5B5B59", label=<<font point-size="9">«doc»</font><br/>The total mass of the vehicle shall not exceed the stated mass limit, measured empty and without a driver.>];
-    "n16" [shape=note, fillcolor="#FFFFFF", color="#5B5B59", label=<<font point-size="9">«doc»</font><br/>The vehicle shall stop within the stated distance.>];
   }
   "n2" -> "n1" [arrowhead=empty];
   "n3" -> "n0" [arrowhead=onormaldotdot];
@@ -48,6 +46,4 @@ digraph "GeneralViews::requirementView" {
   "n12" -> "n3" [label="«verify»", arrowhead=vee];
   "n13" -> "n5" [label="«verify»", arrowhead=vee];
   "n14" -> "n5" [label="«verify»", arrowhead=vee];
-  "n15" -> "n0" [dir=none, style=dashed];
-  "n16" -> "n1" [dir=none, style=dashed];
 }

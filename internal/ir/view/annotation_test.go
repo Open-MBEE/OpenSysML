@@ -119,7 +119,7 @@ func TestAnnotationsObeyViewFilters(t *testing.T) {
 // A requirement's documentation is drawn in full as a doc node; the clipped
 // excerpt in the requirement's detail does not stand in for it.
 func TestRequirementDocumentationIsDrawn(t *testing.T) {
-	rendering := render(t, "general.sysml", "GeneralViews::requirementView")
+	rendering := render(t, "general.sysml", "GeneralViews::requirementDocs")
 	docs := 0
 	for _, node := range annotationNodesUnder(rendering.Roots) {
 		if node.Kind == docKind {
@@ -213,5 +213,22 @@ func TestCloneCopiesTheFrame(t *testing.T) {
 	}
 	if (*Rendering)(nil).Clone() != nil {
 		t.Error("cloning nil is not nil")
+	}
+}
+
+// A general graph admits an annotation through the view's filters as a tree
+// does: the filtered definition graph draws none, the unfiltered one every doc.
+func TestGeneralGraphAnnotationsObeyViewFilters(t *testing.T) {
+	filtered := render(t, "annotations.sysml", "AnnotationViews::definitions")
+	if got := annotationNodesUnder(filtered.Roots); len(got) != 0 || anchorEdges(filtered) != 0 {
+		t.Errorf("filter @SysML::PartDefinition let %d annotation node(s) and %d link(s) through", len(got), anchorEdges(filtered))
+	}
+	unfiltered := render(t, "annotations.sysml", "AnnotationViews::unfiltered")
+	kinds := map[string]int{}
+	for _, node := range annotationNodesUnder(unfiltered.Roots) {
+		kinds[node.Kind]++
+	}
+	if kinds[docKind] < 2 || kinds[commentKind] < 1 || anchorEdges(unfiltered) == 0 {
+		t.Errorf("unfiltered definition graph annotation nodes = %v, links = %d", kinds, anchorEdges(unfiltered))
 	}
 }

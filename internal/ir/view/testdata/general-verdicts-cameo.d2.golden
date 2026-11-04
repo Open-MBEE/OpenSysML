@@ -4,7 +4,6 @@
 classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
-  annotation: { shape: page; style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   dependency: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
@@ -24,8 +23,6 @@ n11: "«verification»\nlightMassTest" { class: usage }
 n12: "«verification»\nheavyMassTest" { class: usage }
 n13: "«verification def»\nStopTest" { class: definition }
 n14: "«verification»\nstopTest" { class: usage }
-n15: "«doc»\nThe total mass of the vehicle shall not exceed the stated mass limit, measured empty and without a driver." { class: annotation }
-n16: "«doc»\nThe vehicle shall stop within the stated distance." { class: annotation }
 n2 -> n1: { class: specialization }
 n3 -> n0: { class: specialization }
 n4 -> n0: { class: specialization }
@@ -41,8 +38,6 @@ n11 -> n3: "«verify»" { class: edge }
 n12 -> n3: "«verify»" { class: edge }
 n13 -> n5: "«verify»" { class: edge }
 n14 -> n5: "«verify»" { class: edge }
-n15 -> n0: { class: edge }
-n16 -> n1: { class: edge }
 frame_name: "«view» GeneralViews::requirementView : GeneralView" { shape: text; near: top-left }
 frame_tr: "expose VehicleRequirements**" { shape: text; near: top-right }
 frame_bl: "filter @SysML::RequirementDefinition or @SysML::RequirementUsage" { shape: text; near: bottom-left }

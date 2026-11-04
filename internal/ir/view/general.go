@@ -318,7 +318,11 @@ func (g *generalGraph) annotationNodes(sym *symbols.Symbol) {
 	if owner == nil {
 		return
 	}
+	filters := g.r.walkFilters(g.view)
 	for _, member := range g.r.annotatingMembers(sym) {
+		if len(filters) > 0 && !g.r.admits(filters, member) {
+			continue
+		}
 		node := g.r.annotationNode(g.ids, g.view, member, g.out)
 		if node == nil {
 			continue

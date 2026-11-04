@@ -788,6 +788,10 @@ test("simpleNames keeps the qualifier that tells nodes of one name apart", () =>
   const item: RenderNode = { ...nodes[0], id: "f", kind: "flow", name: "", text: "of Fuel\nin bulk", arrow: "right" };
   assert.deepEqual(labelLines(item, undefined, names), ["«flow»", "of Fuel", "in bulk", ARROW_ROW]);
   assert.deepEqual(labelLines(nodes[2], [], names), ["tank"]);
+  const doc: RenderNode = { ...nodes[0], id: "g", kind: "doc", name: "", text: "Moves fluid\nto the loop." };
+  assert.deepEqual(labelLines(doc, undefined, names), ["Moves fluid", "to the loop."]);
+  const named: RenderNode = { ...doc, id: "h", kind: "comment", name: "Safety", detail: "locale \"en\"" };
+  assert.deepEqual(labelLines(named, undefined, names), ["«comment»", "Safety", "locale \"en\"", "Moves fluid", "to the loop."]);
   assert.deepEqual(
     labelLines(node("e", "Plant::pump.mass", { inherited: true, type: "Real" }), ["typings", "keywords"], names),
     ["«part»", "^pump.mass : Real"],

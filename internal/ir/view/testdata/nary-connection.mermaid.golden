@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NaryViews::wheelLinks"
 ---
 %% NaryViews::wheelLinks — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR

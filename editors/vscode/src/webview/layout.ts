@@ -736,11 +736,17 @@ export function labelLines(
   if (node.detail !== "" && draws("compartments")) {
     lines.push(node.detail);
   }
+  if (ANNOTATION_KINDS.has(node.kind) && node.name !== "" && (node.text ?? "") !== "") {
+    lines.push(...(node.text ?? "").split("\n"));
+  }
   if (node.arrow !== undefined) {
     lines.push(ARROW_ROW);
   }
   return lines;
 }
+
+/** The annotation nodes of §8.2.3.4, whose body follows the head and detail even when named. */
+const ANNOTATION_KINDS: ReadonlySet<string> = new Set(["comment", "doc", "rep"]);
 
 /** LabelLineClass is the part of a label a line is: its «kind», its head or a detail line. */
 export type LabelLineClass = "keyword" | "head" | "detail";

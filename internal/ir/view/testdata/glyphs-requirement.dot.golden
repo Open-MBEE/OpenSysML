@@ -16,12 +16,10 @@ digraph "NotationGlyphs::Diagrams::requirementGlyphs" {
     "n1" [style="rounded,filled", label=<<font point-size="10"><i>«requirement»</i></font><br/><b>levelReq</b>>];
     "n2" [style="rounded,filled", label=<<font point-size="10"><i>«requirement»</i></font><br/><b>capacity</b>>];
     "n3" [style="rounded,filled", label=<<font point-size="10"><i>«concern»</i></font><br/><b>safety</b><br/>“Nothing overflows.”>];
-    "n4" [shape=note, label=<<font point-size="10"><i>«doc»</i></font><br/>Nothing overflows.>];
     { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose LevelReq<br/>expose levelReq<br/>expose capacity<br/>expose safety</font>>]; }
     { rank=max; "frame_bl" [shape=none, margin=0, label=<<font point-size="10">filter @SysML::RequirementDefinition or @SysML::RequirementUsage</font>>]; }
   }
   "n0" -> "n3" [label="frame", arrowhead=vee];
   "n1" -> "n0" [arrowhead=onormaldotdot];
   "n2" -> "n1" [label="require", arrowhead=vee];
-  "n4" -> "n3" [dir=none, style=dashed];
 }
