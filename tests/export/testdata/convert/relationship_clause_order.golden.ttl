@@ -29,6 +29,7 @@ elmt:ClauseOrder
 
 elmt:ClauseOrder___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:ClauseOrder ;
     sysx:positionalName "ClauseOrder::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -42,6 +43,7 @@ elmt:ClauseOrder___400
     sysml:importOwningNamespace elmt:ClauseOrder ;
     sysml:visibility "private" ;
     sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
+    sysml:target <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ScalarValues::*;\n" .
 

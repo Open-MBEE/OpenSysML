@@ -15224,7 +15224,11 @@ type RenderNode struct {
 	// The owner the node is drawn or listed under has the usage through typing,
 	// subclassification or subsetting rather than declares it; the notation
 	// prefixes its name with `^`. `name` stays the bare name.
-	Inherited     bool `protobuf:"varint,15,opt,name=inherited,proto3" json:"inherited,omitempty"`
+	Inherited bool `protobuf:"varint,15,opt,name=inherited,proto3" json:"inherited,omitempty"`
+	// Set on an item box drawn on a connection line (a flow, succession flow or
+	// message whose ends are the connection's): "right" when the item goes toward
+	// the line's second end, "left" toward its first. Empty for every other node.
+	Arrow         string `protobuf:"bytes,16,opt,name=arrow,proto3" json:"arrow,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -15362,6 +15366,13 @@ func (x *RenderNode) GetInherited() bool {
 		return x.Inherited
 	}
 	return false
+}
+
+func (x *RenderNode) GetArrow() string {
+	if x != nil {
+		return x.Arrow
+	}
+	return ""
 }
 
 // RenderPort is a feature drawn on a node's border.
@@ -18798,7 +18809,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05notes\x18\t \x03(\v2\x11.sysml.RenderNoteR\x05notes\x12\x18\n" +
 	"\anotices\x18\n" +
 	" \x03(\tR\anotices\x12\x14\n" +
-	"\x05shown\x18\v \x03(\tR\x05shown\"\xcd\x03\n" +
+	"\x05shown\x18\v \x03(\tR\x05shown\"\xe3\x03\n" +
 	"\n" +
 	"RenderNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -18816,7 +18827,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\bgeometry\x18\f \x01(\v2\x15.sysml.RenderGeometryR\bgeometry\x12(\n" +
 	"\x05style\x18\r \x01(\v2\x12.sysml.RenderStyleR\x05style\x12 \n" +
 	"\vcompartment\x18\x0e \x01(\tR\vcompartment\x12\x1c\n" +
-	"\tinherited\x18\x0f \x01(\bR\tinherited\"\x80\x01\n" +
+	"\tinherited\x18\x0f \x01(\bR\tinherited\x12\x14\n" +
+	"\x05arrow\x18\x10 \x01(\tR\x05arrow\"\x80\x01\n" +
 	"\n" +
 	"RenderPort\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +

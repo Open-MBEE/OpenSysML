@@ -261,7 +261,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 // initialSuccessionEnds emits the two connector ends of `first a then b;`: the
 // source the initial node names, the target its successor names.
 func (e *encoder) initialSuccessionEnds(subject rdf.Term, owner string, n *ast.InitialNode) error {
-	source := connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, noCollapse: true}
+	source := connectorEndSpec{owner: owner, slot: "end0", index: 0, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 0), ends: 2, noCollapse: true}
 	if decl, fqn, ok := e.linked(e.res.InitialSymbol(n)); ok {
 		source.targetTerm = e.ids.subjectForNode(decl, fqn)
 	} else {
@@ -270,7 +270,7 @@ func (e *encoder) initialSuccessionEnds(subject rdf.Term, owner string, n *ast.I
 	if err := e.connectorEnd(subject, source); err != nil {
 		return err
 	}
-	return e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, target: n.Successor, mult: n.TargetMultiplicity, noCollapse: true})
+	return e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end1", index: 1, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 1), ends: 2, target: n.Successor, mult: n.TargetMultiplicity, noCollapse: true})
 }
 
 // encodeInitialNode emits `first x;` — a Membership of the member the body
@@ -362,10 +362,10 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 		// multiplicity, even when the preceding member has no referenceable name;
 		// the target end carries the crossing multiplicity `then [m] b;` writes.
 		e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formThen))
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 0), ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
 			return err
 		}
-		target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
+		target := connectorEndSpec{owner: owner, slot: "end1", index: 1, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 1), ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
 		if n.Target != nil {
 			target.target = n.Target
 		} else if _, done := n.TargetMember.(*ast.FinalNode); done {
@@ -655,12 +655,12 @@ func (e *encoder) transitionSuccession(subject rdf.Term, n *ast.TransitionMember
 	e.typed(succession, mSuccession)
 	e.graph.Add(succession, e.sysml(pElementID), rdf.String(rdf.LocalName(succession.Value)))
 	e.graph.Add(subject, e.sysml("succession"), succession)
-	if err := e.connectorEnd(succession, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, noCollapse: true}); err != nil {
+	if err := e.connectorEnd(succession, connectorEndSpec{owner: owner, slot: "end0", index: 0, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 0), ends: 2, empty: true, noCollapse: true}); err != nil {
 		return rdf.Term{}, rdf.Term{}, err
 	}
 	// A chained target (`then b.c`) is the OwnedFeatureChain its end's
 	// reference subsetting owns; a name is the member it resolves to here.
-	target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
+	target := connectorEndSpec{owner: owner, slot: "end1", index: 1, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 1), ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
 	if qualifiedNameHasChain(n.Target) {
 		target.target = n.Target
 	} else {
@@ -1312,8 +1312,10 @@ func (d *decoder) membershipKeyword(el *element) string {
 		return "first"
 	}
 	subject := rdf.IRI(el.iri)
-	if d.graph.HasProperty(subject, rdf.SysML+pMemberName) ||
-		d.graph.HasProperty(subject, rdf.SysML+pMemberShortName) {
+	// Only a plain Membership names its member by alias (KerML.xtext AliasMember);
+	// an end's FeatureMembership states the end's own name.
+	if el.metaclass == mMembership && (d.graph.HasProperty(subject, rdf.SysML+pMemberName) ||
+		d.graph.HasProperty(subject, rdf.SysML+pMemberShortName)) {
 		return "alias"
 	}
 	if member, ok := d.graph.Object(subject, rdf.SysML+pMemberElement); ok {

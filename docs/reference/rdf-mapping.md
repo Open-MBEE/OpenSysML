@@ -1214,7 +1214,15 @@ The rules the tree follows:
   with direction `in`, a `ParameterMembership` in the expression's
   `ownedFeatureMembership`, and a `FeatureValue` membership whose `value` is
   the operand expression. `sysml:parameter`/`sysml:input` identify the
-  parameters, while the JSON annotation preserves their RDF order.
+  parameters, while the JSON annotation preserves their RDF order. An
+  invocation also lists under `parameter` the invoked behavior's parameters no
+  argument binds — `Time::DurationOf::clock` for `DurationOf(o)`, an `out`, a
+  requirement's or case's subject — the `in` ones under `input` too, by the
+  parameter's own identity (KerML 8.3.4.8.8: an invocation's parameters are
+  its function's). The behavior is the overload the arguments select in the
+  scope the name was read in (none when ambiguous), or the Function typing a
+  receiver chain's final link; the decoder rebuilds the call from the owned
+  operands alone.
 - **Metaclasses are the standard ones** where the metamodel names them:
   `LiteralBoolean`, `LiteralInteger`, `LiteralRational`, `LiteralString`,
   `LiteralInfinity`, `NullExpression`, `FeatureReferenceExpression`,
@@ -2188,6 +2196,41 @@ boolean at the implied value (`sysml:isAbstract false` written by hand) keeps
 it: the element lists such members in `"sysx:explicitDefaults": [...]`, and the
 reader takes them as the statements they are. Both keys are reserved for these
 markers — a `sysx:statedDefaults` or `sysx:explicitDefaults` predicate in the
+graph is never written as a fact.
+
+**Derived properties.** The graph states a derived property only where the
+notation's mapping has a reason to (`owner`, `owningNamespace`, a membership's
+ends and names, an expression's `function` and `argument`); the OMG API JSON
+shape states every derived property of the metaclass. The writer completes the
+ones the metamodel evaluator (`internal/semantic/metamodel`) derives from the
+graph and the library, each as its `derive*` constraint of KerML 1.1 §8.3 or
+SysML 2.1 §8.4 defines it — `Element::isLibraryElement`, the element's `name`,
+`shortName`, `owningMembership`, `owningNamespace` and `ownedElement`
+(8.3.2.1.2), a membership's `memberElementId` and an owning membership's
+`ownedMemberElementId`, `ownedMemberName` and `ownedMemberShortName`
+(8.3.2.4.3, 8.3.2.4.8), a namespace's owned memberships, members and imports
+(8.3.2.4.5), a type's `isConjugated`, `multiplicity` and owned specializations,
+feature memberships, features and conjugator (8.3.3.1.10), a feature's
+`owningType`, `owningFeatureMembership`, `featureTarget`, `featuringType`,
+`type` and owned typings, subsettings, redefinitions, chainings (8.3.3.3.4), a
+step's `behavior` and an expression's `function` and `result` (8.3.4.6.3,
+8.3.4.7.3), a multiplicity range's `bound` (8.3.4.11.2), and in SysML a usage's
+and definition's owning, defining and nested/owned usage collections, the
+requirement, case, state, send/accept and flow properties their §8.4
+constraints derive — and lists the keys it completed on the element in
+`"sysx:completedProperties": [...]`; a property the graph states is written as
+stated and not listed. A membership's and an import's `visibility` the graph
+leaves at the metamodel default is completed at it (`public`, 8.3.2.4.3;
+`private`, 8.3.2.4.2) and listed the same way. A property the evaluator cannot
+derive from the graph — one that needs the inherited members of a type whose
+general types the graph does not state, the implied library bases included — is
+not completed: `feature`, `inheritedMembership`, `member` and the collections
+over them stay as the graph states them. Reading, a listed property is
+the writer's completion and states no triple, so the graph read back is the
+graph written; a property no list names — in a document another writer
+produced, or one this list was stripped from — is the statement it looks like. The compact form's `omit_derived` leaves the completed
+properties out with the other derived ones, and the list with them. The key is
+reserved like the two above: a `sysx:completedProperties` predicate in the
 graph is never written as a fact. A graph that is already an external writer's
 element form (one stating `isImpliedIncluded`, which this mapping never does)
 is written as it is: nothing is completed and no marker is set, so the document

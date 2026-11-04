@@ -1454,6 +1454,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.parameterElements(sym, feature); ok {
 		return elems, true
 	}
+	if elems, ok := m.transitionElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1532,7 +1535,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return ends, true
 	case "ownedFeatureChaining":
-		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+		if (sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature) || sym.Chain != nil {
 			return m.OwnedRelationships(sym), true
 		}
 	case "chainingFeature":
@@ -1564,15 +1567,15 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return ownedMembersOf(sym), true
+		return m.withTransitionParts(sym, ownedMembersOf(sym)), true
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.membersIncludingAnonymous(sym), true
+		return m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)), true
 	case "feature":
 		var features []*symbols.Symbol
-		for _, member := range m.membersIncludingAnonymous(sym) {
-			if member.IsFeature() {
+		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
+			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
 		}
@@ -1638,8 +1641,8 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return []*symbols.Symbol{}, true
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
-		for _, member := range ownedMembersOf(sym) {
-			if member.IsFeature() {
+		for _, member := range m.withTransitionParts(sym, ownedMembersOf(sym)) {
+			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
 		}
@@ -1854,7 +1857,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		members = append(members, value)
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
-	members = append(members, ownedMembersOf(sym)...)
+	members = append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2061,6 +2064,8 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 			return ast.DirIn, true
 		case symbols.ExpressionResult:
 			return ast.DirOut, true
+		case symbols.ExpressionPayload:
+			return ast.DirIn, true
 		}
 		return ast.DirNone, true
 	}
@@ -2148,6 +2153,11 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return value, true
 		}
 	}
+	if feature == "kind" && isExpressionSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper {
+		if kind := triggerKind(sym.Decl); kind != "" {
+			return m.enumLiteralValue(m.sysmlMetaclass("TriggerKind"), kind)
+		}
+	}
 	if sym.Expr != nil && !isExpressionParameterSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper &&
 		sym.Expr.Role != symbols.ExpressionChainFeature {
 		// A parameter shares its expression's node but states none of its values.
@@ -2202,18 +2212,18 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		if direction == ast.DirNone {
 			return emptyValue(), true
 		}
-		return stringOrEmpty(direction.String()), true
+		return m.enumLiteralOrEmpty(m.kermlMetaclass("FeatureDirectionKind"), direction.String()), true
 	case "portionKind":
 		if !m.reflectiveMetaclassConforms(sym, "OccurrenceUsage") {
 			return symbols.FilterValue{}, false
 		}
+		portion := ""
 		if sym.Recorded() {
-			return stringOrEmpty(sym.Facts.Portion.Keyword()), true
+			portion = sym.Facts.Portion.Keyword()
+		} else if usage, ok := sym.Decl.(*ast.Usage); ok {
+			portion = usage.Portion.Keyword()
 		}
-		if usage, ok := sym.Decl.(*ast.Usage); ok {
-			return stringOrEmpty(usage.Portion.Keyword()), true
-		}
-		return emptyValue(), true
+		return m.enumLiteralOrEmpty(m.sysmlMetaclass("PortionKind"), portion), true
 	}
 	if feature == "isAbstract" && sym.Recorded() && sym.Kind.IsDefinition() {
 		return boolValue(sym.Facts.Abstract || IsVariation(sym)), true

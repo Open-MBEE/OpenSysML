@@ -171,6 +171,7 @@ type Model struct {
 	memberships      map[*symbols.Symbol][]*symbols.Symbol
 	valueExpressions map[*symbols.Symbol]*symbols.Symbol
 	expressionParts  map[*symbols.Symbol]*expressionParts
+	transitionParts  map[*symbols.Symbol]*transitionParts
 	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports     map[*symbols.Symbol][]*symbols.Symbol

@@ -47,6 +47,8 @@ var implicitUsageBases = map[ast.UsageKind]string{
 	ast.UsageActor:            partsFQN,
 	ast.UsageStakeholder:      partsFQN,
 	ast.UsageConnection:       "Connections::connections",
+	ast.UsageBinding:          "Links::selfLinks",
+	ast.UsageSuccession:       "Occurrences::happensBeforeLinks",
 	ast.UsagePort:             "Ports::ports",
 	ast.UsageInterface:        "Interfaces::interfaces",
 	ast.UsageAllocation:       "Allocations::allocations",
@@ -166,7 +168,7 @@ var implicitKerMLFeatureBases = map[string]string{
 	"predicate":   "Performances::booleanEvaluations",
 	"bool":        "Performances::booleanEvaluations",
 	"inv":         "Performances::trueEvaluations",
-	"interaction": "Transfers::transfers",
+	"interaction": performancesFQN,
 	"flow":        "Transfers::flowTransfers",
 	"metaclass":   "Objects::objects", // a Metaclass is a Structure; only a MetadataFeature subsets metaobjects
 }
@@ -643,14 +645,19 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 	visiting[sym] = true
 	defer delete(visiting, sym)
 
+	// A semantic metadata keyword specializes its baseType as a declared
+	// generalization would (SysML v2 §7.27.3), so it displaces the base too.
+	var targets []*symbols.Symbol
 	for _, rel := range RelationshipsOf(sym) {
-		if rel == nil || !GeneralizationKind(rel.Kind) {
-			continue
+		if rel != nil && GeneralizationKind(rel.Kind) {
+			targets = append(targets, m.relationshipTarget(sym, rel))
 		}
-		target := m.relationshipTarget(sym, rel)
+	}
+	targets = append(targets, m.semanticMetadataBases(sym)...)
+	for _, target := range targets {
 		// A declaration on the path back to itself is a cycle, not a path to
 		// the base, so it does not displace the implicit one.
-		if target == nil || visiting[target] {
+		if target == nil || target == sym || visiting[target] {
 			continue
 		}
 		sameBase := m.resolver.Index() != nil && symbols.HasFQN(target, want)

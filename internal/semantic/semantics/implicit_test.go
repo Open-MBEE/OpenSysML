@@ -42,13 +42,12 @@ func TestImplicitBaseResolvesThroughIndex(t *testing.T) {
 }
 
 // TestUsageKindsWithoutImplicitBase pins the kinds deliberately left out of the
-// mapping: connector, succession, binding, satisfy, subject and objective
-// take their type from the element they relate to, and the KerML structural
-// kinds are definitions in usage position.
+// mapping: connector, satisfy, subject and objective take their type from the
+// element they relate to, and the KerML structural kinds are definitions in
+// usage position.
 func TestUsageKindsWithoutImplicitBase(t *testing.T) {
 	for _, k := range []ast.UsageKind{
-		ast.UsageConnector, ast.UsageSuccession, ast.UsageBinding,
-		ast.UsageSatisfy, ast.UsageSubject, ast.UsageObjective, ast.UsageInteraction,
+		ast.UsageConnector, ast.UsageSatisfy, ast.UsageSubject, ast.UsageObjective, ast.UsageInteraction,
 		ast.UsageBehavior, ast.UsageAssoc, ast.UsageStruct, ast.UsageClass,
 		ast.UsagePredicate, ast.UsageBool,
 	} {
@@ -102,6 +101,8 @@ func TestBaseFeatureTypesForUsageBases(t *testing.T) {
 		"Views::renderings":                    {"Views::Rendering"},
 		"Requirements::concernChecks":          {"Requirements::ConcernCheck"},
 		"Connections::connections":             {"Connections::Connection"},
+		"Links::selfLinks":                     {"Links::SelfLink"},
+		"Occurrences::happensBeforeLinks":      {"Occurrences::HappensBefore"},
 		"Ports::ports":                         {"Ports::Port"},
 		"Interfaces::interfaces":               {"Interfaces::Interface"},
 		"Allocations::allocations":             {"Allocations::Allocation"},
@@ -625,5 +626,27 @@ func TestKerMLBinaryBaseFollowsEffectiveEnds(t *testing.T) {
 				t.Fatalf("supertypes of %s = %v, want %v", tc.name, got, tc.want)
 			}
 		})
+	}
+}
+
+// A feature typed by an interaction subsets Performances::performances, the
+// base of what an interaction is (KerML 1.1 §7.4.10.2); only a flow subsets
+// Transfers::transfers (§8.4.4 checkFlowSpecialization).
+func TestW7AInteractionTypedFeatureSubsetsPerformances(t *testing.T) {
+	m, root := buildModelNamed(t, "t.kerml", `package Base { abstract feature things; }
+	package Performances { abstract step performances; classifier Performance; }
+	package Transfers { abstract step transfers; }
+	package P { interaction I; step s : I; feature f : I; }`)
+	performances, _ := sym(t, root, "Performances").Scope.LookupLocal("performances")
+	transfers, _ := sym(t, root, "Transfers").Scope.LookupLocal("transfers")
+	p := sym(t, root, "P").Scope
+	for _, name := range []string{"s", "f"} {
+		f := sym(t, p, name)
+		if got := m.implicitKerMLFeatureBase(f); got != performances {
+			t.Errorf("%s: implicit feature base = %v, want Performances::performances", name, got)
+		}
+		if m.Conforms(f, transfers) {
+			t.Errorf("%s: a feature typed by an interaction is not a Transfers::transfers", name)
+		}
 	}
 }

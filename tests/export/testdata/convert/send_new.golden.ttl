@@ -193,6 +193,7 @@ elmt:SendNew__Radio_conjugated_om
     sysml:source elmt:SendNew__Radio ;
     sysml:target elmt:SendNew__Radio_conjugated ;
     sysml:relatedElement elmt:SendNew__Radio, elmt:SendNew__Radio_conjugated ;
+    sysml:memberName "~Radio" ;
     json:relatedElement "[{\"@id\":\"SendNew__Radio\"},{\"@id\":\"SendNew__Radio_conjugated\"}]" .
 
 elmt:SendNew__Radio_conjugated_pc

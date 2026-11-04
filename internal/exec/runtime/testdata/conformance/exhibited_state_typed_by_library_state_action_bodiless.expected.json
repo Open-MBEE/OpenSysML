@@ -2,5 +2,5 @@
   "type": "instance",
   "libraries": true,
   "instantiate": "test::Mission",
-  "error": "exhibited state machine phases of Mission: no initial state found in state machine StateAction"
+  "startFailures": ["exhibited state machine phases of Mission: no initial state found in state machine StateAction"]
 }

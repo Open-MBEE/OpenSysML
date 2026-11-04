@@ -30,7 +30,8 @@ func (m *Model) reflectiveOwnedUsages(sym *symbols.Symbol, feature string) ([]*s
 	switch {
 	case sym.DeclaresUsage() || m.metaclassConforms(sym, sysmlMetaclassPrefix+"Usage"):
 		prefix = "nested"
-	case sym.DeclaresDefinition():
+	case sym.DeclaresDefinition() || m.metaclassConforms(sym, sysmlMetaclassPrefix+"Definition"):
+		// A definition declared or implied, as the ConjugatedPortDefinition a port definition owns.
 		prefix = "owned"
 	default:
 		return nil, false

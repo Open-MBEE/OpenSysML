@@ -41,7 +41,7 @@ func isExpressionSymbol(sym *symbols.Symbol) bool {
 	}
 	switch sym.Expr.Role {
 	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition,
-		symbols.ExpressionBody, symbols.ExpressionBodyResult:
+		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard:
 		return true
 	}
 	return false
@@ -57,6 +57,10 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "FeatureReferenceExpression"
 		case symbols.ExpressionBody:
 			return "Expression"
+		case symbols.ExpressionTriggerAction:
+			return "AcceptActionUsage"
+		case symbols.ExpressionPayload:
+			return "ReferenceUsage"
 		}
 	}
 	if isSatisfySubjectChainValue(sym) {
@@ -309,6 +313,13 @@ func (m *Model) expressionOwnedElements(expr *symbols.Symbol) []*symbols.Symbol 
 // expressionOwnedParts are the elements expr owns, parameters first then the
 // result, as the conversion lists them.
 func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
+	if accept := m.acceptParts(expr); accept != nil {
+		// A trigger's accept owns its payload; the payload's value is its FeatureValue's, not a part.
+		if expr.Expr.Role == symbols.ExpressionPayload {
+			return nil
+		}
+		return optionalElement(accept.payload)
+	}
 	parts := m.expressionPartsOf(expr)
 	if parts == nil {
 		return nil
@@ -367,7 +378,16 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	var out []*symbols.Symbol
-	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
+	if parts := m.acceptParts(sym); parts != nil {
+		// A trigger's accept owns its payload parameter, which owns its value.
+		member := parts.payload
+		if sym.Expr.Role == symbols.ExpressionPayload {
+			member = parts.payloadValue
+		}
+		if member != nil {
+			out = appendOwningMembership(out, sym, member)
+		}
+	} else if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
 		// The wrapper owns its condition through a FeatureMembership, then its result.
 		parts := m.expressionPartsOf(sym)
 		out = appendOwningMembership(out, sym, parts.condition)
@@ -444,6 +464,9 @@ func appendOwningMembership(out []*symbols.Symbol, owner, member *symbols.Symbol
 // the element name resolves to, at slot; nothing while the name is unresolved.
 func (m *Model) appendReferenceMembership(out []*symbols.Symbol, owner *symbols.Symbol, slot string, name *ast.QualifiedName) []*symbols.Symbol {
 	target := m.referencedSymbol(name)
+	if target == nil {
+		target = m.subjectValueTarget(owner)
+	}
 	if target == nil {
 		return out
 	}
@@ -554,14 +577,12 @@ func referenceMembershipElements(sym *symbols.Symbol, feature string) ([]*symbol
 }
 
 // referenceMembershipValue is reflectiveFeatureValue for a plain Membership an
-// expression owns: its member's names, and the public visibility the
-// conversion leaves unstated (KerML 8.3.2.5 Membership::visibility default).
+// expression owns: no member names — only an alias specifies a plain Membership's (KerML 8.3.2.3.5,
+// 8.2.5.8.3 FeatureReferenceMember) — and the public visibility the conversion leaves unstated.
 func (m *Model) referenceMembershipValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {
 	switch feature {
-	case "memberName":
-		return stringOrEmpty(SimpleSymbolName(sym.Implicit.Member)), true
-	case "memberShortName":
-		return stringOrEmpty(m.EffectiveShortNameOf(sym.Implicit.Member)), true
+	case "memberName", "memberShortName":
+		return emptyValue(), true
 	case "visibility":
 		return m.visibilityValue(ast.VisibilityPublic), true
 	}
@@ -763,9 +784,13 @@ func (m *Model) ExpressionChainFeature(expr *symbols.Symbol) *symbols.Symbol {
 // (qualifiedChainReferences); a segment resolving to nothing owns none.
 func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol {
 	_, links, _ := m.expressionChainOf(chain.Expr.Owner)
+	path := m.subjectValuePath(chain.Expr.Owner, len(links))
 	var out []*symbols.Symbol
-	for _, link := range links {
+	for i, link := range links {
 		target := m.referencedSymbol(link)
+		if target == nil && path != nil {
+			target = path[i]
+		}
 		if target == nil {
 			continue
 		}
@@ -809,4 +834,41 @@ func featureChainingElements(sym *symbols.Symbol, feature string) ([]*symbols.Sy
 		return []*symbols.Symbol{}, true
 	}
 	return nil, false
+}
+
+// subjectValueRelationship is the `by` clause whose value expr is, and the satisfy usage
+// writing it — resolved on demand, as every written relationship is; nil for any other expression.
+func subjectValueRelationship(expr *symbols.Symbol) (*symbols.Symbol, *ast.Relationship) {
+	if expr == nil || expr.Expr == nil || expr.Expr.Role != symbols.ExpressionValue || !isSatisfySubjectSymbol(expr.Expr.Owner) {
+		return nil, nil
+	}
+	subject := expr.Expr.Owner
+	rel, ok := subject.Decl.(*ast.Relationship)
+	if !ok || subject.OwnerScope == nil {
+		return nil, nil
+	}
+	return subject.OwnerScope.Owner(), rel
+}
+
+// subjectValueTarget is the feature a satisfy subject's plain `by f` value names.
+func (m *Model) subjectValueTarget(expr *symbols.Symbol) *symbols.Symbol {
+	satisfy, rel := subjectValueRelationship(expr)
+	if satisfy == nil {
+		return nil
+	}
+	return m.RelationshipTarget(satisfy, rel)
+}
+
+// subjectValuePath is the features a satisfy subject's `by a.b` value chains, outermost
+// first; nil unless the chain resolves to exactly links features.
+func (m *Model) subjectValuePath(expr *symbols.Symbol, links int) []*symbols.Symbol {
+	satisfy, rel := subjectValueRelationship(expr)
+	if satisfy == nil {
+		return nil
+	}
+	path := m.ChainTargetPath(satisfy, rel.Kind, rel.Target)
+	if len(path) != links {
+		return nil
+	}
+	return path
 }

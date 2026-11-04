@@ -83,19 +83,19 @@
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
         "files": 16,
-        "digest": "sha256:4f350c5a695cda953e0fb8f1b9b273c998f57480b9770bf063b6ca51a96cdf13"
+        "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-01"
+    "recorded": "2026-11-04"
   },
   "totals": {
     "files": 924,
-    "filesFullyAgreeing": 522,
+    "filesFullyAgreeing": 524,
     "agreement": 1102,
     "severityMismatch": 11,
-    "openSysMLOnly": 359,
+    "openSysMLOnly": 122,
     "pilotOnly": 2462,
-    "openSysMLDiagnostics": 1472,
+    "openSysMLDiagnostics": 1235,
     "pilotDiagnostics": 3575
   },
   "roots": [
@@ -134,12 +134,12 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "totals": {
         "files": 99,
-        "filesFullyAgreeing": 88,
+        "filesFullyAgreeing": 89,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 257,
+        "openSysMLOnly": 34,
         "pilotOnly": 10,
-        "openSysMLDiagnostics": 257,
+        "openSysMLDiagnostics": 34,
         "pilotDiagnostics": 10
       },
       "files": [
@@ -167,20 +167,6 @@
               "severity": "warning",
               "category": "units",
               "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
-        {
-          "path": "Arrowhead Framework Example/AHFNorwayTopics.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 8,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 2
             }
           ],
           "pilotOnly": []
@@ -329,24 +315,6 @@
           "severityMismatch": [],
           "openSysMLOnly": [
             {
-              "line": 150,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 187,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 613,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 42
-            },
-            {
               "line": 659,
               "severity": "error",
               "category": "unresolved-reference",
@@ -371,12 +339,6 @@
               "count": 1
             },
             {
-              "line": 678,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 42
-            },
-            {
               "line": 686,
               "severity": "error",
               "category": "unresolved-reference",
@@ -387,12 +349,6 @@
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
-            },
-            {
-              "line": 730,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
             }
           ],
           "pilotOnly": []
@@ -402,18 +358,6 @@
           "agreement": [],
           "severityMismatch": [],
           "openSysMLOnly": [
-            {
-              "line": 501,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 8
-            },
-            {
-              "line": 1020,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 42
-            },
             {
               "line": 1094,
               "severity": "error",
@@ -499,12 +443,6 @@
               "count": 1
             },
             {
-              "line": 1203,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 42
-            },
-            {
               "line": 1216,
               "severity": "error",
               "category": "unresolved-reference",
@@ -515,12 +453,6 @@
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
-            },
-            {
-              "line": 1312,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 42
             },
             {
               "line": 1472,
@@ -552,12 +484,12 @@
       ],
       "errataTotals": {
         "files": 99,
-        "filesFullyAgreeing": 89,
+        "filesFullyAgreeing": 90,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 256,
+        "openSysMLOnly": 33,
         "pilotOnly": 10,
-        "openSysMLDiagnostics": 256,
+        "openSysMLDiagnostics": 33,
         "pilotDiagnostics": 10
       }
     },
@@ -566,40 +498,20 @@
       "dir": "examples/pilot-corpora/sysml-validation",
       "totals": {
         "files": 56,
-        "filesFullyAgreeing": 54,
+        "filesFullyAgreeing": 55,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 11,
+        "openSysMLOnly": 3,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 11,
+        "openSysMLDiagnostics": 3,
         "pilotDiagnostics": 0
       },
       "files": [
-        {
-          "path": "04-Functional Allocation/4a-Functional Allocation.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 3,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 2
-            }
-          ],
-          "pilotOnly": []
-        },
         {
           "path": "13-Model Containment/13a-Model Containment.sysml",
           "agreement": [],
           "severityMismatch": [],
           "openSysMLOnly": [
-            {
-              "line": 3,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 6
-            },
             {
               "line": 21,
               "severity": "error",
@@ -631,9 +543,9 @@
         "filesFullyAgreeing": 55,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 16,
+        "openSysMLOnly": 12,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 16,
+        "openSysMLDiagnostics": 12,
         "pilotDiagnostics": 0
       },
       "files": [
@@ -713,12 +625,6 @@
           "severityMismatch": [],
           "openSysMLOnly": [
             {
-              "line": 33,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 3
-            },
-            {
               "line": 35,
               "severity": "error",
               "category": "unresolved-reference",
@@ -728,12 +634,6 @@
               "line": 36,
               "severity": "error",
               "category": "unresolved-reference",
-              "count": 1
-            },
-            {
-              "line": 42,
-              "severity": "warning",
-              "category": "unmapped",
               "count": 1
             },
             {
@@ -17115,9 +17015,9 @@
         "filesFullyAgreeing": 25,
         "agreement": 60,
         "severityMismatch": 5,
-        "openSysMLOnly": 13,
+        "openSysMLOnly": 11,
         "pilotOnly": 36,
-        "openSysMLDiagnostics": 78,
+        "openSysMLDiagnostics": 76,
         "pilotDiagnostics": 101
       },
       "files": [
@@ -17834,21 +17734,9 @@
           "severityMismatch": [],
           "openSysMLOnly": [
             {
-              "line": 6,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
               "line": 7,
               "severity": "error",
               "category": "unresolved-reference",
-              "count": 1
-            },
-            {
-              "line": 13,
-              "severity": "warning",
-              "category": "unmapped",
               "count": 1
             }
           ],
@@ -18384,221 +18272,6 @@
     },
     {
       "side": "opensysml",
-      "message": "Duplicate of imported member name '1': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::Requirements::vehicleSpecification::vehicleMassRequirement (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::Requirements::engineSpecification::engineMassRequirement (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'amplifyTorque': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::transmission::amplifyTorque (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::ActionTree::providePower::amplifyTorque (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'applyParkingBrake': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::applyParkingBrake (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::ActionTree::applyParkingBrake (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'cruiseControlPort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::vehicleSoftware::vehicleController::cruiseController::cruiseControlPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::vehicleSoftware::vehicleController::cruiseController::cruiseControlPort (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'cruiseController': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::vehicleSoftware::vehicleController::cruiseController (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::vehicleSoftware::vehicleController::cruiseController (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::vehicleSoftware::vehicleController::cruiseController (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'diameter': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel1::diameter (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel2::diameter (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'distributeTorque': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::distributeTorque (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::ActionTree::providePower::distributeTorque (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'engine': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::engine (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::engine (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::engine (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'es': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::startVehicle::sendStatus::es (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::startVehicle::trigger2::es (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'fuelCmd': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::fuelCmdPort::fuelCmd (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::ActionTree::providePower::fuelCmd (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'fuelCmdPort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::fuelCmdPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::engine::fuelCmdPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::engine::fuelCmdPort (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'fuelMassMax': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::fuelTank::fuelMassMax (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::Requirements::vehicleSpecification::vehicleMassRequirement::fuelMassMax (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'generateTorque': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::engine::generateTorque (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::ActionTree::providePower::generateTorque (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'ignitionCmd': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::startVehicle::turnVehicleOn::ignitionCmd (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::startVehicle::trigger1::ignitionCmd (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'lugNutCompositePort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel1::lugNutCompositePort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel2::lugNutCompositePort (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'lugNutPort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel1::lugNutCompositePort::lugNutPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel2::lugNutCompositePort::lugNutPort (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'mass': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::mass (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::fuelTank::mass (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::frontAxleAssembly::mass (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::mass (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::transmission::mass (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::driveshaft::mass (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'massActual': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::Requirements::vehicleSpecification::vehicleMassRequirement::massActual (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::Requirements::engineSpecification::engineMassRequirement::massActual (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'massRequired': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::Requirements::vehicleSpecification::vehicleMassRequirement::massRequired (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::Requirements::engineSpecification::engineMassRequirement::massRequired (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'performSelfTest': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::performSelfTest (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::ActionTree::performSelfTest (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'providePower': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::providePower (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::ActionTree::providePower (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'requiredFuelEconomy': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::Requirements::vehicleSpecification::vehicleFuelEconomyRequirements::cityFuelEconomyRequirement::requiredFuelEconomy (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::Requirements::vehicleSpecification::vehicleFuelEconomyRequirements::highwayFuelEconomyRequirement::requiredFuelEconomy (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'sendFuelCmd': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::sendFuelCmd (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::sendFuelCmd (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'sendSensedSpeed': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::sendSensedSpeed (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::sendSensedSpeed (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'sendStatus': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::startVehicle::sendStatus (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::vehicle::sendStatus (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'senseTemperature': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::senseTemperature (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::ActionTree::senseTemperature (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'setSpeedPort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::setSpeedPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::setSpeedPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::vehicleSoftware::vehicleController::cruiseController::setSpeedPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::setSpeedPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::vehicleSoftware::vehicleController::cruiseController::setSpeedPort (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'setSpeedReceived': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::setSpeedPort::setSpeedReceived (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::vehicleSoftware::vehicleController::cruiseController::setSpeedPort::setSpeedReceived (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::setSpeedPort::setSpeedReceived (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::vehicleSoftware::vehicleController::cruiseController::setSpeedPort::setSpeedReceived (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::vehicleSoftware::vehicleController::cruiseController::speedSensorPort::setSpeedReceived (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'shaftPort_d': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::frontAxleAssembly::shaftPort_d (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::shaftPort_d (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::differential::shaftPort_d (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'shankCompositePort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearAxle::leftHalfAxle::shankCompositePort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearAxle::rightHalfAxle::shankCompositePort (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'shankPort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearAxle::leftHalfAxle::shankCompositePort::shankPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearAxle::rightHalfAxle::shankCompositePort::shankPort (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'speedSensor': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::speedSensor (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::speedSensor (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::speedSensor (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'speedSensorPort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::speedSensor::speedSensorPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::vehicleSoftware::vehicleController::cruiseController::speedSensorPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::speedSensor::speedSensorPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::vehicleSoftware::vehicleController::cruiseController::speedSensorPort (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'transferTorque': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::driveshaft::transferTorque (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::ActionTree::providePower::transferTorque (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'trigger1': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::startVehicle::trigger1 (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::vehicle::trigger1 (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'trigger2': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::startVehicle::trigger2 (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::driver::trigger2 (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'turnVehicleOn': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::startVehicle::turnVehicleOn (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::driver::turnVehicleOn (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'vehicle': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::Sequence::part0::vehicle (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::Requirements::vehicleSpecification::vehicle (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'vehicleController': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::vehicleSoftware::vehicleController (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::vehicleSoftware::vehicleController (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::vehicleSoftware::vehicleController (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'vehicleSoftware': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::vehicleSoftware (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b::vehicleSoftware (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b::vehicleSoftware (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'vehicle_b': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl1::vehicle_b (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::DiscreteInteractions::CruiseControl2::vehicle_b (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'wheelToRoadPort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel1::wheelToRoadPort (import VehicleConfigurations::VehicleConfiguration_b::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel2::wheelToRoadPort (import VehicleConfigurations::VehicleConfiguration_b::**)",
-      "count": 5
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'mass': Annex_A_VehicleViews::VehiclePartDef::Vehicle::mass (import VehiclePartDef::Vehicle::*), Annex_A_VehicleViews::FuelTankPartDef::FuelTank::mass (import FuelTankPartDef::FuelTank::*)",
-      "count": 3
-    },
-    {
-      "side": "opensysml",
       "message": "comparing String with Natural is always false",
       "count": 3
     },
@@ -18700,126 +18373,6 @@
     {
       "side": "opensysml",
       "message": "C3 participates in a specialization cycle",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'A': Imports::P::A (import P::*), Imports::Q::A (import Q::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'A': Imports::P::A (import P::*), Imports::Q::A (import R::*)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'ClutchPort': '2a-Parts Interconnection'::Definitions::ClutchPort (import '2a-Parts Interconnection'::*), '8-Requirements'::'Vehicle Definitions'::ClutchPort (import '8-Requirements'::*)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'D': Imports::Q::D (import Q::**), Imports::Q::Q1::D (import Q::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'Definitions': '2a-Parts Interconnection'::Definitions (import '2a-Parts Interconnection'::*), '3a-Function-based Behavior-1'::Definitions (import '3a-Function-based Behavior-1'::*)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'DrivePwrPort': '2a-Parts Interconnection'::Definitions::DrivePwrPort (import '2a-Parts Interconnection'::*), '8-Requirements'::'Vehicle Definitions'::DrivePwrPort (import '8-Requirements'::*)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'E': Imports::Q::D::E (import Q::**), Imports::Q::Q1::E (import Q::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'Engine': '2a-Parts Interconnection'::Definitions::Engine (import '2a-Parts Interconnection'::*), '8-Requirements'::'Vehicle Definitions'::Engine (import '8-Requirements'::*)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'Engine': ImportsA::Engine (import ImportsA::*), ImportsB::Engine (import ImportsB::*)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'EngineToTransmissionInterface': '2a-Parts Interconnection'::Definitions::EngineToTransmissionInterface (import '2a-Parts Interconnection'::*), '8-Requirements'::'Vehicle Definitions'::EngineToTransmissionInterface (import '8-Requirements'::*)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'Transmission': '2a-Parts Interconnection'::Definitions::Transmission (import '2a-Parts Interconnection'::*), '8-Requirements'::'Vehicle Definitions'::Transmission (import '8-Requirements'::*)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'Usages': '2a-Parts Interconnection'::Usages (import '2a-Parts Interconnection'::*), '3a-Function-based Behavior-1'::Usages (import '3a-Function-based Behavior-1'::*)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'authorisation': AHFCoreLib::ArrowheadCore::authorization::authorisation (import AHFCoreLib::**), AHFCoreLib::ArrowheadCore::authorization_DD::authorisation (import AHFCoreLib::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'diameter': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel1::diameter (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel2::diameter (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'lugNutCompositePort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel1::lugNutCompositePort (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel2::lugNutCompositePort (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'lugNutPort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel1::lugNutCompositePort::lugNutPort (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel2::lugNutCompositePort::lugNutPort (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'mass': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::mass (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::fuelTank::mass (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::frontAxleAssembly::mass (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::mass (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::transmission::mass (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::driveshaft::mass (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'serviceDiscovery': AHFCoreLib::ArrowheadCore::service_registry::serviceDiscovery (import AHFCoreLib::**), AHFCoreLib::ArrowheadCore::service_registry_DD::serviceDiscovery (import AHFCoreLib::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'shaftPort_d': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::frontAxleAssembly::shaftPort_d (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::shaftPort_d (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::differential::shaftPort_d (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'shankCompositePort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearAxle::leftHalfAxle::shankCompositePort (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearAxle::rightHalfAxle::shankCompositePort (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'shankPort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearAxle::leftHalfAxle::shankCompositePort::shankPort (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearAxle::rightHalfAxle::shankCompositePort::shankPort (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'vb': ImportsV::ImportsP::vb (import ImportsV::**), ImportsV::ImportsR::vb (import ImportsV::**)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'vehicle1_c1': '2a-Parts Interconnection'::Usages::vehicle1_c1 (import '2a-Parts Interconnection'::*), '8-Requirements'::'Vehicle Usages'::vehicle1_c1 (import '8-Requirements'::*)",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "Duplicate of imported member name 'wheelToRoadPort': SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel1::wheelToRoadPort (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**), SimpleVehicleModel::VehicleConfigurations::VehicleConfiguration_b::PartsTree::vehicle_b::rearAxleAssembly::rearWheel2::wheelToRoadPort (import VehicleConfigurations::VehicleConfiguration_b::PartsTree::**)",
       "count": 1
     },
     {
@@ -25486,12 +25039,12 @@
     ],
     "totals": {
       "files": 924,
-      "filesFullyAgreeing": 523,
+      "filesFullyAgreeing": 525,
       "agreement": 1102,
       "severityMismatch": 11,
-      "openSysMLOnly": 358,
+      "openSysMLOnly": 121,
       "pilotOnly": 2462,
-      "openSysMLDiagnostics": 1471,
+      "openSysMLDiagnostics": 1234,
       "pilotDiagnostics": 3575
     },
     "findings": [

@@ -88,8 +88,10 @@ func (ctx *Context) checkOnWith(element *symbols.Symbol, kind, name string, carr
 // it may stand for the shape. kind is how element is checked; name is how it is named
 // in self's messages.
 func (ctx *Context) checkShared(element *symbols.Symbol, kind, name string, self *Instance, check func() (CheckResult, error)) (CheckResult, error) {
+	// A failed behavior may write what another object of the shape reads as
+	// declared, so no verdict stands for the shape while one is on record.
 	memo := ctx.verdicts
-	if memo == nil || !ctx.sharing() || element == nil || self == nil {
+	if memo == nil || !ctx.sharing() || element == nil || self == nil || ctx.hasFailedBehavior() {
 		return check()
 	}
 	shape := ctx.shapeOf(self)

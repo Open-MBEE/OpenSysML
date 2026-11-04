@@ -36,7 +36,7 @@ const stepParameterFixture = `package test {
 func TestRuntimeRobustnessStepParameter(t *testing.T) {
 	t.Run("nested_pin_reads_the_steps_parameter_at_model_level", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stepParameterFixture))
-		self, err := ctx.Instantiate(oneSymbol(t, idx, "test::context"))
+		self, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::context"))
 		if err != nil {
 			t.Fatalf("Instantiate context: %v", err)
 		}
@@ -64,7 +64,7 @@ func TestRuntimeRobustnessStepParameter(t *testing.T) {
 
 	t.Run("explicit_redefinition_reads_the_same", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stepParameterFixture))
-		self, err := ctx.Instantiate(oneSymbol(t, idx, "test::explicit"))
+		self, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::explicit"))
 		if err != nil {
 			t.Fatalf("Instantiate explicit: %v", err)
 		}
@@ -75,7 +75,7 @@ func TestRuntimeRobustnessStepParameter(t *testing.T) {
 
 	t.Run("unsupplied_step_parameter_is_a_typed_error", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stepParameterFixture))
-		_, err := ctx.Instantiate(oneSymbol(t, idx, "test::unsupplied"))
+		_, err := instantiateReporting(ctx, oneSymbol(t, idx, "test::unsupplied"))
 		if err == nil {
 			t.Fatal("Instantiate unsupplied: err = nil, want the output default failing over an unbound gauge")
 		}

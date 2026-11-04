@@ -768,7 +768,7 @@ func (tc *typeChecker) checkConjugatedTyping(scope *symbols.Scope, rel *ast.Rela
 }
 
 func compatMessage(decl declKind, rel ast.RelationshipKind, target symbols.SymbolKind) string {
-	isDef, defKind, useKind, direction := decl.isDef, decl.defKind, decl.useKind, decl.direction
+	isDef, defKind, useKind := decl.isDef, decl.defKind, decl.useKind
 	switch rel {
 	case ast.RelSpecializes:
 		want := defSymbolKind(defKind)
@@ -856,7 +856,7 @@ func compatMessage(decl declKind, rel ast.RelationshipKind, target symbols.Symbo
 		if decl.isOccurrenceUsage() && isDataTypeDefKind(target) {
 			return fmt.Sprintf("%s usage cannot be typed by %s (an occurrence usage may not be typed by a data type)", decl.occurrenceModifier(), target)
 		}
-		if !isCompatibleTyping(useKind, direction, target, decl.isOccurrenceUsage()) {
+		if !isCompatibleTyping(useKind, target, decl.isOccurrenceUsage()) {
 			return fmt.Sprintf("%s cannot be typed by %s (kind mismatch)", useKind, target)
 		}
 	case ast.RelReferences, ast.RelIncludes, ast.RelCrosses, ast.RelVia, ast.RelSubject:
@@ -1140,90 +1140,16 @@ func isTypeKind(k symbols.SymbolKind) bool {
 	return k == symbols.SymbolUnknown || typeSymbolKinds[k]
 }
 
-// occurrenceDefSymbolKinds is the set of SymbolKinds that classify a definition
-// that is an OccurrenceDefinition in the SysML v2 abstract syntax (§8.3.9.3):
-// the occurrence definition itself, an individual definition, and every kind
-// whose metaclass directly or indirectly specializes OccurrenceDefinition —
-// items and parts (§8.3.10.2, §8.3.11.2), ports (§8.3.12.5), connections with
-// their interface and allocation specializations (§8.3.13.3, §8.3.14.2,
-// §8.3.15.2), actions and everything derived from them (§8.3.16.2, §8.3.17.3,
-// §8.3.18.5, §8.3.19.2, §8.3.22.2, §8.3.23.2, §8.3.24.3, §8.3.25.3),
-// constraints and requirements (§8.3.20.3, §8.3.21.3, §8.3.21.8, §8.3.26.8),
-// views and renderings (§8.3.26.7, §8.3.26.5) and metadata definitions
-// (§8.3.27.2). Attribute and enumeration definitions are data types, not
-// occurrence definitions (§8.3.7.2, §8.3.8.2).
-var occurrenceDefSymbolKinds = map[symbols.SymbolKind]bool{
-	symbols.SymbolOccurrenceDef:       true,
-	symbols.SymbolIndividualDef:       true,
-	symbols.SymbolItemDef:             true,
-	symbols.SymbolPartDef:             true,
-	symbols.SymbolPortDef:             true,
-	symbols.SymbolConnectionDef:       true,
-	symbols.SymbolInterfaceDef:        true,
-	symbols.SymbolAllocationDef:       true,
-	symbols.SymbolFlowDef:             true,
-	symbols.SymbolActionDef:           true,
-	symbols.SymbolStateDef:            true,
-	symbols.SymbolCalcDef:             true,
-	symbols.SymbolCaseDef:             true,
-	symbols.SymbolAnalysisCaseDef:     true,
-	symbols.SymbolVerificationCaseDef: true,
-	symbols.SymbolUseCaseDef:          true,
-	symbols.SymbolConstraintDef:       true,
-	symbols.SymbolRequirementDef:      true,
-	symbols.SymbolConcernDef:          true,
-	symbols.SymbolViewpointDef:        true,
-	symbols.SymbolViewDef:             true,
-	symbols.SymbolRenderingDef:        true,
-	symbols.SymbolMetadataDef:         true,
-}
-
+// isOccurrenceDefKind reports whether k classifies an OccurrenceDefinition (SysML
+// v2 §8.3.9.3): every definition kind but the attribute and enumeration data types.
 func isOccurrenceDefKind(k symbols.SymbolKind) bool {
-	return occurrenceDefSymbolKinds[k]
-}
-
-// defKindParents is the definition metaclass taxonomy (SysML v2 §8.3): each kind
-// maps to the kinds it specializes.
-var defKindParents = map[symbols.SymbolKind][]symbols.SymbolKind{
-	symbols.SymbolItemDef:       {symbols.SymbolOccurrenceDef},
-	symbols.SymbolIndividualDef: {symbols.SymbolOccurrenceDef},
-	symbols.SymbolPartDef:       {symbols.SymbolItemDef},
-	symbols.SymbolMetadataDef:   {symbols.SymbolItemDef},
-	symbols.SymbolConnectionDef: {symbols.SymbolPartDef},
-	symbols.SymbolInterfaceDef:  {symbols.SymbolConnectionDef},
-	symbols.SymbolAllocationDef: {symbols.SymbolConnectionDef},
-	symbols.SymbolViewDef:       {symbols.SymbolPartDef},
-	symbols.SymbolRenderingDef:  {symbols.SymbolPartDef},
-	symbols.SymbolActionDef:     {symbols.SymbolOccurrenceDef},
-	// FlowDefinition specializes Interaction and ActionDefinition; Interaction
-	// has no definition SymbolKind, so the action parent carries the row.
-	symbols.SymbolFlowDef:             {symbols.SymbolActionDef},
-	symbols.SymbolStateDef:            {symbols.SymbolActionDef},
-	symbols.SymbolCalcDef:             {symbols.SymbolActionDef},
-	symbols.SymbolCaseDef:             {symbols.SymbolCalcDef},
-	symbols.SymbolAnalysisCaseDef:     {symbols.SymbolCaseDef},
-	symbols.SymbolVerificationCaseDef: {symbols.SymbolCaseDef},
-	symbols.SymbolUseCaseDef:          {symbols.SymbolCaseDef},
-	symbols.SymbolConstraintDef:       {symbols.SymbolOccurrenceDef},
-	symbols.SymbolRequirementDef:      {symbols.SymbolConstraintDef},
-	symbols.SymbolConcernDef:          {symbols.SymbolRequirementDef},
-	symbols.SymbolViewpointDef:        {symbols.SymbolRequirementDef},
-	symbols.SymbolPortDef:             {symbols.SymbolOccurrenceDef},
-	symbols.SymbolEnumerationDef:      {symbols.SymbolAttributeDef},
+	return defKindInstantiates(k, "OccurrenceDefinition")
 }
 
 // defKindSpecializes reports whether kind k is want or one of its
-// specializations in that taxonomy.
+// specializations in the definition metaclass taxonomy (SysML v2 §8.3).
 func defKindSpecializes(k, want symbols.SymbolKind) bool {
-	if k == want {
-		return true
-	}
-	for _, parent := range defKindParents[k] {
-		if defKindSpecializes(parent, want) {
-			return true
-		}
-	}
-	return false
+	return defKindInstantiates(k, defKindMetaclass[want])
 }
 
 // defKindsComparable reports whether one of two definition kinds specializes the
@@ -1258,138 +1184,29 @@ func isRequirementUsageKind(k symbols.SymbolKind) bool {
 	return false
 }
 
-// isRequirementDefKind reports whether k is a RequirementDefinition or one of
-// its specializations (ConcernDefinition, ViewpointDefinition).
-func isRequirementDefKind(k symbols.SymbolKind) bool {
-	switch k {
-	case symbols.SymbolRequirementDef, symbols.SymbolConcernDef, symbols.SymbolViewpointDef:
-		return true
-	}
-	return false
-}
-
-// isCompatibleTyping checks if a usage kind can be typed by a definition kind.
-// Allows structural compatibility: part/attribute/item/occurrence can cross-type
-// since they're all structural classifiers in SysML.
-// isOccurrenceUsage marks a usage carrying the `individual` or `snapshot`
-// modifier. Such a usage is an OccurrenceUsage whatever kind keyword declares it
-// (SysML v2 §8.3.9.11), so it may be typed by an occurrence definition of any
-// kind, on top of whatever its kind keyword admits.
-func isCompatibleTyping(useKind ast.UsageKind, direction ast.FeatureDirection, defKind symbols.SymbolKind, isOccurrenceUsage bool) bool {
+// isCompatibleTyping reports whether a definition of defKind types a usage of useKind;
+// an `individual`/`snapshot`/`timeslice` usage also takes any occurrence definition (§8.3.9.11).
+func isCompatibleTyping(useKind ast.UsageKind, defKind symbols.SymbolKind, isOccurrenceUsage bool) bool {
 	if isOccurrenceUsage && isOccurrenceDefKind(defKind) {
 		return true
 	}
-	if compatibleTyping(useKind, direction, defKind) {
-		return true
-	}
-	// An individual definition is an occurrence definition that individuates the
-	// definition it specializes (SysML v2 §7.9.4), so a usage may be typed by
-	// one wherever it may be typed by an occurrence definition.
-	if defKind == symbols.SymbolIndividualDef {
-		return compatibleTyping(useKind, direction, symbols.SymbolOccurrenceDef)
-	}
-	return false
+	return compatibleTyping(useKind, defKind)
 }
 
-func compatibleTyping(useKind ast.UsageKind, direction ast.FeatureDirection, defKind symbols.SymbolKind) bool {
-	// Exact match always allowed
-	if defKind == usageWantsDefKind(useKind) {
+// compatibleTyping judges a definition's kind by the metaclass every type of the
+// usage kind instantiates (usageTypeMetaclasses); a kind without one takes any.
+func compatibleTyping(useKind ast.UsageKind, defKind symbols.SymbolKind) bool {
+	want, ok := usageTypeMetaclasses[useKind]
+	if !ok {
 		return true
-	}
-
-	// SysML v2 §7.27.2: a MetadataDefinition is an ItemDefinition, so it types
-	// whatever an item definition types (`:> annotatedElement : SysML::PartDefinition`).
-	if defKind == symbols.SymbolMetadataDef {
-		defKind = symbols.SymbolItemDef
-	}
-
-	// An attribute is typed by data types: an attribute or enumeration
-	// definition (SysML v2 §8.3.9.4 validateAttributeUsageType). A directed one
-	// is a parameter and crosses to structural definitions below.
-	if useKind == ast.UsageAttribute && direction == ast.DirNone {
-		return defKind == symbols.SymbolAttributeDef ||
-			defKind == symbols.SymbolEnumerationDef
-	}
-
-	// Parameters (in/out/inout) can cross-type to any structural def
-	// Also allow enumDef for typed enumerations
-	// This allows: in power : PowerValue (part : attributeDef), out verdict : VerdictKind (part : enumDef)
-	hasDirection := direction != ast.DirNone
-	if hasDirection {
-		return defKind == symbols.SymbolPartDef ||
-			defKind == symbols.SymbolAttributeDef ||
-			defKind == symbols.SymbolItemDef ||
-			defKind == symbols.SymbolOccurrenceDef ||
-			defKind == symbols.SymbolEnumerationDef
-	}
-
-	// An occurrence, item or part is typed by occurrence definitions only: its
-	// types are Classes, and a data type is not one (SysML v2 §8.3.9.7
-	// validateOccurrenceUsageType).
-	if useKind == ast.UsagePart || useKind == ast.UsageItem {
-		return isOccurrenceDefKind(defKind)
 	}
 	// An `occurrence`/`individual` usage's data typing is W8D's, which reports
 	// it whether declared or inherited.
-	if useKind == ast.UsageOccurrence || useKind == ast.UsageIndividual {
-		return isOccurrenceDefKind(defKind) || defKind == symbols.SymbolAttributeDef
-	}
-
-	// An action must be typed by action definitions, i.e. Behaviors (SysML v2
-	// §8.3.16.6 validateActionUsageType), so any behavior-family def works.
-	if useKind == ast.UsageAction {
-		return defKindSpecializes(defKind, symbols.SymbolActionDef)
-	}
-
-	// A connection is typed by connection definitions (SysML v2 §8.3.14.5
-	// ConnectionUsage::connectionDefinition): an allocation or an interface
-	// definition is one, as the metamodel's AllocationDefinition and
-	// InterfaceDefinition specialize ConnectionDefinition.
-	if useKind == ast.UsageConnection {
-		return defKindSpecializes(defKind, symbols.SymbolConnectionDef)
-	}
-
-	// A case may be typed by a case definition of any kind (SysML v2 §8.3.24.4
-	// validateCaseUsageType); analysis and verification keep their exact kinds.
-	if useKind == ast.UsageCase {
-		return defKindSpecializes(defKind, symbols.SymbolCaseDef)
-	}
-
-	// A constraint is typed by a Predicate (SysML v2 §8.3.19.3): a requirement,
-	// concern or viewpoint definition is a constraint definition, so it qualifies.
-	if useKind == ast.UsageConstraint {
-		return defKindSpecializes(defKind, symbols.SymbolConstraintDef)
-	}
-
-	// Successions and bindings type through a plain UsageDeclaration
-	// (SysML.xtext:1033, :1020), so any definition types them.
-	if useKind == ast.UsageSuccession || useKind == ast.UsageBinding {
+	if (useKind == ast.UsageOccurrence || useKind == ast.UsageIndividual) &&
+		defKind == symbols.SymbolAttributeDef {
 		return true
 	}
-
-	// SysML v2 §8.3.22.4: an ObjectiveMembership's ownedObjectiveRequirement is a
-	// RequirementUsage, so an objective is typed by a RequirementDefinition or one
-	// of its specializations (`objective : MaximizeObjective`, a requirement def in
-	// Domain Libraries/Analysis/TradeStudies.sysml).
-	if useKind == ast.UsageObjective {
-		return isRequirementDefKind(defKind)
-	}
-
-	// A SatisfyRequirementUsage is a RequirementUsage (SysML v2 §8.3.19), so the
-	// declaration form `satisfy requirement r : Req1 by v` is typed by a
-	// RequirementDefinition or one of its specializations.
-	if useKind == ast.UsageSatisfy {
-		return isRequirementDefKind(defKind)
-	}
-
-	// A SubjectMembership's ownedSubjectParameter is an unconstrained Usage (SysML
-	// v2 §8.3.21), so any definition types a subject — the OMG training models
-	// subject a `port def` and an `action def` as well as structural definitions.
-	if useKind == ast.UsageSubject {
-		return true
-	}
-
-	return false
+	return defKindInstantiates(defKind, want)
 }
 
 func unwrapType(n ast.Node) ast.Node {

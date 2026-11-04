@@ -1,0 +1,23 @@
+{
+  "type": "instance",
+  "instantiate": "test::Report",
+  "libraries": true,
+  "slots": {
+    "direction": {"type": "EnumLiteral", "value": "FeatureDirectionKind::in"},
+    "inIsLiteral": {"type": "Boolean", "value": true},
+    "outIsLiteral": {"type": "Boolean", "value": true},
+    "inoutIsNotIn": {"type": "Boolean", "value": false},
+    "directionIsKind": {"type": "Boolean", "value": true},
+    "literal": {"type": "EnumLiteral", "value": "FeatureDirectionKind::inout"},
+    "directions": {"type": "Sequence", "elements": [
+      {"type": "EnumLiteral", "value": "FeatureDirectionKind::in"},
+      {"type": "EnumLiteral", "value": "FeatureDirectionKind::inout"},
+      {"type": "EnumLiteral", "value": "FeatureDirectionKind::out"}
+    ]},
+    "portion": {"type": "Boolean", "value": true},
+    "visibility": {"type": "Boolean", "value": true},
+    "visibilityIsKind": {"type": "Boolean", "value": true},
+    "constraintKind": {"type": "Boolean", "value": true},
+    "subactionKind": {"type": "Boolean", "value": true}
+  }
+}

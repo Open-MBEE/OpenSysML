@@ -70,7 +70,10 @@ func signalListener(t *testing.T, model string) error {
 		t.Fatalf("run sender machine: %v", err)
 	}
 	sender.SendSignal("Go", nil)
-	return sender.RunToCompletion()
+	if err := sender.RunToCompletion(); err != nil {
+		return err
+	}
+	return startFailure(ctx, rig)
 }
 
 // testTransitionViaRootHoldsNothing: a parameter bound to nothing names no object

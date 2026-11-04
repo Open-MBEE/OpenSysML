@@ -1027,6 +1027,9 @@ func (g *generalGraph) dependencyEdges(sym *symbols.Symbol, kind EdgeKind, name 
 	if !ok {
 		return nil
 	}
+	if len(dep.Clients) > 1 || len(dep.Suppliers) > 1 {
+		return g.naryDependency(sym, kind, name, dep)
+	}
 	var out []Edge
 	for _, client := range dep.Clients {
 		for _, supplier := range dep.Suppliers {
@@ -1056,10 +1059,155 @@ func (g *generalGraph) dependencyLabel(sym *symbols.Symbol) string {
 	return localName(sym)
 }
 
-// connectionEdges draws a binary connection between the elements it connects,
-// labelled with its name.
+// naryDependency draws a dependency of several clients or suppliers as §8.2.3.3's n-ary dot:
+// a dashed headless link from each client, a dependency arrow (a refinement's «refine») to each supplier.
+func (g *generalGraph) naryDependency(sym *symbols.Symbol, kind EdgeKind, name string, dep *ast.Dependency) []Edge {
+	clients, suppliers := g.hubEnds(name, sym, dep.Clients), g.hubEnds(name, sym, dep.Suppliers)
+	label := ""
+	if kind == EdgeDependency {
+		label = g.dependencyLabel(sym)
+	}
+	dot, ok := g.hub(sym, dependencyDotKind, label, append(slices.Clone(clients), suppliers...))
+	if !ok {
+		return nil
+	}
+	var out []Edge
+	for _, client := range clients {
+		if end := g.hubEnd(client); end != nil {
+			out = append(out, Edge{From: end.ID, To: dot.ID, Kind: EdgeDependencyClient, Origin: symbolOrigin(sym)})
+		}
+	}
+	for _, supplier := range suppliers {
+		if end := g.hubEnd(supplier); end != nil {
+			edge := Edge{From: dot.ID, To: end.ID, Kind: kind, Origin: symbolOrigin(sym)}
+			if kind != EdgeDependency {
+				edge.Label = "«" + kind.String() + "»"
+			}
+			out = append(out, edge)
+		}
+	}
+	return out
+}
+
+// hubEnds resolves the ends of an n-ary relationship, reporting one that does
+// not resolve as resolvedEnds does.
+func (g *generalGraph) hubEnds(name string, rel *symbols.Symbol, targets []*ast.QualifiedName) []*symbols.Symbol {
+	var ends []*symbols.Symbol
+	for _, target := range qualifiedNodes(targets) {
+		if end, ok := g.r.resolveEnd(rel.OwnerScope, target); ok {
+			ends = append(ends, end)
+		} else if target != nil && g.hubDrawn(rel) {
+			g.unresolved(name, rel, target)
+		}
+	}
+	return ends
+}
+
+// qualifiedNodes are qualified names as the nodes resolveEnd reads.
+func qualifiedNodes(names []*ast.QualifiedName) []ast.Node {
+	nodes := make([]ast.Node, 0, len(names))
+	for _, name := range names {
+		if name != nil {
+			nodes = append(nodes, name)
+		}
+	}
+	return nodes
+}
+
+// hubDrawn reports whether a node of the graph draws an end of the n-ary
+// relationship rel, so a missing end is worth a notice.
+func (g *generalGraph) hubDrawn(rel *symbols.Symbol) bool {
+	for _, end := range g.relationshipTargets(rel) {
+		if g.drawn(end) != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// relationshipTargets are the ends of an n-ary relationship that resolve.
+func (g *generalGraph) relationshipTargets(rel *symbols.Symbol) []*symbols.Symbol {
+	var targets []ast.Node
+	switch decl := rel.Decl.(type) {
+	case *ast.Dependency:
+		targets = append(qualifiedNodes(decl.Clients), qualifiedNodes(decl.Suppliers)...)
+	default:
+		for _, end := range g.r.model.ConnectorEndAttachments(rel) {
+			targets = append(targets, end.Attachment)
+		}
+	}
+	var ends []*symbols.Symbol
+	for _, target := range targets {
+		if end, ok := g.r.resolveEnd(rel.OwnerScope, target); ok {
+			ends = append(ends, end)
+		}
+	}
+	return ends
+}
+
+// hub is the dot node of the n-ary relationship sym, admitted as relate admits a line (some end
+// drawn, or relationships exposed; two or more ends drawn or admissible); ok is false for none.
+func (g *generalGraph) hub(sym *symbols.Symbol, kind, label string, ends []*symbols.Symbol) (*Node, bool) {
+	// Admittance is settled before hubEnd draws any end, so an unrelated
+	// relationship brings no node into the view.
+	drawn := 0
+	for _, end := range ends {
+		if g.drawn(end) != nil {
+			drawn++
+		}
+	}
+	if g.exposed == nil && drawn == 0 {
+		return nil, false
+	}
+	admitted := 0
+	for _, end := range ends {
+		if g.drawn(end) != nil || g.hubAdmits(end) {
+			admitted++
+		}
+	}
+	if admitted < 2 {
+		return nil, false
+	}
+	key := symbols.KeyOf(sym)
+	if dot, ok := g.nodes[key]; ok {
+		// The box a tree drew for the exposed relationship becomes its dot.
+		dot.Kind, dot.Type, dot.Typings, dot.Compartments, dot.Children = kind, "", nil, nil, nil
+		return dot, true
+	}
+	r := g.r
+	dot := r.naryDot(g.ids.take(), kind, label, g.view, sym, g.out)
+	r.notesOf(g.view, sym, dot.ID, g.out)
+	g.nodes[key] = dot
+	g.order = append(g.order, sym)
+	g.out.Roots = append(g.out.Roots, dot)
+	return dot, true
+}
+
+// hubAdmits reports whether the graph may draw a node for an undrawn end, as
+// relate admits one: no library element, and an exposed one where exposing.
+func (g *generalGraph) hubAdmits(end *symbols.Symbol) bool {
+	return !g.r.libraryDeclared(end) && (g.exposed == nil || g.exposed[symbols.KeyOf(end)])
+}
+
+// hubEnd is the node at an end of an n-ary relationship: the one drawing it,
+// or a plain node for an admitted end; nil for an end the graph leaves out.
+func (g *generalGraph) hubEnd(end *symbols.Symbol) *Node {
+	if node := g.drawn(end); node != nil {
+		return node
+	}
+	if !g.hubAdmits(end) {
+		return nil
+	}
+	return g.node(end)
+}
+
+// connectionEdges draws a binary connection as a named line between its ends, and one of more
+// ends as §8.2.3.13's n-ary dot with a segment to each end, labelled with the end's role.
 func (g *generalGraph) connectionEdges(sym *symbols.Symbol) []Edge {
 	ends := g.r.model.ConnectorEndAttachments(sym)
+	if nary(len(ends)) {
+		return g.naryConnection(sym, ends)
+	}
 	if len(ends) != 2 {
 		return nil
 	}
@@ -1073,6 +1221,37 @@ func (g *generalGraph) connectionEdges(sym *symbols.Symbol) []Edge {
 	}
 	edge.Label = g.r.connectorLabel(sym)
 	return []Edge{edge}
+}
+
+// naryConnection draws a connection of more than two ends as its dot and segments.
+func (g *generalGraph) naryConnection(sym *symbols.Symbol, ends []semantics.ConnectorEndAttachment) []Edge {
+	var targets []*symbols.Symbol
+	var labels []string // the role at each end of targets, in step with it
+	for _, end := range ends {
+		target, ok := g.r.resolveEnd(sym.OwnerScope, end.Attachment)
+		if !ok {
+			if end.Attachment != nil && g.hubDrawn(sym) {
+				g.unresolved("connection", sym, end.Attachment)
+			}
+			continue
+		}
+		label := ""
+		if end.EndFeature != nil {
+			label = g.r.usageLabel(end.EndFeature)
+		}
+		targets, labels = append(targets, target), append(labels, label)
+	}
+	dot, ok := g.hub(sym, connectionDotKind, g.r.connectorName(sym), targets)
+	if !ok {
+		return nil
+	}
+	var out []Edge
+	for i, target := range targets {
+		if end := g.hubEnd(target); end != nil {
+			out = append(out, Edge{From: dot.ID, To: end.ID, ToLabel: labels[i], Kind: EdgeConnection, Origin: symbolOrigin(sym)})
+		}
+	}
+	return out
 }
 
 // verifyMemberEdges draws, from the verification case whose objective holds

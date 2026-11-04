@@ -418,7 +418,7 @@ One entry drifted; every other file kept its exact count. This reaches the
 both. The two memberships are not the same shape, so the row was split:
 
 - `objective` accepts a `RequirementDefinition` or one of its specializations
-  (`ConcernDefinition`, `ViewpointDefinition`, via the new `isRequirementDefKind`)
+  (`ConcernDefinition`, `ViewpointDefinition`, `usageTypeMetaclasses` keys `objective` to `RequirementDefinition`)
   and nothing else. This is a *narrowing*: `objective o : Vehicle` (a `part def`)
   was accepted before and now reports.
 - `subject` keeps the structural kinds. A `SubjectMembership`'s

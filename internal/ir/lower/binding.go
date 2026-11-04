@@ -1,6 +1,8 @@
 package lower
 
 import (
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -26,23 +28,29 @@ type BindingEnd struct {
 	// Index selects one element of the feature Path reaches (`xs#(2)`), nil for the whole feature.
 	Index        ast.Node
 	Multiplicity *ast.Multiplicity
+	// Via leads from the binding's holder to the connector object an expression end is read on,
+	// empty for the holder itself; Default marks the expression of a `default =` value.
+	Via     []Hop
+	Default bool
+}
+
+// Hop is one step from a holder to a connector object it holds: by feature name, or by the
+// declaration of an anonymous connector member.
+type Hop struct {
+	Feature   string
+	Anonymous *ast.Usage
+}
+
+// Reaches reports a hop that leads somewhere: a named feature or an anonymous declaration.
+func (h Hop) Reaches() bool {
+	return h.Feature != "" || h.Anonymous != nil
 }
 
 // ToBindings lowers binding connectors directly declared by a type or usage.
 // Namespace-owned bindings are intentionally left to callers to exclude.
 func ToBindings(decl ast.Node, scope *symbols.Scope) []Binding {
-	var members []ast.Node
-	switch n := decl.(type) {
-	case *ast.Usage:
-		members = n.Members
-	case *ast.Definition:
-		members = n.Members
-	default:
-		return nil
-	}
-
 	var out []Binding
-	for _, member := range members {
+	for _, member := range declMembers(decl) {
 		u, ok := unwrapMembership(member).(*ast.Usage)
 		if !ok || u.Kind != ast.UsageBinding {
 			continue
@@ -103,4 +111,97 @@ func lowerBinding(u *ast.Usage, scope *symbols.Scope) (Binding, bool) {
 		}
 	}
 	return Binding{Ends: ends, Scope: scope, Decl: u, Multiplicity: u.Multiplicity}, true
+}
+
+// EndValueBindings lowers each `=` or `default =` in a connector end's body as a binding of the end's
+// feature to the value expression (SysML v2 §7.13.4, an implicit binding; a default yields to own values).
+func EndValueBindings(decl ast.Node, scope *symbols.Scope) []Binding {
+	var out []Binding
+	for _, member := range declMembers(decl) {
+		end, ok := unwrapMembership(member).(*ast.Usage)
+		if !ok || !end.IsEnd {
+			continue
+		}
+		endName := symbols.LastSegment(usageName(scope, end))
+		if endName == "" {
+			continue
+		}
+		endScope := scope
+		if sym := scope.MemberDeclaring(end); sym != nil && sym.Scope != nil {
+			endScope = sym.Scope
+		}
+		for _, node := range end.Members {
+			u, ok := unwrapMembership(node).(*ast.Usage)
+			if !ok || u.Value == nil || u.ValueIsInitial {
+				continue
+			}
+			name := symbols.LastSegment(usageName(endScope, u))
+			if name == "" {
+				continue
+			}
+			out = append(out, Binding{
+				Ends: [2]BindingEnd{
+					{Path: endName + "." + name, Expr: u.Value},
+					{Expr: u.Value, Default: u.ValueIsDefault},
+				},
+				Scope: endScope, Decl: u,
+			})
+		}
+	}
+	return out
+}
+
+func declMembers(decl ast.Node) []ast.Node {
+	switch n := decl.(type) {
+	case *ast.Usage:
+		return n.Members
+	case *ast.Definition:
+		return n.Members
+	}
+	return nil
+}
+
+// usageName is the name u is known by in scope: declared, recorded by its symbol, or the redefined feature's.
+func usageName(scope *symbols.Scope, u *ast.Usage) string {
+	if u.Ident.Name != "" {
+		return u.Ident.Name
+	}
+	if sym := scope.MemberDeclaring(u); sym != nil && sym.Name != "" {
+		return sym.Name
+	}
+	for _, rel := range u.Relationships {
+		if rel != nil && rel.Kind == ast.RelRedefines {
+			return FeaturePath(rel.Target)
+		}
+	}
+	return ""
+}
+
+// ThroughEnds re-roots a path at what roots maps its head to — an end's attachment, or the connector's own
+// feature as the holder reaches it — and leads an expression end to the connector at self; false if it cannot.
+func (b Binding) ThroughEnds(roots map[string]string, self Hop) (Binding, bool) {
+	out := b
+	for i, end := range b.Ends {
+		if end.Path == "" {
+			if end.Expr == nil || !self.Reaches() {
+				return Binding{}, false
+			}
+			out.Ends[i].Via = append([]Hop{self}, end.Via...)
+			continue
+		}
+		head, rest, _ := strings.Cut(end.Path, ".")
+		target, ok := roots[head]
+		if !ok || target == "" {
+			return Binding{}, false
+		}
+		out.Ends[i].Path = joinPath(target, rest)
+	}
+	return out, true
+}
+
+func joinPath(base, rest string) string {
+	if rest == "" {
+		return base
+	}
+	return base + "." + rest
 }

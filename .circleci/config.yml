@@ -2725,7 +2725,9 @@ jobs:
                           dist/grpc/sysml-grpc-linux-amd64 \
                           dist/jupyter/sysml-jupyter-kernel-linux-amd64 \
                           dist/mcp/sysml-mcp-linux-amd64; do
-              reported="$("$binary" --version 2>&1 | head -n 1)"
+              # No pipe into head: the binary would take SIGPIPE under pipefail.
+              output="$("$binary" --version 2>&1)"
+              reported="${output%%$'\n'*}"
               case " $reported " in
                 *" ${CIRCLE_TAG} "*) echo "ok: $binary reports ${CIRCLE_TAG}" ;;
                 *) fail "$binary" "it reports '${reported}'" ;;
@@ -3933,7 +3935,8 @@ jobs:
               --build-arg BUILD_TIME="${BUILD_TIME}" \
               -t openmbee/opensysml:check .
             for binary in sysml-grpc sysml sysml-lsp; do
-              reported=$(docker run --rm --entrypoint "$binary" openmbee/opensysml:check -version | head -n 1)
+              output=$(docker run --rm --entrypoint "$binary" openmbee/opensysml:check -version)
+              reported="${output%%$'\n'*}"
               echo "$reported"
               case "$reported" in
                 *"${CIRCLE_TAG}"*) ;;
@@ -3942,22 +3945,41 @@ jobs:
                   exit 1 ;;
               esac
             done
-            docker run -d --name opensysml-check openmbee/opensysml:check
+            # The image serves -host 0.0.0.0, which needs a bearer token; the check
+            # runs it as a deployment does, the token in the environment, no TLS.
+            token=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+            OPENSYSML_GRPC_TOKEN="$token" docker run -d --name opensysml-check -e OPENSYSML_GRPC_TOKEN \
+              openmbee/opensysml:check \
+              -host 0.0.0.0 -port 50051 -health-port 8081 -allow-insecure-token-transport
+            fail() {
+              echo "Error: $1"
+              echo "--- opensysml-check logs:"
+              docker logs opensysml-check 2>&1 | tail -n 20 || true
+              exit 1
+            }
             curl() {
               docker run --rm --network container:opensysml-check curlimages/curl:8.11.1 \
-                -fsS --retry 10 --retry-connrefused --retry-delay 1 "$@"
+                -sS --retry 10 --retry-connrefused --retry-delay 1 "$@"
             }
-            health=$(curl http://localhost:8081/health)
+            # /health needs no token.
+            health=$(curl -f http://localhost:8081/health) || fail "/health did not answer."
             echo "$health"
             case "$health" in
               *'"status":"ok"'*) ;;
-              *) echo "Error: /health did not answer ok."; exit 1 ;;
+              *) fail "/health did not answer ok: '${health}'." ;;
             esac
-            info=$(curl -X POST -H 'Content-Type: application/json' -d '{}' \
-              http://localhost:50051/sysml.SysMLService/GetServerInfo)
+            # A call without the token is refused: the image fails closed off loopback.
+            denied=$(curl -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' \
+              http://localhost:50051/sysml.SysMLService/GetServerInfo) || fail "GetServerInfo without a token did not answer."
+            case "$denied" in
+              401) echo "ok: GetServerInfo without a token is refused (401)" ;;
+              *) fail "GetServerInfo without a token answered HTTP ${denied}, not 401." ;;
+            esac
+            info=$(curl -f -X POST -H 'Content-Type: application/json' -H "Authorization: Bearer ${token}" -d '{}' \
+              http://localhost:50051/sysml.SysMLService/GetServerInfo) || fail "GetServerInfo with the token did not answer."
             case "$info" in
               *"\"version\":\"${CIRCLE_TAG}\""*) echo "ok: GetServerInfo reports ${CIRCLE_TAG}" ;;
-              *) echo "Error: GetServerInfo answered '${info}', not version ${CIRCLE_TAG}."; exit 1 ;;
+              *) fail "GetServerInfo answered '${info}', not version ${CIRCLE_TAG}." ;;
             esac
             docker rm -f opensysml-check >/dev/null
 
@@ -4014,6 +4036,30 @@ jobs:
                     -t openmbee/opensysml:rehearsal .
       - rehearsal-skip:
           what: "docker buildx build --push (the multi-platform image to Docker Hub)"
+
+  publish-textmate-grammars:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - rehearsal-tag
+      # Open-MBEE/sysml-v2-textmate is the grammar repository GitHub Linguist
+      # vendors for SysML v2 and KerML highlighting; it carries the grammars of
+      # the latest release, so the push follows the GitHub release. The token
+      # is the one publish-github-release uses, which has to write that
+      # repository's contents too. A rehearsal commits locally and pushes nothing.
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: stage the grammar sync without pushing"
+                command: scripts/sync-textmate-grammars.sh --publish --tag "${CIRCLE_TAG}" --dry-run
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: Publish the TextMate grammars to Open-MBEE/sysml-v2-textmate
+                command: scripts/sync-textmate-grammars.sh --publish --tag "${CIRCLE_TAG}"
 
   publish-github-release:
     docker:
@@ -4594,6 +4640,14 @@ workflows:
           # exactly, so the case here has to match it.
           context:
             - DockerHub
+          requires:
+            - Publish GitHub release
+          filters: *release-tags
+
+      - publish-textmate-grammars:
+          name: Publish the TextMate grammars
+          # After the GitHub release, like the registry publishers, so the
+          # grammar repository never runs ahead of a release that failed.
           requires:
             - Publish GitHub release
           filters: *release-tags

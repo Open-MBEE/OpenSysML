@@ -917,13 +917,15 @@ func testClockAdvance(t *testing.T) {
 						then action rest accept after 1 [s];
 						then done;
 					}
-					exhibit state broken {
-						state lonely;
+					perform action broken {
+						first start;
+						then action spin { while true { assign beats := beats + 0; } }
+						then done;
 					}
 				}
 			}`, "test::Rig")
-		if !errors.Is(err, errNoInitialState) {
-			t.Fatalf("instantiate = %v; want errNoInitialState from the machine with no initial state", err)
+		if !exhaustsBudget(err) {
+			t.Fatalf("instantiate = %v; want the runtime's bound reached by the action that never settles", err)
 		}
 		if got := len(ctx.clock.waiters); got != 0 {
 			t.Errorf("clock drives %d executors after the failed start; want none", got)
@@ -957,11 +959,11 @@ func testClockAdvance(t *testing.T) {
 						entry; then busy;
 						state busy { do action poll : Poll { inout n = ticks; } }
 					}
-					perform action bad { action crash assign ticks := ticks / 0; }
+					perform action bad { action crash { while true { assign ticks := ticks + 1; } } }
 				}
 			}`, "test::Rig")
-		if !errors.Is(err, ErrDivisionByZero) {
-			t.Fatalf("instantiate = %v; want ErrDivisionByZero from the action that fails the start", err)
+		if !exhaustsBudget(err) {
+			t.Fatalf("instantiate = %v; want the runtime's bound reached by the action that fails the start", err)
 		}
 		if got := len(ctx.clock.waiters); got != 0 {
 			t.Errorf("clock drives %d executors after the failed start; want none: the performed Poll left with its machine", got)

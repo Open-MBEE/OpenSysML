@@ -1,10 +1,13 @@
 package passes
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const msgEnumerationAttributeTypes = "An enumeration attribute cannot have more than one type."
@@ -27,17 +30,10 @@ var oneTypeUsageMessages = map[ast.UsageKind]string{
 	ast.UsageMetadata:         "A metadata usage must be typed by one metadata definition.",
 }
 
-// checkOneType reports a usage that declares more than one type where the
-// reference admits one. A usage declaring none is silent: the reference counts
-// the type its library base supplies, so there is exactly one.
+// checkOneType reports a usage whose effective types are more than one where
+// the reference admits one; a usage declaring none has its library base's.
 func (tc *typeChecker) checkOneType(scope *symbols.Scope, d featureDecl) {
-	typings := 0
-	for _, rel := range d.relationships {
-		if rel != nil && rel.Kind == ast.RelTyping {
-			typings++
-		}
-	}
-	if typings <= 1 && !tc.enumeratedValueTypeDiffers(scope, d) {
+	if tc.effectiveDeclaredTypes(scope, d) <= 1 && !tc.enumeratedValueTypeDiffers(scope, d) {
 		return
 	}
 	msg, ok := oneTypeUsageMessages[d.kind]
@@ -56,6 +52,40 @@ func (tc *typeChecker) checkOneType(scope *symbols.Scope, d featureDecl) {
 		Code:     "one-type",
 		Source:   "type",
 	})
+}
+
+// effectiveDeclaredTypes counts the declared types plus the kind's implied base,
+// redundant supertypes dropped (KerML 1.1 §8.3.3.3.4); an unresolved one counts as its own.
+func (tc *typeChecker) effectiveDeclaredTypes(scope *symbols.Scope, d featureDecl) int {
+	resolved := kindBases(tc.expr.model, tc.resolver, scope.MemberDeclaring(d.node), tc.lang == source.KindKerML)
+	unresolved := 0
+	for _, rel := range d.relationships {
+		if rel == nil || rel.Kind != ast.RelTyping {
+			continue
+		}
+		typ := tc.expr.resolveTarget(scope, rel.Target)
+		if typ == nil {
+			unresolved++
+			continue
+		}
+		if !slices.ContainsFunc(resolved, func(seen *symbols.Symbol) bool { return symbols.SameElement(seen, typ) }) {
+			resolved = append(resolved, typ)
+		}
+	}
+	effective := unresolved
+	for i, typ := range resolved {
+		redundant := false
+		for j, other := range resolved {
+			if i != j && tc.expr.model != nil && tc.expr.model.Conforms(other, typ) {
+				redundant = true
+				break
+			}
+		}
+		if !redundant {
+			effective++
+		}
+	}
+	return effective
 }
 
 // enumeratedValueTypeDiffers reports an enumerated value typed — by declaration

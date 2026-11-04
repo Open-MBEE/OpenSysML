@@ -73,7 +73,31 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 		return true
 	})
+	if parts := m.transitionMembers(sym); len(parts) > 0 {
+		out = m.withTransitionMemberships(sym, out, parts)
+	}
 	m.memberships[sym] = out
+	return out
+}
+
+// withTransitionMemberships places the memberships of a transition's trigger accept and guard
+// among its scope's, in the source order the conversion writes them.
+func (m *Model) withTransitionMemberships(sym *symbols.Symbol, out, parts []*symbols.Symbol) []*symbols.Symbol {
+	for _, part := range parts {
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   part.DeclSpan,
+			Visibility: part.Visibility,
+			Implicit:   &symbols.ImplicitRelationship{Owner: sym, Form: symbols.ImplicitMembership, Member: part},
+		})
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset })
+	for i, membership := range out {
+		if membership.Implicit != nil {
+			membership.Implicit.Ordinal = i
+		}
+	}
 	return out
 }
 
@@ -283,7 +307,14 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "ResultExpressionMembership"
 		case symbols.ExpressionChainFeature:
 			return "OwningMembership"
+		case symbols.ExpressionGuard, symbols.ExpressionTriggerAction:
+			return "TransitionFeatureMembership"
+		case symbols.ExpressionPayload:
+			return "ParameterMembership"
 		}
+	}
+	if _, ok := m.transitionFeatureKind(owner, member); ok {
+		return "TransitionFeatureMembership"
 	}
 	if isBodyParameterSymbol(member) {
 		// A body's `in` feature is a FeatureMember of the type body both
@@ -487,7 +518,7 @@ func (m *Model) membershipElements(sym *symbols.Symbol, feature string) ([]*symb
 		return member, true
 	case "ownedConstraint", "ownedRequirement", "ownedConcern", "ownedSubjectParameter",
 		"ownedObjectiveRequirement", "ownedActorParameter", "ownedStakeholderParameter",
-		"ownedVariantUsage", "ownedRendering", "action":
+		"ownedVariantUsage", "ownedRendering", "action", "transitionFeature":
 		if !m.reflectiveMetaclassConforms(sym, sysmlMembershipOwnedEnd[feature]) {
 			return nil, false
 		}
@@ -519,6 +550,7 @@ var sysmlMembershipOwnedEnd = map[string]string{
 	"ownedVariantUsage":         "VariantMembership",
 	"ownedRendering":            "ViewRenderingMembership",
 	"action":                    "StateSubactionMembership",
+	"transitionFeature":         "TransitionFeatureMembership",
 }
 
 // sysmlMembershipReferencedEnd is the metaclass declaring each SysML
@@ -610,6 +642,9 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 		if m.reflectiveMetaclassConforms(sym, "StateSubactionMembership") {
 			return m.enumLiteralValue(m.sysmlMetaclass("StateSubactionKind"), stateSubactionKind(rel.Member))
 		}
+		if kind, ok := m.transitionFeatureKind(rel.Owner, rel.Member); ok {
+			return m.enumLiteralValue(m.sysmlMetaclass("TransitionFeatureKind"), kind)
+		}
 	}
 	return symbols.FilterValue{}, false
 }
@@ -656,6 +691,15 @@ func (m *Model) enumLiteralValue(kind *symbols.Symbol, name string) (symbols.Fil
 		return symbols.FilterValue{}, false
 	}
 	return symbols.FilterValue{Kind: symbols.FilterValueRef, RefFQN: fqn}, true
+}
+
+// enumLiteralOrEmpty is the literal of kind called name, as an enumeration-valued property reads it
+// (the literal, not its name); the empty value where name is empty or the library declares none.
+func (m *Model) enumLiteralOrEmpty(kind *symbols.Symbol, name string) symbols.FilterValue {
+	if value, ok := m.enumLiteralValue(kind, name); ok {
+		return value
+	}
+	return emptyValue()
 }
 
 // importElements is ReflectiveElements for a reflected Import object.

@@ -30,6 +30,7 @@ elmt:ShadowBody
 
 elmt:ShadowBody___400
     a sysml:NamespaceImport ;
+    sysml:source elmt:ShadowBody ;
     sysx:positionalName "ShadowBody::@0" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -43,6 +44,7 @@ elmt:ShadowBody___400
     sysml:importOwningNamespace elmt:ShadowBody ;
     sysml:visibility "private" ;
     sysml:importedNamespace <urn:sysmlv2:element:1ed3f10f-1391-5a27-a5bd-233a70b01328> ;
+    sysml:target <urn:sysmlv2:element:1ed3f10f-1391-5a27-a5bd-233a70b01328> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ControlFunctions::*;\n" .
 

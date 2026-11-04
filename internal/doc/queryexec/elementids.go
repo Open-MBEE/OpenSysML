@@ -96,6 +96,16 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Expr.Owner.Decl, slot)
 		return element, err
 	}
+	if end, ok := connectorEndChain(sym); ok {
+		// The chain Feature a connector end's ReferenceSubsetting owns is minted under the end.
+		element, _, err := read.ReadExpressionPart(sym.DocName, end, "chain")
+		return element, err
+	}
+	if target, ok := headClauseChain(sym); ok {
+		// The chain Feature a head clause's chain target denotes is minted under the head (headChain).
+		element, _, err := read.ReadExpressionPart(sym.DocName, target, "chain")
+		return element, err
+	}
 	if span, slot, ok := bodyParameterSlot(sym); ok {
 		element, _, err := read.ReadExpressionPart(sym.DocName, spanNode{span}, slot)
 		return element, err
@@ -130,6 +140,14 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			element, _, err := read.ReadExpressionPart(chain.DocName, chain.Expr.Owner.Decl, chain.Expr.Slot+"."+rel.Slot)
 			return element, true, err
 		}
+		if end, ok := connectorEndChain(rel.Owner); ok {
+			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, end, "chain."+rel.Slot)
+			return element, true, err
+		}
+		if target, ok := headClauseChain(rel.Owner); ok {
+			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, target, "chain."+rel.Slot)
+			return element, true, err
+		}
 		return "", true, nil
 	case symbols.ImplicitReferenceMembership:
 		if rel.Owner != nil && rel.Owner.Decl != nil {
@@ -157,6 +175,39 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		return "", true, nil
 	}
 	return "", false, nil
+}
+
+// connectorEndChain is the connector end whose attachment chain sym denotes (`connect a.b to c`):
+// the ReferenceSubsetting of the attached target, not a chained redefinition the end also owns.
+func connectorEndChain(sym *symbols.Symbol) (*ast.ConnectorEnd, bool) {
+	if sym.Chain == nil || sym.Chain.Relationship == nil || sym.Chain.Relationship.Implicit == nil {
+		return nil, false
+	}
+	rel := sym.Chain.Relationship.Implicit
+	if rel.Owner == nil || rel.Node == nil || !rel.Kind.ReferenceSubsets() {
+		return nil, false
+	}
+	end, ok := rel.Owner.Decl.(*ast.ConnectorEnd)
+	if !ok || rel.Node.Target != end.AttachedTarget() {
+		return nil, false
+	}
+	return end, true
+}
+
+// headClauseChain is the chain target of the head clause (`part b :> a.x`) whose chain Feature
+// sym is; false for a connector end's attachment, which is minted under the end.
+func headClauseChain(sym *symbols.Symbol) (ast.Node, bool) {
+	if sym.Chain == nil || sym.Chain.Relationship == nil || sym.Chain.Relationship.Implicit == nil {
+		return nil, false
+	}
+	rel := sym.Chain.Relationship.Implicit
+	if rel.Node == nil || rel.Node.Target == nil || rel.Owner == nil {
+		return nil, false
+	}
+	if _, isEnd := rel.Owner.Decl.(*ast.ConnectorEnd); isEnd {
+		return nil, false
+	}
+	return rel.Node.Target, true
 }
 
 // writtenRelationshipNode is the node the conversion writes rel's relationship element
