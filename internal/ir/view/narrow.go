@@ -53,11 +53,17 @@ func (r *Rendering) showing(more Shown) *Rendering {
 	out := r.Clone()
 	out.Shown = shown
 	out.narrowed = true
-	n := narrowing{shown: shown, kind: r.Kind, redirect: map[string]string{}, ports: map[string]bool{}}
+	n := narrowing{shown: shown, kind: r.Kind, redirect: map[string]string{}, ports: map[string]bool{}, dropped: map[string]bool{}}
 	out.Roots = n.nodes(out.Roots, nil)
+	edges := out.Edges[:0]
 	for i := range out.Edges {
+		if n.dropped[out.Edges[i].From] || n.dropped[out.Edges[i].To] {
+			continue
+		}
 		n.edge(&out.Edges[i])
+		edges = append(edges, out.Edges[i])
 	}
+	out.Edges = edges
 	for i := range out.Notes {
 		n.note(&out.Notes[i])
 	}
@@ -74,6 +80,8 @@ type narrowing struct {
 	// ports marks the IDs redirect maps that were ports, which an edge names
 	// as its FromPort or ToPort.
 	ports map[string]bool
+	// dropped marks the annotation nodes left out, whose links go with them.
+	dropped map[string]bool
 }
 
 // nodes is nodes without the ones left out, each kept node narrowed in turn;
@@ -81,6 +89,10 @@ type narrowing struct {
 func (n *narrowing) nodes(nodes []*Node, parent *Node) []*Node {
 	var kept []*Node
 	for _, node := range nodes {
+		if annotationKind(node.Kind) && !n.shown.Has(ElementAnnotations) {
+			n.drop(node)
+			continue
+		}
 		if n.leftOut(parent, node) {
 			n.remove(node, parent)
 			continue
@@ -109,6 +121,15 @@ func (n *narrowing) leftOut(parent, node *Node) bool {
 // (its node form's, §8.2.3.17/19, always drawn), not a case's parameter symbols.
 func actionPinNode(node *Node) bool {
 	return !caseNodeKind(node.Kind) && !requirementNodeKind(node.Kind)
+}
+
+// drop leaves out an annotation node and everything nested in it; the edges
+// at them are dropped, nothing standing for an annotation left undrawn.
+func (n *narrowing) drop(node *Node) {
+	n.dropped[node.ID] = true
+	for _, child := range node.Children {
+		n.drop(child)
+	}
 }
 
 // remove maps node and everything nested in it to parent, the node now

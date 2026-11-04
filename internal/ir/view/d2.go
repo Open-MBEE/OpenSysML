@@ -203,6 +203,7 @@ var d2Classes = []struct{ name, body string }{
 	{"usage", styleOpen + d2Element + "; font-size: 14; border-radius: 8 }"},
 	{"package", styleOpen + d2Element + "; font-size: 14; stroke-width: 2 }"},
 	{"region", styleOpen + d2Element + "; font-size: 14; stroke-dash: 3 }"},
+	{"annotation", "shape: page; style: { " + d2Element + fontSizeClose},
 	{"pin", styleOpen + d2Element + "; font-size: 10 }"},
 	{"initial", "shape: oval; width: 18; height: 18; style: { fill: black; stroke: black }"},
 	{"final", "shape: oval; width: 22; height: 22; style: { fill: black; stroke: black; double-border: true }"},
@@ -426,6 +427,8 @@ func d2NodeClass(node *Node, glyphs bool) string {
 		}
 	}
 	switch {
+	case annotationKind(node.Kind):
+		return "annotation"
 	case slices.Contains(strings.Fields(node.Kind), "package"):
 		return "package"
 	case isDefinitionKind(node.Kind):

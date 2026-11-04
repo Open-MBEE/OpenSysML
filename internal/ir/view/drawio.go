@@ -658,7 +658,7 @@ func (w *drawioWriter) plainStyle(node *Node) string {
 		return "text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;"
 	case caseNodeKind(node.Kind):
 		return "ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;"
-	case node.Kind == "objective":
+	case node.Kind == "objective", annotationKind(node.Kind):
 		return "shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;"
 	case node.Kind == "actor":
 		return "shape=umlActor;html=0;whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top;"

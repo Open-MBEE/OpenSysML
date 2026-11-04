@@ -228,8 +228,11 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	if itemBox(node) && name == "" && node.Text != "" {
 		line += " " + node.Text
 	}
-	if node.Detail != "" && shown.Has(ElementCompartments) {
+	if node.Detail != "" && (annotationKind(node.Kind) || shown.Has(ElementCompartments)) {
 		line += " (" + node.Detail + ")"
+	}
+	if annotationKind(node.Kind) && node.Text != "" {
+		line += " " + strconv.Quote(node.Text)
 	}
 	if g := node.Geometry; g.placed() {
 		line += fmt.Sprintf(" at (%s, %s)", formatCoord(g.X), formatCoord(g.Y))

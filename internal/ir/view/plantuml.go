@@ -257,7 +257,11 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 		w.writeDot(node, "")
 		return
 	}
-	fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
+	if annotationKind(node.Kind) {
+		w.writeAnnotationNote(node, "")
+	} else {
+		fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
+	}
 	for _, child := range node.Children {
 		w.writeClassNode(child)
 		if !w.nesting[[2]string{node.ID, child.ID}] {
@@ -674,6 +678,20 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	return out.String()
 }
 
+// writeAnnotationNote writes an annotation node (§8.2.3.4) as a PlantUML
+// note, the folded-corner box, its label a line per row.
+func (w *plantumlWriter) writeAnnotationNote(node *Node, indent string) {
+	fmt.Fprintf(&w.b, "%snote as %s%s\n", indent, node.ID, w.noteDecoration(node))
+	for _, line := range strings.Split(w.plantumlLabel(node), `\n`) {
+		if line == "" {
+			fmt.Fprintf(&w.b, "%s  \n", indent)
+			continue
+		}
+		fmt.Fprintf(&w.b, "%s  %s\n", indent, line)
+	}
+	fmt.Fprintf(&w.b, "%send note\n", indent)
+}
+
 // noteDecoration styles a note node using the rendering's palette and annotation.
 func (w *plantumlWriter) noteDecoration(node *Node) string {
 	var out strings.Builder
@@ -727,7 +745,9 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	if keyword := w.labels.keyword(node); keyword != "" {
 		parts = append(parts, fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, plantumlText(keyword)))
 	}
-	if head := w.labels.head(node); head != "" {
+	if annotationKind(node.Kind) && shown(node) == "" {
+		parts = append(parts, strings.Split(plantumlText(w.labels.head(node)), "\n")...)
+	} else if head := w.labels.head(node); head != "" {
 		parts = append(parts, "**"+plantumlText(head)+"**")
 	}
 	for _, line := range w.labels.details(node) {

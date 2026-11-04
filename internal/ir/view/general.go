@@ -214,6 +214,9 @@ func (r *Renderer) renderGeneral(view *symbols.Symbol, exposed []*symbols.Symbol
 	for _, edge := range related {
 		g.add(edge)
 	}
+	for _, sym := range slices.Clone(g.order) {
+		g.annotationNodes(sym)
+	}
 	if library > 0 {
 		out.Notices = append(out.Notices, fmt.Sprintf("%d exposed standard library element(s) not drawn; a %s rendering draws the model's own elements", library, g.kind))
 	}
@@ -304,6 +307,35 @@ func (g *generalGraph) node(sym *symbols.Symbol) *Node {
 	g.order = append(g.order, sym)
 	g.out.Roots = append(g.out.Roots, node)
 	return node
+}
+
+// annotationNodes draws the annotation nodes of what sym declares in its body
+// (§8.2.3.4) beside its node, each linked by a dashed annotation link to the
+// drawn elements it annotates. A requirement's documentation is the text of
+// its node already and is not drawn twice.
+func (g *generalGraph) annotationNodes(sym *symbols.Symbol) {
+	owner := g.drawn(sym)
+	if owner == nil {
+		return
+	}
+	for _, member := range g.r.annotatingMembers(sym) {
+		if member.Kind == symbols.SymbolDocumentation && g.kind == KindRequirement && isRequirement(sym) {
+			continue
+		}
+		node := g.r.annotationNode(g.ids, g.view, member, g.out)
+		if node == nil {
+			continue
+		}
+		g.out.Roots = append(g.out.Roots, node)
+		for _, target := range g.r.annotatedElements(member) {
+			to := g.drawn(target)
+			if to == nil {
+				continue
+			}
+			g.add(Edge{From: node.ID, To: to.ID, Kind: EdgeAnchor, Origin: symbolOrigin(member),
+				Route: g.r.routeOf(g.view, member, g.out), Style: g.r.styleOf(g.view, member, g.out)})
+		}
+	}
 }
 
 // drawn is the node already drawing sym, nil when there is none.

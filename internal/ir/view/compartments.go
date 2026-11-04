@@ -36,6 +36,8 @@ var compartmentPlurals = map[string]string{
 	"enum":     "enumerations",
 	"analysis": "analyses",
 	"metadata": "metadata",
+	docKind:    docKind, // the `doc` compartment of §8.2.3.4 (documentation-compartment)
+	repKind:    repKind,
 }
 
 // rowPrefixes are the modifier keywords a kind may begin with, which the row
@@ -111,6 +113,9 @@ func compartmentsOf(rows []*Node) []Compartment {
 // textual notation writes it without the keyword its compartment names:
 // `ref wheel : Wheel`, `gain : dB = 15.0`, `: Sensor` for an anonymous one.
 func (l labeller) rowText(node *Node) string {
+	if annotationKind(node.Kind) {
+		return l.text(annotationRowText(node))
+	}
 	prefix, _ := splitRowPrefix(node.Kind)
 	text := shown(node)
 	if text != "" {
@@ -185,7 +190,7 @@ func (l labeller) compartmentLines(node *Node) []string {
 	for _, compartment := range l.compartments(node) {
 		lines = append(lines, compartment.Name)
 		for _, row := range compartment.Rows {
-			lines = append(lines, l.rowText(row))
+			lines = append(lines, strings.Split(l.rowText(row), "\n")...)
 		}
 	}
 	return lines

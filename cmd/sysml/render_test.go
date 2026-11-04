@@ -1249,7 +1249,7 @@ func TestRenderShow(t *testing.T) {
 	}
 
 	unknown := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot", "-render-show", "edge-labels,boxes")
-	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-show: unknown notation element "boxes"; the elements are parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, all`) || unknown.stdout != "" {
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-show: unknown notation element "boxes"; the elements are parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, annotations, all`) || unknown.stdout != "" {
 		t.Errorf("an unknown element = %d\n%s", unknown.status, unknown.output())
 	}
 

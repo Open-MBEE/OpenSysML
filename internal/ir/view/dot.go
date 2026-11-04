@@ -1254,6 +1254,22 @@ func (w *dotWriter) writeEdge(edge Edge, attrs []string) {
 	fmt.Fprintf(&w.b, "  %s -> %s [%s];\n", from, to, strings.Join(attrs, ", "))
 }
 
+// dotAnnotationAttributes draws an annotation node (§8.2.3.4) as the note
+// shape: its keyword over its name in bold, then its locale or language and
+// its body in plain type; an unnamed comment is its text alone. A stated box
+// pins and sizes it as it does any node.
+func (w *dotWriter) dotAnnotationAttributes(node *Node) []string {
+	attrs := []string{"shape=note"}
+	if w.skin.cameo {
+		attrs = append(attrs, dotFillAttr(cameoNoteFill), dotColorAttr(cameoLineColor))
+	}
+	attrs = append(attrs, w.fillAttributes(node)...)
+	if node.Geometry != nil && node.Geometry.HasSize {
+		return append(attrs, w.dotStatedLabel(node)...)
+	}
+	return append(attrs, w.labels.dotAnnotationLabel(node))
+}
+
 // dotNodeAttributes is a plain node's attribute list: the shape and style its
 // Kind chooses, its family colours under a palette, its label, then its
 // position and size when a box places it.
@@ -1272,6 +1288,8 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		attrs = w.dotPseudostateAttributes(node)
 	case w.pinned(node):
 		attrs = w.dotPinnedAttributes(node, w.labels.dotLabel(node))
+	case annotationKind(node.Kind):
+		attrs = w.dotAnnotationAttributes(node)
 	default:
 		if (w.kind == KindCase || w.kind == KindMixed) && caseNodeKind(node.Kind) {
 			attrs = append(attrs, "shape=ellipse")
@@ -2653,6 +2671,24 @@ func (l labeller) dotLabel(node *Node) string {
 		parts.compartments = append(parts.compartments, fitted)
 	}
 	return dotLabelAttribute(l.assemble(parts))
+}
+
+// dotAnnotationLabel is an annotation node's label: the keyword line at its
+// size, the name in bold when there is one, and the remaining lines plain.
+func (l labeller) dotAnnotationLabel(node *Node) string {
+	var lines []string
+	if keyword := l.keyword(node); keyword != "" {
+		lines = append(lines, l.sized(l.sizeOf(node), l.keywordSize(), l.keywordText(dotEscape(keyword))))
+	}
+	head := dotEscape(l.head(node))
+	if shown(node) != "" {
+		head = "<b>" + head + "</b>"
+	}
+	lines = append(lines, head)
+	for _, line := range l.details(node) {
+		lines = append(lines, dotEscape(line))
+	}
+	return dotLabelAttribute("<" + strings.Join(lines, "<br/>") + ">")
 }
 
 // dotFramedLabel is the cluster label of the root a Cameo frame's header names:

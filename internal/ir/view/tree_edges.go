@@ -111,6 +111,13 @@ func (r *Rendering) nestingEdges() map[[2]string]bool {
 	index(r.Roots, "")
 	nesting := map[[2]string]bool{}
 	for _, edge := range r.Edges {
+		if edge.Kind == EdgeAnchor {
+			// An annotation node hangs on its links alone, not on a containment line.
+			if parent, ok := parents[edge.From]; ok && parent != "" {
+				nesting[[2]string{parent, edge.From}] = true
+			}
+			continue
+		}
 		if !membershipEdge(edge.Kind) {
 			continue
 		}
@@ -348,6 +355,10 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	}
 	for _, child := range node.Children {
 		member := g.out.sites[child].sym
+		if annotatingSymbol(member) {
+			g.annotationLinks(node, child, member, site.view)
+			continue
+		}
 		if !structuralUsage(member) {
 			continue
 		}
@@ -357,6 +368,24 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 			edge.Route = g.r.routeOf(site.view, member, g.out)
 		}
 		g.add(edge, member)
+	}
+}
+
+// annotationLinks draws the annotation links of the annotation node child,
+// nested under node: a dashed line from the annotation to the node of each
+// drawn element it annotates (§8.2.3.4 annotation-link), its owner's node
+// when it names none.
+func (g *treeGraph) annotationLinks(node, child *Node, member *symbols.Symbol, view *symbols.Symbol) {
+	for _, target := range g.r.annotatedElements(member) {
+		to := g.node(target)
+		if target == member.Owner() && to == nil {
+			to = node
+		}
+		if to == nil || to == child {
+			continue
+		}
+		g.add(Edge{From: child.ID, To: to.ID, Kind: EdgeAnchor, Origin: symbolOrigin(member),
+			Route: g.r.routeOf(view, member, g.out), Style: g.r.styleOf(view, member, g.out)}, member)
 	}
 }
 

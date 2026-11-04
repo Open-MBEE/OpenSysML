@@ -1226,6 +1226,9 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		}
 	}
 	switch node.Kind {
+	case commentKind, docKind, repKind:
+		// Mermaid's card is the nearest to the note's folded corner.
+		return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
 	case startKind, "initial":
 		return `@{ shape: f-circ, label: "" }`
 	case "final", terminateKind:

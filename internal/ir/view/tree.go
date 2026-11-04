@@ -209,7 +209,23 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 		node.Detail = detailWith(node.Detail, cutNote(bound))
 		out.depthCut += cut
 	}
+	if recursive == nil && !folded {
+		node.Children = append(node.Children, r.annotationChildren(walk.ids, view, sym, out)...)
+	}
 	return node
+}
+
+// annotationChildren are the annotation nodes of what sym declares in its body
+// (§8.2.3.4), nested under its node so a folding lists them as its `doc`
+// compartment; the tree's edges join each to the elements it annotates.
+func (r *Renderer) annotationChildren(ids *nodeIDs, view, sym *symbols.Symbol, out *Rendering) []*Node {
+	var nodes []*Node
+	for _, member := range r.annotatingMembers(sym) {
+		if node := r.annotationNode(ids, view, member, out); node != nil {
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes
 }
 
 // treeNodeShallow draws sym without recursively drawing its members; one on

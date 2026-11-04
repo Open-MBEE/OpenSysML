@@ -1418,7 +1418,7 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	if !strings.Contains(shown.Artifact, `label="wire"`) {
 		t.Errorf("show=edge-labels drew no edge label:\n%s", shown.Artifact)
 	}
-	if _, err := render(t, []string{"edge-labels", "boxes"}); err == nil || !strings.Contains(err.Error(), `unknown notation element "boxes"; the elements are parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, all`) {
+	if _, err := render(t, []string{"edge-labels", "boxes"}); err == nil || !strings.Contains(err.Error(), `unknown notation element "boxes"; the elements are parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, annotations, all`) {
 		t.Errorf("an unknown element err = %v", err)
 	}
 }
