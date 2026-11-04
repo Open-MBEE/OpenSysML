@@ -91,6 +91,7 @@ func (w *featureWalk) splitLine(line Edge, flows []flowSite) []Edge {
 	boxes := make([]*Node, len(flows))
 	for i, flow := range flows {
 		boxes[i] = w.itemBox(w.out.Edges[flow.index], flow, line)
+		w.moveFlowNotes(flow, boxes[i], line)
 	}
 	routes := splitRoute(line.Route, len(boxes))
 	atCut := make([]bool, len(boxes))
@@ -165,6 +166,29 @@ func flowBoxKind(sym *symbols.Symbol, kind EdgeKind) string {
 		return "message"
 	}
 	return kind.String()
+}
+
+// moveFlowNotes anchors the notes of a flow drawn as an item box on the box: the ones
+// its edge got, anchored on the line's ends like the connection's own, are dropped.
+func (w *featureWalk) moveFlowNotes(flow flowSite, box *Node, line Edge) {
+	out := w.out
+	before, notices := len(out.Notes), len(out.Notices)
+	w.r.notesOf(w.view, flow.sym, box.ID, out)
+	out.Notices = out.Notices[:notices]
+	moved := map[Origin]bool{}
+	for _, note := range out.Notes[before:] {
+		moved[note.Origin] = true
+	}
+	kept := make([]Note, 0, len(out.Notes))
+	for i, note := range out.Notes {
+		ends := [2]string{note.EdgeFrom, note.EdgeTo}
+		onLine := ends == [2]string{line.From, line.To} || ends == [2]string{line.To, line.From}
+		if i < before && onLine && moved[note.Origin] {
+			continue
+		}
+		kept = append(kept, note)
+	}
+	out.Notes = kept
 }
 
 // segmentRoute is a piece of a split route less the cut points a box stands

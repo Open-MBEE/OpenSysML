@@ -105,6 +105,12 @@
             </mxGeometry>
           </mxCell>
         </object>
+        <mxCell id="note0" value="three spokes" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="128" y="229" width="117" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="note0:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note0" target="n4">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>

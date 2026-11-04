@@ -65,6 +65,8 @@ export interface RenderNode {
   type: string;
   detail: string;
   text: string;
+  /** On an item box drawn on a connection line: `right` toward the line's second end, `left` toward its first; empty otherwise. */
+  arrow: string;
   standIn: boolean;
   /** The owner the node is drawn or listed under has the usage through typing, subclassification or subsetting rather than declares it; the notation draws `^` before `name`. */
   inherited: boolean;
@@ -190,6 +192,7 @@ function nodeOf(node: PbRenderNode): RenderNode {
     type: node.type,
     detail: node.detail,
     text: node.text,
+    arrow: node.arrow,
     standIn: node.standIn,
     inherited: node.inherited,
     compartment: node.compartment,

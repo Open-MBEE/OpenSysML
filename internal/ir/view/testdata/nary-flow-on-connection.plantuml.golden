@@ -1,5 +1,6 @@
 @startuml
 ' NaryViews::carLinks — interconnection rendering (render asInterconnectionDiagram)
+' not represented: 2 note(s); the dot form draws notes
 <style>
 root {
   BackGroundColor white

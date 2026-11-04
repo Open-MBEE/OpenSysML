@@ -105,6 +105,18 @@
             </mxGeometry>
           </mxCell>
         </object>
+        <mxCell id="note1" value="the reading" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="274" y="229" width="109" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="note1:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note1" target="n5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note0" value="the line" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="50" y="332" width="84" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="note0:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note0" target="e0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>

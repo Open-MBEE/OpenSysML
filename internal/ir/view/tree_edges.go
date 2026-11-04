@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -244,6 +245,10 @@ type association struct {
 func (g *treeGraph) drawAssociationDot(node *Node, site treeSite, line association) {
 	def := site.sym
 	node.Kind, node.Compartments, node.Children, node.Type, node.Typings = connectionDefDotKind, nil, nil, "", nil
+	if route := g.r.routeOf(site.view, def, g.out); len(route) > 0 {
+		g.out.Notices = append(g.out.Notices, fmt.Sprintf("connection def %s states a route; its %d ends are drawn as a dot and segments, which the route does not steer",
+			localName(def), len(line.ends)))
+	}
 	if g.r.model.NameSynthesized(def) {
 		node.Name = ""
 	}
