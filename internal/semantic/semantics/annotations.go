@@ -1287,6 +1287,12 @@ func relationshipMetaclassName(rel symbols.RelationshipDecl) string {
 // MultiplicityMetaclassName is the metaclass of a named multiplicity: a range
 // (`multiplicity m [1..2]`) is a MultiplicityRange, a subset a Multiplicity.
 func MultiplicityMetaclassName(sym *symbols.Symbol) string {
+	if decl, ok := symbols.ImpliedDeclOf(sym); ok {
+		if decl.Form == symbols.ImpliedMultiplicityRange {
+			return "MultiplicityRange"
+		}
+		return "Multiplicity"
+	}
 	if sym.Recorded() {
 		// A multiplicity member's record carries bounds exactly when it declared a range.
 		if sym.Facts.Multiplicity != nil {
@@ -1567,11 +1573,16 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withTransitionParts(sym, ownedMembersOf(sym)), true
+		return m.withDefaultMultiplicityMember(sym, m.withTransitionParts(sym, ownedMembersOf(sym))), true
+	case "multiplicity":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return nil, false
+		}
+		return m.withDefaultMultiplicityMember(sym, m.multiplicityMembersOf(sym)), true
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)), true
+		return m.withDefaultMultiplicityMember(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))), true
 	case "feature":
 		var features []*symbols.Symbol
 		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
@@ -1885,7 +1896,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 			members = append(members, chain)
 		}
 	}
-	return members
+	return m.withDefaultMultiplicityMember(sym, members)
 }
 
 // connectorRelatedFeatures is Connector::relatedFeature, sourceFeature or
@@ -1993,6 +2004,36 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) []*symbo
 // ownedMembersOf is every element sym's own body declares, in declaration order:
 // an alias is a membership rather than an element, and a name registered twice
 // (short and primary) is one element.
+// withDefaultMultiplicityMember adds the Multiplicity sym states (MultiplicityMember):
+// a written range at its clause, the implicit [1..1] last.
+func (m *Model) withDefaultMultiplicityMember(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
+	member := m.MultiplicityMember(sym)
+	if member == nil {
+		return members
+	}
+	if IsDefaultMultiplicity(member) {
+		return append(members, member)
+	}
+	at := clausePosition(members, member.DeclSpan.Offset)
+	members = append(members, nil)
+	copy(members[at+1:], members[at:])
+	members[at] = member
+	return members
+}
+
+// multiplicityMembersOf is the `multiplicity` members a type declares (KerML 8.3.3.1.10
+// Type::multiplicity, an owned member that is a Multiplicity); a usage's own range or default
+// follows them (withDefaultMultiplicityMember).
+func (m *Model) multiplicityMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, member := range ownedMembersOf(sym) {
+		if member.Kind == symbols.SymbolMultiplicity {
+			out = append(out, member)
+		}
+	}
+	return out
+}
+
 func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Scope == nil {
 		return nil

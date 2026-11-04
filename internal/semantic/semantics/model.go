@@ -58,6 +58,12 @@ type Model struct {
 	// chainTargets memoizes the feature each relationship object's chain
 	// target denotes.
 	chainTargets map[*symbols.Symbol]*symbols.Symbol
+	// defaultMultiplicities memoizes the Multiplicity stating each usage's
+	// implicit [1..1] (DefaultMultiplicityMember).
+	defaultMultiplicities map[*symbols.Symbol]*symbols.Symbol
+	// declaredMultiplicities caches, per usage, the MultiplicityRange its written range
+	// declares (DeclaredMultiplicityMember).
+	declaredMultiplicities map[*symbols.Symbol]*symbols.Symbol
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
 	// referential memoizes a parameter's referentiality (see shape.go).
@@ -187,34 +193,36 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		directSupers: make(map[*symbols.Symbol][]*symbols.Symbol),
 		allSupers:    make(map[*symbols.Symbol][]*symbols.Symbol),
 
-		provisionalSupers:   make(map[*symbols.Symbol]bool),
-		computingSupers:     make(map[*symbols.Symbol]int),
-		valuing:             make(map[*symbols.Symbol]bool),
-		referenced:          make(map[*symbols.Symbol]*symbols.Symbol),
-		resolvingRef:        make(map[*symbols.Symbol]bool),
-		memberSources:       make(map[*symbols.Symbol][]*symbols.Symbol),
-		lookupOrder:         make(map[*symbols.Symbol][]lookupSource),
-		contributed:         make(map[*symbols.Symbol][]*symbols.Symbol),
-		nestedRedefs:        make(map[*symbols.Symbol][]NestedRedefinition),
-		allRedefined:        make(map[*symbols.Symbol][]*symbols.Symbol),
-		primTypes:           make(map[*symbols.Symbol]PrimType),
-		params:              make(map[*symbols.Symbol]behaviorParameters),
-		computingParams:     make(map[*symbols.Symbol]int),
-		invocations:         make(map[invocationKey]*InvocationSelection),
-		typingArgs:          make(map[*ast.InvocationExpr]bool),
-		composed:            make(map[composedKey][]*symbols.Symbol),
-		ends:                make(map[*symbols.Symbol][]connectorEnd),
-		chainTargets:        make(map[*symbols.Symbol]*symbols.Symbol),
-		subtracting:         make(map[*symbols.Symbol]bool),
-		referential:         make(map[*symbols.Symbol]bool),
-		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
-		implicitGenerals:    make(map[*symbols.Symbol][]*symbols.Symbol),
-		implicitSubsettings: make(map[*symbols.Symbol][]*symbols.Symbol),
-		usageBase:           make(map[*symbols.Symbol]*symbols.Symbol),
-		kermlBase:           make(map[*symbols.Symbol]*symbols.Symbol),
-		thingsBase:          make(map[*symbols.Symbol]*symbols.Symbol),
-		chainReachesBase:    make(map[*symbols.Symbol]bool),
-		computingUsageBase:  make(map[*symbols.Symbol]bool),
+		provisionalSupers:      make(map[*symbols.Symbol]bool),
+		computingSupers:        make(map[*symbols.Symbol]int),
+		valuing:                make(map[*symbols.Symbol]bool),
+		referenced:             make(map[*symbols.Symbol]*symbols.Symbol),
+		resolvingRef:           make(map[*symbols.Symbol]bool),
+		memberSources:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		lookupOrder:            make(map[*symbols.Symbol][]lookupSource),
+		contributed:            make(map[*symbols.Symbol][]*symbols.Symbol),
+		nestedRedefs:           make(map[*symbols.Symbol][]NestedRedefinition),
+		allRedefined:           make(map[*symbols.Symbol][]*symbols.Symbol),
+		primTypes:              make(map[*symbols.Symbol]PrimType),
+		params:                 make(map[*symbols.Symbol]behaviorParameters),
+		computingParams:        make(map[*symbols.Symbol]int),
+		invocations:            make(map[invocationKey]*InvocationSelection),
+		typingArgs:             make(map[*ast.InvocationExpr]bool),
+		composed:               make(map[composedKey][]*symbols.Symbol),
+		ends:                   make(map[*symbols.Symbol][]connectorEnd),
+		chainTargets:           make(map[*symbols.Symbol]*symbols.Symbol),
+		defaultMultiplicities:  make(map[*symbols.Symbol]*symbols.Symbol),
+		declaredMultiplicities: make(map[*symbols.Symbol]*symbols.Symbol),
+		subtracting:            make(map[*symbols.Symbol]bool),
+		referential:            make(map[*symbols.Symbol]bool),
+		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
+		implicitGenerals:       make(map[*symbols.Symbol][]*symbols.Symbol),
+		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
+		usageBase:              make(map[*symbols.Symbol]*symbols.Symbol),
+		kermlBase:              make(map[*symbols.Symbol]*symbols.Symbol),
+		thingsBase:             make(map[*symbols.Symbol]*symbols.Symbol),
+		chainReachesBase:       make(map[*symbols.Symbol]bool),
+		computingUsageBase:     make(map[*symbols.Symbol]bool),
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
 		conjSupers:     make(map[*symbols.Symbol][]conjugatedType),

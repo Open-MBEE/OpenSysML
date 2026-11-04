@@ -1,4 +1,5 @@
 @prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
@@ -152,11 +153,15 @@ elmt:Views__ByReference__tree
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:Views__tree ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Views__ByReference__tree_pmultiplicity ;
+    sysml:ownedRelationship elmt:Views__ByReference__tree_rs, expr:Views__ByReference__tree_pmultiplicity_om ;
+    sysml:ownedMembership expr:Views__ByReference__tree_pmultiplicity_om ;
+    sysml:ownedMember expr:Views__ByReference__tree_pmultiplicity ;
     sysml:ownedReferenceSubsetting elmt:Views__ByReference__tree_rs ;
     sysml:ownedSubsetting elmt:Views__ByReference__tree_rs ;
     sysml:ownedSpecialization elmt:Views__ByReference__tree_rs ;
-    sysml:ownedRelationship elmt:Views__ByReference__tree_rs ;
-    sysx:sourceText "        render tree;\n" .
+    sysx:sourceText "        render tree;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Views__ByReference__tree_rs\"},{\"@id\":\"Views__ByReference__tree_pmultiplicity_om\"}]" .
 
 elmt:Views__ByReference__tree_om
     a sysml:ViewRenderingMembership ;
@@ -175,6 +180,28 @@ elmt:Views__ByReference__tree_om
     sysml:ownedMemberFeature elmt:Views__ByReference__tree ;
     sysml:owningType elmt:Views__ByReference ;
     json:relatedElement "[{\"@id\":\"Views__ByReference\"},{\"@id\":\"Views__ByReference__tree\"}]" .
+
+expr:Views__ByReference__tree_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Views__ByReference__tree_pmultiplicity" ;
+    sysml:owner elmt:Views__ByReference__tree ;
+    sysml:owningRelationship expr:Views__ByReference__tree_pmultiplicity_om ;
+    sysml:owningMembership expr:Views__ByReference__tree_pmultiplicity_om .
+
+expr:Views__ByReference__tree_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__ByReference__tree_pmultiplicity_om" ;
+    sysml:owner elmt:Views__ByReference__tree ;
+    sysml:memberElement expr:Views__ByReference__tree_pmultiplicity ;
+    sysml:ownedMemberElement expr:Views__ByReference__tree_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Views__ByReference__tree_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Views__ByReference__tree ;
+    sysml:membershipOwningNamespace elmt:Views__ByReference__tree ;
+    sysml:source elmt:Views__ByReference__tree ;
+    sysml:target expr:Views__ByReference__tree_pmultiplicity ;
+    sysml:relatedElement elmt:Views__ByReference__tree, expr:Views__ByReference__tree_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Views__ByReference__tree\"},{\"@id\":\"Views__ByReference__tree_pmultiplicity\"}]" .
 
 elmt:Views__ByDeclaration
     a sysml:ViewDefinition ;
@@ -233,10 +260,14 @@ elmt:Views__ByDeclaration__t2
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Views__Tree ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Views__ByDeclaration__t2_pmultiplicity ;
+    sysml:ownedRelationship elmt:Views__ByDeclaration__t2_ft0, expr:Views__ByDeclaration__t2_pmultiplicity_om ;
+    sysml:ownedMembership expr:Views__ByDeclaration__t2_pmultiplicity_om ;
+    sysml:ownedMember expr:Views__ByDeclaration__t2_pmultiplicity ;
     sysml:ownedTyping elmt:Views__ByDeclaration__t2_ft0 ;
     sysml:ownedSpecialization elmt:Views__ByDeclaration__t2_ft0 ;
-    sysml:ownedRelationship elmt:Views__ByDeclaration__t2_ft0 ;
-    sysx:sourceText "        render rendering t2 : Tree;\n" .
+    sysx:sourceText "        render rendering t2 : Tree;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Views__ByDeclaration__t2_ft0\"},{\"@id\":\"Views__ByDeclaration__t2_pmultiplicity_om\"}]" .
 
 elmt:Views__ByDeclaration__t2_om
     a sysml:ViewRenderingMembership ;
@@ -255,6 +286,28 @@ elmt:Views__ByDeclaration__t2_om
     sysml:ownedMemberFeature elmt:Views__ByDeclaration__t2 ;
     sysml:owningType elmt:Views__ByDeclaration ;
     json:relatedElement "[{\"@id\":\"Views__ByDeclaration\"},{\"@id\":\"Views__ByDeclaration__t2\"}]" .
+
+expr:Views__ByDeclaration__t2_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Views__ByDeclaration__t2_pmultiplicity" ;
+    sysml:owner elmt:Views__ByDeclaration__t2 ;
+    sysml:owningRelationship expr:Views__ByDeclaration__t2_pmultiplicity_om ;
+    sysml:owningMembership expr:Views__ByDeclaration__t2_pmultiplicity_om .
+
+expr:Views__ByDeclaration__t2_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__ByDeclaration__t2_pmultiplicity_om" ;
+    sysml:owner elmt:Views__ByDeclaration__t2 ;
+    sysml:memberElement expr:Views__ByDeclaration__t2_pmultiplicity ;
+    sysml:ownedMemberElement expr:Views__ByDeclaration__t2_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Views__ByDeclaration__t2_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Views__ByDeclaration__t2 ;
+    sysml:membershipOwningNamespace elmt:Views__ByDeclaration__t2 ;
+    sysml:source elmt:Views__ByDeclaration__t2 ;
+    sysml:target expr:Views__ByDeclaration__t2_pmultiplicity ;
+    sysml:relatedElement elmt:Views__ByDeclaration__t2, expr:Views__ByDeclaration__t2_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Views__ByDeclaration__t2\"},{\"@id\":\"Views__ByDeclaration__t2_pmultiplicity\"}]" .
 
 elmt:Views__WithBody
     a sysml:ViewDefinition ;
@@ -313,15 +366,18 @@ elmt:Views__WithBody__tree
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:Views__tree ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Views__WithBody__tree___400 ;
-    sysml:ownedMembership elmt:Views__WithBody__tree___400_om ;
-    sysml:ownedRelationship elmt:Views__WithBody__tree_rs, elmt:Views__WithBody__tree___400_om ;
+    sysml:ownedMember elmt:Views__WithBody__tree___400, expr:Views__WithBody__tree_pmultiplicity ;
+    sysml:ownedMembership elmt:Views__WithBody__tree___400_om, expr:Views__WithBody__tree_pmultiplicity_om ;
+    sysml:ownedRelationship elmt:Views__WithBody__tree_rs, elmt:Views__WithBody__tree___400_om, expr:Views__WithBody__tree_pmultiplicity_om ;
+    sysml:multiplicity expr:Views__WithBody__tree_pmultiplicity ;
     sysml:ownedReferenceSubsetting elmt:Views__WithBody__tree_rs ;
     sysml:ownedSubsetting elmt:Views__WithBody__tree_rs ;
     sysml:ownedSpecialization elmt:Views__WithBody__tree_rs ;
     sysx:sourceText "        render tree {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Views__WithBody__tree_rs\"},{\"@id\":\"Views__WithBody__tree___400_om\"}]" .
+    json:ownedMember "[{\"@id\":\"Views__WithBody__tree___400\"},{\"@id\":\"Views__WithBody__tree_pmultiplicity\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Views__WithBody__tree___400_om\"},{\"@id\":\"Views__WithBody__tree_pmultiplicity_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Views__WithBody__tree_rs\"},{\"@id\":\"Views__WithBody__tree___400_om\"},{\"@id\":\"Views__WithBody__tree_pmultiplicity_om\"}]" .
 
 elmt:Views__WithBody__tree_om
     a sysml:ViewRenderingMembership ;
@@ -370,6 +426,28 @@ elmt:Views__WithBody__tree___400_om
     sysml:target elmt:Views__WithBody__tree___400 ;
     sysml:relatedElement elmt:Views__WithBody__tree, elmt:Views__WithBody__tree___400 ;
     json:relatedElement "[{\"@id\":\"Views__WithBody__tree\"},{\"@id\":\"Views__WithBody__tree___400\"}]" .
+
+expr:Views__WithBody__tree_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Views__WithBody__tree_pmultiplicity" ;
+    sysml:owner elmt:Views__WithBody__tree ;
+    sysml:owningRelationship expr:Views__WithBody__tree_pmultiplicity_om ;
+    sysml:owningMembership expr:Views__WithBody__tree_pmultiplicity_om .
+
+expr:Views__WithBody__tree_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__WithBody__tree_pmultiplicity_om" ;
+    sysml:owner elmt:Views__WithBody__tree ;
+    sysml:memberElement expr:Views__WithBody__tree_pmultiplicity ;
+    sysml:ownedMemberElement expr:Views__WithBody__tree_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Views__WithBody__tree_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Views__WithBody__tree ;
+    sysml:membershipOwningNamespace elmt:Views__WithBody__tree ;
+    sysml:source elmt:Views__WithBody__tree ;
+    sysml:target expr:Views__WithBody__tree_pmultiplicity ;
+    sysml:relatedElement elmt:Views__WithBody__tree, expr:Views__WithBody__tree_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Views__WithBody__tree\"},{\"@id\":\"Views__WithBody__tree_pmultiplicity\"}]" .
 
 elmt:Views__tree_ft0
     a sysml:FeatureTyping ;
