@@ -68,6 +68,7 @@ func (s *apiJSONGraphStructure) LibrarySymbol(element metamodel.Element) (*symbo
 type apiJSONEvaluation struct {
 	structure *apiJSONGraphStructure
 	evaluator *metamodel.Evaluator
+	model     *semantics.Model
 }
 
 func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {
@@ -77,9 +78,11 @@ func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {
 func newAPIJSONEvaluationWithIndex(index *apiJSONGraphIndex) *apiJSONEvaluation {
 	structure := newAPIJSONGraphStructure(index)
 	resolver := resolve.New(libs.SharedBase())
+	model := semantics.NewModel(resolver)
 	return &apiJSONEvaluation{
 		structure: structure,
-		evaluator: metamodel.New(resolver, semantics.NewModel(resolver), metamodel.Options{Structure: structure}),
+		evaluator: metamodel.New(resolver, model, metamodel.Options{Structure: structure}),
+		model:     model,
 	}
 }
 

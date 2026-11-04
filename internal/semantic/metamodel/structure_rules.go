@@ -4714,14 +4714,18 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 	return e.structureMembershipsProperty(memberships, property)
 }
 
-// structureLibraryTypeMembers reads a library base's non-private memberships from the
-// semantic inheritance table (KerML 8.3.3.1.10 nonPrivateMemberships); the graph states none.
+// structureLibraryTypeMembers reads a library base's non-private memberships, anonymous ones
+// included, from the semantic inheritance table (KerML 8.3.3.1.10 nonPrivateMemberships).
 func (e *Evaluator) structureLibraryTypeMembers(base Element, property string) ([]Value, bool) {
 	if e.model == nil || !e.completeMembers(base.Symbol) {
 		return nil, false
 	}
+	members, ok := e.model.ReflectiveElements(base.Symbol, "member")
+	if !ok {
+		return nil, false
+	}
 	var public, protected, inherited []Value
-	for _, member := range e.model.MembersOf(base.Symbol) {
+	for _, member := range members {
 		if member == nil || (e.resolver != nil && !e.resolver.InheritedMemberVisible(nil, member)) {
 			continue
 		}
