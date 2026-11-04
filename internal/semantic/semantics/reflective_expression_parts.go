@@ -41,7 +41,7 @@ func isExpressionSymbol(sym *symbols.Symbol) bool {
 	}
 	switch sym.Expr.Role {
 	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition,
-		symbols.ExpressionBody, symbols.ExpressionBodyResult:
+		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard:
 		return true
 	}
 	return false
@@ -57,6 +57,10 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "FeatureReferenceExpression"
 		case symbols.ExpressionBody:
 			return "Expression"
+		case symbols.ExpressionTriggerAction:
+			return "AcceptActionUsage"
+		case symbols.ExpressionPayload:
+			return "ReferenceUsage"
 		}
 	}
 	if isSatisfySubjectChainValue(sym) {
@@ -367,7 +371,16 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	var out []*symbols.Symbol
-	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
+	if parts := m.acceptParts(sym); parts != nil {
+		// A trigger's accept owns its payload parameter, which owns its value.
+		member := parts.payload
+		if sym.Expr.Role == symbols.ExpressionPayload {
+			member = parts.payloadValue
+		}
+		if member != nil {
+			out = appendOwningMembership(out, sym, member)
+		}
+	} else if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
 		// The wrapper owns its condition through a FeatureMembership, then its result.
 		parts := m.expressionPartsOf(sym)
 		out = appendOwningMembership(out, sym, parts.condition)
