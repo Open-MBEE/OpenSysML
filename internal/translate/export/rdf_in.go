@@ -16,7 +16,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // sysmlPrefix qualifies a SysML vocabulary property as a diagnostic names it.
@@ -227,7 +226,7 @@ func newDecoder(graph *rdf.Graph, metaclasses map[rdf.Term]string, statedNames m
 		demoted:              map[*element]bool{},
 		demotedExpr:          map[string]bool{},
 		folded:               map[*element]*element{},
-		libraryCatalog:       identity.LibraryCatalog(libs.NewModelIndex()),
+		libraryCatalog:       sharedLibraryIndex().catalog,
 		libraryRefs:          map[string]*element{},
 		importedMemberships:  map[string]*identity.LibraryElement{},
 		ambiguousImports:     map[string]bool{},
@@ -1696,8 +1695,12 @@ func (d *decoder) libraryMetaclassCompatible(subject rdf.Term, lib *identity.Lib
 	if lib.Symbol == nil {
 		return false
 	}
-	expected := declaredMetaclass(lib.Symbol.Decl)
-	return expected != "" && ontology.IsAncestorOrSelf(stated, expected)
+	for _, expected := range []string{libraryStubMetaclass(sharedLibraryIndex().model, lib.Symbol), declaredMetaclass(lib.Symbol.Decl)} {
+		if expected != "" && ontology.IsAncestorOrSelf(stated, expected) {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *decoder) importedMembershipTarget(iri string) (*identity.LibraryElement, bool) {
@@ -3360,7 +3363,7 @@ func (d *decoder) importedName(el *element) (string, error) {
 	if m, ok := d.memberships[term.Value]; ok {
 		return d.referenceName(rdf.IRI(m.member), el)
 	}
-	if lib, ok := identity.LibraryCatalog(libs.NewModelIndex()).OwningMembership(rdf.LocalName(term.Value)); ok {
+	if lib, ok := sharedLibraryIndex().catalog.OwningMembership(rdf.LocalName(term.Value)); ok {
 		return d.referenceName(rdf.ElementIRIForID(lib.ID), el)
 	}
 	return d.referenceName(term, el)

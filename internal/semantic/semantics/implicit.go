@@ -232,6 +232,10 @@ func (m *Model) ImpliedBaseFQNs(node ast.Node, kind source.Kind) []string {
 // ImpliedBaseFQNsForMetaclass returns standard-library bases implied by a
 // graph element's metaclass when its semantic symbol is unavailable.
 func (m *Model) ImpliedBaseFQNsForMetaclass(metaclass string, kind source.Kind) []string {
+	if metaclass == "ReferenceUsage" && kind != source.KindKerML {
+		// A reference usage has no kind base: it subsets only Base::things (SysML v2 §7.6.2).
+		return []string{baseUsageFQN}
+	}
 	if usageKind, ok := impliedUsageKinds[metaclass]; ok {
 		return m.ImpliedBaseFQNs(&ast.Usage{Kind: usageKind}, kind)
 	}
@@ -292,7 +296,6 @@ var impliedUsageKinds = map[string]ast.UsageKind{
 	"OccurrenceUsage":         ast.UsageOccurrence,
 	"PartUsage":               ast.UsagePart,
 	"PortUsage":               ast.UsagePort,
-	"ReferenceUsage":          ast.UsageAttribute,
 	"RenderingUsage":          ast.UsageRendering,
 	"RequirementUsage":        ast.UsageRequirement,
 	"StateUsage":              ast.UsageState,

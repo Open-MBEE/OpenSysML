@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
@@ -93,15 +94,15 @@ func addNamedLibraryStub(graph *rdf.Graph, subject rdf.Term, library *identity.L
 	if graph.HasProperty(subject, rdf.RDFType) {
 		return
 	}
-	metaclass := declaredMetaclass(library.Symbol.Decl)
+	metaclass := libraryStubMetaclass(model, library.Symbol)
 	if metaclass == "" {
 		return
 	}
 	graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
 	graph.Add(subject, rdf.SysMLTerm(pElementID), rdf.String(library.ID))
 	graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
-	if library.Symbol.Name != "" {
-		graph.Add(subject, rdf.SysMLTerm(pDeclaredName), rdf.String(library.Symbol.Name))
+	if declared, _ := declaredNameAndMembers(library.Symbol.Decl); declared != "" {
+		graph.Add(subject, rdf.SysMLTerm(pDeclaredName), rdf.String(declared))
 	}
 	graph.Add(subject, rdf.SysMLTerm(pIsLibraryElement), rdf.Bool(true))
 }
@@ -154,4 +155,14 @@ func apiJSONCompletedReferenceIDs(objects []apiJSONElementData) map[string]bool 
 		}
 	}
 	return ids
+}
+
+// libraryStubMetaclass is the metamodel class a library stub states for sym: the
+// semantic model's, which knows a `bool` feature as a BooleanExpression and a
+// `subject` as a ReferenceUsage, or the declaration's where the model has none.
+func libraryStubMetaclass(model *semantics.Model, sym *symbols.Symbol) string {
+	if metaclass := model.MetaclassOf(sym); metaclass != nil && metaclass.Name != "" {
+		return metaclass.Name
+	}
+	return declaredMetaclass(sym.Decl)
 }

@@ -863,6 +863,8 @@ type libraryRef struct {
 	node                ast.Node
 	fqn                 string
 	subject, membership rdf.Term
+	// metaclass, when set, is the metamodel class to state instead of the declaration's.
+	metaclass string
 }
 
 // libraryNames states, for each standard library element the graph references,
@@ -906,6 +908,9 @@ func (e *encoder) nameLibraryRef(ref libraryRef, named map[string]bool) bool {
 	}
 	named[ref.subject.Value] = false
 	metaclass := declaredMetaclass(ref.node)
+	if ref.metaclass != "" {
+		metaclass = ref.metaclass
+	}
 	switch n := ref.node.(type) {
 	case *ast.Package:
 		// `standard library package` (KerML 1.0 § 8.3.4.13.3 LibraryPackage).
@@ -951,7 +956,7 @@ func (e *encoder) inheritedLibraryNames() {
 	if model == nil {
 		return
 	}
-	catalog := identity.LibraryCatalog(e.res.Index())
+	catalog := identity.LibraryCatalogWithOpenSysML(e.res.Index())
 	fqns := make([]string, 0, len(e.ids.symByFQN))
 	for fqn := range e.ids.symByFQN {
 		fqns = append(fqns, fqn)
@@ -960,52 +965,79 @@ func (e *encoder) inheritedLibraryNames() {
 	named := map[string]bool{}
 	for _, fqn := range fqns {
 		sym := e.ids.symByFQN[fqn]
-		if sym == nil || sym.Scope == nil || sym.Implicit != nil {
+		if sym == nil || sym.Implicit != nil {
 			continue
 		}
-		memberships, ok := model.ReflectiveElements(sym, "inheritedMembership")
-		if !ok {
-			continue
-		}
-		for _, membership := range memberships {
-			if membership.Implicit == nil || membership.Implicit.Member == nil {
+		for _, base := range model.AllSupertypes(sym) {
+			if _, library := catalog.ElementForSymbol(base); !library {
 				continue
 			}
-			if sym := membership.Implicit.Member; sym.Name != "" {
-				el, ok := catalog.ElementForSymbol(sym)
-				if !ok || el == nil || el.ID == "" || named[el.ID] {
+			members, ok := model.ReflectiveElements(base, "member")
+			if !ok {
+				continue
+			}
+			for _, member := range members {
+				if member == nil || !e.res.InheritedMemberVisible(nil, member) || e.declaresLibraryMember(member) {
 					continue
 				}
-				named[el.ID] = true
-				ref := libraryRef{node: sym.Decl, fqn: el.FQN, subject: rdf.ElementIRIForID(el.ID)}
-				if el.OwningMembershipID != "" {
-					ref.membership = rdf.ElementIRIForID(el.OwningMembershipID)
-				}
-				if e.nameLibraryRef(ref, map[string]bool{}) && ref.membership.Value != "" {
-					if kind := identity.OwningMembershipMetaclass(model, sym); kind != "" {
-						e.nameLibraryMembership(ref, kind)
-					}
-				}
-				continue
+				e.nameInheritedLibraryMember(model, catalog, member, named)
 			}
-			member, ok := identity.AnonymousMemberOf(model, catalog, membership.Implicit.Member)
-			if !ok || named[member.ID] {
-				continue
-			}
-			named[member.ID] = true
-			subject := rdf.ElementIRIForID(member.ID)
-			e.graph.Add(subject, rdf.IRI(rdf.RDFType), e.sysml(member.Metaclass))
-			e.graph.Add(subject, e.sysml(pElementID), rdf.String(member.ID))
-			e.graph.Add(subject, e.sysx(xLibraryPath), rdf.String(member.Path))
-			e.graph.Add(subject, e.sysml(pIsLibraryElement), rdf.Bool(true))
-			owning := rdf.ElementIRIForID(member.OwningMembershipID)
-			e.graph.Add(owning, rdf.IRI(rdf.RDFType), e.sysml(member.MembershipMetaclass))
-			e.graph.Add(owning, e.sysml(pElementID), rdf.String(member.OwningMembershipID))
-			e.graph.Add(owning, e.sysml(pMemberElement), subject)
-			e.graph.Add(owning, e.sysx(xLibraryPath), rdf.String(member.MembershipPath))
-			e.graph.Add(owning, e.sysml(pIsLibraryElement), rdf.Bool(true))
 		}
 	}
+}
+
+// nameInheritedLibraryMember states one library member a type of the document inherits.
+func (e *encoder) nameInheritedLibraryMember(model *semantics.Model, catalog *identity.Catalog, sym *symbols.Symbol, named map[string]bool) {
+	if sym.Name != "" {
+		el, ok := catalog.ElementForSymbol(sym)
+		if !ok || el == nil || el.ID == "" || named[el.ID] {
+			return
+		}
+		named[el.ID] = true
+		ref := libraryRef{node: sym.Decl, fqn: el.FQN, subject: rdf.ElementIRIForID(el.ID), metaclass: libraryStubMetaclass(model, sym)}
+		if el.OwningMembershipID != "" {
+			ref.membership = rdf.ElementIRIForID(el.OwningMembershipID)
+		}
+		if e.nameLibraryRef(ref, map[string]bool{}) && ref.membership.Value != "" {
+			if kind := identity.OwningMembershipMetaclass(model, sym); kind != "" {
+				e.nameLibraryMembership(ref, kind)
+			}
+		}
+		return
+	}
+	member, ok := identity.AnonymousMemberOf(model, catalog, sym)
+	if !ok || named[member.ID] {
+		return
+	}
+	named[member.ID] = true
+	subject := rdf.ElementIRIForID(member.ID)
+	e.graph.Add(subject, rdf.IRI(rdf.RDFType), e.sysml(member.Metaclass))
+	e.graph.Add(subject, e.sysml(pElementID), rdf.String(member.ID))
+	e.graph.Add(subject, e.sysx(xLibraryPath), rdf.String(member.Path))
+	e.graph.Add(subject, e.sysml(pIsLibraryElement), rdf.Bool(true))
+	owning := rdf.ElementIRIForID(member.OwningMembershipID)
+	e.graph.Add(owning, rdf.IRI(rdf.RDFType), e.sysml(member.MembershipMetaclass))
+	e.graph.Add(owning, e.sysml(pElementID), rdf.String(member.OwningMembershipID))
+	e.graph.Add(owning, e.sysml(pMemberElement), subject)
+	e.graph.Add(owning, e.sysx(xLibraryPath), rdf.String(member.MembershipPath))
+	e.graph.Add(owning, e.sysml(pIsLibraryElement), rdf.Bool(true))
+}
+
+// declaresLibraryMember reports whether the document, or a document of its model,
+// declares sym or the owner of an unnamed sym: the graph then holds it, so no stub names it.
+func (e *encoder) declaresLibraryMember(sym *symbols.Symbol) bool {
+	for s := sym; s != nil; s = s.Owner() {
+		if s.Decl == nil {
+			return false
+		}
+		if _, declared := e.fqn[s.Decl]; declared || e.model.declares(s.Decl) {
+			return true
+		}
+		if s.Name != "" {
+			return false
+		}
+	}
+	return false
 }
 
 // owningMembershipClaim, after an element's name, says what a claimed membership IRI stands for.

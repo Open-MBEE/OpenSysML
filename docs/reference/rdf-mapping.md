@@ -291,6 +291,22 @@ output references (the `importedMembership` of `import ScalarValues::Real;`) is
 stated as a `sysml:OwningMembership` with its `sysml:memberElement`, marked the
 same way.
 
+The same naming covers the library members a type of the document inherits —
+which the element form's completed `inheritedMembership`, `feature` and kindred
+lists reference (§ Derived properties) — whether or not the model text names
+them: each named member as above, under the membership it is owned by
+(`sysml:FeatureMembership` for a feature); each unnamed one (a documentation
+comment, an invariant, an unnamed connector) by `rdf:type`, `sysml:elementId`
+and `sysx:libraryPath`, the positional path `Owner::qualifiedName/Metaclass[i]`
+(`i` counting the owner's preceding owned elements of that metaclass, the form
+the pilot's bridge keys unnamed elements by) that stands in for the qualified
+name it lacks. The id of an unnamed member is this implementation's: a
+version-5 UUID of that path under its owner's normative id
+(`identity.AnonymousMemberOf`), since the standard publishes no rule for them.
+The reader of the element form restates these from the ids its completed
+properties reference, so the graph read from the JSON form is the graph the
+Turtle form parses to.
+
 Such an element has no owner in the graph, and the document's root namespace
 does not take it (`LibraryReference`). The graph form — Turtle — keeps these
 names. The API element form does not carry them: there an ownerless element is

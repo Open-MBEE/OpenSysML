@@ -475,7 +475,13 @@ ours-missing):
    no normative id, so the writer mints one (`identity.AnonymousMemberID`: uuid5 under the owner's id of the
    member's metaclass and ordinal among the owner's anonymous members of that metaclass); the referee joins it
    to the bridge's positional key through the standard library's declaration order (`anonymousLibraryKeys`),
-   which is what turned 19346 indeterminate rows into equal ones. The present-different rows were classified
+   which is what turned 19346 indeterminate rows into equal ones. The Turtle form changes additively for
+   this: so that every id the element form leaves unheld is one the graph names, the encoder states the
+   library members a type inherits — named ones by metaclass, id and qualified name under their owning
+   membership, unnamed ones by `sysx:libraryPath`, the bridge's positional path `Owner/Metaclass[i]`
+   (`identity.AnonymousMemberOf`, one derivation for the writer, the reader, the decoder and the referee)
+   — and the compact form's `libraryReferences` table carries that path as `libraryPath`; no existing
+   statement changes. The present-different rows were classified
    on the training root by the exact difference of the two lists, and fall into four causes:
    - Elements the structure-mode evaluator gives no implied base: expressions, their anonymous result
      features (the `Feature` rows of the gap table below) and multiplicity ranges. The semantic model
