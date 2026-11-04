@@ -174,10 +174,14 @@ elmt:HeadOrder__Base__m
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:HeadOrder__Mass ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:HeadOrder__Base__m_pmultiplicity ;
+    sysml:ownedRelationship elmt:HeadOrder__Base__m_ft0, expr:HeadOrder__Base__m_pmultiplicity_om ;
+    sysml:ownedMembership expr:HeadOrder__Base__m_pmultiplicity_om ;
+    sysml:ownedMember expr:HeadOrder__Base__m_pmultiplicity ;
     sysml:ownedTyping elmt:HeadOrder__Base__m_ft0 ;
     sysml:ownedSpecialization elmt:HeadOrder__Base__m_ft0 ;
-    sysml:ownedRelationship elmt:HeadOrder__Base__m_ft0 ;
-    sysx:sourceText "        attribute m : Mass;\n" .
+    sysx:sourceText "        attribute m : Mass;\n" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Base__m_ft0\"},{\"@id\":\"HeadOrder__Base__m_pmultiplicity_om\"}]" .
 
 elmt:HeadOrder__Base__m_om
     a sysml:FeatureMembership ;
@@ -195,6 +199,28 @@ elmt:HeadOrder__Base__m_om
     sysml:ownedMemberFeature elmt:HeadOrder__Base__m ;
     sysml:owningType elmt:HeadOrder__Base ;
     json:relatedElement "[{\"@id\":\"HeadOrder__Base\"},{\"@id\":\"HeadOrder__Base__m\"}]" .
+
+expr:HeadOrder__Base__m_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "HeadOrder__Base__m_pmultiplicity" ;
+    sysml:owner elmt:HeadOrder__Base__m ;
+    sysml:owningRelationship expr:HeadOrder__Base__m_pmultiplicity_om ;
+    sysml:owningMembership expr:HeadOrder__Base__m_pmultiplicity_om .
+
+expr:HeadOrder__Base__m_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Base__m_pmultiplicity_om" ;
+    sysml:owner elmt:HeadOrder__Base__m ;
+    sysml:memberElement expr:HeadOrder__Base__m_pmultiplicity ;
+    sysml:ownedMemberElement expr:HeadOrder__Base__m_pmultiplicity ;
+    sysml:ownedRelatedElement expr:HeadOrder__Base__m_pmultiplicity ;
+    sysml:owningRelatedElement elmt:HeadOrder__Base__m ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Base__m ;
+    sysml:source elmt:HeadOrder__Base__m ;
+    sysml:target expr:HeadOrder__Base__m_pmultiplicity ;
+    sysml:relatedElement elmt:HeadOrder__Base__m, expr:HeadOrder__Base__m_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Base__m\"},{\"@id\":\"HeadOrder__Base__m_pmultiplicity\"}]" .
 
 elmt:HeadOrder__Base__n
     a sysml:AttributeUsage ;
@@ -215,10 +241,14 @@ elmt:HeadOrder__Base__n
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:HeadOrder__Base__n_pmultiplicity ;
+    sysml:ownedRelationship elmt:HeadOrder__Base__n_ft0, expr:HeadOrder__Base__n_pmultiplicity_om ;
+    sysml:ownedMembership expr:HeadOrder__Base__n_pmultiplicity_om ;
+    sysml:ownedMember expr:HeadOrder__Base__n_pmultiplicity ;
     sysml:ownedTyping elmt:HeadOrder__Base__n_ft0 ;
     sysml:ownedSpecialization elmt:HeadOrder__Base__n_ft0 ;
-    sysml:ownedRelationship elmt:HeadOrder__Base__n_ft0 ;
-    sysx:sourceText "        attribute n : Real;\n" .
+    sysx:sourceText "        attribute n : Real;\n" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Base__n_ft0\"},{\"@id\":\"HeadOrder__Base__n_pmultiplicity_om\"}]" .
 
 elmt:HeadOrder__Base__n_om
     a sysml:FeatureMembership ;
@@ -236,6 +266,28 @@ elmt:HeadOrder__Base__n_om
     sysml:ownedMemberFeature elmt:HeadOrder__Base__n ;
     sysml:owningType elmt:HeadOrder__Base ;
     json:relatedElement "[{\"@id\":\"HeadOrder__Base\"},{\"@id\":\"HeadOrder__Base__n\"}]" .
+
+expr:HeadOrder__Base__n_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "HeadOrder__Base__n_pmultiplicity" ;
+    sysml:owner elmt:HeadOrder__Base__n ;
+    sysml:owningRelationship expr:HeadOrder__Base__n_pmultiplicity_om ;
+    sysml:owningMembership expr:HeadOrder__Base__n_pmultiplicity_om .
+
+expr:HeadOrder__Base__n_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Base__n_pmultiplicity_om" ;
+    sysml:owner elmt:HeadOrder__Base__n ;
+    sysml:memberElement expr:HeadOrder__Base__n_pmultiplicity ;
+    sysml:ownedMemberElement expr:HeadOrder__Base__n_pmultiplicity ;
+    sysml:ownedRelatedElement expr:HeadOrder__Base__n_pmultiplicity ;
+    sysml:owningRelatedElement elmt:HeadOrder__Base__n ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Base__n ;
+    sysml:source elmt:HeadOrder__Base__n ;
+    sysml:target expr:HeadOrder__Base__n_pmultiplicity ;
+    sysml:relatedElement elmt:HeadOrder__Base__n, expr:HeadOrder__Base__n_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Base__n\"},{\"@id\":\"HeadOrder__Base__n_pmultiplicity\"}]" .
 
 elmt:HeadOrder__Base__p
     a sysml:AttributeUsage ;
@@ -256,10 +308,14 @@ elmt:HeadOrder__Base__p
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:HeadOrder__Base__p_pmultiplicity ;
+    sysml:ownedRelationship elmt:HeadOrder__Base__p_ft0, expr:HeadOrder__Base__p_pmultiplicity_om ;
+    sysml:ownedMembership expr:HeadOrder__Base__p_pmultiplicity_om ;
+    sysml:ownedMember expr:HeadOrder__Base__p_pmultiplicity ;
     sysml:ownedTyping elmt:HeadOrder__Base__p_ft0 ;
     sysml:ownedSpecialization elmt:HeadOrder__Base__p_ft0 ;
-    sysml:ownedRelationship elmt:HeadOrder__Base__p_ft0 ;
-    sysx:sourceText "        attribute p : Real;\n" .
+    sysx:sourceText "        attribute p : Real;\n" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Base__p_ft0\"},{\"@id\":\"HeadOrder__Base__p_pmultiplicity_om\"}]" .
 
 elmt:HeadOrder__Base__p_om
     a sysml:FeatureMembership ;
@@ -277,6 +333,28 @@ elmt:HeadOrder__Base__p_om
     sysml:ownedMemberFeature elmt:HeadOrder__Base__p ;
     sysml:owningType elmt:HeadOrder__Base ;
     json:relatedElement "[{\"@id\":\"HeadOrder__Base\"},{\"@id\":\"HeadOrder__Base__p\"}]" .
+
+expr:HeadOrder__Base__p_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "HeadOrder__Base__p_pmultiplicity" ;
+    sysml:owner elmt:HeadOrder__Base__p ;
+    sysml:owningRelationship expr:HeadOrder__Base__p_pmultiplicity_om ;
+    sysml:owningMembership expr:HeadOrder__Base__p_pmultiplicity_om .
+
+expr:HeadOrder__Base__p_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Base__p_pmultiplicity_om" ;
+    sysml:owner elmt:HeadOrder__Base__p ;
+    sysml:memberElement expr:HeadOrder__Base__p_pmultiplicity ;
+    sysml:ownedMemberElement expr:HeadOrder__Base__p_pmultiplicity ;
+    sysml:ownedRelatedElement expr:HeadOrder__Base__p_pmultiplicity ;
+    sysml:owningRelatedElement elmt:HeadOrder__Base__p ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Base__p ;
+    sysml:source elmt:HeadOrder__Base__p ;
+    sysml:target expr:HeadOrder__Base__p_pmultiplicity ;
+    sysml:relatedElement elmt:HeadOrder__Base__p, expr:HeadOrder__Base__p_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Base__p\"},{\"@id\":\"HeadOrder__Base__p_pmultiplicity\"}]" .
 
 elmt:HeadOrder__Derived
     a sysml:PartDefinition ;
@@ -533,13 +611,16 @@ elmt:HeadOrder__Derived__r
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:value expr:HeadOrder__Derived__r_pvalue ;
-    sysml:ownedRelationship elmt:HeadOrder__Derived__r_ft0, expr:HeadOrder__Derived__r_pvalue_om ;
-    sysml:ownedMembership expr:HeadOrder__Derived__r_pvalue_om ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived__r_ft0, expr:HeadOrder__Derived__r_pvalue_om, expr:HeadOrder__Derived__r_pmultiplicity_om ;
+    sysml:ownedMembership expr:HeadOrder__Derived__r_pvalue_om, expr:HeadOrder__Derived__r_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:HeadOrder__Derived__r_pmultiplicity ;
+    sysml:ownedMember expr:HeadOrder__Derived__r_pmultiplicity ;
     sysml:ownedTyping elmt:HeadOrder__Derived__r_ft0 ;
     sysml:ownedSpecialization elmt:HeadOrder__Derived__r_ft0 ;
     sysx:sourceText "        attribute r : Real = 3;\n" ;
-    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__r_ft0\"},{\"@id\":\"HeadOrder__Derived__r_pvalue_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__r_ft0\"},{\"@id\":\"HeadOrder__Derived__r_pvalue_om\"},{\"@id\":\"HeadOrder__Derived__r_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"HeadOrder__Derived__r_pvalue_om\"},{\"@id\":\"HeadOrder__Derived__r_pmultiplicity_om\"}]" .
 
 elmt:HeadOrder__Derived__r_om
     a sysml:FeatureMembership ;
@@ -583,6 +664,28 @@ expr:HeadOrder__Derived__r_pvalue_om
     sysml:featureWithValue elmt:HeadOrder__Derived__r ;
     sysml:value expr:HeadOrder__Derived__r_pvalue ;
     json:relatedElement "[{\"@id\":\"HeadOrder__Derived__r\"},{\"@id\":\"HeadOrder__Derived__r_pvalue\"}]" .
+
+expr:HeadOrder__Derived__r_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "HeadOrder__Derived__r_pmultiplicity" ;
+    sysml:owner elmt:HeadOrder__Derived__r ;
+    sysml:owningRelationship expr:HeadOrder__Derived__r_pmultiplicity_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__r_pmultiplicity_om .
+
+expr:HeadOrder__Derived__r_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived__r_pmultiplicity_om" ;
+    sysml:owner elmt:HeadOrder__Derived__r ;
+    sysml:memberElement expr:HeadOrder__Derived__r_pmultiplicity ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__r_pmultiplicity ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__r_pmultiplicity ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__r ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__r ;
+    sysml:source elmt:HeadOrder__Derived__r ;
+    sysml:target expr:HeadOrder__Derived__r_pmultiplicity ;
+    sysml:relatedElement elmt:HeadOrder__Derived__r, expr:HeadOrder__Derived__r_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__r\"},{\"@id\":\"HeadOrder__Derived__r_pmultiplicity\"}]" .
 
 elmt:HeadOrder__Derived__p
     a sysml:AttributeUsage ;
@@ -679,6 +782,7 @@ elmt:HeadOrder__Derived__s
     sysml:multiplicity expr:HeadOrder__Derived__s_pmultiplicity ;
     sysml:ownedRelationship elmt:HeadOrder__Derived__s_ft0, expr:HeadOrder__Derived__s_pmultiplicity_om, elmt:HeadOrder__Derived__s_ss0 ;
     sysml:ownedMembership expr:HeadOrder__Derived__s_pmultiplicity_om ;
+    sysml:ownedMember expr:HeadOrder__Derived__s_pmultiplicity ;
     sysml:upperBound expr:HeadOrder__Derived__s_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:HeadOrder__Derived__s_ft0 ;
@@ -776,6 +880,7 @@ elmt:HeadOrder__Derived__t
     sysml:multiplicity expr:HeadOrder__Derived__t_pmultiplicity ;
     sysml:ownedRelationship elmt:HeadOrder__Derived__t_ss0, expr:HeadOrder__Derived__t_pmultiplicity_om, elmt:HeadOrder__Derived__t_ft0 ;
     sysml:ownedMembership expr:HeadOrder__Derived__t_pmultiplicity_om ;
+    sysml:ownedMember expr:HeadOrder__Derived__t_pmultiplicity ;
     sysml:lowerBound expr:HeadOrder__Derived__t_plowerBound ;
     sysml:upperBound expr:HeadOrder__Derived__t_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -896,7 +1001,7 @@ elmt:HeadOrder__Derived__u
     sysml:declaredName "u" ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:HeadOrder__Derived__u___401, elmt:HeadOrder__Derived__u___400 ;
+    sysml:ownedMember elmt:HeadOrder__Derived__u___401, expr:HeadOrder__Derived__u_pmultiplicity, elmt:HeadOrder__Derived__u___400 ;
     sysml:ownedMembership elmt:HeadOrder__Derived__u___401_om, expr:HeadOrder__Derived__u_pmultiplicity_om, expr:HeadOrder__Derived__u_pvalue_om, elmt:HeadOrder__Derived__u___400_om ;
     sysml:ownedRelationship elmt:HeadOrder__Derived__u___401_om, elmt:HeadOrder__Derived__u_ft0, expr:HeadOrder__Derived__u_pmultiplicity_om, expr:HeadOrder__Derived__u_pvalue_om, elmt:HeadOrder__Derived__u___400_om ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
@@ -908,7 +1013,7 @@ elmt:HeadOrder__Derived__u
     sysml:ownedSpecialization elmt:HeadOrder__Derived__u_ft0 ;
     sysx:sourceText "        #Tag attribute u : Real [1] = 5 {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedMember "[{\"@id\":\"HeadOrder__Derived__u___401\"},{\"@id\":\"HeadOrder__Derived__u___400\"}]" ;
+    json:ownedMember "[{\"@id\":\"HeadOrder__Derived__u___401\"},{\"@id\":\"HeadOrder__Derived__u_pmultiplicity\"},{\"@id\":\"HeadOrder__Derived__u___400\"}]" ;
     json:ownedMembership "[{\"@id\":\"HeadOrder__Derived__u___401_om\"},{\"@id\":\"HeadOrder__Derived__u_pmultiplicity_om\"},{\"@id\":\"HeadOrder__Derived__u_pvalue_om\"},{\"@id\":\"HeadOrder__Derived__u___400_om\"}]" ;
     json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__u___401_om\"},{\"@id\":\"HeadOrder__Derived__u_ft0\"},{\"@id\":\"HeadOrder__Derived__u_pmultiplicity_om\"},{\"@id\":\"HeadOrder__Derived__u_pvalue_om\"},{\"@id\":\"HeadOrder__Derived__u___400_om\"}]" .
 
@@ -1383,18 +1488,6 @@ elmt:f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a
     sysml:memberElement <urn:sysmlv2:element:0856ed9f-5115-58b3-a51f-ba54aca3dce5> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:517290c7-e013-5d08-8373-e9b3da5bcdc3>
-    a sysml:Documentation ;
-    sysml:elementId "517290c7-e013-5d08-8373-e9b3da5bcdc3" ;
-    sysx:libraryPath "Objects::objects/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:0475ccb3-1978-53fd-8e2c-b77ae2091a5a>
-    a sysml:OwningMembership ;
-    sysml:elementId "0475ccb3-1978-53fd-8e2c-b77ae2091a5a" ;
-    sysml:memberElement <urn:sysmlv2:element:517290c7-e013-5d08-8373-e9b3da5bcdc3> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 <urn:sysmlv2:element:0536eca0-9fdc-5208-87c8-2dcc8356081a>
     a sysml:Feature ;
     sysml:elementId "0536eca0-9fdc-5208-87c8-2dcc8356081a" ;
@@ -1820,24 +1913,6 @@ elmt:a44baa93-a4d0-535d-b879-44a30575f348
     sysx:libraryPath "Occurrences::Occurrence/Connector[2]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:93fda27f-275c-52d7-9fb8-5d65b737b63d>
-    a sysml:Documentation ;
-    sysml:elementId "93fda27f-275c-52d7-9fb8-5d65b737b63d" ;
-    sysx:libraryPath "Metadata::metadataItems/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:3c849ce8-0bf4-5325-b6e3-67547acb1b3c>
-    a sysml:OwningMembership ;
-    sysml:elementId "3c849ce8-0bf4-5325-b6e3-67547acb1b3c" ;
-    sysml:memberElement <urn:sysmlv2:element:93fda27f-275c-52d7-9fb8-5d65b737b63d> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb>
-    a sysml:Documentation ;
-    sysml:elementId "3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb" ;
-    sysx:libraryPath "Base::dataValues/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 <urn:sysmlv2:element:80a5b391-d7f4-5d7a-b061-b06c397d4a0c>
     a sysml:Feature ;
     sysml:elementId "80a5b391-d7f4-5d7a-b061-b06c397d4a0c" ;
@@ -2025,18 +2100,6 @@ elmt:e6f154ee-5b28-5e45-93be-649e39e7c684
     sysml:declaredName "structuredSpaceBoundary" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:89aed288-e14b-5b63-bcfe-a5fb2098c176>
-    a sysml:Documentation ;
-    sysml:elementId "89aed288-e14b-5b63-bcfe-a5fb2098c176" ;
-    sysx:libraryPath "Items::items/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:53344e4e-a4c9-5188-8370-7ec470ba0b0b>
-    a sysml:OwningMembership ;
-    sysml:elementId "53344e4e-a4c9-5188-8370-7ec470ba0b0b" ;
-    sysml:memberElement <urn:sysmlv2:element:89aed288-e14b-5b63-bcfe-a5fb2098c176> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 <urn:sysmlv2:element:9f15f4ff-e883-5ee3-a73f-15730b50b155>
     a sysml:Feature ;
     sysml:elementId "9f15f4ff-e883-5ee3-a73f-15730b50b155" ;
@@ -2184,18 +2247,6 @@ elmt:e24b4cdf-0f1e-5b60-a62a-b09e0d1e6956
     a sysml:FeatureMembership ;
     sysml:elementId "703af01e-7298-57ff-94fa-af6f41e1219a" ;
     sysml:memberElement <urn:sysmlv2:element:1607b9db-52c8-5f16-aaf4-c20ed1cfdf44> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:ea462915-971b-556c-82e5-465debcb637d
-    a sysml:Documentation ;
-    sysml:elementId "ea462915-971b-556c-82e5-465debcb637d" ;
-    sysx:libraryPath "Base::things/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:71b55b92-4947-5a3f-9f3e-8f5b0d498581>
-    a sysml:OwningMembership ;
-    sysml:elementId "71b55b92-4947-5a3f-9f3e-8f5b0d498581" ;
-    sysml:memberElement elmt:ea462915-971b-556c-82e5-465debcb637d ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:72b2d69d-5f43-5cd4-8d69-bf404bb11f0c>
@@ -2557,12 +2608,6 @@ elmt:c38c7d9e-1c49-5dd8-9d2d-1a3c929f02a7
     sysml:memberElement <urn:sysmlv2:element:2b7f518b-bb5a-57d2-99c6-1d1c7f4f0eee> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-elmt:c4746a24-8316-5f5b-8b65-e33b7b284f93
-    a sysml:OwningMembership ;
-    sysml:elementId "c4746a24-8316-5f5b-8b65-e33b7b284f93" ;
-    sysml:memberElement <urn:sysmlv2:element:3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 elmt:dd677401-a352-5fe3-846a-dad08d3eab06
     a sysml:PartUsage ;
     sysml:elementId "dd677401-a352-5fe3-846a-dad08d3eab06" ;
@@ -2619,13 +2664,6 @@ elmt:d764bba7-46da-530b-b2c2-f50e2a430d1e
     sysml:memberElement <urn:sysmlv2:element:42cca478-6f8d-5c19-b990-bc4510c8bea7> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-elmt:dbd75b49-0e57-5cf9-ba35-9f8843b1e657
-    a sysml:Feature ;
-    sysml:elementId "dbd75b49-0e57-5cf9-ba35-9f8843b1e657" ;
-    sysml:qualifiedName "Base::things::that" ;
-    sysml:declaredName "that" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 elmt:ddb82e63-685a-5912-b9a0-a7ae93882ef3
     a sysml:FeatureMembership ;
     sysml:elementId "ddb82e63-685a-5912-b9a0-a7ae93882ef3" ;
@@ -2673,12 +2711,6 @@ elmt:eb16a9d2-e442-5d31-8b48-add32d3136c8
     a sysml:FeatureMembership ;
     sysml:elementId "eb16a9d2-e442-5d31-8b48-add32d3136c8" ;
     sysml:memberElement <urn:sysmlv2:element:875a7dea-6931-5c8e-88b5-e7000b21e1f9> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:eb64dd16-9465-56e7-8a36-8987c6e36bf5
-    a sysml:FeatureMembership ;
-    sysml:elementId "eb64dd16-9465-56e7-8a36-8987c6e36bf5" ;
-    sysml:memberElement elmt:dbd75b49-0e57-5cf9-ba35-9f8843b1e657 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:f17824ba-20fb-5167-bc84-7fb3b452f0ec

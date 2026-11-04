@@ -285,6 +285,8 @@ const (
 	// EdgeDependencyClient is the client link of an n-ary dependency: from a
 	// client to the dependency's dot, dashed with no head.
 	EdgeDependencyClient
+	// EdgeMessage is a message of an interaction, from the sending event to the receiving one.
+	EdgeMessage
 	// edgeKindCount is one past the last edge kind, sizing edgeKindNames.
 	edgeKindCount
 )
@@ -326,6 +328,7 @@ var edgeKindNames = [edgeKindCount]string{
 	EdgeUnownedMembership:   "unowned membership",
 	EdgeExpose:              "expose",
 	EdgeDependencyClient:    "dependency client",
+	EdgeMessage:             "message",
 }
 
 // String names an edge kind the way the notation speaks of it.
@@ -372,6 +375,9 @@ type Node struct {
 	// the notation prefixes its name with `^`, and a folding that hides it hides nothing
 	// of the owner's. A redefining usage the owner declares is its own, not inherited.
 	Inherited bool
+	// Parallel marks a state whose substates run in parallel (`state s parallel { … }`):
+	// the notation writes «parallel» after the name in its name compartment.
+	Parallel bool
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
@@ -974,7 +980,18 @@ func nameText(name string) string {
 // declKind names an element the way the notation declares it — "part def",
 // "state", "view" — so a rendering prints no Go type name.
 func declKind(sym *symbols.Symbol) string {
-	return sym.Notation()
+	kind := sym.Notation()
+	// `event` and `individual` are parsed as modifiers of the usage; the notation
+	// heads its box «event occurrence», «individual part» (SysML v2.1 §8.2.3.9).
+	if usage, ok := sym.Decl.(*ast.Usage); ok {
+		if usage.IsEvent && !strings.HasPrefix(kind, "event ") {
+			kind = "event " + kind
+		}
+		if usage.IsIndividual && !strings.HasPrefix(kind, "individual ") {
+			kind = "individual " + kind
+		}
+	}
+	return kind
 }
 
 // declType is the type a usage is declared with, as written ("Engine" of

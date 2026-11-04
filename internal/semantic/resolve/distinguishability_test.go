@@ -48,15 +48,19 @@ func TestDuplicateOwnedMemberNamesNoModel(t *testing.T) {
 	}
 }
 
-// importDuplicates returns the imported-name warnings among r's diagnostics.
-func importDuplicates(r *Resolver) []Diagnostic {
-	var out []Diagnostic
+// hiddenIn asserts that name is no member of the namespace ns declares — the
+// imported memberships binding it collide and KerML 7.2.5.4 hides them — and
+// that the resolver reports nothing for the hiding, which is no violation.
+func hiddenIn(t *testing.T, r *Resolver, ns, name string) {
+	t.Helper()
+	if sym, ok := r.LookupName(r.idx.Declaring(ns).Scope, name); ok {
+		t.Errorf("%s resolves to %v in %s, want nothing: the imported memberships are hidden", name, sym, ns)
+	}
 	for _, d := range r.Diagnostics {
-		if strings.HasPrefix(d.Message, "Duplicate of imported member name") {
-			out = append(out, d)
+		if d.Code == CodeNameConflict && d.Warning {
+			t.Errorf("got %q, want no name-conflict warning: hiding is a derivation, not a violation", d.Message)
 		}
 	}
-	return out
 }
 
 // Two wildcard imports bringing different members of one name make the
@@ -73,48 +77,27 @@ package C {
 	part e : Engine;
 }`
 	r := resolveDoc(t, "d.sysml", src)
-	if len(r.Diagnostics) != 2 {
-		t.Fatalf("got %d diagnostics, want 2: %v", len(r.Diagnostics), r.Diagnostics)
+	if len(r.Diagnostics) != 1 {
+		t.Fatalf("got %d diagnostics, want 1: %v", len(r.Diagnostics), r.Diagnostics)
 	}
-	d := importDuplicates(r)
-	if len(d) != 1 {
-		t.Fatalf("got %d import warnings, want 1: %v", len(d), r.Diagnostics)
-	}
-	want := "Duplicate of imported member name 'Engine': A::Engine (import A::*), B::Engine (import B::*)"
-	if !d[0].Warning || d[0].Code != CodeNameConflict || d[0].Message != want {
-		t.Errorf("got warning=%v %s %q, want a warning %s %q", d[0].Warning, d[0].Code, d[0].Message, CodeNameConflict, want)
-	}
-	if got := src[d[0].Span.Offset:d[0].Span.End()]; got != "B" {
-		t.Errorf("diagnostic sits on %q, want the second import's name", got)
-	}
-	var unresolved *Diagnostic
-	for i := range r.Diagnostics {
-		if !r.Diagnostics[i].Warning {
-			unresolved = &r.Diagnostics[i]
-		}
-	}
+	hiddenIn(t, r, "C", "Engine")
+	unresolved := &r.Diagnostics[0]
 	wantHint := "The name is hidden here: import A::* and import B::* bring distinct elements named 'Engine', so none is a member; qualify the one meant: A::Engine or B::Engine."
 	if unresolved == nil || !strings.HasPrefix(unresolved.Message, "unresolved reference: Engine") || !strings.HasSuffix(unresolved.Message, wantHint) {
 		t.Errorf("got %v, want an unresolved reference to Engine ending in %q", unresolved, wantHint)
 	}
-	if sym, ok := r.LookupName(r.idx.Declaring("C").Scope, "Engine"); ok {
-		t.Errorf("Engine resolves to %v in C, want nothing: both imported memberships are hidden", sym)
-	}
 }
 
 // A recursive import bringing two nested members of one name is one import
-// bringing two indistinguishable memberships; the warning names both.
+// bringing two indistinguishable memberships; both are hidden, silently.
 func TestImportedMemberNamesRecursiveImport(t *testing.T) {
 	const src = `package V { package P { part vb; } package R { part vb; } }
 package C { private import V::**; }`
 	r := resolveDoc(t, "d.sysml", src)
-	if len(r.Diagnostics) != 1 {
-		t.Fatalf("got %d diagnostics, want 1: %v", len(r.Diagnostics), r.Diagnostics)
+	if len(r.Diagnostics) != 0 {
+		t.Fatalf("got diagnostics %v, want none", r.Diagnostics)
 	}
-	want := "Duplicate of imported member name 'vb': V::P::vb (import V::**), V::R::vb (import V::**)"
-	if got := r.Diagnostics[0].Message; got != want {
-		t.Errorf("got %q, want %q", got, want)
-	}
+	hiddenIn(t, r, "C", "vb")
 }
 
 // Nothing is reported where no two memberships collide: one membership reached
@@ -149,8 +132,8 @@ package C { private import A::*; private import B::*; }`,
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
 			r := resolveDoc(t, "d.sysml", src)
-			if dups := importDuplicates(r); len(dups) != 0 {
-				t.Errorf("got %v, want no imported-name warning", dups)
+			if _, ok := r.LookupName(r.idx.Declaring("C").Scope, "E"); !ok {
+				t.Errorf("E does not resolve in C, want A::E: nothing collides with it")
 			}
 		})
 	}
@@ -164,27 +147,20 @@ func TestImportedMemberNamesShortNameAndImportAll(t *testing.T) {
 package B { private part def E; }
 package C { private import A::*; private import all B::*; }`
 	r := resolveDoc(t, "d.sysml", src)
-	dups := importDuplicates(r)
-	if len(dups) != 1 {
-		t.Fatalf("got %v, want one imported-name warning", dups)
-	}
-	want := "Duplicate of imported member name 'E': A::Engine (import A::*), B::E (import all B::*)"
-	if dups[0].Message != want {
-		t.Errorf("got %q, want %q", dups[0].Message, want)
+	for _, name := range []string{"E", "Engine"} {
+		hiddenIn(t, r, "C", name)
 	}
 }
 
 // Without a semantic model no metaclass is known, so imported members of one
-// name are never distinguishable by metaclass and the pair warns, as the owned
-// pair does.
+// name are never distinguishable by metaclass and the pair is hidden, as the
+// owned pair is reported.
 func TestImportedMemberNamesNoModel(t *testing.T) {
 	const src = `package A { part def E; }
 package B { attribute def E; }
 package C { private import A::*; private import B::*; }`
 	r := resolveDoc(t, "d.sysml", src)
-	if dups := importDuplicates(r); len(dups) != 1 {
-		t.Errorf("got %v, want one imported-name warning", dups)
-	}
+	hiddenIn(t, r, "C", "E")
 }
 
 // Two documents declaring one package and member make that package's own name
@@ -208,8 +184,10 @@ func TestImportedMemberNamesOwnedRepeatAcrossDocuments(t *testing.T) {
 	idx.ExpandWildcardImports()
 	r := New(idx)
 	r.ResolveDocument("c.sysml", roots["c.sysml"])
-	if dups := importDuplicates(r); len(dups) != 0 {
-		t.Errorf("got %v, want no imported-name warning", dups)
+	for _, d := range r.Diagnostics {
+		if d.Code == CodeNameConflict {
+			t.Errorf("got %q, want no name conflict at the importer", d.Message)
+		}
 	}
 }
 
@@ -222,13 +200,9 @@ package B { alias Spare for A::Engine; }
 package C { part def Engine; }
 package Use { private import B::*; private import A::*; private import C::*; }`
 	r := resolveDoc(t, "d.sysml", src)
-	dups := importDuplicates(r)
-	if len(dups) != 1 {
-		t.Fatalf("got %v, want one imported-name warning", dups)
-	}
-	want := "Duplicate of imported member name 'Engine': A::Engine (import A::*), C::Engine (import C::*)"
-	if dups[0].Message != want {
-		t.Errorf("got %q, want %q", dups[0].Message, want)
+	hiddenIn(t, r, "Use", "Engine")
+	if sym, ok := r.LookupName(r.idx.Declaring("Use").Scope, "Spare"); !ok || sym.Name != "Spare" {
+		t.Errorf("Spare resolves to %v, want the alias: under its own name it collides with nothing", sym)
 	}
 }
 
@@ -239,13 +213,8 @@ func TestImportedMemberNamesNestedInSameNamedTypes(t *testing.T) {
 	const src = `package A { part def P { part x; } part def P { part x; } }
 package Use { private import A::**; }`
 	r := resolveDoc(t, "d.sysml", src)
-	dups := importDuplicates(r)
-	if len(dups) != 1 {
-		t.Fatalf("got %v, want one imported-name warning", dups)
-	}
-	want := "Duplicate of imported member name 'x': A::P::x (import A::**), A::P::x (import A::**)"
-	if dups[0].Message != want {
-		t.Errorf("got %q, want %q", dups[0].Message, want)
+	if sym, ok := r.LookupName(r.idx.Declaring("Use").Scope, "x"); ok {
+		t.Errorf("x resolves to %v in Use, want nothing: the two nested memberships are hidden", sym)
 	}
 }
 

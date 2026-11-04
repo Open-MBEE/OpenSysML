@@ -1894,6 +1894,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if err := members(bodyMembers(n)); err != nil {
 			return err
 		}
+		e.defaultMultiplicity(subject, n, n.Multiplicity)
 		if metaclass == mAcceptAction {
 			// After the payload: the receiver is the action's second parameter
 			// (AcceptActionUsage::receiverArgument).
@@ -2118,6 +2119,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
+		e.defaultMultiplicity(subject, n, n.Multiplicity)
 		return e.encode(n.Body, fqn, subject)
 
 	case *ast.FilterMember:
@@ -3371,7 +3373,39 @@ func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multipl
 	head.items = append(head.items, headItem{element: membership, offset: clauseOffset(mult), multiplicity: true})
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMember), rangeNode)
 	return e.multiplicityBounds(subject, rangeNode, owner, mult)
+}
+
+// defaultMultiplicity emits the Multiplicity stating a usage's implicit [1..1]
+// (SysML v2 §7.6.3, semantics.ImpliesDefaultMultiplicity): a Multiplicity with no
+// bounds, owned last among the usage's memberships, as the pilot states it.
+func (e *encoder) defaultMultiplicity(subject rdf.Term, node ast.Node, mult *ast.Multiplicity) {
+	sym := e.ids.declSym[node]
+	if mult != nil || sym == nil || !e.ids.model.ImpliesDefaultMultiplicity(sym) {
+		return
+	}
+	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+	multiplicity := e.ids.mintedNode(rdf.ExpressionIRI(subject, pMultiplicity), subject, pMultiplicity)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(multiplicity), multiplicity, rdf.OwningMembershipSuffix)
+	for _, c := range []struct{ iri, standsFor string }{
+		{multiplicity.Value, "the default multiplicity of " + rdf.LocalName(subject.Value)},
+		{membership.Value, "the owning membership of the default multiplicity"},
+	} {
+		if prior, taken := e.claim(c.iri, c.standsFor); taken && e.idErr == nil {
+			e.idErr = &UnsupportedError{
+				What: c.standsFor,
+				Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
+			}
+		}
+	}
+	e.typed(multiplicity, mMultiplicityClass)
+	e.graph.Add(multiplicity, e.sysml(pElementID), rdf.String(rdf.LocalName(multiplicity.Value)))
+	e.graph.Add(subject, e.sysml(pMultiplicity), multiplicity)
+	e.emitMembershipCore(membership, multiplicity, subject, mOwningMembership, true)
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMember), multiplicity)
 }
 
 // multiplicityBounds emits the bounds of mult, owned by rangeNode and

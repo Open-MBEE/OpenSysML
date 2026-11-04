@@ -17,6 +17,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -426,6 +428,14 @@ func TestToolkitReExportTable(t *testing.T) {
 	}
 	want["Feature"] += results
 	want[mReturnParameterMembership] += results
+	// A usage declaring no multiplicity owns its implied default (SysML v2 7.6.3), which the
+	// compact interchange leaves implied as it does a result; the re-export states each.
+	defaults := impliedDefaultMultiplicities(t, file, root)
+	if defaults == 0 {
+		t.Fatal("the decoded notation implies no default multiplicity")
+	}
+	want[mMultiplicityClass] += defaults
+	want[mOwningMembership] += defaults
 	for typ, n := range want {
 		if got[typ] != n {
 			t.Errorf("@type %s: want %d, got %d", typ, n, got[typ])
@@ -799,4 +809,21 @@ func TestToolkitStateMachineDecodes(t *testing.T) {
 			t.Errorf("the %s form decodes differently:\n--- want ---\n%s\n--- got ---\n%s", form, want, got)
 		}
 	}
+}
+
+// impliedDefaultMultiplicities counts the usages of a document whose implied default
+// Multiplicity the export states.
+func impliedDefaultMultiplicities(t *testing.T, file *source.SourceFile, root *ast.RootNamespace) int {
+	t.Helper()
+	e, err := newEncoder(file, root, "", IDQualifiedName)
+	if err != nil {
+		t.Fatalf("newEncoder: %v", err)
+	}
+	seen := map[*symbols.Symbol]bool{}
+	for _, sym := range e.ids.declSym {
+		if !seen[sym] && e.ids.model.ImpliesDefaultMultiplicity(sym) {
+			seen[sym] = true
+		}
+	}
+	return len(seen)
 }

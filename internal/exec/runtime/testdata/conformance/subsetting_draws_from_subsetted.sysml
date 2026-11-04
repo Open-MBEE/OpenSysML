@@ -1,5 +1,5 @@
 // A subsetting feature stating no value of its own holds values of the feature it
-// subsets, as many as its lower bound asks (KerML 1.0 §7.3.4.4); a binding naming one
+// subsets, as many as its lower bound asks (KerML 1.1 §7.3.4.4); a binding naming one
 // of them picks which (§7.4.6). `two` holds two of `coll`; `picked` holds the value
 // of `coll` that `late` also holds.
 package test {

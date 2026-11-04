@@ -18,13 +18,13 @@ n0: "«action def»\nDrive" {
     class: usage
     "n2.1": "^torque" { class: pin }
   }
-  n3: "«action»\nmonitor\nown flow" {
+  n3: "«action»\nmonitor\naction flow" {
     class: usage
     "n3.0": "reading" { class: pin }
     n4: "" { class: initial }
     n5: "«action»\nrecord" { class: usage }
   }
-  n6: "«action»\ntally" { class: usage }
+  n6: "«assign»\ntally\nspeed := speed + 1" { class: usage }
   n7: "" { class: bar }
   n8: "" { class: bar }
   n9: "" { class: final }
@@ -43,4 +43,4 @@ n0.n7 -> n0.n6: { class: succession }
 n0.n8 -> n0.n11: { class: succession }
 n0.n10 -> n0.n9: { class: succession }
 n0.n11 -> n0.n9: "[speed > 0]" { class: succession }
-n0.n11 -> n0.n10: { class: succession }
+n0.n11 -> n0.n10: "else" { class: succession }

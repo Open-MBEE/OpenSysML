@@ -1,4 +1,5 @@
 @prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
@@ -152,11 +153,15 @@ elmt:Views__ByReference__tree
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:Views__tree ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Views__ByReference__tree_pmultiplicity ;
+    sysml:ownedRelationship elmt:Views__ByReference__tree_rs, expr:Views__ByReference__tree_pmultiplicity_om ;
+    sysml:ownedMembership expr:Views__ByReference__tree_pmultiplicity_om ;
+    sysml:ownedMember expr:Views__ByReference__tree_pmultiplicity ;
     sysml:ownedReferenceSubsetting elmt:Views__ByReference__tree_rs ;
     sysml:ownedSubsetting elmt:Views__ByReference__tree_rs ;
     sysml:ownedSpecialization elmt:Views__ByReference__tree_rs ;
-    sysml:ownedRelationship elmt:Views__ByReference__tree_rs ;
-    sysx:sourceText "        render tree;\n" .
+    sysx:sourceText "        render tree;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Views__ByReference__tree_rs\"},{\"@id\":\"Views__ByReference__tree_pmultiplicity_om\"}]" .
 
 elmt:Views__ByReference__tree_om
     a sysml:ViewRenderingMembership ;
@@ -175,6 +180,28 @@ elmt:Views__ByReference__tree_om
     sysml:ownedMemberFeature elmt:Views__ByReference__tree ;
     sysml:owningType elmt:Views__ByReference ;
     json:relatedElement "[{\"@id\":\"Views__ByReference\"},{\"@id\":\"Views__ByReference__tree\"}]" .
+
+expr:Views__ByReference__tree_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Views__ByReference__tree_pmultiplicity" ;
+    sysml:owner elmt:Views__ByReference__tree ;
+    sysml:owningRelationship expr:Views__ByReference__tree_pmultiplicity_om ;
+    sysml:owningMembership expr:Views__ByReference__tree_pmultiplicity_om .
+
+expr:Views__ByReference__tree_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__ByReference__tree_pmultiplicity_om" ;
+    sysml:owner elmt:Views__ByReference__tree ;
+    sysml:memberElement expr:Views__ByReference__tree_pmultiplicity ;
+    sysml:ownedMemberElement expr:Views__ByReference__tree_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Views__ByReference__tree_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Views__ByReference__tree ;
+    sysml:membershipOwningNamespace elmt:Views__ByReference__tree ;
+    sysml:source elmt:Views__ByReference__tree ;
+    sysml:target expr:Views__ByReference__tree_pmultiplicity ;
+    sysml:relatedElement elmt:Views__ByReference__tree, expr:Views__ByReference__tree_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Views__ByReference__tree\"},{\"@id\":\"Views__ByReference__tree_pmultiplicity\"}]" .
 
 elmt:Views__ByDeclaration
     a sysml:ViewDefinition ;
@@ -233,10 +260,14 @@ elmt:Views__ByDeclaration__t2
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Views__Tree ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Views__ByDeclaration__t2_pmultiplicity ;
+    sysml:ownedRelationship elmt:Views__ByDeclaration__t2_ft0, expr:Views__ByDeclaration__t2_pmultiplicity_om ;
+    sysml:ownedMembership expr:Views__ByDeclaration__t2_pmultiplicity_om ;
+    sysml:ownedMember expr:Views__ByDeclaration__t2_pmultiplicity ;
     sysml:ownedTyping elmt:Views__ByDeclaration__t2_ft0 ;
     sysml:ownedSpecialization elmt:Views__ByDeclaration__t2_ft0 ;
-    sysml:ownedRelationship elmt:Views__ByDeclaration__t2_ft0 ;
-    sysx:sourceText "        render rendering t2 : Tree;\n" .
+    sysx:sourceText "        render rendering t2 : Tree;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Views__ByDeclaration__t2_ft0\"},{\"@id\":\"Views__ByDeclaration__t2_pmultiplicity_om\"}]" .
 
 elmt:Views__ByDeclaration__t2_om
     a sysml:ViewRenderingMembership ;
@@ -255,6 +286,28 @@ elmt:Views__ByDeclaration__t2_om
     sysml:ownedMemberFeature elmt:Views__ByDeclaration__t2 ;
     sysml:owningType elmt:Views__ByDeclaration ;
     json:relatedElement "[{\"@id\":\"Views__ByDeclaration\"},{\"@id\":\"Views__ByDeclaration__t2\"}]" .
+
+expr:Views__ByDeclaration__t2_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Views__ByDeclaration__t2_pmultiplicity" ;
+    sysml:owner elmt:Views__ByDeclaration__t2 ;
+    sysml:owningRelationship expr:Views__ByDeclaration__t2_pmultiplicity_om ;
+    sysml:owningMembership expr:Views__ByDeclaration__t2_pmultiplicity_om .
+
+expr:Views__ByDeclaration__t2_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__ByDeclaration__t2_pmultiplicity_om" ;
+    sysml:owner elmt:Views__ByDeclaration__t2 ;
+    sysml:memberElement expr:Views__ByDeclaration__t2_pmultiplicity ;
+    sysml:ownedMemberElement expr:Views__ByDeclaration__t2_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Views__ByDeclaration__t2_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Views__ByDeclaration__t2 ;
+    sysml:membershipOwningNamespace elmt:Views__ByDeclaration__t2 ;
+    sysml:source elmt:Views__ByDeclaration__t2 ;
+    sysml:target expr:Views__ByDeclaration__t2_pmultiplicity ;
+    sysml:relatedElement elmt:Views__ByDeclaration__t2, expr:Views__ByDeclaration__t2_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Views__ByDeclaration__t2\"},{\"@id\":\"Views__ByDeclaration__t2_pmultiplicity\"}]" .
 
 elmt:Views__WithBody
     a sysml:ViewDefinition ;
@@ -313,15 +366,18 @@ elmt:Views__WithBody__tree
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:references elmt:Views__tree ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Views__WithBody__tree___400 ;
-    sysml:ownedMembership elmt:Views__WithBody__tree___400_om ;
-    sysml:ownedRelationship elmt:Views__WithBody__tree_rs, elmt:Views__WithBody__tree___400_om ;
+    sysml:ownedMember elmt:Views__WithBody__tree___400, expr:Views__WithBody__tree_pmultiplicity ;
+    sysml:ownedMembership elmt:Views__WithBody__tree___400_om, expr:Views__WithBody__tree_pmultiplicity_om ;
+    sysml:ownedRelationship elmt:Views__WithBody__tree_rs, elmt:Views__WithBody__tree___400_om, expr:Views__WithBody__tree_pmultiplicity_om ;
+    sysml:multiplicity expr:Views__WithBody__tree_pmultiplicity ;
     sysml:ownedReferenceSubsetting elmt:Views__WithBody__tree_rs ;
     sysml:ownedSubsetting elmt:Views__WithBody__tree_rs ;
     sysml:ownedSpecialization elmt:Views__WithBody__tree_rs ;
     sysx:sourceText "        render tree {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Views__WithBody__tree_rs\"},{\"@id\":\"Views__WithBody__tree___400_om\"}]" .
+    json:ownedMember "[{\"@id\":\"Views__WithBody__tree___400\"},{\"@id\":\"Views__WithBody__tree_pmultiplicity\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Views__WithBody__tree___400_om\"},{\"@id\":\"Views__WithBody__tree_pmultiplicity_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Views__WithBody__tree_rs\"},{\"@id\":\"Views__WithBody__tree___400_om\"},{\"@id\":\"Views__WithBody__tree_pmultiplicity_om\"}]" .
 
 elmt:Views__WithBody__tree_om
     a sysml:ViewRenderingMembership ;
@@ -370,6 +426,28 @@ elmt:Views__WithBody__tree___400_om
     sysml:target elmt:Views__WithBody__tree___400 ;
     sysml:relatedElement elmt:Views__WithBody__tree, elmt:Views__WithBody__tree___400 ;
     json:relatedElement "[{\"@id\":\"Views__WithBody__tree\"},{\"@id\":\"Views__WithBody__tree___400\"}]" .
+
+expr:Views__WithBody__tree_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Views__WithBody__tree_pmultiplicity" ;
+    sysml:owner elmt:Views__WithBody__tree ;
+    sysml:owningRelationship expr:Views__WithBody__tree_pmultiplicity_om ;
+    sysml:owningMembership expr:Views__WithBody__tree_pmultiplicity_om .
+
+expr:Views__WithBody__tree_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__WithBody__tree_pmultiplicity_om" ;
+    sysml:owner elmt:Views__WithBody__tree ;
+    sysml:memberElement expr:Views__WithBody__tree_pmultiplicity ;
+    sysml:ownedMemberElement expr:Views__WithBody__tree_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Views__WithBody__tree_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Views__WithBody__tree ;
+    sysml:membershipOwningNamespace elmt:Views__WithBody__tree ;
+    sysml:source elmt:Views__WithBody__tree ;
+    sysml:target expr:Views__WithBody__tree_pmultiplicity ;
+    sysml:relatedElement elmt:Views__WithBody__tree, expr:Views__WithBody__tree_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Views__WithBody__tree\"},{\"@id\":\"Views__WithBody__tree_pmultiplicity\"}]" .
 
 elmt:Views__tree_ft0
     a sysml:FeatureTyping ;
@@ -484,18 +562,6 @@ elmt:f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a
     a sysml:FeatureMembership ;
     sysml:elementId "045cc2ec-52a6-5504-9e14-86f9358e0ead" ;
     sysml:memberElement <urn:sysmlv2:element:0856ed9f-5115-58b3-a51f-ba54aca3dce5> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:517290c7-e013-5d08-8373-e9b3da5bcdc3>
-    a sysml:Documentation ;
-    sysml:elementId "517290c7-e013-5d08-8373-e9b3da5bcdc3" ;
-    sysx:libraryPath "Objects::objects/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:0475ccb3-1978-53fd-8e2c-b77ae2091a5a>
-    a sysml:OwningMembership ;
-    sysml:elementId "0475ccb3-1978-53fd-8e2c-b77ae2091a5a" ;
-    sysml:memberElement <urn:sysmlv2:element:517290c7-e013-5d08-8373-e9b3da5bcdc3> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:0536eca0-9fdc-5208-87c8-2dcc8356081a>
@@ -775,12 +841,6 @@ elmt:f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85
     sysml:elementId "23eed4d1-9254-59a8-ae68-912966ed1d14" ;
     sysml:qualifiedName "Occurrences::Occurrence::incomingTransfersToSelf" ;
     sysml:declaredName "incomingTransfersToSelf" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:26ad38de-5b79-57cb-b94c-a4f691290f92>
-    a sysml:Documentation ;
-    sysml:elementId "26ad38de-5b79-57cb-b94c-a4f691290f92" ;
-    sysx:libraryPath "Parts::parts/Documentation[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:2ce6ae13-819f-5639-b06e-6872e8624da8>
@@ -1128,12 +1188,6 @@ elmt:ee33d7cc-1719-5123-a34a-c40f275f9f1b
     sysml:memberElement <urn:sysmlv2:element:3c49932a-6fc4-53a1-9cd7-1c570a44e17a> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:51619b26-d3e3-5d86-a3e9-a290b3e3ab70>
-    a sysml:OwningMembership ;
-    sysml:elementId "51619b26-d3e3-5d86-a3e9-a290b3e3ab70" ;
-    sysml:memberElement <urn:sysmlv2:element:26ad38de-5b79-57cb-b94c-a4f691290f92> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 <urn:sysmlv2:element:8b18711a-0270-5a2d-95e9-9fc8ca0af484>
     a sysml:ViewUsage ;
     sysml:elementId "8b18711a-0270-5a2d-95e9-9fc8ca0af484" ;
@@ -1152,18 +1206,6 @@ elmt:ee33d7cc-1719-5123-a34a-c40f275f9f1b
     sysml:elementId "52e0e11b-6245-55e6-9156-00d331f6d5ea" ;
     sysml:qualifiedName "Objects::Object::structuredSpaceBoundary" ;
     sysml:declaredName "structuredSpaceBoundary" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:89aed288-e14b-5b63-bcfe-a5fb2098c176>
-    a sysml:Documentation ;
-    sysml:elementId "89aed288-e14b-5b63-bcfe-a5fb2098c176" ;
-    sysx:libraryPath "Items::items/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:53344e4e-a4c9-5188-8370-7ec470ba0b0b>
-    a sysml:OwningMembership ;
-    sysml:elementId "53344e4e-a4c9-5188-8370-7ec470ba0b0b" ;
-    sysml:memberElement <urn:sysmlv2:element:89aed288-e14b-5b63-bcfe-a5fb2098c176> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:54b73776-2051-5b62-9f65-b6beb4bbf084>
@@ -1312,18 +1354,6 @@ elmt:e24b4cdf-0f1e-5b60-a62a-b09e0d1e6956
     a sysml:FeatureMembership ;
     sysml:elementId "703af01e-7298-57ff-94fa-af6f41e1219a" ;
     sysml:memberElement <urn:sysmlv2:element:1607b9db-52c8-5f16-aaf4-c20ed1cfdf44> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:ea462915-971b-556c-82e5-465debcb637d
-    a sysml:Documentation ;
-    sysml:elementId "ea462915-971b-556c-82e5-465debcb637d" ;
-    sysx:libraryPath "Base::things/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:71b55b92-4947-5a3f-9f3e-8f5b0d498581>
-    a sysml:OwningMembership ;
-    sysml:elementId "71b55b92-4947-5a3f-9f3e-8f5b0d498581" ;
-    sysml:memberElement elmt:ea462915-971b-556c-82e5-465debcb637d ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:72b2d69d-5f43-5cd4-8d69-bf404bb11f0c>
@@ -1610,18 +1640,6 @@ elmt:b715b28d-2bca-5201-9ad8-1f91b4cda81f
     sysml:memberElement <urn:sysmlv2:element:39e7ab46-4b77-56c5-be49-cec0a1b784fe> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-elmt:f049bf24-dcd0-565b-ae39-6a560a4e101a
-    a sysml:Documentation ;
-    sysml:elementId "f049bf24-dcd0-565b-ae39-6a560a4e101a" ;
-    sysx:libraryPath "Views::renderings/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:b7e79957-199f-53c3-bf36-437c6d590f03
-    a sysml:OwningMembership ;
-    sysml:elementId "b7e79957-199f-53c3-bf36-437c6d590f03" ;
-    sysml:memberElement elmt:f049bf24-dcd0-565b-ae39-6a560a4e101a ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 elmt:e5c2b65e-f4b8-5236-a276-af2ffae92354
     a sysml:Invariant ;
     sysml:elementId "e5c2b65e-f4b8-5236-a276-af2ffae92354" ;
@@ -1703,13 +1721,6 @@ elmt:d764bba7-46da-530b-b2c2-f50e2a430d1e
     sysml:memberElement <urn:sysmlv2:element:42cca478-6f8d-5c19-b990-bc4510c8bea7> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-elmt:dbd75b49-0e57-5cf9-ba35-9f8843b1e657
-    a sysml:Feature ;
-    sysml:elementId "dbd75b49-0e57-5cf9-ba35-9f8843b1e657" ;
-    sysml:qualifiedName "Base::things::that" ;
-    sysml:declaredName "that" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 elmt:ddb82e63-685a-5912-b9a0-a7ae93882ef3
     a sysml:FeatureMembership ;
     sysml:elementId "ddb82e63-685a-5912-b9a0-a7ae93882ef3" ;
@@ -1757,12 +1768,6 @@ elmt:eb16a9d2-e442-5d31-8b48-add32d3136c8
     a sysml:FeatureMembership ;
     sysml:elementId "eb16a9d2-e442-5d31-8b48-add32d3136c8" ;
     sysml:memberElement <urn:sysmlv2:element:875a7dea-6931-5c8e-88b5-e7000b21e1f9> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:eb64dd16-9465-56e7-8a36-8987c6e36bf5
-    a sysml:FeatureMembership ;
-    sysml:elementId "eb64dd16-9465-56e7-8a36-8987c6e36bf5" ;
-    sysml:memberElement elmt:dbd75b49-0e57-5cf9-ba35-9f8843b1e657 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:f17824ba-20fb-5167-bc84-7fb3b452f0ec

@@ -223,7 +223,7 @@ func generalViewGraph(kind Kind) bool {
 // an optional label: a connection, interface, flow, binding or allocation.
 func connectorEdge(kind EdgeKind) bool {
 	switch kind {
-	case EdgeConnection, EdgeFlow, EdgeSuccessionFlow, EdgeBinding, EdgeAllocate:
+	case EdgeConnection, EdgeFlow, EdgeMessage, EdgeSuccessionFlow, EdgeBinding, EdgeAllocate:
 		return true
 	}
 	return false

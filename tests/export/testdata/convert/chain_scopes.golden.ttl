@@ -88,6 +88,10 @@ elmt:Gen__G1__x
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Gen__G1__x_pmultiplicity ;
+    sysml:ownedRelationship expr:Gen__G1__x_pmultiplicity_om ;
+    sysml:ownedMembership expr:Gen__G1__x_pmultiplicity_om ;
+    sysml:ownedMember expr:Gen__G1__x_pmultiplicity ;
     sysx:sourceText "        attribute x;\n" .
 
 elmt:Gen__G1__x_om
@@ -107,6 +111,28 @@ elmt:Gen__G1__x_om
     sysml:owningType elmt:Gen__G1 ;
     json:relatedElement "[{\"@id\":\"Gen__G1\"},{\"@id\":\"Gen__G1__x\"}]" .
 
+expr:Gen__G1__x_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Gen__G1__x_pmultiplicity" ;
+    sysml:owner elmt:Gen__G1__x ;
+    sysml:owningRelationship expr:Gen__G1__x_pmultiplicity_om ;
+    sysml:owningMembership expr:Gen__G1__x_pmultiplicity_om .
+
+expr:Gen__G1__x_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Gen__G1__x_pmultiplicity_om" ;
+    sysml:owner elmt:Gen__G1__x ;
+    sysml:memberElement expr:Gen__G1__x_pmultiplicity ;
+    sysml:ownedMemberElement expr:Gen__G1__x_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Gen__G1__x_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Gen__G1__x ;
+    sysml:membershipOwningNamespace elmt:Gen__G1__x ;
+    sysml:source elmt:Gen__G1__x ;
+    sysml:target expr:Gen__G1__x_pmultiplicity ;
+    sysml:relatedElement elmt:Gen__G1__x, expr:Gen__G1__x_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Gen__G1__x\"},{\"@id\":\"Gen__G1__x_pmultiplicity\"}]" .
+
 elmt:Gen__G1__y
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Gen::G1::y" ;
@@ -125,6 +151,10 @@ elmt:Gen__G1__y
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Gen__G1__y_pmultiplicity ;
+    sysml:ownedRelationship expr:Gen__G1__y_pmultiplicity_om ;
+    sysml:ownedMembership expr:Gen__G1__y_pmultiplicity_om ;
+    sysml:ownedMember expr:Gen__G1__y_pmultiplicity ;
     sysx:sourceText "        attribute y;\n" .
 
 elmt:Gen__G1__y_om
@@ -143,6 +173,28 @@ elmt:Gen__G1__y_om
     sysml:ownedMemberFeature elmt:Gen__G1__y ;
     sysml:owningType elmt:Gen__G1 ;
     json:relatedElement "[{\"@id\":\"Gen__G1\"},{\"@id\":\"Gen__G1__y\"}]" .
+
+expr:Gen__G1__y_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Gen__G1__y_pmultiplicity" ;
+    sysml:owner elmt:Gen__G1__y ;
+    sysml:owningRelationship expr:Gen__G1__y_pmultiplicity_om ;
+    sysml:owningMembership expr:Gen__G1__y_pmultiplicity_om .
+
+expr:Gen__G1__y_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Gen__G1__y_pmultiplicity_om" ;
+    sysml:owner elmt:Gen__G1__y ;
+    sysml:memberElement expr:Gen__G1__y_pmultiplicity ;
+    sysml:ownedMemberElement expr:Gen__G1__y_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Gen__G1__y_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Gen__G1__y ;
+    sysml:membershipOwningNamespace elmt:Gen__G1__y ;
+    sysml:source elmt:Gen__G1__y ;
+    sysml:target expr:Gen__G1__y_pmultiplicity ;
+    sysml:relatedElement elmt:Gen__G1__y, expr:Gen__G1__y_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Gen__G1__y\"},{\"@id\":\"Gen__G1__y_pmultiplicity\"}]" .
 
 elmt:Gen__G2
     a sysml:PartDefinition ;
@@ -200,6 +252,10 @@ elmt:Gen__G2__x
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Gen__G2__x_pmultiplicity ;
+    sysml:ownedRelationship expr:Gen__G2__x_pmultiplicity_om ;
+    sysml:ownedMembership expr:Gen__G2__x_pmultiplicity_om ;
+    sysml:ownedMember expr:Gen__G2__x_pmultiplicity ;
     sysx:sourceText "        attribute x;\n" .
 
 elmt:Gen__G2__x_om
@@ -218,6 +274,28 @@ elmt:Gen__G2__x_om
     sysml:ownedMemberFeature elmt:Gen__G2__x ;
     sysml:owningType elmt:Gen__G2 ;
     json:relatedElement "[{\"@id\":\"Gen__G2\"},{\"@id\":\"Gen__G2__x\"}]" .
+
+expr:Gen__G2__x_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Gen__G2__x_pmultiplicity" ;
+    sysml:owner elmt:Gen__G2__x ;
+    sysml:owningRelationship expr:Gen__G2__x_pmultiplicity_om ;
+    sysml:owningMembership expr:Gen__G2__x_pmultiplicity_om .
+
+expr:Gen__G2__x_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Gen__G2__x_pmultiplicity_om" ;
+    sysml:owner elmt:Gen__G2__x ;
+    sysml:memberElement expr:Gen__G2__x_pmultiplicity ;
+    sysml:ownedMemberElement expr:Gen__G2__x_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Gen__G2__x_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Gen__G2__x ;
+    sysml:membershipOwningNamespace elmt:Gen__G2__x ;
+    sysml:source elmt:Gen__G2__x ;
+    sysml:target expr:Gen__G2__x_pmultiplicity ;
+    sysml:relatedElement elmt:Gen__G2__x, expr:Gen__G2__x_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Gen__G2__x\"},{\"@id\":\"Gen__G2__x_pmultiplicity\"}]" .
 
 elmt:Chains
     a sysml:Package ;
@@ -337,10 +415,14 @@ elmt:Chains__Axle__hub
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__Wheel ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Chains__Axle__hub_pmultiplicity ;
+    sysml:ownedRelationship elmt:Chains__Axle__hub_ft0, expr:Chains__Axle__hub_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__Axle__hub_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__Axle__hub_pmultiplicity ;
     sysml:ownedTyping elmt:Chains__Axle__hub_ft0 ;
     sysml:ownedSpecialization elmt:Chains__Axle__hub_ft0 ;
-    sysml:ownedRelationship elmt:Chains__Axle__hub_ft0 ;
-    sysx:sourceText "        part hub : Wheel;\n" .
+    sysx:sourceText "        part hub : Wheel;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Axle__hub_ft0\"},{\"@id\":\"Chains__Axle__hub_pmultiplicity_om\"}]" .
 
 elmt:Chains__Axle__hub_om
     a sysml:FeatureMembership ;
@@ -358,6 +440,28 @@ elmt:Chains__Axle__hub_om
     sysml:ownedMemberFeature elmt:Chains__Axle__hub ;
     sysml:owningType elmt:Chains__Axle ;
     json:relatedElement "[{\"@id\":\"Chains__Axle\"},{\"@id\":\"Chains__Axle__hub\"}]" .
+
+expr:Chains__Axle__hub_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__Axle__hub_pmultiplicity" ;
+    sysml:owner elmt:Chains__Axle__hub ;
+    sysml:owningRelationship expr:Chains__Axle__hub_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__Axle__hub_pmultiplicity_om .
+
+expr:Chains__Axle__hub_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__Axle__hub_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__Axle__hub ;
+    sysml:memberElement expr:Chains__Axle__hub_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__Axle__hub_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__Axle__hub_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__Axle__hub ;
+    sysml:membershipOwningNamespace elmt:Chains__Axle__hub ;
+    sysml:source elmt:Chains__Axle__hub ;
+    sysml:target expr:Chains__Axle__hub_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__Axle__hub, expr:Chains__Axle__hub_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__Axle__hub\"},{\"@id\":\"Chains__Axle__hub_pmultiplicity\"}]" .
 
 elmt:Chains__Car
     a sysml:PartDefinition ;
@@ -421,10 +525,14 @@ elmt:Chains__Car__w
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__Wheel ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Chains__Car__w_pmultiplicity ;
+    sysml:ownedRelationship elmt:Chains__Car__w_ft0, expr:Chains__Car__w_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__Car__w_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__Car__w_pmultiplicity ;
     sysml:ownedTyping elmt:Chains__Car__w_ft0 ;
     sysml:ownedSpecialization elmt:Chains__Car__w_ft0 ;
-    sysml:ownedRelationship elmt:Chains__Car__w_ft0 ;
-    sysx:sourceText "        part w : Wheel;\n" .
+    sysx:sourceText "        part w : Wheel;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__w_ft0\"},{\"@id\":\"Chains__Car__w_pmultiplicity_om\"}]" .
 
 elmt:Chains__Car__w_om
     a sysml:FeatureMembership ;
@@ -442,6 +550,28 @@ elmt:Chains__Car__w_om
     sysml:ownedMemberFeature elmt:Chains__Car__w ;
     sysml:owningType elmt:Chains__Car ;
     json:relatedElement "[{\"@id\":\"Chains__Car\"},{\"@id\":\"Chains__Car__w\"}]" .
+
+expr:Chains__Car__w_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__Car__w_pmultiplicity" ;
+    sysml:owner elmt:Chains__Car__w ;
+    sysml:owningRelationship expr:Chains__Car__w_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__Car__w_pmultiplicity_om .
+
+expr:Chains__Car__w_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__Car__w_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__Car__w ;
+    sysml:memberElement expr:Chains__Car__w_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__Car__w_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__Car__w_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__Car__w ;
+    sysml:membershipOwningNamespace elmt:Chains__Car__w ;
+    sysml:source elmt:Chains__Car__w ;
+    sysml:target expr:Chains__Car__w_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__Car__w, expr:Chains__Car__w_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__Car__w\"},{\"@id\":\"Chains__Car__w_pmultiplicity\"}]" .
 
 elmt:Chains__Car__axle
     a sysml:PartUsage ;
@@ -462,10 +592,14 @@ elmt:Chains__Car__axle
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__Axle ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Chains__Car__axle_pmultiplicity ;
+    sysml:ownedRelationship elmt:Chains__Car__axle_ft0, expr:Chains__Car__axle_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__Car__axle_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__Car__axle_pmultiplicity ;
     sysml:ownedTyping elmt:Chains__Car__axle_ft0 ;
     sysml:ownedSpecialization elmt:Chains__Car__axle_ft0 ;
-    sysml:ownedRelationship elmt:Chains__Car__axle_ft0 ;
-    sysx:sourceText "        part axle : Axle;\n" .
+    sysx:sourceText "        part axle : Axle;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__axle_ft0\"},{\"@id\":\"Chains__Car__axle_pmultiplicity_om\"}]" .
 
 elmt:Chains__Car__axle_om
     a sysml:FeatureMembership ;
@@ -483,6 +617,28 @@ elmt:Chains__Car__axle_om
     sysml:ownedMemberFeature elmt:Chains__Car__axle ;
     sysml:owningType elmt:Chains__Car ;
     json:relatedElement "[{\"@id\":\"Chains__Car\"},{\"@id\":\"Chains__Car__axle\"}]" .
+
+expr:Chains__Car__axle_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__Car__axle_pmultiplicity" ;
+    sysml:owner elmt:Chains__Car__axle ;
+    sysml:owningRelationship expr:Chains__Car__axle_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__Car__axle_pmultiplicity_om .
+
+expr:Chains__Car__axle_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__Car__axle_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__Car__axle ;
+    sysml:memberElement expr:Chains__Car__axle_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__Car__axle_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__Car__axle_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__Car__axle ;
+    sysml:membershipOwningNamespace elmt:Chains__Car__axle ;
+    sysml:source elmt:Chains__Car__axle ;
+    sysml:target expr:Chains__Car__axle_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__Car__axle, expr:Chains__Car__axle_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__Car__axle\"},{\"@id\":\"Chains__Car__axle_pmultiplicity\"}]" .
 
 elmt:Chains__Car__a
     a sysml:AttributeUsage ;
@@ -502,10 +658,14 @@ elmt:Chains__Car__a
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__a_pvalue ;
-    sysml:ownedRelationship expr:Chains__Car__a_pvalue_om ;
-    sysml:ownedMembership expr:Chains__Car__a_pvalue_om ;
+    sysml:ownedRelationship expr:Chains__Car__a_pvalue_om, expr:Chains__Car__a_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__Car__a_pvalue_om, expr:Chains__Car__a_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute a = w.Gen::G1::x;\n" .
+    sysml:multiplicity expr:Chains__Car__a_pmultiplicity ;
+    sysml:ownedMember expr:Chains__Car__a_pmultiplicity ;
+    sysx:sourceText "        attribute a = w.Gen::G1::x;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__a_pvalue_om\"},{\"@id\":\"Chains__Car__a_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__a_pvalue_om\"},{\"@id\":\"Chains__Car__a_pmultiplicity_om\"}]" .
 
 elmt:Chains__Car__a_om
     a sysml:FeatureMembership ;
@@ -696,6 +856,28 @@ expr:Chains__Car__a_pvalue_om
     sysml:value expr:Chains__Car__a_pvalue ;
     json:relatedElement "[{\"@id\":\"Chains__Car__a\"},{\"@id\":\"Chains__Car__a_pvalue\"}]" .
 
+expr:Chains__Car__a_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__Car__a_pmultiplicity" ;
+    sysml:owner elmt:Chains__Car__a ;
+    sysml:owningRelationship expr:Chains__Car__a_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__Car__a_pmultiplicity_om .
+
+expr:Chains__Car__a_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__Car__a_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__Car__a ;
+    sysml:memberElement expr:Chains__Car__a_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__Car__a_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__Car__a_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__Car__a ;
+    sysml:membershipOwningNamespace elmt:Chains__Car__a ;
+    sysml:source elmt:Chains__Car__a ;
+    sysml:target expr:Chains__Car__a_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__Car__a, expr:Chains__Car__a_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__Car__a\"},{\"@id\":\"Chains__Car__a_pmultiplicity\"}]" .
+
 elmt:Chains__Car__b
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::b" ;
@@ -714,10 +896,14 @@ elmt:Chains__Car__b
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__b_pvalue ;
-    sysml:ownedRelationship expr:Chains__Car__b_pvalue_om ;
-    sysml:ownedMembership expr:Chains__Car__b_pvalue_om ;
+    sysml:ownedRelationship expr:Chains__Car__b_pvalue_om, expr:Chains__Car__b_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__Car__b_pvalue_om, expr:Chains__Car__b_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute b = w.Gen::G2::x;\n" .
+    sysml:multiplicity expr:Chains__Car__b_pmultiplicity ;
+    sysml:ownedMember expr:Chains__Car__b_pmultiplicity ;
+    sysx:sourceText "        attribute b = w.Gen::G2::x;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__b_pvalue_om\"},{\"@id\":\"Chains__Car__b_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__b_pvalue_om\"},{\"@id\":\"Chains__Car__b_pmultiplicity_om\"}]" .
 
 elmt:Chains__Car__b_om
     a sysml:FeatureMembership ;
@@ -908,6 +1094,28 @@ expr:Chains__Car__b_pvalue_om
     sysml:value expr:Chains__Car__b_pvalue ;
     json:relatedElement "[{\"@id\":\"Chains__Car__b\"},{\"@id\":\"Chains__Car__b_pvalue\"}]" .
 
+expr:Chains__Car__b_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__Car__b_pmultiplicity" ;
+    sysml:owner elmt:Chains__Car__b ;
+    sysml:owningRelationship expr:Chains__Car__b_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__Car__b_pmultiplicity_om .
+
+expr:Chains__Car__b_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__Car__b_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__Car__b ;
+    sysml:memberElement expr:Chains__Car__b_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__Car__b_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__Car__b_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__Car__b ;
+    sysml:membershipOwningNamespace elmt:Chains__Car__b ;
+    sysml:source elmt:Chains__Car__b ;
+    sysml:target expr:Chains__Car__b_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__Car__b, expr:Chains__Car__b_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__Car__b\"},{\"@id\":\"Chains__Car__b_pmultiplicity\"}]" .
+
 elmt:Chains__Car__c
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::c" ;
@@ -926,10 +1134,14 @@ elmt:Chains__Car__c
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__c_pvalue ;
-    sysml:ownedRelationship expr:Chains__Car__c_pvalue_om ;
-    sysml:ownedMembership expr:Chains__Car__c_pvalue_om ;
+    sysml:ownedRelationship expr:Chains__Car__c_pvalue_om, expr:Chains__Car__c_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__Car__c_pvalue_om, expr:Chains__Car__c_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute c = w.y;\n" .
+    sysml:multiplicity expr:Chains__Car__c_pmultiplicity ;
+    sysml:ownedMember expr:Chains__Car__c_pmultiplicity ;
+    sysx:sourceText "        attribute c = w.y;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__c_pvalue_om\"},{\"@id\":\"Chains__Car__c_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__c_pvalue_om\"},{\"@id\":\"Chains__Car__c_pmultiplicity_om\"}]" .
 
 elmt:Chains__Car__c_om
     a sysml:FeatureMembership ;
@@ -1120,6 +1332,28 @@ expr:Chains__Car__c_pvalue_om
     sysml:value expr:Chains__Car__c_pvalue ;
     json:relatedElement "[{\"@id\":\"Chains__Car__c\"},{\"@id\":\"Chains__Car__c_pvalue\"}]" .
 
+expr:Chains__Car__c_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__Car__c_pmultiplicity" ;
+    sysml:owner elmt:Chains__Car__c ;
+    sysml:owningRelationship expr:Chains__Car__c_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__Car__c_pmultiplicity_om .
+
+expr:Chains__Car__c_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__Car__c_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__Car__c ;
+    sysml:memberElement expr:Chains__Car__c_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__Car__c_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__Car__c_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__Car__c ;
+    sysml:membershipOwningNamespace elmt:Chains__Car__c ;
+    sysml:source elmt:Chains__Car__c ;
+    sysml:target expr:Chains__Car__c_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__Car__c, expr:Chains__Car__c_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__Car__c\"},{\"@id\":\"Chains__Car__c_pmultiplicity\"}]" .
+
 elmt:Chains__Car__d
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::d" ;
@@ -1138,10 +1372,14 @@ elmt:Chains__Car__d
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__d_pvalue ;
-    sysml:ownedRelationship expr:Chains__Car__d_pvalue_om ;
-    sysml:ownedMembership expr:Chains__Car__d_pvalue_om ;
+    sysml:ownedRelationship expr:Chains__Car__d_pvalue_om, expr:Chains__Car__d_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__Car__d_pvalue_om, expr:Chains__Car__d_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute d = axle.hub.Gen::G2::x;\n" .
+    sysml:multiplicity expr:Chains__Car__d_pmultiplicity ;
+    sysml:ownedMember expr:Chains__Car__d_pmultiplicity ;
+    sysx:sourceText "        attribute d = axle.hub.Gen::G2::x;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__d_pvalue_om\"},{\"@id\":\"Chains__Car__d_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__d_pvalue_om\"},{\"@id\":\"Chains__Car__d_pmultiplicity_om\"}]" .
 
 elmt:Chains__Car__d_om
     a sysml:FeatureMembership ;
@@ -1434,6 +1672,28 @@ expr:Chains__Car__d_pvalue_om
     sysml:value expr:Chains__Car__d_pvalue ;
     json:relatedElement "[{\"@id\":\"Chains__Car__d\"},{\"@id\":\"Chains__Car__d_pvalue\"}]" .
 
+expr:Chains__Car__d_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__Car__d_pmultiplicity" ;
+    sysml:owner elmt:Chains__Car__d ;
+    sysml:owningRelationship expr:Chains__Car__d_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__Car__d_pmultiplicity_om .
+
+expr:Chains__Car__d_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__Car__d_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__Car__d ;
+    sysml:memberElement expr:Chains__Car__d_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__Car__d_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__Car__d_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__Car__d ;
+    sysml:membershipOwningNamespace elmt:Chains__Car__d ;
+    sysml:source elmt:Chains__Car__d ;
+    sysml:target expr:Chains__Car__d_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__Car__d, expr:Chains__Car__d_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__Car__d\"},{\"@id\":\"Chains__Car__d_pmultiplicity\"}]" .
+
 elmt:Chains__Car__e
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::e" ;
@@ -1452,10 +1712,14 @@ elmt:Chains__Car__e
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__e_pvalue ;
-    sysml:ownedRelationship expr:Chains__Car__e_pvalue_om ;
-    sysml:ownedMembership expr:Chains__Car__e_pvalue_om ;
+    sysml:ownedRelationship expr:Chains__Car__e_pvalue_om, expr:Chains__Car__e_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__Car__e_pvalue_om, expr:Chains__Car__e_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute e = axle.hub.y;\n" .
+    sysml:multiplicity expr:Chains__Car__e_pmultiplicity ;
+    sysml:ownedMember expr:Chains__Car__e_pmultiplicity ;
+    sysx:sourceText "        attribute e = axle.hub.y;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__e_pvalue_om\"},{\"@id\":\"Chains__Car__e_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__e_pvalue_om\"},{\"@id\":\"Chains__Car__e_pmultiplicity_om\"}]" .
 
 elmt:Chains__Car__e_om
     a sysml:FeatureMembership ;
@@ -1748,6 +2012,28 @@ expr:Chains__Car__e_pvalue_om
     sysml:value expr:Chains__Car__e_pvalue ;
     json:relatedElement "[{\"@id\":\"Chains__Car__e\"},{\"@id\":\"Chains__Car__e_pvalue\"}]" .
 
+expr:Chains__Car__e_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__Car__e_pmultiplicity" ;
+    sysml:owner elmt:Chains__Car__e ;
+    sysml:owningRelationship expr:Chains__Car__e_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__Car__e_pmultiplicity_om .
+
+expr:Chains__Car__e_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__Car__e_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__Car__e ;
+    sysml:memberElement expr:Chains__Car__e_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__Car__e_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__Car__e_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__Car__e ;
+    sysml:membershipOwningNamespace elmt:Chains__Car__e ;
+    sysml:source elmt:Chains__Car__e ;
+    sysml:target expr:Chains__Car__e_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__Car__e, expr:Chains__Car__e_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__Car__e\"},{\"@id\":\"Chains__Car__e_pmultiplicity\"}]" .
+
 elmt:Chains__Car__spare
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::Car::spare" ;
@@ -1807,10 +2093,14 @@ elmt:Chains__Car__f
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__Car__f_pvalue ;
-    sysml:ownedRelationship expr:Chains__Car__f_pvalue_om ;
-    sysml:ownedMembership expr:Chains__Car__f_pvalue_om ;
+    sysml:ownedRelationship expr:Chains__Car__f_pvalue_om, expr:Chains__Car__f_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__Car__f_pvalue_om, expr:Chains__Car__f_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute f = spare.y;\n" .
+    sysml:multiplicity expr:Chains__Car__f_pmultiplicity ;
+    sysml:ownedMember expr:Chains__Car__f_pmultiplicity ;
+    sysx:sourceText "        attribute f = spare.y;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__f_pvalue_om\"},{\"@id\":\"Chains__Car__f_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__f_pvalue_om\"},{\"@id\":\"Chains__Car__f_pmultiplicity_om\"}]" .
 
 elmt:Chains__Car__f_om
     a sysml:FeatureMembership ;
@@ -2001,6 +2291,28 @@ expr:Chains__Car__f_pvalue_om
     sysml:value expr:Chains__Car__f_pvalue ;
     json:relatedElement "[{\"@id\":\"Chains__Car__f\"},{\"@id\":\"Chains__Car__f_pvalue\"}]" .
 
+expr:Chains__Car__f_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__Car__f_pmultiplicity" ;
+    sysml:owner elmt:Chains__Car__f ;
+    sysml:owningRelationship expr:Chains__Car__f_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__Car__f_pmultiplicity_om .
+
+expr:Chains__Car__f_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__Car__f_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__Car__f ;
+    sysml:memberElement expr:Chains__Car__f_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__Car__f_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__Car__f_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__Car__f ;
+    sysml:membershipOwningNamespace elmt:Chains__Car__f ;
+    sysml:source elmt:Chains__Car__f ;
+    sysml:target expr:Chains__Car__f_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__Car__f, expr:Chains__Car__f_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__Car__f\"},{\"@id\":\"Chains__Car__f_pmultiplicity\"}]" .
+
 elmt:Chains__Wheel_sc0
     a sysml:Subclassification ;
     sysml:elementId "Chains__Wheel_sc0" ;
@@ -2128,18 +2440,6 @@ elmt:f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a
     a sysml:FeatureMembership ;
     sysml:elementId "045cc2ec-52a6-5504-9e14-86f9358e0ead" ;
     sysml:memberElement <urn:sysmlv2:element:0856ed9f-5115-58b3-a51f-ba54aca3dce5> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:517290c7-e013-5d08-8373-e9b3da5bcdc3>
-    a sysml:Documentation ;
-    sysml:elementId "517290c7-e013-5d08-8373-e9b3da5bcdc3" ;
-    sysx:libraryPath "Objects::objects/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:0475ccb3-1978-53fd-8e2c-b77ae2091a5a>
-    a sysml:OwningMembership ;
-    sysml:elementId "0475ccb3-1978-53fd-8e2c-b77ae2091a5a" ;
-    sysml:memberElement <urn:sysmlv2:element:517290c7-e013-5d08-8373-e9b3da5bcdc3> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:0536eca0-9fdc-5208-87c8-2dcc8356081a>
@@ -2414,23 +2714,11 @@ elmt:f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85
     sysml:memberElement elmt:f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:2329da4f-c5f4-5261-8ac6-2039c4ba6256>
-    a sysml:Documentation ;
-    sysml:elementId "2329da4f-c5f4-5261-8ac6-2039c4ba6256" ;
-    sysx:libraryPath "Base::DataValue/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 <urn:sysmlv2:element:23eed4d1-9254-59a8-ae68-912966ed1d14>
     a sysml:Feature ;
     sysml:elementId "23eed4d1-9254-59a8-ae68-912966ed1d14" ;
     sysml:qualifiedName "Occurrences::Occurrence::incomingTransfersToSelf" ;
     sysml:declaredName "incomingTransfersToSelf" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:26ad38de-5b79-57cb-b94c-a4f691290f92>
-    a sysml:Documentation ;
-    sysml:elementId "26ad38de-5b79-57cb-b94c-a4f691290f92" ;
-    sysx:libraryPath "Parts::parts/Documentation[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:2ce6ae13-819f-5639-b06e-6872e8624da8>
@@ -2509,12 +2797,6 @@ elmt:acbd427f-8ecf-59a6-9c9f-bf9854908e42
     sysml:memberElement <urn:sysmlv2:element:2b9660c5-2b98-5ecd-bf09-32a62ff6be1e> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:3522ec00-cc25-5f6b-beae-b1e03226d01b>
-    a sysml:OwningMembership ;
-    sysml:elementId "3522ec00-cc25-5f6b-beae-b1e03226d01b" ;
-    sysml:memberElement <urn:sysmlv2:element:2329da4f-c5f4-5261-8ac6-2039c4ba6256> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 <urn:sysmlv2:element:36cc01d9-7cf0-54f7-ab42-838ee52d9d1b>
     a sysml:Feature ;
     sysml:elementId "36cc01d9-7cf0-54f7-ab42-838ee52d9d1b" ;
@@ -2564,12 +2846,6 @@ elmt:a44baa93-a4d0-535d-b879-44a30575f348
     a sysml:Connector ;
     sysml:elementId "3c49932a-6fc4-53a1-9cd7-1c570a44e17a" ;
     sysx:libraryPath "Occurrences::Occurrence/Connector[2]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb>
-    a sysml:Documentation ;
-    sysml:elementId "3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb" ;
-    sysx:libraryPath "Base::dataValues/Documentation[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:80a5b391-d7f4-5d7a-b061-b06c397d4a0c>
@@ -2739,29 +3015,11 @@ elmt:ee33d7cc-1719-5123-a34a-c40f275f9f1b
     sysml:memberElement <urn:sysmlv2:element:3c49932a-6fc4-53a1-9cd7-1c570a44e17a> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:51619b26-d3e3-5d86-a3e9-a290b3e3ab70>
-    a sysml:OwningMembership ;
-    sysml:elementId "51619b26-d3e3-5d86-a3e9-a290b3e3ab70" ;
-    sysml:memberElement <urn:sysmlv2:element:26ad38de-5b79-57cb-b94c-a4f691290f92> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 <urn:sysmlv2:element:52e0e11b-6245-55e6-9156-00d331f6d5ea>
     a sysml:Feature ;
     sysml:elementId "52e0e11b-6245-55e6-9156-00d331f6d5ea" ;
     sysml:qualifiedName "Objects::Object::structuredSpaceBoundary" ;
     sysml:declaredName "structuredSpaceBoundary" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:89aed288-e14b-5b63-bcfe-a5fb2098c176>
-    a sysml:Documentation ;
-    sysml:elementId "89aed288-e14b-5b63-bcfe-a5fb2098c176" ;
-    sysx:libraryPath "Items::items/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:53344e4e-a4c9-5188-8370-7ec470ba0b0b>
-    a sysml:OwningMembership ;
-    sysml:elementId "53344e4e-a4c9-5188-8370-7ec470ba0b0b" ;
-    sysml:memberElement <urn:sysmlv2:element:89aed288-e14b-5b63-bcfe-a5fb2098c176> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:9f15f4ff-e883-5ee3-a73f-15730b50b155>
@@ -2898,18 +3156,6 @@ elmt:e24b4cdf-0f1e-5b60-a62a-b09e0d1e6956
     a sysml:FeatureMembership ;
     sysml:elementId "703af01e-7298-57ff-94fa-af6f41e1219a" ;
     sysml:memberElement <urn:sysmlv2:element:1607b9db-52c8-5f16-aaf4-c20ed1cfdf44> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:ea462915-971b-556c-82e5-465debcb637d
-    a sysml:Documentation ;
-    sysml:elementId "ea462915-971b-556c-82e5-465debcb637d" ;
-    sysx:libraryPath "Base::things/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:71b55b92-4947-5a3f-9f3e-8f5b0d498581>
-    a sysml:OwningMembership ;
-    sysml:elementId "71b55b92-4947-5a3f-9f3e-8f5b0d498581" ;
-    sysml:memberElement elmt:ea462915-971b-556c-82e5-465debcb637d ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:72b2d69d-5f43-5cd4-8d69-bf404bb11f0c>
@@ -3158,19 +3404,6 @@ elmt:b015399f-4278-594e-908c-d343d9c6fd10
     sysml:memberElement elmt:e95dbcde-8fb8-52dc-9199-ee01e4ce3699 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-elmt:eece6ace-38b0-57dd-9eea-8add3ed6c003
-    a sysml:Feature ;
-    sysml:elementId "eece6ace-38b0-57dd-9eea-8add3ed6c003" ;
-    sysml:qualifiedName "Base::DataValue::self" ;
-    sysml:declaredName "self" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:b0f5e041-28a8-54d7-8b10-f98b41e2dda0
-    a sysml:FeatureMembership ;
-    sysml:elementId "b0f5e041-28a8-54d7-8b10-f98b41e2dda0" ;
-    sysml:memberElement elmt:eece6ace-38b0-57dd-9eea-8add3ed6c003 ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 elmt:f369e0d6-4bba-5d84-8d3c-abda5e337f89
     a sysml:PortUsage ;
     sysml:elementId "f369e0d6-4bba-5d84-8d3c-abda5e337f89" ;
@@ -3234,12 +3467,6 @@ elmt:c38c7d9e-1c49-5dd8-9d2d-1a3c929f02a7
     sysml:memberElement <urn:sysmlv2:element:2b7f518b-bb5a-57d2-99c6-1d1c7f4f0eee> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-elmt:c4746a24-8316-5f5b-8b65-e33b7b284f93
-    a sysml:OwningMembership ;
-    sysml:elementId "c4746a24-8316-5f5b-8b65-e33b7b284f93" ;
-    sysml:memberElement <urn:sysmlv2:element:3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 elmt:dd677401-a352-5fe3-846a-dad08d3eab06
     a sysml:PartUsage ;
     sysml:elementId "dd677401-a352-5fe3-846a-dad08d3eab06" ;
@@ -3296,13 +3523,6 @@ elmt:d764bba7-46da-530b-b2c2-f50e2a430d1e
     sysml:memberElement <urn:sysmlv2:element:42cca478-6f8d-5c19-b990-bc4510c8bea7> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-elmt:dbd75b49-0e57-5cf9-ba35-9f8843b1e657
-    a sysml:Feature ;
-    sysml:elementId "dbd75b49-0e57-5cf9-ba35-9f8843b1e657" ;
-    sysml:qualifiedName "Base::things::that" ;
-    sysml:declaredName "that" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 elmt:ddb82e63-685a-5912-b9a0-a7ae93882ef3
     a sysml:FeatureMembership ;
     sysml:elementId "ddb82e63-685a-5912-b9a0-a7ae93882ef3" ;
@@ -3350,12 +3570,6 @@ elmt:eb16a9d2-e442-5d31-8b48-add32d3136c8
     a sysml:FeatureMembership ;
     sysml:elementId "eb16a9d2-e442-5d31-8b48-add32d3136c8" ;
     sysml:memberElement <urn:sysmlv2:element:875a7dea-6931-5c8e-88b5-e7000b21e1f9> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:eb64dd16-9465-56e7-8a36-8987c6e36bf5
-    a sysml:FeatureMembership ;
-    sysml:elementId "eb64dd16-9465-56e7-8a36-8987c6e36bf5" ;
-    sysml:memberElement elmt:dbd75b49-0e57-5cf9-ba35-9f8843b1e657 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:f17824ba-20fb-5167-bc84-7fb3b452f0ec

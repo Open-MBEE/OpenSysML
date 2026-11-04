@@ -168,7 +168,7 @@ var implicitKerMLFeatureBases = map[string]string{
 	"predicate":   "Performances::booleanEvaluations",
 	"bool":        "Performances::booleanEvaluations",
 	"inv":         "Performances::trueEvaluations",
-	"interaction": "Transfers::transfers",
+	"interaction": performancesFQN,
 	"flow":        "Transfers::flowTransfers",
 	"metaclass":   "Objects::objects", // a Metaclass is a Structure; only a MetadataFeature subsets metaobjects
 }

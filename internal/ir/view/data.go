@@ -57,6 +57,8 @@ type NodeData struct {
 	Inherited bool `json:",omitempty"`
 	// Arrow is "right" or "left" on an item box drawn on a connection line.
 	Arrow string `json:",omitempty"`
+	// Parallel marks a state whose substates run in parallel, «parallel» in its name compartment.
+	Parallel bool `json:",omitempty"`
 	// Ports are the pins drawn on the node's border, which an edge may end at.
 	Ports []Port
 	// Parent is the ID of the node this one is nested in, "" for a root.
@@ -168,7 +170,7 @@ func appendNodeData(out []NodeData, node *Node, parent string, ports *portView) 
 	}
 	out = append(out, NodeData{
 		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
-		Text: node.Text, StandIn: node.StandIn, Inherited: node.Inherited, Ports: nodePorts, Parent: parent, Origin: node.Origin,
+		Text: node.Text, StandIn: node.StandIn, Inherited: node.Inherited, Parallel: node.Parallel, Ports: nodePorts, Parent: parent, Origin: node.Origin,
 		Geometry: node.Geometry, Style: node.Style, Verdict: node.Verdict, Arrow: node.Arrow,
 	})
 	for _, compartment := range node.Compartments {
