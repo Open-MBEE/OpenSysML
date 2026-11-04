@@ -1,14 +1,30 @@
 # SequenceViews::pubSubView — sequence rendering (view def SequenceView)
 classes: {
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
-  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  succession: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+  open: { target-arrowhead: { shape: arrow }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
 sequence: "" {
   shape: sequence_diagram
-  n0: "«part»\nproducer" { class: usage }
-  n1: "«part»\nserver" { class: usage }
-  n2: "«part»\nconsumer" { class: usage }
-  n2 -> n1: "subscribe_message" { class: edge }
-  n0 -> n1: "publish_message" { class: edge }
-  n1 -> n2: "deliver_message" { class: edge }
+  n0: "«part»\nproducer" {
+    class: usage
+    n3: "«event occurrence»\npublish_source_event" { class: usage }
+  }
+  n1: "«part»\nserver" {
+    class: usage
+    n6: "«event occurrence»\nsubscribe_target_event" { class: usage }
+    n4: "«event occurrence»\npublish_target_event" { class: usage }
+    n7: "«event occurrence»\ndeliver_source_event" { class: usage }
+  }
+  n2: "«part»\nconsumer" {
+    class: usage
+    n5: "«event occurrence»\nsubscribe_source_event" { class: usage }
+    n8: "«event occurrence»\ndeliver_target_event" { class: usage }
+  }
+  n2.n5 -> n1.n6: "subscribe_message of Subscribe" { class: open }
+  n1.n6 -> n1.n4: { class: succession }
+  n2.n5 -> n2.n8: { class: succession }
+  n0.n3 -> n1.n4: "publish_message of Publish" { class: open }
+  n1.n4 -> n1.n7: { class: succession }
+  n1.n7 -> n2.n8: "deliver_message of Deliver" { class: open }
 }

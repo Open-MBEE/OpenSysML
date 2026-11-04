@@ -108,10 +108,14 @@ elmt:Branches__Charge__level
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Branches__Charge__level_pmultiplicity ;
+    sysml:ownedRelationship elmt:Branches__Charge__level_ft0, expr:Branches__Charge__level_pmultiplicity_om ;
+    sysml:ownedMembership expr:Branches__Charge__level_pmultiplicity_om ;
+    sysml:ownedMember expr:Branches__Charge__level_pmultiplicity ;
     sysml:ownedTyping elmt:Branches__Charge__level_ft0 ;
     sysml:ownedSpecialization elmt:Branches__Charge__level_ft0 ;
-    sysml:ownedRelationship elmt:Branches__Charge__level_ft0 ;
-    sysx:sourceText "        attribute level : Integer;\n" .
+    sysx:sourceText "        attribute level : Integer;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge__level_ft0\"},{\"@id\":\"Branches__Charge__level_pmultiplicity_om\"}]" .
 
 elmt:Branches__Charge__level_om
     a sysml:FeatureMembership ;
@@ -129,6 +133,28 @@ elmt:Branches__Charge__level_om
     sysml:ownedMemberFeature elmt:Branches__Charge__level ;
     sysml:owningType elmt:Branches__Charge ;
     json:relatedElement "[{\"@id\":\"Branches__Charge\"},{\"@id\":\"Branches__Charge__level\"}]" .
+
+expr:Branches__Charge__level_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Branches__Charge__level_pmultiplicity" ;
+    sysml:owner elmt:Branches__Charge__level ;
+    sysml:owningRelationship expr:Branches__Charge__level_pmultiplicity_om ;
+    sysml:owningMembership expr:Branches__Charge__level_pmultiplicity_om .
+
+expr:Branches__Charge__level_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Branches__Charge__level_pmultiplicity_om" ;
+    sysml:owner elmt:Branches__Charge__level ;
+    sysml:memberElement expr:Branches__Charge__level_pmultiplicity ;
+    sysml:ownedMemberElement expr:Branches__Charge__level_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Branches__Charge__level_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Branches__Charge__level ;
+    sysml:membershipOwningNamespace elmt:Branches__Charge__level ;
+    sysml:source elmt:Branches__Charge__level ;
+    sysml:target expr:Branches__Charge__level_pmultiplicity ;
+    sysml:relatedElement elmt:Branches__Charge__level, expr:Branches__Charge__level_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge__level\"},{\"@id\":\"Branches__Charge__level_pmultiplicity\"}]" .
 
 elmt:Branches__Charge__check
     a sysml:ActionUsage ;

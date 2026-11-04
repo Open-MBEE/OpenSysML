@@ -6,7 +6,7 @@ part def Plant
   part pump
   timeslice filling
   snapshot full
-  occurrence startup
+  event occurrence startup
   part spare
     attribute ^level
 view tankView

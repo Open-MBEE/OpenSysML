@@ -1,4 +1,5 @@
 @prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
@@ -103,9 +104,13 @@ elmt:ClauseOrder__Quantity__num
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:ClauseOrder__Quantity__num_pmultiplicity ;
+    sysml:ownedRelationship elmt:ClauseOrder__Quantity__num_ft0, expr:ClauseOrder__Quantity__num_pmultiplicity_om ;
+    sysml:ownedMembership expr:ClauseOrder__Quantity__num_pmultiplicity_om ;
+    sysml:ownedMember expr:ClauseOrder__Quantity__num_pmultiplicity ;
     sysml:ownedTyping elmt:ClauseOrder__Quantity__num_ft0 ;
     sysml:ownedSpecialization elmt:ClauseOrder__Quantity__num_ft0 ;
-    sysml:ownedRelationship elmt:ClauseOrder__Quantity__num_ft0 .
+    json:ownedRelationship "[{\"@id\":\"ClauseOrder__Quantity__num_ft0\"},{\"@id\":\"ClauseOrder__Quantity__num_pmultiplicity_om\"}]" .
 
 elmt:ClauseOrder__Quantity__num_om
     a sysml:FeatureMembership ;
@@ -123,6 +128,28 @@ elmt:ClauseOrder__Quantity__num_om
     sysml:ownedMemberFeature elmt:ClauseOrder__Quantity__num ;
     sysml:owningType elmt:ClauseOrder__Quantity ;
     json:relatedElement "[{\"@id\":\"ClauseOrder__Quantity\"},{\"@id\":\"ClauseOrder__Quantity__num\"}]" .
+
+expr:ClauseOrder__Quantity__num_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "ClauseOrder__Quantity__num_pmultiplicity" ;
+    sysml:owner elmt:ClauseOrder__Quantity__num ;
+    sysml:owningRelationship expr:ClauseOrder__Quantity__num_pmultiplicity_om ;
+    sysml:owningMembership expr:ClauseOrder__Quantity__num_pmultiplicity_om .
+
+expr:ClauseOrder__Quantity__num_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ClauseOrder__Quantity__num_pmultiplicity_om" ;
+    sysml:owner elmt:ClauseOrder__Quantity__num ;
+    sysml:memberElement expr:ClauseOrder__Quantity__num_pmultiplicity ;
+    sysml:ownedMemberElement expr:ClauseOrder__Quantity__num_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ClauseOrder__Quantity__num_pmultiplicity ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Quantity__num ;
+    sysml:membershipOwningNamespace elmt:ClauseOrder__Quantity__num ;
+    sysml:source elmt:ClauseOrder__Quantity__num ;
+    sysml:target expr:ClauseOrder__Quantity__num_pmultiplicity ;
+    sysml:relatedElement elmt:ClauseOrder__Quantity__num, expr:ClauseOrder__Quantity__num_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"ClauseOrder__Quantity__num\"},{\"@id\":\"ClauseOrder__Quantity__num_pmultiplicity\"}]" .
 
 elmt:ClauseOrder__Ratio
     a sysml:PartDefinition ;
@@ -304,10 +331,14 @@ elmt:ClauseOrder__Mission__context
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:ClauseOrder__Ctx ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:ClauseOrder__Mission__context_pmultiplicity ;
+    sysml:ownedRelationship elmt:ClauseOrder__Mission__context_ft0, expr:ClauseOrder__Mission__context_pmultiplicity_om ;
+    sysml:ownedMembership expr:ClauseOrder__Mission__context_pmultiplicity_om ;
+    sysml:ownedMember expr:ClauseOrder__Mission__context_pmultiplicity ;
     sysml:ownedTyping elmt:ClauseOrder__Mission__context_ft0 ;
     sysml:ownedSpecialization elmt:ClauseOrder__Mission__context_ft0 ;
-    sysml:ownedRelationship elmt:ClauseOrder__Mission__context_ft0 ;
-    sysx:sourceText "        part context : Ctx;\n" .
+    sysx:sourceText "        part context : Ctx;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ClauseOrder__Mission__context_ft0\"},{\"@id\":\"ClauseOrder__Mission__context_pmultiplicity_om\"}]" .
 
 elmt:ClauseOrder__Mission__context_om
     a sysml:FeatureMembership ;
@@ -325,6 +356,28 @@ elmt:ClauseOrder__Mission__context_om
     sysml:ownedMemberFeature elmt:ClauseOrder__Mission__context ;
     sysml:owningType elmt:ClauseOrder__Mission ;
     json:relatedElement "[{\"@id\":\"ClauseOrder__Mission\"},{\"@id\":\"ClauseOrder__Mission__context\"}]" .
+
+expr:ClauseOrder__Mission__context_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "ClauseOrder__Mission__context_pmultiplicity" ;
+    sysml:owner elmt:ClauseOrder__Mission__context ;
+    sysml:owningRelationship expr:ClauseOrder__Mission__context_pmultiplicity_om ;
+    sysml:owningMembership expr:ClauseOrder__Mission__context_pmultiplicity_om .
+
+expr:ClauseOrder__Mission__context_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ClauseOrder__Mission__context_pmultiplicity_om" ;
+    sysml:owner elmt:ClauseOrder__Mission__context ;
+    sysml:memberElement expr:ClauseOrder__Mission__context_pmultiplicity ;
+    sysml:ownedMemberElement expr:ClauseOrder__Mission__context_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ClauseOrder__Mission__context_pmultiplicity ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Mission__context ;
+    sysml:membershipOwningNamespace elmt:ClauseOrder__Mission__context ;
+    sysml:source elmt:ClauseOrder__Mission__context ;
+    sysml:target expr:ClauseOrder__Mission__context_pmultiplicity ;
+    sysml:relatedElement elmt:ClauseOrder__Mission__context, expr:ClauseOrder__Mission__context_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"ClauseOrder__Mission__context\"},{\"@id\":\"ClauseOrder__Mission__context_pmultiplicity\"}]" .
 
 elmt:ClauseOrder__Mission__groundSystemAtIngress
     a sysml:OccurrenceUsage ;

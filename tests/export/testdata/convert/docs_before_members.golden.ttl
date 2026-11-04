@@ -1,4 +1,5 @@
 @prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
@@ -118,10 +119,14 @@ elmt:Documented__Wheel__radius
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Documented__Wheel__radius_pmultiplicity ;
+    sysml:ownedRelationship elmt:Documented__Wheel__radius_ft0, expr:Documented__Wheel__radius_pmultiplicity_om ;
+    sysml:ownedMembership expr:Documented__Wheel__radius_pmultiplicity_om ;
+    sysml:ownedMember expr:Documented__Wheel__radius_pmultiplicity ;
     sysml:ownedTyping elmt:Documented__Wheel__radius_ft0 ;
     sysml:ownedSpecialization elmt:Documented__Wheel__radius_ft0 ;
-    sysml:ownedRelationship elmt:Documented__Wheel__radius_ft0 ;
-    sysx:sourceText "        attribute radius : Real;\n" .
+    sysx:sourceText "        attribute radius : Real;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Documented__Wheel__radius_ft0\"},{\"@id\":\"Documented__Wheel__radius_pmultiplicity_om\"}]" .
 
 elmt:Documented__Wheel__radius_om
     a sysml:FeatureMembership ;
@@ -139,6 +144,28 @@ elmt:Documented__Wheel__radius_om
     sysml:ownedMemberFeature elmt:Documented__Wheel__radius ;
     sysml:owningType elmt:Documented__Wheel ;
     json:relatedElement "[{\"@id\":\"Documented__Wheel\"},{\"@id\":\"Documented__Wheel__radius\"}]" .
+
+expr:Documented__Wheel__radius_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Documented__Wheel__radius_pmultiplicity" ;
+    sysml:owner elmt:Documented__Wheel__radius ;
+    sysml:owningRelationship expr:Documented__Wheel__radius_pmultiplicity_om ;
+    sysml:owningMembership expr:Documented__Wheel__radius_pmultiplicity_om .
+
+expr:Documented__Wheel__radius_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Documented__Wheel__radius_pmultiplicity_om" ;
+    sysml:owner elmt:Documented__Wheel__radius ;
+    sysml:memberElement expr:Documented__Wheel__radius_pmultiplicity ;
+    sysml:ownedMemberElement expr:Documented__Wheel__radius_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Documented__Wheel__radius_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Documented__Wheel__radius ;
+    sysml:membershipOwningNamespace elmt:Documented__Wheel__radius ;
+    sysml:source elmt:Documented__Wheel__radius ;
+    sysml:target expr:Documented__Wheel__radius_pmultiplicity ;
+    sysml:relatedElement elmt:Documented__Wheel__radius, expr:Documented__Wheel__radius_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Documented__Wheel__radius\"},{\"@id\":\"Documented__Wheel__radius_pmultiplicity\"}]" .
 
 elmt:Documented__Wheel___402
     a sysml:Comment ;
@@ -189,10 +216,14 @@ elmt:Documented__Wheel__hub
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Documented__Hub ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Documented__Wheel__hub_pmultiplicity ;
+    sysml:ownedRelationship elmt:Documented__Wheel__hub_ft0, expr:Documented__Wheel__hub_pmultiplicity_om ;
+    sysml:ownedMembership expr:Documented__Wheel__hub_pmultiplicity_om ;
+    sysml:ownedMember expr:Documented__Wheel__hub_pmultiplicity ;
     sysml:ownedTyping elmt:Documented__Wheel__hub_ft0 ;
     sysml:ownedSpecialization elmt:Documented__Wheel__hub_ft0 ;
-    sysml:ownedRelationship elmt:Documented__Wheel__hub_ft0 ;
-    sysx:sourceText "        port hub : Hub;\n" .
+    sysx:sourceText "        port hub : Hub;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Documented__Wheel__hub_ft0\"},{\"@id\":\"Documented__Wheel__hub_pmultiplicity_om\"}]" .
 
 elmt:Documented__Wheel__hub_om
     a sysml:FeatureMembership ;
@@ -210,6 +241,28 @@ elmt:Documented__Wheel__hub_om
     sysml:ownedMemberFeature elmt:Documented__Wheel__hub ;
     sysml:owningType elmt:Documented__Wheel ;
     json:relatedElement "[{\"@id\":\"Documented__Wheel\"},{\"@id\":\"Documented__Wheel__hub\"}]" .
+
+expr:Documented__Wheel__hub_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Documented__Wheel__hub_pmultiplicity" ;
+    sysml:owner elmt:Documented__Wheel__hub ;
+    sysml:owningRelationship expr:Documented__Wheel__hub_pmultiplicity_om ;
+    sysml:owningMembership expr:Documented__Wheel__hub_pmultiplicity_om .
+
+expr:Documented__Wheel__hub_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Documented__Wheel__hub_pmultiplicity_om" ;
+    sysml:owner elmt:Documented__Wheel__hub ;
+    sysml:memberElement expr:Documented__Wheel__hub_pmultiplicity ;
+    sysml:ownedMemberElement expr:Documented__Wheel__hub_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Documented__Wheel__hub_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Documented__Wheel__hub ;
+    sysml:membershipOwningNamespace elmt:Documented__Wheel__hub ;
+    sysml:source elmt:Documented__Wheel__hub ;
+    sysml:target expr:Documented__Wheel__hub_pmultiplicity ;
+    sysml:relatedElement elmt:Documented__Wheel__hub, expr:Documented__Wheel__hub_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Documented__Wheel__hub\"},{\"@id\":\"Documented__Wheel__hub_pmultiplicity\"}]" .
 
 elmt:Documented__Hub
     a sysml:PortDefinition ;
@@ -341,6 +394,10 @@ elmt:Documented__Hub__stuff
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Documented__Hub__stuff_pmultiplicity ;
+    sysml:ownedRelationship expr:Documented__Hub__stuff_pmultiplicity_om ;
+    sysml:ownedMembership expr:Documented__Hub__stuff_pmultiplicity_om ;
+    sysml:ownedMember expr:Documented__Hub__stuff_pmultiplicity ;
     sysx:sourceText "        out item stuff;\n" .
 
 elmt:Documented__Hub__stuff_om
@@ -359,6 +416,28 @@ elmt:Documented__Hub__stuff_om
     sysml:ownedMemberFeature elmt:Documented__Hub__stuff ;
     sysml:owningType elmt:Documented__Hub ;
     json:relatedElement "[{\"@id\":\"Documented__Hub\"},{\"@id\":\"Documented__Hub__stuff\"}]" .
+
+expr:Documented__Hub__stuff_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Documented__Hub__stuff_pmultiplicity" ;
+    sysml:owner elmt:Documented__Hub__stuff ;
+    sysml:owningRelationship expr:Documented__Hub__stuff_pmultiplicity_om ;
+    sysml:owningMembership expr:Documented__Hub__stuff_pmultiplicity_om .
+
+expr:Documented__Hub__stuff_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Documented__Hub__stuff_pmultiplicity_om" ;
+    sysml:owner elmt:Documented__Hub__stuff ;
+    sysml:memberElement expr:Documented__Hub__stuff_pmultiplicity ;
+    sysml:ownedMemberElement expr:Documented__Hub__stuff_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Documented__Hub__stuff_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Documented__Hub__stuff ;
+    sysml:membershipOwningNamespace elmt:Documented__Hub__stuff ;
+    sysml:source elmt:Documented__Hub__stuff ;
+    sysml:target expr:Documented__Hub__stuff_pmultiplicity ;
+    sysml:relatedElement elmt:Documented__Hub__stuff, expr:Documented__Hub__stuff_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Documented__Hub__stuff\"},{\"@id\":\"Documented__Hub__stuff_pmultiplicity\"}]" .
 
 elmt:Documented__wheel
     a sysml:PartUsage ;
@@ -453,6 +532,10 @@ elmt:Documented__wheel__serial
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Documented__wheel__serial_pmultiplicity ;
+    sysml:ownedRelationship expr:Documented__wheel__serial_pmultiplicity_om ;
+    sysml:ownedMembership expr:Documented__wheel__serial_pmultiplicity_om ;
+    sysml:ownedMember expr:Documented__wheel__serial_pmultiplicity ;
     sysx:sourceText "        attribute serial;\n" .
 
 elmt:Documented__wheel__serial_om
@@ -471,6 +554,28 @@ elmt:Documented__wheel__serial_om
     sysml:ownedMemberFeature elmt:Documented__wheel__serial ;
     sysml:owningType elmt:Documented__wheel ;
     json:relatedElement "[{\"@id\":\"Documented__wheel\"},{\"@id\":\"Documented__wheel__serial\"}]" .
+
+expr:Documented__wheel__serial_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Documented__wheel__serial_pmultiplicity" ;
+    sysml:owner elmt:Documented__wheel__serial ;
+    sysml:owningRelationship expr:Documented__wheel__serial_pmultiplicity_om ;
+    sysml:owningMembership expr:Documented__wheel__serial_pmultiplicity_om .
+
+expr:Documented__wheel__serial_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Documented__wheel__serial_pmultiplicity_om" ;
+    sysml:owner elmt:Documented__wheel__serial ;
+    sysml:memberElement expr:Documented__wheel__serial_pmultiplicity ;
+    sysml:ownedMemberElement expr:Documented__wheel__serial_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Documented__wheel__serial_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Documented__wheel__serial ;
+    sysml:membershipOwningNamespace elmt:Documented__wheel__serial ;
+    sysml:source elmt:Documented__wheel__serial ;
+    sysml:target expr:Documented__wheel__serial_pmultiplicity ;
+    sysml:relatedElement elmt:Documented__wheel__serial, expr:Documented__wheel__serial_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Documented__wheel__serial\"},{\"@id\":\"Documented__wheel__serial_pmultiplicity\"}]" .
 
 elmt:Documented__Wheel__radius_ft0
     a sysml:FeatureTyping ;

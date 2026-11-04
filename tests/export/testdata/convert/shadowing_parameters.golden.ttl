@@ -125,6 +125,7 @@ elmt:Shadows__Sweep__items
     sysml:multiplicity expr:Shadows__Sweep__items_pmultiplicity ;
     sysml:ownedRelationship elmt:Shadows__Sweep__items_ft0, expr:Shadows__Sweep__items_pmultiplicity_om ;
     sysml:ownedMembership expr:Shadows__Sweep__items_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadows__Sweep__items_pmultiplicity ;
     sysml:upperBound expr:Shadows__Sweep__items_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadows__Sweep__items_ft0 ;
@@ -216,10 +217,14 @@ elmt:Shadows__Sweep__value
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadows__Sweep__value_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadows__Sweep__value_ft0, expr:Shadows__Sweep__value_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadows__Sweep__value_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadows__Sweep__value_pmultiplicity ;
     sysml:ownedTyping elmt:Shadows__Sweep__value_ft0 ;
     sysml:ownedSpecialization elmt:Shadows__Sweep__value_ft0 ;
-    sysml:ownedRelationship elmt:Shadows__Sweep__value_ft0 ;
-    sysx:sourceText "        attribute value : Speed;\n" .
+    sysx:sourceText "        attribute value : Speed;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadows__Sweep__value_ft0\"},{\"@id\":\"Shadows__Sweep__value_pmultiplicity_om\"}]" .
 
 elmt:Shadows__Sweep__value_om
     a sysml:FeatureMembership ;
@@ -237,6 +242,28 @@ elmt:Shadows__Sweep__value_om
     sysml:ownedMemberFeature elmt:Shadows__Sweep__value ;
     sysml:owningType elmt:Shadows__Sweep ;
     json:relatedElement "[{\"@id\":\"Shadows__Sweep\"},{\"@id\":\"Shadows__Sweep__value\"}]" .
+
+expr:Shadows__Sweep__value_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadows__Sweep__value_pmultiplicity" ;
+    sysml:owner elmt:Shadows__Sweep__value ;
+    sysml:owningRelationship expr:Shadows__Sweep__value_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadows__Sweep__value_pmultiplicity_om .
+
+expr:Shadows__Sweep__value_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadows__Sweep__value_pmultiplicity_om" ;
+    sysml:owner elmt:Shadows__Sweep__value ;
+    sysml:memberElement expr:Shadows__Sweep__value_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadows__Sweep__value_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadows__Sweep__value_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadows__Sweep__value ;
+    sysml:membershipOwningNamespace elmt:Shadows__Sweep__value ;
+    sysml:source elmt:Shadows__Sweep__value ;
+    sysml:target expr:Shadows__Sweep__value_pmultiplicity ;
+    sysml:relatedElement elmt:Shadows__Sweep__value, expr:Shadows__Sweep__value_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadows__Sweep__value\"},{\"@id\":\"Shadows__Sweep__value_pmultiplicity\"}]" .
 
 elmt:Shadows__Sweep___402
     a sysml:ForLoopActionUsage ;
@@ -516,10 +543,14 @@ elmt:Shadows__Governor__value
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadows__Governor__value_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadows__Governor__value_ft0, expr:Shadows__Governor__value_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadows__Governor__value_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadows__Governor__value_pmultiplicity ;
     sysml:ownedTyping elmt:Shadows__Governor__value_ft0 ;
     sysml:ownedSpecialization elmt:Shadows__Governor__value_ft0 ;
-    sysml:ownedRelationship elmt:Shadows__Governor__value_ft0 ;
-    sysx:sourceText "        attribute value : Speed;\n" .
+    sysx:sourceText "        attribute value : Speed;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadows__Governor__value_ft0\"},{\"@id\":\"Shadows__Governor__value_pmultiplicity_om\"}]" .
 
 elmt:Shadows__Governor__value_om
     a sysml:FeatureMembership ;
@@ -537,6 +568,28 @@ elmt:Shadows__Governor__value_om
     sysml:ownedMemberFeature elmt:Shadows__Governor__value ;
     sysml:owningType elmt:Shadows__Governor ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor\"},{\"@id\":\"Shadows__Governor__value\"}]" .
+
+expr:Shadows__Governor__value_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadows__Governor__value_pmultiplicity" ;
+    sysml:owner elmt:Shadows__Governor__value ;
+    sysml:owningRelationship expr:Shadows__Governor__value_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadows__Governor__value_pmultiplicity_om .
+
+expr:Shadows__Governor__value_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadows__Governor__value_pmultiplicity_om" ;
+    sysml:owner elmt:Shadows__Governor__value ;
+    sysml:memberElement expr:Shadows__Governor__value_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadows__Governor__value_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadows__Governor__value_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadows__Governor__value ;
+    sysml:membershipOwningNamespace elmt:Shadows__Governor__value ;
+    sysml:source elmt:Shadows__Governor__value ;
+    sysml:target expr:Shadows__Governor__value_pmultiplicity ;
+    sysml:relatedElement elmt:Shadows__Governor__value, expr:Shadows__Governor__value_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadows__Governor__value\"},{\"@id\":\"Shadows__Governor__value_pmultiplicity\"}]" .
 
 elmt:Shadows__Governor__w
     a sysml:AttributeUsage ;
@@ -557,10 +610,14 @@ elmt:Shadows__Governor__w
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadows__Governor__w_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadows__Governor__w_ft0, expr:Shadows__Governor__w_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadows__Governor__w_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadows__Governor__w_pmultiplicity ;
     sysml:ownedTyping elmt:Shadows__Governor__w_ft0 ;
     sysml:ownedSpecialization elmt:Shadows__Governor__w_ft0 ;
-    sysml:ownedRelationship elmt:Shadows__Governor__w_ft0 ;
-    sysx:sourceText "        attribute w : Speed;\n" .
+    sysx:sourceText "        attribute w : Speed;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadows__Governor__w_ft0\"},{\"@id\":\"Shadows__Governor__w_pmultiplicity_om\"}]" .
 
 elmt:Shadows__Governor__w_om
     a sysml:FeatureMembership ;
@@ -578,6 +635,28 @@ elmt:Shadows__Governor__w_om
     sysml:ownedMemberFeature elmt:Shadows__Governor__w ;
     sysml:owningType elmt:Shadows__Governor ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor\"},{\"@id\":\"Shadows__Governor__w\"}]" .
+
+expr:Shadows__Governor__w_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadows__Governor__w_pmultiplicity" ;
+    sysml:owner elmt:Shadows__Governor__w ;
+    sysml:owningRelationship expr:Shadows__Governor__w_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadows__Governor__w_pmultiplicity_om .
+
+expr:Shadows__Governor__w_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadows__Governor__w_pmultiplicity_om" ;
+    sysml:owner elmt:Shadows__Governor__w ;
+    sysml:memberElement expr:Shadows__Governor__w_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadows__Governor__w_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadows__Governor__w_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadows__Governor__w ;
+    sysml:membershipOwningNamespace elmt:Shadows__Governor__w ;
+    sysml:source elmt:Shadows__Governor__w ;
+    sysml:target expr:Shadows__Governor__w_pmultiplicity ;
+    sysml:relatedElement elmt:Shadows__Governor__w, expr:Shadows__Governor__w_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadows__Governor__w\"},{\"@id\":\"Shadows__Governor__w_pmultiplicity\"}]" .
 
 elmt:Shadows__Governor__idle
     a sysml:StateUsage ;
@@ -1325,9 +1404,13 @@ elmt:Shadows__Governor___405___40trigger__w
     sysml:direction "in" ;
     sysml:type elmt:Shadows__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Shadows__Governor___405___40trigger__w_pmultiplicity ;
+    sysml:ownedRelationship elmt:Shadows__Governor___405___40trigger__w_ft0, expr:Shadows__Governor___405___40trigger__w_pmultiplicity_om ;
+    sysml:ownedMembership expr:Shadows__Governor___405___40trigger__w_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadows__Governor___405___40trigger__w_pmultiplicity ;
     sysml:ownedTyping elmt:Shadows__Governor___405___40trigger__w_ft0 ;
     sysml:ownedSpecialization elmt:Shadows__Governor___405___40trigger__w_ft0 ;
-    sysml:ownedRelationship elmt:Shadows__Governor___405___40trigger__w_ft0 .
+    json:ownedRelationship "[{\"@id\":\"Shadows__Governor___405___40trigger__w_ft0\"},{\"@id\":\"Shadows__Governor___405___40trigger__w_pmultiplicity_om\"}]" .
 
 elmt:Shadows__Governor___405___40trigger__w_om
     a sysml:ParameterMembership ;
@@ -1346,6 +1429,28 @@ elmt:Shadows__Governor___405___40trigger__w_om
     sysml:ownedMemberFeature elmt:Shadows__Governor___405___40trigger__w ;
     sysml:owningType elmt:Shadows__Governor___405___40trigger ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor___405___40trigger\"},{\"@id\":\"Shadows__Governor___405___40trigger__w\"}]" .
+
+expr:Shadows__Governor___405___40trigger__w_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadows__Governor___405___40trigger__w_pmultiplicity" ;
+    sysml:owner elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:owningRelationship expr:Shadows__Governor___405___40trigger__w_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadows__Governor___405___40trigger__w_pmultiplicity_om .
+
+expr:Shadows__Governor___405___40trigger__w_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadows__Governor___405___40trigger__w_pmultiplicity_om" ;
+    sysml:owner elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:memberElement expr:Shadows__Governor___405___40trigger__w_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadows__Governor___405___40trigger__w_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___405___40trigger__w_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:membershipOwningNamespace elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:source elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:target expr:Shadows__Governor___405___40trigger__w_pmultiplicity ;
+    sysml:relatedElement elmt:Shadows__Governor___405___40trigger__w, expr:Shadows__Governor___405___40trigger__w_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadows__Governor___405___40trigger__w\"},{\"@id\":\"Shadows__Governor___405___40trigger__w_pmultiplicity\"}]" .
 
 expr:Shadows__Governor___405_pguard
     a sysml:OperatorExpression ;

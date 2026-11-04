@@ -111,7 +111,7 @@ classes: {
   initial: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
-n0: "«state»\noperatingStates" {
+n0: "«state»\noperatingStates\nstate transition" {
   class: usage
   n3: "" { class: initial }
   n1: "«state»\n^idle\ninitial" { class: usage }
