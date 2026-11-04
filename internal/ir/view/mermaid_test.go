@@ -59,7 +59,7 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 		{"start", startKind, true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"initial", "initial", true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"final", "final", true, StylePilot, `@{ shape: fr-circ, label: "" }`},
-		{"terminate", terminateKind, true, StylePilot, `@{ shape: fr-circ, label: "" }`},
+		{"terminate", terminateKind, true, StylePilot, `@{ shape: cross-circ, label: "" }`},
 		{"junction", "junction", true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"fork", "fork", false, StylePilot, `@{ shape: fork, label: "fork" }`},
 		{"join", "join", true, StylePilot, `@{ shape: fork, label: "" }`},
@@ -373,6 +373,31 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		!strings.Contains(sequence, "Note over a,b: message") ||
 		!strings.Contains(sequence, "1 free note(s) not drawn") {
 		t.Errorf("sequence notes or notice:\n%s", sequence)
+	}
+	// A note on an event, or on a message between events, stands over the events' lifelines.
+	proxied := (&Rendering{Kind: KindSequence,
+		Roots: []*Node{
+			{ID: "a", Kind: "part", Name: "a", Children: []*Node{{ID: "e1", Kind: "event occurrence", Name: "sent"}}},
+			{ID: "b", Kind: "part", Name: "b", Children: []*Node{{ID: "e2", Kind: "event occurrence", Name: "taken"}}},
+		},
+		Edges: []Edge{{From: "e1", To: "e2", Kind: EdgeMessage, Label: "m"}},
+		Notes: []Note{{Anchor: "e1", Text: "event"}, {EdgeFrom: "e1", EdgeTo: "e2", Text: "message"}},
+	}).Mermaid()
+	if !strings.Contains(proxied, "Note over a: event") || !strings.Contains(proxied, "Note over a,b: message") ||
+		strings.Contains(proxied, "not drawn") {
+		t.Errorf("sequence notes on proxies:\n%s", proxied)
+	}
+	// Two messages between the same lifelines: the note follows the message it is on.
+	second := (&Rendering{Kind: KindSequence,
+		Roots: []*Node{
+			{ID: "a", Kind: "part", Name: "a", Children: []*Node{{ID: "e1", Kind: "event occurrence", Name: "sent1"}, {ID: "e3", Kind: "event occurrence", Name: "sent2"}}},
+			{ID: "b", Kind: "part", Name: "b", Children: []*Node{{ID: "e2", Kind: "event occurrence", Name: "taken1"}, {ID: "e4", Kind: "event occurrence", Name: "taken2"}}},
+		},
+		Edges: []Edge{{From: "e1", To: "e2", Kind: EdgeMessage, Label: "first"}, {From: "e3", To: "e4", Kind: EdgeMessage, Label: "second"}},
+		Notes: []Note{{EdgeFrom: "e3", EdgeTo: "e4", Text: "on the second"}},
+	}).Mermaid()
+	if at, note := strings.Index(second, "a-)b: second"), strings.Index(second, "Note over a,b: on the second"); at < 0 || note < at {
+		t.Errorf("sequence note is not after its own message:\n%s", second)
 	}
 	stateNotes := (&Rendering{Kind: KindState, Roots: []*Node{{
 		ID: "machine", Kind: "state", Name: "machine", Children: []*Node{

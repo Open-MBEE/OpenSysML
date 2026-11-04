@@ -21,3 +21,5 @@ n0 <- n5: { class: composition }
 n0 <- n6: { class: composition }
 n5 -> n12: { class: specialization }
 n6 -> n12: { class: specialization }
+frame_name: "«view» AmplifierViews::positioned" { shape: text; near: top-left }
+frame_tr: "expose Amplifier::Stage\nexpose Amplifier::Housing\nexpose Amplifier::Band" { shape: text; near: top-right }

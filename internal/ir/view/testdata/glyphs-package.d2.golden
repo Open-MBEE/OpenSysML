@@ -10,3 +10,6 @@ n2: "«package»\nUses" { class: package }
 n0 <- n1: { class: containment }
 n0 <- n2: { class: containment }
 n2 <- n1: { class: membership; target-arrowhead: { label: "L" } }
+frame_name: "«view» NotationGlyphs::Diagrams::packageGlyphs : GeneralView" { shape: text; near: top-left }
+frame_tr: "expose NotationGlyphs\nexpose Lib\nexpose Uses" { shape: text; near: top-right }
+frame_bl: "filter @SysML::Package" { shape: text; near: bottom-left }

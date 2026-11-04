@@ -49,8 +49,9 @@
       },
       {
         "id": "n2",
-        "kind": "action",
+        "kind": "assign",
         "name": "translunarInjection",
+        "detail": "remaining := remaining - 3150 ['m/s']",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -62,8 +63,9 @@
       },
       {
         "id": "n3",
-        "kind": "action",
+        "kind": "assign",
         "name": "lunarOrbitInsertion",
+        "detail": "remaining := remaining - 900 ['m/s']",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -88,8 +90,9 @@
       },
       {
         "id": "n5",
-        "kind": "action",
+        "kind": "accept action",
         "name": "awaitGo",
+        "detail": "go : GoForDescent",
         "parent": "n0",
         "ports": [
           {
@@ -120,8 +123,9 @@
       },
       {
         "id": "n6",
-        "kind": "action",
+        "kind": "assign",
         "name": "descent",
+        "detail": "remaining := remaining - 2100 ['m/s']",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -133,8 +137,9 @@
       },
       {
         "id": "n7",
-        "kind": "action",
+        "kind": "assign",
         "name": "surfaceOperations",
+        "detail": "landed := true",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -146,8 +151,9 @@
       },
       {
         "id": "n8",
-        "kind": "action",
+        "kind": "assign",
         "name": "ascent",
+        "detail": "remaining := remaining - 1870 ['m/s']",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -159,8 +165,9 @@
       },
       {
         "id": "n9",
-        "kind": "action",
+        "kind": "assign",
         "name": "transEarthInjection",
+        "detail": "remaining := remaining - 1000 ['m/s']",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -172,8 +179,9 @@
       },
       {
         "id": "n10",
-        "kind": "action",
+        "kind": "assign",
         "name": "splashdown",
+        "detail": "returned := true",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -251,6 +259,7 @@
       {
         "from": "n4",
         "to": "n9",
+        "label": "else",
         "kind": "succession",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -337,7 +346,8 @@
       "port-symbols",
       "compartments",
       "edge-labels",
-      "keywords"
+      "keywords",
+      "annotations"
     ]
   },
   "instances": [

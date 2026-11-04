@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» HeadingViews::nodes"
 ---
 %% HeadingViews::nodes — tree rendering (render asTreeDiagram)
 %% not represented: satisfy requirement Headings::Controller::safe is drawn between the nodes of its ends; the view does not show both, so no edge is drawn

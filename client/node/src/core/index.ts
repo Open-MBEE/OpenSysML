@@ -65,6 +65,7 @@ export type {
   RenderEdge,
   RenderGeometry,
   RenderNode,
+  RenderFrame,
   RenderNote,
   RenderPoint,
   RenderPort,

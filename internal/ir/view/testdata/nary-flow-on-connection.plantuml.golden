@@ -1,5 +1,6 @@
 @startuml
 ' NaryViews::carLinks — interconnection rendering (render asInterconnectionDiagram)
+mainframe <size:10>//«view»//</size> **NaryViews::carLinks**\n<size:10>expose Nary::Car</size>
 <style>
 root {
   BackGroundColor white

@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» MembershipViews::structure" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=302;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose A::APart&#xA;expose A::APort&#xA;expose A::part1&#xA;expose A::part2" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="685" width="142" height="76" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«part def»&#xA;APart" fqn="A::APart" kind="part def" view="MembershipViews::structure" link="feature-membership.sysml:9">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="100" height="145" as="geometry"/>

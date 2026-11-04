@@ -349,9 +349,20 @@ type JRenderViewResponse struct {
 	Columns []string       `json:"columns,omitempty"`
 	Rows    []JRenderRow   `json:"rows,omitempty"`
 	Canvas  *JRenderCanvas `json:"canvas,omitempty"`
+	Frame   *JRenderFrame  `json:"frame,omitempty"`
 	Notes   []JRenderNote  `json:"notes,omitempty"`
 	Notices []string       `json:"notices,omitempty"`
 	Shown   []string       `json:"shown,omitempty"`
+}
+
+// JRenderFrame is the view frame round a diagram: its name compartment and
+// the info compartments at its corners (exposes, filters, annotations).
+type JRenderFrame struct {
+	Name        string   `json:"name"`
+	Type        string   `json:"type,omitempty"`
+	Exposes     []string `json:"exposes,omitempty"`
+	Filters     []string `json:"filters,omitempty"`
+	Annotations []string `json:"annotations,omitempty"`
 }
 
 type JRenderCanvas struct {

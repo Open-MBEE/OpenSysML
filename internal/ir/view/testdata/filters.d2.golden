@@ -5,3 +5,5 @@ classes: {
 n0: "«part def»\nRadio" { class: definition }
 n1: "«#Safety part def»\nAirbag" { class: definition }
 n2: "«#Safety part def»\nBrake" { class: definition }
+frame_name: "«view» FilteredViews::safetyView : SafetyView" { shape: text; near: top-left }
+frame_tr: "expose Systems::Radio" { shape: text; near: top-right }
