@@ -8,10 +8,8 @@ import (
 // kermlReflectivePackage is the library package holding the reflective KerML model.
 const kermlReflectivePackage = "KerML"
 
-// EnumerationOwning returns the enumeration sym is a literal of, or nil when sym
-// is no enumeration literal: an enumeration usage declared in an enumeration
-// definition's body (SysML v2 §7.6.4), or a member feature of a DataType the
-// reflective KerML model maps a MOF enumeration into (KerML 1.1 §9.2.17).
+// EnumerationOwning returns the enumeration sym is a literal of — an enum def's value (SysML v2
+// §7.6.4) or a reflective KerML DataType's member feature (KerML 1.1 §9.2.17) — else nil.
 func EnumerationOwning(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil {
 		return nil
