@@ -29,6 +29,8 @@ type Data struct {
 	Canvas *Canvas
 	// Notes are the note boxes drawn on the canvas, anchored to a node ID or free.
 	Notes []Note
+	// Frame is the view frame drawn round the rendering, nil for none.
+	Frame *Frame `json:",omitempty"`
 	// Shown names the optional notation elements the rendering draws.
 	Shown []string
 	// Notices are what the rendering could not represent and, when it has no
@@ -129,6 +131,7 @@ func (r *Rendering) data(ports *portView) Data {
 		Lanes:    r.Lanes,
 		Canvas:   r.Canvas,
 		Notes:    r.Notes,
+		Frame:    r.Frame,
 		Shown:    r.Shown.Names(),
 		Notices:  r.Notices,
 	}

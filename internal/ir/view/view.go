@@ -572,6 +572,9 @@ type Rendering struct {
 	// Pictures are the pictures drawn on the canvas, in the order the view
 	// states them; a later one is drawn over an earlier one it overlaps.
 	Pictures []Picture
+	// Frame is the view frame (§8.2.3.26) drawn round a graph-shaped rendering
+	// of a view; nil for a frameless rendering.
+	Frame *Frame
 	// Notices are what the rendering could not represent, reported rather than
 	// dropped: an exposed element with no place in this kind of rendering, a
 	// connection to something the view does not expose, a behavior that does not
@@ -705,6 +708,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
 		out.Canvas = r.canvasOf(view, out)
+		out.Frame = r.frameOf(view)
 		r.notesOf(view, view, "", out)
 		r.picturesOf(view, out)
 	case KindTable, KindMatrix, KindSequence:
