@@ -1,4 +1,5 @@
 @prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
@@ -113,10 +114,14 @@ elmt:Chains__V__e
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__V ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Chains__V__e_pmultiplicity ;
+    sysml:ownedRelationship elmt:Chains__V__e_ft0, expr:Chains__V__e_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__V__e_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__V__e_pmultiplicity ;
     sysml:ownedTyping elmt:Chains__V__e_ft0 ;
     sysml:ownedSpecialization elmt:Chains__V__e_ft0 ;
-    sysml:ownedRelationship elmt:Chains__V__e_ft0 ;
-    sysx:sourceText "        part e : V;\n" .
+    sysx:sourceText "        part e : V;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__V__e_ft0\"},{\"@id\":\"Chains__V__e_pmultiplicity_om\"}]" .
 
 elmt:Chains__V__e_om
     a sysml:FeatureMembership ;
@@ -134,6 +139,28 @@ elmt:Chains__V__e_om
     sysml:ownedMemberFeature elmt:Chains__V__e ;
     sysml:owningType elmt:Chains__V ;
     json:relatedElement "[{\"@id\":\"Chains__V\"},{\"@id\":\"Chains__V__e\"}]" .
+
+expr:Chains__V__e_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__V__e_pmultiplicity" ;
+    sysml:owner elmt:Chains__V__e ;
+    sysml:owningRelationship expr:Chains__V__e_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__V__e_pmultiplicity_om .
+
+expr:Chains__V__e_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__V__e_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__V__e ;
+    sysml:memberElement expr:Chains__V__e_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__V__e_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__V__e_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__V__e ;
+    sysml:membershipOwningNamespace elmt:Chains__V__e ;
+    sysml:source elmt:Chains__V__e ;
+    sysml:target expr:Chains__V__e_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__V__e, expr:Chains__V__e_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__V__e\"},{\"@id\":\"Chains__V__e_pmultiplicity\"}]" .
 
 elmt:Chains__v
     a sysml:PartUsage ;

@@ -89,10 +89,14 @@ elmt:Annotated__Safety__level
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Integer" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Annotated__Safety__level_pmultiplicity ;
+    sysml:ownedRelationship elmt:Annotated__Safety__level_ft0, expr:Annotated__Safety__level_pmultiplicity_om ;
+    sysml:ownedMembership expr:Annotated__Safety__level_pmultiplicity_om ;
+    sysml:ownedMember expr:Annotated__Safety__level_pmultiplicity ;
     sysml:ownedTyping elmt:Annotated__Safety__level_ft0 ;
     sysml:ownedSpecialization elmt:Annotated__Safety__level_ft0 ;
-    sysml:ownedRelationship elmt:Annotated__Safety__level_ft0 ;
-    sysx:sourceText "        attribute level : Integer;\n" .
+    sysx:sourceText "        attribute level : Integer;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated__Safety__level_ft0\"},{\"@id\":\"Annotated__Safety__level_pmultiplicity_om\"}]" .
 
 elmt:Annotated__Safety__level_om
     a sysml:FeatureMembership ;
@@ -110,6 +114,28 @@ elmt:Annotated__Safety__level_om
     sysml:ownedMemberFeature elmt:Annotated__Safety__level ;
     sysml:owningType elmt:Annotated__Safety ;
     json:relatedElement "[{\"@id\":\"Annotated__Safety\"},{\"@id\":\"Annotated__Safety__level\"}]" .
+
+expr:Annotated__Safety__level_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Annotated__Safety__level_pmultiplicity" ;
+    sysml:owner elmt:Annotated__Safety__level ;
+    sysml:owningRelationship expr:Annotated__Safety__level_pmultiplicity_om ;
+    sysml:owningMembership expr:Annotated__Safety__level_pmultiplicity_om .
+
+expr:Annotated__Safety__level_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Annotated__Safety__level_pmultiplicity_om" ;
+    sysml:owner elmt:Annotated__Safety__level ;
+    sysml:memberElement expr:Annotated__Safety__level_pmultiplicity ;
+    sysml:ownedMemberElement expr:Annotated__Safety__level_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Annotated__Safety__level_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Annotated__Safety__level ;
+    sysml:membershipOwningNamespace elmt:Annotated__Safety__level ;
+    sysml:source elmt:Annotated__Safety__level ;
+    sysml:target expr:Annotated__Safety__level_pmultiplicity ;
+    sysml:relatedElement elmt:Annotated__Safety__level, expr:Annotated__Safety__level_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Annotated__Safety__level\"},{\"@id\":\"Annotated__Safety__level_pmultiplicity\"}]" .
 
 elmt:Annotated__Safety__reviewer
     a sysml:AttributeUsage ;
@@ -130,10 +156,14 @@ elmt:Annotated__Safety__reviewer
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "String" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Annotated__Safety__reviewer_pmultiplicity ;
+    sysml:ownedRelationship elmt:Annotated__Safety__reviewer_ft0, expr:Annotated__Safety__reviewer_pmultiplicity_om ;
+    sysml:ownedMembership expr:Annotated__Safety__reviewer_pmultiplicity_om ;
+    sysml:ownedMember expr:Annotated__Safety__reviewer_pmultiplicity ;
     sysml:ownedTyping elmt:Annotated__Safety__reviewer_ft0 ;
     sysml:ownedSpecialization elmt:Annotated__Safety__reviewer_ft0 ;
-    sysml:ownedRelationship elmt:Annotated__Safety__reviewer_ft0 ;
-    sysx:sourceText "        attribute reviewer : String;\n" .
+    sysx:sourceText "        attribute reviewer : String;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated__Safety__reviewer_ft0\"},{\"@id\":\"Annotated__Safety__reviewer_pmultiplicity_om\"}]" .
 
 elmt:Annotated__Safety__reviewer_om
     a sysml:FeatureMembership ;
@@ -151,6 +181,28 @@ elmt:Annotated__Safety__reviewer_om
     sysml:ownedMemberFeature elmt:Annotated__Safety__reviewer ;
     sysml:owningType elmt:Annotated__Safety ;
     json:relatedElement "[{\"@id\":\"Annotated__Safety\"},{\"@id\":\"Annotated__Safety__reviewer\"}]" .
+
+expr:Annotated__Safety__reviewer_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Annotated__Safety__reviewer_pmultiplicity" ;
+    sysml:owner elmt:Annotated__Safety__reviewer ;
+    sysml:owningRelationship expr:Annotated__Safety__reviewer_pmultiplicity_om ;
+    sysml:owningMembership expr:Annotated__Safety__reviewer_pmultiplicity_om .
+
+expr:Annotated__Safety__reviewer_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Annotated__Safety__reviewer_pmultiplicity_om" ;
+    sysml:owner elmt:Annotated__Safety__reviewer ;
+    sysml:memberElement expr:Annotated__Safety__reviewer_pmultiplicity ;
+    sysml:ownedMemberElement expr:Annotated__Safety__reviewer_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Annotated__Safety__reviewer_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Annotated__Safety__reviewer ;
+    sysml:membershipOwningNamespace elmt:Annotated__Safety__reviewer ;
+    sysml:source elmt:Annotated__Safety__reviewer ;
+    sysml:target expr:Annotated__Safety__reviewer_pmultiplicity ;
+    sysml:relatedElement elmt:Annotated__Safety__reviewer, expr:Annotated__Safety__reviewer_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Annotated__Safety__reviewer\"},{\"@id\":\"Annotated__Safety__reviewer_pmultiplicity\"}]" .
 
 elmt:Annotated__Safety__isSet
     a sysml:AttributeUsage ;
@@ -171,10 +223,14 @@ elmt:Annotated__Safety__isSet
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Boolean" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Annotated__Safety__isSet_pmultiplicity ;
+    sysml:ownedRelationship elmt:Annotated__Safety__isSet_ft0, expr:Annotated__Safety__isSet_pmultiplicity_om ;
+    sysml:ownedMembership expr:Annotated__Safety__isSet_pmultiplicity_om ;
+    sysml:ownedMember expr:Annotated__Safety__isSet_pmultiplicity ;
     sysml:ownedTyping elmt:Annotated__Safety__isSet_ft0 ;
     sysml:ownedSpecialization elmt:Annotated__Safety__isSet_ft0 ;
-    sysml:ownedRelationship elmt:Annotated__Safety__isSet_ft0 ;
-    sysx:sourceText "        attribute isSet : Boolean;\n" .
+    sysx:sourceText "        attribute isSet : Boolean;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated__Safety__isSet_ft0\"},{\"@id\":\"Annotated__Safety__isSet_pmultiplicity_om\"}]" .
 
 elmt:Annotated__Safety__isSet_om
     a sysml:FeatureMembership ;
@@ -192,6 +248,28 @@ elmt:Annotated__Safety__isSet_om
     sysml:ownedMemberFeature elmt:Annotated__Safety__isSet ;
     sysml:owningType elmt:Annotated__Safety ;
     json:relatedElement "[{\"@id\":\"Annotated__Safety\"},{\"@id\":\"Annotated__Safety__isSet\"}]" .
+
+expr:Annotated__Safety__isSet_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Annotated__Safety__isSet_pmultiplicity" ;
+    sysml:owner elmt:Annotated__Safety__isSet ;
+    sysml:owningRelationship expr:Annotated__Safety__isSet_pmultiplicity_om ;
+    sysml:owningMembership expr:Annotated__Safety__isSet_pmultiplicity_om .
+
+expr:Annotated__Safety__isSet_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Annotated__Safety__isSet_pmultiplicity_om" ;
+    sysml:owner elmt:Annotated__Safety__isSet ;
+    sysml:memberElement expr:Annotated__Safety__isSet_pmultiplicity ;
+    sysml:ownedMemberElement expr:Annotated__Safety__isSet_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Annotated__Safety__isSet_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Annotated__Safety__isSet ;
+    sysml:membershipOwningNamespace elmt:Annotated__Safety__isSet ;
+    sysml:source elmt:Annotated__Safety__isSet ;
+    sysml:target expr:Annotated__Safety__isSet_pmultiplicity ;
+    sysml:relatedElement elmt:Annotated__Safety__isSet, expr:Annotated__Safety__isSet_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Annotated__Safety__isSet\"},{\"@id\":\"Annotated__Safety__isSet_pmultiplicity\"}]" .
 
 elmt:Annotated__Safety__audit
     a sysml:ItemUsage ;
@@ -211,13 +289,17 @@ elmt:Annotated__Safety__audit
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Annotated__Safety__audit__year ;
-    sysml:ownedMembership elmt:Annotated__Safety__audit__year_om ;
-    sysml:ownedRelationship elmt:Annotated__Safety__audit__year_om ;
+    sysml:ownedMember elmt:Annotated__Safety__audit__year, expr:Annotated__Safety__audit_pmultiplicity ;
+    sysml:ownedMembership elmt:Annotated__Safety__audit__year_om, expr:Annotated__Safety__audit_pmultiplicity_om ;
+    sysml:ownedRelationship elmt:Annotated__Safety__audit__year_om, expr:Annotated__Safety__audit_pmultiplicity_om ;
     sysml:ownedFeature elmt:Annotated__Safety__audit__year ;
     sysml:ownedFeatureMembership elmt:Annotated__Safety__audit__year_om ;
+    sysml:multiplicity expr:Annotated__Safety__audit_pmultiplicity ;
     sysx:sourceText "        item audit {\n" ;
-    sysx:sourceTail "        }\n" .
+    sysx:sourceTail "        }\n" ;
+    json:ownedMember "[{\"@id\":\"Annotated__Safety__audit__year\"},{\"@id\":\"Annotated__Safety__audit_pmultiplicity\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Annotated__Safety__audit__year_om\"},{\"@id\":\"Annotated__Safety__audit_pmultiplicity_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated__Safety__audit__year_om\"},{\"@id\":\"Annotated__Safety__audit_pmultiplicity_om\"}]" .
 
 elmt:Annotated__Safety__audit_om
     a sysml:FeatureMembership ;
@@ -255,10 +337,14 @@ elmt:Annotated__Safety__audit__year
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Integer" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Annotated__Safety__audit__year_pmultiplicity ;
+    sysml:ownedRelationship elmt:Annotated__Safety__audit__year_ft0, expr:Annotated__Safety__audit__year_pmultiplicity_om ;
+    sysml:ownedMembership expr:Annotated__Safety__audit__year_pmultiplicity_om ;
+    sysml:ownedMember expr:Annotated__Safety__audit__year_pmultiplicity ;
     sysml:ownedTyping elmt:Annotated__Safety__audit__year_ft0 ;
     sysml:ownedSpecialization elmt:Annotated__Safety__audit__year_ft0 ;
-    sysml:ownedRelationship elmt:Annotated__Safety__audit__year_ft0 ;
-    sysx:sourceText "            attribute year : Integer;\n" .
+    sysx:sourceText "            attribute year : Integer;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated__Safety__audit__year_ft0\"},{\"@id\":\"Annotated__Safety__audit__year_pmultiplicity_om\"}]" .
 
 elmt:Annotated__Safety__audit__year_om
     a sysml:FeatureMembership ;
@@ -276,6 +362,50 @@ elmt:Annotated__Safety__audit__year_om
     sysml:ownedMemberFeature elmt:Annotated__Safety__audit__year ;
     sysml:owningType elmt:Annotated__Safety__audit ;
     json:relatedElement "[{\"@id\":\"Annotated__Safety__audit\"},{\"@id\":\"Annotated__Safety__audit__year\"}]" .
+
+expr:Annotated__Safety__audit__year_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Annotated__Safety__audit__year_pmultiplicity" ;
+    sysml:owner elmt:Annotated__Safety__audit__year ;
+    sysml:owningRelationship expr:Annotated__Safety__audit__year_pmultiplicity_om ;
+    sysml:owningMembership expr:Annotated__Safety__audit__year_pmultiplicity_om .
+
+expr:Annotated__Safety__audit__year_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Annotated__Safety__audit__year_pmultiplicity_om" ;
+    sysml:owner elmt:Annotated__Safety__audit__year ;
+    sysml:memberElement expr:Annotated__Safety__audit__year_pmultiplicity ;
+    sysml:ownedMemberElement expr:Annotated__Safety__audit__year_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Annotated__Safety__audit__year_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Annotated__Safety__audit__year ;
+    sysml:membershipOwningNamespace elmt:Annotated__Safety__audit__year ;
+    sysml:source elmt:Annotated__Safety__audit__year ;
+    sysml:target expr:Annotated__Safety__audit__year_pmultiplicity ;
+    sysml:relatedElement elmt:Annotated__Safety__audit__year, expr:Annotated__Safety__audit__year_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Annotated__Safety__audit__year\"},{\"@id\":\"Annotated__Safety__audit__year_pmultiplicity\"}]" .
+
+expr:Annotated__Safety__audit_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Annotated__Safety__audit_pmultiplicity" ;
+    sysml:owner elmt:Annotated__Safety__audit ;
+    sysml:owningRelationship expr:Annotated__Safety__audit_pmultiplicity_om ;
+    sysml:owningMembership expr:Annotated__Safety__audit_pmultiplicity_om .
+
+expr:Annotated__Safety__audit_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Annotated__Safety__audit_pmultiplicity_om" ;
+    sysml:owner elmt:Annotated__Safety__audit ;
+    sysml:memberElement expr:Annotated__Safety__audit_pmultiplicity ;
+    sysml:ownedMemberElement expr:Annotated__Safety__audit_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Annotated__Safety__audit_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Annotated__Safety__audit ;
+    sysml:membershipOwningNamespace elmt:Annotated__Safety__audit ;
+    sysml:source elmt:Annotated__Safety__audit ;
+    sysml:target expr:Annotated__Safety__audit_pmultiplicity ;
+    sysml:relatedElement elmt:Annotated__Safety__audit, expr:Annotated__Safety__audit_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Annotated__Safety__audit\"},{\"@id\":\"Annotated__Safety__audit_pmultiplicity\"}]" .
 
 elmt:Annotated__Car
     a sysml:PartDefinition ;
@@ -334,10 +464,14 @@ elmt:Annotated__Car__mass
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Annotated__Car__mass_pmultiplicity ;
+    sysml:ownedRelationship elmt:Annotated__Car__mass_ft0, expr:Annotated__Car__mass_pmultiplicity_om ;
+    sysml:ownedMembership expr:Annotated__Car__mass_pmultiplicity_om ;
+    sysml:ownedMember expr:Annotated__Car__mass_pmultiplicity ;
     sysml:ownedTyping elmt:Annotated__Car__mass_ft0 ;
     sysml:ownedSpecialization elmt:Annotated__Car__mass_ft0 ;
-    sysml:ownedRelationship elmt:Annotated__Car__mass_ft0 ;
-    sysx:sourceText "        attribute mass : Real;\n" .
+    sysx:sourceText "        attribute mass : Real;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated__Car__mass_ft0\"},{\"@id\":\"Annotated__Car__mass_pmultiplicity_om\"}]" .
 
 elmt:Annotated__Car__mass_om
     a sysml:FeatureMembership ;
@@ -355,6 +489,28 @@ elmt:Annotated__Car__mass_om
     sysml:ownedMemberFeature elmt:Annotated__Car__mass ;
     sysml:owningType elmt:Annotated__Car ;
     json:relatedElement "[{\"@id\":\"Annotated__Car\"},{\"@id\":\"Annotated__Car__mass\"}]" .
+
+expr:Annotated__Car__mass_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Annotated__Car__mass_pmultiplicity" ;
+    sysml:owner elmt:Annotated__Car__mass ;
+    sysml:owningRelationship expr:Annotated__Car__mass_pmultiplicity_om ;
+    sysml:owningMembership expr:Annotated__Car__mass_pmultiplicity_om .
+
+expr:Annotated__Car__mass_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Annotated__Car__mass_pmultiplicity_om" ;
+    sysml:owner elmt:Annotated__Car__mass ;
+    sysml:memberElement expr:Annotated__Car__mass_pmultiplicity ;
+    sysml:ownedMemberElement expr:Annotated__Car__mass_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Annotated__Car__mass_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Annotated__Car__mass ;
+    sysml:membershipOwningNamespace elmt:Annotated__Car__mass ;
+    sysml:source elmt:Annotated__Car__mass ;
+    sysml:target expr:Annotated__Car__mass_pmultiplicity ;
+    sysml:relatedElement elmt:Annotated__Car__mass, expr:Annotated__Car__mass_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Annotated__Car__mass\"},{\"@id\":\"Annotated__Car__mass_pmultiplicity\"}]" .
 
 elmt:Annotated__car
     a sysml:PartUsage ;
@@ -420,13 +576,16 @@ elmt:Annotated__car__range
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysml:value expr:Annotated__car__range_pvalue ;
-    sysml:ownedRelationship elmt:Annotated__car__range_ft0, expr:Annotated__car__range_pvalue_om ;
-    sysml:ownedMembership expr:Annotated__car__range_pvalue_om ;
+    sysml:ownedRelationship elmt:Annotated__car__range_ft0, expr:Annotated__car__range_pvalue_om, expr:Annotated__car__range_pmultiplicity_om ;
+    sysml:ownedMembership expr:Annotated__car__range_pvalue_om, expr:Annotated__car__range_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Annotated__car__range_pmultiplicity ;
+    sysml:ownedMember expr:Annotated__car__range_pmultiplicity ;
     sysml:ownedTyping elmt:Annotated__car__range_ft0 ;
     sysml:ownedSpecialization elmt:Annotated__car__range_ft0 ;
     sysx:sourceText "        attribute range : Real = 500.0;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car__range_ft0\"},{\"@id\":\"Annotated__car__range_pvalue_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car__range_ft0\"},{\"@id\":\"Annotated__car__range_pvalue_om\"},{\"@id\":\"Annotated__car__range_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Annotated__car__range_pvalue_om\"},{\"@id\":\"Annotated__car__range_pmultiplicity_om\"}]" .
 
 elmt:Annotated__car__range_om
     a sysml:FeatureMembership ;
@@ -470,6 +629,28 @@ expr:Annotated__car__range_pvalue_om
     sysml:featureWithValue elmt:Annotated__car__range ;
     sysml:value expr:Annotated__car__range_pvalue ;
     json:relatedElement "[{\"@id\":\"Annotated__car__range\"},{\"@id\":\"Annotated__car__range_pvalue\"}]" .
+
+expr:Annotated__car__range_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Annotated__car__range_pmultiplicity" ;
+    sysml:owner elmt:Annotated__car__range ;
+    sysml:owningRelationship expr:Annotated__car__range_pmultiplicity_om ;
+    sysml:owningMembership expr:Annotated__car__range_pmultiplicity_om .
+
+expr:Annotated__car__range_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Annotated__car__range_pmultiplicity_om" ;
+    sysml:owner elmt:Annotated__car__range ;
+    sysml:memberElement expr:Annotated__car__range_pmultiplicity ;
+    sysml:ownedMemberElement expr:Annotated__car__range_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Annotated__car__range_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Annotated__car__range ;
+    sysml:membershipOwningNamespace elmt:Annotated__car__range ;
+    sysml:source elmt:Annotated__car__range ;
+    sysml:target expr:Annotated__car__range_pmultiplicity ;
+    sysml:relatedElement elmt:Annotated__car__range, expr:Annotated__car__range_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Annotated__car__range\"},{\"@id\":\"Annotated__car__range_pmultiplicity\"}]" .
 
 elmt:Annotated__car___401
     a sysml:MetadataUsage ;

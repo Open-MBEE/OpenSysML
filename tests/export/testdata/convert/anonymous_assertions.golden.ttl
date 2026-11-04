@@ -122,10 +122,14 @@ elmt:AnonymousAssertions__MassConstraint__total
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:AnonymousAssertions__MassConstraint__total_pmultiplicity ;
+    sysml:ownedRelationship elmt:AnonymousAssertions__MassConstraint__total_ft0, expr:AnonymousAssertions__MassConstraint__total_pmultiplicity_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__MassConstraint__total_pmultiplicity_om ;
+    sysml:ownedMember expr:AnonymousAssertions__MassConstraint__total_pmultiplicity ;
     sysml:ownedTyping elmt:AnonymousAssertions__MassConstraint__total_ft0 ;
     sysml:ownedSpecialization elmt:AnonymousAssertions__MassConstraint__total_ft0 ;
-    sysml:ownedRelationship elmt:AnonymousAssertions__MassConstraint__total_ft0 ;
-    sysx:sourceText "\t\tin attribute total : MassValue;\n" .
+    sysx:sourceText "\t\tin attribute total : MassValue;\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousAssertions__MassConstraint__total_ft0\"},{\"@id\":\"AnonymousAssertions__MassConstraint__total_pmultiplicity_om\"}]" .
 
 elmt:AnonymousAssertions__MassConstraint__total_om
     a sysml:FeatureMembership ;
@@ -143,6 +147,28 @@ elmt:AnonymousAssertions__MassConstraint__total_om
     sysml:ownedMemberFeature elmt:AnonymousAssertions__MassConstraint__total ;
     sysml:owningType elmt:AnonymousAssertions__MassConstraint ;
     json:relatedElement "[{\"@id\":\"AnonymousAssertions__MassConstraint\"},{\"@id\":\"AnonymousAssertions__MassConstraint__total\"}]" .
+
+expr:AnonymousAssertions__MassConstraint__total_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "AnonymousAssertions__MassConstraint__total_pmultiplicity" ;
+    sysml:owner elmt:AnonymousAssertions__MassConstraint__total ;
+    sysml:owningRelationship expr:AnonymousAssertions__MassConstraint__total_pmultiplicity_om ;
+    sysml:owningMembership expr:AnonymousAssertions__MassConstraint__total_pmultiplicity_om .
+
+expr:AnonymousAssertions__MassConstraint__total_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "AnonymousAssertions__MassConstraint__total_pmultiplicity_om" ;
+    sysml:owner elmt:AnonymousAssertions__MassConstraint__total ;
+    sysml:memberElement expr:AnonymousAssertions__MassConstraint__total_pmultiplicity ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__MassConstraint__total_pmultiplicity ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__MassConstraint__total_pmultiplicity ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__MassConstraint__total ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__MassConstraint__total ;
+    sysml:source elmt:AnonymousAssertions__MassConstraint__total ;
+    sysml:target expr:AnonymousAssertions__MassConstraint__total_pmultiplicity ;
+    sysml:relatedElement elmt:AnonymousAssertions__MassConstraint__total, expr:AnonymousAssertions__MassConstraint__total_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"AnonymousAssertions__MassConstraint__total\"},{\"@id\":\"AnonymousAssertions__MassConstraint__total_pmultiplicity\"}]" .
 
 elmt:AnonymousAssertions__MassConstraint__limit
     a sysml:AttributeUsage ;
@@ -164,10 +190,14 @@ elmt:AnonymousAssertions__MassConstraint__limit
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity ;
+    sysml:ownedRelationship elmt:AnonymousAssertions__MassConstraint__limit_ft0, expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity_om ;
+    sysml:ownedMember expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity ;
     sysml:ownedTyping elmt:AnonymousAssertions__MassConstraint__limit_ft0 ;
     sysml:ownedSpecialization elmt:AnonymousAssertions__MassConstraint__limit_ft0 ;
-    sysml:ownedRelationship elmt:AnonymousAssertions__MassConstraint__limit_ft0 ;
-    sysx:sourceText "\t\tin attribute limit : MassValue;\n" .
+    sysx:sourceText "\t\tin attribute limit : MassValue;\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousAssertions__MassConstraint__limit_ft0\"},{\"@id\":\"AnonymousAssertions__MassConstraint__limit_pmultiplicity_om\"}]" .
 
 elmt:AnonymousAssertions__MassConstraint__limit_om
     a sysml:FeatureMembership ;
@@ -185,6 +215,28 @@ elmt:AnonymousAssertions__MassConstraint__limit_om
     sysml:ownedMemberFeature elmt:AnonymousAssertions__MassConstraint__limit ;
     sysml:owningType elmt:AnonymousAssertions__MassConstraint ;
     json:relatedElement "[{\"@id\":\"AnonymousAssertions__MassConstraint\"},{\"@id\":\"AnonymousAssertions__MassConstraint__limit\"}]" .
+
+expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "AnonymousAssertions__MassConstraint__limit_pmultiplicity" ;
+    sysml:owner elmt:AnonymousAssertions__MassConstraint__limit ;
+    sysml:owningRelationship expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity_om ;
+    sysml:owningMembership expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity_om .
+
+expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "AnonymousAssertions__MassConstraint__limit_pmultiplicity_om" ;
+    sysml:owner elmt:AnonymousAssertions__MassConstraint__limit ;
+    sysml:memberElement expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__MassConstraint__limit ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__MassConstraint__limit ;
+    sysml:source elmt:AnonymousAssertions__MassConstraint__limit ;
+    sysml:target expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity ;
+    sysml:relatedElement elmt:AnonymousAssertions__MassConstraint__limit, expr:AnonymousAssertions__MassConstraint__limit_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"AnonymousAssertions__MassConstraint__limit\"},{\"@id\":\"AnonymousAssertions__MassConstraint__limit_pmultiplicity\"}]" .
 
 elmt:AnonymousAssertions__MassConstraint___402
     a sysml:OperatorExpression ;
@@ -521,10 +573,14 @@ elmt:AnonymousAssertions__massConstraint__total
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:AnonymousAssertions__massConstraint__total_pmultiplicity ;
+    sysml:ownedRelationship elmt:AnonymousAssertions__massConstraint__total_ft0, expr:AnonymousAssertions__massConstraint__total_pmultiplicity_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__massConstraint__total_pmultiplicity_om ;
+    sysml:ownedMember expr:AnonymousAssertions__massConstraint__total_pmultiplicity ;
     sysml:ownedTyping elmt:AnonymousAssertions__massConstraint__total_ft0 ;
     sysml:ownedSpecialization elmt:AnonymousAssertions__massConstraint__total_ft0 ;
-    sysml:ownedRelationship elmt:AnonymousAssertions__massConstraint__total_ft0 ;
-    sysx:sourceText "\t\tin attribute total : MassValue;\n" .
+    sysx:sourceText "\t\tin attribute total : MassValue;\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousAssertions__massConstraint__total_ft0\"},{\"@id\":\"AnonymousAssertions__massConstraint__total_pmultiplicity_om\"}]" .
 
 elmt:AnonymousAssertions__massConstraint__total_om
     a sysml:FeatureMembership ;
@@ -542,6 +598,28 @@ elmt:AnonymousAssertions__massConstraint__total_om
     sysml:ownedMemberFeature elmt:AnonymousAssertions__massConstraint__total ;
     sysml:owningType elmt:AnonymousAssertions__massConstraint ;
     json:relatedElement "[{\"@id\":\"AnonymousAssertions__massConstraint\"},{\"@id\":\"AnonymousAssertions__massConstraint__total\"}]" .
+
+expr:AnonymousAssertions__massConstraint__total_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "AnonymousAssertions__massConstraint__total_pmultiplicity" ;
+    sysml:owner elmt:AnonymousAssertions__massConstraint__total ;
+    sysml:owningRelationship expr:AnonymousAssertions__massConstraint__total_pmultiplicity_om ;
+    sysml:owningMembership expr:AnonymousAssertions__massConstraint__total_pmultiplicity_om .
+
+expr:AnonymousAssertions__massConstraint__total_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "AnonymousAssertions__massConstraint__total_pmultiplicity_om" ;
+    sysml:owner elmt:AnonymousAssertions__massConstraint__total ;
+    sysml:memberElement expr:AnonymousAssertions__massConstraint__total_pmultiplicity ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__massConstraint__total_pmultiplicity ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__massConstraint__total_pmultiplicity ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__massConstraint__total ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__massConstraint__total ;
+    sysml:source elmt:AnonymousAssertions__massConstraint__total ;
+    sysml:target expr:AnonymousAssertions__massConstraint__total_pmultiplicity ;
+    sysml:relatedElement elmt:AnonymousAssertions__massConstraint__total, expr:AnonymousAssertions__massConstraint__total_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"AnonymousAssertions__massConstraint__total\"},{\"@id\":\"AnonymousAssertions__massConstraint__total_pmultiplicity\"}]" .
 
 elmt:AnonymousAssertions__massConstraint__limit
     a sysml:AttributeUsage ;
@@ -563,10 +641,14 @@ elmt:AnonymousAssertions__massConstraint__limit
     sysml:direction "in" ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:AnonymousAssertions__massConstraint__limit_pmultiplicity ;
+    sysml:ownedRelationship elmt:AnonymousAssertions__massConstraint__limit_ft0, expr:AnonymousAssertions__massConstraint__limit_pmultiplicity_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__massConstraint__limit_pmultiplicity_om ;
+    sysml:ownedMember expr:AnonymousAssertions__massConstraint__limit_pmultiplicity ;
     sysml:ownedTyping elmt:AnonymousAssertions__massConstraint__limit_ft0 ;
     sysml:ownedSpecialization elmt:AnonymousAssertions__massConstraint__limit_ft0 ;
-    sysml:ownedRelationship elmt:AnonymousAssertions__massConstraint__limit_ft0 ;
-    sysx:sourceText "\t\tin attribute limit : MassValue;\n" .
+    sysx:sourceText "\t\tin attribute limit : MassValue;\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousAssertions__massConstraint__limit_ft0\"},{\"@id\":\"AnonymousAssertions__massConstraint__limit_pmultiplicity_om\"}]" .
 
 elmt:AnonymousAssertions__massConstraint__limit_om
     a sysml:FeatureMembership ;
@@ -584,6 +666,28 @@ elmt:AnonymousAssertions__massConstraint__limit_om
     sysml:ownedMemberFeature elmt:AnonymousAssertions__massConstraint__limit ;
     sysml:owningType elmt:AnonymousAssertions__massConstraint ;
     json:relatedElement "[{\"@id\":\"AnonymousAssertions__massConstraint\"},{\"@id\":\"AnonymousAssertions__massConstraint__limit\"}]" .
+
+expr:AnonymousAssertions__massConstraint__limit_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "AnonymousAssertions__massConstraint__limit_pmultiplicity" ;
+    sysml:owner elmt:AnonymousAssertions__massConstraint__limit ;
+    sysml:owningRelationship expr:AnonymousAssertions__massConstraint__limit_pmultiplicity_om ;
+    sysml:owningMembership expr:AnonymousAssertions__massConstraint__limit_pmultiplicity_om .
+
+expr:AnonymousAssertions__massConstraint__limit_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "AnonymousAssertions__massConstraint__limit_pmultiplicity_om" ;
+    sysml:owner elmt:AnonymousAssertions__massConstraint__limit ;
+    sysml:memberElement expr:AnonymousAssertions__massConstraint__limit_pmultiplicity ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__massConstraint__limit_pmultiplicity ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__massConstraint__limit_pmultiplicity ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__massConstraint__limit ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__massConstraint__limit ;
+    sysml:source elmt:AnonymousAssertions__massConstraint__limit ;
+    sysml:target expr:AnonymousAssertions__massConstraint__limit_pmultiplicity ;
+    sysml:relatedElement elmt:AnonymousAssertions__massConstraint__limit, expr:AnonymousAssertions__massConstraint__limit_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"AnonymousAssertions__massConstraint__limit\"},{\"@id\":\"AnonymousAssertions__massConstraint__limit_pmultiplicity\"}]" .
 
 elmt:AnonymousAssertions__massConstraint___402
     a sysml:OperatorExpression ;
@@ -915,10 +1019,14 @@ elmt:AnonymousAssertions__Vehicle__mass
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:AnonymousAssertions__Vehicle__mass_pmultiplicity ;
+    sysml:ownedRelationship elmt:AnonymousAssertions__Vehicle__mass_ft0, expr:AnonymousAssertions__Vehicle__mass_pmultiplicity_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__Vehicle__mass_pmultiplicity_om ;
+    sysml:ownedMember expr:AnonymousAssertions__Vehicle__mass_pmultiplicity ;
     sysml:ownedTyping elmt:AnonymousAssertions__Vehicle__mass_ft0 ;
     sysml:ownedSpecialization elmt:AnonymousAssertions__Vehicle__mass_ft0 ;
-    sysml:ownedRelationship elmt:AnonymousAssertions__Vehicle__mass_ft0 ;
-    sysx:sourceText "\t\tattribute mass : MassValue;\n" .
+    sysx:sourceText "\t\tattribute mass : MassValue;\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousAssertions__Vehicle__mass_ft0\"},{\"@id\":\"AnonymousAssertions__Vehicle__mass_pmultiplicity_om\"}]" .
 
 elmt:AnonymousAssertions__Vehicle__mass_om
     a sysml:FeatureMembership ;
@@ -936,6 +1044,28 @@ elmt:AnonymousAssertions__Vehicle__mass_om
     sysml:ownedMemberFeature elmt:AnonymousAssertions__Vehicle__mass ;
     sysml:owningType elmt:AnonymousAssertions__Vehicle ;
     json:relatedElement "[{\"@id\":\"AnonymousAssertions__Vehicle\"},{\"@id\":\"AnonymousAssertions__Vehicle__mass\"}]" .
+
+expr:AnonymousAssertions__Vehicle__mass_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "AnonymousAssertions__Vehicle__mass_pmultiplicity" ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle__mass ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle__mass_pmultiplicity_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle__mass_pmultiplicity_om .
+
+expr:AnonymousAssertions__Vehicle__mass_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "AnonymousAssertions__Vehicle__mass_pmultiplicity_om" ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle__mass ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle__mass_pmultiplicity ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle__mass_pmultiplicity ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle__mass_pmultiplicity ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__Vehicle__mass ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__Vehicle__mass ;
+    sysml:source elmt:AnonymousAssertions__Vehicle__mass ;
+    sysml:target expr:AnonymousAssertions__Vehicle__mass_pmultiplicity ;
+    sysml:relatedElement elmt:AnonymousAssertions__Vehicle__mass, expr:AnonymousAssertions__Vehicle__mass_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"AnonymousAssertions__Vehicle__mass\"},{\"@id\":\"AnonymousAssertions__Vehicle__mass_pmultiplicity\"}]" .
 
 elmt:AnonymousAssertions__Vehicle__maxMass
     a sysml:AttributeUsage ;
@@ -956,10 +1086,14 @@ elmt:AnonymousAssertions__Vehicle__maxMass
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:AnonymousAssertions__MassValue ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity ;
+    sysml:ownedRelationship elmt:AnonymousAssertions__Vehicle__maxMass_ft0, expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity_om ;
+    sysml:ownedMember expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity ;
     sysml:ownedTyping elmt:AnonymousAssertions__Vehicle__maxMass_ft0 ;
     sysml:ownedSpecialization elmt:AnonymousAssertions__Vehicle__maxMass_ft0 ;
-    sysml:ownedRelationship elmt:AnonymousAssertions__Vehicle__maxMass_ft0 ;
-    sysx:sourceText "\t\tattribute maxMass : MassValue;\n" .
+    sysx:sourceText "\t\tattribute maxMass : MassValue;\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousAssertions__Vehicle__maxMass_ft0\"},{\"@id\":\"AnonymousAssertions__Vehicle__maxMass_pmultiplicity_om\"}]" .
 
 elmt:AnonymousAssertions__Vehicle__maxMass_om
     a sysml:FeatureMembership ;
@@ -977,6 +1111,28 @@ elmt:AnonymousAssertions__Vehicle__maxMass_om
     sysml:ownedMemberFeature elmt:AnonymousAssertions__Vehicle__maxMass ;
     sysml:owningType elmt:AnonymousAssertions__Vehicle ;
     json:relatedElement "[{\"@id\":\"AnonymousAssertions__Vehicle\"},{\"@id\":\"AnonymousAssertions__Vehicle__maxMass\"}]" .
+
+expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "AnonymousAssertions__Vehicle__maxMass_pmultiplicity" ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle__maxMass ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity_om .
+
+expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "AnonymousAssertions__Vehicle__maxMass_pmultiplicity_om" ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle__maxMass ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__Vehicle__maxMass ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__Vehicle__maxMass ;
+    sysml:source elmt:AnonymousAssertions__Vehicle__maxMass ;
+    sysml:target expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity ;
+    sysml:relatedElement elmt:AnonymousAssertions__Vehicle__maxMass, expr:AnonymousAssertions__Vehicle__maxMass_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"AnonymousAssertions__Vehicle__maxMass\"},{\"@id\":\"AnonymousAssertions__Vehicle__maxMass_pmultiplicity\"}]" .
 
 elmt:AnonymousAssertions__Vehicle___402
     a sysml:AssertConstraintUsage ;

@@ -324,6 +324,7 @@ elmt:ReferenceSubsets__design__fleet
     sysml:multiplicity expr:ReferenceSubsets__design__fleet_pmultiplicity ;
     sysml:ownedRelationship expr:ReferenceSubsets__design__fleet_pmultiplicity_om, elmt:ReferenceSubsets__design__fleet_ss0 ;
     sysml:ownedMembership expr:ReferenceSubsets__design__fleet_pmultiplicity_om ;
+    sysml:ownedMember expr:ReferenceSubsets__design__fleet_pmultiplicity ;
     sysml:lowerBound expr:ReferenceSubsets__design__fleet_plowerBound ;
     sysml:upperBound expr:ReferenceSubsets__design__fleet_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -448,6 +449,7 @@ elmt:ReferenceSubsets__design__presidentOfCountry
     sysml:multiplicity expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
     sysml:ownedRelationship expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om, elmt:ReferenceSubsets__design__presidentOfCountry_ft0, elmt:ReferenceSubsets__design__presidentOfCountry_ss0 ;
     sysml:ownedMembership expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om ;
+    sysml:ownedMember expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
     sysml:lowerBound expr:ReferenceSubsets__design__presidentOfCountry_plowerBound ;
     sysml:upperBound expr:ReferenceSubsets__design__presidentOfCountry_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
