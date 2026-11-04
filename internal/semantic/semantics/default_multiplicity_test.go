@@ -337,6 +337,9 @@ func TestDefaultMultiplicityMember(t *testing.T) {
     part def Wheel;
     part def Trim;
     enum def Color { red; }
+    individual part def Probe :> Vehicle { part lens; }
+    connection link connect lid to lid;
+    connection named connect e1 ::> lid to e2 ::> lid;
 }`
 	for _, fixture := range reflectiveFixtures(t, "default-multiplicity.sysml", source.KindSysML, src) {
 		model := fixture.model
@@ -403,6 +406,47 @@ func TestDefaultMultiplicityMember(t *testing.T) {
 			t.Errorf("tags range metaclass = %s, want MultiplicityRange", name)
 		} else if owned, _ := model.ReflectiveElements(tags, "ownedMember"); len(owned) == 0 || owned[0] != got[0] {
 			t.Errorf("tags ownedMember = %d elements, want its declared range first", len(owned))
+		}
+		probe := relFixtureSymbol(t, fixture, "Probe")
+		first := model.DefaultMultiplicityMember(probe)
+		if first == nil || !IsDefaultMultiplicity(first) {
+			t.Fatal("individual part def Probe states no default multiplicity")
+		}
+		for _, feature := range []string{"ownedMember", "ownedElement", "multiplicity"} {
+			if got, _ := model.ReflectiveElements(probe, feature); len(got) == 0 || got[0] != first {
+				t.Errorf("Probe %s = %d elements, want its empty Multiplicity first (SysML.xtext OccurrenceDefinitionPrefix)", feature, len(got))
+			}
+		}
+		if got, _ := model.ReflectiveElements(probe, "ownedMembership"); len(got) < 2 || got[0].Implicit == nil || got[0].Implicit.Member != first {
+			t.Errorf("Probe ownedMembership = %d elements, want the Multiplicity's first, lens's after", len(got))
+		}
+		for _, name := range []string{"Vehicle", "Wheel", "Color"} {
+			if model.DefaultMultiplicityMember(relFixtureSymbol(t, fixture, name)) != nil {
+				t.Errorf("%s is no individual, yet states a default multiplicity", name)
+			}
+		}
+		if ends, ok := model.OwnedConnectorEnds(relFixtureSymbol(t, fixture, "link")); !ok || len(ends) != 2 {
+			t.Fatalf("link ends = %d, want 2", len(ends))
+		} else {
+			for i, end := range ends {
+				if model.DefaultMultiplicityMember(end) != nil {
+					t.Errorf("positional end %d of link states a default multiplicity; the pilot states none", i)
+				}
+			}
+		}
+		ends, ok := model.OwnedConnectorEnds(relFixtureSymbol(t, fixture, "named"))
+		if !ok || len(ends) != 2 {
+			t.Fatalf("named ends = %d, want 2", len(ends))
+		}
+		for i, end := range ends {
+			endDefault := model.DefaultMultiplicityMember(end)
+			if endDefault == nil {
+				t.Errorf("named end %d states no default multiplicity: a declared end usage is held to [1..1]", i)
+				continue
+			}
+			if got, _ := model.ReflectiveElements(end, "ownedMember"); len(got) == 0 || got[len(got)-1] != endDefault {
+				t.Errorf("named end %d ownedMember = %d elements, want its default multiplicity last", i, len(got))
+			}
 		}
 		wheels := relFixtureSymbol(t, fixture, "wheels")
 		rangeOf := model.DeclaredMultiplicityMember(wheels)

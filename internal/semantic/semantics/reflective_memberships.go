@@ -99,9 +99,13 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 			Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: member,
 		},
 	}
-	if !IsDefaultMultiplicity(member) {
-		membership.DeclSpan = source.Span{Offset: member.DeclSpan.Offset}
-		at := clausePosition(memberships, member.DeclSpan.Offset)
+	if !IsDefaultMultiplicity(member) || defaultMultiplicityFirst(sym) {
+		offset := member.DeclSpan.Offset
+		if IsDefaultMultiplicity(member) {
+			offset = sym.DeclSpan.Offset
+		}
+		membership.DeclSpan = source.Span{Offset: offset}
+		at := clausePosition(memberships, offset)
 		memberships = append(memberships, nil)
 		copy(memberships[at+1:], memberships[at:])
 		memberships[at] = membership

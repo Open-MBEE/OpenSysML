@@ -230,21 +230,43 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99535 elements matched (18530 ours-only, 31790 pilot-only, 0 of them implied); properties: 1869166 present-equal, 43284 present-different, 434336 ours-missing, 76376 pilot-missing, 2119929 absent-both, 53536 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99688 elements matched (18563 ours-only, 31637 pilot-only, 0 of them implied); properties: 1871961 present-equal, 43167 present-different, 434667 ours-missing, 76440 pilot-missing, 2123419 absent-both, 53558 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 141172 | 3350 | 32639 | 5279 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 26554 | 6118 | 9562 | 508362 | 13641 | 120590 | 19877 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 177688 | 5773 | 40773 | 7096 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 111490 | 4167 | 24859 | 7399 |
-| `examples/spec-examples` | 511 | 7078 | 979 | 2652 | 119498 | 2469 | 29346 | 5950 |
-| `tests/testdata` | 40 | 1460 | 175 | 511 | 25673 | 729 | 6186 | 1116 |
-| `examples` | 56 | 27928 | 6075 | 15212 | 533819 | 16027 | 130043 | 21654 |
+| `examples/sysml-v2-training` | 100 | 7989 | 1167 | 2177 | 152189 | 2825 | 33814 | 5578 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28225 | 6173 | 7891 | 539252 | 12238 | 123743 | 20710 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9989 | 1907 | 2610 | 188855 | 5308 | 42041 | 7392 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 111542 | 4118 | 24856 | 7399 |
+| `examples/spec-examples` | 511 | 7370 | 990 | 2360 | 124885 | 2264 | 29867 | 6096 |
+| `tests/testdata` | 40 | 1514 | 175 | 457 | 26663 | 706 | 6274 | 1143 |
+| `examples` | 56 | 30656 | 6076 | 12484 | 583665 | 12972 | 136457 | 23018 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 839 | 3 | 162 | 41 |
-| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 138749 | 3185 | 36706 | 4919 |
+| `docs/manual/examples` | 11 | 7487 | 922 | 1822 | 144071 | 2733 | 37453 | 5063 |
+
+**An `individual` definition's and a named connector end's `[1..1]`** (re-recorded when the writer
+began stating the empty `Multiplicity` an `individual` definition's prefix owns — first among its
+relationships, SysML.xtext `OccurrenceDefinitionPrefix`, `EmptyMultiplicityMember` — and the `[1..1]`
+of a connector usage's named end, `connect e1 ::> x to e2 ::> y`, last; a positional end `connect x to y`
+states none, which is what the pilot does: its parser post-processes a declared usage, not the
+`ConnectorEnd` production): 124 rows moved. 79 more Multiplicity elements match (every `Multiplicity`
+row 3047 → 3126; `owningMembership` 3112 equal, the same 14 different), their memberships with them
+(`OwningMembership.isImplied` 12751 → 12825 equal). The definitions' `multiplicity` rows move from
+ours-missing to present-equal — `PartDefinition` 0 → 14, `ItemDefinition` 0 → 6, `ActionDefinition`
+0 → 3, `AnalysisCaseDefinition` 0 → 1, `OccurrenceDefinition` 0 → 35 — and their `ownedMember`,
+`ownedMembership`, `ownedRelationship` and `ownedElement` rows with them; the named ends read on
+`ReferenceUsage.multiplicity` 210 → 216 equal (7 → 1 ours-missing) and `PortUsage.multiplicity`
+395 → 409 (19 → 5), and `Documentation.owningMembership`/`owningRelationship` 366 → 370 equal (a
+definition's comment is numbered after the prefix's membership, as the pilot numbers it). One row is
+present-different: `OccurrenceDefinition.multiplicity` for `IndividualTest::IO1`, a bare `individual def`
+— this writer types it `IndividualDefinition`, a name the pilot's grammar reduces to `OccurrenceDefinition`
+and the API ontology lacks, so its `ownedRelationship` is written as a single object rather than the
+list the referee keys; the metaclass is a writer follow-up (the `individual` usage's `IndividualUsage`
+likewise). The 33 further ours-only elements are these defaults and their memberships under owners
+the pilot has no matched element for. Of the 176 pilot-only Multiplicity elements under a matched owner
+the earlier record names, the 107 the checker withholds on a subsetting of a type-owned feature remain.
 
 **A usage states its implicit [1..1] by an owned Multiplicity** (re-recorded when the semantic model
 began deriving, for an attribute, item, part, view, rendering or port usage that a type owns through a
@@ -680,13 +702,13 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | 11 | `ParameterMembership` | `memberName` | 4545 | 0 | open: the pilot names an implied parameter by the library feature it implicitly redefines (`result`, `source`, `logical`); our effective name follows a declared redefinition only (§ Results, step 2) — needs the implied-redefinition table | `Membership::memberName = memberElement.name` (KerML 8.3.2.3.5, deriveMembershipMemberName) |
 | 12 | `ParameterMembership` | `ownedMemberName` | 4545 | 0 | open: the pilot names an implied parameter by the library feature it implicitly redefines (`result`, `source`, `logical`); our effective name follows a declared redefinition only (§ Results, step 2) — needs the implied-redefinition table | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
 | 13 | `Membership` | `membershipOwningNamespace` | 3131 | 0 | open: neither stated by the writer nor completed by the evaluator (§ Results, *Not completed*); `owningRelatedElement` is a trivial completion left for the next step | `Membership::membershipOwningNamespace : Namespace` redefines `owningRelatedElement` (KerML 8.3.2.3.5) |
-| 14 | `Multiplicity` | `feature` | 3047 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1, deriveTypeFeature) |
-| 15 | `Multiplicity` | `featureMembership` | 3047 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1; KERML11-191 restricts the inherited part to the supertypes) |
-| 16 | `Multiplicity` | `inheritedFeature` | 3047 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1, deriveTypeInheritedFeature) |
-| 17 | `Multiplicity` | `inheritedMembership` | 3047 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::inheritedMembership = inheritedMemberships(excluded)` over the supertypes (KerML 8.3.3.1, deriveTypeInheritedMembership) |
-| 18 | `Multiplicity` | `member` | 3047 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Namespace::member = membership.memberElement` (KerML 8.3.2.4, deriveNamespaceMember) |
-| 19 | `Multiplicity` | `membership` | 3047 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Namespace::membership = ownedMembership->union(importedMembership)`, and for a Type also `inheritedMembership` (KerML 8.3.2.4, 8.3.3.1) |
-| 20 | `Multiplicity` | `type` | 3047 | 0 | open: the pilot types every multiplicity `ScalarValues::Natural`, an implied typing the writer states for neither a default `Multiplicity` nor a `MultiplicityRange` (`MultiplicityRange.type` is ours-missing alike) | `Feature::type = typing.type` with the types inherited through chaining and redefinition (KerML 8.3.3.3, deriveFeatureType) |
+| 14 | `Multiplicity` | `feature` | 3126 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1, deriveTypeFeature) |
+| 15 | `Multiplicity` | `featureMembership` | 3126 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1; KERML11-191 restricts the inherited part to the supertypes) |
+| 16 | `Multiplicity` | `inheritedFeature` | 3126 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1, deriveTypeInheritedFeature) |
+| 17 | `Multiplicity` | `inheritedMembership` | 3126 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::inheritedMembership = inheritedMemberships(excluded)` over the supertypes (KerML 8.3.3.1, deriveTypeInheritedMembership) |
+| 18 | `Multiplicity` | `member` | 3126 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Namespace::member = membership.memberElement` (KerML 8.3.2.4, deriveNamespaceMember) |
+| 19 | `Multiplicity` | `membership` | 3126 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Namespace::membership = ownedMembership->union(importedMembership)`, and for a Type also `inheritedMembership` (KerML 8.3.2.4, 8.3.3.1) |
+| 20 | `Multiplicity` | `type` | 3126 | 0 | open: the pilot types every multiplicity `ScalarValues::Natural`, an implied typing the writer states for neither a default `Multiplicity` nor a `MultiplicityRange` (`MultiplicityRange.type` is ours-missing alike) | `Feature::type = typing.type` with the types inherited through chaining and redefinition (KerML 8.3.3.3, deriveFeatureType) |
 | 21 | `AttributeUsage` | `feature` | 2557 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1, deriveTypeFeature) |
 | 22 | `AttributeUsage` | `featureMembership` | 2557 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1; KERML11-191 restricts the inherited part to the supertypes) |
 | 23 | `AttributeUsage` | `inheritedFeature` | 2557 | 0 | deferred here (§ Results, *Not completed*): needs the inherited members of every general type, which the structure-mode evaluator cannot see — the semantic inheritance table (`internal/semantic/semantics` `Model.MembersOf`) has to be given to the exporter | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1, deriveTypeInheritedFeature) |
