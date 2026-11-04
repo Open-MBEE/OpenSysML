@@ -426,6 +426,15 @@ func sameAPIJSONElementWithUnavailableQualifiedName(whole, document string) bool
 	}
 	delete(wholeElement, "sysx:mappingQualifiedName")
 	delete(documentElement, "sysx:mappingQualifiedName")
+	// A completed derived property over a reference into another document
+	// exists only when that document is present, so the completions are set aside.
+	for _, element := range []map[string]any{wholeElement, documentElement} {
+		completed, _ := element["sysx:completedProperties"].([]any)
+		for _, name := range completed {
+			delete(element, name.(string))
+		}
+		delete(element, "sysx:completedProperties")
+	}
 	return reflect.DeepEqual(wholeElement, documentElement)
 }
 

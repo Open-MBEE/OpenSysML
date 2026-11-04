@@ -46,9 +46,6 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Namespace", name: "ownedMember", clause: "8.3.2.4.5 deriveNamespaceOwnedMember"},
 	{class: "Namespace", name: "ownedImport", clause: "8.3.2.4.5 deriveNamespaceOwnedImport"},
 	{class: "Namespace", name: "importedMembership", clause: "8.3.2.4.5 deriveNamespaceImportedMembership"},
-	{class: "Relationship", name: "relatedElement", clause: "8.3.2.1.3 deriveRelationshipRelatedElement"},
-	{class: "Relationship", name: "source", clause: "8.3.2.1.3 source"},
-	{class: "Relationship", name: "target", clause: "8.3.2.1.3 target"},
 	{class: "AnnotatingElement", name: "annotatedElement", clause: "8.3.2.3.2 deriveAnnotatingElementAnnotatedElement"},
 	{class: "AnnotatingElement", name: "annotation", clause: "8.3.2.3.2 deriveAnnotatingElementAnnotation"},
 	{class: "AnnotatingElement", name: "ownedAnnotatingRelationship", clause: "8.3.2.3.2 deriveAnnotatingElementOwnedAnnotatingRelationship"},
@@ -81,13 +78,9 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Differencing", name: "owningType", clause: "8.3.3.1.3 owningType"},
 	{class: "Intersecting", name: "owningType", clause: "8.3.3.1.7 owningType"},
 	{class: "Unioning", name: "owningType", clause: "8.3.3.1.11 owningType"},
-	{class: "Behavior", name: "step", clause: "8.3.4.6.2 deriveBehaviorStep"},
-	{class: "Behavior", name: "parameter", clause: "8.3.4.6.2 deriveBehaviorParameter"},
 	{class: "Step", name: "behavior", clause: "8.3.4.6.3 deriveStepBehavior"},
-	{class: "Step", name: "parameter", clause: "8.3.4.6.3 deriveStepParameter"},
 	{class: "Expression", name: "function", clause: "8.3.4.7.3 deriveExpressionFunction"},
 	{class: "Expression", name: "result", clause: "8.3.4.7.3 deriveExpressionResult"},
-	{class: "InstantiationExpression", name: "instantiatedType", clause: "8.3.4.8.7 deriveInstantiationExpressionInstantiatedType"},
 	{class: "MultiplicityRange", name: "bound", clause: "8.3.4.11.2 deriveMultiplicityRangeBound"},
 	{class: "Usage", name: "owningDefinition", clause: "SysML 8.3.6.4 deriveUsageOwningDefinition"},
 	{class: "Usage", name: "owningUsage", clause: "SysML 8.3.6.4 deriveUsageOwningUsage"},
@@ -101,7 +94,6 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Usage", name: "nestedPort", clause: "SysML 8.3.6.4 deriveUsageNestedPort"},
 	{class: "Usage", name: "nestedAction", clause: "SysML 8.3.6.4 deriveUsageNestedAction"},
 	{class: "Usage", name: "nestedState", clause: "SysML 8.3.6.4 deriveUsageNestedState"},
-	{class: "Usage", name: "nestedTransition", clause: "SysML 8.3.6.4 deriveUsageNestedTransition"},
 	{class: "Usage", name: "nestedConstraint", clause: "SysML 8.3.6.4 deriveUsageNestedConstraint"},
 	{class: "Usage", name: "nestedCalculation", clause: "SysML 8.3.6.4 deriveUsageNestedCalculation"},
 	{class: "Usage", name: "nestedConnection", clause: "SysML 8.3.6.4 deriveUsageNestedConnection"},
@@ -118,12 +110,10 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Definition", name: "ownedPort", clause: "SysML 8.3.6.2 deriveDefinitionOwnedPort"},
 	{class: "Definition", name: "ownedAction", clause: "SysML 8.3.6.2 deriveDefinitionOwnedAction"},
 	{class: "Definition", name: "ownedState", clause: "SysML 8.3.6.2 deriveDefinitionOwnedState"},
-	{class: "Definition", name: "ownedTransition", clause: "SysML 8.3.6.2 deriveDefinitionOwnedTransition"},
 	{class: "Definition", name: "ownedConstraint", clause: "SysML 8.3.6.2 deriveDefinitionOwnedConstraint"},
 	{class: "Definition", name: "ownedCalculation", clause: "SysML 8.3.6.2 deriveDefinitionOwnedCalculation"},
 	{class: "Definition", name: "ownedConnection", clause: "SysML 8.3.6.2 deriveDefinitionOwnedConnection"},
 	{class: "Definition", name: "ownedMetadata", clause: "SysML 8.3.6.2 deriveDefinitionOwnedMetadata"},
-	{class: "Definition", name: "ownedRequirement", clause: "SysML 8.3.6.2 deriveDefinitionOwnedRequirement"},
 	{class: "Definition", name: "variant", clause: "SysML 8.3.6.2 deriveDefinitionVariant"},
 	{class: "Definition", name: "variantMembership", clause: "SysML 8.3.6.2 deriveDefinitionVariantMembership"},
 	{class: "AttributeUsage", name: "attributeDefinition", clause: "SysML 8.3.7.2 deriveAttributeUsageAttributeDefinition"},
@@ -154,10 +144,8 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "RequirementDefinition", name: "framedConcern", clause: "SysML 8.3.21.8 deriveRequirementDefinitionFramedConcern"},
 	{class: "RequirementConstraintMembership", name: "referencedConstraint", clause: "SysML 8.3.21.7 deriveRequirementConstraintMembershipReferencedConstraint"},
 	{class: "CaseUsage", name: "subjectParameter", clause: "SysML 8.3.22.3 deriveCaseUsageSubjectParameter"},
-	{class: "CaseUsage", name: "objectiveRequirement", clause: "SysML 8.3.22.3 deriveCaseUsageObjectiveRequirement"},
 	{class: "CaseUsage", name: "actorParameter", clause: "SysML 8.3.22.3 deriveCaseUsageActorParameter"},
 	{class: "CaseDefinition", name: "subjectParameter", clause: "SysML 8.3.22.2 deriveCaseDefinitionSubjectParameter"},
-	{class: "CaseDefinition", name: "objectiveRequirement", clause: "SysML 8.3.22.2 deriveCaseDefinitionObjectiveRequirement"},
 	{class: "CaseDefinition", name: "actorParameter", clause: "SysML 8.3.22.2 deriveCaseDefinitionActorParameter"},
 	{class: "StateUsage", name: "entryAction", clause: "SysML 8.3.18.6 deriveStateUsageEntryAction"},
 	{class: "StateUsage", name: "doAction", clause: "SysML 8.3.18.6 deriveStateUsageDoAction"},
@@ -220,6 +208,16 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 			var ok bool
 			if spelled, ok = w.derivedJSONValue(value); !ok {
 				continue
+			}
+			// A single-valued property is spelled as its one value, as the graph's would be.
+			if definition, known := ontology.PropertyOf(metaclass, property.name); known && !definition.Many {
+				values, sequence := spelled.([]any)
+				if sequence && len(values) != 1 {
+					continue
+				}
+				if sequence {
+					spelled = values[0]
+				}
 			}
 		}
 		element = append(element, apiJSONMember{key: property.name, value: spelled})

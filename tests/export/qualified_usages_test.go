@@ -32,7 +32,9 @@ func withoutSysxJSON(t *testing.T, path string) []byte {
 		case map[string]any:
 			out := map[string]any{}
 			for k, item := range m {
-				if strings.HasPrefix(k, "sysx:") {
+				// The completion list stays: without it the completed derived
+				// properties would read as statements, which is another document.
+				if strings.HasPrefix(k, "sysx:") && k != "sysx:completedProperties" {
 					continue
 				}
 				out[k] = scrub(item)
@@ -224,7 +226,7 @@ func TestStateBodyPerformKeepsQualifier(t *testing.T) {
 			out := map[string]any{}
 			for k, item := range m {
 				// The provenance marker stays: without it the document reads as an external writer's.
-				if strings.HasPrefix(k, "sysx:") && k != "sysx:statedDefaults" {
+				if strings.HasPrefix(k, "sysx:") && k != "sysx:statedDefaults" && k != "sysx:completedProperties" {
 					continue
 				}
 				out[k] = scrub(item)
