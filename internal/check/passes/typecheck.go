@@ -1140,9 +1140,8 @@ func isTypeKind(k symbols.SymbolKind) bool {
 	return k == symbols.SymbolUnknown || typeSymbolKinds[k]
 }
 
-// isOccurrenceDefKind reports whether k classifies an OccurrenceDefinition
-// (SysML v2 §8.3.9.3): every definition kind but the data types, attribute and
-// enumeration definitions (§8.3.7.2, §8.3.8.2).
+// isOccurrenceDefKind reports whether k classifies an OccurrenceDefinition (SysML
+// v2 §8.3.9.3): every definition kind but the attribute and enumeration data types.
 func isOccurrenceDefKind(k symbols.SymbolKind) bool {
 	return defKindInstantiates(k, "OccurrenceDefinition")
 }
@@ -1195,11 +1194,8 @@ func isRequirementDefKind(k symbols.SymbolKind) bool {
 	return false
 }
 
-// isCompatibleTyping reports whether a usage of useKind may be typed by a
-// definition of defKind. isOccurrenceUsage marks a usage carrying the
-// `individual`, `snapshot` or `timeslice` modifier: an OccurrenceUsage whatever
-// kind keyword declares it (SysML v2 §8.3.9.11), so an occurrence definition of
-// any kind types it, on top of whatever its kind keyword admits.
+// isCompatibleTyping reports whether a definition of defKind types a usage of useKind;
+// an `individual`/`snapshot`/`timeslice` usage also takes any occurrence definition (§8.3.9.11).
 func isCompatibleTyping(useKind ast.UsageKind, defKind symbols.SymbolKind, isOccurrenceUsage bool) bool {
 	if isOccurrenceUsage && isOccurrenceDefKind(defKind) {
 		return true
@@ -1207,10 +1203,8 @@ func isCompatibleTyping(useKind ast.UsageKind, defKind symbols.SymbolKind, isOcc
 	return compatibleTyping(useKind, defKind)
 }
 
-// compatibleTyping judges a definition's kind by the metaclass every type of a
-// usage of useKind instantiates (usageTypeMetaclasses): a state takes any
-// Behavior, a calculation any Function, an attribute only a DataType, whatever
-// its direction. A kind with no metaclass of its own takes any definition.
+// compatibleTyping judges a definition's kind by the metaclass every type of the
+// usage kind instantiates (usageTypeMetaclasses); a kind without one takes any.
 func compatibleTyping(useKind ast.UsageKind, defKind symbols.SymbolKind) bool {
 	want, ok := usageTypeMetaclasses[useKind]
 	if !ok {

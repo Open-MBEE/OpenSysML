@@ -5,10 +5,8 @@ import (
 	"testing"
 )
 
-// The typings of issue #1885, with the standard library loaded: a usage takes
-// the metaclass its derived definition property names, whatever the keyword of
-// the definition, and a one-type kind counts the base its kind implies among its
-// effective types, so a Function that is no Calculation is a second type.
+// The typings of issue #1885 with the library loaded: a usage takes its property's
+// metaclass, and a one-type kind counts its implied base among its effective types.
 func TestUsageTypingFollowsTheDefinitionPropertyMetaclass(t *testing.T) {
 	for _, src := range []string{
 		"package P { action def AD; part def Q { state s : AD; } }",
@@ -39,9 +37,8 @@ func TestUsageTypingFollowsTheDefinitionPropertyMetaclass(t *testing.T) {
 	}
 }
 
-// Every usage kind against the definition kinds its metaclass admits and
-// rejects (SysML v2 §8.3, the `/…Definition` property of each usage metaclass),
-// on a bare index: the metaclass rule alone, before the one-type count.
+// Every usage kind against the definition kinds its `/…Definition` metaclass
+// admits and rejects (SysML v2 §8.3), on a bare index: before the one-type count.
 func TestUsageTypingKindTable(t *testing.T) {
 	cases := []struct {
 		usage            string

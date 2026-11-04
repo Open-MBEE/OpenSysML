@@ -7,9 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// metaclassParents is the taxonomy of the metaclasses a type instantiates: the
-// KerML kernel classifiers (KerML 1.1 §8.4) and the SysML v2 definition
-// metaclasses (SysML v2 §8.3), each mapped to the metaclasses it specializes.
+// metaclassParents maps each KerML kernel classifier (KerML 1.1 §8.4) and SysML
+// definition metaclass (SysML v2 §8.3) to the metaclasses it specializes.
 var metaclassParents = map[string][]string{
 	"DataType":             {"Classifier"},
 	"Class":                {"Classifier"},
@@ -61,7 +60,7 @@ func metaclassSpecializes(m, want string) bool {
 	return false
 }
 
-// defKindMetaclass is the metaclass a definition of each kind instantiates. An
+// defKindMetaclass is the metaclass a definition of each kind instantiates; an
 // `individual def` is an OccurrenceDefinition with isIndividual (SysML v2 §8.3.9.3).
 var defKindMetaclass = map[symbols.SymbolKind]string{
 	symbols.SymbolAttributeDef:        "AttributeDefinition",
@@ -116,22 +115,11 @@ var kermlTypeMetaclasses = map[string]string{
 	"metaclass":          "Metaclass",
 }
 
-// usageTypeMetaclasses is the metaclass every type of a usage of a kind
-// instantiates: the type of the usage kind's derived definition property, which
-// redefines Feature::type through Usage::definition (SysML v2 §8.3.6.4): §8.3.7.3
-// AttributeUsage, §8.3.8.3 EnumerationUsage, §8.3.9.11 OccurrenceUsage, §8.3.12.6
-// PortUsage, §8.3.13.5 ConnectionUsage, §8.3.14.3 InterfaceUsage, §8.3.15.3
-// AllocationUsage, §8.3.16.4 FlowUsage, §8.3.17.5 ActionUsage, §8.3.18.6
-// StateUsage, §8.3.19.3 CalculationUsage, §8.3.20.4 ConstraintUsage, §8.3.21.4
-// ConcernUsage, §8.3.21.9 RequirementUsage, §8.3.22.4 CaseUsage, §8.3.23.4
-// AnalysisCaseUsage, §8.3.24.6 VerificationCaseUsage, §8.3.25.4 UseCaseUsage,
-// §8.3.26.6 RenderingUsage, §8.3.26.9 ViewpointUsage, §8.3.26.10 ViewUsage,
-// §8.3.27.4 MetadataUsage. An item, part, actor or stakeholder usage's own
-// property only subsets occurrenceDefinition, so a Class is all it demands; a
-// verification case's only subsets caseDefinition. A connection takes any
-// Association, as the pilot reads it: `connectionDefinition : AssociationStructure`
-// would reject the Kernel Semantic Library's own `connection :MatesWith`, an
-// `assoc`. A kind absent here takes any Classifier, as a plain Usage does.
+// usageTypeMetaclasses is the type of each usage kind's `/…Definition` property,
+// which redefines Feature::type through Usage::definition (SysML v2 §8.3.6.4, §8.3.7–27).
+// A property that only subsets another (item, part, verification) demands its parent's;
+// a connection takes any Association (the pilot's reading: the Kernel Semantic
+// Library's own `connection :MatesWith` is an `assoc`); an absent kind takes any.
 var usageTypeMetaclasses = map[ast.UsageKind]string{
 	ast.UsageAttribute:        "DataType",
 	ast.UsageEnumeration:      "EnumerationDefinition",
@@ -166,9 +154,8 @@ var usageTypeMetaclasses = map[ast.UsageKind]string{
 	ast.UsageMetadata:         "Metaclass",
 }
 
-// kermlTypeTypesUsage reports whether a KerML type written with keyword may type
-// a usage of decl's kind. An `individual`/`snapshot`/`timeslice` usage is an
-// occurrence whatever its keyword, so a Class types it as an occurrence definition would.
+// kermlTypeTypesUsage reports whether a KerML type written with keyword may type a
+// usage of decl's kind; an `individual`/`snapshot`/`timeslice` usage takes any Class.
 func kermlTypeTypesUsage(decl declKind, keyword string) bool {
 	meta, ok := kermlTypeMetaclasses[keyword]
 	if !ok {

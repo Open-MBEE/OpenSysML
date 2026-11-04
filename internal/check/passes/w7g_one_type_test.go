@@ -76,9 +76,8 @@ func TestW7GOneOrNoDeclaredTypeIsSilent(t *testing.T) {
 	}
 }
 
-// A declared type that is a supertype of another declared type is redundant and
-// not counted (KerML 1.1 §8.3.3.3.4 deriveFeatureType): `r : A, B` with `B :> A`
-// has the one type B, while two unrelated requirement definitions are two.
+// A declared supertype of another declared type is redundant (KerML 1.1 §8.3.3.3.4):
+// `r : A, B` with `B :> A` has the one type B; two unrelated definitions are two.
 func TestW7GARedundantSupertypeIsNotASecondType(t *testing.T) {
 	const src = `package T {
 		requirement def A;

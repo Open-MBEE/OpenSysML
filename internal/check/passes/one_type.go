@@ -30,9 +30,8 @@ var oneTypeUsageMessages = map[ast.UsageKind]string{
 	ast.UsageMetadata:         "A metadata usage must be typed by one metadata definition.",
 }
 
-// checkOneType reports a usage whose declared types are more than one where the
-// reference admits one. A usage declaring none is silent: the reference counts
-// the type its library base supplies, so there is exactly one.
+// checkOneType reports a usage whose effective types are more than one where
+// the reference admits one; a usage declaring none has its library base's.
 func (tc *typeChecker) checkOneType(scope *symbols.Scope, d featureDecl) {
 	if tc.effectiveDeclaredTypes(scope, d) <= 1 && !tc.enumeratedValueTypeDiffers(scope, d) {
 		return
@@ -55,10 +54,8 @@ func (tc *typeChecker) checkOneType(scope *symbols.Scope, d featureDecl) {
 	})
 }
 
-// effectiveDeclaredTypes counts the types a declaration has: those it names and
-// the kind's library base its implied subsetting brings, with a type that is a
-// supertype of another dropped as redundant (KerML 1.1 §8.3.3.3.4
-// deriveFeatureType). A type that does not resolve counts as its own.
+// effectiveDeclaredTypes counts the declared types plus the kind's implied base,
+// redundant supertypes dropped (KerML 1.1 §8.3.3.3.4); an unresolved one counts as its own.
 func (tc *typeChecker) effectiveDeclaredTypes(scope *symbols.Scope, d featureDecl) int {
 	resolved := kindBases(tc.expr.model, tc.resolver, scope.MemberDeclaring(d.node), tc.lang == source.KindKerML)
 	unresolved := 0
