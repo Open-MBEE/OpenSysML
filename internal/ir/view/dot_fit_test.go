@@ -148,7 +148,7 @@ func TestDOTFitHead(t *testing.T) {
 
 // A symbol kind in a stated box is drawn as its notation with no text inside:
 // decision, merge and choice a diamond, fork and join a filled bar, initial a
-// filled dot, final and a terminate action the double ring, a port its square.
+// filled dot, final the double ring, a terminate action the crossed circle, a port its square.
 // A name the rendering has is set beside the symbol; a synthesized one is not
 // drawn. Without a stated box the kinds keep their labelled shapes.
 func TestDOTSymbolsInStatedBoxes(t *testing.T) {
@@ -169,7 +169,7 @@ func TestDOTSymbolsInStatedBoxes(t *testing.T) {
 		{"final", stated(&Node{ID: "n", Kind: "final", Name: "final", NameSynthesized: true}, 20, 20),
 			`"n" [shape=doublecircle, fillcolor=black, label="", pos=`},
 		{"terminate action", stated(&Node{ID: "n", Kind: terminateKind, Name: "final", NameSynthesized: true}, 20, 20),
-			`"n" [shape=doublecircle, fillcolor=black, label="", pos=`},
+			`"n" [shape=circle, fillcolor=white, label=<<b>✕</b>>, margin=0, pos=`},
 		{"named final", stated(&Node{ID: "n", Kind: "final", Name: "done"}, 20, 20),
 			`"n" [shape=doublecircle, fillcolor=black, label="", xlabel="done", pos=`},
 		{"junction", stated(&Node{ID: "n", Kind: "junction", Name: "j"}, 16, 16),
@@ -215,7 +215,7 @@ func TestDOTSymbolsInStatedBoxes(t *testing.T) {
 		{"unsized decision", &Node{ID: "n", Kind: "decision", Name: "decide", Geometry: &Geometry{X: 5, Y: 5}},
 			`"n" [label=<<font point-size="10"><i>«decision»</i></font><br/><b>decide</b>>, pos=`},
 		{"unsized terminate action", &Node{ID: "n", Kind: terminateKind, Name: "final"},
-			`"n" [style="rounded,filled", label=<<font point-size="10"><i>«terminate action»</i></font><br/><b>final</b>>];`},
+			`"n" [shape=circle, fillcolor=white, label=<<b>✕</b>>, margin=0, width=0.2, fixedsize=true, xlabel="final"];`},
 		{"unsized named initial", &Node{ID: "n", Kind: "initial", Name: "begin"},
 			`"n" [shape=circle, label=<<font point-size="10"><i>«initial»</i></font><br/><b>begin</b>>];`},
 		{"unsized initial with a synthesized name", &Node{ID: "n", Kind: "initial", Name: "start", NameSynthesized: true},

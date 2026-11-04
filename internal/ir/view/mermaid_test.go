@@ -59,7 +59,7 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 		{"start", startKind, true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"initial", "initial", true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"final", "final", true, StylePilot, `@{ shape: fr-circ, label: "" }`},
-		{"terminate", terminateKind, true, StylePilot, `@{ shape: fr-circ, label: "" }`},
+		{"terminate", terminateKind, true, StylePilot, `@{ shape: cross-circ, label: "" }`},
 		{"junction", "junction", true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"fork", "fork", false, StylePilot, `@{ shape: fork, label: "fork" }`},
 		{"join", "join", true, StylePilot, `@{ shape: fork, label: "" }`},

@@ -9,16 +9,16 @@
     "statements": 620,
     "partialStatements": 97,
     "productions": 523,
-    "drawn": 225,
-    "approximate": 55,
-    "undrawn": 71,
+    "drawn": 262,
+    "approximate": 42,
+    "undrawn": 47,
     "notApplicable": 172
   },
   "categories": {
-    "compartment": 141,
+    "compartment": 144,
     "edge": 59,
     "label": 24,
-    "node": 165,
+    "node": 162,
     "textual": 124,
     "view": 10
   },
@@ -188,9 +188,9 @@
       "title": "Actions Graphical Notation",
       "statements": 72,
       "productions": 68,
-      "drawn": 21,
-      "approximate": 11,
-      "undrawn": 18,
+      "drawn": 44,
+      "approximate": 3,
+      "undrawn": 3,
       "notApplicable": 18
     },
     {
@@ -198,9 +198,9 @@
       "title": "States Graphical Notation",
       "statements": 45,
       "productions": 41,
-      "drawn": 11,
-      "approximate": 7,
-      "undrawn": 9,
+      "drawn": 25,
+      "approximate": 2,
+      "undrawn": 0,
       "notApplicable": 14
     },
     {
@@ -1296,19 +1296,11 @@
     },
     {
       "clause": "8.2.3.17",
-      "name": "accept-action-name-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
-    },
-    {
-      "clause": "8.2.3.17",
       "name": "accept-action-node",
       "category": "node",
       "verdict": "approximate",
       "package": "B",
-      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
+      "reason": "a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2"
     },
     {
       "clause": "8.2.3.17",
@@ -1323,14 +1315,6 @@
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "action-flow-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
     },
     {
       "clause": "8.2.3.17",
@@ -1370,22 +1354,6 @@
     },
     {
       "clause": "8.2.3.17",
-      "name": "assign-action-name-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "assign-action-node",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
-    },
-    {
-      "clause": "8.2.3.17",
       "name": "condition-expression",
       "category": "textual",
       "verdict": "not-applicable",
@@ -1393,114 +1361,10 @@
     },
     {
       "clause": "8.2.3.17",
-      "name": "else-body",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "else-branch",
-      "category": "edge",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the else branch of a decision is drawn as a plain succession without the `else` guard"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "for-loop-action-name-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "for-loop-action-node",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "if-condition",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "if-else-action-node",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "ifelse-action-name-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "iteration",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
-    },
-    {
-      "clause": "8.2.3.17",
       "name": "iteration-expression",
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "loop-body",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "param-b",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "param-l",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "param-r",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "param-t",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn"
     },
     {
       "clause": "8.2.3.17",
@@ -1576,19 +1440,11 @@
     },
     {
       "clause": "8.2.3.17",
-      "name": "send-action-name-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
-    },
-    {
-      "clause": "8.2.3.17",
       "name": "send-action-node",
       "category": "node",
       "verdict": "approximate",
       "package": "B",
-      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
+      "reason": "a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2"
     },
     {
       "clause": "8.2.3.17",
@@ -1604,79 +1460,7 @@
       "category": "node",
       "verdict": "approximate",
       "package": "B",
-      "reason": "DOT and Mermaid draw a double circle, the figure's X-in-a-circle only draw.io (umlDestroy) does"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "then-body",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "until-condition",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "while-condition",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "while-loop-action-name-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "the box is drawn but its keyword is not written (behavior.go actionNodeKind)"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "while-loop-action-node",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "do-action",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "do-action-name-comp",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "entry-action",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "entry-action-name-comp",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
+      "reason": "the figure's X in a circle in DOT, Mermaid (cross-circ), draw.io (umlDestroy) and the canvas; PlantUML has no terminate pseudostate and D2 no crossed circle, both draw a plain end"
     },
     {
       "clause": "8.2.3.18",
@@ -1701,35 +1485,11 @@
     },
     {
       "clause": "8.2.3.18",
-      "name": "exit-action",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "exit-action-name-comp",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "entry/do/exit action nodes are not drawn; the state box lists them as text"
-    },
-    {
-      "clause": "8.2.3.18",
       "name": "st-succession",
       "category": "edge",
       "verdict": "approximate",
       "package": "B",
-      "reason": "view-rendering-forms.md § Notation table: Solid with an open head; Mermaid and D2 have only a filled head."
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "state-actions-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+      "reason": "view-rendering-forms.md § Notation table: Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head."
     },
     {
       "clause": "8.2.3.18",
@@ -1744,46 +1504,6 @@
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "state-def-name-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "the keyword and name are written, the optional «parallel» marker is not"
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "state-do-action",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "entry/do/exit actions are written as text lines in the state box, not as labelled compartments"
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "state-entry-action",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "entry/do/exit actions are written as text lines in the state box, not as labelled compartments"
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "state-exit-action",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "entry/do/exit actions are written as text lines in the state box, not as labelled compartments"
-    },
-    {
-      "clause": "8.2.3.18",
-      "name": "state-name-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "B",
-      "reason": "the keyword and name are written, the optional «parallel» marker is not"
     },
     {
       "clause": "8.2.3.18",
@@ -1815,14 +1535,6 @@
     },
     {
       "clause": "8.2.3.18",
-      "name": "state-transition-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
-    },
-    {
-      "clause": "8.2.3.18",
       "name": "state-transition-element",
       "category": "node",
       "verdict": "not-applicable",
@@ -1851,14 +1563,6 @@
     },
     {
       "clause": "8.2.3.18",
-      "name": "successions-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
-    },
-    {
-      "clause": "8.2.3.18",
       "name": "successions-compartment-contents",
       "category": "textual",
       "verdict": "not-applicable",
@@ -1870,7 +1574,7 @@
       "category": "edge",
       "verdict": "approximate",
       "package": "B",
-      "reason": "view-rendering-forms.md § Notation table: Solid with an open head; Mermaid and D2 have only a filled head."
+      "reason": "view-rendering-forms.md § Notation table: Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head."
     },
     {
       "clause": "8.2.3.19",

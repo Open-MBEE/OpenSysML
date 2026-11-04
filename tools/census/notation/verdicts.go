@@ -91,9 +91,19 @@ var (
 	boundaryPort = Evidence{"internal/ir/view/dot_ports.go:placePorts", pinForms, "internal/ir/view/testdata/interconnection-ports.dot.golden"}
 	cameoFrame   = Evidence{"internal/ir/view/dot.go:openFrame", dotForms, "internal/ir/view/dot_cameo_test.go:TestGoldenDOTCameo"}
 	sequence     = Evidence{"internal/ir/view/sequence.go:renderSequence", seqForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
-	stateDetail  = Evidence{"internal/ir/view/behavior.go:stateNode", goldenForms, "internal/ir/view/testdata/state-entry.dot.golden"}
+	stateActions = Evidence{"internal/ir/view/behavior.go:stateActionCompartments", goldenForms, "internal/ir/view/dot_cameo_test.go:TestDOTStateBehaviourNames"}
+	stateActNode = Evidence{"internal/ir/view/behavior.go:stateActionNodes", goldenForms, "internal/ir/view/testdata/state-forms.dot.golden"}
+	stateTransit = Evidence{"internal/ir/view/behavior.go:stateMachineNode", goldenForms, "internal/ir/view/testdata/state.dot.golden"}
+	stateActComp = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/tree_state_compartments_test.go:TestGoldenTreeStateCompartments"}
+	successions  = Evidence{"internal/ir/view/tree.go:successionText", goldenForms, "internal/ir/view/tree_state_compartments_test.go:TestGoldenTreeStateCompartments"}
+	parallelMark = Evidence{"internal/ir/view/label.go:parallel", goldenForms, "internal/ir/view/testdata/state-pseudostates.mermaid.golden"}
+	actionForms  = Evidence{"internal/ir/view/behavior_forms.go:statementNodeKind", goldenForms, "internal/ir/view/testdata/action-forms.dot.golden"}
+	compoundBody = Evidence{"internal/ir/view/behavior_forms.go:compoundCompartments", goldenForms, "internal/ir/view/testdata/action-forms.dot.golden"}
+	actionFlow   = Evidence{"internal/ir/view/behavior.go:flowNodes", goldenForms, "internal/ir/view/testdata/action.dot.golden"}
+	elseBranch   = Evidence{"internal/ir/view/behavior.go:successionLabel", edgeForms, "internal/ir/view/testdata/action-forms.dot.golden"}
+	terminateX   = Evidence{"internal/ir/view/dot.go:dotTerminateAttributes", controlForms, "internal/ir/view/dot_fit_test.go:TestDOTSymbolsInStatedBoxes"}
+	pinArrows    = Evidence{"internal/ir/view/ports.go:pinArrow", []string{FormDOT, FormDrawio, FormCanvas}, "internal/ir/view/testdata/action.dot.golden"}
 	transition   = Evidence{"internal/ir/view/behavior.go:transitionLabel", goldenForms, "internal/ir/view/testdata/state.dot.golden"}
-	actionBox    = Evidence{"internal/ir/view/behavior.go:actionNodeKind", goldenForms, "internal/ir/view/testdata/action.dot.golden"}
 	endLabels    = Evidence{"internal/ir/view/tree_edges.go:drawAssociation", edgeForms, "internal/ir/view/edge_ends_test.go:TestEndNamesAreSetAtTheirEnd"}
 	multiplicity = Evidence{"internal/ir/view/tree_edges.go:usageMultiplicity", edgeForms, "internal/ir/view/tree_edges_test.go:TestTreeMultiplicityBoundsAreSpelledWithoutSourceText"}
 	edgeLabel    = Evidence{"internal/ir/view/dot.go:dotEdgeAttributes", edgeForms, "internal/ir/view/notation_test.go:TestEdgeLabelsAreShownWhenAsked"}
@@ -291,7 +301,7 @@ func buildTable() map[string]Adjudication {
 		"use-case-name-compartment", "include-use-case-name-compartment", "viewpoint-name-compartment", "view-name-compartment")
 	set(drawn(CategoryNode, eventBox), "event-occurrence")
 	set(drawn(CategoryCompartment, eventBox), "event-occurrence-name-compartment")
-	set(approximate(CategoryCompartment, reasonOnlyParallel, keywordBox), "state-def-name-compartment", "state-name-compartment")
+	set(drawn(CategoryCompartment, parallelMark), "state-def-name-compartment", "state-name-compartment")
 	set(approximate(CategoryNode, "written as «satisfy», the figure's keyword is «satisfy requirement»", keywordBox), "satisfy-requirement-usage")
 	set(approximate(CategoryCompartment, "written as «satisfy», the figure's keyword is «satisfy requirement»", keywordBox), "satisfy-requirement-name-compartment")
 	set(approximate(CategoryNode, "written as «frame», the figure's keyword is «frame concern»", keywordBox), "frame-concern-node")
@@ -322,8 +332,8 @@ func buildTable() map[string]Adjudication {
 	set(drawn(CategoryCompartment, individuals), "individuals-compartment")
 	set(undrawn(CategoryCompartment, "holds a sequence view; no box form nests a diagram, and the canvas lays a sequence out as a diagram of its own"), "sequence-compartment")
 	set(undrawn(CategoryCompartment, reasonNoCompart), "directed-features-compartment",
-		"interconnection-compartment", "ends-compartment", "flows-compartment", "performed-by-compartment", "action-flow-compartment",
-		"state-actions-compartment", "successions-compartment", "state-transition-compartment", "result-compartment",
+		"interconnection-compartment", "ends-compartment", "flows-compartment", "performed-by-compartment",
+		"result-compartment",
 		"verifies-compartment", "verification-methods-compartment", "includes-compartment", "exposes-compartment", "filters-compartment")
 
 	// §8.2.3.9 sequences.
@@ -338,7 +348,7 @@ func buildTable() map[string]Adjudication {
 
 	// §8.2.3.12 ports and parameters: the boundary squares and their labels.
 	set(approximate(CategoryNode, "the port square is placed on the owner's boundary but the direction arrow (pdh/pdv) inside it is not drawn", boundaryPort), "port-l", "port-r", "port-t", "port-b")
-	set(approximate(CategoryNode, "the pin is placed on the side its direction names but the direction arrow (pdh/pdv) inside it is not drawn", pins), "param-l", "param-r", "param-t", "param-b")
+	set(drawn(CategoryNode, pinArrows), "param-l", "param-r", "param-t", "param-b")
 	set(undrawn(CategoryLabel, "no form draws the direction arrow inside a port or parameter square"), "pdh", "pdv")
 	set(drawn(CategoryLabel, boundaryPort), "port-label")
 	set(drawn(CategoryLabel, pins), "param-label")
@@ -362,18 +372,24 @@ func buildTable() map[string]Adjudication {
 
 	// §8.2.3.17 actions.
 	set(drawn(CategoryNode, controlNode), "start-node", "done-node", "fork-node", "join-node", "decision-node", "merge-node")
-	set(approximate(CategoryNode, "DOT and Mermaid draw a double circle, the figure's X-in-a-circle only draw.io (umlDestroy) does", controlNode), "terminate-node")
-	set(approximate(CategoryNode, reasonActionBox, actionBox), "send-action-node", "accept-action-node", "while-loop-action-node", "for-loop-action-node", "if-else-action-node", "assign-action-node")
-	set(undrawn(CategoryCompartment, reasonNoKeyword+" (behavior.go actionNodeKind)"), "send-action-name-compartment", "accept-action-name-compartment",
+	set(approximate(CategoryNode, "the figure's X in a circle in DOT, Mermaid (cross-circ), draw.io (umlDestroy) and the canvas; PlantUML has no terminate pseudostate and D2 no crossed circle, both draw a plain end", terminateX), "terminate-node")
+	set(approximate(CategoryNode, "a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2", actionForms), "send-action-node", "accept-action-node")
+	set(drawn(CategoryNode, actionForms), "while-loop-action-node", "for-loop-action-node", "if-else-action-node", "assign-action-node")
+	set(drawn(CategoryCompartment, actionForms), "send-action-name-compartment", "accept-action-name-compartment",
 		"while-loop-action-name-compartment", "for-loop-action-name-compartment", "ifelse-action-name-compartment", "assign-action-name-compartment")
-	set(undrawn(CategoryCompartment, "the control node's condition and body compartments are not drawn; the body's actions are drawn as nodes"), "while-condition", "until-condition", "iteration", "loop-body", "if-condition", "then-body", "else-body")
+	set(drawn(CategoryCompartment, compoundBody), "while-condition", "until-condition", "iteration", "loop-body", "if-condition", "then-body", "else-body")
+	set(drawn(CategoryCompartment, actionFlow), "action-flow-compartment")
 	set(undrawn(CategoryCompartment, "swimlanes are not drawn"), "perform-actions-swimlanes", "swimlane")
-	set(undrawn(CategoryEdge, "the else branch of a decision is drawn as a plain succession without the `else` guard"), "else-branch")
+	set(drawn(CategoryEdge, elseBranch), "else-branch")
 	set(drawn(CategoryLabel, transition), "guard-expression", "transition-label", "trigger-expression")
 
 	// §8.2.3.18 states.
-	set(approximate(CategoryCompartment, "entry/do/exit actions are written as text lines in the state box, not as labelled compartments", stateDetail), "state-entry-action", "state-do-action", "state-exit-action")
-	set(undrawn(CategoryNode, "entry/do/exit action nodes are not drawn; the state box lists them as text"), "entry-action", "entry-action-name-comp", "exit-action", "exit-action-name-comp", "do-action", "do-action-name-comp")
+	set(drawn(CategoryCompartment, stateActions), "state-entry-action", "state-do-action", "state-exit-action")
+	set(drawn(CategoryNode, stateActNode), "entry-action", "exit-action", "do-action")
+	set(drawn(CategoryCompartment, stateActNode), "entry-action-name-comp", "exit-action-name-comp", "do-action-name-comp")
+	set(drawn(CategoryCompartment, stateTransit), "state-transition-compartment")
+	set(drawn(CategoryCompartment, stateActComp), "state-actions-compartment")
+	set(drawn(CategoryCompartment, successions), "successions-compartment")
 
 	// §8.2.3.21 requirements and cases.
 	set(drawn(CategoryEdge, tableEdge), "distinguished-parameter-link", "frame-relationship")

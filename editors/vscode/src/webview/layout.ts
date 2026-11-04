@@ -47,7 +47,43 @@ import { DEFAULT_ROUTING, type Routing } from "../style";
 
 /** How a node is drawn: the label box of an element, or the symbol of a control node. */
 export type Shape =
-  "box" | "point" | "circle" | "ring" | "diamond" | "bar" | "history";
+  "box" | "point" | "circle" | "ring" | "cross" | "diamond" | "bar" | "history";
+
+/** STATEMENT_KINDS are the action node kinds whose «keyword» compartment heads the node even unnamed (§8.2.3.17). */
+export const STATEMENT_KINDS: ReadonlySet<string> = new Set(["send action", "accept action", "assign", "loop", "if"]);
+
+/** STATEMENT_ROW_KIND is a compartment row that is a statement as written, drawn as its text alone. */
+export const STATEMENT_ROW_KIND = "statement";
+
+/** SECTION_KINDS are the body compartments of a compound node drawn as a container: a loop body, a branch, a swimlane. */
+export const SECTION_KINDS: ReadonlySet<string> = new Set(["loop body", "then body", "else body", "swimlane"]);
+
+/** nodeMark is the small figure in the top-left corner of a node's box: the send-signal pentagon, the accept flag; "" for none. */
+export function nodeMark(kind: string): "send" | "accept" | "" {
+  switch (kind) {
+    case "send action":
+      return "send";
+    case "accept action":
+      return "accept";
+    default:
+      return "";
+  }
+}
+
+/** pinArrow is the direction glyph inside a parameter pin (§8.2.3.17 pdh, pdv): into the node for an input, out for an output, both for inout. */
+export function pinArrow(direction: string | undefined, side: Side): string {
+  const across = side === "north" || side === "south";
+  switch (direction) {
+    case "inout":
+      return across ? "↕" : "↔";
+    case "in":
+      return { west: "→", east: "←", north: "↓", south: "↑" }[side];
+    case "out":
+      return { west: "←", east: "→", north: "↑", south: "↓" }[side];
+    default:
+      return "";
+  }
+}
 
 export interface PlacedNode {
   node: RenderNode;
@@ -812,12 +848,22 @@ export function labelLines(
   }
   const draws = (element: string): boolean =>
     shown === undefined || shown.includes(element);
+  if (node.kind === STATEMENT_ROW_KIND) {
+    return [node.text ?? ""];
+  }
   const lines: string[] = [];
-  if ((node.name !== "" || node.arrow !== undefined) && draws("keywords")) {
+  const statement = STATEMENT_KINDS.has(node.kind);
+  const keyword = (node.name !== "" || node.arrow !== undefined || statement) && draws("keywords");
+  if (keyword) {
     lines.push(`«${node.kind}»`);
   }
-  if (node.arrow === undefined || node.name !== "" || node.detail !== "" || (node.text ?? "") !== "") {
+  if (statement && node.name === "" && node.text) {
+    lines.push(node.text);
+  } else if ((node.arrow === undefined || node.name !== "" || node.detail !== "" || (node.text ?? "") !== "") && (node.name !== "" || !statement || !keyword)) {
     lines.push(...labelHead(node, draws("typings"), draws("qualifiers"), names).split("\n"));
+  }
+  if (node.parallel && draws("keywords")) {
+    lines.push("«parallel»");
   }
   if (node.detail !== "" && draws("compartments")) {
     lines.push(node.detail);
@@ -1765,6 +1811,8 @@ export function shapeOf(kind: string): Shape {
       return "circle";
     case "final":
       return "ring";
+    case "terminate action":
+      return "cross";
     case "fork":
     case "join":
       return "bar";
@@ -1790,6 +1838,7 @@ export function symbolSize(
       return { width: POINT_SIZE, height: POINT_SIZE };
     case "circle":
     case "ring":
+    case "cross":
     case "diamond":
     case "history":
       return { width: SYMBOL_SIZE, height: SYMBOL_SIZE };

@@ -45,7 +45,7 @@ digraph "MixedExamples::mixedDiagram" {
     }
     "n1" [fillcolor="#D55E00", color="#D55E00", penwidth=1, label=<<font point-size="10"><i>«state def»</i></font><br/><b>Ready</b><br/>declares no states>];
     subgraph "cluster_n2" {
-      label=<<font point-size="10"><i>«state def»</i></font><br/><b>Modes</b>>;
+      label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state def»</i></font><br/><b>Modes</b></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
       color=black;
       penwidth=0.5;
       "n2" [shape=point, style=invis, width=0, height=0, label=""];
@@ -67,7 +67,7 @@ digraph "MixedExamples::mixedDiagram" {
     "n12" [shape=note, fillcolor="#EBC9DC", color="#CC79A7", penwidth=1, label=<<b>objective</b><br/>Inspect the plant and report its operating state.>];
     "n13" [style="rounded,filled", fillcolor="#99C7E0", color="#0072B2", penwidth=1, label=<<font point-size="10"><i>«perform action»</i></font><br/><b>run</b><br/>declares no nodes>];
     subgraph "cluster_n14" {
-      label=<<font point-size="10"><i>«exhibit state»</i></font><br/><b>mode</b>>;
+      label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«exhibit state»</i></font><br/><b>mode</b></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
       color=black;
       penwidth=0.5;
       "n14" [shape=point, style=invis, width=0, height=0, label=""];

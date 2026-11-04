@@ -1270,6 +1270,8 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		attrs = []string{"shape=plaintext", dotMarginZero, w.labels.dotLabel(node)}
 	case node.Kind == "initial" || node.Kind == "final":
 		attrs = w.dotPseudostateAttributes(node)
+	case node.Kind == terminateKind:
+		attrs = w.dotTerminateAttributes(node)
 	case w.pinned(node):
 		attrs = w.dotPinnedAttributes(node, w.labels.dotLabel(node))
 	default:
@@ -1420,9 +1422,9 @@ func cameoSymbolSize(kind string) (width, height float64) {
 // terminate action drawn as its symbol.
 func (w *dotWriter) round(node *Node) bool {
 	switch node.Kind {
-	case startKind, "initial", "final":
+	case startKind, "initial", "final", terminateKind:
 		return true
-	case "junction", terminateKind, shallowHistoryKind, deepHistoryKind:
+	case "junction", shallowHistoryKind, deepHistoryKind:
 		return w.symbol(node)
 	}
 	return isDotKind(node.Kind)
@@ -1449,8 +1451,10 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 		attrs = []string{dotFillBlack}
 	case startKind, "initial", "junction", connectionDotKind, connectionDefDotKind, dependencyDotKind:
 		attrs = []string{dotShapeCircle, dotFillBlack}
-	case "final", terminateKind:
+	case "final":
 		attrs = []string{"shape=doublecircle", dotFillBlack}
+	case terminateKind:
+		attrs = []string{dotShapeCircle, dotFillWhite, dotTerminateLabel, dotMarginZero}
 	case shallowHistoryKind:
 		attrs = []string{dotShapeCircle, dotFillWhite, `label="H"`, dotMarginZero}
 	case deepHistoryKind:
@@ -1462,7 +1466,7 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 		width, height := cameoSymbolSize(node.Kind)
 		attrs = append(attrs, dotWidthAttr(width), dotHeightAttr(height), dotFixedSize)
 	}
-	if !isHistoryKind(node.Kind) {
+	if !isHistoryKind(node.Kind) && node.Kind != terminateKind {
 		attrs = append(attrs, `label=""`)
 	}
 	if headed(node) {
@@ -1470,6 +1474,10 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 	}
 	return attrs
 }
+
+// dotTerminateLabel is the X of a terminate node's crossed circle (§8.2.3.17
+// terminate-node), set in the circle in place of a label.
+const dotTerminateLabel = `label=<<b>✕</b>>`
 
 // fillAttributes is a plain node's fill beyond the node defaults: the palette's
 // family colours when one fills it, else the skin's fill for its kind.
@@ -1482,6 +1490,16 @@ func (w *dotWriter) fillAttributes(node *Node) []string {
 		return attrs
 	}
 	return w.skin.fill(node.Kind)
+}
+
+// dotTerminateAttributes is an unboxed terminate node's shape: the crossed
+// circle of the notation at the pseudo-state's size, its name outside it.
+func (w *dotWriter) dotTerminateAttributes(node *Node) []string {
+	attrs := []string{dotShapeCircle, dotFillWhite, dotTerminateLabel, dotMarginZero, dotWidthAttr(dotPseudostateSize), dotFixedSize}
+	if shown(node) != "" {
+		attrs = append(attrs, dotXLabelAttr(w.labels.head(node)))
+	}
+	return attrs
 }
 
 // dotPseudostateSize is the diameter, in points, of an initial or final
@@ -1530,7 +1548,7 @@ func (l labeller) dotBox(node *Node) (width, height float64) {
 	if node.Kind == startKind && !l.skin.cameo {
 		return dotPointSize, dotPointSize
 	}
-	if (node.Kind == "initial" || node.Kind == "final") && shown(node) == "" {
+	if (node.Kind == "initial" || node.Kind == "final") && shown(node) == "" || node.Kind == terminateKind {
 		return dotPseudostateSize, dotPseudostateSize
 	}
 	if l.skin.cameo && isSymbolKind(node.Kind) && !isPortKind(node.Kind) {
@@ -1752,6 +1770,7 @@ func (l labeller) compartmented(node *Node) bool {
 // for.
 type labelParts struct {
 	head, keyword string
+	mark          string
 	details       []string
 	compartments  []labelCompartment
 	clipped       int
@@ -1781,6 +1800,9 @@ func (l labeller) assemble(parts labelParts) string {
 	} else if parts.keyword != "" {
 		title = parts.keyword + "<br/>" + title
 	}
+	if parts.mark != "" {
+		title = l.sized(l.size(), l.keywordSize(), parts.mark) + `<br align="left"/>` + title
+	}
 	if len(parts.compartments) == 0 {
 		if !l.skin.cameo {
 			return "<" + strings.Join(append([]string{title}, parts.details...), "<br/>") + ">"
@@ -1802,7 +1824,10 @@ func (l labeller) assemble(parts labelParts) string {
 		fmt.Fprintf(&b, "<tr><td>%s</td></tr>", strings.Join(append([]string{title}, parts.details...), "<br/>"))
 	}
 	for _, compartment := range parts.compartments {
-		fmt.Fprintf(&b, `<hr/><tr><td>%s</td></tr><tr><td align="left">%s</td></tr>`, compartment.name, strings.Join(compartment.rows, "<br/>"))
+		fmt.Fprintf(&b, `<hr/><tr><td>%s</td></tr>`, compartment.name)
+		if len(compartment.rows) > 0 {
+			fmt.Fprintf(&b, `<tr><td align="left">%s</td></tr>`, strings.Join(compartment.rows, "<br/>"))
+		}
 	}
 	b.WriteString("</table>>")
 	return b.String()
@@ -2634,12 +2659,19 @@ const dotKeywordPointSize = 10
 // the notes, one line each. A state's name is bold too, where the Pilot's is plain:
 // the label's extent estimate (dotLabelExtent) and the other forms are kept to.
 func (l labeller) dotLabel(node *Node) string {
+	if sectionKind(node.Kind) {
+		return dotLabelAttribute("<" + l.sized(l.sizeOf(node), l.keywordSize(), dotEscape(l.head(node))) + ">")
+	}
 	var parts labelParts
 	if head := l.head(node); head != "" {
 		parts.head = "<b>" + dotEscape(head) + "</b>"
 	}
+	parts.mark = l.mark(node)
 	if keyword := l.keyword(node); keyword != "" {
 		parts.keyword = l.sized(l.sizeOf(node), l.keywordSize(), l.keywordText(dotEscape(keyword)))
+	}
+	for _, line := range l.parallel(node) {
+		parts.head += "<br/>" + l.sized(l.sizeOf(node), l.keywordSize(), l.keywordText(dotEscape(line)))
 	}
 	for _, line := range l.details(node) {
 		parts.details = append(parts.details, dotEscape(line))

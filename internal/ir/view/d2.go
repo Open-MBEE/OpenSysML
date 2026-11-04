@@ -206,7 +206,7 @@ var d2Classes = []struct{ name, body string }{
 	{"pin", styleOpen + d2Element + "; font-size: 10 }"},
 	{"initial", "shape: oval; width: 18; height: 18; style: { fill: black; stroke: black }"},
 	{"final", "shape: oval; width: 22; height: 22; style: { fill: black; stroke: black; double-border: true }"},
-	{"terminate", "shape: text; style: { font-size: 24; bold: true; font-color: black }"},
+	{"terminate", "shape: oval; width: 22; height: 22; style: { " + d2Element + "; font-size: 14; bold: true }"},
 	{"bar", "shape: rectangle; width: 80; height: 8; style: { fill: black; stroke: black }"},
 	{"choice", "shape: diamond; style: { " + d2Element + fontSizeClose},
 	{"history", "shape: oval; width: 26; height: 26; style: { " + d2Element + fontSizeClose},

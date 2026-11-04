@@ -7,7 +7,7 @@ import { JSDOM } from "jsdom";
 
 import type { RenderNode, RenderResult } from "../protocol";
 import { drawCanvas, liftNode } from "./canvas";
-import { edgeLabelBox, FONT_SIZE, glyphSize, layoutCanvas, MARGIN, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
+import { edgeLabelBox, FONT_SIZE, glyphSize, layoutCanvas, MARGIN, pinArrow, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
 
 // The canvas is drawn with the page's document, as it is in the webview.
 const dom = new JSDOM("<!DOCTYPE html><body></body>");
@@ -379,8 +379,11 @@ test("drawCanvas draws the port group, square, label, title, and includes them i
   const placed = entry.ports[0];
   const svg = drawCanvas(layout);
   const group = svg.querySelector<SVGGElement>('g[data-opensysml-id="api"] > g.port[data-port="service.api"]')!;
-  assert.deepEqual([...group.children].map((child) => child.tagName.toLowerCase()), ["title", "rect", "text"]);
+  // The pin is a rounded square carrying its direction arrow (§8.2.3.17 pdh), its name beside it.
+  assert.deepEqual([...group.children].map((child) => child.tagName.toLowerCase()), ["title", "rect", "text", "text"]);
   assert.equal(group.querySelector("title")?.textContent, "api : Api");
+  assert.equal(group.querySelector("text.pin-arrow")?.textContent, pinArrow("out", placed.side));
+  assert.equal(group.querySelector("rect.port-shape")?.getAttribute("rx"), "2");
   const inherited = svg.querySelector<SVGGElement>('g[data-opensysml-id="api"] > g.port[data-port="service.log"]')!;
   assert.equal(inherited.querySelector("title")?.textContent, "^log : Log");
   assert.equal(inherited.querySelector("text.port-label")?.textContent, "^log");

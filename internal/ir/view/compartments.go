@@ -24,18 +24,31 @@ type Compartment struct {
 // named here follows them in the order its members were declared.
 var compartmentOrder = []string{
 	"attributes", "enumerations", "occurrences", "individuals", "items", "parts", "ports",
-	"connections", "interfaces", "allocations", "actions", "states", "calculations",
+	"connections", "interfaces", "allocations", "actions", "states", "state actions", "calculations",
 	"constraints", "requirements", "cases", "analyses", "verifications", "use cases",
 	"views", "viewpoints", "renderings", "metadata",
 }
 
 // compartmentPlurals are the compartment names whose keyword does not take
 // a plain "s".
+// stateActionRoles are the kinds the `state actions` compartment gathers.
+var stateActionRoles = map[string]bool{entryActionKind: true, doActionKind: true, exitActionKind: true}
+
 var compartmentPlurals = map[string]string{
-	"calc":     "calculations",
-	"enum":     "enumerations",
-	"analysis": "analyses",
-	"metadata": "metadata",
+	"calc":           "calculations",
+	"enum":           "enumerations",
+	"analysis":       "analyses",
+	"metadata":       "metadata",
+	entryActionKind:  "state actions",
+	doActionKind:     "state actions",
+	exitActionKind:   "state actions",
+	sendActionKind:   "actions",
+	acceptActionKind: "actions",
+	assignKind:       "actions",
+	loopKind:         "actions",
+	ifKind:           "actions",
+	terminateKind:    "actions",
+	"perform":        "perform actions",
 }
 
 // rowPrefixes are the modifier keywords a kind may begin with, which the row
@@ -123,7 +136,13 @@ func compartmentsOf(rows []*Node) []Compartment {
 // textual notation writes it without the keyword its compartment names:
 // `ref wheel : Wheel`, `gain : dB = 15.0`, `: Sensor` for an anonymous one.
 func (l labeller) rowText(node *Node) string {
+	if node.Kind == statementRowKind {
+		return node.Text
+	}
 	prefix, _ := splitRowPrefix(node.Kind)
+	if _, ok := stateActionRoles[node.Kind]; ok {
+		prefix = node.Kind // a `state actions` row keeps its entry/do/exit role
+	}
 	// The individuals compartment says `individual`; its row keeps the keyword instead.
 	if individualUsage(node.Kind) {
 		prefix = strings.TrimPrefix(node.Kind, individualPrefix)
@@ -156,7 +175,17 @@ func (l labeller) compartments(node *Node) []Compartment {
 	if !l.shown.Has(ElementCompartments) {
 		return nil
 	}
-	return node.Compartments
+	if !l.skin.cameo {
+		return node.Compartments
+	}
+	// Cameo writes a state's behaviors as `entry / a` lines under its name.
+	var kept []Compartment
+	for _, compartment := range node.Compartments {
+		if !stateActionCompartment(compartment.Name) {
+			kept = append(kept, compartment)
+		}
+	}
+	return kept
 }
 
 // referenceRow reports whether sym lists as a reference row, the `ref part`

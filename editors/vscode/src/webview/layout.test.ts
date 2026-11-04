@@ -4379,3 +4379,15 @@ test("layoutCanvas keeps a sized owner's members where they fit, lane or no lane
   const owner = hidden.nodes.get("owner")!;
   assert.equal(hidden.nodes.get("member")!.box.y, owner.box.y + headerBox(owner).height, "a hidden edge asks for no lane");
 });
+
+test("labelLines heads an unnamed statement by what it does and a statement row by its text alone", () => {
+  const names = simpleNames([]);
+  const assign = node("a", "", { kind: "assign", text: "count := count + 1" });
+  assert.deepEqual(labelLines(assign, undefined, names), ["«assign»", "count := count + 1"]);
+  assert.deepEqual(labelLines(assign, ["compartments"], names), ["count := count + 1"]);
+  const row = node("r", "", { kind: "statement", text: "count < 10", parent: "a" });
+  assert.deepEqual(labelLines(row, undefined, names), ["count < 10"]);
+  const parallel = node("s", "running", { kind: "state", parallel: true });
+  assert.deepEqual(labelLines(parallel, undefined, names), ["«state»", "running", "«parallel»"]);
+  assert.deepEqual(labelLines(parallel, ["typings"], names), ["running"]);
+});
