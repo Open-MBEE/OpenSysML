@@ -1,0 +1,11 @@
+// view: FurnaceViews::runningTree
+// kind: tree
+// stated: view def GeneralView
+// not represented: 5 member(s) drawn as compartment rows of their owner
+// layout: dot
+digraph "FurnaceViews::runningTree" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state»</i></font><br/><b>running</b></td></tr><hr/><tr><td><font point-size="10">states</font></td></tr><tr><td align="left">low<br/>high</td></tr><hr/><tr><td><font point-size="10">state actions</font></td></tr><tr><td align="left">ignite : Ignite<br/>: Purge<br/>: Action</td></tr></table>>];
+}

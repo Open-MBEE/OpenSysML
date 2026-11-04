@@ -18,6 +18,7 @@ package Furnace {
 			state high;
 		}
 		transition first off then running;
+		succession first running then off;
 	}
 }
 
@@ -26,5 +27,14 @@ package FurnaceViews {
 
 	view burner : StateTransitionView {
 		expose Furnace::Burner;
+	}
+
+	// the tree draws the def's entry, do and exit members in a `state actions`
+	// compartment and its successions in a `successions` compartment.
+	view burnerTree : GeneralView {
+		expose Furnace::Burner;
+	}
+	view runningTree : GeneralView {
+		expose Furnace::Burner::running;
 	}
 }

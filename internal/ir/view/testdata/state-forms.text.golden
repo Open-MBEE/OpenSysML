@@ -20,3 +20,4 @@ state def Burner
 transitions:
   start of Burner -> off
   off -> running
+  running -> off

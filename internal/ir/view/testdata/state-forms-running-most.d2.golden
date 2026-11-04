@@ -1,0 +1,6 @@
+# FurnaceViews::runningTree — tree rendering (view def GeneralView)
+# not represented: 5 member(s) drawn as compartment rows of their owner
+classes: {
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+}
+n0: "«state»\nrunning\nstates\nlow\nhigh\nstate actions\nignite : Ignite\n: Purge\n: Action" { class: usage }

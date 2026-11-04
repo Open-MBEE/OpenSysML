@@ -26,4 +26,5 @@ digraph "FurnaceViews::burner" {
   }
   "n10" -> "n1" [arrowhead=vee];
   "n1" -> "n2" [arrowhead=vee, lhead="cluster_n2"];
+  "n2" -> "n1" [arrowhead=vee, ltail="cluster_n2"];
 }

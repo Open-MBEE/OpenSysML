@@ -89,10 +89,11 @@ var (
 	boundaryPort = Evidence{"internal/ir/view/dot_ports.go:placePorts", pinForms, "internal/ir/view/testdata/interconnection-ports.dot.golden"}
 	cameoFrame   = Evidence{"internal/ir/view/dot.go:openFrame", dotForms, "internal/ir/view/dot_cameo_test.go:TestGoldenDOTCameo"}
 	sequence     = Evidence{"internal/ir/view/sequence.go:renderSequence", seqForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
-	stateDetail  = Evidence{"internal/ir/view/behavior.go:stateNode", goldenForms, "internal/ir/view/testdata/state-entry.dot.golden"}
 	stateActions = Evidence{"internal/ir/view/behavior.go:stateActionCompartments", goldenForms, "internal/ir/view/dot_cameo_test.go:TestDOTStateBehaviourNames"}
 	stateActNode = Evidence{"internal/ir/view/behavior.go:stateActionNodes", goldenForms, "internal/ir/view/testdata/state-forms.dot.golden"}
 	stateTransit = Evidence{"internal/ir/view/behavior.go:stateMachineNode", goldenForms, "internal/ir/view/testdata/state.dot.golden"}
+	stateActComp = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/tree_state_compartments_test.go:TestGoldenTreeStateCompartments"}
+	successions  = Evidence{"internal/ir/view/tree.go:successionText", goldenForms, "internal/ir/view/tree_state_compartments_test.go:TestGoldenTreeStateCompartments"}
 	parallelMark = Evidence{"internal/ir/view/label.go:parallel", goldenForms, "internal/ir/view/testdata/state-pseudostates.mermaid.golden"}
 	actionForms  = Evidence{"internal/ir/view/behavior_forms.go:statementNodeKind", goldenForms, "internal/ir/view/testdata/action-forms.dot.golden"}
 	compoundBody = Evidence{"internal/ir/view/behavior_forms.go:compoundCompartments", goldenForms, "internal/ir/view/testdata/action-forms.dot.golden"}
@@ -101,7 +102,6 @@ var (
 	terminateX   = Evidence{"internal/ir/view/dot.go:dotTerminateAttributes", controlForms, "internal/ir/view/dot_fit_test.go:TestDOTSymbolsInStatedBoxes"}
 	pinArrows    = Evidence{"internal/ir/view/ports.go:pinArrow", []string{FormDOT, FormDrawio, FormCanvas}, "internal/ir/view/testdata/action.dot.golden"}
 	transition   = Evidence{"internal/ir/view/behavior.go:transitionLabel", goldenForms, "internal/ir/view/testdata/state.dot.golden"}
-	actionBox    = Evidence{"internal/ir/view/behavior.go:actionNodeKind", goldenForms, "internal/ir/view/testdata/action.dot.golden"}
 	endLabels    = Evidence{"internal/ir/view/tree_edges.go:drawAssociation", edgeForms, "internal/ir/view/edge_ends_test.go:TestEndNamesAreSetAtTheirEnd"}
 	multiplicity = Evidence{"internal/ir/view/tree_edges.go:usageMultiplicity", edgeForms, "internal/ir/view/tree_edges_test.go:TestTreeMultiplicityBoundsAreSpelledWithoutSourceText"}
 	edgeLabel    = Evidence{"internal/ir/view/dot.go:dotEdgeAttributes", edgeForms, "internal/ir/view/notation_test.go:TestEdgeLabelsAreShownWhenAsked"}
@@ -324,7 +324,7 @@ func buildTable() map[string]Adjudication {
 	set(approximate(CategoryCompartment, "the objective is drawn as a note anchored to the case (case.go objectiveNode), not as a compartment", objective), "objective-compartment")
 	set(undrawn(CategoryCompartment, reasonNoCompart), "individuals-compartment", "sequence-compartment", "directed-features-compartment",
 		"interconnection-compartment", "ends-compartment", "flows-compartment", "performed-by-compartment",
-		"state-actions-compartment", "successions-compartment", "result-compartment",
+		"result-compartment",
 		"verifies-compartment", "verification-methods-compartment", "includes-compartment", "exposes-compartment", "filters-compartment")
 
 	// §8.2.3.9 sequences.
@@ -378,6 +378,8 @@ func buildTable() map[string]Adjudication {
 	set(drawn(CategoryNode, stateActNode), "entry-action", "exit-action", "do-action")
 	set(drawn(CategoryCompartment, stateActNode), "entry-action-name-comp", "exit-action-name-comp", "do-action-name-comp")
 	set(drawn(CategoryCompartment, stateTransit), "state-transition-compartment")
+	set(drawn(CategoryCompartment, stateActComp), "state-actions-compartment")
+	set(drawn(CategoryCompartment, successions), "successions-compartment")
 
 	// §8.2.3.21 requirements and cases.
 	set(drawn(CategoryEdge, tableEdge), "distinguished-parameter-link", "frame-relationship")

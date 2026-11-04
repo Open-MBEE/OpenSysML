@@ -122,6 +122,7 @@ func TestGoldenRenderings(t *testing.T) {
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
 		{"action-forms", "action-forms.sysml", "ActionFormViews::monitorView", KindAction},
 		{"state-forms", "state-forms.sysml", "FurnaceViews::burner", KindState},
+		{"state-forms-tree", "state-forms.sysml", "FurnaceViews::burnerTree", KindTree},
 		{"calc-action-view", "calc-action-view.sysml", "CalcViews::calcFlows", KindAction},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},

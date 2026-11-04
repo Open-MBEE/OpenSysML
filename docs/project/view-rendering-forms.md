@@ -280,6 +280,8 @@ them, the lowered `ActionGraph` and `StateGraph` saying which form a node takes
 | `state-entry-action`, `state-do-action`, `state-exit-action` | A state's behaviors as `entry`, `do` and `exit` compartments, each behavior a row as declared (`action initialize : InitializePEAS`, `action`, the body's statement for a bodied anonymous action); the Cameo style keeps Cameo's `entry / x` lines | every form (`behavior.go` `stateActionCompartments`) |
 | `entry-action`, `do-action`, `exit-action` | A composite state draws each behavior declared as a named or bodied action as a node headed «entry action», «do action» or «exit action» among its substates | every form (`behavior.go` `stateActionNodes`) |
 | `state-transition-compartment` | A state machine and a composite state head their substates with the `state transition` compartment | every form |
+| `state-actions-compartment` | A tree folding a state's members (`compartments: most`) lists its entry, do and exit actions in one `state actions` compartment, each row as declared (`entry action ignite : Ignite`) | every form (`compartments.go` `compartmentName`) |
+| `successions-compartment` | A tree folding a definition's members lists its successions in a `successions` compartment, each row `first a then b` | every form (`tree.go` `successionText`) |
 | `state-def-name-compartment`, `state-name-compartment` | «parallel» under the name of a parallel state (`Node.Parallel`) | every form (`label.go` `parallel`) |
 | `perform-actions-swimlanes`, `swimlane`, `performed-by-compartment` | Not drawn | — |
 

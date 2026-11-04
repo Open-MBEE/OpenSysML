@@ -24,7 +24,7 @@ type Compartment struct {
 // named here follows them in the order its members were declared.
 var compartmentOrder = []string{
 	"attributes", "enumerations", "occurrences", "items", "parts", "ports",
-	"connections", "interfaces", "allocations", "actions", "states", "calculations",
+	"connections", "interfaces", "allocations", "actions", "states", "state actions", "calculations",
 	"constraints", "requirements", "cases", "analyses", "verifications", "use cases",
 	"views", "viewpoints", "renderings", "metadata",
 }
@@ -36,6 +36,9 @@ var compartmentPlurals = map[string]string{
 	"enum":           "enumerations",
 	"analysis":       "analyses",
 	"metadata":       "metadata",
+	entryActionKind:  "state actions",
+	doActionKind:     "state actions",
+	exitActionKind:   "state actions",
 	sendActionKind:   "actions",
 	acceptActionKind: "actions",
 	assignKind:       "actions",
