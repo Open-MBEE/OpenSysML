@@ -115,7 +115,7 @@ func testBindingRootedAtNoEnd(t *testing.T) {
 				interface i : Monitored connect s.src to k.dst;
 			}
 		}`)
-	wantUnset(t, ctx, inst, "k.dst.voltage", "a binding to the connector's own feature binds no connected feature")
+	wantUnset(t, ctx, inst, "k.dst.voltage", "a binding from one end to the connector's own feature binds nothing to the other end")
 }
 
 func testAbsentConnectorBindsNothing(t *testing.T) {
