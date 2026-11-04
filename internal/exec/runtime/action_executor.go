@@ -35,6 +35,9 @@ type ActionExecutor struct {
 	// action states the body performed; performed is the action as named, a usage
 	// stating no body of its own or the action itself, whose metadata binds the performance.
 	action, performed *symbols.Symbol
+	// declared is the usage action's body is performed through, when that usage
+	// states no body of its own: its members value the parameters they redefine.
+	declared *symbols.Symbol
 	// tool is the ToolExecution annotating performed, whose tool performs the action in
 	// place of its body; nil for an action performed by its body.
 	tool *toolExecution
@@ -212,12 +215,15 @@ func newActionExecutorOfGraph(
 	}
 
 	var tool *toolExecution
+	var declared *symbols.Symbol
 	if graph == nil {
 		var err error
+		callee := action
 		action, tool, graph, err = ctx.performanceBody(performed, action)
 		if err != nil {
 			return nil, err
 		}
+		declared = declaredThrough(callee, action, tool)
 	} else {
 		held, found, err := ctx.toolPerformance(performed, action)
 		if err != nil {
@@ -231,14 +237,23 @@ func newActionExecutorOfGraph(
 			action, tool = held, found
 		}
 	}
-	return newActionExecutorOn(ctx, performed, action, tool, graph, self, occurrence), nil
+	return newActionExecutorOn(ctx, performed, action, declared, tool, graph, self, occurrence), nil
+}
+
+// declaredThrough is callee when body, the action performanceBody resolved it to,
+// is another action's: callee's members then redefine body's parameters.
+func declaredThrough(callee, body *symbols.Symbol, tool *toolExecution) *symbols.Symbol {
+	if tool != nil || body == callee {
+		return nil
+	}
+	return callee
 }
 
 // newActionExecutorOn is an execution of graph, the lowering of action, ready to
 // begin at its root and attached to ctx's clock.
 func newActionExecutorOn(
 	ctx *Context,
-	performed, action *symbols.Symbol,
+	performed, action, declared *symbols.Symbol,
 	tool *toolExecution,
 	graph *lower.ActionGraph,
 	self, occurrence *Instance,
@@ -247,6 +262,7 @@ func newActionExecutorOn(
 		performances:     performances{ctx: ctx, self: self, behavior: action, occurrence: occurrence},
 		action:           action,
 		performed:        performed,
+		declared:         declared,
 		tool:             tool,
 		dynamicsKind:     ctx.stateSpaceKindOf(action),
 		occurrence:       occurrence,
@@ -285,7 +301,11 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 	for i, attr := range features {
 		declared[attr.Name] = i
 	}
-	for _, member := range e.ctx.model.semantics.MembersOf(e.action) {
+	holder := e.action
+	if e.declared != nil {
+		holder = e.declared
+	}
+	for _, member := range e.ctx.model.semantics.MembersOf(holder) {
 		usage, ok := member.Decl.(*ast.Usage)
 		if !ok || !lower.DeclaresNodeFeature(usage) || e.ctx.libraryDeclared(member) {
 			continue
@@ -298,7 +318,10 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			continue
 		}
 		if i, ok := declared[name]; ok {
-			if features[i].Value == nil && features[i].Node == ast.Node(usage) {
+			switch {
+			case e.declared != nil && features[i].Node != ast.Node(usage):
+				features[i] = e.redefinedAttribute(features[i], member, usage)
+			case features[i].Value == nil && features[i].Node == ast.Node(usage):
 				features[i].Value, features[i].Scope, features[i].Binding = e.inheritedValue(member)
 			}
 			features[i].Optional = e.ctx.admitsNoValue(member)
@@ -319,7 +342,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		}
 		return held[sym]
 	}
-	e.ctx.shadowedInherited(e.action,
+	e.ctx.shadowedInherited(holder,
 		func(name string) bool { _, ok := declared[name]; return ok },
 		bound,
 		func(member *symbols.Symbol, usage *ast.Usage, key string) {
@@ -357,6 +380,17 @@ func (e *ActionExecutor) inheritedValue(member *symbols.Symbol) (ast.Node, *symb
 	}
 	value, scope := e.ctx.model.semantics.ParameterDefault(member)
 	return value, scope, false
+}
+
+// redefinedAttribute is attr as member, a parameter of the usage performed through,
+// redefines it (SysML v2.1 §7.17.2): member's own value, else the nearest it inherits.
+func (e *ActionExecutor) redefinedAttribute(attr lower.Attribute, member *symbols.Symbol, usage *ast.Usage) lower.Attribute {
+	attr.Value, attr.Scope, attr.Binding = e.inheritedValue(member)
+	attr.Node, attr.Symbol = usage, member
+	if attr.Type == "" {
+		attr.Type = lower.TypeText(usage)
+	}
+	return attr
 }
 
 // holdVisible marks the feature attr declares and every feature it redefines as held.

@@ -1,0 +1,1 @@
+- `ExecuteAction` on an action usage performed with no arguments now computes from the usage's own `in` values: a usage parameter redefining the definition's — implicitly by name or by `redefines` — holds its value over the definition's, an explicit input still overrides both, and a usage parameter stating no value keeps the inherited default.
