@@ -640,6 +640,9 @@ func apiJSONMappingObjectTriples(builder *rdf.GraphBuilder, cache *apiJSONTermCa
 			emitter.memberProperties[member.key] = true
 		}
 	}
+	if err := apiJSONCheckCompletedProperties(object, metaclass); err != nil {
+		return err
+	}
 	for _, member := range object.members {
 		if err := emitter.member(member); err != nil {
 			return err

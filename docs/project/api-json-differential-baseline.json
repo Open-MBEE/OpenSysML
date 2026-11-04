@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:ce58ea610e5cb4bc19cd01c530a34d267bf32c425c62f8cd29ac16b0a328f814"
+        "sourceDigest": "sha256:141edcec7a061e08c2cd84c9a9a49e55b27f7d3e497ff3129b328d9d2e6cb25b"
       }
     ],
     "inputs": [
@@ -89,7 +89,7 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-03"
+    "recorded": "2026-11-04"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -120,17 +120,17 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1293766,
-      "presentDifferent": 32614,
-      "oursMissing": 920638,
-      "pilotMissing": 70251,
+      "presentEqual": 1476607,
+      "presentDifferent": 37735,
+      "oursMissing": 729459,
+      "pilotMissing": 70560,
       "absentBoth": 1987230,
-      "indeterminate": 31504,
+      "indeterminate": 34721,
       "pilotNondeterministic": 516
     },
     "rows": 11735,
-    "unkeyedReferences": 115807,
-    "extensionProperties": 162741,
+    "unkeyedReferences": 116776,
+    "extensionProperties": 255754,
     "duplicateElements": {
       "ours": 527,
       "pilot": 83517
@@ -161,12 +161,12 @@
         "typeMismatch": 10
       },
       "properties": {
-        "presentEqual": 103519,
-        "presentDifferent": 2155,
-        "oursMissing": 72998,
-        "pilotMissing": 5157,
+        "presentEqual": 118226,
+        "presentDifferent": 2470,
+        "oursMissing": 57717,
+        "pilotMissing": 5187,
         "absentBoth": 164386,
-        "indeterminate": 1979,
+        "indeterminate": 2238,
         "pilotNondeterministic": 62
       },
       "duplicateElements": {
@@ -197,12 +197,12 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 373507,
-        "presentDifferent": 8922,
-        "oursMissing": 265177,
-        "pilotMissing": 19378,
+        "presentEqual": 425136,
+        "presentDifferent": 10248,
+        "oursMissing": 211241,
+        "pilotMissing": 19459,
         "absentBoth": 576463,
-        "indeterminate": 8142,
+        "indeterminate": 9123,
         "pilotNondeterministic": 172
       },
       "duplicateElements": {
@@ -233,12 +233,12 @@
         "typeMismatch": 15
       },
       "properties": {
-        "presentEqual": 130377,
-        "presentDifferent": 3881,
-        "oursMissing": 91735,
-        "pilotMissing": 6857,
+        "presentEqual": 148695,
+        "presentDifferent": 4579,
+        "oursMissing": 72416,
+        "pilotMissing": 6902,
         "absentBoth": 206224,
-        "indeterminate": 2663,
+        "indeterminate": 2966,
         "pilotNondeterministic": 66
       },
       "duplicateElements": {
@@ -270,12 +270,12 @@
         "typeMismatch": 1034
       },
       "properties": {
-        "presentEqual": 83754,
-        "presentDifferent": 3131,
-        "oursMissing": 53871,
-        "pilotMissing": 6531,
+        "presentEqual": 95892,
+        "presentDifferent": 3788,
+        "oursMissing": 40962,
+        "pilotMissing": 6557,
         "absentBoth": 106175,
-        "indeterminate": 1598,
+        "indeterminate": 1712,
         "pilotNondeterministic": 9
       },
       "duplicateElements": {
@@ -306,12 +306,12 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 88243,
-        "presentDifferent": 1785,
-        "oursMissing": 62271,
-        "pilotMissing": 5602,
+        "presentEqual": 102221,
+        "presentDifferent": 2044,
+        "oursMissing": 47770,
+        "pilotMissing": 5654,
         "absentBoth": 135062,
-        "indeterminate": 2324,
+        "indeterminate": 2588,
         "pilotNondeterministic": 7
       },
       "duplicateElements": {
@@ -343,12 +343,12 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 19006,
-        "presentDifferent": 485,
-        "oursMissing": 13312,
-        "pilotMissing": 1064,
+        "presentEqual": 21975,
+        "presentDifferent": 549,
+        "oursMissing": 10247,
+        "pilotMissing": 1069,
         "absentBoth": 31436,
-        "indeterminate": 424,
+        "indeterminate": 456,
         "pilotNondeterministic": 0
       },
       "duplicateElements": {
@@ -380,12 +380,12 @@
         "typeMismatch": 186
       },
       "properties": {
-        "presentEqual": 393892,
-        "presentDifferent": 10036,
-        "oursMissing": 283975,
-        "pilotMissing": 20805,
+        "presentEqual": 448749,
+        "presentDifferent": 11563,
+        "oursMissing": 226510,
+        "pilotMissing": 20875,
         "absentBoth": 616404,
-        "indeterminate": 11607,
+        "indeterminate": 12688,
         "pilotNondeterministic": 164
       },
       "duplicateElements": {
@@ -416,12 +416,12 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 629,
+        "presentEqual": 732,
         "presentDifferent": 1,
-        "oursMissing": 376,
+        "oursMissing": 272,
         "pilotMissing": 41,
         "absentBoth": 993,
-        "indeterminate": 17,
+        "indeterminate": 18,
         "pilotNondeterministic": 0
       },
       "duplicateElements": {
@@ -452,12 +452,12 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 100839,
-        "presentDifferent": 2218,
-        "oursMissing": 76923,
+        "presentEqual": 114981,
+        "presentDifferent": 2493,
+        "oursMissing": 62324,
         "pilotMissing": 4816,
         "absentBoth": 150087,
-        "indeterminate": 2750,
+        "indeterminate": 2932,
         "pilotNondeterministic": 36
       },
       "duplicateElements": {
@@ -753,9 +753,9 @@
       0
     ],
     "AcceptActionUsage.isLibraryElement": [
-      0,
-      0,
       47,
+      0,
+      0,
       0,
       0,
       0,
@@ -1662,9 +1662,9 @@
       0
     ],
     "ActionDefinition.isLibraryElement": [
-      0,
-      0,
       177,
+      0,
+      0,
       0,
       0,
       0,
@@ -2508,9 +2508,9 @@
       0
     ],
     "ActionUsage.isLibraryElement": [
-      0,
-      0,
       517,
+      0,
+      0,
       0,
       0,
       0,
@@ -3345,9 +3345,9 @@
       0
     ],
     "ActorMembership.isLibraryElement": [
-      0,
-      0,
       71,
+      0,
+      0,
       0,
       0,
       0,
@@ -3363,9 +3363,9 @@
       0
     ],
     "ActorMembership.memberElementId": [
-      0,
-      0,
       71,
+      0,
+      0,
       0,
       0,
       0,
@@ -3426,9 +3426,9 @@
       0
     ],
     "ActorMembership.ownedMemberElementId": [
-      0,
-      0,
       71,
+      0,
+      0,
       0,
       0,
       0,
@@ -3444,9 +3444,9 @@
       0
     ],
     "ActorMembership.ownedMemberName": [
-      0,
-      0,
       71,
+      0,
+      0,
       0,
       0,
       0,
@@ -3768,9 +3768,9 @@
       0
     ],
     "AllocationDefinition.isLibraryElement": [
-      0,
-      0,
       8,
+      0,
+      0,
       0,
       0,
       0,
@@ -4677,9 +4677,9 @@
       0
     ],
     "AllocationUsage.isLibraryElement": [
-      0,
-      0,
       10,
+      0,
+      0,
       0,
       0,
       0,
@@ -5640,9 +5640,9 @@
       0
     ],
     "AnalysisCaseDefinition.isLibraryElement": [
-      0,
-      0,
       30,
+      0,
+      0,
       0,
       0,
       0,
@@ -6576,9 +6576,9 @@
       0
     ],
     "AnalysisCaseUsage.isLibraryElement": [
-      0,
-      0,
       41,
+      0,
+      0,
       0,
       0,
       0,
@@ -7404,9 +7404,9 @@
       0
     ],
     "Annotation.isLibraryElement": [
-      0,
-      0,
       7,
+      0,
+      0,
       0,
       0,
       0,
@@ -7818,9 +7818,9 @@
       0
     ],
     "AssertConstraintUsage.isLibraryElement": [
-      0,
-      0,
       79,
+      0,
+      0,
       0,
       0,
       0,
@@ -8853,9 +8853,9 @@
       0
     ],
     "AssignmentActionUsage.isLibraryElement": [
-      0,
-      0,
       111,
+      0,
+      0,
       0,
       0,
       0,
@@ -10779,9 +10779,9 @@
       0
     ],
     "AttributeDefinition.isLibraryElement": [
-      0,
-      0,
       208,
+      0,
+      0,
       0,
       0,
       0,
@@ -11589,9 +11589,9 @@
       0
     ],
     "AttributeUsage.isLibraryElement": [
-      0,
-      0,
       2557,
+      0,
+      0,
       0,
       0,
       0,
@@ -13074,9 +13074,9 @@
       0
     ],
     "BindingConnector.isLibraryElement": [
-      0,
-      0,
       8,
+      0,
+      0,
       0,
       0,
       0,
@@ -13821,9 +13821,9 @@
       0
     ],
     "BindingConnectorAsUsage.isLibraryElement": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
@@ -15423,9 +15423,9 @@
       0
     ],
     "CalculationDefinition.isLibraryElement": [
-      0,
-      0,
       192,
+      0,
+      0,
       0,
       0,
       0,
@@ -16287,9 +16287,9 @@
       0
     ],
     "CalculationUsage.isLibraryElement": [
-      0,
-      0,
       118,
+      0,
+      0,
       0,
       0,
       0,
@@ -17241,9 +17241,9 @@
       0
     ],
     "CaseDefinition.isLibraryElement": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
@@ -18141,9 +18141,9 @@
       0
     ],
     "CaseUsage.isLibraryElement": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0,
@@ -19509,9 +19509,9 @@
       0
     ],
     "Classifier.isLibraryElement": [
-      0,
-      0,
       104,
+      0,
+      0,
       0,
       0,
       0,
@@ -20067,9 +20067,9 @@
       0
     ],
     "CollectExpression.isLibraryElement": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -20508,9 +20508,9 @@
       0
     ],
     "Comment.isLibraryElement": [
-      0,
-      0,
       32,
+      0,
+      0,
       0,
       0,
       0,
@@ -20832,9 +20832,9 @@
       0
     ],
     "ConcernDefinition.isLibraryElement": [
-      0,
-      0,
       10,
+      0,
+      0,
       0,
       0,
       0,
@@ -21768,9 +21768,9 @@
       0
     ],
     "ConcernUsage.isLibraryElement": [
-      0,
-      0,
       21,
+      0,
+      0,
       0,
       0,
       0,
@@ -22776,9 +22776,9 @@
       0
     ],
     "ConjugatedPortDefinition.isLibraryElement": [
-      0,
-      0,
       127,
+      0,
+      0,
       0,
       0,
       0,
@@ -23406,9 +23406,9 @@
       0
     ],
     "ConjugatedPortTyping.isLibraryElement": [
-      0,
-      0,
       64,
+      0,
+      0,
       0,
       0,
       0,
@@ -23631,9 +23631,9 @@
       0
     ],
     "Conjugation.isLibraryElement": [
-      0,
-      0,
       6,
+      0,
+      0,
       0,
       0,
       0,
@@ -23982,9 +23982,9 @@
       0
     ],
     "ConnectionDefinition.isLibraryElement": [
-      0,
-      0,
       43,
+      0,
+      0,
       0,
       0,
       0,
@@ -24891,9 +24891,9 @@
       0
     ],
     "ConnectionUsage.isLibraryElement": [
-      0,
-      0,
       89,
+      0,
+      0,
       0,
       0,
       0,
@@ -25971,9 +25971,9 @@
       0
     ],
     "Connector.isLibraryElement": [
-      0,
-      0,
       36,
+      0,
+      0,
       0,
       0,
       0,
@@ -26619,9 +26619,9 @@
       0
     ],
     "ConstraintDefinition.isLibraryElement": [
-      0,
-      0,
       26,
+      0,
+      0,
       0,
       0,
       0,
@@ -27474,9 +27474,9 @@
       0
     ],
     "ConstraintUsage.isLibraryElement": [
-      0,
-      0,
       203,
+      0,
+      0,
       0,
       0,
       0,
@@ -28536,9 +28536,9 @@
       0
     ],
     "ConstructorExpression.isLibraryElement": [
-      0,
-      0,
       57,
+      0,
+      0,
       0,
       0,
       0,
@@ -29058,9 +29058,9 @@
       0
     ],
     "DataType.isLibraryElement": [
-      0,
-      0,
       7,
+      0,
+      0,
       0,
       0,
       0,
@@ -29589,9 +29589,9 @@
       0
     ],
     "DecisionNode.isLibraryElement": [
-      0,
-      0,
       51,
+      0,
+      0,
       0,
       0,
       0,
@@ -30453,9 +30453,9 @@
       0
     ],
     "Definition.isLibraryElement": [
-      0,
-      0,
       4,
+      0,
+      0,
       0,
       0,
       0,
@@ -31047,9 +31047,9 @@
       0
     ],
     "Dependency.isLibraryElement": [
-      0,
-      0,
       15,
+      0,
+      0,
       0,
       0,
       0,
@@ -31263,9 +31263,9 @@
       0
     ],
     "Disjoining.isLibraryElement": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -31497,9 +31497,9 @@
       0
     ],
     "Documentation.isLibraryElement": [
-      0,
-      0,
       375,
+      0,
+      0,
       0,
       0,
       0,
@@ -31677,9 +31677,9 @@
       0
     ],
     "ElementFilterMembership.isLibraryElement": [
-      0,
-      0,
       57,
+      0,
+      0,
       0,
       0,
       0,
@@ -31695,9 +31695,9 @@
       0
     ],
     "ElementFilterMembership.memberElementId": [
+      30,
+      27,
       0,
-      0,
-      57,
       0,
       0,
       0,
@@ -31740,9 +31740,9 @@
       0
     ],
     "ElementFilterMembership.ownedMemberElementId": [
+      30,
+      27,
       0,
-      0,
-      57,
       0,
       0,
       0,
@@ -31902,9 +31902,9 @@
       0
     ],
     "EndFeatureMembership.isLibraryElement": [
-      0,
-      0,
       524,
+      0,
+      0,
       0,
       0,
       0,
@@ -31920,9 +31920,9 @@
       0
     ],
     "EndFeatureMembership.memberElementId": [
+      129,
+      395,
       0,
-      0,
-      524,
       0,
       0,
       0,
@@ -31974,9 +31974,9 @@
       0
     ],
     "EndFeatureMembership.ownedMemberElementId": [
+      129,
+      395,
       0,
-      0,
-      524,
       0,
       0,
       0,
@@ -31992,9 +31992,9 @@
       0
     ],
     "EndFeatureMembership.ownedMemberName": [
+      128,
       0,
-      0,
-      523,
+      395,
       0,
       0,
       0,
@@ -32271,9 +32271,9 @@
       0
     ],
     "EnumerationDefinition.isLibraryElement": [
-      0,
-      0,
       26,
+      0,
+      0,
       0,
       0,
       0,
@@ -33072,9 +33072,9 @@
       0
     ],
     "EnumerationUsage.isLibraryElement": [
-      0,
-      0,
       69,
+      0,
+      0,
       0,
       0,
       0,
@@ -33990,9 +33990,9 @@
       0
     ],
     "EventOccurrenceUsage.isLibraryElement": [
-      0,
-      0,
       179,
+      0,
+      0,
       0,
       0,
       0,
@@ -35043,9 +35043,9 @@
       0
     ],
     "ExhibitStateUsage.isLibraryElement": [
-      0,
-      0,
       50,
+      0,
+      0,
       0,
       0,
       0,
@@ -36051,9 +36051,9 @@
       0
     ],
     "Expression.isLibraryElement": [
-      0,
-      0,
       40,
+      0,
+      0,
       0,
       0,
       0,
@@ -36762,9 +36762,9 @@
       0
     ],
     "Feature.isLibraryElement": [
-      0,
-      0,
       10418,
+      0,
+      0,
       0,
       0,
       0,
@@ -37518,9 +37518,9 @@
       0
     ],
     "FeatureChainExpression.isLibraryElement": [
-      0,
-      0,
       516,
+      0,
+      0,
       0,
       0,
       0,
@@ -37986,9 +37986,9 @@
       0
     ],
     "FeatureChaining.isLibraryElement": [
-      0,
-      0,
       627,
+      0,
+      0,
       0,
       0,
       0,
@@ -38166,9 +38166,9 @@
       0
     ],
     "FeatureInverting.isLibraryElement": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0,
@@ -38364,9 +38364,9 @@
       0
     ],
     "FeatureMembership.isLibraryElement": [
-      0,
-      0,
       10944,
+      0,
+      0,
       0,
       0,
       0,
@@ -38382,12 +38382,12 @@
       0
     ],
     "FeatureMembership.memberElementId": [
+      9476,
+      570,
       0,
       0,
-      10944,
       0,
-      0,
-      0,
+      898,
       0
     ],
     "FeatureMembership.memberName": [
@@ -38445,12 +38445,12 @@
       0
     ],
     "FeatureMembership.ownedMemberElementId": [
+      9476,
+      570,
       0,
       0,
-      10944,
       0,
-      0,
-      0,
+      898,
       0
     ],
     "FeatureMembership.ownedMemberFeature": [
@@ -38463,18 +38463,18 @@
       0
     ],
     "FeatureMembership.ownedMemberName": [
-      0,
-      0,
-      9391,
-      0,
+      9195,
+      4,
+      192,
+      190,
       0,
       0,
       0
     ],
     "FeatureMembership.ownedMemberShortName": [
-      0,
-      0,
       70,
+      0,
+      0,
       0,
       0,
       0,
@@ -38823,9 +38823,9 @@
       0
     ],
     "FeatureReferenceExpression.isLibraryElement": [
-      0,
-      0,
       2162,
+      0,
+      0,
       0,
       0,
       0,
@@ -39273,9 +39273,9 @@
       0
     ],
     "FeatureTyping.isLibraryElement": [
-      0,
-      0,
       6073,
+      0,
+      0,
       0,
       0,
       0,
@@ -39561,9 +39561,9 @@
       0
     ],
     "FeatureValue.isLibraryElement": [
-      0,
-      0,
       7322,
+      0,
+      0,
       0,
       0,
       0,
@@ -39579,9 +39579,9 @@
       0
     ],
     "FeatureValue.memberElementId": [
+      7014,
+      308,
       0,
-      0,
-      7322,
       0,
       0,
       0,
@@ -39624,9 +39624,9 @@
       0
     ],
     "FeatureValue.ownedMemberElementId": [
+      7014,
+      308,
       0,
-      0,
-      7322,
       0,
       0,
       0,
@@ -40020,9 +40020,9 @@
       0
     ],
     "Flow.isLibraryElement": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
@@ -40731,9 +40731,9 @@
       0
     ],
     "FlowDefinition.isLibraryElement": [
-      0,
-      0,
       7,
+      0,
+      0,
       0,
       0,
       0,
@@ -41595,9 +41595,9 @@
       0
     ],
     "FlowEnd.isLibraryElement": [
-      0,
-      0,
       96,
+      0,
+      0,
       0,
       0,
       0,
@@ -42297,9 +42297,9 @@
       0
     ],
     "FlowUsage.isLibraryElement": [
-      0,
-      0,
       106,
+      0,
+      0,
       0,
       0,
       0,
@@ -43431,9 +43431,9 @@
       0
     ],
     "ForLoopActionUsage.isLibraryElement": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0,
@@ -44403,9 +44403,9 @@
       0
     ],
     "ForkNode.isLibraryElement": [
-      0,
-      0,
       17,
+      0,
+      0,
       0,
       0,
       0,
@@ -45159,9 +45159,9 @@
       0
     ],
     "FramedConcernMembership.isLibraryElement": [
-      0,
-      0,
       14,
+      0,
+      0,
       0,
       0,
       0,
@@ -45186,9 +45186,9 @@
       0
     ],
     "FramedConcernMembership.memberElementId": [
+      12,
+      2,
       0,
-      0,
-      14,
       0,
       0,
       0,
@@ -45258,9 +45258,9 @@
       0
     ],
     "FramedConcernMembership.ownedMemberElementId": [
+      12,
+      2,
       0,
-      0,
-      14,
       0,
       0,
       0,
@@ -45276,10 +45276,10 @@
       0
     ],
     "FramedConcernMembership.ownedMemberName": [
-      0,
-      0,
       12,
       0,
+      0,
+      2,
       0,
       0,
       0
@@ -45564,9 +45564,9 @@
       0
     ],
     "Function.isLibraryElement": [
-      0,
-      0,
       11,
+      0,
+      0,
       0,
       0,
       0,
@@ -46149,9 +46149,9 @@
       0
     ],
     "IfActionUsage.isLibraryElement": [
-      0,
-      0,
       4,
+      0,
+      0,
       0,
       0,
       0,
@@ -47157,9 +47157,9 @@
       0
     ],
     "IncludeUseCaseUsage.isLibraryElement": [
-      0,
-      0,
       19,
+      0,
+      0,
       0,
       0,
       0,
@@ -48237,9 +48237,9 @@
       0
     ],
     "IndexExpression.isLibraryElement": [
-      0,
-      0,
       47,
+      0,
+      0,
       0,
       0,
       0,
@@ -49326,9 +49326,9 @@
       0
     ],
     "InterfaceDefinition.isLibraryElement": [
-      0,
-      0,
       31,
+      0,
+      0,
       0,
       0,
       0,
@@ -50244,9 +50244,9 @@
       0
     ],
     "InterfaceUsage.isLibraryElement": [
-      0,
-      0,
       43,
+      0,
+      0,
       0,
       0,
       0,
@@ -51324,9 +51324,9 @@
       0
     ],
     "Invariant.isLibraryElement": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -52017,9 +52017,9 @@
       0
     ],
     "InvocationExpression.isLibraryElement": [
-      0,
-      0,
       537,
+      0,
+      0,
       0,
       0,
       0,
@@ -52566,9 +52566,9 @@
       0
     ],
     "ItemDefinition.isLibraryElement": [
-      0,
-      0,
       168,
+      0,
+      0,
       0,
       0,
       0,
@@ -53403,9 +53403,9 @@
       0
     ],
     "ItemUsage.isLibraryElement": [
-      0,
-      0,
       368,
+      0,
+      0,
       0,
       0,
       0,
@@ -54438,9 +54438,9 @@
       0
     ],
     "JoinNode.isLibraryElement": [
-      0,
-      0,
       16,
+      0,
+      0,
       0,
       0,
       0,
@@ -55383,9 +55383,9 @@
       0
     ],
     "LiteralBoolean.isLibraryElement": [
-      0,
-      0,
       400,
+      0,
+      0,
       0,
       0,
       0,
@@ -55986,9 +55986,9 @@
       0
     ],
     "LiteralInfinity.isLibraryElement": [
-      0,
-      0,
       310,
+      0,
+      0,
       0,
       0,
       0,
@@ -56580,9 +56580,9 @@
       0
     ],
     "LiteralInteger.isLibraryElement": [
-      0,
-      0,
       2010,
+      0,
+      0,
       0,
       0,
       0,
@@ -57183,9 +57183,9 @@
       0
     ],
     "LiteralRational.isLibraryElement": [
-      0,
-      0,
       327,
+      0,
+      0,
       0,
       0,
       0,
@@ -57786,9 +57786,9 @@
       0
     ],
     "LiteralString.isLibraryElement": [
-      0,
-      0,
       1230,
+      0,
+      0,
       0,
       0,
       0,
@@ -58200,9 +58200,9 @@
       0
     ],
     "Membership.isLibraryElement": [
-      0,
-      0,
       3271,
+      0,
+      0,
       0,
       0,
       0,
@@ -58218,12 +58218,12 @@
       0
     ],
     "Membership.memberElementId": [
+      2200,
+      14,
+      88,
       0,
       0,
-      3271,
-      0,
-      0,
-      0,
+      969,
       0
     ],
     "Membership.memberName": [
@@ -58461,9 +58461,9 @@
       0
     ],
     "MembershipExpose.isLibraryElement": [
-      0,
-      0,
       75,
+      0,
+      0,
       0,
       0,
       0,
@@ -58686,9 +58686,9 @@
       0
     ],
     "MembershipImport.isLibraryElement": [
-      0,
-      0,
       389,
+      0,
+      0,
       0,
       0,
       0,
@@ -59091,9 +59091,9 @@
       0
     ],
     "MergeNode.isLibraryElement": [
-      0,
-      0,
       24,
+      0,
+      0,
       0,
       0,
       0,
@@ -59946,9 +59946,9 @@
       0
     ],
     "Metaclass.isLibraryElement": [
-      0,
-      0,
       10,
+      0,
+      0,
       0,
       0,
       0,
@@ -60459,9 +60459,9 @@
       0
     ],
     "MetadataAccessExpression.isLibraryElement": [
-      0,
-      0,
       6,
+      0,
+      0,
       0,
       0,
       0,
@@ -60990,9 +60990,9 @@
       0
     ],
     "MetadataDefinition.isLibraryElement": [
-      0,
-      0,
       39,
+      0,
+      0,
       0,
       0,
       0,
@@ -61791,9 +61791,9 @@
       0
     ],
     "MetadataFeature.isLibraryElement": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -62448,9 +62448,9 @@
       0
     ],
     "MetadataUsage.isLibraryElement": [
-      0,
-      0,
       384,
+      0,
+      0,
       0,
       0,
       0,
@@ -63366,9 +63366,9 @@
       0
     ],
     "Multiplicity.isLibraryElement": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0,
@@ -63951,9 +63951,9 @@
       0
     ],
     "MultiplicityRange.isLibraryElement": [
-      0,
-      0,
       1215,
+      0,
+      0,
       0,
       0,
       0,
@@ -64365,9 +64365,9 @@
       0
     ],
     "Namespace.isLibraryElement": [
-      0,
-      0,
       859,
+      0,
+      0,
       0,
       0,
       0,
@@ -64608,9 +64608,9 @@
       0
     ],
     "NamespaceExpose.isLibraryElement": [
-      0,
-      0,
       29,
+      0,
+      0,
       0,
       0,
       0,
@@ -64833,9 +64833,9 @@
       0
     ],
     "NamespaceImport.isLibraryElement": [
-      0,
-      0,
       670,
+      0,
+      0,
       0,
       0,
       0,
@@ -65211,9 +65211,9 @@
       0
     ],
     "NullExpression.isLibraryElement": [
-      0,
-      0,
       14,
+      0,
+      0,
       0,
       0,
       0,
@@ -65616,9 +65616,9 @@
       0
     ],
     "ObjectiveMembership.isLibraryElement": [
-      0,
-      0,
       88,
+      0,
+      0,
       0,
       0,
       0,
@@ -65634,9 +65634,9 @@
       0
     ],
     "ObjectiveMembership.memberElementId": [
+      28,
+      60,
       0,
-      0,
-      88,
       0,
       0,
       0,
@@ -65688,9 +65688,9 @@
       0
     ],
     "ObjectiveMembership.ownedMemberElementId": [
+      28,
+      60,
       0,
-      0,
-      88,
       0,
       0,
       0,
@@ -65706,9 +65706,9 @@
       0
     ],
     "ObjectiveMembership.ownedMemberName": [
+      28,
       0,
-      0,
-      88,
+      60,
       0,
       0,
       0,
@@ -66003,9 +66003,9 @@
       0
     ],
     "OccurrenceDefinition.isLibraryElement": [
+      22,
       0,
-      0,
-      55,
+      33,
       0,
       0,
       0,
@@ -66813,9 +66813,9 @@
       0
     ],
     "OccurrenceUsage.isLibraryElement": [
+      130,
       0,
-      0,
-      144,
+      14,
       0,
       0,
       0,
@@ -67839,9 +67839,9 @@
       0
     ],
     "OperatorExpression.isLibraryElement": [
-      0,
-      0,
       1351,
+      0,
+      0,
       0,
       0,
       0,
@@ -68280,9 +68280,9 @@
       0
     ],
     "OwningMembership.isLibraryElement": [
-      0,
-      0,
       9706,
+      0,
+      0,
       0,
       0,
       0,
@@ -68298,12 +68298,12 @@
       0
     ],
     "OwningMembership.memberElementId": [
+      9046,
+      431,
       0,
+      3,
       0,
-      9703,
-      0,
-      0,
-      0,
+      226,
       0
     ],
     "OwningMembership.memberName": [
@@ -68361,28 +68361,28 @@
       0
     ],
     "OwningMembership.ownedMemberElementId": [
+      9046,
+      431,
       0,
+      3,
       0,
-      9703,
-      0,
-      0,
-      0,
+      226,
       0
     ],
     "OwningMembership.ownedMemberName": [
-      0,
-      0,
-      5706,
-      0,
+      5524,
+      151,
+      31,
+      108,
       0,
       0,
       0
     ],
     "OwningMembership.ownedMemberShortName": [
+      52,
       0,
-      0,
-      53,
-      0,
+      1,
+      1,
       0,
       0,
       0
@@ -68541,9 +68541,9 @@
       0
     ],
     "Package.isLibraryElement": [
-      0,
-      0,
       1231,
+      0,
+      0,
       0,
       0,
       0,
@@ -68739,9 +68739,9 @@
       0
     ],
     "ParameterMembership.isLibraryElement": [
-      0,
-      0,
       4585,
+      0,
+      0,
       0,
       0,
       0,
@@ -68757,9 +68757,9 @@
       0
     ],
     "ParameterMembership.memberElementId": [
+      4375,
+      210,
       0,
-      0,
-      4585,
       0,
       0,
       0,
@@ -68811,9 +68811,9 @@
       0
     ],
     "ParameterMembership.ownedMemberElementId": [
+      4375,
+      210,
       0,
-      0,
-      4585,
       0,
       0,
       0,
@@ -68829,9 +68829,9 @@
       0
     ],
     "ParameterMembership.ownedMemberName": [
+      24,
       0,
-      0,
-      4569,
+      4545,
       0,
       0,
       0,
@@ -69117,9 +69117,9 @@
       0
     ],
     "PartDefinition.isLibraryElement": [
-      0,
-      0,
       945,
+      0,
+      0,
       0,
       0,
       0,
@@ -69972,9 +69972,9 @@
       0
     ],
     "PartUsage.isLibraryElement": [
-      0,
-      0,
       1989,
+      0,
+      0,
       0,
       0,
       0,
@@ -71007,9 +71007,9 @@
       0
     ],
     "PayloadFeature.isLibraryElement": [
-      0,
-      0,
       57,
+      0,
+      0,
       0,
       0,
       0,
@@ -71673,9 +71673,9 @@
       0
     ],
     "PerformActionUsage.isLibraryElement": [
-      0,
-      0,
       236,
+      0,
+      0,
       0,
       0,
       0,
@@ -72528,9 +72528,9 @@
       0
     ],
     "PortConjugation.isLibraryElement": [
-      0,
-      0,
       127,
+      0,
+      0,
       0,
       0,
       0,
@@ -72843,9 +72843,9 @@
       0
     ],
     "PortDefinition.isLibraryElement": [
-      0,
-      0,
       127,
+      0,
+      0,
       0,
       0,
       0,
@@ -73653,9 +73653,9 @@
       0
     ],
     "PortUsage.isLibraryElement": [
-      0,
-      0,
       493,
+      0,
+      0,
       0,
       0,
       0,
@@ -74940,9 +74940,9 @@
       0
     ],
     "Redefinition.isLibraryElement": [
-      0,
-      0,
       2695,
+      0,
+      0,
       0,
       0,
       0,
@@ -75210,9 +75210,9 @@
       0
     ],
     "ReferenceSubsetting.isLibraryElement": [
-      0,
-      0,
       560,
+      0,
+      0,
       0,
       0,
       0,
@@ -75669,9 +75669,9 @@
       0
     ],
     "ReferenceUsage.isLibraryElement": [
-      0,
-      0,
       2327,
+      0,
+      0,
       0,
       0,
       0,
@@ -76623,9 +76623,9 @@
       0
     ],
     "RenderingDefinition.isLibraryElement": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0,
@@ -77424,9 +77424,9 @@
       0
     ],
     "RenderingUsage.isLibraryElement": [
-      0,
-      0,
       37,
+      0,
+      0,
       0,
       0,
       0,
@@ -78252,9 +78252,9 @@
       0
     ],
     "RequirementConstraintMembership.isLibraryElement": [
-      0,
-      0,
       173,
+      0,
+      0,
       0,
       0,
       0,
@@ -78279,9 +78279,9 @@
       0
     ],
     "RequirementConstraintMembership.memberElementId": [
+      172,
+      1,
       0,
-      0,
-      173,
       0,
       0,
       0,
@@ -78351,9 +78351,9 @@
       0
     ],
     "RequirementConstraintMembership.ownedMemberElementId": [
+      172,
+      1,
       0,
-      0,
-      173,
       0,
       0,
       0,
@@ -78369,18 +78369,18 @@
       0
     ],
     "RequirementConstraintMembership.ownedMemberName": [
+      30,
       0,
-      0,
-      31,
+      1,
       0,
       0,
       0,
       0
     ],
     "RequirementConstraintMembership.ownedMemberShortName": [
+      10,
       0,
-      0,
-      11,
+      1,
       0,
       0,
       0,
@@ -78702,9 +78702,9 @@
       0
     ],
     "RequirementDefinition.isLibraryElement": [
-      0,
-      0,
       109,
+      0,
+      0,
       0,
       0,
       0,
@@ -79638,9 +79638,9 @@
       0
     ],
     "RequirementUsage.isLibraryElement": [
-      0,
-      0,
       269,
+      0,
+      0,
       0,
       0,
       0,
@@ -80538,9 +80538,9 @@
       0
     ],
     "RequirementVerificationMembership.isLibraryElement": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
@@ -80565,9 +80565,9 @@
       0
     ],
     "RequirementVerificationMembership.memberElementId": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
@@ -80637,9 +80637,9 @@
       0
     ],
     "RequirementVerificationMembership.ownedMemberElementId": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
@@ -80655,18 +80655,18 @@
       0
     ],
     "RequirementVerificationMembership.ownedMemberName": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
     "RequirementVerificationMembership.ownedMemberShortName": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -80853,9 +80853,9 @@
       0
     ],
     "ResultExpressionMembership.isLibraryElement": [
-      0,
-      0,
       430,
+      0,
+      0,
       0,
       0,
       0,
@@ -80871,9 +80871,9 @@
       0
     ],
     "ResultExpressionMembership.memberElementId": [
-      0,
-      0,
       430,
+      0,
+      0,
       0,
       0,
       0,
@@ -80916,9 +80916,9 @@
       0
     ],
     "ResultExpressionMembership.ownedMemberElementId": [
-      0,
-      0,
       430,
+      0,
+      0,
       0,
       0,
       0,
@@ -81096,9 +81096,9 @@
       0
     ],
     "ReturnParameterMembership.isLibraryElement": [
-      0,
-      0,
       4855,
+      0,
+      0,
       0,
       0,
       0,
@@ -81114,9 +81114,9 @@
       0
     ],
     "ReturnParameterMembership.memberElementId": [
+      4512,
+      343,
       0,
-      0,
-      4855,
       0,
       0,
       0,
@@ -81168,9 +81168,9 @@
       0
     ],
     "ReturnParameterMembership.ownedMemberElementId": [
+      4512,
+      343,
       0,
-      0,
-      4855,
       0,
       0,
       0,
@@ -81186,9 +81186,9 @@
       0
     ],
     "ReturnParameterMembership.ownedMemberName": [
+      119,
       0,
-      0,
-      4855,
+      4736,
       0,
       0,
       0,
@@ -81618,9 +81618,9 @@
       0
     ],
     "SatisfyRequirementUsage.isLibraryElement": [
-      0,
-      0,
       81,
+      0,
+      0,
       0,
       0,
       0,
@@ -82716,9 +82716,9 @@
       0
     ],
     "SelectExpression.isLibraryElement": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
@@ -83355,9 +83355,9 @@
       0
     ],
     "SendActionUsage.isLibraryElement": [
-      0,
-      0,
       26,
+      0,
+      0,
       0,
       0,
       0,
@@ -84138,9 +84138,9 @@
       0
     ],
     "Specialization.isLibraryElement": [
-      0,
-      0,
       15,
+      0,
+      0,
       0,
       0,
       0,
@@ -84354,9 +84354,9 @@
       0
     ],
     "StakeholderMembership.isLibraryElement": [
-      0,
-      0,
       15,
+      0,
+      0,
       0,
       0,
       0,
@@ -84372,9 +84372,9 @@
       0
     ],
     "StakeholderMembership.memberElementId": [
-      0,
-      0,
       15,
+      0,
+      0,
       0,
       0,
       0,
@@ -84426,9 +84426,9 @@
       0
     ],
     "StakeholderMembership.ownedMemberElementId": [
-      0,
-      0,
       15,
+      0,
+      0,
       0,
       0,
       0,
@@ -84444,9 +84444,9 @@
       0
     ],
     "StakeholderMembership.ownedMemberName": [
-      0,
-      0,
       15,
+      0,
+      0,
       0,
       0,
       0,
@@ -84777,9 +84777,9 @@
       0
     ],
     "StateDefinition.isLibraryElement": [
-      0,
-      0,
       46,
+      0,
+      0,
       0,
       0,
       0,
@@ -85416,9 +85416,9 @@
       0
     ],
     "StateSubactionMembership.isLibraryElement": [
-      0,
-      0,
       137,
+      0,
+      0,
       0,
       0,
       0,
@@ -85443,9 +85443,9 @@
       0
     ],
     "StateSubactionMembership.memberElementId": [
-      0,
-      0,
-      137,
+      79,
+      12,
+      46,
       0,
       0,
       0,
@@ -85497,9 +85497,9 @@
       0
     ],
     "StateSubactionMembership.ownedMemberElementId": [
-      0,
-      0,
-      137,
+      79,
+      12,
+      46,
       0,
       0,
       0,
@@ -85515,9 +85515,9 @@
       0
     ],
     "StateSubactionMembership.ownedMemberName": [
+      79,
       0,
-      0,
-      137,
+      58,
       0,
       0,
       0,
@@ -85929,9 +85929,9 @@
       0
     ],
     "StateUsage.isLibraryElement": [
-      0,
-      0,
       306,
+      0,
+      0,
       0,
       0,
       0,
@@ -86928,9 +86928,9 @@
       0
     ],
     "Step.isLibraryElement": [
-      0,
-      0,
       78,
+      0,
+      0,
       0,
       0,
       0,
@@ -87828,9 +87828,9 @@
       0
     ],
     "Subclassification.isLibraryElement": [
-      0,
-      0,
       648,
+      0,
+      0,
       0,
       0,
       0,
@@ -88071,9 +88071,9 @@
       0
     ],
     "SubjectMembership.isLibraryElement": [
-      0,
-      0,
       377,
+      0,
+      0,
       0,
       0,
       0,
@@ -88089,9 +88089,9 @@
       0
     ],
     "SubjectMembership.memberElementId": [
+      343,
+      34,
       0,
-      0,
-      377,
       0,
       0,
       0,
@@ -88143,9 +88143,9 @@
       0
     ],
     "SubjectMembership.ownedMemberElementId": [
+      343,
+      34,
       0,
-      0,
-      377,
       0,
       0,
       0,
@@ -88161,9 +88161,9 @@
       0
     ],
     "SubjectMembership.ownedMemberName": [
+      281,
       0,
-      0,
-      377,
+      96,
       0,
       0,
       0,
@@ -88350,9 +88350,9 @@
       0
     ],
     "Subsetting.isLibraryElement": [
-      0,
-      0,
       793,
+      0,
+      0,
       0,
       0,
       0,
@@ -88800,9 +88800,9 @@
       0
     ],
     "Succession.isLibraryElement": [
-      0,
-      0,
       26,
+      0,
+      0,
       0,
       0,
       0,
@@ -89592,9 +89592,9 @@
       0
     ],
     "SuccessionAsUsage.isLibraryElement": [
-      0,
-      0,
       12,
+      0,
+      0,
       0,
       0,
       0,
@@ -90654,9 +90654,9 @@
       0
     ],
     "SuccessionFlow.isLibraryElement": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -91509,9 +91509,9 @@
       0
     ],
     "SuccessionFlowUsage.isLibraryElement": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0,
@@ -92571,9 +92571,9 @@
       0
     ],
     "TerminateActionUsage.isLibraryElement": [
-      0,
-      0,
       11,
+      0,
+      0,
       0,
       0,
       0,
@@ -93354,9 +93354,9 @@
       0
     ],
     "TextualRepresentation.isLibraryElement": [
-      0,
-      0,
       34,
+      0,
+      0,
       0,
       0,
       0,
@@ -93534,9 +93534,9 @@
       0
     ],
     "TransitionFeatureMembership.isLibraryElement": [
-      0,
-      0,
       79,
+      0,
+      0,
       0,
       0,
       0,
@@ -93561,9 +93561,9 @@
       0
     ],
     "TransitionFeatureMembership.memberElementId": [
+      1,
+      78,
       0,
-      0,
-      79,
       0,
       0,
       0,
@@ -93615,9 +93615,9 @@
       0
     ],
     "TransitionFeatureMembership.ownedMemberElementId": [
+      1,
+      78,
       0,
-      0,
-      79,
       0,
       0,
       0,
@@ -94038,9 +94038,9 @@
       0
     ],
     "TransitionUsage.isLibraryElement": [
-      0,
-      0,
       60,
+      0,
+      0,
       0,
       0,
       0,
@@ -95037,9 +95037,9 @@
       0
     ],
     "TriggerInvocationExpression.isLibraryElement": [
-      0,
-      0,
       6,
+      0,
+      0,
       0,
       0,
       0,
@@ -95955,9 +95955,9 @@
       0
     ],
     "TypeFeaturing.isLibraryElement": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -96351,9 +96351,9 @@
       0
     ],
     "Usage.isLibraryElement": [
-      0,
-      0,
       30,
+      0,
+      0,
       0,
       0,
       0,
@@ -97278,9 +97278,9 @@
       0
     ],
     "UseCaseDefinition.isLibraryElement": [
-      0,
-      0,
       19,
+      0,
+      0,
       0,
       0,
       0,
@@ -98187,9 +98187,9 @@
       0
     ],
     "UseCaseUsage.isLibraryElement": [
-      0,
-      0,
       27,
+      0,
+      0,
       0,
       0,
       0,
@@ -99024,9 +99024,9 @@
       0
     ],
     "VariantMembership.isLibraryElement": [
-      0,
-      0,
       143,
+      0,
+      0,
       0,
       0,
       0,
@@ -99042,9 +99042,9 @@
       0
     ],
     "VariantMembership.memberElementId": [
+      140,
+      3,
       0,
-      0,
-      143,
       0,
       0,
       0,
@@ -99096,18 +99096,18 @@
       0
     ],
     "VariantMembership.ownedMemberElementId": [
+      140,
+      3,
       0,
-      0,
-      143,
       0,
       0,
       0,
       0
     ],
     "VariantMembership.ownedMemberName": [
-      0,
-      0,
       135,
+      0,
+      0,
       0,
       0,
       0,
@@ -99420,9 +99420,9 @@
       0
     ],
     "VerificationCaseDefinition.isLibraryElement": [
-      0,
-      0,
       40,
+      0,
+      0,
       0,
       0,
       0,
@@ -100320,9 +100320,9 @@
       0
     ],
     "VerificationCaseUsage.isLibraryElement": [
-      0,
-      0,
       43,
+      0,
+      0,
       0,
       0,
       0,
@@ -101256,9 +101256,9 @@
       0
     ],
     "ViewDefinition.isLibraryElement": [
-      0,
-      0,
       16,
+      0,
+      0,
       0,
       0,
       0,
@@ -101886,9 +101886,9 @@
       0
     ],
     "ViewRenderingMembership.isLibraryElement": [
-      0,
-      0,
       35,
+      0,
+      0,
       0,
       0,
       0,
@@ -101904,9 +101904,9 @@
       0
     ],
     "ViewRenderingMembership.memberElementId": [
+      33,
+      2,
       0,
-      0,
-      35,
       0,
       0,
       0,
@@ -101958,9 +101958,9 @@
       0
     ],
     "ViewRenderingMembership.ownedMemberElementId": [
+      33,
+      2,
       0,
-      0,
-      35,
       0,
       0,
       0,
@@ -101976,10 +101976,10 @@
       0
     ],
     "ViewRenderingMembership.ownedMemberName": [
-      0,
-      0,
       33,
       0,
+      0,
+      2,
       0,
       0,
       0
@@ -102363,9 +102363,9 @@
       0
     ],
     "ViewUsage.isLibraryElement": [
-      0,
-      0,
       101,
+      0,
+      0,
       0,
       0,
       0,
@@ -103362,9 +103362,9 @@
       0
     ],
     "ViewpointDefinition.isLibraryElement": [
-      0,
-      0,
       10,
+      0,
+      0,
       0,
       0,
       0,
@@ -104298,9 +104298,9 @@
       0
     ],
     "ViewpointUsage.isLibraryElement": [
-      0,
-      0,
       9,
+      0,
+      0,
       0,
       0,
       0,
@@ -105378,9 +105378,9 @@
       0
     ],
     "WhileLoopActionUsage.isLibraryElement": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0,

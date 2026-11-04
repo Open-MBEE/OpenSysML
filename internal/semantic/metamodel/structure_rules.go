@@ -822,6 +822,10 @@ func (e *Evaluator) structureMembershipProperty(element Element, class, name str
 	case "shortName":
 		return e.structureName(element, "shortName")
 	case "ownedMemberName":
+		// ownedMemberName redefines memberName (KerML 8.3.2.4.8): a stated memberName is it.
+		if stated, ok := e.options.Structure.Attribute(element, "memberName"); ok && stated.Kind == StringValue {
+			return stated, true, true
+		}
 		value, handled, ok := e.structureMemberName(element, "", "name")
 		if handled && !ok {
 			e.recordUnsupportedReason(
@@ -831,6 +835,9 @@ func (e *Evaluator) structureMembershipProperty(element Element, class, name str
 		}
 		return value, handled, ok
 	case "ownedMemberShortName":
+		if stated, ok := e.options.Structure.Attribute(element, "memberShortName"); ok && stated.Kind == StringValue {
+			return stated, true, true
+		}
 		value, handled, ok := e.structureMemberName(element, "", "shortName")
 		if handled && !ok {
 			e.recordUnsupportedReason(
@@ -895,6 +902,12 @@ func (e *Evaluator) structureMembershipProperty(element Element, class, name str
 				},
 			)
 			return Value{}, true, false
+		}
+		// memberElementId = memberElement.elementId (KerML 8.3.2.4.3): a stated elementId
+		// is it; the subject's id stands in only where the graph states none.
+		if stated, ok := e.options.Structure.Attribute(members[0], "elementId"); ok &&
+			stated.Kind == StringValue && stated.String != "" {
+			return stated, true, true
 		}
 		identity, ok := e.options.Structure.(ElementIdentityStructure)
 		if !ok {
