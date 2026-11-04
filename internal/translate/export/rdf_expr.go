@@ -986,7 +986,7 @@ var expressionMetaclasses = map[string]bool{
 	// A MultiplicityRange is a part of the feature's declaration, and a
 	// Membership relates an expression to its referent: both are minted in the
 	// expression namespace under the element they belong to.
-	mMultiplicityRange: true, mMembership: true,
+	mMultiplicityRange: true, mMultiplicityClass: true, mMembership: true,
 }
 
 // isExpressionRoot reports whether the encoder mints an expr: node of this

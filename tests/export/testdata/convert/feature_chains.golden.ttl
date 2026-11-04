@@ -159,10 +159,14 @@ elmt:Chains__IU__pip
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IP ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Chains__IU__pip_pmultiplicity ;
+    sysml:ownedRelationship elmt:Chains__IU__pip_ft0, expr:Chains__IU__pip_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__IU__pip_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__IU__pip_pmultiplicity ;
     sysml:ownedTyping elmt:Chains__IU__pip_ft0 ;
     sysml:ownedSpecialization elmt:Chains__IU__pip_ft0 ;
-    sysml:ownedRelationship elmt:Chains__IU__pip_ft0 ;
-    sysx:sourceText "        port pip : IP;\n" .
+    sysx:sourceText "        port pip : IP;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__IU__pip_ft0\"},{\"@id\":\"Chains__IU__pip_pmultiplicity_om\"}]" .
 
 elmt:Chains__IU__pip_om
     a sysml:FeatureMembership ;
@@ -180,6 +184,28 @@ elmt:Chains__IU__pip_om
     sysml:ownedMemberFeature elmt:Chains__IU__pip ;
     sysml:owningType elmt:Chains__IU ;
     json:relatedElement "[{\"@id\":\"Chains__IU\"},{\"@id\":\"Chains__IU__pip\"}]" .
+
+expr:Chains__IU__pip_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__IU__pip_pmultiplicity" ;
+    sysml:owner elmt:Chains__IU__pip ;
+    sysml:owningRelationship expr:Chains__IU__pip_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__IU__pip_pmultiplicity_om .
+
+expr:Chains__IU__pip_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__IU__pip_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__IU__pip ;
+    sysml:memberElement expr:Chains__IU__pip_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__IU__pip_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__IU__pip_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__IU__pip ;
+    sysml:membershipOwningNamespace elmt:Chains__IU__pip ;
+    sysml:source elmt:Chains__IU__pip ;
+    sysml:target expr:Chains__IU__pip_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__IU__pip, expr:Chains__IU__pip_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__IU__pip\"},{\"@id\":\"Chains__IU__pip_pmultiplicity\"}]" .
 
 elmt:Chains__LV
     a sysml:PartDefinition ;
@@ -238,10 +264,14 @@ elmt:Chains__LV__instrumentUnit
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IU ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Chains__LV__instrumentUnit_pmultiplicity ;
+    sysml:ownedRelationship elmt:Chains__LV__instrumentUnit_ft0, expr:Chains__LV__instrumentUnit_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__LV__instrumentUnit_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__LV__instrumentUnit_pmultiplicity ;
     sysml:ownedTyping elmt:Chains__LV__instrumentUnit_ft0 ;
     sysml:ownedSpecialization elmt:Chains__LV__instrumentUnit_ft0 ;
-    sysml:ownedRelationship elmt:Chains__LV__instrumentUnit_ft0 ;
-    sysx:sourceText "        part instrumentUnit : IU;\n" .
+    sysx:sourceText "        part instrumentUnit : IU;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__LV__instrumentUnit_ft0\"},{\"@id\":\"Chains__LV__instrumentUnit_pmultiplicity_om\"}]" .
 
 elmt:Chains__LV__instrumentUnit_om
     a sysml:FeatureMembership ;
@@ -259,6 +289,28 @@ elmt:Chains__LV__instrumentUnit_om
     sysml:ownedMemberFeature elmt:Chains__LV__instrumentUnit ;
     sysml:owningType elmt:Chains__LV ;
     json:relatedElement "[{\"@id\":\"Chains__LV\"},{\"@id\":\"Chains__LV__instrumentUnit\"}]" .
+
+expr:Chains__LV__instrumentUnit_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__LV__instrumentUnit_pmultiplicity" ;
+    sysml:owner elmt:Chains__LV__instrumentUnit ;
+    sysml:owningRelationship expr:Chains__LV__instrumentUnit_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__LV__instrumentUnit_pmultiplicity_om .
+
+expr:Chains__LV__instrumentUnit_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__LV__instrumentUnit_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__LV__instrumentUnit ;
+    sysml:memberElement expr:Chains__LV__instrumentUnit_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__LV__instrumentUnit_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__LV__instrumentUnit_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__LV__instrumentUnit ;
+    sysml:membershipOwningNamespace elmt:Chains__LV__instrumentUnit ;
+    sysml:source elmt:Chains__LV__instrumentUnit ;
+    sysml:target expr:Chains__LV__instrumentUnit_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__LV__instrumentUnit, expr:Chains__LV__instrumentUnit_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__LV__instrumentUnit\"},{\"@id\":\"Chains__LV__instrumentUnit_pmultiplicity\"}]" .
 
 elmt:Chains__II
     a sysml:InterfaceDefinition ;
@@ -324,10 +376,14 @@ elmt:Chains__II__a
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IP ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Chains__II__a_pmultiplicity ;
+    sysml:ownedRelationship elmt:Chains__II__a_ft0, expr:Chains__II__a_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__II__a_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__II__a_pmultiplicity ;
     sysml:ownedTyping elmt:Chains__II__a_ft0 ;
     sysml:ownedSpecialization elmt:Chains__II__a_ft0 ;
-    sysml:ownedRelationship elmt:Chains__II__a_ft0 ;
-    sysx:sourceText "        end port a : IP;\n" .
+    sysx:sourceText "        end port a : IP;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__II__a_ft0\"},{\"@id\":\"Chains__II__a_pmultiplicity_om\"}]" .
 
 elmt:Chains__II__a_om
     a sysml:FeatureMembership ;
@@ -345,6 +401,28 @@ elmt:Chains__II__a_om
     sysml:ownedMemberFeature elmt:Chains__II__a ;
     sysml:owningType elmt:Chains__II ;
     json:relatedElement "[{\"@id\":\"Chains__II\"},{\"@id\":\"Chains__II__a\"}]" .
+
+expr:Chains__II__a_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__II__a_pmultiplicity" ;
+    sysml:owner elmt:Chains__II__a ;
+    sysml:owningRelationship expr:Chains__II__a_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__II__a_pmultiplicity_om .
+
+expr:Chains__II__a_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__II__a_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__II__a ;
+    sysml:memberElement expr:Chains__II__a_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__II__a_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__II__a_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__II__a ;
+    sysml:membershipOwningNamespace elmt:Chains__II__a ;
+    sysml:source elmt:Chains__II__a ;
+    sysml:target expr:Chains__II__a_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__II__a, expr:Chains__II__a_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__II__a\"},{\"@id\":\"Chains__II__a_pmultiplicity\"}]" .
 
 elmt:Chains__II__b
     a sysml:PortUsage ;
@@ -367,10 +445,14 @@ elmt:Chains__II__b
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IP ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Chains__II__b_pmultiplicity ;
+    sysml:ownedRelationship elmt:Chains__II__b_ft0, expr:Chains__II__b_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__II__b_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__II__b_pmultiplicity ;
     sysml:ownedTyping elmt:Chains__II__b_ft0 ;
     sysml:ownedSpecialization elmt:Chains__II__b_ft0 ;
-    sysml:ownedRelationship elmt:Chains__II__b_ft0 ;
-    sysx:sourceText "        end port b : IP;\n" .
+    sysx:sourceText "        end port b : IP;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__II__b_ft0\"},{\"@id\":\"Chains__II__b_pmultiplicity_om\"}]" .
 
 elmt:Chains__II__b_om
     a sysml:FeatureMembership ;
@@ -388,6 +470,28 @@ elmt:Chains__II__b_om
     sysml:ownedMemberFeature elmt:Chains__II__b ;
     sysml:owningType elmt:Chains__II ;
     json:relatedElement "[{\"@id\":\"Chains__II\"},{\"@id\":\"Chains__II__b\"}]" .
+
+expr:Chains__II__b_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__II__b_pmultiplicity" ;
+    sysml:owner elmt:Chains__II__b ;
+    sysml:owningRelationship expr:Chains__II__b_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__II__b_pmultiplicity_om .
+
+expr:Chains__II__b_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__II__b_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__II__b ;
+    sysml:memberElement expr:Chains__II__b_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__II__b_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__II__b_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__II__b ;
+    sysml:membershipOwningNamespace elmt:Chains__II__b ;
+    sysml:source elmt:Chains__II__b ;
+    sysml:target expr:Chains__II__b_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__II__b, expr:Chains__II__b_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__II__b\"},{\"@id\":\"Chains__II__b_pmultiplicity\"}]" .
 
 elmt:Chains__ctx
     a sysml:PartUsage ;
@@ -452,10 +556,14 @@ elmt:Chains__ctx__launchVehicle
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__LV ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Chains__ctx__launchVehicle_pmultiplicity ;
+    sysml:ownedRelationship elmt:Chains__ctx__launchVehicle_ft0, expr:Chains__ctx__launchVehicle_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__ctx__launchVehicle_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__ctx__launchVehicle_pmultiplicity ;
     sysml:ownedTyping elmt:Chains__ctx__launchVehicle_ft0 ;
     sysml:ownedSpecialization elmt:Chains__ctx__launchVehicle_ft0 ;
-    sysml:ownedRelationship elmt:Chains__ctx__launchVehicle_ft0 ;
-    sysx:sourceText "        part launchVehicle : LV;\n" .
+    sysx:sourceText "        part launchVehicle : LV;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__ctx__launchVehicle_ft0\"},{\"@id\":\"Chains__ctx__launchVehicle_pmultiplicity_om\"}]" .
 
 elmt:Chains__ctx__launchVehicle_om
     a sysml:FeatureMembership ;
@@ -473,6 +581,28 @@ elmt:Chains__ctx__launchVehicle_om
     sysml:ownedMemberFeature elmt:Chains__ctx__launchVehicle ;
     sysml:owningType elmt:Chains__ctx ;
     json:relatedElement "[{\"@id\":\"Chains__ctx\"},{\"@id\":\"Chains__ctx__launchVehicle\"}]" .
+
+expr:Chains__ctx__launchVehicle_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__ctx__launchVehicle_pmultiplicity" ;
+    sysml:owner elmt:Chains__ctx__launchVehicle ;
+    sysml:owningRelationship expr:Chains__ctx__launchVehicle_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__ctx__launchVehicle_pmultiplicity_om .
+
+expr:Chains__ctx__launchVehicle_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__ctx__launchVehicle_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__ctx__launchVehicle ;
+    sysml:memberElement expr:Chains__ctx__launchVehicle_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__ctx__launchVehicle_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__ctx__launchVehicle_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__ctx__launchVehicle ;
+    sysml:membershipOwningNamespace elmt:Chains__ctx__launchVehicle ;
+    sysml:source elmt:Chains__ctx__launchVehicle ;
+    sysml:target expr:Chains__ctx__launchVehicle_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__ctx__launchVehicle, expr:Chains__ctx__launchVehicle_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx__launchVehicle\"},{\"@id\":\"Chains__ctx__launchVehicle_pmultiplicity\"}]" .
 
 elmt:Chains__ctx__supplier
     a sysml:PartUsage ;
@@ -493,10 +623,14 @@ elmt:Chains__ctx__supplier
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type elmt:Chains__IU ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Chains__ctx__supplier_pmultiplicity ;
+    sysml:ownedRelationship elmt:Chains__ctx__supplier_ft0, expr:Chains__ctx__supplier_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__ctx__supplier_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__ctx__supplier_pmultiplicity ;
     sysml:ownedTyping elmt:Chains__ctx__supplier_ft0 ;
     sysml:ownedSpecialization elmt:Chains__ctx__supplier_ft0 ;
-    sysml:ownedRelationship elmt:Chains__ctx__supplier_ft0 ;
-    sysx:sourceText "        part supplier : IU;\n" .
+    sysx:sourceText "        part supplier : IU;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__ctx__supplier_ft0\"},{\"@id\":\"Chains__ctx__supplier_pmultiplicity_om\"}]" .
 
 elmt:Chains__ctx__supplier_om
     a sysml:FeatureMembership ;
@@ -514,6 +648,28 @@ elmt:Chains__ctx__supplier_om
     sysml:ownedMemberFeature elmt:Chains__ctx__supplier ;
     sysml:owningType elmt:Chains__ctx ;
     json:relatedElement "[{\"@id\":\"Chains__ctx\"},{\"@id\":\"Chains__ctx__supplier\"}]" .
+
+expr:Chains__ctx__supplier_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__ctx__supplier_pmultiplicity" ;
+    sysml:owner elmt:Chains__ctx__supplier ;
+    sysml:owningRelationship expr:Chains__ctx__supplier_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__ctx__supplier_pmultiplicity_om .
+
+expr:Chains__ctx__supplier_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__ctx__supplier_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__ctx__supplier ;
+    sysml:memberElement expr:Chains__ctx__supplier_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__ctx__supplier_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__ctx__supplier_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__ctx__supplier ;
+    sysml:membershipOwningNamespace elmt:Chains__ctx__supplier ;
+    sysml:source elmt:Chains__ctx__supplier ;
+    sysml:target expr:Chains__ctx__supplier_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__ctx__supplier, expr:Chains__ctx__supplier_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx__supplier\"},{\"@id\":\"Chains__ctx__supplier_pmultiplicity\"}]" .
 
 elmt:Chains__ctx___402
     a sysml:ConnectionUsage ;
@@ -1016,10 +1172,14 @@ elmt:Chains__ctx__x
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:value expr:Chains__ctx__x_pvalue ;
-    sysml:ownedRelationship expr:Chains__ctx__x_pvalue_om ;
-    sysml:ownedMembership expr:Chains__ctx__x_pvalue_om ;
+    sysml:ownedRelationship expr:Chains__ctx__x_pvalue_om, expr:Chains__ctx__x_pmultiplicity_om ;
+    sysml:ownedMembership expr:Chains__ctx__x_pvalue_om, expr:Chains__ctx__x_pmultiplicity_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute x = launchVehicle.instrumentUnit.pip;\n" .
+    sysml:multiplicity expr:Chains__ctx__x_pmultiplicity ;
+    sysml:ownedMember expr:Chains__ctx__x_pmultiplicity ;
+    sysx:sourceText "        attribute x = launchVehicle.instrumentUnit.pip;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__ctx__x_pvalue_om\"},{\"@id\":\"Chains__ctx__x_pmultiplicity_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__ctx__x_pvalue_om\"},{\"@id\":\"Chains__ctx__x_pmultiplicity_om\"}]" .
 
 elmt:Chains__ctx__x_om
     a sysml:FeatureMembership ;
@@ -1311,6 +1471,28 @@ expr:Chains__ctx__x_pvalue_om
     sysml:featureWithValue elmt:Chains__ctx__x ;
     sysml:value expr:Chains__ctx__x_pvalue ;
     json:relatedElement "[{\"@id\":\"Chains__ctx__x\"},{\"@id\":\"Chains__ctx__x_pvalue\"}]" .
+
+expr:Chains__ctx__x_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__ctx__x_pmultiplicity" ;
+    sysml:owner elmt:Chains__ctx__x ;
+    sysml:owningRelationship expr:Chains__ctx__x_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__ctx__x_pmultiplicity_om .
+
+expr:Chains__ctx__x_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__ctx__x_pmultiplicity_om" ;
+    sysml:owner elmt:Chains__ctx__x ;
+    sysml:memberElement expr:Chains__ctx__x_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__ctx__x_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__ctx__x_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Chains__ctx__x ;
+    sysml:membershipOwningNamespace elmt:Chains__ctx__x ;
+    sysml:source elmt:Chains__ctx__x ;
+    sysml:target expr:Chains__ctx__x_pmultiplicity ;
+    sysml:relatedElement elmt:Chains__ctx__x, expr:Chains__ctx__x_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx__x\"},{\"@id\":\"Chains__ctx__x_pmultiplicity\"}]" .
 
 elmt:Chains__ctx__r
     a sysml:ReferenceUsage ;

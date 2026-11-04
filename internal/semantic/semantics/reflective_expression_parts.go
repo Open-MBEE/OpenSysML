@@ -41,7 +41,7 @@ func isExpressionSymbol(sym *symbols.Symbol) bool {
 	}
 	switch sym.Expr.Role {
 	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition,
-		symbols.ExpressionBody, symbols.ExpressionBodyResult:
+		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard:
 		return true
 	}
 	return false
@@ -57,6 +57,10 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "FeatureReferenceExpression"
 		case symbols.ExpressionBody:
 			return "Expression"
+		case symbols.ExpressionTriggerAction:
+			return "AcceptActionUsage"
+		case symbols.ExpressionPayload:
+			return "ReferenceUsage"
 		}
 	}
 	if isSatisfySubjectChainValue(sym) {
@@ -309,6 +313,13 @@ func (m *Model) expressionOwnedElements(expr *symbols.Symbol) []*symbols.Symbol 
 // expressionOwnedParts are the elements expr owns, parameters first then the
 // result, as the conversion lists them.
 func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
+	if accept := m.acceptParts(expr); accept != nil {
+		// A trigger's accept owns its payload; the payload's value is its FeatureValue's, not a part.
+		if expr.Expr.Role == symbols.ExpressionPayload {
+			return nil
+		}
+		return optionalElement(accept.payload)
+	}
 	parts := m.expressionPartsOf(expr)
 	if parts == nil {
 		return nil
@@ -367,7 +378,16 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	var out []*symbols.Symbol
-	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
+	if parts := m.acceptParts(sym); parts != nil {
+		// A trigger's accept owns its payload parameter, which owns its value.
+		member := parts.payload
+		if sym.Expr.Role == symbols.ExpressionPayload {
+			member = parts.payloadValue
+		}
+		if member != nil {
+			out = appendOwningMembership(out, sym, member)
+		}
+	} else if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
 		// The wrapper owns its condition through a FeatureMembership, then its result.
 		parts := m.expressionPartsOf(sym)
 		out = appendOwningMembership(out, sym, parts.condition)
