@@ -76,6 +76,34 @@ func TestW7GOneOrNoDeclaredTypeIsSilent(t *testing.T) {
 	}
 }
 
+// A declared type that is a supertype of another declared type is redundant and
+// not counted (KerML 1.1 §8.3.3.3.4 deriveFeatureType): `r : A, B` with `B :> A`
+// has the one type B, while two unrelated requirement definitions are two.
+func TestW7GARedundantSupertypeIsNotASecondType(t *testing.T) {
+	const src = `package T {
+		requirement def A;
+		requirement def B :> A;
+		requirement def C;
+		calc def K1;
+		calc def K2 :> K1;
+		part def Q {
+			requirement rOne : A, B;
+			requirement rOneAgain : B, A;
+			requirement rSame : A, A;
+			requirement rTwo : A, C;
+			calc kOne : K1, K2;
+			calc kTwo : K1, K2, A;
+		}
+	}`
+	var got []string
+	for _, d := range only(typeDiags(t, src), "one-type") {
+		got = append(got, strings.Fields(src[d.Span.Offset:d.Span.End()])[1])
+	}
+	if want := "rTwo kTwo"; strings.Join(got, " ") != want {
+		t.Fatalf("over-typed usages: got %v, want %q", got, want)
+	}
+}
+
 func TestW7GTwoTypesOnAPartIsNotAOneTypeError(t *testing.T) {
 	const src = `package T {
 		part def P1;
