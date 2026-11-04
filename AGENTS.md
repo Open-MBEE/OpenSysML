@@ -266,10 +266,11 @@ which vendors a grammar *repository*, so the grammars `editors/vscode/tools/geng
 `editors/vscode/syntaxes/` are mirrored unchanged in
 [Open-MBEE/sysml-v2-textmate](https://github.com/Open-MBEE/sysml-v2-textmate). Nothing is edited there:
 a grammar change lands here (`make vscode-grammar`, whose tests fail on a stale committed file), and
-the tag's `publish-textmate-grammars` job pushes the committed files to the mirror after the GitHub
-release (`scripts/sync-textmate-grammars.sh --publish`). `make textmate-grammars-check` diffs the
-mirror against the tree; between releases it reports the grammar changes develop has accumulated,
-which is expected, so it is not a CI gate.
+the tag's `publish-textmate-grammars` job pushes the files committed at the tag to the mirror after the
+GitHub release (`scripts/sync-textmate-grammars.sh --publish`), and only for the newest stable release,
+so a pre-release or a re-run of an older tag never rolls the mirror back. `make textmate-grammars-check`
+diffs the mirror against HEAD's grammars; between releases it reports the grammar changes develop has
+accumulated, which is expected, so it is not a CI gate.
 
 ## 7. Code Style & Commits
 

@@ -5,9 +5,15 @@
 # editors/vscode/tools/gengrammar generates (its tests fail on drift), so the
 # mirror never sees anything the parser's keyword tables did not produce.
 #
-#   scripts/sync-textmate-grammars.sh --check             mirror == tree; exit 1 on drift
-#   scripts/sync-textmate-grammars.sh --publish [--tag v]  commit the tree's grammars to the mirror and push
+#   scripts/sync-textmate-grammars.sh --check             mirror == HEAD's grammars; exit 1 on drift
+#   scripts/sync-textmate-grammars.sh --publish [--tag v]  commit HEAD's grammars to the mirror and push
 #   scripts/sync-textmate-grammars.sh --publish --dry-run  commit locally, show it, push nothing
+#
+# The grammars are read from HEAD, never from the working tree, so what the
+# mirror cites as its source is what it carries. With --tag the mirror moves
+# only for the newest stable release in the tag namespace as fetched now, the
+# rule the image publisher applies to `latest`: a pre-release or a re-run of an
+# older tag is a no-op instead of a rollback.
 #
 # --publish needs a token that can write the mirror's contents in GITHUB_TOKEN,
 # GH_TOKEN or CIRCLE_TOKEN; it travels in a header, never in a URL git echoes.
@@ -15,9 +21,10 @@ set -euo pipefail
 
 TEXTMATE_REPO="${TEXTMATE_REPO:-https://github.com/Open-MBEE/sysml-v2-textmate.git}"
 TEXTMATE_BRANCH="${TEXTMATE_BRANCH:-main}"
+SOURCE_REMOTE="${SOURCE_REMOTE:-origin}"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-syntaxes="$repo_root/editors/vscode/syntaxes"
+syntaxes_dir="editors/vscode/syntaxes"
 grammars=(sysml.tmLanguage.json kerml.tmLanguage.json)
 
 mode=""
@@ -52,19 +59,45 @@ if [[ -z "$mode" ]]; then
 	exit 2
 fi
 
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+source_commit="$(git -C "$repo_root" rev-parse HEAD)"
+source_desc="${tag:-${source_commit:0:12}}"
+src="$work/src"
+mkdir -p "$src"
 for g in "${grammars[@]}"; do
-	if [[ ! -s "$syntaxes/$g" ]]; then
-		echo "error: $syntaxes/$g is missing or empty" >&2
+	if ! git -C "$repo_root" show "HEAD:$syntaxes_dir/$g" >"$src/$g" 2>/dev/null || [[ ! -s "$src/$g" ]]; then
+		echo "error: $syntaxes_dir/$g is missing or empty at HEAD ($source_commit)" >&2
 		exit 1
 	fi
-	python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$syntaxes/$g" || {
-		echo "error: $syntaxes/$g is not valid JSON" >&2
+	python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$src/$g" || {
+		echo "error: $syntaxes_dir/$g at HEAD is not valid JSON" >&2
 		exit 1
 	}
 done
+if ! git -C "$repo_root" diff --quiet HEAD -- "$syntaxes_dir"; then
+	echo "note: $syntaxes_dir/ has uncommitted changes; only what HEAD commits is compared and published"
+fi
 
-work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
+if [[ "$mode" == "publish" && -n "$tag" ]]; then
+	case "$tag" in
+		*-*)
+			echo "Skipping: $tag is a pre-release; the mirror follows stable releases only"
+			exit 0
+			;;
+	esac
+	if ! stable_tags="$(git -C "$repo_root" ls-remote --tags --refs "$SOURCE_REMOTE" 'v[0-9]*' | awk -F/ '{print $NF}' | grep -v -- -)"; then
+		echo "error: could not list release tags from $SOURCE_REMOTE" >&2
+		exit 1
+	fi
+	newest="$(printf '%s\n%s\n' "$stable_tags" "$tag" | sort -V | tail -n 1)"
+	if [[ "$newest" != "$tag" ]]; then
+		echo "Skipping: $newest is a newer release than $tag; the mirror is not rolled back"
+		exit 0
+	fi
+fi
+
 mirror="$work/mirror"
 echo "Fetching $TEXTMATE_BRANCH from $TEXTMATE_REPO ..."
 git init --quiet "$mirror"
@@ -85,29 +118,27 @@ for g in "${grammars[@]}"; do
 	if [[ ! -f "$mirror/syntaxes/$g" ]]; then
 		echo "mirror lacks syntaxes/$g"
 		drift=1
-	elif ! diff -u "$mirror/syntaxes/$g" "$syntaxes/$g" --label "mirror/syntaxes/$g" --label "editors/vscode/syntaxes/$g"; then
+	elif ! diff -u "$mirror/syntaxes/$g" "$src/$g" --label "mirror/syntaxes/$g" --label "$syntaxes_dir/$g@${source_commit:0:12}"; then
 		drift=1
 	fi
 done
 
 if [[ "$mode" == "check" ]]; then
 	if [[ "$drift" -eq 0 ]]; then
-		echo "OK: $TEXTMATE_REPO@${mirror_head:0:12} carries the committed grammars"
+		echo "OK: $TEXTMATE_REPO@${mirror_head:0:12} carries the grammars committed at ${source_commit:0:12}"
 		exit 0
 	fi
-	echo "error: the grammar mirror has drifted from editors/vscode/syntaxes/ (above); publish with --publish" >&2
+	echo "error: the grammar mirror has drifted from $syntaxes_dir/ at HEAD (above); publish with --publish" >&2
 	exit 1
 fi
 
 if [[ "$drift" -eq 0 ]]; then
-	echo "Nothing to publish: $TEXTMATE_REPO@${mirror_head:0:12} already carries the committed grammars"
+	echo "Nothing to publish: $TEXTMATE_REPO@${mirror_head:0:12} already carries the grammars committed at ${source_commit:0:12}"
 	exit 0
 fi
 
-source_commit="$(git -C "$repo_root" rev-parse HEAD)"
-source_desc="${tag:-${source_commit:0:12}}"
 for g in "${grammars[@]}"; do
-	cp "$syntaxes/$g" "$mirror/syntaxes/$g"
+	cp "$src/$g" "$mirror/syntaxes/$g"
 done
 git -C "$mirror" add syntaxes
 git -C "$mirror" \
