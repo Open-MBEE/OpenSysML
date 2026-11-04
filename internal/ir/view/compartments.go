@@ -50,10 +50,8 @@ var compartmentHeadings = map[string]string{
 // keeps before its name while the compartment is named by the kind after them.
 var rowPrefixes = []string{"ref", "abstract", "variation", "individual", "readonly", "derived", "end"}
 
-// compartmentName is the name of the compartment a member of kind belongs to
-// as the graphical notation heads it: the plural of its keyword after any
-// modifier ("part defs" for a nested definition) unless the figures head it
-// otherwise, and "ends" for a connection's end features whatever their kind.
+// compartmentName is the compartment a member of kind lists in, as the figures head
+// it: the figure's heading or the keyword's plural; `end` features list under "ends".
 func compartmentName(kind string) string {
 	prefix, keyword := splitRowPrefix(kind)
 	if keyword == "" {
