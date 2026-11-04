@@ -285,6 +285,18 @@ func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
 	return r.routePoints(site, elem, out)
 }
 
+// unsteeredRoute is the waypoints a Route about elem states while the edges
+// drawn for elem cannot follow them; elem is not marked steered, so a round
+// trip refuses to reroute it instead of writing a Route nothing follows.
+func (r *Renderer) unsteeredRoute(view, elem *symbols.Symbol, out *Rendering) []Point {
+	out.drawn.note(elem, true)
+	site, ok := r.model.RouteOf(view, elem)
+	if !ok {
+		return nil
+	}
+	return r.routePoints(site, elem, out)
+}
+
 // specializationRouteOf is the waypoints the edge drawn from elem to general,
 // for the specialization, typing or subsetting elem states, follows in view:
 // those of a Route about elem naming general, nil when none gives any.
