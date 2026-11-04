@@ -182,11 +182,11 @@ package a follow-up can take one at a time (see below).
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
 | `composite-feature-membership` | edge | approximate | F | view-rendering-forms.md § Notation table: Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. A mixed rendering draws it from an owner to every composite usage nested in its node — a part, action or state usage, a view usage — where PlantUML and the text form show it and DOT and Mermaid leave it to the nesting ([case and mixed diagrams](view-rendering-forms.md#case-and-mixed-diagrams)). |
-| `definition` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots at its base: Graphviz sets the dots in line behind the triangle, D2 has no dots and draws the plain triangle, Mermaid writes `typing` as the edge text. |
+| `definition` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots stacked beside its base, as PlantUML's `--:\|>` sets them: Graphviz sets the dots in line behind the triangle, D2 and draw.io have no dots and draw the plain triangle, Mermaid writes `typing` as the edge text. |
 | `features-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all (a KerML `feature` member never folds into a SysML node's compartments) |
 | `noncomposite-feature-membership` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow diamond at the owner; Mermaid leads the edge text with `◇`. A mixed rendering draws it to every referential usage nested in its owner's node — a `ref` part, an attribute, a port — as above. |
-| `redefinition` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow triangle with a bar across the line: Graphviz sets the tee behind the triangle, D2 has no bar and draws the plain triangle, Mermaid writes `redefinition` as the edge text. |
-| `reference-subsetting` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML and D2 draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--\|>`. |
+| `redefinition` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow triangle with a bar across the line at its base, as Graphviz's `onormaltee` sets it; PlantUML sets the bar a little behind the triangle, D2 and draw.io have no bar and draw the plain triangle, Mermaid writes `redefinition` as the edge text. |
+| `reference-subsetting` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML, D2 and draw.io draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--\|>`. |
 | `subclassification` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid hollow triangle; Mermaid has no triangle head and names the kind as the edge text instead. |
 | `subsetting` | edge | approximate | F | view-rendering-forms.md § Notation table: The same hollow triangle, no text; Mermaid writes `subsetting` as the edge text, having no triangle. |
 
@@ -242,7 +242,7 @@ package a follow-up can take one at a time (see below).
 
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
-| `flow` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it). |
+| `flow` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid with a filled triangle head; PlantUML's `-->` head is a filled vee, not a triangle (as the Pilot writes it). |
 | `message` | edge | undrawn | D | documented as undrawn in view-rendering-forms.md § Notation table: the sequence form draws its own arrow |
 
 #### §8.2.3.17 Actions Graphical Notation

@@ -93,7 +93,7 @@
           </mxCell>
         </object>
         <object id="e1" label="" kind="typing" view="AbstractViews::familyTree" link="abstract.sysml:14">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=1;entryY=0.7517;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n0">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=1;entryY=0.7517;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="213" y="166"/>

@@ -2163,10 +2163,10 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	case EdgeSpecialization, EdgeSubsetting:
 		attrs = append(attrs, "arrowhead=empty")
 	case EdgeRedefinition:
-		// Graphviz has no bar across a hollow triangle; a tee behind one is nearest.
+		// The figure's bar crosses the line at the triangle's base, where onormaltee sets its tee.
 		attrs = append(attrs, "arrowhead=onormaltee")
 	case EdgeTyping:
-		// Graphviz sets the two dots behind the triangle, not beside its base.
+		// Graphviz sets the two dots in line behind the triangle; the figure stacks them beside its base.
 		attrs = append(attrs, "arrowhead=onormaldotdot")
 	case EdgeComposition:
 		if caseNotation(w.kind) {

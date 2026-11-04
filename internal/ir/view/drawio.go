@@ -980,7 +980,7 @@ func drawioEdgeStyle(kind EdgeKind) string {
 	case EdgeSpecialization, EdgeSubsetting, EdgeRedefinition, EdgeReferenceSubsetting:
 		return "endArrow=block;endFill=0"
 	case EdgeTyping:
-		return "dashed=1;endArrow=block;endFill=0"
+		return "endArrow=block;endFill=0"
 	case EdgeComposition:
 		return "startArrow=diamondThin;startFill=1;endArrow=none"
 	case EdgeReference:

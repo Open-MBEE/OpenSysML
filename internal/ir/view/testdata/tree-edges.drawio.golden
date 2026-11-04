@@ -257,7 +257,7 @@
           </mxCell>
         </object>
         <object id="e7" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:24">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2544;entryY=0.2897;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n20">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2544;entryY=0.2897;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n20">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="123" y="117"/>
@@ -272,7 +272,7 @@
           </mxCell>
         </object>
         <object id="e9" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:25">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n3" target="n24">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n3" target="n24">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="266" y="259"/>
@@ -284,7 +284,7 @@
           </mxCell>
         </object>
         <object id="e10" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:26">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n4" target="n25">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n4" target="n25">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="388" y="259"/>
@@ -294,7 +294,7 @@
           </mxCell>
         </object>
         <object id="e11" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:27">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n26">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n26">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="34" y="356"/>
@@ -304,7 +304,7 @@
           </mxCell>
         </object>
         <object id="e12" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:29">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=1;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n7" target="n6">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=1;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n7" target="n6">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
@@ -390,7 +390,7 @@
           </mxCell>
         </object>
         <object id="e23" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:35">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5034;exitPerimeter=0;entryX=0.748;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n22">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5034;exitPerimeter=0;entryX=0.748;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n22">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="299" y="215"/>
@@ -406,7 +406,7 @@
           </mxCell>
         </object>
         <object id="e25" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:36">
-          <mxCell style="edgeStyle=none;exitX=0.5079;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n24">
+          <mxCell style="edgeStyle=none;exitX=0.5079;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n24">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="702" y="312"/>
@@ -434,7 +434,7 @@
           </mxCell>
         </object>
         <object id="e28" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:10">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n21" target="n26">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n21" target="n26">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="987" y="653"/>
@@ -470,7 +470,7 @@
           </mxCell>
         </object>
         <object id="e32" label="" kind="typing" view="FleetViews::structure" link="tree-edges.sysml:39">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.0749;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n27" target="n0">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.0749;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n27" target="n0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="410" y="645"/>

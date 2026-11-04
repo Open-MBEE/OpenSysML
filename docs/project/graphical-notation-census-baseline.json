@@ -592,7 +592,7 @@
       "category": "edge",
       "verdict": "approximate",
       "package": "F",
-      "reason": "view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots at its base: Graphviz sets the dots in line behind the triangle, D2 has no dots and draws the plain triangle, Mermaid writes `typing` as the edge text."
+      "reason": "view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots stacked beside its base, as PlantUML's `--:|>` sets them: Graphviz sets the dots in line behind the triangle, D2 and draw.io have no dots and draw the plain triangle, Mermaid writes `typing` as the edge text."
     },
     {
       "clause": "8.2.3.6",
@@ -644,7 +644,7 @@
       "category": "edge",
       "verdict": "approximate",
       "package": "F",
-      "reason": "view-rendering-forms.md § Notation table: Hollow triangle with a bar across the line: Graphviz sets the tee behind the triangle, D2 has no bar and draws the plain triangle, Mermaid writes `redefinition` as the edge text."
+      "reason": "view-rendering-forms.md § Notation table: Hollow triangle with a bar across the line at its base, as Graphviz's `onormaltee` sets it; PlantUML sets the bar a little behind the triangle, D2 and draw.io have no bar and draw the plain triangle, Mermaid writes `redefinition` as the edge text."
     },
     {
       "clause": "8.2.3.6",
@@ -652,7 +652,7 @@
       "category": "edge",
       "verdict": "approximate",
       "package": "F",
-      "reason": "view-rendering-forms.md § Notation table: Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML and D2 draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--|>`."
+      "reason": "view-rendering-forms.md § Notation table: Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML, D2 and draw.io draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--|>`."
     },
     {
       "clause": "8.2.3.6",
@@ -1225,7 +1225,7 @@
       "category": "edge",
       "verdict": "approximate",
       "package": "F",
-      "reason": "view-rendering-forms.md § Notation table: Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it)."
+      "reason": "view-rendering-forms.md § Notation table: Solid with a filled triangle head; PlantUML's `-->` head is a filled vee, not a triangle (as the Pilot writes it)."
     },
     {
       "clause": "8.2.3.16",
