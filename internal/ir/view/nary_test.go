@@ -225,26 +225,36 @@ func TestSplitRouteKeepsALoneWaypointOnTheFirstSegment(t *testing.T) {
 }
 
 // A Route about an n-ary relationship steers none of its segments: one polyline
-// has no place for the dot, so each segment is laid out on its own and a notice
-// says the route was not followed, as the interconnection rendering already holds.
+// has no place for the dot, so each segment is laid out on its own, a notice
+// says the route was not followed, and the relationship is not steerable, so a
+// draw.io import refuses to reroute a segment rather than write a Route nothing follows.
 func TestRoutedNaryRelationshipSegmentsCarryNoRoute(t *testing.T) {
 	for _, tc := range []struct{ view, name, kind string }{
 		{"NaryViews::routedRules", "rules", dependencyDotKind},
 		{"NaryViews::routedSpokes", "spokes", connectionDotKind},
+		{"NaryViews::routedWheel", "spokes", connectionDotKind},
 	} {
 		rendering := render(t, "nary.sysml", tc.view)
-		dots := dotNodes(rendering)[tc.kind]
-		if len(dots) != 1 || !strings.HasSuffix(dots[0].Name, "::"+tc.name) {
-			t.Fatalf("%s: %d dots, first named %q, want one named %s:\n%s", tc.view, len(dots), dots[0].Name, tc.name, rendering.Text())
+		var dot *Node
+		for _, candidate := range dotNodes(rendering)[tc.kind] {
+			if strings.HasSuffix(candidate.Name, tc.name) {
+				dot = candidate
+			}
+		}
+		if dot == nil {
+			t.Fatalf("%s: no %s named %s:\n%s", tc.view, tc.kind, tc.name, rendering.Text())
 		}
 		segments := 0
 		for _, edge := range rendering.Edges {
-			if edge.From != dots[0].ID && edge.To != dots[0].ID {
+			if edge.From != dot.ID && edge.To != dot.ID {
 				continue
 			}
 			segments++
 			if len(edge.Route) != 0 {
 				t.Errorf("%s: segment %s → %s carries the relationship's route %v", tc.view, edge.From, edge.To, edge.Route)
+			}
+			if rendering.drawn.Steers(edge.Origin, edge.Kind) {
+				t.Errorf("%s: segment %s → %s is steerable, so an import would write a Route the segments never follow", tc.view, edge.From, edge.To)
 			}
 		}
 		if segments < 3 {

@@ -1355,11 +1355,14 @@ func (r *Renderer) exposedRelationships(view *symbols.Symbol, exposed []*symbols
 			out.Notices = append(out.Notices, fmt.Sprintf("%s %s is drawn between the nodes of its ends; the view does not show both, so no edge is drawn",
 				declKind(sym), r.notationName(sym)))
 		}
-		route := r.routeOf(view, sym, out)
-		if len(route) > 0 && g.hubbed(sym) {
-			out.Notices = append(out.Notices, fmt.Sprintf("%s %s states a route; its ends are drawn as a dot and segments, which the route does not steer",
-				declKind(sym), r.notationName(sym)))
-			route = nil
+		var route []Point
+		if g.hubbed(sym) {
+			if len(r.unsteeredRoute(view, sym, out)) > 0 {
+				out.Notices = append(out.Notices, fmt.Sprintf("%s %s states a route; its ends are drawn as a dot and segments, which the route does not steer",
+					declKind(sym), r.notationName(sym)))
+			}
+		} else {
+			route = r.routeOf(view, sym, out)
 		}
 		for _, edge := range edges {
 			edge.Route = route
