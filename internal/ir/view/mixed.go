@@ -297,7 +297,7 @@ func (w *mixedWalk) renderStructures() {
 	for _, entry := range w.structures {
 		index(entry.sym)
 	}
-	w.renderDeferredStructureMembers(members, w.structureOrder)
+	adopted := w.renderDeferredStructureMembers(members, w.structureOrder)
 	roots := map[*Node]bool{}
 	for _, root := range temp.Roots {
 		roots[root] = true
@@ -313,15 +313,17 @@ func (w *mixedWalk) renderStructures() {
 			entry.parent.Children[entry.index] = node
 		}
 	}
-	w.removeStructuralSlots()
+	w.removeStructuralSlots(adopted)
 	w.out.Edges = append(w.out.Edges, temp.Edges...)
 	w.out.Notes = append(w.out.Notes, temp.Notes...)
 	w.out.Notices = append(w.out.Notices, temp.Notices...)
 	w.out.depthCut += temp.depthCut
 }
 
-// renderDeferredStructureMembers attaches members after their structural owners are indexed.
-func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*Node, owners []*symbols.Symbol) {
+// renderDeferredStructureMembers attaches members after their structural owners are indexed,
+// and is the owner node each member's node now hangs from.
+func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*Node, owners []*symbols.Symbol) map[*Node]*Node {
+	adopted := map[*Node]*Node{}
 	for _, sym := range owners {
 		owner := members[sym]
 		if owner == nil {
@@ -344,6 +346,7 @@ func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*
 			if node != nil && !directMembers[node] {
 				children = append(children, node)
 				directMembers[node] = true
+				adopted[node] = owner
 			}
 		}
 		for _, child := range existingChildren {
@@ -353,14 +356,16 @@ func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*
 		}
 		owner.Children = children
 	}
+	return adopted
 }
 
-// removeStructuralSlots replaces temporary structural placeholders with built nodes.
-func (w *mixedWalk) removeStructuralSlots() {
-	compact := func(nodes []*Node) []*Node {
+// removeStructuralSlots drops the temporary structural placeholders, and every
+// placement of an adopted node other than the one under its owner.
+func (w *mixedWalk) removeStructuralSlots(adopted map[*Node]*Node) {
+	compact := func(parent *Node, nodes []*Node) []*Node {
 		out := nodes[:0]
 		for _, node := range nodes {
-			if node != nil {
+			if owner, ok := adopted[node]; node != nil && (!ok || owner == parent) {
 				out = append(out, node)
 			}
 		}
@@ -368,12 +373,12 @@ func (w *mixedWalk) removeStructuralSlots() {
 	}
 	var walk func(*Node)
 	walk = func(node *Node) {
-		node.Children = compact(node.Children)
+		node.Children = compact(node, node.Children)
 		for _, child := range node.Children {
 			walk(child)
 		}
 	}
-	w.out.Roots = compact(w.out.Roots)
+	w.out.Roots = compact(nil, w.out.Roots)
 	for _, root := range w.out.Roots {
 		walk(root)
 	}

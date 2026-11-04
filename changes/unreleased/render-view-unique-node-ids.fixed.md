@@ -1,0 +1,1 @@
+- A mixed rendering whose exposes overlap — a structure and, through `::**`, a member it draws — no longer draws that member twice, once nested in its owner and once at the top level under the same id: `RenderView` lists each node once, nested in its owner, and its node ids are unique within a rendering.

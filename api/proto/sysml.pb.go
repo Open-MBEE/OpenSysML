@@ -15079,7 +15079,8 @@ type RenderViewResponse struct {
 	View   string                 `protobuf:"bytes,1,opt,name=view,proto3" json:"view,omitempty"`
 	Kind   string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
 	Stated string                 `protobuf:"bytes,3,opt,name=stated,proto3" json:"stated,omitempty"`
-	// Nodes are flattened with parents before children.
+	// Nodes are flattened with parents before children; each node is listed once,
+	// and ids are unique within a rendering.
 	Nodes   []*RenderNode `protobuf:"bytes,4,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	Edges   []*RenderEdge `protobuf:"bytes,5,rep,name=edges,proto3" json:"edges,omitempty"`
 	Columns []string      `protobuf:"bytes,6,rep,name=columns,proto3" json:"columns,omitempty"`
