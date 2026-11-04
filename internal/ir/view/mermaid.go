@@ -1228,8 +1228,10 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 	switch node.Kind {
 	case startKind, "initial":
 		return `@{ shape: f-circ, label: "" }`
-	case "final", terminateKind:
+	case "final":
 		return `@{ shape: fr-circ, label: "" }`
+	case terminateKind:
+		return `@{ shape: cross-circ, label: "" }`
 	case "junction":
 		return `@{ shape: f-circ, label: "" }`
 	case connectionDotKind, connectionDefDotKind, dependencyDotKind:
@@ -1296,7 +1298,7 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 		markdown = append(markdown, first)
 		head = head[1:]
 	} else if keyword := labels.keyword(node); keyword != "" {
-		markdown = append(markdown, "*"+keyword+"*")
+		markdown = append(markdown, marked(labels.mark(node), "*"+keyword+"*"))
 	}
 	for _, line := range head {
 		markdown = append(markdown, "**"+line+"**")

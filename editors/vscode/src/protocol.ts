@@ -101,6 +101,8 @@ export interface RenderNode {
   parent?: string;
   /** The owner the node is drawn or listed under has the usage through typing, subclassification or subsetting rather than declares it; the label prefixes `name` with `^`. */
   inherited?: boolean;
+  /** The state's substates run in parallel; the label writes «parallel» under the name. */
+  parallel?: boolean;
   /** The qualified name a model edit targets the declaration by, in whichever workspace document declares it; absent for a node with none, and for a library's. */
   fqn?: string;
   /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */

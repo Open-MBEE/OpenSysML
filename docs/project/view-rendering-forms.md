@@ -256,11 +256,32 @@ node with a single output and nothing else — a UML value specification action 
 `action value3 { out result : Boolean = true; }` — the literal its result is bound to (`true`,
 `"SH-0"`, `0`), or `: Type` when the result has a type and no value. A node whose type names what
 it calls heads `: Type` as any typed anonymous usage does, so a migrated `call5 : 'Setup APS'`
-reads `: 'Setup APS'`. The `own flow` detail marks a node whose nested flow is drawn inside it;
-it is set only when that flow lowers to nodes of its own, so an action whose body is a single
-statement or a bound value carries no `own flow` and no nested cluster. The node is the nested
-flow's frame: its own pins are the ones the flow's bindings attach to, and the flow's nodes take
-the IDs after it.
+reads `: 'Setup APS'`. The `action flow` compartment (§8.2.3.17 action-flow-compartment) heads a
+node whose nested flow is drawn inside it; it is set only when that flow lowers to nodes of its own,
+so an action whose body is a single statement or a bound value carries no `action flow`
+compartment and no nested cluster. The node is the nested flow's frame: its own pins are the ones
+the flow's bindings attach to, and the flow's nodes take the IDs after it.
+
+### Action and state node forms
+
+The action nodes of §8.2.3.17 and the state nodes of §8.2.3.18 are drawn as their figures give
+them, the lowered `ActionGraph` and `StateGraph` saying which form a node takes
+(`behavior_forms.go` `statementNodeKind`, `behavior.go` `stateNode`):
+
+| Production | Form | Where |
+| --- | --- | --- |
+| `send-action-node`, `accept-action-node` | A rounded box headed by the «send action» or «accept action» name compartment, the figure's corner glyph at its top left (a filled pentagon pointing out of the node for send, a notched flag for accept), then the expression as written: `Alarm to sensor`, `reading : Reading via inPort` | DOT (`dot.go` `assemble`, a mark cell), draw.io (`drawio.go` `writeMark`), canvas (`canvas.ts` `markGraphic`); PlantUML and Mermaid write the glyph as `▷` / `◁` before the keyword, D2 and the text form omit it |
+| `assign-action-node` | A rounded box headed by «assign» with the assignment as written, `count := count + 1` | every form |
+| `while-loop-action-node`, `for-loop-action-node` | A rounded box headed by «loop», then the `while condition`, `for iterator` and `until condition` compartments the loop declares, then the `loop body` as a nested section whose nodes are the body's flow | every form; the body a cluster in DOT, a container in PlantUML, Mermaid, D2 and draw.io, a nested box on the canvas |
+| `if-else-action-node` | A rounded box headed by «if», the `if condition` compartment, then the `then body` and `else body` sections | every form, as the loop |
+| `else-branch` | The `else <target>` succession of a decision labelled `else`, dashed with an open head as any guarded succession | every form (`behavior.go` `successionLabel`, `lower.ActionEdge.Else`) |
+| `terminate-node` | A white circle crossed by an X | DOT (`shape=circle`, a bold `✕`), Mermaid (`cross-circ`), draw.io (`umlDestroy`), canvas (`shape: "cross"`); PlantUML has no terminate pseudostate and D2 no crossed circle, both draw a plain end |
+| `param-l`, `param-r`, `param-t`, `param-b` | A parameter pin is a rounded square carrying its direction arrow (`pdh` on a left or right pin: `→` into the node for `in`, out of it for `out`, `↔` for `inout`; `pdv` on a top or bottom pin: `↓`, `↑`, `↕`), its name beside it; a part's port keeps its plain square | DOT (`dot_ports.go` `pinArrowCell`), draw.io (`drawio.go` `writePinArrow`), canvas (`layout.ts` `pinArrow`) |
+| `state-entry-action`, `state-do-action`, `state-exit-action` | A state's behaviors as `entry`, `do` and `exit` compartments, each behavior a row as declared (`action initialize : InitializePEAS`, `action`, the body's statement for a bodied anonymous action); the Cameo style keeps Cameo's `entry / x` lines | every form (`behavior.go` `stateActionCompartments`) |
+| `entry-action`, `do-action`, `exit-action` | A composite state draws each behavior declared as a named or bodied action as a node headed «entry action», «do action» or «exit action» among its substates | every form (`behavior.go` `stateActionNodes`) |
+| `state-transition-compartment` | A state machine and a composite state head their substates with the `state transition` compartment | every form |
+| `state-def-name-compartment`, `state-name-compartment` | «parallel» under the name of a parallel state (`Node.Parallel`) | every form (`label.go` `parallel`) |
+| `perform-actions-swimlanes`, `swimlane`, `performed-by-compartment` | Not drawn | — |
 
 A state's compartment lines name its behaviours (`stateBehaviorLabel`, `behaviorText` in
 `behavior.go`): `entry / prime`, `do / Initialize`, `exit / Settle`, each behaviour by its name,
@@ -565,7 +586,8 @@ digraph "VehicleViews::vehicleView" {
   `join`, `shallow history`, `deep history`, and a terminate action — and is drawn as its UML
   symbol whenever a Layout sizes it, and always under the [cameo style](#the-cameo-style)
   (`isSymbolKind`, `dotSymbolAttributes`): a filled dot for `initial` and `junction`, a bull's-eye
-  for `final` and terminate, a diamond for `choice`, `decision` and `merge`, a filled bar for
+  for `final`, a white circle crossed by an X for terminate (`dotTerminateAttributes`, drawn so
+  whether or not a Layout sizes it), a diamond for `choice`, `decision` and `merge`, a filled bar for
   `fork` and `join` lying the way its box is longer, a white ring lettered `H` or `H*` for a
   history. No text is set inside a symbol; a name the model gave is set beside it as `xlabel`,
   a synthesized one not at all. SysML v2 has no entry- or exit-point pseudo-states: a state's
@@ -706,7 +728,7 @@ compartments and labels of the clause still lack.
 | `binding-connection` | `binding` | `arrowhead=none` | `--` | `===` | `-- edge` | `endArrow=none` | `none` | conformant | Labelled `=` where the binding has no name of its own, in every form. |
 | `flow` | `flow` | *(default)* | `-->` | `-->` | `-> edge` | `endArrow=block;endFill=1` | `end arrow` | approximate | Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it). |
 | `aflow-succession` | `succession` | `style=dashed, arrowhead=vee` | `-[dashed]->` | `-.->` | `-> succession` | `dashed=1;endArrow=open` | `end arrow-open` | differs from pilot | Dashed with an open head and the guard as its text; the Pilot draws a succession solid. Mermaid's `-.->` and D2's dashed arrow carry a filled head. |
-| `transition`, `st-succession` | `transition` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `endArrow=open` | `end arrow-open` | approximate | Solid with an open head; Mermaid and D2 have only a filled head. |
+| `transition`, `st-succession` | `transition` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `endArrow=open` | `end arrow-open` | approximate | Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head. |
 | `subclassification`, `specialization` | `specialization` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-hollow` | approximate | Solid hollow triangle; Mermaid has no triangle head and names the kind as the edge text instead. |
 | `subsetting` | `subsetting` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-hollow` | approximate | The same hollow triangle, no text; Mermaid writes `subsetting` as the edge text, having no triangle. |
 | `redefinition` | `redefinition` | `arrowhead=onormaltee` | `--\|\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-bar` | approximate | Hollow triangle with a bar across the line: Graphviz sets the tee behind the triangle, D2 has no bar and draws the plain triangle, Mermaid writes `redefinition` as the edge text. |
@@ -870,7 +892,7 @@ translation to DOT is:
 | Pilot `caseConnectionUsage`, `caseConnector`: `-[thickness=3]-` | `EdgeConnection`: `arrowhead=none, penwidth=3` |
 | Pilot `caseFlow`, `caseSuccession`, `caseTransitionUsage`: `-->` | the `EdgeKind` table above, unchanged |
 | initial and final pseudo-states | the UML filled black dot: `shape=circle` (`doublecircle` for a final), `fillcolor=black`, `label=""`, `width=0.2` unless a Layout sizes it; a pseudo-state the model names keeps its labelled ring unless a Layout sizes it. An action's `start` and `done`, being the language's names and not the body's, and a name a migration made up (`Node.NameSynthesized`) are the dot and the ring, as the notation draws them. The `start` point is unchanged |
-| symbol kinds in a stated box | a node whose Layout states a size and whose kind has a notation symbol is drawn as the symbol with no text inside it: `decision`, `merge` and `choice` as `shape=diamond`; `fork` and `join` as the filled bar (the stated box, `fillcolor=black`); `initial` and `junction` as the filled dot; `final` and a terminate action as `shape=doublecircle, fillcolor=black`; a port (`port`, `ref port`, not a `port def`) as its stated square, filled by the palette when one is set. The head the node would have carried is set beside the symbol as `xlabel="…"`, a plain string, and left out when `Node.NameSynthesized` marks the name as one a migration made up |
+| symbol kinds in a stated box | a node whose Layout states a size and whose kind has a notation symbol is drawn as the symbol with no text inside it: `decision`, `merge` and `choice` as `shape=diamond`; `fork` and `join` as the filled bar (the stated box, `fillcolor=black`); `initial` and `junction` as the filled dot; `final` as `shape=doublecircle, fillcolor=black`; a terminate action as `shape=circle, fillcolor=white` with a bold `✕` inside; a port (`port`, `ref port`, not a `port def`) as its stated square, filled by the palette when one is set. The head the node would have carried is set beside the symbol as `xlabel="…"`, a plain string, and left out when `Node.NameSynthesized` marks the name as one a migration made up |
 
 Not translated, because Graphviz has no vocabulary for them: `Shadowing 0` (no shadows to turn
 off), `hide circle` (no class circles), `wrapWidth 300` (DOT does not wrap label text; the writer

@@ -197,6 +197,9 @@ func endLabel(labels map[string]string, node, port string) string {
 // rowLine is a compartment row's line of the text form: its kind, name, type
 // and value, as the graph forms' compartment rows read.
 func rowLine(row *Node) string {
+	if row.Kind == statementRowKind {
+		return row.Text
+	}
 	line := row.Kind
 	if name := shown(row); name != "" {
 		line += " " + usagePrefix(row.Inherited) + name
@@ -227,6 +230,9 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	}
 	if itemBox(node) && name == "" && node.Text != "" {
 		line += " " + node.Text
+	}
+	if node.Parallel && shown.Has(ElementKeywords) {
+		line += " parallel"
 	}
 	if node.Detail != "" && shown.Has(ElementCompartments) {
 		line += " (" + node.Detail + ")"

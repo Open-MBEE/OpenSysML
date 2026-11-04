@@ -1,0 +1,77 @@
+// view: ActionFormViews::monitorView
+// kind: action
+// stated: render asInterconnectionDiagram, view def ActionFlowView
+// layout: dot
+digraph "ActionFormViews::monitorView" {
+  graph [fontname="Helvetica", compound=true];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«action def»</i></font><br/><b>Monitor</b>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n0.0" [shape=box, style="rounded,filled", label="→", xlabel="sensor", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true];
+    "n0.1" [shape=box, style="rounded,filled", label="→", xlabel="alarm", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true];
+    "n1" [shape=circle, fillcolor=black, label="", width=0.2];
+    "n2" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.1" border="1" style="rounded" fixedsize="true" width="10" height="10"><font point-size="7">↕</font></td><td align="left"><font point-size="8">^payload</font></td><td port="n2.2" border="1" style="rounded" fixedsize="true" width="10" height="10"><font point-size="7">↓</font></td><td align="left"><font point-size="8">^receiver</font></td></tr><tr><td colspan="4"><font point-size="10">⚑</font><br align="left"/><font point-size="10"><i>«accept action»</i></font><br/><b>acceptReading</b><br/>reading : Reading</td></tr><tr><td port="n2.0" border="1" style="rounded" fixedsize="true" width="10" height="10"><font point-size="7">↓</font></td><td align="left"><font point-size="8">reading</font></td></tr></table>>];
+    "n3" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n3.0" border="1" style="rounded" fixedsize="true" width="10" height="10"><font point-size="7">↓</font></td><td align="left"><font point-size="8">^payload</font></td><td port="n3.1" border="1" style="rounded" fixedsize="true" width="10" height="10"><font point-size="7">↓</font></td><td align="left"><font point-size="8">^sender</font></td><td port="n3.2" border="1" style="rounded" fixedsize="true" width="10" height="10"><font point-size="7">↓</font></td><td align="left"><font point-size="8">^receiver</font></td></tr><tr><td colspan="6"><font point-size="10">⭓</font><br align="left"/><font point-size="10"><i>«send action»</i></font><br/><b>sendAlarm</b><br/>Alarm to sensor</td></tr></table>>];
+    "n4" [style="rounded,filled", label=<<font point-size="10"><i>«assign»</i></font><br/><b>tally</b><br/>count := count + 1>];
+    subgraph "cluster_n5" {
+      label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«loop»</i></font><br/><b>wait</b></td></tr><hr/><tr><td><font point-size="10">while condition</font></td></tr><tr><td align="left">count &lt; 10</td></tr></table>>;
+      color=black;
+      penwidth=0.5;
+      "n5" [shape=point, style=invis, width=0, height=0, label=""];
+      subgraph "cluster_n6" {
+        label=<<font point-size="10">loop body</font>>;
+        color=black;
+        penwidth=0.5;
+        "n6" [shape=point, style=invis, width=0, height=0, label=""];
+        "n7" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>poll</b>>];
+        "n8" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>record</b>>];
+      }
+    }
+    subgraph "cluster_n9" {
+      label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«loop»</i></font><br/><b>sweep</b></td></tr><hr/><tr><td><font point-size="10">for iterator</font></td></tr><tr><td align="left">i in 1..3</td></tr></table>>;
+      color=black;
+      penwidth=0.5;
+      "n9" [shape=point, style=invis, width=0, height=0, label=""];
+      subgraph "cluster_n10" {
+        label=<<font point-size="10">loop body</font>>;
+        color=black;
+        penwidth=0.5;
+        "n10" [shape=point, style=invis, width=0, height=0, label=""];
+        "n11" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>&#39;step&#39;</b>>];
+      }
+    }
+    subgraph "cluster_n12" {
+      label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«if»</i></font><br/><b>choose</b></td></tr><hr/><tr><td><font point-size="10">if condition</font></td></tr><tr><td align="left">count &gt; 5</td></tr></table>>;
+      color=black;
+      penwidth=0.5;
+      "n12" [shape=point, style=invis, width=0, height=0, label=""];
+      subgraph "cluster_n13" {
+        label=<<font point-size="10">then body</font>>;
+        color=black;
+        penwidth=0.5;
+        "n13" [shape=point, style=invis, width=0, height=0, label=""];
+        "n14" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>raise</b>>];
+      }
+      subgraph "cluster_n15" {
+        label=<<font point-size="10">else body</font>>;
+        color=black;
+        penwidth=0.5;
+        "n15" [shape=point, style=invis, width=0, height=0, label=""];
+        "n16" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>lower</b>>];
+      }
+    }
+    "n17" [shape=circle, fillcolor=white, label=<<b>✕</b>>, margin=0, width=0.2, fixedsize=true, xlabel="final"];
+  }
+  "n7" -> "n8" [style=dashed, arrowhead=vee];
+  "n1" -> "n2" [style=dashed, arrowhead=vee];
+  "n2" -> "n4" [style=dashed, arrowhead=vee];
+  "n3" -> "n5" [style=dashed, arrowhead=vee, lhead="cluster_n5"];
+  "n4" -> "n3" [style=dashed, arrowhead=vee];
+  "n5" -> "n9" [style=dashed, arrowhead=vee, ltail="cluster_n5", lhead="cluster_n9"];
+  "n9" -> "n12" [style=dashed, arrowhead=vee, ltail="cluster_n9", lhead="cluster_n12"];
+  "n12" -> "n17" [style=dashed, arrowhead=vee, ltail="cluster_n12"];
+}

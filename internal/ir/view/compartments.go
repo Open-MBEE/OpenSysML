@@ -32,10 +32,17 @@ var compartmentOrder = []string{
 // compartmentPlurals are the compartment names whose keyword does not take
 // a plain "s".
 var compartmentPlurals = map[string]string{
-	"calc":     "calculations",
-	"enum":     "enumerations",
-	"analysis": "analyses",
-	"metadata": "metadata",
+	"calc":           "calculations",
+	"enum":           "enumerations",
+	"analysis":       "analyses",
+	"metadata":       "metadata",
+	sendActionKind:   "actions",
+	acceptActionKind: "actions",
+	assignKind:       "actions",
+	loopKind:         "actions",
+	ifKind:           "actions",
+	terminateKind:    "actions",
+	"perform":        "perform actions",
 }
 
 // rowPrefixes are the modifier keywords a kind may begin with, which the row
@@ -111,6 +118,9 @@ func compartmentsOf(rows []*Node) []Compartment {
 // textual notation writes it without the keyword its compartment names:
 // `ref wheel : Wheel`, `gain : dB = 15.0`, `: Sensor` for an anonymous one.
 func (l labeller) rowText(node *Node) string {
+	if node.Kind == statementRowKind {
+		return node.Text
+	}
 	prefix, _ := splitRowPrefix(node.Kind)
 	text := shown(node)
 	if text != "" {
@@ -140,7 +150,17 @@ func (l labeller) compartments(node *Node) []Compartment {
 	if !l.shown.Has(ElementCompartments) {
 		return nil
 	}
-	return node.Compartments
+	if !l.skin.cameo {
+		return node.Compartments
+	}
+	// Cameo writes a state's behaviors as `entry / a` lines under its name.
+	var kept []Compartment
+	for _, compartment := range node.Compartments {
+		if !stateActionCompartment(compartment.Name) {
+			kept = append(kept, compartment)
+		}
+	}
+	return kept
 }
 
 // referenceRow reports whether sym lists as a reference row, the `ref part`

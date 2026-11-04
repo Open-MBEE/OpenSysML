@@ -1,0 +1,22 @@
+FurnaceViews::burner - state rendering (view def StateTransitionView)
+
+state def Burner
+  state transition
+  start
+  state off (initial)
+  state running parallel
+    entry
+      action ignite : Ignite
+    do
+      flame := true
+    exit
+      action : Purge
+    state transition
+    entry action ignite
+    do action
+    region low
+    region high
+
+transitions:
+  start of Burner -> off
+  off -> running

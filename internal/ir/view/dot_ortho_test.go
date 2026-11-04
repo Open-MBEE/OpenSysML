@@ -123,7 +123,7 @@ func drawWithGraphviz(t *testing.T, dot, name, source string) {
 var (
 	orthoNodeLine = regexp.MustCompile(`^\s*"([^"]+)" \[.*width=([0-9.]+), height=([0-9.]+), fixedsize=true, pos="([-0-9.]+),([-0-9.]+)!"`)
 	orthoBBAttr   = regexp.MustCompile(`bb="([-0-9.]+),([-0-9.]+),([-0-9.]+),([-0-9.]+)"`)
-	orthoPinLine  = regexp.MustCompile(`^\s*"([^"]+)" \[shape=box, label="", xlabel=.*?width=([0-9.]+), height=([0-9.]+), fixedsize=true, pos="([-0-9.]+),([-0-9.]+)!"`)
+	orthoPinLine  = regexp.MustCompile(`^\s*"([^"]+)" \[shape=box, (?:style="rounded,filled", )?label="[^"]*", xlabel=.*?width=([0-9.]+), height=([0-9.]+), fixedsize=true, pos="([-0-9.]+),([-0-9.]+)!"`)
 	orthoEdgeLine = regexp.MustCompile(`^\s*"([^"]+)" -> "([^"]+)" \[(.*)\];$`)
 	orthoPosAttr  = regexp.MustCompile(`pos="([^"]*)"`)
 )

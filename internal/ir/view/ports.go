@@ -181,3 +181,22 @@ func (r *Rendering) listedPin(drawn func(node *Node, port Port) bool) func(node 
 func drawsPort(ports []Port, port Port) bool {
 	return slices.ContainsFunc(ports, func(drawn Port) bool { return drawn.ID == port.ID })
 }
+
+// pinArrow is the direction glyph the notation sets inside a parameter pin
+// (§8.2.3.17 pdh, pdv): an arrow into the node for an input, out of it for an
+// output, both ways for an inout, pointing along the side the pin sits on. A
+// port with no direction of its own carries none.
+func pinArrow(direction PortDirection, side boundarySide) string {
+	switch direction {
+	case PortInOut:
+		if side.across() {
+			return "↕"
+		}
+		return "↔"
+	case PortIn:
+		return map[boundarySide]string{leftSide: "→", rightSide: "←", topSide: "↓", bottomSide: "↑"}[side]
+	case PortOut:
+		return map[boundarySide]string{leftSide: "←", rightSide: "→", topSide: "↑", bottomSide: "↓"}[side]
+	}
+	return ""
+}

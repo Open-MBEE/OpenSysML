@@ -41,15 +41,15 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 hide empty description
-state "<size:10>//«state def»//</size>\n**Thermostat**" as n0 <<state def>> {
+state "<size:10>//«state def»//</size>\n**Thermostat**\nstate transition" as n0 <<state def>> {
   state "<size:10>//«state»//</size>\n**heating**" as n1 <<state>> <<usage>>
-  state "<size:10>//«state»//</size>\n**idle**" as n2 <<state>> <<usage>> {
+  state "<size:10>//«state»//</size>\n**idle**\nstate transition" as n2 <<state>> <<usage>> {
     state "<size:10>//«state»//</size>\n**drying**" as n3 <<state>> <<usage>>
     state "<size:10>//«state»//</size>\n**resting**" as n4 <<state>> <<usage>>
     [*] --> n3 : [wet]
     [*] --> n4
   }
-  state "<size:10>//«state»//</size>\n**monitoring**" as n5 <<state>> <<usage>> {
+  state "<size:10>//«state»//</size>\n**monitoring**\nstate transition" as n5 <<state>> <<usage>> {
     state "<size:10>//«region»//</size>\n**lights**" as n6 <<region>> {
       state "<size:10>//«state»//</size>\n**lit**" as n8 <<state>> <<usage>>
       state "<size:10>//«state»//</size>\n**unlit**" as n9 <<state>> <<usage>>

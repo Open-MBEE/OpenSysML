@@ -109,8 +109,10 @@ func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
-		Type: r.headType(machine), Origin: symbolOrigin(machine), InheritedFrom: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
+		Type: r.headType(machine), Origin: symbolOrigin(machine), InheritedFrom: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out),
+		Parallel: stateIsParallel(machine.Decl)}
 	r.dress(view, machine, root, out)
+	root.Children = append(root.Children, r.stateActionNodes(machine.DocName, graph.Behaviors[graph.Machine], ids)...)
 	if record != nil {
 		record(machine, root)
 	}
@@ -164,6 +166,17 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 			parent = nodes[owner]
 		}
 		parent.Children = append(parent.Children, nodes[state])
+	}
+	// A composite state draws its entry, do and exit actions as nodes of its
+	// state-transition view, under the compartment that heads the view.
+	for _, state := range graph.States {
+		if node := nodes[state]; len(node.Children) > 0 {
+			node.Children = append(r.stateActionNodes(node.Origin.Doc, graph.Behaviors[state], ids), node.Children...)
+			node.Compartments = append(node.Compartments, Compartment{Name: stateTransitionCompartment})
+		}
+	}
+	if len(root.Children) > 0 {
+		root.Compartments = append(root.Compartments, Compartment{Name: stateTransitionCompartment})
 	}
 	for _, pseudo := range graph.Pseudostates {
 		node := place(&Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: nameText(pseudo.Name),
@@ -336,22 +349,108 @@ func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, mach
 		node.Kind, node.Name, node.Type, node.NameSynthesized = "final", ast.DoneFeature, "", true
 		return node
 	}
-	var detail []string
+	node.Parallel = stateIsParallel(graph.DeclOf(state))
 	if graph.UnconditionalStart(bodyOwning(graph, state)) == state {
-		detail = append(detail, "initial")
+		node.Detail = "initial"
 	}
-	if behaviors := graph.Behaviors[state]; behaviors != nil {
-		for _, part := range []struct {
-			name string
-			list []lower.StateBehavior
-		}{{"entry", behaviors.Entry}, {"do", behaviors.Do}, {"exit", behaviors.Exit}} {
-			if len(part.list) > 0 {
-				detail = append(detail, r.stateBehaviorLabel(node.Origin.Doc, part.name, part.list))
+	node.Compartments = r.stateActionCompartments(node.Origin.Doc, graph.Behaviors[state])
+	return node
+}
+
+// stateIsParallel reports whether a state's declaration marks its substates
+// parallel (`state s parallel { … }`, `state def D parallel { … }`).
+func stateIsParallel(decl ast.Node) bool {
+	switch n := decl.(type) {
+	case *ast.Usage:
+		return n.IsParallel
+	case *ast.Definition:
+		return n.IsParallel
+	}
+	return false
+}
+
+// The kinds of a state's entry, do and exit action nodes (§8.2.3.18
+// entry-action, do-action, exit-action), as their name compartments key them.
+const (
+	entryActionKind = "entry action"
+	doActionKind    = "do action"
+	exitActionKind  = "exit action"
+)
+
+// stateActionParts are a state's behaviors by compartment, in the figure's
+// order: `entry`, `do`, `exit`.
+func stateActionParts(behaviors *lower.StateBehaviors) []struct {
+	name string
+	list []lower.StateBehavior
+} {
+	if behaviors == nil {
+		return nil
+	}
+	return []struct {
+		name string
+		list []lower.StateBehavior
+	}{{"entry", behaviors.Entry}, {"do", behaviors.Do}, {"exit", behaviors.Exit}}
+}
+
+// stateActionCompartments are a state's `entry`, `do` and `exit` compartments
+// (§8.2.3.18 state-entry-action, state-do-action, state-exit-action), each
+// listing the behaviors it runs as written, one a row; none for a state with none.
+func (r *Renderer) stateActionCompartments(doc string, behaviors *lower.StateBehaviors) []Compartment {
+	var compartments []Compartment
+	for _, part := range stateActionParts(behaviors) {
+		if len(part.list) == 0 {
+			continue
+		}
+		var rows []*Node
+		for _, behavior := range part.list {
+			rows = append(rows, &Node{Kind: statementRowKind, Name: nameText(behavior.Name), Type: nodeType(behavior.Node),
+				Text: r.stateActionText(doc, behavior), Origin: nodeOrigin(doc, behavior.Node)})
+		}
+		compartments = append(compartments, Compartment{Name: part.name, Rows: rows})
+	}
+	return compartments
+}
+
+// stateActionText is a state behavior as its compartment lists it: the action
+// usage it declares (`action a : Reset`), else what its body does, else the
+// declaration as written.
+func (r *Renderer) stateActionText(doc string, behavior lower.StateBehavior) string {
+	if usage, ok := behavior.Node.(*ast.Usage); ok && (behavior.Name != "" || nodeType(behavior.Node) != "") {
+		text := "action"
+		if behavior.Name != "" {
+			text += " " + nameText(behavior.Name)
+		}
+		if typ := nodeType(usage); typ != "" {
+			text += " : " + source.ReferenceEndNames(typ)
+		}
+		return text
+	}
+	if text := r.behaviorText(doc, behavior); text != "" {
+		return text
+	}
+	return strings.TrimSuffix(strings.TrimSpace(r.nodeText(doc, behavior.Node)), ";")
+}
+
+// stateActionNodes are the entry, do and exit action nodes a composite state
+// draws among its substates: each behavior declared as a named or bodied
+// action usage, headed «entry action» and so on, with its pins.
+func (r *Renderer) stateActionNodes(doc string, behaviors *lower.StateBehaviors, ids *nodeIDs) []*Node {
+	var nodes []*Node
+	for _, part := range stateActionParts(behaviors) {
+		for _, behavior := range part.list {
+			usage, ok := behavior.Node.(*ast.Usage)
+			if !ok || behavior.Name == "" && !usage.HasBody {
+				continue
 			}
+			node := &Node{ID: ids.take(), Kind: part.name + " action", Name: nameText(behavior.Name), Type: nodeType(usage),
+				Origin: nodeOrigin(doc, behavior.Node)}
+			if node.Name == "" {
+				node.Text = r.behaviorText(doc, behavior)
+			}
+			nodes = append(nodes, node)
 		}
 	}
-	node.Detail = strings.Join(detail, ", ")
-	return node
+	return nodes
 }
 
 const acceptPrefix = "accept "
@@ -456,21 +555,6 @@ func (r *Renderer) behaviorText(doc string, behavior lower.StateBehavior) string
 		return text
 	}
 	return r.assignmentText(doc, body)
-}
-
-// stateBehaviorLabel is a state's compartment line for one kind of behavior, as
-// UML writes it: `do / Activity`, or the kind alone when none is named.
-func (r *Renderer) stateBehaviorLabel(doc, kind string, behaviors []lower.StateBehavior) string {
-	var names []string
-	for _, behavior := range behaviors {
-		if name := r.behaviorText(doc, behavior); name != "" {
-			names = append(names, name)
-		}
-	}
-	if len(names) == 0 {
-		return kind
-	}
-	return kind + " / " + strings.Join(names, ", ")
 }
 
 // triggerLabel is the event a transition waits for: an accepted signal or called
@@ -733,7 +817,6 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		r.declaredDress(subject.view, subject.elem, decl, root, out)
 	}
 	lowered[decl] = true
-	nodes := map[ast.Node]*Node{}
 	owner := r.declaredSymbol(subject.elem, decl)
 	if record != nil {
 		record(owner, root)
@@ -750,6 +833,21 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		}
 		root.Children = append(root.Children, start)
 	}
+	r.flowNodes(subject, graph, root, owner, ids, out, lowered, drawn, depth, record)
+	if subject.frame == nil && len(graph.Nodes) == 0 {
+		root.Detail = detailWith(root.Detail, "declares no nodes")
+	}
+	out.folds = append(out.folds, root)
+	return root, true
+}
+
+// flowNodes draws a lowered flow's nodes under frame, each statement node in
+// the form its figure gives it, then the flow's successions, object flows and
+// bindings as edges; owner is the symbol the nodes are placed under.
+func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, frame *Node, owner *symbols.Symbol, ids *nodeIDs,
+	out *Rendering, lowered map[ast.Node]bool, drawn map[ast.Node]*Node, depth int, record func(*symbols.Symbol, *Node)) {
+	scope, doc := subject.scope, subject.doc
+	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
 		nodeDoc := docOf(graph, node, doc)
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
@@ -768,11 +866,9 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		if record != nil {
 			record(r.declaredSymbol(subject.elem, node), child)
 		}
-		if child.NameSynthesized || child.Name == "" {
-			child.Text = r.actionText(graph, node, nodeDoc)
-		}
+		r.statementForm(graph, node, child, nodeDoc)
 		nodes[node], drawn[node] = child, child
-		root.Children = append(root.Children, child)
+		frame.Children = append(frame.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
 			nestedScope := graph.Scopes[node]
 			if nestedScope == nil {
@@ -783,17 +879,46 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 			// The nested flow's own edges belong to the nested nodes, which the
 			// sub-rendering adds to out.Edges; a flow with no nodes leaves nothing to show.
 			if _, ok := r.actionNode(nestedSubject, ids, out, lowered, drawn, depth+1, record); ok && len(child.Children) > 0 {
-				child.Detail = detailWith(child.Detail, "own flow")
+				child.Compartments = append(child.Compartments, Compartment{Name: actionFlowCompartment})
 			}
+		}
+		compartments, bodies := r.compoundCompartments(graph, node, nodeDoc)
+		child.Compartments = append(child.Compartments, compartments...)
+		for _, body := range bodies {
+			if depth >= maxBehaviorDepth {
+				break
+			}
+			section := r.bodySection(body, nodeDoc, ids)
+			child.Children = append(child.Children, section)
+			bodySubject := actionSubject{decl: body.block.Node, kind: section.Kind, name: child.Name, scope: body.block.Scope,
+				doc: nodeDoc, view: subject.view, elem: subject.elem, frame: section}
+			r.flowNodes(bodySubject, body.block.Graph, section, r.declaredSymbol(subject.elem, node), ids, out, lowered, drawn, depth+1, record)
 		}
 	}
 	r.actionEdges(subject, graph, nodes, out)
-	r.bindingEdges(subject, graph, root, nodes, drawn, out)
-	if subject.frame == nil && len(graph.Nodes) == 0 {
-		root.Detail = detailWith(root.Detail, "declares no nodes")
+	r.bindingEdges(subject, graph, frame, nodes, drawn, out)
+}
+
+// statementForm gives a statement node its figure's parts: the expression under
+// its name compartment, or in place of a name it has none of; any other node
+// headed by what it does, as before.
+func (r *Renderer) statementForm(graph *lower.ActionGraph, node ast.Node, child *Node, doc string) {
+	unnamed := child.NameSynthesized || child.Name == ""
+	if !statementKind(child.Kind) {
+		if unnamed {
+			child.Text = r.actionText(graph, node, doc)
+		}
+		return
 	}
-	out.folds = append(out.folds, root)
-	return root, true
+	expression := r.statementExpression(graph, node, doc)
+	switch {
+	case unnamed && expression != "":
+		child.Text = expression
+	case unnamed:
+		child.Text = r.actionText(graph, node, doc)
+	case expression != "":
+		child.Detail = detailWith(child.Detail, expression)
+	}
 }
 
 // placedStart reports whether view positions the start graph never draws: one
@@ -1231,8 +1356,9 @@ func literalText(expr ast.Node) string {
 	return ""
 }
 
-// successionLabel is the succession's guard in brackets, then its probability;
-// a succession with neither is labelled by its name, unless synthesized.
+// successionLabel is the succession's guard in brackets, `else` for a decision's
+// else branch, then its probability; one with none is labelled by its name,
+// unless synthesized.
 func (r *Renderer) successionLabel(edge lower.ActionEdge, edgeDoc, doc string, synthesized bool) string {
 	label := ""
 	if guard := edge.Guard; guard != nil {
@@ -1241,6 +1367,9 @@ func (r *Renderer) successionLabel(edge lower.ActionEdge, edgeDoc, doc string, s
 		} else {
 			label = "[guard]"
 		}
+	}
+	if edge.Else && label == "" {
+		label = "else"
 	}
 	if weight := edge.Probability; weight != nil {
 		label = strings.TrimSpace(label + " p = " + r.nodeText(doc, weight.Expr))
@@ -1302,6 +1431,9 @@ func actionNodeKind(node ast.Node, graph *lower.ActionGraph) string {
 	case *ast.Usage:
 		if lower.IsTerminateUsage(n) {
 			return terminateKind
+		}
+		if kind := statementNodeKind(n, graph); kind != "" {
+			return kind
 		}
 		return n.Kind.String()
 	case *ast.Definition:

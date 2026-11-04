@@ -1,0 +1,14 @@
+The view renderers draw the SysML v2.1 §8.2.3.17 action and §8.2.3.18 state node forms as the
+specification figures give them: send and accept actions as rounded boxes with their corner glyph and
+«send action» / «accept action» name compartment; assign, loop and if actions with «assign», «loop»
+and «if» name compartments, the loop's `while`, `for` and `until` and the if's condition
+compartments, and the `loop body`, `then body` and `else body` compartments as nested sections; the
+`else` branch of a decision labelled `else`; a terminate action as the figure's X in a circle (DOT,
+Mermaid, draw.io, canvas); parameter pins rounded with their direction arrow (DOT, draw.io, canvas);
+a nested action flow headed by the `action flow` compartment (was the `own flow` detail); a state's
+`entry`, `do` and `exit` behaviors as labelled compartments (were `entry / x` text lines in the Pilot
+look — the Cameo look keeps them), a composite state's entry/do/exit actions as «entry action» /
+«do action» / «exit action» nodes of its `state transition` compartment, and «parallel» under the
+name of a parallel state. Default DOT, Mermaid, PlantUML, D2, draw.io, text and canvas output of
+action and state views changes accordingly; the `RenderNode` wire shape gains an optional `parallel`
+field and the view data an optional `Parallel` field.

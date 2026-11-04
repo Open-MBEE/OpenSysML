@@ -208,8 +208,8 @@ func TestD2StateDiagram(t *testing.T) {
 		t.Fatalf("D2: %v", err)
 	}
 	for _, want := range []string{
-		"\nn0: \"«state def»\\nVehicleStates\" {\n  class: definition\n",
-		"\n  n2: \"«state»\\noperating\" {\n    class: usage\n",
+		"\nn0: \"«state def»\\nVehicleStates\\nstate transition\" {\n  class: definition\n",
+		"\n  n2: \"«state»\\noperating\\nstate transition\" {\n    class: usage\n",
 		"\n  initial: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black } }\n",
 		"\nn0.n1 -> n0.n2: { class: edge }\n",
 		"\nn0.n2.n3 -> n0.n2.n4: \"accept Signal [temperature > 0]\" { class: edge }\n",

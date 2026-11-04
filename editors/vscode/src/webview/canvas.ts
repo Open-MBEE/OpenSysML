@@ -14,12 +14,15 @@ import {
   MARGIN,
   movable,
   nodeExtent,
+  nodeMark,
+  pinArrow,
   PlacedEdge,
   PlacedNode,
   portBox,
   portLabelPlacement,
   PORT_SIZE,
   portName,
+  SECTION_KINDS,
   steerable,
   type PlacedPort,
 } from "./layout";
@@ -252,6 +255,10 @@ function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
   if (entry.node.arrow !== undefined) {
     group.append(itemArrow(entry));
   }
+  const mark = entry.shape === "box" ? nodeMark(entry.node.kind) : "";
+  if (mark !== "") {
+    group.append(markGraphic(box, mark));
+  }
   if (entry.lines.length > 0) {
     const text = element("text", { x: String(box.x + LABEL_PAD_X), y: String(box.y + LABEL_PAD_Y), class: "label" });
     entry.lines.forEach((line, i) => {
@@ -304,6 +311,9 @@ function pinGraphic(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode)
     height: String(PORT_SIZE),
     class: classes.join(" "),
   });
+  if (port.port.direction) {
+    rect.setAttribute("rx", String(PIN_CORNER));
+  }
   if (entry.node.fill !== undefined) {
     rect.style.setProperty("--node-fill", entry.node.fill);
   }
@@ -317,7 +327,38 @@ function pinGraphic(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode)
     class: "port-label",
   });
   text.textContent = portName(port.port);
-  return [title, rect, text];
+  const arrow = pinArrow(port.port.direction, port.side);
+  if (arrow === "") {
+    return [title, rect, text];
+  }
+  const glyph = element("text", {
+    x: String(square.x + PORT_SIZE / 2),
+    y: String(square.y + PORT_SIZE * 0.8),
+    "text-anchor": "middle",
+    class: "pin-arrow",
+  });
+  glyph.textContent = arrow;
+  return [title, rect, glyph, text];
+}
+
+// PIN_CORNER rounds a pin's corners, as the notation's parameter pins are drawn.
+const PIN_CORNER = 2;
+
+// MARK_WIDTH and MARK_HEIGHT size the figure in a node's top-left corner.
+const MARK_WIDTH = 12;
+const MARK_HEIGHT = 9;
+
+// markGraphic is the small filled figure in a box's top-left corner: the send
+// action's pentagon pointing out of the node, the accept action's notched flag.
+function markGraphic(box: PlacedNode["box"], mark: "send" | "accept"): SVGElement {
+  const x = box.x + 4;
+  const y = box.y + 4;
+  const w = MARK_WIDTH;
+  const h = MARK_HEIGHT;
+  const points = mark === "send"
+    ? `${x},${y} ${x + w * 0.7},${y} ${x + w},${y + h / 2} ${x + w * 0.7},${y + h} ${x},${y + h}`
+    : `${x},${y} ${x + w},${y} ${x + w},${y + h} ${x},${y + h} ${x + w * 0.3},${y + h / 2}`;
+  return element("polygon", { points, class: `shape filled mark ${mark}` });
 }
 
 // shape is the outline a node is drawn with: a box for an element, square-cornered
@@ -352,6 +393,17 @@ function outlineOf(entry: PlacedNode): SVGElement {
       );
       return group;
     }
+    case "cross": {
+      // The terminate node: a circle crossed by an X (§8.2.3.17 terminate-node).
+      const group = element("g", { class: "shape" });
+      const arm = width / 2 / Math.SQRT2;
+      group.append(
+        element("circle", { cx: String(cx), cy: String(cy), r: String(width / 2), class: "shape" }),
+        element("line", { x1: String(cx - arm), y1: String(cy - arm), x2: String(cx + arm), y2: String(cy + arm), class: "shape" }),
+        element("line", { x1: String(cx - arm), y1: String(cy + arm), x2: String(cx + arm), y2: String(cy - arm), class: "shape" }),
+      );
+      return group;
+    }
     case "diamond":
       return element("polygon", {
         points: `${cx},${y} ${x + width},${cy} ${cx},${y + height} ${x},${cy}`,
@@ -375,7 +427,7 @@ function outlineOf(entry: PlacedNode): SVGElement {
         x: String(x), y: String(y), width: String(width), height: String(height),
         class: classes.join(" "),
       };
-      if (classes[1] !== "definition") {
+      if (classes[1] !== "definition" && classes[1] !== "section") {
         attrs.rx = String(CORNER);
       }
       return element("rect", attrs);
@@ -385,12 +437,15 @@ function outlineOf(entry: PlacedNode): SVGElement {
 
 // boxClass is what a box is drawn as, the way the PlantUML form stereotypes it; the
 // looks pick corner and border by it, a definition alone square in every look.
-function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
+function boxClass(kind: string): "package" | "definition" | "region" | "section" | "usage" {
   if (kind.split(" ").includes("package")) {
     return "package";
   }
-  if (kind === "region") {
+  if (kind === "region" || kind === "swimlane") {
     return "region";
+  }
+  if (SECTION_KINDS.has(kind)) {
+    return "section";
   }
   if (kind.endsWith(" def") || CLASSIFIER_KINDS.has(kind)) {
     return "definition";

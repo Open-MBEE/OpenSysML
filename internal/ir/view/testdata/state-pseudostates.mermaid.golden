@@ -73,16 +73,16 @@ config:
 %% route: n16->n4 860,90 660,90 660,120
 %% route: n17->n5 930,100 930,140 780,140 780,200
 stateDiagram-v2
-  state "«state def» Alignment" as n0 {
-    state "«state»<br>Initializing<br>initial, do / Initialize" as n1
-    state "«state»<br>Aligning<br>entry / prime, do / align, exit / Settle" as n2
+  state "«state def» Alignment<br>state transition" as n0 {
+    state "«state»<br>Initializing<br>initial<br>do<br>action : Initialize" as n1
+    state "«state»<br>Aligning<br>entry<br>action prime<br>do<br>action align : Align<br>exit<br>action : Settle" as n2
       note right of n2
         guide on the current star
       end note
-    state "«state» Phasing<br>entry / Initialize" as n3 {
-      state "«state»<br>Coarse<br>initial, do / Align" as n4
-      state "«state»<br>Fine<br>do / Align" as n5
-      state "«state» Tracking" as n6 {
+    state "«state» Phasing<br>entry<br>action : Initialize<br>state transition" as n3 {
+      state "«state»<br>Coarse<br>initial<br>do<br>action : Align" as n4
+      state "«state»<br>Fine<br>do<br>action : Align" as n5
+      state "«state» Tracking<br>«parallel»<br>state transition" as n6 {
         state "«region» Guiding" as n7 {
           state "«state»<br>guide" as n9
         }

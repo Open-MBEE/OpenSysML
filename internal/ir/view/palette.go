@@ -124,7 +124,7 @@ func (k Kind) paletteBorders() bool { return k != KindSequence }
 
 // controlKinds are the kinds drawn as control and pseudo-state nodes: they
 // keep the black-and-white rules and a square shape under every palette.
-var controlKinds = map[string]bool{startKind: true, "initial": true, "final": true, "fork": true, "join": true,
+var controlKinds = map[string]bool{startKind: true, "initial": true, "final": true, terminateKind: true, "fork": true, "join": true,
 	"merge": true, "decision": true, "choice": true, "junction": true, "shallow history": true, "deep history": true,
 	connectionDotKind: true, connectionDefDotKind: true, dependencyDotKind: true}
 
@@ -294,7 +294,7 @@ var familyWords = map[string]string{
 	"requirement": "requirement", "constraint": "constraint", "connection": "connection", "connect": "connection",
 	"interface": "interface", "case": "case", "allocation": "allocation", "allocate": "allocation",
 	"analysis": "analysis", "verification": "verification", "enum": "enum", "occurrence": "occurrence",
-	"flow": "flow", "message": "flow", "perform": "action",
+	"flow": "flow", "message": "flow", "perform": "action", assignKind: "action", loopKind: "action", ifKind: "action",
 	"actor": useCaseLabel, "subject": "case", "objective": "requirement",
 }
 

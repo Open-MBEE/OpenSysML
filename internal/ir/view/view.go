@@ -372,6 +372,9 @@ type Node struct {
 	// the notation prefixes its name with `^`, and a folding that hides it hides nothing
 	// of the owner's. A redefining usage the owner declares is its own, not inherited.
 	Inherited bool
+	// Parallel marks a state whose substates run in parallel (`state s parallel { … }`):
+	// the notation writes «parallel» after the name in its name compartment.
+	Parallel bool
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string

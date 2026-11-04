@@ -101,7 +101,7 @@ func TestDOTCameoActionNotation(t *testing.T) {
 	for node, want := range map[string][]string{
 		`"n9"`:  {`shape=diamond`, `pos="250,70!"`},
 		`"n10"`: {`shape=diamond`, `pos="250,120!"`},
-		`"n11"`: {`shape=doublecircle`, `pos="250,20!"`},
+		`"n11"`: {`shape=circle`, `label=<<b>✕</b>>`, `pos="250,20!"`},
 		`"n12"`: {`shape=circle`, `fillcolor=black`, `pos="337.5,522.5!"`, `width=0.20833333333333334`},
 	} {
 		line := dotLine(source, node)

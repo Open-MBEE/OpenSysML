@@ -452,6 +452,7 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 		w.writeCompartment(fmt.Sprintf("%s:c%d", node.ID, i), node, compartment, drawioBox{Y: y, Width: box.Width, Height: height})
 		y += height
 	}
+	w.writeMark(node)
 	w.writePorts(node, nested)
 	for _, child := range node.Children {
 		w.writeNode(child, node.ID, nested)
@@ -493,7 +494,7 @@ func (w *drawioWriter) writePorts(node *Node, fqn string) {
 			portFQN = fqn + "::" + port.Name
 		}
 		w.openObject(drawioObject{id: id, label: w.ports.pinLabel(port), fqn: portFQN, kind: drawioPortKind(port), link: w.link(port.Origin), name: drawioPortName(port)})
-		w.attr("style", drawioPortStyle(side)+drawioStyleOf(nil, ""))
+		w.attr("style", drawioPortStyle(port, side)+drawioStyleOf(nil, ""))
 		w.b.WriteString(` vertex="1"`)
 		w.attr("parent", node.ID)
 		w.b.WriteString(">\n")
@@ -508,9 +509,69 @@ func (w *drawioWriter) writePorts(node *Node, fqn string) {
 		}
 		w.portBoxes[id] = portCellBox(box, routeSide(side), fraction, port.Geometry)
 		w.closeObject()
+		w.writePinArrow(id, port, side)
 		w.cells[id] = true
 	}
 }
+
+// writePinArrow sets the pin's direction arrow (§8.2.3.17 pdh, pdv) as a text
+// cell filling the pin; a port with no direction gets none.
+func (w *drawioWriter) writePinArrow(pin string, port Port, side PortDirection) {
+	if !port.Parameter {
+		return
+	}
+	arrow := pinArrow(port.Direction, map[PortDirection]boundarySide{PortIn: leftSide, PortOut: rightSide}[side])
+	if side == PortUndirected {
+		arrow = pinArrow(port.Direction, topSide)
+	}
+	if arrow == "" {
+		return
+	}
+	w.openCell()
+	w.attr("id", pin+":arrow")
+	w.attr("value", arrow)
+	w.attr("style", "text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;")
+	w.b.WriteString(` vertex="1"`)
+	w.attr("parent", pin)
+	w.b.WriteString(">\n")
+	w.geometry(drawioCellBodyIndent, drawioBox{Width: drawioPortSize, Height: drawioPortSize}, nil, nil)
+	w.closeCell()
+}
+
+// drawioMarkStyle is the filled figure in a node's top-left corner: the send
+// action's pentagon pointing out of the node, the accept action's notched flag.
+func drawioMarkStyle(kind string) string {
+	switch kind {
+	case sendActionKind:
+		return "shape=mxgraph.basic.polygon;polyCoords=[[0,0],[0.7,0],[1,0.5],[0.7,1],[0,1]];polyline=0;fillColor=#000000;strokeColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;"
+	case acceptActionKind:
+		return "shape=mxgraph.basic.polygon;polyCoords=[[0,0],[1,0],[1,1],[0,1],[0.3,0.5]];polyline=0;fillColor=#000000;strokeColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;"
+	}
+	return ""
+}
+
+// writeMark sets a node's corner figure as a cell at its top-left, inside the box.
+func (w *drawioWriter) writeMark(node *Node) {
+	style := drawioMarkStyle(node.Kind)
+	if style == "" {
+		return
+	}
+	w.openCell()
+	w.attr("id", node.ID+":mark")
+	w.attr("value", "")
+	w.attr("style", style)
+	w.b.WriteString(` vertex="1"`)
+	w.attr("parent", node.ID)
+	w.b.WriteString(">\n")
+	w.geometry(drawioCellBodyIndent, drawioBox{X: 4, Y: 4, Width: drawioMarkWidth, Height: drawioMarkHeight}, nil, nil)
+	w.closeCell()
+}
+
+// The size of a node's corner figure.
+const (
+	drawioMarkWidth  = 12
+	drawioMarkHeight = 9
+)
 
 // drawioPortKind names a port cell's kind: a pin's direction, else `port`.
 func drawioPortKind(port Port) string {
@@ -540,8 +601,11 @@ func drawioPortIndex(ports []Port, port Port) int {
 }
 
 // drawioPortStyle is a port square's style: its label beside it, inside the owner.
-func drawioPortStyle(side PortDirection) string {
+func drawioPortStyle(port Port, side PortDirection) string {
 	base := "rounded=0;whiteSpace=wrap;html=0;fontSize=10;"
+	if port.Parameter {
+		base = "rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;"
+	}
 	switch side {
 	case PortIn:
 		return base + "labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;"

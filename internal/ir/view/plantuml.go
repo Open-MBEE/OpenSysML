@@ -697,7 +697,7 @@ func (w *plantumlWriter) noteDecoration(node *Node) string {
 // choice diamond (a merge and a junction too, PlantUML having no round
 // junction), and the history circles.
 var plantumlPseudostates = map[string]string{
-	"initial": "start", "final": "end", "fork": "fork", "join": "join",
+	"initial": "start", "final": "end", terminateKind: "end", "fork": "fork", "join": "join",
 	"decision": "choice", "choice": "choice", "merge": "choice", "junction": "choice",
 	"shallow history": "history", "deep history": "history*",
 }
@@ -725,7 +725,7 @@ func plantumlShapeStereotype(node *Node) string {
 func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	var parts []string
 	if keyword := w.labels.keyword(node); keyword != "" {
-		parts = append(parts, fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, plantumlText(keyword)))
+		parts = append(parts, marked(w.labels.mark(node), fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, plantumlText(keyword))))
 	}
 	if head := w.labels.head(node); head != "" {
 		parts = append(parts, "**"+plantumlText(head)+"**")

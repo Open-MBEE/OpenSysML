@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ActionFormViews::monitorView — action rendering (render asInterconnectionDiagram, view def ActionFlowView) -->
+<!-- 1 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="ActionFormViews-monitorView" name="ActionFormViews::monitorView">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«action def»&#xA;Monitor&#xA;parameters&#xA;in sensor&#xA;out alarm" fqn="ActionForms::Monitor" kind="action def" view="ActionFormViews::monitorView" link="action-forms.sysml:9">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=92;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="50" y="50" width="686" height="868" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n0:n0.0" label="sensor" fqn="ActionForms::Monitor::sensor" kind="parameter" view="ActionFormViews::monitorView" link="action-forms.sysml:10">
+          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="n0:n0.0:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n0:n0.0">
+          <mxGeometry width="12" height="12" as="geometry"/>
+        </mxCell>
+        <object id="n0:n0.1" label="alarm" fqn="ActionForms::Monitor::alarm" kind="parameter" view="ActionFormViews::monitorView" link="action-forms.sysml:11">
+          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="1" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="n0:n0.1:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n0:n0.1">
+          <mxGeometry width="12" height="12" as="geometry"/>
+        </mxCell>
+        <object id="n1" label="initial" fqn="ActionForms::Monitor::start" kind="initial" view="ActionFormViews::monitorView" link="action-forms.sysml:14">
+          <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="142" width="20" height="20" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«accept action»&#xA;acceptReading&#xA;reading : Reading&#xA;parameters&#xA;out reading&#xA;inout ^payload&#xA;in ^receiver" fqn="ActionForms::Monitor::acceptReading" kind="accept action" view="ActionFormViews::monitorView" link="action-forms.sysml:15">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="86" y="142" width="159" height="54" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="n2:mark" value="" style="shape=mxgraph.basic.polygon;polyCoords=[[0,0],[1,0],[1,1],[0,1],[0.3,0.5]];polyline=0;fillColor=#000000;strokeColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2">
+          <mxGeometry x="4" y="4" width="12" height="9" as="geometry"/>
+        </mxCell>
+        <object id="n2:n2.0" label="reading" fqn="ActionForms::Monitor::acceptReading::reading" kind="parameter" view="ActionFormViews::monitorView" link="action-forms.sysml:15">
+          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="1" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="n2:n2.0:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2:n2.0">
+          <mxGeometry width="12" height="12" as="geometry"/>
+        </mxCell>
+        <object id="n2:n2.1" label="^payload" fqn="ActionForms::Monitor::acceptReading::payload" kind="parameter" view="ActionFormViews::monitorView">
+          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n2">
+            <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="n2:n2.1:arrow" value="↕" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2:n2.1">
+          <mxGeometry width="12" height="12" as="geometry"/>
+        </mxCell>
+        <object id="n2:n2.2" label="^receiver" fqn="ActionForms::Monitor::acceptReading::receiver" kind="parameter" view="ActionFormViews::monitorView">
+          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="n2:n2.2:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2:n2.2">
+          <mxGeometry width="12" height="12" as="geometry"/>
+        </mxCell>
+        <object id="n3" label="«send action»&#xA;sendAlarm&#xA;Alarm to sensor&#xA;parameters&#xA;in ^payload&#xA;in ^sender&#xA;in ^receiver" fqn="ActionForms::Monitor::sendAlarm" kind="send action" view="ActionFormViews::monitorView" link="action-forms.sysml:16">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="295" y="142" width="142" height="54" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="n3:mark" value="" style="shape=mxgraph.basic.polygon;polyCoords=[[0,0],[0.7,0],[1,0.5],[0.7,1],[0,1]];polyline=0;fillColor=#000000;strokeColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n3">
+          <mxGeometry x="4" y="4" width="12" height="9" as="geometry"/>
+        </mxCell>
+        <object id="n3:n3.0" label="^payload" fqn="ActionForms::Monitor::sendAlarm::payload" kind="parameter" view="ActionFormViews::monitorView">
+          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n3">
+            <mxGeometry x="0" y="0.25" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="n3:n3.0:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n3:n3.0">
+          <mxGeometry width="12" height="12" as="geometry"/>
+        </mxCell>
+        <object id="n3:n3.1" label="^sender" fqn="ActionForms::Monitor::sendAlarm::sender" kind="parameter" view="ActionFormViews::monitorView">
+          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n3">
+            <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="n3:n3.1:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n3:n3.1">
+          <mxGeometry width="12" height="12" as="geometry"/>
+        </mxCell>
+        <object id="n3:n3.2" label="^receiver" fqn="ActionForms::Monitor::sendAlarm::receiver" kind="parameter" view="ActionFormViews::monitorView">
+          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n3">
+            <mxGeometry x="0" y="0.75" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="n3:n3.2:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n3:n3.2">
+          <mxGeometry width="12" height="12" as="geometry"/>
+        </mxCell>
+        <object id="n4" label="«assign»&#xA;tally&#xA;count := count + 1" fqn="ActionForms::Monitor::tally" kind="assign" view="ActionFormViews::monitorView" link="action-forms.sysml:17">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="246" width="168" height="54" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«loop»&#xA;wait" fqn="ActionForms::Monitor::wait" kind="loop" view="ActionFormViews::monitorView" link="action-forms.sysml:18">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
+            <mxGeometry x="234" y="246" width="250" height="278" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="n5:c0" value="while condition&#xA;count &lt; 10" style="text;html=0;whiteSpace=wrap;strokeColor=inherit;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;portConstraint=eastwest;" vertex="1" parent="n5">
+          <mxGeometry y="42" width="250" height="42" as="geometry"/>
+        </mxCell>
+        <object id="n6" label="loop body" kind="loop body" view="ActionFormViews::monitorView" link="action-forms.sysml:18">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=25;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n5">
+            <mxGeometry x="16" y="134" width="218" height="128" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«action»&#xA;poll" fqn="poll" kind="action" view="ActionFormViews::monitorView" link="action-forms.sysml:19">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n6">
+            <mxGeometry x="16" y="75" width="64" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n8" label="«action»&#xA;record" fqn="record" kind="action" view="ActionFormViews::monitorView" link="action-forms.sysml:20">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n6">
+            <mxGeometry x="130" y="75" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n9" label="«loop»&#xA;sweep" fqn="ActionForms::Monitor::sweep" kind="loop" view="ActionFormViews::monitorView" link="action-forms.sysml:23">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
+            <mxGeometry x="534" y="246" width="136" height="278" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="n9:c0" value="for iterator&#xA;i in 1..3" style="text;html=0;whiteSpace=wrap;strokeColor=inherit;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;portConstraint=eastwest;" vertex="1" parent="n9">
+          <mxGeometry y="42" width="136" height="42" as="geometry"/>
+        </mxCell>
+        <object id="n10" label="loop body" kind="loop body" view="ActionFormViews::monitorView" link="action-forms.sysml:23">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=25;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n9">
+            <mxGeometry x="16" y="134" width="104" height="128" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n11" label="«action»&#xA;&#39;step&#39;" fqn="&#39;step&#39;" kind="action" view="ActionFormViews::monitorView" link="action-forms.sysml:24">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="16" y="75" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n12" label="«if»&#xA;choose" fqn="ActionForms::Monitor::choose" kind="if" view="ActionFormViews::monitorView" link="action-forms.sysml:26">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="574" width="282" height="278" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="n12:c0" value="if condition&#xA;count &gt; 5" style="text;html=0;whiteSpace=wrap;strokeColor=inherit;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;portConstraint=eastwest;" vertex="1" parent="n12">
+          <mxGeometry y="42" width="282" height="42" as="geometry"/>
+        </mxCell>
+        <object id="n13" label="then body" kind="then body" view="ActionFormViews::monitorView" link="action-forms.sysml:26">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=25;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n12">
+            <mxGeometry x="16" y="134" width="100" height="128" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n14" label="«action»&#xA;raise" fqn="raise" kind="action" view="ActionFormViews::monitorView" link="action-forms.sysml:27">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n13">
+            <mxGeometry x="16" y="75" width="64" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n15" label="else body" kind="else body" view="ActionFormViews::monitorView" link="action-forms.sysml:28">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=25;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n12">
+            <mxGeometry x="166" y="134" width="100" height="128" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n16" label="«action»&#xA;lower" fqn="lower" kind="action" view="ActionFormViews::monitorView" link="action-forms.sysml:29">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n15">
+            <mxGeometry x="16" y="75" width="64" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n17" label="«terminate action»&#xA;final" fqn="ActionForms::Monitor::final" kind="terminate action" view="ActionFormViews::monitorView" link="action-forms.sysml:31">
+          <mxCell style="shape=umlDestroy;html=0;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="n0">
+            <mxGeometry x="348" y="574" width="20" height="20" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="succession" view="ActionFormViews::monitorView" link="action-forms.sysml:21">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n8">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="succession" view="ActionFormViews::monitorView" link="action-forms.sysml:32">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.7593;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="76" y="233"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="succession" view="ActionFormViews::monitorView" link="action-forms.sysml:33">
+          <mxCell style="edgeStyle=none;exitX=0.5031;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n2" target="n4">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="216" y="267"/>
+                <mxPoint x="192" y="267"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="succession" view="ActionFormViews::monitorView" link="action-forms.sysml:35">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n5">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="416" y="271"/>
+                <mxPoint x="409" y="271"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e4" label="" kind="succession" view="ActionFormViews::monitorView" link="action-forms.sysml:34">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7593;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="150" y="275"/>
+                <mxPoint x="320" y="275"/>
+                <mxPoint x="320" y="233"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e5" label="" kind="succession" view="ActionFormViews::monitorView" link="action-forms.sysml:36">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n5" target="n9">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e6" label="" kind="succession" view="ActionFormViews::monitorView" link="action-forms.sysml:37">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2518;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n9" target="n12">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="652" y="694"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e7" label="" kind="succession" view="ActionFormViews::monitorView" link="action-forms.sysml:38">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0.25;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n12" target="n17">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="403" y="763"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
