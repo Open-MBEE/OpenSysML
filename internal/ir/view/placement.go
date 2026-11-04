@@ -253,6 +253,7 @@ func (f *folder) foldNodes(nodes []*Node) {
 				f.record(row, node.ID)
 				if hiddenRow(node, row) {
 					f.hidden++
+					node.Elided = true
 					f.nested += f.undrawnUnder(row, nil)
 					continue
 				}
@@ -430,6 +431,7 @@ func (f *folder) foldMemberships(edges []Edge) (folded []Edge, moved int) {
 			if f.folded(edge.From) {
 				route = nil
 			}
+			row.Greyed = true
 			folded = append(folded, Edge{From: f.owners[edge.To], To: edges[j].To, Kind: edge.Kind, ToLabel: usagePrefix(row.Inherited && shown(row) != "") + shown(row) + edge.ToLabel,
 				Origin: edge.Origin, Route: route, Style: edge.Style})
 		}
@@ -464,6 +466,7 @@ func (f *folder) foldEdges(edges []Edge) (kept []Edge, moved, dropped int) {
 			dropped++
 			continue
 		}
+		from, to := edge.From, edge.To
 		if fromRow {
 			edge.From, edge.FromPort = fromOwner, ""
 		}
@@ -476,11 +479,22 @@ func (f *folder) foldEdges(edges []Edge) (kept []Edge, moved, dropped int) {
 			continue
 		}
 		seen[key] = true
+		f.grey(from, to)
 		edge.Route = nil
 		kept = append(kept, edge)
 		moved++
 	}
 	return kept, moved, dropped
+}
+
+// grey marks the rows among ids: a drawn edge or note moved to their owner ends
+// at them, which the notation shows by greying the row.
+func (f *folder) grey(ids ...string) {
+	for _, id := range ids {
+		if row, ok := f.rows[id]; ok {
+			row.Greyed = true
+		}
+	}
 }
 
 // reanchorNotes moves every note at a folded member to the member's owner; a
@@ -491,6 +505,7 @@ func (f *folder) reanchorNotes(notes []Note) (kept []Note, moved int) {
 		at := false
 		for _, id := range []*string{&note.Anchor, &note.EdgeFrom, &note.EdgeTo} {
 			if owner, ok := f.owners[*id]; ok {
+				f.grey(*id)
 				*id, at = owner, true
 			}
 		}

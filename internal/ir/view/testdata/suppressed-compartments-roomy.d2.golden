@@ -5,4 +5,4 @@ classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
 }
 # layout: n0 x=10 y=10 w=300 h=420
-n0: "«part def»\nImaging\nattributes\nresolution = 4096\nexposure\nitems\n'frame'\nparts\nmount\nports\ndata\nactions\ncapture\nconstraints\nfocus" { class: definition }
+n0: "«part def»\nImaging\nattributes\nresolution = 4096\nexposure\nitems\n'frame'\nparts\nmount\nports\ndata\nactions\ncapture\nconstraints\nfocus\n…" { class: definition }

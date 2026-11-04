@@ -1277,7 +1277,8 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 			case tag == "br/" || tag == "hr/":
 			case tag == "b" || tag == "i" || tag == "tr" || dotTableCellTag(tag) ||
 				strings.HasPrefix(tag, `table border="`) && strings.HasSuffix(tag, `"`) ||
-				strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
+				strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`),
+				tag == `font color="gray"`:
 				open = append(open, strings.Fields(tag)[0])
 			case strings.HasPrefix(tag, "/"):
 				if len(open) == 0 || open[len(open)-1] != tag[1:] {

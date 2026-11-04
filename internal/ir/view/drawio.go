@@ -452,6 +452,9 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 		w.writeCompartment(fmt.Sprintf("%s:c%d", node.ID, i), node, compartment, drawioBox{Y: y, Width: box.Width, Height: height})
 		y += height
 	}
+	if height := w.ellipsisHeight(node); height > 0 {
+		w.writeTextCell(node.ID+":ellipsis", node, ellipsisMark, drawioBox{Y: y, Width: box.Width, Height: height})
+	}
 	w.writePorts(node, nested)
 	for _, child := range node.Children {
 		w.writeNode(child, node.ID, nested)
@@ -460,9 +463,15 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 
 // writeCompartment writes one compartment as a text cell stacked in its node.
 func (w *drawioWriter) writeCompartment(id string, node *Node, compartment Compartment, box drawioBox) {
+	w.writeTextCell(id, node, strings.Join(w.compartmentLines(node, compartment), "\n"), box)
+}
+
+// writeTextCell writes a text cell stacked in its node: a compartment, or the
+// ellipsis under them.
+func (w *drawioWriter) writeTextCell(id string, node *Node, value string, box drawioBox) {
 	w.openCell()
 	w.attr("id", id)
-	w.attr("value", strings.Join(w.compartmentLines(node, compartment), "\n"))
+	w.attr("value", value)
 	w.attr("style", "text;html=0;whiteSpace=wrap;strokeColor=inherit;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;portConstraint=eastwest;"+drawioFontStyle(node.Style))
 	w.b.WriteString(` vertex="1"`)
 	w.attr("parent", node.ID)

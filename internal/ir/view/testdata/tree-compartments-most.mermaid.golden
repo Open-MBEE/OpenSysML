@@ -34,5 +34,5 @@ reading : Real`"]
 attributes
 enabled : Boolean
 parts
-sensor : Sensor`"]
+*sensor : Sensor*`"]
   n3 ---|"◆ sensor"| n0

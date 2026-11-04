@@ -26,4 +26,5 @@ config:
 %% layout: n0 x=10 y=10 w=200 h=33
 flowchart TD
   n0["`*«part def»*
-**Imaging**`"]
+**Imaging**
+…`"]

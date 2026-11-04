@@ -1575,6 +1575,9 @@ func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
 		}
 		width += dotCompartmentPadding
 	}
+	if l.elided(node) {
+		line(ellipsisMark, base, dotGlyphEm)
+	}
 	return width, height
 }
 
@@ -1690,7 +1693,7 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 				continue
 			}
 			below -= used
-			fitted.rows = append(fitted.rows, l.sized(base, size, dotEscapeLines(wrapped)))
+			fitted.rows = append(fitted.rows, dotGreyed(row, l.sized(base, size, dotEscapeLines(wrapped))))
 		}
 		if len(fitted.rows) == 0 {
 			continue
@@ -1698,7 +1701,17 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 		left = below
 		parts.compartments = append(parts.compartments, fitted)
 	}
+	parts.elided = l.elided(node)
 	return parts
+}
+
+// dotGreyed greys a row's markup when the row is the element inside a textual
+// compartment that a folded edge or note ends at.
+func dotGreyed(row *Node, html string) string {
+	if !row.Greyed {
+		return html
+	}
+	return `<font color="gray">` + html + `</font>`
 }
 
 // fitHead fits a node's head and, when the node shows one, its keyword line
@@ -1755,6 +1768,8 @@ type labelParts struct {
 	details       []string
 	compartments  []labelCompartment
 	clipped       int
+	// elided sets the ellipsis under the compartments for the rows a Layout hid.
+	elided bool
 }
 
 // labelCompartment is one compartment of a label: its name over its rows.
@@ -1803,6 +1818,9 @@ func (l labeller) assemble(parts labelParts) string {
 	}
 	for _, compartment := range parts.compartments {
 		fmt.Fprintf(&b, `<hr/><tr><td>%s</td></tr><tr><td align="left">%s</td></tr>`, compartment.name, strings.Join(compartment.rows, "<br/>"))
+	}
+	if parts.elided {
+		fmt.Fprintf(&b, `<tr><td align="left">%s</td></tr>`, ellipsisMark)
 	}
 	b.WriteString("</table>>")
 	return b.String()
@@ -2648,10 +2666,11 @@ func (l labeller) dotLabel(node *Node) string {
 	for _, compartment := range l.compartments(node) {
 		fitted := labelCompartment{name: l.sized(base, l.keywordSize(), dotEscape(compartment.Name))}
 		for _, row := range compartment.Rows {
-			fitted.rows = append(fitted.rows, dotEscape(l.rowText(row)))
+			fitted.rows = append(fitted.rows, dotGreyed(row, dotEscape(l.rowText(row))))
 		}
 		parts.compartments = append(parts.compartments, fitted)
 	}
+	parts.elided = l.elided(node)
 	return dotLabelAttribute(l.assemble(parts))
 }
 

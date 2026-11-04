@@ -362,6 +362,12 @@ type Node struct {
 	// StandIn marks a node a migration made up that stands for no element of its
 	// source, so no diagram symbol is at it: a join it wrote several edges through.
 	StandIn bool
+	// Elided marks a node whose Layout hid compartment rows; the notation marks
+	// the box with an ellipsis at its lower left (§8.2.3.2 ellipsis-at-lower-left-corner).
+	Elided bool
+	// Greyed marks a compartment row that a folded edge or note ends at: the
+	// notation greys the element inside the textual compartment (§8.2.3.2).
+	Greyed bool
 	// Type is the declared type of a typed usage, as the notation writes it
 	// after the colon. It is empty for a definition or an untyped usage.
 	Type string
