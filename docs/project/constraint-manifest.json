@@ -13464,13 +13464,17 @@
       },
       "checks": "An Expose always has protected visibility.",
       "ocl": "visibility = VisibilityKind::protected",
-      "implementation": "internal/syntax/parser/namespace.go:Parser.parseImport",
-      "message": "`view v : VD { public expose P::*; }` is accepted silently (probe `tools/census/validation/testdata/probes/triage/validateExposeVisibility.violating.sysml`); the pilot grammar admits no visibility prefix on `expose`",
+      "implementation": "internal/syntax/parser/defusage.go:Parser.parseBodyMember; internal/check/passes/grammar_violation.go:GrammarViolationPass.Run",
+      "message": "expose with a visibility indicator: an expose is always protected, so SysML v2 admits no public, private or protected before 'expose'",
       "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "not-implemented",
-      "rationale": "the parser accepts a `public`/`private` prefix on `expose` and no pass reports it; an Expose is always protected"
+      "codes": [
+        "expose-visibility"
+      ],
+      "passes": [
+        "syntax"
+      ],
+      "status": "faithful",
+      "rationale": "the parser warns on the visibility keyword before `expose` (SysML.xtext Expose has no prefix) and GrammarViolationPass escalates it to a notation error, so `view v : VD { public expose P::*; }` is reported where the pilot rejects the syntax"
     },
     {
       "name": "validateMetadataAccessExpressionReferencedElement",

@@ -2965,6 +2965,7 @@ func (p *Parser) parseTypeFeatureMember(start int, vis ast.Visibility, trivia []
 func (p *Parser) parseBodyMember() ast.Node {
 	start := p.peek().Span.Offset
 	trivia := p.takeTrivia()
+	visTok := p.peek()
 	vis := p.parseVisibility()
 	// The enumeration context names this member only; bodies nested in it hold
 	// ordinary members, so it is consumed here rather than left set while they parse.
@@ -3138,6 +3139,11 @@ func (p *Parser) parseBodyMember() ast.Node {
 			misplaced = p.misplacedMember(p.peek())
 		}
 		p.advance() // consume 'expose'
+		// Expose (SysML.xtext) has no visibility prefix; the form still reads
+		// unambiguously, so it is a warning the analysis escalates.
+		if vis != ast.VisibilityDefault {
+			p.warn(visTok.Span, msgExposeVisibility, codeExposeVisibility)
+		}
 
 		path := p.parseQualifiedName()
 		if path == nil {

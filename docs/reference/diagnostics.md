@@ -270,6 +270,7 @@ _Generated from the diagnostic code registry by `make diagnostics-catalogue`; `m
 | [`element-filter-membership-owning-type`](#element-filter-membership-owning-type) | error | `filter` outside a package or view body |
 | [`enumeration-body-member`](#enumeration-body-member) | error | a member an enumeration definition body does not admit |
 | [`expose-owning-namespace`](#expose-owning-namespace) | error | `expose` outside a view body |
+| [`expose-visibility`](#expose-visibility) | error | an `expose` written with `public`, `private` or `protected` |
 | [`framed-concern-membership-owning-type`](#framed-concern-membership-owning-type) | error | `frame` outside a requirement, concern or viewpoint body |
 | [`import-visibility`](#import-visibility) | error | an `import` written without `public`, `private` or `protected` |
 | [`kerml-notation`](#kerml-notation) | warning | KerML notation in a SysML file |
@@ -325,6 +326,14 @@ Specification: SysML v2 §8.2.2.8 EnumerationBody
 An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
 
 Specification: SysML v2 validateExposeOwningNamespace
+
+#### `expose-visibility`
+
+**error** · Syntax · an `expose` written with `public`, `private` or `protected`
+
+An expose always has protected visibility (SysML v2 validateExposeVisibility), so the grammar admits no visibility indicator before `expose`; the pilot rejects the file. Drop the indicator: `expose P::*;`.
+
+Specification: SysML v2 §8.2.2.26 Expose and §8.3.26.2 validateExposeVisibility
 
 #### `framed-concern-membership-owning-type`
 
