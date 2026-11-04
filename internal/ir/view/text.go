@@ -197,7 +197,8 @@ func endLabel(labels map[string]string, node, port string) string {
 // rowLine is a compartment row's line of the text form: its kind, name, type
 // and value, as the graph forms' compartment rows read.
 func rowLine(row *Node) string {
-	line := row.Kind
+	// The individuals compartment says `individual`; its rows keep the keyword alone.
+	line := strings.TrimPrefix(row.Kind, individualPrefix)
 	if name := shown(row); name != "" {
 		line += " " + usagePrefix(row.Inherited) + name
 	} else if row.Text != "" {

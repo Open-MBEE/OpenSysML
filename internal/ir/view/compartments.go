@@ -23,7 +23,7 @@ type Compartment struct {
 // chapters of the language specification introducing each kind; a kind not
 // named here follows them in the order its members were declared.
 var compartmentOrder = []string{
-	"attributes", "enumerations", "occurrences", "items", "parts", "ports",
+	"attributes", "enumerations", "occurrences", "individuals", "items", "parts", "ports",
 	"connections", "interfaces", "allocations", "actions", "states", "calculations",
 	"constraints", "requirements", "cases", "analyses", "verifications", "use cases",
 	"views", "viewpoints", "renderings", "metadata",
@@ -42,10 +42,17 @@ var compartmentPlurals = map[string]string{
 // keeps before its name while the compartment is named by the kind after them.
 var rowPrefixes = []string{"ref", "abstract", "variation", "individual", "readonly", "derived", "end", "event"}
 
+// individualPrefix leads the kind of an individual usage, which the
+// `individuals` compartment collects whatever its keyword (SysML v2.1 §8.2.3.9).
+const individualPrefix = "individual "
+
 // compartmentName is the name of the compartment a member of kind belongs to:
 // the plural of its keyword after any modifier, "part defs" for a nested
-// definition.
+// definition, "individuals" for an individual usage of any keyword.
 func compartmentName(kind string) string {
+	if strings.HasPrefix(kind, individualPrefix) {
+		return "individuals"
+	}
 	_, keyword := splitRowPrefix(kind)
 	if keyword == "" {
 		return ""
@@ -112,6 +119,10 @@ func compartmentsOf(rows []*Node) []Compartment {
 // `ref wheel : Wheel`, `gain : dB = 15.0`, `: Sensor` for an anonymous one.
 func (l labeller) rowText(node *Node) string {
 	prefix, _ := splitRowPrefix(node.Kind)
+	// The individuals compartment says `individual`; its row keeps the keyword instead.
+	if strings.HasPrefix(node.Kind, individualPrefix) {
+		prefix = strings.TrimPrefix(node.Kind, individualPrefix)
+	}
 	text := shown(node)
 	if text != "" {
 		text = usagePrefix(node.Inherited) + text

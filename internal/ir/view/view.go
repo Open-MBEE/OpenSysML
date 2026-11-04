@@ -978,10 +978,15 @@ func nameText(name string) string {
 // "state", "view" — so a rendering prints no Go type name.
 func declKind(sym *symbols.Symbol) string {
 	kind := sym.Notation()
-	// `event occurrence e` is parsed as an occurrence with the event modifier; the
-	// notation heads its box «event occurrence» (SysML v2.1 §8.2.3.9).
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.IsEvent && !strings.HasPrefix(kind, "event ") {
-		return "event " + kind
+	// `event` and `individual` are parsed as modifiers of the usage; the notation
+	// heads its box «event occurrence», «individual part» (SysML v2.1 §8.2.3.9).
+	if usage, ok := sym.Decl.(*ast.Usage); ok {
+		if usage.IsEvent && !strings.HasPrefix(kind, "event ") {
+			kind = "event " + kind
+		}
+		if usage.IsIndividual && !strings.HasPrefix(kind, "individual ") {
+			kind = "individual " + kind
+		}
 	}
 	return kind
 }
