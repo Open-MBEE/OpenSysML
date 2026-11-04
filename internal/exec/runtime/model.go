@@ -186,6 +186,9 @@ type Model struct {
 	// actionInterfaces the interface a tool performance binds. Lazy, like names.
 	actionGraphs     map[*symbols.Symbol]*loweredAction
 	actionInterfaces map[*symbols.Symbol]*loweredAction
+	// declaredShapes memoizes, by the usage performed through, the shape of a
+	// performance whose features are that usage's members (ActionExecutor.declared).
+	declaredShapes map[*symbols.Symbol]*performanceShape
 
 	behaviorOrdersReady bool
 	behaviorOrders      []lower.BehaviorOrder
