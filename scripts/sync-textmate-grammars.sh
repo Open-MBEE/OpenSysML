@@ -9,11 +9,8 @@
 #   scripts/sync-textmate-grammars.sh --publish [--tag v]  commit HEAD's grammars to the mirror and push
 #   scripts/sync-textmate-grammars.sh --publish --dry-run  commit locally, show it, push nothing
 #
-# The grammars are read from HEAD, never from the working tree, so what the
-# mirror cites as its source is what it carries. With --tag the mirror moves
-# only for the newest stable release in the tag namespace as fetched now, the
-# rule the image publisher applies to `latest`: a pre-release or a re-run of an
-# older tag is a no-op instead of a rollback.
+# Read HEAD's grammars; with --tag, publish only the newest stable release.
+# Skip pre-releases and older tags so they cannot roll the mirror back.
 #
 # --publish needs a token that can write the mirror's contents in GITHUB_TOKEN,
 # GH_TOKEN or CIRCLE_TOKEN; it travels in a header, never in a URL git echoes.
