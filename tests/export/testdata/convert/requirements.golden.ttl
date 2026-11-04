@@ -1,4 +1,5 @@
 @prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
@@ -83,10 +84,14 @@ elmt:Reqs__Safe__margin
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Reqs__Safe__margin_pmultiplicity ;
+    sysml:ownedRelationship elmt:Reqs__Safe__margin_ft0, expr:Reqs__Safe__margin_pmultiplicity_om ;
+    sysml:ownedMembership expr:Reqs__Safe__margin_pmultiplicity_om ;
+    sysml:ownedMember expr:Reqs__Safe__margin_pmultiplicity ;
     sysml:ownedTyping elmt:Reqs__Safe__margin_ft0 ;
     sysml:ownedSpecialization elmt:Reqs__Safe__margin_ft0 ;
-    sysml:ownedRelationship elmt:Reqs__Safe__margin_ft0 ;
-    sysx:sourceText "        attribute margin : Real;\n" .
+    sysx:sourceText "        attribute margin : Real;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Reqs__Safe__margin_ft0\"},{\"@id\":\"Reqs__Safe__margin_pmultiplicity_om\"}]" .
 
 elmt:Reqs__Safe__margin_om
     a sysml:FeatureMembership ;
@@ -104,6 +109,28 @@ elmt:Reqs__Safe__margin_om
     sysml:ownedMemberFeature elmt:Reqs__Safe__margin ;
     sysml:owningType elmt:Reqs__Safe ;
     json:relatedElement "[{\"@id\":\"Reqs__Safe\"},{\"@id\":\"Reqs__Safe__margin\"}]" .
+
+expr:Reqs__Safe__margin_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Reqs__Safe__margin_pmultiplicity" ;
+    sysml:owner elmt:Reqs__Safe__margin ;
+    sysml:owningRelationship expr:Reqs__Safe__margin_pmultiplicity_om ;
+    sysml:owningMembership expr:Reqs__Safe__margin_pmultiplicity_om .
+
+expr:Reqs__Safe__margin_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Reqs__Safe__margin_pmultiplicity_om" ;
+    sysml:owner elmt:Reqs__Safe__margin ;
+    sysml:memberElement expr:Reqs__Safe__margin_pmultiplicity ;
+    sysml:ownedMemberElement expr:Reqs__Safe__margin_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Reqs__Safe__margin_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Reqs__Safe__margin ;
+    sysml:membershipOwningNamespace elmt:Reqs__Safe__margin ;
+    sysml:source elmt:Reqs__Safe__margin ;
+    sysml:target expr:Reqs__Safe__margin_pmultiplicity ;
+    sysml:relatedElement elmt:Reqs__Safe__margin, expr:Reqs__Safe__margin_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Reqs__Safe__margin\"},{\"@id\":\"Reqs__Safe__margin_pmultiplicity\"}]" .
 
 elmt:Reqs__Positive
     a sysml:ConstraintDefinition ;
@@ -162,10 +189,14 @@ elmt:Reqs__Positive__value
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:multiplicity expr:Reqs__Positive__value_pmultiplicity ;
+    sysml:ownedRelationship elmt:Reqs__Positive__value_ft0, expr:Reqs__Positive__value_pmultiplicity_om ;
+    sysml:ownedMembership expr:Reqs__Positive__value_pmultiplicity_om ;
+    sysml:ownedMember expr:Reqs__Positive__value_pmultiplicity ;
     sysml:ownedTyping elmt:Reqs__Positive__value_ft0 ;
     sysml:ownedSpecialization elmt:Reqs__Positive__value_ft0 ;
-    sysml:ownedRelationship elmt:Reqs__Positive__value_ft0 ;
-    sysx:sourceText "        attribute value : Real;\n" .
+    sysx:sourceText "        attribute value : Real;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Reqs__Positive__value_ft0\"},{\"@id\":\"Reqs__Positive__value_pmultiplicity_om\"}]" .
 
 elmt:Reqs__Positive__value_om
     a sysml:FeatureMembership ;
@@ -183,6 +214,28 @@ elmt:Reqs__Positive__value_om
     sysml:ownedMemberFeature elmt:Reqs__Positive__value ;
     sysml:owningType elmt:Reqs__Positive ;
     json:relatedElement "[{\"@id\":\"Reqs__Positive\"},{\"@id\":\"Reqs__Positive__value\"}]" .
+
+expr:Reqs__Positive__value_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Reqs__Positive__value_pmultiplicity" ;
+    sysml:owner elmt:Reqs__Positive__value ;
+    sysml:owningRelationship expr:Reqs__Positive__value_pmultiplicity_om ;
+    sysml:owningMembership expr:Reqs__Positive__value_pmultiplicity_om .
+
+expr:Reqs__Positive__value_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Reqs__Positive__value_pmultiplicity_om" ;
+    sysml:owner elmt:Reqs__Positive__value ;
+    sysml:memberElement expr:Reqs__Positive__value_pmultiplicity ;
+    sysml:ownedMemberElement expr:Reqs__Positive__value_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Reqs__Positive__value_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Reqs__Positive__value ;
+    sysml:membershipOwningNamespace elmt:Reqs__Positive__value ;
+    sysml:source elmt:Reqs__Positive__value ;
+    sysml:target expr:Reqs__Positive__value_pmultiplicity ;
+    sysml:relatedElement elmt:Reqs__Positive__value, expr:Reqs__Positive__value_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Reqs__Positive__value\"},{\"@id\":\"Reqs__Positive__value_pmultiplicity\"}]" .
 
 elmt:Reqs__System
     a sysml:PartDefinition ;
