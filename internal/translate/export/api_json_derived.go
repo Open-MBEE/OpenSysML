@@ -336,31 +336,17 @@ func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (stri
 // anonymousLibraryID mints the id of a library member no qualified name
 // catalogues (identity.AnonymousMemberID), under its catalogued owner.
 func (w *apiJSONElementWriter) anonymousLibraryID(symbol *symbols.Symbol, membership bool) (string, bool) {
-	if symbol.Name != "" || w.evaluation.model == nil {
+	if w.evaluation.model == nil {
 		return "", false
 	}
-	owner := symbol.Owner()
-	ownerElement, ok := w.evaluation.libraryCatalog().ElementForSymbol(owner)
-	if !ok || ownerElement == nil || ownerElement.ID == "" || owner.Scope == nil {
+	member, ok := identity.AnonymousMemberOf(w.evaluation.model, w.evaluation.libraryCatalog(), symbol)
+	if !ok {
 		return "", false
 	}
-	metaclass := w.evaluation.model.MetaclassOf(symbol)
-	if metaclass == nil || metaclass.Name == "" {
-		return "", false
-	}
-	ordinal := -1
-	owner.Scope.ForEachAnonymousMember(func(member *symbols.Symbol) bool {
-		if sibling := w.evaluation.model.MetaclassOf(member); sibling != nil && sibling.Name == metaclass.Name {
-			ordinal++
-		}
-		return member != symbol
-	})
 	if membership {
-		id := identity.AnonymousMemberOwningMembershipID(ownerElement.ID, metaclass.Name, ordinal)
-		return id, id != ""
+		return member.OwningMembershipID, member.OwningMembershipID != ""
 	}
-	id := identity.AnonymousMemberID(ownerElement.ID, metaclass.Name, ordinal)
-	return id, id != ""
+	return member.ID, member.ID != ""
 }
 
 // libraryCatalog is the catalog of normative library ids, built once per evaluation.

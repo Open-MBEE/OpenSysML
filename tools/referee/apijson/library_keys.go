@@ -3,10 +3,8 @@ package apijson
 import (
 	"regexp"
 	"sort"
-	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -49,55 +47,17 @@ func anonymousLibraryKeys(pilotKeys idKeys) idKeys {
 }
 
 // keyAnonymousMembers keys the anonymous members of one named library owner
-// and their owning memberships.
+// and their owning memberships by the positional paths identity derives.
 func keyAnonymousMembers(owner string, resolver *resolve.Resolver, model *semantics.Model, catalog *identity.Catalog, keys idKeys) {
 	symbolsFound := resolver.Index().LookupQualified(owner)
 	if len(symbolsFound) != 1 || symbolsFound[0].Scope == nil {
 		return
 	}
-	sym := symbolsFound[0]
-	element, ok := catalog.ElementForSymbol(sym)
-	if !ok || element == nil || element.ID == "" {
-		return
-	}
-	members, ok := model.ReflectiveElements(sym, "ownedMember")
-	if !ok {
-		return
-	}
-	metaclassOf := func(s *symbols.Symbol) string {
-		if metaclass := model.MetaclassOf(s); metaclass != nil {
-			return metaclass.Name
+	symbolsFound[0].Scope.ForEachAnonymousMember(func(sym *symbols.Symbol) bool {
+		if member, ok := identity.AnonymousMemberOf(model, catalog, sym); ok {
+			keys[member.ID] = member.Path
+			keys[member.OwningMembershipID] = member.MembershipPath
 		}
-		return ""
-	}
-	oursOrdinal := make(map[*symbols.Symbol]int)
-	anonymousSeen := make(map[string]int)
-	sym.Scope.ForEachAnonymousMember(func(member *symbols.Symbol) bool {
-		metaclass := metaclassOf(member)
-		oursOrdinal[member] = anonymousSeen[metaclass]
-		anonymousSeen[metaclass]++
 		return true
 	})
-	elementSeen := make(map[string]int)
-	membershipSeen := make(map[string]int)
-	for _, member := range members {
-		metaclass := metaclassOf(member)
-		membershipKind := metamodel.ElementOf(member).Membership.Metaclass()
-		elementIndex, membershipIndex := elementSeen[metaclass], membershipSeen[membershipKind]
-		elementSeen[metaclass]++
-		membershipSeen[membershipKind]++
-		ordinal, anonymous := oursOrdinal[member]
-		if !anonymous || metaclass == "" {
-			continue
-		}
-		if id := identity.AnonymousMemberID(element.ID, metaclass, ordinal); id != "" {
-			keys[id] = owner + "/" + metaclass + "[" + strconv.Itoa(elementIndex) + "]"
-		}
-		if membershipKind == "" {
-			continue
-		}
-		if id := identity.AnonymousMemberOwningMembershipID(element.ID, metaclass, ordinal); id != "" {
-			keys[id] = owner + "/" + membershipKind + "[" + strconv.Itoa(membershipIndex) + "]"
-		}
-	}
 }
