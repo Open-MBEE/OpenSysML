@@ -2804,7 +2804,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if d.nonunique(el) {
 		multPart += " nonunique"
 	}
-	typed, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelTyping])
+	typed, err := d.typingNames(el)
 	if err != nil {
 		return "", err
 	}
@@ -4286,24 +4286,45 @@ func (d *decoder) visibility(el *element) string {
 // for clauses no owned relationship places. multPart, when given, is the
 // multiplicity part, written where the multiplicity's membership stands among
 // those relationships, else with the typing clause.
+// typingNames spells the types el is typed by; a ConjugatedPortTyping's as `~P`
+// (SysML v2 8.3.12.3), P being the port definition the stated conjugate conjugates.
+// The `~` belongs to that typing alone: elsewhere the conjugate keeps its qualified name.
+func (d *decoder) typingNames(el *element) ([]string, error) {
+	if !d.boolOf(el, rdf.OpenSysML+xConjugatedTyping) {
+		return d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelTyping])
+	}
+	var out []string
+	for _, term := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+relationshipProperty[ast.RelTyping]) {
+		if original := d.portDefinitions.original(d.graph, d.metaclass, rdf.Term{}, term); original.IsIRI() && original != term {
+			term = original
+		}
+		name, err := d.referenceName(term, el)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(name, "~") {
+			name = "~" + name
+		}
+		out = append(out, name)
+	}
+	return out, nil
+}
+
 func (d *decoder) relationshipWords(el *element, multPart string, skip ...ast.RelationshipKind) ([]string, error) {
 	targets := map[ast.RelationshipKind][]string{}
 	for _, kind := range relationshipOrder {
 		if slices.Contains(skip, kind) {
 			continue
 		}
-		names, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind])
+		var names []string
+		var err error
+		if kind == ast.RelTyping {
+			names, err = d.typingNames(el)
+		} else {
+			names, err = d.referenceList(el, rdf.SysML+relationshipProperty[kind])
+		}
 		if err != nil {
 			return nil, err
-		}
-		// Conjugation qualifies the type a feature is typed by, not the feature
-		// itself: the notation is `port p : ~P` (SysML v2 ConjugatedPortTyping).
-		if kind == ast.RelTyping && d.boolOf(el, rdf.OpenSysML+xConjugatedTyping) {
-			for i, name := range names {
-				if !strings.HasPrefix(name, "~") {
-					names[i] = "~" + name
-				}
-			}
 		}
 		targets[kind] = names
 	}
@@ -4591,17 +4612,6 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 	target, err := d.referencedElement(term.Value)
 	if err != nil {
 		return "", err
-	}
-	// A ConjugatedPortDefinition is written `~P`, P being the definition it
-	// conjugates (SysML v2 8.3.12.3); it has no spelling of its own.
-	if target.metaclass == mConjugatedPortDefinition {
-		if original := d.portDefinitions.original(d.graph, d.metaclass, rdf.Term{}, term); original.IsIRI() && original != term {
-			name, err := d.referenceName(original, el)
-			if err != nil {
-				return "", err
-			}
-			return "~" + name, nil
-		}
 	}
 	spelled := d.spelledName(target)
 	key := nameKey{member: d.writtenQName(el), target: target.qname}

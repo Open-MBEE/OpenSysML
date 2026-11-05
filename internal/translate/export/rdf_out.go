@@ -3521,7 +3521,24 @@ func (e *encoder) reference(name *ast.QualifiedName) rdf.Term {
 	if decl, fqn, ok := e.referent(name); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
+	if conjugate, ok := e.impliedConjugate(name); ok {
+		return conjugate
+	}
 	return rdf.String(qualifiedText(name))
+}
+
+// impliedConjugate links a name written as `P::'~P'` to the ConjugatedPortDefinition
+// minted beside P (SysML v2 8.3.12.3): implied, it has no declaration of its own here.
+func (e *encoder) impliedConjugate(name *ast.QualifiedName) (rdf.Term, bool) {
+	sym, ok := e.res.PartSymbol(name, len(name.Parts)-1)
+	if !ok || sym == nil || !sym.IsConjugatedPortDefinition() {
+		return rdf.Term{}, false
+	}
+	decl, fqn, ok := e.linked(semantics.OriginalPortDefinitionOf(sym), true)
+	if !ok {
+		return rdf.Term{}, false
+	}
+	return e.conjugateReference(e.ids.subjectForNode(decl, fqn)), true
 }
 
 // referent is the element reference links a name to, if any.

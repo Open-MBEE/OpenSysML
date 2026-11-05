@@ -43,9 +43,8 @@ func IsPortDefinition(sym *symbols.Symbol) bool {
 	return sym.IsConjugatedPortDefinition()
 }
 
-// conjugatedTypingTarget reads a typing's `~`: the type is the ConjugatedPortDefinition
-// the target implies (SysML v2 8.3.12.3), an edge conjugating nothing further; a target
-// implying no conjugate stays a conjugated edge to that target.
+// conjugatedTypingTarget reads a typing's `~` as the ConjugatedPortDefinition the target
+// implies (SysML v2 8.3.12.3); a target implying none keeps its conjugating edge.
 func (m *Model) conjugatedTypingTarget(target *symbols.Symbol, conjugated bool) (*symbols.Symbol, bool) {
 	if !conjugated || target == nil {
 		return target, conjugated
