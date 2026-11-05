@@ -39,8 +39,8 @@ const (
 	// ExpressionTriggerAction is the AcceptActionUsage a transition's trigger declares,
 	// owned through a TransitionFeatureMembership of kind trigger; Owner is the transition.
 	ExpressionTriggerAction
-	// ExpressionPayload is that accept's payload parameter, valued by a time or change
-	// event's TriggerInvocationExpression; Owner is the accept.
+	// ExpressionPayload is a parameter of that accept: its payload, valued by a time or change
+	// event's TriggerInvocationExpression, or its `via` receiver; Owner is the accept.
 	ExpressionPayload
 )
 

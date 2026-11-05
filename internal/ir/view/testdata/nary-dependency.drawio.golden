@@ -13,32 +13,32 @@
         <mxCell id="frame_tr" value="expose NaryRules::Chassis&#xA;expose NaryRules::Lights&#xA;expose NaryRules::Brakes&#xA;expose NaryRules::Steering&#xA;expose NaryRules::rules" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
             <mxGeometry x="592" width="235" height="92" as="geometry"/>
         </mxCell>
-        <object id="n0" label="«part def»&#xA;Chassis" fqn="NaryRules::Chassis" kind="part def" view="NaryViews::dependencies">
+        <object id="n0" label="«part def»&#xA;Chassis" fqn="NaryRules::Chassis" kind="part def" view="NaryViews::dependencies" link="nary.sysml:48">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="81" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n1" label="«part def»&#xA;Lights" fqn="NaryRules::Lights" kind="part def" view="NaryViews::dependencies">
+        <object id="n1" label="«part def»&#xA;Lights" fqn="NaryRules::Lights" kind="part def" view="NaryViews::dependencies" link="nary.sysml:49">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
             <mxGeometry x="181" y="50" width="76" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n2" label="«part def»&#xA;Brakes" fqn="NaryRules::Brakes" kind="part def" view="NaryViews::dependencies">
+        <object id="n2" label="«part def»&#xA;Brakes" fqn="NaryRules::Brakes" kind="part def" view="NaryViews::dependencies" link="nary.sysml:50">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
             <mxGeometry x="307" y="50" width="76" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n3" label="«part def»&#xA;Steering" fqn="NaryRules::Steering" kind="part def" view="NaryViews::dependencies">
+        <object id="n3" label="«part def»&#xA;Steering" fqn="NaryRules::Steering" kind="part def" view="NaryViews::dependencies" link="nary.sysml:51">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
             <mxGeometry x="50" y="137" width="90" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n4" label="«dependency dot»&#xA;rules" fqn="NaryRules::rules" kind="dependency dot" view="NaryViews::dependencies">
+        <object id="n4" label="rules" fqn="NaryRules::rules" kind="dependency dot" view="NaryViews::dependencies" link="nary.sysml:54">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
             <mxGeometry x="190" y="137" width="12" height="12" as="geometry"/>
           </mxCell>
         </object>
-        <object id="e0" label="" kind="dependency client" view="NaryViews::dependencies">
+        <object id="e0" label="" fqn="NaryRules::rules" kind="dependency client" view="NaryViews::dependencies" link="nary.sysml:54">
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n2" target="n4">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -47,7 +47,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e1" label="" kind="dependency client" view="NaryViews::dependencies">
+        <object id="e1" label="" fqn="NaryRules::rules" kind="dependency client" view="NaryViews::dependencies" link="nary.sysml:54">
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n3" target="n4">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -57,7 +57,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e2" label="" kind="dependency" view="NaryViews::dependencies">
+        <object id="e2" label="" fqn="NaryRules::rules" kind="dependency" view="NaryViews::dependencies" link="nary.sysml:54">
           <mxCell style="edgeStyle=none;exitX=0;exitY=0.3333;exitPerimeter=0;entryX=1;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -67,7 +67,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e3" label="" kind="dependency" view="NaryViews::dependencies">
+        <object id="e3" label="" fqn="NaryRules::rules" kind="dependency" view="NaryViews::dependencies" link="nary.sysml:54">
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.75;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">

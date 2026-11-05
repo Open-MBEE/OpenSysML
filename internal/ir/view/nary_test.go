@@ -2,6 +2,7 @@ package view
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -33,6 +34,14 @@ func TestGoldenNaryDotsAndFlowsOnConnections(t *testing.T) {
 				machine, err := rendering.Write(form)
 				if err != nil {
 					t.Fatalf("write %s: %v", form, err)
+				}
+				if form == FormDrawio {
+					// The draw.io golden names each cell's declaration, as the exports the importer reads do.
+					sited, options := renderWithSites(t, "nary.sysml", tc.view)
+					if machine, err = sited.WriteWith(form, options); err != nil {
+						t.Fatalf("write %s: %v", form, err)
+					}
+					checkDrawioDocument(t, machine)
 				}
 				checkGolden(t, filepath.Join("testdata", tc.name+"."+string(form)+".golden"), machine)
 			}
@@ -221,6 +230,130 @@ func TestSplitRouteKeepsALoneWaypointOnTheFirstSegment(t *testing.T) {
 	}
 	if splitRoute(nil, 1) != nil {
 		t.Fatal("splitRoute of no route is not nil")
+	}
+}
+
+// naryNodes lists every node of a rendering, depth first.
+func naryNodes(roots []*Node) []*Node {
+	var out []*Node
+	var walk func(*Node)
+	walk = func(node *Node) {
+		out = append(out, node)
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range roots {
+		walk(root)
+	}
+	return out
+}
+
+// A note on an n-ary connection sits at its dot; a note on a flow drawn as an item
+// box sits at the box, and the connection's own note stays on the line's first segment.
+func TestNaryNotesAnchorAtTheDotAndTheItemBox(t *testing.T) {
+	wheel := render(t, "nary.sysml", "NaryViews::wheelLinks")
+	var dot *Node
+	for _, node := range naryNodes(wheel.Roots) {
+		if node.Kind == connectionDotKind && node.Name == "spokes" {
+			dot = node
+		}
+	}
+	if dot == nil {
+		t.Fatal("no spokes dot")
+	}
+	if len(wheel.Notes) != 1 || wheel.Notes[0].Anchor != dot.ID || wheel.Notes[0].EdgeFrom != "" {
+		t.Errorf("the spokes note = %+v, want it anchored on the dot %s", wheel.Notes, dot.ID)
+	}
+	car := render(t, "nary.sysml", "NaryViews::carLinks")
+	var level *Node
+	for _, node := range naryNodes(car.Roots) {
+		if itemBox(node) && node.Arrow == arrowLeft { // the flow `level`, the one going back
+			level = node
+		}
+	}
+	if level == nil {
+		t.Fatal("no level item box")
+	}
+	anchors := map[string]Note{}
+	for _, note := range car.Notes {
+		anchors[note.Text] = note
+	}
+	if n := anchors["the reading"]; n.Anchor != level.ID || n.EdgeFrom != "" {
+		t.Errorf("the flow's note = %+v, want it anchored on its box %s", n, level.ID)
+	}
+	if n := anchors["the line"]; n.Anchor != "" || n.EdgeFrom == "" || !itemBox(nodeByID(car.Roots, n.EdgeTo)) {
+		t.Errorf("the line's note = %+v, want it on the first segment, from the line's end to an item box", n)
+	}
+	// One annotation about the line and the flow is a note on each: the shared origin
+	// does not make the line's note the flow's.
+	shared := map[string]int{}
+	for _, note := range car.Notes {
+		if note.Text == "shared" {
+			shared[note.Anchor+"|"+note.EdgeTo]++
+		}
+	}
+	if len(car.Notes) != 4 || shared[level.ID+"|"] != 1 || shared["|"+anchors["the line"].EdgeTo] != 1 {
+		t.Errorf("notes = %+v, want the four stated, the shared one on the box and on the first segment", car.Notes)
+	}
+}
+
+func nodeByID(roots []*Node, id string) *Node {
+	for _, node := range naryNodes(roots) {
+		if node.ID == id {
+			return node
+		}
+	}
+	return &Node{}
+}
+
+// A route stated about a ternary connection def is noticed, not dropped: the dot and
+// its segments are not steered by one polyline.
+func TestNaryConnectionDefRouteIsNoticed(t *testing.T) {
+	got := render(t, "nary.sysml", "NaryViews::definitionsRouted")
+	want := "connection def Triad states a route; its 3 ends are drawn as a dot and segments, which the route does not steer"
+	if !slices.Contains(got.Notices, want) {
+		t.Errorf("notices = %q, want %q", got.Notices, want)
+	}
+}
+
+// A Route on a split line places the line's ends as any routed edge's, however the cut
+// shares its waypoints out: the first segment keeps a lone waypoint and its part is drawn.
+func TestRoutedSplitLinePlacesItsEnds(t *testing.T) {
+	got := render(t, "nary.sysml", "NaryViews::carLinksRouted")
+	tank, first := got.Roots[0].Children[0], -1
+	for i, edge := range got.Edges {
+		if edge.Kind == EdgeConnection && edge.From == tank.ID {
+			first = i
+		}
+	}
+	if first < 0 || len(got.Edges[first].Route) != 1 {
+		t.Fatalf("edges = %+v, want the first segment from tank with one waypoint", got.Edges)
+	}
+	drawio, err := got.Write(FormDrawio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`fqn="Nary::Car::tank"`, `fqn="Nary::Car::engine"`, `<mxPoint x="150" y="80"/>`, `source="` + tank.ID + `:`} {
+		if !strings.Contains(drawio, want) {
+			t.Errorf("draw.io export lacks %s", want)
+		}
+	}
+}
+
+// A view exposing the clients of an n-ary dependency but no supplier draws no dot:
+// half a dependency is not drawn.
+func TestNaryDependencyNeedsAClientAndASupplier(t *testing.T) {
+	got := render(t, "nary.sysml", "NaryViews::dependenciesClients")
+	for _, node := range naryNodes(got.Roots) {
+		if node.Kind == dependencyDotKind {
+			t.Errorf("a dependency dot %q is drawn with no supplier exposed", node.Name)
+		}
+	}
+	for _, edge := range got.Edges {
+		if edge.Kind == EdgeDependencyClient || edge.Kind == EdgeDependency {
+			t.Errorf("edge %+v drawn with no supplier exposed", edge)
+		}
 	}
 }
 
