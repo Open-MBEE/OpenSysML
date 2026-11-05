@@ -1516,7 +1516,7 @@ jobs:
 
   # The .NET client on Linux, against the service the build job made. The SDK is
   # installed alone in its own directory, so root global.json can select nothing
-  # else and make dotnet-preflight checks the exact pin.
+  # else and CI builds with the exact pin; make dotnet-preflight checks its band.
   dotnet-test:
     name: .NET client tests
     needs: [changes, build]

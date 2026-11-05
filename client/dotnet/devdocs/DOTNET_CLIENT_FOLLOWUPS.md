@@ -40,11 +40,12 @@ the service you test against is current.
 ### Toolchain
 
 Run every command from the repository root (`global.json` there pins SDK 10.0.402 and the
-Microsoft.Testing.Platform runner). The pinned SDK is installed privately in `~/.dotnet`;
-Homebrew's `dotnet` is 10.0.403 and `make dotnet-preflight` rejects it.
+Microsoft.Testing.Platform runner). Any later 10.0.4xx patch passes `make dotnet-preflight`, so
+Homebrew's `dotnet` works; CI builds with exactly 10.0.402, installed privately in `~/.dotnet`
+for reproducing a CI-only failure.
 
 ```bash
-export DOTNET_ROOT=$HOME/.dotnet PATH=$HOME/.dotnet:$PATH
+export DOTNET_ROOT=$HOME/.dotnet PATH=$HOME/.dotnet:$PATH   # only to match CI's exact SDK
 # Interop tests need a real JDK; /usr/bin/java on this machine is the macOS stub.
 export JAVA_HOME=/opt/homebrew/opt/openjdk PATH=/opt/homebrew/opt/openjdk/bin:$PATH
 make build-grpc                                   # rebuild bin/sysml-grpc after every merge

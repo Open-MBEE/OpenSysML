@@ -1,6 +1,6 @@
 ---
 name: testing-dotnet-client
-description: How to test the OpenMBEE.OpenSysML .NET client (client/dotnet) end to end — provisioning the exact pinned SDK, running the suite with the real sysml-grpc required rather than skipped, the orphan/sibling and load-context probes, cross-client cache-lock interop, the release-trust fixtures, the conformance runner and its mutations, and the documented walkthrough the guide shares with the Vehicle sample.
+description: How to test the OpenMBEE.OpenSysML .NET client (client/dotnet) end to end — provisioning an SDK in the pinned feature band, running the suite with the real sysml-grpc required rather than skipped, the orphan/sibling and load-context probes, cross-client cache-lock interop, the release-trust fixtures, the conformance runner and its mutations, and the documented walkthrough the guide shares with the Vehicle sample.
 ---
 
 # Testing the .NET client
@@ -11,10 +11,12 @@ and the Microsoft.Testing.Platform runner.
 
 ## Setup
 
-- **The SDK must be exactly the one `global.json` pins.** `make dotnet-preflight` refuses any other,
-  even a newer patch that `rollForward: latestPatch` would accept, and Homebrew upgrades its `dotnet`
-  silently. Install the pin privately and put it first:
-  `curl -sSfL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh && bash /tmp/dotnet-install.sh --version <pin> --install-dir ~/.dotnet`,
+- **The SDK must be in the feature band `global.json` pins, at or above its patch** (10.0.402 admits
+  10.0.403, not 10.0.401 or 10.0.5xx). `make dotnet-preflight` refuses anything else, because another
+  band ships another compiler and analyzers; `AnalysisLevel` is fixed at `10.0` so a servicing patch
+  cannot add rules that fail the `-warnaserror` build. CI builds with the exact pin, so to reproduce a
+  CI-only failure install it privately and put it first:
+  `curl -sSfL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh && bash /tmp/dotnet-install.sh --jsonfile global.json --install-dir ~/.dotnet`,
   then `export DOTNET_ROOT=$HOME/.dotnet PATH=$HOME/.dotnet:$PATH` in every shell that runs `make`.
 - Build the real service: `make build-grpc`. A stale `bin/sysml-grpc` from before a schema change
   fails parity and conformance in confusing ways; rebuild after every merge.
