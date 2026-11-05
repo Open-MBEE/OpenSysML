@@ -508,7 +508,7 @@ elmt:IndividualDefinitions__Lander
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSubclassification elmt:IndividualDefinitions__Lander_sc0 ;
     sysml:ownedSpecialization elmt:IndividualDefinitions__Lander_sc0 ;
-    sysx:sourceText "\t#Flown individual part def Lander :> Spacecraft;\n" ;
+    sysx:sourceText "\tindividual #Flown part def Lander :> Spacecraft;\n" ;
     json:ownedRelationship "[{\"@id\":\"IndividualDefinitions__Lander_pmultiplicity_om\"},{\"@id\":\"IndividualDefinitions__Lander___400_om\"},{\"@id\":\"IndividualDefinitions__Lander_sc0\"}]" ;
     json:ownedMembership "[{\"@id\":\"IndividualDefinitions__Lander_pmultiplicity_om\"},{\"@id\":\"IndividualDefinitions__Lander___400_om\"}]" ;
     json:ownedMember "[{\"@id\":\"IndividualDefinitions__Lander_pmultiplicity\"},{\"@id\":\"IndividualDefinitions__Lander___400\"}]" .
@@ -555,9 +555,9 @@ elmt:IndividualDefinitions__Lander___400
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:positionalName "IndividualDefinitions::Lander::@0" ;
     sysx:sourceLine "11"^^xsd:integer ;
-    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;
-    sysx:sourceEndColumn "8"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Lander___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Lander ;

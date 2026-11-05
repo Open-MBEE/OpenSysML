@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:88e72939565950b3b7fa2886cce77108898f666b858bc3f54b083baa28c0a152"
+        "sourceDigest": "sha256:3d7b6462dc8b79e44f285bd6098ed1892576189891a41650a1e86543ca75eb96"
       }
     ],
     "inputs": [
@@ -89,7 +89,7 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-04"
+    "recorded": "2026-11-05"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [

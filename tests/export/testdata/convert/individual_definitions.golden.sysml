@@ -8,7 +8,7 @@ package IndividualDefinitions {
 	abstract individual part def Spacecraft;
 	individual def Eagle :> Spacecraft;
 	metadata def Flown;
-	#Flown individual part def Lander :> Spacecraft;
+	individual #Flown part def Lander :> Spacecraft;
 	part def Mission {
 		part crew : Astronaut[*];
 		individual part commander : 'Neil Armstrong' :> crew;

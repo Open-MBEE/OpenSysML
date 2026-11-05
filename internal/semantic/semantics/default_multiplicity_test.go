@@ -339,7 +339,7 @@ func TestDefaultMultiplicityMember(t *testing.T) {
     enum def Color { red; }
     individual part def Probe :> Vehicle { part lens; }
     metadata def Tag;
-    #Tag individual part def Tagged :> Vehicle;
+    individual #Tag part def Tagged :> Vehicle;
     connection link connect lid to lid;
     connection named connect e1 ::> lid to e2 ::> lid;
 }`
