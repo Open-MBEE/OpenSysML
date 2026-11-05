@@ -121,9 +121,14 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 			return nil, err
 		}
 		if LibraryReference(settled, subject) {
-			// Legacy stubs carry stated properties, not metamodel defaults.
+			// Legacy stubs carry stated properties, not metamodel defaults; a stub typed
+			// IndividualDefinition/IndividualUsage states isIndividual by that type.
+			_, legacyIndividual := legacyMetaclasses[rdf.LocalName(settled.Type(subject))]
 			element = slices.DeleteFunc(element, func(member apiJSONMember) bool {
-				return member.key != "@id" && member.key != "@type" && !settled.HasProperty(subject, rdf.SysML+member.key)
+				if member.key == "@id" || member.key == "@type" || (legacyIndividual && member.key == "isIndividual") {
+					return false
+				}
+				return !settled.HasProperty(subject, rdf.SysML+member.key)
 			})
 		}
 		elements = append(elements, element)
