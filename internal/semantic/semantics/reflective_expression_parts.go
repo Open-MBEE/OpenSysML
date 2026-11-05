@@ -2,6 +2,8 @@ package semantics
 
 import (
 	"fmt"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -462,7 +464,7 @@ func appendOwningMembership(out []*symbols.Symbol, owner, member *symbols.Symbol
 // appendReferenceMembership appends the Membership through which owner names
 // the element name resolves to, at slot; nothing while the name is unresolved.
 func (m *Model) appendReferenceMembership(out []*symbols.Symbol, owner *symbols.Symbol, slot string, name *ast.QualifiedName) []*symbols.Symbol {
-	target := m.referencedSymbol(name)
+	target := m.referencedSymbol(owner, name)
 	if target == nil {
 		target = m.subjectValueTarget(owner)
 	}
@@ -509,17 +511,121 @@ func expressionReference(node ast.Node) (slot string, name *ast.QualifiedName, l
 	return "", nil, false
 }
 
-// referencedSymbol is what the resolver bound name's last segment to, nil
+// referencedSymbol is what the last segment of name, written in the expression
+// element expr, names: the resolver's record where the document walk left one,
+// else the name read on demand as that walk reads it (resolve.References); nil
 // while it is unresolved.
-func (m *Model) referencedSymbol(name *ast.QualifiedName) *symbols.Symbol {
+func (m *Model) referencedSymbol(expr *symbols.Symbol, name *ast.QualifiedName) *symbols.Symbol {
 	if name == nil || len(name.Parts) == 0 {
 		return nil
 	}
-	sym, ok := m.resolver.PartSymbol(name, len(name.Parts)-1)
+	if sym, ok := m.resolver.PartSymbol(name, len(name.Parts)-1); ok {
+		return sym
+	}
+	ref, ok := m.expressionNameReference(expr, name)
 	if !ok {
 		return nil
 	}
-	return sym
+	if sym, ok := m.resolver.ProbeReference(ref); ok {
+		return sym
+	}
+	return nil
+}
+
+// dottedPartSymbol is what segment i of the dotted name full, written in the
+// expression element expr, names: the whole name is read as the document walk
+// reads it, so each segment is a member of the one before, never a name of
+// its own in scope.
+func (m *Model) dottedPartSymbol(expr *symbols.Symbol, full *ast.QualifiedName, i int) *symbols.Symbol {
+	if sym, ok := m.resolver.PartSymbol(full, i); ok {
+		return sym
+	}
+	ref, ok := m.expressionNameReference(expr, full)
+	if !ok {
+		return nil
+	}
+	m.resolver.ProbeReference(ref)
+	if sym, ok := m.resolver.PartSymbol(full, i); ok {
+		return sym
+	}
+	return nil
+}
+
+// expressionNameReference is the occurrence of name in expr as the document
+// walk collects it: a chain's member read from its operand, an invocation's
+// type read as a call names it, any other name read in the expression's scope.
+func (m *Model) expressionNameReference(expr *symbols.Symbol, name *ast.QualifiedName) (resolve.Reference, bool) {
+	scope := m.expressionScopeOf(expr)
+	if scope == nil || expr == nil {
+		return resolve.Reference{}, false
+	}
+	ref := resolve.Reference{Scope: scope, QN: name}
+	if chain := chainNaming(expr.Decl, name); chain != nil {
+		ref.Chain = chain
+	} else if call, ok := expr.Decl.(*ast.InvocationExpr); ok && call.Type == name {
+		ref.Invocation = call
+	}
+	return ref, true
+}
+
+// chainNaming is the FeatureChainExpr whose member is name: node itself, or
+// one in the receiver of node, a call reached through its receiver; nil when none.
+func chainNaming(node ast.Node, name *ast.QualifiedName) *ast.FeatureChainExpr {
+	for {
+		switch n := node.(type) {
+		case *ast.FeatureChainExpr:
+			if n.Member == name {
+				return n
+			}
+			node = n.Operand
+		case *ast.InvocationExpr:
+			if n.Type != nil {
+				return nil
+			}
+			node = n.Operand
+		default:
+			return nil
+		}
+	}
+}
+
+// expressionScopeOf is the scope the names an expression element writes resolve
+// in, the one the document walk reads them in: the scope of the innermost body
+// expression declaring members around it, else the owner scope of the feature
+// whose value it is.
+func (m *Model) expressionScopeOf(expr *symbols.Symbol) *symbols.Scope {
+	for cur := expr; cur != nil; cur = cur.Expr.Owner {
+		if cur.Expr == nil {
+			return referenceScope(cur)
+		}
+		if cur.Expr.Role == symbols.ExpressionBody {
+			if scope := m.bodyScopeOf(cur); scope != nil {
+				return scope
+			}
+		}
+	}
+	return nil
+}
+
+// dottedChainName is the dotted name whose links the chain Feature of node
+// chains (expressionChain's dotted case); nil where the links are nodes of
+// their own.
+func dottedChainName(node ast.Node) *ast.QualifiedName {
+	switch n := node.(type) {
+	case *ast.InvocationExpr:
+		if n.Type != nil && ast.QualifiedNameHasChain(n.Type) {
+			return n.Type
+		}
+	case *ast.ConstructorExpr:
+		if n.Type != nil && ast.QualifiedNameHasChain(n.Type) {
+			return n.Type
+		}
+	case *ast.FeatureChainExpr:
+		if n.Member != nil && ast.QualifiedNameHasChain(n.Member) {
+			return n.Member
+		}
+	}
+	return nil
 }
 
 // expressionReferencedElements is the element the expression's reference
@@ -782,11 +888,20 @@ func (m *Model) ExpressionChainFeature(expr *symbols.Symbol) *symbols.Symbol {
 // segment of the dotted name, each to the feature the segment resolves to
 // (qualifiedChainReferences); a segment resolving to nothing owns none.
 func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol {
-	_, links, _ := m.expressionChainOf(chain.Expr.Owner)
-	path := m.subjectValuePath(chain.Expr.Owner, len(links))
+	owner := chain.Expr.Owner
+	_, links, _ := m.expressionChainOf(owner)
+	full := dottedChainName(owner.Decl)
+	path := m.subjectValuePath(owner, len(links))
 	var out []*symbols.Symbol
+	end := 0
 	for i, link := range links {
-		target := m.referencedSymbol(link)
+		end += len(link.Parts)
+		var target *symbols.Symbol
+		if full != nil {
+			target = m.dottedPartSymbol(owner, full, end-1)
+		} else {
+			target = m.referencedSymbol(owner, link)
+		}
 		if target == nil && path != nil {
 			target = path[i]
 		}
