@@ -7362,7 +7362,7 @@
       },
       "checks": "An OccurrenceDefinition with isIndividual = true must have a multiplicity that specializes Base::zeroOrOne from the Kernel Semantic Library.",
       "ocl": "isIndividual implies\n    multiplicity <> null and\n    multiplicity.specializesFromLibrary('Base::zeroOrOne')",
-      "implementation": "internal/semantic/semantics/default_multiplicity.go:Model.IndividualMultiplicityMember; internal/semantic/semantics/multiplicity_specialization.go:Model.MultiplicityBaseFQN",
+      "implementation": "internal/semantic/semantics/default_multiplicity.go:Model.DefaultMultiplicityMember; internal/semantic/semantics/multiplicity_specialization.go:Model.MultiplicityBaseFQN",
       "message": "observed at model level: an `individual` occurrence, part or item definition is parsed with a nameless Multiplicity — its `multiplicity`, first among its owned memberships — whose implied general is `Base::zeroOrOne`; a definition that is not individual has none (internal/semantic/semantics/multiplicity_specialization_test.go:TestIndividualOccurrenceDefinitionMultiplicity)",
       "negativeCase": "none",
       "codes": [],
