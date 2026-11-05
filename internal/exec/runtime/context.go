@@ -199,8 +199,10 @@ type Context struct {
 	// stepWrites is the ledger of the action step under way, nil between steps.
 	stepWrites *stepWriteLedger
 	// controls is the choice points the move under way stands on by control: the
-	// guards read and branches drawn around it (order_marks.go).
-	controls []int64
+	// guards read and branches drawn around it (order_marks.go); controlSet is
+	// the same as a set, nil until controlling computes it.
+	controls   []int64
+	controlSet []int64
 	// performing is the node whose performance the executor running is, nil for a
 	// run of its own: a body's own place is stamped as that performance's.
 	performing ast.Node
