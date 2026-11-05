@@ -98,7 +98,7 @@ $ ./bin/sysml examples/external-tool-demo/thermal.sysml \
 ✓ ThermalDemo::heating
   ...
   recorded Records::heating_run1 (Records::HeatingRun)
-wrote recorded.sysml (sysml, 6030 bytes)
+wrote recorded.sysml (sysml, 6340 bytes)
 ```
 
 ```sysml

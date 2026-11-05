@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» RobustViews::loopDefinitions : GeneralView"
 ---
 %% RobustViews::loopDefinitions — definition rendering (view def GeneralView, filter @Definition)
 %% not represented: 4 exposed standard library element(s) not drawn; a definition rendering draws the model's own elements

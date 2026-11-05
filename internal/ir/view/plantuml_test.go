@@ -50,6 +50,8 @@ var plantumlGoldenCases = []struct {
 	{"sequence-cycle", "sequence-order.sysml", "OrderingViews::deadlockView", KindSequence},
 	{"sequence-empty", "errors.sysml", "ErrorViews::emptySequenceView", KindSequence},
 	{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement},
+	{"annotations-tree", "annotations.sysml", "AnnotationViews::tree", KindTree},
+	{"annotations-definitions", "annotations.sysml", "AnnotationViews::definitions", KindDefinition},
 	{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition},
 	{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage},
 	{"glyphs-requirement", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::requirementGlyphs", KindRequirement},
@@ -653,6 +655,7 @@ func checkPlantUMLSyntax(t *testing.T, puml string) {
 	type arrow struct{ from, to string }
 	var arrows []arrow
 	depth, style := 0, false
+	note := false
 	for i, line := range lines[1 : len(lines)-1] {
 		switch {
 		case line == "<style>":
@@ -666,6 +669,11 @@ func checkPlantUMLSyntax(t *testing.T, puml string) {
 				t.Fatalf("line %d closes no <style>:\n%s", i+2, puml)
 			}
 			style = false
+			continue
+		case note:
+			if strings.TrimSpace(line) == "end note" {
+				note = false
+			}
 			continue
 		case style:
 			if strings.Contains(line, "{") {
@@ -698,7 +706,10 @@ func checkPlantUMLSyntax(t *testing.T, puml string) {
 			if depth < 0 {
 				t.Fatalf("line %d closes more braces than opened:\n%s", i+2, puml)
 			}
-		case strings.HasPrefix(trimmed, "hide "), strings.HasPrefix(trimmed, "skinparam "), strings.HasSuffix(trimmed, " direction"):
+		case strings.HasPrefix(trimmed, "note as "):
+			declared[strings.Fields(trimmed)[2]] = true
+			note = true
+		case strings.HasPrefix(trimmed, "hide "), strings.HasPrefix(trimmed, "skinparam "), strings.HasPrefix(trimmed, "mainframe "), strings.HasSuffix(trimmed, " direction"):
 		default:
 			t.Fatalf("line %d is no statement the writer emits: %q\n%s", i+2, line, puml)
 		}

@@ -1,1 +1,0 @@
-- An expression part that shares its owner's span — a satisfy subject's `by` value, an expression's result — is a distinct element on every identity-keyed read, so a relationship-aware query lists the value, its result and their memberships rather than folding them into the subject.

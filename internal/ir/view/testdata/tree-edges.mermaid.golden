@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» FleetViews::structure"
 ---
 %% FleetViews::structure — tree rendering
 flowchart TD

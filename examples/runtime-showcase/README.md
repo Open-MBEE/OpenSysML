@@ -696,7 +696,8 @@ which lists `outbound`, `lunarOps` and `returnJourney` with no succession
 between them — `LunarMissionUnordered`, at full scale. Instantiating the
 individual starts that performance, its phases unordered, and then the state
 machine the mission exhibits, which cannot start: `apollo11Phases` declares a
-state named `initial` but no `entry; then …;` naming where the machine begins:
+state named `initial` but no `entry; then …;` naming where the machine begins.
+The object stands, with a warning that the machine runs no further:
 
 ```bash
 ./bin/sysml -quiet \
@@ -705,7 +706,11 @@ state named `initial` but no `entry; then …;` naming where the machine begins:
 ```
 
 ```
-sysml: instantiation failed: exhibited state machine apollo11Phases of apollo11MissionIndividual: no initial state found in state machine apollo11Phases
+✓ Created instance of Apollo11MissionExecutionPackage::apollo11MissionIndividual
+  ID: 1
+  warning: exhibited state machine apollo11Phases of object #1 failed to start and runs no further: exhibited state machine apollo11Phases of apollo11MissionIndividual: no initial state found in state machine apollo11Phases
+  Use %features Apollo11MissionExecutionPackage::apollo11MissionIndividual to inspect
+warning: Apollo11MissionExecutionPackage::apollo11MissionIndividual: materialization is bounded; not every feature value was checked
 ```
 
 None of these is a validation error, and none should be: each construct is

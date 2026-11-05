@@ -177,6 +177,11 @@ func drawioSameCell(edited *view.DrawioFile, content string, cell *view.DrawioCe
 		}
 		return ""
 	}
+	if !cell.Edge && cell.FQN == "" {
+		if c := re.Cell(cell.ID); c != nil && !c.Edge {
+			return c
+		}
+	}
 	declared := drawioLinkLine(content, cell.Link)
 	if !cell.Edge {
 		return drawioFirst(re, func(c *view.DrawioCell) bool {

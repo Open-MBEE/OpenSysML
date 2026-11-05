@@ -222,6 +222,8 @@ func DisplayText(raw string) string {
 // it does, when the renderer found that — else with its kind.
 func (l labeller) head(node *Node) string {
 	switch name, typ := shown(node), node.Type; {
+	case name == "" && annotationKind(node.Kind) && node.Detail != "":
+		return l.text(node.Detail)
 	case name == "" && typ == "" && node.Text != "":
 		return l.text(node.Text)
 	case name == "" && typ == "" && itemBox(node):
@@ -324,6 +326,14 @@ func (l labeller) headLines(node *Node) []string {
 // guillemets after the head: every node whose head is a name or a type. A head
 // saying what the node does stands alone, as the kind is nothing beside it.
 func keyworded(node *Node) bool {
+	// A documentation or textual representation is headed by its keyword even
+	// unnamed (§8.2.3.4); a comment only when it has a name or a locale to head.
+	if node.Kind == docKind || node.Kind == repKind {
+		return true
+	}
+	if node.Kind == commentKind {
+		return shown(node) != "" || node.Detail != ""
+	}
 	return shown(node) != "" || node.Type != "" || itemBox(node) || statementKind(node.Kind)
 }
 
@@ -392,6 +402,8 @@ func (l labeller) keyword(node *Node) string {
 func (l labeller) details(node *Node) []string {
 	var lines []string
 	switch {
+	case annotationKind(node.Kind):
+		return l.annotationLines(node)
 	case !l.shown.Has(ElementCompartments):
 		return nil
 	case l.skin.cameo && ast.NotationKeyword(node.Kind) == "state":
@@ -407,6 +419,20 @@ func (l labeller) details(node *Node) []string {
 	if arrow := itemArrow(node); arrow != "" {
 		// An item box on a connection line ends in the arrow the item goes by.
 		lines = append(lines, arrow)
+	}
+	return lines
+}
+
+// annotationLines are the lines of an annotation node's label after its head:
+// its locale or language, then its body — the head is the body itself when
+// the annotation has no name (§8.2.3.4, comment-without-keyword).
+func (l labeller) annotationLines(node *Node) []string {
+	var lines []string
+	if node.Detail != "" && shown(node) != "" {
+		lines = append(lines, node.Detail)
+	}
+	if node.Text != "" && (shown(node) != "" || node.Detail != "") {
+		lines = append(lines, strings.Split(l.text(node.Text), "\n")...)
 	}
 	return lines
 }

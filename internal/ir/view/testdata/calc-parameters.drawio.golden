@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» ParameterCalcViews::calculations" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=352;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose ParameterCalcs::add&#xA;expose ParameterCalcs::Sensor" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="567" width="260" height="42" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«calc»&#xA;add" fqn="ParameterCalcs::add" kind="calc" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:9">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="54" height="37" as="geometry"/>
