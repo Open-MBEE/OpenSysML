@@ -7,5 +7,14 @@ digraph "CameraViews::bare" {
   graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Imaging</b>>, margin=0, pos="130,-140!", pin=true, width=3.3333333333333335, height=3.611111111111111, fixedsize=true];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>CameraViews::bare</b>>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    bb="2,-278,258,18";
+    "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Imaging</b>>, margin=0, pos="130,-140!", pin=true, width=3.3333333333333335, height=3.611111111111111, fixedsize=true];
+    "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Camera::Imaging</font>>, pos="149.5,-28!", pin=true, width=2.7916666666666665, height=0.5];
+  }
 }

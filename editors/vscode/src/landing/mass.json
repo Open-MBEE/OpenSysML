@@ -1759,7 +1759,8 @@
       "port-symbols",
       "compartments",
       "keywords",
-      "typings"
+      "typings",
+      "annotations"
     ]
   },
   "instances": [

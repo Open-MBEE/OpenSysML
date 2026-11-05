@@ -511,11 +511,12 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 		}
 		resolved = append(resolved, at)
 	}
-	route, style := r.routeOf(w.view, connector, out), r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
+	style := r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
 	if kind == EdgeConnection && nary(len(resolved)) {
-		w.naryConnection(connector, within, ends, resolved, route, style)
+		w.naryConnection(connector, within, ends, resolved, r.unsteeredRoute(w.view, connector, out), style)
 		return
 	}
+	route := r.routeOf(w.view, connector, out)
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{

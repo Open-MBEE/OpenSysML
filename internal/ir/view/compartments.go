@@ -23,22 +23,30 @@ type Compartment struct {
 // chapters of the language specification introducing each kind; a kind not
 // named here follows them in the order its members were declared.
 var compartmentOrder = []string{
-	"attributes", "enumerations", "occurrences", "individuals", "items", "parts", "ports",
-	"connections", "interfaces", "allocations", "actions", "states", "state actions", "calculations",
-	"constraints", "requirements", "cases", "analyses", "verifications", "use cases",
-	"views", "viewpoints", "renderings", "metadata",
+	"attributes", "enums", "occurrences", "individuals", "items", "parts", "ports", "ends",
+	"connections", "interfaces", "flows", "allocations", "actions", "states", "state actions", "calcs",
+	"constraints", "requirements", "satisfies", "cases", "analyses", "verifications", "verifies",
+	"use cases", "include use cases", "subject", "objective", "views", "viewpoints", "rendering", "metadata",
 }
 
-// compartmentPlurals are the compartment names whose keyword does not take
-// a plain "s".
 // stateActionRoles are the kinds the `state actions` compartment gathers.
 var stateActionRoles = map[string]bool{entryActionKind: true, doActionKind: true, exitActionKind: true}
 
-var compartmentPlurals = map[string]string{
-	"calc":           "calculations",
-	"enum":           "enumerations",
-	"analysis":       "analyses",
-	"metadata":       "metadata",
+// compartmentHeadings are the compartment names the figures of SysML v2 §8.2.3
+// head otherwise than by the plain plural of the members' keyword.
+var compartmentHeadings = map[string]string{
+	"calc":     "calcs",
+	"enum":     "enums",
+	"analysis": "analyses",
+	"metadata": "metadata",
+	// A metadata usage with no keyword of its own is named by its classification.
+	"metadata usage": "metadata",
+	"render":         "rendering",
+	"rendering":      "rendering",
+	"subject":        "subject",
+	"objective":      "objective",
+	"satisfy":        "satisfies",
+	"verify":         "verifies",
 	entryActionKind:  "state actions",
 	doActionKind:     "state actions",
 	exitActionKind:   "state actions",
@@ -49,6 +57,12 @@ var compartmentPlurals = map[string]string{
 	ifKind:           "actions",
 	terminateKind:    "actions",
 	"perform":        "perform actions",
+	docKind:          docKind, // the `doc` compartment of §8.2.3.4 (documentation-compartment)
+	repKind:          repKind,
+	// The figures' two-word keywords (view.go figureKeyword).
+	"satisfy requirement": "satisfies",
+	"verify requirement":  "verifies",
+	"frame concern":       "frames",
 }
 
 // rowPrefixes are the modifier keywords a kind may begin with, which the row
@@ -64,19 +78,21 @@ func individualUsage(kind string) bool {
 	return strings.HasPrefix(kind, individualPrefix) && !strings.HasSuffix(kind, " def")
 }
 
-// compartmentName is the name of the compartment a member of kind belongs to:
-// the plural of its keyword after any modifier, "part defs" for a nested
-// definition, "individuals" for an individual usage of any keyword.
+// compartmentName is the compartment a member of kind lists in, as the figures head it: the
+// heading or the keyword's plural; `end` features list under "ends", individual usages under "individuals".
 func compartmentName(kind string) string {
 	if individualUsage(kind) {
 		return "individuals"
 	}
-	_, keyword := splitRowPrefix(kind)
+	prefix, keyword := splitRowPrefix(kind)
 	if keyword == "" {
 		return ""
 	}
-	if plural, ok := compartmentPlurals[keyword]; ok {
-		return plural
+	if slices.Contains(strings.Fields(prefix), "end") {
+		return "ends"
+	}
+	if heading, ok := compartmentHeadings[keyword]; ok {
+		return heading
 	}
 	return keyword + "s"
 }
@@ -93,6 +109,9 @@ func splitRowPrefix(kind string) (prefix, keyword string) {
 }
 
 func isRowPrefix(word string) bool {
+	if strings.HasPrefix(word, "#") {
+		return true
+	}
 	for _, prefix := range rowPrefixes {
 		if word == prefix {
 			return true
@@ -136,6 +155,9 @@ func compartmentsOf(rows []*Node) []Compartment {
 // textual notation writes it without the keyword its compartment names:
 // `ref wheel : Wheel`, `gain : dB = 15.0`, `: Sensor` for an anonymous one.
 func (l labeller) rowText(node *Node) string {
+	if annotationKind(node.Kind) {
+		return l.text(annotationRowText(node))
+	}
 	if node.Kind == statementRowKind {
 		return node.Text
 	}
@@ -223,15 +245,46 @@ func (l labeller) rowCount(node *Node) int {
 	return n
 }
 
-// compartmentLines are a node's compartments as label lines: each one's name
-// then its rows.
+// ellipsisMark is the `…` the notation sets at the lower left of a node whose
+// compartments leave rows out (§8.2.3.2 ellipsis-at-lower-left-corner).
+const ellipsisMark = "…"
+
+// labelLine is one line of a node's compartments: its text, and whether the
+// notation greys it as the element inside a textual compartment an edge ends at.
+type labelLine struct {
+	Text   string
+	Greyed bool
+}
+
+// compartmentEntries are a node's compartments as label lines: each one's name
+// then its rows, and the ellipsis when the node's Layout hid rows.
+func (l labeller) compartmentEntries(node *Node) []labelLine {
+	var lines []labelLine
+	for _, compartment := range l.compartments(node) {
+		lines = append(lines, labelLine{Text: compartment.Name})
+		for _, row := range compartment.Rows {
+			for _, text := range strings.Split(l.rowText(row), "\n") {
+				lines = append(lines, labelLine{Text: text, Greyed: row.Greyed})
+			}
+		}
+	}
+	if l.elided(node) {
+		lines = append(lines, labelLine{Text: ellipsisMark})
+	}
+	return lines
+}
+
+// elided reports whether the node's box ends with the ellipsis: its Layout hid
+// rows, and the rendering shows compartments at all.
+func (l labeller) elided(node *Node) bool {
+	return node.Elided && l.shown.Has(ElementCompartments)
+}
+
+// compartmentLines are compartmentEntries as plain text.
 func (l labeller) compartmentLines(node *Node) []string {
 	var lines []string
-	for _, compartment := range l.compartments(node) {
-		lines = append(lines, compartment.Name)
-		for _, row := range compartment.Rows {
-			lines = append(lines, l.rowText(row))
-		}
+	for _, entry := range l.compartmentEntries(node) {
+		lines = append(lines, entry.Text)
 	}
 	return lines
 }

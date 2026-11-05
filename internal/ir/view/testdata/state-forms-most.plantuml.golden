@@ -1,6 +1,7 @@
 @startuml
 ' FurnaceViews::burnerTree — tree rendering (view def GeneralView)
 ' not represented: 5 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+mainframe <size:10>//«view»//</size> **FurnaceViews::burnerTree** : GeneralView\n<size:10>expose Furnace::Burner</size>
 <style>
 root {
   BackGroundColor white

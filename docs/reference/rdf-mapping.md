@@ -485,11 +485,14 @@ triples come); a set of classes with no such member is refused, naming the subje
   `individual part def`, `individual item def`, `individual occurrence def`, …
   carries it and reads back with its `individual` modifier, and so does an
   `individual def`, whose kind keyword states the fact and is written back
-  alone rather than doubled as a modifier. As with `sysml:EnumerationDefinition`
-  and `isVariation`, the metaclass `sysml:IndividualDefinition` states the fact
-  on its own: a graph typed so but carrying no flag — the shape earlier
-  releases wrote — reads back as `individual def` and gains the flag on its
-  next hop, after which it is stable
+  alone rather than doubled as a modifier. An `individual def` is typed
+  `sysml:OccurrenceDefinition` and an `individual` usage `sysml:OccurrenceUsage`
+  (SysML.xtext `IndividualDefinition returns SysML::OccurrenceDefinition`,
+  `IndividualUsage returns SysML::OccurrenceUsage`): the metamodel declares no
+  individual class, and the flag alone states the fact. A graph typed
+  `sysml:IndividualDefinition` or `sysml:IndividualUsage` — the shape earlier
+  releases wrote — still reads back as `individual def` / `individual`, and is
+  written standardly on its next hop
 - `sysml:portionKind`, `"snapshot"` or `"timeslice"`, for a usage declared as a
   portion (`snapshot :>> start`, `timeslice occurrence t`); the two are the
   metamodel's `OccurrenceUsage::portionKind`, so no flag spells them. Such a
@@ -2461,7 +2464,7 @@ sysml:ControlNode
     a rdfs:Class ;
     rdfs:label "ControlNode" ;
     rdfs:subClassOf sysml:ActionUsage ;
-    sysx:abstract true .
+    sysx:abstract "true"^^xsd:boolean .
 ```
 
 - The subject is the metaclass IRI `rdf:type` names on a converted element, so

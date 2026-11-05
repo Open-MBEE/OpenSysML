@@ -1,5 +1,6 @@
 @startuml
 ' FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+mainframe <size:10>//«view»//</size> **FlowViews::driveView** : ActionFlowView\n<size:10>expose Flows::Drive</size>
 <style>
 root {
   BackGroundColor white

@@ -1,0 +1,41 @@
+HeadingViews::nodes - tree rendering (render asTreeDiagram)
+
+requirement def Safe
+  frame concern safety
+verification case def Check
+  subject controller
+    attribute ^gain
+    rendering ^gauge
+    calc ^total
+    part ^s1
+      port ^a
+      port ^b
+    part ^s2
+      port ^a
+      port ^b
+    flow
+    satisfy requirement ^safe
+      frame concern ^safety
+      reference usage
+    metadata usage
+      attribute text
+  objective
+    verify requirement safe
+      frame concern ^safety
+  actor tester
+abstract #command part def Launcher
+#command requirement def Goal
+  subject system
+#command verification case def Audit
+
+relationships:
+  Check o-- controller
+  Check o-- tester
+  controller o-- gain
+  controller *-- s1
+  controller *-- s2
+  safe --:|> Safe
+  system --:|> Launcher
+
+not represented:
+  - satisfy requirement Headings::Controller::safe is drawn between the nodes of its ends; the view does not show both, so no edge is drawn

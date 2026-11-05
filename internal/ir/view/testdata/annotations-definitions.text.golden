@@ -1,0 +1,9 @@
+AnnotationViews::definitions - definition rendering (view def GeneralView, filter @PartDefinition; @Definition)
+
+part def Pump
+part def Tank
+part def Valve
+part def Seat
+
+relationships:
+  Valve *-- Seat: seat

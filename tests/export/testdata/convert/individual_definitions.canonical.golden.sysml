@@ -14,5 +14,6 @@ package IndividualDefinitions {
         individual occurrence landing : FirstLanding;
         individual action flag : PlantFlag;
         individual part lander : Eagle;
+        individual backup : Eagle;
     }
 }
