@@ -1762,7 +1762,6 @@ func TestReplayRefusedDecisionTakesNoBranch(t *testing.T) {
 // moves left over when it completes, as a run under ExecuteAction does; a
 // witness the run uses up is followed whole.
 func TestReplayRefusesMovesLeftOverByADrivenExecutor(t *testing.T) {
-	t.Parallel()
 	extra := ChoiceTaken{Kind: ChoiceTokenOrder, Step: 99, Among: []string{"1@a", "2@b"}, Took: "1@a", Alternatives: 2}
 	t.Run("action run to completion", func(t *testing.T) {
 		m := parseExploreModel(t, choiceModel)

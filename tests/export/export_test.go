@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,122 +18,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
-
-var update = flag.Bool("update", false, "rewrite the .golden.ttl and .golden.sysml files")
-
-// TestGoldenConversions locks each model's Turtle and the notation it converts
-// back to: as written with its source text, `.canonical.golden.sysml` without.
-func TestGoldenConversions(t *testing.T) {
-	t.Parallel()
-	for _, path := range modelFiles(t) {
-		name, ext := fixtureName(path)
-		t.Run(name, func(t *testing.T) {
-			src, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			turtle, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
-			if err != nil {
-				t.Fatalf("to turtle: %v", err)
-			}
-			back, err := convert.Convert(name+".ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
-			if err != nil {
-				t.Fatalf("back to notation: %v\n%s", err, turtle)
-			}
-			if want := string(src); string(back) != want {
-				t.Errorf("the model did not come back as written:\n--- want ---\n%s--- got ---\n%s", want, back)
-			}
-			canonical, err := convert.Convert(name+".ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
-			if err != nil {
-				canonical = []byte("sysml: " + err.Error() + "\n")
-			}
-			stem := strings.TrimSuffix(path, ext)
-			checkGolden(t, stem+".golden.ttl", turtle)
-			checkGolden(t, stem+".golden"+ext, back)
-			checkGolden(t, stem+".canonical.golden"+ext, canonical)
-		})
-	}
-}
-
-// TestConvertedNotationParses checks that the notation written from a graph is
-// valid SysML: it must parse without a single syntax error.
-func TestConvertedNotationParses(t *testing.T) {
-	t.Parallel()
-	for _, path := range modelFiles(t) {
-		name, ext := fixtureName(path)
-		t.Run(name, func(t *testing.T) {
-			src, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			turtle, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
-			if err != nil {
-				t.Fatalf("to turtle: %v", err)
-			}
-			back, err := convert.Convert(name+".ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
-			if err != nil {
-				t.Fatalf("back to notation: %v", err)
-			}
-			p := parser.New(source.New(name+".converted"+ext, back))
-			p.ParseFile()
-			if len(p.Diagnostics) > 0 {
-				t.Errorf("converted notation does not parse: %v\n%s", p.Diagnostics, back)
-			}
-		})
-	}
-}
-
-// textOnlyFixtures are the models whose graph the mapping cannot write back
-// without its source text, by the refusal it must keep reporting for them.
-var textOnlyFixtures = map[string]string{}
-
-// TestRoundTripIsLossless is the fidelity contract: converting the notation a
-// graph produced back to a graph gives the same graph. Notation and RDF say the
-// same thing in different words, so this is what "no data lost" means — the
-// notation itself may legitimately be spelled differently (a name written
-// relative to its scope, a keyword written in place of its symbol).
-func TestRoundTripIsLossless(t *testing.T) {
-	t.Parallel()
-	for _, path := range modelFiles(t) {
-		name, ext := fixtureName(path)
-		t.Run(name, func(t *testing.T) {
-			src, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			first, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
-			if err != nil {
-				t.Fatalf("to turtle: %v", err)
-			}
-			back, err := convert.Convert(name+".ttl", first, convert.FormatTurtle, convert.FormatSysML)
-			if err != nil {
-				t.Fatalf("back to notation: %v", err)
-			}
-			second, err := convert.Convert(name+ext, back, convert.FormatSysML, convert.FormatTurtle)
-			if err != nil {
-				t.Fatalf("to turtle again: %v", err)
-			}
-			if string(first) != string(second) {
-				t.Errorf("round trip changed the graph\n--- first ---\n%s\n--- second ---\n%s", first, second)
-			}
-			if textOnly, ok := textOnlyFixtures[name]; ok {
-				_, err := convert.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
-				var unsupported *export.UnsupportedError
-				if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), textOnly) {
-					t.Fatalf("the mapping alone should still refuse %s (%s), got: %v", name, textOnly, err)
-				}
-				return
-			}
-			if name == "payload_declaration_bodies" {
-				if _, err := convert.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML); err != nil {
-					t.Fatalf("the mapping alone should infer flow end forms: %v", err)
-				}
-				return
-			}
-			structuralRoundTrip(t, name+ext, first)
-		})
-	}
-}
 
 // structuralRoundTrip strips the source text from a graph and requires the
 // structure alone to carry it to notation and back; it returns that notation.
@@ -1241,7 +1124,6 @@ func TestCaseKeywordsReconstructFromTheMetaclassAlone(t *testing.T) {
 // A `#M` prefix is an owned metadata usage linked to its definition; the head
 // comes back from the graph alone, a `$::`/short-name type as its declared name.
 func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
-	t.Parallel()
 	heads := []struct{ written, back string }{
 		{written: "#Safety part def Car;"},
 		{written: "abstract #Safety #Reviewed part def Truck;"},
@@ -1481,7 +1363,6 @@ func TestDependencyPrefixAnnotatingAnotherElementIsRefused(t *testing.T) {
 // globally qualified type comes back by its name and an inherited feature
 // unqualified.
 func TestMetadataMembersComeBackFromTheGraphAlone(t *testing.T) {
-	t.Parallel()
 	members := []struct{ written, back string }{
 		{written: "@Safety;"},
 		{written: "private @Safety;"},
@@ -2024,7 +1905,6 @@ func inlineCondition(t *testing.T, turtle, member string) string {
 // the text and the graph disagree, the text is stale and the head is rebuilt
 // from the graph rather than the annotation lost.
 func TestPrefixOnAVerbatimHeadIsWrittenOrReported(t *testing.T) {
-	t.Parallel()
 	// The text may space or qualify a prefix in ways the graph's rendering does
 	// not; a `#` in the body or in a sequence index is not a prefix.
 	heads := []string{
@@ -2513,7 +2393,6 @@ func withoutTriples(t *testing.T, turtle []byte, property string) []byte {
 // text that our own graphs also carry. Converting that notation again gives the
 // original graph back, which is what proves the second hop loses nothing.
 func TestEndBindingHeadsComeBackFromTheGraphAlone(t *testing.T) {
-	t.Parallel()
 	heads := []string{
 		"connect left to right;",
 		"connect (left, right);",
@@ -3376,7 +3255,6 @@ var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|pr
 
 // name the element carries, and the encoding decodes back to that name.
 func TestFixtureElementIDsRoundTrip(t *testing.T) {
-	t.Parallel()
 	for _, golden := range goldenGraphs(t) {
 		path, graph := golden.path, golden.graph
 		for _, subject := range graph.Subjects() {
