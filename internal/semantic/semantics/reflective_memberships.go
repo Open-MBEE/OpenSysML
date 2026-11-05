@@ -165,9 +165,7 @@ func ownedThroughAnnotation(owner, member *symbols.Symbol) bool {
 }
 
 // isPrefixMetadataSymbol reports whether sym is the metadata feature a `#M`
-// prefix declares on the element it annotates, which the builder registers in
-// that element's scope (a body `@M;` is a member, exactly as the `metadata`
-// spelling is).
+// prefix declares on the element it annotates (a body `@M;` is a member).
 func isPrefixMetadataSymbol(sym *symbols.Symbol) bool {
 	return sym.IsPrefixMetadata()
 }

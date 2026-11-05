@@ -576,9 +576,8 @@ func TestRootLevelMembershipImport(t *testing.T) {
 	}
 }
 
-// The annotated element owns its `#M` prefix, so the prefix's names resolve in
-// that element's own scope as the pilot resolves them: a namesake inside the
-// element shadows an outer one, on the parsed and on the recorded fixture alike.
+// The annotated element owns its `#M` prefix, so its type resolves in that
+// element's own scope as the pilot resolves it, parsed and recorded alike.
 func TestPrefixMetadataTypeResolvesInTheAnnotatedElement(t *testing.T) {
 	const src = `package Shadow {
     metadata def Tag;

@@ -38,9 +38,8 @@ func getSymbol(t *testing.T, srv *Service, hash, id string) *pb.SymbolInfo {
 	return resp.Symbol
 }
 
-// An unnamed member is listed among its owner's child_ids under the positional
-// identity the query API reports for it, and GetSymbol resolves that id to the
-// member, so children agree with the query's membership of the same owner.
+// An unnamed member is listed in child_ids under the positional id the query
+// API reports, and GetSymbol resolves it, so children agree with the query.
 func TestChildIDsNameUnnamedMembersPositionally(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustParse(t, srv, unnamedChildrenModel)
@@ -135,10 +134,8 @@ func TestPositionalIDsReachTheRootAndEvaluate(t *testing.T) {
 	}
 }
 
-// The annotated element owns its `#M` prefix (PrefixMetadataMember is an
-// OwningMembership), so the prefix's names resolve in that element's own
-// scope, as the pilot resolves them: a namesake inside the element shadows an
-// outer one, and type_info agrees with the resolver.
+// The annotated element owns its `#M` prefix, so its type resolves in that
+// element's own scope as the pilot resolves it: a nested namesake shadows.
 func TestPrefixMetadataTypeResolvesInTheAnnotatedElement(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustParse(t, srv, `package Shadow {

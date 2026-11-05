@@ -157,9 +157,8 @@ func Root(sc *Context, rootScope *symbols.Scope) *Info {
 	return info
 }
 
-// identityOrFQN is the id a symbol is reported under: the one a client can
-// look it up by, else the qualified name the index spells for a symbol no
-// lookup reaches, so the report still says where it is.
+// identityOrFQN is the id a symbol is reported under: the one Lookup answers,
+// else the index's qualified name, so the report still says where it is.
 func (sc *Context) identityOrFQN(sym *symbols.Symbol) string {
 	if id := sc.Identity(sym); id != "" {
 		return id
@@ -167,10 +166,8 @@ func (sc *Context) identityOrFQN(sym *symbols.Symbol) string {
 	return sc.Index.GetFQN(sym)
 }
 
-// collectChildIDs lists the ids of a scope's members, in declaration order:
-// the qualified name of a named member, the positional identity of an unnamed
-// one, each resolvable by Lookup. A member no id reaches is left out rather
-// than listed under an id no lookup answers.
+// collectChildIDs lists the members' ids in declaration order, each one Lookup
+// resolves (qualified or positional); a member no id reaches is left out.
 func (sc *Context) collectChildIDs(scope *symbols.Scope) []string {
 	var ids []string
 	for _, sym := range scope.AllMembers() {

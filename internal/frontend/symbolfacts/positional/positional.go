@@ -1,6 +1,5 @@
 // Package positional registers the exporter's positional identities
-// (`Owner::@3`) with the symbol facts, so a frontend that links the exporter
-// addresses unnamed members by the ids the query API and the export report.
+// (`Owner::@3`) with the symbol facts for the frontends that link the exporter.
 package positional
 
 import (

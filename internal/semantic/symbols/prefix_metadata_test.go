@@ -17,10 +17,8 @@ func prefixMembers(sym *Symbol) []*Symbol {
 	return out
 }
 
-// A `#M` prefix on a definition, a usage, a parameter or a package declares a
-// MetadataUsage the annotated element owns (SysML v2 PrefixMetadataMember is an
-// OwningMembership), so it is a member of that element's scope, after its body
-// members, as the body spelling `@M;` is.
+// A `#M` prefix on a definition, usage, parameter or package declares a
+// MetadataUsage the annotated element owns, a member of its scope like `@M;`.
 func TestPrefixMetadataIsAMemberOfTheAnnotatedElement(t *testing.T) {
 	root := build(t, `#Tag package P {
 		metadata def Tag { attribute level; }

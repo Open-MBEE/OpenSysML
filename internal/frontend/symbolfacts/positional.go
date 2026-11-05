@@ -20,10 +20,8 @@ type PositionalNames func(index *symbols.Index, docs []PositionalDocument, ident
 
 var positionalNames PositionalNames
 
-// RegisterPositional installs the derivation of positional identities. The
-// exporter derives them, and a frontend that links the exporter registers it
-// here so this package, and the REPL core, stay free of that dependency; where
-// nothing is registered an unnamed member has no id and child_ids leave it out.
+// RegisterPositional installs the exporter's derivation of positional ids, so
+// this package links no exporter; unregistered, unnamed members have no id.
 func RegisterPositional(names PositionalNames) {
 	if positionalNames != nil {
 		panic("symbolfacts: positional names registered twice")
@@ -31,11 +29,8 @@ func RegisterPositional(names PositionalNames) {
 	positionalNames = names
 }
 
-// Positional names the symbols no qualified name identifies by the positional
-// identity the RDF and API JSON export gives them (`Owner::@3` for the fourth
-// member of Owner, `Owner::@3::wheel` for a named member of it), which is what
-// the query API reports for them. The names are derived once per model, from
-// the documents the host hands over on first use.
+// Positional names unnamed symbols by the export's positional identity
+// (`Owner::@3`, `Owner::@3::wheel`), derived once per model on first use.
 type Positional struct {
 	once   sync.Once
 	index  *symbols.Index
@@ -79,9 +74,8 @@ func (p *Positional) Symbol(id string) *symbols.Symbol {
 	return p.byName[id]
 }
 
-// Identity is the id a client addresses sym by: its qualified name when that
-// identifies it, else its positional identity, else "" for a symbol no id
-// reaches (a body-local declaration).
+// Identity is the id a client addresses sym by: its qualified name if that
+// identifies it, else its positional identity, else "" (a body-local symbol).
 func (sc *Context) Identity(sym *symbols.Symbol) string {
 	if identity := sc.Index.QualifiedIdentity(sym); identity != "" {
 		return identity

@@ -358,11 +358,8 @@ func prefixMetadataOf(decl ast.Node) []*ast.PrefixMetadata {
 	return prefixes
 }
 
-// buildPrefixMetadata registers the metadata usage each `#M` prefix of decl
-// declares as a member of the scope decl owns: the annotated element owns it
-// (SysML v2 PrefixMetadataMember is an OwningMembership), after its body
-// members, as the export orders them. The usage's body scope hangs off scope,
-// the one decl is a member of, where the resolver and the walkers find it.
+// buildPrefixMetadata registers each `#M` prefix of decl as a metadata usage the
+// annotated element owns (PrefixMetadataMember), after its body members.
 func buildPrefixMetadata(scope *Scope, decl ast.Node) {
 	prefixes := prefixMetadataOf(decl)
 	if len(prefixes) == 0 {
