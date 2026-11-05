@@ -834,9 +834,8 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	return root, true
 }
 
-// A flowDrawing is the state a behavior's nested flows share: the id supply, the
-// rendering, the declarations lowered so far, the node drawn for each lowered
-// node, and the recorder of each node's symbol.
+// A flowDrawing is the state a behavior's nested flows share: the id supply,
+// the rendering, the lowered declarations, the drawn nodes and the symbol recorder.
 type flowDrawing struct {
 	ids     *nodeIDs
 	out     *Rendering
