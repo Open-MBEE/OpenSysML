@@ -99,40 +99,58 @@ type ObjectFeature struct {
 // FeaturesOfObject returns the features of an object under every type of it: the declared
 // type's, then those each classifier adds, in declaration order, each name once.
 func (ctx *Context) FeaturesOfObject(inst *Instance) []ObjectFeature {
-	var out []ObjectFeature
+	first := inst.Type
+	if first == nil {
+		if len(inst.classifiers) == 0 {
+			return nil
+		}
+		first = inst.classifiers[0]
+	}
+	out := make([]ObjectFeature, 0, len(ctx.FeaturesOf(first)))
 	for of := range ctx.objectFeatures(inst) {
 		out = append(out, of)
 	}
 	return out
 }
 
-// objectFeatures yields what FeaturesOfObject lists, allocating nothing for an
-// object of one type.
+// objectFeatures yields what FeaturesOfObject lists without listing it: nothing is
+// allocated for an object of one type.
 func (ctx *Context) objectFeatures(inst *Instance) iter.Seq[ObjectFeature] {
 	return func(yield func(ObjectFeature) bool) {
-		types := inst.types()
 		var seen map[string]bool
-		if len(types) > 1 {
+		if n := len(inst.classifiers); n > 1 || n == 1 && inst.Type != nil {
 			seen = make(map[string]bool)
 		}
-		for _, typ := range types {
-			features := ctx.FeaturesOf(typ)
-			for i := range features {
-				name := features[i].Name
-				if seen[name] {
-					continue
-				}
-				if seen != nil {
-					seen[name] = true
-				}
-				feat := &features[i]
-				if fv := inst.FeatureValues[name]; fv != nil && fv.Feature != nil {
-					feat = fv.Feature
-				}
-				if !yield(ObjectFeature{Name: name, Feature: feat}) {
-					return
-				}
+		if inst.Type != nil && !ctx.yieldFeaturesUnder(inst, inst.Type, seen, yield) {
+			return
+		}
+		for _, typ := range inst.classifiers {
+			if !ctx.yieldFeaturesUnder(inst, typ, seen, yield) {
+				return
 			}
 		}
 	}
+}
+
+// yieldFeaturesUnder yields the features of inst under typ that no earlier type named,
+// reporting whether to go on.
+func (ctx *Context) yieldFeaturesUnder(inst *Instance, typ *symbols.Symbol, seen map[string]bool, yield func(ObjectFeature) bool) bool {
+	features := ctx.FeaturesOf(typ)
+	for i := range features {
+		name := features[i].Name
+		if seen[name] {
+			continue
+		}
+		if seen != nil {
+			seen[name] = true
+		}
+		feat := &features[i]
+		if fv := inst.FeatureValues[name]; fv != nil && fv.Feature != nil {
+			feat = fv.Feature
+		}
+		if !yield(ObjectFeature{Name: name, Feature: feat}) {
+			return false
+		}
+	}
+	return true
 }
