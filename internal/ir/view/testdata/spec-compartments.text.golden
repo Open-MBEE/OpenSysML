@@ -14,7 +14,8 @@ part def Controller at (200, 10)
     port ^a
     port ^b
   flow
-  satisfy safe
+  satisfy requirement safe
+    frame concern ^safety
     reference usage
   metadata usage
     attribute text
@@ -37,12 +38,14 @@ verification case def Check at (10, 300)
       port ^a
       port ^b
     flow
-    satisfy ^safe
+    satisfy requirement ^safe
+      frame concern ^safety
       reference usage
     metadata usage
       attribute text
   objective
-    verify safe
+    verify requirement safe
+      frame concern ^safety
   actor tester
 view def Dashboard at (300, 300)
 
@@ -56,7 +59,7 @@ relationships:
   s1 o-- b
   s2 o-- a
   s2 o-- b
-  metadata usage n16 o-- text
+  metadata usage n17 o-- text
   Link o-- source
   Link o-- target
   source o-- a

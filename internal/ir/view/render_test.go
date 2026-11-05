@@ -182,6 +182,7 @@ func TestGoldenRenderings(t *testing.T) {
 		{"calc-parameters", "calc-parameters.sysml", "ParameterCalcViews::calculations", KindTree},
 		{"calc-parameter-definitions", "calc-parameters.sysml", "ParameterCalcViews::definitions", KindTree},
 		{"spec-compartments", "spec-compartments.sysml", "HeadingViews::headings", KindTree},
+		{"spec-node-forms", "spec-compartments.sysml", "HeadingViews::nodes", KindTree},
 		{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection},
 		{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction},
 		{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed},

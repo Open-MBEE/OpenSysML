@@ -23,12 +23,12 @@ config:
 title: "«view» HeadingViews::headings"
 ---
 %% HeadingViews::headings — tree rendering (render asTreeDiagram)
-%% not represented: 15 node(s) without a position, drawn as compartment rows of the node above them, and 25 node(s) under them left undrawn
+%% not represented: 15 node(s) without a position, drawn as compartment rows of the node above them, and 28 node(s) under them left undrawn
 %% layout: n0 x=10 y=10
 %% layout: n3 x=200 y=10
-%% layout: n18 x=500 y=10
-%% layout: n25 x=10 y=300
-%% layout: n44 x=300 y=300
+%% layout: n19 x=500 y=10
+%% layout: n26 x=10 y=300
+%% layout: n47 x=300 y=300
 flowchart TD
   n0["`*«enum def»*
 **Mode**
@@ -52,12 +52,12 @@ rendering
 gauge
 metadata
 metadata usage`"]
-  n18["`*«connection def»*
+  n19["`*«connection def»*
 **Link**
 ends
 end source
 end target`"]
-  n25["`*«verification case def»*
+  n26["`*«verification case def»*
 **Check**
 subject
 *controller*
@@ -65,6 +65,6 @@ objective
 objective
 actors
 tester`"]
-  n44["`*«view def»*
+  n47["`*«view def»*
 **Dashboard**`"]
-  n25 ---|"◇ controller"| n3
+  n26 ---|"◇ controller"| n3

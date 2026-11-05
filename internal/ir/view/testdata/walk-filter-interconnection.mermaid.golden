@@ -34,11 +34,9 @@ flowchart LR
       direction LR
       n3("`*«attribute»*
 **length**`")
-      n4("`*«part»*
-**axle**`")
+      n4("«#35;Shown part»<br>axle")
     end
-    n5("`*«part»*
-**radio**`")
+    n5("«#35;Shown part»<br>radio")
     n6("`*«part»*
 **gps**`")
   end

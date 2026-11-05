@@ -61,7 +61,7 @@ package "<size:10>//«package»//</size>\n**MixedMemberships**" as n0 <<package>
     rectangle "<size:10>//«require constraint»//</size>\n**minPressure**" as n15 <<require constraint>> <<usage>>
     rectangle "<size:10>//«assume constraint»//</size>\n**primedPump**" as n16 <<assume constraint>> <<usage>>
     rectangle "<size:10>//«assert constraint»//</size>\n**sealed**" as n17 <<assert constraint>> <<usage>>
-    rectangle "<size:10>//«frame»//</size>\n**contained**" as n5 <<frame>> <<usage>>
+    rectangle "<size:10>//«frame concern»//</size>\n**contained**" as n5 <<frame concern>> <<usage>>
   }
   rectangle "<size:10>//«view»//</size>\n**memberships**" as n6 <<view>> <<usage>>
   rectangle "<size:10>//«view»//</size>\n**membershipsLayout**" as n7 <<view>> <<usage>>

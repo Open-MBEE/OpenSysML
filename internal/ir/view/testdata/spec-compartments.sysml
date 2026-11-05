@@ -9,7 +9,16 @@ package Headings {
     enum def Mode { idle; active; }
     port def Plug;
     item def Signal;
-    requirement def Safe;
+    concern def Safety;
+    requirement def Safe {
+        frame concern safety : Safety;
+    }
+    metadata def command;
+    abstract #command part def Launcher;
+    #command requirement def Goal {
+        subject system : Launcher;
+    }
+    #command verification case def Audit;
     rendering def Gauge;
     metadata def Rationale { attribute text : ScalarValues::String; }
     part def Sensor { port a : Plug; port b : Plug; }
@@ -59,6 +68,18 @@ package HeadingViews {
         metadata Layout about Headings::Link { x = 500; y = 10; }
         metadata Layout about Headings::Check { x = 10; y = 300; }
         metadata Layout about Headings::Dashboard { x = 300; y = 300; }
+        render asTreeDiagram;
+    }
+
+    // Unpositioned: the satisfy, frame and verify usages and the definition with
+    // a user-defined keyword are nodes headed as the figures head them.
+    view nodes {
+        expose Headings::Controller::safe;
+        expose Headings::Safe;
+        expose Headings::Check;
+        expose Headings::Launcher;
+        expose Headings::Goal;
+        expose Headings::Audit;
         render asTreeDiagram;
     }
 }

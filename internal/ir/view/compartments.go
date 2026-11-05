@@ -59,6 +59,10 @@ var compartmentHeadings = map[string]string{
 	"perform":        "perform actions",
 	docKind:          docKind, // the `doc` compartment of §8.2.3.4 (documentation-compartment)
 	repKind:          repKind,
+	// The figures' two-word keywords (view.go figureKeyword).
+	"satisfy requirement": "satisfies",
+	"verify requirement":  "verifies",
+	"frame concern":       "frames",
 }
 
 // rowPrefixes are the modifier keywords a kind may begin with, which the row
@@ -105,6 +109,9 @@ func splitRowPrefix(kind string) (prefix, keyword string) {
 }
 
 func isRowPrefix(word string) bool {
+	if strings.HasPrefix(word, "#") {
+		return true
+	}
 	for _, prefix := range rowPrefixes {
 		if word == prefix {
 			return true

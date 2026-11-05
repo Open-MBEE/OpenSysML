@@ -1201,7 +1201,13 @@ digraph "PlantViews::placedView" {
   automatic foldings move to the owner — is the notation's greyed element inside a textual
   compartment (§8.2.3.2 `element-inside-textual-compartment`, `Node.Greyed`): DOT sets it in
   `<font color="gray">`, PlantUML in `<color:gray>`, Mermaid, whose markdown strings carry no
-  colour, in italics; D2, draw.io and the text form list it plain. A row is the member's
+  colour, in italics; D2, draw.io and the text form list it plain. A node's keyword is the one
+  its figure writes (`declKind`): the two-word `«satisfy requirement»`, `«verify requirement»`
+  and `«frame concern»` where the textual notation's keyword is one word (`figureKeyword`), and
+  the user-defined keywords of a declaration's prefix metadata ahead of its kind —
+  `«#command part def»` for `#command part def Launcher` (§8.2.3.6 `extended-def`,
+  `extended-usage`; `extendedKind`) — in every form; the compartment such a row lists in is
+  still named by its kind. A row is the member's
   textual notation, as the label shows it: a modifier of its keyword (`ref`), its name, `: Type`
   when typings are shown, `= value` when the usage is bound (`gain : dB = 15.0`,
   `constraint1 : 'Signal Output'`; a value the renderer does not spell, such as an invocation,

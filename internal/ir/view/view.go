@@ -992,20 +992,54 @@ func nameText(name string) string {
 // "state", "view" — so a rendering prints no Go type name.
 func declKind(sym *symbols.Symbol) string {
 	kind := sym.Notation()
-	// `event` and `individual` are parsed as modifiers of the usage; the notation
-	// heads its box «event occurrence», «individual part» (SysML v2.1 §8.2.3.9).
-	if usage, ok := sym.Decl.(*ast.Usage); ok {
-		if usage.IsEvent && !strings.HasPrefix(kind, "event ") {
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		// `event` and `individual` are parsed as modifiers of the usage; the notation
+		// heads its box «event occurrence», «individual part» (SysML v2.1 §8.2.3.9).
+		if decl.IsEvent && !strings.HasPrefix(kind, "event ") {
 			kind = "event " + kind
 		}
-		if usage.IsIndividual && !strings.HasPrefix(kind, "individual ") {
+		if decl.IsIndividual && !strings.HasPrefix(kind, "individual ") {
 			kind = "individual " + kind
 		}
-		if usage.IsEnd && !slices.Contains(strings.Fields(kind), "end") {
+		if decl.IsEnd && !slices.Contains(strings.Fields(kind), "end") {
 			kind = "end " + kind
 		}
+		return extendedKind(decl.Prefixes, figureKeyword(kind))
+	case *ast.Definition:
+		return extendedKind(decl.Prefixes, kind)
 	}
 	return kind
+}
+
+// figureKeywords are the keywords the figures of §8.2.3 write in full where the
+// textual notation's keyword is one word: «satisfy requirement», «frame concern».
+var figureKeywords = map[string]string{"satisfy": "satisfy requirement", "verify": "verify requirement", "frame": "frame concern"}
+
+// figureKeyword writes a usage's kind as its figure heads it, keeping its modifiers.
+func figureKeyword(kind string) string {
+	prefix, keyword := splitRowPrefix(kind)
+	full, ok := figureKeywords[keyword]
+	if !ok {
+		return kind
+	}
+	return strings.TrimSpace(prefix + " " + full)
+}
+
+// extendedKind writes the user-defined keywords of a declaration's prefix metadata between
+// its modifiers and its kind, as written: `abstract #command part def` (§8.2.3.6 extended-def).
+func extendedKind(prefixes []*ast.PrefixMetadata, kind string) string {
+	var words []string
+	for _, prefix := range prefixes {
+		if prefix.Type != nil {
+			words = append(words, "#"+prefix.Type.Text())
+		}
+	}
+	if len(words) == 0 {
+		return kind
+	}
+	modifiers, keyword := splitRowPrefix(kind)
+	return strings.TrimSpace(modifiers + " " + strings.Join(words, " ") + " " + keyword)
 }
 
 // declType is the type a usage is declared with, as written ("Engine" of
