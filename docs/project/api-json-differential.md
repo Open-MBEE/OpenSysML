@@ -230,19 +230,19 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99623 elements matched (18471 ours-only, 31702 pilot-only, 0 of them implied); properties: 1871287 present-equal, 43080 present-different, 434049 ours-missing, 76453 pilot-missing, 2121237 absent-both, 53599 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99804 elements matched (18544 ours-only, 31521 pilot-only, 0 of them implied); properties: 1874778 present-equal, 42537 present-different, 434288 ours-missing, 76574 pilot-missing, 2124508 absent-both, 53646 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8010 | 1130 | 2156 | 152665 | 2836 | 33872 | 5608 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28148 | 6149 | 7968 | 538031 | 12230 | 123346 | 20684 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9989 | 1881 | 2610 | 189054 | 5230 | 41815 | 7403 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 111542 | 4118 | 24856 | 7399 |
-| `examples/spec-examples` | 511 | 7361 | 989 | 2369 | 124718 | 2264 | 29852 | 6092 |
-| `tests/testdata` | 40 | 1514 | 175 | 457 | 26663 | 706 | 6274 | 1143 |
-| `examples` | 56 | 30656 | 6072 | 12484 | 583704 | 12960 | 136419 | 23020 |
+| `examples/sysml-v2-training` | 100 | 8026 | 1130 | 2140 | 152959 | 2822 | 33902 | 5616 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28220 | 6149 | 7896 | 539399 | 12123 | 123489 | 20720 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10011 | 1881 | 2588 | 189457 | 5211 | 41860 | 7414 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6443 | 1191 | 1798 | 112424 | 3815 | 24856 | 7437 |
+| `examples/spec-examples` | 511 | 7385 | 1006 | 2345 | 125103 | 2190 | 29864 | 6113 |
+| `tests/testdata` | 40 | 1518 | 193 | 453 | 26719 | 696 | 6274 | 1147 |
+| `examples` | 56 | 30661 | 6072 | 12479 | 583807 | 12944 | 136428 | 23023 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 839 | 3 | 162 | 41 |
 | `docs/manual/examples` | 11 | 7487 | 922 | 1822 | 144071 | 2733 | 37453 | 5063 |
 
@@ -300,10 +300,7 @@ writer — keeps it first), so 60 more `Multiplicity` elements match (3047 → 3
 equal, 30 → 0 ours-missing). The same re-record reads a KerML `multiplicity m subsets n;` member's
 `subsets` as its declared general (`Type.ownedSpecialization` 2 → 33 equal, 31 → 0 different;
 `Class.ownedFeature` 38 → 67, `Structure.ownedFeature` 30 → 45 equal; 22 more `Specialization` and 30 more
-`FeatureMembership` elements match), and writes an `individual` definition's or usage's one-member
-collections as the arrays `OccurrenceDefinition`'s and `OccurrenceUsage`'s cardinalities make them, which
-the grammar-rule names `IndividualDefinition`/`IndividualUsage` had hidden from the ontology
-(`OccurrenceUsage.ownedTyping` 57 → 71 equal, 14 → 0 different; `.type` alike). The 60 new
+`FeatureMembership` elements match). The 60 new
 `Multiplicity` elements join the `type`, `feature`, `member` and `membership` rows (ours-missing 3047 →
 3107) the deferred write-time completion owns (rows 14–20 of § Launch-ready gaps): the pilot states for
 each the type `ScalarValues::Natural` it reaches through its implied general, which the structure-mode
