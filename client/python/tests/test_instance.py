@@ -334,7 +334,7 @@ class TestInstanceReach:
             Instance(vehicle, graph).paths()
 
     def test_paths_asks_the_connection_for_every_path_to_the_object(self):
-        from opensysml.instance import InstancePath
+        from opensysml.instance import InstancePath, InstancePaths
 
         class FakeConnection:
             def __init__(self):
@@ -360,7 +360,7 @@ class TestInstanceReach:
                         ],
                     ),
                 ])
-                return [InstancePath(path) for path in response.paths]
+                return InstancePaths((InstancePath(path) for path in response.paths), truncated=response.truncated)
 
         vehicle, graph = reached_graph()
         connection = FakeConnection()
@@ -376,6 +376,18 @@ class TestInstanceReach:
         assert paths[1].steps[1].instance_id == 4
         assert paths[1].steps[1].index == 0
         assert repr(paths[1].steps[0]) == "PathStep(fuelLine -> #2)"
+        assert paths.truncated is False
+
+    def test_paths_say_when_the_service_cut_them_short(self):
+        from opensysml.instance import InstancePath, InstancePaths
+
+        pb_path = sysml_pb2.InstancePath(root=sysml_pb2.InstanceRoot(instance_id=1, symbol_id="Demo::vehicle"), path="engine")
+        paths = InstancePaths([InstancePath(pb_path)], truncated=True)
+        assert isinstance(paths, list)
+        assert len(paths) == 1
+        assert paths.truncated is True
+        assert repr(paths) == "InstancePaths([InstancePath('Demo::vehicle.engine')], truncated=True)"
+        assert repr(InstancePaths()) == "InstancePaths([])"
 
     def test_a_displaced_root_is_named_by_its_id(self):
         from opensysml.instance import InstancePath

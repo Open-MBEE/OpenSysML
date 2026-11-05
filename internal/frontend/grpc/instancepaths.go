@@ -40,23 +40,49 @@ func (s *Service) InstancePaths(ctx context.Context, req *pb.InstancePathsReques
 	for _, root := range held.roots() {
 		labels[root.Object.ID] = root.Label
 	}
-	bounds := runtime.PathBounds{Depth: protoconv.DefaultGraphBounds().Depth, Paths: maxInstancePaths}
-	resp := &pb.InstancePathsResponse{}
-	for _, root := range held.rootObjects() {
-		bounds.Paths = maxInstancePaths - len(resp.Paths)
-		found := held.rt.PathsTo(root, target, bounds)
-		resp.Truncated = resp.Truncated || found.Truncated
-		pbRoot := &pb.InstanceRoot{InstanceId: root.ID}
-		if label, named := labels[root.ID]; named && label[0] != '#' {
+	found, truncated := pathsFromRoots(held.rt, held.rootObjects(), target, protoconv.DefaultGraphBounds().Depth, maxInstancePaths)
+	resp := &pb.InstancePathsResponse{Truncated: truncated}
+	for _, rp := range found {
+		pbRoot := &pb.InstanceRoot{InstanceId: rp.root.ID}
+		if label, named := labels[rp.root.ID]; named && label[0] != '#' {
 			pbRoot.SymbolId = label
 		}
-		for _, steps := range found.Steps {
-			resp.Paths = append(resp.Paths, &pb.InstancePath{
-				Root:  pbRoot,
-				Path:  runtime.PathText(steps),
-				Steps: protoconv.PathStepsToProto(steps, cached.Index),
-			})
-		}
+		resp.Paths = append(resp.Paths, &pb.InstancePath{
+			Root:  pbRoot,
+			Path:  runtime.PathText(rp.steps),
+			Steps: protoconv.PathStepsToProto(rp.steps, cached.Index),
+		})
 	}
 	return resp, nil
+}
+
+// rootPath is one path to an object, with the root it starts from.
+type rootPath struct {
+	root  *runtime.Instance
+	steps []runtime.PathStep
+}
+
+// pathsFromRoots lists the paths to target from each root in turn, at most
+// limit in all: once the limit is spent, a later root that still reaches the
+// target makes the answer truncated rather than longer.
+func pathsFromRoots(rt *runtime.Context, roots []*runtime.Instance, target *runtime.Instance, depth, limit int) ([]rootPath, bool) {
+	var paths []rootPath
+	truncated := false
+	for _, root := range roots {
+		remaining := limit - len(paths)
+		if remaining <= 0 {
+			more := rt.PathsTo(root, target, runtime.PathBounds{Depth: depth, Paths: 1})
+			if len(more.Steps) > 0 || more.Truncated {
+				truncated = true
+				break
+			}
+			continue
+		}
+		found := rt.PathsTo(root, target, runtime.PathBounds{Depth: depth, Paths: remaining})
+		truncated = truncated || found.Truncated
+		for _, steps := range found.Steps {
+			paths = append(paths, rootPath{root: root, steps: steps})
+		}
+	}
+	return paths, truncated
 }

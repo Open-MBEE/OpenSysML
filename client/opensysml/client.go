@@ -650,6 +650,9 @@ func (c *client) InstancePaths(ctx context.Context, model *Model, ref ObjectRef)
 	if err != nil {
 		return nil, err
 	}
+	if err := c.requireCapabilities(ctx, CapabilityInstancePaths); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.instancePaths(ctx, &pb.InstancePathsRequest{
 		ModelHash: hash,
 		Object:    &pb.DocumentObject{InstanceId: ref.InstanceID, Path: ref.Path},

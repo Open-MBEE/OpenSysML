@@ -856,7 +856,8 @@ class Model:
                 feature values from either (``Garage::car.wheels[2]``)
 
         Returns:
-            list[InstancePath]: the paths in traversal order
+            InstancePaths: the paths in traversal order, a list of InstancePath
+                whose ``truncated`` says whether the service bounded its search
 
         Raises:
             SymbolNotFoundError: no object has the id or the name

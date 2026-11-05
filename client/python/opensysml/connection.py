@@ -2433,9 +2433,10 @@ class Connection:
             model_hash (str): Hash from ParseFile response
 
         Returns:
-            list of InstancePath, in traversal order: the roots in id order
-            and, from each, depth-first over features in name order and the
-            values of a feature in their order
+            InstancePaths: a list of InstancePath in traversal order (the roots
+            in id order and, from each, depth-first over features in name order
+            and the values of a feature in their order) whose ``truncated``
+            says whether the service bounded its search short of every path
 
         Raises:
             SymbolNotFoundError: no object has the id or the name
@@ -2443,7 +2444,7 @@ class Connection:
             ModelNotFoundError: If the service no longer holds the model
             MissingCapabilityError: If the service predates ``instance_paths``
         """
-        from opensysml.instance import InstancePath
+        from opensysml.instance import InstancePath, InstancePaths
 
         self._require_instance_paths()
         if isinstance(instance, str):
@@ -2456,7 +2457,7 @@ class Connection:
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
             raise ExecutionError(response.error, diagnostics=wrapped_diags)
-        return [InstancePath(path) for path in response.paths]
+        return InstancePaths((InstancePath(path) for path in response.paths), truncated=response.truncated)
     
     def execute_action(self, action_symbol_id, model_hash, inputs=None,
                        schedule=None, performer=None, advance=None, seed=None,

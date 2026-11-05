@@ -146,10 +146,13 @@ func TestPathsToHonoursBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var port *Instance
+	var port, line *Instance
 	for _, r := range ctx.Traverse(root, TraversalBounds{}).Reaches {
-		if r.Path() == "fuelLine.supplier" {
+		switch r.Path() {
+		case "fuelLine.supplier":
 			port = r.Object
+		case "fuelLine":
+			line = r.Object
 		}
 	}
 	if got := ctx.PathsTo(root, port, PathBounds{Paths: 1}); !got.Truncated || len(got.Steps) != 1 {
@@ -160,6 +163,11 @@ func TestPathsToHonoursBounds(t *testing.T) {
 	}
 	if got := ctx.Traverse(root, TraversalBounds{Objects: 3}); !got.Truncated || len(got.Reaches) != 3 {
 		t.Errorf("three objects allowed: %d reached, truncated %v", len(got.Reaches), got.Truncated)
+	}
+	// `fuelLine` is held by the root alone: cutting the deeper branches that
+	// never reach it hides no path.
+	if got := ctx.PathsTo(root, line, PathBounds{Depth: 1}); got.Truncated || len(got.Steps) != 1 {
+		t.Errorf("one step allowed to fuelLine: %v, truncated %v", pathTexts(got), got.Truncated)
 	}
 	// One step down, `pump` is reached before the tank it refers to is.
 	if got := ctx.Traverse(root, TraversalBounds{Depth: 1}); got.Truncated || len(got.Reaches) != 6 {

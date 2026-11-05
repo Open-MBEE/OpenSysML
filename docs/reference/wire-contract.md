@@ -1081,7 +1081,9 @@ order. Aliases through connector ends and reference usages are paths of their ow
 collections the standard library derives (`subparts`, `ownedPorts`) are not, and a path
 visits no object twice. `root.symbolId` is the name the root was instantiated as, empty once
 another object took the name (`#<id>` still addresses it). An object that is a root has the
-empty path. Past 1000 paths the response is `truncated`. An object no root reaches lists no
+empty path. The search is bounded: past 1000 paths over all roots, or when a path cut at
+eight steps ended at an object from which the target is reachable, the response is
+`truncated`. An object no root reaches lists no
 path; an id or name nothing materialized is `NOT_FOUND`, a path through no object
 `INVALID_ARGUMENT`, and a service without the capability `UNIMPLEMENTED`.
 

@@ -167,7 +167,9 @@ class Instance:
         """Every root-relative path that reaches this object, aliases through
         connector ends and reference usages included, as InstancePath objects
         in traversal order: the roots the service holds in id order and, from
-        each, depth-first over the features of an object in name order.
+        each, depth-first over the features of an object in name order. The
+        list is an InstancePaths, whose ``truncated`` says whether the service
+        bounded its search short of every path.
 
         Raises:
             RuntimeError: the instance was not produced by a connection
@@ -270,6 +272,23 @@ class Instance:
             return escape(str(value_to_python(pb_value)))
         except Exception:  # pragma: no cover - display must not fail
             return '<em>unknown</em>'
+
+
+class InstancePaths(list):
+    """The root-relative paths to one object, a list of InstancePath in
+    traversal order, and whether the service cut the list short.
+
+    Attributes:
+        truncated (bool): the service bounded its search — more paths than it
+            lists, or deeper ones, may reach the object
+    """
+
+    def __init__(self, paths=(), truncated=False):
+        super().__init__(paths)
+        self.truncated = truncated
+
+    def __repr__(self):
+        return "InstancePaths(%s%s)" % (list.__repr__(self), ", truncated=True" if self.truncated else "")
 
 
 class InstancePath:

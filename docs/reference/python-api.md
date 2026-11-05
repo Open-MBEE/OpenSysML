@@ -287,7 +287,9 @@ path from the root (`powertrain.engine.fuelIn`, `wheels[2]`), none for the root.
 object is often a value of several features — a port and the connector end referencing it
 are one object — so `paths()` asks the service for every root-relative path that reaches
 it, aliases through connector ends and reference usages included, in traversal order.
-Both need the `instance_paths` capability.
+The service bounds that search (1000 paths, 8 steps deep); the list it returns is an
+`InstancePaths` whose `truncated` says when the bound cut it short. Both need the
+`instance_paths` capability.
 
 ```python
 with Connection() as conn:
@@ -302,6 +304,10 @@ with Connection() as conn:
 ```
 
 ::: opensysml.Instance
+    options:
+      heading_level: 3
+
+::: opensysml.InstancePaths
     options:
       heading_level: 3
 

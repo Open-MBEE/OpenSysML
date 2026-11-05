@@ -152,7 +152,8 @@ type Paths struct {
 	// order Traverse would reach them; empty steps are the root itself.
 	Steps [][]PathStep
 	// Truncated reports that a bound cut the search short: more paths reach the
-	// target than bounds.Paths, or one deeper than bounds.Depth may.
+	// target than bounds.Paths, or a path cut at bounds.Depth ended at an object
+	// from which the target is reachable, so a deeper path may.
 	Truncated bool
 }
 
@@ -164,6 +165,10 @@ type Paths struct {
 func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 	var p Paths
 	onPath := make(map[int64]bool)
+	var reachesTarget map[int64]bool
+	if bounds.Depth > 0 {
+		reachesTarget = ctx.holdersReaching(root, target)
+	}
 
 	var search func(cur *Instance, steps []PathStep)
 	search = func(cur *Instance, steps []PathStep) {
@@ -176,7 +181,9 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 			return
 		}
 		if bounds.Depth > 0 && len(steps) >= bounds.Depth {
-			p.Truncated = true
+			if reachesTarget[cur.ID] {
+				p.Truncated = true
+			}
 			return
 		}
 		onPath[cur.ID] = true
@@ -190,6 +197,43 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 	}
 	search(root, nil)
 	return p
+}
+
+// holdersReaching is the set of objects below root from which some sequence of
+// held values leads to target, root's whole graph walked once: the objects at
+// which a depth cutoff may hide a path. (A route through the cut path itself
+// counts too, so the set can overstate, never understate, what a cutoff hides.)
+func (ctx *Context) holdersReaching(root, target *Instance) map[int64]bool {
+	holders := make(map[int64][]int64)
+	seen := map[int64]bool{root.ID: true}
+	stack := []*Instance{root}
+	for len(stack) > 0 {
+		cur := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		for _, step := range ctx.heldSteps(cur) {
+			if step.Library {
+				continue
+			}
+			holders[step.Object.ID] = append(holders[step.Object.ID], cur.ID)
+			if !seen[step.Object.ID] {
+				seen[step.Object.ID] = true
+				stack = append(stack, step.Object)
+			}
+		}
+	}
+	reaches := make(map[int64]bool)
+	pending := []int64{target.ID}
+	for len(pending) > 0 {
+		id := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		for _, holder := range holders[id] {
+			if !reaches[holder] {
+				reaches[holder] = true
+				pending = append(pending, holder)
+			}
+		}
+	}
+	return reaches
 }
 
 // heldSteps are the objects inst holds as feature values, each as the step

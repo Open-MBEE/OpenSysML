@@ -9,6 +9,8 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 )
 
 // instancePathsModel holds one port object under several paths: the tank's
@@ -147,6 +149,39 @@ func TestInstancePaths_ListsEveryRoot(t *testing.T) {
 	want := []string{"|powertrain.tank", "|pump"}
 	if got := pathTexts(paths); strings.Join(got, " ") != strings.Join(want, " ") || paths.Paths[0].Root.InstanceId != resp.Instance.Id {
 		t.Errorf("paths = %q, want %q from the displaced root", got, want)
+	}
+}
+
+// One limit covers every root: a root that would add paths past it makes the
+// answer truncated, never longer; one that reaches the object no more leaves
+// a full answer complete.
+func TestInstancePaths_OneLimitOverEveryRoot(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash, resp := parseAndInstantiate(t, srv, instancePathsModel, "Fuel::vehicle")
+	cached, _ := srv.cache.Get(hash)
+	held := srv.objects(cached)
+	defer held.lock(context.Background())()
+	root, _, err := held.resolve("object", &pb.DocumentObject{InstanceId: resp.Instance.Id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, _, err := held.resolve("object", &pb.DocumentObject{Path: "Fuel::vehicle.pump.fuelOut"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	depth := protoconv.DefaultGraphBounds().Depth
+	if paths, truncated := pathsFromRoots(held.rt, []*runtime.Instance{root}, port, depth, 3); len(paths) != 3 || truncated {
+		t.Errorf("three allowed from one root: %d paths, truncated %v", len(paths), truncated)
+	}
+	if paths, truncated := pathsFromRoots(held.rt, []*runtime.Instance{root, root}, port, depth, 3); len(paths) != 3 || !truncated {
+		t.Errorf("three allowed from two roots: %d paths, truncated %v", len(paths), truncated)
+	}
+	wheel, _, err := held.resolve("object", &pb.DocumentObject{Path: "Fuel::vehicle.wheels[1]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if paths, truncated := pathsFromRoots(held.rt, []*runtime.Instance{root, wheel}, port, depth, 3); len(paths) != 3 || truncated {
+		t.Errorf("a root past the limit that reaches the object no more: %d paths, truncated %v", len(paths), truncated)
 	}
 }
 
