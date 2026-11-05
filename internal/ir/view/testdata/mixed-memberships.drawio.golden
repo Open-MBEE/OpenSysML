@@ -283,7 +283,7 @@
           </mxCell>
         </object>
         <object id="e20" label="" kind="typing" view="MixedMemberships::memberships" link="mixed-memberships.sysml:28">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.7542;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n3">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.7542;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="483" y="681"/>
@@ -293,7 +293,7 @@
           </mxCell>
         </object>
         <object id="e21" label="" kind="typing" view="MixedMemberships::memberships" link="mixed-memberships.sysml:14">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n8">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n8">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="736" y="287"/>
@@ -304,7 +304,7 @@
           </mxCell>
         </object>
         <object id="e22" label="" kind="typing" view="MixedMemberships::memberships" link="mixed-memberships.sysml:15">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n12" target="n9">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n12" target="n9">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="867" y="209"/>
@@ -314,7 +314,7 @@
           </mxCell>
         </object>
         <object id="e23" label="" kind="typing" view="MixedMemberships::memberships" link="mixed-memberships.sysml:16">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0.7556;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n9">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0.7556;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n9">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="472" y="340"/>
@@ -323,7 +323,7 @@
           </mxCell>
         </object>
         <object id="e24" label="" kind="typing" view="MixedMemberships::memberships" link="mixed-memberships.sysml:13">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n18" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.7568;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n18" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="605" y="295"/>

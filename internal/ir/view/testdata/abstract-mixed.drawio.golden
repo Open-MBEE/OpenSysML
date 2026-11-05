@@ -114,7 +114,7 @@
           </mxCell>
         </object>
         <object id="e7" label="" kind="typing" view="AbstractViews::familyMixed" link="abstract.sysml:14">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5016;entryY=0.2897;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5016;entryY=0.2897;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="197" y="169"/>
