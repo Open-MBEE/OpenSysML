@@ -5,6 +5,7 @@
     "throughPartBindingHolds": true,
     "throughSharedBindingHolds": true,
     "anonymousSharedHolds": true,
+    "anonymousIndexHolds": true,
     "throughChainBindingHolds": true,
     "nestedConnectorBindingHolds": true,
     "twoLevelNestingHolds": true,

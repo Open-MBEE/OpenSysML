@@ -22,6 +22,7 @@ func TestRuntimeRobustnessConnectorNestedBindings(t *testing.T) {
 	t.Run("end_body_default_yields_to_an_outer_binding", testEndBodyDefaultYieldsToAnOuterBinding)
 	t.Run("failing_outer_binding_is_not_masked_by_an_end_body_default", testFailingOuterBindingIsNotMaskedByADefault)
 	t.Run("end_body_value_of_a_required_connector_collection", testEndBodyValueOfARequiredConnectorCollection)
+	t.Run("anonymous_connector_index_is_read_on_the_connector", testAnonymousConnectorIndexIsReadOnTheConnector)
 }
 
 // instantiatePartWithLibraries is instantiatePart over an index carrying the standard library.
@@ -212,6 +213,29 @@ func testEndBodyValueOfAnAnonymousConnector(t *testing.T) {
 			}
 		}`)
 	wantIntegerAt(t, ctx, inst, "k.dst.voltage", 12)
+}
+
+// testAnonymousConnectorIndexIsReadOnTheConnector: an anonymous connector's indexed end selects with
+// its own `index`, not the holder's feature of that name.
+func testAnonymousConnectorIndexIsReadOnTheConnector(t *testing.T) {
+	inst, ctx := instantiatePartWithLibraries(t, "Sys", `
+		package test {
+			private import ScalarValues::*;`+connectorNestedBindingParts+`
+			interface def Picks {
+				end a : Pw;
+				end b : ~Pw;
+				attribute readings : Integer[2] = (5, 28);
+				attribute index : Integer = 2;
+				bind b.voltage = readings#(index);
+			}
+			part def Sys {
+				part k : Snk;
+				part s : Src;
+				attribute index : Integer = 1;
+				interface : Picks connect s.src to k.dst;
+			}
+		}`)
+	wantIntegerAt(t, ctx, inst, "k.dst.voltage", 28)
 }
 
 // testFailingEndBodyDefaultYieldsToAnExplicitBinding: a `default =` whose expression fails is

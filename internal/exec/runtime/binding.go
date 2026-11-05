@@ -77,7 +77,7 @@ type bindingEndpoint struct {
 	// selection is the end as written (`xs#(2)`), for diagnostics.
 	index, selection ast.Node
 	scope            *symbols.Scope
-	// on holds the connector objects an expression end is read on, one per connector the
+	// on holds the connector objects an expression or index is read on, one per connector the
 	// holder materialized, when it is not read on the binding's owner.
 	on []*Instance
 }
@@ -1114,9 +1114,13 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 		}
 		locations = append(locations, reached...)
 	}
-	return bindingEndpoint{
+	endpoint := bindingEndpoint{
 		locations: locations, index: binding.Ends[end].Index, selection: binding.Ends[end].Expr, scope: binding.Scope,
-	}, nil
+	}
+	if len(binding.Ends[end].Via) != 0 {
+		endpoint.on = on
+	}
+	return endpoint, nil
 }
 
 // withBoundMembers adds the Kernel frame members the model binds through feature
@@ -1375,22 +1379,38 @@ func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instan
 	return sequenceOf(all), true, nil
 }
 
-// selectedBindingElement is the element of whole at the 1-based index a selecting end
-// states, read as `#(` reads it; a feature holding no element there is a binding end error.
+// selectedBindingElement is the element of whole at the 1-based index a selecting end states, read
+// as `#(` reads it on the owner or each connector object; a feature holding no element there is a binding end error.
 func (ctx *Context) selectedBindingElement(endpoint bindingEndpoint, owner *Instance, whole Value) (Value, bool, error) {
-	indexVal, err := ctx.EvalWithScopeOn(endpoint.index, endpoint.scope, owner)
+	on := endpoint.on
+	if len(on) == 0 {
+		on = []*Instance{owner}
+	}
+	const op = "sequence index"
+	var agreed Value
+	for i, obj := range on {
+		indexVal, err := ctx.EvalWithScopeOn(endpoint.index, endpoint.scope, obj)
+		if err != nil {
+			return Value{}, false, ctx.selectionError(endpoint, err)
+		}
+		if i != 0 && !ctx.equalValues(agreed, indexVal) {
+			text := ctx.bindingExprText(endpoint.selection, endpoint.scope)
+			return Value{}, false, &bindingConflictError{Left: text, Right: text, LeftValue: agreed, RightValue: indexVal}
+		}
+		agreed = indexVal
+	}
+	index, err := indexOf(op, agreed)
 	if err == nil {
-		const op = "sequence index"
-		var index int64
-		if index, err = indexOf(op, indexVal); err == nil {
-			var element Value
-			if element, err = ctx.positionOf(op, whole, index); err == nil {
-				return element, true, nil
-			}
+		var element Value
+		if element, err = ctx.positionOf(op, whole, index); err == nil {
+			return element, true, nil
 		}
 	}
-	return Value{}, false, fmt.Errorf("%w: expression %s: %w",
-		errBindingEnd, ctx.bindingExprText(endpoint.selection, endpoint.scope), err)
+	return Value{}, false, ctx.selectionError(endpoint, err)
+}
+
+func (ctx *Context) selectionError(endpoint bindingEndpoint, err error) error {
+	return fmt.Errorf("%w: expression %s: %w", errBindingEnd, ctx.bindingExprText(endpoint.selection, endpoint.scope), err)
 }
 
 func (ctx *Context) bindingLocationValue(loc bindingLocation, read endRead) (Value, bool, error) {
