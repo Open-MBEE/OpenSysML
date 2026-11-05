@@ -76,6 +76,7 @@ type Adjudication struct {
 // The evidence several rows share: the sites and goldens named more than once.
 const (
 	compartmentNameSite   = "internal/ir/view/compartments.go:compartmentName"
+	goldenRenderingsTest  = "internal/ir/view/render_test.go:TestGoldenRenderings"
 	dotEdgeAttributesSite = "internal/ir/view/dot.go:dotEdgeAttributes"
 	sequenceRenderingTest = "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"
 	stateGolden           = "internal/ir/view/testdata/state.dot.golden"
@@ -98,12 +99,12 @@ var (
 	keywordBox   = Evidence{"internal/ir/view/label.go:keyword", goldenForms, "internal/ir/view/label_test.go:TestLabelLines"}
 	compartments = Evidence{compartmentNameSite, goldenForms, "internal/ir/view/suppressed_compartments_test.go:TestGoldenSuppressedCompartments"}
 	// The headings the figures spell otherwise than by the keyword's plural, and the ends compartment.
-	headings     = Evidence{compartmentNameSite, goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
+	headings     = Evidence{compartmentNameSite, goldenForms, goldenRenderingsTest}
 	variants     = Evidence{compartmentNameSite, goldenForms, "internal/ir/view/tree_compartments_test.go:TestTreeCompartmentVariantForms"}
-	ends         = Evidence{"internal/ir/view/view.go:declKind", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
+	ends         = Evidence{"internal/ir/view/view.go:declKind", goldenForms, goldenRenderingsTest}
 	ellipsis     = Evidence{"internal/ir/view/compartments.go:compartmentEntries", []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormText}, "internal/ir/view/elided_rows_test.go:TestElidedCompartmentsCarryTheEllipsis"}
-	figureWords  = Evidence{"internal/ir/view/view.go:figureKeyword", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
-	extendedKind = Evidence{"internal/ir/view/view.go:extendedKind", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
+	figureWords  = Evidence{"internal/ir/view/view.go:figureKeyword", goldenForms, goldenRenderingsTest}
+	extendedKind = Evidence{"internal/ir/view/view.go:extendedKind", goldenForms, goldenRenderingsTest}
 	greyed       = Evidence{"internal/ir/view/compartments.go:compartmentEntries", []string{FormDOT, FormPlantUML, FormMermaid}, "internal/ir/view/elided_rows_test.go:TestGreyedRowsMarkFoldedEdgeEnds"}
 	controlNode  = Evidence{"internal/ir/view/dot.go:dotSymbolAttributes", controlForms, "internal/ir/view/testdata/state-pseudostates.mermaid.golden"}
 	tableEdge    = Evidence{dotEdgeAttributesSite, edgeForms, "internal/ir/view/notation_table_test.go:TestNotationTableMatchesTheWriters"}
