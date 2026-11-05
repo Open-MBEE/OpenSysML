@@ -25,6 +25,7 @@ func TestOperandParametersArePrivateAndArgumentsPublic(t *testing.T) {
     attribute summed : Real = (1.0, 2.0)->reduce '+';
     calc def H { in body; return : Real = 1.0; }
     attribute applied : Real = H({ in x : Real; x });
+    attribute bare : Real = H { in x : Real; x };
 }
 `
 	turtle, err := convert.Convert("ops.sysml", []byte(model), convert.FormatSysML, convert.FormatTurtle)
@@ -74,11 +75,13 @@ func TestOperandParametersArePrivateAndArgumentsPublic(t *testing.T) {
 	countPrivate("`->` receiver and bare operand", "Ops__summed_pvalue_pin", 2, 2)
 	// `H({ … })`: a body inside an argument list is an argument, public.
 	countPrivate("body in an argument list", "Ops__applied_pvalue_pin", 0, 1)
+	// `H { … }`: a body written without parentheses is an operand even without a receiver.
+	countPrivate("receiverless bare body", "Ops__bare_pvalue_pin", 1, 1)
 	back, err := convert.Convert("ops.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
-	for _, want := range []string{"->reduce '+'", "->forAll {", "H({"} {
+	for _, want := range []string{"->reduce '+'", "->forAll {", "H({", "= H { in x : Real; x }"} {
 		if !strings.Contains(string(back), want) {
 			t.Errorf("notation from the graph lacks %q:\n%s", want, back)
 		}

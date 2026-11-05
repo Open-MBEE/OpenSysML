@@ -19,6 +19,7 @@ package D {
     attribute summed : Real = (1.0, 2.0)->reduce '+';
     calc def H { in body; return : Real = 1.0; }
     attribute applied : Real = H({ in x : Real; x });
+    attribute bare : Real = H { in x : Real; x };
 }
 `)
 	d, _ := root.LookupLocal("D")
@@ -32,6 +33,7 @@ package D {
 		{"piped", []string{"private", "public"}},
 		{"summed", []string{"private", "private"}},
 		{"applied", []string{"public"}},
+		{"bare", []string{"private"}},
 	} {
 		expr := m.ValueExpression(member(t, m, d, c.name))
 		if expr == nil {

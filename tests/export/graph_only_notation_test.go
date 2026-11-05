@@ -246,11 +246,16 @@ func TestExpressionBodiesAndChainsFromTheGraphAlone(t *testing.T) {
         attribute deep = xs.{ in e; e * 2 };
         attribute chained = sub.xs->size();
         attribute casted = (sub as D).xs;
+        calc def H { in body; return : Integer = 1; }
+        attribute applied : Integer = H({ in e : Integer; e });
+        attribute bare : Integer = H { in e : Integer; e };
     }
 }
 `
 	back := notationFromTheGraphAlone(t, "b.sysml", sysml)
 	wantFragments(t, back,
+		"attribute applied : Integer = H({ in e : Integer; e });",
+		"attribute bare : Integer = H { in e : Integer; e };",
 		"attribute ok : Boolean = xs->forAll { in e : Integer; e > 0 };",
 		"attribute picked = xs->select { in e; e > 1 and e < 9 };",
 		"attribute deep = xs.{ in e; e * 2 };",

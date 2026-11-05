@@ -2063,9 +2063,9 @@ func (d *decoder) invocationText(node rdf.Term, in *element) (string, error) {
 		return "", err
 	}
 	arguments := "(" + joinOperands(operands, bindConditional) + ")"
-	if hasReceiver && hasFunction && len(terms) == 1 && terms[0].private && terms[0].name == "" {
-		// `xs->forAll {…}` / `xs->reduce '+'`: the one operand written without
-		// parentheses, private like the receiver, unlike an argument list's.
+	if hasFunction && len(terms) == 1 && terms[0].private && terms[0].name == "" {
+		// `xs->forAll {…}`, `xs->reduce '+'`, `F {…}`: the one operand written
+		// without parentheses is private, unlike an argument list's.
 		arguments = " " + operands[0].text
 	}
 	if !hasFunction {
