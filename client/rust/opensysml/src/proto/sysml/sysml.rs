@@ -1575,6 +1575,9 @@ pub struct LibraryReference {
     /// Metaclass, as API JSON's @type spells it.
     #[prost(string, tag="3")]
     pub r#type: ::prost::alloc::string::String,
+    /// Positional path owner/Metaclass\[i\] of an unnamed member, which has no qualified_name.
+    #[prost(string, tag="4")]
+    pub library_path: ::prost::alloc::string::String,
 }
 /// MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
 /// file_path the service reads, or the document carried inline as content —
@@ -3965,6 +3968,9 @@ pub struct RenderNode {
     /// the line's second end, "left" toward its first. Empty for every other node.
     #[prost(string, tag="16")]
     pub arrow: ::prost::alloc::string::String,
+    /// The state's substates run in parallel; a label writes «parallel» under the name.
+    #[prost(bool, tag="17")]
+    pub parallel: bool,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

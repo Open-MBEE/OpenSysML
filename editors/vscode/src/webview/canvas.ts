@@ -279,9 +279,13 @@ function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
     const labelX = proxy ? placement.x : box.x + LABEL_PAD_X;
     const text = element("text", { x: String(labelX), y: String(proxy ? placement.y : box.y + LABEL_PAD_Y), class: "label" });
     entry.lines.forEach((line, i) => {
+      let dy = 0;
+      if (!proxy) {
+        dy = i === 0 ? LINE_HEIGHT * 0.8 : LINE_HEIGHT;
+      }
       const span = element("tspan", {
         x: String(labelX),
-        dy: String(proxy ? 0 : i === 0 ? LINE_HEIGHT * 0.8 : LINE_HEIGHT),
+        dy: String(dy),
         class: labelLineClass(entry.lines, i),
       });
       span.textContent = line;

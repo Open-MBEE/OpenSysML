@@ -235,23 +235,61 @@ func statementRows(text string) []*Node {
 }
 
 // statementListRows lists a body of statements as compartment rows, each as
-// written (action-body-textual), a nested block's statements in its place.
+// written (action-body-textual): a nested loop or conditional by its head with
+// its body's rows indented under it, a nested block's statements in its place.
 func (r *Renderer) statementListRows(doc string, statements []lower.Statement) []*Node {
+	return r.indentedStatementRows(doc, statements, "")
+}
+
+// statementIndent is the indent of a nested body's rows under its head.
+const statementIndent = "  "
+
+func (r *Renderer) indentedStatementRows(doc string, statements []lower.Statement, indent string) []*Node {
 	var rows []*Node
-	for _, statement := range statements {
-		if block, ok := statement.(lower.Block); ok {
-			rows = append(rows, r.statementListRows(doc, block.Steps())...)
-			continue
+	row := func(text string) {
+		if text != "" {
+			rows = append(rows, &Node{Kind: statementRowKind, Text: indent + text})
 		}
-		if text := r.statementText(doc, statement); text != "" {
-			rows = append(rows, &Node{Kind: statementRowKind, Text: text})
+	}
+	body := func(block *lower.Block) {
+		if block != nil {
+			rows = append(rows, r.indentedStatementRows(doc, block.Steps(), indent+statementIndent)...)
+		}
+	}
+	for _, statement := range statements {
+		switch stmt := statement.(type) {
+		case lower.Block:
+			rows = append(rows, r.indentedStatementRows(doc, stmt.Steps(), indent)...)
+		case lower.Loop:
+			if stmt.Kind == ast.LoopUntil {
+				row("loop")
+				body(&stmt.Body)
+				if stmt.Condition != nil { // a `loop { }` written without `until` has none
+					row(joinNonEmpty("until", r.nodeText(doc, stmt.Condition)))
+				}
+				continue
+			}
+			row(r.statementText(doc, stmt))
+			body(&stmt.Body)
+			if stmt.Until != nil {
+				row(joinNonEmpty("until", r.nodeText(doc, stmt.Until)))
+			}
+		case lower.If:
+			row(r.statementText(doc, stmt))
+			body(&stmt.Then)
+			if stmt.Else != nil {
+				row("else")
+				body(stmt.Else)
+			}
+		default:
+			row(r.statementText(doc, statement))
 		}
 	}
 	return rows
 }
 
-// statementText writes one statement as the notation does: a loop or
-// conditional by its head alone, every other as written, without its `;`.
+// statementText writes one statement's head as the notation does: a loop or
+// conditional by its head (its body rows follow it), every other as written, without its `;`.
 func (r *Renderer) statementText(doc string, statement lower.Statement) string {
 	switch stmt := statement.(type) {
 	case lower.Loop:

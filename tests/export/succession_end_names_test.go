@@ -30,6 +30,7 @@ func TestMintedSuccessionEndsAreNamedAsHappensBeforeNames(t *testing.T) {
 	successions, earlier, later := 0, 0, 0
 	for _, block := range strings.Split(turtle, "\n\n") {
 		switch {
+		case strings.Contains(block, `sysml:isLibraryElement "true"`):
 		case strings.Contains(block, "a sysml:SuccessionAsUsage") || strings.Contains(block, "a sysml:Succession ;"):
 			successions++
 		case !strings.Contains(block, "sysml:EndFeatureMembership"):
