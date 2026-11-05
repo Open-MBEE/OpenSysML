@@ -3,7 +3,7 @@ function recording_service(capabilities; handler=(method, body) -> Dict{String,A
     port = getsockname(listener)[2]
     close(listener)
     requests = Any[]
-    server = HTTP.serve!(ip"127.0.0.1", port) do request
+    server = HTTP.serve!("127.0.0.1", port) do request
         method = last(split(String(request.target), '/'))
         body = isempty(request.body) ? Dict{String,Any}() :
             JSON.parse(String(request.body))
@@ -511,7 +511,7 @@ end
     close(listener)
     requests = String[]
     legacy = Ref(false)
-    server = HTTP.serve!(ip"127.0.0.1", port) do req
+    server = HTTP.serve!("127.0.0.1", port) do req
         method = last(split(String(req.target), '/'))
         push!(requests, method)
         if method == "GetServerInfo" && legacy[]
