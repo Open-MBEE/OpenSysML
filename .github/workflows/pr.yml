@@ -189,7 +189,8 @@ jobs:
           echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
           unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
           sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-          cvc5 --version | head -1
+          cvc5_version="$(cvc5 --version)"
+          echo "${cvc5_version%%$'\n'*}"
 
       # Every corpus the suite's gates are required over, with the FMI gate's simulator
       # and FMUs; see .github/actions/corpora.
@@ -301,7 +302,8 @@ jobs:
           echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
           unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
           sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-          cvc5 --version | head -1
+          cvc5_version="$(cvc5 --version)"
+          echo "${cvc5_version%%$'\n'*}"
 
       # Every corpus below comes through this downloader, so it is checked first.
       - name: Test the pilot downloader
