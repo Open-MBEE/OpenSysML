@@ -144,16 +144,19 @@ func (m *orderMarks) all() []int64 {
 func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64, alike func(p, q lower.Place) bool) {
 	kept := slices.Clone(by)
 	entries := m.entries[:0]
+	left := make([]int64, 0, 8)
 	for _, e := range m.entries {
 		if !samePlace(e.place, p) || !alike(e.place, p) {
 			entries = append(entries, e)
 			continue
 		}
+		left = left[:0]
 		for _, s := range e.by {
 			if seed, ok := m.seeds[s]; ok && seed.clocked && seed.at == now && touchesPlace(seed.touched, p) {
-				kept = unionSerials(kept, []int64{s})
+				left = append(left, s)
 			}
 		}
+		kept = unionSerials(kept, left)
 	}
 	// A place written stays listed, bare: it witnesses that its node performed.
 	m.entries = append(entries, orderMark{place: p, by: kept})
@@ -213,18 +216,40 @@ func touchesPlace(touched []lower.Place, p lower.Place) bool {
 	return false
 }
 
-// unionSerials is a sorted union without duplicates.
+// unionSerials is a sorted union without duplicates. It returns a itself when b
+// adds nothing to it and never writes into either argument.
 func unionSerials(a, b []int64) []int64 {
-	if len(b) == 0 {
+	i, j := 0, 0
+	for i < len(a) && j < len(b) {
+		if a[i] > b[j] {
+			break
+		}
+		if a[i] == b[j] {
+			j++
+		}
+		i++
+	}
+	if j == len(b) {
 		return a
 	}
-	out := slices.Clone(a)
-	for _, s := range b {
-		if i, found := slices.BinarySearch(out, s); !found {
-			out = slices.Insert(out, i, s)
+	out := make([]int64, 0, len(a)+len(b)-j)
+	out = append(out, a[:i]...)
+	for i < len(a) && j < len(b) {
+		switch {
+		case a[i] < b[j]:
+			out = append(out, a[i])
+			i++
+		case a[i] > b[j]:
+			out = append(out, b[j])
+			j++
+		default:
+			out = append(out, a[i])
+			i++
+			j++
 		}
 	}
-	return out
+	out = append(out, a[i:]...)
+	return append(out, b[j:]...)
 }
 
 // underControl runs what follows under the choice points the serials name — a
