@@ -240,8 +240,8 @@ else
 	rm -rf "$dest/d2/d2-v$D2_VERSION"
 	tar -xzf "$tarball" -C "$dest/d2" "d2-v$D2_VERSION/bin/d2"
 	rm -f "$tarball"
-	if ! grep -q "^v$D2_VERSION$" <<<"$("$d2" --version 2>&1)"; then
-		echo "the unpacked D2 does not run: $("$d2" --version 2>&1)" >&2
+	if ! d2_version="$("$d2" --version 2>&1)" || ! grep -q "^v$D2_VERSION$" <<<"$d2_version"; then
+		echo "the unpacked D2 does not run: $d2_version" >&2
 		exit 1
 	fi
 fi
