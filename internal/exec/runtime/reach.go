@@ -281,34 +281,71 @@ func (r *reachability) propagate() {
 }
 
 // hides reports whether a path cut at cur may go on to the target, looking
-// into the unexplored objects the path could enter below cur until it knows.
+// into the unexplored objects the path could step to below cur until it knows.
 func (r *reachability) hides(cur *Instance, onPath map[int64]bool, typesOnPath map[*symbols.Symbol]bool) bool {
 	for {
 		if r.reaches[cur.ID] {
 			return true
 		}
 		var enter *Instance
+		var route map[*symbols.Symbol]bool
 		if r.unexplored[cur.ID] {
 			enter = cur
 		} else {
-			for _, obj := range r.unexploredBelow(cur) {
-				if !onPath[obj.ID] && !typesOnPath[obj.Type] && obj.Type != cur.Type {
-					enter = obj
-					break
-				}
-			}
+			enter, route = r.enterable(cur, onPath, typesOnPath)
 		}
 		if enter == nil {
 			return false
 		}
 		types := maps.Clone(typesOnPath)
 		types[cur.Type] = true
+		maps.Copy(types, route)
 		r.explored[enter.ID] = true
 		delete(r.unexplored, enter.ID)
 		r.walk(enter, types)
 		r.propagate()
 		clear(r.below)
 	}
+}
+
+// enterable is an unexplored object below cur that the cut path could step to
+// — by a route of objects not on the path, of no type on it, cur's or its own —
+// with the types of that route.
+func (r *reachability) enterable(cur *Instance, onPath map[int64]bool, typesOnPath map[*symbols.Symbol]bool) (*Instance, map[*symbols.Symbol]bool) {
+	tried := make(map[*symbols.Symbol]bool)
+	for _, want := range r.unexploredBelow(cur) {
+		if tried[want.Type] || typesOnPath[want.Type] || want.Type == cur.Type {
+			continue
+		}
+		tried[want.Type] = true
+		parent := map[int64]*Instance{cur.ID: nil}
+		stack := []*Instance{cur}
+		for len(stack) > 0 {
+			next := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			for _, obj := range r.held[next.ID] {
+				if _, seen := parent[obj.ID]; seen || onPath[obj.ID] || typesOnPath[obj.Type] || obj.Type == cur.Type {
+					continue
+				}
+				if r.unexplored[obj.ID] {
+					if obj.Type != want.Type {
+						continue
+					}
+					route := make(map[*symbols.Symbol]bool)
+					for x := next; x != cur; x = parent[x.ID] {
+						route[x.Type] = true
+					}
+					return obj, route
+				}
+				if obj.Type == want.Type {
+					continue
+				}
+				parent[obj.ID] = next
+				stack = append(stack, obj)
+			}
+		}
+	}
+	return nil, nil
 }
 
 // unexploredBelow lists the unexplored objects held somewhere below cur.

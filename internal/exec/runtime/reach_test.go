@@ -292,3 +292,30 @@ func TestPathsToDecidesTruncationInOneWalk(t *testing.T) {
 		t.Errorf("paths to an object nothing holds: %v, truncated %v", pathTexts(got), got.Truncated)
 	}
 }
+
+// A cutoff above a recursive type looks into none of it: the only routes to
+// the objects the guard kept the walk out of pass an object of their type.
+func TestPathsToKeepsOutOfARecursiveTypeBelowACutoff(t *testing.T) {
+	ctx, idx := contextForSource(t, `package Below {
+	part def L;
+	part def A { part child : A; part leaf : L; }
+	part def X { part a : A; }
+	part root { part x : X; part target : L; }
+}`)
+	root, err := ctx.Instantiate(lookupOne(t, idx, "Below::root"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reached := ctx.Traverse(root, TraversalBounds{})
+	walked := ctx.InstanceCount()
+	target := heldAt(t, ctx, root, "target")
+	if got := ctx.PathsTo(root, target, PathBounds{Depth: 1}); strings.Join(pathTexts(got), " ") != "target" || got.Truncated {
+		t.Errorf("one step allowed to target: %v, truncated %v", pathTexts(got), got.Truncated)
+	}
+	if got := ctx.PathsTo(root, &Instance{ID: -1}, PathBounds{Depth: 1}); got.Truncated || len(got.Steps) != 0 {
+		t.Errorf("paths to an object nothing holds: %v, truncated %v", pathTexts(got), got.Truncated)
+	}
+	if ctx.InstanceCount() != walked {
+		t.Errorf("the cutoff materialized %d objects past Traverse's %d", ctx.InstanceCount()-walked, len(reached.Reaches))
+	}
+}
