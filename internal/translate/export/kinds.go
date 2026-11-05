@@ -499,12 +499,19 @@ func init() {
 			metaclassUsage[name] = kind
 		}
 	}
-	// Turtle this conversion wrote before it typed them so.
-	metaclassDefinition["IndividualDefinition"] = ast.DefIndividual
-	metaclassUsage["IndividualUsage"] = ast.UsageIndividual
 	for name, kind := range metaclassKeywordUsage {
 		metaclassUsage[name] = kind
 	}
+	// Turtle this conversion wrote before it typed them so.
+	metaclassDefinition["IndividualDefinition"] = ast.DefIndividual
+	metaclassUsage["IndividualUsage"] = ast.UsageIndividual
+}
+
+// legacyMetaclasses maps the metaclass names earlier releases wrote for an `individual`
+// to the standard ones; a graph typed so is read as the standard metaclass with isIndividual.
+var legacyMetaclasses = map[string]string{
+	"IndividualDefinition": "OccurrenceDefinition",
+	"IndividualUsage":      "OccurrenceUsage",
 }
 
 // relationshipOrder is the canonical order of a head's relationships, in the

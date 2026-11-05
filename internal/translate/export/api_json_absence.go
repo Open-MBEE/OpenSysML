@@ -38,9 +38,12 @@ var apiJSONOwnedAbsenceTypeAliases = map[string]string{
 	"BehaviorUsage":    "Behavior",
 	"BooleanUsage":     "BooleanExpression",
 	"ClassUsage":       "Class",
-	"InteractionUsage": "Interaction",
-	"PredicateUsage":   "Predicate",
-	"StructureUsage":   "Structure",
+	// The individual names are what earlier releases' Turtle types an `individual` as.
+	"IndividualDefinition": "OccurrenceDefinition",
+	"IndividualUsage":      "OccurrenceUsage",
+	"InteractionUsage":     "Interaction",
+	"PredicateUsage":       "Predicate",
+	"StructureUsage":       "Structure",
 }
 
 var apiJSONOwnedAbsenceExtensionParents = map[string]string{

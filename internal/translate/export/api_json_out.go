@@ -325,10 +325,15 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	if strings.HasPrefix(types[0].Value, rdf.SysML) {
 		metaclass = strings.TrimPrefix(types[0].Value, rdf.SysML)
 	}
+	typeName := apiJSONType(types[0])
+	standard, legacyIndividual := legacyMetaclasses[metaclass]
+	if legacyIndividual {
+		metaclass, typeName = standard, standard
+	}
 	predicates := w.graph.PredicatesView(subject)
 	element := make(apiJSONObject, 0, len(predicates)+5)
 	element = append(element,
-		apiJSONMember{key: "@type", value: apiJSONType(types[0])},
+		apiJSONMember{key: "@type", value: typeName},
 		apiJSONMember{key: "@id", value: id},
 	)
 	var mappingValues apiJSONObject
@@ -433,6 +438,9 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	}
 	if hasMappingName && !mappingNameEmitted {
 		element = append(element, apiJSONMember{key: apiJSONMappingQualifiedNameKey, value: mappingName})
+	}
+	if legacyIndividual {
+		element = apiJSONWithMember(element, apiJSONMember{key: "isIndividual", value: true})
 	}
 	element = w.completeDerived(subject, metaclass, element)
 	if len(mappingValues) > 0 {
@@ -1053,6 +1061,17 @@ func collectionObject(subject rdf.Term, objects []rdf.Term, member rdf.Collectio
 
 // apiJSONType is the "@type" spelling of a metaclass IRI: the bare name in
 // the sysml: vocabulary, the sysx: CURIE in the extension namespace.
+// apiJSONWithMember states member on element, in place of the key's earlier value.
+func apiJSONWithMember(element apiJSONObject, member apiJSONMember) apiJSONObject {
+	for i := range element {
+		if element[i].key == member.key {
+			element[i] = member
+			return element
+		}
+	}
+	return append(element, member)
+}
+
 func apiJSONType(typ rdf.Term) string {
 	if strings.HasPrefix(typ.Value, rdf.OpenSysML) {
 		return "sysx:" + strings.TrimPrefix(typ.Value, rdf.OpenSysML)
