@@ -255,7 +255,7 @@ public sealed partial class Model
         ArgumentNullException.ThrowIfNull(stateMachineSymbolId);
         Connection.ThrowIfDisposed();
         options ??= RunOptions.Default;
-        var sentEvents = events is null ? [] : new ValueList<string>(events);
+        var sentEvents = new ValueList<string>(events ?? []);
         var schedule = Schedule(options, explore, explore ? nameof(ExecuteStateAsync) : nameof(ExploreStateAsync));
         if (options.Trace && explore)
         {

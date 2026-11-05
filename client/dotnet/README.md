@@ -577,7 +577,7 @@ each input; a check needs `check`, then `performer`, `engines` for an engine and
 whether the service fills those fields: they are read whatever it advertises, as 0 or empty
 from a service without them.
 
-Action trace records also preserve their `Token` identity, graph `Step` index, assigned `Feature`, and assigned `Value`. The existing action-run and trace-record constructors remain available and default the additional facts to empty or zero.
+Action trace records also preserve their `Token` identity, graph `Step` index, assigned `Feature`, and assigned `Value`.
 
 A trace record, and the row of a document query, is read into the `DocumentValue` family:
 an element (with no `Id` when the service names an anonymous one), an object, a string, a

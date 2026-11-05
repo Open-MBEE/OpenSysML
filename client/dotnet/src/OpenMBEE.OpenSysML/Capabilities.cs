@@ -17,7 +17,7 @@ public sealed class Capabilities : IEquatable<Capabilities>
     /// <summary>Names the extended action-body items and source-end multiplicities carried by add_sequence.</summary>
     public const string ActionBodyStatementAuthoring = "action_body_statement_authoring";
 
-    /// <summary>Names the trace of an action run, including the trace kept when it fails.</summary>
+    /// <summary>Names the ExecuteAction trace request field.</summary>
     public const string ActionTrace = "action_trace";
 
     /// <summary>

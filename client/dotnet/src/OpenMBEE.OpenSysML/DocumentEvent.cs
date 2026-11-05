@@ -23,46 +23,12 @@ public sealed record DocumentEvent
     /// <param name="alternatives">A choice's alternatives, in the order they were offered.</param>
     /// <param name="taken">The alternative a choice took.</param>
     /// <param name="text">The line the trace prints for the record.</param>
+    /// <param name="token">The action token a step, wait, assign, decide or action accept record is about; 0 otherwise.</param>
+    /// <param name="step">The executor step, from 1, that made an action's record; 0 otherwise.</param>
+    /// <param name="feature">The feature an assign record wrote; empty otherwise.</param>
+    /// <param name="value">The value an assign record's feature holds since; null otherwise.</param>
     /// <exception cref="ArgumentNullException">A string or a list is null.</exception>
     /// <exception cref="ArgumentException">A payload entry or an alternative is null.</exception>
-    public DocumentEvent(
-        string kind,
-        DocumentValue? time,
-        DocumentObject? subject,
-        string machine,
-        string state,
-        string from,
-        string to,
-        DocumentObject? target,
-        string signal,
-        IEnumerable<string> payload,
-        IEnumerable<string> alternatives,
-        string taken,
-        string text)
-        : this(kind, time, subject, machine, state, from, to, target, signal, payload, alternatives, taken, text, 0, 0, string.Empty, null)
-    {
-    }
-
-    /// <summary>Creates a trace record with its action-token and assignment facts, copying its lists.</summary>
-    /// <param name="kind">The kind of trace record; see <see cref="Kind"/>.</param>
-    /// <param name="time">The clock's instant; null when none was reported.</param>
-    /// <param name="subject">The object whose behavior made the record; null for the run's own records.</param>
-    /// <param name="machine">The behavior the record is about.</param>
-    /// <param name="state">The state entered, exited or stepped.</param>
-    /// <param name="from">A fired transition's source.</param>
-    /// <param name="to">A fired transition's target.</param>
-    /// <param name="target">The object a send was addressed to; null otherwise.</param>
-    /// <param name="signal">The signal or event.</param>
-    /// <param name="payload">The accepted payload.</param>
-    /// <param name="alternatives">A choice's alternatives, in order.</param>
-    /// <param name="taken">The alternative taken.</param>
-    /// <param name="text">The line the trace prints.</param>
-    /// <param name="token">The action token's identity; 0 when none was reported.</param>
-    /// <param name="step">The action graph's 1-based step index; 0 for a record of neither an action token nor a step.</param>
-    /// <param name="feature">The feature assigned by an assignment record; empty otherwise.</param>
-    /// <param name="value">The assigned value; null when none was reported.</param>
-    /// <exception cref="ArgumentNullException">A string or list is null.</exception>
-    /// <exception cref="ArgumentException">A payload entry or alternative is null.</exception>
     public DocumentEvent(
         string kind,
         DocumentValue? time,

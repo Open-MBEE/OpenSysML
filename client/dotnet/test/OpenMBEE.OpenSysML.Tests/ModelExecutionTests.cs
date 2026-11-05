@@ -334,8 +334,7 @@ public sealed class ModelExecutionTests
     {
         var outputs = new Dictionary<string, Value> { ["x"] = new Value.IntegerValue(1) };
         var events = new List<DocumentEvent>();
-        var action = new ActionRun(outputs, [], 0, [], []);
-        var tracedAction = new ActionRun(outputs, [], 0, [], [], events, 0);
+        var action = new ActionRun(outputs, [], 0, [], [], events, 0);
         var state = new StateRun([], outputs, [], 0, events, 0, []);
 
         outputs["y"] = new Value.IntegerValue(2);
@@ -344,7 +343,6 @@ public sealed class ModelExecutionTests
         Assert.Single(action.Outputs);
         Assert.Single(state.FinalContext);
         Assert.Empty(state.Trace);
-        Assert.Empty(tracedAction.Trace);
         Assert.Empty(action.Trace);
         Assert.Equal(0, action.TraceDropped);
         Assert.Throws<ArgumentException>(() => new Outcome([KeyValuePair.Create("x", (Value)null!)], string.Empty, [], string.Empty, 0, [], [], 0, null));
