@@ -548,18 +548,23 @@ func ownerInRenderingFamily(owner NestedOwner) bool {
 		[]ast.DefinitionKind{ast.DefRendering})
 }
 
-// ImpliedSubsettingFQNForMetaclass is nestedSubsettingFQN for a graph element
-// that has no declaration: the library feature a usage of metaclass nested in
-// an owner of ownerMetaclass implicitly subsets (SysML v2 §8.3.6.4, the
-// check*Specialization constraints), "" when the rules name none. owner is the
-// owning type's symbol when it has one, which the KerML step fallback consults.
-func (m *Model) ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass string, composite bool, portion ast.PortionKind, owner *symbols.Symbol) string {
+// ImpliedSubsettingFQNForMetaclass is nestedSubsettingFQN for a graph element known by its
+// metaclasses (its own, its owning type's and its owning membership's with that membership's kind).
+func (m *Model) ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass, membershipMetaclass, membershipKind string, composite bool, portion ast.PortionKind, owner *symbols.Symbol) string {
 	u, ok := nestedUsageOfMetaclass(metaclass)
 	if !ok {
 		return ""
 	}
 	u.Composite = composite
 	u.Portion = portion
+	switch membershipMetaclass {
+	case "VariantMembership":
+		return ""
+	case "RequirementConstraintMembership":
+		u.RequirementConstraint, u.Assumed = true, membershipKind == "assumption"
+	case "StateSubactionMembership":
+		u.EntryExitAction = membershipKind != "do"
+	}
 	o, ok := nestedOwnerOfMetaclass(ownerMetaclass)
 	if !ok {
 		return ""
@@ -574,9 +579,8 @@ func (m *Model) ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass strin
 	return fqn
 }
 
-// nestedUsageOfMetaclass is what a usage's metaclass alone says of it to the
-// implicit subsetting rules: its kind and the perform/exhibit/include and
-// require/assume forms, which are metaclasses of their own.
+// nestedUsageOfMetaclass is what a usage's metaclass alone says of it to the implicit
+// subsetting rules: its kind, and the perform/exhibit/include forms, metaclasses of their own.
 func nestedUsageOfMetaclass(metaclass string) (NestedUsage, bool) {
 	switch metaclass {
 	case "PerformActionUsage":

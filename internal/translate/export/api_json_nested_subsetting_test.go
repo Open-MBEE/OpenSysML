@@ -72,3 +72,57 @@ func TestAPIJSONNestedUsageInheritsThroughItsImpliedSubsetting(t *testing.T) {
 		t.Errorf("the graph changed through the element form:\nmissing: %v\nadded: %v", missing, added)
 	}
 }
+
+// A requirement's `assume` and `require` constraints are ConstraintUsages owned
+// through a RequirementConstraintMembership whose kind tells them apart, and
+// SysML v2 §8.3.20.4 has them subset RequirementCheck::assumptions and
+// ::constraints; the element form inherits through those, not through the
+// occurrence rule a plain nested constraint follows.
+func TestAPIJSONRequirementConstraintsInheritThroughTheirCheckCollections(t *testing.T) {
+	graph := duplicateGraph(t, `package Probe {
+		requirement def Safe {
+			assume constraint a;
+			require constraint b;
+			ref constraint plain;
+		}
+	}`, IDQualifiedName)
+	var references []APIJSONLibraryReference
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{LibraryReferences: func(refs []APIJSONLibraryReference) {
+		references = refs
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	named := make(map[string]string, len(references))
+	for _, reference := range references {
+		named[reference.ID] = reference.QualifiedName + reference.LibraryPath
+	}
+	elements := booleansElements(t, document)
+	// The two collections own nothing but their `doc`, so the member that tells
+	// them apart is that Documentation, in `member`, not a feature.
+	plain := referenceIDs(t, elements["Probe__Safe__plain"], "member")
+	for _, c := range []struct{ constraint, through, other string }{
+		{"Probe__Safe__a", "assumptions", "constraints"},
+		{"Probe__Safe__b", "constraints", "assumptions"},
+	} {
+		var added []string
+		for _, id := range referenceIDs(t, elements[c.constraint], "member") {
+			if !slices.Contains(plain, id) {
+				added = append(added, named[id])
+			}
+		}
+		// The collection's members are keyed under the RequirementCheck feature or
+		// the RequirementConstraintCheck redefinition of it; either names the kind.
+		owned := func(collection string) bool {
+			return slices.ContainsFunc(added, func(name string) bool {
+				return strings.HasPrefix(name, "Requirements::") && (strings.Contains(name, "::"+collection+"/") || strings.Contains(name, "::"+collection+"::"))
+			})
+		}
+		if !owned(c.through) {
+			t.Errorf("%s.member adds %v over plain's, none owned by %s", c.constraint, added, c.through)
+		}
+		if owned(c.other) {
+			t.Errorf("%s.member adds members owned by %s, the other kind's collection", c.constraint, c.other)
+		}
+	}
+}

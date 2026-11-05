@@ -4779,9 +4779,8 @@ func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
 	return uniqueStructureElements(bases, e.options.Structure), true
 }
 
-// structureNestedSubsettingFQN is the library feature a graph usage implicitly
-// subsets by nesting in its owning type (SysML v2 §8.3.6.4, judged by the
-// metaclasses, isComposite and portionKind the graph states), "" when none.
+// structureNestedSubsettingFQN is the library feature a graph usage implicitly subsets by
+// nesting in its owning type (SysML v2 §8.3.6.4, by the metaclasses and attributes the graph states).
 func (e *Evaluator) structureNestedSubsettingFQN(element Element) (string, bool) {
 	if e.model == nil {
 		return "", true
@@ -4801,6 +4800,19 @@ func (e *Evaluator) structureNestedSubsettingFQN(element Element) (string, bool)
 	if !known {
 		return "", true
 	}
+	membership, _, ok := e.structureOwningFeatureMembership(element)
+	if !ok || membership.Kind == NullValue {
+		return "", ok
+	}
+	handle := Element{Membership: membership.Membership, IsMembership: true}
+	membershipMetaclass, known := e.options.Structure.Metaclass(handle)
+	if !known {
+		return "", true
+	}
+	var membershipKind string
+	if value, known := e.options.Structure.Attribute(handle, "kind"); known {
+		membershipKind = value.String + value.Enum
+	}
 	composite, known := e.options.Structure.Attribute(element, "isComposite")
 	if !known || composite.Kind != BooleanValue {
 		return "", true
@@ -4814,7 +4826,7 @@ func (e *Evaluator) structureNestedSubsettingFQN(element Element) (string, bool)
 			portion = ast.PortionTimeslice
 		}
 	}
-	return e.model.ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass, composite.Boolean, portion, owningType.Element.Symbol), true
+	return e.model.ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass, membershipMetaclass, membershipKind, composite.Boolean, portion, owningType.Element.Symbol), true
 }
 
 func (e *Evaluator) elementDocumentKind(element Element) (source.Kind, bool) {

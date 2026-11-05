@@ -26,11 +26,12 @@ func TestImpliedSubsettingFQNForMetaclassAgreesWithTheDeclarationRules(t *testin
 		}
 		item def Box { part lid; item content; }
 		action def Drive { action step; item fuel; }
-		state def Mode { state on; }
+		state def Mode { state on; entry action e; do action d; exit action x; }
 		use case def Trip { include use case stop; actor driver; }
-		requirement def Safe { require constraint c; assume constraint a; }
+		requirement def Safe { require constraint c; assume constraint a; ref constraint r; }
 		part v : Vehicle { part wheel; action spin; }
 		occurrence def O { part p; }
+		variation part def Kit { variant part big; }
 	}`)
 	var checked int
 	var walk func(scope *symbols.Scope)
@@ -40,12 +41,14 @@ func TestImpliedSubsettingFQNForMetaclassAgreesWithTheDeclarationRules(t *testin
 				return true
 			}
 			if owner := scope.Owner(); owner != nil {
-				if _, isUsage := sym.Decl.(*ast.Usage); isUsage {
+				switch sym.Decl.(type) {
+				case *ast.Usage, *ast.AssumeMember, *ast.RequireMember:
 					checked++
 					want := m.nestedSubsettingFQN(sym)
-					got := m.ImpliedSubsettingFQNForMetaclass(nestedMetaclassName(m, sym), nestedMetaclassName(m, owner), nestedComposite(m, sym), sym.Decl.(*ast.Usage).Portion, owner)
+					membership, kind := nestedMembership(sym)
+					got := m.ImpliedSubsettingFQNForMetaclass(nestedMetaclassName(m, sym), nestedMetaclassName(m, owner), membership, kind, nestedComposite(m, sym), nestedPortion(sym), owner)
 					if got != want {
-						t.Errorf("%s (%s in %s): metaclass rules %q, declaration rules %q", sym.Name, nestedMetaclassName(m, sym), nestedMetaclassName(m, owner), got, want)
+						t.Errorf("%s (%s in %s, %s %s): metaclass rules %q, declaration rules %q", sym.Name, nestedMetaclassName(m, sym), nestedMetaclassName(m, owner), membership, kind, got, want)
 					}
 				}
 			}
@@ -80,10 +83,46 @@ func nestedMetaclassName(m *Model, sym *symbols.Symbol) string {
 	return ""
 }
 
+// nestedMembership is the metaclass and kind the graph states for the membership
+// owning sym: the requirement-constraint, state-subaction and variant forms.
+func nestedMembership(sym *symbols.Symbol) (metaclass, kind string) {
+	switch d := sym.Decl.(type) {
+	case *ast.AssumeMember:
+		return "RequirementConstraintMembership", "assumption"
+	case *ast.RequireMember:
+		return "RequirementConstraintMembership", "requirement"
+	case *ast.Usage:
+		switch {
+		case d.IsVariant:
+			return "VariantMembership", ""
+		case d.IsAssumedConstraint():
+			return "RequirementConstraintMembership", "assumption"
+		case d.IsRequirementConstraint():
+			return "RequirementConstraintMembership", "requirement"
+		case d.IsStateAction():
+			if _, ok := stateActionFQNs[d.Keyword]; ok {
+				return "StateSubactionMembership", d.Keyword
+			}
+			return "StateSubactionMembership", d.PrefixKeyword
+		}
+	}
+	return "FeatureMembership", ""
+}
+
+func nestedPortion(sym *symbols.Symbol) ast.PortionKind {
+	if u, ok := sym.Decl.(*ast.Usage); ok {
+		return u.Portion
+	}
+	return ast.PortionNone
+}
+
 func nestedComposite(m *Model, sym *symbols.Symbol) bool {
 	u, ok := sym.Decl.(*ast.Usage)
 	if !ok {
-		return false
+		// The constraint an `assume`/`require` member owns is composite (nestedSubsettingFQN).
+		_, assume := sym.Decl.(*ast.AssumeMember)
+		_, require := sym.Decl.(*ast.RequireMember)
+		return assume || require
 	}
 	if !m.isSysMLUsage(sym) {
 		return u.IsComposite
