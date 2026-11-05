@@ -228,8 +228,8 @@ func (m *CachedModel) SymbolContext() *symbolfacts.Context {
 
 // positionalDocuments pairs each document of the model with its root scope,
 // for the positional identities of its unnamed declarations.
-func (m *CachedModel) positionalDocuments() []export.PositionalDocument {
-	docs := make([]export.PositionalDocument, 0, len(m.Documents))
+func (m *CachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
+	docs := make([]symbolfacts.PositionalDocument, 0, len(m.Documents))
 	for _, doc := range m.Documents {
 		if doc == nil || doc.Source == nil {
 			continue
@@ -238,7 +238,7 @@ func (m *CachedModel) positionalDocuments() []export.PositionalDocument {
 		if root == nil {
 			continue
 		}
-		docs = append(docs, export.PositionalDocument{File: doc.Source, Root: root})
+		docs = append(docs, symbolfacts.PositionalDocument{File: doc.Source, Root: root})
 	}
 	return docs
 }

@@ -3,10 +3,33 @@ package symbolfacts
 import (
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
+
+// PositionalDocument is one document of a model with its root scope, the unit
+// positional identities are derived over.
+type PositionalDocument struct {
+	File *source.SourceFile
+	Root *symbols.Scope
+}
+
+// PositionalNames derives the positional identities of the symbols identifies
+// refuses, with the inverse map; the export package implements it.
+type PositionalNames func(index *symbols.Index, docs []PositionalDocument, identifies func(*symbols.Symbol) bool) (map[*symbols.Symbol]string, map[string]*symbols.Symbol)
+
+var positionalNames PositionalNames
+
+// RegisterPositional installs the derivation of positional identities. The
+// exporter derives them, and a frontend that links the exporter registers it
+// here so this package, and the REPL core, stay free of that dependency; where
+// nothing is registered an unnamed member has no id and child_ids leave it out.
+func RegisterPositional(names PositionalNames) {
+	if positionalNames != nil {
+		panic("symbolfacts: positional names registered twice")
+	}
+	positionalNames = names
+}
 
 // Positional names the symbols no qualified name identifies by the positional
 // identity the RDF and API JSON export gives them (`Owner::@3` for the fourth
@@ -16,25 +39,24 @@ import (
 type Positional struct {
 	once   sync.Once
 	index  *symbols.Index
-	docs   func() []export.PositionalDocument
+	docs   func() []PositionalDocument
 	bySym  map[*symbols.Symbol]string
 	byName map[string]*symbols.Symbol
 }
 
 // NewPositional prepares the positional identities of the documents docs
 // returns, derived when first asked for.
-func NewPositional(idx *symbols.Index, docs func() []export.PositionalDocument) *Positional {
+func NewPositional(idx *symbols.Index, docs func() []PositionalDocument) *Positional {
 	return &Positional{index: idx, docs: docs}
 }
 
 func (p *Positional) derive() {
 	p.once.Do(func() {
-		if p.index == nil || p.docs == nil {
-			p.bySym, p.byName = export.PositionalIdentities(nil, nil, nil)
+		if positionalNames == nil || p.index == nil || p.docs == nil {
 			return
 		}
-		p.bySym, p.byName = export.PositionalIdentities(p.index, p.docs(), func(sym *symbols.Symbol) bool {
-			return query.QualifiedIdentity(p.index, sym) != ""
+		p.bySym, p.byName = positionalNames(p.index, p.docs(), func(sym *symbols.Symbol) bool {
+			return p.index.QualifiedIdentity(sym) != ""
 		})
 	})
 }
@@ -61,7 +83,7 @@ func (p *Positional) Symbol(id string) *symbols.Symbol {
 // identifies it, else its positional identity, else "" for a symbol no id
 // reaches (a body-local declaration).
 func (sc *Context) Identity(sym *symbols.Symbol) string {
-	if identity := query.QualifiedIdentity(sc.Index, sym); identity != "" {
+	if identity := sc.Index.QualifiedIdentity(sym); identity != "" {
 		return identity
 	}
 	return sc.Positional.Of(sym)

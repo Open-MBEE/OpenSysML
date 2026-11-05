@@ -25,7 +25,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -372,8 +371,8 @@ func (m *cachedModel) symbolContext() *symbolfacts.Context {
 
 // positionalDocuments pairs each document of the model with its root scope,
 // for the positional identities of its unnamed declarations.
-func (m *cachedModel) positionalDocuments() []export.PositionalDocument {
-	docs := make([]export.PositionalDocument, 0, len(m.documents))
+func (m *cachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
+	docs := make([]symbolfacts.PositionalDocument, 0, len(m.documents))
 	for _, document := range m.documents {
 		if document == nil || document.source == nil {
 			continue
@@ -382,7 +381,7 @@ func (m *cachedModel) positionalDocuments() []export.PositionalDocument {
 		if root == nil {
 			continue
 		}
-		docs = append(docs, export.PositionalDocument{File: document.source, Root: root})
+		docs = append(docs, symbolfacts.PositionalDocument{File: document.source, Root: root})
 	}
 	return docs
 }
