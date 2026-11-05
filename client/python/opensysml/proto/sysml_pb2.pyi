@@ -1127,14 +1127,16 @@ class ConvertResponse(_message.Message):
     def __init__(self, content: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., experimental: _Optional[bool] = ..., experimental_notice: _Optional[str] = ..., library_references: _Optional[_Iterable[_Union[LibraryReference, _Mapping]]] = ...) -> None: ...
 
 class LibraryReference(_message.Message):
-    __slots__ = ("id", "qualified_name", "type")
+    __slots__ = ("id", "qualified_name", "type", "library_path")
     ID_FIELD_NUMBER: _ClassVar[int]
     QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
+    LIBRARY_PATH_FIELD_NUMBER: _ClassVar[int]
     id: str
     qualified_name: str
     type: str
-    def __init__(self, id: _Optional[str] = ..., qualified_name: _Optional[str] = ..., type: _Optional[str] = ...) -> None: ...
+    library_path: str
+    def __init__(self, id: _Optional[str] = ..., qualified_name: _Optional[str] = ..., type: _Optional[str] = ..., library_path: _Optional[str] = ...) -> None: ...
 
 class MigrateRequest(_message.Message):
     __slots__ = ("file_path", "content", "from_format", "to_format", "report", "results", "layout_path", "layout_content", "image_base_url", "strict")
@@ -2622,7 +2624,7 @@ class RenderFrame(_message.Message):
     def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., exposes: _Optional[_Iterable[str]] = ..., filters: _Optional[_Iterable[str]] = ..., annotations: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class RenderNode(_message.Message):
-    __slots__ = ("id", "kind", "name", "name_synthesized", "type", "detail", "text", "stand_in", "parent", "ports", "origin", "geometry", "style", "compartment", "inherited", "arrow")
+    __slots__ = ("id", "kind", "name", "name_synthesized", "type", "detail", "text", "stand_in", "parent", "ports", "origin", "geometry", "style", "compartment", "inherited", "arrow", "parallel")
     ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -2639,6 +2641,7 @@ class RenderNode(_message.Message):
     COMPARTMENT_FIELD_NUMBER: _ClassVar[int]
     INHERITED_FIELD_NUMBER: _ClassVar[int]
     ARROW_FIELD_NUMBER: _ClassVar[int]
+    PARALLEL_FIELD_NUMBER: _ClassVar[int]
     id: str
     kind: str
     name: str
@@ -2655,7 +2658,8 @@ class RenderNode(_message.Message):
     compartment: str
     inherited: bool
     arrow: str
-    def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., name_synthesized: _Optional[bool] = ..., type: _Optional[str] = ..., detail: _Optional[str] = ..., text: _Optional[str] = ..., stand_in: _Optional[bool] = ..., parent: _Optional[str] = ..., ports: _Optional[_Iterable[_Union[RenderPort, _Mapping]]] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., geometry: _Optional[_Union[RenderGeometry, _Mapping]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., compartment: _Optional[str] = ..., inherited: _Optional[bool] = ..., arrow: _Optional[str] = ...) -> None: ...
+    parallel: bool
+    def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., name_synthesized: _Optional[bool] = ..., type: _Optional[str] = ..., detail: _Optional[str] = ..., text: _Optional[str] = ..., stand_in: _Optional[bool] = ..., parent: _Optional[str] = ..., ports: _Optional[_Iterable[_Union[RenderPort, _Mapping]]] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., geometry: _Optional[_Union[RenderGeometry, _Mapping]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., compartment: _Optional[str] = ..., inherited: _Optional[bool] = ..., arrow: _Optional[str] = ..., parallel: _Optional[bool] = ...) -> None: ...
 
 class RenderPort(_message.Message):
     __slots__ = ("id", "name", "type", "direction", "inherited")

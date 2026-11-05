@@ -472,8 +472,10 @@ function layoutSequence(
     }
     // A hidden edge places no proxy: the point goes where a drawn edge first reaches it.
     if (!hidden[index]) {
-      placeProxy(edge.from, points[0].x, points[0].y);
-      placeProxy(edge.to, points[points.length - 1].x, points[points.length - 1].y);
+      const [first] = points;
+      const last = points.at(-1) ?? first;
+      placeProxy(edge.from, first.x, first.y);
+      placeProxy(edge.to, last.x, last.y);
     }
     routed.push({
       edge,

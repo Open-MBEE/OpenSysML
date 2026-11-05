@@ -5983,7 +5983,8 @@ type LibraryReference struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	QualifiedName string                 `protobuf:"bytes,2,opt,name=qualified_name,json=qualifiedName,proto3" json:"qualified_name,omitempty"`
-	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"` // Metaclass, as API JSON's @type spells it.
+	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`                                  // Metaclass, as API JSON's @type spells it.
+	LibraryPath   string                 `protobuf:"bytes,4,opt,name=library_path,json=libraryPath,proto3" json:"library_path,omitempty"` // Positional path owner/Metaclass[i] of an unnamed member, which has no qualified_name.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6035,6 +6036,13 @@ func (x *LibraryReference) GetQualifiedName() string {
 func (x *LibraryReference) GetType() string {
 	if x != nil {
 		return x.Type
+	}
+	return ""
+}
+
+func (x *LibraryReference) GetLibraryPath() string {
+	if x != nil {
+		return x.LibraryPath
 	}
 	return ""
 }
@@ -15316,7 +15324,9 @@ type RenderNode struct {
 	// Set on an item box drawn on a connection line (a flow, succession flow or
 	// message whose ends are the connection's): "right" when the item goes toward
 	// the line's second end, "left" toward its first. Empty for every other node.
-	Arrow         string `protobuf:"bytes,16,opt,name=arrow,proto3" json:"arrow,omitempty"`
+	Arrow string `protobuf:"bytes,16,opt,name=arrow,proto3" json:"arrow,omitempty"`
+	// The state's substates run in parallel; a label writes «parallel» under the name.
+	Parallel      bool `protobuf:"varint,17,opt,name=parallel,proto3" json:"parallel,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -15461,6 +15471,13 @@ func (x *RenderNode) GetArrow() string {
 		return x.Arrow
 	}
 	return ""
+}
+
+func (x *RenderNode) GetParallel() bool {
+	if x != nil {
+		return x.Parallel
+	}
+	return false
 }
 
 // RenderPort is a feature drawn on a node's border.
@@ -18146,11 +18163,12 @@ const file_sysml_proto_rawDesc = "" +
 	"\vdiagnostics\x18\x05 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12\"\n" +
 	"\fexperimental\x18\x06 \x01(\bR\fexperimental\x12/\n" +
 	"\x13experimental_notice\x18\a \x01(\tR\x12experimentalNotice\x12F\n" +
-	"\x12library_references\x18\b \x03(\v2\x17.sysml.LibraryReferenceR\x11libraryReferences\"]\n" +
+	"\x12library_references\x18\b \x03(\v2\x17.sysml.LibraryReferenceR\x11libraryReferences\"\x80\x01\n" +
 	"\x10LibraryReference\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12%\n" +
 	"\x0equalified_name\x18\x02 \x01(\tR\rqualifiedName\x12\x12\n" +
-	"\x04type\x18\x03 \x01(\tR\x04type\"\xd9\x02\n" +
+	"\x04type\x18\x03 \x01(\tR\x04type\x12!\n" +
+	"\flibrary_path\x18\x04 \x01(\tR\vlibraryPath\"\xd9\x02\n" +
 	"\x0eMigrateRequest\x12\x1d\n" +
 	"\tfile_path\x18\x01 \x01(\tH\x00R\bfilePath\x12\x1a\n" +
 	"\acontent\x18\x02 \x01(\fH\x00R\acontent\x12\x1f\n" +
@@ -18904,7 +18922,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +
 	"\aexposes\x18\x03 \x03(\tR\aexposes\x12\x18\n" +
 	"\afilters\x18\x04 \x03(\tR\afilters\x12 \n" +
-	"\vannotations\x18\x05 \x03(\tR\vannotations\"\xe3\x03\n" +
+	"\vannotations\x18\x05 \x03(\tR\vannotations\"\xff\x03\n" +
 	"\n" +
 	"RenderNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -18923,7 +18941,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05style\x18\r \x01(\v2\x12.sysml.RenderStyleR\x05style\x12 \n" +
 	"\vcompartment\x18\x0e \x01(\tR\vcompartment\x12\x1c\n" +
 	"\tinherited\x18\x0f \x01(\bR\tinherited\x12\x14\n" +
-	"\x05arrow\x18\x10 \x01(\tR\x05arrow\"\x80\x01\n" +
+	"\x05arrow\x18\x10 \x01(\tR\x05arrow\x12\x1a\n" +
+	"\bparallel\x18\x11 \x01(\bR\bparallel\"\x80\x01\n" +
 	"\n" +
 	"RenderPort\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +

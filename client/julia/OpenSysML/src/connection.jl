@@ -185,7 +185,7 @@ function call(conn::Connection, method::AbstractString, request)
     conn.token === nothing || push!(headers, "Authorization" => "Bearer $(conn.token)")
     response = try
         HTTP.post("$(conn.base)/sysml.SysMLService/$(method)", headers, body;
-                  status_exception=false, readtimeout=max(1, round(Int, conn.timeout)))
+                  status_exception=false, request_timeout=max(1, round(Int, conn.timeout)))
     catch e
         root = _transport_root_cause(e)
         message = sprint(showerror, root)
@@ -210,8 +210,8 @@ end
 
 function _transport_root_cause(error)
     while true
-        if error isa HTTP.RequestError || error isa HTTP.ConnectError
-            error = error.error
+        if error isa HTTP.ConnectError
+            error = error.cause
         elseif error isa TaskFailedException
             stack = Base.current_exceptions(error.task; backtrace=false)
             cause = isempty(stack) ? getfield(error.task, :result) : last(stack).exception
