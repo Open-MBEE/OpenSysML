@@ -80,4 +80,27 @@ package NaryViews {
 		expose NaryRules::rules;
 		render asTreeDiagram;
 	}
+	// A Route about an n-ary relationship: its dot and segments are not steered by it.
+	view routedRules {
+		expose NaryRules::Chassis;
+		expose NaryRules::Lights;
+		expose NaryRules::Brakes;
+		expose NaryRules::Steering;
+		expose NaryRules::rules;
+		render asTreeDiagram;
+		metadata DiagramLayout::Route about NaryRules::rules { points = (100, 100, 200, 100); }
+	}
+	view routedSpokes {
+		expose Nary::Wheel::hub;
+		expose Nary::Wheel::leftSpoke;
+		expose Nary::Wheel::rightSpoke;
+		expose Nary::Wheel::spokes;
+		render asTreeDiagram;
+		metadata DiagramLayout::Route about Nary::Wheel::spokes { points = (100, 100, 200, 100); }
+	}
+	view routedWheel {
+		expose Nary::Wheel;
+		render asInterconnectionDiagram;
+		metadata DiagramLayout::Route about Nary::Wheel::spokes { points = (100, 100, 200, 100); }
+	}
 }

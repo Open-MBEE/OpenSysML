@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» MixedMemberships::memberships" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=327;height=40;" vertex="1" parent="1">
+            <mxGeometry width="1132" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose MixedMemberships" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="922" width="210" height="36" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«package»&#xA;MixedMemberships" fqn="MixedMemberships" kind="package" view="MixedMemberships::memberships" link="mixed-memberships.sysml:1">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="1032" height="813" as="geometry"/>
@@ -97,9 +103,9 @@
             <mxGeometry x="16" y="179" width="130" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n5" label="«frame»&#xA;contained" fqn="MixedMemberships::Safety::contained" kind="frame" view="MixedMemberships::memberships" link="mixed-memberships.sysml:28">
+        <object id="n5" label="«frame concern»&#xA;contained" fqn="MixedMemberships::Safety::contained" kind="frame concern" view="MixedMemberships::memberships" link="mixed-memberships.sysml:28">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n4">
-            <mxGeometry x="196" y="179" width="100" height="37" as="geometry"/>
+            <mxGeometry x="196" y="179" width="106" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n6" label="«view»&#xA;memberships" fqn="MixedMemberships::memberships" kind="view" view="MixedMemberships::memberships" link="mixed-memberships.sysml:31">
@@ -239,10 +245,10 @@
           </mxCell>
         </object>
         <object id="e17" label="frame" kind="frame" view="MixedMemberships::memberships" link="mixed-memberships.sysml:28">
-          <mxCell style="edgeStyle=none;exitX=0.7069;exitY=0.181;exitPerimeter=0;entryX=0;entryY=0.25;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n4" target="n5">
+          <mxCell style="edgeStyle=none;exitX=0.7155;exitY=0.181;exitPerimeter=0;entryX=0;entryY=0.25;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n4" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="480" y="595"/>
+                <mxPoint x="483" y="595"/>
                 <mxPoint x="414" y="595"/>
                 <mxPoint x="414" y="716.25"/>
               </Array>
@@ -280,7 +286,7 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.7542;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="480" y="681"/>
+                <mxPoint x="483" y="681"/>
                 <mxPoint x="155" y="681"/>
               </Array>
             </mxGeometry>

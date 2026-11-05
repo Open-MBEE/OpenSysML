@@ -3073,6 +3073,19 @@ message RenderViewResponse {
   repeated string notices = 10;
   // The optional notation elements drawn, in registry order.
   repeated string shown = 11;
+  // The view frame round a graph-shaped rendering; unset for a frameless one.
+  RenderFrame frame = 12;
+}
+
+// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
+// name and view definition, and the lines of the three information
+// compartments (exposes top right, filters bottom left, annotations bottom right).
+message RenderFrame {
+  string name = 1;
+  string type = 2;
+  repeated string exposes = 3;
+  repeated string filters = 4;
+  repeated string annotations = 5;
 }
 
 // RenderNode is one flattened node of the rendering.

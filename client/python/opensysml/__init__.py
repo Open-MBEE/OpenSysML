@@ -81,7 +81,7 @@ from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
     DocumentVerdict, ElementRef, Graphs, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
-    RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
+    RenderFrame, RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
     RenderSpan, RenderStyle, RenderedView,
 )
 from opensysml.conversion import (
@@ -150,7 +150,7 @@ __all__ = [
     "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",
-    "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
+    "RenderCanvas", "RenderEdge", "RenderFrame", "RenderGeometry", "RenderNode", "RenderNote",
     "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
     "Graphs",
     "CaseStatistic", "CaseStatistics", "ComparedDistribution", "Comparison", "ConfigurationComparison",

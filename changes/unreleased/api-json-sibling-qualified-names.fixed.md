@@ -1,1 +1,0 @@
-- Writing api-json no longer rereads the names of every earlier member of a namespace for each member's `qualifiedName`: each namespace's member names are read once, so a namespace's qualified names cost time linear in its member count rather than quadratic.

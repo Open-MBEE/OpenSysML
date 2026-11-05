@@ -1,5 +1,6 @@
 @startuml
 ' MachineViews::vehicleStates — state rendering (view def StateTransitionView)
+mainframe <size:10>//«view»//</size> **MachineViews::vehicleStates** : StateTransitionView\n<size:10>expose Machines::VehicleStates</size>
 <style>
 root {
   BackGroundColor white

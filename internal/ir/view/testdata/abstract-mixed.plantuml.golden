@@ -1,5 +1,6 @@
 @startuml
 ' AbstractViews::familyMixed — mixed rendering (render asMixedDiagram)
+mainframe <size:10>//«view»//</size> **AbstractViews::familyMixed** : Family\n<size:10>expose Vehicle<U+002A><U+002A></size>\n<size:10>expose vehicleFamily<U+002A><U+002A></size>\n<size:10>expose Models<U+002A><U+002A></size>
 <style>
 root {
   BackGroundColor white

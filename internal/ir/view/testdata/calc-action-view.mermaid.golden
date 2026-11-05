@@ -23,6 +23,7 @@ config:
   flowchart:
     subGraphTitleMargin:
       bottom: 72
+title: "«view» CalcViews::calcFlows : ActionFlowView"
 ---
 %% CalcViews::calcFlows — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 flowchart TD

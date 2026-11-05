@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» FilteredWalk::structure"
 ---
 %% FilteredWalk::structure — tree rendering (render asTreeDiagram)
 flowchart TD
@@ -27,10 +28,8 @@ flowchart TD
 **rover**`")
     n1("`*«part»*
 **chassis**`")
-      n2("`*«part»*
-**axle**`")
-    n3("`*«part»*
-**radio**`")
+      n2("«#35;Shown part»<br>axle")
+    n3("«#35;Shown part»<br>radio")
       n4("`*«port»*
 **^rx**`")
     n5("`*«part»*
