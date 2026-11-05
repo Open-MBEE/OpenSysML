@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -240,5 +241,36 @@ func TestPathsToSeesPastAnAliasUnderARepeatedType(t *testing.T) {
 	}
 	if got := ctx.PathsTo(root, target, PathBounds{Depth: 2}); len(got.Steps) != 0 || !got.Truncated {
 		t.Errorf("two steps allowed: %v, truncated %v, want none and truncated", pathTexts(got), got.Truncated)
+	}
+}
+
+// Deciding what a cutoff hides costs one walk of the graph, however many
+// routes of distinct types share an object.
+func TestPathsToDecidesTruncationInOneWalk(t *testing.T) {
+	const n = 20
+	var b strings.Builder
+	b.WriteString("package Dense {\n")
+	for i := 1; i <= n; i++ {
+		fmt.Fprintf(&b, "\tpart def O%d;\n", i)
+	}
+	b.WriteString("\tpart root {\n")
+	for i := 1; i <= n; i++ {
+		fmt.Fprintf(&b, "\t\tpart o%d : O%d {\n", i, i)
+		for j := i + 1; j <= n; j++ {
+			fmt.Fprintf(&b, "\t\t\tref part t%d : O%d = o%d;\n", j, j, j)
+		}
+		b.WriteString("\t\t}\n")
+	}
+	b.WriteString("\t}\n}\n")
+	ctx, idx := contextForSource(t, b.String())
+	root, err := ctx.Instantiate(lookupOne(t, idx, "Dense::root"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reached := ctx.Traverse(root, TraversalBounds{}); len(reached.Reaches) != n+1 {
+		t.Fatalf("reached %d objects, want %d", len(reached.Reaches), n+1)
+	}
+	if got := ctx.PathsTo(root, &Instance{ID: -1}, PathBounds{Depth: 1}); got.Truncated || len(got.Steps) != 0 {
+		t.Errorf("paths to an object nothing holds: %v, truncated %v", pathTexts(got), got.Truncated)
 	}
 }
