@@ -144,16 +144,19 @@ func (m *orderMarks) all() []int64 {
 func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64, alike func(p, q lower.Place) bool) {
 	kept := slices.Clone(by)
 	entries := m.entries[:0]
+	left := make([]int64, 0, 8)
 	for _, e := range m.entries {
 		if !samePlace(e.place, p) || !alike(e.place, p) {
 			entries = append(entries, e)
 			continue
 		}
+		left = left[:0]
 		for _, s := range e.by {
 			if seed, ok := m.seeds[s]; ok && seed.clocked && seed.at == now && touchesPlace(seed.touched, p) {
-				kept = unionSerials(kept, []int64{s})
+				left = append(left, s)
 			}
 		}
+		kept = unionSerials(kept, left)
 	}
 	// A place written stays listed, bare: it witnesses that its node performed.
 	m.entries = append(entries, orderMark{place: p, by: kept})
@@ -213,37 +216,73 @@ func touchesPlace(touched []lower.Place, p lower.Place) bool {
 	return false
 }
 
-// unionSerials is a sorted union without duplicates.
+// unionSerials is the sorted union of two sorted slices without duplicates. It
+// returns a itself when b adds nothing to it and never writes into either argument.
 func unionSerials(a, b []int64) []int64 {
-	if len(b) == 0 {
+	i, j := 0, 0
+	for i < len(a) && j < len(b) {
+		if a[i] > b[j] {
+			break
+		}
+		if a[i] == b[j] {
+			j++
+		}
+		i++
+	}
+	if j == len(b) {
 		return a
 	}
-	out := slices.Clone(a)
-	for _, s := range b {
-		if i, found := slices.BinarySearch(out, s); !found {
-			out = slices.Insert(out, i, s)
+	out := make([]int64, 0, len(a)+len(b)-j)
+	out = append(out, a[:i]...)
+	for i < len(a) && j < len(b) {
+		switch {
+		case a[i] < b[j]:
+			out = append(out, a[i])
+			i++
+		case a[i] > b[j]:
+			out = append(out, b[j])
+			j++
+		default:
+			out = append(out, a[i])
+			i++
+			j++
 		}
 	}
-	return out
+	out = append(out, a[i:]...)
+	return append(out, b[j:]...)
 }
 
 // underControl runs what follows under the choice points the serials name — a
 // guard read standing on them, a branch drawn among alternatives — until
 // releaseControl of what it returns; every write made meanwhile stands on them too.
+// A choice point already in control — an inner branch whose condition stands on
+// the one it runs under — is not added again.
 func (ctx *Context) underControl(serials []int64) int {
 	n := len(ctx.controls)
-	ctx.controls = append(ctx.controls, serials...)
+	for _, s := range serials {
+		if !slices.Contains(ctx.controls, s) {
+			ctx.controls = append(ctx.controls, s)
+		}
+	}
 	return n
 }
 
 // releaseControl ends the control underControl returned n for.
 func (ctx *Context) releaseControl(n int) { ctx.controls = ctx.controls[:n] }
 
+// controlling is the choice points the move under way stands on by control,
+// sorted, as a slice of its own.
+func (ctx *Context) controlling() []int64 {
+	out := slices.Clone(ctx.controls)
+	slices.Sort(out)
+	return out
+}
+
 // standingOf is what a move with the footprint reads stands on: the control it
 // runs under and the marks of every place it reads, every mark where the
 // declarations do not decide the places and dynamicAll holds.
 func (ctx *Context) standingOf(fp lower.Footprint, dynamicAll bool) []int64 {
-	return ctx.readStanding(slices.Clone(ctx.controls), fp, dynamicAll, nil)
+	return ctx.readStanding(ctx.controlling(), fp, dynamicAll, nil)
 }
 
 // readStanding unions onto deps the marks of every place the footprint reads,
@@ -317,7 +356,7 @@ func (ctx *Context) writeMarks(places []lower.Place, by []int64) {
 // acceptMarks records the places an accept bound from a message: they stand on
 // what the message's payload stood on where it was sent, and on the control here.
 func (ctx *Context) acceptMarks(places []lower.Place, dependence []int64) {
-	ctx.writeMarks(places, unionSerials(slices.Clone(ctx.controls), dependence))
+	ctx.writeMarks(places, unionSerials(ctx.controlling(), dependence))
 }
 
 // liveChoices is the serials of the run's unresolved choice points.
