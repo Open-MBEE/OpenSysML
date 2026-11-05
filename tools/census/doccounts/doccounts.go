@@ -22,6 +22,9 @@ import (
 // Paths of the compliance map and of the files carrying a derived line, relative
 // to the repository root.
 const (
+	// SpecCompliancePath is the compliance map as the site serves it, combined
+	// from the sources under SpecComplianceDir; the blocks keyed by it are
+	// rewritten in whichever source carries them.
 	SpecCompliancePath = "docs/project/spec-compliance.md"
 	// ValidationConstraintsPath is the census page whose table the manifest renders.
 	ValidationConstraintsPath = "docs/project/validation-constraints.md"
@@ -419,7 +422,7 @@ func carriesMarker(text string) bool {
 
 // rowStatus is the one status marker in a rule row's Status column; a repeated
 // marker is refused as two are, so the cell states its status once.
-func rowStatus(number int, line string, column int) (string, error) {
+func rowStatus(file string, number int, line string, column int) (string, error) {
 	cells := splitCells(line)
 	cell := ""
 	if column < len(cells) {
@@ -433,11 +436,11 @@ func rowStatus(number int, line string, column int) (string, error) {
 	}
 	switch len(found) {
 	case 0:
-		return "", fmt.Errorf("%s:%d: no status marker in the %s column", SpecCompliancePath, number, statusColumnHeading)
+		return "", fmt.Errorf("%s:%d: no status marker in the %s column", file, number, statusColumnHeading)
 	case 1:
 		return found[0], nil
 	default:
-		return "", fmt.Errorf("%s:%d: %d status markers in the %s column (%s); state one", SpecCompliancePath, number, len(found), statusColumnHeading, strings.Join(found, ", "))
+		return "", fmt.Errorf("%s:%d: %d status markers in the %s column (%s); state one", file, number, len(found), statusColumnHeading, strings.Join(found, ", "))
 	}
 }
 
@@ -453,6 +456,11 @@ type RuleRow struct {
 // status or several, a row with a marker outside a table or in a table without
 // a Status column, is an error.
 func RuleRows(content string) ([]RuleRow, error) {
+	return ruleRows(SpecCompliancePath, content)
+}
+
+// ruleRows is RuleRows over one file of the map, named in its errors.
+func ruleRows(file, content string) ([]RuleRow, error) {
 	var rows []RuleRow
 	lines := strings.Split(content, "\n")
 	for start := 0; start < len(lines); {
@@ -467,14 +475,14 @@ func RuleRows(content string) ([]RuleRow, error) {
 			switch {
 			case !isTable:
 				if strings.HasPrefix(text, "|") && carriesMarker(text) {
-					return nil, fmt.Errorf("%s:%d: a row with a status marker outside a table", SpecCompliancePath, number)
+					return nil, fmt.Errorf("%s:%d: a row with a status marker outside a table", file, number)
 				}
 			case column < 0:
 				if offset >= 2 && carriesMarker(text) {
-					return nil, fmt.Errorf("%s:%d: a row with a status marker in a table without a %s column", SpecCompliancePath, number, statusColumnHeading)
+					return nil, fmt.Errorf("%s:%d: a row with a status marker in a table without a %s column", file, number, statusColumnHeading)
 				}
 			case offset >= 2:
-				marker, err := rowStatus(number, line, column)
+				marker, err := rowStatus(file, number, line, column)
 				if err != nil {
 					return nil, err
 				}
@@ -501,8 +509,12 @@ func CountRules(content string) (RuleCounts, error) {
 	for _, row := range rows {
 		counts.add(row.Marker)
 	}
-	counts.Total = counts.Faithful + counts.Extension + counts.Approximate + counts.NotImplemented + counts.Deliberate + counts.KnownFailure
+	counts.total()
 	return counts, nil
+}
+
+func (counts *RuleCounts) total() {
+	counts.Total = counts.Faithful + counts.Extension + counts.Approximate + counts.NotImplemented + counts.Deliberate + counts.KnownFailure
 }
 
 func (counts *RuleCounts) add(marker string) {
