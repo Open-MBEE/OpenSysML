@@ -7,6 +7,26 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
+## 0.12.1 — 2026-11-04
+
+### Fixed
+
+- `ExecuteAction` on an action usage performed with no arguments, and a `perform` of such a usage inside another action, now compute from the usage's own `in` values: a usage parameter redefining the definition's — implicitly by name or by `redefines` — holds its value over the definition's, an explicit input, pin or argument still overrides it, and a usage parameter stating no value keeps the inherited default.
+
+- A connector's bindings now reach the connected features through the connector's own features (`bind a.voltage = m.inV; bind m.outV = b.voltage` in an `interface def`), through an interface or connection a `connection def` or `allocation def` owns over its own ends (`interface w : W connect a.p to b.q;`, re-rooted again when `connection c : C connect s to k` attaches, at any depth), and through the feature values an end body states (`end b : ~Pw { attribute :>> voltage = 12 [V]; }`, in the definition or the usage; a `default =` yields to a value the connected port has of its own or receives through another binding). A library-typed feature no binding has valued yet is read through its own bindings instead of being given an object of its own, so the value reaches the far port whichever side is materialized first (#1857).
+
+- **Reading a feature valued by an expression over other such features no longer takes time exponential in their number.** The read set behind the order-dependence marker followed every path through the features an expression reaches, so a model whose expression-valued features reference one another — through `if` branches a run never takes as much as through taken ones — made each evaluation walk every simple path through them: nine mutually referencing features took seconds, ten half a minute, with no diagnostic. Each feature's binding is now read once per expression, as the union of what the paths read is the same, and the evaluation takes the time 0.11.0 took. (#1929)
+
+- `scripts/download-pilot-grammars.sh` (and the pilot-grammars step of the environment setup) failed on git 2.56 with `'…/KerMLExpressions.xtext' is not a directory`: `pilot_clone` in `scripts/pilot-pin.sh` set the sparse checkout in cone mode, which names directories only. It now sets patterns anchored at the repository root, so file paths and directories alike check out on every git version.
+
+- A literal of the reflective KerML model's enumerations — `KerML::Core::FeatureDirectionKind::'in'`, `KerML::Root::VisibilityKind::'public'`, the member features of a `DataType` into which KerML 1.1 §9.2.17 maps a MOF enumeration — is now an enumeration literal: it evaluates to itself, conforms to its datatype and equals what a reflective read yields, so `(p meta KerML::Feature).direction == KerML::Core::FeatureDirectionKind::'in'` is `true` (it was undetermined) in `%eval`, metaobject reads and gRPC (which now carries its `enumeration_id`); and a query cell naming an enumeration literal, KerML's or SysML's (`row.portionKind == SysML::Systems::PortionKind::snapshot`), reads the literal instead of failing with "has no value".
+
+- An end feature of a step (or of any non-connector type) now implicitly redefines the end at the same position in each direct general type, as KerML 1.1 §8.3.3.3.4 `checkFeatureEndRedefinition` requires, so members of the redefined end resolve in the step end's body; a feature typed by an interaction subsets `Performances::performances` rather than `Transfers::transfers`, which only flows subset (#1886)
+
+- An attribute that subsets another and states no value of its own now holds that feature's values, as many as its lower bound asks, as a part or item subsetter already did (KerML 1.1 §7.3.4.4): `attribute q = 4; attribute r [1] :> q;` reads `r = 4` and `attribute top [1] :> faces` over `faces [6] = (1..6)` reads `1`, where both read `<undetermined>`. A binding on the subsetter picks the value its other end holds; a value the subsetter's type does not admit is not drawn, and too few values is the multiplicity violation the read already reports.
+
+- A transition guard (`transition first s1 if v > 1.0 then s2`) that reads a feature carrying no value is no longer a runtime error that stops the state machine. The guard has no Boolean result, so it is not true and the transition is not enabled (SysML v2 §7.18.2): the machine rests in the source state and keeps running, and the guard is read again exactly where a false guard is, so a later write of the feature lets the transition fire at the next completion of the source state or matching trigger. The same holds for the guard of an entry transition and of a conditional succession in an action (`first a if v > 1.0 then b; else c;` takes the `else`). An evaluation that fails on its own terms, such as a division by zero or a non-Boolean result, is still an error.
+
 ## 0.12.0 — 2026-11-03
 
 ### Added
