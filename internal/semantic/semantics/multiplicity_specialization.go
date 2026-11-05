@@ -20,9 +20,8 @@ func (m *Model) MultiplicityBaseFQN(sym *symbols.Symbol) (string, bool) {
 	return naturalsFQN, true
 }
 
-// ownedByIndividualDefinition reports whether sym is the Multiplicity an individual
-// OccurrenceDefinition is parsed with (the clause's `multiplicity`), whichever implied form
-// minted it; a `multiplicity m [2]` member written in its body is not that Multiplicity.
+// ownedByIndividualDefinition reports whether sym is the implied Multiplicity an individual
+// OccurrenceDefinition is parsed with (its `multiplicity`), not a member written in its body.
 func (m *Model) ownedByIndividualDefinition(sym *symbols.Symbol) bool {
 	if IsIndividualMultiplicity(sym) {
 		return true
