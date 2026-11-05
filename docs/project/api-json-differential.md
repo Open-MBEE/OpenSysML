@@ -322,8 +322,8 @@ named as `type`/`conjugatedPortDefinition`, SysML v2.1 §8.3.12.3 `conjugatedPor
 type}`, where the collapsed `sysml:type` had named P itself): every `PortUsage.type` row that was different
 is now equal — 351 → 406 present-equal (55 → 0 present-different; the 87 ours-missing are ports declaring no
 typing, whose type the pilot derives, unchanged) — and the `ref`/`usage` features typed by a conjugate
-follow, `ReferenceUsage.type` 1226 → 1227 equal (6 → 5 different) and `Usage.type` 9 → 11 (5 → 3); 1921680 →
-1921738 present-equal, 128354 → 128296 present-different overall. `ConjugatedPortTyping.type`,
+follow, `ReferenceUsage.type` 1226 → 1227 equal (6 → 5 different) and `Usage.type` 9 → 11 (5 → 3); 1921717 →
+1921775 present-equal, 128353 → 128295 present-different overall. `ConjugatedPortTyping.type`,
 `.conjugatedPortDefinition` and `.portDefinition` (61 equal each) and `PortUsage.portDefinition`/`.definition`
 did not move. No other row moved.
 
