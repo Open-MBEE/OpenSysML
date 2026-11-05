@@ -1,0 +1,1 @@
+- Bound .NET lifecycle race tests with per-round deadlines, await background service-death cleanup before terminal assertions, and release successful connections and owned child processes even when concurrent acquisition, assertions or orderly cleanup fail.

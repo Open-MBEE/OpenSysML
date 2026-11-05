@@ -1,7 +1,7 @@
 # Client libraries
 
-OpenSysML can be reached from a program in seven ways: the Go API, which runs in the calling
-process, and six clients of the `sysml-grpc` service. The Node client can also run the combined
+OpenSysML can be reached from a program in eight ways: the Go API, which runs in the calling
+process, and seven clients of the `sysml-grpc` service. The Node client can also run the combined
 `sysml-wasm` module directly. This page describes how to choose between them, what each covers
 and what each intentionally leaves out. Each client has an API reference of its own, and the
 [client guides](../clients.md) walk through a task with each one.
@@ -13,6 +13,7 @@ and what each intentionally leaves out. Each client has an API reference of its 
 | **Node/TypeScript**, `@openmbee/opensysml` | Connect to a service, or directly to the combined `sysml-wasm` module | npm, on core `v*` tags, with per-platform binary packages | [Node API](node-api.md) |
 | **Java**, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | Maven Central, at the core's version | [Java API](java-api.md) |
 | **Rust**, `opensysml` | Connect, blocking, no async runtime | crates.io, on core `v*` tags, at the core version | [Rust API](rust-api.md) |
+| **.NET**, `OpenMBEE.OpenSysML` | gRPC by default, or Connect with protobuf or JSON bodies, asynchronous | not published; a `ProjectReference` to a checkout, released as the checkout of the core `v*` tag | [.NET API](dotnet-api.md) |
 | **Julia**, `OpenSysML` | Connect-JSON, over `HTTP.jl` | not in General; develop from a checkout | [Julia API](julia-api.md) |
 | **MATLAB**, `+opensysml` | Connect-JSON, over `matlab.net.http` or, under GNU Octave, a `curl` subprocess | source files; add to the MATLAB path | [MATLAB API](matlab-api.md) |
 
@@ -38,6 +39,10 @@ The protocols and what the service serves on a single port are described in
   `tcnative` dependency reaches the host application.
 - **In a Rust program: `opensysml`.** Blocking, with no asynchronous runtime in its default
   dependency tree, and safe to call from inside one.
+- **In a .NET 10 application: `OpenMBEE.OpenSysML`.** Asynchronous and typed over every RPC, with
+  gRPC through `Grpc.Net.Client` by default, or the Connect protocol over .NET's own HTTP stack
+  when a proxy does not carry HTTP/2. It is referenced from a checkout rather
+  than installed from NuGet, and makes no Native AOT, trimming or browser claim.
 - **In a Julia session or script: `OpenSysML`.** A thin JSON-over-HTTP client — `HTTP.jl` and
   `JSON.jl` are its only dependencies — that parses, evaluates, instantiates, executes and
   queries, with `call` as the escape hatch for anything not wrapped.
@@ -49,7 +54,7 @@ The protocols and what the service serves on a single port are described in
 
 The Go, Java, Julia and MATLAB clients each reach every RPC the service has — the Julia
 and MATLAB ones through `call`/`callRaw` under the wrapped functions, so nothing on the wire is
-out of reach — and so do the Python, Node's Connect transport and Rust clients.
+out of reach — and so do the Python, Node's Connect transport, Rust and .NET clients.
 
 ## What the newer surfaces cover
 
@@ -88,6 +93,10 @@ The Rust client covers the same service surface as typed results — `parse_sour
 `calc`, `run_analysis`, `run_sweep`, `list_engines` and an `Editor` over `ApplyEdits` — as the
 [Rust API](rust-api.md) describes.
 
+The .NET client covers the same service surface as typed immutable results, every RPC called by
+a public method, and records which method calls each in a parity inventory its tests hold to the
+schema; the [.NET API](dotnet-api.md) lists them by area.
+
 Those RPCs exist and are served. `ApplyEdits` also edits a model of several documents, parsed
 together by `ParseSources`, as one atomic batch — every document the edits reach is answered in
 `ApplyEditsResponse.documents` under the name the parse gave it, and the sole-document `content`
@@ -96,14 +105,15 @@ A request must set `accept_documents` for that; one that does not is refused on 
 documents as before, so a client of the previous schema is answered as it always was. The service
 advertises the `edit_documents` capability for it; one without the capability answers `content`
 alone and refuses a model of several documents, so a client reads `documents` only from a service
-that advertises it. The Go, Python, Java, Node and Rust clients set it and expose the documents.
+that advertises it. The Go, Python, Java, Node, Rust and .NET clients set it and expose the documents.
 
 Each client's conformance report names, per scenario, why a skipped scenario is skipped, so a
 shrinking surface cannot pass quietly.
 
 Only the generated model-ergonomics types differ: the Node client generates typed modules with
-`opensysml-generate`, and the Go, Java and Rust APIs read models through `Symbol`, `Instance` and
-`Value` instead.
+`opensysml-generate` and the .NET client typed interfaces and classes with its checkout's
+`OpenMBEE.OpenSysML.Generate`, and the Go, Java and Rust APIs read models through `Symbol`, `Instance`
+and `Value` instead.
 
 ## Two lifecycle modes, and one guarantee
 
@@ -113,7 +123,7 @@ kernel assigned from the child's first line of stdout. No port is chosen, probed
 processes starting at once cannot collide, and a service left listening by someone else is never
 adopted. The child is shared within a scope, and so is its parse cache: per interpreter in
 Python, per thread in Node, per classloader in Java (`isolatedService(true)` opts out), per
-process in Rust. `client/opensysml` starts nothing, because in process there is nothing to start.
+process in Rust, per assembly load context in .NET (`IsolatedService` opts out). `client/opensysml` starts nothing, because in process there is nothing to start.
 
 Connecting to a service the client did not start is always explicit, through an address argument or
 `$OPENSYSML_SERVICE`, and closing such a connection disconnects and does nothing further.
@@ -157,6 +167,13 @@ also checks its per-platform npm package, whose tarball npm verifies, with no po
 that package is preferred over a download, which happens only when no package matches the platform.
 The Java client additionally verifies a digest the caller pins with `expectedBinarySha256`.
 
+The .NET client downloads only releases its checkout pins (the embedded copy of
+`client/release-digests.json`) and, like Rust, does not verify the manifest's Sigstore signature,
+so a release with no pin is refused unless `OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` grants same-origin
+trust. Its order is `ConnectionOptions.BinaryPath`, then `$OPENSYSML_GRPC_BINARY`, then the shared
+cache, downloading the release asked for into it, and `PATH` only when the release it was built with
+cannot be had. `ConnectionOptions.ExpectedBinarySha256` pins a digest the binary must have.
+
 If no binary can be found or downloaded, the result is an error naming every way to supply one.
 
 ## Every client runs the same conformance suite
@@ -170,6 +187,7 @@ scenarios and comparing the same results:
 make conformance             # the reference runner: gRPC, Connect, Connect-JSON
 make conformance-pkg         # the public Go API, in process and remote
 make conformance-rust
+make conformance-dotnet
 make conformance-julia
 make conformance-matlab
 npm --prefix client/node run conformance -- --allow-skips

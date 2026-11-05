@@ -1,5 +1,5 @@
 {
-  "hash": "0d29c2a195b8f741dce92ae0aa43f8d2f10da5424de438a8efced36fbb5e467d",
+  "hash": "2e025fe628873b0235ab12eb7e7d13edad143ca6d1c5cf3431abfc05448c836f",
   "render": {
     "kind": "interconnection",
     "stated": "no view declared; rendering OpenSysMLStack::stack directly",
@@ -789,7 +789,7 @@
           "startLine": 83,
           "startCol": 17,
           "endLine": 83,
-          "endCol": 83
+          "endCol": 89
         }
       },
       {
@@ -3067,7 +3067,7 @@
         "role": {
           "featureName": "role",
           "value": {
-            "stringValue": "Python, Node, Java, Rust, Julia, MATLAB, WebAssembly"
+            "stringValue": "Python, Node, Java, Rust, .NET, Julia, MATLAB, WebAssembly"
           },
           "materialized": true
         },

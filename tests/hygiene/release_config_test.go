@@ -491,6 +491,32 @@ func TestRustCrateIsStampedWithItsReleaseDigests(t *testing.T) {
 	}
 }
 
+// TestDotnetClientIsReleasedAsTheTagsCheckout holds build-python-package to the
+// .NET client's release contract. Nothing publishes it: the checkout of the tag
+// is the release, so before anything is built the tag must name the version
+// Directory.Build.props declares and leave no public API unshipped.
+func TestDotnetClientIsReleasedAsTheTagsCheckout(t *testing.T) {
+	config := loadCircleConfig(t)
+	python, ok := config.Jobs["build-python-package"]
+	if !ok {
+		t.Fatal("no build-python-package job")
+	}
+	steps := runSteps(t, python.Steps)
+	version := stepIndex(steps, "check_version.py --dotnet")
+	api := stepIndex(steps, "python client/dotnet/scripts/dotnet-gates.py promote-api --check")
+	build := stepIndex(steps, "python -m build")
+	switch {
+	case version < 0:
+		t.Error("build-python-package does not check client/dotnet/Directory.Build.props declares the tag's version")
+	case api < 0:
+		t.Error("build-python-package does not check the .NET client's public API is promoted to shipped")
+	case build < 0:
+		t.Error("build-python-package builds no distribution with python -m build")
+	case version > build || api > build:
+		t.Errorf("the .NET checks (steps %d and %d) run after the distribution is built (step %d)", version, api, build)
+	}
+}
+
 // persistedPaths is every path the steps persist to the workspace, including
 // those inside when/unless blocks.
 func persistedPaths(t *testing.T, steps []yaml.Node) []string {

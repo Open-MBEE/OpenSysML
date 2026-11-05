@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>OpenMBEE.OpenSysML.Conformance</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.Conformance</RootNamespace>
+    <!-- The runner: make conformance-dotnet runs it, and the tests reference it for its reader and adapters. -->
+    <OutputType>Exe</OutputType>
+    <Description>Runs the language-independent conformance scenarios through the client's public API and judges what it answered.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The generated protocol code: requests are built from, and responses judged by, its descriptors. -->
+    <ProjectReference Include="../OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Conformance.Tests" />
+    <!-- The parity inventory reads the scenarios through this loader rather than a second one. -->
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Tests" />
+  </ItemGroup>
+</Project>

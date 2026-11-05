@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>OpenMBEE.OpenSysML.Generate</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.Generate</RootNamespace>
+    <!-- Run from a checkout with dotnet run; make dotnet-generate wraps it. -->
+    <OutputType>Exe</OutputType>
+    <Description>Generates typed C# interfaces and classes over a SysML model's definitions, read through a sysml-grpc service.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Generate.Tests" />
+  </ItemGroup>
+</Project>

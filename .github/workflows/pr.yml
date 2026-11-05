@@ -69,6 +69,7 @@ jobs:
       python: ${{ steps.areas.outputs.python }}
       java: ${{ steps.areas.outputs.java }}
       rust: ${{ steps.areas.outputs.rust }}
+      dotnet: ${{ steps.areas.outputs.dotnet }}
       julia: ${{ steps.areas.outputs.julia }}
       matlab: ${{ steps.areas.outputs.matlab }}
       vscode: ${{ steps.areas.outputs.vscode }}
@@ -698,6 +699,7 @@ jobs:
       needs.changes.outputs.python == 'true' ||
       needs.changes.outputs.java == 'true' ||
       needs.changes.outputs.rust == 'true' ||
+      needs.changes.outputs.dotnet == 'true' ||
       needs.changes.outputs.julia == 'true' ||
       needs.changes.outputs.matlab == 'true' ||
       needs.changes.outputs.mdk == 'true' ||
@@ -768,6 +770,8 @@ jobs:
       - mdk-plugin
       - conformance-pkg
       - docs
+      - dotnet-test
+      - dotnet-native
       - java-test
       - julia-client
       - matlab-client
@@ -795,6 +799,8 @@ jobs:
           MDK_PLUGIN_RESULT: ${{ needs.mdk-plugin.result }}
           CONFORMANCE_PKG_RESULT: ${{ needs.conformance-pkg.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
+          DOTNET_TEST_RESULT: ${{ needs.dotnet-test.result }}
+          DOTNET_NATIVE_RESULT: ${{ needs.dotnet-native.result }}
           JAVA_TEST_RESULT: ${{ needs.java-test.result }}
           JULIA_CLIENT_RESULT: ${{ needs.julia-client.result }}
           MATLAB_CLIENT_RESULT: ${{ needs.matlab-client.result }}
@@ -817,6 +823,8 @@ jobs:
              ! ok "$MDK_PLUGIN_RESULT" ||
              ! ok "$CONFORMANCE_PKG_RESULT" ||
              ! ok "$DOCS_RESULT" ||
+             ! ok "$DOTNET_TEST_RESULT" ||
+             ! ok "$DOTNET_NATIVE_RESULT" ||
              ! ok "$JAVA_TEST_RESULT" ||
              ! ok "$JULIA_CLIENT_RESULT" ||
              ! ok "$MATLAB_CLIENT_RESULT" ||
@@ -837,6 +845,8 @@ jobs:
             echo "mdk-plugin=$MDK_PLUGIN_RESULT"
             echo "conformance-pkg=$CONFORMANCE_PKG_RESULT"
             echo "docs=$DOCS_RESULT"
+            echo "dotnet-test=$DOTNET_TEST_RESULT"
+            echo "dotnet-native=$DOTNET_NATIVE_RESULT"
             echo "java-test=$JAVA_TEST_RESULT"
             echo "julia-client=$JULIA_CLIENT_RESULT"
             echo "matlab-client=$MATLAB_CLIENT_RESULT"
@@ -1503,6 +1513,234 @@ jobs:
         with:
           name: conformance-report-rust
           path: bin/conformance-report-rust.json
+
+  # The .NET client on Linux, against the service the build job made. The SDK is
+  # installed alone in its own directory, so root global.json can select nothing
+  # else and make dotnet-preflight checks the exact pin.
+  dotnet-test:
+    name: .NET client tests
+    needs: [changes, build]
+    if: needs.changes.outputs.dotnet == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    env:
+      DOTNET_NOLOGO: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the .NET SDK root global.json pins
+        uses: actions/setup-dotnet@v4
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          global-json-file: global.json
+
+      - name: Check the SDK and runtime
+        run: |
+          dotnet --version
+          dotnet --list-runtimes
+          make dotnet-preflight
+
+      # Pinned by digest, as in the other client jobs, so a substituted asset is not run.
+      - name: Install buf
+        run: |
+          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
+            https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
+          echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
+          sudo install -m 0755 /tmp/buf /usr/local/bin/buf
+          buf --version
+
+      # Committed stubs must be what buf generates, or the checked-in client and
+      # the schema can drift apart silently.
+      - name: Verify the committed C# stubs are current
+        run: |
+          make proto-csharp BUF=buf
+          git add -N client/dotnet/src/OpenMBEE.OpenSysML/Wire
+          git diff --exit-code client/dotnet/src/OpenMBEE.OpenSysML/Wire
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin
+
+      # The artifact is a zip, which does not carry the executable bit.
+      - name: Install the sysml-grpc binary
+        run: chmod +x bin/sysml-grpc
+
+      # The interop tests hold the shared cache's lock against the Java and Rust
+      # clients' own calls; Python is the runner's. Rust is the Rust client job's pin.
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Rust 1.83
+        run: |
+          rustup toolchain install 1.83.0 --profile minimal
+          rustup default 1.83.0
+          cargo --version
+
+      # The verdict-notes test asks the service a solver-backed question; the
+      # solver is an external process the service finds on PATH.
+      - name: Install Z3
+        timeout-minutes: 10
+        run: |
+          scripts/ci-apt-install.sh z3
+          z3 --version
+
+      # A test that needs the service, buf, a solver, or another client's toolchain, fails rather than skips without it.
+      - name: Run .NET client tests
+        env:
+          OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
+          OPENSYSML_REQUIRE_SERVICE: "1"
+          OPENSYSML_REQUIRE_INTEROP: "1"
+          OPENSYSML_REQUIRE_BUF: "1"
+          OPENSYSML_REQUIRE_SMT: "1"
+        run: make dotnet-test
+
+      - name: Measure .NET client coverage
+        env:
+          OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
+          OPENSYSML_REQUIRE_SERVICE: "1"
+          OPENSYSML_REQUIRE_INTEROP: "1"
+          OPENSYSML_REQUIRE_BUF: "1"
+          OPENSYSML_REQUIRE_SMT: "1"
+        run: make dotnet-coverage
+
+      # Every protocol and the withheld configuration, through the public API, against the
+      # downloaded binary; a skip expected-skips.json does not list fails it.
+      - name: Run the conformance suite through the .NET client
+        run: make conformance-dotnet
+
+      # The reference runner is Go, which this job otherwise does not need.
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Compare the .NET conformance run with the reference runner
+        run: make conformance-dotnet-check
+
+      - name: Upload .NET client reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-reports
+          path: |
+            bin/dotnet/
+            bin/conformance-report-dotnet.json
+            bin/conformance-report-dotnet.xml
+            bin/conformance-dotnet-check/
+          if-no-files-found: ignore
+
+  # The .NET client's private-service lifecycle on the platforms the Linux job does
+  # not stand for: the whole suite, with the orphan, load-context, race and shared
+  # cache lock interop tests, against a sysml-grpc built natively here. A missing
+  # service or lock-holder toolchain fails rather than skips, and the minimum test
+  # count is the Makefile's, so no platform passes by running less. Windows checks
+  # out with LF endings, as the client's files are.
+  dotnet-native:
+    name: .NET client tests (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.dotnet == 'true' && needs.changes.outputs.tier == 'full'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    env:
+      DOTNET_NOLOGO: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - name: Keep line endings as committed
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build sysml-grpc natively
+        run: |
+          exe=""
+          if [ "$RUNNER_OS" = Windows ]; then exe=.exe; fi
+          mkdir -p bin
+          CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=${{ github.event_name == 'merge_group' && 'merge-queue' || format('pr-{0}', github.event.pull_request.number) }} -X main.Commit=$(git rev-parse --short HEAD)" \
+            -o "bin/sysml-grpc$exe" ./cmd/sysml-grpc
+          binary="$PWD/bin/sysml-grpc$exe"
+          if [ "$RUNNER_OS" = Windows ]; then binary=$(cygpath -w "$binary"); fi
+          "$binary" -version
+          echo "OPENSYSML_GRPC_BINARY=$binary" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The interop tests hold the shared cache's lock against the Python, Java and
+      # Rust clients' own calls, natively here too.
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Rust 1.83
+        run: |
+          rustup toolchain install 1.83.0 --profile minimal
+          rustup default 1.83.0
+          cargo --version
+
+      - name: Install the .NET SDK root global.json pins
+        uses: actions/setup-dotnet@v4
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          global-json-file: global.json
+
+      - name: Check the SDK and runtime
+        run: |
+          dotnet --version
+          dotnet --list-runtimes
+          python client/dotnet/scripts/dotnet-gates.py preflight --dotnet dotnet
+
+      - name: Restore and build the .NET client
+        run: |
+          dotnet restore client/dotnet/OpenSysML.slnx --locked-mode
+          dotnet build client/dotnet/OpenSysML.slnx -c Release --no-restore -warnaserror
+
+      - name: Run .NET client tests
+        env:
+          OPENSYSML_REQUIRE_SERVICE: "1"
+          OPENSYSML_REQUIRE_INTEROP: "1"
+        run: |
+          minimum=$(sed -n 's/^DOTNET_MIN_TESTS := //p' Makefile)
+          test -n "$minimum"
+          dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build \
+            --minimum-expected-tests "$minimum" \
+            --results-directory "$PWD/bin/dotnet/test" --report-xunit-junit
+
+      - name: Upload .NET client reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-reports-${{ matrix.os }}
+          path: bin/dotnet/
+          if-no-files-found: ignore
 
   # Mirrors the CircleCI julia-client job: Pkg.test on the two supported Julia
   # versions plus the conformance suite, against the binary the build job made.

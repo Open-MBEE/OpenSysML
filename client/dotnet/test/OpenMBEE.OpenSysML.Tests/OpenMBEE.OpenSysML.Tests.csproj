@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- xUnit v3 test projects are executables hosted by Microsoft.Testing.Platform. -->
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>OpenMBEE.OpenSysML.Tests</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.Tests</RootNamespace>
+    <!-- Test classes are public for xUnit, not API: no XML documentation is required of them. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="coverlet.MTP" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
+    <!-- The standalone metamodel reader is tested over what the service exports. -->
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML.Metamodel/OpenMBEE.OpenSysML.Metamodel.csproj" />
+    <!-- The parity inventory reads the conformance scenarios with the runner's own reader. -->
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML.Conformance/OpenMBEE.OpenSysML.Conformance.csproj" />
+    <!-- Built first, but not copied here: FakeChild runs it from its own output, as a separate process. -->
+    <ProjectReference Include="../FakeService/FakeService.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <!-- Likewise the lifecycle probes, which the orphan and load-context tests run as processes of their own. -->
+    <ProjectReference Include="../OpenMBEE.OpenSysML.OrphanProbe/OpenMBEE.OpenSysML.OrphanProbe.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="../OpenMBEE.OpenSysML.LoadContextProbe/OpenMBEE.OpenSysML.LoadContextProbe.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <!-- And the cache probe, which holds, tries and crashes the shared cache's lock in processes and load contexts of its own. -->
+    <ProjectReference Include="../OpenMBEE.OpenSysML.CacheProbe/OpenMBEE.OpenSysML.CacheProbe.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+</Project>

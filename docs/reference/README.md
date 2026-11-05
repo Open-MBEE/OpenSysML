@@ -25,6 +25,7 @@ reading order.
 - **[Node API](node-api.md)** — `@openmbee/opensysml`, its two entry points and its typed unions
 - **[Java API](java-api.md)** — `opensysml`, its immutable records and its exceptions
 - **[Rust API](rust-api.md)** — the `opensysml` crate, blocking, and its one error enum
+- **[.NET API](dotnet-api.md)** — `OpenMBEE.OpenSysML`, asynchronous, referenced from a checkout
 - **[Julia API](julia-api.md)** — the `OpenSysML` package, Connect-JSON over `HTTP.jl`
 - **[MATLAB API](matlab-api.md)** — the `+opensysml` package, for MATLAB and GNU Octave
 - **[Service transports](service-transports.md)** — what `sysml-grpc` serves on one port, which

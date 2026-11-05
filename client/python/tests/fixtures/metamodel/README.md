@@ -7,3 +7,6 @@ which is distributed under the Apache License 2.0 (see that repository's `LICENS
 ```sh
 sysmlv2 convert bigger.sysml --to full-json -o bigger.full.json
 ```
+
+The .NET client's metamodel reader tests and its `MetamodelReader` sample read `bigger.full.json` in
+place too, so a change to it is a change to both clients' tests.

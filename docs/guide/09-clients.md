@@ -1,7 +1,7 @@
 # 9. From your own program
 
-Everything the REPL and editors do is available to a program. There are seven ways to reach the
-engine: the Go API calls it in process, and six clients call the `sysml-grpc` service. Clients that
+Everything the REPL and editors do is available to a program. There are eight ways to reach the
+engine: the Go API calls it in process, and seven clients call the `sysml-grpc` service. Clients that
 start a service own a private child by default; a browser client connects to an explicit service.
 The
 [client-library reference](../reference/clients.md) compares their coverage, transports, lifecycle
@@ -14,15 +14,17 @@ and distribution.
 | Node/TypeScript, `@openmbee/opensysml` | Connect, Node or browser | npm, with per-platform service packages | [Node API](../reference/node-api.md) |
 | Java, `org.openmbee:opensysml` | Connect over the JDK HTTP client | Maven Central, at the core's version | [Java API](../reference/java-api.md) |
 | Rust, `opensysml` | Blocking Connect client | crates.io | [Rust API](../reference/rust-api.md) |
+| .NET, `OpenMBEE.OpenSysML` | gRPC by default, or Connect with protobuf or JSON | Checkout `ProjectReference`; not on NuGet | [.NET API](../reference/dotnet-api.md) |
 | Julia, `OpenSysML` | Connect-JSON over `HTTP.jl` | Checkout; not in Julia General | [Julia API](../reference/julia-api.md) |
 | MATLAB, `+opensysml` | Connect-JSON over MATLAB HTTP or Octave `curl` | Source files added to the path | [MATLAB API](../reference/matlab-api.md) |
 
 The Python, Node and Rust packages are published to their language registries. Java is installed
-from a checkout; Julia is developed from a checkout; MATLAB is source distributed. The
+from a checkout; .NET is referenced from a checkout; Julia is developed from a checkout; MATLAB is
+source distributed. The
 [client-library reference](../reference/clients.md) explains how to choose among them and what each
 surface covers.
 
-## The same task, seven ways
+## The same task, eight ways
 
 Each example reads the same SysML model, checks parse diagnostics, and evaluates the redefined mass
 of `Demo::sedan`.
@@ -82,6 +84,16 @@ package Demo {
     [dependencies]
     opensysml = "0.9"
     ```
+
+=== ".NET"
+
+    ```xml
+    <ItemGroup>
+      <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
+    </ItemGroup>
+    ```
+
+    .NET 10, from a checkout; the client is not on NuGet.
 
 === "Julia"
 
@@ -183,6 +195,20 @@ package Demo {
     }
     ```
 
+=== ".NET"
+
+    ```csharp
+    await using var connection = await Connection.OpenAsync();
+    var model = await connection.LoadAsync("vehicle.sysml");
+    if (model.HasErrors)
+    {
+        foreach (var diagnostic in model.Errors) Console.Error.WriteLine(diagnostic);
+        throw new InvalidOperationException("The model has errors.");
+    }
+    var mass = await model.EvalAsync("mass", new EvalOptions { SubjectSymbolId = "Demo::sedan" });
+    Console.WriteLine(mass); // 1800.0
+    ```
+
 === "Julia"
 
     ```julia
@@ -246,6 +272,14 @@ connections. See the [Java API reference](../reference/java-api.md) for types an
 
 The [Rust client guide](../clients/rust.md) covers the crates.io package and a first model. See the
 [Rust API reference](../reference/rust-api.md) for the blocking typed API.
+
+## From C# and .NET
+
+The [.NET client guide](../clients/dotnet.md) covers referencing the checkout, the runnable Vehicle
+sample, protocols and the service binary. See the [.NET API reference](../reference/dotnet-api.md)
+for the asynchronous typed API and its exceptions.
+[Reading exported JSON](../clients/dotnet.md#reading-exported-json) reads a JSON export into the
+SysML metamodel as C# types without a service.
 
 ## From Julia
 

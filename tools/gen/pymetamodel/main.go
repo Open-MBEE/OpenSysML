@@ -15,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
+	"github.com/Open-MBEE/OpenSysML/tools/gen/hierarchy"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
@@ -243,22 +244,17 @@ func newModel(classes []ontology.Class, properties []ontology.Property,
 		classes: classes, properties: properties, enums: enums,
 		classBy:   make(map[string]ontology.Class, len(classes)),
 		enumBy:    make(map[string]ontology.Enumeration, len(enums)),
-		mros:      make(map[string][]string, len(classes)),
 		effective: make(map[string]map[string]ontology.Property, len(classes)),
 	}
 	if err := m.index(); err != nil {
 		return nil, err
 	}
-	order, err := m.topologicalOrder()
+	h, err := hierarchy.New(m.classes)
 	if err != nil {
 		return nil, err
 	}
-	m.classes = order
-	for _, class := range m.classes {
-		if _, err := m.linearize(class.Name, map[string]bool{}); err != nil {
-			return nil, err
-		}
-	}
+	m.classes = h.Order
+	m.mros = h.MRO
 	if err := m.validateDeclarations(); err != nil {
 		return nil, err
 	}
@@ -388,121 +384,6 @@ func (m *model) validateEffective(class string, effective map[string]ontology.Pr
 		names[snake] = key
 	}
 	return nil
-}
-
-func (m *model) topologicalOrder() ([]ontology.Class, error) {
-	children := make(map[string][]string, len(m.classes))
-	remaining := make(map[string]int, len(m.classes))
-	for _, class := range m.classes {
-		remaining[class.Name] = len(class.Parents)
-		for _, parent := range class.Parents {
-			if _, ok := m.classBy[parent]; !ok {
-				return nil, fmt.Errorf("%s has unknown metaclass parent %s", class.Name, parent)
-			}
-			children[parent] = append(children[parent], class.Name)
-		}
-	}
-	var ready []string
-	for name, count := range remaining {
-		if count == 0 {
-			ready = append(ready, name)
-		}
-	}
-	sort.Strings(ready)
-	order := make([]ontology.Class, 0, len(m.classes))
-	for len(ready) > 0 {
-		name := ready[0]
-		ready = ready[1:]
-		order = append(order, m.classBy[name])
-		for _, child := range children[name] {
-			remaining[child]--
-			if remaining[child] == 0 {
-				ready = append(ready, child)
-			}
-		}
-		sort.Strings(ready)
-	}
-	if len(order) != len(m.classes) {
-		return nil, fmt.Errorf("metaclass inheritance contains a cycle")
-	}
-	return order, nil
-}
-
-func (m *model) linearize(name string, visiting map[string]bool) ([]string, error) {
-	if mro, ok := m.mros[name]; ok {
-		return mro, nil
-	}
-	if visiting[name] {
-		return nil, fmt.Errorf("C3 linearization failed for %s: inheritance cycle", name)
-	}
-	visiting[name] = true
-	class := m.classBy[name]
-	sequences := make([][]string, 0, len(class.Parents)+1)
-	for _, parent := range class.Parents {
-		parentMRO, err := m.linearize(parent, visiting)
-		if err != nil {
-			return nil, err
-		}
-		sequences = append(sequences, append([]string(nil), parentMRO...))
-	}
-	sequences = append(sequences, append([]string(nil), class.Parents...))
-	result, err := c3Merge(name, class.Parents, sequences)
-	if err != nil {
-		return nil, err
-	}
-	delete(visiting, name)
-	m.mros[name] = result
-	return result, nil
-}
-
-// c3Merge is the C3 merge of the parents' linearizations and the parent list.
-func c3Merge(name string, parents []string, sequences [][]string) ([]string, error) {
-	result := []string{name}
-	for {
-		sequences = nonEmpty(sequences)
-		if len(sequences) == 0 {
-			return result, nil
-		}
-		candidate := c3Candidate(sequences)
-		if candidate == "" {
-			return nil, fmt.Errorf("C3 linearization failed for %s: inconsistent parents %v", name, parents)
-		}
-		result = append(result, candidate)
-		for i, sequence := range sequences {
-			if sequence[0] == candidate {
-				sequences[i] = sequence[1:]
-			}
-		}
-	}
-}
-
-func nonEmpty(sequences [][]string) [][]string {
-	active := sequences[:0]
-	for _, sequence := range sequences {
-		if len(sequence) != 0 {
-			active = append(active, sequence)
-		}
-	}
-	return active
-}
-
-// c3Candidate is the first head that no sequence carries in its tail, or "".
-func c3Candidate(sequences [][]string) string {
-	for _, sequence := range sequences {
-		if !inTails(sequence[0], sequences) {
-			return sequence[0]
-		}
-	}
-	return ""
-}
-
-func inTails(head string, sequences [][]string) bool {
-	for _, other := range sequences {
-		if slices.Contains(other[1:], head) {
-			return true
-		}
-	}
-	return false
 }
 
 func (m *model) ancestor(class, ancestor string) bool {

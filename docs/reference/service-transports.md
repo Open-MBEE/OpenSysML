@@ -11,9 +11,9 @@ measurements and the reasoning behind the choices are in
 
 | Protocol | Content type | Who speaks it |
 |----------|--------------|---------------|
-| gRPC | `application/grpc` | `grpc-go`, `grpc-java`, `tonic`, `grpcio` (the Python client), `grpcurl` |
+| gRPC | `application/grpc` | `grpc-go`, `grpc-java`, `tonic`, `grpcio` (the Python client), `Grpc.Net.Client` (the .NET client's default), `grpcurl` |
 | gRPC-Web | `application/grpc-web`, `application/grpc-web+json` | browser clients using `fetch` |
-| Connect protocol | `application/proto`, `application/json` | `connect-go`, `@connectrpc/connect-web`, and any HTTP client at all |
+| Connect protocol | `application/proto`, `application/json` | `connect-go`, `@connectrpc/connect-web`, the .NET client when asked, and any HTTP client at all |
 | gRPC server reflection | — | `grpcurl`, `grpcui` |
 
 Plus `GET /health`, described below. A Connect unary call is an ordinary POST to
@@ -42,8 +42,9 @@ canonical gRPC status codes, so every transport answers with the same code and m
 `scripts/check-grpc-imports.sh` fails CI if production code imports `grpc-go` again.
 
 The clients this repository ships are described on [client libraries](clients.md): the Python
-client speaks gRPC, the Node, Java and Rust clients speak Connect with protobuf bodies, and the
-public Go API answers in process without a transport at all.
+client speaks gRPC, the Node, Java and Rust clients speak Connect with protobuf bodies, the .NET
+client speaks gRPC by default and Connect with protobuf or JSON bodies when its connection asks for
+it, and the public Go API answers in process without a transport at all.
 
 ## Capabilities, and what an absent one does
 
@@ -77,7 +78,7 @@ built against the three structured arms keeps reading a bare reference as the un
 it read before). In the other direction, a client built
 before an arm existed parses a newer service's answer as an unknown field — a `Value` with no
 kind set — and no client this repository ships reads that as a plain null or crashes: Python
-raises `UnsupportedValueError`, Rust returns `Error::Decode`, Go reads an `unsupported` null
+raises `UnsupportedValueError`, Rust returns `Error::Decode`, .NET raises `UnsupportedValueException`, Go reads an `unsupported` null
 naming the case, Java reports a top-level result as `Optional.empty()` and refuses one nested
 in a sequence, feature or array with `TransportException`, and Node reports the `absent`
 kind, which `encodeValue` refuses to send back (`MalformedValueError`) and whose vector

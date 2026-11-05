@@ -441,6 +441,7 @@ package OpenSysMLCodebase {
     allocate opensysml.node to tree.clientLibraries;
     allocate opensysml.rust to tree.clientLibraries;
     allocate opensysml.java to tree.clientLibraries;
+    allocate opensysml.dotnet to tree.clientLibraries;
     allocate opensysml.julia to tree.clientLibraries;
     allocate opensysml.matlab to tree.clientLibraries;
     allocate opensysml.kernelPackage to tree.clientLibraries;

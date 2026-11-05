@@ -23,7 +23,7 @@
 
 The OpenSysML Runtime Environment and Development Kit (OpenSysML MDK) is a SysML v2 and
 KerML 1.1 implementation in Go. It provides a language server, an interactive REPL, an execution
-runtime, an embeddable Go API, and Python, Node/TypeScript, Java, Rust, Julia and MATLAB client libraries,
+runtime, an embeddable Go API, and Python, Node/TypeScript, Java, Rust, .NET, Julia and MATLAB client libraries,
 covering the lifecycle from authoring through execution with the integrated tooling systems
 engineers expect from a modern language ecosystem. It is the runtime of
 [OpenSysML](https://opensysml.org/), the open source SysML v2 suite of the
@@ -294,10 +294,11 @@ SysML v2:
 - **Node/TypeScript Client Library** — `@openmbee/opensysml` for Node and the browser, over the Connect protocol with protobuf bodies: parse, evaluate, look up symbols and instantiate, with values as discriminated unions. No native addon; npm installs a per-platform optional dependency with the service binary ([client/node/README.md](client/node/README.md)).
 - **Java Client Library** — `org.openmbee:opensysml` for a JVM host application it does not own, on the JDK's own `java.net.http.HttpClient`, so no gRPC, Netty or `tcnative` reaches the host ([client/java/README.md](client/java/README.md)).
 - **Rust Client Library** — A blocking client for the local `sysml-grpc` service, with no asynchronous runtime in its default dependency tree, available from the [Rust crate documentation](client/rust/README.md).
+- **.NET Client Library** — `OpenMBEE.OpenSysML`, an asynchronous C# client for .NET 10 over gRPC or the Connect protocol, every RPC of the service typed, referenced from a checkout rather than installed from NuGet ([client/dotnet/README.md](client/dotnet/README.md)).
 - **Julia Client Package** — `OpenSysML`, a thin JSON-over-HTTP client (`HTTP.jl` + `JSON.jl` only) for Julia 1.10+: parse, evaluate, instantiate, execute and query, with `call` reaching the whole RPC surface ([client/julia/OpenSysML/README.md](client/julia/OpenSysML/README.md)).
 - **MATLAB/Octave Client Package** — `+opensysml`, the same thin JSON-over-HTTP client for MATLAB R2019b+ and GNU Octave 7+, so the environment a modeler already runs talks to the service directly ([client/matlab/README.md](client/matlab/README.md)).
 
-Guidance on selecting a client, the coverage of the six clients, and the functionality they intentionally defer to a future version is provided in [docs/reference/clients.md](docs/reference/clients.md).
+Guidance on selecting a client, the coverage of the seven clients, and the functionality they intentionally defer to a future version is provided in [docs/reference/clients.md](docs/reference/clients.md).
 - **Modern Toolchain** — Incremental compilation, a bundled standard library and persistent semantic caches. A model is a set of files, named on the command line or opened by the editor.
 
 ## Goals
@@ -342,6 +343,7 @@ The project is under active development, with the core infrastructure operationa
 | Rust client library | 🚧 Blocking v1 client for parse, diagnostics, symbols, evaluation and instantiation; see the [Rust client README](client/rust/README.md) |
 | Java client library | ✅ Connection lifecycle, parse/symbols/eval/instantiate and capability negotiation, plus typed immutable results for behaviour execution and exploration, verification and validation, calculation, analysis with engine selection, and structured and OSLC query; the edit API, multi-document parsing, conversion, sweeps and the document RPCs are stated as out of scope. Connect protocol over the JDK's own HTTP client, so no gRPC or Netty reaches a host application ([client/java/README.md](client/java/README.md)) |
 | Node/TypeScript client library | ✅ Complete for the same v1 scope, in Node and the browser, over the Connect protocol with protobuf bodies and no native addon; values arrive as discriminated unions ([client/node/README.md](client/node/README.md)) |
+| .NET client library | ✅ Every RPC of the service as typed asynchronous methods over gRPC or Connect with protobuf or JSON bodies; private services that end with their process, the shared binary cache and pinned release downloads; the conformance suite run through the public API on all three protocols. Checkout `ProjectReference` on .NET 10; no NuGet package, AOT or browser support ([client/dotnet/README.md](client/dotnet/README.md)) |
 | Julia client package | ✅ Thin Connect-JSON client over HTTP.jl + JSON.jl (no protobuf, no generated code): parse, diagnostics, symbols, evaluation, instantiation, action and state execution, OSLC query, and `call` reaching every RPC; the conformance runner drives every scenario ([client/julia/OpenSysML/README.md](client/julia/OpenSysML/README.md)) |
 | MATLAB/Octave client package | ✅ The same thin Connect-JSON client for MATLAB R2019b+ and GNU Octave 7+ — `matlab.net.http` under MATLAB, a `curl` subprocess under Octave; an Octave built without Java (the snap and the CI build) cannot spawn a private child ([client/matlab/README.md](client/matlab/README.md)) |
 
@@ -420,6 +422,7 @@ github.com/Open-MBEE/OpenSysML
 ├── client/node/           # Node/TypeScript client (@openmbee/opensysml)
 ├── client/python/         # Python client bindings (opensysml)
 ├── client/rust/           # Rust client (opensysml) and its conformance runner
+├── client/dotnet/         # .NET client (OpenMBEE.OpenSysML) and its conformance runner
 ├── client/julia/          # Julia client package (OpenSysML) and its conformance runner
 ├── client/matlab/         # MATLAB/GNU Octave client (+opensysml) and its conformance runner
 ├── docs/                   # Design specs, architecture docs
@@ -462,6 +465,8 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases 
   at the core's version
 - The Rust client is released by the same `v*` tag, which publishes
   `opensysml` to crates.io at the core's version
+- The .NET client is released as the checkout of the same `v*` tag, whose version it
+  carries; nothing is published to NuGet
 - `client/opensysml`, the public Go API, requires no release of its own. It is part of this
   module, so a Go program pins it with `go get github.com/Open-MBEE/OpenSysML@v0.3.0`
 
@@ -588,7 +593,7 @@ The suites themselves are described in [conformance/README.md](conformance/READM
 
 ## Clients
 
-Seven surfaces reach the same engine: the Go API, used in the calling process, and six clients of
+Eight surfaces reach the same engine: the Go API, used in the calling process, and seven clients of
 the `sysml-grpc` service. [Client libraries](docs/reference/clients.md) states what each covers and
 how to choose; [guide chapter 9](docs/guide/09-clients.md) works through each one.
 
@@ -599,10 +604,11 @@ how to choose; [guide chapter 9](docs/guide/09-clients.md) works through each on
 | Node/TypeScript, `@openmbee/opensysml` | Connect, from Node or a browser page | npm, with per-platform binary packages | [Node API](docs/reference/node-api.md) |
 | Java, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | Maven Central, at the core's version | [Java API](docs/reference/java-api.md) |
 | Rust, `opensysml` | Connect, blocking, no async runtime | crates.io, on core `v*` tags | [Rust API](docs/reference/rust-api.md) |
+| .NET, `OpenMBEE.OpenSysML` | gRPC by default, or Connect with protobuf or JSON | not published; a checkout `ProjectReference` | [.NET API](docs/reference/dotnet-api.md) |
 | Julia, `OpenSysML` | Connect-JSON, over `HTTP.jl` | not in General; develop from a checkout | [Julia API](docs/reference/julia-api.md) |
 | MATLAB/Octave, `+opensysml` | Connect-JSON, over `matlab.net.http` or, under GNU Octave, a `curl` subprocess | source files; add to the MATLAB path | [MATLAB API](docs/reference/matlab-api.md) |
 
-The Go and Python clients cover every RPC the service serves; Node, Java and Rust cover a v1
+The Go, Python and .NET clients cover every RPC the service serves; Node, Java and Rust cover a v1
 subset — connection lifecycle, capability negotiation, parsing, diagnostics, symbol lookup,
 evaluation and instantiation — enumerated in the client libraries page.
 
@@ -664,7 +670,7 @@ the service binary. See the
 two lifecycle modes (a private child of the calling process, or an externally hosted service), the
 capabilities and limitations of the browser entry point, and the functionality version 1 omits.
 
-### Go, Java and Rust
+### Go, Java, Rust and .NET
 
 ```go
 client, err := opensysml.New()   // in process; opensysml.Dial(addr) for a running service
@@ -679,12 +685,14 @@ The Go API is documented type by type in [Go packages](docs/reference/api.md) an
 [client/java/README.md](client/java/README.md)); the Rust client is published to crates.io at the core's version
 (`cargo add opensysml`) and is blocking, with no async runtime in its default dependency tree
 ([Rust API](docs/reference/rust-api.md), [client/rust/README.md](client/rust/README.md)). The Java
-artifact is on Maven Central at the core's version (`org.openmbee:opensysml`).
+artifact is on Maven Central at the core's version (`org.openmbee:opensysml`). The .NET client is an
+asynchronous `Connection` referenced from a checkout by `ProjectReference`, never from NuGet
+([.NET API](docs/reference/dotnet-api.md), [client/dotnet/README.md](client/dotnet/README.md)).
 
 ## Documentation
 
 - **[The guide](docs/guide/)** — install, first model, CLI, REPL, checks, behavior, saving, editors, and [driving it from your own program](docs/guide/09-clients.md)
-- **[Client libraries](docs/reference/clients.md)** — the Go, Python, Node, Java, Rust, Julia and MATLAB surfaces, and how to choose between them
+- **[Client libraries](docs/reference/clients.md)** — the Go, Python, Node, Java, Rust, .NET, Julia and MATLAB surfaces, and how to choose between them
 - **[Reference](docs/reference/)** — CLI flags, REPL commands, environment, each client's API, service transports, RDF mapping
 - **[Internals](docs/internals/architecture.md)** — the pipeline, the tiers, testing and performance
 - **[Project status](docs/project/spec-compliance.md)** — spec compliance, roadmap and releasing

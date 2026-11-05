@@ -64,6 +64,11 @@ coverage-mcp-npm.lcov
 /gen/
 /client/rust/target/
 
+# .NET client build output and test results; its reports land under /bin/dotnet/
+/client/dotnet/**/bin/
+/client/dotnet/**/obj/
+/client/dotnet/**/TestResults/
+
 # Maven build output for the Java client and the Cameo plugin
 /client/java/**/target/
 /editors/mdk/**/target/

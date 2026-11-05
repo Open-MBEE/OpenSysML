@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>OpenMBEE.OpenSysML</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML</RootNamespace>
+    <Description>C# client for the OpenSysML sysml-grpc service.</Description>
+    <!-- LibraryImport: the shared cache's lock and links call libc and kernel32 (Internal/CacheNative.cs). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" />
+    <!-- Brings Grpc.Core.Api, which the generated client stub and the method registry use. -->
+    <PackageReference Include="Grpc.Net.Client" />
+    <!-- ConnectionOptions.Logger; the default is NullLogger. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Also adds PublicAPI.Shipped.txt and PublicAPI.Unshipped.txt as the baseline it checks against. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Synced from client/release-digests.json by scripts/sync-release-digests.py; never edit it here. -->
+    <EmbeddedResource Include="release-digests.json" LogicalName="OpenMBEE.OpenSysML.release-digests.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Tests" />
+    <!-- The lifecycle probes read the registry's process ids, and the orphan probe's leak control the child's input. -->
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.OrphanProbe" />
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.LoadContextProbe" />
+    <!-- The cache probe holds and tries the shared cache's lock, and runs its transaction, as a process of its own. -->
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.CacheProbe" />
+  </ItemGroup>
+</Project>

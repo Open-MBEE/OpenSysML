@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    A consumer of generated code, as a user's project is: it compiles the committed golden files under
+    Golden/ against the client library alone, under the client's build policy (warnings as errors, a
+    documentation comment required on every public member), and reads live instances through them.
+  -->
+  <PropertyGroup>
+    <!-- xUnit v3 test projects are executables hosted by Microsoft.Testing.Platform. -->
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>OpenMBEE.OpenSysML.Generate.Consumer</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.Generate.Consumer</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="coverlet.MTP" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The client library alone: generated code needs nothing of the generator. -->
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../OpenMBEE.OpenSysML.Tests/Repository.cs" Link="Shared/Repository.cs" />
+    <Compile Include="../OpenMBEE.OpenSysML.Tests/ServiceGate.cs" Link="Shared/ServiceGate.cs" />
+    <Compile Include="../OpenMBEE.OpenSysML.Tests/ClientWire.cs" Link="Shared/ClientWire.cs" />
+    <Compile Include="../../src/OpenMBEE.OpenSysML.Conformance/ServiceProcess.cs" Link="Shared/ServiceProcess.cs" />
+    <Compile Include="../OpenMBEE.OpenSysML.Generate.Tests/LiveServices.cs" Link="Shared/LiveServices.cs" />
+    <Compile Include="../OpenMBEE.OpenSysML.Generate.Tests/Category.cs" Link="Shared/Category.cs" />
+    <Compile Include="../OpenMBEE.OpenSysML.Generate.Tests/TestCategoryTests.cs" Link="Shared/TestCategoryTests.cs" />
+  </ItemGroup>
+</Project>

@@ -391,6 +391,94 @@ def test_main_refuses_rust_and_java_together():
         check_version.main(["--tag", "v0.9.0", "--rust", "--java"])
 
 
+def test_dotnet_version_agrees_with_the_real_tree():
+    """client/dotnet/Directory.Build.props and _version.py must stay in lockstep on every commit."""
+    assert check_version.dotnet_version() == check_version.dotnet_declared_version()
+
+
+def test_dotnet_version_accepts_a_matching_release():
+    assert (
+        check_version.dotnet_version(declared="0.9.0", dotnet="0.9.0", tag="v0.9.0")
+        == "0.9.0"
+    )
+
+
+def test_dotnet_version_accepts_a_matching_pre_release():
+    assert (
+        check_version.dotnet_version(
+            declared="0.9.0rc1", dotnet="0.9.0-rc.1", tag="v0.9.0-rc.1"
+        )
+        == "0.9.0-rc.1"
+    )
+
+
+def test_dotnet_version_rejects_disagreeing_build_props():
+    with pytest.raises(
+        check_version.VersionError,
+        match="client/dotnet/Directory.Build.props declares '0.9.0'",
+    ):
+        check_version.dotnet_version(declared="0.9.1", dotnet="0.9.0")
+
+
+def test_dotnet_version_rejects_a_tag_that_misspells_the_client_version():
+    with pytest.raises(check_version.VersionError, match="must spell it exactly"):
+        check_version.dotnet_version(
+            declared="0.9.0rc1", dotnet="0.9.0-rc.1", tag="v0.9.0-rc1"
+        )
+
+
+def _props(tmp_path, body):
+    props = tmp_path / "Directory.Build.props"
+    props.write_text(f"<Project>{body}</Project>", encoding="utf-8")
+    return str(props)
+
+
+def test_dotnet_declared_version_reads_the_unconditional_version(tmp_path):
+    props = _props(
+        tmp_path,
+        "<PropertyGroup><Version> 0.9.0 </Version></PropertyGroup>"
+        "<PropertyGroup Condition=\"'$(CI)' == 'true'\"><Deterministic>true</Deterministic></PropertyGroup>",
+    )
+    assert check_version.dotnet_declared_version(props) == "0.9.0"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "<PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>",
+        "<PropertyGroup><Version></Version></PropertyGroup>",
+        "<PropertyGroup><Version>0.9.0</Version></PropertyGroup>"
+        "<PropertyGroup><Version>0.9.1</Version></PropertyGroup>",
+    ],
+)
+def test_dotnet_declared_version_requires_exactly_one_version(tmp_path, body):
+    with pytest.raises(check_version.VersionError, match="must declare exactly one"):
+        check_version.dotnet_declared_version(_props(tmp_path, body))
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "<PropertyGroup Condition=\"'$(CI)' == 'true'\"><Version>0.9.0</Version></PropertyGroup>",
+        "<PropertyGroup><Version Condition=\"'$(CI)' == 'true'\">0.9.0</Version></PropertyGroup>",
+    ],
+)
+def test_dotnet_declared_version_rejects_a_conditional_version(tmp_path, body):
+    with pytest.raises(check_version.VersionError, match="under a Condition"):
+        check_version.dotnet_declared_version(_props(tmp_path, body))
+
+
+def test_main_prints_the_dotnet_version_the_tag_names(capsys):
+    declared = check_version.dotnet_declared_version()
+    assert check_version.main(["--tag", f"v{declared}", "--dotnet"]) == 0
+    assert capsys.readouterr().out.strip() == declared
+
+
+def test_main_refuses_dotnet_and_rust_together():
+    with pytest.raises(SystemExit):
+        check_version.main(["--tag", "v0.9.0", "--dotnet", "--rust"])
+
+
 _EDITOR_PARENTS = (
     "editors/mdk/plugin/pom.xml",
     "editors/mdk/tools/pom.xml",

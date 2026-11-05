@@ -1,0 +1,1 @@
+- Concurrent disposal of an owning .NET model now waits for the connection to finish closing in every caller. Near-name suggestions now follow Python's `difflib` for Unicode code points, tie ordering, and the automatic popular-character heuristic on long names.

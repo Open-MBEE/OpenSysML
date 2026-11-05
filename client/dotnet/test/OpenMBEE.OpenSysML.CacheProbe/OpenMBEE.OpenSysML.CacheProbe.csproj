@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    An application the cache tests run as a process of its own: it holds or tries the shared cache's
+    lock through the client, checks the cross-client lock with its own system calls, loads two copies
+    of the client into collectible load contexts and has them contend, or runs a cache transaction and
+    waits at a chosen step to be killed. See Program.cs for its modes.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>OpenMBEE.OpenSysML.CacheProbe</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.CacheProbe</RootNamespace>
+    <UseAppHost>true</UseAppHost>
+    <!-- LibraryImport, for the check of the cross-client lock that does not go through the client. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The same collectible context the load-context probe loads its copies into. -->
+    <Compile Include="../OpenMBEE.OpenSysML.LoadContextProbe/CopyContext.cs" Link="CopyContext.cs" />
+  </ItemGroup>
+</Project>

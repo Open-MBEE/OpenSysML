@@ -1,0 +1,29 @@
+<Project>
+  <!--
+    Every package version the .NET client builds against, pinned centrally.
+    Transitive pinning makes these the versions of indirect references too, and
+    each project's packages.lock.json records the resolved graph: a locked-mode
+    restore fails on a changed pin or graph instead of resolving anew.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Library">
+    <!-- buf.build/protocolbuffers/csharp v36.2 generates against this runtime. -->
+    <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
+    <!-- buf.build/grpc/csharp v1.84.0 generates against this client. -->
+    <PackageVersion Include="Grpc.Net.Client" Version="2.84.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Tests">
+    <!-- Runs on Microsoft.Testing.Platform, which root global.json opts dotnet test into. -->
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="coverlet.MTP" Version="10.1.0" />
+    <!-- Compiles consumer code against the library, to prove what it refuses to compile. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+  </ItemGroup>
+</Project>

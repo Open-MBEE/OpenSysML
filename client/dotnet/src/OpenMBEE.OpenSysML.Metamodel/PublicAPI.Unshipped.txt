@@ -1,0 +1,118 @@
+#nullable enable
+OpenMBEE.OpenSysML.Metamodel.EnumerationInfo
+OpenMBEE.OpenSysML.Metamodel.EnumerationInfo.EnumType.get -> System.Type!
+OpenMBEE.OpenSysML.Metamodel.EnumerationInfo.GetLiteral(System.Enum! value) -> string!
+OpenMBEE.OpenSysML.Metamodel.EnumerationInfo.Literals.get -> System.Collections.Generic.IReadOnlyList<string!>!
+OpenMBEE.OpenSysML.Metamodel.EnumerationInfo.Name.get -> string!
+OpenMBEE.OpenSysML.Metamodel.EnumerationInfo.TryParse(string! literal, out System.Enum? value) -> bool
+OpenMBEE.OpenSysML.Metamodel.IMetamodelElement
+OpenMBEE.OpenSysML.Metamodel.IMetamodelElement.Extensions.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>!
+OpenMBEE.OpenSysML.Metamodel.IMetamodelElement.GetValue(string! jsonKey) -> object?
+OpenMBEE.OpenSysML.Metamodel.IMetamodelElement.Id.get -> string!
+OpenMBEE.OpenSysML.Metamodel.IMetamodelElement.JsonType.get -> string!
+OpenMBEE.OpenSysML.Metamodel.IMetamodelElement.MetaclassInfo.get -> OpenMBEE.OpenSysML.Metamodel.MetaclassInfo!
+OpenMBEE.OpenSysML.Metamodel.MalformedDocumentException
+OpenMBEE.OpenSysML.Metamodel.MalformedDocumentException.MalformedDocumentException(string! message) -> void
+OpenMBEE.OpenSysML.Metamodel.MalformedDocumentException.MalformedDocumentException(string! message, System.Exception? innerException) -> void
+OpenMBEE.OpenSysML.Metamodel.MalformedValueException
+OpenMBEE.OpenSysML.Metamodel.MalformedValueException.ElementId.get -> string!
+OpenMBEE.OpenSysML.Metamodel.MalformedValueException.MalformedValueException(OpenMBEE.OpenSysML.Metamodel.MetaProperty! property, string! elementId, string! reason) -> void
+OpenMBEE.OpenSysML.Metamodel.MalformedValueException.Property.get -> OpenMBEE.OpenSysML.Metamodel.MetaProperty!
+OpenMBEE.OpenSysML.Metamodel.MetaProperty
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.DeclaringMetaclass.get -> OpenMBEE.OpenSysML.Metamodel.MetaclassInfo!
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.DefaultLiteral.get -> string?
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.Iri.get -> string!
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.IsDerived.get -> bool
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.IsMany.get -> bool
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.IsOrdered.get -> bool
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.IsUnique.get -> bool
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.JsonKey.get -> string!
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.LowerBound.get -> int
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.Name.get -> string!
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.Opposite.get -> OpenMBEE.OpenSysML.Metamodel.MetaProperty?
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.QualifiedName.get -> string!
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.RangeEnumeration.get -> OpenMBEE.OpenSysML.Metamodel.EnumerationInfo?
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.RangeKind.get -> OpenMBEE.OpenSysML.Metamodel.PropertyRangeKind
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.RangeMetaclass.get -> OpenMBEE.OpenSysML.Metamodel.MetaclassInfo?
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.Redefines.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Metamodel.MetaProperty!>!
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.Subsets.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Metamodel.MetaProperty!>!
+OpenMBEE.OpenSysML.Metamodel.MetaProperty.ValueType.get -> System.Type!
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.Ancestors.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Metamodel.MetaclassInfo!>!
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.ConformsTo(OpenMBEE.OpenSysML.Metamodel.MetaclassInfo! other) -> bool
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.DeclaredProperties.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Metamodel.MetaProperty!>!
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.ElementType.get -> System.Type?
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.GetProperty(string! jsonKey) -> OpenMBEE.OpenSysML.Metamodel.MetaProperty!
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.InterfaceType.get -> System.Type!
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.IsAbstract.get -> bool
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.Name.get -> string!
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.Parents.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Metamodel.MetaclassInfo!>!
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.Properties.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Metamodel.MetaProperty!>!
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.TryGetProperty(string! jsonKey, out OpenMBEE.OpenSysML.Metamodel.MetaProperty? property) -> bool
+OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.TryGetPropertyByName(string! name, out OpenMBEE.OpenSysML.Metamodel.MetaProperty? property) -> bool
+OpenMBEE.OpenSysML.Metamodel.Metaclasses
+OpenMBEE.OpenSysML.Metamodel.MetamodelElement
+OpenMBEE.OpenSysML.Metamodel.MetamodelElement.Extensions.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>!
+OpenMBEE.OpenSysML.Metamodel.MetamodelElement.GetValue(string! jsonKey) -> object?
+OpenMBEE.OpenSysML.Metamodel.MetamodelElement.Id.get -> string!
+OpenMBEE.OpenSysML.Metamodel.MetamodelElement.JsonType.get -> string!
+OpenMBEE.OpenSysML.Metamodel.MetamodelElement.MetaclassInfo.get -> OpenMBEE.OpenSysML.Metamodel.MetaclassInfo!
+OpenMBEE.OpenSysML.Metamodel.MetamodelException
+OpenMBEE.OpenSysML.Metamodel.MetamodelException.MetamodelException() -> void
+OpenMBEE.OpenSysML.Metamodel.MetamodelException.MetamodelException(string! message) -> void
+OpenMBEE.OpenSysML.Metamodel.MetamodelException.MetamodelException(string! message, System.Exception? innerException) -> void
+OpenMBEE.OpenSysML.Metamodel.MetamodelGraph
+OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.All<T>() -> System.Collections.Generic.IReadOnlyList<T>!
+OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.CheckRanges.get -> bool
+OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.Contains(string! id) -> bool
+OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.Elements.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Metamodel.IMetamodelElement!>!
+OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.KeepsExtensions.get -> bool
+OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.Roots.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Metamodel.INamespace!>!
+OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.TryGet(string! id, out OpenMBEE.OpenSysML.Metamodel.IMetamodelElement? element) -> bool
+OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.this[string! id].get -> OpenMBEE.OpenSysML.Metamodel.IMetamodelElement!
+OpenMBEE.OpenSysML.Metamodel.NotSuppliedException
+OpenMBEE.OpenSysML.Metamodel.NotSuppliedException.ElementId.get -> string!
+OpenMBEE.OpenSysML.Metamodel.NotSuppliedException.IsDerived.get -> bool
+OpenMBEE.OpenSysML.Metamodel.NotSuppliedException.NotSuppliedException(OpenMBEE.OpenSysML.Metamodel.MetaProperty! property, string! elementId) -> void
+OpenMBEE.OpenSysML.Metamodel.NotSuppliedException.Property.get -> OpenMBEE.OpenSysML.Metamodel.MetaProperty!
+OpenMBEE.OpenSysML.Metamodel.PropertyRangeKind
+OpenMBEE.OpenSysML.Metamodel.PropertyRangeKind.Enumeration = 1 -> OpenMBEE.OpenSysML.Metamodel.PropertyRangeKind
+OpenMBEE.OpenSysML.Metamodel.PropertyRangeKind.Metaclass = 0 -> OpenMBEE.OpenSysML.Metamodel.PropertyRangeKind
+OpenMBEE.OpenSysML.Metamodel.PropertyRangeKind.Primitive = 2 -> OpenMBEE.OpenSysML.Metamodel.PropertyRangeKind
+OpenMBEE.OpenSysML.Metamodel.ReadOptions
+OpenMBEE.OpenSysML.Metamodel.ReadOptions.CheckRanges.get -> bool
+OpenMBEE.OpenSysML.Metamodel.ReadOptions.CheckRanges.init -> void
+OpenMBEE.OpenSysML.Metamodel.ReadOptions.KeepExtensions.get -> bool
+OpenMBEE.OpenSysML.Metamodel.ReadOptions.KeepExtensions.init -> void
+OpenMBEE.OpenSysML.Metamodel.ReadOptions.ReadOptions() -> void
+OpenMBEE.OpenSysML.Metamodel.ReadOptions.Supertypes.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+OpenMBEE.OpenSysML.Metamodel.ReadOptions.Supertypes.init -> void
+OpenMBEE.OpenSysML.Metamodel.UnknownJsonKeyException
+OpenMBEE.OpenSysML.Metamodel.UnknownJsonKeyException.JsonKey.get -> string!
+OpenMBEE.OpenSysML.Metamodel.UnknownJsonKeyException.Metaclass.get -> OpenMBEE.OpenSysML.Metamodel.MetaclassInfo!
+OpenMBEE.OpenSysML.Metamodel.UnknownJsonKeyException.UnknownJsonKeyException(OpenMBEE.OpenSysML.Metamodel.MetaclassInfo! metaclass, string! jsonKey) -> void
+OpenMBEE.OpenSysML.Metamodel.UnresolvedReferenceException
+OpenMBEE.OpenSysML.Metamodel.UnresolvedReferenceException.ElementId.get -> string!
+OpenMBEE.OpenSysML.Metamodel.UnresolvedReferenceException.Property.get -> OpenMBEE.OpenSysML.Metamodel.MetaProperty!
+OpenMBEE.OpenSysML.Metamodel.UnresolvedReferenceException.TargetId.get -> string?
+OpenMBEE.OpenSysML.Metamodel.UnresolvedReferenceException.TargetRef.get -> string?
+OpenMBEE.OpenSysML.Metamodel.UnresolvedReferenceException.UnresolvedReferenceException(OpenMBEE.OpenSysML.Metamodel.MetaProperty! property, string! elementId, string? targetId, string? targetRef) -> void
+override OpenMBEE.OpenSysML.Metamodel.EnumerationInfo.ToString() -> string!
+override OpenMBEE.OpenSysML.Metamodel.MetaProperty.ToString() -> string!
+override OpenMBEE.OpenSysML.Metamodel.MetaclassInfo.ToString() -> string!
+override OpenMBEE.OpenSysML.Metamodel.MetamodelElement.ToString() -> string!
+static OpenMBEE.OpenSysML.Metamodel.EnumerationInfo.Of<TEnum>() -> OpenMBEE.OpenSysML.Metamodel.EnumerationInfo!
+static OpenMBEE.OpenSysML.Metamodel.Metaclasses.All.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Metamodel.MetaclassInfo!>!
+static OpenMBEE.OpenSysML.Metamodel.Metaclasses.Enumerations.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Metamodel.EnumerationInfo!>!
+static OpenMBEE.OpenSysML.Metamodel.Metaclasses.Of<T>() -> OpenMBEE.OpenSysML.Metamodel.MetaclassInfo!
+static OpenMBEE.OpenSysML.Metamodel.Metaclasses.TryGet(System.Type! type, out OpenMBEE.OpenSysML.Metamodel.MetaclassInfo? metaclass) -> bool
+static OpenMBEE.OpenSysML.Metamodel.Metaclasses.TryGet(string! name, out OpenMBEE.OpenSysML.Metamodel.MetaclassInfo? metaclass) -> bool
+static OpenMBEE.OpenSysML.Metamodel.Metaclasses.TryGetEnumeration(string! name, out OpenMBEE.OpenSysML.Metamodel.EnumerationInfo? enumeration) -> bool
+static OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.ReadJson(System.Collections.Generic.IEnumerable<System.Text.Json.JsonElement>! elements) -> OpenMBEE.OpenSysML.Metamodel.MetamodelGraph!
+static OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.ReadJson(System.Collections.Generic.IEnumerable<System.Text.Json.JsonElement>! elements, OpenMBEE.OpenSysML.Metamodel.ReadOptions! options) -> OpenMBEE.OpenSysML.Metamodel.MetamodelGraph!
+static OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.ReadJson(System.IO.Stream! stream) -> OpenMBEE.OpenSysML.Metamodel.MetamodelGraph!
+static OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.ReadJson(System.IO.Stream! stream, OpenMBEE.OpenSysML.Metamodel.ReadOptions! options) -> OpenMBEE.OpenSysML.Metamodel.MetamodelGraph!
+static OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.ReadJson(System.Text.Json.JsonDocument! document) -> OpenMBEE.OpenSysML.Metamodel.MetamodelGraph!
+static OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.ReadJson(System.Text.Json.JsonDocument! document, OpenMBEE.OpenSysML.Metamodel.ReadOptions! options) -> OpenMBEE.OpenSysML.Metamodel.MetamodelGraph!
+static OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.ReadJson(string! path) -> OpenMBEE.OpenSysML.Metamodel.MetamodelGraph!
+static OpenMBEE.OpenSysML.Metamodel.MetamodelGraph.ReadJson(string! path, OpenMBEE.OpenSysML.Metamodel.ReadOptions! options) -> OpenMBEE.OpenSysML.Metamodel.MetamodelGraph!

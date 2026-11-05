@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The SysML metamodel as C# types, standalone: it references neither the client library nor any
+    package at run time. Generated.cs is written by tools/gen/csmetamodel (make dotnet-metamodel);
+    the rest is the runtime those types compile against.
+  -->
+  <PropertyGroup>
+    <AssemblyName>OpenMBEE.OpenSysML.Metamodel</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.Metamodel</RootNamespace>
+    <Description>The SysML v2 metamodel's metaclasses, properties and enumerations as C# interfaces, classes and enums.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Also adds PublicAPI.Shipped.txt and PublicAPI.Unshipped.txt as the baseline it checks against. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Metamodel.Tests" />
+  </ItemGroup>
+</Project>

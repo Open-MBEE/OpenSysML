@@ -1,0 +1,1 @@
+- The .NET client's `Model.SymbolAsync` now raises `SymbolNotFoundException` with the service's own message, as `ModelException` documents, rather than a message of its own; a new constructor takes that message.

@@ -137,6 +137,11 @@ HTTP/1.1 400 Bad Request
 (`typeInfo`, `multiplicity`, `specializations`, `attributes`), `metadata` is a string map of
 facts about the declaration, each present only when it holds:
 
+For a named package or namespace declared in several documents, `childIds` is the sorted,
+deduplicated union of its declarations' children. Model declarations and standard-library
+homonyms remain separate. Document roots retain only their own document's children; other
+declaration kinds are not merged.
+
 | Key | Value | When |
 |-----|-------|------|
 | `visibility` | `default` (none written), `public`, `private` or `protected` | always |

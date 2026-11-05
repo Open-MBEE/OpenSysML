@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
+    <Project Path="src/OpenMBEE.OpenSysML.Conformance/OpenMBEE.OpenSysML.Conformance.csproj" />
+    <Project Path="src/OpenMBEE.OpenSysML.Generate/OpenMBEE.OpenSysML.Generate.csproj" />
+    <Project Path="src/OpenMBEE.OpenSysML.Metamodel/OpenMBEE.OpenSysML.Metamodel.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/FakeService/FakeService.csproj" />
+    <Project Path="test/OpenMBEE.OpenSysML.CacheProbe/OpenMBEE.OpenSysML.CacheProbe.csproj" />
+    <Project Path="test/OpenMBEE.OpenSysML.Conformance.Tests/OpenMBEE.OpenSysML.Conformance.Tests.csproj" />
+    <Project Path="test/OpenMBEE.OpenSysML.Generate.Consumer/OpenMBEE.OpenSysML.Generate.Consumer.csproj" />
+    <Project Path="test/OpenMBEE.OpenSysML.Generate.Tests/OpenMBEE.OpenSysML.Generate.Tests.csproj" />
+    <Project Path="test/OpenMBEE.OpenSysML.LoadContextProbe/OpenMBEE.OpenSysML.LoadContextProbe.csproj" />
+    <Project Path="test/OpenMBEE.OpenSysML.Metamodel.Tests/OpenMBEE.OpenSysML.Metamodel.Tests.csproj" />
+    <Project Path="test/OpenMBEE.OpenSysML.OrphanProbe/OpenMBEE.OpenSysML.OrphanProbe.csproj" />
+    <Project Path="test/OpenMBEE.OpenSysML.Tests/OpenMBEE.OpenSysML.Tests.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/MetamodelReader/MetamodelReader.csproj" />
+    <Project Path="samples/Vehicle/Vehicle.csproj" />
+  </Folder>
+</Solution>

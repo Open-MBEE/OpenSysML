@@ -1,0 +1,2 @@
+- Diagnose failed HTTP/2 negotiation consistently across platforms when a .NET gRPC connection reaches an HTTP/1.1 endpoint, preserving the `Internal` status and Connect guidance.
+- Use ASCII success markers in the .NET client tooling so Windows preflight, sample and coverage checks do not fail on legacy console encodings.

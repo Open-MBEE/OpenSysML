@@ -1,0 +1,18 @@
+# Holds or tries the shared cache lock exactly as the Rust client takes it; the
+# .NET client's interoperability tests build and run it. The dependencies are the
+# Rust client's lock dependencies at its exact pins (client/rust/opensysml/Cargo.toml).
+[package]
+name = "opensysml-lock-holder"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.83"
+publish = false
+
+[dependencies]
+rustix = { version = "=1.1.4", default-features = false, features = ["fs", "std"] }
+
+[target.'cfg(windows)'.dependencies]
+fs4 = { version = "=1.1.0", default-features = false, features = ["sync"] }
+
+# Standalone: no workspace above it in the checkout.
+[workspace]

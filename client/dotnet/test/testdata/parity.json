@@ -1,0 +1,4742 @@
+{
+  "service": "sysml.SysMLService",
+  "rpcs": [
+    {
+      "rpc": "GetServerInfo",
+      "request": "sysml.ServerInfoRequest",
+      "response": "sysml.ServerInfoResponse",
+      "methods": [
+        "Connection.OpenAsync"
+      ],
+      "input": "ConnectionOptions",
+      "result": "Connection, with its cached ServerInfo and Capabilities",
+      "area": "connection",
+      "status": "implemented",
+      "gates": [],
+      "valueFields": [],
+      "scenarios": [
+        "server_info/reports_the_capabilities_clients_negotiate_on"
+      ],
+      "tests": [
+        "ServiceConnectionTests.OpensAnExternalServiceAndReportsWhatItIs",
+        "ConnectionOpenTests.OpeningAsksTheServiceOnceAndKeepsItsAnswer",
+        "ConnectionOpenTests.AServiceThatDoesNotImplementGetServerInfoClaimsNothingAndIsLogged"
+      ]
+    },
+    {
+      "rpc": "ParseFile",
+      "request": "sysml.ParseFileRequest",
+      "response": "sysml.ParseFileResponse",
+      "methods": [
+        "Connection.LoadAsync",
+        "Connection.LoadContentAsync"
+      ],
+      "input": "path or content, ParseOptions",
+      "result": "Model",
+      "area": "model",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "strict_conformance",
+          "field": "strict_conformance",
+          "when": "strict_conformance is true"
+        },
+        {
+          "capability": "inline_language",
+          "field": "language",
+          "when": "content is set and language is not empty"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "parse/inline_content_is_parsed_and_cached_under_a_hash",
+        "parse/a_syntax_error_is_a_diagnostic_not_a_status",
+        "parse/an_absent_file_is_not_found",
+        "parse/naming_no_source_is_invalid",
+        "parse/strict_conformance_is_asked_for_by_field",
+        "parse/strict_conformance_refuses_an_extension",
+        "parse/an_extension_is_a_warning_by_default"
+      ],
+      "tests": [
+        "ModelParseTests.LoadSendsThePathAloneAndReadsTheParse",
+        "ModelParseTests.LoadContentSendsTheContentAndItsLanguage",
+        "ModelParseTests.AParseOptionGateWithheldSendsNothing",
+        "ModelParseTests.AnUnreadableFileIsModelFileNotFound",
+        "ServiceModelTests.ParsesInlineNotationAndAFileTheServiceReads",
+        "ServiceModelTests.ASyntaxErrorIsADiagnosticAndAnUnreadableFileIsNotFound",
+        "ServiceModelTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "ParseSources",
+      "request": "sysml.ParseSourcesRequest",
+      "response": "sysml.ParseSourcesResponse",
+      "methods": [
+        "Connection.ParseSourcesAsync"
+      ],
+      "input": "SourceDocument list, SourcesOptions",
+      "result": "Model",
+      "area": "model",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "parse_sources",
+          "when": "always"
+        },
+        {
+          "capability": "strict_conformance",
+          "field": "strict_conformance",
+          "when": "strict_conformance is true"
+        },
+        {
+          "capability": "parse_sources_affected",
+          "field": "base_model_hash",
+          "when": "base_model_hash is set"
+        },
+        {
+          "capability": "inline_language",
+          "field": "documents.language",
+          "when": "a document has content and a language that is not empty"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "parse_sources/several_documents_are_one_model",
+        "parse_sources/naming_no_document_is_invalid",
+        "parse_sources/two_documents_of_one_name_are_invalid",
+        "parse_sources/an_absent_file_is_not_found"
+      ],
+      "tests": [
+        "ModelParseTests.ParseSourcesSendsEveryDocumentAndReadsEveryRoot",
+        "ModelParseTests.ParseSourcesChecksItsGatesInTheServicesOrderAndSendsNothing",
+        "ModelParseTests.ParseSourcesRefusesWhatItCannotSendAndLeavesTheRestToTheService",
+        "ServiceModelTests.SeveralDocumentsParseAsOneModel"
+      ]
+    },
+    {
+      "rpc": "GetSymbol",
+      "request": "sysml.GetSymbolRequest",
+      "response": "sysml.SymbolResponse",
+      "methods": [
+        "Model.SymbolAsync",
+        "Model.FindSymbolAsync",
+        "Model.FindAsync",
+        "Model.LookupAsync"
+      ],
+      "input": "symbol ID",
+      "result": "Symbol",
+      "area": "model",
+      "status": "implemented",
+      "gates": [],
+      "valueFields": [],
+      "scenarios": [
+        "symbol/a_definition_reports_its_kind_and_members",
+        "symbol/an_attribute_reports_the_kind_that_filters_it",
+        "symbol/an_unknown_symbol_is_not_found",
+        "symbol/an_unknown_model_is_not_found"
+      ],
+      "tests": [
+        "ModelSymbolTests.SymbolAsyncReadsEveryFieldOfTheSymbol",
+        "ModelSymbolTests.ASymbolTheModelLacksIsNotFoundInBandAndAnAnswerOfNeitherIsMalformed",
+        "ModelSymbolTests.FindAsyncAcceptsARootAnIdOrAShortNameAndPrefersTheOutermost",
+        "ModelSymbolTests.WithoutQueryTheModelIsWalkedFromItsRoots",
+        "ModelSymbolTests.LookupAsyncNamesTheClosestDeclaredNames",
+        "ServiceModelTests.SymbolsAreReadAndFoundByName"
+      ]
+    },
+    {
+      "rpc": "GetDiagnostics",
+      "request": "sysml.DiagnosticsRequest",
+      "response": "sysml.DiagnosticsResponse",
+      "methods": [
+        "Model.GetDiagnosticsAsync"
+      ],
+      "input": "DiagnosticsOptions",
+      "result": "Diagnostic list",
+      "area": "model",
+      "status": "implemented",
+      "gates": [],
+      "valueFields": [],
+      "scenarios": [
+        "diagnostics/a_parsed_model_answers_for_its_diagnostics",
+        "diagnostics/an_unknown_model_is_not_found",
+        "diagnostics/the_default_selection_leaves_opt_in_lints_out",
+        "diagnostics/enable_lint_keeps_an_opt_in_lint_in",
+        "diagnostics/disable_lint_leaves_a_lint_out",
+        "diagnostics/an_unknown_lint_code_is_refused"
+      ],
+      "tests": [
+        "ModelEvaluateTests.GetDiagnosticsSendsTheLintSelectionAndReadsTheAnswer",
+        "ServiceModelTests.DiagnosticsFollowTheLintSelection"
+      ]
+    },
+    {
+      "rpc": "Evaluate",
+      "request": "sysml.EvaluateRequest",
+      "response": "sysml.EvaluateResponse",
+      "methods": [
+        "Model.EvalAsync",
+        "Model.EvaluateAsync"
+      ],
+      "input": "expression, EvalOptions",
+      "result": "Value or Evaluation",
+      "area": "model",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "evaluate_subject",
+          "field": "subject_symbol_id",
+          "when": "subject_symbol_id is set"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "evaluate/arithmetic_is_an_integer",
+        "evaluate/a_boolean_is_a_boolean",
+        "evaluate/a_declarations_default_is_read_without_a_subject",
+        "evaluate/a_feature_the_model_leaves_unvalued_is_undetermined",
+        "evaluate/a_constant_operand_decides_a_boolean_over_an_undetermined_one",
+        "evaluate/a_subject_is_evaluated_against_that_objects_value",
+        "evaluate/an_absent_subject_is_reported",
+        "evaluate/an_enumeration_literal_arrives_as_the_literal",
+        "evaluate/a_complex_number_arrives_as_one_value",
+        "evaluate/a_sequence_of_complex_numbers_keeps_each_whole",
+        "evaluate/an_array_arrives_with_its_shape",
+        "evaluate/a_vector_arrives_with_numeric_components",
+        "evaluate/a_vector_quantity_arrives_with_a_unit_per_component",
+        "evaluate/a_set_arrives_as_its_members_in_canonical_order",
+        "evaluate/a_tensor_quantity_arrives_with_its_shape",
+        "evaluate/a_named_measurement_reference_arrives_with_its_declaration",
+        "evaluate/a_composed_measurement_reference_names_no_declaration",
+        "evaluate/an_unparsable_expression_is_reported_in_band",
+        "evaluate/a_calc_definition_read_as_a_value_is_a_function_naming_it",
+        "evaluate/a_calc_of_an_object_read_as_a_value_names_the_object_it_computes_over",
+        "evaluate/a_calc_invoked_through_a_calc_parameter_answers_its_result",
+        "evaluate/a_meta_cast_arrives_as_a_metaobject_under_its_own_metaclass",
+        "evaluate/metadata_access_ends_with_the_reflective_metaobject",
+        "evaluate/a_meta_cast_to_a_metaclass_the_element_is_not_an_instance_of_is_empty",
+        "evaluate/an_unknown_model_is_not_found"
+      ],
+      "tests": [
+        "ModelEvaluateTests.EvalSendsTheExpressionAndItsScopeAndReadsTheValue",
+        "ModelEvaluateTests.ASubjectNeedsEvaluateSubjectAndAnEmptySymbolIsRefusedBeforeSending",
+        "ModelEvaluateTests.AnEvaluationFailureIsInBandAndAnAnswerOfNeitherOrOfAnUnknownKindIsRefused",
+        "ServiceModelTests.ExpressionsEvaluateInTheirScopeAndAgainstASubject"
+      ]
+    },
+    {
+      "rpc": "Instantiate",
+      "request": "sysml.InstantiateRequest",
+      "response": "sysml.InstantiateResponse",
+      "methods": [
+        "Model.InstantiateAsync"
+      ],
+      "input": "symbol ID",
+      "result": "Instantiation",
+      "area": "model",
+      "status": "implemented",
+      "gates": [],
+      "valueFields": [],
+      "scenarios": [
+        "instantiate/a_part_def_answers_an_instance_of_it",
+        "instantiate/a_part_feature_resolves_to_a_nested_instance",
+        "instantiate/a_cyclic_feature_value_is_an_error_on_the_feature",
+        "instantiate/a_valueless_feature_of_a_value_type_is_unset",
+        "instantiate/a_complex_typed_feature_holds_one_complex_number",
+        "instantiate/an_enumeration_typed_feature_holds_the_literal",
+        "instantiate/an_unknown_symbol_is_reported_in_band"
+      ],
+      "tests": [
+        "ModelEvaluateTests.InstantiateReadsTheObjectGraphAndResolvesItsReferences",
+        "ModelEvaluateTests.AnInstantiationFailureIsInBandAndAMalformedAnswerNamesWhereItIs",
+        "ServiceModelTests.InstantiationBuildsTheObjectGraphAndResolvesItsReferences"
+      ]
+    },
+    {
+      "rpc": "ExecuteAction",
+      "request": "sysml.ExecuteActionRequest",
+      "response": "sysml.ExecuteActionResponse",
+      "methods": [
+        "Model.ExecuteActionAsync",
+        "Model.ExploreActionAsync"
+      ],
+      "input": "action ID, inputs, RunOptions",
+      "result": "ActionRun or Exploration",
+      "area": "execution",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "schedule",
+          "field": "schedule",
+          "when": "schedule is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "schedule",
+          "when": "schedule spells an exploring policy"
+        },
+        {
+          "capability": "action_trace",
+          "field": "trace",
+          "when": "trace is true"
+        },
+        {
+          "capability": "performer",
+          "field": "performer_symbol_id",
+          "when": "performer_symbol_id is set"
+        }
+      ],
+      "valueFields": [
+        "inputs"
+      ],
+      "scenarios": [
+        "execute_action/an_action_runs_and_reports_its_attributes",
+        "execute_action/supplied_inputs_reach_the_action",
+        "execute_action/an_action_with_no_initial_node_is_reported",
+        "execute_action/the_default_schedule_takes_the_reverse_order",
+        "execute_action/a_schedule_selects_the_order_the_run_takes",
+        "execute_action/a_schedule_naming_no_policy_is_invalid",
+        "execute_action/advance_stops_the_clock_before_the_run_completes",
+        "execute_action/advance_past_the_wait_completes_the_run",
+        "execute_action/clock_step_rounds_a_wait_up_to_the_next_tick",
+        "execute_action/an_unknown_draw_policy_is_refused"
+      ],
+      "tests": [
+        "ModelExecutionTests.ExecuteActionSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "ModelExecutionTests.ExploreSendsExploreUnlessABudgetIsNamedAndReadsEveryOutcome",
+        "ModelExecutionTests.RunGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ModelExecutionTests.ARunAndAnExplorationEachRefuseTheOthersOptionsBeforeSending",
+        "ModelExecutionTests.AFailedRunIsAnExecutionExceptionKeepingItsClockTraceAndDiagnostics",
+        "ModelExecutionTests.AnAnswerOfTheOtherShapeOrAMalformedValueIsRefused",
+        "ServiceExecutionTests.AnActionRunsWithItsInputsScheduleAndClock",
+        "ServiceExecutionTests.AFailedRunIsInBandAndAnUnreadableOptionIsRefused",
+        "ServiceExecutionTests.AnExplorationReachesEveryOrderOrSaysWhichBudgetCutItShort",
+        "ServiceExecutionTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "ExecuteState",
+      "request": "sysml.ExecuteStateRequest",
+      "response": "sysml.ExecuteStateResponse",
+      "methods": [
+        "Model.ExecuteStateAsync",
+        "Model.ExploreStateAsync"
+      ],
+      "input": "state machine ID, events, RunOptions",
+      "result": "StateRun or Exploration",
+      "area": "execution",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "schedule",
+          "field": "schedule",
+          "when": "schedule is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "schedule",
+          "when": "schedule spells an exploring policy"
+        },
+        {
+          "capability": "state_trace",
+          "field": "trace",
+          "when": "trace is true"
+        },
+        {
+          "capability": "performer",
+          "field": "performer_symbol_id",
+          "when": "performer_symbol_id is set"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "execute_state/a_machine_reports_the_states_it_visited",
+        "execute_state/a_requested_trace_reports_transitions",
+        "execute_state/a_schedule_naming_no_policy_is_invalid",
+        "execute_state/an_unknown_symbol_is_reported_in_band"
+      ],
+      "tests": [
+        "ModelExecutionTests.ExecuteStateSendsItsEventsAndTraceAndReadsTheTraceItAnswers",
+        "ModelExecutionTests.ExploreSendsExploreUnlessABudgetIsNamedAndReadsEveryOutcome",
+        "ModelExecutionTests.RunGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ModelExecutionTests.ARunAndAnExplorationEachRefuseTheOthersOptionsBeforeSending",
+        "ModelExecutionTests.AFailedRunIsAnExecutionExceptionKeepingItsClockTraceAndDiagnostics",
+        "ModelExecutionTests.AnAnswerOfTheOtherShapeOrAMalformedValueIsRefused",
+        "ServiceExecutionTests.AStateMachineReportsTheStatesItVisitedAndItsTrace",
+        "ServiceExecutionTests.AFailedRunIsInBandAndAnUnreadableOptionIsRefused",
+        "ServiceExecutionTests.AnExplorationReachesEveryOrderOrSaysWhichBudgetCutItShort",
+        "ServiceExecutionTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "Convert",
+      "request": "sysml.ConvertRequest",
+      "response": "sysml.ConvertResponse",
+      "methods": [
+        "Connection.ConvertAsync",
+        "Model.ConvertAsync",
+        "Model.ToNotationAsync",
+        "Model.ToTurtleAsync",
+        "Model.ToApiJsonAsync",
+        "Model.SaveAsync"
+      ],
+      "input": "ConvertSource (file, inline content or model hash), target format, ConvertOptions",
+      "result": "Conversion, which SaveAsync writes under SaveOptions",
+      "area": "conversion",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "convert",
+          "when": "always"
+        },
+        {
+          "capability": "convert_documents",
+          "field": "documents",
+          "when": "documents is not empty"
+        },
+        {
+          "capability": "convert_library_stubs",
+          "field": "include_library_stubs",
+          "when": "include_library_stubs is true"
+        },
+        {
+          "capability": "convert_compact",
+          "field": "compact",
+          "when": "compact or omit_derived is true, or keep_derived is not empty"
+        },
+        {
+          "capability": "convert_check_diagnostics",
+          "field": "include_check_diagnostics",
+          "when": "include_check_diagnostics is true"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "convert/notation_to_notation_keeps_the_model_and_is_not_experimental",
+        "convert/a_named_alias_is_answered_with_the_canonical_format",
+        "convert/a_parsed_model_converts_by_hash",
+        "convert/an_empty_target_format_is_invalid",
+        "convert/a_syntax_error_refuses_the_conversion_unless_tolerated",
+        "convert/a_sysml_v1_model_is_migrated_not_converted"
+      ],
+      "tests": [
+        "ModelConversionTests.ConvertSendsEverySourceAndOptionAndReadsEveryField",
+        "ModelConversionTests.TheModelHelpersConvertTheParsedSourceToTheFormatTheyName",
+        "ModelConversionTests.AConversionNotMadeIsAConversionExceptionKeepingItsFormatsAndAMalformedAnswerIsRefused",
+        "ModelConversionTests.NotFoundIsTheFilesForAFileAndTheModelsForAHash",
+        "ModelConversionTests.TheWrongVerbIsSentAndRefusedByTheServiceNamingTheOtherOne",
+        "ModelConversionTests.ConvertGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ModelConversionTests.SavingAModelConvertsItToTheFormatItsExtensionNamesAndWritesItWhole",
+        "SafeWriteTests.ASaveWritesTheContentWholeAndRefusesAnExistingFileUnlessOverwriting",
+        "SafeWriteTests.ACancelledOrFailedSaveLeavesNoPartialFileAndTheExistingOneAsItWas",
+        "ServiceConversionTests.NotationConvertsToEveryFormatAndBackFromEverySource",
+        "ServiceConversionTests.IdsDocumentsTheCompactFormAndTheChecksDiagnosticsAreWhatTheServiceWrites",
+        "ServiceConversionTests.ASyntaxErrorFailsTheConversionUnlessToleratedAndAMappingRefusalIsInBand",
+        "ServiceConversionTests.TheWrongVerbAMissingFileAndAnEvictedModelAreRefused",
+        "ServiceConversionTests.SavingAModelWritesWhatItConvertsTo",
+        "ServiceConversionTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent",
+        "ServiceConversionTests.TheLibraryAModelRefersToIsListedBesideItsElementsAndWrittenAsRootsOnlyWhenAsked"
+      ]
+    },
+    {
+      "rpc": "Migrate",
+      "request": "sysml.MigrateRequest",
+      "response": "sysml.MigrateResponse",
+      "methods": [
+        "Connection.MigrateAsync"
+      ],
+      "input": "MigrateSource (fully-qualified file path or inline bytes), target format, MigrateOptions",
+      "result": "Migration, which WriteAsync writes with its files under SaveOptions",
+      "area": "conversion",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "migrate",
+          "when": "always"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "migrate/a_v1_model_is_migrated_with_its_summary",
+        "migrate/the_full_report_lists_every_elements_verdict",
+        "migrate/the_results_index_comes_back_when_asked",
+        "migrate/a_v2_model_is_converted_not_migrated",
+        "migrate/inline_content_must_name_its_form",
+        "migrate/a_v1_model_is_never_a_target"
+      ],
+      "tests": [
+        "ModelConversionTests.MigrationSourcesRequireFullyQualifiedPathsBeforeAnythingIsSent",
+        "ModelConversionTests.MigrateSendsEverySourceAndOptionAndReadsEveryField",
+        "ModelConversionTests.AMigrationNotMadeIsAMigrationExceptionAndAMalformedAnswerIsRefused",
+        "ModelConversionTests.NotFoundIsTheFilesForAFileAndTheModelsForAHash",
+        "ModelConversionTests.TheWrongVerbIsSentAndRefusedByTheServiceNamingTheOtherOne",
+        "ModelConversionTests.ConvertGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "SafeWriteTests.AMigrationWritesItsFilesBesideTheModelCreatingTheirDirectories",
+        "SafeWriteTests.AMigrationNeverReplacesItsV1ModelEvenWhenOverwriting",
+        "SafeWriteTests.UnicodeEquivalentSourceNamesAreGuardedOnMacOSAndDistinctElsewhere",
+        "SafeWriteTests.UnicodeEquivalentDestinationsAreRefusedOnMacOSAndDistinctElsewhere",
+        "SafeWriteTests.AMigrationFileThatIsNotAPortableRelativePathIsRefusedAndNothingIsWritten",
+        "SafeWriteTests.FilesThatWouldLandOnOneAnotherOrOnTheModelAreRefused",
+        "SafeWriteTests.AMigrationFileIsNeverWrittenThroughASymbolicLink",
+        "SafeWriteTests.AFailedMigrationWriteRemovesWhatItCreatedAndKeepsWhatWasThere",
+        "ConformanceAdapterTests.InvalidOrNoncanonicalMigrationFilePathsAreUnexpressibleWithoutChangingTheRequest",
+        "ServiceConversionTests.TheWrongVerbAMissingFileAndAnEvictedModelAreRefused",
+        "ServiceConversionTests.AV1ModelIsMigratedWithEveryElementAccountedFor",
+        "ServiceConversionTests.AnArchivesImageFilesAreWrittenBesideTheMigratedModelAndTheV1ModelIsNeverReplaced",
+        "ServiceConversionTests.ALayoutLaysTheViewsOutAndStrictnessWritesNoExtension",
+        "ServiceConversionTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "ApplyEdits",
+      "request": "sysml.ApplyEditsRequest",
+      "response": "sysml.ApplyEditsResponse",
+      "methods": [
+        "Model.Edit().ApplyAsync",
+        "Model.ApplyEditsAsync"
+      ],
+      "input": "Edit list, EditOptions",
+      "result": "EditResult",
+      "area": "editing",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "apply_edits",
+          "when": "always"
+        },
+        {
+          "capability": "edit_documents",
+          "field": "document",
+          "when": "document is set"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "apply_edits/a_set_value_rewrites_only_that_span",
+        "apply_edits/an_allocation_is_written_between_two_features",
+        "apply_edits/a_member_modifier_writes_an_abstract_definition",
+        "apply_edits/a_satisfy_usage_is_written",
+        "apply_edits/state_transitions_are_written",
+        "apply_edits/action_sequencing_is_written",
+        "apply_edits/nested_action_body_statements_are_written",
+        "apply_edits/documentation_is_written_on_new_and_existing_declarations",
+        "apply_edits/comments_and_notes_are_written",
+        "apply_edits/import_declarations_are_written",
+        "apply_edits/an_unresolved_import_target_is_refused_by_kind",
+        "apply_edits/a_requirement_constraint_is_written",
+        "apply_edits/constraint_bodies_assertions_exhibits_and_state_actions_are_written",
+        "apply_edits/a_rename_of_an_unreferenced_element_is_applied",
+        "apply_edits/an_unknown_target_is_refused_by_kind",
+        "apply_edits/an_unparsable_new_value_is_refused_by_kind",
+        "apply_edits/a_rename_is_followed_into_the_other_documents",
+        "apply_edits/a_request_not_accepting_documents_is_refused_on_a_model_of_several",
+        "apply_edits/a_cascade_delete_removes_the_declarations_in_other_documents",
+        "apply_edits/an_edit_touching_one_document_lists_only_that_document",
+        "apply_edits/a_delete_referred_to_from_another_document_is_refused_naming_it",
+        "apply_edits/adds_reference_assertions_and_calc_case_result_bodies",
+        "apply_edits/no_operations_is_refused_rather_than_echoing_the_source",
+        "apply_edits/a_verification_objective_and_metadata_are_authored"
+      ],
+      "tests": [
+        "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "ModelEditingTests.TheBatchIsJudgedWholeInTheServicesOrderAndANamedDocumentLast",
+        "ModelEditingTests.AStatementNestedAtAnyDepthIsJudgedAndSentAsDeepAsTheServiceReads",
+        "ModelEditingTests.ASingleDocumentModelAnswersItsNotationInContentAndInItsOneDocument",
+        "ModelEditingTests.AModelOfSeveralDocumentsAnswersItsDocumentsAloneAndAHashedModelIsReadFromTheAnswer",
+        "ModelEditingTests.ARefusalIsAnEditExceptionKeepingItsKindDiagnosticsAndReferrers",
+        "ModelEditingTests.AMalformedAnswerIsATransportFailure",
+        "ServiceEditingTests.EveryArmIsWrittenAsTheServiceWritesItAndTheEditedModelReadsBack",
+        "ServiceEditingTests.AModelOfSeveralDocumentsIsEditedAsOneAndARefusalNamesItsReferrers",
+        "ServiceEditingTests.AServiceWithoutDocumentsOrAuthoringAnswersAsItAdvertisesAndIsAskedNothingItCannotDo"
+      ]
+    },
+    {
+      "rpc": "VerifyConstraint",
+      "request": "sysml.VerifyConstraintRequest",
+      "response": "sysml.VerifyConstraintResponse",
+      "methods": [
+        "Model.VerifyConstraintAsync"
+      ],
+      "input": "symbol ID, VerifyOptions (question, subject, arguments, engine)",
+      "result": "Verification",
+      "area": "verification",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "verification",
+          "when": "always"
+        },
+        {
+          "capability": "verification_questions",
+          "field": "question",
+          "when": "question is holds or satisfiable"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        },
+        {
+          "capability": "verification_arguments",
+          "field": "arguments",
+          "when": "arguments or named_arguments is not empty"
+        }
+      ],
+      "valueFields": [
+        "arguments",
+        "named_arguments"
+      ],
+      "scenarios": [
+        "verify_constraint/a_holding_constraint_holds_on_declared_values",
+        "verify_constraint/a_false_constraint_names_the_condition_that_failed",
+        "verify_constraint/a_subject_is_verified_against_that_objects_values",
+        "verify_constraint/a_symbol_of_another_kind_is_the_wrong_kind",
+        "verify_constraint/a_bogus_question_is_invalid",
+        "verify_constraint/an_undecided_holds_question_names_the_reason",
+        "verify_constraint/an_explicit_evaluate_question_is_the_default"
+      ],
+      "tests": [
+        "ModelVerificationTests.VerifyConstraintSendsEveryOptionAndReadsEveryFieldOfTheVerdict",
+        "ModelVerificationTests.AVerificationTheServiceCouldNotAnswerIsAVerificationExceptionKeepingWhatItReported",
+        "ModelVerificationTests.AFalseVerdictIsDecidedAndAnUndecidedOneIsAnsweredNeitherRaised",
+        "ModelVerificationTests.AnAnswerOfNeitherVerdictNorFailureOrOfBothIsMalformed",
+        "ModelVerificationTests.VerificationGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ModelVerificationTests.AQuestionTheServiceDoesNotGateIsSentForItToJudge",
+        "ModelVerificationTests.AnEmptyOptionASatisfactionSubjectOrAnUnsendableArgumentIsRefusedBeforeSending",
+        "ModelVerificationTests.AFailureReasonThisClientDoesNotNameIsKeptAsItsNumber",
+        "ServiceVerificationTests.ConstraintsAndRequirementsAnswerHoldingFalseAndUndecidedVerdicts",
+        "ServiceVerificationTests.AVerificationTheServiceCannotAnswerIsInBandAndAnUnknownQuestionOrEngineIsRefused",
+        "ServiceVerificationTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent",
+        "ServiceVerificationTests.ASolversAnswerCarriesTheAssumptionItRestsOnAndAnEvaluationCarriesNone"
+      ]
+    },
+    {
+      "rpc": "VerifyRequirement",
+      "request": "sysml.VerifyRequirementRequest",
+      "response": "sysml.VerifyRequirementResponse",
+      "methods": [
+        "Model.VerifyRequirementAsync"
+      ],
+      "input": "symbol ID, VerifyOptions (question, subject, arguments, engine)",
+      "result": "Verification",
+      "area": "verification",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "verification",
+          "when": "always"
+        },
+        {
+          "capability": "verification_questions",
+          "field": "question",
+          "when": "question is holds or satisfiable"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        },
+        {
+          "capability": "verification_arguments",
+          "field": "arguments",
+          "when": "arguments or named_arguments is not empty"
+        }
+      ],
+      "valueFields": [
+        "arguments",
+        "named_arguments"
+      ],
+      "scenarios": [
+        "verify_requirement/a_satisfied_requirement_holds",
+        "verify_requirement/an_unsatisfied_requirement_does_not_hold",
+        "verify_requirement/the_verification_cases_verifying_it_report_beside_the_verdict"
+      ],
+      "tests": [
+        "ModelVerificationTests.VerifyRequirementReadsTheVerificationVerdictsBesideItsVerdict",
+        "ModelVerificationTests.AVerificationTheServiceCouldNotAnswerIsAVerificationExceptionKeepingWhatItReported",
+        "ModelVerificationTests.AnAnswerOfNeitherVerdictNorFailureOrOfBothIsMalformed",
+        "ModelVerificationTests.VerificationGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ModelVerificationTests.AnEmptyOptionASatisfactionSubjectOrAnUnsendableArgumentIsRefusedBeforeSending",
+        "ConformanceAdapterTests.EachRpcSendsTheScenarioRequestThroughItsTypedCallAndRendersTheWholeAnswer",
+        "ServiceVerificationTests.ConstraintsAndRequirementsAnswerHoldingFalseAndUndecidedVerdicts"
+      ]
+    },
+    {
+      "rpc": "VerifySatisfaction",
+      "request": "sysml.VerifySatisfactionRequest",
+      "response": "sysml.VerifySatisfactionResponse",
+      "methods": [
+        "Model.VerifySatisfactionAsync",
+        "Model.SatisfiedAsync"
+      ],
+      "input": "scope symbol ID or none, VerifyOptions (question, engine)",
+      "result": "Satisfaction, or whether every verdict holds",
+      "area": "verification",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "verification",
+          "when": "always"
+        },
+        {
+          "capability": "verification_questions",
+          "field": "question",
+          "when": "question is holds or satisfiable"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "verify_satisfaction/every_assertion_gets_a_verdict",
+        "verify_satisfaction/a_scope_limits_the_assertions_evaluated",
+        "verify_satisfaction/every_requirement_asserted_reports_its_verification_cases"
+      ],
+      "tests": [
+        "ModelVerificationTests.VerifySatisfactionSendsTheScopeAndQuestionAndReadsEveryVerdict",
+        "ModelVerificationTests.AVerificationTheServiceCouldNotAnswerIsAVerificationExceptionKeepingWhatItReported",
+        "ModelVerificationTests.AnAnswerOfNeitherVerdictNorFailureOrOfBothIsMalformed",
+        "ModelVerificationTests.VerificationGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ModelVerificationTests.AnEmptyOptionASatisfactionSubjectOrAnUnsendableArgumentIsRefusedBeforeSending",
+        "ServiceVerificationTests.SatisfactionsAndValidationsAnswerEveryAssertionWithTheirVerificationCases",
+        "ServiceVerificationTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "ValidateInstance",
+      "request": "sysml.ValidateInstanceRequest",
+      "response": "sysml.ValidateInstanceResponse",
+      "methods": [
+        "Model.ValidateInstanceAsync"
+      ],
+      "input": "symbol ID, ValidateOptions (engine)",
+      "result": "Validation",
+      "area": "verification",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "verification",
+          "when": "always"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "validate_instance/every_assertion_about_the_object_gets_a_verdict",
+        "validate_instance/an_unknown_symbol_is_reported_in_band",
+        "validate_instance/a_symbol_with_no_object_is_the_wrong_kind",
+        "validate_instance/the_verification_cases_of_every_requirement_about_the_object_report"
+      ],
+      "tests": [
+        "ModelVerificationTests.ValidateInstanceReadsTheSummaryEveryVerdictAndTheObjectsReached",
+        "ModelVerificationTests.AVerificationTheServiceCouldNotAnswerIsAVerificationExceptionKeepingWhatItReported",
+        "ModelVerificationTests.AnAnswerOfNeitherVerdictNorFailureOrOfBothIsMalformed",
+        "ModelVerificationTests.VerificationGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ServiceVerificationTests.SatisfactionsAndValidationsAnswerEveryAssertionWithTheirVerificationCases",
+        "ServiceVerificationTests.AVerificationTheServiceCannotAnswerIsInBandAndAnUnknownQuestionOrEngineIsRefused"
+      ]
+    },
+    {
+      "rpc": "EvaluateCalc",
+      "request": "sysml.EvaluateCalcRequest",
+      "response": "sysml.EvaluateCalcResponse",
+      "methods": [
+        "Model.CalcAsync"
+      ],
+      "input": "symbol ID, positional arguments, CalcOptions (engine)",
+      "result": "Calculation",
+      "area": "verification",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "verification",
+          "when": "always"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        }
+      ],
+      "valueFields": [
+        "arguments"
+      ],
+      "scenarios": [
+        "evaluate_calc/positional_arguments_are_applied_in_order",
+        "evaluate_calc/a_symbol_of_another_kind_is_the_wrong_kind",
+        "evaluate_calc/a_vector_argument_is_the_vector_the_calc_computes_with",
+        "evaluate_calc/a_set_argument_reaches_the_calc_as_its_members",
+        "evaluate_calc/a_tensor_argument_is_indexed_by_its_shape",
+        "evaluate_calc/a_measurement_reference_argument_is_the_unit_the_calc_converts_to",
+        "evaluate_calc/a_measurement_reference_argument_without_its_reduction_is_refused",
+        "evaluate_calc/a_malformed_vector_argument_is_refused",
+        "evaluate_calc/a_function_argument_is_the_calc_the_calc_invokes",
+        "evaluate_calc/a_function_argument_naming_no_calc_is_refused",
+        "evaluate_calc/a_function_argument_naming_no_object_is_refused",
+        "evaluate_calc/a_metaobject_argument_names_the_element_it_reflects",
+        "evaluate_calc/a_metaobject_argument_reads_its_reflective_features",
+        "evaluate_calc/a_metaobject_naming_no_element_of_the_model_fails_in_band",
+        "evaluate_calc/a_metaobject_under_a_metaclass_that_does_not_classify_its_element_fails_in_band"
+      ],
+      "tests": [
+        "ModelAnalysisTests.CalcSendsItsArgumentsInOrderAndReadsTheValueOutputsAndStanding",
+        "ModelAnalysisTests.ACalcThatFailsIsAVerificationExceptionAndAnAnswerOfNeitherOrBothIsMalformed",
+        "ModelAnalysisTests.AnalysisGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ServiceVerificationTests.ACalculationTakesStructuredArgumentsAndFailsInBand",
+        "ServiceVerificationTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "RunAnalysis",
+      "request": "sysml.RunAnalysisRequest",
+      "response": "sysml.RunAnalysisResponse",
+      "methods": [
+        "Model.RunAnalysisAsync",
+        "Model.ExploreAnalysisAsync"
+      ],
+      "input": "symbol ID, AnalysisOptions (subject, arguments, schedule, engine, tool dry run)",
+      "result": "Analysis or Exploration",
+      "area": "verification",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "schedule",
+          "field": "schedule",
+          "when": "schedule is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "schedule",
+          "when": "schedule spells an exploring policy"
+        },
+        {
+          "capability": "verification",
+          "when": "always"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        }
+      ],
+      "valueFields": [
+        "arguments",
+        "named_arguments"
+      ],
+      "scenarios": [
+        "run_analysis/a_usage_binding_its_subject_reports_its_outputs_and_objective",
+        "run_analysis/a_case_with_no_objective_reports_its_outputs_alone",
+        "run_analysis/a_definition_runs_against_the_subject_named",
+        "run_analysis/a_named_argument_binds_a_defaulted_input",
+        "run_analysis/a_positional_argument_binds_the_first_input",
+        "run_analysis/a_definition_with_no_subject_is_an_evaluation_failure",
+        "run_analysis/a_symbol_of_another_kind_is_the_wrong_kind",
+        "run_analysis/an_unknown_symbol_is_reported_in_band"
+      ],
+      "tests": [
+        "ModelAnalysisTests.RunAnalysisSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "ModelAnalysisTests.AFailedAnalysisIsAnAnalysisExceptionKeepingThePartialRun",
+        "ModelAnalysisTests.ExploreAnalysisSendsExploreUnlessAScheduleOrTheExploreEngineIsNamedAndReadsTheStanding",
+        "ModelAnalysisTests.ARunAndAnExplorationOfACaseEachRefuseTheOthersOptionsBeforeSending",
+        "ModelAnalysisTests.AnAnalysisAnswerOfTheOtherShapeIsMalformed",
+        "ModelAnalysisTests.AnalysisGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ServiceVerificationTests.AnAnalysisRunsOnItsSubjectWithItsArgumentsIsExploredAndKeepsWhatAFailedRunComputed"
+      ]
+    },
+    {
+      "rpc": "CheckBehavior",
+      "request": "sysml.CheckBehaviorRequest",
+      "response": "sysml.CheckBehaviorResponse",
+      "methods": [
+        "Model.CheckActionAsync",
+        "Model.CheckStateAsync"
+      ],
+      "input": "action ID and inputs, or state machine ID; CheckOptions",
+      "result": "CheckResult",
+      "area": "execution",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "check",
+          "when": "always"
+        },
+        {
+          "capability": "performer",
+          "field": "performer_symbol_id",
+          "when": "performer_symbol_id is set"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        }
+      ],
+      "valueFields": [
+        "inputs"
+      ],
+      "scenarios": [
+        "check_behavior/a_property_one_schedule_breaks_is_witnessed_with_the_divergence",
+        "check_behavior/a_property_every_schedule_keeps_holds_exhaustively",
+        "check_behavior/a_depth_bound_hit_leaves_the_verdict_undecided",
+        "check_behavior/a_negative_depth_bound_is_invalid",
+        "check_behavior/a_behavior_the_model_lacks_is_answered_in_band"
+      ],
+      "tests": [
+        "ModelCheckTests.CheckActionSendsEveryOptionAndReadsEveryFinding",
+        "ModelCheckTests.CheckStateSendsTheMachineAndAHoldingCheckIsAVerdict",
+        "ModelCheckTests.ACheckRefusedInBandIsACheckExceptionKeepingThePartialAnswer",
+        "ModelCheckTests.CheckGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ModelCheckTests.AnEmptyNameOrAnUnsendableInputIsRefusedBeforeSending",
+        "ServiceExecutionTests.ACheckWitnessesWhatBreaksAPropertyAndHoldsWhereEveryScheduleKeepsIt",
+        "ServiceExecutionTests.ACheckOfAMissingBehaviorIsInBandAndANegativeBoundIsRefused",
+        "ServiceExecutionTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "RunSweep",
+      "request": "sysml.RunSweepRequest",
+      "response": "sysml.RunSweepResponse",
+      "methods": [
+        "Model.RunSweepAsync"
+      ],
+      "input": "symbol ID, SweepRange list, SweepOptions (subject, arguments, samples, seed, engine)",
+      "result": "Sweep",
+      "area": "verification",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "verification",
+          "when": "always"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        }
+      ],
+      "valueFields": [
+        "arguments",
+        "named_arguments",
+        "ranges.start",
+        "ranges.end",
+        "ranges.step"
+      ],
+      "scenarios": [
+        "run_sweep/a_range_over_a_calc_input_runs_once_per_value",
+        "run_sweep/a_range_over_an_analysis_input_reports_each_runs_outputs_and_objective",
+        "run_sweep/samples_draw_from_the_range_and_echo_the_seed",
+        "run_sweep/a_run_that_fails_is_a_row_carrying_its_error",
+        "run_sweep/a_range_naming_no_input_of_the_target_is_reported_in_band",
+        "run_sweep/a_symbol_of_another_kind_is_the_wrong_kind",
+        "run_sweep/no_range_at_all_is_reported_in_band"
+      ],
+      "tests": [
+        "ModelAnalysisTests.RunSweepSendsEveryRangeAndOptionAndReadsEveryRow",
+        "ModelAnalysisTests.ASweepThatMadeNoRunIsAVerificationExceptionAndOneAnsweringRowsBesideIsMalformed",
+        "ModelAnalysisTests.SweepGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ServiceVerificationTests.ASweepTablesEveryRowKeepsAFailedRowAndDrawsReproducibly",
+        "ServiceVerificationTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "RunRuns",
+      "request": "sysml.RunRunsRequest",
+      "response": "sysml.RunRunsResponse",
+      "methods": [
+        "Model.RunActionRunsAsync",
+        "Model.RunAnalysisRunsAsync"
+      ],
+      "input": "action ID, run count, inputs, ActionRunsOptions (performer, observe, seed, draws, clock step, engine); or Monte Carlo case ID, run count, AnalysisRunsOptions (subject, arguments, seed, draws, clock step, engine)",
+      "result": "Runs",
+      "area": "sampling",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "runs",
+          "when": "always"
+        },
+        {
+          "capability": "performer",
+          "field": "performer_symbol_id",
+          "when": "performer_symbol_id is set"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        }
+      ],
+      "valueFields": [
+        "inputs",
+        "arguments",
+        "named_arguments"
+      ],
+      "scenarios": [
+        "run_runs/a_seeded_action_is_run_repeatedly_and_its_observable_distributed",
+        "run_runs/an_unseeded_random_run_is_refused"
+      ],
+      "tests": [
+        "ModelRunsTests.ActionRunsSendEveryOptionAndReadEveryFieldOfTheTable",
+        "ModelRunsTests.MonteCarloRunsSendTheCasesOptionsAndReadItsConclusion",
+        "ModelRunsTests.RunsTheServiceCouldNotTableAreARunsExceptionKeepingTheTableAndAMalformedAnswerIsRefused",
+        "ModelRunsTests.RunsGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ServiceSamplingTests.SeededActionRunsReplayAlikeAndTableEachObservablesDistribution",
+        "ServiceSamplingTests.AMonteCarloCaseIsConcludedOverItsSampleAndDrawsAsTheActionItPerforms",
+        "ServiceSamplingTests.RunsNoRunFollowsFromAreRefusedOrRaisedWithTheTableMade",
+        "ServiceSamplingTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "SelfCheck",
+      "request": "sysml.SelfCheckRequest",
+      "response": "sysml.SelfCheckResponse",
+      "methods": [
+        "Model.SelfCheckAsync"
+      ],
+      "input": "rule package names",
+      "result": "SelfCheck",
+      "area": "sampling",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "self_check",
+          "when": "always"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "self_check/a_well_formed_model_holds",
+        "self_check/an_unknown_rule_package_is_answered_in_band"
+      ],
+      "tests": [
+        "ModelRunsTests.SelfCheckSendsTheRulePackagesAndReadsEveryFindingAndCount",
+        "ModelRunsTests.ASelfCheckThatCannotStartIsAModelExceptionAndAMalformedAnswerIsRefused",
+        "ServiceSamplingTests.ASelfCheckHoldsOverAWellFormedModelAndAnUnknownRulePackageIsInBand",
+        "ServiceSamplingTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "RecordRun",
+      "request": "sysml.RecordRunRequest",
+      "response": "sysml.RecordRunResponse",
+      "methods": [
+        "Model.RecordRunAsync"
+      ],
+      "input": "analysis ID, RecordOptions (subject, arguments, engine, package, sweep ranges or sample runs and seed); documents always accepted",
+      "result": "Recording, with the recorded Model as a new handle",
+      "area": "sampling",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "record_run",
+          "when": "always"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        }
+      ],
+      "valueFields": [
+        "arguments",
+        "named_arguments",
+        "ranges.start",
+        "ranges.end",
+        "ranges.step"
+      ],
+      "scenarios": [
+        "record_run/a_run_is_recorded_into_the_default_package"
+      ],
+      "tests": [
+        "ModelRunsTests.RecordRunSendsEveryOptionAndAnswersANewModelLeavingTheOldOneAsItWas",
+        "ModelRunsTests.ARecordingNotMadeIsARecordExceptionKeepingTheRunsAndWhetherTheyFailed",
+        "ModelRunsTests.ARecordingAnsweredInAShapeTheRequestDoesNotMakeIsMalformed",
+        "ModelRunsTests.RecordGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent",
+        "ServiceSamplingTests.ARecordedRunIsANewModelHoldingTheRecordsAndTheOriginalIsUntouched",
+        "ServiceSamplingTests.ARecordingNotMadeIsInBandAndARequestNoRunFollowsFromIsRefused",
+        "ServiceSamplingTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "ListEngines",
+      "request": "sysml.ListEnginesRequest",
+      "response": "sysml.ListEnginesResponse",
+      "methods": [
+        "Connection.ListEnginesAsync"
+      ],
+      "input": "ListEnginesOptions (probe)",
+      "result": "EngineInfo list",
+      "area": "verification",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "engines",
+          "when": "always"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "list_engines/names_every_engine_with_its_authority_and_what_it_answers",
+        "list_engines/probe_checks_each_engine_it_lists"
+      ],
+      "tests": [
+        "ModelAnalysisTests.ListEnginesSendsTheProbeAndReadsEveryFieldOfEveryEngine",
+        "ModelAnalysisTests.ListingEnginesNeedsTheEnginesCapability",
+        "ServiceVerificationTests.TheEnginesAreListedInNameOrderWithAndWithoutAProbe",
+        "ServiceVerificationTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent"
+      ]
+    },
+    {
+      "rpc": "Query",
+      "request": "sysml.QueryRequest",
+      "response": "sysml.QueryResponse",
+      "methods": [
+        "Model.QueryAsync",
+        "Model.QueryOslcAsync"
+      ],
+      "input": "Query (scope, select and a QueryConstraint) or OSLC text",
+      "result": "QueryResult",
+      "area": "query-docs",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "query",
+          "when": "always"
+        },
+        {
+          "capability": "oslc_query",
+          "field": "oslc_query",
+          "when": "oslc_query is set"
+        },
+        {
+          "capability": "query_order_by",
+          "field": "query.order_by",
+          "when": "query.order_by is not empty"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "query/an_absent_constraint_considers_the_whole_model",
+        "query/a_type_constraint_filters_by_metamodel_type",
+        "query/a_scope_considers_that_element_and_its_nested",
+        "query/a_selection_projects_only_those_properties",
+        "query/an_unknown_scope_fails_the_call",
+        "query/an_unset_operator_fails_the_call",
+        "query/an_oslc_text_query_is_parsed",
+        "query/naming_both_query_forms_is_invalid"
+      ],
+      "tests": [
+        "ModelQueryDocsTests.QuerySendsTheStructuredQueryAndReadsEveryElement",
+        "ModelQueryDocsTests.OslcTextIsSentAloneAndGatedBehindTheQueryCapability",
+        "ModelQueryDocsTests.AConstraintCannotBeBuiltWithoutAnOperatorItsOperandsOrItsConstraints",
+        "ModelQueryDocsTests.AnElementWithoutItsIdOrTypeIsAMalformedAnswer",
+        "ModelQueryDocsTests.TheOrderedMembershipAndMetaclassOperatorsAreSentAsTheStandardNamesThem",
+        "ModelQueryDocsTests.AnOrderingIsGatedBehindItsCapabilityAndAQueryWithoutOneIsNot",
+        "ModelQueryDocsTests.ACompositeOfOneConstraintIsRefusedAsTheStandardRefusesIt",
+        "ServiceQueryDocsTests.QueriesSelectWhatTheServiceEvaluatesInEveryConstraintForm",
+        "ServiceQueryDocsTests.EveryElementOfEveryConformanceFixtureIsAnsweredWithItsIdAndType",
+        "ServiceQueryDocsTests.AWithheldCapabilityIsRefusedBeforeAnythingIsSent",
+        "ServiceQueryDocsTests.AWithheldOrderingOrAsciiDocIsRefusedBeforeAnythingIsSentWhileTheRestIsServed"
+      ]
+    },
+    {
+      "rpc": "RunDocumentQuery",
+      "request": "sysml.RunDocumentQueryRequest",
+      "response": "sysml.RunDocumentQueryResponse",
+      "methods": [
+        "Model.RunDocumentQueryAsync"
+      ],
+      "input": "query ID, DocumentBinding list",
+      "result": "DocumentQueryResult",
+      "area": "query-docs",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "document_query",
+          "when": "always"
+        },
+        {
+          "capability": "big_int_values",
+          "field": "bindings.values",
+          "when": "a binding holds an Integer beyond int64"
+        },
+        {
+          "capability": "rational_values",
+          "field": "bindings.values",
+          "when": "a binding holds an exact Rational no double holds; one a double holds is sent as that double"
+        }
+      ],
+      "valueFields": [
+        "bindings.values.event.value"
+      ],
+      "scenarios": [
+        "document/a_named_query_answers_typed_rows_in_order",
+        "document/an_empty_result_keeps_its_schema",
+        "document/a_verdicts_query_answers_verdict_rows",
+        "document/an_unknown_query_is_not_found",
+        "document/a_missing_binding_is_invalid",
+        "document/an_object_binding_needs_an_object_the_model_holds"
+      ],
+      "tests": [
+        "ModelQueryDocsTests.RunDocumentQuerySendsEveryBindingInOrderAndReadsEveryRow",
+        "ModelQueryDocsTests.ABindingRefusesWhatAQueryOnlyAnswersAndCopiesItsValues",
+        "ModelQueryDocsTests.DocumentQueryGatesAreCheckedInTheServicesOrderAndAnExactRationalIsSentAsTheSameReal",
+        "ModelQueryDocsTests.AMissingModelAMissingDeclarationAndAFaultInTheModelsDeclarationsAreToldApart",
+        "ModelQueryDocsTests.ARowSelectingNoElementOrHoldingAnUnknownArmIsRefused",
+        "ServiceQueryDocsTests.DocumentQueriesAnswerTypedRowsOverElementsObjectsVerdictsStatesAndEvents",
+        "ServiceQueryDocsTests.AMissingModelAMissingDeclarationAWrongBindingAndAFaultInTheModelAreToldApart"
+      ]
+    },
+    {
+      "rpc": "RenderDocument",
+      "request": "sysml.RenderDocumentRequest",
+      "response": "sysml.RenderDocumentResponse",
+      "methods": [
+        "Model.RenderDocumentAsync"
+      ],
+      "input": "document ID, DocumentForm",
+      "result": "RenderedDocument",
+      "area": "query-docs",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "render_document",
+          "when": "always"
+        },
+        {
+          "capability": "render_document_html",
+          "field": "form",
+          "when": "form is html"
+        },
+        {
+          "capability": "render_document_asciidoc",
+          "field": "form",
+          "when": "form is asciidoc"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "document/a_named_document_renders_markdown",
+        "document/an_unknown_document_is_not_found",
+        "document/a_query_is_not_a_document"
+      ],
+      "tests": [
+        "ModelQueryDocsTests.RenderDocumentSendsTheFormAndReadsTheContentAndFileName",
+        "ModelQueryDocsTests.AMissingModelAMissingDeclarationAndAFaultInTheModelsDeclarationsAreToldApart",
+        "ServiceQueryDocsTests.ADocumentRendersToMarkdownHtmlAndAsciiDocNamingTheFileARenderedSetWrites",
+        "ServiceQueryDocsTests.AMissingModelAMissingDeclarationAWrongBindingAndAFaultInTheModelAreToldApart",
+        "ServiceQueryDocsTests.AWithheldOrderingOrAsciiDocIsRefusedBeforeAnythingIsSentWhileTheRestIsServed"
+      ]
+    },
+    {
+      "rpc": "RenderView",
+      "request": "sysml.RenderViewRequest",
+      "response": "sysml.RenderViewResponse",
+      "methods": [
+        "Model.RenderViewAsync"
+      ],
+      "input": "view name, RenderViewOptions",
+      "result": "RenderedView",
+      "area": "query-docs",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "render_view",
+          "when": "always"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "render_view/interconnection_includes_ports_and_connected_edge_endpoints",
+        "render_view_full_ports_is_accepted",
+        "render_view_unknown_view_is_not_found"
+      ],
+      "tests": [
+        "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "ModelQueryDocsTests.AGeometryStyleCanvasOrOriginTheRenderingOmitsStaysAbsentRatherThanZero",
+        "ModelQueryDocsTests.InvalidViewOptionsAreRefusedBeforeSendingAndNodesOutOfOrderOrRowsWithoutABoxAreMalformed",
+        "ServiceQueryDocsTests.AViewRendersWithItsPortsNotationAndDepthAndNothingItOmitsFilledIn",
+        "ServiceQueryDocsTests.AViewsLayoutStylesNotesCanvasAndTableAreReadAsTheViewStatesThem",
+        "ServiceQueryDocsTests.EveryViewTheRenderersOwnTestsDeclareIsReadWithItsNodesInOrder",
+        "ServiceQueryDocsTests.CompartmentsFoldMembersIntoRowsOfTheirOwnersBoxAndWhatAnOwnerHasFromItsTypeIsMarkedInherited"
+      ]
+    },
+    {
+      "rpc": "ExportGraphs",
+      "request": "sysml.ExportGraphsRequest",
+      "response": "sysml.ExportGraphsResponse",
+      "methods": [
+        "Model.ExportGraphsAsync"
+      ],
+      "input": "behavior subject",
+      "result": "Graphs",
+      "area": "graph-data",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "export_graphs",
+          "when": "always"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "export_graphs/action_is_the_canonical_graphs_form",
+        "export_graphs/state_machine_is_the_canonical_graphs_form",
+        "export_graphs_unknown_subject_is_not_found",
+        "export_graphs_non_behavior_is_invalid"
+      ],
+      "tests": [
+        "ModelGraphDataTests.ExportGraphsSendsTheSubjectAndKeepsTheFormByteForByte",
+        "ModelGraphDataTests.ExportGraphsNeedsItsCapabilityAndASubjectBeforeAnythingIsSent",
+        "ModelGraphDataTests.ExportGraphsTellsTheMissingModelFromTheMissingSubject",
+        "ModelGraphDataTests.AnExportWithoutItsFormVersionOrSubjectIsMalformed",
+        "ServiceGraphDataTests.AnActionAndAStateMachineExportTheFormAsTheServiceWroteIt",
+        "ServiceGraphDataTests.TheFormIsTheSameTextOverEveryWire",
+        "ServiceGraphDataTests.AnExportOfAMissingSubjectANonBehaviorOrAMissingModelIsRefused"
+      ]
+    },
+    {
+      "rpc": "ImportData",
+      "request": "sysml.ImportDataRequest",
+      "response": "sysml.ImportDataResponse",
+      "methods": [
+        "Model.ImportDataAsync"
+      ],
+      "input": "DataImport list, ImportOptions",
+      "result": "ImportResult",
+      "area": "graph-data",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "import_data",
+          "when": "always"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "import_data/csv_rows_set_declared_and_inherited_values",
+        "import_data/format_override_reads_the_content_as_named",
+        "import_data/dry_run_reports_without_changing_the_model",
+        "import_data/an_unknown_element_refuses_the_whole_import",
+        "import_data/no_imports_is_an_invalid_argument"
+      ],
+      "tests": [
+        "ModelGraphDataTests.ImportDataSendsEveryFileAndOptionAsTheSchemaWritesIt",
+        "ModelGraphDataTests.AnImportReadsEveryFileAndAnswersANewModelLeavingTheOldOneAsItWas",
+        "ModelGraphDataTests.ADryRunAnswersWhatEachFileWouldSetAndMakesNoModel",
+        "ModelGraphDataTests.AModelOfSeveralDocumentsAnswersEachChangedDocumentAndNoNotationOfOne",
+        "ModelGraphDataTests.AnImportThatSetNoValueAnswersTheModelItWasMadeOf",
+        "ModelGraphDataTests.ARefusedImportIsAModelExceptionKeepingItsDiagnosticsAndMakesNoModel",
+        "ModelGraphDataTests.AMalformedImportAnswerIsRefusedRatherThanRead",
+        "ModelGraphDataTests.AnImportsShapeAndGateAreCheckedBeforeAnythingIsSent",
+        "ServiceGraphDataTests.EveryFormatIsImportedInOrderIntoANewModelLeavingTheOldOneAsItWas",
+        "ServiceGraphDataTests.ADryRunReportsWhatTheImportWouldSetAndChangesNothing",
+        "ServiceGraphDataTests.ARefusedImportIsAModelExceptionAndChangesNothing",
+        "ServiceGraphDataTests.AModelOfSeveralDocumentsIsImportedIntoAsOne",
+        "ServiceGraphDataTests.TheImportedModelIsHeldByTheServiceAndItsNotationSavesAndLoadsBack"
+      ]
+    },
+    {
+      "rpc": "CompareResults",
+      "request": "sysml.CompareResultsRequest",
+      "response": "sysml.CompareResultsResponse",
+      "methods": [
+        "Model.CompareResultsAsync"
+      ],
+      "input": "results JSON, CompareOptions",
+      "result": "Comparison",
+      "area": "graph-data",
+      "status": "implemented",
+      "gates": [
+        {
+          "capability": "compare_results",
+          "when": "always"
+        },
+        {
+          "capability": "engines",
+          "field": "engine",
+          "when": "engine is set"
+        },
+        {
+          "capability": "schedule_explore",
+          "field": "engine",
+          "when": "engine selects an exploring engine (explore)"
+        }
+      ],
+      "valueFields": [],
+      "scenarios": [
+        "compare_results/stored_runs_are_tabled_beside_the_runs",
+        "compare_results/actions_select_configurations_by_name",
+        "compare_results/malformed_results_are_refused_in_band",
+        "compare_results/negative_runs_is_an_invalid_argument"
+      ],
+      "tests": [
+        "ModelGraphDataTests.CompareResultsSendsEveryOptionAsTheSchemaWritesIt",
+        "ModelGraphDataTests.AComparisonReadsEveryConfigurationObservableAndTheEngineThatRanIt",
+        "ModelGraphDataTests.ResultsNothingOfWhichWasComparedAreACompareExceptionKeepingWhatTheAnswerReported",
+        "ModelGraphDataTests.CompareGatesAreJudgedInTheServicesOrderBeforeAnythingIsSent",
+        "ModelGraphDataTests.ComparisonOptionsNamingEmptyTextAreRefusedBeforeAnythingIsSent",
+        "ServiceGraphDataTests.StoredAndPooledResultsAreComparedWithSeededRunsBesideFailedAndUnresolvedConfigurations",
+        "ServiceGraphDataTests.TheSameSeedMakesTheSameComparisonAndFixedDrawsNeedNone",
+        "ServiceGraphDataTests.ResultsTheServiceCannotReadAndOptionsItRefusesAreStatuses",
+        "ServiceGraphDataTests.AServiceWithoutTheCapabilitiesIsAskedNothingItCannotDo"
+      ]
+    }
+  ],
+  "values": {
+    "message": "sysml.Value",
+    "oneof": "kind",
+    "area": "values",
+    "sendGateOrder": [
+      "complex_values",
+      "structured_values",
+      "measurement_refs",
+      "function_values",
+      "infinity_value",
+      "set_values",
+      "tensor_values",
+      "metaobject_values",
+      "big_int_values",
+      "rational_values"
+    ],
+    "arms": {
+      "int_value": {
+        "kind": "Integer",
+        "status": "implemented",
+        "send": "ungated",
+        "test": "ValueArmTests.IntegerArm"
+      },
+      "real_value": {
+        "kind": "Real",
+        "status": "implemented",
+        "send": "ungated",
+        "test": "ValueArmTests.RealArm"
+      },
+      "bool_value": {
+        "kind": "Boolean",
+        "status": "implemented",
+        "send": "ungated",
+        "test": "ValueArmTests.BooleanArm"
+      },
+      "string_value": {
+        "kind": "Text",
+        "status": "implemented",
+        "send": "ungated",
+        "test": "ValueArmTests.TextArm"
+      },
+      "instance_id": {
+        "kind": "InstanceRef",
+        "status": "implemented",
+        "send": "ungated",
+        "test": "ValueArmTests.InstanceRefArm"
+      },
+      "sequence": {
+        "kind": "Sequence",
+        "status": "implemented",
+        "send": "ungated",
+        "note": "its elements carry their own gates",
+        "test": "ValueArmTests.SequenceArm"
+      },
+      "null": {
+        "kind": "Null",
+        "status": "implemented",
+        "send": "ungated",
+        "test": "ValueArmTests.NullArm"
+      },
+      "quantity": {
+        "kind": "Quantity",
+        "status": "implemented",
+        "send": "ungated",
+        "note": "a big-integer or rational magnitude needs big_int_values or rational_values to send and to receive",
+        "test": "ValueArmTests.QuantityArm"
+      },
+      "enum_literal": {
+        "kind": "EnumLiteral",
+        "status": "implemented",
+        "send": "ungated",
+        "receive": "enum_values",
+        "test": "ValueArmTests.EnumLiteralArm"
+      },
+      "unset": {
+        "kind": "Unset",
+        "status": "implemented",
+        "send": "response-only",
+        "receive": "unset_value",
+        "test": "ValueArmTests.UnsetArm"
+      },
+      "complex": {
+        "kind": "Complex",
+        "status": "implemented",
+        "send": "complex_values",
+        "receive": "complex_values",
+        "test": "ValueArmTests.ComplexArm"
+      },
+      "array": {
+        "kind": "Array",
+        "status": "implemented",
+        "send": "structured_values",
+        "receive": "structured_values",
+        "note": "its elements carry their own gates",
+        "test": "ValueArmTests.ArrayArm"
+      },
+      "vector": {
+        "kind": "Vector",
+        "status": "implemented",
+        "send": "structured_values",
+        "receive": "structured_values",
+        "note": "a big-integer or rational component needs big_int_values or rational_values to send and to receive",
+        "test": "ValueArmTests.VectorArm"
+      },
+      "vector_quantity": {
+        "kind": "VectorQuantity",
+        "status": "implemented",
+        "send": "structured_values",
+        "receive": "structured_values",
+        "note": "a big-integer or rational magnitude needs big_int_values or rational_values to send and to receive",
+        "test": "ValueArmTests.VectorQuantityArm"
+      },
+      "measurement_ref": {
+        "kind": "MeasurementRef",
+        "status": "implemented",
+        "send": "measurement_refs",
+        "receive": "measurement_refs",
+        "test": "ValueArmTests.MeasurementRefArm"
+      },
+      "infinity": {
+        "kind": "Infinity",
+        "status": "implemented",
+        "send": "infinity_value",
+        "receive": "infinity_value",
+        "test": "ValueArmTests.InfinityArm"
+      },
+      "function": {
+        "kind": "Function",
+        "status": "implemented",
+        "send": "function_values",
+        "receive": "function_values",
+        "test": "ValueArmTests.FunctionArm"
+      },
+      "set": {
+        "kind": "Set",
+        "status": "implemented",
+        "send": "set_values",
+        "receive": "set_values",
+        "note": "its elements carry their own gates",
+        "test": "ValueArmTests.SetArm"
+      },
+      "tensor_quantity": {
+        "kind": "TensorQuantity",
+        "status": "implemented",
+        "send": "tensor_values",
+        "receive": "tensor_values",
+        "note": "a big-integer or rational magnitude needs big_int_values or rational_values to send and to receive",
+        "test": "ValueArmTests.TensorQuantityArm"
+      },
+      "metaobject": {
+        "kind": "Metaobject",
+        "status": "implemented",
+        "send": "metaobject_values",
+        "receive": "metaobject_values",
+        "test": "ValueArmTests.MetaobjectArm"
+      },
+      "undetermined": {
+        "kind": "Undetermined",
+        "status": "implemented",
+        "send": "response-only",
+        "receive": "undetermined_value",
+        "test": "ValueArmTests.UndeterminedArm"
+      },
+      "big_int_value": {
+        "kind": "BigInteger",
+        "status": "implemented",
+        "send": "big_int_values",
+        "receive": "big_int_values",
+        "test": "ValueArmTests.BigIntegerArm"
+      },
+      "rational_value": {
+        "kind": "Rational",
+        "status": "implemented",
+        "send": "rational_values",
+        "receive": "rational_values",
+        "test": "ValueArmTests.RationalArm"
+      }
+    }
+  },
+  "edits": {
+    "message": "sysml.EditOperation",
+    "oneof": "operation",
+    "area": "editing",
+    "checked": "ApplyEdits checks these over all its operations, after apply_edits and before edit_documents, in gateOrder",
+    "gateOrder": [
+      "authoring",
+      "connection_authoring",
+      "satisfy_authoring",
+      "requirement_constraint_authoring",
+      "transition_authoring",
+      "verification_objective_authoring",
+      "metadata_authoring",
+      "metadata_prefix_authoring",
+      "sequence_authoring",
+      "action_body_statement_authoring",
+      "import_authoring",
+      "member_modifiers",
+      "implicit_parameters",
+      "constraint_body_authoring",
+      "state_action_authoring",
+      "documentation_authoring",
+      "comment_authoring"
+    ],
+    "arms": {
+      "set_value": {
+        "edit": "SetValue",
+        "status": "implemented",
+        "gates": [],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "rename": {
+        "edit": "Rename",
+        "status": "implemented",
+        "gates": [],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_member": {
+        "edit": "AddMember",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "verification_objective_authoring",
+            "field": "kind",
+            "when": "kind is objective and name is empty"
+          },
+          {
+            "capability": "metadata_authoring",
+            "field": "metadata_prefixes",
+            "when": "metadata_prefixes is not empty"
+          },
+          {
+            "capability": "member_modifiers",
+            "field": "kind",
+            "when": "is_abstract or is_default is true, redefines is not empty, direction is set, or kind is ref or return"
+          },
+          {
+            "capability": "implicit_parameters",
+            "field": "kind",
+            "when": "kind is empty"
+          },
+          {
+            "capability": "constraint_body_authoring",
+            "field": "body_expression",
+            "when": "body_expression is set, or kind is assert, assert not, assert constraint or assert not constraint"
+          },
+          {
+            "capability": "state_action_authoring",
+            "field": "kind",
+            "when": "kind is exhibit state, exhibit, entry action, do action or exit action"
+          },
+          {
+            "capability": "documentation_authoring",
+            "field": "doc",
+            "when": "doc is set"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "delete": {
+        "edit": "Delete",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "move": {
+        "edit": "Move",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_connection": {
+        "edit": "AddConnection",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "connection_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_satisfy": {
+        "edit": "AddSatisfy",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "satisfy_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_requirement_constraint": {
+        "edit": "AddRequirementConstraint",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "requirement_constraint_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_transition": {
+        "edit": "AddTransition",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "transition_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_import": {
+        "edit": "AddImport",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "import_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_documentation": {
+        "edit": "AddDocumentation",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "documentation_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_verify": {
+        "edit": "AddVerify",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "verification_objective_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_metadata": {
+        "edit": "AddMetadata",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "metadata_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_sequence": {
+        "edit": "AddSequence",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "sequence_authoring",
+            "when": "always"
+          },
+          {
+            "capability": "action_body_statement_authoring",
+            "field": "body",
+            "when": "this step or one nested in body or else_body sets condition, value, target, via, until, multiplicity or parameter; has a body or else_body; has keyword if or else; has a member_kind without a keyword; or has member_kind accept, send, assign, if, while, loop, for or terminate"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_metadata_prefix": {
+        "edit": "AddMetadataPrefix",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "metadata_prefix_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_comment": {
+        "edit": "AddComment",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "comment_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      },
+      "add_note": {
+        "edit": "AddNote",
+        "status": "implemented",
+        "gates": [
+          {
+            "capability": "authoring",
+            "when": "always"
+          },
+          {
+            "capability": "comment_authoring",
+            "when": "always"
+          }
+        ],
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"
+      }
+    }
+  },
+  "population": {
+    "sysml.SymbolInfo.type_info": "type_facts",
+    "sysml.SymbolInfo.multiplicity": "type_facts",
+    "sysml.SymbolInfo.specializations": "type_facts",
+    "sysml.SymbolInfo.attributes": "symbol_attributes",
+    "sysml.SymbolInfo.withheld_library_attributes": "symbol_attributes",
+    "sysml.Instance.feature_values": "feature_values",
+    "sysml.Diagnostic.code": "diagnostic_codes",
+    "sysml.Diagnostic.order_dependent": "order_dependence",
+    "sysml.Diagnostic.independent": "order_dependence",
+    "sysml.FeatureValue.order_dependent": "order_dependence",
+    "sysml.ExecuteActionResponse.order_dependent": "order_dependence",
+    "sysml.ExecuteStateResponse.order_dependent": "order_dependence",
+    "sysml.ExecuteActionResponse.final_time": "final_time",
+    "sysml.ExecuteStateResponse.final_time": "final_time",
+    "sysml.ParseSourcesResponse.affected": "parse_sources_affected",
+    "sysml.RenderDocumentResponse.file_name": "render_document_file_name",
+    "sysml.RunAnalysisResponse.verification_verdicts": "verification_verdicts",
+    "sysml.ValidateInstanceResponse.verification_verdicts": "verification_verdicts",
+    "sysml.VerifyRequirementResponse.verification_verdicts": "verification_verdicts",
+    "sysml.VerifySatisfactionResponse.verification_verdicts": "verification_verdicts",
+    "sysml.RunAnalysisResponse.evaluations": "case_evaluations",
+    "sysml.SweepRow.evaluations": "case_evaluations",
+    "sysml.ApplyEditsResponse.documents": "edit_documents",
+    "sysml.ImportDataResponse.documents": "edit_documents",
+    "sysml.Verdict.engine": "engines",
+    "sysml.Verdict.strength": "engines",
+    "sysml.Verdict.bounds": "engines",
+    "sysml.EvaluateCalcResponse.engine": "engines",
+    "sysml.EvaluateCalcResponse.strength": "engines",
+    "sysml.EvaluateCalcResponse.bounds": "engines",
+    "sysml.RunAnalysisResponse.engine": "engines",
+    "sysml.RunAnalysisResponse.strength": "engines",
+    "sysml.RunAnalysisResponse.bounds": "engines",
+    "sysml.CheckBehaviorResponse.engine": "engines",
+    "sysml.CheckBehaviorResponse.strength": "engines",
+    "sysml.CheckBehaviorResponse.bounds": "engines",
+    "sysml.RunSweepResponse.engine": "engines",
+    "sysml.RunSweepResponse.strength": "engines",
+    "sysml.RunSweepResponse.bounds": "engines",
+    "sysml.RunRunsResponse.engine": "engines",
+    "sysml.RunRunsResponse.strength": "engines",
+    "sysml.RunRunsResponse.bounds": "engines",
+    "sysml.CompareResultsResponse.engine": "engines",
+    "sysml.CompareResultsResponse.strength": "engines",
+    "sysml.CompareResultsResponse.bounds": "engines",
+    "sysml.DocumentValue.big_int_value": "big_int_values",
+    "sysml.DocumentValue.rational_value": "rational_values",
+    "sysml.Verdict.notes": "verdict_notes",
+    "sysml.ConvertResponse.library_references": "convert_library_references"
+  },
+  "fields": {
+    "sysml.AddCommentEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "owner",
+          "body",
+          "name",
+          "about",
+          "locale"
+        ]
+      }
+    ],
+    "sysml.AddConnectionEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "owner",
+          "kind",
+          "from_end",
+          "to_end",
+          "name",
+          "type"
+        ]
+      }
+    ],
+    "sysml.AddDocumentationEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "target",
+          "body",
+          "name",
+          "locale",
+          "replace"
+        ]
+      }
+    ],
+    "sysml.AddImportEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "owner",
+          "visibility",
+          "target",
+          "is_recursive",
+          "is_import_all",
+          "filters"
+        ]
+      }
+    ],
+    "sysml.AddMemberEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "owner",
+          "kind",
+          "name",
+          "type",
+          "multiplicity",
+          "value",
+          "specializes",
+          "is_abstract",
+          "redefines",
+          "is_default",
+          "direction",
+          "metadata_prefixes",
+          "doc",
+          "body_expression"
+        ]
+      }
+    ],
+    "sysml.AddMetadataEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "owner",
+          "metadata_type",
+          "name",
+          "about",
+          "values",
+          "shorthand"
+        ]
+      }
+    ],
+    "sysml.AddMetadataPrefixEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "target",
+          "metadata_type"
+        ]
+      }
+    ],
+    "sysml.AddNoteEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "target",
+          "text"
+        ]
+      }
+    ],
+    "sysml.AddRequirementConstraintEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "owner",
+          "kind",
+          "expression",
+          "name"
+        ]
+      }
+    ],
+    "sysml.AddSatisfyEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "owner",
+          "requirement",
+          "satisfying_feature",
+          "is_asserted",
+          "is_negated"
+        ]
+      }
+    ],
+    "sysml.AddSequenceEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "owner",
+          "keyword",
+          "ref",
+          "member_kind",
+          "member_name",
+          "type",
+          "after",
+          "condition",
+          "value",
+          "target",
+          "via",
+          "until",
+          "body",
+          "else_body",
+          "multiplicity",
+          "parameter"
+        ]
+      }
+    ],
+    "sysml.AddTransitionEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "owner",
+          "name",
+          "source",
+          "target",
+          "trigger",
+          "guard",
+          "effect",
+          "initial"
+        ]
+      }
+    ],
+    "sysml.AddVerifyEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "owner",
+          "requirement"
+        ]
+      }
+    ],
+    "sysml.AppliedEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.ASingleDocumentModelAnswersItsNotationInContentAndInItsOneDocument",
+        "fields": [
+          "operation_index",
+          "target",
+          "offset",
+          "length",
+          "old_text",
+          "new_text",
+          "document"
+        ]
+      }
+    ],
+    "sysml.ApplyEditsRequest": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "model_hash",
+          "operations",
+          "document",
+          "accept_documents"
+        ]
+      }
+    ],
+    "sysml.ApplyEditsResponse": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.ASingleDocumentModelAnswersItsNotationInContentAndInItsOneDocument",
+        "fields": [
+          "content",
+          "applied",
+          "diagnostics",
+          "documents"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.ARefusalIsAnEditExceptionKeepingItsKindDiagnosticsAndReferrers",
+        "fields": [
+          "error",
+          "failure",
+          "referring_elements",
+          "referrers"
+        ]
+      }
+    ],
+    "sysml.Array": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.ArrayArm",
+        "fields": [
+          "dimensions",
+          "elements"
+        ]
+      }
+    ],
+    "sysml.AttributeInfo": [
+      {
+        "status": "typed",
+        "test": "ModelSymbolTests.SymbolAsyncReadsEveryFieldOfTheSymbol",
+        "fields": [
+          "name",
+          "type",
+          "value",
+          "unit"
+        ]
+      }
+    ],
+    "sysml.Bound": [
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.CheckActionSendsEveryOptionAndReadsEveryFinding",
+        "fields": [
+          "name",
+          "limit",
+          "reached"
+        ]
+      }
+    ],
+    "sysml.CalcOutput": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.CalcSendsItsArgumentsInOrderAndReadsTheValueOutputsAndStanding",
+        "fields": [
+          "name",
+          "value"
+        ]
+      }
+    ],
+    "sysml.CaseEvaluation": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunAnalysisSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "function_id",
+          "arguments",
+          "result",
+          "error",
+          "selected",
+          "tied"
+        ]
+      }
+    ],
+    "sysml.CaseStatistic": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.AComparisonReadsEveryConfigurationObservableAndTheEngineThatRanIt",
+        "fields": [
+          "statistic",
+          "of",
+          "tool",
+          "run",
+          "difference"
+        ]
+      }
+    ],
+    "sysml.CaseStatistics": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.AComparisonReadsEveryConfigurationObservableAndTheEngineThatRanIt",
+        "fields": [
+          "analysis",
+          "rows",
+          "notes"
+        ]
+      }
+    ],
+    "sysml.CheckBehaviorRequest": [
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.CheckActionSendsEveryOptionAndReadsEveryFinding",
+        "fields": [
+          "model_hash",
+          "action_symbol_id",
+          "inputs",
+          "performer_symbol_id",
+          "check_property",
+          "check_diverge",
+          "check_input",
+          "check_assume",
+          "check_witness",
+          "check_depth",
+          "check_states",
+          "check_unroll",
+          "check_timeout",
+          "engine"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.CheckStateSendsTheMachineAndAHoldingCheckIsAVerdict",
+        "fields": [
+          "state_machine_symbol_id"
+        ]
+      }
+    ],
+    "sysml.CheckBehaviorResponse": [
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.CheckActionSendsEveryOptionAndReadsEveryFinding",
+        "fields": [
+          "verdict",
+          "lines",
+          "search",
+          "violations",
+          "divergences",
+          "finals",
+          "claim",
+          "free_inputs",
+          "assumptions",
+          "witness",
+          "contrast",
+          "engine",
+          "strength",
+          "bounds",
+          "reason"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.ACheckRefusedInBandIsACheckExceptionKeepingThePartialAnswer",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.CheckDivergence": [
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.CheckActionSendsEveryOptionAndReadsEveryFinding",
+        "fields": [
+          "feature",
+          "values"
+        ]
+      }
+    ],
+    "sysml.CheckDivergentValue": [
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.CheckActionSendsEveryOptionAndReadsEveryFinding",
+        "fields": [
+          "value",
+          "witness"
+        ]
+      }
+    ],
+    "sysml.CheckFinal": [
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.CheckActionSendsEveryOptionAndReadsEveryFinding",
+        "fields": [
+          "outcome",
+          "values",
+          "witness"
+        ]
+      }
+    ],
+    "sysml.CheckSearch": [
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.CheckActionSendsEveryOptionAndReadsEveryFinding",
+        "fields": [
+          "states",
+          "moves",
+          "max_depth",
+          "bounds_hit",
+          "horizon",
+          "horizon_set",
+          "mass_bounded",
+          "notes",
+          "scope",
+          "status"
+        ]
+      }
+    ],
+    "sysml.CheckViolation": [
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.CheckActionSendsEveryOptionAndReadsEveryFinding",
+        "fields": [
+          "kind",
+          "property",
+          "error",
+          "depth",
+          "probability",
+          "witness",
+          "text"
+        ]
+      }
+    ],
+    "sysml.CheckWitness": [
+      {
+        "status": "typed",
+        "test": "ModelCheckTests.CheckActionSendsEveryOptionAndReadsEveryFinding",
+        "fields": [
+          "schedule",
+          "draws",
+          "choices",
+          "inputs",
+          "file_name",
+          "file_content"
+        ]
+      }
+    ],
+    "sysml.CompareResultsRequest": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.CompareResultsSendsEveryOptionAsTheSchemaWritesIt",
+        "fields": [
+          "model_hash",
+          "results",
+          "actions",
+          "runs",
+          "seed",
+          "draws",
+          "clock_step",
+          "observe",
+          "engine"
+        ]
+      }
+    ],
+    "sysml.CompareResultsResponse": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.AComparisonReadsEveryConfigurationObservableAndTheEngineThatRanIt",
+        "fields": [
+          "configurations",
+          "source",
+          "diagnostics",
+          "engine",
+          "strength",
+          "bounds"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.ResultsNothingOfWhichWasComparedAreACompareExceptionKeepingWhatTheAnswerReported",
+        "fields": [
+          "error",
+          "failure_reason"
+        ]
+      }
+    ],
+    "sysml.ComparedDistribution": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.AComparisonReadsEveryConfigurationObservableAndTheEngineThatRanIt",
+        "fields": [
+          "count",
+          "min",
+          "mean",
+          "p50",
+          "p90",
+          "max",
+          "deviation"
+        ]
+      }
+    ],
+    "sysml.Complex": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.ComplexArm",
+        "fields": [
+          "real",
+          "imaginary"
+        ]
+      }
+    ],
+    "sysml.CompositeConstraint": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.QuerySendsTheStructuredQueryAndReadsEveryElement",
+        "fields": [
+          "operator",
+          "constraint"
+        ]
+      }
+    ],
+    "sysml.ConfigurationComparison": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.AComparisonReadsEveryConfigurationObservableAndTheEngineThatRanIt",
+        "fields": [
+          "id",
+          "name",
+          "behavior",
+          "target",
+          "result_location",
+          "status",
+          "unresolved",
+          "stored_runs",
+          "stored_snapshots",
+          "runs",
+          "completed",
+          "draws",
+          "seed",
+          "clock_step",
+          "rows",
+          "instances",
+          "observables",
+          "errors",
+          "notes",
+          "lines"
+        ]
+      }
+    ],
+    "sysml.Constraint": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.QuerySendsTheStructuredQueryAndReadsEveryElement",
+        "fields": [
+          "primitive",
+          "composite"
+        ]
+      }
+    ],
+    "sysml.ConvertRequest": [
+      {
+        "status": "typed",
+        "test": "ModelConversionTests.ConvertSendsEverySourceAndOptionAndReadsEveryField",
+        "fields": [
+          "file_path",
+          "content",
+          "model_hash",
+          "from_format",
+          "to_format",
+          "tolerate_syntax_errors",
+          "id_form",
+          "documents",
+          "compact",
+          "omit_derived",
+          "keep_derived",
+          "include_check_diagnostics",
+          "include_library_stubs"
+        ]
+      }
+    ],
+    "sysml.ConvertResponse": [
+      {
+        "status": "typed",
+        "test": "ModelConversionTests.ConvertSendsEverySourceAndOptionAndReadsEveryField",
+        "fields": [
+          "content",
+          "from_format",
+          "to_format",
+          "diagnostics",
+          "experimental",
+          "experimental_notice",
+          "library_references"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelConversionTests.AConversionNotMadeIsAConversionExceptionKeepingItsFormatsAndAMalformedAnswerIsRefused",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.DataImport": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.ImportDataSendsEveryFileAndOptionAsTheSchemaWritesIt",
+        "fields": [
+          "name",
+          "content",
+          "import_format",
+          "import_map"
+        ]
+      }
+    ],
+    "sysml.DeleteEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "target",
+          "cascade"
+        ]
+      }
+    ],
+    "sysml.Diagnostic": [
+      {
+        "status": "typed",
+        "test": "ModelParseTests.EveryFieldOfADiagnosticIsRead",
+        "fields": [
+          "severity",
+          "message",
+          "span",
+          "code",
+          "order_dependent",
+          "independent"
+        ]
+      }
+    ],
+    "sysml.DiagnosticsRequest": [
+      {
+        "status": "typed",
+        "test": "ModelEvaluateTests.GetDiagnosticsSendsTheLintSelectionAndReadsTheAnswer",
+        "fields": [
+          "model_hash",
+          "disable_lint",
+          "enable_lint"
+        ]
+      }
+    ],
+    "sysml.DiagnosticsResponse": [
+      {
+        "status": "typed",
+        "test": "ModelEvaluateTests.GetDiagnosticsSendsTheLintSelectionAndReadsTheAnswer",
+        "fields": [
+          "diagnostics",
+          "error"
+        ]
+      }
+    ],
+    "sysml.DocumentEvent": [
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExecuteStateSendsItsEventsAndTraceAndReadsTheTraceItAnswers",
+        "fields": [
+          "kind",
+          "time",
+          "object",
+          "machine",
+          "state",
+          "from",
+          "to",
+          "target",
+          "event",
+          "payload",
+          "alternatives",
+          "taken",
+          "text"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExecuteActionSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "token",
+          "step",
+          "feature",
+          "value"
+        ]
+      }
+    ],
+    "sysml.DocumentObject": [
+      {
+        "status": "typed",
+        "test": "DocumentValueTests.EachArmIsReadAsTheServiceSentIt",
+        "fields": [
+          "instance_id",
+          "path",
+          "element"
+        ]
+      }
+    ],
+    "sysml.DocumentQueryBinding": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RunDocumentQuerySendsEveryBindingInOrderAndReadsEveryRow",
+        "fields": [
+          "parameter",
+          "values"
+        ]
+      }
+    ],
+    "sysml.DocumentQueryCell": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RunDocumentQuerySendsEveryBindingInOrderAndReadsEveryRow",
+        "fields": [
+          "values"
+        ]
+      }
+    ],
+    "sysml.DocumentQueryColumn": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RunDocumentQuerySendsEveryBindingInOrderAndReadsEveryRow",
+        "fields": [
+          "name"
+        ]
+      }
+    ],
+    "sysml.DocumentQueryRow": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RunDocumentQuerySendsEveryBindingInOrderAndReadsEveryRow",
+        "fields": [
+          "element",
+          "cells"
+        ]
+      }
+    ],
+    "sysml.DocumentState": [
+      {
+        "status": "typed",
+        "test": "DocumentValueTests.EachArmIsReadAsTheServiceSentIt",
+        "fields": [
+          "object",
+          "machine",
+          "name",
+          "state_path",
+          "state",
+          "region",
+          "enclosing"
+        ]
+      }
+    ],
+    "sysml.DocumentValue": [
+      {
+        "status": "typed",
+        "test": "DocumentValueTests.EachArmIsReadAsTheServiceSentIt",
+        "fields": [
+          "element_id",
+          "string_value",
+          "int_value",
+          "real_value",
+          "bool_value",
+          "infinity",
+          "quantity",
+          "verdict",
+          "object",
+          "state",
+          "event",
+          "big_int_value",
+          "rational_value",
+          "element_type"
+        ]
+      }
+    ],
+    "sysml.DocumentVerdict": [
+      {
+        "status": "typed",
+        "test": "DocumentValueTests.EachArmIsReadAsTheServiceSentIt",
+        "fields": [
+          "assertion",
+          "kind",
+          "text",
+          "path",
+          "verdict",
+          "condition",
+          "reason",
+          "verification"
+        ]
+      }
+    ],
+    "sysml.EditOperation": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "set_value",
+          "rename",
+          "add_member",
+          "delete",
+          "move",
+          "add_connection",
+          "add_satisfy",
+          "add_requirement_constraint",
+          "add_transition",
+          "add_import",
+          "add_documentation",
+          "add_verify",
+          "add_metadata",
+          "add_sequence",
+          "add_metadata_prefix",
+          "add_comment",
+          "add_note"
+        ]
+      }
+    ],
+    "sysml.EditedDocument": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.RecordRunSendsEveryOptionAndAnswersANewModelLeavingTheOldOneAsItWas",
+        "fields": [
+          "name",
+          "content"
+        ]
+      }
+    ],
+    "sysml.EngineInfo": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.ListEnginesSendsTheProbeAndReadsEveryFieldOfEveryEngine",
+        "fields": [
+          "name",
+          "authority",
+          "answers",
+          "bounds",
+          "process",
+          "process_found",
+          "ready",
+          "unavailable",
+          "kind",
+          "protocol",
+          "source",
+          "command",
+          "version",
+          "served"
+        ]
+      }
+    ],
+    "sysml.EnumLiteral": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.EnumLiteralArm",
+        "fields": [
+          "literal_id",
+          "enumeration_id",
+          "name",
+          "value"
+        ]
+      }
+    ],
+    "sysml.EvaluateCalcRequest": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.CalcSendsItsArgumentsInOrderAndReadsTheValueOutputsAndStanding",
+        "fields": [
+          "model_hash",
+          "symbol_id",
+          "arguments",
+          "engine"
+        ]
+      }
+    ],
+    "sysml.EvaluateCalcResponse": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.CalcSendsItsArgumentsInOrderAndReadsTheValueOutputsAndStanding",
+        "fields": [
+          "result",
+          "outputs",
+          "diagnostics",
+          "engine",
+          "strength",
+          "bounds"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.ACalcThatFailsIsAVerificationExceptionAndAnAnswerOfNeitherOrBothIsMalformed",
+        "fields": [
+          "error",
+          "failure_reason"
+        ]
+      }
+    ],
+    "sysml.EvaluateRequest": [
+      {
+        "status": "typed",
+        "test": "ModelEvaluateTests.EvalSendsTheExpressionAndItsScopeAndReadsTheValue",
+        "fields": [
+          "model_hash",
+          "expression",
+          "context_symbol_id",
+          "subject_symbol_id"
+        ]
+      }
+    ],
+    "sysml.EvaluateResponse": [
+      {
+        "status": "typed",
+        "test": "ModelEvaluateTests.EvalSendsTheExpressionAndItsScopeAndReadsTheValue",
+        "fields": [
+          "result",
+          "diagnostics"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelEvaluateTests.AnEvaluationFailureIsInBandAndAnAnswerOfNeitherOrOfAnUnknownKindIsRefused",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.ExecuteActionRequest": [
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExecuteActionSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "model_hash",
+          "action_symbol_id",
+          "inputs",
+          "schedule",
+          "performer_symbol_id",
+          "advance",
+          "seed",
+          "draws",
+          "clock_step",
+          "trace",
+          "events"
+        ]
+      }
+    ],
+    "sysml.ExecuteActionResponse": [
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExecuteActionSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "outputs",
+          "diagnostics",
+          "final_time",
+          "performer_attributes",
+          "order_dependent",
+          "trace",
+          "trace_dropped"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.AFailedRunIsAnExecutionExceptionKeepingItsClockTraceAndDiagnostics",
+        "fields": [
+          "error"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExploreSendsExploreUnlessABudgetIsNamedAndReadsEveryOutcome",
+        "fields": [
+          "outcomes",
+          "exploration"
+        ]
+      }
+    ],
+    "sysml.ExecuteStateRequest": [
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExecuteStateSendsItsEventsAndTraceAndReadsTheTraceItAnswers",
+        "fields": [
+          "model_hash",
+          "state_machine_symbol_id",
+          "events",
+          "schedule",
+          "performer_symbol_id",
+          "trace",
+          "advance",
+          "seed",
+          "draws",
+          "clock_step"
+        ]
+      }
+    ],
+    "sysml.ExecuteStateResponse": [
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExecuteStateSendsItsEventsAndTraceAndReadsTheTraceItAnswers",
+        "fields": [
+          "states_visited",
+          "final_context",
+          "diagnostics",
+          "final_time",
+          "trace",
+          "trace_dropped",
+          "order_dependent"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.AFailedRunIsAnExecutionExceptionKeepingItsClockTraceAndDiagnostics",
+        "fields": [
+          "error"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExploreSendsExploreUnlessABudgetIsNamedAndReadsEveryOutcome",
+        "fields": [
+          "outcomes",
+          "exploration"
+        ]
+      }
+    ],
+    "sysml.ExplorationStatus": [
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExploreSendsExploreUnlessABudgetIsNamedAndReadsEveryOutcome",
+        "fields": [
+          "complete",
+          "runs",
+          "budgets_hit",
+          "runs_budget",
+          "depth_budget",
+          "probabilities_lower_bound",
+          "failed_linearizations",
+          "unenumerated"
+        ]
+      }
+    ],
+    "sysml.ExportGraphsRequest": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.ExportGraphsSendsTheSubjectAndKeepsTheFormByteForByte",
+        "fields": [
+          "model_hash",
+          "subject"
+        ]
+      }
+    ],
+    "sysml.ExportGraphsResponse": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.ExportGraphsSendsTheSubjectAndKeepsTheFormByteForByte",
+        "fields": [
+          "content",
+          "version",
+          "subject"
+        ]
+      }
+    ],
+    "sysml.FeatureValue": [
+      {
+        "status": "typed",
+        "test": "ModelEvaluateTests.InstantiateReadsTheObjectGraphAndResolvesItsReferences",
+        "fields": [
+          "feature_name",
+          "value",
+          "values",
+          "materialized",
+          "error",
+          "order_dependent"
+        ]
+      }
+    ],
+    "sysml.Function": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.FunctionArm",
+        "fields": [
+          "calc_id",
+          "self_id"
+        ]
+      }
+    ],
+    "sysml.GetSymbolRequest": [
+      {
+        "status": "typed",
+        "test": "ModelSymbolTests.SymbolAsyncReadsEveryFieldOfTheSymbol",
+        "fields": [
+          "model_hash",
+          "symbol_id"
+        ]
+      }
+    ],
+    "sysml.ImportDataRequest": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.ImportDataSendsEveryFileAndOptionAsTheSchemaWritesIt",
+        "fields": [
+          "model_hash",
+          "imports",
+          "import_as",
+          "import_dry_run",
+          "accept_documents"
+        ]
+      }
+    ],
+    "sysml.ImportDataResponse": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.AnImportReadsEveryFileAndAnswersANewModelLeavingTheOldOneAsItWas",
+        "fields": [
+          "files",
+          "documents",
+          "content",
+          "model_hash",
+          "diagnostics"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.ARefusedImportIsAModelExceptionKeepingItsDiagnosticsAndMakesNoModel",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.ImportedFile": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.AnImportReadsEveryFileAndAnswersANewModelLeavingTheOldOneAsItWas",
+        "fields": [
+          "name",
+          "values",
+          "elements",
+          "assignments"
+        ]
+      }
+    ],
+    "sysml.ImportedValue": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.AnImportReadsEveryFileAndAnswersANewModelLeavingTheOldOneAsItWas",
+        "fields": [
+          "element",
+          "feature",
+          "value",
+          "redefines",
+          "where",
+          "description"
+        ]
+      }
+    ],
+    "sysml.Instance": [
+      {
+        "status": "typed",
+        "test": "ModelEvaluateTests.InstantiateReadsTheObjectGraphAndResolvesItsReferences",
+        "fields": [
+          "id",
+          "type_symbol_id",
+          "feature_values"
+        ]
+      }
+    ],
+    "sysml.InstantiateRequest": [
+      {
+        "status": "typed",
+        "test": "ModelEvaluateTests.InstantiateReadsTheObjectGraphAndResolvesItsReferences",
+        "fields": [
+          "model_hash",
+          "symbol_id"
+        ]
+      }
+    ],
+    "sysml.InstantiateResponse": [
+      {
+        "status": "typed",
+        "test": "ModelEvaluateTests.InstantiateReadsTheObjectGraphAndResolvesItsReferences",
+        "fields": [
+          "instance",
+          "diagnostics",
+          "instances"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelEvaluateTests.AnInstantiationFailureIsInBandAndAMalformedAnswerNamesWhereItIs",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.LibraryReference": [
+      {
+        "status": "typed",
+        "test": "ModelConversionTests.ConvertSendsEverySourceAndOptionAndReadsEveryField",
+        "fields": [
+          "id",
+          "qualified_name",
+          "type",
+          "library_path"
+        ]
+      }
+    ],
+    "sysml.ListEnginesRequest": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.ListEnginesSendsTheProbeAndReadsEveryFieldOfEveryEngine",
+        "fields": [
+          "probe"
+        ]
+      }
+    ],
+    "sysml.ListEnginesResponse": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.ListEnginesSendsTheProbeAndReadsEveryFieldOfEveryEngine",
+        "fields": [
+          "engines"
+        ]
+      }
+    ],
+    "sysml.MeasurementRef": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.MeasurementRefArm",
+        "fields": [
+          "unit",
+          "unit_term",
+          "unit_id"
+        ]
+      }
+    ],
+    "sysml.MetadataFeatureValue": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "feature",
+          "value"
+        ]
+      }
+    ],
+    "sysml.Metaobject": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.MetaobjectArm",
+        "fields": [
+          "element_id",
+          "metaclass_id"
+        ]
+      }
+    ],
+    "sysml.MigrateRequest": [
+      {
+        "status": "typed",
+        "test": "ModelConversionTests.MigrateSendsEverySourceAndOptionAndReadsEveryField",
+        "fields": [
+          "file_path",
+          "content",
+          "from_format",
+          "to_format",
+          "report",
+          "results",
+          "layout_path",
+          "layout_content",
+          "image_base_url",
+          "strict"
+        ]
+      }
+    ],
+    "sysml.MigrateResponse": [
+      {
+        "status": "typed",
+        "test": "ModelConversionTests.MigrateSendsEverySourceAndOptionAndReadsEveryField",
+        "fields": [
+          "content",
+          "from_format",
+          "to_format",
+          "experimental",
+          "experimental_notice",
+          "report",
+          "results",
+          "files"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelConversionTests.AMigrationNotMadeIsAMigrationExceptionAndAMalformedAnswerIsRefused",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.MigrationEntry": [
+      {
+        "status": "typed",
+        "test": "ModelConversionTests.MigrateSendsEverySourceAndOptionAndReadsEveryField",
+        "fields": [
+          "id",
+          "kind",
+          "name",
+          "target",
+          "verdict",
+          "note"
+        ]
+      }
+    ],
+    "sysml.MigrationFile": [
+      {
+        "status": "typed",
+        "test": "ModelConversionTests.MigrateSendsEverySourceAndOptionAndReadsEveryField",
+        "fields": [
+          "path",
+          "content"
+        ]
+      }
+    ],
+    "sysml.MigrationReport": [
+      {
+        "status": "typed",
+        "test": "ModelConversionTests.MigrateSendsEverySourceAndOptionAndReadsEveryField",
+        "fields": [
+          "source",
+          "exporter",
+          "summary",
+          "mapped",
+          "approximated",
+          "unmapped",
+          "skipped",
+          "entries",
+          "text"
+        ]
+      }
+    ],
+    "sysml.MoveEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "target",
+          "owner"
+        ]
+      }
+    ],
+    "sysml.MultiplicityInfo": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.UndeterminedArm",
+        "fields": [
+          "lower",
+          "upper"
+        ]
+      }
+    ],
+    "sysml.ObservableComparison": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.AComparisonReadsEveryConfigurationObservableAndTheEngineThatRanIt",
+        "fields": [
+          "stored",
+          "feature",
+          "unit",
+          "tool",
+          "pooled",
+          "unstored",
+          "run",
+          "produced",
+          "compared",
+          "difference",
+          "declared",
+          "notes"
+        ]
+      }
+    ],
+    "sysml.ObservablePair": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.CompareResultsSendsEveryOptionAsTheSchemaWritesIt",
+        "fields": [
+          "stored",
+          "feature"
+        ]
+      }
+    ],
+    "sysml.Outcome": [
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExploreSendsExploreUnlessABudgetIsNamedAndReadsEveryOutcome",
+        "fields": [
+          "outputs",
+          "final_state",
+          "states_visited",
+          "error",
+          "linearizations",
+          "witness",
+          "diagnostics",
+          "probability",
+          "probability_range"
+        ]
+      }
+    ],
+    "sysml.ParseFileRequest": [
+      {
+        "status": "typed",
+        "test": "ModelParseTests.LoadSendsThePathAloneAndReadsTheParse",
+        "fields": [
+          "file_path"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelParseTests.LoadContentSendsTheContentAndItsLanguage",
+        "fields": [
+          "content",
+          "language",
+          "strict_conformance"
+        ]
+      },
+      {
+        "status": "unsupported",
+        "reason": "Deprecated, and ignored by the service, which keys its cache by the source it read; the client never sends it.",
+        "test": "ModelParseTests.LoadSendsThePathAloneAndReadsTheParse",
+        "fields": [
+          "content_hash"
+        ]
+      }
+    ],
+    "sysml.ParseFileResponse": [
+      {
+        "status": "typed",
+        "test": "ModelParseTests.LoadSendsThePathAloneAndReadsTheParse",
+        "fields": [
+          "model_hash",
+          "root",
+          "diagnostics"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelParseTests.AnInBandParseFailureIsAModelExceptionAndAnAnswerWithoutAHashIsMalformed",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.ParseSourcesRequest": [
+      {
+        "status": "typed",
+        "test": "ModelParseTests.ParseSourcesSendsEveryDocumentAndReadsEveryRoot",
+        "fields": [
+          "documents",
+          "strict_conformance",
+          "base_model_hash"
+        ]
+      }
+    ],
+    "sysml.ParseSourcesResponse": [
+      {
+        "status": "typed",
+        "test": "ModelParseTests.ParseSourcesSendsEveryDocumentAndReadsEveryRoot",
+        "fields": [
+          "model_hash",
+          "roots",
+          "diagnostics",
+          "affected"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelParseTests.AnInBandParseFailureIsAModelExceptionAndAnAnswerWithoutAHashIsMalformed",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.PrimitiveConstraint": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.QuerySendsTheStructuredQueryAndReadsEveryElement",
+        "fields": [
+          "inverse",
+          "property",
+          "operator",
+          "value"
+        ]
+      }
+    ],
+    "sysml.ProbabilityRange": [
+      {
+        "status": "typed",
+        "test": "ModelExecutionTests.ExploreSendsExploreUnlessABudgetIsNamedAndReadsEveryOutcome",
+        "fields": [
+          "min",
+          "max"
+        ]
+      }
+    ],
+    "sysml.Quantity": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.QuantityArm",
+        "fields": [
+          "int_magnitude",
+          "real_magnitude",
+          "big_int_magnitude",
+          "rational_magnitude",
+          "unit",
+          "unit_term"
+        ]
+      }
+    ],
+    "sysml.Query": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.QuerySendsTheStructuredQueryAndReadsEveryElement",
+        "fields": [
+          "scope",
+          "select",
+          "where",
+          "order_by"
+        ]
+      }
+    ],
+    "sysml.QueryRequest": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.QuerySendsTheStructuredQueryAndReadsEveryElement",
+        "fields": [
+          "model_hash",
+          "query"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.OslcTextIsSentAloneAndGatedBehindTheQueryCapability",
+        "fields": [
+          "oslc_query"
+        ]
+      }
+    ],
+    "sysml.QueryResponse": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.QuerySendsTheStructuredQueryAndReadsEveryElement",
+        "fields": [
+          "elements"
+        ]
+      }
+    ],
+    "sysml.QueryResultElement": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.QuerySendsTheStructuredQueryAndReadsEveryElement",
+        "fields": [
+          "id",
+          "type",
+          "properties"
+        ]
+      }
+    ],
+    "sysml.Rational": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.RationalArm",
+        "fields": [
+          "numerator",
+          "denominator"
+        ]
+      }
+    ],
+    "sysml.RecordRunRequest": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.RecordRunSendsEveryOptionAndAnswersANewModelLeavingTheOldOneAsItWas",
+        "fields": [
+          "model_hash",
+          "analysis_symbol_id",
+          "subject_symbol_id",
+          "arguments",
+          "named_arguments",
+          "engine",
+          "record_into",
+          "ranges",
+          "runs",
+          "seed",
+          "accept_documents"
+        ]
+      }
+    ],
+    "sysml.RecordRunResponse": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.RecordRunSendsEveryOptionAndAnswersANewModelLeavingTheOldOneAsItWas",
+        "fields": [
+          "run",
+          "sweep",
+          "sample",
+          "package",
+          "definition",
+          "records",
+          "source",
+          "content",
+          "documents",
+          "skipped",
+          "reasons",
+          "diagnostics",
+          "model_hash"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.ARecordingNotMadeIsARecordExceptionKeepingTheRunsAndWhetherTheyFailed",
+        "fields": [
+          "error",
+          "failure_reason"
+        ]
+      }
+    ],
+    "sysml.Referrer": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.ARefusalIsAnEditExceptionKeepingItsKindDiagnosticsAndReferrers",
+        "fields": [
+          "name",
+          "document"
+        ]
+      }
+    ],
+    "sysml.RenameEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "target",
+          "new_name"
+        ]
+      }
+    ],
+    "sysml.RenderCanvas": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "unit",
+          "width",
+          "height",
+          "has_size"
+        ]
+      }
+    ],
+    "sysml.RenderDocumentRequest": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderDocumentSendsTheFormAndReadsTheContentAndFileName",
+        "fields": [
+          "model_hash",
+          "document_id",
+          "form"
+        ]
+      }
+    ],
+    "sysml.RenderDocumentResponse": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderDocumentSendsTheFormAndReadsTheContentAndFileName",
+        "fields": [
+          "markdown",
+          "html",
+          "file_name",
+          "asciidoc"
+        ]
+      }
+    ],
+    "sysml.RenderEdge": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "from",
+          "to",
+          "from_port",
+          "to_port",
+          "label",
+          "name",
+          "kind",
+          "origin",
+          "route",
+          "style"
+        ]
+      }
+    ],
+    "sysml.RenderFrame": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "name",
+          "type",
+          "exposes",
+          "filters",
+          "annotations"
+        ]
+      }
+    ],
+    "sysml.RenderGeometry": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "x",
+          "y",
+          "width",
+          "height",
+          "has_size",
+          "collapsed",
+          "unplaced"
+        ]
+      }
+    ],
+    "sysml.RenderNode": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "id",
+          "kind",
+          "name",
+          "name_synthesized",
+          "type",
+          "detail",
+          "text",
+          "stand_in",
+          "parent",
+          "ports",
+          "origin",
+          "geometry",
+          "style",
+          "compartment",
+          "inherited",
+          "arrow",
+          "parallel"
+        ]
+      }
+    ],
+    "sysml.RenderNote": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "text",
+          "anchor",
+          "edge_from",
+          "edge_to",
+          "x",
+          "y",
+          "width",
+          "height",
+          "has_size",
+          "origin"
+        ]
+      }
+    ],
+    "sysml.RenderPoint": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "x",
+          "y"
+        ]
+      }
+    ],
+    "sysml.RenderPort": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "id",
+          "name",
+          "type",
+          "direction",
+          "inherited"
+        ]
+      }
+    ],
+    "sysml.RenderRow": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "cells",
+          "origin"
+        ]
+      }
+    ],
+    "sysml.RenderStyle": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "fill",
+          "line",
+          "text",
+          "font",
+          "font_size",
+          "bold",
+          "italic"
+        ]
+      }
+    ],
+    "sysml.RenderViewRequest": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "model_hash",
+          "view",
+          "ports",
+          "show",
+          "depth",
+          "compartments"
+        ]
+      }
+    ],
+    "sysml.RenderViewResponse": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "view",
+          "kind",
+          "stated",
+          "nodes",
+          "edges",
+          "columns",
+          "rows",
+          "canvas",
+          "notes",
+          "notices",
+          "shown",
+          "frame"
+        ]
+      }
+    ],
+    "sysml.RunAnalysisRequest": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunAnalysisSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "model_hash",
+          "symbol_id",
+          "subject_symbol_id",
+          "arguments",
+          "named_arguments",
+          "schedule",
+          "engine",
+          "tool_dry_run"
+        ]
+      }
+    ],
+    "sysml.RunAnalysisResponse": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunAnalysisSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "outputs",
+          "verdicts",
+          "instances",
+          "diagnostics",
+          "verification_verdicts",
+          "evaluations",
+          "engine",
+          "strength",
+          "bounds",
+          "tool_dry_run"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.AFailedAnalysisIsAnAnalysisExceptionKeepingThePartialRun",
+        "fields": [
+          "error",
+          "failure_reason"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.ExploreAnalysisSendsExploreUnlessAScheduleOrTheExploreEngineIsNamedAndReadsTheStanding",
+        "fields": [
+          "outcomes",
+          "exploration"
+        ]
+      }
+    ],
+    "sysml.RunCountedValue": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.ActionRunsSendEveryOptionAndReadEveryFieldOfTheTable",
+        "fields": [
+          "value",
+          "count"
+        ]
+      }
+    ],
+    "sysml.RunDistribution": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.ActionRunsSendEveryOptionAndReadEveryFieldOfTheTable",
+        "fields": [
+          "name",
+          "unit",
+          "count",
+          "numeric",
+          "min",
+          "max",
+          "mean",
+          "deviation",
+          "percentiles",
+          "histogram",
+          "values"
+        ]
+      }
+    ],
+    "sysml.RunDocumentQueryRequest": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RunDocumentQuerySendsEveryBindingInOrderAndReadsEveryRow",
+        "fields": [
+          "model_hash",
+          "query_id",
+          "bindings"
+        ]
+      }
+    ],
+    "sysml.RunDocumentQueryResponse": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RunDocumentQuerySendsEveryBindingInOrderAndReadsEveryRow",
+        "fields": [
+          "columns",
+          "rows"
+        ]
+      }
+    ],
+    "sysml.RunHistogramBin": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.ActionRunsSendEveryOptionAndReadEveryFieldOfTheTable",
+        "fields": [
+          "low",
+          "high",
+          "count"
+        ]
+      }
+    ],
+    "sysml.RunPercentile": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.ActionRunsSendEveryOptionAndReadEveryFieldOfTheTable",
+        "fields": [
+          "percentile",
+          "value"
+        ]
+      }
+    ],
+    "sysml.RunRunsRequest": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.ActionRunsSendEveryOptionAndReadEveryFieldOfTheTable",
+        "fields": [
+          "model_hash",
+          "action_symbol_id",
+          "inputs",
+          "performer_symbol_id",
+          "runs",
+          "seed",
+          "draws",
+          "clock_step",
+          "observe",
+          "engine"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.MonteCarloRunsSendTheCasesOptionsAndReadItsConclusion",
+        "fields": [
+          "analysis_symbol_id",
+          "subject_symbol_id",
+          "arguments",
+          "named_arguments"
+        ]
+      }
+    ],
+    "sysml.RunRunsResponse": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.ActionRunsSendEveryOptionAndReadEveryFieldOfTheTable",
+        "fields": [
+          "rows",
+          "observables",
+          "distributions",
+          "lines",
+          "diagnostics",
+          "instances",
+          "engine",
+          "strength",
+          "bounds",
+          "seed"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.MonteCarloRunsSendTheCasesOptionsAndReadItsConclusion",
+        "fields": [
+          "outputs",
+          "verdicts",
+          "unconcluded"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.RunsTheServiceCouldNotTableAreARunsExceptionKeepingTheTableAndAMalformedAnswerIsRefused",
+        "fields": [
+          "error",
+          "failure_reason"
+        ]
+      }
+    ],
+    "sysml.RunSweepRequest": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunSweepSendsEveryRangeAndOptionAndReadsEveryRow",
+        "fields": [
+          "model_hash",
+          "symbol_id",
+          "subject_symbol_id",
+          "arguments",
+          "named_arguments",
+          "ranges",
+          "samples",
+          "seed",
+          "engine"
+        ]
+      }
+    ],
+    "sysml.RunSweepResponse": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunSweepSendsEveryRangeAndOptionAndReadsEveryRow",
+        "fields": [
+          "rows",
+          "parameters",
+          "sampled",
+          "seed",
+          "diagnostics",
+          "instances",
+          "engine",
+          "strength",
+          "bounds"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.ASweepThatMadeNoRunIsAVerificationExceptionAndOneAnsweringRowsBesideIsMalformed",
+        "fields": [
+          "error",
+          "failure_reason"
+        ]
+      }
+    ],
+    "sysml.SelfCheckApplication": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.SelfCheckSendsTheRulePackagesAndReadsEveryFindingAndCount",
+        "fields": [
+          "constraint",
+          "count"
+        ]
+      }
+    ],
+    "sysml.SelfCheckFinding": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.SelfCheckSendsTheRulePackagesAndReadsEveryFindingAndCount",
+        "fields": [
+          "status",
+          "subject",
+          "location",
+          "constraint",
+          "element",
+          "message",
+          "line"
+        ]
+      }
+    ],
+    "sysml.SelfCheckRequest": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.SelfCheckSendsTheRulePackagesAndReadsEveryFindingAndCount",
+        "fields": [
+          "model_hash",
+          "self_check_package"
+        ]
+      }
+    ],
+    "sysml.SelfCheckResponse": [
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.SelfCheckSendsTheRulePackagesAndReadsEveryFindingAndCount",
+        "fields": [
+          "status",
+          "findings",
+          "elements",
+          "checks",
+          "violations",
+          "unevaluated",
+          "evaluation_errors",
+          "applications",
+          "summary",
+          "diagnostics"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelRunsTests.ASelfCheckThatCannotStartIsAModelExceptionAndAMalformedAnswerIsRefused",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.ServerInfoRequest": [],
+    "sysml.ServerInfoResponse": [
+      {
+        "status": "typed",
+        "test": "ConnectionOpenTests.OpeningAsksTheServiceOnceAndKeepsItsAnswer",
+        "fields": [
+          "version",
+          "capabilities"
+        ]
+      }
+    ],
+    "sysml.SetValueEdit": [
+      {
+        "status": "typed",
+        "test": "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt",
+        "fields": [
+          "target",
+          "value"
+        ]
+      }
+    ],
+    "sysml.SourceDocument": [
+      {
+        "status": "typed",
+        "test": "ModelParseTests.ParseSourcesSendsEveryDocumentAndReadsEveryRoot",
+        "fields": [
+          "file_path",
+          "content",
+          "language",
+          "name"
+        ]
+      }
+    ],
+    "sysml.Span": [
+      {
+        "status": "typed",
+        "test": "ModelParseTests.EveryFieldOfADiagnosticIsRead",
+        "fields": [
+          "file",
+          "start_line",
+          "start_col",
+          "end_line",
+          "end_col"
+        ]
+      }
+    ],
+    "sysml.Specialization": [
+      {
+        "status": "typed",
+        "test": "ModelSymbolTests.SymbolAsyncReadsEveryFieldOfTheSymbol",
+        "fields": [
+          "kind",
+          "declared",
+          "target_id",
+          "target_kind"
+        ]
+      }
+    ],
+    "sysml.StatisticDifference": [
+      {
+        "status": "typed",
+        "test": "ModelGraphDataTests.AComparisonReadsEveryConfigurationObservableAndTheEngineThatRanIt",
+        "fields": [
+          "min",
+          "mean",
+          "p50",
+          "p90",
+          "max"
+        ]
+      }
+    ],
+    "sysml.SweepRange": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunSweepSendsEveryRangeAndOptionAndReadsEveryRow",
+        "fields": [
+          "parameter",
+          "start",
+          "end",
+          "step"
+        ]
+      }
+    ],
+    "sysml.SweepRow": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunSweepSendsEveryRangeAndOptionAndReadsEveryRow",
+        "fields": [
+          "inputs",
+          "outputs",
+          "verdicts",
+          "elapsed_micros",
+          "error",
+          "failure_reason",
+          "evaluations"
+        ]
+      }
+    ],
+    "sysml.SymbolInfo": [
+      {
+        "status": "typed",
+        "test": "ModelSymbolTests.SymbolAsyncReadsEveryFieldOfTheSymbol",
+        "fields": [
+          "id",
+          "name",
+          "kind",
+          "metadata",
+          "child_ids",
+          "attributes",
+          "type_info",
+          "multiplicity",
+          "specializations",
+          "withheld_library_attributes"
+        ]
+      }
+    ],
+    "sysml.SymbolResponse": [
+      {
+        "status": "typed",
+        "test": "ModelSymbolTests.SymbolAsyncReadsEveryFieldOfTheSymbol",
+        "fields": [
+          "symbol"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelSymbolTests.ASymbolTheModelLacksIsNotFoundInBandAndAnAnswerOfNeitherIsMalformed",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.TensorQuantity": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.TensorQuantityArm",
+        "fields": [
+          "dimensions",
+          "components"
+        ]
+      }
+    ],
+    "sysml.ToolDryRun": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunAnalysisSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "action",
+          "tool",
+          "version",
+          "manifest",
+          "executable",
+          "protocol",
+          "args",
+          "env",
+          "cwd",
+          "stdin",
+          "stdin_data",
+          "input_file",
+          "output_dir",
+          "inputs",
+          "outputs",
+          "reply_source",
+          "lines"
+        ]
+      }
+    ],
+    "sysml.ToolDryRunFile": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunAnalysisSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "name",
+          "format",
+          "data"
+        ]
+      }
+    ],
+    "sysml.ToolDryRunInput": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunAnalysisSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "variable",
+          "parameter",
+          "value",
+          "unit"
+        ]
+      }
+    ],
+    "sysml.ToolDryRunOutput": [
+      {
+        "status": "typed",
+        "test": "ModelAnalysisTests.RunAnalysisSendsEveryOptionAndReadsEveryFieldOfTheRun",
+        "fields": [
+          "variable",
+          "parameter"
+        ]
+      }
+    ],
+    "sysml.TypeInfo": [
+      {
+        "status": "typed",
+        "test": "ModelSymbolTests.SymbolAsyncReadsEveryFieldOfTheSymbol",
+        "fields": [
+          "declared",
+          "resolved_id",
+          "resolved_kind",
+          "primitive",
+          "primitive_source",
+          "quantity",
+          "unit"
+        ]
+      }
+    ],
+    "sysml.Undetermined": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.UndeterminedArm",
+        "fields": [
+          "reason",
+          "count"
+        ]
+      }
+    ],
+    "sysml.UnitFactor": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.QuantityArm",
+        "fields": [
+          "unit_id",
+          "exponent"
+        ]
+      }
+    ],
+    "sysml.UnitTerm": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.QuantityArm",
+        "fields": [
+          "scale_num",
+          "scale_den",
+          "factors"
+        ]
+      }
+    ],
+    "sysml.ValidateInstanceRequest": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.ValidateInstanceReadsTheSummaryEveryVerdictAndTheObjectsReached",
+        "fields": [
+          "model_hash",
+          "symbol_id",
+          "engine"
+        ]
+      }
+    ],
+    "sysml.ValidateInstanceResponse": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.ValidateInstanceReadsTheSummaryEveryVerdictAndTheObjectsReached",
+        "fields": [
+          "verdicts",
+          "summary",
+          "instances",
+          "diagnostics",
+          "verification_verdicts",
+          "bounded"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.AVerificationTheServiceCouldNotAnswerIsAVerificationExceptionKeepingWhatItReported",
+        "fields": [
+          "error",
+          "failure_reason"
+        ]
+      }
+    ],
+    "sysml.Value": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.IntegerArm",
+        "fields": [
+          "int_value"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.RealArm",
+        "fields": [
+          "real_value"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.BooleanArm",
+        "fields": [
+          "bool_value"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.TextArm",
+        "fields": [
+          "string_value"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.InstanceRefArm",
+        "fields": [
+          "instance_id"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.SequenceArm",
+        "fields": [
+          "sequence"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.NullArm",
+        "fields": [
+          "null"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.QuantityArm",
+        "fields": [
+          "quantity"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.EnumLiteralArm",
+        "fields": [
+          "enum_literal"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.UnsetArm",
+        "fields": [
+          "unset"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.ComplexArm",
+        "fields": [
+          "complex"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.ArrayArm",
+        "fields": [
+          "array"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.VectorArm",
+        "fields": [
+          "vector"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.VectorQuantityArm",
+        "fields": [
+          "vector_quantity"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.MeasurementRefArm",
+        "fields": [
+          "measurement_ref"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.InfinityArm",
+        "fields": [
+          "infinity"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.FunctionArm",
+        "fields": [
+          "function"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.SetArm",
+        "fields": [
+          "set"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.TensorQuantityArm",
+        "fields": [
+          "tensor_quantity"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.MetaobjectArm",
+        "fields": [
+          "metaobject"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.UndeterminedArm",
+        "fields": [
+          "undetermined"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.BigIntegerArm",
+        "fields": [
+          "big_int_value"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ValueArmTests.RationalArm",
+        "fields": [
+          "rational_value"
+        ]
+      }
+    ],
+    "sysml.ValueSequence": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.SequenceArm",
+        "fields": [
+          "elements"
+        ]
+      }
+    ],
+    "sysml.ValueSet": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.SetArm",
+        "fields": [
+          "elements"
+        ]
+      }
+    ],
+    "sysml.Vector": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.VectorArm",
+        "fields": [
+          "components"
+        ]
+      }
+    ],
+    "sysml.VectorQuantity": [
+      {
+        "status": "typed",
+        "test": "ValueArmTests.VectorQuantityArm",
+        "fields": [
+          "components"
+        ]
+      }
+    ],
+    "sysml.Verdict": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.VerifyConstraintSendsEveryOptionAndReadsEveryFieldOfTheVerdict",
+        "fields": [
+          "kind",
+          "element_id",
+          "element",
+          "holds",
+          "condition",
+          "instance_id",
+          "instance_type_id",
+          "error",
+          "failure_reason",
+          "requirement_id",
+          "engine",
+          "strength",
+          "bounds",
+          "instance_path",
+          "question",
+          "status",
+          "witness",
+          "notes"
+        ]
+      }
+    ],
+    "sysml.VerdictNote": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.VerifyConstraintSendsEveryOptionAndReadsEveryFieldOfTheVerdict",
+        "fields": [
+          "kind",
+          "subject",
+          "text"
+        ]
+      }
+    ],
+    "sysml.VerificationVerdict": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.VerifyRequirementReadsTheVerificationVerdictsBesideItsVerdict",
+        "fields": [
+          "case_id",
+          "kind",
+          "detail",
+          "subcase",
+          "requirement_id",
+          "instance_id",
+          "instance_type_id"
+        ]
+      }
+    ],
+    "sysml.VerifyConstraintRequest": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.VerifyConstraintSendsEveryOptionAndReadsEveryFieldOfTheVerdict",
+        "fields": [
+          "model_hash",
+          "symbol_id",
+          "subject_symbol_id",
+          "engine",
+          "question",
+          "arguments",
+          "named_arguments"
+        ]
+      }
+    ],
+    "sysml.VerifyConstraintResponse": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.VerifyConstraintSendsEveryOptionAndReadsEveryFieldOfTheVerdict",
+        "fields": [
+          "verdict",
+          "instances",
+          "diagnostics"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.AVerificationTheServiceCouldNotAnswerIsAVerificationExceptionKeepingWhatItReported",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.VerifyRequirementRequest": [
+      {
+        "status": "typed",
+        "test": "ConformanceAdapterTests.EachRpcSendsTheScenarioRequestThroughItsTypedCallAndRendersTheWholeAnswer",
+        "fields": [
+          "model_hash",
+          "symbol_id",
+          "subject_symbol_id",
+          "engine",
+          "question",
+          "arguments",
+          "named_arguments"
+        ]
+      }
+    ],
+    "sysml.VerifyRequirementResponse": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.VerifyRequirementReadsTheVerificationVerdictsBesideItsVerdict",
+        "fields": [
+          "verdict",
+          "instances",
+          "diagnostics",
+          "verification_verdicts"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.AVerificationTheServiceCouldNotAnswerIsAVerificationExceptionKeepingWhatItReported",
+        "fields": [
+          "error"
+        ]
+      }
+    ],
+    "sysml.VerifySatisfactionRequest": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.VerifySatisfactionSendsTheScopeAndQuestionAndReadsEveryVerdict",
+        "fields": [
+          "model_hash",
+          "symbol_id",
+          "engine",
+          "question"
+        ]
+      }
+    ],
+    "sysml.VerifySatisfactionResponse": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.VerifySatisfactionSendsTheScopeAndQuestionAndReadsEveryVerdict",
+        "fields": [
+          "verdicts",
+          "instances",
+          "diagnostics",
+          "verification_verdicts"
+        ]
+      },
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.AVerificationTheServiceCouldNotAnswerIsAVerificationExceptionKeepingWhatItReported",
+        "fields": [
+          "error",
+          "failure_reason"
+        ]
+      }
+    ],
+    "sysml.WitnessAssignment": [
+      {
+        "status": "typed",
+        "test": "ModelVerificationTests.VerifyConstraintSendsEveryOptionAndReadsEveryFieldOfTheVerdict",
+        "fields": [
+          "feature",
+          "value",
+          "unit",
+          "exact"
+        ]
+      }
+    ]
+  }
+}

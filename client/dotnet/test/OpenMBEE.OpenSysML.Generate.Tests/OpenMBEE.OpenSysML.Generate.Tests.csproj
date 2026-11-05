@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- xUnit v3 test projects are executables hosted by Microsoft.Testing.Platform. -->
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>OpenMBEE.OpenSysML.Generate.Tests</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.Generate.Tests</RootNamespace>
+    <!-- Test classes are public for xUnit, not API: no XML documentation is required of them. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="coverlet.MTP" />
+    <!-- Compiles generated files against the library, warnings included, for the cases no golden holds. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML.Generate/OpenMBEE.OpenSysML.Generate.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The one way the tests find the checkout, the service gate and the wires the client tests share. -->
+    <Compile Include="../OpenMBEE.OpenSysML.Tests/Repository.cs" Link="Shared/Repository.cs" />
+    <Compile Include="../OpenMBEE.OpenSysML.Tests/ServiceGate.cs" Link="Shared/ServiceGate.cs" />
+    <Compile Include="../OpenMBEE.OpenSysML.Tests/ClientWire.cs" Link="Shared/ClientWire.cs" />
+    <!-- The test harness that starts a sysml-grpc at an explicit address, as the conformance runner does. -->
+    <Compile Include="../../src/OpenMBEE.OpenSysML.Conformance/ServiceProcess.cs" Link="Shared/ServiceProcess.cs" />
+  </ItemGroup>
+</Project>

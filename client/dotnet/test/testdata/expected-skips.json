@@ -1,0 +1,11 @@
+{
+  "uncovered_rpcs": [],
+  "unexpressible": {
+    "evaluate_calc/a_function_argument_naming_no_object_is_refused": "The value at arguments[0] is the function F::Scaler::scale closing over instance(3), which lives only within the response that held it.",
+    "evaluate_calc/a_malformed_vector_argument_is_refused": "the public API holds a vector's components as numbers, which arguments[0].vector[1] is not",
+    "evaluate_calc/a_measurement_reference_argument_without_its_reduction_is_refused": "the public API holds a measurement reference with its reduction, which arguments[1] has none of",
+    "parse/naming_no_source_is_invalid": "the public API always names a source, so it cannot send a request naming none",
+    "query/an_unset_operator_fails_the_call": "the public API names a comparison's operator, which query.where.primitive does not",
+    "query/naming_both_query_forms_is_invalid": "the public API names a query in one form, structured or OSLC text, so it cannot send both"
+  }
+}
