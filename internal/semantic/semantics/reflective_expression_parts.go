@@ -314,11 +314,8 @@ func (m *Model) expressionOwnedElements(expr *symbols.Symbol) []*symbols.Symbol 
 // result, as the conversion lists them.
 func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
 	if accept := m.acceptParts(expr); accept != nil {
-		// A trigger's accept owns its payload; the payload's value is its FeatureValue's, not a part.
-		if expr.Expr.Role == symbols.ExpressionPayload {
-			return nil
-		}
-		return optionalElement(accept.payload)
+		// A trigger's accept owns its payload and receiver; a parameter's value is its FeatureValue's.
+		return m.acceptParameters(expr)
 	}
 	parts := m.expressionPartsOf(expr)
 	if parts == nil {
@@ -379,13 +376,15 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	var out []*symbols.Symbol
 	if parts := m.acceptParts(sym); parts != nil {
-		// A trigger's accept owns its payload parameter, which owns its value.
-		member := parts.payload
+		// A trigger's accept owns its payload and receiver parameters, which own their values.
+		members := m.acceptParameters(sym)
 		if sym.Expr.Role == symbols.ExpressionPayload {
-			member = parts.payloadValue
+			members = []*symbols.Symbol{parts.parameterValue(sym)}
 		}
-		if member != nil {
-			out = appendOwningMembership(out, sym, member)
+		for _, member := range members {
+			if member != nil {
+				out = appendOwningMembership(out, sym, member)
+			}
 		}
 	} else if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChangeWrapper {
 		// The wrapper owns its condition through a FeatureMembership, then its result.
