@@ -13,22 +13,22 @@
         <mxCell id="frame_tr" value="expose Nary::Triad&#xA;expose Nary::Hub&#xA;expose Nary::Spoke" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
             <mxGeometry x="659" width="168" height="59" as="geometry"/>
         </mxCell>
-        <object id="n0" label="«connection def dot»&#xA;Triad" fqn="Nary::Triad" kind="connection def dot" view="NaryViews::definitions">
+        <object id="n0" label="Triad" fqn="Nary::Triad" kind="connection def dot" view="NaryViews::definitions" link="nary.sysml:10">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="12" height="12" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n4" label="«part def»&#xA;Hub" fqn="Nary::Hub" kind="part def" view="NaryViews::definitions">
+        <object id="n4" label="«part def»&#xA;Hub" fqn="Nary::Hub" kind="part def" view="NaryViews::definitions" link="nary.sysml:6">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
             <mxGeometry x="112" y="50" width="76" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n5" label="«part def»&#xA;Spoke" fqn="Nary::Spoke" kind="part def" view="NaryViews::definitions">
+        <object id="n5" label="«part def»&#xA;Spoke" fqn="Nary::Spoke" kind="part def" view="NaryViews::definitions" link="nary.sysml:7">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
             <mxGeometry x="50" y="137" width="76" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="e0" label="" kind="association" view="NaryViews::definitions">
+        <object id="e0" label="" fqn="Nary::Triad" kind="association" view="NaryViews::definitions" link="nary.sysml:10">
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.9167;exitPerimeter=0;entryX=0;entryY=0.2973;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
@@ -36,7 +36,7 @@
         <mxCell id="e0:to" value="hub" style="edgeLabel;html=0;align=center;verticalAlign=middle;resizable=0;" vertex="1" connectable="0" parent="e0">
           <mxGeometry x="0.8" relative="1" as="geometry"/>
         </mxCell>
-        <object id="e1" label="" kind="association" view="NaryViews::definitions">
+        <object id="e1" label="" fqn="Nary::Triad" kind="association" view="NaryViews::definitions" link="nary.sysml:10">
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n0" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -49,7 +49,7 @@
         <mxCell id="e1:to" value="left" style="edgeLabel;html=0;align=center;verticalAlign=middle;resizable=0;" vertex="1" connectable="0" parent="e1">
           <mxGeometry x="0.8" relative="1" as="geometry"/>
         </mxCell>
-        <object id="e2" label="" kind="association" view="NaryViews::definitions">
+        <object id="e2" label="" fqn="Nary::Triad" kind="association" view="NaryViews::definitions" link="nary.sysml:10">
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.25;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n0" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">

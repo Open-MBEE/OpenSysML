@@ -322,7 +322,7 @@ func (a *arranger) compartmentLines(node *Node, compartment Compartment) []strin
 func (a *arranger) routeEdges(r *Rendering) ([]Edge, error) {
 	edges := append([]Edge(nil), r.Edges...)
 	tree := a.drawioTree(r)
-	groups := a.routeGroups(edges, tree)
+	groups := a.routeGroups(edges, tree, lineWaypoints(r))
 	for _, key := range slices.Sorted(maps.Keys(groups)) {
 		g := routeGroup{key: key, edges: groups[key], all: edges, tree: tree}
 		routes, err := a.routeOneGroup(g)
@@ -339,13 +339,13 @@ func (a *arranger) routeEdges(r *Rendering) ([]Edge, error) {
 }
 
 // routeGroups indexes the unrouted edges with settled ends by the container
-// both ends lie in, "" for the canvas.
-func (a *arranger) routeGroups(edges []Edge, tree drawioTree) map[string][]int {
+// both ends lie in, "" for the canvas; a segment of a routed line is not unrouted.
+func (a *arranger) routeGroups(edges []Edge, tree drawioTree, lines map[Origin]int) map[string][]int {
 	groups := map[string][]int{}
 	for i, edge := range edges {
 		_, from := a.boxes[edge.From]
 		_, to := a.boxes[edge.To]
-		if len(edge.Route) > 0 || !from || !to {
+		if len(edge.Route) > 0 || !from || !to || edge.Kind == EdgeConnection && lines[edge.Origin] > 0 {
 			continue
 		}
 		key := tree.commonContainer(edge.From, edge.To)

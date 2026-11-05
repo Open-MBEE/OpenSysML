@@ -9,8 +9,10 @@ import (
 )
 
 // Text is the human-readable form of a rendering, written to no particular
-// width. It is ASCII throughout, so it reads the same on any terminal; a
-// positioned node ends in `at (x, y)` and, when sized, `size W×H`.
+// width. It is plain text without markup, so it reads the same on any terminal
+// (the «keyword» marks, the `…` of elided rows and the `×` of a size are its
+// only characters beyond ASCII); a positioned node ends in `at (x, y)` and,
+// when sized, `size W×H`.
 func (r *Rendering) Text() string { return r.TextWidth(WidthUnbounded) }
 
 // TextWidth is the human-readable form of a rendering: a header saying what was

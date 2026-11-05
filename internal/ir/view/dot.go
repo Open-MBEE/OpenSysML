@@ -1291,6 +1291,11 @@ func (w *dotWriter) rowEdges(r *Rendering, edges []Edge) []Edge {
 		return edges
 	}
 	folded, _ := f.foldMemberships(edges)
+	for _, edge := range folded {
+		if w.draws(edge.From) && w.draws(edge.To) {
+			f.grey(edge.row)
+		}
+	}
 	return folded
 }
 

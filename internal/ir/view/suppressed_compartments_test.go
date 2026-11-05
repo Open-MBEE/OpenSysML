@@ -73,3 +73,38 @@ func TestSuppressedCompartmentsAreNotListedNorClipped(t *testing.T) {
 		}
 	}
 }
+
+// Hiding a compartment hides the rows of its keyword wherever a modifier
+// lists them: `showAttributes = false` hides an `end attribute` under `ends`.
+func TestHiddenAttributesHideTheEndAttributes(t *testing.T) {
+	rendering := renderSource(t, "M::V::links", `package M {
+	private import ScalarValues::Real;
+	part def Sensor;
+	connection def Link {
+		end attribute gain : Real;
+		end part sensor : Sensor;
+		attribute weight : Real;
+	}
+	package V {
+		private import Views::*;
+		private import DiagramLayout::*;
+		view links {
+			expose M::Link;
+			metadata Layout about M::Link { x = 10; y = 10; width = 240; height = 120; showAttributes = false; }
+			render asTreeDiagram;
+		}
+	}
+}`)
+	out, err := rendering.Write(FormText)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, hidden := range []string{"attribute gain", "attribute weight"} {
+		if strings.Contains(out, hidden) {
+			t.Errorf("a hidden attribute is listed, %q:\n%s", hidden, out)
+		}
+	}
+	if !strings.Contains(out, "end part sensor") || !strings.Contains(out, ellipsisMark) {
+		t.Errorf("the end part or the ellipsis is missing:\n%s", out)
+	}
+}
