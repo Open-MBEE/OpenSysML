@@ -88,24 +88,68 @@ func compartmentName(kind string) string {
 	if keyword == "" {
 		return ""
 	}
-	if slices.Contains(strings.Fields(prefix), "end") {
+	if slices.Contains(kindWords(prefix), "end") {
 		return "ends"
 	}
+	return keywordCompartment(keyword)
+}
+
+// keywordCompartment is the compartment a keyword's own members list in: the
+// figure's heading, or the keyword's plural.
+func keywordCompartment(keyword string) string {
 	if heading, ok := compartmentHeadings[keyword]; ok {
 		return heading
 	}
 	return keyword + "s"
 }
 
+// rowCompartments names the compartment a row of kind lists in and, when a
+// modifier moves it there (`ends`, `individuals`), its keyword's own compartment,
+// whose hiding hides the row too: `end attribute` goes with the attributes.
+func rowCompartments(kind string) []string {
+	listed := compartmentName(kind)
+	_, keyword := splitRowPrefix(kind)
+	if own := keywordCompartment(keyword); keyword != "" && own != listed {
+		return []string{listed, own}
+	}
+	return []string{listed}
+}
+
 // splitRowPrefix splits a kind into the modifiers a row writes before its
 // name and the keyword that names its compartment.
 func splitRowPrefix(kind string) (prefix, keyword string) {
-	words := strings.Fields(kind)
+	words := kindWords(kind)
 	n := 0
 	for n < len(words)-1 && isRowPrefix(words[n]) {
 		n++
 	}
 	return strings.Join(words[:n], " "), strings.Join(words[n:], " ")
+}
+
+// kindWords splits a kind at its spaces, a quoted name (`#'Safety Level'`) kept whole.
+func kindWords(kind string) []string {
+	var words []string
+	start, quoted := -1, false
+	for i, r := range kind {
+		switch {
+		case r == '\'':
+			quoted = !quoted
+			if start < 0 {
+				start = i
+			}
+		case r == ' ' && !quoted:
+			if start >= 0 {
+				words = append(words, kind[start:i])
+				start = -1
+			}
+		case start < 0:
+			start = i
+		}
+	}
+	if start >= 0 {
+		words = append(words, kind[start:])
+	}
+	return words
 }
 
 func isRowPrefix(word string) bool {
@@ -233,7 +277,12 @@ func hiddenRow(node, row *Node) bool {
 	if row.Referential && !row.StandIn {
 		return node.Geometry.Hidden.Hides("references")
 	}
-	return node.Geometry.Hidden.Hides(compartmentName(row.Kind))
+	for _, compartment := range rowCompartments(row.Kind) {
+		if node.Geometry.Hidden.Hides(compartment) {
+			return true
+		}
+	}
+	return false
 }
 
 // rowCount is how many rows a node's compartments hold.

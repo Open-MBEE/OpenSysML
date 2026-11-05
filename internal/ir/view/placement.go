@@ -389,7 +389,8 @@ func typeRow(row *Node) {
 }
 
 // foldMemberships folds a folded member's membership edge and its typing
-// edges into one edge from the member's owner to each drawn type, the
+// edges into one edge from the member's owner to each drawn type, the edge
+// naming in row the member row it leaves, greyed once the edge is kept, the
 // composition or reference labelled with the member's name and multiplicity —
 // the property association a block definition diagram draws for a member
 // listed in a compartment — in the membership edge's place. A member nested
@@ -436,8 +437,7 @@ func (f *folder) foldMemberships(edges []Edge) (folded []Edge, moved int) {
 			if f.folded(edge.From) {
 				route = nil
 			}
-			row.Greyed = true
-			folded = append(folded, Edge{From: f.owners[edge.To], To: edges[j].To, Kind: edge.Kind, ToLabel: usagePrefix(row.Inherited && shown(row) != "") + shown(row) + edge.ToLabel,
+			folded = append(folded, Edge{From: f.owners[edge.To], To: edges[j].To, row: edge.To, Kind: edge.Kind, ToLabel: usagePrefix(row.Inherited && shown(row) != "") + shown(row) + edge.ToLabel,
 				Origin: edge.Origin, Route: route, Style: edge.Style})
 		}
 	}
@@ -464,6 +464,7 @@ func (f *folder) foldEdges(edges []Edge) (kept []Edge, moved, dropped int) {
 		fromOwner, fromRow := f.owners[edge.From]
 		toOwner, toRow := f.owners[edge.To]
 		if !fromRow && !toRow {
+			f.greyRowOf(edge)
 			kept = append(kept, edge)
 			continue
 		}
@@ -485,11 +486,26 @@ func (f *folder) foldEdges(edges []Edge) (kept []Edge, moved, dropped int) {
 		}
 		seen[key] = true
 		f.grey(from, to)
+		f.greyRowOf(edge)
 		edge.Route = nil
 		kept = append(kept, edge)
 		moved++
 	}
 	return kept, moved, dropped
+}
+
+// greyRowOf greys the row a folded membership edge leaves once the edge is
+// drawn: under a positioned folding of a placement only when both its ends are
+// placed, since the edges at unplaced nodes are dropped; a row whose edge is
+// dropped stays plain. A folder without a placement draws every node.
+func (f *folder) greyRowOf(edge Edge) {
+	if edge.row == "" {
+		return
+	}
+	if !f.mode.automatic() && f.placement != nil && !(f.placed[edge.From] && f.placed[edge.To]) {
+		return
+	}
+	f.grey(edge.row)
 }
 
 // grey marks the rows among ids: a drawn edge or note moved to their owner ends
@@ -603,6 +619,9 @@ func (p *placement) foldOmitted(roots []*Node, edges []Edge, nesting map[[2]stri
 		return edges
 	}
 	folded, _ := f.foldMemberships(edges)
+	for _, edge := range folded {
+		f.greyRowOf(edge)
+	}
 	return folded
 }
 

@@ -1994,8 +1994,21 @@ func InlineMermaidImages(source, base string) string {
 
 // mermaid is a node's label ready to embed: its lines escaped and joined with
 // `<br>`, which flowcharts, state diagrams and sequence diagrams all break at.
+// mermaid is a node's label as plain text, the compartment rows an edge ends at
+// in `<i>` as the markdown form sets them in italics.
 func (l labeller) mermaid(node *Node) string {
-	return l.mermaidLines(l.lines(node))
+	lines := l.headerLines(node)
+	for i, line := range lines {
+		lines[i] = mermaidText(line)
+	}
+	for _, entry := range l.compartmentEntries(node) {
+		text := mermaidText(entry.Text)
+		if entry.Greyed {
+			text = "<i>" + text + "</i>"
+		}
+		lines = append(lines, text)
+	}
+	return strings.Join(lines, "<br>")
 }
 
 func (l labeller) mermaidTitle(node *Node) string {
