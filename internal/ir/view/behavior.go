@@ -826,7 +826,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		}
 		root.Children = append(root.Children, start)
 	}
-	r.flowNodes(subject, graph, root, owner, ids, out, lowered, drawn, depth, record)
+	r.flowNodes(subject, graph, root, owner, flowDrawing{ids, out, lowered, drawn, record}, depth)
 	if subject.frame == nil && len(graph.Nodes) == 0 {
 		root.Detail = detailWith(root.Detail, "declares no nodes")
 	}
@@ -834,11 +834,21 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	return root, true
 }
 
+// A flowDrawing is the state a behavior's nested flows share: the id supply,
+// the rendering, the lowered declarations, the drawn nodes and the symbol recorder.
+type flowDrawing struct {
+	ids     *nodeIDs
+	out     *Rendering
+	lowered map[ast.Node]bool
+	drawn   map[ast.Node]*Node
+	record  func(*symbols.Symbol, *Node)
+}
+
 // flowNodes draws a lowered flow's nodes under frame, each statement node in
 // the form its figure gives it, then the flow's successions, object flows and
 // bindings as edges; owner is the symbol the nodes are placed under.
-func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, frame *Node, owner *symbols.Symbol, ids *nodeIDs,
-	out *Rendering, lowered map[ast.Node]bool, drawn map[ast.Node]*Node, depth int, record func(*symbols.Symbol, *Node)) {
+func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, frame *Node, owner *symbols.Symbol, d flowDrawing, depth int) {
+	ids, out, lowered, drawn, record := d.ids, d.out, d.lowered, d.drawn, d.record
 	scope, doc := subject.scope, subject.doc
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
@@ -885,7 +895,7 @@ func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, fr
 			child.Children = append(child.Children, section)
 			bodySubject := actionSubject{decl: body.block.Node, kind: section.Kind, name: child.Name, scope: body.block.Scope,
 				doc: nodeDoc, view: subject.view, elem: subject.elem, frame: section}
-			r.flowNodes(bodySubject, body.block.Graph, section, r.declaredSymbol(subject.elem, node), ids, out, lowered, drawn, depth+1, record)
+			r.flowNodes(bodySubject, body.block.Graph, section, r.declaredSymbol(subject.elem, node), d, depth+1)
 		}
 	}
 	r.actionEdges(subject, graph, nodes, out)
