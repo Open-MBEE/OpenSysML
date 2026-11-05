@@ -124,7 +124,7 @@
           </mxCell>
         </object>
         <object id="e6" label="" kind="typing" view="NotationGlyphs::Diagrams::treeGlyphs" link="notation-glyphs.sysml:16">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5034;exitPerimeter=0;entryX=0;entryY=0.2483;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n10">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5034;exitPerimeter=0;entryX=0;entryY=0.2483;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n10">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="34" y="215"/>

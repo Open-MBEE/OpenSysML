@@ -74,7 +74,7 @@
           </mxCell>
         </object>
         <object id="e2" label="" kind="typing" view="VehicleViews::vehicleView" link="tree.sysml:12">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5034;exitPerimeter=0;entryX=0;entryY=0.5034;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n7">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5034;exitPerimeter=0;entryX=0;entryY=0.5034;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n7">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
