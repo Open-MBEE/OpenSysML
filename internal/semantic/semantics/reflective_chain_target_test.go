@@ -136,3 +136,49 @@ func TestFeatureChainExpressionTargetFeatureIsReadOnDemand(t *testing.T) {
 		})
 	}
 }
+
+// A transition's guard resolves its names in the trigger scope, where the
+// accept's parameter is declared (resolve/references.go, symbols.TriggerScope),
+// so a chain from that parameter reflects its targetFeature and the parameter
+// its referent whether or not the document was walked.
+func TestTransitionGuardChainTargetFeatureIsReadOnDemand(t *testing.T) {
+	const src = `
+	package P {
+		attribute def Request { attribute ids : ScalarValues::Integer; }
+		state def Machine {
+			state idle;
+			state busy;
+			transition t first idle accept origin : Request if origin.ids > 0 then busy;
+		}
+	}
+`
+	for _, build := range []struct {
+		name  string
+		build func(*testing.T, string) (*Model, *symbols.Scope)
+	}{
+		{"walked", buildModelWithStdlib},
+		{"unwalked", buildModelWithStdlibUnwalked},
+	} {
+		t.Run(build.name, func(t *testing.T) {
+			m, root := build.build(t, src)
+			pkg, _ := root.LookupLocal("P")
+			ids := member(t, m, member(t, m, pkg, "Request"), "ids")
+			trans := member(t, m, member(t, m, pkg, "Machine"), "t")
+			guard, ok := m.ReflectiveElements(trans, "guardExpression")
+			if !ok || len(guard) != 1 {
+				t.Fatalf("guardExpression = %v (%v)", guard, ok)
+			}
+			args := m.ExpressionArguments(guard[0])
+			if len(args) != 2 || m.MetaclassOf(args[0]).Name != "FeatureChainExpression" {
+				t.Fatalf("guard operands = %d, first %s", len(args), m.MetaclassOf(args[0]).Name)
+			}
+			if got, ok := m.ReflectiveElements(args[0], "targetFeature"); !ok || len(got) != 1 || got[0] != ids {
+				t.Errorf("targetFeature = %v (%v), want Request::ids", got, ok)
+			}
+			operand := m.ExpressionArguments(args[0])
+			if got, ok := m.ReflectiveElements(operand[0], "referent"); !ok || len(got) != 1 || got[0].Name != "origin" {
+				t.Errorf("operand referent = %v (%v), want the accept parameter origin", got, ok)
+			}
+		})
+	}
+}

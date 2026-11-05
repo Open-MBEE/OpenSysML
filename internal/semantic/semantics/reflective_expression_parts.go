@@ -590,9 +590,10 @@ func chainNaming(node ast.Node, name *ast.QualifiedName) *ast.FeatureChainExpr {
 }
 
 // expressionScopeOf is the scope the names an expression element writes resolve
-// in, the one the document walk reads them in: the scope of the innermost body
-// expression declaring members around it, else the owner scope of the feature
-// whose value it is.
+// in, the one the document walk reads them in (resolve/references.go): the
+// scope of the innermost body expression declaring members around it; for a
+// transition's guard, the trigger scope holding the accept's parameter; else
+// the owner scope of the feature whose value it is.
 func (m *Model) expressionScopeOf(expr *symbols.Symbol) *symbols.Scope {
 	for cur := expr; cur != nil; cur = cur.Expr.Owner {
 		if cur.Expr == nil {
@@ -601,6 +602,11 @@ func (m *Model) expressionScopeOf(expr *symbols.Symbol) *symbols.Scope {
 		if cur.Expr.Role == symbols.ExpressionBody {
 			if scope := m.bodyScopeOf(cur); scope != nil {
 				return scope
+			}
+		}
+		if cur.Expr.Role == symbols.ExpressionGuard {
+			if trans, ok := transitionDecl(cur.Expr.Owner); ok {
+				return symbols.TriggerScope(cur.Expr.Owner.OwnerScope, trans)
 			}
 		}
 	}
