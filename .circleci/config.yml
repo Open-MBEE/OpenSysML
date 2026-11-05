@@ -551,6 +551,18 @@ jobs:
           name: Check changelog fragments
           command: python3 scripts/changelog-test.py && python3 scripts/changelog.py check
 
+      # The compliance map is combined from docs/project/spec-compliance/ when the site is
+      # built; a release tag (or its rehearsal) must carry the combined page, current.
+      - run:
+          name: Check the compliance-map sources and the combined page
+          command: |
+            python3 scripts/spec_compliance-test.py
+            if [ -n "${CIRCLE_TAG:-}" ]; then
+              python3 scripts/spec_compliance.py check --require-page
+            else
+              python3 scripts/spec_compliance.py check
+            fi
+
       - run:
           name: Check the release provenance writer
           command: python3 scripts/release-provenance-test.py
