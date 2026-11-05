@@ -3933,7 +3933,8 @@ pub struct RenderViewResponse {
     pub kind: ::prost::alloc::string::String,
     #[prost(string, tag="3")]
     pub stated: ::prost::alloc::string::String,
-    /// Nodes are flattened with parents before children.
+    /// Nodes are flattened with parents before children; each node is listed once,
+    /// and ids are unique within a rendering.
     #[prost(message, repeated, tag="4")]
     pub nodes: ::prost::alloc::vec::Vec<RenderNode>,
     #[prost(message, repeated, tag="5")]

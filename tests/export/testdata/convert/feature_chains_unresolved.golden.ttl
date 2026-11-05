@@ -455,7 +455,11 @@ expr:Chains__ctx___402_pend0
     sysml:ownedReferenceSubsetting expr:Chains__ctx___402_pend0_prs ;
     sysml:ownedSubsetting expr:Chains__ctx___402_pend0_prs ;
     sysml:ownedSpecialization expr:Chains__ctx___402_pend0_prs ;
-    sysml:ownedRelationship expr:Chains__ctx___402_pend0_prs .
+    sysml:ownedRelationship expr:Chains__ctx___402_pend0_prs, expr:Chains__ctx___402_pend0_pmultiplicity_om ;
+    sysml:multiplicity expr:Chains__ctx___402_pend0_pmultiplicity ;
+    sysml:ownedMembership expr:Chains__ctx___402_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__ctx___402_pend0_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"Chains__ctx___402_pend0_prs\"},{\"@id\":\"Chains__ctx___402_pend0_pmultiplicity_om\"}]" .
 
 expr:Chains__ctx___402_pend0_om
     a sysml:EndFeatureMembership ;
@@ -540,6 +544,28 @@ expr:Chains__ctx___402_pend0_prs
     sysml:ownedRelatedElement expr:Chains__ctx___402_pend0_pchain ;
     json:relatedElement "[{\"@id\":\"Chains__ctx___402_pend0\"},{\"@id\":\"Chains__ctx___402_pend0_pchain\"}]" .
 
+expr:Chains__ctx___402_pend0_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__ctx___402_pend0_pmultiplicity" ;
+    sysml:owner expr:Chains__ctx___402_pend0 ;
+    sysml:owningRelationship expr:Chains__ctx___402_pend0_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__ctx___402_pend0_pmultiplicity_om .
+
+expr:Chains__ctx___402_pend0_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__ctx___402_pend0_pmultiplicity_om" ;
+    sysml:owner expr:Chains__ctx___402_pend0 ;
+    sysml:memberElement expr:Chains__ctx___402_pend0_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__ctx___402_pend0_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__ctx___402_pend0_pmultiplicity ;
+    sysml:owningRelatedElement expr:Chains__ctx___402_pend0 ;
+    sysml:membershipOwningNamespace expr:Chains__ctx___402_pend0 ;
+    sysml:source expr:Chains__ctx___402_pend0 ;
+    sysml:target expr:Chains__ctx___402_pend0_pmultiplicity ;
+    sysml:relatedElement expr:Chains__ctx___402_pend0, expr:Chains__ctx___402_pend0_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx___402_pend0\"},{\"@id\":\"Chains__ctx___402_pend0_pmultiplicity\"}]" .
+
 expr:Chains__ctx___402_pend1
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -555,7 +581,11 @@ expr:Chains__ctx___402_pend1
     sysml:ownedReferenceSubsetting expr:Chains__ctx___402_pend1_prs ;
     sysml:ownedSubsetting expr:Chains__ctx___402_pend1_prs ;
     sysml:ownedSpecialization expr:Chains__ctx___402_pend1_prs ;
-    sysml:ownedRelationship expr:Chains__ctx___402_pend1_prs .
+    sysml:ownedRelationship expr:Chains__ctx___402_pend1_prs, expr:Chains__ctx___402_pend1_pmultiplicity_om ;
+    sysml:multiplicity expr:Chains__ctx___402_pend1_pmultiplicity ;
+    sysml:ownedMembership expr:Chains__ctx___402_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:Chains__ctx___402_pend1_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"Chains__ctx___402_pend1_prs\"},{\"@id\":\"Chains__ctx___402_pend1_pmultiplicity_om\"}]" .
 
 expr:Chains__ctx___402_pend1_om
     a sysml:EndFeatureMembership ;
@@ -627,6 +657,28 @@ expr:Chains__ctx___402_pend1_prs
     sysml:owningRelatedElement expr:Chains__ctx___402_pend1 ;
     sysml:ownedRelatedElement expr:Chains__ctx___402_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"Chains__ctx___402_pend1\"},{\"@id\":\"Chains__ctx___402_pend1_pchain\"}]" .
+
+expr:Chains__ctx___402_pend1_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Chains__ctx___402_pend1_pmultiplicity" ;
+    sysml:owner expr:Chains__ctx___402_pend1 ;
+    sysml:owningRelationship expr:Chains__ctx___402_pend1_pmultiplicity_om ;
+    sysml:owningMembership expr:Chains__ctx___402_pend1_pmultiplicity_om .
+
+expr:Chains__ctx___402_pend1_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Chains__ctx___402_pend1_pmultiplicity_om" ;
+    sysml:owner expr:Chains__ctx___402_pend1 ;
+    sysml:memberElement expr:Chains__ctx___402_pend1_pmultiplicity ;
+    sysml:ownedMemberElement expr:Chains__ctx___402_pend1_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Chains__ctx___402_pend1_pmultiplicity ;
+    sysml:owningRelatedElement expr:Chains__ctx___402_pend1 ;
+    sysml:membershipOwningNamespace expr:Chains__ctx___402_pend1 ;
+    sysml:source expr:Chains__ctx___402_pend1 ;
+    sysml:target expr:Chains__ctx___402_pend1_pmultiplicity ;
+    sysml:relatedElement expr:Chains__ctx___402_pend1, expr:Chains__ctx___402_pend1_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Chains__ctx___402_pend1\"},{\"@id\":\"Chains__ctx___402_pend1_pmultiplicity\"}]" .
 
 elmt:Chains__ctx__r
     a sysml:ReferenceUsage ;
