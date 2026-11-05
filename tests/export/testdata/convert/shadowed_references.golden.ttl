@@ -959,7 +959,11 @@ expr:Shadowing__Bus__link_pend0
     sysml:ownedReferenceSubsetting expr:Shadowing__Bus__link_pend0_prs ;
     sysml:ownedSubsetting expr:Shadowing__Bus__link_pend0_prs ;
     sysml:ownedSpecialization expr:Shadowing__Bus__link_pend0_prs ;
-    sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_prs .
+    sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_prs, expr:Shadowing__Bus__link_pend0_pmultiplicity_om ;
+    sysml:multiplicity expr:Shadowing__Bus__link_pend0_pmultiplicity ;
+    sysml:ownedMembership expr:Shadowing__Bus__link_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Bus__link_pend0_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__link_pend0_prs\"},{\"@id\":\"Shadowing__Bus__link_pend0_pmultiplicity_om\"}]" .
 
 expr:Shadowing__Bus__link_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1032,6 +1036,28 @@ expr:Shadowing__Bus__link_pend0_prs
     sysml:ownedRelatedElement expr:Shadowing__Bus__link_pend0_pchain ;
     json:relatedElement "[{\"@id\":\"Shadowing__Bus__link_pend0\"},{\"@id\":\"Shadowing__Bus__link_pend0_pchain\"}]" .
 
+expr:Shadowing__Bus__link_pend0_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Bus__link_pend0_pmultiplicity" ;
+    sysml:owner expr:Shadowing__Bus__link_pend0 ;
+    sysml:owningRelationship expr:Shadowing__Bus__link_pend0_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Bus__link_pend0_pmultiplicity_om .
+
+expr:Shadowing__Bus__link_pend0_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Bus__link_pend0_pmultiplicity_om" ;
+    sysml:owner expr:Shadowing__Bus__link_pend0 ;
+    sysml:memberElement expr:Shadowing__Bus__link_pend0_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__link_pend0_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__link_pend0_pmultiplicity ;
+    sysml:owningRelatedElement expr:Shadowing__Bus__link_pend0 ;
+    sysml:membershipOwningNamespace expr:Shadowing__Bus__link_pend0 ;
+    sysml:source expr:Shadowing__Bus__link_pend0 ;
+    sysml:target expr:Shadowing__Bus__link_pend0_pmultiplicity ;
+    sysml:relatedElement expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend0_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Bus__link_pend0\"},{\"@id\":\"Shadowing__Bus__link_pend0_pmultiplicity\"}]" .
+
 expr:Shadowing__Bus__link_pend1
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -1047,7 +1073,11 @@ expr:Shadowing__Bus__link_pend1
     sysml:ownedReferenceSubsetting expr:Shadowing__Bus__link_pend1_prs ;
     sysml:ownedSubsetting expr:Shadowing__Bus__link_pend1_prs ;
     sysml:ownedSpecialization expr:Shadowing__Bus__link_pend1_prs ;
-    sysml:ownedRelationship expr:Shadowing__Bus__link_pend1_prs .
+    sysml:ownedRelationship expr:Shadowing__Bus__link_pend1_prs, expr:Shadowing__Bus__link_pend1_pmultiplicity_om ;
+    sysml:multiplicity expr:Shadowing__Bus__link_pend1_pmultiplicity ;
+    sysml:ownedMembership expr:Shadowing__Bus__link_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:Shadowing__Bus__link_pend1_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__link_pend1_prs\"},{\"@id\":\"Shadowing__Bus__link_pend1_pmultiplicity_om\"}]" .
 
 expr:Shadowing__Bus__link_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1081,6 +1111,28 @@ expr:Shadowing__Bus__link_pend1_prs
     sysml:owner expr:Shadowing__Bus__link_pend1 ;
     sysml:owningRelatedElement expr:Shadowing__Bus__link_pend1 ;
     json:relatedElement "[{\"@id\":\"Shadowing__Bus__link_pend1\"},{\"@id\":\"Shadowing__payload\"}]" .
+
+expr:Shadowing__Bus__link_pend1_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Shadowing__Bus__link_pend1_pmultiplicity" ;
+    sysml:owner expr:Shadowing__Bus__link_pend1 ;
+    sysml:owningRelationship expr:Shadowing__Bus__link_pend1_pmultiplicity_om ;
+    sysml:owningMembership expr:Shadowing__Bus__link_pend1_pmultiplicity_om .
+
+expr:Shadowing__Bus__link_pend1_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Bus__link_pend1_pmultiplicity_om" ;
+    sysml:owner expr:Shadowing__Bus__link_pend1 ;
+    sysml:memberElement expr:Shadowing__Bus__link_pend1_pmultiplicity ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__link_pend1_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__link_pend1_pmultiplicity ;
+    sysml:owningRelatedElement expr:Shadowing__Bus__link_pend1 ;
+    sysml:membershipOwningNamespace expr:Shadowing__Bus__link_pend1 ;
+    sysml:source expr:Shadowing__Bus__link_pend1 ;
+    sysml:target expr:Shadowing__Bus__link_pend1_pmultiplicity ;
+    sysml:relatedElement expr:Shadowing__Bus__link_pend1, expr:Shadowing__Bus__link_pend1_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Shadowing__Bus__link_pend1\"},{\"@id\":\"Shadowing__Bus__link_pend1_pmultiplicity\"}]" .
 
 elmt:Shadowing__Bus__Budget
     a sysml:RequirementDefinition ;

@@ -1158,7 +1158,11 @@ expr:FlowsAndViews__vehicle___404_pend0
     sysml:ownedReferenceSubsetting expr:FlowsAndViews__vehicle___404_pend0_prs ;
     sysml:ownedSubsetting expr:FlowsAndViews__vehicle___404_pend0_prs ;
     sysml:ownedSpecialization expr:FlowsAndViews__vehicle___404_pend0_prs ;
-    sysml:ownedRelationship expr:FlowsAndViews__vehicle___404_pend0_prs .
+    sysml:ownedRelationship expr:FlowsAndViews__vehicle___404_pend0_prs, expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity_om ;
+    sysml:multiplicity expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity ;
+    sysml:ownedMembership expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__vehicle___404_pend0_prs\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend0_pmultiplicity_om\"}]" .
 
 expr:FlowsAndViews__vehicle___404_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1193,6 +1197,28 @@ expr:FlowsAndViews__vehicle___404_pend0_prs
     sysml:owningRelatedElement expr:FlowsAndViews__vehicle___404_pend0 ;
     json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle___404_pend0\"},{\"@id\":\"FlowsAndViews__vehicle__tank\"}]" .
 
+expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "FlowsAndViews__vehicle___404_pend0_pmultiplicity" ;
+    sysml:owner expr:FlowsAndViews__vehicle___404_pend0 ;
+    sysml:owningRelationship expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity_om ;
+    sysml:owningMembership expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity_om .
+
+expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "FlowsAndViews__vehicle___404_pend0_pmultiplicity_om" ;
+    sysml:owner expr:FlowsAndViews__vehicle___404_pend0 ;
+    sysml:memberElement expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity ;
+    sysml:ownedMemberElement expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity ;
+    sysml:ownedRelatedElement expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity ;
+    sysml:owningRelatedElement expr:FlowsAndViews__vehicle___404_pend0 ;
+    sysml:membershipOwningNamespace expr:FlowsAndViews__vehicle___404_pend0 ;
+    sysml:source expr:FlowsAndViews__vehicle___404_pend0 ;
+    sysml:target expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity ;
+    sysml:relatedElement expr:FlowsAndViews__vehicle___404_pend0, expr:FlowsAndViews__vehicle___404_pend0_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle___404_pend0\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend0_pmultiplicity\"}]" .
+
 expr:FlowsAndViews__vehicle___404_pend1
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -1208,7 +1234,11 @@ expr:FlowsAndViews__vehicle___404_pend1
     sysml:ownedReferenceSubsetting expr:FlowsAndViews__vehicle___404_pend1_prs ;
     sysml:ownedSubsetting expr:FlowsAndViews__vehicle___404_pend1_prs ;
     sysml:ownedSpecialization expr:FlowsAndViews__vehicle___404_pend1_prs ;
-    sysml:ownedRelationship expr:FlowsAndViews__vehicle___404_pend1_prs .
+    sysml:ownedRelationship expr:FlowsAndViews__vehicle___404_pend1_prs, expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity_om ;
+    sysml:multiplicity expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity ;
+    sysml:ownedMembership expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__vehicle___404_pend1_prs\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1_pmultiplicity_om\"}]" .
 
 expr:FlowsAndViews__vehicle___404_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1242,6 +1272,28 @@ expr:FlowsAndViews__vehicle___404_pend1_prs
     sysml:owner expr:FlowsAndViews__vehicle___404_pend1 ;
     sysml:owningRelatedElement expr:FlowsAndViews__vehicle___404_pend1 ;
     json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle___404_pend1\"},{\"@id\":\"FlowsAndViews__vehicle__engine\"}]" .
+
+expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "FlowsAndViews__vehicle___404_pend1_pmultiplicity" ;
+    sysml:owner expr:FlowsAndViews__vehicle___404_pend1 ;
+    sysml:owningRelationship expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity_om ;
+    sysml:owningMembership expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity_om .
+
+expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "FlowsAndViews__vehicle___404_pend1_pmultiplicity_om" ;
+    sysml:owner expr:FlowsAndViews__vehicle___404_pend1 ;
+    sysml:memberElement expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity ;
+    sysml:ownedMemberElement expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity ;
+    sysml:ownedRelatedElement expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity ;
+    sysml:owningRelatedElement expr:FlowsAndViews__vehicle___404_pend1 ;
+    sysml:membershipOwningNamespace expr:FlowsAndViews__vehicle___404_pend1 ;
+    sysml:source expr:FlowsAndViews__vehicle___404_pend1 ;
+    sysml:target expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity ;
+    sysml:relatedElement expr:FlowsAndViews__vehicle___404_pend1, expr:FlowsAndViews__vehicle___404_pend1_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicle___404_pend1\"},{\"@id\":\"FlowsAndViews__vehicle___404_pend1_pmultiplicity\"}]" .
 
 elmt:FlowsAndViews__Measure
     a sysml:ActionDefinition ;

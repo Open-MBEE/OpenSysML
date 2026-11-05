@@ -335,7 +335,11 @@ expr:Synonyms___407_pend0
     sysml:ownedReferenceSubsetting expr:Synonyms___407_pend0_prs ;
     sysml:ownedSubsetting expr:Synonyms___407_pend0_prs ;
     sysml:ownedSpecialization expr:Synonyms___407_pend0_prs ;
-    sysml:ownedRelationship expr:Synonyms___407_pend0_prs .
+    sysml:ownedRelationship expr:Synonyms___407_pend0_prs, expr:Synonyms___407_pend0_pmultiplicity_om ;
+    sysml:multiplicity expr:Synonyms___407_pend0_pmultiplicity ;
+    sysml:ownedMembership expr:Synonyms___407_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:Synonyms___407_pend0_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"Synonyms___407_pend0_prs\"},{\"@id\":\"Synonyms___407_pend0_pmultiplicity_om\"}]" .
 
 expr:Synonyms___407_pend0_om
     a sysml:EndFeatureMembership ;
@@ -370,6 +374,28 @@ expr:Synonyms___407_pend0_prs
     sysml:owningRelatedElement expr:Synonyms___407_pend0 ;
     json:relatedElement "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms__reading\"}]" .
 
+expr:Synonyms___407_pend0_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Synonyms___407_pend0_pmultiplicity" ;
+    sysml:owner expr:Synonyms___407_pend0 ;
+    sysml:owningRelationship expr:Synonyms___407_pend0_pmultiplicity_om ;
+    sysml:owningMembership expr:Synonyms___407_pend0_pmultiplicity_om .
+
+expr:Synonyms___407_pend0_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Synonyms___407_pend0_pmultiplicity_om" ;
+    sysml:owner expr:Synonyms___407_pend0 ;
+    sysml:memberElement expr:Synonyms___407_pend0_pmultiplicity ;
+    sysml:ownedMemberElement expr:Synonyms___407_pend0_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Synonyms___407_pend0_pmultiplicity ;
+    sysml:owningRelatedElement expr:Synonyms___407_pend0 ;
+    sysml:membershipOwningNamespace expr:Synonyms___407_pend0 ;
+    sysml:source expr:Synonyms___407_pend0 ;
+    sysml:target expr:Synonyms___407_pend0_pmultiplicity ;
+    sysml:relatedElement expr:Synonyms___407_pend0, expr:Synonyms___407_pend0_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend0_pmultiplicity\"}]" .
+
 expr:Synonyms___407_pend1
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -385,7 +411,11 @@ expr:Synonyms___407_pend1
     sysml:ownedReferenceSubsetting expr:Synonyms___407_pend1_prs ;
     sysml:ownedSubsetting expr:Synonyms___407_pend1_prs ;
     sysml:ownedSpecialization expr:Synonyms___407_pend1_prs ;
-    sysml:ownedRelationship expr:Synonyms___407_pend1_prs .
+    sysml:ownedRelationship expr:Synonyms___407_pend1_prs, expr:Synonyms___407_pend1_pmultiplicity_om ;
+    sysml:multiplicity expr:Synonyms___407_pend1_pmultiplicity ;
+    sysml:ownedMembership expr:Synonyms___407_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:Synonyms___407_pend1_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"Synonyms___407_pend1_prs\"},{\"@id\":\"Synonyms___407_pend1_pmultiplicity_om\"}]" .
 
 expr:Synonyms___407_pend1_om
     a sysml:EndFeatureMembership ;
@@ -419,6 +449,28 @@ expr:Synonyms___407_pend1_prs
     sysml:owner expr:Synonyms___407_pend1 ;
     sysml:owningRelatedElement expr:Synonyms___407_pend1 ;
     json:relatedElement "[{\"@id\":\"Synonyms___407_pend1\"},{\"@id\":\"Synonyms__base\"}]" .
+
+expr:Synonyms___407_pend1_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "Synonyms___407_pend1_pmultiplicity" ;
+    sysml:owner expr:Synonyms___407_pend1 ;
+    sysml:owningRelationship expr:Synonyms___407_pend1_pmultiplicity_om ;
+    sysml:owningMembership expr:Synonyms___407_pend1_pmultiplicity_om .
+
+expr:Synonyms___407_pend1_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Synonyms___407_pend1_pmultiplicity_om" ;
+    sysml:owner expr:Synonyms___407_pend1 ;
+    sysml:memberElement expr:Synonyms___407_pend1_pmultiplicity ;
+    sysml:ownedMemberElement expr:Synonyms___407_pend1_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Synonyms___407_pend1_pmultiplicity ;
+    sysml:owningRelatedElement expr:Synonyms___407_pend1 ;
+    sysml:membershipOwningNamespace expr:Synonyms___407_pend1 ;
+    sysml:source expr:Synonyms___407_pend1 ;
+    sysml:target expr:Synonyms___407_pend1_pmultiplicity ;
+    sysml:relatedElement expr:Synonyms___407_pend1, expr:Synonyms___407_pend1_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"Synonyms___407_pend1\"},{\"@id\":\"Synonyms___407_pend1_pmultiplicity\"}]" .
 
 elmt:Synonyms__Drive
     a sysml:UseCaseDefinition ;

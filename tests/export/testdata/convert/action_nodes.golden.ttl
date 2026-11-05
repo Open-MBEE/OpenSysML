@@ -1906,7 +1906,11 @@ expr:ActionNodes__Drive___4019_pend0
     sysml:ownedReferenceSubsetting expr:ActionNodes__Drive___4019_pend0_prs ;
     sysml:ownedSubsetting expr:ActionNodes__Drive___4019_pend0_prs ;
     sysml:ownedSpecialization expr:ActionNodes__Drive___4019_pend0_prs ;
-    sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend0_prs .
+    sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend0_prs, expr:ActionNodes__Drive___4019_pend0_pmultiplicity_om ;
+    sysml:multiplicity expr:ActionNodes__Drive___4019_pend0_pmultiplicity ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4019_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:ActionNodes__Drive___4019_pend0_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4019_pend0_prs\"},{\"@id\":\"ActionNodes__Drive___4019_pend0_pmultiplicity_om\"}]" .
 
 expr:ActionNodes__Drive___4019_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1941,6 +1945,28 @@ expr:ActionNodes__Drive___4019_pend0_prs
     sysml:owningRelatedElement expr:ActionNodes__Drive___4019_pend0 ;
     json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4019_pend0\"},{\"@id\":\"9a0d2905-0f9c-5bb4-af74-9780d6db1817\"}]" .
 
+expr:ActionNodes__Drive___4019_pend0_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "ActionNodes__Drive___4019_pend0_pmultiplicity" ;
+    sysml:owner expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4019_pend0_pmultiplicity_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4019_pend0_pmultiplicity_om .
+
+expr:ActionNodes__Drive___4019_pend0_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4019_pend0_pmultiplicity_om" ;
+    sysml:owner expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:memberElement expr:ActionNodes__Drive___4019_pend0_pmultiplicity ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4019_pend0_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4019_pend0_pmultiplicity ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:membershipOwningNamespace expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:source expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:target expr:ActionNodes__Drive___4019_pend0_pmultiplicity ;
+    sysml:relatedElement expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend0_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4019_pend0\"},{\"@id\":\"ActionNodes__Drive___4019_pend0_pmultiplicity\"}]" .
+
 expr:ActionNodes__Drive___4019_pend1
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -1953,7 +1979,11 @@ expr:ActionNodes__Drive___4019_pend1
     sysml:ownedReferenceSubsetting expr:ActionNodes__Drive___4019_pend1_prs ;
     sysml:ownedSubsetting expr:ActionNodes__Drive___4019_pend1_prs ;
     sysml:ownedSpecialization expr:ActionNodes__Drive___4019_pend1_prs ;
-    sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend1_prs .
+    sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend1_prs, expr:ActionNodes__Drive___4019_pend1_pmultiplicity_om ;
+    sysml:multiplicity expr:ActionNodes__Drive___4019_pend1_pmultiplicity ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4019_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:ActionNodes__Drive___4019_pend1_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4019_pend1_prs\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_pmultiplicity_om\"}]" .
 
 expr:ActionNodes__Drive___4019_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1987,6 +2017,28 @@ expr:ActionNodes__Drive___4019_pend1_prs
     sysml:owner expr:ActionNodes__Drive___4019_pend1 ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4019_pend1 ;
     json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4019_pend1\"},{\"@id\":\"ActionNodes__Drive__brake\"}]" .
+
+expr:ActionNodes__Drive___4019_pend1_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "ActionNodes__Drive___4019_pend1_pmultiplicity" ;
+    sysml:owner expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4019_pend1_pmultiplicity_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4019_pend1_pmultiplicity_om .
+
+expr:ActionNodes__Drive___4019_pend1_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4019_pend1_pmultiplicity_om" ;
+    sysml:owner expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:memberElement expr:ActionNodes__Drive___4019_pend1_pmultiplicity ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4019_pend1_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4019_pend1_pmultiplicity ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:membershipOwningNamespace expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:source expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:target expr:ActionNodes__Drive___4019_pend1_pmultiplicity ;
+    sysml:relatedElement expr:ActionNodes__Drive___4019_pend1, expr:ActionNodes__Drive___4019_pend1_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4019_pend1\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_pmultiplicity\"}]" .
 
 elmt:ActionNodes__Drive___4020
     a sysml:SuccessionAsUsage ;
@@ -2053,7 +2105,11 @@ expr:ActionNodes__Drive___4020_pend0
     sysml:ownedReferenceSubsetting expr:ActionNodes__Drive___4020_pend0_prs ;
     sysml:ownedSubsetting expr:ActionNodes__Drive___4020_pend0_prs ;
     sysml:ownedSpecialization expr:ActionNodes__Drive___4020_pend0_prs ;
-    sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend0_prs .
+    sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend0_prs, expr:ActionNodes__Drive___4020_pend0_pmultiplicity_om ;
+    sysml:multiplicity expr:ActionNodes__Drive___4020_pend0_pmultiplicity ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4020_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:ActionNodes__Drive___4020_pend0_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4020_pend0_prs\"},{\"@id\":\"ActionNodes__Drive___4020_pend0_pmultiplicity_om\"}]" .
 
 expr:ActionNodes__Drive___4020_pend0_om
     a sysml:EndFeatureMembership ;
@@ -2088,6 +2144,28 @@ expr:ActionNodes__Drive___4020_pend0_prs
     sysml:owningRelatedElement expr:ActionNodes__Drive___4020_pend0 ;
     json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4020_pend0\"},{\"@id\":\"ActionNodes__Drive__brake\"}]" .
 
+expr:ActionNodes__Drive___4020_pend0_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "ActionNodes__Drive___4020_pend0_pmultiplicity" ;
+    sysml:owner expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4020_pend0_pmultiplicity_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4020_pend0_pmultiplicity_om .
+
+expr:ActionNodes__Drive___4020_pend0_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4020_pend0_pmultiplicity_om" ;
+    sysml:owner expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:memberElement expr:ActionNodes__Drive___4020_pend0_pmultiplicity ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4020_pend0_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4020_pend0_pmultiplicity ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:membershipOwningNamespace expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:source expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:target expr:ActionNodes__Drive___4020_pend0_pmultiplicity ;
+    sysml:relatedElement expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend0_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4020_pend0\"},{\"@id\":\"ActionNodes__Drive___4020_pend0_pmultiplicity\"}]" .
+
 expr:ActionNodes__Drive___4020_pend1
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -2100,7 +2178,11 @@ expr:ActionNodes__Drive___4020_pend1
     sysml:ownedReferenceSubsetting expr:ActionNodes__Drive___4020_pend1_prs ;
     sysml:ownedSubsetting expr:ActionNodes__Drive___4020_pend1_prs ;
     sysml:ownedSpecialization expr:ActionNodes__Drive___4020_pend1_prs ;
-    sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend1_prs .
+    sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend1_prs, expr:ActionNodes__Drive___4020_pend1_pmultiplicity_om ;
+    sysml:multiplicity expr:ActionNodes__Drive___4020_pend1_pmultiplicity ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4020_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:ActionNodes__Drive___4020_pend1_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4020_pend1_prs\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_pmultiplicity_om\"}]" .
 
 expr:ActionNodes__Drive___4020_pend1_om
     a sysml:EndFeatureMembership ;
@@ -2134,6 +2216,28 @@ expr:ActionNodes__Drive___4020_pend1_prs
     sysml:owner expr:ActionNodes__Drive___4020_pend1 ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4020_pend1 ;
     json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4020_pend1\"},{\"@id\":\"0cdc3cd3-b06c-5c32-beda-0cf4ba164a64\"}]" .
+
+expr:ActionNodes__Drive___4020_pend1_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "ActionNodes__Drive___4020_pend1_pmultiplicity" ;
+    sysml:owner expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4020_pend1_pmultiplicity_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4020_pend1_pmultiplicity_om .
+
+expr:ActionNodes__Drive___4020_pend1_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4020_pend1_pmultiplicity_om" ;
+    sysml:owner expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:memberElement expr:ActionNodes__Drive___4020_pend1_pmultiplicity ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4020_pend1_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4020_pend1_pmultiplicity ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:membershipOwningNamespace expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:source expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:target expr:ActionNodes__Drive___4020_pend1_pmultiplicity ;
+    sysml:relatedElement expr:ActionNodes__Drive___4020_pend1, expr:ActionNodes__Drive___4020_pend1_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4020_pend1\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_pmultiplicity\"}]" .
 
 elmt:ActionNodes__Drive__antenna_ft0
     a sysml:FeatureTyping ;

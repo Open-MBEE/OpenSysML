@@ -18,14 +18,15 @@ func (m *Model) ImpliesDefaultMultiplicity(sym *symbols.Symbol) bool {
 		return !m.declaresMultiplicity(sym)
 	}
 	if sym.Kind == symbols.SymbolConnectorEnd {
-		// A named end (`connect e1 ::> x to …`) is a declared end usage, held to [1..1]
-		// whatever it references; a positional end (`connect x to y`) states none.
-		if end, ok := sym.Decl.(*ast.ConnectorEnd); ok {
-			if _, named := end.DeclaredName(); !named || end.Multiplicity != nil {
+		// Every connector end without a written range is held to [1..1], positional
+		// (`connect x to y`) or named (SysML v2 §7.13.2); a flow's ends (FlowEnd) take none.
+		if end, ok := sym.Decl.(*ast.ConnectorEnd); ok && end.Multiplicity != nil {
+			return false
+		}
+		if owner := sym.OwnerScope.OwningElement(); owner != nil {
+			if usage, ok := owner.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageFlow {
 				return false
 			}
-		} else if sym.Name == "" {
-			return false
 		}
 		return !m.declaresMultiplicity(sym)
 	}
