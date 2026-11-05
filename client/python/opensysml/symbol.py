@@ -2,6 +2,7 @@
 
 from typing import Any, Dict, List, Optional, Protocol, TYPE_CHECKING
 
+from opensysml.errors import UnresolvedChildError
 from opensysml.capabilities import (
     CAPABILITY_SYMBOL_ATTRIBUTES,
     require,
@@ -189,28 +190,41 @@ class Symbol:
         )
 
     def children(self) -> List["Symbol"]:
-        """Return all child symbols.
-        
+        """Return all child symbols, named and unnamed.
+
         Lazily fetches child symbols using the RPC client if available.
         Caches results after first call.
         Returns empty list if no client is set.
-        
+
+        An unnamed member (``bind a = b;``, ``connect a to b;``, ``part : P;``,
+        ``@M { … }``) is listed under the positional id the query API and the
+        export give it, such as ``Pkg::Owner::@3``.
+
         Returns:
             List of child Symbol objects
+
+        Raises:
+            UnresolvedChildError: the service listed a child it then could not
+                resolve, so the children cannot be read completely
         """
         if self._children_cache is not None:
             return self._children_cache
-        
+
         if self._client is None:
             self._children_cache = []
             return self._children_cache
-        
+
         result = []
+        unresolved = []
         for child_id in self._pb.child_ids:
             child_info = self._client.get_symbol(self._model_hash, child_id)
-            if child_info is not None:
-                result.append(Symbol(child_info, self._client, self._model_hash))
-        
+            if child_info is None:
+                unresolved.append(child_id)
+                continue
+            result.append(Symbol(child_info, self._client, self._model_hash))
+        if unresolved:
+            raise UnresolvedChildError(self.id, unresolved)
+
         self._children_cache = result
         return result
     

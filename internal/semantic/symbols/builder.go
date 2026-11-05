@@ -53,13 +53,11 @@ func unwrapMember(m ast.Node) (ast.Node, ast.Visibility) {
 // declaration node. trivia is the leading trivia captured from the member
 // wrapper before unwrap.
 func buildDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia []ast.Trivia) {
-	if prefixes := prefixMetadataOf(decl); len(prefixes) > 0 {
-		buildMetadataBodyScopes(scope, decl, prefixes)
-	}
 	switch {
 	case buildNamespaceDecl(scope, decl, vis, trivia):
 	case buildBehaviorDecl(scope, decl, vis, trivia):
 	}
+	buildPrefixMetadata(scope, decl)
 }
 
 // buildNamespaceDecl registers a namespace, definition or usage
@@ -360,13 +358,35 @@ func prefixMetadataOf(decl ast.Node) []*ast.PrefixMetadata {
 	return prefixes
 }
 
-// buildMetadataBodyScopes builds the body scopes of the annotations written on
-// decl, a member of scope.
-func buildMetadataBodyScopes(scope *Scope, decl ast.Node, prefixes []*ast.PrefixMetadata) {
+// buildPrefixMetadata registers the metadata usage each `#M` prefix of decl
+// declares as a member of the scope decl owns: the annotated element owns it
+// (SysML v2 PrefixMetadataMember is an OwningMembership), after its body
+// members, as the export orders them. The usage's body scope hangs off scope,
+// the one decl is a member of, where the resolver and the walkers find it.
+func buildPrefixMetadata(scope *Scope, decl ast.Node) {
+	prefixes := prefixMetadataOf(decl)
+	if len(prefixes) == 0 {
+		return
+	}
+	var owned *Scope
+	if annotated := scope.MemberDeclaring(decl); annotated != nil {
+		owned = annotated.Scope
+	}
 	for _, prefix := range prefixes {
-		if prefix != nil && len(prefix.Body) > 0 {
-			buildMetadataBodyScope(scope, decl, prefix)
+		if prefix == nil {
+			continue
 		}
+		body := buildMetadataBodyScope(scope, decl, prefix)
+		if owned == nil {
+			continue
+		}
+		if body == nil {
+			body = NewScope(scope, prefix)
+			body.annotated = decl
+			scope.AddChild(body)
+		}
+		sym := newSymbol(prefix.Ident, SymbolMetadataUsage, prefix, ast.VisibilityDefault, body, owned, nil)
+		defineIdent(owned, prefix.Ident, sym)
 	}
 }
 
@@ -391,7 +411,9 @@ func buildMetadataBodyScope(parent *Scope, annotated ast.Node, prefix *ast.Prefi
 func buildControlNode(scope *Scope, decl ast.Node, name string, nameSpan source.Span, vis ast.Visibility, trivia []ast.Trivia) {
 	body := ast.NodeBodyMembers(decl)
 	if name == "" {
-		if len(body) > 0 {
+		// An unnamed node declares an element once its body or a prefix gives it
+		// something to own.
+		if len(body) > 0 || len(prefixMetadataOf(decl)) > 0 {
 			buildAnonymousNode(scope, decl, SymbolActionUsage, body, vis, trivia)
 		}
 		return

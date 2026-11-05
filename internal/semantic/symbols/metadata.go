@@ -24,3 +24,18 @@ func MetadataBodyTarget(lookup MetadataBodyResolver, owner *Symbol,
 	}
 	return nil
 }
+
+// IsPrefixMetadata reports whether s is the metadata usage a `#M` prefix
+// declares on the element owning it (SysML v2 PrefixMetadataMember), rather
+// than one written as a member of a body: the builder registers it in the
+// annotated element's scope with a body scope that names the declaration it is
+// written on, and a record keeps the fact as ModPrefixMetadata.
+func (s *Symbol) IsPrefixMetadata() bool {
+	if s == nil || s.Kind != SymbolMetadataUsage {
+		return false
+	}
+	if s.Recorded() {
+		return s.Facts.Modifiers&ModPrefixMetadata != 0
+	}
+	return s.Scope != nil && s.Scope.Annotated() != nil
+}

@@ -73,6 +73,7 @@ empty else blocks are not authorable.
 | `expected_rows` | RunDocumentQuery | full ordered row list, each `{element, cells}` — the row's own document value and one list of document values per column |
 | `expected_result` | Evaluate, EvaluateCalc | expected `Value` |
 | `expected_attribute_names` | GetSymbol | full ordered attribute name list, own then inherited |
+| `expected_kind`, `expected_child_ids` | GetSymbol | the symbol's kind, and the full ordered list of its members' ids: a named member's qualified name, an unnamed one's positional identity (`Owner::@3`), which `symbol_id` may name too |
 | `expected_attributes` | GetSymbol | attribute name → `{type, value_kind, value, unit}`; no `value_kind` requires no value |
 | `expected_metadata` | GetSymbol | metadata key → value the symbol must carry (`variation`, `variant`, `abstract`, `type`, …) |
 | `absent_metadata` | GetSymbol | metadata keys the symbol must not carry |

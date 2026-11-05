@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -162,37 +163,31 @@ func TestOwnedAnnotationsAndAnnotatingElements(t *testing.T) {
 		base := relFixtureSymbol(t, fixture, "Base")
 		dep := relFixtureSymbol(t, fixture, "Dep")
 		c := relFixtureSymbol(t, fixture, "C")
-		// The #Tag prefix is D's one owned annotation; it owns the metadata feature.
-		// A record keeps the prefix as a fact, so the recorded D owns the Annotation
-		// but there is no metadata feature to read through it.
+		// The #Tag prefix is D's one owned annotation; it owns the metadata feature,
+		// a member of D's scope the record keeps as one (ModPrefixMetadata).
 		owned := model.OwnedAnnotations(d)
 		if len(owned) != 1 {
 			t.Fatalf("D owns %d annotations, want 1", len(owned))
 		}
-		if d.Recorded() {
-			tag := owned[0]
-			assertRelMetaclass(t, model, tag, "Annotation")
-			assertRelFeature(t, model, d, "ownedAnnotation", tag)
-			assertRelFeature(t, model, tag, "annotatedElement", d)
-			assertRelFeature(t, model, tag, "owningAnnotatedElement", d)
-			assertRelUnsupported(t, model, tag, "annotatingElement")
-			assertRelUnsupported(t, model, tag, "ownedAnnotatingElement")
-			assertRelFeature(t, model, tag, "owningAnnotatingElement")
-		} else {
-			tag := owned[0]
-			assertRelMetaclass(t, model, tag, "Annotation")
-			assertRelFeature(t, model, tag, "annotatedElement", d)
-			assertRelFeature(t, model, tag, "owningAnnotatedElement", d)
-			assertRelFeature(t, model, tag, "owningAnnotatingElement")
-			assertRelFeature(t, model, d, "ownedAnnotation", tag)
-			prefix := tag.Implicit.Member
-			assertRelFeature(t, model, tag, "ownedAnnotatingElement", prefix)
-			assertRelFeature(t, model, tag, "annotatingElement", prefix)
-			assertRelFeature(t, model, prefix, "owningAnnotatingRelationship", tag)
-			assertRelFeature(t, model, prefix, "annotation", tag)
-			assertRelFeature(t, model, prefix, "annotatedElement", d)
-			assertRelFeature(t, model, prefix, "owningRelationship", tag)
-			assertRelFeature(t, model, prefix, "owningMembership")
+		tag := owned[0]
+		assertRelMetaclass(t, model, tag, "Annotation")
+		assertRelFeature(t, model, tag, "annotatedElement", d)
+		assertRelFeature(t, model, tag, "owningAnnotatedElement", d)
+		assertRelFeature(t, model, tag, "owningAnnotatingElement")
+		assertRelFeature(t, model, d, "ownedAnnotation", tag)
+		prefix := tag.Implicit.Member
+		if prefix == nil || !prefix.IsPrefixMetadata() || prefix.Owner() != d {
+			t.Fatalf("the prefix annotation's member = %v, want the #Tag metadata feature D owns", prefix)
+		}
+		assertRelFeature(t, model, tag, "ownedAnnotatingElement", prefix)
+		assertRelFeature(t, model, tag, "annotatingElement", prefix)
+		assertRelFeature(t, model, prefix, "owningAnnotatingRelationship", tag)
+		assertRelFeature(t, model, prefix, "annotation", tag)
+		assertRelFeature(t, model, prefix, "annotatedElement", d)
+		assertRelFeature(t, model, prefix, "owningRelationship", tag)
+		assertRelFeature(t, model, prefix, "owningMembership")
+		if members, _ := model.ReflectiveElements(d, "ownedMember"); slices.Contains(members, prefix) {
+			t.Errorf("D ownedMember lists the #Tag prefix, want it owned through the Annotation alone")
 		}
 
 		// A doc in a namespace body annotates its namespace through no Annotation.
