@@ -442,6 +442,12 @@ func (l labeller) annotationLines(node *Node) []string {
 // notes. Every entry is a single line: a name that escapes a line break heads
 // several entries.
 func (l labeller) lines(node *Node) []string {
+	return append(l.headerLines(node), l.compartmentLines(node)...)
+}
+
+// headerLines are a node's lines above its compartments: keyword, head,
+// «parallel», details and parameters.
+func (l labeller) headerLines(node *Node) []string {
 	var lines []string
 	if keyword := l.keyword(node); keyword != "" {
 		lines = append(lines, keyword)
@@ -449,8 +455,7 @@ func (l labeller) lines(node *Node) []string {
 	lines = append(lines, l.headLines(node)...)
 	lines = append(lines, l.parallel(node)...)
 	lines = append(lines, l.details(node)...)
-	lines = append(lines, l.parameterLines(node)...)
-	return append(lines, l.compartmentLines(node)...)
+	return append(lines, l.parameterLines(node)...)
 }
 
 // parallelKeyword is the line the name compartment of a parallel state ends in.

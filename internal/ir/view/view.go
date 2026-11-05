@@ -541,6 +541,8 @@ type Edge struct {
 	// openFrom and openTo mark a route that stops short of that end, at the
 	// place of a node elided from between them; the drawing leads it on.
 	openFrom, openTo bool
+	// row is the compartment row a folded membership edge leaves, greyed once the edge is drawn.
+	row string
 }
 
 // Rendering is what a view or run renders to. It is a value, not a live view of
@@ -1002,7 +1004,7 @@ func declKind(sym *symbols.Symbol) string {
 		if decl.IsIndividual && !strings.HasPrefix(kind, "individual ") {
 			kind = "individual " + kind
 		}
-		if decl.IsEnd && !slices.Contains(strings.Fields(kind), "end") {
+		if decl.IsEnd && !slices.Contains(kindWords(kind), "end") {
 			kind = "end " + kind
 		}
 		return extendedKind(decl.Prefixes, figureKeyword(kind))
@@ -1032,7 +1034,15 @@ func extendedKind(prefixes []*ast.PrefixMetadata, kind string) string {
 	var words []string
 	for _, prefix := range prefixes {
 		if prefix.Type != nil {
-			words = append(words, "#"+prefix.Type.Text())
+			names := make([]string, len(prefix.Type.Parts))
+			for i, part := range prefix.Type.Parts {
+				names[i] = part.Text
+			}
+			global := ""
+			if prefix.Type.Global {
+				global = "$::"
+			}
+			words = append(words, "#"+global+source.QualifiedNameOf(names))
 		}
 	}
 	if len(words) == 0 {
