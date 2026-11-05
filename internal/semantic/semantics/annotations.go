@@ -2066,7 +2066,7 @@ func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool, len(named))
 	mask := m.redefinitionMask(sym, true)
-	collect := func(scope *symbols.Scope, inherited bool) {
+	collect := func(owner *symbols.Symbol, scope *symbols.Scope, inherited bool) {
 		if scope == nil {
 			return
 		}
@@ -2075,7 +2075,7 @@ func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol
 			anonymous[s] = true
 		}
 		scope.ForEachMember(func(s *symbols.Symbol) bool {
-			if s.Kind == symbols.SymbolAlias || seen[s] ||
+			if s.Kind == symbols.SymbolAlias || seen[s] || ownedThroughAnnotation(owner, s) ||
 				(!anonymous[s] && !namedSet[s] && !(s.Kind == symbols.SymbolDocumentation && s.Name == "")) ||
 				(inherited && m.maskedBy(mask, s)) {
 				return true
@@ -2085,9 +2085,9 @@ func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol
 			return true
 		})
 	}
-	collect(sym.Scope, false)
+	collect(sym, sym.Scope, false)
 	for _, src := range m.MemberSources(sym) {
-		collect(src.Scope, true)
+		collect(src, src.Scope, true)
 	}
 	for _, s := range named {
 		if !seen[s] {

@@ -186,8 +186,10 @@ func TestOwnedAnnotationsAndAnnotatingElements(t *testing.T) {
 		assertRelFeature(t, model, prefix, "annotatedElement", d)
 		assertRelFeature(t, model, prefix, "owningRelationship", tag)
 		assertRelFeature(t, model, prefix, "owningMembership")
-		if members, _ := model.ReflectiveElements(d, "ownedMember"); slices.Contains(members, prefix) {
-			t.Errorf("D ownedMember lists the #Tag prefix, want it owned through the Annotation alone")
+		for _, feature := range []string{"ownedMember", "member", "feature"} {
+			if members, _ := model.ReflectiveElements(d, feature); slices.Contains(members, prefix) {
+				t.Errorf("D %s lists the #Tag prefix, want it owned through the Annotation alone", feature)
+			}
 		}
 
 		// A doc in a namespace body annotates its namespace through no Annotation.
@@ -571,5 +573,28 @@ func TestRootLevelMembershipImport(t *testing.T) {
 		assertRelUnsupported(t, model, imports[0], "importedMembership")
 		assertRelUnsupported(t, model, imports[0], "target")
 		assertRelFeature(t, model, x, "owningMembership")
+	}
+}
+
+// The annotated element owns its `#M` prefix, so the prefix's names resolve in
+// that element's own scope as the pilot resolves them: a namesake inside the
+// element shadows an outer one, on the parsed and on the recorded fixture alike.
+func TestPrefixMetadataTypeResolvesInTheAnnotatedElement(t *testing.T) {
+	const src = `package Shadow {
+    metadata def Tag;
+    #Tag part def A { metadata def Tag; }
+}`
+	for _, fixture := range reflectiveFixtures(t, "prefix-shadow.sysml", source.KindSysML, src) {
+		model := fixture.model
+		a := relFixtureSymbol(t, fixture, "A")
+		owned := model.OwnedAnnotations(a)
+		if len(owned) != 1 {
+			t.Fatalf("A owns %d annotations, want 1", len(owned))
+		}
+		prefix := owned[0].Implicit.Member
+		types, _ := model.ReflectiveElements(prefix, "type")
+		if len(types) != 1 || types[0].Name != "Tag" || types[0].Owner() != a {
+			t.Errorf("the #Tag prefix of A is typed by %v, want the Tag nested in A, which shadows Shadow::Tag", types)
+		}
 	}
 }

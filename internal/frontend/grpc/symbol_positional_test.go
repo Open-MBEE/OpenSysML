@@ -134,3 +134,23 @@ func TestPositionalIDsReachTheRootAndEvaluate(t *testing.T) {
 		t.Errorf("Evaluate(y + 1 in @1) = %v %q, want 4", eval.Result, eval.Error)
 	}
 }
+
+// The annotated element owns its `#M` prefix (PrefixMetadataMember is an
+// OwningMembership), so the prefix's names resolve in that element's own
+// scope, as the pilot resolves them: a namesake inside the element shadows an
+// outer one, and type_info agrees with the resolver.
+func TestPrefixMetadataTypeResolvesInTheAnnotatedElement(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParse(t, srv, `package Shadow {
+	metadata def Tag;
+	#Tag part def A { metadata def Tag; }
+}`)
+	a := getSymbol(t, srv, hash, "Shadow::A")
+	if !slices.Equal(a.ChildIds, []string{"Shadow::A::Tag", "Shadow::A::@1"}) {
+		t.Fatalf("A child_ids = %v, want the nested Tag then the #Tag prefix at @1", a.ChildIds)
+	}
+	tag := getSymbol(t, srv, hash, "Shadow::A::@1")
+	if tag.TypeInfo == nil || tag.TypeInfo.ResolvedId != "Shadow::A::Tag" {
+		t.Errorf("GetSymbol(A::@1) typed %v, want Shadow::A::Tag, the definition the prefix's owner declares", tag.TypeInfo)
+	}
+}
