@@ -55,6 +55,8 @@
     "outputDir": "../../client/jupyter-kernel/labextension"
   },
   "overrides": {
-    "sanitize-html": "^2.18.1"
+    "sanitize-html": "^2.18.1",
+    "minimatch": "11.0.1",
+    "glob": "^14.0.3"
   }
 }

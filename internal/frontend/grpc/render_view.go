@@ -114,7 +114,7 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 			Id: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
 			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin), Inherited: node.Inherited,
-			Arrow: node.Arrow,
+			Arrow: node.Arrow, Parallel: node.Parallel,
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, &pb.RenderPort{

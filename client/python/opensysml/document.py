@@ -281,6 +281,9 @@ class RenderNode:
     #: subclassification or subsetting rather than declares it; the notation
     #: draws ``^`` before ``name``.
     inherited: bool = False
+    #: The state's substates run in parallel; the notation writes «parallel»
+    #: under the name.
+    parallel: bool = False
 
 
 @dataclass(frozen=True)
@@ -406,6 +409,7 @@ def render_view_result(response):
             ),
             _render_style(node.style if node.HasField("style") else None),
             inherited=node.inherited,
+            parallel=node.parallel,
         )
         for node in response.nodes
     )
