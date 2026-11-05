@@ -992,6 +992,10 @@ message ParseFileResponse {
 message GetSymbolRequest {
   string model_hash = 1;
   string symbol_id = 2;  // Fully qualified name
+  // List the members inherited from standard-library content in
+  // SymbolInfo.members, each marked library, instead of counting them in
+  // withheld_library_members.
+  bool include_library_members = 3;
 }
 
 // SymbolResponse contains symbol information
@@ -1892,6 +1896,33 @@ message SymbolInfo {
   // Attributes inherited from standard-library content, which `attributes`
   // leaves out. Their absence is stated here rather than silent.
   int32 withheld_library_attributes = 10;
+  // Every member the element has (KerML Type::member): its owned members, in
+  // declaration order, then the members it inherits, in inheritance order, a
+  // redefinition masking what it redefines and a private member of a supertype
+  // not inherited. Members inherited from standard-library content are left
+  // out unless GetSymbolRequest.include_library_members asks for them, and are
+  // counted in withheld_library_members. Reported with the "symbol_members"
+  // capability; child_ids stays the owned members only.
+  repeated MemberInfo members = 11;
+  // Members inherited from standard-library content that `members` leaves out.
+  int32 withheld_library_members = 12;
+}
+
+// MemberInfo is one member of an element, own or inherited.
+message MemberInfo {
+  // FQN of the member, the id GetSymbol takes; a member declared without a
+  // name has none that resolves.
+  string id = 1;
+  // Declared name; empty for an unnamed member such as `bind a = b;`.
+  string name = 2;
+  // Symbol kind of the member ("partUsage", "bindingUsage", ...).
+  string kind = 3;
+  // True when the member is inherited rather than declared by the element.
+  bool inherited = 4;
+  // FQN of the type declaring an inherited member; empty for an own member.
+  string inherited_from = 5;
+  // True when the member is declared in standard-library content.
+  bool library = 6;
 }
 
 // Specialization is one generalization edge an element declares.

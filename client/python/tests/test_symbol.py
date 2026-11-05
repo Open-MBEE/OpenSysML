@@ -239,6 +239,10 @@ class TestSymbolAttributes:
             name="Vehicle",
             kind="partDef",
             child_ids=[child.id for child in children],
+            members=[
+                sysml_pb2.MemberInfo(id=child.id, name=child.name, kind=child.kind)
+                for child in children
+            ],
         )
         return Symbol(parent_info, mock_client, "model_abc123")
 
@@ -274,7 +278,13 @@ class TestSymbolAttributes:
             sysml_pb2.SymbolInfo(id="P::engine", name="engine", kind="PartUsage"),
         ]
         parent = Symbol(
-            sysml_pb2.SymbolInfo(id="P", name="P", kind="PartDef", child_ids=["P::mass", "P::engine"]),
+            sysml_pb2.SymbolInfo(
+                id="P", name="P", kind="PartDef", child_ids=["P::mass", "P::engine"],
+                members=[
+                    sysml_pb2.MemberInfo(id="P::mass", name="mass", kind="AttributeUsage"),
+                    sysml_pb2.MemberInfo(id="P::engine", name="engine", kind="PartUsage"),
+                ],
+            ),
             mock_client,
             "model_abc123",
         )
@@ -333,11 +343,21 @@ class TestSymbolAttributeFacts:
         }
         mock_client.get_symbol.side_effect = lambda _hash, symbol_id: symbols.get(symbol_id)
 
+        car_members = [
+            sysml_pb2.MemberInfo(id="Demo::Car::mass", name="mass", kind="attributeUsage"),
+            sysml_pb2.MemberInfo(id="Demo::Car::engine", name="engine", kind="partUsage"),
+            sysml_pb2.MemberInfo(
+                id="Demo::Base::label", name="label", kind="attributeUsage",
+                inherited=True, inherited_from="Demo::Base",
+            ),
+        ]
         car_info = sysml_pb2.SymbolInfo(
             id="Demo::Car",
             name="Car",
             kind="partDef",
             child_ids=["Demo::Car::mass", "Demo::Car::engine"],
+            members=car_members,
+            withheld_library_members=2,
             specializations=[
                 sysml_pb2.Specialization(
                     kind="specializes",
@@ -409,6 +429,13 @@ class TestSymbolAttributeFacts:
                 ),
             ],
             attributes=list(car_info.attributes),
+            members=[
+                sysml_pb2.MemberInfo(
+                    id=m.id, name=m.name, kind=m.kind, inherited=True,
+                    inherited_from=m.inherited_from or "Demo::Car",
+                )
+                for m in car_info.members
+            ],
         )
         symbols = mock_client.get_symbol.side_effect
         mock_client.get_symbol.side_effect = (
@@ -461,6 +488,13 @@ class TestSymbolAttributeFacts:
                     ),
                 ],
                 attributes=list(base_info.attributes),
+                members=[
+                    sysml_pb2.MemberInfo(id="Demo::Car::mass", name="mass", kind="partUsage"),
+                    sysml_pb2.MemberInfo(
+                        id="Demo::Base::mass", name="mass", kind="attributeUsage",
+                        inherited=True, inherited_from="Demo::Base",
+                    ),
+                ],
             ),
             mock_client,
             "model_abc123",
@@ -529,3 +563,142 @@ class TestSymbolAttributeFacts:
             "name", "kind", "id", "type", "multiplicity", "value", "unit", "inherited",
         ]
         assert frame.empty
+
+
+class TestSymbolMembers:
+    """Test the member methods against the service's member enumeration:
+    own members by default, inherited ones on request, standard-library
+    members withheld and counted."""
+
+    def _controller(self, mock_client, capabilities=frozenset({"symbol_members"})):
+        """Build `part controller : Controller` as the service reports it: no
+        own member, four inherited from Controller (one of them a binding),
+        the standard-library members withheld."""
+        mock_client.server_info.return_value = ServerInfo(
+            version="v1.0.0", capabilities=capabilities, answered=True, origin="sysml-grpc",
+        )
+        controller_members = [
+            sysml_pb2.MemberInfo(id="Demo::Controller::gain", name="gain", kind="attributeUsage"),
+            sysml_pb2.MemberInfo(id="Demo::Controller::cmdIn", name="cmdIn", kind="portUsage"),
+            sysml_pb2.MemberInfo(id="Demo::Controller::logic", name="logic", kind="partUsage"),
+            sysml_pb2.MemberInfo(id="Demo::Controller::delegate", name="delegate", kind="bindingUsage"),
+        ]
+        inherited = [
+            sysml_pb2.MemberInfo(
+                id=m.id, name=m.name, kind=m.kind, inherited=True, inherited_from="Demo::Controller",
+            )
+            for m in controller_members
+        ]
+        library = [
+            sysml_pb2.MemberInfo(
+                id="Parts::Part::subparts", name="subparts", kind="partUsage",
+                inherited=True, inherited_from="Parts::Part", library=True,
+            ),
+        ]
+        symbols = {
+            "Demo::Controller": sysml_pb2.SymbolInfo(
+                id="Demo::Controller", name="Controller", kind="partDef",
+                child_ids=[m.id for m in controller_members],
+                members=controller_members, withheld_library_members=1,
+            ),
+            "Demo::system::controller": sysml_pb2.SymbolInfo(
+                id="Demo::system::controller", name="controller", kind="partUsage",
+                members=inherited, withheld_library_members=1,
+            ),
+            "Parts::Part::subparts": sysml_pb2.SymbolInfo(
+                id="Parts::Part::subparts", name="subparts", kind="partUsage",
+            ),
+        }
+        for m in controller_members:
+            symbols[m.id] = sysml_pb2.SymbolInfo(id=m.id, name=m.name, kind=m.kind)
+        with_library = sysml_pb2.SymbolInfo(
+            id="Demo::system::controller", name="controller", kind="partUsage",
+            members=inherited + library,
+        )
+
+        def get_symbol(_hash, symbol_id, include_library_members=False):
+            if include_library_members and symbol_id == "Demo::system::controller":
+                return with_library
+            return symbols.get(symbol_id)
+
+        mock_client.get_symbol.side_effect = get_symbol
+        return Symbol(symbols["Demo::system::controller"], mock_client, "model_abc123")
+
+    def test_children_are_own_members_by_default(self):
+        """A usage declaring nothing has no children, however much it inherits."""
+        controller = self._controller(Mock())
+
+        assert controller.children() == []
+        assert controller.parts() == []
+        assert controller.withheld_library_members == 1
+
+    def test_inherited_members_are_listed_on_request(self):
+        """children(inherited=True) lists what the type declares, each naming it."""
+        controller = self._controller(Mock())
+
+        members = controller.children(inherited=True)
+
+        assert [m.id for m in members] == [
+            "Demo::Controller::gain", "Demo::Controller::cmdIn",
+            "Demo::Controller::logic", "Demo::Controller::delegate",
+        ]
+        assert all(m.inherited and m.inherited_from == "Demo::Controller" for m in members)
+        assert members.withheld_library == 1
+        assert controller.children(inherited=True) is members
+
+    def test_kind_wrappers_filter_the_same_enumeration(self):
+        """parts/ports/bindings/connections/attributes agree on one member list."""
+        controller = self._controller(Mock())
+
+        assert [p.id for p in controller.parts(inherited=True)] == ["Demo::Controller::logic"]
+        assert [p.name for p in controller.ports(inherited=True)] == ["cmdIn"]
+        assert [b.name for b in controller.bindings(inherited=True)] == ["delegate"]
+        assert [c.name for c in controller.connections(inherited=True)] == ["delegate"]
+        assert [a.name for a in controller.attributes()] == ["gain"]
+        assert controller.attributes(inherited=False) == []
+        assert [m.name for m in controller.members(kind="partUsage", inherited=True)] == ["logic"]
+
+    def test_library_members_are_fetched_on_request(self):
+        """library=True asks the service for the withheld members, marked by origin."""
+        controller = self._controller(Mock())
+
+        members = controller.children(inherited=True, library=True)
+
+        assert [m.id for m in members][-1] == "Parts::Part::subparts"
+        assert members[-1].inherited_from == "Parts::Part"
+        assert members.withheld_library == 0
+        assert [p.name for p in controller.parts(inherited=True, library=True)] == ["logic", "subparts"]
+
+    def test_inherited_members_need_the_capability(self):
+        """A service without symbol_members cannot enumerate inherited members."""
+        controller = self._controller(Mock(), capabilities=frozenset({"symbol_attributes"}))
+
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            controller.children(inherited=True)
+
+        assert "symbol_members" in str(excinfo.value)
+        assert controller.children() == []
+
+    def test_own_members_fall_back_to_child_ids(self):
+        """A symbol an older service reported still lists its owned members."""
+        mock_client = Mock()
+        mock_client.get_symbol.side_effect = lambda _hash, symbol_id, include_library_members=False: (
+            sysml_pb2.SymbolInfo(id=symbol_id, name=symbol_id.rsplit("::", 1)[-1], kind="partUsage")
+        )
+        parent = Symbol(
+            sysml_pb2.SymbolInfo(id="P", name="P", kind="partDef", child_ids=["P::a", "P::b"]),
+            mock_client, "model_abc123",
+        )
+
+        assert [m.name for m in parent.children()] == ["a", "b"]
+        assert not parent.children()[0].inherited
+
+    def test_unresolvable_member_ids_are_skipped(self):
+        """A member id the service cannot resolve is left out rather than failing."""
+        controller = self._controller(Mock())
+        symbols = controller._client.get_symbol.side_effect
+        controller._client.get_symbol.side_effect = (
+            lambda _hash, symbol_id, **kw: None if symbol_id.endswith("delegate") else symbols(_hash, symbol_id, **kw)
+        )
+
+        assert [m.name for m in controller.children(inherited=True)] == ["gain", "cmdIn", "logic"]

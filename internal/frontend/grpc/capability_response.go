@@ -17,6 +17,10 @@ func (s *Service) symbolToProto(sym *symbols.Symbol, sc *symbolfacts.Context) *p
 	return s.filterSymbolInfo(info)
 }
 
+func (s *Service) symbolToProtoWith(sym *symbols.Symbol, sc *symbolfacts.Context, opts symbolfacts.Options) *pb.SymbolInfo {
+	return s.filterSymbolInfo(SymbolToProtoWith(sym, sc, opts))
+}
+
 func (s *Service) symbolInfoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 	return s.filterSymbolInfo(infoToProto(info, idx))
 }
@@ -26,6 +30,10 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 		info.TypeInfo = nil
 		info.Multiplicity = nil
 		info.Specializations = nil
+	}
+	if !s.capabilities.has(CapabilitySymbolMembers) {
+		info.Members = nil
+		info.WithheldLibraryMembers = 0
 	}
 	if !s.capabilities.has(CapabilitySymbolAttributes) {
 		info.Attributes = nil

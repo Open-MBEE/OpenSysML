@@ -143,6 +143,18 @@ type JSymbolInfo struct {
 	Multiplicity              *JMultiplicityInfo `json:"multiplicity,omitempty"`
 	Specializations           []*JSpecialization `json:"specializations,omitempty"`
 	WithheldLibraryAttributes int32              `json:"withheldLibraryAttributes,omitempty"`
+	Members                   []*JMemberInfo     `json:"members,omitempty"`
+	WithheldLibraryMembers    int32              `json:"withheldLibraryMembers,omitempty"`
+}
+
+// JMemberInfo is the protojson-shaped member message.
+type JMemberInfo struct {
+	Id            string `json:"id,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Kind          string `json:"kind,omitempty"`
+	Inherited     bool   `json:"inherited,omitempty"`
+	InheritedFrom string `json:"inheritedFrom,omitempty"`
+	Library       bool   `json:"library,omitempty"`
 }
 
 // JTypeInfo is the protojson-shaped static type message.
