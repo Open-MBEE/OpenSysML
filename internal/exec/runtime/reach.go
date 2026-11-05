@@ -308,9 +308,8 @@ func (r *reachability) hides(cur *Instance, onPath map[int64]bool, typesOnPath m
 	}
 }
 
-// enterable is an unexplored object below cur that the cut path could step to
-// — by a route of objects not on the path, of no type on it, cur's or its own —
-// with the types of that route.
+// enterable is an unexplored object below cur the cut path could step to, by
+// objects not on the path and of no type on it, cur's or its own, and that route's types.
 func (r *reachability) enterable(cur *Instance, onPath map[int64]bool, typesOnPath map[*symbols.Symbol]bool) (*Instance, map[*symbols.Symbol]bool) {
 	tried := make(map[*symbols.Symbol]bool)
 	for _, want := range r.unexploredBelow(cur) {
