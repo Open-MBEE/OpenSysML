@@ -62,7 +62,8 @@ install_cargo_audit() {
 }
 
 install_osv_scanner() {
-	if [[ -x "$bin/osv-scanner" ]] && "$bin/osv-scanner" --version 2>/dev/null | grep -qx "osv-scanner version: $OSV_SCANNER_VERSION"; then
+	# grep reads a here-string, not a pipe: an early -q match would SIGPIPE the scanner under pipefail.
+	if [[ -x "$bin/osv-scanner" ]] && grep -qx "osv-scanner version: $OSV_SCANNER_VERSION" <<<"$("$bin/osv-scanner" --version 2>/dev/null)"; then
 		echo "osv-scanner $OSV_SCANNER_VERSION already installed"
 		return
 	fi
@@ -73,7 +74,7 @@ install_osv_scanner() {
 	fetch "https://github.com/google/osv-scanner/releases/download/v$OSV_SCANNER_VERSION/osv-scanner_$osv_asset" "${!sha}" "$tmp"
 	install -m 0755 "$tmp" "$bin/osv-scanner"
 	rm -f "$tmp"
-	"$bin/osv-scanner" --version | grep -qx "osv-scanner version: $OSV_SCANNER_VERSION"
+	grep -qx "osv-scanner version: $OSV_SCANNER_VERSION" <<<"$("$bin/osv-scanner" --version)"
 }
 
 install_pip_audit() {

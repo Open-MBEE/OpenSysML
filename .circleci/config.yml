@@ -196,7 +196,8 @@ commands:
             echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
             unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
             sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-            cvc5 --version | head -1
+            cvc5_version="$(cvc5 --version)"
+            echo "${cvc5_version%%$'\n'*}"
 
   # The FMI gate runs `python3` over FMPy; the executor's python3 has no pip and is
   # externally managed, so FMPy goes in a venv that later steps put first on PATH.
@@ -1579,7 +1580,8 @@ jobs:
           command: |
             apt-get update
             apt-get install -y --no-install-recommends make
-            make --version | head -1
+            make_version="$(make --version)"
+            echo "${make_version%%$'\n'*}"
 
       - install-go
 
