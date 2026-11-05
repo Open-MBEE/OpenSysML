@@ -223,25 +223,38 @@ func TestPathsToSeesPastAnAliasUnderARepeatedType(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := root
-	for _, name := range []string{"zeta", "b", "target"} {
-		next := target
-		for _, step := range ctx.heldSteps(target) {
-			if step.Name == name {
-				next = step.Object
-			}
-		}
-		if next == target {
-			t.Fatalf("%s holds no %s", target.Type.Name, name)
-		}
-		target = next
-	}
+	target := heldAt(t, ctx, root, "zeta", "b", "target")
 	if got := ctx.PathsTo(root, target, PathBounds{}); strings.Join(pathTexts(got), " ") != "zeta.b.target" || got.Truncated {
 		t.Errorf("paths = %v, truncated %v", pathTexts(got), got.Truncated)
 	}
 	if got := ctx.PathsTo(root, target, PathBounds{Depth: 2}); len(got.Steps) != 0 || !got.Truncated {
 		t.Errorf("two steps allowed: %v, truncated %v, want none and truncated", pathTexts(got), got.Truncated)
 	}
+	// `alpha.a` leads to `b`, which the guard kept the walk out of, but from
+	// `alpha.a` it cannot go on: the one path to `alpha.target` is complete.
+	other := heldAt(t, ctx, root, "alpha", "target")
+	if got := ctx.PathsTo(root, other, PathBounds{Depth: 2}); strings.Join(pathTexts(got), " ") != "alpha.target" || got.Truncated {
+		t.Errorf("two steps allowed to alpha.target: %v, truncated %v", pathTexts(got), got.Truncated)
+	}
+}
+
+// heldAt follows the named features down from root.
+func heldAt(t *testing.T, ctx *Context, root *Instance, names ...string) *Instance {
+	t.Helper()
+	cur := root
+	for _, name := range names {
+		next := cur
+		for _, step := range ctx.heldSteps(cur) {
+			if step.Name == name {
+				next = step.Object
+			}
+		}
+		if next == cur {
+			t.Fatalf("%s holds no %s", cur.Type.Name, name)
+		}
+		cur = next
+	}
+	return cur
 }
 
 // Deciding what a cutoff hides costs one walk of the graph, however many

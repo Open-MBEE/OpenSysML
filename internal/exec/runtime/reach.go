@@ -172,9 +172,9 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 	}
 	onPath := make(map[int64]bool)
 	typesOnPath := make(map[*symbols.Symbol]bool)
-	var reachesTarget map[int64]bool
+	var reaches, mayReach map[int64]bool
 	if bounds.Depth > 0 {
-		reachesTarget = ctx.holdersReaching(root, target)
+		reaches, mayReach = ctx.holdersReaching(root, target)
 	}
 
 	var search func(cur *Instance, steps []PathStep)
@@ -188,7 +188,7 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 			return
 		}
 		if bounds.Depth > 0 && len(steps) >= bounds.Depth {
-			if reachesTarget[cur.ID] {
+			if reaches[cur.ID] || (mayReach[cur.ID] && ctx.continues(cur, target, onPath, typesOnPath)) {
 				p.Truncated = true
 			}
 			return
@@ -210,11 +210,10 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 	return p
 }
 
-// holdersReaching is the set of objects below root from which held values may
-// lead to target, the graph walked once as Traverse walks it; an object the
-// walk never looked into counts as reaching, so the set overstates, never
-// understates, what a depth cutoff hides.
-func (ctx *Context) holdersReaching(root, target *Instance) map[int64]bool {
+// holdersReaching sorts the objects below root by whether held values lead to
+// target: those known to (reaches) and those that may (mayReach), because they
+// lead to an object the walk — one pass, as Traverse walks — never looked into.
+func (ctx *Context) holdersReaching(root, target *Instance) (reaches, mayReach map[int64]bool) {
 	holders := make(map[int64][]int64)
 	explored := map[int64]bool{root.ID: true}
 	unexplored := make(map[int64]bool)
@@ -242,23 +241,46 @@ func (ctx *Context) holdersReaching(root, target *Instance) map[int64]bool {
 		}
 	}
 	walk(root)
-	reaches := make(map[int64]bool)
-	pending := []int64{target.ID}
-	for id := range unexplored {
-		reaches[id] = true
-		pending = append(pending, id)
+	return backward(holders, []int64{target.ID}), backward(holders, slices.Sorted(maps.Keys(unexplored)))
+}
+
+// backward is the seeds and every object from which holders lead to one.
+func backward(holders map[int64][]int64, seeds []int64) map[int64]bool {
+	set := make(map[int64]bool)
+	pending := slices.Clone(seeds)
+	for _, id := range pending {
+		set[id] = true
 	}
 	for len(pending) > 0 {
 		id := pending[len(pending)-1]
 		pending = pending[:len(pending)-1]
 		for _, holder := range holders[id] {
-			if !reaches[holder] {
-				reaches[holder] = true
+			if !set[holder] {
+				set[holder] = true
 				pending = append(pending, holder)
 			}
 		}
 	}
-	return reaches
+	return set
+}
+
+// continues reports whether a path that reached cur, the objects and types on
+// it given, can go on to target under the guards PathsTo searches with.
+func (ctx *Context) continues(cur, target *Instance, onPath map[int64]bool, typesOnPath map[*symbols.Symbol]bool) bool {
+	onPath[cur.ID], typesOnPath[cur.Type] = true, true
+	defer func() {
+		delete(onPath, cur.ID)
+		delete(typesOnPath, cur.Type)
+	}()
+	for _, step := range ctx.heldSteps(cur) {
+		if step.Library || onPath[step.Object.ID] || typesOnPath[step.Object.Type] {
+			continue
+		}
+		if step.Object.ID == target.ID || ctx.continues(step.Object, target, onPath, typesOnPath) {
+			return true
+		}
+	}
+	return false
 }
 
 // heldSteps are the objects inst holds as feature values, each as the step
