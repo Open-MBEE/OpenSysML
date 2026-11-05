@@ -20,16 +20,14 @@ func (m *Model) MultiplicityBaseFQN(sym *symbols.Symbol) (string, bool) {
 	return naturalsFQN, true
 }
 
-// ownedByIndividualDefinition reports whether sym is the implied Multiplicity an individual
+// ownedByIndividualDefinition reports whether sym is the empty Multiplicity an individual
 // OccurrenceDefinition is parsed with (its `multiplicity`), not a member written in its body.
 func (m *Model) ownedByIndividualDefinition(sym *symbols.Symbol) bool {
-	if IsIndividualMultiplicity(sym) {
-		return true
-	}
-	if !IsImpliedMultiplicity(sym) || sym.OwnerScope == nil {
+	if !IsDefaultMultiplicity(sym) || sym.OwnerScope == nil {
 		return false
 	}
-	return m.ImpliesIndividualMultiplicity(sym.OwnerScope.OwningElement())
+	owner := sym.OwnerScope.OwningElement()
+	return IsIndividualDefinition(owner) && !m.isKerMLDoc(owner) && m.reflectiveMetaclassConforms(owner, "OccurrenceDefinition")
 }
 
 // implicitMultiplicityBase returns the library multiplicity sym implicitly subsets

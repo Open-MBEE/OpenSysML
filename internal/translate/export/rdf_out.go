@@ -1596,8 +1596,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		head(rdf.SysMLTerm(metaclass))
 		e.ident(subject, n.Ident)
-		// An individual definition's Multiplicity precedes its prefix metadata and its
-		// head's clauses (SysML v2 §8.2.2.9.1 OccurrenceDefinitionPrefix).
+		// An individual definition owns its empty Multiplicity first, before its prefix
+		// metadata and its head's clauses (SysML.xtext OccurrenceDefinitionPrefix).
 		e.defaultMultiplicity(subject, n, nil)
 		if err := e.declaredKeyword(subject, n, n.Keyword, metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
 			return err
@@ -2570,7 +2570,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, memberName: e.endMemberName(e.ids.declSym[n], i), ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, decl: end, memberName: e.endMemberName(e.ids.declSym[n], i), ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -2644,8 +2644,11 @@ type connectorEndSpec struct {
 	// whose target the notation reaches by position rather than by name.
 	targetTerm rdf.Term
 	// element is the expression an indexed end selects one element of target with.
-	element       ast.Node
-	mult          *ast.Multiplicity
+	element ast.Node
+	mult    *ast.Multiplicity
+	// decl is the end's own node when the notation declares it (ast.ConnectorEnd): the
+	// symbol it keys states the end's default multiplicity.
+	decl          ast.Node
 	name, keyword string
 	// port types the end a PortUsage rather than a ReferenceUsage: an
 	// interface usage's ends are ports (SysML.xtext InterfaceEnd).
@@ -2740,20 +2743,23 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 			e.graph.Add(feature, e.sysx(xEndReferencesKeyword), rdf.String(end.keyword))
 		}
 	}
-	if end.target == nil && end.targetTerm.Value == "" {
-		return e.multiplicity(feature, end.owner, end.mult)
-	}
-	switch {
-	case len(flowSegments) > 0:
-		e.flowEndReferences(feature, flowSegments)
-	case end.targetTerm.Value != "":
-		e.referenceSubsetting(feature, end.targetTerm)
-	default:
-		if err := e.endReferences(feature, end.target); err != nil {
-			return err
+	if end.target != nil || end.targetTerm.Value != "" {
+		switch {
+		case len(flowSegments) > 0:
+			e.flowEndReferences(feature, flowSegments)
+		case end.targetTerm.Value != "":
+			e.referenceSubsetting(feature, end.targetTerm)
+		default:
+			if err := e.endReferences(feature, end.target); err != nil {
+				return err
+			}
 		}
 	}
-	return e.multiplicity(feature, end.owner, end.mult)
+	if err := e.multiplicity(feature, end.owner, end.mult); err != nil {
+		return err
+	}
+	e.defaultMultiplicity(feature, end.decl, end.mult)
+	return nil
 }
 
 // flowEndSegments is the name or chain a flow end names, one term per segment,
@@ -3347,12 +3353,12 @@ func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multipl
 	return e.multiplicityBounds(subject, rangeNode, owner, mult)
 }
 
-// defaultMultiplicity emits the Multiplicity a usage's implicit [1..1] (SysML v2 §7.6.3) or
-// an individual definition (§8.3.9.3; semantics.ImpliesMultiplicity) is parsed with: one with
+// defaultMultiplicity emits the Multiplicity a usage's implicit [1..1] (SysML v2 §7.6.3) or an
+// individual definition (§8.3.9.3; semantics.ImpliesDefaultMultiplicity) is parsed with: one with
 // no bounds, owned last among a usage's memberships and first among a definition's, as the pilot states it.
 func (e *encoder) defaultMultiplicity(subject rdf.Term, node ast.Node, mult *ast.Multiplicity) {
 	sym := e.ids.declSym[node]
-	if mult != nil || sym == nil || !e.ids.model.ImpliesMultiplicity(sym) {
+	if mult != nil || sym == nil || !e.ids.model.ImpliesDefaultMultiplicity(sym) {
 		return
 	}
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression

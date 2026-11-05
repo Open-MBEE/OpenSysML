@@ -100,15 +100,24 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 			Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: member,
 		},
 	}
-	if IsDefaultMultiplicity(member) {
-		return append(memberships, membership)
+	if !IsDefaultMultiplicity(member) || defaultMultiplicityFirst(sym) {
+		offset := member.DeclSpan.Offset
+		if IsDefaultMultiplicity(member) {
+			offset = sym.DeclSpan.Offset
+		}
+		membership.DeclSpan = source.Span{Offset: offset}
+		at := clausePosition(memberships, offset)
+		memberships = append(memberships, nil)
+		copy(memberships[at+1:], memberships[at:])
+		memberships[at] = membership
+		for i := at; i < len(memberships); i++ {
+			if memberships[i].Implicit != nil {
+				memberships[i].Implicit.Ordinal = i
+			}
+		}
+		return memberships
 	}
-	membership.DeclSpan = source.Span{Offset: member.DeclSpan.Offset}
-	at := 0
-	if IsDeclaredMultiplicityRange(member) {
-		at = clausePosition(memberships, member.DeclSpan.Offset)
-	}
-	return insertMembership(memberships, membership, at)
+	return append(memberships, membership)
 }
 
 // insertMembership places membership at index at, renumbering the ordinals from there on.
@@ -303,9 +312,9 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	var out, body []*symbols.Symbol
 	memberships := m.OwnedMemberships(sym)
-	if len(memberships) > 0 && memberships[0].Implicit != nil && IsIndividualMultiplicity(memberships[0].Implicit.Member) {
-		// `individual` and its Multiplicity precede the prefix metadata and the head's
-		// clauses (SysML v2 §8.2.2.9.1 OccurrenceDefinitionPrefix).
+	if defaultMultiplicityFirst(sym) && len(memberships) > 0 && isDefaultMultiplicityMembership(memberships[0]) {
+		// `individual` and its empty Multiplicity precede the prefix metadata and the
+		// head's clauses (SysML.xtext OccurrenceDefinitionPrefix, DefinitionExtensionKeyword).
 		out = append(out, memberships[0])
 		memberships = memberships[1:]
 	}
@@ -327,6 +336,10 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 // isPrefixAnnotation reports whether an owned Annotation is one a `#M` prefix
 // writes: its annotating element is the prefix's metadata feature, or — on a
 // recorded element, whose record keeps the prefix as a fact — no symbol at all.
+func isDefaultMultiplicityMembership(membership *symbols.Symbol) bool {
+	return membership.Implicit != nil && membership.Implicit.Member != nil && IsDefaultMultiplicity(membership.Implicit.Member)
+}
+
 func isPrefixAnnotation(ann *symbols.Symbol) bool {
 	return ann.Implicit.Member == nil || isPrefixMetadataSymbol(ann.Implicit.Member)
 }

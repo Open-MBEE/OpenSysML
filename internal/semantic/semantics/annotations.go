@@ -2011,13 +2011,14 @@ func (m *Model) withDefaultMultiplicityMember(sym *symbols.Symbol, members []*sy
 	if member == nil {
 		return members
 	}
+	offset := member.DeclSpan.Offset
 	if IsDefaultMultiplicity(member) {
-		return append(members, member)
+		if !defaultMultiplicityFirst(sym) {
+			return append(members, member)
+		}
+		offset = sym.DeclSpan.Offset
 	}
-	at := 0
-	if IsDeclaredMultiplicityRange(member) {
-		at = clausePosition(members, member.DeclSpan.Offset)
-	}
+	at := clausePosition(members, offset)
 	members = append(members, nil)
 	copy(members[at+1:], members[at:])
 	members[at] = member

@@ -150,7 +150,7 @@ func (ids *ElementIDs) recordValuePart(e *encoder, node ast.Node, subject rdf.Te
 // individual definition is parsed with, and its OwningMembership (defaultMultiplicity), for the id reader.
 func (ids *ElementIDs) recordDefaultMultiplicity(e *encoder, node ast.Node, subject rdf.Term) {
 	sym := e.ids.declSym[node]
-	if sym == nil || !e.ids.model.ImpliesMultiplicity(sym) {
+	if sym == nil || !e.ids.model.ImpliesDefaultMultiplicity(sym) {
 		return
 	}
 	element := e.ids.mintedNode(rdf.ExpressionIRI(subject, pMultiplicity), subject, pMultiplicity)

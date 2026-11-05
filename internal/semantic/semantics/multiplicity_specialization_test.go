@@ -170,14 +170,14 @@ func TestIndividualOccurrenceDefinitionMultiplicity(t *testing.T) {
 		natural := libraryFeature(t, model, "ScalarValues::Natural")
 		for _, name := range []string{"I", "O", "J"} {
 			def := relFixtureSymbol(t, fixture, name)
-			member := model.IndividualMultiplicityMember(def)
+			member := model.DefaultMultiplicityMember(def)
 			if member == nil {
-				t.Fatalf("IndividualMultiplicityMember(%s) = nil, want the Multiplicity it is parsed with", name)
+				t.Fatalf("DefaultMultiplicityMember(%s) = nil, want the Multiplicity it is parsed with", name)
 			}
 			if again := model.MultiplicityMember(def); again != member {
 				t.Errorf("MultiplicityMember(%s) is not its individual multiplicity", name)
 			}
-			if !IsIndividualMultiplicity(member) || !IsImpliedMultiplicity(member) || IsDefaultMultiplicity(member) || !member.Implied() {
+			if !IsDefaultMultiplicity(member) || !IsImpliedMultiplicity(member) || !member.Implied() {
 				t.Errorf("%s's member is not recognised as an individual multiplicity", name)
 			}
 			if got := model.fqnOf(model.MetaclassOf(member)); got != "KerML::Core::Multiplicity" {
@@ -231,7 +231,7 @@ func TestIndividualOccurrenceDefinitionMultiplicity(t *testing.T) {
 		}
 		tagged := relFixtureSymbol(t, fixture, "T")
 		if rels := model.OwnedRelationships(tagged); len(rels) != 2 || rels[0].Implicit == nil ||
-			!IsIndividualMultiplicity(rels[0].Implicit.Member) || !isPrefixAnnotation(rels[1]) {
+			!IsDefaultMultiplicity(rels[0].Implicit.Member) || !isPrefixAnnotation(rels[1]) {
 			t.Errorf("T ownedRelationship = %d elements, want the Multiplicity's membership before the prefix annotation (SysML v2 §8.2.2.9.1)", len(rels))
 		}
 	}
