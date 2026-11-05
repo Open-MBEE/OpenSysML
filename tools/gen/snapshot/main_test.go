@@ -6,20 +6,20 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
-const committed = "../../../" + snapshotPath
-
-// TestCommittedSnapshotIsCurrent is the drift gate `make stdlib-snapshot-check` runs, in-process:
-// the embedded library must regenerate to the snapshot committed under the repository root.
-func TestCommittedSnapshotIsCurrent(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	if code := run([]string{"-check"}, &stdout, &stderr); code != 0 {
-		t.Fatalf("run -check = %d, want 0\n%s", code, stderr.String())
+// fresh is the snapshot the bundled library builds to, which every output of
+// the generator must equal byte for byte.
+func fresh(t *testing.T) []byte {
+	t.Helper()
+	data, err := libs.BuildSnapshot(libs.BundledSource())
+	if err != nil {
+		t.Fatal(err)
 	}
-	if stdout.Len() != 0 || stderr.Len() != 0 {
-		t.Fatalf("a current snapshot should print nothing, got %q / %q", stdout.String(), stderr.String())
-	}
+	return data
 }
 
 func TestRunWritesTheSnapshot(t *testing.T) {
@@ -28,46 +28,41 @@ func TestRunWritesTheSnapshot(t *testing.T) {
 	if code := run([]string{"-out", out}, &stdout, &stderr); code != 0 {
 		t.Fatalf("run = %d, want 0\n%s", code, stderr.String())
 	}
-	want, err := os.ReadFile(committed)
-	if err != nil {
-		t.Fatal(err)
-	}
 	got, err := os.ReadFile(out)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(got, want) {
-		t.Fatalf("written snapshot (%d bytes) differs from the committed one (%d bytes)", len(got), len(want))
+	if want := fresh(t); !bytes.Equal(got, want) {
+		t.Fatalf("written snapshot (%d bytes) differs from a fresh build (%d bytes)", len(got), len(want))
 	}
 	if !strings.HasPrefix(stdout.String(), "wrote "+out+" (") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 }
 
-func TestCheckRejectsAStaleOrMissingSnapshot(t *testing.T) {
-	dir := t.TempDir()
-	stale := filepath.Join(dir, "stale.snapshot")
-	if err := os.WriteFile(stale, []byte("not a snapshot"), 0o600); err != nil {
+// TestRunWritesWherePackageLibsEmbeds: `go run -C tools` starts the generator
+// inside the tools module, yet without -out it writes the file the embed
+// directive of package libs reads, under the repository root — what every
+// build target runs before compiling.
+func TestRunWritesWherePackageLibsEmbeds(t *testing.T) {
+	root, err := repo.Root()
+	if err != nil {
 		t.Fatal(err)
 	}
-	for _, out := range []string{stale, filepath.Join(dir, "missing.snapshot")} {
-		var stdout, stderr bytes.Buffer
-		if code := run([]string{"-check", "-out", out}, &stdout, &stderr); code != 1 {
-			t.Fatalf("run -check -out %s = %d, want 1", out, code)
-		}
-		if !strings.Contains(stderr.String(), out+" is stale") {
-			t.Fatalf("stderr = %q", stderr.String())
-		}
-	}
-}
-
-// TestCheckResolvesARelativeOutputAtTheRepositoryRoot: `go run -C tools` starts
-// the generator inside the tools module, yet a relative -out names the committed
-// snapshot as the repository holds it.
-func TestCheckResolvesARelativeOutputAtTheRepositoryRoot(t *testing.T) {
+	want := filepath.Join(root, filepath.FromSlash(snapshotPath))
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"-check", "-out", snapshotPath}, &stdout, &stderr); code != 0 {
-		t.Fatalf("run -check -out %s = %d, want 0\n%s", snapshotPath, code, stderr.String())
+	if code := run(nil, &stdout, &stderr); code != 0 {
+		t.Fatalf("run = %d, want 0\n%s", code, stderr.String())
+	}
+	if !strings.HasPrefix(stdout.String(), "wrote "+want+" (") {
+		t.Fatalf("stdout = %q, want the snapshot written to %s", stdout.String(), want)
+	}
+	got, err := os.ReadFile(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, fresh(t)) {
+		t.Fatalf("%s is not a fresh snapshot after run", want)
 	}
 }
 
@@ -102,7 +97,7 @@ func TestRunPrintsUsageForHelp(t *testing.T) {
 	if code := run([]string{"-h"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("run -h = %d, want 0", code)
 	}
-	if !strings.Contains(stderr.String(), "Usage of snapshot:") || !strings.Contains(stderr.String(), "-check") {
+	if !strings.Contains(stderr.String(), "Usage of snapshot:") || !strings.Contains(stderr.String(), "-out") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 	if stdout.Len() != 0 {

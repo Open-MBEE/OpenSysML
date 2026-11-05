@@ -279,14 +279,17 @@ source → lexer → parser → AST → symbol index → resolve → passes
 - **Shared base:** `libs.SharedBase()` builds one frozen `symbols.Index` of the library per
   process; every model is an overlay over it (`NewOverlay`), reading the library without copying
   it.
-- **Snapshot:** `internal/workspace/libs/stdlib.snapshot` is that frozen index — syntax trees, scopes,
-  symbols, wildcard-import expansion, facts — serialized at generation time
-  (`go generate ./internal/workspace/libs`, `make stdlib-snapshot`) and embedded. A process decodes it
-  instead of parsing, when its recorded digest of the library files and its format version match
-  the files in hand and its CRC-32C over the stream holds; otherwise (an edited file, a
-  library-path override, a stale or damaged blob) it parses the files as before. The snapshot is
-  a derived artifact: never edit it, regenerate it, and `TestEmbeddedSnapshotIsCurrent` plus
-  `make stdlib-snapshot-check` in CI fail when it lags the files.
+- **Snapshot:** `internal/workspace/libs/snapshot/stdlib.snapshot` is that frozen index — syntax
+  trees, scopes, symbols, wildcard-import expansion, facts — serialized at build time
+  (`make stdlib-snapshot`, which is `go generate ./internal/workspace/libs` and a prerequisite of
+  every Makefile build and test target) and embedded through `embed.FS` over its directory. A
+  process decodes it instead of parsing, when its recorded digest of the library files and its
+  format version match the files in hand and its CRC-32C over the stream holds; otherwise (an
+  edited file, a library-path override, a stale or damaged blob) it parses the files as before.
+  The snapshot is a generated artifact, gitignored rather than committed: a tree without one — a
+  `go install` from the module proxy — still compiles, and its binaries load the files, noted at
+  debug level only; a snapshot that fails to decode is a build defect and is warned about.
+  `TestEmbeddedSnapshotIsCurrent` fails when the snapshot a test build embeds lags the files.
 - **Encoding:** `internal/syntax/pack` (varint scalars over a string table) and
   `internal/syntax/ast/astcodec` (a node table, every node type, index references in place of
   pointers); `symbols.WriteSnapshot`/`ReadSnapshot` number scopes and symbols the same way. No

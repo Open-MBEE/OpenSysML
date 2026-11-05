@@ -2,6 +2,7 @@ package libs
 
 import (
 	"errors"
+	"io/fs"
 	"log/slog"
 	"sync"
 
@@ -73,14 +74,23 @@ func FrozenLibraryFrom(published Source) (*symbols.Index, Source) {
 // frozenLibrary builds a frozen index over src: the embedded snapshot decoded
 // when it matches the library files, else the files loaded and frozen. Both
 // paths read every file of the source: the snapshot check digests them, and a
-// load parses them. A snapshot that fails to decode is logged, since only a
-// build defect makes one.
+// load parses them. A build without a snapshot is expected (`go install` from
+// the module proxy) and only noted; a snapshot that fails to decode is
+// warned about, since only a build defect makes one.
 func frozenLibrary(src Source) *symbols.Index {
-	idx, err := snapshotIndexOf(src)
+	return frozenLibraryIn(snapshotFS, src)
+}
+
+// frozenLibraryIn is frozenLibrary with the snapshot read from fsys.
+func frozenLibraryIn(fsys fs.FS, src Source) *symbols.Index {
+	idx, err := snapshotIndexIn(fsys, src)
 	if err == nil {
 		return idx
 	}
-	if !errors.Is(err, ErrSnapshotStale) {
+	switch {
+	case errors.Is(err, ErrNoSnapshot):
+		slog.Debug("no stdlib snapshot embedded, loading the library files")
+	case !errors.Is(err, ErrSnapshotStale):
 		slog.Warn("stdlib snapshot unreadable, loading the library files", "error", err)
 	}
 	idx = symbols.NewIndex()

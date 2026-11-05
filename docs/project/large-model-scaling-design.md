@@ -255,7 +255,8 @@ spacecraft — for everything else.
 Two artefacts of the standard library are the two halves of this approach,
 and neither is the whole of it:
 
-- `stdlib.snapshot` is the **frozen** level: the library's parsed trees,
+- The library snapshot (`internal/workspace/libs/snapshot/stdlib.snapshot`, generated at build
+  time) is the **frozen** level: the library's parsed trees,
   scopes, symbols and expanded imports serialized by `symbols.WriteSnapshot`
   and decoded at start-up, 3.6 MB for 1.8 MB of source, decoded in a fraction of
   the time parsing takes. It holds *everything*; it saves time, not memory. Generalized

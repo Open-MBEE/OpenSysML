@@ -2,11 +2,12 @@ package libs
 
 import (
 	"bytes"
-	_ "embed" // for the //go:embed directive
+	"embed"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"io/fs"
 	"runtime/debug"
 	"sync"
 
@@ -16,13 +17,34 @@ import (
 
 //go:generate go run -C ../../../tools ./gen/snapshot
 
-// stdlibSnapshot is the bundled library, parsed, indexed, expanded and frozen
-// at generation time, so that a process starts by decoding it instead of
-// repeating that work. It is derived from the files under stdlib/ by
-// `go generate ./internal/workspace/libs` and never edited by hand.
+// snapshotFS holds snapshot/stdlib.snapshot when the build generated one: the
+// bundled library parsed, indexed, expanded and frozen, so that a process
+// starts by decoding it instead of repeating that work. It is derived from the
+// files under stdlib/ by `go generate ./internal/workspace/libs`, gitignored,
+// and never edited by hand; the directory is embedded rather than the file so
+// that a tree without it — a `go install` from the module proxy — still
+// compiles and loads the files instead.
 //
-//go:embed stdlib.snapshot
-var stdlibSnapshot []byte
+//go:embed snapshot
+var snapshotFS embed.FS
+
+// snapshotName is the generated file within snapshotFS.
+const snapshotName = "snapshot/stdlib.snapshot"
+
+// embeddedSnapshot returns the generated snapshot this binary carries, or
+// false when the build had none to embed.
+func embeddedSnapshot() ([]byte, bool) {
+	return snapshotIn(snapshotFS)
+}
+
+// snapshotIn reads the generated snapshot out of fsys, if it holds one.
+func snapshotIn(fsys fs.FS) ([]byte, bool) {
+	data, err := fs.ReadFile(fsys, snapshotName)
+	if err != nil {
+		return nil, false
+	}
+	return data, true
+}
 
 // snapshotMagic opens every snapshot, and snapshotFormatVersion changes
 // whenever the stream layout does, so a stale blob is refused, not misread.
@@ -38,6 +60,10 @@ var snapshotCRC = crc32.MakeTable(crc32.Castagnoli)
 // ErrSnapshotStale reports a snapshot built from different library files, or
 // in a different format, than the ones in hand.
 var ErrSnapshotStale = errors.New("libs: library snapshot does not match the library files")
+
+// ErrNoSnapshot reports a binary built without a generated snapshot, which
+// loads the library files instead.
+var ErrNoSnapshot = errors.New("libs: no library snapshot embedded")
 
 // BuildSnapshot loads src into a fresh index the way a process without a
 // snapshot would, freezes it, and returns the snapshot bytes for it. The
@@ -115,15 +141,29 @@ var gcPause sync.Mutex
 
 // SnapshotIndex returns the frozen library index decoded from the embedded
 // snapshot, when the snapshot was built from exactly the files DefaultSource
-// yields. It fails with ErrSnapshotStale when it was not — an edited bundled
-// file, a LibraryPathEnvVar override with other content — and the caller
-// loads the files instead.
+// yields. It fails with ErrNoSnapshot when the build embedded none, and with
+// ErrSnapshotStale when the snapshot was built from other files — an edited
+// bundled file, a LibraryPathEnvVar override with other content — and the
+// caller loads the files instead.
 func SnapshotIndex() (*symbols.Index, error) {
 	return snapshotIndexOf(DefaultSource())
 }
 
 // snapshotIndexOf is SnapshotIndex over the given source.
 func snapshotIndexOf(src Source) (*symbols.Index, error) {
-	digest := NewLoader(src, nil).setDigest()
-	return DecodeSnapshot(stdlibSnapshot, digest)
+	return snapshotIndexIn(snapshotFS, src)
+}
+
+// snapshotIndexIn decodes the snapshot fsys holds for src's files.
+func snapshotIndexIn(fsys fs.FS, src Source) (*symbols.Index, error) {
+	data, ok := snapshotIn(fsys)
+	if !ok {
+		return nil, ErrNoSnapshot
+	}
+	return decodeSnapshotFor(data, src)
+}
+
+// decodeSnapshotFor decodes data as the snapshot of src's files.
+func decodeSnapshotFor(data []byte, src Source) (*symbols.Index, error) {
+	return DecodeSnapshot(data, NewLoader(src, nil).setDigest())
 }
