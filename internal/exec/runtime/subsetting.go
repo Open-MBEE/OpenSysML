@@ -1288,7 +1288,7 @@ type witnessDraw struct {
 	composite *symbols.Symbol
 	pooled    bool
 	pool      []Value
-	inPool    map[valueKey]bool
+	inPool    map[valueKey]int
 	taken     map[valueKey]bool
 	chosen    []Value
 	seen      map[valueKey]int
@@ -1312,16 +1312,13 @@ func (d *witnessDraw) typed(candidates []Value) ([]Value, error) {
 	return kept, nil
 }
 
-// admitsPooled reports whether a pooled draw may choose v: the pool index is built on the
-// first candidate, so a walk that finds no binding never pays for it.
-func (d *witnessDraw) admitsPooled(v Value) bool {
-	if !d.pooled {
-		return true
-	}
+// pooledOccurrences is how many times a pooled draw may choose v, as often as the pool holds
+// it: the pool index is built on the first candidate, so a walk that finds no binding never pays for it.
+func (d *witnessDraw) pooledOccurrences(v Value) int {
 	if d.inPool == nil {
-		d.inPool = make(map[valueKey]bool, len(d.pool))
+		d.inPool = make(map[valueKey]int, len(d.pool))
 		for _, p := range d.pool {
-			d.inPool[d.ctx.valueKey(p)] = true
+			d.inPool[d.ctx.valueKey(p)]++
 		}
 	}
 	return d.inPool[d.ctx.valueKey(v)]
@@ -1372,20 +1369,44 @@ func (ctx *Context) drawBindingWitnesses(draw *witnessDraw, inst, current *Insta
 	return nil
 }
 
-// pick draws up to links admitted candidates, those no sibling subsetter holds first.
+// pick draws up to links admitted candidates, those no sibling subsetter holds first: a value as
+// many times as the candidates and the pool both hold it, once for a unique subsetter.
 func (d *witnessDraw) pick(candidates []Value, links int64) {
-	admits := func(v Value) bool {
-		return d.admitsPooled(v) && d.seen[d.ctx.valueKey(v)] == 0
+	if d.seen == nil {
+		d.seen = make(map[valueKey]int)
+	}
+	held := make(map[valueKey]int, len(candidates))
+	for _, v := range candidates {
+		held[d.ctx.valueKey(v)]++
+	}
+	used := make([]bool, len(candidates))
+	first := func(fresh bool) int {
+		for i, v := range candidates {
+			key := d.ctx.valueKey(v)
+			most := held[key]
+			if d.fv.Feature.Unique {
+				most = 1
+			}
+			if d.pooled {
+				most = min(most, d.pooledOccurrences(v))
+			}
+			if !used[i] && d.seen[key] < most && !(fresh && d.taken[key]) {
+				return i
+			}
+		}
+		return -1
 	}
 	for n := int64(0); n < links; n++ {
-		pick := slices.IndexFunc(candidates, func(v Value) bool { return admits(v) && !d.taken[d.ctx.valueKey(v)] })
+		pick := first(true)
 		if pick < 0 {
-			pick = slices.IndexFunc(candidates, admits)
+			pick = first(false)
 		}
 		if pick < 0 {
 			return
 		}
-		d.chosen, d.seen = d.ctx.appendUniqueValues(d.chosen, candidates[pick:pick+1], d.seen)
+		used[pick] = true
+		d.chosen = append(d.chosen, candidates[pick])
+		d.seen[d.ctx.valueKey(candidates[pick])]++
 	}
 }
 
