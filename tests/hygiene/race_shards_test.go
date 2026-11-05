@@ -14,7 +14,7 @@ import (
 )
 
 // The race shards are named in five places that must agree: scripts/race-shard.sh,
-// the Makefile (test-shard, RACE_RUNTIME_CORPUS, RACE_EXPORT_CORPUS, COVERAGE_SHARDS),
+// the Makefile (test-shard, RACE_RUNTIME_CORPUS, RACE_EXPORT_CORPUS, RACE_EXPORT_SETTLED, COVERAGE_SHARDS),
 // the two CircleCI jobs' shard arrays and parallelism, and the PR workflow's matrices.
 
 const (
@@ -27,6 +27,8 @@ var (
 	makefileCorpus     = regexp.MustCompile(`(?m)^RACE_RUNTIME_CORPUS := (.+)$`)
 	makefileExport     = regexp.MustCompile(`(?m)^RACE_EXPORT_CORPUS := (.+)$`)
 	circleExport       = regexp.MustCompile(`(?m)^\s*exportcorpus='([^']+)'$`)
+	makefileSettled    = regexp.MustCompile(`(?m)^RACE_EXPORT_SETTLED := (.+)$`)
+	circleSettled      = regexp.MustCompile(`(?m)^\s*exportsettled='([^']+)'$`)
 	makefileCoverage   = regexp.MustCompile(`(?m)^COVERAGE_SHARDS := (.+)$`)
 	circleShardArrays  = regexp.MustCompile(`(?m)^\s*shards=\(([^)]+)\)$`)
 	circleParallelism  = regexp.MustCompile(`(?m)^  (go-race-test|go-coverage):\n(?:    .*\n)*?    parallelism: (\d+)$`)
@@ -98,8 +100,9 @@ func TestCircleCIShardArraysMatchTheRaceShards(t *testing.T) {
 // rest), expects one coverage profile per shard, and the quick tier's groups together
 // name every package shard once (runtime and export cover their -corpus shards' package).
 
-// isCorpusShard says whether a shard is the by-test-name half of another shard's package.
-func isCorpusShard(shard string) bool { return strings.HasSuffix(shard, "-corpus") }
+// isCorpusShard says whether a shard is a by-test-name part of another shard's package
+// (runtime-corpus, export-corpus, export-settled): the hyphenated names.
+func isCorpusShard(shard string) bool { return strings.Contains(shard, "-") }
 func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 	shards := raceShards(t)
 	workflow := readRepoFile(t, ".github/workflows/pr.yml")
@@ -160,10 +163,17 @@ func TestRuntimeCorpusPatternPartitionsTheRuntimeTests(t *testing.T) {
 	}
 }
 
-// TestExportCorpusPatternPartitionsTheExportTests: the export and export-corpus shards
-// are tests/export split the same way by RACE_EXPORT_CORPUS.
-func TestExportCorpusPatternPartitionsTheExportTests(t *testing.T) {
-	corpusPatternPartitions(t, "RACE_EXPORT_CORPUS", makefileExport, circleExport, "exportcorpus=", raceExportDir, 50)
+// TestExportCorpusPatternsPartitionTheExportTests: the export, export-corpus and
+// export-settled shards are tests/export split the same way by RACE_EXPORT_CORPUS and
+// RACE_EXPORT_SETTLED, which no test may match both of.
+func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
+	corpus, tests := corpusPatternPartitions(t, "RACE_EXPORT_CORPUS", makefileExport, circleExport, "exportcorpus=", raceExportDir, 50)
+	settled, _ := corpusPatternPartitions(t, "RACE_EXPORT_SETTLED", makefileSettled, circleSettled, "exportsettled=", raceExportDir, 50)
+	for _, name := range tests {
+		if corpus.MatchString(name) && settled.MatchString(name) {
+			t.Errorf("%s falls to both export-corpus and export-settled", name)
+		}
+	}
 }
 
 // corpusPatternPartitions checks one by-test-name split: the Makefile variable and the
@@ -187,12 +197,12 @@ func corpusPatternPartitions(t *testing.T, variable string, makefileRe, circleRe
 	if len(tests) < minTests {
 		t.Fatalf("found only %d top-level tests under %s", len(tests), dir)
 	}
-	var named []string
-	for _, name := range strings.Split(strings.TrimSuffix(strings.TrimPrefix(pattern, "^Test("), ")$"), "|") {
-		named = append(named, "Test"+name)
-	}
-	if len(named) < 2 {
-		t.Fatalf("%s %q names fewer than two tests", variable, pattern)
+	named := []string{strings.TrimSuffix(strings.TrimPrefix(pattern, "^"), "$")}
+	if group := named[0]; strings.HasPrefix(group, "Test(") && strings.HasSuffix(group, ")") {
+		named = nil
+		for _, name := range strings.Split(strings.TrimSuffix(strings.TrimPrefix(group, "Test("), ")"), "|") {
+			named = append(named, "Test"+name)
+		}
 	}
 	for _, name := range named {
 		if !slices.Contains(tests, name) {

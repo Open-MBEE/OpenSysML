@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|export-corpus|graph|codegen|tools|rest|migrate|cli
-# runtime and runtime-corpus, and export and export-corpus, are one package each, split by test name in make test-shard.
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli
+# runtime and runtime-corpus, and export, export-corpus and export-settled, are one package each, split by test name in make test-shard.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-shards='runtime|runtime-corpus|model|export|export-corpus|graph|codegen|tools|rest|migrate|cli'
+shards='runtime|runtime-corpus|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli'
 
 if [[ $# -ne 1 ]]; then
   echo "usage: scripts/race-shard.sh $shards" >&2
@@ -40,7 +40,7 @@ cli="$module/cmd/sysml"
 named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$passes" "$migrate" "$codegen" "$wasm" "$cli")
 
 case "$shard" in
-  runtime|runtime-corpus|model|export|export-corpus|graph|codegen|tools|rest|migrate|cli) ;;
+  runtime|runtime-corpus|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli) ;;
   *)
     echo "usage: scripts/race-shard.sh $shards" >&2
     exit 2
@@ -62,7 +62,7 @@ case "$shard" in
   model)
     printf '%s\n' "$workspace_model" "$corpus" "$smt"
     ;;
-  export|export-corpus)
+  export|export-corpus|export-settled)
     printf '%s\n' "$export"
     ;;
   graph)
