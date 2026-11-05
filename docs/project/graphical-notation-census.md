@@ -319,10 +319,11 @@ Calls the specification's figures do not settle on their own, with the evidence 
   `allocate-relationship`, `flow`) carry the verdicts for the lines.
 - **Keyword boxes are drawn per kind, with the figure's keyword.** `label.go` `keyword` writes
   `«kind»` for every definition and usage kind, so `item-def`, `concern`, `viewpoint`, … are
-  *drawn*; where the written keyword differs from the figure's — `«satisfy»` for
-  `«satisfy requirement»`, `«frame»` for `«frame concern»`, `«occurrence»` for an event occurrence
-  — the node and its name compartment are *approximate*. `verify-requirement-node` is *undrawn*: a
-  verify usage lives in a verification case's objective, which is drawn as a note.
+  *drawn*; where the figure writes more than the textual keyword, `view.go` `figureKeyword` and
+  `declKind` write it in full — `«satisfy requirement»`, `«frame concern»`, `«event occurrence»`,
+  `«#command part def»` — so those nodes and name compartments are *drawn* too.
+  `verify-requirement-node` is *approximate*: a verify usage is drawn as a `«verify requirement»`
+  box in a tree rendering, while in a case rendering the objective that owns it is a note.
 - **Compartments follow `compartmentName`.** Every usage kind under a positioned node gets a
   compartment headed by the plural of its keyword, which matches the figure for most clauses
   (`parts`, `perform actions`, `exhibit states`, `require constraints`, …). Where the plural is
