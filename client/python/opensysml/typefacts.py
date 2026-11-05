@@ -93,6 +93,10 @@ class Specialization:
     declared: str = ""
     target_id: str = ""
     target_kind: str = ""
+    chain_ids: Tuple[str, ...] = ()
+    """FQN of each feature of a target written as a feature chain
+    (``powertrain.tank.fuelOut``), in order; ``target_id`` is the last of them.
+    Empty for a plain name."""
 
     @classmethod
     def from_pb(cls, pb_specialization) -> "Specialization":
@@ -102,6 +106,50 @@ class Specialization:
             declared=pb_specialization.declared,
             target_id=pb_specialization.target_id,
             target_kind=pb_specialization.target_kind,
+            chain_ids=tuple(pb_specialization.chain_ids),
+        )
+
+
+@dataclass(frozen=True)
+class ConnectorEnd:
+    """One end of a connector (a connection, interface, binding, allocation,
+    succession or flow usage, a KerML connector) and the feature it connects,
+    as the end's ReferenceSubsetting references it (KerML 8.3.4.5.3)."""
+
+    end_id: str = ""
+    """FQN of the end feature itself; resolvable with ``Model.get``. Empty for a
+    flow, whose ends are its type's."""
+    name: str = ""
+    """The end's effective name (``supplier``, ``source``); empty when it has none."""
+    declared: str = ""
+    """The connected feature as written (``powertrain.tank.fuelOut``)."""
+    feature_id: str = ""
+    """FQN of the feature the end's reference reaches: the feature named, or the
+    last feature of a chain; empty when unresolved."""
+    feature_kind: str = ""
+    """Symbol kind of that feature (``portUsage``, ...); empty when unresolved."""
+    chain_ids: Tuple[str, ...] = ()
+    """For an end written as a feature chain, the FQN of each feature of the
+    chain in order (the chain Feature's ``chainingFeature``); empty for a plain name."""
+
+    @property
+    def path(self) -> Tuple[str, ...]:
+        """The FQNs the end's reference walks: the chain's features, or the one
+        feature named; empty when unresolved."""
+        if self.chain_ids:
+            return self.chain_ids
+        return (self.feature_id,) if self.feature_id else ()
+
+    @classmethod
+    def from_pb(cls, pb_end) -> "ConnectorEnd":
+        """Build from a ``ConnectorEndInfo`` protobuf message."""
+        return cls(
+            end_id=pb_end.end_id,
+            name=pb_end.name,
+            declared=pb_end.declared,
+            feature_id=pb_end.feature_id,
+            feature_kind=pb_end.feature_kind,
+            chain_ids=tuple(pb_end.chain_ids),
         )
 
 

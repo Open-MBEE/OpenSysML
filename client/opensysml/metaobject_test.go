@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -55,7 +56,7 @@ func TestMetaobjectsCrossEveryTransport(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Evaluate(M::asFeature): %v", err)
 			}
-			if !opensysml.Equal(asFeature, opensysml.Sequence{seatBeltMeta}) || asFeature.(opensysml.Sequence)[0] != seatBeltMeta {
+			if !opensysml.Equal(asFeature, opensysml.Sequence{seatBeltMeta}) || !reflect.DeepEqual(asFeature.(opensysml.Sequence)[0], seatBeltMeta) {
 				t.Errorf("M::asFeature = %#v, want [%v]", asFeature, seatBeltMeta)
 			}
 
@@ -70,7 +71,7 @@ func TestMetaobjectsCrossEveryTransport(t *testing.T) {
 			if _, ok := seq[0].(opensysml.InstanceID); !ok {
 				t.Errorf("M::everything[0] = %#v, want the Safety annotation object", seq[0])
 			}
-			if seq[1] != seatBeltMeta {
+			if !reflect.DeepEqual(seq[1], seatBeltMeta) {
 				t.Errorf("M::everything[1] = %#v, want %v", seq[1], seatBeltMeta)
 			}
 

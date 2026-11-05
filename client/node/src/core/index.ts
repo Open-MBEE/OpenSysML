@@ -13,6 +13,7 @@ export type { WasmHost } from "./wasm.js";
 export { Instance, InstanceTree, Model, ModelSymbol, decodeDiagnostic, instanceFromJson } from "./model.js";
 export type {
   AttributeFacts,
+  ConnectorEndFacts,
   EvalOptions,
   FeatureValue,
   Multiplicity,

@@ -182,18 +182,46 @@ func enumLiteralValueToProto(val runtime.Value, idx *symbols.Index) *pb.Value {
 }
 
 // metaobjectToProto names a metaobject by the element it reflects, which is its
-// identity, and by that element's own metaclass. Nil when either is unnamed: an
-// anonymous element has no qualified name a receiver could bind.
+// identity, and by that element's own metaclass. The anonymous Feature a chain
+// denotes crosses as the chain in qualified form with its chaining features and
+// owner, which bind it again. Nil for any other unnamed element: it has no
+// qualified name a receiver could bind.
 func metaobjectToProto(val runtime.Value, idx *symbols.Index) *pb.Metaobject {
 	element, metaclass := val.MetaobjectElement(), val.MetaobjectClass()
-	if element == nil || metaclass == nil || element.Name == "" || metaclass.Name == "" {
+	if element == nil || metaclass == nil || metaclass.Name == "" {
 		return nil
 	}
-	elementID, metaclassID := element.Name, metaclass.Name
-	if idx != nil {
-		elementID, metaclassID = idx.GetFQN(element), idx.GetFQN(metaclass)
+	name := func(sym *symbols.Symbol) string {
+		if idx != nil {
+			return idx.GetFQN(sym)
+		}
+		return sym.Name
 	}
-	return &pb.Metaobject{ElementId: elementID, MetaclassId: metaclassID}
+	if element.Name == "" {
+		ids, owner := chainFeatureIdentity(element, name)
+		if len(ids) == 0 {
+			return nil
+		}
+		return &pb.Metaobject{
+			ElementId: strings.Join(ids, "."), MetaclassId: name(metaclass),
+			ChainingFeatureIds: ids, OwnerId: owner,
+		}
+	}
+	return &pb.Metaobject{ElementId: name(element), MetaclassId: name(metaclass)}
+}
+
+// chainFeatureIdentity names the features an anonymous chain Feature chains and
+// the element owning the relationship that denotes it; nothing for any other symbol.
+func chainFeatureIdentity(element *symbols.Symbol, name func(*symbols.Symbol) string) (ids []string, owner string) {
+	chain := element.Chain
+	if chain == nil || len(chain.Features) == 0 || chain.Relationship == nil || chain.Relationship.Implicit == nil {
+		return nil, ""
+	}
+	ids = make([]string, len(chain.Features))
+	for i, feature := range chain.Features {
+		ids[i] = name(feature)
+	}
+	return ids, name(chain.Relationship.Implicit.Owner)
 }
 
 // enumLiteralToProto names a literal by the declaration it is, which is its
@@ -895,6 +923,9 @@ func metaobjectFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics
 			return runtime.Value{}, fmt.Errorf("%w: %s", ErrMetaobjectAmbiguous, meta.GetElementId())
 		}
 		element, metaclass = sym, mc
+	}
+	if element == nil && meta.GetOwnerId() != "" {
+		element, metaclass = chainFeatureFromProto(meta, idx, sem)
 	}
 	if element == nil {
 		return runtime.Value{}, fmt.Errorf("%w: %s", ErrMetaobjectUnbound, meta.GetElementId())
@@ -1766,4 +1797,26 @@ func instanceToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.I
 		TypeSymbolId:  idx.GetFQN(inst.Type),
 		FeatureValues: pbValues,
 	}
+}
+
+// chainFeatureFromProto binds a metaobject naming an anonymous chain Feature:
+// the one the relationships written on owner_id denote whose chaining features
+// are the ones named. Nil when the owner has no such chain.
+func chainFeatureFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics.Model) (element, metaclass *symbols.Symbol) {
+	want := strings.Join(meta.GetChainingFeatureIds(), ".")
+	if want == "" {
+		want = meta.GetElementId()
+	}
+	for _, owner := range idx.LookupQualified(meta.GetOwnerId()) {
+		for _, chain := range sem.ChainFeaturesOf(owner) {
+			ids, _ := chainFeatureIdentity(chain, idx.GetFQN)
+			if strings.Join(ids, ".") != want {
+				continue
+			}
+			if mc := sem.MetaclassOf(chain); mc != nil {
+				return chain, mc
+			}
+		}
+	}
+	return nil, nil
 }

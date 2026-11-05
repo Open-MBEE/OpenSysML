@@ -85,8 +85,10 @@ type LibraryFacts struct {
 	// an end with no symbol of its own (`connect a to b`).
 	Ends []ElementRef
 
-	// RelatedFeatures are the features a connector's ends reference, in end
-	// order, as derived from the declaration.
+	// RelatedFeatures are the named features a connector's ends reference, in
+	// end order, as derived from the declaration. A chained end's anonymous
+	// chain Feature is not recorded here: the connector derives it from the
+	// end's recorded reference subsetting.
 	RelatedFeatures []ElementRef
 
 	// EndPaths are the features each end of a connector object usage names in

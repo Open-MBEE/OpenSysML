@@ -1182,3 +1182,65 @@ func answeredIDs(resp *pb.QueryResponse) []string {
 	}
 	return ids
 }
+
+// A connector's relatedFeature, sourceFeature and targetFeature are the
+// features its ends reference (KerML 8.3.4.5.3), a chained end's as the chain
+// of its features; an end's referencedFeature is the feature it connects.
+func TestQuerySelectsConnectorRelatedFeatures(t *testing.T) {
+	model := `package Demo {
+		port def P;
+		part def Inner { port p : P; }
+		part def Outer { part inner : Inner; }
+		part top {
+			part a : Outer;
+			part b : Inner;
+			connection plain connect a to b;
+			interface chained connect src ::> a.inner.p to dst ::> b.p;
+		}
+	}`
+	_, _, resp := runQueryOnSource(t, model, &pb.Query{
+		Where:  primitive(QueryPropQualifiedName, opEqual, false, "Demo::top::chained"),
+		Select: []string{QueryPropRelatedFeature, QueryPropSourceFeature, QueryPropTargetFeature},
+	})
+	if len(resp.Elements) != 1 {
+		t.Fatalf("elements = %d, want 1", len(resp.Elements))
+	}
+	// The single-valued record reports the first related feature, as it does
+	// the first of several `general`.
+	const chainA = "Demo::top::a.Demo::Outer::inner.Demo::Inner::p"
+	for name, want := range map[string]string{
+		QueryPropRelatedFeature: chainA,
+		QueryPropSourceFeature:  chainA,
+		QueryPropTargetFeature:  "Demo::top::b.Demo::Inner::p",
+	} {
+		if got := resp.Elements[0].Properties[name]; got != want {
+			t.Errorf("chained %s = %q, want %q", name, got, want)
+		}
+	}
+	_, _, resp = runQueryOnSource(t, model, &pb.Query{
+		Where:  primitive(QueryPropQualifiedName, opEqual, false, "Demo::top::plain"),
+		Select: []string{QueryPropRelatedFeature, QueryPropSourceFeature, QueryPropTargetFeature, QueryPropReferencedFeature},
+	})
+	if len(resp.Elements) != 1 {
+		t.Fatalf("plain elements = %d, want 1", len(resp.Elements))
+	}
+	if got, want := resp.Elements[0].Properties[QueryPropRelatedFeature], "Demo::top::a"; got != want {
+		t.Errorf("plain relatedFeature = %q, want %q", got, want)
+	}
+	if got, present := resp.Elements[0].Properties[QueryPropReferencedFeature]; present {
+		t.Errorf("a connector reports referencedFeature %q, want none", got)
+	}
+	_, _, resp = runQueryOnSource(t, model, &pb.Query{
+		Where:  primitive(QueryPropQualifiedName, opEqual, false, "Demo::top::chained::src"),
+		Select: []string{QueryPropReferencedFeature, QueryPropRelatedFeature},
+	})
+	if len(resp.Elements) != 1 {
+		t.Fatalf("end elements = %d, want 1", len(resp.Elements))
+	}
+	if got := resp.Elements[0].Properties[QueryPropReferencedFeature]; got != chainA {
+		t.Errorf("end referencedFeature = %q, want %q", got, chainA)
+	}
+	if got, present := resp.Elements[0].Properties[QueryPropRelatedFeature]; present {
+		t.Errorf("an end reports relatedFeature %q, want none", got)
+	}
+}

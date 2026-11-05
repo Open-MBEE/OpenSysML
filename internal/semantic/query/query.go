@@ -59,6 +59,16 @@ const (
 	PropertySatisfiedRequirement = "satisfiedRequirement"
 	// PropertySatisfyingFeature is the feature a satisfy usage is by.
 	PropertySatisfyingFeature = "satisfyingFeature"
+	// PropertyRelatedFeature is Connector::relatedFeature: the features a
+	// connector's ends reference, in end order (KerML 8.3.4.5.3).
+	PropertyRelatedFeature = "relatedFeature"
+	// PropertySourceFeature is Connector::sourceFeature, the first related feature.
+	PropertySourceFeature = "sourceFeature"
+	// PropertyTargetFeature is Connector::targetFeature, the related features after the first.
+	PropertyTargetFeature = "targetFeature"
+	// PropertyReferencedFeature is the feature a connector end's reference
+	// subsetting references: the feature it connects.
+	PropertyReferencedFeature = "referencedFeature"
 	// PropertyElementID is the elementId a conversion of the model writes for
 	// the element, reported only where the reader is given one (WithElementID).
 	PropertyElementID = "elementId"
@@ -73,6 +83,7 @@ var propertyNames = []string{
 	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
 	PropertySatisfiedRequirement, PropertySatisfyingFeature,
+	PropertyRelatedFeature, PropertySourceFeature, PropertyTargetFeature, PropertyReferencedFeature,
 	PropertyElementID,
 }
 

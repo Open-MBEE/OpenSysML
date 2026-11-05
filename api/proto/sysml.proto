@@ -1892,6 +1892,9 @@ message SymbolInfo {
   // Attributes inherited from standard-library content, which `attributes`
   // leaves out. Their absence is stated here rather than silent.
   int32 withheld_library_attributes = 10;
+  // The ends of a connector and the features they connect, in end order;
+  // empty for an element that is no connector.
+  repeated ConnectorEndInfo connector_ends = 11;
 }
 
 // Specialization is one generalization edge an element declares.
@@ -1904,6 +1907,30 @@ message Specialization {
   string target_id = 3;
   // Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
   string target_kind = 4;
+  // For a target written as a feature chain ("powertrain.tank.fuelOut"), the
+  // FQN of each feature of the chain in order, so the reference is resolvable
+  // link by link; target_id is then the last of them. Empty for a plain name.
+  repeated string chain_ids = 5;
+}
+
+// ConnectorEndInfo is one end of a connector (a connection, interface, binding,
+// allocation, succession or flow usage, a KerML connector) and the feature it
+// connects, as the end's ReferenceSubsetting references it (KerML 8.3.4.5.3).
+message ConnectorEndInfo {
+  // FQN of the end feature itself; resolvable through GetSymbol.
+  string end_id = 1;
+  // The end's effective name ("supplier", "source"); empty when it has none.
+  string name = 2;
+  // The connected feature as written ("powertrain.tank.fuelOut").
+  string declared = 3;
+  // FQN of the feature the end's reference reaches: the feature named, or the
+  // last feature of a chain; empty when unresolved.
+  string feature_id = 4;
+  // Symbol kind of that feature ("portUsage", ...); empty when unresolved.
+  string feature_kind = 5;
+  // For an end written as a feature chain, the FQN of each feature of the
+  // chain in order (the chain Feature's chainingFeature); empty for a plain name.
+  repeated string chain_ids = 6;
 }
 
 // TypeInfo is the static type of a usage, or the classification of a
@@ -2006,6 +2033,17 @@ message Metaobject {
   // it, in which case the model's is used, but one sent must be the model's or
   // the value is rejected.
   string metaclass_id = 2;
+  // For the anonymous Feature a feature chain denotes as a whole (what a
+  // chained connector end's `ownedReferenceSubsetting.referencedFeature` and a
+  // connector's `relatedFeature` are; KerML 8.3.3.3.9), the FQN of each of its
+  // `chainingFeature` in order. element_id is then the chain in qualified form
+  // ("Vehicle::powertrain.Powertrain::tank.Tank::fuelOut"), which names no
+  // declaration of its own. Empty for a named element.
+  repeated string chaining_feature_ids = 3;
+  // FQN of the element owning the anonymous chain Feature: the connector end
+  // (or other feature) whose relationship references it. A client sends it back
+  // with element_id to name the chain Feature; empty for a named element.
+  string owner_id = 4;
 }
 
 // Undetermined is the model-level result of an expression the model does not

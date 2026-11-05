@@ -50,7 +50,13 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 	}
 	for _, spec := range info.Specializations {
 		out.Specializations = append(out.Specializations, &pb.Specialization{
-			Kind: spec.Kind, Declared: spec.Declared, TargetId: spec.TargetId, TargetKind: spec.TargetKind,
+			Kind: spec.Kind, Declared: spec.Declared, TargetId: spec.TargetId, TargetKind: spec.TargetKind, ChainIds: spec.ChainIds,
+		})
+	}
+	for _, end := range info.ConnectorEnds {
+		out.ConnectorEnds = append(out.ConnectorEnds, &pb.ConnectorEndInfo{
+			EndId: end.EndId, Name: end.Name, Declared: end.Declared,
+			FeatureId: end.FeatureId, FeatureKind: end.FeatureKind, ChainIds: end.ChainIds,
 		})
 	}
 	for _, attribute := range info.Attributes {

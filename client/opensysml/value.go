@@ -364,6 +364,13 @@ type Metaobject struct {
 	// ("SysML::Systems::PartUsage"), not the type it was cast to. The service
 	// always reports it; a caller may leave it empty to have the model's used.
 	MetaclassID string
+	// ChainingFeatureIDs are, for the anonymous Feature a feature chain denotes
+	// as a whole, the FQNs of its chainingFeature in order; ElementID is then
+	// the chain in qualified form. Empty for a named element.
+	ChainingFeatureIDs []string
+	// OwnerID is the FQN of the element owning that anonymous chain Feature,
+	// sent back with ElementID to name it; empty for a named element.
+	OwnerID string
 }
 
 // String is the metaobject as the REPL shows it: the element and its metaclass.

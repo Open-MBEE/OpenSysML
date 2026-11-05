@@ -8913,8 +8913,11 @@ type SymbolInfo struct {
 	// Attributes inherited from standard-library content, which `attributes`
 	// leaves out. Their absence is stated here rather than silent.
 	WithheldLibraryAttributes int32 `protobuf:"varint,10,opt,name=withheld_library_attributes,json=withheldLibraryAttributes,proto3" json:"withheld_library_attributes,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// The ends of a connector and the features they connect, in end order;
+	// empty for an element that is no connector.
+	ConnectorEnds []*ConnectorEndInfo `protobuf:"bytes,11,rep,name=connector_ends,json=connectorEnds,proto3" json:"connector_ends,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SymbolInfo) Reset() {
@@ -9017,6 +9020,13 @@ func (x *SymbolInfo) GetWithheldLibraryAttributes() int32 {
 	return 0
 }
 
+func (x *SymbolInfo) GetConnectorEnds() []*ConnectorEndInfo {
+	if x != nil {
+		return x.ConnectorEnds
+	}
+	return nil
+}
+
 // Specialization is one generalization edge an element declares.
 type Specialization struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -9027,7 +9037,11 @@ type Specialization struct {
 	// FQN of the resolved target; empty when the name does not resolve.
 	TargetId string `protobuf:"bytes,3,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
 	// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
-	TargetKind    string `protobuf:"bytes,4,opt,name=target_kind,json=targetKind,proto3" json:"target_kind,omitempty"`
+	TargetKind string `protobuf:"bytes,4,opt,name=target_kind,json=targetKind,proto3" json:"target_kind,omitempty"`
+	// For a target written as a feature chain ("powertrain.tank.fuelOut"), the
+	// FQN of each feature of the chain in order, so the reference is resolvable
+	// link by link; target_id is then the last of them. Empty for a plain name.
+	ChainIds      []string `protobuf:"bytes,5,rep,name=chain_ids,json=chainIds,proto3" json:"chain_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -9090,6 +9104,108 @@ func (x *Specialization) GetTargetKind() string {
 	return ""
 }
 
+func (x *Specialization) GetChainIds() []string {
+	if x != nil {
+		return x.ChainIds
+	}
+	return nil
+}
+
+// ConnectorEndInfo is one end of a connector (a connection, interface, binding,
+// allocation, succession or flow usage, a KerML connector) and the feature it
+// connects, as the end's ReferenceSubsetting references it (KerML 8.3.4.5.3).
+type ConnectorEndInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// FQN of the end feature itself; resolvable through GetSymbol.
+	EndId string `protobuf:"bytes,1,opt,name=end_id,json=endId,proto3" json:"end_id,omitempty"`
+	// The end's effective name ("supplier", "source"); empty when it has none.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// The connected feature as written ("powertrain.tank.fuelOut").
+	Declared string `protobuf:"bytes,3,opt,name=declared,proto3" json:"declared,omitempty"`
+	// FQN of the feature the end's reference reaches: the feature named, or the
+	// last feature of a chain; empty when unresolved.
+	FeatureId string `protobuf:"bytes,4,opt,name=feature_id,json=featureId,proto3" json:"feature_id,omitempty"`
+	// Symbol kind of that feature ("portUsage", ...); empty when unresolved.
+	FeatureKind string `protobuf:"bytes,5,opt,name=feature_kind,json=featureKind,proto3" json:"feature_kind,omitempty"`
+	// For an end written as a feature chain, the FQN of each feature of the
+	// chain in order (the chain Feature's chainingFeature); empty for a plain name.
+	ChainIds      []string `protobuf:"bytes,6,rep,name=chain_ids,json=chainIds,proto3" json:"chain_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConnectorEndInfo) Reset() {
+	*x = ConnectorEndInfo{}
+	mi := &file_sysml_proto_msgTypes[90]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConnectorEndInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConnectorEndInfo) ProtoMessage() {}
+
+func (x *ConnectorEndInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[90]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConnectorEndInfo.ProtoReflect.Descriptor instead.
+func (*ConnectorEndInfo) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{90}
+}
+
+func (x *ConnectorEndInfo) GetEndId() string {
+	if x != nil {
+		return x.EndId
+	}
+	return ""
+}
+
+func (x *ConnectorEndInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ConnectorEndInfo) GetDeclared() string {
+	if x != nil {
+		return x.Declared
+	}
+	return ""
+}
+
+func (x *ConnectorEndInfo) GetFeatureId() string {
+	if x != nil {
+		return x.FeatureId
+	}
+	return ""
+}
+
+func (x *ConnectorEndInfo) GetFeatureKind() string {
+	if x != nil {
+		return x.FeatureKind
+	}
+	return ""
+}
+
+func (x *ConnectorEndInfo) GetChainIds() []string {
+	if x != nil {
+		return x.ChainIds
+	}
+	return nil
+}
+
 // TypeInfo is the static type of a usage, or the classification of a
 // definition, as far as the service derives it without running the model.
 type TypeInfo struct {
@@ -9116,7 +9232,7 @@ type TypeInfo struct {
 
 func (x *TypeInfo) Reset() {
 	*x = TypeInfo{}
-	mi := &file_sysml_proto_msgTypes[90]
+	mi := &file_sysml_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9128,7 +9244,7 @@ func (x *TypeInfo) String() string {
 func (*TypeInfo) ProtoMessage() {}
 
 func (x *TypeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[90]
+	mi := &file_sysml_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9141,7 +9257,7 @@ func (x *TypeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TypeInfo.ProtoReflect.Descriptor instead.
 func (*TypeInfo) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{90}
+	return file_sysml_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *TypeInfo) GetDeclared() string {
@@ -9205,7 +9321,7 @@ type MultiplicityInfo struct {
 
 func (x *MultiplicityInfo) Reset() {
 	*x = MultiplicityInfo{}
-	mi := &file_sysml_proto_msgTypes[91]
+	mi := &file_sysml_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9217,7 +9333,7 @@ func (x *MultiplicityInfo) String() string {
 func (*MultiplicityInfo) ProtoMessage() {}
 
 func (x *MultiplicityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[91]
+	mi := &file_sysml_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9230,7 +9346,7 @@ func (x *MultiplicityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MultiplicityInfo.ProtoReflect.Descriptor instead.
 func (*MultiplicityInfo) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{91}
+	return file_sysml_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *MultiplicityInfo) GetLower() string {
@@ -9260,7 +9376,7 @@ type AttributeInfo struct {
 
 func (x *AttributeInfo) Reset() {
 	*x = AttributeInfo{}
-	mi := &file_sysml_proto_msgTypes[92]
+	mi := &file_sysml_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9272,7 +9388,7 @@ func (x *AttributeInfo) String() string {
 func (*AttributeInfo) ProtoMessage() {}
 
 func (x *AttributeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[92]
+	mi := &file_sysml_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9285,7 +9401,7 @@ func (x *AttributeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttributeInfo.ProtoReflect.Descriptor instead.
 func (*AttributeInfo) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{92}
+	return file_sysml_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *AttributeInfo) GetName() string {
@@ -9351,7 +9467,7 @@ type Value struct {
 
 func (x *Value) Reset() {
 	*x = Value{}
-	mi := &file_sysml_proto_msgTypes[93]
+	mi := &file_sysml_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9363,7 +9479,7 @@ func (x *Value) String() string {
 func (*Value) ProtoMessage() {}
 
 func (x *Value) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[93]
+	mi := &file_sysml_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9376,7 +9492,7 @@ func (x *Value) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Value.ProtoReflect.Descriptor instead.
 func (*Value) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{93}
+	return file_sysml_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *Value) GetKind() isValue_Kind {
@@ -9760,7 +9876,7 @@ type Rational struct {
 
 func (x *Rational) Reset() {
 	*x = Rational{}
-	mi := &file_sysml_proto_msgTypes[94]
+	mi := &file_sysml_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9772,7 +9888,7 @@ func (x *Rational) String() string {
 func (*Rational) ProtoMessage() {}
 
 func (x *Rational) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[94]
+	mi := &file_sysml_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9785,7 +9901,7 @@ func (x *Rational) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Rational.ProtoReflect.Descriptor instead.
 func (*Rational) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{94}
+	return file_sysml_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *Rational) GetNumerator() string {
@@ -9817,14 +9933,25 @@ type Metaobject struct {
 	// not the type it was cast to. The service always sends it; a client may omit
 	// it, in which case the model's is used, but one sent must be the model's or
 	// the value is rejected.
-	MetaclassId   string `protobuf:"bytes,2,opt,name=metaclass_id,json=metaclassId,proto3" json:"metaclass_id,omitempty"`
+	MetaclassId string `protobuf:"bytes,2,opt,name=metaclass_id,json=metaclassId,proto3" json:"metaclass_id,omitempty"`
+	// For the anonymous Feature a feature chain denotes as a whole (what a
+	// chained connector end's `ownedReferenceSubsetting.referencedFeature` and a
+	// connector's `relatedFeature` are; KerML 8.3.3.3.9), the FQN of each of its
+	// `chainingFeature` in order. element_id is then the chain in qualified form
+	// ("Vehicle::powertrain.Powertrain::tank.Tank::fuelOut"), which names no
+	// declaration of its own. Empty for a named element.
+	ChainingFeatureIds []string `protobuf:"bytes,3,rep,name=chaining_feature_ids,json=chainingFeatureIds,proto3" json:"chaining_feature_ids,omitempty"`
+	// FQN of the element owning the anonymous chain Feature: the connector end
+	// (or other feature) whose relationship references it. A client sends it back
+	// with element_id to name the chain Feature; empty for a named element.
+	OwnerId       string `protobuf:"bytes,4,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Metaobject) Reset() {
 	*x = Metaobject{}
-	mi := &file_sysml_proto_msgTypes[95]
+	mi := &file_sysml_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9836,7 +9963,7 @@ func (x *Metaobject) String() string {
 func (*Metaobject) ProtoMessage() {}
 
 func (x *Metaobject) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[95]
+	mi := &file_sysml_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9849,7 +9976,7 @@ func (x *Metaobject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Metaobject.ProtoReflect.Descriptor instead.
 func (*Metaobject) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{95}
+	return file_sysml_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *Metaobject) GetElementId() string {
@@ -9862,6 +9989,20 @@ func (x *Metaobject) GetElementId() string {
 func (x *Metaobject) GetMetaclassId() string {
 	if x != nil {
 		return x.MetaclassId
+	}
+	return ""
+}
+
+func (x *Metaobject) GetChainingFeatureIds() []string {
+	if x != nil {
+		return x.ChainingFeatureIds
+	}
+	return nil
+}
+
+func (x *Metaobject) GetOwnerId() string {
+	if x != nil {
+		return x.OwnerId
 	}
 	return ""
 }
@@ -9886,7 +10027,7 @@ type Undetermined struct {
 
 func (x *Undetermined) Reset() {
 	*x = Undetermined{}
-	mi := &file_sysml_proto_msgTypes[96]
+	mi := &file_sysml_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9898,7 +10039,7 @@ func (x *Undetermined) String() string {
 func (*Undetermined) ProtoMessage() {}
 
 func (x *Undetermined) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[96]
+	mi := &file_sysml_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9911,7 +10052,7 @@ func (x *Undetermined) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Undetermined.ProtoReflect.Descriptor instead.
 func (*Undetermined) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{96}
+	return file_sysml_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *Undetermined) GetReason() string {
@@ -9950,7 +10091,7 @@ type Function struct {
 
 func (x *Function) Reset() {
 	*x = Function{}
-	mi := &file_sysml_proto_msgTypes[97]
+	mi := &file_sysml_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9962,7 +10103,7 @@ func (x *Function) String() string {
 func (*Function) ProtoMessage() {}
 
 func (x *Function) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[97]
+	mi := &file_sysml_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9975,7 +10116,7 @@ func (x *Function) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Function.ProtoReflect.Descriptor instead.
 func (*Function) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{97}
+	return file_sysml_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *Function) GetCalcId() string {
@@ -10009,7 +10150,7 @@ type ValueSet struct {
 
 func (x *ValueSet) Reset() {
 	*x = ValueSet{}
-	mi := &file_sysml_proto_msgTypes[98]
+	mi := &file_sysml_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10021,7 +10162,7 @@ func (x *ValueSet) String() string {
 func (*ValueSet) ProtoMessage() {}
 
 func (x *ValueSet) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[98]
+	mi := &file_sysml_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10034,7 +10175,7 @@ func (x *ValueSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValueSet.ProtoReflect.Descriptor instead.
 func (*ValueSet) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{98}
+	return file_sysml_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *ValueSet) GetElements() []*Value {
@@ -10061,7 +10202,7 @@ type TensorQuantity struct {
 
 func (x *TensorQuantity) Reset() {
 	*x = TensorQuantity{}
-	mi := &file_sysml_proto_msgTypes[99]
+	mi := &file_sysml_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10073,7 +10214,7 @@ func (x *TensorQuantity) String() string {
 func (*TensorQuantity) ProtoMessage() {}
 
 func (x *TensorQuantity) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[99]
+	mi := &file_sysml_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10086,7 +10227,7 @@ func (x *TensorQuantity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TensorQuantity.ProtoReflect.Descriptor instead.
 func (*TensorQuantity) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{99}
+	return file_sysml_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *TensorQuantity) GetDimensions() []int64 {
@@ -10118,7 +10259,7 @@ type Array struct {
 
 func (x *Array) Reset() {
 	*x = Array{}
-	mi := &file_sysml_proto_msgTypes[100]
+	mi := &file_sysml_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10130,7 +10271,7 @@ func (x *Array) String() string {
 func (*Array) ProtoMessage() {}
 
 func (x *Array) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[100]
+	mi := &file_sysml_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10143,7 +10284,7 @@ func (x *Array) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Array.ProtoReflect.Descriptor instead.
 func (*Array) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{100}
+	return file_sysml_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *Array) GetDimensions() []int64 {
@@ -10173,7 +10314,7 @@ type Vector struct {
 
 func (x *Vector) Reset() {
 	*x = Vector{}
-	mi := &file_sysml_proto_msgTypes[101]
+	mi := &file_sysml_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10185,7 +10326,7 @@ func (x *Vector) String() string {
 func (*Vector) ProtoMessage() {}
 
 func (x *Vector) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[101]
+	mi := &file_sysml_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10198,7 +10339,7 @@ func (x *Vector) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Vector.ProtoReflect.Descriptor instead.
 func (*Vector) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{101}
+	return file_sysml_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *Vector) GetComponents() []*Value {
@@ -10221,7 +10362,7 @@ type VectorQuantity struct {
 
 func (x *VectorQuantity) Reset() {
 	*x = VectorQuantity{}
-	mi := &file_sysml_proto_msgTypes[102]
+	mi := &file_sysml_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10233,7 +10374,7 @@ func (x *VectorQuantity) String() string {
 func (*VectorQuantity) ProtoMessage() {}
 
 func (x *VectorQuantity) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[102]
+	mi := &file_sysml_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10246,7 +10387,7 @@ func (x *VectorQuantity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VectorQuantity.ProtoReflect.Descriptor instead.
 func (*VectorQuantity) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{102}
+	return file_sysml_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *VectorQuantity) GetComponents() []*Quantity {
@@ -10268,7 +10409,7 @@ type Complex struct {
 
 func (x *Complex) Reset() {
 	*x = Complex{}
-	mi := &file_sysml_proto_msgTypes[103]
+	mi := &file_sysml_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10280,7 +10421,7 @@ func (x *Complex) String() string {
 func (*Complex) ProtoMessage() {}
 
 func (x *Complex) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[103]
+	mi := &file_sysml_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10293,7 +10434,7 @@ func (x *Complex) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Complex.ProtoReflect.Descriptor instead.
 func (*Complex) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{103}
+	return file_sysml_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *Complex) GetReal() float64 {
@@ -10330,7 +10471,7 @@ type EnumLiteral struct {
 
 func (x *EnumLiteral) Reset() {
 	*x = EnumLiteral{}
-	mi := &file_sysml_proto_msgTypes[104]
+	mi := &file_sysml_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10342,7 +10483,7 @@ func (x *EnumLiteral) String() string {
 func (*EnumLiteral) ProtoMessage() {}
 
 func (x *EnumLiteral) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[104]
+	mi := &file_sysml_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10355,7 +10496,7 @@ func (x *EnumLiteral) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnumLiteral.ProtoReflect.Descriptor instead.
 func (*EnumLiteral) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{104}
+	return file_sysml_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *EnumLiteral) GetLiteralId() string {
@@ -10395,7 +10536,7 @@ type ValueSequence struct {
 
 func (x *ValueSequence) Reset() {
 	*x = ValueSequence{}
-	mi := &file_sysml_proto_msgTypes[105]
+	mi := &file_sysml_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10407,7 +10548,7 @@ func (x *ValueSequence) String() string {
 func (*ValueSequence) ProtoMessage() {}
 
 func (x *ValueSequence) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[105]
+	mi := &file_sysml_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10420,7 +10561,7 @@ func (x *ValueSequence) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValueSequence.ProtoReflect.Descriptor instead.
 func (*ValueSequence) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{105}
+	return file_sysml_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *ValueSequence) GetElements() []*Value {
@@ -10456,7 +10597,7 @@ type Quantity struct {
 
 func (x *Quantity) Reset() {
 	*x = Quantity{}
-	mi := &file_sysml_proto_msgTypes[106]
+	mi := &file_sysml_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10468,7 +10609,7 @@ func (x *Quantity) String() string {
 func (*Quantity) ProtoMessage() {}
 
 func (x *Quantity) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[106]
+	mi := &file_sysml_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10481,7 +10622,7 @@ func (x *Quantity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Quantity.ProtoReflect.Descriptor instead.
 func (*Quantity) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{106}
+	return file_sysml_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *Quantity) GetMagnitude() isQuantity_Magnitude {
@@ -10599,7 +10740,7 @@ type MeasurementRef struct {
 
 func (x *MeasurementRef) Reset() {
 	*x = MeasurementRef{}
-	mi := &file_sysml_proto_msgTypes[107]
+	mi := &file_sysml_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10611,7 +10752,7 @@ func (x *MeasurementRef) String() string {
 func (*MeasurementRef) ProtoMessage() {}
 
 func (x *MeasurementRef) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[107]
+	mi := &file_sysml_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10624,7 +10765,7 @@ func (x *MeasurementRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeasurementRef.ProtoReflect.Descriptor instead.
 func (*MeasurementRef) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{107}
+	return file_sysml_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *MeasurementRef) GetUnit() string {
@@ -10663,7 +10804,7 @@ type UnitTerm struct {
 
 func (x *UnitTerm) Reset() {
 	*x = UnitTerm{}
-	mi := &file_sysml_proto_msgTypes[108]
+	mi := &file_sysml_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10675,7 +10816,7 @@ func (x *UnitTerm) String() string {
 func (*UnitTerm) ProtoMessage() {}
 
 func (x *UnitTerm) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[108]
+	mi := &file_sysml_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10688,7 +10829,7 @@ func (x *UnitTerm) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnitTerm.ProtoReflect.Descriptor instead.
 func (*UnitTerm) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{108}
+	return file_sysml_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *UnitTerm) GetScaleNum() float64 {
@@ -10724,7 +10865,7 @@ type UnitFactor struct {
 
 func (x *UnitFactor) Reset() {
 	*x = UnitFactor{}
-	mi := &file_sysml_proto_msgTypes[109]
+	mi := &file_sysml_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10736,7 +10877,7 @@ func (x *UnitFactor) String() string {
 func (*UnitFactor) ProtoMessage() {}
 
 func (x *UnitFactor) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[109]
+	mi := &file_sysml_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10749,7 +10890,7 @@ func (x *UnitFactor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnitFactor.ProtoReflect.Descriptor instead.
 func (*UnitFactor) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{109}
+	return file_sysml_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *UnitFactor) GetUnitId() string {
@@ -10788,7 +10929,7 @@ type Diagnostic struct {
 
 func (x *Diagnostic) Reset() {
 	*x = Diagnostic{}
-	mi := &file_sysml_proto_msgTypes[110]
+	mi := &file_sysml_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10800,7 +10941,7 @@ func (x *Diagnostic) String() string {
 func (*Diagnostic) ProtoMessage() {}
 
 func (x *Diagnostic) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[110]
+	mi := &file_sysml_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10813,7 +10954,7 @@ func (x *Diagnostic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Diagnostic.ProtoReflect.Descriptor instead.
 func (*Diagnostic) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{110}
+	return file_sysml_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *Diagnostic) GetSeverity() string {
@@ -10872,7 +11013,7 @@ type Span struct {
 
 func (x *Span) Reset() {
 	*x = Span{}
-	mi := &file_sysml_proto_msgTypes[111]
+	mi := &file_sysml_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10884,7 +11025,7 @@ func (x *Span) String() string {
 func (*Span) ProtoMessage() {}
 
 func (x *Span) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[111]
+	mi := &file_sysml_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10897,7 +11038,7 @@ func (x *Span) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Span.ProtoReflect.Descriptor instead.
 func (*Span) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{111}
+	return file_sysml_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *Span) GetFile() string {
@@ -10945,7 +11086,7 @@ type ServerInfoRequest struct {
 
 func (x *ServerInfoRequest) Reset() {
 	*x = ServerInfoRequest{}
-	mi := &file_sysml_proto_msgTypes[112]
+	mi := &file_sysml_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10957,7 +11098,7 @@ func (x *ServerInfoRequest) String() string {
 func (*ServerInfoRequest) ProtoMessage() {}
 
 func (x *ServerInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[112]
+	mi := &file_sysml_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10970,7 +11111,7 @@ func (x *ServerInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerInfoRequest.ProtoReflect.Descriptor instead.
 func (*ServerInfoRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{112}
+	return file_sysml_proto_rawDescGZIP(), []int{113}
 }
 
 // ServerInfoResponse describes the running service.
@@ -11112,7 +11253,7 @@ type ServerInfoResponse struct {
 
 func (x *ServerInfoResponse) Reset() {
 	*x = ServerInfoResponse{}
-	mi := &file_sysml_proto_msgTypes[113]
+	mi := &file_sysml_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11124,7 +11265,7 @@ func (x *ServerInfoResponse) String() string {
 func (*ServerInfoResponse) ProtoMessage() {}
 
 func (x *ServerInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[113]
+	mi := &file_sysml_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11137,7 +11278,7 @@ func (x *ServerInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerInfoResponse.ProtoReflect.Descriptor instead.
 func (*ServerInfoResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{113}
+	return file_sysml_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *ServerInfoResponse) GetVersion() string {
@@ -11167,7 +11308,7 @@ type QueryRequest struct {
 
 func (x *QueryRequest) Reset() {
 	*x = QueryRequest{}
-	mi := &file_sysml_proto_msgTypes[114]
+	mi := &file_sysml_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11179,7 +11320,7 @@ func (x *QueryRequest) String() string {
 func (*QueryRequest) ProtoMessage() {}
 
 func (x *QueryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[114]
+	mi := &file_sysml_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11192,7 +11333,7 @@ func (x *QueryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryRequest.ProtoReflect.Descriptor instead.
 func (*QueryRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{114}
+	return file_sysml_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *QueryRequest) GetModelHash() string {
@@ -11229,7 +11370,7 @@ type QueryResponse struct {
 
 func (x *QueryResponse) Reset() {
 	*x = QueryResponse{}
-	mi := &file_sysml_proto_msgTypes[115]
+	mi := &file_sysml_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11241,7 +11382,7 @@ func (x *QueryResponse) String() string {
 func (*QueryResponse) ProtoMessage() {}
 
 func (x *QueryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[115]
+	mi := &file_sysml_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11254,7 +11395,7 @@ func (x *QueryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryResponse.ProtoReflect.Descriptor instead.
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{115}
+	return file_sysml_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *QueryResponse) GetElements() []*QueryResultElement {
@@ -11288,7 +11429,7 @@ type Query struct {
 
 func (x *Query) Reset() {
 	*x = Query{}
-	mi := &file_sysml_proto_msgTypes[116]
+	mi := &file_sysml_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11300,7 +11441,7 @@ func (x *Query) String() string {
 func (*Query) ProtoMessage() {}
 
 func (x *Query) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[116]
+	mi := &file_sysml_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11313,7 +11454,7 @@ func (x *Query) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Query.ProtoReflect.Descriptor instead.
 func (*Query) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{116}
+	return file_sysml_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *Query) GetScope() []string {
@@ -11359,7 +11500,7 @@ type Constraint struct {
 
 func (x *Constraint) Reset() {
 	*x = Constraint{}
-	mi := &file_sysml_proto_msgTypes[117]
+	mi := &file_sysml_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11371,7 +11512,7 @@ func (x *Constraint) String() string {
 func (*Constraint) ProtoMessage() {}
 
 func (x *Constraint) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[117]
+	mi := &file_sysml_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11384,7 +11525,7 @@ func (x *Constraint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Constraint.ProtoReflect.Descriptor instead.
 func (*Constraint) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{117}
+	return file_sysml_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *Constraint) GetConstraint() isConstraint_Constraint {
@@ -11447,7 +11588,7 @@ type PrimitiveConstraint struct {
 
 func (x *PrimitiveConstraint) Reset() {
 	*x = PrimitiveConstraint{}
-	mi := &file_sysml_proto_msgTypes[118]
+	mi := &file_sysml_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11459,7 +11600,7 @@ func (x *PrimitiveConstraint) String() string {
 func (*PrimitiveConstraint) ProtoMessage() {}
 
 func (x *PrimitiveConstraint) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[118]
+	mi := &file_sysml_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11472,7 +11613,7 @@ func (x *PrimitiveConstraint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrimitiveConstraint.ProtoReflect.Descriptor instead.
 func (*PrimitiveConstraint) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{118}
+	return file_sysml_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *PrimitiveConstraint) GetInverse() bool {
@@ -11516,7 +11657,7 @@ type CompositeConstraint struct {
 
 func (x *CompositeConstraint) Reset() {
 	*x = CompositeConstraint{}
-	mi := &file_sysml_proto_msgTypes[119]
+	mi := &file_sysml_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11528,7 +11669,7 @@ func (x *CompositeConstraint) String() string {
 func (*CompositeConstraint) ProtoMessage() {}
 
 func (x *CompositeConstraint) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[119]
+	mi := &file_sysml_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11541,7 +11682,7 @@ func (x *CompositeConstraint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompositeConstraint.ProtoReflect.Descriptor instead.
 func (*CompositeConstraint) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{119}
+	return file_sysml_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *CompositeConstraint) GetOperator() CompositeOperator {
@@ -11573,7 +11714,7 @@ type QueryResultElement struct {
 
 func (x *QueryResultElement) Reset() {
 	*x = QueryResultElement{}
-	mi := &file_sysml_proto_msgTypes[120]
+	mi := &file_sysml_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11585,7 +11726,7 @@ func (x *QueryResultElement) String() string {
 func (*QueryResultElement) ProtoMessage() {}
 
 func (x *QueryResultElement) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[120]
+	mi := &file_sysml_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11598,7 +11739,7 @@ func (x *QueryResultElement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryResultElement.ProtoReflect.Descriptor instead.
 func (*QueryResultElement) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{120}
+	return file_sysml_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *QueryResultElement) GetId() string {
@@ -11643,7 +11784,7 @@ type SweepRange struct {
 
 func (x *SweepRange) Reset() {
 	*x = SweepRange{}
-	mi := &file_sysml_proto_msgTypes[121]
+	mi := &file_sysml_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11655,7 +11796,7 @@ func (x *SweepRange) String() string {
 func (*SweepRange) ProtoMessage() {}
 
 func (x *SweepRange) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[121]
+	mi := &file_sysml_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11668,7 +11809,7 @@ func (x *SweepRange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SweepRange.ProtoReflect.Descriptor instead.
 func (*SweepRange) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{121}
+	return file_sysml_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *SweepRange) GetParameter() string {
@@ -11733,7 +11874,7 @@ type RunSweepRequest struct {
 
 func (x *RunSweepRequest) Reset() {
 	*x = RunSweepRequest{}
-	mi := &file_sysml_proto_msgTypes[122]
+	mi := &file_sysml_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11745,7 +11886,7 @@ func (x *RunSweepRequest) String() string {
 func (*RunSweepRequest) ProtoMessage() {}
 
 func (x *RunSweepRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[122]
+	mi := &file_sysml_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11758,7 +11899,7 @@ func (x *RunSweepRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunSweepRequest.ProtoReflect.Descriptor instead.
 func (*RunSweepRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{122}
+	return file_sysml_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *RunSweepRequest) GetModelHash() string {
@@ -11852,7 +11993,7 @@ type SweepRow struct {
 
 func (x *SweepRow) Reset() {
 	*x = SweepRow{}
-	mi := &file_sysml_proto_msgTypes[123]
+	mi := &file_sysml_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11864,7 +12005,7 @@ func (x *SweepRow) String() string {
 func (*SweepRow) ProtoMessage() {}
 
 func (x *SweepRow) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[123]
+	mi := &file_sysml_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11877,7 +12018,7 @@ func (x *SweepRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SweepRow.ProtoReflect.Descriptor instead.
 func (*SweepRow) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{123}
+	return file_sysml_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *SweepRow) GetInputs() []*CalcOutput {
@@ -11963,7 +12104,7 @@ type RunSweepResponse struct {
 
 func (x *RunSweepResponse) Reset() {
 	*x = RunSweepResponse{}
-	mi := &file_sysml_proto_msgTypes[124]
+	mi := &file_sysml_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11975,7 +12116,7 @@ func (x *RunSweepResponse) String() string {
 func (*RunSweepResponse) ProtoMessage() {}
 
 func (x *RunSweepResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[124]
+	mi := &file_sysml_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11988,7 +12129,7 @@ func (x *RunSweepResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunSweepResponse.ProtoReflect.Descriptor instead.
 func (*RunSweepResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{124}
+	return file_sysml_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *RunSweepResponse) GetRows() []*SweepRow {
@@ -12112,7 +12253,7 @@ type RunRunsRequest struct {
 
 func (x *RunRunsRequest) Reset() {
 	*x = RunRunsRequest{}
-	mi := &file_sysml_proto_msgTypes[125]
+	mi := &file_sysml_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12124,7 +12265,7 @@ func (x *RunRunsRequest) String() string {
 func (*RunRunsRequest) ProtoMessage() {}
 
 func (x *RunRunsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[125]
+	mi := &file_sysml_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12137,7 +12278,7 @@ func (x *RunRunsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunRunsRequest.ProtoReflect.Descriptor instead.
 func (*RunRunsRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{125}
+	return file_sysml_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *RunRunsRequest) GetModelHash() string {
@@ -12263,7 +12404,7 @@ type RunDistribution struct {
 
 func (x *RunDistribution) Reset() {
 	*x = RunDistribution{}
-	mi := &file_sysml_proto_msgTypes[126]
+	mi := &file_sysml_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12275,7 +12416,7 @@ func (x *RunDistribution) String() string {
 func (*RunDistribution) ProtoMessage() {}
 
 func (x *RunDistribution) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[126]
+	mi := &file_sysml_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12288,7 +12429,7 @@ func (x *RunDistribution) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunDistribution.ProtoReflect.Descriptor instead.
 func (*RunDistribution) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{126}
+	return file_sysml_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *RunDistribution) GetName() string {
@@ -12379,7 +12520,7 @@ type RunPercentile struct {
 
 func (x *RunPercentile) Reset() {
 	*x = RunPercentile{}
-	mi := &file_sysml_proto_msgTypes[127]
+	mi := &file_sysml_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12391,7 +12532,7 @@ func (x *RunPercentile) String() string {
 func (*RunPercentile) ProtoMessage() {}
 
 func (x *RunPercentile) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[127]
+	mi := &file_sysml_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12404,7 +12545,7 @@ func (x *RunPercentile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunPercentile.ProtoReflect.Descriptor instead.
 func (*RunPercentile) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{127}
+	return file_sysml_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *RunPercentile) GetPercentile() float64 {
@@ -12434,7 +12575,7 @@ type RunHistogramBin struct {
 
 func (x *RunHistogramBin) Reset() {
 	*x = RunHistogramBin{}
-	mi := &file_sysml_proto_msgTypes[128]
+	mi := &file_sysml_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12446,7 +12587,7 @@ func (x *RunHistogramBin) String() string {
 func (*RunHistogramBin) ProtoMessage() {}
 
 func (x *RunHistogramBin) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[128]
+	mi := &file_sysml_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12459,7 +12600,7 @@ func (x *RunHistogramBin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunHistogramBin.ProtoReflect.Descriptor instead.
 func (*RunHistogramBin) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{128}
+	return file_sysml_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *RunHistogramBin) GetLow() *Value {
@@ -12494,7 +12635,7 @@ type RunCountedValue struct {
 
 func (x *RunCountedValue) Reset() {
 	*x = RunCountedValue{}
-	mi := &file_sysml_proto_msgTypes[129]
+	mi := &file_sysml_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12506,7 +12647,7 @@ func (x *RunCountedValue) String() string {
 func (*RunCountedValue) ProtoMessage() {}
 
 func (x *RunCountedValue) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[129]
+	mi := &file_sysml_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12519,7 +12660,7 @@ func (x *RunCountedValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunCountedValue.ProtoReflect.Descriptor instead.
 func (*RunCountedValue) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{129}
+	return file_sysml_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *RunCountedValue) GetValue() *Value {
@@ -12550,7 +12691,7 @@ type SelfCheckRequest struct {
 
 func (x *SelfCheckRequest) Reset() {
 	*x = SelfCheckRequest{}
-	mi := &file_sysml_proto_msgTypes[130]
+	mi := &file_sysml_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12562,7 +12703,7 @@ func (x *SelfCheckRequest) String() string {
 func (*SelfCheckRequest) ProtoMessage() {}
 
 func (x *SelfCheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[130]
+	mi := &file_sysml_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12575,7 +12716,7 @@ func (x *SelfCheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelfCheckRequest.ProtoReflect.Descriptor instead.
 func (*SelfCheckRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{130}
+	return file_sysml_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *SelfCheckRequest) GetModelHash() string {
@@ -12612,7 +12753,7 @@ type SelfCheckFinding struct {
 
 func (x *SelfCheckFinding) Reset() {
 	*x = SelfCheckFinding{}
-	mi := &file_sysml_proto_msgTypes[131]
+	mi := &file_sysml_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12624,7 +12765,7 @@ func (x *SelfCheckFinding) String() string {
 func (*SelfCheckFinding) ProtoMessage() {}
 
 func (x *SelfCheckFinding) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[131]
+	mi := &file_sysml_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12637,7 +12778,7 @@ func (x *SelfCheckFinding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelfCheckFinding.ProtoReflect.Descriptor instead.
 func (*SelfCheckFinding) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{131}
+	return file_sysml_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *SelfCheckFinding) GetStatus() string {
@@ -12700,7 +12841,7 @@ type SelfCheckApplication struct {
 
 func (x *SelfCheckApplication) Reset() {
 	*x = SelfCheckApplication{}
-	mi := &file_sysml_proto_msgTypes[132]
+	mi := &file_sysml_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12712,7 +12853,7 @@ func (x *SelfCheckApplication) String() string {
 func (*SelfCheckApplication) ProtoMessage() {}
 
 func (x *SelfCheckApplication) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[132]
+	mi := &file_sysml_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12725,7 +12866,7 @@ func (x *SelfCheckApplication) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelfCheckApplication.ProtoReflect.Descriptor instead.
 func (*SelfCheckApplication) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{132}
+	return file_sysml_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *SelfCheckApplication) GetConstraint() string {
@@ -12765,7 +12906,7 @@ type SelfCheckResponse struct {
 
 func (x *SelfCheckResponse) Reset() {
 	*x = SelfCheckResponse{}
-	mi := &file_sysml_proto_msgTypes[133]
+	mi := &file_sysml_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12777,7 +12918,7 @@ func (x *SelfCheckResponse) String() string {
 func (*SelfCheckResponse) ProtoMessage() {}
 
 func (x *SelfCheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[133]
+	mi := &file_sysml_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12790,7 +12931,7 @@ func (x *SelfCheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelfCheckResponse.ProtoReflect.Descriptor instead.
 func (*SelfCheckResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{133}
+	return file_sysml_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *SelfCheckResponse) GetStatus() string {
@@ -12898,7 +13039,7 @@ type RecordRunRequest struct {
 
 func (x *RecordRunRequest) Reset() {
 	*x = RecordRunRequest{}
-	mi := &file_sysml_proto_msgTypes[134]
+	mi := &file_sysml_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12910,7 +13051,7 @@ func (x *RecordRunRequest) String() string {
 func (*RecordRunRequest) ProtoMessage() {}
 
 func (x *RecordRunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[134]
+	mi := &file_sysml_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12923,7 +13064,7 @@ func (x *RecordRunRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordRunRequest.ProtoReflect.Descriptor instead.
 func (*RecordRunRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{134}
+	return file_sysml_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *RecordRunRequest) GetModelHash() string {
@@ -13043,7 +13184,7 @@ type RecordRunResponse struct {
 
 func (x *RecordRunResponse) Reset() {
 	*x = RecordRunResponse{}
-	mi := &file_sysml_proto_msgTypes[135]
+	mi := &file_sysml_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13055,7 +13196,7 @@ func (x *RecordRunResponse) String() string {
 func (*RecordRunResponse) ProtoMessage() {}
 
 func (x *RecordRunResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[135]
+	mi := &file_sysml_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13068,7 +13209,7 @@ func (x *RecordRunResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordRunResponse.ProtoReflect.Descriptor instead.
 func (*RecordRunResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{135}
+	return file_sysml_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *RecordRunResponse) GetRun() *RunAnalysisResponse {
@@ -13213,7 +13354,7 @@ type RunRunsResponse struct {
 
 func (x *RunRunsResponse) Reset() {
 	*x = RunRunsResponse{}
-	mi := &file_sysml_proto_msgTypes[136]
+	mi := &file_sysml_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13225,7 +13366,7 @@ func (x *RunRunsResponse) String() string {
 func (*RunRunsResponse) ProtoMessage() {}
 
 func (x *RunRunsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[136]
+	mi := &file_sysml_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13238,7 +13379,7 @@ func (x *RunRunsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunRunsResponse.ProtoReflect.Descriptor instead.
 func (*RunRunsResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{136}
+	return file_sysml_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *RunRunsResponse) GetRows() []*SweepRow {
@@ -13367,7 +13508,7 @@ type RunDocumentQueryRequest struct {
 
 func (x *RunDocumentQueryRequest) Reset() {
 	*x = RunDocumentQueryRequest{}
-	mi := &file_sysml_proto_msgTypes[137]
+	mi := &file_sysml_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13379,7 +13520,7 @@ func (x *RunDocumentQueryRequest) String() string {
 func (*RunDocumentQueryRequest) ProtoMessage() {}
 
 func (x *RunDocumentQueryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[137]
+	mi := &file_sysml_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13392,7 +13533,7 @@ func (x *RunDocumentQueryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunDocumentQueryRequest.ProtoReflect.Descriptor instead.
 func (*RunDocumentQueryRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{137}
+	return file_sysml_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *RunDocumentQueryRequest) GetModelHash() string {
@@ -13427,7 +13568,7 @@ type DocumentQueryBinding struct {
 
 func (x *DocumentQueryBinding) Reset() {
 	*x = DocumentQueryBinding{}
-	mi := &file_sysml_proto_msgTypes[138]
+	mi := &file_sysml_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13439,7 +13580,7 @@ func (x *DocumentQueryBinding) String() string {
 func (*DocumentQueryBinding) ProtoMessage() {}
 
 func (x *DocumentQueryBinding) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[138]
+	mi := &file_sysml_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13452,7 +13593,7 @@ func (x *DocumentQueryBinding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentQueryBinding.ProtoReflect.Descriptor instead.
 func (*DocumentQueryBinding) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{138}
+	return file_sysml_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *DocumentQueryBinding) GetParameter() string {
@@ -13499,7 +13640,7 @@ type DocumentValue struct {
 
 func (x *DocumentValue) Reset() {
 	*x = DocumentValue{}
-	mi := &file_sysml_proto_msgTypes[139]
+	mi := &file_sysml_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13511,7 +13652,7 @@ func (x *DocumentValue) String() string {
 func (*DocumentValue) ProtoMessage() {}
 
 func (x *DocumentValue) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[139]
+	mi := &file_sysml_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13524,7 +13665,7 @@ func (x *DocumentValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentValue.ProtoReflect.Descriptor instead.
 func (*DocumentValue) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{139}
+	return file_sysml_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *DocumentValue) GetKind() isDocumentValue_Kind {
@@ -13769,7 +13910,7 @@ type DocumentObject struct {
 
 func (x *DocumentObject) Reset() {
 	*x = DocumentObject{}
-	mi := &file_sysml_proto_msgTypes[140]
+	mi := &file_sysml_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13781,7 +13922,7 @@ func (x *DocumentObject) String() string {
 func (*DocumentObject) ProtoMessage() {}
 
 func (x *DocumentObject) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[140]
+	mi := &file_sysml_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13794,7 +13935,7 @@ func (x *DocumentObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentObject.ProtoReflect.Descriptor instead.
 func (*DocumentObject) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{140}
+	return file_sysml_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *DocumentObject) GetInstanceId() int64 {
@@ -13849,7 +13990,7 @@ type DocumentVerdict struct {
 
 func (x *DocumentVerdict) Reset() {
 	*x = DocumentVerdict{}
-	mi := &file_sysml_proto_msgTypes[141]
+	mi := &file_sysml_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13861,7 +14002,7 @@ func (x *DocumentVerdict) String() string {
 func (*DocumentVerdict) ProtoMessage() {}
 
 func (x *DocumentVerdict) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[141]
+	mi := &file_sysml_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13874,7 +14015,7 @@ func (x *DocumentVerdict) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentVerdict.ProtoReflect.Descriptor instead.
 func (*DocumentVerdict) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{141}
+	return file_sysml_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *DocumentVerdict) GetAssertion() *DocumentValue {
@@ -13960,7 +14101,7 @@ type DocumentState struct {
 
 func (x *DocumentState) Reset() {
 	*x = DocumentState{}
-	mi := &file_sysml_proto_msgTypes[142]
+	mi := &file_sysml_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13972,7 +14113,7 @@ func (x *DocumentState) String() string {
 func (*DocumentState) ProtoMessage() {}
 
 func (x *DocumentState) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[142]
+	mi := &file_sysml_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13985,7 +14126,7 @@ func (x *DocumentState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentState.ProtoReflect.Descriptor instead.
 func (*DocumentState) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{142}
+	return file_sysml_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *DocumentState) GetObject() *DocumentObject {
@@ -14094,7 +14235,7 @@ type DocumentEvent struct {
 
 func (x *DocumentEvent) Reset() {
 	*x = DocumentEvent{}
-	mi := &file_sysml_proto_msgTypes[143]
+	mi := &file_sysml_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14106,7 +14247,7 @@ func (x *DocumentEvent) String() string {
 func (*DocumentEvent) ProtoMessage() {}
 
 func (x *DocumentEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[143]
+	mi := &file_sysml_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14119,7 +14260,7 @@ func (x *DocumentEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentEvent.ProtoReflect.Descriptor instead.
 func (*DocumentEvent) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{143}
+	return file_sysml_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *DocumentEvent) GetKind() string {
@@ -14251,7 +14392,7 @@ type DocumentQueryColumn struct {
 
 func (x *DocumentQueryColumn) Reset() {
 	*x = DocumentQueryColumn{}
-	mi := &file_sysml_proto_msgTypes[144]
+	mi := &file_sysml_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14263,7 +14404,7 @@ func (x *DocumentQueryColumn) String() string {
 func (*DocumentQueryColumn) ProtoMessage() {}
 
 func (x *DocumentQueryColumn) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[144]
+	mi := &file_sysml_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14276,7 +14417,7 @@ func (x *DocumentQueryColumn) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentQueryColumn.ProtoReflect.Descriptor instead.
 func (*DocumentQueryColumn) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{144}
+	return file_sysml_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *DocumentQueryColumn) GetName() string {
@@ -14296,7 +14437,7 @@ type DocumentQueryCell struct {
 
 func (x *DocumentQueryCell) Reset() {
 	*x = DocumentQueryCell{}
-	mi := &file_sysml_proto_msgTypes[145]
+	mi := &file_sysml_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14308,7 +14449,7 @@ func (x *DocumentQueryCell) String() string {
 func (*DocumentQueryCell) ProtoMessage() {}
 
 func (x *DocumentQueryCell) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[145]
+	mi := &file_sysml_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14321,7 +14462,7 @@ func (x *DocumentQueryCell) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentQueryCell.ProtoReflect.Descriptor instead.
 func (*DocumentQueryCell) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{145}
+	return file_sysml_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *DocumentQueryCell) GetValues() []*DocumentValue {
@@ -14347,7 +14488,7 @@ type DocumentQueryRow struct {
 
 func (x *DocumentQueryRow) Reset() {
 	*x = DocumentQueryRow{}
-	mi := &file_sysml_proto_msgTypes[146]
+	mi := &file_sysml_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14359,7 +14500,7 @@ func (x *DocumentQueryRow) String() string {
 func (*DocumentQueryRow) ProtoMessage() {}
 
 func (x *DocumentQueryRow) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[146]
+	mi := &file_sysml_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14372,7 +14513,7 @@ func (x *DocumentQueryRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentQueryRow.ProtoReflect.Descriptor instead.
 func (*DocumentQueryRow) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{146}
+	return file_sysml_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *DocumentQueryRow) GetElement() *DocumentValue {
@@ -14403,7 +14544,7 @@ type RunDocumentQueryResponse struct {
 
 func (x *RunDocumentQueryResponse) Reset() {
 	*x = RunDocumentQueryResponse{}
-	mi := &file_sysml_proto_msgTypes[147]
+	mi := &file_sysml_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14415,7 +14556,7 @@ func (x *RunDocumentQueryResponse) String() string {
 func (*RunDocumentQueryResponse) ProtoMessage() {}
 
 func (x *RunDocumentQueryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[147]
+	mi := &file_sysml_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14428,7 +14569,7 @@ func (x *RunDocumentQueryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunDocumentQueryResponse.ProtoReflect.Descriptor instead.
 func (*RunDocumentQueryResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{147}
+	return file_sysml_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *RunDocumentQueryResponse) GetColumns() []*DocumentQueryColumn {
@@ -14460,7 +14601,7 @@ type QueryOutcome struct {
 
 func (x *QueryOutcome) Reset() {
 	*x = QueryOutcome{}
-	mi := &file_sysml_proto_msgTypes[148]
+	mi := &file_sysml_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14472,7 +14613,7 @@ func (x *QueryOutcome) String() string {
 func (*QueryOutcome) ProtoMessage() {}
 
 func (x *QueryOutcome) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[148]
+	mi := &file_sysml_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14485,7 +14626,7 @@ func (x *QueryOutcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryOutcome.ProtoReflect.Descriptor instead.
 func (*QueryOutcome) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{148}
+	return file_sysml_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *QueryOutcome) GetKind() string {
@@ -14536,7 +14677,7 @@ type QueryFailure struct {
 
 func (x *QueryFailure) Reset() {
 	*x = QueryFailure{}
-	mi := &file_sysml_proto_msgTypes[149]
+	mi := &file_sysml_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14548,7 +14689,7 @@ func (x *QueryFailure) String() string {
 func (*QueryFailure) ProtoMessage() {}
 
 func (x *QueryFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[149]
+	mi := &file_sysml_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14561,7 +14702,7 @@ func (x *QueryFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryFailure.ProtoReflect.Descriptor instead.
 func (*QueryFailure) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{149}
+	return file_sysml_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *QueryFailure) GetStep() string {
@@ -14600,7 +14741,7 @@ type QueryFrontier struct {
 
 func (x *QueryFrontier) Reset() {
 	*x = QueryFrontier{}
-	mi := &file_sysml_proto_msgTypes[150]
+	mi := &file_sysml_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14612,7 +14753,7 @@ func (x *QueryFrontier) String() string {
 func (*QueryFrontier) ProtoMessage() {}
 
 func (x *QueryFrontier) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[150]
+	mi := &file_sysml_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14625,7 +14766,7 @@ func (x *QueryFrontier) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryFrontier.ProtoReflect.Descriptor instead.
 func (*QueryFrontier) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{150}
+	return file_sysml_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *QueryFrontier) GetAt() string {
@@ -14673,7 +14814,7 @@ type QueryFrontierMember struct {
 
 func (x *QueryFrontierMember) Reset() {
 	*x = QueryFrontierMember{}
-	mi := &file_sysml_proto_msgTypes[151]
+	mi := &file_sysml_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14685,7 +14826,7 @@ func (x *QueryFrontierMember) String() string {
 func (*QueryFrontierMember) ProtoMessage() {}
 
 func (x *QueryFrontierMember) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[151]
+	mi := &file_sysml_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14698,7 +14839,7 @@ func (x *QueryFrontierMember) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryFrontierMember.ProtoReflect.Descriptor instead.
 func (*QueryFrontierMember) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{151}
+	return file_sysml_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *QueryFrontierMember) GetName() string {
@@ -14725,7 +14866,7 @@ type QueryFrontierFeature struct {
 
 func (x *QueryFrontierFeature) Reset() {
 	*x = QueryFrontierFeature{}
-	mi := &file_sysml_proto_msgTypes[152]
+	mi := &file_sysml_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14737,7 +14878,7 @@ func (x *QueryFrontierFeature) String() string {
 func (*QueryFrontierFeature) ProtoMessage() {}
 
 func (x *QueryFrontierFeature) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[152]
+	mi := &file_sysml_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14750,7 +14891,7 @@ func (x *QueryFrontierFeature) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryFrontierFeature.ProtoReflect.Descriptor instead.
 func (*QueryFrontierFeature) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{152}
+	return file_sysml_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *QueryFrontierFeature) GetName() string {
@@ -14781,7 +14922,7 @@ type QueryFinding struct {
 
 func (x *QueryFinding) Reset() {
 	*x = QueryFinding{}
-	mi := &file_sysml_proto_msgTypes[153]
+	mi := &file_sysml_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14793,7 +14934,7 @@ func (x *QueryFinding) String() string {
 func (*QueryFinding) ProtoMessage() {}
 
 func (x *QueryFinding) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[153]
+	mi := &file_sysml_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14806,7 +14947,7 @@ func (x *QueryFinding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryFinding.ProtoReflect.Descriptor instead.
 func (*QueryFinding) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{153}
+	return file_sysml_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *QueryFinding) GetStep() string {
@@ -14859,7 +15000,7 @@ type RenderDocumentRequest struct {
 
 func (x *RenderDocumentRequest) Reset() {
 	*x = RenderDocumentRequest{}
-	mi := &file_sysml_proto_msgTypes[154]
+	mi := &file_sysml_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14871,7 +15012,7 @@ func (x *RenderDocumentRequest) String() string {
 func (*RenderDocumentRequest) ProtoMessage() {}
 
 func (x *RenderDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[154]
+	mi := &file_sysml_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14884,7 +15025,7 @@ func (x *RenderDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderDocumentRequest.ProtoReflect.Descriptor instead.
 func (*RenderDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{154}
+	return file_sysml_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *RenderDocumentRequest) GetModelHash() string {
@@ -14927,7 +15068,7 @@ type RenderDocumentResponse struct {
 
 func (x *RenderDocumentResponse) Reset() {
 	*x = RenderDocumentResponse{}
-	mi := &file_sysml_proto_msgTypes[155]
+	mi := &file_sysml_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14939,7 +15080,7 @@ func (x *RenderDocumentResponse) String() string {
 func (*RenderDocumentResponse) ProtoMessage() {}
 
 func (x *RenderDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[155]
+	mi := &file_sysml_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14952,7 +15093,7 @@ func (x *RenderDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderDocumentResponse.ProtoReflect.Descriptor instead.
 func (*RenderDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{155}
+	return file_sysml_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *RenderDocumentResponse) GetMarkdown() string {
@@ -15011,7 +15152,7 @@ type RenderViewRequest struct {
 
 func (x *RenderViewRequest) Reset() {
 	*x = RenderViewRequest{}
-	mi := &file_sysml_proto_msgTypes[156]
+	mi := &file_sysml_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15023,7 +15164,7 @@ func (x *RenderViewRequest) String() string {
 func (*RenderViewRequest) ProtoMessage() {}
 
 func (x *RenderViewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[156]
+	mi := &file_sysml_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15036,7 +15177,7 @@ func (x *RenderViewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderViewRequest.ProtoReflect.Descriptor instead.
 func (*RenderViewRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{156}
+	return file_sysml_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *RenderViewRequest) GetModelHash() string {
@@ -15106,7 +15247,7 @@ type RenderViewResponse struct {
 
 func (x *RenderViewResponse) Reset() {
 	*x = RenderViewResponse{}
-	mi := &file_sysml_proto_msgTypes[157]
+	mi := &file_sysml_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15118,7 +15259,7 @@ func (x *RenderViewResponse) String() string {
 func (*RenderViewResponse) ProtoMessage() {}
 
 func (x *RenderViewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[157]
+	mi := &file_sysml_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15131,7 +15272,7 @@ func (x *RenderViewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderViewResponse.ProtoReflect.Descriptor instead.
 func (*RenderViewResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{157}
+	return file_sysml_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *RenderViewResponse) GetView() string {
@@ -15234,7 +15375,7 @@ type RenderFrame struct {
 
 func (x *RenderFrame) Reset() {
 	*x = RenderFrame{}
-	mi := &file_sysml_proto_msgTypes[158]
+	mi := &file_sysml_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15246,7 +15387,7 @@ func (x *RenderFrame) String() string {
 func (*RenderFrame) ProtoMessage() {}
 
 func (x *RenderFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[158]
+	mi := &file_sysml_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15259,7 +15400,7 @@ func (x *RenderFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderFrame.ProtoReflect.Descriptor instead.
 func (*RenderFrame) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{158}
+	return file_sysml_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *RenderFrame) GetName() string {
@@ -15333,7 +15474,7 @@ type RenderNode struct {
 
 func (x *RenderNode) Reset() {
 	*x = RenderNode{}
-	mi := &file_sysml_proto_msgTypes[159]
+	mi := &file_sysml_proto_msgTypes[160]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15345,7 +15486,7 @@ func (x *RenderNode) String() string {
 func (*RenderNode) ProtoMessage() {}
 
 func (x *RenderNode) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[159]
+	mi := &file_sysml_proto_msgTypes[160]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15358,7 +15499,7 @@ func (x *RenderNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderNode.ProtoReflect.Descriptor instead.
 func (*RenderNode) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{159}
+	return file_sysml_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *RenderNode) GetId() string {
@@ -15495,7 +15636,7 @@ type RenderPort struct {
 
 func (x *RenderPort) Reset() {
 	*x = RenderPort{}
-	mi := &file_sysml_proto_msgTypes[160]
+	mi := &file_sysml_proto_msgTypes[161]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15507,7 +15648,7 @@ func (x *RenderPort) String() string {
 func (*RenderPort) ProtoMessage() {}
 
 func (x *RenderPort) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[160]
+	mi := &file_sysml_proto_msgTypes[161]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15520,7 +15661,7 @@ func (x *RenderPort) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderPort.ProtoReflect.Descriptor instead.
 func (*RenderPort) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{160}
+	return file_sysml_proto_rawDescGZIP(), []int{161}
 }
 
 func (x *RenderPort) GetId() string {
@@ -15577,7 +15718,7 @@ type RenderEdge struct {
 
 func (x *RenderEdge) Reset() {
 	*x = RenderEdge{}
-	mi := &file_sysml_proto_msgTypes[161]
+	mi := &file_sysml_proto_msgTypes[162]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15589,7 +15730,7 @@ func (x *RenderEdge) String() string {
 func (*RenderEdge) ProtoMessage() {}
 
 func (x *RenderEdge) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[161]
+	mi := &file_sysml_proto_msgTypes[162]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15602,7 +15743,7 @@ func (x *RenderEdge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderEdge.ProtoReflect.Descriptor instead.
 func (*RenderEdge) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{161}
+	return file_sysml_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *RenderEdge) GetFrom() string {
@@ -15692,7 +15833,7 @@ type RenderGeometry struct {
 
 func (x *RenderGeometry) Reset() {
 	*x = RenderGeometry{}
-	mi := &file_sysml_proto_msgTypes[162]
+	mi := &file_sysml_proto_msgTypes[163]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15704,7 +15845,7 @@ func (x *RenderGeometry) String() string {
 func (*RenderGeometry) ProtoMessage() {}
 
 func (x *RenderGeometry) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[162]
+	mi := &file_sysml_proto_msgTypes[163]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15717,7 +15858,7 @@ func (x *RenderGeometry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderGeometry.ProtoReflect.Descriptor instead.
 func (*RenderGeometry) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{162}
+	return file_sysml_proto_rawDescGZIP(), []int{163}
 }
 
 func (x *RenderGeometry) GetX() float64 {
@@ -15782,7 +15923,7 @@ type RenderCanvas struct {
 
 func (x *RenderCanvas) Reset() {
 	*x = RenderCanvas{}
-	mi := &file_sysml_proto_msgTypes[163]
+	mi := &file_sysml_proto_msgTypes[164]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15794,7 +15935,7 @@ func (x *RenderCanvas) String() string {
 func (*RenderCanvas) ProtoMessage() {}
 
 func (x *RenderCanvas) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[163]
+	mi := &file_sysml_proto_msgTypes[164]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15807,7 +15948,7 @@ func (x *RenderCanvas) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderCanvas.ProtoReflect.Descriptor instead.
 func (*RenderCanvas) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{163}
+	return file_sysml_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *RenderCanvas) GetUnit() string {
@@ -15854,7 +15995,7 @@ type RenderStyle struct {
 
 func (x *RenderStyle) Reset() {
 	*x = RenderStyle{}
-	mi := &file_sysml_proto_msgTypes[164]
+	mi := &file_sysml_proto_msgTypes[165]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15866,7 +16007,7 @@ func (x *RenderStyle) String() string {
 func (*RenderStyle) ProtoMessage() {}
 
 func (x *RenderStyle) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[164]
+	mi := &file_sysml_proto_msgTypes[165]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15879,7 +16020,7 @@ func (x *RenderStyle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderStyle.ProtoReflect.Descriptor instead.
 func (*RenderStyle) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{164}
+	return file_sysml_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *RenderStyle) GetFill() string {
@@ -15942,7 +16083,7 @@ type RenderPoint struct {
 
 func (x *RenderPoint) Reset() {
 	*x = RenderPoint{}
-	mi := &file_sysml_proto_msgTypes[165]
+	mi := &file_sysml_proto_msgTypes[166]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15954,7 +16095,7 @@ func (x *RenderPoint) String() string {
 func (*RenderPoint) ProtoMessage() {}
 
 func (x *RenderPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[165]
+	mi := &file_sysml_proto_msgTypes[166]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15967,7 +16108,7 @@ func (x *RenderPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderPoint.ProtoReflect.Descriptor instead.
 func (*RenderPoint) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{165}
+	return file_sysml_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *RenderPoint) GetX() float64 {
@@ -15995,7 +16136,7 @@ type RenderRow struct {
 
 func (x *RenderRow) Reset() {
 	*x = RenderRow{}
-	mi := &file_sysml_proto_msgTypes[166]
+	mi := &file_sysml_proto_msgTypes[167]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16007,7 +16148,7 @@ func (x *RenderRow) String() string {
 func (*RenderRow) ProtoMessage() {}
 
 func (x *RenderRow) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[166]
+	mi := &file_sysml_proto_msgTypes[167]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16020,7 +16161,7 @@ func (x *RenderRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderRow.ProtoReflect.Descriptor instead.
 func (*RenderRow) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{166}
+	return file_sysml_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *RenderRow) GetCells() []string {
@@ -16056,7 +16197,7 @@ type RenderNote struct {
 
 func (x *RenderNote) Reset() {
 	*x = RenderNote{}
-	mi := &file_sysml_proto_msgTypes[167]
+	mi := &file_sysml_proto_msgTypes[168]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16068,7 +16209,7 @@ func (x *RenderNote) String() string {
 func (*RenderNote) ProtoMessage() {}
 
 func (x *RenderNote) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[167]
+	mi := &file_sysml_proto_msgTypes[168]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16081,7 +16222,7 @@ func (x *RenderNote) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderNote.ProtoReflect.Descriptor instead.
 func (*RenderNote) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{167}
+	return file_sysml_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *RenderNote) GetText() string {
@@ -16166,7 +16307,7 @@ type ExportGraphsRequest struct {
 
 func (x *ExportGraphsRequest) Reset() {
 	*x = ExportGraphsRequest{}
-	mi := &file_sysml_proto_msgTypes[168]
+	mi := &file_sysml_proto_msgTypes[169]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16178,7 +16319,7 @@ func (x *ExportGraphsRequest) String() string {
 func (*ExportGraphsRequest) ProtoMessage() {}
 
 func (x *ExportGraphsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[168]
+	mi := &file_sysml_proto_msgTypes[169]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16191,7 +16332,7 @@ func (x *ExportGraphsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportGraphsRequest.ProtoReflect.Descriptor instead.
 func (*ExportGraphsRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{168}
+	return file_sysml_proto_rawDescGZIP(), []int{169}
 }
 
 func (x *ExportGraphsRequest) GetModelHash() string {
@@ -16225,7 +16366,7 @@ type ExportGraphsResponse struct {
 
 func (x *ExportGraphsResponse) Reset() {
 	*x = ExportGraphsResponse{}
-	mi := &file_sysml_proto_msgTypes[169]
+	mi := &file_sysml_proto_msgTypes[170]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16237,7 +16378,7 @@ func (x *ExportGraphsResponse) String() string {
 func (*ExportGraphsResponse) ProtoMessage() {}
 
 func (x *ExportGraphsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[169]
+	mi := &file_sysml_proto_msgTypes[170]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16250,7 +16391,7 @@ func (x *ExportGraphsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportGraphsResponse.ProtoReflect.Descriptor instead.
 func (*ExportGraphsResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{169}
+	return file_sysml_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *ExportGraphsResponse) GetContent() string {
@@ -16297,7 +16438,7 @@ type ImportDataRequest struct {
 
 func (x *ImportDataRequest) Reset() {
 	*x = ImportDataRequest{}
-	mi := &file_sysml_proto_msgTypes[170]
+	mi := &file_sysml_proto_msgTypes[171]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16309,7 +16450,7 @@ func (x *ImportDataRequest) String() string {
 func (*ImportDataRequest) ProtoMessage() {}
 
 func (x *ImportDataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[170]
+	mi := &file_sysml_proto_msgTypes[171]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16322,7 +16463,7 @@ func (x *ImportDataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportDataRequest.ProtoReflect.Descriptor instead.
 func (*ImportDataRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{170}
+	return file_sysml_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *ImportDataRequest) GetModelHash() string {
@@ -16378,7 +16519,7 @@ type DataImport struct {
 
 func (x *DataImport) Reset() {
 	*x = DataImport{}
-	mi := &file_sysml_proto_msgTypes[171]
+	mi := &file_sysml_proto_msgTypes[172]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16390,7 +16531,7 @@ func (x *DataImport) String() string {
 func (*DataImport) ProtoMessage() {}
 
 func (x *DataImport) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[171]
+	mi := &file_sysml_proto_msgTypes[172]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16403,7 +16544,7 @@ func (x *DataImport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DataImport.ProtoReflect.Descriptor instead.
 func (*DataImport) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{171}
+	return file_sysml_proto_rawDescGZIP(), []int{172}
 }
 
 func (x *DataImport) GetName() string {
@@ -16455,7 +16596,7 @@ type ImportDataResponse struct {
 
 func (x *ImportDataResponse) Reset() {
 	*x = ImportDataResponse{}
-	mi := &file_sysml_proto_msgTypes[172]
+	mi := &file_sysml_proto_msgTypes[173]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16467,7 +16608,7 @@ func (x *ImportDataResponse) String() string {
 func (*ImportDataResponse) ProtoMessage() {}
 
 func (x *ImportDataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[172]
+	mi := &file_sysml_proto_msgTypes[173]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16480,7 +16621,7 @@ func (x *ImportDataResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportDataResponse.ProtoReflect.Descriptor instead.
 func (*ImportDataResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{172}
+	return file_sysml_proto_rawDescGZIP(), []int{173}
 }
 
 func (x *ImportDataResponse) GetFiles() []*ImportedFile {
@@ -16539,7 +16680,7 @@ type ImportedFile struct {
 
 func (x *ImportedFile) Reset() {
 	*x = ImportedFile{}
-	mi := &file_sysml_proto_msgTypes[173]
+	mi := &file_sysml_proto_msgTypes[174]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16551,7 +16692,7 @@ func (x *ImportedFile) String() string {
 func (*ImportedFile) ProtoMessage() {}
 
 func (x *ImportedFile) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[173]
+	mi := &file_sysml_proto_msgTypes[174]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16564,7 +16705,7 @@ func (x *ImportedFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportedFile.ProtoReflect.Descriptor instead.
 func (*ImportedFile) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{173}
+	return file_sysml_proto_rawDescGZIP(), []int{174}
 }
 
 func (x *ImportedFile) GetName() string {
@@ -16614,7 +16755,7 @@ type ImportedValue struct {
 
 func (x *ImportedValue) Reset() {
 	*x = ImportedValue{}
-	mi := &file_sysml_proto_msgTypes[174]
+	mi := &file_sysml_proto_msgTypes[175]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16626,7 +16767,7 @@ func (x *ImportedValue) String() string {
 func (*ImportedValue) ProtoMessage() {}
 
 func (x *ImportedValue) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[174]
+	mi := &file_sysml_proto_msgTypes[175]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16639,7 +16780,7 @@ func (x *ImportedValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportedValue.ProtoReflect.Descriptor instead.
 func (*ImportedValue) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{174}
+	return file_sysml_proto_rawDescGZIP(), []int{175}
 }
 
 func (x *ImportedValue) GetElement() string {
@@ -16717,7 +16858,7 @@ type CompareResultsRequest struct {
 
 func (x *CompareResultsRequest) Reset() {
 	*x = CompareResultsRequest{}
-	mi := &file_sysml_proto_msgTypes[175]
+	mi := &file_sysml_proto_msgTypes[176]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16729,7 +16870,7 @@ func (x *CompareResultsRequest) String() string {
 func (*CompareResultsRequest) ProtoMessage() {}
 
 func (x *CompareResultsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[175]
+	mi := &file_sysml_proto_msgTypes[176]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16742,7 +16883,7 @@ func (x *CompareResultsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompareResultsRequest.ProtoReflect.Descriptor instead.
 func (*CompareResultsRequest) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{175}
+	return file_sysml_proto_rawDescGZIP(), []int{176}
 }
 
 func (x *CompareResultsRequest) GetModelHash() string {
@@ -16820,7 +16961,7 @@ type ObservablePair struct {
 
 func (x *ObservablePair) Reset() {
 	*x = ObservablePair{}
-	mi := &file_sysml_proto_msgTypes[176]
+	mi := &file_sysml_proto_msgTypes[177]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16832,7 +16973,7 @@ func (x *ObservablePair) String() string {
 func (*ObservablePair) ProtoMessage() {}
 
 func (x *ObservablePair) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[176]
+	mi := &file_sysml_proto_msgTypes[177]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16845,7 +16986,7 @@ func (x *ObservablePair) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObservablePair.ProtoReflect.Descriptor instead.
 func (*ObservablePair) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{176}
+	return file_sysml_proto_rawDescGZIP(), []int{177}
 }
 
 func (x *ObservablePair) GetStored() string {
@@ -16882,7 +17023,7 @@ type CompareResultsResponse struct {
 
 func (x *CompareResultsResponse) Reset() {
 	*x = CompareResultsResponse{}
-	mi := &file_sysml_proto_msgTypes[177]
+	mi := &file_sysml_proto_msgTypes[178]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16894,7 +17035,7 @@ func (x *CompareResultsResponse) String() string {
 func (*CompareResultsResponse) ProtoMessage() {}
 
 func (x *CompareResultsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[177]
+	mi := &file_sysml_proto_msgTypes[178]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16907,7 +17048,7 @@ func (x *CompareResultsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompareResultsResponse.ProtoReflect.Descriptor instead.
 func (*CompareResultsResponse) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{177}
+	return file_sysml_proto_rawDescGZIP(), []int{178}
 }
 
 func (x *CompareResultsResponse) GetConfigurations() []*ConfigurationComparison {
@@ -17007,7 +17148,7 @@ type ConfigurationComparison struct {
 
 func (x *ConfigurationComparison) Reset() {
 	*x = ConfigurationComparison{}
-	mi := &file_sysml_proto_msgTypes[178]
+	mi := &file_sysml_proto_msgTypes[179]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17019,7 +17160,7 @@ func (x *ConfigurationComparison) String() string {
 func (*ConfigurationComparison) ProtoMessage() {}
 
 func (x *ConfigurationComparison) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[178]
+	mi := &file_sysml_proto_msgTypes[179]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17032,7 +17173,7 @@ func (x *ConfigurationComparison) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationComparison.ProtoReflect.Descriptor instead.
 func (*ConfigurationComparison) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{178}
+	return file_sysml_proto_rawDescGZIP(), []int{179}
 }
 
 func (x *ConfigurationComparison) GetId() string {
@@ -17210,7 +17351,7 @@ type ObservableComparison struct {
 
 func (x *ObservableComparison) Reset() {
 	*x = ObservableComparison{}
-	mi := &file_sysml_proto_msgTypes[179]
+	mi := &file_sysml_proto_msgTypes[180]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17222,7 +17363,7 @@ func (x *ObservableComparison) String() string {
 func (*ObservableComparison) ProtoMessage() {}
 
 func (x *ObservableComparison) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[179]
+	mi := &file_sysml_proto_msgTypes[180]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17235,7 +17376,7 @@ func (x *ObservableComparison) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObservableComparison.ProtoReflect.Descriptor instead.
 func (*ObservableComparison) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{179}
+	return file_sysml_proto_rawDescGZIP(), []int{180}
 }
 
 func (x *ObservableComparison) GetStored() string {
@@ -17339,7 +17480,7 @@ type ComparedDistribution struct {
 
 func (x *ComparedDistribution) Reset() {
 	*x = ComparedDistribution{}
-	mi := &file_sysml_proto_msgTypes[180]
+	mi := &file_sysml_proto_msgTypes[181]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17351,7 +17492,7 @@ func (x *ComparedDistribution) String() string {
 func (*ComparedDistribution) ProtoMessage() {}
 
 func (x *ComparedDistribution) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[180]
+	mi := &file_sysml_proto_msgTypes[181]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17364,7 +17505,7 @@ func (x *ComparedDistribution) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ComparedDistribution.ProtoReflect.Descriptor instead.
 func (*ComparedDistribution) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{180}
+	return file_sysml_proto_rawDescGZIP(), []int{181}
 }
 
 func (x *ComparedDistribution) GetCount() int64 {
@@ -17431,7 +17572,7 @@ type StatisticDifference struct {
 
 func (x *StatisticDifference) Reset() {
 	*x = StatisticDifference{}
-	mi := &file_sysml_proto_msgTypes[181]
+	mi := &file_sysml_proto_msgTypes[182]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17443,7 +17584,7 @@ func (x *StatisticDifference) String() string {
 func (*StatisticDifference) ProtoMessage() {}
 
 func (x *StatisticDifference) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[181]
+	mi := &file_sysml_proto_msgTypes[182]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17456,7 +17597,7 @@ func (x *StatisticDifference) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatisticDifference.ProtoReflect.Descriptor instead.
 func (*StatisticDifference) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{181}
+	return file_sysml_proto_rawDescGZIP(), []int{182}
 }
 
 func (x *StatisticDifference) GetMin() string {
@@ -17507,7 +17648,7 @@ type CaseStatistics struct {
 
 func (x *CaseStatistics) Reset() {
 	*x = CaseStatistics{}
-	mi := &file_sysml_proto_msgTypes[182]
+	mi := &file_sysml_proto_msgTypes[183]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17519,7 +17660,7 @@ func (x *CaseStatistics) String() string {
 func (*CaseStatistics) ProtoMessage() {}
 
 func (x *CaseStatistics) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[182]
+	mi := &file_sysml_proto_msgTypes[183]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17532,7 +17673,7 @@ func (x *CaseStatistics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaseStatistics.ProtoReflect.Descriptor instead.
 func (*CaseStatistics) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{182}
+	return file_sysml_proto_rawDescGZIP(), []int{183}
 }
 
 func (x *CaseStatistics) GetAnalysis() string {
@@ -17571,7 +17712,7 @@ type CaseStatistic struct {
 
 func (x *CaseStatistic) Reset() {
 	*x = CaseStatistic{}
-	mi := &file_sysml_proto_msgTypes[183]
+	mi := &file_sysml_proto_msgTypes[184]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17583,7 +17724,7 @@ func (x *CaseStatistic) String() string {
 func (*CaseStatistic) ProtoMessage() {}
 
 func (x *CaseStatistic) ProtoReflect() protoreflect.Message {
-	mi := &file_sysml_proto_msgTypes[183]
+	mi := &file_sysml_proto_msgTypes[184]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17596,7 +17737,7 @@ func (x *CaseStatistic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaseStatistic.ProtoReflect.Descriptor instead.
 func (*CaseStatistic) Descriptor() ([]byte, []int) {
-	return file_sysml_proto_rawDescGZIP(), []int{183}
+	return file_sysml_proto_rawDescGZIP(), []int{184}
 }
 
 func (x *CaseStatistic) GetStatistic() string {
@@ -18394,7 +18535,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x06length\x18\x04 \x01(\x05R\x06length\x12\x19\n" +
 	"\bold_text\x18\x05 \x01(\tR\aoldText\x12\x19\n" +
 	"\bnew_text\x18\x06 \x01(\tR\anewText\x12\x1a\n" +
-	"\bdocument\x18\a \x01(\tR\bdocument\"\xfd\x03\n" +
+	"\bdocument\x18\a \x01(\tR\bdocument\"\xbd\x04\n" +
 	"\n" +
 	"SymbolInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -18409,16 +18550,26 @@ const file_sysml_proto_rawDesc = "" +
 	"\fmultiplicity\x18\b \x01(\v2\x17.sysml.MultiplicityInfoR\fmultiplicity\x12?\n" +
 	"\x0fspecializations\x18\t \x03(\v2\x15.sysml.SpecializationR\x0fspecializations\x12>\n" +
 	"\x1bwithheld_library_attributes\x18\n" +
-	" \x01(\x05R\x19withheldLibraryAttributes\x1a;\n" +
+	" \x01(\x05R\x19withheldLibraryAttributes\x12>\n" +
+	"\x0econnector_ends\x18\v \x03(\v2\x17.sysml.ConnectorEndInfoR\rconnectorEnds\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"~\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x9b\x01\n" +
 	"\x0eSpecialization\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1a\n" +
 	"\bdeclared\x18\x02 \x01(\tR\bdeclared\x12\x1b\n" +
 	"\ttarget_id\x18\x03 \x01(\tR\btargetId\x12\x1f\n" +
 	"\vtarget_kind\x18\x04 \x01(\tR\n" +
-	"targetKind\"\xe5\x01\n" +
+	"targetKind\x12\x1b\n" +
+	"\tchain_ids\x18\x05 \x03(\tR\bchainIds\"\xb8\x01\n" +
+	"\x10ConnectorEndInfo\x12\x15\n" +
+	"\x06end_id\x18\x01 \x01(\tR\x05endId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bdeclared\x18\x03 \x01(\tR\bdeclared\x12\x1d\n" +
+	"\n" +
+	"feature_id\x18\x04 \x01(\tR\tfeatureId\x12!\n" +
+	"\ffeature_kind\x18\x05 \x01(\tR\vfeatureKind\x12\x1b\n" +
+	"\tchain_ids\x18\x06 \x03(\tR\bchainIds\"\xe5\x01\n" +
 	"\bTypeInfo\x12\x1a\n" +
 	"\bdeclared\x18\x01 \x01(\tR\bdeclared\x12\x1f\n" +
 	"\vresolved_id\x18\x02 \x01(\tR\n" +
@@ -18469,12 +18620,14 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04kind\"J\n" +
 	"\bRational\x12\x1c\n" +
 	"\tnumerator\x18\x01 \x01(\tR\tnumerator\x12 \n" +
-	"\vdenominator\x18\x02 \x01(\tR\vdenominator\"N\n" +
+	"\vdenominator\x18\x02 \x01(\tR\vdenominator\"\x9b\x01\n" +
 	"\n" +
 	"Metaobject\x12\x1d\n" +
 	"\n" +
 	"element_id\x18\x01 \x01(\tR\telementId\x12!\n" +
-	"\fmetaclass_id\x18\x02 \x01(\tR\vmetaclassId\"U\n" +
+	"\fmetaclass_id\x18\x02 \x01(\tR\vmetaclassId\x120\n" +
+	"\x14chaining_feature_ids\x18\x03 \x03(\tR\x12chainingFeatureIds\x12\x19\n" +
+	"\bowner_id\x18\x04 \x01(\tR\aownerId\"U\n" +
 	"\fUndetermined\x12\x16\n" +
 	"\x06reason\x18\x01 \x01(\tR\x06reason\x12-\n" +
 	"\x05count\x18\x02 \x01(\v2\x17.sysml.MultiplicityInfoR\x05count\"<\n" +
@@ -19230,7 +19383,7 @@ func file_sysml_proto_rawDescGZIP() []byte {
 }
 
 var file_sysml_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_sysml_proto_msgTypes = make([]protoimpl.MessageInfo, 203)
+var file_sysml_proto_msgTypes = make([]protoimpl.MessageInfo, 204)
 var file_sysml_proto_goTypes = []any{
 	(FailureReason)(0),                   // 0: sysml.FailureReason
 	(EditFailure)(0),                     // 1: sysml.EditFailure
@@ -19326,166 +19479,167 @@ var file_sysml_proto_goTypes = []any{
 	(*AppliedEdit)(nil),                  // 91: sysml.AppliedEdit
 	(*SymbolInfo)(nil),                   // 92: sysml.SymbolInfo
 	(*Specialization)(nil),               // 93: sysml.Specialization
-	(*TypeInfo)(nil),                     // 94: sysml.TypeInfo
-	(*MultiplicityInfo)(nil),             // 95: sysml.MultiplicityInfo
-	(*AttributeInfo)(nil),                // 96: sysml.AttributeInfo
-	(*Value)(nil),                        // 97: sysml.Value
-	(*Rational)(nil),                     // 98: sysml.Rational
-	(*Metaobject)(nil),                   // 99: sysml.Metaobject
-	(*Undetermined)(nil),                 // 100: sysml.Undetermined
-	(*Function)(nil),                     // 101: sysml.Function
-	(*ValueSet)(nil),                     // 102: sysml.ValueSet
-	(*TensorQuantity)(nil),               // 103: sysml.TensorQuantity
-	(*Array)(nil),                        // 104: sysml.Array
-	(*Vector)(nil),                       // 105: sysml.Vector
-	(*VectorQuantity)(nil),               // 106: sysml.VectorQuantity
-	(*Complex)(nil),                      // 107: sysml.Complex
-	(*EnumLiteral)(nil),                  // 108: sysml.EnumLiteral
-	(*ValueSequence)(nil),                // 109: sysml.ValueSequence
-	(*Quantity)(nil),                     // 110: sysml.Quantity
-	(*MeasurementRef)(nil),               // 111: sysml.MeasurementRef
-	(*UnitTerm)(nil),                     // 112: sysml.UnitTerm
-	(*UnitFactor)(nil),                   // 113: sysml.UnitFactor
-	(*Diagnostic)(nil),                   // 114: sysml.Diagnostic
-	(*Span)(nil),                         // 115: sysml.Span
-	(*ServerInfoRequest)(nil),            // 116: sysml.ServerInfoRequest
-	(*ServerInfoResponse)(nil),           // 117: sysml.ServerInfoResponse
-	(*QueryRequest)(nil),                 // 118: sysml.QueryRequest
-	(*QueryResponse)(nil),                // 119: sysml.QueryResponse
-	(*Query)(nil),                        // 120: sysml.Query
-	(*Constraint)(nil),                   // 121: sysml.Constraint
-	(*PrimitiveConstraint)(nil),          // 122: sysml.PrimitiveConstraint
-	(*CompositeConstraint)(nil),          // 123: sysml.CompositeConstraint
-	(*QueryResultElement)(nil),           // 124: sysml.QueryResultElement
-	(*SweepRange)(nil),                   // 125: sysml.SweepRange
-	(*RunSweepRequest)(nil),              // 126: sysml.RunSweepRequest
-	(*SweepRow)(nil),                     // 127: sysml.SweepRow
-	(*RunSweepResponse)(nil),             // 128: sysml.RunSweepResponse
-	(*RunRunsRequest)(nil),               // 129: sysml.RunRunsRequest
-	(*RunDistribution)(nil),              // 130: sysml.RunDistribution
-	(*RunPercentile)(nil),                // 131: sysml.RunPercentile
-	(*RunHistogramBin)(nil),              // 132: sysml.RunHistogramBin
-	(*RunCountedValue)(nil),              // 133: sysml.RunCountedValue
-	(*SelfCheckRequest)(nil),             // 134: sysml.SelfCheckRequest
-	(*SelfCheckFinding)(nil),             // 135: sysml.SelfCheckFinding
-	(*SelfCheckApplication)(nil),         // 136: sysml.SelfCheckApplication
-	(*SelfCheckResponse)(nil),            // 137: sysml.SelfCheckResponse
-	(*RecordRunRequest)(nil),             // 138: sysml.RecordRunRequest
-	(*RecordRunResponse)(nil),            // 139: sysml.RecordRunResponse
-	(*RunRunsResponse)(nil),              // 140: sysml.RunRunsResponse
-	(*RunDocumentQueryRequest)(nil),      // 141: sysml.RunDocumentQueryRequest
-	(*DocumentQueryBinding)(nil),         // 142: sysml.DocumentQueryBinding
-	(*DocumentValue)(nil),                // 143: sysml.DocumentValue
-	(*DocumentObject)(nil),               // 144: sysml.DocumentObject
-	(*DocumentVerdict)(nil),              // 145: sysml.DocumentVerdict
-	(*DocumentState)(nil),                // 146: sysml.DocumentState
-	(*DocumentEvent)(nil),                // 147: sysml.DocumentEvent
-	(*DocumentQueryColumn)(nil),          // 148: sysml.DocumentQueryColumn
-	(*DocumentQueryCell)(nil),            // 149: sysml.DocumentQueryCell
-	(*DocumentQueryRow)(nil),             // 150: sysml.DocumentQueryRow
-	(*RunDocumentQueryResponse)(nil),     // 151: sysml.RunDocumentQueryResponse
-	(*QueryOutcome)(nil),                 // 152: sysml.QueryOutcome
-	(*QueryFailure)(nil),                 // 153: sysml.QueryFailure
-	(*QueryFrontier)(nil),                // 154: sysml.QueryFrontier
-	(*QueryFrontierMember)(nil),          // 155: sysml.QueryFrontierMember
-	(*QueryFrontierFeature)(nil),         // 156: sysml.QueryFrontierFeature
-	(*QueryFinding)(nil),                 // 157: sysml.QueryFinding
-	(*RenderDocumentRequest)(nil),        // 158: sysml.RenderDocumentRequest
-	(*RenderDocumentResponse)(nil),       // 159: sysml.RenderDocumentResponse
-	(*RenderViewRequest)(nil),            // 160: sysml.RenderViewRequest
-	(*RenderViewResponse)(nil),           // 161: sysml.RenderViewResponse
-	(*RenderFrame)(nil),                  // 162: sysml.RenderFrame
-	(*RenderNode)(nil),                   // 163: sysml.RenderNode
-	(*RenderPort)(nil),                   // 164: sysml.RenderPort
-	(*RenderEdge)(nil),                   // 165: sysml.RenderEdge
-	(*RenderGeometry)(nil),               // 166: sysml.RenderGeometry
-	(*RenderCanvas)(nil),                 // 167: sysml.RenderCanvas
-	(*RenderStyle)(nil),                  // 168: sysml.RenderStyle
-	(*RenderPoint)(nil),                  // 169: sysml.RenderPoint
-	(*RenderRow)(nil),                    // 170: sysml.RenderRow
-	(*RenderNote)(nil),                   // 171: sysml.RenderNote
-	(*ExportGraphsRequest)(nil),          // 172: sysml.ExportGraphsRequest
-	(*ExportGraphsResponse)(nil),         // 173: sysml.ExportGraphsResponse
-	(*ImportDataRequest)(nil),            // 174: sysml.ImportDataRequest
-	(*DataImport)(nil),                   // 175: sysml.DataImport
-	(*ImportDataResponse)(nil),           // 176: sysml.ImportDataResponse
-	(*ImportedFile)(nil),                 // 177: sysml.ImportedFile
-	(*ImportedValue)(nil),                // 178: sysml.ImportedValue
-	(*CompareResultsRequest)(nil),        // 179: sysml.CompareResultsRequest
-	(*ObservablePair)(nil),               // 180: sysml.ObservablePair
-	(*CompareResultsResponse)(nil),       // 181: sysml.CompareResultsResponse
-	(*ConfigurationComparison)(nil),      // 182: sysml.ConfigurationComparison
-	(*ObservableComparison)(nil),         // 183: sysml.ObservableComparison
-	(*ComparedDistribution)(nil),         // 184: sysml.ComparedDistribution
-	(*StatisticDifference)(nil),          // 185: sysml.StatisticDifference
-	(*CaseStatistics)(nil),               // 186: sysml.CaseStatistics
-	(*CaseStatistic)(nil),                // 187: sysml.CaseStatistic
-	nil,                                  // 188: sysml.VerifyConstraintRequest.NamedArgumentsEntry
-	nil,                                  // 189: sysml.VerifyRequirementRequest.NamedArgumentsEntry
-	nil,                                  // 190: sysml.RunAnalysisRequest.NamedArgumentsEntry
-	nil,                                  // 191: sysml.Outcome.OutputsEntry
-	nil,                                  // 192: sysml.CheckBehaviorRequest.InputsEntry
-	nil,                                  // 193: sysml.CheckFinal.ValuesEntry
-	nil,                                  // 194: sysml.Instance.FeatureValuesEntry
-	nil,                                  // 195: sysml.ExecuteActionRequest.InputsEntry
-	nil,                                  // 196: sysml.ExecuteActionResponse.OutputsEntry
-	nil,                                  // 197: sysml.ExecuteActionResponse.PerformerAttributesEntry
-	nil,                                  // 198: sysml.ExecuteActionResponse.OrderDependentEntry
-	nil,                                  // 199: sysml.ExecuteStateResponse.FinalContextEntry
-	nil,                                  // 200: sysml.ExecuteStateResponse.OrderDependentEntry
-	nil,                                  // 201: sysml.SymbolInfo.MetadataEntry
-	nil,                                  // 202: sysml.QueryResultElement.PropertiesEntry
-	nil,                                  // 203: sysml.RunSweepRequest.NamedArgumentsEntry
-	nil,                                  // 204: sysml.RunRunsRequest.InputsEntry
-	nil,                                  // 205: sysml.RunRunsRequest.NamedArgumentsEntry
-	nil,                                  // 206: sysml.RecordRunRequest.NamedArgumentsEntry
+	(*ConnectorEndInfo)(nil),             // 94: sysml.ConnectorEndInfo
+	(*TypeInfo)(nil),                     // 95: sysml.TypeInfo
+	(*MultiplicityInfo)(nil),             // 96: sysml.MultiplicityInfo
+	(*AttributeInfo)(nil),                // 97: sysml.AttributeInfo
+	(*Value)(nil),                        // 98: sysml.Value
+	(*Rational)(nil),                     // 99: sysml.Rational
+	(*Metaobject)(nil),                   // 100: sysml.Metaobject
+	(*Undetermined)(nil),                 // 101: sysml.Undetermined
+	(*Function)(nil),                     // 102: sysml.Function
+	(*ValueSet)(nil),                     // 103: sysml.ValueSet
+	(*TensorQuantity)(nil),               // 104: sysml.TensorQuantity
+	(*Array)(nil),                        // 105: sysml.Array
+	(*Vector)(nil),                       // 106: sysml.Vector
+	(*VectorQuantity)(nil),               // 107: sysml.VectorQuantity
+	(*Complex)(nil),                      // 108: sysml.Complex
+	(*EnumLiteral)(nil),                  // 109: sysml.EnumLiteral
+	(*ValueSequence)(nil),                // 110: sysml.ValueSequence
+	(*Quantity)(nil),                     // 111: sysml.Quantity
+	(*MeasurementRef)(nil),               // 112: sysml.MeasurementRef
+	(*UnitTerm)(nil),                     // 113: sysml.UnitTerm
+	(*UnitFactor)(nil),                   // 114: sysml.UnitFactor
+	(*Diagnostic)(nil),                   // 115: sysml.Diagnostic
+	(*Span)(nil),                         // 116: sysml.Span
+	(*ServerInfoRequest)(nil),            // 117: sysml.ServerInfoRequest
+	(*ServerInfoResponse)(nil),           // 118: sysml.ServerInfoResponse
+	(*QueryRequest)(nil),                 // 119: sysml.QueryRequest
+	(*QueryResponse)(nil),                // 120: sysml.QueryResponse
+	(*Query)(nil),                        // 121: sysml.Query
+	(*Constraint)(nil),                   // 122: sysml.Constraint
+	(*PrimitiveConstraint)(nil),          // 123: sysml.PrimitiveConstraint
+	(*CompositeConstraint)(nil),          // 124: sysml.CompositeConstraint
+	(*QueryResultElement)(nil),           // 125: sysml.QueryResultElement
+	(*SweepRange)(nil),                   // 126: sysml.SweepRange
+	(*RunSweepRequest)(nil),              // 127: sysml.RunSweepRequest
+	(*SweepRow)(nil),                     // 128: sysml.SweepRow
+	(*RunSweepResponse)(nil),             // 129: sysml.RunSweepResponse
+	(*RunRunsRequest)(nil),               // 130: sysml.RunRunsRequest
+	(*RunDistribution)(nil),              // 131: sysml.RunDistribution
+	(*RunPercentile)(nil),                // 132: sysml.RunPercentile
+	(*RunHistogramBin)(nil),              // 133: sysml.RunHistogramBin
+	(*RunCountedValue)(nil),              // 134: sysml.RunCountedValue
+	(*SelfCheckRequest)(nil),             // 135: sysml.SelfCheckRequest
+	(*SelfCheckFinding)(nil),             // 136: sysml.SelfCheckFinding
+	(*SelfCheckApplication)(nil),         // 137: sysml.SelfCheckApplication
+	(*SelfCheckResponse)(nil),            // 138: sysml.SelfCheckResponse
+	(*RecordRunRequest)(nil),             // 139: sysml.RecordRunRequest
+	(*RecordRunResponse)(nil),            // 140: sysml.RecordRunResponse
+	(*RunRunsResponse)(nil),              // 141: sysml.RunRunsResponse
+	(*RunDocumentQueryRequest)(nil),      // 142: sysml.RunDocumentQueryRequest
+	(*DocumentQueryBinding)(nil),         // 143: sysml.DocumentQueryBinding
+	(*DocumentValue)(nil),                // 144: sysml.DocumentValue
+	(*DocumentObject)(nil),               // 145: sysml.DocumentObject
+	(*DocumentVerdict)(nil),              // 146: sysml.DocumentVerdict
+	(*DocumentState)(nil),                // 147: sysml.DocumentState
+	(*DocumentEvent)(nil),                // 148: sysml.DocumentEvent
+	(*DocumentQueryColumn)(nil),          // 149: sysml.DocumentQueryColumn
+	(*DocumentQueryCell)(nil),            // 150: sysml.DocumentQueryCell
+	(*DocumentQueryRow)(nil),             // 151: sysml.DocumentQueryRow
+	(*RunDocumentQueryResponse)(nil),     // 152: sysml.RunDocumentQueryResponse
+	(*QueryOutcome)(nil),                 // 153: sysml.QueryOutcome
+	(*QueryFailure)(nil),                 // 154: sysml.QueryFailure
+	(*QueryFrontier)(nil),                // 155: sysml.QueryFrontier
+	(*QueryFrontierMember)(nil),          // 156: sysml.QueryFrontierMember
+	(*QueryFrontierFeature)(nil),         // 157: sysml.QueryFrontierFeature
+	(*QueryFinding)(nil),                 // 158: sysml.QueryFinding
+	(*RenderDocumentRequest)(nil),        // 159: sysml.RenderDocumentRequest
+	(*RenderDocumentResponse)(nil),       // 160: sysml.RenderDocumentResponse
+	(*RenderViewRequest)(nil),            // 161: sysml.RenderViewRequest
+	(*RenderViewResponse)(nil),           // 162: sysml.RenderViewResponse
+	(*RenderFrame)(nil),                  // 163: sysml.RenderFrame
+	(*RenderNode)(nil),                   // 164: sysml.RenderNode
+	(*RenderPort)(nil),                   // 165: sysml.RenderPort
+	(*RenderEdge)(nil),                   // 166: sysml.RenderEdge
+	(*RenderGeometry)(nil),               // 167: sysml.RenderGeometry
+	(*RenderCanvas)(nil),                 // 168: sysml.RenderCanvas
+	(*RenderStyle)(nil),                  // 169: sysml.RenderStyle
+	(*RenderPoint)(nil),                  // 170: sysml.RenderPoint
+	(*RenderRow)(nil),                    // 171: sysml.RenderRow
+	(*RenderNote)(nil),                   // 172: sysml.RenderNote
+	(*ExportGraphsRequest)(nil),          // 173: sysml.ExportGraphsRequest
+	(*ExportGraphsResponse)(nil),         // 174: sysml.ExportGraphsResponse
+	(*ImportDataRequest)(nil),            // 175: sysml.ImportDataRequest
+	(*DataImport)(nil),                   // 176: sysml.DataImport
+	(*ImportDataResponse)(nil),           // 177: sysml.ImportDataResponse
+	(*ImportedFile)(nil),                 // 178: sysml.ImportedFile
+	(*ImportedValue)(nil),                // 179: sysml.ImportedValue
+	(*CompareResultsRequest)(nil),        // 180: sysml.CompareResultsRequest
+	(*ObservablePair)(nil),               // 181: sysml.ObservablePair
+	(*CompareResultsResponse)(nil),       // 182: sysml.CompareResultsResponse
+	(*ConfigurationComparison)(nil),      // 183: sysml.ConfigurationComparison
+	(*ObservableComparison)(nil),         // 184: sysml.ObservableComparison
+	(*ComparedDistribution)(nil),         // 185: sysml.ComparedDistribution
+	(*StatisticDifference)(nil),          // 186: sysml.StatisticDifference
+	(*CaseStatistics)(nil),               // 187: sysml.CaseStatistics
+	(*CaseStatistic)(nil),                // 188: sysml.CaseStatistic
+	nil,                                  // 189: sysml.VerifyConstraintRequest.NamedArgumentsEntry
+	nil,                                  // 190: sysml.VerifyRequirementRequest.NamedArgumentsEntry
+	nil,                                  // 191: sysml.RunAnalysisRequest.NamedArgumentsEntry
+	nil,                                  // 192: sysml.Outcome.OutputsEntry
+	nil,                                  // 193: sysml.CheckBehaviorRequest.InputsEntry
+	nil,                                  // 194: sysml.CheckFinal.ValuesEntry
+	nil,                                  // 195: sysml.Instance.FeatureValuesEntry
+	nil,                                  // 196: sysml.ExecuteActionRequest.InputsEntry
+	nil,                                  // 197: sysml.ExecuteActionResponse.OutputsEntry
+	nil,                                  // 198: sysml.ExecuteActionResponse.PerformerAttributesEntry
+	nil,                                  // 199: sysml.ExecuteActionResponse.OrderDependentEntry
+	nil,                                  // 200: sysml.ExecuteStateResponse.FinalContextEntry
+	nil,                                  // 201: sysml.ExecuteStateResponse.OrderDependentEntry
+	nil,                                  // 202: sysml.SymbolInfo.MetadataEntry
+	nil,                                  // 203: sysml.QueryResultElement.PropertiesEntry
+	nil,                                  // 204: sysml.RunSweepRequest.NamedArgumentsEntry
+	nil,                                  // 205: sysml.RunRunsRequest.InputsEntry
+	nil,                                  // 206: sysml.RunRunsRequest.NamedArgumentsEntry
+	nil,                                  // 207: sysml.RecordRunRequest.NamedArgumentsEntry
 }
 var file_sysml_proto_depIdxs = []int32{
 	0,   // 0: sysml.Verdict.failure_reason:type_name -> sysml.FailureReason
 	7,   // 1: sysml.Verdict.bounds:type_name -> sysml.Bound
 	6,   // 2: sysml.Verdict.witness:type_name -> sysml.WitnessAssignment
 	5,   // 3: sysml.Verdict.notes:type_name -> sysml.VerdictNote
-	97,  // 4: sysml.WitnessAssignment.value:type_name -> sysml.Value
-	97,  // 5: sysml.VerifyConstraintRequest.arguments:type_name -> sysml.Value
-	188, // 6: sysml.VerifyConstraintRequest.named_arguments:type_name -> sysml.VerifyConstraintRequest.NamedArgumentsEntry
+	98,  // 4: sysml.WitnessAssignment.value:type_name -> sysml.Value
+	98,  // 5: sysml.VerifyConstraintRequest.arguments:type_name -> sysml.Value
+	189, // 6: sysml.VerifyConstraintRequest.named_arguments:type_name -> sysml.VerifyConstraintRequest.NamedArgumentsEntry
 	4,   // 7: sysml.VerifyConstraintResponse.verdict:type_name -> sysml.Verdict
 	52,  // 8: sysml.VerifyConstraintResponse.instances:type_name -> sysml.Instance
-	114, // 9: sysml.VerifyConstraintResponse.diagnostics:type_name -> sysml.Diagnostic
-	97,  // 10: sysml.VerifyRequirementRequest.arguments:type_name -> sysml.Value
-	189, // 11: sysml.VerifyRequirementRequest.named_arguments:type_name -> sysml.VerifyRequirementRequest.NamedArgumentsEntry
+	115, // 9: sysml.VerifyConstraintResponse.diagnostics:type_name -> sysml.Diagnostic
+	98,  // 10: sysml.VerifyRequirementRequest.arguments:type_name -> sysml.Value
+	190, // 11: sysml.VerifyRequirementRequest.named_arguments:type_name -> sysml.VerifyRequirementRequest.NamedArgumentsEntry
 	4,   // 12: sysml.VerifyRequirementResponse.verdict:type_name -> sysml.Verdict
 	52,  // 13: sysml.VerifyRequirementResponse.instances:type_name -> sysml.Instance
-	114, // 14: sysml.VerifyRequirementResponse.diagnostics:type_name -> sysml.Diagnostic
+	115, // 14: sysml.VerifyRequirementResponse.diagnostics:type_name -> sysml.Diagnostic
 	11,  // 15: sysml.VerifyRequirementResponse.verification_verdicts:type_name -> sysml.VerificationVerdict
 	4,   // 16: sysml.VerifySatisfactionResponse.verdicts:type_name -> sysml.Verdict
 	52,  // 17: sysml.VerifySatisfactionResponse.instances:type_name -> sysml.Instance
-	114, // 18: sysml.VerifySatisfactionResponse.diagnostics:type_name -> sysml.Diagnostic
+	115, // 18: sysml.VerifySatisfactionResponse.diagnostics:type_name -> sysml.Diagnostic
 	0,   // 19: sysml.VerifySatisfactionResponse.failure_reason:type_name -> sysml.FailureReason
 	11,  // 20: sysml.VerifySatisfactionResponse.verification_verdicts:type_name -> sysml.VerificationVerdict
 	4,   // 21: sysml.ValidateInstanceResponse.verdicts:type_name -> sysml.Verdict
 	4,   // 22: sysml.ValidateInstanceResponse.summary:type_name -> sysml.Verdict
 	52,  // 23: sysml.ValidateInstanceResponse.instances:type_name -> sysml.Instance
-	114, // 24: sysml.ValidateInstanceResponse.diagnostics:type_name -> sysml.Diagnostic
+	115, // 24: sysml.ValidateInstanceResponse.diagnostics:type_name -> sysml.Diagnostic
 	0,   // 25: sysml.ValidateInstanceResponse.failure_reason:type_name -> sysml.FailureReason
 	11,  // 26: sysml.ValidateInstanceResponse.verification_verdicts:type_name -> sysml.VerificationVerdict
-	97,  // 27: sysml.EvaluateCalcRequest.arguments:type_name -> sysml.Value
-	97,  // 28: sysml.EvaluateCalcResponse.result:type_name -> sysml.Value
+	98,  // 27: sysml.EvaluateCalcRequest.arguments:type_name -> sysml.Value
+	98,  // 28: sysml.EvaluateCalcResponse.result:type_name -> sysml.Value
 	19,  // 29: sysml.EvaluateCalcResponse.outputs:type_name -> sysml.CalcOutput
-	114, // 30: sysml.EvaluateCalcResponse.diagnostics:type_name -> sysml.Diagnostic
+	115, // 30: sysml.EvaluateCalcResponse.diagnostics:type_name -> sysml.Diagnostic
 	0,   // 31: sysml.EvaluateCalcResponse.failure_reason:type_name -> sysml.FailureReason
 	7,   // 32: sysml.EvaluateCalcResponse.bounds:type_name -> sysml.Bound
-	97,  // 33: sysml.CalcOutput.value:type_name -> sysml.Value
-	97,  // 34: sysml.CaseEvaluation.arguments:type_name -> sysml.Value
-	97,  // 35: sysml.CaseEvaluation.result:type_name -> sysml.Value
-	97,  // 36: sysml.RunAnalysisRequest.arguments:type_name -> sysml.Value
-	190, // 37: sysml.RunAnalysisRequest.named_arguments:type_name -> sysml.RunAnalysisRequest.NamedArgumentsEntry
+	98,  // 33: sysml.CalcOutput.value:type_name -> sysml.Value
+	98,  // 34: sysml.CaseEvaluation.arguments:type_name -> sysml.Value
+	98,  // 35: sysml.CaseEvaluation.result:type_name -> sysml.Value
+	98,  // 36: sysml.RunAnalysisRequest.arguments:type_name -> sysml.Value
+	191, // 37: sysml.RunAnalysisRequest.named_arguments:type_name -> sysml.RunAnalysisRequest.NamedArgumentsEntry
 	23,  // 38: sysml.ToolDryRun.input_file:type_name -> sysml.ToolDryRunFile
 	24,  // 39: sysml.ToolDryRun.inputs:type_name -> sysml.ToolDryRunInput
 	25,  // 40: sysml.ToolDryRun.outputs:type_name -> sysml.ToolDryRunOutput
 	19,  // 41: sysml.RunAnalysisResponse.outputs:type_name -> sysml.CalcOutput
 	4,   // 42: sysml.RunAnalysisResponse.verdicts:type_name -> sysml.Verdict
 	52,  // 43: sysml.RunAnalysisResponse.instances:type_name -> sysml.Instance
-	114, // 44: sysml.RunAnalysisResponse.diagnostics:type_name -> sysml.Diagnostic
+	115, // 44: sysml.RunAnalysisResponse.diagnostics:type_name -> sysml.Diagnostic
 	0,   // 45: sysml.RunAnalysisResponse.failure_reason:type_name -> sysml.FailureReason
 	11,  // 46: sysml.RunAnalysisResponse.verification_verdicts:type_name -> sysml.VerificationVerdict
 	28,  // 47: sysml.RunAnalysisResponse.outcomes:type_name -> sysml.Outcome
@@ -19493,14 +19647,14 @@ var file_sysml_proto_depIdxs = []int32{
 	20,  // 49: sysml.RunAnalysisResponse.evaluations:type_name -> sysml.CaseEvaluation
 	7,   // 50: sysml.RunAnalysisResponse.bounds:type_name -> sysml.Bound
 	22,  // 51: sysml.RunAnalysisResponse.tool_dry_run:type_name -> sysml.ToolDryRun
-	191, // 52: sysml.Outcome.outputs:type_name -> sysml.Outcome.OutputsEntry
-	114, // 53: sysml.Outcome.diagnostics:type_name -> sysml.Diagnostic
+	192, // 52: sysml.Outcome.outputs:type_name -> sysml.Outcome.OutputsEntry
+	115, // 53: sysml.Outcome.diagnostics:type_name -> sysml.Diagnostic
 	27,  // 54: sysml.Outcome.probability_range:type_name -> sysml.ProbabilityRange
-	192, // 55: sysml.CheckBehaviorRequest.inputs:type_name -> sysml.CheckBehaviorRequest.InputsEntry
+	193, // 55: sysml.CheckBehaviorRequest.inputs:type_name -> sysml.CheckBehaviorRequest.InputsEntry
 	31,  // 56: sysml.CheckViolation.witness:type_name -> sysml.CheckWitness
 	31,  // 57: sysml.CheckDivergentValue.witness:type_name -> sysml.CheckWitness
 	33,  // 58: sysml.CheckDivergence.values:type_name -> sysml.CheckDivergentValue
-	193, // 59: sysml.CheckFinal.values:type_name -> sysml.CheckFinal.ValuesEntry
+	194, // 59: sysml.CheckFinal.values:type_name -> sysml.CheckFinal.ValuesEntry
 	31,  // 60: sysml.CheckFinal.witness:type_name -> sysml.CheckWitness
 	36,  // 61: sysml.CheckBehaviorResponse.search:type_name -> sysml.CheckSearch
 	32,  // 62: sysml.CheckBehaviorResponse.violations:type_name -> sysml.CheckViolation
@@ -19512,34 +19666,34 @@ var file_sysml_proto_depIdxs = []int32{
 	39,  // 68: sysml.ListEnginesResponse.engines:type_name -> sysml.EngineInfo
 	42,  // 69: sysml.ParseSourcesRequest.documents:type_name -> sysml.SourceDocument
 	92,  // 70: sysml.ParseSourcesResponse.roots:type_name -> sysml.SymbolInfo
-	114, // 71: sysml.ParseSourcesResponse.diagnostics:type_name -> sysml.Diagnostic
+	115, // 71: sysml.ParseSourcesResponse.diagnostics:type_name -> sysml.Diagnostic
 	92,  // 72: sysml.ParseFileResponse.root:type_name -> sysml.SymbolInfo
-	114, // 73: sysml.ParseFileResponse.diagnostics:type_name -> sysml.Diagnostic
+	115, // 73: sysml.ParseFileResponse.diagnostics:type_name -> sysml.Diagnostic
 	92,  // 74: sysml.SymbolResponse.symbol:type_name -> sysml.SymbolInfo
-	114, // 75: sysml.DiagnosticsResponse.diagnostics:type_name -> sysml.Diagnostic
-	97,  // 76: sysml.EvaluateResponse.result:type_name -> sysml.Value
-	114, // 77: sysml.EvaluateResponse.diagnostics:type_name -> sysml.Diagnostic
-	194, // 78: sysml.Instance.feature_values:type_name -> sysml.Instance.FeatureValuesEntry
-	97,  // 79: sysml.FeatureValue.value:type_name -> sysml.Value
-	97,  // 80: sysml.FeatureValue.values:type_name -> sysml.Value
+	115, // 75: sysml.DiagnosticsResponse.diagnostics:type_name -> sysml.Diagnostic
+	98,  // 76: sysml.EvaluateResponse.result:type_name -> sysml.Value
+	115, // 77: sysml.EvaluateResponse.diagnostics:type_name -> sysml.Diagnostic
+	195, // 78: sysml.Instance.feature_values:type_name -> sysml.Instance.FeatureValuesEntry
+	98,  // 79: sysml.FeatureValue.value:type_name -> sysml.Value
+	98,  // 80: sysml.FeatureValue.values:type_name -> sysml.Value
 	52,  // 81: sysml.InstantiateResponse.instance:type_name -> sysml.Instance
-	114, // 82: sysml.InstantiateResponse.diagnostics:type_name -> sysml.Diagnostic
+	115, // 82: sysml.InstantiateResponse.diagnostics:type_name -> sysml.Diagnostic
 	52,  // 83: sysml.InstantiateResponse.instances:type_name -> sysml.Instance
-	195, // 84: sysml.ExecuteActionRequest.inputs:type_name -> sysml.ExecuteActionRequest.InputsEntry
-	196, // 85: sysml.ExecuteActionResponse.outputs:type_name -> sysml.ExecuteActionResponse.OutputsEntry
-	114, // 86: sysml.ExecuteActionResponse.diagnostics:type_name -> sysml.Diagnostic
+	196, // 84: sysml.ExecuteActionRequest.inputs:type_name -> sysml.ExecuteActionRequest.InputsEntry
+	197, // 85: sysml.ExecuteActionResponse.outputs:type_name -> sysml.ExecuteActionResponse.OutputsEntry
+	115, // 86: sysml.ExecuteActionResponse.diagnostics:type_name -> sysml.Diagnostic
 	28,  // 87: sysml.ExecuteActionResponse.outcomes:type_name -> sysml.Outcome
 	29,  // 88: sysml.ExecuteActionResponse.exploration:type_name -> sysml.ExplorationStatus
-	197, // 89: sysml.ExecuteActionResponse.performer_attributes:type_name -> sysml.ExecuteActionResponse.PerformerAttributesEntry
-	198, // 90: sysml.ExecuteActionResponse.order_dependent:type_name -> sysml.ExecuteActionResponse.OrderDependentEntry
-	147, // 91: sysml.ExecuteActionResponse.trace:type_name -> sysml.DocumentEvent
-	199, // 92: sysml.ExecuteStateResponse.final_context:type_name -> sysml.ExecuteStateResponse.FinalContextEntry
-	114, // 93: sysml.ExecuteStateResponse.diagnostics:type_name -> sysml.Diagnostic
+	198, // 89: sysml.ExecuteActionResponse.performer_attributes:type_name -> sysml.ExecuteActionResponse.PerformerAttributesEntry
+	199, // 90: sysml.ExecuteActionResponse.order_dependent:type_name -> sysml.ExecuteActionResponse.OrderDependentEntry
+	148, // 91: sysml.ExecuteActionResponse.trace:type_name -> sysml.DocumentEvent
+	200, // 92: sysml.ExecuteStateResponse.final_context:type_name -> sysml.ExecuteStateResponse.FinalContextEntry
+	115, // 93: sysml.ExecuteStateResponse.diagnostics:type_name -> sysml.Diagnostic
 	28,  // 94: sysml.ExecuteStateResponse.outcomes:type_name -> sysml.Outcome
 	29,  // 95: sysml.ExecuteStateResponse.exploration:type_name -> sysml.ExplorationStatus
-	147, // 96: sysml.ExecuteStateResponse.trace:type_name -> sysml.DocumentEvent
-	200, // 97: sysml.ExecuteStateResponse.order_dependent:type_name -> sysml.ExecuteStateResponse.OrderDependentEntry
-	114, // 98: sysml.ConvertResponse.diagnostics:type_name -> sysml.Diagnostic
+	148, // 96: sysml.ExecuteStateResponse.trace:type_name -> sysml.DocumentEvent
+	201, // 97: sysml.ExecuteStateResponse.order_dependent:type_name -> sysml.ExecuteStateResponse.OrderDependentEntry
+	115, // 98: sysml.ConvertResponse.diagnostics:type_name -> sysml.Diagnostic
 	62,  // 99: sysml.ConvertResponse.library_references:type_name -> sysml.LibraryReference
 	65,  // 100: sysml.MigrateResponse.report:type_name -> sysml.MigrationReport
 	67,  // 101: sysml.MigrateResponse.files:type_name -> sysml.MigrationFile
@@ -19567,241 +19721,242 @@ var file_sysml_proto_depIdxs = []int32{
 	82,  // 123: sysml.AddSequenceEdit.else_body:type_name -> sysml.AddSequenceEdit
 	91,  // 124: sysml.ApplyEditsResponse.applied:type_name -> sysml.AppliedEdit
 	1,   // 125: sysml.ApplyEditsResponse.failure:type_name -> sysml.EditFailure
-	114, // 126: sysml.ApplyEditsResponse.diagnostics:type_name -> sysml.Diagnostic
+	115, // 126: sysml.ApplyEditsResponse.diagnostics:type_name -> sysml.Diagnostic
 	89,  // 127: sysml.ApplyEditsResponse.documents:type_name -> sysml.EditedDocument
 	90,  // 128: sysml.ApplyEditsResponse.referrers:type_name -> sysml.Referrer
-	201, // 129: sysml.SymbolInfo.metadata:type_name -> sysml.SymbolInfo.MetadataEntry
-	96,  // 130: sysml.SymbolInfo.attributes:type_name -> sysml.AttributeInfo
-	94,  // 131: sysml.SymbolInfo.type_info:type_name -> sysml.TypeInfo
-	95,  // 132: sysml.SymbolInfo.multiplicity:type_name -> sysml.MultiplicityInfo
+	202, // 129: sysml.SymbolInfo.metadata:type_name -> sysml.SymbolInfo.MetadataEntry
+	97,  // 130: sysml.SymbolInfo.attributes:type_name -> sysml.AttributeInfo
+	95,  // 131: sysml.SymbolInfo.type_info:type_name -> sysml.TypeInfo
+	96,  // 132: sysml.SymbolInfo.multiplicity:type_name -> sysml.MultiplicityInfo
 	93,  // 133: sysml.SymbolInfo.specializations:type_name -> sysml.Specialization
-	97,  // 134: sysml.AttributeInfo.value:type_name -> sysml.Value
-	109, // 135: sysml.Value.sequence:type_name -> sysml.ValueSequence
-	110, // 136: sysml.Value.quantity:type_name -> sysml.Quantity
-	108, // 137: sysml.Value.enum_literal:type_name -> sysml.EnumLiteral
-	107, // 138: sysml.Value.complex:type_name -> sysml.Complex
-	104, // 139: sysml.Value.array:type_name -> sysml.Array
-	105, // 140: sysml.Value.vector:type_name -> sysml.Vector
-	106, // 141: sysml.Value.vector_quantity:type_name -> sysml.VectorQuantity
-	111, // 142: sysml.Value.measurement_ref:type_name -> sysml.MeasurementRef
-	101, // 143: sysml.Value.function:type_name -> sysml.Function
-	102, // 144: sysml.Value.set:type_name -> sysml.ValueSet
-	103, // 145: sysml.Value.tensor_quantity:type_name -> sysml.TensorQuantity
-	99,  // 146: sysml.Value.metaobject:type_name -> sysml.Metaobject
-	100, // 147: sysml.Value.undetermined:type_name -> sysml.Undetermined
-	98,  // 148: sysml.Value.rational_value:type_name -> sysml.Rational
-	95,  // 149: sysml.Undetermined.count:type_name -> sysml.MultiplicityInfo
-	97,  // 150: sysml.ValueSet.elements:type_name -> sysml.Value
-	110, // 151: sysml.TensorQuantity.components:type_name -> sysml.Quantity
-	97,  // 152: sysml.Array.elements:type_name -> sysml.Value
-	97,  // 153: sysml.Vector.components:type_name -> sysml.Value
-	110, // 154: sysml.VectorQuantity.components:type_name -> sysml.Quantity
-	97,  // 155: sysml.EnumLiteral.value:type_name -> sysml.Value
-	97,  // 156: sysml.ValueSequence.elements:type_name -> sysml.Value
-	98,  // 157: sysml.Quantity.rational_magnitude:type_name -> sysml.Rational
-	112, // 158: sysml.Quantity.unit_term:type_name -> sysml.UnitTerm
-	112, // 159: sysml.MeasurementRef.unit_term:type_name -> sysml.UnitTerm
-	113, // 160: sysml.UnitTerm.factors:type_name -> sysml.UnitFactor
-	115, // 161: sysml.Diagnostic.span:type_name -> sysml.Span
-	120, // 162: sysml.QueryRequest.query:type_name -> sysml.Query
-	124, // 163: sysml.QueryResponse.elements:type_name -> sysml.QueryResultElement
-	121, // 164: sysml.Query.where:type_name -> sysml.Constraint
-	122, // 165: sysml.Constraint.primitive:type_name -> sysml.PrimitiveConstraint
-	123, // 166: sysml.Constraint.composite:type_name -> sysml.CompositeConstraint
-	2,   // 167: sysml.PrimitiveConstraint.operator:type_name -> sysml.PrimitiveOperator
-	3,   // 168: sysml.CompositeConstraint.operator:type_name -> sysml.CompositeOperator
-	121, // 169: sysml.CompositeConstraint.constraint:type_name -> sysml.Constraint
-	202, // 170: sysml.QueryResultElement.properties:type_name -> sysml.QueryResultElement.PropertiesEntry
-	97,  // 171: sysml.SweepRange.start:type_name -> sysml.Value
-	97,  // 172: sysml.SweepRange.end:type_name -> sysml.Value
-	97,  // 173: sysml.SweepRange.step:type_name -> sysml.Value
-	97,  // 174: sysml.RunSweepRequest.arguments:type_name -> sysml.Value
-	203, // 175: sysml.RunSweepRequest.named_arguments:type_name -> sysml.RunSweepRequest.NamedArgumentsEntry
-	125, // 176: sysml.RunSweepRequest.ranges:type_name -> sysml.SweepRange
-	19,  // 177: sysml.SweepRow.inputs:type_name -> sysml.CalcOutput
-	19,  // 178: sysml.SweepRow.outputs:type_name -> sysml.CalcOutput
-	4,   // 179: sysml.SweepRow.verdicts:type_name -> sysml.Verdict
-	0,   // 180: sysml.SweepRow.failure_reason:type_name -> sysml.FailureReason
-	20,  // 181: sysml.SweepRow.evaluations:type_name -> sysml.CaseEvaluation
-	127, // 182: sysml.RunSweepResponse.rows:type_name -> sysml.SweepRow
-	114, // 183: sysml.RunSweepResponse.diagnostics:type_name -> sysml.Diagnostic
-	0,   // 184: sysml.RunSweepResponse.failure_reason:type_name -> sysml.FailureReason
-	52,  // 185: sysml.RunSweepResponse.instances:type_name -> sysml.Instance
-	7,   // 186: sysml.RunSweepResponse.bounds:type_name -> sysml.Bound
-	204, // 187: sysml.RunRunsRequest.inputs:type_name -> sysml.RunRunsRequest.InputsEntry
-	97,  // 188: sysml.RunRunsRequest.arguments:type_name -> sysml.Value
-	205, // 189: sysml.RunRunsRequest.named_arguments:type_name -> sysml.RunRunsRequest.NamedArgumentsEntry
-	97,  // 190: sysml.RunDistribution.min:type_name -> sysml.Value
-	97,  // 191: sysml.RunDistribution.max:type_name -> sysml.Value
-	97,  // 192: sysml.RunDistribution.mean:type_name -> sysml.Value
-	131, // 193: sysml.RunDistribution.percentiles:type_name -> sysml.RunPercentile
-	132, // 194: sysml.RunDistribution.histogram:type_name -> sysml.RunHistogramBin
-	133, // 195: sysml.RunDistribution.values:type_name -> sysml.RunCountedValue
-	97,  // 196: sysml.RunPercentile.value:type_name -> sysml.Value
-	97,  // 197: sysml.RunHistogramBin.low:type_name -> sysml.Value
-	97,  // 198: sysml.RunHistogramBin.high:type_name -> sysml.Value
-	97,  // 199: sysml.RunCountedValue.value:type_name -> sysml.Value
-	135, // 200: sysml.SelfCheckResponse.findings:type_name -> sysml.SelfCheckFinding
-	136, // 201: sysml.SelfCheckResponse.applications:type_name -> sysml.SelfCheckApplication
-	114, // 202: sysml.SelfCheckResponse.diagnostics:type_name -> sysml.Diagnostic
-	97,  // 203: sysml.RecordRunRequest.arguments:type_name -> sysml.Value
-	206, // 204: sysml.RecordRunRequest.named_arguments:type_name -> sysml.RecordRunRequest.NamedArgumentsEntry
-	125, // 205: sysml.RecordRunRequest.ranges:type_name -> sysml.SweepRange
-	26,  // 206: sysml.RecordRunResponse.run:type_name -> sysml.RunAnalysisResponse
-	128, // 207: sysml.RecordRunResponse.sweep:type_name -> sysml.RunSweepResponse
-	140, // 208: sysml.RecordRunResponse.sample:type_name -> sysml.RunRunsResponse
-	89,  // 209: sysml.RecordRunResponse.documents:type_name -> sysml.EditedDocument
-	0,   // 210: sysml.RecordRunResponse.failure_reason:type_name -> sysml.FailureReason
-	114, // 211: sysml.RecordRunResponse.diagnostics:type_name -> sysml.Diagnostic
-	127, // 212: sysml.RunRunsResponse.rows:type_name -> sysml.SweepRow
-	130, // 213: sysml.RunRunsResponse.distributions:type_name -> sysml.RunDistribution
-	19,  // 214: sysml.RunRunsResponse.outputs:type_name -> sysml.CalcOutput
-	4,   // 215: sysml.RunRunsResponse.verdicts:type_name -> sysml.Verdict
-	114, // 216: sysml.RunRunsResponse.diagnostics:type_name -> sysml.Diagnostic
-	0,   // 217: sysml.RunRunsResponse.failure_reason:type_name -> sysml.FailureReason
-	52,  // 218: sysml.RunRunsResponse.instances:type_name -> sysml.Instance
-	7,   // 219: sysml.RunRunsResponse.bounds:type_name -> sysml.Bound
-	142, // 220: sysml.RunDocumentQueryRequest.bindings:type_name -> sysml.DocumentQueryBinding
-	143, // 221: sysml.DocumentQueryBinding.values:type_name -> sysml.DocumentValue
-	110, // 222: sysml.DocumentValue.quantity:type_name -> sysml.Quantity
-	145, // 223: sysml.DocumentValue.verdict:type_name -> sysml.DocumentVerdict
-	144, // 224: sysml.DocumentValue.object:type_name -> sysml.DocumentObject
-	146, // 225: sysml.DocumentValue.state:type_name -> sysml.DocumentState
-	147, // 226: sysml.DocumentValue.event:type_name -> sysml.DocumentEvent
-	98,  // 227: sysml.DocumentValue.rational_value:type_name -> sysml.Rational
-	143, // 228: sysml.DocumentObject.element:type_name -> sysml.DocumentValue
-	143, // 229: sysml.DocumentVerdict.assertion:type_name -> sysml.DocumentValue
-	144, // 230: sysml.DocumentState.object:type_name -> sysml.DocumentObject
-	143, // 231: sysml.DocumentState.state:type_name -> sysml.DocumentValue
-	143, // 232: sysml.DocumentEvent.time:type_name -> sysml.DocumentValue
-	144, // 233: sysml.DocumentEvent.object:type_name -> sysml.DocumentObject
-	144, // 234: sysml.DocumentEvent.target:type_name -> sysml.DocumentObject
-	97,  // 235: sysml.DocumentEvent.value:type_name -> sysml.Value
-	143, // 236: sysml.DocumentQueryCell.values:type_name -> sysml.DocumentValue
-	143, // 237: sysml.DocumentQueryRow.element:type_name -> sysml.DocumentValue
-	149, // 238: sysml.DocumentQueryRow.cells:type_name -> sysml.DocumentQueryCell
-	148, // 239: sysml.RunDocumentQueryResponse.columns:type_name -> sysml.DocumentQueryColumn
-	150, // 240: sysml.RunDocumentQueryResponse.rows:type_name -> sysml.DocumentQueryRow
-	153, // 241: sysml.QueryOutcome.failures:type_name -> sysml.QueryFailure
-	157, // 242: sysml.QueryOutcome.findings:type_name -> sysml.QueryFinding
-	153, // 243: sysml.QueryOutcome.path_failures:type_name -> sysml.QueryFailure
-	154, // 244: sysml.QueryFailure.frontier:type_name -> sysml.QueryFrontier
-	155, // 245: sysml.QueryFrontier.members:type_name -> sysml.QueryFrontierMember
-	156, // 246: sysml.QueryFrontier.features:type_name -> sysml.QueryFrontierFeature
-	163, // 247: sysml.RenderViewResponse.nodes:type_name -> sysml.RenderNode
-	165, // 248: sysml.RenderViewResponse.edges:type_name -> sysml.RenderEdge
-	170, // 249: sysml.RenderViewResponse.rows:type_name -> sysml.RenderRow
-	167, // 250: sysml.RenderViewResponse.canvas:type_name -> sysml.RenderCanvas
-	171, // 251: sysml.RenderViewResponse.notes:type_name -> sysml.RenderNote
-	162, // 252: sysml.RenderViewResponse.frame:type_name -> sysml.RenderFrame
-	164, // 253: sysml.RenderNode.ports:type_name -> sysml.RenderPort
-	115, // 254: sysml.RenderNode.origin:type_name -> sysml.Span
-	166, // 255: sysml.RenderNode.geometry:type_name -> sysml.RenderGeometry
-	168, // 256: sysml.RenderNode.style:type_name -> sysml.RenderStyle
-	115, // 257: sysml.RenderEdge.origin:type_name -> sysml.Span
-	169, // 258: sysml.RenderEdge.route:type_name -> sysml.RenderPoint
-	168, // 259: sysml.RenderEdge.style:type_name -> sysml.RenderStyle
-	115, // 260: sysml.RenderRow.origin:type_name -> sysml.Span
-	115, // 261: sysml.RenderNote.origin:type_name -> sysml.Span
-	175, // 262: sysml.ImportDataRequest.imports:type_name -> sysml.DataImport
-	177, // 263: sysml.ImportDataResponse.files:type_name -> sysml.ImportedFile
-	89,  // 264: sysml.ImportDataResponse.documents:type_name -> sysml.EditedDocument
-	114, // 265: sysml.ImportDataResponse.diagnostics:type_name -> sysml.Diagnostic
-	178, // 266: sysml.ImportedFile.assignments:type_name -> sysml.ImportedValue
-	180, // 267: sysml.CompareResultsRequest.observe:type_name -> sysml.ObservablePair
-	182, // 268: sysml.CompareResultsResponse.configurations:type_name -> sysml.ConfigurationComparison
-	114, // 269: sysml.CompareResultsResponse.diagnostics:type_name -> sysml.Diagnostic
-	0,   // 270: sysml.CompareResultsResponse.failure_reason:type_name -> sysml.FailureReason
-	7,   // 271: sysml.CompareResultsResponse.bounds:type_name -> sysml.Bound
-	127, // 272: sysml.ConfigurationComparison.rows:type_name -> sysml.SweepRow
-	52,  // 273: sysml.ConfigurationComparison.instances:type_name -> sysml.Instance
-	183, // 274: sysml.ConfigurationComparison.observables:type_name -> sysml.ObservableComparison
-	184, // 275: sysml.ObservableComparison.tool:type_name -> sysml.ComparedDistribution
-	184, // 276: sysml.ObservableComparison.run:type_name -> sysml.ComparedDistribution
-	185, // 277: sysml.ObservableComparison.difference:type_name -> sysml.StatisticDifference
-	186, // 278: sysml.ObservableComparison.declared:type_name -> sysml.CaseStatistics
-	187, // 279: sysml.CaseStatistics.rows:type_name -> sysml.CaseStatistic
-	97,  // 280: sysml.VerifyConstraintRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	97,  // 281: sysml.VerifyRequirementRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	97,  // 282: sysml.RunAnalysisRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	97,  // 283: sysml.Outcome.OutputsEntry.value:type_name -> sysml.Value
-	97,  // 284: sysml.CheckBehaviorRequest.InputsEntry.value:type_name -> sysml.Value
-	53,  // 285: sysml.Instance.FeatureValuesEntry.value:type_name -> sysml.FeatureValue
-	97,  // 286: sysml.ExecuteActionRequest.InputsEntry.value:type_name -> sysml.Value
-	97,  // 287: sysml.ExecuteActionResponse.OutputsEntry.value:type_name -> sysml.Value
-	97,  // 288: sysml.ExecuteActionResponse.PerformerAttributesEntry.value:type_name -> sysml.Value
-	97,  // 289: sysml.ExecuteStateResponse.FinalContextEntry.value:type_name -> sysml.Value
-	97,  // 290: sysml.RunSweepRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	97,  // 291: sysml.RunRunsRequest.InputsEntry.value:type_name -> sysml.Value
-	97,  // 292: sysml.RunRunsRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	97,  // 293: sysml.RecordRunRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	116, // 294: sysml.SysMLService.GetServerInfo:input_type -> sysml.ServerInfoRequest
-	41,  // 295: sysml.SysMLService.ParseFile:input_type -> sysml.ParseFileRequest
-	43,  // 296: sysml.SysMLService.ParseSources:input_type -> sysml.ParseSourcesRequest
-	46,  // 297: sysml.SysMLService.GetSymbol:input_type -> sysml.GetSymbolRequest
-	48,  // 298: sysml.SysMLService.GetDiagnostics:input_type -> sysml.DiagnosticsRequest
-	50,  // 299: sysml.SysMLService.Evaluate:input_type -> sysml.EvaluateRequest
-	54,  // 300: sysml.SysMLService.Instantiate:input_type -> sysml.InstantiateRequest
-	56,  // 301: sysml.SysMLService.ExecuteAction:input_type -> sysml.ExecuteActionRequest
-	58,  // 302: sysml.SysMLService.ExecuteState:input_type -> sysml.ExecuteStateRequest
-	60,  // 303: sysml.SysMLService.Convert:input_type -> sysml.ConvertRequest
-	63,  // 304: sysml.SysMLService.Migrate:input_type -> sysml.MigrateRequest
-	68,  // 305: sysml.SysMLService.ApplyEdits:input_type -> sysml.ApplyEditsRequest
-	8,   // 306: sysml.SysMLService.VerifyConstraint:input_type -> sysml.VerifyConstraintRequest
-	10,  // 307: sysml.SysMLService.VerifyRequirement:input_type -> sysml.VerifyRequirementRequest
-	13,  // 308: sysml.SysMLService.VerifySatisfaction:input_type -> sysml.VerifySatisfactionRequest
-	15,  // 309: sysml.SysMLService.ValidateInstance:input_type -> sysml.ValidateInstanceRequest
-	17,  // 310: sysml.SysMLService.EvaluateCalc:input_type -> sysml.EvaluateCalcRequest
-	21,  // 311: sysml.SysMLService.RunAnalysis:input_type -> sysml.RunAnalysisRequest
-	30,  // 312: sysml.SysMLService.CheckBehavior:input_type -> sysml.CheckBehaviorRequest
-	126, // 313: sysml.SysMLService.RunSweep:input_type -> sysml.RunSweepRequest
-	129, // 314: sysml.SysMLService.RunRuns:input_type -> sysml.RunRunsRequest
-	134, // 315: sysml.SysMLService.SelfCheck:input_type -> sysml.SelfCheckRequest
-	138, // 316: sysml.SysMLService.RecordRun:input_type -> sysml.RecordRunRequest
-	38,  // 317: sysml.SysMLService.ListEngines:input_type -> sysml.ListEnginesRequest
-	118, // 318: sysml.SysMLService.Query:input_type -> sysml.QueryRequest
-	141, // 319: sysml.SysMLService.RunDocumentQuery:input_type -> sysml.RunDocumentQueryRequest
-	158, // 320: sysml.SysMLService.RenderDocument:input_type -> sysml.RenderDocumentRequest
-	160, // 321: sysml.SysMLService.RenderView:input_type -> sysml.RenderViewRequest
-	172, // 322: sysml.SysMLService.ExportGraphs:input_type -> sysml.ExportGraphsRequest
-	174, // 323: sysml.SysMLService.ImportData:input_type -> sysml.ImportDataRequest
-	179, // 324: sysml.SysMLService.CompareResults:input_type -> sysml.CompareResultsRequest
-	117, // 325: sysml.SysMLService.GetServerInfo:output_type -> sysml.ServerInfoResponse
-	45,  // 326: sysml.SysMLService.ParseFile:output_type -> sysml.ParseFileResponse
-	44,  // 327: sysml.SysMLService.ParseSources:output_type -> sysml.ParseSourcesResponse
-	47,  // 328: sysml.SysMLService.GetSymbol:output_type -> sysml.SymbolResponse
-	49,  // 329: sysml.SysMLService.GetDiagnostics:output_type -> sysml.DiagnosticsResponse
-	51,  // 330: sysml.SysMLService.Evaluate:output_type -> sysml.EvaluateResponse
-	55,  // 331: sysml.SysMLService.Instantiate:output_type -> sysml.InstantiateResponse
-	57,  // 332: sysml.SysMLService.ExecuteAction:output_type -> sysml.ExecuteActionResponse
-	59,  // 333: sysml.SysMLService.ExecuteState:output_type -> sysml.ExecuteStateResponse
-	61,  // 334: sysml.SysMLService.Convert:output_type -> sysml.ConvertResponse
-	64,  // 335: sysml.SysMLService.Migrate:output_type -> sysml.MigrateResponse
-	88,  // 336: sysml.SysMLService.ApplyEdits:output_type -> sysml.ApplyEditsResponse
-	9,   // 337: sysml.SysMLService.VerifyConstraint:output_type -> sysml.VerifyConstraintResponse
-	12,  // 338: sysml.SysMLService.VerifyRequirement:output_type -> sysml.VerifyRequirementResponse
-	14,  // 339: sysml.SysMLService.VerifySatisfaction:output_type -> sysml.VerifySatisfactionResponse
-	16,  // 340: sysml.SysMLService.ValidateInstance:output_type -> sysml.ValidateInstanceResponse
-	18,  // 341: sysml.SysMLService.EvaluateCalc:output_type -> sysml.EvaluateCalcResponse
-	26,  // 342: sysml.SysMLService.RunAnalysis:output_type -> sysml.RunAnalysisResponse
-	37,  // 343: sysml.SysMLService.CheckBehavior:output_type -> sysml.CheckBehaviorResponse
-	128, // 344: sysml.SysMLService.RunSweep:output_type -> sysml.RunSweepResponse
-	140, // 345: sysml.SysMLService.RunRuns:output_type -> sysml.RunRunsResponse
-	137, // 346: sysml.SysMLService.SelfCheck:output_type -> sysml.SelfCheckResponse
-	139, // 347: sysml.SysMLService.RecordRun:output_type -> sysml.RecordRunResponse
-	40,  // 348: sysml.SysMLService.ListEngines:output_type -> sysml.ListEnginesResponse
-	119, // 349: sysml.SysMLService.Query:output_type -> sysml.QueryResponse
-	151, // 350: sysml.SysMLService.RunDocumentQuery:output_type -> sysml.RunDocumentQueryResponse
-	159, // 351: sysml.SysMLService.RenderDocument:output_type -> sysml.RenderDocumentResponse
-	161, // 352: sysml.SysMLService.RenderView:output_type -> sysml.RenderViewResponse
-	173, // 353: sysml.SysMLService.ExportGraphs:output_type -> sysml.ExportGraphsResponse
-	176, // 354: sysml.SysMLService.ImportData:output_type -> sysml.ImportDataResponse
-	181, // 355: sysml.SysMLService.CompareResults:output_type -> sysml.CompareResultsResponse
-	325, // [325:356] is the sub-list for method output_type
-	294, // [294:325] is the sub-list for method input_type
-	294, // [294:294] is the sub-list for extension type_name
-	294, // [294:294] is the sub-list for extension extendee
-	0,   // [0:294] is the sub-list for field type_name
+	94,  // 134: sysml.SymbolInfo.connector_ends:type_name -> sysml.ConnectorEndInfo
+	98,  // 135: sysml.AttributeInfo.value:type_name -> sysml.Value
+	110, // 136: sysml.Value.sequence:type_name -> sysml.ValueSequence
+	111, // 137: sysml.Value.quantity:type_name -> sysml.Quantity
+	109, // 138: sysml.Value.enum_literal:type_name -> sysml.EnumLiteral
+	108, // 139: sysml.Value.complex:type_name -> sysml.Complex
+	105, // 140: sysml.Value.array:type_name -> sysml.Array
+	106, // 141: sysml.Value.vector:type_name -> sysml.Vector
+	107, // 142: sysml.Value.vector_quantity:type_name -> sysml.VectorQuantity
+	112, // 143: sysml.Value.measurement_ref:type_name -> sysml.MeasurementRef
+	102, // 144: sysml.Value.function:type_name -> sysml.Function
+	103, // 145: sysml.Value.set:type_name -> sysml.ValueSet
+	104, // 146: sysml.Value.tensor_quantity:type_name -> sysml.TensorQuantity
+	100, // 147: sysml.Value.metaobject:type_name -> sysml.Metaobject
+	101, // 148: sysml.Value.undetermined:type_name -> sysml.Undetermined
+	99,  // 149: sysml.Value.rational_value:type_name -> sysml.Rational
+	96,  // 150: sysml.Undetermined.count:type_name -> sysml.MultiplicityInfo
+	98,  // 151: sysml.ValueSet.elements:type_name -> sysml.Value
+	111, // 152: sysml.TensorQuantity.components:type_name -> sysml.Quantity
+	98,  // 153: sysml.Array.elements:type_name -> sysml.Value
+	98,  // 154: sysml.Vector.components:type_name -> sysml.Value
+	111, // 155: sysml.VectorQuantity.components:type_name -> sysml.Quantity
+	98,  // 156: sysml.EnumLiteral.value:type_name -> sysml.Value
+	98,  // 157: sysml.ValueSequence.elements:type_name -> sysml.Value
+	99,  // 158: sysml.Quantity.rational_magnitude:type_name -> sysml.Rational
+	113, // 159: sysml.Quantity.unit_term:type_name -> sysml.UnitTerm
+	113, // 160: sysml.MeasurementRef.unit_term:type_name -> sysml.UnitTerm
+	114, // 161: sysml.UnitTerm.factors:type_name -> sysml.UnitFactor
+	116, // 162: sysml.Diagnostic.span:type_name -> sysml.Span
+	121, // 163: sysml.QueryRequest.query:type_name -> sysml.Query
+	125, // 164: sysml.QueryResponse.elements:type_name -> sysml.QueryResultElement
+	122, // 165: sysml.Query.where:type_name -> sysml.Constraint
+	123, // 166: sysml.Constraint.primitive:type_name -> sysml.PrimitiveConstraint
+	124, // 167: sysml.Constraint.composite:type_name -> sysml.CompositeConstraint
+	2,   // 168: sysml.PrimitiveConstraint.operator:type_name -> sysml.PrimitiveOperator
+	3,   // 169: sysml.CompositeConstraint.operator:type_name -> sysml.CompositeOperator
+	122, // 170: sysml.CompositeConstraint.constraint:type_name -> sysml.Constraint
+	203, // 171: sysml.QueryResultElement.properties:type_name -> sysml.QueryResultElement.PropertiesEntry
+	98,  // 172: sysml.SweepRange.start:type_name -> sysml.Value
+	98,  // 173: sysml.SweepRange.end:type_name -> sysml.Value
+	98,  // 174: sysml.SweepRange.step:type_name -> sysml.Value
+	98,  // 175: sysml.RunSweepRequest.arguments:type_name -> sysml.Value
+	204, // 176: sysml.RunSweepRequest.named_arguments:type_name -> sysml.RunSweepRequest.NamedArgumentsEntry
+	126, // 177: sysml.RunSweepRequest.ranges:type_name -> sysml.SweepRange
+	19,  // 178: sysml.SweepRow.inputs:type_name -> sysml.CalcOutput
+	19,  // 179: sysml.SweepRow.outputs:type_name -> sysml.CalcOutput
+	4,   // 180: sysml.SweepRow.verdicts:type_name -> sysml.Verdict
+	0,   // 181: sysml.SweepRow.failure_reason:type_name -> sysml.FailureReason
+	20,  // 182: sysml.SweepRow.evaluations:type_name -> sysml.CaseEvaluation
+	128, // 183: sysml.RunSweepResponse.rows:type_name -> sysml.SweepRow
+	115, // 184: sysml.RunSweepResponse.diagnostics:type_name -> sysml.Diagnostic
+	0,   // 185: sysml.RunSweepResponse.failure_reason:type_name -> sysml.FailureReason
+	52,  // 186: sysml.RunSweepResponse.instances:type_name -> sysml.Instance
+	7,   // 187: sysml.RunSweepResponse.bounds:type_name -> sysml.Bound
+	205, // 188: sysml.RunRunsRequest.inputs:type_name -> sysml.RunRunsRequest.InputsEntry
+	98,  // 189: sysml.RunRunsRequest.arguments:type_name -> sysml.Value
+	206, // 190: sysml.RunRunsRequest.named_arguments:type_name -> sysml.RunRunsRequest.NamedArgumentsEntry
+	98,  // 191: sysml.RunDistribution.min:type_name -> sysml.Value
+	98,  // 192: sysml.RunDistribution.max:type_name -> sysml.Value
+	98,  // 193: sysml.RunDistribution.mean:type_name -> sysml.Value
+	132, // 194: sysml.RunDistribution.percentiles:type_name -> sysml.RunPercentile
+	133, // 195: sysml.RunDistribution.histogram:type_name -> sysml.RunHistogramBin
+	134, // 196: sysml.RunDistribution.values:type_name -> sysml.RunCountedValue
+	98,  // 197: sysml.RunPercentile.value:type_name -> sysml.Value
+	98,  // 198: sysml.RunHistogramBin.low:type_name -> sysml.Value
+	98,  // 199: sysml.RunHistogramBin.high:type_name -> sysml.Value
+	98,  // 200: sysml.RunCountedValue.value:type_name -> sysml.Value
+	136, // 201: sysml.SelfCheckResponse.findings:type_name -> sysml.SelfCheckFinding
+	137, // 202: sysml.SelfCheckResponse.applications:type_name -> sysml.SelfCheckApplication
+	115, // 203: sysml.SelfCheckResponse.diagnostics:type_name -> sysml.Diagnostic
+	98,  // 204: sysml.RecordRunRequest.arguments:type_name -> sysml.Value
+	207, // 205: sysml.RecordRunRequest.named_arguments:type_name -> sysml.RecordRunRequest.NamedArgumentsEntry
+	126, // 206: sysml.RecordRunRequest.ranges:type_name -> sysml.SweepRange
+	26,  // 207: sysml.RecordRunResponse.run:type_name -> sysml.RunAnalysisResponse
+	129, // 208: sysml.RecordRunResponse.sweep:type_name -> sysml.RunSweepResponse
+	141, // 209: sysml.RecordRunResponse.sample:type_name -> sysml.RunRunsResponse
+	89,  // 210: sysml.RecordRunResponse.documents:type_name -> sysml.EditedDocument
+	0,   // 211: sysml.RecordRunResponse.failure_reason:type_name -> sysml.FailureReason
+	115, // 212: sysml.RecordRunResponse.diagnostics:type_name -> sysml.Diagnostic
+	128, // 213: sysml.RunRunsResponse.rows:type_name -> sysml.SweepRow
+	131, // 214: sysml.RunRunsResponse.distributions:type_name -> sysml.RunDistribution
+	19,  // 215: sysml.RunRunsResponse.outputs:type_name -> sysml.CalcOutput
+	4,   // 216: sysml.RunRunsResponse.verdicts:type_name -> sysml.Verdict
+	115, // 217: sysml.RunRunsResponse.diagnostics:type_name -> sysml.Diagnostic
+	0,   // 218: sysml.RunRunsResponse.failure_reason:type_name -> sysml.FailureReason
+	52,  // 219: sysml.RunRunsResponse.instances:type_name -> sysml.Instance
+	7,   // 220: sysml.RunRunsResponse.bounds:type_name -> sysml.Bound
+	143, // 221: sysml.RunDocumentQueryRequest.bindings:type_name -> sysml.DocumentQueryBinding
+	144, // 222: sysml.DocumentQueryBinding.values:type_name -> sysml.DocumentValue
+	111, // 223: sysml.DocumentValue.quantity:type_name -> sysml.Quantity
+	146, // 224: sysml.DocumentValue.verdict:type_name -> sysml.DocumentVerdict
+	145, // 225: sysml.DocumentValue.object:type_name -> sysml.DocumentObject
+	147, // 226: sysml.DocumentValue.state:type_name -> sysml.DocumentState
+	148, // 227: sysml.DocumentValue.event:type_name -> sysml.DocumentEvent
+	99,  // 228: sysml.DocumentValue.rational_value:type_name -> sysml.Rational
+	144, // 229: sysml.DocumentObject.element:type_name -> sysml.DocumentValue
+	144, // 230: sysml.DocumentVerdict.assertion:type_name -> sysml.DocumentValue
+	145, // 231: sysml.DocumentState.object:type_name -> sysml.DocumentObject
+	144, // 232: sysml.DocumentState.state:type_name -> sysml.DocumentValue
+	144, // 233: sysml.DocumentEvent.time:type_name -> sysml.DocumentValue
+	145, // 234: sysml.DocumentEvent.object:type_name -> sysml.DocumentObject
+	145, // 235: sysml.DocumentEvent.target:type_name -> sysml.DocumentObject
+	98,  // 236: sysml.DocumentEvent.value:type_name -> sysml.Value
+	144, // 237: sysml.DocumentQueryCell.values:type_name -> sysml.DocumentValue
+	144, // 238: sysml.DocumentQueryRow.element:type_name -> sysml.DocumentValue
+	150, // 239: sysml.DocumentQueryRow.cells:type_name -> sysml.DocumentQueryCell
+	149, // 240: sysml.RunDocumentQueryResponse.columns:type_name -> sysml.DocumentQueryColumn
+	151, // 241: sysml.RunDocumentQueryResponse.rows:type_name -> sysml.DocumentQueryRow
+	154, // 242: sysml.QueryOutcome.failures:type_name -> sysml.QueryFailure
+	158, // 243: sysml.QueryOutcome.findings:type_name -> sysml.QueryFinding
+	154, // 244: sysml.QueryOutcome.path_failures:type_name -> sysml.QueryFailure
+	155, // 245: sysml.QueryFailure.frontier:type_name -> sysml.QueryFrontier
+	156, // 246: sysml.QueryFrontier.members:type_name -> sysml.QueryFrontierMember
+	157, // 247: sysml.QueryFrontier.features:type_name -> sysml.QueryFrontierFeature
+	164, // 248: sysml.RenderViewResponse.nodes:type_name -> sysml.RenderNode
+	166, // 249: sysml.RenderViewResponse.edges:type_name -> sysml.RenderEdge
+	171, // 250: sysml.RenderViewResponse.rows:type_name -> sysml.RenderRow
+	168, // 251: sysml.RenderViewResponse.canvas:type_name -> sysml.RenderCanvas
+	172, // 252: sysml.RenderViewResponse.notes:type_name -> sysml.RenderNote
+	163, // 253: sysml.RenderViewResponse.frame:type_name -> sysml.RenderFrame
+	165, // 254: sysml.RenderNode.ports:type_name -> sysml.RenderPort
+	116, // 255: sysml.RenderNode.origin:type_name -> sysml.Span
+	167, // 256: sysml.RenderNode.geometry:type_name -> sysml.RenderGeometry
+	169, // 257: sysml.RenderNode.style:type_name -> sysml.RenderStyle
+	116, // 258: sysml.RenderEdge.origin:type_name -> sysml.Span
+	170, // 259: sysml.RenderEdge.route:type_name -> sysml.RenderPoint
+	169, // 260: sysml.RenderEdge.style:type_name -> sysml.RenderStyle
+	116, // 261: sysml.RenderRow.origin:type_name -> sysml.Span
+	116, // 262: sysml.RenderNote.origin:type_name -> sysml.Span
+	176, // 263: sysml.ImportDataRequest.imports:type_name -> sysml.DataImport
+	178, // 264: sysml.ImportDataResponse.files:type_name -> sysml.ImportedFile
+	89,  // 265: sysml.ImportDataResponse.documents:type_name -> sysml.EditedDocument
+	115, // 266: sysml.ImportDataResponse.diagnostics:type_name -> sysml.Diagnostic
+	179, // 267: sysml.ImportedFile.assignments:type_name -> sysml.ImportedValue
+	181, // 268: sysml.CompareResultsRequest.observe:type_name -> sysml.ObservablePair
+	183, // 269: sysml.CompareResultsResponse.configurations:type_name -> sysml.ConfigurationComparison
+	115, // 270: sysml.CompareResultsResponse.diagnostics:type_name -> sysml.Diagnostic
+	0,   // 271: sysml.CompareResultsResponse.failure_reason:type_name -> sysml.FailureReason
+	7,   // 272: sysml.CompareResultsResponse.bounds:type_name -> sysml.Bound
+	128, // 273: sysml.ConfigurationComparison.rows:type_name -> sysml.SweepRow
+	52,  // 274: sysml.ConfigurationComparison.instances:type_name -> sysml.Instance
+	184, // 275: sysml.ConfigurationComparison.observables:type_name -> sysml.ObservableComparison
+	185, // 276: sysml.ObservableComparison.tool:type_name -> sysml.ComparedDistribution
+	185, // 277: sysml.ObservableComparison.run:type_name -> sysml.ComparedDistribution
+	186, // 278: sysml.ObservableComparison.difference:type_name -> sysml.StatisticDifference
+	187, // 279: sysml.ObservableComparison.declared:type_name -> sysml.CaseStatistics
+	188, // 280: sysml.CaseStatistics.rows:type_name -> sysml.CaseStatistic
+	98,  // 281: sysml.VerifyConstraintRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	98,  // 282: sysml.VerifyRequirementRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	98,  // 283: sysml.RunAnalysisRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	98,  // 284: sysml.Outcome.OutputsEntry.value:type_name -> sysml.Value
+	98,  // 285: sysml.CheckBehaviorRequest.InputsEntry.value:type_name -> sysml.Value
+	53,  // 286: sysml.Instance.FeatureValuesEntry.value:type_name -> sysml.FeatureValue
+	98,  // 287: sysml.ExecuteActionRequest.InputsEntry.value:type_name -> sysml.Value
+	98,  // 288: sysml.ExecuteActionResponse.OutputsEntry.value:type_name -> sysml.Value
+	98,  // 289: sysml.ExecuteActionResponse.PerformerAttributesEntry.value:type_name -> sysml.Value
+	98,  // 290: sysml.ExecuteStateResponse.FinalContextEntry.value:type_name -> sysml.Value
+	98,  // 291: sysml.RunSweepRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	98,  // 292: sysml.RunRunsRequest.InputsEntry.value:type_name -> sysml.Value
+	98,  // 293: sysml.RunRunsRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	98,  // 294: sysml.RecordRunRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	117, // 295: sysml.SysMLService.GetServerInfo:input_type -> sysml.ServerInfoRequest
+	41,  // 296: sysml.SysMLService.ParseFile:input_type -> sysml.ParseFileRequest
+	43,  // 297: sysml.SysMLService.ParseSources:input_type -> sysml.ParseSourcesRequest
+	46,  // 298: sysml.SysMLService.GetSymbol:input_type -> sysml.GetSymbolRequest
+	48,  // 299: sysml.SysMLService.GetDiagnostics:input_type -> sysml.DiagnosticsRequest
+	50,  // 300: sysml.SysMLService.Evaluate:input_type -> sysml.EvaluateRequest
+	54,  // 301: sysml.SysMLService.Instantiate:input_type -> sysml.InstantiateRequest
+	56,  // 302: sysml.SysMLService.ExecuteAction:input_type -> sysml.ExecuteActionRequest
+	58,  // 303: sysml.SysMLService.ExecuteState:input_type -> sysml.ExecuteStateRequest
+	60,  // 304: sysml.SysMLService.Convert:input_type -> sysml.ConvertRequest
+	63,  // 305: sysml.SysMLService.Migrate:input_type -> sysml.MigrateRequest
+	68,  // 306: sysml.SysMLService.ApplyEdits:input_type -> sysml.ApplyEditsRequest
+	8,   // 307: sysml.SysMLService.VerifyConstraint:input_type -> sysml.VerifyConstraintRequest
+	10,  // 308: sysml.SysMLService.VerifyRequirement:input_type -> sysml.VerifyRequirementRequest
+	13,  // 309: sysml.SysMLService.VerifySatisfaction:input_type -> sysml.VerifySatisfactionRequest
+	15,  // 310: sysml.SysMLService.ValidateInstance:input_type -> sysml.ValidateInstanceRequest
+	17,  // 311: sysml.SysMLService.EvaluateCalc:input_type -> sysml.EvaluateCalcRequest
+	21,  // 312: sysml.SysMLService.RunAnalysis:input_type -> sysml.RunAnalysisRequest
+	30,  // 313: sysml.SysMLService.CheckBehavior:input_type -> sysml.CheckBehaviorRequest
+	127, // 314: sysml.SysMLService.RunSweep:input_type -> sysml.RunSweepRequest
+	130, // 315: sysml.SysMLService.RunRuns:input_type -> sysml.RunRunsRequest
+	135, // 316: sysml.SysMLService.SelfCheck:input_type -> sysml.SelfCheckRequest
+	139, // 317: sysml.SysMLService.RecordRun:input_type -> sysml.RecordRunRequest
+	38,  // 318: sysml.SysMLService.ListEngines:input_type -> sysml.ListEnginesRequest
+	119, // 319: sysml.SysMLService.Query:input_type -> sysml.QueryRequest
+	142, // 320: sysml.SysMLService.RunDocumentQuery:input_type -> sysml.RunDocumentQueryRequest
+	159, // 321: sysml.SysMLService.RenderDocument:input_type -> sysml.RenderDocumentRequest
+	161, // 322: sysml.SysMLService.RenderView:input_type -> sysml.RenderViewRequest
+	173, // 323: sysml.SysMLService.ExportGraphs:input_type -> sysml.ExportGraphsRequest
+	175, // 324: sysml.SysMLService.ImportData:input_type -> sysml.ImportDataRequest
+	180, // 325: sysml.SysMLService.CompareResults:input_type -> sysml.CompareResultsRequest
+	118, // 326: sysml.SysMLService.GetServerInfo:output_type -> sysml.ServerInfoResponse
+	45,  // 327: sysml.SysMLService.ParseFile:output_type -> sysml.ParseFileResponse
+	44,  // 328: sysml.SysMLService.ParseSources:output_type -> sysml.ParseSourcesResponse
+	47,  // 329: sysml.SysMLService.GetSymbol:output_type -> sysml.SymbolResponse
+	49,  // 330: sysml.SysMLService.GetDiagnostics:output_type -> sysml.DiagnosticsResponse
+	51,  // 331: sysml.SysMLService.Evaluate:output_type -> sysml.EvaluateResponse
+	55,  // 332: sysml.SysMLService.Instantiate:output_type -> sysml.InstantiateResponse
+	57,  // 333: sysml.SysMLService.ExecuteAction:output_type -> sysml.ExecuteActionResponse
+	59,  // 334: sysml.SysMLService.ExecuteState:output_type -> sysml.ExecuteStateResponse
+	61,  // 335: sysml.SysMLService.Convert:output_type -> sysml.ConvertResponse
+	64,  // 336: sysml.SysMLService.Migrate:output_type -> sysml.MigrateResponse
+	88,  // 337: sysml.SysMLService.ApplyEdits:output_type -> sysml.ApplyEditsResponse
+	9,   // 338: sysml.SysMLService.VerifyConstraint:output_type -> sysml.VerifyConstraintResponse
+	12,  // 339: sysml.SysMLService.VerifyRequirement:output_type -> sysml.VerifyRequirementResponse
+	14,  // 340: sysml.SysMLService.VerifySatisfaction:output_type -> sysml.VerifySatisfactionResponse
+	16,  // 341: sysml.SysMLService.ValidateInstance:output_type -> sysml.ValidateInstanceResponse
+	18,  // 342: sysml.SysMLService.EvaluateCalc:output_type -> sysml.EvaluateCalcResponse
+	26,  // 343: sysml.SysMLService.RunAnalysis:output_type -> sysml.RunAnalysisResponse
+	37,  // 344: sysml.SysMLService.CheckBehavior:output_type -> sysml.CheckBehaviorResponse
+	129, // 345: sysml.SysMLService.RunSweep:output_type -> sysml.RunSweepResponse
+	141, // 346: sysml.SysMLService.RunRuns:output_type -> sysml.RunRunsResponse
+	138, // 347: sysml.SysMLService.SelfCheck:output_type -> sysml.SelfCheckResponse
+	140, // 348: sysml.SysMLService.RecordRun:output_type -> sysml.RecordRunResponse
+	40,  // 349: sysml.SysMLService.ListEngines:output_type -> sysml.ListEnginesResponse
+	120, // 350: sysml.SysMLService.Query:output_type -> sysml.QueryResponse
+	152, // 351: sysml.SysMLService.RunDocumentQuery:output_type -> sysml.RunDocumentQueryResponse
+	160, // 352: sysml.SysMLService.RenderDocument:output_type -> sysml.RenderDocumentResponse
+	162, // 353: sysml.SysMLService.RenderView:output_type -> sysml.RenderViewResponse
+	174, // 354: sysml.SysMLService.ExportGraphs:output_type -> sysml.ExportGraphsResponse
+	177, // 355: sysml.SysMLService.ImportData:output_type -> sysml.ImportDataResponse
+	182, // 356: sysml.SysMLService.CompareResults:output_type -> sysml.CompareResultsResponse
+	326, // [326:357] is the sub-list for method output_type
+	295, // [295:326] is the sub-list for method input_type
+	295, // [295:295] is the sub-list for extension type_name
+	295, // [295:295] is the sub-list for extension extendee
+	0,   // [0:295] is the sub-list for field type_name
 }
 
 func init() { file_sysml_proto_init() }
@@ -19849,7 +20004,7 @@ func file_sysml_proto_init() {
 		(*EditOperation_AddComment)(nil),
 		(*EditOperation_AddNote)(nil),
 	}
-	file_sysml_proto_msgTypes[93].OneofWrappers = []any{
+	file_sysml_proto_msgTypes[94].OneofWrappers = []any{
 		(*Value_IntValue)(nil),
 		(*Value_RealValue)(nil),
 		(*Value_BoolValue)(nil),
@@ -19874,20 +20029,20 @@ func file_sysml_proto_init() {
 		(*Value_BigIntValue)(nil),
 		(*Value_RationalValue)(nil),
 	}
-	file_sysml_proto_msgTypes[106].OneofWrappers = []any{
+	file_sysml_proto_msgTypes[107].OneofWrappers = []any{
 		(*Quantity_IntMagnitude)(nil),
 		(*Quantity_RealMagnitude)(nil),
 		(*Quantity_BigIntMagnitude)(nil),
 		(*Quantity_RationalMagnitude)(nil),
 	}
-	file_sysml_proto_msgTypes[117].OneofWrappers = []any{
+	file_sysml_proto_msgTypes[118].OneofWrappers = []any{
 		(*Constraint_Primitive)(nil),
 		(*Constraint_Composite)(nil),
 	}
-	file_sysml_proto_msgTypes[125].OneofWrappers = []any{}
-	file_sysml_proto_msgTypes[134].OneofWrappers = []any{}
-	file_sysml_proto_msgTypes[136].OneofWrappers = []any{}
-	file_sysml_proto_msgTypes[139].OneofWrappers = []any{
+	file_sysml_proto_msgTypes[126].OneofWrappers = []any{}
+	file_sysml_proto_msgTypes[135].OneofWrappers = []any{}
+	file_sysml_proto_msgTypes[137].OneofWrappers = []any{}
+	file_sysml_proto_msgTypes[140].OneofWrappers = []any{
 		(*DocumentValue_ElementId)(nil),
 		(*DocumentValue_StringValue)(nil),
 		(*DocumentValue_IntValue)(nil),
@@ -19902,15 +20057,15 @@ func file_sysml_proto_init() {
 		(*DocumentValue_BigIntValue)(nil),
 		(*DocumentValue_RationalValue)(nil),
 	}
-	file_sysml_proto_msgTypes[175].OneofWrappers = []any{}
-	file_sysml_proto_msgTypes[178].OneofWrappers = []any{}
+	file_sysml_proto_msgTypes[176].OneofWrappers = []any{}
+	file_sysml_proto_msgTypes[179].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sysml_proto_rawDesc), len(file_sysml_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   203,
+			NumMessages:   204,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

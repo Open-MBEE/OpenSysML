@@ -60,6 +60,17 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 			Declared:   spec.Declared,
 			TargetID:   spec.TargetId,
 			TargetKind: spec.TargetKind,
+			ChainIDs:   spec.ChainIds,
+		})
+	}
+	for _, end := range sym.ConnectorEnds {
+		out.ConnectorEnds = append(out.ConnectorEnds, ConnectorEnd{
+			EndID:       end.EndId,
+			Name:        end.Name,
+			Declared:    end.Declared,
+			FeatureID:   end.FeatureId,
+			FeatureKind: end.FeatureKind,
+			ChainIDs:    end.ChainIds,
 		})
 	}
 	return out
@@ -223,7 +234,10 @@ func valueFromProto(value *pb.Value) Value {
 		if kind.Metaobject.GetElementId() == "" {
 			return Null("unsupported: metaobject naming no element")
 		}
-		return Metaobject{ElementID: kind.Metaobject.GetElementId(), MetaclassID: kind.Metaobject.GetMetaclassId()}
+		return Metaobject{
+			ElementID: kind.Metaobject.GetElementId(), MetaclassID: kind.Metaobject.GetMetaclassId(),
+			ChainingFeatureIDs: kind.Metaobject.GetChainingFeatureIds(), OwnerID: kind.Metaobject.GetOwnerId(),
+		}
 	default:
 		// A newer service's arm parses as an unknown field: no kind at all.
 		return Null("unsupported: a value arm this client does not know")
@@ -366,7 +380,9 @@ func valueToProto(value Value) (*pb.Value, error) {
 		if v.ElementID == "" {
 			return nil, &StatusError{Code: CodeInvalidArgument, Message: "a metaobject names no element"}
 		}
-		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: &pb.Metaobject{ElementId: v.ElementID, MetaclassId: v.MetaclassID}}}, nil
+		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: &pb.Metaobject{
+			ElementId: v.ElementID, MetaclassId: v.MetaclassID, ChainingFeatureIds: v.ChainingFeatureIDs, OwnerId: v.OwnerID,
+		}}}, nil
 	case Unset:
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,

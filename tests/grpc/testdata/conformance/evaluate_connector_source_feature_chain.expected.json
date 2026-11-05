@@ -1,0 +1,12 @@
+{
+	"rpc": "Evaluate",
+	"expression": "SequenceFunctions::last(InterfaceEnds::vehicle::fuelLine.metadata).sourceFeature.chainingFeature.qualifiedName",
+	"expected_result": {
+		"kind": "sequence",
+		"elements": [
+			{"kind": "string_value", "value": "InterfaceEnds::vehicle::powertrain"},
+			{"kind": "string_value", "value": "InterfaceEnds::Powertrain::tank"},
+			{"kind": "string_value", "value": "InterfaceEnds::Tank::fuelOut"}
+		]
+	}
+}

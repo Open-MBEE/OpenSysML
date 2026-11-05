@@ -10,4 +10,5 @@ import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 type ChainingFeature struct {
 	Relationship *Symbol               // the relationship object whose target it is
 	Node         *ast.FeatureChainExpr // the chain written; nil when the owner is recorded
+	Features     []*Symbol             // the features chained, outermost first, as resolved
 }

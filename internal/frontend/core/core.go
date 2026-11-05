@@ -410,6 +410,17 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 			Declared:   specialization.Declared,
 			TargetId:   specialization.TargetId,
 			TargetKind: specialization.TargetKind,
+			ChainIds:   specialization.ChainIds,
+		})
+	}
+	for _, end := range info.ConnectorEnds {
+		out.ConnectorEnds = append(out.ConnectorEnds, &JConnectorEndInfo{
+			EndId:       end.EndId,
+			Name:        end.Name,
+			Declared:    end.Declared,
+			FeatureId:   end.FeatureId,
+			FeatureKind: end.FeatureKind,
+			ChainIds:    end.ChainIds,
 		})
 	}
 	for _, attribute := range info.Attributes {

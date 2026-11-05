@@ -104,7 +104,22 @@ func symbolText(resp *pb.SymbolResponse) string {
 		b.WriteByte('\n')
 	}
 	for _, sp := range sym.GetSpecializations() {
+		if len(sp.GetChainIds()) > 0 {
+			fmt.Fprintf(&b, "%s %s\n", sp.GetKind(), strings.Join(sp.GetChainIds(), "."))
+			continue
+		}
 		fmt.Fprintf(&b, "%s %s\n", sp.GetKind(), sp.GetTargetId())
+	}
+	for _, end := range sym.GetConnectorEnds() {
+		connected := end.GetFeatureId()
+		if len(end.GetChainIds()) > 0 {
+			connected = strings.Join(end.GetChainIds(), ".")
+		}
+		if end.GetName() != "" {
+			fmt.Fprintf(&b, "end %s connects %s\n", end.GetName(), connected)
+		} else {
+			fmt.Fprintf(&b, "end connects %s\n", connected)
+		}
 	}
 	for _, a := range sym.GetAttributes() {
 		if a.GetValue() != nil {

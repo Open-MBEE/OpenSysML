@@ -913,7 +913,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, satisfiedRequirement, satisfyingFeature, shortName, textualRepresentation, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, referencedFeature, relatedFeature, satisfiedRequirement, satisfyingFeature, shortName, sourceFeature, targetFeature, textualRepresentation, type"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request

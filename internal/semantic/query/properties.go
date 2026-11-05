@@ -88,6 +88,10 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		return r.multiplicityValues(sym, property)
 	case PropertySatisfiedRequirement, PropertySatisfyingFeature:
 		return r.satisfyEnd(sym, property)
+	case PropertyRelatedFeature, PropertySourceFeature, PropertyTargetFeature:
+		return r.connectorFeatures(sym, property)
+	case PropertyReferencedFeature:
+		return r.referencedFeature(sym)
 	case PropertyElementID:
 		if r.elementID != nil {
 			return presentValues(r.elementID(sym))
@@ -189,6 +193,52 @@ func (r *PropertyReader) satisfyEnd(sym *symbols.Symbol, property string) ([]str
 		return nil, false
 	}
 	return r.resolveTargetIdentity(sym, ends.Satisfier)
+}
+
+// connectorFeatures reads Connector::relatedFeature, sourceFeature or
+// targetFeature (KerML 8.3.4.5.3) as the model derives them: the features the
+// connector's ends reference, a chained end's as the chain it denotes.
+func (r *PropertyReader) connectorFeatures(sym *symbols.Symbol, property string) ([]string, bool) {
+	if r.semantics == nil || !r.semantics.IsAssociationOrConnector(sym) {
+		return nil, false
+	}
+	features, ok := r.semantics.ReflectiveElements(sym, property)
+	if !ok || len(features) == 0 {
+		return nil, false
+	}
+	values := make([]string, 0, len(features))
+	for _, feature := range features {
+		values = append(values, r.featureIdentity(feature))
+	}
+	return values, true
+}
+
+// referencedFeature reads the feature a connector end connects, as its
+// reference subsetting references it; absent for anything but a connector end.
+func (r *PropertyReader) referencedFeature(sym *symbols.Symbol) ([]string, bool) {
+	if r.semantics == nil || sym.Kind != symbols.SymbolConnectorEnd {
+		return nil, false
+	}
+	feature := r.semantics.EndReferencedFeature(sym)
+	if feature == nil {
+		return nil, false
+	}
+	return presentValues(r.featureIdentity(feature))
+}
+
+// featureIdentity names a feature: the anonymous Feature a chain denotes as
+// the chain of its features' identities (`Car::eng.Engine::port`), any other
+// by its identity.
+func (r *PropertyReader) featureIdentity(feature *symbols.Symbol) string {
+	if feature.Chain == nil {
+		return r.elementIdentity(feature)
+	}
+	links := r.semantics.ChainingFeatures(feature)
+	names := make([]string, len(links))
+	for i, link := range links {
+		names[i] = r.elementIdentity(link)
+	}
+	return strings.Join(names, ".")
 }
 
 func (r *PropertyReader) resolveTargetIdentity(sym *symbols.Symbol, target ast.Node) ([]string, bool) {

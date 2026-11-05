@@ -74,6 +74,10 @@ var oslcPropertyMappings = map[string]string{
 	sysmlNS + "multiplicityUpper":     PropertyMultiplicityUpper,
 	sysmlNS + "satisfiedRequirement":  PropertySatisfiedRequirement,
 	sysmlNS + "satisfyingFeature":     PropertySatisfyingFeature,
+	sysmlNS + "relatedFeature":        PropertyRelatedFeature,
+	sysmlNS + "sourceFeature":         PropertySourceFeature,
+	sysmlNS + "targetFeature":         PropertyTargetFeature,
+	sysmlNS + "referencedFeature":     PropertyReferencedFeature,
 	sysmlNS + "elementId":             PropertyElementID,
 }
 

@@ -164,6 +164,29 @@ type Symbol struct {
 	// WithheldLibraryAttributes counts attributes inherited from
 	// standard-library content, which Attributes leaves out.
 	WithheldLibraryAttributes int
+	// ConnectorEnds are the ends of a connector and the features they connect,
+	// in end order; nil for an element that is no connector.
+	ConnectorEnds []ConnectorEnd
+}
+
+// ConnectorEnd is one end of a connector and the feature it connects, as the
+// end's ReferenceSubsetting references it (KerML 8.3.4.5.3).
+type ConnectorEnd struct {
+	// EndID is the FQN of the end feature itself; empty for a flow, whose ends
+	// are its type's.
+	EndID string
+	// Name is the end's effective name ("supplier"); empty when it has none.
+	Name string
+	// Declared is the connected feature as written ("powertrain.tank.fuelOut").
+	Declared string
+	// FeatureID is the FQN of the feature the end's reference reaches: the
+	// feature named, or the last feature of a chain; empty when unresolved.
+	FeatureID string
+	// FeatureKind is the symbol kind of that feature; empty when unresolved.
+	FeatureKind string
+	// ChainIDs are the FQNs of each feature of an end written as a feature
+	// chain, in order; empty for a plain name.
+	ChainIDs []string
 }
 
 // Attribute is one attribute of a symbol, with its declared value.
@@ -214,6 +237,9 @@ type Specialization struct {
 	// TargetKind is the symbol kind of the resolved target; empty when
 	// unresolved.
 	TargetKind string
+	// ChainIDs are the FQNs of each feature of a target written as a feature
+	// chain, in order, TargetID being the last; empty for a plain name.
+	ChainIDs []string
 }
 
 // The severities a Diagnostic reports.

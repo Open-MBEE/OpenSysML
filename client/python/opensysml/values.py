@@ -725,10 +725,27 @@ class Metaobject:
             service always sends it; one sent to the service may be left empty
             to have the model's used, but one naming a metaclass that is not
             the element's is rejected.
+        chaining_feature_ids (tuple): For the anonymous Feature a feature chain
+            denotes as a whole (a chained connector end's
+            ``ownedReferenceSubsetting.referencedFeature``, a connector's
+            ``relatedFeature``), the FQN of each of its ``chainingFeature`` in
+            order; ``element_id`` is then the chain in qualified form
+            (``Vehicle::powertrain.Powertrain::tank.Tank::fuelOut``). Empty for a
+            named element.
+        owner_id (str): FQN of the element owning that anonymous chain Feature
+            (the connector end whose reference denotes it), sent back with
+            ``element_id`` to name it; empty for a named element.
     """
 
     element_id: str
     metaclass_id: str = ""
+    chaining_feature_ids: Tuple[str, ...] = ()
+    owner_id: str = ""
+
+    @property
+    def is_chain(self) -> bool:
+        """Whether this is the anonymous Feature a feature chain denotes."""
+        return bool(self.chaining_feature_ids)
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, Metaobject):
@@ -747,7 +764,8 @@ class Metaobject:
         """
         if not pb_meta.element_id:
             raise UnsupportedValueError("metaobject naming no element")
-        return cls(pb_meta.element_id, pb_meta.metaclass_id)
+        return cls(pb_meta.element_id, pb_meta.metaclass_id,
+                   tuple(pb_meta.chaining_feature_ids), pb_meta.owner_id)
 
     def to_pb(self) -> "sysml_pb2.Metaobject":
         """Encode as a ``Metaobject`` message.
@@ -757,7 +775,10 @@ class Metaobject:
         """
         if not self.element_id:
             raise UnsupportedValueError("metaobject naming no element")
-        return sysml_pb2.Metaobject(element_id=self.element_id, metaclass_id=self.metaclass_id)
+        return sysml_pb2.Metaobject(
+            element_id=self.element_id, metaclass_id=self.metaclass_id,
+            chaining_feature_ids=list(self.chaining_feature_ids), owner_id=self.owner_id,
+        )
 
     def __str__(self) -> str:
         return f"meta({self.element_id} : {self.metaclass_id})"

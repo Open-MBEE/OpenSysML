@@ -169,7 +169,10 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		Redefines:      w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
 		About:          w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
 	}
-	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
+	// A chained end's related feature is an anonymous chain Feature no record
+	// names; the recorded connector derives it from its end's recorded reference
+	// subsetting instead, so only wholly named related features are recorded.
+	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok && !slices.ContainsFunc(related, isChainFeature) {
 		facts.RelatedFeatures = w.refs(sym, related, "related feature")
 	}
 	if paths := m.ConnectorEndFeaturePaths(sym); len(paths) > 0 {
@@ -377,4 +380,10 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(oc.ValueIsDefault, symbols.ModDefault)
 	}
 	return ast.DirNone, mods
+}
+
+// isChainFeature reports whether sym is the anonymous Feature a feature chain
+// denotes as a whole.
+func isChainFeature(sym *symbols.Symbol) bool {
+	return sym != nil && sym.Chain != nil
 }

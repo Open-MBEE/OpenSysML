@@ -1,0 +1,13 @@
+{
+	"rpc": "Evaluate",
+	"expression": "(SequenceFunctions::last(InterfaceEnds::vehicle::fuelLine.metadata).connectorEnd#(1)).ownedReferenceSubsetting.referencedFeature",
+	"expected_result": {
+		"kind": "metaobject",
+		"value": "InterfaceEnds::vehicle::powertrain.InterfaceEnds::Powertrain::tank.InterfaceEnds::Tank::fuelOut",
+		"elements": [
+			{"kind": "string_value", "value": "InterfaceEnds::vehicle::powertrain"},
+			{"kind": "string_value", "value": "InterfaceEnds::Powertrain::tank"},
+			{"kind": "string_value", "value": "InterfaceEnds::Tank::fuelOut"}
+		]
+	}
+}

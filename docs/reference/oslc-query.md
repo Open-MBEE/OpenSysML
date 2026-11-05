@@ -72,6 +72,10 @@ bound predicate that is not in this table:
 | `sysml:multiplicityLower` | `multiplicityLower` |
 | `sysml:multiplicityUpper` | `multiplicityUpper` |
 | `sysml:satisfiedRequirement` | `satisfiedRequirement` |
+| `sysml:relatedFeature` | `relatedFeature` |
+| `sysml:sourceFeature` | `sourceFeature` |
+| `sysml:targetFeature` | `targetFeature` |
+| `sysml:referencedFeature` | `referencedFeature` |
 | `sysml:satisfyingFeature` | `satisfyingFeature` |
 
 Unknown properties fail the query instead of silently returning no matches, and

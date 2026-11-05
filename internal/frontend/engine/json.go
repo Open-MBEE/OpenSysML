@@ -258,6 +258,10 @@ type JFunction struct {
 type JMetaobject struct {
 	ElementId   string `json:"elementId,omitempty"`
 	MetaclassId string `json:"metaclassId,omitempty"`
+	// For the anonymous Feature a feature chain denotes, the FQN of each of its
+	// chaining features in order and the element whose relationship references it.
+	ChainingFeatureIds []string `json:"chainingFeatureIds,omitempty"`
+	OwnerId            string   `json:"ownerId,omitempty"`
 }
 
 type JUndetermined struct {

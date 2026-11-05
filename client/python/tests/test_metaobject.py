@@ -246,3 +246,32 @@ class TestMetaobjectsAgainstTheService:
         for bad in (Metaobject("Demo::missing"), Metaobject("Demo::seatBelt", "SysML::Systems::PartDefinition")):
             with pytest.raises(ExecutionError):
                 self.conn.calc("Demo::nameOf", self.model.hash, arguments=[bad])
+
+
+class TestChainFeatureMetaobject:
+    """The anonymous Feature a feature chain denotes crosses as a metaobject
+    carrying its chaining features and the end owning it."""
+
+    def test_from_pb_carries_the_chain(self):
+        pb = sysml_pb2.Metaobject(
+            element_id="V::powertrain.P::tank.T::fuelOut",
+            metaclass_id="KerML::Core::Feature",
+            chaining_feature_ids=["V::powertrain", "P::tank", "T::fuelOut"],
+            owner_id="V::fuelLine::supplier",
+        )
+        meta = Metaobject.from_pb(pb)
+        assert meta.is_chain
+        assert meta.chaining_feature_ids == ("V::powertrain", "P::tank", "T::fuelOut")
+        assert meta.owner_id == "V::fuelLine::supplier"
+        assert meta.element_id == "V::powertrain.P::tank.T::fuelOut"
+        assert meta.metaclass_id == "KerML::Core::Feature"
+        back = meta.to_pb()
+        assert list(back.chaining_feature_ids) == ["V::powertrain", "P::tank", "T::fuelOut"]
+        assert back.owner_id == "V::fuelLine::supplier"
+
+    def test_a_named_element_is_no_chain(self):
+        meta = Metaobject.from_pb(sysml_pb2.Metaobject(element_id="V::tank", metaclass_id="SysML::Systems::PartUsage"))
+        assert not meta.is_chain
+        assert meta.chaining_feature_ids == ()
+        assert meta.owner_id == ""
+        assert meta == Metaobject("V::tank")

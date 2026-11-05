@@ -794,6 +794,22 @@ export interface SpecializationFacts {
   declared: string;
   targetId: string;
   targetKind: string;
+  /** FQN of each feature of a target written as a feature chain, in order; absent or empty for a plain name. */
+  chainIds?: readonly string[];
+}
+
+/**
+ * One end of a connector and the feature it connects, as the end's
+ * ReferenceSubsetting references it (KerML 8.3.4.5.3): `featureId` is the
+ * feature named or the last of a chain, whose features `chainIds` name in order.
+ */
+export interface ConnectorEndFacts {
+  endId: string;
+  name: string;
+  declared: string;
+  featureId: string;
+  featureKind: string;
+  chainIds: readonly string[];
 }
 
 /** A symbol of a loaded model. */
@@ -809,6 +825,8 @@ export class ModelSymbol {
   readonly specializations: readonly SpecializationFacts[];
   /** Library attributes the service did not send, when it withheld any. */
   readonly withheldLibraryAttributes: number;
+  /** The ends of a connector and the features they connect, in end order; empty for anything else. */
+  readonly connectorEnds: readonly ConnectorEndFacts[];
 
   private readonly connection: Connection;
   private readonly modelHash: string;
@@ -848,8 +866,17 @@ export class ModelSymbol {
       declared: specialization.declared,
       targetId: specialization.targetId,
       targetKind: specialization.targetKind,
+      chainIds: [...specialization.chainIds],
     }));
     this.withheldLibraryAttributes = info.withheldLibraryAttributes;
+    this.connectorEnds = info.connectorEnds.map((end) => ({
+      endId: end.endId,
+      name: end.name,
+      declared: end.declared,
+      featureId: end.featureId,
+      featureKind: end.featureKind,
+      chainIds: [...end.chainIds],
+    }));
   }
 
   /** The symbols this one owns, fetched one call each. */

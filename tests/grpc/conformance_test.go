@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -31,6 +32,16 @@ type expectedValue struct {
 	Kind     string          `json:"kind"`
 	Value    interface{}     `json:"value"`
 	Elements []expectedValue `json:"elements"`
+}
+
+// expectedConnectorEnd is the fixture encoding of a pb.ConnectorEndInfo.
+type expectedConnectorEnd struct {
+	EndID       string   `json:"end_id"`
+	Name        string   `json:"name"`
+	Declared    string   `json:"declared"`
+	FeatureID   string   `json:"feature_id"`
+	FeatureKind string   `json:"feature_kind"`
+	ChainIDs    []string `json:"chain_ids"`
 }
 
 // expectedFeatureValue is the fixture encoding of a pb.FeatureValue.
@@ -174,6 +185,8 @@ type conformanceCase struct {
 	// values; AbsentMetadata are keys it must not carry.
 	ExpectedMetadata map[string]string `json:"expected_metadata,omitempty"`
 	AbsentMetadata   []string          `json:"absent_metadata,omitempty"`
+	// ExpectedConnectorEnds are the connector ends the symbol must report, in order.
+	ExpectedConnectorEnds []expectedConnectorEnd `json:"expected_connector_ends,omitempty"`
 
 	// ImportData: the imports, in order.
 	Imports      []conformanceImport `json:"imports,omitempty"`
@@ -867,6 +880,18 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 			t.Errorf("withheld library attributes = %d, want at least %d", got, want)
 		}
 	}
+	if tc.ExpectedConnectorEnds != nil {
+		got := make([]expectedConnectorEnd, 0, len(resp.Symbol.GetConnectorEnds()))
+		for _, end := range resp.Symbol.GetConnectorEnds() {
+			got = append(got, expectedConnectorEnd{
+				EndID: end.GetEndId(), Name: end.GetName(), Declared: end.GetDeclared(),
+				FeatureID: end.GetFeatureId(), FeatureKind: end.GetFeatureKind(), ChainIDs: end.GetChainIds(),
+			})
+		}
+		if !reflect.DeepEqual(got, tc.ExpectedConnectorEnds) {
+			t.Errorf("connector ends = %+v, want %+v", got, tc.ExpectedConnectorEnds)
+		}
+	}
 
 	byName := make(map[string]*pb.AttributeInfo, len(attrs))
 	for _, attr := range attrs {
@@ -1464,6 +1489,25 @@ func checkValue(t *testing.T, label string, want expectedValue, got *pb.Value) {
 		if got.GetRealValue() != mustFloat(t, want) {
 			t.Errorf("%s: value = %v, want %v", label, got.GetRealValue(), want.Value)
 		}
+	case "metaobject":
+		// The element reflected on, by its id; a chain Feature's elements are
+		// the ids of its chaining features in order.
+		meta := got.GetMetaobject()
+		if meta.GetElementId() != want.Value {
+			t.Errorf("%s: metaobject = %s, want %v", label, meta.GetElementId(), want.Value)
+		}
+		if want.Elements != nil {
+			var ids []string
+			for _, element := range want.Elements {
+				ids = append(ids, fmt.Sprint(element.Value))
+			}
+			if !slices.Equal(meta.GetChainingFeatureIds(), ids) {
+				t.Errorf("%s: chaining features = %v, want %v", label, meta.GetChainingFeatureIds(), ids)
+			}
+			if meta.GetOwnerId() == "" {
+				t.Errorf("%s: a chain Feature metaobject names no owner", label)
+			}
+		}
 	case "null", "instance_id", "unset":
 		// The oneof arm carries all the information; ids are runtime-assigned.
 	case "sequence":
@@ -1487,6 +1531,8 @@ func describeValue(v *pb.Value) (string, interface{}) {
 	switch k := v.Kind.(type) {
 	case *pb.Value_IntValue:
 		return "int_value", k.IntValue
+	case *pb.Value_Metaobject:
+		return "metaobject", k.Metaobject.GetElementId()
 	case *pb.Value_RealValue:
 		return "real_value", k.RealValue
 	case *pb.Value_RationalValue:

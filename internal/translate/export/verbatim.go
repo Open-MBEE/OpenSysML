@@ -266,7 +266,8 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 	}
 	for _, t := range check.Triples() {
 		if structural(t) && !graph.Has(t) && !derivedNameOmitted(graph, t) && !derivedVariabilityOmitted(graph, check, t) &&
-			!derivedMembershipOmitted(graph, check, t) && !derivedMultiplicityOmitted(graph, check, t) {
+			!derivedMembershipOmitted(graph, check, t) && !derivedMultiplicityOmitted(graph, check, t) &&
+			!derivedConnectorFeatureOmitted(graph, check, t) {
 			out = append(out, t)
 		}
 	}
@@ -281,6 +282,29 @@ func derivedVariabilityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 		return false
 	}
 	return ontology.IsAncestorOrSelf(rdf.LocalName(check.Type(t.Subject)), "Usage") &&
+		!graph.HasProperty(t.Subject, t.Predicate.Value)
+}
+
+// derivedConnectorFeatureOmitted reports a connector's derived relatedFeature,
+// sourceFeature or targetFeature (KerML 8.3.4.5.3) the candidate states and the
+// graph omits: a graph predating them, or published without derived properties,
+// states its ends' reference subsettings, which the derivation restates.
+func derivedConnectorFeatureOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
+	var key string
+	switch {
+	case strings.HasPrefix(t.Predicate.Value, rdf.SysML):
+		key = strings.TrimPrefix(t.Predicate.Value, rdf.SysML)
+	case rdf.IsAnnotationJSON(t.Predicate.Value):
+		key = strings.TrimPrefix(t.Predicate.Value, rdf.AnnotationJSON)
+	default:
+		return false
+	}
+	switch key {
+	case pRelatedFeature, pSourceFeature, pTargetFeature:
+	default:
+		return false
+	}
+	return ontology.IsAncestorOrSelf(rdf.LocalName(check.Type(t.Subject)), "Connector") &&
 		!graph.HasProperty(t.Subject, t.Predicate.Value)
 }
 

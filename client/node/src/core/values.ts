@@ -139,6 +139,15 @@ export interface FunctionValue {
 export interface MetaobjectValue {
   elementId: string;
   metaclassId: string;
+  /**
+   * For the anonymous Feature a feature chain denotes as a whole (a chained
+   * connector end's referenced feature, a connector's `relatedFeature`), the
+   * FQN of each of its `chainingFeature` in order; `elementId` is then the
+   * chain in qualified form. Empty for a named element.
+   */
+  chainingFeatureIds?: readonly string[];
+  /** FQN of the element owning that anonymous chain Feature; empty for a named element. */
+  ownerId?: string;
 }
 
 /**
@@ -799,14 +808,24 @@ function decodeMetaobject(meta: MetaobjectMessage): MetaobjectValue {
   if (meta.elementId === "") {
     throw new MalformedValueError("a metaobject names no element");
   }
-  return { elementId: meta.elementId, metaclassId: meta.metaclassId };
+  const value: MetaobjectValue = { elementId: meta.elementId, metaclassId: meta.metaclassId };
+  if (meta.chainingFeatureIds.length > 0) {
+    value.chainingFeatureIds = [...meta.chainingFeatureIds];
+    value.ownerId = meta.ownerId;
+  }
+  return value;
 }
 
 function encodeMetaobject(meta: MetaobjectValue): MetaobjectMessage {
   if (meta.elementId === "") {
     throw new MalformedValueError("a metaobject names no element");
   }
-  return create(MetaobjectSchema, { elementId: meta.elementId, metaclassId: meta.metaclassId });
+  return create(MetaobjectSchema, {
+    elementId: meta.elementId,
+    metaclassId: meta.metaclassId,
+    chainingFeatureIds: [...(meta.chainingFeatureIds ?? [])],
+    ownerId: meta.ownerId ?? "",
+  });
 }
 
 function encodeUnitTerm(term: UnitFactorization): UnitTerm {

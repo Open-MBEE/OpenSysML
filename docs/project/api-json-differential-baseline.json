@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:1208fe7f08f0ae8f50df50255dda0ed538e2c8c096ff0cdf63b3d20198d509af"
+        "sourceDigest": "sha256:d933fbeaeed6ee6696269ffa8c8a6c6fb3ac41a08f41096fa227f745f4d442b4"
       }
     ],
     "inputs": [
@@ -120,11 +120,11 @@
       "typeMismatch": 1682
     },
     "properties": {
-      "presentEqual": 1921680,
-      "presentDifferent": 128354,
-      "oursMissing": 322317,
-      "pilotMissing": 77523,
-      "absentBoth": 2124083,
+      "presentEqual": 1921814,
+      "presentDifferent": 128716,
+      "oursMissing": 321821,
+      "pilotMissing": 77520,
+      "absentBoth": 2124085,
       "indeterminate": 32770,
       "pilotNondeterministic": 516
     },
@@ -161,9 +161,9 @@
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 157242,
-        "presentDifferent": 11625,
-        "oursMissing": 22016,
+        "presentEqual": 157251,
+        "presentDifferent": 11628,
+        "oursMissing": 22004,
         "pilotMissing": 5661,
         "absentBoth": 178251,
         "indeterminate": 2611,
@@ -197,9 +197,9 @@
         "typeMismatch": 34
       },
       "properties": {
-        "presentEqual": 554318,
-        "presentDifferent": 39227,
-        "oursMissing": 88474,
+        "presentEqual": 554437,
+        "presentDifferent": 39303,
+        "oursMissing": 88279,
         "pilotMissing": 21083,
         "absentBoth": 612877,
         "indeterminate": 7527,
@@ -234,8 +234,8 @@
       },
       "properties": {
         "presentEqual": 194976,
-        "presentDifferent": 15285,
-        "oursMissing": 28337,
+        "presentDifferent": 15294,
+        "oursMissing": 28328,
         "pilotMissing": 7514,
         "absentBoth": 219722,
         "indeterminate": 2734,
@@ -270,9 +270,9 @@
         "typeMismatch": 1034
       },
       "properties": {
-        "presentEqual": 113439,
-        "presentDifferent": 8838,
-        "oursMissing": 19509,
+        "presentEqual": 113442,
+        "presentDifferent": 8857,
+        "oursMissing": 19487,
         "pilotMissing": 7607,
         "absentBoth": 106159,
         "indeterminate": 568,
@@ -306,11 +306,11 @@
         "typeMismatch": 396
       },
       "properties": {
-        "presentEqual": 128618,
-        "presentDifferent": 6185,
-        "oursMissing": 23320,
-        "pilotMissing": 6196,
-        "absentBoth": 141303,
+        "presentEqual": 128621,
+        "presentDifferent": 6197,
+        "oursMissing": 23305,
+        "pilotMissing": 6193,
+        "absentBoth": 141305,
         "indeterminate": 2350,
         "pilotNondeterministic": 7
       },
@@ -381,8 +381,8 @@
       },
       "properties": {
         "presentEqual": 598228,
-        "presentDifferent": 36590,
-        "oursMissing": 106015,
+        "presentDifferent": 36778,
+        "oursMissing": 105827,
         "pilotMissing": 23163,
         "absentBoth": 675931,
         "indeterminate": 13303,
@@ -453,8 +453,8 @@
       },
       "properties": {
         "presentEqual": 146433,
-        "presentDifferent": 8603,
-        "oursMissing": 30167,
+        "presentDifferent": 8658,
+        "oursMissing": 30112,
         "pilotMissing": 5072,
         "absentBoth": 156323,
         "indeterminate": 3287,
@@ -5326,8 +5326,8 @@
     ],
     "AllocationUsage.relatedFeature": [
       6,
-      2,
-      2,
+      3,
+      1,
       0,
       0,
       0,
@@ -5344,8 +5344,8 @@
     ],
     "AllocationUsage.sourceFeature": [
       6,
-      0,
-      4,
+      3,
+      1,
       0,
       0,
       0,
@@ -5371,8 +5371,8 @@
     ],
     "AllocationUsage.targetFeature": [
       8,
-      0,
-      2,
+      1,
+      1,
       0,
       0,
       0,
@@ -13498,8 +13498,8 @@
     ],
     "BindingConnector.relatedFeature": [
       3,
-      2,
-      3,
+      5,
+      0,
       0,
       0,
       0,
@@ -13516,8 +13516,8 @@
     ],
     "BindingConnector.sourceFeature": [
       3,
-      0,
       5,
+      0,
       0,
       0,
       0,
@@ -13534,8 +13534,8 @@
     ],
     "BindingConnector.targetFeature": [
       5,
-      0,
       3,
+      0,
       0,
       0,
       0,
@@ -14506,8 +14506,8 @@
     ],
     "BindingConnectorAsUsage.relatedFeature": [
       2,
-      0,
       1,
+      0,
       0,
       0,
       0,
@@ -14524,8 +14524,8 @@
     ],
     "BindingConnectorAsUsage.sourceFeature": [
       2,
-      0,
       1,
+      0,
       0,
       0,
       0,
@@ -14542,8 +14542,8 @@
     ],
     "BindingConnectorAsUsage.targetFeature": [
       2,
-      0,
       1,
+      0,
       0,
       0,
       0,
@@ -25639,8 +25639,8 @@
     ],
     "ConnectionUsage.relatedFeature": [
       11,
-      1,
-      77,
+      70,
+      8,
       0,
       0,
       0,
@@ -25657,8 +25657,8 @@
     ],
     "ConnectionUsage.sourceFeature": [
       11,
-      0,
-      78,
+      69,
+      9,
       0,
       0,
       0,
@@ -25684,8 +25684,8 @@
     ],
     "ConnectionUsage.targetFeature": [
       10,
-      0,
-      79,
+      70,
+      9,
       0,
       0,
       0,
@@ -26395,8 +26395,8 @@
     ],
     "Connector.relatedFeature": [
       22,
-      4,
       10,
+      4,
       0,
       0,
       0,
@@ -26413,8 +26413,8 @@
     ],
     "Connector.sourceFeature": [
       24,
-      0,
-      12,
+      6,
+      6,
       0,
       0,
       0,
@@ -26431,8 +26431,8 @@
     ],
     "Connector.targetFeature": [
       20,
-      0,
-      16,
+      10,
+      6,
       0,
       0,
       0,
@@ -40626,8 +40626,8 @@
       0,
       0,
       1,
-      1,
-      1,
+      0,
+      2,
       0,
       0
     ],
@@ -40644,7 +40644,7 @@
       0,
       0,
       1,
-      1,
+      0,
       0,
       0,
       0
@@ -40671,8 +40671,8 @@
       0,
       0,
       1,
-      1,
-      1,
+      0,
+      2,
       0,
       0
     ],
@@ -43206,9 +43206,9 @@
       0
     ],
     "FlowUsage.relatedFeature": [
-      0,
-      0,
-      50,
+      36,
+      4,
+      10,
       1,
       55,
       0,
@@ -43224,9 +43224,9 @@
       0
     ],
     "FlowUsage.sourceFeature": [
+      37,
       0,
-      0,
-      50,
+      13,
       1,
       0,
       0,
@@ -43260,9 +43260,9 @@
       0
     ],
     "FlowUsage.targetFeature": [
+      39,
       0,
-      0,
-      50,
+      11,
       0,
       56,
       0,
@@ -51144,9 +51144,9 @@
       0
     ],
     "InterfaceUsage.relatedFeature": [
-      0,
-      0,
-      43,
+      5,
+      34,
+      4,
       0,
       0,
       0,
@@ -51162,9 +51162,9 @@
       0
     ],
     "InterfaceUsage.sourceFeature": [
-      0,
-      0,
-      43,
+      4,
+      34,
+      5,
       0,
       0,
       0,
@@ -51189,9 +51189,9 @@
       0
     ],
     "InterfaceUsage.targetFeature": [
-      0,
-      0,
-      43,
+      4,
+      34,
+      5,
       0,
       0,
       0,
@@ -90520,8 +90520,8 @@
     ],
     "SuccessionAsUsage.relatedFeature": [
       7,
-      2,
-      3,
+      4,
+      1,
       0,
       0,
       0,
@@ -90538,8 +90538,8 @@
     ],
     "SuccessionAsUsage.sourceFeature": [
       8,
-      0,
-      4,
+      3,
+      1,
       0,
       0,
       0,
@@ -90565,8 +90565,8 @@
     ],
     "SuccessionAsUsage.targetFeature": [
       9,
-      0,
       2,
+      0,
       0,
       1,
       0,
@@ -91356,9 +91356,9 @@
       0
     ],
     "SuccessionFlow.relatedFeature": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -91374,9 +91374,9 @@
       0
     ],
     "SuccessionFlow.sourceFeature": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -91401,9 +91401,9 @@
       0
     ],
     "SuccessionFlow.targetFeature": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -92472,9 +92472,9 @@
       0
     ],
     "SuccessionFlowUsage.relatedFeature": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0,
@@ -92490,9 +92490,9 @@
       0
     ],
     "SuccessionFlowUsage.sourceFeature": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0,
@@ -92517,9 +92517,9 @@
       0
     ],
     "SuccessionFlowUsage.targetFeature": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0,

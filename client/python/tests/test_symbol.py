@@ -529,3 +529,78 @@ class TestSymbolAttributeFacts:
             "name", "kind", "id", "type", "multiplicity", "value", "unit", "inherited",
         ]
         assert frame.empty
+
+
+class TestSymbolConnectorEnds:
+    """A connector's symbol names the features its ends connect, chains included."""
+
+    def _fuel_line(self):
+        return sysml_pb2.SymbolInfo(
+            id="InterfaceEnds::vehicle::fuelLine",
+            name="fuelLine",
+            kind="interfaceUsage",
+            connector_ends=[
+                sysml_pb2.ConnectorEndInfo(
+                    end_id="InterfaceEnds::vehicle::fuelLine::supplier",
+                    name="supplier",
+                    declared="powertrain.tank.fuelOut",
+                    feature_id="InterfaceEnds::Tank::fuelOut",
+                    feature_kind="portUsage",
+                    chain_ids=[
+                        "InterfaceEnds::vehicle::powertrain",
+                        "InterfaceEnds::Powertrain::tank",
+                        "InterfaceEnds::Tank::fuelOut",
+                    ],
+                ),
+                sysml_pb2.ConnectorEndInfo(
+                    end_id="InterfaceEnds::vehicle::fuelLine::consumer",
+                    name="consumer",
+                    declared="engine",
+                    feature_id="InterfaceEnds::vehicle::engine",
+                    feature_kind="partUsage",
+                ),
+            ],
+        )
+
+    def test_connector_ends_name_the_connected_features(self):
+        sym = Symbol(self._fuel_line(), Mock(), "model_abc123")
+        ends = sym.connector_ends
+        assert [end.name for end in ends] == ["supplier", "consumer"]
+        supplier, consumer = ends
+        assert supplier.end_id == "InterfaceEnds::vehicle::fuelLine::supplier"
+        assert supplier.declared == "powertrain.tank.fuelOut"
+        assert supplier.feature_id == "InterfaceEnds::Tank::fuelOut"
+        assert supplier.feature_kind == "portUsage"
+        assert supplier.chain_ids == (
+            "InterfaceEnds::vehicle::powertrain",
+            "InterfaceEnds::Powertrain::tank",
+            "InterfaceEnds::Tank::fuelOut",
+        )
+        assert supplier.path == supplier.chain_ids
+        assert consumer.chain_ids == ()
+        assert consumer.path == ("InterfaceEnds::vehicle::engine",)
+
+    def test_an_element_that_is_no_connector_has_no_ends(self):
+        info = sysml_pb2.SymbolInfo(id="Demo::Car", name="Car", kind="partDef")
+        assert Symbol(info, Mock(), "model_abc123").connector_ends == []
+
+    def test_a_connector_end_references_the_feature_it_connects(self):
+        info = sysml_pb2.SymbolInfo(
+            id="InterfaceEnds::vehicle::fuelLine::supplier",
+            name="supplier",
+            kind="connectorEnd",
+            specializations=[
+                sysml_pb2.Specialization(
+                    kind="references",
+                    declared="powertrain.tank.fuelOut",
+                    target_id="InterfaceEnds::Tank::fuelOut",
+                    target_kind="portUsage",
+                    chain_ids=["InterfaceEnds::vehicle::powertrain", "InterfaceEnds::Powertrain::tank", "InterfaceEnds::Tank::fuelOut"],
+                ),
+            ],
+        )
+        [references] = Symbol(info, Mock(), "model_abc123").specializations
+        assert references.kind == "references"
+        assert references.target_id == "InterfaceEnds::Tank::fuelOut"
+        assert references.chain_ids[-1] == references.target_id
+        assert len(references.chain_ids) == 3

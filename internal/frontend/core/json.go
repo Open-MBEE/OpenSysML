@@ -133,16 +133,28 @@ type JDiagnostic = fsyntax.Diagnostic
 
 // JSymbolInfo is the protojson-shaped symbol facts message.
 type JSymbolInfo struct {
-	Id                        string             `json:"id,omitempty"`
-	Name                      string             `json:"name,omitempty"`
-	Kind                      string             `json:"kind,omitempty"`
-	Metadata                  map[string]string  `json:"metadata,omitempty"`
-	ChildIds                  []string           `json:"childIds,omitempty"`
-	Attributes                []*JAttributeInfo  `json:"attributes,omitempty"`
-	TypeInfo                  *JTypeInfo         `json:"typeInfo,omitempty"`
-	Multiplicity              *JMultiplicityInfo `json:"multiplicity,omitempty"`
-	Specializations           []*JSpecialization `json:"specializations,omitempty"`
-	WithheldLibraryAttributes int32              `json:"withheldLibraryAttributes,omitempty"`
+	Id                        string               `json:"id,omitempty"`
+	Name                      string               `json:"name,omitempty"`
+	Kind                      string               `json:"kind,omitempty"`
+	Metadata                  map[string]string    `json:"metadata,omitempty"`
+	ChildIds                  []string             `json:"childIds,omitempty"`
+	Attributes                []*JAttributeInfo    `json:"attributes,omitempty"`
+	TypeInfo                  *JTypeInfo           `json:"typeInfo,omitempty"`
+	Multiplicity              *JMultiplicityInfo   `json:"multiplicity,omitempty"`
+	Specializations           []*JSpecialization   `json:"specializations,omitempty"`
+	WithheldLibraryAttributes int32                `json:"withheldLibraryAttributes,omitempty"`
+	ConnectorEnds             []*JConnectorEndInfo `json:"connectorEnds,omitempty"`
+}
+
+// JConnectorEndInfo is the protojson-shaped ConnectorEndInfo message: one end
+// of a connector and the feature it connects, a chain's features in order.
+type JConnectorEndInfo struct {
+	EndId       string   `json:"endId,omitempty"`
+	Name        string   `json:"name,omitempty"`
+	Declared    string   `json:"declared,omitempty"`
+	FeatureId   string   `json:"featureId,omitempty"`
+	FeatureKind string   `json:"featureKind,omitempty"`
+	ChainIds    []string `json:"chainIds,omitempty"`
 }
 
 // JTypeInfo is the protojson-shaped static type message.
@@ -164,10 +176,11 @@ type JMultiplicityInfo struct {
 
 // JSpecialization is one protojson-shaped generalization relationship.
 type JSpecialization struct {
-	Kind       string `json:"kind,omitempty"`
-	Declared   string `json:"declared,omitempty"`
-	TargetId   string `json:"targetId,omitempty"`
-	TargetKind string `json:"targetKind,omitempty"`
+	Kind       string   `json:"kind,omitempty"`
+	Declared   string   `json:"declared,omitempty"`
+	TargetId   string   `json:"targetId,omitempty"`
+	TargetKind string   `json:"targetKind,omitempty"`
+	ChainIds   []string `json:"chainIds,omitempty"`
 }
 
 // JAttributeInfo is the protojson-shaped attribute facts message.

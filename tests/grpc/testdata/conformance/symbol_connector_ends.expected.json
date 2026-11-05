@@ -1,0 +1,22 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "InterfaceEnds::vehicle::fuelLine",
+	"expected_connector_ends": [
+		{
+			"end_id": "InterfaceEnds::vehicle::fuelLine::supplier",
+			"name": "supplier",
+			"declared": "powertrain.tank.fuelOut",
+			"feature_id": "InterfaceEnds::Tank::fuelOut",
+			"feature_kind": "portUsage",
+			"chain_ids": ["InterfaceEnds::vehicle::powertrain", "InterfaceEnds::Powertrain::tank", "InterfaceEnds::Tank::fuelOut"]
+		},
+		{
+			"end_id": "InterfaceEnds::vehicle::fuelLine::consumer",
+			"name": "consumer",
+			"declared": "powertrain.engine.fuelIn",
+			"feature_id": "InterfaceEnds::Engine::fuelIn",
+			"feature_kind": "portUsage",
+			"chain_ids": ["InterfaceEnds::vehicle::powertrain", "InterfaceEnds::Powertrain::engine", "InterfaceEnds::Engine::fuelIn"]
+		}
+	]
+}

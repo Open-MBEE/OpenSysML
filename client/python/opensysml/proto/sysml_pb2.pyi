@@ -1589,7 +1589,7 @@ class AppliedEdit(_message.Message):
     def __init__(self, operation_index: _Optional[int] = ..., target: _Optional[str] = ..., offset: _Optional[int] = ..., length: _Optional[int] = ..., old_text: _Optional[str] = ..., new_text: _Optional[str] = ..., document: _Optional[str] = ...) -> None: ...
 
 class SymbolInfo(_message.Message):
-    __slots__ = ("id", "name", "kind", "metadata", "child_ids", "attributes", "type_info", "multiplicity", "specializations", "withheld_library_attributes")
+    __slots__ = ("id", "name", "kind", "metadata", "child_ids", "attributes", "type_info", "multiplicity", "specializations", "withheld_library_attributes", "connector_ends")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -1607,6 +1607,7 @@ class SymbolInfo(_message.Message):
     MULTIPLICITY_FIELD_NUMBER: _ClassVar[int]
     SPECIALIZATIONS_FIELD_NUMBER: _ClassVar[int]
     WITHHELD_LIBRARY_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
+    CONNECTOR_ENDS_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     kind: str
@@ -1617,19 +1618,38 @@ class SymbolInfo(_message.Message):
     multiplicity: MultiplicityInfo
     specializations: _containers.RepeatedCompositeFieldContainer[Specialization]
     withheld_library_attributes: int
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., child_ids: _Optional[_Iterable[str]] = ..., attributes: _Optional[_Iterable[_Union[AttributeInfo, _Mapping]]] = ..., type_info: _Optional[_Union[TypeInfo, _Mapping]] = ..., multiplicity: _Optional[_Union[MultiplicityInfo, _Mapping]] = ..., specializations: _Optional[_Iterable[_Union[Specialization, _Mapping]]] = ..., withheld_library_attributes: _Optional[int] = ...) -> None: ...
+    connector_ends: _containers.RepeatedCompositeFieldContainer[ConnectorEndInfo]
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., child_ids: _Optional[_Iterable[str]] = ..., attributes: _Optional[_Iterable[_Union[AttributeInfo, _Mapping]]] = ..., type_info: _Optional[_Union[TypeInfo, _Mapping]] = ..., multiplicity: _Optional[_Union[MultiplicityInfo, _Mapping]] = ..., specializations: _Optional[_Iterable[_Union[Specialization, _Mapping]]] = ..., withheld_library_attributes: _Optional[int] = ..., connector_ends: _Optional[_Iterable[_Union[ConnectorEndInfo, _Mapping]]] = ...) -> None: ...
 
 class Specialization(_message.Message):
-    __slots__ = ("kind", "declared", "target_id", "target_kind")
+    __slots__ = ("kind", "declared", "target_id", "target_kind", "chain_ids")
     KIND_FIELD_NUMBER: _ClassVar[int]
     DECLARED_FIELD_NUMBER: _ClassVar[int]
     TARGET_ID_FIELD_NUMBER: _ClassVar[int]
     TARGET_KIND_FIELD_NUMBER: _ClassVar[int]
+    CHAIN_IDS_FIELD_NUMBER: _ClassVar[int]
     kind: str
     declared: str
     target_id: str
     target_kind: str
-    def __init__(self, kind: _Optional[str] = ..., declared: _Optional[str] = ..., target_id: _Optional[str] = ..., target_kind: _Optional[str] = ...) -> None: ...
+    chain_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, kind: _Optional[str] = ..., declared: _Optional[str] = ..., target_id: _Optional[str] = ..., target_kind: _Optional[str] = ..., chain_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class ConnectorEndInfo(_message.Message):
+    __slots__ = ("end_id", "name", "declared", "feature_id", "feature_kind", "chain_ids")
+    END_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DECLARED_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_ID_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_KIND_FIELD_NUMBER: _ClassVar[int]
+    CHAIN_IDS_FIELD_NUMBER: _ClassVar[int]
+    end_id: str
+    name: str
+    declared: str
+    feature_id: str
+    feature_kind: str
+    chain_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, end_id: _Optional[str] = ..., name: _Optional[str] = ..., declared: _Optional[str] = ..., feature_id: _Optional[str] = ..., feature_kind: _Optional[str] = ..., chain_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class TypeInfo(_message.Message):
     __slots__ = ("declared", "resolved_id", "resolved_kind", "primitive", "primitive_source", "quantity", "unit")
@@ -1728,12 +1748,16 @@ class Rational(_message.Message):
     def __init__(self, numerator: _Optional[str] = ..., denominator: _Optional[str] = ...) -> None: ...
 
 class Metaobject(_message.Message):
-    __slots__ = ("element_id", "metaclass_id")
+    __slots__ = ("element_id", "metaclass_id", "chaining_feature_ids", "owner_id")
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     METACLASS_ID_FIELD_NUMBER: _ClassVar[int]
+    CHAINING_FEATURE_IDS_FIELD_NUMBER: _ClassVar[int]
+    OWNER_ID_FIELD_NUMBER: _ClassVar[int]
     element_id: str
     metaclass_id: str
-    def __init__(self, element_id: _Optional[str] = ..., metaclass_id: _Optional[str] = ...) -> None: ...
+    chaining_feature_ids: _containers.RepeatedScalarFieldContainer[str]
+    owner_id: str
+    def __init__(self, element_id: _Optional[str] = ..., metaclass_id: _Optional[str] = ..., chaining_feature_ids: _Optional[_Iterable[str]] = ..., owner_id: _Optional[str] = ...) -> None: ...
 
 class Undetermined(_message.Message):
     __slots__ = ("reason", "count")

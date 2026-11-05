@@ -26,6 +26,7 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 		info.TypeInfo = nil
 		info.Multiplicity = nil
 		info.Specializations = nil
+		info.ConnectorEnds = nil
 	}
 	if !s.capabilities.has(CapabilitySymbolAttributes) {
 		info.Attributes = nil

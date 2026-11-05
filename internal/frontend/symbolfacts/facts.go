@@ -1,6 +1,7 @@
 package symbolfacts
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -65,6 +66,7 @@ type Info struct {
 	Specializations           []*Specialization
 	Attributes                []*Attribute
 	WithheldLibraryAttributes int32
+	ConnectorEnds             []*ConnectorEnd
 }
 
 // TypeInfo describes a symbol's declared, resolved and primitive type.
@@ -84,12 +86,28 @@ type Multiplicity struct {
 	Upper string
 }
 
-// Specialization describes a declared generalization relationship.
+// Specialization describes a declared generalization relationship. ChainIds
+// are the FQNs of the chain's features when the target is written as a feature
+// chain, TargetId then being the last of them.
 type Specialization struct {
 	Kind       string
 	Declared   string
 	TargetId   string
 	TargetKind string
+	ChainIds   []string
+}
+
+// ConnectorEnd is one end of a connector and the feature it connects, as the
+// end's ReferenceSubsetting references it (KerML 8.3.4.5.3): the feature named,
+// or for an end written as a feature chain, the chain whose features ChainIds
+// name in order, FeatureId being the last of them.
+type ConnectorEnd struct {
+	EndId       string
+	Name        string
+	Declared    string
+	FeatureId   string
+	FeatureKind string
+	ChainIds    []string
 }
 
 // Attribute contains a symbol's attribute declaration facts.
@@ -133,6 +151,8 @@ func Of(sym *symbols.Symbol, sc *Context) *Info {
 	// The attributes the element has, own and inherited, with their resolved
 	// types and constant default values.
 	info.Attributes, info.WithheldLibraryAttributes = sc.attributesOf(sym)
+	// The features a connector's ends connect, chains included.
+	info.ConnectorEnds = sc.connectorEndsOf(sym)
 	return info
 }
 
@@ -219,7 +239,123 @@ func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 		}
 		out = append(out, spec)
 	}
+	// A connector end references the feature it connects (SysML v2 8.2.2.13.1),
+	// whether written `::> x` or implied by `connect x to y`.
+	if end := sc.endReferenceOf(sym); end != nil {
+		out = append(out, &Specialization{
+			Kind: "references", Declared: end.Declared, TargetId: end.FeatureId, TargetKind: end.FeatureKind, ChainIds: end.ChainIds,
+		})
+	}
 	return out
+}
+
+// connectorEndsOf reports the ends a connector owns and the features they
+// connect, in end order; a flow, whose ends are its type's, reports the
+// features its `from`/`to` paths name instead. Nil for anything else.
+func (sc *Context) connectorEndsOf(sym *symbols.Symbol) []*ConnectorEnd {
+	m := sc.Semantics
+	if m == nil {
+		return nil
+	}
+	var out []*ConnectorEnd
+	for _, end := range m.EndFeatures(sym) {
+		if end.OwnerScope == nil || end.OwnerScope.OwningElement() != sym {
+			continue
+		}
+		info := &ConnectorEnd{EndId: sc.Index.GetFQN(end), Name: end.Name}
+		if decl, ok := end.Decl.(*ast.ConnectorEnd); ok {
+			info.Declared = writtenTarget(semantics.ImpliedEndReference(decl))
+		}
+		sc.connectedFeature(info, m.EndReferencedFeature(end))
+		out = append(out, info)
+	}
+	if len(out) > 0 {
+		return out
+	}
+	for _, path := range m.ConnectorEndPaths(sym) {
+		info := &ConnectorEnd{Name: path.Name}
+		sc.connectedPath(info, path.Features)
+		out = append(out, info)
+	}
+	return out
+}
+
+// endReferenceOf is the end's own entry of its connector's ends, or nil when
+// sym is no connector end.
+func (sc *Context) endReferenceOf(sym *symbols.Symbol) *ConnectorEnd {
+	if _, ok := sym.Decl.(*ast.ConnectorEnd); !ok || sym.OwnerScope == nil {
+		return nil
+	}
+	connector := sym.OwnerScope.OwningElement()
+	if connector == nil {
+		return nil
+	}
+	id := sc.Index.GetFQN(sym)
+	for _, end := range sc.connectorEndsOf(connector) {
+		if end.EndId == id {
+			return end
+		}
+	}
+	return nil
+}
+
+// connectedFeature fills in the feature an end references: the features of a
+// chain Feature in order, or the one feature named.
+func (sc *Context) connectedFeature(info *ConnectorEnd, feature *symbols.Symbol) {
+	if feature == nil {
+		return
+	}
+	if feature.Chain != nil {
+		sc.connectedPath(info, feature.Chain.Features)
+		return
+	}
+	info.FeatureId = sc.Index.GetFQN(feature)
+	info.FeatureKind = feature.Kind.String()
+}
+
+// connectedPath fills in a path of features: the last is the feature reached,
+// and a path of several is a chain.
+func (sc *Context) connectedPath(info *ConnectorEnd, path []*symbols.Symbol) {
+	if len(path) == 0 {
+		return
+	}
+	last := path[len(path)-1]
+	info.FeatureId = sc.Index.GetFQN(last)
+	info.FeatureKind = last.Kind.String()
+	if len(path) > 1 {
+		info.ChainIds = make([]string, len(path))
+		for i, feature := range path {
+			info.ChainIds[i] = sc.Index.GetFQN(feature)
+		}
+	}
+	if info.Declared == "" {
+		names := make([]string, len(path))
+		for i, feature := range path {
+			names[i] = feature.Name
+		}
+		info.Declared = strings.Join(names, ".")
+	}
+}
+
+// writtenTarget is a connector end's target as written: a qualified name, its
+// chained segments after `.`, or the empty string for anything else.
+func writtenTarget(target ast.Node) string {
+	qn := ast.AsQualifiedName(target)
+	if qn == nil {
+		return ""
+	}
+	var b strings.Builder
+	for i, part := range qn.Parts {
+		if i > 0 {
+			if part.Chained {
+				b.WriteByte('.')
+			} else {
+				b.WriteString("::")
+			}
+		}
+		b.WriteString(part.Text)
+	}
+	return b.String()
 }
 
 // resolveFrom resolves a qualified name written in sym's declaration,

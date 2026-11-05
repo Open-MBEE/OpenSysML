@@ -79,7 +79,8 @@ func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
 	}
 	// A chain that resolves to nothing denotes no feature: the relationship's
 	// target side stays underived, as it does for an unresolved name.
-	if len(m.chainPath(owner, rel.Implicit.Kind, node, facts)) == 0 {
+	path := m.chainPath(owner, rel.Implicit.Kind, node, facts)
+	if len(path) == 0 {
 		return nil
 	}
 	scope := owner.Scope
@@ -95,7 +96,7 @@ func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
 		DeclSpan:   rel.DeclSpan,
 		Visibility: ast.VisibilityDefault,
 		OwnerScope: scope,
-		Chain:      &symbols.ChainingFeature{Relationship: rel, Node: node},
+		Chain:      &symbols.ChainingFeature{Relationship: rel, Node: node, Features: path},
 	}
 	if node != nil {
 		feature.Decl = node

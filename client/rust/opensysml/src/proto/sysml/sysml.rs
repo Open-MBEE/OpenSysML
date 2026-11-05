@@ -2322,6 +2322,10 @@ pub struct SymbolInfo {
     /// leaves out. Their absence is stated here rather than silent.
     #[prost(int32, tag="10")]
     pub withheld_library_attributes: i32,
+    /// The ends of a connector and the features they connect, in end order;
+    /// empty for an element that is no connector.
+    #[prost(message, repeated, tag="11")]
+    pub connector_ends: ::prost::alloc::vec::Vec<ConnectorEndInfo>,
 }
 /// Specialization is one generalization edge an element declares.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2338,6 +2342,37 @@ pub struct Specialization {
     /// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
     #[prost(string, tag="4")]
     pub target_kind: ::prost::alloc::string::String,
+    /// For a target written as a feature chain ("powertrain.tank.fuelOut"), the
+    /// FQN of each feature of the chain in order, so the reference is resolvable
+    /// link by link; target_id is then the last of them. Empty for a plain name.
+    #[prost(string, repeated, tag="5")]
+    pub chain_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// ConnectorEndInfo is one end of a connector (a connection, interface, binding,
+/// allocation, succession or flow usage, a KerML connector) and the feature it
+/// connects, as the end's ReferenceSubsetting references it (KerML 8.3.4.5.3).
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConnectorEndInfo {
+    /// FQN of the end feature itself; resolvable through GetSymbol.
+    #[prost(string, tag="1")]
+    pub end_id: ::prost::alloc::string::String,
+    /// The end's effective name ("supplier", "source"); empty when it has none.
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    /// The connected feature as written ("powertrain.tank.fuelOut").
+    #[prost(string, tag="3")]
+    pub declared: ::prost::alloc::string::String,
+    /// FQN of the feature the end's reference reaches: the feature named, or the
+    /// last feature of a chain; empty when unresolved.
+    #[prost(string, tag="4")]
+    pub feature_id: ::prost::alloc::string::String,
+    /// Symbol kind of that feature ("portUsage", ...); empty when unresolved.
+    #[prost(string, tag="5")]
+    pub feature_kind: ::prost::alloc::string::String,
+    /// For an end written as a feature chain, the FQN of each feature of the
+    /// chain in order (the chain Feature's chainingFeature); empty for a plain name.
+    #[prost(string, repeated, tag="6")]
+    pub chain_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// TypeInfo is the static type of a usage, or the classification of a
 /// definition, as far as the service derives it without running the model.
@@ -2500,6 +2535,19 @@ pub struct Metaobject {
     /// the value is rejected.
     #[prost(string, tag="2")]
     pub metaclass_id: ::prost::alloc::string::String,
+    /// For the anonymous Feature a feature chain denotes as a whole (what a
+    /// chained connector end's `ownedReferenceSubsetting.referencedFeature` and a
+    /// connector's `relatedFeature` are; KerML 8.3.3.3.9), the FQN of each of its
+    /// `chainingFeature` in order. element_id is then the chain in qualified form
+    /// ("Vehicle::powertrain.Powertrain::tank.Tank::fuelOut"), which names no
+    /// declaration of its own. Empty for a named element.
+    #[prost(string, repeated, tag="3")]
+    pub chaining_feature_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// FQN of the element owning the anonymous chain Feature: the connector end
+    /// (or other feature) whose relationship references it. A client sends it back
+    /// with element_id to name the chain Feature; empty for a named element.
+    #[prost(string, tag="4")]
+    pub owner_id: ::prost::alloc::string::String,
 }
 /// Undetermined is the model-level result of an expression the model does not
 /// decide: it reads a feature no value is given (`attribute u;`) or counts a

@@ -562,6 +562,8 @@ are always projectable:
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |
 | `satisfiedRequirement` | The requirement a satisfy usage names, or the usage itself when it declares the requirement |
 | `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at |
+| `relatedFeature`, `sourceFeature`, `targetFeature` | A connector's related features (KerML `Connector::relatedFeature`, its first one and the rest): the features its ends reference, a chained end's (`connect a.p to b.q`) as the chain's features joined by `.` |
+| `referencedFeature` | The feature a connector end connects, written the same way |
 | `valuation` | What the row's own feature value binds (KerML `Feature::valuation`): the value an attribute or other usage is declared with (`attribute mass : MassValue = 5 [kg]`), the one a redefinition binds (`attribute :>> open = 7.5`), or an expression's result evaluated as [derived values](#derived-values) are; a quantity keeps its unit and an enumeration literal or other named element is held as `general` holds one. Absent on a usage bound to nothing and on a row that is not a feature |
 
 For example, the model's `satisfy massRequirement by telescope;` reports

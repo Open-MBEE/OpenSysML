@@ -9,6 +9,7 @@ from opensysml.capabilities import (
 )
 from opensysml.typefacts import (
     AttributeFacts,
+    ConnectorEnd,
     Multiplicity,
     Specialization,
     SymbolFacts,
@@ -125,8 +126,21 @@ class Symbol:
 
     @property
     def specializations(self) -> List[Specialization]:
-        """Return all generalization edges declared on this symbol."""
+        """Return all generalization edges declared on this symbol.
+
+        A connector end's ``references`` edge names the feature it connects;
+        for an end written as a feature chain its :attr:`Specialization.chain_ids`
+        name every feature of the chain.
+        """
         return [Specialization.from_pb(spec) for spec in self._pb.specializations]
+
+    @property
+    def connector_ends(self) -> List[ConnectorEnd]:
+        """Return the ends of a connector and the features they connect, in end
+        order: ``Connector::relatedFeature`` end by end, a chained end's as the
+        features of its chain. Empty for an element that is no connector.
+        """
+        return [ConnectorEnd.from_pb(end) for end in self._pb.connector_ends]
 
     @property
     def withheld_library_attributes(self) -> int:
