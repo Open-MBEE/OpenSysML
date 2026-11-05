@@ -21,10 +21,12 @@ import (
 // send-before-accept (Transfers.kerml) order moves, and only what no such
 // HappensBefore (Occurrences.kerml) orders stands open.
 //
-// A set of choice points is a sorted, duplicate-free []int64 that is never
-// written once shared: unionSerials hands back an operand that already is the
-// union, so a value computed from one marked read stands on its source's set
-// itself, and a capture's clone shares every set with the run it copies.
+// A set of choice points is a sorted, duplicate-free []int64 whose elements are
+// never written once shared: unionSerials hands back an operand that already is
+// the union, so a value computed from one marked read stands on its source's set
+// itself, and a capture's clone shares every set with the run it copies. A set
+// grows by one serial in place where it is the longest set of its array
+// (appendSerial), which the shorter sets of that array never read.
 
 // choiceSerials numbers the choice points a process classifies, so a mark names
 // a choice independently of where the run's notes keep it.
@@ -225,6 +227,9 @@ func unionSerials(a, b []int64) []int64 {
 		return b
 	}
 	if a[len(a)-1] < b[0] {
+		if len(b) == 1 {
+			return appendSerial(a, b[0])
+		}
 		return concatSerials(a, b)
 	}
 	if b[len(b)-1] < a[0] {
@@ -276,6 +281,25 @@ func concatSerials(a, b []int64) []int64 {
 	out := make([]int64, 0, len(a)+len(b))
 	out = append(out, a...)
 	return append(out, b...)
+}
+
+// appendSerial is the set with one serial above every one of its own joined.
+// The array behind a set keeps the room past its longest set zero (no serial is
+// 0), so where a is that longest set it takes the next slot in place, by one
+// atomic claim since another set may be the same slice (a capture restored
+// alongside), and every shorter set of the array still reads its own prefix;
+// where the slot is taken, a fresh array with room for what joins next.
+func appendSerial(a []int64, s int64) []int64 {
+	if n := len(a); n < cap(a) {
+		grown := a[:n+1]
+		if atomic.CompareAndSwapInt64(&grown[n], 0, s) {
+			return grown
+		}
+	}
+	out := make([]int64, len(a)+1, 2*len(a)+2)
+	copy(out, a)
+	out[len(a)] = s
+	return out
 }
 
 // sameSerials reports whether two sets are one set: the same serials in the
