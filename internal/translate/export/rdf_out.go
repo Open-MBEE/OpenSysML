@@ -1596,7 +1596,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		head(rdf.SysMLTerm(metaclass))
 		e.ident(subject, n.Ident)
-		if err := e.declaredKeyword(subject, n, n.Keyword, definitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
+		if err := e.declaredKeyword(subject, n, n.Keyword, metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
 			return err
 		}
 		e.flags(subject, []boolProperty{
@@ -1736,7 +1736,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			// from its owner; writing that kind's keyword back would declare more.
 			e.graph.Add(subject, e.sysx(xImplicitKind), rdf.Bool(true))
 		default:
-			if err := e.declaredKeyword(subject, n, n.Keyword, usageKeyword(n.Kind), n.Ident.Name, referencesFeature(n)); err != nil {
+			if err := e.declaredKeyword(subject, n, n.Keyword, metaclassUsageKeyword(n.Kind), n.Ident.Name, referencesFeature(n)); err != nil {
 				return err
 			}
 		}

@@ -17,7 +17,7 @@ var definitionMetaclass = map[ast.DefinitionKind]string{
 	ast.DefAttribute:        "AttributeDefinition",
 	ast.DefItem:             "ItemDefinition",
 	ast.DefOccurrence:       "OccurrenceDefinition",
-	ast.DefIndividual:       "IndividualDefinition",
+	ast.DefIndividual:       "OccurrenceDefinition",
 	ast.DefMetaclass:        "Metaclass",
 	ast.DefMetadata:         "MetadataDefinition",
 	ast.DefEnumeration:      "EnumerationDefinition",
@@ -54,7 +54,7 @@ var usageMetaclass = map[ast.UsageKind]string{
 	ast.UsageAttribute:     "AttributeUsage",
 	ast.UsageItem:          "ItemUsage",
 	ast.UsageOccurrence:    "OccurrenceUsage",
-	ast.UsageIndividual:    "IndividualUsage",
+	ast.UsageIndividual:    "OccurrenceUsage",
 	ast.UsageMetadata:      "MetadataUsage",
 	ast.UsageEnumeration:   "EnumerationUsage",
 	ast.UsageView:          "ViewUsage",
@@ -353,6 +353,23 @@ func definitionKeyword(kind ast.DefinitionKind) string {
 	return kind.String()
 }
 
+// metaclassDefinitionKeyword is the keyword the decoder writes for kind's metaclass:
+// `individual def` is an OccurrenceDefinition, so its own keyword is a written one.
+func metaclassDefinitionKeyword(kind ast.DefinitionKind) string {
+	if kind == ast.DefIndividual {
+		return definitionKeyword(ast.DefOccurrence)
+	}
+	return definitionKeyword(kind)
+}
+
+// metaclassUsageKeyword is metaclassDefinitionKeyword for a usage kind.
+func metaclassUsageKeyword(kind ast.UsageKind) string {
+	if kind == ast.UsageIndividual {
+		return usageKeyword(ast.UsageOccurrence)
+	}
+	return usageKeyword(kind)
+}
+
 func usageKeyword(kind ast.UsageKind) string {
 	switch kind {
 	case ast.UsageAnalysisCase:
@@ -470,15 +487,31 @@ var (
 )
 
 func init() {
+	// `individual` is an OccurrenceDefinition/OccurrenceUsage with isIndividual (SysML.xtext
+	// IndividualDefinition, IndividualUsage); the metaclass reads back as the occurrence kind.
 	for kind, name := range definitionMetaclass {
-		metaclassDefinition[name] = kind
+		if kind != ast.DefIndividual {
+			metaclassDefinition[name] = kind
+		}
 	}
 	for kind, name := range usageMetaclass {
-		metaclassUsage[name] = kind
+		if kind != ast.UsageIndividual {
+			metaclassUsage[name] = kind
+		}
 	}
 	for name, kind := range metaclassKeywordUsage {
 		metaclassUsage[name] = kind
 	}
+	// Turtle this conversion wrote before it typed them so.
+	metaclassDefinition["IndividualDefinition"] = ast.DefIndividual
+	metaclassUsage["IndividualUsage"] = ast.UsageIndividual
+}
+
+// legacyMetaclasses maps the metaclass names earlier releases wrote for an `individual`
+// to the standard ones; a graph typed so is read as the standard metaclass with isIndividual.
+var legacyMetaclasses = map[string]string{
+	"IndividualDefinition": "OccurrenceDefinition",
+	"IndividualUsage":      "OccurrenceUsage",
 }
 
 // relationshipOrder is the canonical order of a head's relationships, in the
