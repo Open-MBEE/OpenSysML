@@ -699,9 +699,9 @@ jobs:
                 go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
                 ;;
               *)
-                # tests/migrate ran 23-32 minutes under -race on this class and tests/model about
-                # 30: those shards get the Makefile's timeout (make test-shard).
-                timeout=30m; case "$shard" in migrate|graph) timeout=55m ;; esac
+                # tests/migrate ran 23-32 minutes under -race on this class, tests/model about 30 and
+                # tests/corpus 30 by seconds either way: those shards get the Makefile's timeout (make test-shard).
+                timeout=30m; case "$shard" in migrate|graph|model) timeout=55m ;; esac
                 go test -json -race -pgo=off -timeout "$timeout" $pkgs | stream
                 ;;
             esac
