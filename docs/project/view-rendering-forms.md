@@ -775,7 +775,7 @@ compartments and labels of the clause still lack.
 | `perform-edge` | `perform` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«perform»`, from the performing usage to the action. |
 | `exhibit-edge` | `exhibit` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `dashed=1;endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«exhibit»`, from the exhibiting usage to the state. |
 | `association` (actor or subject line, connection definition) | `association` | `dir=none` | `--` | `---` | `-- edge` | `endArrow=none` | `none` | conformant | Plain undirected line. |
-| objective anchor | `anchor` | `dir=none, style=dashed` | `..` | `-.-` | `-> edge` | `dashed=1;endArrow=none` | `none` | conformant | Dashed line without a head, the note's anchor. |
+| `annotation-link` (and the objective anchor) | `anchor` | `dir=none, style=dashed` | `..` | `-.-` | `-> edge` | `dashed=1;endArrow=none` | `none` | conformant | Dashed line without a head (§8.2.3.4 `annotation-link`), from a comment, doc or rep node to each element it annotates, and the anchor of a `DiagramLayout::Note` or a case objective. |
 | `succession-flow` | `succession flow` | `style=dashed` | `-[dashed]->` | `-.->` | `-> successionflow` | `dashed=1;endArrow=block;endFill=1` | `end arrow` | differs from pilot | Dashed with a filled head and `«succession flow»` as its text, between the ends of a `succession flow` in action and interconnection renderings; the succession it also states is not drawn twice, except for the guard of a succession that gates it, and the keyword stays when connector names are hidden. The Pilot writes `..>`, an open head. |
 | `require-edge`, `assume-edge`, `assert-edge` | `require`, `assume`, `assert` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | conformant | Solid open arrow labelled `«require»`, `«assume»` or `«assert»`, from the requirer, assumer or assertor to the constraint or requirement it declares (`require constraint c { … }`) or names (`require r1;`), in the requirement and definition graphs and the mixed rendering; a tree nests the declared forms in their owner, and a mixed rendering nests them and draws this edge from the owner to the nested node, as it draws every nested membership. |
 | `frame-edge` | `frame` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `endArrow=open` | `end arrow-open` | differs from pilot | Solid open arrow labelled `«frame»`, from the framer to the concern it declares or names, as above. The Pilot has no rule of its own and writes a feature membership's `*--`. |
@@ -894,6 +894,37 @@ a `DiagramLayout::Note` is drawn beside the member it is about ([the annotations
 Forms that draw no style write a notice (`%% not represented: style cameo; only the DOT and
 Mermaid forms draw a diagram in a style`). Unsupported Style fields and unrepresentable Notes
 are counted in notices rather than dropped silently.
+
+### Annotation nodes and the view frame
+
+A tree, definition, package or requirement rendering draws the comments, documentation and
+textual representations of its members as the figures of SysML v2.1 §8.2.3.4 do
+(`annotation.go` `annotationNode`, `tree.go` `annotationChildren`, `general.go`): a note — a box
+with a folded corner (`shape=note`, PlantUML `note`, Mermaid `notch-rect`, D2 `page`, draw.io
+`shape=note`) — headed `«comment»` with the comment's name when it has one, `«doc»` with the
+documentation's name, or `«rep»` with the representation's name, the `locale` and `language` in
+smaller text, the body below. A dashed `anchor` edge joins the note to every element it is `about`,
+or to its owner when it names none (`tree_edges.go` `annotationLinks`). A positioned or folded
+node lists its documentation in a `doc` compartment instead (`compartments.go`
+`annotationRowText`). A view's `filter` admits or rejects annotations as it does any member, and
+the optional element `annotations` (`showAnnotations`) leaves them all out, the layout Notes
+anchored to them included. The text form writes them as `comment`, `doc` and `rep` lines.
+
+Every rendering of a view is drawn inside the §8.2.3.26 view frame (`frame.go` `frameOf`,
+`Rendering.Frame`): the frame rectangle, the name compartment at its top-left corner —
+`«view»` over the view's name, `: ViewDef` after it when the view is typed — and three
+information compartments: the view's `expose` lines at the top-right, its `filter` conditions at
+the bottom-left, its comments and documentation at the bottom-right; an empty compartment is
+left out. DOT draws it as `subgraph cluster_frame` with the name as the cluster label and the
+three compartments as `frame_tr`, `frame_bl` and `frame_br` nodes ranked to the top and bottom
+(`dot.go` `openFrame`, `writeFrameCompartments`), draw.io as a `shape=umlFrame` with text cells
+at the corners (`drawio.go` `writeFrame`), the VS Code canvas as the frame rectangle, its tab and
+its corner texts (`canvas.ts` `drawFrame`). PlantUML writes the frame as its `mainframe`, whose
+tab holds the name and, having no corner compartments, the information lines below it
+(`plantuml.go` `writeMainframe`); Mermaid, which draws no frame, writes the name line as the
+frontmatter `title`; D2 writes the name and the compartments as `text` shapes `near` the four
+corners (`d2.go` `writeFrame`). The Cameo style keeps Cameo's own frame and header tab. A stated
+`Canvas` sets the frame's bounds as before.
 
 By default the DOT form is drawn in the **Standard B&W style** of the OMG SysML v2 Pilot Implementation's
 PlantUML visualizer, after the `sysmlbw` PlantUML skin by Hisashi Miyashita (Mgnite Inc.) shipped
@@ -1639,6 +1670,7 @@ attribute a rendering in the model chooses it by:
 | `parameter-symbols` | `showParameterSymbols` | A case's `actor`, `subject` and `stakeholder` parameters as squares on the node's boundary (an action's parameter pins are its node form's, always drawn). Without them a connection that ended at a parameter ends at the node that declares it: one line per connection, one node per actor. A tree lists a case's parameters as members and a calc's, action's or constraint's as pins of their owner, all of which stay. | §7.26.5; §8.2.3 `distinguished-parameter`, `distinguished-parameter-link` |
 | `port-symbols` | `showPortSymbols` | A part's ports, and a constraint's parameters, as pins on its boundary. Without them a connection that ended at a port ends at the part, a binding that ended at a parameter at the constraint; a port drawn as a nested member of a tree is model structure and stays, as are a tree's parameter pins. Default. | §7.26.5; §8.2.3 `port-node` |
 | `compartments` | `showCompartments` | The lists of nested features inside a node. Default. | §7.26.5; §8.2.3 `compartment` |
+| `annotations` | `showAnnotations` | The comment, documentation and textual representation nodes beside the elements they annotate, each joined to them by a dashed annotation link, and the `doc` compartment of a positioned node. Default, as the notation's figures draw them. | §7.3.3; §8.2.3.4 `annotation-node`, `annotation-link`, `documentation-compartment` |
 | `edge-labels` | `showEdgeLabels` | The names of connections, flows, bindings and allocations along their lines. Without them no label box is left. A sequence diagram's message lines keep their labels: the label is the message. | §8.2.3 `edge-label` |
 | `keywords` | `showKeywords` | The `«keyword»` over each name (`«part def»`, `«part»`, `«enum def»`, …), as the notation's examples, the pilot and SysON draw every node. Default. | §8.2.3 `keyword-list` |
 | `multiplicities` | `showMultiplicities` | A feature's `[m..n]` after its name and at a composition's part end. | §8.2.3 `multiplicity` |

@@ -612,7 +612,7 @@ style, once, and completes beside them.
 
 A word `show=<elements>`, on `%render` and `%viz` alike, names the notation elements the SysML v2 notation makes optional that the
 rendering draws besides the ones its view's rendering shows, comma-separated: `parameter-symbols`,
-`port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`,
+`port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, `annotations`,
 or `all` (`%render Lab::useCases dot show=parameter-symbols,edge-labels`); port symbols and
 compartments are drawn without it, as are an action's or calculation's parameter pins. It is accepted once, in any order with the other words, with or
 without a form before it (`%render Lab::useCases show=edge-labels` draws the text form), and a

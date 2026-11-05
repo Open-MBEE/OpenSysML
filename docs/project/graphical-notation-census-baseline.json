@@ -9,9 +9,9 @@
     "statements": 620,
     "partialStatements": 97,
     "productions": 523,
-    "drawn": 262,
-    "approximate": 42,
-    "undrawn": 47,
+    "drawn": 275,
+    "approximate": 38,
+    "undrawn": 38,
     "notApplicable": 172
   },
   "categories": {
@@ -58,9 +58,9 @@
       "title": "Annotations Graphical Notation",
       "statements": 12,
       "productions": 11,
-      "drawn": 0,
-      "approximate": 1,
-      "undrawn": 6,
+      "drawn": 7,
+      "approximate": 0,
+      "undrawn": 0,
       "notApplicable": 4
     },
     {
@@ -278,9 +278,9 @@
       "title": "Views and Viewpoints Graphical Notation",
       "statements": 38,
       "productions": 34,
-      "drawn": 13,
-      "approximate": 4,
-      "undrawn": 5,
+      "drawn": 19,
+      "approximate": 1,
+      "undrawn": 2,
       "notApplicable": 12
     },
     {
@@ -373,58 +373,10 @@
     },
     {
       "clause": "8.2.3.4",
-      "name": "annotation-link",
-      "category": "edge",
-      "verdict": "approximate",
-      "package": "A",
-      "reason": "only the anchor of a DiagramLayout::Note or a case objective is drawn (EdgeAnchor); comments are filtered out"
-    },
-    {
-      "clause": "8.2.3.4",
       "name": "annotation-node",
       "category": "node",
       "verdict": "not-applicable",
       "reason": "a list of alternatives; adjudicated through the alternatives it names"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "comment-node",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "comment-with-keyword",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "comment-without-keyword",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "documentation-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "documentation-node",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
     },
     {
       "clause": "8.2.3.4",
@@ -439,14 +391,6 @@
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "textual-representation-node",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
     },
     {
       "clause": "8.2.3.5",
@@ -2081,14 +2025,6 @@
     },
     {
       "clause": "8.2.3.26",
-      "name": "framed-view",
-      "category": "view",
-      "verdict": "approximate",
-      "package": "A",
-      "reason": "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame"
-    },
-    {
-      "clause": "8.2.3.26",
       "name": "frameless-view",
       "category": "view",
       "verdict": "not-applicable",
@@ -2111,50 +2047,10 @@
     },
     {
       "clause": "8.2.3.26",
-      "name": "root-view",
-      "category": "view",
-      "verdict": "approximate",
-      "package": "A",
-      "reason": "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame"
-    },
-    {
-      "clause": "8.2.3.26",
-      "name": "view-frame-info-compartment-bl",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "no form draws the frame's info compartments"
-    },
-    {
-      "clause": "8.2.3.26",
-      "name": "view-frame-info-compartment-br",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "no form draws the frame's info compartments"
-    },
-    {
-      "clause": "8.2.3.26",
-      "name": "view-frame-info-compartment-tr",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "no form draws the frame's info compartments"
-    },
-    {
-      "clause": "8.2.3.26",
       "name": "view-frame-info-contents",
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.26",
-      "name": "view-frame-name-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "A",
-      "reason": "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame; its header reads the view's name without the «view» keyword"
     },
     {
       "clause": "8.2.3.26",

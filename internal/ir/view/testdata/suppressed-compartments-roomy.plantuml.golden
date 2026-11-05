@@ -2,6 +2,7 @@
 ' CameraViews::roomy — tree rendering (render asTreeDiagram)
 ' not represented: 9 node(s) without a position: 7 drawn as compartment rows of the node above them, 2 in compartments its Layout hides left undrawn
 ' not represented: 1 positioned node(s) and 0 route(s) kept as comments; PlantUML pins no position, the dot form does
+mainframe <size:10>//«view»//</size> **CameraViews::roomy**\n<size:10>expose Camera::Imaging</size>
 <style>
 root {
   BackGroundColor white

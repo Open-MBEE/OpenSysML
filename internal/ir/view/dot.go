@@ -116,12 +116,12 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	fmt.Fprintf(b, "  edge [%s];\n", strings.Join(w.skin.edgeDefaults(), ", "))
 	w.writeCanvas()
 	if r.Empty() && len(w.notes) == 0 {
-		fmt.Fprintf(b, "  \"empty\" [shape=plaintext, label=%s];\n", dotQuote(r.EmptyReason()))
-		b.WriteString("}\n")
+		w.writeEmpty(r, edges)
 		return b.String(), nil
 	}
 	depth := 1
-	if w.skin.cameo {
+	framed := w.skin.cameo || r.Frame != nil
+	if framed {
 		w.openFrame(r, edges)
 		depth = 2
 	}
@@ -133,7 +133,8 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	}
 	w.writeNotes(over, depth, false)
 	w.writePictures(depth, true)
-	if w.skin.cameo {
+	if framed {
+		w.writeFrameCompartments(r, edges)
 		b.WriteString("  }\n")
 	}
 	for _, edge := range edges {
@@ -142,6 +143,23 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	w.writeAnchors(w.notes, edges)
 	b.WriteString("}\n")
 	return b.String(), nil
+}
+
+// writeEmpty writes the placeholder of a rendering with nothing to draw, inside
+// the view frame when the view has one; the Cameo style stays frameless here.
+func (w *dotWriter) writeEmpty(r *Rendering, edges []Edge) {
+	framed := r.Frame != nil && !w.skin.cameo
+	indent := "  "
+	if framed {
+		w.openFrame(r, edges)
+		w.writeFrameCompartments(r, edges)
+		indent = "    "
+	}
+	fmt.Fprintf(&w.b, "%s\"empty\" [shape=plaintext, label=%s];\n", indent, dotQuote(r.EmptyReason()))
+	if framed {
+		w.b.WriteString("  }\n")
+	}
+	w.b.WriteString("}\n")
 }
 
 // settleEdges places what the drawing leaves unplaced and settles which edges
@@ -211,8 +229,15 @@ func (w *dotWriter) writeHeader(r *Rendering) {
 // is sized, else round everything placed.
 func (w *dotWriter) openFrame(r *Rendering, edges []Edge) {
 	fmt.Fprintf(&w.b, "  subgraph %s {\n", dotQuote(dotFrameCluster))
-	fmt.Fprintf(&w.b, "    label=<%s>;\n", w.frameHeader(r))
-	for _, attr := range []string{"labeljust=l", dotLabelTop, dotFontSizeAttr(cameoFontSize), dotColorAttr(cameoFrameColor), dotPenWidthOne, "margin=" + formatCoord(dotFrameMargin)} {
+	attrs := []string{"labeljust=l", dotLabelTop}
+	if w.skin.cameo {
+		fmt.Fprintf(&w.b, "    label=<%s>;\n", w.frameHeader(r))
+		attrs = append(attrs, dotFontSizeAttr(cameoFontSize), dotColorAttr(cameoFrameColor), dotPenWidthOne)
+	} else {
+		fmt.Fprintf(&w.b, "    label=<%s>;\n", w.viewFrameName(r.Frame))
+		attrs = append(attrs, "penwidth=0.5")
+	}
+	for _, attr := range append(attrs, "margin="+formatCoord(dotFrameMargin)) {
 		fmt.Fprintf(&w.b, "    %s;\n", attr)
 	}
 	if w.placement.positioned() {
@@ -232,6 +257,64 @@ const (
 	dotFrameMargin  = 8
 	dotFrameHeader  = 20
 )
+
+// viewFrameName is the view frame's name compartment (§8.2.3.26) as HTML-like
+// label content: `«view»` at the keyword size, the view's name in bold and its
+// view definition after the colon. A rendering of exposed elements alone, with
+// no view, is headed by nothing.
+func (w *dotWriter) viewFrameName(frame *Frame) string {
+	if frame == nil {
+		return ""
+	}
+	name := w.labels.sized(w.labels.size(), w.labels.keywordSize(), w.labels.keywordText("«view»")) + " <b>" + dotEscape(DisplayText(frame.Name)) + "</b>"
+	if frame.Type != "" {
+		name += " : " + dotEscape(DisplayText(frame.Type))
+	}
+	return name
+}
+
+// writeFrameCompartments writes the frame's info compartments (§8.2.3.26,
+// view-frame-info-compartment-tr/bl/br) as borderless text nodes inside the
+// frame: the exposes at the top right, the filters at the bottom left, the
+// view's annotations at the bottom right. A positioned drawing pins each at its
+// corner; an unpositioned one ranks the top compartment first and the bottom
+// ones last, Graphviz choosing where along the rank they sit.
+func (w *dotWriter) writeFrameCompartments(r *Rendering, edges []Edge) {
+	if r.Frame == nil || w.skin.cameo {
+		return
+	}
+	var box nodeBox
+	if w.placement.positioned() {
+		box = w.extent(edges)
+	}
+	for _, c := range r.Frame.Compartments() {
+		id := dotFrameCompartmentID(c.Corner)
+		attrs := []string{"shape=none", dotMarginZero, dotLabelAttribute("<" + w.labels.sized(w.labels.size(), w.labels.keywordSize(), dotEscape(strings.Join(c.Lines, "\n"))) + ">")}
+		if w.placement.positioned() {
+			width, height := w.labels.dotTextBox(c.Lines)
+			corner := Point{X: box.high.X - width/2, Y: box.low.Y + height/2}
+			if c.Corner != FrameTopRight {
+				corner.Y = box.high.Y - height/2
+			}
+			if c.Corner == FrameBottomLeft {
+				corner.X = box.low.X + width/2
+			}
+			attrs = append(attrs, w.dotPin(corner), dotWidthAttr(width), dotHeightAttr(height))
+		}
+		if w.placement.positioned() {
+			fmt.Fprintf(&w.b, "    %s [%s];\n", dotQuote(id), strings.Join(attrs, ", "))
+			continue
+		}
+		rank := "max"
+		if c.Corner == FrameTopRight {
+			rank = "min"
+		}
+		fmt.Fprintf(&w.b, "    { rank=%s; %s [%s]; }\n", rank, dotQuote(id), strings.Join(attrs, ", "))
+	}
+}
+
+// dotFrameCompartmentID is the node ID of a frame info compartment by its corner.
+func dotFrameCompartmentID(corner string) string { return "frame_" + corner }
 
 // frameHeader is the Cameo frame's header text as HTML-like label content:
 // the diagram kind in bold, the first drawn root's type in brackets and its
@@ -1254,6 +1337,22 @@ func (w *dotWriter) writeEdge(edge Edge, attrs []string) {
 	fmt.Fprintf(&w.b, "  %s -> %s [%s];\n", from, to, strings.Join(attrs, ", "))
 }
 
+// dotAnnotationAttributes draws an annotation node (§8.2.3.4) as the note
+// shape: its keyword over its name in bold, then its locale or language and
+// its body in plain type; an unnamed comment is its text alone. A stated box
+// pins and sizes it as it does any node.
+func (w *dotWriter) dotAnnotationAttributes(node *Node) []string {
+	attrs := []string{"shape=note"}
+	if w.skin.cameo {
+		attrs = append(attrs, dotFillAttr(cameoNoteFill), dotColorAttr(cameoLineColor))
+	}
+	attrs = append(attrs, w.fillAttributes(node)...)
+	if node.Geometry != nil && node.Geometry.HasSize {
+		return append(attrs, w.dotStatedLabel(node)...)
+	}
+	return append(attrs, w.labels.dotAnnotationLabel(node))
+}
+
 // dotNodeAttributes is a plain node's attribute list: the shape and style its
 // Kind chooses, its family colours under a palette, its label, then its
 // position and size when a box places it.
@@ -1274,6 +1373,8 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		attrs = w.dotTerminateAttributes(node)
 	case w.pinned(node):
 		attrs = w.dotPinnedAttributes(node, w.labels.dotLabel(node))
+	case annotationKind(node.Kind):
+		attrs = w.dotAnnotationAttributes(node)
 	default:
 		if (w.kind == KindCase || w.kind == KindMixed) && caseNodeKind(node.Kind) {
 			attrs = append(attrs, "shape=ellipse")
@@ -2685,6 +2786,24 @@ func (l labeller) dotLabel(node *Node) string {
 		parts.compartments = append(parts.compartments, fitted)
 	}
 	return dotLabelAttribute(l.assemble(parts))
+}
+
+// dotAnnotationLabel is an annotation node's label: the keyword line at its
+// size, the name in bold when there is one, and the remaining lines plain.
+func (l labeller) dotAnnotationLabel(node *Node) string {
+	var lines []string
+	if keyword := l.keyword(node); keyword != "" {
+		lines = append(lines, l.sized(l.sizeOf(node), l.keywordSize(), l.keywordText(dotEscape(keyword))))
+	}
+	head := dotEscape(l.head(node))
+	if shown(node) != "" {
+		head = "<b>" + head + "</b>"
+	}
+	lines = append(lines, head)
+	for _, line := range l.details(node) {
+		lines = append(lines, dotEscape(line))
+	}
+	return dotLabelAttribute("<" + strings.Join(lines, "<br/>") + ">")
 }
 
 // dotFramedLabel is the cluster label of the root a Cameo frame's header names:

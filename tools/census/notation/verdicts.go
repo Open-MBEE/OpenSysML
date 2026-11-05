@@ -74,14 +74,15 @@ type Adjudication struct {
 }
 
 var (
-	goldenForms  = []string{FormDOT, FormPlantUML, FormMermaid, FormText}
-	controlForms = []string{FormDOT, FormMermaid, FormDrawio, FormCanvas}
-	edgeForms    = []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormCanvas}
-	pinForms     = []string{FormDOT, FormCanvas}
-	seqForms     = []string{FormPlantUML, FormMermaid, FormD2, FormText, FormCanvas}
-	proxyForms   = []string{FormCanvas, FormText}
-	seqPortForms = []string{FormCanvas, FormText, FormD2}
-	dotForms     = []string{FormDOT}
+	goldenForms     = []string{FormDOT, FormPlantUML, FormMermaid, FormText}
+	controlForms    = []string{FormDOT, FormMermaid, FormDrawio, FormCanvas}
+	edgeForms       = []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormCanvas}
+	pinForms        = []string{FormDOT, FormCanvas}
+	seqForms        = []string{FormPlantUML, FormMermaid, FormD2, FormText, FormCanvas}
+	proxyForms      = []string{FormCanvas, FormText}
+	seqPortForms    = []string{FormCanvas, FormText, FormD2}
+	frameForms      = []string{FormDOT, FormDrawio, FormCanvas}
+	annotationForms = []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormText}
 
 	keywordBox   = Evidence{"internal/ir/view/label.go:keyword", goldenForms, "internal/ir/view/label_test.go:TestLabelLines"}
 	compartments = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/suppressed_compartments_test.go:TestGoldenSuppressedCompartments"}
@@ -89,7 +90,6 @@ var (
 	tableEdge    = Evidence{"internal/ir/view/dot.go:dotEdgeAttributes", edgeForms, "internal/ir/view/notation_table_test.go:TestNotationTableMatchesTheWriters"}
 	pins         = Evidence{"internal/ir/view/dot_ports.go:placePorts", pinForms, "internal/ir/view/action_pins_test.go:TestDOTActionFramePins"}
 	boundaryPort = Evidence{"internal/ir/view/dot_ports.go:placePorts", pinForms, "internal/ir/view/testdata/interconnection-ports.dot.golden"}
-	cameoFrame   = Evidence{"internal/ir/view/dot.go:openFrame", dotForms, "internal/ir/view/dot_cameo_test.go:TestGoldenDOTCameo"}
 	sequence     = Evidence{"internal/ir/view/sequence.go:renderSequence", seqForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
 	stateActions = Evidence{"internal/ir/view/behavior.go:stateActionCompartments", goldenForms, "internal/ir/view/dot_cameo_test.go:TestDOTStateBehaviourNames"}
 	stateActNode = Evidence{"internal/ir/view/behavior.go:stateActionNodes", goldenForms, "internal/ir/view/testdata/state-forms.dot.golden"}
@@ -124,7 +124,14 @@ var (
 	itemBox      = Evidence{"internal/ir/view/flow_on_connection.go:flowsOnConnections", naryForms, "internal/ir/view/nary_test.go:TestFlowsOnAConnectionAreItemBoxesOnItsLine"}
 	itemArrow    = Evidence{"internal/ir/view/flow_on_connection.go:itemBox", naryForms, "internal/ir/view/testdata/nary-flow-on-connection.dot.golden"}
 	objective    = Evidence{"internal/ir/view/case.go:objectiveNode", goldenForms, "internal/ir/view/testdata/case.dot.golden"}
-	views        = map[string]Evidence{
+	// The view frame: DOT, draw.io and the canvas draw the frame with its corner
+	// compartments; PlantUML's mainframe, Mermaid's title and D2's corner texts approximate it.
+	viewFrame      = Evidence{"internal/ir/view/frame.go:frameOf", frameForms, "internal/ir/view/annotation_test.go:TestViewFrameCompartments"}
+	frameInfo      = Evidence{"internal/ir/view/dot.go:writeFrameCompartments", frameForms, "internal/ir/view/annotation_test.go:TestViewFrameCompartments"}
+	annotationNode = Evidence{"internal/ir/view/annotation.go:annotationNode", annotationForms, "internal/ir/view/annotation_test.go:TestAnnotationNodesAndLinksAreDrawn"}
+	annotationLink = Evidence{"internal/ir/view/tree_edges.go:annotationLinks", edgeForms, "internal/ir/view/annotation_test.go:TestAnnotationNodesAndLinksAreDrawn"}
+	docCompartment = Evidence{"internal/ir/view/annotation.go:annotationRowText", annotationForms, "internal/ir/view/testdata/annotations-placed.text.golden"}
+	views          = map[string]Evidence{
 		"general-view":          {"internal/ir/view/general.go:renderGeneral", goldenForms, "internal/ir/view/testdata/general-definition.dot.golden"},
 		"interconnection-view":  {"internal/ir/view/interconnection.go:renderInterconnection", goldenForms, "internal/ir/view/testdata/interconnection.dot.golden"},
 		"action-flow-view":      {"internal/ir/view/behavior.go:renderActions", goldenForms, "internal/ir/view/testdata/action.dot.golden"},
@@ -138,10 +145,8 @@ const (
 	reasonAlternatives = "a list of alternatives; adjudicated through the alternatives it names"
 	reasonTextual      = "textual notation of §8.2.2 reused as the text of a drawn element"
 	reasonNoCompart    = "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
-	reasonFiltered     = "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
 	reasonActionBox    = "behavior.go actionNodeKind falls through to a plain «action» box; the form's keyword and compartments are not written"
 	reasonNoKeyword    = "the box is drawn but its keyword is not written"
-	reasonCameoOnly    = "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame"
 	reasonOnlyParallel = "the keyword and name are written, the optional «parallel» marker is not"
 )
 
@@ -242,9 +247,9 @@ func buildTable() map[string]Adjudication {
 	for name, ev := range views {
 		set(drawn(CategoryView, ev), name)
 	}
-	set(approximate(CategoryView, reasonCameoOnly, cameoFrame), "root-view", "framed-view")
-	set(approximate(CategoryCompartment, reasonCameoOnly+"; its header reads the view's name without the «view» keyword", cameoFrame), "view-frame-name-compartment")
-	set(undrawn(CategoryCompartment, "no form draws the frame's info compartments"), "view-frame-info-compartment-tr", "view-frame-info-compartment-bl", "view-frame-info-compartment-br")
+	set(drawn(CategoryView, viewFrame), "root-view", "framed-view")
+	set(drawn(CategoryCompartment, viewFrame), "view-frame-name-compartment")
+	set(drawn(CategoryCompartment, frameInfo), "view-frame-info-compartment-tr", "view-frame-info-compartment-bl", "view-frame-info-compartment-br")
 
 	// §8.2.3.2: the general view's own productions.
 	set(undrawn(CategoryCompartment, "a nested general view inside a node's compartment is not drawn; nested nodes are drawn as a tree"), "general-compartment")
@@ -257,9 +262,9 @@ func buildTable() map[string]Adjudication {
 	set(drawn(CategoryEdge, depDot), "n-ary-dependency", "n-ary-dependency-client-or-supplier-link", "n-ary-dependency-supplier-link")
 
 	// §8.2.3.4 annotations.
-	set(undrawn(CategoryNode, reasonFiltered), "comment-node", "comment-without-keyword", "comment-with-keyword", "documentation-node", "textual-representation-node")
-	set(undrawn(CategoryCompartment, reasonFiltered), "documentation-compartment")
-	set(approximate(CategoryEdge, "only the anchor of a DiagramLayout::Note or a case objective is drawn (EdgeAnchor); comments are filtered out", Evidence{"internal/ir/view/dot.go:dotEdgeAttributes", edgeForms, "internal/ir/view/dot_cameo_test.go:TestNotesAcrossForms"}), "annotation-link")
+	set(drawn(CategoryNode, annotationNode), "comment-node", "comment-without-keyword", "comment-with-keyword", "documentation-node", "textual-representation-node")
+	set(drawn(CategoryCompartment, docCompartment), "documentation-compartment")
+	set(drawn(CategoryEdge, annotationLink), "annotation-link")
 
 	// §8.2.3.5 packages.
 	packageBox := Evidence{"internal/ir/view/dot.go:dotClusterAttributes", goldenForms, "internal/ir/view/testdata/general-package.dot.golden"}

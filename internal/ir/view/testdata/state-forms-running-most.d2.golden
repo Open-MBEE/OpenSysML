@@ -4,3 +4,5 @@ classes: {
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
 }
 n0: "«state»\nrunning\nstates\nlow\nhigh\nstate actions\nentry action ignite : Ignite\nexit action : Purge\ndo action : Action" { class: usage }
+frame_name: "«view» FurnaceViews::runningTree : GeneralView" { shape: text; near: top-left }
+frame_tr: "expose Furnace::Burner::running" { shape: text; near: top-right }

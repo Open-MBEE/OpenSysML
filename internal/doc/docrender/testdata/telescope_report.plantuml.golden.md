@@ -83,6 +83,7 @@ mount segmentControl
 ```plantuml
 @startuml
 ' Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
+mainframe <size:10>//«view»//</size> **Observatory::interconnectView**\n<size:10>expose imagingChain</size>
 <style>
 root {
   BackGroundColor white

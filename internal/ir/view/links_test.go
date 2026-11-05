@@ -281,6 +281,7 @@ func TestLinkedDiagramGoldens(t *testing.T) {
 		{"action", "action.sysml", "FlowViews::driveView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
 		{"sequence", "sequence.sysml", "SequenceViews::pubSubView", []Form{FormMermaid, FormPlantUML, FormD2}},
 		{"general-requirement", "general.sysml", "GeneralViews::requirementView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
+		{"annotations-tree", "annotations.sysml", "AnnotationViews::tree", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
 		{"general-definition", "general.sysml", "GeneralViews::definitionView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
 		{"general-package", "general.sysml", "GeneralViews::packageView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
 		{"general-case", "general-case.sysml", "UseCaseViews::useCaseView", []Form{FormMermaid, FormDot, FormPlantUML}},

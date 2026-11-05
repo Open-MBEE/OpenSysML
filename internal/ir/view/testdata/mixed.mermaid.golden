@@ -23,6 +23,7 @@ config:
   flowchart:
     subGraphTitleMargin:
       bottom: 24
+title: "«view» MixedExamples::mixedDiagram"
 ---
 %% MixedExamples::mixedDiagram — mixed rendering (render asMixedDiagram)
 flowchart TD

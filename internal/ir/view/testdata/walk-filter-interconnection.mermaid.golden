@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» FilteredWalk::links"
 ---
 %% FilteredWalk::links — interconnection rendering (render asInterconnectionDiagram)
 %% not represented: connect FilteredWalk::rover::'' attaches to 'telemetry.tx', which the view's filter conditions exclude; no edge is drawn

@@ -1292,7 +1292,7 @@ ports. Its `show` field names the
 [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
 to draw besides those the view's rendering shows — `parameter-symbols`,
 `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`,
-`typings`, `qualifiers`, or `all` — and the response's `shown` lists the ones
+`typings`, `qualifiers`, `annotations`, or `all` — and the response's `shown` lists the ones
 drawn; a name none of them has is refused with `INVALID_ARGUMENT` naming the
 elements there are. It is advertised by `render_view`, and a service without
 that capability refuses the request with `UNIMPLEMENTED`.

@@ -238,8 +238,11 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	if node.Parallel && shown.Has(ElementKeywords) {
 		line += " parallel"
 	}
-	if node.Detail != "" && shown.Has(ElementCompartments) {
+	if node.Detail != "" && (annotationKind(node.Kind) || shown.Has(ElementCompartments)) {
 		line += " (" + node.Detail + ")"
+	}
+	if annotationKind(node.Kind) && node.Text != "" {
+		line += " " + strconv.Quote(node.Text)
 	}
 	if g := node.Geometry; g.placed() {
 		line += fmt.Sprintf(" at (%s, %s)", formatCoord(g.X), formatCoord(g.Y))

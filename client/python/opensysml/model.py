@@ -525,7 +525,7 @@ class Model:
                 besides those the view's rendering shows — ``"parameter-symbols"``,
                 ``"port-symbols"``, ``"compartments"``, ``"edge-labels"``,
                 ``"keywords"``, ``"multiplicities"``, ``"typings"``,
-                ``"qualifiers"`` or ``"all"``; the result's ``shown`` lists the
+                ``"qualifiers"``, ``"annotations"`` or ``"all"``; the result's ``shown`` lists the
                 ones drawn
             depth (int): How many levels of nested elements to draw below each
                 exposed element, overriding the view's own ``depth``; ``0`` (the

@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::mixedGlyphs — mixed rendering (render asMixedDiagram)
+mainframe <size:10>//«view»//</size> **NotationGlyphs::Diagrams::mixedGlyphs**\n<size:10>expose LevelReq</size>\n<size:10>expose levelReq</size>\n<size:10>expose capacity</size>\n<size:10>expose bounded</size>\n<size:10>expose tight</size>\n<size:10>expose tankView</size>\n<size:10>expose Tank</size>
 <style>
 root {
   BackGroundColor white
