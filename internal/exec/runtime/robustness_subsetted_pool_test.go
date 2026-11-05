@@ -6,10 +6,131 @@ import (
 )
 
 // TestRuntimeRobustnessSubsettedPool covers a subsetting feature drawing its values from what it
-// subsets (KerML 1.0 §7.3.4.4): too few there is a multiplicity violation; a write there redraws it.
+// subsets (KerML 1.1 §7.3.4.4), objects or values: too few there is a multiplicity violation; a write redraws it.
 func TestRuntimeRobustnessSubsettedPool(t *testing.T) {
 	t.Run("under-populated subsetted collection is a multiplicity violation", testSubsettedPoolTooSmall)
 	t.Run("a write to the subsetted collection redraws the subsetter", testSubsettedPoolRewritten)
+	t.Run("too few subsetted values is a multiplicity violation", testSubsettedValuesTooFew)
+	t.Run("a value the subsetter's type does not admit is not drawn", testSubsettedValueOfOtherType)
+	t.Run("a write to the subsetted values redraws the subsetter", testSubsettedValuesRewritten)
+	t.Run("a subsetted feature holding a default lends no value", testSubsettedDefaultNoPool)
+	t.Run("a nonunique subsetter draws every occurrence", testSubsettedNonuniqueOccurrences)
+	t.Run("false and 0 are two values to draw", testSubsettedFalseAndZero)
+	t.Run("a value is drawn no more times than each subsetted feature holds it", testSubsettedOccurrencesOfEach)
+}
+
+const subsettedOccurrences = `package P {
+	private import ScalarValues::*;
+	part def Holder {
+		attribute source : Integer [2] nonunique = (1, 1);
+		attribute target : Integer [2] nonunique :> source;
+		attribute mixed [2] = (false, 0);
+		attribute both [2] :> mixed;
+		attribute xs : Integer [3] nonunique = (1, 1, 3);
+		attribute ys : Integer [3] nonunique = (1, 2, 3);
+		attribute common : Integer [2] nonunique :> xs, ys;
+	}
+}`
+
+func occurrencesRead(t *testing.T, name string) []Value {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<subsetted-occurrences>", parseAndBuild(t, subsettedOccurrences))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	fv, err := inst.GetFeatureValue(ctx, name)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	return elementsOf(fv.HeldValue())
+}
+
+func testSubsettedNonuniqueOccurrences(t *testing.T) {
+	if got := occurrencesRead(t, "target"); len(got) != 2 || FormatValue(got[0]) != "1" || FormatValue(got[1]) != "1" {
+		t.Errorf("target = %v, want (1, 1), both occurrences source holds", got)
+	}
+}
+
+func testSubsettedOccurrencesOfEach(t *testing.T) {
+	if got := occurrencesRead(t, "common"); len(got) != 2 || FormatValue(got[0]) != "1" || FormatValue(got[1]) != "3" {
+		t.Errorf("common = %v, want (1, 3): ys holds 1 once", got)
+	}
+}
+
+func testSubsettedFalseAndZero(t *testing.T) {
+	if got := occurrencesRead(t, "both"); len(got) != 2 || FormatValue(got[0]) != "false" || FormatValue(got[1]) != "0" {
+		t.Errorf("both = %v, want (false, 0)", got)
+	}
+}
+
+const subsettedValues = `package P {
+	private import ScalarValues::*;
+	part def Holder {
+		attribute one : Integer [1] = 1;
+		attribute two : Integer [2] :> one;
+		attribute rl : Real = 4.5;
+		attribute ri : Integer [1] :> rl;
+		attribute coll : Integer [0..*] = (1, 2);
+		attribute pick : Integer [1] :> coll;
+		attribute d : Integer default 5;
+		attribute e : Integer [0..1] :> d;
+	}
+}`
+
+func subsettedValuesHolder(t *testing.T) (*Context, *Instance) {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<subsetted-values>", parseAndBuild(t, subsettedValues))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	return ctx, inst
+}
+
+func testSubsettedValuesTooFew(t *testing.T) {
+	ctx, inst := subsettedValuesHolder(t)
+	if fv, err := inst.GetFeatureValue(ctx, "two"); !errors.Is(err, ErrMultiplicityViolation) {
+		t.Fatalf("two = %v, %v; want %v", fv, err, ErrMultiplicityViolation)
+	}
+}
+
+func testSubsettedValueOfOtherType(t *testing.T) {
+	ctx, inst := subsettedValuesHolder(t)
+	if fv, err := inst.GetFeatureValue(ctx, "ri"); !errors.Is(err, ErrMultiplicityViolation) {
+		t.Fatalf("ri = %v, %v; want %v, 4.5 being no Integer", fv, err, ErrMultiplicityViolation)
+	}
+}
+
+func testSubsettedValuesRewritten(t *testing.T) {
+	ctx, inst := subsettedValuesHolder(t)
+	read := func() Value {
+		fv, err := inst.GetFeatureValue(ctx, "pick")
+		if err != nil {
+			t.Fatalf("pick: %v", err)
+		}
+		return fv.HeldValue()
+	}
+	if pick := read(); !ctx.equalValues(pick, integerValue(1)) {
+		t.Fatalf("pick = %s, want 1, the first value coll holds", FormatValue(pick))
+	}
+	if err := inst.SetFeatureValue(ctx, "coll", sequenceOf([]Value{integerValue(3), integerValue(2)})); err != nil {
+		t.Fatalf("write coll: %v", err)
+	}
+	if pick := read(); !ctx.equalValues(pick, integerValue(3)) {
+		t.Errorf("pick = %s after coll := (3, 2), want 3, the first value coll now holds", FormatValue(pick))
+	}
+}
+
+func testSubsettedDefaultNoPool(t *testing.T) {
+	ctx, inst := subsettedValuesHolder(t)
+	fv, err := inst.GetFeatureValue(ctx, "e")
+	if err != nil {
+		t.Fatalf("e: %v", err)
+	}
+	if got := elementsOf(fv.HeldValue()); len(got) != 0 && got[0].Kind != ValUndetermined {
+		t.Errorf("e = %s, want no value: d holds only a default", FormatValue(fv.HeldValue()))
+	}
 }
 
 const subsettedPoolTooSmall = `package P {

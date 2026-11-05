@@ -58,7 +58,9 @@ internal static class ViewWire
                     : null,
                 Style(node.Style),
                 node.Compartment,
-                node.Inherited));
+                node.Inherited,
+                node.Arrow,
+                node.Parallel));
         }
 
         return new RenderedView(
@@ -82,7 +84,8 @@ internal static class ViewWire
             response.Canvas is { } canvas ? new ViewCanvas(canvas.Unit, canvas.Width, canvas.Height, canvas.HasSize) : null,
             response.Notes.Select(note => new ViewNote(note.Text, note.Anchor, note.EdgeFrom, note.EdgeTo, note.X, note.Y, note.Width, note.Height, note.HasSize, Span(note.Origin))),
             response.Notices,
-            response.Shown);
+            response.Shown,
+            response.Frame is { } frame ? new ViewFrame(frame.Name, frame.Type, frame.Exposes, frame.Filters, frame.Annotations) : null);
     }
 
     private static SourceSpan? Span(Wire.Span? span) =>

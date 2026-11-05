@@ -141,7 +141,7 @@ internal static class Rendering
         return rendered;
     }
 
-    /// <summary>One run of an action, with everything the API reports of it.</summary>
+    /// <summary>One run of an action, with its trace and everything else the API reports of it.</summary>
     internal static Wire.ExecuteActionResponse ActionRun(ActionRun run)
     {
         ArgumentNullException.ThrowIfNull(run);
@@ -576,7 +576,7 @@ internal static class Rendering
             ExperimentalNotice = conversion.ExperimentalNotice,
             LibraryReferences =
             {
-                conversion.LibraryReferences.Select(reference => new Wire.LibraryReference { Id = reference.Id, QualifiedName = reference.QualifiedName, Type = reference.Type }),
+                conversion.LibraryReferences.Select(reference => new Wire.LibraryReference { Id = reference.Id, QualifiedName = reference.QualifiedName, Type = reference.Type, LibraryPath = reference.LibraryPath }),
             },
         };
     }
@@ -939,6 +939,8 @@ internal static class Rendering
                     Style = Style(node.Style),
                     Compartment = node.Compartment,
                     Inherited = node.Inherited,
+                    Arrow = node.Arrow,
+                    Parallel = node.Parallel,
                 }),
             },
             Edges =
@@ -978,6 +980,9 @@ internal static class Rendering
             },
             Notices = { view.Notices },
             Shown = { view.Shown },
+            Frame = view.Frame is { } frame
+                ? new Wire.RenderFrame { Name = frame.Name, Type = frame.Type, Exposes = { frame.Exposes }, Filters = { frame.Filters }, Annotations = { frame.Annotations } }
+                : null,
         };
     }
 

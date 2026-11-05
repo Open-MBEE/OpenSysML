@@ -36,7 +36,7 @@ internal static class ConversionWire
             diagnostics,
             response.Experimental,
             response.ExperimentalNotice,
-            response.LibraryReferences.Select(reference => new LibraryReference(reference.Id, reference.QualifiedName, reference.Type)));
+            response.LibraryReferences.Select(reference => new LibraryReference(reference.Id, reference.QualifiedName, reference.Type, reference.LibraryPath)));
     }
 
     /// <summary>Reads a migration.</summary>

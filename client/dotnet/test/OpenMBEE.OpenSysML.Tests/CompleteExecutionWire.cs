@@ -63,6 +63,20 @@ internal static class CompleteExecutionWire
         Value = new Wire.Value { IntValue = 2 },
     };
 
+    /// <summary>An action's assign record, every fact an action run adds set: the token, the step, the feature written and its value.</summary>
+    internal static Wire.DocumentEvent Assign { get; } = new()
+    {
+        Kind = "assign",
+        Time = new Wire.DocumentValue { RealValue = 1.5 },
+        Object = Object,
+        Machine = "fill",
+        Text = "assign count := 3",
+        Token = 4,
+        Step = 7,
+        Feature = "count",
+        Value = new Wire.Value { IntValue = 3 },
+    };
+
     /// <summary>A document value of every arm, and an anonymous element, each part set.</summary>
     internal static IReadOnlyList<Wire.DocumentValue> DocumentValues { get; } =
     [
@@ -80,6 +94,7 @@ internal static class CompleteExecutionWire
         new() { Verdict = Verdict },
         new() { State = State },
         new() { Event = Event },
+        new() { Event = Assign },
     ];
 
     /// <summary>Document values whose optional parts are left out, which must stay left out.</summary>
@@ -111,8 +126,8 @@ internal static class CompleteExecutionWire
         FinalTime = 8,
         PerformerAttributes = { ["this.level"] = new Wire.Value { IntValue = 2 } },
         OrderDependent = { ["result"] = 1 },
-        Trace = { Event },
-        TraceDropped = 2,
+        Trace = { Assign, new Wire.DocumentEvent { Kind = "complete", Step = 8, Text = "complete" } },
+        TraceDropped = 5,
     };
 
     /// <summary>A trace: the complete record, then one record per kind of instant.</summary>
@@ -226,14 +241,14 @@ internal static class CompleteExecutionWire
         Reason = "a bound was hit",
     };
 
-    /// <summary>A run of an action that failed, with the clock it stopped at.</summary>
+    /// <summary>A traced run of an action that failed, with the clock it stopped at and its trace up to the failure.</summary>
     internal static Wire.ExecuteActionResponse FailedAction { get; } = new()
     {
         Error = "action execution failed: still waiting at 5 s without completing",
         Diagnostics = { ChoicePoint },
         FinalTime = 2,
-        Trace = { Event },
-        TraceDropped = 4,
+        Trace = { Assign },
+        TraceDropped = 1,
     };
 
     /// <summary>A traced run of a state machine that failed, with its trace up to the failure.</summary>

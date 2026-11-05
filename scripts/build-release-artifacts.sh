@@ -148,7 +148,9 @@ for binary in sysml-* grpc/sysml-grpc-* jupyter/sysml-jupyter-kernel-* mcp/sysml
     continue
   fi
   if [[ "$binary" == *"-${host}" ]]; then
-    reported="$("./$binary" --version 2>&1 | head -n 1)"
+    # No pipe into head: the binary would take SIGPIPE under pipefail.
+    output="$("./$binary" --version 2>&1)"
+    reported="${output%%$'\n'*}"
     case " $reported " in
       *" ${VERSION} "*) echo "ok: $binary reports ${VERSION}" ;;
       *) fail "$binary" "it reports '${reported}'" ;;

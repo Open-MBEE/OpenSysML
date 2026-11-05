@@ -42,8 +42,11 @@ func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	if sym.Expr != nil {
-		// A synthesized `in` parameter binds its operand; no other
-		// expression part declares a value.
+		// A synthesized `in` parameter binds its operand and a trigger's payload its event;
+		// no other expression part declares a value.
+		if sym.Expr.Role == symbols.ExpressionPayload {
+			return m.acceptParts(sym).parameterValue(sym)
+		}
 		return m.expressionParameterValue(sym)
 	}
 	if cached, ok := m.valueExpressions[sym]; ok {
@@ -76,7 +79,7 @@ func isValueExpressionSymbol(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Expr.Role {
-	case symbols.ExpressionChangeCondition, symbols.ExpressionBody, symbols.ExpressionBodyResult:
+	case symbols.ExpressionChangeCondition, symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard:
 		// Owned through a FeatureMembership or ResultExpressionMembership,
 		// not bound as a value (changeArgument, bodyExpression).
 		return false

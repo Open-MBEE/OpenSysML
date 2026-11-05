@@ -50,7 +50,7 @@ internal static class CompleteQueryDocsWire
     /// <summary>A located span.</summary>
     internal static Wire.Span Origin(int line) => new() { File = "views.sysml", StartLine = line, StartCol = 3, EndLine = line + 1, EndCol = 9 };
 
-    /// <summary>A rendering setting every field: nested nodes with ports, geometry and style, a routed styled edge, rows, a canvas and notes.</summary>
+    /// <summary>A rendering setting every field: nested nodes with ports, geometry and style, a routed styled edge, rows, a canvas, notes and a frame.</summary>
     internal static Wire.RenderViewResponse View => new()
     {
         View = "PlantViews::placedView",
@@ -67,6 +67,7 @@ internal static class CompleteQueryDocsWire
                 Origin = Origin(10),
                 Geometry = new Wire.RenderGeometry { X = 300, Y = 40, Width = 120, Height = 60.5, HasSize = true, Collapsed = true },
                 Style = new Wire.RenderStyle { Fill = "#FFE8BD", Line = "#333333", Text = "#000000", Font = "Arial", FontSize = 11, Bold = true, Italic = true },
+                Parallel = true,
             },
             new Wire.RenderNode
             {
@@ -86,7 +87,7 @@ internal static class CompleteQueryDocsWire
                 Origin = new Wire.Span { File = "lib.sysml" },
                 Geometry = new Wire.RenderGeometry { Collapsed = true, Unplaced = true },
             },
-            new Wire.RenderNode { Id = "n3", Kind = "part", Name = "tank", Parent = "n2" },
+            new Wire.RenderNode { Id = "n3", Kind = "part", Name = "tank", Parent = "n2", Arrow = "right" },
             new Wire.RenderNode { Id = "n4", Kind = "attribute", Name = "pressure", Type = "Real", Parent = "n2", Compartment = "attributes", Inherited = true },
         },
         Edges =
@@ -116,6 +117,14 @@ internal static class CompleteQueryDocsWire
         },
         Notices = { "a picture was refused", "nothing more" },
         Shown = { "port-symbols", "edge-labels" },
+        Frame = new Wire.RenderFrame
+        {
+            Name = "placedView",
+            Type = "PlantViews::PlacedView",
+            Exposes = { "expose Plant::**;" },
+            Filters = { "@SysML::PartUsage" },
+            Annotations = { "placed by hand", "reviewed" },
+        },
     };
 
     /// <summary>A rendering stating nothing optional: no canvas, and a node with no origin, geometry or style.</summary>

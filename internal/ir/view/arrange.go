@@ -157,10 +157,10 @@ func (a *arranger) settleChildren(node *Node, box drawioBox) {
 	for i, child := range unplaced {
 		sizes[i] = a.fitted(child)
 	}
-	// Under a header the router needs a channel; a container of stated size
-	// keeps the pad, since its children must fit the size it states.
+	// Under a header the router needs a channel; a container of stated size keeps
+	// the pad (its children must fit) — not around body sections, sized with the channel.
 	gap := drawioNestedGap
-	if g := node.Geometry; g != nil && g.HasSize {
+	if g := node.Geometry; g != nil && g.HasSize && !sectionsOnly(unplaced) {
 		gap = drawioNestedPad
 	}
 	origin := drawioBox{X: box.X + drawioNestedPad, Y: box.Y + a.headroom(node) + gap}
@@ -179,6 +179,11 @@ func (a *arranger) settleChildren(node *Node, box drawioBox) {
 func (a *arranger) childShift(node *Node, box drawioBox) drawioBox {
 	if node.Geometry.placed() {
 		return drawioBox{}
+	}
+	if sectionKind(node.Kind) {
+		// A body section is no element and never placed: its nodes are placed
+		// relative to its frame, so a moved one stays where it was put.
+		return drawioBox{X: box.X + drawioNestedPad, Y: box.Y + a.headroom(node) + drawioNestedGap}
 	}
 	minX, minY, found := math.Inf(1), math.Inf(1), false
 	for _, child := range node.Children {
@@ -242,7 +247,17 @@ func (a *arranger) headroom(node *Node) float64 {
 	for _, compartment := range a.compartments(node) {
 		height += a.compartmentHeight(node, compartment)
 	}
-	return height
+	return height + a.ellipsisHeight(node)
+}
+
+// ellipsisHeight is the height of the ellipsis cell under an elided node's
+// compartments, zero for a node with every row listed.
+func (a *arranger) ellipsisHeight(node *Node) float64 {
+	if !a.labels.elided(node) {
+		return 0
+	}
+	_, height := dotTextExtent([]string{ellipsisMark}, a.labels.sizeOf(node))
+	return math.Ceil(height + 2*dotMarginHeight)
 }
 
 // headerHeight is the height of a node's title strip: its keyword, head and
@@ -273,8 +288,8 @@ func (a *arranger) headerLines(node *Node) []string {
 	return append(lines, a.labels.parameterLines(node)...)
 }
 
-// compartments are the compartments a node's cell stacks: those shown, less
-// any a Layout hides and any left without a row.
+// compartments are the compartments a node's cell stacks: those shown, less any a
+// Layout hides or empties; a rowless heading of the children (`action flow`) stays.
 func (a *arranger) compartments(node *Node) []Compartment {
 	var out []Compartment
 	for _, compartment := range a.labels.compartments(node) {
@@ -284,7 +299,7 @@ func (a *arranger) compartments(node *Node) []Compartment {
 				rows = append(rows, row)
 			}
 		}
-		if len(rows) > 0 {
+		if len(rows) > 0 || len(compartment.Rows) == 0 {
 			out = append(out, Compartment{Name: compartment.Name, Rows: rows})
 		}
 	}
@@ -307,7 +322,7 @@ func (a *arranger) compartmentLines(node *Node, compartment Compartment) []strin
 func (a *arranger) routeEdges(r *Rendering) ([]Edge, error) {
 	edges := append([]Edge(nil), r.Edges...)
 	tree := a.drawioTree(r)
-	groups := a.routeGroups(edges, tree)
+	groups := a.routeGroups(edges, tree, lineWaypoints(r))
 	for _, key := range slices.Sorted(maps.Keys(groups)) {
 		g := routeGroup{key: key, edges: groups[key], all: edges, tree: tree}
 		routes, err := a.routeOneGroup(g)
@@ -324,13 +339,13 @@ func (a *arranger) routeEdges(r *Rendering) ([]Edge, error) {
 }
 
 // routeGroups indexes the unrouted edges with settled ends by the container
-// both ends lie in, "" for the canvas.
-func (a *arranger) routeGroups(edges []Edge, tree drawioTree) map[string][]int {
+// both ends lie in, "" for the canvas; a segment of a routed line is not unrouted.
+func (a *arranger) routeGroups(edges []Edge, tree drawioTree, lines map[Origin]int) map[string][]int {
 	groups := map[string][]int{}
 	for i, edge := range edges {
 		_, from := a.boxes[edge.From]
 		_, to := a.boxes[edge.To]
-		if len(edge.Route) > 0 || !from || !to {
+		if len(edge.Route) > 0 || !from || !to || edge.Kind == EdgeConnection && lines[edge.Origin] > 0 {
 			continue
 		}
 		key := tree.commonContainer(edge.From, edge.To)
@@ -702,3 +717,13 @@ func (t drawioTree) commonContainer(a, b string) string {
 
 // drawioRound trims a routed coordinate to a thousandth of a pixel.
 func drawioRound(v float64) float64 { return math.Round(v*1000) / 1000 }
+
+// sectionsOnly reports whether every node is a body section of its container.
+func sectionsOnly(nodes []*Node) bool {
+	for _, node := range nodes {
+		if !sectionKind(node.Kind) {
+			return false
+		}
+	}
+	return len(nodes) > 0
+}

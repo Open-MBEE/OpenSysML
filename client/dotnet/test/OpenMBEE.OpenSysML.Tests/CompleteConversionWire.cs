@@ -31,6 +31,7 @@ internal static class CompleteConversionWire
         {
             new Wire.LibraryReference { Id = "0c539f7c-20a1-520d-bae0-f3f855517aea", QualifiedName = "SI::second", Type = "AttributeUsage" },
             new Wire.LibraryReference { Id = "2a413ac9-972d-5182-afd3-46cdde4e0eba", QualifiedName = "SI", Type = "LibraryPackage" },
+            new Wire.LibraryReference { Id = "1e506913-dbf3-55da-a841-56afa1d5e151", Type = "BindingConnector", LibraryPath = "Occurrences::Occurrence/BindingConnector[0]" },
         },
     };
 

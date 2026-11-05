@@ -1,0 +1,19 @@
+// view: FurnaceViews::burnerTree
+// kind: tree
+// stated: view def GeneralView
+// not represented: 5 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+// layout: dot
+digraph "FurnaceViews::burnerTree" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>FurnaceViews::burnerTree</b> : GeneralView>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state def»</i></font><br/><b>Burner</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">flame : Boolean</td></tr><hr/><tr><td><font point-size="10">states</font></td></tr><tr><td align="left">off<br/>running</td></tr><hr/><tr><td><font point-size="10">transitions</font></td></tr><tr><td align="left">transition</td></tr><hr/><tr><td><font point-size="10">successions</font></td></tr><tr><td align="left">first running then off</td></tr></table>>];
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Furnace::Burner</font>>]; }
+  }
+}

@@ -22,6 +22,8 @@ public sealed record ViewNode
     /// <param name="style">How a style draws it; null when no style colours it.</param>
     /// <param name="compartment">The compartment of its parent's box it is a row of (<c>attributes</c>, <c>parts</c>); empty for a node drawn as a box.</param>
     /// <param name="inherited">Whether the owner it is drawn or listed under has it through typing, subclassification or subsetting rather than declares it.</param>
+    /// <param name="arrow">For an item box drawn on a connection line, the end the item goes toward: <c>right</c> for the line's second, <c>left</c> for its first; empty for every other node.</param>
+    /// <param name="parallel">Whether the state's substates run in parallel.</param>
     /// <exception cref="ArgumentNullException">An argument other than the origin, geometry or style is null.</exception>
     /// <exception cref="ArgumentException">A port is null.</exception>
     public ViewNode(
@@ -39,7 +41,9 @@ public sealed record ViewNode
         ViewGeometry? geometry,
         ViewStyle? style,
         string compartment,
-        bool inherited)
+        bool inherited,
+        string arrow,
+        bool parallel)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(kind);
@@ -49,6 +53,7 @@ public sealed record ViewNode
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentNullException.ThrowIfNull(compartment);
+        ArgumentNullException.ThrowIfNull(arrow);
         Id = id;
         Kind = kind;
         Name = name;
@@ -64,6 +69,8 @@ public sealed record ViewNode
         Style = style;
         Compartment = compartment;
         Inherited = inherited;
+        Arrow = arrow;
+        Parallel = parallel;
     }
 
     /// <summary>The node's id within the rendering, which an edge and a child's <see cref="Parent"/> name.</summary>
@@ -117,4 +124,13 @@ public sealed record ViewNode
     /// rather than declares it, which the notation marks with <c>^</c> before the name. <see cref="Name"/> stays the bare name.
     /// </summary>
     public bool Inherited { get; }
+
+    /// <summary>
+    /// For an item box drawn on a connection line (a flow, succession flow or message whose ends are the connection's),
+    /// the way the item goes: <c>right</c> toward the line's second end, <c>left</c> toward its first; empty for every other node.
+    /// </summary>
+    public string Arrow { get; }
+
+    /// <summary>Whether the state's substates run in parallel, which the notation writes as <c>«parallel»</c> under the name.</summary>
+    public bool Parallel { get; }
 }

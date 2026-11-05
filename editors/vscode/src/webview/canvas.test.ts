@@ -7,7 +7,7 @@ import { JSDOM } from "jsdom";
 
 import type { RenderNode, RenderResult } from "../protocol";
 import { drawCanvas, liftNode } from "./canvas";
-import { edgeLabelBox, FONT_SIZE, glyphSize, layoutCanvas, MARGIN, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
+import { edgeLabelBox, FONT_SIZE, glyphSize, layoutCanvas, MARGIN, pinArrow, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
 
 // The canvas is drawn with the page's document, as it is in the webview.
 const dom = new JSDOM("<!DOCTYPE html><body></body>");
@@ -285,6 +285,33 @@ test("drawCanvas draws a sequence's lifelines", () => {
   assert.equal(svg.querySelectorAll("g.opensysml-node.movable").length, 0);
 });
 
+test("drawCanvas draws a sequence's proxies as filled points labelled beside the lifeline, its ports with lifelines of their own, and a message with an open head", () => {
+  const svg = drawCanvas(layoutCanvas({
+    ...result,
+    kind: "sequence",
+    nodes: [
+      node("a", "producer", { ports: [{ id: "p", name: "out" }] }),
+      node("b", "server"),
+      node("e1", "sent", { kind: "event occurrence", parent: "a" }),
+      node("e2", "received", { kind: "event occurrence", parent: "b" }),
+    ],
+    edges: [
+      { from: "e1", to: "e2", label: "publish of Publish", kind: "message" },
+      { from: "e2", to: "e2", label: "", kind: "succession" },
+    ],
+  }));
+  // Two lifelines and the port's own.
+  assert.equal(svg.querySelectorAll("line.lifeline").length, 3);
+  const proxy = svg.querySelector<SVGGElement>('g[data-opensysml-id="e1"]')!;
+  const point = proxy.querySelector("circle.shape.filled")!;
+  assert.ok(point);
+  const label = proxy.querySelector("text.label")!;
+  assert.equal(label.textContent, "sent");
+  assert.ok(Number(label.getAttribute("x")) > Number(point.getAttribute("cx")));
+  assert.equal(svg.querySelector("g.opensysml-edge.message polyline")!.getAttribute("marker-end"), "url(#arrow-open)");
+  assert.equal(svg.querySelector("g.opensysml-edge.succession polyline")!.getAttribute("marker-end"), "url(#arrow-open)");
+});
+
 test("drawCanvas classes each box as the PlantUML form stereotypes it, squaring only a definition", () => {
   const boxed: RenderResult = {
     ...result,
@@ -352,8 +379,11 @@ test("drawCanvas draws the port group, square, label, title, and includes them i
   const placed = entry.ports[0];
   const svg = drawCanvas(layout);
   const group = svg.querySelector<SVGGElement>('g[data-opensysml-id="api"] > g.port[data-port="service.api"]')!;
-  assert.deepEqual([...group.children].map((child) => child.tagName.toLowerCase()), ["title", "rect", "text"]);
+  // The pin is a rounded square carrying its direction arrow (§8.2.3.17 pdh), its name beside it.
+  assert.deepEqual([...group.children].map((child) => child.tagName.toLowerCase()), ["title", "rect", "text", "text"]);
   assert.equal(group.querySelector("title")?.textContent, "api : Api");
+  assert.equal(group.querySelector("text.pin-arrow")?.textContent, pinArrow("out", placed.side));
+  assert.equal(group.querySelector("rect.port-shape")?.getAttribute("rx"), "2");
   const inherited = svg.querySelector<SVGGElement>('g[data-opensysml-id="api"] > g.port[data-port="service.log"]')!;
   assert.equal(inherited.querySelector("title")?.textContent, "^log : Log");
   assert.equal(inherited.querySelector("text.port-label")?.textContent, "^log");
@@ -505,4 +535,38 @@ test("layoutCanvas draws a membership edge from the owner's header line inside t
       `the require label covers ${entry.node.name}`,
     );
   }
+});
+
+test("drawCanvas draws an n-ary dot as a filled circle named beside it and an item box as text over its arrow", () => {
+  const graph: RenderResult = {
+    ...result,
+    kind: "interconnection",
+    nodes: [
+      node("a", "A"), node("b", "B"), node("c", "C"),
+      node("dot", "triad", { kind: "connection dot" }),
+      node("f", "", { kind: "flow", text: "of Fuel", arrow: "right" }),
+      node("m", "", { kind: "message", text: "of Ack", arrow: "left" }),
+    ],
+    edges: [
+      { from: "dot", to: "a", label: "", kind: "connection" },
+      { from: "dot", to: "b", label: "", kind: "connection" },
+      { from: "dot", to: "c", label: "", kind: "connection" },
+      { from: "a", to: "f", label: "", kind: "connection" },
+      { from: "f", to: "b", label: "", kind: "connection" },
+      { from: "b", to: "m", label: "", kind: "connection" },
+      { from: "m", to: "c", label: "", kind: "connection" },
+    ],
+  };
+  const svg = drawCanvas(layoutCanvas(graph));
+  const dot = svg.querySelector('g[data-opensysml-id="dot"]')!;
+  assert.equal(dot.querySelector("circle")?.classList.contains("filled"), true);
+  assert.equal(dot.querySelector("text.head")?.textContent, "triad");
+  const flow = svg.querySelector('g[data-opensysml-id="f"]')!;
+  assert.deepEqual([...flow.querySelectorAll("tspan")].map((span) => span.textContent).slice(0, 2), ["«flow»", "of Fuel"]);
+  const flowArrow = flow.querySelector("line.item-arrow")!;
+  assert.equal(flowArrow.getAttribute("marker-end"), "url(#arrow)");
+  assert.ok(Number(flowArrow.getAttribute("x2")) > Number(flowArrow.getAttribute("x1")), "a right arrow points right");
+  const message = svg.querySelector('g[data-opensysml-id="m"] line.item-arrow')!;
+  assert.equal(message.getAttribute("marker-end"), "url(#arrow-open)");
+  assert.ok(Number(message.getAttribute("x2")) < Number(message.getAttribute("x1")), "a left arrow points left");
 });

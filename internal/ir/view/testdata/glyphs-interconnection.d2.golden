@@ -15,3 +15,5 @@ n0: "«part»\nline" {
   }
 }
 n0.n1.n2 -> n0.n3.n4: "«succession flow»" { class: successionflow }
+frame_name: "«view» NotationGlyphs::Diagrams::lineGlyphs" { shape: text; near: top-left }
+frame_tr: "expose line" { shape: text; near: top-right }

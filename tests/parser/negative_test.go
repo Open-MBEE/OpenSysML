@@ -770,6 +770,11 @@ func TestNegativeKerML(t *testing.T) {
 		// does not name a feature there (the pinned KerML validator answers
 		// "no viable alternative at input 'chains'").
 		{"feature_named_chains", "package P { class T; feature chains : T; }"},
+		// `chains` takes one feature chain and `inverse of` one feature, never a
+		// comma-separated list (KerML.xtext:560 ChainingPart, :564 InvertingPart).
+		{"chains_comma_list", "package P { feature a; feature b; feature x chains a, b; }"},
+		{"chains_comma_list_after_chain", "package P { feature x chains a.b, c; }"},
+		{"inverse_of_comma_list", "package P { feature a; feature b; feature x inverse of a, b; }"},
 		// A word KerML.xtext does not reserve names a feature, so a malformed
 		// declaration so named is still reported.
 		{"feature_named_frame_no_type", "package P { feature frame : ; }"},

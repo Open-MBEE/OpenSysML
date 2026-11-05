@@ -145,19 +145,23 @@ function binary_on_path()
     path !== nothing && _is_executable_file(path) ? path : nothing
 end
 
+# HTTP.open returns the response, not the block's value, so the body is read into a local.
 function _fetch_url(url::AbstractString, limit::Integer)
     startswith(url, "file://") && return _read_bounded_file(url[8:end], limit)
+    body = UInt8[]
     try
-        return HTTP.open("GET", String(url); readtimeout=NETWORK_TIMEOUT) do stream
-            status = stream.message.status
+        HTTP.open("GET", String(url); request_timeout=NETWORK_TIMEOUT,
+                  status_exception=false) do stream
+            status = HTTP.startread(stream).status
             200 <= status < 300 ||
                 throw(TransportError("GET $(url) answered HTTP $(status)"))
-            _read_bounded_stream(stream, url, limit)
+            body = _read_bounded_stream(stream, url, limit)
         end
     catch err
         err isa OpenSysMLError && rethrow()
         throw(TransportError("GET $(url) failed: $(sprint(showerror, err))"))
     end
+    body
 end
 
 function _read_bounded_file(path, limit)
@@ -318,7 +322,7 @@ function _install_binary(binary_path, bytes, version, digest, repo)
         chmod(temp, 0o700)
         mv(temp, binary_path; force=true)
         open(metadata_temp, "w") do io
-            JSON.print(io, Dict("version" => version, "sha256" => digest, "repo" => repo))
+            JSON.json(io, Dict("version" => version, "sha256" => digest, "repo" => repo))
         end
         mv(metadata_temp, metadata_file; force=true)
     catch err

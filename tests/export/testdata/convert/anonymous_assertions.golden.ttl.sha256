@@ -1,0 +1,41 @@
+sha256 d81c10c7c4eb28bde6abb28cb2885352cad2f326ee4388d609e848ba4ab59907 bytes 235014 lines 3889
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:AnonymousAssertions
+    a sysml:Package ;
+    sysml:qualifiedName "AnonymousAssertions" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "31"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "AnonymousAssertions" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "AnonymousAssertions" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:AnonymousAssertions__MassValue, elmt:AnonymousAssertions__MassConstraint, elmt:AnonymousAssertions__massConstraint, elmt:AnonymousAssertions__Vehicle ;
+    sysml:ownedMembership elmt:AnonymousAssertions__MassValue_om, elmt:AnonymousAssertions__MassConstraint_om, elmt:AnonymousAssertions__massConstraint_om, elmt:AnonymousAssertions__Vehicle_om ;
+    sysml:ownedRelationship elmt:AnonymousAssertions__MassValue_om, elmt:AnonymousAssertions__MassConstraint_om, elmt:AnonymousAssertions__massConstraint_om, elmt:AnonymousAssertions__Vehicle_om ;
+    sysx:sourceText "package AnonymousAssertions {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"AnonymousAssertions__MassValue\"},{\"@id\":\"AnonymousAssertions__MassConstraint\"},{\"@id\":\"AnonymousAssertions__massConstraint\"},{\"@id\":\"AnonymousAssertions__Vehicle\"}]" ;
+    json:ownedMembership "[{\"@id\":\"AnonymousAssertions__MassValue_om\"},{\"@id\":\"AnonymousAssertions__MassConstraint_om\"},{\"@id\":\"AnonymousAssertions__massConstraint_om\"},{\"@id\":\"AnonymousAssertions__Vehicle_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousAssertions__MassValue_om\"},{\"@id\":\"AnonymousAssertions__MassConstraint_om\"},{\"@id\":\"AnonymousAssertions__massConstraint_om\"},{\"@id\":\"AnonymousAssertions__Vehicle_om\"}]" .
+
+elmt:AnonymousAssertions__MassValue
+    a sysml:AttributeDefinition ;
+    sysml:qualifiedName "AnonymousAssertions::MassValue" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
+    sysml:elementId "AnonymousAssertions__MassValue" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:AnonymousAssertions ;
+    sysml:owner elmt:AnonymousAssertions ;

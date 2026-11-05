@@ -111,9 +111,6 @@ func (ec *EvalContext) metaobjectFeature(meta Value, name string) (Value, error)
 			ec.ctx.QualifiedName(metaclass), name)
 	}
 	for _, property := range ec.reflectivePropertyNames(metaclass, feature) {
-		if property == "direction" {
-			return ec.reflectiveDirection(element, feature)
-		}
 		if elements, ok := sem.ReflectiveElements(element, property); ok {
 			values := make([]Value, 0, len(elements))
 			for _, elem := range elements {
@@ -189,27 +186,6 @@ func (ec *EvalContext) reflectivePropertyNames(metaclass, feature *symbols.Symbo
 		}
 	}
 	return slices.Compact(names)
-}
-
-// reflectiveDirection is Feature::direction of element: the FeatureDirectionKind
-// member its declaration states, `()` for a feature stating none.
-func (ec *EvalContext) reflectiveDirection(element, feature *symbols.Symbol) (Value, error) {
-	direction, ok := semantics.ReflectiveDirection(element)
-	if !ok {
-		return Value{}, fmt.Errorf("%w: %s declares no feature to have a direction",
-			ErrTypeMismatch, ec.ctx.QualifiedName(element))
-	}
-	if direction == ast.DirNone {
-		return ec.newSequence(nil)
-	}
-	sem := ec.ctx.model.semantics
-	for _, kind := range sem.FeatureTypeSet(feature) {
-		if literal, ok := sem.LookupMember(kind, direction.String()); ok {
-			return NewEnumLiteral(literal), nil
-		}
-	}
-	return Value{}, fmt.Errorf("%w: FeatureDirectionKind declares no member %s",
-		ErrUnresolvedReference, direction)
 }
 
 // valueOfFilterValue is the runtime value of a constant the semantic model derives.

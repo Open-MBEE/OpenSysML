@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NaryViews::definitions — tree rendering (render asTreeDiagram) -->
+<!-- 3 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="NaryViews-definitions" name="NaryViews::definitions">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» NaryViews::definitions" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=268;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Nary::Triad&#xA;expose Nary::Hub&#xA;expose Nary::Spoke" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="659" width="168" height="59" as="geometry"/>
+        </mxCell>
+        <object id="n0" label="Triad" fqn="Nary::Triad" kind="connection def dot" view="NaryViews::definitions" link="nary.sysml:10">
+          <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+            <mxGeometry x="50" y="50" width="12" height="12" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«part def»&#xA;Hub" fqn="Nary::Hub" kind="part def" view="NaryViews::definitions" link="nary.sysml:6">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="112" y="50" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«part def»&#xA;Spoke" fqn="Nary::Spoke" kind="part def" view="NaryViews::definitions" link="nary.sysml:7">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="50" y="137" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" fqn="Nary::Triad" kind="association" view="NaryViews::definitions" link="nary.sysml:10">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.9167;exitPerimeter=0;entryX=0;entryY=0.2973;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e0:to" value="hub" style="edgeLabel;html=0;align=center;verticalAlign=middle;resizable=0;" vertex="1" connectable="0" parent="e0">
+          <mxGeometry x="0.8" relative="1" as="geometry"/>
+        </mxCell>
+        <object id="e1" label="" fqn="Nary::Triad" kind="association" view="NaryViews::definitions" link="nary.sysml:10">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n0" target="n5">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="56" y="99"/>
+                <mxPoint x="69" y="99"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="e1:to" value="left" style="edgeLabel;html=0;align=center;verticalAlign=middle;resizable=0;" vertex="1" connectable="0" parent="e1">
+          <mxGeometry x="0.8" relative="1" as="geometry"/>
+        </mxCell>
+        <object id="e2" label="" fqn="Nary::Triad" kind="association" view="NaryViews::definitions" link="nary.sysml:10">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.25;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n0" target="n5">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="88" y="53"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="e2:to" value="right" style="edgeLabel;html=0;align=center;verticalAlign=middle;resizable=0;" vertex="1" connectable="0" parent="e2">
+          <mxGeometry x="0.8" relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

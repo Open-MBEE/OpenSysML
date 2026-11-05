@@ -1,0 +1,35 @@
+# NaryViews::carLinks — interconnection rendering (render asInterconnectionDiagram)
+# not represented: 4 note(s); the dot form draws notes
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
+  item: { shape: text; style: { font-size: 14; font-color: black } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  connection: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 3 } }
+}
+n0: "«part def»\nCar" {
+  class: definition
+  n1: "«part»\ntank" {
+    class: usage
+    "n1.0": "^fuelOut" { class: pin }
+  }
+  n2: "«part»\nengine" {
+    class: usage
+    "n2.0": "^fuelIn" { class: pin }
+  }
+  n3: "«part»\ngauge" {
+    class: usage
+    "n3.0": "^fuelIn" { class: pin }
+  }
+  n4: "«flow»\n—▶" { class: item }
+  n5: "«flow»\n◀—" { class: item }
+  n6: "«message»\n—>" { class: item }
+}
+n0.n1."n1.0" -- n0.n4: { class: connection }
+n0.n4 -- n0.n5: { class: connection }
+n0.n5 -- n0.n6: { class: connection }
+n0.n6 -- n0.n2."n2.0": { class: connection }
+n0.n1."n1.0" -> n0.n3."n3.0": { class: edge }
+frame_name: "«view» NaryViews::carLinks" { shape: text; near: top-left }
+frame_tr: "expose Nary::Car" { shape: text; near: top-right }

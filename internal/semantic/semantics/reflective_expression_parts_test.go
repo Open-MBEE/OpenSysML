@@ -247,8 +247,9 @@ func TestScopelessValuedSymbolOwnsItsFeatureValue(t *testing.T) {
 	scopeless := *x
 	scopeless.Scope = nil
 	memberships := m.OwnedMemberships(&scopeless)
-	if len(memberships) != 1 || m.MetaclassOf(memberships[0]).Name != "FeatureValue" {
-		t.Fatalf("OwnedMemberships(scope-less x) = %d, want the FeatureValue", len(memberships))
+	if len(memberships) != 2 || m.MetaclassOf(memberships[0]).Name != "FeatureValue" ||
+		!IsDefaultMultiplicity(memberships[1].Implicit.Member) {
+		t.Fatalf("OwnedMemberships(scope-less x) = %d, want the FeatureValue then the implied default Multiplicity's", len(memberships))
 	}
 	if m.ValueExpression(&scopeless) != memberships[0].Implicit.Member {
 		t.Error("the FeatureValue owns another expression")
@@ -425,8 +426,9 @@ func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
 			if got, ok := m.reflectiveFeatureValue(membership, "visibility"); !ok || !strings.HasSuffix(got.RefFQN, "::public") {
 				t.Errorf("%s: Membership.visibility = %v (%v), want the public literal", c.name, got, ok)
 			}
-			if got, ok := m.reflectiveFeatureValue(membership, "memberName"); !ok || got.Str != c.target.Name {
-				t.Errorf("%s: Membership.memberName = %v (%v)", c.name, got, ok)
+			// Only an alias specifies a plain Membership's names (KerML 8.3.2.3.5, 8.2.5.8.3).
+			if got, ok := m.reflectiveFeatureValue(membership, "memberName"); !ok || got.Str != "" {
+				t.Errorf("%s: Membership.memberName = %v (%v), want none", c.name, got, ok)
 			}
 		}
 		if again := m.OwnedMemberships(expr); len(again) != len(memberships) || again[0] != memberships[0] {

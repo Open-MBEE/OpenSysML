@@ -1,4 +1,4 @@
-.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-preflight dotnet-build dotnet-test dotnet-coverage dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
+.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-preflight dotnet-build dotnet-test dotnet-coverage dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -110,7 +110,7 @@ TOOLS_DIR := tools
 COVERAGE_PACKAGES ?= ./...
 COVERAGE_TOOLS ?= ./...
 COVERAGE_PROFILE ?= coverage.txt
-# The coverage job's nodes: the race shards except runtime-corpus, since without -race
+# The coverage job's nodes: the race shards except runtime-corpus, export-corpus and export-settled, since without -race
 # internal/exec/runtime runs whole in about 19 minutes under -coverpkg (see .circleci/config.yml).
 COVERAGE_SHARDS := runtime model export graph codegen tools rest migrate cli
 
@@ -387,17 +387,27 @@ RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStat
 # about half the package's time under -race.
 RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$
 RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
+# The export-corpus and export-settled shards: the tests/export suites that convert every
+# example model, each about the rest of the package's time under -race since the element
+# form completes the inherited family (locally 21, 26 and 20 minutes).
+RACE_EXPORT_CORPUS := ^Test(APIJSONWritersNeverEmitNameReferences|LibraryFilesComeBackFromTheGraphAlone)$$
+RACE_EXPORT_SETTLED := ^TestSettledCollectionsAreWhatReconcilingWouldFind$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
-test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|graph|codegen|tools|rest|migrate|cli)
+test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli)
 	@echo "Running Go race tests, shard $(SHARD)..."
 	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
-	@# under -race on the CI runners, so it runs as two shards of about half that each.
+	@# under -race on the CI runners, so it runs as two shards of about half that each; so does
+	@# tests/export, whose whole run passed 55 minutes once the element form completed inheritance,
+	@# as three.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
 	  runtime-corpus) go test -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage-exploration.txt -covermode=atomic $$pkgs && \
 	    go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs && \
 	    tail -n +2 coverage-exploration.txt >> coverage.txt && python3 scripts/dedupe-coverage.py coverage.txt ;; \
 	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  export-corpus) go test -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  export-settled) go test -run '$(RACE_EXPORT_SETTLED)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  export) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	esac
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
@@ -407,7 +417,7 @@ test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|
 test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export graph" | "rest migrate cli codegen")
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export graph codegen tools rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus model export export-corpus export-settled graph codegen tools rest migrate cli"; exit 1; }
 	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
 	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs
 	case " $(SHARDS) " in *" rest "*|*" tools "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
@@ -497,6 +507,12 @@ extension-libraries-check: ## Check the vendored extension libraries match their
 
 extension-libraries-sync: ## Re-vendor the extension libraries from the pinned upstream commit
 	./scripts/sync-extension-libraries.sh
+
+textmate-grammars-check: ## Check Open-MBEE/sysml-v2-textmate (the grammar repository GitHub Linguist vendors) carries the committed TextMate grammars
+	./scripts/sync-textmate-grammars.sh --check
+
+textmate-grammars-publish: ## Publish the committed TextMate grammars to Open-MBEE/sysml-v2-textmate (needs GITHUB_TOKEN; the release pipeline runs this)
+	./scripts/sync-textmate-grammars.sh --publish
 
 extension-libraries-pin-check: ## After moving the extension-library pin: every Java-free gate the full tier runs over the vendored libraries
 	./scripts/sync-extension-libraries.sh --check
@@ -708,6 +724,7 @@ dotnet-build: dotnet-preflight ## Restore the .NET client from its lock files an
 	$(DOTNET) restore $(DOTNET_SLN) --locked-mode
 	$(DOTNET) build $(DOTNET_SLN) -c Release --no-restore -warnaserror
 
+# Require the schema comparison locally too; Make's BUF defaults to pinned go run.
 # With OPENSYSML_GRPC_BINARY and OPENSYSML_REQUIRE_SERVICE=1 set, as CI sets them,
 # a test that needs the service fails rather than skips without one, and so does the
 # Vehicle sample's run against a service the sample gate starts.
@@ -715,7 +732,7 @@ dotnet-test: dotnet-build ## Check formatting, run the .NET client tests and its
 	@echo "Running .NET client tests..."
 	$(DOTNET) format $(DOTNET_SLN) --verify-no-changes --no-restore
 	rm -rf $(DOTNET_REPORTS)/test
-	$(DOTNET) test --solution $(DOTNET_SLN) -c Release --no-build \
+	BUF="$(BUF)" OPENSYSML_REQUIRE_BUF=1 $(DOTNET) test --solution $(DOTNET_SLN) -c Release --no-build \
 		--minimum-expected-tests $(DOTNET_MIN_TESTS) \
 		--results-directory $(CURDIR)/$(DOTNET_REPORTS)/test --report-xunit-junit
 	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py sample --dotnet "$(DOTNET)" \
@@ -742,7 +759,7 @@ dotnet-generate-check: dotnet-build ## Fail unless every committed golden of the
 dotnet-coverage: dotnet-build ## Run the .NET client tests under coverlet; write Cobertura and JUnit under bin/dotnet/coverage
 	@echo "Running .NET client tests with coverage..."
 	rm -rf $(DOTNET_REPORTS)/coverage
-	$(DOTNET) test --solution $(DOTNET_SLN) -c Release --no-build \
+	BUF="$(BUF)" OPENSYSML_REQUIRE_BUF=1 $(DOTNET) test --solution $(DOTNET_SLN) -c Release --no-build \
 		--minimum-expected-tests $(DOTNET_MIN_TESTS) \
 		--results-directory $(CURDIR)/$(DOTNET_REPORTS)/coverage --report-xunit-junit \
 		--coverlet --coverlet-output-format cobertura \

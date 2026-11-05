@@ -174,14 +174,13 @@ func TestIndistinguishableMembershipsAreErrorsUnderStrictConformance(t *testing.
 }
 
 // An imported collision is a name KerML 7.2.5.4 hides, not a membership the
-// namespace keeps, so the warning marking it stays a warning under strict.
-func TestImportedNameCollisionStaysAWarningUnderStrictConformance(t *testing.T) {
+// namespace keeps, so there is no name conflict to report, strict mode included.
+func TestImportedNameCollisionIsNoConflictUnderStrictConformance(t *testing.T) {
 	const src = `package A { part def Engine; }
 	package B { part def Engine; }
 	package C { private import A::*; private import B::*; part e : Engine; }`
-	got := only(nameresDiagsIn(t, src, diag.ConformanceStrict), "name-conflict")
-	if len(got) != 1 || got[0].Severity != diag.SeverityWarning || !strings.HasPrefix(got[0].Message, "Duplicate of imported member name 'Engine'") {
-		t.Fatalf("got %+v, want one imported-name warning", got)
+	if got := only(nameresDiagsIn(t, src, diag.ConformanceStrict), "name-conflict"); len(got) != 0 {
+		t.Fatalf("got %+v, want no name conflict: the hidden pair is no membership of C", got)
 	}
 }
 

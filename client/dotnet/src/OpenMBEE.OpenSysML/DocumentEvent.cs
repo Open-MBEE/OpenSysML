@@ -4,8 +4,8 @@ using System.Collections.Generic;
 namespace OpenMBEE.OpenSysML;
 
 /// <summary>
-/// One record of a run's trace, in the order the run made it: what an action or state run returns when it is
-/// asked for its trace, and the row an <c>Events</c> document query answers.
+/// One record of a run's trace, in the order the run made it: what a state or action run returns when
+/// it is asked for its trace, and the row an <c>Events</c> document query answers.
 /// </summary>
 public sealed record DocumentEvent
 {
@@ -111,10 +111,11 @@ public sealed record DocumentEvent
     }
 
     /// <summary>
-    /// What the record is: <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>,
-    /// <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c> for state-machine records.
-    /// Action traces add <c>step</c>, <c>wait</c>, <c>assign</c>, <c>decide</c> and <c>complete</c>;
-    /// an action's <c>accept</c> is an accept node taking a message and its <c>send</c> is a message posted.
+    /// What the record is: a state machine's <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>,
+    /// <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c>; an action run adds <c>step</c> (a token arriving at a
+    /// node), <c>wait</c> (a token parking at an accept node), <c>assign</c> (a feature written), <c>decide</c> (a decision
+    /// node resolved) and <c>complete</c> (the action's performance completed).
+    /// An action's <c>accept</c> is an accept node taking a message and its <c>send</c> is a message posted.
     /// </summary>
     public string Kind { get; }
 
@@ -158,16 +159,16 @@ public sealed record DocumentEvent
     /// <summary>The line the trace prints for the record.</summary>
     public string Text { get; }
 
-    /// <summary>The identity of the action token; 0 when none was reported.</summary>
+    /// <summary>The action token a step, wait, assign, decide or action accept record is about; 0 for a record of neither, such as a state machine's.</summary>
     public long Token { get; }
 
-    /// <summary>The action graph's 1-based step index; 0 for a record of neither an action token nor a step.</summary>
+    /// <summary>The executor step, from 1, that made an action's record; 0 for a record no action step made.</summary>
     public int Step { get; }
 
-    /// <summary>The feature assigned by an assignment record; empty otherwise.</summary>
+    /// <summary>The feature an assign record wrote; empty for every other kind.</summary>
     public string Feature { get; }
 
-    /// <summary>The assigned value; null when none was reported.</summary>
+    /// <summary>The value an assign record's <see cref="Feature"/> holds since, as a run's outputs carry values; null for every other kind.</summary>
     public Value? Value { get; }
 
     /// <summary>The record as the trace prints it, <see cref="Text"/>.</summary>

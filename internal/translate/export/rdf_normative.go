@@ -499,6 +499,9 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 		e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String(name))
 	}
 	e.emitMembershipCore(membership, conjugated, subject, mOwningMembership, true)
+	if named {
+		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
+	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMember), conjugated)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
@@ -524,7 +527,8 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 // ReferenceUsage owned through a SubjectMembership whose FeatureValue is a
 // FeatureReferenceExpression of the subject — the shape `subject = <expr>`
 // has, since a satisfy's `by` is the subject it evaluates the requirement for.
-func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *symbols.Symbol, target ast.Node) error {
+func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *symbols.Symbol, rel *ast.Relationship) error {
+	target := rel.Target
 	usage := e.ids.minted(rdf.RelationshipIRI(subject, "_subject"), subject, "_subject")
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(usage), usage, rdf.OwningMembershipSuffix)
 	for _, c := range []struct{ iri, standsFor string }{
@@ -546,6 +550,7 @@ func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *sym
 		e.flags(usage, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	e.emitMembershipCore(membership, usage, subject, mSubjectMembership, true)
+	e.subjectMemberNames(membership, ownerSym, rel)
 	e.graph.Add(membership, e.sysml(pOwnedSubjectParameter), usage)
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), usage)
 	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), usage)
@@ -587,6 +592,27 @@ func (e *encoder) subjectFeatureChainValue(usage rdf.Term, target ast.Node, chai
 	return e.expressionOwnership(expression, usage, mFeatureValue)
 }
 
+// subjectMemberNames states the SubjectMembership's memberName and memberShortName: the effective
+// names of the subject parameter the `by` clause rel declares (RequirementCheck::subj, redefined).
+func (e *encoder) subjectMemberNames(membership rdf.Term, ownerSym *symbols.Symbol, rel *ast.Relationship) {
+	if ownerSym == nil {
+		return
+	}
+	owned, _ := e.ids.model.SubjectsOf(ownerSym)
+	for _, subject := range owned {
+		if subject.Decl != ast.Node(rel) {
+			continue
+		}
+		if name := e.ids.model.EffectiveNameOf(subject); name != "" {
+			e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
+		}
+		if short := e.ids.model.EffectiveShortNameOf(subject); short != "" {
+			e.graph.Add(membership, e.sysml(pMemberShortName), rdf.String(short))
+		}
+		return
+	}
+}
+
 // subjectParameters emits a subject parameter per `by` target the head states
 // (SysML.xtext SatisfyRequirementUsage `subject`); the collapsed `subject`
 // property the relationships pass wrote stays beside it.
@@ -595,7 +621,7 @@ func (e *encoder) subjectParameters(subject rdf.Term, owner string, ownerSym *sy
 		if rel == nil || rel.Kind != ast.RelSubject || rel.Target == nil {
 			continue
 		}
-		if err := e.subjectParameter(subject, owner, ownerSym, rel.Target); err != nil {
+		if err := e.subjectParameter(subject, owner, ownerSym, rel); err != nil {
 			return err
 		}
 	}

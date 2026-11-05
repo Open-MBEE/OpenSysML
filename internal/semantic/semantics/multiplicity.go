@@ -278,7 +278,7 @@ func (m *Model) ImplicitMultiplicityApplies(sym *symbols.Symbol) bool {
 	if sym.Decl == nil {
 		for _, kind := range implicitMultiplicityRelationshipKinds {
 			for _, target := range m.RecordedRelationshipTargets(sym, kind) {
-				if withholdsImplicitMultiplicity(target) {
+				if withholdsImplicitMultiplicityBy(kind, target) {
 					return false
 				}
 			}
@@ -288,7 +288,7 @@ func (m *Model) ImplicitMultiplicityApplies(sym *symbols.Symbol) bool {
 			if rel == nil || rel.Target == nil || !isImplicitMultiplicityRelationship(rel.Kind) {
 				continue
 			}
-			if withholdsImplicitMultiplicity(m.RelationshipTarget(sym, rel)) {
+			if withholdsImplicitMultiplicityBy(rel.Kind, m.RelationshipTarget(sym, rel)) {
 				return false
 			}
 		}
@@ -320,6 +320,17 @@ func isImplicitMultiplicityRelationship(kind ast.RelationshipKind) bool {
 		}
 	}
 	return false
+}
+
+// withholdsImplicitMultiplicityBy reports whether a relationship of kind to target
+// withholds the implicit [1..1]: a redefinition always, whatever it redefines (the
+// redefining feature takes the redefined one's multiplicity, KerML 1.1 §7.3.4.5);
+// a subsetting, reference or cross-subsetting when its target is a type-owned feature.
+func withholdsImplicitMultiplicityBy(kind ast.RelationshipKind, target *symbols.Symbol) bool {
+	if kind == ast.RelRedefines {
+		return target == nil || target.Kind != symbols.SymbolMetadataUsage
+	}
+	return withholdsImplicitMultiplicity(target)
 }
 
 func withholdsImplicitMultiplicity(target *symbols.Symbol) bool {

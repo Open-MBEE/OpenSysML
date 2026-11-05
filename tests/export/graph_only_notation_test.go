@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // notationFromTheGraphAlone converts src to Turtle, strips the source text and
@@ -118,7 +119,9 @@ func TestSysMLBindingOwnMultiplicityTakesTheDeclaredForm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := strings.Count(string(again), "sysml:multiplicity expr:"); n != 2 {
+	// The ends a and b state their implied default Multiplicity too, and the graph names the
+	// library ranges the model inherits; the model's own ranges are the bindings' bounds.
+	if n := ownMultiplicityRanges(t, again); n != 2 {
 		t.Errorf("want the two bindings to keep their own bounds, got %d\n%s", n, again)
 	}
 	if strings.Contains(string(again), "_pend0_pupperBound") {
@@ -356,4 +359,21 @@ func TestUnplacedMultiplicityIsWrittenOnceAcrossSplitTypings(t *testing.T) {
 	if want := "part p : A[2] subsets x : B;"; !strings.Contains(string(back), want) {
 		t.Errorf("want %q in the notation from the graph alone:\n%s", want, back)
 	}
+}
+
+// ownMultiplicityRanges counts the MultiplicityRange subjects the model owns, not the
+// library references the graph names beside them.
+func ownMultiplicityRanges(t *testing.T, turtle []byte) int {
+	t.Helper()
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, subject := range graph.SubjectsView() {
+		if graph.Type(subject) == rdf.SysML+"MultiplicityRange" && !export.LibraryReference(graph, subject) {
+			n++
+		}
+	}
+	return n
 }

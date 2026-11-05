@@ -1,5 +1,6 @@
 @startuml
 ' VariationViews::familyTree — tree rendering (render asTreeDiagram)
+mainframe <size:10>//«view»//</size> **VariationViews::familyTree** : Family\n<size:10>expose vehicleFamily<U+002A><U+002A></size>\n<size:10>expose EngineChoices<U+002A><U+002A></size>
 <style>
 root {
   BackGroundColor white

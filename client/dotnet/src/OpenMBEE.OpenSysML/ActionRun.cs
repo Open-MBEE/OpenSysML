@@ -77,9 +77,12 @@ public sealed record ActionRun
     /// </summary>
     public ValueDictionary<int> OrderDependent { get; }
 
-    /// <summary>The trace, in run order, when asked for; empty when tracing was not requested or supported.</summary>
+    /// <summary>
+    /// The run's trace in the order the run made it, when <see cref="RunOptions.Trace"/> asked for it: the token steps,
+    /// waits, accepts, sends, decisions, assignments and completion of the action; empty otherwise.
+    /// </summary>
     public ValueList<DocumentEvent> Trace { get; }
 
-    /// <summary>How many oldest trace records the service's held-events bound discarded.</summary>
+    /// <summary>How many of the oldest records the service's bound on held events discarded from <see cref="Trace"/>.</summary>
     public int TraceDropped { get; }
 }

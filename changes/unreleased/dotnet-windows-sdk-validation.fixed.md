@@ -1,4 +1,4 @@
-- Refresh the C# SDK's service bindings and capability inventory, preserve action trace and event data through the public API and conformance adapters, and derive the gRPC conformance scenario count from the suite.
+- Retain C# SDK constructor compatibility and action-trace response validation, and derive the gRPC conformance scenario count from the suite.
 - Correct the Rust cache-lock interoperability fixture's `fs4` API usage and make the .NET gate-script test fixtures portable to Windows.
 - Make C# SDK cancellation precedence tests deterministic, isolate deadline tests from connection setup, keep paced download fixtures independent of client thread-pool load, and publish fake-service markers atomically on Windows.
 - Document the additional action-trace event kinds in the C# SDK and reference the shared description from both trace-record constructors.

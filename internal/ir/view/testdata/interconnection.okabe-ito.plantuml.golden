@@ -1,5 +1,6 @@
 @startuml
 ' PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
+mainframe <size:10>//«view»//</size> **PlantViews::loopView**\n<size:10>expose Plant::Loop</size>
 <style>
 root {
   BackGroundColor white

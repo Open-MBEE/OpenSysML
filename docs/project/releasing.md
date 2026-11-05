@@ -417,6 +417,19 @@ GitHub release serves, which `pin-release-digests` and the clients' digest
 tables read for the five `sysml-grpc` binaries; an image is addressed by the
 digest its registry reports, which the job prints.
 
+`publish-textmate-grammars` runs after the GitHub release too and pushes the
+TextMate grammars under `editors/vscode/syntaxes/` to
+[Open-MBEE/sysml-v2-textmate](https://github.com/Open-MBEE/sysml-v2-textmate),
+the repository GitHub Linguist vendors for `.sysml` and `.kerml` highlighting on
+GitHub (`scripts/sync-textmate-grammars.sh --publish`, with the same token as
+`publish-github-release`, which has to write that repository's contents). The
+grammars are read from the tag's commit, the push is a fast-forward of `main`,
+and it is a no-op when the grammars did not change. Like the image's `latest`,
+the mirror moves only for the newest stable release in the tag namespace as
+fetched then: a pre-release tag or a re-run of an older tag is skipped, never a
+rollback. `make textmate-grammars-check` compares the mirror with HEAD's
+grammars afterwards.
+
 Platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64,
 windows/amd64.
 

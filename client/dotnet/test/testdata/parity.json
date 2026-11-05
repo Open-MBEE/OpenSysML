@@ -3165,7 +3165,8 @@
         "fields": [
           "id",
           "qualified_name",
-          "type"
+          "type",
+          "library_path"
         ]
       }
     ],
@@ -3657,6 +3658,19 @@
         ]
       }
     ],
+    "sysml.RenderFrame": [
+      {
+        "status": "typed",
+        "test": "ModelQueryDocsTests.RenderViewSendsEveryOptionAndReadsEveryFieldOfTheRendering",
+        "fields": [
+          "name",
+          "type",
+          "exposes",
+          "filters",
+          "annotations"
+        ]
+      }
+    ],
     "sysml.RenderGeometry": [
       {
         "status": "typed",
@@ -3691,7 +3705,9 @@
           "geometry",
           "style",
           "compartment",
-          "inherited"
+          "inherited",
+          "arrow",
+          "parallel"
         ]
       }
     ],
@@ -3790,7 +3806,8 @@
           "canvas",
           "notes",
           "notices",
-          "shown"
+          "shown",
+          "frame"
         ]
       }
     ],

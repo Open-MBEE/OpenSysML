@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::fillGlyphs — action rendering (view def ActionFlowView)
+mainframe <size:10>//«view»//</size> **NotationGlyphs::Diagrams::fillGlyphs** : ActionFlowView\n<size:10>expose Fill</size>
 <style>
 root {
   BackGroundColor white

@@ -327,6 +327,74 @@ func (m *drawioMatcher) diff(cell, base *DrawioCell, baseKeys map[string]DrawioE
 	m.diffEdge(cell, base, baseKeys[base.ID])
 }
 
+// lineOf is every segment of the split connection line edge i belongs to, in order (i alone
+// for any other edge): a connection's one Route is the whole line's, so they import together.
+func (m *drawioMatcher) lineOf(i int) []int {
+	edge := m.norm.Edges[i]
+	if edge.Kind != EdgeConnection || !m.itemBoxAt(edge.From) && !m.itemBoxAt(edge.To) {
+		return []int{i}
+	}
+	segment := func(from, to string, not int) int {
+		for j, e := range m.norm.Edges {
+			if j != not && e.Kind == EdgeConnection && e.Origin == edge.Origin && (from == "" || e.From == from) && (to == "" || e.To == to) {
+				return j
+			}
+		}
+		return -1
+	}
+	first := i
+	for n := 0; n < len(m.norm.Edges) && m.itemBoxAt(m.norm.Edges[first].From); n++ {
+		prev := segment("", m.norm.Edges[first].From, first)
+		if prev < 0 {
+			break
+		}
+		first = prev
+	}
+	line := []int{first}
+	for last := first; len(line) <= len(m.norm.Edges) && m.itemBoxAt(m.norm.Edges[last].To); last = line[len(line)-1] {
+		next := segment(m.norm.Edges[last].To, "", last)
+		if next < 0 {
+			break
+		}
+		line = append(line, next)
+	}
+	return line
+}
+
+// itemBoxAt reports whether the node of the given id is an item box on a line.
+func (m *drawioMatcher) itemBoxAt(id string) bool {
+	node := m.nodes[id]
+	return node != nil && itemBox(node)
+}
+
+// linePoints are a line's waypoints, every segment's in order: the file's cells'
+// when edited, else the baseline's.
+func (m *drawioMatcher) linePoints(line []int, edited bool) []Point {
+	var points []Point
+	for _, j := range line {
+		cell := m.base.Cell("e" + strconv.Itoa(j))
+		if cell == nil {
+			continue
+		}
+		if edited {
+			cell = m.editedOf(cell)
+		}
+		points = append(points, cell.Points...)
+	}
+	return points
+}
+
+// reroutedSegment is the first segment of a line whose waypoints the file moved,
+// the cell a Route edit of the line is reported on; the first segment when none did.
+func (m *drawioMatcher) reroutedSegment(line []int) int {
+	for _, j := range line {
+		if base := m.base.Cell("e" + strconv.Itoa(j)); base != nil && !sameWaypoints(m.editedOf(base).Points, base.Points) {
+			return j
+		}
+	}
+	return line[0]
+}
+
 // unordered is the key without its ordinal: what every edge between the same
 // ends of one kind shares.
 func (k DrawioEdgeKey) unordered() DrawioEdgeKey {
@@ -381,6 +449,9 @@ func (m *drawioMatcher) edgeLabel(cell *DrawioCell, f *DrawioFile) string {
 // position is drawn on its owner's border, so only its style is read.
 func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 	origin, isPort := m.originOf(base.ID)
+	if !isPort && base.FQN == "" && cell.FQN == "" && !origin.Located() {
+		return // a section of a node's box (a loop body), standing for no declaration
+	}
 	edit := DrawioEdit{Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell, base), Origin: origin}
 	if isPort {
 		owner, size := m.base.Cell(base.Parent), DrawioBox{}
@@ -614,6 +685,17 @@ func (m *drawioMatcher) frameShift(base *DrawioCell) DrawioBox {
 	if parent == nil {
 		return DrawioBox{}
 	}
+	if sectionKind(parent.Kind) {
+		// A body section is laid out by its node, never placed: its nodes are
+		// placed in the section's frame as the file shows it, the node pinned.
+		section := m.base.Cell(base.Parent)
+		if owner := m.nodes[section.Parent]; owner != nil && !owner.Geometry.placed() {
+			m.pin(section.Parent)
+		}
+		box := fullBox(m.editedOf(section))
+		shift := m.w.childShift(parent, drawioBox(box))
+		return DrawioBox{X: shift.X, Y: shift.Y}
+	}
 	if !parent.Geometry.placed() {
 		m.pin(base.Parent)
 		return DrawioBox{}
@@ -663,6 +745,10 @@ func (m *drawioMatcher) editedOf(base *DrawioCell) *DrawioCell {
 
 // framePlace writes a Layout putting node at its page box, as the file has it.
 func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized bool) {
+	origin, _ := m.originOf(base.ID)
+	if base.FQN == "" && cell.FQN == "" && !origin.Located() {
+		return // a section of a node's box, standing for no declaration
+	}
 	box := fullBox(cell)
 	layout := &semantics.Layout{X: box.X - m.frameShift(base).X, Y: box.Y - m.frameShift(base).Y, Collapsed: cell.Collapsed}
 	if sized {
@@ -671,7 +757,6 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 	if node.Geometry != nil {
 		layout.Hidden = node.Geometry.Hidden
 	}
-	origin, _ := m.originOf(base.ID)
 	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell, base), Origin: origin, Layout: layout})
 }
 
@@ -702,13 +787,17 @@ func (m *drawioMatcher) diffEdge(cell, base *DrawioCell, key DrawioEdgeKey) {
 	// A rendering built without a record of what it draws leaves the refusal
 	// of an edge no Route steers to the edit applying the import.
 	steered := m.drawn == nil || m.drawn.Steers(edge.Origin, edge.Kind)
-	if !sameWaypoints(cell.Points, base.Points) && !steered {
-		m.out.Notices = append(m.out.Notices, fmt.Sprintf("edge %s re-routed: no Route steers a %s edge yet, so its waypoints are not imported", key.String(), edge.Kind))
-	} else if !sameWaypoints(cell.Points, base.Points) {
+	line := m.lineOf(i)
+	points, basePoints := m.linePoints(line, true), m.linePoints(line, false)
+	if !sameWaypoints(points, basePoints) && !steered {
+		if i == line[0] {
+			m.out.Notices = append(m.out.Notices, fmt.Sprintf("edge %s re-routed: no Route steers a %s edge yet, so its waypoints are not imported", key.String(), edge.Kind))
+		}
+	} else if !sameWaypoints(points, basePoints) && i == m.reroutedSegment(line) {
 		out.Kind = DrawioEditRoute
-		if len(cell.Points) > 0 {
+		if len(points) > 0 {
 			out.Route = &semantics.Route{}
-			for _, p := range cell.Points {
+			for _, p := range points {
 				out.Route.Points = append(out.Route.Points, semantics.Waypoint{X: p.X, Y: p.Y})
 			}
 		}

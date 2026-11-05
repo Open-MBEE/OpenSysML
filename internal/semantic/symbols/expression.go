@@ -33,6 +33,15 @@ const (
 	// ExpressionChainFeature is the Feature a dotted function or target name
 	// reaches through, owned by the expression at Slot (KerML 8.3.3.3.3).
 	ExpressionChainFeature
+	// ExpressionGuard is a transition's guard, owned through a TransitionFeatureMembership
+	// of kind guard; Owner is the transition.
+	ExpressionGuard
+	// ExpressionTriggerAction is the AcceptActionUsage a transition's trigger declares,
+	// owned through a TransitionFeatureMembership of kind trigger; Owner is the transition.
+	ExpressionTriggerAction
+	// ExpressionPayload is a parameter of that accept: its payload, valued by a time or change
+	// event's TriggerInvocationExpression, or its `via` receiver; Owner is the accept.
+	ExpressionPayload
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

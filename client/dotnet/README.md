@@ -534,6 +534,10 @@ var declared = await model.ExecuteActionAsync("Test::race", options: new RunOpti
 var every = await model.ExploreActionAsync("Test::race");             // every outcome, and whether that is all of them
 var traced = await model.ExecuteStateAsync("Test::Machine", options: new RunOptions { Trace = true });
 var tracedAction = await model.ExecuteActionAsync("Test::addFive", options: new RunOptions { Trace = true });
+var sent = await model.ExecuteActionAsync("Plant::Tank::fill", options: new RunOptions
+{
+    PerformerSymbolId = "Plant::tank", Events = ["Plant::Refill"], Trace = true,     // posted as %send posts them
+});
 var tank = (await connection.LoadAsync("tank.sysml")).RequireNoErrors();
 var check = await tank.CheckActionAsync("Plant::Tank::fill", options: new CheckOptions
 {
@@ -543,14 +547,21 @@ var check = await tank.CheckActionAsync("Plant::Tank::fill", options: new CheckO
 
 | Method | Answers |
 | --- | --- |
-| `ExecuteActionAsync` | An `ActionRun`: the action's `Outputs`, the `PerformerAttributes` of the object it ran on (`this.level`), its `Diagnostics` (choice points, unevaluable guards), the `FinalTime` of its clock, the outputs each `OrderDependent` choice touched, and, when requested, its `Trace` and `TraceDropped` |
+| `ExecuteActionAsync` | An `ActionRun`: the action's `Outputs`, the `PerformerAttributes` of the object it ran on (`this.level`), its `Diagnostics` (choice points, unevaluable guards), the `FinalTime` of its clock, the outputs each `OrderDependent` choice touched, and, when `RunOptions.Trace` asks for it, the run's `Trace` of `DocumentEvent`s (token steps, waits, accepts, sends, decisions, assignments and completion) and how many records the service dropped |
 | `ExecuteStateAsync` | A `StateRun`: the `StatesVisited` in the order the run entered them, the `FinalContext`, and, when `RunOptions.Trace` asks for it, the run's `Trace` of `DocumentEvent`s and how many records the service dropped |
 | `ExploreActionAsync` / `ExploreStateAsync` | An `Exploration`: each distinct `Outcome` with its linearizations, witness choices and model-draw probability, whether the exploration was `Complete`, and the budgets that cut it short |
 | `CheckActionAsync` / `CheckStateAsync` | A `CheckResult`: the verdict (`holds`, `fails`, `undecided`), the report's lines, the search's statistics, each violation, divergence and final outcome with a `CheckWitness` that replays it, the symbolic engine's claim, and the `Standing` of the engine that answered |
 
-`RunOptions` carries what the `sysml` command's run flags do: the `Schedule` (`declared`, `reverse`, `seed:<n>`, or `explore[:runs=<n>,depth=<d>]` for an exploration), the `PerformerSymbolId` of the object performing the behavior, the action or state run's `Trace`, its ordered `Events`, and the run's `Advance`, `Seed`, `Draws` and `ClockStep`. Action events need a performer and cannot be posted under an exploring schedule. State events can be supplied through options or through the existing events argument, but not both. Lists are copied when set.
-
-A run and an exploration answer differently, so each call takes only its own kind of schedule: an exploring schedule passed to `ExecuteActionAsync`, a single-run schedule passed to an explore call, or a trace asked of an exploration is an `InvalidRequestException` before anything is sent. An explore call naming no schedule explores under the service's default budget. `CheckOptions` carries
+`RunOptions` carries what the `sysml` command's run flags do: the `Schedule` (`declared`,
+`reverse`, `seed:<n>`, or `explore[:runs=<n>,depth=<d>]` for an exploration), the
+`PerformerSymbolId` of the object performing the behavior, the run's `Trace`, the `Events` an
+action run posts to its performer in order, as the REPL's `%send` does, and the run's `Advance`,
+`Seed`, `Draws` and `ClockStep`. A run and an exploration answer differently, so each call takes
+only its own kind of schedule: an exploring schedule passed to `ExecuteActionAsync`, a single-run
+schedule passed to an explore call, or a trace or events asked of an exploration is an
+`InvalidRequestException` before anything is sent. So are `Events` with no `PerformerSymbolId`
+to post them to, and `Events` given to a state run, which takes its events as an argument. An explore
+call naming no schedule explores under the service's default budget. `CheckOptions` carries
 the `-check-*` flags: the properties held at every stable state, the features allowed to
 diverge, the symbolic engine's free inputs and assumptions, whether each witness carries its
 file, the bounds, the engine and the performer. A failing property is a `CheckResult`, never
@@ -721,7 +732,8 @@ it), `TolerateSyntaxErrors`, the `IdForm` of derived ids in a graph, the `Docume
 multi-document model to write, the `Compact` API JSON form with `OmitDerived` and
 `KeepDerived`, `IncludeCheckDiagnostics`, and `IncludeLibraryStubs`. An `api-json` conversion
 lists the standard-library elements it refers to as `LibraryReferences` (each a
-`LibraryReference` with its `Id`, `QualifiedName` and metaclass `Type`) rather than writing them
+`LibraryReference` with its `Id`, `QualifiedName` and metaclass `Type`, and, for an inherited
+unnamed member, which has no qualified name, its positional `LibraryPath` `owner/Metaclass[i]`) rather than writing them
 as roots of the element array; `IncludeLibraryStubs` writes them as roots too, as conversions
 before 0.11.0 did, and the service refuses it for any other format. A service without
 `convert_library_references` leaves the list empty. `MigrateOptions` carries the v1 `FromFormat`,
@@ -824,7 +836,11 @@ creates. A row's element and cells read every arm, the verdict, state and event 
 A `RenderedView` keeps its `Nodes` flattened, parents before children, each naming its
 `Parent`; `Roots`, `ChildrenOf` and `Node` walk them. A node has its `Ports`, an edge its end
 ports, `Route` and `Label`, a tabular rendering its `Columns` and `Rows`, and the view its
-`Notes`, its `Notices` and the optional notation it has `Shown`. What a view leaves unstated
+`Notes`, its `Notices`, the optional notation it has `Shown`, and, round a graph-shaped
+rendering, its `Frame`: the view's name and view definition and the lines of its exposes,
+filters and annotations compartments (null for a frameless rendering). An item box drawn on a
+connection line names the end the item goes toward as its `Arrow` (`right` or `left`), and a
+state whose substates run in parallel is `Parallel`. What a view leaves unstated
 stays absent: a node no layout places has a null `Geometry`, one no style colours a null
 `Style`, a view stating no canvas a null `Canvas`, and an element the service located nowhere
 a null `Origin`, never zeros. A layout that only folds or hides a node is `Unplaced`, and one
@@ -1329,10 +1345,16 @@ the reviewed requests the API cannot express.
 ## Building and testing
 
 ```bash
-make dotnet-test       # preflight, locked restore, build, format check, tests, samples
+make dotnet-test       # preflight, locked restore, build, format check, tests (schema check required), samples
 make dotnet-coverage   # the tests under coverlet: Cobertura and JUnit in bin/dotnet/coverage
 make conformance-dotnet conformance-dotnet-check   # the conformance suite; see Conformance
 ```
+
+`make dotnet-test` and `make dotnet-coverage` require the [protocol schema check](#protocol-code):
+they pass Make's `BUF` command to the tests and set `OPENSYSML_REQUIRE_BUF=1`, so missing buf
+fails instead of skipping. The default runs the pinned buf with Go; use `BUF=buf` to use an
+installed binary. The first `go run` may download buf's Go dependencies. Neither target
+regenerates or rewrites the committed C# files.
 
 `make dotnet-test` runs these commands, which also work on their own:
 
@@ -1340,7 +1362,8 @@ make conformance-dotnet conformance-dotnet-check   # the conformance suite; see 
 dotnet restore client/dotnet/OpenSysML.slnx --locked-mode
 dotnet format client/dotnet/OpenSysML.slnx --verify-no-changes --no-restore
 dotnet build client/dotnet/OpenSysML.slnx -c Release --no-restore -warnaserror
-dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build --filter-trait 'Category=Unit'
+BUF='go run github.com/bufbuild/buf/cmd/buf@v1.57.2' OPENSYSML_REQUIRE_BUF=1 \
+  dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build
 ```
 
 `dotnet test` runs on Microsoft.Testing.Platform, which `global.json` selects; the VSTest
@@ -1494,9 +1517,10 @@ the schema with buf and compares its `sysml.proto` with the descriptor compiled 
 declaration where they part. Options are not compared, since managed mode rewrites the C#
 namespace in what only the C# plugins see. It runs `$BUF`, read as the Makefile reads it,
 else `buf` on `PATH`, and skips without either; set `OPENSYSML_REQUIRE_BUF=1` to turn that
-skip into a failure, as the Linux CI jobs, which install buf, do. The native macOS and Windows
-jobs have no buf and let it skip: the comparison does not depend on the platform. To run it
-alone with the pinned buf:
+skip into a failure. `make dotnet-test` and `make dotnet-coverage` always require it, on
+every platform, and pass their `BUF` command (the pinned `go run` by default); a missing or
+failed command is a test failure, not a skip. The comparison only builds the schema: it does
+not invoke the remote C# generators or rewrite the stubs. To run it alone with the pinned buf:
 
 ```bash
 BUF='go run github.com/bufbuild/buf/cmd/buf@v1.57.2' OPENSYSML_REQUIRE_BUF=1 \

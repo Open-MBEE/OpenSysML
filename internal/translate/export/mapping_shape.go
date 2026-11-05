@@ -339,6 +339,12 @@ func mappingMembershipMemberIsElementUncached(
 	if mappingExpressionBodyMemberSubject(graph, owner) {
 		return false
 	}
+	// A connector end is positional whatever its EndFeatureMembership names it:
+	// the name is the end it redefines, not an address of its own.
+	if graph.BoolValue(member, rdf.SysML+"isEnd") &&
+		context.conforms(graph, membership, "EndFeatureMembership") {
+		return false
+	}
 	if owner.IsIRI() && !ownerIsElement && !resultExpression {
 		return mappingHasElementName(graph, member) || mappingHasMemberName(graph, membership)
 	}
@@ -355,10 +361,6 @@ func mappingMembershipMemberIsElementUncached(
 		return true
 	}
 	if !parameter && context.conforms(graph, membership, "FeatureMembership") {
-		if graph.BoolValue(member, rdf.SysML+"isEnd") &&
-			context.conforms(graph, membership, "EndFeatureMembership") {
-			return false
-		}
 		if mappingHasElementName(graph, member) || mappingHasMemberName(graph, membership) {
 			return true
 		}

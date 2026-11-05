@@ -40,6 +40,8 @@ type identityFacts struct {
 	// declSym is the symbol each declaration node was resolved as, which a
 	// metadata body's members need to find the feature their name restates.
 	declSym map[ast.Node]*symbols.Symbol
+	// symByFQN is the symbol each qualified name the encoder computes was resolved as.
+	symByFQN map[string]*symbols.Symbol
 	// bodyParamSym is the symbol of each expression body's parameter by name; a
 	// body parameter declares the body node, so declSym cannot hold it.
 	bodyParamSym map[*ast.BodyExpr]map[string]*symbols.Symbol
@@ -161,6 +163,7 @@ func newIdentityFacts(form IDForm, model *semantics.Model, res *resolve.Resolver
 		byFQN:        map[string]elementIdentity{},
 		byNode:       map[ast.Node]elementIdentity{},
 		declSym:      map[ast.Node]*symbols.Symbol{},
+		symByFQN:     map[string]*symbols.Symbol{},
 		bodyParamSym: map[*ast.BodyExpr]map[string]*symbols.Symbol{},
 		consumed:     map[ast.Node]bool{},
 		provenance:   map[ast.Node]*identity.Scope{},
@@ -233,6 +236,7 @@ func (f *identityFacts) index(sym *symbols.Symbol, info *identity.Info, root str
 	}
 	f.byFQN[info.FQN] = el
 	f.byNode[sym.Decl] = el
+	f.symByFQN[info.FQN] = sym
 	if sym.Decl != nil {
 		f.declSym[sym.Decl] = sym
 	}

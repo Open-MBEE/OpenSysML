@@ -82,7 +82,8 @@ internal static class ExecutionArea
             request.HasAdvance ? request.Advance : null,
             request.HasSeed ? request.Seed : null,
             request.Draws,
-            request.ClockStep);
+            request.ClockStep,
+            events: []);
         var response = new Wire.ExecuteStateResponse();
         try
         {
@@ -154,7 +155,7 @@ internal static class ExecutionArea
     }
 
     // A field the request leaves empty is an option the API leaves null; the runner has a RunOptions of its own.
-    private static OpenSysML.RunOptions Options(string schedule, string performer, bool trace, double? advance, ulong? seed, string draws, double clockStep, IReadOnlyList<string>? events = null) =>
+    private static OpenSysML.RunOptions Options(string schedule, string performer, bool trace, double? advance, ulong? seed, string draws, double clockStep, Google.Protobuf.Collections.RepeatedField<string> events) =>
         new()
         {
             Schedule = schedule.Length > 0 ? schedule : null,
@@ -164,6 +165,6 @@ internal static class ExecutionArea
             Seed = seed,
             Draws = draws.Length > 0 ? draws : null,
             ClockStep = clockStep,
-            Events = events ?? [],
+            Events = events.Count > 0 ? [.. events] : null,
         };
 }

@@ -1,11 +1,17 @@
 OrderingViews::deadlockView - sequence rendering (view def SequenceView)
 
 part near
+  event occurrence sent
+  event occurrence heard
 part far
+  event occurrence taken
+  event occurrence spoke
 
 messages:
-  near => far: ask
-  far => near: reply
+  near.sent -> far.taken: ask of Tick
+  far.taken -> far.spoke: answering
+  far.spoke -> near.heard: reply of Tick
+  near.heard -> near.sent
 
 not represented:
   - successions form a cycle (answering, heard to sent); the messages are shown in declaration order
