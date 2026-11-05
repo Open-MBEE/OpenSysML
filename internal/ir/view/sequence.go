@@ -647,7 +647,9 @@ func sequenceRows(messages []message, successions []succession, orders []order, 
 		// After its source's row and the successions already there, in declaration order.
 		place := ahead
 		if after >= 0 {
-			for place = after + 1; place < ahead && rows[place].succession; place++ {
+			place = after + 1
+			for place < ahead && rows[place].succession {
+				place++
 			}
 		}
 		rows = slices.Insert(rows, place, row{edge: s.edge, events: []*symbols.Symbol{o.from, o.to}, succession: true})

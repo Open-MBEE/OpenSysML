@@ -78,12 +78,10 @@ if ! git -C "$repo_root" diff --quiet HEAD -- "$syntaxes_dir"; then
 fi
 
 if [[ "$mode" == "publish" && -n "$tag" ]]; then
-	case "$tag" in
-		*-*)
-			echo "Skipping: $tag is a pre-release; the mirror follows stable releases only"
-			exit 0
-			;;
-	esac
+	if [[ "$tag" == *-* ]]; then
+		echo "Skipping: $tag is a pre-release; the mirror follows stable releases only"
+		exit 0
+	fi
 	if ! stable_tags="$(git -C "$repo_root" ls-remote --tags --refs "$SOURCE_REMOTE" 'v[0-9]*' | awk -F/ '{print $NF}' | grep -v -- -)"; then
 		echo "error: could not list release tags from $SOURCE_REMOTE" >&2
 		exit 1
