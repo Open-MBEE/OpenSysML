@@ -3,7 +3,6 @@ package perf
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -66,10 +65,14 @@ func BenchmarkExploreDueOrder(b *testing.B) {
 			b.Fatal(err)
 		}
 		b.StartTimer()
+		verdicts := s.RunFor(nil, states, 6)
+		if len(verdicts) != len(states) {
+			b.Fatalf("%d verdicts for %d behaviors", len(verdicts), len(states))
+		}
 		// The runs budget stops the exploration short by design, so the verdict is
-		// unresolved; one that never explored names no outcome count.
-		for _, v := range s.RunFor(nil, states, 6) {
-			if len(v.Lines) == 0 || !strings.Contains(v.Lines[0], "explored") {
+		// unresolved; one that explored counts its runs, and none of them failed.
+		for _, v := range verdicts {
+			if x := v.Exploration; x == nil || x.Runs == 0 || x.FailedLinearizations != 0 {
 				b.Fatalf("%s: %v", v.Subject, v.Lines)
 			}
 		}
