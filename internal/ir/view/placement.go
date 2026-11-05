@@ -32,10 +32,14 @@ func placeRendering(r *Rendering) *placement {
 			typed[edge.From] = append(typed[edge.From], edge.To)
 		}
 	}
-	routed := map[string]bool{}
+	routed, lines := map[string]bool{}, lineWaypoints(r)
 	for _, edge := range r.Edges {
+		waypoints := len(edge.Route)
+		if n, ok := lines[edge.Origin]; ok && edge.Kind == EdgeConnection {
+			waypoints = n // a split line's Route places its ends however the cut shares the points out
+		}
 		switch {
-		case len(edge.Route) <= 1:
+		case waypoints <= 1:
 		case nesting[[2]string{edge.From, edge.To}]:
 			for _, to := range typed[edge.To] {
 				routed[edge.From], routed[to] = true, true

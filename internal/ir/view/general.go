@@ -1096,6 +1096,10 @@ func (g *generalGraph) dependencyLabel(sym *symbols.Symbol) string {
 // a dashed headless link from each client, a dependency arrow (a refinement's «refine») to each supplier.
 func (g *generalGraph) naryDependency(sym *symbols.Symbol, kind EdgeKind, name string, dep *ast.Dependency) []Edge {
 	clients, suppliers := g.hubEnds(name, sym, dep.Clients), g.hubEnds(name, sym, dep.Suppliers)
+	// A dot with no client or no supplier would show half a dependency.
+	if !g.hubAdmitsAny(clients) || !g.hubAdmitsAny(suppliers) {
+		return nil
+	}
 	label := ""
 	if kind == EdgeDependency {
 		label = g.dependencyLabel(sym)
@@ -1120,6 +1124,16 @@ func (g *generalGraph) naryDependency(sym *symbols.Symbol, kind EdgeKind, name s
 		}
 	}
 	return out
+}
+
+// hubAdmitsAny reports whether some end is drawn or may be drawn for a hub.
+func (g *generalGraph) hubAdmitsAny(ends []*symbols.Symbol) bool {
+	for _, end := range ends {
+		if g.drawn(end) != nil || g.hubAdmits(end) {
+			return true
+		}
+	}
+	return false
 }
 
 // hubEnds resolves the ends of an n-ary relationship, reporting one that does
