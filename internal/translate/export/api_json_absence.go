@@ -34,10 +34,11 @@ var (
 )
 
 var apiJSONOwnedAbsenceTypeAliases = map[string]string{
-	"AssociationUsage":     "Association",
-	"BehaviorUsage":        "Behavior",
-	"BooleanUsage":         "BooleanExpression",
-	"ClassUsage":           "Class",
+	"AssociationUsage": "Association",
+	"BehaviorUsage":    "Behavior",
+	"BooleanUsage":     "BooleanExpression",
+	"ClassUsage":       "Class",
+	// The individual names are what earlier releases' Turtle types an `individual` as.
 	"IndividualDefinition": "OccurrenceDefinition",
 	"IndividualUsage":      "OccurrenceUsage",
 	"InteractionUsage":     "Interaction",
