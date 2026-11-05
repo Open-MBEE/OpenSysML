@@ -199,14 +199,20 @@ func libraryCatalogIndex(idx *symbols.Index) *symbols.Index {
 	return idx
 }
 
+// mergeCatalogs answers an id from any catalog, and a symbol or name by the
+// first catalog that fixes it: the extension scheme over the pilot's for OpenSysML's own.
 func mergeCatalogs(catalogs ...*Catalog) *Catalog {
 	merged := newCatalog()
 	for _, catalog := range catalogs {
 		for _, element := range catalog.order {
 			merged.elements[element.ID] = element
 			merged.memberships[element.OwningMembershipID] = element
-			merged.symbols[element.Symbol] = element
-			merged.names[element.FQN] = element
+			if _, fixed := merged.symbols[element.Symbol]; !fixed {
+				merged.symbols[element.Symbol] = element
+			}
+			if _, fixed := merged.names[element.FQN]; !fixed {
+				merged.names[element.FQN] = element
+			}
 			merged.order = append(merged.order, element)
 		}
 		for name, root := range catalog.roots {

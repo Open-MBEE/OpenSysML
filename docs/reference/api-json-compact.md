@@ -60,7 +60,9 @@ source that is not notation. It composes with `documents` and with `id_form`.
 A derived property is one the metamodel computes (`derived="true"` in `SysML.ecore`) from
 others: an element's `owner` is the other end of its `owningRelationship`, its `member`s are
 what its memberships name. A reader that follows the owned properties does not need them, and
-a reader that does can list them in `keep_derived`.
+a reader that does can list them in `keep_derived`. The derived properties the element array completes from the
+metamodel (`isLibraryElement`, …; `sysx:completedProperties` names them on each element) go
+with the rest, and the list names only the ones still written.
 
 ## The document
 
@@ -88,7 +90,7 @@ One JSON object, not indented, ending in a newline:
 | `elementCount` | integer | `ids[0 … elementCount)` are the written elements, in the order the element array writes them. Entries from `elementCount` on are elements a written element refers to that this conversion does not write: a library element, or an element of a document that `documents` left out. |
 | `elementIdsAreIds` | boolean, optional | Present (and `true`) only when every element's `elementId` is its `@id`. Then no element writes `elementId`. |
 | `referenceKeys` | array of string | Keys whose references are written as bare handles (below). |
-| `libraryReferences` | array of object, optional | Names of referenced standard-library elements, sorted by literal `@id`: each entry has `@id`, `@type` (metaclass) and `qualifiedName`. These are metadata, not elements or roots. New writers emit the array even when empty; older documents may omit it. |
+| `libraryReferences` | array of object, optional | Names of referenced standard-library elements, sorted by literal `@id`: each entry has `@id`, `@type` (metaclass) and `qualifiedName`, or `libraryPath` (the positional path `Owner::qualifiedName/Metaclass[i]`) for an unnamed member. These are metadata, not elements or roots. New writers emit the array even when empty; older documents may omit it. |
 | `elements` | array of object | The elements. Element *i* has the id `ids[i]` and carries no `@id`. |
 
 ## Reading it

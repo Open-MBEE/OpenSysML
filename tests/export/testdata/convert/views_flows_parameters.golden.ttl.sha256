@@ -1,0 +1,41 @@
+sha256 6dedb234073b6515c58b5dda95432f0529be2ebbfe04def635f820b79e8fe7b3 bytes 227923 lines 4402
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:FlowsAndViews
+    a sysml:Package ;
+    sysml:qualifiedName "FlowsAndViews" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "30"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "FlowsAndViews" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "FlowsAndViews" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:FlowsAndViews__FuelPort, elmt:FlowsAndViews__Tank, elmt:FlowsAndViews__Engine, elmt:FlowsAndViews__FuelInterface, elmt:FlowsAndViews__tanks, elmt:FlowsAndViews__vehicle, elmt:FlowsAndViews__Measure, elmt:FlowsAndViews__StructureView, elmt:FlowsAndViews__vehicleView ;
+    sysml:ownedMembership elmt:FlowsAndViews__FuelPort_om, elmt:FlowsAndViews__Tank_om, elmt:FlowsAndViews__Engine_om, elmt:FlowsAndViews__FuelInterface_om, elmt:FlowsAndViews__tanks_om, elmt:FlowsAndViews__vehicle_om, elmt:FlowsAndViews__Measure_om, elmt:FlowsAndViews__StructureView_om, elmt:FlowsAndViews__vehicleView_om ;
+    sysml:ownedRelationship elmt:FlowsAndViews__FuelPort_om, elmt:FlowsAndViews__Tank_om, elmt:FlowsAndViews__Engine_om, elmt:FlowsAndViews__FuelInterface_om, elmt:FlowsAndViews__tanks_om, elmt:FlowsAndViews__vehicle_om, elmt:FlowsAndViews__Measure_om, elmt:FlowsAndViews__StructureView_om, elmt:FlowsAndViews__vehicleView_om ;
+    sysx:sourceText "package FlowsAndViews {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"FlowsAndViews__FuelPort\"},{\"@id\":\"FlowsAndViews__Tank\"},{\"@id\":\"FlowsAndViews__Engine\"},{\"@id\":\"FlowsAndViews__FuelInterface\"},{\"@id\":\"FlowsAndViews__tanks\"},{\"@id\":\"FlowsAndViews__vehicle\"},{\"@id\":\"FlowsAndViews__Measure\"},{\"@id\":\"FlowsAndViews__StructureView\"},{\"@id\":\"FlowsAndViews__vehicleView\"}]" ;
+    json:ownedMembership "[{\"@id\":\"FlowsAndViews__FuelPort_om\"},{\"@id\":\"FlowsAndViews__Tank_om\"},{\"@id\":\"FlowsAndViews__Engine_om\"},{\"@id\":\"FlowsAndViews__FuelInterface_om\"},{\"@id\":\"FlowsAndViews__tanks_om\"},{\"@id\":\"FlowsAndViews__vehicle_om\"},{\"@id\":\"FlowsAndViews__Measure_om\"},{\"@id\":\"FlowsAndViews__StructureView_om\"},{\"@id\":\"FlowsAndViews__vehicleView_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__FuelPort_om\"},{\"@id\":\"FlowsAndViews__Tank_om\"},{\"@id\":\"FlowsAndViews__Engine_om\"},{\"@id\":\"FlowsAndViews__FuelInterface_om\"},{\"@id\":\"FlowsAndViews__tanks_om\"},{\"@id\":\"FlowsAndViews__vehicle_om\"},{\"@id\":\"FlowsAndViews__Measure_om\"},{\"@id\":\"FlowsAndViews__StructureView_om\"},{\"@id\":\"FlowsAndViews__vehicleView_om\"}]" .
+
+elmt:FlowsAndViews__FuelPort
+    a sysml:PortDefinition ;
+    sysml:qualifiedName "FlowsAndViews::FuelPort" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "FlowsAndViews__FuelPort" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:FlowsAndViews ;
+    sysml:owner elmt:FlowsAndViews ;

@@ -79,7 +79,7 @@ func (ctx *Context) classifyNarrower(
 		if decided, ok := ctx.representationClassifies(value, target); ok && decided != semantics.ClassifiesSome {
 			return decided, nil
 		}
-		if target.Kind == symbols.SymbolEnumerationDef {
+		if semantics.IsEnumeration(target) {
 			_, member, err := ctx.enumeratedValue(value, target)
 			return classifiesIf(member), err
 		}
@@ -96,7 +96,7 @@ func (ctx *Context) classifyNarrower(
 		}
 		return classifiesIf(keep), nil
 	case ValEnumLiteral:
-		if target.Kind == symbols.SymbolEnumerationDef {
+		if semantics.IsEnumeration(target) {
 			_, member, err := ctx.enumeratedValue(value, target)
 			return classifiesIf(member), err
 		}
@@ -125,7 +125,7 @@ func (ctx *Context) enumeratedValue(value Value, enum *symbols.Symbol) (Value, b
 // asEnumerated holds a bare scalar as the enumerated value it equals when declared by an
 // enumeration, and any other value as it is; false when no enumerated value equals it.
 func (ctx *Context) asEnumerated(value Value, declared *symbols.Symbol) (Value, bool, error) {
-	if declared == nil || declared.Kind != symbols.SymbolEnumerationDef || !isScalar(value) {
+	if !semantics.IsEnumeration(declared) || !isScalar(value) {
 		return value, true, nil
 	}
 	if literal := value.EnumerationLiteral(); literal != nil && semantics.EnumerationOwning(literal) == declared {

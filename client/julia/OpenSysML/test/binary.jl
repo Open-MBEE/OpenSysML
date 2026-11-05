@@ -86,6 +86,36 @@ using SHA
         fetcher=(url, limit) -> UInt8[1, 2, 3, 4])
 end
 
+@testset "release downloads over HTTP" begin
+    listener = listen(ip"127.0.0.1", 0)
+    port = getsockname(listener)[2]
+    close(listener)
+    server = HTTP.serve!("127.0.0.1", port) do request
+        request.target == "/asset" && return HTTP.Response(200, "sysml-grpc binary")
+        request.target == "/large" && return HTTP.Response(200, repeat("x", 64))
+        HTTP.Response(404, "no such asset")
+    end
+    base = "http://127.0.0.1:$(port)"
+    try
+        @test OpenSysML._fetch("$(base)/asset", 1024) == Vector{UInt8}(codeunits("sysml-grpc binary"))
+        missing = try
+            OpenSysML._fetch("$(base)/missing", 1024)
+        catch e
+            e
+        end
+        @test missing isa TransportError && occursin("answered HTTP 404", missing.message)
+        large = try
+            OpenSysML._fetch("$(base)/large", 32)
+        catch e
+            e
+        end
+        @test large isa TransportError && occursin("larger than 32 bytes", large.message)
+        @test_throws TransportError OpenSysML._fetch("http://127.0.0.1:1/asset", 1024)
+    finally
+        close(server)
+    end
+end
+
 @testset "binary resolution" begin
     mktempdir() do directory
         first_binary = joinpath(directory, "first")

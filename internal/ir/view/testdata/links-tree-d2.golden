@@ -26,3 +26,5 @@ n1 <- n2: { class: reference; link: "https://example.test/src/tree.sysml#L5" }
 n1 <- n3: { class: composition; link: "https://example.test/src/tree.sysml#L6" }
 n7 <- n8: { class: reference; link: "https://example.test/src/tree.sysml#L5" }
 n7 <- n9: { class: composition; link: "https://example.test/src/tree.sysml#L6" }
+frame_name: "«view» VehicleViews::vehicleView" { shape: text; near: top-left }
+frame_tr: "expose Vehicles::Vehicle" { shape: text; near: top-right }

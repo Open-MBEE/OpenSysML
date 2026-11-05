@@ -83,6 +83,7 @@ mount segmentControl
 ```plantuml
 @startuml
 ' Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
+mainframe <size:10>//«view»//</size> **Observatory::interconnectView**\n<size:10>expose imagingChain</size>
 <style>
 root {
   BackGroundColor white
@@ -182,7 +183,7 @@ skinparam wrapWidth 300
 hide stereotype
 left to right direction
 hide empty description
-state "<size:10>//«state»//</size>\n**operatingStates**" as n0 <<state>> <<usage>> {
+state "<size:10>//«state»//</size>\n**operatingStates**\nstate transition" as n0 <<state>> <<usage>> {
   state "<size:10>//«state»//</size>\n**^idle**\ninitial" as n1 <<state>> <<usage>>
   state "<size:10>//«state»//</size>\n**^observing**" as n2 <<state>> <<usage>>
   [*] --> n1

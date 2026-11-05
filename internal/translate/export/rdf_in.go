@@ -16,7 +16,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // sysmlPrefix qualifies a SysML vocabulary property as a diagnostic names it.
@@ -227,7 +226,7 @@ func newDecoder(graph *rdf.Graph, metaclasses map[rdf.Term]string, statedNames m
 		demoted:              map[*element]bool{},
 		demotedExpr:          map[string]bool{},
 		folded:               map[*element]*element{},
-		libraryCatalog:       identity.LibraryCatalog(libs.NewModelIndex()),
+		libraryCatalog:       sharedLibraryIndex().catalog,
 		libraryRefs:          map[string]*element{},
 		importedMemberships:  map[string]*identity.LibraryElement{},
 		ambiguousImports:     map[string]bool{},
@@ -848,6 +847,9 @@ func (d *decoder) build() ([]*element, error) {
 	if err := d.checkStatedMembershipEnds(); err != nil {
 		return nil, err
 	}
+	if err := d.checkStatedImportEnds(); err != nil {
+		return nil, err
+	}
 	if err := d.checkReferences(); err != nil {
 		return nil, err
 	}
@@ -1067,6 +1069,46 @@ func (d *decoder) checkStatedMembershipEnds() error {
 
 // membershipEndsAgree refuses a membership whose stated source, target or relatedElement
 // is not the owner, the member, or both in that order (KerML 8.3.2.3.5, 8.3.2.5.2).
+// checkStatedImportEnds refuses an Import whose stated source or target disagrees with the owner
+// and the one imported element its own properties state (KerML 8.3.2.3.3), on the first pass only.
+func (d *decoder) checkStatedImportEnds() error {
+	if d.names != nil {
+		return nil
+	}
+	for _, subject := range d.graph.SubjectsView() {
+		if !ontology.IsAncestorOrSelf(d.metaclass(subject), mImport) {
+			continue
+		}
+		owner, hasOwner := d.graph.Object(subject, rdf.SysML+pImportOwningNamespace)
+		if !hasOwner {
+			owner, hasOwner = d.graph.Object(subject, rdf.SysML+pOwningRelatedElement)
+		}
+		imported := append(d.graph.Objects(subject, rdf.SysML+pImportedNamespace),
+			d.graph.Objects(subject, rdf.SysML+pImportedMembership)...)
+		// A name the graph has not resolved, or two imported elements, is for the import's own reading.
+		want := map[string]rdf.Term{}
+		if hasOwner && owner.IsIRI() {
+			want[pSource] = owner
+		}
+		if len(imported) == 1 && imported[0].IsIRI() {
+			want[pTarget] = imported[0]
+		}
+		roles := map[string]string{pSource: "importOwningNamespace", pTarget: "imported namespace or membership"}
+		for _, property := range []string{pSource, pTarget} {
+			stated := d.graph.Objects(subject, rdf.SysML+property)
+			end, ok := want[property]
+			if len(stated) == 0 || !ok || slices.Equal(stated, []rdf.Term{end}) {
+				continue
+			}
+			return &UnsupportedError{
+				What: fmt.Sprintf("the import <%s>", subject.Value),
+				Note: fmt.Sprintf("its sysml:%s is %s, but its %s is <%s>, which an import's ends restate", property, termsText(stated), roles[property], end.Value),
+			}
+		}
+	}
+	return nil
+}
+
 func (d *decoder) membershipEndsAgree(subject rdf.Term, what string, owner, member rdf.Term) error {
 	// A namespace aliasing itself has one related element: the triples are a set.
 	related := []rdf.Term{owner, member}
@@ -1357,6 +1399,11 @@ func (d *decoder) checkReferences() error {
 				triple.Predicate.Value == rdf.SysML+pTarget) {
 			continue
 		}
+		// An import's ends restate its owner and what it imports, which may be a library namespace.
+		if ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), mImport) &&
+			(triple.Predicate.Value == rdf.SysML+pSource || triple.Predicate.Value == rdf.SysML+pTarget) {
+			continue
+		}
 		// A membership's ends restate its owner and member, which its ownership edges already check.
 		if (ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), mMembership) || d.nodeMembership[triple.Subject.Value]) &&
 			(triple.Predicate.Value == rdf.SysML+pSource || triple.Predicate.Value == rdf.SysML+pTarget ||
@@ -1473,6 +1520,16 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 					}
 				}
 			}
+			if anonymous, found := sharedLibraryIndex().anonymous.OwningMembership(id); !ok && found {
+				if len(members) != 1 || !member.IsIRI() || rdf.LocalName(member.Value) != anonymous.ID {
+					return nil, &UnsupportedError{
+						What: fmt.Sprintf("the library membership <%s>", subject.Value),
+						Note: fmt.Sprintf("its id is that of the owning membership of %s, and its memberElement is not that library member", anonymous.Path),
+					}
+				}
+				stubs[subject.Value] = true
+				continue
+			}
 			if !ok {
 				note := fmt.Sprintf("it is marked sysml:isLibraryElement, but the bundled standard library has no owning membership with id %q", id)
 				if hasMemberName {
@@ -1503,6 +1560,16 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 			continue
 		}
 		lib, ok := d.libraryElement(subject.Value, id)
+		if anonymous, found := sharedLibraryIndex().anonymous.Element(id); !ok && found {
+			if stated, has := d.graph.Lexical(subject, rdf.OpenSysML+xLibraryPath); has && stated != anonymous.Path {
+				return nil, &UnsupportedError{
+					What: fmt.Sprintf("the library element <%s>", subject.Value),
+					Note: fmt.Sprintf("the graph names it %s, but the bundled standard library gives id %q to %s", stated, id, anonymous.Path),
+				}
+			}
+			stubs[subject.Value] = true
+			continue
+		}
 		if !ok {
 			note := fmt.Sprintf("it is marked sysml:isLibraryElement, but the bundled standard library has no element with id %q", id)
 			if name, kind, stated := d.librarySubjectName(subject); stated {
@@ -1628,8 +1695,12 @@ func (d *decoder) libraryMetaclassCompatible(subject rdf.Term, lib *identity.Lib
 	if lib.Symbol == nil {
 		return false
 	}
-	expected := declaredMetaclass(lib.Symbol.Decl)
-	return expected != "" && ontology.IsAncestorOrSelf(stated, expected)
+	for _, expected := range []string{sharedLibraryIndex().stubMetaclass(lib.Symbol), declaredMetaclass(lib.Symbol.Decl)} {
+		if expected != "" && ontology.IsAncestorOrSelf(stated, expected) {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *decoder) importedMembershipTarget(iri string) (*identity.LibraryElement, bool) {
@@ -3292,7 +3363,7 @@ func (d *decoder) importedName(el *element) (string, error) {
 	if m, ok := d.memberships[term.Value]; ok {
 		return d.referenceName(rdf.IRI(m.member), el)
 	}
-	if lib, ok := identity.LibraryCatalog(libs.NewModelIndex()).OwningMembership(rdf.LocalName(term.Value)); ok {
+	if lib, ok := sharedLibraryIndex().catalog.OwningMembership(rdf.LocalName(term.Value)); ok {
 		return d.referenceName(rdf.ElementIRIForID(lib.ID), el)
 	}
 	return d.referenceName(term, el)

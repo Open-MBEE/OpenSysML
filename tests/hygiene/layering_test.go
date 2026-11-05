@@ -183,7 +183,7 @@ var packageLayer = map[string]string{
 var tolerated = map[string][]string{
 	"internal/exec/analysis/modelform": {"internal/workspace/libs"},
 	"internal/translate/codegen":       {"internal/check/passes"},
-	"internal/translate/export":        {"internal/workspace/libs"},
+	"internal/translate/export":        {"internal/workspace/libs", "internal/check/passes"},
 	"internal/semantic/identity":       {"internal/translate/rdf"},
 	"internal/check/passes/identity":   {"internal/translate/rdf"},
 	"internal/translate/migrate":       {"internal/workspace/libs"},

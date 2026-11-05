@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -111,6 +112,13 @@ func (r *Rendering) nestingEdges() map[[2]string]bool {
 	index(r.Roots, "")
 	nesting := map[[2]string]bool{}
 	for _, edge := range r.Edges {
+		if edge.Kind == EdgeAnchor {
+			// An annotation node hangs on its links alone, not on a containment line.
+			if parent, ok := parents[edge.From]; ok && parent != "" {
+				nesting[[2]string{parent, edge.From}] = true
+			}
+			continue
+		}
 		if !membershipEdge(edge.Kind) {
 			continue
 		}
@@ -151,7 +159,9 @@ func (g *treeGraph) associationLines() {
 		kept := nodes[:0]
 		for _, node := range nodes {
 			site := g.out.sites[node]
-			if line, ok := g.associationLine(node, site); ok {
+			if line, ok := g.associationLine(node, site); ok && nary(len(line.ends)) {
+				g.drawAssociationDot(node, site, line)
+			} else if ok {
 				g.drawAssociation(node, site, line)
 				continue
 			}
@@ -227,13 +237,36 @@ type linedEdge struct {
 	property, typ symbols.ElementKey
 }
 
-// association is a connection def drawn as a line: the nodes of its two end
-// types, its ends, and for each end the drawn property it crosses, nil for none.
+// association is a connection def drawn as a line or an n-ary dot: its end types' nodes, its
+// ends and their types, and for each end of a binary def the drawn property it crosses, or nil.
 type association struct {
 	from, to *Node
+	typed    []*Node
 	ends     []*symbols.Symbol
-	types    [2]*symbols.Symbol
+	types    []*symbols.Symbol
 	crossed  [2]*symbols.Symbol
+}
+
+// drawAssociationDot redraws a connection def of more than two ends as §8.2.3.13's n-ary dot
+// where its box stood, a segment to each end's type labelled with the end's role.
+func (g *treeGraph) drawAssociationDot(node *Node, site treeSite, line association) {
+	def := site.sym
+	node.Kind, node.Compartments, node.Children, node.Type, node.Typings = connectionDefDotKind, nil, nil, "", nil
+	if route := g.r.unsteeredRoute(site.view, def, g.out); len(route) > 0 {
+		g.out.Notices = append(g.out.Notices, fmt.Sprintf("connection def %s states a route; its %d ends are drawn as a dot and segments, which the route does not steer",
+			localName(def), len(line.ends)))
+	}
+	if g.r.model.NameSynthesized(def) {
+		node.Name = ""
+	}
+	for i, end := range line.ends {
+		label := ""
+		if !g.r.model.NameSynthesized(end) {
+			label = g.r.usageLabel(end)
+		}
+		g.add(Edge{From: node.ID, To: line.typed[i].ID, Kind: EdgeAssociation, ToLabel: label, Origin: symbolOrigin(def),
+			Style: g.r.styleOf(site.view, end, g.out)}, end)
+	}
 }
 
 // associationLine is the line the connection def of node is drawn as: between
@@ -251,7 +284,7 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 		return line, false
 	}
 	line.ends = g.r.model.EndFeatures(def)
-	if len(line.ends) != 2 {
+	if len(line.ends) < 2 {
 		return line, false
 	}
 	for _, rel := range semantics.RelationshipsOf(def) {
@@ -260,7 +293,8 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 		}
 	}
 	members := g.r.containedMembers(def)
-	var typed [2]*Node
+	line.types, line.typed = make([]*symbols.Symbol, len(line.ends)), make([]*Node, len(line.ends))
+	typed := line.typed
 	for i, end := range line.ends {
 		if !slices.Contains(members, end) || g.endHasContent(end) {
 			return line, false
@@ -279,6 +313,9 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 		if !slices.Contains(line.ends, member) {
 			return line, false
 		}
+	}
+	if nary(len(line.ends)) {
+		return line, true
 	}
 	for i, end := range line.ends {
 		p := g.r.model.CrossFeature(end)
@@ -301,6 +338,13 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 // Notes stay anchored to the node, where the usage is named.
 func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	sym := site.sym
+	// An annotation nested under its owner is linked by the owner's walk below.
+	if annotatingSymbol(sym) {
+		if g.parent[node.ID] == "" {
+			g.annotationLinks(nil, node, sym, site.view)
+		}
+		return
+	}
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -323,6 +367,10 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	}
 	for _, child := range node.Children {
 		member := g.out.sites[child].sym
+		if annotatingSymbol(member) {
+			g.annotationLinks(node, child, member, site.view)
+			continue
+		}
 		if !structuralUsage(member) {
 			continue
 		}
@@ -332,6 +380,24 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 			edge.Route = g.r.routeOf(site.view, member, g.out)
 		}
 		g.add(edge, member)
+	}
+}
+
+// annotationLinks draws the annotation links of the annotation node child,
+// nested under node: a dashed line from the annotation to the node of each
+// drawn element it annotates (§8.2.3.4 annotation-link), its owner's node
+// when it names none.
+func (g *treeGraph) annotationLinks(node, child *Node, member *symbols.Symbol, view *symbols.Symbol) {
+	for _, target := range g.r.annotatedElements(member) {
+		to := g.node(target)
+		if target == member.Owner() && to == nil {
+			to = node
+		}
+		if to == nil || to == child {
+			continue
+		}
+		g.add(Edge{From: child.ID, To: to.ID, Kind: EdgeAnchor, Origin: symbolOrigin(member),
+			Route: g.r.routeOf(view, member, g.out), Style: g.r.styleOf(view, member, g.out)}, member)
 	}
 }
 

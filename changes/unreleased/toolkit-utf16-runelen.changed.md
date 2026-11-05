@@ -1,1 +1,0 @@
-- **The sysml-mcp toolkit counts UTF-16 units with the standard library.** `Position.ToProtocol` and `FromProtocol` call `unicode/utf16.RuneLen` instead of a local copy of it; the positions they compute do not change.

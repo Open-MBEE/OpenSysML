@@ -1,0 +1,23 @@
+// view: NaryViews::definitions
+// kind: tree
+// stated: render asTreeDiagram
+// layout: dot
+digraph "NaryViews::definitions" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>NaryViews::definitions</b>>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    "n0" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label="", xlabel="Triad"];
+    "n4" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Hub</b>>];
+    "n5" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Spoke</b>>];
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Nary::Triad<br/>expose Nary::Hub<br/>expose Nary::Spoke</font>>]; }
+  }
+  "n0" -> "n4" [headlabel="hub", dir=none];
+  "n0" -> "n5" [headlabel="left", dir=none];
+  "n0" -> "n5" [headlabel="right", dir=none];
+}

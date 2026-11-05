@@ -558,6 +558,7 @@ expr:ConnectorEnds__Vehicle___406_pend0_om
     sysml:source elmt:ConnectorEnds__Vehicle___406 ;
     sysml:target expr:ConnectorEnds__Vehicle___406_pend0 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___406, expr:ConnectorEnds__Vehicle___406_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___406\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___406_pend0_prs
@@ -604,6 +605,7 @@ expr:ConnectorEnds__Vehicle___406_pend1_om
     sysml:source elmt:ConnectorEnds__Vehicle___406 ;
     sysml:target expr:ConnectorEnds__Vehicle___406_pend1 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___406, expr:ConnectorEnds__Vehicle___406_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___406\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___406_pend1_pchain
@@ -740,6 +742,7 @@ expr:ConnectorEnds__Vehicle___407_pend0_om
     sysml:source elmt:ConnectorEnds__Vehicle___407 ;
     sysml:target expr:ConnectorEnds__Vehicle___407_pend0 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___407, expr:ConnectorEnds__Vehicle___407_pend0 ;
+    sysml:memberName "a" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___407\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___407_pend0_pchain
@@ -824,6 +827,7 @@ expr:ConnectorEnds__Vehicle___407_pend1_om
     sysml:source elmt:ConnectorEnds__Vehicle___407 ;
     sysml:target expr:ConnectorEnds__Vehicle___407_pend1 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___407, expr:ConnectorEnds__Vehicle___407_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___407\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___407_pend1_prs
@@ -911,6 +915,7 @@ expr:ConnectorEnds__Vehicle___408_pend0
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___408_pend0_prs, expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om ;
     sysml:multiplicity expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
     sysml:upperBound expr:ConnectorEnds__Vehicle___408_pend0_pupperBound ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_prs\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om\"}]" .
 
@@ -926,6 +931,7 @@ expr:ConnectorEnds__Vehicle___408_pend0_om
     sysml:source elmt:ConnectorEnds__Vehicle___408 ;
     sysml:target expr:ConnectorEnds__Vehicle___408_pend0 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___408, expr:ConnectorEnds__Vehicle___408_pend0 ;
+    sysml:memberName "bead" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend0_pchain
@@ -1048,6 +1054,7 @@ expr:ConnectorEnds__Vehicle___408_pend1
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___408_pend1_prs, expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity_om ;
     sysml:multiplicity expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
     sysml:lowerBound expr:ConnectorEnds__Vehicle___408_pend1_plowerBound ;
     sysml:upperBound expr:ConnectorEnds__Vehicle___408_pend1_pupperBound ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_prs\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1_pmultiplicity_om\"}]" .
@@ -1064,6 +1071,7 @@ expr:ConnectorEnds__Vehicle___408_pend1_om
     sysml:source elmt:ConnectorEnds__Vehicle___408 ;
     sysml:target expr:ConnectorEnds__Vehicle___408_pend1 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___408, expr:ConnectorEnds__Vehicle___408_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend1_prs
@@ -1239,6 +1247,7 @@ expr:ConnectorEnds__Vehicle___409_pend0_om
     sysml:source elmt:ConnectorEnds__Vehicle___409 ;
     sysml:target expr:ConnectorEnds__Vehicle___409_pend0 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___409, expr:ConnectorEnds__Vehicle___409_pend0 ;
+    sysml:memberName "r" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___409\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___409_pend0_prs
@@ -1285,6 +1294,7 @@ expr:ConnectorEnds__Vehicle___409_pend1_om
     sysml:source elmt:ConnectorEnds__Vehicle___409 ;
     sysml:target expr:ConnectorEnds__Vehicle___409_pend1 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___409, expr:ConnectorEnds__Vehicle___409_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___409\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___409_pend1_pchain
@@ -1411,6 +1421,7 @@ expr:ConnectorEnds__Vehicle___4010_pend0
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4010_pend0_prs, expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity_om ;
     sysml:multiplicity expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
     sysml:lowerBound expr:ConnectorEnds__Vehicle___4010_pend0_plowerBound ;
     sysml:upperBound expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_prs\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0_pmultiplicity_om\"}]" .
@@ -1427,6 +1438,7 @@ expr:ConnectorEnds__Vehicle___4010_pend0_om
     sysml:source elmt:ConnectorEnds__Vehicle___4010 ;
     sysml:target expr:ConnectorEnds__Vehicle___4010_pend0 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___4010, expr:ConnectorEnds__Vehicle___4010_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4010\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___4010_pend0_prs
@@ -1538,6 +1550,7 @@ expr:ConnectorEnds__Vehicle___4010_pend1
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4010_pend1_prs, expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity_om ;
     sysml:multiplicity expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
     sysml:ownedMembership expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
     sysml:lowerBound expr:ConnectorEnds__Vehicle___4010_pend1_plowerBound ;
     sysml:upperBound expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound ;
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_prs\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1_pmultiplicity_om\"}]" .
@@ -1554,6 +1567,7 @@ expr:ConnectorEnds__Vehicle___4010_pend1_om
     sysml:source elmt:ConnectorEnds__Vehicle___4010 ;
     sysml:target expr:ConnectorEnds__Vehicle___4010_pend1 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___4010, expr:ConnectorEnds__Vehicle___4010_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4010\"},{\"@id\":\"ConnectorEnds__Vehicle___4010_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___4010_pend1_prs
@@ -1728,6 +1742,7 @@ expr:ConnectorEnds__Vehicle__link_pend0_om
     sysml:source elmt:ConnectorEnds__Vehicle__link ;
     sysml:target expr:ConnectorEnds__Vehicle__link_pend0 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle__link, expr:ConnectorEnds__Vehicle__link_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle__link\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle__link_pend0_prs
@@ -1774,6 +1789,7 @@ expr:ConnectorEnds__Vehicle__link_pend1_om
     sysml:source elmt:ConnectorEnds__Vehicle__link ;
     sysml:target expr:ConnectorEnds__Vehicle__link_pend1 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle__link, expr:ConnectorEnds__Vehicle__link_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle__link\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle__link_pend1_pchain
@@ -1910,6 +1926,7 @@ expr:ConnectorEnds__Vehicle___4012_pend0_om
     sysml:source elmt:ConnectorEnds__Vehicle___4012 ;
     sysml:target expr:ConnectorEnds__Vehicle___4012_pend0 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___4012, expr:ConnectorEnds__Vehicle___4012_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4012\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___4012_pend0_prs
@@ -1956,6 +1973,7 @@ expr:ConnectorEnds__Vehicle___4012_pend1_om
     sysml:source elmt:ConnectorEnds__Vehicle___4012 ;
     sysml:target expr:ConnectorEnds__Vehicle___4012_pend1 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___4012, expr:ConnectorEnds__Vehicle___4012_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4012\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___4012_pend1_pchain
@@ -2091,6 +2109,7 @@ expr:ConnectorEnds__Vehicle___4013_pend0_om
     sysml:source elmt:ConnectorEnds__Vehicle___4013 ;
     sysml:target expr:ConnectorEnds__Vehicle___4013_pend0 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___4013, expr:ConnectorEnds__Vehicle___4013_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4013\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___4013_pend0_prs
@@ -2137,6 +2156,7 @@ expr:ConnectorEnds__Vehicle___4013_pend1_om
     sysml:source elmt:ConnectorEnds__Vehicle___4013 ;
     sysml:target expr:ConnectorEnds__Vehicle___4013_pend1 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___4013, expr:ConnectorEnds__Vehicle___4013_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4013\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___4013_pend1_pchain
@@ -2272,6 +2292,7 @@ expr:ConnectorEnds__Vehicle___4014_pend0_om
     sysml:source elmt:ConnectorEnds__Vehicle___4014 ;
     sysml:target expr:ConnectorEnds__Vehicle___4014_pend0 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___4014, expr:ConnectorEnds__Vehicle___4014_pend0 ;
+    sysml:memberName "source" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4014\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend0\"}]" .
 
 expr:ConnectorEnds__Vehicle___4014_pend0_prs
@@ -2318,6 +2339,7 @@ expr:ConnectorEnds__Vehicle___4014_pend1_om
     sysml:source elmt:ConnectorEnds__Vehicle___4014 ;
     sysml:target expr:ConnectorEnds__Vehicle___4014_pend1 ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle___4014, expr:ConnectorEnds__Vehicle___4014_pend1 ;
+    sysml:memberName "target" ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4014\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1\"}]" .
 
 expr:ConnectorEnds__Vehicle___4014_pend1_pchain
@@ -2676,3 +2698,114 @@ elmt:ConnectorEnds__Vehicle__trigger_ft0
     sysml:owner elmt:ConnectorEnds__Vehicle__trigger ;
     sysml:relatedElement elmt:ConnectorEnds__Vehicle__trigger, elmt:ConnectorEnds__Trigger ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle__trigger\"},{\"@id\":\"ConnectorEnds__Trigger\"}]" .
+
+<urn:sysmlv2:element:2329da4f-c5f4-5261-8ac6-2039c4ba6256>
+    a sysml:Documentation ;
+    sysml:elementId "2329da4f-c5f4-5261-8ac6-2039c4ba6256" ;
+    sysx:libraryPath "Base::DataValue/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:2804586b-de79-5d1a-98ab-493f1e706a87>
+    a sysml:Feature ;
+    sysml:elementId "2804586b-de79-5d1a-98ab-493f1e706a87" ;
+    sysml:qualifiedName "Base::Anything::self" ;
+    sysml:declaredName "self" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:2a6f6b7e-adef-5837-a428-aebb4bc0a042>
+    a sysml:FeatureMembership ;
+    sysml:elementId "2a6f6b7e-adef-5837-a428-aebb4bc0a042" ;
+    sysml:memberElement <urn:sysmlv2:element:2804586b-de79-5d1a-98ab-493f1e706a87> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:eaa33a0d-7766-5e2b-b40d-a19a7ea7f941
+    a sysml:MultiplicityRange ;
+    sysml:elementId "eaa33a0d-7766-5e2b-b40d-a19a7ea7f941" ;
+    sysx:libraryPath "Base::things/MultiplicityRange[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:2d577033-2482-5361-a62c-91e43aaf27c5>
+    a sysml:OwningMembership ;
+    sysml:elementId "2d577033-2482-5361-a62c-91e43aaf27c5" ;
+    sysml:memberElement elmt:eaa33a0d-7766-5e2b-b40d-a19a7ea7f941 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:3522ec00-cc25-5f6b-beae-b1e03226d01b>
+    a sysml:OwningMembership ;
+    sysml:elementId "3522ec00-cc25-5f6b-beae-b1e03226d01b" ;
+    sysml:memberElement <urn:sysmlv2:element:2329da4f-c5f4-5261-8ac6-2039c4ba6256> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:717615b2-c88a-5555-ba4b-0cd674442b59>
+    a sysml:Documentation ;
+    sysml:elementId "717615b2-c88a-5555-ba4b-0cd674442b59" ;
+    sysx:libraryPath "Base::Anything/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:3816b00d-8d1f-5238-a3dd-c14fe33d73d7>
+    a sysml:OwningMembership ;
+    sysml:elementId "3816b00d-8d1f-5238-a3dd-c14fe33d73d7" ;
+    sysml:memberElement <urn:sysmlv2:element:717615b2-c88a-5555-ba4b-0cd674442b59> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb>
+    a sysml:Documentation ;
+    sysml:elementId "3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb" ;
+    sysx:libraryPath "Base::dataValues/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:ea462915-971b-556c-82e5-465debcb637d
+    a sysml:Documentation ;
+    sysml:elementId "ea462915-971b-556c-82e5-465debcb637d" ;
+    sysx:libraryPath "Base::things/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:71b55b92-4947-5a3f-9f3e-8f5b0d498581>
+    a sysml:OwningMembership ;
+    sysml:elementId "71b55b92-4947-5a3f-9f3e-8f5b0d498581" ;
+    sysml:memberElement elmt:ea462915-971b-556c-82e5-465debcb637d ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:8759f0c4-6a7b-5b71-976a-6ec7bae04677>
+    a sysml:MultiplicityRange ;
+    sysml:elementId "8759f0c4-6a7b-5b71-976a-6ec7bae04677" ;
+    sysx:libraryPath "Base::dataValues/MultiplicityRange[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:a39cdcce-f264-52a4-9c36-e060d502466f
+    a sysml:OwningMembership ;
+    sysml:elementId "a39cdcce-f264-52a4-9c36-e060d502466f" ;
+    sysml:memberElement <urn:sysmlv2:element:8759f0c4-6a7b-5b71-976a-6ec7bae04677> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:eece6ace-38b0-57dd-9eea-8add3ed6c003
+    a sysml:Feature ;
+    sysml:elementId "eece6ace-38b0-57dd-9eea-8add3ed6c003" ;
+    sysml:qualifiedName "Base::DataValue::self" ;
+    sysml:declaredName "self" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:b0f5e041-28a8-54d7-8b10-f98b41e2dda0
+    a sysml:FeatureMembership ;
+    sysml:elementId "b0f5e041-28a8-54d7-8b10-f98b41e2dda0" ;
+    sysml:memberElement elmt:eece6ace-38b0-57dd-9eea-8add3ed6c003 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:c4746a24-8316-5f5b-8b65-e33b7b284f93
+    a sysml:OwningMembership ;
+    sysml:elementId "c4746a24-8316-5f5b-8b65-e33b7b284f93" ;
+    sysml:memberElement <urn:sysmlv2:element:3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:dbd75b49-0e57-5cf9-ba35-9f8843b1e657
+    a sysml:Feature ;
+    sysml:elementId "dbd75b49-0e57-5cf9-ba35-9f8843b1e657" ;
+    sysml:qualifiedName "Base::things::that" ;
+    sysml:declaredName "that" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:eb64dd16-9465-56e7-8a36-8987c6e36bf5
+    a sysml:FeatureMembership ;
+    sysml:elementId "eb64dd16-9465-56e7-8a36-8987c6e36bf5" ;
+    sysml:memberElement elmt:dbd75b49-0e57-5cf9-ba35-9f8843b1e657 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

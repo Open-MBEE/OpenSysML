@@ -102,6 +102,8 @@ type conformanceCase struct {
 	ExpectedNodeNames    []string          `json:"expected_node_names,omitempty"`
 	ExpectedCompartments map[string]string `json:"expected_compartments,omitempty"`
 	ExpectedEdgeLabels   []string          `json:"expected_edge_labels,omitempty"`
+	// ExpectedParallel names the nodes drawn «parallel» (a state whose substates run in parallel).
+	ExpectedParallel []string `json:"expected_parallel,omitempty"`
 
 	// GetDiagnostics lint selection and the codes the answer must and must not carry.
 	DisableLint   []string `json:"disable_lint,omitempty"`
@@ -1004,14 +1006,21 @@ func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 	}
 	names := make([]string, 0, len(resp.Nodes))
 	compartments := map[string]string{}
+	var parallel []string
 	for _, node := range resp.Nodes {
 		names = append(names, node.GetName())
 		if node.GetCompartment() != "" {
 			compartments[node.GetName()] = node.GetCompartment()
 		}
+		if node.GetParallel() {
+			parallel = append(parallel, node.GetName())
+		}
 	}
 	if !slices.Equal(names, tc.ExpectedNodeNames) {
 		t.Errorf("nodes = %v, want %v", names, tc.ExpectedNodeNames)
+	}
+	if !slices.Equal(parallel, tc.ExpectedParallel) {
+		t.Errorf("parallel nodes = %v, want %v", parallel, tc.ExpectedParallel)
 	}
 	if !maps.Equal(compartments, tc.ExpectedCompartments) {
 		t.Errorf("compartment rows = %v, want %v", compartments, tc.ExpectedCompartments)

@@ -15,10 +15,15 @@ library package DocumentQueries {
 	}
 
 	/* Descendants and Ancestors walk ownership from source to maxDepth levels;
-	 * maxDepth = null (the default) walks the whole tree. */
+	 * maxDepth = null (the default) walks the whole tree. Descendants walks the
+	 * owned members of each namespace; relationships = true walks ownership as
+	 * KerML 8.3.2.1 defines it instead — ownedRelationship, then the related
+	 * elements each relationship owns — so the memberships, specializations,
+	 * typings, feature values and the implicit elements they own are reached. */
 	calc def Descendants {
 		in source : Element[0..*] ordered;
 		in maxDepth : Integer[0..1] default null;
+		in relationships : Boolean[0..1] default false;
 		return result : Element[0..*] ordered;
 	}
 

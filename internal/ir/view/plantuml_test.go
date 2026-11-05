@@ -30,6 +30,7 @@ var plantumlGoldenCases = []struct {
 	{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 	{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 	{"action", "action.sysml", "FlowViews::driveView", KindAction},
+	{"action-forms", "action-forms.sysml", "ActionFormViews::monitorView", KindAction},
 	{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
 	{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 	{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed},
@@ -49,6 +50,8 @@ var plantumlGoldenCases = []struct {
 	{"sequence-cycle", "sequence-order.sysml", "OrderingViews::deadlockView", KindSequence},
 	{"sequence-empty", "errors.sysml", "ErrorViews::emptySequenceView", KindSequence},
 	{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement},
+	{"annotations-tree", "annotations.sysml", "AnnotationViews::tree", KindTree},
+	{"annotations-definitions", "annotations.sysml", "AnnotationViews::definitions", KindDefinition},
 	{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition},
 	{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage},
 	{"glyphs-requirement", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::requirementGlyphs", KindRequirement},
@@ -116,6 +119,11 @@ func TestPlantUMLDrawsEveryNodeAndEdge(t *testing.T) {
 			walk = func(node *Node) {
 				if node.Kind != startKind && !strings.Contains(puml, " as "+node.ID+"\n") && !strings.Contains(puml, " as "+node.ID+" ") {
 					t.Errorf("node %s (%s) is not declared:\n%s", node.ID, (labeller{}).head(node), puml)
+				}
+				// A sequence's proxies are points on their lifelines, which PlantUML
+				// has no participant for: their arrows run between the lifelines.
+				if rendering.Kind == KindSequence {
+					return
 				}
 				for _, child := range node.Children {
 					walk(child)
@@ -259,7 +267,7 @@ func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 		"  state \"<size:10>//«fork»//</size>\\n**split**\" as n7 <<fork>>\n",
 		"  state \"**final**\" as n9 <<end>>\n",
 		"  state \"<size:10>//«decision»//</size>\\n**check**\" as n11 <<choice>>\n",
-		"  state \"<size:10>//«action»//</size>\\n**monitor**\\nown flow\\nparameters\\nin reading\" as n3 <<action>> <<usage>> {\n",
+		"  state \"<size:10>//«action»//</size>\\n**monitor**\\nparameters\\nin reading\\naction flow\" as n3 <<action>> <<usage>> {\n",
 		"\nn2 --> n3 : torque to reading\n",
 		"\nn11 -[dashed]-> n9 : [speed <U+003E> 0]\n",
 		"\nn1 -[dashed]-> n7\n",
@@ -283,7 +291,7 @@ func TestPlantUMLSequenceDiagram(t *testing.T) {
 	}
 	for _, want := range []string{
 		"' not represented: message pending states no source and target; no message is drawn\n",
-		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n1 : of Ping\nn0 -> n0 : echo\n@enduml\n",
+		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n1 : of Ping\nn0 ->> n0 : echo of Ping\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("sequence PlantUML lacks %q:\n%s", want, puml)
@@ -622,9 +630,9 @@ var (
 	// plantumlArrowLine matches an arrow statement between two aliases, a
 	// port's being its node's dotted with its index, an end name quoted at
 	// its end.
-	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+)( "[^"]*")? (-\[[a-z=0-9]+\]->?|-->|->|--\|>|--:\|>|--\|\|>|\.\.>|\*--|o--|\+--|#--|0--|--|\.\.) ("[^"]*" )?([\w.]+)( : .*)?$`)
+	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+)( "[^"]*")? (-\[[a-z=0-9]+\]->?|-->>|->>|-->|->|--\|>|--:\|>|--\|\|>|\.\.>|\*--|o--|\+--|#--|0--|--|\.\.) ("[^"]*" )?([\w.]+)( : .*)?$`)
 	// plantumlDeclarationLine matches an element declaration with its alias.
-	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port|usecase|actor|note|circle|package) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
+	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port|usecase|actor|note|circle|label|package) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
 	// dotFillLine and plantumlFillLine pick the fill a node is given in each form.
 	dotFillLine      = regexp.MustCompile(`^\s*"([^"]+)" \[.*fillcolor="(#[0-9A-F]{6})"`)
 	plantumlFillLine = regexp.MustCompile(`" as (\w+)(?: <<[^>]+>>)* (#[0-9A-F]{6})`)
@@ -647,6 +655,7 @@ func checkPlantUMLSyntax(t *testing.T, puml string) {
 	type arrow struct{ from, to string }
 	var arrows []arrow
 	depth, style := 0, false
+	note := false
 	for i, line := range lines[1 : len(lines)-1] {
 		switch {
 		case line == "<style>":
@@ -660,6 +669,11 @@ func checkPlantUMLSyntax(t *testing.T, puml string) {
 				t.Fatalf("line %d closes no <style>:\n%s", i+2, puml)
 			}
 			style = false
+			continue
+		case note:
+			if strings.TrimSpace(line) == "end note" {
+				note = false
+			}
 			continue
 		case style:
 			if strings.Contains(line, "{") {
@@ -692,7 +706,10 @@ func checkPlantUMLSyntax(t *testing.T, puml string) {
 			if depth < 0 {
 				t.Fatalf("line %d closes more braces than opened:\n%s", i+2, puml)
 			}
-		case strings.HasPrefix(trimmed, "hide "), strings.HasPrefix(trimmed, "skinparam "), strings.HasSuffix(trimmed, " direction"):
+		case strings.HasPrefix(trimmed, "note as "):
+			declared[strings.Fields(trimmed)[2]] = true
+			note = true
+		case strings.HasPrefix(trimmed, "hide "), strings.HasPrefix(trimmed, "skinparam "), strings.HasPrefix(trimmed, "mainframe "), strings.HasSuffix(trimmed, " direction"):
 		default:
 			t.Fatalf("line %d is no statement the writer emits: %q\n%s", i+2, line, puml)
 		}

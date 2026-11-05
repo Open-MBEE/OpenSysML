@@ -184,7 +184,7 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadAPIJSON: %v", err)
 			}
-			assertAPIJSONGraphsEqual(t, apiJSONGraphWithoutLibraryReferences(original), got)
+			assertAPIJSONGraphsEqual(t, apiJSONGraphWithoutLibraryReferences(original), apiJSONGraphWithoutLibraryReferences(got))
 
 			if isExample {
 				countsMu.Lock()

@@ -684,3 +684,64 @@ func TestUnnamedConnectEndsReplaceInheritedEnds(t *testing.T) {
 		}
 	}
 }
+
+// A step's end redefines the end at its position in each direct general of the
+// step, its behavior type included (KerML 1.1 §8.3.3.3.4 checkFeatureEndRedefinition):
+// the owner need not be a connector, and the redefined end's members are inherited.
+func TestImplicitEndRedefinitionOfStepEnd(t *testing.T) {
+	m, root := buildModelNamed(t, "t.kerml", `package P {
+		class Occ;
+		interaction Transfer {
+			end feature source : Occ { feature sourceOutput; }
+			end feature target : Occ;
+		}
+		interaction TransferBefore specializes Transfer {
+			end feature source : Occ redefines Transfer::source;
+			end feature target : Occ redefines Transfer::target;
+		}
+		behavior Observe {
+			step transfer : TransferBefore {
+				end feature source;
+				end feature target;
+			}
+		}
+	}`)
+	p := sym(t, root, "P")
+	before := nested(t, p.Scope, "TransferBefore")
+	step := nested(t, nested(t, p.Scope, "Observe").Scope, "transfer")
+	for _, name := range []string{"source", "target"} {
+		end := nested(t, step.Scope, name)
+		got := m.ImplicitEndRedefinitions(end)
+		if len(got) != 1 || got[0] != nested(t, before.Scope, name) {
+			t.Fatalf("ImplicitEndRedefinitions(%s) = %v, want [TransferBefore::%s]", name, got, name)
+		}
+	}
+	if _, ok := m.LookupMember(nested(t, step.Scope, "source"), "sourceOutput"); !ok {
+		t.Fatalf("the step's source end does not inherit sourceOutput from the end it redefines")
+	}
+}
+
+// A type's ends include those it inherits, whatever its kind (KerML 1.1
+// §8.3.3.1.2 `Type::endFeature`), so a step typed by a behavior whose ends come
+// from a general behavior still pairs its ends with them by position.
+func TestImplicitEndRedefinitionThroughInheritedBehaviorEnds(t *testing.T) {
+	m, root := buildModelNamed(t, "t.kerml", `package P {
+		behavior Base { end feature source { feature output; } end feature target; }
+		behavior Derived specializes Base;
+		behavior Observe {
+			step use : Derived { end feature source { feature redefines output; } end feature target; }
+		}
+	}`)
+	p := sym(t, root, "P")
+	base := nested(t, p.Scope, "Base")
+	use := nested(t, nested(t, p.Scope, "Observe").Scope, "use")
+	for _, name := range []string{"source", "target"} {
+		got := m.ImplicitEndRedefinitions(nested(t, use.Scope, name))
+		if len(got) != 1 || got[0] != nested(t, base.Scope, name) {
+			t.Fatalf("ImplicitEndRedefinitions(%s) = %v, want [Base::%s]", name, got, name)
+		}
+	}
+	if _, ok := m.LookupMember(nested(t, use.Scope, "source"), "output"); !ok {
+		t.Fatal("the step's source end does not inherit output from Base::source")
+	}
+}

@@ -1,0 +1,39 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+title: "«view» NaryViews::dependencies"
+---
+%% NaryViews::dependencies — tree rendering (render asTreeDiagram)
+flowchart TD
+  n0["`*«part def»*
+**Chassis**`"]
+  n1["`*«part def»*
+**Lights**`"]
+  n2["`*«part def»*
+**Brakes**`"]
+  n3["`*«part def»*
+**Steering**`"]
+  n4@{ shape: f-circ, label: "NaryRules::rules" }
+  n2 -.- n4
+  n3 -.- n4
+  n4 -.-> n0
+  n4 -.-> n1

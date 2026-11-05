@@ -1,1 +1,0 @@
-- The symbol builder maps a usage kind to its `SymbolKind` through the single exported `UsageSymbolKind`; the unexported duplicate `usageSymbolKind` is gone.

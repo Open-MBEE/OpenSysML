@@ -33,6 +33,13 @@ var syntaxCodes = []Entry{
 		Spec: "SysML v2 §8.2.2.4 ImportPrefix",
 	},
 	{
+		Code: "expose-visibility", Tier: TierSyntax, Severity: "error",
+		Summary: "an `expose` written with `public`, `private` or `protected`",
+		Meaning: "An expose always has protected visibility (SysML v2 validateExposeVisibility), so the grammar admits no visibility indicator before `expose`; the pilot rejects the file. " +
+			"Drop the indicator: `expose P::*;`.",
+		Spec: "SysML v2 §8.2.2.26 Expose and §8.3.26.2 validateExposeVisibility",
+	},
+	{
 		Code: "enumeration-body-member", Tier: TierSyntax, Severity: "error",
 		Summary: "a member an enumeration definition body does not admit",
 		Meaning: "The body of an enumeration definition holds enumerated values, annotations and imports only; a part, attribute or other usage declared there is not admitted by the grammar. " +

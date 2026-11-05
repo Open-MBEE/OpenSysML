@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» AbstractViews::familyMixed : Family"
 ---
 %% AbstractViews::familyMixed — mixed rendering (render asMixedDiagram)
 flowchart TD
@@ -27,10 +28,8 @@ flowchart TD
     direction TD
     n1_anchor[" "]
     n0("`*«attribute»*
-**AbstractViews::Vehicle::mass**`")
+**mass**`")
   end
-  n0("`*«attribute»*
-**AbstractViews::Vehicle::mass**`")
   subgraph n2 ["`*«abstract part»* **vehicleFamily**`"]
     direction TD
     n2_anchor[" "]
@@ -54,7 +53,6 @@ flowchart TD
   end
   n4 === n5
   n8 === n9
-  n1_anchor --- n0
   n2_anchor -->|"typing"| n1_anchor
   n6_anchor -->|"«specializes»"| n1_anchor
   classDef anchor fill:none,stroke:none

@@ -158,7 +158,7 @@ func (c *w11aUsageChecker) checkIncludedUseCase(usage, target *symbols.Symbol) {
 			typ.sym.Kind == symbols.SymbolKerMLType || !isDefKind(typ.sym.Kind) {
 			continue
 		}
-		if compatibleTyping(ast.UsageUseCase, ast.DirNone, typ.sym.Kind) {
+		if compatibleTyping(ast.UsageUseCase, typ.sym.Kind) {
 			continue
 		}
 		c.diags = append(c.diags, diag.Diagnostic{

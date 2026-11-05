@@ -443,7 +443,7 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 		check.settle()
 		return check, true
 	}
-	if decl.Target.typ.Kind == symbols.SymbolEnumerationDef {
+	if semantics.IsEnumeration(decl.Target.typ) {
 		return scalarCheck{}, false
 	}
 	prim := c.ctx.model.semantics.PrimTypeOf(decl.Target.typ)

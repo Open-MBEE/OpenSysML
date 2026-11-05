@@ -34,8 +34,16 @@ type Evaluator struct {
 	reasons                      map[propertyKey]Reason
 	internedStrings              map[string]string
 	structureQualifiedNames      map[ElementKey]structureQualifiedNameCacheEntry
+	structureInherited           map[ElementKey]structureInheritedCacheEntry
+	structureEffective           map[ElementKey]structureValueCacheEntry
+	structureNamespace           map[ElementKey]structureValueCacheEntry
+	structureValueLists          map[structureValueListKey]structureInheritedCacheEntry
+	structureRedefined           map[ElementKey]structureElementsCacheEntry
 	structureQualifiedNameBases  map[ElementKey]structureQualifiedNameCacheEntry
 	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
+	structureOwnedFilters        map[structureOwnedFilterKey]structureMemoEntry
+	structureOwnedMemberLists    map[ElementKey]structureMemoEntry
+	structureNames               map[structureNameKey]structureMemoEntry
 }
 
 // New creates an evaluator over the resolver and semantic model for one model.
@@ -52,8 +60,16 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		reasons:                      make(map[propertyKey]Reason),
 		internedStrings:              make(map[string]string),
 		structureQualifiedNames:      make(map[ElementKey]structureQualifiedNameCacheEntry),
+		structureInherited:           make(map[ElementKey]structureInheritedCacheEntry),
+		structureEffective:           make(map[ElementKey]structureValueCacheEntry),
+		structureNamespace:           make(map[ElementKey]structureValueCacheEntry),
+		structureValueLists:          make(map[structureValueListKey]structureInheritedCacheEntry),
+		structureRedefined:           make(map[ElementKey]structureElementsCacheEntry),
 		structureQualifiedNameBases:  make(map[ElementKey]structureQualifiedNameCacheEntry),
 		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
+		structureOwnedFilters:        make(map[structureOwnedFilterKey]structureMemoEntry),
+		structureOwnedMemberLists:    make(map[ElementKey]structureMemoEntry),
+		structureNames:               make(map[structureNameKey]structureMemoEntry),
 	}
 }
 
@@ -97,18 +113,30 @@ func (e *Evaluator) PropertyReadOnly(el Element, definingClass, name string) (Va
 	return e.property(el, definingClass, name, false)
 }
 
+// PropertyReadOnlyUncached is PropertyReadOnly for a value asked once: it leaves
+// the result cache alone, while the dependencies it derives are cached as usual.
+func (e *Evaluator) PropertyReadOnlyUncached(el Element, definingClass, name string) (Value, bool) {
+	return e.propertyWithPolicy(el, definingClass, name, false, false)
+}
+
 func (e *Evaluator) property(el Element, definingClass, name string, clone bool) (Value, bool) {
+	return e.propertyWithPolicy(el, definingClass, name, clone, true)
+}
+
+func (e *Evaluator) propertyWithPolicy(el Element, definingClass, name string, clone, store bool) (Value, bool) {
 	if e == nil {
 		return Value{}, false
 	}
 	key := propertyKey{element: el.Key(), class: definingClass, name: name}
 	e.mu.Lock()
-	if cached, ok := e.cache[key]; ok {
-		e.mu.Unlock()
-		if clone {
-			return cloneValue(cached.value), cached.ok
+	if store {
+		if cached, ok := e.cache[key]; ok {
+			e.mu.Unlock()
+			if clone {
+				return cloneValue(cached.value), cached.ok
+			}
+			return cached.value, cached.ok
 		}
-		return cached.value, cached.ok
 	}
 	if _, served := ruleConstraints[keyName(definingClass, name)]; !served {
 		if _, recorded := e.reasons[key]; !recorded {
@@ -139,6 +167,9 @@ func (e *Evaluator) property(el Element, definingClass, name string, clone bool)
 		if clone {
 			value = cloneValue(value)
 		}
+	} else if !store {
+		e.mu.Unlock()
+		return value, ok
 	} else {
 		interned := e.internValueStrings(cloneValue(value))
 		e.cache[key] = cachedValue{value: interned, ok: ok}
@@ -763,20 +794,23 @@ func (e *Evaluator) ownedUsageMetaclass(property string) (string, bool) {
 		return "", false
 	}
 	suffix := strings.TrimPrefix(property, prefix)
-	metaclasses := map[string]string{
-		"Usage": "Usage", "Reference": "ReferenceUsage", "Attribute": "AttributeUsage",
-		"Enumeration": "EnumerationUsage", "Occurrence": "OccurrenceUsage", "Item": "ItemUsage",
-		"Part": "PartUsage", "Port": "PortUsage", "Connection": "ConnectorAsUsage",
-		"Flow": "FlowUsage", "Interface": "InterfaceUsage", "Allocation": "AllocationUsage",
-		"Action": "ActionUsage", "State": "StateUsage", "Transition": "TransitionUsage",
-		"Calculation": "CalculationUsage", "Constraint": "ConstraintUsage",
-		"Requirement": "RequirementUsage", "Concern": "ConcernUsage", "Case": "CaseUsage",
-		"AnalysisCase": "AnalysisCaseUsage", "VerificationCase": "VerificationCaseUsage",
-		"UseCase": "UseCaseUsage", "View": "ViewUsage", "Viewpoint": "ViewpointUsage",
-		"Rendering": "RenderingUsage", "Metadata": "MetadataUsage",
-	}
-	metaclass, ok := metaclasses[suffix]
+	metaclass, ok := ownedUsageMetaclasses[suffix]
 	return metaclass, ok
+}
+
+// ownedUsageMetaclasses maps the suffix of a nested*/owned* usage collection to
+// the metaclass of its members.
+var ownedUsageMetaclasses = map[string]string{
+	"Usage": "Usage", "Reference": "ReferenceUsage", "Attribute": "AttributeUsage",
+	"Enumeration": "EnumerationUsage", "Occurrence": "OccurrenceUsage", "Item": "ItemUsage",
+	"Part": "PartUsage", "Port": "PortUsage", "Connection": "ConnectorAsUsage",
+	"Flow": "FlowUsage", "Interface": "InterfaceUsage", "Allocation": "AllocationUsage",
+	"Action": "ActionUsage", "State": "StateUsage", "Transition": "TransitionUsage",
+	"Calculation": "CalculationUsage", "Constraint": "ConstraintUsage",
+	"Requirement": "RequirementUsage", "Concern": "ConcernUsage", "Case": "CaseUsage",
+	"AnalysisCase": "AnalysisCaseUsage", "VerificationCase": "VerificationCaseUsage",
+	"UseCase": "UseCaseUsage", "View": "ViewUsage", "Viewpoint": "ViewpointUsage",
+	"Rendering": "RenderingUsage", "Metadata": "MetadataUsage",
 }
 
 func (e *Evaluator) completeSupertypes(sym *symbols.Symbol) bool {

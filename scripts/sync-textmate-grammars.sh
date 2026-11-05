@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# Keep Open-MBEE/sysml-v2-textmate, the grammar repository GitHub Linguist
+# vendors for SysML v2 and KerML highlighting, carrying the TextMate grammars
+# committed under editors/vscode/syntaxes/. The committed files are what
+# editors/vscode/tools/gengrammar generates (its tests fail on drift), so the
+# mirror never sees anything the parser's keyword tables did not produce.
+#
+#   scripts/sync-textmate-grammars.sh --check             mirror == HEAD's grammars; exit 1 on drift
+#   scripts/sync-textmate-grammars.sh --publish [--tag v]  commit HEAD's grammars to the mirror and push
+#   scripts/sync-textmate-grammars.sh --publish --dry-run  commit locally, show it, push nothing
+#
+# Read HEAD's grammars; with --tag, publish only the newest stable release.
+# Skip pre-releases and older tags so they cannot roll the mirror back.
+#
+# --publish needs a token that can write the mirror's contents in GITHUB_TOKEN,
+# GH_TOKEN or CIRCLE_TOKEN; it travels in a header, never in a URL git echoes.
+set -euo pipefail
+
+TEXTMATE_REPO="${TEXTMATE_REPO:-https://github.com/Open-MBEE/sysml-v2-textmate.git}"
+TEXTMATE_BRANCH="${TEXTMATE_BRANCH:-main}"
+SOURCE_REMOTE="${SOURCE_REMOTE:-origin}"
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+syntaxes_dir="editors/vscode/syntaxes"
+grammars=(sysml.tmLanguage.json kerml.tmLanguage.json)
+
+mode=""
+tag=""
+dry_run=0
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		--check | --publish)
+			if [[ -n "$mode" ]]; then
+				echo "error: --check and --publish are exclusive" >&2
+				exit 2
+			fi
+			mode="${1#--}"
+			shift
+			;;
+		--tag)
+			tag="${2:?--tag needs a release tag}"
+			shift 2
+			;;
+		--dry-run)
+			dry_run=1
+			shift
+			;;
+		*)
+			echo "error: unknown argument: $1" >&2
+			exit 2
+			;;
+	esac
+done
+if [[ -z "$mode" ]]; then
+	echo "usage: $0 --check | --publish [--tag TAG] [--dry-run]" >&2
+	exit 2
+fi
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+source_commit="$(git -C "$repo_root" rev-parse HEAD)"
+source_desc="${tag:-${source_commit:0:12}}"
+src="$work/src"
+mkdir -p "$src"
+for g in "${grammars[@]}"; do
+	if ! git -C "$repo_root" show "HEAD:$syntaxes_dir/$g" >"$src/$g" 2>/dev/null || [[ ! -s "$src/$g" ]]; then
+		echo "error: $syntaxes_dir/$g is missing or empty at HEAD ($source_commit)" >&2
+		exit 1
+	fi
+	python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$src/$g" || {
+		echo "error: $syntaxes_dir/$g at HEAD is not valid JSON" >&2
+		exit 1
+	}
+done
+if ! git -C "$repo_root" diff --quiet HEAD -- "$syntaxes_dir"; then
+	echo "note: $syntaxes_dir/ has uncommitted changes; only what HEAD commits is compared and published"
+fi
+
+if [[ "$mode" == "publish" && -n "$tag" ]]; then
+	if [[ "$tag" == *-* ]]; then
+		echo "Skipping: $tag is a pre-release; the mirror follows stable releases only"
+		exit 0
+	fi
+	if ! stable_tags="$(git -C "$repo_root" ls-remote --tags --refs "$SOURCE_REMOTE" 'v[0-9]*' | awk -F/ '{print $NF}' | grep -v -- -)"; then
+		echo "error: could not list release tags from $SOURCE_REMOTE" >&2
+		exit 1
+	fi
+	newest="$(printf '%s\n%s\n' "$stable_tags" "$tag" | sort -V | tail -n 1)"
+	if [[ "$newest" != "$tag" ]]; then
+		echo "Skipping: $newest is a newer release than $tag; the mirror is not rolled back"
+		exit 0
+	fi
+fi
+
+mirror="$work/mirror"
+echo "Fetching $TEXTMATE_BRANCH from $TEXTMATE_REPO ..."
+git init --quiet "$mirror"
+git -C "$mirror" remote add origin "$TEXTMATE_REPO"
+if ! git -C "$mirror" fetch --quiet --depth 1 origin "$TEXTMATE_BRANCH"; then
+	echo "error: could not fetch $TEXTMATE_BRANCH from $TEXTMATE_REPO" >&2
+	exit 1
+fi
+git -C "$mirror" checkout --quiet -B "$TEXTMATE_BRANCH" FETCH_HEAD
+mirror_head="$(git -C "$mirror" rev-parse HEAD)"
+if [[ ! -d "$mirror/syntaxes" ]]; then
+	echo "error: $TEXTMATE_REPO@$TEXTMATE_BRANCH has no syntaxes/ directory; refusing to treat it as the grammar mirror" >&2
+	exit 1
+fi
+
+drift=0
+for g in "${grammars[@]}"; do
+	if [[ ! -f "$mirror/syntaxes/$g" ]]; then
+		echo "mirror lacks syntaxes/$g"
+		drift=1
+	elif ! diff -u "$mirror/syntaxes/$g" "$src/$g" --label "mirror/syntaxes/$g" --label "$syntaxes_dir/$g@${source_commit:0:12}"; then
+		drift=1
+	fi
+done
+
+if [[ "$mode" == "check" ]]; then
+	if [[ "$drift" -eq 0 ]]; then
+		echo "OK: $TEXTMATE_REPO@${mirror_head:0:12} carries the grammars committed at ${source_commit:0:12}"
+		exit 0
+	fi
+	echo "error: the grammar mirror has drifted from $syntaxes_dir/ at HEAD (above); publish with --publish" >&2
+	exit 1
+fi
+
+if [[ "$drift" -eq 0 ]]; then
+	echo "Nothing to publish: $TEXTMATE_REPO@${mirror_head:0:12} already carries the grammars committed at ${source_commit:0:12}"
+	exit 0
+fi
+
+for g in "${grammars[@]}"; do
+	cp "$src/$g" "$mirror/syntaxes/$g"
+done
+git -C "$mirror" add syntaxes
+git -C "$mirror" \
+	-c user.name="OpenSysML release" \
+	-c user.email="opensysml-release@users.noreply.github.com" \
+	commit --quiet \
+	-m "Sync the grammars from OpenSysML $source_desc" \
+	-m "Generated by editors/vscode/tools/gengrammar at Open-MBEE/OpenSysML@$source_commit."
+git -C "$mirror" show --stat --format=medium HEAD
+
+if [[ "$dry_run" -eq 1 ]]; then
+	echo "Dry run: not pushing to $TEXTMATE_REPO"
+	exit 0
+fi
+
+TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN:-}}}"
+if [[ -z "$TOKEN" ]]; then
+	echo "error: no GitHub token found; tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN" >&2
+	exit 1
+fi
+auth="$(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')"
+# Fast-forward only: a mirror that moved since the fetch is a concurrent publish
+# to look at, not something to overwrite.
+git -C "$mirror" -c "http.https://github.com/.extraheader=Authorization: Basic ${auth}" \
+	push --quiet origin "HEAD:refs/heads/$TEXTMATE_BRANCH"
+echo "Published the grammars from OpenSysML $source_desc to $TEXTMATE_REPO@$TEXTMATE_BRANCH"

@@ -15,6 +15,7 @@ type valueKey struct {
 	realVal float64
 	imagVal float64
 	boolVal bool
+	isBool  bool // a Boolean, so false keys apart from 0
 	infVal  bool
 	strVal  string
 	instID  int64
@@ -54,7 +55,7 @@ func (ctx *Context) valueKey(v Value) valueKey {
 				key.realVal = r.Real
 			}
 		case semantics.ValBool:
-			key.boolVal = v.Const.Bool
+			key.boolVal, key.isBool = v.Const.Bool, true
 		case semantics.ValInfinity:
 			key.infVal = true
 		}

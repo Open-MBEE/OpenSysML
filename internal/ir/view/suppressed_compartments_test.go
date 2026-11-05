@@ -30,7 +30,7 @@ func TestSuppressedCompartmentsAreNotListedNorClipped(t *testing.T) {
 		}
 		return string(out)
 	}
-	selective := dot("selective")
+	selective := withoutViewFrame(dot("selective"))
 	for _, row := range []string{"resolution", "exposure", "mount", "data", "focus"} {
 		if !strings.Contains(selective, row) {
 			t.Errorf("selective lacks the row %s of a compartment left on", row)
@@ -44,7 +44,7 @@ func TestSuppressedCompartmentsAreNotListedNorClipped(t *testing.T) {
 	if strings.Contains(selective, "compartment row(s) with no room") {
 		t.Errorf("selective reports clipped rows:\n%s", selective)
 	}
-	collapsed := dot("collapsed")
+	collapsed := withoutViewFrame(dot("collapsed"))
 	for _, text := range []string{"resolution", "mount", "data", "focus", "capture", "frame", "compartment row(s) with no room"} {
 		if strings.Contains(collapsed, text) {
 			t.Errorf("collapsed writes %q, though every compartment is hidden", text)
@@ -71,5 +71,40 @@ func TestSuppressedCompartmentsAreNotListedNorClipped(t *testing.T) {
 		if strings.Contains(bare, text) {
 			t.Errorf("bare writes %q under a rendering without compartments", text)
 		}
+	}
+}
+
+// Hiding a compartment hides the rows of its keyword wherever a modifier
+// lists them: `showAttributes = false` hides an `end attribute` under `ends`.
+func TestHiddenAttributesHideTheEndAttributes(t *testing.T) {
+	rendering := renderSource(t, "M::V::links", `package M {
+	private import ScalarValues::Real;
+	part def Sensor;
+	connection def Link {
+		end attribute gain : Real;
+		end part sensor : Sensor;
+		attribute weight : Real;
+	}
+	package V {
+		private import Views::*;
+		private import DiagramLayout::*;
+		view links {
+			expose M::Link;
+			metadata Layout about M::Link { x = 10; y = 10; width = 240; height = 120; showAttributes = false; }
+			render asTreeDiagram;
+		}
+	}
+}`)
+	out, err := rendering.Write(FormText)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, hidden := range []string{"attribute gain", "attribute weight"} {
+		if strings.Contains(out, hidden) {
+			t.Errorf("a hidden attribute is listed, %q:\n%s", hidden, out)
+		}
+	}
+	if !strings.Contains(out, "end part sensor") || !strings.Contains(out, ellipsisMark) {
+		t.Errorf("the end part or the ellipsis is missing:\n%s", out)
 	}
 }

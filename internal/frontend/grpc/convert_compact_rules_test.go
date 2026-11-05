@@ -383,6 +383,10 @@ func assertLeanCompactExpansion(
 			}
 		}
 		for key, value := range lean[i] {
+			if key == "sysx:completedProperties" {
+				// The lean list names the full list's completions still written.
+				value, full[i][key] = compactRulesCompletedStillWritten(lean[i], value, full[i][key])
+			}
 			if !reflect.DeepEqual(value, full[i][key]) {
 				t.Fatalf("seed %d documents:\n%s\nelement %d key %s differs: lean %#v, full %#v",
 					seed, documentText, i, key, value, full[i][key])
@@ -398,4 +402,17 @@ func assertLeanCompactExpansion(
 		t.Fatalf("seed %d documents:\n%s\nomit-derived has %d keys, full compact has %d; expected some derived keys omitted",
 			seed, documentText, leanKeys, fullKeys)
 	}
+}
+
+// compactRulesCompletedStillWritten returns the lean completion list and the
+// full one restricted to the properties the lean element writes.
+func compactRulesCompletedStillWritten(lean map[string]any, leanList, fullList any) (any, any) {
+	names, _ := fullList.([]any)
+	var written []any
+	for _, name := range names {
+		if _, ok := lean[name.(string)]; ok {
+			written = append(written, name)
+		}
+	}
+	return leanList, written
 }

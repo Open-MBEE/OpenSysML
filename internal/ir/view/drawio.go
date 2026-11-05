@@ -54,13 +54,14 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 	}
 	w := &drawioWriter{
 		arranger:  newArranger(labelsOf(r.Roots, false, nil, r.Shown), r.portView(options.Ports)),
-		fills:     familyFills{palette: options.Palette, tree: r.Kind == KindTree},
+		fills:     familyFills{palette: options.Palette, tree: r.Kind == KindTree, sequence: r.Kind == KindSequence},
 		names:     map[string]drawioName{},
 		links:     options.Links,
 		view:      r.View,
 		cells:     map[string]bool{},
 		portBoxes: map[string]drawioBox{},
 		fqns:      map[string]bool{},
+		items:     map[string]bool{},
 	}
 	if r.Kind == KindAction {
 		w.used = r.usedPorts(w.ports)
@@ -68,6 +69,7 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 	}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
+		w.collectItems(root)
 	}
 	w.layout(r)
 	edges, err := w.routeEdges(r)
@@ -83,6 +85,8 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 
 // drawioWriter composes one draw.io file from a rendering.
 type drawioWriter struct {
+	// sections counts the body sections being written, whose nodes get no fqn.
+	sections int
 	arranger
 	fills     familyFills
 	used      map[string]map[string]bool
@@ -91,6 +95,7 @@ type drawioWriter struct {
 	cells     map[string]bool       // the cell IDs written, the ends an edge may attach to
 	portBoxes map[string]drawioBox  // port cell ID -> its box in canvas coordinates
 	fqns      map[string]bool       // the qualified names written on cells so far
+	items     map[string]bool       // the item boxes the flows on a connection line are drawn as, and the n-ary dots
 	names     map[string]drawioName // cell ID -> where its label shows the declared name
 	edgeIDs   map[[2]string]string  // edge ends -> its cell ID, the anchor an edge note joins
 	b         strings.Builder
@@ -147,7 +152,7 @@ func drawioGlyphSizeOf(node *Node) (width, height float64, ok bool) {
 		return 0, 0, false
 	case node.Kind == "final":
 		return drawioFinalSize, drawioFinalSize, true
-	case node.Kind == "junction":
+	case node.Kind == "junction", isDotKind(node.Kind):
 		return drawioJunctionDim, drawioJunctionDim, true
 	case isBarKind(node.Kind):
 		return drawioBarLength, drawioBarWidth, true
@@ -191,6 +196,7 @@ func (w *drawioWriter) document(r *Rendering, options Options) string {
 	}
 	w.b.WriteString(` math="0" shadow="0">` + "\n")
 	w.b.WriteString("      <root>\n        <mxCell id=\"0\"/>\n        <mxCell id=\"1\" parent=\"0\"/>\n")
+	w.writeFrame(r, width, height)
 	refusals := r.pictureRefusals()
 	for i, picture := range r.Pictures {
 		if !picture.Above && refusals[i] == nil {
@@ -422,14 +428,26 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 		rel = box.relativeTo(w.boxes[parent])
 	}
 	fqn := w.fqn(node, parentFQN)
+	if w.sections > 0 || sectionKind(node.Kind) {
+		fqn = "" // a body section and its nodes: the body is an anonymous action, so no name reaches them
+	}
 	nested := fqn
 	if nested == "" {
 		nested = parentFQN
 	}
 	compartments := w.compartments(node)
 	header := w.headerHeight(node)
-	w.openObject(drawioObject{id: node.ID, label: strings.Join(w.headerLines(node), "\n"), fqn: fqn, kind: node.Kind, link: w.link(node.Origin), name: w.nodeName(node)})
-	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0))
+	ellipsis := w.ellipsisHeight(node)
+	label, name := strings.Join(w.headerLines(node), "\n"), w.nodeName(node)
+	if isDotKind(node.Kind) {
+		// §8.2.3.13's cdot-label: the name alone beside the dot, nothing for none.
+		label, name = "", drawioName{}
+		if before, head := w.labels.headName(node); head != "" {
+			label, name = before+head, drawioName{Offset: len(before), Len: len(head)}
+		}
+	}
+	w.openObject(drawioObject{id: node.ID, label: label, fqn: fqn, kind: node.Kind, link: w.link(node.Origin), name: name})
+	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0 || ellipsis > 0))
 	w.b.WriteString(` vertex="1"`)
 	if collapsed(node) {
 		w.b.WriteString(` collapsed="1"`)
@@ -449,7 +467,17 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 		w.writeCompartment(fmt.Sprintf("%s:c%d", node.ID, i), node, compartment, drawioBox{Y: y, Width: box.Width, Height: height})
 		y += height
 	}
+	w.writeMark(node)
+	if ellipsis > 0 {
+		// A stated box too short for the mark keeps it inside, at its lower left.
+		y = math.Min(y, math.Max(0, box.Height-ellipsis))
+		w.writeTextCell(node.ID+":ellipsis", node, ellipsisMark, drawioBox{Y: y, Width: box.Width, Height: ellipsis})
+	}
 	w.writePorts(node, nested)
+	if sectionKind(node.Kind) {
+		w.sections++
+		defer func() { w.sections-- }()
+	}
 	for _, child := range node.Children {
 		w.writeNode(child, node.ID, nested)
 	}
@@ -457,9 +485,15 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 
 // writeCompartment writes one compartment as a text cell stacked in its node.
 func (w *drawioWriter) writeCompartment(id string, node *Node, compartment Compartment, box drawioBox) {
+	w.writeTextCell(id, node, strings.Join(w.compartmentLines(node, compartment), "\n"), box)
+}
+
+// writeTextCell writes a text cell stacked in its node: a compartment, or the
+// ellipsis under them.
+func (w *drawioWriter) writeTextCell(id string, node *Node, value string, box drawioBox) {
 	w.openCell()
 	w.attr("id", id)
-	w.attr("value", strings.Join(w.compartmentLines(node, compartment), "\n"))
+	w.attr("value", value)
 	w.attr("style", "text;html=0;whiteSpace=wrap;strokeColor=inherit;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;portConstraint=eastwest;"+drawioFontStyle(node.Style))
 	w.b.WriteString(` vertex="1"`)
 	w.attr("parent", node.ID)
@@ -490,24 +524,118 @@ func (w *drawioWriter) writePorts(node *Node, fqn string) {
 			portFQN = fqn + "::" + port.Name
 		}
 		w.openObject(drawioObject{id: id, label: w.ports.pinLabel(port), fqn: portFQN, kind: drawioPortKind(port), link: w.link(port.Origin), name: drawioPortName(port)})
-		w.attr("style", drawioPortStyle(side)+drawioStyleOf(nil, ""))
+		w.attr("style", drawioPortStyle(port, side)+drawioStyleOf(nil, ""))
 		w.b.WriteString(` vertex="1"`)
 		w.attr("parent", node.ID)
 		w.b.WriteString(">\n")
-		if g := port.Geometry; g.placed() {
-			size := drawioBox{Width: drawioPortSize, Height: drawioPortSize}
-			if g.HasSize {
-				size = drawioBox{Width: g.Width, Height: g.Height}
-			}
-			w.geometry(drawioWrappedBodyIndent, drawioBox{X: g.X - box.X, Y: g.Y - box.Y, Width: size.Width, Height: size.Height}, nil, nil)
-		} else {
-			w.relativeGeometry(drawioWrappedBodyIndent, side, fraction)
-		}
+		w.portGeometry(drawioWrappedBodyIndent, port, box, side, fraction)
 		w.portBoxes[id] = portCellBox(box, routeSide(side), fraction, port.Geometry)
 		w.closeObject()
+		w.writePinArrow(node, id, port, box, side, fraction)
 		w.cells[id] = true
 	}
 }
+
+// portGeometry writes a port cell's geometry: where its Layout places it,
+// relative to its owner's box, else at its fraction of the owner's side.
+func (w *drawioWriter) portGeometry(indent string, port Port, box drawioBox, side PortDirection, fraction float64) {
+	if g := port.Geometry; g.placed() {
+		size := drawioBox{Width: drawioPortSize, Height: drawioPortSize}
+		if g.HasSize {
+			size = drawioBox{Width: g.Width, Height: g.Height}
+		}
+		w.geometry(indent, drawioBox{X: g.X - box.X, Y: g.Y - box.Y, Width: size.Width, Height: size.Height}, nil, nil)
+		return
+	}
+	w.relativeGeometry(indent, side, fraction)
+}
+
+// writePinArrow sets the pin's direction arrow (§8.2.3.17 pdh, pdv) as a text
+// cell of the owner over the pin, placed as the pin is; a port with no
+// direction gets none. The pin cell itself stays childless, a port of the owner.
+func (w *drawioWriter) writePinArrow(node *Node, pin string, port Port, box drawioBox, side PortDirection, fraction float64) {
+	if !port.Parameter {
+		return
+	}
+	arrow := pinArrow(port.Direction, drawioPinSide(port, box, side))
+	if arrow == "" {
+		return
+	}
+	w.openCell()
+	w.attr("id", pin+":arrow")
+	w.attr("value", arrow)
+	w.attr("style", "text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;")
+	w.b.WriteString(` vertex="1"`)
+	w.attr("parent", node.ID)
+	w.b.WriteString(">\n")
+	w.portGeometry(drawioCellBodyIndent, port, box, side, fraction)
+	w.closeCell()
+}
+
+// drawioPinSide is the side of its owner a pin sits on: the one nearest its
+// placed box, else the side its direction gives it (an input left, an output right).
+func drawioPinSide(port Port, box drawioBox, side PortDirection) boundarySide {
+	if g := port.Geometry; g.placed() {
+		size := float64(drawioPortSize)
+		w, h := size, size
+		if g.HasSize {
+			w, h = g.Width, g.Height
+		}
+		cx, cy := g.X+w/2-box.X, g.Y+h/2-box.Y
+		nearest, best := leftSide, cx
+		for _, candidate := range []struct {
+			side boundarySide
+			dist float64
+		}{{rightSide, box.Width - cx}, {topSide, cy}, {bottomSide, box.Height - cy}} {
+			if candidate.dist < best {
+				nearest, best = candidate.side, candidate.dist
+			}
+		}
+		return nearest
+	}
+	switch side {
+	case PortIn:
+		return leftSide
+	case PortOut:
+		return rightSide
+	}
+	return topSide
+}
+
+// drawioMarkStyle is the filled figure in a node's top-left corner: the send
+// action's pentagon pointing out of the node, the accept action's notched flag.
+func drawioMarkStyle(kind string) string {
+	switch kind {
+	case sendActionKind:
+		return "shape=mxgraph.basic.polygon;polyCoords=[[0,0],[0.7,0],[1,0.5],[0.7,1],[0,1]];polyline=0;fillColor=#000000;strokeColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;"
+	case acceptActionKind:
+		return "shape=mxgraph.basic.polygon;polyCoords=[[0,0],[1,0],[1,1],[0,1],[0.3,0.5]];polyline=0;fillColor=#000000;strokeColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;"
+	}
+	return ""
+}
+
+// writeMark sets a node's corner figure as a cell at its top-left, inside the box.
+func (w *drawioWriter) writeMark(node *Node) {
+	style := drawioMarkStyle(node.Kind)
+	if style == "" {
+		return
+	}
+	w.openCell()
+	w.attr("id", node.ID+":mark")
+	w.attr("value", "")
+	w.attr("style", style)
+	w.b.WriteString(` vertex="1"`)
+	w.attr("parent", node.ID)
+	w.b.WriteString(">\n")
+	w.geometry(drawioCellBodyIndent, drawioBox{X: 4, Y: 4, Width: drawioMarkWidth, Height: drawioMarkHeight}, nil, nil)
+	w.closeCell()
+}
+
+// The size of a node's corner figure.
+const (
+	drawioMarkWidth  = 12
+	drawioMarkHeight = 9
+)
 
 // drawioPortKind names a port cell's kind: a pin's direction, else `port`.
 func drawioPortKind(port Port) string {
@@ -537,8 +665,11 @@ func drawioPortIndex(ports []Port, port Port) int {
 }
 
 // drawioPortStyle is a port square's style: its label beside it, inside the owner.
-func drawioPortStyle(side PortDirection) string {
+func drawioPortStyle(port Port, side PortDirection) string {
 	base := "rounded=0;whiteSpace=wrap;html=0;fontSize=10;"
+	if port.Parameter {
+		base = "rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;"
+	}
 	switch side {
 	case PortIn:
 		return base + "labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;"
@@ -651,9 +782,11 @@ func (w *drawioWriter) nodeStyle(node *Node, header float64, compartmented bool)
 // or the case notation's ellipse, note and actor.
 func (w *drawioWriter) plainStyle(node *Node) string {
 	switch {
+	case itemBox(node):
+		return "text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;"
 	case caseNodeKind(node.Kind):
 		return "ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;"
-	case node.Kind == "objective":
+	case node.Kind == "objective", annotationKind(node.Kind):
 		return "shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;"
 	case node.Kind == "actor":
 		return "shape=umlActor;html=0;whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top;"
@@ -805,17 +938,33 @@ func (w *drawioWriter) writeEdge(i int, edge Edge) {
 // flow, transition…); a member's edge (composition, typing) or a name a cell carries gives none.
 func (w *drawioWriter) edgeFQN(edge Edge) string {
 	switch edge.Kind {
-	case EdgeConnection, EdgeBinding, EdgeAssociation, EdgeFlow, EdgeSuccession, EdgeSuccessionFlow, EdgeTransition,
-		EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeImport, EdgeDependency, EdgeDerive, EdgeRefine,
+	case EdgeConnection, EdgeBinding, EdgeAssociation, EdgeFlow, EdgeMessage, EdgeSuccession, EdgeSuccessionFlow, EdgeTransition,
+		EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeImport, EdgeDependency, EdgeDependencyClient, EdgeDerive, EdgeRefine,
 		EdgeExpose, EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
 	default:
 		return ""
 	}
 	fqn := w.siteName(edge.Origin)
-	if w.fqns[fqn] {
+	if w.fqns[fqn] && !w.segment(edge) {
 		return ""
 	}
 	return fqn
+}
+
+// collectItems notes the item boxes and n-ary dots under node: the ends segments share.
+func (w *drawioWriter) collectItems(node *Node) {
+	if itemBox(node) || isDotKind(node.Kind) {
+		w.items[node.ID] = true
+	}
+	for _, child := range node.Children {
+		w.collectItems(child)
+	}
+}
+
+// segment reports whether edge is one segment of a connection line the flows on it
+// split, or of an n-ary dot: every segment names the relationship, being one drawing.
+func (w *drawioWriter) segment(edge Edge) bool {
+	return w.items[edge.From] || w.items[edge.To]
 }
 
 // drawioEnds is a set of edge ends.
@@ -942,12 +1091,12 @@ func drawioEdgeStyle(kind EdgeKind) string {
 		return "endArrow=block;endFill=1"
 	case EdgeSuccession:
 		return "dashed=1;endArrow=open"
-	case EdgeTransition, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+	case EdgeTransition, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeMessage:
 		return "endArrow=open"
 	case EdgeSpecialization, EdgeSubsetting, EdgeRedefinition, EdgeReferenceSubsetting:
 		return "endArrow=block;endFill=0"
 	case EdgeTyping:
-		return "dashed=1;endArrow=block;endFill=0"
+		return "endArrow=block;endFill=0"
 	case EdgeComposition:
 		return "startArrow=diamondThin;startFill=1;endArrow=none"
 	case EdgeReference:
@@ -956,7 +1105,7 @@ func drawioEdgeStyle(kind EdgeKind) string {
 		return "startArrow=circlePlus;startFill=0;endArrow=none"
 	case EdgeImport, EdgeDependency, EdgeDerive, EdgeRefine, EdgeExpose, EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
 		return "dashed=1;endArrow=open"
-	case EdgeAnchor:
+	case EdgeAnchor, EdgeDependencyClient:
 		return "dashed=1;endArrow=none"
 	case EdgeSuccessionFlow:
 		return "dashed=1;endArrow=block;endFill=1"
@@ -1099,4 +1248,44 @@ func drawioPictureSource(picture Picture) (string, bool) {
 // drawioImageData is image data as a draw.io style's image value.
 func drawioImageData(contentType string, data []byte) string {
 	return "data:" + contentType + "," + base64.StdEncoding.EncodeToString(data)
+}
+
+// writeFrame writes the view frame (§8.2.3.26) as draw.io's UML frame shape
+// over the page, its name compartment the frame's tab, and each info
+// compartment as a text cell at its corner: exposes top right, filters bottom
+// left, the view's annotations bottom right.
+func (w *drawioWriter) writeFrame(r *Rendering, width, height float64) {
+	if r.Frame == nil {
+		return
+	}
+	name := r.Frame.NameLine()
+	tabWidth, tabHeight := w.labels.dotTextBox([]string{name})
+	w.b.WriteString("        <mxCell")
+	w.attr("id", "frame")
+	w.attr("value", name)
+	w.attr("style", "shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width="+formatCoord(tabWidth+8)+";height="+formatCoord(tabHeight+4)+";")
+	w.attr("vertex", "1")
+	w.attr("parent", "1")
+	w.b.WriteString(">\n")
+	w.geometry(drawioWrappedBodyIndent, drawioBox{Width: width, Height: height}, nil, nil)
+	w.b.WriteString("        </mxCell>\n")
+	for _, c := range r.Frame.Compartments() {
+		cw, ch := w.labels.dotTextBox(c.Lines)
+		box := drawioBox{X: width - cw, Y: 0, Width: cw, Height: ch}
+		if c.Corner != FrameTopRight {
+			box.Y = height - ch
+		}
+		if c.Corner == FrameBottomLeft {
+			box.X = 0
+		}
+		w.b.WriteString("        <mxCell")
+		w.attr("id", "frame_"+c.Corner)
+		w.attr("value", strings.Join(c.Lines, "\n"))
+		w.attr("style", "text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;")
+		w.attr("vertex", "1")
+		w.attr("parent", "1")
+		w.b.WriteString(">\n")
+		w.geometry(drawioWrappedBodyIndent, box, nil, nil)
+		w.b.WriteString("        </mxCell>\n")
+	}
 }

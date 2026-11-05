@@ -165,9 +165,6 @@ func (m *Model) effectiveEnds(sym *symbols.Symbol) []connectorEnd {
 	redefined := m.redefinedByEnds(owned)
 	var inherited []connectorEnd
 	for _, sup := range m.DirectSupertypes(sym) {
-		if !m.isConnectorLike(sup) {
-			continue
-		}
 		for i, end := range m.effectiveEnds(sup) {
 			if !endRedefined(end.feature, i, owned, redefined) {
 				inherited = append(inherited, end)
@@ -276,18 +273,18 @@ func qualifiedNameNames(qn *ast.QualifiedName, sym *symbols.Symbol) bool {
 	return true
 }
 
-// ImplicitEndRedefinitions returns the ends of the connectors its owner
-// specializes that sym redefines by occupying their position, whatever its
-// `:>>` clauses name besides. The features it redefines are one feature with it,
-// so an object holds one set of values under all their names.
+// ImplicitEndRedefinitions returns the ends of the types its owner specializes
+// that sym redefines by occupying their position, whatever its `:>>` clauses
+// name besides. The features it redefines are one feature with it, so an object
+// holds one set of values under all their names.
 func (m *Model) ImplicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.implicitEndRedefinitions(sym)
 }
 
 // implicitEndRedefinitions returns the features sym implicitly redefines as an
-// end of its owning connector: the end at the same position of each general
-// connector (KerML 7.4.6, SysML v2 7.13.2). An explicit `:>>` adds to these
-// rather than replacing them. It returns nothing for a feature that is not an end.
+// end of its owning type: the end at the same position of each direct general
+// type, a step's behavior included (KerML 1.1 §8.3.3.3.4 checkFeatureEndRedefinition).
+// An explicit `:>>` adds to these. It returns nothing for a feature that is not an end.
 func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	if !declaresEnd(sym) {
 		return nil
@@ -296,7 +293,7 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 		return nil
 	}
 	owner := sym.OwnerScope.Owner()
-	if !m.isConnectorLike(owner) {
+	if owner == nil {
 		return nil
 	}
 	position := -1
@@ -312,9 +309,6 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 
 	var out []*symbols.Symbol
 	for _, sup := range m.DirectSupertypes(owner) {
-		if !m.isConnectorLike(sup) {
-			continue
-		}
 		supEnds := m.endsOf(sup)
 		if position >= len(supEnds) {
 			continue
@@ -336,7 +330,7 @@ func (m *Model) declaredEndCount(sym *symbols.Symbol) int {
 			continue
 		}
 		sup := m.relationshipTarget(sym, rel)
-		if sup == nil || sup == sym || !m.isConnectorLike(sup) {
+		if sup == nil || sup == sym {
 			continue
 		}
 		ends := m.effectiveEnds(sup)
@@ -858,7 +852,12 @@ func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEnd
 		case i < len(owned) && owned[i] != nil && owned[i].Name != "":
 			att.Name, att.EndFeature = symbols.LastSegment(owned[i].Name), owned[i]
 		case general != nil:
-			att.Name, att.EndFeature = symbols.LastSegment(general.Name), general
+			att.EndFeature = general
+			if name := m.EffectiveNameOf(general); name != "" {
+				att.Name = symbols.LastSegment(name)
+			} else if len(ends) == 2 {
+				att.Name = binaryConnectorEndNames[i]
+			}
 		case len(ends) == 2:
 			att.Name = binaryConnectorEndNames[i]
 		}
@@ -891,13 +890,37 @@ func (m *Model) FlowEndAttachments(sym *symbols.Symbol) []FlowEndAttachment {
 	return out
 }
 
-// generalEndAt returns the end at position i of the first connector sym
-// specializes that has one there, which sym's end at that position redefines.
+// DeclaredSuccessionEndName names the end at i of a declared succession: the end of its
+// declared connection type it redefines, else the end of Occurrences::happensBeforeLinks.
+func (m *Model) DeclaredSuccessionEndName(sym *symbols.Symbol, i int) string {
+	if general := m.generalEndAt(sym, i); general != nil {
+		if name := m.EffectiveNameOf(general); name != "" {
+			return symbols.LastSegment(name)
+		}
+	}
+	return m.ImpliedEndName(ast.UsageSuccession, i)
+}
+
+// ImpliedEndName names the end at i of a connector the notation mints with no
+// declaration of its own: the end its kind's base declares there, else the binary name.
+func (m *Model) ImpliedEndName(kind ast.UsageKind, i int) string {
+	if fqn, ok := implicitUsageBases[kind]; ok && m.resolver != nil && m.resolver.Index() != nil {
+		for _, base := range m.resolver.Index().LookupQualified(fqn) {
+			if ends := m.endsOf(base); i < len(ends) && ends[i] != nil {
+				return symbols.LastSegment(ends[i].Name)
+			}
+		}
+	}
+	if i >= 0 && i < len(binaryConnectorEndNames) {
+		return binaryConnectorEndNames[i]
+	}
+	return ""
+}
+
+// generalEndAt returns the end at position i of the first general sym specializes that has one
+// there — a connector, or a feature such as Links::selfLinks declaring ends — which sym's end redefines.
 func (m *Model) generalEndAt(sym *symbols.Symbol, i int) *symbols.Symbol {
 	for _, sup := range m.DirectSupertypes(sym) {
-		if !m.isConnectorLike(sup) {
-			continue
-		}
 		if ends := m.endsOf(sup); i < len(ends) && ends[i] != nil {
 			return ends[i]
 		}

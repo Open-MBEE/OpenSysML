@@ -713,33 +713,75 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 }
 
 // TestIndividualDefinitionWithoutItsFlagReadsAsIndividual covers a graph typed
-// sysml:IndividualDefinition that carries no sysml:isIndividual, the shape
-// earlier releases wrote: the metaclass states the fact, so it reads back as
-// `individual def` and its next hop is the graph an `individual def` writes today.
+// sysml:IndividualDefinition or sysml:IndividualUsage with neither sysml:isIndividual
+// nor the written keyword, the shape earlier releases wrote: the metaclass states the
+// fact, so it reads back as `individual def` / `individual`, its API-JSON is the
+// occurrence metaclass's, and its next hop is the graph written today.
 func TestIndividualDefinitionWithoutItsFlagReadsAsIndividual(t *testing.T) {
 	src := `package P {
     individual def Eagle;
+    individual lander : Eagle;
 }`
 	first, err := convert.Convert("legacy.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if !strings.Contains(string(first), "sysml:isIndividual") {
-		t.Fatalf("an individual def should carry sysml:isIndividual\n%s", first)
+	for _, stated := range []string{"a sysml:OccurrenceDefinition ;", "a sysml:OccurrenceUsage ;", "sysml:isIndividual", `sysx:declaredKeyword "individual"`} {
+		if !strings.Contains(string(first), stated) {
+			t.Fatalf("an individual should write %s\n%s", stated, first)
+		}
 	}
-	legacy := withoutTriples(t, withoutTriples(t, first, "sysx:sourceText"), "sysml:isIndividual")
+	legacy := withoutTriples(t, first, "sysx:sourceText")
+	for _, property := range []string{"sysml:isIndividual", "sysx:declaredKeyword"} {
+		legacy = withoutTriples(t, legacy, property)
+	}
+	legacy = []byte(strings.NewReplacer(
+		"a sysml:OccurrenceDefinition ;", "a sysml:IndividualDefinition ;",
+		"a sysml:OccurrenceUsage ;", "a sysml:IndividualUsage ;",
+	).Replace(string(legacy)))
 	back, err := convert.Convert("legacy.ttl", legacy, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
-	if !strings.Contains(string(back), "individual def Eagle;") {
-		t.Errorf("an IndividualDefinition without its flag should still read as individual\n%s", back)
+	for _, want := range []string{"individual def Eagle;", "individual lander : Eagle;"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("a legacy-typed individual should still read as %q\n%s", want, back)
+		}
 	}
 	second, err := convert.Convert("legacy.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
 	requireSameGraphBytes(t, back, first, second)
+	apiJSON, err := convert.Convert("legacy.ttl", legacy, convert.FormatTurtle, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("legacy turtle to api-json: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(apiJSON, &elements); err != nil {
+		t.Fatalf("api-json: %v", err)
+	}
+	found := map[string]string{}
+	for _, element := range elements {
+		payload, _ := element["payload"].(map[string]any)
+		if payload == nil {
+			payload = element
+		}
+		name, _ := payload["declaredName"].(string)
+		if name != "Eagle" && name != "lander" {
+			continue
+		}
+		found[name], _ = payload["@type"].(string)
+		if individual, _ := payload["isIndividual"].(bool); !individual {
+			t.Errorf("legacy %s: api-json isIndividual = %v, want true", name, payload["isIndividual"])
+		}
+		if _, list := payload["ownedRelationship"].([]any); !list {
+			t.Errorf("legacy %s: api-json ownedRelationship = %T, want a list (the occurrence metaclass's cardinality)", name, payload["ownedRelationship"])
+		}
+	}
+	if found["Eagle"] != "OccurrenceDefinition" || found["lander"] != "OccurrenceUsage" {
+		t.Errorf("legacy api-json types = %v, want OccurrenceDefinition / OccurrenceUsage", found)
+	}
 }
 
 // tripleSetDiff parses two Turtle documents and returns the triples only the

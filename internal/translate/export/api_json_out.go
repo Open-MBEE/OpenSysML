@@ -121,9 +121,14 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 			return nil, err
 		}
 		if LibraryReference(settled, subject) {
-			// Legacy stubs carry stated properties, not metamodel defaults.
+			// Legacy stubs carry stated properties, not metamodel defaults; a stub typed
+			// IndividualDefinition/IndividualUsage states isIndividual by that type.
+			_, legacyIndividual := legacyMetaclasses[rdf.LocalName(settled.Type(subject))]
 			element = slices.DeleteFunc(element, func(member apiJSONMember) bool {
-				return member.key != "@id" && member.key != "@type" && !settled.HasProperty(subject, rdf.SysML+member.key)
+				if member.key == "@id" || member.key == "@type" || (legacyIndividual && member.key == "isIndividual") {
+					return false
+				}
+				return !settled.HasProperty(subject, rdf.SysML+member.key)
 			})
 		}
 		elements = append(elements, element)
@@ -325,10 +330,15 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	if strings.HasPrefix(types[0].Value, rdf.SysML) {
 		metaclass = strings.TrimPrefix(types[0].Value, rdf.SysML)
 	}
+	typeName := apiJSONType(types[0])
+	standard, legacyIndividual := legacyMetaclasses[metaclass]
+	if legacyIndividual {
+		metaclass, typeName = standard, standard
+	}
 	predicates := w.graph.PredicatesView(subject)
 	element := make(apiJSONObject, 0, len(predicates)+5)
 	element = append(element,
-		apiJSONMember{key: "@type", value: apiJSONType(types[0])},
+		apiJSONMember{key: "@type", value: typeName},
 		apiJSONMember{key: "@id", value: id},
 	)
 	var mappingValues apiJSONObject
@@ -434,6 +444,10 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	if hasMappingName && !mappingNameEmitted {
 		element = append(element, apiJSONMember{key: apiJSONMappingQualifiedNameKey, value: mappingName})
 	}
+	if legacyIndividual {
+		element = apiJSONWithMember(element, apiJSONMember{key: "isIndividual", value: true})
+	}
+	element = w.completeDerived(subject, metaclass, element)
 	if len(mappingValues) > 0 {
 		member := apiJSONMember{key: apiJSONMappingValuesKey, value: mappingValues}
 		if mappingValuesPosition < 0 {
@@ -1052,6 +1066,17 @@ func collectionObject(subject rdf.Term, objects []rdf.Term, member rdf.Collectio
 
 // apiJSONType is the "@type" spelling of a metaclass IRI: the bare name in
 // the sysml: vocabulary, the sysx: CURIE in the extension namespace.
+// apiJSONWithMember states member on element, in place of the key's earlier value.
+func apiJSONWithMember(element apiJSONObject, member apiJSONMember) apiJSONObject {
+	for i := range element {
+		if element[i].key == member.key {
+			element[i] = member
+			return element
+		}
+	}
+	return append(element, member)
+}
+
 func apiJSONType(typ rdf.Term) string {
 	if strings.HasPrefix(typ.Value, rdf.OpenSysML) {
 		return "sysx:" + strings.TrimPrefix(typ.Value, rdf.OpenSysML)

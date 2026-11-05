@@ -157,6 +157,22 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 					continue
 				}
 			}
+			if member.key == apiJSONCompletedPropertiesKey && opts.OmitDerived && metaclass != "" {
+				// The marker names only the completed properties still written.
+				names, _ := member.value.([]any)
+				kept := make([]any, 0, len(names))
+				for _, name := range names {
+					text, _ := name.(string)
+					if property, ok := ontology.PropertyOf(metaclass, text); ok && property.Derived && !keep[text] {
+						continue
+					}
+					kept = append(kept, name)
+				}
+				if len(kept) == 0 {
+					continue
+				}
+				member.value = kept
+			}
 			members = append(members, member)
 			switch value := member.value.(type) {
 			case nil:

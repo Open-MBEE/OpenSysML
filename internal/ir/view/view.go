@@ -14,6 +14,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -282,6 +283,11 @@ const (
 	EdgeUnownedMembership
 	// EdgeExpose is a view's exposure of an element, from the view.
 	EdgeExpose
+	// EdgeDependencyClient is the client link of an n-ary dependency: from a
+	// client to the dependency's dot, dashed with no head.
+	EdgeDependencyClient
+	// EdgeMessage is a message of an interaction, from the sending event to the receiving one.
+	EdgeMessage
 	// edgeKindCount is one past the last edge kind, sizing edgeKindNames.
 	edgeKindCount
 )
@@ -322,6 +328,8 @@ var edgeKindNames = [edgeKindCount]string{
 	EdgeReferenceSubsetting: "reference subsetting",
 	EdgeUnownedMembership:   "unowned membership",
 	EdgeExpose:              "expose",
+	EdgeDependencyClient:    "dependency client",
+	EdgeMessage:             "message",
 }
 
 // String names an edge kind the way the notation speaks of it.
@@ -357,6 +365,12 @@ type Node struct {
 	// StandIn marks a node a migration made up that stands for no element of its
 	// source, so no diagram symbol is at it: a join it wrote several edges through.
 	StandIn bool
+	// Elided marks a node whose Layout hid compartment rows; the notation marks
+	// the box with an ellipsis at its lower left (§8.2.3.2 ellipsis-at-lower-left-corner).
+	Elided bool
+	// Greyed marks a compartment row that a folded edge or note ends at: the
+	// notation greys the element inside the textual compartment (§8.2.3.2).
+	Greyed bool
 	// Type is the declared type of a typed usage, as the notation writes it
 	// after the colon. It is empty for a definition or an untyped usage.
 	Type string
@@ -368,6 +382,9 @@ type Node struct {
 	// the notation prefixes its name with `^`, and a folding that hides it hides nothing
 	// of the owner's. A redefining usage the owner declares is its own, not inherited.
 	Inherited bool
+	// Parallel marks a state whose substates run in parallel (`state s parallel { … }`):
+	// the notation writes «parallel» after the name in its name compartment.
+	Parallel bool
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
@@ -383,6 +400,9 @@ type Node struct {
 	// the literal a value specification's result is bound to, the event an
 	// accept waits for, the message a send sends. Empty when its kind heads it.
 	Text string
+	// Arrow is set on an item box drawn on a connection line (flow-on-connection):
+	// "right" when the item flows toward the line's second end, "left" toward its first.
+	Arrow string
 	// Children are the nodes nested in this one.
 	Children []*Node
 	// Ports are the features drawn on the node's border, an action's pins, which
@@ -521,6 +541,8 @@ type Edge struct {
 	// openFrom and openTo mark a route that stops short of that end, at the
 	// place of a node elided from between them; the drawing leads it on.
 	openFrom, openTo bool
+	// row is the compartment row a folded membership edge leaves, greyed once the edge is drawn.
+	row string
 }
 
 // Rendering is what a view or run renders to. It is a value, not a live view of
@@ -565,6 +587,9 @@ type Rendering struct {
 	// Pictures are the pictures drawn on the canvas, in the order the view
 	// states them; a later one is drawn over an earlier one it overlaps.
 	Pictures []Picture
+	// Frame is the view frame (§8.2.3.26) drawn round a graph-shaped rendering
+	// of a view; nil for a frameless rendering.
+	Frame *Frame
 	// Notices are what the rendering could not represent, reported rather than
 	// dropped: an exposed element with no place in this kind of rendering, a
 	// connection to something the view does not expose, a behavior that does not
@@ -698,6 +723,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
 		out.Canvas = r.canvasOf(view, out)
+		out.Frame = r.frameOf(view)
 		r.notesOf(view, view, "", out)
 		r.picturesOf(view, out)
 	case KindTable, KindMatrix, KindSequence:
@@ -967,7 +993,63 @@ func nameText(name string) string {
 // declKind names an element the way the notation declares it — "part def",
 // "state", "view" — so a rendering prints no Go type name.
 func declKind(sym *symbols.Symbol) string {
-	return sym.Notation()
+	kind := sym.Notation()
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		// `event` and `individual` are parsed as modifiers of the usage; the notation
+		// heads its box «event occurrence», «individual part» (SysML v2.1 §8.2.3.9).
+		if decl.IsEvent && !strings.HasPrefix(kind, "event ") {
+			kind = "event " + kind
+		}
+		if decl.IsIndividual && !strings.HasPrefix(kind, "individual ") {
+			kind = "individual " + kind
+		}
+		if decl.IsEnd && !slices.Contains(kindWords(kind), "end") {
+			kind = "end " + kind
+		}
+		return extendedKind(decl.Prefixes, figureKeyword(kind))
+	case *ast.Definition:
+		return extendedKind(decl.Prefixes, kind)
+	}
+	return kind
+}
+
+// figureKeywords are the keywords the figures of §8.2.3 write in full where the
+// textual notation's keyword is one word: «satisfy requirement», «frame concern».
+var figureKeywords = map[string]string{"satisfy": "satisfy requirement", "verify": "verify requirement", "frame": "frame concern"}
+
+// figureKeyword writes a usage's kind as its figure heads it, keeping its modifiers.
+func figureKeyword(kind string) string {
+	prefix, keyword := splitRowPrefix(kind)
+	full, ok := figureKeywords[keyword]
+	if !ok {
+		return kind
+	}
+	return strings.TrimSpace(prefix + " " + full)
+}
+
+// extendedKind writes the user-defined keywords of a declaration's prefix metadata between
+// its modifiers and its kind, as written: `abstract #command part def` (§8.2.3.6 extended-def).
+func extendedKind(prefixes []*ast.PrefixMetadata, kind string) string {
+	var words []string
+	for _, prefix := range prefixes {
+		if prefix.Type != nil {
+			names := make([]string, len(prefix.Type.Parts))
+			for i, part := range prefix.Type.Parts {
+				names[i] = part.Text
+			}
+			global := ""
+			if prefix.Type.Global {
+				global = "$::"
+			}
+			words = append(words, "#"+global+source.QualifiedNameOf(names))
+		}
+	}
+	if len(words) == 0 {
+		return kind
+	}
+	modifiers, keyword := splitRowPrefix(kind)
+	return strings.TrimSpace(modifiers + " " + strings.Join(words, " ") + " " + keyword)
 }
 
 // declType is the type a usage is declared with, as written ("Engine" of

@@ -11,8 +11,9 @@ import (
 )
 
 // replGzipBudget bounds the gzipped RE (sysml_re) js build the CLI page downloads for its
-// in-browser REPL: raised to 15,600,000 on 2026-10-27 when go1.27.3 linked it at 15,146,881 bytes.
-const replGzipBudget = 15600000
+// in-browser REPL: raised to 15,800,000 on 2026-11-04 when the gate linked it at 15,713,852 bytes
+// (the reflective multiplicity members and the §8.2.3 notation renderers; 15,700,000 since 2026-11-03).
+const replGzipBudget = 15800000
 
 // TestBrowserREPLWalkthroughs runs every walkthrough the CLI page offers
 // (docs/assets/repl-walkthroughs.json) through the page's own host,
