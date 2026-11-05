@@ -8832,7 +8832,8 @@ export type RenderViewResponse = Message<"sysml.RenderViewResponse"> & {
   stated: string;
 
   /**
-   * Nodes are flattened with parents before children.
+   * Nodes are flattened with parents before children; each node is listed once,
+   * and ids are unique within a rendering.
    *
    * @generated from field: repeated sysml.RenderNode nodes = 4;
    */
