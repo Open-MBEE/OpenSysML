@@ -137,10 +137,8 @@ func TestFeatureChainExpressionTargetFeatureIsReadOnDemand(t *testing.T) {
 	}
 }
 
-// A transition's guard resolves its names in the trigger scope, where the
-// accept's parameter is declared (resolve/references.go, symbols.TriggerScope),
-// so a chain from that parameter reflects its targetFeature and the parameter
-// its referent whether or not the document was walked.
+// A guard resolves in the trigger scope (symbols.TriggerScope), so a chain from the
+// accept's parameter reflects targetFeature and referent with or without a document walk.
 func TestTransitionGuardChainTargetFeatureIsReadOnDemand(t *testing.T) {
 	const src = `
 	package P {
