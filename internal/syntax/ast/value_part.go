@@ -32,19 +32,33 @@ func ValuePartOf(node Node) (value Node, isDefault, isInitial, ok bool) {
 
 // ExpressionOperand is an operand at the slot the RDF conversion names it by,
 // bound to `in` parameter Index of its expression (-1: no parameter binds it).
+// Argument marks one written in an argument list, whose ParameterMembership is
+// public (KerMLExpressions.xtext ArgumentMember); every other operand's — an
+// operator's, a `->` form's receiver and body — is private (the pilot's OperandEList).
 type ExpressionOperand struct {
-	Node  Node
-	Slot  string
-	Index int
+	Node     Node
+	Slot     string
+	Index    int
+	Argument bool
+}
+
+// IsBodyArgument reports whether an invocation's arguments are the one body of its
+// `->` form (`xs->forAll {…}`), an operand rather than an argument list.
+func IsBodyArgument(args []Node) bool {
+	if len(args) != 1 {
+		return false
+	}
+	_, ok := args[0].(*BodyExpr)
+	return ok
 }
 
 // ExpressionOperands are an expression's operands in the order the RDF conversion
 // writes them, and its type argument's parameter index (-1 when it has none).
 func ExpressionOperands(node Node) (operands []ExpressionOperand, typeArgument int) {
-	positional := func(nodes []Node, first int) {
+	positional := func(nodes []Node, first int, argument bool) {
 		for i, n := range nodes {
 			if n != nil {
-				operands = append(operands, ExpressionOperand{Node: n, Slot: fmt.Sprintf("a%d", i), Index: first + i})
+				operands = append(operands, ExpressionOperand{Node: n, Slot: fmt.Sprintf("a%d", i), Index: first + i, Argument: argument})
 			}
 		}
 	}
@@ -61,17 +75,17 @@ func ExpressionOperands(node Node) (operands []ExpressionOperand, typeArgument i
 			}
 			operands = append(operands, ExpressionOperand{Node: receiver, Slot: "operand", Index: index})
 		}
-		positional(args, first)
+		positional(args, first, !IsBodyArgument(args))
 		first += len(args)
 		for i, arg := range named {
 			if arg.Value != nil {
-				operands = append(operands, ExpressionOperand{Node: arg.Value, Slot: fmt.Sprintf("n%d", i), Index: first + i})
+				operands = append(operands, ExpressionOperand{Node: arg.Value, Slot: fmt.Sprintf("n%d", i), Index: first + i, Argument: true})
 			}
 		}
 	}
 	switch n := node.(type) {
 	case *OperatorExpr:
-		positional(n.Operands, 0)
+		positional(n.Operands, 0, false)
 		if n.TypeRef != nil {
 			return operands, len(n.Operands)
 		}
@@ -79,17 +93,18 @@ func ExpressionOperands(node Node) (operands []ExpressionOperand, typeArgument i
 	case *CastExpr:
 		return nil, 0
 	case *FeatureChainExpr:
-		positional([]Node{n.Operand}, 0)
+		positional([]Node{n.Operand}, 0, false)
 	case *IndexExpr:
-		positional([]Node{n.Operand, n.Index}, 0)
+		positional([]Node{n.Operand, n.Index}, 0, false)
 	case *CollectExpr:
-		positional([]Node{n.Operand, n.Body}, 0)
+		positional([]Node{n.Operand, n.Body}, 0, false)
 	case *SelectExpr:
-		positional([]Node{n.Operand, n.Body}, 0)
+		positional([]Node{n.Operand, n.Body}, 0, false)
 	case *SequenceExpr:
-		positional(n.Elements, 0)
+		positional(n.Elements, 0, false)
 	case *TimeEvent:
-		positional([]Node{n.Duration}, 0)
+		// `after d` / `at t` write an ArgumentMember (SysML.xtext TriggerInvocationExpression).
+		positional([]Node{n.Duration}, 0, true)
 	case *InvocationExpr:
 		invocation(n.Operand, n.Type, n.Args, n.NamedArgs)
 	case *ConstructorExpr:
