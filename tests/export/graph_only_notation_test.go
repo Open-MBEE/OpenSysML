@@ -237,6 +237,7 @@ func TestGuardedSuccessionKeepsItsSyntax(t *testing.T) {
 // Expression bodies as arguments, chained bodies and casts under a feature
 // chain are written in the form the grammar reads back to the same graph.
 func TestExpressionBodiesAndChainsFromTheGraphAlone(t *testing.T) {
+	t.Parallel()
 	sysml := `package B {
     part def D {
         attribute xs : Integer[0..*];

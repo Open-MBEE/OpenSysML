@@ -25,6 +25,7 @@ var update = flag.Bool("update", false, "rewrite the .golden.ttl and .golden.sys
 // TestGoldenConversions locks each model's Turtle and the notation it converts
 // back to: as written with its source text, `.canonical.golden.sysml` without.
 func TestGoldenConversions(t *testing.T) {
+	t.Parallel()
 	for _, path := range modelFiles(t) {
 		name, ext := fixtureName(path)
 		t.Run(name, func(t *testing.T) {
@@ -58,6 +59,7 @@ func TestGoldenConversions(t *testing.T) {
 // TestConvertedNotationParses checks that the notation written from a graph is
 // valid SysML: it must parse without a single syntax error.
 func TestConvertedNotationParses(t *testing.T) {
+	t.Parallel()
 	for _, path := range modelFiles(t) {
 		name, ext := fixtureName(path)
 		t.Run(name, func(t *testing.T) {
@@ -92,6 +94,7 @@ var textOnlyFixtures = map[string]string{}
 // notation itself may legitimately be spelled differently (a name written
 // relative to its scope, a keyword written in place of its symbol).
 func TestRoundTripIsLossless(t *testing.T) {
+	t.Parallel()
 	for _, path := range modelFiles(t) {
 		name, ext := fixtureName(path)
 		t.Run(name, func(t *testing.T) {
@@ -1238,6 +1241,7 @@ func TestCaseKeywordsReconstructFromTheMetaclassAlone(t *testing.T) {
 // A `#M` prefix is an owned metadata usage linked to its definition; the head
 // comes back from the graph alone, a `$::`/short-name type as its declared name.
 func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
+	t.Parallel()
 	heads := []struct{ written, back string }{
 		{written: "#Safety part def Car;"},
 		{written: "abstract #Safety #Reviewed part def Truck;"},
@@ -1477,6 +1481,7 @@ func TestDependencyPrefixAnnotatingAnotherElementIsRefused(t *testing.T) {
 // globally qualified type comes back by its name and an inherited feature
 // unqualified.
 func TestMetadataMembersComeBackFromTheGraphAlone(t *testing.T) {
+	t.Parallel()
 	members := []struct{ written, back string }{
 		{written: "@Safety;"},
 		{written: "private @Safety;"},
@@ -2019,6 +2024,7 @@ func inlineCondition(t *testing.T, turtle, member string) string {
 // the text and the graph disagree, the text is stale and the head is rebuilt
 // from the graph rather than the annotation lost.
 func TestPrefixOnAVerbatimHeadIsWrittenOrReported(t *testing.T) {
+	t.Parallel()
 	// The text may space or qualify a prefix in ways the graph's rendering does
 	// not; a `#` in the body or in a sequence index is not a prefix.
 	heads := []string{
@@ -2507,6 +2513,7 @@ func withoutTriples(t *testing.T, turtle []byte, property string) []byte {
 // text that our own graphs also carry. Converting that notation again gives the
 // original graph back, which is what proves the second hop loses nothing.
 func TestEndBindingHeadsComeBackFromTheGraphAlone(t *testing.T) {
+	t.Parallel()
 	heads := []string{
 		"connect left to right;",
 		"connect (left, right);",
@@ -3369,6 +3376,7 @@ var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|pr
 
 // name the element carries, and the encoding decodes back to that name.
 func TestFixtureElementIDsRoundTrip(t *testing.T) {
+	t.Parallel()
 	for _, golden := range goldenGraphs(t) {
 		path, graph := golden.path, golden.graph
 		for _, subject := range graph.Subjects() {
