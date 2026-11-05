@@ -1079,7 +1079,8 @@ root-relative path that reaches it from every root the model's population holds 
 over the features the model declares in name order and the values of a feature in their
 order. Aliases through connector ends and reference usages are paths of their own; the
 collections the standard library derives (`subparts`, `ownedPorts`) are not, and a path
-visits no object twice. `root.symbolId` is the name the root was instantiated as, empty once
+visits no object twice nor, as the instance graph, an object whose type is already on the
+path. `root.symbolId` is the name the root was instantiated as, empty once
 another object took the name (`#<id>` still addresses it). An object that is a root has the
 empty path. The search is bounded: past 1000 paths over all roots, or when a path cut at
 eight steps ended at an object from which the target is reachable, the response is

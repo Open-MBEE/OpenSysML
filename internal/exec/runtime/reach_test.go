@@ -174,3 +174,33 @@ func TestPathsToHonoursBounds(t *testing.T) {
 		t.Errorf("one step allowed: %v, truncated %v", reachPaths(got), got.Truncated)
 	}
 }
+
+// A recursive type materializes no further for PathsTo than Traverse walks
+// it: the root is its own answer with nothing read, and the search below it
+// stops where an object's type is already on the path.
+func TestPathsToIsBoundedOnARecursiveType(t *testing.T) {
+	ctx, idx := contextForSource(t, `package Rec {
+	part def Node { part child : Node; attribute n : ScalarValues::Integer; }
+	part root : Node;
+}`)
+	root, err := ctx.Instantiate(lookupOne(t, idx, "Rec::root"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := ctx.InstanceCount()
+	if got := ctx.PathsTo(root, root, PathBounds{Depth: 8}); got.Truncated || len(got.Steps) != 1 || len(got.Steps[0]) != 0 {
+		t.Errorf("paths to the root: %v, truncated %v", pathTexts(got), got.Truncated)
+	}
+	if ctx.InstanceCount() != before {
+		t.Errorf("paths to the root materialized %d objects", ctx.InstanceCount()-before)
+	}
+	reached := ctx.Traverse(root, TraversalBounds{})
+	walked := ctx.InstanceCount()
+	stranger := &Instance{ID: -1}
+	if got := ctx.PathsTo(root, stranger, PathBounds{Depth: 8}); got.Truncated || len(got.Steps) != 0 {
+		t.Errorf("paths to an object nothing holds: %v, truncated %v", pathTexts(got), got.Truncated)
+	}
+	if ctx.InstanceCount() != walked {
+		t.Errorf("the search materialized %d objects past Traverse's %d", ctx.InstanceCount()-walked, len(reached.Reaches))
+	}
+}

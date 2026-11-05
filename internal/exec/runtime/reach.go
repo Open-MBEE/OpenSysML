@@ -158,13 +158,20 @@ type Paths struct {
 }
 
 // PathsTo lists every root-relative path that reaches target from root: every
-// sequence of feature values, none visiting an object twice, that ends at
-// target — aliases through connector ends and reference usages included, since
+// sequence of feature values that ends at target, none visiting an object
+// twice nor, as Traverse, an object whose type an object already on the path
+// has — aliases through connector ends and reference usages included, since
 // those hold the object they refer to as a value. The paths come in the order
 // Traverse walks: depth-first, features in name order, values in their order.
+// The root itself is reached by the empty path and nothing is read for it.
 func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 	var p Paths
+	if root.ID == target.ID {
+		p.Steps = [][]PathStep{nil}
+		return p
+	}
 	onPath := make(map[int64]bool)
+	typesOnPath := make(map[*symbols.Symbol]bool)
 	var reachesTarget map[int64]bool
 	if bounds.Depth > 0 {
 		reachesTarget = ctx.holdersReaching(root, target)
@@ -187,9 +194,13 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 			return
 		}
 		onPath[cur.ID] = true
-		defer delete(onPath, cur.ID)
+		typesOnPath[cur.Type] = true
+		defer func() {
+			delete(onPath, cur.ID)
+			delete(typesOnPath, cur.Type)
+		}()
 		for _, step := range ctx.heldSteps(cur) {
-			if step.Library || onPath[step.Object.ID] {
+			if step.Library || onPath[step.Object.ID] || typesOnPath[step.Object.Type] {
 				continue
 			}
 			search(step.Object, append(slices.Clip(steps), step))
@@ -200,27 +211,32 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 }
 
 // holdersReaching is the set of objects below root from which some sequence of
-// held values leads to target, root's whole graph walked once: the objects at
-// which a depth cutoff may hide a path. (A route through the cut path itself
-// counts too, so the set can overstate, never understate, what a cutoff hides.)
+// held values leads to target: the objects at which a depth cutoff may hide a
+// path. The graph is walked once as Traverse walks it — into an object the
+// first time it is reached and never into one whose type is already on the
+// path — so a recursive type materializes no more here than it does there;
+// every value an object walked holds counts as a route, those the walk itself
+// does not take included, so the set can overstate what a cutoff hides.
 func (ctx *Context) holdersReaching(root, target *Instance) map[int64]bool {
 	holders := make(map[int64][]int64)
 	seen := map[int64]bool{root.ID: true}
-	stack := []*Instance{root}
-	for len(stack) > 0 {
-		cur := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
+	typesOnPath := make(map[*symbols.Symbol]bool)
+	var walk func(cur *Instance)
+	walk = func(cur *Instance) {
+		typesOnPath[cur.Type] = true
+		defer delete(typesOnPath, cur.Type)
 		for _, step := range ctx.heldSteps(cur) {
 			if step.Library {
 				continue
 			}
 			holders[step.Object.ID] = append(holders[step.Object.ID], cur.ID)
-			if !seen[step.Object.ID] {
+			if !seen[step.Object.ID] && !typesOnPath[step.Object.Type] {
 				seen[step.Object.ID] = true
-				stack = append(stack, step.Object)
+				walk(step.Object)
 			}
 		}
 	}
+	walk(root)
 	reaches := make(map[int64]bool)
 	pending := []int64{target.ID}
 	for len(pending) > 0 {
