@@ -645,7 +645,7 @@ jobs:
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 10
+    parallelism: 11
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -658,12 +658,13 @@ jobs:
       - install-fmpy
 
       # One scripts/race-shard.sh shard per node. internal/exec/runtime ran 31-57 minutes whole
-      # and nears 8.5 GB under -race, so it is two nodes, split by test name as make test-shard does.
+      # and nears 8.5 GB under -race, so it is two nodes, split by test name as make test-shard does;
+      # tests/export, over 55 minutes whole, is two nodes the same way.
       - run:
           name: Run Go race tests
           command: |
             set -o pipefail
-            shards=(runtime runtime-corpus model export graph codegen tools rest migrate cli)
+            shards=(runtime runtime-corpus model export export-corpus graph codegen tools rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
               exit 1
@@ -676,6 +677,7 @@ jobs:
             stream() { python3 scripts/go-test-stream.py; }
             # The Makefile's RACE_RUNTIME_CORPUS; tests/hygiene keeps the two the same.
             corpus='^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$'
+            exportcorpus='^Test(SettledCollectionsAreWhatReconcilingWouldFind|APIJSONWritersNeverEmitNameReferences|LibraryFilesComeBackFromTheGraphAlone)$'
             case "$shard" in
               runtime-corpus)
                 # Two processes: the exploration alone nears 5 GB and the five suites together
@@ -685,14 +687,18 @@ jobs:
                 go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream
                 ;;
               runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;
+              # The Makefile's RACE_EXPORT_CORPUS; tests/hygiene keeps the two the same. tests/export
+              # whole passed 55 minutes under -race once the element form completed inheritance.
+              export-corpus) go test -json -race -pgo=off -timeout 55m -run "$exportcorpus" $pkgs | stream ;;
+              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus" $pkgs | stream ;;
               tools)
                 go test -json -race -pgo=off -timeout 30m $pkgs | stream
                 go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
                 ;;
               *)
-                # tests/migrate ran 23-32 minutes under -race on this class, tests/export and
-                # tests/model about 30 each: those shards get the Makefile's timeout (make test-shard).
-                timeout=30m; case "$shard" in migrate|export|graph) timeout=55m ;; esac
+                # tests/migrate ran 23-32 minutes under -race on this class and tests/model about
+                # 30: those shards get the Makefile's timeout (make test-shard).
+                timeout=30m; case "$shard" in migrate|graph) timeout=55m ;; esac
                 go test -json -race -pgo=off -timeout "$timeout" $pkgs | stream
                 ;;
             esac
@@ -719,7 +725,7 @@ jobs:
   # A second, race-free pass, because the profile the scan reads is written
   # with -coverpkg, which is too slow to instrument under -race. Serially the
   # instrumented suite overran the 60-minute job limit even on large, so it runs
-  # as the race test's package shards but runtime-corpus (the Makefile's COVERAGE_SHARDS;
+  # as the race test's package shards but runtime-corpus and export-corpus (the Makefile's COVERAGE_SHARDS;
   # without -race the runtime runs whole in about 19 minutes), and go-coverage-merge joins them.
   # cmd/sysml's exploration budgets alone took 23-30 of the 30 minutes while sharing
   # the rest node under -coverpkg=./..., so the command has a node of its own.
