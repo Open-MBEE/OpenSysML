@@ -12,11 +12,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-func (s *Service) symbolToProto(sym *symbols.Symbol, sc *symbolfacts.Context) *pb.SymbolInfo {
-	info := SymbolToProtoIn(sym, sc)
-	return s.filterSymbolInfo(info)
-}
-
 func (s *Service) symbolToProtoWith(sym *symbols.Symbol, sc *symbolfacts.Context, opts symbolfacts.Options) *pb.SymbolInfo {
 	return s.filterSymbolInfo(SymbolToProtoWith(sym, sc, opts))
 }
