@@ -3,6 +3,7 @@ package runtime
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"iter"
 )
 
 // outerFeatureValue reads the resolved feature from the nearest owner carrying it: a nested usage
@@ -98,31 +99,40 @@ type ObjectFeature struct {
 // FeaturesOfObject returns the features of an object under every type of it: the declared
 // type's, then those each classifier adds, in declaration order, each name once.
 func (ctx *Context) FeaturesOfObject(inst *Instance) []ObjectFeature {
-	types := inst.types()
 	var out []ObjectFeature
-	var seen map[string]bool
-	if len(types) > 1 {
-		seen = make(map[string]bool)
-	}
-	for _, typ := range types {
-		features := ctx.FeaturesOf(typ)
-		if out == nil {
-			out = make([]ObjectFeature, 0, len(features))
-		}
-		for i := range features {
-			name := features[i].Name
-			if seen[name] {
-				continue
-			}
-			if seen != nil {
-				seen[name] = true
-			}
-			feat := &features[i]
-			if fv := inst.FeatureValues[name]; fv != nil && fv.Feature != nil {
-				feat = fv.Feature
-			}
-			out = append(out, ObjectFeature{Name: name, Feature: feat})
-		}
+	for of := range ctx.objectFeatures(inst) {
+		out = append(out, of)
 	}
 	return out
+}
+
+// objectFeatures yields what FeaturesOfObject lists, allocating nothing for an
+// object of one type.
+func (ctx *Context) objectFeatures(inst *Instance) iter.Seq[ObjectFeature] {
+	return func(yield func(ObjectFeature) bool) {
+		types := inst.types()
+		var seen map[string]bool
+		if len(types) > 1 {
+			seen = make(map[string]bool)
+		}
+		for _, typ := range types {
+			features := ctx.FeaturesOf(typ)
+			for i := range features {
+				name := features[i].Name
+				if seen[name] {
+					continue
+				}
+				if seen != nil {
+					seen[name] = true
+				}
+				feat := &features[i]
+				if fv := inst.FeatureValues[name]; fv != nil && fv.Feature != nil {
+					feat = fv.Feature
+				}
+				if !yield(ObjectFeature{Name: name, Feature: feat}) {
+					return
+				}
+			}
+		}
+	}
 }
