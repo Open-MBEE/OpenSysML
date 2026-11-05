@@ -3093,7 +3093,8 @@ message RenderViewResponse {
   string view = 1;
   string kind = 2;
   string stated = 3;
-  // Nodes are flattened with parents before children.
+  // Nodes are flattened with parents before children; each node is listed once,
+  // and ids are unique within a rendering.
   repeated RenderNode nodes = 4;
   repeated RenderEdge edges = 5;
   repeated string columns = 6;
