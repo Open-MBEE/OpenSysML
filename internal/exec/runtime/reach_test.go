@@ -257,31 +257,36 @@ func heldAt(t *testing.T, ctx *Context, root *Instance, names ...string) *Instan
 	return cur
 }
 
-// Deciding what a cutoff hides costs one walk of the graph, however many
-// routes of distinct types share an object.
+// Deciding what a cutoff hides costs a walk of the graph, not one of its
+// routes, however many routes of distinct types share an object, and an
+// object the guard keeps the path out of is not looked into for it.
 func TestPathsToDecidesTruncationInOneWalk(t *testing.T) {
 	const n = 20
 	var b strings.Builder
-	b.WriteString("package Dense {\n")
+	b.WriteString("package Dense {\n\tpart def T;\n\tpart def A;\n")
 	for i := 1; i <= n; i++ {
 		fmt.Fprintf(&b, "\tpart def O%d;\n", i)
 	}
-	b.WriteString("\tpart root {\n")
+	b.WriteString("\tpart root {\n\t\tpart target : T;\n\t\tpart a : A {\n\t\t\tpart again : A;\n")
 	for i := 1; i <= n; i++ {
-		fmt.Fprintf(&b, "\t\tpart o%d : O%d {\n", i, i)
+		fmt.Fprintf(&b, "\t\t\tpart o%d : O%d {\n", i, i)
 		for j := i + 1; j <= n; j++ {
-			fmt.Fprintf(&b, "\t\t\tref part t%d : O%d = o%d;\n", j, j, j)
+			fmt.Fprintf(&b, "\t\t\t\tref part t%d : O%d = o%d;\n", j, j, j)
 		}
-		b.WriteString("\t\t}\n")
+		b.WriteString("\t\t\t}\n")
 	}
-	b.WriteString("\t}\n}\n")
+	b.WriteString("\t\t}\n\t}\n}\n")
 	ctx, idx := contextForSource(t, b.String())
 	root, err := ctx.Instantiate(lookupOne(t, idx, "Dense::root"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reached := ctx.Traverse(root, TraversalBounds{}); len(reached.Reaches) != n+1 {
-		t.Fatalf("reached %d objects, want %d", len(reached.Reaches), n+1)
+	if reached := ctx.Traverse(root, TraversalBounds{}); len(reached.Reaches) != n+4 {
+		t.Fatalf("reached %d objects, want %d: %v", len(reached.Reaches), n+4, reachPaths(reached))
+	}
+	target := heldAt(t, ctx, root, "target")
+	if got := ctx.PathsTo(root, target, PathBounds{Depth: 1}); strings.Join(pathTexts(got), " ") != "target" || got.Truncated {
+		t.Errorf("one step allowed to target: %v, truncated %v", pathTexts(got), got.Truncated)
 	}
 	if got := ctx.PathsTo(root, &Instance{ID: -1}, PathBounds{Depth: 1}); got.Truncated || len(got.Steps) != 0 {
 		t.Errorf("paths to an object nothing holds: %v, truncated %v", pathTexts(got), got.Truncated)

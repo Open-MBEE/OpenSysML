@@ -172,9 +172,9 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 	}
 	onPath := make(map[int64]bool)
 	typesOnPath := make(map[*symbols.Symbol]bool)
-	var reaches, mayReach map[int64]bool
+	var known *reachability
 	if bounds.Depth > 0 {
-		reaches, mayReach = ctx.holdersReaching(root, target)
+		known = ctx.holdersReaching(root, target)
 	}
 
 	var search func(cur *Instance, steps []PathStep)
@@ -188,7 +188,7 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 			return
 		}
 		if bounds.Depth > 0 && len(steps) >= bounds.Depth {
-			if reaches[cur.ID] || (mayReach[cur.ID] && ctx.continues(cur, target, onPath, typesOnPath)) {
+			if known.hides(cur, onPath, typesOnPath) {
 				p.Truncated = true
 			}
 			return
@@ -210,77 +210,132 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 	return p
 }
 
-// holdersReaching sorts the objects below root by whether held values lead to
-// target: those known to (reaches) and those that may (mayReach), because they
-// lead to an object the walk — one pass, as Traverse walks — never looked into.
-func (ctx *Context) holdersReaching(root, target *Instance) (reaches, mayReach map[int64]bool) {
-	holders := make(map[int64][]int64)
-	explored := map[int64]bool{root.ID: true}
-	unexplored := make(map[int64]bool)
-	typesOnPath := make(map[*symbols.Symbol]bool)
-	var walk func(cur *Instance)
-	walk = func(cur *Instance) {
-		typesOnPath[cur.Type] = true
-		defer delete(typesOnPath, cur.Type)
-		for _, step := range ctx.heldSteps(cur) {
-			if step.Library {
-				continue
-			}
-			obj := step.Object
-			holders[obj.ID] = append(holders[obj.ID], cur.ID)
-			if explored[obj.ID] {
-				continue
-			}
-			if typesOnPath[obj.Type] {
-				unexplored[obj.ID] = true
-				continue
-			}
-			explored[obj.ID] = true
-			delete(unexplored, obj.ID)
-			walk(obj)
-		}
-	}
-	walk(root)
-	return backward(holders, []int64{target.ID}), backward(holders, slices.Sorted(maps.Keys(unexplored)))
+// reachability is what a walk of a root's graph, as Traverse walks it, knows
+// about which objects lead to a target; it walks further only when asked.
+type reachability struct {
+	ctx        *Context
+	target     *Instance
+	holders    map[int64][]int64     // the objects holding each object the walk saw
+	held       map[int64][]*Instance // what each object the walk looked into holds
+	explored   map[int64]bool        // looked into
+	unexplored map[int64]bool        // held, but kept out of by the type guard
+	reaches    map[int64]bool        // leads to the target through objects looked into
+	below      map[int64][]*Instance // the unexplored objects below an object, once asked
 }
 
-// backward is the seeds and every object from which holders lead to one.
-func backward(holders map[int64][]int64, seeds []int64) map[int64]bool {
-	set := make(map[int64]bool)
-	pending := slices.Clone(seeds)
-	for _, id := range pending {
-		set[id] = true
+// holdersReaching walks root's graph once, as Traverse does, and records which
+// objects lead to target and which it was kept out of.
+func (ctx *Context) holdersReaching(root, target *Instance) *reachability {
+	r := &reachability{
+		ctx:        ctx,
+		target:     target,
+		holders:    make(map[int64][]int64),
+		held:       make(map[int64][]*Instance),
+		explored:   map[int64]bool{root.ID: true},
+		unexplored: make(map[int64]bool),
+		below:      make(map[int64][]*Instance),
 	}
+	r.walk(root, make(map[*symbols.Symbol]bool))
+	r.propagate()
+	return r
+}
+
+// walk looks into cur and, under the type guard, into what it holds.
+func (r *reachability) walk(cur *Instance, typesOnPath map[*symbols.Symbol]bool) {
+	typesOnPath[cur.Type] = true
+	defer delete(typesOnPath, cur.Type)
+	for _, step := range r.ctx.heldSteps(cur) {
+		if step.Library {
+			continue
+		}
+		obj := step.Object
+		r.held[cur.ID] = append(r.held[cur.ID], obj)
+		r.holders[obj.ID] = append(r.holders[obj.ID], cur.ID)
+		if r.explored[obj.ID] {
+			continue
+		}
+		if typesOnPath[obj.Type] {
+			r.unexplored[obj.ID] = true
+			continue
+		}
+		r.explored[obj.ID] = true
+		delete(r.unexplored, obj.ID)
+		r.walk(obj, typesOnPath)
+	}
+}
+
+// propagate recomputes reaches from the holders seen so far.
+func (r *reachability) propagate() {
+	r.reaches = map[int64]bool{r.target.ID: true}
+	pending := []int64{r.target.ID}
 	for len(pending) > 0 {
 		id := pending[len(pending)-1]
 		pending = pending[:len(pending)-1]
-		for _, holder := range holders[id] {
-			if !set[holder] {
-				set[holder] = true
+		for _, holder := range r.holders[id] {
+			if !r.reaches[holder] {
+				r.reaches[holder] = true
 				pending = append(pending, holder)
 			}
 		}
 	}
-	return set
 }
 
-// continues reports whether a path that reached cur, the objects and types on
-// it given, can go on to target under the guards PathsTo searches with.
-func (ctx *Context) continues(cur, target *Instance, onPath map[int64]bool, typesOnPath map[*symbols.Symbol]bool) bool {
-	onPath[cur.ID], typesOnPath[cur.Type] = true, true
-	defer func() {
-		delete(onPath, cur.ID)
-		delete(typesOnPath, cur.Type)
-	}()
-	for _, step := range ctx.heldSteps(cur) {
-		if step.Library || onPath[step.Object.ID] || typesOnPath[step.Object.Type] {
-			continue
-		}
-		if step.Object.ID == target.ID || ctx.continues(step.Object, target, onPath, typesOnPath) {
+// hides reports whether a path cut at cur may go on to the target, looking
+// into the unexplored objects the path could enter below cur until it knows.
+func (r *reachability) hides(cur *Instance, onPath map[int64]bool, typesOnPath map[*symbols.Symbol]bool) bool {
+	for {
+		if r.reaches[cur.ID] {
 			return true
 		}
+		var enter *Instance
+		if r.unexplored[cur.ID] {
+			enter = cur
+		} else {
+			for _, obj := range r.unexploredBelow(cur) {
+				if !onPath[obj.ID] && !typesOnPath[obj.Type] && obj.Type != cur.Type {
+					enter = obj
+					break
+				}
+			}
+		}
+		if enter == nil {
+			return false
+		}
+		types := maps.Clone(typesOnPath)
+		types[cur.Type] = true
+		r.explored[enter.ID] = true
+		delete(r.unexplored, enter.ID)
+		r.walk(enter, types)
+		r.propagate()
+		clear(r.below)
 	}
-	return false
+}
+
+// unexploredBelow lists the unexplored objects held somewhere below cur.
+func (r *reachability) unexploredBelow(cur *Instance) []*Instance {
+	if found, asked := r.below[cur.ID]; asked {
+		return found
+	}
+	var found []*Instance
+	seen := map[int64]bool{cur.ID: true}
+	stack := []*Instance{cur}
+	for len(stack) > 0 {
+		next := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		for _, obj := range r.held[next.ID] {
+			if seen[obj.ID] {
+				continue
+			}
+			seen[obj.ID] = true
+			if r.unexplored[obj.ID] {
+				found = append(found, obj)
+			} else {
+				stack = append(stack, obj)
+			}
+		}
+	}
+	r.below[cur.ID] = found
+	return found
 }
 
 // heldSteps are the objects inst holds as feature values, each as the step
