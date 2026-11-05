@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -23,6 +24,7 @@ func TestRuntimeRobustnessConnectorNestedBindings(t *testing.T) {
 	t.Run("failing_outer_binding_is_not_masked_by_an_end_body_default", testFailingOuterBindingIsNotMaskedByADefault)
 	t.Run("end_body_value_of_a_required_connector_collection", testEndBodyValueOfARequiredConnectorCollection)
 	t.Run("anonymous_connector_index_is_read_on_the_connector", testAnonymousConnectorIndexIsReadOnTheConnector)
+	t.Run("index_selects_within_each_connector_object", testIndexSelectsWithinEachConnectorObject)
 }
 
 // instantiatePartWithLibraries is instantiatePart over an index carrying the standard library.
@@ -327,5 +329,26 @@ func testFailingOuterBindingIsNotMaskedByADefault(t *testing.T) {
 		}`)
 	if fv, err := featureValueAt(t, ctx, inst, "innerOk.k.dst.voltage"); err == nil {
 		t.Errorf("GetFeatureValue(innerOk.k.dst.voltage) = %v, nil error, want the outer binding's failure", fv.Value)
+	}
+}
+
+// testIndexSelectsWithinEachConnectorObject: an index read through a connector collection selects
+// from what each connector object holds, never from their values taken together.
+func testIndexSelectsWithinEachConnectorObject(t *testing.T) {
+	const model = `
+		package test {
+			private import ScalarValues::*;
+			port def Pw { attribute voltage : Integer; }
+			part def A { port p : Pw { attribute :>> voltage = 28; } }
+			part def B { port q : ~Pw; }
+			interface def Picks { end a : Pw; end b : ~Pw; attribute readings : Integer[*] = (5, 28); attribute index : Integer = INDEX; bind b.voltage = readings#(index); }
+			connection def Wired { end a : A; end b : B; interface : Picks connect a.p to b.q; }
+			part def Sys { part s : A; part k : B; connection c : Wired [2] connect s to k; }
+		}`
+	inst, ctx := instantiatePartWithLibraries(t, "Sys", strings.Replace(model, "INDEX", "2", 1))
+	wantIntegerAt(t, ctx, inst, "k.q.voltage", 28)
+	inst, ctx = instantiatePartWithLibraries(t, "Sys", strings.Replace(model, "INDEX", "3", 1))
+	if fv, err := featureValueAt(t, ctx, inst, "k.q.voltage"); !errors.Is(err, errBindingEnd) {
+		t.Errorf("GetFeatureValue(k.q.voltage) = %v, %v, want errBindingEnd: each connector object holds two readings", fv, err)
 	}
 }

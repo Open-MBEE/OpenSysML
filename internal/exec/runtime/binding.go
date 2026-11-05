@@ -78,8 +78,10 @@ type bindingEndpoint struct {
 	index, selection ast.Node
 	scope            *symbols.Scope
 	// on holds the connector objects an expression or index is read on, one per connector the
-	// holder materialized, when it is not read on the binding's owner.
-	on []*Instance
+	// holder materialized, when it is not read on the binding's owner; reached is what a path
+	// end reaches on each of them.
+	on      []*Instance
+	reached [][]bindingLocation
 }
 
 // selects reports an end selecting one element of its feature: it reads the element and is
@@ -1106,19 +1108,19 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 			return bindingEndpoint{}, err
 		}
 	}
-	var locations []bindingLocation
+	endpoint := bindingEndpoint{index: binding.Ends[end].Index, selection: binding.Ends[end].Expr, scope: binding.Scope}
 	for _, obj := range on {
 		reached, err := ctx.resolveBindingLocations(obj, path)
 		if err != nil {
 			return bindingEndpoint{}, err
 		}
-		locations = append(locations, reached...)
-	}
-	endpoint := bindingEndpoint{
-		locations: locations, index: binding.Ends[end].Index, selection: binding.Ends[end].Expr, scope: binding.Scope,
+		endpoint.locations = append(endpoint.locations, reached...)
+		endpoint.reached = append(endpoint.reached, reached)
 	}
 	if len(binding.Ends[end].Via) != 0 {
 		endpoint.on = on
+	} else {
+		endpoint.reached = nil
 	}
 	return endpoint, nil
 }
@@ -1349,11 +1351,7 @@ func (ctx *Context) connectorObjectsAt(owner *Instance, hop lower.Hop) ([]*Insta
 // values together in object order — nothing while one of them is undetermined.
 func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instance, read endRead) (Value, bool, error) {
 	if endpoint.selects() {
-		whole, found, err := ctx.bindingEndpointValue(bindingEndpoint{locations: endpoint.locations}, owner, read)
-		if err != nil || !found {
-			return Value{}, false, err
-		}
-		return ctx.selectedBindingElement(endpoint, owner, whole)
+		return ctx.selectedBindingElement(endpoint, owner, read)
 	}
 	if endpoint.expr != nil {
 		return ctx.expressionEndValue(endpoint, owner)
@@ -1379,38 +1377,48 @@ func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instan
 	return sequenceOf(all), true, nil
 }
 
-// selectedBindingElement is the element of whole at the 1-based index a selecting end states, read
-// as `#(` reads it on the owner or each connector object; a feature holding no element there is a binding end error.
-func (ctx *Context) selectedBindingElement(endpoint bindingEndpoint, owner *Instance, whole Value) (Value, bool, error) {
-	on := endpoint.on
+// selectedBindingElement is the element at the 1-based index a selecting end states, read as `#(`
+// reads it on the owner, or on each connector object from what the end reaches there; those agree.
+func (ctx *Context) selectedBindingElement(endpoint bindingEndpoint, owner *Instance, read endRead) (Value, bool, error) {
+	on, reached := endpoint.on, endpoint.reached
 	if len(on) == 0 {
-		on = []*Instance{owner}
+		on, reached = []*Instance{owner}, [][]bindingLocation{endpoint.locations}
 	}
-	const op = "sequence index"
 	var agreed Value
 	for i, obj := range on {
-		indexVal, err := ctx.EvalWithScopeOn(endpoint.index, endpoint.scope, obj)
+		whole, found, err := ctx.bindingEndpointValue(bindingEndpoint{locations: reached[i]}, owner, read)
+		if err != nil || !found {
+			return Value{}, false, err
+		}
+		element, err := ctx.selectedElementOn(endpoint, obj, whole)
 		if err != nil {
-			return Value{}, false, ctx.selectionError(endpoint, err)
+			return Value{}, false, err
 		}
-		if i != 0 && !ctx.equalValues(agreed, indexVal) {
+		if i != 0 && !ctx.equalValues(agreed, element) {
 			text := ctx.bindingExprText(endpoint.selection, endpoint.scope)
-			return Value{}, false, &bindingConflictError{Left: text, Right: text, LeftValue: agreed, RightValue: indexVal}
+			return Value{}, false, &bindingConflictError{Left: text, Right: text, LeftValue: agreed, RightValue: element}
 		}
-		agreed = indexVal
+		agreed = element
 	}
-	index, err := indexOf(op, agreed)
-	if err == nil {
-		var element Value
-		if element, err = ctx.positionOf(op, whole, index); err == nil {
-			return element, true, nil
-		}
-	}
-	return Value{}, false, ctx.selectionError(endpoint, err)
+	return agreed, true, nil
 }
 
-func (ctx *Context) selectionError(endpoint bindingEndpoint, err error) error {
-	return fmt.Errorf("%w: expression %s: %w", errBindingEnd, ctx.bindingExprText(endpoint.selection, endpoint.scope), err)
+// selectedElementOn is the element of whole at the index the end states, evaluated on obj; a
+// feature holding no element there is a binding end error.
+func (ctx *Context) selectedElementOn(endpoint bindingEndpoint, obj *Instance, whole Value) (Value, error) {
+	indexVal, err := ctx.EvalWithScopeOn(endpoint.index, endpoint.scope, obj)
+	if err == nil {
+		const op = "sequence index"
+		var index int64
+		if index, err = indexOf(op, indexVal); err == nil {
+			var element Value
+			if element, err = ctx.positionOf(op, whole, index); err == nil {
+				return element, nil
+			}
+		}
+	}
+	return Value{}, fmt.Errorf("%w: expression %s: %w",
+		errBindingEnd, ctx.bindingExprText(endpoint.selection, endpoint.scope), err)
 }
 
 func (ctx *Context) bindingLocationValue(loc bindingLocation, read endRead) (Value, bool, error) {
