@@ -99,6 +99,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	for _, notice := range slices.Concat(r.Notices, notices) {
 		fmt.Fprintf(b, "' not represented: %s\n", notice)
 	}
+	w.writeMainframe(r, b)
 	w.writeStyle(hasDot(r.Roots))
 	if direction != "" {
 		b.WriteString(direction + "\n")
@@ -257,7 +258,11 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 		w.writeDot(node, "")
 		return
 	}
-	fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
+	if annotationKind(node.Kind) {
+		w.writeAnnotationNote(node, "")
+	} else {
+		fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
+	}
 	for _, child := range node.Children {
 		w.writeClassNode(child)
 		if !w.nesting[[2]string{node.ID, child.ID}] {
@@ -706,6 +711,20 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	return out.String()
 }
 
+// writeAnnotationNote writes an annotation node (§8.2.3.4) as a PlantUML
+// note, the folded-corner box, its label a line per row.
+func (w *plantumlWriter) writeAnnotationNote(node *Node, indent string) {
+	fmt.Fprintf(&w.b, "%snote as %s%s\n", indent, node.ID, w.noteDecoration(node))
+	for _, line := range strings.Split(w.plantumlLabel(node), `\n`) {
+		if line == "" {
+			fmt.Fprintf(&w.b, "%s  \n", indent)
+			continue
+		}
+		fmt.Fprintf(&w.b, "%s  %s\n", indent, line)
+	}
+	fmt.Fprintf(&w.b, "%send note\n", indent)
+}
+
 // noteDecoration styles a note node using the rendering's palette and annotation.
 func (w *plantumlWriter) noteDecoration(node *Node) string {
 	var out strings.Builder
@@ -759,7 +778,9 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	if keyword := w.labels.keyword(node); keyword != "" {
 		parts = append(parts, marked(w.labels.mark(node), fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, plantumlText(keyword))))
 	}
-	if head := w.labels.head(node); head != "" {
+	if annotationKind(node.Kind) && shown(node) == "" {
+		parts = append(parts, strings.Split(plantumlText(w.labels.head(node)), "\n")...)
+	} else if head := w.labels.head(node); head != "" {
 		parts = append(parts, "**"+plantumlText(head)+"**")
 	}
 	for _, line := range w.labels.parallel(node) {
@@ -771,8 +792,12 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	for _, line := range w.labels.parameterLines(node) {
 		parts = append(parts, plantumlText(line))
 	}
-	for _, line := range w.labels.compartmentLines(node) {
-		parts = append(parts, plantumlText(line))
+	for _, entry := range w.labels.compartmentEntries(node) {
+		if entry.Greyed {
+			parts = append(parts, "<color:gray>"+plantumlText(entry.Text)+"</color>")
+			continue
+		}
+		parts = append(parts, plantumlText(entry.Text))
 	}
 	return strings.Join(parts, `\n`)
 }
@@ -803,4 +828,24 @@ func plantumlText(text string) string {
 		}
 	}
 	return out.String()
+}
+
+// writeMainframe writes the view frame (§8.2.3.26) as PlantUML's mainframe: the
+// frame round the diagram with the name compartment at its top-left corner.
+// PlantUML has no corner compartments, so the frame's info contents follow the
+// name as further lines of the compartment.
+func (w *plantumlWriter) writeMainframe(r *Rendering, b *strings.Builder) {
+	if r.Frame == nil {
+		return
+	}
+	lines := []string{"<size:10>//«view»//</size> **" + plantumlText(DisplayText(r.Frame.Name)) + "**"}
+	if r.Frame.Type != "" {
+		lines[0] += " : " + plantumlText(DisplayText(r.Frame.Type))
+	}
+	for _, c := range r.Frame.Compartments() {
+		for _, line := range c.Lines {
+			lines = append(lines, "<size:10>"+plantumlText(line)+"</size>")
+		}
+	}
+	fmt.Fprintf(b, "mainframe %s\n", strings.Join(lines, "\\n"))
 }

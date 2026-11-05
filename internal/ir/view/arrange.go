@@ -247,7 +247,17 @@ func (a *arranger) headroom(node *Node) float64 {
 	for _, compartment := range a.compartments(node) {
 		height += a.compartmentHeight(node, compartment)
 	}
-	return height
+	return height + a.ellipsisHeight(node)
+}
+
+// ellipsisHeight is the height of the ellipsis cell under an elided node's
+// compartments, zero for a node with every row listed.
+func (a *arranger) ellipsisHeight(node *Node) float64 {
+	if !a.labels.elided(node) {
+		return 0
+	}
+	_, height := dotTextExtent([]string{ellipsisMark}, a.labels.sizeOf(node))
+	return math.Ceil(height + 2*dotMarginHeight)
 }
 
 // headerHeight is the height of a node's title strip: its keyword, head and

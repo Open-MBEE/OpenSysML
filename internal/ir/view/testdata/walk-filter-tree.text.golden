@@ -2,8 +2,8 @@ FilteredWalk::structure - tree rendering (render asTreeDiagram)
 
 part rover
   part chassis
-    part axle
-  part radio
+    #Shown part axle
+  #Shown part radio
     port ^rx
   part gps
   connect

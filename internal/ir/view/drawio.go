@@ -196,6 +196,7 @@ func (w *drawioWriter) document(r *Rendering, options Options) string {
 	}
 	w.b.WriteString(` math="0" shadow="0">` + "\n")
 	w.b.WriteString("      <root>\n        <mxCell id=\"0\"/>\n        <mxCell id=\"1\" parent=\"0\"/>\n")
+	w.writeFrame(r, width, height)
 	refusals := r.pictureRefusals()
 	for i, picture := range r.Pictures {
 		if !picture.Above && refusals[i] == nil {
@@ -436,8 +437,9 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 	}
 	compartments := w.compartments(node)
 	header := w.headerHeight(node)
+	ellipsis := w.ellipsisHeight(node)
 	w.openObject(drawioObject{id: node.ID, label: strings.Join(w.headerLines(node), "\n"), fqn: fqn, kind: node.Kind, link: w.link(node.Origin), name: w.nodeName(node)})
-	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0))
+	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0 || ellipsis > 0))
 	w.b.WriteString(` vertex="1"`)
 	if collapsed(node) {
 		w.b.WriteString(` collapsed="1"`)
@@ -458,6 +460,11 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 		y += height
 	}
 	w.writeMark(node)
+	if ellipsis > 0 {
+		// A stated box too short for the mark keeps it inside, at its lower left.
+		y = math.Min(y, math.Max(0, box.Height-ellipsis))
+		w.writeTextCell(node.ID+":ellipsis", node, ellipsisMark, drawioBox{Y: y, Width: box.Width, Height: ellipsis})
+	}
 	w.writePorts(node, nested)
 	if sectionKind(node.Kind) {
 		w.sections++
@@ -470,9 +477,15 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 
 // writeCompartment writes one compartment as a text cell stacked in its node.
 func (w *drawioWriter) writeCompartment(id string, node *Node, compartment Compartment, box drawioBox) {
+	w.writeTextCell(id, node, strings.Join(w.compartmentLines(node, compartment), "\n"), box)
+}
+
+// writeTextCell writes a text cell stacked in its node: a compartment, or the
+// ellipsis under them.
+func (w *drawioWriter) writeTextCell(id string, node *Node, value string, box drawioBox) {
 	w.openCell()
 	w.attr("id", id)
-	w.attr("value", strings.Join(w.compartmentLines(node, compartment), "\n"))
+	w.attr("value", value)
 	w.attr("style", "text;html=0;whiteSpace=wrap;strokeColor=inherit;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;portConstraint=eastwest;"+drawioFontStyle(node.Style))
 	w.b.WriteString(` vertex="1"`)
 	w.attr("parent", node.ID)
@@ -765,7 +778,7 @@ func (w *drawioWriter) plainStyle(node *Node) string {
 		return "text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;"
 	case caseNodeKind(node.Kind):
 		return "ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;"
-	case node.Kind == "objective":
+	case node.Kind == "objective", annotationKind(node.Kind):
 		return "shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;"
 	case node.Kind == "actor":
 		return "shape=umlActor;html=0;whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top;"
@@ -1075,7 +1088,7 @@ func drawioEdgeStyle(kind EdgeKind) string {
 	case EdgeSpecialization, EdgeSubsetting, EdgeRedefinition, EdgeReferenceSubsetting:
 		return "endArrow=block;endFill=0"
 	case EdgeTyping:
-		return "dashed=1;endArrow=block;endFill=0"
+		return "endArrow=block;endFill=0"
 	case EdgeComposition:
 		return "startArrow=diamondThin;startFill=1;endArrow=none"
 	case EdgeReference:
@@ -1227,4 +1240,44 @@ func drawioPictureSource(picture Picture) (string, bool) {
 // drawioImageData is image data as a draw.io style's image value.
 func drawioImageData(contentType string, data []byte) string {
 	return "data:" + contentType + "," + base64.StdEncoding.EncodeToString(data)
+}
+
+// writeFrame writes the view frame (§8.2.3.26) as draw.io's UML frame shape
+// over the page, its name compartment the frame's tab, and each info
+// compartment as a text cell at its corner: exposes top right, filters bottom
+// left, the view's annotations bottom right.
+func (w *drawioWriter) writeFrame(r *Rendering, width, height float64) {
+	if r.Frame == nil {
+		return
+	}
+	name := r.Frame.NameLine()
+	tabWidth, tabHeight := w.labels.dotTextBox([]string{name})
+	w.b.WriteString("        <mxCell")
+	w.attr("id", "frame")
+	w.attr("value", name)
+	w.attr("style", "shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width="+formatCoord(tabWidth+8)+";height="+formatCoord(tabHeight+4)+";")
+	w.attr("vertex", "1")
+	w.attr("parent", "1")
+	w.b.WriteString(">\n")
+	w.geometry(drawioWrappedBodyIndent, drawioBox{Width: width, Height: height}, nil, nil)
+	w.b.WriteString("        </mxCell>\n")
+	for _, c := range r.Frame.Compartments() {
+		cw, ch := w.labels.dotTextBox(c.Lines)
+		box := drawioBox{X: width - cw, Y: 0, Width: cw, Height: ch}
+		if c.Corner != FrameTopRight {
+			box.Y = height - ch
+		}
+		if c.Corner == FrameBottomLeft {
+			box.X = 0
+		}
+		w.b.WriteString("        <mxCell")
+		w.attr("id", "frame_"+c.Corner)
+		w.attr("value", strings.Join(c.Lines, "\n"))
+		w.attr("style", "text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;")
+		w.attr("vertex", "1")
+		w.attr("parent", "1")
+		w.b.WriteString(">\n")
+		w.geometry(drawioWrappedBodyIndent, box, nil, nil)
+		w.b.WriteString("        </mxCell>\n")
+	}
 }

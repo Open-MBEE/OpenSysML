@@ -675,7 +675,7 @@ func TestRenderDotTakesAStyle(t *testing.T) {
 		wants(t, run(t, s, line), `subgraph "cluster_frame"`, `fontname="Arial"`)
 	}
 	plain := run(t, s, "%render Demo::summary dot pilot")
-	if strings.Contains(plain, "cluster_frame") || !strings.Contains(plain, `fontname="Helvetica"`) {
+	if strings.Contains(plain, `color="#5B5B59";`) || !strings.Contains(plain, `fontname="Helvetica"`) {
 		t.Errorf("%%render dot pilot drew another style:\n%s", plain)
 	}
 	if got := run(t, s, "%render Demo::summary dot"); got != plain {

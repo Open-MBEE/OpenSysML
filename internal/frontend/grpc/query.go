@@ -19,21 +19,25 @@ import (
 // Query property names, as the SysML v2 API & Services standard's clients write
 // them. docs/reference/api.md documents what each one reports.
 const (
-	QueryPropID                   = corequery.PropertyID
-	QueryPropType                 = corequery.PropertyType
-	QueryPropName                 = corequery.PropertyName
-	QueryPropDeclaredName         = corequery.PropertyDeclaredName
-	QueryPropShortName            = corequery.PropertyShortName
-	QueryPropDeclaredShortName    = corequery.PropertyDeclaredShortName
-	QueryPropDocumentation        = corequery.PropertyDocumentation
-	QueryPropQualifiedName        = corequery.PropertyQualifiedName
-	QueryPropOwner                = corequery.PropertyOwner
-	QueryPropIsAbstract           = corequery.PropertyIsAbstract
-	QueryPropElementType          = corequery.PropertyElementType
-	QueryPropMultiplicityLower    = corequery.PropertyMultiplicityLower
-	QueryPropMultiplicityUpper    = corequery.PropertyMultiplicityUpper
-	QueryPropSatisfiedRequirement = corequery.PropertySatisfiedRequirement
-	QueryPropSatisfyingFeature    = corequery.PropertySatisfyingFeature
+	QueryPropID                    = corequery.PropertyID
+	QueryPropType                  = corequery.PropertyType
+	QueryPropName                  = corequery.PropertyName
+	QueryPropDeclaredName          = corequery.PropertyDeclaredName
+	QueryPropShortName             = corequery.PropertyShortName
+	QueryPropDeclaredShortName     = corequery.PropertyDeclaredShortName
+	QueryPropDocumentation         = corequery.PropertyDocumentation
+	QueryPropTextualRepresentation = corequery.PropertyTextualRepresentation
+	QueryPropBody                  = corequery.PropertyBody
+	QueryPropLocale                = corequery.PropertyLocale
+	QueryPropLanguage              = corequery.PropertyLanguage
+	QueryPropQualifiedName         = corequery.PropertyQualifiedName
+	QueryPropOwner                 = corequery.PropertyOwner
+	QueryPropIsAbstract            = corequery.PropertyIsAbstract
+	QueryPropElementType           = corequery.PropertyElementType
+	QueryPropMultiplicityLower     = corequery.PropertyMultiplicityLower
+	QueryPropMultiplicityUpper     = corequery.PropertyMultiplicityUpper
+	QueryPropSatisfiedRequirement  = corequery.PropertySatisfiedRequirement
+	QueryPropSatisfyingFeature     = corequery.PropertySatisfyingFeature
 )
 
 // QueryErrorKind classifies why a query could not be evaluated. Every kind fails

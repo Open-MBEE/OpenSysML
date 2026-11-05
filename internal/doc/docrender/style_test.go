@@ -16,7 +16,7 @@ import (
 // refused, and the other forms are not changed by one.
 func TestDocumentDiagramsTakeADrawingStyle(t *testing.T) {
 	document := fixtureDocument(t, filepath.Join("testdata", "placed_report.sysml"), "Placed::PlacedReport")
-	const frame = `subgraph "cluster_frame"`
+	const frame = `color="#5B5B59";` // the Cameo frame colour; the default view frame has none
 	check := func(t *testing.T, backend, got string, style view.DrawingStyle) {
 		t.Helper()
 		cameo := style == view.StyleCameo

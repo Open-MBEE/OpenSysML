@@ -44,3 +44,5 @@ n0.n8 -> n0.n11: { class: succession }
 n0.n10 -> n0.n9: { class: succession }
 n0.n11 -> n0.n9: "[speed > 0]" { class: succession }
 n0.n11 -> n0.n10: "else" { class: succession }
+frame_name: "«view» FlowViews::driveView : ActionFlowView" { shape: text; near: top-left }
+frame_tr: "expose Flows::Drive" { shape: text; near: top-right }
